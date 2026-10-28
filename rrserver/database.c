@@ -884,6 +884,27 @@ sqlite3 *db_open(const char *path) {
          sqlite3_close(db);
          return NULL;
       }
+      /* Additive migration: do not rewrite existing login credentials. */
+      const char *auth_schema =
+         "CREATE TABLE IF NOT EXISTS user_public_keys("
+         "uid INTEGER NOT NULL REFERENCES users(uid) ON DELETE CASCADE,"
+         "key_id TEXT NOT NULL, public_key TEXT NOT NULL UNIQUE,"
+         "label TEXT NOT NULL DEFAULT '', enabled BOOLEAN NOT NULL DEFAULT 1,"
+         "created_at INTEGER NOT NULL DEFAULT (unixepoch()), last_used_at INTEGER,"
+         "PRIMARY KEY(uid,key_id));"
+         "CREATE TABLE IF NOT EXISTS user_web_credentials("
+         "uid INTEGER PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,"
+         "password_phc TEXT NOT NULL,"
+         "updated_at INTEGER NOT NULL DEFAULT (unixepoch()));";
+      char *auth_error = NULL;
+      if (sqlite3_exec(db, auth_schema, NULL, NULL, &auth_error) != SQLITE_OK) {
+         Log(LOG_CRIT, "db", "Cannot migrate authentication schema: %s",
+             auth_error ? auth_error : sqlite3_errmsg(db));
+         sqlite3_free(auth_error);
+         sqlite3_close(db);
+         return NULL;
+      }
+      sqlite3_free(auth_error);
       db_ensure_user_columns(db);
       db_ensure_ptt_columns(db);
       db_ensure_supervision_columns(db);
