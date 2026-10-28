@@ -65,30 +65,12 @@ extern GtkWidget *main_window;
 static RRFloatPanel *picker_panel;
 static GtkWidget *picker_tree;
 /* Columns 0..6 are retained for server rows; 7 identifies a network row. */
-enum { PICKER_NETWORK = 7, PICKER_COLUMNS = 8 };
+enum { PICKER_NETWORK = 7, PICKER_UNGROUPED = 8, PICKER_COLUMNS = 9 };
 
 static gboolean picker_is_network(GtkTreeModel *model, GtkTreeIter *iter) {
    gboolean group = FALSE;
    gtk_tree_model_get(model, iter, PICKER_NETWORK, &group, -1);
    return group;
-}
-
-static void picker_for_members(const char *group, void (*callback)(const char *, void *), void *data) {
-   char *key = g_strdup_printf("network:%s.servers", group);
-   const char *members = cfg_get(key);
-   g_free(key);
-   if (!members || !*members) return;
-   gchar **names = g_strsplit_set(members, ", \t\r\n", -1);
-   GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-   for (size_t i = 0; names[i]; i++) {
-      if (!*names[i] || g_hash_table_contains(seen, names[i])) continue;
-      g_hash_table_add(seen, g_strdup(names[i]));
-      char *profile = g_strdup_printf("server:%s.server.url", names[i]);
-      if (dict_get(cfg, profile, NULL)) callback(names[i], data);
-      g_free(profile);
-   }
-   g_hash_table_destroy(seen);
-   g_strfreev(names);
 }
 
 static void picker_connect_member(const char *name, void *unused) {
@@ -122,7 +104,18 @@ static void picker_activate(GtkTreeModel *model, GtkTreeIter *iter) {
    if (name && *name) {
       if (picker_is_network(model, iter)) {
          int state = picker_group_state(model, iter);
-         picker_for_members(name, state ? picker_disconnect_member : picker_connect_member, NULL);
+         GtkTreeIter child;
+         if (gtk_tree_model_iter_children(model, &child, iter)) {
+            do {
+               char *member = NULL;
+               gtk_tree_model_get(model, &child, 0, &member, -1);
+               if (member) {
+                  if (state) picker_disconnect_member(member, NULL);
+                  else picker_connect_member(member, NULL);
+               }
+               g_free(member);
+            } while (gtk_tree_model_iter_next(model, &child));
+         }
       } else if (rrclient_connection_state(name)) disconnect_server(name);
       else connect_server(name);
    }
@@ -434,8 +427,11 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
             GtkTreeIter parent;
             if (gtk_tree_model_iter_parent(model, &parent, &iter)) iter = parent;
          }
-         if (picker_is_network(model, &iter))
-            gtk_tree_model_get(model, &iter, 0, &target, -1);
+         if (picker_is_network(model, &iter)) {
+            gboolean ungrouped = FALSE;
+            gtk_tree_model_get(model, &iter, PICKER_UNGROUPED, &ungrouped, -1);
+            if (!ungrouped) gtk_tree_model_get(model, &iter, 0, &target, -1);
+         }
       }
       if (path) gtk_tree_path_free(path);
       /* Dropping outside a network leaves the profile ungrouped. */
@@ -492,8 +488,11 @@ static void picker_network_editor(GtkButton *button, gpointer data) {
    GtkTreeIter iter;
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
    char *existing = NULL;
-   if (gtk_tree_selection_get_selected(selection, &model, &iter) && picker_is_network(model, &iter))
-      gtk_tree_model_get(model, &iter, 0, &existing, -1);
+   if (gtk_tree_selection_get_selected(selection, &model, &iter) && picker_is_network(model, &iter)) {
+      gboolean ungrouped = FALSE;
+      gtk_tree_model_get(model, &iter, PICKER_UNGROUPED, &ungrouped, -1);
+      if (!ungrouped) gtk_tree_model_get(model, &iter, 0, &existing, -1);
+   }
    GtkWidget *dialog = gtk_dialog_new_with_buttons(existing ? "Edit network" : "New network",
        GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
        "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
@@ -594,7 +593,7 @@ void gtk_show_server_chooser(void) {
    GtkWidget *window = rr_floating_panel_widget(picker_panel);
    GtkWidget *box = rr_floating_panel_body(picker_panel);
    gtk_widget_set_size_request(box, 600, 300);
-   GtkTreeStore *store = gtk_tree_store_new(PICKER_COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_BOOLEAN);
+   GtkTreeStore *store = gtk_tree_store_new(PICKER_COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
    GHashTable *grouped = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    int groups_rank = 0;
    const char *groups_key;
@@ -624,6 +623,10 @@ void gtk_show_server_chooser(void) {
       g_strfreev(members);
       g_free(group);
    }
+   GtkTreeIter ungrouped_parent;
+   gtk_tree_store_append(store, &ungrouped_parent, NULL);
+   gtk_tree_store_set(store, &ungrouped_parent, 0, "Ungrouped",
+       6, "Network", PICKER_NETWORK, TRUE, PICKER_UNGROUPED, TRUE, -1);
    int rank = 0;
    const char *key;
    char *value;
@@ -641,7 +644,7 @@ void gtk_show_server_chooser(void) {
          proxy = cfg_get("server.proxy");
       }
       GtkTreeIter iter;
-      gtk_tree_store_append(store, &iter, NULL);
+      gtk_tree_store_append(store, &iter, &ungrouped_parent);
       gtk_tree_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", -1);
       picker_set_state(store, &iter, name);
    }
