@@ -1719,6 +1719,26 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    g_free(dir);
 }
 static void gtk_identity_first_run(void) {
+   /* Additional identities are first-class; do not show first-run setup
+    * solely because the legacy default key is absent. */
+   char *keydir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
+   GDir *keys = g_dir_open(keydir, 0, NULL);
+   const char *entry;
+   bool any = false;
+   if (keys) {
+      while ((entry = g_dir_read_name(keys))) {
+         if (!g_str_has_suffix(entry, ".pem")) continue;
+         char *candidate = g_build_filename(keydir, entry, NULL);
+         struct stat st;
+         any = lstat(candidate, &st) == 0 && S_ISREG(st.st_mode) &&
+               st.st_uid == geteuid() && !(st.st_mode & 0077);
+         g_free(candidate);
+         if (any) break;
+      }
+      g_dir_close(keys);
+   }
+   g_free(keydir);
+   if (any) return;
    char *path = gtk_identity_path();
    if (g_file_test(path, G_FILE_TEST_EXISTS)) {
       struct stat st;
