@@ -1478,9 +1478,20 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       }
       char *spki = rr_crypto_cert_spki_sha256(cert);
       if (spki) {
-         Log(LOG_INFO, "mesh.identity", "TLS identity ready for %s; SPKI SHA256(base64)=%s",
-             name, spki);
+         char *binding = rr_identity_tls_binding_signature(links.domain, links.node, spki);
+         if (!binding) {
+            Log(LOG_CRIT, "mesh.identity", "Unable to sign TLS-to-catalog identity binding");
+            free(spki);
+            return false;
+         }
+         Log(LOG_INFO, "mesh.identity",
+             "TLS identity ready: node=%s domain=%s SPKI SHA256(base64)=%s; signed catalog binding available",
+             links.node, links.domain, spki);
+         g_free(binding);
          free(spki);
+      } else {
+         Log(LOG_CRIT, "mesh.identity", "Unable to compute TLS certificate SPKI fingerprint");
+         return false;
       }
    }
    links.insecure = cfg_get_bool("links.allow-insecure", false);
