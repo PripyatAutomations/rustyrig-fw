@@ -38,7 +38,7 @@ struct link_session;
 
 struct link_peer {
    char section[128], site[128], node[37];
-   char *url, *password, *allowed_sites;
+   char *url, *password, *allowed_sites, *catalog_key;
    struct mg_str peer_ca;
    bool autoconnect, leaf_only, policy_blocked, startup_override;
    unsigned max_depth;
@@ -68,7 +68,7 @@ struct link_session {
    unsigned generation;
    char node[37];
    bool outbound, dedicated, hello, snapshot, admitted, ready, established;
-   bool identity_sent, identity_seen, identity_required;
+   bool identity_sent, identity_seen;
 };
 
 static struct {
@@ -530,7 +530,7 @@ static void send_hello(struct link_session *session) {
 }
 
 static void send_identity(struct link_session *session) {
-   if (!session || session->identity_sent || !session->established ||
+   if (!session || session->identity_sent || !session->hello ||
        !session->connection->is_tls) return;
    const char *cert = session->dedicated ? cfg_get("links.tls-cert") : cfg_get("net.http.tls-cert");
    char *spki = cert && *cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
@@ -562,7 +562,7 @@ static void handle_identity(struct link_session *session, dict *d) {
    const char *pub = dict_get(d, "identity.public-key", "");
    const char *spki = dict_get(d, "identity.tls-spki", "");
    const char *sig = dict_get(d, "identity.signature", "");
-   if (session->identity_seen || !session->identity_required || !session->connection->is_tls ||
+   if (session->identity_seen || !session->hello || !session->connection->is_tls ||
        strcmp(node, session->node) || strcmp(domain, links.domain) ||
        strlen(pub) != 44 || strlen(spki) != 44 || strlen(sig) != 88) {
       fail(session, "Malformed or duplicate signed TLS identity announcement");
@@ -579,12 +579,26 @@ static void handle_identity(struct link_session *session, dict *d) {
       fail(session, "Invalid TLS-to-catalog identity binding signature");
       return;
    }
+   if (!session->peer || !session->peer->catalog_key ||
+       strcmp(pub, session->peer->catalog_key)) {
+      fail(session, "Catalog signing key differs from enrolled peer identity");
+      return;
+   }
+   const char *peer_cert = peer_value(session->peer->section, "tls-trust");
+   char *expected_spki = peer_cert ? rr_crypto_cert_spki_sha256(peer_cert) : NULL;
+   bool trusted = expected_spki && !strcmp(spki, expected_spki);
+   free(expected_spki);
+   if (!trusted) {
+      fail(session, "Signed identity SPKI differs from enrolled peer TLS certificate");
+      return;
+   }
    session->identity_seen = true;
    /* The signature proves key possession, not that this key or the TLS peer
     * is trusted. TLS SPKI pin verification must happen in the TLS backend. */
    Log(LOG_INFO, "mesh.identity",
-       "Peer %s [%s] supplied valid self-signed catalog/TLS binding (SPKI=%s); transport pin NOT YET VERIFIED",
+       "Peer %s [%s] supplied valid self-signed catalog/TLS binding (SPKI=%s); enrolled identity proof verified; live TLS peer certificate binding requires transport support",
        session->peer ? session->peer->site : "unknown", node, spki);
+   send_snapshot(session);
 }
 
 static void broadcast(struct link_session *exclude, dict *d) {
@@ -683,7 +697,7 @@ static void announce_node(struct link_session *exclude, const char *id, const ch
 }
 
 static void establish(struct link_session *session) {
-   if (!session->snapshot || !session->ready || session->established) {
+   if (!session->identity_seen || !session->snapshot || !session->ready || session->established) {
       return;
    }
    session->established = true;
@@ -871,11 +885,11 @@ static void handle_hello(struct link_session *session, dict *d) {
    if (!session->outbound) {
       send_hello(session);
    }
-   send_snapshot(session);
+   send_identity(session);
 }
 
 static void handle_snapshot(struct link_session *session, dict *d) {
-   if (!session->hello || session->snapshot || session->generation != links.generation) {
+   if (!session->hello || !session->identity_seen || session->snapshot || session->generation != links.generation) {
       fail(session, "Server list changed during connection setup; reconnect to obtain an updated list");
 
       return;
@@ -970,6 +984,8 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
 
    if (!strcmp(op, "link.hello")) {
       handle_hello(session, d);
+   } else if (!strcmp(op, "link.identity") && session->hello && !session->established) {
+      handle_identity(session, d);
    } else if (!strcmp(op, "link.snapshot")) {
       handle_snapshot(session, d);
    } else if (!strcmp(op, "link.ready") && session->hello && !session->ready) {
@@ -995,8 +1011,6 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
             send_identity(session);
          }
       }
-   } else if (session->established && !strcmp(op, "link.identity")) {
-      handle_identity(session, d);
    } else if (session->established && !strcmp(op, "link.introduce")) {
       const char *node = dict_get(d, "node", ""), *parent = dict_get(d, "parent", "");
       const char *site = dict_get(d, "site", "");
@@ -1348,6 +1362,13 @@ static bool load_peer(const char *section) {
       return invalid_peer(section, "tls-trust",
          "path to independently verified peer certificate PEM is mandatory");
    }
+   const char *catalog_key = peer_value(section, "catalog-key");
+   if (!catalog_key || strlen(catalog_key) != 44) {
+      return invalid_peer(section, "catalog-key",
+         "enrolled Ed25519 catalog public key (44-character base64) is mandatory");
+   }
+   peer->catalog_key = strdup(catalog_key);
+   if (!peer->catalog_key) return false;
    peer->peer_ca = mg_file_read(&mg_fs_posix, peer_trust);
    if (!peer->peer_ca.len) {
       return invalid_peer(section, "tls-trust",
@@ -1772,6 +1793,7 @@ void rrserver_links_fini(void) {
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       free(links.peers[i].url);
       free(links.peers[i].password);
+      free(links.peers[i].catalog_key);
       free((void *)links.peers[i].peer_ca.buf);
    }
 
