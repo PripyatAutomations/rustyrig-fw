@@ -61,6 +61,38 @@ static bool decode_fixed(const char *text, unsigned char *out, size_t expected) 
    g_free(raw);
    return ok;
 }
+/* Record pinned bootstrap coordinates before the remote ticket is consumed.
+ * Keep a pending row on ambiguous network failure for explicit recovery. */
+static bool bootstrap_store(sqlite3 *db, const char *domain, const char *node,
+                             const char *url, const char *key, const char *spki,
+                             const char *state) {
+   if (!db || !domain || !node || !url || !key || !spki || !state) return false;
+   if (sqlite3_exec(db,
+       "CREATE TABLE IF NOT EXISTS mesh_bootstrap_peers ("
+       "domain TEXT NOT NULL, node_uuid TEXT NOT NULL, url TEXT NOT NULL,"
+       "catalog_pubkey TEXT NOT NULL, tls_spki_sha256 TEXT NOT NULL,"
+       "state TEXT NOT NULL CHECK(state IN ('pending','enrolled')),"
+       "PRIMARY KEY(domain,node_uuid))", NULL, NULL, NULL) != SQLITE_OK) return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db,
+       "INSERT INTO mesh_bootstrap_peers"
+       "(domain,node_uuid,url,catalog_pubkey,tls_spki_sha256,state)"
+       " VALUES(?1,?2,?3,?4,?5,?6)"
+       " ON CONFLICT(domain,node_uuid) DO UPDATE SET state=excluded.state"
+       " WHERE url=excluded.url AND catalog_pubkey=excluded.catalog_pubkey"
+       " AND tls_spki_sha256=excluded.tls_spki_sha256",
+       -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, node, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, url, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 4, key, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 5, spki, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 6, state, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+
 /* Token fields were split and validated by main.c. This is never called on a
  * plaintext transport or with certificate verification disabled without SPKI
  * pinning: libcurl's public-key pin is mandatory. */
@@ -166,7 +198,8 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    memset(proof, 0, sizeof(proof));
    if (!proof64) goto done;
    /* Pre-persist the issuer identity. Repeated enrollment cannot overwrite a pin. */
-   if (!rr_identity_trust_enroll(db, domain, issuer_node, fields[6], fields[5])) {
+   if (!rr_identity_trust_enroll(db, domain, issuer_node, fields[6], fields[5]) ||
+       !bootstrap_store(db, domain, issuer_node, fields[4], fields[6], fields[5], "pending")) {
       fprintf(stderr, "Mesh enrollment: issuer identity conflicts with local trust.\n");
       goto done;
    }
