@@ -387,9 +387,17 @@ static void picker_drag_get(GtkWidget *widget, GdkDragContext *context,
    }
 }
 
+/* Membership edits are configuration changes, not GtkTreeStore row deletion. */
+static void picker_drag_delete(GtkWidget *widget, GdkDragContext *context, gpointer unused) {
+   (void)context; (void)unused;
+   g_signal_stop_emission_by_name(widget, "drag-data-delete");
+}
+
 static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
                                  GtkSelectionData *selection, guint info, guint time, gpointer unused) {
    (void)info; (void)unused;
+   /* GtkTreeView's default drop handler expects GtkTreeDragDest. */
+   g_signal_stop_emission_by_name(widget, "drag-data-received");
    gboolean success = FALSE;
    const guchar *bytes = gtk_selection_data_get_data(selection);
    gint len = gtk_selection_data_get_length(selection);
@@ -627,6 +635,7 @@ void gtk_show_server_chooser(void) {
       G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_MOVE);
    g_signal_connect(tree, "drag-data-get", G_CALLBACK(picker_drag_get), NULL);
    g_signal_connect(tree, "drag-data-received", G_CALLBACK(picker_drag_received), NULL);
+   g_signal_connect(tree, "drag-data-delete", G_CALLBACK(picker_drag_delete), NULL);
    g_object_unref(store);
    picker_tree = tree;
    gtk_tree_view_expand_all(GTK_TREE_VIEW(tree));
