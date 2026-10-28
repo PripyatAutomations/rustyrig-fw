@@ -1472,6 +1472,67 @@ static void shared_link_request(const char *event, const void *data, size_t leng
       return;
    }
 #endif
+#ifdef USE_SQLITE
+   if (mg_strcmp(request->request->uri, mg_str("/mesh/enroll/redeem")) == 0) {
+      request->handled = true;
+      struct mg_connection *connection = request->connection;
+      if (!connection->is_tls ||
+          mg_strcmp(request->request->method, mg_str("POST"))) {
+         mg_http_reply(connection, 403, "", "TLS POST required\\n");
+         return;
+      }
+      char ticket[48], domain[256], node[48], challenge[48], catalog[48],
+           spki[48], binding[92], proof[92];
+      struct mg_str *body = &request->request->body;
+      if (mg_http_get_var(body, "ticket", ticket, sizeof(ticket)) <= 0 ||
+          mg_http_get_var(body, "domain", domain, sizeof(domain)) <= 0 ||
+          mg_http_get_var(body, "node", node, sizeof(node)) <= 0 ||
+          mg_http_get_var(body, "challenge", challenge, sizeof(challenge)) <= 0 ||
+          mg_http_get_var(body, "catalog", catalog, sizeof(catalog)) <= 0 ||
+          mg_http_get_var(body, "spki", spki, sizeof(spki)) <= 0 ||
+          mg_http_get_var(body, "binding", binding, sizeof(binding)) <= 0 ||
+          mg_http_get_var(body, "proof", proof, sizeof(proof)) <= 0 ||
+          strcmp(domain, links.domain) || !g_uuid_string_is_valid(ticket) ||
+          !g_uuid_string_is_valid(node) ||
+          strlen(challenge) != 44 || strlen(catalog) != 44 ||
+          strlen(spki) != 44 || strlen(binding) != 88 ||
+          strlen(proof) != 88) {
+         mg_http_reply(connection, 400, "", "Invalid redemption request\\n");
+         return;
+      }
+      gsize keylen = 0, bindlen = 0, prooflen = 0;
+      guchar *key = g_base64_decode(catalog, &keylen);
+      guchar *bindsig = g_base64_decode(binding, &bindlen);
+      guchar *ticketsig = g_base64_decode(proof, &prooflen);
+      bool proven = key && bindsig && ticketsig && keylen == 32 &&
+         bindlen == 64 && prooflen == 64 &&
+         rr_crypto_binding_verify(key, domain, node, spki, bindsig);
+      char *transcript = g_strdup_printf("rustyrig.mesh.enroll.v1\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n",
+                                     ticket, domain, node, challenge, catalog, spki);
+      const char *db_path = cfg_get("path.db.master");
+      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
+      sqlite3 *db = NULL;
+      bool success = false;
+      if (proven && transcript && sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK) {
+         if (rr_identity_invite_verify_proof(db, ticket, domain, transcript, strlen(transcript), ticketsig) &&
+             rr_identity_invite_challenge_claim(db, ticket, domain, node, challenge))
+            success = rr_identity_invite_redeem(db, ticket, domain, node, catalog, spki);
+      }
+      if (db) sqlite3_close(db);
+      g_free(transcript);
+      g_free(key);
+      g_free(bindsig);
+      g_free(ticketsig);
+      if (!success) {
+         Log(LOG_WARN, "mesh.identity", "Rejected enrollment proof (invalid, replayed or expired invitation)");
+         mg_http_reply(connection, 403, "", "Enrollment proof rejected\\n");
+         return;
+      }
+      Log(LOG_AUDIT, "mesh.identity", "Enrolled server identity %s via single-use invitation", node);
+      mg_http_reply(connection, 200, "Cache-Control: no-store\\r\\n", "ENROLLED\\n");
+      return;
+   }
+#endif
    if (mg_strcmp(request->request->uri, mg_str("/link"))) return;
    request->handled = true;
    struct mg_connection *connection = request->connection;
