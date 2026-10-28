@@ -9,6 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #include <rrserver/link.h>
+#include <rrserver/mesh.enroll.h>
 #include <librrprotocol/crypto.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -317,8 +318,14 @@ static int mesh_join_prepare(const char *path) {
    bool valid = !memchr(raw, 0, decoded_len) && mesh_invitation_valid(token);
    if (!valid)
       fprintf(stderr, "\nMalformed or unsupported mesh invitation.\n");
-   else
-      fprintf(stderr, "\nInvitation validated locally. Remote enrollment is not implemented; no credentials were consumed or installed.\n");
+   else {
+      char *parts[8], *next = token;
+      for (size_t i = 0; i < 8; ++i) {
+         parts[i] = next;
+         next += strlen(next) + 1;
+      }
+      rc = rr_mesh_enroll_run(parts) ? EXIT_SUCCESS : EXIT_FAILURE;
+   }
    memset(token, 0, decoded_len + 1);
    g_free(token);
    memset(raw, 0, decoded_len);
@@ -495,15 +502,12 @@ int main(int argc, char **argv) {
          }
       }
    }
-   if (mesh_join) {
-      if (optind < argc) {
-         if (mesh_join_path || optind + 1 != argc) {
-            fprintf(stderr, "Specify at most one invitation file.\n");
-            return EXIT_FAILURE;
-         }
-         mesh_join_path = argv[optind];
+   if (mesh_join && optind < argc) {
+      if (mesh_join_path || optind + 1 != argc) {
+         fprintf(stderr, "Specify at most one invitation file.\n");
+         return EXIT_FAILURE;
       }
-      return mesh_join_prepare(mesh_join_path);
+      mesh_join_path = argv[optind];
    }
    // load config (posix hosts)
    char *fullpath = NULL;
@@ -532,6 +536,8 @@ int main(int argc, char **argv) {
       fprintf(stderr, "No config found :(\n");
       exit(1);
    }
+
+   if (mesh_join) return mesh_join_prepare(mesh_join_path);
 
    const char *module_dir = cfg_get("path.modules");
    struct stat module_stat;
