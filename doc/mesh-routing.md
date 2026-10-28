@@ -392,3 +392,32 @@ parser, TLS exporter/channel binding, issuer's fresh challenge and permanent
 identity proof, atomic redemption/admission, strict reconnect and signed
 catalog sync must be wired together. No invitation may bypass the normal
 identity-before-catalog gate.
+
+### Catalog visibility and client signature verification
+
+Catalog descriptors can carry `catalog.visibility=clients` (the default)
+or `catalog.visibility=server-only`. This is signed descriptor metadata,
+not a per-client entitlement. The relay retains server-only descriptors
+for authenticated server-to-server exchange but omits them from client
+inventory and remote-object projections; unrecognized visibility values
+are rejected. This reduces client discovery clutter but must not be
+treated as an authorization mechanism. Access-control checks remain
+mandatory at the target operation.
+
+**Client signature verification remains to be implemented.** The present
+client-facing inventory/object messages are reconstructed projections:
+the server strips identity signatures and adds request-dependent fields.
+They cannot be checked against the original catalog signature. To support
+actual client verification, provide an immutable signed descriptor
+envelope alongside the projected, visibility-filtered inventory row,
+or sign a canonical client-specific projection with a separate explicit
+signature scheme. Clients need a pinned/trusted cluster signing authority
+from authenticated onboarding, must verify owner, domain, revision and
+signer trust, and must reject failed, missing or stale signatures rather
+than trusting merely because transport is WSS. Never distribute hidden
+server-only descriptors as proof material to ordinary clients.
+
+The enrollment `/mesh/enroll` endpoint, TLS channel-bound challenge,
+permanent identity trust admission and federation of permission policies
+are still future work. No pre-enrollment socket may receive normal mesh
+catalog or topology state.
