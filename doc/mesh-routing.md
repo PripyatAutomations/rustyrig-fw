@@ -240,3 +240,27 @@ A trusted introduction is an authenticated *candidate* identity, not a
 grant. Require separate approval or an explicit domain policy before granting
 controls or remotely authorized access. Catalog revisions and signed
 tombstones remain independent of TLS identity.
+
+## Capability-negotiated signed link identity (experimental)
+
+After the existing password/UUID/domain link handshake, both peers advertise
+`identity.spki-binding-v1` in `link.capabilities`. Upgraded peers then send
+a separate `link.identity` protocol message containing the server UUID and
+domain, the raw Ed25519 catalog public key (base64), the self-signed TLS
+certificate's SPKI SHA-256 (base64), and an Ed25519 signature over the
+domain-separated, length-framed (domain, UUID, SPKI) tuple.
+
+This is intentionally NOT an additional field in `link.hello`, because old
+link decoders strictly reject unexpected fields. The receiver verifies the
+cryptographic signature and that the UUID/domain match the established link,
+logging a useful diagnostic. No trust or authorization is granted by this
+self-asserted signature; an attacker can generate a self-consistent key/cert
+pair. The TLS backend must still compare the advertised SPKI to the
+certificate actually presented on that connection, enforce local enrollment
+policy, and reject mismatches BEFORE marking the peer transport trusted.
+
+Until that enforcement exists, existing TLS verification and the configured
+shared peer password/ACL remain operative. This extension must not be used
+as justification for removing certificate validation or passwords. For
+compatibility, old peers continue through the existing handshake, without
+this new advisory proof. Browser clients still require browser-trusted WSS.
