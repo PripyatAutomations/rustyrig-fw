@@ -2017,6 +2017,31 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       Log(LOG_INFO, "link", "Server link node %s [%s], %zu configured peers", links.site, links.node, links.peer_count);
    }
 
+#ifdef USE_SQLITE
+   /* Enrollment records are durable but do not by themselves authenticate a
+    * live WSS link. Surface the bootstrap target rather than silently acting
+    * as though identity enrollment also established a server connection. */
+   if (masterdb) {
+      sqlite3_stmt *bootstrap = NULL;
+      if (sqlite3_prepare_v2(masterdb,
+          "SELECT node_uuid, url FROM mesh_bootstrap_peers "
+          "WHERE domain=?1 AND state='enrolled' ORDER BY rowid DESC LIMIT 1",
+          -1, &bootstrap, NULL) == SQLITE_OK) {
+         sqlite3_bind_text(bootstrap, 1, links.domain, -1, SQLITE_TRANSIENT);
+         if (sqlite3_step(bootstrap) == SQLITE_ROW) {
+            const char *uuid = (const char *)sqlite3_column_text(bootstrap, 0);
+            const char *url = (const char *)sqlite3_column_text(bootstrap, 1);
+            Log(LOG_WARN, "mesh.bootstrap",
+                "Enrolled issuer %s at %s is stored, but automatic peer authentication "
+                "is not yet implemented; no outbound link will be opened without "
+                "verified TLS peer identity and live proof of key possession",
+                uuid ? uuid : "unknown", url ? url : "unknown");
+         }
+      }
+      sqlite3_finalize(bootstrap);
+   }
+#endif
+
    event_on("link.cmd", link_command, NULL);
 
    return true;
