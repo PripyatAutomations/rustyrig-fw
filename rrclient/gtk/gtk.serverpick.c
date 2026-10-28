@@ -22,6 +22,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <rrclient/database.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/ui.h>
 #include <rrclient/gtk/gtk.serverpick.h>
@@ -445,6 +446,7 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
          while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0)
             if (g_str_has_prefix(key, "network:") && g_str_has_suffix(key, ".servers"))
                g_ptr_array_add(keys, g_strdup(key));
+         success = TRUE;
          for (size_t j = 0; j < keys->len; j++) {
             const char *network_key = g_ptr_array_index(keys, j);
             const char *members = dict_get(cfg, network_key, NULL);
@@ -461,13 +463,12 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
                if (updated->len) g_string_append_c(updated, ',');
                g_string_append(updated, profile);
             }
-            dict_add(cfg, network_key, updated->str);
+            if (!rrclient_database_network_set(group, updated->str)) success = FALSE;
             g_string_free(updated, TRUE);
             g_strfreev(names);
             g_free(group);
          }
          g_ptr_array_free(keys, TRUE);
-         success = TRUE;
       }
       g_free(profile_key);
       g_free(target);
@@ -478,6 +479,58 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
       picker_close(NULL);
       gtk_show_server_chooser();
    }
+}
+
+static void picker_new_server(GtkButton *button, gpointer data) {
+   (void)button;
+   GtkWidget *tree = data;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("New server",
+      GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
+   GtkWidget *name = gtk_entry_new(), *url = gtk_entry_new(), *user = gtk_entry_new();
+   GtkWidget *error = gtk_label_new("");
+   GtkWidget *fields[] = {name,url,user};
+   const char *labels[] = {"Profile name","URL","Username"};
+   gtk_entry_set_placeholder_text(GTK_ENTRY(url),"wss://host:4422/ws/");
+   for (unsigned i=0;i<G_N_ELEMENTS(fields);i++) {
+      gtk_grid_attach(GTK_GRID(grid),gtk_label_new(labels[i]),0,i,1,1);
+      gtk_grid_attach(GTK_GRID(grid),fields[i],1,i,1,1);
+   }
+   gtk_grid_attach(GTK_GRID(grid),error,0,3,2,1);
+   gtk_widget_show_all(dialog);
+   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *n=gtk_entry_get_text(GTK_ENTRY(name));
+      const char *u=gtk_entry_get_text(GTK_ENTRY(url));
+      const char *who=gtk_entry_get_text(GTK_ENTRY(user));
+      rr_server_url_t parsed;
+      if (!*n || strspn(n,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=strlen(n) ||
+          !rr_server_url_parse(u,&parsed)) {
+         gtk_label_set_text(GTK_LABEL(error),"Enter a valid profile name and WS/WSS/IRC/IRCS URL.");
+         continue;
+      }
+      char *key=g_strdup_printf("server:%s.server.url",n);
+      bool exists=dict_get(cfg,key,NULL)!=NULL;
+      g_free(key);
+      if (exists) {
+         gtk_label_set_text(GTK_LABEL(error),"A server with that name already exists.");
+         continue;
+      }
+      if (!rrclient_database_server_set(n,"server.url",u) ||
+          !rrclient_database_server_set(n,"server.user",who)) {
+         gtk_label_set_text(GTK_LABEL(error),"Unable to save server to SQLite.");
+         continue;
+      }
+      gtk_widget_destroy(dialog);
+      picker_close(NULL);
+      gtk_show_server_chooser();
+      return;
+   }
+   gtk_widget_destroy(dialog);
 }
 
 /* Edit network membership without changing any server's own profile. */
@@ -551,7 +604,10 @@ static void picker_network_editor(GtkButton *button, gpointer data) {
          if (normalized->len) g_string_append_c(normalized, ',');
          g_string_append(normalized, parts[i]);
       }
-      if (valid) dict_add(cfg, key, normalized->str);
+      if (valid && !rrclient_database_network_set(group, normalized->str)) {
+         gtk_label_set_text(GTK_LABEL(error), "Unable to save network to SQLite.");
+         valid = false;
+      }
       g_hash_table_destroy(seen);
       g_string_free(normalized, TRUE);
       g_strfreev(parts);
@@ -704,6 +760,9 @@ void gtk_show_server_chooser(void) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+   GtkWidget *new_server = gtk_button_new_with_label("New Server");
+   gtk_box_pack_start(GTK_BOX(box), new_server, FALSE, FALSE, 0);
+   g_signal_connect(new_server, "clicked", G_CALLBACK(picker_new_server), tree);
    GtkWidget *new_network = gtk_button_new_with_label("New / Edit Network");
    gtk_box_pack_start(GTK_BOX(box), new_network, FALSE, FALSE, 0);
    g_signal_connect(new_network, "clicked", G_CALLBACK(picker_network_editor), tree);
