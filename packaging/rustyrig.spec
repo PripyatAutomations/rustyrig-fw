@@ -91,7 +91,7 @@ install -Dpm0755 tools/dummy-rigctld.sh %{buildroot}%{_sharedstatedir}/rustyrig/
 mkdir -p %{buildroot}%{_sharedstatedir}/rustyrig/{db,recordings,modems,www,help}
 mkdir -p %{buildroot}%{_localstatedir}/log/rustyrig
 chmod 0770 %{buildroot}%{_localstatedir}/log/rustyrig
-find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/www/ \;
+if [ -d www ]; then find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/www/ \; ; fi
 find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/help/ \;
 
 %pre server
