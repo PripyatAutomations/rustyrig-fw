@@ -467,6 +467,40 @@ char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
    return token;
 }
 
+bool rr_identity_invite_verify_proof(sqlite3 *db, const char *id,
+   const char *domain, const void *transcript, size_t transcript_len,
+   const unsigned char signature[64]) {
+   /* The caller must construct a canonical transcript containing a fresh,
+    * unpredictable issuer challenge, the TLS channel binding, invitation ID,
+    * domain and both permanent identity keys. Never accept a reusable
+    * static message as a challenge. */
+   if (!id || !domain || !transcript || !transcript_len || transcript_len > 4096 ||
+       !signature || !invite_schema(db)) return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db,
+       "SELECT public_key FROM mesh_join_invitations WHERE ticket_id=?1"
+       " AND domain=?2 AND status='pending' AND expires_at>unixepoch()",
+       -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, domain, -1, SQLITE_TRANSIENT);
+   bool valid = false;
+   if (sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *b64 = (const char *)sqlite3_column_text(stmt, 0);
+      if (trust_key_valid(b64, 32)) {
+         gsize length = 0;
+         guchar *raw = g_base64_decode(b64, &length);
+         rr_crypto_key_t *pub = length == 32 ?
+            rr_crypto_ed25519_public(raw, length) : NULL;
+         valid = pub && rr_crypto_ed25519_verify(pub, transcript,
+             transcript_len, signature);
+         rr_crypto_key_free(pub);
+         g_free(raw);
+      }
+   }
+   sqlite3_finalize(stmt);
+   return valid;
+}
+
 bool rr_identity_invite_revoke(sqlite3 *db, const char *id) {
    if (!id || !invite_schema(db)) return false;
    sqlite3_stmt *s=NULL;
