@@ -66,6 +66,7 @@ install-assets:
 install-sql:
 	install -Dm644 sql/sqlite.master.sql "$(DESTDIR)$(DATADIR)/sql/sqlite.master.sql"
 	install -Dm644 sql/sqlite.master.preload.sql "$(DESTDIR)$(DATADIR)/sql/sqlite.master.preload.sql"
+	install -Dm644 sql/sqlite.client.sql "$(DESTDIR)$(DATADIR)/sql/sqlite.client.sql"
 	@echo "[install-sql] schema and preload => $(DESTDIR)$(DATADIR)/sql/"
 
 install-tools:
