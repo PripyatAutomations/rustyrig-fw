@@ -46,6 +46,12 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *ticket_id,
    const char *domain, const char *joining_uuid, const char *catalog_key_b64,
    const char *tls_spki_b64);
 bool rr_identity_invite_revoke(sqlite3 *db, const char *ticket_id);
+/* Read-only result verification for interrupted one-shot enrollment.
+ * Returns true only for a consumed ticket with exactly matching permanent keys. */
+bool rr_identity_invite_redeemed(sqlite3 *db, const char *ticket_id,
+                                 const char *domain, const char *joining_uuid,
+                                 const char *catalog_key_b64, const char *tls_spki_b64);
+
 /* One-shot issuer challenges (32 random bytes, base64). Issuing does not
  * consume the invitation. Challenge is valid for at most 120 seconds.
  * A challenge can be claimed once, even when proof verification fails. */
