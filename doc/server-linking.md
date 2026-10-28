@@ -1,4 +1,12 @@
-## Bootstrap identities and future direct mesh links (design; not enabled)
+# Server linking
+
+Server-to-server connections now use the native OpenSSL/wslay WSS listener
+(default TCP 4421). Client HTTPS/WSS and enrollment remain on TCP 4420.
+See [Native mesh operation and security](native-mesh.md) for current setup,
+authentication, migration, and tests. The design material below describes
+future discovery/multipath work; current forwarding still uses the existing tree.
+
+## Identity and future mesh-discovery design
 
 The packaged configuration is `/etc/rustyrig/rrserver.cfg`, with included
 `/etc/rustyrig/rrserver.*.cfg` files (source: `config/`). The deprecated
@@ -6,10 +14,9 @@ The packaged configuration is `/etc/rustyrig/rrserver.cfg`, with included
 `/etc/rustyrig/rrclient.cfg`, and standalone callsign lookup settings in
 `/etc/rustyrig/callsign-lookup.cfg`.
 
-A server belongs to **exactly one** configured `domain`. Only explicit
-`[peer]` / `[peer:name]` entries bootstrap initial links. The existing
-tree transport remains active while mesh discovery and authenticated direct
-links are built; connecting every known peer immediately would currently
+A server belongs to **exactly one** configured `domain`. Enrolled issuer records automatically bootstrap initial links; explicit
+`[peer]` / `[peer:name]` entries remain available for manually pinned peers.
+Tree routing remains active while multipath discovery is built; connecting every known peer immediately would currently
 trigger overlapping-component rejection.
 
 ### First startup: durable server identity
@@ -55,8 +62,8 @@ Local Ed25519 signing keys persist in `/var/lib/rustyrig/identity/`.
 Verified public keys are first-seen pinned in the master SQLite database.
 This is initial **TOFU** enrollment: independent verification or approval of
 bootstrap peers remains essential, since a compromised first relay could
-supply substitute identities before any pins are established. Catalog signing
-does not yet implement authenticated direct WSS mesh admission.
+supply substitute identities before any pins are established. Catalog signatures alone do not authorize direct admission. Native WSS admission
+requires explicit enrolled trust, a verified live TLS SPKI and a fresh channel-bound proof.
 
 ### Catalog as the domain trust authority (private CA without a CA certificate)
 
@@ -159,13 +166,14 @@ The component test is discovered by the existing rrserver suite in
 `tests/run-tests.sh`. It exercises multiple peers, multi-hop routing, rejected
 snapshots, source ownership, capacity limits, and branch removal.
 
-## Live WS/WSS link sessions
+## Live native WSS link sessions
 
-`rrserver/link.c` provides `/link` on the existing client HTTP/HTTPS listeners
-(and an optional dedicated listener), plus outbound
-connectors using `rustyrig-link.v1`. `librrprotocol/link.wire.c` validates a
-separate, bounded flat JSON wire format. Server links never enter the ordinary client socket roster. Owner-side virtual
-sessions use the existing authenticated command dispatcher for application requests.
+`rrserver/link.c` owns admission, topology and routing; `link.native.c` adapts
+native transport events. `mesh.wss.c` uses OpenSSL and wslay for `/link` on
+the dedicated listener, negotiating `rustyrig-mesh.v1`. After mutual live
+identity proof, `librrprotocol/link.wire.c` continues validating the existing
+bounded link messages. Server sockets never enter the client roster. Owner-side
+virtual sessions retain the authenticated application dispatcher.
 
 Implemented messages are `link.hello`, `link.snapshot`, `link.ready`,
 `link.introduce`, `link.withdraw`, and `link.application`. Application kinds are
@@ -194,91 +202,27 @@ no pending application commands are replayed.
 
 ### Peer configuration
 
-Use `[peer]` for one peer, or `[peer:name]` for multiple peer blocks. The alias
-names the local configuration entry and need not match the remote site.
+Enrollment needs no peer password or manual trust file. Configure a common
+`domain`, distinct `station.name`, persistent database/identity paths, and an
+allowing `listener:link.acl`. Enroll using `/link invite` and `--mesh-join`,
+then restart the joining server. Its stored issuer is dialed automatically.
 
-`[general] station.name` names this server; `[peer] site.name` names the other
-server. For example, nycvny37 has `station.name=nycvny37` and a peer with
-`site.name=rplywv00`; rplywv00 has the opposite pair. Startup rejects a peer
-whose expected site equals the local station name. Invalid peer configuration
-logs identify the rejected section/key and reason without displaying passwords.
+Manual `[peer:name]` entries may still specify `site.name`, `node.uuid`,
+`catalog-key`, `tls-trust`, `server.url=wss://host:4421/link`, `acl`, and
+`autoconnect=true`. The trust file supplies the expected SPKI; the live peer
+must also prove possession of the pinned catalog key. Passwords are ignored
+for authentication. Configured peers retain their topology restrictions.
 
-| Key | Meaning |
-|---|---|
-| `enabled` | Explicitly set `true` to enable; `false` ignores the entire block |
-| `autoconnect` | With a URL, initiate/retry when no active or pending link exists |
-| `server.url` | `wss://host:port/link`; empty means incoming-only |
-| `password` | Shared link password; use the same password at both ends |
-| `site.name` | Required expected remote `station.name`, matched exactly |
-| `node.uuid` | Optional expected persistent remote server UUID |
-| `clock-tolerance-seconds` | Per-peer clock compensation bound, 0–86400 seconds (24 hours); default 0 (disabled) |
+`links.listen` is retired and must be cleared. `links.shared-listener` no
+longer enables server links on client HTTPS; `/link` there returns 426.
+Use `links.native.enabled`, `links.native.bind` and `links.native.port`.
+The native listener presents `net.http.tls-cert` / `net.http.tls-key`, the
+same identity pinned during enrollment. Plaintext links are never accepted.
 
-No user account or username is required for a peer. Authentication is mutual:
-each endpoint verifies the shared password, expected remote site and optional
-UUID pin. Peer and listener ACL identity selectors use the remote site name,
-without account groups (for example, `allow=nycvny37@10.0.0.0/8`). Keep the
-configuration containing the password private. Peer settings are read at startup;
-restart after changing them. Legacy peer `username` keys are ignored and omitted
-when saving configuration. Rebuild both servers together: the hello message
-no longer carries a username. Usernames in relayed application requests still
-identify the user for owner-side account authorization. `autoconnect=false` still
-permits authenticated incoming connections when `enabled=true`.
-
-By default, `links.shared-listener=true` accepts `/link` on the existing client
-listeners: normally WS on port 8420 and WSS on port 4420. `/ws` and ordinary HTTP
-routes retain their client behavior. The `/link` upgrade requires the separate
-`rustyrig-link.v1` subprotocol and mutual peer authentication. Its socket is
-transferred out of the ordinary client roster during the upgrade handoff.
-
-For shared WSS, enable `net.http.tls-enabled` and configure `net.http.tls-cert`
-and `net.http.tls-key`. Outgoing WSS uses `links.tls-ca`, defaulting to the Debian
-system CA bundle, with hostname verification. No `links.listen` is needed.
-
-A separate listener remains optional: set `links.listen=https://0.0.0.0:4421`
-with `links.tls-cert` and `links.tls-key`, or `http://0.0.0.0:8421` for explicit
-plaintext operation. Set `links.shared-listener=false` to restrict incoming peers
-to that dedicated listener. Dedicated and shared listeners may coexist.
-
-To **accept incoming links only on a firewall-controlled port**, configure
-these in the included `rrserver.site-local.cfg` under `[general]`:
-
-```ini
-links.shared-listener=false
-links.listen=https://0.0.0.0:4421
-links.tls-cert=/etc/rustyrig/link-cert.pem
-links.tls-key=/etc/rustyrig/link-key.pem
-```
-
-Configure the `listener:link.acl` policy and restrict inbound TCP/4421 to
-your trusted peers at the firewall. Peers use `wss://hostname:4421/link`.
-Ordinary `/ws` and web clients retain their existing listeners. If
-`links.shared-listener=false` is set without `links.listen`, the server
-has no incoming link listener (outgoing links may still work).
-
-`links.allow-insecure=false` is the default. Explicit local tests may use
-`links.allow-insecure=true` with an `http://` listener and `ws://` peer URL.
-Normal deployments use WSS. Defaults are 128 servers (maximum 256), a 60-second
-retry delay and a ten-second handshake timeout, controlled by
-`links.max-servers`, `links.retry-seconds`, and `links.handshake-seconds`.
-
-Example configuration fragments for two machines:
-[primary](examples/link-primary.cfg) and [secondary](examples/link-secondary.cfg).
-Replace hostnames, certificate paths and the shared password, and merge these
-sections into each server's existing configuration. Do not replace the existing
-rig, database, media or client-listener configuration.
-
-Both examples enable autoconnect; either machine can win the initial connection.
-For incoming-only operation, remove `server.url` from that side. Startup logs
-show `Server link node <UUID> (<site>)`; a committed link logs
-`Linked site <site> (<UUID>), servers <count>`.
-After a peer restart, expect `Unlinked site ...` followed by a new `Linked site ...`.
-Use the logged UUID for an optional peer `node.uuid` pin.
-
-The component-owned live test launches three real rrservers with disposable
-certificates/databases and local libraries. It exercises named/plain sections,
-mutual credentials, certificate trust rejection, protocol separation,
-simultaneous dials, an incoming-only peer, multi-hop introduction, branch
-withdrawal and automatic recovery after restarting the middle server.
+`links.retry-seconds`, `links.handshake-seconds`, and
+`links.startup-delay-seconds` retain reconnect/setup timing. `/link list`,
+`/link open` and `/link close` manage enrolled and configured peer entries.
+See [native mesh tests](../rrserver/tests/test_mesh_native_live.sh).
 
 ## Routing and authority
 
@@ -493,7 +437,7 @@ peer is blocked from automatic reconnection. An administrator can retry with
 `/link open <peer>`, which clears the block; `/link list` shows it.
 These limits are local admission policy, not permissions delegated to peers.
 Names alone are not authentication credentials; pin direct peer UUIDs with
-`node.uuid`, and use passwords, TLS and ACLs as usual.
+`node.uuid`, and retain enrolled key trust, TLS and ACL checks.
 
 
 ## Startup connection grace period

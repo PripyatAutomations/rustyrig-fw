@@ -1,3 +1,4 @@
+#include "mesh.bootstrap.h"
 // One-shot RustyRig mesh enrollment over issuer-pinned HTTPS.
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -115,10 +116,11 @@ static bool committed_status(CURL *curl, const char *url, sqlite3 *db,
    bool ok = body && post(curl, url, body, &response, true);
    if (body) { memset(body, 0, strlen(body)); g_free(body); }
    if (!ok) return false;
-   char **parts = g_strsplit(response.buf, "\n", 4);
+   char **parts = g_strsplit(response.buf, "\n", 6);
+   unsigned count = g_strv_length(parts);
    unsigned char pub[32] = {0}, sig[64] = {0};
-   ok = parts && g_strv_length(parts) == 4 &&
-      !strcmp(parts[0], "ENROLLED") && !parts[3][0] &&
+   ok = parts && (count == 4 || count == 5) &&
+      !strcmp(parts[0], "ENROLLED") && !parts[count - 1][0] &&
       g_uuid_string_is_valid(parts[1]) &&
       decode_fixed(fields[6], pub, sizeof(pub)) &&
       decode_fixed(parts[2], sig, sizeof(sig)) &&
@@ -126,6 +128,12 @@ static bool committed_status(CURL *curl, const char *url, sqlite3 *db,
    if (ok)
       ok = rr_identity_trust_enroll(db, fields[2], parts[1], fields[6], fields[5]) &&
            bootstrap_store(db, fields[2], parts[1], fields[4], fields[6], fields[5], "enrolled");
+   if (ok) {
+      char *end = NULL;
+      long port = count == 5 ? strtol(parts[3], &end, 10) : 4421;
+      ok = port > 0 && port <= 65535 && (!end || (end != parts[3] && !*end)) &&
+         rr_mesh_bootstrap_store_endpoint(db, fields[2], parts[1], fields[4], (unsigned)port);
+   }
    memset(pub, 0, sizeof(pub));
    memset(sig, 0, sizeof(sig));
    g_strfreev(parts);
@@ -156,7 +164,7 @@ bool rr_mesh_enroll_run(char *fields[8]) {
       fprintf(stderr, "Mesh enrollment: configure local domain, station.name, database, and TLS paths first.\n");
       goto done;
    }
-   if (!rr_crypto_init() || !rr_identity_init("/var/lib/rustyrig/identity")) {
+   if (!rr_crypto_init() || !rr_identity_init(cfg_get("path.identity") ? cfg_get("path.identity") : "/var/lib/rustyrig/identity")) {
       fprintf(stderr, "Mesh enrollment: cannot initialize permanent signing identity.\n");
       goto done;
    }

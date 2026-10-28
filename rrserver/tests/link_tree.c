@@ -15,45 +15,45 @@ int main(void) {
    rr_link_tree_t *tree = rr_link_tree_new(A, 8);
    assert(tree);
    rr_link_node_t first[] = { {
-                                 D, C
+                                 D, C, "d"
                               }, {
-                                 B, NULL
+                                 B, NULL, "b"
                               }, {
-                                 C, B
+                                 C, B, "c"
                               } };
    assert(rr_link_tree_attach(tree, B, first, 3) == RR_LINK_OK);
    assert(rr_link_tree_count(tree) == 4);
    assert(!strcmp(rr_link_tree_route(tree, D), B));
    assert(!rr_link_tree_route(tree, A));
    rr_link_node_t second[] = { {
-                                  E, NULL
+                                  E, NULL, "e"
                                }, {
-                                  F, E
+                                  F, E, "f"
                                } };
    assert(rr_link_tree_attach(tree, E, second, 2) == RR_LINK_OK);
    assert(!strcmp(rr_link_tree_route(tree, F), E));
    rr_link_node_t overlap[] = { {
-                                   G, NULL
+                                   G, NULL, "g"
                                 }, {
-                                   D, G
+                                   D, G, "d"
                                 } };
    assert(rr_link_tree_attach(tree, G, overlap, 2) == RR_LINK_OVERLAP);
    assert(rr_link_tree_count(tree) == 6 && !rr_link_tree_route(tree, G));
    rr_link_node_t self[] = { {
-                                A, NULL
+                                A, NULL, "a"
                              } };
    assert(rr_link_tree_attach(tree, A, self, 1) == RR_LINK_OVERLAP);
    rr_link_node_t cycle[] = { {
-                                 G, NULL
+                                 G, NULL, "g"
                               }, {
-                                 A, G
+                                 A, G, "a"
                               } };
    assert(rr_link_tree_attach(tree, G, cycle, 2) == RR_LINK_OVERLAP);
-   assert(rr_link_tree_add(tree, E, G, D) == RR_LINK_INVALID);
-   assert(rr_link_tree_add(tree, C, G, C) == RR_LINK_INVALID);
-   assert(rr_link_tree_add(tree, B, G, D) == RR_LINK_OK);
+   assert(rr_link_tree_add(tree, E, G, D, "g") == RR_LINK_INVALID);
+   assert(rr_link_tree_add(tree, C, G, C, "g") == RR_LINK_INVALID);
+   assert(rr_link_tree_add(tree, B, G, D, "g") == RR_LINK_OK);
    assert(!strcmp(rr_link_tree_route(tree, G), B));
-   assert(rr_link_tree_add(tree, E, G, F) == RR_LINK_OVERLAP);
+   assert(rr_link_tree_add(tree, E, G, F, "g") == RR_LINK_OVERLAP);
    assert(!rr_link_tree_remove(tree, E, C));
    assert(!rr_link_tree_remove(tree, B, A));
    assert(rr_link_tree_remove(tree, B, C));
@@ -65,11 +65,11 @@ int main(void) {
    assert(rr_link_tree_count(tree) == 2);
    assert(rr_link_tree_remove(tree, B, B));
    rr_link_node_t malformed[] = { {
-                                     B, NULL
+                                     B, NULL, "b"
                                   }, {
-                                     C, D
+                                     C, D, "c"
                                   }, {
-                                     D, C
+                                     D, C, "d"
                                   } };
    assert(rr_link_tree_attach(tree, B, malformed, 3) == RR_LINK_INVALID);
    malformed[1].parent = E;
@@ -77,9 +77,9 @@ int main(void) {
    malformed[1].parent = NULL;
    assert(rr_link_tree_attach(tree, B, malformed, 3) == RR_LINK_INVALID);
    rr_link_node_t duplicate[] = { {
-                                     B, NULL
+                                     B, NULL, "b"
                                   }, {
-                                     B, B
+                                     B, B, "b"
                                   } };
    assert(rr_link_tree_attach(tree, B, duplicate, 2) == RR_LINK_OVERLAP);
    assert(rr_link_tree_count(tree) == 1);
@@ -87,10 +87,10 @@ int main(void) {
    tree = rr_link_tree_new(A, 2);
    assert(rr_link_tree_attach(tree, B, first, 3) == RR_LINK_LIMIT);
    rr_link_node_t one = {
-      B, NULL
+      B, NULL, "b"
    };
    assert(rr_link_tree_attach(tree, B, &one, 1) == RR_LINK_OK);
-   assert(rr_link_tree_add(tree, B, C, B) == RR_LINK_LIMIT);
+   assert(rr_link_tree_add(tree, B, C, B, "c") == RR_LINK_LIMIT);
    rr_link_node_t node;
    assert(rr_link_tree_node(tree, 1, &node));
    assert(!strcmp(node.server, B) && !strcmp(node.parent, A));

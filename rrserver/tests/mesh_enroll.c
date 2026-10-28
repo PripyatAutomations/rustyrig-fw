@@ -13,8 +13,8 @@
 #include <librrprotocol/crypto.h>
 #define JOINER "00000000-0000-4000-8000-000000000002"
 int main(void) {
-   char dir[] = "/tmp/rr-mesh-enroll-XXXXXX";
-   assert(mkdtemp(dir));
+   char *dir = g_dir_make_tmp("rr-mesh-enroll-XXXXXX", NULL);
+   assert(dir);
    assert(rr_crypto_init());
    assert(rr_identity_init(dir));
    sqlite3 *db = NULL;
@@ -77,6 +77,7 @@ int main(void) {
    char *keypath = g_build_filename(dir, "server-ed25519.pem", NULL);
    remove(keypath); g_free(keypath);
    rmdir(dir);
+   g_free(dir);
    puts("PASS: single-use enrollment challenge and atomic identity trust");
    return 0;
 }

@@ -225,7 +225,7 @@ defconfig_t defcfg[] = {
       "net.mesh-linking", "true", "Enable automatic authenticated mesh links; false preserves configured tree links only", DEFCONFIG_BOOL, NULL
    },
    {
-      "links.native.enabled", "false", "Enable experimental dedicated mesh transport socket (TLS handshake pending)", DEFCONFIG_BOOL, NULL
+      "links.native.enabled", "true", "Enable authenticated dedicated mesh WSS listener", DEFCONFIG_BOOL, NULL
    },
    {
       "links.native.bind", "0.0.0.0", "IPv4 bind for dedicated mesh transport"
@@ -234,19 +234,19 @@ defconfig_t defcfg[] = {
       "links.native.port", "4421", "Dedicated TCP mesh transport port (future QUIC uses UDP)", DEFCONFIG_UINT, NULL
    },
    {
-      "links.shared-listener", "true", "Accept /link on existing client HTTP/HTTPS listeners"
+      "links.shared-listener", "false", "Deprecated; HTTPS is reserved for clients and enrollment"
    },
    {
-      "links.listen", "", "Dedicated server-link listener URL (https://host:port; /link endpoint)"
+      "links.listen", "", "Retired; leave empty and use links.native.bind/port"
    },
    {
-      "links.tls-cert", "/var/lib/rustyrig/identity/tls-cert.pem", "Persistent certificate for dedicated TLS server-link listener"
+      "links.tls-cert", "/var/lib/rustyrig/identity/tls-cert.pem", "Deprecated; native links use net.http.tls-cert"
    },
    {
-      "links.tls-key", "/var/lib/rustyrig/identity/tls-key.pem", "Persistent private key for dedicated TLS server-link listener"
+      "links.tls-key", "/var/lib/rustyrig/identity/tls-key.pem", "Deprecated; native links use net.http.tls-key"
    },
    {
-      "links.tls-ca", "/etc/ssl/certs/ca-certificates.crt", "CA bundle for outbound WSS links"
+      "links.tls-ca", "/etc/ssl/certs/ca-certificates.crt", "Deprecated for mesh; native links verify enrolled SPKI pins"
    },
    {
       "links.invitation-expiry-hours", "72",
@@ -571,6 +571,9 @@ defconfig_t defcfg[] = {
       "noob.supervisor-idle-seconds", "300", "Seconds without deliberate operator activity before supervision expires", DEFCONFIG_UINT, NULL
    }, {
       "noob.cool-down", "30", "How long to block noob PTT after elmer overrides it (seconds)", DEFCONFIG_UINT, NULL
+   },
+   {
+      "path.identity", "/var/lib/rustyrig/identity", "Private persistent server signing identity directory", DEFCONFIG_PATH, NULL
    },
    {
       "path.db.master", "/var/lib/rustyrig/db/master.db", "Master database path", DEFCONFIG_PATH, NULL

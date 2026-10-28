@@ -1,5 +1,10 @@
 # Mesh transport handoff — 2026-10-28
 
+Update: the native WSS transport and enrolled startup connections are now
+implemented. See [current operation/security](native-mesh.md) and the live
+integration suite for the authoritative state. The remaining text is the
+original pre-implementation handoff, retained as historical context.
+
 ## Objective
 Replace Mongoose specifically for server-to-server linking first, using a portable `rr_transport` core, GLib event loop on Linux, OpenSSL for TLS, and wslay for WebSocket framing. Preserve existing client HTTPS/WSS on TCP 4420 while introducing authenticated server-link WSS on TCP 4421. Once mesh links and failover work, implement multihomed user/client connections. Later consider ngtcp2/nghttp3 and WebTransport (UDP 4421). ESP32 size/feature trimming is explicitly deferred; do not drag GLib into the portable core.
 

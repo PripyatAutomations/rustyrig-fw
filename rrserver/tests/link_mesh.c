@@ -30,7 +30,8 @@ int main(void) {
    const char *invalid[] = {B, "not-a-node"};
    assert(!rr_mesh_route_avoiding_many(m, D, invalid, 2, &r));
    assert(!rr_mesh_route_avoiding(m, D, C, NULL));
-   assert(!rr_mesh_route_avoiding(m, D, E, &r));
+   assert(rr_mesh_route_avoiding(m, D, E, &r));
+   assert(!strcmp(r.next_hop, B) && r.cost == 2);
    assert(!rr_mesh_route_avoiding(m, A, B, &r));
    assert(rr_mesh_remove_edge(m, A, C));
    assert(rr_mesh_route_avoiding(m, D, B, &r));

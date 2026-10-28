@@ -40,5 +40,7 @@ void rr_reactor_watch_cancel(rr_reactor_watch_t *watch) {
 
 void rr_reactor_dispatch_ready(GMainContext *loop) {
    GMainContext *ctx = loop ? loop : g_main_context_default();
-   while (g_main_context_pending(ctx)) g_main_context_iteration(ctx, FALSE);
+   /* Bound dispatch so a busy mesh socket cannot starve the client loop. */
+   for (unsigned i = 0; i < 64 && g_main_context_pending(ctx); ++i)
+      g_main_context_iteration(ctx, FALSE);
 }

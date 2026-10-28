@@ -1,8 +1,15 @@
 rustyrig-fw (1.0.0) testing; urgency=medium
 
   * Prepare RustyRig 1.0.0 release.
+  * Replace Mongoose server-link sockets with authenticated OpenSSL/wslay WSS
+    on TCP 4421; retain client HTTPS and enrollment on TCP 4420.
+  * Automatically dial enrolled issuer identities without peer passwords,
+    verify live TLS SPKI pins and fresh channel-bound Ed25519 proofs, and
+    retain topology, routing, ACLs, heartbeat and randomized reconnect.
+  * Separate enrollment and mesh endpoints, document native mesh setup, and
+    add live two-server and adversarial transport checks.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 24 Oct 2026 12:58:16 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 28 Oct 2026 18:08:42 -0400
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

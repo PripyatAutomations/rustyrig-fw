@@ -49,7 +49,7 @@ static void server_editor_close(gpointer unused) {
 
 extern dict *cfg;
 
-typedef rr_transport_t server_proto_t;
+typedef rr_url_transport_t server_proto_t;
 
 typedef struct serverlist {
    char *name;                  // friendly name

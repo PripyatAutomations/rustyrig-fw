@@ -21,12 +21,12 @@ def transform(message, encode):
     for group in SCHEMA['groups']:
         for operation, command in group['operations'].items():
             matches = (flat.get('msg.type') == group['type'] and
-                flat.get(group['command_key']) == command) if encode else flat.get('op') == operation
+                (not group.get('command_key') or flat.get(group['command_key']) == command)) if encode else flat.get('op') == operation
             if not matches: continue
             output = {'op': operation} if encode else {'msg.type': group['type']}
-            if not encode and command: output[group['command_key']] = command
+            if not encode and command and group.get('command_key'): output[group['command_key']] = command
             for key, value in flat.items():
-                if key in (('msg.type', group['command_key']) if encode else ('op',)): continue
+                if key in (('msg.type', group.get('command_key')) if encode else ('op',)): continue
                 fields = group['fields'].items() if encode else ((v,k) for k,v in group['fields'].items())
                 for source, target in fields:
                     if source == key or (source.endswith('*') and key.startswith(source[:-1])):

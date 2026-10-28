@@ -35,66 +35,11 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/link.tree.h>
 #include <rrserver/link.mesh.h>
-#define MAX_PEERS 16
-#define MAX_SESSIONS 32
-#define MAX_QUEUE 262144
+#include "link.internal.h"
+#include "mesh.bootstrap.h"
+struct rr_links links;
 
-extern struct GlobalState rig;
-struct link_session;
-
-struct link_peer {
-   char section[128], site[128], node[37];
-   char *url, *password, *allowed_sites, *catalog_key;
-   struct mg_str peer_ca;
-   bool autoconnect, leaf_only, policy_blocked, startup_override;
-   unsigned max_depth;
-   long long retry_at;
-   unsigned retry_seconds;
-   unsigned clock_tolerance_seconds;
-   long long clock_offset_seconds;
-   bool clock_offset_valid;
-   unsigned health_flaps, health_auth_errors;
-   long long health_window_ms, health_rtt_ms;
-   long long rtt_ring[30];
-   unsigned rtt_next, rtt_count, rtt_high_streak;
-   bool rtt_degraded;
-   unsigned rtt_recovery_streak;
-   bool manually_closed;
-   struct link_session *session;
-};
-
-struct link_session {
-   struct link_session *next;
-   struct mg_connection *connection;
-   struct link_peer *peer;
-   long long started, established_at, last_ping, last_seen, ping_sent;
-   char close_reason[256];
-   const char *close_cause;
-   bool ping_pending;
-   unsigned generation;
-   char node[37];
-   bool outbound, dedicated, hello, snapshot, admitted, ready, established;
-   bool identity_sent, identity_seen;
-};
-
-static struct {
-   struct mg_mgr *manager;
-   struct mg_connection *listener;
-   struct link_session *sessions;
-   struct link_peer peers[MAX_PEERS];
-   size_t peer_count, session_count;
-   rr_link_tree_t *tree;
-   rr_mesh_t *mesh; /* Shadow topology: authenticated direct peers only. */
-   unsigned generation;
-   long long autoconnect_after;
-   char node[37], domain[254], site[128];
-   struct mg_str cert, key, ca;
-   bool stopping;
-} links;
-
-static void link_callback(struct mg_connection *c, int event, void *data);
 static void send_snapshot(struct link_session *session);
-static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm);
 
 static const char *config_value(const char *key, const char *fallback) {
    const char *value = cfg_get(key);
@@ -109,20 +54,9 @@ static const char *peer_value(const char *section, const char *key) {
    return cfg_get(name);
 }
 
-static bool equal_secret(const char *a, const char *b) {
-   size_t an = a ? strlen(a) : 0, bn = b ? strlen(b) : 0;
-   unsigned different = an != bn;
-
-   for (size_t i = 0 ; i < 256 ; i++) {
-      different |= (i < an ? (unsigned char)a[i] : 0) ^ (i < bn ? (unsigned char)b[i] : 0);
-   }
-
-   return !different;
-}
-
 static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason);
-static void fail_cause(struct link_session *session, const char *cause, const char *reason) {
-   if (!session || !session->connection || session->connection->is_closing) {
+void fail_cause(struct link_session *session, const char *cause, const char *reason) {
+   if (!session || session_closing(session)) {
       return;
    }
    session->close_cause = cause;
@@ -135,9 +69,11 @@ static void fail_cause(struct link_session *session, const char *cause, const ch
       snprintf(context, sizeof(context), "cause=%s %s", session->close_cause, session->close_reason);
       health_record(session->peer, "transport", 1, 0, context);
    }
-   session->connection->is_closing = 1;
+   session->closing = true;
+   if (session->transport) rr_mesh_wss_abort(session->transport, reason);
+
 }
-static void fail(struct link_session *session, const char *reason) {
+void fail(struct link_session *session, const char *reason) {
    fail_cause(session, "protocol-or-policy", reason);
 }
 
@@ -377,9 +313,9 @@ static bool send_message(struct link_session *session, dict *d) {
    }
 
    size_t length = strlen(wire);
-   size_t queued = session->connection->send.len;
+   size_t queued = rr_mesh_wss_queued(session->transport);
 
-   if (session->connection->is_closing) {
+   if (session_closing(session)) {
       free(wire);
 
       return false;
@@ -395,7 +331,13 @@ static bool send_message(struct link_session *session, dict *d) {
       return false;
    }
 
-   mg_ws_send(session->connection, wire, length, WEBSOCKET_OP_TEXT);
+   {
+      if (rr_transport_send_message(session->transport, wire, length) != RR_TRANSPORT_OK) {
+         free(wire);
+         fail(session, "Native mesh send queue failed or exceeded its bound");
+         return false;
+      }
+   }
    free(wire);
 
    return true;
@@ -515,13 +457,13 @@ bool rrserver_links_send(const char *node, dict *d) {
 }
 void rrserver_links_broadcast(dict *d) {
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
-      if (s->established && !s->connection->is_closing) {
+      if (s->established && !session_closing(s)) {
          send_message(s, d);
       }
    }
 }
 
-static void send_hello(struct link_session *session) {
+void send_hello(struct link_session *session) {
    dict *d = message("link.hello");
 
    if (!d) {
@@ -539,80 +481,17 @@ static void send_hello(struct link_session *session) {
 }
 
 static void send_identity(struct link_session *session) {
-   if (!session || session->identity_sent || !session->hello ||
-       !session->connection->is_tls) return;
-   const char *cert = session->dedicated ? cfg_get("links.tls-cert") : cfg_get("net.http.tls-cert");
-   char *spki = cert && *cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
-   char *sig = spki ? rr_identity_tls_binding_signature(links.domain, links.node, spki) : NULL;
-   const char *pub = rr_identity_public_base64();
-   if (spki && sig && pub) {
-      dict *d = message("link.identity");
-      if (d) {
-         dict_add(d, "node", links.node);
-         dict_add(d, "domain", links.domain);
-         dict_add(d, "identity.public-key", pub);
-         dict_add(d, "identity.tls-spki", spki);
-         dict_add(d, "identity.signature", sig);
-         send_message(session, d);
-         session->identity_sent = true;
-         dict_free(d);
-      }
-   } else {
-      Log(LOG_WARN, "mesh.identity", "Unable to announce signed TLS identity on link to %s",
-          session->peer ? session->peer->site : "unknown");
-   }
-   g_free(sig);
-   free(spki);
-}
-
-static void handle_identity(struct link_session *session, dict *d) {
-   const char *node = dict_get(d, "node", "");
-   const char *domain = dict_get(d, "domain", "");
-   const char *pub = dict_get(d, "identity.public-key", "");
-   const char *spki = dict_get(d, "identity.tls-spki", "");
-   const char *sig = dict_get(d, "identity.signature", "");
-   if (session->identity_seen || !session->hello || !session->connection->is_tls ||
-       strcmp(node, session->node) || strcmp(domain, links.domain) ||
-       strlen(pub) != 44 || strlen(spki) != 44 || strlen(sig) != 88) {
-      fail(session, "Malformed or duplicate signed TLS identity announcement");
+   if (!session->auth.verified || !session->hello) {
+      fail(session, "Live identity proof required");
       return;
    }
-   gsize pub_len = 0, sig_len = 0;
-   guchar *raw_pub = g_base64_decode(pub, &pub_len);
-   guchar *raw_sig = g_base64_decode(sig, &sig_len);
-   bool verified = pub_len == 32 && sig_len == 64 &&
-       rr_crypto_binding_verify(raw_pub, domain, node, spki, raw_sig);
-   g_free(raw_pub);
-   g_free(raw_sig);
-   if (!verified) {
-      fail(session, "Invalid TLS-to-catalog identity binding signature");
-      return;
-   }
-   if (!session->peer || !session->peer->catalog_key ||
-       strcmp(pub, session->peer->catalog_key)) {
-      fail(session, "Catalog signing key differs from enrolled peer identity");
-      return;
-   }
-   const char *peer_cert = peer_value(session->peer->section, "tls-trust");
-   char *expected_spki = peer_cert ? rr_crypto_cert_spki_sha256(peer_cert) : NULL;
-   bool trusted = expected_spki && !strcmp(spki, expected_spki);
-   free(expected_spki);
-   if (!trusted) {
-      fail(session, "Signed identity SPKI differs from enrolled peer TLS certificate");
-      return;
-   }
-   session->identity_seen = true;
-   /* The signature proves key possession, not that this key or the TLS peer
-    * is trusted. TLS SPKI pin verification must happen in the TLS backend. */
-   Log(LOG_INFO, "mesh.identity",
-       "Peer %s [%s] supplied valid self-signed catalog/TLS binding (SPKI=%s); enrolled identity proof verified; live TLS peer certificate binding requires transport support",
-       session->peer ? session->peer->site : "unknown", node, spki);
+   session->identity_sent = session->identity_seen = true;
    send_snapshot(session);
 }
 
 static void broadcast(struct link_session *exclude, dict *d) {
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
-      if (s != exclude && s->established && !s->connection->is_closing) {
+      if (s != exclude && s->established && !session_closing(s)) {
          send_message(s, d);
       }
    }
@@ -812,7 +691,8 @@ static void handle_hello(struct link_session *session, dict *d) {
       }
    }
 
-   if (!peer || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node)) || !equal_secret(peer->password, dict_get(d, "password", ""))) {
+   bool authenticated = session->auth.verified && !strcmp(session->auth.node, node) && !strcmp(session->auth.site, site);
+   if (!peer || !authenticated || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node))) {
       if (peer) {
          health_window(peer);
          peer->health_auth_errors++;
@@ -841,11 +721,10 @@ static void handle_hello(struct link_session *session, dict *d) {
       }
    }
    char peer_ip[64];
-   mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &session->connection->rem);
-   const char *listener = session->connection->is_tls ? "listener:https" : "listener:http";
+   snprintf(peer_ip, sizeof(peer_ip), "%s", rr_mesh_wss_ip(session->transport));
 
-   if (rrserver_acl_check(peer->section, peer_ip, NULL, peer->site) != ACL_ALLOW ||
-      (!session->outbound && rrserver_acl_check(session->dedicated ? "listener:link" : listener, peer_ip, NULL, peer->site) != ACL_ALLOW)) {
+   if (rrserver_acl_check(peer->enrolled ? "listener:link" : peer->section, peer_ip, NULL, peer->site) != ACL_ALLOW ||
+      (!session->outbound && rrserver_acl_check("listener:link", peer_ip, NULL, peer->site) != ACL_ALLOW)) {
       fail(session, "Connection blocked by the access-control rules (ACL); check the peer and link-listener permissions");
 
       return;
@@ -858,7 +737,7 @@ static void handle_hello(struct link_session *session, dict *d) {
    }
    struct link_session *old = peer->session;
 
-   if (old && old != session && !old->connection->is_closing) {
+   if (old && old != session && !session_closing(old)) {
       if (old->established) {
          fail(session, "Peer already linked");
 
@@ -878,7 +757,7 @@ static void handle_hello(struct link_session *session, dict *d) {
    /* Never export an uncommitted admission in another peer's snapshot. Serialize local admissions; established upstream deltas still invalidate the generation
     * check and cause a clean retry. */
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
-      if (s != session && !s->established && (s->admitted || (s->hello && !s->connection->is_closing))) {
+      if (s != session && !s->established && (s->admitted || (s->hello && !session_closing(s)))) {
          fail(session, "Another server is joining the network; this link will retry after the current join completes");
 
          return;
@@ -890,7 +769,7 @@ static void handle_hello(struct link_session *session, dict *d) {
    strcpy(session->node, node);
    session->hello = true;
 
-   if (!session->connection->is_tls) {
+   if (!session_tls(session)) {
       fail(session, "Unencrypted server link rejected");
       return;
    }
@@ -976,17 +855,12 @@ static void handle_snapshot(struct link_session *session, dict *d) {
    establish(session);
 }
 
-static void handle_frame(struct link_session *session, struct mg_ws_message *frame) {
-   if ((frame->flags & 15) != WEBSOCKET_OP_TEXT) {
-      fail(session, "Only link control text is supported");
-
-      return;
-   }
-   dict *d = rr_link_wire_decode(frame->data.buf, frame->data.len);
+void handle_frame(struct link_session *session, const char *data, size_t length) {
+   dict *d = rr_link_wire_decode(data, length);
 
    if (!d) {
       Log(LOG_WARN, "link", "Rejected link protocol message from %s (%zu bytes); "
-         "invalid format or incompatible protocol version", session->peer ? session->peer->site : "unknown server", frame->data.len);
+         "invalid format or incompatible protocol version", session->peer ? session->peer->site : "unknown server", length);
 
       fail(session, "Invalid link protocol message");
 
@@ -996,8 +870,7 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
 
    if (!strcmp(op, "link.hello")) {
       handle_hello(session, d);
-   } else if (!strcmp(op, "link.identity") && session->hello && !session->established) {
-      handle_identity(session, d);
+
    } else if (!strcmp(op, "link.snapshot")) {
       handle_snapshot(session, d);
    } else if (!strcmp(op, "link.ready") && session->hello && !session->ready) {
@@ -1073,7 +946,7 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
    dict_free(d);
 }
 
-static struct link_session *new_session(void) {
+struct link_session *new_session(void) {
    if (links.session_count == MAX_SESSIONS) {
       return NULL;
    }
@@ -1089,7 +962,7 @@ static struct link_session *new_session(void) {
    return session;
 }
 
-static void close_session(struct link_session *session) {
+void close_session(struct link_session *session) {
    if (session->established && links.mesh)
       rr_mesh_remove_edge(links.mesh, links.node, session->node);
    if (session->established && session->peer && !links.stopping && !session->peer->manually_closed) {
@@ -1159,106 +1032,8 @@ static void close_session(struct link_session *session) {
    links.session_count--;
 }
 
-static void link_callback(struct mg_connection *c, int event, void *data) {
-   if (c->is_listening) {
-      return;
-   }
-   struct link_session *session = c->fn_data;
-
-   if (event == MG_EV_ACCEPT) {
-      session = new_session();
-
-      if (!session) {
-         c->is_closing = 1;
-
-         return;
-      }
-      c->fn_data = session;
-      session->connection = c;
-      session->dedicated = true;
-      char peer_ip[64];
-      mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &c->rem);
-
-      if (rrserver_acl_check("listener:link", peer_ip, NULL, NULL) == ACL_DENY) {
-         fail(session, "Listener ACL access denied");
-
-         return;
-      }
-
-      if (links.cert.buf) {
-         struct mg_tls_opts options = {
-            .cert = links.cert, .key = links.key
-         };
-         mg_tls_init(c, &options);
-      }
-   }
-
-   if (!session) {
-      return;
-   }
-   session->connection = c;
-
-   if (event == MG_EV_READ && c->recv.len > RR_LINK_MAX_FRAME + 4096) {
-      fail(session, "Link receive buffer exceeded");
-
-      return;
-   }
-
-   if (event == MG_EV_CONNECT && session->outbound) {
-      char peer_ip[64];
-      mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &c->rem);
-
-      if (rrserver_acl_check(session->peer->section, peer_ip, NULL, session->peer->site) != ACL_ALLOW) {
-         fail(session, "Outbound connection blocked by this server's peer ACL");
-
-         return;
-      }
-   }
-
-   if (event == MG_EV_CONNECT && session->outbound && !strncmp(session->peer->url, "wss://", 6)) {
-      if (!session->peer->peer_ca.len || !session->peer->catalog_key) {
-         fail(session, "Peer not enrolled: refusing unverified WSS connection");
-         return;
-      }
-      struct mg_tls_opts options = {
-         .ca = session->peer->peer_ca, .name = mg_url_host(session->peer->url)
-      };
-      mg_tls_init(c, &options);
-   } else if (event == MG_EV_HTTP_MSG) {
-      struct mg_http_message *hm = data;
-      if (mesh_enroll_http(c, hm)) {
-         c->is_draining = 1;
-         return;
-      }
-      struct mg_str *protocol = mg_http_get_header(hm, "Sec-WebSocket-Protocol");
-
-      if (mg_match(hm->uri, mg_str("/link"), NULL) && protocol && !mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
-         /* Mongoose echoes the already-validated subprotocol once. */
-         mg_ws_upgrade(c, hm, NULL);
-      } else {
-         mg_http_reply(c, 400, "", "Server-link protocol required\n");
-         c->is_draining = 1;
-      }
-   } else if (event == MG_EV_WS_OPEN) {
-      if (session->outbound) {
-         struct mg_http_message *hm = data;
-         struct mg_str *protocol = mg_http_get_header(hm, "Sec-WebSocket-Protocol");
-
-         if (!protocol || mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
-            fail(session, "Server did not negotiate link protocol");
-
-            return;
-         }
-         send_hello(session);
-      }
-   } else if (event == MG_EV_WS_MSG) {
-      session->last_seen = mono_ms();
-      handle_frame(session, data);
-   } else if (event == MG_EV_WS_CTL) {
-      session->last_seen = mono_ms();
-      struct mg_ws_message *control = data;
-
-      if (control && (control->flags & 15) == WEBSOCKET_OP_PONG && session->ping_pending && session->peer) {
+void handle_pong(struct link_session *session) {
+   if (!session->ping_pending || !session->peer) return;
          long long rtt = mono_ms() - session->ping_sent;
          session->ping_pending = false;
 
@@ -1295,27 +1070,6 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
                peer->rtt_recovery_streak = 0;
             }
          }
-      }
-   } else if (event == MG_EV_ERROR) {
-      struct mg_http_message response;
-      char reason[256];
-
-      /* Mongoose emits this error before consuming a rejected HTTP upgrade. Report only its status, never response headers or peer credentials. */
-      if (session->outbound && !c->is_websocket && c->recv.buf &&
-         mg_http_parse((const char *)c->recv.buf, c->recv.len, &response) > 0 &&
-         response.method.len >= 5 && !memcmp(response.method.buf, "HTTP/", 5) && response.uri.len == 3) {
-         snprintf(reason, sizeof(reason), "WebSocket upgrade rejected: HTTP %.*s; check /link URL and remote listener policy", (int)response.uri.len, response.
-            uri.buf);
-         fail_cause(session, "http-upgrade-rejected", reason);
-      } else {
-         char detail[384];
-         snprintf(detail, sizeof(detail), "Network transport failed; check DNS, TLS, routing and remote server availability (details in server log)");
-         fail_cause(session, "transport-error", detail);
-      }
-   } else if (event == MG_EV_CLOSE) {
-      c->fn_data = NULL;
-      close_session(session);
-   }
 }
 
 static bool invalid_peer(const char *section, const char *key, const char *reason) {
@@ -1369,9 +1123,7 @@ static bool load_peer(const char *section) {
 
    const char *url = peer_value(section, "server.url"), *password = peer_value(section, "password"), *autoconnect = peer_value(section, "autoconnect");
 
-   if (!password || !*password || strlen(password) > 256) {
-      return invalid_peer(section, "password", "shared link password is required (1-256 characters)");
-   }
+   if (password && strlen(password) > 256) return invalid_peer(section, "password", "maximum 256 characters");
 
    if (url && *url && strncmp(url, "wss://", 6)) {
       return invalid_peer(section, "server.url", "server-to-server links require wss:// (TLS is mandatory)");
@@ -1382,15 +1134,18 @@ static bool load_peer(const char *section) {
    if (peer_trust && *peer_trust && catalog_key && *catalog_key) {
       if (strlen(catalog_key) != 44)
          return invalid_peer(section, "catalog-key", "expected 44-character Ed25519 public key base64");
+      char *pin = rr_crypto_cert_spki_sha256(peer_trust);
+      if (!pin) return invalid_peer(section, "tls-trust", "cannot read TLS SPKI");
+      snprintf(peer->spki, sizeof(peer->spki), "%s", pin);
+      free(pin);
       peer->catalog_key = strdup(catalog_key);
-      peer->peer_ca = mg_file_read(&mg_fs_posix, peer_trust);
-      if (!peer->catalog_key || !peer->peer_ca.len)
+      if (!peer->catalog_key)
          return invalid_peer(section, "tls-trust", "cannot read enrolled certificate");
    } else {
       Log(LOG_INFO, "mesh.identity", "Peer %s is pending enrollment; normal server link will remain disabled", peer->site);
    }
    peer->url = strdup(url ? url : "");
-   peer->password = strdup(password);
+   peer->password = strdup(password ? password : "");
 
    if (autoconnect && strcasecmp(autoconnect, "true") && strcasecmp(autoconnect, "false")) {
       return invalid_peer(section, "autoconnect", "must be true or false");
@@ -1437,391 +1192,9 @@ static bool load_peer(const char *section) {
    return true;
 }
 
-/* Both dedicated WSS and shared HTTPS listeners accept one-shot enrollment.
- * Never attach pre-enrollment requests to an authenticated server link. */
-static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm) {
-   if (hm->body.len > 4096 &&
-       (!mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) ||
-        !mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) ||
-        !mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")))) {
-      mg_http_reply(connection, 413, "", "Enrollment request too large\n");
-      return true;
-   }
-#ifdef USE_SQLITE
-   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")) == 0) {
-      if (!connection->is_tls || mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\n");
-         return true;
-      }
-      char ticket[48], domain[256], node[48], catalog[48], spki[48];
-      struct mg_str *body = &hm->body;
-      if (body->len > 4096 ||
-          mg_http_get_var(body, "ticket", ticket, sizeof(ticket)) <= 0 ||
-          mg_http_get_var(body, "domain", domain, sizeof(domain)) <= 0 ||
-          mg_http_get_var(body, "node", node, sizeof(node)) <= 0 ||
-          mg_http_get_var(body, "catalog", catalog, sizeof(catalog)) <= 0 ||
-          mg_http_get_var(body, "spki", spki, sizeof(spki)) <= 0 ||
-          strcmp(domain, links.domain)) {
-         mg_http_reply(connection, 400, "", "Invalid enrollment status request\n");
-         return true;
-      }
-      const char *db_path = cfg_get("path.db.master");
-      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
-      sqlite3 *db = NULL;
-      bool enrolled = false;
-      if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK)
-         enrolled = rr_identity_invite_redeemed(db, ticket, domain, node, catalog, spki);
-      if (db) sqlite3_close(db);
-      if (!enrolled) {
-         mg_http_reply(connection, 404, "", "Enrollment not committed\n");
-         return true;
-      }
-      const char *certpath = cfg_get("net.http.tls-cert");
-      char *issuer_spki = certpath ? rr_crypto_cert_spki_sha256(certpath) : NULL;
-      char *signature = issuer_spki ?
-         rr_identity_tls_binding_signature(domain, links.node, issuer_spki) : NULL;
-      free(issuer_spki);
-      if (!signature) {
-         mg_http_reply(connection, 500, "", "Issuer signature unavailable\n");
-         return true;
-      }
-      mg_http_reply(connection, 200, "Content-Type: text/plain\r\nCache-Control: no-store\r\n",
-                    "ENROLLED\n%s\n%s\n", links.node, signature);
-      g_free(signature);
-      return true;
-   }
-#endif
-#ifdef USE_SQLITE
-   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) == 0) {
-      if (!connection->is_tls ||
-          mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\n");
-         return true;
-      }
-      char ticket[48], domain[256], node[48];
-      if (mg_http_get_var(&hm->body, "ticket", ticket, sizeof(ticket)) <= 0 ||
-          mg_http_get_var(&hm->body, "domain", domain, sizeof(domain)) <= 0 ||
-          mg_http_get_var(&hm->body, "node", node, sizeof(node)) <= 0 ||
-          strcmp(domain, links.domain)) {
-         mg_http_reply(connection, 400, "", "Invalid challenge request\n");
-         return true;
-      }
-      const char *db_path = cfg_get("path.db.master");
-      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
-      sqlite3 *db = NULL;
-      char *nonce = NULL;
-      if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK)
-         nonce = rr_identity_invite_challenge(db, ticket, domain, node);
-      if (db) sqlite3_close(db);
-      if (!nonce) {
-         mg_http_reply(connection, 403, "", "Invitation invalid or expired\n");
-         return true;
-      }
-      const char *cert_path = cfg_get("net.http.tls-cert");
-      char *issuer_spki = cert_path ? rr_crypto_cert_spki_sha256(cert_path) : NULL;
-      char *issuer_sig = issuer_spki ?
-         rr_identity_tls_binding_signature(links.domain, links.node, issuer_spki) : NULL;
-      free(issuer_spki);
-      if (!issuer_sig) {
-         mg_http_reply(connection, 500, "", "Issuer signing identity unavailable\n");
-         g_free(nonce);
-         return true;
-      }
-      mg_http_reply(connection, 200, "Content-Type: text/plain\r\nCache-Control: no-store\r\n",
-                    "%s\n%s\n%s\n", nonce, links.node, issuer_sig);
-      g_free(issuer_sig);
-      g_free(nonce);
-      return true;
-   }
-#endif
-#ifdef USE_SQLITE
-   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) == 0) {
-      if (!connection->is_tls ||
-          mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\n");
-         return true;
-      }
-      char ticket[48], domain[256], node[48], challenge[48], catalog[48],
-           spki[48], binding[92], proof[92];
-      struct mg_str *body = &hm->body;
-      if (mg_http_get_var(body, "ticket", ticket, sizeof(ticket)) <= 0 ||
-          mg_http_get_var(body, "domain", domain, sizeof(domain)) <= 0 ||
-          mg_http_get_var(body, "node", node, sizeof(node)) <= 0 ||
-          mg_http_get_var(body, "challenge", challenge, sizeof(challenge)) <= 0 ||
-          mg_http_get_var(body, "catalog", catalog, sizeof(catalog)) <= 0 ||
-          mg_http_get_var(body, "spki", spki, sizeof(spki)) <= 0 ||
-          mg_http_get_var(body, "binding", binding, sizeof(binding)) <= 0 ||
-          mg_http_get_var(body, "proof", proof, sizeof(proof)) <= 0 ||
-          strcmp(domain, links.domain) || !g_uuid_string_is_valid(ticket) ||
-          !g_uuid_string_is_valid(node) ||
-          strlen(challenge) != 44 || strlen(catalog) != 44 ||
-          strlen(spki) != 44 || strlen(binding) != 88 ||
-          strlen(proof) != 88) {
-         mg_http_reply(connection, 400, "", "Invalid redemption request\n");
-         return true;
-      }
-      gsize keylen = 0, bindlen = 0, prooflen = 0;
-      guchar *key = g_base64_decode(catalog, &keylen);
-      guchar *bindsig = g_base64_decode(binding, &bindlen);
-      guchar *ticketsig = g_base64_decode(proof, &prooflen);
-      bool proven = key && bindsig && ticketsig && keylen == 32 &&
-         bindlen == 64 && prooflen == 64 &&
-         rr_crypto_binding_verify(key, domain, node, spki, bindsig);
-      char *transcript = g_strdup_printf("rustyrig.mesh.enroll.v1\n%s\n%s\n%s\n%s\n%s\n%s\n",
-                                     ticket, domain, node, challenge, catalog, spki);
-      const char *db_path = cfg_get("path.db.master");
-      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
-      sqlite3 *db = NULL;
-      bool success = false;
-      if (proven && transcript && sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK) {
-         if (rr_identity_invite_verify_proof(db, ticket, domain, transcript, strlen(transcript), ticketsig) &&
-             rr_identity_invite_challenge_claim(db, ticket, domain, node, challenge))
-            success = rr_identity_invite_redeem(db, ticket, domain, node, catalog, spki);
-      }
-      if (db) sqlite3_close(db);
-      g_free(transcript);
-      g_free(key);
-      g_free(bindsig);
-      g_free(ticketsig);
-      if (!success) {
-         Log(LOG_WARN, "mesh.identity", "Rejected enrollment proof (invalid, replayed or expired invitation)");
-         mg_http_reply(connection, 403, "", "Enrollment proof rejected\n");
-         return true;
-      }
-      Log(LOG_AUDIT, "mesh.identity", "Enrolled server identity %s via single-use invitation", node);
-      mg_http_reply(connection, 200, "Cache-Control: no-store\r\n", "ENROLLED\n");
-      return true;
-   }
-#endif
-   return false;
-}
-
-/* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
-static void shared_link_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   if (length != sizeof(rr_server_http_t)) {
-      return;
-   }
-   rr_server_http_t *request = (rr_server_http_t *) data;
-
-   if (!request->request) return;
-   if (mesh_enroll_http(request->connection, request->request)) {
-      request->handled = true;
-      return;
-   }
-   if (mg_strcmp(request->request->uri, mg_str("/link"))) return;
-   request->handled = true;
-   struct mg_connection *connection = request->connection;
-
-   if (!connection->is_tls) {
-      mg_http_reply(connection, 403, "", "Plaintext server links are disabled\n");
-      connection->is_draining = 1;
-
-      return;
-   }
-   struct mg_str *protocol = mg_http_get_header(request->request, "Sec-WebSocket-Protocol");
-
-   if (!protocol || mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
-      mg_http_reply(connection, 400, "", "Server-link protocol required\n");
-      connection->is_draining = 1;
-
-      return;
-   }
-   struct link_session *session = new_session();
-
-   if (!session) {
-      mg_http_reply(connection, 503, "", "Server-link session limit reached\n");
-      connection->is_draining = 1;
-
-      return;
-   }
-   session->connection = connection;
-   connection->fn = link_callback;
-   connection->fn_data = session;
-   request->detach_client = true;
-   link_callback(connection, MG_EV_HTTP_MSG, request->request);
-}
-
-/* Like RTP auto-advertisement, choose the local source address that
- * reaches the administrator, rather than advertising a wildcard listener.
- * The explicit endpoint remains available for NAT/VPN and remote networks. */
-static bool invite_default_endpoint(rrconn_t *client, char *out, size_t capacity) {
-   int port = cfg_get_int("net.http.tls-port", 4420);
-   if (port < 1 || port > 65535) return false;
-   const char *bind = cfg_get("net.http.tls-bind");
-   struct in_addr configured;
-   if (bind && inet_pton(AF_INET, bind, &configured) == 1 &&
-       configured.s_addr != INADDR_ANY &&
-       (ntohl(configured.s_addr) >> 24) != 127) {
-      return snprintf(out, capacity, "%s:%d", bind, port) > 0;
-   }
-   struct sockaddr_in target = { .sin_family = AF_INET, .sin_port = htons(9) };
-   if (!client || !client->user_ip[0] ||
-       inet_pton(AF_INET, client->user_ip, &target.sin_addr) != 1)
-      return false;
-   int fd = socket(AF_INET, SOCK_DGRAM, 0);
-   if (fd < 0) return false;
-   struct sockaddr_in local = {0};
-   socklen_t length = sizeof(local);
-   bool ok = connect(fd, (struct sockaddr *)&target, sizeof(target)) == 0 &&
-             getsockname(fd, (struct sockaddr *)&local, &length) == 0;
-   close(fd);
-   if (!ok || local.sin_addr.s_addr == INADDR_ANY ||
-       (ntohl(local.sin_addr.s_addr) >> 24) == 127) return false;
-   char ip[INET_ADDRSTRLEN];
-   if (!inet_ntop(AF_INET, &local.sin_addr, ip, sizeof(ip))) return false;
-   return snprintf(out, capacity, "%s:%d", ip, port) > 0;
-}
-
-static void link_command(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) {
-      return;
-   }
-   dict *request = data ? json2dict(data) : NULL;
-
-   if (!request) {
-      return;
-   }
-   char input[512], action[16], name[384], endpoint[128], extra[2];
-   snprintf(input, sizeof(input), "%s", dict_get(request, "talk.data", ""));
-   dict_free(request);
-   int argc = sscanf(input, "%15s %383s %127s %1s", action, name, endpoint, extra);
-
-#ifdef USE_SQLITE
-   if (!strcasecmp(action, "invite")) {
-      if (argc != 2 && argc != 3) {
-         ws_send_error(client, "Usage: /link invite <joining-server-UUID> [issuer-IP:port]");
-         return;
-      }
-      /* Never disclose enrollment private keys across a plaintext admin
-       * session, even when admin authentication has succeeded. */
-      if (!client->conn || !client->conn->is_tls) {
-         ws_send_error(client, "Invitation creation requires an HTTPS/WSS admin session");
-         return;
-      }
-      if (!g_uuid_string_is_valid(name) || !strcmp(name, links.node)) {
-         ws_send_error(client, "Usage: /link invite <joining-server-UUID> [issuer-IP:port] (UUID printed on joining server)");
-         return;
-      }
-      /* Invitation endpoint identifies this issuer's reachable VPN listener.
-       * Never derive it from station.name or from a [peer] tree link. */
-      if (argc == 2 && !invite_default_endpoint(client, endpoint, sizeof(endpoint))) {
-         ws_send_error(client, "Cannot determine an HTTPS endpoint automatically; specify <issuer-IP:port>");
-         return;
-      }
-      char address[INET6_ADDRSTRLEN];
-      const char *portstr = NULL;
-      int family = AF_INET;
-      if (endpoint[0] == '[') {
-         const char *closing = strchr(endpoint, ']');
-         if (!closing || closing[1] != ':' ||
-             (size_t)(closing - endpoint - 1) >= sizeof(address)) {
-            ws_send_error(client, "Expected [IPv6]:port (or IPv4:port)");
-            return;
-         }
-         memcpy(address, endpoint + 1, (size_t)(closing - endpoint - 1));
-         address[closing - endpoint - 1] = '\0';
-         portstr = closing + 2;
-         family = AF_INET6;
-      } else {
-         const char *colon = strrchr(endpoint, ':');
-         if (!colon || (size_t)(colon - endpoint) >= sizeof(address)) {
-            ws_send_error(client, "Expected IPv4:port or [IPv6]:port");
-            return;
-         }
-         memcpy(address, endpoint, (size_t)(colon - endpoint));
-         address[colon - endpoint] = '\0';
-         portstr = colon + 1;
-      }
-      struct in6_addr parsed_ip;
-      char *port_end = NULL;
-      errno = 0;
-      long port = strtol(portstr, &port_end, 10);
-      if (inet_pton(family, address, &parsed_ip) != 1 ||
-          errno || !portstr[0] || *port_end || port < 1 || port > 65535) {
-         ws_send_error(client, "Invitation endpoint must be a literal reachable IP:port");
-         return;
-      }
-      char url[256];
-      snprintf(url, sizeof(url), "wss://%s/link", endpoint);
-      const char *cert = cfg_get("net.http.tls-cert");
-      char *spki = cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
-      sqlite3 *db = NULL;
-      const char *path = cfg_get("path.db.master");
-      if (!path || !*path) path = "/var/lib/rustyrig/db/master.db";
-      bool opened = sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK;
-      char *token = opened && spki ?
-         rr_identity_invite_issue(db, links.domain, url, spki, name, 0) : NULL;
-      if (db) sqlite3_close(db);
-      free(spki);
-      if (!token) {
-         ws_send_error(client, "Could not issue enrollment invitation; check database, TLS identity and invitation expiry");
-         return;
-      }
-      char *encoded = g_base64_encode((const guchar *)token, strlen(token));
-      ws_send_notice(client, "One-time enrollment token (base64, confidential): %s", encoded);
-      Log(LOG_AUDIT, "mesh.identity", "Administrator %s issued local cluster enrollment invitation", client->user->name);
-      g_free(encoded);
-      memset(token, 0, strlen(token));
-      g_free(token);
-      return;
-   }
-#endif
-   if (argc <= 0 || (argc == 1 && !strcasecmp(action, "list"))) {
-      for (size_t i = 0 ; i < links.peer_count ; i++) {
-         struct link_peer *peer = &links.peers[i];
-         ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site, peer->session
-            && peer->session->established ? "linked" : peer->policy_blocked ? "topology blocked" : peer->manually_closed ? "closed" : "offline", peer->
-            retry_seconds);
-      }
-
-      return;
-   }
-
-   if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
-      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite <joining-server-UUID> [issuer-IP:port]");
-
-      return;
-   }
-   struct link_peer *peer = NULL;
-
-   for (size_t i = 0 ; i < links.peer_count ; i++) {
-      struct link_peer *entry = &links.peers[i];
-      const char *shortname = !strncmp(entry->section, "peer:", 5) ? entry->section + 5 : entry->section;
-
-      if (!strcmp(name, entry->section) || !strcmp(name, shortname)) {
-         peer = entry;
-      }
-   }
-
-   if (!peer) {
-      ws_send_error(client, "Unknown stored peer");
-
-      return;
-   }
-   bool open = !strcasecmp(action, "open");
-
-   if (open && !peer->url[0]) {
-      ws_send_error(client, "Peer has no outgoing URL");
-
-      return;
-   }
-   peer->manually_closed = !open;
-
-   if (open) {
-      peer->policy_blocked = false;
-      peer->startup_override = true;
-      peer->autoconnect = true;
-      peer->retry_at = 0;
-   } else if (peer->session) {
-      fail_cause(peer->session, "administrative-close", "Closed by administrator");
-   }
-   Log(LOG_AUDIT, "link", "%s requested %s for %s", client->user->name, action, peer->section);
-   ws_send_notice(client, "Peer %s: %s requested", peer->section, action);
-}
-
 bool rrserver_links_init(struct mg_mgr *manager) {
    memset(&links, 0, sizeof(links));
-   links.manager = manager;
+   (void)manager;
    int startup_delay = cfg_get_int("links.startup-delay-seconds", 5);
 
    if (startup_delay < 0 || startup_delay > 300) {
@@ -1856,7 +1229,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       links.domain[i] = g_ascii_tolower(domain[i]);
    links.domain[domain_len] = '\0';
    /* The signing identity is local, durable, and independent of link sessions. */
-   if (!rr_identity_init("/var/lib/rustyrig/identity")) {
+   if (!rr_identity_init(config_value("path.identity", "/var/lib/rustyrig/identity"))) {
       Log(LOG_CRIT, "link", "Cannot securely load or create server Ed25519 identity");
       return false;
    }
@@ -1963,12 +1336,8 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
 
 #ifdef USE_SQLITE
-   /* Import durable, explicitly enrolled bootstrap targets. These are NOT
-    * permitted to dial until the Mongoose transport can authenticate the
-    * saved SPKI, and the link handshake can prove possession of the pinned
-    * catalog key. Keeping them in the peer table makes them visible to the
-    * operator and available to the upcoming authenticated dialer. */
-   if (masterdb) {
+   /* Import durable, explicitly enrolled issuer coordinates and trust. */
+   if (masterdb && cfg_get_bool("net.mesh-linking", true)) {
       sqlite3_stmt *stmt = NULL;
       if (sqlite3_prepare_v2(masterdb,
           "SELECT node_uuid,url,catalog_pubkey,tls_spki_sha256 "
@@ -2000,7 +1369,9 @@ bool rrserver_links_init(struct mg_mgr *manager) {
             snprintf(peer->section, sizeof(peer->section), "enrolled:%s", uuid);
             snprintf(peer->site, sizeof(peer->site), "enrolled-%s", uuid);
             snprintf(peer->node, sizeof(peer->node), "%s", uuid);
-            peer->url = strdup(url);
+            peer->url = rr_mesh_bootstrap_url(masterdb, links.domain, uuid, url);
+            snprintf(peer->spki, sizeof(peer->spki), "%s", pin);
+            peer->enrolled = true;
             peer->catalog_key = strdup(pub);
             peer->password = strdup("");
             peer->allowed_sites = strdup("");
@@ -2015,10 +1386,10 @@ bool rrserver_links_init(struct mg_mgr *manager) {
             peer->retry_seconds = cfg_get_int("links.retry-seconds", 60);
             if (peer->retry_seconds < 1 || peer->retry_seconds > 3600) peer->retry_seconds = 60;
             peer->max_depth = (unsigned)cfg_get_int("links.max-depth", 5);
-            peer->policy_blocked = true; /* Fail closed pending transport+handshake support. */
+            peer->autoconnect = true;
             ++links.peer_count;
             Log(LOG_INFO, "mesh.bootstrap",
-                "Loaded enrolled issuer %s at %s (SPKI %s); waiting for authenticated WSS bootstrap support",
+                "Loaded enrolled issuer %s from enrollment endpoint %s (SPKI %s); native WSS autoconnect enabled",
                 uuid, url, pin);
          }
          sqlite3_finalize(stmt);
@@ -2053,58 +1424,16 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
 
    if (listen && *listen) {
-      bool tls = !strncmp(listen, "https://", 8);
-
-      if (!tls) {
-         return false;
-      }
-
-      if (tls) {
-         links.cert = mg_file_read(&mg_fs_posix, config_value("links.tls-cert", ""));
-         links.key = mg_file_read(&mg_fs_posix, config_value("links.tls-key", ""));
-
-         if (!links.cert.len || !links.key.len) {
-            return false;
-         }
-      }
-      links.listener = mg_http_listen(manager, listen, link_callback, NULL);
-
-      if (!links.listener) {
-         return false;
-      }
+      Log(LOG_CRIT, "link", "links.listen is retired; configure links.native.bind/port and use the HTTPS identity certificate");
+      return false;
    }
-   if (cfg_get_bool("links.shared-listener", true)) {
-      event_on_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
-   }
+   /* Enrollment stays on HTTPS regardless of the old shared-link switch. */
+   event_on_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
 
-   if (links.peer_count || links.listener) {
+   if (links.peer_count) {
       Log(LOG_INFO, "link", "Server link node %s [%s], %zu configured peers", links.site, links.node, links.peer_count);
    }
 
-#ifdef USE_SQLITE
-   /* Enrollment records are durable but do not by themselves authenticate a
-    * live WSS link. Surface the bootstrap target rather than silently acting
-    * as though identity enrollment also established a server connection. */
-   if (masterdb) {
-      sqlite3_stmt *bootstrap = NULL;
-      if (sqlite3_prepare_v2(masterdb,
-          "SELECT node_uuid, url FROM mesh_bootstrap_peers "
-          "WHERE domain=?1 AND state='enrolled' ORDER BY rowid DESC LIMIT 1",
-          -1, &bootstrap, NULL) == SQLITE_OK) {
-         sqlite3_bind_text(bootstrap, 1, links.domain, -1, SQLITE_TRANSIENT);
-         if (sqlite3_step(bootstrap) == SQLITE_ROW) {
-            const char *uuid = (const char *)sqlite3_column_text(bootstrap, 0);
-            const char *url = (const char *)sqlite3_column_text(bootstrap, 1);
-            Log(LOG_WARN, "mesh.bootstrap",
-                "Enrolled issuer %s at %s is stored, but automatic peer authentication "
-                "is not yet implemented; no outbound link will be opened without "
-                "verified TLS peer identity and live proof of key possession",
-                uuid ? uuid : "unknown", url ? url : "unknown");
-         }
-      }
-      sqlite3_finalize(bootstrap);
-   }
-#endif
 
    event_on("link.cmd", link_command, NULL);
 
@@ -2151,8 +1480,19 @@ void rrserver_links_poll(void) {
       }
 
       if (s->established && at - s->last_ping > 10000) {
+         uint8_t pin[32];
+         bool trusted = rr_transport_peer_spki_sha256(s->transport, pin);
+         if (trusted) {
+            char *encoded = g_base64_encode(pin, sizeof(pin));
+            trusted = native_identity_trusted(s->auth.node, s->auth.public_key, encoded);
+            g_free(encoded);
+         }
+         if (!trusted) {
+            fail_cause(s, "trust-revoked", "Enrolled identity trust revoked or changed");
+            continue;
+         }
          if (!s->ping_pending) {
-            mg_ws_send(s->connection, "", 0, WEBSOCKET_OP_PING);
+            rr_mesh_wss_ping(s->transport);
             s->ping_sent = at;
             s->ping_pending = true;
          }
@@ -2163,7 +1503,7 @@ void rrserver_links_poll(void) {
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *peer = &links.peers[i];
 
-      if (!peer->peer_ca.len || !peer->catalog_key) continue;
+      if (!peer->spki[0] || !peer->catalog_key) continue;
       if ((at < links.autoconnect_after && !peer->startup_override) || peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0]
          || peer->session || at < peer->retry_at) {
          continue;
@@ -2178,12 +1518,11 @@ void rrserver_links_poll(void) {
       s->outbound = true;
       peer->session = s;
       Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] (retry interval %u s)", peer->site, peer->section, peer->retry_seconds);
-      struct mg_connection *c = mg_ws_connect(links.manager, peer->url, link_callback, s, "Sec-WebSocket-Protocol: " RR_LINK_SUBPROTOCOL "\r\n");
-
-      if (!c) {
+      s->dedicated = true;
+      s->transport = rr_mesh_wss_connect(peer->url, peer->spki, native_callback, s);
+      if (!s->transport) {
+         Log(LOG_WARN, "mesh.native", "Cannot dial %s: native transport unavailable or invalid WSS URL/pin", peer->section);
          close_session(s);
-      } else {
-         s->connection = c;
       }
    }
 }
@@ -2192,7 +1531,7 @@ void rrserver_links_fini(void) {
    links.stopping = true;
    event_off("link.cmd", link_command, NULL);
    event_off_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
-   /* Call after mg_mgr_free: CLOSE callbacks own session cleanup. */
+   /* Native driver CLOSE callbacks have already reclaimed sessions. */
    rr_link_tree_free(links.tree);
    links.tree = NULL;
    rr_mesh_free(links.mesh);
@@ -2202,12 +1541,11 @@ void rrserver_links_fini(void) {
       free(links.peers[i].url);
       free(links.peers[i].password);
       free(links.peers[i].catalog_key);
-      free((void *)links.peers[i].peer_ca.buf);
+      free(links.peers[i].allowed_sites);
+
    }
 
-   free((void *)links.cert.buf);
-   free((void *)links.key.buf);
-   free((void *)links.ca.buf);
+
 }
 #else
 void rrserver_links_cause_counts(const char *subject, char *out, size_t capacity) {

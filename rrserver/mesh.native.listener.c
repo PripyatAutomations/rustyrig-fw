@@ -1,6 +1,7 @@
-/* Dedicated development socket for the future OpenSSL/wslay mesh
- * transport. Never accept unauthenticated application data here. */
+/* Dedicated authenticated mesh WSS listener, separate from client HTTPS. */
 #include "mesh.native.listener.h"
+#include "mesh.wss.h"
+#include "link.h"
 #include "reactor.glib.h"
 #include <librustyaxe/core.h>
 #include <glib.h>
@@ -23,23 +24,28 @@ static bool native_ready(int fd, GIOCondition events, void *ctx) {
       close(fd);
       return false;
    }
-   for (;;) {
+   for (unsigned accepted = 0; accepted < 32; ++accepted) {
       int incoming = accept(fd, NULL, NULL);
       if (incoming < 0) {
-         if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+         if (errno == EAGAIN) break;
+#if EWOULDBLOCK != EAGAIN
+         if (errno == EWOULDBLOCK) break;
+#endif
          if (errno == EINTR) continue;
          Log(LOG_WARN, "mesh.native", "Native mesh accept failed: %s", g_strerror(errno));
          break;
       }
-      /* Refuse connections until the TLS/WebSocket driver is wired in.
-       * This socket must not become a plaintext fallback. */
-      close(incoming);
+      rrserver_links_native_accept(incoming);
    }
    return true;
 }
 
 bool rr_mesh_native_listener_start(void) {
-   if (!cfg_get_bool("links.native.enabled", false)) return true;
+   if (!rr_mesh_wss_init(cfg_get("net.http.tls-cert"), cfg_get("net.http.tls-key"), rrserver_links_native_pin)) {
+      Log(LOG_CRIT, "mesh.native", "Cannot initialize OpenSSL mesh transport with HTTPS identity certificate/key");
+      return false;
+   }
+   if (!cfg_get_bool("links.native.enabled", true)) return true;
    if (native_fd >= 0) return true;
    const char *bind_ip = cfg_get("links.native.bind");
    if (!bind_ip || !*bind_ip) bind_ip = "0.0.0.0";
@@ -66,14 +72,16 @@ bool rr_mesh_native_listener_start(void) {
    native_watch = rr_reactor_watch_fd(NULL, fd, G_IO_IN, native_ready, NULL);
    if (!native_watch) { close(fd); return false; }
    native_fd = fd;
-   Log(LOG_WARN, "mesh.native", "Development listener on %s:%d (TCP); TLS/WSS handshake not yet installed; connections rejected", bind_ip, port);
+   Log(LOG_INFO, "mesh.native", "Authenticated mesh WSS listener on %s:%d", bind_ip, port);
    return true;
 }
 
 void rr_mesh_native_listener_stop(void) {
+   rrserver_links_native_stopping();
    if (native_watch) {
       rr_reactor_watch_cancel(native_watch);
       native_watch = NULL;
    }
    if (native_fd >= 0) { close(native_fd); native_fd = -1; }
+   rr_mesh_wss_stop();
 }
