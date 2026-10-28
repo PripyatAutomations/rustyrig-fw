@@ -31,6 +31,40 @@ Key rotation must be explicit, signed by the previous trusted key or
 approved out-of-band. Unexpected key replacement is an identity conflict,
 not routine rediscovery.
 
+### Catalog as the domain trust authority (private CA without a CA certificate)
+
+The authenticated domain catalog is the source of expected server public keys,
+not a conventional X.509 CA. The `server UUID + domain + Ed25519 public key`
+binding is **durably pinned** after initial trust establishment. The catalog
+may distribute signed key bindings, but a previously trusted catalog relay must
+not silently replace an existing pin. Conflicting identities, rotations, or
+simultaneous duplicate UUIDs must fail closed and require an independently
+authorized rotation or administrator confirmation. Catalog records must be
+signed by their owning servers, and the catalog transport must be authenticated
+through an already pinned bootstrap peer (or independently verified by an
+administrator on first contact). Trust on first use is a documented policy
+choice, not protection from a malicious first bootstrap server.
+
+Direct peer links use `wss://`, but do **not** require a public CA:
+the outbound connector validates the presented TLS certificate or authenticated
+TLS public key against the public identity/fingerprint pinned from the catalog,
+and checks the intended destination server UUID and domain. Until that pin is
+available and trusted the connection is not permitted to carry mesh traffic.
+A self-signed certificate is acceptable only when the pinned identity is
+cryptographically bound to its TLS key: use the server's certified TLS public
+key as the catalog pin, or have the persistent Ed25519 server signing key
+explicitly sign a bounded TLS-certificate/SPKI binding including server UUID,
+domain, validity period and key purpose. Do not assume an Ed25519 catalog key
+automatically authenticates an unrelated TLS certificate. Do not simply disable
+certificate verification and call the link authenticated; use a TLS backend
+which supports explicit certificate/public-key pin validation.
+
+The bootstrap peer's own WSS identity must be pinned/configured independently
+to avoid circular trust. After verified catalog import, trust and route
+discovery may proceed; the catalog is not itself a credential granting
+unrestricted link admission, and domain membership/authorization checks still
+apply.
+
 ### Authenticated end-to-end ephemeral key exchange
 
 A relaying bootstrap peer can convey the two endpoints' signed ephemeral
