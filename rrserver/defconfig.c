@@ -219,6 +219,9 @@ defconfig_t defcfg[] = {
       "media.direct.encrypt", "false", "Encrypt RTP (requires WITH_RTP_ENCRYPTION=true)", DEFCONFIG_BOOL, NULL
    },
    {
+      "net.mesh-linking", "true", "Enable automatic authenticated mesh links; false preserves configured tree links only", DEFCONFIG_BOOL, NULL
+   },
+   {
       "links.shared-listener", "true", "Accept /link on existing client HTTP/HTTPS listeners"
    },
    {
