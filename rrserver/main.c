@@ -178,6 +178,62 @@ static void timer_tick_fn(void *arg) {
    clock_gettime(CLOCK_MONOTONIC, &mono_now);
 }
 
+static bool mesh_token_b64(const char *value, gsize expected) {
+   if (!value || strlen(value) != ((expected + 2) / 3) * 4) return false;
+   for (const unsigned char *p = (const unsigned char *)value; *p; ++p)
+      if (!(g_ascii_isalnum(*p) || *p == '+' || *p == '/' || *p == '=')) return false;
+   gsize len = 0;
+   guchar *raw = g_base64_decode(value, &len);
+   char *canonical = raw ? g_base64_encode(raw, len) : NULL;
+   bool ok = raw && len == expected && canonical && !strcmp(value, canonical);
+   g_free(canonical);
+   if (raw) { memset(raw, 0, len); g_free(raw); }
+   return ok;
+}
+
+/* Validate every token field before using any issuer-provided network data. */
+static bool mesh_invitation_valid(char *token) {
+   char *fields[9] = {0};
+   size_t n = 0;
+   char *cursor = token;
+   while (n < 9 && cursor && *cursor) {
+      fields[n++] = cursor;
+      char *end = strchr(cursor, '\n');
+      if (!end) break;
+      *end = 0;
+      cursor = end + 1;
+   }
+   if (n != 8 || !cursor || *cursor ||
+       strcmp(fields[0], "RUSTYRIG-JOIN-2") ||
+       !g_uuid_string_is_valid(fields[1]) ||
+       !g_uuid_string_is_valid(fields[3]) ||
+       !fields[2][0] || strlen(fields[2]) > 253 ||
+       !g_str_has_prefix(fields[4], "wss://") ||
+       !g_str_has_suffix(fields[4], "/link") ||
+       strlen(fields[4]) > 255 ||
+       !mesh_token_b64(fields[5], 32) ||
+       !mesh_token_b64(fields[6], 32))
+      return false;
+   for (const unsigned char *p = (const unsigned char *)fields[2]; *p; ++p)
+      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) return false;
+   for (const unsigned char *p = (const unsigned char *)fields[4]; *p; ++p)
+      if (*p < 33 || *p > 126 || *p == '@' || *p == '#' || *p == '?') return false;
+   /* Private key field is a PEM encoded as canonical base64. */
+   size_t pem64_len = strlen(fields[7]);
+   if (!pem64_len || pem64_len > 8192 || pem64_len % 4) return false;
+   for (const unsigned char *p = (const unsigned char *)fields[7]; *p; ++p)
+      if (!(g_ascii_isalnum(*p) || *p == '+' || *p == '/' || *p == '=')) return false;
+   gsize pem_len = 0;
+   guchar *pem = g_base64_decode(fields[7], &pem_len);
+   char *canonical = pem ? g_base64_encode(pem, pem_len) : NULL;
+   bool valid = pem && pem_len > 32 && pem_len < 6144 &&
+      canonical && !strcmp(canonical, fields[7]) &&
+      g_str_has_prefix((char *)pem, "-----BEGIN PRIVATE KEY-----");
+   g_free(canonical);
+   if (pem) { memset(pem, 0, pem_len); g_free(pem); }
+   return valid;
+}
+
 /* The invitation is secret; never accept it in argv or print it. */
 static int mesh_join_prepare(const char *path) {
    FILE *in = NULL;
@@ -242,14 +298,17 @@ static int mesh_join_prepare(const char *path) {
       g_free(raw);
       goto done;
    }
-   const char prefix[] = "RUSTYRIG-JOIN-2\n";
-   bool valid = decoded_len >= sizeof(prefix) - 1 &&
-                !memcmp(raw, prefix, sizeof(prefix) - 1) &&
-                !memchr(raw, 0, decoded_len);
-   /* No enrollment protocol exists on the issuer yet; do not consume
-    * credentials or report success until remote admission is implemented. */
-   if (!valid) fprintf(stderr, "\nUnsupported or malformed mesh invitation.\n");
-   else fprintf(stderr, "\nInvitation format recognized. Mesh enrollment is not yet available: issuer challenge, TLS pin verification and durable admission are required. Nothing was changed.\n");
+   /* The decoded token must have an explicit terminator before parsing. */
+   char *token = g_malloc(decoded_len + 1);
+   memcpy(token, raw, decoded_len);
+   token[decoded_len] = 0;
+   bool valid = !memchr(raw, 0, decoded_len) && mesh_invitation_valid(token);
+   if (!valid)
+      fprintf(stderr, "\nMalformed or unsupported mesh invitation.\n");
+   else
+      fprintf(stderr, "\nInvitation validated locally. Remote enrollment is not implemented; no credentials were consumed or installed.\n");
+   memset(token, 0, decoded_len + 1);
+   g_free(token);
    memset(raw, 0, decoded_len);
    g_free(raw);
 done:
