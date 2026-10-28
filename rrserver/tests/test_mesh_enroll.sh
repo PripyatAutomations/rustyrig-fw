@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-${CC:-cc} ${CFLAGS:-} -std=gnu11 -Wall -Wextra -Werror -DUSE_SQLITE \
+${CC:-cc} ${CFLAGS:-} -std=gnu11 -Wall -Wextra -Werror \
    -I. -Iinc -Ibuild/${PROFILE:-radio} $(pkg-config --cflags glib-2.0 sqlite3) \
    rrserver/tests/mesh_enroll.c rrserver/identity.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
