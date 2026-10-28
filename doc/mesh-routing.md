@@ -98,3 +98,46 @@ transport/session code). Later a constrained LTE node should be able to set
 limits on direct peers, keepalive cadence, and uplink traffic while remaining
 reachable through other authenticated nodes. A selected subset must preserve
 bootstrap reachability and avoid uncontrolled reconnection storms.
+
+## Synchronization, quorums and revision authority
+
+The health message `2/2 connected peers bidirectionally synchronized`
+means *locally observed* link health: both direct neighbors completed an
+acknowledged catalog exchange in both directions. It does **not** mean two
+of two cluster members, total domain membership, end-to-end convergence,
+or a majority consensus quorum. An offline remote owner may be unreachable,
+a relay may hold an outdated view, and a partition may form two healthy
+local components.
+
+A consensus quorum is not needed to authorize server-owned discovery:
+the owning server signs its records, and a receiver validates its
+identity and strictly monotonic content revision. Quorum/consensus would
+be relevant only if introducing *shared mutable state* or automatic
+cluster-wide decisions such as membership revocation, electing a unique
+writer, or coordinated key rotation. If that becomes necessary, report
+a separately named end-to-end convergence metric instead of conflating it
+with direct-neighbor synchronization.
+
+## Signed catalog revisions (initial implementation)
+
+With SQLite enabled, local descriptor content hashes and monotonically
+increasing `identity.revision` values persist in `mesh_catalog_revisions`
+and are signed along with each finalized descriptor. Recollecting an
+unchanged descriptor keeps the same revision, avoiding needless deltas.
+Receiving servers maintain their own domain/owner/key high-water mark:
+older revisions and equal-revision conflicting payloads fail closed;
+identical signed retransmissions are allowed. The revision state is shared
+by tree and mesh catalog code.
+
+**Deployment note:** all servers must upgrade together with strict signing
+enabled: old signed descriptors without `identity.revision` will be rejected.
+Do not clear `mesh_catalog_revisions` independently from long-lived
+signing keys; resetting a signing owner's counter risks remote peers
+rejecting legitimate new revisions.
+
+**Not complete:** signed removals do not yet carry a per-object tombstone
+revision and high-water comparison, and cache persistence of the full
+catalog remains planned. A revocation/tombstone barrier must be added before
+accepting arbitrary replayed catalog upserts in a dynamic mesh; the current
+revision guard alone does not prevent resurrection of an equal-revision
+entry that was previously deleted.
