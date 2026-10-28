@@ -9,6 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #include <rrserver/link.h>
+#include <rrserver/reactor.glib.h>
 #include <rrserver/mesh.enroll.h>
 #include <librrprotocol/crypto.h>
 #include <stddef.h>
@@ -927,7 +928,7 @@ int main(int argc, char **argv) {
       // loop so all data is ready
       mg_mgr_poll(&mg_mgr, 10);
       /* Dispatch GLib application timers without blocking Mongoose I/O. */
-      while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, FALSE);
+      rr_reactor_dispatch_ready(NULL);
       rrserver_links_poll();
 #endif
 

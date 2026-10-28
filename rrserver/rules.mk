@@ -40,6 +40,7 @@ rrserver_objs += backend.instance.o	# Allocated backend instance lifecycle
 rrserver_objs += backend.register.o	# Build-selected backend type registration
 rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig-fw)
 rrserver_objs += backend.yaesu.o	# Native FT-891 Yaesu CAT (no Hamlib dependency)
+rrserver_objs += reactor.glib.o
 rrserver_objs += bridge.hints.o
 rrserver_objs += bridge.access.o
 rrserver_objs += bridge.manager.o
