@@ -14,6 +14,7 @@
 #include "build_config.h"
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
+#include <rrserver/identity.h>
 #include <rrserver/acl.h>
 #ifdef USE_SQLITE
 #include <rrserver/database.h>
@@ -1457,6 +1458,11 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    for (size_t i = 0; i < domain_len; ++i)
       links.domain[i] = g_ascii_tolower(domain[i]);
    links.domain[domain_len] = '\0';
+   /* The signing identity is local, durable, and independent of link sessions. */
+   if (!rr_identity_init("/var/lib/rustyrig/identity")) {
+      Log(LOG_CRIT, "link", "Cannot securely load or create server Ed25519 identity");
+      return false;
+   }
    snprintf(links.site, sizeof(links.site), "%s", config_value("station.name", "rustyrig"));
    links.insecure = cfg_get_bool("links.allow-insecure", false);
    /* Discover [peer] and [peer:name] sections without duplicating config state. */
