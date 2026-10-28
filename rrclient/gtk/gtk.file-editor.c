@@ -10,6 +10,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #define __RRCLI 1
+#include <rrclient/database.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -901,7 +902,7 @@ static void on_edit_config_button(GtkButton *button, gpointer user_data) {
       char *path = g_build_filename(dir, "rrclient.cfg", NULL);
 
       if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
-         if (g_mkdir_with_parents(dir, 0700) != 0 || !cfg_save(cfg, path)) {
+         if (g_mkdir_with_parents(dir, 0700) != 0 || !rrclient_database_config_save( path)) {
             Log(LOG_WARN, "gtk.config", "Cannot initialize %s from active configuration: %s", path, strerror(errno));
             GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
                GTK_BUTTONS_CLOSE, "Unable to create %s from the active configuration.", path);
@@ -945,7 +946,7 @@ static void on_save_config_button(GtkButton *button, gpointer user_data) {
       return;
    }
 
-   if (cfg_save(cfg, save_path)) {
+   if (rrclient_database_config_save( save_path)) {
       Log(LOG_INFO, "gtk.config", "Configuration saved to %s", save_path);
    }
 }
