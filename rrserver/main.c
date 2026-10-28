@@ -303,11 +303,11 @@ static int mesh_join_prepare(const char *path) {
          hidden.c_cc[VTIME] = 0;
          terminal_restored_needed = tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden) == 0;
       }
-      if (!echo_disabled) {
+      if (!terminal_restored_needed) {
          fprintf(stderr, "Cannot disable terminal echo; refusing to read secret.\n");
          return rc;
       }
-      fprintf(stderr, "Paste base64 mesh invitation token, then press Enter: ");
+      fprintf(stderr, "Paste base64 mesh invitation token, then press Enter (input hidden; progress shown): ");
       fflush(stderr);
    } else {
       in = fopen(path, "rb");
