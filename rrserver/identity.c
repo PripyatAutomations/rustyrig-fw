@@ -389,6 +389,13 @@ static bool invite_schema(sqlite3 *db) {
       "joined_uuid TEXT, joined_catalog_key TEXT, joined_tls_spki TEXT,"
       "consumed_at INTEGER)", NULL,NULL,NULL)==SQLITE_OK;
 }
+/* Bind new invitations to exactly one predeclared joining UUID.  Store the
+ * restriction separately for compatibility with existing invitation tables. */
+static bool invite_target_schema(sqlite3 *db) {
+   return db && sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_join_invitation_targets ("
+      "ticket_id TEXT PRIMARY KEY, joining_uuid TEXT NOT NULL)", NULL,NULL,NULL)==SQLITE_OK;
+}
 bool rr_identity_invite_create(sqlite3 *db, const char *id, const char *domain,
                                 const char *pub, long long expires) {
    /* expires=0 selects the configured default; positive values are
@@ -423,8 +430,9 @@ bool rr_identity_invite_create(sqlite3 *db, const char *id, const char *domain,
  * ambiguities. The bootstrap SPKI must come from the issuer's own cert. */
 char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
    const char *bootstrap_wss_url, const char *issuer_tls_spki_b64,
-   long long expires_unix) {
-   if (!db || !domain || !*domain || !bootstrap_wss_url ||
+   const char *joining_uuid, long long expires_unix) {
+   if (!db || !domain || !*domain || !g_uuid_string_is_valid(joining_uuid) ||
+       !invite_target_schema(db) || !bootstrap_wss_url ||
        strncmp(bootstrap_wss_url, "wss://", 6) ||
        strchr(bootstrap_wss_url, '\n') || strchr(bootstrap_wss_url, '\r') ||
        !trust_key_valid(issuer_tls_spki_b64, 32))
@@ -448,9 +456,19 @@ char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
       const char *issuer_pub = rr_identity_public_base64();
       if (id && pub64 && pem64 && issuer_pub &&
           rr_identity_invite_create(db, id, domain, pub64, expires_unix)) {
-         token = g_strdup_printf("RUSTYRIG-JOIN-1\n%s\n%s\n%s\n%s\n%s\n%s\n",
-             id, domain, bootstrap_wss_url, issuer_tls_spki_b64,
-             issuer_pub, pem64);
+         sqlite3_stmt *target = NULL;
+         if (sqlite3_prepare_v2(db,
+              "INSERT INTO mesh_join_invitation_targets(ticket_id,joining_uuid)"
+              " VALUES(?1,?2)", -1, &target, NULL)==SQLITE_OK) {
+            sqlite3_bind_text(target,1,id,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_text(target,2,joining_uuid,-1,SQLITE_TRANSIENT);
+            if (sqlite3_step(target)==SQLITE_DONE)
+               token = g_strdup_printf("RUSTYRIG-JOIN-2\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+                 id, domain, joining_uuid, bootstrap_wss_url, issuer_tls_spki_b64,
+                 issuer_pub, pem64);
+         }
+         sqlite3_finalize(target);
+         if (!token) rr_identity_invite_revoke(db,id);
       }
       g_free(id);
       g_free(pub64);
@@ -514,7 +532,7 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain,
                                 const char *node, const char *catalog, const char *spki) {
    if(!id || !domain || !*domain || !node || !g_uuid_string_is_valid(node) ||
       !trust_key_valid(catalog,32) || !trust_key_valid(spki,32) ||
-      !invite_schema(db)) return false;
+      !invite_schema(db) || !invite_target_schema(db)) return false;
    /* Caller MUST authenticate possession of the invitation private key,
     * prove the permanent node identity, and verify its TLS binding BEFORE
     * calling this transition. This API only commits a checked admission. */
@@ -522,7 +540,9 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain,
    if(sqlite3_prepare_v2(db,"UPDATE mesh_join_invitations SET status='used',"
        " joined_uuid=?3,joined_catalog_key=?4,joined_tls_spki=?5,"
        " consumed_at=unixepoch() WHERE ticket_id=?1 AND domain=?2"
-       " AND status='pending' AND expires_at>unixepoch()", -1,&s,NULL)!=SQLITE_OK)
+       " AND status='pending' AND expires_at>unixepoch()"
+       " AND EXISTS (SELECT 1 FROM mesh_join_invitation_targets t"
+       " WHERE t.ticket_id=?1 AND t.joining_uuid=?3)", -1,&s,NULL)!=SQLITE_OK)
       return false;
    sqlite3_bind_text(s,1,id,-1,SQLITE_TRANSIENT);
    sqlite3_bind_text(s,2,domain,-1,SQLITE_TRANSIENT);
