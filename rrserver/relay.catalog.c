@@ -673,6 +673,14 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
 #endif
 #ifdef USE_SQLITE
    if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) &&
+       !dict_get(copy, "identity.revision", NULL)) {
+      Log(LOG_WARN, "mesh.identity",
+          "Rejected signed catalog entry %s from %s: peer did not supply identity.revision; upgrade all servers to the revision-aware protocol",
+          key, owner);
+      dict_free(copy);
+      return catalog_reject(reason, RR_CAT_IDENTITY);
+   }
+   if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) &&
        !rr_identity_accept_revision(masterdb, cfg_get("domain"), owner, key, copy)) {
       Log(LOG_WARN, "mesh.identity", "Rejected stale or conflicting signed catalog revision for %s owned by %s (revision=%s)",
          key, owner, dict_get(copy, "identity.revision", ""));
