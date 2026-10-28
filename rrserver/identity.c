@@ -3,9 +3,7 @@
 #ifdef USE_SQLITE
 #include <sqlite3.h>
 #endif
-#include <openssl/evp.h>
-#include <openssl/pem.h>
-#include <openssl/rand.h>
+#include <librrprotocol/crypto.h>
 #include <glib.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -15,7 +13,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static EVP_PKEY *identity;
+static rr_crypto_key_t *identity;
 static char *public_key;
 
 static gint compare_strings(gconstpointer a, gconstpointer b) {
@@ -51,11 +49,10 @@ static GByteArray *canonical(dict *d) {
    return bytes;
 }
 
-static char *pub_b64(EVP_PKEY *key) {
+static char *pub_b64(const rr_crypto_key_t *key) {
    unsigned char raw[32];
-   size_t len = sizeof(raw);
-   if (!key || EVP_PKEY_get_raw_public_key(key, raw, &len) != 1 || len != 32) return NULL;
-   return g_base64_encode(raw, len);
+   if (!rr_crypto_ed25519_public_bytes(key, raw)) return NULL;
+   return g_base64_encode(raw, sizeof(raw));
 }
 
 const char *rr_identity_public_base64(void) { return public_key; }
@@ -78,20 +75,18 @@ bool rr_identity_init(const char *directory) {
       int fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
       FILE *in = fd >= 0 ? fdopen(fd, "r") : NULL;
       if (in) {
-         identity = PEM_read_PrivateKey(in, NULL, NULL, NULL);
+         identity = rr_crypto_key_read_pem(in);
          fclose(in);
       } else if (fd >= 0) close(fd);
    } else {
-      EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
-      EVP_PKEY *generated = NULL;
-      if (ctx && EVP_PKEY_keygen_init(ctx) == 1 && EVP_PKEY_keygen(ctx, &generated) == 1) {
+      rr_crypto_key_t *generated = rr_crypto_ed25519_generate();
+      if (generated) {
          char *tmp = g_strdup_printf("%s.tmp.%ld", path, (long)getpid());
          int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
          FILE *out = fd >= 0 ? fdopen(fd, "w") : NULL;
-         bool ok = out && PEM_write_PrivateKey(out, generated, NULL, NULL, 0, NULL, NULL) == 1 &&
+         bool ok = out && rr_crypto_key_write_pem_stream(generated, out) &&
             fflush(out) == 0 && fsync(fileno(out)) == 0;
          if (out) { if (fclose(out)) ok = false; } else if (fd >= 0) close(fd);
-         /* Never overwrite an identity installed by another instance. */
          if (ok && link(tmp, path) == 0) {
             int dfd = open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
             if (dfd >= 0) { if (fsync(dfd)) ok = false; close(dfd); }
@@ -100,11 +95,10 @@ bool rr_identity_init(const char *directory) {
          unlink(tmp);
          g_free(tmp);
       }
-      if (generated && identity != generated) EVP_PKEY_free(generated);
-      EVP_PKEY_CTX_free(ctx);
+      if (generated && identity != generated) rr_crypto_key_free(generated);
    }
    g_free(path);
-   if (!identity || EVP_PKEY_id(identity) != EVP_PKEY_ED25519 ||
+   if (!identity ||
        !(public_key = pub_b64(identity))) {
       rr_identity_fini();
       return false;
@@ -113,24 +107,20 @@ bool rr_identity_init(const char *directory) {
 }
 
 void rr_identity_fini(void) {
-   EVP_PKEY_free(identity); identity = NULL;
+   rr_crypto_key_free(identity); identity = NULL;
    g_free(public_key); public_key = NULL;
 }
 
 bool rr_identity_sign_catalog(dict *d) {
    if (!identity || !d || !public_key) return false;
    GByteArray *bytes = canonical(d);
-   EVP_MD_CTX *ctx = EVP_MD_CTX_new();
    unsigned char signature[64];
-   size_t length = sizeof(signature);
-   bool ok = ctx && EVP_DigestSignInit(ctx, NULL, NULL, NULL, identity) == 1 &&
-      EVP_DigestSign(ctx, signature, &length, bytes->data, bytes->len) == 1;
+   bool ok = rr_crypto_ed25519_sign(identity, bytes->data, bytes->len, signature);
    if (ok) {
-      char *encoded = g_base64_encode(signature, length);
+      char *encoded = g_base64_encode(signature, sizeof(signature));
       dict_add(d, "identity.signature", encoded);
       g_free(encoded);
    }
-   EVP_MD_CTX_free(ctx);
    g_byte_array_free(bytes, TRUE);
    return ok;
 }
@@ -146,14 +136,11 @@ bool rr_identity_verify_catalog(dict *d) {
    guchar *sig_bytes = g_base64_decode(encoded_sig, &sig_len);
    bool ok = false;
    if (key_len == 32 && sig_len == 64) {
-      EVP_PKEY *key = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, key_bytes, key_len);
+      rr_crypto_key_t *key = rr_crypto_ed25519_public(key_bytes, key_len);
       GByteArray *bytes = canonical(d);
-      EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-      ok = key && ctx && EVP_DigestVerifyInit(ctx, NULL, NULL, NULL, key) == 1 &&
-         EVP_DigestVerify(ctx, sig_bytes, sig_len, bytes->data, bytes->len) == 1;
-      EVP_MD_CTX_free(ctx);
+      ok = key && rr_crypto_ed25519_verify(key, bytes->data, bytes->len, sig_bytes);
       g_byte_array_free(bytes, TRUE);
-      EVP_PKEY_free(key);
+      rr_crypto_key_free(key);
    }
    g_free(key_bytes);
    g_free(sig_bytes);
