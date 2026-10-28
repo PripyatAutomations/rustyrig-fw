@@ -102,6 +102,7 @@ enum rr_catalog_reject {
 };
 bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_reject *reason);
 bool rr_relay_catalog_put(const char *owner, dict *d);
+void rr_relay_strip_catalog_identity(dict *d);
 void rr_relay_collect_local(void);
 void rr_relay_send_catalogs(const char *dest);
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, unsigned int received, unsigned int accepted, unsigned int rejected);
