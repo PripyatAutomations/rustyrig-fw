@@ -1992,8 +1992,16 @@ char *rrserver_relay_rooms(const char *local) {
    return g_string_free(s, false);
 }
 
+/* Visibility is part of the signed catalog descriptor. Unknown values fail
+ * closed for clients; all values remain available to authenticated servers. */
+static bool catalog_client_visible(const dict *descriptor) {
+   const char *visibility = dict_get((dict *)descriptor, "catalog.visibility", "clients");
+   return !strcmp(visibility, "clients");
+}
+
 /* Send one catalog entry in the requested inventory format. */
 static void inventory_entry(rrconn_t *client, const char *request, struct catalog *c, unsigned depth, const char *kind) {
+   if (!catalog_client_visible(c->descriptor)) return;
    const char *room = dict_get(c->descriptor, "catalog.room", dict_get(c->descriptor, "object.room", ""));
    const char *name = dict_get(c->descriptor, "object.alias", room);
    dict *d = rr_inventory_row(request, depth, kind, name, dict_get(c->descriptor, "object.uuid", NULL));
@@ -2179,7 +2187,7 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
    inventory_directory_users(client, request, rrserver_links_node(), 1);
 
    for (struct catalog *site = rr_relay_catalogs ; site ; site = site->next) {
-      if (rr_relay_local_owner(site->owner) || strcmp(dict_get(site->descriptor, "object.type", ""), "node")) {
+      if (!catalog_client_visible(site->descriptor) || rr_relay_local_owner(site->owner) || strcmp(dict_get(site->descriptor, "object.type", ""), "node")) {
          continue;
       }
       inventory_entry(client, request, site, 0, "site");
@@ -2187,13 +2195,13 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
       inventory_services(client, request, site->owner, dict_get(site->descriptor, "object.uuid", ""), 1);
 
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
-         if (!strcmp(c->owner, site->owner) && dict_get(c->descriptor, "catalog.room", NULL) && !dict_get(c->descriptor, "catalog.rig", NULL)) {
+         if (catalog_client_visible(c->descriptor) && !strcmp(c->owner, site->owner) && dict_get(c->descriptor, "catalog.room", NULL) && !dict_get(c->descriptor, "catalog.rig", NULL)) {
             inventory_entry(client, request, c, 1, "room");
          }
       }
 
       for (struct catalog *radio = rr_relay_catalogs ; radio ; radio = radio->next) {
-         if (strcmp(radio->owner, site->owner) || strcmp(dict_get(radio->descriptor, "object.type", ""), "rig")) {
+         if (!catalog_client_visible(radio->descriptor) || strcmp(radio->owner, site->owner) || strcmp(dict_get(radio->descriptor, "object.type", ""), "rig")) {
             continue;
          }
          inventory_entry(client, request, radio, 1, "rig");
@@ -2201,14 +2209,14 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
          inventory_services(client, request, site->owner, id, 2);
 
          for (struct catalog *menu = rr_relay_catalogs ; menu ; menu = menu->next) {
-            if (!strcmp(menu->owner, site->owner) &&
+            if (catalog_client_visible(menu->descriptor) && !strcmp(menu->owner, site->owner) &&
                !strcmp(dict_get(menu->descriptor, "catalog.parent", ""), id) && !strcmp(dict_get(menu->descriptor, "inventory.kind", ""), "rig-menu")) {
                inventory_services(client, request, site->owner, dict_get(menu->descriptor, "catalog.service", ""), 3);
             }
          }
 
          for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
-            if (strcmp(c->owner, site->owner)) {
+            if (!catalog_client_visible(c->descriptor) || strcmp(c->owner, site->owner)) {
                continue;
             }
 
@@ -2232,7 +2240,7 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
 
    for (unsigned i = 0 ; i < 3 ; i++) {
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
-         if (rr_relay_local_owner(c->owner) || strcmp(dict_get(c->descriptor, "object.type", ""), types[i])) {
+         if (!catalog_client_visible(c->descriptor) || rr_relay_local_owner(c->owner) || strcmp(dict_get(c->descriptor, "object.type", ""), types[i])) {
             continue;
          }
          dict *d = dict_clone(c->descriptor);
