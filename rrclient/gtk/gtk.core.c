@@ -1560,36 +1560,60 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Export", 3);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock / Unlock", 4);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Delete", 5);
-   char *path = gtk_identity_path();
+   char *path = NULL;
+   char *selected_path = NULL;
+   char *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
    for (;;) {
-      struct stat st;
-      bool exists = !lstat(path, &st);
-      bool safe = exists && S_ISREG(st.st_mode) && st.st_uid == geteuid() &&
-                  !(st.st_mode & 0077);
-      if (!safe) identity_lock();
       GList *rows = gtk_container_get_children(GTK_CONTAINER(list));
       for (GList *item = rows; item; item = item->next)
          gtk_widget_destroy(GTK_WIDGET(item->data));
       g_list_free(rows);
-      if (exists) {
-         GtkWidget *row = gtk_list_box_row_new();
-         GtkWidget *label = gtk_label_new("Default Client Identity   ·   Ed25519");
-         gtk_widget_set_margin_start(label, 12);
-         gtk_widget_set_margin_top(label, 10);
-         gtk_widget_set_margin_bottom(label, 10);
-         gtk_label_set_xalign(GTK_LABEL(label), 0);
-         gtk_container_add(GTK_CONTAINER(row), label);
-         gtk_container_add(GTK_CONTAINER(list), row);
-         gtk_list_box_select_row(GTK_LIST_BOX(list), GTK_LIST_BOX_ROW(row));
+      GDir *directory = g_dir_open(dir, 0, NULL);
+      const char *filename;
+      GtkListBoxRow *preferred = NULL;
+      unsigned count = 0;
+      if (directory) {
+         while ((filename = g_dir_read_name(directory))) {
+            if (!g_str_has_suffix(filename, ".pem")) continue;
+            char *candidate = g_build_filename(dir, filename, NULL);
+            struct stat st;
+            if (lstat(candidate, &st) || !S_ISREG(st.st_mode) ||
+                st.st_uid != geteuid() || (st.st_mode & 0077)) {
+               g_free(candidate);
+               continue;
+            }
+            GtkWidget *row = gtk_list_box_row_new();
+            char *display = !strcmp(filename, "client-ed25519.pem") ?
+               g_strdup("Default Client Identity") :
+               g_strndup(filename, strlen(filename) - 4);
+            GtkWidget *label = gtk_label_new(display);
+            gtk_label_set_xalign(GTK_LABEL(label), 0);
+            gtk_widget_set_margin_start(label, 12);
+            gtk_widget_set_margin_top(label, 8);
+            gtk_widget_set_margin_bottom(label, 8);
+            gtk_container_add(GTK_CONTAINER(row), label);
+            g_object_set_data_full(G_OBJECT(row), "identity-path", candidate, g_free);
+            gtk_container_add(GTK_CONTAINER(list), row);
+            if (selected_path && !strcmp(selected_path, candidate))
+               preferred = GTK_LIST_BOX_ROW(row);
+            if (!selected_path && count == 0) preferred = GTK_LIST_BOX_ROW(row);
+            count++;
+            g_free(display);
+         }
+         g_dir_close(directory);
       }
-
-      gtk_label_set_text(GTK_LABEL(status),
-         !exists ? "No local client identity. Create or import an Ed25519 key." :
-         !safe ? "Unsafe private-key file permissions or ownership." :
-         identity_unlocked_key ? "Client Ed25519 identity — Unlocked" :
-                                 "Client Ed25519 identity — Locked");
+      if (preferred) gtk_list_box_select_row(GTK_LIST_BOX(list), preferred);
+      gtk_label_set_text(GTK_LABEL(status), count ?
+         "Select a key to export, lock/unlock, or delete." :
+         "No identities yet. Create or import an Ed25519 key.");
       gtk_widget_show_all(dlg);
       int response = gtk_dialog_run(GTK_DIALOG(dlg));
+      GtkListBoxRow *selected = gtk_list_box_get_selected_row(GTK_LIST_BOX(list));
+      g_free(selected_path);
+      selected_path = selected ? g_strdup(g_object_get_data(G_OBJECT(selected), "identity-path")) : NULL;
+      g_free(path);
+      path = selected_path ? g_strdup(selected_path) : NULL;
+      bool safe = path != NULL;
       if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) break;
       /* Only the selected row is a target for key operations. */
       if ((response == 3 || response == 4 || response == 5) &&
@@ -1605,15 +1629,13 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
             "Delete this private key? Servers registered to it will no longer recognize this device. Export a backup first.");
          bool yes = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_YES;
          gtk_widget_destroy(confirm);
-         if (yes && unlink(path) == 0) identity_lock();
+         if (yes && unlink(path) == 0) {
+            identity_lock();
+            g_clear_pointer(&selected_path, g_free);
+         }
          continue;
       }
       if (response == 1 || response == 2) {
-         if (exists) {
-            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_WARNING,
-               "An identity already exists. Export and delete it before replacing.");
-            continue;
-         }
          rr_crypto_key_t *key = NULL;
          if (response == 1) key = rr_crypto_ed25519_generate();
          else {
@@ -1627,7 +1649,18 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
             }
             gtk_widget_destroy(chooser);
          }
-         if (!key || !gtk_identity_save_new(key, path))
+         char *uuid = g_uuid_string_random();
+         char *basename = g_strdup_printf("identity-%s.pem", uuid);
+         char *new_path = g_build_filename(dir, basename, NULL);
+         bool stored = key && gtk_identity_save_new(key, new_path);
+         if (stored) {
+            g_free(selected_path);
+            selected_path = g_strdup(new_path);
+         }
+         g_free(new_path);
+         g_free(basename);
+         g_free(uuid);
+         if (!stored)
             identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR,
                              "Unable to create or import the private key.");
          rr_crypto_key_free(key);
@@ -1675,6 +1708,8 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    }
    gtk_widget_destroy(dlg);
    g_free(path);
+   g_free(selected_path);
+   g_free(dir);
 }
 static void gtk_identity_first_run(void) {
    char *path = gtk_identity_path();
