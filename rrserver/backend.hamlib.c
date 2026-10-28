@@ -502,7 +502,7 @@ static bool hl_connect(rr_backend_t *backend) {
       return false;
    }
    rig_set_conf(data->rig, rig_token_lookup(data->rig, "rig_pathname"), data->device);
-   /* PARITY: doc/rrserver.cfg.example hamlib.* keys. The speed token is ignored by network/rigctld backends and applies to serial devices. */
+   /* PARITY: config/rrserver.rigs.cfg and rrserver/defconfig.c hamlib.* keys. The speed token is ignored by network/rigctld backends and applies to serial devices. */
    rig_set_conf(data->rig, rig_token_lookup(data->rig, "serial_speed"), serial_speed);
 
    char timeout[24];
