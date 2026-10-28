@@ -1572,10 +1572,37 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       const char *cert = cfg_get("net.http.tls-cert");
       const char *key = cfg_get("net.http.tls-key");
       const char *name = cfg_get("station.name");
-      if (!cert || !*cert || !key || !*key ||
-          !rr_crypto_tls_identity_ensure(cert, key, name)) {
+      /* station.name is a UI label, not necessarily a legal DNS SAN.
+       * Provision with a stable DNS-safe fallback instead of failing startup. */
+      bool valid_dns = name && *name && strlen(name) <= 253;
+      for (const unsigned char *p = (const unsigned char *)(name ? name : "");
+           valid_dns && *p; ++p)
+         if (!g_ascii_isalnum(*p) && *p != '.' && *p != '-')
+            valid_dns = false;
+      char fallback_name[64];
+      snprintf(fallback_name, sizeof(fallback_name), "node-%s", links.node);
+      if (!valid_dns) {
+         Log(LOG_WARN, "mesh.identity",
+             "station.name is not a DNS hostname; using %s for generated TLS certificate SAN", fallback_name);
+         name = fallback_name;
+      }
+      if (!cert || !*cert || !key || !*key) {
          Log(LOG_CRIT, "mesh.identity",
-             "Unable to load or provision TLS certificate/key; check configured paths, permissions and station.name");
+             "TLS identity paths not configured: cert=%s key=%s",
+             cert ? cert : "(unset)", key ? key : "(unset)");
+         return false;
+      }
+      if (!rr_crypto_tls_identity_ensure(cert, key, name)) {
+         struct stat cert_st, key_st;
+         bool cert_exists = lstat(cert, &cert_st) == 0;
+         int cert_errno = errno;
+         bool key_exists = lstat(key, &key_st) == 0;
+         int key_errno = errno;
+         Log(LOG_CRIT, "mesh.identity",
+             "TLS identity provisioning failed: cert=%s (%s), key=%s (%s), SAN=%s; "
+             "check directory ownership, existing partial/mismatched pair and key mode 0600",
+             cert, cert_exists ? "exists" : g_strerror(cert_errno),
+             key, key_exists ? "exists" : g_strerror(key_errno), name);
          return false;
       }
       char *spki = rr_crypto_cert_spki_sha256(cert);
