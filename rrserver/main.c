@@ -152,6 +152,20 @@ void restart_rig(void) {
    exit(EXIT_FAILURE);
 }
 
+/* GLib owns application timers; transport drivers may use their own
+ * poller while migration is underway. All callbacks run on the main thread. */
+static gboolean rr_timer_clock_cb(gpointer data) {
+   timer_clock_tick_fn(data);
+   return G_SOURCE_CONTINUE;
+}
+static gboolean rr_timer_profile_cb(gpointer data) {
+   timer_profile_dump_fn(data);
+   return G_SOURCE_CONTINUE;
+}
+static gboolean rr_timer_faults_cb(gpointer data);
+static gboolean rr_timer_backend_cb(gpointer data);
+static gboolean rr_timer_tick_cb(gpointer data);
+
 static void timer_check_faults_fn(void *arg) {
    if (check_faults()) {
       Log(LOG_CRIT, "core", "Fault detected, see log above. Rig halted!");
@@ -177,6 +191,19 @@ static void timer_backend_poll_fn(void *arg) {
 // See cfg:core.tick-interval
 static void timer_tick_fn(void *arg) {
    clock_gettime(CLOCK_MONOTONIC, &mono_now);
+}
+
+static gboolean rr_timer_faults_cb(gpointer data) {
+   timer_check_faults_fn(data);
+   return G_SOURCE_CONTINUE;
+}
+static gboolean rr_timer_backend_cb(gpointer data) {
+   timer_backend_poll_fn(data);
+   return G_SOURCE_CONTINUE;
+}
+static gboolean rr_timer_tick_cb(gpointer data) {
+   timer_tick_fn(data);
+   return G_SOURCE_CONTINUE;
 }
 
 static bool mesh_token_b64(const char *value, gsize expected) {
@@ -832,21 +859,21 @@ int main(int argc, char **argv) {
    http_init(&mg_mgr);
 #endif // USE_HTTP
    // Update the clock (now) once a second
-   mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick_fn, &mg_mgr);
+   g_timeout_add(1000, rr_timer_clock_cb, &mg_mgr);
 
 // Refresh statistics every five minutes, including non-profiling builds.
 // Handler/codec timing dumps remain guarded by USE_PROFILING.
-   mg_timer_add(&mg_mgr, 300000, MG_TIMER_REPEAT, timer_profile_dump_fn, &mg_mgr);
+   g_timeout_add(300000, rr_timer_profile_cb, &mg_mgr);
 
    // Update the clock (now) once a second
    // Check for faults/protection every 150ms
-   mg_timer_add(&mg_mgr, 150, MG_TIMER_REPEAT, timer_check_faults_fn, &mg_mgr);
+   g_timeout_add(150, rr_timer_faults_cb, &mg_mgr);
 
    // rig polling
-   mg_timer_add(&mg_mgr, cfg_backend_poll_interval, MG_TIMER_REPEAT, timer_backend_poll_fn, &mg_mgr);
+   g_timeout_add(MAX(1, cfg_backend_poll_interval), rr_timer_backend_cb, &mg_mgr);
 
    // 'precise' timekeeping
-   mg_timer_add(&mg_mgr, cfg_tick_interval, MG_TIMER_REPEAT, timer_tick_fn, &mg_mgr);
+   g_timeout_add(MAX(1, cfg_tick_interval), rr_timer_tick_cb, &mg_mgr);
 
 #endif // USE_MONGOOSE
 
@@ -899,6 +926,8 @@ int main(int argc, char **argv) {
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
       mg_mgr_poll(&mg_mgr, 10);
+      /* Dispatch GLib application timers without blocking Mongoose I/O. */
+      while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, FALSE);
       rrserver_links_poll();
 #endif
 
