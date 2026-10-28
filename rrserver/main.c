@@ -307,7 +307,7 @@ static int mesh_join_prepare(const char *path) {
          fprintf(stderr, "Cannot disable terminal echo; refusing to read secret.\n");
          return rc;
       }
-      fprintf(stderr, "Paste base64 mesh invitation token, then press Enter (input hidden; progress shown): ");
+      fprintf(stderr, "Paste base64 mesh invitation token, then press Enter (visible on screen): ");
       fflush(stderr);
    } else {
       in = fopen(path, "rb");
@@ -322,8 +322,8 @@ static int mesh_join_prepare(const char *path) {
    if (!encoded) goto done;
    int ch;
    if (interactive) {
-      /* Canonical TTY input can silently discard oversized pasted lines.
-       * Noncanonical reads accept the entire token while ECHO remains off. */
+      /* Read beyond the canonical TTY line limit; echo explicitly so the operator
+       * can see the paste without terminal-generated control characters. */
       while (true) {
          unsigned char byte;
          ssize_t n = read(STDIN_FILENO, &byte, 1);
@@ -333,8 +333,14 @@ static int mesh_join_prepare(const char *path) {
             goto done;
          }
          if (byte == '\r' || byte == '\n') break;
+         if (byte < 32 || byte == 127) {
+            if (byte != 127 && byte != 8) continue;
+         }
          if (byte == 127 || byte == 8) {
-            if (len) --len;
+            if (len) {
+               --len;
+               (void)write(STDERR_FILENO, "\b \b", 3);
+            }
             continue;
          }
          if (len >= 16384) {
@@ -342,10 +348,7 @@ static int mesh_join_prepare(const char *path) {
             goto done;
          }
          encoded[len++] = (char)byte;
-         if (len % 128 == 0) {
-            fprintf(stderr, "\rReceived %zu characters (hidden); press Enter to submit... ", len);
-            fflush(stderr);
-         }
+         (void)write(STDERR_FILENO, &byte, 1);
       }
       fprintf(stderr, "\nReceived %zu invitation characters. Validating...\n", len);
    } else {
