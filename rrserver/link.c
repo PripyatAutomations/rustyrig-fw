@@ -92,6 +92,7 @@ static struct {
 
 static void link_callback(struct mg_connection *c, int event, void *data);
 static void send_snapshot(struct link_session *session);
+static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm);
 
 static const char *config_value(const char *key, const char *fallback) {
    const char *value = cfg_get(key);
@@ -1223,6 +1224,10 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
       mg_tls_init(c, &options);
    } else if (event == MG_EV_HTTP_MSG) {
       struct mg_http_message *hm = data;
+      if (mesh_enroll_http(c, hm)) {
+         c->is_draining = 1;
+         return;
+      }
       struct mg_str *protocol = mg_http_get_header(hm, "Sec-WebSocket-Protocol");
 
       if (mg_match(hm->uri, mg_str("/link"), NULL) && protocol && !mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
@@ -1430,30 +1435,23 @@ static bool load_peer(const char *section) {
    return true;
 }
 
-/* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
-static void shared_link_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   if (length != sizeof(rr_server_http_t)) {
-      return;
-   }
-   rr_server_http_t *request = (rr_server_http_t *) data;
-
-   if (!request->request) return;
+/* Both dedicated WSS and shared HTTPS listeners accept one-shot enrollment.
+ * Never attach pre-enrollment requests to an authenticated server link. */
+static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm) {
 #ifdef USE_SQLITE
-   if (mg_strcmp(request->request->uri, mg_str("/mesh/enroll/challenge")) == 0) {
-      request->handled = true;
-      struct mg_connection *connection = request->connection;
+   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) == 0) {
       if (!connection->is_tls ||
-          mg_strcmp(request->request->method, mg_str("POST"))) {
+          mg_strcmp(hm->method, mg_str("POST"))) {
          mg_http_reply(connection, 403, "", "TLS POST required\\n");
-         return;
+         return true;
       }
       char ticket[48], domain[256], node[48];
-      if (mg_http_get_var(&request->request->body, "ticket", ticket, sizeof(ticket)) <= 0 ||
-          mg_http_get_var(&request->request->body, "domain", domain, sizeof(domain)) <= 0 ||
-          mg_http_get_var(&request->request->body, "node", node, sizeof(node)) <= 0 ||
+      if (mg_http_get_var(&hm->body, "ticket", ticket, sizeof(ticket)) <= 0 ||
+          mg_http_get_var(&hm->body, "domain", domain, sizeof(domain)) <= 0 ||
+          mg_http_get_var(&hm->body, "node", node, sizeof(node)) <= 0 ||
           strcmp(domain, links.domain)) {
          mg_http_reply(connection, 400, "", "Invalid challenge request\\n");
-         return;
+         return true;
       }
       const char *db_path = cfg_get("path.db.master");
       if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
@@ -1464,7 +1462,7 @@ static void shared_link_request(const char *event, const void *data, size_t leng
       if (db) sqlite3_close(db);
       if (!nonce) {
          mg_http_reply(connection, 403, "", "Invitation invalid or expired\\n");
-         return;
+         return true;
       }
       const char *cert_path = cfg_get("net.http.tls-cert");
       char *issuer_spki = cert_path ? rr_crypto_cert_spki_sha256(cert_path) : NULL;
@@ -1474,27 +1472,25 @@ static void shared_link_request(const char *event, const void *data, size_t leng
       if (!issuer_sig) {
          mg_http_reply(connection, 500, "", "Issuer signing identity unavailable\\n");
          g_free(nonce);
-         return;
+         return true;
       }
       mg_http_reply(connection, 200, "Content-Type: text/plain\\r\\nCache-Control: no-store\\r\\n",
                     "%s\\n%s\\n%s\\n", nonce, links.node, issuer_sig);
       g_free(issuer_sig);
       g_free(nonce);
-      return;
+      return true;
    }
 #endif
 #ifdef USE_SQLITE
-   if (mg_strcmp(request->request->uri, mg_str("/mesh/enroll/redeem")) == 0) {
-      request->handled = true;
-      struct mg_connection *connection = request->connection;
+   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) == 0) {
       if (!connection->is_tls ||
-          mg_strcmp(request->request->method, mg_str("POST"))) {
+          mg_strcmp(hm->method, mg_str("POST"))) {
          mg_http_reply(connection, 403, "", "TLS POST required\\n");
-         return;
+         return true;
       }
       char ticket[48], domain[256], node[48], challenge[48], catalog[48],
            spki[48], binding[92], proof[92];
-      struct mg_str *body = &request->request->body;
+      struct mg_str *body = &hm->body;
       if (mg_http_get_var(body, "ticket", ticket, sizeof(ticket)) <= 0 ||
           mg_http_get_var(body, "domain", domain, sizeof(domain)) <= 0 ||
           mg_http_get_var(body, "node", node, sizeof(node)) <= 0 ||
@@ -1509,7 +1505,7 @@ static void shared_link_request(const char *event, const void *data, size_t leng
           strlen(spki) != 44 || strlen(binding) != 88 ||
           strlen(proof) != 88) {
          mg_http_reply(connection, 400, "", "Invalid redemption request\\n");
-         return;
+         return true;
       }
       gsize keylen = 0, bindlen = 0, prooflen = 0;
       guchar *key = g_base64_decode(catalog, &keylen);
@@ -1537,13 +1533,28 @@ static void shared_link_request(const char *event, const void *data, size_t leng
       if (!success) {
          Log(LOG_WARN, "mesh.identity", "Rejected enrollment proof (invalid, replayed or expired invitation)");
          mg_http_reply(connection, 403, "", "Enrollment proof rejected\\n");
-         return;
+         return true;
       }
       Log(LOG_AUDIT, "mesh.identity", "Enrolled server identity %s via single-use invitation", node);
       mg_http_reply(connection, 200, "Cache-Control: no-store\\r\\n", "ENROLLED\\n");
-      return;
+      return true;
    }
 #endif
+   return false;
+}
+
+/* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
+static void shared_link_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   if (length != sizeof(rr_server_http_t)) {
+      return;
+   }
+   rr_server_http_t *request = (rr_server_http_t *) data;
+
+   if (!request->request) return;
+   if (mesh_enroll_http(request->connection, request->request)) {
+      request->handled = true;
+      return;
+   }
    if (mg_strcmp(request->request->uri, mg_str("/link"))) return;
    request->handled = true;
    struct mg_connection *connection = request->connection;
