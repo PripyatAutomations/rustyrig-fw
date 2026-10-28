@@ -93,6 +93,33 @@ static bool bootstrap_store(sqlite3 *db, const char *domain, const char *node,
    return ok;
 }
 
+/* A signed status response can complete interrupted enrollment safely. */
+static bool committed_status(CURL *curl, const char *url, sqlite3 *db,
+                             char *fields[8], const char *catalog, const char *spki) {
+   const char *names[] = {"ticket", "domain", "node", "catalog", "spki"};
+   const char *values[] = {fields[1], fields[2], fields[3], catalog, spki};
+   char *body = form(curl, names, values, 5);
+   struct response response;
+   bool ok = body && post(curl, url, body, &response);
+   if (body) { memset(body, 0, strlen(body)); g_free(body); }
+   if (!ok) return false;
+   char **parts = g_strsplit(response.buf, "\n", 4);
+   unsigned char pub[32] = {0}, sig[64] = {0};
+   ok = parts && g_strv_length(parts) == 4 &&
+      !strcmp(parts[0], "ENROLLED") && !parts[3][0] &&
+      g_uuid_string_is_valid(parts[1]) &&
+      decode_fixed(fields[6], pub, sizeof(pub)) &&
+      decode_fixed(parts[2], sig, sizeof(sig)) &&
+      rr_crypto_binding_verify(pub, fields[2], parts[1], fields[5], sig);
+   if (ok)
+      ok = rr_identity_trust_enroll(db, fields[2], parts[1], fields[6], fields[5]) &&
+           bootstrap_store(db, fields[2], parts[1], fields[4], fields[6], fields[5], "enrolled");
+   memset(pub, 0, sizeof(pub));
+   memset(sig, 0, sizeof(sig));
+   g_strfreev(parts);
+   return ok;
+}
+
 /* Token fields were split and validated by main.c. This is never called on a
  * plaintext transport or with certificate verification disabled without SPKI
  * pinning: libcurl's public-key pin is mandatory. */
@@ -105,7 +132,7 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    sqlite3 *db = NULL;
    CURL *curl = NULL;
    rr_crypto_key_t *invite = NULL;
-   char *pem = NULL, *pin = NULL, *challenge_url = NULL, *redeem_url = NULL;
+   char *pem = NULL, *pin = NULL, *challenge_url = NULL, *redeem_url = NULL, *status_url = NULL;
    char *body = NULL, *reply_body = NULL, *transcript = NULL, *binding = NULL;
    char *node = NULL, *spki = NULL, *proof64 = NULL;
    char *challenge = NULL, *issuer_node = NULL, *issuer_sig = NULL;
@@ -161,6 +188,7 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    /* HTTPS shares the WebSocket TLS identity but uses bounded HTTP messages. */
    challenge_url = g_strdup_printf("https://%s/mesh/enroll/challenge", base + 6);
    redeem_url = g_strdup_printf("https://%s/mesh/enroll/redeem", base + 6);
+   status_url = g_strdup_printf("https://%s/mesh/enroll/status", base + 6);
    g_free(base);
    if (curl_easy_setopt(curl, CURLOPT_PINNEDPUBLICKEY, pin) != CURLE_OK ||
        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L) != CURLE_OK ||
@@ -169,6 +197,11 @@ bool rr_mesh_enroll_run(char *fields[8]) {
        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L) != CURLE_OK ||
        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, collect) != CURLE_OK) {
       fprintf(stderr, "Mesh enrollment: TLS SPKI pinning unavailable; refusing connection.\\n");
+      goto done;
+   }
+   if (committed_status(curl, status_url, db, fields, rr_identity_public_base64(), spki)) {
+      fprintf(stderr, "Mesh enrollment: previous redemption confirmed; issuer trust restored.\n");
+      success = true;
       goto done;
    }
    const char *names[] = {"ticket", "domain", "node"};
@@ -209,9 +242,9 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    const char *rnames[] = {"ticket","domain","node","challenge","catalog","spki","binding","proof"};
    const char *rvalues[] = {fields[1],domain,node,challenge,rr_identity_public_base64(),spki,binding,proof64};
    reply_body = form(curl, rnames, rvalues, 8);
-   if (!reply_body || !post(curl, redeem_url, reply_body, &response) ||
-       strcmp(response.buf, "ENROLLED\n")) {
-      fprintf(stderr, "Mesh enrollment: issuer rejected redemption or response was lost; check issuer status before requesting a new token.\n");
+   if (reply_body) (void)post(curl, redeem_url, reply_body, &response);
+   if (!committed_status(curl, status_url, db, fields, rr_identity_public_base64(), spki)) {
+      fprintf(stderr, "Mesh enrollment: redemption not confirmed; retry using the same invitation.\n");
       goto done;
    }
    fprintf(stderr, "Mesh enrollment: server identity admitted and issuer trust stored.\n");
@@ -224,7 +257,7 @@ done:
    if (proof64) { memset(proof64, 0, strlen(proof64)); g_free(proof64); }
    if (reply_body) { memset(reply_body, 0, strlen(reply_body)); g_free(reply_body); }
    g_free(transcript);
-   g_free(binding); g_free(pin); g_free(challenge_url); g_free(redeem_url);
+   g_free(binding); g_free(pin); g_free(challenge_url); g_free(redeem_url); g_free(status_url);
    g_free(body); g_free(challenge); g_free(issuer_node); g_free(issuer_sig);
    free(node); free(spki);
    if (curl) curl_easy_cleanup(curl);
