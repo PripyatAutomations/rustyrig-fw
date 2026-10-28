@@ -1,3 +1,70 @@
+## Bootstrap identities and future direct mesh links (design; not enabled)
+
+The packaged configuration is `/etc/rustyrig/rrserver.cfg`, with included
+`/etc/rustyrig/rrserver.*.cfg` files (source: `config/`). The deprecated
+`doc/*.cfg.example` files have been removed. Client settings live in
+`/etc/rustyrig/rrclient.cfg`, and standalone callsign lookup settings in
+`/etc/rustyrig/callsign-lookup.cfg`.
+
+A server belongs to **exactly one** configured `domain`. Only explicit
+`[peer]` / `[peer:name]` entries bootstrap initial links. The existing
+tree transport remains active while mesh discovery and authenticated direct
+links are built; connecting every known peer immediately would currently
+trigger overlapping-component rejection.
+
+### First startup: durable server identity
+
+Each server should generate a **persistent Ed25519 signing keypair** if and
+only if no identity exists. Store the private key on that server alone, in
+a dedicated root/server-owned, mode-0600 file under /var/lib/rustyrig
+(with a mode-0700 parent directory), and never export it in catalog
+responses, logs or wire frames. Create it atomically with exclusive creation,
+fsync, and safe ownership checks; do not silently replace a corrupt or
+inaccessible existing key. A temporary file must not become an identity
+until securely persisted. Restart must reuse the same private key.
+
+Publish the canonical server UUID, domain, public key, fingerprint, public
+link endpoint(s), and identity generation metadata as a **signed**
+server-owned catalog record. Validate the signature and owner UUID of
+updates; never accept keys attached to another server's catalog entry.
+Key rotation must be explicit, signed by the previous trusted key or
+approved out-of-band. Unexpected key replacement is an identity conflict,
+not routine rediscovery.
+
+### Authenticated end-to-end ephemeral key exchange
+
+A relaying bootstrap peer can convey the two endpoints' signed ephemeral
+X25519 public keys, but must not learn their shared secret. Each endpoint
+signs a canonical transcript containing both permanent server IDs, domain,
+both ephemeral public keys, role, nonce, protocol version, intended target,
+and short expiry. Verify the peer's Ed25519 identity against a previously
+pinned/approved public key; a catalog alone does not authenticate its own
+publisher against a malicious relay. Derive a short-lived, direction-bound
+key using HKDF-SHA256 from the X25519 secret and full transcript, then
+authenticate the **direct** connection with that result. Never reuse a
+bootstrap link password, ephemeral private key, nonce or derived traffic key.
+
+Reject replayed, expired, mismatched-domain, swapped-endpoint, untrusted,
+or unsolicited exchanges; cap in-flight handshakes and bound wire sizes.
+An established server-to-server connection can relay *handshake envelopes*
+but cannot become a new transit route merely by forwarding a key exchange.
+The receiving server decides whether to admit that link. TLS certificate
+verification and normal destination ACLs still apply; cryptography is not
+a substitute for link admission policy.
+
+### Discovery and link topology
+
+Bootstrap links first load and validate the domain catalog. Then each
+server considers reachable peers with known owner identity and advertised
+link endpoints. Reaching the same server through two paths does not create
+two servers or duplicate its rigs. The new graph router should support
+multiple direct edges, but **current tree-based admission/forwarding must
+not be bypassed** until it is replaced by loop-safe link-state forwarding.
+
+This section describes the planned mesh exchange and identity lifecycle.
+No new cryptographic identity generation, catalog signing, ephemeral
+exchange or multipath forwarding is yet implemented.
+
 # Server linking: tree-first implementation
 
 Server linking starts as an IRC-style tree, with multiple direct peers and
