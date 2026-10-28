@@ -342,3 +342,23 @@ change the default (allowed range: 1–8760 hours). The invitation creation
 API accepts an explicit UNIX expiration timestamp, which overrides the
 default; passing zero selects the configured duration. Expired invitations
 are never redeemable, including if their status remains pending in SQLite.
+
+### Issuing a join token (implementation status)
+
+`rr_identity_invite_issue(db, domain, bootstrap_wss_url,
+issuer_tls_spki_b64, expires_unix)` now creates an ephemeral Ed25519
+invitation keypair, inserts the invitation ID and public key in the
+issuer-local table, and returns a sensitive line-delimited token
+(`RUSTYRIG-JOIN-1`) containing the ID, cluster domain, WSS bootstrap
+URL, issuer TLS SPKI SHA-256, issuer catalog public key and base64-encoded
+private invitation PEM. Passing zero for expiration selects the configured
+default lifetime (72 hours).
+
+The token must be delivered to the new node's administrator through a
+confidential channel. The issuer must NOT log, persist, or broadcast the
+private credential; the returned token is for one-time secure delivery.
+This is an internal issuance API, not yet a CLI command or an operational
+join protocol. The TLS peer certificate must be checked against the issuer
+SPKI pin in the token before any enrollment messages are accepted. A
+challenge/response binding and permanent node-key admission still need to
+be connected before redemption or catalog exchange can be enabled.
