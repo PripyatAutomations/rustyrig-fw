@@ -56,6 +56,7 @@ extern defconfig_t defcfg[];
 #include <rrclient/dcc.h>
 #include <rrclient/media.direct.h>
 #include <rrclient/config.layers.h>
+#include <rrclient/database.h>
 #include <rrclient/cat.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
@@ -274,6 +275,7 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
 
    if (dying) {
       rrclient_cleanup();
+   rrclient_database_shutdown();
 
       return G_SOURCE_REMOVE;
    }
@@ -664,6 +666,10 @@ int main(int argc, char *argv[]) {
       log_target = "rrclient.log";
    }
    logger_init(log_target, (ui_mode == UI_MODE_TUI));
+   if (!rrclient_database_init()) {
+      Log(LOG_CRIT, "db", "Unable to initialize client database");
+      return EXIT_FAILURE;
+   }
 
    if (logfile) {
       free(logfile);
