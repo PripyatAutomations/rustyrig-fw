@@ -2053,7 +2053,8 @@ void rr_relay_strip_catalog_identity(dict *d) {
    static const char *fields[] = {
       "identity.owner", "identity.domain", "identity.public-key",
       "identity.scheme", "identity.operation", "identity.signature",
-      "identity.revision", "identity.timestamp", "identity.nonce"
+      "identity.revision", "identity.timestamp", "identity.nonce",
+      "identity.session"
    };
    for (unsigned i = 0; i < sizeof(fields)/sizeof(fields[0]); ++i)
       dict_del(d, fields[i]);
