@@ -1,5 +1,5 @@
 CFLAGS_RRSERVER += -pthread
-LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic $(shell pkg-config --libs libcurl sqlite3 openssl)
+LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrserver/receiver.directory.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags libcurl sqlite3)
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
