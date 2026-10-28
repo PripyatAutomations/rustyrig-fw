@@ -630,9 +630,9 @@ void gtk_show_server_chooser(void) {
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    rr_gtk_tree_style(tree);
    gtk_drag_source_set(tree, GDK_BUTTON1_MASK,
-      picker_dnd_targets, G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_MOVE);
+      picker_dnd_targets, G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_COPY);
    gtk_drag_dest_set(tree, GTK_DEST_DEFAULT_ALL, picker_dnd_targets,
-      G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_MOVE);
+      G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_COPY);
    g_signal_connect(tree, "drag-data-get", G_CALLBACK(picker_drag_get), NULL);
    g_signal_connect(tree, "drag-data-received", G_CALLBACK(picker_drag_received), NULL);
    g_signal_connect(tree, "drag-data-delete", G_CALLBACK(picker_drag_delete), NULL);
