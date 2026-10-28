@@ -72,7 +72,7 @@ package_rustyrig-server() {
    install -Dm755 tools/dummy-rigctld.sh "$pkgdir/var/lib/rustyrig/tools/dummy-rigctld.sh"
    install -d -m0775 "$pkgdir/var/log/rustyrig"
    install -d "$pkgdir/var/lib/rustyrig"/{db,recordings,modems,sql,tools,www}
-   find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/www/" \;
+   if [[ -d www ]]; then find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/www/" \; ; fi
    install -d "$pkgdir/usr/share/doc/rustyrig"
    cp -a doc/. "$pkgdir/usr/share/doc/rustyrig/"
 }
