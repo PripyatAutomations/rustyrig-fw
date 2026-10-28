@@ -1439,6 +1439,50 @@ static bool load_peer(const char *section) {
  * Never attach pre-enrollment requests to an authenticated server link. */
 static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm) {
 #ifdef USE_SQLITE
+   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")) == 0) {
+      if (!connection->is_tls || mg_strcmp(hm->method, mg_str("POST"))) {
+         mg_http_reply(connection, 403, "", "TLS POST required\\n");
+         return true;
+      }
+      char ticket[48], domain[256], node[48], catalog[48], spki[48];
+      struct mg_str *body = &hm->body;
+      if (body->len > 4096 ||
+          mg_http_get_var(body, "ticket", ticket, sizeof(ticket)) <= 0 ||
+          mg_http_get_var(body, "domain", domain, sizeof(domain)) <= 0 ||
+          mg_http_get_var(body, "node", node, sizeof(node)) <= 0 ||
+          mg_http_get_var(body, "catalog", catalog, sizeof(catalog)) <= 0 ||
+          mg_http_get_var(body, "spki", spki, sizeof(spki)) <= 0 ||
+          strcmp(domain, links.domain)) {
+         mg_http_reply(connection, 400, "", "Invalid enrollment status request\\n");
+         return true;
+      }
+      const char *db_path = cfg_get("path.db.master");
+      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
+      sqlite3 *db = NULL;
+      bool enrolled = false;
+      if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK)
+         enrolled = rr_identity_invite_redeemed(db, ticket, domain, node, catalog, spki);
+      if (db) sqlite3_close(db);
+      if (!enrolled) {
+         mg_http_reply(connection, 404, "", "Enrollment not committed\\n");
+         return true;
+      }
+      const char *certpath = cfg_get("net.http.tls-cert");
+      char *issuer_spki = certpath ? rr_crypto_cert_spki_sha256(certpath) : NULL;
+      char *signature = issuer_spki ?
+         rr_identity_tls_binding_signature(domain, links.node, issuer_spki) : NULL;
+      free(issuer_spki);
+      if (!signature) {
+         mg_http_reply(connection, 500, "", "Issuer signature unavailable\\n");
+         return true;
+      }
+      mg_http_reply(connection, 200, "Content-Type: text/plain\\r\\nCache-Control: no-store\\r\\n",
+                    "ENROLLED\\n%s\\n%s\\n", links.node, signature);
+      g_free(signature);
+      return true;
+   }
+#endif
+#ifdef USE_SQLITE
    if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) == 0) {
       if (!connection->is_tls ||
           mg_strcmp(hm->method, mg_str("POST"))) {
