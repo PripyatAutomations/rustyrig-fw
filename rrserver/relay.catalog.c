@@ -532,6 +532,21 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    if (reason) {
       *reason = RR_CAT_OK;
    }
+   /* Strict by default: unsigned catalog entries are never trusted or published.
+    * Relaxed mode is only an explicit legacy compatibility concession. */
+   if (!rr_relay_local_owner(owner) && !dict_get(d, "identity.signature", NULL)) {
+      Log(LOG_WARN, "mesh.identity",
+         "Unsigned catalog descriptor from owner %s (type=%s uuid=%s service=%s room=%s): %s",
+         owner, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
+         dict_get(d, "catalog.service", ""), dict_get(d, "catalog.room", ""),
+         cfg_get_bool("cluster.force-signed-catalog", true) ? "rejected" : "accepted by explicit configuration");
+      if (cfg_get_bool("cluster.force-signed-catalog", true))
+         return catalog_reject(reason, RR_CAT_IDENTITY);
+   }
+   if (rr_relay_local_owner(owner) && !rr_identity_public_base64()) {
+      Log(LOG_WARN, "mesh.identity", "Cannot publish local unsigned catalog descriptor: server signing identity unavailable");
+      return catalog_reject(reason, RR_CAT_IDENTITY);
+   }
    const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
    char key[160];
 
@@ -1638,12 +1653,22 @@ void rr_relay_send_catalogs(const char *dest) {
                   continue;
                }
             }
+            if (!dict_get(entry->descriptor, "identity.signature", NULL)) {
+               Log(LOG_WARN, "mesh.identity", "Unsigned catalog descriptor queued for %s from %s: %s",
+                  dest, entry->owner, cfg_get_bool("cluster.force-signed-catalog", true) ? "skipped" : "legacy mode permitted");
+               if (cfg_get_bool("cluster.force-signed-catalog", true)) continue;
+            }
             const char *route = rrserver_links_route(entry->owner);
 
             if (route && !strcmp(route, dest)) {
                continue;
             }
-            char *json = dict2json(entry->descriptor);
+            if (!dict_get(entry->descriptor, "identity.signature", NULL)) {
+            Log(LOG_WARN, "mesh.identity", "Local catalog delta for %s is unsigned: %s",
+               entry->key, cfg_get_bool("cluster.force-signed-catalog", true) ? "not published" : "legacy mode permitted");
+            if (cfg_get_bool("cluster.force-signed-catalog", true)) continue;
+         }
+         char *json = dict2json(entry->descriptor);
 
             if (!json) {
                continue;
