@@ -269,7 +269,7 @@ static bool mesh_join_print_identity(void) {
       "Your server UUID: %s\n\n"
       "Send this UUID to an administrator of the existing mesh.\n"
       "On an enrolled server, the administrator should run:\n"
-      "  /link invite %s <issuer-IP:port>\n\n"
+      "  /link invite %s\n\n"
       "Ask them to send you the resulting private invitation token securely.\n"
       "Do not send them your server's private keys.\n\n", uuid, uuid);
    free(uuid);
