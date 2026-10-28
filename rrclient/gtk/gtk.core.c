@@ -1478,12 +1478,27 @@ static bool gtk_identity_save_new(rr_crypto_key_t *key, const char *path) {
 }
 /* The GTK key manager deliberately operates only on the local identity.
  * A future network profile can select an identity by stable fingerprint. */
-static rr_crypto_key_t *identity_unlocked_key;
-static char *identity_unlocked_path;
-static void identity_lock(void) {
-   rr_crypto_key_free(identity_unlocked_key);
-   identity_unlocked_key = NULL;
-   g_clear_pointer(&identity_unlocked_path, g_free);
+/* Keys stay unlocked for this process, independently of the selected row.
+ * The table owns every decrypted key and frees them on explicit lock/exit. */
+static GHashTable *identity_unlocked_keys;
+static void identity_lock_path(const char *path) {
+   if (identity_unlocked_keys && path)
+      g_hash_table_remove(identity_unlocked_keys, path);
+}
+static void identity_lock_all(void) {
+   if (identity_unlocked_keys)
+      g_hash_table_remove_all(identity_unlocked_keys);
+}
+static rr_crypto_key_t *identity_get_unlocked(const char *path) {
+   return identity_unlocked_keys && path ?
+      g_hash_table_lookup(identity_unlocked_keys, path) : NULL;
+}
+static void identity_keep_unlocked(const char *path, rr_crypto_key_t *key) {
+   if (!path || !key) return;
+   if (!identity_unlocked_keys)
+      identity_unlocked_keys = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                                     g_free, (GDestroyNotify)rr_crypto_key_free);
+   g_hash_table_replace(identity_unlocked_keys, g_strdup(path), key);
 }
 static void identity_message(GtkWindow *parent, GtkMessageType type, const char *message) {
    GtkWidget *dlg = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, type,
@@ -1562,6 +1577,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Export", 3);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock / Unlock", 4);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Delete", 5);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock All", 6);
    char *path = NULL;
    char *selected_path = NULL;
    char *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
@@ -1605,9 +1621,14 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          g_dir_close(directory);
       }
       if (preferred) gtk_list_box_select_row(GTK_LIST_BOX(list), preferred);
-      gtk_label_set_text(GTK_LABEL(status), count ?
-         "Select a key to export, lock/unlock, or delete." :
-         "No identities yet. Create or import an Ed25519 key.");
+      GtkListBoxRow *highlight = gtk_list_box_get_selected_row(GTK_LIST_BOX(list));
+      const char *highlight_path = highlight ?
+         g_object_get_data(G_OBJECT(highlight), "identity-path") : NULL;
+      gtk_label_set_text(GTK_LABEL(status), !count ?
+         "No identities yet. Create or import an Ed25519 key." :
+         identity_get_unlocked(highlight_path) ? "Selected key: Unlocked" :
+         "Selected key: Locked");
+
       gtk_widget_show_all(dlg);
       int response = gtk_dialog_run(GTK_DIALOG(dlg));
       GtkListBoxRow *selected = gtk_list_box_get_selected_row(GTK_LIST_BOX(list));
@@ -1616,17 +1637,19 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       g_free(path);
       path = selected_path ? g_strdup(selected_path) : NULL;
       bool safe = path != NULL;
-      if (identity_unlocked_key && (!identity_unlocked_path || !path || strcmp(path, identity_unlocked_path)))
-         identity_lock();
       if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) break;
       /* Only the selected row is a target for key operations. */
       if ((response == 3 || response == 4 || response == 5) &&
           !gtk_list_box_get_selected_row(GTK_LIST_BOX(list))) continue;
+      if (response == 6) {
+         identity_lock_all();
+         continue;
+      }
       if (response == 4) {
-         if (identity_unlocked_key) identity_lock();
+         if (identity_get_unlocked(path)) identity_lock_path(path);
          else if (safe) {
-            identity_unlocked_key = identity_read_key(path, GTK_WINDOW(dlg));
-            if (identity_unlocked_key) identity_unlocked_path = g_strdup(path);
+            rr_crypto_key_t *key = identity_read_key(path, GTK_WINDOW(dlg));
+            if (key) identity_keep_unlocked(path, key);
          }
          continue;
       }
@@ -1637,7 +1660,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          bool yes = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_YES;
          gtk_widget_destroy(confirm);
          if (yes && unlink(path) == 0) {
-            identity_lock();
+            identity_lock_path(path);
             g_clear_pointer(&selected_path, g_free);
          }
          continue;
@@ -1674,7 +1697,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          continue;
       }
       if (response == 3 && safe) {
-         rr_crypto_key_t *key = identity_unlocked_key;
+         rr_crypto_key_t *key = identity_get_unlocked(path);
          bool owned = false;
          if (!key) { key = identity_read_key(path, GTK_WINDOW(dlg)); owned = true; }
          if (!key) continue;
