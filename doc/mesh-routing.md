@@ -333,3 +333,12 @@ TLS/SPKI verification. Multi-server retry must be directed to the issuing
 server, because only it can atomically consume its invitation.
 
 Do not activate this incomplete enrollment path in a production cluster.
+
+### Invitation expiration
+
+New invitations are valid for **72 hours (3 days)** by default. Set
+`links.invitation-expiry-hours=72` in the rrserver configuration to
+change the default (allowed range: 1–8760 hours). The invitation creation
+API accepts an explicit UNIX expiration timestamp, which overrides the
+default; passing zero selects the configured duration. Expired invitations
+are never redeemable, including if their status remains pending in SQLite.
