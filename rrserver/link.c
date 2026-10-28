@@ -1473,11 +1473,47 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    if (!request) {
       return;
    }
-   char input[256], action[16], name[128], extra[2];
+   char input[512], action[16], name[384], extra[2];
    snprintf(input, sizeof(input), "%s", dict_get(request, "talk.data", ""));
    dict_free(request);
-   int argc = sscanf(input, "%15s %127s %1s", action, name, extra);
+   int argc = sscanf(input, "%15s %383s %1s", action, name, extra);
 
+#ifdef USE_SQLITE
+   if (argc == 2 && !strcasecmp(action, "invite")) {
+      /* Never disclose enrollment private keys across a plaintext admin
+       * session, even when admin authentication has succeeded. */
+      if (!client->conn || !client->conn->is_tls) {
+         ws_send_error(client, "Invitation creation requires an HTTPS/WSS admin session");
+         return;
+      }
+      const char *url = name;
+      if (strncmp(url, "wss://", 6) || !strstr(url, "/link")) {
+         ws_send_error(client, "Usage: /link invite wss://bootstrap-host:4420/link");
+         return;
+      }
+      const char *cert = cfg_get("net.http.tls-cert");
+      char *spki = cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
+      sqlite3 *db = NULL;
+      const char *path = cfg_get("path.db.master");
+      if (!path || !*path) path = "/var/lib/rustyrig/db/master.db";
+      bool opened = sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK;
+      char *token = opened && spki ?
+         rr_identity_invite_issue(db, links.domain, url, spki, 0) : NULL;
+      if (db) sqlite3_close(db);
+      free(spki);
+      if (!token) {
+         ws_send_error(client, "Could not issue enrollment invitation; check database, TLS identity and invitation expiry");
+         return;
+      }
+      char *encoded = g_base64_encode((const guchar *)token, strlen(token));
+      ws_send_notice(client, "One-time enrollment token (base64, confidential): %s", encoded);
+      Log(LOG_AUDIT, "mesh.identity", "Administrator %s issued local cluster enrollment invitation", client->user->name);
+      g_free(encoded);
+      memset(token, 0, strlen(token));
+      g_free(token);
+      return;
+   }
+#endif
    if (argc <= 0 || (argc == 1 && !strcasecmp(action, "list"))) {
       for (size_t i = 0 ; i < links.peer_count ; i++) {
          struct link_peer *peer = &links.peers[i];
@@ -1490,7 +1526,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    }
 
    if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
-      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer>");
+      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite wss://host:4420/link");
 
       return;
    }
