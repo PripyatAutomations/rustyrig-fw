@@ -1,5 +1,7 @@
 Immediate needs
 ---------------
+rrclient: Need to prompt for saving config after edit servers / on exit
+
 librrprotocol: Protocol versions and capabilities
   - we should support talking to older stuff now by degrading to their capabilities
 

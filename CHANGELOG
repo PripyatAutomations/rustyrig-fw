@@ -4,44 +4,6 @@ rustyrig-fw (1.0.0) testing; urgency=medium
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 24 Oct 2026 12:58:16 -0400
 
-rustyrig-fw (1.0.0~rc6) testing; urgency=medium
-
-  * Add a standalone GTK Unicode Matrix rain widget with hover controls and
-    embedded/windowed/fullscreen hosting.
-  * Prepare RustyRig 1.0.0~rc6 release.
-
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 22 Oct 2026 02:13:38 -0400
-
-rustyrig-fw (1.0.0~rc5) testing; urgency=medium
-
-  * Prepare RustyRig 1.0.0~rc5 release.
-
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 19 Oct 2026 20:47:02 -0400
-
-rustyrig-fw (1.0.0~rc4) testing; urgency=medium
-
-  * Prepare RustyRig 1.0.0~rc4 release.
-
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 19 Oct 2026 20:45:57 -0400
-
-rustyrig-fw (1.0.0~rc3) testing; urgency=medium
-
-  * Prepare RustyRig 1.0.0~rc3 release.
-
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 19 Oct 2026 20:44:20 -0400
-
-rustyrig-fw (1.0.0~rc2) testing; urgency=medium
-
-  * Prepare RustyRig 1.0.0~rc2 release.
-
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 19 Oct 2026 20:44:13 -0400
-
-rustyrig-fw (1.0.0~rc1) testing; urgency=medium
-
-  * Prepare RustyRig 1.0.0~rc1 release.
-
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 18 Oct 2026 23:02:44 -0400
-
 rustyrig-fw (20261017.01) testing; urgency=medium
 
   * Install split rrserver.*.cfg configuration fragments as Debian conffiles.
