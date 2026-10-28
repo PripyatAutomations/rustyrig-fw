@@ -189,7 +189,7 @@ static int mesh_join_prepare(const char *path) {
    int rc = EXIT_FAILURE;
    if (interactive) {
       if (!isatty(STDIN_FILENO)) {
-         fprintf(stderr, "Mesh enrollment requires an interactive terminal or token file.\\n");
+         fprintf(stderr, "Mesh enrollment requires an interactive terminal or token file.\n");
          return rc;
       }
       in = stdin;
@@ -199,7 +199,7 @@ static int mesh_join_prepare(const char *path) {
          echo_disabled = tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden) == 0;
       }
       if (!echo_disabled) {
-         fprintf(stderr, "Cannot disable terminal echo; refusing to read secret.\\n");
+         fprintf(stderr, "Cannot disable terminal echo; refusing to read secret.\n");
          return rc;
       }
       fprintf(stderr, "Paste base64 mesh invitation token, then press Enter: ");
@@ -207,7 +207,7 @@ static int mesh_join_prepare(const char *path) {
    } else {
       in = fopen(path, "rb");
       if (!in) {
-         fprintf(stderr, "Cannot open invitation file: %s\\n", strerror(errno));
+         fprintf(stderr, "Cannot open invitation file: %s\n", strerror(errno));
          return rc;
       }
    }
@@ -216,46 +216,46 @@ static int mesh_join_prepare(const char *path) {
    encoded = calloc(1, cap);
    if (!encoded) goto done;
    int ch;
-   while ((ch = fgetc(in)) != EOF && (!interactive || ch != '\\n')) {
+   while ((ch = fgetc(in)) != EOF && (!interactive || ch != '\n')) {
       if (len >= 16384) {
-         fprintf(stderr, "\\nInvitation exceeds maximum length.\\n");
+         fprintf(stderr, "\nInvitation exceeds maximum length.\n");
          goto done;
       }
       encoded[len++] = (char)ch;
    }
    if (!len) {
-      fprintf(stderr, "\\nEmpty invitation.\\n");
+      fprintf(stderr, "\nEmpty invitation.\n");
       goto done;
    }
    /* Accept line-wrapped base64 but reject arbitrary punctuation. */
    for (size_t i = 0; i < len; i++)
       if (!(g_ascii_isalnum(encoded[i]) || encoded[i] == '+' ||
             encoded[i] == '/' || encoded[i] == '=' ||
-            encoded[i] == '\\n' || encoded[i] == '\\r')) {
-         fprintf(stderr, "\\nInvalid base64 invitation.\\n");
+            encoded[i] == '\n' || encoded[i] == '\r')) {
+         fprintf(stderr, "\nInvalid base64 invitation.\n");
          goto done;
       }
    gsize decoded_len = 0;
    guchar *raw = g_base64_decode(encoded, &decoded_len);
    if (!raw || decoded_len > 12000 || decoded_len < 20) {
-      fprintf(stderr, "\\nInvalid invitation encoding.\\n");
+      fprintf(stderr, "\nInvalid invitation encoding.\n");
       g_free(raw);
       goto done;
    }
-   const char prefix[] = "RUSTYRIG-JOIN-2\\n";
+   const char prefix[] = "RUSTYRIG-JOIN-2\n";
    bool valid = decoded_len >= sizeof(prefix) - 1 &&
                 !memcmp(raw, prefix, sizeof(prefix) - 1) &&
                 !memchr(raw, 0, decoded_len);
    /* No enrollment protocol exists on the issuer yet; do not consume
     * credentials or report success until remote admission is implemented. */
-   if (!valid) fprintf(stderr, "\\nUnsupported or malformed mesh invitation.\\n");
-   else fprintf(stderr, "\\nInvitation format recognized. Mesh enrollment is not yet available: issuer challenge, TLS pin verification and durable admission are required. Nothing was changed.\\n");
+   if (!valid) fprintf(stderr, "\nUnsupported or malformed mesh invitation.\n");
+   else fprintf(stderr, "\nInvitation format recognized. Mesh enrollment is not yet available: issuer challenge, TLS pin verification and durable admission are required. Nothing was changed.\n");
    memset(raw, 0, decoded_len);
    g_free(raw);
 done:
    if (echo_disabled) {
       tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved);
-      fputc('\\n', stderr);
+      fputc('\n', stderr);
    }
    if (encoded) {
       memset(encoded, 0, cap);
