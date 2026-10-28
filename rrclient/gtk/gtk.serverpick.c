@@ -365,6 +365,91 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
    return TRUE;
 }
 
+/* Edit network membership without changing any server's own profile. */
+static void picker_network_editor(GtkButton *button, gpointer data) {
+   (void)button;
+   GtkWidget *tree = data;
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+   GtkTreeIter iter;
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+   char *existing = NULL;
+   if (gtk_tree_selection_get_selected(selection, &model, &iter) && picker_is_network(model, &iter))
+      gtk_tree_model_get(model, &iter, 0, &existing, -1);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(existing ? "Edit network" : "New network",
+       GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
+       "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
+   GtkWidget *name = gtk_entry_new();
+   GtkWidget *members = gtk_entry_new();
+   GtkWidget *error = gtk_label_new("");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(members), "rplywv00, nycvny37");
+   gtk_entry_set_width_chars(GTK_ENTRY(members), 45);
+   if (existing) {
+      gtk_entry_set_text(GTK_ENTRY(name), existing);
+      gtk_editable_set_editable(GTK_EDITABLE(name), FALSE);
+      char *key = g_strdup_printf("network:%s.servers", existing);
+      gtk_entry_set_text(GTK_ENTRY(members), cfg_get(key) ? cfg_get(key) : "");
+      g_free(key);
+   }
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Network name"), 0, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), name, 1, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Server profiles"), 0, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), members, 1, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), error, 0, 2, 2, 1);
+   gtk_widget_show_all(dialog);
+   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *group = gtk_entry_get_text(GTK_ENTRY(name));
+      const char *list = gtk_entry_get_text(GTK_ENTRY(members));
+      if (!*group || strspn(group, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != strlen(group)) {
+         gtk_label_set_text(GTK_LABEL(error), "Use a nonempty name with letters, digits, _ or -.");
+         continue;
+      }
+      char *key = g_strdup_printf("network:%s.servers", group);
+      if (!existing && dict_get(cfg, key, NULL)) {
+         gtk_label_set_text(GTK_LABEL(error), "Network already exists.");
+         g_free(key);
+         continue;
+      }
+      gchar **parts = g_strsplit_set(list, ", \t\r\n", -1);
+      GString *normalized = g_string_new("");
+      GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+      bool valid = true;
+      for (size_t i=0; parts[i]; i++) {
+         if (!*parts[i] || g_hash_table_contains(seen, parts[i])) continue;
+         char *profile = g_strdup_printf("server:%s.server.url", parts[i]);
+         if (!dict_get(cfg, profile, NULL)) {
+            char *message = g_strdup_printf("Unknown server profile: %s", parts[i]);
+            gtk_label_set_text(GTK_LABEL(error), message);
+            g_free(message);
+            valid = false;
+         }
+         g_free(profile);
+         if (!valid) break;
+         g_hash_table_add(seen, g_strdup(parts[i]));
+         if (normalized->len) g_string_append_c(normalized, ',');
+         g_string_append(normalized, parts[i]);
+      }
+      if (valid) dict_add(cfg, key, normalized->str);
+      g_hash_table_destroy(seen);
+      g_string_free(normalized, TRUE);
+      g_strfreev(parts);
+      g_free(key);
+      if (valid) {
+         gtk_widget_destroy(dialog);
+         g_free(existing);
+         picker_close(NULL);
+         gtk_show_server_chooser();
+         return;
+      }
+   }
+   gtk_widget_destroy(dialog);
+   g_free(existing);
+}
+
 void gtk_show_server_chooser(void) {
    if (picker_panel) {
       rr_floating_panel_restore(picker_panel);
@@ -488,7 +573,10 @@ void gtk_show_server_chooser(void) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
-   GtkWidget *edit = gtk_button_new_with_label("Edit");
+   GtkWidget *new_network = gtk_button_new_with_label("New / Edit Network");
+   gtk_box_pack_start(GTK_BOX(box), new_network, FALSE, FALSE, 0);
+   g_signal_connect(new_network, "clicked", G_CALLBACK(picker_network_editor), tree);
+   GtkWidget *edit = gtk_button_new_with_label("Edit Server");
    gtk_box_pack_start(GTK_BOX(box), edit, FALSE, FALSE, 0);
    g_signal_connect(edit, "clicked", G_CALLBACK(on_edit_clicked), tree);
    GtkWidget *button = gtk_button_new_with_label("Connect");
