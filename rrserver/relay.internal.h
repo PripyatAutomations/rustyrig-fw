@@ -8,7 +8,6 @@
 #ifndef RRSERVER_RELAY_INTERNAL_H
 #define RRSERVER_RELAY_INTERNAL_H
 #include <rrserver/relay.h>
-#ifdef USE_MONGOOSE
 #include <librrprotocol/ws.mediachan.h>
 
 /* Relay-private state: owned and accessed on the server event-loop thread. */
@@ -146,5 +145,4 @@ void rr_relay_deliver(rrconn_t *client, dict *d);
 bool rr_relay_packet(const char *dest, const char *kind, const char *session, const char *username, dict *payload);
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload);
 bool rr_relay_permitted_message(dict *d);
-#endif /* USE_MONGOOSE */
-#endif
+#endif /* RRSERVER_RELAY_INTERNAL_H */
