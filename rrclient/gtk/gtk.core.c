@@ -2038,3 +2038,7 @@ void gtk_frontend_stop(void) {
       gtk_main_quit();
    }
 }
+
+void rrclient_gtk_open_key_manager(void) {
+   gtk_manage_certificates(NULL, NULL);
+}
