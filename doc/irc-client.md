@@ -5,7 +5,7 @@ Each `server.url` must specify its protocol and host. Ports are optional:
 
 | URL | Transport |
 | --- | --- |
-| `ws://localhost:8420/ws/` | WebSocket |
+| `wss://localhost:4420/ws/` | Native TLS WebSocket |
 | `wss://localhost:4420/ws/` | WebSocket with TLS |
 | `irc://chat.example.org:6667` | IRC over TCP |
 | `ircs://chat.example.org:6697` | IRC over TLS |
