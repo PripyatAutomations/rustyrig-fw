@@ -32,13 +32,19 @@ fi
 # detached submodule checkouts rather than creating more detached HEADs.
 "$P/tools/git-dev-sync.sh"
 components=(librustyaxe librrprotocol callsign-lookup)
+# The .gitmodules file can contain historical entries that are no longer
+# gitlinks in HEAD. Only ask Git to update paths actually tracked as mode
+# 160000 (submodules), otherwise git submodule update fails with pathspec.
 third_party=()
-while read -r _ path; do
+while IFS= read -r -d '' record; do
+    path=${record#*$'\t'}
+    mode=${record%% *}
+    [[ "$mode" == 160000 ]] || continue
     case " ${components[*]} " in
         *" $path "*) ;;
         *) third_party+=("$path") ;;
     esac
-done < <(git config -f .gitmodules --get-regexp '^submodule\..*\.path$')
+done < <(git ls-files --stage -z)
 if (( ${#third_party[@]} )); then
     git submodule update --init --recursive -- "${third_party[@]}"
 fi
