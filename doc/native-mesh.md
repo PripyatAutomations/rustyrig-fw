@@ -2,8 +2,7 @@
 
 Linux server links use OpenSSL, wslay and the GLib reactor on TCP **4420**.
 TCP **4420** also serves native client `/ws` and enrollment POSTs over TLS.
-TCP **4422** remains a compatibility HTTPS/WSS listener while static web
-content and other HTTP routes still use Mongoose.
+The old compatibility HTTPS/WSS listener on TCP **4422** is retired. Native clients and mesh peers use TCP **4420**.
 `rr_transport` remains platform independent. QUIC, WebTransport, MCU support,
 automatic discovery of non-issuer neighbors and multipath forwarding remain
 future work; existing tree admission/routing and topology ACLs are retained.
