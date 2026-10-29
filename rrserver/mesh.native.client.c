@@ -98,11 +98,9 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       native_callback(transport, event, channel, data, len, s->link);
       if (event == RR_TRANSPORT_EVENT_CLOSE) s->link = NULL;
    } else if (s->client && event == RR_TRANSPORT_EVENT_MESSAGE) {
-      struct mg_ws_message frame = { .data = { (char *)data, len }, .flags = WEBSOCKET_OP_TEXT };
-      ws_handle(s->client, &frame);
+      ws_handle_payload(s->client, data, len, false);
    } else if (s->client && event == RR_TRANSPORT_EVENT_BINARY_MESSAGE) {
-      struct mg_ws_message frame = { .data = { (char *)data, len }, .flags = WEBSOCKET_OP_BINARY };
-      ws_handle(s->client, &frame);
+      ws_handle_payload(s->client, data, len, true);
    } else if (s->client && event == RR_TRANSPORT_EVENT_CLOSE) {
       client_closed(s->client);
       s->client = NULL;
