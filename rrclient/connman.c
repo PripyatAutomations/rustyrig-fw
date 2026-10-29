@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.mongoose.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/http.h>
 #include <rrclient/irc.h>
@@ -826,6 +827,13 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       return;
    }
 
+   if (ev == MG_EV_WS_OPEN && cptr->is_ws && !cptr->native_transport) {
+      /* The upgrade is complete: only now does the WebSocket adapter
+       * become writable. The Mongoose socket remains owned by mg_mgr. */
+      cptr->native_transport = rr_transport_mongoose_adopt(c, NULL, NULL);
+      if (cptr->native_transport)
+         rr_transport_mongoose_open(cptr->native_transport);
+   }
    if (cptr->is_ws) {
       http_handler(c, ev, data);
    } else {
@@ -837,6 +845,11 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       s->domain[0] = '\0';
       s->server_uuid[0] = '\0';
       mg_iobuf_free(&t->websocket_request);
+      if (cptr->native_transport) {
+         rr_transport_mongoose_closed(cptr->native_transport);
+         rr_transport_mongoose_release(cptr->native_transport);
+         cptr->native_transport = NULL;
+      }
       cptr->conn = NULL;
       /* Keep the offline profile selectable, but never retain a dead socket. */
    }
