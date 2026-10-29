@@ -15,7 +15,6 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
-#ifdef USE_MONGOOSE
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
@@ -902,4 +901,4 @@ void rr_relay_deliver(rrconn_t *client, dict *d) {
       rr_relay_applying = false;
    }
 }
-#endif /* USE_MONGOOSE */
+
