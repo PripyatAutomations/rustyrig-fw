@@ -1199,6 +1199,9 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          target = rrserver_rig_for_room(uuid);
       }
       const char *rig_id = target ? rr_server_rig_id(target) : uuid;
+      /* Echo the original room/UUID target in replies so the client can
+       * correlate the acknowledgment with the switch it actually operated. */
+      const char *reply_target = uuid;
 
       if (!permitted || !target) {
          ws_send_error(client, permitted ? "Unknown local rig ID for E-STOP" : "E-STOP privilege denied");
@@ -1216,11 +1219,11 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
 
          if (release_failed) {
             Log(LOG_AUDIT, "estop", "Rig %s reset REFUSED: release unverified (user=%s)", rig_id, client->chatname);
-            ws_send_error(client, "E-STOP reset denied: PTT release unverified for rig %s", rig_id);
+            ws_send_error(client, "E-STOP reset denied: PTT release unverified for rig %s", reply_target);
          } else {
             rr_rig_set_halted(target, false);
             Log(LOG_AUDIT, "estop", "Rig %s reset by %s", rig_id, client->chatname);
-            ws_send_notice(client, "Rig E-STOP reset: %s", rig_id);
+            ws_send_notice(client, "Rig E-STOP reset: %s", reply_target);
          }
       } else {
          rr_rig_set_halted(target, true);
@@ -1231,9 +1234,9 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          rig.ptt_rig = previous;
 
          if (release_failed) {
-            ws_send_error(client, "Rig E-STOP latched but hardware release not confirmed: %s", rig_id);
+            ws_send_error(client, "Rig E-STOP latched but hardware release not confirmed: %s", reply_target);
          } else {
-            ws_send_notice(client, "Rig E-STOP latched: %s", rig_id);
+            ws_send_notice(client, "Rig E-STOP latched: %s", reply_target);
          }
       }
       dict_free(request);
