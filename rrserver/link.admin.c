@@ -36,53 +36,6 @@
 #include <rrserver/link.tree.h>
 #include <rrserver/link.mesh.h>
 #include "link.internal.h"
-#include "mesh.enroll.native.h"
-
-/* The compatibility HTTPS listener delegates to the same enrollment
- * verifier as native 4420. It owns only Mongoose request/response adaptation. */
-#ifdef USE_MONGOOSE
-static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm) {
-   const char *paths[] = {"/mesh/enroll/status", "/mesh/enroll/challenge", "/mesh/enroll/redeem"};
-   const char *path = NULL;
-   for (unsigned i = 0; i < 3; ++i)
-      if (!mg_strcmp(hm->uri, mg_str(paths[i]))) path = paths[i];
-   if (!path) return false;
-   if (!connection->is_tls || mg_strcmp(hm->method, mg_str("POST"))) {
-      mg_http_reply(connection, 403, "", "TLS POST required\n");
-      return true;
-   }
-   if (hm->body.len > 4096) {
-      mg_http_reply(connection, 413, "", "Enrollment request too large\n");
-      return true;
-   }
-   int status = 400;
-   char *reply = NULL;
-   rr_mesh_native_enrollment(path, hm->body.buf, hm->body.len, &status, &reply);
-   mg_http_reply(connection, status,
-      "Content-Type: text/plain\r\nCache-Control: no-store\r\n", "%s", reply ? reply : "Invalid enrollment request\n");
-   g_free(reply);
-   return true;
-}
-
-/* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
-void shared_link_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   if (length != sizeof(rr_server_http_t)) {
-      return;
-   }
-   rr_server_http_t *request = (rr_server_http_t *) data;
-
-   if (!request->request) return;
-   if (mesh_enroll_http(request->connection, request->request)) {
-      request->handled = true;
-      return;
-   }
-   if (mg_strcmp(request->request->uri, mg_str("/link"))) return;
-   request->handled = true;
-   mg_http_reply(request->connection, 426, "", "Server links require the native authenticated mesh WSS listener\n");
-   request->connection->is_draining = 1;
-}
-
-#endif /* USE_MONGOOSE */
 
 /* Like RTP auto-advertisement, choose the local source address that
  * reaches the administrator, rather than advertising a wildcard listener.
