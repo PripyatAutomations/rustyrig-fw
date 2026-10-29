@@ -843,7 +843,7 @@ int main(int argc, char **argv) {
    mg_log_set(MG_LL_ERROR);
    mg_mgr_init(&mg_mgr);
 #endif
-   if (!rrserver_links_init() {
+   if (!rrserver_links_init()) {
       Log(LOG_CRIT, "link", "Unable to initialize server links");
 #ifdef USE_MONGOOSE
       mg_mgr_free(&mg_mgr);
