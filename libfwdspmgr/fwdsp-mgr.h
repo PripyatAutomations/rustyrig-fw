@@ -33,10 +33,8 @@ enum fwdsp_processor_io {
 
 typedef void (*fwdsp_processor_output_cb)(const char *name, const void *samples, size_t len, void *user_data);
 
-struct fwdsp_io_conn {
-   struct fwdsp_subproc *sp;
-   bool is_stderr;
-};
+struct fwdsp_io_conn;
+
 
 // Local child IPC: high length bit marks codec/container initialization data.
 #define FWDSP_FRAME_STREAM_HEADER 0x80000000U
@@ -100,13 +98,9 @@ struct fwdsp_subproc {
    int fw_stderr;
    int fw_control;
 
-#ifdef  USE_MONGOOSE
-   // --- Mongoose tracking for polling ---
-   struct mg_connection *mg_stdin_conn;
-   struct mg_connection *mg_stdout_conn;
-   struct mg_connection *mg_stderr_conn;
-// Otherwise, we should probably use glib
-#endif // USE_MONGOOSE
+   /* Reactor-owned, nonblocking child stdout/stderr readers. */
+   struct fwdsp_io_conn *stdout_reader;
+   struct fwdsp_io_conn *stderr_reader;
    enum fwdsp_processor_io processor_io;
    fwdsp_processor_output_cb processor_output;
    void *processor_output_data;
