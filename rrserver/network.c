@@ -128,7 +128,7 @@ void show_network_info(void) {
    }
 
    if (listenaddr) {
-      Log(LOG_INFO, "net", "Native TLS transport %s:%d", listenaddr, cfg_get_int("links.native.port", 4420));
+      Log(LOG_INFO, "net", "Native TLS transport %s:%d", listenaddr, cfg_get_int("net.http.tls-port", 4420));
       net_print_listeners(listenaddr);
    }
 #endif // HOST_POSIX
