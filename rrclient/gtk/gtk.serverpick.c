@@ -492,21 +492,23 @@ static void picker_new_server(GtkButton *button, gpointer data) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
-   GtkWidget *name = gtk_entry_new(), *url = gtk_entry_new(), *user = gtk_entry_new();
+   GtkWidget *name = gtk_entry_new(), *url = gtk_entry_new(), *user = gtk_entry_new(), *password = gtk_entry_new();
    GtkWidget *error = gtk_label_new("");
-   GtkWidget *fields[] = {name,url,user};
-   const char *labels[] = {"Profile name","URL","Username"};
+   GtkWidget *fields[] = {name,url,user,password};
+   const char *labels[] = {"Profile name","URL","Username","Password"};
+   gtk_entry_set_visibility(GTK_ENTRY(password), FALSE);
    gtk_entry_set_placeholder_text(GTK_ENTRY(url),"wss://host:4422/ws/");
    for (unsigned i=0;i<G_N_ELEMENTS(fields);i++) {
       gtk_grid_attach(GTK_GRID(grid),gtk_label_new(labels[i]),0,i,1,1);
       gtk_grid_attach(GTK_GRID(grid),fields[i],1,i,1,1);
    }
-   gtk_grid_attach(GTK_GRID(grid),error,0,3,2,1);
+   gtk_grid_attach(GTK_GRID(grid),error,0,4,2,1);
    gtk_widget_show_all(dialog);
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *n=gtk_entry_get_text(GTK_ENTRY(name));
       const char *u=gtk_entry_get_text(GTK_ENTRY(url));
       const char *who=gtk_entry_get_text(GTK_ENTRY(user));
+      const char *secret=gtk_entry_get_text(GTK_ENTRY(password));
       rr_server_url_t parsed;
       if (!*n || strspn(n,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=strlen(n) ||
           !rr_server_url_parse(u,&parsed)) {
@@ -521,7 +523,8 @@ static void picker_new_server(GtkButton *button, gpointer data) {
          continue;
       }
       if (!rrclient_database_server_set(n,"server.url",u) ||
-          !rrclient_database_server_set(n,"server.user",who)) {
+          !rrclient_database_server_set(n,"server.user",who) ||
+          !rrclient_database_server_set(n,"server.pass",secret)) {
          gtk_label_set_text(GTK_LABEL(error),"Unable to save server to SQLite.");
          continue;
       }
