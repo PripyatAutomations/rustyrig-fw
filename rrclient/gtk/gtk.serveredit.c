@@ -278,6 +278,10 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Enter a profile name using letters, digits, _ or -.");
       return;
    }
+   if (!cfg) {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Client configuration is not loaded.");
+      return;
+   }
    if (editor->creating) {
       char *key = g_strdup_printf("server:%s.server.url", profile);
       bool exists = dict_get(cfg, key, NULL) != NULL;
@@ -290,10 +294,6 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    rr_server_url_t endpoint;
    if (!rr_server_url_parse(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])), &endpoint)) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Enter a valid WS, WSS, IRC or IRCS URL.");
-      return;
-   }
-   if (!cfg) {
-      gtk_label_set_text(GTK_LABEL(editor->error), "Client configuration is not loaded.");
       return;
    }
    char *rooms = server_editor_rooms(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), NULL);
@@ -333,7 +333,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save network membership.");
       return;
    }
-   gtk_server_picker_refresh_profile(profile);
+   gtk_server_picker_reload();
    server_editor_close(NULL);
 }
 
@@ -379,7 +379,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
       const char *value = (profile ? get_server_property(profile, editor_keys[i]) : NULL);
-      editor->initial[i] = i == 4 ? server_editor_rooms(value, get_server_property(profile, "autojoin.rig")) : g_strdup(value ? value : "");
+      editor->initial[i] = i == 4 ? server_editor_rooms(value, profile ? get_server_property(profile, "autojoin.rig") : NULL) : g_strdup(value ? value : "");
       editor->fields[i] = gtk_entry_new();
       gtk_entry_set_text(GTK_ENTRY(editor->fields[i]), editor->initial[i]);
       gtk_entry_set_width_chars(GTK_ENTRY(editor->fields[i]), 48);
@@ -397,7 +397,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
          gtk_widget_set_sensitive(proxy_status, FALSE);
          gtk_widget_set_tooltip_text(proxy_status, "Read-only: checked if this server uses a proxy, including an inherited global proxy. Proxy settings cannot be changed here.");
          gtk_grid_attach(GTK_GRID(grid), proxy_status, 1, i + 1, 1, 1);
-      } else gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i, 1, 1);
+      } else gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i + 1, 1, 1);
    }
 
    editor->certificate = gtk_combo_box_text_new();
