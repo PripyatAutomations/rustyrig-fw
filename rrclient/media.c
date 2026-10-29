@@ -22,6 +22,7 @@
 #include <time.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librustyaxe/tui.h>
 #include <rrclient/media.direct.h>
 #include <librrprotocol/rrprotocol.h>
@@ -1479,8 +1480,12 @@ void rrclient_media_refresh(rrconn_t *cptr) {
 
    /* Background refresh requests must not generate warnings after a
     * profile disconnect. A closed WebSocket is not a failed refresh. */
-   if (cptr && cptr->authenticated && cptr->is_ws &&
-       cptr->active && cptr->connected) {
+   /* Native connections must be OPEN; legacy client connections without
+    * a transport handle still use their session state until migrated. */
+   bool writable = cptr && cptr->active && cptr->connected &&
+      (!cptr->native_transport ||
+       rr_transport_state(cptr->native_transport) == RR_TRANSPORT_OPEN);
+   if (writable && cptr->authenticated && cptr->is_ws) {
       if (!media_send_list(cptr)) {
          Log(LOG_WARN, "ws.media",
             "Media list refresh failed: websocket send rejected (connection=%p, connected=%d); check protocol send-validation logs", (void *)cptr, cptr->connected);
