@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #endif
 #include <librustyaxe/core.h>
+#include <librustyaxe/reactor.glib.h>
 #include <librustyaxe/util.file.h>
 #include <librrprotocol/rrprotocol.h>
 #include <fwdsp/default-pipelines.h>
@@ -128,18 +129,20 @@ static bool fwdsp_spawn_permitted(const struct fwdsp_subproc *sp) {
 }
 
 extern const char *config_file; // librustyaxe/config.c
-#ifdef USE_MONGOOSE
-extern struct mg_mgr mg_mgr;    // rrserver/main.c defines it; rrclient links through librrprotocol's `mgr` alias
-#pragma weak mg_mgr
-extern struct mg_mgr mgr;
-#pragma weak mgr
-#endif
 static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
 extern time_t now;
 
-static struct mg_mgr *fwdsp_mg_manager(void) {
-   return (&mg_mgr != NULL) ? &mg_mgr : &mgr;
-}
+/* Local subprocess descriptors are not network transports. They use the
+ * reusable GLib fd reactor directly, independently of WebSocket/TLS. */
+struct fwdsp_io_conn {
+   struct fwdsp_subproc *sp;
+   rr_reactor_watch_t *watch;
+   GByteArray *recv;
+   int fd;
+   bool is_stderr, processing, detached;
+};
+static bool fwdsp_fd_ready(int fd, GIOCondition events, void *arg);
+static void fwdsp_reader_detach(struct fwdsp_io_conn *ctx);
 
 static bool fwdsp_send_control(struct fwdsp_subproc *sp, uint8_t type, uint8_t value);
 static bool fwdsp_destroy(struct fwdsp_subproc *sp);
@@ -328,28 +331,21 @@ void fwdsp_send_stream_headers(const char *uuid, rrconn_t *cptr) {
    }
 }
 
-static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
-   struct fwdsp_io_conn *ctx = c->fn_data;
+static void fwdsp_parse_read(struct fwdsp_io_conn *ctx) {
+   if (!ctx->sp || !ctx->recv) return;
 
-   (void)ev_data;
-
-   if (!ctx) {
-      return;
-   }
-
-   if (ev == MG_EV_READ && ctx->sp) {
       if (ctx->is_stderr) {
          for ( ;; ) {
-            uint8_t *newline = memchr(c->recv.buf, '\n', c->recv.len);
+            uint8_t *newline = memchr(ctx->recv->data, '\n', ctx->recv->len);
 
             if (!newline) {
                break;
             }
 
-            size_t line_len = (size_t)(newline - (uint8_t *) c->recv.buf);
+            size_t line_len = (size_t)(newline - (uint8_t *) ctx->recv->data);
             size_t consumed = line_len + 1;
 
-            if (line_len > 0 && c->recv.buf[line_len - 1] == '\r') {
+            if (line_len > 0 && ctx->recv->data[line_len - 1] == '\r') {
                line_len--;
             }
 
@@ -357,11 +353,11 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             if (!message) {
                Log(LOG_CRIT, "fwdsp", "OOM buffering fwdsp stderr");
-               mg_iobuf_del(&c->recv, 0, consumed);
+               g_byte_array_remove_range(ctx->recv, 0, consumed);
                continue;
             }
 
-            memcpy(message, c->recv.buf, line_len);
+            memcpy(message, ctx->recv->data, line_len);
             message[line_len] = '\0';
             /* A pipeline's actual GStreamer failure must never be hidden
              * behind the later EPIPE/decoder restart warning. Other verbose
@@ -380,16 +376,16 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
             free(message);
 
-            mg_iobuf_del(&c->recv, 0, consumed);
+            g_byte_array_remove_range(ctx->recv, 0, consumed);
          }
 
-         if (c->recv.len > FWDSP_MAX_FRAME_SIZE) {
+         if (ctx->recv->len > FWDSP_MAX_FRAME_SIZE) {
             Log(LOG_WARN, "fwdsp", "Discarding oversized unterminated stderr data");
-            mg_iobuf_del(&c->recv, 0, c->recv.len);
+            g_byte_array_remove_range(ctx->recv, 0, ctx->recv->len);
          }
       } else {
-         while (ctx->sp && c->recv.len >= FWDSP_FRAME_HEADER_SIZE) {
-            uint32_t frame_flags = frame_length_decode((const uint8_t *)c->recv.buf);
+         while (ctx->sp && ctx->recv->len >= FWDSP_FRAME_HEADER_SIZE) {
+            uint32_t frame_flags = frame_length_decode((const uint8_t *)ctx->recv->data);
             bool is_header = (frame_flags & FWDSP_FRAME_STREAM_HEADER) != 0;
             bool is_pcm_tap = (frame_flags & FWDSP_FRAME_PCM_TAP) != 0;
             uint32_t frame_len = frame_flags & FWDSP_FRAME_LENGTH_MASK;
@@ -397,13 +393,13 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
             if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
                Log(LOG_CRIT, "fwdsp", "Invalid frame length %u from %s.%s", frame_len, ctx->sp->role == FWDSP_ROLE_PROCESSOR ?
                   ctx->sp->processor_name : ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
-               mg_iobuf_del(&c->recv, 0, c->recv.len);
+               g_byte_array_remove_range(ctx->recv, 0, ctx->recv->len);
                break;
             }
 
             size_t total_len = FWDSP_FRAME_HEADER_SIZE + (size_t)frame_len;
 
-            if (c->recv.len < total_len) {
+            if (ctx->recv->len < total_len) {
                break;
             }
 
@@ -417,7 +413,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   void *output_data = sp->processor_output_data;
                   char name[sizeof(sp->channel_uuid)];
                   snprintf(name, sizeof(name), "%s", sp->channel_uuid);
-                  size_t newer = newer_pcm_bytes(c->recv.buf, c->recv.len, total_len);
+                  size_t newer = newer_pcm_bytes(ctx->recv->data, ctx->recv->len, total_len);
                   size_t keep = FWDSP_PCM_BACKLOG_BYTES - newer;
 
                   if (keep > frame_len) {
@@ -425,10 +421,10 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   }
 
                   if (keep) {
-                     output_cb(name, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE + frame_len - keep, keep, output_data);
+                     output_cb(name, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE + frame_len - keep, keep, output_data);
                   }
                }
-               mg_iobuf_del(&c->recv, 0, total_len);
+               g_byte_array_remove_range(ctx->recv, 0, total_len);
                continue;
             }
 
@@ -448,9 +444,9 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   snprintf(name, sizeof(name), "%s", sp->processor_name);
                   fwdsp_processor_output_cb output_cb = sp->processor_output;
                   void *output_data = sp->processor_output_data;
-                  output_cb(name, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, output_data);
+                  output_cb(name, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, output_data);
                }
-               mg_iobuf_del(&c->recv, 0, total_len);
+               g_byte_array_remove_range(ctx->recv, 0, total_len);
                continue;
             }
 
@@ -459,14 +455,14 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
                if (sp->refcount > 0) {
                   if (sp->processor_output) {
-                     sp->processor_output(sp->channel_uuid, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, sp->processor_output_data);
+                     sp->processor_output(sp->channel_uuid, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, sp->processor_output_data);
                   } else if (frame_len <= RR_BINFRAME_MAX_PAYLOAD) {
                      char event[32];
                      snprintf(event, sizeof(event), "fwdsp.frame.%.4s", sp->pl_id);
-                     event_emit_binary(event, NULL, c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len);
+                     event_emit_binary(event, NULL, ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len);
                   }
                }
-               mg_iobuf_del(&c->recv, 0, total_len);
+               g_byte_array_remove_range(ctx->recv, 0, total_len);
                continue;
             }
 
@@ -480,7 +476,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   if (headers) {
                      sp->stream_headers = headers;
                      frame_length_encode(headers + sp->stream_headers_len, frame_len);
-                     memcpy(headers + sp->stream_headers_len + 4, c->recv.buf + 4, frame_len);
+                     memcpy(headers + sp->stream_headers_len + 4, ctx->recv->data + 4, frame_len);
                      sp->stream_headers_len += total_len;
                   }
                } else {
@@ -499,9 +495,9 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                }
 
                if (is_header) {
-                  ws_media_send_setup_frame(channel, NULL, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
+                  ws_media_send_setup_frame(channel, NULL, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
                } else {
-                  ws_media_broadcast_subscribed(channel, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
+                  ws_media_broadcast_subscribed(channel, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
                }
             } else if (!channel && ctx->sp->channel_uuid[0] != '\0' && ctx->sp->refcount > 0) {
                /* A pipeline can produce packets briefly while its media channel is being replaced or unsubscribed.  Do not emit a warning for every packet in
@@ -517,37 +513,86 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                }
             }
 
-            mg_iobuf_del(&c->recv, 0, total_len);
-         }
-      }
-   } else if (ev == MG_EV_CLOSE) {
-      // Mongoose owns these descriptors and has closed them before this event.
-      // Clear live slot pointers too, so teardown cannot close a reused fd.
-      if (ctx->sp) {
-         if (ctx->is_stderr) {
-            ctx->sp->mg_stderr_conn = NULL;
-            ctx->sp->fw_stderr = -1;
-         } else {
-            ctx->sp->mg_stdout_conn = NULL;
-            ctx->sp->fw_stdout = -1;
+            g_byte_array_remove_range(ctx->recv, 0, total_len);
          }
       }
 
-      if (ctx->is_stderr && c->recv.len > 0) {
-         char *message = malloc(c->recv.len + 1);
-
-         if (message) {
-            memcpy(message, c->recv.buf, c->recv.len);
-            message[c->recv.len] = '\0';
-            Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
-            free(message);
-         }
+}
+/* Detachment during a media callback cannot free the reader until the
+ * current dispatch unwinds. The watch owns neither fd nor buffer. */
+static void fwdsp_reader_release(struct fwdsp_io_conn *ctx) {
+   if (!ctx) return;
+   if (ctx->watch) { rr_reactor_watch_cancel(ctx->watch); ctx->watch = NULL; }
+   if (ctx->processing) { ctx->detached = true; return; }
+   if (ctx->fd >= 0) close(ctx->fd);
+   if (ctx->recv) g_byte_array_unref(ctx->recv);
+   free(ctx);
+}
+static void fwdsp_reader_detach(struct fwdsp_io_conn *ctx) {
+   if (!ctx) return;
+   struct fwdsp_subproc *sp = ctx->sp;
+   if (sp) {
+      if (ctx->is_stderr) {
+         if (sp->stderr_reader == ctx) sp->stderr_reader = NULL;
+         sp->fw_stderr = -1;
+      } else {
+         if (sp->stdout_reader == ctx) sp->stdout_reader = NULL;
+         sp->fw_stdout = -1;
       }
-      // Free only the wrapper we allocated in fwdsp_spawn(). ctx->sp points
-      // into the shared fwdsp_subprocs array which is managed by the slot
-      // allocator and must never be freed here.
-      free(ctx);
    }
+   ctx->sp = NULL;
+   fwdsp_reader_release(ctx);
+}
+static bool fwdsp_fd_ready(int fd, GIOCondition events, void *arg) {
+   struct fwdsp_io_conn *ctx = arg;
+   ctx->processing = true;
+   uint8_t buf[16384];
+   ssize_t count = read(fd, buf, sizeof(buf));
+   if (count > 0 && ctx->sp) {
+      g_byte_array_append(ctx->recv, buf, (guint)count);
+      fwdsp_parse_read(ctx);
+   }
+   bool done = count == 0 || (count < 0 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK);
+   if (events & (G_IO_ERR | G_IO_NVAL)) done = true;
+   if ((events & G_IO_HUP) && count <= 0) done = true;
+   if (!ctx->sp || ctx->detached) done = true;
+   if (done && ctx->sp) {
+      if (ctx->is_stderr && ctx->recv->len) {
+         char *line = g_strndup((const char *)ctx->recv->data, ctx->recv->len);
+         Log(LOG_DEBUG, "fwdsp", "[stderr %s]", line);
+         g_free(line);
+      }
+      /* Do not cancel this watch in its own callback; returning false
+       * removes the source and its allocated watch object. */
+      ctx->watch = NULL;
+      fwdsp_reader_detach(ctx);
+   }
+   ctx->processing = false;
+   if (done || ctx->detached) {
+      if (ctx->fd >= 0) close(ctx->fd);
+      g_byte_array_unref(ctx->recv);
+      free(ctx);
+      return false;
+   }
+   return true;
+}
+static struct fwdsp_io_conn *fwdsp_reader_attach(struct fwdsp_subproc *sp, int fd, bool stderr_stream) {
+   if (fd < 0) return NULL;
+   struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx));
+   if (!ctx) return NULL;
+   ctx->sp = sp;
+   ctx->fd = fd;
+   ctx->is_stderr = stderr_stream;
+   ctx->recv = g_byte_array_new();
+   int flags = fcntl(fd, F_GETFL, 0);
+   if (flags >= 0) fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+   ctx->watch = rr_reactor_watch_fd(NULL, fd, G_IO_IN, fwdsp_fd_ready, ctx);
+   if (!ctx->watch) {
+      g_byte_array_unref(ctx->recv);
+      free(ctx);
+      return NULL;
+   }
+   return ctx;
 }
 
 bool fwdsp_init(void) {
@@ -1083,25 +1128,9 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    // be reached from expiry, SIGCHLD handling, codec switching and shutdown;
    // a late callback must never free the same slot-owned buffers twice.
    sp->destroying = true;
-   // Let Mongoose close both wrapped sockets on its next poll. Detach their
-   // contexts before the slot is reused; never free a connection mid-poll or
-   // close its descriptor behind the event loop's back.
-#ifdef USE_MONGOOSE
-
-   if (sp->mg_stdout_conn) {
-      ((struct fwdsp_io_conn *)sp->mg_stdout_conn->fn_data)->sp = NULL;
-      sp->mg_stdout_conn->is_closing = 1;
-      sp->mg_stdout_conn = NULL;
-      sp->fw_stdout = -1;
-   }
-
-   if (sp->mg_stderr_conn) {
-      ((struct fwdsp_io_conn *)sp->mg_stderr_conn->fn_data)->sp = NULL;
-      sp->mg_stderr_conn->is_closing = 1;
-      sp->mg_stderr_conn = NULL;
-      sp->fw_stderr = -1;
-   }
-#endif // USE_MONGOOSE
+   /* Tear down reactor watches before the process slot is recycled. */
+   if (sp->stdout_reader) fwdsp_reader_detach(sp->stdout_reader);
+   if (sp->stderr_reader) fwdsp_reader_detach(sp->stderr_reader);
 
    // Reap only our worker; other components own their own children.
    if (sp->process.pid > 0) {
@@ -1157,12 +1186,8 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }, control_pipe[2] = {
       -1, -1
    };
-   struct mg_mgr *manager = fwdsp_mg_manager();
 
    if (sp->io_type == FW_IO_STDIO) {
-      if (!manager) {
-         return false;
-      }
 #ifndef _WIN32
 
       if (socketpair(AF_UNIX, SOCK_STREAM, 0, in_pipe) ||
@@ -1284,44 +1309,14 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       }
 #endif
 
-#ifdef  USE_MONGOOSE
-
-      // Hook up stdout/stderr to Mongoose immediately. The fn_data must be a
-      // heap-allocated struct fwdsp_io_conn: fwdsp_read_cb() frees it on
-      // MG_EV_CLOSE. Passing `sp` itself (which lives inside the shared
-      // fwdsp_subprocs array) made the callback free() the whole array --
-      // corrupting the heap and later crashing mg_iobuf_free when a client
-      // connected ("double free or corruption").
-      if (sp->fw_stdout) {
-         struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx));
-
-         if (ctx) {
-            ctx->sp = sp;
-            ctx->is_stderr = false;
-            sp->mg_stdout_conn = mg_wrapfd(manager, sp->fw_stdout, fwdsp_read_cb, ctx);
-         } else {
-            sp->mg_stdout_conn = NULL;
-         }
-      }
-
-      if (sp->fw_stderr) {
-         struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx));
-
-         if (ctx) {
-            ctx->sp = sp;
-            ctx->is_stderr = true;
-            sp->mg_stderr_conn = mg_wrapfd(manager, sp->fw_stderr, fwdsp_read_cb, ctx);
-         } else {
-            sp->mg_stderr_conn = NULL;
-         }
-      }
-
-      if (!sp->mg_stdout_conn || !sp->mg_stderr_conn) {
-         Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for %s", sp->role == FWDSP_ROLE_PROCESSOR ? sp->processor_name : sp->pl_id);
-
+      sp->stdout_reader = fwdsp_reader_attach(sp, sp->fw_stdout, false);
+      sp->stderr_reader = fwdsp_reader_attach(sp, sp->fw_stderr, true);
+      if (!sp->stdout_reader || !sp->stderr_reader) {
+         Log(LOG_CRIT, "fwdsp", "Failed to attach subprocess pipes to GLib reactor");
+         fwdsp_destroy(sp);
          return false;
       }
-#endif // USE_MONGOOSE
+
    }
 
    if (sp->role == FWDSP_ROLE_PROCESSOR) {
