@@ -5,7 +5,7 @@ P=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 commit_message=${1-}
 
 # Commit and publish components before the parent gitlinks which reference them.
-for i in librustyaxe librrprotocol www callsign-lookup; do
+for i in librustyaxe librrprotocol callsign-lookup; do
    echo "PUSH: $i"
    cd "${P}/${i}"
    if ! git diff --quiet HEAD --; then
@@ -31,4 +31,4 @@ fi
 git push
 
 echo "Published parent with pinned component revisions:"
-git submodule status -- librustyaxe librrprotocol www callsign-lookup
+git submodule status -- librustyaxe librrprotocol callsign-lookup
