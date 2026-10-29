@@ -1191,9 +1191,8 @@ static bool load_peer(const char *section) {
    return true;
 }
 
-bool rrserver_links_init(struct mg_mgr *manager) {
+bool rrserver_links_init(void) {
    memset(&links, 0, sizeof(links));
-   (void)manager;
    int startup_delay = cfg_get_int("links.startup-delay-seconds", 5);
 
    if (startup_delay < 0 || startup_delay > 300) {
