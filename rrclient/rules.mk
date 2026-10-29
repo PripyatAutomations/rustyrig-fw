@@ -53,11 +53,11 @@ rrclient_objs += win32.o		# support to run in windows
 rrclient_objs += wsjtx.o
 
 # XXX: Need moved to librustyirc ASAP
-rrclient_objs += dcc.o
-rrclient_objs += irc.audio.session.o
-rrclient_objs += irc.o
-rrclient_objs += irc.compat.o
 rrclient_objs += cli.irc.o
+rrclient_objs += dcc.o
+rrclient_objs += irc.o
+rrclient_objs += irc.audio.session.o
+rrclient_objs += irc.compat.o
 rrclient_objs += irc.dcc.o
 rrclient_objs += irc.stats.o
 
@@ -72,17 +72,6 @@ gtk_module := bin/rrclient-gtk.so
 bins += ${gtk_module}
 
 gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
-gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
-gtk_module_objs += gtk/gtk.icons.o gtk/gtk.tabs.menu.o
-gtk_module_objs += gtk/gtk.tabs.o gtk/gtk.floating-panel.o
-gtk_module_objs += gtk/gtk.terminal.o
-gtk_module_objs += gtk/gtk.help.o
-gtk_module_objs += gtk/gtk.files.o gtk/gtk.resources.o gtk/gtk.serial.o
-gtk_module_objs += gtk/gtk.receiver-directory.o  # Cached public receiver browser
-gtk_module_objs += gtk/gtk.spectrum.o
- gtk_module_objs += gtk/gtk.audio-routing.o    # RX ear routing window
-gtk_module_objs += gtk/gtk.control-panel.o    # Draggable in-client control popups
-gtk_module_objs += gtk/gtk.privileges.o
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab
 gtk_module_objs += gtk/gtk.admin.controls.o # Node and platform controls
 gtk_module_objs += gtk/gtk.admin.access.o   # Access requests and grant review
@@ -91,35 +80,51 @@ gtk_module_objs += gtk/gtk.admin.password.o # Password dialog
 gtk_module_objs += gtk/gtk.admin.sessions.o # Session actions
 gtk_module_objs += gtk/gtk.admin.privgroup.o # Privilege set editing
 gtk_module_objs += gtk/gtk.admin.selection.o # Administrative table selection and filtering
-gtk_module_objs += gtk/gtk.supervision.o     # Independent supervision dialogs
-gtk_module_objs += gtk/gtk.alertdialog.o	# alert/error/warning dialogs
+gtk_module_objs += gtk/gtk.alertdialog.o # alert/error/warning dialogs
+gtk_module_objs += gtk/gtk.audio-routing.o # RX ear routing window
+gtk_module_objs += gtk/gtk.control-panel.o # Draggable in-client control popups
 gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff
 gtk_module_objs += gtk/gtk.chat.highlight.o
 gtk_module_objs += gtk/gtk.chat.links.o
-gtk_module_objs += gtk/gtk.codecpicker.o	# codec picker widget
-gtk_module_objs += gtk/gtk.file-editor.o	# configuration tab
+gtk_module_objs += gtk/gtk.codecpicker.o # codec picker widget
+gtk_module_objs += gtk/gtk.connect-button.o
+gtk_module_objs += gtk/gtk.core.o            # Support for a GTK user interface
+gtk_module_objs += gtk/gtk.files.o
+gtk_module_objs += gtk/gtk.file-editor.o # configuration tab
+gtk_module_objs += gtk/gtk.floating-panel.o
 gtk_module_objs += gtk/gtk.fm-mode.o	# FM mode dialog
 gtk_module_objs += gtk/gtk.freqentry.o	# Frequency Entry Widget
-gtk_module_objs += gtk/gtk.zoom.o             # Whole-interface GTK zoom
+gtk_module_objs += gtk/gtk.help.o
 gtk_module_objs += gtk/gtk.hotkey.o	# Hotkey support
+gtk_module_objs += gtk/gtk.icons.o
+gtk_module_objs += gtk/gtk.logview.o
 gtk_module_objs += gtk/gtk.mode-box.o	# Modulation Mode / width box
+gtk_module_objs += gtk/gtk.privileges.o
+gtk_module_objs += gtk/gtk.receiver-directory.o # Cached public receiver browser
+gtk_module_objs += gtk/gtk.resources.o
+gtk_module_objs += gtk/gtk.serial.o
+gtk_module_objs += gtk/gtk.spectrum.o
+gtk_module_objs += gtk/gtk.supervision.o # Independent supervision dialogs
 ifeq (${USE_LIBNOTIFY},true)
 gtk_module_objs += gtk/gtk.notify.o	# Support for libnotify
 notify_ldflags := $(shell pkg-config --libs libnotify)
 endif
 gtk_module_objs += gtk/gtk.ptt-btn.o	# Push To Talk (PTT) button in GUI
-gtk_module_objs += gtk/gtk.txpower.o	# TX power box
 gtk_module_objs += gtk/gtk.serveredit.o	# Serve editor
 gtk_module_objs += gtk/gtk.serverpick.o	# server picker window
-gtk_module_objs += gtk/gtk.logview.o gtk/gtk.syslog.o	# syslog tab
+gtk_module_objs += gtk/gtk.syslog.o	# syslog tab
+gtk_module_objs += gtk/gtk.tabs.menu.o
+gtk_module_objs += gtk/gtk.tabs.o
+gtk_module_objs += gtk/gtk.terminal.o
+gtk_module_objs += gtk/gtk.txpower.o	# TX power box
 gtk_module_objs += gtk/gtk.userlist.o	# GTK part of the userlist
-gtk_module_objs += gtk/gtk.connect-button.o
 gtk_module_objs += gtk/gtk.vfo-box.o	# VFO box element
 gtk_module_objs += gtk/gtk.vol-box.o	# Volume widget
 gtk_module_objs += gtk/gtk.winmgr.o	# window management
 gtk_module_objs += gtk/gtk.webcam.o	# webcam/video viewer window
+gtk_module_objs += gtk/gtk.zoom.o       # Whole-interface GTK zoom
+gtk_module_objs += gtk/module.o	        # Module entry points
 gtk_module_objs += gtk/ui.speech.o	# Support for screener readers
-gtk_module_objs += gtk/module.o	# Module entry points
 endif
 
 ###########################################

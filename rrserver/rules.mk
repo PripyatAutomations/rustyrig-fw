@@ -30,25 +30,21 @@ rrserver_headers += $(wildcard rrserver/*.h)
 rrserver_src = $(addprefix rrserver/,$(rrserver_objs:.o=.c))
 
 rrserver_objs += acl.o
-#rrserver_objs += au.o			# core abstractions
-#rrserver_objs += au.pcm5102.o           # Support for TI PCM5102 i2c DAC
-rrserver_objs += au.recording.o		# support for recording session audio
 rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
+#rrserver_objs += au.o			 # core abstractions
+#rrserver_objs += au.pcm5102.o           # Support for TI PCM5102 i2c DAC
+rrserver_objs += au.recording.o		# support for recording session audio
 rrserver_objs += audit.o		# Store LOG_AUDIT Log() messages in the audit_log db table
 rrserver_objs += backend.o		# Interface to various backends
-rrserver_objs += backend.worker.o       # Per-instance hardware workers and main-thread completions
 rrserver_objs += backend.instance.o	# Allocated backend instance lifecycle
-rrserver_objs += backend.register.o	# Build-selected backend type registration
 rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig-fw)
+rrserver_objs += backend.register.o	# Build-selected backend type registration
+rrserver_objs += backend.worker.o       # Per-instance hardware workers and main-thread completions
 rrserver_objs += backend.yaesu.o	# Native FT-891 Yaesu CAT (no Hamlib dependency)
-rrserver_objs += mesh.native.listener.o
-rrserver_objs += mesh.wss.o mesh.wss.http.o mesh.auth.o mesh.bootstrap.o link.native.o link.admin.o
-rrserver_objs += mesh.enroll.native.o mesh.native.client.o
-rrserver_objs += bridge.hints.o
 rrserver_objs += bridge.access.o
+rrserver_objs += bridge.hints.o
 rrserver_objs += bridge.manager.o
-rrserver_objs += receiver.directory.o
 rrserver_objs += cfg.acl.o
 rrserver_objs += cfg.peer.o		# Peer configuration sections
 rrserver_objs += cfg.rig.o		# Named rig configuration sections/views
@@ -62,7 +58,6 @@ rrserver_objs += database.rooms.o
 rrserver_objs += database.users.o
 rrserver_objs += defconfig.o		# Default configuration
 rrserver_objs += events.o		# Our event hooks
-rrserver_objs += performance.o	# Five-minute process and cluster-state statistics
 rrserver_objs += events.admin.o
 rrserver_objs += events.quota.o
 rrserver_objs += events.rig.o
@@ -70,25 +65,44 @@ rrserver_objs += events.rooms.o
 rrserver_objs += events.users.o
 rrserver_objs += faults.o		# Fault management/alerting
 rrserver_objs += filters.o		# Support for managing BPF/LPF/HPF
+
+###########################
+# GUI on the radio itself #
+###########################
+#rrserver_objs += gui.o			# Support for a GUI on the OLED/Nextion (NYI)
+#rrserver_objs += gui.fb.o		# Virtual framebuffer for GUI (NYI)
+#rrserver_objs += gui.nextion.o		# Nextion display support (NYI)
+###########################
+
 rrserver_objs += gpio.o			# GPIO controls
 rrserver_objs += hostlog.o		# Stream host Log() lines to FLAG_SYSLOG clients as binframes
 rrserver_objs += help.o			# support for help menus from filesystem, if available
 rrserver_objs += http.bans.o
 rrserver_objs += i2c.o			# Support for i2c bus devices
 rrserver_objs += identity.o
-rrserver_objs += link.o		# Authenticated server-link sessions
-rrserver_objs += link.tree.o		# Server-link tree admission and routing
-rrserver_objs += mesh.enroll.o	# One-shot mesh enrollment client
+rrserver_objs += link.o		        # Authenticated server-link sessions
+rrserver_objs += link.admin.o
 rrserver_objs += link.mesh.o		# Shadow mesh adjacency and Dijkstra routing
+rrserver_objs += link.native.o
+rrserver_objs += link.tree.o		# Server-link tree admission and routing
+rrserver_objs += mesh.auth.o
+rrserver_objs += mesh.bootstrap.o
+rrserver_objs += mesh.enroll.o	        # One-shot mesh enrollment client
+rrserver_objs += mesh.enroll.native.o
+rrserver_objs += mesh.native.client.o
+rrserver_objs += mesh.native.listener.o
+rrserver_objs += mesh.wss.o
+rrserver_objs += mesh.wss.http.o
 rrserver_objs += main.o			# main loop
 rrserver_objs += media.o		# media channel provisioning
 rrserver_objs += media.direct.o
-rrserver_objs += rx.slice.o		# shared canonical RX slice identities
 rrserver_objs += network.o		# Network management/config for embedded hosts
+rrserver_objs += performance.o	        # Five-minute process and cluster-state statistics
 rrserver_objs += protection.o		# Protection features
 rrserver_objs += platform.backlight.o
 rrserver_objs += platform.controls.o
 rrserver_objs += ptt.o			# Push To Talk controls (GPIO, CAT, etc)
+rrserver_objs += receiver.directory.o
 rrserver_objs += relay.o
 rrserver_objs += relay.catalog.o
 rrserver_objs += relay.media.o
@@ -98,6 +112,7 @@ rrserver_objs += rig.compat.o		# Default-rig cat.state adapter
 rrserver_objs += rig.properties.o	# Per-rig typed property state/control
 rrserver_objs += rig.registry.o		# UUID-addressed runtime rig collection
 rrserver_objs += rig.rooms.o		# Per-rig room and media bindings
+rrserver_objs += rx.slice.o		# shared canonical RX slice identities
 rrserver_objs += supervision.o
 rrserver_objs += thermal.o		# Thermal management
 rrserver_objs += timer.o		# Timers support
@@ -106,14 +121,6 @@ rrserver_objs += usage.o
 rrserver_objs += unwind.o		# Support for stack unwinding on crashes
 rrserver_objs += waterfall.o		# support for sending a waterfall
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
-
-###########################
-# GUI on the radio itself #
-###########################
-#rrserver_objs += gui.o			# Support for a GUI on the OLED/Nextion (NYI)
-#rrserver_objs += gui.fb.o		# Virtual framebuffer for GUI (NYI)
-#rrserver_objs += gui.nextion.o		# Nextion display support (NYI)
-#rrserver_objs +=
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
