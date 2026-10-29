@@ -306,6 +306,7 @@ static void picker_destroy(GtkWidget *tree, gpointer data) {
    }
 }
 
+static char *picker_selected_profile(GtkWidget *tree);
 static void picker_key_changed(GtkComboBox *combo, gpointer data) {
    GtkWidget *tree = data;
    if (g_object_get_data(G_OBJECT(combo), "rr-loading")) return;
@@ -341,6 +342,11 @@ static void picker_key_refresh(GtkWidget *tree) {
    gtk_widget_set_sensitive(combo, profile != NULL);
    g_object_set_data(G_OBJECT(combo), "rr-loading", NULL);
    g_free(profile);
+}
+static void picker_manage_keys(GtkButton *button, gpointer tree) {
+   (void)button;
+   rrclient_gtk_open_key_manager();
+   picker_key_refresh(GTK_WIDGET(tree));
 }
 static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
    (void)selection;
@@ -992,7 +998,7 @@ void gtk_show_server_chooser(void) {
    gtk_box_pack_start(GTK_BOX(box), keys_row, FALSE, FALSE, 0);
    g_object_set_data(G_OBJECT(tree), "rr-key-combo", keys_combo);
    g_signal_connect(keys_combo, "changed", G_CALLBACK(picker_key_changed), tree);
-   g_signal_connect_swapped(keys_manage, "clicked", G_CALLBACK(rrclient_gtk_open_key_manager), NULL);
+   g_signal_connect(keys_manage, "clicked", G_CALLBACK(picker_manage_keys), tree);
    picker_key_refresh(tree);
    GtkWidget *new_server = gtk_button_new_with_label("New Server");
    gtk_box_pack_start(GTK_BOX(box), new_server, FALSE, FALSE, 0);
