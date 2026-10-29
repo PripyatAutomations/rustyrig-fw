@@ -76,6 +76,8 @@ static void disconnected(void) {
    reconnect_at = mono_us() + UINT64_C(5000000);
 }
 
+static void gpsd_start_read(void);
+
 static void connected(GObject *source, GAsyncResult *result, gpointer user) {
    (void)user;
    GError *error = NULL;
@@ -134,7 +136,6 @@ static void connected(GObject *source, GAsyncResult *result, gpointer user) {
    }
    g_free(command);
    /* Read into storage retained until the asynchronous completion callback. */
-   extern void gpsd_start_read(void);
    gpsd_start_read();
 }
 
@@ -158,7 +159,7 @@ static void gpsd_read_done(GObject *source, GAsyncResult *result, gpointer user)
    receive(receive_buffer, (size_t)count);
    gpsd_start_read();
 }
-void gpsd_start_read(void) {
+static void gpsd_start_read(void) {
    if (initialized && connection && input) {
       g_input_stream_read_async(input, receive_buffer, sizeof(receive_buffer),
          G_PRIORITY_DEFAULT, cancellable, gpsd_read_done, NULL);
@@ -250,6 +251,4 @@ void rr_module_shutdown(void) {
    g_clear_object(&socket_client);
    g_clear_object(&cancellable);
 
-   initialized = false;
-   connection = NULL;
 }
