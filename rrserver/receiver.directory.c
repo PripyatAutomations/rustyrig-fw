@@ -93,7 +93,6 @@ static bool body_valid(const char *data, size_t len) {
    bool valid = dict_get_llong(json, "schema", -1) == 1 &&
       !strcmp(dict_get(json, "provider", "kiwi"), "kiwi") &&
       strstr(data, "\"receivers\"") != NULL;
-   size_t count = 0;
    const char *key;
    dict_value_t value;
    val_type_t type;
@@ -107,7 +106,6 @@ static bool body_valid(const char *data, size_t len) {
          valid = false;
          break;
       }
-      if (n + 1 > count) count = n + 1;
    }
    dict_free(json);
    return valid;
