@@ -227,7 +227,7 @@
        "offset": 222,
        "type": "int",
        "key": "net.http.port",
-       "default": 8420
+       "default": 0
    },
    "net/http/enabled": {
        "offset": 230,
@@ -273,7 +273,7 @@
        "offset": 350,
        "type": "int",
        "key": "net.http.tls-port",
-       "default": 4422
+       "default": 0
    },
    "backend/active": {
        "offset": 358,
