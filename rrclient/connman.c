@@ -718,6 +718,11 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       if (ev == MG_EV_CLOSE) {
          irc_capabilities_clear(cptr);
          mg_iobuf_free(&t->websocket_request);
+         if (cptr->native_transport) {
+            rr_transport_mongoose_closed(cptr->native_transport);
+            rr_transport_mongoose_release(cptr->native_transport);
+            cptr->native_transport = NULL;
+         }
          free(t);
          c->fn_data = NULL;
       }
