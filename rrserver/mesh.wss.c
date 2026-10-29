@@ -177,13 +177,15 @@ static size_t queued_bytes(void *arg) {
 }
 static uint32_t connection_capabilities(void *arg) {
    struct mesh_wss *c = arg;
-   uint32_t basic = RR_TRANSPORT_RELIABLE_MESSAGES;
-   if (c->client_route) return basic | RR_TRANSPORT_BINARY_MESSAGES;
+   uint32_t basic = RR_TRANSPORT_RELIABLE_MESSAGES | RR_TRANSPORT_TLS_ENCRYPTED;
+   if (c->client_route) {
+      return basic | RR_TRANSPORT_BINARY_MESSAGES;
+   }
    return basic | RR_TRANSPORT_TLS_AUTHENTICATED | RR_TRANSPORT_PEER_SPKI;
 }
 static const rr_transport_driver_t driver = {
    .abi_version = RR_TRANSPORT_ABI_VERSION,
-   .capabilities = RR_TRANSPORT_RELIABLE_MESSAGES | RR_TRANSPORT_BINARY_MESSAGES | RR_TRANSPORT_TLS_AUTHENTICATED | RR_TRANSPORT_PEER_SPKI,
+   .capabilities = RR_TRANSPORT_RELIABLE_MESSAGES | RR_TRANSPORT_BINARY_MESSAGES | RR_TRANSPORT_TLS_ENCRYPTED | RR_TRANSPORT_TLS_AUTHENTICATED | RR_TRANSPORT_PEER_SPKI,
    .connection_capabilities = connection_capabilities,
    .send_message = send_message, .send_binary_message = send_binary,
    .queued_bytes = queued_bytes, .peer_spki_sha256 = peer_pin, .close = driver_close
