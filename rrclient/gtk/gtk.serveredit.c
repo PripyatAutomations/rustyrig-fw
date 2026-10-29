@@ -212,6 +212,13 @@ static void server_editor_free(gpointer data) {
    g_free(editor);
 }
 
+static gboolean server_editor_escape(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
+   (void)widget; (void)unused;
+   if (event->keyval != GDK_KEY_Escape) return FALSE;
+   server_editor_close(NULL);
+   return TRUE;
+}
+
 static void server_editor_save(GtkButton *button, gpointer data) {
    (void)button;
    GtkWidget *window = GTK_WIDGET(data);
@@ -279,6 +286,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    rr_floating_panel_set_close_callback(server_editor_panel, server_editor_close, NULL);
    GtkWidget *window = rr_floating_panel_widget(server_editor_panel);
    server_editor_frame = window;
+   g_signal_connect(window, "key-press-event", G_CALLBACK(server_editor_escape), NULL);
    g_signal_connect(window, "destroy", G_CALLBACK(server_editor_frame_destroyed), NULL);
    GtkServerEditor *editor = g_new0(GtkServerEditor, 1);
    editor->profile = g_strdup(profile);
@@ -305,13 +313,20 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
          gtk_widget_set_tooltip_text(editor->fields[i], "Rooms to join, separated by spaces.");
       }
       gtk_grid_attach(GTK_GRID(grid), gtk_label_new(labels[i]), 0, i, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i, 1, 1);
+      if (i == 3) {
+         const char *effective = editor->initial[i][0] ? editor->initial[i] : cfg_get("server.proxy");
+         GtkWidget *proxy_status = gtk_check_button_new_with_label("Proxy configured");
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(proxy_status), effective && *effective);
+         gtk_widget_set_sensitive(proxy_status, FALSE);
+         gtk_widget_set_tooltip_text(proxy_status, "Read-only: checked if this server uses a proxy, including an inherited global proxy. Proxy settings cannot be changed here.");
+         gtk_grid_attach(GTK_GRID(grid), proxy_status, 1, i, 1, 1);
+      } else gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i, 1, 1);
    }
 
    editor->initial_direct = rrclient_direct_preferred(profile);
    editor->direct = gtk_check_button_new_with_label("Prefer direct RTP audio");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->direct), editor->initial_direct);
-   gtk_widget_set_tooltip_text(editor->direct, "Use direct media when available, with WebSocket fallback. Applies to this server's automatic subscriptions.");
+   gtk_widget_set_tooltip_text(editor->direct, "If checked, try direct RTP audio, then RTP to the nearest server (proxy-rtp), before trying proxy-media. Unchecked tries proxy-media first. This is less desirable but can avoid firewall issues.");
    gtk_grid_attach(GTK_GRID(grid), editor->direct, 0, 5, 2, 1);
    editor->error = gtk_label_new("");
    gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 6, 2, 1);
