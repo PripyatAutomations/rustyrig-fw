@@ -4,7 +4,7 @@
 #include "link.h"
 #include "mesh.native.client.h"
 #include "mesh.enroll.native.h"
-#include "reactor.glib.h"
+#include <librustyaxe/reactor.glib.h>
 #include <librustyaxe/core.h>
 #include <glib.h>
 #include <arpa/inet.h>
