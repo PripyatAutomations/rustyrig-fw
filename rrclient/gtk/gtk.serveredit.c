@@ -339,10 +339,14 @@ static void server_editor_save(GtkButton *button, gpointer data) {
 
 GtkWidget *gtk_show_server_editor(const char *profile) {
    if (server_editor_panel) {
-      rr_floating_panel_restore(server_editor_panel);
-      rr_floating_panel_show(server_editor_panel);
-
-      return server_editor_frame;
+      GtkServerEditor *current = server_editor_frame ?
+         g_object_get_data(G_OBJECT(server_editor_frame), "rr-server-editor") : NULL;
+      if (current && g_strcmp0(current->profile, profile) == 0) {
+         rr_floating_panel_restore(server_editor_panel);
+         rr_floating_panel_show(server_editor_panel);
+         return server_editor_frame;
+      }
+      server_editor_close(NULL);
    }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
 
