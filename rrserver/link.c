@@ -1426,7 +1426,9 @@ bool rrserver_links_init(void) {
       return false;
    }
    /* Enrollment stays on HTTPS regardless of the old shared-link switch. */
+#ifdef USE_MONGOOSE
    event_on_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
+#endif
 
    if (links.peer_count) {
       Log(LOG_INFO, "link", "Server link node %s [%s], %zu configured peers", links.site, links.node, links.peer_count);
@@ -1533,7 +1535,9 @@ void rrserver_links_poll(void) {
 void rrserver_links_fini(void) {
    links.stopping = true;
    event_off("link.cmd", link_command, NULL);
+#ifdef USE_MONGOOSE
    event_off_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
+#endif
    /* Native driver CLOSE callbacks have already reclaimed sessions. */
    rr_link_tree_free(links.tree);
    links.tree = NULL;
