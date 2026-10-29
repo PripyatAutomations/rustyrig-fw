@@ -86,9 +86,7 @@ extern bool rrclient_connect_url(const char *profile, const char *url);
 /* NULL inherits configured settings; a nonempty override is mandatory on retries. */
 extern bool rrclient_connect_url_proxy(const char *profile, const char *url, const char *proxy);
 extern bool connect_server(const char *server);
-#if     defined(USE_MONGOOSE)
 extern rrconn_t *ws_conn, *ws_tx_conn;
-#endif
 extern const char *get_server_property(const char *server, const char *prop);
 extern bool connect_or_disconnect(const char *server);
 extern bool rrclient_irc_nick_submit(const char *profile, const char *nick);
