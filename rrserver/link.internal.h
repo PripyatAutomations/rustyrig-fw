@@ -80,7 +80,6 @@ void send_hello(struct link_session *session);
 void handle_frame(struct link_session *session, const char *data, size_t length);
 void handle_pong(struct link_session *session);
 void native_callback(rr_transport_t *, enum rr_transport_event, rr_transport_channel_t *, const uint8_t *, size_t, void *);
-void shared_link_request(const char *, const void *, size_t, rrconn_t *, void *);
 void link_command(const char *, const char *, rrconn_t *, void *);
 bool native_identity_trusted(const char *node, const char *key, const char *pin);
 #endif
