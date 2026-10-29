@@ -52,10 +52,12 @@ static void client_closed(rrconn_t *client) {
 static void client_open(struct native_session *s, rr_transport_t *transport) {
    const char *ip = rr_mesh_wss_ip(transport);
    const char *ua = rr_mesh_wss_user_agent(transport);
+#ifdef USE_HTTP
    if (*ua && is_http_banned(ua)) {
       rr_mesh_wss_abort(transport, "Banned native client User-Agent");
       return;
    }
+#endif
    if (rrserver_acl_check("listener:https", ip, NULL, NULL) != ACL_ALLOW) {
       rr_mesh_wss_abort(transport, "Native client listener ACL denied");
       return;
