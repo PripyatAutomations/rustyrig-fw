@@ -701,11 +701,21 @@ static void host_sync(serial_binding_t *b) {
 
       return;
    }
-   int sent = connection->native_transport ?
-      rr_transport_send_binary_message(connection->native_transport, packet, (size_t)len) :
-      RR_TRANSPORT_UNSUPPORTED;
+   bool sent = false;
+   if (connection->native_transport) {
+      sent = rr_transport_send_binary_message(connection->native_transport,
+         packet, (size_t)len) == RR_TRANSPORT_OK;
+   }
+#ifdef USE_MONGOOSE
+   else if (connection->conn && !connection->conn->is_closing) {
+      /* Temporary legacy adapter until Mongoose connections also acquire
+       * rr_transport handles. Keep Mongoose symbols out of native builds. */
+      struct mg_str frame = { .buf = (char *)packet, .len = (size_t)len };
+      sent = ws_send_to_cptr(NULL, connection, &frame, WEBSOCKET_OP_BINARY);
+   }
+#endif
    free(packet);
-   if (sent != RR_TRANSPORT_OK) {
+   if (!sent) {
       b->tx_seq--;
       return;
    }
