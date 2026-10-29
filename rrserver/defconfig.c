@@ -496,12 +496,6 @@ defconfig_t defcfg[] = {
       "log.show-ts", "true", "Show timestamps in log?", DEFCONFIG_BOOL, NULL
    },
    {
-      "net.http.404-path", "/var/lib/rustyrig/www/404.shtml", "Path to 404 file", DEFCONFIG_PATH, NULL
-   },
-   {
-      "net.http.enabled", "true", "Enable HTTPS/WSS browser listener?", DEFCONFIG_BOOL, NULL
-   },
-   {
       "net.http.authdb", "/etc/rustyrig/http.users", "Path to user database", DEFCONFIG_PATH, NULL
    },
    {
@@ -509,9 +503,6 @@ defconfig_t defcfg[] = {
    },
    {
       "net.http.hex-dump", "false", "Hex dump http? (Noisy!)", DEFCONFIG_BOOL, NULL
-   },
-   {
-      "net.http.tls-bind", "127.0.0.1", "Address to listen for HTTPS (TLS)"
    },
    {
       "net.http.tls-auto-generate", "true", "Provision self-signed TLS certificate when absent (requires writable key/cert paths)", DEFCONFIG_BOOL, NULL
@@ -523,12 +514,6 @@ defconfig_t defcfg[] = {
    {
       "net.http.tls-key", "/var/lib/rustyrig/identity/tls-key.pem",
       "Persistent server TLS private key (mode 0600; never place in /etc)", DEFCONFIG_PATH, NULL
-   },
-   {
-      "net.http.tls-port", "0", "Optional legacy Mongoose HTTPS listener port (0 disables it)", DEFCONFIG_UINT, NULL
-   },
-   {
-      "net.http.www-root", "/var/lib/rustyrig/www", "Path to static http content", DEFCONFIG_PATH, NULL
    },
    // MQTT client
    {
