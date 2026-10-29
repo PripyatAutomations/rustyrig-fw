@@ -715,6 +715,12 @@ int main(int argc, char **argv) {
    free((void *)masterdb_path);
    audit_init();                // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
+   /* Authentication belongs to the protocol, not the HTTP listener backend.
+    * Native-only servers must load users before accepting any WS sessions. */
+   if (http_reload_users() < 0) {
+      Log(LOG_CRIT, "auth", "Unable to initialize user accounts");
+      return EXIT_FAILURE;
+   }
    hostlog_init();              // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)
 
    reload_event_add(NULL, rrserver_config_refresh, "refresh cached server settings after config reload");
