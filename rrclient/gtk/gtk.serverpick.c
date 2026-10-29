@@ -327,6 +327,77 @@ static void picker_toggle(GtkCellRendererToggle *renderer, gchar *path, gpointer
    picker_refresh(data);
 }
 
+static char *picker_selected_profile(GtkWidget *tree) {
+   GtkTreeModel *model = NULL;
+   GtkTreeIter iter;
+   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &model, &iter) ||
+       picker_is_network(model, &iter)) return NULL;
+   char *name = NULL;
+   gtk_tree_model_get(model, &iter, 0, &name, -1);
+   return name;
+}
+
+static void picker_delete_selected(GtkMenuItem *item, gpointer data) {
+   (void)item;
+   GtkWidget *tree = data;
+   char *name = picker_selected_profile(tree);
+   if (!name) return;
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(gtk_widget_get_toplevel(tree)),
+      GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+      "Delete saved server profile '%s'?", name);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "This deletes the local profile and its network memberships. Live connections are not disconnected.");
+   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL, "_Delete", GTK_RESPONSE_ACCEPT, NULL);
+   int response = gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+   if (response == GTK_RESPONSE_ACCEPT && rrclient_database_server_delete(name)) {
+      picker_close(NULL);
+      gtk_show_server_chooser();
+   }
+   g_free(name);
+}
+
+static void picker_move_selected(GtkMenuItem *item, gpointer data) {
+   (void)item;
+   GtkWidget *tree = data;
+   char *name = picker_selected_profile(tree);
+   if (!name) return;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Move server to network",
+      GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Move", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *combo = gtk_combo_box_text_new();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), "Ungrouped");
+   int rank = 0;
+   const char *key;
+   char *value;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!g_str_has_prefix(key,"network:") || !g_str_has_suffix(key,".servers")) continue;
+      char *group = g_strndup(key + strlen("network:"),
+          strlen(key) - strlen("network:") - strlen(".servers"));
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), group);
+      g_free(group);
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
+   GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   gtk_container_set_border_width(GTK_CONTAINER(content), 12);
+   gtk_box_pack_start(GTK_BOX(content), combo, TRUE, TRUE, 6);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      char *group = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
+      if (group && rrclient_database_server_move(name, strcmp(group, "Ungrouped") ? group : NULL)) {
+         gtk_widget_destroy(dialog);
+         g_free(group);
+         g_free(name);
+         picker_close(NULL);
+         gtk_show_server_chooser();
+         return;
+      }
+      g_free(group);
+   }
+   gtk_widget_destroy(dialog);
+   g_free(name);
+}
+
 static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer data) {
    (void)data;
 
@@ -341,17 +412,25 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), path);
    gtk_tree_path_free(path);
    GtkWidget *menu = gtk_menu_new();
+   GtkWidget *connect = gtk_menu_item_new_with_label("Connect / Disconnect");
    GtkWidget *edit = gtk_menu_item_new_with_label("Edit");
-   GtkWidget *button = g_object_get_data(G_OBJECT(tree), "rr-connect-button");
-   GtkWidget *toggle = gtk_menu_item_new_with_label(gtk_button_get_label(GTK_BUTTON(button)));
+   GtkWidget *move = gtk_menu_item_new_with_label("Move to...");
+   GtkWidget *remove = gtk_menu_item_new_with_label("Delete");
    GtkTreeModel *selected_model;
    GtkTreeIter selected_iter;
-   if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &selected_model, &selected_iter) &&
-       picker_is_network(selected_model, &selected_iter)) gtk_widget_set_sensitive(edit, FALSE);
+   gboolean is_group = gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)),
+      &selected_model, &selected_iter) && picker_is_network(selected_model, &selected_iter);
+   gtk_widget_set_sensitive(edit, !is_group);
+   gtk_widget_set_sensitive(move, !is_group);
+   gtk_widget_set_sensitive(remove, !is_group);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), connect);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), edit);
-   gtk_menu_shell_append(GTK_MENU_SHELL(menu), toggle);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), move);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), remove);
+   g_signal_connect_object(connect, "activate", G_CALLBACK(on_connect_clicked), tree, 0);
    g_signal_connect_object(edit, "activate", G_CALLBACK(on_edit_clicked), tree, 0);
-   g_signal_connect_object(toggle, "activate", G_CALLBACK(on_connect_clicked), tree, 0);
+   g_signal_connect_object(move, "activate", G_CALLBACK(picker_move_selected), tree, 0);
+   g_signal_connect_object(remove, "activate", G_CALLBACK(picker_delete_selected), tree, 0);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
