@@ -31,7 +31,7 @@ fi
 # Development: keep first-party repos on real local branches, recovering
 # detached submodule checkouts rather than creating more detached HEADs.
 "$P/tools/git-dev-sync.sh"
-components=(librustyaxe librrprotocol callsign-lookup www)
+components=(librustyaxe librrprotocol callsign-lookup)
 third_party=()
 while read -r _ path; do
     case " ${components[*]} " in
