@@ -306,9 +306,46 @@ static void picker_destroy(GtkWidget *tree, gpointer data) {
    }
 }
 
+static void picker_key_changed(GtkComboBox *combo, gpointer data) {
+   GtkWidget *tree = data;
+   if (g_object_get_data(G_OBJECT(combo), "rr-loading")) return;
+   char *profile = picker_selected_profile(tree);
+   if (!profile) return;
+   const char *path = gtk_combo_box_get_active_id(combo);
+   if (path && *path) rrclient_database_server_set(profile, "client.identity.path", path);
+   g_free(profile);
+}
+static void picker_key_refresh(GtkWidget *tree) {
+   GtkWidget *combo = g_object_get_data(G_OBJECT(tree), "rr-key-combo");
+   if (!combo) return;
+   char *profile = picker_selected_profile(tree);
+   g_object_set_data(G_OBJECT(combo), "rr-loading", GINT_TO_POINTER(1));
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(combo));
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo), "", "Select certificate");
+   gchar *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
+   GDir *folder = g_dir_open(dir, 0, NULL);
+   const char *filename;
+   if (folder) {
+      while ((filename = g_dir_read_name(folder))) {
+         if (!g_str_has_suffix(filename, ".pem")) continue;
+         char *path = g_build_filename(dir, filename, NULL);
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo), path, filename);
+         g_free(path);
+      }
+      g_dir_close(folder);
+   }
+   g_free(dir);
+   const char *selected = profile ? get_server_property(profile, "client.identity.path") : NULL;
+   if (!selected || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), selected))
+      gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
+   gtk_widget_set_sensitive(combo, profile != NULL);
+   g_object_set_data(G_OBJECT(combo), "rr-loading", NULL);
+   g_free(profile);
+}
 static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
    (void)selection;
    picker_refresh(tree);
+   picker_key_refresh(tree);
 }
 
 static void picker_toggle(GtkCellRendererToggle *renderer, gchar *path, gpointer data) {
@@ -931,6 +968,20 @@ void gtk_show_server_chooser(void) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+   GtkWidget *keys_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *keys_label = gtk_label_new("Certificate");
+   GtkWidget *keys_combo = gtk_combo_box_text_new();
+   GtkWidget *keys_manage = gtk_button_new_with_label("⚿ Manage Keys");
+   gtk_widget_set_tooltip_text(keys_combo, "Select the local private-key identity for this server profile. This preference is saved locally; signed login integration is still being developed.");
+   gtk_widget_set_tooltip_text(keys_manage, "Open the client certificate and private key manager.");
+   gtk_box_pack_start(GTK_BOX(keys_row), keys_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(keys_row), keys_combo, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(keys_row), keys_manage, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), keys_row, FALSE, FALSE, 0);
+   g_object_set_data(G_OBJECT(tree), "rr-key-combo", keys_combo);
+   g_signal_connect(keys_combo, "changed", G_CALLBACK(picker_key_changed), tree);
+   g_signal_connect_swapped(keys_manage, "clicked", G_CALLBACK(rrclient_gtk_open_key_manager), NULL);
+   picker_key_refresh(tree);
    GtkWidget *new_server = gtk_button_new_with_label("New Server");
    gtk_box_pack_start(GTK_BOX(box), new_server, FALSE, FALSE, 0);
    g_signal_connect(new_server, "clicked", G_CALLBACK(picker_new_server), tree);
