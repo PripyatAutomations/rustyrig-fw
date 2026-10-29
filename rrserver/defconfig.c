@@ -231,7 +231,7 @@ defconfig_t defcfg[] = {
       "links.native.bind", "0.0.0.0", "IPv4 bind for dedicated mesh transport"
    },
    {
-      "links.native.port", "4420", "Dedicated TCP mesh transport port (future QUIC uses UDP)", DEFCONFIG_UINT, NULL
+      "links.native.port", "4420", "Deprecated TCP mesh port; TLS listener uses net.http.tls-port", DEFCONFIG_UINT, NULL
    },
    {
       "links.shared-listener", "false", "Deprecated; HTTPS is reserved for clients and enrollment"
@@ -514,6 +514,9 @@ defconfig_t defcfg[] = {
    {
       "net.http.tls-key", "/var/lib/rustyrig/identity/tls-key.pem",
       "Persistent server TLS private key (mode 0600; never place in /etc)", DEFCONFIG_PATH, NULL
+   },
+   {
+      "net.http.tls-port", "4420", "Shared TLS listener port for the selected transport backend", DEFCONFIG_UINT, NULL
    },
    // MQTT client
    {
