@@ -314,7 +314,7 @@ client_cmd_t client_cmds[] = {
       .desc = "ACCEPT|DECLINE <request-id> <rig-room>; accepting assumes control-operator responsibility"
    }, {
       .cmd = "link", .help_section = "Administration", .cb = cmd_link, .max_args = 2, .admin = true,
-      .desc = "LIST | OPEN <stored-peer> | CLOSE <stored-peer>"
+      .desc = "LIST | OPEN <stored-peer> | CLOSE <stored-peer> | INVITE <joining-server-UUID> [issuer-IP:port] (WSS)"
    },
    {
       .cmd = "user", .help_section = "Administration", .cb = cmd_user, .max_args = 4,
