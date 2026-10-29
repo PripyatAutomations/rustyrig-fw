@@ -1,7 +1,7 @@
 #ifndef RR_MESH_WSS_INTERNAL_H
 #define RR_MESH_WSS_INTERNAL_H
 #include "mesh.wss.h"
-#include "reactor.glib.h"
+#include <librustyaxe/reactor.glib.h>
 #include <openssl/ssl.h>
 #include <wslay/wslay.h>
 #include <gio/gio.h>
