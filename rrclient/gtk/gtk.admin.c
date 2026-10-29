@@ -1271,10 +1271,17 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       return;
    }
 
+   /* The transport wrapper can be replaced during reconnect/selection while
+    * an already queued admin reply is being dispatched. Correlate replies by
+    * the stable configured profile as well as the current pointer so a valid
+    * list response is not silently dropped after connection churn. */
+   const char *reply_profile = rrclient_connection_name(connection);
+
    for (size_t i = 0 ; row && i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
 
-      if (strcmp(name, table->name) || !table->store || connection != rrclient_connection_find(table->profile)) {
+      if (strcmp(name, table->name) || !table->store ||
+         (connection != rrclient_connection_find(table->profile) && g_strcmp0(reply_profile, table->profile))) {
          continue;
       }
 

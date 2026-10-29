@@ -15,8 +15,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     browser-style upgrade negotiation and binary frames.
   * Repair churned test harnesses for changelog history, generated wire
     schemas, and the migrated transport implementation.
+  * Preserve GTK administration list replies across connection-wrapper churn
+    by correlating responses with the stable server profile name.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 29 Oct 2026 02:39:23 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 29 Oct 2026 02:50:25 -0400
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 
