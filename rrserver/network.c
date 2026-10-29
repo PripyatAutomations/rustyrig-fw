@@ -78,12 +78,6 @@ void show_network_info(void) {
    if (eeprom_ready != 1 || eeprom_corrupted == 1) {
       return;
    }
-   int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
-
-   if (!tls_bind_port) {
-      tls_bind_port = eeprom_get_int("net/http/tls-port");
-   }
-
 #ifdef   HOST_POSIX
    struct in_addr sa_ip, sa_gw, sa_mask, sa_dns1, sa_dns2;
    int vlan = 0;
@@ -127,14 +121,14 @@ void show_network_info(void) {
    Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);
 #else // HOST_POSIX
    // print what addresses our bind will apply to
-   const char *listenaddr = cfg_get("net.http.tls-bind");
+   const char *listenaddr = cfg_get("links.native.bind");
 
    if (!listenaddr) {
-      listenaddr = (char *)eeprom_get_str("net/http/tls-bind");
+      listenaddr = "0.0.0.0";
    }
 
    if (listenaddr) {
-      Log(LOG_INFO, "net", "I am listening on %s [HTTPS: %d]", listenaddr, tls_bind_port);
+      Log(LOG_INFO, "net", "Native TLS transport %s:%d", listenaddr, cfg_get_int("links.native.port", 4420));
       net_print_listeners(listenaddr);
    }
 #endif // HOST_POSIX
