@@ -1858,7 +1858,7 @@ void gtk_chat_set_authoritative_room(const char *room) {
 }
 
 /* E-STOP is a separate top-level bound to the room/profile selected when summoned. Changing tabs cannot redirect an already open emergency switch. */
-static GtkWidget *estop_window, *estop_status;
+static GtkWidget *estop_window, *estop_status, *estop_button;
 static char estop_room[128], estop_profile[512];
 
 static void estop_send_in_context(void *action_ptr) {
@@ -1901,6 +1901,9 @@ static void estop_pressed(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
    estop_dispatch("estop-trip");
+   if (estop_button && estop_status && strcmp(gtk_label_get_text(GTK_LABEL(estop_status)), "OFFLINE — NOT CONFIRMED")) {
+      gtk_button_set_label(GTK_BUTTON(estop_button), "STOP SENT");
+   }
 }
 
 static void gtk_chat_zoom_event(const char *event, const char *percent_text, rrconn_t *client, void *user) {
