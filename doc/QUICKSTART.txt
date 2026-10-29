@@ -95,18 +95,18 @@ localhost profile's credentials and disable unused profiles such as camp:
 
     [server:localhost]
     server.enabled=true
-    server.url=ws://localhost:8420/ws/
+    server.url=wss://localhost:4420/ws/
     server.user=admin
     server.pass=<your-admin-password>
 
 Launch the installed client with `rrclient` (or `rrclient -T` for TUI).
 Keep configuration containing credentials accessible only to the owner.
 
-The native server URL must include its scheme. Ports are optional: ws=8420,
+The native server URL must include its scheme. Ports are optional: ws=disabled,
 wss=4420, irc=6667, ircs=6697. RustyRig radio/audio uses ws or wss; native IRC
 is chat-only. See doc/irc-client.md for proxy and multiple-server settings.
 
-For the browser, open http://localhost:8420/ on the server machine. Remote
+The old plaintext HTTP WebUI listener is retired. Remote
 browser login needs a secure HTTPS origin for Web Crypto. The native TCP 4420
 listener serves RustyRig client WSS, not the static browser UI. Configure a
 separate HTTPS reverse proxy for WebUI if remote browser access is needed.
