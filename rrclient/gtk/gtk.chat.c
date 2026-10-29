@@ -1897,6 +1897,31 @@ static void estop_dispatch(const char *action) {
    rrclient_connection_dispatch(connection, estop_send_in_context, (void *)action);
 }
 
+static void estop_notice_event(const char *event, const char *message, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   if (!estop_window || !message || !estop_room[0] ||
+       client != rrclient_connection_find(estop_profile))
+      return;
+   const char *id = NULL;
+   bool reset = false;
+   if (!strncmp(message, "Rig E-STOP reset: ", 18)) {
+      id = message + 18;
+      reset = true;
+   } else if (!strncmp(message, "Rig E-STOP latched: ", 20)) {
+      id = message + 20;
+   } else {
+      return;
+   }
+   /* Server reports the canonical rig ID, while the window is bound to a
+    * room. Confirm that the notice describes this room before updating. */
+   if (strcmp(id, estop_room) && strcmp(id, estop_room[0] == '#' ? estop_room + 1 : estop_room))
+      return;
+   gtk_button_set_label(GTK_BUTTON(estop_button), reset ? "ESTOP" : "HALTED");
+   gtk_label_set_text(GTK_LABEL(estop_status),
+      reset ? "Reset confirmed by server — ready" : "HALTED — confirmed by server");
+}
+
 static void estop_pressed(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -2391,6 +2416,7 @@ bool chat_init(void) {
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_token("client.server.selected", gtk_chat_server_selected, NULL));
    rr_module_token_add(event_on_token("client.estop", estop_request_event, NULL));
+   rr_module_token_add(event_on_token("client.estop.notice", estop_notice_event, NULL));
    rr_module_token_add(event_on_token("client.zoom", gtk_chat_zoom_event, NULL));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
