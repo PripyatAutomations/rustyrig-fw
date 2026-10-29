@@ -856,13 +856,11 @@ bool rrserver_serial_poll(void) {
       if (p->rx_pending || !p->buffered) {
          continue;
       }
-#ifdef USE_MONGOOSE
-
-      if ((!p->owner->conn && !p->owner->native_transport) ||
-          (p->owner->native_transport ? rr_transport_queued_bytes(p->owner->native_transport) : p->owner->conn->send.len) > 65536) {
+      if (!p->owner->native_transport ||
+          rr_transport_state(p->owner->native_transport) != RR_TRANSPORT_OPEN ||
+          rr_transport_queued_bytes(p->owner->native_transport) > 65536) {
          continue;
       }
-#endif
       size_t n = p->buffered;
 
       if (n > RR_SERIAL_BLOCK_MAX) {
@@ -876,11 +874,13 @@ bool rrserver_serial_poll(void) {
       if (length < 0) {
          goto failed;
       }
-      struct mg_str payload = {
-         .buf = (char *)packet, .len = length
-      };
-      ws_send_to_cptr(NULL, p->owner, &payload, WEBSOCKET_OP_BINARY);
+      int result = rr_transport_send_binary_message(p->owner->native_transport,
+         packet, (size_t)length);
       free(packet);
+      if (result != RR_TRANSPORT_OK) {
+         p->rx_seq--;
+         continue;
+      }
       p->rx_pending = true;
       p->buffered -= n;
       memmove(p->buffer, p->buffer + n, p->buffered);
