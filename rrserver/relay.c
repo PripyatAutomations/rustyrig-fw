@@ -17,7 +17,6 @@
 #include <rrserver/supervision.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
-#ifdef USE_MONGOOSE
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
@@ -1597,8 +1596,4 @@ void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *dat
       visit(&r->client, data);
    }
 
-#else
-   (void)visit;
-   (void)data;
-#endif
 }
