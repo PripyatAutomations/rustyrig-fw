@@ -263,10 +263,7 @@ void rrclient_help_render(rrclient_help_line_cb emit, void *data) {
 
    /* PARITY: rustyrig-www/js/webui.chat.js:webui_command_help */
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
-      // Hide admin-only commands from non-staff users
-      if (client_cmds[i].admin && !media_have_priv("admin|owner")) {
-         continue;
-      }
+      /* Help describes available commands, not current media grants.\n       * Server authorization remains enforced when commands are executed. */
       const char *next_section = client_cmds[i].help_section ? client_cmds[i].help_section : "Other";
 
       if (!section || strcmp(section, next_section)) {
@@ -280,7 +277,7 @@ void rrclient_help_render(rrclient_help_line_cb emit, void *data) {
          spaces = 1;
       }
 
-      help_emit(emit, data, "\t\00309/%s%*s\00308%s\017", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
+      help_emit(emit, data, "\t\00309/%s%*s\00308%s%s\017", client_cmds[i].cmd, spaces, "", client_cmds[i].desc, client_cmds[i].admin ? " (admin/owner)" : "");
    }
 
    // After-message
