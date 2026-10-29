@@ -4,6 +4,7 @@
 #include <gtk/gtk.h>
 #include <sys/stat.h>
 #include <librustyaxe/maidenhead.h>
+#include <librustyaxe/transport.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <rrclient/objects.h>
@@ -2138,7 +2139,8 @@ static void resource_request(void *data) {
     * global selected connection to refresh another server's media catalog. */
    rrconn_t *connection = rrclient_connection_find(branch->profile);
    if (connection && connection->authenticated && connection->is_ws &&
-       connection->conn && !connection->conn->is_closing) {
+       connection->native_transport &&
+        rr_transport_state(connection->native_transport) == RR_TRANSPORT_OPEN) {
       rrclient_media_refresh(connection);
    }
 }
