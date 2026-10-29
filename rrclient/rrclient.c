@@ -27,12 +27,12 @@
 extern char session_token[HTTP_TOKEN_LEN + 1];
 const char *login_user = NULL;
 
-#ifdef  USE_MONGOOSE
-extern struct mg_mgr mgr;
+/* Selected client sessions are transport-independent. */
 rrconn_t *ws_conn = NULL;
 rrconn_t *ws_tx_conn = NULL;
-
-#endif // USE_MONGOOSE
+#ifdef USE_MONGOOSE
+extern struct mg_mgr mgr;
+#endif
 
 bool rrclient_connect(const char *url) {
    return rrclient_connect_url(NULL, url);
