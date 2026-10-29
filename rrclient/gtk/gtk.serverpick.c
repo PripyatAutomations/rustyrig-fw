@@ -533,94 +533,167 @@ static void picker_new_server(GtkButton *button, gpointer data) {
    gtk_widget_destroy(dialog);
 }
 
-/* Edit network membership without changing any server's own profile. */
+/* Search filters rows, not membership; checked state stays in the underlying store. */
+static gboolean picker_member_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer search) {
+   const char *query = gtk_entry_get_text(GTK_ENTRY(search));
+   if (!*query) return TRUE;
+   char *name = NULL;
+   gtk_tree_model_get(model, iter, 1, &name, -1);
+   char *folded = g_utf8_casefold(name ? name : "", -1);
+   char *wanted = g_utf8_casefold(query, -1);
+   gboolean yes = strstr(folded, wanted) != NULL;
+   g_free(name); g_free(folded); g_free(wanted);
+   return yes;
+}
+static void picker_member_search(GtkEditable *entry, gpointer filter) {
+   (void)entry;
+   gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(filter));
+}
+static void picker_member_toggle(GtkCellRendererToggle *cell, gchar *path, gpointer filter) {
+   (void)cell;
+   GtkTreeIter visible, source;
+   if (!gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(filter), &visible, path)) return;
+   gtk_tree_model_filter_convert_iter_to_child_iter(GTK_TREE_MODEL_FILTER(filter), &source, &visible);
+   GtkTreeModel *model = gtk_tree_model_filter_get_model(GTK_TREE_MODEL_FILTER(filter));
+   gboolean checked = FALSE;
+   gtk_tree_model_get(model, &source, 0, &checked, -1);
+   gtk_list_store_set(GTK_LIST_STORE(model), &source, 0, !checked, -1);
+}
+static void picker_member_choose_network(GtkComboBox *combo, gpointer data) {
+   GtkListStore *store = data;
+   /* Only apply when an actual existing combo item is selected, not typing. */
+   if (gtk_combo_box_get_active(combo) < 0) return;
+   GtkWidget *entry = gtk_bin_get_child(GTK_BIN(combo));
+   const char *name = gtk_entry_get_text(GTK_ENTRY(entry));
+   char *key = g_strdup_printf("network:%s.servers", name);
+   const char *members = cfg_get(key);
+   gchar **names = g_strsplit_set(members ? members : "", ", \t\r\n", -1);
+   GtkTreeIter iter;
+   gboolean more = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(store), &iter);
+   while (more) {
+      gchar *profile = NULL;
+      gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, 1, &profile, -1);
+      gboolean checked = FALSE;
+      for (gsize j=0; names[j]; j++) if (!strcmp(names[j], profile)) { checked = TRUE; break; }
+      gtk_list_store_set(store, &iter, 0, checked, -1);
+      g_free(profile);
+      more = gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &iter);
+   }
+   g_strfreev(names);
+   g_free(key);
+}
+
+/* Editable network selector plus searchable membership checklist. */
 static void picker_network_editor(GtkButton *button, gpointer data) {
    (void)button;
    GtkWidget *tree = data;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
    GtkTreeIter iter;
-   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
    char *existing = NULL;
-   if (gtk_tree_selection_get_selected(selection, &model, &iter) && picker_is_network(model, &iter)) {
+   if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &model, &iter) &&
+       picker_is_network(model, &iter)) {
       gboolean ungrouped = FALSE;
       gtk_tree_model_get(model, &iter, PICKER_UNGROUPED, &ungrouped, -1);
       if (!ungrouped) gtk_tree_model_get(model, &iter, 0, &existing, -1);
    }
-   GtkWidget *dialog = gtk_dialog_new_with_buttons(existing ? "Edit network" : "New network",
-       GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
-       "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
-   GtkWidget *grid = gtk_grid_new();
-   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
-   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
-   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
-   GtkWidget *name = gtk_entry_new();
-   GtkWidget *members = gtk_entry_new();
-   GtkWidget *error = gtk_label_new("");
-   gtk_entry_set_placeholder_text(GTK_ENTRY(members), "rplywv00, nycvny37");
-   gtk_entry_set_width_chars(GTK_ENTRY(members), 45);
-   if (existing) {
-      gtk_entry_set_text(GTK_ENTRY(name), existing);
-      gtk_editable_set_editable(GTK_EDITABLE(name), FALSE);
-      char *key = g_strdup_printf("network:%s.servers", existing);
-      gtk_entry_set_text(GTK_ENTRY(members), cfg_get(key) ? cfg_get(key) : "");
-      g_free(key);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("New / Edit Network",
+      GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
+   gtk_window_set_default_size(GTK_WINDOW(dialog), 460, 450);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   gtk_container_set_border_width(GTK_CONTAINER(box), 12);
+   gtk_box_set_spacing(GTK_BOX(box), 8);
+   GtkWidget *name_combo = gtk_combo_box_text_new_with_entry();
+   GtkWidget *name = gtk_bin_get_child(GTK_BIN(name_combo));
+   gtk_entry_set_placeholder_text(GTK_ENTRY(name), "Choose an existing network or type a new name");
+   int rank = 0;
+   const char *key;
+   char *value;
+   int initial_index = -1, index = 0;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!g_str_has_prefix(key, "network:") || !g_str_has_suffix(key, ".servers")) continue;
+      gsize n = strlen(key) - strlen("network:") - strlen(".servers");
+      if (!n) continue;
+      gchar *network = g_strndup(key + strlen("network:"), n);
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(name_combo), network);
+      if (existing && !strcmp(existing, network)) initial_index = index;
+      index++;
+      g_free(network);
    }
-   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Network name"), 0, 0, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), name, 1, 0, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Server profiles"), 0, 1, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), members, 1, 1, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), error, 0, 2, 2, 1);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Network"), FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), name_combo, FALSE, FALSE, 0);
+   GtkWidget *search = gtk_search_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Find server…");
+   gtk_box_pack_start(GTK_BOX(box), search, FALSE, FALSE, 0);
+   GtkListStore *store = gtk_list_store_new(2, G_TYPE_BOOLEAN, G_TYPE_STRING);
+   rank = 0;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      char profile[512];
+      if (!rrclient_server_profile_name(key, profile, sizeof(profile))) continue;
+      GtkTreeIter item;
+      gtk_list_store_append(store, &item);
+      gtk_list_store_set(store, &item, 0, FALSE, 1, profile, -1);
+   }
+   GtkTreeModel *filter = gtk_tree_model_filter_new(GTK_TREE_MODEL(store), NULL);
+   gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filter), picker_member_visible, search, NULL);
+   GtkWidget *list = gtk_tree_view_new_with_model(filter);
+   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list), FALSE);
+   GtkCellRenderer *check = gtk_cell_renderer_toggle_new();
+   GtkCellRenderer *label = gtk_cell_renderer_text_new();
+   GtkTreeViewColumn *column = gtk_tree_view_column_new();
+   gtk_tree_view_column_pack_start(column, check, FALSE);
+   gtk_tree_view_column_pack_start(column, label, TRUE);
+   gtk_tree_view_column_add_attribute(column, check, "active", 0);
+   gtk_tree_view_column_add_attribute(column, label, "text", 1);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(list), column);
+   g_signal_connect(check, "toggled", G_CALLBACK(picker_member_toggle), filter);
+   g_signal_connect(search, "changed", G_CALLBACK(picker_member_search), filter);
+   g_signal_connect(name_combo, "changed", G_CALLBACK(picker_member_choose_network), store);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_size_request(scroll, -1, 260);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_container_add(GTK_CONTAINER(scroll), list);
+   gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+   GtkWidget *error = gtk_label_new("");
+   gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 0);
+   if (initial_index >= 0) gtk_combo_box_set_active(GTK_COMBO_BOX(name_combo), initial_index);
    gtk_widget_show_all(dialog);
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *group = gtk_entry_get_text(GTK_ENTRY(name));
-      const char *list = gtk_entry_get_text(GTK_ENTRY(members));
       if (!*group || strspn(group, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != strlen(group)) {
-         gtk_label_set_text(GTK_LABEL(error), "Use a nonempty name with letters, digits, _ or -.");
+         gtk_label_set_text(GTK_LABEL(error), "Use letters, digits, _ or - for a network name.");
          continue;
       }
-      char *key = g_strdup_printf("network:%s.servers", group);
-      if (!existing && dict_get(cfg, key, NULL)) {
-         gtk_label_set_text(GTK_LABEL(error), "Network already exists.");
-         g_free(key);
-         continue;
-      }
-      gchar **parts = g_strsplit_set(list, ", \t\r\n", -1);
-      GString *normalized = g_string_new("");
-      GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-      bool valid = true;
-      for (size_t i=0; parts[i]; i++) {
-         if (!*parts[i] || g_hash_table_contains(seen, parts[i])) continue;
-         char *profile = g_strdup_printf("server:%s.server.url", parts[i]);
-         if (!dict_get(cfg, profile, NULL)) {
-            char *message = g_strdup_printf("Unknown server profile: %s", parts[i]);
-            gtk_label_set_text(GTK_LABEL(error), message);
-            g_free(message);
-            valid = false;
+      GString *members = g_string_new("");
+      GtkTreeIter item;
+      gboolean more = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(store), &item);
+      while (more) {
+         gboolean checked = FALSE;
+         gchar *profile = NULL;
+         gtk_tree_model_get(GTK_TREE_MODEL(store), &item, 0, &checked, 1, &profile, -1);
+         if (checked) {
+            if (members->len) g_string_append_c(members, ',');
+            g_string_append(members, profile);
          }
          g_free(profile);
-         if (!valid) break;
-         g_hash_table_add(seen, g_strdup(parts[i]));
-         if (normalized->len) g_string_append_c(normalized, ',');
-         g_string_append(normalized, parts[i]);
+         more = gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &item);
       }
-      if (valid && !rrclient_database_network_set(group, normalized->str)) {
-         gtk_label_set_text(GTK_LABEL(error), "Unable to save network to SQLite.");
-         valid = false;
-      }
-      g_hash_table_destroy(seen);
-      g_string_free(normalized, TRUE);
-      g_strfreev(parts);
-      g_free(key);
-      if (valid) {
+      gboolean ok = rrclient_database_network_set(group, members->str);
+      g_string_free(members, TRUE);
+      if (ok) {
          gtk_widget_destroy(dialog);
+         g_object_unref(filter);
+         g_object_unref(store);
          g_free(existing);
          picker_close(NULL);
          gtk_show_server_chooser();
          return;
       }
+      gtk_label_set_text(GTK_LABEL(error), "Unable to save network in SQLite.");
    }
    gtk_widget_destroy(dialog);
+   g_object_unref(filter);
+   g_object_unref(store);
    g_free(existing);
 }
 
