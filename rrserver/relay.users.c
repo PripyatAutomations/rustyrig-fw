@@ -7,7 +7,6 @@
 
 /* Event-driven local user-directory reconciliation; server event-loop only. */
 #include <rrserver/relay.internal.h>
-#ifdef USE_MONGOOSE
 #include <string.h>
 #include <glib.h>
 #include <stdio.h>
@@ -103,4 +102,4 @@ void rr_relay_users_register(void) {
       event_on(events[i], users_changed, NULL);
    }
 }
-#endif /* USE_MONGOOSE */
+
