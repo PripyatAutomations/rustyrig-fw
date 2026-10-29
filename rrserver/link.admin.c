@@ -88,11 +88,12 @@ void link_command(const char *event, const char *data, rrconn_t *client, void *u
          ws_send_error(client, "Usage: /link invite <joining-server-UUID> [issuer-IP:port]");
          return;
       }
-      /* Never disclose enrollment private keys across a plaintext admin
-       * session, even when admin authentication has succeeded. */
+      /* Invitation secrets require an encrypted channel and the admin
+       * authorization checked above. Peer-certificate identity verification
+       * is a stronger, separate capability, not mandatory for browser WSS. */
       if (!client->native_transport ||
-          !(rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
-         ws_send_error(client, "Invitation creation requires an HTTPS/WSS admin session");
+          !(rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_ENCRYPTED)) {
+         ws_send_error(client, "Invitation creation requires an encrypted WSS admin session (TLS)");
          return;
       }
       if (!g_uuid_string_is_valid(name) || !strcmp(name, links.node)) {
