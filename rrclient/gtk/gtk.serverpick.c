@@ -919,10 +919,10 @@ void gtk_show_server_chooser(void) {
    picker_tree = tree;
    gtk_tree_view_expand_all(GTK_TREE_VIEW(tree));
    const char *titles[] = {
-      "Server", "User", "URL", "Proxy URL"
+      "Server", "User", "URL"
    };
 
-   for (int i = 0 ; i < 4 ; i++) {
+   for (int i = 0 ; i < 3 ; i++) {
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
       g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL);
@@ -939,13 +939,14 @@ void gtk_show_server_chooser(void) {
    GtkCellRenderer *flags_renderer = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *flags_column = gtk_tree_view_column_new_with_attributes("Flags", flags_renderer, "text", PICKER_FLAGS, NULL);
    gtk_tree_view_column_set_fixed_width(flags_column, 55);
-   gtk_widget_set_tooltip_text(tree, "Flags: ☏ IRC chat; ⚒ RustyRig radio protocol.");
+   gtk_widget_set_tooltip_text(tree, "Flags: ☏ IRC chat, ⚒ RustyRig radio. Proxy: read-only indicator showing whether a proxy is configured for this profile or inherited globally.");
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), flags_column);
    GtkCellRenderer *proxy_indicator = gtk_cell_renderer_toggle_new();
    g_object_set(proxy_indicator, "activatable", FALSE, NULL);
    GtkTreeViewColumn *proxy_column = gtk_tree_view_column_new_with_attributes("Proxy", proxy_indicator,
       "active", PICKER_PROXY, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), proxy_column);
+   gtk_tree_view_column_set_widget(proxy_column, NULL);
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
    GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL);
