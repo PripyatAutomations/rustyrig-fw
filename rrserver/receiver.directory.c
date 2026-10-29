@@ -10,6 +10,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/json.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/server.events.h>
 #include <rrserver/receiver.directory.h>
@@ -84,38 +85,32 @@ static bool body_valid(const char *data, size_t len) {
        !g_utf8_validate(data, len, NULL)) {
       return false;
    }
-   struct mg_str json = mg_str_n(data, len);
-   int size = 0, start = mg_json_get(json, "$", &size);
-   if (start < 0 || size < 2 || data[start] != '{') {
-      return false;
-   }
-   for (size_t i = (size_t)start + (size_t)size; i < len; i++) {
-      if (!g_ascii_isspace(data[i])) {
-         return false;
+   const char *start = data;
+   while (*start && g_ascii_isspace(*start)) start++;
+   if (*start != '{') return false;
+   dict *json = json2dict(data);
+   if (!json) return false;
+   bool valid = dict_get_llong(json, "schema", -1) == 1 &&
+      !strcmp(dict_get(json, "provider", "kiwi"), "kiwi") &&
+      strstr(data, "\"receivers\"") != NULL;
+   size_t count = 0;
+   const char *key;
+   dict_value_t value;
+   val_type_t type;
+   int pos = 0;
+   while (valid && (pos = dict_enumerate_typed(json, pos, &key, &value, &type)) >= 0) {
+      if (strncmp(key, "receivers[", 10)) continue;
+      const char *digits = key + 10;
+      char *end = NULL;
+      unsigned long n = strtoul(digits, &end, 10);
+      if (end == digits || !end || *end != ']' || n >= 10000) {
+         valid = false;
+         break;
       }
+      if (n + 1 > count) count = n + 1;
    }
-   struct mg_str schema = mg_json_get_tok(json, "$.schema");
-   if (schema.len != 1 || schema.buf[0] != '1') {
-      return false;
-   }
-   char *provider = mg_json_get_str(json, "$.provider");
-   bool supported = provider ? !strcmp(provider, "kiwi") :
-      !mg_json_get_tok(json, "$.provider").len;
-   free(provider);
-   if (!supported) {
-      return false;
-   }
-   struct mg_str array = mg_json_get_tok(json, "$.receivers"), object;
-   if (!array.len || array.buf[0] != '[') {
-      return false;
-   }
-   size_t offset = 0, count = 0;
-   while ((offset = mg_json_next(array, offset, NULL, &object))) {
-      if (++count > 10000 || !object.len || object.buf[0] != '{') {
-         return false;
-      }
-   }
-   return true;
+   dict_free(json);
+   return valid;
 }
 static size_t receive_body(char *ptr,size_t sz,size_t count,void *unused) {
    (void)unused;
