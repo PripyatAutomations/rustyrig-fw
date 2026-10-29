@@ -1124,7 +1124,7 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    if (!fwdsp_slot_active(sp) || sp->destroying) {
       return true;
    }
-   // Mark the slot before touching any child or Mongoose state. Teardown can
+   // Mark the slot before touching any child or reactor state. Teardown can
    // be reached from expiry, SIGCHLD handling, codec switching and shutdown;
    // a late callback must never free the same slot-owned buffers twice.
    sp->destroying = true;
