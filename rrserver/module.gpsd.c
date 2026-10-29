@@ -10,15 +10,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <gio/gio.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/io.serial.h>
 #include <librustyaxe/cfg.modules.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/gps.h>
 
-static struct mg_mgr manager;
 static bool initialized;
-static struct mg_connection *connection;
+static GSocketClient *socket_client;
+static GSocketConnection *connection;
+static GInputStream *input;
+static GCancellable *cancellable;
+static bool connecting;
 static rr_event_token_t poll_token;
 static uint64_t reconnect_at;
 static char line[512];
@@ -63,56 +67,132 @@ static void receive(const char *data, size_t len) {
    }
 }
 
-static void handler(struct mg_connection *c, int ev, void *data) {
-   if (ev == MG_EV_CONNECT) {
-      dict *watch = dict_new();
+static void disconnected(void) {
+   g_clear_object(&connection);
+   input = NULL;
+   connecting = false;
+   used = 0;
+   dropping = false;
+   reconnect_at = mono_us() + UINT64_C(5000000);
+}
 
-      if (!watch) {
-         c->is_closing = 1;
-
-         return;
+static void connected(GObject *source, GAsyncResult *result, gpointer user) {
+   (void)user;
+   GError *error = NULL;
+   GSocketConnection *new_connection =
+      g_socket_client_connect_to_host_finish(G_SOCKET_CLIENT(source), result, &error);
+   connecting = false;
+   if (!initialized) {
+      if (new_connection) {
+         g_object_unref(new_connection);
       }
-      dict_add_bool(watch, "enable", true);
-      dict_add_bool(watch, "json", false);
-      dict_add_bool(watch, "nmea", true);
-      dict_add_int(watch, "raw", 1);
-      const char *device = cfg_get("gpsd.device");
-
-      if (device && *device) {
-         dict_add(watch, "device", device);
+      g_clear_error(&error);
+      return;
+   }
+   if (!new_connection) {
+      if (error && !g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+         Log(LOG_WARN, "gpsd", "GPS daemon connect: %s", error->message);
       }
-      char *json = dict2json(watch);
-
-      if (json) {
-         mg_printf(c, "?WATCH=%s;\n", json);
-         free(json);
-      } else {
-         c->is_closing = 1;
-      }
-      dict_free(watch);
-   } else if (ev == MG_EV_READ) {
-      receive((const char *)c->recv.buf, c->recv.len);
-      mg_iobuf_del(&c->recv, 0, c->recv.len);
-   } else if (ev == MG_EV_ERROR) {
-      Log(LOG_WARN, "gpsd", "GPS daemon: %s", (const char *)data);
-   } else if (ev == MG_EV_CLOSE) {
-      connection = NULL;
-      used = 0;
-      dropping = false;
+      g_clear_error(&error);
       reconnect_at = mono_us() + UINT64_C(5000000);
+      return;
+   }
+   connection = new_connection;
+   input = g_io_stream_get_input_stream(G_IO_STREAM(connection));
+   dict *watch = dict_new();
+   if (!watch) {
+      disconnected();
+      return;
+   }
+   dict_add_bool(watch, "enable", true);
+   dict_add_bool(watch, "json", false);
+   dict_add_bool(watch, "nmea", true);
+   dict_add_int(watch, "raw", 1);
+   const char *device = cfg_get("gpsd.device");
+   if (device && *device) {
+      dict_add(watch, "device", device);
+   }
+   char *json = dict2json(watch);
+   dict_free(watch);
+   if (!json) {
+      disconnected();
+      return;
+   }
+   char *command = g_strdup_printf("?WATCH=%s;\n", json);
+   free(json);
+   GOutputStream *output = g_io_stream_get_output_stream(G_IO_STREAM(connection));
+   gsize written = 0;
+   if (!command || !g_output_stream_write_all(output, command, strlen(command),
+       &written, cancellable, &error)) {
+      if (error) {
+         Log(LOG_WARN, "gpsd", "GPS daemon WATCH: %s", error->message);
+      }
+      g_clear_error(&error);
+      g_free(command);
+      disconnected();
+      return;
+   }
+   g_free(command);
+   /* Read into storage retained until the asynchronous completion callback. */
+   extern void gpsd_start_read(void);
+   gpsd_start_read();
+}
+
+static char receive_buffer[2048];
+static void gpsd_read_done(GObject *source, GAsyncResult *result, gpointer user) {
+   (void)user;
+   GError *error = NULL;
+   gssize count = g_input_stream_read_finish(G_INPUT_STREAM(source), result, &error);
+   if (!initialized || !connection) {
+      g_clear_error(&error);
+      return;
+   }
+   if (count <= 0) {
+      if (error && !g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+         Log(LOG_WARN, "gpsd", "GPS daemon read: %s", error->message);
+      }
+      g_clear_error(&error);
+      disconnected();
+      return;
+   }
+   receive(receive_buffer, (size_t)count);
+   gpsd_start_read();
+}
+void gpsd_start_read(void) {
+   if (initialized && connection && input) {
+      g_input_stream_read_async(input, receive_buffer, sizeof(receive_buffer),
+         G_PRIORITY_DEFAULT, cancellable, gpsd_read_done, NULL);
    }
 }
 
 static void poll_gpsd(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!connection && mono_us() >= reconnect_at) {
+   (void)event;
+   (void)data;
+   (void)client;
+   (void)user;
+   if (!connection && !connecting && mono_us() >= reconnect_at) {
       const char *url = cfg_get("gpsd.url");
-      connection = mg_connect(&manager, url ? url : "tcp://127.0.0.1:2947", handler, NULL);
-
-      if (!connection) {
-         reconnect_at = mono_us() + UINT64_C(5000000);
+      const char *host = "127.0.0.1";
+      unsigned port = 2947;
+      char hostname[256];
+      if (url && *url) {
+         const char *address = g_str_has_prefix(url, "tcp://") ? url + 6 : url;
+         const char *colon = strrchr(address, ':');
+         if (colon && (size_t)(colon - address) < sizeof(hostname)) {
+            memcpy(hostname, address, (size_t)(colon - address));
+            hostname[colon - address] = '\0';
+            char *endptr = NULL;
+            unsigned long value = strtoul(colon + 1, &endptr, 10);
+            if (endptr && *endptr == '\0' && value > 0 && value <= 65535) {
+               host = hostname;
+               port = (unsigned)value;
+            }
+         }
       }
+      connecting = true;
+      g_socket_client_connect_to_host_async(socket_client, host, port,
+         cancellable, connected, NULL);
    }
-   mg_mgr_poll(&manager, 0);
 }
 
 bool rr_module_init(void) {
@@ -136,12 +216,19 @@ bool rr_module_init(void) {
    used = 0;
    dropping = false;
    reconnect_at = 0;
-   mg_mgr_init(&manager);
+   socket_client = g_socket_client_new();
+   cancellable = g_cancellable_new();
+   if (!socket_client || !cancellable) {
+      g_clear_object(&socket_client);
+      g_clear_object(&cancellable);
+      return false;
+   }
    initialized = true;
    poll_token = event_on_token("server.poll", poll_gpsd, NULL);
 
    if (!poll_token) {
-      mg_mgr_free(&manager);
+      g_clear_object(&socket_client);
+      g_clear_object(&cancellable);
       initialized = false;
 
       return false;
@@ -154,9 +241,14 @@ void rr_module_shutdown(void) {
    event_off_token(poll_token);
    poll_token = NULL;
 
-   if (initialized) {
-      mg_mgr_free(&manager);
+   initialized = false;
+   if (cancellable) {
+      g_cancellable_cancel(cancellable);
    }
+   g_clear_object(&connection);
+   input = NULL;
+   g_clear_object(&socket_client);
+   g_clear_object(&cancellable);
 
    initialized = false;
    connection = NULL;
