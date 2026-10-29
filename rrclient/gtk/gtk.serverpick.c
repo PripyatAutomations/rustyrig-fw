@@ -307,53 +307,16 @@ static void picker_destroy(GtkWidget *tree, gpointer data) {
 }
 
 static char *picker_selected_profile(GtkWidget *tree);
-static void picker_key_changed(GtkComboBox *combo, gpointer data) {
-   GtkWidget *tree = data;
-   if (g_object_get_data(G_OBJECT(combo), "rr-loading")) return;
-   char *profile = picker_selected_profile(tree);
-   if (!profile) return;
-   const char *path = gtk_combo_box_get_active_id(combo);
-   if (path && *path) rrclient_database_server_set(profile, "client.identity.path", path);
-   g_free(profile);
-}
-static void picker_key_refresh(GtkWidget *tree) {
-   GtkWidget *combo = g_object_get_data(G_OBJECT(tree), "rr-key-combo");
-   if (!combo) return;
-   char *profile = picker_selected_profile(tree);
-   g_object_set_data(G_OBJECT(combo), "rr-loading", GINT_TO_POINTER(1));
-   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(combo));
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo), "", "Select certificate");
-   gchar *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
-   GDir *folder = g_dir_open(dir, 0, NULL);
-   const char *filename;
-   if (folder) {
-      while ((filename = g_dir_read_name(folder))) {
-         if (!g_str_has_suffix(filename, ".pem")) continue;
-         char *path = g_build_filename(dir, filename, NULL);
-         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo), path, filename);
-         g_free(path);
-      }
-      g_dir_close(folder);
-   }
-   g_free(dir);
-   const char *selected = profile ? get_server_property(profile, "client.identity.path") : NULL;
-   if (!selected || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), selected))
-      gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
-   gtk_widget_set_sensitive(combo, profile != NULL);
-   g_object_set_data(G_OBJECT(combo), "rr-loading", NULL);
-   g_free(profile);
-}
-static void picker_manage_keys(GtkButton *button, gpointer tree) {
-   (void)button;
-   rrclient_gtk_open_key_manager();
-   picker_key_refresh(GTK_WIDGET(tree));
-}
 static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
    (void)selection;
    picker_refresh(tree);
-   picker_key_refresh(tree);
+   GtkWidget *edit = g_object_get_data(G_OBJECT(tree), "rr-edit-button");
+   if (edit) {
+      char *profile = picker_selected_profile(GTK_WIDGET(tree));
+      gtk_widget_set_sensitive(edit, profile != NULL);
+      g_free(profile);
+   }
 }
-
 static void picker_toggle(GtkCellRendererToggle *renderer, gchar *path, gpointer data) {
    (void)renderer;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(data));
@@ -406,7 +369,7 @@ static void picker_move_selected(GtkMenuItem *item, gpointer data) {
    char *name = picker_selected_profile(tree);
    if (!name) return;
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Move server to network",
-      GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
+      main_window ? GTK_WINDOW(main_window) : NULL, GTK_DIALOG_MODAL,
       "_Cancel", GTK_RESPONSE_CANCEL, "_Move", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *combo = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), "Ungrouped");
@@ -605,60 +568,8 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
 
 static void picker_new_server(GtkButton *button, gpointer data) {
    (void)button;
-   GtkWidget *tree = data;
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("New server",
-      GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
-      "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
-   GtkWidget *grid = gtk_grid_new();
-   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
-   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
-   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
-   GtkWidget *name = gtk_entry_new(), *url = gtk_entry_new(), *user = gtk_entry_new(), *password = gtk_entry_new();
-   GtkWidget *error = gtk_label_new("");
-   GtkWidget *fields[] = {name,url,user,password};
-   const char *labels[] = {"Profile name","URL","Username","Password"};
-   gtk_entry_set_visibility(GTK_ENTRY(password), FALSE);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(url),"wss://host:4420/ws/");
-   for (unsigned i=0;i<G_N_ELEMENTS(fields);i++) {
-      gtk_grid_attach(GTK_GRID(grid),gtk_label_new(labels[i]),0,i,1,1);
-      gtk_grid_attach(GTK_GRID(grid),fields[i],1,i,1,1);
-   }
-   gtk_grid_attach(GTK_GRID(grid),error,0,4,2,1);
-   gtk_widget_show_all(dialog);
-   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-      const char *n=gtk_entry_get_text(GTK_ENTRY(name));
-      char *u=rrclient_database_normalize_url(gtk_entry_get_text(GTK_ENTRY(url)));
-      gtk_entry_set_text(GTK_ENTRY(url), u);
-      const char *who=gtk_entry_get_text(GTK_ENTRY(user));
-      const char *secret=gtk_entry_get_text(GTK_ENTRY(password));
-      rr_server_url_t parsed;
-      g_free(u);
-      u= (char *)gtk_entry_get_text(GTK_ENTRY(url));
-      if (!*n || strspn(n,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=strlen(n) ||
-          !rr_server_url_parse(u,&parsed)) {
-         gtk_label_set_text(GTK_LABEL(error),"Enter a valid profile name and WS/WSS/IRC/IRCS URL.");
-         continue;
-      }
-      char *key=g_strdup_printf("server:%s.server.url",n);
-      bool exists=dict_get(cfg,key,NULL)!=NULL;
-      g_free(key);
-      if (exists) {
-         gtk_label_set_text(GTK_LABEL(error),"A server with that name already exists.");
-         continue;
-      }
-      if (!rrclient_database_server_set(n,"server.url",u) ||
-          !rrclient_database_server_set(n,"server.user",who) ||
-          !rrclient_database_server_set(n,"server.pass",secret)) {
-         gtk_label_set_text(GTK_LABEL(error),"Unable to save server to SQLite.");
-         continue;
-      }
-      gtk_widget_destroy(dialog);
-      picker_close(NULL);
-      gtk_show_server_chooser();
-      return;
-   }
-   gtk_widget_destroy(dialog);
+   (void)data;
+   gtk_show_server_editor(NULL);
 }
 
 /* Search filters rows, not membership; checked state stays in the underlying store. */
@@ -718,8 +629,9 @@ static gboolean picker_dialog_escape(GtkWidget *dialog, GdkEventKey *event, gpoi
    return TRUE;
 }
 
+void gtk_server_picker_edit_network(GtkButton *button, gpointer data);
 /* Editable network selector plus searchable membership checklist. */
-static void picker_network_editor(GtkButton *button, gpointer data) {
+void gtk_server_picker_edit_network(GtkButton *button, gpointer data) {
    (void)button;
    GtkWidget *tree = data;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
@@ -821,8 +733,11 @@ static void picker_network_editor(GtkButton *button, gpointer data) {
          g_object_unref(filter);
          g_object_unref(store);
          g_free(existing);
-         picker_close(NULL);
-         gtk_show_server_chooser();
+         gtk_server_editor_refresh_networks();
+         if (picker_panel) {
+            picker_close(NULL);
+            gtk_show_server_chooser();
+         }
          return;
       }
       gtk_label_set_text(GTK_LABEL(error), "Unable to save network in SQLite.");
@@ -983,34 +898,21 @@ void gtk_show_server_chooser(void) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
-   GtkWidget *keys_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   GtkWidget *keys_label = gtk_label_new("Certificate");
-   GtkWidget *keys_combo = gtk_combo_box_text_new();
-   GtkWidget *keys_manage = gtk_button_new_with_label("Manage Keys");
-   GtkWidget *key_image = gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON);
-   gtk_button_set_image(GTK_BUTTON(keys_manage), key_image);
-   gtk_button_set_always_show_image(GTK_BUTTON(keys_manage), TRUE);
-   gtk_widget_set_tooltip_text(keys_combo, "Select the local private-key identity for this server profile. This preference is saved locally; signed login integration is still being developed.");
-   gtk_widget_set_tooltip_text(keys_manage, "Open the client certificate and private key manager.");
-   gtk_box_pack_start(GTK_BOX(keys_row), keys_label, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(keys_row), keys_combo, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(keys_row), keys_manage, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(box), keys_row, FALSE, FALSE, 0);
-   g_object_set_data(G_OBJECT(tree), "rr-key-combo", keys_combo);
-   g_signal_connect(keys_combo, "changed", G_CALLBACK(picker_key_changed), tree);
-   g_signal_connect(keys_manage, "clicked", G_CALLBACK(picker_manage_keys), tree);
-   picker_key_refresh(tree);
+   GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(box), actions, FALSE, FALSE, 0);
    GtkWidget *new_server = gtk_button_new_with_label("New Server");
-   gtk_box_pack_start(GTK_BOX(box), new_server, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(actions), new_server, TRUE, TRUE, 0);
    g_signal_connect(new_server, "clicked", G_CALLBACK(picker_new_server), tree);
-   GtkWidget *new_network = gtk_button_new_with_label("New / Edit Network");
-   gtk_box_pack_start(GTK_BOX(box), new_network, FALSE, FALSE, 0);
-   g_signal_connect(new_network, "clicked", G_CALLBACK(picker_network_editor), tree);
    GtkWidget *edit = gtk_button_new_with_label("Edit Server");
-   gtk_box_pack_start(GTK_BOX(box), edit, FALSE, FALSE, 0);
+   gtk_widget_set_sensitive(edit, FALSE);
+   g_object_set_data(G_OBJECT(tree), "rr-edit-button", edit);
+   gtk_box_pack_start(GTK_BOX(actions), edit, TRUE, TRUE, 0);
    g_signal_connect(edit, "clicked", G_CALLBACK(on_edit_clicked), tree);
+   GtkWidget *new_network = gtk_button_new_with_label("New/Edit Network");
+   gtk_box_pack_start(GTK_BOX(actions), new_network, TRUE, TRUE, 0);
+   g_signal_connect(new_network, "clicked", G_CALLBACK(gtk_server_picker_edit_network), tree);
    GtkWidget *button = gtk_button_new_with_label("Connect");
-   gtk_box_pack_start(GTK_BOX(box), button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(actions), button, TRUE, TRUE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_connect_clicked), tree);
    g_signal_connect(tree, "row-activated", G_CALLBACK(on_row_activated), NULL);
    g_signal_connect(window, "key-press-event", G_CALLBACK(on_key), NULL);
