@@ -24,7 +24,7 @@
       "libnotify": "false",
       "libunwind": "false",
       "max_bands": 14,
-      "mongoose": "true",
+      "mongoose": "false",
       "mqtt": "true",
       "opus": "true",
       "profiling": "true",
