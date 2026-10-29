@@ -206,7 +206,7 @@ static void disconnected(const char *event,const char *data,rrconn_t *connection
       if (!name) break;
       rrconn_t *peer = rrclient_connection_find(name);
       if (peer && peer != connection && peer->is_ws && peer->authenticated &&
-          peer->connected && peer->conn && !peer->conn->is_closing)
+          peer->connected && peer->active)
          return;
    }
    receiver_directory_clear_server_snapshot();
