@@ -134,11 +134,12 @@ GtkWidget *fm_dialog_create(void) {
    }
 
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+
    if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
       return NULL;
    }
-   fm_panel = rr_floating_panel_new(GTK_OVERLAY(root),
-      GTK_NOTEBOOK(main_notebook), "fm-mode", "FM Settings");
+   fm_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "fm-mode", "FM Settings");
+
    if (!fm_panel) {
       return NULL;
    }
@@ -147,8 +148,7 @@ GtkWidget *fm_dialog_create(void) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
    gtk_container_set_border_width(GTK_CONTAINER(grid), 8);
-   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(fm_panel)),
-      grid, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(fm_panel)), grid, FALSE, FALSE, 0);
 
    /* --- UI setup --- */
 

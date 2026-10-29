@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Component-private session state, shared by admission and native adapter. */
 #ifndef RR_LINK_INTERNAL_H
 #define RR_LINK_INTERNAL_H
@@ -57,7 +63,7 @@ struct rr_links {
    struct link_peer peers[MAX_PEERS];
    size_t peer_count, session_count;
    rr_link_tree_t *tree;
-   rr_mesh_t *mesh; /* Shadow topology: authenticated direct peers only. */
+   rr_mesh_t *mesh;             /* Shadow topology: authenticated direct peers only. */
    unsigned generation;
    long long autoconnect_after;
    char node[37], domain[254], site[128];
@@ -72,6 +78,7 @@ static inline bool session_closing(const struct link_session *s) {
 static inline bool session_tls(const struct link_session *s) {
    return s->transport && (rr_transport_capabilities(s->transport) & RR_TRANSPORT_TLS_AUTHENTICATED);
 }
+
 struct link_session *new_session(void);
 void close_session(struct link_session *session);
 void fail_cause(struct link_session *session, const char *cause, const char *reason);

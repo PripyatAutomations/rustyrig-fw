@@ -683,10 +683,11 @@ static void host_sync(serial_binding_t *b) {
    if (b->tx_pending || !b->host_pending->len) {
       return;
    }
+
    if (connection->native_transport &&
-       (rr_transport_state(connection->native_transport) != RR_TRANSPORT_OPEN ||
-        rr_transport_queued_bytes(connection->native_transport) > 65536))
+      (rr_transport_state(connection->native_transport) != RR_TRANSPORT_OPEN || rr_transport_queued_bytes(connection->native_transport) > 65536)) {
       return;
+   }
    size_t n = b->host_pending->len;
 
    if (n > RR_SERIAL_BLOCK_MAX) {
@@ -702,21 +703,24 @@ static void host_sync(serial_binding_t *b) {
       return;
    }
    bool sent = false;
+
    if (connection->native_transport) {
-      sent = rr_transport_send_binary_message(connection->native_transport,
-         packet, (size_t)len) == RR_TRANSPORT_OK;
+      sent = rr_transport_send_binary_message(connection->native_transport, packet, (size_t)len) == RR_TRANSPORT_OK;
    }
 #ifdef USE_MONGOOSE
    else if (connection->conn && !connection->conn->is_closing) {
-      /* Temporary legacy adapter until Mongoose connections also acquire
-       * rr_transport handles. Keep Mongoose symbols out of native builds. */
-      struct mg_str frame = { .buf = (char *)packet, .len = (size_t)len };
+      /* Temporary legacy adapter until Mongoose connections also acquire rr_transport handles. Keep Mongoose symbols out of native builds. */
+      struct mg_str frame = {
+         .buf = (char *)packet, .len = (size_t)len
+      };
       sent = ws_send_to_cptr(NULL, connection, &frame, WEBSOCKET_OP_BINARY);
    }
 #endif
    free(packet);
+
    if (!sent) {
       b->tx_seq--;
+
       return;
    }
    g_byte_array_remove_range(b->host_pending, 0, n);

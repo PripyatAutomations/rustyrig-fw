@@ -533,23 +533,26 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    if (reason) {
       *reason = RR_CAT_OK;
    }
+
    /* Remote catalog descriptors must always carry an origin signature. */
    if (!rr_relay_local_owner(owner) && !dict_get(d, "identity.signature", NULL)) {
-      Log(LOG_WARN, "mesh.identity",
-          "Rejected unsigned catalog entry: origin=%s type=%s uuid=%s service=%s",
-          owner, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
-          dict_get(d, "catalog.service", ""));
+      Log(LOG_WARN, "mesh.identity", "Rejected unsigned catalog entry: origin=%s type=%s uuid=%s service=%s", owner, dict_get(d, "object.type", ""), dict_get(d,
+         "object.uuid", ""), dict_get(d, "catalog.service", ""));
+
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
+
    if (rr_relay_local_owner(owner) && !rr_identity_public_base64()) {
       Log(LOG_WARN, "mesh.identity", "Cannot publish local unsigned catalog descriptor: server signing identity unavailable");
+
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
-   /* Visibility is included in the signed descriptor. Reject misspelled
-    * values instead of silently broadening client exposure. */
+   /* Visibility is included in the signed descriptor. Reject misspelled values instead of silently broadening client exposure. */
    const char *visibility = dict_get(d, "catalog.visibility", "clients");
+
    if (strcmp(visibility, "clients") && strcmp(visibility, "server-only")) {
       Log(LOG_WARN, "relay.catalog", "Rejected invalid catalog.visibility from %s", owner);
+
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
    const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
@@ -626,36 +629,46 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       dict_add(copy, "identity.scheme", "ed25519-catalog-v1");
       dict_add(copy, "identity.operation", "catalog-upsert");
 #ifdef USE_SQLITE
+
       if (!rr_identity_local_revision(masterdb, cfg_get("domain"), owner, key, copy)) {
          dict_free(copy);
+
          return catalog_reject(reason, RR_CAT_IDENTITY);
       }
 #endif
+
       if (!rr_identity_sign_catalog(copy)) {
          dict_free(copy);
+
          return catalog_reject(reason, RR_CAT_IDENTITY);
       }
    } else if (copy && dict_get(copy, "identity.signature", NULL)) {
-      /* Verify signatures, owner binding and local-domain scope before
-       * storing signed foreign entries. Catalog identity *trust* still
-       * requires separately pinned server keys. */
+      /* Verify signatures, owner binding and local-domain scope before storing signed foreign entries. Catalog identity *trust* still requires separately
+       * pinned server keys. */
       const char *signed_owner = dict_get(copy, "identity.owner", "");
       const char *signed_domain = dict_get(copy, "identity.domain", "");
       const char *scheme = dict_get(copy, "identity.scheme", "");
       const char *operation = dict_get(copy, "identity.operation", "");
       const char *problem = NULL;
-      if (strcmp(signed_owner, owner)) problem = "signed owner does not match envelope origin";
-      else if (g_ascii_strcasecmp(signed_domain, cfg_get("domain"))) problem = "domain mismatch";
-      else if (strcmp(scheme, "ed25519-catalog-v1")) problem = "unsupported signature scheme";
-      else if (strcmp(operation, "catalog-upsert")) problem = "wrong signed operation";
-      else if (!rr_identity_verify_catalog(copy)) problem = "Ed25519 signature verification failed";
+
+      if (strcmp(signed_owner, owner)) {
+         problem = "signed owner does not match envelope origin";
+      } else if (g_ascii_strcasecmp(signed_domain, cfg_get("domain"))) {
+         problem = "domain mismatch";
+      } else if (strcmp(scheme, "ed25519-catalog-v1")) {
+         problem = "unsupported signature scheme";
+      } else if (strcmp(operation, "catalog-upsert")) {
+         problem = "wrong signed operation";
+      } else if (!rr_identity_verify_catalog(copy)) {
+         problem = "Ed25519 signature verification failed";
+      }
+
       if (problem) {
          char owner_label[192];
-         Log(LOG_WARN, "mesh.identity",
-            "Rejecting signed catalog entry from %s: %s (type=%s uuid=%s service=%s)",
-            rrserver_links_format_node(owner, owner_label, sizeof(owner_label)), problem, dict_get(copy, "object.type", ""),
-            dict_get(copy, "object.uuid", ""), dict_get(copy, "catalog.service", ""));
+         Log(LOG_WARN, "mesh.identity", "Rejecting signed catalog entry from %s: %s (type=%s uuid=%s service=%s)", rrserver_links_format_node(owner, owner_label
+            , sizeof(owner_label)), problem, dict_get(copy, "object.type", ""), dict_get(copy, "object.uuid", ""), dict_get(copy, "catalog.service", ""));
          dict_free(copy);
+
          return catalog_reject(reason, RR_CAT_IDENTITY);
       }
    }
@@ -664,35 +677,39 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       return catalog_reject(reason, RR_CAT_MEMORY);
    }
 #ifdef USE_SQLITE
-   /* Trust on first verified catalog observation, persistent across restarts.
-    * Never permit a subsequent catalog to silently replace a pinned key.
-    * Bootstrap peers must be independently trusted for initial enrollment. */
+
+   /* Trust on first verified catalog observation, persistent across restarts. Never permit a subsequent catalog to silently replace a pinned key. Bootstrap
+    * peers must be independently trusted for initial enrollment. */
    if (dict_get(copy, "identity.signature", NULL) &&
-       !rr_identity_check_pin(masterdb, dict_get(copy, "identity.domain", ""),
-         dict_get(copy, "identity.owner", ""), dict_get(copy, "identity.public-key", ""))) {
+      !rr_identity_check_pin(masterdb, dict_get(copy, "identity.domain", ""), dict_get(copy, "identity.owner", ""), dict_get(copy, "identity.public-key", "")))
+   {
       char owner_label[192];
-      Log(LOG_WARN, "mesh.identity", "Rejecting catalog entry from %s: untrusted identity key change or pin storage failure",
-         rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
+      Log(LOG_WARN, "mesh.identity", "Rejecting catalog entry from %s: untrusted identity key change or pin storage failure", rrserver_links_format_node(owner,
+         owner_label, sizeof(owner_label)));
       dict_free(copy);
+
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
 #endif
 #ifdef USE_SQLITE
-   if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) &&
-       !dict_get(copy, "identity.revision", NULL)) {
+
+   if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) && !dict_get(copy, "identity.revision", NULL)) {
       char owner_label[192];
       Log(LOG_WARN, "mesh.identity",
-          "Rejected signed catalog entry %s from %s: peer did not supply identity.revision; upgrade all servers to the revision-aware protocol",
-          key, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
+         "Rejected signed catalog entry %s from %s: peer did not supply identity.revision; upgrade all servers to the revision-aware protocol", key,
+         rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
       dict_free(copy);
+
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
+
    if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) &&
-       !rr_identity_accept_revision(masterdb, cfg_get("domain"), owner, key, copy)) {
+      !rr_identity_accept_revision(masterdb, cfg_get("domain"), owner, key, copy)) {
       char owner_label[192];
-      Log(LOG_WARN, "mesh.identity", "Rejected stale or conflicting signed catalog revision for %s owned by %s (revision=%s)",
-         key, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)), dict_get(copy, "identity.revision", ""));
+      Log(LOG_WARN, "mesh.identity", "Rejected stale or conflicting signed catalog revision for %s owned by %s (revision=%s)", key, rrserver_links_format_node(
+         owner, owner_label, sizeof(owner_label)), dict_get(copy, "identity.revision", ""));
       dict_free(copy);
+
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
 #endif
@@ -1174,11 +1191,13 @@ void rr_relay_collect_local(void) {
    free(rooms);
 #endif
    catalog_collecting_local = false;
-   /* Finalization barrier: no local descriptor leaves this collection pass
-    * until every collector has added its fields. Re-seal each completed
-    * descriptor; a failure leaves it unsigned and publication is blocked. */
-   for (struct catalog *c = rr_relay_catalogs; c; c = c->next) {
-      if (!rr_relay_local_owner(c->owner) || !c->seen) continue;
+
+   /* Finalization barrier: no local descriptor leaves this collection pass until every collector has added its fields. Re-seal each completed descriptor; a
+    * failure leaves it unsigned and publication is blocked. */
+   for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
+      if (!rr_relay_local_owner(c->owner) || !c->seen) {
+         continue;
+      }
       dict_del(c->descriptor, "identity.signature");
       dict_add(c->descriptor, "identity.owner", c->owner);
       dict_add(c->descriptor, "identity.domain", cfg_get("domain"));
@@ -1186,13 +1205,16 @@ void rr_relay_collect_local(void) {
       dict_add(c->descriptor, "identity.scheme", "ed25519-catalog-v1");
       dict_add(c->descriptor, "identity.operation", "catalog-upsert");
 #ifdef USE_SQLITE
+
       if (!rr_identity_local_revision(masterdb, cfg_get("domain"), c->owner, c->key, c->descriptor)) {
          Log(LOG_CRIT, "mesh.identity", "Cannot persist catalog revision for %s; publication blocked", c->key);
          continue;
       }
 #endif
-      if (!rr_identity_sign_catalog(c->descriptor))
+
+      if (!rr_identity_sign_catalog(c->descriptor)) {
          Log(LOG_CRIT, "mesh.identity", "Unable to finalize local catalog signature for %s; publication blocked", c->key);
+      }
    }
 }
 
@@ -1266,13 +1288,13 @@ void rr_relay_catalog_profile_dump(void) {
       "Catalog synchronization statistics (cumulative; last sample %.0f s; entries=%zu, queued=%u, pending-acks=%u, remaining-items=%llu):", sample_s,
       rr_relay_catalog_count, queued_syncs, pending_acks, (unsigned long long)queued_descriptors);
    g_string_append_c(report, '\n');
-   g_string_append_printf(report, "  snapshots: started=%llu (+%llu), queue-complete=%llu (+%llu), aborted=%llu (+%llu), superseded=%llu (+%llu)", (unsigned long
-      long)t.snapshots, (unsigned long long)w.snapshots, (unsigned long long)t.queued, (unsigned long long)w.queued, (unsigned long long)t.aborted, (unsigned
-         long long)w.aborted, (unsigned long long)t.superseded, (unsigned long long)w.superseded);
+   g_string_append_printf(report, "  snapshots: started=%llu (+%llu), queue-complete=%llu (+%llu), aborted=%llu (+%llu), superseded=%llu (+%llu)", (unsigned
+      long long)t.snapshots, (unsigned long long)w.snapshots, (unsigned long long)t.queued, (unsigned long long)w.queued, (unsigned long long)t.aborted, (
+         unsigned long long)w.aborted, (unsigned long long)t.superseded, (unsigned long long)w.superseded);
    g_string_append_c(report, '\n');
-   g_string_append_printf(report, "  acknowledgments: accepted=%llu (+%llu), partial=%llu (+%llu), timed-out=%llu (+%llu), cancelled=%llu (+%llu)", (unsigned long
-      long)t.ack_ok, (unsigned long long)w.ack_ok, (unsigned long long)t.ack_partial, (unsigned long long)w.ack_partial, (unsigned long long)t.ack_timeout, (
-         unsigned long long)w.ack_timeout, (unsigned long long)t.ack_cancelled, (unsigned long long)w.ack_cancelled);
+   g_string_append_printf(report, "  acknowledgments: accepted=%llu (+%llu), partial=%llu (+%llu), timed-out=%llu (+%llu), cancelled=%llu (+%llu)", (unsigned
+      long long)t.ack_ok, (unsigned long long)w.ack_ok, (unsigned long long)t.ack_partial, (unsigned long long)w.ack_partial, (unsigned long long)t.ack_timeout,
+      (unsigned long long)w.ack_timeout, (unsigned long long)t.ack_cancelled, (unsigned long long)w.ack_cancelled);
    g_string_append_c(report, '\n');
    g_string_append_printf(report,
       "  descriptors: prepared=%llu (+%llu), sent=%llu (+%llu), peer-received=%llu (+%llu), peer-accepted=%llu (+%llu), peer-rejected=%llu (+%llu)", (unsigned
@@ -1280,9 +1302,9 @@ void rr_relay_catalog_profile_dump(void) {
          unsigned long long)w.ack_received, (unsigned long long)t.ack_accepted, (unsigned long long)w.ack_accepted, (unsigned long long)t.ack_rejected, (
          unsigned long long)w.ack_rejected);
    g_string_append_c(report, '\n');
-   g_string_append_printf(report, "  payload JSON bytes: prepared=%llu (+%llu), sent=%llu (+%llu), received=%llu (+%llu) (not transport overhead)", (unsigned long
-      long)t.prepared_bytes, (unsigned long long)w.prepared_bytes, (unsigned long long)t.sent_bytes, (unsigned long long)w.sent_bytes, (unsigned long long)t.
-      received_bytes, (unsigned long long)w.received_bytes);
+   g_string_append_printf(report, "  payload JSON bytes: prepared=%llu (+%llu), sent=%llu (+%llu), received=%llu (+%llu) (not transport overhead)", (unsigned
+      long long)t.prepared_bytes, (unsigned long long)w.prepared_bytes, (unsigned long long)t.sent_bytes, (unsigned long long)w.sent_bytes, (unsigned long long)
+      t.received_bytes, (unsigned long long)w.received_bytes);
    g_string_append_c(report, '\n');
    g_string_append_printf(report,
       "  inbound catalog apply: received=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
@@ -1293,8 +1315,8 @@ void rr_relay_catalog_profile_dump(void) {
    for (unsigned i = RR_CAT_OWNER ; i < RR_CAT_REJECT_COUNT ; ++i) {
       if (catalog_reject_total[i]) {
          g_string_append_c(report, '\n');
-         g_string_append_printf(report, "    reject/%s: total=%llu (+%llu)", catalog_reject_names[i - 1], (unsigned long long)catalog_reject_total[i], (unsigned long
-            long)rejection_delta[i]);
+         g_string_append_printf(report, "    reject/%s: total=%llu (+%llu)", catalog_reject_names[i - 1], (unsigned long long)catalog_reject_total[i], (unsigned
+            long long)rejection_delta[i]);
       }
    }
 
@@ -1350,8 +1372,8 @@ void rr_relay_catalog_profile_dump(void) {
 
    if (catalog_profile_peer_count > limit) {
       g_string_append_c(report, '\n');
-      g_string_append_printf(report, "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)", catalog_profile_peer_count -
-         limit, limit);
+      g_string_append_printf(report, "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)",
+         catalog_profile_peer_count - limit, limit);
    }
    Log(LOG_INFO, "profile", "%s", report->str);
    g_string_free(report, TRUE);
@@ -1439,11 +1461,9 @@ void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint receive
    }
 #endif
    rr_relay_sync_status(origin, false, complete);
-   Log(complete ? LOG_INFO : LOG_WARN, "relay.catalog",
-      "Catalog sent to %s: %s; accepted=%u rejected=%u missing=%u of %u entries, %.3f s (sync %s)%s",
-      origin_label, complete ? "complete" : "NOT fully applied", accepted, rejected,
-      w->count > received ? w->count - received : 0, w->count, elapsed_us / 1000000.0,
-      sync_id, complete ? "" : "; see the receiving server's rejection summary");
+   Log(complete ? LOG_INFO : LOG_WARN, "relay.catalog", "Catalog sent to %s: %s; accepted=%u rejected=%u missing=%u of %u entries, %.3f s (sync %s)%s",
+      origin_label, complete ? "complete" : "NOT fully applied", accepted, rejected, w->count > received ? w->count - received : 0, w->count, elapsed_us /
+      1000000.0, sync_id, complete ? "" : "; see the receiving server's rejection summary");
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
 
@@ -1719,10 +1739,14 @@ void rr_relay_send_catalogs(const char *dest) {
                   continue;
                }
             }
+
             if (!dict_get(entry->descriptor, "identity.signature", NULL)) {
-               Log(LOG_WARN, "mesh.identity", "Unsigned catalog descriptor queued for %s from %s: %s",
-                  dest, entry->owner, cfg_get_bool("cluster.force-signed-catalog", true) ? "skipped" : "legacy mode permitted");
-               if (cfg_get_bool("cluster.force-signed-catalog", true)) continue;
+               Log(LOG_WARN, "mesh.identity", "Unsigned catalog descriptor queued for %s from %s: %s", dest, entry->owner, cfg_get_bool(
+                  "cluster.force-signed-catalog", true) ? "skipped" : "legacy mode permitted");
+
+               if (cfg_get_bool("cluster.force-signed-catalog", true)) {
+                  continue;
+               }
             }
             const char *route = rrserver_links_route(entry->owner);
 
@@ -1995,16 +2019,18 @@ char *rrserver_relay_rooms(const char *local) {
    return g_string_free(s, false);
 }
 
-/* Visibility is part of the signed catalog descriptor. Unknown values fail
- * closed for clients; all values remain available to authenticated servers. */
+/* Visibility is part of the signed catalog descriptor. Unknown values fail closed for clients; all values remain available to authenticated servers. */
 static bool catalog_client_visible(const dict *descriptor) {
-   const char *visibility = dict_get((dict *)descriptor, "catalog.visibility", "clients");
+   const char *visibility = dict_get((dict *) descriptor, "catalog.visibility", "clients");
+
    return !strcmp(visibility, "clients");
 }
 
 /* Send one catalog entry in the requested inventory format. */
 static void inventory_entry(rrconn_t *client, const char *request, struct catalog *c, unsigned depth, const char *kind) {
-   if (!catalog_client_visible(c->descriptor)) return;
+   if (!catalog_client_visible(c->descriptor)) {
+      return;
+   }
    const char *room = dict_get(c->descriptor, "catalog.room", dict_get(c->descriptor, "object.room", ""));
    const char *name = dict_get(c->descriptor, "object.alias", room);
    dict *d = rr_inventory_row(request, depth, kind, name, dict_get(c->descriptor, "object.uuid", NULL));
@@ -2045,18 +2071,21 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
    }
 }
 
-/* Signed catalog identity fields belong to server-to-server envelopes only.
- * Strip them from client-facing object and inventory dictionaries. */
+/* Signed catalog identity fields belong to server-to-server envelopes only. Strip them from client-facing object and inventory dictionaries. */
 void rr_relay_strip_catalog_identity(dict *d) {
-   if (!d) return;
+   if (!d) {
+      return;
+   }
    static const char *fields[] = {
       "identity.owner", "identity.domain", "identity.public-key",
       "identity.scheme", "identity.operation", "identity.signature",
       "identity.revision", "identity.timestamp", "identity.nonce",
       "identity.session"
    };
-   for (unsigned i = 0; i < sizeof(fields)/sizeof(fields[0]); ++i)
+
+   for (unsigned i = 0 ; i < sizeof(fields) / sizeof(fields[0]) ; ++i) {
       dict_del(d, fields[i]);
+   }
 }
 
 /* Preserve contributor fields while rebuilding hierarchy and requester state. */
@@ -2199,7 +2228,8 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
       inventory_services(client, request, site->owner, dict_get(site->descriptor, "object.uuid", ""), 1);
 
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
-         if (catalog_client_visible(c->descriptor) && !strcmp(c->owner, site->owner) && dict_get(c->descriptor, "catalog.room", NULL) && !dict_get(c->descriptor, "catalog.rig", NULL)) {
+         if (catalog_client_visible(c->descriptor) && !strcmp(c->owner, site->owner) && dict_get(c->descriptor, "catalog.room", NULL)
+            && !dict_get(c->descriptor, "catalog.rig", NULL)) {
             inventory_entry(client, request, c, 1, "room");
          }
       }
@@ -2258,4 +2288,3 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
       }
    }
 }
-

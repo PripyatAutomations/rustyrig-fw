@@ -833,12 +833,15 @@ static bool db_ensure_user_groups(sqlite3 *db) {
 static bool db_ensure_audit_session_id(sqlite3 *db) {
    char *error = NULL;
    int rc = sqlite3_exec(db, "ALTER TABLE audit_log ADD COLUMN session_id TEXT;", NULL, NULL, &error);
+
    if (rc != SQLITE_OK && (!error || !strstr(error, "duplicate column name"))) {
       Log(LOG_CRIT, "db", "Unable to upgrade audit session IDs: %s", error ? error : sqlite3_errmsg(db));
       sqlite3_free(error);
+
       return false;
    }
    sqlite3_free(error);
+
    return true;
 }
 
@@ -880,8 +883,10 @@ sqlite3 *db_open(const char *path) {
 
          return NULL;
       }
+
       if (!db_ensure_audit_session_id(db)) {
          sqlite3_close(db);
+
          return NULL;
       }
       /* Additive migration: do not rewrite existing login credentials. */
@@ -899,15 +904,14 @@ sqlite3 *db_open(const char *path) {
          "CREATE TABLE IF NOT EXISTS user_key_enrollment("
          "uid INTEGER PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,"
          "verifier_phc TEXT NOT NULL, expires_at INTEGER NOT NULL,"
-         "attempts INTEGER NOT NULL DEFAULT 0,"
-         "created_at INTEGER NOT NULL DEFAULT (unixepoch()),"
-         "consumed_at INTEGER);";
+         "attempts INTEGER NOT NULL DEFAULT 0," "created_at INTEGER NOT NULL DEFAULT (unixepoch())," "consumed_at INTEGER);";
       char *auth_error = NULL;
+
       if (sqlite3_exec(db, auth_schema, NULL, NULL, &auth_error) != SQLITE_OK) {
-         Log(LOG_CRIT, "db", "Cannot migrate authentication schema: %s",
-             auth_error ? auth_error : sqlite3_errmsg(db));
+         Log(LOG_CRIT, "db", "Cannot migrate authentication schema: %s", auth_error ? auth_error : sqlite3_errmsg(db));
          sqlite3_free(auth_error);
          sqlite3_close(db);
+
          return NULL;
       }
       sqlite3_free(auth_error);

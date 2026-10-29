@@ -1,0 +1,1 @@
+makefile sometimes doesnt rebuild all targets if they arent fresh! do distclean often

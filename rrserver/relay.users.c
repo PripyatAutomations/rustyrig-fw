@@ -102,4 +102,3 @@ void rr_relay_users_register(void) {
       event_on(events[i], users_changed, NULL);
    }
 }
-

@@ -522,18 +522,22 @@ static void cleanup_pipeline(GstElement **pipe) {
 }
 
 static GstElement *build_pipeline(const char *pipeline_str) {
-   /* gst_parse_launch can return a partially built pipeline AND an error.
-    * A missing plugin (e.g. oggdemux/vorbisdec) must be fatal, not leave a
-    * live child with an unconsumed stdin pipe until the parent times out. */
+   /* gst_parse_launch can return a partially built pipeline AND an error. A missing plugin (e.g. oggdemux/vorbisdec) must be fatal, not leave a live child with
+    * an unconsumed stdin pipe until the parent times out. */
    GError *error = NULL;
    GstElement *result = gst_parse_launch(pipeline_str, &error);
 
    if (error) {
       fprintf(stderr, "fwdsp: GStreamer pipeline parse error: %s\n", error->message);
       g_clear_error(&error);
-      if (result) gst_object_unref(result);
+
+      if (result) {
+         gst_object_unref(result);
+      }
+
       return NULL;
    }
+
    return result;
 }
 
@@ -832,8 +836,7 @@ static void run_loop(struct audio_config *cfg) {
       pipeline = build_pipeline(cfg->pipeline);
 
       if (!pipeline) {
-         /* Invalid pipelines cannot recover by spinning in this child.
-          * Let the supervisor's per-pipeline rate limiter handle restarts. */
+         /* Invalid pipelines cannot recover by spinning in this child. Let the supervisor's per-pipeline rate limiter handle restarts. */
          fprintf(stderr, "fwdsp: Failed to build pipeline; terminating invalid worker\n");
          exit(EXIT_FAILURE);
       }

@@ -174,6 +174,7 @@ static void editor_refresh_certificates(GtkServerEditor *editor) {
       return;
    }
    char *selected = g_strdup(gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->certificate)));
+
    if (!selected && editor->profile) {
       selected = g_strdup(get_server_property(editor->profile, "client.identity.path"));
    }
@@ -182,17 +183,15 @@ static void editor_refresh_certificates(GtkServerEditor *editor) {
    gchar *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
    GDir *folder = g_dir_open(dir, 0, NULL);
    const char *filename;
+
    if (folder) {
       while ((filename = g_dir_read_name(folder))) {
          if (!g_str_has_suffix(filename, ".pem")) {
             continue;
          }
          gchar *path = g_build_filename(dir, filename, NULL);
-         /* Match the identity manager's human-readable key labels while
-          * retaining the full path as the persisted combo-box ID. */
-         gchar *label = !strcmp(filename, "client-ed25519.pem") ?
-            g_strdup("Default Client Identity") :
-            g_strndup(filename, strlen(filename) - 4);
+         /* Match the identity manager's human-readable key labels while retaining the full path as the persisted combo-box ID. */
+         gchar *label = !strcmp(filename, "client-ed25519.pem") ? g_strdup("Default Client Identity") : g_strndup(filename, strlen(filename) - 4);
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->certificate), path, label);
          g_free(label);
          g_free(path);
@@ -200,6 +199,7 @@ static void editor_refresh_certificates(GtkServerEditor *editor) {
       g_dir_close(folder);
    }
    g_free(dir);
+
    if (!selected || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->certificate), selected)) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(editor->certificate), 0);
    }
@@ -229,20 +229,23 @@ static void editor_refresh_networks(GtkServerEditor *editor) {
       gsize length = strlen(key) - strlen("network:") - strlen(".servers");
       gchar *group = g_strndup(key + strlen("network:"), length);
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->network), group, group);
+
       if (!previous && !editor->creating && editor->profile) {
          gchar **members = g_strsplit_set(value ? value : "", ", \t\r\n", -1);
-         for (gsize i = 0; members[i]; i++) {
+
+         for (gsize i = 0 ; members[i] ; i++) {
             if (!strcmp(members[i], editor->profile)) {
                previous = g_strdup(group);
                break;
             }
          }
+
          g_strfreev(members);
       }
       g_free(group);
    }
-   if (!previous || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->network),
-       !strcmp(previous, "Ungrouped") ? "" : previous)) {
+
+   if (!previous || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->network), !strcmp(previous, "Ungrouped") ? "" : previous)) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(editor->network), 0);
    }
    g_free(previous);
@@ -303,9 +306,14 @@ static void server_editor_free(gpointer data) {
 }
 
 static gboolean server_editor_escape(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
-   (void)widget; (void)unused;
-   if (event->keyval != GDK_KEY_Escape) return FALSE;
+   (void)widget;
+   (void)unused;
+
+   if (event->keyval != GDK_KEY_Escape) {
+      return FALSE;
+   }
    server_editor_close(NULL);
+
    return TRUE;
 }
 
@@ -316,66 +324,90 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    char *normalized = rrclient_database_normalize_url(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])));
    gtk_entry_set_text(GTK_ENTRY(editor->fields[0]), normalized);
    g_free(normalized);
-   const char *profile = editor->creating ?
-      gtk_entry_get_text(GTK_ENTRY(editor->profile_entry)) : editor->profile;
-   if (!profile || !*profile ||
-       strspn(profile, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != strlen(profile)) {
+   const char *profile = editor->creating ? gtk_entry_get_text(GTK_ENTRY(editor->profile_entry)) : editor->profile;
+
+   if (!profile || !*profile || strspn(profile, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != strlen(profile)) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Enter a profile name using letters, digits, _ or -.");
+
       return;
    }
+
    if (!cfg) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Client configuration is not loaded.");
+
       return;
    }
+
    if (editor->creating) {
       char *key = g_strdup_printf("server:%s.server.url", profile);
       bool exists = dict_get(cfg, key, NULL) != NULL;
       g_free(key);
+
       if (exists) {
          gtk_label_set_text(GTK_LABEL(editor->error), "A server with that name already exists.");
+
          return;
       }
    }
    rr_server_url_t endpoint;
+
    if (!rr_server_url_parse(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])), &endpoint)) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Enter a valid WS, WSS, IRC or IRCS URL.");
+
       return;
    }
    char *rooms = server_editor_rooms(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), NULL);
    gtk_entry_set_text(GTK_ENTRY(editor->fields[4]), rooms);
    g_free(rooms);
    bool rooms_changed = strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), editor->initial[4]) != 0;
-   for (unsigned i = 0; i < G_N_ELEMENTS(editor_keys); ++i) {
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
       const char *value = gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
+
       if (editor->creating || strcmp(value, editor->initial[i])) {
          char key[640];
          snprintf(key, sizeof(key), "server:%s.%s", profile, editor_keys[i]);
+
          if (!rrclient_database_server_set(profile, editor_keys[i], value)) {
             gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save server profile to SQLite.");
+
             return;
          }
       }
    }
+
    bool direct = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct));
+
    if (editor->creating ? direct : direct != editor->initial_direct) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.media.direct.prefer", profile);
-      if (!rrclient_database_server_set(profile, "media.direct.prefer", direct ? "true" : "false")) return;
+
+      if (!rrclient_database_server_set(profile, "media.direct.prefer", direct ? "true" : "false")) {
+         return;
+      }
       rrclient_direct_apply_preferences();
    }
+
    if (rooms_changed && !editor->creating) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.autojoin.rig", profile);
-      if (!rrclient_database_server_set(profile, "autojoin.rig", "")) return;
+
+      if (!rrclient_database_server_set(profile, "autojoin.rig", "")) {
+         return;
+      }
    }
    const char *identity = gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->certificate));
+
    if (!rrclient_database_server_set(profile, "client.identity.path", identity ? identity : "")) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save certificate selection.");
+
       return;
    }
    const char *network = gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->network));
+
    if (!rrclient_database_server_move(profile, network ? network : "")) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save network membership.");
+
       return;
    }
    gtk_server_picker_reload();
@@ -393,11 +425,12 @@ gboolean gtk_server_editor_is_open(void) {
 
 GtkWidget *gtk_show_server_editor(const char *profile) {
    if (server_editor_panel) {
-      GtkServerEditor *current = server_editor_frame ?
-         g_object_get_data(G_OBJECT(server_editor_frame), "rr-server-editor") : NULL;
+      GtkServerEditor *current = server_editor_frame ? g_object_get_data(G_OBJECT(server_editor_frame), "rr-server-editor") : NULL;
+
       if (current && g_strcmp0(current->profile, profile) == 0) {
          rr_floating_panel_restore(server_editor_panel);
          rr_floating_panel_show(server_editor_panel);
+
          return server_editor_frame;
       }
       server_editor_close(NULL);
@@ -448,14 +481,18 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
          gtk_widget_set_tooltip_text(editor->fields[i], "Rooms to join, separated by spaces.");
       }
       gtk_grid_attach(GTK_GRID(grid), gtk_label_new(labels[i]), 0, i + 1, 1, 1);
+
       if (i == 3) {
          const char *effective = editor->initial[i][0] ? editor->initial[i] : cfg_get("server.proxy");
          GtkWidget *proxy_status = gtk_check_button_new_with_label("Proxy configured");
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(proxy_status), effective && *effective);
          gtk_widget_set_sensitive(proxy_status, FALSE);
-         gtk_widget_set_tooltip_text(proxy_status, "Read-only: checked if this server uses a proxy, including an inherited global proxy. Proxy settings cannot be changed here.");
+         gtk_widget_set_tooltip_text(proxy_status,
+            "Read-only: checked if this server uses a proxy, including an inherited global proxy. Proxy settings cannot be changed here.");
          gtk_grid_attach(GTK_GRID(grid), proxy_status, 1, i + 1, 1, 1);
-      } else gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i + 1, 1, 1);
+      } else {
+         gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i + 1, 1, 1);
+      }
    }
 
    editor->certificate = gtk_combo_box_text_new();
@@ -463,8 +500,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    GtkWidget *certificate_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(certificate_row), editor->certificate, TRUE, TRUE, 0);
    GtkWidget *manage_keys = gtk_button_new_with_label("Manage Keys");
-   gtk_button_set_image(GTK_BUTTON(manage_keys),
-      gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON));
+   gtk_button_set_image(GTK_BUTTON(manage_keys), gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON));
    gtk_button_set_always_show_image(GTK_BUTTON(manage_keys), TRUE);
    g_signal_connect(manage_keys, "clicked", G_CALLBACK(server_editor_manage_keys), editor);
    gtk_box_pack_start(GTK_BOX(certificate_row), manage_keys, FALSE, FALSE, 0);
@@ -472,6 +508,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), certificate_row, 1, 6, 1, 1);
    editor->network = gtk_combo_box_text_new();
    editor_refresh_networks(editor);
+
    if (!profile && server_editor_default_network) {
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->network), server_editor_default_network);
    }
@@ -479,8 +516,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(network_row), editor->network, TRUE, TRUE, 0);
    GtkWidget *networks = gtk_button_new_with_label("Networks");
-   gtk_button_set_image(GTK_BUTTON(networks),
-      gtk_image_new_from_icon_name("emblem-system-symbolic", GTK_ICON_SIZE_BUTTON));
+   gtk_button_set_image(GTK_BUTTON(networks), gtk_image_new_from_icon_name("emblem-system-symbolic", GTK_ICON_SIZE_BUTTON));
    gtk_button_set_always_show_image(GTK_BUTTON(networks), TRUE);
    g_signal_connect(networks, "clicked", G_CALLBACK(gtk_server_picker_edit_network), NULL);
    gtk_box_pack_start(GTK_BOX(network_row), networks, FALSE, FALSE, 0);
@@ -489,7 +525,8 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    editor->initial_direct = profile ? rrclient_direct_preferred(profile) : false;
    editor->direct = gtk_check_button_new_with_label("Prefer direct RTP audio");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->direct), editor->initial_direct);
-   gtk_widget_set_tooltip_text(editor->direct, "If checked, try direct RTP audio, then RTP to the nearest server (proxy-rtp), before trying proxy-media. Unchecked tries proxy-media first. This is less desirable but can avoid firewall issues.");
+   gtk_widget_set_tooltip_text(editor->direct,
+      "If checked, try direct RTP audio, then RTP to the nearest server (proxy-rtp), before trying proxy-media. Unchecked tries proxy-media first. This is less desirable but can avoid firewall issues.");
    gtk_grid_attach(GTK_GRID(grid), editor->direct, 0, 8, 2, 1);
    editor->error = gtk_label_new("");
    gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 9, 2, 1);

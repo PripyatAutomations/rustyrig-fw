@@ -234,9 +234,8 @@ static void populate(void) {
    if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &old_model, &old_iter)) {
       gtk_tree_model_get(old_model, &old_iter, COL_URL, &url, -1);
    }
-   /* GtkTreeModelSort atop GtkTreeModelFilter cannot safely be switched to
-    * UNSORTED during a live rebuild: GTK can assert in fill_sort_data()
-    * while selection/filter callbacks are running. Keep sort columns stable. */
+   /* GtkTreeModelSort atop GtkTreeModelFilter cannot safely be switched to UNSORTED during a live rebuild: GTK can assert in fill_sort_data() while
+    * selection/filter callbacks are running. Keep sort columns stable. */
    gtk_list_store_clear(directory_store);
    size_t count = receiver_directory_count();
 
@@ -315,22 +314,29 @@ static void directory_download_finished(void) {
 }
 static gboolean directory_start_refresh(gpointer force_request) {
    gboolean started = receiver_directory_refresh_force(GPOINTER_TO_INT(force_request) != 0);
+
    if (started && receiver_directory_busy()) {
       directory_download_wait();
    } else {
       directory_download_finished();
       const char *status = receiver_directory_last_error();
-      if (!status || !*status) status = receiver_directory_status();
-      if (status && *status)
+
+      if (!status || !*status) {
+         status = receiver_directory_status();
+      }
+
+      if (status && *status) {
          gtk_label_set_text(GTK_LABEL(directory_status), status);
+      }
    }
+
    return G_SOURCE_REMOVE;
 }
 static void directory_refresh_with_wait(gboolean force) {
    g_clear_pointer(&receiver_failure, g_free);
-   /* Only show the download spinner once the cache policy actually starts
-    * an HTTP request. Reopening a cached directory must not impersonate
-    * a network download. Yield once so the tab can paint before refresh. */
+
+   /* Only show the download spinner once the cache policy actually starts an HTTP request. Reopening a cached directory must not impersonate a network
+    * download. Yield once so the tab can paint before refresh. */
    if (download_status) {
       gtk_spinner_stop(GTK_SPINNER(download_spinner));
       gtk_widget_hide(download_status);
@@ -365,46 +371,70 @@ static void import_clicked(GtkButton *button, gpointer unused) {
    }
    gtk_widget_destroy(chooser);
 }
+
 static void copy_clicked(GtkButton *button, gpointer config);
 static void connect_clicked(GtkButton *button, gpointer save);
 static void directory_menu_command(GtkMenuItem *item, gpointer user) {
    const char *command = user;
-   if (!strcmp(command, "connect")) connect_clicked(NULL, NULL);
-   else if (!strcmp(command, "save")) connect_clicked(NULL, GINT_TO_POINTER(1));
-   else if (!strcmp(command, "copy-url")) copy_clicked(NULL, NULL);
-   else if (!strcmp(command, "copy-config")) copy_clicked(NULL, GINT_TO_POINTER(1));
-   else if (!strcmp(command, "refresh")) directory_refresh_with_wait(FALSE);
+
+   if (!strcmp(command, "connect")) {
+      connect_clicked(NULL, NULL);
+   } else if (!strcmp(command, "save")) {
+      connect_clicked(NULL, GINT_TO_POINTER(1));
+   } else if (!strcmp(command, "copy-url")) {
+      copy_clicked(NULL, NULL);
+   } else if (!strcmp(command, "copy-config")) {
+      copy_clicked(NULL, GINT_TO_POINTER(1));
+   } else if (!strcmp(command, "refresh")) {
+      directory_refresh_with_wait(FALSE);
+   }
    (void)item;
 }
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    (void)user;
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
-   GtkTreePath *path = NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x, (gint)event->y, &path, NULL, NULL, NULL))
+
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
       return FALSE;
+   }
+   GtkTreePath *path = NULL;
+
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint) event->x, (gint) event->y, &path, NULL, NULL, NULL)) {
+      return FALSE;
+   }
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), path);
    gtk_tree_path_free(path);
    const receiver_directory_entry_t *r = selected_receiver();
-   if (!r) return FALSE;
+
+   if (!r) {
+      return FALSE;
+   }
    gboolean connected = rrclient_receiver_is_connected(r->url);
    GtkWidget *menu = gtk_menu_new();
-   const char *labels[] = {connected ? "Disconnect" : "Connect…", "Add to Server Configuration", "Copy URL", "Copy Bridge Configuration", "Refresh Directory"};
-   const char *actions[] = {"connect", "save", "copy-url", "copy-config", "refresh"};
-   for (unsigned i = 0; i < G_N_ELEMENTS(labels); i++) {
+   const char *labels[] = {
+      connected ? "Disconnect" : "Connect…", "Add to Server Configuration", "Copy URL", "Copy Bridge Configuration", "Refresh Directory"
+   };
+   const char *actions[] = {
+      "connect", "save", "copy-url", "copy-config", "refresh"
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(labels) ; i++) {
       GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
       gboolean enabled = i >= 2 || connected || receiver_directory_entry_accessible(r);
+
       if (i == 3) {
          char *config = receiver_directory_bridge_config(r);
          enabled = config != NULL;
          g_free(config);
       }
       gtk_widget_set_sensitive(item, enabled);
-      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer)actions[i]);
+      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer) actions[i]);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
+
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 static void connect_clicked(GtkButton *button, gpointer save) {
@@ -460,6 +490,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       int selected = gtk_combo_box_get_active(GTK_COMBO_BOX(choose));
       char *existing = selected > 0 ? gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(choose)) : NULL;
       const char *room = existing ? existing : NULL;
+
       if (selected == 0 || (room && ws_room_name_valid(room))) {
          rrclient_receiver_connect_room_ex(r->url, false, room, selected == 0);
       } else {
@@ -470,11 +501,15 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    gtk_widget_destroy(dialog);
 }
 static void receiver_failed(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)event; (void)connection; (void)unused;
+   (void)event;
+   (void)connection;
+   (void)unused;
    g_free(receiver_failure);
    receiver_failure = g_strdup(data && *data ? data : "SDR receiver connection failed.");
-   if (directory_status)
+
+   if (directory_status) {
       gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure);
+   }
 }
 static void connection_status(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
@@ -525,14 +560,24 @@ static void state_clicked(GtkButton *button, gpointer state) {
 }
 static gboolean directory_populate_idle(gpointer unused) {
    (void)unused;
-   if (directory_page && directory_store) populate();
+
+   if (directory_page && directory_store) {
+      populate();
+   }
+
    return G_SOURCE_REMOVE;
 }
 static gboolean directory_finish_show(gpointer unused) {
    (void)unused;
-   if (!directory_page || !main_notebook) return G_SOURCE_REMOVE;
+
+   if (!directory_page || !main_notebook) {
+      return G_SOURCE_REMOVE;
+   }
    GtkWidget *loading = g_object_get_data(G_OBJECT(directory_page), "initial-loading");
-   if (loading) gtk_widget_destroy(loading);
+
+   if (loading) {
+      gtk_widget_destroy(loading);
+   }
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
    gtk_box_pack_start(GTK_BOX(directory_page), box, TRUE, TRUE, 0);
@@ -660,6 +705,7 @@ static gboolean directory_finish_show(gpointer unused) {
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
    directory_refresh_with_wait(FALSE);
    g_timeout_add(60, directory_populate_idle, NULL);
+
    /* Keep loading visible until asynchronous directory fetch completes. */
    return G_SOURCE_REMOVE;
 }
@@ -679,15 +725,17 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
       if (index >= 0) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
-      if (download_status) directory_refresh_with_wait(FALSE);
+
+      if (download_status) {
+         directory_refresh_with_wait(FALSE);
+      }
 
       return;
    }
    directory_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), directory_page, gtk_label_new("SDR Directory"));
    gtk_widget_show_all(directory_page);
-   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),
-      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
    GtkWidget *loading = gtk_label_new("Loading SDR Directory…");
    gtk_box_pack_start(GTK_BOX(directory_page), loading, FALSE, FALSE, 12);
    gtk_widget_show(loading);
@@ -713,7 +761,10 @@ void gtk_receiver_directory_shutdown(void) {
    if (show_token) {
       event_off_token(show_token);
    }
-   if (failure_token) event_off_token(failure_token);
+
+   if (failure_token) {
+      event_off_token(failure_token);
+   }
    failure_token = 0;
    g_clear_pointer(&receiver_failure, g_free);
    directory_token = show_token = 0;

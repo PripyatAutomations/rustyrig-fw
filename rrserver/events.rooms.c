@@ -98,12 +98,13 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
       Log(LOG_WARN, "db", "failed to persist room %s", room);
    }
 
-   /* A late JOIN must receive the current SDR UUID binding, not only the
-    * room topic. Otherwise VFO controls remain hidden until another event. */
+   /* A late JOIN must receive the current SDR UUID binding, not only the room topic. Otherwise VFO controls remain hidden until another event. */
    if (room && cptr && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5)) {
       char *vfos = db_room_vfo_list(masterdb, room);
+
       if (vfos && *vfos) {
          dict *update = dict_new();
+
          if (update) {
             dict_add(update, "msg.type", "talk");
             dict_add(update, "talk.cmd", "room-vfo");
@@ -119,12 +120,11 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
       }
       free(vfos);
    }
+
    if (room && cptr) {
-      /* The receiver is attached before the creator joins. Its initial
-       * media.available broadcast therefore had no listeners in the room.
-       * Replay the channel catalog on JOIN so RX subscriptions can begin. */
-      Log(LOG_DEBUG, "room.media", "JOIN media catalog refresh: user=%s room=%s",
-         cptr->chatname, room);
+      /* The receiver is attached before the creator joins. Its initial media.available broadcast therefore had no listeners in the room. Replay the channel
+       * catalog on JOIN so RX subscriptions can begin. */
+      Log(LOG_DEBUG, "room.media", "JOIN media catalog refresh: user=%s room=%s", cptr->chatname, room);
       media_send_available_all(cptr);
       char *topic = db_room_get_topic(masterdb, room);
       dict *reply = dict_new();

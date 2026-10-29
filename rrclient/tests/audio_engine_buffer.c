@@ -1,5 +1,4 @@
-/* Exercise the actual independent PCM mixer without GTK or fwdsp children.
- * Keep the startup/recovery rules deterministic rather than relying on sleep. */
+/* Exercise the actual independent PCM mixer without GTK or fwdsp children. Keep the startup/recovery rules deterministic rather than relying on sleep. */
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,7 +9,11 @@ int main(void) {
    assert(engine && rr_audio_engine_add_stream(engine, "receiver-a"));
    assert(rr_audio_engine_route(engine, "receiver-a", 'S'));
    int16_t pcm[3200];
-   for (size_t i = 0; i < G_N_ELEMENTS(pcm); ++i) pcm[i] = 1000;
+
+   for (size_t i = 0 ; i < G_N_ELEMENTS(pcm) ; ++i) {
+      pcm[i] = 1000;
+   }
+
    int16_t stereo[AUDIO_BLOCK * 2];
    bool active = false;
 
@@ -18,7 +21,9 @@ int main(void) {
    assert(rr_audio_engine_push(engine, "receiver-a", pcm, 320));
    tick(engine, stereo, &active);
    assert(active && stereo[0] == 0 && stereo[200] == 0);
-   rr_audio_engine_stats_t stats = {0};
+   rr_audio_engine_stats_t stats = {
+      0
+   };
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.startup_blocks == 1 && stats.underrun_blocks == 0);
 
@@ -28,12 +33,11 @@ int main(void) {
    assert(active && stereo[0] == 0 && stereo[200] == 1000);
    tick(engine, stereo, &active);
    tick(engine, stereo, &active);
-   tick(engine, stereo, &active); /* First genuine starvation. */
+   tick(engine, stereo, &active);   /* First genuine starvation. */
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.starvation_events == 1 && stats.underrun_blocks == 1);
 
-   /* After a dropout, restart after one complete frame rather than
-    * imposing the full 60 ms startup delay on every short gap. */
+   /* After a dropout, restart after one complete frame rather than imposing the full 60 ms startup delay on every short gap. */
    assert(rr_audio_engine_push(engine, "receiver-a", pcm, 320));
    tick(engine, stereo, &active);
    assert(stereo[0] == 0 && stereo[200] == 1000);
@@ -58,5 +62,6 @@ int main(void) {
    assert(stats.underrun_blocks == before);
    rr_audio_engine_free(engine);
    puts("PASS: independent audio startup cushion, recovery, bounded backlog, stereo and mute");
+
    return 0;
 }

@@ -907,11 +907,12 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    /* Keep the compact control consistent with the main VFO widget.  The active/idle color conveys state; the action remains the familiar PTT OFF release
     * control. */
    const char *label = talker && talker->name[0] ? talker->name : "PTT OFF";
-   /* Keep the actual release target unchanged; only shorten its visible label.
-    * A 12-character cap prevents long usernames widening the docked roster. */
+   /* Keep the actual release target unchanged; only shorten its visible label. A 12-character cap prevents long usernames widening the docked roster. */
    char *short_label = g_utf8_substring(label, 0, 12);
-   if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(control->ptt)), short_label))
+
+   if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(control->ptt)), short_label)) {
       gtk_button_set_label(GTK_BUTTON(control->ptt), short_label);
+   }
    gtk_widget_set_tooltip_text(control->ptt, talker && talker->name[0] ? talker->name : "Release PTT on this VFO");
    g_free(short_label);
    GtkStyleContext *ctx = gtk_widget_get_style_context(control->ptt);
@@ -1164,6 +1165,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
          gtk_widget_set_halign(ptt, GTK_ALIGN_START);
          gtk_widget_set_hexpand(ptt, FALSE);
          GtkWidget *ptt_label = gtk_bin_get_child(GTK_BIN(ptt));
+
          if (GTK_IS_LABEL(ptt_label)) {
             gtk_label_set_xalign(GTK_LABEL(ptt_label), 0.5);
          }
@@ -1257,10 +1259,8 @@ static gboolean gtk_userlist_expire_typing(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
-/* Derive color from the raw username, never its decorated/prefixed
- * presentation or the server profile. Re-applied as rows are recycled. */
-static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
-                                    GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+/* Derive color from the raw username, never its decorated/prefixed presentation or the server profile. Re-applied as rows are recycled. */
+static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    (void)column;
    (void)user;
    char *name = NULL;
@@ -1268,6 +1268,7 @@ static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer 
    gtk_tree_model_get(model, iter, COL_USERNAME, &name, COL_DISPLAY_NAME, &display, -1);
    g_object_set(cell, "text", display ? display : "", NULL);
    g_free(display);
+
    if (!name || !*name || !strcmp(name, "OFFLINE")) {
       g_object_set(cell, "foreground-set", FALSE, NULL);
    } else {
@@ -1277,11 +1278,7 @@ static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer 
    g_free(name);
 }
 
-static void userlist_nick_color_and_zebra_cell(GtkTreeViewColumn *column,
-                                              GtkCellRenderer *cell,
-                                              GtkTreeModel *model,
-                                              GtkTreeIter *iter,
-                                              gpointer user) {
+static void userlist_nick_color_and_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    rr_list_zebra_cell(column, cell, model, iter, user);
    userlist_nick_color_cell(column, cell, model, iter, user);
 }
@@ -1349,9 +1346,7 @@ static GtkWidget *userlist_view_create(void) {
       for (GList *item = cells ; item ; item = item->next) {
          g_object_set_data(G_OBJECT(column), "rr-zebra-view", view);
          GtkCellRenderer *renderer = GTK_CELL_RENDERER(item->data);
-         gtk_tree_view_column_set_cell_data_func(column, renderer,
-            renderer == text ? userlist_nick_color_and_zebra_cell : rr_list_zebra_cell,
-            NULL, NULL);
+         gtk_tree_view_column_set_cell_data_func(column, renderer, renderer == text ? userlist_nick_color_and_zebra_cell : rr_list_zebra_cell, NULL, NULL);
       }
 
       g_list_free(cells);

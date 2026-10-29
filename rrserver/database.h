@@ -32,19 +32,13 @@ extern rr_resource_access_t db_resource_access(sqlite3 *db, const char *subject_
    resource_uuid, const char *privilege, time_t now);
 extern rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *
    resource_uuid, const char *privilege, time_t now, const char *symbolic_name);
-/* Native client public-key management. The public key is base64-encoded
- * raw Ed25519 (32 bytes). Enrollment requires authenticated administrator
- * authorization at the caller; database helpers never grant privileges. */
-bool db_user_key_add(sqlite3 *db, const char *username, const char *key_id,
-                     const char *public_key_b64, const char *label);
+/* Native client public-key management. The public key is base64-encoded raw Ed25519 (32 bytes). Enrollment requires authenticated administrator authorization
+ * at the caller; database helpers never grant privileges. */
+bool db_user_key_add(sqlite3 *db, const char *username, const char *key_id, const char *public_key_b64, const char *label);
 bool db_user_key_revoke(sqlite3 *db, const char *username, const char *key_id);
-/* Verifies a challenge response for an enrolled, enabled native client key.
- * Caller must enforce nonce freshness, single-use and TLS channel policy. */
-bool db_user_key_verify(sqlite3 *db, const char *username, const char *key_id,
-                        const void *challenge, size_t challenge_len,
-                        const unsigned char signature[64]);
-bool db_user_key_lookup(sqlite3 *db, const char *username, const char *key_id,
-                        unsigned char public_key[32]);
+/* Verifies a challenge response for an enrolled, enabled native client key. Caller must enforce nonce freshness, single-use and TLS channel policy. */
+bool db_user_key_verify(sqlite3 *db, const char *username, const char *key_id, const void *challenge, size_t challenge_len, const unsigned char signature[64]);
+bool db_user_key_lookup(sqlite3 *db, const char *username, const char *key_id, unsigned char public_key[32]);
 extern sqlite3 *db_open(const char *path);
 extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email, int maxsessions, const char *permissions)
 ;

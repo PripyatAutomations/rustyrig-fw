@@ -595,15 +595,18 @@ static void zoom_touch_begin(GtkGesture *gesture, GdkEventSequence *sequence, gp
       }
    }
    g_list_free(points);
-   /* Do not capture unmodified touchpad/wheel events: the LogView and
-    * other GtkScrolledWindows must receive ordinary vertical scrolling.
-    * Only real touch pinches or explicitly modified gestures own input. */
+   /* Do not capture unmodified touchpad/wheel events: the LogView and other GtkScrolledWindows must receive ordinary vertical scrolling. Only real touch
+    * pinches or explicitly modified gestures own input. */
    GdkModifierType mods = 0;
-   if (event) gdk_event_get_state(event, &mods);
-   gboolean physical_touch = event && (event->type == GDK_TOUCH_BEGIN ||
-      event->type == GDK_TOUCH_UPDATE);
-   if (physical_touch || (mods & (GDK_CONTROL_MASK | GDK_MOD1_MASK)))
+
+   if (event) {
+      gdk_event_get_state(event, &mods);
+   }
+   gboolean physical_touch = event && (event->type == GDK_TOUCH_BEGIN || event->type == GDK_TOUCH_UPDATE);
+
+   if (physical_touch || (mods & (GDK_CONTROL_MASK | GDK_MOD1_MASK))) {
       gtk_gesture_set_state(gesture, GTK_EVENT_SEQUENCE_CLAIMED);
+   }
 }
 
 static void zoom_touch_update(GtkGesture *gesture, GdkEventSequence *sequence, gpointer data) {
@@ -629,18 +632,21 @@ static void zoom_touch_scale(GtkGestureZoom *gesture, double scale, gpointer dat
    if (!touch->active || !isfinite(scale) || scale <= 0) {
       return;
    }
-   /* Physical touch pinches remain available. Trackpad/mouse-generated zoom
-    * must be deliberate: require Ctrl or Alt instead of zooming while the
-    * user is simply scrolling through the application. */
+   /* Physical touch pinches remain available. Trackpad/mouse-generated zoom must be deliberate: require Ctrl or Alt instead of zooming while the user is simply
+    * scrolling through the application. */
    GList *sequences = gtk_gesture_get_sequences(GTK_GESTURE(gesture));
    const GdkEvent *event = sequences ? gtk_gesture_get_last_event(GTK_GESTURE(gesture), sequences->data) : NULL;
-   gboolean physical_touch = event && (event->type == GDK_TOUCH_BEGIN ||
-      event->type == GDK_TOUCH_UPDATE || event->type == GDK_TOUCH_END);
+   gboolean physical_touch = event && (event->type == GDK_TOUCH_BEGIN || event->type == GDK_TOUCH_UPDATE || event->type == GDK_TOUCH_END);
    GdkModifierType modifiers = 0;
-   if (event) gdk_event_get_state(event, &modifiers);
+
+   if (event) {
+      gdk_event_get_state(event, &modifiers);
+   }
    g_list_free(sequences);
-   if (!physical_touch && !(modifiers & (GDK_CONTROL_MASK | GDK_MOD1_MASK)))
+
+   if (!physical_touch && !(modifiers & (GDK_CONTROL_MASK | GDK_MOD1_MASK))) {
       return;
+   }
 
    if (!touch->pinching && fabs(scale - 1.0) < 0.04) {
       return;

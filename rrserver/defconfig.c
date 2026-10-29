@@ -113,7 +113,8 @@ defconfig_t defcfg[] = {
       "bridge.password", "", "Optional receiver password"
    },
    {
-      "bridge.user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36", "KiwiSDR WebSocket User-Agent; named bridge overrides"
+      "bridge.user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "KiwiSDR WebSocket User-Agent; named bridge overrides"
    },
    {
       "bridge.frequency", "14074000", "Initial bridge receiver frequency in Hz"
@@ -219,7 +220,8 @@ defconfig_t defcfg[] = {
       "media.direct.encrypt", "false", "Encrypt RTP (requires WITH_RTP_ENCRYPTION=true)", DEFCONFIG_BOOL, NULL
    },
    {
-      "cluster.force-signed-catalog", "true", "Require signed catalog descriptors from every cluster node; false permits unsigned legacy records with warnings", DEFCONFIG_BOOL, NULL
+      "cluster.force-signed-catalog", "true",
+      "Require signed catalog descriptors from every cluster node; false permits unsigned legacy records with warnings", DEFCONFIG_BOOL, NULL
    },
    {
       "net.mesh-linking", "true", "Enable automatic authenticated mesh links; false preserves configured tree links only", DEFCONFIG_BOOL, NULL

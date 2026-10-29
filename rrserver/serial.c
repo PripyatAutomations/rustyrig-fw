@@ -856,9 +856,9 @@ bool rrserver_serial_poll(void) {
       if (p->rx_pending || !p->buffered) {
          continue;
       }
+
       if (!p->owner->native_transport ||
-          rr_transport_state(p->owner->native_transport) != RR_TRANSPORT_OPEN ||
-          rr_transport_queued_bytes(p->owner->native_transport) > 65536) {
+         rr_transport_state(p->owner->native_transport) != RR_TRANSPORT_OPEN || rr_transport_queued_bytes(p->owner->native_transport) > 65536) {
          continue;
       }
       size_t n = p->buffered;
@@ -874,9 +874,9 @@ bool rrserver_serial_poll(void) {
       if (length < 0) {
          goto failed;
       }
-      int result = rr_transport_send_binary_message(p->owner->native_transport,
-         packet, (size_t)length);
+      int result = rr_transport_send_binary_message(p->owner->native_transport, packet, (size_t)length);
       free(packet);
+
       if (result != RR_TRANSPORT_OK) {
          p->rx_seq--;
          continue;

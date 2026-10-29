@@ -423,10 +423,10 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
          vfo_state_get_active(), '\0'
       };
       const char *room = gtk_chat_current_room();
+
       if (!ws_send_freq_cmd_in_room(ws_conn, vfo, freq, room)) {
-         Log(LOG_WARN, "gtk.freqentry",
-            "Unable to send VFO %s frequency %lu Hz for room %s",
-            vfo, freq, room ? room : "(none)");
+         Log(LOG_WARN, "gtk.freqentry", "Unable to send VFO %s frequency %lu Hz for room %s", vfo, freq, room ? room : "(none)");
+
          return;
       }
       fe->prev_freq = fe->freq;

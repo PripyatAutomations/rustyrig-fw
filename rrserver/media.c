@@ -83,7 +83,8 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
 
       /* Joined local users already constitute demand. Avoid a second policy check and a relay query for every channel on every server poll. */
       for (rrconn_t *client = http_client_list ; client ; client = client->next) {
-         if (client->native_transport && rr_transport_state(client->native_transport) == RR_TRANSPORT_OPEN && client->is_ws && client->authenticated && !client->is_server && media_client_in_channel_room(client, channel)) {
+         if (client->native_transport && rr_transport_state(client->native_transport) == RR_TRANSPORT_OPEN && client->is_ws && client->authenticated
+            && !client->is_server && media_client_in_channel_room(client, channel)) {
             return true;
          }
       }
@@ -594,10 +595,11 @@ static void rrserver_handle_codec_select(const char *event, const char *data, rr
 
       return;
    }
-   /* All listeners of this UUID share its encoder. Reasserting the active
-    * format must not restart that encoder or interrupt other listeners. */
+
+   /* All listeners of this UUID share its encoder. Reasserting the active format must not restart that encoder or interrupt other listeners. */
    if (old_codec && !strncmp(old_codec, codec, 4)) {
       dict_free(d);
+
       return;
    }
    // Media direction is from the client's point of view. Server RX-channel

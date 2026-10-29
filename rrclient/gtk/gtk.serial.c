@@ -170,11 +170,13 @@ static void delete_port(GtkWindow *parent, const char *name, GtkWidget *status) 
       return;
    }
    dict_del(cfg, service_key);
-   for (unsigned i = 0; i < G_N_ELEMENTS(fields); ++i) {
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(fields) ; ++i) {
       char *key = g_strdup_printf("serial:%s.%s", name, fields[i]);
       dict_del(cfg, key);
       g_free(key);
    }
+
    gtk_label_set_text(GTK_LABEL(status), "Port configuration removed in memory. Use /save to persist.");
    g_free(service_key);
 }

@@ -359,7 +359,9 @@ GtkWidget *gtk_admin_access_page(GtkListStore *groups) {
       g_object_set_data(G_OBJECT(column), "rr-admin-zebra-tree", access_request_tree);
       gtk_tree_view_column_set_cell_data_func(column, cell, admin_access_zebra_cell, GINT_TO_POINTER(col == AR_AGE ? AR_AGE + 1 : 0), NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
-      const int widths[] = {70, 135, 165, 320, 95, 75};
+      const int widths[] = {
+         70, 135, 165, 320, 95, 75
+      };
       gtk_tree_view_column_set_fixed_width(column, widths[col]);
       gtk_tree_view_column_set_min_width(column, 55);
       gtk_tree_view_column_set_resizable(column, TRUE);

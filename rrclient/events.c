@@ -40,7 +40,7 @@ extern void rrclient_irc_register_events(void);
 extern void rrclient_media_register_events(void);
 extern void rrclient_wsjtx_init(void); // media.c
 extern void rrclient_media_available(dict *d, rrconn_t *cptr);    // media.c
-extern void rrclient_media_subscribed(dict *d, rrconn_t *cptr, bool unsub);    // media.c
+extern void rrclient_media_subscribed(dict *d, rrconn_t *cptr, bool unsub);   // media.c
 extern void rrclient_media_chan_removed(dict *d);  // media.c
 extern const char *login_user;  // from connman.c
 extern char session_token[HTTP_TOKEN_LEN + 1];
@@ -498,18 +498,16 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       }
    }
 
-   /* Preserve privilege prefix rendering, but give the actual nickname a
-    * deterministic color independent of its server or current room. */
+   /* Preserve privilege prefix rendering, but give the actual nickname a deterministic color independent of its server or current room. */
    char colored_from[HTTP_USER_LEN + 48];
    rr_nick_color_t nickname_color = rr_nick_color(raw_from);
    const char *nick_color = colored_from;
+
    if (from && strchr("~&@%+!", from[0]) && from[1]) {
       const char *prefix_color = from[0] == '+' ? "\00313" : from[0] == '@' ? "\00311" : from[0] == '!' ? "\00305" : "\00310";
-      snprintf(colored_from, sizeof(colored_from), "%s%c\017\004%s%s\017",
-         prefix_color, from[0], nickname_color.hex + 1, from + 1);
+      snprintf(colored_from, sizeof(colored_from), "%s%c\017\004%s%s\017", prefix_color, from[0], nickname_color.hex + 1, from + 1);
    } else {
-      snprintf(colored_from, sizeof(colored_from), "\004%s%s\017",
-         nickname_color.hex + 1, from ? from : "?");
+      snprintf(colored_from, sizeof(colored_from), "\004%s%s\017", nickname_color.hex + 1, from ? from : "?");
    }
    bool mention = false;
 
@@ -734,10 +732,10 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          const char *room_uuids = dict_get(d, "talk.vfos", "");
 
-         /* A room-vfo UUID announcement may arrive before JOIN is processed.
-          * A zero legacy mask in that JOIN must not discard an SDR binding. */
+         /* A room-vfo UUID announcement may arrive before JOIN is processed. A zero legacy mask in that JOIN must not discard an SDR binding. */
          bool sdr = strlen(m_room) == 13 && !strncasecmp(m_room, "#sdr-", 5);
          bool existing_sdr_binding = sdr && *rrclient_room_vfos(m_room);
+
          if (room_uuids && *room_uuids) {
             rrclient_room_set_vfos(m_room, room_uuids);
          } else if (!existing_sdr_binding) {
@@ -746,15 +744,14 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          rrclient_room_set_control_flags(m_room, dict_get_bool(d, "room.tx-control", has_vfos && ws_room_rig_base(m_room)), dict_get_bool(d, "room.rx-tunable",
             false));
          rrclient_room_set_rx_tuning_mask(m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
+
          if (sdr) {
-            Log(LOG_INFO, "sdr.status",
-               "JOIN %s: advertised has-vfos=%s mask=0x%lx UUIDs=%s; retained=%s",
-               m_room, has_vfos ? "yes" : "no",
-               dict_get_ulong(d, "room.vfo-mask", 0),
-               room_uuids && *room_uuids ? room_uuids : "(none)",
-               *rrclient_room_vfos(m_room) ? rrclient_room_vfos(m_room) : "(none)");
-            if (!*rrclient_room_vfos(m_room))
+            Log(LOG_INFO, "sdr.status", "JOIN %s: advertised has-vfos=%s mask=0x%lx UUIDs=%s; retained=%s", m_room, has_vfos ? "yes" : "no", dict_get_ulong(d,
+               "room.vfo-mask", 0), room_uuids && *room_uuids ? room_uuids : "(none)", *rrclient_room_vfos(m_room) ? rrclient_room_vfos(m_room) : "(none)");
+
+            if (!*rrclient_room_vfos(m_room)) {
                ui_print(m_room, "SDR room joined (stage 1/3); no VFO announced yet. Receiver attachment must succeed before tuning controls appear.");
+            }
          }
 
          if (frontend_ops()) {
@@ -798,10 +795,10 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          frontend_ops()->chat_room_add(m_room);
       }
       const char *userhost = dict_get(d, "talk.userhost", "");
+
       if (cptr && !cptr->is_ws) {
-         ui_print(m_room, "%s\00303*\017 %s%s%s%s joined %s", get_chat_ts(m_ts),
-            m_user ? m_user : "", *userhost ? " (" : "", userhost,
-            *userhost ? ")" : "", m_room);
+         ui_print(m_room, "%s\00303*\017 %s%s%s%s joined %s", get_chat_ts(m_ts), m_user ? m_user : "", *userhost ? " (" : "", userhost, *userhost ? ")" : "",
+            m_room);
       } else {
          ui_print(m_room, "%s* %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
       }
@@ -846,14 +843,14 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
          const char *binding = rrclient_room_vfos(room);
          uint32_t mask = rrclient_room_vfo_mask(room);
          bool tunable = rrclient_room_rx_tunable(room);
-         Log(LOG_INFO, "sdr.status",
-            "SDR room %s: VFO announcement received; bindings=%s mask=0x%x rx-tunable=%s",
-            room, *binding ? binding : "(none)", mask, tunable ? "yes" : "no");
-         if (!*binding && !mask)
+         Log(LOG_INFO, "sdr.status", "SDR room %s: VFO announcement received; bindings=%s mask=0x%x rx-tunable=%s", room, *binding ? binding : "(none)", mask,
+            tunable ? "yes" : "no");
+
+         if (!*binding && !mask) {
             ui_print(room, "SDR %s: connected room has no VFO binding yet; tuning controls unavailable", room);
-         else
-            ui_print(room, "SDR %s: receiver VFO attached; RX tuning %s", room,
-               tunable ? "available" : "awaiting capabilities");
+         } else {
+            ui_print(room, "SDR %s: receiver VFO attached; RX tuning %s", room, tunable ? "available" : "awaiting capabilities");
+         }
       }
 
       if (frontend_ops()) {
@@ -1056,9 +1053,9 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
          tui_window_focus("status");
       }
       const char *reason = dict_get(d, "talk.reason", "");
+
       if (reason && *reason && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5)) {
-         /* The GTK directory owns presentation; the client core emits
-          * the same event for all frontends without touching widgets. */
+         /* The GTK directory owns presentation; the client core emits the same event for all frontends without touching widgets. */
          event_emit("client.receiver-directory.show", cptr, NULL);
          event_emit("client.receiver-directory.failed", cptr, reason);
       }
@@ -1103,14 +1100,12 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
    }
 
    if (room && is_self && kicked) {
-      /* A kick revokes membership, but the channel tab and its history survive.
-       * Keep its input active for /join; ordinary messages are blocked by the
+      /* A kick revokes membership, but the channel tab and its history survive. Keep its input active for /join; ordinary messages are blocked by the
        * offline-room guard until the server confirms a new JOIN. */
       userlist_remove_room(room);
       rrclient_media_room_parted(room);
       rrclient_room_set_offline(room, true);
-      ui_print(room, "%s* You were kicked from %s. Use /join %s to rejoin.",
-         get_chat_ts(dict_get_time_t(d, "msg.ts", now)), room, room);
+      ui_print(room, "%s* You were kicked from %s. Use /join %s to rejoin.", get_chat_ts(dict_get_time_t(d, "msg.ts", now)), room, room);
    } else if (room && is_self) {
       /* PART ends our membership in this room, not just our own roster entry. Drop the complete snapshot so a subsequent JOIN starts clean. */
       userlist_remove_room(room);
@@ -1374,8 +1369,9 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
    const char *output = ui_active_window_name();
 
    if (msg) {
-      if (!strncmp(msg, "Rig E-STOP ", 11))
+      if (!strncmp(msg, "Rig E-STOP ", 11)) {
          event_emit("client.estop.notice", cptr, msg);
+      }
       // Notices are plain text, one line per notice.
       bool callsign_field = strncmp(msg, "Callsign:", 9) == 0 ||
          strncmp(msg, "Cached:", 7) == 0 || strncmp(msg, "Name:", 5) == 0 ||
@@ -1678,13 +1674,18 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
 }
 
 static void rrclient_handle_domain_identity(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)event; (void)unused;
-   if (!data || !connection || !connection->authenticated) return;
+   (void)event;
+   (void)unused;
+
+   if (!data || !connection || !connection->authenticated) {
+      return;
+   }
    dict *identity = json2dict(data);
-   if (!identity) return;
-   rrclient_connection_set_identity(connection,
-      dict_get(identity, "domain.name", ""),
-      dict_get(identity, "domain.server", ""));
+
+   if (!identity) {
+      return;
+   }
+   rrclient_connection_set_identity(connection, dict_get(identity, "domain.name", ""), dict_get(identity, "domain.server", ""));
    dict_free(identity);
 }
 

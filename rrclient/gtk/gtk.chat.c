@@ -1414,14 +1414,11 @@ static void room_vfo_show(const char *name) {
 // query tabs never own radio widgets; creating one per rig would overwrite
 // the GTK module's shared frequency/PTT widget pointers.
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
-   /* A UUID-bound temporary SDR is RX-only even if its capability flags
-    * arrive after room-vfo. Do not require the flags to precede the binding. */
-   bool ephemeral_sdr = tab && g_ascii_strncasecmp(tab->room, "#sdr-", 5) == 0 &&
-      strlen(tab->room) == 13;
+   /* A UUID-bound temporary SDR is RX-only even if its capability flags arrive after room-vfo. Do not require the flags to precede the binding. */
+   bool ephemeral_sdr = tab && g_ascii_strncasecmp(tab->room, "#sdr-", 5) == 0 && strlen(tab->room) == 13;
    bool has_vfos = tab && tab->room[0] &&
       (rrclient_room_tx_control(tab->room) ||
-       ((rrclient_room_vfos(tab->room)[0] || rrclient_room_vfo_mask(tab->room)) &&
-        (rrclient_room_rx_tunable(tab->room) || ephemeral_sdr)));
+         ((rrclient_room_vfos(tab->room)[0] || rrclient_room_vfo_mask(tab->room)) && (rrclient_room_rx_tunable(tab->room) || ephemeral_sdr)));
 
    if (!has_vfos) {
       if (room_vfo_panel) {
@@ -1486,17 +1483,27 @@ static void rr_wrapping_chat_view_init(RRWrappingChatView *self) {
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(self), GTK_WRAP_CHAR);
 }
 
-/* The AF waterfall is meaningful only in receiver/VFO contexts.
- * A server's authoritative room may also be an ordinary chat room. */
+/* The AF waterfall is meaningful only in receiver/VFO contexts. A server's authoritative room may also be an ordinary chat room. */
 static bool gtk_chat_room_has_waterfall(const char *room) {
-   if (!room || room[0] != '#') return false;
-   if (g_ascii_strncasecmp(room, "#sdr-", 5) == 0 && room[5])
-      return true;
-   const char *rig = strrchr(room, '-');
-   if (!rig || g_ascii_strncasecmp(rig, "-rig", 4) != 0 || !g_ascii_isdigit(rig[4]))
+   if (!room || room[0] != '#') {
       return false;
-   for (const char *p = rig + 4; *p; ++p)
-      if (!g_ascii_isdigit(*p)) return false;
+   }
+
+   if (g_ascii_strncasecmp(room, "#sdr-", 5) == 0 && room[5]) {
+      return true;
+   }
+   const char *rig = strrchr(room, '-');
+
+   if (!rig || g_ascii_strncasecmp(rig, "-rig", 4) != 0 || !g_ascii_isdigit(rig[4])) {
+      return false;
+   }
+
+   for (const char *p = rig + 4 ; *p ; ++p) {
+      if (!g_ascii_isdigit(*p)) {
+         return false;
+      }
+   }
+
    return true;
 }
 
@@ -1520,7 +1527,8 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
       gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(rr_main_toolbar), tools, FALSE, FALSE, 0);
    }
-   (void)is_rig; /* Historical hint is not room-type authority. */
+   (void)is_rig;                /* Historical hint is not room-type authority. */
+
    if (!is_query && gtk_chat_room_has_waterfall(room)) {
       GtkWidget *spectrum = rr_gtk_spectrum_panel_new(server_name, room);
       gtk_box_pack_start(GTK_BOX(chat_box), spectrum, FALSE, TRUE, 2);
@@ -1648,15 +1656,19 @@ static void gtk_chat_tab_close(GtkWidget *page, gboolean force) {
    if (!tab || tab == status_room_tab) {
       return;
    }
-   /* A disconnected server may no longer be selectable. Force-close must
-    * still remove the exact page, even if the room name is shared elsewhere. */
+
+   /* A disconnected server may no longer be selectable. Force-close must still remove the exact page, even if the room name is shared elsewhere. */
    if (!rrclient_connection_select(tab->server)) {
-      if (!force) return;
+      if (!force) {
+         return;
+      }
       char *room = g_strdup(tab->room);
+
       if (room && (room[0] == '#' || room[0] == '&')) {
          rrclient_room_part(room);
          rrclient_media_room_parted(room);
       }
+
       if (room_tabs) {
          GHashTableIter iter;
          gpointer key, value;
@@ -1669,9 +1681,12 @@ static void gtk_chat_tab_close(GtkWidget *page, gboolean force) {
          }
       }
       gint index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), page);
-      if (index >= 0)
+
+      if (index >= 0) {
          gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), index);
+      }
       g_free(room);
+
       return;
    }
    char *window = g_strdup(rrclient_window_name(tab->room));
@@ -1834,8 +1849,7 @@ void gtk_chat_room_remove(const char *room) {
       gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), page);
    }
    g_hash_table_remove(room_tabs, rrclient_window_name(room));
-   /* Removing the selected room does not necessarily emit a notebook switch
-    * signal; explicitly re-evaluate the shared floating VFO panel. */
+   /* Removing the selected room does not necessarily emit a notebook switch signal; explicitly re-evaluate the shared floating VFO panel. */
    gtk_chat_room_vfos_changed(NULL);
 }
 
@@ -1843,10 +1857,15 @@ void gtk_chat_room_set_topic(const char *room, const char *topic) {
    if (!room || !*room) {
       return;
    }
-   if (!room_tabs || !main_notebook) return;
+
+   if (!room_tabs || !main_notebook) {
+      return;
+   }
    GtkRoomTab *tab = g_hash_table_lookup(room_tabs, rrclient_window_name(room));
-   if (tab && tab->page)
+
+   if (tab && tab->page) {
       gtk_tabs_page_set_topic(GTK_NOTEBOOK(main_notebook), tab->page, topic);
+   }
 }
 
 void gtk_chat_set_authoritative_room(const char *room) {
@@ -1900,11 +1919,13 @@ static void estop_dispatch(const char *action) {
 static void estop_notice_event(const char *event, const char *message, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
-   if (!estop_window || !message || !estop_room[0] ||
-       client != rrclient_connection_find(estop_profile))
+
+   if (!estop_window || !message || !estop_room[0] || client != rrclient_connection_find(estop_profile)) {
       return;
+   }
    const char *id = NULL;
    bool reset = false;
+
    if (!strncmp(message, "Rig E-STOP reset: ", 18)) {
       id = message + 18;
       reset = true;
@@ -1913,19 +1934,20 @@ static void estop_notice_event(const char *event, const char *message, rrconn_t 
    } else {
       return;
    }
-   /* Server reports the canonical rig ID, while the window is bound to a
-    * room. Confirm that the notice describes this room before updating. */
-   if (strcmp(id, estop_room) && strcmp(id, estop_room[0] == '#' ? estop_room + 1 : estop_room))
+
+   /* Server reports the canonical rig ID, while the window is bound to a room. Confirm that the notice describes this room before updating. */
+   if (strcmp(id, estop_room) && strcmp(id, estop_room[0] == '#' ? estop_room + 1 : estop_room)) {
       return;
+   }
    gtk_button_set_label(GTK_BUTTON(estop_button), reset ? "ESTOP" : "HALTED");
-   gtk_label_set_text(GTK_LABEL(estop_status),
-      reset ? "Reset confirmed by server — ready" : "HALTED — confirmed by server");
+   gtk_label_set_text(GTK_LABEL(estop_status), reset ? "Reset confirmed by server — ready" : "HALTED — confirmed by server");
 }
 
 static void estop_pressed(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
    estop_dispatch("estop-trip");
+
    if (estop_button && estop_status && strcmp(gtk_label_get_text(GTK_LABEL(estop_status)), "OFFLINE — NOT CONFIRMED")) {
       gtk_button_set_label(GTK_BUTTON(estop_button), "STOP SENT");
    }
@@ -2079,8 +2101,7 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       /* An independent normal top-level avoids window-manager utility/transient grouping that can iconify it along with the main window. */
       gtk_window_set_type_hint(GTK_WINDOW(vfo_locator_window), GDK_WINDOW_TYPE_HINT_NORMAL);
       gtk_window_set_resizable(GTK_WINDOW(vfo_locator_window), FALSE);
-      /* Independent desktop-level window: taskbar entry, native minimization,
-       * and always-on-top stacking without system decorations. */
+      /* Independent desktop-level window: taskbar entry, native minimization, and always-on-top stacking without system decorations. */
       gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), FALSE);
       gtk_window_set_skip_pager_hint(GTK_WINDOW(vfo_locator_window), FALSE);
@@ -2102,8 +2123,7 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_frequency), 0);
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_mode), 0);
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_ptt), 0);
-      /* Status is informational only; VFO selection belongs to the
-       * room's VFO controls, not this floating indicator. */
+      /* Status is informational only; VFO selection belongs to the room's VFO controls, not this floating indicator. */
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_label, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_frequency, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_mode, FALSE, FALSE, 0);
@@ -2120,10 +2140,12 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       g_object_unref(provider);
       g_signal_connect(vfo_locator_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
    }
+
    if (!selected_online) {
       locator_tx_identity[0] = '\0';
       locator_tx_started = 0;
       gtk_widget_hide(vfo_locator_window);
+
       return G_SOURCE_CONTINUE;
    }
    char vfo[2] = {
@@ -2331,6 +2353,7 @@ static gboolean vfo_locator_tick(gpointer unused) {
       if (vfo_locator_window) {
          gtk_widget_hide(vfo_locator_window);
       }
+
       return G_SOURCE_CONTINUE;
    }
    g_strlcpy(vfo_locator_profile, candidate, sizeof(vfo_locator_profile));

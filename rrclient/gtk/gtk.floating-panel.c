@@ -24,15 +24,14 @@ struct rr_floating_panel {
    int start_x, start_y;
 };
 
-/* GtkOverlay paints children in overlay order. Raise the selected panel
- * rather than merely presenting the containing desktop window. */
+/* GtkOverlay paints children in overlay order. Raise the selected panel rather than merely presenting the containing desktop window. */
 static void panel_raise(RRFloatPanel *p) {
-   if (p && p->overlay && p->frame && !p->modal)
+   if (p && p->overlay && p->frame && !p->modal) {
       gtk_overlay_reorder_overlay(p->overlay, p->frame, -1);
+   }
 }
 
-static void panel_raise_gesture(GtkGestureMultiPress *gesture, gint n_press,
-   gdouble x, gdouble y, gpointer data) {
+static void panel_raise_gesture(GtkGestureMultiPress *gesture, gint n_press, gdouble x, gdouble y, gpointer data) {
    (void)gesture;
    (void)n_press;
    (void)x;
@@ -134,8 +133,10 @@ static void panel_chrome(RRFloatPanel *p) {
       gtk_widget_hide(p->frame);
    }
    GtkWidget *roll_icon = gtk_button_get_image(GTK_BUTTON(p->roll));
-   if (GTK_IS_IMAGE(roll_icon))
+
+   if (GTK_IS_IMAGE(roll_icon)) {
       gtk_image_set_from_icon_name(GTK_IMAGE(roll_icon), p->rolled ? "go-down" : "go-up", GTK_ICON_SIZE_MENU);
+   }
    gtk_widget_set_tooltip_text(p->roll, p->rolled ? "Roll down panel" : "Roll up panel");
    gtk_widget_set_tooltip_text(p->minimize, "Minimize to tab strip");
 }
@@ -194,7 +195,10 @@ static void panel_roll(GtkButton *button, gpointer data) {
       return;
    }
    p->rolled = !p->rolled;
-   if (!p->rolled) panel_raise(p);
+
+   if (!p->rolled) {
+      panel_raise(p);
+   }
    panel_chrome(p);
 }
 
@@ -309,13 +313,11 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
    gtk_overlay_add_overlay(overlay, p->frame);
-   /* Capture clicks from all descendants, including sliders, buttons, lists
-    * and scrolled content. A bubbling frame handler misses consumed events. */
+   /* Capture clicks from all descendants, including sliders, buttons, lists and scrolled content. A bubbling frame handler misses consumed events. */
    GtkGesture *raise_gesture = gtk_gesture_multi_press_new(p->frame);
    gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(raise_gesture), GTK_PHASE_CAPTURE);
    g_signal_connect(raise_gesture, "pressed", G_CALLBACK(panel_raise_gesture), p);
-   g_object_set_data_full(G_OBJECT(p->frame), "rr-panel-raise-gesture",
-      raise_gesture, g_object_unref);
+   g_object_set_data_full(G_OBJECT(p->frame), "rr-panel-raise-gesture", raise_gesture, g_object_unref);
    g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_add(GTK_CONTAINER(p->frame), panel);
@@ -344,23 +346,25 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_style_context_add_provider(panel_style, GTK_STYLE_PROVIDER(p->scale_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    GtkWidget *menu_button = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
-   /* Compact chrome: 12px glyphs and minimal button padding keep the
-    * floating header close to the title's natural text height. */
+   /* Compact chrome: 12px glyphs and minimal button padding keep the floating header close to the title's natural text height. */
    GtkCssProvider *chrome_css = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(chrome_css,
-      ".rr-panel-chrome-button { padding: 1px 3px; min-height: 0; min-width: 0; }", -1, NULL);
-   GtkWidget *chrome_buttons[] = { p->close_button, p->minimize, p->roll, menu_button };
-   for (size_t i = 0; i < G_N_ELEMENTS(chrome_buttons); i++) {
+   gtk_css_provider_load_from_data(chrome_css, ".rr-panel-chrome-button { padding: 1px 3px; min-height: 0; min-width: 0; }", -1, NULL);
+   GtkWidget *chrome_buttons[] = {
+      p->close_button, p->minimize, p->roll, menu_button
+   };
+
+   for (size_t i = 0 ; i < G_N_ELEMENTS(chrome_buttons) ; i++) {
       GtkWidget *button = chrome_buttons[i];
       GtkWidget *glyph = gtk_button_get_image(GTK_BUTTON(button));
+
       if (GTK_IS_IMAGE(glyph)) {
          gtk_image_set_pixel_size(GTK_IMAGE(glyph), 12);
       }
       GtkStyleContext *style = gtk_widget_get_style_context(button);
       gtk_style_context_add_class(style, "rr-panel-chrome-button");
-      gtk_style_context_add_provider(style, GTK_STYLE_PROVIDER(chrome_css),
-         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      gtk_style_context_add_provider(style, GTK_STYLE_PROVIDER(chrome_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    }
+
    g_object_unref(chrome_css);
    gtk_widget_set_tooltip_text(menu_button, "Panel settings");
    gtk_box_pack_end(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
@@ -395,6 +399,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
    g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
    p->title = gtk_label_new(title ? title : id);
+
    if (!strcmp(id, "RX Audio Routing")) {
       gtk_widget_set_margin_start(p->title, 8);
    }
@@ -469,15 +474,11 @@ void rr_floating_panel_set_title_click(RRFloatPanel *p, GCallback callback, gpoi
    p->title_click_callback = callback;
    p->title_click_data = data;
    gtk_widget_set_name(p->title_hit, "rr-vfo-panel-chooser");
-   /* Use GTK's theme border color rather than the much brighter text color.
-    * A thin outline and subtle hover fill identify the clickable title. */
+   /* Use GTK's theme border color rather than the much brighter text color. A thin outline and subtle hover fill identify the clickable title. */
    GtkCssProvider *chooser_css = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(chooser_css,
-      "#rr-vfo-panel-chooser { border: 1px solid @borders; border-radius: 3px; } "
-      "#rr-vfo-panel-chooser:hover { background-color: alpha(currentColor, 0.08); }",
-      -1, NULL);
-   gtk_style_context_add_provider(gtk_widget_get_style_context(p->title_hit),
-      GTK_STYLE_PROVIDER(chooser_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_css_provider_load_from_data(chooser_css, "#rr-vfo-panel-chooser { border: 1px solid @borders; border-radius: 3px; } "
+      "#rr-vfo-panel-chooser:hover { background-color: alpha(currentColor, 0.08); }", -1, NULL);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(p->title_hit), GTK_STYLE_PROVIDER(chooser_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(chooser_css);
    gtk_widget_add_events(p->title_hit, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
    gtk_widget_set_tooltip_text(p->title_hit, "Click to choose VFO; drag to move panel");

@@ -57,8 +57,7 @@ struct bridge_child {
    uint64_t desired_hz, requested_hz;
    char desired_mode[16], requested_mode[16];
    char connection_failure[128];
-   /* UI frequency/mode changes have no completion callback. Coalesce rapid
-    * changes into one last-wins request while the bridge awaits an ACK. */
+   /* UI frequency/mode changes have no completion callback. Coalesce rapid changes into one last-wins request while the bridge awaits an ACK. */
    bool queued_tune;
    uint64_t queued_hz;
    char queued_mode[16];
@@ -237,13 +236,13 @@ static void offline(struct bridge_child *b) {
    }
 
    if (b->queued_tune) {
-      /* Reconnect to the latest operator-selected frequency, not the
-       * previous successful one, if the receiver drops mid-tune. */
+      /* Reconnect to the latest operator-selected frequency, not the previous successful one, if the receiver drops mid-tune. */
       b->desired = true;
       b->desired_hz = b->queued_hz;
       snprintf(b->desired_mode, sizeof(b->desired_mode), "%s", b->queued_mode);
       b->queued_tune = false;
    }
+
    if (b->pending) {
       finish(b, RR_CONTROL_BACKEND_FAILED);
    }
@@ -313,13 +312,10 @@ static rr_control_result_t control(const rr_control_request_t *r, void *user) {
    if (!b->desired || !b->online) {
       return RR_CONTROL_BACKEND_FAILED;
    }
-   /* A second digit or mode change must build on the latest requested
-    * setpoint, not the last ACKed one (which may still be 14.074 MHz).
-    * The pending bridge command remains serialized with Kiwi's ACK. */
-   uint64_t hz = b->queued_tune ? b->queued_hz :
-      b->pending ? b->requested_hz : b->desired_hz;
-   const char *mode = b->queued_tune ? b->queued_mode :
-      b->pending ? b->requested_mode : b->desired_mode;
+   /* A second digit or mode change must build on the latest requested setpoint, not the last ACKed one (which may still be 14.074 MHz). The pending bridge
+    * command remains serialized with Kiwi's ACK. */
+   uint64_t hz = b->queued_tune ? b->queued_hz : b->pending ? b->requested_hz : b->desired_hz;
+   const char *mode = b->queued_tune ? b->queued_mode : b->pending ? b->requested_mode : b->desired_mode;
 
    if (!strcmp(r->property, RR_PROP_VFO_FREQUENCY) && r->value_type == VAL_LONG) {
       hz = r->value.l;
@@ -329,18 +325,18 @@ static rr_control_result_t control(const rr_control_request_t *r, void *user) {
       return RR_CONTROL_UNSUPPORTED;
    }
 
-   /* Rapid slider/digit UI updates have no callback, so intermediate setpoints
-    * can be safely superseded while the prior request is awaiting its ACK.
+   /* Rapid slider/digit UI updates have no callback, so intermediate setpoints can be safely superseded while the prior request is awaiting its ACK.
     * Callback-bearing controls continue through the ordinary strict path:
     * never silently discard another caller's completion notification. */
    if (b->pending && !b->complete && !r->complete && b->ready && b->online &&
-       hz >= b->caps.rx_min_hz && hz <= b->caps.rx_max_hz &&
-       rrp_bridge_mode_valid(b->caps.rx_modes, mode)) {
+      hz >= b->caps.rx_min_hz && hz <= b->caps.rx_max_hz && rrp_bridge_mode_valid(b->caps.rx_modes, mode)) {
       b->queued_tune = true;
       b->queued_hz = hz;
       snprintf(b->queued_mode, sizeof(b->queued_mode), "%s", mode);
+
       return RR_CONTROL_PENDING;
    }
+
    return send_setting(b, hz, mode, r->complete, r->complete_user) ? RR_CONTROL_PENDING : RR_CONTROL_BACKEND_FAILED;
 }
 static bool create(rr_backend_t *backend) {
@@ -637,11 +633,8 @@ static bool spawn_child(struct bridge_child *b) {
    b->hello = b->ready = b->idling = false;
    b->connection_failure[0] = 0;
    const char *spawn_room = rr_rig_registry_room(rig.rigs, b->backend->owner);
-   Log(LOG_INFO, "bridge",
-      "Spawned [%s] pid=%ld driver=%s rig_uuid=%s room=%s ready=no media_fd=%d",
-      bridge_public_name(b), (long)b->process.pid, b->driver,
-      rr_server_rig_id(b->backend->owner),
-      spawn_room ? spawn_room : "(none)", b->media_fd);
+   Log(LOG_INFO, "bridge", "Spawned [%s] pid=%ld driver=%s rig_uuid=%s room=%s ready=no media_fd=%d", bridge_public_name(b), (long)b->process.pid, b->driver,
+      rr_server_rig_id(b->backend->owner), spawn_room ? spawn_room : "(none)", b->media_fd);
 
    return true;
 }
@@ -745,54 +738,47 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
    }
 
    if (m->type == RRP_BRIDGE_IPC_LOG) {
-      /* Forward child diagnostics through the host logger, including during
-       * capability negotiation and while the receiver is shutting down. */
+      /* Forward child diagnostics through the host logger, including during capability negotiation and while the receiver is shutting down. */
       Log(LOG_INFO, "rrbridge", "[%s] %s", bridge_public_name(b), m->metadata_value);
-      /* Keep the actual final connection stage for the operator. A successful
-       * HTTP 307 redirect is not itself a failure; the downstream Kiwi
-       * WebSocket can subsequently time out during authentication. */
+
+      /* Keep the actual final connection stage for the operator. A successful HTTP 307 redirect is not itself a failure; the downstream Kiwi WebSocket can
+       * subsequently time out during authentication. */
       if (b->temporary && strstr(m->metadata_value, "Kiwi receiver timed out (")) {
-         const char *stage = strstr(m->metadata_value, "Kiwi receiver timed out (") +
-            strlen("Kiwi receiver timed out (");
+         const char *stage = strstr(m->metadata_value, "Kiwi receiver timed out (") + strlen("Kiwi receiver timed out (");
          const char *end = strchr(stage, ';');
          size_t length = end ? (size_t)(end - stage) : 0;
-         if (length > 0 && length < 70)
-            snprintf(b->connection_failure, sizeof(b->connection_failure),
-               "Kiwi %.*s timed out", (int)length, stage);
+
+         if (length > 0 && length < 70) {
+            snprintf(b->connection_failure, sizeof(b->connection_failure), "Kiwi %.*s timed out", (int)length, stage);
+         }
       } else if (b->temporary && strstr(m->metadata_value, "Kiwi WebSocket connection failed")) {
-         snprintf(b->connection_failure, sizeof(b->connection_failure), "%s",
-            "Kiwi WebSocket connection failed");
+         snprintf(b->connection_failure, sizeof(b->connection_failure), "%s", "Kiwi WebSocket connection failed");
       }
+
       if (b->temporary && strstr(m->metadata_value, "Kiwi receiver stopped after 3 connection attempts")) {
          b->terminal_failure = true;
          b->next_retry = UINT64_MAX;
-         Log(LOG_WARN, "sdr.status", "[%s] terminal receiver failure in %s; tearing down temporary SDR attachment",
-            bridge_public_name(b), b->attached_room);
-         const char *failure = b->connection_failure[0] ? b->connection_failure :
-            "receiver connection did not complete";
-         for (rrconn_t *member = http_client_list; member; member = member->next) {
-            if (member->authenticated && b->attached_room[0] &&
-                ws_client_in_room(member, b->attached_room)) {
-               ws_send_error(member,
-                  "SDR receiver in %s could not connect after 3 attempts: %s. "
-                  "The failed temporary receiver is being removed; choose another receiver or retry from SDR Directory.",
-                  b->attached_room, failure);
+         Log(LOG_WARN, "sdr.status", "[%s] terminal receiver failure in %s; tearing down temporary SDR attachment", bridge_public_name(b), b->attached_room);
+         const char *failure = b->connection_failure[0] ? b->connection_failure : "receiver connection did not complete";
+
+         for (rrconn_t *member = http_client_list ; member ; member = member->next) {
+            if (member->authenticated && b->attached_room[0] && ws_client_in_room(member, b->attached_room)) {
+               ws_send_error(member, "SDR receiver in %s could not connect after 3 attempts: %s. "
+                  "The failed temporary receiver is being removed; choose another receiver or retry from SDR Directory.", b->attached_room, failure);
             }
          }
-         /* Notify room members using the existing room-removed protocol.
-          * This closes the client tab and carries a UI-safe failure reason. */
-         if (b->attached_room[0] && strlen(b->attached_room) == 13 &&
-             !strncasecmp(b->attached_room, "#sdr-", 5)) {
+
+         /* Notify room members using the existing room-removed protocol. This closes the client tab and carries a UI-safe failure reason. */
+         if (b->attached_room[0] && strlen(b->attached_room) == 13 && !strncasecmp(b->attached_room, "#sdr-", 5)) {
             dict *removed = dict_new();
+
             if (removed) {
                dict_add(removed, "msg.type", "talk");
                dict_add(removed, "talk.cmd", "room-removed");
                dict_add(removed, "talk.room", b->attached_room);
                dict_add(removed, "talk.user", "server");
                char reason[320];
-               snprintf(reason, sizeof(reason),
-                  "SDR receiver failed after 3 connection attempts: %s. Choose another receiver or retry.",
-                  failure);
+               snprintf(reason, sizeof(reason), "SDR receiver failed after 3 connection attempts: %s. Choose another receiver or retry.", failure);
                dict_add(removed, "talk.reason", reason);
                ws_broadcast_room_dict(NULL, removed, b->attached_room);
                dict_free(removed);
@@ -801,6 +787,7 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
          /* No more reconnects or idle silence: terminate the bridge now. */
          disconnect(b);
       }
+
       return true;
    }
 
@@ -866,12 +853,11 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       value.s = m->mode;
       rr_vfo_property_observe(receiver(b), RR_PROP_VFO_MODE, VAL_STR, &value);
 
-      /* Temporary SDRs are not polled by the station CAT adapter. A Kiwi
-       * NEW_FREQ confirmation updates our property store, but without a
-       * room-scoped CAT observation the client VFO display stays stale.
-       * Report confirmed state, never merely the requested setpoint. */
+      /* Temporary SDRs are not polled by the station CAT adapter. A Kiwi NEW_FREQ confirmation updates our property store, but without a room-scoped CAT
+       * observation the client VFO display stays stale. Report confirmed state, never merely the requested setpoint. */
       if (b->attached_room[0]) {
          dict *state = dict_new();
+
          if (state) {
             dict_add(state, "msg.type", "cat");
             dict_add(state, "cat.room", b->attached_room);
@@ -902,15 +888,17 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
          snprintf(b->desired_mode, sizeof(b->desired_mode), "%s", b->requested_mode);
       }
       finish(b, m->success ? RR_CONTROL_OK : RR_CONTROL_BACKEND_FAILED);
+
       if (b->queued_tune && !b->pending && b->online && b->ready) {
          uint64_t hz = b->queued_hz;
          char mode[sizeof(b->queued_mode)];
          snprintf(mode, sizeof(mode), "%s", b->queued_mode);
          b->queued_tune = false;
-         /* Avoid another remote round-trip when the latest UI setpoint
-          * already matches the just-acknowledged tuning state. */
-         if (hz != b->desired_hz || strcmp(mode, b->desired_mode))
+
+         /* Avoid another remote round-trip when the latest UI setpoint already matches the just-acknowledged tuning state. */
+         if (hz != b->desired_hz || strcmp(mode, b->desired_mode)) {
             (void)send_setting(b, hz, mode, NULL, NULL);
+         }
       }
 
       return true;
@@ -1012,8 +1000,7 @@ void rrserver_bridges_poll(void) {
                break;
             }
 
-            /* Preserve bridge diagnostics during idle/shutdown, without
-             * processing other unsolicited records from an idle child. */
+            /* Preserve bridge diagnostics during idle/shutdown, without processing other unsolicited records from an idle child. */
             if (got > 0 && b->idling && m.type != RRP_BRIDGE_IPC_LOG) {
                continue;
             }
@@ -1030,11 +1017,12 @@ void rrserver_bridges_poll(void) {
 
          if ((b->pending && current >= b->deadline) || (!b->ready && current - b->started >= 5000000) || current - b->last_seen >= 10000000) {
             const char *reason = b->pending && current >= b->deadline ? "control request timed out" :
-               !b->ready && current - b->started >= 5000000 ? "bridge handshake timed out" :
-               "bridge heartbeat timed out";
-            if (!b->idling && !b->terminal_failure)
-               Log(LOG_WARN, "bridge", "[%s] %s (ready=%s online=%s); disconnecting",
-                  bridge_public_name(b), reason, b->ready ? "yes" : "no", b->online ? "yes" : "no");
+               !b->ready && current - b->started >= 5000000 ? "bridge handshake timed out" : "bridge heartbeat timed out";
+
+            if (!b->idling && !b->terminal_failure) {
+               Log(LOG_WARN, "bridge", "[%s] %s (ready=%s online=%s); disconnecting", bridge_public_name(b), reason, b->ready ? "yes" : "no", b->online ?
+                  "yes" : "no");
+            }
             disconnect(b);
          }
       }
@@ -1046,15 +1034,15 @@ void rrserver_bridges_poll(void) {
 
       if (b->process.pid > 0 && subproc_reap(&b->process, &status)) {
          if (!b->idling && !b->terminal_failure) {
-            if (WIFSIGNALED(status))
-               Log(LOG_WARN, "bridge", "[%s] bridge subprocess terminated by signal %d (online=%s)",
-                  bridge_public_name(b), WTERMSIG(status), b->online ? "yes" : "no");
-            else if (WIFEXITED(status))
-               Log(LOG_WARN, "bridge", "[%s] bridge subprocess exited with status %d (online=%s)",
-                  bridge_public_name(b), WEXITSTATUS(status), b->online ? "yes" : "no");
-            else
-               Log(LOG_WARN, "bridge", "[%s] bridge subprocess ended (wait status=%d)",
-                  bridge_public_name(b), status);
+            if (WIFSIGNALED(status)) {
+               Log(LOG_WARN, "bridge", "[%s] bridge subprocess terminated by signal %d (online=%s)", bridge_public_name(b), WTERMSIG(status), b->online ?
+                  "yes" : "no");
+            } else if (WIFEXITED(status)) {
+               Log(LOG_WARN, "bridge", "[%s] bridge subprocess exited with status %d (online=%s)", bridge_public_name(b), WEXITSTATUS(status), b->online ?
+                  "yes" : "no");
+            } else {
+               Log(LOG_WARN, "bridge", "[%s] bridge subprocess ended (wait status=%d)", bridge_public_name(b), status);
+            }
          }
          disconnect(b);
          subproc_close(&b->process);
@@ -1089,6 +1077,7 @@ void rrserver_bridges_poll(void) {
          websdr_remove(b->backend->owner);
          break;
       }
+
       if (b->temporary && b->idle_since && current - b->idle_since >= temporary_idle_us) {
          websdr_audit_end(b->backend->owner, "idle-timeout");
          websdr_remove(b->backend->owner);
@@ -1145,16 +1134,18 @@ bool rrserver_bridge_temporary(const rr_server_rig_t *radio) {
    return ((struct bridge_child *)backend->data)->temporary;
 }
 
-/* The temporary SDR room is not a numbered rig room. Its attachment,
- * rather than the legacy rig-room namespace, owns the backend mapping. */
+/* The temporary SDR room is not a numbered rig room. Its attachment, rather than the legacy rig-room namespace, owns the backend mapping. */
 rr_server_rig_t *rrserver_bridge_for_sdr_room(const char *room) {
-   if (!room || strlen(room) != 13 || strncasecmp(room, "#sdr-", 5))
+   if (!room || strlen(room) != 13 || strncasecmp(room, "#sdr-", 5)) {
       return NULL;
-   for (struct bridge_child *b = children; b; b = b->next) {
-      if (b->temporary && b->backend && b->backend->owner &&
-          !strcasecmp(b->attached_room, room))
-         return b->backend->owner;
    }
+
+   for (struct bridge_child *b = children ; b ; b = b->next) {
+      if (b->temporary && b->backend && b->backend->owner && !strcasecmp(b->attached_room, room)) {
+         return b->backend->owner;
+      }
+   }
+
    return NULL;
 }
 
@@ -1216,23 +1207,32 @@ static void runtime_setting(const char *name, const char *field, const char *val
    snprintf(key, sizeof(key), "bridge:%s.%s", name, field);
    dict_add(cfg, key, value);
 }
-/* Audit values originate partly in remote SDR directories. Keep every
- * value one-line and bounded; never include endpoint URLs or credentials. */
+
+/* Audit values originate partly in remote SDR directories. Keep every value one-line and bounded; never include endpoint URLs or credentials. */
 static void websdr_audit_value(char *out, size_t capacity, const char *value) {
-   if (!capacity) return;
+   if (!capacity) {
+      return;
+   }
    size_t n = 0;
-   for (const unsigned char *p = (const unsigned char *)(value ? value : "");
-      *p && n + 1 < capacity && n < 120; ++p) {
+
+   for (const unsigned char *p = (const unsigned char *)(value ? value : "") ; *p && n + 1 < capacity && n < 120 ; ++p) {
       out[n++] = (*p < 32 || *p == 127) ? ' ' : (char)*p;
    }
+
    out[n] = 0;
 }
 
 static void websdr_audit_end(rr_server_rig_t *radio, const char *reason) {
 #ifdef USE_SQLITE
-   if (!masterdb || !radio) return;
+
+   if (!masterdb || !radio) {
+      return;
+   }
    struct bridge_child *b = rr_server_rig_backend(radio)->data;
-   if (!b || !b->temporary || !b->attached_room[0]) return;
+
+   if (!b || !b->temporary || !b->attached_room[0]) {
+      return;
+   }
    char user[128], room[64], backend[48], name[128], location[128];
    websdr_audit_value(user, sizeof(user), b->initiated_by);
    websdr_audit_value(room, sizeof(room), b->attached_room);
@@ -1243,7 +1243,8 @@ static void websdr_audit_end(rr_server_rig_t *radio, const char *reason) {
    snprintf(details, sizeof(details), "SDR disconnected room=%s rig=%s backend=%s reason=%s", room, name, backend, location);
    db_add_audit_event_session(masterdb, *user ? user : "server", "sdr.disconnected", details, b->audit_session_id);
 #else
-   (void)radio; (void)reason;
+   (void)radio;
+   (void)reason;
 #endif
 }
 
@@ -1252,24 +1253,21 @@ static void websdr_remove(rr_server_rig_t *radio) {
    snprintf(uuid, sizeof(uuid), "%s", rr_server_rig_id(radio));
    snprintf(alias, sizeof(alias), "%s", rr_rig_registry_alias(rig.rigs, radio));
 
-   /* Removing a temporary receiver also retires its autogenerated room.
-    * The database and rig registry are not sufficient: tell connected
-    * clients so they close the SDR tab, release its VFO, and discard their
-    * room media state. Configured or manually selected rooms are retained.
-    * Terminal connection failure already emitted this notification. */
+   /* Removing a temporary receiver also retires its autogenerated room. The database and rig registry are not sufficient: tell connected clients so they close
+    * the SDR tab, release its VFO, and discard their room media state. Configured or manually selected rooms are retained. Terminal connection failure already
+    * emitted this notification. */
    struct bridge_child *child = rr_server_rig_backend(radio)->data;
-   if (child && child->temporary && !child->terminal_failure &&
-       strlen(child->attached_room) == 13 &&
-       !strncasecmp(child->attached_room, "#sdr-", 5)) {
+
+   if (child && child->temporary && !child->terminal_failure && strlen(child->attached_room) == 13 && !strncasecmp(child->attached_room, "#sdr-", 5)) {
       dict *removed = dict_new();
+
       if (removed) {
          dict_add(removed, "msg.type", "talk");
          dict_add(removed, "talk.cmd", "room-removed");
          dict_add(removed, "talk.room", child->attached_room);
          dict_add(removed, "talk.user", "server");
-         /* A routine operator disconnect is not an SDR connection failure.
-          * Do not supply talk.reason: clients use it to show a failure
-          * notification and reopen SDR Directory. */
+         /* A routine operator disconnect is not an SDR connection failure. Do not supply talk.reason: clients use it to show a failure notification and reopen
+          * SDR Directory. */
          ws_broadcast_room_dict(NULL, removed, child->attached_room);
          dict_free(removed);
       }
@@ -1313,11 +1311,10 @@ static void websdr_remove(rr_server_rig_t *radio) {
       }
 #endif
    }
-   /* A generated SDR room is runtime-only. Release its UUID and VFO
-    * identity with the receiver rather than leaving it in the registry. */
+   /* A generated SDR room is runtime-only. Release its UUID and VFO identity with the receiver rather than leaving it in the registry. */
 #ifdef USE_SQLITE
-   if (child && child->temporary && strlen(child->attached_room) == 13 &&
-      !strncasecmp(child->attached_room, "#sdr-", 5)) {
+
+   if (child && child->temporary && strlen(child->attached_room) == 13 && !strncasecmp(child->attached_room, "#sdr-", 5)) {
       db_room_delete(masterdb, child->attached_room, "server", true, false);
    }
 #endif
@@ -1386,12 +1383,13 @@ static struct bridge_child *websdr_create(const char *driver, const char *host, 
    int fd = g_file_open_tmp("rustyrig-websdr-XXXXXX", &b->runtime_config, NULL);
    const char *modules = cfg_get("bridge.modules");
    const char *user_agent = cfg_get("bridge.user-agent");
+
    /* Temporary bridges have their own config, so copy the global UA. */
    if (user_agent && (strpbrk(user_agent, "\r\n") || strlen(user_agent) > 384)) {
       user_agent = NULL;
    }
-   char *contents = g_strdup_printf("[bridge]\nmodules = %s\nuser-agent = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %u\n",
-      modules ? modules : "auto", user_agent ? user_agent : "", alias, driver, host, port);
+   char *contents = g_strdup_printf("[bridge]\nmodules = %s\nuser-agent = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %u\n", modules ? modules : "auto",
+      user_agent ? user_agent : "", alias, driver, host, port);
    bool file_ok = fd >= 0 && write(fd, contents, strlen(contents)) == (ssize_t) strlen(contents);
 
    if (fd >= 0) {
@@ -1486,28 +1484,25 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    unsigned port;
    const char *driver = request ? dict_get(request, "driver", "") : "";
    char generated_room[24] = "";
-   /* An omitted room on a connect request means "server, choose a room".
-    * Accept clients predating room.autogenerated as well. */
-   bool auto_room = !save && !release && request &&
-      (dict_get_bool(request, "room.autogenerated", false) ||
-       !*dict_get(request, "room", ""));
+   /* An omitted room on a connect request means "server, choose a room". Accept clients predating room.autogenerated as well. */
+   bool auto_room = !save && !release && request && (dict_get_bool(request, "room.autogenerated", false) || !*dict_get(request, "room", ""));
+
    if (auto_room) {
-      /* The server owns the namespace; test both persistent and transient rooms
-       * before choosing an identifier. Never trust a client-generated name. */
-      for (unsigned attempt = 0; attempt < 128; ++attempt) {
+      /* The server owns the namespace; test both persistent and transient rooms before choosing an identifier. Never trust a client-generated name. */
+      for (unsigned attempt = 0 ; attempt < 128 ; ++attempt) {
          g_snprintf(generated_room, sizeof(generated_room), "#sdr-%08x", g_random_int());
          bool exists = false, deleted = false;
-         if (db_room_status(masterdb, generated_room, &exists, &deleted) && !exists)
+
+         if (db_room_status(masterdb, generated_room, &exists, &deleted) && !exists) {
             break;
+         }
          generated_room[0] = '\0';
       }
    }
    const char *requested_room = auto_room ? generated_room : request ? dict_get(request, "room", "") : "";
-   Log(LOG_INFO, "sdr.status",
-      "SDR request: action=%s user=%s driver=%s endpoint=%s auto-room=%s requested-room=%s assigned-room=%s",
-      action, client->chatname, driver, request ? dict_get(request, "url", "") : "(missing)",
-      auto_room ? "yes" : "no", request ? dict_get(request, "room", "(none)") : "(no request)",
-      *requested_room ? requested_room : "(none)");
+   Log(LOG_INFO, "sdr.status", "SDR request: action=%s user=%s driver=%s endpoint=%s auto-room=%s requested-room=%s assigned-room=%s", action, client->chatname,
+      driver, request ? dict_get(request, "url", "") : "(missing)", auto_room ? "yes" : "no", request ? dict_get(request, "room", "(none)") : "(no request)", *
+      requested_room ? requested_room : "(none)");
 
    if (auto_room && !*generated_room) {
       error = "Unable to allocate a unique temporary SDR room";
@@ -1515,7 +1510,8 @@ static void websdr_request(const char *event, const void *data, size_t length, r
       error = save ? "Adding receivers requires websdr.admin" : "WebSDR access requires websdr.listen or websdr.connect";
    } else if (!save && !release && (!*requested_room)) {
       /* A live SDR must have a listening room, never an implicit site -rigN. */
-      error = "SDR room allocation failed: no listening room supplied or generated. Client and server may be running incompatible versions; rebuild and restart both.";
+      error =
+         "SDR room allocation failed: no listening room supplied or generated. Client and server may be running incompatible versions; rebuild and restart both.";
    } else if (request && websdr_endpoint(driver, dict_get(request, "url", ""), &host, &port)) {
       b = websdr_find(driver, host, port);
 
@@ -1548,19 +1544,15 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    if (b && !save && selected_room && *selected_room) {
       bool exists = false, deleted = false;
       /* Users may select rooms they already joined, or create ordinary unscoped rooms.  Never create someone else's station namespace. */
-      /* websdr_create() may already register the chosen room before this
-       * check. A server-allocated SDR name is owned by this request and must
-       * not require the operator to JOIN before successful attachment. */
+      /* websdr_create() may already register the chosen room before this check. A server-allocated SDR name is owned by this request and must not require the
+       * operator to JOIN before successful attachment. */
       bool generated = auto_room && websdr_autoroom_name(selected_room);
       bool valid = ws_room_name_valid(selected_room) &&
          db_room_status(masterdb, selected_room, &exists, &deleted) && !deleted &&
-         (generated || (exists ? ws_client_in_room(client, selected_room) :
-            !ws_room_station_scoped(selected_room)));
-      Log(valid ? LOG_DEBUG : LOG_WARN, "sdr.status",
-         "SDR room validation: room=%s generated=%s exists=%s deleted=%s joined=%s valid=%s",
-         selected_room, generated ? "yes" : "no", exists ? "yes" : "no",
-         deleted ? "yes" : "no", ws_client_in_room(client, selected_room) ? "yes" : "no",
-         valid ? "yes" : "no");
+         (generated || (exists ? ws_client_in_room(client, selected_room) : !ws_room_station_scoped(selected_room)));
+      Log(valid ? LOG_DEBUG : LOG_WARN, "sdr.status", "SDR room validation: room=%s generated=%s exists=%s deleted=%s joined=%s valid=%s", selected_room,
+         generated ? "yes" : "no", exists ? "yes" : "no", deleted ? "yes" : "no", ws_client_in_room(client, selected_room) ? "yes" : "no", valid ? "yes" : "no")
+      ;
       rr_server_vfo_t *vfo = rr_server_vfo_find_alias(b->backend->owner, "A");
 
       if (!valid || !vfo) {
@@ -1603,31 +1595,41 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             }
          }
          target_room = selected_room;
-         /* Only initialize a freshly allocated SDR room, never overwrite an
-          * existing room's operator-maintained topic. Directory text is
-          * untrusted descriptive metadata, so strip control characters. */
+
+         /* Only initialize a freshly allocated SDR room, never overwrite an existing room's operator-maintained topic. Directory text is untrusted descriptive
+          * metadata, so strip control characters. */
          if (generated) {
             const char *description = dict_get(request, "directory.description", "");
+
             if (description && *description) {
-               /* Sanitize display text, retaining valid UTF-8 and ensuring the
-                * 512-byte topic limit never truncates a multibyte character. */
+               /* Sanitize display text, retaining valid UTF-8 and ensuring the 512-byte topic limit never truncates a multibyte character. */
                gchar *valid_text = g_utf8_make_valid(description, -1);
                char topic[513];
                size_t used = 0;
-               for (const char *p = valid_text; *p && used < sizeof(topic) - 1;) {
+
+               for (const char *p = valid_text ; *p && used < sizeof(topic) - 1 ; ) {
                   gunichar ch = g_utf8_get_char(p);
                   char encoded[6];
-                  if (g_unichar_iscntrl(ch)) ch = ' ';
+
+                  if (g_unichar_iscntrl(ch)) {
+                     ch = ' ';
+                  }
                   int bytes = g_unichar_to_utf8(ch, encoded);
-                  if (used + (size_t)bytes >= sizeof(topic)) break;
+
+                  if (used + (size_t)bytes >= sizeof(topic)) {
+                     break;
+                  }
                   memcpy(topic + used, encoded, (size_t)bytes);
                   used += (size_t)bytes;
                   p = g_utf8_next_char(p);
                }
+
                topic[used] = 0;
                g_free(valid_text);
+
                if (used && db_room_set_topic(masterdb, selected_room, topic)) {
                   dict *notice = dict_new();
+
                   if (notice) {
                      dict_add(notice, "msg.type", "talk");
                      dict_add(notice, "talk.cmd", "topic");
@@ -1641,9 +1643,9 @@ static void websdr_request(const char *event, const void *data, size_t length, r
                }
             }
          }
-         /* The VFO UUID lives in SQLite, but CAT routing still validates the
-          * room's in-memory native VFO mask. Make A available for the newly
-          * attached receive-only SDR, without enabling TX control. */
+
+         /* The VFO UUID lives in SQLite, but CAT routing still validates the room's in-memory native VFO mask. Make A available for the newly attached
+          * receive-only SDR, without enabling TX control. */
          if (!ws_room_set_vfo_mask(selected_room, UINT32_C(1))) {
             Log(LOG_WARN, "sdr.status", "Could not register SDR VFO A for room %s", selected_room);
          }
@@ -1665,25 +1667,19 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             struct rr_mediachan *channel = &media_channels[i];
 
             if (channel->uuid[0] && !strcmp(channel->rig_uuid, rig_uuid) && channel->direction == RR_BINFRAME_DIR_RX) {
-               Log(LOG_INFO, "sdr.status",
-                  "SDR RX route: rig=%s channel=%s old-room=%s new-room=%s codec=%s",
-                  bridge_public_name(b), channel->uuid, channel->room, selected_room,
-                  channel->codec[0] ? channel->codec : "(unselected)");
+               Log(LOG_INFO, "sdr.status", "SDR RX route: rig=%s channel=%s old-room=%s new-room=%s codec=%s", bridge_public_name(b), channel->uuid, channel->
+                  room, selected_room, channel->codec[0] ? channel->codec : "(unselected)");
                snprintf(channel->room, sizeof(channel->room), "%s", selected_room);
                moved++;
             }
          }
 
-         Log(moved ? LOG_INFO : LOG_WARN, "bridge",
-            "[%s] attached receiver room=%s rig_uuid=%s RX-channels=%u%s",
-            bridge_public_name(b), selected_room, rig_uuid, moved,
-            moved ? "" : " (NO RX CHANNELS: audio cannot be advertised)");
+         Log(moved ? LOG_INFO : LOG_WARN, "bridge", "[%s] attached receiver room=%s rig_uuid=%s RX-channels=%u%s", bridge_public_name(b), selected_room,
+            rig_uuid, moved, moved ? "" : " (NO RX CHANNELS: audio cannot be advertised)");
          /* The room JOIN preceded this attachment. Notify its members of the newly bound receiver UUID so their VFO panels refresh. */
          char *vfos = db_room_vfo_list(masterdb, selected_room);
-         Log(vfos && *vfos ? LOG_INFO : LOG_WARN, "sdr.status",
-            "SDR attachment %s: receiver=%s room=%s VFO=%s RX-channels=%u",
-            vfos && *vfos ? "bound" : "missing-binding",
-            bridge_public_name(b), selected_room, vfos && *vfos ? vfos : "(none)", moved);
+         Log(vfos && *vfos ? LOG_INFO : LOG_WARN, "sdr.status", "SDR attachment %s: receiver=%s room=%s VFO=%s RX-channels=%u", vfos && *vfos ? "bound" :
+            "missing-binding", bridge_public_name(b), selected_room, vfos && *vfos ? vfos : "(none)", moved);
          dict *update = dict_new();
 
          if (update) {
@@ -1692,9 +1688,8 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             dict_add(update, "talk.room", selected_room);
             dict_add(update, "talk.vfos", vfos ? vfos : "");
             dict_add_bool(update, "room.has-vfos", vfos && *vfos);
-            /* The temporary SDR has one receiver VFO (A). A zero mask
-             * hides its controls from joined clients despite the UUID
-             * attachment being present in talk.vfos. */
+            /* The temporary SDR has one receiver VFO (A). A zero mask hides its controls from joined clients despite the UUID attachment being present in
+             * talk.vfos. */
             dict_add_ulong(update, "room.vfo-mask", 1);
             dict_add_bool(update, "room.tx-control", false);
             dict_add_bool(update, "room.rx-tunable", true);
@@ -1722,9 +1717,9 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          publish_metadata(b, "url", endpoint, false);
       }
       publish_metadata(b, "attached_room", target_room, false);
-      /* One creation record per successful temporary receiver attachment.
-       * Directory values are external input: sanitize and bound them. */
+      /* One creation record per successful temporary receiver attachment. Directory values are external input: sanitize and bound them. */
 #ifdef USE_SQLITE
+
       if (b->temporary && masterdb) {
          char room[64], backend[48], name[128], location[128], country[128], hardware[128], user[128];
          websdr_audit_value(room, sizeof(room), target_room);
@@ -1735,9 +1730,8 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          websdr_audit_value(hardware, sizeof(hardware), request ? dict_get(request, "directory.hardware", "") : "");
          websdr_audit_value(user, sizeof(user), client->chatname);
          char details[700];
-         snprintf(details, sizeof(details),
-            "SDR connected room=%s rig=%.64s backend=%s name=%.100s location=%.100s country=%.80s hardware=%.80s",
-            room, rr_rig_registry_public_alias(rig.rigs, b->backend->owner), backend, name, location, country, hardware);
+         snprintf(details, sizeof(details), "SDR connected room=%s rig=%.64s backend=%s name=%.100s location=%.100s country=%.80s hardware=%.80s", room,
+            rr_rig_registry_public_alias(rig.rigs, b->backend->owner), backend, name, location, country, hardware);
          db_add_audit_event_session(masterdb, *user ? user : "server", "sdr.connected", details, b->audit_session_id);
       }
 #endif
@@ -1780,20 +1774,19 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    g_free(host);
 }
 
-/* A temporary receiver belongs to its room, not permanently to its
- * creator. The caller is excluded because room.part is fired after PART,
- * while protocol.session.closed may fire before membership is discarded. */
+/* A temporary receiver belongs to its room, not permanently to its creator. The caller is excluded because room.part is fired after PART, while
+ * protocol.session.closed may fire before membership is discarded. */
 static bool websdr_room_has_other_listeners(const char *room, const rrconn_t *leaving) {
-   for (rrconn_t *member = http_client_list; member; member = member->next) {
+   for (rrconn_t *member = http_client_list ; member ; member = member->next) {
       if (member != leaving && member->authenticated && ws_client_in_room(member, room)) {
          return true;
       }
    }
+
    return false;
 }
 
-/* Retire an ephemeral backend when the last listener leaves its room.
- * Remaining listeners retain their SDR even if the creator departs. */
+/* Retire an ephemeral backend when the last listener leaves its room. Remaining listeners retain their SDR even if the creator departs. */
 static void websdr_room_part(const char *event, const char *room, rrconn_t *client, void *unused) {
    (void)event;
    (void)unused;
@@ -1803,9 +1796,7 @@ static void websdr_room_part(const char *event, const char *room, rrconn_t *clie
    }
 
    for (struct bridge_child *b = children ; b ; b = b->next) {
-      if (b->temporary && b->attached_room[0] &&
-          !strcasecmp(b->attached_room, room) &&
-          !websdr_room_has_other_listeners(b->attached_room, client)) {
+      if (b->temporary && b->attached_room[0] && !strcasecmp(b->attached_room, room) && !websdr_room_has_other_listeners(b->attached_room, client)) {
          websdr_audit_end(b->backend->owner, "last-listener-left-room");
          websdr_remove(b->backend->owner);
 
@@ -1823,9 +1814,7 @@ static void websdr_creator_disconnected(const char *event, const char *data, rrc
    }
 
    for (struct bridge_child *b = children ; b ; b = b->next) {
-      if (b->temporary && b->attached_room[0] &&
-          ws_client_in_room(client, b->attached_room) &&
-          !websdr_room_has_other_listeners(b->attached_room, client)) {
+      if (b->temporary && b->attached_room[0] && ws_client_in_room(client, b->attached_room) && !websdr_room_has_other_listeners(b->attached_room, client)) {
          websdr_audit_end(b->backend->owner, "last-listener-disconnected");
          websdr_remove(b->backend->owner);
 

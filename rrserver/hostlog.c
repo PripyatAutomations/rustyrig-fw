@@ -54,24 +54,29 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    va_copy(sizing, ap);
    int length = vsnprintf(NULL, 0, fmt, sizing);
    va_end(sizing);
+
    if (length < 0) {
       streaming = false;
+
       return false;
    }
    char *msgbuf = malloc((size_t)length + 1);
+
    if (!msgbuf) {
       streaming = false;
+
       return false;
    }
    vsnprintf(msgbuf, (size_t)length + 1, fmt, ap);
-   /* Small lines preserve the original binary format. Large lines use
-    * sequenced lgch frames, reassembled in librrprotocol before UI delivery. */
+   /* Small lines preserve the original binary format. Large lines use sequenced lgch frames, reassembled in librrprotocol before UI delivery. */
    const size_t normal_limit = RR_BINFRAME_MAX_PAYLOAD - RR_LOGFRAME_HDR_LEN - 1;
    const size_t chunk_size = 16384;
    const size_t max_message = 64u * 1024u * 1024u;
+
    if ((size_t)length > max_message) {
       free(msgbuf);
       streaming = false;
+
       return false;
    }
    uint32_t message_id = ++logframe_seq;
@@ -80,42 +85,56 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    do {
       uint8_t *frame = NULL;
       int flen = -1;
+
       if (total <= normal_limit) {
-         flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, total,
-            message_id, (uint64_t)now);
+         flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, total, message_id, (uint64_t) now);
       } else {
          size_t bytes = total - offset;
-         if (bytes > chunk_size) bytes = chunk_size;
+
+         if (bytes > chunk_size) {
+            bytes = chunk_size;
+         }
          size_t plen = RR_LOGFRAME_HDR_LEN + 12 + bytes;
          uint8_t *payload = malloc(plen);
-         if (!payload) break;
+
+         if (!payload) {
+            break;
+         }
          memset(payload, 0, RR_LOGFRAME_HDR_LEN + 12);
-         payload[0] = (uint8_t)priority;
+         payload[0] = (uint8_t) priority;
          snprintf((char *)payload + 1, 16, "%s", subsys);
-         uint32_t words[] = {message_id, (uint32_t)total, (uint32_t)offset};
-         for (unsigned i = 0; i < 3; ++i)
-            for (unsigned j = 0; j < 4; ++j)
-               payload[RR_LOGFRAME_HDR_LEN + i * 4 + j] =
-                  (uint8_t)(words[i] >> (24 - j * 8));
+         uint32_t words[] = {
+            message_id, (uint32_t) total, (uint32_t) offset
+         };
+
+         for (unsigned i = 0 ; i < 3 ; ++i) {
+            for (unsigned j = 0 ; j < 4 ; ++j) {
+               payload[RR_LOGFRAME_HDR_LEN + i * 4 + j] = (uint8_t) (words[i] >> (24 - j * 8));
+            }
+         }
+
          memcpy(payload + RR_LOGFRAME_HDR_LEN + 12, msgbuf + offset, bytes);
-         flen = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_LOG, "lgch",
-            RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA,
-            RR_BINFRAME_STREAM_NONE, ++logframe_seq, (uint64_t)now,
-            payload, plen);
+         flen = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_LOG, "lgch", RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, RR_BINFRAME_STREAM_NONE,
+            ++logframe_seq, (uint64_t) now, payload, plen);
          free(payload);
          offset += bytes;
       }
-      if (flen < 0 || !frame) break;
-      for (rrconn_t *cur = http_client_list; cur; cur = cur->next) {
+
+      if (flen < 0 || !frame) {
+         break;
+      }
+
+      for (rrconn_t *cur = http_client_list ; cur ; cur = cur->next) {
          if (cur->is_ws && cur->authenticated && cur->native_transport &&
-             rr_transport_state(cur->native_transport) == RR_TRANSPORT_OPEN && cur->user &&
-             has_priv(cur->user->uid, "admin|owner") &&
-             client_has_flag(cur, FLAG_SYSLOG)) {
+            rr_transport_state(cur->native_transport) == RR_TRANSPORT_OPEN && cur->user &&
+            has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG)) {
             /* Avoid unbounded buffering when a log subscriber is slow. */
-            if (rr_transport_queued_bytes(cur->native_transport) <= 262144)
+            if (rr_transport_queued_bytes(cur->native_transport) <= 262144) {
                rr_transport_send_binary_message(cur->native_transport, frame, (size_t)flen);
+            }
          }
       }
+
       free(frame);
    } while (total > normal_limit && offset < total);
    free(msgbuf);

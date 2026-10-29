@@ -37,61 +37,85 @@ static bool rr_relay_initialized;
 size_t rr_relay_subscription_count;
 struct subscription *rr_relay_subscriptions;
 
-/* A signed operation is distinct from the signed descriptor it changes.
- * Relays forward the origin signature unchanged; only its owner can mint it. */
+/* A signed operation is distinct from the signed descriptor it changes. Relays forward the origin signature unchanged; only its owner can mint it. */
 static GHashTable *catalog_mutations_seen;
 
 static bool catalog_mutation_fresh(dict *d, const char *owner) {
-   if (strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) return false;
+   if (strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) {
+      return false;
+   }
    const char *nonce = dict_get(d, "identity.nonce", "");
    const char *stamp = dict_get(d, "identity.timestamp", "");
-   if (strlen(nonce) != 36 || !g_uuid_string_is_valid(nonce) || !*stamp) return false;
+
+   if (strlen(nonce) != 36 || !g_uuid_string_is_valid(nonce) || !*stamp) {
+      return false;
+   }
    char *end = NULL;
    gint64 timestamp = g_ascii_strtoll(stamp, &end, 10);
-   gint64 current = (gint64)time(NULL);
-   if (!end || *end || timestamp < current - 300 || timestamp > current + 300) return false;
+   gint64 current = (gint64) time(NULL);
+
+   if (!end || *end || timestamp < current - 300 || timestamp > current + 300) {
+      return false;
+   }
 #ifdef USE_SQLITE
-   /* A durable replay journal survives restarts. An INSERT is atomic and a
-    * duplicate nonce can never authorize a second mutation. Fail closed on
-    * read-only, unavailable, or otherwise broken storage. */
-   if (!masterdb || sqlite3_exec(masterdb,
-      "CREATE TABLE IF NOT EXISTS mesh_catalog_mutations ("
+
+   /* A durable replay journal survives restarts. An INSERT is atomic and a duplicate nonce can never authorize a second mutation. Fail closed on read-only,
+    * unavailable, or otherwise broken storage. */
+   if (!masterdb || sqlite3_exec(masterdb, "CREATE TABLE IF NOT EXISTS mesh_catalog_mutations ("
       "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, nonce TEXT NOT NULL,"
-      "issued_at INTEGER NOT NULL,"
-      "PRIMARY KEY(domain,owner_uuid,nonce))", NULL, NULL, NULL) != SQLITE_OK) return false;
+      "issued_at INTEGER NOT NULL," "PRIMARY KEY(domain,owner_uuid,nonce))", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_stmt *insert = NULL;
-   const char *sql = "INSERT INTO mesh_catalog_mutations (domain,owner_uuid,nonce,issued_at)"
-                     " VALUES(?1,?2,?3,?4)";
-   if (sqlite3_prepare_v2(masterdb, sql, -1, &insert, NULL) != SQLITE_OK) return false;
+   const char *sql = "INSERT INTO mesh_catalog_mutations (domain,owner_uuid,nonce,issued_at)" " VALUES(?1,?2,?3,?4)";
+
+   if (sqlite3_prepare_v2(masterdb, sql, -1, &insert, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(insert, 1, cfg_get("domain"), -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(insert, 2, owner, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(insert, 3, nonce, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int64(insert, 4, timestamp);
    bool inserted = sqlite3_step(insert) == SQLITE_DONE;
    sqlite3_finalize(insert);
-   if (!inserted) return false;
+
+   if (!inserted) {
+      return false;
+   }
    /* Retain beyond both sides of the accepted clock-skew window. */
    static gint64 last_prune;
+
    if (current - last_prune >= 600) {
       sqlite3_stmt *prune = NULL;
-      if (sqlite3_prepare_v2(masterdb,
-          "DELETE FROM mesh_catalog_mutations WHERE issued_at < ?1", -1, &prune, NULL) == SQLITE_OK) {
+
+      if (sqlite3_prepare_v2(masterdb, "DELETE FROM mesh_catalog_mutations WHERE issued_at < ?1", -1, &prune, NULL) == SQLITE_OK) {
          sqlite3_bind_int64(prune, 1, current - 900);
          sqlite3_step(prune);
       }
       sqlite3_finalize(prune);
       last_prune = current;
    }
+
    return true;
 #else
-   if (!catalog_mutations_seen)
+
+   if (!catalog_mutations_seen) {
       catalog_mutations_seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   }
    char *key = g_strdup_printf("%s:%s", owner, nonce);
-   if (g_hash_table_contains(catalog_mutations_seen, key)) { g_free(key); return false; }
-   /* Bound memory; conservative rollover may allow an old nonce while still
-    * within its five-minute timestamp window. Persistent replay journals follow. */
-   if (g_hash_table_size(catalog_mutations_seen) >= 32768) g_hash_table_remove_all(catalog_mutations_seen);
+
+   if (g_hash_table_contains(catalog_mutations_seen, key)) {
+      g_free(key);
+
+      return false;
+   }
+
+   /* Bound memory; conservative rollover may allow an old nonce while still within its five-minute timestamp window. Persistent replay journals follow. */
+   if (g_hash_table_size(catalog_mutations_seen) >= 32768) {
+      g_hash_table_remove_all(catalog_mutations_seen);
+   }
    g_hash_table_add(catalog_mutations_seen, key);
+
    return true;
 #endif
 }
@@ -113,11 +137,14 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
    }
    /* Sign non-media replies before intermediaries can transport them. */
    dict *signed_reply = NULL;
+
    if (!strcmp(kind, "reply") && strcmp(dict_get(payload, "msg.type", ""), "media")) {
       signed_reply = dict_clone(payload);
+
       if (!signed_reply || !rr_identity_public_base64()) {
          dict_free(signed_reply);
          Log(LOG_WARN, "mesh.control", "Cannot sign remote control reply: identity unavailable");
+
          return false;
       }
       dict_add(signed_reply, "identity.owner", rrserver_links_node());
@@ -126,9 +153,11 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
       dict_add(signed_reply, "identity.scheme", "ed25519-catalog-v1");
       dict_add(signed_reply, "identity.operation", "relay-reply");
       dict_add(signed_reply, "identity.session", session ? session : "");
+
       if (!rr_identity_sign_catalog(signed_reply)) {
          dict_free(signed_reply);
          Log(LOG_WARN, "mesh.control", "Failed signing remote control reply");
+
          return false;
       }
       payload = signed_reply;
@@ -161,9 +190,13 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
 /* Forward a link payload while retaining its authoritative owner. */
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
    dict *mutation = NULL;
+
    if (!strcmp(kind, "catalog-remove") && rr_relay_local_owner(owner)) {
       mutation = dict_clone(payload);
-      if (!mutation) return;
+
+      if (!mutation) {
+         return;
+      }
       dict_del(mutation, "identity.signature");
       dict_add(mutation, "identity.operation", "catalog-remove");
       char *nonce = g_uuid_string_random();
@@ -172,16 +205,26 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
       dict_add(mutation, "identity.nonce", nonce);
       dict_add(mutation, "identity.timestamp", stamp);
       g_free(nonce);
-      if (!rr_identity_sign_catalog(mutation)) { dict_free(mutation); return; }
+
+      if (!rr_identity_sign_catalog(mutation)) {
+         dict_free(mutation);
+
+         return;
+      }
       payload = mutation;
    }
-   /* All outbound catalog paths, including forwarded deltas and removals,
-    * share the same strict enforcement. */
+
+   /* All outbound catalog paths, including forwarded deltas and removals, share the same strict enforcement. */
    if (!strcmp(kind, "catalog") || !strcmp(kind, "catalog-remove")) {
       if (!dict_get(payload, "identity.signature", NULL)) {
-         Log(LOG_WARN, "mesh.identity", "Attempted to push unsigned %s from %s toward %s: %s",
-            kind, owner, dest, cfg_get_bool("cluster.force-signed-catalog", true) ? "blocked" : "legacy mode permitted");
-         if (cfg_get_bool("cluster.force-signed-catalog", true)) { dict_free(mutation); return; }
+         Log(LOG_WARN, "mesh.identity", "Attempted to push unsigned %s from %s toward %s: %s", kind, owner, dest, cfg_get_bool("cluster.force-signed-catalog",
+            true) ? "blocked" : "legacy mode permitted");
+
+         if (cfg_get_bool("cluster.force-signed-catalog", true)) {
+            dict_free(mutation);
+
+            return;
+         }
       }
    }
    char *json = dict2json(payload);
@@ -191,6 +234,7 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
       dict_free(d);
       free(json);
       dict_free(mutation);
+
       return;
    }
    dict_add(d, "op", "link.application");
@@ -543,12 +587,12 @@ void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
             size_t gained = current > last_healthy_catalog_count ? current - last_healthy_catalog_count : 0;
             size_t lost = current < last_healthy_catalog_count ? last_healthy_catalog_count - current : 0;
             Log(LOG_INFO, "relay.health",
-               "Neighbor catalog sync healthy: %u/%u direct peers synchronized in both directions; local catalog=%zu (net change: +%zu/-%zu)",
-               healthy, total, current, gained, lost);
+               "Neighbor catalog sync healthy: %u/%u direct peers synchronized in both directions; local catalog=%zu (net change: +%zu/-%zu)", healthy, total,
+               current, gained, lost);
          } else {
             Log(LOG_INFO, "relay.health",
-               "Neighbor catalog sync healthy: %u/%u direct peers synchronized in both directions; local catalog=%zu (first healthy sync)",
-               healthy, total, current);
+               "Neighbor catalog sync healthy: %u/%u direct peers synchronized in both directions; local catalog=%zu (first healthy sync)", healthy, total,
+               current);
          }
          last_healthy_catalog_count = current;
          have_healthy_catalog_count = true;
@@ -656,18 +700,27 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                "partial" : "complete", r->received, r->expected, r->expected ? 100.0 * r->received / r->expected : 100.0, r->expected > r->received ? r->
                expected - r->received : 0, r->rejected, r->accepted, (unsigned long long)r->bytes, elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 /
                elapsed_ms : 0.0, (double)r->apply_us / 1000.0, (double)r->apply_max_us / 1000.0);
+
             if (r->rejected) {
-               static const char *classes[] = { "ok", "wrong owner", "missing parent", "invalid service",
-                  "signature/identity", "room authority", "out of memory", "catalog full" };
+               static const char *classes[] = {
+                  "ok", "wrong owner", "missing parent", "invalid service",
+                  "signature/identity", "room authority", "out of memory", "catalog full"
+               };
                GString *why = g_string_new("");
-               for (unsigned n = RR_CAT_OWNER; n < RR_CAT_REJECT_COUNT; ++n) {
-                  if (!r->rejection_reasons[n]) continue;
-                  if (why->len) g_string_append(why, ", ");
+
+               for (unsigned n = RR_CAT_OWNER ; n < RR_CAT_REJECT_COUNT ; ++n) {
+                  if (!r->rejection_reasons[n]) {
+                     continue;
+                  }
+
+                  if (why->len) {
+                     g_string_append(why, ", ");
+                  }
                   g_string_append_printf(why, "%s=%u", classes[n], r->rejection_reasons[n]);
                }
+
                Log(LOG_WARN, "relay.catalog", "Catalog from %s: accepted %u/%u, rejected %u (%s); see first %u rejection examples above (sync %s)",
-                   finished_source, r->accepted, r->received, r->rejected,
-                   why->len ? why->str : "unspecified", r->rejection_examples, id);
+                  finished_source, r->accepted, r->received, r->rejected, why->len ? why->str : "unspecified", r->rejection_examples, id);
                g_string_free(why, TRUE);
             }
             rr_relay_sync_status(origin, true, r->received == r->expected && r->rejected == 0);
@@ -827,17 +880,21 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                sync->accepted++;
             } else {
                sync->rejected++;
-               if (reject_reason >= RR_CAT_OWNER && reject_reason < RR_CAT_REJECT_COUNT)
+
+               if (reject_reason >= RR_CAT_OWNER && reject_reason < RR_CAT_REJECT_COUNT) {
                   sync->rejection_reasons[reject_reason]++;
+               }
+
                if (sync->rejection_examples < 5) {
-                  static const char *classes[] = { "ok", "wrong owner", "missing parent", "invalid service",
-                     "signature/identity", "room authority", "out of memory", "catalog full" };
+                  static const char *classes[] = {
+                     "ok", "wrong owner", "missing parent", "invalid service",
+                     "signature/identity", "room authority", "out of memory", "catalog full"
+                  };
                   const char *why = reject_reason < RR_CAT_REJECT_COUNT ? classes[reject_reason] : "unknown";
                   char owner_label[192];
-                  Log(LOG_WARN, "relay.catalog",
-                     "Rejected %s from %s (sync %s): type=%s uuid=%s service=%s parent=%s room=%s",
-                     why, rrserver_links_format_node(origin, owner_label, sizeof(owner_label)), id, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
-                     dict_get(d, "catalog.service", ""), dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
+                  Log(LOG_WARN, "relay.catalog", "Rejected %s from %s (sync %s): type=%s uuid=%s service=%s parent=%s room=%s", why, rrserver_links_format_node(
+                     origin, owner_label, sizeof(owner_label)), id, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""), dict_get(d,
+                     "catalog.service", ""), dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
                   sync->rejection_examples++;
                }
             }
@@ -848,23 +905,22 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                static gint64 last_warning;
                static unsigned suppressed;
                gint64 now_warning = g_get_monotonic_time();
+
                if (!last_warning || now_warning - last_warning > 5 * G_USEC_PER_SEC) {
                   char label[192];
-                  Log(LOG_WARN, "mesh.identity",
-                      "Rejected catalog delta from %s (reason=%u type=%s uuid=%s service=%s, suppressed=%u)",
-                      rrserver_links_format_node(origin, label, sizeof(label)),
-                      (unsigned)reject_reason, dict_get(d, "object.type", ""),
-                      dict_get(d, "object.uuid", ""), dict_get(d, "catalog.service", ""),
-                      suppressed);
+                  Log(LOG_WARN, "mesh.identity", "Rejected catalog delta from %s (reason=%u type=%s uuid=%s service=%s, suppressed=%u)",
+                     rrserver_links_format_node(origin, label, sizeof(label)), (unsigned)reject_reason, dict_get(d, "object.type", ""), dict_get(d,
+                     "object.uuid", ""), dict_get(d, "catalog.service", ""), suppressed);
                   last_warning = now_warning;
                   suppressed = 0;
-               } else suppressed++;
+               } else {
+                  suppressed++;
+               }
             }
             goto done;
          }
 
-         if (strcmp(dict_get(d, "catalog.visibility", "clients"), "server-only") &&
-             dict_get(d, "object.uuid", NULL)) {
+         if (strcmp(dict_get(d, "catalog.visibility", "clients"), "server-only") && dict_get(d, "object.uuid", NULL)) {
             dict *added = dict_clone(d);
 
             if (added) {
@@ -877,35 +933,32 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       } else if (!strcmp(kind, "users")) {
          rr_relay_directory_put(origin, d);
       } else {
-         /* Removal descriptors are catalog records too. Prevent unsigned or
-          * forged removals from bypassing normal catalog admission. */
+         /* Removal descriptors are catalog records too. Prevent unsigned or forged removals from bypassing normal catalog admission. */
          const char *signature = dict_get(d, "identity.signature", NULL);
+
          if (!signature || !*signature) {
             Log(LOG_WARN, "mesh.identity", "Rejected unsigned catalog removal from %s", origin);
             goto done;
          } else if (strcmp(dict_get(d, "identity.owner", ""), origin) ||
-                    g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) ||
-                    !rr_identity_verify_catalog(d) ||
-                    strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) {
+            g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) ||
+            !rr_identity_verify_catalog(d) || strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) {
             char label[192];
-            Log(LOG_WARN, "mesh.identity", "Rejected invalid signed catalog removal from %s",
-                rrserver_links_format_node(origin, label, sizeof(label)));
+            Log(LOG_WARN, "mesh.identity", "Rejected invalid signed catalog removal from %s", rrserver_links_format_node(origin, label, sizeof(label)));
             goto done;
          }
 #ifdef USE_SQLITE
-         if (signature && *signature &&
-             !rr_identity_check_pin(masterdb, dict_get(d, "identity.domain", ""),
-                                    origin, dict_get(d, "identity.public-key", ""))) {
+
+         if (signature && *signature && !rr_identity_check_pin(masterdb, dict_get(d, "identity.domain", ""), origin, dict_get(d, "identity.public-key", ""))) {
             char label[192];
-            Log(LOG_WARN, "mesh.identity", "Rejected catalog removal from %s: signing key differs from pinned identity",
-                rrserver_links_format_node(origin, label, sizeof(label)));
+            Log(LOG_WARN, "mesh.identity", "Rejected catalog removal from %s: signing key differs from pinned identity", rrserver_links_format_node(origin,
+               label, sizeof(label)));
             goto done;
          }
 #endif
+
          if (signature && *signature && !catalog_mutation_fresh(d, origin)) {
             char label[192];
-            Log(LOG_WARN, "mesh.identity", "Rejected expired/replayed catalog removal from %s",
-                rrserver_links_format_node(origin, label, sizeof(label)));
+            Log(LOG_WARN, "mesh.identity", "Rejected expired/replayed catalog removal from %s", rrserver_links_format_node(origin, label, sizeof(label)));
             goto done;
          }
          const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
@@ -919,6 +972,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             if ((!strcmp(entry->key, key) || (!uuid && room && !strcasecmp(entry->key, key))) && !strcmp(entry->owner, origin)) {
                if (uuid && strcmp(dict_get(entry->descriptor, "catalog.visibility", "clients"), "server-only")) {
                   dict *removed = dict_clone(d);
+
                   if (removed) {
                      rr_relay_strip_catalog_identity(removed);
                      dict_add(removed, "msg.type", "object");
@@ -958,23 +1012,23 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             !g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) &&
             !strcmp(dict_get(d, "identity.operation", ""), "relay-reply") &&
             !strcmp(dict_get(d, "identity.session", ""), id) &&
-            !strcmp(dict_get(d, "identity.scheme", ""), "ed25519-catalog-v1") &&
-            rr_identity_verify_catalog(d);
+            !strcmp(dict_get(d, "identity.scheme", ""), "ed25519-catalog-v1") && rr_identity_verify_catalog(d);
 #ifdef USE_SQLITE
-         if (valid)
-            valid = rr_identity_check_pin(masterdb, cfg_get("domain"), origin,
-                                          dict_get(d, "identity.public-key", ""));
+
+         if (valid) {
+            valid = rr_identity_check_pin(masterdb, cfg_get("domain"), origin, dict_get(d, "identity.public-key", ""));
+         }
 #endif
+
          if (!valid) {
             char label[192];
-            Log(LOG_WARN, "mesh.control",
-                "Rejected unsigned or forged relay reply from %s (session=%s type=%s)",
-                rrserver_links_format_node(origin, label, sizeof(label)), id,
-                dict_get(d, "msg.type", ""));
+            Log(LOG_WARN, "mesh.control", "Rejected unsigned or forged relay reply from %s (session=%s type=%s)", rrserver_links_format_node(origin, label,
+               sizeof(label)), id, dict_get(d, "msg.type", ""));
             goto done;
          }
          rr_relay_strip_catalog_identity(d);
       }
+
       for (struct relay_client *c = rr_relay_clients ; c ; c = c->next) {
          if (!strcmp(c->id, id)) {
             const char *cmd = dict_get(d, "talk.cmd", ""), *room = dict_get(d, "talk.room", NULL);
@@ -1050,10 +1104,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
                      if (!rr_binframe_parse(m->frame, m->size, &frame) && frame.hdr.stream == m->owner_stream) {
                         m->frame[11] = m->stream;
-                        if (c->client && c->client->native_transport &&
-                            rr_transport_state(c->client->native_transport) == RR_TRANSPORT_OPEN) {
+
+                        if (c->client && c->client->native_transport && rr_transport_state(c->client->native_transport) == RR_TRANSPORT_OPEN) {
                            size_t limit = m->setup ? 262144u : 8192u;
                            size_t queued = rr_transport_queued_bytes(c->client->native_transport);
+
                            if (m->size <= limit && queued <= limit - m->size) {
                               rr_transport_send_binary_message(c->client->native_transport, m->frame, m->size);
                            }
@@ -1526,8 +1581,12 @@ void rrserver_relay_fini(void) {
 
 
 /* Visit borrowed remote sessions synchronously on the server thread. */
-void rrserver_relay_visit_sessions(void (*visit)(rrconn_t *, void *), void *data) {
-   if (!visit) return;
-   for (struct remote_session *r = rr_relay_remotes; r; r = r->next)
+void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *data) {
+   if (!visit) {
+      return;
+   }
+
+   for (struct remote_session *r = rr_relay_remotes ; r ; r = r->next) {
       visit(&r->client, data);
+   }
 }

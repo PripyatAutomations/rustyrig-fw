@@ -721,47 +721,76 @@ static void admin_create_user(GtkButton *button, gpointer data) {
 static void admin_users_menu_action(GtkMenuItem *item, gpointer data) {
    admin_table_t *table = data;
    const char *action = g_object_get_data(G_OBJECT(item), "rr-user-action");
-   if (!action) return;
+
+   if (!action) {
+      return;
+   }
+
    if (!strcmp(action, "create")) {
       admin_create_user(NULL, table);
+
       return;
    }
    GtkWidget *button = gtk_button_new();
-   g_object_set_data(G_OBJECT(button), "action", (gpointer)action);
+   g_object_set_data(G_OBJECT(button), "action", (gpointer) action);
    admin_action(GTK_BUTTON(button), table);
    gtk_widget_destroy(button);
 }
 
 static gboolean admin_users_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
+      return FALSE;
+   }
    admin_table_t *table = data;
    GtkTreePath *path = NULL;
-   gboolean selected = gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (int)event->x,
-      (int)event->y, &path, NULL, NULL, NULL);
+   gboolean selected = gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (int)event->x, (int)event->y, &path, NULL, NULL, NULL);
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
+
    if (selected) {
       gtk_tree_selection_select_path(selection, path);
       gtk_tree_path_free(path);
    } else {
       gtk_tree_selection_unselect_all(selection);
    }
-   static const struct { const char *title, *action; } entries[] = {
-      {"Create User…", "create"}, {"Edit User…", "edit"},
-      {"Lock User", "lock"}, {"Unlock User", "unlock"},
-      {"Remove User", "remove"}, {"Reset Password…", "resetpw"},
-      {"Edit Privileges…", "privileges"}
+   static const struct {
+      const char *title, *action;
+   } entries[] = {
+      {
+         "Create User…", "create"
+      }, {
+         "Edit User…", "edit"
+      },
+      {
+         "Lock User", "lock"
+      }, {
+         "Unlock User", "unlock"
+      },
+      {
+         "Remove User", "remove"
+      }, {
+         "Reset Password…", "resetpw"
+      },
+      {
+         "Edit Privileges…", "privileges"
+      }
    };
    GtkWidget *menu = gtk_menu_new();
-   for (guint i = 0; i < G_N_ELEMENTS(entries); i++) {
+
+   for (guint i = 0 ; i < G_N_ELEMENTS(entries) ; i++) {
       GtkWidget *item = gtk_menu_item_new_with_label(entries[i].title);
-      g_object_set_data(G_OBJECT(item), "rr-user-action", (gpointer)entries[i].action);
-      if (!selected && i != 0) gtk_widget_set_sensitive(item, FALSE);
+      g_object_set_data(G_OBJECT(item), "rr-user-action", (gpointer) entries[i].action);
+
+      if (!selected && i != 0) {
+         gtk_widget_set_sensitive(item, FALSE);
+      }
       g_signal_connect(item, "activate", G_CALLBACK(admin_users_menu_action), table);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
+
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 
@@ -769,9 +798,12 @@ static gboolean admin_users_context_menu(GtkWidget *widget, GdkEventButton *even
 static void admin_table_menu_action(GtkMenuItem *item, gpointer user) {
    admin_table_t *table = user;
    const char *action = g_object_get_data(G_OBJECT(item), "rr-action");
-   if (!action) return;
+
+   if (!action) {
+      return;
+   }
    GtkWidget *button = gtk_button_new();
-   g_object_set_data(G_OBJECT(button), "action", (gpointer)action);
+   g_object_set_data(G_OBJECT(button), "action", (gpointer) action);
    admin_action(GTK_BUTTON(button), table);
    gtk_widget_destroy(button);
 }
@@ -779,26 +811,31 @@ static void admin_table_menu_action(GtkMenuItem *item, gpointer user) {
 static void admin_table_copy_action(GtkMenuItem *item, gpointer user) {
    (void)user;
    const char *value = g_object_get_data(G_OBJECT(item), "rr-copy-text");
-   if (value) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), value, -1);
+
+   if (value) {
+      gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), value, -1);
+   }
 }
 
-static void admin_menu_append(GtkWidget *menu, const char *label, const char *action,
-      admin_table_t *table, gboolean enabled) {
+static void admin_menu_append(GtkWidget *menu, const char *label, const char *action, admin_table_t *table, gboolean enabled) {
    GtkWidget *item = gtk_menu_item_new_with_label(label);
-   g_object_set_data(G_OBJECT(item), "rr-action", (gpointer)action);
+   g_object_set_data(G_OBJECT(item), "rr-action", (gpointer) action);
    gtk_widget_set_sensitive(item, enabled);
    g_signal_connect(item, "activate", G_CALLBACK(admin_table_menu_action), table);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
 
-/* RFC 4180-style CSV quoting: every field is quoted so embedded commas,
- * quotes and line breaks survive spreadsheet import unchanged. */
+/* RFC 4180-style CSV quoting: every field is quoted so embedded commas, quotes and line breaks survive spreadsheet import unchanged. */
 static void admin_csv_field(GString *csv, const char *value) {
    g_string_append_c(csv, '"');
-   for (const char *p = value ? value : ""; *p; ++p) {
-      if (*p == '"') g_string_append_c(csv, '"');
+
+   for (const char *p = value ? value : "" ; *p ; ++p) {
+      if (*p == '"') {
+         g_string_append_c(csv, '"');
+      }
       g_string_append_c(csv, *p);
    }
+
    g_string_append_c(csv, '"');
 }
 
@@ -810,22 +847,29 @@ static void admin_menu_copy(GtkWidget *menu, const char *label, const char *valu
 }
 
 static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
+      return FALSE;
+   }
    admin_table_t *table = user;
    GtkTreePath *path = NULL;
    GtkTreeViewColumn *column = NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x, (gint)event->y,
-      &path, &column, NULL, NULL)) return FALSE;
+
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint) event->x, (gint) event->y, &path, &column, NULL, NULL)) {
+      return FALSE;
+   }
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
    gtk_tree_selection_select_path(selection, path);
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
    GtkTreeIter iter;
+
    if (!gtk_tree_model_get_iter(model, &iter, path)) {
       gtk_tree_path_free(path);
+
       return FALSE;
    }
    gtk_tree_path_free(path);
    GtkWidget *menu = gtk_menu_new();
+
    if (!strcmp(table->name, "rooms")) {
       gchar *state = NULL;
       gtk_tree_model_get(model, &iter, 2, &state, -1);
@@ -844,27 +888,46 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
       GString *csv = g_string_new("");
       int clicked = -1;
       GList *columns = gtk_tree_view_get_columns(GTK_TREE_VIEW(widget));
-      for (GList *l = columns; l; l = l->next) {
-         if (l->data == column) { clicked = g_list_position(columns, l); break; }
+
+      for (GList *l = columns ; l ; l = l->next) {
+         if (l->data == column) {
+            clicked = g_list_position(columns, l);
+            break;
+         }
       }
+
       g_list_free(columns);
+
       /* Column position may differ from backing-store field order (PTT/Rooms). */
       if (!strcmp(table->name, "ptt")) {
-         const int order[] = {0, 9, 1, 2, 3, 4, 5, 6, 7, 8};
-         if (clicked >= 0 && clicked < (int)G_N_ELEMENTS(order)) clicked = order[clicked];
+         const int order[] = {
+            0, 9, 1, 2, 3, 4, 5, 6, 7, 8
+         };
+
+         if (clicked >= 0 && clicked < (int)G_N_ELEMENTS(order)) {
+            clicked = order[clicked];
+         }
       } else if (!strcmp(table->name, "rooms")) {
-         const int order[] = {0, 3, 2, 4, 5, 1};
-         if (clicked >= 0 && clicked < (int)G_N_ELEMENTS(order)) clicked = order[clicked];
+         const int order[] = {
+            0, 3, 2, 4, 5, 1
+         };
+
+         if (clicked >= 0 && clicked < (int)G_N_ELEMENTS(order)) {
+            clicked = order[clicked];
+         }
       }
-      for (int i = 0; i < 10 && table->fields[i]; ++i) {
+
+      for (int i = 0 ; i < 10 && table->fields[i] ; ++i) {
          char *value = NULL;
          gtk_tree_model_get(model, &iter, i, &value, -1);
+
          if (i) {
             g_string_append_c(row, '\t');
             g_string_append_c(csv, ',');
          }
          g_string_append(row, value ? value : "");
          admin_csv_field(csv, value);
+
          if (i == clicked) {
             char *label = g_strdup_printf("Copy %s", table->fields[i]);
             admin_menu_copy(menu, label, value);
@@ -872,6 +935,7 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
          }
          g_free(value);
       }
+
       admin_menu_copy(menu, "Copy Row (TSV)", row->str);
       admin_menu_copy(menu, "Copy Row (CSV)", csv->str);
       g_string_free(row, TRUE);
@@ -882,7 +946,8 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
    }
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 
@@ -981,8 +1046,7 @@ static void admin_action(GtkButton *button, gpointer data) {
             /* Boolean account fields are controls, not integer strings. */
             if (col == 1 || col == 7) {
                entries[col] = gtk_check_button_new();
-               gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(entries[col]),
-                  text && (!strcmp(text, "1") || !g_ascii_strcasecmp(text, "true")));
+               gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(entries[col]), text && (!strcmp(text, "1") || !g_ascii_strcasecmp(text, "true")));
                gtk_widget_set_halign(entries[col], GTK_ALIGN_START);
             } else {
                entries[col] = gtk_entry_new();
@@ -1271,17 +1335,14 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       return;
    }
 
-   /* The transport wrapper can be replaced during reconnect/selection while
-    * an already queued admin reply is being dispatched. Correlate replies by
-    * the stable configured profile as well as the current pointer so a valid
-    * list response is not silently dropped after connection churn. */
+   /* The transport wrapper can be replaced during reconnect/selection while an already queued admin reply is being dispatched. Correlate replies by the stable
+    * configured profile as well as the current pointer so a valid list response is not silently dropped after connection churn. */
    const char *reply_profile = rrclient_connection_name(connection);
 
    for (size_t i = 0 ; row && i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
 
-      if (strcmp(name, table->name) || !table->store ||
-         (connection != rrclient_connection_find(table->profile) && g_strcmp0(reply_profile, table->profile))) {
+      if (strcmp(name, table->name) || !table->store || (connection != rrclient_connection_find(table->profile) && g_strcmp0(reply_profile, table->profile))) {
          continue;
       }
 
@@ -1585,27 +1646,32 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(buttons), space, TRUE, TRUE, 0);
       gtk_box_reorder_child(GTK_BOX(buttons), space, 4);
       gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
-      if (room_actions) gtk_box_pack_start(GTK_BOX(box), room_actions, FALSE, FALSE, 0);
+
+      if (room_actions) {
+         gtk_box_pack_start(GTK_BOX(box), room_actions, FALSE, FALSE, 0);
+      }
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       GtkTreeModel *filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(table->store), NULL);
       gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered), gtk_admin_filter_visible, filter, NULL);
       g_signal_connect(filter, "changed", G_CALLBACK(gtk_admin_filter_changed), filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
-   rr_gtk_tree_style(table->tree);
+      rr_gtk_tree_style(table->tree);
       g_object_set_data(G_OBJECT(table->tree), "rr-admin-filter", filter);
 
       if (!strcmp(table->name, "privsets")) {
          g_signal_connect(table->tree, "row-activated", G_CALLBACK(gtk_admin_privgroup_row_activated), table);
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(gtk_admin_privgroup_context_menu), table);
       }
+
       if (!strcmp(table->name, "users")) {
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(admin_users_context_menu), table);
       }
-      if (!strcmp(table->name, "rooms") || !strcmp(table->name, "quotas") ||
-          !strcmp(table->name, "audit") || !strcmp(table->name, "ptt")) {
+
+      if (!strcmp(table->name, "rooms") || !strcmp(table->name, "quotas") || !strcmp(table->name, "audit") || !strcmp(table->name, "ptt")) {
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(admin_table_context_menu), table);
       }
+
       if (!strcmp(table->name, "sessions")) {
          g_signal_connect(table->tree, "row-activated", G_CALLBACK(gtk_admin_session_activated), table);
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(gtk_admin_session_context_menu), table);
@@ -1743,8 +1809,7 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_set_expand(column, (users && field == 2) ||
             ((rooms && field == 3) || (quotas && field == 0)) ||
             (!strcmp(table->name, "audit") && field == 4) || (!strcmp(table->name, "privsets") && field == 1) ||
-            (!strcmp(table->name, "assignments") && field != 6 && field != 5) ||
-            (!strcmp(table->name, "grants") && field != 7 && field != 6));
+            (!strcmp(table->name, "assignments") && field != 6 && field != 5) || (!strcmp(table->name, "grants") && field != 7 && field != 6));
 
          if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
             g_signal_connect(column, "notify::width", G_CALLBACK(admin_column_wrap_width), renderer);

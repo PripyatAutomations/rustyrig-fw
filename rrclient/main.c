@@ -276,7 +276,7 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
 
    if (dying) {
       rrclient_cleanup();
-   rrclient_database_shutdown();
+      rrclient_database_shutdown();
 
       return G_SOURCE_REMOVE;
    }
@@ -466,7 +466,7 @@ bool rrclient_cleanup(void) {
    // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
    if (cfg && config_file && cfg_get_bool("ui.save-on-exit", false)) {
       Log(LOG_INFO, "config", "ui.save-on-exit: saving config to %s", config_file);
-      rrclient_database_config_save( config_file);
+      rrclient_database_config_save(config_file);
    }
 
    free((void *)cfg_log_audio);
@@ -667,8 +667,10 @@ int main(int argc, char *argv[]) {
       log_target = "rrclient.log";
    }
    logger_init(log_target, (ui_mode == UI_MODE_TUI));
+
    if (!rrclient_database_init() || !rrclient_database_load_profiles()) {
       Log(LOG_CRIT, "db", "Unable to initialize client database");
+
       return EXIT_FAILURE;
    }
 

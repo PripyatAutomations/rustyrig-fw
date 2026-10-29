@@ -454,4 +454,3 @@ void rr_relay_proxy_tx_frame(const char *event, const void *data, size_t length,
    }
    r->proxy_frame = mono_us();
 }
-

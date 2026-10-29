@@ -87,15 +87,12 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    const char *room = dict_get(d, "rigctl.room", ws_authoritative_room());
    rr_server_rig_t *radio = rrserver_rig_for_room(room);
-   /* Temporary SDR listening rooms have no -rigN room mapping. Resolve
-    * directly through the active receiver attachment, which tracks the room
-    * actually controlling its KiwiSDR VFO. Authorization occurred when the
-    * client submitted the command; preserve membership/access when supplied. */
-   if (!radio && room && (!cptr || (ws_client_in_room(cptr, room) &&
-       rrserver_bridge_can_use(cptr)))) {
+
+   /* Temporary SDR listening rooms have no -rigN room mapping. Resolve directly through the active receiver attachment, which tracks the room actually
+    * controlling its KiwiSDR VFO. Authorization occurred when the client submitted the command; preserve membership/access when supplied. */
+   if (!radio && room && (!cptr || (ws_client_in_room(cptr, room) && rrserver_bridge_can_use(cptr)))) {
       radio = rrserver_bridge_for_sdr_room(room);
    }
-
 #ifdef USE_SQLITE
 
    /* Unscoped SDR rooms have no rig-numbered room identity. Resolve their attached UUID, and only grant control in the first attached room. */
@@ -140,7 +137,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          rig.ptt_rig = radio;
       }
       // Key/dekey the rig (from the PTT button in the client)
-      Log(LOG_AUDIT, "rigctl", "user=%s room=%s rig=%s vfo=%s PTT request=%s", rc_from, room, radio ? rr_rig_registry_public_alias(rig.rigs, radio) : "unknown", rc_vfo, rc_ptt ? "on" : "off");
+      Log(LOG_AUDIT, "rigctl", "user=%s room=%s rig=%s vfo=%s PTT request=%s", rc_from, room, radio ? rr_rig_registry_public_alias(rig.rigs, radio) : "unknown",
+         rc_vfo, rc_ptt ? "on" : "off");
 
       if (rr_ptt_request(vfo, rc_ptt, rc_ptt ? "key-down" : "released") && cptr) {
          // The wire handler announced the request optimistically. Restore
@@ -270,10 +268,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
                   /* This is a commanded setpoint when readback is unavailable, not measured RF output. */
                   dict_add_float(state, "cat.state.tx-power-watts", observed > 0 ? observed : rc_power);
                   dict_add_bool(state, "cat.state.tx-power-readback", observed > 0);
-                  /* The UI uses 0..100%, regardless of the hardware's watt limit.
-                   * Return a real RFPOWER/PC readback when the backend provides it. */
-                  float maximum = backend && rr_backend_api(backend)->power_max ?
-                     rr_backend_api(backend)->power_max(backend, object) : 0;
+                  /* The UI uses 0..100%, regardless of the hardware's watt limit. Return a real RFPOWER/PC readback when the backend provides it. */
+                  float maximum = backend && rr_backend_api(backend)->power_max ? rr_backend_api(backend)->power_max(backend, object) : 0;
+
                   if (maximum > 0 && isfinite(maximum)) {
                      float fraction = (observed > 0 ? observed : rc_power) * 100.0f / maximum;
                      dict_add_int(state, "cat.state.tx-power-percent", (int)lroundf(fmaxf(0, fminf(100, fraction))));

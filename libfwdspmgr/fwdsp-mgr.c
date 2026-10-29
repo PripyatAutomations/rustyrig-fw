@@ -82,8 +82,7 @@ static int active_slots = 0;
 static int max_subprocs = FWDSP_MAX_SUBPROCS;
 static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
-/* Keep restart history outside reusable fwdsp slots so a crashed child
- * cannot bypass the guard simply by obtaining a fresh slot. */
+/* Keep restart history outside reusable fwdsp slots so a crashed child cannot bypass the guard simply by obtaining a fresh slot. */
 #define FWDSP_SPAWN_GUARDS 128
 struct fwdsp_spawn_guard {
    char key[384];
@@ -93,38 +92,56 @@ struct fwdsp_spawn_guard {
 static struct fwdsp_spawn_guard spawn_guards[FWDSP_SPAWN_GUARDS];
 static bool fwdsp_spawn_permitted(const struct fwdsp_subproc *sp) {
    char key[384];
+
    /* Group dynamically named endpoints by pipeline rather than by PID/slot. */
-   if (sp->pipeline[0])
+   if (sp->pipeline[0]) {
       snprintf(key, sizeof(key), "pipeline:%s", sp->pipeline);
-   else if (sp->role == FWDSP_ROLE_PROCESSOR)
+   } else if (sp->role == FWDSP_ROLE_PROCESSOR) {
       snprintf(key, sizeof(key), "processor:%s", sp->processor_name);
-   else
+   } else {
       snprintf(key, sizeof(key), "codec:%.4s:%c", sp->pl_id, sp->is_tx ? 'T' : 'R');
+   }
    uint64_t current = mono_us();
    struct fwdsp_spawn_guard *guard = NULL, *oldest = &spawn_guards[0];
-   for (size_t i = 0; i < FWDSP_SPAWN_GUARDS; ++i) {
+
+   for (size_t i = 0 ; i < FWDSP_SPAWN_GUARDS ; ++i) {
       struct fwdsp_spawn_guard *candidate = &spawn_guards[i];
-      if (!strcmp(candidate->key, key)) { guard = candidate; break; }
-      if (!candidate->key[0]) oldest = candidate;
-      else if (oldest->key[0] && candidate->window_started < oldest->window_started)
+
+      if (!strcmp(candidate->key, key)) {
+         guard = candidate;
+         break;
+      }
+
+      if (!candidate->key[0]) {
          oldest = candidate;
+      } else if (oldest->key[0] && candidate->window_started < oldest->window_started) {
+         oldest = candidate;
+      }
    }
+
    if (!guard) {
       guard = oldest;
       memset(guard, 0, sizeof(*guard));
       snprintf(guard->key, sizeof(guard->key), "%s", key);
    }
-   if (current < guard->blocked_until) return false;
+
+   if (current < guard->blocked_until) {
+      return false;
+   }
+
    if (!guard->window_started || current - guard->window_started >= UINT64_C(30000000)) {
       guard->window_started = current;
       guard->attempts = 0;
    }
+
    if (guard->attempts >= 3) {
       guard->blocked_until = current + UINT64_C(60000000);
       Log(LOG_WARN, "fwdsp", "Spawn rate limit for %.120s: more than 3 starts in 30s; retry after 60s", key);
+
       return false;
    }
    guard->attempts++;
+
    return true;
 }
 
@@ -132,8 +149,7 @@ extern const char *config_file; // librustyaxe/config.c
 static fwdsp_exit_cb_t on_fwdsp_exit = NULL;
 extern time_t now;
 
-/* Local subprocess descriptors are not network transports. They use the
- * reusable GLib fd reactor directly, independently of WebSocket/TLS. */
+/* Local subprocess descriptors are not network transports. They use the reusable GLib fd reactor directly, independently of WebSocket/TLS. */
 struct fwdsp_io_conn {
    struct fwdsp_subproc *sp;
    rr_reactor_watch_t *watch;
@@ -281,19 +297,22 @@ void fwdsp_reap_children(void) {
       if (subproc_reap(&sp->process, &status)) {
          if (fwdsp_slot_active(sp)) {
             char name[100];
-            if (sp->role == FWDSP_ROLE_PROCESSOR)
+
+            if (sp->role == FWDSP_ROLE_PROCESSOR) {
                snprintf(name, sizeof(name), "%s", sp->processor_name);
-            else
+            } else {
                snprintf(name, sizeof(name), "%.4s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
-            if (WIFSIGNALED(status))
-               Log(LOG_WARN, "fwdsp", "Pipeline %s pid=%ld terminated by signal %d",
-                  name, (long)sp->process.pid, WTERMSIG(status));
-            else if (WIFEXITED(status) && WEXITSTATUS(status))
-               Log(LOG_WARN, "fwdsp", "Pipeline %s pid=%ld exited with failure status %d",
-                  name, (long)sp->process.pid, WEXITSTATUS(status));
-            else
+            }
+
+            if (WIFSIGNALED(status)) {
+               Log(LOG_WARN, "fwdsp", "Pipeline %s pid=%ld terminated by signal %d", name, (long)sp->process.pid, WTERMSIG(status));
+            } else if (WIFEXITED(status) && WEXITSTATUS(status)) {
+               Log(LOG_WARN, "fwdsp", "Pipeline %s pid=%ld exited with failure status %d", name, (long)sp->process.pid, WEXITSTATUS(status));
+            } else {
                Log(LOG_INFO, "fwdsp", "Pipeline %s pid=%ld exited", name, (long)sp->process.pid);
+            }
          }
+
          if (on_fwdsp_exit) {
             on_fwdsp_exit(sp, status);
          }
@@ -332,211 +351,234 @@ void fwdsp_send_stream_headers(const char *uuid, rrconn_t *cptr) {
 }
 
 static void fwdsp_parse_read(struct fwdsp_io_conn *ctx) {
-   if (!ctx->sp || !ctx->recv) return;
+   if (!ctx->sp || !ctx->recv) {
+      return;
+   }
 
-      if (ctx->is_stderr) {
-         for ( ;; ) {
-            uint8_t *newline = memchr(ctx->recv->data, '\n', ctx->recv->len);
+   if (ctx->is_stderr) {
+      for ( ;; ) {
+         uint8_t *newline = memchr(ctx->recv->data, '\n', ctx->recv->len);
 
-            if (!newline) {
-               break;
-            }
+         if (!newline) {
+            break;
+         }
 
-            size_t line_len = (size_t)(newline - (uint8_t *) ctx->recv->data);
-            size_t consumed = line_len + 1;
+         size_t line_len = (size_t)(newline - (uint8_t *) ctx->recv->data);
+         size_t consumed = line_len + 1;
 
-            if (line_len > 0 && ctx->recv->data[line_len - 1] == '\r') {
-               line_len--;
-            }
+         if (line_len > 0 && ctx->recv->data[line_len - 1] == '\r') {
+            line_len--;
+         }
 
-            char *message = malloc(line_len + 1);
+         char *message = malloc(line_len + 1);
 
-            if (!message) {
-               Log(LOG_CRIT, "fwdsp", "OOM buffering fwdsp stderr");
-               g_byte_array_remove_range(ctx->recv, 0, consumed);
-               continue;
-            }
-
-            memcpy(message, ctx->recv->data, line_len);
-            message[line_len] = '\0';
-            /* A pipeline's actual GStreamer failure must never be hidden
-             * behind the later EPIPE/decoder restart warning. Other verbose
-             * stderr remains at debug level. */
-            bool important = strstr(message, "GStreamer error:") ||
-               strstr(message, "GStreamer pipeline parse error:") ||
-               strstr(message, "GStreamer details:") ||
-               strstr(message, "Failed to set pipeline") ||
-               strstr(message, "CRIT") || strstr(message, "ERROR");
-            if (important)
-               Log(LOG_WARN, "fwdsp", "[%s.%s pid=%ld stderr] %.700s",
-                  ctx->sp->role == FWDSP_ROLE_PROCESSOR ? ctx->sp->processor_name : ctx->sp->pl_id,
-                  ctx->sp->role == FWDSP_ROLE_PROCESSOR ? "processor" : ctx->sp->is_tx ? "tx" : "rx",
-                  (long)ctx->sp->process.pid, message);
-            else
-               Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
-            free(message);
-
+         if (!message) {
+            Log(LOG_CRIT, "fwdsp", "OOM buffering fwdsp stderr");
             g_byte_array_remove_range(ctx->recv, 0, consumed);
+            continue;
          }
 
-         if (ctx->recv->len > FWDSP_MAX_FRAME_SIZE) {
-            Log(LOG_WARN, "fwdsp", "Discarding oversized unterminated stderr data");
+         memcpy(message, ctx->recv->data, line_len);
+         message[line_len] = '\0';
+         /* A pipeline's actual GStreamer failure must never be hidden behind the later EPIPE/decoder restart warning. Other verbose stderr remains at debug
+          * level. */
+         bool important = strstr(message, "GStreamer error:") ||
+            strstr(message, "GStreamer pipeline parse error:") ||
+            strstr(message, "GStreamer details:") || strstr(message, "Failed to set pipeline") || strstr(message, "CRIT") || strstr(message, "ERROR");
+
+         if (important) {
+            Log(LOG_WARN, "fwdsp", "[%s.%s pid=%ld stderr] %.700s", ctx->sp->role == FWDSP_ROLE_PROCESSOR ? ctx->sp->processor_name : ctx->sp->pl_id, ctx->sp->
+               role == FWDSP_ROLE_PROCESSOR ? "processor" : ctx->sp->is_tx ? "tx" : "rx", (long)ctx->sp->process.pid, message);
+         } else {
+            Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
+         }
+         free(message);
+
+         g_byte_array_remove_range(ctx->recv, 0, consumed);
+      }
+
+      if (ctx->recv->len > FWDSP_MAX_FRAME_SIZE) {
+         Log(LOG_WARN, "fwdsp", "Discarding oversized unterminated stderr data");
+         g_byte_array_remove_range(ctx->recv, 0, ctx->recv->len);
+      }
+   } else {
+      while (ctx->sp && ctx->recv->len >= FWDSP_FRAME_HEADER_SIZE) {
+         uint32_t frame_flags = frame_length_decode((const uint8_t *)ctx->recv->data);
+         bool is_header = (frame_flags & FWDSP_FRAME_STREAM_HEADER) != 0;
+         bool is_pcm_tap = (frame_flags & FWDSP_FRAME_PCM_TAP) != 0;
+         uint32_t frame_len = frame_flags & FWDSP_FRAME_LENGTH_MASK;
+
+         if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
+            Log(LOG_CRIT, "fwdsp", "Invalid frame length %u from %s.%s", frame_len, ctx->sp->role == FWDSP_ROLE_PROCESSOR ?
+               ctx->sp->processor_name : ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
             g_byte_array_remove_range(ctx->recv, 0, ctx->recv->len);
+            break;
          }
-      } else {
-         while (ctx->sp && ctx->recv->len >= FWDSP_FRAME_HEADER_SIZE) {
-            uint32_t frame_flags = frame_length_decode((const uint8_t *)ctx->recv->data);
-            bool is_header = (frame_flags & FWDSP_FRAME_STREAM_HEADER) != 0;
-            bool is_pcm_tap = (frame_flags & FWDSP_FRAME_PCM_TAP) != 0;
-            uint32_t frame_len = frame_flags & FWDSP_FRAME_LENGTH_MASK;
 
-            if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
-               Log(LOG_CRIT, "fwdsp", "Invalid frame length %u from %s.%s", frame_len, ctx->sp->role == FWDSP_ROLE_PROCESSOR ?
-                  ctx->sp->processor_name : ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
-               g_byte_array_remove_range(ctx->recv, 0, ctx->recv->len);
-               break;
-            }
+         size_t total_len = FWDSP_FRAME_HEADER_SIZE + (size_t)frame_len;
 
-            size_t total_len = FWDSP_FRAME_HEADER_SIZE + (size_t)frame_len;
+         if (ctx->recv->len < total_len) {
+            break;
+         }
 
-            if (ctx->recv->len < total_len) {
-               break;
-            }
+         if (is_pcm_tap) {
+            struct fwdsp_subproc *sp = ctx->sp;
 
-            if (is_pcm_tap) {
-               struct fwdsp_subproc *sp = ctx->sp;
+            if (is_header || (frame_len & 1U) != 0) {
+               Log(LOG_WARN, "fwdsp", "Discarding malformed PCM tap frame from %s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
+            } else if (sp->role == FWDSP_ROLE_CODEC && !sp->is_tx && sp->processor_output) {
+               fwdsp_processor_output_cb output_cb = sp->processor_output;
+               void *output_data = sp->processor_output_data;
+               char name[sizeof(sp->channel_uuid)];
+               snprintf(name, sizeof(name), "%s", sp->channel_uuid);
+               size_t newer = newer_pcm_bytes(ctx->recv->data, ctx->recv->len, total_len);
+               size_t keep = FWDSP_PCM_BACKLOG_BYTES - newer;
 
-               if (is_header || (frame_len & 1U) != 0) {
-                  Log(LOG_WARN, "fwdsp", "Discarding malformed PCM tap frame from %s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
-               } else if (sp->role == FWDSP_ROLE_CODEC && !sp->is_tx && sp->processor_output) {
-                  fwdsp_processor_output_cb output_cb = sp->processor_output;
-                  void *output_data = sp->processor_output_data;
-                  char name[sizeof(sp->channel_uuid)];
-                  snprintf(name, sizeof(name), "%s", sp->channel_uuid);
-                  size_t newer = newer_pcm_bytes(ctx->recv->data, ctx->recv->len, total_len);
-                  size_t keep = FWDSP_PCM_BACKLOG_BYTES - newer;
-
-                  if (keep > frame_len) {
-                     keep = frame_len;
-                  }
-
-                  if (keep) {
-                     output_cb(name, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE + frame_len - keep, keep, output_data);
-                  }
+               if (keep > frame_len) {
+                  keep = frame_len;
                }
-               g_byte_array_remove_range(ctx->recv, 0, total_len);
-               continue;
-            }
 
-            if (ctx->sp->role == FWDSP_ROLE_PROCESSOR) {
-               struct fwdsp_subproc *sp = ctx->sp;
-
-               if (is_header) {
-                  Log(LOG_WARN, "fwdsp", "Ignoring codec header from PCM processor %s", sp->processor_name);
-               } else if ((frame_len & 1U) != 0) {
-                  Log(LOG_WARN, "fwdsp", "Discarding odd-byte PCM output from processor %s", sp->processor_name);
-               } else if (sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK) {
-                  Log(LOG_WARN, "fwdsp", "Discarding unexpected PCM output from playback endpoint %s", sp->processor_name);
-               } else if (sp->processor_output) {
-                  // The callback may stop this processor, clearing its slot.
-                  // Copy the name and callback state before entering user code.
-                  char name[sizeof(sp->processor_name)];
-                  snprintf(name, sizeof(name), "%s", sp->processor_name);
-                  fwdsp_processor_output_cb output_cb = sp->processor_output;
-                  void *output_data = sp->processor_output_data;
-                  output_cb(name, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, output_data);
+               if (keep) {
+                  output_cb(name, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE + frame_len - keep, keep, output_data);
                }
-               g_byte_array_remove_range(ctx->recv, 0, total_len);
-               continue;
             }
+            g_byte_array_remove_range(ctx->recv, 0, total_len);
+            continue;
+         }
 
-            if (ctx->sp->is_video) {
-               struct fwdsp_subproc *sp = ctx->sp;
+         if (ctx->sp->role == FWDSP_ROLE_PROCESSOR) {
+            struct fwdsp_subproc *sp = ctx->sp;
 
-               if (sp->refcount > 0) {
-                  if (sp->processor_output) {
-                     sp->processor_output(sp->channel_uuid, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, sp->processor_output_data);
-                  } else if (frame_len <= RR_BINFRAME_MAX_PAYLOAD) {
-                     char event[32];
-                     snprintf(event, sizeof(event), "fwdsp.frame.%.4s", sp->pl_id);
-                     event_emit_binary(event, NULL, ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len);
-                  }
+            if (is_header) {
+               Log(LOG_WARN, "fwdsp", "Ignoring codec header from PCM processor %s", sp->processor_name);
+            } else if ((frame_len & 1U) != 0) {
+               Log(LOG_WARN, "fwdsp", "Discarding odd-byte PCM output from processor %s", sp->processor_name);
+            } else if (sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK) {
+               Log(LOG_WARN, "fwdsp", "Discarding unexpected PCM output from playback endpoint %s", sp->processor_name);
+            } else if (sp->processor_output) {
+               // The callback may stop this processor, clearing its slot.
+               // Copy the name and callback state before entering user code.
+               char name[sizeof(sp->processor_name)];
+               snprintf(name, sizeof(name), "%s", sp->processor_name);
+               fwdsp_processor_output_cb output_cb = sp->processor_output;
+               void *output_data = sp->processor_output_data;
+               output_cb(name, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, output_data);
+            }
+            g_byte_array_remove_range(ctx->recv, 0, total_len);
+            continue;
+         }
+
+         if (ctx->sp->is_video) {
+            struct fwdsp_subproc *sp = ctx->sp;
+
+            if (sp->refcount > 0) {
+               if (sp->processor_output) {
+                  sp->processor_output(sp->channel_uuid, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, sp->processor_output_data);
+               } else if (frame_len <= RR_BINFRAME_MAX_PAYLOAD) {
+                  char event[32];
+                  snprintf(event, sizeof(event), "fwdsp.frame.%.4s", sp->pl_id);
+                  event_emit_binary(event, NULL, ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len);
                }
-               g_byte_array_remove_range(ctx->recv, 0, total_len);
-               continue;
+            }
+            g_byte_array_remove_range(ctx->recv, 0, total_len);
+            continue;
+         }
+
+         if (is_header) {
+            struct fwdsp_subproc *sp = ctx->sp;
+
+            // Bound retained codec setup data, independent of media payload size.
+            if (total_len <= 256 * 1024 - sp->stream_headers_len) {
+               uint8_t *headers = realloc(sp->stream_headers, sp->stream_headers_len + total_len);
+
+               if (headers) {
+                  sp->stream_headers = headers;
+                  frame_length_encode(headers + sp->stream_headers_len, frame_len);
+                  memcpy(headers + sp->stream_headers_len + 4, ctx->recv->data + 4, frame_len);
+                  sp->stream_headers_len += total_len;
+               }
+            } else {
+               Log(LOG_WARN, "fwdsp", "Codec initialization data exceeds cache limit");
+            }
+         }
+
+         struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
+            media_chan_find_uuid(ctx->sp->channel_uuid) :
+            media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
+
+         if (channel && ctx->sp->refcount > 0 && strncmp(channel->codec, ctx->sp->pl_id, 4) == 0) {
+            if (ctx->sp->replay_headers) {
+               fwdsp_replay_stream_headers(ctx->sp, channel, NULL);
+               ctx->sp->replay_headers = false;
             }
 
             if (is_header) {
-               struct fwdsp_subproc *sp = ctx->sp;
-
-               // Bound retained codec setup data, independent of media payload size.
-               if (total_len <= 256 * 1024 - sp->stream_headers_len) {
-                  uint8_t *headers = realloc(sp->stream_headers, sp->stream_headers_len + total_len);
-
-                  if (headers) {
-                     sp->stream_headers = headers;
-                     frame_length_encode(headers + sp->stream_headers_len, frame_len);
-                     memcpy(headers + sp->stream_headers_len + 4, ctx->recv->data + 4, frame_len);
-                     sp->stream_headers_len += total_len;
-                  }
-               } else {
-                  Log(LOG_WARN, "fwdsp", "Codec initialization data exceeds cache limit");
-               }
+               ws_media_send_setup_frame(channel, NULL, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
+            } else {
+               ws_media_broadcast_subscribed(channel, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
             }
-
-            struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
-               media_chan_find_uuid(ctx->sp->channel_uuid) :
-               media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
-
-            if (channel && ctx->sp->refcount > 0 && strncmp(channel->codec, ctx->sp->pl_id, 4) == 0) {
-               if (ctx->sp->replay_headers) {
-                  fwdsp_replay_stream_headers(ctx->sp, channel, NULL);
-                  ctx->sp->replay_headers = false;
-               }
-
-               if (is_header) {
-                  ws_media_send_setup_frame(channel, NULL, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
-               } else {
-                  ws_media_broadcast_subscribed(channel, (const uint8_t *)ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
-               }
-            } else if (!channel && ctx->sp->channel_uuid[0] != '\0' && ctx->sp->refcount > 0) {
-               /* A pipeline can produce packets briefly while its media channel is being replaced or unsubscribed.  Do not emit a warning for every packet in
-                * that transient state.  Idle encoders are intentionally retained for hangtime and may still drain a final buffer after their channel is gone.
-                */
-               if (ctx->sp->last_no_channel_warn == 0 || now < ctx->sp->last_no_channel_warn || now - ctx->sp->last_no_channel_warn >= 5) {
-                  // Encoders intentionally linger for fwdsp:hangtime after
-                  // their last subscriber leaves. Packets produced while
-                  // that channel is being unsubscribed have no destination,
-                  // but are harmless and should not look like a client error.
-                  Log(LOG_DEBUG, "fwdsp", "No media channel for %s.%s output", ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
-                  ctx->sp->last_no_channel_warn = now;
-               }
+         } else if (!channel && ctx->sp->channel_uuid[0] != '\0' && ctx->sp->refcount > 0) {
+            /* A pipeline can produce packets briefly while its media channel is being replaced or unsubscribed.  Do not emit a warning for every packet in that
+             * transient state.  Idle encoders are intentionally retained for hangtime and may still drain a final buffer after their channel is gone.
+             */
+            if (ctx->sp->last_no_channel_warn == 0 || now < ctx->sp->last_no_channel_warn || now - ctx->sp->last_no_channel_warn >= 5) {
+               // Encoders intentionally linger for fwdsp:hangtime after
+               // their last subscriber leaves. Packets produced while
+               // that channel is being unsubscribed have no destination,
+               // but are harmless and should not look like a client error.
+               Log(LOG_DEBUG, "fwdsp", "No media channel for %s.%s output", ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+               ctx->sp->last_no_channel_warn = now;
             }
-
-            g_byte_array_remove_range(ctx->recv, 0, total_len);
          }
+
+         g_byte_array_remove_range(ctx->recv, 0, total_len);
       }
+   }
 
 }
-/* Detachment during a media callback cannot free the reader until the
- * current dispatch unwinds. The watch owns neither fd nor buffer. */
+
+/* Detachment during a media callback cannot free the reader until the current dispatch unwinds. The watch owns neither fd nor buffer. */
 static void fwdsp_reader_release(struct fwdsp_io_conn *ctx) {
-   if (!ctx) return;
-   if (ctx->watch) { rr_reactor_watch_cancel(ctx->watch); ctx->watch = NULL; }
-   if (ctx->processing) { ctx->detached = true; return; }
-   if (ctx->fd >= 0) close(ctx->fd);
-   if (ctx->recv) g_byte_array_unref(ctx->recv);
+   if (!ctx) {
+      return;
+   }
+
+   if (ctx->watch) {
+      rr_reactor_watch_cancel(ctx->watch);
+      ctx->watch = NULL;
+   }
+
+   if (ctx->processing) {
+      ctx->detached = true;
+
+      return;
+   }
+
+   if (ctx->fd >= 0) {
+      close(ctx->fd);
+   }
+
+   if (ctx->recv) {
+      g_byte_array_unref(ctx->recv);
+   }
    free(ctx);
 }
 static void fwdsp_reader_detach(struct fwdsp_io_conn *ctx) {
-   if (!ctx) return;
+   if (!ctx) {
+      return;
+   }
    struct fwdsp_subproc *sp = ctx->sp;
+
    if (sp) {
       if (ctx->is_stderr) {
-         if (sp->stderr_reader == ctx) sp->stderr_reader = NULL;
+         if (sp->stderr_reader == ctx) {
+            sp->stderr_reader = NULL;
+         }
          sp->fw_stderr = -1;
       } else {
-         if (sp->stdout_reader == ctx) sp->stdout_reader = NULL;
+         if (sp->stdout_reader == ctx) {
+            sp->stdout_reader = NULL;
+         }
          sp->fw_stdout = -1;
       }
    }
@@ -548,50 +590,76 @@ static bool fwdsp_fd_ready(int fd, GIOCondition events, void *arg) {
    ctx->processing = true;
    uint8_t buf[16384];
    ssize_t count = read(fd, buf, sizeof(buf));
+
    if (count > 0 && ctx->sp) {
-      g_byte_array_append(ctx->recv, buf, (guint)count);
+      g_byte_array_append(ctx->recv, buf, (guint) count);
       fwdsp_parse_read(ctx);
    }
    bool done = count == 0 || (count < 0 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK);
-   if (events & (G_IO_ERR | G_IO_NVAL)) done = true;
-   if ((events & G_IO_HUP) && count <= 0) done = true;
-   if (!ctx->sp || ctx->detached) done = true;
+
+   if (events & (G_IO_ERR | G_IO_NVAL)) {
+      done = true;
+   }
+
+   if ((events & G_IO_HUP) && count <= 0) {
+      done = true;
+   }
+
+   if (!ctx->sp || ctx->detached) {
+      done = true;
+   }
+
    if (done && ctx->sp) {
       if (ctx->is_stderr && ctx->recv->len) {
          char *line = g_strndup((const char *)ctx->recv->data, ctx->recv->len);
          Log(LOG_DEBUG, "fwdsp", "[stderr %s]", line);
          g_free(line);
       }
-      /* Do not cancel this watch in its own callback; returning false
-       * removes the source and its allocated watch object. */
+      /* Do not cancel this watch in its own callback; returning false removes the source and its allocated watch object. */
       ctx->watch = NULL;
       fwdsp_reader_detach(ctx);
    }
    ctx->processing = false;
+
    if (done || ctx->detached) {
-      if (ctx->fd >= 0) close(ctx->fd);
+      if (ctx->fd >= 0) {
+         close(ctx->fd);
+      }
       g_byte_array_unref(ctx->recv);
       free(ctx);
+
       return false;
    }
+
    return true;
 }
 static struct fwdsp_io_conn *fwdsp_reader_attach(struct fwdsp_subproc *sp, int fd, bool stderr_stream) {
-   if (fd < 0) return NULL;
+   if (fd < 0) {
+      return NULL;
+   }
    struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx));
-   if (!ctx) return NULL;
+
+   if (!ctx) {
+      return NULL;
+   }
    ctx->sp = sp;
    ctx->fd = fd;
    ctx->is_stderr = stderr_stream;
    ctx->recv = g_byte_array_new();
    int flags = fcntl(fd, F_GETFL, 0);
-   if (flags >= 0) fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+   if (flags >= 0) {
+      fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+   }
    ctx->watch = rr_reactor_watch_fd(NULL, fd, G_IO_IN, fwdsp_fd_ready, ctx);
+
    if (!ctx->watch) {
       g_byte_array_unref(ctx->recv);
       free(ctx);
+
       return NULL;
    }
+
    return ctx;
 }
 
@@ -1087,17 +1155,18 @@ bool fwdsp_processor_setvol(const char *name, int percent) {
    return fwdsp_send_control(sp, FWDSP_CTRL_SET_VOLUME, (uint8_t) percent);
 }
 
-/* A real-time client mixer may borrow a duplicate of the playback socket.
- * The manager remains the sole owner of the subprocess and registry. */
+/* A real-time client mixer may borrow a duplicate of the playback socket. The manager remains the sole owner of the subprocess and registry. */
 int fwdsp_processor_dup_input(const char *name) {
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "sink");
-   if (!sp || sp->role != FWDSP_ROLE_PROCESSOR || sp->fw_stdin < 0 || sp->destroying)
+
+   if (!sp || sp->role != FWDSP_ROLE_PROCESSOR || sp->fw_stdin < 0 || sp->destroying) {
       return -1;
+   }
+
    return dup(sp->fw_stdin);
 }
 
-/* Stateless framed writer for a caller-owned duplicated descriptor.
- * Never touches the manager registry or GStreamer state. */
+/* Stateless framed writer for a caller-owned duplicated descriptor. Never touches the manager registry or GStreamer state. */
 bool fwdsp_pcm_write_fd(int fd, const void *pcm, size_t bytes) {
    return fd >= 0 && fwdsp_write_frame(fd, pcm, bytes);
 }
@@ -1128,9 +1197,15 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    // be reached from expiry, SIGCHLD handling, codec switching and shutdown;
    // a late callback must never free the same slot-owned buffers twice.
    sp->destroying = true;
+
    /* Tear down reactor watches before the process slot is recycled. */
-   if (sp->stdout_reader) fwdsp_reader_detach(sp->stdout_reader);
-   if (sp->stderr_reader) fwdsp_reader_detach(sp->stderr_reader);
+   if (sp->stdout_reader) {
+      fwdsp_reader_detach(sp->stdout_reader);
+   }
+
+   if (sp->stderr_reader) {
+      fwdsp_reader_detach(sp->stderr_reader);
+   }
 
    // Reap only our worker; other components own their own children.
    if (sp->process.pid > 0) {
@@ -1174,7 +1249,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!sp) {
       return false;
    }
-   if (!fwdsp_spawn_permitted(sp)) return false;
+
+   if (!fwdsp_spawn_permitted(sp)) {
+      return false;
+   }
 
    int in_pipe[2] = {
       -1, -1
@@ -1287,7 +1365,6 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       free(fwdsp_path);
       goto failed;
    }
-
    // cfg_get_exp() returns a malloc'd string we own
    free((char *)fwdsp_path);
    fwdsp_path = NULL;
@@ -1311,9 +1388,11 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
       sp->stdout_reader = fwdsp_reader_attach(sp, sp->fw_stdout, false);
       sp->stderr_reader = fwdsp_reader_attach(sp, sp->fw_stderr, true);
+
       if (!sp->stdout_reader || !sp->stderr_reader) {
          Log(LOG_CRIT, "fwdsp", "Failed to attach subprocess pipes to GLib reactor");
          fwdsp_destroy(sp);
+
          return false;
       }
 
@@ -1407,13 +1486,11 @@ bool fwdsp_write_audio_samples(const char codec[5], const char *channel_uuid, co
    if (fwdsp_write_frame_flags(sp->fw_stdin, data, len, discontinuity ? FWDSP_FRAME_DISCONT : 0)) {
       return true;
    }
-   /* A partial framed write cannot be skipped; retire the damaged IPC stream.
-    * Log the OS failure *before* the reusable slot is cleared. This is the
-    * primary clue for distinguishing a crashed pipeline from backpressure. */
+   /* A partial framed write cannot be skipped; retire the damaged IPC stream. Log the OS failure *before* the reusable slot is cleared. This is the primary
+    * clue for distinguishing a crashed pipeline from backpressure. */
    int saved_errno = errno;
-   Log(LOG_WARN, "fwdsp", "Decoder %s.rx identity=%s pid=%ld: failed writing %zu encoded bytes (%s); retiring IPC stream",
-      codec, channel_uuid ? channel_uuid : "(default)", (long)sp->process.pid,
-      len, saved_errno ? strerror(saved_errno) : "unknown write failure");
+   Log(LOG_WARN, "fwdsp", "Decoder %s.rx identity=%s pid=%ld: failed writing %zu encoded bytes (%s); retiring IPC stream", codec, channel_uuid ? channel_uuid :
+      "(default)", (long)sp->process.pid, len, saved_errno ? strerror(saved_errno) : "unknown write failure");
    fwdsp_destroy(sp);
 
    return false;
@@ -1743,7 +1820,6 @@ int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
    if (chan_id < 0) {
       return -1;
    }
-
    // A channel can switch back before the subscriber sweep has paused its
    // old encoder. Its new decoder still needs the cached initialization data.
    struct fwdsp_subproc *replacement = channel_uuid && *channel_uuid ?

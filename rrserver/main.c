@@ -155,16 +155,18 @@ void restart_rig(void) {
    exit(EXIT_FAILURE);
 }
 
-/* GLib owns application timers; transport drivers may use their own
- * poller while migration is underway. All callbacks run on the main thread. */
+/* GLib owns application timers; transport drivers may use their own poller while migration is underway. All callbacks run on the main thread. */
 static gboolean rr_timer_clock_cb(gpointer data) {
    timer_clock_tick_fn(data);
+
    return G_SOURCE_CONTINUE;
 }
 static gboolean rr_timer_profile_cb(gpointer data) {
    timer_profile_dump_fn(data);
+
    return G_SOURCE_CONTINUE;
 }
+
 static gboolean rr_timer_faults_cb(gpointer data);
 static gboolean rr_timer_backend_cb(gpointer data);
 static gboolean rr_timer_tick_cb(gpointer data);
@@ -198,81 +200,125 @@ static void timer_tick_fn(void *arg) {
 
 static gboolean rr_timer_faults_cb(gpointer data) {
    timer_check_faults_fn(data);
+
    return G_SOURCE_CONTINUE;
 }
 static gboolean rr_timer_backend_cb(gpointer data) {
    timer_backend_poll_fn(data);
+
    return G_SOURCE_CONTINUE;
 }
 static gboolean rr_timer_tick_cb(gpointer data) {
    timer_tick_fn(data);
+
    return G_SOURCE_CONTINUE;
 }
 
 static bool mesh_token_b64(const char *value, gsize expected) {
-   if (!value || strlen(value) != ((expected + 2) / 3) * 4) return false;
-   for (const unsigned char *p = (const unsigned char *)value; *p; ++p)
-      if (!(g_ascii_isalnum(*p) || *p == '+' || *p == '/' || *p == '=')) return false;
+   if (!value || strlen(value) != ((expected + 2) / 3) * 4) {
+      return false;
+   }
+
+   for (const unsigned char *p = (const unsigned char *)value ; *p ; ++p) {
+      if (!(g_ascii_isalnum(*p) || *p == '+' || *p == '/' || *p == '=')) {
+         return false;
+      }
+   }
+
    gsize len = 0;
    guchar *raw = g_base64_decode(value, &len);
    char *canonical = raw ? g_base64_encode(raw, len) : NULL;
    bool ok = raw && len == expected && canonical && !strcmp(value, canonical);
    g_free(canonical);
-   if (raw) { memset(raw, 0, len); g_free(raw); }
+
+   if (raw) {
+      memset(raw, 0, len);
+      g_free(raw);
+   }
+
    return ok;
 }
 
 /* Validate every token field before using any issuer-provided network data. */
 static bool mesh_invitation_valid(char *token) {
-   char *fields[9] = {0};
+   char *fields[9] = {
+      0
+   };
    size_t n = 0;
    char *cursor = token;
    while (n < 9 && cursor && *cursor) {
       fields[n++] = cursor;
       char *end = strchr(cursor, '\n');
-      if (!end) break;
+
+      if (!end) {
+         break;
+      }
       *end = 0;
       cursor = end + 1;
    }
+
    if (n != 8 || !cursor || *cursor ||
-       strcmp(fields[0], "RUSTYRIG-JOIN-2") ||
-       !g_uuid_string_is_valid(fields[1]) ||
-       !g_uuid_string_is_valid(fields[3]) ||
-       !fields[2][0] || strlen(fields[2]) > 253 ||
-       !g_str_has_prefix(fields[4], "wss://") ||
-       !g_str_has_suffix(fields[4], "/link") ||
-       strlen(fields[4]) > 255 ||
-       !mesh_token_b64(fields[5], 32) ||
-       !mesh_token_b64(fields[6], 32))
+      strcmp(fields[0], "RUSTYRIG-JOIN-2") ||
+      !g_uuid_string_is_valid(fields[1]) ||
+      !g_uuid_string_is_valid(fields[3]) ||
+      !fields[2][0] || strlen(fields[2]) > 253 ||
+      !g_str_has_prefix(fields[4], "wss://") ||
+      !g_str_has_suffix(fields[4], "/link") || strlen(fields[4]) > 255 || !mesh_token_b64(fields[5], 32) || !mesh_token_b64(fields[6], 32)) {
       return false;
-   for (const unsigned char *p = (const unsigned char *)fields[2]; *p; ++p)
-      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) return false;
-   for (const unsigned char *p = (const unsigned char *)fields[4]; *p; ++p)
-      if (*p < 33 || *p > 126 || *p == '@' || *p == '#' || *p == '?') return false;
+   }
+
+   for (const unsigned char *p = (const unsigned char *)fields[2] ; *p ; ++p) {
+      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) {
+         return false;
+      }
+   }
+
+   for (const unsigned char *p = (const unsigned char *)fields[4] ; *p ; ++p) {
+      if (*p < 33 || *p > 126 || *p == '@' || *p == '#' || *p == '?') {
+         return false;
+      }
+   }
+
    /* Private key field is a PEM encoded as canonical base64. */
    size_t pem64_len = strlen(fields[7]);
-   if (!pem64_len || pem64_len > 8192 || pem64_len % 4) return false;
-   for (const unsigned char *p = (const unsigned char *)fields[7]; *p; ++p)
-      if (!(g_ascii_isalnum(*p) || *p == '+' || *p == '/' || *p == '=')) return false;
+
+   if (!pem64_len || pem64_len > 8192 || pem64_len % 4) {
+      return false;
+   }
+
+   for (const unsigned char *p = (const unsigned char *)fields[7] ; *p ; ++p) {
+      if (!(g_ascii_isalnum(*p) || *p == '+' || *p == '/' || *p == '=')) {
+         return false;
+      }
+   }
+
    gsize pem_len = 0;
    guchar *pem = g_base64_decode(fields[7], &pem_len);
    char *canonical = pem ? g_base64_encode(pem, pem_len) : NULL;
    bool valid = pem && pem_len > 32 && pem_len < 6144 &&
       canonical && !strcmp(canonical, fields[7]) &&
       pem_len >= strlen("-----BEGIN PRIVATE KEY-----") &&
-      !memcmp(pem, "-----BEGIN PRIVATE KEY-----", strlen("-----BEGIN PRIVATE KEY-----")) &&
-      !memchr(pem, 0, pem_len);
+      !memcmp(pem, "-----BEGIN PRIVATE KEY-----", strlen("-----BEGIN PRIVATE KEY-----")) && !memchr(pem, 0, pem_len);
+
    if (valid) {
       FILE *stream = fmemopen(pem, pem_len, "r");
       rr_crypto_key_t *key = stream ? rr_crypto_key_read_pem(stream) : NULL;
-      if (stream) fclose(stream);
+
+      if (stream) {
+         fclose(stream);
+      }
       uint8_t public_key[32];
       valid = key && rr_crypto_ed25519_public_bytes(key, public_key);
       rr_crypto_key_free(key);
       memset(public_key, 0, sizeof(public_key));
    }
    g_free(canonical);
-   if (pem) { memset(pem, 0, pem_len); g_free(pem); }
+
+   if (pem) {
+      memset(pem, 0, pem_len);
+      g_free(pem);
+   }
+
    return valid;
 }
 
@@ -280,31 +326,40 @@ static bool mesh_invitation_valid(char *token) {
 static bool mesh_join_print_identity(void) {
 #ifdef USE_SQLITE
    const char *db_path = cfg_get("path.db.master");
-   if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
+
+   if (!db_path || !*db_path) {
+      db_path = "/var/lib/rustyrig/db/master.db";
+   }
    sqlite3 *db = db_open(db_path);
+
    if (!db) {
       fprintf(stderr, "Mesh enrollment: unable to open master database at %s.\n", db_path);
+
       return false;
    }
    char *uuid = db_rig_uuid_get_or_create(db, "@server", "@node");
    sqlite3_close(db);
+
    if (!uuid || !g_uuid_string_is_valid(uuid)) {
       fprintf(stderr, "Mesh enrollment: unable to obtain persistent server UUID.\n");
       free(uuid);
+
       return false;
    }
-   fprintf(stderr,
-      "\nRustyRig mesh enrollment\n"
+   fprintf(stderr, "\nRustyRig mesh enrollment\n"
       "Your server UUID: %s\n\n"
       "Send this UUID to an administrator of the existing mesh.\n"
       "On an enrolled server, the administrator should run:\n"
       "  /link invite %s\n\n"
       "Ask them to send you the resulting private invitation token securely.\n"
-      "Do not send them your server's private keys.\n\n", uuid, uuid);
+      "\n\nYou may press ctrl-C to exit if you need to wait for the response token from admin.\n"
+      "Response tokens are good for 72 hours by default\n" "Do not send them your server's private keys.\n\n", uuid, uuid);
    free(uuid);
+
    return true;
 #else
    fprintf(stderr, "Mesh enrollment requires SQLite support.\n");
+
    return false;
 #endif
 }
@@ -318,13 +373,19 @@ static int mesh_join_prepare(const char *path) {
    struct termios saved, hidden;
    bool terminal_restored_needed = false;
    int rc = EXIT_FAILURE;
-   if (!mesh_join_print_identity()) return rc;
+
+   if (!mesh_join_print_identity()) {
+      return rc;
+   }
+
    if (interactive) {
       if (!isatty(STDIN_FILENO)) {
          fprintf(stderr, "Mesh enrollment requires an interactive terminal or token file.\n");
+
          return rc;
       }
       in = stdin;
+
       if (tcgetattr(STDIN_FILENO, &saved) == 0) {
          hidden = saved;
          hidden.c_lflag &= ~(ECHO | ICANON);
@@ -332,39 +393,57 @@ static int mesh_join_prepare(const char *path) {
          hidden.c_cc[VTIME] = 0;
          terminal_restored_needed = tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden) == 0;
       }
+
       if (!terminal_restored_needed) {
          fprintf(stderr, "Cannot disable terminal echo; refusing to read secret.\n");
+
          return rc;
       }
       fprintf(stderr, "Paste base64 mesh invitation token, then press Enter (visible on screen): ");
       fflush(stderr);
    } else {
       in = fopen(path, "rb");
+
       if (!in) {
          fprintf(stderr, "Cannot open invitation file: %s\n", strerror(errno));
+
          return rc;
       }
    }
    /* Bounded input; invite private key is small. No arbitrary-size reads. */
    cap = 16385;
    encoded = calloc(1, cap);
-   if (!encoded) goto done;
+
+   if (!encoded) {
+      goto done;
+   }
    int ch;
+
    if (interactive) {
-      /* Read beyond the canonical TTY line limit; echo explicitly so the operator
-       * can see the paste without terminal-generated control characters. */
+      /* Read beyond the canonical TTY line limit; echo explicitly so the operator can see the paste without terminal-generated control characters. */
       while (true) {
          unsigned char byte;
          ssize_t n = read(STDIN_FILENO, &byte, 1);
-         if (n < 0 && errno == EINTR) continue;
+
+         if (n < 0 && errno == EINTR) {
+            continue;
+         }
+
          if (n != 1) {
             fprintf(stderr, "\nUnable to read invitation from terminal.\n");
             goto done;
          }
-         if (byte == '\r' || byte == '\n') break;
-         if (byte < 32 || byte == 127) {
-            if (byte != 127 && byte != 8) continue;
+
+         if (byte == '\r' || byte == '\n') {
+            break;
          }
+
+         if (byte < 32 || byte == 127) {
+            if (byte != 127 && byte != 8) {
+               continue;
+            }
+         }
+
          if (byte == 127 || byte == 8) {
             if (len) {
                --len;
@@ -372,6 +451,7 @@ static int mesh_join_prepare(const char *path) {
             }
             continue;
          }
+
          if (len >= 16384) {
             fprintf(stderr, "\nInvitation exceeds maximum length.\n");
             goto done;
@@ -389,20 +469,23 @@ static int mesh_join_prepare(const char *path) {
          encoded[len++] = (char)ch;
       }
    }
+
    if (!len) {
       fprintf(stderr, "\nEmpty invitation.\n");
       goto done;
    }
+
    /* Accept line-wrapped base64 but reject arbitrary punctuation. */
-   for (size_t i = 0; i < len; i++)
-      if (!(g_ascii_isalnum(encoded[i]) || encoded[i] == '+' ||
-            encoded[i] == '/' || encoded[i] == '=' ||
-            encoded[i] == '\n' || encoded[i] == '\r')) {
+   for (size_t i = 0 ; i < len ; i++) {
+      if (!(g_ascii_isalnum(encoded[i]) || encoded[i] == '+' || encoded[i] == '/' || encoded[i] == '=' || encoded[i] == '\n' || encoded[i] == '\r')) {
          fprintf(stderr, "\nInvalid base64 invitation.\n");
          goto done;
       }
+   }
+
    gsize decoded_len = 0;
    guchar *raw = g_base64_decode(encoded, &decoded_len);
+
    if (!raw || decoded_len > 12000 || decoded_len < 20) {
       fprintf(stderr, "\nInvalid invitation encoding.\n");
       g_free(raw);
@@ -413,14 +496,17 @@ static int mesh_join_prepare(const char *path) {
    memcpy(token, raw, decoded_len);
    token[decoded_len] = 0;
    bool valid = !memchr(raw, 0, decoded_len) && mesh_invitation_valid(token);
-   if (!valid)
+
+   if (!valid) {
       fprintf(stderr, "\nMalformed or unsupported mesh invitation.\n");
-   else {
+   } else {
       char *parts[8], *next = token;
-      for (size_t i = 0; i < 8; ++i) {
+
+      for (size_t i = 0 ; i < 8 ; ++i) {
          parts[i] = next;
          next += strlen(next) + 1;
       }
+
       rc = rr_mesh_enroll_run(parts) ? EXIT_SUCCESS : EXIT_FAILURE;
    }
    memset(token, 0, decoded_len + 1);
@@ -428,15 +514,21 @@ static int mesh_join_prepare(const char *path) {
    memset(raw, 0, decoded_len);
    g_free(raw);
 done:
+
    if (terminal_restored_needed) {
       tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved);
       fputc('\n', stderr);
    }
+
    if (encoded) {
       memset(encoded, 0, cap);
       free(encoded);
    }
-   if (!interactive) fclose(in);
+
+   if (!interactive) {
+      fclose(in);
+   }
+
    return rc;
 }
 
@@ -522,9 +614,8 @@ int main(int argc, char **argv) {
 
       for (size_t j = 0 ; maintenance_options[j].name ; ++j) {
          if (!strncmp(argv[i] + 2, maintenance_options[j].name, strlen(maintenance_options[j].name)) &&
-              (argv[i][2 + strlen(maintenance_options[j].name)] == 0 ||
-               (!strcmp(maintenance_options[j].name, "mesh-join") &&
-                argv[i][2 + strlen(maintenance_options[j].name)] == '='))) {
+            (argv[i][2 + strlen(maintenance_options[j].name)] == 0 ||
+            (!strcmp(maintenance_options[j].name, "mesh-join") && argv[i][2 + strlen(maintenance_options[j].name)] == '='))) {
             exact = true;
             break;
          }
@@ -540,14 +631,16 @@ int main(int argc, char **argv) {
    int opt;
    while ((opt = getopt_long(argc, argv, "f:hr:", maintenance_options, NULL)) != -1) {
       switch (opt) {
-         case 1008:
+         case 1008: {
             if (mesh_join || maintenance != RR_MAINT_NONE) {
                fprintf(stderr, "Specify only one one-shot operation.\n");
+
                return EXIT_FAILURE;
             }
             mesh_join = true;
             mesh_join_path = optarg;
             break;
+         }
          case 1001:
          case 1002:
          case 1003:
@@ -600,9 +693,11 @@ int main(int argc, char **argv) {
          }
       }
    }
+
    if (mesh_join && optind < argc) {
       if (mesh_join_path || optind + 1 != argc) {
          fprintf(stderr, "Specify at most one invitation file.\n");
+
          return EXIT_FAILURE;
       }
       mesh_join_path = argv[optind];
@@ -635,7 +730,9 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-   if (mesh_join) return mesh_join_prepare(mesh_join_path);
+   if (mesh_join) {
+      return mesh_join_prepare(mesh_join_path);
+   }
 
    const char *module_dir = cfg_get("path.modules");
    struct stat module_stat;
@@ -715,10 +812,11 @@ int main(int argc, char **argv) {
    free((void *)masterdb_path);
    audit_init();                // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
-   /* Authentication belongs to the protocol, not the HTTP listener backend.
-    * Native-only servers must load users before accepting any WS sessions. */
+
+   /* Authentication belongs to the protocol, not the HTTP listener backend. Native-only servers must load users before accepting any WS sessions. */
    if (http_reload_users() < 0) {
       Log(LOG_CRIT, "auth", "Unable to initialize user accounts");
+
       return EXIT_FAILURE;
    }
    hostlog_init();              // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)
@@ -831,12 +929,11 @@ int main(int argc, char **argv) {
       Log(LOG_WARN, "callsign", "Callsign lookup helper was not ready at radio initialization; lookups will retry on demand");
    }
 
-   /* Load optional receiver directory cache only after configuration, database,
-    * hardware, rigs and media have initialized successfully. Keep it ready
-    * before opening the TLS listener for client requests. */
-   if (!rrserver_receiver_directory_init())
-      Log(LOG_WARN, "receiver.directory",
-          "Server receiver directory unavailable; local SDR control continues");
+   /* Load optional receiver directory cache only after configuration, database, hardware, rigs and media have initialized successfully. Keep it ready before
+    * opening the TLS listener for client requests. */
+   if (!rrserver_receiver_directory_init()) {
+      Log(LOG_WARN, "receiver.directory", "Server receiver directory unavailable; local SDR control continues");
+   }
 
    // Network connectivity
    show_network_info();
@@ -849,6 +946,7 @@ int main(int argc, char **argv) {
    mg_log_set(MG_LL_ERROR);
    mg_mgr_init(&mg_mgr);
 #endif
+
    if (!rrserver_links_init()) {
       Log(LOG_CRIT, "link", "Unable to initialize server links");
 #ifdef USE_MONGOOSE
@@ -856,8 +954,10 @@ int main(int argc, char **argv) {
 #endif
       rrserver_links_fini();
       rrserver_relay_fini();
+
       return 1;
    }
+
    if (!rr_mesh_native_listener_start()) {
       Log(LOG_CRIT, "mesh.native", "TLS listener initialization failed");
 #ifdef USE_MONGOOSE
@@ -865,11 +965,17 @@ int main(int argc, char **argv) {
 #endif
       rrserver_links_fini();
       rrserver_relay_fini();
+
       return 1;
    }
-   if (fwdsp_ready) webcam_init();
-   if (fwdsp_ready && !rrserver_media_audio_init())
+
+   if (fwdsp_ready) {
+      webcam_init();
+   }
+
+   if (fwdsp_ready && !rrserver_media_audio_init()) {
       Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
+   }
    /* Application timers are transport independent. */
    g_timeout_add(1000, rr_timer_clock_cb, NULL);
    g_timeout_add(300000, rr_timer_profile_cb, NULL);

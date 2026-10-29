@@ -1199,8 +1199,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          target = rrserver_rig_for_room(uuid);
       }
       const char *rig_id = target ? rr_server_rig_id(target) : uuid;
-      /* Echo the original room/UUID target in replies so the client can
-       * correlate the acknowledgment with the switch it actually operated. */
+      /* Echo the original room/UUID target in replies so the client can correlate the acknowledgment with the switch it actually operated. */
       const char *reply_target = uuid;
 
       if (!permitted || !target) {
@@ -1297,43 +1296,48 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
 
-   /* Key enrollment must be deliberate; never auto-trust a key presented
-    * during login. This command is only available to TLS-connected admins. */
+   /* Key enrollment must be deliberate; never auto-trust a key presented during login. This command is only available to TLS-connected admins. */
    if (!strcmp(action, "key-add") || !strcmp(action, "key-revoke")) {
-      if (!client->native_transport ||
-          !(rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
+      if (!client->native_transport || !(rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
          ws_send_error(client, "Client key management requires a TLS admin connection");
       } else {
-         char username[128] = {0}, key_id[97] = {0}, pubkey[65] = {0}, trailing[2] = {0};
-         int parsed = sscanf(admin_data, "%127s %96s %64s %1s",
-                             username, key_id, pubkey, trailing);
+         char username[128] = {
+            0
+         }, key_id[97] = {
+            0
+         }, pubkey[65] = {
+            0
+         }, trailing[2] = {
+            0
+         };
+         int parsed = sscanf(admin_data, "%127s %96s %64s %1s", username, key_id, pubkey, trailing);
          bool add = !strcmp(action, "key-add");
          bool valid = add ? parsed == 3 : parsed == 2;
+
          if (!valid) {
             ws_send_error(client, add ?
-               "Usage: /admin key-add <username> <key-id> <base64-ed25519-public-key>" :
-               "Usage: /admin key-revoke <username> <key-id>");
+               "Usage: /admin key-add <username> <key-id> <base64-ed25519-public-key>" : "Usage: /admin key-revoke <username> <key-id>");
          } else {
-            bool ok = add ?
-               db_user_key_add(masterdb, username, key_id, pubkey, "") :
-               db_user_key_revoke(masterdb, username, key_id);
+            bool ok = add ? db_user_key_add(masterdb, username, key_id, pubkey, "") : db_user_key_revoke(masterdb, username, key_id);
+
             if (!ok) {
                ws_send_error(client, "Client key update failed: invalid, duplicate, unknown or revoked key");
             } else {
                char *details = g_strdup_printf("user=%s key-id=%s", username, key_id);
+
                if (details) {
-                  db_add_audit_event(masterdb, client->chatname,
-                     add ? "client-key-enrolled" : "client-key-revoked", details);
+                  db_add_audit_event(masterdb, client->chatname, add ? "client-key-enrolled" : "client-key-revoked", details);
                   g_free(details);
                }
-               ws_send_notice(client, "Client key %s for user %s (id %s)",
-                              add ? "enrolled" : "revoked", username, key_id);
+               ws_send_notice(client, "Client key %s for user %s (id %s)", add ? "enrolled" : "revoked", username, key_id);
             }
          }
       }
       dict_free(request);
+
       return;
    }
+
    if (!strcmp(admin_data, "subjects")) {
       if (!admin_actor_has_priv(client, "owner")) {
          ws_send_error(client, "Only owners may enumerate grant subjects");

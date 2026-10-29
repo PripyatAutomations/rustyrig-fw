@@ -68,8 +68,7 @@ static void webcam_register_source(void) {
 // librrprotocol/cli.main.c - video source frame routing)
 static void webcam_push_frame(const uint8_t *data, size_t len) {
    if (!ws_conn || !ws_conn->native_transport ||
-      rr_transport_state(ws_conn->native_transport) != RR_TRANSPORT_OPEN ||
-      !ws_conn->authenticated || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
+      rr_transport_state(ws_conn->native_transport) != RR_TRANSPORT_OPEN || !ws_conn->authenticated || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
       return;
    }
    const char codec[4] = {
@@ -83,8 +82,9 @@ static void webcam_push_frame(const uint8_t *data, size_t len) {
    if (flen < 0) {
       return;
    }
+
    if (rr_transport_queued_bytes(ws_conn->native_transport) > 262144 ||
-       rr_transport_send_binary_message(ws_conn->native_transport, frame, (size_t)flen) != RR_TRANSPORT_OK) {
+      rr_transport_send_binary_message(ws_conn->native_transport, frame, (size_t)flen) != RR_TRANSPORT_OK) {
       /* Video is realtime: drop this frame instead of extending latency. */
       Log(LOG_DEBUG, "webcam", "Dropping video frame under transport pressure");
    }

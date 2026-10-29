@@ -214,19 +214,22 @@ static void load_candidates(struct direct_channel *channel, const char *list, co
 
    free(copy);
 }
-/* Refresh before the advertised lease expires; fall back to the legacy
- * 240-second interval when talking to older servers. Bound untrusted
- * values so malformed grants cannot suppress refresh indefinitely. */
+
+/* Refresh before the advertised lease expires; fall back to the legacy 240-second interval when talking to older servers. Bound untrusted values so malformed
+ * grants cannot suppress refresh indefinitely. */
 static uint64_t direct_renew_delay(dict *grant) {
    unsigned long lifetime = dict_get_ulong(grant, "media.direct-lease-seconds", 0);
+
    if (lifetime < 10 || lifetime > 86400) {
       return UINT64_C(240000000);
    }
    unsigned long margin = lifetime / 5;
+
    if (margin < 5) {
       margin = 5;
    }
-   return (uint64_t)(lifetime - margin) * UINT64_C(1000000);
+
+   return (uint64_t) (lifetime - margin) * UINT64_C(1000000);
 }
 static bool hex_key(const char *text, uint8_t *key) {
    if (strlen(text) != RR_RTP_KEY_LEN * 2) {
@@ -277,20 +280,20 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       uint8_t key[RR_RTP_KEY_LEN];
       unsigned long ssrc = dict_get_ulong(d, "media.direct-ssrc", 0);
       const char *endpoint = dict_get(d, "media.direct", "");
-      /* A periodic four-minute grant refresh is not a disconnect. Keep an
-       * already-active RTP attachment if the server renewed the same grant. */
+      /* A periodic four-minute grant refresh is not a disconnect. Keep an already-active RTP attachment if the server renewed the same grant. */
       bool unchanged_grant = channel->attachment &&
          rr_rtp_socket_active(channel->attachment, mono_us()) &&
          ssrc == channel->grant_ssrc &&
          encrypted == channel->grant_encrypted &&
          hex_key(dict_get(d, "media.direct-key", ""), key) &&
-         memcmp(key, channel->grant_key, sizeof(key)) == 0 &&
-         (!*endpoint || !strcmp(endpoint, channel->endpoint));
+         memcmp(key, channel->grant_key, sizeof(key)) == 0 && (!*endpoint || !strcmp(endpoint, channel->endpoint));
       load_candidates(channel, dict_get(d, "media.direct-candidates", ""), endpoint);
+
       if (unchanged_grant) {
          memset(key, 0, sizeof(key));
          channel->renew_at = mono_us() + direct_renew_delay(d);
          channel->connect_deadline = mono_us() + UINT64_C(5000000);
+
          return;
       }
       rr_rtp_socket_detach(channel->attachment);

@@ -19,7 +19,7 @@
 
 #define DIRECTORY_MAX_BODY (8 * 1024 * 1024)
 #define DIRECTORY_MAX_ROWS 10000
-#define DIRECTORY_INTERVAL (4 * 3600) /* Respect directory mirrors: four-hour minimum interval. */
+#define DIRECTORY_INTERVAL (4 * 3600)  /* Respect directory mirrors: four-hour minimum interval. */
 extern time_t now;
 static GPtrArray *receivers;
 static char *payload, *source, *etag, *modified;
@@ -68,9 +68,17 @@ static void receiver_free(gpointer value) {
 static char *field(dict *d, const char *key) {
    const char *text = dict_get(d, key, "");
    char *valid = g_utf8_make_valid(text ? text : "", -1);
-   if (g_utf8_strlen(valid, -1) > 512) *g_utf8_offset_to_pointer(valid, 512) = 0;
-   for (char *p = valid; *p; p++)
-      if ((unsigned char)*p < 32 || *p == 127) *p = ' ';
+
+   if (g_utf8_strlen(valid, -1) > 512) {
+      *g_utf8_offset_to_pointer(valid, 512) = 0;
+   }
+
+   for (char *p = valid ; *p ; p++) {
+      if ((unsigned char)*p < 32 || *p == 127) {
+         *p = ' ';
+      }
+   }
+
    return valid;
 }
 static char *receiver_properties(dict *d, const char *prefix) {
@@ -81,27 +89,67 @@ static char *receiver_properties(dict *d, const char *prefix) {
    dict_value_t v;
    val_type_t t;
    while ((at = dict_enumerate_typed(d, at, &key, &v, &t)) >= 0) {
-      if (strncmp(key, prefix, n) || key[n] != '.') continue;
+      if (strncmp(key, prefix, n) || key[n] != '.') {
+         continue;
+      }
       const char *name = key + n + 1;
+
       switch (t) {
-         case VAL_STR: dict_add(one, name, v.s); break;
-         case VAL_NULL: dict_add_null(one, name); break;
-         case VAL_BOOL: dict_add_bool(one, name, v.i != 0); break;
-         case VAL_INT: dict_add_int(one, name, v.i); break;
-         case VAL_UINT: dict_add_uint(one, name, v.ui); break;
-         case VAL_LONG: dict_add_long(one, name, v.l); break;
-         case VAL_ULONG: dict_add_ulong(one, name, v.ul); break;
-         case VAL_LLONG: dict_add_llong(one, name, v.ll); break;
-         case VAL_ULLONG: dict_add_ullong(one, name, v.ull); break;
-         case VAL_FLOAT: dict_add_float(one, name, v.f); break;
-         case VAL_DOUBLE: dict_add_double(one, name, v.d); break;
-         default: break;
+         case VAL_STR: {
+            dict_add(one, name, v.s);
+            break;
+         }
+         case VAL_NULL: {
+            dict_add_null(one, name);
+            break;
+         }
+         case VAL_BOOL: {
+            dict_add_bool(one, name, v.i != 0);
+            break;
+         }
+         case VAL_INT: {
+            dict_add_int(one, name, v.i);
+            break;
+         }
+         case VAL_UINT: {
+            dict_add_uint(one, name, v.ui);
+            break;
+         }
+         case VAL_LONG: {
+            dict_add_long(one, name, v.l);
+            break;
+         }
+         case VAL_ULONG: {
+            dict_add_ulong(one, name, v.ul);
+            break;
+         }
+         case VAL_LLONG: {
+            dict_add_llong(one, name, v.ll);
+            break;
+         }
+         case VAL_ULLONG: {
+            dict_add_ullong(one, name, v.ull);
+            break;
+         }
+         case VAL_FLOAT: {
+            dict_add_float(one, name, v.f);
+            break;
+         }
+         case VAL_DOUBLE: {
+            dict_add_double(one, name, v.d);
+            break;
+         }
+         default: {
+            break;
+         }
       }
    }
    char *json = dict2json(one);
    dict_free(one);
+
    return json ? json : g_strdup("{}");
 }
+
 /* Country is optional in Kiwi's directory. Only infer from distinctive whole country names or unambiguous comma-delimited country codes. Don't guess a country
  * from a city, US state or amateur grid square. */
 static char *country_from_text(const char *text) {
@@ -323,22 +371,38 @@ static long long integer(dict *d, const char *key, long long fallback) {
 }
 static bool flag(dict *d, const char *key) {
    val_type_t type = dict_get_type(d, key);
-   if (type == VAL_END || type == VAL_NULL) return false;
-   if (type == VAL_BOOL) return dict_get_bool(d, key, false);
+
+   if (type == VAL_END || type == VAL_NULL) {
+      return false;
+   }
+
+   if (type == VAL_BOOL) {
+      return dict_get_bool(d, key, false);
+   }
    const char *v = dict_get(d, key, NULL);
+
    return !v || (g_ascii_strcasecmp(v, "false") && g_ascii_strcasecmp(v, "no") && strcmp(v, "0"));
 }
 static void entry_key(char out[128], const char *prefix, const char *name) {
    g_snprintf(out, 128, "%s.%s", prefix, name);
 }
 static char *entry_field(dict *d, const char *prefix, const char *name) {
-   char key[128]; entry_key(key, prefix, name); return field(d, key);
+   char key[128];
+   entry_key(key, prefix, name);
+
+   return field(d, key);
 }
 static long long entry_integer(dict *d, const char *prefix, const char *name, long long fallback) {
-   char key[128]; entry_key(key, prefix, name); return integer(d, key, fallback);
+   char key[128];
+   entry_key(key, prefix, name);
+
+   return integer(d, key, fallback);
 }
 static bool entry_flag(dict *d, const char *prefix, const char *name) {
-   char key[128]; entry_key(key, prefix, name); return flag(d, key);
+   char key[128];
+   entry_key(key, prefix, name);
+
+   return flag(d, key);
 }
 static GUri *http_uri(const char *url) {
    if (!url || !*url || strlen(url) > 2048) {
@@ -402,23 +466,35 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
       return NULL;
    }
    const char *begin = data;
-   while (*begin && g_ascii_isspace(*begin)) begin++;
-   if (*begin != '{') return NULL;
+   while (*begin && g_ascii_isspace(*begin)) {
+      begin++;
+   }
+
+   if (*begin != '{') {
+      return NULL;
+   }
    dict *json = json2dict(data);
-   if (!json) return NULL;
-   if (integer(json, "schema", -1) != 1 ||
-       strcmp(dict_get(json, "provider", "kiwi"), "kiwi") ||
-       !strstr(data, "\"receivers\"")) {
+
+   if (!json) {
+      return NULL;
+   }
+
+   if (integer(json, "schema", -1) != 1 || strcmp(dict_get(json, "provider", "kiwi"), "kiwi") || !strstr(data, "\"receivers\"")) {
       dict_free(json);
+
       return NULL;
    }
    GPtrArray *list = g_ptr_array_new_with_free_func(receiver_free);
    size_t count = 0;
-   for (; count < DIRECTORY_MAX_ROWS; count++) {
+
+   for ( ; count < DIRECTORY_MAX_ROWS ; count++) {
       char prefix[64], urlkey[128];
       g_snprintf(prefix, sizeof(prefix), "receivers[%zu]", count);
       entry_key(urlkey, prefix, "url");
-      if (dict_get_type(json, urlkey) == VAL_END) break;
+
+      if (dict_get_type(json, urlkey) == VAL_END) {
+         break;
+      }
       receiver_directory_entry_t *r = g_new0(receiver_directory_entry_t, 1);
       r->driver = "kiwi";
       r->url = entry_field(json, prefix, "url");
@@ -467,16 +543,20 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
       r->description = description;
       g_ptr_array_add(list, r);
    }
+
    if (count == DIRECTORY_MAX_ROWS) {
       char extra[128];
       entry_key(extra, "receivers[10000]", "url");
+
       if (dict_get_type(json, extra) != VAL_END) {
          g_ptr_array_free(list, TRUE);
          dict_free(json);
+
          return NULL;
       }
    }
    dict_free(json);
+
    return list;
 }
 
@@ -619,11 +699,12 @@ static void reload_records(void) {
       , &statement, NULL) != SQLITE_OK) {
       return;
    }
-   /* Reuse one detail query for all rows rather than preparing a new SQL
-    * statement for every receiver during initial cache load. */
+   /* Reuse one detail query for all rows rather than preparing a new SQL statement for every receiver during initial cache load. */
    sqlite3_stmt *details = NULL;
-   if (sqlite3_prepare_v2(cache_db, "SELECT key,value,origin,updated_at FROM receiver_details WHERE url=?", -1, &details, NULL) != SQLITE_OK)
+
+   if (sqlite3_prepare_v2(cache_db, "SELECT key,value,origin,updated_at FROM receiver_details WHERE url=?", -1, &details, NULL) != SQLITE_OK) {
       details = NULL;
+   }
    GPtrArray *list = g_ptr_array_new_with_free_func(receiver_free);
    while (sqlite3_step(statement) == SQLITE_ROW) {
       const char *record = (const char *)sqlite3_column_text(statement, 0);
@@ -838,15 +919,15 @@ static void ensure(void) {
       etag = g_strdup((const char *)sqlite3_column_text(statement, 2));
       modified = g_strdup((const char *)sqlite3_column_text(statement, 3));
       next_request = sqlite3_column_int64(statement, 4);
-      /* receiver_records contains the normalized cached listing. Re-parsing
-       * the entire JSON here only to discard it in reload_records() doubles
-       * first-open work on the GTK thread. Fall back to JSON after querying
-       * the records, for older/partially populated cache files. */
+      /* receiver_records contains the normalized cached listing. Re-parsing the entire JSON here only to discard it in reload_records() doubles first-open work
+       * on the GTK thread. Fall back to JSON after querying the records, for older/partially populated cache files. */
    }
    sqlite3_finalize(statement);
    reload_records();
+
    if (!receivers->len && payload && *payload) {
       GPtrArray *fallback = parse(payload, strlen(payload));
+
       if (fallback) {
          g_ptr_array_free(receivers, TRUE);
          receivers = fallback;
@@ -856,12 +937,13 @@ static void ensure(void) {
          g_clear_pointer(&modified, g_free);
       }
    }
-   if (receivers->len)
+
+   if (receivers->len) {
       g_snprintf(status_text, sizeof(status_text), "Loaded %u locally cached receivers (no network request).", receivers->len);
+   }
    restore_states();
-   Log(LOG_INFO, "receiver.directory",
-      "Loaded %u locally cached receivers from %s in %.1f ms; no directory HTTP request made",
-      receivers->len, path, (g_get_monotonic_time() - loading_since) / 1000.0);
+   Log(LOG_INFO, "receiver.directory", "Loaded %u locally cached receivers from %s in %.1f ms; no directory HTTP request made", receivers->len, path, (
+      g_get_monotonic_time() - loading_since) / 1000.0);
    g_free(path);
    g_free(parent);
 }
@@ -1229,8 +1311,8 @@ static gboolean finish(gpointer unused) {
          modified = g_strdup(job->response_modified);
       }
       dict *published_json = payload ? json2dict(payload) : NULL;
-       char *published = published_json ? field(published_json, "fetched_at") : g_strdup("");
-       dict_free(published_json);
+      char *published = published_json ? field(published_json, "fetched_at") : g_strdup("");
+      dict_free(published_json);
       g_snprintf(status_text, sizeof(status_text), "%u receivers; directory published %s. Availability is a cached hint.", receivers->len, *published ?
          published : "at an unknown time");
       g_free(published);
@@ -1269,9 +1351,11 @@ bool receiver_directory_refresh_force(bool force) {
       return false;
    }
    rrclient_receiver_catalog_init();
+
    if (rrclient_receiver_catalog_request(force)) {
       g_snprintf(status_text, sizeof(status_text), "Loading SDR catalog from connected rrserver; local cache remains available.");
       changed();
+
       return true;
    }
    const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
@@ -1347,8 +1431,7 @@ bool receiver_directory_refresh_force(bool force) {
    job->body = g_string_new(NULL);
    job->delay = DIRECTORY_INTERVAL;
 
-   /* Shift+Refresh explicitly downloads the complete JSON again rather
-    * than performing a conditional HTTP validation against the mirror. */
+   /* Shift+Refresh explicitly downloads the complete JSON again rather than performing a conditional HTTP validation against the mirror. */
    if (!force && !g_strcmp0(source, url) && payload) {
       job->etag = g_strdup(etag);
       job->modified = g_strdup(modified);
@@ -1375,11 +1458,14 @@ bool receiver_directory_refresh(void) {
 }
 void receiver_directory_clear_server_snapshot(void) {
    ensure();
-   if (!source || strcmp(source, "rrserver")) return;
+
+   if (!source || strcmp(source, "rrserver")) {
+      return;
+   }
+
    if (cache_db) {
       sqlite3_exec(cache_db, "DELETE FROM directory_cache WHERE id=1;"
-         "DELETE FROM receiver_records;"
-         "DELETE FROM receiver_details WHERE origin='directory';", NULL, NULL, NULL);
+         "DELETE FROM receiver_records;" "DELETE FROM receiver_details WHERE origin='directory';", NULL, NULL, NULL);
    }
    g_ptr_array_set_size(receivers, 0);
    g_clear_pointer(&payload, g_free);
@@ -1392,10 +1478,12 @@ void receiver_directory_clear_server_snapshot(void) {
 }
 bool receiver_directory_import_snapshot(const char *data, size_t length, const char *origin) {
    ensure();
+
    if (job || !data || !length || length > DIRECTORY_MAX_BODY) {
       return false;
    }
    GPtrArray *list = parse(data, length);
+
    if (!list) {
       return false;
    }
@@ -1413,6 +1501,7 @@ bool receiver_directory_import_snapshot(const char *data, size_t length, const c
    cache_write();
    g_snprintf(status_text, sizeof(status_text), "Server catalog: %u receivers. Cached locally for offline use.", receivers->len);
    changed();
+
    return true;
 }
 bool receiver_directory_import(const char *path) {
@@ -1423,19 +1512,23 @@ bool receiver_directory_import(const char *path) {
    }
    char *data = NULL;
    size_t length;
+
    if (!read_bounded(path, DIRECTORY_MAX_BODY, &data, &length)) {
       return false;
    }
    bool imported = receiver_directory_import_snapshot(data, length, "import");
    g_free(data);
+
    if (!imported) {
       g_strlcpy(status_text, "Import failed: invalid schema-1 Kiwi directory JSON; cached list retained.", sizeof(status_text));
       changed();
    }
+
    return imported;
 }
 void receiver_directory_shutdown(void) {
    rrclient_receiver_catalog_shutdown();
+
    if (learn_source) {
       g_source_remove(learn_source);
       learn_source = 0;

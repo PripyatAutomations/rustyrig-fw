@@ -92,9 +92,13 @@ bool rrclient_room_is_joined(const char *room) {
 bool rrclient_room_join(const char *room) {
    const char *name = canonical(room);
 
-   if (!name || !*name) return false;
+   if (!name || !*name) {
+      return false;
+   }
+
    if (rrclient_room_is_joined(name)) {
       rrclient_room_set_offline(name, false);
+
       return true;
    }
    client_room_t *r = calloc(1, sizeof(*r));
@@ -347,11 +351,12 @@ bool rrclient_room_set_vfos(const char *room, const char *vfos) {
    for (client_room_t *r = rooms ; r ; r = r->next) {
       if (!strcasecmp(r->name, name)) {
          strlcpy(r->vfos, vfos ? vfos : "", sizeof(r->vfos));
-         /* SDR VFOs are UUID-backed, not named rig0.vfo_a. Preserve the
-          * actual UUID while exposing its current single receiver as VFO A
-          * to UI controls that still consult the legacy bitmask. */
-         if (strlen(name) == 13 && !strncasecmp(name, "#sdr-", 5))
+
+         /* SDR VFOs are UUID-backed, not named rig0.vfo_a. Preserve the actual UUID while exposing its current single receiver as VFO A to UI controls that
+          * still consult the legacy bitmask. */
+         if (strlen(name) == 13 && !strncasecmp(name, "#sdr-", 5)) {
             r->vfo_mask = r->vfos[0] ? UINT32_C(1) : 0;
+         }
 
          return true;
       }

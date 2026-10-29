@@ -61,33 +61,39 @@ void gtk_admin_session_selection(GtkTreeSelection *selection, gpointer user) {
    gtk_widget_set_sensitive(button, gtk_tree_selection_count_selected_rows(selection) > 0);
 }
 
-/* The server decides what session fields an operator may see. This dialog
- * displays only the already-authorized row, never queries hidden metadata. */
+/* The server decides what session fields an operator may see. This dialog displays only the already-authorized row, never queries hidden metadata. */
 static void admin_session_info(admin_table_t *table) {
    GtkTreeModel *model = NULL;
    GtkTreeIter iter;
-   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), &model, &iter)) return;
+
+   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), &model, &iter)) {
+      return;
+   }
    static const char *labels[] = {
       "Session ID", "Username", "IP address", "Client", "Server",
       "Connected", "Can disconnect", "Serial ports"
    };
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Session information", GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Session information", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Close",
+      GTK_RESPONSE_CLOSE, NULL);
    GtkWidget *grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(grid), 7);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 14);
    gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid);
-   for (int i = 0; i < 8; ++i) {
+
+   for (int i = 0 ; i < 8 ; ++i) {
       char *value = NULL;
       gtk_tree_model_get(model, &iter, i, &value, -1);
       GtkWidget *label = gtk_label_new(labels[i]);
       char *formatted = NULL;
+
       if (i == 5 && value && *value) {
          char *end = NULL;
          gint64 seconds = g_ascii_strtoll(value, &end, 10);
+
          if (end && !*end && seconds > 0) {
             GDateTime *datetime = g_date_time_new_from_unix_local(seconds);
+
             if (datetime) {
                formatted = g_date_time_format(datetime, "%Y-%m-%d %H:%M:%S %Z");
                g_date_time_unref(datetime);
@@ -104,13 +110,16 @@ static void admin_session_info(admin_table_t *table) {
       gtk_grid_attach(GTK_GRID(grid), text, 1, i, 1, 1);
       g_free(value);
    }
+
    gtk_widget_show_all(dialog);
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
 }
 
 void gtk_admin_session_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn *column, gpointer data) {
-   (void)tree; (void)path; (void)column;
+   (void)tree;
+   (void)path;
+   (void)column;
    admin_session_info(data);
 }
 
@@ -126,10 +135,14 @@ static void admin_session_menu_kick(GtkMenuItem *item, gpointer data) {
    gtk_widget_destroy(button);
 }
 gboolean gtk_admin_session_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
-   GtkTreePath *path = NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x, (gint)event->y, &path, NULL, NULL, NULL))
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
       return FALSE;
+   }
+   GtkTreePath *path = NULL;
+
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint) event->x, (gint) event->y, &path, NULL, NULL, NULL)) {
+      return FALSE;
+   }
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
    gtk_tree_selection_select_path(selection, path);
    gtk_tree_path_free(path);
@@ -139,8 +152,10 @@ gboolean gtk_admin_session_context_menu(GtkWidget *widget, GdkEventButton *event
    char *allowed = NULL;
    GtkTreeModel *model = NULL;
    GtkTreeIter iter;
-   if (gtk_tree_selection_get_selected(selection, &model, &iter))
+
+   if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
       gtk_tree_model_get(model, &iter, 6, &allowed, -1);
+   }
    gtk_widget_set_sensitive(kick, allowed && !g_ascii_strcasecmp(allowed, "yes"));
    g_free(allowed);
    g_signal_connect(info, "activate", G_CALLBACK(admin_session_menu_info), data);
@@ -149,6 +164,7 @@ gboolean gtk_admin_session_context_menu(GtkWidget *widget, GdkEventButton *event
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), kick);
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }

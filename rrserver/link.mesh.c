@@ -98,6 +98,7 @@ static bool dijkstra_excluding(const rr_mesh_t *m, const char *destination, cons
       return false;
    }
    int target = index_of(m, destination);
+
    if (target <= 0) {
       return false;
    }
@@ -165,35 +166,47 @@ static bool dijkstra_excluding(const rr_mesh_t *m, const char *destination, cons
 
 static bool route_dijkstra(const rr_mesh_t *m, const char *destination, rr_mesh_route_t *out, void *context) {
    (void)context;
+
    return dijkstra_excluding(m, destination, NULL, out);
 }
 
-bool rr_mesh_route_avoiding_many(const rr_mesh_t *m, const char *destination,
-                                 const char *const *excluded_hops, size_t excluded_count,
-                                 rr_mesh_route_t *out) {
-   if (!m || !out || !destination || (excluded_count && !excluded_hops) ||
-       excluded_count > RR_MESH_MAX_NODES) {
+bool rr_mesh_route_avoiding_many(const rr_mesh_t *m, const char *destination, const char *const *excluded_hops, size_t excluded_count, rr_mesh_route_t *out) {
+   if (!m || !out || !destination || (excluded_count && !excluded_hops) || excluded_count > RR_MESH_MAX_NODES) {
       return false;
    }
-   bool excluded[RR_MESH_MAX_NODES] = {0};
-   for (size_t i = 0; i < excluded_count; ++i) {
+   bool excluded[RR_MESH_MAX_NODES] = {
+      0
+   };
+
+   for (size_t i = 0 ; i < excluded_count ; ++i) {
       int n = index_of(m, excluded_hops[i]);
-      if (n <= 0 || !m->edge[0][n]) return false;
+
+      if (n <= 0 || !m->edge[0][n]) {
+         return false;
+      }
       excluded[n] = true;
    }
-   rr_mesh_route_t proposal = {0};
-   if (!dijkstra_excluding(m, destination, excluded, &proposal) ||
-       !rr_mesh_edge_cost(m, m->id[0], proposal.next_hop)) {
+
+   rr_mesh_route_t proposal = {
+      0
+   };
+
+   if (!dijkstra_excluding(m, destination, excluded, &proposal) || !rr_mesh_edge_cost(m, m->id[0], proposal.next_hop)) {
       return false;
    }
    *out = proposal;
+
    return true;
 }
 
-bool rr_mesh_route_avoiding(const rr_mesh_t *m, const char *destination,
-                            const char *excluded_next_hop, rr_mesh_route_t *out) {
-   if (!excluded_next_hop) return false;
-   const char *excluded[] = {excluded_next_hop};
+bool rr_mesh_route_avoiding(const rr_mesh_t *m, const char *destination, const char *excluded_next_hop, rr_mesh_route_t *out) {
+   if (!excluded_next_hop) {
+      return false;
+   }
+   const char *excluded[] = {
+      excluded_next_hop
+   };
+
    return rr_mesh_route_avoiding_many(m, destination, excluded, 1, out);
 }
 

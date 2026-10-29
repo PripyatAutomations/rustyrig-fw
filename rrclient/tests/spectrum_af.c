@@ -1,5 +1,4 @@
-/* Standalone asynchronous AF FFT regression test. Compile with
- * rrclient/spectrum.af.c, GLib threads and -lm. */
+/* Standalone asynchronous AF FFT regression test. Compile with rrclient/spectrum.af.c, GLib threads and -lm. */
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
@@ -9,30 +8,34 @@
 
 static void inject(const char *name, double frequency) {
    int16_t pcm[RR_AF_FFT_N];
-   for (unsigned i = 0; i < RR_AF_FFT_N; i++) {
-      pcm[i] = (int16_t)(14000.0 *
-         sin(2.0 * G_PI * frequency * i / RR_AF_SAMPLE_RATE));
+
+   for (unsigned i = 0 ; i < RR_AF_FFT_N ; i++) {
+      pcm[i] = (int16_t) (14000.0 * sin(2.0 * G_PI * frequency * i / RR_AF_SAMPLE_RATE));
    }
+
    rr_af_spectrum_push(name, pcm, RR_AF_FFT_N);
 }
 
 static unsigned strongest(const float bins[RR_AF_BINS]) {
    unsigned peak = 0;
-   for (unsigned i = 1; i < RR_AF_BINS; i++) {
+
+   for (unsigned i = 1 ; i < RR_AF_BINS ; i++) {
       if (bins[i] > bins[peak]) {
          peak = i;
       }
    }
+
    return peak;
 }
 
 static bool await_spectrum(const char *name, float bins[RR_AF_BINS]) {
-   for (unsigned retry = 0; retry < 50; retry++) {
+   for (unsigned retry = 0 ; retry < 50 ; retry++) {
       if (rr_af_spectrum_read(name, bins)) {
          return true;
       }
       g_usleep(20000);
    }
+
    return false;
 }
 
@@ -50,5 +53,6 @@ int main(void) {
    rr_af_spectrum_listen(false);
    rr_af_spectrum_shutdown();
    puts("PASS: off-thread AF FFT resolves adjacent FT8 6.25 Hz tones");
+
    return 0;
 }

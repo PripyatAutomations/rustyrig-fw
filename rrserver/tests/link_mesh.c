@@ -21,13 +21,19 @@ int main(void) {
    assert(!strcmp(r.next_hop, B) && r.cost == 2 && r.hops == 2);
    assert(rr_mesh_route_avoiding(m, D, B, &r));
    assert(!strcmp(r.next_hop, C) && r.cost == 4 && r.hops == 2);
-   const char *tried[] = {B, C};
+   const char *tried[] = {
+      B, C
+   };
    assert(rr_mesh_route_avoiding_many(m, D, tried, 2, &r));
    assert(!strcmp(r.next_hop, E) && r.cost == 6);
-   const char *all[] = {B, C, E};
+   const char *all[] = {
+      B, C, E
+   };
    assert(!rr_mesh_route_avoiding_many(m, D, all, 3, &r));
    assert(!rr_mesh_route_avoiding_many(m, D, NULL, 1, &r));
-   const char *invalid[] = {B, "not-a-node"};
+   const char *invalid[] = {
+      B, "not-a-node"
+   };
    assert(!rr_mesh_route_avoiding_many(m, D, invalid, 2, &r));
    assert(!rr_mesh_route_avoiding(m, D, C, NULL));
    assert(rr_mesh_route_avoiding(m, D, E, &r));
@@ -43,5 +49,6 @@ int main(void) {
    assert(!strcmp(r.next_hop, C) && r.cost == 4);
    rr_mesh_free(m);
    puts("PASS: mesh shortest path and alternate first-hop failover");
+
    return 0;
 }

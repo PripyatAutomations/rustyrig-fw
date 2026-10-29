@@ -24,34 +24,48 @@ extern const char *login_user;
 extern void rrclient_update_connection_ui(int connected);
 extern void tui_refresh_sb_online(void);
 
-/* Activity is per connection, channel and nick: an active user in one room
- * should not make a noisy unrelated room's PART/QUIT visible. */
+/* Activity is per connection, channel and nick: an active user in one room should not make a noisy unrelated room's PART/QUIT visible. */
 static GHashTable *irc_last_spoke;
 static char *irc_activity_key(rrconn_t *cptr, const char *room, const char *nick) {
    char *r = g_ascii_strdown(room ? room : "", -1);
    char *n = g_ascii_strdown(nick ? nick : "", -1);
    char *key = g_strdup_printf("%p/%s/%s", (void *)cptr, r, n);
-   g_free(r); g_free(n);
+   g_free(r);
+   g_free(n);
+
    return key;
 }
 static void irc_activity_record(rrconn_t *cptr, const char *room, const char *nick) {
-   if (!irc_last_spoke) irc_last_spoke = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   if (!irc_last_spoke) {
+      irc_last_spoke = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   }
    char *key = irc_activity_key(cptr, room, nick);
    gint64 *when = g_new(gint64, 1);
    *when = g_get_monotonic_time();
    g_hash_table_replace(irc_last_spoke, key, when);
 }
 static bool irc_activity_recent(rrconn_t *cptr, const char *room, const char *nick) {
-   if (!cfg_get_bool("irc.hide-idle-departures", true)) return true;
-   if (cptr && nick && !strcasecmp(nick, cptr->nick)) return true;
-   if (!irc_last_spoke) return false;
+   if (!cfg_get_bool("irc.hide-idle-departures", true)) {
+      return true;
+   }
+
+   if (cptr && nick && !strcasecmp(nick, cptr->nick)) {
+      return true;
+   }
+
+   if (!irc_last_spoke) {
+      return false;
+   }
    char *key = irc_activity_key(cptr, room, nick);
    gint64 *when = g_hash_table_lookup(irc_last_spoke, key);
    g_free(key);
+
    return when && g_get_monotonic_time() - *when <= G_GINT64_CONSTANT(3600) * G_USEC_PER_SEC;
 }
 static void irc_activity_forget(rrconn_t *cptr, const char *room, const char *nick) {
-   if (!irc_last_spoke) return;
+   if (!irc_last_spoke) {
+      return;
+   }
    char *key = irc_activity_key(cptr, room, nick);
    g_hash_table_remove(irc_last_spoke, key);
    g_free(key);
@@ -753,6 +767,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
    /* IRC prefixes are nick!user@host. Preserve the full user@host for membership notices. */
    const char *bang = strchr(prefix, '!');
    const char *at = bang ? strchr(bang + 1, '@') : NULL;
+
    if (at && at > bang + 1 && at[1]) {
       char userhost[IRC_MSGLEN];
       snprintf(userhost, sizeof(userhost), "%s", bang + 1);
@@ -801,7 +816,10 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       }
       dict_add(d, "talk.msg_type", kind);
       dict_add(d, "talk.data", text);
-      if (channel && *from) irc_activity_record(cptr, arg1, from);
+
+      if (channel && *from) {
+         irc_activity_record(cptr, arg1, from);
+      }
       event_emit_dict("talk.msg", cptr, d);
    } else if (!strcasecmp(cmd, "JOIN") && argc >= 2 && *from) {
       /* Ordinary IRC members have no prefix; retain their transport identity. */
@@ -813,19 +831,19 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
    } else if (!strcasecmp(cmd, "PART") && argc >= 2 && *from) {
       dict_add(d, "talk.room", arg1);
       const char *userhost = dict_get(d, "talk.userhost", "");
-      if (irc_activity_recent(cptr, arg1, from))
-         ui_print(arg1, "%s\00308*\017 %s%s%s%s left %s%s%s", get_chat_ts(now), from,
-         *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg1,
-         argc >= 3 && *arg2 ? ": " : "", argc >= 3 ? arg2 : "");
+
+      if (irc_activity_recent(cptr, arg1, from)) {
+         ui_print(arg1, "%s\00308*\017 %s%s%s%s left %s%s%s", get_chat_ts(now), from, *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg1, argc >= 3 &&
+            *arg2 ? ": " : "", argc >= 3 ? arg2 : "");
+      }
       irc_activity_forget(cptr, arg1, from);
       event_emit_dict("part", cptr, d);
    } else if (!strcasecmp(cmd, "KICK") && argc >= 3) {
       dict_add(d, "talk.room", arg1);
       dict_add(d, "talk.user", arg2);
       const char *userhost = dict_get(d, "talk.userhost", "");
-      ui_print(arg1, "%s\00304*\017 %s%s%s%s kicked %s: %s", get_chat_ts(now), from,
-         *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg2,
-         dict_get(message, "msg.arg3", ""));
+      ui_print(arg1, "%s\00304*\017 %s%s%s%s kicked %s: %s", get_chat_ts(now), from, *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg2, dict_get(
+         message, "msg.arg3", ""));
       irc_activity_forget(cptr, arg1, arg2);
       dict_add(d, "talk.kicked", "true");
       event_emit_dict("part", cptr, d);
@@ -842,8 +860,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
 
          if (userlist_find_in_room(from, room) && irc_activity_recent(cptr, room, from)) {
             const char *userhost = dict_get(d, "talk.userhost", "");
-            ui_print(room, "%s\00308*\017 %s%s%s%s quit: %s", get_chat_ts(now), from,
-               *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg1);
+            ui_print(room, "%s\00308*\017 %s%s%s%s quit: %s", get_chat_ts(now), from, *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg1);
          }
          irc_activity_forget(cptr, room, from);
       }
@@ -935,12 +952,17 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       userlist_names_end(arg2);
    } else if (!strcasecmp(cmd, "MODE") && argc >= 3 && (arg1[0] == '#' || arg1[0] == '&')) {
       GString *details = g_string_new(arg2);
-      for (int i = 3; i < argc; ++i) {
+
+      for (int i = 3 ; i < argc ; ++i) {
          char key[32];
          snprintf(key, sizeof(key), "msg.arg%d", i);
          const char *value = dict_get(message, key, "");
-         if (*value) g_string_append_printf(details, " %s", value);
+
+         if (*value) {
+            g_string_append_printf(details, " %s", value);
+         }
       }
+
       ui_print(arg1, "%s\00304*\017 %s sets mode %s", get_chat_ts(now), from, details->str);
       g_string_free(details, TRUE);
       bool adding = true;

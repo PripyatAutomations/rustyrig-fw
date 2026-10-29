@@ -528,8 +528,7 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
 
       if (row) {
          dict_add(row, "inventory.state", ws_client_in_room(ctx->client, room) ? "joined" : "available");
-         dict_add(row, "inventory.service", !strncasecmp(room, "#sdr-", 5) ? "RX-only" :
-            base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
+         dict_add(row, "inventory.service", !strncasecmp(room, "#sdr-", 5) ? "RX-only" : base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
          dict_add(row, "inventory.action", "/join|part <room>");
          rr_inventory_send(ctx->client, row);
          inventory_room_vfos(ctx, room, room_id);

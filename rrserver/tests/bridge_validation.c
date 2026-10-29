@@ -143,15 +143,13 @@ int main(void) {
    m.success = false;
    assert(handle(&b, &m) && completions == 1 && completed == RR_CONTROL_BACKEND_FAILED);
    assert(b.desired_hz == 14074000);
-   /* UI-originated tune requests don't carry callbacks. The most recent
-    * frequency wins while the bridge has one hardware request pending. */
+   /* UI-originated tune requests don't carry callbacks. The most recent frequency wins while the bridge has one hardware request pending. */
    rr_control_request_t ui = r;
    ui.complete = NULL;
    ui.complete_user = NULL;
    ui.value.l = 7200000;
    assert(control(&ui, &b) == RR_CONTROL_PENDING);
-   assert(rrp_bridge_ipc_recv(fd[1], &m) == 1 &&
-      m.type == RRP_BRIDGE_IPC_SET && m.frequency_hz == 7200000);
+   assert(rrp_bridge_ipc_recv(fd[1], &m) == 1 && m.type == RRP_BRIDGE_IPC_SET && m.frequency_hz == 7200000);
    uint64_t first_ui_request = m.request;
    ui.value.l = 7274000;
    assert(control(&ui, &b) == RR_CONTROL_PENDING);
@@ -163,8 +161,7 @@ int main(void) {
    m.request = first_ui_request;
    m.success = true;
    assert(handle(&b, &m) && !b.queued_tune && b.pending);
-   assert(rrp_bridge_ipc_recv(fd[1], &m) == 1 &&
-      m.type == RRP_BRIDGE_IPC_SET && m.frequency_hz == 7200100);
+   assert(rrp_bridge_ipc_recv(fd[1], &m) == 1 && m.type == RRP_BRIDGE_IPC_SET && m.frequency_hz == 7200100);
    message(&b, &m, RRP_BRIDGE_IPC_RESULT);
    m.request = b.pending;
    m.success = true;

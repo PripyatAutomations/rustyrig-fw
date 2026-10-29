@@ -251,10 +251,10 @@ static void routing_show_event(const char *event, const char *data, rrconn_t *co
    }
 }
 
-/* Reparent the standard label/slider row into the shared routing grid.
- * A single GTK grid column gives every slider identical alignment and width. */
+/* Reparent the standard label/slider row into the shared routing grid. A single GTK grid column gives every slider identical alignment and width. */
 static void routing_grid_volume_row(GtkWidget *grid, GtkWidget *row, gint grid_row) {
    GList *children = gtk_container_get_children(GTK_CONTAINER(row));
+
    if (children && children->next) {
       GtkWidget *label = GTK_WIDGET(children->data);
       GtkWidget *slider = GTK_WIDGET(children->next->data);

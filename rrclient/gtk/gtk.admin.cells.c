@@ -253,24 +253,31 @@ static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
 static void admin_privilege_cell(GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, int field, bool remote) {
    char *value = NULL;
    gtk_tree_model_get(model, iter, field, &value, -1);
+
    if (remote) {
       bool enabled = value && (!g_ascii_strcasecmp(value, "true") || !g_ascii_strcasecmp(value, "yes") || !strcmp(value, "1"));
       g_object_set(renderer, "active", enabled, "activatable", FALSE, NULL);
    } else {
       char *display = NULL;
+
       if (!value || !*value || !strcmp(value, "0")) {
          display = g_strdup("Never");
       } else {
          char *end = NULL;
          gint64 timestamp = g_ascii_strtoll(value, &end, 10);
+
          if (end && !*end && timestamp > 0) {
             GDateTime *date = g_date_time_new_from_unix_local(timestamp);
+
             if (date) {
                display = g_date_time_format(date, "%Y-%m-%d %H:%M");
                g_date_time_unref(date);
             }
          }
-         if (!display) display = g_strdup(value);
+
+         if (!display) {
+            display = g_strdup(value);
+         }
       }
       g_object_set(renderer, "text", display, NULL);
       g_free(display);
@@ -289,11 +296,9 @@ void admin_log_stripe_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
          admin_room_flag_cell(column, renderer, model, iter, data);
       } else if (!strcmp(table->name, "users") && (field == 1 || field == 7 || field == 5 || field == 6)) {
          admin_user_cell(column, renderer, model, iter, data);
-      } else if ((!strcmp(table->name, "assignments") && (field == 5 || field == 6)) ||
-         (!strcmp(table->name, "grants") && (field == 6 || field == 7))) {
-         admin_privilege_cell(renderer, model, iter, field,
-            (!strcmp(table->name, "assignments") && field == 6) ||
-            (!strcmp(table->name, "grants") && field == 7));
+      } else if ((!strcmp(table->name, "assignments") && (field == 5 || field == 6)) || (!strcmp(table->name, "grants") && (field == 6 || field == 7))) {
+         admin_privilege_cell(renderer, model, iter, field, (!strcmp(table->name, "assignments") && field == 6) || (!strcmp(table->name, "grants")
+            && field == 7));
       } else if (!strcmp(table->name, "sessions") && field == 5) {
          admin_session_cell(column, renderer, model, iter, NULL);
       } else if (!strcmp(table->name, "quotas") && field > 0) {

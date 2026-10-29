@@ -22,8 +22,7 @@ int main(void) {
    uint8_t issuer_spki_raw[32];
    assert(rr_crypto_random(issuer_spki_raw, sizeof(issuer_spki_raw)));
    char *issuer_spki = g_base64_encode(issuer_spki_raw, 32);
-   char *token = rr_identity_invite_issue(db, "testdomain",
-      "wss://127.0.0.1:4420/link", issuer_spki, JOINER, time(NULL) + 3600);
+   char *token = rr_identity_invite_issue(db, "testdomain", "wss://127.0.0.1:4420/link", issuer_spki, JOINER, time(NULL) + 3600);
    assert(token);
    char **fields = g_strsplit(token, "\n", -1);
    assert(g_strv_length(fields) == 9);
@@ -49,35 +48,38 @@ int main(void) {
    uint8_t pub[32], signature[64];
    assert(rr_crypto_ed25519_public_bytes(permanent, pub));
    char *join_pub = g_base64_encode(pub, sizeof(pub));
-   char *transcript = g_strdup_printf(
-      "rustyrig.mesh.enroll.v1\n%s\n%s\n%s\n%s\n%s\n%s\n",
-      fields[1], "testdomain", JOINER, second, join_pub, join_spki);
+   char *transcript = g_strdup_printf("rustyrig.mesh.enroll.v1\n%s\n%s\n%s\n%s\n%s\n%s\n", fields[1], "testdomain", JOINER, second, join_pub, join_spki);
    assert(rr_crypto_ed25519_sign(invitation_key, transcript, strlen(transcript), signature));
-   assert(rr_identity_invite_verify_proof(db, fields[1], "testdomain",
-      transcript, strlen(transcript), signature));
-   assert(rr_identity_invite_redeem(db, fields[1], "testdomain",
-      JOINER, join_pub, join_spki));
+   assert(rr_identity_invite_verify_proof(db, fields[1], "testdomain", transcript, strlen(transcript), signature));
+   assert(rr_identity_invite_redeem(db, fields[1], "testdomain", JOINER, join_pub, join_spki));
    assert(rr_identity_trust_verify(db, "testdomain", JOINER, join_pub, join_spki));
    assert(rr_identity_invite_redeemed(db, fields[1], "testdomain", JOINER, join_pub, join_spki));
    assert(!rr_identity_invite_redeemed(db, fields[1], "other-domain", JOINER, join_pub, join_spki));
    assert(!rr_identity_invite_redeemed(db, fields[1], "testdomain", JOINER, fields[6], join_spki));
-   assert(!rr_identity_invite_redeem(db, fields[1], "testdomain",
-      JOINER, join_pub, join_spki));
+   assert(!rr_identity_invite_redeem(db, fields[1], "testdomain", JOINER, join_pub, join_spki));
    assert(!rr_identity_invite_challenge(db, fields[1], "testdomain", JOINER));
-   assert(!rr_identity_invite_verify_proof(db, fields[1], "testdomain",
-      transcript, strlen(transcript), signature));
-   g_free(transcript); g_free(join_pub); g_free(join_spki);
-   g_free(first); g_free(second); g_free(issuer_spki);
-   rr_crypto_key_free(permanent); rr_crypto_key_free(invitation_key);
-   memset(pem, 0, pemlen); g_free(pem);
+   assert(!rr_identity_invite_verify_proof(db, fields[1], "testdomain", transcript, strlen(transcript), signature));
+   g_free(transcript);
+   g_free(join_pub);
+   g_free(join_spki);
+   g_free(first);
+   g_free(second);
+   g_free(issuer_spki);
+   rr_crypto_key_free(permanent);
+   rr_crypto_key_free(invitation_key);
+   memset(pem, 0, pemlen);
+   g_free(pem);
    g_strfreev(fields);
-   memset(token, 0, strlen(token)); g_free(token);
+   memset(token, 0, strlen(token));
+   g_free(token);
    sqlite3_close(db);
    rr_identity_fini();
    char *keypath = g_build_filename(dir, "server-ed25519.pem", NULL);
-   remove(keypath); g_free(keypath);
+   remove(keypath);
+   g_free(keypath);
    rmdir(dir);
    g_free(dir);
    puts("PASS: single-use enrollment challenge and atomic identity trust");
+
    return 0;
 }

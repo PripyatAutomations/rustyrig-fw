@@ -218,15 +218,18 @@ static char *ptt_log_username(int session) {
 #endif // USE_SQLITE
 
 #ifdef USE_SQLITE
-/* The public session fingerprint matches Admin -> Sessions; raw login
- * tokens must never be stored in the audit database. */
+/* The public session fingerprint matches Admin -> Sessions; raw login tokens must never be stored in the audit database. */
 static void ptt_audit_with_session(rrconn_t *talker, const char *details) {
-   if (!masterdb || !details) return;
+   if (!masterdb || !details) {
+      return;
+   }
    char *digest = talker ? g_compute_checksum_for_string(G_CHECKSUM_SHA256, talker->token, -1) : NULL;
    char public_id[21] = "";
-   if (digest) snprintf(public_id, sizeof(public_id), "%.20s", digest);
-   db_add_audit_event_session(masterdb, talker ? talker->chatname : "unknown",
-      "ptt", details, public_id);
+
+   if (digest) {
+      snprintf(public_id, sizeof(public_id), "%.20s", digest);
+   }
+   db_add_audit_event_session(masterdb, talker ? talker->chatname : "unknown", "ptt", details, public_id);
    g_free(digest);
 }
 #endif
@@ -267,10 +270,8 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
 
    char audit_details[1024];
    snprintf(audit_details, sizeof(audit_details),
-      "TX started ptt_session=%d rig=%s vfo=%s room=%s freq=%.0fHz mode=%s width=%dHz power=%.3fW ticket=%.80s elmers=%.120s",
-      session, scope, vfo_name(vfo), talker->ptt_room,
-      (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), (double)power,
-      consent.ticket, consent.elmers);
+      "TX started ptt_session=%d rig=%s vfo=%s room=%s freq=%.0fHz mode=%s width=%dHz power=%.3fW ticket=%.80s elmers=%.120s", session, scope, vfo_name(vfo),
+      talker->ptt_room, (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), (double)power, consent.ticket, consent.elmers);
    ptt_audit_with_session(talker, audit_details);
    Log(LOG_INFO, "ptt", "%s: user=%s", audit_details, talker->chatname);
    ptt_log_session[vfo] = session;
@@ -324,11 +325,9 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    }
 
    char audit_details[1024];
-   snprintf(audit_details, sizeof(audit_details),
-      "TX closed ptt_session=%d rig=%s vfo=%s room=%s duration=%ds reason=%.120s ticket=%.80s",
-      session, rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown",
-      vfo_name(vfo), talker ? talker->ptt_room : "unknown",
-      secs, reason ? reason : "released", ptt_grant_ticket[vfo]);
+   snprintf(audit_details, sizeof(audit_details), "TX closed ptt_session=%d rig=%s vfo=%s room=%s duration=%ds reason=%.120s ticket=%.80s", session, rig.ptt_rig
+      ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown", vfo_name(vfo), talker ? talker->ptt_room : "unknown", secs, reason ? reason :
+      "released", ptt_grant_ticket[vfo]);
    ptt_audit_with_session(talker, audit_details);
    Log(LOG_INFO, "ptt", "%s: user=%s", audit_details, talker ? talker->chatname : "unknown");
 
@@ -419,8 +418,8 @@ bool rr_ptt_check_blocked(void) {
 
 bool rr_ptt_set_blocked(bool blocked) {
    if (rig.tx_blocked != blocked) {
-      Log(LOG_AUDIT, "ptt", "TX interlock %s; rig=%s accounting_locked=%s", blocked ? "blocked" : "unblocked",
-         rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown", accounting_locked ? "yes" : "no");
+      Log(LOG_AUDIT, "ptt", "TX interlock %s; rig=%s accounting_locked=%s", blocked ? "blocked" : "unblocked", rig.ptt_rig ? rr_rig_registry_public_alias(rig.
+         rigs, rig.ptt_rig) : "unknown", accounting_locked ? "yes" : "no");
    }
    rig.tx_blocked = blocked;
 
@@ -538,18 +537,15 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    rr_server_rig_t *target_rig = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
 
    if (ptt && rr_rig_halted(target_rig)) {
-      Log(LOG_AUDIT, "ptt", "TX key-down rejected: rig=%s uuid=%s reason=halted",
-         target_rig ? rr_rig_registry_public_alias(rig.rigs, target_rig) : "unknown",
+      Log(LOG_AUDIT, "ptt", "TX key-down rejected: rig=%s uuid=%s reason=halted", target_rig ? rr_rig_registry_public_alias(rig.rigs, target_rig) : "unknown",
          target_rig ? rr_server_rig_id(target_rig) : "unknown");
 
       return true;
    }
 
    if (ptt && rr_ptt_check_blocked()) {
-      Log(LOG_WARN, "ptt", "TX key-down rejected: rig=%s reason=%s%s",
-         target_rig ? rr_rig_registry_public_alias(rig.rigs, target_rig) : "unknown",
-         accounting_locked ? "accounting locked" : "TX interlock blocked",
-         accounting_locked && rig.tx_blocked ? " (hardware interlock also blocked)" : "");
+      Log(LOG_WARN, "ptt", "TX key-down rejected: rig=%s reason=%s%s", target_rig ? rr_rig_registry_public_alias(rig.rigs, target_rig) : "unknown",
+         accounting_locked ? "accounting locked" : "TX interlock blocked", accounting_locked && rig.tx_blocked ? " (hardware interlock also blocked)" : "");
 
       return true;
    }
@@ -691,11 +687,11 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
       return true;
    } else {
-      /* A rejected backend key-down must never create a billable session.
-       * Keep the recording identity ready, but defer accounting until success. */
+      /* A rejected backend key-down must never create a billable session. Keep the recording identity ready, but defer accounting until success. */
       if (ptt && ptt_talker && vfo >= VFO_A && vfo < MAX_VFOS) {
          ptt_log_start(ptt_talker, vfo, recording_id);
       }
+
       if (ptt && completing_ptt) {
          completing_ptt->backend->active_vfo = vfo;
 

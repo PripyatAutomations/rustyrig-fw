@@ -8,7 +8,9 @@ extern dict *cfg;
 #include <librustyaxe/logger.h>
 #include <rrclient/gtk/gtk.logview.h>
 
-enum { COL_TIME, COL_SOURCE, COL_LEVEL, COL_SUBSYS, COL_MESSAGE, COL_HOST, COL_COUNT };
+enum {
+   COL_TIME, COL_SOURCE, COL_LEVEL, COL_SUBSYS, COL_MESSAGE, COL_HOST, COL_COUNT
+};
 struct GtkLogView {
    GtkWidget *page, *tree, *filter, *client, *host;
    GtkListStore *store;
@@ -20,9 +22,11 @@ struct GtkLogView {
 };
 /* Keep the newest visible entry in view until the user scrolls away. */
 static gboolean logview_at_end(GtkLogView *v) {
-   if (!v->vadj) return TRUE;
-   return gtk_adjustment_get_value(v->vadj) >=
-      gtk_adjustment_get_upper(v->vadj) - gtk_adjustment_get_page_size(v->vadj) - 2.0;
+   if (!v->vadj) {
+      return TRUE;
+   }
+
+   return gtk_adjustment_get_value(v->vadj) >= gtk_adjustment_get_upper(v->vadj) - gtk_adjustment_get_page_size(v->vadj) - 2.0;
 }
 static void logview_scrolled(GtkAdjustment *adj, gpointer data) {
    (void)adj;
@@ -32,45 +36,67 @@ static void logview_scrolled(GtkAdjustment *adj, gpointer data) {
 static gboolean logview_scroll_end(gpointer data) {
    GtkLogView *v = data;
    v->scroll_idle = 0;
-   if (v->follow_end && v->vadj)
-      gtk_adjustment_set_value(v->vadj, MAX(gtk_adjustment_get_lower(v->vadj),
-         gtk_adjustment_get_upper(v->vadj) - gtk_adjustment_get_page_size(v->vadj)));
+
+   if (v->follow_end && v->vadj) {
+      gtk_adjustment_set_value(v->vadj, MAX(gtk_adjustment_get_lower(v->vadj), gtk_adjustment_get_upper(v->vadj) - gtk_adjustment_get_page_size(v->vadj)));
+   }
+
    return G_SOURCE_REMOVE;
 }
 static void logview_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
    GtkLogView *v = data;
-   if (v->scroll_idle) g_source_remove(v->scroll_idle);
+
+   if (v->scroll_idle) {
+      g_source_remove(v->scroll_idle);
+   }
    g_free(v);
 }
 static gboolean visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    GtkLogView *v = data;
    gboolean host = FALSE;
    char *time = NULL, *source = NULL, *level = NULL, *subsys = NULL, *message = NULL;
-   gtk_tree_model_get(model, iter, COL_HOST, &host, COL_TIME, &time,
-      COL_SOURCE, &source, COL_LEVEL, &level, COL_SUBSYS, &subsys,
-      COL_MESSAGE, &message, -1);
+   gtk_tree_model_get(model, iter, COL_HOST, &host, COL_TIME, &time, COL_SOURCE, &source, COL_LEVEL, &level, COL_SUBSYS, &subsys, COL_MESSAGE, &message, -1);
    const char *query = gtk_entry_get_text(GTK_ENTRY(v->filter));
    gboolean ok = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(host ? v->host : v->client));
+
    if (ok && query && *query) {
       gchar *needle = g_utf8_casefold(query, -1);
-      const char *parts[] = {time, source, level, subsys, message};
+      const char *parts[] = {
+         time, source, level, subsys, message
+      };
       ok = FALSE;
-      for (unsigned i = 0; i < G_N_ELEMENTS(parts); i++) {
+
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(parts) ; i++) {
          gchar *haystack = g_utf8_casefold(parts[i] ? parts[i] : "", -1);
-         if (g_strstr_len(haystack, -1, needle)) ok = TRUE;
+
+         if (g_strstr_len(haystack, -1, needle)) {
+            ok = TRUE;
+         }
          g_free(haystack);
-         if (ok) break;
+
+         if (ok) {
+            break;
+         }
       }
+
       g_free(needle);
    }
-   g_free(time); g_free(source); g_free(level); g_free(subsys); g_free(message);
+   g_free(time);
+   g_free(source);
+   g_free(level);
+   g_free(subsys);
+   g_free(message);
+
    return ok;
 }
 static void log_source_toggled(GtkToggleButton *button, gpointer data) {
    GtkLogView *v = data;
    const char *key = button == GTK_TOGGLE_BUTTON(v->host) ? "ui.gtk.log.host" : "ui.gtk.log.client";
-   if (cfg) dict_add_bool(cfg, key, gtk_toggle_button_get_active(button));
+
+   if (cfg) {
+      dict_add_bool(cfg, key, gtk_toggle_button_get_active(button));
+   }
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
 }
 static void refresh(GtkWidget *widget, gpointer data) {
@@ -91,58 +117,92 @@ static void copy_option(GtkWidget *menu, const char *title, const char *value) {
 }
 static void csv_value(GString *out, const char *s) {
    g_string_append_c(out, '"');
-   for (const char *p = s ? s : ""; *p; p++) {
-      if (*p == '"') g_string_append_c(out, '"');
+
+   for (const char *p = s ? s : "" ; *p ; p++) {
+      if (*p == '"') {
+         g_string_append_c(out, '"');
+      }
       g_string_append_c(out, *p);
    }
+
    g_string_append_c(out, '"');
 }
-static void logview_append_selected(GtkTreeModel *model, GtkTreePath *path,
-      GtkTreeIter *iter, gpointer user) {
+static void logview_append_selected(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer user) {
    (void)path;
-   struct { GString *output; gboolean csv; } *state = user;
-   if (state->output->len) g_string_append_c(state->output, '\n');
-   for (int i = 0; i < 5; i++) {
+   struct {
+      GString *output;
+      gboolean csv;
+   } *state = user;
+
+   if (state->output->len) {
+      g_string_append_c(state->output, '\n');
+   }
+
+   for (int i = 0 ; i < 5 ; i++) {
       char *value = NULL;
       gtk_tree_model_get(model, iter, i, &value, -1);
-      if (i) g_string_append_c(state->output, state->csv ? ',' : '\t');
-      if (state->csv) csv_value(state->output, value);
-      else g_string_append(state->output, value ? value : "");
+
+      if (i) {
+         g_string_append_c(state->output, state->csv ? ',' : '\t');
+      }
+
+      if (state->csv) {
+         csv_value(state->output, value);
+      } else {
+         g_string_append(state->output, value ? value : "");
+      }
       g_free(value);
    }
 }
 static gchar *logview_selected_text(GtkLogView *v, gboolean csv) {
-   struct { GString *output; gboolean csv; } state = {g_string_new(NULL), csv};
-   gtk_tree_selection_selected_foreach(
-      gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)),
-      logview_append_selected, &state);
+   struct {
+      GString *output;
+      gboolean csv;
+   } state = {
+      g_string_new(NULL), csv
+   };
+   gtk_tree_selection_selected_foreach(gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)), logview_append_selected, &state);
+
    return g_string_free(state.output, FALSE);
 }
 static void logview_message_width(GObject *column, GParamSpec *property, gpointer data) {
    (void)property;
    int width = gtk_tree_view_column_get_width(GTK_TREE_VIEW_COLUMN(column));
-   if (width > 0) g_object_set(G_OBJECT(data), "wrap-width", MAX(40, width - 14), NULL);
+
+   if (width > 0) {
+      g_object_set(G_OBJECT(data), "wrap-width", MAX(40, width - 14), NULL);
+   }
 }
 static gboolean logview_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget;
-   if ((event->state & GDK_CONTROL_MASK) &&
-       (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
+
+   if ((event->state & GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
       /* Ctrl+C copies columns as TSV; Ctrl+Shift+C exports valid CSV. */
       gboolean csv = (event->state & GDK_SHIFT_MASK) != 0;
       gchar *selection = logview_selected_text(data, csv);
-      if (*selection) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), selection, -1);
+
+      if (*selection) {
+         gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), selection, -1);
+      }
       g_free(selection);
+
       return TRUE;
    }
+
    return FALSE;
 }
 static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
+      return FALSE;
+   }
    GtkLogView *v = data;
    GtkTreePath *path = NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (int)event->x,
-      (int)event->y, &path, NULL, NULL, NULL)) return FALSE;
+
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (int)event->x, (int)event->y, &path, NULL, NULL, NULL)) {
+      return FALSE;
+   }
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
+
    /* Right-clicking an already selected row preserves multi-selection. */
    if (!gtk_tree_selection_path_is_selected(selection, path)) {
       gtk_tree_selection_unselect_all(selection);
@@ -161,7 +221,8 @@ static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data)
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), related);
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 GtkLogView *gtk_logview_new(unsigned limit) {
@@ -181,22 +242,26 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    gtk_box_pack_start(GTK_BOX(top), v->host, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(top), v->filter, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(v->page), top, FALSE, FALSE, 0);
-   v->store = gtk_list_store_new(COL_COUNT, G_TYPE_STRING, G_TYPE_STRING,
-      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
+   v->store = gtk_list_store_new(COL_COUNT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
    v->filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(v->store), NULL);
    gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(v->filtered), visible, v, NULL);
    v->tree = gtk_tree_view_new_with_model(v->filtered);
    rr_gtk_tree_style(v->tree);
    gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)), GTK_SELECTION_MULTIPLE);
-   const char *headers[] = {"Time", "Source", "Level", "Subsystem", "Message"};
-   const int widths[] = {150, 135, 72, 130, 460};
-   for (int i = 0; i < 5; i++) {
+   const char *headers[] = {
+      "Time", "Source", "Level", "Subsystem", "Message"
+   };
+   const int widths[] = {
+      150, 135, 72, 130, 460
+   };
+
+   for (int i = 0 ; i < 5 ; i++) {
       GtkCellRenderer *cell = gtk_cell_renderer_text_new();
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(headers[i], cell, "text", i, NULL);
+
       if (i == COL_MESSAGE) {
          /* Wrap even UUIDs/URLs with no whitespace. Track column resizing. */
-         g_object_set(G_OBJECT(cell), "wrap-mode", PANGO_WRAP_CHAR,
-            "wrap-width", widths[i] - 14, NULL);
+         g_object_set(G_OBJECT(cell), "wrap-mode", PANGO_WRAP_CHAR, "wrap-width", widths[i] - 14, NULL);
          g_signal_connect(column, "notify::width", G_CALLBACK(logview_message_width), cell);
       }
       gtk_tree_view_column_set_cell_data_func(column, cell, rr_gtk_tree_stripe_cell, v->tree, NULL);
@@ -206,6 +271,7 @@ GtkLogView *gtk_logview_new(unsigned limit) {
       gtk_tree_view_column_set_expand(column, i == COL_MESSAGE);
       gtk_tree_view_append_column(GTK_TREE_VIEW(v->tree), column);
    }
+
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), v->tree);
@@ -220,38 +286,47 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    g_signal_connect(v->page, "destroy", G_CALLBACK(logview_destroy), v);
    g_object_unref(v->filtered);
    g_object_unref(v->store);
+
    return v;
 }
-GtkWidget *gtk_logview_widget(GtkLogView *view) { return view ? view->page : NULL; }
+GtkWidget *gtk_logview_widget(GtkLogView *view) {
+   return view ? view->page : NULL;
+}
 void gtk_logview_clear(GtkLogView *view) {
    if (view) {
       gtk_list_store_clear(view->store);
       view->follow_end = TRUE;
    }
 }
-void gtk_logview_append(GtkLogView *v, gboolean host, const char *source,
-   logpriority_t level, const char *subsys, const char *message) {
-   if (!v) return;
+void gtk_logview_append(GtkLogView *v, gboolean host, const char *source, logpriority_t level, const char *subsys, const char *message) {
+   if (!v) {
+      return;
+   }
    time_t current = time(NULL);
    struct tm local;
    char timestamp[40] = "";
-   if (localtime_r(&current, &local))
+
+   if (localtime_r(&current, &local)) {
       strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &local);
+   }
    GtkTreeIter row;
    gboolean follow = v->follow_end;
    gtk_list_store_append(v->store, &row);
    gchar *safe = g_utf8_make_valid(message ? message : "", -1);
-   gtk_list_store_set(v->store, &row, COL_TIME, timestamp,
-      COL_SOURCE, source ? source : (host ? "host" : "client"),
-      COL_LEVEL, log_priority_to_str(level), COL_SUBSYS, subsys ? subsys : "",
-      COL_MESSAGE, safe, COL_HOST, host, -1);
+   gtk_list_store_set(v->store, &row, COL_TIME, timestamp, COL_SOURCE, source ? source : (host ? "host" : "client"), COL_LEVEL, log_priority_to_str(level),
+      COL_SUBSYS, subsys ? subsys : "", COL_MESSAGE, safe, COL_HOST, host, -1);
    g_free(safe);
-   if (gtk_tree_model_iter_n_children(GTK_TREE_MODEL(v->store), NULL) > (gint)v->limit) {
+
+   if (gtk_tree_model_iter_n_children(GTK_TREE_MODEL(v->store), NULL) > (gint) v->limit) {
       GtkTreeIter first;
-      if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(v->store), &first))
+
+      if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(v->store), &first)) {
          gtk_list_store_remove(v->store, &first);
+      }
    }
    v->follow_end = follow;
-   if (follow && !v->scroll_idle)
+
+   if (follow && !v->scroll_idle) {
       v->scroll_idle = g_idle_add(logview_scroll_end, v);
+   }
 }

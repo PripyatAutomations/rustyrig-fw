@@ -901,4 +901,3 @@ void rr_relay_deliver(rrconn_t *client, dict *d) {
       rr_relay_applying = false;
    }
 }
-

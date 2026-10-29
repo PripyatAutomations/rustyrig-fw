@@ -531,7 +531,7 @@ bool cmd_save(int argc, char **args) {
       return false;
    }
 
-   if (!rrclient_database_config_save( path)) {
+   if (!rrclient_database_config_save(path)) {
       ui_print(ui_active_window_name(), "\00304*** Failed to save configuration to %s\017", path);
 
       return false;

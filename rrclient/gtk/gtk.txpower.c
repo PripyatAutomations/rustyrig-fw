@@ -47,8 +47,10 @@ static gboolean tx_power_send(gpointer unused) {
       /* 0% disables PTT locally; it is not a CAT power request. */
       return G_SOURCE_REMOVE;
    }
+
    if (percent > 100) {
       Log(LOG_WARN, "ui.gtk", "TX power: ignoring invalid slider value %d%%", percent);
+
       return G_SOURCE_REMOVE;
    }
    dict *d = dict_new();
@@ -67,6 +69,7 @@ static gboolean tx_power_send(gpointer unused) {
    dict_add(d, "cat.power-unit", "percent");
 
    Log(LOG_DEBUG, "ui.gtk", "TX power: sending %d%% for room %s VFO %s", percent, room, vfo);
+
    if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
       Log(LOG_WARN, "ui.gtk", "TX power: failed to send percent request for room %s VFO %s", room, vfo);
    }
@@ -87,22 +90,37 @@ static void tx_power_changed(GtkRange *range, gpointer unused) {
 
 GtkWidget *tx_power_slider = NULL;
 
-/* Refresh only from an explicitly reported backend percentage, not
- * cat.state.power (which historically describes received signal strength).
- * Block the change handler so a readback never sends a power command. */
+/* Refresh only from an explicitly reported backend percentage, not cat.state.power (which historically describes received signal strength). Block the change
+ * handler so a readback never sends a power command. */
 static gboolean tx_power_refresh(gpointer unused) {
    (void)unused;
-   if (!GTK_IS_RANGE(tx_power_slider)) return G_SOURCE_REMOVE;
-   if (gtk_widget_has_focus(tx_power_slider) || tx_power_send_id) return G_SOURCE_CONTINUE;
-   char vfo[] = {vfo_state_get_active(), 0};
+
+   if (!GTK_IS_RANGE(tx_power_slider)) {
+      return G_SOURCE_REMOVE;
+   }
+
+   if (gtk_widget_has_focus(tx_power_slider) || tx_power_send_id) {
+      return G_SOURCE_CONTINUE;
+   }
+   char vfo[] = {
+      vfo_state_get_active(), 0
+   };
    long percent = vfo_state_get_long(vfo, "cat.state.tx-power-percent", -1);
+
    if (percent >= 0 && percent <= 100) {
-      gulong handler = (gulong)GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(tx_power_slider), "rr-power-change-handler"));
-      if (handler) g_signal_handler_block(tx_power_slider, handler);
+      gulong handler = (gulong) GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(tx_power_slider), "rr-power-change-handler"));
+
+      if (handler) {
+         g_signal_handler_block(tx_power_slider, handler);
+      }
       gtk_range_set_value(GTK_RANGE(tx_power_slider), percent);
       rrclient_tx_power_percent = (int)percent;
-      if (handler) g_signal_handler_unblock(tx_power_slider, handler);
+
+      if (handler) {
+         g_signal_handler_unblock(tx_power_slider, handler);
+      }
    }
+
    return G_SOURCE_CONTINUE;
 }
 

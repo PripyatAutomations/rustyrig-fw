@@ -63,6 +63,7 @@ static int rx_sink_fd = -1;
 static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
    g_mutex_lock(&rx_sink_lock);
+
    if (rx_sink_fd >= 0 && !fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t))) {
       close(rx_sink_fd);
       rx_sink_fd = -1;
@@ -71,7 +72,10 @@ static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
 }
 static void rx_sink_set_fd(int new_fd) {
    g_mutex_lock(&rx_sink_lock);
-   if (rx_sink_fd >= 0) close(rx_sink_fd);
+
+   if (rx_sink_fd >= 0) {
+      close(rx_sink_fd);
+   }
    rx_sink_fd = new_fd;
    g_mutex_unlock(&rx_sink_lock);
 }
@@ -88,18 +92,20 @@ static uint64_t rx_diag_at, rx_late_ticks, rx_late_max_us, rx_skipped_blocks;
 static uint64_t rx_underrun_blocks, rx_underrun_samples, rx_overflow_samples;
 static uint64_t rx_decoder_write_fail, rx_speaker_write_fail, rx_mixed_blocks;
 static void rx_diag_report(uint64_t current) {
-   if (!rx_diag_at) rx_diag_at = current;
+   if (!rx_diag_at) {
+      rx_diag_at = current;
+   }
+
    if (current - rx_diag_at < 10000000) {
       return;
    }
+
    if (rx_mixed_blocks || rx_overflow_samples || rx_decoder_write_fail || rx_speaker_write_fail) {
       Log(LOG_INFO, "audio.timing",
          "RX/10s mixed=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu missing-samples=%llu overflow-samples=%llu decoder-write-fail=%llu speaker-write-fail=%llu",
-         (unsigned long long)rx_mixed_blocks, (unsigned long long)rx_late_ticks,
-         (unsigned long long)rx_late_max_us, (unsigned long long)rx_skipped_blocks,
-         (unsigned long long)rx_underrun_blocks, (unsigned long long)rx_underrun_samples,
-         (unsigned long long)rx_overflow_samples, (unsigned long long)rx_decoder_write_fail,
-         (unsigned long long)rx_speaker_write_fail);
+         (unsigned long long)rx_mixed_blocks, (unsigned long long)rx_late_ticks, (unsigned long long)rx_late_max_us, (unsigned long long)rx_skipped_blocks, (
+            unsigned long long)rx_underrun_blocks, (unsigned long long)rx_underrun_samples, (unsigned long long)rx_overflow_samples, (unsigned long long)
+         rx_decoder_write_fail, (unsigned long long)rx_speaker_write_fail);
    }
    rx_late_ticks = rx_late_max_us = rx_skipped_blocks = 0;
    rx_underrun_blocks = rx_underrun_samples = rx_overflow_samples = 0;
@@ -109,32 +115,37 @@ static void rx_diag_report(uint64_t current) {
 
 static gboolean rx_engine_maintenance(gpointer unused) {
    (void)unused;
+
    if (!rx_engine) {
       return G_SOURCE_REMOVE;
    }
-   rr_audio_engine_stats_t stats = {0};
+   rr_audio_engine_stats_t stats = {
+      0
+   };
    rr_audio_engine_stats(rx_engine, &stats, true);
-   if (stats.blocks || stats.overflow_samples || stats.late_ticks)
+
+   if (stats.blocks || stats.overflow_samples || stats.late_ticks) {
       Log(LOG_INFO, "audio.timing",
          "RX worker/10s blocks=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu startup-blocks=%llu rebuffer-blocks=%llu starvation-events=%llu overflow-samples=%llu pcm-pushes=%llu pcm-samples=%llu max-push=%llu max-queue=%llu",
-         (unsigned long long)stats.blocks, (unsigned long long)stats.late_ticks,
-         (unsigned long long)stats.max_late_us, (unsigned long long)stats.skipped_blocks,
-         (unsigned long long)stats.underrun_blocks, (unsigned long long)stats.startup_blocks,
-         (unsigned long long)stats.rebuffer_blocks, (unsigned long long)stats.starvation_events,
-         (unsigned long long)stats.overflow_samples,
-         (unsigned long long)stats.push_calls, (unsigned long long)stats.pushed_samples,
-         (unsigned long long)stats.max_push_samples, (unsigned long long)stats.max_queued_samples);
+         (unsigned long long)stats.blocks, (unsigned long long)stats.late_ticks, (unsigned long long)stats.max_late_us, (unsigned long long)stats.skipped_blocks
+         , (unsigned long long)stats.underrun_blocks, (unsigned long long)stats.startup_blocks, (unsigned long long)stats.rebuffer_blocks, (unsigned long long)
+         stats.starvation_events, (unsigned long long)stats.overflow_samples, (unsigned long long)stats.push_calls, (unsigned long long)stats.pushed_samples, (
+            unsigned long long)stats.max_push_samples, (unsigned long long)stats.max_queued_samples);
+   }
    g_mutex_lock(&rx_sink_lock);
    bool failed = rx_sink_fd < 0;
    g_mutex_unlock(&rx_sink_lock);
+
    if (failed) {
       fwdsp_processor_stop("sink.client.dsp0");
+
       if (fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) {
          fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
          rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
          Log(LOG_INFO, "audio", "RX worker reattached to fwdsp playback subprocess");
       }
    }
+
    return G_SOURCE_CONTINUE;
 }
 static void client_speaker_pcm(const void *samples, size_t len) {
@@ -205,7 +216,7 @@ typedef struct rx_route {
    char output;
    bool seen;
    GMutex pcm_lock;
-   int16_t pending[4000]; /* 250 ms maximum, no added latency yet */
+   int16_t pending[4000];       /* 250 ms maximum, no added latency yet */
    size_t pcm_head, pending_count;
 } rx_route_t;
 static rx_route_t *rx_routes;
@@ -218,6 +229,7 @@ static void rx_pcm_clear(rx_route_t *r) {
 static void rx_pcm_push(rx_route_t *r, const int16_t *samples, size_t count) {
    const size_t capacity = G_N_ELEMENTS(r->pending);
    g_mutex_lock(&r->pcm_lock);
+
    if (count >= capacity) {
       rx_overflow_samples += r->pending_count + count - capacity;
       samples += count - capacity;
@@ -233,7 +245,10 @@ static void rx_pcm_push(rx_route_t *r, const int16_t *samples, size_t count) {
    size_t tail = (r->pcm_head + r->pending_count) % capacity;
    size_t first = MIN(count, capacity - tail);
    memcpy(r->pending + tail, samples, first * sizeof(int16_t));
-   if (count > first) memcpy(r->pending, samples + first, (count - first) * sizeof(int16_t));
+
+   if (count > first) {
+      memcpy(r->pending, samples + first, (count - first) * sizeof(int16_t));
+   }
    r->pending_count += count;
    g_mutex_unlock(&r->pcm_lock);
 }
@@ -243,10 +258,14 @@ static size_t rx_pcm_take(rx_route_t *r, int16_t *samples, size_t limit) {
    size_t count = MIN(r->pending_count, limit);
    size_t first = MIN(count, capacity - r->pcm_head);
    memcpy(samples, r->pending + r->pcm_head, first * sizeof(int16_t));
-   if (count > first) memcpy(samples + first, r->pending, (count - first) * sizeof(int16_t));
+
+   if (count > first) {
+      memcpy(samples + first, r->pending, (count - first) * sizeof(int16_t));
+   }
    r->pcm_head = (r->pcm_head + count) % capacity;
    r->pending_count -= count;
    g_mutex_unlock(&r->pcm_lock);
+
    return count;
 }
 
@@ -287,7 +306,10 @@ bool audio_set_rx_stream_route(const char *id, char output) {
          if (r->output != output) {
             r->output = output;
             rx_pcm_clear(r);
-            if (rx_engine) rr_audio_engine_route(rx_engine, r->identity, output);
+
+            if (rx_engine) {
+               rr_audio_engine_route(rx_engine, r->identity, output);
+            }
             event_emit("client.audio.route.changed", NULL, NULL);
          }
 
@@ -352,7 +374,10 @@ bool audio_set_room_route(const char *server, const char *room, char output) {
       if (profile && !strcmp(profile, server) && !strcasecmp(route->room, room)) {
          route->output = output;
          rx_pcm_clear(route);
-         if (rx_engine) rr_audio_engine_route(rx_engine, route->identity, output);
+
+         if (rx_engine) {
+            rr_audio_engine_route(rx_engine, route->identity, output);
+         }
       }
    }
 
@@ -369,11 +394,16 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    }
    /* AF analysis is independent of speaker muting or ear routing. */
    rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
+
    if (route->output == 'M') {
       return;
    }
-   if (rx_engine) rr_audio_engine_push(rx_engine, route->identity, samples, len / sizeof(int16_t));
-   else rx_pcm_push(route, samples, len / sizeof(int16_t));
+
+   if (rx_engine) {
+      rr_audio_engine_push(rx_engine, route->identity, samples, len / sizeof(int16_t));
+   } else {
+      rx_pcm_push(route, samples, len / sizeof(int16_t));
+   }
 }
 
 struct talkback_check {
@@ -450,13 +480,20 @@ static gboolean audio_mix_tick(gpointer unused) {
 
    if (current >= mixer_next_us) {
       uint64_t lateness = current - mixer_next_us;
+
       if (lateness >= 5000) {
          rx_late_ticks++;
-         if (lateness > rx_late_max_us) rx_late_max_us = lateness;
+
+         if (lateness > rx_late_max_us) {
+            rx_late_max_us = lateness;
+         }
       }
       uint64_t blocks = lateness / 20000 + 1;
       mixer_next_us += blocks * 20000;
-      if (blocks > 5) rx_skipped_blocks += blocks - 5;
+
+      if (blocks > 5) {
+         rx_skipped_blocks += blocks - 5;
+      }
 
       if (blocks > 5) {
          blocks = 5;
@@ -520,7 +557,10 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          snprintf(route->uuid, sizeof(route->uuid), "%s", channel->uuid);
          route->next = rx_routes;
          rx_routes = route;
-         if (rx_engine) rr_audio_engine_add_stream(rx_engine, route->identity);
+
+         if (rx_engine) {
+            rr_audio_engine_add_stream(rx_engine, route->identity);
+         }
       }
       route->seen = true;
       const char *room = channel->room ? channel->room : "";
@@ -530,7 +570,10 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          char output = audio_room_route(rrclient_connection_name(ws_conn), room);
          snprintf(route->room, sizeof(route->room), "%s", room);
          route->output = output;
-         if (rx_engine) rr_audio_engine_route(rx_engine, route->identity, output);
+
+         if (rx_engine) {
+            rr_audio_engine_route(rx_engine, route->identity, output);
+         }
          changed = true;
       }
 
@@ -541,7 +584,10 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
             fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          }
          rx_pcm_clear(route);
-         if (rx_engine) rr_audio_engine_route(rx_engine, route->identity, route->output);
+
+         if (rx_engine) {
+            rr_audio_engine_route(rx_engine, route->identity, route->output);
+         }
          snprintf(route->codec, sizeof(route->codec), "%.4s", channel->codec);
       }
 
@@ -565,7 +611,10 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          *link = route->next;
          rr_af_spectrum_forget(route->identity);
-         if (rx_engine) rr_audio_engine_remove_stream(rx_engine, route->identity);
+
+         if (rx_engine) {
+            rr_audio_engine_remove_stream(rx_engine, route->identity);
+         }
          g_mutex_clear(&route->pcm_lock);
          free(route);
          changed = true;
@@ -738,8 +787,10 @@ bool audio_init(void) {
    g_mutex_init(&rx_sink_lock);
    rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
    rx_engine = rr_audio_engine_new(rx_sink_output, NULL);
+
    if (!rx_engine || !rr_audio_engine_start(rx_engine)) {
       Log(LOG_CRIT, "audio", "Unable to start independent client RX mixer");
+
       if (rx_engine) {
          rr_audio_engine_free(rx_engine);
          rx_engine = NULL;
@@ -748,6 +799,7 @@ bool audio_init(void) {
       g_mutex_clear(&rx_sink_lock);
       fwdsp_processor_stop("src.client.dsp0");
       fwdsp_processor_stop("sink.client.dsp0");
+
       return true;
    }
    rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
@@ -830,7 +882,10 @@ bool audio_set_rx_channel_volume(unsigned channel, int percent) {
    }
    percent = CLAMP(percent, 0, 100);
    rx_channel_volume[channel] = percent;
-   if (rx_engine) rr_audio_engine_gain(rx_engine, channel, percent);
+
+   if (rx_engine) {
+      rr_audio_engine_gain(rx_engine, channel, percent);
+   }
    dict_add_int(cfg, channel ? "audio.volume.rx.right" : "audio.volume.rx.left", percent);
 
    return false;
@@ -886,16 +941,19 @@ void audio_stop_codec(bool is_tx) {
 
 void ws_audio_shutdown(void) {
    rr_af_spectrum_shutdown();
+
    if (rx_maintenance_source) {
       g_source_remove(rx_maintenance_source);
       rx_maintenance_source = 0;
    }
+
    if (rx_engine) {
       rr_audio_engine_free(rx_engine);
       rx_engine = NULL;
    }
    rx_sink_set_fd(-1);
    g_mutex_clear(&rx_sink_lock);
+
    if (mixer_source) {
       g_source_remove(mixer_source);
       mixer_source = 0;

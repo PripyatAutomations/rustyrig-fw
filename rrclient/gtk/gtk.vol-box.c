@@ -58,9 +58,9 @@ static void on_rig_volume_changed(GtkRange *range, gpointer unused) {
    rrconn_t *connection = rrclient_active_connection();
 
    if (!owner || !connection || !connection->authenticated || !connection->is_ws) {
-      Log(LOG_WARN, "ui.gtk", "Rig volume not sent: room=%s rig=%s connection=%s",
-         rrclient_media_active_room() ? rrclient_media_active_room() : "(none)",
-         owner ? owner : "(unresolved)", connection ? "unauthenticated/non-WebSocket" : "(none)");
+      Log(LOG_WARN, "ui.gtk", "Rig volume not sent: room=%s rig=%s connection=%s", rrclient_media_active_room() ? rrclient_media_active_room() : "(none)", owner
+         ? owner : "(unresolved)", connection ? "unauthenticated/non-WebSocket" : "(none)");
+
       return;
    }
    dict *request = dict_new();
@@ -78,9 +78,10 @@ static void on_rig_volume_changed(GtkRange *range, gpointer unused) {
    if (room && *room) {
       dict_add(request, "request.room", room);
    }
-   if (!ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT))
-      Log(LOG_WARN, "ui.gtk", "Rig volume send failed: rig=%s volume=%d%%",
-         owner, (int)gtk_range_get_value(range));
+
+   if (!ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT)) {
+      Log(LOG_WARN, "ui.gtk", "Rig volume send failed: rig=%s volume=%d%%", owner, (int)gtk_range_get_value(range));
+   }
    dict_free(request);
 }
 static gboolean rig_volume_refresh(gpointer widget) {

@@ -40,12 +40,9 @@ void rr_mesh_free(rr_mesh_t *mesh);
 bool rr_mesh_edge(rr_mesh_t *mesh, const char *a, const char *b, uint32_t cost);
 bool rr_mesh_remove_edge(rr_mesh_t *mesh, const char *a, const char *b);
 bool rr_mesh_route(const rr_mesh_t *mesh, const char *destination, rr_mesh_route_t *route);
-/* Find an alternate verified direct neighbor, excluding one failed first hop.
- * Does not send, acknowledge, retry, or authorize a control operation. */
+/* Find an alternate verified direct neighbor, excluding one failed first hop. Does not send, acknowledge, retry, or authorize a control operation. */
 /* Exclude all previously tried direct first hops. Failed validation leaves out untouched. */
-bool rr_mesh_route_avoiding_many(const rr_mesh_t *mesh, const char *destination,
-                                 const char *const *excluded_hops, size_t excluded_count,
-                                 rr_mesh_route_t *route);
-bool rr_mesh_route_avoiding(const rr_mesh_t *mesh, const char *destination,
-                            const char *excluded_next_hop, rr_mesh_route_t *route);
+bool rr_mesh_route_avoiding_many(const rr_mesh_t *mesh, const char *destination, const char *const *excluded_hops, size_t excluded_count, rr_mesh_route_t *route
+   );
+bool rr_mesh_route_avoiding(const rr_mesh_t *mesh, const char *destination, const char *excluded_next_hop, rr_mesh_route_t *route);
 #endif

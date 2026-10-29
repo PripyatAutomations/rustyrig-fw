@@ -60,15 +60,17 @@ static int accounting_exec(sqlite3 *db, const char *sql, int (*callback) (void *
    return result;
 }
 
-/* Audit details may contain strings supplied by peers or external devices.
- * Bound and flatten them centrally before they enter the database. */
+/* Audit details may contain strings supplied by peers or external devices. Bound and flatten them centrally before they enter the database. */
 static void audit_field_copy(char *dst, size_t size, const char *src) {
-   if (!size) return;
+   if (!size) {
+      return;
+   }
    size_t n = 0;
-   for (const unsigned char *p = (const unsigned char *)(src ? src : "");
-      *p && n + 1 < size; ++p) {
+
+   for (const unsigned char *p = (const unsigned char *)(src ? src : "") ; *p && n + 1 < size ; ++p) {
       dst[n++] = (*p < 32 || *p == 127) ? ' ' : (char)*p;
    }
+
    dst[n] = '\0';
 }
 
@@ -95,8 +97,12 @@ bool db_add_audit_event_session(sqlite3 *db, const char *username, const char *e
    sqlite3_bind_text(stmt, 1, safe_user, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 2, safe_type, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 3, safe_details, -1, SQLITE_TRANSIENT);
-   if (*safe_session) sqlite3_bind_text(stmt, 4, safe_session, -1, SQLITE_TRANSIENT);
-   else sqlite3_bind_null(stmt, 4);
+
+   if (*safe_session) {
+      sqlite3_bind_text(stmt, 4, safe_session, -1, SQLITE_TRANSIENT);
+   } else {
+      sqlite3_bind_null(stmt, 4);
+   }
 
    int result = accounting_step(stmt, "db_add_audit_event");
    bool success = result == SQLITE_DONE;
@@ -238,9 +244,16 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
    /* Ephemeral receiver rooms are live audio sessions, not chat archives. */
    if (msg_dest && strlen(msg_dest) == 13 && !g_ascii_strncasecmp(msg_dest, "#sdr-", 5)) {
       bool valid = true;
-      for (const char *p = msg_dest + 5; *p; ++p)
-         if (!g_ascii_isxdigit(*p)) valid = false;
-      if (valid) return true;
+
+      for (const char *p = msg_dest + 5 ; *p ; ++p) {
+         if (!g_ascii_isxdigit(*p)) {
+            valid = false;
+         }
+      }
+
+      if (valid) {
+         return true;
+      }
    }
 
    const char *sql = "INSERT INTO chat_log " "(msg_ts, msg_src, msg_dest, msg_type, msg_data) " "VALUES (?, ?, ?, ?, ?);";

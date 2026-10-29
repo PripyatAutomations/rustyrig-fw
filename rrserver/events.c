@@ -54,13 +54,24 @@ extern void rrserver_media_register_events(void);  // media.c
 
 /* Announce stable network ownership immediately after authentication. */
 static void rrserver_send_domain_identity(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)data; (void)user;
-   if (!client || !client->authenticated) return;
+   (void)event;
+   (void)data;
+   (void)user;
+
+   if (!client || !client->authenticated) {
+      return;
+   }
    const char *domain = cfg_get("domain");
    const char *node = rr_rig_registry_node(rig.rigs);
-   if (!domain || !*domain || !node || !*node) return;
+
+   if (!domain || !*domain || !node || !*node) {
+      return;
+   }
    dict *message = dict_new();
-   if (!message) return;
+
+   if (!message) {
+      return;
+   }
    dict_add(message, "msg.type", "domain");
    dict_add(message, "domain.name", domain);
    dict_add(message, "domain.server", node);

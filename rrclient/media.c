@@ -485,13 +485,12 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
          continue;
       }
 
-      /* One channel per command. Do not reconfigure an existing shared
-       * media stream when the requested codec is already active. */
-      if ((none && kp->disabled) ||
-          (!none && !kp->disabled && !kp->pending_codec[0] && !strcasecmp(kp->codec, normalized))) {
+      /* One channel per command. Do not reconfigure an existing shared media stream when the requested codec is already active. */
+      if ((none && kp->disabled) || (!none && !kp->disabled && !kp->pending_codec[0] && !strcasecmp(kp->codec, normalized))) {
          unchanged = true;
          continue;
       }
+
       if (none) {
          if (kp->subscribed && !media_send_unsubscribe(cptr, kp->uuid)) {
             failed = true;
@@ -534,11 +533,13 @@ bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char 
    if (!uuid || !*uuid) {
       return true;
    }
+
    return media_select_codec(cptr, is_tx, codec, uuid);
 }
 
 bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
    const struct rr_client_media_chan *target = media_codec_target_channel(is_tx);
+
    return target ? media_select_codec(cptr, is_tx, codec, target->uuid) : true;
 }
 
@@ -691,17 +692,15 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan 
       return;
    }
 
-   /* An RX codec rendition is an alternative encoding of the same rig/VFO
-    * PCM source. Automatic selection must not subscribe every rendition. */
+   /* An RX codec rendition is an alternative encoding of the same rig/VFO PCM source. Automatic selection must not subscribe every rendition. */
    if (kp->direction == RR_BINFRAME_DIR_RX) {
-      for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
          const struct rr_client_media_chan *other = &known_chans[i];
+
          if (other != kp && other->uuid[0] && other->subscribed &&
             other->subsystem == kp->subsystem &&
             other->direction == kp->direction && other->vfo == kp->vfo &&
-            other->rig == kp->rig &&
-            !strcmp(other->rig_uuid, kp->rig_uuid) &&
-            !strcmp(other->vfo_uuid, kp->vfo_uuid)) {
+            other->rig == kp->rig && !strcmp(other->rig_uuid, kp->rig_uuid) && !strcmp(other->vfo_uuid, kp->vfo_uuid)) {
             return;
          }
       }
@@ -720,7 +719,9 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan 
 }
 
 static void gps_outputs_changed(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!client) client = rrclient_active_connection();
+   if (!client) {
+      client = rrclient_active_connection();
+   }
    snprintf(gps_scopes, sizeof(gps_scopes), "%s", data ? data : "");
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
@@ -939,7 +940,10 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
    (void)data;
    (void)user;
 
-   if (!cptr) cptr = rrclient_active_connection();
+   if (!cptr) {
+      cptr = rrclient_active_connection();
+   }
+
    if (!cptr || !media_ready) {
       return;
    }
@@ -1023,30 +1027,34 @@ void rrclient_media_room_selected(const char *room) {
    }
 }
 
-/* The server has destroyed an entire room (including its media channels).
- * Do not issue media.unsubscribe while processing the removal: the UUIDs
- * are already gone on the server, so that request produces a spurious error.
- * Normal voluntary PART still uses rrclient_media_room_parted(). */
+/* The server has destroyed an entire room (including its media channels). Do not issue media.unsubscribe while processing the removal: the UUIDs are already
+ * gone on the server, so that request produces a spurious error. Normal voluntary PART still uses rrclient_media_room_parted(). */
 void rrclient_media_room_removed(const char *room) {
-   if (!room || !*room) return;
+   if (!room || !*room) {
+      return;
+   }
    bool changed = false;
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; ++i) {
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; ++i) {
       struct rr_client_media_chan *channel = &known_chans[i];
+
       if (channel->uuid[0] && !strcasecmp(channel->room, room)) {
          memset(channel, 0, sizeof(*channel));
          changed = true;
       }
    }
+
    if (!strcasecmp(media_room, room)) {
       media_room[0] = '\0';
       changed = true;
    }
-   /* Keep routing the remaining channels without re-subscribing a deleted
-    * one. The regular VFO handler also performs one audio/UI sync. */
-   if (ws_conn && media_ready)
+
+   /* Keep routing the remaining channels without re-subscribing a deleted one. The regular VFO handler also performs one audio/UI sync. */
+   if (ws_conn && media_ready) {
       rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
-   else if (changed)
+   } else if (changed) {
       rrclient_media_sync_audio();
+   }
 }
 
 void rrclient_media_room_parted(const char *room) {
@@ -1478,17 +1486,14 @@ bool rrclient_media_unsubscribe(const char *uuid) {
 // Ask the server for a fresh media.available batch
 void rrclient_media_refresh(rrconn_t *cptr) {
 
-   /* Background refresh requests must not generate warnings after a
-    * profile disconnect. A closed WebSocket is not a failed refresh. */
-   /* Native connections must be OPEN; legacy client connections without
-    * a transport handle still use their session state until migrated. */
-   bool writable = cptr && cptr->active && cptr->connected &&
-      (!cptr->native_transport ||
-       rr_transport_state(cptr->native_transport) == RR_TRANSPORT_OPEN);
+   /* Background refresh requests must not generate warnings after a profile disconnect. A closed WebSocket is not a failed refresh. */
+   /* Native connections must be OPEN; legacy client connections without a transport handle still use their session state until migrated. */
+   bool writable = cptr && cptr->active && cptr->connected && (!cptr->native_transport || rr_transport_state(cptr->native_transport) == RR_TRANSPORT_OPEN);
+
    if (writable && cptr->authenticated && cptr->is_ws) {
       if (!media_send_list(cptr)) {
-         Log(LOG_WARN, "ws.media",
-            "Media list refresh failed: websocket send rejected (connection=%p, connected=%d); check protocol send-validation logs", (void *)cptr, cptr->connected);
+         Log(LOG_WARN, "ws.media", "Media list refresh failed: websocket send rejected (connection=%p, connected=%d); check protocol send-validation logs", (
+            void *)cptr, cptr->connected);
          media_print("Unable to refresh media channels; connection is not writable");
       }
    } else {
@@ -1684,8 +1689,10 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
       return true;
    }
    const struct rr_client_media_chan *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_codec_target_channel(is_tx);
+
    if (!target) {
       media_print("No selected %s media channel; use /media LIST", is_tx ? "TX" : "RX");
+
       return true;
    }
    bool failed = media_select_codec(ws_conn, is_tx, args[1], target->uuid);

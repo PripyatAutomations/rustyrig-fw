@@ -230,6 +230,7 @@ bool cmd_join(int argc, char **args) {
 
          return false;
       }
+
       /* Wait for the server-confirmed JOIN before creating/focusing a channel tab. */
       return !irc_send(connection, "JOIN %s", args[1]);
    }

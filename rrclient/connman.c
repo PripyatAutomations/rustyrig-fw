@@ -188,42 +188,78 @@ void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, 
       }
    }
 }
+
 /* Validate protocol UUIDs without depending on a newer librrprotocol checkout. */
 static bool rrclient_server_uuid_valid(const char *uuid) {
-   if (!uuid || strlen(uuid) != 36) return false;
-   for (size_t i = 0; i < 36; ++i) {
-      if (i == 8 || i == 13 || i == 18 || i == 23) {
-         if (uuid[i] != '-') return false;
-      } else if (!isxdigit((unsigned char)uuid[i])) return false;
+   if (!uuid || strlen(uuid) != 36) {
+      return false;
    }
+
+   for (size_t i = 0 ; i < 36 ; ++i) {
+      if (i == 8 || i == 13 || i == 18 || i == 23) {
+         if (uuid[i] != '-') {
+            return false;
+         }
+      } else if (!isxdigit((unsigned char)uuid[i])) {
+         return false;
+      }
+   }
+
    return true;
 }
 void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid) {
-   if (!connection || !domain || !*domain || !server_uuid || !rrclient_server_uuid_valid(server_uuid)) return;
-   for (client_server_t *s = servers; s; s = s->next) {
-      if (s->connection != connection) continue;
-      if (strlen(domain) >= sizeof(s->domain)) return;
-      for (const unsigned char *p = (const unsigned char *)domain; *p; ++p)
-         if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) return;
+   if (!connection || !domain || !*domain || !server_uuid || !rrclient_server_uuid_valid(server_uuid)) {
+      return;
+   }
+
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (s->connection != connection) {
+         continue;
+      }
+
+      if (strlen(domain) >= sizeof(s->domain)) {
+         return;
+      }
+
+      for (const unsigned char *p = (const unsigned char *)domain ; *p ; ++p) {
+         if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) {
+            return;
+         }
+      }
+
       if (s->domain[0] && (g_ascii_strcasecmp(s->domain, domain) || g_ascii_strcasecmp(s->server_uuid, server_uuid))) {
          Log(LOG_WARN, "connman", "Server %s attempted to change its domain identity", s->name);
+
          return;
       }
       g_strlcpy(s->domain, domain, sizeof(s->domain));
-      for (char *p = s->domain; *p; ++p) *p = g_ascii_tolower(*p);
+
+      for (char *p = s->domain ; *p ; ++p) {
+         *p = g_ascii_tolower(*p);
+      }
+
       g_strlcpy(s->server_uuid, server_uuid, sizeof(s->server_uuid));
       Log(LOG_INFO, "connman", "Server %s identified as %s in domain %s", s->name, s->server_uuid, s->domain);
+
       return;
    }
 }
 const char *rrclient_connection_domain(const rrconn_t *connection) {
-   for (client_server_t *s = servers; s; s = s->next)
-      if (s->connection == connection) return s->domain[0] ? s->domain : NULL;
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (s->connection == connection) {
+         return s->domain[0] ? s->domain : NULL;
+      }
+   }
+
    return NULL;
 }
 const char *rrclient_connection_server_uuid(const rrconn_t *connection) {
-   for (client_server_t *s = servers; s; s = s->next)
-      if (s->connection == connection) return s->server_uuid[0] ? s->server_uuid : NULL;
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (s->connection == connection) {
+         return s->server_uuid[0] ? s->server_uuid : NULL;
+      }
+   }
+
    return NULL;
 }
 rrconn_t *rrclient_connection_find(const char *name) {
@@ -718,6 +754,7 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       if (ev == MG_EV_CLOSE) {
          irc_capabilities_clear(cptr);
          mg_iobuf_free(&t->websocket_request);
+
          if (cptr->native_transport) {
             rr_transport_mongoose_closed(cptr->native_transport);
             rr_transport_mongoose_release(cptr->native_transport);
@@ -833,12 +870,14 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    }
 
    if (ev == MG_EV_WS_OPEN && cptr->is_ws && !cptr->native_transport) {
-      /* The upgrade is complete: only now does the WebSocket adapter
-       * become writable. The Mongoose socket remains owned by mg_mgr. */
+      /* The upgrade is complete: only now does the WebSocket adapter become writable. The Mongoose socket remains owned by mg_mgr. */
       cptr->native_transport = rr_transport_mongoose_adopt(c, NULL, NULL);
-      if (cptr->native_transport)
+
+      if (cptr->native_transport) {
          rr_transport_mongoose_open(cptr->native_transport);
+      }
    }
+
    if (cptr->is_ws) {
       http_handler(c, ev, data);
    } else {
@@ -850,6 +889,7 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       s->domain[0] = '\0';
       s->server_uuid[0] = '\0';
       mg_iobuf_free(&t->websocket_request);
+
       if (cptr->native_transport) {
          rr_transport_mongoose_closed(cptr->native_transport);
          rr_transport_mongoose_release(cptr->native_transport);
@@ -1301,13 +1341,19 @@ void connman_autoconnect(void) {
 
    for (char *name = strtok_r(list, ", \t", &save) ; name ; name = strtok_r(NULL, ", \t", &save)) {
       const char *url = get_server_property(name, "server.url");
-      if (!url || !*url) continue; /* Stale legacy config preference. */
+
+      if (!url || !*url) {
+         continue;              /* Stale legacy config preference. */
+      }
       any = true;
       connect_server(name);
    }
 
    free(list);
-   if (!any) show_server_chooser();
+
+   if (!any) {
+      show_server_chooser();
+   }
 }
 
 void rrclient_quit_servers(const char *reason) {

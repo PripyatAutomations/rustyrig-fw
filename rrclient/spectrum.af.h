@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Local AF spectrum snapshots; receiver-independent and GTK-free. */
 #ifndef RRCLIENT_SPECTRUM_AF_H
 #define RRCLIENT_SPECTRUM_AF_H
