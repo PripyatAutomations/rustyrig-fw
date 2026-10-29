@@ -210,18 +210,8 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    }
 
    if (ev->keyval == GDK_KEY_Escape) {
-      if (picker_child_dialogs || gtk_server_editor_is_open()) {
-         return TRUE;
-      }
-      picker_close(NULL);
-      // Give the main window focus before scheduling the chat input grab.
-      focus_main_window();
-
-      // Return focus without changing the selected tab. The grab itself must be deferred
-      // to the idle loop, since focus-set during window destruction gets
-      // overridden by GTK when the removal completes.
-      g_idle_add((GSourceFunc) focus_chat_entry_idle, NULL);
-
+      /* The picker has an explicit Close button. Never let Escape close
+       * the picker, including when a child editor propagates the key. */
       return TRUE;
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
       GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(gtk_widget_get_toplevel(w)));
