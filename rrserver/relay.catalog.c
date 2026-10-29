@@ -12,7 +12,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <glib.h>
-#ifdef USE_MONGOOSE
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
 #include <librrprotocol/server.events.h>
@@ -2259,4 +2258,4 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
       }
    }
 }
-#endif /* USE_MONGOOSE */
+
