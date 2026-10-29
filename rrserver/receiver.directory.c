@@ -102,7 +102,7 @@ static bool body_valid(const char *data, size_t len) {
       const char *digits = key + 10;
       char *end = NULL;
       unsigned long n = strtoul(digits, &end, 10);
-      if (end == digits || !end || *end != ']' || n >= 10000) {
+      if (end == digits || *end != ']' || (end[1] != '.' && end[1] != '[' && end[1] != '\0') || n >= 10000) {
          valid = false;
          break;
       }
