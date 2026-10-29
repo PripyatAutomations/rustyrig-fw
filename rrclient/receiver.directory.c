@@ -12,6 +12,7 @@
 #include <glib/gstdio.h>
 #include <curl/curl.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/json.h>
 #include <librrprotocol/rrprotocol.h>
 #include "receiver.directory.h"
 #include "receiver.catalog.h"
@@ -63,24 +64,44 @@ static void receiver_free(gpointer value) {
    g_free(r->local_reason);
    g_free(r);
 }
-static char *field(struct mg_str object, const char *key) {
-   char *value = mg_json_get_str(object, key);
-   char *valid = g_utf8_make_valid(value ? value : "", -1);
-   free(value);
 
-   if (g_utf8_strlen(valid, -1) > 512) {
-      *g_utf8_offset_to_pointer(valid, 512) = 0;
-   }
-
-   for (char *p = valid ; *p ; p++) {
-      if ((unsigned char)*p < 32 || *p == 127) {
-         *p = ' ';
-      }
-   }
-
+static char *field(dict *d, const char *key) {
+   const char *text = dict_get(d, key, "");
+   char *valid = g_utf8_make_valid(text ? text : "", -1);
+   if (g_utf8_strlen(valid, -1) > 512) *g_utf8_offset_to_pointer(valid, 512) = 0;
+   for (char *p = valid; *p; p++)
+      if ((unsigned char)*p < 32 || *p == 127) *p = ' ';
    return valid;
 }
-
+static char *receiver_properties(dict *d, const char *prefix) {
+   dict *one = dict_new();
+   size_t n = strlen(prefix);
+   int at = 0;
+   const char *key;
+   dict_value_t v;
+   val_type_t t;
+   while ((at = dict_enumerate_typed(d, at, &key, &v, &t)) >= 0) {
+      if (strncmp(key, prefix, n) || key[n] != '.') continue;
+      const char *name = key + n + 1;
+      switch (t) {
+         case VAL_STR: dict_add(one, name, v.s); break;
+         case VAL_NULL: dict_add_null(one, name); break;
+         case VAL_BOOL: dict_add_bool(one, name, v.i != 0); break;
+         case VAL_INT: dict_add_int(one, name, v.i); break;
+         case VAL_UINT: dict_add_uint(one, name, v.ui); break;
+         case VAL_LONG: dict_add_long(one, name, v.l); break;
+         case VAL_ULONG: dict_add_ulong(one, name, v.ul); break;
+         case VAL_LLONG: dict_add_llong(one, name, v.ll); break;
+         case VAL_ULLONG: dict_add_ullong(one, name, v.ull); break;
+         case VAL_FLOAT: dict_add_float(one, name, v.f); break;
+         case VAL_DOUBLE: dict_add_double(one, name, v.d); break;
+         default: break;
+      }
+   }
+   char *json = dict2json(one);
+   dict_free(one);
+   return json ? json : g_strdup("{}");
+}
 /* Country is optional in Kiwi's directory. Only infer from distinctive whole country names or unambiguous comma-delimited country codes. Don't guess a country
  * from a city, US state or amateur grid square. */
 static char *country_from_text(const char *text) {
@@ -296,37 +317,33 @@ static void infer_country(receiver_directory_entry_t *r, const char *description
       r->country = country;
    }
 }
-static long long integer(struct mg_str object, const char *key, long long fallback) {
-   struct mg_str token = mg_json_get_tok(object, key);
 
-   if (!token.len || token.len > 20) {
-      return fallback;
-   }
-   char text[24];
-   memcpy(text, token.buf, token.len);
-   text[token.len] = 0;
-   char *end;
+static long long integer(dict *d, const char *key, long long fallback) {
+   const char *v = dict_get_exp(d, key);
+   if (!v || !*v) return fallback;
+   char *end = NULL;
    errno = 0;
-   long long number = strtoll(text, &end, 10);
-
-   return errno || end == text || *end ? fallback : number;
+   long long n = strtoll(v, &end, 10);
+   return errno || end == v || *end ? fallback : n;
 }
-static bool flag(struct mg_str object, const char *key) {
-   bool value;
-
-   if (mg_json_get_bool(object, key, &value)) {
-      return value;
-   }
-   struct mg_str token = mg_json_get_tok(object, key);
-
-   if (!token.len) {
-      return false;
-   }
-   char *text = mg_json_get_str(object, key);
-   bool result = !text || (strcasecmp(text, "false") && strcasecmp(text, "no") && strcmp(text, "0"));
-   free(text);
-
-   return result;
+static bool flag(dict *d, const char *key) {
+   val_type_t type = dict_get_type(d, key);
+   if (type == VAL_END || type == VAL_NULL) return false;
+   if (type == VAL_BOOL) return dict_get_bool(d, key, false);
+   const char *v = dict_get_exp(d, key);
+   return !v || (g_ascii_strcasecmp(v, "false") && g_ascii_strcasecmp(v, "no") && strcmp(v, "0"));
+}
+static void entry_key(char out[128], const char *prefix, const char *name) {
+   g_snprintf(out, 128, "%s.%s", prefix, name);
+}
+static char *entry_field(dict *d, const char *prefix, const char *name) {
+   char key[128]; entry_key(key, prefix, name); return field(d, key);
+}
+static long long entry_integer(dict *d, const char *prefix, const char *name, long long fallback) {
+   char key[128]; entry_key(key, prefix, name); return integer(d, key, fallback);
+}
+static bool entry_flag(dict *d, const char *prefix, const char *name) {
+   char key[128]; entry_key(key, prefix, name); return flag(d, key);
 }
 static GUri *http_uri(const char *url) {
    if (!url || !*url || strlen(url) > 2048) {
@@ -389,44 +406,27 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
    if (!data || !length || length > DIRECTORY_MAX_BODY || memchr(data, 0, length)) {
       return NULL;
    }
-   struct mg_str json = mg_str_n(data, length);
-   int size = 0, start = mg_json_get(json, "$", &size);
-
-   if (start < 0 || size < 2 || data[start] != '{') {
-      return NULL;
-   }
-
-   for (size_t i = start + size ; i < length ; i++) {
-      if (!g_ascii_isspace(data[i])) {
-         return NULL;
-      }
-   }
-
-   if (integer(json, "$.schema", -1) != 1) {
-      return NULL;
-   }
-   /* The first provider is the documented Kiwi schema-1 mirror. Other providers must have explicit parsers, never inherit Kiwi API policy. */
-   char *provider = mg_json_get_str(json, "$.provider");
-   bool supported = provider ? !strcmp(provider, "kiwi") : !mg_json_get_tok(json, "$.provider").len;
-   free(provider);
-
-   if (!supported) {
-      return NULL;
-   }
-   struct mg_str array = mg_json_get_tok(json, "$.receivers"), object;
-
-   if (!array.len || array.buf[0] != '[') {
+   const char *begin = data;
+   while (*begin && g_ascii_isspace(*begin)) begin++;
+   if (*begin != '{') return NULL;
+   dict *json = json2dict(data);
+   if (!json) return NULL;
+   if (integer(json, "schema", -1) != 1 ||
+       strcmp(dict_get(json, "provider", "kiwi"), "kiwi") ||
+       !strstr(data, "\"receivers\"")) {
+      dict_free(json);
       return NULL;
    }
    GPtrArray *list = g_ptr_array_new_with_free_func(receiver_free);
-   size_t offset = 0, count = 0;
-   while ((offset = mg_json_next(array, offset, NULL, &object))) {
-      if (++count > DIRECTORY_MAX_ROWS || !object.len || object.buf[0] != '{') {
-         goto invalid;
-      }
+   size_t count = 0;
+   for (; count < DIRECTORY_MAX_ROWS; count++) {
+      char prefix[64], urlkey[128];
+      g_snprintf(prefix, sizeof(prefix), "receivers[%zu]", count);
+      entry_key(urlkey, prefix, "url");
+      if (dict_get_type(json, urlkey) == VAL_END) break;
       receiver_directory_entry_t *r = g_new0(receiver_directory_entry_t, 1);
       r->driver = "kiwi";
-      r->url = field(object, "$.url");
+      r->url = entry_field(json, prefix, "url");
       GUri *uri = http_uri(r->url);
 
       if (!uri) {
@@ -438,45 +438,51 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
       char *normalized = canonical_url(r->url);
       g_free(r->url);
       r->url = normalized;
-      r->name = field(object, "$.name");
-      r->location = field(object, "$.loc");
-      r->country = field(object, "$.country");
-      r->contact = field(object, "$.contact");
+      r->name = entry_field(json, prefix, "name");
+      r->location = entry_field(json, prefix, "loc");
+      r->country = entry_field(json, prefix, "country");
+      r->contact = entry_field(json, prefix, "contact");
 
       if (!*r->contact) {
          g_free(r->contact);
-         r->contact = field(object, "$.email");
+         r->contact = entry_field(json, prefix, "email");
       }
-      r->antenna = field(object, "$.antenna");
-      r->hardware = field(object, "$.sdr_hw");
-      r->grid = field(object, "$.grid");
-      r->users = CLAMP(integer(object, "$.users", 0), 0, INT_MAX);
-      r->users_max = CLAMP(integer(object, "$.users_max", 0), 0, INT_MAX);
-      r->ext_api = CLAMP(integer(object, "$.ext_api", -1), -1, INT_MAX);
-      r->offline = flag(object, "$.offline");
-      r->flagged = flag(object, "$.flagged");
-      long long low = integer(object, "$.bands[0]", -1), high = integer(object, "$.bands[1]", -1);
+      r->antenna = entry_field(json, prefix, "antenna");
+      r->hardware = entry_field(json, prefix, "sdr_hw");
+      r->grid = entry_field(json, prefix, "grid");
+      r->users = CLAMP(entry_integer(json, prefix, "users", 0), 0, INT_MAX);
+      r->users_max = CLAMP(entry_integer(json, prefix, "users_max", 0), 0, INT_MAX);
+      r->ext_api = CLAMP(entry_integer(json, prefix, "ext_api", -1), -1, INT_MAX);
+      r->offline = entry_flag(json, prefix, "offline");
+      r->flagged = entry_flag(json, prefix, "flagged");
+      long long low = entry_integer(json, prefix, "bands[0]", -1), high = entry_integer(json, prefix, "bands[1]", -1);
 
       if (low >= 0 && high > low) {
          r->low_hz = low;
          r->high_hz = high;
       }
-      r->properties = g_utf8_make_valid(object.buf, object.len);
-      char *description = field(object, "$.description");
+      r->properties = receiver_properties(json, prefix);
+      char *description = entry_field(json, prefix, "description");
 
       if (!*description) {
          g_free(description);
-         description = field(object, "$.desc");
+         description = entry_field(json, prefix, "desc");
       }
       infer_country(r, description);
       r->description = description;
       g_ptr_array_add(list, r);
    }
+   if (count == DIRECTORY_MAX_ROWS) {
+      char extra[128];
+      entry_key(extra, "receivers[10000]", "url");
+      if (dict_get_type(json, extra) != VAL_END) {
+         g_ptr_array_free(list, TRUE);
+         dict_free(json);
+         return NULL;
+      }
+   }
+   dict_free(json);
    return list;
-invalid:
-   g_ptr_array_free(list, TRUE);
-
-   return NULL;
 }
 
 /* Provider dispatch is intentionally separate from transport/cache/UI. Add other WebSDR adapters here with their own schema and operator-policy rules. */
@@ -661,7 +667,9 @@ static void merge_records(void) {
       return;
    }
    sqlite3_stmt *statement = NULL;
-   char *provider = payload ? field(mg_str(payload), "$.provider") : g_strdup("");
+   dict *provider_json = payload ? json2dict(payload) : NULL;
+   char *provider = provider_json ? field(provider_json, "provider") : g_strdup("");
+   dict_free(provider_json);
 
    if (!*provider) {
       g_free(provider);
@@ -1033,7 +1041,9 @@ const char *receiver_directory_source_url(void) {
 }
 char *receiver_directory_info(void) {
    ensure();
-   char *published = payload ? field(mg_str(payload), "$.fetched_at") : g_strdup("");
+   dict *published_json = payload ? json2dict(payload) : NULL;
+   char *published = published_json ? field(published_json, "fetched_at") : g_strdup("");
+   dict_free(published_json);
    GDateTime *date = *published ? g_date_time_new_from_iso8601(published, NULL) : NULL;
    char *age = date ? g_strdup_printf("%lld minutes old", (long long)MAX(0, (now - g_date_time_to_unix(date)) / 60)) : g_strdup("age unknown");
    char *info = g_strdup_printf("Refresh source: %s\nDirectory published: %s (%s)", source
@@ -1223,8 +1233,9 @@ static gboolean finish(gpointer unused) {
          g_free(modified);
          modified = g_strdup(job->response_modified);
       }
-      struct mg_str json = mg_str(payload);
-      char *published = field(json, "$.fetched_at");
+      dict *published_json = payload ? json2dict(payload) : NULL;
+       char *published = published_json ? field(published_json, "fetched_at") : g_strdup("");
+       dict_free(published_json);
       g_snprintf(status_text, sizeof(status_text), "%u receivers; directory published %s. Availability is a cached hint.", receivers->len, *published ?
          published : "at an unknown time");
       g_free(published);
