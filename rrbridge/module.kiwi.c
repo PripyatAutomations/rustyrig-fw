@@ -7,6 +7,7 @@
 // Kiwi-specific networking and wire protocol; no client/UI state belongs here.
 #include <librrprotocol/bridge.sdr.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/json.h>
 #include <librustyaxe/module.h>
 #include <ext/libmongoose/mongoose.h>
 #include <stdint.h>
@@ -177,37 +178,29 @@ static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
    int length = mg_url_decode(encoded, strlen(encoded), text, strlen(encoded) + 1, 0);
 
    if (length >= 0) {
-      struct mg_str json = mg_str_n(text, length);
-      long api = mg_json_get_long(json, "$.ext_api", -1);
-
-      if (api >= 0 && api <= 1000000) {
-         char allowance[32];
-         snprintf(allowance, sizeof(allowance), "%ld", api);
-
-         if (k->host.metadata) {
-            k->host.metadata(k->host.user, "ext_api", allowance);
+      text[length] = 0;
+      dict *json = json2dict(text);
+      if (json) {
+         long long api = dict_get_llong(json, "ext_api", -1);
+         if (api >= 0 && api <= 1000000) {
+            char allowance[32];
+            snprintf(allowance, sizeof(allowance), "%lld", api);
+            if (k->host.metadata)
+               k->host.metadata(k->host.user, "ext_api", allowance);
+            if (!api) fail(k, "Kiwi receiver has disabled external API access");
          }
-
-         if (!api) {
-            fail(k, "Kiwi receiver has disabled external API access");
+         const char *remote[] = {
+            "rx_name", "rx_location", "admin_email", "rx_antenna", "rx_device", "rx_grid"
+         };
+         const char *local[] = {
+            "name", "location", "contact", "antenna", "hardware", "grid"
+         };
+         for (unsigned i = 0; i < sizeof(remote) / sizeof(remote[0]); i++) {
+            const char *value = dict_get(json, remote[i], NULL);
+            if (value && *value && k->host.metadata)
+               k->host.metadata(k->host.user, local[i], value);
          }
-      }
-      const char *remote[] = {
-         "rx_name", "rx_location", "admin_email", "rx_antenna", "rx_device", "rx_grid"
-      };
-      const char *local[] = {
-         "name", "location", "contact", "antenna", "hardware", "grid"
-      };
-
-      for (unsigned i = 0 ; i < sizeof(remote) / sizeof(remote[0]) ; i++) {
-         char path[64];
-         snprintf(path, sizeof(path), "$.%s", remote[i]);
-         char *value = mg_json_get_str(json, path);
-
-         if (value && *value && k->host.metadata) {
-            k->host.metadata(k->host.user, local[i], value);
-         }
-         free(value);
+         dict_free(json);
       }
    }
    free(text);
