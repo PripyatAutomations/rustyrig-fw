@@ -167,6 +167,43 @@ typedef struct {
    bool initial_direct;
 } GtkServerEditor;
 
+static void editor_refresh_certificates(GtkServerEditor *editor) {
+   if (!editor || !editor->certificate) {
+      return;
+   }
+   char *selected = g_strdup(gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->certificate)));
+   if (!selected && editor->profile) {
+      selected = g_strdup(get_server_property(editor->profile, "client.identity.path"));
+   }
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->certificate));
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->certificate), "", "No certificate");
+   gchar *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
+   GDir *folder = g_dir_open(dir, 0, NULL);
+   const char *filename;
+   if (folder) {
+      while ((filename = g_dir_read_name(folder))) {
+         if (!g_str_has_suffix(filename, ".pem")) {
+            continue;
+         }
+         gchar *path = g_build_filename(dir, filename, NULL);
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->certificate), path, filename);
+         g_free(path);
+      }
+      g_dir_close(folder);
+   }
+   g_free(dir);
+   if (!selected || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->certificate), selected)) {
+      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->certificate), 0);
+   }
+   g_free(selected);
+}
+
+static void server_editor_manage_keys(GtkButton *button, gpointer data) {
+   (void)button;
+   rrclient_gtk_open_key_manager();
+   editor_refresh_certificates(data);
+}
+
 static void editor_refresh_networks(GtkServerEditor *editor) {
    if (!editor || !editor->network) {
       return;
@@ -405,28 +442,17 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    }
 
    editor->certificate = gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->certificate), "", "No certificate");
-   gchar *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
-   GDir *folder = g_dir_open(dir, 0, NULL);
-   const char *filename;
-   if (folder) {
-      while ((filename = g_dir_read_name(folder))) {
-         if (!g_str_has_suffix(filename, ".pem")) {
-            continue;
-         }
-         gchar *path = g_build_filename(dir, filename, NULL);
-         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->certificate), path, filename);
-         g_free(path);
-      }
-      g_dir_close(folder);
-   }
-   g_free(dir);
-   const char *identity = profile ? get_server_property(profile, "client.identity.path") : NULL;
-   if (!identity || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->certificate), identity)) {
-      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->certificate), 0);
-   }
+   editor_refresh_certificates(editor);
+   GtkWidget *certificate_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(certificate_row), editor->certificate, TRUE, TRUE, 0);
+   GtkWidget *manage_keys = gtk_button_new_with_label("Manage Keys");
+   gtk_button_set_image(GTK_BUTTON(manage_keys),
+      gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON));
+   gtk_button_set_always_show_image(GTK_BUTTON(manage_keys), TRUE);
+   g_signal_connect(manage_keys, "clicked", G_CALLBACK(server_editor_manage_keys), editor);
+   gtk_box_pack_start(GTK_BOX(certificate_row), manage_keys, FALSE, FALSE, 0);
    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Certificate"), 0, 6, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), editor->certificate, 1, 6, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), certificate_row, 1, 6, 1, 1);
    editor->network = gtk_combo_box_text_new();
    editor_refresh_networks(editor);
    GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
