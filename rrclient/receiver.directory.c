@@ -319,18 +319,13 @@ static void infer_country(receiver_directory_entry_t *r, const char *description
 }
 
 static long long integer(dict *d, const char *key, long long fallback) {
-   const char *v = dict_get_exp(d, key);
-   if (!v || !*v) return fallback;
-   char *end = NULL;
-   errno = 0;
-   long long n = strtoll(v, &end, 10);
-   return errno || end == v || *end ? fallback : n;
+   return dict_get_llong(d, key, fallback);
 }
 static bool flag(dict *d, const char *key) {
    val_type_t type = dict_get_type(d, key);
    if (type == VAL_END || type == VAL_NULL) return false;
    if (type == VAL_BOOL) return dict_get_bool(d, key, false);
-   const char *v = dict_get_exp(d, key);
+   const char *v = dict_get(d, key, NULL);
    return !v || (g_ascii_strcasecmp(v, "false") && g_ascii_strcasecmp(v, "no") && strcmp(v, "0"));
 }
 static void entry_key(char out[128], const char *prefix, const char *name) {
