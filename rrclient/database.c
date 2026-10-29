@@ -79,9 +79,22 @@ static bool db_exec3(const char *sql, const char *a, const char *b, const char *
    return ok;
 }
 
+/* WebSocket URLs with no explicit path use the RustyRig client endpoint. */
+char *rrclient_database_normalize_url(const char *url) {
+   if (!url) return NULL;
+   if (!g_str_has_prefix(url, "ws://") && !g_str_has_prefix(url, "wss://"))
+      return g_strdup(url);
+   const char *authority = strstr(url, "://") + 3;
+   const char *end = strpbrk(authority, "/?#");
+   if (!end) return g_strconcat(url, "/ws/", NULL);
+   return g_strdup(url);
+}
+
 bool rrclient_database_server_set(const char *name, const char *property, const char *value) {
    if (!name || !*name || !property || !value) return false;
-   if (sqlite3_exec(client_db, "SAVEPOINT profile_write", NULL, NULL, NULL) != SQLITE_OK) return false;
+   char *normalized = !strcmp(property, "server.url") ? rrclient_database_normalize_url(value) : NULL;
+   if (normalized) value = normalized;
+   if (sqlite3_exec(client_db, "SAVEPOINT profile_write", NULL, NULL, NULL) != SQLITE_OK) { g_free(normalized); return false; }
    bool ok = false;
    if (!strcmp(property, "server.url"))
       ok = db_exec3("INSERT INTO servers(name,url) VALUES(?1,?2) "
@@ -101,6 +114,7 @@ bool rrclient_database_server_set(const char *name, const char *property, const 
       dict_add(cfg,key,value);
       g_free(key);
    }
+   g_free(normalized);
    return ok;
 }
 
