@@ -830,60 +830,44 @@ int main(int argc, char **argv) {
    show_pin_info();
 #endif // USE_EEPROM
 
-// Bring up libmongoose for the websocket/mqtt servers & mqtt client
-#if     defined(USE_MONGOOSE)
-#if     defined(HTTP_DEBUG_CRAZY)
-   mg_log_set(MG_LL_DEBUG);
-#else // HTTP_DEBUG_CRAZY
+   /* Common server lifecycle; transport backend is selected separately. */
+#ifdef USE_MONGOOSE
    mg_log_set(MG_LL_ERROR);
-#endif // HTTP_DEBUG_CRAZY
-
    mg_mgr_init(&mg_mgr);
-
-   if (!rrserver_links_init(&mg_mgr)) {
-      Log(LOG_CRIT, "link", "Unable to initialize configured server links");
+#endif
+   if (!rrserver_links_init(
+#ifdef USE_MONGOOSE
+        &mg_mgr
+#else
+        NULL
+#endif
+       )) {
+      Log(LOG_CRIT, "link", "Unable to initialize server links");
+#ifdef USE_MONGOOSE
       mg_mgr_free(&mg_mgr);
+#endif
       rrserver_links_fini();
       rrserver_relay_fini();
-
       return 1;
    }
-
    if (!rr_mesh_native_listener_start()) {
-      Log(LOG_CRIT, "mesh.native", "Native mesh listener initialization failed");
+      Log(LOG_CRIT, "mesh.native", "TLS listener initialization failed");
+#ifdef USE_MONGOOSE
       mg_mgr_free(&mg_mgr);
+#endif
       rrserver_links_fini();
       rrserver_relay_fini();
       return 1;
    }
-
-   // Camera IPC must be attached after the manager is initialized.
-   if (fwdsp_ready) {
-      webcam_init();
-   }
-
-   if (fwdsp_ready && !rrserver_media_audio_init()) {
+   if (fwdsp_ready) webcam_init();
+   if (fwdsp_ready && !rrserver_media_audio_init())
       Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
-   }
-   /* Native TLS is the only inbound client/mesh listener. */
-   // Update the clock (now) once a second
-   g_timeout_add(1000, rr_timer_clock_cb, &mg_mgr);
-
-// Refresh statistics every five minutes, including non-profiling builds.
-// Handler/codec timing dumps remain guarded by USE_PROFILING.
-   g_timeout_add(300000, rr_timer_profile_cb, &mg_mgr);
-
-   // Update the clock (now) once a second
-   // Check for faults/protection every 150ms
-   g_timeout_add(150, rr_timer_faults_cb, &mg_mgr);
-
-   // rig polling
-   g_timeout_add(MAX(1, cfg_backend_poll_interval), rr_timer_backend_cb, &mg_mgr);
-
-   // 'precise' timekeeping
-   g_timeout_add(MAX(1, cfg_tick_interval), rr_timer_tick_cb, &mg_mgr);
-
-#endif // USE_MONGOOSE
+   /* Application timers are transport independent. */
+   g_timeout_add(1000, rr_timer_clock_cb, NULL);
+   g_timeout_add(300000, rr_timer_profile_cb, NULL);
+   g_timeout_add(150, rr_timer_faults_cb, NULL);
+   g_timeout_add(MAX(1, cfg_backend_poll_interval), rr_timer_backend_cb, NULL);
+   g_timeout_add(MAX(1, cfg_tick_interval), rr_timer_tick_cb, NULL);
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
@@ -927,17 +911,12 @@ int main(int argc, char **argv) {
       event_emit("server.poll", NULL, NULL);
       bool serial_active = rrserver_serial_poll();
       (void)serial_active;
-#ifdef  USE_MONGOOSE
-      // Reap any exited fwdsp children (flag set by the SIGCHLD handler)
       fwdsp_reap_children();
-
-      // Process Mongoose HTTP and MQTT events, this should be at the end of
-      // loop so all data is ready
-      mg_mgr_poll(&mg_mgr, 10);
-      /* Dispatch GLib application timers without blocking Mongoose I/O. */
+#ifdef USE_MONGOOSE
+      mg_mgr_poll(&mg_mgr, 0);
+#endif
       rr_reactor_dispatch_ready(NULL);
       rrserver_links_poll();
-#endif
 
       if (dying) {
          break;
@@ -994,12 +973,12 @@ int main(int argc, char **argv) {
    }
    host_cleanup();
 
-#ifdef  USE_MONGOOSE
    rr_mesh_native_listener_stop();
+#ifdef USE_MONGOOSE
    mg_mgr_free(&mg_mgr);
+#endif
    rrserver_links_fini();
    rrserver_relay_fini();
-#endif
 
    event_shutdown();
    cfg_fini();
