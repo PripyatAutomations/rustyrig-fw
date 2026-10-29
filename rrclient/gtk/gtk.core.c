@@ -1533,6 +1533,51 @@ static rr_crypto_key_t *identity_read_key(const char *path, GtkWindow *parent) {
    }
    return key;
 }
+static void identity_menu_action(GtkMenuItem *item, gpointer dialog) {
+   gtk_dialog_response(GTK_DIALOG(dialog), GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "response")));
+}
+static gboolean identity_list_menu(GtkWidget *list, GdkEventButton *event, gpointer dialog) {
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   GtkListBoxRow *row = gtk_list_box_get_row_at_y(GTK_LIST_BOX(list), (gint) event->y);
+   if (!row) return FALSE;
+   gtk_list_box_select_row(GTK_LIST_BOX(list), row);
+   const char *path = g_object_get_data(G_OBJECT(row), "identity-path");
+   GtkWidget *menu = gtk_menu_new();
+   const char *labels[] = {rrclient_identity_get(path) ? "🔒 Lock" : "🔓 Unlock",
+      "✏ Rename", NULL, "⬆ Export", NULL, "🗑 Delete"};
+   const int responses[] = {4, 7, 0, 3, 0, 5};
+   for (size_t i=0; i<G_N_ELEMENTS(labels); i++) {
+      if (!labels[i]) { gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new()); continue; }
+      GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
+      g_object_set_data(G_OBJECT(item), "response", GINT_TO_POINTER(responses[i]));
+      g_signal_connect(item, "activate", G_CALLBACK(identity_menu_action), dialog);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+   }
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent*)event);
+   return TRUE;
+}
+static char *identity_prompt_name(GtkWindow *parent, const char *title, const char *existing) {
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(title, parent, GTK_DIALOG_MODAL,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_OK", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *entry = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Letters, digits, _ or -");
+   if (existing) gtk_entry_set_text(GTK_ENTRY(entry), existing);
+   gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry);
+   gtk_widget_show_all(dialog);
+   char *name = NULL;
+   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *candidate = gtk_entry_get_text(GTK_ENTRY(entry));
+      if (*candidate && strlen(candidate) <= 64 &&
+          strspn(candidate, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") == strlen(candidate)) {
+         name = g_strdup(candidate); break;
+      }
+      identity_message(parent, GTK_MESSAGE_WARNING, "Name must contain 1–64 letters, digits, _ or -.");
+   }
+   gtk_widget_destroy(dialog);
+   return name;
+}
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    (void)unused; (void)unused_data;
    GtkWindow *parent = main_window ? GTK_WINDOW(main_window) : NULL;
@@ -1548,14 +1593,15 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    gtk_list_box_set_selection_mode(GTK_LIST_BOX(list), GTK_SELECTION_SINGLE);
    gtk_widget_set_size_request(list, 380, 90);
    gtk_box_pack_start(GTK_BOX(area), list, TRUE, TRUE, 6);
+   g_signal_connect(list, "button-press-event", G_CALLBACK(identity_list_menu), dlg);
    GtkWidget *status = gtk_label_new("");
    gtk_label_set_xalign(GTK_LABEL(status), 0);
    gtk_box_pack_start(GTK_BOX(area), status, FALSE, FALSE, 8);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Create New", 1);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Import", 2);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Export", 3);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock / Unlock", 4);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Delete", 5);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "➕ Create New", 1);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "⬇ Import", 2);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "⬆ Export", 3);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "🔒 Lock / Unlock", 4);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "🗑 Delete", 5);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock All", 6);
    char *path = NULL;
    char *selected_path = NULL;
@@ -1618,7 +1664,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       bool safe = path != NULL;
       if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) break;
       /* Only the selected row is a target for key operations. */
-      if ((response == 3 || response == 4 || response == 5) &&
+      if ((response == 3 || response == 4 || response == 5 || response == 7) &&
           !gtk_list_box_get_selected_row(GTK_LIST_BOX(list))) continue;
       if (response == 6) {
          rrclient_identity_lock_all();
@@ -1666,10 +1712,11 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
             }
             gtk_widget_destroy(chooser);
          }
-         char *uuid = g_uuid_string_random();
-         char *basename = g_strdup_printf("identity-%s.pem", uuid);
+         char *uuid = response == 1 ? identity_prompt_name(GTK_WINDOW(dlg), "Name New Certificate", NULL) : g_uuid_string_random();
+         if (!uuid) { rr_crypto_key_free(key); continue; }
+         char *basename = g_strdup_printf("%s.pem", uuid);
          char *new_path = g_build_filename(dir, basename, NULL);
-         bool stored = key && gtk_identity_save_new(key, new_path);
+         bool stored = key && !g_file_test(new_path, G_FILE_TEST_EXISTS) && gtk_identity_save_new(key, new_path);
          if (stored) {
             g_free(selected_path);
             selected_path = g_strdup(new_path);
@@ -2041,4 +2088,25 @@ void gtk_frontend_stop(void) {
 
 void rrclient_gtk_open_key_manager(void) {
    gtk_manage_certificates(NULL, NULL);
-}
+}       if (response == 7 && safe) {
+          char *old = g_path_get_basename(path);
+          if (g_str_has_suffix(old, ".pem")) old[strlen(old)-4] = 0;
+          char *name = identity_prompt_name(GTK_WINDOW(dlg), "Rename Certificate", old);
+          g_free(old);
+          if (name) {
+             char *base = g_strconcat(name, ".pem", NULL);
+             char *target = g_build_filename(dir, base, NULL);
+             if (strcmp(path,target) && g_file_test(target, G_FILE_TEST_EXISTS))
+                identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_WARNING, "That key name already exists.");
+             else if (strcmp(path,target) && rename(path,target))
+                identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR, "Unable to rename the key file.");
+             else {
+                rrclient_identity_lock(path);
+                g_free(selected_path);
+                selected_path = g_strdup(target);
+             }
+             g_free(target); g_free(base); g_free(name);
+          }
+          continue;
+       }
+
