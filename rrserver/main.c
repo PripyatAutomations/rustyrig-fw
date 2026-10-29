@@ -921,7 +921,8 @@ int main(int argc, char **argv) {
       (void)serial_active;
       fwdsp_reap_children();
 #ifdef USE_MONGOOSE
-      mg_mgr_poll(&mg_mgr, 0);
+      /* Keep the main loop from busy-spinning when no socket is ready. */
+      mg_mgr_poll(&mg_mgr, 10);
 #endif
       rr_reactor_dispatch_ready(NULL);
       rrserver_links_poll();

@@ -17,8 +17,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     schemas, and the migrated transport implementation.
   * Preserve GTK administration list replies across connection-wrapper churn
     by correlating responses with the stable server profile name.
+  * Restore the server event-loop wait interval to prevent a Mongoose busy
+    spin from consuming a full CPU core.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 29 Oct 2026 02:50:25 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 29 Oct 2026 02:59:11 -0400
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 
