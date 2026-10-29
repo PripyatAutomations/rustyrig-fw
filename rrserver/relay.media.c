@@ -16,7 +16,6 @@
 #include <rrserver/supervision.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
-#ifdef USE_MONGOOSE
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
@@ -397,15 +396,12 @@ void rr_relay_media_fanout(const char *event, const void *data, size_t length, r
       }
       rr_binframe_pack_hdr(copy, f->length, parsed.hdr.subsystem, parsed.hdr.codec, parsed.hdr.direction, parsed.hdr.vfo, parsed.hdr.rig, parsed.hdr.stream,
          rr_media_next_sequence(&r->client, &parsed.hdr), parsed.len, parsed.hdr.ts);
-      struct mg_str bytes = {
-         .buf = (char *)copy, .len = f->length
+      rr_media_binary_t outgoing = {
+         .frame = copy,
+         .length = f->length,
+         .setup = f->setup
       };
-
-      if (f->setup) {
-         ws_send_setup_to_cptr(NULL, &r->client, &bytes);
-      } else {
-         ws_send_to_cptr(NULL, &r->client, &bytes, WEBSOCKET_OP_BINARY);
-      }
+      event_emit_binary(RR_MEDIA_BINARY_EVENT, &r->client, &outgoing, sizeof(outgoing));
       free(copy);
    }
 }
@@ -458,4 +454,4 @@ void rr_relay_proxy_tx_frame(const char *event, const void *data, size_t length,
    }
    r->proxy_frame = mono_us();
 }
-#endif /* USE_MONGOOSE */
+
