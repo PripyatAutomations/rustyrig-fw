@@ -506,10 +506,13 @@ static void picker_new_server(GtkButton *button, gpointer data) {
    gtk_widget_show_all(dialog);
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *n=gtk_entry_get_text(GTK_ENTRY(name));
-      const char *u=gtk_entry_get_text(GTK_ENTRY(url));
+      char *u=rrclient_database_normalize_url(gtk_entry_get_text(GTK_ENTRY(url)));
+      gtk_entry_set_text(GTK_ENTRY(url), u);
       const char *who=gtk_entry_get_text(GTK_ENTRY(user));
       const char *secret=gtk_entry_get_text(GTK_ENTRY(password));
       rr_server_url_t parsed;
+      g_free(u);
+      u= (char *)gtk_entry_get_text(GTK_ENTRY(url));
       if (!*n || strspn(n,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=strlen(n) ||
           !rr_server_url_parse(u,&parsed)) {
          gtk_label_set_text(GTK_LABEL(error),"Enter a valid profile name and WS/WSS/IRC/IRCS URL.");
