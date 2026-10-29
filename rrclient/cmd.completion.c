@@ -499,7 +499,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if (!strcasecmp(command, "/link")) {
          if (arg == 1) {
-            completion_words(&matches, &count, "LIST OPEN CLOSE", word);
+            completion_words(&matches, &count, "LIST OPEN CLOSE INVITE", word);
          }
       } else if (!strcasecmp(command, "/admin")) {
          if (arg == 1) {
