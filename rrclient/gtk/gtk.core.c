@@ -1686,6 +1686,27 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          }
          continue;
       }
+if (response == 7 && safe) {
+          char *old = g_path_get_basename(path);
+          if (g_str_has_suffix(old, ".pem")) old[strlen(old)-4] = 0;
+          char *name = identity_prompt_name(GTK_WINDOW(dlg), "Rename Certificate", old);
+          g_free(old);
+          if (name) {
+             char *base = g_strconcat(name, ".pem", NULL);
+             char *target = g_build_filename(dir, base, NULL);
+             if (strcmp(path,target) && g_file_test(target, G_FILE_TEST_EXISTS))
+                identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_WARNING, "That key name already exists.");
+             else if (strcmp(path,target) && rename(path,target))
+                identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR, "Unable to rename the key file.");
+             else {
+                rrclient_identity_lock(path);
+                g_free(selected_path);
+                selected_path = g_strdup(target);
+             }
+             g_free(target); g_free(base); g_free(name);
+          }
+          continue;
+       }
       if (response == 5 && safe) {
          GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(dlg), GTK_DIALOG_MODAL,
             GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
@@ -2088,25 +2109,4 @@ void gtk_frontend_stop(void) {
 
 void rrclient_gtk_open_key_manager(void) {
    gtk_manage_certificates(NULL, NULL);
-}       if (response == 7 && safe) {
-          char *old = g_path_get_basename(path);
-          if (g_str_has_suffix(old, ".pem")) old[strlen(old)-4] = 0;
-          char *name = identity_prompt_name(GTK_WINDOW(dlg), "Rename Certificate", old);
-          g_free(old);
-          if (name) {
-             char *base = g_strconcat(name, ".pem", NULL);
-             char *target = g_build_filename(dir, base, NULL);
-             if (strcmp(path,target) && g_file_test(target, G_FILE_TEST_EXISTS))
-                identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_WARNING, "That key name already exists.");
-             else if (strcmp(path,target) && rename(path,target))
-                identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR, "Unable to rename the key file.");
-             else {
-                rrclient_identity_lock(path);
-                g_free(selected_path);
-                selected_path = g_strdup(target);
-             }
-             g_free(target); g_free(base); g_free(name);
-          }
-          continue;
-       }
-
+}
