@@ -66,7 +66,7 @@ extern GtkWidget *main_window;
 static RRFloatPanel *picker_panel;
 static GtkWidget *picker_tree;
 /* Columns 0..6 are retained for server rows; 7 identifies a network row. */
-enum { PICKER_NETWORK = 7, PICKER_UNGROUPED = 8, PICKER_COLUMNS = 9 };
+enum { PICKER_NETWORK = 7, PICKER_UNGROUPED = 8, PICKER_FLAGS = 9, PICKER_PROXY = 10, PICKER_COLUMNS = 11 };
 
 static gboolean picker_is_network(GtkTreeModel *model, GtkTreeIter *iter) {
    gboolean group = FALSE;
@@ -807,7 +807,7 @@ void gtk_show_server_chooser(void) {
    GtkWidget *window = rr_floating_panel_widget(picker_panel);
    GtkWidget *box = rr_floating_panel_body(picker_panel);
    gtk_widget_set_size_request(box, 600, 300);
-   GtkTreeStore *store = gtk_tree_store_new(PICKER_COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
+   GtkTreeStore *store = gtk_tree_store_new(PICKER_COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_BOOLEAN);
    GHashTable *grouped = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    int groups_rank = 0;
    const char *groups_key;
@@ -831,7 +831,9 @@ void gtk_show_server_chooser(void) {
          GtkTreeIter child;
          gtk_tree_store_append(store, &child, &parent);
          gtk_tree_store_set(store, &child, 0, members[j], 1, get_server_property(members[j], "server.user"),
-            2, url, 3, get_server_property(members[j], "server.proxy"), -1);
+            2, url, 3, get_server_property(members[j], "server.proxy"),
+            PICKER_FLAGS, g_str_has_prefix(url, "irc") ? "☏" : "⚒",
+            PICKER_PROXY, (get_server_property(members[j], "server.proxy") && *get_server_property(members[j], "server.proxy")) || (cfg_get("server.proxy") && *cfg_get("server.proxy")), -1);
          picker_set_state(store, &child, members[j]);
       }
       g_strfreev(members);
@@ -859,7 +861,8 @@ void gtk_show_server_chooser(void) {
       }
       GtkTreeIter iter;
       gtk_tree_store_append(store, &iter, &ungrouped_parent);
-      gtk_tree_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", -1);
+      gtk_tree_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", PICKER_FLAGS, value && g_str_has_prefix(value, "irc") ? "☏" : "⚒",
+         PICKER_PROXY, proxy && *proxy, -1);
       picker_set_state(store, &iter, name);
    }
    g_hash_table_destroy(grouped);
@@ -879,7 +882,7 @@ void gtk_show_server_chooser(void) {
    picker_tree = tree;
    gtk_tree_view_expand_all(GTK_TREE_VIEW(tree));
    const char *titles[] = {
-      "Server", "User", "URL", "Proxy"
+      "Server", "User", "URL", "Proxy URL"
    };
 
    for (int i = 0 ; i < 4 ; i++) {
@@ -896,6 +899,16 @@ void gtk_show_server_chooser(void) {
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), column);
    }
 
+   GtkCellRenderer *flags_renderer = gtk_cell_renderer_text_new();
+   GtkTreeViewColumn *flags_column = gtk_tree_view_column_new_with_attributes("Flags", flags_renderer, "text", PICKER_FLAGS, NULL);
+   gtk_tree_view_column_set_fixed_width(flags_column, 55);
+   gtk_widget_set_tooltip_text(tree, "Flags: ☏ IRC chat; ⚒ RustyRig radio protocol.");
+   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), flags_column);
+   GtkCellRenderer *proxy_indicator = gtk_cell_renderer_toggle_new();
+   g_object_set(proxy_indicator, "activatable", FALSE, NULL);
+   GtkTreeViewColumn *proxy_column = gtk_tree_view_column_new_with_attributes("Proxy", proxy_indicator,
+      "active", PICKER_PROXY, NULL);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), proxy_column);
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
    GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL);
