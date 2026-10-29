@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>
 #include <rrclient/cat.h>
@@ -573,7 +574,7 @@ int rr_cat_serial_reply(const char *data, size_t len) {
 static void host_command(serial_binding_t *b, const char *command) {
    rrconn_t *connection = binding_connection(b);
 
-   if (!connection || !connection->authenticated || !connection->conn) {
+   if (!connection || !connection->authenticated || !connection->active || !connection->connected) {
       return;
    }
    dict *d = dict_new();
@@ -646,7 +647,7 @@ static void host_sync(serial_binding_t *b) {
 
    rrconn_t *connection = binding_connection(b);
 
-   if (!connection || !connection->authenticated || !connection->conn) {
+   if (!connection || !connection->authenticated || !connection->active || !connection->connected) {
       return;
    }
 
@@ -682,12 +683,10 @@ static void host_sync(serial_binding_t *b) {
    if (b->tx_pending || !b->host_pending->len) {
       return;
    }
-#ifdef USE_MONGOOSE
-
-   if (connection->conn->send.len > 65536) {
+   if (connection->native_transport &&
+       (rr_transport_state(connection->native_transport) != RR_TRANSPORT_OPEN ||
+        rr_transport_queued_bytes(connection->native_transport) > 65536))
       return;
-   }
-#endif
    size_t n = b->host_pending->len;
 
    if (n > RR_SERIAL_BLOCK_MAX) {
@@ -702,11 +701,14 @@ static void host_sync(serial_binding_t *b) {
 
       return;
    }
-   struct mg_str data = {
-      .buf = (char *)packet, .len = len
-   };
-   ws_send_to_cptr(NULL, connection, &data, WEBSOCKET_OP_BINARY);
+   int sent = connection->native_transport ?
+      rr_transport_send_binary_message(connection->native_transport, packet, (size_t)len) :
+      RR_TRANSPORT_UNSUPPORTED;
    free(packet);
+   if (sent != RR_TRANSPORT_OK) {
+      b->tx_seq--;
+      return;
+   }
    g_byte_array_remove_range(b->host_pending, 0, n);
    b->tx_pending = true;
    rr_serial_read_enabled(b->port, b->host_pending->len < b->buffer_limit - 512);
