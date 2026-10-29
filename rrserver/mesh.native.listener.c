@@ -52,11 +52,11 @@ bool rr_mesh_native_listener_start(void) {
    if (native_fd >= 0) return true;
    const char *bind_ip = cfg_get("links.native.bind");
    if (!bind_ip || !*bind_ip) bind_ip = "0.0.0.0";
-   int port = cfg_get_int("links.native.port", 4420);
+   int port = cfg_get_int("net.http.tls-port", 4420);
    struct sockaddr_in addr = { .sin_family = AF_INET };
    if (port < 1 || port > 65535 ||
        inet_pton(AF_INET, bind_ip, &addr.sin_addr) != 1) {
-      Log(LOG_CRIT, "mesh.native", "Invalid links.native.bind/port; expected IPv4 and port 1-65535");
+      Log(LOG_CRIT, "mesh.native", "Invalid links.native.bind/net.http.tls-port; expected IPv4 and port 1-65535");
       return false;
    }
    addr.sin_port = htons((uint16_t)port);
