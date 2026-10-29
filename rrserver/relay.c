@@ -12,6 +12,7 @@
 #include <string.h>
 #include <time.h>
 #include <glib.h>
+#include <librustyaxe/transport.h>
 #include <rrserver/relay.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/supervision.h>
@@ -21,7 +22,6 @@
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
 #include <librrprotocol/wire.h>
-#include <rrserver/relay.h>
 #include <rrserver/link.h>
 #include <rrserver/identity.h>
 #include <rrserver/objects.h>
@@ -1050,14 +1050,13 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
                      if (!rr_binframe_parse(m->frame, m->size, &frame) && frame.hdr.stream == m->owner_stream) {
                         m->frame[11] = m->stream;
-                        struct mg_str bytes = {
-                           .buf = (char *)m->frame, .len = m->size
-                        };
-
-                        if (m->setup) {
-                           ws_send_setup_to_cptr(NULL, c->client, &bytes);
-                        } else {
-                           ws_send_to_cptr(NULL, c->client, &bytes, WEBSOCKET_OP_BINARY);
+                        if (c->client && c->client->native_transport &&
+                            rr_transport_state(c->client->native_transport) == RR_TRANSPORT_OPEN) {
+                           size_t limit = m->setup ? 262144u : 8192u;
+                           size_t queued = rr_transport_queued_bytes(c->client->native_transport);
+                           if (m->size <= limit && queued <= limit - m->size) {
+                              rr_transport_send_binary_message(c->client->native_transport, m->frame, m->size);
+                           }
                         }
                      }
                      free(m->frame);
