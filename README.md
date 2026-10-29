@@ -6,6 +6,12 @@ RustyRig is an open-source, multi-user amateur-radio platform. Operate radios fr
 
 RustyRig is under active development. The current releases are for testing; features and configuration can change.
 
+WebUI will be returning in v2.0! The v1.x series is focusing on improving
+transport reliability by adding RTP (done!), mesh server links (almost done), 
+and multihome client connections (pending).
+
+Currently this is NOT usable out of the box on non-linux hosts, we'll revisit that soon with libmongoose!
+
 ## What you can do
 
 - **Operate together.** Join radio rooms, see who's online, chat, and coordinate transmitter access.
@@ -27,9 +33,9 @@ Additional tools include remote serial/GPS access, audio recording, administrati
 | --- | --- |
 | ![GTK settings](doc/screenshot-gtk-cfgtab.png) | ![Browser client](doc/screenshot-webui.png) |
 
-| Features |
-| ![SDR Browser](doc/screenshot-sdr-directory.png)
-| ![SDR RX](doc/screenshot-gtk-rxsdr.png)
+| SDR Browser | SDR Receiver |
+| --- | --- |
+| ![SDR Browser](doc/screenshot-sdr-directory.png) | ![SDR RX](doc/screenshot-gtk-rxsdr.png) |
 
 ### Resource Explorer
 
