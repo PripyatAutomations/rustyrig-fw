@@ -171,14 +171,14 @@
       "mtu": 1500,
       "vlan": 1583,
       "http": {
-         "enabled": "true",
-         "bind": "0.0.0.0",
-         "port": 8420,
+         "enabled": "false",
+         "bind": "127.0.0.1",
+         "port": 0,
          "authdb": "./config/http.users",
          "authdb_dynamic": "false",
          "404_path": "./www/404.shtml",
          "tls_cert": "./config/cert.pem",
-         "tls_port": 4422,
+         "tls_port": 0,
          "tls_key": "./config/key.pem",
          "www_root": "./www"
       },
