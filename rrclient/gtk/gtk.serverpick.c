@@ -633,18 +633,18 @@ void gtk_server_picker_edit_network(GtkButton *button, gpointer data);
 /* Editable network selector plus searchable membership checklist. */
 void gtk_server_picker_edit_network(GtkButton *button, gpointer data) {
    (void)button;
-   GtkWidget *tree = data;
-   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+   GtkWidget *tree = data ? GTK_WIDGET(data) : picker_tree;
+   GtkTreeModel *model = tree ? gtk_tree_view_get_model(GTK_TREE_VIEW(tree)) : NULL;
    GtkTreeIter iter;
    char *existing = NULL;
-   if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &model, &iter) &&
+   if (tree && gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &model, &iter) &&
        picker_is_network(model, &iter)) {
       gboolean ungrouped = FALSE;
       gtk_tree_model_get(model, &iter, PICKER_UNGROUPED, &ungrouped, -1);
       if (!ungrouped) gtk_tree_model_get(model, &iter, 0, &existing, -1);
    }
    GtkWidget *dialog = gtk_dialog_new_with_buttons("New / Edit Network",
-      GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
+      (main_window ? GTK_WINDOW(main_window) : NULL), GTK_DIALOG_MODAL,
       "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dialog), 460, 450);
    g_signal_connect(dialog, "key-press-event", G_CALLBACK(picker_dialog_escape), NULL);
