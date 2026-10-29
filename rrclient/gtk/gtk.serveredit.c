@@ -216,6 +216,9 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    (void)button;
    GtkWidget *window = GTK_WIDGET(data);
    GtkServerEditor *editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
+   char *normalized = rrclient_database_normalize_url(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])));
+   gtk_entry_set_text(GTK_ENTRY(editor->fields[0]), normalized);
+   g_free(normalized);
    rr_server_url_t endpoint;
    if (!rr_server_url_parse(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])), &endpoint)) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Enter a valid WS, WSS, IRC or IRCS URL.");
