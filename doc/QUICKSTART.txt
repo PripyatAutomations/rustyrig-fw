@@ -107,10 +107,10 @@ wss=4420, irc=6667, ircs=6697. RustyRig radio/audio uses ws or wss; native IRC
 is chat-only. See doc/irc-client.md for proxy and multiple-server settings.
 
 For the browser, open http://localhost:8420/ on the server machine. Remote
-browser login needs HTTPS for Web Crypto: configure net.http.tls-enabled=true
-with net.http.tls-cert and net.http.tls-key, then open https://<server>/.
-The example config has TLS disabled; configure it before using that URL.
-A VPN does not make a remote HTTP origin a browser secure context.
+browser login needs a secure HTTPS origin for Web Crypto. The native TCP 4420
+listener serves RustyRig client WSS, not the static browser UI. Configure a
+separate HTTPS reverse proxy for WebUI if remote browser access is needed.
+A VPN alone does not make a remote HTTP origin a browser secure context.
 
 After login, /join #beta-rig0 attaches to the radio room. Confirm rig state,
 select a codec supported by the client, and verify receive audio before TX.
