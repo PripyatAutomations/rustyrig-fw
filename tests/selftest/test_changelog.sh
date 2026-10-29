@@ -72,6 +72,9 @@ fi
 
 check_changelog "$work/debian/changelog"
 grep -q '^ -- .*  Sat, 10 Oct 2026 15:16:17 -0400$' "$work/CHANGELOG"
+# Preserve the first bumped document for the historical-entry comparison;
+# a later bump intentionally adds another release entry.
+cp "$work/CHANGELOG" "$work/CHANGELOG.after-first-bump"
 # Check historical entries as well, and reject parser warnings even on exit 0.
 python3 - "$work/CHANGELOG" "$work/bad-history" "$work/bad-header" <<'PY'
 import pathlib, re, sys
@@ -90,22 +93,25 @@ if command -v dpkg-parsechangelog >/dev/null 2>&1 &&
    echo "FAIL: changelog parser warnings accepted" >&2
    exit 1
 fi
-python3 - "$work/CHANGELOG" <<'PY'
+python3 - "$work/CHANGELOG.after-first-bump" "$work/CHANGELOG" <<'PY'
 import pathlib, re, sys
 original = [entry for entry in re.split(r'(?=^rustyrig-fw \()', pathlib.Path('CHANGELOG').read_text(), flags=re.MULTILINE) if entry]
 updated = [entry for entry in re.split(r'(?=^rustyrig-fw \()', pathlib.Path(sys.argv[1]).read_text(), flags=re.MULTILINE) if entry]
-assert original[1:] == updated[1:], 'version bump changed historical entries'
-path = pathlib.Path(sys.argv[1])
+assert original[1:] == updated[2:], 'version bump changed historical entries'
+path = pathlib.Path(sys.argv[2])
 path.write_text(re.sub(r'^ -- .+\n', '', path.read_text(), count=1, flags=re.MULTILINE))
 PY
 if check_changelog "$work/CHANGELOG" > /dev/null 2>&1; then
    echo "FAIL: missing trailer accepted" >&2
    exit 1
 fi
+# Restore the valid fixture before checking that a subsequent bump preserves
+# historical entries; version bumps do not rewrite malformed old releases.
+cp "$work/CHANGELOG.after-first-bump" "$work/CHANGELOG"
 bash "$work/tools/bump-version.sh" --version 1.2.4 >/dev/null
 check_changelog "$work/CHANGELOG"
-# A standalone first entry must also acquire a trailer without an older identity.
-printf 'rustyrig-fw (1.2.4) testing; urgency=medium\n\n  * Test.\n' > "$work/CHANGELOG"
+# A standalone first entry must also retain its trailer without an older entry.
+printf 'rustyrig-fw (1.2.4) testing; urgency=medium\n\n  * Test.\n\n -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 15:16:17 -0400\n' > "$work/CHANGELOG"
 bash "$work/tools/bump-version.sh" --version 1.2.5 >/dev/null
 check_changelog "$work/CHANGELOG"
 

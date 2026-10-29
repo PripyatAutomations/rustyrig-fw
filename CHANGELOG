@@ -13,8 +13,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
   * Accept client WebSocket and enrollment traffic on native TLS port 4420
     using the existing authentication, room and identity handlers, with
     browser-style upgrade negotiation and binary frames.
+  * Repair churned test harnesses for changelog history, generated wire
+    schemas, and the migrated transport implementation.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 28 Oct 2026 18:55:11 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 29 Oct 2026 02:39:23 -0400
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 
