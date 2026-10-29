@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
+#include <rrserver/receiver.directory.h>
 #include <rrserver/link.h>
 #include <rrserver/reactor.glib.h>
 #include <rrserver/mesh.native.listener.h>
@@ -824,6 +825,13 @@ int main(int argc, char **argv) {
       Log(LOG_WARN, "callsign", "Callsign lookup helper was not ready at radio initialization; lookups will retry on demand");
    }
 
+   /* Load optional receiver directory cache only after configuration, database,
+    * hardware, rigs and media have initialized successfully. Keep it ready
+    * before opening the TLS listener for client requests. */
+   if (!rrserver_receiver_directory_init())
+      Log(LOG_WARN, "receiver.directory",
+          "Server receiver directory unavailable; local SDR control continues");
+
    // Network connectivity
    show_network_info();
 #ifdef  USE_EEPROM
@@ -974,6 +982,7 @@ int main(int argc, char **argv) {
    host_cleanup();
 
    rr_mesh_native_listener_stop();
+   rrserver_receiver_directory_shutdown();
 #ifdef USE_MONGOOSE
    mg_mgr_free(&mg_mgr);
 #endif
