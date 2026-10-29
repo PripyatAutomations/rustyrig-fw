@@ -855,11 +855,12 @@ static void handle_snapshot(struct link_session *session, dict *d) {
 }
 
 void handle_frame(struct link_session *session, const char *data, size_t length) {
-   dict *d = rr_link_wire_decode(data, length);
+   char decode_reason[160];
+   dict *d = rr_link_wire_decode_ex(data, length, decode_reason, sizeof(decode_reason));
 
    if (!d) {
-      Log(LOG_WARN, "link", "Rejected link protocol message from %s (%zu bytes); "
-         "invalid format or incompatible protocol version", session->peer ? session->peer->site : "unknown server", length);
+      Log(LOG_WARN, "link", "Rejected link protocol message from %s (%zu bytes): %s",
+         session->peer ? session->peer->site : "unknown server", length, decode_reason);
 
       fail(session, "Invalid link protocol message");
 
