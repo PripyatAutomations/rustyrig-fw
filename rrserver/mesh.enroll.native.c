@@ -95,7 +95,7 @@ bool rr_mesh_native_enrollment(const char *path, const char *body, size_t length
       if (!signature) { *status = 500; return true; }
       g_free(*reply);
       *reply = g_strdup_printf("ENROLLED\n%s\n%s\n%d\n",links.node,signature,
-         cfg_get_int("links.native.port",4420));
+         cfg_get_int("net.http.tls-port",4420));
       g_free(signature);
       *status = 200;
       return true;
