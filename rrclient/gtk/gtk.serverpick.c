@@ -497,7 +497,7 @@ static void picker_new_server(GtkButton *button, gpointer data) {
    GtkWidget *fields[] = {name,url,user,password};
    const char *labels[] = {"Profile name","URL","Username","Password"};
    gtk_entry_set_visibility(GTK_ENTRY(password), FALSE);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(url),"wss://host:4422/ws/");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(url),"wss://host:4420/ws/");
    for (unsigned i=0;i<G_N_ELEMENTS(fields);i++) {
       gtk_grid_attach(GTK_GRID(grid),gtk_label_new(labels[i]),0,i,1,1);
       gtk_grid_attach(GTK_GRID(grid),fields[i],1,i,1,1);
