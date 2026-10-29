@@ -17,6 +17,8 @@
 
 extern void gtk_show_server_chooser(void);
 extern GtkWidget *gtk_show_server_editor(const char *profile);
+extern void gtk_server_editor_refresh_networks(void);
+extern void gtk_server_picker_edit_network(GtkButton *button, gpointer data);
 extern void gtk_server_picker_refresh_profile(const char *profile);
 extern void on_connect_clicked(GtkButton *btn, gpointer user_data);
 extern gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *col, gpointer user_data);
