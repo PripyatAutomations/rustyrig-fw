@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.binframe.h>
 
@@ -106,11 +107,13 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       }
       if (flen < 0 || !frame) break;
       for (rrconn_t *cur = http_client_list; cur; cur = cur->next) {
-         if (cur->is_ws && cur->authenticated && (cur->conn || cur->native_transport) && cur->user &&
+         if (cur->is_ws && cur->authenticated && cur->native_transport &&
+             rr_transport_state(cur->native_transport) == RR_TRANSPORT_OPEN && cur->user &&
              has_priv(cur->user->uid, "admin|owner") &&
              client_has_flag(cur, FLAG_SYSLOG)) {
-            struct mg_str packet = {(char *)frame, (size_t)flen};
-            ws_send_to_cptr(NULL, cur, &packet, WEBSOCKET_OP_BINARY);
+            /* Avoid unbounded buffering when a log subscriber is slow. */
+            if (rr_transport_queued_bytes(cur->native_transport) <= 262144)
+               rr_transport_send_binary_message(cur->native_transport, frame, (size_t)flen);
          }
       }
       free(frame);
