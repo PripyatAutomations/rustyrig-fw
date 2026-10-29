@@ -1525,75 +1525,10 @@ void rrserver_relay_fini(void) {
    rr_relay_users_reset();
 }
 
-#else
-#ifdef USE_PROFILING
-/* Non-Mongoose builds have no linked-server catalogs to profile. */
-void rr_relay_catalog_profile_dump(void) {
-}
-#endif
-/* Check accepted-audio liveness and remaining proxy TX authority. */
-bool rrserver_relay_proxy_tx_active(rrconn_t *client, const char *room, uint64_t at) {
-   return false;
-}
-
-/* Check a subscribed home-side audio stream against its session and room. */
-bool rrserver_relay_media_valid(rrconn_t *client, const char *uuid, unsigned stream) {
-   return false;
-}
-
-/* Register relay listeners once on the server event loop. */
-void rrserver_relay_register_events(void) {
-}
-
-/* Expire media fragments, retry sessions and reconcile catalogs/user directories. */
-void rrserver_relay_poll(void) {
-}
-
-/* Release relay-owned catalogs, subscriptions and sessions during shutdown. */
-void rrserver_relay_fini(void) {
-}
-
-/* Send remote inventory entries visible through the relay catalog. */
-void rrserver_relay_inventory(rrconn_t *client, const char *request) {
-}
-void rrserver_relay_file_nodes(rrconn_t *client, const char *request_id) {
-   (void)client;
-   (void)request_id;
-}
-
-/* Send discovered remote objects to an object-list requester. */
-void rrserver_relay_objects(rrconn_t *client, const char *request) {
-}
-
-/* Return an owned listing of rooms advertised by remote nodes. */
-char *rrserver_relay_remote_rooms(void) {
-   return strdup("");
-}
-
-/* Return the borrowed home-server alias, falling back to its UUID. */
-const char *rrserver_relay_client_server(const rrconn_t *client) {
-   (void)client;
-
-   return cfg_get("station.name");
-}
-
-/* Return an owned listing of discovered server nodes. */
-char *rrserver_relay_servers(void) {
-   return strdup("");
-}
-
-/* Return an owned listing combining local and remote room names. */
-char *rrserver_relay_rooms(const char *local) {
-   return strdup(local ? local : "");
-}
-#endif
 
 /* Visit borrowed remote sessions synchronously on the server thread. */
-void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *data) {
-#ifdef USE_MONGOOSE
-
-   for (struct remote_session *r = rr_relay_remotes ; r ; r = r->next) {
+void rrserver_relay_visit_sessions(void (*visit)(rrconn_t *, void *), void *data) {
+   if (!visit) return;
+   for (struct remote_session *r = rr_relay_remotes; r; r = r->next)
       visit(&r->client, data);
-   }
-
 }
