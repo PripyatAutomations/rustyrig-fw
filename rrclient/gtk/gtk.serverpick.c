@@ -705,6 +705,13 @@ static void picker_member_choose_network(GtkComboBox *combo, gpointer data) {
    g_free(key);
 }
 
+static gboolean picker_dialog_escape(GtkWidget *dialog, GdkEventKey *event, gpointer data) {
+   (void)data;
+   if (event->keyval != GDK_KEY_Escape) return FALSE;
+   gtk_dialog_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+   return TRUE;
+}
+
 /* Editable network selector plus searchable membership checklist. */
 static void picker_network_editor(GtkButton *button, gpointer data) {
    (void)button;
@@ -722,6 +729,7 @@ static void picker_network_editor(GtkButton *button, gpointer data) {
       GTK_WINDOW(gtk_widget_get_toplevel(tree)), GTK_DIALOG_MODAL,
       "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dialog), 460, 450);
+   g_signal_connect(dialog, "key-press-event", G_CALLBACK(picker_dialog_escape), NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    gtk_container_set_border_width(GTK_CONTAINER(box), 12);
    gtk_box_set_spacing(GTK_BOX(box), 8);
@@ -946,7 +954,7 @@ void gtk_show_server_chooser(void) {
    GtkTreeViewColumn *proxy_column = gtk_tree_view_column_new_with_attributes("Proxy", proxy_indicator,
       "active", PICKER_PROXY, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), proxy_column);
-   gtk_tree_view_column_set_widget(proxy_column, NULL);
+   
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
    GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL);
@@ -972,7 +980,10 @@ void gtk_show_server_chooser(void) {
    GtkWidget *keys_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    GtkWidget *keys_label = gtk_label_new("Certificate");
    GtkWidget *keys_combo = gtk_combo_box_text_new();
-   GtkWidget *keys_manage = gtk_button_new_with_label("⚿ Manage Keys");
+   GtkWidget *keys_manage = gtk_button_new_with_label("Manage Keys");
+   GtkWidget *key_image = gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON);
+   gtk_button_set_image(GTK_BUTTON(keys_manage), key_image);
+   gtk_button_set_always_show_image(GTK_BUTTON(keys_manage), TRUE);
    gtk_widget_set_tooltip_text(keys_combo, "Select the local private-key identity for this server profile. This preference is saved locally; signed login integration is still being developed.");
    gtk_widget_set_tooltip_text(keys_manage, "Open the client certificate and private key manager.");
    gtk_box_pack_start(GTK_BOX(keys_row), keys_label, FALSE, FALSE, 0);
