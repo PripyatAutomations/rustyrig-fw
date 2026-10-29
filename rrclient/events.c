@@ -1374,6 +1374,8 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
    const char *output = ui_active_window_name();
 
    if (msg) {
+      if (!strncmp(msg, "Rig E-STOP ", 11))
+         event_emit("client.estop.notice", cptr, msg);
       // Notices are plain text, one line per notice.
       bool callsign_field = strncmp(msg, "Callsign:", 9) == 0 ||
          strncmp(msg, "Cached:", 7) == 0 || strncmp(msg, "Name:", 5) == 0 ||
