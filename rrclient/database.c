@@ -142,6 +142,26 @@ bool rrclient_database_network_set(const char *name, const char *members) {
    return ok;
 }
 
+/* Changes are committed before the compatibility config view is rebuilt. */
+bool rrclient_database_server_delete(const char *name) {
+   if (!client_db || !name || !*name) return false;
+   if (!db_exec3("DELETE FROM servers WHERE name=?1",name,NULL,NULL)) return false;
+   return rrclient_database_load_profiles();
+}
+
+bool rrclient_database_server_move(const char *name, const char *network) {
+   if (!client_db || !name || !*name) return false;
+   if (sqlite3_exec(client_db,"SAVEPOINT server_move",NULL,NULL,NULL)!=SQLITE_OK) return false;
+   bool ok=db_exec3("DELETE FROM network_memberships WHERE server_id=(SELECT id FROM servers WHERE name=?1)",name,NULL,NULL);
+   if (ok && network && *network)
+      ok=db_exec3("INSERT INTO network_memberships(network_id,server_id) "
+                  "SELECT n.id,s.id FROM networks n JOIN servers s ON s.name=?1 WHERE n.name=?2",
+                  name,network,NULL);
+   if (ok) ok=sqlite3_exec(client_db,"RELEASE server_move",NULL,NULL,NULL)==SQLITE_OK;
+   else sqlite3_exec(client_db,"ROLLBACK TO server_move; RELEASE server_move",NULL,NULL,NULL);
+   return ok && rrclient_database_load_profiles();
+}
+
 bool rrclient_database_load_profiles(void) {
    if (!client_db || !cfg) return false;
    /* Discard legacy config-file profiles; SQLite is the sole source. */
