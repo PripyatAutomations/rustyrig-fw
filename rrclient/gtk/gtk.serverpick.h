@@ -16,6 +16,7 @@
 #include <gtk/gtk.h>
 
 extern void gtk_show_server_chooser(void);
+extern void gtk_server_picker_reload(void);
 extern GtkWidget *gtk_show_server_editor(const char *profile);
 extern void gtk_server_editor_refresh_networks(void);
 extern void gtk_server_picker_edit_network(GtkButton *button, gpointer data);
