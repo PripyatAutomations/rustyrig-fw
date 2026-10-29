@@ -65,6 +65,9 @@ extern GtkWidget *main_notebook; // defined in gtk.core.c
 extern GtkWidget *main_window;
 static RRFloatPanel *picker_panel;
 static GtkWidget *picker_tree;
+static unsigned picker_child_dialogs;
+extern gboolean gtk_server_editor_is_open(void);
+extern void gtk_server_editor_set_default_network(const char *network);
 /* Columns 0..6 are retained for server rows; 7 identifies a network row. */
 enum { PICKER_NETWORK = 7, PICKER_UNGROUPED = 8, PICKER_FLAGS = 9, PICKER_PROXY = 10, PICKER_COLUMNS = 11 };
 
@@ -207,6 +210,9 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    }
 
    if (ev->keyval == GDK_KEY_Escape) {
+      if (picker_child_dialogs || gtk_server_editor_is_open()) {
+         return TRUE;
+      }
       picker_close(NULL);
       // Give the main window focus before scheduling the chat input grab.
       focus_main_window();
@@ -310,6 +316,10 @@ static char *picker_selected_profile(GtkWidget *tree);
 static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
    (void)selection;
    picker_refresh(tree);
+   GtkWidget *connect = g_object_get_data(G_OBJECT(tree), "rr-connect-button");
+   if (connect) {
+      gtk_widget_set_sensitive(connect, gtk_tree_selection_count_selected_rows(selection) > 0);
+   }
    GtkWidget *edit = g_object_get_data(G_OBJECT(tree), "rr-edit-button");
    if (edit) {
       char *profile = picker_selected_profile(GTK_WIDGET(tree));
@@ -568,7 +578,29 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
 
 static void picker_new_server(GtkButton *button, gpointer data) {
    (void)button;
-   (void)data;
+   GtkWidget *tree = data ? GTK_WIDGET(data) : picker_tree;
+   GtkTreeModel *model = NULL;
+   GtkTreeIter iter;
+   char *network = NULL;
+   if (tree && gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &model, &iter)) {
+      GtkTreeIter group;
+      gboolean has_group = FALSE;
+      if (picker_is_network(model, &iter)) {
+         group = iter;
+         has_group = TRUE;
+      } else {
+         has_group = gtk_tree_model_iter_parent(model, &group, &iter);
+      }
+      if (has_group) {
+         gboolean ungrouped = FALSE;
+         gtk_tree_model_get(model, &group, PICKER_UNGROUPED, &ungrouped, -1);
+         if (!ungrouped) {
+            gtk_tree_model_get(model, &group, 0, &network, -1);
+         }
+      }
+   }
+   gtk_server_editor_set_default_network(network);
+   g_free(network);
    gtk_show_server_editor(NULL);
 }
 
@@ -643,6 +675,7 @@ void gtk_server_picker_edit_network(GtkButton *button, gpointer data) {
       gtk_tree_model_get(model, &iter, PICKER_UNGROUPED, &ungrouped, -1);
       if (!ungrouped) gtk_tree_model_get(model, &iter, 0, &existing, -1);
    }
+   picker_child_dialogs++;
    GtkWidget *dialog = gtk_dialog_new_with_buttons("New / Edit Network",
       (main_window ? GTK_WINDOW(main_window) : NULL), GTK_DIALOG_MODAL,
       "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
@@ -743,6 +776,7 @@ void gtk_server_picker_edit_network(GtkButton *button, gpointer data) {
       gtk_label_set_text(GTK_LABEL(error), "Unable to save network in SQLite.");
    }
    gtk_widget_destroy(dialog);
+   picker_child_dialogs--;
    g_object_unref(filter);
    g_object_unref(store);
    g_free(existing);
@@ -919,6 +953,7 @@ void gtk_show_server_chooser(void) {
    gtk_box_pack_start(GTK_BOX(actions), new_network, TRUE, TRUE, 0);
    g_signal_connect(new_network, "clicked", G_CALLBACK(gtk_server_picker_edit_network), tree);
    GtkWidget *button = gtk_button_new_with_label("Connect");
+   gtk_widget_set_sensitive(button, FALSE);
    gtk_box_pack_start(GTK_BOX(actions), button, TRUE, TRUE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_connect_clicked), tree);
    g_signal_connect(tree, "row-activated", G_CALLBACK(on_row_activated), NULL);
