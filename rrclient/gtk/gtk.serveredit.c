@@ -186,7 +186,13 @@ static void editor_refresh_certificates(GtkServerEditor *editor) {
             continue;
          }
          gchar *path = g_build_filename(dir, filename, NULL);
-         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->certificate), path, filename);
+         /* Match the identity manager's human-readable key labels while
+          * retaining the full path as the persisted combo-box ID. */
+         gchar *label = !strcmp(filename, "client-ed25519.pem") ?
+            g_strdup("Default Client Identity") :
+            g_strndup(filename, strlen(filename) - 4);
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->certificate), path, label);
+         g_free(label);
          g_free(path);
       }
       g_dir_close(folder);
