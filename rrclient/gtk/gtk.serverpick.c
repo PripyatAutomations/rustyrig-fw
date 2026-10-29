@@ -748,6 +748,13 @@ void gtk_server_picker_edit_network(GtkButton *button, gpointer data) {
    g_free(existing);
 }
 
+void gtk_server_picker_reload(void) {
+   if (picker_panel) {
+      picker_close(NULL);
+      gtk_show_server_chooser();
+   }
+}
+
 void gtk_show_server_chooser(void) {
    if (picker_panel) {
       rr_floating_panel_restore(picker_panel);
