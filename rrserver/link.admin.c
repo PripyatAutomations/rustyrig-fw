@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include "build_config.h"
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <rrserver/link.h>
 #include <rrserver/identity.h>
 #include <librrprotocol/crypto.h>
@@ -39,6 +40,7 @@
 
 /* The compatibility HTTPS listener delegates to the same enrollment
  * verifier as native 4420. It owns only Mongoose request/response adaptation. */
+#ifdef USE_MONGOOSE
 static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm) {
    const char *paths[] = {"/mesh/enroll/status", "/mesh/enroll/challenge", "/mesh/enroll/redeem"};
    const char *path = NULL;
@@ -79,6 +81,8 @@ void shared_link_request(const char *event, const void *data, size_t length, rrc
    mg_http_reply(request->connection, 426, "", "Server links require the native authenticated mesh WSS listener\n");
    request->connection->is_draining = 1;
 }
+
+#endif /* USE_MONGOOSE */
 
 /* Like RTP auto-advertisement, choose the local source address that
  * reaches the administrator, rather than advertising a wildcard listener.
@@ -133,7 +137,8 @@ void link_command(const char *event, const char *data, rrconn_t *client, void *u
       }
       /* Never disclose enrollment private keys across a plaintext admin
        * session, even when admin authentication has succeeded. */
-      if (!client->native_transport && (!client->conn || !client->conn->is_tls)) {
+      if (!client->native_transport ||
+          !(rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
          ws_send_error(client, "Invitation creation requires an HTTPS/WSS admin session");
          return;
       }
