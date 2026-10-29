@@ -4,7 +4,7 @@
 set -euo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-components=(librustyaxe librrprotocol www callsign-lookup)
+components=(librustyaxe librrprotocol callsign-lookup)
 
 cd "$root"
 if [[ -z "$(git symbolic-ref -q --short HEAD)" ]]; then
