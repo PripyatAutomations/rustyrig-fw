@@ -865,9 +865,7 @@ int main(int argc, char **argv) {
    if (fwdsp_ready && !rrserver_media_audio_init()) {
       Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
    }
-#if     defined(USE_HTTP)
-   http_init(&mg_mgr);
-#endif // USE_HTTP
+   /* Native TLS is the only inbound client/mesh listener. */
    // Update the clock (now) once a second
    g_timeout_add(1000, rr_timer_clock_cb, &mg_mgr);
 
