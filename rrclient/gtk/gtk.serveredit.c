@@ -28,12 +28,14 @@
 
 extern GtkWidget *main_window, *main_notebook;
 static RRFloatPanel *server_editor_panel;
+static char *server_editor_default_network;
 static GtkWidget *server_editor_frame;
 
 static void server_editor_frame_destroyed(GtkWidget *widget, gpointer unused) {
    (void)widget;
    (void)unused;
    server_editor_frame = NULL;
+   g_clear_pointer(&server_editor_default_network, g_free);
 }
 
 static void server_editor_close(gpointer unused) {
@@ -380,6 +382,15 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    server_editor_close(NULL);
 }
 
+void gtk_server_editor_set_default_network(const char *network) {
+   g_free(server_editor_default_network);
+   server_editor_default_network = g_strdup(network);
+}
+
+gboolean gtk_server_editor_is_open(void) {
+   return server_editor_panel != NULL;
+}
+
 GtkWidget *gtk_show_server_editor(const char *profile) {
    if (server_editor_panel) {
       GtkServerEditor *current = server_editor_frame ?
@@ -461,6 +472,10 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), certificate_row, 1, 6, 1, 1);
    editor->network = gtk_combo_box_text_new();
    editor_refresh_networks(editor);
+   if (!profile && server_editor_default_network) {
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->network), server_editor_default_network);
+   }
+   g_clear_pointer(&server_editor_default_network, g_free);
    GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(network_row), editor->network, TRUE, TRUE, 0);
    GtkWidget *networks = gtk_button_new_with_label("Networks");
