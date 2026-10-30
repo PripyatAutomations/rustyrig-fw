@@ -280,6 +280,9 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
    }
 
    if (!pending.request || pending.connection != connection || rrclient_connection_find(pending.profile) != connection) {
+      if (pending.request)
+         Log(LOG_WARN, "receiver.connect", "Ignoring SDR admin reply: connection/profile mismatch (request=%s profile=%s)",
+             pending.request, pending.profile ? pending.profile : "(none)");
       return;
    }
    dict *message = text ? json2dict(text) : NULL;
@@ -292,6 +295,8 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
    dict *result = json2dict(dict_get(message, "talk.data", ""));
 
    if (result && !strcmp(dict_get(result, "request", ""), pending.request)) {
+      Log(LOG_INFO, "receiver.connect", "Received SDR result: request=%s room=%s error=%s",
+          pending.request, dict_get(result, "room", ""), dict_get(result, "error", ""));
       const char *error = dict_get(result, "error", ""), *room = dict_get(result, "room", "");
 
       if (*error) {
