@@ -17,11 +17,17 @@ static inline bool rrserver_client_is_connected(const rrconn_t *client) {
        rr_transport_state(client->native_transport) == RR_TRANSPORT_OPEN);
 }
 
-/* Binary send paths require an actual open adapter, not just an authenticated
- * application session. */
-static inline bool rrserver_client_can_send_binary(const rrconn_t *client) {
-   return rrserver_client_is_connected(client) && client->native_transport &&
+/* Pure transport check: valid for relays and server links too, which do
+ * not necessarily have the same end-user authentication/WS flags. */
+static inline bool rrserver_transport_can_send_binary(const rrconn_t *client) {
+   return client && client->native_transport &&
       rr_transport_state(client->native_transport) == RR_TRANSPORT_OPEN;
+}
+
+/* Authenticated end-user binary delivery. */
+static inline bool rrserver_client_can_send_binary(const rrconn_t *client) {
+   return rrserver_client_is_connected(client) &&
+      rrserver_transport_can_send_binary(client);
 }
 
 #endif
