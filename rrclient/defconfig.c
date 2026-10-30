@@ -327,7 +327,7 @@ defconfig_t defcfg[] = {
    },
 #endif // _WIN32
    {
-      "theme.active", "Stock", "Selected named theme (Stock uses built-in defaults)"
+      "theme", "Stock", "Selected named theme (Stock uses built-in defaults)"
    },
    {
       "theme.completion", "\00310", "mIRC color prefix for tab-completion candidates"
