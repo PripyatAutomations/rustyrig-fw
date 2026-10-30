@@ -36,7 +36,7 @@ static dict *with_defaults(dict *loaded) {
 /* Named themes are source records; only theme.* contains active values. */
 void rrclient_theme_apply(void) {
    if (!cfg) return;
-   const char *active = dict_get(cfg, "theme.active", "Stock");
+   const char *active = dict_get(cfg, "theme", "Stock");
    if (!active || !*active || !strcmp(active, "Stock")) return;
    size_t prefix_len = strlen(active) + sizeof("theme:");
    char *prefix = malloc(prefix_len + 1);
