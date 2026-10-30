@@ -14,6 +14,7 @@
 #include <glib.h>
 #include <librustyaxe/transport.h>
 #include <rrserver/relay.h>
+#include <rrserver/connection.state.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/supervision.h>
 #include <librrprotocol/ws.mediachan.h>
@@ -1105,7 +1106,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                      if (!rr_binframe_parse(m->frame, m->size, &frame) && frame.hdr.stream == m->owner_stream) {
                         m->frame[11] = m->stream;
 
-                        if (c->client && c->client->native_transport && rr_transport_state(c->client->native_transport) == RR_TRANSPORT_OPEN) {
+                        if (rrserver_client_can_send_binary(c->client)) {
                            size_t limit = m->setup ? 262144u : 8192u;
                            size_t queued = rr_transport_queued_bytes(c->client->native_transport);
 
