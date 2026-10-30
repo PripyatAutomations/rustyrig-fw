@@ -1,3 +1,4 @@
+#include <rrclient/connection.state.h>
 //
 // rrclient/media.c: client side media channel handling
 //    This is part of rustyrig-fw.
@@ -1488,7 +1489,7 @@ void rrclient_media_refresh(rrconn_t *cptr) {
 
    /* Background refresh requests must not generate warnings after a profile disconnect. A closed WebSocket is not a failed refresh. */
    /* Native connections must be OPEN; legacy client connections without a transport handle still use their session state until migrated. */
-   bool writable = cptr && cptr->active && cptr->connected && (!cptr->native_transport || rr_transport_state(cptr->native_transport) == RR_TRANSPORT_OPEN);
+   bool writable = rrclient_connection_is_connected(cptr);
 
    if (writable && cptr->authenticated && cptr->is_ws) {
       if (!media_send_list(cptr)) {
