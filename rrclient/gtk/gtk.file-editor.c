@@ -991,7 +991,7 @@ static void theme_field_pick(GtkButton *button, gpointer data) {
 static void theme_selected(GtkComboBox *combo, gpointer data) {
    GtkWidget *list = GTK_WIDGET(data);
    const char *name = gtk_combo_box_get_active_id(combo);
-   if (!name || !cfg_set_value("theme.active", name)) return;
+   if (!name || !cfg_set_value("theme", name)) return;
    rrclient_theme_apply();
    GList *rows = gtk_container_get_children(GTK_CONTAINER(list));
    for (GList *row = rows; row; row = row->next) {
@@ -1028,7 +1028,7 @@ static GtkWidget *cfg_theme_panel(void) {
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(chooser), name, name);
    }
    g_hash_table_destroy(seen);
-   const char *selected = cfg_get("theme.active");
+   const char *selected = cfg_get("theme");
    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), selected ? selected : "Stock"))
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), "Stock");
    gtk_box_pack_start(GTK_BOX(chooser_row), chooser, FALSE, FALSE, 0);
@@ -1039,7 +1039,7 @@ static GtkWidget *cfg_theme_panel(void) {
    gtk_container_add(GTK_CONTAINER(scroll), list);
    g_signal_connect(chooser, "changed", G_CALLBACK(theme_selected), list);
    for (const defconfig_t *def = defcfg; def->key; ++def) {
-      if (!g_str_has_prefix(def->key, "theme.") || !strcmp(def->key, "theme.active")) continue;
+      if (!g_str_has_prefix(def->key, "theme.")) continue;
       theme_field_t *field = g_new0(theme_field_t, 1);
       field->definition = def;
       GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
