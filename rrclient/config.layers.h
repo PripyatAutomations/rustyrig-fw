@@ -10,5 +10,8 @@
 char *rrclient_user_config_path(void);
 bool rrclient_config_load(void);
 void rrclient_theme_apply(void);
+void rrclient_config_mark_dirty(void);
+bool rrclient_config_is_dirty(void);
+void rrclient_config_clear_dirty(void);
 bool rrclient_config_reload(const char *path);
 #endif
