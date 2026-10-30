@@ -251,7 +251,10 @@ void rrclient_rooms_clear(void) {
 
 void rrclient_rooms_disconnect(void) {
    for (client_room_t *room = rooms ; room ; room = room->next) {
-      if (room->name[0] == '#' || room->name[0] == '&') {
+      /* Temporary SDR rooms cannot be restored with a bare JOIN: their
+       * owning receiver bridge must first be created again. */
+      if ((room->name[0] == '#' || room->name[0] == '&') &&
+          !(strlen(room->name) == 13 && !strncasecmp(room->name, "#sdr-", 5))) {
          remember_join(room->name);
       }
    }
@@ -262,10 +265,19 @@ void rrclient_rooms_disconnect(void) {
 
 void rrclient_rooms_rejoin_available(void) {
    /* An IRC channel may be private/unlisted. Do not make a LIST entry a prerequisite for restoring a tab or an in-flight JOIN. */
-   for (size_t i = 0 ; i < reconnect_room_count ; i++) {
+   for (size_t i = 0 ; i < reconnect_room_count ; ) {
+      if (strlen(reconnect_rooms[i]) == 13 && !strncasecmp(reconnect_rooms[i], "#sdr-", 5)) {
+         /* Also discard stale intents saved by older client versions. */
+         free(reconnect_rooms[i]);
+         memmove(reconnect_rooms + i, reconnect_rooms + i + 1,
+                 (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
+         reconnect_room_count--;
+         continue;
+      }
       if (!rrclient_room_is_joined(reconnect_rooms[i])) {
          rrclient_room_request_join(reconnect_rooms[i]);
       }
+      i++;
    }
 
    /* Keep JOIN intents until the server confirms each JOIN. A missing LIST entry or a failed send must not silently discard the channel. */
