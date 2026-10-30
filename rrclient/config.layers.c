@@ -14,6 +14,10 @@
 #define RRCLIENT_SYSTEM_CONFIG_PATH "/etc/rustyrig/rrclient.cfg"
 #endif
 static bool layered;
+static bool config_dirty;
+void rrclient_config_mark_dirty(void) { config_dirty = true; }
+bool rrclient_config_is_dirty(void) { return config_dirty; }
+void rrclient_config_clear_dirty(void) { config_dirty = false; }
 
 /* The host builds default_cfg before loading any file. Preserve it as the lowest-precedence layer without mutating the shared defaults table. */
 static dict *with_defaults(dict *loaded) {
