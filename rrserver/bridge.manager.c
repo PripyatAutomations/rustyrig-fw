@@ -109,6 +109,19 @@ static bool bridge_rx_requested(struct bridge_child *bridge, uint64_t current) {
    if (bridge->demand_epoch != demand_epoch || current >= bridge->demand_check_at) {
       bridge->demand_epoch = demand_epoch;
       bridge->rx_requested = rrserver_media_rx_requested(bridge->backend->owner);
+      /* A temporary receiver is requested as soon as an authenticated
+       * listener joins its assigned SDR room. The media channel may not have
+       * a selected codec or subscription yet, so do not wait for either to
+       * start the bridge which supplies that channel. */
+      if (!bridge->rx_requested && bridge->temporary && bridge->attached_room[0]) {
+         for (rrconn_t *member = http_client_list ; member ; member = member->next) {
+            if (member->is_ws && member->authenticated && !member->is_server &&
+                ws_client_in_room(member, bridge->attached_room)) {
+               bridge->rx_requested = true;
+               break;
+            }
+         }
+      }
       bridge->demand_check_at = current + BRIDGE_DEMAND_RECHECK_US;
    }
 
@@ -1676,6 +1689,17 @@ static void websdr_request(const char *event, const void *data, size_t length, r
 
          Log(moved ? LOG_INFO : LOG_WARN, "bridge", "[%s] attached receiver room=%s rig_uuid=%s RX-channels=%u%s", bridge_public_name(b), selected_room,
             rig_uuid, moved, moved ? "" : " (NO RX CHANNELS: audio cannot be advertised)");
+         /* Force demand reconciliation after the room and receiver are
+          * associated; attaching alone must not silently strand the bridge. */
+         b->demand_check_at = 0;
+         unsigned listeners = 0;
+         for (rrconn_t *member = http_client_list ; member ; member = member->next) {
+            if (member->is_ws && member->authenticated && !member->is_server &&
+                ws_client_in_room(member, selected_room))
+               listeners++;
+         }
+         Log(LOG_INFO, "bridge", "[%s] SDR room demand: room=%s authenticated-listeners=%u (bridge starts when demand is present)",
+             bridge_public_name(b), selected_room, listeners);
          /* The room JOIN preceded this attachment. Notify its members of the newly bound receiver UUID so their VFO panels refresh. */
          char *vfos = db_room_vfo_list(masterdb, selected_room);
          Log(vfos && *vfos ? LOG_INFO : LOG_WARN, "sdr.status", "SDR attachment %s: receiver=%s room=%s VFO=%s RX-channels=%u", vfos && *vfos ? "bound" :
