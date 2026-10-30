@@ -154,6 +154,7 @@ bool rrclient_config_reload(const char *path) {
       if (ok) {
          rrclient_database_load_themes();
          rrclient_theme_apply();
+         rrclient_config_clear_dirty();
       }
       return ok;
    }
@@ -163,6 +164,7 @@ bool rrclient_config_reload(const char *path) {
    if (ok) {
       rrclient_database_load_themes();
       rrclient_theme_apply();
+      rrclient_config_clear_dirty();
    }
    return ok;
 }
