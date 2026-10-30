@@ -33,6 +33,35 @@ static dict *with_defaults(dict *loaded) {
 }
 
 
+/* Named themes are source records; only theme.* contains active values. */
+void rrclient_theme_apply(void) {
+   if (!cfg) return;
+   const char *active = dict_get(cfg, "theme.active", "Stock");
+   if (!active || !*active || !strcmp(active, "Stock")) return;
+   size_t prefix_len = strlen(active) + sizeof("theme:");
+   char *prefix = malloc(prefix_len + 1);
+   if (!prefix) return;
+   snprintf(prefix, prefix_len + 1, "theme:%s.", active);
+   size_t len = strlen(prefix);
+   dict *values = dict_new();
+   if (!values) { free(prefix); return; }
+   const char *key;
+   char *value;
+   int index = 0;
+   while ((index = dict_enumerate(cfg, index, &key, &value)) >= 0) {
+      if (!strncmp(key, prefix, len)) {
+         char *dest = malloc(strlen(key + len) + sizeof("theme."));
+         if (!dest) continue;
+         sprintf(dest, "theme.%s", key + len);
+         dict_add(values, dest, value ? value : "");
+         free(dest);
+      }
+   }
+   dict_merge(cfg, values);
+   dict_free(values);
+   free(prefix);
+}
+
 char *rrclient_user_config_path(void) {
    const char *home_dir = getenv("HOME");
 
@@ -75,6 +104,7 @@ bool rrclient_config_load(void) {
    if (config_file) {
       cfg = with_defaults(cfg_load(config_file));
 
+      if (cfg) rrclient_theme_apply();
       return cfg != NULL;
    }
 #ifndef _WIN32
@@ -99,14 +129,19 @@ bool rrclient_config_load(void) {
    layered = true;
    cfg = read_layers(RRCLIENT_SYSTEM_CONFIG_PATH, config_file);
 
+   if (cfg) rrclient_theme_apply();
    return cfg != NULL;
 }
 
 bool rrclient_config_reload(const char *path) {
    if (!layered || (path && strcmp(path, config_file))) {
-      return cfg_reload(path);
+      bool ok = cfg_reload(path);
+      if (ok) rrclient_theme_apply();
+      return ok;
    }
    dict *replacement = read_layers(RRCLIENT_SYSTEM_CONFIG_PATH, config_file);
 
-   return replacement && cfg_apply_new(cfg, replacement);
+   bool ok = replacement && cfg_apply_new(cfg, replacement);
+   if (ok) rrclient_theme_apply();
+   return ok;
 }
