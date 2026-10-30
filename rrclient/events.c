@@ -728,6 +728,10 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       if (m_user && login_user && strcasecmp(m_user, login_user) == 0) {
          /* The server includes the room's VFO mapping on our join event. Clear any stale client-side mapping when joining an ordinary room; otherwise its top
           * line incorrectly retains PTT/VFO state from the rig room. */
+         /* A server-directed JOIN is authoritative, even without a local
+          * JOIN intent (SDR auto-rooms and IRC redirects). Create the room
+          * before applying its advertised VFO/control state. */
+         rrclient_room_join(m_room);
          rrclient_room_set_offline(m_room, false);
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          const char *room_uuids = dict_get(d, "talk.vfos", "");
@@ -771,7 +775,6 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
                }
             }
          }
-         rrclient_room_join(m_room);
 
          if (ui_mode == UI_MODE_TUI) {
             tui_window_t *window = rrclient_tui_room_window(m_room, true);
