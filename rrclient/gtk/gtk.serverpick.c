@@ -336,6 +336,15 @@ static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
       g_free(profile);
    }
 }
+/* Network rows are headings: don't paint per-server toggles on them. */
+static void picker_server_toggle_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
+                                     GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)column;
+   (void)data;
+   gboolean network = picker_is_network(model, iter);
+   g_object_set(cell, "visible", !network, "sensitive", !network, NULL);
+}
+
 static void picker_toggle(GtkCellRendererToggle *renderer, gchar *path, gpointer data) {
    (void)renderer;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(data));
@@ -920,7 +929,7 @@ void gtk_show_server_chooser(void) {
    if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
       return;
    }
-   picker_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "serverpick", "Server picker");
+   picker_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "serverpick", "Server Picker");
 
    if (!picker_panel) {
       return;
@@ -1044,13 +1053,14 @@ void gtk_show_server_chooser(void) {
    GtkCellRenderer *proxy_indicator = gtk_cell_renderer_toggle_new();
    g_object_set(proxy_indicator, "activatable", FALSE, NULL);
    GtkTreeViewColumn *proxy_column = gtk_tree_view_column_new_with_attributes("Proxy", proxy_indicator, "active", PICKER_PROXY, NULL);
+   gtk_tree_view_column_set_cell_data_func(proxy_column, proxy_indicator, picker_server_toggle_cell, NULL, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), proxy_column);
 
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
    GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL);
    g_object_set_data(G_OBJECT(connected_col), "rr-zebra-view", tree);
-   gtk_tree_view_column_set_cell_data_func(connected_col, connected, rr_list_zebra_cell, NULL, NULL);
+   gtk_tree_view_column_set_cell_data_func(connected_col, connected, picker_server_toggle_cell, NULL, NULL);
    gtk_tree_view_column_set_sort_column_id(connected_col, 4);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), connected_col);
    GtkCellRenderer *status = gtk_cell_renderer_text_new();
