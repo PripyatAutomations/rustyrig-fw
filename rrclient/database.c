@@ -45,7 +45,8 @@ bool rrclient_database_init(void) {
    }
    sqlite3_finalize(stmt);
 
-   if (version == 2) {
+   if (version == 2 || version == 3) {
+      if (sqlite3_exec(client_db, "CREATE TABLE IF NOT EXISTS proxies (name TEXT PRIMARY KEY COLLATE NOCASE, url TEXT NOT NULL); PRAGMA user_version=3", NULL, NULL, NULL) != SQLITE_OK) goto fail;
       g_free(path);
       g_free(dir);
 
@@ -371,4 +372,22 @@ bool rrclient_database_config_save(const char *path) {
    dict_free(copy);
 
    return ok;
+}
+
+/* Named proxies are stored alongside server profiles in client.db. */
+bool rrclient_database_proxy_set(const char *name, const char *url) {
+   if (!client_db || !name || !*name || !url) return false;
+   return db_exec3("INSERT INTO proxies(name,url) VALUES(?1,?2) ON CONFLICT(name) DO UPDATE SET url=excluded.url", name, url, NULL);
+}
+bool rrclient_database_proxy_delete(const char *name) {
+   if (!client_db || !name) return false;
+   return db_exec3("DELETE FROM proxies WHERE name=?1", name, NULL, NULL);
+}
+void rrclient_database_proxy_foreach(void (*cb)(const char *, const char *, void *), void *data) {
+   if (!client_db || !cb) return;
+   sqlite3_stmt *q = NULL;
+   if (sqlite3_prepare_v2(client_db, "SELECT name,url FROM proxies ORDER BY name COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) return;
+   while (sqlite3_step(q) == SQLITE_ROW)
+      cb((const char *)sqlite3_column_text(q, 0), (const char *)sqlite3_column_text(q, 1), data);
+   sqlite3_finalize(q);
 }
