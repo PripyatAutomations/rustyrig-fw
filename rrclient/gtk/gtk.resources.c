@@ -1,3 +1,4 @@
+#include <rrclient/connection.state.h>
 #include "gtk.tree-style.h"
 // Resource manager presentation. State and actions belong to the common client.
 // Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
@@ -2138,8 +2139,7 @@ static void resource_request(void *data) {
    /* This callback may run after a profile disconnect. Do not ask the global selected connection to refresh another server's media catalog. */
    rrconn_t *connection = rrclient_connection_find(branch->profile);
 
-   if (connection && connection->authenticated && connection->is_ws &&
-      connection->native_transport && rr_transport_state(connection->native_transport) == RR_TRANSPORT_OPEN) {
+   if (rrclient_connection_is_connected(connection)) {
       rrclient_media_refresh(connection);
    }
 }
