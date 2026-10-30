@@ -342,7 +342,14 @@ static void picker_server_toggle_cell(GtkTreeViewColumn *column, GtkCellRenderer
                                      GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    gboolean network = picker_is_network(model, iter);
    picker_row_style(column, cell, model, iter, data);
-   g_object_set(cell, "visible", !network, "sensitive", !network, NULL);
+   /* GtkCellRenderer instances are reused across rows: explicitly reset both
+    * properties so network headers never inherit a previous server toggle. */
+   if (network) {
+      g_object_set(cell, "visible", FALSE, "sensitive", FALSE,
+                   "active", FALSE, "inconsistent", FALSE, NULL);
+   } else {
+      g_object_set(cell, "visible", TRUE, "sensitive", TRUE, NULL);
+   }
 }
 
 static void picker_toggle(GtkCellRendererToggle *renderer, gchar *path, gpointer data) {
