@@ -55,6 +55,23 @@ static void report(const char *message, rrconn_t *connection) {
    ui_print(NULL, "%s", message);
    event_emit("client.receiver-directory.connection", connection, message);
 }
+/* The request can disappear without a reply if the server's outbound
+ * transport rejects its result. The old timeout only ran upon receipt of a
+ * later admin.result, so a lost reply could wait forever. */
+static gboolean receiver_request_timeout(gpointer unused) {
+   (void)unused;
+   if (pending.request && mono_us() - pending.started >= 15000000) {
+      rrconn_t *connection = pending.connection;
+      char *failure = g_strdup_printf(
+         "SDR connection failed: server did not return a room assignment for %s within 15 seconds. Check server send/transport logs.",
+         pending.url ? pending.url : "(unknown receiver)");
+      clear_pending();
+      report(failure, connection);
+      event_emit("client.receiver-directory.failed", connection, failure);
+      g_free(failure);
+   }
+   return G_SOURCE_REMOVE;
+}
 static bool send_receiver_request(rrconn_t *connection) {
    if (!pending.payload || !connection || pending.connection != connection) {
       return false;
@@ -190,6 +207,7 @@ bool rrclient_receiver_connect_room_ex(const char *url, bool save, const char *r
    pending.request = g_strdup(id);
    pending.connection = connection;
    pending.started = mono_us();
+   g_timeout_add_seconds(16, receiver_request_timeout, NULL);
    pending.save = save;
    pending.payload = dict2json(fields);
    dict_free(fields);
