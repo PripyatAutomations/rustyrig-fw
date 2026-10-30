@@ -21,6 +21,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.help.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.serverpick.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
@@ -358,7 +359,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_X:
          case GDK_KEY_x: {
-            if (!gtk_shortcut_close_window("serverpick", main_win)) {
+            if (!gtk_server_picker_toggle()) {
                show_server_chooser();
             }
 
