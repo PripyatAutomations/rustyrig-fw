@@ -412,7 +412,7 @@ bool rrclient_database_load_themes(void) {
 
 bool rrclient_database_theme_set(const char *name, const char *property, const char *value) {
    if (!client_db || !name || !*name || !property || !*property || !value ||
-       strchr(name, '.') || strchr(name, '\\n') || strchr(property, '\\n'))
+       strchr(name, '.') || strchr(name, '\n') || strchr(property, '\n'))
       return false;
    return db_exec3("INSERT INTO themes(name,property,value) VALUES(?1,?2,?3) "
       "ON CONFLICT(name,property) DO UPDATE SET value=excluded.value", name, property, value);
