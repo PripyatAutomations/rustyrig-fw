@@ -27,6 +27,7 @@
 #include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.binframe.h>
+#include <rrserver/connection.state.h>
 
 extern time_t now;
 
@@ -125,8 +126,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       }
 
       for (rrconn_t *cur = http_client_list ; cur ; cur = cur->next) {
-         if (cur->is_ws && cur->authenticated && cur->native_transport &&
-            rr_transport_state(cur->native_transport) == RR_TRANSPORT_OPEN && cur->user &&
+         if (rrserver_client_can_send_binary(cur) && cur->user &&
             has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG)) {
             /* Avoid unbounded buffering when a log subscriber is slow. */
             if (rr_transport_queued_bytes(cur->native_transport) <= 262144) {
