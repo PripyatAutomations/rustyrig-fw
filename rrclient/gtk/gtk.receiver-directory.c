@@ -11,6 +11,9 @@
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
 
+enum {
+   COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_CONNECTED_COLOR, COL_COUNT
+};
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
 static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)unused;
@@ -20,14 +23,18 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    gboolean odd = index && (index[0] & 1);
    gboolean selected = view && path && gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
 
-   if (odd && !selected && view) {
+   char *connected_color = NULL;
+   gtk_tree_model_get(model, iter, COL_CONNECTED_COLOR, &connected_color, -1);
+   gboolean connected = connected_color && *connected_color;
+   g_free(connected_color);
+   if ((connected || odd) && !selected && view) {
       GtkStyleContext *style = gtk_widget_get_style_context(view);
       GdkRGBA base, ink, shade;
       gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);
       gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &ink);
-      shade.red = base.red * 0.915 + ink.red * 0.085;
-      shade.green = base.green * 0.915 + ink.green * 0.085;
-      shade.blue = base.blue * 0.915 + ink.blue * 0.085;
+      shade.red = connected ? base.red * 0.82 + 0.10 : base.red * 0.915 + ink.red * 0.085;
+      shade.green = connected ? base.green * 0.82 + 0.18 : base.green * 0.915 + ink.green * 0.085;
+      shade.blue = connected ? base.blue * 0.82 + 0.10 : base.blue * 0.915 + ink.blue * 0.085;
       shade.alpha = 1.0;
       g_object_set(cell, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
    } else {
@@ -49,9 +56,7 @@ static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token, failure_token;
 static char *receiver_failure;
-enum {
-   COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_CONNECTED_COLOR, COL_COUNT
-};
+
 
 /* Sort Country by region then city where region abbreviations are reliable. */
 static bool region_code(const char *country, const char *piece) {
@@ -249,7 +254,7 @@ static void populate(void) {
       gtk_list_store_append(directory_store, &iter);
       gtk_list_store_set(directory_store, &iter, COL_INDEX, (guint) i, COL_NAME, *r->name ? r->name : r->url, COL_LOCATION, r->location, COL_COUNTRY, r->country
          , COL_USERS, users, COL_API, api_policy(r), COL_STATE, rrclient_receiver_is_connected(r->url) ? "Connected" : receiver_state(r), COL_CONNECTED_COLOR,
-         rrclient_receiver_is_connected(r->url) ? "red" : NULL, COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, -1);
+         rrclient_receiver_is_connected(r->url) ? "connected" : NULL, COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, -1);
    }
 
    char *info = receiver_directory_info();
@@ -537,7 +542,7 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
             const receiver_directory_entry_t *receiver = url ? receiver_directory_find_url(url) : NULL;
             bool connected = url && rrclient_receiver_is_connected(url);
             gtk_list_store_set(directory_store, &iter, COL_STATE, connected ? "Connected" : receiver ? receiver_state(receiver) : "Not tested",
-               COL_CONNECTED_COLOR, connected ? "red" : NULL, -1);
+               COL_CONNECTED_COLOR, connected ? "connected" : NULL, -1);
             g_free(url);
          }
       }
