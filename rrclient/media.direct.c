@@ -395,6 +395,28 @@ static bool received(void *user, const uint8_t *data, size_t length) {
 }
 void rrclient_direct_poll(void) {
    uint64_t now = mono_us();
+   /* RTP receive is serviced by the GLib main loop. Long gaps here mean
+    * UI/catalog work can starve audio even on localhost. Track the actual
+    * poll cadence independently of the playback worker's timing. */
+   static uint64_t last_poll, diag_at, max_gap_us, gaps_over_40ms, gaps_over_100ms;
+   if (last_poll && now >= last_poll) {
+      uint64_t gap = now - last_poll;
+      if (gap > max_gap_us) max_gap_us = gap;
+      if (gap > 40000) gaps_over_40ms++;
+      if (gap > 100000) gaps_over_100ms++;
+   }
+   last_poll = now;
+   if (!diag_at) diag_at = now;
+   if (now - diag_at >= UINT64_C(10000000)) {
+      if (gaps_over_40ms || gaps_over_100ms)
+         Log(LOG_WARN, "media.rtp.timing",
+             "RTP main-loop poll gaps/10s: >40ms=%llu >100ms=%llu max=%lluus",
+             (unsigned long long)gaps_over_40ms,
+             (unsigned long long)gaps_over_100ms,
+             (unsigned long long)max_gap_us);
+      max_gap_us = gaps_over_40ms = gaps_over_100ms = 0;
+      diag_at = now;
+   }
    rr_rtp_socket_poll(media_socket, now, NULL, received);
 
    for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
