@@ -238,10 +238,10 @@ bool cmd_join(int argc, char **args) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "join");
    dict_add(d, "talk.target", args[1]);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   bool sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
-   return false;
+   return !sent;
 }
 
 bool cmd_me(int argc, char **args) {
