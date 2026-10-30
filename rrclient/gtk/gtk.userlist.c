@@ -1274,7 +1274,22 @@ static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer 
       gchar *before = g_markup_escape_text(shown, nick - shown);
       gchar *colored = g_markup_escape_text(nick, -1);
       rr_nick_color_t color = rr_nick_color(name);
-      gchar *markup = g_strdup_printf("%s<span foreground='%s'>%s</span>", before, color.hex, colored);
+      /* Match chat's IRC prefix palette: + = 13, @ = 11, ! = 05.
+       * Keep each privilege marker separate from the nickname color. */
+      GString *styled = g_string_new("");
+      for (const char *p = shown; p < nick; ++p) {
+         unsigned color_index = *p == '+' ? 13 : *p == '@' ? 11 : *p == '!' ? 5 : 99;
+         const char *hex = color_index == 99 ? NULL : irc_color_rgb(color_index);
+         gchar glyph[2] = { *p, 0 };
+         gchar *escaped = g_markup_escape_text(glyph, -1);
+         if (hex)
+            g_string_append_printf(styled, "<span foreground='%s'>%s</span>", hex, escaped);
+         else
+            g_string_append(styled, escaped);
+         g_free(escaped);
+      }
+      g_string_append_printf(styled, "<span foreground='%s'>%s</span>", color.hex, colored);
+      gchar *markup = g_string_free(styled, FALSE);
       g_object_set(cell, "foreground-set", FALSE, "markup", markup, NULL);
       g_free(markup);
       g_free(colored);
