@@ -947,6 +947,7 @@ static void on_save_config_button(GtkButton *button, gpointer user_data) {
    }
 
    if (rrclient_database_config_save(save_path)) {
+      rrclient_config_clear_dirty();
       Log(LOG_INFO, "gtk.config", "Configuration saved to %s", save_path);
    }
 }
@@ -1002,6 +1003,7 @@ static void theme_selected(GtkComboBox *combo, gpointer data) {
    const char *name = gtk_combo_box_get_active_id(combo);
    if (!name || !cfg_set_value("theme", name)) return;
    rrclient_theme_apply();
+   rrclient_config_mark_dirty();
    GList *rows = gtk_container_get_children(GTK_CONTAINER(list));
    for (GList *row = rows; row; row = row->next) {
       theme_field_t *field = g_object_get_data(G_OBJECT(row->data), "theme-field");
@@ -1012,6 +1014,67 @@ static void theme_selected(GtkComboBox *combo, gpointer data) {
       g_object_set_data(G_OBJECT(field->value), "theme-refresh", NULL);
    }
    g_list_free(rows);
+}
+
+
+/* Save the visible active colors under an editable named theme. A changed name
+ * creates a new named theme rather than silently deleting the previous one. */
+static void theme_save_clicked(GtkButton *button, gpointer user_data) {
+   GtkWidget *chooser = GTK_WIDGET(user_data);
+   const char *current = gtk_combo_box_get_active_id(GTK_COMBO_BOX(chooser));
+   GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Save Theme",
+      GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL,
+      "_Save", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *entry = gtk_entry_new();
+   gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+   gtk_entry_set_text(GTK_ENTRY(entry), current ? current : "Stock");
+   gtk_widget_set_margin_start(entry, 12);
+   gtk_widget_set_margin_end(entry, 12);
+   gtk_widget_set_margin_top(entry, 12);
+   gtk_widget_set_margin_bottom(entry, 12);
+   gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
+   gtk_widget_show(entry);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *entered = gtk_entry_get_text(GTK_ENTRY(entry));
+      char *name = g_strdup(entered);
+      g_strstrip(name);
+      if (!*name || !strcmp(name, "Stock") || strchr(name, '.') ||
+         strchr(name, ':') || strchr(name, '[') || strchr(name, ']') ||
+         strchr(name, '\n') || strchr(name, '\r')) {
+         GtkWidget *error = gtk_message_dialog_new(GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
+            GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+            "Enter a theme name other than Stock, without dots, colons, brackets or line breaks.");
+         gtk_dialog_run(GTK_DIALOG(error));
+         gtk_widget_destroy(error);
+      } else {
+         gboolean ok = TRUE;
+         for (const defconfig_t *def = defcfg; def->key; ++def) {
+            if (!g_str_has_prefix(def->key, "theme.")) continue;
+            const char *value = cfg_get(def->key);
+            char *key = g_strdup_printf("theme:%s.%s", name, def->key + 6);
+            if (dict_add(cfg, key, value ? value : "") != 0 ||
+               !rrclient_database_theme_set(name, def->key + 6, value ? value : ""))
+               ok = FALSE;
+            g_free(key);
+         }
+         if (ok) {
+            cfg_set_value("theme", name);
+            rrclient_config_mark_dirty();
+            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(chooser), name, name);
+            gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), name);
+         } else {
+            GtkWidget *error = gtk_message_dialog_new(GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
+               GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Unable to save theme to the database.");
+            gtk_dialog_run(GTK_DIALOG(error));
+            gtk_widget_destroy(error);
+         }
+      }
+      g_free(name);
+   }
+   gtk_widget_destroy(dialog);
 }
 
 static GtkWidget *cfg_theme_panel(void) {
@@ -1043,6 +1106,9 @@ static GtkWidget *cfg_theme_panel(void) {
    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), selected ? selected : "Stock"))
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), "Stock");
    gtk_box_pack_start(GTK_BOX(chooser_row), chooser, FALSE, FALSE, 0);
+   GtkWidget *save_theme = gtk_button_new_with_label("Save Theme…");
+   g_signal_connect(save_theme, "clicked", G_CALLBACK(theme_save_clicked), chooser);
+   gtk_box_pack_start(GTK_BOX(chooser_row), save_theme, FALSE, FALSE, 0);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_box_pack_start(GTK_BOX(container), scroll, TRUE, TRUE, 0);
