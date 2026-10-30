@@ -485,13 +485,49 @@ static void receiver_closed(const char *event, const char *data, rrconn_t *conne
       clear_pending();
    }
 
-   if (connected_receivers) {
+   /* A generated SDR room only exists while its bridge is alive. On
+    * loss of the last authenticated server, close these tabs locally;
+    * reconnecting with JOIN alone would not recreate the receiver. */
+   bool server_available = false;
+   for (unsigned i = 0 ;; i++) {
+      const char *name = rrclient_connection_iter(i);
+      if (!name) break;
+      rrconn_t *peer = rrclient_connection_find(name);
+      if (peer && peer != connection && peer->is_ws && peer->authenticated &&
+          peer->connected && peer->active) {
+         server_available = true;
+         break;
+      }
+   }
+   if (!server_available && receiver_rooms && g_hash_table_size(receiver_rooms)) {
+      GPtrArray *closing = g_ptr_array_new_with_free_func(g_free);
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, receiver_rooms);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         const char *room = key;
+         if (strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5))
+            g_ptr_array_add(closing, g_strdup(room));
+      }
+      for (guint i = 0; i < closing->len; i++) {
+         const char *room = g_ptr_array_index(closing, i);
+         dict *notice = dict_new();
+         if (!notice) continue;
+         dict_add(notice, "talk.room", room);
+         dict_add(notice, "talk.user", "server");
+         char *payload = dict2json(notice);
+         if (payload) {
+            event_emit("room.deleted", connection, payload);
+            free(payload);
+         }
+         dict_free(notice);
+      }
+      g_ptr_array_free(closing, TRUE);
+   }
+   if (connected_receivers)
       g_hash_table_remove_all(connected_receivers);
-   }
-
-   if (receiver_rooms) {
+   if (receiver_rooms)
       g_hash_table_remove_all(receiver_rooms);
-   }
    event_emit("client.receiver-directory.connection", connection, "Server disconnected.");
 }
 void rrclient_receiver_connect_init(void) {
