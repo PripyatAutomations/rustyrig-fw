@@ -418,8 +418,8 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
       return true;
    }
    // Ambiguous: print candidates into the chat window
-   // ui.theme.completion contains a decoded IRC color control prefix.
-   const char *completion_color = cfg_get("ui.theme.completion");
+   // theme.completion contains a decoded IRC color control prefix.
+   const char *completion_color = cfg_get("theme.completion");
 
    if (!completion_color || !*completion_color) {
       completion_color = "\00313";
