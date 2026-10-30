@@ -1,3 +1,4 @@
+#include <rrclient/connection.state.h>
 //
 // rrclient/webcam.c: client-side webcam (v4l2) video source
 //    This is part of rustyrig-fw.
@@ -67,8 +68,7 @@ static void webcam_register_source(void) {
 // server validates our source flag and fans it out to subscribers (PARITY:
 // librrprotocol/cli.main.c - video source frame routing)
 static void webcam_push_frame(const uint8_t *data, size_t len) {
-   if (!ws_conn || !ws_conn->native_transport ||
-      rr_transport_state(ws_conn->native_transport) != RR_TRANSPORT_OPEN || !ws_conn->authenticated || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
+   if (!rrclient_connection_can_send_binary(ws_conn) || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
       return;
    }
    const char codec[4] = {
