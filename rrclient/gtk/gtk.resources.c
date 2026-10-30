@@ -2216,8 +2216,8 @@ static gboolean resource_tick(gpointer data) {
          while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
             gtk_tree_store_remove(browser->store, &child);
          }
-         set_string(&branch->root, STATE, "Disconnected");
-         set_string(&branch->root, OURS, "Disconnected");
+         set_string(&branch->root, STATE, "OFFLINE");
+         set_string(&branch->root, OURS, "OFFLINE");
       }
       /* Linked catalogs can arrive after the first inventory, without an object descriptor change (GPS/serial/media are inventory-only services). Refresh
        * availability while the window is open, including late peers. */
@@ -3703,6 +3703,18 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
    if (branch && strcmp(event, "client.objects.changed")) {
       branch->loading = false;
       branch->loaded = false;
+   }
+   if (branch && (!strcmp(event, "disconnected") || !strcmp(event, "http.error") ||
+                  !strcmp(event, "auth.error"))) {
+      /* Do not leave the last live inventory on screen after transport loss. */
+      branch->online = false;
+      g_clear_pointer(&branch->request, g_free);
+      GtkTreeIter child;
+      while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root))
+         gtk_tree_store_remove(browser->store, &child);
+      set_string(&branch->root, STATE, "OFFLINE");
+      set_string(&branch->root, OURS, "OFFLINE");
+      gtk_label_set_text(GTK_LABEL(browser->status), "OFFLINE");
    }
 }
 void gtk_resources_init(void) {
