@@ -9,5 +9,6 @@
 #include <librustyaxe/core.h>
 char *rrclient_user_config_path(void);
 bool rrclient_config_load(void);
+void rrclient_theme_apply(void);
 bool rrclient_config_reload(const char *path);
 #endif
