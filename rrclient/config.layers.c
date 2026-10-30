@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <rrclient/config.layers.h>
+#include <rrclient/database.h>
 #ifndef RRCLIENT_SYSTEM_CONFIG_PATH
 #define RRCLIENT_SYSTEM_CONFIG_PATH "/etc/rustyrig/rrclient.cfg"
 #endif
@@ -37,6 +38,16 @@ static dict *with_defaults(dict *loaded) {
 void rrclient_theme_apply(void) {
    if (!cfg) return;
    const char *active = dict_get(cfg, "theme", "Stock");
+   /* Reset the previously selected theme's values before applying a new one. */
+   const char *default_key;
+   char *default_value;
+   int di = 0;
+   if (default_cfg) {
+      while ((di = dict_enumerate(default_cfg, di, &default_key, &default_value)) >= 0) {
+         if (!strncmp(default_key, "theme.", 6))
+            dict_add(cfg, default_key, default_value ? default_value : "");
+      }
+   }
    if (!active || !*active || !strcmp(active, "Stock")) return;
    size_t prefix_len = strlen(active) + sizeof("theme:");
    char *prefix = malloc(prefix_len + 1);
@@ -136,12 +147,18 @@ bool rrclient_config_load(void) {
 bool rrclient_config_reload(const char *path) {
    if (!layered || (path && strcmp(path, config_file))) {
       bool ok = cfg_reload(path);
-      if (ok) rrclient_theme_apply();
+      if (ok) {
+         rrclient_database_load_themes();
+         rrclient_theme_apply();
+      }
       return ok;
    }
    dict *replacement = read_layers(RRCLIENT_SYSTEM_CONFIG_PATH, config_file);
 
    bool ok = replacement && cfg_apply_new(cfg, replacement);
-   if (ok) rrclient_theme_apply();
+   if (ok) {
+      rrclient_database_load_themes();
+      rrclient_theme_apply();
+   }
    return ok;
 }
