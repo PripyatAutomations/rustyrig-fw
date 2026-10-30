@@ -143,6 +143,7 @@ static const char *bridge_public_name(const struct bridge_child *b) {
 static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t *m);
 static void websdr_remove(rr_server_rig_t *radio);
 static void websdr_audit_end(rr_server_rig_t *radio, const char *reason);
+static bool websdr_room_has_other_listeners(const char *room, const rrconn_t *leaving);
 static void capability_source(struct bridge_child *b, const char *source) {
    rr_property_descriptor_t d = {
       .name = "capabilities.source", .type = VAL_STR, .readable = true
