@@ -1,3 +1,5 @@
+#include <rrclient/config.layers.h>
+#include <rrclient/database.h>
 //
 // rrclient/gtk/gtk.core.c: Core of GTK gui
 //    This is part of rustyrig-fw.
@@ -1302,11 +1304,36 @@ static void frontend_gtk_alert(const char *message) {
 }
 
 static void frontend_gtk_quit_request(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (ui_confirm_dialog(main_window && GTK_IS_WINDOW(main_window)
-         ? GTK_WINDOW(main_window) : NULL, "Confirm quit?")) {
-      extern bool dying;
-      dying = true;
+   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
+   if (!ui_confirm_dialog(parent, "Confirm quit?")) return;
+
+   if (rrclient_config_is_dirty()) {
+      GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
+         GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+         "Configuration has unsaved changes. Save before quitting?");
+      gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
+      gtk_dialog_add_button(GTK_DIALOG(dialog), "_Discard", GTK_RESPONSE_REJECT);
+      gtk_dialog_add_button(GTK_DIALOG(dialog), "_Save", GTK_RESPONSE_ACCEPT);
+      gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
+      gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      if (response == GTK_RESPONSE_CANCEL || response == GTK_RESPONSE_DELETE_EVENT) return;
+      if (response == GTK_RESPONSE_ACCEPT) {
+         char *path = rrclient_user_config_path();
+         gboolean saved = path && rrclient_database_config_save(path);
+         free(path);
+         if (!saved) {
+            GtkWidget *error = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
+               GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Unable to save the client configuration. Quit cancelled.");
+            gtk_dialog_run(GTK_DIALOG(error));
+            gtk_widget_destroy(error);
+            return;
+         }
+         rrclient_config_clear_dirty();
+      }
    }
+   extern bool dying;
+   dying = true;
 }
 
 static void frontend_gtk_edit_config(const char *path) {
