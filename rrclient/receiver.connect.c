@@ -250,11 +250,19 @@ bool rrclient_receiver_connect_room(const char *url, bool save, const char *room
 bool rrclient_receiver_connect(const char *url, bool save) {
    return rrclient_receiver_connect_room_ex(url, save, NULL, false);
 }
-static void join_receiver(void *data) {
-   char *args[] = {
-      (char *)"join", data
-   };
-   cmd_join(2, args);
+/* Send the generated-room JOIN to the exact server that accepted the
+ * receiver request. UI selection/context can change during the reply. */
+static bool join_receiver(rrconn_t *connection, const char *room) {
+   if (!connection || !connection->is_ws || !connection->authenticated || !room || !*room)
+      return false;
+   dict *message = dict_new();
+   if (!message) return false;
+   dict_add(message, "msg.type", "talk");
+   dict_add(message, "talk.cmd", "join");
+   dict_add(message, "talk.target", room);
+   bool sent = ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT);
+   dict_free(message);
+   return sent;
 }
 static void receiver_result(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event;
@@ -382,7 +390,15 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
 
          if (!rrclient_room_is_joined(room)) {
             report("SDR stage 3/3: receiver attached; joining the bound room now…", connection);
-            rrclient_connection_dispatch(connection, join_receiver, (void *)room);
+            if (!join_receiver(connection, room)) {
+               char error[256];
+               snprintf(error, sizeof(error), "SDR room JOIN could not be sent to %s (%s).",
+                  pending.profile ? pending.profile : "(unknown server)", room);
+               report(error, connection);
+            } else {
+               Log(LOG_INFO, "receiver.connect", "Sent SDR room JOIN %s on profile %s",
+                   room, pending.profile ? pending.profile : "(unknown)");
+            }
          }
          char status[320];
          snprintf(status, sizeof(status), "SDR attached to %s. Awaiting room VFO announcement; select the room tab for RX controls. Audio starts on demand.",
