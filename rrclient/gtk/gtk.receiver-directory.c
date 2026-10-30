@@ -5,6 +5,7 @@
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
 #include <rrclient/connman.h>
+#include <rrclient/cmd.h>
 #include <rrclient/rooms.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/core.h>
