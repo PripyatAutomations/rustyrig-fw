@@ -115,6 +115,7 @@ static void receiver_room_joined(const char *event, const char *room, rrconn_t *
       char *key = receiver_key(pending.profile, pending.url);
       g_hash_table_add(connected_receivers, g_strdup(key));
       g_hash_table_replace(receiver_rooms, g_strdup(room), key);
+      receiver_directory_record_connection(pending.url);
       report("SDR connected: server confirmed room membership.", connection);
       clear_pending();
       return;
@@ -429,6 +430,7 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
             receiver_rooms = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
          }
          g_hash_table_replace(receiver_rooms, g_strdup(room), key);
+         receiver_directory_record_connection(pending.url);
 
          if (!rrclient_room_is_joined(room)) {
             report("SDR stage 3/3: receiver attached; joining the bound room now…", connection);
