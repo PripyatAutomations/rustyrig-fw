@@ -852,6 +852,17 @@ static void restore_states(void) {
    }
 
    sqlite3_finalize(statement);
+   if (sqlite3_prepare_v2(cache_db, "SELECT last_connected FROM receiver_connections WHERE url=?", -1, &statement, NULL) == SQLITE_OK) {
+      for (guint i = 0; i < receivers->len; i++) {
+         receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
+         r->last_connected = 0;
+         sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT);
+         if (sqlite3_step(statement) == SQLITE_ROW) r->last_connected = sqlite3_column_int64(statement, 0);
+         sqlite3_reset(statement);
+         sqlite3_clear_bindings(statement);
+      }
+      sqlite3_finalize(statement);
+   }
 }
 static bool read_bounded(const char *path, size_t limit, char **data, size_t *length) {
    FILE *file = fopen(path, "rb");
@@ -895,7 +906,8 @@ static void ensure(void) {
          "CREATE TABLE IF NOT EXISTS directory_cache(id INTEGER PRIMARY KEY CHECK(id=1),source TEXT,payload TEXT,etag TEXT,modified TEXT,next_request INTEGER);"
          "CREATE TABLE IF NOT EXISTS receiver_records(url TEXT PRIMARY KEY,record TEXT NOT NULL,last_seen INTEGER NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,offline INTEGER NOT NULL DEFAULT 0,provider TEXT NOT NULL DEFAULT 'kiwi');"
          "CREATE TABLE IF NOT EXISTS receiver_details(url TEXT,key TEXT,value TEXT NOT NULL,origin TEXT NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(url,key));"
-         "CREATE TABLE IF NOT EXISTS receiver_state(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);",
+         "CREATE TABLE IF NOT EXISTS receiver_state(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
+         "CREATE TABLE IF NOT EXISTS receiver_connections(url TEXT PRIMARY KEY,last_connected INTEGER NOT NULL);",
          NULL, NULL, NULL) != SQLITE_OK) {
          sqlite3_close(cache_db);
          cache_db = NULL;
@@ -1055,6 +1067,35 @@ void receiver_directory_queue_learn(const char *url, dict *fields) {
    if (!learn_source) {
       learn_source = g_idle_add(flush_learn, NULL);
    }
+}
+bool receiver_directory_record_connection(const char *endpoint) {
+   ensure();
+   char *url = endpoint ? canonical_url(endpoint) : NULL;
+   if (!cache_db || !url) {
+      g_free(url);
+      return false;
+   }
+   sqlite3_stmt *statement = NULL;
+   bool ok = sqlite3_prepare_v2(cache_db,
+      "INSERT INTO receiver_connections(url,last_connected) VALUES(?,?) "
+      "ON CONFLICT(url) DO UPDATE SET last_connected=excluded.last_connected",
+      -1, &statement, NULL) == SQLITE_OK;
+   time_t stamp = time(NULL);
+   if (ok) {
+      sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_int64(statement, 2, stamp);
+      ok = sqlite3_step(statement) == SQLITE_DONE;
+   }
+   sqlite3_finalize(statement);
+   if (ok) {
+      for (guint i = 0; i < receivers->len; i++) {
+         receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
+         if (!strcmp(r->url, url)) r->last_connected = stamp;
+      }
+      changed();
+   }
+   g_free(url);
+   return ok;
 }
 bool receiver_directory_set_state(const char *endpoint, const char *state, const char *reason) {
    ensure();
