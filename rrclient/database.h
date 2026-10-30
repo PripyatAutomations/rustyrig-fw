@@ -17,4 +17,7 @@ bool rrclient_database_server_set(const char *name, const char *property, const 
 bool rrclient_database_server_delete(const char *name);
 bool rrclient_database_server_move(const char *name, const char *network);
 bool rrclient_database_network_set(const char *name, const char *members);
+bool rrclient_database_proxy_set(const char *name, const char *url);
+bool rrclient_database_proxy_delete(const char *name);
+void rrclient_database_proxy_foreach(void (*cb)(const char *, const char *, void *), void *data);
 #endif
