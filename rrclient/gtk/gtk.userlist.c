@@ -1266,15 +1266,23 @@ static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer 
    char *name = NULL;
    char *display = NULL;
    gtk_tree_model_get(model, iter, COL_USERNAME, &name, COL_DISPLAY_NAME, &display, -1);
-   g_object_set(cell, "text", display ? display : "", NULL);
-   g_free(display);
-
-   if (!name || !*name || !strcmp(name, "OFFLINE")) {
-      g_object_set(cell, "foreground-set", FALSE, NULL);
-   } else {
+   /* Keep IRC/operator privilege prefixes in the normal text color; only
+    * the username itself receives its stable nickname color. */
+   const char *shown = display ? display : "";
+   const char *nick = name ? strstr(shown, name) : NULL;
+   if (nick && *name && strcmp(name, "OFFLINE")) {
+      gchar *before = g_markup_escape_text(shown, nick - shown);
+      gchar *colored = g_markup_escape_text(nick, -1);
       rr_nick_color_t color = rr_nick_color(name);
-      g_object_set(cell, "foreground", color.hex, "foreground-set", TRUE, NULL);
+      gchar *markup = g_strdup_printf("%s<span foreground='%s'>%s</span>", before, color.hex, colored);
+      g_object_set(cell, "foreground-set", FALSE, "markup", markup, NULL);
+      g_free(markup);
+      g_free(colored);
+      g_free(before);
+   } else {
+      g_object_set(cell, "foreground-set", FALSE, "text", shown, NULL);
    }
+   g_free(display);
    g_free(name);
 }
 
