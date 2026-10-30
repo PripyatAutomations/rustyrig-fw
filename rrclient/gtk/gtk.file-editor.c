@@ -951,6 +951,81 @@ static void on_save_config_button(GtkButton *button, gpointer user_data) {
    }
 }
 
+
+/* Theme controls edit the active configuration, not a second shadow copy. */
+typedef struct theme_field {
+   const defconfig_t *definition;
+   GtkWidget *value;
+} theme_field_t;
+
+static void theme_field_free(gpointer data) { g_free(data); }
+
+static void theme_field_changed(GtkEditable *editable, gpointer data) {
+   theme_field_t *field = data;
+   cfg_set_value(field->definition->key, gtk_entry_get_text(GTK_ENTRY(editable)));
+}
+
+static void theme_field_reset(GtkButton *button, gpointer data) {
+   (void)button;
+   theme_field_t *field = data;
+   gtk_entry_set_text(GTK_ENTRY(field->value), field->definition->val ? field->definition->val : "");
+}
+
+static void theme_field_pick(GtkButton *button, gpointer data) {
+   theme_field_t *field = data;
+   GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   GtkWidget *dialog = gtk_color_chooser_dialog_new("Theme color", GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL);
+   /* IRC hexadecimal color syntax is also accepted by the chat renderer. */
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+      GdkRGBA chosen;
+      gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(dialog), &chosen);
+      char encoded[12];
+      snprintf(encoded, sizeof(encoded), "\\004%02X%02X%02X",
+         (unsigned)(chosen.red * 255.0 + .5), (unsigned)(chosen.green * 255.0 + .5),
+         (unsigned)(chosen.blue * 255.0 + .5));
+      gtk_entry_set_text(GTK_ENTRY(field->value), encoded);
+   }
+   gtk_widget_destroy(dialog);
+}
+
+static GtkWidget *cfg_theme_panel(void) {
+   GtkWidget *container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(container), 8);
+   GtkWidget *description = gtk_label_new("Live theme settings (stored in the active configuration). Save Config to persist changes.");
+   gtk_label_set_xalign(GTK_LABEL(description), 0);
+   gtk_box_pack_start(GTK_BOX(container), description, FALSE, FALSE, 0);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_box_pack_start(GTK_BOX(container), scroll, TRUE, TRUE, 0);
+   GtkWidget *list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_container_add(GTK_CONTAINER(scroll), list);
+   for (const defconfig_t *def = defcfg; def->key; ++def) {
+      if (!g_str_has_prefix(def->key, "ui.theme.")) continue;
+      theme_field_t *field = g_new0(theme_field_t, 1);
+      field->definition = def;
+      GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+      gtk_box_pack_start(GTK_BOX(list), row, FALSE, FALSE, 0);
+      GtkWidget *label = gtk_label_new(def->key);
+      gtk_widget_set_size_request(label, 200, -1);
+      gtk_label_set_xalign(GTK_LABEL(label), 0);
+      gtk_widget_set_tooltip_text(label, def->help);
+      gtk_box_pack_start(GTK_BOX(row), label, FALSE, FALSE, 0);
+      field->value = gtk_entry_new();
+      gtk_entry_set_text(GTK_ENTRY(field->value), cfg_get(def->key) ? cfg_get(def->key) : "");
+      gtk_widget_set_hexpand(field->value, TRUE);
+      gtk_box_pack_start(GTK_BOX(row), field->value, TRUE, TRUE, 0);
+      g_object_set_data_full(G_OBJECT(row), "theme-field", field, theme_field_free);
+      GtkWidget *pick = gtk_button_new_with_label("Palette…");
+      g_signal_connect(pick, "clicked", G_CALLBACK(theme_field_pick), field);
+      gtk_box_pack_start(GTK_BOX(row), pick, FALSE, FALSE, 0);
+      GtkWidget *reset = gtk_button_new_with_label("Reset");
+      g_signal_connect(reset, "clicked", G_CALLBACK(theme_field_reset), field);
+      gtk_box_pack_start(GTK_BOX(row), reset, FALSE, FALSE, 0);
+      g_signal_connect(field->value, "changed", G_CALLBACK(theme_field_changed), field);
+   }
+   return container;
+}
+
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
@@ -976,7 +1051,11 @@ GtkWidget *init_config_tab(void) {
    cfg_list_state_t *filter_state = g_object_get_data(G_OBJECT(cfg_panel), "cfg-list-state");
    g_signal_connect(search, "changed", G_CALLBACK(cfg_editor_filter_changed), filter_state);
    gtk_widget_set_vexpand(cfg_panel, TRUE);
-   gtk_box_pack_start(GTK_BOX(nw), cfg_panel, TRUE, TRUE, 0);
+   GtkWidget *sections = gtk_notebook_new();
+   gtk_widget_set_vexpand(sections, TRUE);
+   gtk_box_pack_start(GTK_BOX(nw), sections, TRUE, TRUE, 0);
+   gtk_notebook_append_page(GTK_NOTEBOOK(sections), cfg_panel, gtk_label_new("Settings"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(sections), cfg_theme_panel(), gtk_label_new("Theme"));
 
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(buttons), 6);
