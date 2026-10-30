@@ -327,7 +327,10 @@ defconfig_t defcfg[] = {
    },
 #endif // _WIN32
    {
-      "ui.theme.completion", "\00310", "mIRC color prefix for tab-completion candidates"
+      "theme.active", "Stock", "Selected named theme (Stock uses built-in defaults)"
+   },
+   {
+      "theme.completion", "\00310", "mIRC color prefix for tab-completion candidates"
    },
    {
       "ui.win-digit-wait", "500", "Milliseconds to wait for a second Escape/Alt window number digit", DEFCONFIG_UINT, NULL
