@@ -1811,7 +1811,12 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    dict_add(reply, "talk.action", "websdr-result");
    dict_add(reply, "talk.target", "websdr");
    dict_add(reply, "talk.data", json);
-   ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   bool reply_sent = ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   Log(reply_sent ? LOG_INFO : LOG_WARN, "sdr.status",
+       "SDR result: request=%s room=%s error=%s delivered=%s",
+       request ? dict_get(request, "request", "") : "",
+       b ? target_room : "(none)", release && !*error ? "" : b ? "" : error,
+       reply_sent ? "yes" : "no");
    free(json);
    dict_free(result);
    dict_free(reply);
