@@ -510,6 +510,11 @@ static void receiver_failed(const char *event, const char *data, rrconn_t *conne
    if (directory_status) {
       gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure);
    }
+   GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", receiver_failure);
+   gtk_window_set_title(GTK_WINDOW(dialog), "SDR connection failed");
+   g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+   gtk_widget_show(dialog);
 }
 static void connection_status(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
