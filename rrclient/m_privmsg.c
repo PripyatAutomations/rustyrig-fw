@@ -1067,10 +1067,9 @@ static void rrclient_irc_redirect(const char *event, const char *data, rrconn_t 
    rrclient_room_part(old_room);
    ui_close_window(old_room);
 
-   if (frontend_ops() && frontend_ops()->chat_room_add) {
-      frontend_ops()->chat_room_add(new_room);
-   }
-   ui_print(new_room, "%s* %s redirects %s to %s: %s", get_chat_ts(now), dict_get(message, "msg.prefix", "server"), old_room, new_room, dict_get(message,
+   /* Redirect is advisory; only the server's subsequent JOIN may
+    * create the replacement channel tab. */
+   ui_print(NULL, "%s* %s redirects %s to %s: %s", get_chat_ts(now), dict_get(message, "msg.prefix", "server"), old_room, new_room, dict_get(message,
       "msg.arg4", "Forwarding to another channel"));
    dict_free(message);
 }
