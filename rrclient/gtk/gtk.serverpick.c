@@ -124,24 +124,7 @@ static void picker_activate(GtkTreeModel *model, GtkTreeIter *iter) {
 
    if (name && *name) {
       if (picker_is_network(model, iter)) {
-         int state = picker_group_state(model, iter);
-         GtkTreeIter child;
-
-         if (gtk_tree_model_iter_children(model, &child, iter)) {
-            do {
-               char *member = NULL;
-               gtk_tree_model_get(model, &child, 0, &member, -1);
-
-               if (member) {
-                  if (state) {
-                     picker_disconnect_member(member, NULL);
-                  } else {
-                     picker_connect_member(member, NULL);
-                  }
-               }
-               g_free(member);
-            } while (gtk_tree_model_iter_next(model, &child));
-         }
+         /* Network rows are grouping headers, never bulk connection actions. */
       } else if (rrclient_connection_state(name)) {
          disconnect_server(name);
       } else {
@@ -186,6 +169,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
    GtkTreeIter iter;
 
    if (gtk_tree_selection_get_selected(sel, &model, &iter)) {
+      if (picker_is_network(model, &iter)) return;
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
 
