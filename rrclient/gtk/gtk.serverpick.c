@@ -119,6 +119,19 @@ static int picker_group_state(GtkTreeModel *model, GtkTreeIter *parent) {
    return active == total ? 1 : (active || pending) ? -1 : 0;
 }
 
+static void picker_group_counts(GtkTreeModel *model, GtkTreeIter *parent, int *online, int *total) {
+   GtkTreeIter child;
+   *online = *total = 0;
+   if (!gtk_tree_model_iter_children(model, &child, parent)) return;
+   do {
+      char *name = NULL;
+      gtk_tree_model_get(model, &child, 0, &name, -1);
+      ++*total;
+      if (name && rrclient_connection_state(name) == 1) ++*online;
+      g_free(name);
+   } while (gtk_tree_model_iter_next(model, &child));
+}
+
 static void picker_activate(GtkTreeModel *model, GtkTreeIter *iter) {
    char *name = NULL;
    gtk_tree_model_get(model, iter, 0, &name, -1);
@@ -267,8 +280,11 @@ static void picker_refresh_rows(GtkTreeModel *model, GtkTreeStore *store, GtkTre
 
       if (picker_is_network(model, &iter)) {
          picker_refresh_rows(model, store, &iter);
-         int state = picker_group_state(model, &iter);
-         gtk_tree_store_set(store, &iter, 4, state == 1, 5, state < 0, 6, state == 1 ? "Connected" : state < 0 ? "Partially connected" : "Offline", -1);
+         int online = 0, total = 0;
+         picker_group_counts(model, &iter, &online, &total);
+         char count[32];
+         snprintf(count, sizeof(count), "%d/%d", online, total);
+         gtk_tree_store_set(store, &iter, 4, FALSE, 5, FALSE, 6, count, -1);
       } else {
          picker_set_state(store, &iter, name);
       }
@@ -911,6 +927,13 @@ void gtk_server_picker_edit_network(GtkButton *button, gpointer data) {
    g_object_unref(filter);
    g_object_unref(store);
    g_free(existing);
+}
+
+/* Alt-X toggles this floating panel; ordinary show requests still raise it. */
+gboolean gtk_server_picker_toggle(void) {
+   if (!picker_panel) return FALSE;
+   picker_close(NULL);
+   return TRUE;
 }
 
 void gtk_server_picker_reload(void) {
