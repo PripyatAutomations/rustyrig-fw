@@ -83,8 +83,9 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
 
       /* Joined local users already constitute demand. Avoid a second policy check and a relay query for every channel on every server poll. */
       for (rrconn_t *client = http_client_list ; client ; client = client->next) {
-         if (client->native_transport && rr_transport_state(client->native_transport) == RR_TRANSPORT_OPEN && client->is_ws && client->authenticated
-            && !client->is_server && media_client_in_channel_room(client, channel)) {
+         if (client->is_ws && client->authenticated && !client->is_server &&
+            (!client->native_transport || rr_transport_state(client->native_transport) == RR_TRANSPORT_OPEN) &&
+            media_client_in_channel_room(client, channel)) {
             return true;
          }
       }
