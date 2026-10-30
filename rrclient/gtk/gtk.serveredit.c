@@ -161,7 +161,7 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
 
 typedef struct {
    char *profile;
-   GtkWidget *profile_entry, *certificate, *network;
+   GtkWidget *profile_entry, *certificate, *network, *proxy;
    bool creating;
    GtkWidget *fields[5];
    char *initial[5];
@@ -256,6 +256,58 @@ void gtk_server_editor_refresh_networks(void) {
       GtkServerEditor *editor = g_object_get_data(G_OBJECT(server_editor_frame), "rr-server-editor");
       editor_refresh_networks(editor);
    }
+}
+
+static void proxy_add_option(const char *name, const char *url, void *data) {
+   GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(data);
+   gtk_combo_box_text_append(combo, url, name);
+}
+
+static void proxy_editor_clicked(GtkButton *button, gpointer data) {
+   (void)button;
+   GtkServerEditor *editor = data;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Proxies", NULL, GTK_DIALOG_MODAL,
+      "_Close", GTK_RESPONSE_CLOSE, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *grid = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   gtk_box_pack_start(GTK_BOX(area), grid, TRUE, TRUE, 0);
+   GtkWidget *name = gtk_entry_new(), *url = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(name), "Proxy name");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(url), "socks5://host:port");
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Name"), 0, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), name, 1, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("URL"), 0, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), url, 1, 1, 1, 1);
+   GtkWidget *save = gtk_dialog_add_button(GTK_DIALOG(dialog), "Save proxy", 1);
+   GtkWidget *remove = gtk_dialog_add_button(GTK_DIALOG(dialog), "Delete proxy", 2);
+   (void)save; (void)remove;
+   GtkWidget *status = gtk_label_new("");
+   gtk_grid_attach(GTK_GRID(grid), status, 0, 3, 2, 1);
+   /* Dialog actions use response IDs, keeping editing modal and explicit. */
+
+   gtk_widget_show_all(dialog);
+   while (true) {
+      gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+      if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) break;
+      const char *n = gtk_entry_get_text(GTK_ENTRY(name));
+      const char *u = gtk_entry_get_text(GTK_ENTRY(url));
+      if (!*n || (response != 2 && !*u)) {
+         gtk_label_set_text(GTK_LABEL(status), "Enter a name and proxy URL.");
+         continue;
+      }
+      bool ok = response == 2 ? rrclient_database_proxy_delete(n) : rrclient_database_proxy_set(n, u);
+      gtk_label_set_text(GTK_LABEL(status), ok ? "Saved." : "Database update failed.");
+      if (ok) {
+         gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->proxy));
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->proxy), "", "None");
+         rrclient_database_proxy_foreach(proxy_add_option, editor->proxy);
+         gtk_combo_box_set_active(GTK_COMBO_BOX(editor->proxy), 0);
+      }
+   }
+   gtk_widget_destroy(dialog);
 }
 
 static const char *editor_keys[] = {
@@ -362,7 +414,8 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    bool rooms_changed = strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), editor->initial[4]) != 0;
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
-      const char *value = gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
+      const char *value = i == 3 ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->proxy)) : gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
+      if (!value) value = "";
 
       if (editor->creating || strcmp(value, editor->initial[i])) {
          char key[640];
@@ -483,13 +536,17 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       gtk_grid_attach(GTK_GRID(grid), gtk_label_new(labels[i]), 0, i + 1, 1, 1);
 
       if (i == 3) {
-         const char *effective = editor->initial[i][0] ? editor->initial[i] : cfg_get("server.proxy");
-         GtkWidget *proxy_status = gtk_check_button_new_with_label("Proxy configured");
-         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(proxy_status), effective && *effective);
-         gtk_widget_set_sensitive(proxy_status, FALSE);
-         gtk_widget_set_tooltip_text(proxy_status,
-            "Read-only: checked if this server uses a proxy, including an inherited global proxy. Proxy settings cannot be changed here.");
-         gtk_grid_attach(GTK_GRID(grid), proxy_status, 1, i + 1, 1, 1);
+         editor->proxy = gtk_combo_box_text_new();
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->proxy), "", "None");
+         rrclient_database_proxy_foreach(proxy_add_option, editor->proxy);
+         if (!editor->initial[i][0] || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->proxy), editor->initial[i]))
+            gtk_combo_box_set_active(GTK_COMBO_BOX(editor->proxy), 0);
+         GtkWidget *proxy_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+         gtk_box_pack_start(GTK_BOX(proxy_row), editor->proxy, TRUE, TRUE, 0);
+         GtkWidget *proxies = gtk_button_new_with_label("Proxies");
+         g_signal_connect(proxies, "clicked", G_CALLBACK(proxy_editor_clicked), editor);
+         gtk_box_pack_start(GTK_BOX(proxy_row), proxies, FALSE, FALSE, 0);
+         gtk_grid_attach(GTK_GRID(grid), proxy_row, 1, i + 1, 1, 1);
       } else {
          gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i + 1, 1, 1);
       }
