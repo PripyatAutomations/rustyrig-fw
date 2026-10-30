@@ -80,7 +80,7 @@ static bool send_receiver_request(rrconn_t *connection) {
    return sent;
 }
 
-static void join_receiver(void *data);
+static bool join_receiver(rrconn_t *connection, const char *room);
 static void receiver_room_joined(const char *event, const char *room, rrconn_t *connection, void *unused) {
    (void)event;
    (void)unused;
