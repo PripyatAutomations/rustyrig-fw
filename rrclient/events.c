@@ -529,7 +529,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       ui_print(output_room, "\00304>>>\017 Finished chat replay. \00304<<<\017");
    } else if (msg_type && msg_data) {
       if (strcasecmp(msg_type, "action") == 0) {
-         ui_print(output_room, "%s\00308*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s\00310*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "pub") == 0) {
          if (login_user != NULL && strcmp(raw_from, login_user) == 0) {
             ui_print(output_room, "%s\00308=>\017 %s", get_chat_ts(msg_ts), msg_data);
@@ -539,7 +539,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       } else if (strcasecmp(msg_type, "replay-pub") == 0) {
          ui_print(output_room, "%s%s<\017%s%s>\017 %s", get_chat_ts(msg_ts), angle, nick_color, angle, msg_data);
       } else if (strcasecmp(msg_type, "replay-action") == 0) {
-         ui_print(output_room, "%s\00304*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s\00310*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "priv") == 0) {
          if (raw_from && login_user && strcasecmp(raw_from, login_user) == 0) {
             ui_print(output_room, "%s\00309->\017 %s", get_chat_ts(msg_ts), msg_data);
