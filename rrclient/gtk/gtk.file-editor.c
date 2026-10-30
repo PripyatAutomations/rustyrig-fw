@@ -962,7 +962,16 @@ static void theme_field_free(gpointer data) { g_free(data); }
 
 static void theme_field_changed(GtkEditable *editable, gpointer data) {
    theme_field_t *field = data;
-   cfg_set_value(field->definition->key, gtk_entry_get_text(GTK_ENTRY(editable)));
+   if (g_object_get_data(G_OBJECT(editable), "theme-refresh")) return;
+   const char *value = gtk_entry_get_text(GTK_ENTRY(editable));
+   if (!cfg_set_value(field->definition->key, value)) return;
+   const char *selected = cfg_get("theme");
+   if (selected && *selected && strcmp(selected, "Stock")) {
+      char *key = g_strdup_printf("theme:%s.%s", selected, field->definition->key + strlen("theme."));
+      dict_add(cfg, key, value);
+      rrclient_database_theme_set(selected, field->definition->key + strlen("theme."), value);
+      g_free(key);
+   }
 }
 
 static void theme_field_reset(GtkButton *button, gpointer data) {
@@ -998,7 +1007,9 @@ static void theme_selected(GtkComboBox *combo, gpointer data) {
       theme_field_t *field = g_object_get_data(G_OBJECT(row->data), "theme-field");
       if (!field) continue;
       const char *val = cfg_get(field->definition->key);
+      g_object_set_data(G_OBJECT(field->value), "theme-refresh", GINT_TO_POINTER(1));
       gtk_entry_set_text(GTK_ENTRY(field->value), val ? val : "");
+      g_object_set_data(G_OBJECT(field->value), "theme-refresh", NULL);
    }
    g_list_free(rows);
 }
