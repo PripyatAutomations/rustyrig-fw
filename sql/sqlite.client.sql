@@ -33,4 +33,5 @@ CREATE TABLE IF NOT EXISTS server_properties (
   PRIMARY KEY(server_id, property)
 );
 CREATE TABLE IF NOT EXISTS proxies (name TEXT PRIMARY KEY COLLATE NOCASE, url TEXT NOT NULL);
-PRAGMA user_version = 3;
+CREATE TABLE IF NOT EXISTS themes (name TEXT NOT NULL COLLATE NOCASE, property TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(name,property));
+PRAGMA user_version = 4;
