@@ -22,6 +22,7 @@
 #include <librrprotocol/bridge.media.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/wire.h>
+#include <librustyaxe/transport.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <rrserver/media.h>
 #include <rrserver/bridge.access.h>
