@@ -1,3 +1,4 @@
+#include <rrclient/config.layers.h>
 //
 // rrclient/cmd.misc.c: unsorted commands
 //    This is part of rustyrig-fw.
@@ -566,7 +567,7 @@ bool cmd_quit(int argc, char **args) {
       }
    }
 
-   if (!confirmed && !ui_confirm_quit()) {
+   if ((!confirmed || (ui_mode == UI_MODE_GTK && rrclient_config_is_dirty())) && !ui_confirm_quit()) {
       return false;
    }
    const char *quitmsg = *message ? message : "no reason given";
