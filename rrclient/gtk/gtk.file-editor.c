@@ -143,6 +143,8 @@ static void cfg_editor_changed(GtkWidget *widget, gpointer user_data) {
 
    if (!cfg_set_value(binding->key, value)) {
       Log(LOG_WARN, "gtk.config", "Rejected value for %s", binding->key);
+   } else {
+      rrclient_config_mark_dirty();
    }
 }
 
