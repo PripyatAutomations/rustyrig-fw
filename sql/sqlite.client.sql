@@ -32,4 +32,5 @@ CREATE TABLE IF NOT EXISTS server_properties (
   value TEXT NOT NULL,
   PRIMARY KEY(server_id, property)
 );
-PRAGMA user_version = 2;
+CREATE TABLE IF NOT EXISTS proxies (name TEXT PRIMARY KEY COLLATE NOCASE, url TEXT NOT NULL);
+PRAGMA user_version = 3;
