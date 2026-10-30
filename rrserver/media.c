@@ -24,6 +24,7 @@
 #include <libfwdspmgr/fwdsp-ctl.h>
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
+#include <rrserver/connection.state.h>
 #include <rrserver/serial.h>
 #include <rrserver/recording.h>
 #include <rrserver/bridge.access.h>
@@ -83,8 +84,7 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
 
       /* Joined local users already constitute demand. Avoid a second policy check and a relay query for every channel on every server poll. */
       for (rrconn_t *client = http_client_list ; client ; client = client->next) {
-         if (client->is_ws && client->authenticated && !client->is_server &&
-            (!client->native_transport || rr_transport_state(client->native_transport) == RR_TRANSPORT_OPEN) &&
+         if (rrserver_client_is_connected(client) && !client->is_server &&
             media_client_in_channel_room(client, channel)) {
             return true;
          }
@@ -754,7 +754,7 @@ static void rrserver_media_quality_hint(const char *event, const char *data, rrc
          u_int32_t *channels = channel->direction == RR_BINFRAME_DIR_TX ? peer->tx_channels : peer->rx_channels;
          int count = channel->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS;
 
-         if (peer->is_ws && peer->authenticated && peer->native_transport && rr_transport_state(peer->native_transport) == RR_TRANSPORT_OPEN &&
+         if (rrserver_client_can_send_binary(peer) &&
             chan_id_in_array(channels, count, id) && media_client_in_channel_room(peer, channel) && peer->media_quality) {
             unsigned hint = rr_media_flow_quality(peer, id, channel->direction, channel->codec, mono_us());
 
