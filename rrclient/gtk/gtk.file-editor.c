@@ -980,7 +980,7 @@ static void theme_field_pick(GtkButton *button, gpointer data) {
       GdkRGBA chosen;
       gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(dialog), &chosen);
       char encoded[12];
-      snprintf(encoded, sizeof(encoded), "\\004%02X%02X%02X",
+      snprintf(encoded, sizeof(encoded), "\004%02X%02X%02X",
          (unsigned)(chosen.red * 255.0 + .5), (unsigned)(chosen.green * 255.0 + .5),
          (unsigned)(chosen.blue * 255.0 + .5));
       gtk_entry_set_text(GTK_ENTRY(field->value), encoded);
