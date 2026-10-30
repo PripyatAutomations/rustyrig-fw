@@ -987,6 +987,12 @@ void rrserver_bridges_poll(void) {
 
       if (wanted) {
          b->idle_since = 0;
+         /* A bridge can become wanted after an earlier idle poll. Cancel
+          * the idle state so capability negotiation and IPC are handled. */
+         if (b->idling) {
+            b->idling = false;
+            b->kill_deadline = 0;
+         }
       } else if (!b->idle_since) {
          b->idle_since = current;
       }
@@ -1098,6 +1104,11 @@ void rrserver_bridges_poll(void) {
       }
 
       if (b->temporary && b->idle_since && current - b->idle_since >= temporary_idle_us) {
+         Log(LOG_WARN, "sdr.status",
+             "[%s] removing temporary receiver after %llu seconds without RX demand (room=%s joined-listener=%s spawned=%s)",
+             bridge_public_name(b), (unsigned long long)((current - b->idle_since) / 1000000),
+             b->attached_room, websdr_room_has_other_listeners(b->attached_room, NULL) ? "yes" : "no",
+             b->process.pid > 0 ? "yes" : "no");
          websdr_audit_end(b->backend->owner, "idle-timeout");
          websdr_remove(b->backend->owner);
          break;
