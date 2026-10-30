@@ -26,6 +26,7 @@
 #include <librrprotocol/ws.serial.h>
 #include <librrprotocol/objects.h>
 #include <rrserver/serial.h>
+#include <rrserver/connection.state.h>
 #include <rrserver/discovery.h>
 #include <rrserver/gps.h>
 #include <rrserver/rig.registry.h>
@@ -857,8 +858,7 @@ bool rrserver_serial_poll(void) {
          continue;
       }
 
-      if (!p->owner->native_transport ||
-         rr_transport_state(p->owner->native_transport) != RR_TRANSPORT_OPEN || rr_transport_queued_bytes(p->owner->native_transport) > 65536) {
+      if (!rrserver_client_can_send_binary(p->owner) || rr_transport_queued_bytes(p->owner->native_transport) > 65536) {
          continue;
       }
       size_t n = p->buffered;
