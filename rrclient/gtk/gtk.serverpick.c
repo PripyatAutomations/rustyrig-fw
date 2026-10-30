@@ -28,32 +28,33 @@
 #include <rrclient/gtk/gtk.serverpick.h>
 #include "gtk.floating-panel.h"
 
-/* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
-static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
-   (void)unused;
-   GtkWidget *view = g_object_get_data(G_OBJECT(column), "rr-zebra-view");
+/* Network headers get a muted theme-relative fill; server rows use the
+ * GTK theme's ordinary background, including checkbox columns. */
+static void picker_row_style(GtkTreeViewColumn *column, GtkCellRenderer *cell,
+                             GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)data;
+   GtkWidget *view = g_object_get_data(G_OBJECT(column), "picker-view");
+   gboolean network = FALSE;
+   gtk_tree_model_get(model, iter, 7, &network, -1);
    GtkTreePath *path = gtk_tree_model_get_path(model, iter);
-   int *index = path ? gtk_tree_path_get_indices(path) : NULL;
-   gboolean odd = index && (index[0] & 1);
-   gboolean selected = view && path && gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
-
-   if (odd && !selected && view) {
+   gboolean selected = view && path &&
+      gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
+   if (network && !selected && view) {
       GtkStyleContext *style = gtk_widget_get_style_context(view);
       GdkRGBA base, ink, shade;
       gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);
       gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &ink);
-      shade.red = base.red * 0.915 + ink.red * 0.085;
-      shade.green = base.green * 0.915 + ink.green * 0.085;
-      shade.blue = base.blue * 0.915 + ink.blue * 0.085;
+      shade.red = base.red * 0.90 + ink.red * 0.10;
+      shade.green = base.green * 0.90 + ink.green * 0.10;
+      shade.blue = base.blue * 0.90 + ink.blue * 0.10;
       shade.alpha = 1.0;
       g_object_set(cell, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
    } else {
       g_object_set(cell, "cell-background-set", FALSE, NULL);
    }
-
-   if (path) {
-      gtk_tree_path_free(path);
-   }
+   if (GTK_IS_CELL_RENDERER_TEXT(cell))
+      g_object_set(cell, "weight", network ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL, NULL);
+   if (path) gtk_tree_path_free(path);
 }
 
 
@@ -339,9 +340,8 @@ static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
 /* Network rows are headings: don't paint per-server toggles on them. */
 static void picker_server_toggle_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
                                      GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
-   (void)column;
-   (void)data;
    gboolean network = picker_is_network(model, iter);
+   picker_row_style(column, cell, model, iter, data);
    g_object_set(cell, "visible", !network, "sensitive", !network, NULL);
 }
 
@@ -937,7 +937,7 @@ void gtk_show_server_chooser(void) {
    rr_floating_panel_set_close_callback(picker_panel, picker_close, NULL);
    GtkWidget *window = rr_floating_panel_widget(picker_panel);
    GtkWidget *box = rr_floating_panel_body(picker_panel);
-   gtk_widget_set_size_request(box, 600, 300);
+   gtk_widget_set_size_request(box, 790, 300);
    GtkTreeStore *store =
       gtk_tree_store_new(PICKER_COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING,
       G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_BOOLEAN);
@@ -1027,7 +1027,7 @@ void gtk_show_server_chooser(void) {
    picker_tree = tree;
    gtk_tree_view_expand_all(GTK_TREE_VIEW(tree));
    const char *titles[] = {
-      "Server", "User", "URL"
+      "Name", "User", "URL"
    };
 
    for (int i = 0 ; i < 3 ; i++) {
@@ -1035,17 +1035,19 @@ void gtk_show_server_chooser(void) {
       g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
-      gtk_tree_view_column_set_fixed_width(column, i == 0 ? 85 : i == 1 ? 65 : i == 2 ? 120 : 70);
+      gtk_tree_view_column_set_fixed_width(column, i == 0 ? 155 : i == 1 ? 95 : 185);
       gtk_tree_view_column_set_min_width(column, 32);
       gtk_tree_view_column_set_expand(column, i == 2);
-      g_object_set_data(G_OBJECT(column), "rr-zebra-view", tree);
-      gtk_tree_view_column_set_cell_data_func(column, renderer, rr_list_zebra_cell, NULL, NULL);
+      g_object_set_data(G_OBJECT(column), "picker-view", tree);
+      gtk_tree_view_column_set_cell_data_func(column, renderer, picker_row_style, NULL, NULL);
       gtk_tree_view_column_set_sort_column_id(column, i);
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), column);
    }
 
    GtkCellRenderer *flags_renderer = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *flags_column = gtk_tree_view_column_new_with_attributes("Flags", flags_renderer, "text", PICKER_FLAGS, NULL);
+   g_object_set_data(G_OBJECT(flags_column), "picker-view", tree);
+   gtk_tree_view_column_set_cell_data_func(flags_column, flags_renderer, picker_row_style, NULL, NULL);
    gtk_tree_view_column_set_fixed_width(flags_column, 55);
    gtk_widget_set_tooltip_text(tree,
       "Flags: ☏ IRC chat, ⚒ RustyRig radio. Proxy: read-only indicator showing whether a proxy is configured for this profile or inherited globally.");
@@ -1053,13 +1055,14 @@ void gtk_show_server_chooser(void) {
    GtkCellRenderer *proxy_indicator = gtk_cell_renderer_toggle_new();
    g_object_set(proxy_indicator, "activatable", FALSE, NULL);
    GtkTreeViewColumn *proxy_column = gtk_tree_view_column_new_with_attributes("Proxy", proxy_indicator, "active", PICKER_PROXY, NULL);
+   g_object_set_data(G_OBJECT(proxy_column), "picker-view", tree);
    gtk_tree_view_column_set_cell_data_func(proxy_column, proxy_indicator, picker_server_toggle_cell, NULL, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), proxy_column);
 
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
-   GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL);
-   g_object_set_data(G_OBJECT(connected_col), "rr-zebra-view", tree);
+   GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Online", connected, "active", 4, "inconsistent", 5, NULL);
+   g_object_set_data(G_OBJECT(connected_col), "picker-view", tree);
    gtk_tree_view_column_set_cell_data_func(connected_col, connected, picker_server_toggle_cell, NULL, NULL);
    gtk_tree_view_column_set_sort_column_id(connected_col, 4);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), connected_col);
@@ -1069,11 +1072,11 @@ void gtk_show_server_chooser(void) {
    gtk_tree_view_column_set_sizing(status_col, GTK_TREE_VIEW_COLUMN_FIXED);
    gtk_tree_view_column_set_fixed_width(status_col, 90);
    gtk_tree_view_column_set_min_width(status_col, 32);
-   g_object_set_data(G_OBJECT(status_col), "rr-zebra-view", tree);
-   gtk_tree_view_column_set_cell_data_func(status_col, status, rr_list_zebra_cell, NULL, NULL);
+   g_object_set_data(G_OBJECT(status_col), "picker-view", tree);
+   gtk_tree_view_column_set_cell_data_func(status_col, status, picker_row_style, NULL, NULL);
    gtk_tree_view_column_set_sort_column_id(status_col, 6);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), status_col);
-   gtk_widget_set_tooltip_text(tree, "Click Connected to connect, disconnect, or cancel a pending connection and its retries.");
+   gtk_widget_set_tooltip_text(tree, "Click Online to connect, disconnect, or cancel a pending connection and its retries.");
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
