@@ -59,8 +59,9 @@ static void report(const char *message, rrconn_t *connection) {
  * transport rejects its result. The old timeout only ran upon receipt of a
  * later admin.result, so a lost reply could wait forever. */
 static gboolean receiver_request_timeout(gpointer unused) {
-   (void)unused;
-   if (pending.request && mono_us() - pending.started >= 15000000) {
+   const char *request_id = unused;
+   if (pending.request && !strcmp(pending.request, request_id) &&
+       mono_us() - pending.started >= 15000000) {
       rrconn_t *connection = pending.connection;
       char *failure = g_strdup_printf(
          "SDR connection failed: server did not return a room assignment for %s within 15 seconds. Check server send/transport logs.",
@@ -207,7 +208,8 @@ bool rrclient_receiver_connect_room_ex(const char *url, bool save, const char *r
    pending.request = g_strdup(id);
    pending.connection = connection;
    pending.started = mono_us();
-   g_timeout_add_seconds(16, receiver_request_timeout, NULL);
+   g_timeout_add_seconds_full(G_PRIORITY_DEFAULT, 16, receiver_request_timeout,
+      g_strdup(pending.request), g_free);
    pending.save = save;
    pending.payload = dict2json(fields);
    dict_free(fields);
