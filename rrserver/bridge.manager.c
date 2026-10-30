@@ -1813,18 +1813,20 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    dict_add(reply, "talk.action", "websdr-result");
    dict_add(reply, "talk.target", "websdr");
    dict_add(reply, "talk.data", json);
+   size_t queued_before = client && client->native_transport ? rr_transport_queued_bytes(client->native_transport) : 0;
    bool reply_sent = ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   size_t queued_after = client && client->native_transport ? rr_transport_queued_bytes(client->native_transport) : 0;
    if (!reply_sent) {
       /* A rejected reply strands the generated-room JOIN. Distinguish a
        * serializer failure from transport/backpressure or remote routing. */
       char *wire = rr_wire_encode(reply);
       Log(LOG_WARN, "sdr.status",
-          "SDR result reply rejected: client=%p ws=%d auth=%d adapter=%p state=%d queued=%zu wire=%s bytes=%zu",
+          "SDR result reply rejected: client=%p ws=%d auth=%d adapter=%p state=%d queued-before=%zu queued-after=%zu wire=%s bytes=%zu",
           (void *)client, client ? (int)client->is_ws : 0,
           client ? (int)client->authenticated : 0,
           client ? (void *)client->native_transport : NULL,
           client && client->native_transport ? (int)rr_transport_state(client->native_transport) : -1,
-          client && client->native_transport ? rr_transport_queued_bytes(client->native_transport) : 0,
+          queued_before, queued_after,
           wire ? "encoded" : "FAILED", wire ? strlen(wire) : 0);
       free(wire);
    }
