@@ -668,11 +668,13 @@ int main(int argc, char *argv[]) {
    }
    logger_init(log_target, (ui_mode == UI_MODE_TUI));
 
-   if (!rrclient_database_init() || !rrclient_database_load_profiles()) {
+   if (!rrclient_database_init() || !rrclient_database_load_profiles() || !rrclient_database_load_themes()) {
       Log(LOG_CRIT, "db", "Unable to initialize client database");
 
       return EXIT_FAILURE;
    }
+
+   rrclient_theme_apply();
 
    if (logfile) {
       free(logfile);
