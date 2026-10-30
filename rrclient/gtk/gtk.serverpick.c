@@ -322,7 +322,11 @@ static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
    GtkWidget *connect = g_object_get_data(G_OBJECT(tree), "rr-connect-button");
 
    if (connect) {
-      gtk_widget_set_sensitive(connect, gtk_tree_selection_count_selected_rows(selection) > 0);
+      GtkTreeModel *model = NULL;
+      GtkTreeIter iter;
+      gboolean server_selected = gtk_tree_selection_get_selected(selection, &model, &iter) &&
+         !picker_is_network(model, &iter);
+      gtk_widget_set_sensitive(connect, server_selected);
    }
    GtkWidget *edit = g_object_get_data(G_OBJECT(tree), "rr-edit-button");
 
