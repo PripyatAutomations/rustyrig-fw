@@ -4,6 +4,7 @@
 #include <gtk/gtk.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
+#include <rrclient/connman.h>
 #include <rrclient/rooms.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/core.h>
@@ -721,6 +722,17 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    (void)unused;
 
    if (!main_notebook) {
+      return;
+   }
+   rrconn_t *server = rrclient_active_connection();
+   if (!server || !server->is_ws || !server->authenticated ||
+       rrclient_connection_state(rrclient_connection_name(server)) != 1) {
+      GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Connect to a RustyRig server before opening SDR Directory.");
+      gtk_window_set_title(GTK_WINDOW(dialog), "SDR Directory unavailable");
+      g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+      gtk_widget_show(dialog);
       return;
    }
 
