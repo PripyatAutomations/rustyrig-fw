@@ -179,11 +179,12 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    char *coverage = r && r->high_hz ? g_strdup_printf("%" G_GUINT64_FORMAT " – %" G_GUINT64_FORMAT " Hz", r->low_hz, r->high_hz) : g_strdup("Not published");
    char *allowance = r && r->ext_api >= 0 ? g_strdup_printf("%d channels", r->ext_api) : g_strdup("not published");
    char *seen = observation_time(r ? r->last_seen : 0), *learned = observation_time(r ? r->learned_at : 0);
+   char *last_connected = r && r->last_connected ? observation_time(r->last_connected) : g_strdup("Never");
    char *text = r ? g_strdup_printf("%s\nURL: %s\nLocation: %s  Country: %s  Grid: %s\nContact: %s\n"
       "Antenna: %s\nHardware / limits: %s\nUsers (published): %d / %d\nExternal API: %s (%s)\n"
-      "Coverage hint: %s\nStatus: %s\nLocal report: %s — %s\nLast seen: %s\nLive metadata learned: %s\n\nPublished properties:\n%s", r->name, r->url, r->
+      "Coverage hint: %s\nStatus: %s\nLocal report: %s — %s\nLast seen: %s\nLast connected: %s\nLive metadata learned: %s\n\nPublished properties:\n%s", r->name, r->url, r->
       location, *r->country ? r->country : "Not published", r->grid, *r->contact ? r->contact : "Not published", r->antenna, r->hardware, r->users, r->users_max
-      , api_policy(r), allowance, coverage, receiver_state(r), r->local_reason ? r->local_reason : "None", stamp, seen, learned, r->properties) : g_strdup(
+      , api_policy(r), allowance, coverage, receiver_state(r), r->local_reason ? r->local_reason : "None", stamp, seen, last_connected, learned, r->properties) : g_strdup(
       "Select a receiver to view its published details.\nBrowsing does not contact receivers.");
 
    if (date) {
@@ -192,6 +193,7 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    g_free(stamp);
    g_free(coverage);
    g_free(allowance);
+   g_free(last_connected);
    g_free(seen);
    g_free(learned);
    gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(directory_details)), text, -1);
