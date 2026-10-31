@@ -100,3 +100,55 @@ Acceptance tests: no audio underruns from FFT load, source switch while playing,
 reconnect epochs, wide/narrow frequency spans, simultaneous AF/RF panes, mute
 without stopping analysis, no server WF connection when no subscribers, and
 safe teardown on deleted SDR rooms.
+
+## Direct local Kiwi and per-VFO floating panels (October 2026)
+
+The local client now has an independently floating local Kiwi tuning panel.
+The legacy rig VFO widget remains a singleton driven by global room selection.
+Do not clone `create_vfo_box()` as-is: its global frequency/PTT/mode
+pointers and room-bound CAT senders would make windows control each other.
+For arbitrary VFO windows, introduce a per-panel model:
+
+- Identity: (provider instance ID, receiver or rig UUID, VFO ID), not a
+  selected chat tab. Local instances must have independent stable IDs.
+- Each panel owns its frequency/mode widgets, receive-only/TX capabilities,
+  tuning completion state, subscription token, and spectrum source selection.
+- Tuning dispatch goes through the bound provider adapter (local bridge IPC or
+  remote server control); never through the global selected room.
+- Destroying the panel removes only its UI subscriptions; it does not destroy
+  a receiver shared with another panel. Closing the last local receiver
+  consumer may separately trigger receiver teardown by explicit policy.
+
+### Kiwi remote RF waterfall integration requirements
+
+1. Open Kiwi's *separate* waterfall WebSocket (`W/F`) alongside the existing
+   audio WebSocket (`SND`) in `rrbridge/module.kiwi.c`. Drive both sockets
+   from the bridge's existing Mongoose manager; keep distinct connection
+   pointers, handshake/configuration states, retry counters, and watchdogs.
+   Audio must stay online if the waterfall connection fails.
+2. Decode native waterfall binary rows into a common spectrum-row contract.
+   Include receiver identity, center/span or min/max Hz, bin count, power
+   quantization/reference, frame timestamp, and retune epoch. Validate row
+   sizes before allocating. Native bins are RF—not audio FFT.
+3. Add a bounded spectrum transport from bridge to its host, separate from the
+   PCM socket and control IPC. Prefer a third `SOCK_SEQPACKET` FD with
+   versioned spectrum headers; never block `SND` polling on spectrum frames.
+   Extend `rrbridge` host callbacks/capabilities and increment their ABI
+   versions together with the host.
+4. For local clients, feed the normalized rows into the GTK spectrum ring.
+   For remote clients, make the server publish the same rows through
+   `RR_BINFRAME_SUBSYS_WATERFALL`, with explicit subscription interest,
+   bounded rate and fanout (one upstream W/F stream per receiver, not per
+   listener).
+5. The floating VFO gets a compact RF spectrum strip at its top. It appears
+   only after a source descriptor and a validated fresh row arrive; hide it
+   when unsupported, unsubscribed, stale, or disconnected. A full waterfall
+   window can share the same source/ring. The axis must show real RF Hz,
+   including tuning changes and zoom/span updates.
+6. Add tests for fragmented/invalid W/F frames, endianness, bin-count
+   mismatch, epoch discontinuity, reconnect, retune, source switching,
+   and multi-subscriber fanout. Constrain frame rates so heavy RF drawing
+   cannot delay audio IPC or RTP polls.
+
+**Important:** the new floating local Kiwi panel currently provides tuning,
+not a spectrum. Its RF strip stays absent until the above data path exists.
