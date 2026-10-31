@@ -1,3 +1,47 @@
+# Client frontend threading — revised direction
+
+## Preferred Linux/GTK3 topology
+
+**Core owns the process main thread and default GLib context**, identical
+to the current TUI transport scheduler. **GTK owns a dedicated frontend
+thread**, with all `gtk_init`, widget creation, `gtk_main`, signal
+handling, and destruction on that same GTK thread. Audio workers remain
+independent.
+
+GTK3 is not thread-safe. A worker-thread GTK main loop may work on the
+Linux X11/Wayland targets but must be verified against GDK/display backend,
+GLib default-context source attachment, and any libraries requiring process
+main-thread UI. Do not presume this layout works on all platforms.
+
+**Critical blocker:** merely running `frontend_ops()->init/run` on another
+thread is unsafe. Core calls frontend ops directly and UI event handlers
+directly access mutable connection/media state. Each crossing must be
+marshaled. `g_timeout_add` and `g_idle_add` attach to the global default
+context, so GTK timers must be attached explicitly to the GTK-owned context.
+Synchronous frontend ops (such as `confirm_dialog` and
+`chat_current_room`) need asynchronous replacement or a narrow safe
+request/reply protocol without blocking network scheduling.
+
+The currently added `rrclient/core.loop.[ch]` is **scaffolding only**
+(not called from startup). It must not be activated for network polling
+while the above cross-thread calls exist. It can be repurposed into a
+frontend dispatch abstraction once contracts and ownership are audited.
+
+## Safe migration
+
+1. Inventory all frontend ops, GTK event callbacks, and default-context
+   sources. Split async notifications from synchronous queries.
+2. Introduce GTK-thread queue/dispatch with **owned immutable payloads**,
+   plus core-command queue delivered on the default core context.
+3. Ensure GTK initialization, event-source attachment, and destruction
+   happen consistently on GTK owner thread.
+4. Start core loop on the main thread; start GTK thread only after both
+   queues and lifecycle handling are ready.
+5. Compare audio/RTP timing against TUI while exercising multihome, tabs,
+   shutdown, dialogs, disconnect/reconnect, and event bus callbacks.
+
+---
+
 # rrclient execution domains
 
 ## Goal
