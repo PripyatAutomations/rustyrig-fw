@@ -1499,23 +1499,14 @@ bool receiver_directory_refresh(void) {
 }
 void receiver_directory_clear_server_snapshot(void) {
    ensure();
-
-   if (!source || strcmp(source, "rrserver")) {
-      return;
+   /* A disconnected rrserver does not invalidate its last verified catalog.
+    * Keep the disk cache and the in-memory directory for standalone operation. */
+   if (source && !strcmp(source, "rrserver")) {
+      g_snprintf(status_text, sizeof(status_text),
+         "Offline: showing %u cached receivers from the last server catalog.",
+         receivers ? receivers->len : 0);
+      changed();
    }
-
-   if (cache_db) {
-      sqlite3_exec(cache_db, "DELETE FROM directory_cache WHERE id=1;"
-         "DELETE FROM receiver_records;" "DELETE FROM receiver_details WHERE origin='directory';", NULL, NULL, NULL);
-   }
-   g_ptr_array_set_size(receivers, 0);
-   g_clear_pointer(&payload, g_free);
-   g_clear_pointer(&source, g_free);
-   g_clear_pointer(&etag, g_free);
-   g_clear_pointer(&modified, g_free);
-   next_request = 0;
-   g_strlcpy(status_text, "No RustyRig servers connected; server catalog cleared.", sizeof(status_text));
-   changed();
 }
 bool receiver_directory_import_snapshot(const char *data, size_t length, const char *origin) {
    ensure();
