@@ -28,7 +28,7 @@ typedef struct bridge_instance {
    int control, media, spectrum;
    pid_t pid;
    subproc_t process;
-   guint timer;
+   guint timer, kill_timer;
    char *url, *config;
    char stream[64], resampler[64];
    unsigned slot;
@@ -132,6 +132,15 @@ static void local_pcm(const char *name, const void *pcm, size_t bytes, void *use
    if (b && b->online && bytes && !(bytes % sizeof(int16_t)))
       audio_local_rx_push(b->stream, pcm, bytes / sizeof(int16_t));
 }
+/* A disconnected bridge may ignore SIGTERM. Reap only in the child watch,
+ * and escalate without blocking GTK or signaling an unrelated reused PID. */
+static gboolean bridge_kill_timeout(gpointer user) {
+   bridge_instance *b = user;
+   b->kill_timer = 0;
+   if (b->process.pid > 0 && b->pid > 0)
+      kill(b->process.pid, SIGKILL);
+   return G_SOURCE_REMOVE;
+}
 static void bridge_stop(bridge_instance *b) {
    if (!b) return;
    if (b->timer) { g_source_remove(b->timer); b->timer = 0; }
@@ -148,7 +157,11 @@ static void bridge_stop(bridge_instance *b) {
    if (b->config) { g_unlink(b->config); g_clear_pointer(&b->config, g_free); }
    g_clear_pointer(&b->url, g_free);
    b->online = false;
-   if (b->process.pid > 0) kill(b->process.pid, SIGTERM);
+   if (b->process.pid > 0) {
+      kill(b->process.pid, SIGTERM);
+      if (!b->kill_timer)
+         b->kill_timer = g_timeout_add_seconds(2, bridge_kill_timeout, b);
+   }
    b->pid = 0;
    if (b->slot < G_N_ELEMENTS(bridges) && bridges[b->slot] == b)
       bridges[b->slot] = NULL;
@@ -173,6 +186,7 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
       bridge_stop(b);
    }
    if (b) {
+      if (b->kill_timer) { g_source_remove(b->kill_timer); b->kill_timer = 0; }
       b->process.pid = -1; /* GChildWatch already reaped this child. */
       subproc_close(&b->process);
    }
