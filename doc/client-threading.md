@@ -27,6 +27,18 @@ The currently added `rrclient/core.loop.[ch]` is **scaffolding only**
 while the above cross-thread calls exist. It can be repurposed into a
 frontend dispatch abstraction once contracts and ownership are audited.
 
+## v1.1 implementation branch
+
+Development happens on `v1.1-audio-threading`, leaving `main` stable.
+Initial implementation: `rrclient/thread.dispatch.[ch]` is a context-owned
+mailbox for asynchronous cross-thread callbacks. Payload ownership transfers
+on post and queued jobs are discarded when the mailbox closes.
+See `rrclient/tests/test_thread_dispatch.sh`. This infrastructure is not
+yet wired into the runtime and does not itself fix audio dropouts.
+
+Next: wire core/frontend mailboxes, migrate GTK calls, then change loop
+ownership without racing connection state.
+
 ## Safe migration
 
 1. Inventory all frontend ops, GTK event callbacks, and default-context
