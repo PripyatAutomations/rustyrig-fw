@@ -17,4 +17,6 @@ bool rrclient_local_bridge_set_mode(char vfo, const char *mode);
 bool rrclient_local_bridge_set_width(char vfo, const char *width);
 void rrclient_local_bridge_disconnect_url(const char *url);
 void rrclient_local_bridge_disconnect(void);
+/* Returns true if a local ! command was recognized and consumed. */
+bool rrclient_local_bridge_command(const char *line);
 #endif
