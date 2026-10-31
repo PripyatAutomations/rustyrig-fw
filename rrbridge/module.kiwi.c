@@ -27,7 +27,7 @@ struct kiwi_instance {
    struct mg_mgr manager;
    struct mg_connection *connection;
    struct mg_connection *waterfall;
-   bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged;
+   bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
    uint64_t waterfall_rows, waterfall_retry;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
@@ -609,7 +609,8 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       if (m->data.len >= 3 && !memcmp(m->data.buf, "MSG", 3)) {
          /* Control messages precede the first spectrum row; these are not
           * decoder failures and may carry receiver setup state. */
-         if (!k->waterfall_ready) {
+         if (!k->waterfall_setup_logged) {
+            k->waterfall_setup_logged = true;
             char detail[220];
             size_t n = MIN(m->data.len, sizeof(detail) - 20);
             snprintf(detail, sizeof(detail), "Kiwi W/F setup: %.*s", (int)n, m->data.buf);
@@ -648,6 +649,7 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       k->waterfall = NULL;
       k->waterfall_ready = false;
       k->waterfall_first_frame_logged = false;
+      k->waterfall_setup_logged = false;
       k->waterfall_retry = mono_us() + UINT64_C(10000000);
    }
 }
