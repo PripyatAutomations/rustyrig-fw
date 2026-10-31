@@ -1341,12 +1341,24 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       const char *mode = mode_property && dict_get_bool((dict *) mode_property, "property.known", false)
          ? dict_get((dict *) mode_property, "property.value", "---") : "---";
       char name[128];
+      if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
+         uint64_t local_hz = 0;
+         const char *local_mode = NULL;
+         if (rrclient_local_bridge_state_vfo(letter, &local_hz, &local_mode)) {
+            freq = (long)local_hz;
+            mode = local_mode;
+         }
+      }
 
       if (freq > 0) {
          g_snprintf(name, sizeof(name), "%c VFO %c  —  %ld.%03ld kHz  —  %s", letter == active ? '*' : ' ', letter, freq / 1000, freq % 1000, mode ? mode :
             "---");
       } else {
          g_snprintf(name, sizeof(name), "%c VFO %c  —  ---  —  %s", letter == active ? '*' : ' ', letter, mode ? mode : "---");
+      }
+      if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
+         g_snprintf(name, sizeof(name), "%c local.sdr.%c  —  %ld.%03ld kHz  —  %s",
+            letter == active ? '*' : ' ', letter, freq / 1000, freq % 1000, mode ? mode : "---");
       }
       GtkWidget *item = gtk_menu_item_new_with_label(name);
       g_object_set_data(G_OBJECT(item), "rr-vfo-id", GINT_TO_POINTER('A' + i));
@@ -1581,7 +1593,8 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
 
    /* Every room owns its detachable roster, including authoritative rooms on different servers. Private query tabs stay chat-only. */
-   if (is_rig || (!is_query && room && *room)) {
+   if ((is_rig || (!is_query && room && *room)) &&
+       !(room && !g_ascii_strcasecmp(room, "&local-sdr"))) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
       /* Both children must be shrinkable: otherwise the chat view's preferred width clamps the handle and prevents the roster from expanding again. */
