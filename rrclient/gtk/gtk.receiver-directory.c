@@ -8,6 +8,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
 #include <rrclient/rooms.h>
+#include <rrclient/ui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
@@ -455,10 +456,12 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       return;
    }
    if (!GPOINTER_TO_INT(save) && !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(proxy_bridge))) {
-      if (!rrclient_local_bridge_connect_driver(r->url, r->driver && *r->driver ? r->driver : "kiwi"))
+      /* Create the destination before the bridge emits its connecting message. */
+      gtk_chat_room_add("&local-sdr");
+      if (!rrclient_local_bridge_connect_driver(r->url, r->driver && *r->driver ? r->driver : "kiwi")) {
          gtk_label_set_text(GTK_LABEL(directory_status), "Unable to start local SDR bridge");
-      else
-         gtk_chat_room_add("&local-sdr");
+         ui_print("&local-sdr", "Unable to start local SDR bridge for %s", r->url);
+      }
       selection_changed(NULL, NULL);
       return;
    }
