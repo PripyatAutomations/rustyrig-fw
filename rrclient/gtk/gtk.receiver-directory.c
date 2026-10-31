@@ -469,7 +469,7 @@ static void local_tune_clicked(GtkButton *button, gpointer unused) {
    gtk_box_pack_start(GTK_BOX(area), gtk_label_new("Frequency (Hz)"), FALSE, FALSE, 4);
    gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 4);
    GtkWidget *mode = gtk_combo_box_text_new();
-   const char *modes[] = { "USB", "LSB", "AM", "CW", "FM" };
+   const char *modes[] = { "USB", "LSB", "AM", "CW" };
    for (unsigned i = 0; i < G_N_ELEMENTS(modes); i++)
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode), modes[i]);
    gtk_combo_box_set_active(GTK_COMBO_BOX(mode), 0);
