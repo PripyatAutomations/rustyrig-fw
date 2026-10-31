@@ -1460,6 +1460,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
          ((rrclient_room_vfos(tab->room)[0] || rrclient_room_vfo_mask(tab->room)) && (rrclient_room_rx_tunable(tab->room) || ephemeral_sdr)));
 
    if (!has_vfos) {
+      room_vfo_title_room[0] = '\0';
       if (room_vfo_panel) {
          rr_floating_panel_hide(room_vfo_panel);
       }
