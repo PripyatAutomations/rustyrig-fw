@@ -134,6 +134,25 @@ bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
 bool rrclient_local_bridge_tune(uint64_t hz, const char *mode) {
    return rrclient_local_bridge_tune_vfo(rrclient_room_active_vfo("&local-sdr"), hz, mode);
 }
+/* Frontend-independent controls: GTK, TUI and commands all target a VFO ID. */
+bool rrclient_local_bridge_set_frequency(char vfo, uint64_t hz) {
+   const char *mode = NULL;
+   return rrclient_local_bridge_state_vfo(vfo, NULL, &mode) &&
+      rrclient_local_bridge_tune_vfo(vfo, hz, mode);
+}
+bool rrclient_local_bridge_set_mode(char vfo, const char *mode) {
+   uint64_t hz = 0;
+   return rrclient_local_bridge_state_vfo(vfo, &hz, NULL) && hz &&
+      rrclient_local_bridge_tune_vfo(vfo, hz, mode);
+}
+bool rrclient_local_bridge_set_width(char vfo, const char *width) {
+   /* The bridge SET IPC currently carries frequency and mode, not passband.
+    * Do not silently report success or send a command to a remote rig. */
+   Log(LOG_WARN, "local.bridge", "local.sdr.%c cannot set width %s: bridge protocol has no width field",
+      vfo, width ? width : "(null)");
+   ui_print("&local-sdr", "local.sdr.%c: width control is not supported by this bridge protocol yet", vfo);
+   return false;
+}
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
    size_t count = 0;
    for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
