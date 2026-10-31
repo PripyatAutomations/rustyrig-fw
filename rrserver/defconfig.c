@@ -36,6 +36,9 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
    {
+      "bridge.proxy-enabled", "true", "Allow authenticated clients to launch or share server-hosted SDR bridges", DEFCONFIG_BOOL, NULL
+   },
+   {
       "receiver-directory.url", "https://cdn.aethersdr.com/kiwi.json",
       "Permitted HTTPS mirror for server-owned external SDR catalog (empty disables network fetching)"
    },
