@@ -128,6 +128,25 @@ static gint country_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b,
 
    return result;
 }
+/* Connected group always first; countries alphabetical, receivers by location. */
+static gint group_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer unused) {
+   (void)unused;
+   guint ai = G_MAXUINT, bi = G_MAXUINT;
+   char *an = NULL, *bn = NULL;
+   gtk_tree_model_get(model, a, COL_INDEX, &ai, COL_NAME, &an, -1);
+   gtk_tree_model_get(model, b, COL_INDEX, &bi, COL_NAME, &bn, -1);
+   gint result;
+   if (ai == G_MAXUINT && bi == G_MAXUINT) {
+      result = (!g_strcmp0(an, "Connected SDRs") ? -1 : 0) -
+               (!g_strcmp0(bn, "Connected SDRs") ? -1 : 0);
+      if (!result) result = g_utf8_collate(an ? an : "", bn ? bn : "");
+   } else {
+      result = country_compare(model, a, b, NULL);
+   }
+   g_free(an);
+   g_free(bn);
+   return result;
+}
 static const char *api_policy(const receiver_directory_entry_t *r) {
    return r->ext_api < 0 ? "Unknown policy" : r->ext_api == 0 ? "Web only" : r->users_max > r->ext_api ? "API limited" : "API allowed";
 }
@@ -700,6 +719,7 @@ static gboolean directory_finish_show(gpointer unused) {
    directory_tree = gtk_tree_view_new_with_model(sorted);
    rr_gtk_tree_style(directory_tree);
    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(sorted), COL_COUNTRY, country_compare, NULL, NULL);
+   gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(sorted), COL_GROUP, group_compare, NULL, NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), COL_GROUP, GTK_SORT_ASCENDING);
    g_object_unref(sorted);
    const char *titles[] = {
