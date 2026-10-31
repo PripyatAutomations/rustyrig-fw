@@ -93,7 +93,7 @@ static const char *canonical(const char *room) {
 bool rrclient_room_is_joined(const char *room) {
    const char *want = canonical(room);
 
-   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
+   for (client_room_t *r = room_chain(want) ; r ; r = is_local_sdr(want) ? NULL : r->next) {
       if (!strcasecmp(r->name, want)) {
          return true;
       }
