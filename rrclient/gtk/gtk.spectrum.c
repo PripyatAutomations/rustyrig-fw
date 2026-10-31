@@ -267,6 +267,7 @@ typedef struct {
    double display_gain_db;
    bool rf_enabled;
    unsigned zoom;
+   bool zoom_initialized;
    double zoom_fraction; /* five wheel steps per native octave */
    rr_bridge_spectrum_row rows[32];
    bool vfo_boundary[32];
@@ -414,7 +415,18 @@ static void rf_caps_changed(const char *event, const void *data, size_t len,
    bool available = rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom);
    gtk_widget_set_visible(p->enabled, available);
    gtk_widget_set_visible(p->gain, available);
-   if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) p->zoom = min_zoom;
+   if (available && !p->zoom_initialized) {
+      /* The bridge may already be running at its own default zoom (Kiwi: 6).
+       * Establish a shared starting point before accepting wheel events. */
+      p->zoom = min_zoom + (max_zoom - min_zoom) / 2;
+      p->zoom_fraction = 0;
+      p->zoom_initialized = rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
+   } else if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) {
+      p->zoom = min_zoom;
+      p->zoom_fraction = 0;
+      rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
+   }
+   if (!available) p->zoom_initialized = false;
 }
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
