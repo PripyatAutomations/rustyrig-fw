@@ -271,6 +271,8 @@ typedef struct {
    unsigned zoom;
    bool zoom_initialized;
    double zoom_fraction; /* five wheel steps per native octave */
+   double pan_hz, drag_x, drag_pan_hz;
+   bool dragging;
    rr_bridge_spectrum_row rows[32];
    bool vfo_boundary[32];
    char last_vfo;
@@ -314,7 +316,7 @@ static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *ro
    double span = full / exp2(p->zoom_fraction);
    uint64_t tuned = 0;
    double center = rrclient_local_bridge_state(&tuned, NULL) ? (double)tuned : (*low + *high) / 2;
-   double start = CLAMP(center - span / 2, *low, *high - span);
+   double start = CLAMP(center - span / 2 + p->pan_hz, *low, *high - span);
    *low = start;
    *high = start + span;
 }
@@ -435,6 +437,19 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
    p->hover_widget = widget;
    p->hover_x = event->x;
    p->hover_y = event->y;
+   if (p->dragging && (event->state & GDK_BUTTON1_MASK) && p->count) {
+      int width = gtk_widget_get_allocated_width(widget);
+      const rr_bridge_spectrum_row *row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+      double full = (double)row->high_hz - row->low_hz;
+      double span = full / exp2(p->zoom_fraction);
+      if (width > 1 && full > span) {
+         double wanted = p->drag_pan_hz - (event->x - p->drag_x) * span / (width - 1);
+         uint64_t tuned = 0;
+         double center = rrclient_local_bridge_state(&tuned, NULL) ? (double)tuned : (row->low_hz + row->high_hz) / 2.;
+         double base = center - span / 2.;
+         p->pan_hz = CLAMP(wanted, (double)row->low_hz - base, (double)row->high_hz - span - base);
+      }
+   }
    gtk_widget_queue_draw(widget);
    return FALSE;
 }
@@ -463,6 +478,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len,
        * Establish a shared starting point before accepting wheel events. */
       p->zoom = min_zoom + (max_zoom - min_zoom) / 2;
       p->zoom_fraction = 0;
+      p->pan_hz = 0;
       p->zoom_initialized = rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
    } else if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) {
       p->zoom = min_zoom;
@@ -498,11 +514,13 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
                             (double)min_zoom, (double)max_zoom);
    unsigned native = (unsigned)floor(requested);
    double fraction = requested - native;
+   bool native_changed = native != p->zoom;
    if (native != p->zoom) {
       if (!rrclient_local_bridge_waterfall(p->rf_enabled, native)) return TRUE;
       p->zoom = native;
    }
    p->zoom_fraction = fraction;
+   if (native_changed || fraction == 0) p->pan_hz = 0;
    gtk_widget_queue_draw(p->drawing);
    if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
    return TRUE;
@@ -514,10 +532,23 @@ static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
    if (p->hover_widget == p->fullscreen_drawing) p->hover_widget = NULL;
    p->fullscreen_drawing = NULL;
 }
+static gboolean rf_release(GtkWidget *widget, GdkEventButton *event, gpointer user) {
+   rf_strip_t *p = user;
+   (void)widget;
+   if (event->button == 1) p->dragging = false;
+   return FALSE;
+}
 static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
    if (event->button != 1) return FALSE;
+   if (event->type == GDK_BUTTON_PRESS) {
+      p->dragging = true;
+      p->drag_x = event->x;
+      p->drag_pan_hz = p->pan_hz;
+      return TRUE;
+   }
    if (event->type != GDK_2BUTTON_PRESS) return FALSE;
+   p->dragging = false;
    if (!(event->state & GDK_CONTROL_MASK)) {
       if (!p->rf_enabled || !p->count) return TRUE;
       int width = gtk_widget_get_allocated_width(widget);
@@ -543,11 +574,12 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
    gtk_window_set_title(GTK_WINDOW(window), "RustyRig RF Waterfall");
    GtkWidget *drawing = gtk_drawing_area_new();
    p->fullscreen_drawing = drawing;
-   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK);
+   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK);
    gtk_container_add(GTK_CONTAINER(window), drawing);
    g_signal_connect(window, "destroy", G_CALLBACK(rf_fullscreen_closed), p);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
    g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
+   g_signal_connect(drawing, "button-release-event", G_CALLBACK(rf_release), p);
    g_signal_connect(drawing, "motion-notify-event", G_CALLBACK(rf_hover), p);
    g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
