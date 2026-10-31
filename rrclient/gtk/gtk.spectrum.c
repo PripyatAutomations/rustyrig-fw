@@ -268,9 +268,16 @@ typedef struct {
    bool vfo_boundary[32];
    char last_vfo;
    unsigned head, count;
-   gint64 received_at;
+   gint64 received_at, drawn_at;
+   guint draw_timer;
    rr_event_token_t token, caps_token, vfo_token;
 } rf_strip_t;
+static gboolean rf_draw_later(gpointer user) {
+   rf_strip_t *p = user;
+   p->draw_timer = 0;
+   gtk_widget_queue_draw(p->drawing);
+   return G_SOURCE_REMOVE;
+}
 static void rf_row(const char *event, const void *data, size_t len,
                    rrconn_t *connection, void *user) {
    (void)event; (void)connection;
@@ -285,7 +292,8 @@ static void rf_row(const char *event, const void *data, size_t len,
    p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
    p->count = MIN(p->count + 1, G_N_ELEMENTS(p->rows));
    p->received_at = g_get_monotonic_time();
-   gtk_widget_queue_draw(p->drawing);
+   if (!p->draw_timer)
+      p->draw_timer = g_timeout_add(100, rf_draw_later, p);
 }
 static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    rf_strip_t *p = data;
@@ -296,29 +304,32 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    if (!p->rf_enabled || !p->count || g_get_monotonic_time() - p->received_at > 3000000)
       return FALSE;
    int depth = MIN((int)p->count, 32);
-   double row_h = (double)h / depth;
+   /* Build one tightly packed ARGB32 image; avoid thousands of Cairo
+    * state changes/fills on the audio client's GTK main thread. */
+   cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24,
+      RR_BRIDGE_SPECTRUM_BINS, depth);
+   if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+      cairo_surface_destroy(surface);
+      return FALSE;
+   }
+   unsigned char *pixels = cairo_image_surface_get_data(surface);
+   int stride = cairo_image_surface_get_stride(surface);
    for (int y = 0; y < depth; y++) {
       unsigned index = (p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows);
-      const rr_bridge_spectrum_row *row = &p->rows[index];
-      for (int x = 0; x < w; x++) {
-         unsigned bin = (unsigned)((uint64_t)x * RR_BRIDGE_SPECTRUM_BINS / MAX(w, 1));
-         double value = row->power[bin] / 255.0;
-         uint32_t rgb = palette_pixel(value);
-         cairo_set_source_rgb(cr, ((rgb >> 16) & 255) / 255.,
-            ((rgb >> 8) & 255) / 255., (rgb & 255) / 255.);
-         cairo_rectangle(cr, x, y * row_h, 1.5, row_h + .5);
-         cairo_fill(cr);
-      }
-      /* The first row from a newly selected VFO marks the transition.
-       * Preserve all older rows rather than clearing the history. */
-      if (p->vfo_boundary[index]) {
-         cairo_set_source_rgb(cr, 1.0, .9, .25);
-         cairo_set_line_width(cr, 2.);
-         cairo_move_to(cr, 0, y * row_h + row_h);
-         cairo_line_to(cr, w, y * row_h + row_h);
-         cairo_stroke(cr);
-      }
+      uint32_t *dest = (uint32_t *)(pixels + y * stride);
+      for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++)
+         dest[x] = palette_pixel(p->rows[index].power[x] / 255.0);
+      if (p->vfo_boundary[index])
+         for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++) dest[x] = 0xffe640;
    }
+   cairo_surface_mark_dirty(surface);
+   cairo_save(cr);
+   cairo_scale(cr, (double)w / RR_BRIDGE_SPECTRUM_BINS, (double)h / depth);
+   cairo_set_source_surface(cr, surface, 0, 0);
+   cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+   cairo_paint(cr);
+   cairo_restore(cr);
+   cairo_surface_destroy(surface);
    return FALSE;
 }
 static void rf_caps_changed(const char *event, const void *data, size_t len,
@@ -360,6 +371,7 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
 }
 static void rf_destroy(gpointer data) {
    rf_strip_t *p = data;
+   if (p->draw_timer) g_source_remove(p->draw_timer);
    if (p->token) event_off_token(p->token);
    if (p->caps_token) event_off_token(p->caps_token);
    if (p->vfo_token) event_off_token(p->vfo_token);
