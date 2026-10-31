@@ -15,18 +15,19 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include <spawn.h>
+#include <librustyaxe/subproc.h>
+#include <signal.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-extern char **environ;
 
 
 typedef struct bridge_instance {
    int control, media, spectrum;
    pid_t pid;
+   subproc_t process;
    guint timer;
    char *url, *config;
    char stream[64], resampler[64];
@@ -146,7 +147,9 @@ static void bridge_stop(bridge_instance *b) {
    audio_local_rx_stop(b->stream);
    if (b->config) { g_unlink(b->config); g_clear_pointer(&b->config, g_free); }
    g_clear_pointer(&b->url, g_free);
-   b->online = false; b->pid = 0;
+   b->online = false;
+   if (b->process.pid > 0) kill(b->process.pid, SIGTERM);
+   b->pid = 0;
    if (b->slot < G_N_ELEMENTS(bridges) && bridges[b->slot] == b)
       bridges[b->slot] = NULL;
    local_room_refresh();
@@ -168,6 +171,10 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
    if (b && b->pid == pid) {
       Log(LOG_WARN, "local.bridge", "Local SDR process %ld exited", (long)pid);
       bridge_stop(b);
+   }
+   if (b) {
+      b->process.pid = -1; /* GChildWatch already reaped this child. */
+      subproc_close(&b->process);
    }
    g_free(b);
    g_spawn_close_pid(pid);
@@ -301,6 +308,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    bridge_instance *b = g_new0(bridge_instance, 1);
    b->slot = slot;
    b->control = b->media = b->spectrum = -1;
+   b->process = (subproc_t) SUBPROC_INIT;
    g_snprintf(b->stream, sizeof(b->stream), "local.sdr.%c", 'A' + slot);
    g_snprintf(b->resampler, sizeof(b->resampler), "proc.local.sdr.%c", 'A' + slot);
    bridges[slot] = b;
@@ -337,28 +345,26 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       g_unlink(config); g_free(config); g_free(program);
       bridge_stop(b); g_free(b); return false;
    }
-   posix_spawn_file_actions_t actions;
-   posix_spawn_file_actions_init(&actions);
-   posix_spawn_file_actions_adddup2(&actions, control[1], RRP_BRIDGE_IPC_FD);
-   posix_spawn_file_actions_adddup2(&actions, media[1], RRP_BRIDGE_MEDIA_FD);
-   posix_spawn_file_actions_adddup2(&actions, spectrum[1], RR_BRIDGE_SPECTRUM_FD);
-   /* Parent sockets have CLOEXEC. Closing their numeric descriptors in
-    * spawn file-actions could accidentally close target fd 3 or fd 4
-    * after dup2 when the process starts with few open descriptors. */
-   char *const argv[] = { program, (char *)"--config", config, (char *)"--bridge", (char *)"local", NULL };
-   pid_t pid = 0;
-   int rc = posix_spawn(&pid, program, &actions, NULL, argv, environ);
-   posix_spawn_file_actions_destroy(&actions);
+   const char *const argv[] = { program, "--config", config, "--bridge", "local", NULL };
+   subproc_fd_t mappings[] = {
+      { control[1], RRP_BRIDGE_IPC_FD },
+      { media[1], RRP_BRIDGE_MEDIA_FD },
+      { spectrum[1], RR_BRIDGE_SPECTRUM_FD }
+   };
+   int closes[] = { control[0], media[0], spectrum[0], control[1], media[1], spectrum[1] };
+   bool spawned = subproc_spawn_fds(&b->process, program, argv,
+      mappings, G_N_ELEMENTS(mappings), closes, G_N_ELEMENTS(closes));
    close(control[1]);
    close(media[1]);
    close(spectrum[1]);
    g_free(program);
-   if (rc) {
+   if (!spawned) {
       close(control[0]); close(media[0]); close(spectrum[0]);
       g_unlink(config); g_free(config);
-      Log(LOG_WARN, "local.bridge", "Unable to spawn rrbridge: %s", g_strerror(rc));
+      Log(LOG_WARN, "local.bridge", "Unable to spawn rrbridge");
       bridge_stop(b); g_free(b); return false;
    }
+   pid_t pid = b->process.pid;
    fcntl(control[0], F_SETFL, fcntl(control[0], F_GETFL) | O_NONBLOCK);
    fcntl(media[0], F_SETFL, fcntl(media[0], F_GETFL) | O_NONBLOCK);
    fcntl(spectrum[0], F_SETFL, fcntl(spectrum[0], F_GETFL) | O_NONBLOCK);
