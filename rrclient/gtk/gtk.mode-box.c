@@ -59,7 +59,7 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       char vfo[2] = {
          vfo_state_get_active(), '\0'
       };
-      ws_send_width_cmd_in_room(ws_conn, vfo, text, gtk_chat_current_room());
+      ws_send_width_cmd_in_room(ws_conn, vfo, text, gtk_chat_controls_room());
       widthbox_last_send = now;
 #endif // defined(USE_MONGOOSE)
       g_free((gchar *) text);
@@ -70,7 +70,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
 
    if (text) {
-      const char *room = gtk_chat_current_room();
+      const char *room = gtk_chat_controls_room();
       bool sent = false;
       if (room && !g_ascii_strcasecmp(room, "&local-sdr")) {
          uint64_t hz = 0;
