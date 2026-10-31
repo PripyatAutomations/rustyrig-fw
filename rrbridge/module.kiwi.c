@@ -585,7 +585,13 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       char auth[192];
       snprintf(auth, sizeof(auth), "SET auth t=kiwi p=%s", password);
       mg_ws_send(c, auth, strlen(auth), WEBSOCKET_OP_TEXT);
-      const char *commands[] = { "SET wf_comp=0", "SET zoom=0 cf=0", "SET wf_speed=1" };
+      /* Kiwi requires start= for waterfall positioning; cf= is not the
+       * corresponding W/F command. Initialize display range and pacing. */
+      const char *commands[] = {
+         "SERVER DE CLIENT RustyRig W/F",
+         "SET wf_comp=0", "SET zoom=0 start=0",
+         "SET maxdb=-20 mindb=-120", "SET wf_speed=2", "SET interp=13"
+      };
       for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++)
          mg_ws_send(c, commands[i], strlen(commands[i]), WEBSOCKET_OP_TEXT);
    } else if (event == MG_EV_ERROR) {
@@ -599,6 +605,16 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
          char detail[128];
          snprintf(detail, sizeof(detail), "Kiwi W/F frame: %zu bytes, type=0x%x", m->data.len, m->flags);
          note(k, detail);
+      }
+      if (m->data.len >= 3 && !memcmp(m->data.buf, "MSG", 3)) {
+         /* Control messages precede the first spectrum row; these are not
+          * decoder failures and may carry receiver setup state. */
+         if (!k->waterfall_ready) {
+            char detail[220];
+            size_t n = MIN(m->data.len, sizeof(detail) - 20);
+            snprintf(detail, sizeof(detail), "Kiwi W/F setup: %.*s", (int)n, m->data.buf);
+            note(k, detail);
+         }
       }
       if (m->data.len >= 1040 && !memcmp(m->data.buf, "W/F", 3)) {
          /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
