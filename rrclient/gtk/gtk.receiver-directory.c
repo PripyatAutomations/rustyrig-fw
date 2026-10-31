@@ -693,9 +693,6 @@ static gboolean directory_finish_show(gpointer unused) {
       g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "xpad", 8, "ypad", 3, NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
 
-      if (field == COL_USERS || field == COL_STATE) {
-         gtk_tree_view_column_add_attribute(column, renderer, "foreground", COL_CONNECTED_COLOR);
-      }
       gtk_tree_view_column_set_resizable(column, TRUE);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
       gtk_tree_view_column_set_fixed_width(column, widths[i]);
