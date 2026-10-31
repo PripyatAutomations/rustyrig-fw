@@ -28,12 +28,13 @@ static struct {
    char *url, *config;
    bool online, pcm_started;
    unsigned rate;
+   gint64 resampler_retry_at;
    uint64_t pending, serial;
    rrp_bridge_ipc_message_t caps;
 } local = { .control = -1, .media = -1 };
 
 #define LOCAL_STREAM "local.kiwi.rx"
-#define LOCAL_RESAMPLER "local.kiwi.resampler"
+#define LOCAL_RESAMPLER "proc.local.kiwi.resampler"
 
 bool rrclient_local_bridge_connected(const char *url) {
    return local.pid > 0 && local.url && url && !strcmp(local.url, url);
@@ -94,6 +95,7 @@ void rrclient_local_bridge_disconnect(void) {
    g_clear_pointer(&local.url, g_free);
    local.online = false;
    local.rate = 0;
+   local.resampler_retry_at = 0;
    local.pending = 0;
    memset(&local.caps, 0, sizeof(local.caps));
    event_emit("client.receiver-directory.connection", NULL, "Local SDR disconnected.");
@@ -152,12 +154,19 @@ static gboolean poll_local(gpointer unused) {
       }
       if (!local.online || !frame.count) continue;
       if (!local.pcm_started || local.rate != frame.rate) {
-         if (local.pcm_started) fwdsp_processor_stop(LOCAL_RESAMPLER);
+         if (local.pcm_started) {
+            fwdsp_processor_stop(LOCAL_RESAMPLER);
+            local.pcm_started = false;
+         }
+         gint64 current = g_get_monotonic_time();
+         if (current < local.resampler_retry_at) continue;
          local.pcm_started = fwdsp_audio_resampler_start(LOCAL_RESAMPLER, frame.rate, local_pcm, NULL);
          local.rate = frame.rate;
+         local.resampler_retry_at = local.pcm_started ? 0 : current + 5000000;
          Log(local.pcm_started ? LOG_INFO : LOG_WARN, "local.bridge",
-             "Local PCM resampler %s (input=%u Hz, output=16000 Hz)",
-             local.pcm_started ? "started" : "failed", frame.rate);
+             "Local PCM resampler %s (input=%u Hz, output=16000 Hz)%s",
+             local.pcm_started ? "started" : "failed", frame.rate,
+             local.pcm_started ? "" : "; retrying in 5 seconds");
       }
       if (local.pcm_started) {
          uint8_t samples[2 * RRP_BRIDGE_MEDIA_SAMPLES];
@@ -169,6 +178,7 @@ static gboolean poll_local(gpointer unused) {
             Log(LOG_WARN, "local.bridge", "Local PCM resampler input write failed");
             fwdsp_processor_stop(LOCAL_RESAMPLER);
             local.pcm_started = false;
+            local.resampler_retry_at = g_get_monotonic_time() + 5000000;
          }
       }
    }
