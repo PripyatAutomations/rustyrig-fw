@@ -181,13 +181,14 @@ bool rrclient_local_bridge_connect(const char *url) {
    if (!uri) return false;
    const char *scheme = g_uri_get_scheme(uri), *host = g_uri_get_host(uri);
    int port = g_uri_get_port(uri);
+   bool tls = scheme && !g_ascii_strcasecmp(scheme, "https");
    bool valid = scheme && (!g_ascii_strcasecmp(scheme, "http") || !g_ascii_strcasecmp(scheme, "https")) &&
       host && *host && strspn(host, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-") == strlen(host);
    if (!valid) {
       g_uri_unref(uri);
       return false;
    }
-   if (port <= 0) port = !g_ascii_strcasecmp(scheme, "https") ? 443 : 80;
+   if (port <= 0) port = tls ? 443 : 80;
    char *program = g_find_program_in_path("rrbridge");
    if (!program && g_file_test("./bin/rrbridge", G_FILE_TEST_IS_EXECUTABLE))
       program = g_strdup("./bin/rrbridge");
@@ -205,7 +206,7 @@ bool rrclient_local_bridge_connect(const char *url) {
       return false;
    }
    close(tmp);
-   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nsecure=%s\nfrequency=14074000\nmode=USB\n", host, port, !g_ascii_strcasecmp(scheme, "https") ? "true" : "false");
+   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nsecure=%s\nfrequency=14074000\nmode=USB\n", host, port, tls ? "true" : "false");
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
