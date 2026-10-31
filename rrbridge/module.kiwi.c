@@ -703,12 +703,16 @@ static bool kiwi_start(void *instance) {
    if (!kiwi_tune(k, k->wanted_hz, k->wanted_mode, tune, sizeof(tune))) {
       return false;
    }
+   // A secure receiver uses the same Kiwi protocol over TLS.
+   const char *secure = setting(k, "secure");
+   bool tls = secure && (!strcasecmp(secure, "true") || !strcmp(secure, "1") || !strcasecmp(secure, "yes"));
    // Same timestamped SND route as kiwiclient, with a unique process suffix.
-   snprintf(k->url, sizeof(k->url), "ws://%s:%lu/%" PRIu64 "/SND", host, port, (uint64_t) time(NULL) * 1000 + (unsigned)getpid() % 1000);
+   snprintf(k->url, sizeof(k->url), "%s://%s:%lu/%" PRIu64 "/SND", tls ? "wss" : "ws", host, port,
+      (uint64_t) time(NULL) * 1000 + (unsigned)getpid() % 1000);
 
    if (k->host.metadata) {
       char endpoint[320];
-      snprintf(endpoint, sizeof(endpoint), "http://%s:%lu/", host, port);
+      snprintf(endpoint, sizeof(endpoint), "%s://%s:%lu/", tls ? "https" : "http", host, port);
       k->host.metadata(k->host.user, "url", endpoint);
    }
    k->started = true;
