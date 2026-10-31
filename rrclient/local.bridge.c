@@ -1,6 +1,7 @@
 /* Local SDR host: reuse the rrbridge process and Kiwi driver, no rrserver.
  * All control and resampler callbacks are owned by the client main context. */
 #include <rrclient/local.bridge.h>
+#include <rrclient/rig.command.h>
 #include <rrclient/rooms.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
@@ -136,14 +137,18 @@ bool rrclient_local_bridge_tune(uint64_t hz, const char *mode) {
 }
 /* Frontend-independent controls: GTK, TUI and commands all target a VFO ID. */
 bool rrclient_local_bridge_set_frequency(char vfo, uint64_t hz) {
-   const char *mode = NULL;
-   return rrclient_local_bridge_state_vfo(vfo, NULL, &mode) &&
-      rrclient_local_bridge_tune_vfo(vfo, hz, mode);
+   unsigned slot = (unsigned)(vfo - 'A');
+   if (slot >= G_N_ELEMENTS(bridges) || !bridges[slot]) return false;
+   bridge_instance *b = bridges[slot];
+   const char *mode = b->pending && b->queued_tune ? b->queued_mode : b->mode;
+   return rrclient_local_bridge_tune_vfo(vfo, hz, mode);
 }
 bool rrclient_local_bridge_set_mode(char vfo, const char *mode) {
-   uint64_t hz = 0;
-   return rrclient_local_bridge_state_vfo(vfo, &hz, NULL) && hz &&
-      rrclient_local_bridge_tune_vfo(vfo, hz, mode);
+   unsigned slot = (unsigned)(vfo - 'A');
+   if (slot >= G_N_ELEMENTS(bridges) || !bridges[slot]) return false;
+   bridge_instance *b = bridges[slot];
+   uint64_t hz = b->pending && b->queued_tune ? b->queued_hz : b->frequency_hz;
+   return hz && rrclient_local_bridge_tune_vfo(vfo, hz, mode);
 }
 bool rrclient_local_bridge_set_width(char vfo, const char *width) {
    /* The bridge SET IPC currently carries frequency and mode, not passband.
@@ -156,27 +161,10 @@ bool rrclient_local_bridge_set_width(char vfo, const char *width) {
 
 /* The local room uses the same chat command spelling as remote rig rooms.
  * This dispatcher is frontend-agnostic; commands never cross the wire. */
-bool rrclient_local_bridge_command(const char *line) {
-   if (!line || *line != '!') return false;
-   char **args = g_strsplit_set(line + 1, " \t\r\n", -1);
-   const char *cmd = NULL, *value = NULL;
-   for (unsigned i = 0; args && args[i]; i++) {
-      if (!*args[i]) continue;
-      if (!cmd) cmd = args[i];
-      else if (!value) value = args[i];
-      else {
-         ui_print("&local-sdr", "Expected one argument for !%s", cmd);
-         g_strfreev(args);
-         return true;
-      }
-   }
-   if (!cmd) { g_strfreev(args); return false; }
-   bool recognized = !g_ascii_strcasecmp(cmd, "vfo") ||
-      !g_ascii_strcasecmp(cmd, "freq") || !g_ascii_strcasecmp(cmd, "mode") ||
-      !g_ascii_strcasecmp(cmd, "width") || !g_ascii_strcasecmp(cmd, "status");
-   if (!recognized) { g_strfreev(args); return false; }
+static bool local_rig_action(const rr_rig_cmd_t *cmd, void *unused) {
+   (void)unused;
    char vfo = rrclient_room_active_vfo("&local-sdr");
-   if (!g_ascii_strcasecmp(cmd, "status")) {
+   if (cmd->kind == RR_RIG_STATUS) {
       for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
          bridge_instance *b = bridges[i];
          if (b)
@@ -184,29 +172,46 @@ bool rrclient_local_bridge_command(const char *line) {
                b->online ? "online" : "connecting", (unsigned long long)b->frequency_hz,
                *b->mode ? b->mode : "unknown", b->url ? b->url : "");
       }
-   } else if (!value || !*value) {
-      ui_print("&local-sdr", "Usage: !%s <value>", cmd);
-   } else if (!g_ascii_strcasecmp(cmd, "vfo")) {
-      char target = g_ascii_toupper(value[0]);
-      if (value[1] || target < 'A' || target > 'Z' ||
-          !rrclient_local_bridge_state_vfo(target, NULL, NULL))
-         ui_print("&local-sdr", "VFO %s is not connected", value);
-      else {
-         rrclient_room_set_active_vfo("&local-sdr", target);
-         event_emit("client.local-bridge.vfo", NULL, NULL);
-         ui_print("&local-sdr", "Selected local.sdr.%c", target);
+      return true;
+   }
+   if (cmd->kind == RR_RIG_VFO) {
+      char target = g_ascii_toupper(cmd->value[0]);
+      if (cmd->value[1] || target < 'A' || target > 'Z' ||
+          !rrclient_local_bridge_state_vfo(target, NULL, NULL)) {
+         ui_print("&local-sdr", "VFO %s is not connected", cmd->value);
+         return false;
       }
-   } else if (!g_ascii_strcasecmp(cmd, "freq")) {
-      char *end = NULL;
-      guint64 hz = g_ascii_strtoull(value, &end, 10);
-      if (!hz || !end || *end || !rrclient_local_bridge_set_frequency(vfo, hz))
-         ui_print("&local-sdr", "Unable to set local.sdr.%c frequency to %s Hz", vfo, value);
-   } else if (!g_ascii_strcasecmp(cmd, "mode")) {
-      if (!rrclient_local_bridge_set_mode(vfo, value))
-         ui_print("&local-sdr", "Unable to set local.sdr.%c mode to %s", vfo, value);
-   } else if (!rrclient_local_bridge_set_width(vfo, value))
-      ui_print("&local-sdr", "Unable to set local.sdr.%c width to %s", vfo, value);
-   g_strfreev(args);
+      rrclient_room_set_active_vfo("&local-sdr", target);
+      event_emit("client.local-bridge.vfo", NULL, NULL);
+      ui_print("&local-sdr", "Selected local.sdr.%c", target);
+      return true;
+   }
+   bool ok = false;
+   if (cmd->kind == RR_RIG_FREQ) {
+      uint64_t hz;
+      ok = rr_rig_parse_frequency(cmd->value, &hz) &&
+         rrclient_local_bridge_set_frequency(vfo, hz);
+   } else if (cmd->kind == RR_RIG_MODE) {
+      ok = rrclient_local_bridge_set_mode(vfo, cmd->value);
+   } else if (cmd->kind == RR_RIG_WIDTH) {
+      ok = rrclient_local_bridge_set_width(vfo, cmd->value);
+   }
+   if (!ok)
+      ui_print("&local-sdr", "local.sdr.%c: failed to apply command value %s", vfo, cmd->value);
+   return ok;
+}
+bool rrclient_local_bridge_command(const char *line) {
+   if (!line || *line != '!') return false;
+   if (rr_rig_cmd_kind(line + 1) < 0) {
+      /* The first keyword may be followed by whitespace. */
+      char name[32]; size_t n = 0;
+      for (const char *p = line + 1; *p && !isspace((unsigned char)*p) && n + 1 < sizeof(name); p++)
+         name[n++] = *p;
+      name[n] = '\0';
+      if (rr_rig_cmd_kind(name) < 0) return false;
+   }
+   if (!rr_rig_parse_commands(line, local_rig_action, NULL))
+      ui_print("&local-sdr", "Invalid, unsupported or failed local rig command: %s", line);
    return true;
 }
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
