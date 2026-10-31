@@ -395,66 +395,56 @@ static void import_clicked(GtkButton *button, gpointer unused) {
 static void copy_clicked(GtkButton *button, gpointer config);
 static void connect_clicked(GtkButton *button, gpointer save);
 static void directory_menu_command(GtkMenuItem *item, gpointer user) {
-   const char *command = user;
-
-   if (!strcmp(command, "connect")) {
-      connect_clicked(NULL, NULL);
-   } else if (!strcmp(command, "save")) {
-      connect_clicked(NULL, GINT_TO_POINTER(1));
-   } else if (!strcmp(command, "copy-url")) {
-      copy_clicked(NULL, NULL);
-   } else if (!strcmp(command, "copy-config")) {
-      copy_clicked(NULL, GINT_TO_POINTER(1));
-   } else if (!strcmp(command, "refresh")) {
-      directory_refresh_with_wait(FALSE);
-   }
    (void)item;
+   const char *command = user;
+   if (!strcmp(command, "connect")) connect_clicked(NULL, NULL);
+   else if (!strcmp(command, "favorite")) favorite_clicked(NULL, NULL);
+   else if (!strcmp(command, "copy-url")) copy_clicked(NULL, NULL);
+   else if (!strcmp(command, "refresh")) directory_refresh_with_wait(FALSE);
+   else if (g_str_has_prefix(command, "mark:")) {
+      const receiver_directory_entry_t *r = selected_receiver();
+      if (r && !receiver_directory_set_state(r->url, command + 5,
+            !strcmp(command + 5, "unknown") ? "" : "User report; receiver was not probed"))
+         gtk_label_set_text(GTK_LABEL(directory_status), "Unable to save receiver mark");
+   }
 }
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    (void)user;
-
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
-      return FALSE;
-   }
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
    GtkTreePath *path = NULL;
-
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint) event->x, (gint) event->y, &path, NULL, NULL, NULL)) {
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x, (gint)event->y, &path, NULL, NULL, NULL))
       return FALSE;
-   }
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), path);
    gtk_tree_path_free(path);
    const receiver_directory_entry_t *r = selected_receiver();
-
-   if (!r) {
-      return FALSE;
-   }
-   gboolean connected = rrclient_receiver_is_connected(r->url);
+   if (!r) return FALSE;
    GtkWidget *menu = gtk_menu_new();
    const char *labels[] = {
-      connected ? "Disconnect" : "Connect…", "Add to Server Configuration", "Copy URL", "Copy Bridge Configuration", "Refresh Directory"
+      rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url) ? "Disconnect" : "Connect",
+      r->favorite ? "Remove from favorites" : "Add to favorites", "Copy URL", "Refresh list"
    };
-   const char *actions[] = {
-      "connect", "save", "copy-url", "copy-config", "refresh"
-   };
-
-   for (unsigned i = 0 ; i < G_N_ELEMENTS(labels) ; i++) {
+   const char *actions[] = { "connect", "favorite", "copy-url", "refresh" };
+   for (unsigned i = 0; i < G_N_ELEMENTS(labels); i++) {
       GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
-      gboolean enabled = i >= 2 || connected || receiver_directory_entry_accessible(r);
-
-      if (i == 3) {
-         char *config = receiver_directory_bridge_config(r);
-         enabled = config != NULL;
-         g_free(config);
-      }
-      gtk_widget_set_sensitive(item, enabled);
-      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer) actions[i]);
+      gtk_widget_set_sensitive(item, i != 0 || receiver_directory_entry_accessible(r) ||
+         rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url));
+      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer)actions[i]);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
-
+   GtkWidget *mark = gtk_menu_item_new_with_label("Mark");
+   GtkWidget *submenu = gtk_menu_new();
+   const char *marks[] = { "Unreachable", "Restricted", "Good", "Clear Mark" };
+   const char *states[] = { "mark:unreachable", "mark:restricted", "mark:good", "mark:unknown" };
+   for (unsigned i = 0; i < G_N_ELEMENTS(marks); i++) {
+      GtkWidget *item = gtk_menu_item_new_with_label(marks[i]);
+      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer)states[i]);
+      gtk_menu_shell_append(GTK_MENU_SHELL(submenu), item);
+   }
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(mark), submenu);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), mark);
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
-
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
    return TRUE;
 }
 static void local_tune_clicked(GtkButton *button, gpointer unused) {
@@ -513,6 +503,17 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       return;
    }
 
+   if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_connected(r->url)) {
+      rrclient_local_bridge_disconnect();
+      selection_changed(NULL, NULL);
+      return;
+   }
+   if (!GPOINTER_TO_INT(save) && !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(proxy_bridge))) {
+      if (!rrclient_local_bridge_connect(r->url))
+         gtk_label_set_text(GTK_LABEL(directory_status), "Unable to start local SDR bridge");
+      selection_changed(NULL, NULL);
+      return;
+   }
    if (!GPOINTER_TO_INT(save) && rrclient_receiver_is_connected(r->url)) {
       rrclient_receiver_disconnect(r->url);
 
