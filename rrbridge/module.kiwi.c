@@ -29,6 +29,7 @@ struct kiwi_instance {
    struct mg_connection *waterfall;
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
    uint64_t waterfall_rows, waterfall_retry;
+   unsigned waterfall_zoom;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
    bool redirecting;
@@ -93,6 +94,7 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    }
    k->host = *host;
    k->max_hz = 30000000;
+   k->waterfall_zoom = 6;
    k->hz = k->wanted_hz = 14074000;
    strcpy(k->mode, "USB");
    strcpy(k->wanted_mode, "USB");
@@ -579,7 +581,7 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
  * MAX_ZOOM=14 gives a 24-bit start scale for current KiwiSDR. */
 static void waterfall_center(struct kiwi_instance *k) {
    if (!k->waterfall || !k->max_hz) return;
-   const unsigned zoom = 6;
+   const unsigned zoom = k->waterfall_zoom;
    double full = (double)k->max_hz;
    double span = full / (1u << zoom);
    double center = (double)(k->wanted_hz ? k->wanted_hz : k->hz);
@@ -948,10 +950,26 @@ static bool kiwi_set_receiver(void *instance, uint64_t request, uint64_t hz, con
    return true;
 }
 
+static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom) {
+   struct kiwi_instance *k = instance;
+   if (!k || zoom > 14) return false;
+   k->waterfall_zoom = zoom;
+   k->waterfall_enabled = enabled;
+   if (!enabled && k->waterfall) {
+      k->waterfall->is_closing = 1;
+      k->waterfall_retry = 0;
+   } else if (enabled && k->waterfall && k->waterfall->is_websocket) {
+      waterfall_center(k);
+   } else if (enabled) {
+      k->waterfall_retry = 0;
+   }
+   return true;
+}
 static const rrp_sdr_driver_t kiwi_driver = {
    .abi_version = RRP_SDR_ABI_VERSION, .name = "kiwi", .create = kiwi_create,
    .destroy = kiwi_destroy, .capabilities = kiwi_capabilities, .start = kiwi_start, .poll = kiwi_poll,
-   .set_receiver = kiwi_set_receiver, .tune = kiwi_tune, .receive = kiwi_receive
+   .set_receiver = kiwi_set_receiver, .tune = kiwi_tune, .receive = kiwi_receive,
+   .set_waterfall = kiwi_set_waterfall
 };
 
 rr_module_event_t modexports[] = { {
