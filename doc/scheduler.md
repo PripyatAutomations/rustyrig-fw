@@ -32,7 +32,8 @@ priority should use an explicit `normal` profile for managed non-RT children.
 
 Scheduling is applied in the forked child before exec to avoid accidental
 inheritance of RT policy into worker startup. Invalid or unauthorized profiles
-cause the child to exit 126 with a diagnostic on stderr. Spawn success only
+log a diagnostic on stderr and leave the child running using the inherited
+scheduler. A failed optional scheduling request must not break audio. Spawn success only
 means the child was created, not that exec/profile application succeeded;
 the supervisor should observe child exit/status.
 The library scheduler API is per-task, not process-group-wide: threads created
