@@ -244,7 +244,7 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) && !receiver_directory_entry_accessible(r))
       return FALSE;
    if (connected_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(connected_only)) &&
-       !rrclient_local_bridge_connected(r->url) && !rrclient_receiver_is_connected(r->url))
+       !rrclient_local_bridge_connected(r->url) && !rrclient_receiver_is_connected_any(r->url))
       return FALSE;
    if (favorites_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) && !r->favorite)
       return FALSE;
@@ -301,7 +301,7 @@ static void populate(void) {
          g_hash_table_insert(groups, g_strdup(country), parent);
       }
       bool local = rrclient_local_bridge_connected(r->url);
-      bool remote = rrclient_receiver_is_connected(r->url);
+      bool remote = rrclient_receiver_is_connected_any(r->url);
       char users[32];
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
       for (unsigned copy = 0; copy < ((local || remote) ? 2u : 1u); copy++) {
