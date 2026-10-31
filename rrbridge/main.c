@@ -135,6 +135,8 @@ static bool capability_message(struct bridge_host *host, rrp_bridge_ipc_message_
    m->flags = (caps.rx ? RRP_BRIDGE_RX : 0) | (caps.tx ? RRP_BRIDGE_TX : 0) |
       (caps.rx_audio ? RRP_BRIDGE_RX_AUDIO : 0) | (caps.rx_iq ? RRP_BRIDGE_RX_IQ : 0) |
       (caps.rx_waterfall ? RRP_BRIDGE_WATERFALL : 0) | (caps.tx_audio ? RRP_BRIDGE_TX_AUDIO : 0);
+   m->waterfall_zoom_min = caps.waterfall_zoom ? caps.waterfall_zoom_min : 0;
+   m->waterfall_zoom_max = caps.waterfall_zoom ? caps.waterfall_zoom_max : 0;
    m->rx_min_hz = caps.rx_min_hz;
    m->rx_max_hz = caps.rx_max_hz;
    m->tx_min_hz = caps.tx_min_hz;
