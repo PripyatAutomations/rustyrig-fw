@@ -30,6 +30,7 @@
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/rooms.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/dcc.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/userlist.h>
@@ -558,6 +559,13 @@ static bool parse_chat_input(const char *msg, bool commands) {
       free(input);
    } else {
       const char *active_room = rrclient_active_room();
+
+      /* Local rig commands must not require a server or leak to IRC/chat. */
+      if (active_room && !strcasecmp(active_room, "&local-sdr")) {
+         if (rrclient_local_bridge_command(msg)) return true;
+         ui_print("&local-sdr", "Local SDR room accepts !vfo, !freq, !mode, !width and !status");
+         return true;
+      }
 
       if (active_connection && !active_connection->is_ws) {
          if (!ws_connected || !active_connection->authenticated) {
