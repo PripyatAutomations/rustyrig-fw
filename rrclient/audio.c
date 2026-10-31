@@ -91,6 +91,7 @@ void audio_local_rx_stop(const char *id) {
    if (rx_engine && id) rr_audio_engine_remove_stream(rx_engine, id);
 }
 
+static char local_rx_route = 'S';
 static int rx_channel_volume[2] = {
    100, 100
 };
@@ -304,6 +305,18 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
       count++;
    }
 
+   if (rrclient_local_bridge_active()) {
+      if (streams && count < capacity) {
+         struct rrclient_rx_stream *stream = &streams[count];
+         memset(stream, 0, sizeof(*stream));
+         snprintf(stream->id, sizeof(stream->id), "%s", "local.kiwi.rx");
+         snprintf(stream->server, sizeof(stream->server), "%s", "Local");
+         snprintf(stream->room, sizeof(stream->room), "%s", "Local Kiwi");
+         snprintf(stream->codec, sizeof(stream->codec), "%s", "pc16");
+         stream->output = local_rx_route;
+      }
+      count++;
+   }
    return count;
 }
 
@@ -312,6 +325,14 @@ bool audio_set_rx_stream_route(const char *id, char output) {
       return false;
    }
 
+   if (!strcmp(id, "local.kiwi.rx")) {
+      if (local_rx_route != output) {
+         local_rx_route = output;
+         if (rx_engine) rr_audio_engine_route(rx_engine, id, output);
+         event_emit("client.audio.route.changed", NULL, NULL);
+      }
+      return true;
+   }
    for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       if (!strcmp(r->identity, id)) {
          if (r->output != output) {
