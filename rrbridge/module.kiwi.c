@@ -612,7 +612,7 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
          if (!k->waterfall_setup_logged) {
             k->waterfall_setup_logged = true;
             char detail[220];
-            size_t n = MIN(m->data.len, sizeof(detail) - 20);
+            size_t n = m->data.len < sizeof(detail) - 20 ? m->data.len : sizeof(detail) - 20;
             snprintf(detail, sizeof(detail), "Kiwi W/F setup: %.*s", (int)n, m->data.buf);
             note(k, detail);
          }
