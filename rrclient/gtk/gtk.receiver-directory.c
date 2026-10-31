@@ -294,7 +294,9 @@ static void populate(void) {
       }
    }
    g_hash_table_destroy(groups);
-   gtk_tree_view_expand_row(GTK_TREE_VIEW(directory_tree), gtk_tree_path_new_from_indices(0, -1), FALSE);
+   GtkTreePath *connected_path = gtk_tree_path_new_from_indices(0, -1);
+   gtk_tree_view_expand_row(GTK_TREE_VIEW(directory_tree), connected_path, FALSE);
+   gtk_tree_path_free(connected_path);
 
    char *info = receiver_directory_info();
    char *summary = g_strdup_printf("%s\n%s", receiver_directory_status(), info);
@@ -604,30 +606,10 @@ static void receiver_failed(const char *event, const char *data, rrconn_t *conne
    gtk_widget_show(dialog);
 }
 static void connection_status(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)event;
-   (void)connection;
-   (void)unused;
-
-   if (directory_page && data) {
-      gtk_label_set_text(GTK_LABEL(directory_status), data);
-      selection_changed(NULL, NULL);
-      if (directory_filter) gtk_tree_model_filter_refilter(directory_filter);
-
-      if (directory_store) {
-         GtkTreeIter iter;
-
-         for (gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(directory_store), &iter) ; valid ;
-            valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(directory_store), &iter)) {
-            char *url = NULL;
-            gtk_tree_model_get(GTK_TREE_MODEL(directory_store), &iter, COL_URL, &url, -1);
-            const receiver_directory_entry_t *receiver = url ? receiver_directory_find_url(url) : NULL;
-            bool connected = url && rrclient_receiver_is_connected(url);
-            gtk_tree_store_set(directory_store, &iter, COL_STATE, url && rrclient_local_bridge_connected(url) ? "Local" : connected ? "Connected" : receiver ? receiver_state(receiver) : "Not tested",
-               COL_CONNECTED_COLOR, (connected || (url && rrclient_local_bridge_connected(url))) ? "connected" : NULL, -1);
-            g_free(url);
-         }
-      }
-   }
+   (void)event; (void)connection; (void)unused;
+   if (!directory_page) return;
+   if (data) gtk_label_set_text(GTK_LABEL(directory_status), data);
+   populate(); /* Rebuild the connected group as connections come and go. */
 }
 static void copy_clicked(GtkButton *button, gpointer config) {
    (void)button;
@@ -704,7 +686,7 @@ static gboolean directory_finish_show(gpointer unused) {
    g_timeout_add_seconds(1, proxy_refresh_timer, NULL);
    directory_store =
       gtk_tree_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-      G_TYPE_STRING, G_TYPE_STRING);
+      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    directory_filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(directory_store), NULL));
    gtk_tree_model_filter_set_visible_func(directory_filter, visible_receiver, NULL, NULL);
    GtkTreeModel *sorted = gtk_tree_model_sort_new_with_model(GTK_TREE_MODEL(directory_filter));
