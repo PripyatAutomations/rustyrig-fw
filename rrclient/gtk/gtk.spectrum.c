@@ -260,6 +260,9 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
  * The bridge host currently publishes the active local VFO only. */
 typedef struct {
    GtkWidget *drawing;
+   GtkWidget *enabled;
+   bool rf_enabled;
+   unsigned zoom;
    rr_bridge_spectrum_row rows[32];
    bool vfo_boundary[32];
    char last_vfo;
@@ -271,7 +274,7 @@ static void rf_row(const char *event, const void *data, size_t len,
                    rrconn_t *connection, void *user) {
    (void)event; (void)connection;
    rf_strip_t *p = user;
-   if (len != sizeof(rr_bridge_spectrum_row) || !data) return;
+   if (!p->rf_enabled || len != sizeof(rr_bridge_spectrum_row) || !data) return;
    const rr_bridge_spectrum_row *row = data;
    if (!rr_bridge_spectrum_valid(row)) return;
    char vfo = rrclient_room_active_vfo("&local-sdr");
@@ -289,7 +292,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    int h = gtk_widget_get_allocated_height(widget);
    cairo_set_source_rgb(cr, .06, .08, .11);
    cairo_paint(cr);
-   if (!p->count || g_get_monotonic_time() - p->received_at > 3000000)
+   if (!p->rf_enabled || !p->count || g_get_monotonic_time() - p->received_at > 3000000)
       return FALSE;
    int depth = MIN((int)p->count, 32);
    double row_h = (double)h / depth;
@@ -297,7 +300,11 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       unsigned index = (p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows);
       const rr_bridge_spectrum_row *row = &p->rows[index];
       for (int x = 0; x < w; x++) {
-         unsigned bin = (unsigned)((uint64_t)x * RR_BRIDGE_SPECTRUM_BINS / MAX(w, 1));
+         /* Display-only zoom about the tuned center. The bridge's Kiwi
+          * W/F zoom command can later replace this crop with native bins. */
+         unsigned visible = RR_BRIDGE_SPECTRUM_BINS >> p->zoom;
+         unsigned offset = (RR_BRIDGE_SPECTRUM_BINS - visible) / 2;
+         unsigned bin = offset + (unsigned)((uint64_t)x * visible / MAX(w, 1));
          double value = row->power[bin] / 255.0;
          uint32_t rgb = palette_pixel(value);
          cairo_set_source_rgb(cr, ((rgb >> 16) & 255) / 255.,
@@ -317,6 +324,30 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    }
    return FALSE;
 }
+static void rf_toggle(GtkToggleButton *button, gpointer data) {
+   rf_strip_t *p = data;
+   p->rf_enabled = gtk_toggle_button_get_active(button);
+   if (!p->rf_enabled) {
+      p->count = 0;
+      p->head = 0;
+   }
+   gtk_widget_queue_draw(p->drawing);
+}
+static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
+   rf_strip_t *p = data;
+   int delta = 0;
+   if (event->direction == GDK_SCROLL_UP) delta = 1;
+   else if (event->direction == GDK_SCROLL_DOWN) delta = -1;
+   else if (event->direction == GDK_SCROLL_SMOOTH) {
+      if (event->delta_y < 0) delta = 1;
+      else if (event->delta_y > 0) delta = -1;
+   }
+   if (!delta) return FALSE;
+   int zoom = (int)p->zoom + delta;
+   p->zoom = (unsigned)CLAMP(zoom, 0, 6);
+   gtk_widget_queue_draw(widget);
+   return TRUE;
+}
 static void rf_destroy(gpointer data) {
    rf_strip_t *p = data;
    if (p->token) event_off_token(p->token);
@@ -324,12 +355,24 @@ static void rf_destroy(gpointer data) {
 }
 GtkWidget *rr_gtk_rf_spectrum_new(void) {
    rf_strip_t *p = g_new0(rf_strip_t, 1);
+   p->rf_enabled = true;
+   GtkWidget *overlay = gtk_overlay_new();
    GtkWidget *drawing = gtk_drawing_area_new();
    p->drawing = drawing;
    gtk_widget_set_size_request(drawing, 320, 82);
-   gtk_widget_set_tooltip_text(drawing, "RF waterfall from the selected local SDR VFO");
-   g_object_set_data_full(G_OBJECT(drawing), "rr-rf-spectrum", p, rf_destroy);
+   gtk_widget_add_events(drawing, GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+   gtk_widget_set_tooltip_text(drawing, "RF waterfall: scroll to zoom around the tuned center");
+   gtk_container_add(GTK_CONTAINER(overlay), drawing);
+   p->enabled = gtk_check_button_new();
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
+   gtk_widget_set_tooltip_text(p->enabled, "Show RF waterfall");
+   gtk_widget_set_halign(p->enabled, GTK_ALIGN_END);
+   gtk_widget_set_valign(p->enabled, GTK_ALIGN_START);
+   gtk_overlay_add_overlay(GTK_OVERLAY(overlay), p->enabled);
+   g_object_set_data_full(G_OBJECT(overlay), "rr-rf-spectrum", p, rf_destroy);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
+   g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
+   g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
-   return drawing;
+   return overlay;
 }
