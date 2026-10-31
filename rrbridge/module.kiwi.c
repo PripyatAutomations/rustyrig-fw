@@ -113,7 +113,8 @@ static bool kiwi_capabilities(void *instance, rrp_sdr_capabilities_t *out) {
       return false;
    }
    *out = (rrp_sdr_capabilities_t) {
-      .rx = true, .rx_audio = true, .rx_min_hz = 0, .rx_max_hz = ((struct kiwi_instance *)instance)->max_hz, .rx_modes = "USB LSB AM CW"
+      .rx = true, .rx_audio = true, .rx_waterfall = true,
+      .waterfall_zoom = true, .waterfall_zoom_min = 0, .waterfall_zoom_max = 14, .rx_min_hz = 0, .rx_max_hz = ((struct kiwi_instance *)instance)->max_hz, .rx_modes = "USB LSB AM CW"
    };
 
    return true;
