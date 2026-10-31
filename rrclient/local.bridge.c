@@ -225,7 +225,7 @@ bool rrclient_local_bridge_connect(const char *url) {
    /* Parent sockets have CLOEXEC. Closing their numeric descriptors in
     * spawn file-actions could accidentally close target fd 3 or fd 4
     * after dup2 when the process starts with few open descriptors. */
-   char *const argv[] = { program, "--config", config, "--bridge", "local", NULL };
+   char *const argv[] = { program, (char *)"--config", config, (char *)"--bridge", (char *)"local", NULL };
    pid_t pid = 0;
    int rc = posix_spawn(&pid, program, &actions, NULL, argv, environ);
    posix_spawn_file_actions_destroy(&actions);
