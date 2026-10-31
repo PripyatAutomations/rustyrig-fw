@@ -566,7 +566,7 @@ static GPtrArray *parse(const char *data, size_t length) {
 }
 bool receiver_directory_entry_accessible(const receiver_directory_entry_t *r) {
    return r && r->driver && !strcmp(r->driver, "kiwi") && r->ext_api > 0 && !r->flagged && !r->offline && !r->deleted &&
-          (!r->local_state || !strcmp(r->local_state, "unknown"));
+          (!r->local_state || !strcmp(r->local_state, "unknown") || !strcmp(r->local_state, "good"));
 }
 char *receiver_directory_bridge_config(const receiver_directory_entry_t *r) {
    if (!receiver_directory_entry_accessible(r) || strcmp(r->driver, "kiwi")) {
