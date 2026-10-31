@@ -32,6 +32,7 @@ rrclient_objs += identity.store.o
 rrclient_objs += connman.o		# connection manager
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
+rrclient_objs += thread.dispatch.o
 rrclient_objs += frontend.o		# Frontend module host interface
 rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
 rrclient_objs += main.o			# main loop
