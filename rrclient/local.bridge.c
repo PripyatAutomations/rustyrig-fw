@@ -196,7 +196,7 @@ bool rrclient_local_bridge_connect(const char *url) {
       return false;
    }
    close(tmp);
-   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nfrequency=14074000\nmode=USB\n", host, port);
+   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nsecure=%s\nfrequency=14074000\nmode=USB\n", host, port, !g_ascii_strcasecmp(scheme, "https") ? "true" : "false");
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
