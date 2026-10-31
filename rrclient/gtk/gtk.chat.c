@@ -1396,7 +1396,9 @@ static gboolean room_vfo_title_tick(gpointer unused) {
       return G_SOURCE_CONTINUE;
    }
    char active = rrclient_room_active_vfo(room_vfo_title_room);
-   char *title = g_strdup_printf("%s — VFO %c", room_vfo_title_room, active >= 'A' && active <= 'Z' ? active : '?');
+   char *title = !g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")
+      ? g_strdup_printf("&local-sdr — local.sdr.%c", active >= 'A' && active <= 'Z' ? active : '?')
+      : g_strdup_printf("%s — VFO %c", room_vfo_title_room, active >= 'A' && active <= 'Z' ? active : '?');
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
    if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
@@ -1433,7 +1435,9 @@ static void room_vfo_show(const char *name) {
    }
    g_strlcpy(room_vfo_title_room, name ? name : "", sizeof(room_vfo_title_room));
    char active = rrclient_room_active_vfo(room_vfo_title_room);
-   char *title = g_strdup_printf("%s — VFO %c", name && *name ? name : "Rig", active >= 'A' && active <= 'Z' ? active : '?');
+   char *title = name && !g_ascii_strcasecmp(name, "&local-sdr")
+      ? g_strdup_printf("&local-sdr — local.sdr.%c", active >= 'A' && active <= 'Z' ? active : '?')
+      : g_strdup_printf("%s — VFO %c", name && *name ? name : "Rig", active >= 'A' && active <= 'Z' ? active : '?');
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
    rr_floating_panel_show(room_vfo_panel);
