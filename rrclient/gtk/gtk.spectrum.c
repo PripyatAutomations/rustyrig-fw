@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <rrclient/audio.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/rooms.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/gtk/gtk.spectrum.h>
@@ -300,11 +301,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       unsigned index = (p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows);
       const rr_bridge_spectrum_row *row = &p->rows[index];
       for (int x = 0; x < w; x++) {
-         /* Display-only zoom about the tuned center. The bridge's Kiwi
-          * W/F zoom command can later replace this crop with native bins. */
-         unsigned visible = RR_BRIDGE_SPECTRUM_BINS >> p->zoom;
-         unsigned offset = (RR_BRIDGE_SPECTRUM_BINS - visible) / 2;
-         unsigned bin = offset + (unsigned)((uint64_t)x * visible / MAX(w, 1));
+         unsigned bin = (unsigned)((uint64_t)x * RR_BRIDGE_SPECTRUM_BINS / MAX(w, 1));
          double value = row->power[bin] / 255.0;
          uint32_t rgb = palette_pixel(value);
          cairo_set_source_rgb(cr, ((rgb >> 16) & 255) / 255.,
@@ -327,6 +324,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
+   rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
    if (!p->rf_enabled) {
       p->count = 0;
       p->head = 0;
@@ -344,7 +342,8 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
    }
    if (!delta) return FALSE;
    int zoom = (int)p->zoom + delta;
-   p->zoom = (unsigned)CLAMP(zoom, 0, 6);
+   p->zoom = (unsigned)CLAMP(zoom, 0, 14);
+   rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
    gtk_widget_queue_draw(widget);
    return TRUE;
 }
