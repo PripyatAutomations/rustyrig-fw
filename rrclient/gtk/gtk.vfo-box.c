@@ -55,6 +55,11 @@ void vfo_controls_set_rx_only(bool rx_only) {
    if (tx_codec_combo) {
       gtk_widget_set_visible(tx_codec_combo, !rx_only);
    }
+   if (vfo_codec_box) {
+      const char *room = gtk_chat_controls_room();
+      gtk_widget_set_visible(vfo_codec_box,
+         !room || g_ascii_strcasecmp(room, "&local-sdr") != 0);
+   }
 }
 
 // Should we pause the VFO widget being updated until after the server has sent response?
@@ -174,6 +179,11 @@ GtkWidget *create_vfo_box(void) {
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
    vfo_codec_box = codec_selectors;
+   {
+      const char *room = gtk_chat_controls_room();
+      gtk_widget_set_visible(codec_selectors,
+         !room || g_ascii_strcasecmp(room, "&local-sdr") != 0);
+   }
    gtk_box_pack_start(GTK_BOX(vfo_controls_row), codec_selectors, FALSE, FALSE, 0);
 
    // TX POWER Box
