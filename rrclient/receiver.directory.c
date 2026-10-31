@@ -1141,13 +1141,18 @@ bool receiver_directory_set_state(const char *endpoint, const char *state, const
       return false;
    }
    sqlite3_stmt *statement = NULL;
-   bool ok = sqlite3_prepare_v2(cache_db, "INSERT OR REPLACE INTO receiver_state VALUES(?,?,?,?)", -1, &statement, NULL) == SQLITE_OK;
+   bool clearing = !strcmp(state, "unknown");
+   bool ok = sqlite3_prepare_v2(cache_db, clearing ?
+      "DELETE FROM receiver_state WHERE url=?" :
+      "INSERT OR REPLACE INTO receiver_state VALUES(?,?,?,?)", -1, &statement, NULL) == SQLITE_OK;
 
    if (ok) {
       sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(statement, 2, state, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(statement, 3, reason ? reason : "User report", -1, SQLITE_TRANSIENT);
-      sqlite3_bind_int64(statement, 4, now);
+      if (!clearing) {
+         sqlite3_bind_text(statement, 2, state, -1, SQLITE_TRANSIENT);
+         sqlite3_bind_text(statement, 3, reason ? reason : "User report", -1, SQLITE_TRANSIENT);
+         sqlite3_bind_int64(statement, 4, time(NULL));
+      }
       ok = sqlite3_step(statement) == SQLITE_DONE;
    }
    sqlite3_finalize(statement);
