@@ -1,4 +1,5 @@
 #include <rrclient/local.bridge.h>
+#include <rrclient/rooms.h>
 //
 // rrclient/gtk/gtk.mode-box.c: Modulation mode/width widget
 //    This is part of rustyrig-fw.
@@ -59,8 +60,11 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       char vfo[2] = {
          vfo_state_get_active(), '\0'
       };
-      ws_send_width_cmd_in_room(ws_conn, vfo, text, gtk_chat_controls_room());
-      widthbox_last_send = now;
+      const char *room = gtk_chat_controls_room();
+      bool sent = room && !g_ascii_strcasecmp(room, "&local-sdr")
+         ? rrclient_local_bridge_set_width(rrclient_room_active_vfo("&local-sdr"), text)
+         : ws_send_width_cmd_in_room(ws_conn, vfo, text, room);
+      if (sent) widthbox_last_send = now;
 #endif // defined(USE_MONGOOSE)
       g_free((gchar *) text);
    }
@@ -73,13 +77,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       const char *room = gtk_chat_controls_room();
       bool sent = false;
       if (room && !g_ascii_strcasecmp(room, "&local-sdr")) {
-         uint64_t hz = 0;
-         const char *previous = NULL;
-         if (rrclient_local_bridge_state(&hz, &previous) && hz &&
-             g_ascii_strcasecmp(previous ? previous : "", text))
-            sent = rrclient_local_bridge_tune(hz, text);
-         else if (previous && !g_ascii_strcasecmp(previous, text))
-            sent = true;
+         sent = rrclient_local_bridge_set_mode(rrclient_room_active_vfo("&local-sdr"), text);
       } else {
 #if defined(USE_MONGOOSE)
          char vfo[2] = { vfo_state_get_active(), '\0' };
