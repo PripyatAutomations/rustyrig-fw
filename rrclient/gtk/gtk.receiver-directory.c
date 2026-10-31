@@ -389,6 +389,7 @@ static void import_clicked(GtkButton *button, gpointer unused) {
 
 static void copy_clicked(GtkButton *button, gpointer config);
 static void connect_clicked(GtkButton *button, gpointer save);
+static void favorite_clicked(GtkButton *button, gpointer unused);
 static void directory_menu_command(GtkMenuItem *item, gpointer user) {
    (void)item;
    const char *command = user;
