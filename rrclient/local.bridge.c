@@ -90,7 +90,7 @@ bool rrclient_local_bridge_waterfall_caps(unsigned *min_zoom, unsigned *max_zoom
    if (max_zoom) *max_zoom = b->caps.waterfall_zoom_max;
    return true;
 }
-bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom) {
+bool rrclient_local_bridge_waterfall_at(bool enabled, unsigned zoom, uint64_t center_hz) {
    bridge_instance *b = bridge_active();
    if (!b || b->control < 0 || !(b->caps.flags & RRP_BRIDGE_WATERFALL) ||
        zoom < b->caps.waterfall_zoom_min || zoom > b->caps.waterfall_zoom_max) return false;
@@ -100,7 +100,11 @@ bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom) {
    g_strlcpy(msg.driver, b->driver, sizeof(msg.driver));
    msg.available = enabled;
    msg.flags = zoom;
+   msg.frequency_hz = center_hz;
    return rrp_bridge_ipc_send(b->control, &msg);
+}
+bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom) {
+   return rrclient_local_bridge_waterfall_at(enabled, zoom, 0);
 }
 bool rrclient_local_bridge_active(void) {
    bridge_instance *b = bridge_active();
