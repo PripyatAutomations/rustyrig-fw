@@ -2,6 +2,7 @@
  * All control and resampler callbacks are owned by the client main context. */
 #include <rrclient/local.bridge.h>
 #include <rrclient/rooms.h>
+#include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 #include <rrclient/audio.h>
 #include <rrclient/receiver.directory.h>
