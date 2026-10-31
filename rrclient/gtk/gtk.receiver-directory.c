@@ -51,7 +51,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 extern GtkWidget *main_window, *main_notebook;
 static GtkWidget *directory_page, *search_entry, *accessible_only, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
-static GtkWidget *connect_button, *local_button, *add_button;
+static GtkWidget *connect_button, *local_button, *local_tune_button, *add_button;
 static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
@@ -176,6 +176,8 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
       bool local_connected = r && rrclient_local_bridge_connected(r->url);
       gtk_button_set_label(GTK_BUTTON(local_button), local_connected ? "Disconnect local" : "Connect locally");
       gtk_widget_set_sensitive(local_button, local_connected || (r && receiver_directory_entry_accessible(r) && !strcmp(r->driver, "kiwi")));
+      if (local_tune_button)
+         gtk_widget_set_sensitive(local_tune_button, local_connected && rrclient_local_bridge_active());
    }
    gtk_widget_set_sensitive(connect_button, connected || (r && receiver_directory_entry_accessible(r)));
    gtk_widget_set_sensitive(add_button, r && receiver_directory_entry_accessible(r));
@@ -452,6 +454,40 @@ static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event,
 
    return TRUE;
 }
+static void local_tune_clicked(GtkButton *button, gpointer unused) {
+   (void)button;
+   (void)unused;
+   const receiver_directory_entry_t *r = selected_receiver();
+   if (!r || !rrclient_local_bridge_connected(r->url)) return;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Tune local Kiwi", GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL,
+      "_Tune", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *entry = gtk_entry_new();
+   gtk_entry_set_text(GTK_ENTRY(entry), "14074000");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Frequency in Hz");
+   gtk_box_pack_start(GTK_BOX(area), gtk_label_new("Frequency (Hz)"), FALSE, FALSE, 4);
+   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 4);
+   GtkWidget *mode = gtk_combo_box_text_new();
+   const char *modes[] = { "USB", "LSB", "AM", "CW", "FM" };
+   for (unsigned i = 0; i < G_N_ELEMENTS(modes); i++)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode), modes[i]);
+   gtk_combo_box_set_active(GTK_COMBO_BOX(mode), 0);
+   gtk_box_pack_start(GTK_BOX(area), mode, FALSE, FALSE, 4);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *value = gtk_entry_get_text(GTK_ENTRY(entry));
+      char *end = NULL;
+      guint64 hz = g_ascii_strtoull(value, &end, 10);
+      char *selected_mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode));
+      if (!value || !*value || !end || *end || hz == 0 ||
+          !rrclient_local_bridge_tune(hz, selected_mode))
+         gtk_label_set_text(GTK_LABEL(directory_status),
+            "Local tuning rejected; check frequency, mode, or an outstanding tuning request.");
+      g_free(selected_mode);
+   }
+   gtk_widget_destroy(dialog);
+}
 static void local_connect_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -695,6 +731,7 @@ static gboolean directory_finish_show(gpointer unused) {
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
    connect_button = gtk_button_new_with_label("Connect");
    local_button = gtk_button_new_with_label("Connect locally");
+   local_tune_button = gtk_button_new_with_label("Tune local…");
    gtk_widget_set_tooltip_text(local_button, "Run the Kiwi receiver directly using a local rrbridge process; no rrserver connection required");
    add_button = gtk_button_new_with_label("Add to server config");
    gtk_widget_set_tooltip_text(connect_button,
@@ -702,9 +739,11 @@ static gboolean directory_finish_show(gpointer unused) {
    gtk_widget_set_tooltip_text(add_button, "Add this receiver to the selected server's configuration; requires websdr.admin");
    gtk_box_pack_start(GTK_BOX(buttons), connect_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(buttons), local_button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), local_tune_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(buttons), add_button, FALSE, FALSE, 0);
    g_signal_connect(connect_button, "clicked", G_CALLBACK(connect_clicked), NULL);
    g_signal_connect(local_button, "clicked", G_CALLBACK(local_connect_clicked), NULL);
+   g_signal_connect(local_tune_button, "clicked", G_CALLBACK(local_tune_clicked), NULL);
    g_signal_connect(add_button, "clicked", G_CALLBACK(connect_clicked), GINT_TO_POINTER(1));
    refresh_button = gtk_button_new_with_label("Refresh list");
    gtk_widget_set_tooltip_text(refresh_button, "Use the locally cached directory for four hours; Shift+click to force a fresh download.");
