@@ -414,6 +414,13 @@ void rrclient_direct_poll(void) {
              (unsigned long long)gaps_over_40ms,
              (unsigned long long)gaps_over_100ms,
              (unsigned long long)max_gap_us);
+      unsigned queue_high_water = 0;
+      uint64_t queue_max_age_us = 0;
+      rr_rtp_socket_ingress_stats(media_socket, &queue_high_water, &queue_max_age_us);
+      if (queue_high_water || queue_max_age_us >= 40000)
+         Log(queue_max_age_us >= 100000 ? LOG_WARN : LOG_INFO, "media.rtp.timing",
+             "RTP ingress backlog/10s: peak=%u/256 max-queue-delay=%lluus",
+             queue_high_water, (unsigned long long)queue_max_age_us);
       max_gap_us = gaps_over_40ms = gaps_over_100ms = 0;
       diag_at = now;
    }
