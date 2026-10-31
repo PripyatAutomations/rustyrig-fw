@@ -6,6 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Kiwi-specific networking and wire protocol; no client/UI state belongs here.
 #include <librrprotocol/bridge.sdr.h>
+#include <rrbridge/spectrum.row.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/module.h>
@@ -592,6 +593,14 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
          /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
           * Keep parsing conservative pending normalized spectrum transport. */
          if (m->data.len == 1040) {
+            rr_bridge_spectrum_row row = {
+               .magic = RR_BRIDGE_SPECTRUM_MAGIC, .version = 1,
+               .low_hz = 0, .high_hz = k->max_hz,
+               .sequence = (uint32_t)k->waterfall_rows,
+               .bins = RR_BRIDGE_SPECTRUM_BINS
+            };
+            memcpy(row.power, m->data.buf + 16, RR_BRIDGE_SPECTRUM_BINS);
+            rr_bridge_spectrum_send(RR_BRIDGE_SPECTRUM_FD, &row);
             k->waterfall_rows++;
             if (!k->waterfall_ready) {
                k->waterfall_ready = true;
