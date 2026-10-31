@@ -52,7 +52,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 
 
 extern GtkWidget *main_window, *main_notebook;
-static GtkWidget *directory_page, *search_entry, *accessible_only, *favorites_only, *proxy_bridge, *directory_tree;
+static GtkWidget *directory_page, *search_entry, *accessible_only, *connected_only, *favorites_only, *proxy_bridge, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *url_button;
 static GtkWidget *connect_button, *favorite_button;
 static GtkWidget *download_status, *download_spinner;
@@ -214,6 +214,9 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
    }
 
    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) && !receiver_directory_entry_accessible(r))
+      return FALSE;
+   if (connected_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(connected_only)) &&
+       !rrclient_local_bridge_connected(r->url) && !rrclient_receiver_is_connected(r->url))
       return FALSE;
    if (favorites_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) && !r->favorite)
       return FALSE;
@@ -544,6 +547,7 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
    if (directory_page && data) {
       gtk_label_set_text(GTK_LABEL(directory_status), data);
       selection_changed(NULL, NULL);
+      if (directory_filter) gtk_tree_model_filter_refilter(directory_filter);
 
       if (directory_store) {
          GtkTreeIter iter;
@@ -618,9 +622,15 @@ static gboolean directory_finish_show(gpointer unused) {
    gtk_box_pack_start(GTK_BOX(box), search_entry, FALSE, FALSE, 0);
    GtkWidget *filters = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
    gtk_box_pack_start(GTK_BOX(box), filters, FALSE, FALSE, 0);
-   accessible_only = gtk_check_button_new_with_label("Accessible only (API permitted; no known restriction or failure)");
+   accessible_only = gtk_check_button_new_with_label("Availability");
+   gtk_widget_set_tooltip_text(accessible_only,
+      "Show only receivers whose directory API policy permits access and which have no known restriction or reported connection failure. This does not guarantee that a receiver is currently online.");
+   connected_only = gtk_check_button_new_with_label("Connected?");
+   gtk_widget_set_tooltip_text(connected_only,
+      "Show only receivers currently connected locally or through an online rrserver.");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(accessible_only), TRUE);
    gtk_box_pack_start(GTK_BOX(filters), accessible_only, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(filters), connected_only, FALSE, FALSE, 0);
    favorites_only = gtk_check_button_new_with_label("Favorites only");
    gtk_box_pack_start(GTK_BOX(filters), favorites_only, FALSE, FALSE, 0);
    proxy_bridge = gtk_check_button_new_with_label("Proxy rrbridge?");
@@ -705,6 +715,7 @@ static gboolean directory_finish_show(gpointer unused) {
    g_signal_connect(url_button, "clicked", G_CALLBACK(copy_clicked), NULL);
    g_signal_connect(search_entry, "search-changed", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(accessible_only, "toggled", G_CALLBACK(filter_changed), NULL);
+   g_signal_connect(connected_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(favorites_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
    g_signal_connect(directory_tree, "button-press-event", G_CALLBACK(directory_context_menu), NULL);
