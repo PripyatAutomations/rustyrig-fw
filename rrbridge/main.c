@@ -343,7 +343,7 @@ int main(int argc, char **argv) {
 
             if (command.type == RRP_BRIDGE_IPC_WATERFALL) {
                if (driver->set_waterfall)
-                  driver->set_waterfall(instance, command.available != 0, command.flags);
+                  driver->set_waterfall(instance, command.available != 0, command.flags, command.frequency_hz);
                continue;
             }
             if (command.type != RRP_BRIDGE_IPC_SET || host.pending) {
