@@ -11,9 +11,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
-#include "gtk.floating-panel.h"
-#include "gtk.freqentry.h"
-#include <rrbridge/spectrum.row.h>
+#include "gtk.chat.h"
 #include <librustyaxe/event-bus.h>
 
 enum {
@@ -61,162 +59,6 @@ static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token, failure_token;
 static char *receiver_failure;
-static RRFloatPanel *local_vfo_panel;
-static GtkWidget *local_vfo_frequency, *local_vfo_mode, *local_vfo_status;
-static guint local_vfo_tick_source;
-static rr_event_token_t local_spectrum_token;
-static GtkWidget *local_spectrum_area;
-static rr_bridge_spectrum_row local_spectrum_last;
-static uint8_t local_spectrum_history[48][RR_BRIDGE_SPECTRUM_BINS];
-static unsigned local_spectrum_rows, local_spectrum_head;
-static gint64 local_spectrum_seen;
-static void local_spectrum_receive(const char *event, const void *data, size_t length, rrconn_t *conn, void *user) {
-   (void)event; (void)conn; (void)user;
-   if (!local_spectrum_area || length != sizeof(rr_bridge_spectrum_row)) return;
-   const rr_bridge_spectrum_row *row = data;
-   if (!rr_bridge_spectrum_valid(row)) return;
-   local_spectrum_last = *row;
-   memcpy(local_spectrum_history[local_spectrum_head], row->power, RR_BRIDGE_SPECTRUM_BINS);
-   local_spectrum_head = (local_spectrum_head + 1) % G_N_ELEMENTS(local_spectrum_history);
-   if (local_spectrum_rows < G_N_ELEMENTS(local_spectrum_history)) local_spectrum_rows++;
-   local_spectrum_seen = g_get_monotonic_time();
-   if (!gtk_widget_get_visible(local_spectrum_area)) gtk_widget_show(local_spectrum_area);
-   gtk_widget_queue_draw(local_spectrum_area);
-}
-static gboolean local_spectrum_draw(GtkWidget *widget, cairo_t *cr, gpointer user) {
-   (void)user;
-   GtkAllocation a;
-   gtk_widget_get_allocation(widget, &a);
-   double w = a.width, h = a.height;
-   cairo_set_source_rgb(cr, .03, .04, .07);
-   cairo_paint(cr);
-   if (!local_spectrum_rows) return FALSE;
-   cairo_set_source_rgb(cr, .25, .86, .55);
-   cairo_set_line_width(cr, 1.0);
-   for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++) {
-      double xx = x * w / (RR_BRIDGE_SPECTRUM_BINS - 1);
-      double yy = 50 * (1.0 - local_spectrum_last.power[x] / 255.0);
-      if (!x) cairo_move_to(cr, xx, yy);
-      else cairo_line_to(cr, xx, yy);
-   }
-   cairo_stroke(cr);
-   for (unsigned y = 0; y < local_spectrum_rows; y++) {
-      unsigned slot = (local_spectrum_head + G_N_ELEMENTS(local_spectrum_history) - y - 1)
-         % G_N_ELEMENTS(local_spectrum_history);
-      double yy = 51 + y * (h-68) / G_N_ELEMENTS(local_spectrum_history);
-      double step = (h-68) / G_N_ELEMENTS(local_spectrum_history);
-      if (step < 1) step = 1;
-      for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x += 4) {
-         double v = local_spectrum_history[slot][x] / 255.0;
-         cairo_set_source_rgb(cr, v > .5 ? (v-.5)*1.6 : 0, v*.7, .12+(1-v)*.55);
-         cairo_rectangle(cr, x*w/RR_BRIDGE_SPECTRUM_BINS, yy,
-            4*w/RR_BRIDGE_SPECTRUM_BINS+1, step);
-         cairo_fill(cr);
-      }
-   }
-   char label[96];
-   g_snprintf(label, sizeof(label), "%.3f – %.3f MHz RF",
-      local_spectrum_last.low_hz/1e6, local_spectrum_last.high_hz/1e6);
-   cairo_set_source_rgb(cr, .8, .85, .88);
-   cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-   cairo_set_font_size(cr, 11);
-   cairo_move_to(cr, 5, h-3);
-   cairo_show_text(cr, label);
-   return FALSE;
-}
-
-
-static gboolean local_vfo_tick(gpointer unused) {
-   (void)unused;
-   if (!local_vfo_panel) { local_vfo_tick_source = 0; return G_SOURCE_REMOVE; }
-   uint64_t hz = 0;
-   const char *mode = NULL;
-   bool online = rrclient_local_bridge_state(&hz, &mode);
-   gtk_widget_set_sensitive(local_vfo_frequency, online);
-   gtk_widget_set_sensitive(local_vfo_mode, online);
-   gtk_label_set_text(GTK_LABEL(local_vfo_status), online ? "Local receiver · RX only" : "Receiver disconnected");
-   if (local_spectrum_area && gtk_widget_get_visible(local_spectrum_area) &&
-       (!online || g_get_monotonic_time() - local_spectrum_seen > 10000000)) {
-      gtk_widget_hide(local_spectrum_area);
-      local_spectrum_rows = local_spectrum_head = 0;
-   }
-   if (online && !gtk_freq_entry_is_editing(GTK_FREQ_ENTRY(local_vfo_frequency))) {
-      if (gtk_freq_entry_get_frequency(GTK_FREQ_ENTRY(local_vfo_frequency)) != (unsigned long)hz)
-         gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(local_vfo_frequency), (unsigned long)hz);
-   }
-   if (online && mode) {
-      gchar *current = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(local_vfo_mode));
-      if (g_ascii_strcasecmp(current ? current : "", mode)) {
-         const char *modes[] = { "USB", "LSB", "AM", "CW" };
-         for (guint i = 0; i < G_N_ELEMENTS(modes); i++)
-            if (!g_ascii_strcasecmp(modes[i], mode)) gtk_combo_box_set_active(GTK_COMBO_BOX(local_vfo_mode), i);
-      }
-      g_free(current);
-   }
-   return G_SOURCE_CONTINUE;
-}
-static void local_vfo_mode_changed(GtkComboBox *combo, gpointer unused) {
-   (void)unused;
-   if (!rrclient_local_bridge_active()) return;
-   guint64 hz = gtk_freq_entry_get_frequency(GTK_FREQ_ENTRY(local_vfo_frequency));
-   gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
-   const char *current = NULL;
-   rrclient_local_bridge_state(NULL, &current);
-   if (hz && mode && g_ascii_strcasecmp(mode, current ? current : ""))
-      rrclient_local_bridge_tune(hz, mode);
-   g_free(mode);
-}
-static void local_vfo_close(gpointer unused) {
-   (void)unused;
-   if (local_vfo_tick_source) g_source_remove(local_vfo_tick_source);
-   local_vfo_tick_source = 0;
-   RRFloatPanel *panel = local_vfo_panel;
-   local_vfo_panel = NULL;
-   if (local_spectrum_token) event_off_token(local_spectrum_token);
-   local_spectrum_token = 0;
-   local_spectrum_area = NULL;
-   local_spectrum_rows = local_spectrum_head = 0;
-   local_vfo_frequency = local_vfo_mode = local_vfo_status = NULL;
-   if (panel) rr_floating_panel_destroy(panel);
-}
-static void local_vfo_show(void) {
-   if (!local_vfo_panel) {
-      GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
-      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
-      local_vfo_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-         "local-kiwi-vfo", "Local SDR — VFO A");
-      if (!local_vfo_panel) return;
-      rr_floating_panel_set_close_callback(local_vfo_panel, local_vfo_close, NULL);
-      GtkWidget *body = rr_floating_panel_body(local_vfo_panel);
-      local_spectrum_area = gtk_drawing_area_new();
-      gtk_widget_set_size_request(local_spectrum_area, 420, 135);
-      gtk_box_pack_start(GTK_BOX(body), local_spectrum_area, FALSE, FALSE, 0);
-      g_signal_connect(local_spectrum_area, "draw", G_CALLBACK(local_spectrum_draw), NULL);
-      gtk_widget_set_no_show_all(local_spectrum_area, TRUE);
-      gtk_widget_hide(local_spectrum_area);
-      local_spectrum_token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, local_spectrum_receive, NULL);
-      local_vfo_status = gtk_label_new("Connecting local SDR…");
-      gtk_box_pack_start(GTK_BOX(body), local_vfo_status, FALSE, FALSE, 3);
-      /* Reuse the normal digit-based rig VFO frequency widget, independently
-       * bound to the local SDR rather than the current rrserver room. */
-      local_vfo_frequency = gtk_freq_entry_new(-1);
-      g_object_set_data(G_OBJECT(local_vfo_frequency), "rr-local-sdr-vfo", GINT_TO_POINTER(1));
-      gtk_box_pack_start(GTK_BOX(body), local_vfo_frequency, FALSE, FALSE, 3);
-      local_vfo_mode = gtk_combo_box_text_new();
-      const char *modes[] = { "USB", "LSB", "AM", "CW" };
-      for (guint i = 0; i < G_N_ELEMENTS(modes); i++)
-         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(local_vfo_mode), modes[i]);
-      gtk_combo_box_set_active(GTK_COMBO_BOX(local_vfo_mode), 0);
-      gtk_box_pack_start(GTK_BOX(body), local_vfo_mode, FALSE, FALSE, 3);
-      g_signal_connect(local_vfo_mode, "changed", G_CALLBACK(local_vfo_mode_changed), NULL);
-      local_vfo_tick_source = g_timeout_add(200, local_vfo_tick, NULL);
-   }
-   rr_floating_panel_show(local_vfo_panel);
-   local_vfo_tick(NULL);
-}
-
-
-
 /* Sort Country by region then city where region abbreviations are reliable. */
 static bool region_code(const char *country, const char *piece) {
    static const char *us =
@@ -911,7 +753,6 @@ void gtk_receiver_directory_init(void) {
    failure_token = event_on_token("client.receiver-directory.failed", receiver_failed, NULL);
 }
 void gtk_receiver_directory_shutdown(void) {
-   local_vfo_close(NULL);
    if (connection_token) {
       event_off_token(connection_token);
    }
