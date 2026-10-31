@@ -70,6 +70,7 @@ extra_build += callsign-lookup-world
 endif
 include rrbridge/rules.mk
 include libfwdspmgr/rules.mk
+include librrsdrutils/rules.mk
 
 ifeq (${BUILD_RRCLIENT},true)
 include rrclient/rules.mk
@@ -115,7 +116,7 @@ world: after-eeprom
 # Build configured programs and run the maintained project test suites.
 TEST_SUITES ?= selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient fwdsp libfwdspmgr www
 .PHONY: test
-test tests: ${bins}
+test tests: ${bins} test-rrsdrutils
 	./tests/run-tests.sh ${TEST_SUITES}
 
 after-eeprom: ${EEPROM_FILE} ${BUILD_DIR}/build_config.h
