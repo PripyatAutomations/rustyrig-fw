@@ -12,6 +12,9 @@ bool rrclient_local_bridge_state(uint64_t *hz, const char **mode);
 bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode);
 bool rrclient_local_bridge_tune(uint64_t hz, const char *mode);
 bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode);
+bool rrclient_local_bridge_set_frequency(char vfo, uint64_t hz);
+bool rrclient_local_bridge_set_mode(char vfo, const char *mode);
+bool rrclient_local_bridge_set_width(char vfo, const char *width);
 void rrclient_local_bridge_disconnect_url(const char *url);
 void rrclient_local_bridge_disconnect(void);
 #endif
