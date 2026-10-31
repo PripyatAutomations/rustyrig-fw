@@ -458,7 +458,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       if (!rrclient_local_bridge_connect_driver(r->url, r->driver && *r->driver ? r->driver : "kiwi"))
          gtk_label_set_text(GTK_LABEL(directory_status), "Unable to start local SDR bridge");
       else
-         local_vfo_show();
+         gtk_chat_room_add("&local-sdr");
       selection_changed(NULL, NULL);
       return;
    }
