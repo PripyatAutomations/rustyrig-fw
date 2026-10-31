@@ -396,6 +396,11 @@ bool rrclient_room_set_vfos(const char *room, const char *vfos) {
 }
 
 bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
+   if (is_local_sdr(room)) {
+      local_sdr_present = true;
+      local_sdr_room.vfo_mask = (uint32_t)mask;
+      return true;
+   }
    char vfos[256] = "";
    size_t used = 0;
 
