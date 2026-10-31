@@ -6,6 +6,8 @@
 #include <rrclient/audio.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/gtk/gtk.spectrum.h>
+#include <rrbridge/spectrum.row.h>
+#include <librustyaxe/event-bus.h>
 
 #define HISTORY 48
 typedef struct {
@@ -249,4 +251,69 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    p->timer = g_timeout_add(250, update, p);
 
    return box;
+}
+
+
+/* RF rows arrive on the main event bus, independently of audio and GTK.
+ * The bridge host currently publishes the active local VFO only. */
+typedef struct {
+   GtkWidget *drawing;
+   rr_bridge_spectrum_row rows[32];
+   unsigned head, count;
+   gint64 received_at;
+   rr_event_token_t token;
+} rf_strip_t;
+static void rf_row(const char *event, const void *data, size_t len,
+                   rrconn_t *connection, void *user) {
+   (void)event; (void)connection;
+   rf_strip_t *p = user;
+   if (len != sizeof(rr_bridge_spectrum_row) || !data) return;
+   const rr_bridge_spectrum_row *row = data;
+   if (!rr_bridge_spectrum_valid(row)) return;
+   p->rows[p->head] = *row;
+   p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
+   p->count = MIN(p->count + 1, G_N_ELEMENTS(p->rows));
+   p->received_at = g_get_monotonic_time();
+   gtk_widget_queue_draw(p->drawing);
+}
+static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+   rf_strip_t *p = data;
+   int w = gtk_widget_get_allocated_width(widget);
+   int h = gtk_widget_get_allocated_height(widget);
+   cairo_set_source_rgb(cr, .06, .08, .11);
+   cairo_paint(cr);
+   if (!p->count || g_get_monotonic_time() - p->received_at > 3000000)
+      return FALSE;
+   int depth = MIN((int)p->count, 32);
+   double row_h = (double)h / depth;
+   for (int y = 0; y < depth; y++) {
+      const rr_bridge_spectrum_row *row =
+         &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows)];
+      for (int x = 0; x < w; x++) {
+         unsigned bin = (unsigned)((uint64_t)x * RR_BRIDGE_SPECTRUM_BINS / MAX(w, 1));
+         double value = row->power[bin] / 255.0;
+         uint32_t rgb = palette_pixel(value);
+         cairo_set_source_rgb(cr, ((rgb >> 16) & 255) / 255.,
+            ((rgb >> 8) & 255) / 255., (rgb & 255) / 255.);
+         cairo_rectangle(cr, x, y * row_h, 1.5, row_h + .5);
+         cairo_fill(cr);
+      }
+   }
+   return FALSE;
+}
+static void rf_destroy(gpointer data) {
+   rf_strip_t *p = data;
+   if (p->token) event_off_binary_token(p->token);
+   g_free(p);
+}
+GtkWidget *rr_gtk_rf_spectrum_new(void) {
+   rf_strip_t *p = g_new0(rf_strip_t, 1);
+   GtkWidget *drawing = gtk_drawing_area_new();
+   p->drawing = drawing;
+   gtk_widget_set_size_request(drawing, 320, 82);
+   gtk_widget_set_tooltip_text(drawing, "RF waterfall from the selected local SDR VFO");
+   g_object_set_data_full(G_OBJECT(drawing), "rr-rf-spectrum", p, rf_destroy);
+   g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
+   p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
+   return drawing;
 }
