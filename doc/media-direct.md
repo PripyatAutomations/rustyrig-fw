@@ -304,3 +304,21 @@ Extend RTP socket creation, parsing, and per-client candidate selection to IPv6,
 including bracketed IPv6 URL literals, scoped link-local addresses, IPv6 exclusions
 and route-selected source addresses. Exclude `::1` and `127.0.0.0/8` by default.
 Exercise mixed-family referrals, VPN interfaces and NAT/firewall fallback.
+
+## Client UDP ingress worker (experimental, 2026-10-31)
+
+The client now calls `rr_rtp_socket_start_ingress()` when opening its
+first RTP socket. A dedicated thread performs only UDP receive and places
+datagrams in a bounded 256-slot queue. The RTP socket owner continues to
+handle attachment matching, authentication, replay/decryption, probing,
+channel control, and media dispatch in `rr_rtp_socket_poll()`. This keeps
+the mutable RTP attachment table single-threaded.
+
+If the worker cannot start, the original nonblocking recvfrom loop is
+retained. Queue overruns log `RTP ingress queue drops`.
+
+This is **stage one**, not complete network/media isolation: the owner loop
+still drains and processes received datagrams, so a stalled GTK/main
+context can still delay decoding and audio presentation. Next stage should
+move RTP decode/dispatch to an isolated media worker with explicit
+lifetime-safe channel handles and bounded PCM ingress to audio.
