@@ -1,3 +1,4 @@
+#include <rrclient/local.bridge.h>
 //
 // rrclient/gtk/gtk.mode-box.c: Modulation mode/width widget
 //    This is part of rustyrig-fw.
@@ -76,7 +77,16 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       };
       const char *room = gtk_chat_current_room();
 
-      if (ws_send_mode_cmd_in_room(ws_conn, vfo, text, room)) {
+      bool sent = false;
+      if (room && !g_ascii_strcasecmp(room, "&local-sdr")) {
+         uint64_t hz = 0;
+         const char *previous = NULL;
+         if (rrclient_local_bridge_state(&hz, &previous) && hz)
+            sent = rrclient_local_bridge_tune(hz, text);
+      } else {
+         sent = ws_send_mode_cmd_in_room(ws_conn, vfo, text, room);
+      }
+      if (sent) {
          modebox_last_send = now;
       } else {
          Log(LOG_WARN, "gtk.modebox", "Unable to send mode %s for VFO %s in room %s", text, vfo, room ? room : "(none)");
