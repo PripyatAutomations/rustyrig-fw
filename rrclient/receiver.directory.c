@@ -19,7 +19,7 @@
 
 #define DIRECTORY_MAX_BODY (8 * 1024 * 1024)
 #define DIRECTORY_MAX_ROWS 10000
-#define DIRECTORY_INTERVAL (4 * 3600)  /* Respect directory mirrors: four-hour minimum interval. */
+#define DIRECTORY_INTERVAL (3600)  /* Local cache is fresh for one hour. */
 extern time_t now;
 static GPtrArray *receivers;
 static char *payload, *source, *etag, *modified;
@@ -1393,12 +1393,6 @@ bool receiver_directory_refresh_force(bool force) {
    }
    rrclient_receiver_catalog_init();
 
-   if (rrclient_receiver_catalog_request(force)) {
-      g_snprintf(status_text, sizeof(status_text), "Loading SDR catalog from connected rrserver; local cache remains available.");
-      changed();
-
-      return true;
-   }
    const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
 
    if (!url || !*url) {
@@ -1423,6 +1417,15 @@ bool receiver_directory_refresh_force(bool force) {
       return false;
    }
 
+   /* Display cached records immediately, regardless of where the last
+    * verified snapshot came from. Fetch only when older than one hour. */
+   if (!force && receivers && receivers->len && next_request > now) {
+      g_snprintf(status_text, sizeof(status_text),
+         "Using %u cached receivers; refresh in %lld seconds.",
+         receivers->len, (long long)(next_request - now));
+      changed();
+      return false;
+   }
    if (!force && !g_strcmp0(source, url) && now < next_request) {
       g_snprintf(status_text, sizeof(status_text), "Using %u cached receivers. Next refresh allowed in %lld seconds.", receivers->len, (long long)(next_request
          - now));
