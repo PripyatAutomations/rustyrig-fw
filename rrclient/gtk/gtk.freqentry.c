@@ -426,7 +426,9 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
       const char *room = gtk_chat_current_room();
 
       bool bound_local = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(fe), "rr-local-sdr-vfo")) != 0;
-      bool local_only = bound_local || (rrclient_local_bridge_active() && (!ws_conn || !ws_conn->authenticated));
+      bool local_room = room && !g_ascii_strcasecmp(room, "&local-sdr");
+      bool local_only = bound_local || local_room ||
+         (rrclient_local_bridge_active() && (!ws_conn || !ws_conn->authenticated));
       bool sent = false;
       if (local_only) {
          const char *mode = NULL;
