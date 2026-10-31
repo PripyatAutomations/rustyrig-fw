@@ -587,8 +587,12 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       const char *commands[] = { "SET wf_comp=0", "SET zoom=0 cf=0", "SET wf_speed=1" };
       for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++)
          mg_ws_send(c, commands[i], strlen(commands[i]), WEBSOCKET_OP_TEXT);
+   } else if (event == MG_EV_ERROR) {
+      note(k, "Kiwi W/F connection error: %s", (const char *)data);
    } else if (event == MG_EV_WS_MSG) {
       struct mg_ws_message *m = data;
+      if (!k->waterfall_ready && k->waterfall_rows == 0 && m->data.len > 0)
+         note(k, "Kiwi W/F first frame: %zu bytes, type=0x%x", m->data.len, m->flags);
       if (m->data.len >= 1040 && !memcmp(m->data.buf, "W/F", 3)) {
          /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
           * Keep parsing conservative pending normalized spectrum transport. */
@@ -611,6 +615,8 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_READ && c->recv.len > 65536) {
       c->is_closing = 1;
    } else if (event == MG_EV_CLOSE && c == k->waterfall) {
+      if (!k->waterfall_ready)
+         note(k, "Kiwi W/F socket closed before receiving spectrum data");
       k->waterfall = NULL;
       k->waterfall_ready = false;
       k->waterfall_retry = mono_us() + UINT64_C(10000000);
