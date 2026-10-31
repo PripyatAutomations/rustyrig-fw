@@ -423,7 +423,7 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
       char vfo[2] = {
          vfo_state_get_active(), '\0'
       };
-      const char *room = gtk_chat_current_room();
+      const char *room = gtk_chat_controls_room();
 
       bool bound_local = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(fe), "rr-local-sdr-vfo")) != 0;
       bool local_room = room && !g_ascii_strcasecmp(room, "&local-sdr");
