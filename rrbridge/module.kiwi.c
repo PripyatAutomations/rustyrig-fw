@@ -27,7 +27,7 @@ struct kiwi_instance {
    struct mg_mgr manager;
    struct mg_connection *connection;
    struct mg_connection *waterfall;
-   bool waterfall_enabled, waterfall_ready;
+   bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged;
    uint64_t waterfall_rows, waterfall_retry;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
@@ -593,7 +593,8 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       note(k, detail);
    } else if (event == MG_EV_WS_MSG) {
       struct mg_ws_message *m = data;
-      if (!k->waterfall_ready && !k->waterfall_rows && m->data.len > 0) {
+      if (!k->waterfall_first_frame_logged && m->data.len > 0) {
+         k->waterfall_first_frame_logged = true;
          char detail[128];
          snprintf(detail, sizeof(detail), "Kiwi W/F frame: %zu bytes, type=0x%x", m->data.len, m->flags);
          note(k, detail);
@@ -624,6 +625,7 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
          note(k, "Kiwi W/F socket closed before receiving spectrum data");
       k->waterfall = NULL;
       k->waterfall_ready = false;
+      k->waterfall_first_frame_logged = false;
       k->waterfall_retry = mono_us() + UINT64_C(10000000);
    }
 }
