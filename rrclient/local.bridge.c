@@ -301,8 +301,8 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    bridge_instance *b = g_new0(bridge_instance, 1);
    b->slot = slot;
    b->control = b->media = b->spectrum = -1;
-   g_snprintf(b->stream, sizeof(b->stream), "b->sdr.%c", 'A' + slot);
-   g_snprintf(b->resampler, sizeof(b->resampler), "proc.b->sdr.%c", 'A' + slot);
+   g_snprintf(b->stream, sizeof(b->stream), "local.sdr.%c", 'A' + slot);
+   g_snprintf(b->resampler, sizeof(b->resampler), "proc.local.sdr.%c", 'A' + slot);
    bridges[slot] = b;
    char *config = NULL;
    int tmp = g_file_open_tmp("rustyrig-local-bridge-XXXXXX", &config, NULL);
