@@ -97,6 +97,7 @@ void rrclient_local_bridge_disconnect(void) {
    local.pending = 0;
    memset(&local.caps, 0, sizeof(local.caps));
    event_emit("client.receiver-directory.connection", NULL, "Local SDR disconnected.");
+   event_emit("client.audio.streams.changed", NULL, NULL);
 }
 static void local_child_exited(GPid pid, gint status, gpointer unused) {
    (void)status;
@@ -134,6 +135,7 @@ static gboolean poll_local(gpointer unused) {
             receiver_directory_record_connection(local.url);
             Log(LOG_INFO, "local.bridge", "Local Kiwi online: %s", local.url);
             event_emit("client.receiver-directory.connection", NULL, "Local Kiwi connected.");
+            event_emit("client.audio.streams.changed", NULL, NULL);
          }
       } else if (m.type == RRP_BRIDGE_IPC_LOG) {
          Log(LOG_INFO, "local.bridge", "%s", m.metadata_value);
