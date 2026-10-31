@@ -31,3 +31,34 @@ one upstream receiver among multiple clients. The server setting
 `bridge.proxy-enabled=true` (default) allows this; setting it to `false`
 refuses new server-side SDR bridge requests. Local direct connections are
 unaffected.
+
+## Client-owned multi-receiver room: &local-sdr
+
+The local bridge RX stream is now identified by room `&local-sdr`
+in the audio routing model. This is a client-owned logical room, NOT an
+rrserver channel/JOIN, and it must not be stored in the per-server
+`rrclient_rooms_context` (the latter swaps on connection selection).
+
+Next integration steps:
+
+- Introduce a persistent client-local room/resource registry with stable
+  receiver IDs and independent bindings for VFO A, B, C... Each bridge
+  instance owns one RX-only VFO with its own audio stream and optional
+  spectrum source. A multi-receiver room is a group, not a shared-LO rig.
+- Replace the current singleton global `create_vfo_box()` state with
+  per-instance bindings (room ID + VFO ID + adapter). Share the existing
+  GTK layout and controls; tuning dispatch must use the binding, not
+  `ws_conn` or the selected chat tab.
+- Make `&local-sdr` available in client room navigation and Explorer
+  independent of any rrserver session. Its VFO windows may coexist with
+  remote-rig windows and each may retain its own selection.
+- Route each SDR's PCM stream separately into the RX mixer, exposing
+  `S/L/R/M` routing per receiver. Do not mix sources upstream or create
+  a fake shared CAT rig.
+- Move the optional RF strip/waterfall to the reusable VFO panel body
+  once the shared widget is instance-safe. Remove the temporary local
+  frequency/mode/Tune widgets afterward.
+
+**Status:** The audio room label is migrated. The rest is architecture
+work, not yet implemented: local Kiwi still has one bridge instance and
+the temporary dedicated local tuning panel.
