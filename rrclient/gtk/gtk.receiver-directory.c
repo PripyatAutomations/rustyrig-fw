@@ -57,7 +57,7 @@ static GtkWidget *connect_button, *favorite_button;
 static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
-static rr_event_token_t directory_token, show_token, connection_token, failure_token;
+static rr_event_token_t directory_token, show_token, connection_token, failure_token, local_vfo_token;
 static char *receiver_failure;
 /* Sort Country by region then city where region abbreviations are reliable. */
 static bool region_code(const char *country, const char *piece) {
@@ -746,13 +746,22 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    g_object_set_data(G_OBJECT(directory_page), "initial-loading", loading);
    g_idle_add(directory_finish_show, NULL);
 }
+static void local_vfo_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event; (void)data; (void)connection; (void)unused;
+   /* The bridge can become ready after the tab was selected. Re-evaluate
+    * VFO visibility using the same room path as an rrserver announcement. */
+   gtk_chat_room_vfos_changed("&local-sdr");
+}
 void gtk_receiver_directory_init(void) {
    connection_token = event_on_token("client.receiver-directory.connection", connection_status, NULL);
+   local_vfo_token = event_on_token("client.local-bridge.vfo", local_vfo_changed, NULL);
    directory_token = event_on_token("client.receiver-directory.changed", directory_changed, NULL);
    show_token = event_on_token("client.receiver-directory.show", show_directory, NULL);
    failure_token = event_on_token("client.receiver-directory.failed", receiver_failed, NULL);
 }
 void gtk_receiver_directory_shutdown(void) {
+   if (local_vfo_token) event_off_token(local_vfo_token);
+   local_vfo_token = 0;
    if (connection_token) {
       event_off_token(connection_token);
    }
