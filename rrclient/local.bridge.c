@@ -28,6 +28,8 @@ static struct {
    char *url, *config;
    bool online, pcm_started;
    unsigned rate;
+   uint64_t pending, serial;
+   rrp_bridge_ipc_message_t caps;
 } local = { .control = -1, .media = -1 };
 
 #define LOCAL_STREAM "local.kiwi.rx"
@@ -35,6 +37,24 @@ static struct {
 
 bool rrclient_local_bridge_connected(const char *url) {
    return local.pid > 0 && local.url && url && !strcmp(local.url, url);
+}
+bool rrclient_local_bridge_active(void) {
+   return local.pid > 0 && local.online;
+}
+bool rrclient_local_bridge_tune(uint64_t hz, const char *mode) {
+   if (!rrclient_local_bridge_active() || local.control < 0 ||
+       local.pending || !(local.caps.flags & RRP_BRIDGE_RX) ||
+       hz < local.caps.rx_min_hz || hz > local.caps.rx_max_hz ||
+       !mode || !rrp_bridge_mode_valid(local.caps.rx_modes, mode))
+      return false;
+   rrp_bridge_ipc_message_t command;
+   rrp_bridge_ipc_init(&command, RRP_BRIDGE_IPC_SET);
+   command.request = ++local.serial;
+   command.frequency_hz = hz;
+   g_strlcpy(command.mode, mode, sizeof(command.mode));
+   if (!rrp_bridge_ipc_send(local.control, &command)) return false;
+   local.pending = command.request;
+   return true;
 }
 static void local_pcm(const char *name, const void *pcm, size_t bytes, void *unused) {
    (void)name;
@@ -74,6 +94,8 @@ void rrclient_local_bridge_disconnect(void) {
    g_clear_pointer(&local.url, g_free);
    local.online = false;
    local.rate = 0;
+   local.pending = 0;
+   memset(&local.caps, 0, sizeof(local.caps));
    event_emit("client.receiver-directory.connection", NULL, "Local SDR disconnected.");
 }
 static void local_child_exited(GPid pid, gint status, gpointer unused) {
@@ -97,7 +119,15 @@ static gboolean poll_local(gpointer unused) {
          rrclient_local_bridge_disconnect();
          return G_SOURCE_REMOVE;
       }
-      if (m.type == RRP_BRIDGE_IPC_STATE) {
+      if (m.type == RRP_BRIDGE_IPC_CAPABILITIES) {
+         local.caps = m;
+      } else if (m.type == RRP_BRIDGE_IPC_RESULT) {
+         if (m.request == local.pending) {
+            local.pending = 0;
+            if (!m.success)
+               Log(LOG_WARN, "local.bridge", "Local SDR tuning request rejected");
+         }
+      } else if (m.type == RRP_BRIDGE_IPC_STATE) {
          bool was_online = local.online;
          local.online = m.available != 0;
          if (local.online && !was_online) {
@@ -166,7 +196,7 @@ bool rrclient_local_bridge_connect(const char *url) {
       return false;
    }
    close(tmp);
-   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\n", host, port);
+   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nfrequency=14074000\nmode=USB\n", host, port);
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
