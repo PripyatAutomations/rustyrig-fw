@@ -1,5 +1,20 @@
 # Client frontend threading — revised direction
 
+## Branch status (v1.1/frontend-threading)
+
+The first implementation milestone is in this branch:
+
+- `rrclient/thread.dispatch.[ch]`: one-shot, owned-payload GLib dispatch
+  to an explicit context, with closed-queue rejection and cleanup.
+- `rrclient/rules.mk`: links the dispatcher into the client core.
+- `rrclient/tests/test_thread_dispatch.sh`: tests delivery and rejection.
+
+**Not enabled yet:** GTK-thread startup and frontend event migration. The
+current client still uses the original shared default context; no unsafe
+half-migration of network polling has been attempted. Build and GTK runtime
+verification are still required. The obsolete `core.loop` experiment is
+not used for this topology.
+
 ## Preferred Linux/GTK3 topology
 
 **Core owns the process main thread and default GLib context**, identical
