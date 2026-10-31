@@ -51,7 +51,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 extern GtkWidget *main_window, *main_notebook;
 static GtkWidget *directory_page, *search_entry, *accessible_only, *favorites_only, *proxy_bridge, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *url_button;
-static GtkWidget *connect_button, *local_button, *local_tune_button, *favorite_button;
+static GtkWidget *connect_button, *local_tune_button, *favorite_button;
 static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
@@ -175,13 +175,8 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    bool connected = r && rrclient_receiver_is_connected(r->url);
    gtk_button_set_label(GTK_BUTTON(connect_button),
       r && (connected || rrclient_local_bridge_connected(r->url)) ? "Disconnect" : "Connect");
-   if (local_button) {
-      bool local_connected = r && rrclient_local_bridge_connected(r->url);
-      gtk_button_set_label(GTK_BUTTON(local_button), local_connected ? "Disconnect local" : "Connect locally");
-      gtk_widget_set_sensitive(local_button, local_connected || (r && receiver_directory_entry_accessible(r) && !strcmp(r->driver, "kiwi")));
-      if (local_tune_button)
-         gtk_widget_set_sensitive(local_tune_button, local_connected && rrclient_local_bridge_active());
-   }
+   if (local_tune_button)
+      gtk_widget_set_sensitive(local_tune_button, r && rrclient_local_bridge_connected(r->url) && rrclient_local_bridge_active());
    gtk_widget_set_sensitive(connect_button, r && (connected || rrclient_local_bridge_connected(r->url) || receiver_directory_entry_accessible(r)));
 
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
@@ -481,20 +476,6 @@ static void local_tune_clicked(GtkButton *button, gpointer unused) {
    }
    gtk_widget_destroy(dialog);
 }
-static void local_connect_clicked(GtkButton *button, gpointer unused) {
-   (void)button;
-   (void)unused;
-   const receiver_directory_entry_t *r = selected_receiver();
-   if (!r) return;
-   if (rrclient_local_bridge_connected(r->url)) {
-      rrclient_local_bridge_disconnect();
-   } else if (!rrclient_local_bridge_connect(r->url)) {
-      gtk_label_set_text(GTK_LABEL(directory_status),
-         "Unable to start local Kiwi bridge; check rrbridge executable/modules and client logs.");
-   }
-   selection_changed(NULL, NULL);
-   populate();
-}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -630,14 +611,6 @@ static void favorite_clicked(GtkButton *button, gpointer unused) {
    const receiver_directory_entry_t *r = selected_receiver();
    if (r) receiver_directory_set_favorite(r->url, !r->favorite);
 }
-static void state_clicked(GtkButton *button, gpointer state) {
-   (void)button;
-   const receiver_directory_entry_t *r = selected_receiver();
-
-   if (r) {
-      receiver_directory_set_state(r->url, state, "User report; receiver was not probed");
-   }
-}
 static gboolean directory_populate_idle(gpointer unused) {
    (void)unused;
 
@@ -744,9 +717,7 @@ static gboolean directory_finish_show(gpointer unused) {
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
    connect_button = gtk_button_new_with_label("Connect");
-   local_button = gtk_button_new_with_label("Connect locally");
    local_tune_button = gtk_button_new_with_label("Tune local…");
-   gtk_widget_set_tooltip_text(local_button, "Run the Kiwi receiver directly using a local rrbridge process; no rrserver connection required");
    favorite_button = gtk_button_new_with_label("Add to favorites");
    gtk_widget_set_tooltip_text(connect_button, "Connect to the SDR using the selected local or rrserver bridge policy");
    gtk_box_pack_start(GTK_BOX(buttons), connect_button, FALSE, FALSE, 0);
@@ -765,7 +736,6 @@ static gboolean directory_finish_show(gpointer unused) {
    g_signal_connect(refresh_button, "clicked", G_CALLBACK(refresh_clicked), NULL);
    g_signal_connect(import, "clicked", G_CALLBACK(import_clicked), NULL);
    g_signal_connect(url_button, "clicked", G_CALLBACK(copy_clicked), NULL);
-   g_signal_connect(config_button, "clicked", G_CALLBACK(copy_clicked), GINT_TO_POINTER(1));
    g_signal_connect(search_entry, "search-changed", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(accessible_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(favorites_only, "toggled", G_CALLBACK(filter_changed), NULL);
