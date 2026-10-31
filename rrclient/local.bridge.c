@@ -148,7 +148,7 @@ bool rrclient_local_bridge_connect(const char *url) {
       g_uri_unref(uri);
       return false;
    }
-   if (port <= 0) port = !g_ascii_strcasecmp(scheme, "https") ? 443 : 8073;
+   if (port <= 0) port = !g_ascii_strcasecmp(scheme, "https") ? 443 : 80;
    char *program = g_find_program_in_path("rrbridge");
    if (!program && g_file_test("./bin/rrbridge", G_FILE_TEST_IS_EXECUTABLE))
       program = g_strdup("./bin/rrbridge");
@@ -190,8 +190,9 @@ bool rrclient_local_bridge_connect(const char *url) {
    posix_spawn_file_actions_init(&actions);
    posix_spawn_file_actions_adddup2(&actions, control[1], RRP_BRIDGE_IPC_FD);
    posix_spawn_file_actions_adddup2(&actions, media[1], RRP_BRIDGE_MEDIA_FD);
-   posix_spawn_file_actions_addclose(&actions, control[0]);
-   posix_spawn_file_actions_addclose(&actions, media[0]);
+   /* Parent sockets have CLOEXEC. Closing their numeric descriptors in
+    * spawn file-actions could accidentally close target fd 3 or fd 4
+    * after dup2 when the process starts with few open descriptors. */
    char *const argv[] = { program, "--config", config, "--bridge", "local", NULL };
    pid_t pid = 0;
    int rc = posix_spawn(&pid, program, &actions, NULL, argv, environ);
