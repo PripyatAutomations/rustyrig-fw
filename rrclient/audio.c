@@ -85,7 +85,11 @@ bool audio_local_rx_start(const char *id) {
    return rx_engine && id && rr_audio_engine_add_stream(rx_engine, id);
 }
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
-   return rx_engine && id && pcm && rr_audio_engine_push(rx_engine, id, pcm, frames);
+   if (!id || !pcm || !frames) return false;
+   /* Local bridge audio bypasses client_channel_pcm(), where remote AF
+    * spectrum is normally fed. Capture here before routing/muting. */
+   rr_af_spectrum_push(id, pcm, frames);
+   return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
 void audio_local_rx_stop(const char *id) {
    if (rx_engine && id) rr_audio_engine_remove_stream(rx_engine, id);
