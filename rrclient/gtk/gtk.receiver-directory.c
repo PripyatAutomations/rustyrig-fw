@@ -16,7 +16,7 @@
 #include <librustyaxe/event-bus.h>
 
 enum {
-   COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_CONNECTED_COLOR, COL_COUNT
+   COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_CONNECTED_COLOR, COL_GROUP, COL_COUNT
 };
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
 static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
@@ -56,7 +56,7 @@ static GtkWidget *directory_page, *search_entry, *accessible_only, *connected_on
 static GtkWidget *directory_status, *directory_details, *refresh_button, *url_button;
 static GtkWidget *connect_button, *favorite_button;
 static GtkWidget *download_status, *download_spinner;
-static GtkListStore *directory_store;
+static GtkTreeStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token, failure_token, local_vfo_token;
 static char *receiver_failure;
@@ -152,6 +152,7 @@ static const receiver_directory_entry_t *selected_receiver(void) {
    guint index;
    gtk_tree_model_get(model, &iter, COL_INDEX, &index, -1);
 
+   if (index == G_MAXUINT) return NULL;
    return receiver_directory_receiver(index);
 }
 static char *observation_time(long long stamp) {
@@ -207,6 +208,7 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
    (void)unused;
    guint index;
    gtk_tree_model_get(model, iter, COL_INDEX, &index, -1);
+   if (index == G_MAXUINT) return TRUE;
    const receiver_directory_entry_t *r = receiver_directory_receiver(index);
 
    if (!r) {
@@ -253,19 +255,46 @@ static void populate(void) {
    }
    /* GtkTreeModelSort atop GtkTreeModelFilter cannot safely be switched to UNSORTED during a live rebuild: GTK can assert in fill_sort_data() while
     * selection/filter callbacks are running. Keep sort columns stable. */
-   gtk_list_store_clear(directory_store);
+   gtk_tree_store_clear(directory_store);
    size_t count = receiver_directory_count();
-
-   for (size_t i = 0 ; i < count ; i++) {
+   GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   GtkTreeIter connected_group;
+   gtk_tree_store_append(directory_store, &connected_group, NULL);
+   gtk_tree_store_set(directory_store, &connected_group, COL_INDEX, G_MAXUINT,
+      COL_NAME, "Connected SDRs", COL_COUNTRY, "", COL_GROUP, "0", -1);
+   for (size_t i = 0; i < count; i++) {
       const receiver_directory_entry_t *r = receiver_directory_receiver(i);
-      GtkTreeIter iter;
+      if (!r) continue;
+      const char *country = r->country && *r->country ? r->country : "Country unknown";
+      GtkTreeIter *parent = g_hash_table_lookup(groups, country);
+      if (!parent) {
+         parent = g_new0(GtkTreeIter, 1);
+         gtk_tree_store_append(directory_store, parent, NULL);
+         gtk_tree_store_set(directory_store, parent, COL_INDEX, G_MAXUINT,
+            COL_NAME, country, COL_COUNTRY, country, COL_GROUP, "1", -1);
+         g_hash_table_insert(groups, g_strdup(country), parent);
+      }
+      bool local = rrclient_local_bridge_connected(r->url);
+      bool remote = rrclient_receiver_is_connected(r->url);
       char users[32];
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
-      gtk_list_store_append(directory_store, &iter);
-      gtk_list_store_set(directory_store, &iter, COL_INDEX, (guint) i, COL_NAME, *r->name ? r->name : r->url, COL_LOCATION, r->location, COL_COUNTRY, r->country
-         , COL_USERS, users, COL_API, api_policy(r), COL_STATE, rrclient_local_bridge_connected(r->url) ? "Local" : rrclient_receiver_is_connected(r->url) ? "Connected" : receiver_state(r), COL_CONNECTED_COLOR,
-         (rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url)) ? "connected" : NULL, COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, -1);
+      for (unsigned copy = 0; copy < ((local || remote) ? 2u : 1u); copy++) {
+         GtkTreeIter iter;
+         GtkTreeIter *group = (local || remote) && !copy ? &connected_group : parent;
+         gtk_tree_store_append(directory_store, &iter, group);
+         gtk_tree_store_set(directory_store, &iter, COL_INDEX, (guint)i,
+            COL_NAME, *r->name ? r->name : r->url,
+            COL_LOCATION, r->location, COL_COUNTRY, r->country,
+            COL_USERS, users, COL_API, api_policy(r),
+            COL_STATE, local ? "Local" : remote ? "Connected (server)" : receiver_state(r),
+            COL_CONNECTED_COLOR, local || remote ? "connected" : NULL,
+            COL_URL, r->url,
+            COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver,
+            COL_GROUP, "2", -1);
+      }
    }
+   g_hash_table_destroy(groups);
+   gtk_tree_view_expand_row(GTK_TREE_VIEW(directory_tree), gtk_tree_path_new_from_indices(0, -1), FALSE);
 
    char *info = receiver_directory_info();
    char *summary = g_strdup_printf("%s\n%s", receiver_directory_status(), info);
@@ -273,19 +302,26 @@ static void populate(void) {
    g_free(info);
    g_free(summary);
    gtk_widget_set_sensitive(refresh_button, !receiver_directory_busy());
-   GtkTreeIter iter;
-   gboolean valid = gtk_tree_model_get_iter_first(gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree)), &iter);
-   while (valid && url) {
-      char *candidate;
-      gtk_tree_model_get(gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree)), &iter, COL_URL, &candidate, -1);
-      bool match = !strcmp(url, candidate);
-      g_free(candidate);
-
-      if (match) {
-         gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
-         break;
+   /* Restore a receiver by walking children of both country and connected groups. */
+   GtkTreeModel *tree_model = gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
+   GtkTreeIter parent;
+   for (gboolean group_valid = gtk_tree_model_get_iter_first(tree_model, &parent);
+        group_valid && url; group_valid = gtk_tree_model_iter_next(tree_model, &parent)) {
+      GtkTreeIter child;
+      for (gboolean valid = gtk_tree_model_iter_children(tree_model, &child, &parent);
+           valid; valid = gtk_tree_model_iter_next(tree_model, &child)) {
+         char *candidate = NULL;
+         gtk_tree_model_get(tree_model, &child, COL_URL, &candidate, -1);
+         bool match = candidate && !strcmp(url, candidate);
+         g_free(candidate);
+         if (match) {
+            GtkTreePath *path = gtk_tree_model_get_path(tree_model, &child);
+            gtk_tree_view_expand_to_path(GTK_TREE_VIEW(directory_tree), path);
+            gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), path);
+            gtk_tree_path_free(path);
+            break;
+         }
       }
-      valid = gtk_tree_model_iter_next(gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree)), &iter);
    }
    g_free(url);
    selection_changed(NULL, NULL);
@@ -586,7 +622,7 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
             gtk_tree_model_get(GTK_TREE_MODEL(directory_store), &iter, COL_URL, &url, -1);
             const receiver_directory_entry_t *receiver = url ? receiver_directory_find_url(url) : NULL;
             bool connected = url && rrclient_receiver_is_connected(url);
-            gtk_list_store_set(directory_store, &iter, COL_STATE, url && rrclient_local_bridge_connected(url) ? "Local" : connected ? "Connected" : receiver ? receiver_state(receiver) : "Not tested",
+            gtk_tree_store_set(directory_store, &iter, COL_STATE, url && rrclient_local_bridge_connected(url) ? "Local" : connected ? "Connected" : receiver ? receiver_state(receiver) : "Not tested",
                COL_CONNECTED_COLOR, (connected || (url && rrclient_local_bridge_connected(url))) ? "connected" : NULL, -1);
             g_free(url);
          }
@@ -667,7 +703,7 @@ static gboolean directory_finish_show(gpointer unused) {
    proxy_refresh();
    g_timeout_add_seconds(1, proxy_refresh_timer, NULL);
    directory_store =
-      gtk_list_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
+      gtk_tree_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_STRING);
    directory_filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(directory_store), NULL));
    gtk_tree_model_filter_set_visible_func(directory_filter, visible_receiver, NULL, NULL);
@@ -675,7 +711,7 @@ static gboolean directory_finish_show(gpointer unused) {
    directory_tree = gtk_tree_view_new_with_model(sorted);
    rr_gtk_tree_style(directory_tree);
    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(sorted), COL_COUNTRY, country_compare, NULL, NULL);
-   gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), COL_NAME, GTK_SORT_ASCENDING);
+   gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), COL_GROUP, GTK_SORT_ASCENDING);
    g_object_unref(sorted);
    const char *titles[] = {
       "Type", "Location", "Country", "Receiver", "Users", "API Policy", "Status", "URL"
@@ -705,7 +741,7 @@ static gboolean directory_finish_show(gpointer unused) {
       gtk_tree_view_append_column(GTK_TREE_VIEW(directory_tree), column);
    }
 
-   gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(directory_store), COL_NAME, GTK_SORT_ASCENDING);
+   /* Hierarchy order is determined by the sorted child model. */
    GtkWidget *panes = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
    gtk_box_pack_start(GTK_BOX(box), panes, TRUE, TRUE, 0);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
