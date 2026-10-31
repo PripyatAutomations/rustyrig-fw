@@ -374,6 +374,7 @@ static bool kiwi_receive(void *instance, const void *frame, size_t length) {
    if ((!k->online || k->request) && (data[3] & 0x04)) {
       k->hz = k->wanted_hz;
       snprintf(k->mode, sizeof(k->mode), "%s", k->wanted_mode);
+      if (k->waterfall && k->waterfall_ready) waterfall_center(k);
 
       if (!k->online) {
          k->online_since = mono_us();
@@ -572,6 +573,23 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
 }
 /* W/F is an independent Kiwi websocket; never let spectrum failures
  * interrupt SND or the audio watchdog. Uncompressed rows are 1024 bins. */
+/* Kiwi waterfall start is a fixed-point low-edge offset, not kHz.
+ * A 1024-bin row at zoom 6 spans 1/64 of the full receiver bandwidth.
+ * MAX_ZOOM=14 gives a 24-bit start scale for current KiwiSDR. */
+static void waterfall_center(struct kiwi_instance *k) {
+   if (!k->waterfall || !k->max_hz) return;
+   const unsigned zoom = 6;
+   double full = (double)k->max_hz;
+   double span = full / (1u << zoom);
+   double center = (double)(k->wanted_hz ? k->wanted_hz : k->hz);
+   double low = center - span / 2.;
+   if (low < 0.) low = 0.;
+   if (low > full - span) low = full - span;
+   unsigned start = (unsigned)(low / full * (1024u << 14) + .5);
+   char command[96];
+   snprintf(command, sizeof(command), "SET zoom=%u start=%u", zoom, start);
+   mg_ws_send(k->waterfall, command, strlen(command), WEBSOCKET_OP_TEXT);
+}
 static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
    if (event == MG_EV_WS_OPEN) {
@@ -589,11 +607,12 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
        * corresponding W/F command. Initialize display range and pacing. */
       const char *commands[] = {
          "SERVER DE CLIENT RustyRig W/F",
-         "SET wf_comp=0", "SET zoom=0 start=0",
+         "SET wf_comp=0",
          "SET maxdb=-20 mindb=-120", "SET wf_speed=2", "SET interp=13"
       };
       for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++)
          mg_ws_send(c, commands[i], strlen(commands[i]), WEBSOCKET_OP_TEXT);
+      waterfall_center(k);
    } else if (event == MG_EV_ERROR) {
       char detail[256];
       snprintf(detail, sizeof(detail), "Kiwi W/F connection error: %s", data ? (const char *)data : "unknown");
@@ -921,6 +940,7 @@ static bool kiwi_set_receiver(void *instance, uint64_t request, uint64_t hz, con
    }
    k->wanted_hz = hz;
    snprintf(k->wanted_mode, sizeof(k->wanted_mode), "%s", mode);
+   if (k->waterfall) waterfall_center(k);
    k->request = request;
    k->deadline = mono_us() + 4000000;
 
