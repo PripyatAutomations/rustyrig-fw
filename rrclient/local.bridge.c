@@ -5,6 +5,7 @@
 #include <rrclient/receiver.directory.h>
 #include <librrprotocol/bridge.ipc.h>
 #include <librrprotocol/bridge.media.h>
+#include <rrbridge/spectrum.row.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
@@ -22,7 +23,7 @@
 extern char **environ;
 
 static struct {
-   int control, media;
+   int control, media, spectrum;
    pid_t pid;
    guint timer;
    char *url, *config;
@@ -32,7 +33,7 @@ static struct {
    uint64_t pending, serial, frequency_hz;
    char mode[16];
    rrp_bridge_ipc_message_t caps;
-} local = { .control = -1, .media = -1 };
+} local = { .control = -1, .media = -1, .spectrum = -1 };
 
 #define LOCAL_STREAM "local.kiwi.rx"
 #define LOCAL_RESAMPLER "proc.local.kiwi.resampler"
@@ -85,6 +86,10 @@ void rrclient_local_bridge_disconnect(void) {
    if (local.media >= 0) {
       close(local.media);
       local.media = -1;
+   }
+   if (local.spectrum >= 0) {
+      close(local.spectrum);
+      local.spectrum = -1;
    }
    if (local.pcm_started) {
       fwdsp_processor_stop(LOCAL_RESAMPLER);
@@ -196,6 +201,19 @@ static gboolean poll_local(gpointer unused) {
          }
       }
    }
+   /* Consume a bounded number of RF rows per tick; old rows are
+    * discarded by the seqpacket sender when the UI falls behind. */
+   for (unsigned i = 0; i < 4 && local.spectrum >= 0; i++) {
+      rr_bridge_spectrum_row row;
+      int received = rr_bridge_spectrum_recv(local.spectrum, &row);
+      if (received == 0) break;
+      if (received < 0) {
+         close(local.spectrum);
+         local.spectrum = -1;
+         break;
+      }
+      event_emit_binary(RR_BRIDGE_SPECTRUM_EVENT, NULL, &row, sizeof(row));
+   }
    return G_SOURCE_CONTINUE;
 }
 bool rrclient_local_bridge_connect(const char *url) {
@@ -230,7 +248,7 @@ bool rrclient_local_bridge_connect(const char *url) {
       return false;
    }
    close(tmp);
-   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nsecure=%s\nfrequency=14074000\nmode=USB\n", host, port, tls ? "true" : "false");
+   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=14074000\nmode=USB\n", host, port, tls ? "true" : "false");
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
@@ -240,7 +258,7 @@ bool rrclient_local_bridge_connect(const char *url) {
       g_free(program);
       return false;
    }
-   int control[2], media[2];
+   int control[2], media[2], spectrum[2];
    if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, control)) {
       g_unlink(config); g_free(config); g_free(program);
       return false;
@@ -250,10 +268,16 @@ bool rrclient_local_bridge_connect(const char *url) {
       g_unlink(config); g_free(config); g_free(program);
       return false;
    }
+   if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, spectrum)) {
+      close(control[0]); close(control[1]); close(media[0]); close(media[1]);
+      g_unlink(config); g_free(config); g_free(program);
+      return false;
+   }
    posix_spawn_file_actions_t actions;
    posix_spawn_file_actions_init(&actions);
    posix_spawn_file_actions_adddup2(&actions, control[1], RRP_BRIDGE_IPC_FD);
    posix_spawn_file_actions_adddup2(&actions, media[1], RRP_BRIDGE_MEDIA_FD);
+   posix_spawn_file_actions_adddup2(&actions, spectrum[1], RR_BRIDGE_SPECTRUM_FD);
    /* Parent sockets have CLOEXEC. Closing their numeric descriptors in
     * spawn file-actions could accidentally close target fd 3 or fd 4
     * after dup2 when the process starts with few open descriptors. */
@@ -263,17 +287,20 @@ bool rrclient_local_bridge_connect(const char *url) {
    posix_spawn_file_actions_destroy(&actions);
    close(control[1]);
    close(media[1]);
+   close(spectrum[1]);
    g_free(program);
    if (rc) {
-      close(control[0]); close(media[0]);
+      close(control[0]); close(media[0]); close(spectrum[0]);
       g_unlink(config); g_free(config);
       Log(LOG_WARN, "local.bridge", "Unable to spawn rrbridge: %s", g_strerror(rc));
       return false;
    }
    fcntl(control[0], F_SETFL, fcntl(control[0], F_GETFL) | O_NONBLOCK);
    fcntl(media[0], F_SETFL, fcntl(media[0], F_GETFL) | O_NONBLOCK);
+   fcntl(spectrum[0], F_SETFL, fcntl(spectrum[0], F_GETFL) | O_NONBLOCK);
    local.control = control[0];
    local.media = media[0];
+   local.spectrum = spectrum[0];
    local.pid = pid;
    local.url = g_strdup(url);
    local.config = config;
