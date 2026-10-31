@@ -23,149 +23,187 @@
 #include <stdio.h>
 extern char **environ;
 
-static struct {
+
+typedef struct bridge_instance {
    int control, media, spectrum;
    pid_t pid;
    guint timer;
    char *url, *config;
+   char stream[64], resampler[64];
+   unsigned slot;
    bool online, pcm_started;
    unsigned rate;
    gint64 resampler_retry_at;
    uint64_t pending, serial, frequency_hz;
    char mode[16];
    rrp_bridge_ipc_message_t caps;
-} local = { .control = -1, .media = -1, .spectrum = -1 };
+} bridge_instance;
 
-#define LOCAL_STREAM "local.kiwi.rx"
-#define LOCAL_RESAMPLER "proc.local.kiwi.resampler"
+static bridge_instance *bridges[26];
+
+static void local_room_refresh(void) {
+   uint32_t mask = 0;
+   char bindings[512] = "";
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+      bridge_instance *b = bridges[i];
+      if (!b || !b->online) continue;
+      mask |= UINT32_C(1) << i;
+      char token[32];
+      g_snprintf(token, sizeof(token), "%slocal.sdr.vfo_%c", *bindings ? " " : "", 'a' + i);
+      if (strlen(bindings) + strlen(token) < sizeof(bindings))
+         strcat(bindings, token);
+   }
+   rrclient_room_join("&local-sdr");
+   rrclient_room_set_vfos("&local-sdr", bindings);
+   rrclient_room_set_vfo_mask("&local-sdr", mask);
+   rrclient_room_set_control_flags("&local-sdr", false, mask != 0);
+   rrclient_room_set_offline("&local-sdr", mask == 0);
+   event_emit("client.local-bridge.vfo", NULL, NULL);
+   event_emit("client.audio.streams.changed", NULL, NULL);
+}
+
+static bridge_instance *bridge_active(void) {
+   unsigned slot = (unsigned)(rrclient_room_active_vfo("&local-sdr") - 'A');
+   if (slot < G_N_ELEMENTS(bridges) && bridges[slot]) return bridges[slot];
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++)
+      if (bridges[i]) return bridges[i];
+   return NULL;
+}
 
 bool rrclient_local_bridge_connected(const char *url) {
-   return local.pid > 0 && local.url && url && !strcmp(local.url, url);
+   if (!url) return false;
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++)
+      if (bridges[i] && bridges[i]->pid > 0 && bridges[i]->url &&
+          !strcmp(bridges[i]->url, url)) return true;
+   return false;
 }
 bool rrclient_local_bridge_active(void) {
-   return local.pid > 0 && local.online;
+   bridge_instance *b = bridge_active();
+   return b && b->pid > 0 && b->online;
+}
+bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode) {
+   unsigned slot = (unsigned)(vfo - 'A');
+   if (slot >= G_N_ELEMENTS(bridges)) return false;
+   bridge_instance *b = bridges[slot];
+   if (!b || !b->online || b->pid <= 0) return false;
+   if (hz) *hz = b->frequency_hz;
+   if (mode) *mode = b->mode;
+   return true;
 }
 bool rrclient_local_bridge_state(uint64_t *hz, const char **mode) {
-   if (!rrclient_local_bridge_active()) return false;
-   if (hz) *hz = local.frequency_hz;
-   if (mode) *mode = local.mode;
+   return rrclient_local_bridge_state_vfo(rrclient_room_active_vfo("&local-sdr"), hz, mode);
+}
+bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
+   unsigned slot = (unsigned)(vfo - 'A');
+   if (slot >= G_N_ELEMENTS(bridges)) return false;
+   bridge_instance *b = bridges[slot];
+   if (!b || !b->online || b->control < 0 || b->pending ||
+       !(b->caps.flags & RRP_BRIDGE_RX) ||
+       hz < b->caps.rx_min_hz || hz > b->caps.rx_max_hz ||
+       !mode || !rrp_bridge_mode_valid(b->caps.rx_modes, mode)) return false;
+   rrp_bridge_ipc_message_t command;
+   rrp_bridge_ipc_init(&command, RRP_BRIDGE_IPC_SET);
+   command.request = ++b->serial;
+   command.frequency_hz = hz;
+   g_strlcpy(command.mode, mode, sizeof(command.mode));
+   if (!rrp_bridge_ipc_send(b->control, &command)) return false;
+   b->pending = command.request;
    return true;
 }
 bool rrclient_local_bridge_tune(uint64_t hz, const char *mode) {
-   if (!rrclient_local_bridge_active() || local.control < 0 ||
-       local.pending || !(local.caps.flags & RRP_BRIDGE_RX) ||
-       hz < local.caps.rx_min_hz || hz > local.caps.rx_max_hz ||
-       !mode || !rrp_bridge_mode_valid(local.caps.rx_modes, mode))
-      return false;
-   rrp_bridge_ipc_message_t command;
-   rrp_bridge_ipc_init(&command, RRP_BRIDGE_IPC_SET);
-   command.request = ++local.serial;
-   command.frequency_hz = hz;
-   g_strlcpy(command.mode, mode, sizeof(command.mode));
-   if (!rrp_bridge_ipc_send(local.control, &command)) return false;
-   local.pending = command.request;
-   return true;
+   return rrclient_local_bridge_tune_vfo(rrclient_room_active_vfo("&local-sdr"), hz, mode);
 }
-static void local_pcm(const char *name, const void *pcm, size_t bytes, void *unused) {
+size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
+   size_t count = 0;
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+      if (!bridges[i] || !bridges[i]->online) continue;
+      if (count < capacity) {
+         if (ids) g_strlcpy(ids[count], bridges[i]->stream, 64);
+         if (vfos) vfos[count] = (char)('A' + i);
+      }
+      count++;
+   }
+   return count;
+}
+static void local_pcm(const char *name, const void *pcm, size_t bytes, void *user) {
    (void)name;
-   (void)unused;
-   if (local.online && bytes && !(bytes % sizeof(int16_t)))
-      audio_local_rx_push(LOCAL_STREAM, pcm, bytes / sizeof(int16_t));
+   bridge_instance *b = user;
+   if (b && b->online && bytes && !(bytes % sizeof(int16_t)))
+      audio_local_rx_push(b->stream, pcm, bytes / sizeof(int16_t));
+}
+static void bridge_stop(bridge_instance *b) {
+   if (!b) return;
+   if (b->timer) { g_source_remove(b->timer); b->timer = 0; }
+   if (b->control >= 0) {
+      rrp_bridge_ipc_message_t m;
+      rrp_bridge_ipc_init(&m, RRP_BRIDGE_IPC_SHUTDOWN);
+      rrp_bridge_ipc_send(b->control, &m);
+      close(b->control); b->control = -1;
+   }
+   if (b->media >= 0) { close(b->media); b->media = -1; }
+   if (b->spectrum >= 0) { close(b->spectrum); b->spectrum = -1; }
+   if (b->pcm_started) { fwdsp_processor_stop(b->resampler); b->pcm_started = false; }
+   audio_local_rx_stop(b->stream);
+   if (b->config) { g_unlink(b->config); g_clear_pointer(&b->config, g_free); }
+   g_clear_pointer(&b->url, g_free);
+   b->online = false; b->pid = 0;
+   if (b->slot < G_N_ELEMENTS(bridges) && bridges[b->slot] == b)
+      bridges[b->slot] = NULL;
+   local_room_refresh();
+}
+void rrclient_local_bridge_disconnect_url(const char *url) {
+   if (!url) return;
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+      bridge_instance *b = bridges[i];
+      if (b && b->url && !strcmp(b->url, url)) { bridge_stop(b); return; }
+   }
 }
 void rrclient_local_bridge_disconnect(void) {
-   if (local.timer) {
-      g_source_remove(local.timer);
-      local.timer = 0;
-   }
-   if (local.control >= 0) {
-      rrp_bridge_ipc_message_t message;
-      rrp_bridge_ipc_init(&message, RRP_BRIDGE_IPC_SHUTDOWN);
-      rrp_bridge_ipc_send(local.control, &message);
-      close(local.control);
-      local.control = -1;
-   }
-   if (local.media >= 0) {
-      close(local.media);
-      local.media = -1;
-   }
-   if (local.spectrum >= 0) {
-      close(local.spectrum);
-      local.spectrum = -1;
-   }
-   if (local.pcm_started) {
-      fwdsp_processor_stop(LOCAL_RESAMPLER);
-      local.pcm_started = false;
-   }
-   audio_local_rx_stop(LOCAL_STREAM);
-   if (local.pid > 0) {
-      /* Child is asked to exit; do not block the GTK main thread. */
-      local.pid = 0; /* Child watch reaps the process after exit. */
-   }
-   if (local.config) {
-      g_unlink(local.config);
-      g_clear_pointer(&local.config, g_free);
-   }
-   g_clear_pointer(&local.url, g_free);
-   local.online = false;
-   rrclient_room_set_offline("&local-sdr", true);
-   local.rate = 0;
-   local.resampler_retry_at = 0;
-   local.pending = 0;
-   local.frequency_hz = 0;
-   local.mode[0] = '\0';
-   memset(&local.caps, 0, sizeof(local.caps));
-   event_emit("client.receiver-directory.connection", NULL, "Local SDR disconnected.");
-   event_emit("client.audio.streams.changed", NULL, NULL);
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++)
+      if (bridges[i]) bridge_stop(bridges[i]);
 }
-static void local_child_exited(GPid pid, gint status, gpointer unused) {
+static void local_child_exited(GPid pid, gint status, gpointer user) {
    (void)status;
-   (void)unused;
-   if (local.pid == pid) {
+   bridge_instance *b = user;
+   if (b && b->pid == pid) {
       Log(LOG_WARN, "local.bridge", "Local SDR process %ld exited", (long)pid);
-      rrclient_local_bridge_disconnect();
+      bridge_stop(b);
    }
+   g_free(b);
    g_spawn_close_pid(pid);
 }
 static gboolean poll_local(gpointer unused) {
-   (void)unused;
-   if (local.pid <= 0) return G_SOURCE_REMOVE;
+   bridge_instance *b = unused;
+   if (b->pid <= 0) return G_SOURCE_REMOVE;
    for (unsigned n = 0; n < 16; n++) {
       rrp_bridge_ipc_message_t m;
-      int got = rrp_bridge_ipc_recv(local.control, &m);
+      int got = rrp_bridge_ipc_recv(b->control, &m);
       if (!got) break;
       if (got < 0) {
-         local.timer = 0;
-         rrclient_local_bridge_disconnect();
+         b->timer = 0;
+         bridge_stop(b);
          return G_SOURCE_REMOVE;
       }
       if (m.type == RRP_BRIDGE_IPC_CAPABILITIES) {
-         local.caps = m;
+         b->caps = m;
       } else if (m.type == RRP_BRIDGE_IPC_RESULT) {
-         if (m.request == local.pending) {
-            local.pending = 0;
+         if (m.request == b->pending) {
+            b->pending = 0;
             if (!m.success)
                Log(LOG_WARN, "local.bridge", "Local SDR tuning request rejected");
          }
       } else if (m.type == RRP_BRIDGE_IPC_STATE) {
-         bool was_online = local.online;
-         local.online = m.available != 0;
-         if (local.online) {
-            local.frequency_hz = m.frequency_hz;
-            g_strlcpy(local.mode, m.mode, sizeof(local.mode));
+         bool was_online = b->online;
+         b->online = m.available != 0;
+         if (b->online) {
+            b->frequency_hz = m.frequency_hz;
+            g_strlcpy(b->mode, m.mode, sizeof(b->mode));
             event_emit("client.local-bridge.vfo", NULL, NULL);
          }
-         if (local.online) {
-            rrclient_room_join("&local-sdr");
-            rrclient_room_set_vfos("&local-sdr", "local.kiwi.rx");
-            rrclient_room_set_vfo_mask("&local-sdr", 1);
-            rrclient_room_set_control_flags("&local-sdr", false, true);
-            rrclient_room_set_offline("&local-sdr", false);
-         } else if (was_online) {
-            rrclient_room_set_offline("&local-sdr", true);
-         }
-         if (local.online && !was_online) {
-            receiver_directory_record_connection(local.url);
-            Log(LOG_INFO, "local.bridge", "Local Kiwi online: %s", local.url);
+         if (b->online != was_online) local_room_refresh();
+         if (b->online && !was_online) {
+            receiver_directory_record_connection(b->url);
+            Log(LOG_INFO, "local.bridge", "Local Kiwi online: %s", b->url);
             event_emit("client.receiver-directory.connection", NULL, "Local Kiwi connected.");
             event_emit("client.audio.streams.changed", NULL, NULL);
          }
@@ -175,59 +213,64 @@ static gboolean poll_local(gpointer unused) {
    }
    for (unsigned n = 0; n < 16; n++) {
       struct rrp_bridge_pcm frame;
-      int got = rrp_bridge_media_recv(local.media, &frame);
+      int got = rrp_bridge_media_recv(b->media, &frame);
       if (!got) break;
       if (got < 0) {
-         local.timer = 0;
-         rrclient_local_bridge_disconnect();
+         b->timer = 0;
+         bridge_stop(b);
          return G_SOURCE_REMOVE;
       }
-      if (!local.online || !frame.count) continue;
-      if (!local.pcm_started || local.rate != frame.rate) {
-         if (local.pcm_started) {
-            fwdsp_processor_stop(LOCAL_RESAMPLER);
-            local.pcm_started = false;
+      if (!b->online || !frame.count) continue;
+      if (!b->pcm_started || b->rate != frame.rate) {
+         if (b->pcm_started) {
+            fwdsp_processor_stop(b->resampler);
+            b->pcm_started = false;
          }
          gint64 current = g_get_monotonic_time();
-         if (current < local.resampler_retry_at) continue;
-         local.pcm_started = fwdsp_audio_resampler_start(LOCAL_RESAMPLER, frame.rate, local_pcm, NULL);
-         local.rate = frame.rate;
-         local.resampler_retry_at = local.pcm_started ? 0 : current + 5000000;
-         Log(local.pcm_started ? LOG_INFO : LOG_WARN, "local.bridge",
+         if (current < b->resampler_retry_at) continue;
+         b->pcm_started = fwdsp_audio_resampler_start(b->resampler, frame.rate, local_pcm, b);
+         b->rate = frame.rate;
+         b->resampler_retry_at = b->pcm_started ? 0 : current + 5000000;
+         Log(b->pcm_started ? LOG_INFO : LOG_WARN, "local.bridge",
              "Local PCM resampler %s (input=%u Hz, output=16000 Hz)%s",
-             local.pcm_started ? "started" : "failed", frame.rate,
-             local.pcm_started ? "" : "; retrying in 5 seconds");
+             b->pcm_started ? "started" : "failed", frame.rate,
+             b->pcm_started ? "" : "; retrying in 5 seconds");
       }
-      if (local.pcm_started) {
+      if (b->pcm_started) {
          uint8_t samples[2 * RRP_BRIDGE_MEDIA_SAMPLES];
          for (size_t i = 0; i < frame.count; i++) {
             samples[2*i] = (uint8_t)frame.samples[i];
             samples[2*i+1] = (uint16_t)frame.samples[i] >> 8;
          }
-         if (!fwdsp_processor_write(LOCAL_RESAMPLER, samples, frame.count * 2)) {
+         if (!fwdsp_processor_write(b->resampler, samples, frame.count * 2)) {
             Log(LOG_WARN, "local.bridge", "Local PCM resampler input write failed");
-            fwdsp_processor_stop(LOCAL_RESAMPLER);
-            local.pcm_started = false;
-            local.resampler_retry_at = g_get_monotonic_time() + 5000000;
+            fwdsp_processor_stop(b->resampler);
+            b->pcm_started = false;
+            b->resampler_retry_at = g_get_monotonic_time() + 5000000;
          }
       }
    }
    /* Consume a bounded number of RF rows per tick; old rows are
     * discarded by the seqpacket sender when the UI falls behind. */
-   for (unsigned i = 0; i < 4 && local.spectrum >= 0; i++) {
+   for (unsigned i = 0; i < 4 && b->spectrum >= 0; i++) {
       rr_bridge_spectrum_row row;
-      int received = rr_bridge_spectrum_recv(local.spectrum, &row);
+      int received = rr_bridge_spectrum_recv(b->spectrum, &row);
       if (received == 0) break;
       if (received < 0) {
-         close(local.spectrum);
-         local.spectrum = -1;
+         close(b->spectrum);
+         b->spectrum = -1;
          break;
       }
-      event_emit_binary(RR_BRIDGE_SPECTRUM_EVENT, NULL, &row, sizeof(row));
+      if (rrclient_room_active_vfo("&local-sdr") == (char)('A' + b->slot))
+         event_emit_binary(RR_BRIDGE_SPECTRUM_EVENT, NULL, &row, sizeof(row));
    }
    return G_SOURCE_CONTINUE;
 }
-bool rrclient_local_bridge_connect(const char *url) {
+bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
+   if (!driver || !*driver) driver = "kiwi";
+   if (strlen(driver) > 32 ||
+       strspn(driver, "abcdefghijklmnopqrstuvwxyz0123456789_-") != strlen(driver))
+      return false;
    if (!url) return false;
    if (rrclient_local_bridge_connected(url)) return true;
    GUri *uri = g_uri_parse(url, G_URI_FLAGS_NONE, NULL);
@@ -250,16 +293,26 @@ bool rrclient_local_bridge_connect(const char *url) {
       g_uri_unref(uri);
       return false;
    }
-   rrclient_local_bridge_disconnect();
+   unsigned slot = 0;
+   while (slot < G_N_ELEMENTS(bridges) && bridges[slot]) slot++;
+   if (slot == G_N_ELEMENTS(bridges)) {
+      g_free(program); g_uri_unref(uri); return false;
+   }
+   bridge_instance *b = g_new0(bridge_instance, 1);
+   b->slot = slot;
+   b->control = b->media = b->spectrum = -1;
+   g_snprintf(b->stream, sizeof(b->stream), "b->sdr.%c", 'A' + slot);
+   g_snprintf(b->resampler, sizeof(b->resampler), "proc.b->sdr.%c", 'A' + slot);
+   bridges[slot] = b;
    char *config = NULL;
    int tmp = g_file_open_tmp("rustyrig-local-bridge-XXXXXX", &config, NULL);
    if (tmp < 0) {
       g_free(program);
       g_uri_unref(uri);
-      return false;
+      bridge_stop(b); g_free(b); return false;
    }
    close(tmp);
-   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=14074000\nmode=USB\n", host, port, tls ? "true" : "false");
+   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=14074000\nmode=USB\n", driver, host, port, tls ? "true" : "false");
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
@@ -267,22 +320,22 @@ bool rrclient_local_bridge_connect(const char *url) {
       g_unlink(config);
       g_free(config);
       g_free(program);
-      return false;
+      bridge_stop(b); g_free(b); return false;
    }
    int control[2], media[2], spectrum[2];
    if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, control)) {
       g_unlink(config); g_free(config); g_free(program);
-      return false;
+      bridge_stop(b); g_free(b); return false;
    }
    if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, media)) {
       close(control[0]); close(control[1]);
       g_unlink(config); g_free(config); g_free(program);
-      return false;
+      bridge_stop(b); g_free(b); return false;
    }
    if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, spectrum)) {
       close(control[0]); close(control[1]); close(media[0]); close(media[1]);
       g_unlink(config); g_free(config); g_free(program);
-      return false;
+      bridge_stop(b); g_free(b); return false;
    }
    posix_spawn_file_actions_t actions;
    posix_spawn_file_actions_init(&actions);
@@ -304,21 +357,26 @@ bool rrclient_local_bridge_connect(const char *url) {
       close(control[0]); close(media[0]); close(spectrum[0]);
       g_unlink(config); g_free(config);
       Log(LOG_WARN, "local.bridge", "Unable to spawn rrbridge: %s", g_strerror(rc));
-      return false;
+      bridge_stop(b); g_free(b); return false;
    }
    fcntl(control[0], F_SETFL, fcntl(control[0], F_GETFL) | O_NONBLOCK);
    fcntl(media[0], F_SETFL, fcntl(media[0], F_GETFL) | O_NONBLOCK);
    fcntl(spectrum[0], F_SETFL, fcntl(spectrum[0], F_GETFL) | O_NONBLOCK);
-   local.control = control[0];
-   local.media = media[0];
-   local.spectrum = spectrum[0];
-   local.pid = pid;
-   local.url = g_strdup(url);
-   local.config = config;
-   audio_local_rx_start(LOCAL_STREAM);
-   g_child_watch_add(pid, local_child_exited, NULL);
-   local.timer = g_timeout_add(10, poll_local, NULL);
+   b->control = control[0];
+   b->media = media[0];
+   b->spectrum = spectrum[0];
+   b->pid = pid;
+   b->url = g_strdup(url);
+   b->config = config;
+   audio_local_rx_start(b->stream);
+   g_child_watch_add(pid, local_child_exited, b);
+   b->timer = g_timeout_add(10, poll_local, b);
+   rrclient_room_set_active_vfo("&local-sdr", (char)('A' + slot));
    event_emit("client.receiver-directory.connection", NULL, "Local SDR connecting…");
-   Log(LOG_INFO, "local.bridge", "Started local Kiwi bridge pid=%ld for %s", (long)pid, url);
+   Log(LOG_INFO, "local.bridge", "Started local %s bridge pid=%ld for %s", driver, (long)pid, url);
    return true;
+}
+
+bool rrclient_local_bridge_connect(const char *url) {
+   return rrclient_local_bridge_connect_driver(url, "kiwi");
 }
