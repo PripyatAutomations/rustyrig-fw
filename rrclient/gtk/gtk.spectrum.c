@@ -274,7 +274,7 @@ typedef struct {
    double pan_hz, drag_x, drag_pan_hz;
    bool dragging;
    gint64 recenter_at;
-   uint32_t recenter_sequence;
+   uint64_t recenter_low_hz, recenter_high_hz;
    rr_bridge_spectrum_row rows[32];
    bool vfo_boundary[32];
    char last_vfo;
@@ -304,7 +304,7 @@ static void rf_row(const char *event, const void *data, size_t len,
    p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
    p->count = MIN(p->count + 1, G_N_ELEMENTS(p->rows));
    p->received_at = g_get_monotonic_time();
-   if (p->recenter_at && row->sequence != p->recenter_sequence) {
+   if (p->recenter_at && (row->low_hz != p->recenter_low_hz || row->high_hz != p->recenter_high_hz)) {
       p->recenter_at = 0;
       p->pan_hz = 0;
       p->drag_x = p->hover_x;
@@ -468,7 +468,8 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
                                       full / 2., 30000000. - full / 2.);
             if (rrclient_local_bridge_waterfall_at(p->rf_enabled, p->zoom, (uint64_t)(new_center + .5))) {
                p->recenter_at = now;
-               p->recenter_sequence = row->sequence;
+               p->recenter_low_hz = row->low_hz;
+               p->recenter_high_hz = row->high_hz;
             }
          }
       }
