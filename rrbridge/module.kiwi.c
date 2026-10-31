@@ -28,7 +28,7 @@ struct kiwi_instance {
    struct mg_connection *connection;
    struct mg_connection *waterfall;
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
-   uint64_t waterfall_rows, waterfall_retry;
+   uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent;
    unsigned waterfall_zoom;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
@@ -657,6 +657,12 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
             note(k, detail);
          }
          if (m->data.len == 1040) {
+            /* Drop surplus W/F rows before IPC to protect the audio pipeline.
+             * Keep audio WebSocket and watchdog handling independent. */
+            uint64_t now = mono_us();
+            if (k->waterfall_last_sent && now - k->waterfall_last_sent < 100000)
+               return;
+            k->waterfall_last_sent = now;
             uint64_t low_hz, high_hz;
             waterfall_range(k, &low_hz, &high_hz);
             rr_bridge_spectrum_row row = {
@@ -966,6 +972,7 @@ static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom) {
    if (!k || zoom > 14) return false;
    k->waterfall_zoom = zoom;
    k->waterfall_enabled = enabled;
+   k->waterfall_last_sent = 0;
    if (!enabled && k->waterfall) {
       k->waterfall->is_closing = 1;
       k->waterfall_retry = 0;
