@@ -311,7 +311,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
          memset(stream, 0, sizeof(*stream));
          snprintf(stream->id, sizeof(stream->id), "%s", "local.kiwi.rx");
          snprintf(stream->server, sizeof(stream->server), "%s", "Local");
-         snprintf(stream->room, sizeof(stream->room), "%s", "Local Kiwi");
+         snprintf(stream->room, sizeof(stream->room), "%s", "&local-sdr");
          snprintf(stream->codec, sizeof(stream->codec), "%s", "pc16");
          stream->output = local_rx_route;
       }
