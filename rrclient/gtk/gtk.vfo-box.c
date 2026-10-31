@@ -22,6 +22,8 @@
 #include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/vfo.h>
+#include <rrclient/local.bridge.h>
+#include <librustyaxe/event-bus.h>
 
 extern GtkWidget *freq_entry;
 extern int ws_connected;
@@ -128,6 +130,26 @@ void vfo_controls_fit_width(int width) {
    }
 }
 
+static rr_event_token_t local_vfo_token;
+static void local_vfo_refresh(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event; (void)data; (void)connection; (void)unused;
+   if (!freq_entry || (ws_conn && ws_conn->authenticated)) return;
+   uint64_t hz = 0;
+   const char *mode = NULL;
+   if (!rrclient_local_bridge_state(&hz, &mode) || !hz) return;
+   GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
+   if (!gtk_freq_entry_is_editing(fe))
+      gtk_freq_entry_set_frequency(fe, (unsigned long)hz);
+   modebox_update_state(mode, 0);
+   vfo_controls_set_rx_only(true);
+   if (vfo_tunable_box) gtk_widget_set_sensitive(vfo_tunable_box, TRUE);
+   if (vfo_mode_box) gtk_widget_set_sensitive(vfo_mode_box, TRUE);
+}
+static void local_vfo_destroy(GtkWidget *widget, gpointer unused) {
+   (void)widget; (void)unused;
+   if (local_vfo_token) event_off_token(local_vfo_token);
+   local_vfo_token = 0;
+}
 GtkWidget *create_vfo_box(void) {
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -214,6 +236,10 @@ GtkWidget *create_vfo_box(void) {
     * afterwards and would otherwise keep their zero/default values until the next CAT poll.  Push the already-received state into the newly-created widgets
     * immediately. */
    vfo_update_ui();
+   if (!local_vfo_token)
+      local_vfo_token = event_on_token("client.local-bridge.vfo", local_vfo_refresh, NULL);
+   g_signal_connect(control_box, "destroy", G_CALLBACK(local_vfo_destroy), NULL);
+   local_vfo_refresh(NULL, NULL, NULL, NULL);
 
    return control_box;
 }
