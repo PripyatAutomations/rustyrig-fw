@@ -153,3 +153,17 @@ This browser does not yet expose remote bridge creation/editing or an arbitrary
 public-Kiwi connection request. The separate administration/public-selection
 entitlements provide the policy boundary for those future server operations;
 they do not authorize clients to submit unchecked endpoints to rrserver.
+
+## GTK browser grouping
+
+Receiver Directory now uses an expandable tree: **Connected SDRs** appears
+first, followed by country groups (including **Country unknown** for
+entries without published location metadata). A connected receiver also
+appears under its country. The connected section includes local Kiwi bridge
+attachments and receiver connections associated with any authenticated,
+currently online server profile, not only the selected connection.
+
+The tree uses the existing directory cache for receiver metadata. Connected
+SDR instances absent from that catalog cannot be displayed by URL yet;
+exposing those requires an additional connected-resource inventory from the
+mesh/catalog. The same receiver can be selected under either tree group.
