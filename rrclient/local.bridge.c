@@ -155,6 +155,9 @@ static gboolean poll_local(gpointer unused) {
          if (local.pcm_started) fwdsp_processor_stop(LOCAL_RESAMPLER);
          local.pcm_started = fwdsp_audio_resampler_start(LOCAL_RESAMPLER, frame.rate, local_pcm, NULL);
          local.rate = frame.rate;
+         Log(local.pcm_started ? LOG_INFO : LOG_WARN, "local.bridge",
+             "Local PCM resampler %s (input=%u Hz, output=16000 Hz)",
+             local.pcm_started ? "started" : "failed", frame.rate);
       }
       if (local.pcm_started) {
          uint8_t samples[2 * RRP_BRIDGE_MEDIA_SAMPLES];
@@ -162,7 +165,11 @@ static gboolean poll_local(gpointer unused) {
             samples[2*i] = (uint8_t)frame.samples[i];
             samples[2*i+1] = (uint16_t)frame.samples[i] >> 8;
          }
-         fwdsp_processor_write(LOCAL_RESAMPLER, samples, frame.count * 2);
+         if (!fwdsp_processor_write(LOCAL_RESAMPLER, samples, frame.count * 2)) {
+            Log(LOG_WARN, "local.bridge", "Local PCM resampler input write failed");
+            fwdsp_processor_stop(LOCAL_RESAMPLER);
+            local.pcm_started = false;
+         }
       }
    }
    return G_SOURCE_CONTINUE;
