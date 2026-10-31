@@ -49,9 +49,9 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 
 
 extern GtkWidget *main_window, *main_notebook;
-static GtkWidget *directory_page, *search_entry, *accessible_only, *directory_tree;
-static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
-static GtkWidget *connect_button, *local_button, *local_tune_button, *add_button;
+static GtkWidget *directory_page, *search_entry, *accessible_only, *favorites_only, *proxy_bridge, *directory_tree;
+static GtkWidget *directory_status, *directory_details, *refresh_button, *url_button;
+static GtkWidget *connect_button, *local_button, *local_tune_button, *favorite_button;
 static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
@@ -167,8 +167,10 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    (void)selection;
    (void)unused;
    const receiver_directory_entry_t *r = selected_receiver();
-   char *config = receiver_directory_bridge_config(r);
-   gtk_widget_set_sensitive(config_button, config != NULL);
+   if (favorite_button) {
+      gtk_widget_set_sensitive(favorite_button, r != NULL);
+      gtk_button_set_label(GTK_BUTTON(favorite_button), r && r->favorite ? "Remove from favorites" : "Add to favorites");
+   }
    gtk_widget_set_sensitive(url_button, r != NULL);
    bool connected = r && rrclient_receiver_is_connected(r->url);
    gtk_button_set_label(GTK_BUTTON(connect_button), connected ? "Disconnect" : "Connect");
@@ -180,8 +182,7 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
          gtk_widget_set_sensitive(local_tune_button, local_connected && rrclient_local_bridge_active());
    }
    gtk_widget_set_sensitive(connect_button, connected || (r && receiver_directory_entry_accessible(r)));
-   gtk_widget_set_sensitive(add_button, r && receiver_directory_entry_accessible(r));
-   g_free(config);
+
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
    char *stamp = date ? g_date_time_format(date, "%Y-%m-%d %H:%M:%S %Z") : g_strdup("No local report");
    char *coverage = r && r->high_hz ? g_strdup_printf("%" G_GUINT64_FORMAT " – %" G_GUINT64_FORMAT " Hz", r->low_hz, r->high_hz) : g_strdup("Not published");
@@ -217,9 +218,10 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
       return FALSE;
    }
 
-   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) && !receiver_directory_entry_accessible(r)) {
+   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) && !receiver_directory_entry_accessible(r))
       return FALSE;
-   }
+   if (favorites_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) && !r->favorite)
+      return FALSE;
    const char *query = gtk_entry_get_text(GTK_ENTRY(search_entry));
 
    if (!*query) {
@@ -620,6 +622,12 @@ static void copy_clicked(GtkButton *button, gpointer config) {
    }
    g_free(text);
 }
+static void favorite_clicked(GtkButton *button, gpointer unused) {
+   (void)button;
+   (void)unused;
+   const receiver_directory_entry_t *r = selected_receiver();
+   if (r) receiver_directory_set_favorite(r->url, !r->favorite);
+}
 static void state_clicked(GtkButton *button, gpointer state) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -792,18 +800,6 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    if (!main_notebook) {
       return;
    }
-   rrconn_t *server = rrclient_active_connection();
-   if (!server || !server->is_ws || !server->authenticated ||
-       rrclient_connection_state(rrclient_connection_name(server)) != 1) {
-      GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "Connect to a RustyRig server before opening SDR Directory.");
-      gtk_window_set_title(GTK_WINDOW(dialog), "SDR Directory unavailable");
-      g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
-      gtk_widget_show(dialog);
-      return;
-   }
-
    if (directory_page) {
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page);
 
