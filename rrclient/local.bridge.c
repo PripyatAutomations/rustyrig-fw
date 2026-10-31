@@ -255,7 +255,7 @@ static bool directory_matches(const receiver_directory_entry_t *r, const char *n
 }
 static void bridge_directory_list(int argc, char **argv, const char *driver) {
    if (argc < 4 || (g_ascii_strcasecmp(argv[3], "list") && g_ascii_strcasecmp(argv[3], "l"))) {
-      ui_print("&local-sdr", "Usage: /bridge %s dir list [search text]", driver);
+      ui_print(ui_active_window_name(), "Usage: /bridge %s dir list [search text]", driver);
       return;
    }
    GString *search = g_string_new(NULL);
@@ -269,13 +269,13 @@ static void bridge_directory_list(int argc, char **argv, const char *driver) {
       const receiver_directory_entry_t *r = receiver_directory_receiver(i);
       if (!r || r->deleted || !r->driver || g_ascii_strcasecmp(r->driver, driver) ||
           (search->len && !directory_matches(r, needle))) continue;
-      ui_print("&local-sdr", "%zu. [%s] %s | %s | %s | users %d/%d%s",
+      ui_print(ui_active_window_name(), "%zu. [%s] %s | %s | %s | users %d/%d%s",
          i + 1, r->driver ? r->driver : "unknown", r->name && *r->name ? r->name : "Unnamed SDR",
          r->location && *r->location ? r->location : "unknown location",
          r->url ? r->url : "", r->users, r->users_max, r->offline ? " [offline]" : "");
       matches++;
    }
-   ui_print("&local-sdr", "Directory: %zu matches / %zu cached (%s)",
+   ui_print(ui_active_window_name(), "Directory: %zu matches / %zu cached (%s)",
       matches, total, receiver_directory_status());
    g_free(needle);
    g_string_free(search, TRUE);
@@ -283,7 +283,7 @@ static void bridge_directory_list(int argc, char **argv, const char *driver) {
 static void bridge_stop(bridge_instance *b);
 bool rrclient_local_bridge_cli(int argc, char **argv) {
    if (argc < 3) {
-      ui_print("&local-sdr", "Usage: /bridge <driver> dir list [search] | list [c] | open <url> | close <VFO|url|all> | caps [VFO]");
+      ui_print(ui_active_window_name(), "Usage: /bridge <driver> dir list [search] | list [c] | open <url> | close <VFO|url|all> | caps [VFO]");
       return true;
    }
    const char *driver = argv[1], *action = argv[2];
@@ -297,16 +297,16 @@ bool rrclient_local_bridge_cli(int argc, char **argv) {
       for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
          bridge_instance *b = bridges[i];
          if (!b || g_ascii_strcasecmp(b->driver, driver) || (connected && !b->online)) continue;
-         ui_print("&local-sdr", "%c: %s %s (%s)", 'A' + i, b->url ? b->url : "",
+         ui_print(ui_active_window_name(), "%c: %s %s (%s)", 'A' + i, b->url ? b->url : "",
             b->online ? "connected" : "connecting", b->stream);
          count++;
       }
-      if (!count) ui_print("&local-sdr", "No %s bridges %s", driver, connected ? "connected" : "open");
+      if (!count) ui_print(ui_active_window_name(), "No %s bridges %s", driver, connected ? "connected" : "open");
    } else if (!g_ascii_strcasecmp(action, "open") || !g_ascii_strcasecmp(action, "o")) {
       if (argc != 4 || !rrclient_local_bridge_connect_driver(argv[3], driver))
-         ui_print("&local-sdr", "Usage: /bridge %s open <http[s]://host:port> (connection failed or invalid URL)", driver);
+         ui_print(ui_active_window_name(), "Usage: /bridge %s open <http[s]://host:port> (connection failed or invalid URL)", driver);
    } else if (!g_ascii_strcasecmp(action, "close") || !g_ascii_strcasecmp(action, "c")) {
-      if (argc != 4) { ui_print("&local-sdr", "Usage: /bridge %s close <VFO|url|all>", driver); return true; }
+      if (argc != 4) { ui_print(ui_active_window_name(), "Usage: /bridge %s close <VFO|url|all>", driver); return true; }
       unsigned count = 0;
       for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
          bridge_instance *b = bridges[i];
@@ -317,19 +317,19 @@ bool rrclient_local_bridge_cli(int argc, char **argv) {
          bridge_stop(b);
          count++;
       }
-      if (!count) ui_print("&local-sdr", "No matching %s bridge", driver);
+      if (!count) ui_print(ui_active_window_name(), "No matching %s bridge", driver);
    } else if (!g_ascii_strcasecmp(action, "caps") || !g_ascii_strcasecmp(action, "capabilities")) {
       for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
          bridge_instance *b = bridges[i];
          if (!b || g_ascii_strcasecmp(b->driver, driver) ||
              (argc > 3 && !(strlen(argv[3]) == 1 && g_ascii_toupper(argv[3][0]) == 'A' + (int)i))) continue;
-         ui_print("&local-sdr", "%c: flags=0x%x RX=%llu-%llu Hz modes=%s waterfall=%s zoom=%u..%u",
+         ui_print(ui_active_window_name(), "%c: flags=0x%x RX=%llu-%llu Hz modes=%s waterfall=%s zoom=%u..%u",
             'A' + i, b->caps.flags, (unsigned long long)b->caps.rx_min_hz,
             (unsigned long long)b->caps.rx_max_hz, b->caps.rx_modes,
             (b->caps.flags & RRP_BRIDGE_WATERFALL) ? "yes" : "no",
             b->caps.waterfall_zoom_min, b->caps.waterfall_zoom_max);
       }
-   } else ui_print("&local-sdr", "Unknown bridge action: %s", action);
+   } else ui_print(ui_active_window_name(), "Unknown bridge action: %s", action);
    return true;
 }
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
