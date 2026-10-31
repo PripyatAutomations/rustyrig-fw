@@ -445,6 +445,18 @@ static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event,
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
    return TRUE;
 }
+static gboolean proxy_server_online(void) {
+   rrconn_t *connection = rrclient_active_connection();
+   const char *profile = rrclient_connection_name(connection);
+   return connection && connection->is_ws && connection->authenticated &&
+      profile && rrclient_connection_state(profile) == 1;
+}
+static void proxy_refresh(void) {
+   if (!proxy_bridge) return;
+   gboolean online = proxy_server_online();
+   gtk_widget_set_sensitive(proxy_bridge, online);
+   if (!online) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(proxy_bridge), FALSE);
+}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -456,6 +468,11 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_connected(r->url)) {
       rrclient_local_bridge_disconnect_url(r->url);
       selection_changed(NULL, NULL);
+      return;
+   }
+   proxy_refresh();
+   if (GPOINTER_TO_INT(save) && !proxy_server_online()) {
+      gtk_label_set_text(GTK_LABEL(directory_status), "Remote SDR connection requires an online rrserver");
       return;
    }
    if (!GPOINTER_TO_INT(save) && !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(proxy_bridge))) {
@@ -471,6 +488,11 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    if (!GPOINTER_TO_INT(save) && rrclient_receiver_is_connected(r->url)) {
       rrclient_receiver_disconnect(r->url);
 
+      return;
+   }
+
+   if (!proxy_server_online()) {
+      gtk_label_set_text(GTK_LABEL(directory_status), "Proxy rrbridge requires an online rrserver");
       return;
    }
 
@@ -636,6 +658,7 @@ static gboolean directory_finish_show(gpointer unused) {
    proxy_bridge = gtk_check_button_new_with_label("Proxy rrbridge?");
    gtk_widget_set_tooltip_text(proxy_bridge, "Use a connected rrserver for shared upstream SDR reception instead of a local bridge");
    gtk_box_pack_start(GTK_BOX(filters), proxy_bridge, FALSE, FALSE, 0);
+   proxy_refresh();
    directory_store =
       gtk_list_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_STRING);
@@ -654,7 +677,7 @@ static gboolean directory_finish_show(gpointer unused) {
       COL_TYPE, COL_LOCATION, COL_COUNTRY, COL_NAME, COL_USERS, COL_API, COL_STATE, COL_URL
    };
    const int widths[] = {
-      65, 120, 110, 180, 65, 105, 110, 160
+      65, 120, 75, 235, 65, 105, 110, 160
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(titles) ; i++) {
@@ -668,7 +691,7 @@ static gboolean directory_finish_show(gpointer unused) {
       gtk_tree_view_column_set_fixed_width(column, widths[i]);
       gtk_tree_view_column_set_min_width(column, 55);
       /* Text-heavy columns share surplus width as the directory grows. */
-      gtk_tree_view_column_set_expand(column, field == COL_LOCATION || field == COL_COUNTRY || field == COL_NAME || field == COL_URL);
+      gtk_tree_view_column_set_expand(column, field == COL_LOCATION || field == COL_NAME || field == COL_URL);
       g_object_set_data(G_OBJECT(column), "rr-zebra-view", directory_tree);
       gtk_tree_view_column_set_cell_data_func(column, renderer, rr_list_zebra_cell, NULL, NULL);
       gtk_tree_view_column_set_sort_column_id(column, field);
