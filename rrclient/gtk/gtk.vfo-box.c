@@ -133,7 +133,7 @@ void vfo_controls_fit_width(int width) {
 static rr_event_token_t local_vfo_token;
 static void local_vfo_refresh(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event; (void)data; (void)connection; (void)unused;
-   const char *room = gtk_chat_current_room();
+   const char *room = gtk_chat_controls_room();
    if (!freq_entry || !room || g_ascii_strcasecmp(room, "&local-sdr")) return;
    uint64_t hz = 0;
    const char *mode = NULL;
