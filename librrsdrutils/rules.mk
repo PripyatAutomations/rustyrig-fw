@@ -9,7 +9,7 @@ ${BUILD_DIR}/librrsdrutils/descriptor.o: librrsdrutils/descriptor.c librrsdrutil
 	@${CC} ${MEDIA_CFLAGS} -fPIC -c -o $@ $<
 
 ${librrsdrutils}: ${librrsdrutils_objs}
-	@${CC} ${LIB_LDFLAGS} -Wl,-soname,librrsdrutils.so.0 -o $@ $^
+	@${CC} ${LIB_LDFLAGS} -Wl,-soname,librrsdrutils.so.0 -o $@ ${librrsdrutils_objs}
 	@ln -sf librrsdrutils.so librrsdrutils.so.0
 
 .PHONY: test-rrsdrutils
