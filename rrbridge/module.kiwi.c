@@ -28,7 +28,7 @@ struct kiwi_instance {
    struct mg_connection *connection;
    struct mg_connection *waterfall;
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
-   uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent;
+   uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
    unsigned waterfall_zoom;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
@@ -606,6 +606,7 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
    if (event == MG_EV_WS_OPEN) {
       note(k, "Kiwi RF waterfall websocket opened");
+      k->waterfall_keepalive = mono_us();
       const char *password = setting(k, "password");
       if (!password) password = "";
       if (strlen(password) > 128 || strpbrk(password, " \\r\\n")) {
@@ -683,8 +684,9 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_READ && c->recv.len > 65536) {
       c->is_closing = 1;
    } else if (event == MG_EV_CLOSE && c == k->waterfall) {
-      if (!k->waterfall_ready)
-         note(k, "Kiwi W/F socket closed before receiving spectrum data");
+      if (k->waterfall_enabled)
+         note(k, k->waterfall_ready ? "Kiwi W/F socket closed; will retry independently of audio" :
+              "Kiwi W/F socket closed before receiving spectrum data");
       k->waterfall = NULL;
       k->waterfall_ready = false;
       k->waterfall_first_frame_logged = false;
@@ -907,6 +909,14 @@ static void kiwi_poll(void *instance) {
    }
    mg_mgr_poll(&k->manager, 0);
    current = mono_us();
+   /* Kiwi W/F has its own session timer, separate from SND. */
+   if (k->waterfall_enabled && k->waterfall && k->waterfall->is_websocket &&
+       !k->waterfall->is_closing && current - k->waterfall_keepalive >= 1000000) {
+      const char *keepalive = "SET keepalive";
+      if (k->waterfall->send.len < KIWI_QUEUE_MAX)
+         mg_ws_send(k->waterfall, keepalive, strlen(keepalive), WEBSOCKET_OP_TEXT);
+      k->waterfall_keepalive = current;
+   }
 
    if (!k->connection) {
       return;
