@@ -579,15 +579,23 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
 /* Kiwi waterfall start is a fixed-point low-edge offset, not kHz.
  * A 1024-bin row at zoom 6 spans 1/64 of the full receiver bandwidth.
  * MAX_ZOOM=14 gives a 24-bit start scale for current KiwiSDR. */
-static void waterfall_center(struct kiwi_instance *k) {
-   if (!k->waterfall || !k->max_hz) return;
-   const unsigned zoom = k->waterfall_zoom;
+static void waterfall_range(const struct kiwi_instance *k, uint64_t *low_hz, uint64_t *high_hz) {
    double full = (double)k->max_hz;
-   double span = full / (1u << zoom);
+   double span = full / (1u << k->waterfall_zoom);
    double center = (double)(k->wanted_hz ? k->wanted_hz : k->hz);
    double low = center - span / 2.;
    if (low < 0.) low = 0.;
    if (low > full - span) low = full - span;
+   *low_hz = (uint64_t)(low + .5);
+   *high_hz = (uint64_t)(low + span + .5);
+}
+static void waterfall_center(struct kiwi_instance *k) {
+   if (!k->waterfall || !k->max_hz) return;
+   const unsigned zoom = k->waterfall_zoom;
+   uint64_t low_hz, high_hz;
+   waterfall_range(k, &low_hz, &high_hz);
+   double full = (double)k->max_hz;
+   double low = (double)low_hz;
    unsigned start = (unsigned)(low / full * (1024u << 14) + .5);
    char command[96];
    snprintf(command, sizeof(command), "SET zoom=%u start=%u", zoom, start);
@@ -648,9 +656,11 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
             note(k, detail);
          }
          if (m->data.len == 1040) {
+            uint64_t low_hz, high_hz;
+            waterfall_range(k, &low_hz, &high_hz);
             rr_bridge_spectrum_row row = {
                .magic = RR_BRIDGE_SPECTRUM_MAGIC, .version = 1,
-               .low_hz = 0, .high_hz = k->max_hz,
+               .low_hz = low_hz, .high_hz = high_hz,
                .sequence = (uint32_t)k->waterfall_rows,
                .bins = RR_BRIDGE_SPECTRUM_BINS
             };
