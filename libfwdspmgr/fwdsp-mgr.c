@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #endif
 #include <librustyaxe/core.h>
+#include <librustyaxe/scheduler.h>
 #include <librustyaxe/reactor.glib.h>
 #include <librustyaxe/util.file.h>
 #include <librrprotocol/rrprotocol.h>
@@ -1364,6 +1365,16 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!started) {
       free(fwdsp_path);
       goto failed;
+   }
+   /* A child must not unintentionally retain the parent's RT policy. */
+   const char *profile = cfg_get("scheduler.fwdsp.profile");
+   if (!profile || !*profile) profile = "normal";
+   if (ra_sched_apply_profile(sp->process.pid, profile) < 0)
+      Log(LOG_WARN, "scheduler", "fwdsp pid=%ld profile=%s: %s", (long)sp->process.pid, profile, strerror(errno));
+   else {
+      ra_sched_options_t actual;
+      if (!ra_sched_query(sp->process.pid, &actual))
+         Log(LOG_INFO, "scheduler", "fwdsp pid=%ld profile=%s effective=%s priority=%d nice=%d", (long)sp->process.pid, profile, ra_sched_class_name(actual.policy), actual.priority, actual.nice);
    }
    // cfg_get_exp() returns a malloc'd string we own
    free((char *)fwdsp_path);
