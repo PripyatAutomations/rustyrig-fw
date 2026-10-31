@@ -37,6 +37,7 @@ struct kiwi_instance {
    uint32_t sequence;
    bool have_sequence;
 };
+static void waterfall_center(struct kiwi_instance *k);
 static const char *setting(struct kiwi_instance *k, const char *key) {
    return k->host.setting ? k->host.setting(k->host.user, key) : NULL;
 }
