@@ -4,6 +4,7 @@
 #include <gtk/gtk.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
 #include <rrclient/rooms.h>
@@ -50,7 +51,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 extern GtkWidget *main_window, *main_notebook;
 static GtkWidget *directory_page, *search_entry, *accessible_only, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
-static GtkWidget *connect_button, *add_button;
+static GtkWidget *connect_button, *local_button, *add_button;
 static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
@@ -171,6 +172,11 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    gtk_widget_set_sensitive(url_button, r != NULL);
    bool connected = r && rrclient_receiver_is_connected(r->url);
    gtk_button_set_label(GTK_BUTTON(connect_button), connected ? "Disconnect" : "Connect");
+   if (local_button) {
+      bool local_connected = r && rrclient_local_bridge_connected(r->url);
+      gtk_button_set_label(GTK_BUTTON(local_button), local_connected ? "Disconnect local" : "Connect locally");
+      gtk_widget_set_sensitive(local_button, local_connected || (r && receiver_directory_entry_accessible(r) && !strcmp(r->driver, "kiwi")));
+   }
    gtk_widget_set_sensitive(connect_button, connected || (r && receiver_directory_entry_accessible(r)));
    gtk_widget_set_sensitive(add_button, r && receiver_directory_entry_accessible(r));
    g_free(config);
@@ -255,8 +261,8 @@ static void populate(void) {
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
       gtk_list_store_append(directory_store, &iter);
       gtk_list_store_set(directory_store, &iter, COL_INDEX, (guint) i, COL_NAME, *r->name ? r->name : r->url, COL_LOCATION, r->location, COL_COUNTRY, r->country
-         , COL_USERS, users, COL_API, api_policy(r), COL_STATE, rrclient_receiver_is_connected(r->url) ? "Connected" : receiver_state(r), COL_CONNECTED_COLOR,
-         rrclient_receiver_is_connected(r->url) ? "connected" : NULL, COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, -1);
+         , COL_USERS, users, COL_API, api_policy(r), COL_STATE, rrclient_local_bridge_connected(r->url) ? "Local" : rrclient_receiver_is_connected(r->url) ? "Connected" : receiver_state(r), COL_CONNECTED_COLOR,
+         (rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url)) ? "connected" : NULL, COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, -1);
    }
 
    char *info = receiver_directory_info();
@@ -446,6 +452,20 @@ static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event,
 
    return TRUE;
 }
+static void local_connect_clicked(GtkButton *button, gpointer unused) {
+   (void)button;
+   (void)unused;
+   const receiver_directory_entry_t *r = selected_receiver();
+   if (!r) return;
+   if (rrclient_local_bridge_connected(r->url)) {
+      rrclient_local_bridge_disconnect();
+   } else if (!rrclient_local_bridge_connect(r->url)) {
+      gtk_label_set_text(GTK_LABEL(directory_status),
+         "Unable to start local Kiwi bridge; check rrbridge executable/modules and client logs.");
+   }
+   selection_changed(NULL, NULL);
+   populate();
+}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -543,8 +563,8 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
             gtk_tree_model_get(GTK_TREE_MODEL(directory_store), &iter, COL_URL, &url, -1);
             const receiver_directory_entry_t *receiver = url ? receiver_directory_find_url(url) : NULL;
             bool connected = url && rrclient_receiver_is_connected(url);
-            gtk_list_store_set(directory_store, &iter, COL_STATE, connected ? "Connected" : receiver ? receiver_state(receiver) : "Not tested",
-               COL_CONNECTED_COLOR, connected ? "connected" : NULL, -1);
+            gtk_list_store_set(directory_store, &iter, COL_STATE, url && rrclient_local_bridge_connected(url) ? "Local" : connected ? "Connected" : receiver ? receiver_state(receiver) : "Not tested",
+               COL_CONNECTED_COLOR, (connected || (url && rrclient_local_bridge_connected(url))) ? "connected" : NULL, -1);
             g_free(url);
          }
       }
@@ -674,13 +694,17 @@ static gboolean directory_finish_show(gpointer unused) {
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
    connect_button = gtk_button_new_with_label("Connect");
+   local_button = gtk_button_new_with_label("Connect locally");
+   gtk_widget_set_tooltip_text(local_button, "Run the Kiwi receiver directly using a local rrbridge process; no rrserver connection required");
    add_button = gtk_button_new_with_label("Add to server config");
    gtk_widget_set_tooltip_text(connect_button,
       "Use the selected RustyRig server: websdr.listen for configured receivers, websdr.connect for temporary receivers");
    gtk_widget_set_tooltip_text(add_button, "Add this receiver to the selected server's configuration; requires websdr.admin");
    gtk_box_pack_start(GTK_BOX(buttons), connect_button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), local_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(buttons), add_button, FALSE, FALSE, 0);
    g_signal_connect(connect_button, "clicked", G_CALLBACK(connect_clicked), NULL);
+   g_signal_connect(local_button, "clicked", G_CALLBACK(local_connect_clicked), NULL);
    g_signal_connect(add_button, "clicked", G_CALLBACK(connect_clicked), GINT_TO_POINTER(1));
    refresh_button = gtk_button_new_with_label("Refresh list");
    gtk_widget_set_tooltip_text(refresh_button, "Use the locally cached directory for four hours; Shift+click to force a fresh download.");
