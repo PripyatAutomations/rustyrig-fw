@@ -638,7 +638,9 @@ static bool spawn_child(struct bridge_child *b) {
    int closes[] = {
       sv[0], sv[1], media[0], media[1]
    };
-   bool ok = subproc_spawn_fds(&b->process, path, argv, map, 2, closes, 4);
+   const char *profile = cfg_get("scheduler.rrbridge.profile");
+   if (!profile || !*profile) profile = "normal";
+   bool ok = subproc_spawn_fds_profile(&b->process, path, argv, map, 2, closes, 4, profile);
    close(sv[1]);
    close(media[1]);
    g_free(path);
@@ -648,15 +650,6 @@ static bool spawn_child(struct bridge_child *b) {
       close(media[0]);
 
       return false;
-   }
-   const char *profile = cfg_get("scheduler.rrbridge.profile");
-   if (!profile || !*profile) profile = "normal";
-   if (ra_sched_apply_profile(b->process.pid, profile) < 0)
-      Log(LOG_WARN, "scheduler", "rrbridge pid=%ld profile=%s: %s", (long)b->process.pid, profile, strerror(errno));
-   else {
-      ra_sched_options_t actual;
-      if (!ra_sched_query(b->process.pid, &actual))
-         Log(LOG_INFO, "scheduler", "rrbridge pid=%ld profile=%s effective=%s priority=%d nice=%d", (long)b->process.pid, profile, ra_sched_class_name(actual.policy), actual.priority, actual.nice);
    }
    b->fd = sv[0];
    b->media_fd = media[0];
