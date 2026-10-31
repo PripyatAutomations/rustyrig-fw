@@ -262,6 +262,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
 typedef struct {
    GtkWidget *drawing;
    GtkWidget *enabled;
+   GtkWidget *gain;
+   double display_gain_db;
    bool rf_enabled;
    unsigned zoom;
    rr_bridge_spectrum_row rows[32];
@@ -304,6 +306,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    if (!p->rf_enabled || !p->count || g_get_monotonic_time() - p->received_at > 3000000)
       return FALSE;
    int depth = MIN((int)p->count, 32);
+   int plot_h = MAX(1, h - 19);
    /* Build one tightly packed ARGB32 image; avoid thousands of Cairo
     * state changes/fills on the audio client's GTK main thread. */
    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24,
@@ -318,19 +321,46 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       unsigned index = (p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows);
       uint32_t *dest = (uint32_t *)(pixels + y * stride);
       for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++)
-         dest[x] = palette_pixel(p->rows[index].power[x] / 255.0);
+         dest[x] = palette_pixel(CLAMP(p->rows[index].power[x] / 255.0 + p->display_gain_db / 80.0, 0.0, 1.0));
       if (p->vfo_boundary[index])
          for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++) dest[x] = 0xffe640;
    }
    cairo_surface_mark_dirty(surface);
    cairo_save(cr);
-   cairo_scale(cr, (double)w / RR_BRIDGE_SPECTRUM_BINS, (double)h / depth);
+   cairo_scale(cr, (double)w / RR_BRIDGE_SPECTRUM_BINS, (double)plot_h / depth);
    cairo_set_source_surface(cr, surface, 0, 0);
    cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
    cairo_paint(cr);
    cairo_restore(cr);
    cairo_surface_destroy(surface);
+   /* Scale follows bridge-provided actual RF bounds, not the selected zoom
+    * or a client-side approximation of Kiwi's tuning state. */
+   const rr_bridge_spectrum_row *latest = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+   double low = latest->low_hz / 1e6, high = latest->high_hz / 1e6;
+   cairo_set_source_rgba(cr, 0, 0, 0, .80);
+   cairo_rectangle(cr, 0, plot_h, w, h - plot_h);
+   cairo_fill(cr);
+   cairo_set_source_rgb(cr, .85, .88, .91);
+   cairo_set_font_size(cr, 10);
+   for (int tick = 0; tick <= 4; tick++) {
+      double x = (w - 1.) * tick / 4.;
+      double mhz = low + (high - low) * tick / 4.;
+      char label[40];
+      snprintf(label, sizeof(label), "%.3f", mhz);
+      cairo_text_extents_t ext;
+      cairo_text_extents(cr, label, &ext);
+      /* Leave the bottom-right corner clear for the gain slider. */
+      if (tick > 2 && w < 520) continue;
+      double tx = CLAMP(x - ext.width / 2, 2., MAX(2., w - ext.width - 2.));
+      cairo_move_to(cr, tx, h - 5);
+      cairo_show_text(cr, label);
+   }
    return FALSE;
+}
+static void rf_gain_changed(GtkRange *range, gpointer data) {
+   rf_strip_t *p = data;
+   p->display_gain_db = gtk_range_get_value(range);
+   gtk_widget_queue_draw(p->drawing);
 }
 static void rf_caps_changed(const char *event, const void *data, size_t len,
                             rrconn_t *connection, void *user) {
@@ -339,6 +369,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len,
    unsigned min_zoom, max_zoom;
    bool available = rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom);
    gtk_widget_set_visible(p->enabled, available);
+   gtk_widget_set_visible(p->gain, available);
    if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) p->zoom = min_zoom;
 }
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
@@ -393,10 +424,20 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    gtk_widget_set_halign(p->enabled, GTK_ALIGN_END);
    gtk_widget_set_valign(p->enabled, GTK_ALIGN_START);
    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), p->enabled);
+   p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40, 40, 1);
+   gtk_range_set_value(GTK_RANGE(p->gain), 0);
+   gtk_scale_set_draw_value(GTK_SCALE(p->gain), FALSE);
+   gtk_widget_set_size_request(p->gain, 105, -1);
+   gtk_widget_set_halign(p->gain, GTK_ALIGN_END);
+   gtk_widget_set_valign(p->gain, GTK_ALIGN_END);
+   gtk_widget_set_margin_bottom(p->gain, 16);
+   gtk_widget_set_tooltip_text(p->gain, "RF waterfall display gain (dB); does not alter receiver gain");
+   gtk_overlay_add_overlay(GTK_OVERLAY(overlay), p->gain);
    g_object_set_data_full(G_OBJECT(overlay), "rr-rf-spectrum", p, rf_destroy);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
+   g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
    p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
    p->caps_token = event_on_binary_token("client.local-bridge.capabilities", rf_caps_changed, p);
    p->vfo_token = event_on_binary_token("client.local-bridge.vfo", rf_caps_changed, p);
