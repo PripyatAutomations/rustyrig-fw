@@ -45,6 +45,7 @@ static void note(struct kiwi_instance *k, const char *text) {
    }
 }
 static void unavailable(struct kiwi_instance *k) {
+   if (k->waterfall) k->waterfall->is_closing = 1;
    uint64_t request = k->request;
    k->request = 0;
 
