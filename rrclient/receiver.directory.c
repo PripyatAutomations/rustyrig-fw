@@ -906,8 +906,9 @@ static void ensure(void) {
          "CREATE TABLE IF NOT EXISTS directory_cache(id INTEGER PRIMARY KEY CHECK(id=1),source TEXT,payload TEXT,etag TEXT,modified TEXT,next_request INTEGER);"
          "CREATE TABLE IF NOT EXISTS receiver_records(url TEXT PRIMARY KEY,record TEXT NOT NULL,last_seen INTEGER NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,offline INTEGER NOT NULL DEFAULT 0,provider TEXT NOT NULL DEFAULT 'kiwi');"
          "CREATE TABLE IF NOT EXISTS receiver_details(url TEXT,key TEXT,value TEXT NOT NULL,origin TEXT NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(url,key));"
-         "CREATE TABLE IF NOT EXISTS receiver_state(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
-         "CREATE TABLE IF NOT EXISTS receiver_connections(url TEXT PRIMARY KEY,last_connected INTEGER NOT NULL);",
+         "CREATE TABLE IF NOT EXISTS receiver_state(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
+         "CREATE TABLE IF NOT EXISTS receiver_connections(url TEXT PRIMARY KEY,last_connected INTEGER NOT NULL);"
+         "CREATE TABLE IF NOT EXISTS receiver_favorites(url TEXT PRIMARY KEY);",
          NULL, NULL, NULL) != SQLITE_OK) {
          sqlite3_close(cache_db);
          cache_db = NULL;
@@ -920,6 +921,14 @@ static void ensure(void) {
    if (cache_db) {
       sqlite3_exec(cache_db, "ALTER TABLE receiver_records ADD COLUMN offline INTEGER NOT NULL DEFAULT 0", NULL, NULL, NULL);
       sqlite3_exec(cache_db, "ALTER TABLE receiver_records ADD COLUMN provider TEXT NOT NULL DEFAULT 'kiwi'", NULL, NULL, NULL);
+      /* Rebuild the legacy state table to admit the explicit 'good' mark. */
+      sqlite3_exec(cache_db,
+         "BEGIN;"
+         "CREATE TABLE IF NOT EXISTS receiver_state_new(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
+         "INSERT OR REPLACE INTO receiver_state_new SELECT * FROM receiver_state;"
+         "DROP TABLE receiver_state;"
+         "ALTER TABLE receiver_state_new RENAME TO receiver_state;"
+         "COMMIT;", NULL, NULL, NULL);
    }
    sqlite3_stmt *statement = NULL;
 
@@ -1097,10 +1106,33 @@ bool receiver_directory_record_connection(const char *endpoint) {
    g_free(url);
    return ok;
 }
+bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
+   ensure();
+   char *url = endpoint ? canonical_url(endpoint) : NULL;
+   if (!url || !cache_db) { g_free(url); return false; }
+   sqlite3_stmt *stmt = NULL;
+   bool ok = sqlite3_prepare_v2(cache_db, favorite ?
+      "INSERT OR IGNORE INTO receiver_favorites(url) VALUES(?)" :
+      "DELETE FROM receiver_favorites WHERE url=?", -1, &stmt, NULL) == SQLITE_OK;
+   if (ok) {
+      sqlite3_bind_text(stmt, 1, url, -1, SQLITE_TRANSIENT);
+      ok = sqlite3_step(stmt) == SQLITE_DONE;
+   }
+   sqlite3_finalize(stmt);
+   if (ok) {
+      for (guint i = 0; i < receivers->len; i++) {
+         receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
+         if (!strcmp(r->url, url)) r->favorite = favorite;
+      }
+      changed();
+   }
+   g_free(url);
+   return ok;
+}
 bool receiver_directory_set_state(const char *endpoint, const char *state, const char *reason) {
    ensure();
 
-   if (!cache_db || !endpoint || !state || (strcmp(state, "unknown") && strcmp(state, "unreachable") && strcmp(state, "restricted"))) {
+   if (!cache_db || !endpoint || !state || (strcmp(state, "unknown") && strcmp(state, "unreachable") && strcmp(state, "restricted") && strcmp(state, "good"))) {
       return false;
    }
    char *url = canonical_url(endpoint);
