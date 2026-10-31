@@ -440,7 +440,10 @@ static bool parse_chat_input(const char *msg, bool commands) {
       return true;
    }
 
-   if (rrclient_chat_input_blocked(commands ? msg : "text")) {
+   /* Local bridge management must work even without an online room/server. */
+   bool bridge_command = commands && !g_ascii_strncasecmp(msg, "/bridge", 7) &&
+      (!msg[7] || isspace((unsigned char)msg[7]));
+   if (!bridge_command && rrclient_chat_input_blocked(commands ? msg : "text")) {
       ui_print(ui_active_window_name(), "Room is OFFLINE; message not sent");
 
       return true;
