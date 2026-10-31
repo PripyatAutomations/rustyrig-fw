@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <rrclient/audio.h>
+#include <rrclient/rooms.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/gtk/gtk.spectrum.h>
 #include <rrbridge/spectrum.row.h>
@@ -260,6 +261,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
 typedef struct {
    GtkWidget *drawing;
    rr_bridge_spectrum_row rows[32];
+   bool vfo_boundary[32];
+   char last_vfo;
    unsigned head, count;
    gint64 received_at;
    rr_event_token_t token;
@@ -271,6 +274,9 @@ static void rf_row(const char *event, const void *data, size_t len,
    if (len != sizeof(rr_bridge_spectrum_row) || !data) return;
    const rr_bridge_spectrum_row *row = data;
    if (!rr_bridge_spectrum_valid(row)) return;
+   char vfo = rrclient_room_active_vfo("&local-sdr");
+   p->vfo_boundary[p->head] = p->last_vfo && p->last_vfo != vfo;
+   p->last_vfo = vfo;
    p->rows[p->head] = *row;
    p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
    p->count = MIN(p->count + 1, G_N_ELEMENTS(p->rows));
@@ -288,8 +294,8 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    int depth = MIN((int)p->count, 32);
    double row_h = (double)h / depth;
    for (int y = 0; y < depth; y++) {
-      const rr_bridge_spectrum_row *row =
-         &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows)];
+      unsigned index = (p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows);
+      const rr_bridge_spectrum_row *row = &p->rows[index];
       for (int x = 0; x < w; x++) {
          unsigned bin = (unsigned)((uint64_t)x * RR_BRIDGE_SPECTRUM_BINS / MAX(w, 1));
          double value = row->power[bin] / 255.0;
@@ -298,6 +304,15 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
             ((rgb >> 8) & 255) / 255., (rgb & 255) / 255.);
          cairo_rectangle(cr, x, y * row_h, 1.5, row_h + .5);
          cairo_fill(cr);
+      }
+      /* The first row from a newly selected VFO marks the transition.
+       * Preserve all older rows rather than clearing the history. */
+      if (p->vfo_boundary[index]) {
+         cairo_set_source_rgb(cr, 1.0, .9, .25);
+         cairo_set_line_width(cr, 2.);
+         cairo_move_to(cr, 0, y * row_h + row_h);
+         cairo_line_to(cr, w, y * row_h + row_h);
+         cairo_stroke(cr);
       }
    }
    return FALSE;
