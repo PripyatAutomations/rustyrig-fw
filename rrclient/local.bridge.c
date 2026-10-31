@@ -38,7 +38,8 @@ typedef struct bridge_instance {
    bool online, pcm_started;
    unsigned rate;
    gint64 resampler_retry_at;
-   uint64_t pending, serial, frequency_hz;
+   uint64_t pending, serial, frequency_hz, pending_hz;
+   char pending_mode[16];
    bool queued_tune;
    uint64_t queued_hz;
    char queued_mode[16];
@@ -130,6 +131,8 @@ bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
    g_strlcpy(command.mode, mode, sizeof(command.mode));
    if (!rrp_bridge_ipc_send(b->control, &command)) return false;
    b->pending = command.request;
+   b->pending_hz = hz;
+   g_strlcpy(b->pending_mode, mode, sizeof(b->pending_mode));
    return true;
 }
 bool rrclient_local_bridge_tune(uint64_t hz, const char *mode) {
@@ -140,14 +143,16 @@ bool rrclient_local_bridge_set_frequency(char vfo, uint64_t hz) {
    unsigned slot = (unsigned)(vfo - 'A');
    if (slot >= G_N_ELEMENTS(bridges) || !bridges[slot]) return false;
    bridge_instance *b = bridges[slot];
-   const char *mode = b->pending && b->queued_tune ? b->queued_mode : b->mode;
+   const char *mode = b->queued_tune ? b->queued_mode :
+      b->pending ? b->pending_mode : b->mode;
    return rrclient_local_bridge_tune_vfo(vfo, hz, mode);
 }
 bool rrclient_local_bridge_set_mode(char vfo, const char *mode) {
    unsigned slot = (unsigned)(vfo - 'A');
    if (slot >= G_N_ELEMENTS(bridges) || !bridges[slot]) return false;
    bridge_instance *b = bridges[slot];
-   uint64_t hz = b->pending && b->queued_tune ? b->queued_hz : b->frequency_hz;
+   uint64_t hz = b->queued_tune ? b->queued_hz :
+      b->pending ? b->pending_hz : b->frequency_hz;
    return hz && rrclient_local_bridge_tune_vfo(vfo, hz, mode);
 }
 bool rrclient_local_bridge_set_width(char vfo, const char *width) {
