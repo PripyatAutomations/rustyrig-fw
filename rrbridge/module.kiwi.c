@@ -30,6 +30,7 @@ struct kiwi_instance {
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
    uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
    unsigned waterfall_zoom;
+   uint64_t waterfall_center_hz;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
    bool redirecting;
@@ -583,7 +584,7 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
 static void waterfall_range(const struct kiwi_instance *k, uint64_t *low_hz, uint64_t *high_hz) {
    double full = (double)k->max_hz;
    double span = full / (1u << k->waterfall_zoom);
-   double center = (double)(k->wanted_hz ? k->wanted_hz : k->hz);
+   double center = (double)(k->waterfall_center_hz ? k->waterfall_center_hz : (k->wanted_hz ? k->wanted_hz : k->hz));
    double low = center - span / 2.;
    if (low < 0.) low = 0.;
    if (low > full - span) low = full - span;
@@ -977,10 +978,11 @@ static bool kiwi_set_receiver(void *instance, uint64_t request, uint64_t hz, con
    return true;
 }
 
-static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom) {
+static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint64_t center_hz) {
    struct kiwi_instance *k = instance;
-   if (!k || zoom > 14) return false;
+   if (!k || zoom > 14 || center_hz > k->max_hz) return false;
    k->waterfall_zoom = zoom;
+   k->waterfall_center_hz = center_hz;
    k->waterfall_enabled = enabled;
    k->waterfall_last_sent = 0;
    if (!enabled && k->waterfall) {
