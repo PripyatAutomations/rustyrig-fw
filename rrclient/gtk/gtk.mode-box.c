@@ -70,28 +70,26 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    const gchar *text = gtk_combo_box_text_get_active_text(combo);
 
    if (text) {
-      // Send mode command over websocket as before
-#if     defined(USE_MONGOOSE)
-      char vfo[2] = {
-         vfo_state_get_active(), '\0'
-      };
       const char *room = gtk_chat_current_room();
-
       bool sent = false;
       if (room && !g_ascii_strcasecmp(room, "&local-sdr")) {
          uint64_t hz = 0;
          const char *previous = NULL;
-         if (rrclient_local_bridge_state(&hz, &previous) && hz)
+         if (rrclient_local_bridge_state(&hz, &previous) && hz &&
+             g_ascii_strcasecmp(previous ? previous : "", text))
             sent = rrclient_local_bridge_tune(hz, text);
+         else if (previous && !g_ascii_strcasecmp(previous, text))
+            sent = true;
       } else {
+#if defined(USE_MONGOOSE)
+         char vfo[2] = { vfo_state_get_active(), '\0' };
          sent = ws_send_mode_cmd_in_room(ws_conn, vfo, text, room);
+#endif
       }
-      if (sent) {
+      if (sent)
          modebox_last_send = now;
-      } else {
-         Log(LOG_WARN, "gtk.modebox", "Unable to send mode %s for VFO %s in room %s", text, vfo, room ? room : "(none)");
-      }
-#endif // defined(USE_MONGOOSE)
+      else
+         Log(LOG_WARN, "gtk.modebox", "Unable to send mode %s for room %s", text, room ? room : "(none)");
 
       // Show/hide repeater dialog locally based on FM mode
       if (g_str_equal(text, "FM")) {
