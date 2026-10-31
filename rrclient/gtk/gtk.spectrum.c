@@ -638,6 +638,8 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    GtkWidget *drawing = gtk_drawing_area_new();
    p->drawing = drawing;
    gtk_widget_set_size_request(drawing, 320, 82);
+   gtk_widget_set_vexpand(drawing, TRUE);
+   gtk_widget_set_vexpand(overlay, TRUE);
    gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
    gtk_widget_set_tooltip_text(drawing, "RF waterfall: scroll to zoom around the tuned center");
    gtk_container_add(GTK_CONTAINER(overlay), drawing);
