@@ -33,7 +33,8 @@ bool rrclient_receiver_is_connected(const char *url) {
    rrconn_t *connection = rrclient_active_connection();
    const char *profile = connection ? rrclient_connection_name(connection) : NULL;
 
-   if (!connected_receivers || !profile || !url) {
+   if (!connected_receivers || !connection || !connection->authenticated ||
+       !profile || rrclient_connection_state(profile) != 1 || !url) {
       return false;
    }
    char *key = receiver_key(profile, url);
