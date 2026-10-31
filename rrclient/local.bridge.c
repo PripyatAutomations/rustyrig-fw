@@ -33,6 +33,7 @@ typedef struct bridge_instance {
    subproc_t process;
    guint timer, kill_timer;
    char *url, *config;
+   char driver[32];
    char stream[64], resampler[64];
    unsigned slot;
    bool online, pcm_started;
@@ -126,6 +127,8 @@ bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
    }
    rrp_bridge_ipc_message_t command;
    rrp_bridge_ipc_init(&command, RRP_BRIDGE_IPC_SET);
+   g_strlcpy(command.name, "local", sizeof(command.name));
+   g_strlcpy(command.driver, b->driver, sizeof(command.driver));
    command.request = ++b->serial;
    command.frequency_hz = hz;
    g_strlcpy(command.mode, mode, sizeof(command.mode));
@@ -447,6 +450,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    }
    bridge_instance *b = g_new0(bridge_instance, 1);
    b->slot = slot;
+   g_strlcpy(b->driver, driver, sizeof(b->driver));
    b->control = b->media = b->spectrum = -1;
    b->process = (subproc_t) SUBPROC_INIT;
    g_snprintf(b->stream, sizeof(b->stream), "local.sdr.%c", 'A' + slot);
