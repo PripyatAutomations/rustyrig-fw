@@ -83,6 +83,13 @@ bool rrclient_local_bridge_connected(const char *url) {
           !strcmp(bridges[i]->url, url)) return true;
    return false;
 }
+bool rrclient_local_bridge_waterfall_caps(unsigned *min_zoom, unsigned *max_zoom) {
+   bridge_instance *b = bridge_active();
+   if (!b || !(b->caps.flags & RRP_BRIDGE_WATERFALL)) return false;
+   if (min_zoom) *min_zoom = b->caps.waterfall_zoom_min;
+   if (max_zoom) *max_zoom = b->caps.waterfall_zoom_max;
+   return true;
+}
 bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom) {
    bridge_instance *b = bridge_active();
    if (!b || b->control < 0 || !(b->caps.flags & RRP_BRIDGE_WATERFALL) ||
@@ -380,6 +387,7 @@ static gboolean poll_local(gpointer unused) {
       }
       if (m.type == RRP_BRIDGE_IPC_CAPABILITIES) {
          b->caps = m;
+         event_emit("client.local-bridge.capabilities", NULL, NULL);
       } else if (m.type == RRP_BRIDGE_IPC_RESULT) {
          if (m.request == b->pending) {
             b->pending = 0;
