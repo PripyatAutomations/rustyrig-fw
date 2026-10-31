@@ -65,10 +65,7 @@ static void local_room_refresh(void) {
 
 static bridge_instance *bridge_active(void) {
    unsigned slot = (unsigned)(rrclient_room_active_vfo("&local-sdr") - 'A');
-   if (slot < G_N_ELEMENTS(bridges) && bridges[slot]) return bridges[slot];
-   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++)
-      if (bridges[i]) return bridges[i];
-   return NULL;
+   return slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
 }
 
 bool rrclient_local_bridge_connected(const char *url) {
