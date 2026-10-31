@@ -166,7 +166,7 @@ bool rrclient_local_bridge_connect(const char *url) {
       return false;
    }
    close(tmp);
-   char *text = g_strdup_printf("[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\n", host, port);
+   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=kiwi\nhost=%s\nport=%d\n", host, port);
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
