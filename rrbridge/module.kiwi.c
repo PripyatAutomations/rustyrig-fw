@@ -588,11 +588,16 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++)
          mg_ws_send(c, commands[i], strlen(commands[i]), WEBSOCKET_OP_TEXT);
    } else if (event == MG_EV_ERROR) {
-      note(k, "Kiwi W/F connection error: %s", (const char *)data);
+      char detail[256];
+      snprintf(detail, sizeof(detail), "Kiwi W/F connection error: %s", data ? (const char *)data : "unknown");
+      note(k, detail);
    } else if (event == MG_EV_WS_MSG) {
       struct mg_ws_message *m = data;
-      if (!k->waterfall_ready && k->waterfall_rows == 0 && m->data.len > 0)
-         note(k, "Kiwi W/F first frame: %zu bytes, type=0x%x", m->data.len, m->flags);
+      if (!k->waterfall_ready && !k->waterfall_rows && m->data.len > 0) {
+         char detail[128];
+         snprintf(detail, sizeof(detail), "Kiwi W/F frame: %zu bytes, type=0x%x", m->data.len, m->flags);
+         note(k, detail);
+      }
       if (m->data.len >= 1040 && !memcmp(m->data.buf, "W/F", 3)) {
          /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
           * Keep parsing conservative pending normalized spectrum transport. */
