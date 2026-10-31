@@ -100,10 +100,22 @@ bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
    unsigned slot = (unsigned)(vfo - 'A');
    if (slot >= G_N_ELEMENTS(bridges)) return false;
    bridge_instance *b = bridges[slot];
-   if (!b || !b->online || b->control < 0 ||
-       !(b->caps.flags & RRP_BRIDGE_RX) ||
-       hz < b->caps.rx_min_hz || hz > b->caps.rx_max_hz ||
-       !mode || !rrp_bridge_mode_valid(b->caps.rx_modes, mode)) return false;
+   const char *reason = !b ? "VFO has no bridge" :
+      !b->online ? "receiver offline" :
+      b->control < 0 ? "control channel unavailable" :
+      !(b->caps.flags & RRP_BRIDGE_RX) ? "RX capability not advertised" :
+      hz < b->caps.rx_min_hz || hz > b->caps.rx_max_hz ? "frequency outside supported range" :
+      !mode || !rrp_bridge_mode_valid(b->caps.rx_modes, mode) ? "mode unsupported by receiver" : NULL;
+   if (reason) {
+      Log(LOG_WARN, "local.bridge", "local.sdr.%c tune rejected: %s (hz=%llu mode=%s caps=%u range=%llu-%llu modes='%s')",
+         vfo, reason, (unsigned long long)hz, mode ? mode : "(null)",
+         b ? b->caps.flags : 0u,
+         (unsigned long long)(b ? b->caps.rx_min_hz : 0),
+         (unsigned long long)(b ? b->caps.rx_max_hz : 0),
+         b ? b->caps.rx_modes : "");
+      ui_print("&local-sdr", "local.sdr.%c: cannot tune: %s", vfo, reason);
+      return false;
+   }
    if (b->pending) {
       b->queued_tune = true;
       b->queued_hz = hz;
