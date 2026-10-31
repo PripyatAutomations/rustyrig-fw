@@ -33,6 +33,7 @@
 #include <librrprotocol/connman.h>
 #include <rrclient/dcc.h>
 #include <rrclient/audio.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/media.h>
 #include <rrclient/cmd.h>
@@ -950,6 +951,7 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   rrclient_local_bridge_disconnect();
    rr_af_spectrum_shutdown();
 
    if (rx_maintenance_source) {
