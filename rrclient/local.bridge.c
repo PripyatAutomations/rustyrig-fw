@@ -29,7 +29,8 @@ static struct {
    bool online, pcm_started;
    unsigned rate;
    gint64 resampler_retry_at;
-   uint64_t pending, serial;
+   uint64_t pending, serial, frequency_hz;
+   char mode[16];
    rrp_bridge_ipc_message_t caps;
 } local = { .control = -1, .media = -1 };
 
@@ -41,6 +42,12 @@ bool rrclient_local_bridge_connected(const char *url) {
 }
 bool rrclient_local_bridge_active(void) {
    return local.pid > 0 && local.online;
+}
+bool rrclient_local_bridge_state(uint64_t *hz, const char **mode) {
+   if (!rrclient_local_bridge_active()) return false;
+   if (hz) *hz = local.frequency_hz;
+   if (mode) *mode = local.mode;
+   return true;
 }
 bool rrclient_local_bridge_tune(uint64_t hz, const char *mode) {
    if (!rrclient_local_bridge_active() || local.control < 0 ||
@@ -97,6 +104,8 @@ void rrclient_local_bridge_disconnect(void) {
    local.rate = 0;
    local.resampler_retry_at = 0;
    local.pending = 0;
+   local.frequency_hz = 0;
+   local.mode[0] = '\0';
    memset(&local.caps, 0, sizeof(local.caps));
    event_emit("client.receiver-directory.connection", NULL, "Local SDR disconnected.");
    event_emit("client.audio.streams.changed", NULL, NULL);
@@ -133,6 +142,11 @@ static gboolean poll_local(gpointer unused) {
       } else if (m.type == RRP_BRIDGE_IPC_STATE) {
          bool was_online = local.online;
          local.online = m.available != 0;
+         if (local.online) {
+            local.frequency_hz = m.frequency_hz;
+            g_strlcpy(local.mode, m.mode, sizeof(local.mode));
+            event_emit("client.local-bridge.vfo", NULL, NULL);
+         }
          if (local.online && !was_online) {
             receiver_directory_record_connection(local.url);
             Log(LOG_INFO, "local.bridge", "Local Kiwi online: %s", local.url);
