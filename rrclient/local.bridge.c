@@ -1,7 +1,7 @@
 /* Local SDR host: reuse the rrbridge process and Kiwi driver, no rrserver.
  * All control and resampler callbacks are owned by the client main context. */
 #include <rrclient/local.bridge.h>
-#include <rrclient/rig.command.h>
+#include <librrprotocol/rig.command.h>
 #include <rrclient/rooms.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
