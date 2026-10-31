@@ -141,8 +141,6 @@ static gboolean local_vfo_tick(gpointer unused) {
       local_spectrum_rows = local_spectrum_head = 0;
    }
    if (online && !gtk_freq_entry_is_editing(GTK_FREQ_ENTRY(local_vfo_frequency))) {
-      char buffer[32];
-      g_snprintf(buffer, sizeof(buffer), "%" G_GUINT64_FORMAT, (guint64)hz);
       if (gtk_freq_entry_get_frequency(GTK_FREQ_ENTRY(local_vfo_frequency)) != (unsigned long)hz)
          gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(local_vfo_frequency), (unsigned long)hz);
    }
