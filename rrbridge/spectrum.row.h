@@ -29,12 +29,12 @@ static inline bool rr_bridge_spectrum_valid(const rr_bridge_spectrum_row *r) {
 static inline int rr_bridge_spectrum_send(int fd, const rr_bridge_spectrum_row *r) {
    if (!rr_bridge_spectrum_valid(r)) return -1;
    ssize_t n = send(fd, r, sizeof(*r), MSG_DONTWAIT | MSG_NOSIGNAL);
-   if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) return 0;
+   if (n < 0 && (errno == EAGAIN || errno == EINTR)) return 0;
    return n == sizeof(*r) ? 1 : -1;
 }
 static inline int rr_bridge_spectrum_recv(int fd, rr_bridge_spectrum_row *r) {
    ssize_t n = recv(fd, r, sizeof(*r), MSG_DONTWAIT | MSG_TRUNC);
-   if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) return 0;
+   if (n < 0 && (errno == EAGAIN || errno == EINTR)) return 0;
    return n == sizeof(*r) && rr_bridge_spectrum_valid(r) ? 1 : -1;
 }
 #endif
