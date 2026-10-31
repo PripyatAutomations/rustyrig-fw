@@ -15,7 +15,7 @@ typedef struct {
    const char *driver;          // First provider: kiwi. Other receiver types use their own policy.
    char *url, *name, *description, *location, *country, *contact, *antenna, *hardware, *grid, *properties;
    int users, users_max, ext_api;
-   bool offline, flagged, deleted;
+   bool offline, flagged, deleted, favorite;
    long long last_seen, learned_at;
    char *local_state, *local_reason;
    long long state_updated, last_connected;
@@ -40,6 +40,7 @@ void receiver_directory_clear_server_snapshot(void);
 void receiver_directory_queue_learn(const char *url, dict *fields);
 bool receiver_directory_learn(const char *url, dict *fields);
 bool receiver_directory_record_connection(const char *url);
+bool receiver_directory_set_favorite(const char *url, bool favorite);
 bool receiver_directory_set_state(const char *url, const char *state, const char *reason);
 bool receiver_directory_entry_accessible(const receiver_directory_entry_t *receiver);
 char *receiver_directory_bridge_config(const receiver_directory_entry_t *receiver);
