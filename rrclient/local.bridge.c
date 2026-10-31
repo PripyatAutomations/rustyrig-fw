@@ -234,6 +234,7 @@ bool rrclient_local_bridge_command(const char *line) {
       ui_print("&local-sdr", "Invalid, unsupported or failed local rig command: %s", line);
    return true;
 }
+static void bridge_stop(bridge_instance *b);
 bool rrclient_local_bridge_cli(int argc, char **argv) {
    if (argc < 3) {
       ui_print("&local-sdr", "Usage: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]");
