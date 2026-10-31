@@ -18,6 +18,7 @@
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/vfo.h>
 #include <rrclient/local.bridge.h>
+#include <rrclient/rooms.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 
 #define MAX_DIGITS 10
