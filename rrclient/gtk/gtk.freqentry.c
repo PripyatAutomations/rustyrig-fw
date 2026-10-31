@@ -432,9 +432,7 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
       bool local_only = bound_local || local_room;
       bool sent = false;
       if (local_only) {
-         const char *mode = NULL;
-         if (rrclient_local_bridge_state(NULL, &mode))
-            sent = rrclient_local_bridge_tune(freq, mode);
+         sent = rrclient_local_bridge_set_frequency(rrclient_room_active_vfo("&local-sdr"), freq);
       } else {
          sent = ws_send_freq_cmd_in_room(ws_conn, vfo, freq, room);
       }
