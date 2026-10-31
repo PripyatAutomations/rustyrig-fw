@@ -48,7 +48,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    int mode = gtk_combo_box_get_active(GTK_COMBO_BOX(p->mode));
    bool trace = mode == 0 || mode == 1 || mode == 3;
    bool waterfall = mode == 0 || mode == 2;
-   int trace_height = trace ? (waterfall ? MAX(28, height / 3) : height - 16) : 0;
+   int trace_height = trace ? (waterfall ? MAX(34, height / 4) : height - 16) : 0;
 
    if (trace) {
       cairo_set_line_width(cr, 1.1);
@@ -245,7 +245,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
-   gtk_widget_set_size_request(p->drawing, -1, 115);
+   gtk_widget_set_size_request(p->drawing, -1, 210);
    gtk_box_pack_start(GTK_BOX(box), p->drawing, FALSE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
