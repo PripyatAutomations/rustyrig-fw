@@ -55,7 +55,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 extern GtkWidget *main_window, *main_notebook;
 static GtkWidget *directory_page, *search_entry, *accessible_only, *favorites_only, *proxy_bridge, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *url_button;
-static GtkWidget *connect_button, *local_tune_button, *favorite_button;
+static GtkWidget *connect_button, *favorite_button;
 static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
@@ -335,8 +335,6 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    bool connected = r && rrclient_receiver_is_connected(r->url);
    gtk_button_set_label(GTK_BUTTON(connect_button),
       r && (connected || rrclient_local_bridge_connected(r->url)) ? "Disconnect" : "Connect");
-   if (local_tune_button)
-      gtk_widget_set_sensitive(local_tune_button, r && rrclient_local_bridge_connected(r->url) && rrclient_local_bridge_active());
    gtk_widget_set_sensitive(connect_button, r && (connected || rrclient_local_bridge_connected(r->url) || receiver_directory_entry_accessible(r)));
 
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
@@ -603,40 +601,6 @@ static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event,
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
    return TRUE;
 }
-static void local_tune_clicked(GtkButton *button, gpointer unused) {
-   (void)button;
-   (void)unused;
-   const receiver_directory_entry_t *r = selected_receiver();
-   if (!r || !rrclient_local_bridge_connected(r->url)) return;
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Tune local Kiwi", GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL,
-      "_Tune", GTK_RESPONSE_ACCEPT, NULL);
-   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *entry = gtk_entry_new();
-   gtk_entry_set_text(GTK_ENTRY(entry), "14074000");
-   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Frequency in Hz");
-   gtk_box_pack_start(GTK_BOX(area), gtk_label_new("Frequency (Hz)"), FALSE, FALSE, 4);
-   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 4);
-   GtkWidget *mode = gtk_combo_box_text_new();
-   const char *modes[] = { "USB", "LSB", "AM", "CW" };
-   for (unsigned i = 0; i < G_N_ELEMENTS(modes); i++)
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode), modes[i]);
-   gtk_combo_box_set_active(GTK_COMBO_BOX(mode), 0);
-   gtk_box_pack_start(GTK_BOX(area), mode, FALSE, FALSE, 4);
-   gtk_widget_show_all(dialog);
-   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-      const char *value = gtk_entry_get_text(GTK_ENTRY(entry));
-      char *end = NULL;
-      guint64 hz = g_ascii_strtoull(value, &end, 10);
-      char *selected_mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode));
-      if (!value || !*value || !end || *end || hz == 0 ||
-          !rrclient_local_bridge_tune(hz, selected_mode))
-         gtk_label_set_text(GTK_LABEL(directory_status),
-            "Local tuning rejected; check frequency, mode, or an outstanding tuning request.");
-      g_free(selected_mode);
-   }
-   gtk_widget_destroy(dialog);
-}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -880,14 +844,11 @@ static gboolean directory_finish_show(gpointer unused) {
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
    connect_button = gtk_button_new_with_label("Connect");
-   local_tune_button = gtk_button_new_with_label("Tune local…");
    favorite_button = gtk_button_new_with_label("Add to favorites");
    gtk_widget_set_tooltip_text(connect_button, "Connect to the SDR using the selected local or rrserver bridge policy");
    gtk_box_pack_start(GTK_BOX(buttons), connect_button, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(buttons), local_tune_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(buttons), favorite_button, FALSE, FALSE, 0);
    g_signal_connect(connect_button, "clicked", G_CALLBACK(connect_clicked), NULL);
-   g_signal_connect(local_tune_button, "clicked", G_CALLBACK(local_tune_clicked), NULL);
    g_signal_connect(favorite_button, "clicked", G_CALLBACK(favorite_clicked), NULL);
    GtkWidget *import = gtk_button_new_with_label("Import JSON…");
    url_button = gtk_button_new_with_label("Copy URL");
