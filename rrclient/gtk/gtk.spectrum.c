@@ -273,6 +273,8 @@ typedef struct {
    double zoom_fraction; /* five wheel steps per native octave */
    double pan_hz, drag_x, drag_pan_hz;
    bool dragging;
+   gint64 recenter_at;
+   uint32_t recenter_sequence;
    rr_bridge_spectrum_row rows[32];
    bool vfo_boundary[32];
    char last_vfo;
@@ -302,6 +304,12 @@ static void rf_row(const char *event, const void *data, size_t len,
    p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
    p->count = MIN(p->count + 1, G_N_ELEMENTS(p->rows));
    p->received_at = g_get_monotonic_time();
+   if (p->recenter_at && row->sequence != p->recenter_sequence) {
+      p->recenter_at = 0;
+      p->pan_hz = 0;
+      p->drag_x = p->hover_x;
+      p->drag_pan_hz = 0;
+   }
    if (!p->draw_timer)
       p->draw_timer = g_timeout_add(100, rf_draw_later, p);
 }
@@ -442,12 +450,27 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
       const rr_bridge_spectrum_row *row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
       double full = (double)row->high_hz - row->low_hz;
       double span = full / exp2(p->zoom_fraction);
-      if (width > 1 && full > span) {
+      if (width > 1 && full > 0) {
          double wanted = p->drag_pan_hz - (event->x - p->drag_x) * span / (width - 1);
          uint64_t tuned = 0;
          double center = rrclient_local_bridge_state(&tuned, NULL) ? (double)tuned : (row->low_hz + row->high_hz) / 2.;
          double base = center - span / 2.;
-         p->pan_hz = CLAMP(wanted, (double)row->low_hz - base, (double)row->high_hz - span - base);
+         double min_pan = (double)row->low_hz - base;
+         double max_pan = (double)row->high_hz - span - base;
+         p->pan_hz = CLAMP(wanted, min_pan, max_pan);
+         /* Crossing the current W/F data edge requests a new RF window.
+          * Throttle commands until the bridge delivers rows at the new center. */
+         gint64 now = g_get_monotonic_time();
+         if (wanted != p->pan_hz && (!p->recenter_at || now - p->recenter_at > 300000) &&
+             (!p->recenter_at || row->sequence != p->recenter_sequence)) {
+            double overflow = wanted - p->pan_hz;
+            double new_center = CLAMP((row->low_hz + row->high_hz) / 2. + overflow,
+                                      full / 2., 30000000. - full / 2.);
+            if (rrclient_local_bridge_waterfall_at(p->rf_enabled, p->zoom, (uint64_t)(new_center + .5))) {
+               p->recenter_at = now;
+               p->recenter_sequence = row->sequence;
+            }
+         }
       }
    }
    gtk_widget_queue_draw(widget);
