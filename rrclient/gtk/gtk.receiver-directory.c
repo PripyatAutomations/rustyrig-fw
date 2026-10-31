@@ -132,19 +132,19 @@ static gint country_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b,
 static gint group_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer unused) {
    (void)unused;
    guint ai = G_MAXUINT, bi = G_MAXUINT;
-   char *an = NULL, *bn = NULL;
-   gtk_tree_model_get(model, a, COL_INDEX, &ai, COL_NAME, &an, -1);
-   gtk_tree_model_get(model, b, COL_INDEX, &bi, COL_NAME, &bn, -1);
+   char *al = NULL, *bl = NULL;
+   gtk_tree_model_get(model, a, COL_INDEX, &ai, COL_LOCATION, &al, -1);
+   gtk_tree_model_get(model, b, COL_INDEX, &bi, COL_LOCATION, &bl, -1);
    gint result;
    if (ai == G_MAXUINT && bi == G_MAXUINT) {
-      result = (!g_strcmp0(an, "Connected SDRs") ? -1 : 0) -
-               (!g_strcmp0(bn, "Connected SDRs") ? -1 : 0);
-      if (!result) result = g_utf8_collate(an ? an : "", bn ? bn : "");
+      bool ac = !g_strcmp0(al, "Connected SDRs");
+      bool bc = !g_strcmp0(bl, "Connected SDRs");
+      result = ac != bc ? (ac ? -1 : 1) : g_utf8_collate(al ? al : "", bl ? bl : "");
    } else {
       result = country_compare(model, a, b, NULL);
    }
-   g_free(an);
-   g_free(bn);
+   g_free(al);
+   g_free(bl);
    return result;
 }
 static const char *api_policy(const receiver_directory_entry_t *r) {
@@ -287,17 +287,17 @@ static void populate(void) {
    GtkTreeIter connected_group;
    gtk_tree_store_append(directory_store, &connected_group, NULL);
    gtk_tree_store_set(directory_store, &connected_group, COL_INDEX, G_MAXUINT,
-      COL_NAME, "Connected SDRs", COL_COUNTRY, "", COL_GROUP, "0", -1);
+      COL_LOCATION, "Connected SDRs", COL_GROUP, "0", -1);
    for (size_t i = 0; i < count; i++) {
       const receiver_directory_entry_t *r = receiver_directory_receiver(i);
       if (!r) continue;
-      const char *country = r->country && *r->country ? r->country : "Country unknown";
+      const char *country = r->country && *r->country ? r->country : "Unknown";
       GtkTreeIter *parent = g_hash_table_lookup(groups, country);
       if (!parent) {
          parent = g_new0(GtkTreeIter, 1);
          gtk_tree_store_append(directory_store, parent, NULL);
          gtk_tree_store_set(directory_store, parent, COL_INDEX, G_MAXUINT,
-            COL_NAME, country, COL_COUNTRY, country, COL_GROUP, "1", -1);
+            COL_LOCATION, country, COL_GROUP, "1", -1);
          g_hash_table_insert(groups, g_strdup(country), parent);
       }
       bool local = rrclient_local_bridge_connected(r->url);
