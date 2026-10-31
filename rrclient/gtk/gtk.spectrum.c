@@ -586,7 +586,18 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       if (high <= low) return TRUE;
       double hz = low + (high - low) * event->x / (width - 1);
       char vfo = rrclient_room_active_vfo("&local-sdr");
-      rrclient_local_bridge_set_frequency(vfo, (uint64_t)(hz + .5));
+      if (rrclient_local_bridge_set_frequency(vfo, (uint64_t)(hz + .5))) {
+         unsigned min_zoom, max_zoom;
+         if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom) &&
+             p->zoom < max_zoom &&
+             rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom + 1)) {
+            p->zoom++;
+            p->zoom_fraction = 0;
+            p->pan_hz = 0;
+            gtk_widget_queue_draw(p->drawing);
+            if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+         }
+      }
       return TRUE;
    }
    if (p->fullscreen) {
