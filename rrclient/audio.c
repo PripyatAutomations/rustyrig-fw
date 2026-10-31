@@ -80,6 +80,16 @@ static void rx_sink_set_fd(int new_fd) {
    g_mutex_unlock(&rx_sink_lock);
 }
 
+bool audio_local_rx_start(const char *id) {
+   return rx_engine && id && rr_audio_engine_add_stream(rx_engine, id);
+}
+bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
+   return rx_engine && id && pcm && rr_audio_engine_push(rx_engine, id, pcm, frames);
+}
+void audio_local_rx_stop(const char *id) {
+   if (rx_engine && id) rr_audio_engine_remove_stream(rx_engine, id);
+}
+
 static int rx_channel_volume[2] = {
    100, 100
 };
