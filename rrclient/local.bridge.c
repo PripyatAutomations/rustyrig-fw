@@ -12,6 +12,7 @@
 #include <rrbridge/spectrum.row.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/scheduler.h>
 #include <librustyaxe/event-bus.h>
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -684,6 +685,15 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       g_unlink(config); g_free(config);
       Log(LOG_WARN, "local.bridge", "Unable to spawn rrbridge");
       bridge_stop(b); g_free(b); return false;
+   }
+   const char *profile = cfg_get("scheduler.rrbridge.profile");
+   if (!profile || !*profile) profile = "normal";
+   if (ra_sched_apply_profile(b->process.pid, profile) < 0)
+      Log(LOG_WARN, "scheduler", "rrbridge pid=%ld profile=%s: %s", (long)b->process.pid, profile, strerror(errno));
+   else {
+      ra_sched_options_t actual;
+      if (!ra_sched_query(b->process.pid, &actual))
+         Log(LOG_INFO, "scheduler", "rrbridge pid=%ld profile=%s effective=%s priority=%d nice=%d", (long)b->process.pid, profile, ra_sched_class_name(actual.policy), actual.priority, actual.nice);
    }
    pid_t pid = b->process.pid;
    fcntl(control[0], F_SETFL, fcntl(control[0], F_GETFL) | O_NONBLOCK);
