@@ -457,6 +457,12 @@ static void proxy_refresh(void) {
    gtk_widget_set_sensitive(proxy_bridge, online);
    if (!online) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(proxy_bridge), FALSE);
 }
+static gboolean proxy_refresh_timer(gpointer unused) {
+   (void)unused;
+   if (!directory_page || !proxy_bridge) return G_SOURCE_REMOVE;
+   proxy_refresh();
+   return G_SOURCE_CONTINUE;
+}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -659,6 +665,7 @@ static gboolean directory_finish_show(gpointer unused) {
    gtk_widget_set_tooltip_text(proxy_bridge, "Use a connected rrserver for shared upstream SDR reception instead of a local bridge");
    gtk_box_pack_start(GTK_BOX(filters), proxy_bridge, FALSE, FALSE, 0);
    proxy_refresh();
+   g_timeout_add_seconds(1, proxy_refresh_timer, NULL);
    directory_store =
       gtk_list_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_STRING);
@@ -761,6 +768,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
       return;
    }
    if (directory_page) {
+      proxy_refresh();
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page);
 
       if (index >= 0) {
