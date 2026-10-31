@@ -473,7 +473,8 @@ static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
 static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
    if (event->button != 1) return FALSE;
-   if (event->type == GDK_BUTTON_PRESS) {
+   if (event->type != GDK_2BUTTON_PRESS) return FALSE;
+   if (!(event->state & GDK_CONTROL_MASK)) {
       if (!p->rf_enabled || !p->count) return TRUE;
       int width = gtk_widget_get_allocated_width(widget);
       int height = gtk_widget_get_allocated_height(widget);
@@ -489,7 +490,6 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       rrclient_local_bridge_set_frequency(vfo, (uint64_t)(hz + .5));
       return TRUE;
    }
-   if (event->type != GDK_2BUTTON_PRESS) return FALSE;
    if (p->fullscreen) {
       gtk_widget_destroy(p->fullscreen);
       return TRUE;
