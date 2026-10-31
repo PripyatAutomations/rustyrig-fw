@@ -320,7 +320,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       bridge_stop(b); g_free(b); return false;
    }
    close(tmp);
-   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=14074000\nmode=USB\n", driver, host, port, tls ? "true" : "false");
+   char *text = g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=14074000\nmode=USB\n", driver, driver, host, port, tls ? "true" : "false");
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
