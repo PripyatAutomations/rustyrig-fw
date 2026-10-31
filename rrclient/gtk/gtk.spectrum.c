@@ -269,7 +269,7 @@ typedef struct {
    char last_vfo;
    unsigned head, count;
    gint64 received_at;
-   rr_event_token_t token;
+   rr_event_token_t token, caps_token, vfo_token;
 } rf_strip_t;
 static void rf_row(const char *event, const void *data, size_t len,
                    rrconn_t *connection, void *user) {
@@ -321,6 +321,15 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    }
    return FALSE;
 }
+static void rf_caps_changed(const char *event, const void *data, size_t len,
+                            rrconn_t *connection, void *user) {
+   (void)event; (void)data; (void)len; (void)connection;
+   rf_strip_t *p = user;
+   unsigned min_zoom, max_zoom;
+   bool available = rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom);
+   gtk_widget_set_visible(p->enabled, available);
+   if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) p->zoom = min_zoom;
+}
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
@@ -341,8 +350,10 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
       else if (event->delta_y > 0) delta = -1;
    }
    if (!delta) return FALSE;
+   unsigned min_zoom, max_zoom;
+   if (!rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) return FALSE;
    int zoom = (int)p->zoom + delta;
-   p->zoom = (unsigned)CLAMP(zoom, 0, 14);
+   p->zoom = (unsigned)CLAMP(zoom, (int)min_zoom, (int)max_zoom);
    rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
    gtk_widget_queue_draw(widget);
    return TRUE;
@@ -350,6 +361,8 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
 static void rf_destroy(gpointer data) {
    rf_strip_t *p = data;
    if (p->token) event_off_token(p->token);
+   if (p->caps_token) event_off_token(p->caps_token);
+   if (p->vfo_token) event_off_token(p->vfo_token);
    g_free(p);
 }
 GtkWidget *rr_gtk_rf_spectrum_new(void) {
@@ -373,5 +386,8 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
+   p->caps_token = event_on_binary_token("client.local-bridge.capabilities", rf_caps_changed, p);
+   p->vfo_token = event_on_binary_token("client.local-bridge.vfo", rf_caps_changed, p);
+   rf_caps_changed(NULL, NULL, 0, NULL, p);
    return overlay;
 }
