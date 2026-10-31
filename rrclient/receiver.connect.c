@@ -30,18 +30,21 @@ static char *receiver_key(const char *profile, const char *url) {
    return g_strdup_printf("%s\n%s", profile ? profile : "", url ? url : "");
 }
 bool rrclient_receiver_is_connected(const char *url) {
-   rrconn_t *connection = rrclient_active_connection();
-   const char *profile = connection ? rrclient_connection_name(connection) : NULL;
-
-   if (!connected_receivers || !connection || !connection->authenticated ||
-       !profile || rrclient_connection_state(profile) != 1 || !url) {
-      return false;
+   if (!connected_receivers || !url) return false;
+   /* Connections can belong to any online server in the mesh. Do not
+    * restrict the directory's connected group to the selected server. */
+   for (unsigned i = 0; ; i++) {
+      const char *profile = rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *connection = rrclient_connection_find(profile);
+      if (!connection || !connection->authenticated ||
+          rrclient_connection_state(profile) != 1) continue;
+      char *key = receiver_key(profile, url);
+      bool found = g_hash_table_contains(connected_receivers, key);
+      g_free(key);
+      if (found) return true;
    }
-   char *key = receiver_key(profile, url);
-   bool found = g_hash_table_contains(connected_receivers, key);
-   g_free(key);
-
-   return found;
+   return false;
 }
 
 static void clear_pending(void) {
