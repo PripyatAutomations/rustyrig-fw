@@ -7,6 +7,7 @@
 #include <rrclient/spectrum.af.h>
 #include <rrclient/gtk/gtk.spectrum.h>
 #include <rrbridge/spectrum.row.h>
+#include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/event-bus.h>
 
 #define HISTORY 48
@@ -303,7 +304,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 }
 static void rf_destroy(gpointer data) {
    rf_strip_t *p = data;
-   if (p->token) event_off_binary_token(p->token);
+   if (p->token) event_off_token(p->token);
    g_free(p);
 }
 GtkWidget *rr_gtk_rf_spectrum_new(void) {
