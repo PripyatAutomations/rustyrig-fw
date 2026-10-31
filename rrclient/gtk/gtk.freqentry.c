@@ -17,6 +17,7 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/vfo.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 
 #define MAX_DIGITS 10
@@ -424,7 +425,16 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
       };
       const char *room = gtk_chat_current_room();
 
-      if (!ws_send_freq_cmd_in_room(ws_conn, vfo, freq, room)) {
+      bool local_only = rrclient_local_bridge_active() && (!ws_conn || !ws_conn->authenticated);
+      bool sent = false;
+      if (local_only) {
+         const char *mode = NULL;
+         if (rrclient_local_bridge_state(NULL, &mode))
+            sent = rrclient_local_bridge_tune(freq, mode);
+      } else {
+         sent = ws_send_freq_cmd_in_room(ws_conn, vfo, freq, room);
+      }
+      if (!sent) {
          Log(LOG_WARN, "gtk.freqentry", "Unable to send VFO %s frequency %lu Hz for room %s", vfo, freq, room ? room : "(none)");
 
          return;
