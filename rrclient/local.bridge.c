@@ -83,6 +83,17 @@ bool rrclient_local_bridge_connected(const char *url) {
           !strcmp(bridges[i]->url, url)) return true;
    return false;
 }
+bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom) {
+   bridge_instance *b = bridge_active();
+   if (!b || b->control < 0 || zoom > 14) return false;
+   rrp_bridge_ipc_message_t msg;
+   rrp_bridge_ipc_init(&msg, RRP_BRIDGE_IPC_WATERFALL);
+   g_strlcpy(msg.name, "local", sizeof(msg.name));
+   g_strlcpy(msg.driver, b->driver, sizeof(msg.driver));
+   msg.available = enabled;
+   msg.flags = zoom;
+   return rrp_bridge_ipc_send(b->control, &msg);
+}
 bool rrclient_local_bridge_active(void) {
    bridge_instance *b = bridge_active();
    return b && b->pid > 0 && b->online;
