@@ -253,32 +253,92 @@ static bool directory_matches(const receiver_directory_entry_t *r, const char *n
    }
    return false;
 }
+#define BRIDGE_DIR_PAGE_SIZE 20u
+static struct {
+   char *driver, *search;
+   GArray *indices;
+   size_t page;
+} bridge_dir_view;
 static void bridge_directory_list(int argc, char **argv, const char *driver) {
-   if (argc < 4 || (g_ascii_strcasecmp(argv[3], "list") && g_ascii_strcasecmp(argv[3], "l"))) {
-      ui_print(ui_active_window_name(), "Usage: /bridge %s dir list [search text]", driver);
+   const char *action = argc > 3 ? argv[3] : "";
+   bool next = !g_ascii_strcasecmp(action, "next") || !g_ascii_strcasecmp(action, "n");
+   bool prev = !g_ascii_strcasecmp(action, "prev") || !g_ascii_strcasecmp(action, "p");
+   bool list = !g_ascii_strcasecmp(action, "list") || !g_ascii_strcasecmp(action, "l");
+   if (!list && !next && !prev) {
+      ui_print(ui_active_window_name(), "Usage: /bridge %s dir list [search] | next | prev | open <number>", driver);
       return;
    }
-   GString *search = g_string_new(NULL);
-   for (int i = 4; i < argc; i++) {
-      if (search->len) g_string_append_c(search, ' ');
-      g_string_append(search, argv[i]);
-   }
-   char *needle = g_utf8_casefold(search->str, -1);
-   size_t total = receiver_directory_count(), matches = 0;
-   for (size_t i = 0; i < total; i++) {
-      const receiver_directory_entry_t *r = receiver_directory_receiver(i);
-      if (!r || r->deleted || !r->driver || g_ascii_strcasecmp(r->driver, driver) ||
-          (search->len && !directory_matches(r, needle))) continue;
+   if (list) {
+      g_free(bridge_dir_view.driver);
+      g_free(bridge_dir_view.search);
+      if (bridge_dir_view.indices) g_array_free(bridge_dir_view.indices, TRUE);
+      bridge_dir_view.driver = g_strdup(driver);
+      bridge_dir_view.indices = g_array_new(FALSE, FALSE, sizeof(size_t));
+      GString *terms = g_string_new(NULL);
+      for (int i = 4; i < argc; i++) {
+         if (terms->len) g_string_append_c(terms, ' ');
+         g_string_append(terms, argv[i]);
+      }
+      bridge_dir_view.search = g_utf8_casefold(terms->str, -1);
+      g_string_free(terms, TRUE);
+      bridge_dir_view.page = 0;
+      for (size_t i = 0, total = receiver_directory_count(); i < total; i++) {
+         const receiver_directory_entry_t *entry = receiver_directory_receiver(i);
+         if (!entry || entry->deleted || !entry->driver ||
+             g_ascii_strcasecmp(entry->driver, driver) ||
+             (*bridge_dir_view.search && !directory_matches(entry, bridge_dir_view.search))) continue;
+         g_array_append_val(bridge_dir_view.indices, i);
+      }
+   } else if (!bridge_dir_view.indices || !bridge_dir_view.driver ||
+              g_ascii_strcasecmp(bridge_dir_view.driver, driver)) {
+      ui_print(ui_active_window_name(), "Run /bridge %s dir list [search] first", driver);
+      return;
+   } else if (next) {
+      if ((bridge_dir_view.page + 1) * BRIDGE_DIR_PAGE_SIZE < bridge_dir_view.indices->len)
+         bridge_dir_view.page++;
+   } else if (bridge_dir_view.page) bridge_dir_view.page--;
+
+   size_t count = bridge_dir_view.indices->len;
+   size_t first = bridge_dir_view.page * BRIDGE_DIR_PAGE_SIZE;
+   size_t end = MIN(count, first + BRIDGE_DIR_PAGE_SIZE);
+   for (size_t pos = first; pos < end; pos++) {
+      size_t idx = g_array_index(bridge_dir_view.indices, size_t, pos);
+      const receiver_directory_entry_t *entry = receiver_directory_receiver(idx);
+      if (!entry) continue;
       ui_print(ui_active_window_name(), "%zu. [%s] %s | %s | %s | users %d/%d%s",
-         i + 1, r->driver ? r->driver : "unknown", r->name && *r->name ? r->name : "Unnamed SDR",
-         r->location && *r->location ? r->location : "unknown location",
-         r->url ? r->url : "", r->users, r->users_max, r->offline ? " [offline]" : "");
-      matches++;
+         pos + 1, driver, entry->name && *entry->name ? entry->name : "Unnamed SDR",
+         entry->location && *entry->location ? entry->location : "unknown location",
+         entry->url ? entry->url : "", entry->users, entry->users_max,
+         entry->offline ? " [offline]" : "");
    }
-   ui_print(ui_active_window_name(), "Directory: %zu matches / %zu cached (%s)",
-      matches, total, receiver_directory_status());
-   g_free(needle);
-   g_string_free(search, TRUE);
+   ui_print(ui_active_window_name(), "%s directory: %zu results, page %zu/%zu. /bridge %s dir next|prev|open <number>",
+      driver, count, bridge_dir_view.page + 1,
+      MAX((size_t)1, (count + BRIDGE_DIR_PAGE_SIZE - 1) / BRIDGE_DIR_PAGE_SIZE), driver);
+}
+static void bridge_directory_open(int argc, char **argv, const char *driver) {
+   if (argc != 5 || !bridge_dir_view.indices || !bridge_dir_view.driver ||
+       g_ascii_strcasecmp(driver, bridge_dir_view.driver)) {
+      ui_print(ui_active_window_name(), "Run /bridge %s dir list [search], then /bridge %s dir open <number>", driver, driver);
+      return;
+   }
+   char *end = NULL;
+   errno = 0;
+   unsigned long number = strtoul(argv[4], &end, 10);
+   if (errno || !*argv[4] || *end || !number || number > bridge_dir_view.indices->len) {
+      ui_print(ui_active_window_name(), "Invalid directory result number: %s", argv[4]);
+      return;
+   }
+   size_t idx = g_array_index(bridge_dir_view.indices, size_t, number - 1);
+   const receiver_directory_entry_t *entry = receiver_directory_receiver(idx);
+   if (!entry || entry->deleted || !entry->url || !entry->driver ||
+       g_ascii_strcasecmp(entry->driver, driver)) {
+      ui_print(ui_active_window_name(), "Directory entry unavailable; run list again");
+      return;
+   }
+   char *url = g_strdup(entry->url);
+   if (!rrclient_local_bridge_connect_driver(url, driver))
+      ui_print(ui_active_window_name(), "Cannot connect to %s", url);
+   g_free(url);
 }
 static void bridge_stop(bridge_instance *b);
 bool rrclient_local_bridge_cli(int argc, char **argv) {
@@ -288,7 +348,9 @@ bool rrclient_local_bridge_cli(int argc, char **argv) {
    }
    const char *driver = argv[1], *action = argv[2];
    if (!g_ascii_strcasecmp(action, "dir") || !g_ascii_strcasecmp(action, "directory")) {
-      bridge_directory_list(argc, argv, driver);
+      if (argc > 3 && (!g_ascii_strcasecmp(argv[3], "open") || !g_ascii_strcasecmp(argv[3], "o")))
+         bridge_directory_open(argc, argv, driver);
+      else bridge_directory_list(argc, argv, driver);
       return true;
    }
    if (!g_ascii_strcasecmp(action, "list") || !g_ascii_strcasecmp(action, "l")) {
