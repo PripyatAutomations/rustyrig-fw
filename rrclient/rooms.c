@@ -110,8 +110,11 @@ bool rrclient_room_join(const char *room) {
    }
 
    if (is_local_sdr(name)) {
+      bool first_join = !local_sdr_present;
       local_sdr_present = true;
       local_sdr_room.offline = false;
+      if (first_join)
+         event_emit("client.room.joined", NULL, "&local-sdr");
       return true;
    }
    if (rrclient_room_is_joined(name)) {
