@@ -1435,6 +1435,9 @@ static void room_vfo_show(const char *name) {
       }
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
       rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);
+      GtkWidget *rf_strip = rr_gtk_rf_spectrum_new();
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), rf_strip, FALSE, FALSE, 0);
+      gtk_widget_show_all(rf_strip);
       room_vfo_box = create_vfo_box();
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_vfo_box, FALSE, FALSE, 0);
@@ -1528,9 +1531,9 @@ static void rr_wrapping_chat_view_init(RRWrappingChatView *self) {
 
 /* The AF waterfall is meaningful only in receiver/VFO contexts. A server's authoritative room may also be an ordinary chat room. */
 static bool gtk_chat_room_has_waterfall(const char *room) {
-   if (!room || room[0] != '#') {
-      return false;
-   }
+   if (!room) return false;
+   if (!g_ascii_strcasecmp(room, "&local-sdr")) return true;
+   if (room[0] != '#') return false;
 
    if (g_ascii_strncasecmp(room, "#sdr-", 5) == 0 && room[5]) {
       return true;
@@ -1573,7 +1576,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    (void)is_rig;                /* Historical hint is not room-type authority. */
 
    if (!is_query && gtk_chat_room_has_waterfall(room)) {
-      GtkWidget *spectrum = rr_gtk_spectrum_panel_new(server_name, room);
+      GtkWidget *spectrum = rr_gtk_spectrum_panel_new(!g_ascii_strcasecmp(room, "&local-sdr") ? "Local" : server_name, room);
       gtk_box_pack_start(GTK_BOX(chat_box), spectrum, FALSE, TRUE, 2);
       gtk_widget_show_all(spectrum);
    }
