@@ -25,6 +25,10 @@ extern bool audio_enabled;
 extern bool gst_active;
 
 extern bool audio_init(void);
+/* Local SDR PCM joins the same RX mixer as remote audio; samples must be 16 kHz mono. */
+bool audio_local_rx_start(const char *id);
+bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames);
+void audio_local_rx_stop(const char *id);
 extern void audio_tx_free_frame(void);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
