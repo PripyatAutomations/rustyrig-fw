@@ -14,6 +14,7 @@
 
 extern GtkWidget *create_vfo_box(void);
 extern void vfo_controls_fit_width(int width);
+extern void vfo_controls_set_local_sdr(bool local);
 extern void vfo_controls_set_ptt_state(bool any_tx, bool own_tx);
 
 #endif // !defined(__rrclient_gtk_vfo_box_h)
