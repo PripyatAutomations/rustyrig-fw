@@ -264,6 +264,8 @@ typedef struct {
    GtkWidget *enabled;
    GtkWidget *gain;
    GtkWidget *fullscreen, *fullscreen_drawing;
+   GtkWidget *hover_widget;
+   double hover_x, hover_y;
    double display_gain_db;
    bool rf_enabled;
    unsigned zoom;
@@ -400,6 +402,47 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_move_to(cr, tx, h - 5);
       cairo_show_text(cr, label);
    }
+   if (p->hover_widget == widget && p->hover_x >= 0 && p->hover_x < w &&
+       p->hover_y >= 0 && p->hover_y < plot_h && view_high > view_low && w > 1) {
+      double x = p->hover_x;
+      double freq = (view_low + (view_high - view_low) * x / (w - 1)) / 1e6;
+      char label[48];
+      snprintf(label, sizeof(label), "%.6f MHz", freq);
+      cairo_save(cr);
+      cairo_set_source_rgba(cr, .95, .95, .95, .65);
+      cairo_set_line_width(cr, 1);
+      cairo_move_to(cr, x + .5, 0);
+      cairo_line_to(cr, x + .5, plot_h);
+      cairo_stroke(cr);
+      cairo_set_font_size(cr, 12);
+      cairo_text_extents_t ext;
+      cairo_text_extents(cr, label, &ext);
+      double tx = CLAMP(x - ext.width / 2, 5., MAX(5., w - ext.width - 9.));
+      cairo_set_source_rgba(cr, 0, 0, 0, .85);
+      cairo_rectangle(cr, tx - 4, 4, ext.width + 8, 20);
+      cairo_fill(cr);
+      cairo_set_source_rgb(cr, 1, 1, 1);
+      cairo_move_to(cr, tx, 19);
+      cairo_show_text(cr, label);
+      cairo_restore(cr);
+   }
+   return FALSE;
+}
+static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+   rf_strip_t *p = data;
+   if (p->hover_widget && p->hover_widget != widget)
+      gtk_widget_queue_draw(p->hover_widget);
+   p->hover_widget = widget;
+   p->hover_x = event->x;
+   p->hover_y = event->y;
+   gtk_widget_queue_draw(widget);
+   return FALSE;
+}
+static gboolean rf_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
+   rf_strip_t *p = data;
+   (void)event;
+   if (p->hover_widget == widget) p->hover_widget = NULL;
+   gtk_widget_queue_draw(widget);
    return FALSE;
 }
 static void rf_gain_changed(GtkRange *range, gpointer data) {
@@ -468,6 +511,7 @@ static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
    rf_strip_t *p = user;
    (void)widget;
    p->fullscreen = NULL;
+   if (p->hover_widget == p->fullscreen_drawing) p->hover_widget = NULL;
    p->fullscreen_drawing = NULL;
 }
 static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
@@ -499,11 +543,13 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
    gtk_window_set_title(GTK_WINDOW(window), "RustyRig RF Waterfall");
    GtkWidget *drawing = gtk_drawing_area_new();
    p->fullscreen_drawing = drawing;
-   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK);
    gtk_container_add(GTK_CONTAINER(window), drawing);
    g_signal_connect(window, "destroy", G_CALLBACK(rf_fullscreen_closed), p);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
    g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
+   g_signal_connect(drawing, "motion-notify-event", G_CALLBACK(rf_hover), p);
+   g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
    gtk_widget_show_all(window);
    gtk_window_fullscreen(GTK_WINDOW(window));
@@ -547,6 +593,8 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
    g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
+   g_signal_connect(drawing, "motion-notify-event", G_CALLBACK(rf_hover), p);
+   g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
    p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
