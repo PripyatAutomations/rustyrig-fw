@@ -1,6 +1,7 @@
 /* Local SDR host: reuse the rrbridge process and Kiwi driver, no rrserver.
  * All control and resampler callbacks are owned by the client main context. */
 #include <rrclient/local.bridge.h>
+#include <rrclient/rooms.h>
 #include <rrclient/audio.h>
 #include <rrclient/receiver.directory.h>
 #include <librrprotocol/bridge.ipc.h>
@@ -106,6 +107,7 @@ void rrclient_local_bridge_disconnect(void) {
    }
    g_clear_pointer(&local.url, g_free);
    local.online = false;
+   rrclient_room_set_offline("&local-sdr", true);
    local.rate = 0;
    local.resampler_retry_at = 0;
    local.pending = 0;
@@ -151,6 +153,15 @@ static gboolean poll_local(gpointer unused) {
             local.frequency_hz = m.frequency_hz;
             g_strlcpy(local.mode, m.mode, sizeof(local.mode));
             event_emit("client.local-bridge.vfo", NULL, NULL);
+         }
+         if (local.online) {
+            rrclient_room_join("&local-sdr");
+            rrclient_room_set_vfos("&local-sdr", "local.kiwi.rx");
+            rrclient_room_set_vfo_mask("&local-sdr", 1);
+            rrclient_room_set_control_flags("&local-sdr", false, true);
+            rrclient_room_set_offline("&local-sdr", false);
+         } else if (was_online) {
+            rrclient_room_set_offline("&local-sdr", true);
          }
          if (local.online && !was_online) {
             receiver_directory_record_connection(local.url);
