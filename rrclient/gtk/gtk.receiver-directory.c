@@ -208,7 +208,14 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
    (void)unused;
    guint index;
    gtk_tree_model_get(model, iter, COL_INDEX, &index, -1);
-   if (index == G_MAXUINT) return TRUE;
+   if (index == G_MAXUINT) {
+      GtkTreeIter child;
+      if (!gtk_tree_model_iter_children(model, &child, iter)) return TRUE;
+      do {
+         if (visible_receiver(model, &child, unused)) return TRUE;
+      } while (gtk_tree_model_iter_next(model, &child));
+      return FALSE;
+   }
    const receiver_directory_entry_t *r = receiver_directory_receiver(index);
 
    if (!r) {
