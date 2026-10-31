@@ -333,6 +333,27 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_paint(cr);
    cairo_restore(cr);
    cairo_surface_destroy(surface);
+   /* Tune marker is display-only. The frequency and RF span come from
+    * generic bridge state/rows, never Kiwi-specific arithmetic. */
+   const rr_bridge_spectrum_row *last_row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+   uint64_t tuned_hz = 0;
+   if (rrclient_local_bridge_state(&tuned_hz, NULL) &&
+       tuned_hz >= last_row->low_hz && tuned_hz <= last_row->high_hz) {
+      double x = (double)(tuned_hz - last_row->low_hz) * (w - 1) /
+                 (double)(last_row->high_hz - last_row->low_hz);
+      cairo_save(cr);
+      cairo_set_source_rgba(cr, 1.0, .85, .25, .9);
+      cairo_set_line_width(cr, 1.0);
+      cairo_move_to(cr, x + .5, 0);
+      cairo_line_to(cr, x + .5, plot_h);
+      cairo_stroke(cr);
+      cairo_move_to(cr, x, plot_h - 1);
+      cairo_line_to(cr, x - 5, plot_h - 8);
+      cairo_line_to(cr, x + 5, plot_h - 8);
+      cairo_close_path(cr);
+      cairo_fill(cr);
+      cairo_restore(cr);
+   }
    /* Scale follows bridge-provided actual RF bounds, not the selected zoom
     * or a client-side approximation of Kiwi's tuning state. */
    const rr_bridge_spectrum_row *latest = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
