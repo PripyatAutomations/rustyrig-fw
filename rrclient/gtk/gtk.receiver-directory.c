@@ -608,12 +608,12 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    }
 
    if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_connected(r->url)) {
-      rrclient_local_bridge_disconnect();
+      rrclient_local_bridge_disconnect_url(r->url);
       selection_changed(NULL, NULL);
       return;
    }
    if (!GPOINTER_TO_INT(save) && !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(proxy_bridge))) {
-      if (!rrclient_local_bridge_connect(r->url))
+      if (!rrclient_local_bridge_connect_driver(r->url, r->driver && *r->driver ? r->driver : "kiwi"))
          gtk_label_set_text(GTK_LABEL(directory_status), "Unable to start local SDR bridge");
       else
          local_vfo_show();
