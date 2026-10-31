@@ -1406,7 +1406,11 @@ bool receiver_directory_refresh_force(bool force) {
    }
 
    if (!url || !*url) {
-      g_strlcpy(status_text, "No mirror configured. Import JSON or set receiver-directory.url to a permitted mirror.", sizeof(status_text));
+      g_snprintf(status_text, sizeof(status_text),
+         receivers && receivers->len ?
+            "Showing %u locally cached SDRs. Configure receiver-directory.url for an independent HTTPS refresh." :
+            "No SDR catalog cached. Configure receiver-directory.url to an HTTPS mirror or import JSON.",
+         receivers ? receivers->len : 0);
       changed();
 
       return false;
