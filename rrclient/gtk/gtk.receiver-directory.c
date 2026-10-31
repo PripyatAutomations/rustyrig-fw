@@ -12,6 +12,7 @@
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
 #include "gtk.floating-panel.h"
+#include "gtk.freqentry.h"
 #include <rrbridge/spectrum.row.h>
 #include <librustyaxe/event-bus.h>
 
@@ -139,11 +140,11 @@ static gboolean local_vfo_tick(gpointer unused) {
       gtk_widget_hide(local_spectrum_area);
       local_spectrum_rows = local_spectrum_head = 0;
    }
-   if (online && !gtk_widget_has_focus(local_vfo_frequency)) {
+   if (online && !gtk_freq_entry_is_editing(GTK_FREQ_ENTRY(local_vfo_frequency))) {
       char buffer[32];
       g_snprintf(buffer, sizeof(buffer), "%" G_GUINT64_FORMAT, (guint64)hz);
-      if (g_strcmp0(buffer, gtk_entry_get_text(GTK_ENTRY(local_vfo_frequency))))
-         gtk_entry_set_text(GTK_ENTRY(local_vfo_frequency), buffer);
+      if (gtk_freq_entry_get_frequency(GTK_FREQ_ENTRY(local_vfo_frequency)) != (unsigned long)hz)
+         gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(local_vfo_frequency), (unsigned long)hz);
    }
    if (online && mode) {
       gchar *current = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(local_vfo_mode));
@@ -156,14 +157,15 @@ static gboolean local_vfo_tick(gpointer unused) {
    }
    return G_SOURCE_CONTINUE;
 }
-static void local_vfo_apply(GtkWidget *widget, gpointer unused) {
-   (void)widget; (void)unused;
-   const char *text = gtk_entry_get_text(GTK_ENTRY(local_vfo_frequency));
-   char *end = NULL;
-   guint64 hz = g_ascii_strtoull(text, &end, 10);
-   gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(local_vfo_mode));
-   if (!*text || !end || *end || !rrclient_local_bridge_tune(hz, mode))
-      gtk_label_set_text(GTK_LABEL(local_vfo_status), "Tune rejected: check frequency, mode or pending request");
+static void local_vfo_mode_changed(GtkComboBox *combo, gpointer unused) {
+   (void)unused;
+   if (!rrclient_local_bridge_active()) return;
+   guint64 hz = gtk_freq_entry_get_frequency(GTK_FREQ_ENTRY(local_vfo_frequency));
+   gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
+   const char *current = NULL;
+   rrclient_local_bridge_state(NULL, &current);
+   if (hz && mode && g_ascii_strcasecmp(mode, current ? current : ""))
+      rrclient_local_bridge_tune(hz, mode);
    g_free(mode);
 }
 static void local_vfo_close(gpointer unused) {
@@ -197,8 +199,10 @@ static void local_vfo_show(void) {
       local_spectrum_token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, local_spectrum_receive, NULL);
       local_vfo_status = gtk_label_new("Connecting local SDR…");
       gtk_box_pack_start(GTK_BOX(body), local_vfo_status, FALSE, FALSE, 3);
-      local_vfo_frequency = gtk_entry_new();
-      gtk_entry_set_placeholder_text(GTK_ENTRY(local_vfo_frequency), "Frequency (Hz)");
+      /* Reuse the normal digit-based rig VFO frequency widget, independently
+       * bound to the local SDR rather than the current rrserver room. */
+      local_vfo_frequency = gtk_freq_entry_new(-1);
+      g_object_set_data(G_OBJECT(local_vfo_frequency), "rr-local-sdr-vfo", GINT_TO_POINTER(1));
       gtk_box_pack_start(GTK_BOX(body), local_vfo_frequency, FALSE, FALSE, 3);
       local_vfo_mode = gtk_combo_box_text_new();
       const char *modes[] = { "USB", "LSB", "AM", "CW" };
@@ -206,10 +210,7 @@ static void local_vfo_show(void) {
          gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(local_vfo_mode), modes[i]);
       gtk_combo_box_set_active(GTK_COMBO_BOX(local_vfo_mode), 0);
       gtk_box_pack_start(GTK_BOX(body), local_vfo_mode, FALSE, FALSE, 3);
-      GtkWidget *button = gtk_button_new_with_label("Tune");
-      gtk_box_pack_start(GTK_BOX(body), button, FALSE, FALSE, 3);
-      g_signal_connect(button, "clicked", G_CALLBACK(local_vfo_apply), NULL);
-      g_signal_connect(local_vfo_frequency, "activate", G_CALLBACK(local_vfo_apply), NULL);
+      g_signal_connect(local_vfo_mode, "changed", G_CALLBACK(local_vfo_mode_changed), NULL);
       local_vfo_tick_source = g_timeout_add(200, local_vfo_tick, NULL);
    }
    rr_floating_panel_show(local_vfo_panel);
