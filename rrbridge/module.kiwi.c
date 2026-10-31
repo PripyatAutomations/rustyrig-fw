@@ -25,6 +25,9 @@ struct kiwi_instance {
    rrp_sdr_host_t host;
    struct mg_mgr manager;
    struct mg_connection *connection;
+   struct mg_connection *waterfall;
+   bool waterfall_enabled, waterfall_ready;
+   uint64_t waterfall_rows, waterfall_retry;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
    bool redirecting;
@@ -565,6 +568,44 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
 
    return true;
 }
+/* W/F is an independent Kiwi websocket; never let spectrum failures
+ * interrupt SND or the audio watchdog. Uncompressed rows are 1024 bins. */
+static void waterfall_ws(struct mg_connection *c, int event, void *data) {
+   struct kiwi_instance *k = c->fn_data;
+   if (event == MG_EV_WS_OPEN) {
+      const char *password = setting(k, "password");
+      if (!password) password = "";
+      if (strlen(password) > 128 || strpbrk(password, " \\r\\n")) {
+         c->is_closing = 1;
+         return;
+      }
+      char auth[192];
+      snprintf(auth, sizeof(auth), "SET auth t=kiwi p=%s", password);
+      mg_ws_send(c, auth, strlen(auth), WEBSOCKET_OP_TEXT);
+      const char *commands[] = { "SET wf_comp=0", "SET zoom=0 cf=0", "SET wf_speed=1" };
+      for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++)
+         mg_ws_send(c, commands[i], strlen(commands[i]), WEBSOCKET_OP_TEXT);
+   } else if (event == MG_EV_WS_MSG) {
+      struct mg_ws_message *m = data;
+      if (m->data.len >= 1040 && !memcmp(m->data.buf, "W/F", 3)) {
+         /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
+          * Keep parsing conservative pending normalized spectrum transport. */
+         if (m->data.len == 1040) {
+            k->waterfall_rows++;
+            if (!k->waterfall_ready) {
+               k->waterfall_ready = true;
+               note(k, "Kiwi W/F stream ready (1024 RF power bins per row)");
+            }
+         }
+      }
+   } else if (event == MG_EV_READ && c->recv.len > 65536) {
+      c->is_closing = 1;
+   } else if (event == MG_EV_CLOSE && c == k->waterfall) {
+      k->waterfall = NULL;
+      k->waterfall_ready = false;
+      k->waterfall_retry = mono_us() + UINT64_C(10000000);
+   }
+}
 static void websocket(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
 
@@ -715,6 +756,8 @@ static bool kiwi_start(void *instance) {
       snprintf(endpoint, sizeof(endpoint), "%s://%s:%lu/", tls ? "https" : "http", host, port);
       k->host.metadata(k->host.user, "url", endpoint);
    }
+   const char *wf = setting(k, "waterfall");
+   k->waterfall_enabled = wf && (!strcmp(wf, "1") || !strcasecmp(wf, "true") || !strcasecmp(wf, "yes"));
    k->started = true;
 
    return true;
@@ -755,6 +798,23 @@ static void kiwi_poll(void *instance) {
       if (!k->connection) {
          k->retry = current + 1000000;
       }
+   }
+   /* Waterfall is optional and independently retried. Never block audio. */
+   if (k->waterfall_enabled && k->online && !k->waterfall && current >= k->waterfall_retry) {
+      char wf_url[512];
+      snprintf(wf_url, sizeof(wf_url), "%s", k->url);
+      char *snd = strstr(wf_url, "/SND");
+      if (snd && !snd[4]) {
+         memcpy(snd + 1, "W/F", 4);
+         const char *ua = setting(k, "user-agent");
+         if (!ua || !*ua) ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36";
+         if (strlen(ua) < 384 && !strpbrk(ua, "\\r\\n")) {
+            char headers[416];
+            snprintf(headers, sizeof(headers), "User-Agent: %s\\r\\n", ua);
+            k->waterfall = mg_ws_connect(&k->manager, wf_url, waterfall_ws, k, "%s", headers);
+         }
+      }
+      k->waterfall_retry = current + UINT64_C(10000000);
    }
    mg_mgr_poll(&k->manager, 0);
    current = mono_us();
