@@ -575,6 +575,7 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
 static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
    if (event == MG_EV_WS_OPEN) {
+      note(k, "Kiwi RF waterfall websocket opened");
       const char *password = setting(k, "password");
       if (!password) password = "";
       if (strlen(password) > 128 || strpbrk(password, " \\r\\n")) {
@@ -602,6 +603,11 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       if (m->data.len >= 1040 && !memcmp(m->data.buf, "W/F", 3)) {
          /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
           * Keep parsing conservative pending normalized spectrum transport. */
+         if (m->data.len != 1040 && !k->waterfall_ready) {
+            char detail[128];
+            snprintf(detail, sizeof(detail), "Kiwi RF waterfall: unexpected frame length %zu (expected 1040)", m->data.len);
+            note(k, detail);
+         }
          if (m->data.len == 1040) {
             rr_bridge_spectrum_row row = {
                .magic = RR_BRIDGE_SPECTRUM_MAGIC, .version = 1,
@@ -834,6 +840,9 @@ static void kiwi_poll(void *instance) {
          if (strlen(ua) < 384 && !strpbrk(ua, "\\r\\n")) {
             char headers[416];
             snprintf(headers, sizeof(headers), "User-Agent: %s\\r\\n", ua);
+            char detail[560];
+            snprintf(detail, sizeof(detail), "Connecting Kiwi RF waterfall: %s", wf_url);
+            note(k, detail);
             k->waterfall = mg_ws_connect(&k->manager, wf_url, waterfall_ws, k, "%s", headers);
          }
       }
