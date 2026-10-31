@@ -470,10 +470,26 @@ static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
    p->fullscreen = NULL;
    p->fullscreen_drawing = NULL;
 }
-static gboolean rf_double_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
+static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
-   (void)widget;
-   if (event->type != GDK_2BUTTON_PRESS || event->button != 1) return FALSE;
+   if (event->button != 1) return FALSE;
+   if (event->type == GDK_BUTTON_PRESS) {
+      if (!p->rf_enabled || !p->count) return TRUE;
+      int width = gtk_widget_get_allocated_width(widget);
+      int height = gtk_widget_get_allocated_height(widget);
+      if (width < 2 || event->x < 0 || event->x >= width ||
+          event->y < 0 || event->y >= height - 19) return TRUE;
+      const rr_bridge_spectrum_row *row =
+         &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+      double low, high;
+      rf_view_bounds(p, row, &low, &high);
+      if (high <= low) return TRUE;
+      double hz = low + (high - low) * event->x / (width - 1);
+      char vfo = rrclient_room_active_vfo("&local-sdr");
+      rrclient_local_bridge_set_frequency(vfo, (uint64_t)(hz + .5));
+      return TRUE;
+   }
+   if (event->type != GDK_2BUTTON_PRESS) return FALSE;
    if (p->fullscreen) {
       gtk_widget_destroy(p->fullscreen);
       return TRUE;
@@ -487,9 +503,8 @@ static gboolean rf_double_click(GtkWidget *widget, GdkEventButton *event, gpoint
    gtk_container_add(GTK_CONTAINER(window), drawing);
    g_signal_connect(window, "destroy", G_CALLBACK(rf_fullscreen_closed), p);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
-   g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_double_click), p);
+   g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
-   g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_double_click), p);
    gtk_widget_show_all(window);
    gtk_window_fullscreen(GTK_WINDOW(window));
    return TRUE;
@@ -531,6 +546,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_object_set_data_full(G_OBJECT(overlay), "rr-rf-spectrum", p, rf_destroy);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
+   g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
    p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
