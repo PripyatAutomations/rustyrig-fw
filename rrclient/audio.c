@@ -91,7 +91,7 @@ void audio_local_rx_stop(const char *id) {
    if (rx_engine && id) rr_audio_engine_remove_stream(rx_engine, id);
 }
 
-static char local_rx_route = 'S';
+static char local_rx_routes[26]; /* zero means default Stereo */
 static int rx_channel_volume[2] = {
    100, 100
 };
@@ -305,15 +305,18 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
       count++;
    }
 
-   if (rrclient_local_bridge_active()) {
+   char local_ids[26][64], vfos[26];
+   size_t local_count = rrclient_local_bridge_streams(local_ids, vfos, 26);
+   for (size_t i = 0; i < local_count && i < 26; i++) {
       if (streams && count < capacity) {
          struct rrclient_rx_stream *stream = &streams[count];
          memset(stream, 0, sizeof(*stream));
-         snprintf(stream->id, sizeof(stream->id), "%s", "local.kiwi.rx");
+         snprintf(stream->id, sizeof(stream->id), "%s", local_ids[i]);
          snprintf(stream->server, sizeof(stream->server), "%s", "Local");
          snprintf(stream->room, sizeof(stream->room), "%s", "&local-sdr");
+         snprintf(stream->uuid, sizeof(stream->uuid), "local.sdr.vfo_%c", (char)('a' + vfos[i] - 'A'));
          snprintf(stream->codec, sizeof(stream->codec), "%s", "pc16");
-         stream->output = local_rx_route;
+         stream->output = local_rx_routes[vfos[i] - 'A'] ? local_rx_routes[vfos[i] - 'A'] : 'S';
       }
       count++;
    }
@@ -325,9 +328,10 @@ bool audio_set_rx_stream_route(const char *id, char output) {
       return false;
    }
 
-   if (!strcmp(id, "local.kiwi.rx")) {
-      if (local_rx_route != output) {
-         local_rx_route = output;
+   if (!strncmp(id, "local.sdr.", 10) && id[10] >= 'A' && id[10] <= 'Z' && !id[11]) {
+      unsigned slot = (unsigned)(id[10] - 'A');
+      if (local_rx_routes[slot] != output) {
+         local_rx_routes[slot] = output;
          if (rx_engine) rr_audio_engine_route(rx_engine, id, output);
          event_emit("client.audio.route.changed", NULL, NULL);
       }
