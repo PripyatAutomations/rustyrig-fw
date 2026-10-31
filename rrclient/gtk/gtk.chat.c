@@ -1438,7 +1438,7 @@ static void room_vfo_show(const char *name) {
       rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);
       room_rf_strip = rr_gtk_rf_spectrum_new();
       g_object_add_weak_pointer(G_OBJECT(room_rf_strip), (gpointer *) &room_rf_strip);
-      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_rf_strip, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_rf_strip, TRUE, TRUE, 0);
       gtk_widget_show_all(room_rf_strip);
       room_vfo_box = create_vfo_box();
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
@@ -1454,6 +1454,7 @@ static void room_vfo_show(const char *name) {
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
    rr_floating_panel_show(room_vfo_panel);
+   vfo_controls_set_local_sdr(name && !g_ascii_strcasecmp(name, "&local-sdr"));
 }
 
 // A single control box follows the selected rig room.  The site lobby and
