@@ -339,6 +339,11 @@ int main(int argc, char **argv) {
                goto finished;
             }
 
+            if (command.type == RRP_BRIDGE_IPC_WATERFALL) {
+               if (driver->set_waterfall)
+                  driver->set_waterfall(instance, command.available != 0, command.flags);
+               continue;
+            }
             if (command.type != RRP_BRIDGE_IPC_SET || host.pending) {
                host.failed = true;
                break;
