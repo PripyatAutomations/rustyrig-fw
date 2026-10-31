@@ -153,6 +153,62 @@ bool rrclient_local_bridge_set_width(char vfo, const char *width) {
    ui_print("&local-sdr", "local.sdr.%c: width control is not supported by this bridge protocol yet", vfo);
    return false;
 }
+
+/* The local room uses the same chat command spelling as remote rig rooms.
+ * This dispatcher is frontend-agnostic; commands never cross the wire. */
+bool rrclient_local_bridge_command(const char *line) {
+   if (!line || *line != '!') return false;
+   char **args = g_strsplit_set(line + 1, " \t\r\n", -1);
+   const char *cmd = NULL, *value = NULL;
+   for (unsigned i = 0; args && args[i]; i++) {
+      if (!*args[i]) continue;
+      if (!cmd) cmd = args[i];
+      else if (!value) value = args[i];
+      else {
+         ui_print("&local-sdr", "Expected one argument for !%s", cmd);
+         g_strfreev(args);
+         return true;
+      }
+   }
+   if (!cmd) { g_strfreev(args); return false; }
+   bool recognized = !g_ascii_strcasecmp(cmd, "vfo") ||
+      !g_ascii_strcasecmp(cmd, "freq") || !g_ascii_strcasecmp(cmd, "mode") ||
+      !g_ascii_strcasecmp(cmd, "width") || !g_ascii_strcasecmp(cmd, "status");
+   if (!recognized) { g_strfreev(args); return false; }
+   char vfo = rrclient_room_active_vfo("&local-sdr");
+   if (!g_ascii_strcasecmp(cmd, "status")) {
+      for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+         bridge_instance *b = bridges[i];
+         if (b)
+            ui_print("&local-sdr", "local.sdr.%c: %s, %llu Hz %s (%s)", 'A' + i,
+               b->online ? "online" : "connecting", (unsigned long long)b->frequency_hz,
+               *b->mode ? b->mode : "unknown", b->url ? b->url : "");
+      }
+   } else if (!value || !*value) {
+      ui_print("&local-sdr", "Usage: !%s <value>", cmd);
+   } else if (!g_ascii_strcasecmp(cmd, "vfo")) {
+      char target = g_ascii_toupper(value[0]);
+      if (value[1] || target < 'A' || target > 'Z' ||
+          !rrclient_local_bridge_state_vfo(target, NULL, NULL))
+         ui_print("&local-sdr", "VFO %s is not connected", value);
+      else {
+         rrclient_room_set_active_vfo("&local-sdr", target);
+         event_emit("client.local-bridge.vfo", NULL, NULL);
+         ui_print("&local-sdr", "Selected local.sdr.%c", target);
+      }
+   } else if (!g_ascii_strcasecmp(cmd, "freq")) {
+      char *end = NULL;
+      guint64 hz = g_ascii_strtoull(value, &end, 10);
+      if (!hz || !end || *end || !rrclient_local_bridge_set_frequency(vfo, hz))
+         ui_print("&local-sdr", "Unable to set local.sdr.%c frequency to %s Hz", vfo, value);
+   } else if (!g_ascii_strcasecmp(cmd, "mode")) {
+      if (!rrclient_local_bridge_set_mode(vfo, value))
+         ui_print("&local-sdr", "Unable to set local.sdr.%c mode to %s", vfo, value);
+   } else if (!rrclient_local_bridge_set_width(vfo, value))
+      ui_print("&local-sdr", "Unable to set local.sdr.%c width to %s", vfo, value);
+   g_strfreev(args);
+   return true;
+}
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
    size_t count = 0;
    for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
