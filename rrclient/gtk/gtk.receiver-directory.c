@@ -11,6 +11,8 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
+#include "gtk.floating-panel.h"
+#include <librustyaxe/event-bus.h>
 
 enum {
    COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_CONNECTED_COLOR, COL_COUNT
@@ -57,6 +59,87 @@ static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token, failure_token;
 static char *receiver_failure;
+static RRFloatPanel *local_vfo_panel;
+static GtkWidget *local_vfo_frequency, *local_vfo_mode, *local_vfo_status;
+static guint local_vfo_tick_source;
+
+static gboolean local_vfo_tick(gpointer unused) {
+   (void)unused;
+   if (!local_vfo_panel) { local_vfo_tick_source = 0; return G_SOURCE_REMOVE; }
+   uint64_t hz = 0;
+   const char *mode = NULL;
+   bool online = rrclient_local_bridge_state(&hz, &mode);
+   gtk_widget_set_sensitive(local_vfo_frequency, online);
+   gtk_widget_set_sensitive(local_vfo_mode, online);
+   gtk_label_set_text(GTK_LABEL(local_vfo_status), online ? "Local receiver · RX only" : "Receiver disconnected");
+   if (online && !gtk_widget_has_focus(local_vfo_frequency)) {
+      char buffer[32];
+      g_snprintf(buffer, sizeof(buffer), "%" G_GUINT64_FORMAT, (guint64)hz);
+      if (g_strcmp0(buffer, gtk_entry_get_text(GTK_ENTRY(local_vfo_frequency))))
+         gtk_entry_set_text(GTK_ENTRY(local_vfo_frequency), buffer);
+   }
+   if (online && mode) {
+      gchar *current = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(local_vfo_mode));
+      if (g_ascii_strcasecmp(current ? current : "", mode)) {
+         const char *modes[] = { "USB", "LSB", "AM", "CW" };
+         for (guint i = 0; i < G_N_ELEMENTS(modes); i++)
+            if (!g_ascii_strcasecmp(modes[i], mode)) gtk_combo_box_set_active(GTK_COMBO_BOX(local_vfo_mode), i);
+      }
+      g_free(current);
+   }
+   return G_SOURCE_CONTINUE;
+}
+static void local_vfo_apply(GtkWidget *widget, gpointer unused) {
+   (void)widget; (void)unused;
+   const char *text = gtk_entry_get_text(GTK_ENTRY(local_vfo_frequency));
+   char *end = NULL;
+   guint64 hz = g_ascii_strtoull(text, &end, 10);
+   gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(local_vfo_mode));
+   if (!*text || !end || *end || !rrclient_local_bridge_tune(hz, mode))
+      gtk_label_set_text(GTK_LABEL(local_vfo_status), "Tune rejected: check frequency, mode or pending request");
+   g_free(mode);
+}
+static void local_vfo_close(gpointer unused) {
+   (void)unused;
+   if (local_vfo_tick_source) g_source_remove(local_vfo_tick_source);
+   local_vfo_tick_source = 0;
+   RRFloatPanel *panel = local_vfo_panel;
+   local_vfo_panel = NULL;
+   local_vfo_frequency = local_vfo_mode = local_vfo_status = NULL;
+   if (panel) rr_floating_panel_destroy(panel);
+}
+static void local_vfo_show(void) {
+   if (!local_vfo_panel) {
+      GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
+      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+      local_vfo_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
+         "local-kiwi-vfo", "Local SDR — VFO A");
+      if (!local_vfo_panel) return;
+      rr_floating_panel_set_close_callback(local_vfo_panel, local_vfo_close, NULL);
+      GtkWidget *body = rr_floating_panel_body(local_vfo_panel);
+      /* The RF spectrum slot will be added here when the bridge provides
+       * actual frequency-calibrated RF bins. Never fake RF from AF audio. */
+      local_vfo_status = gtk_label_new("Connecting local SDR…");
+      gtk_box_pack_start(GTK_BOX(body), local_vfo_status, FALSE, FALSE, 3);
+      local_vfo_frequency = gtk_entry_new();
+      gtk_entry_set_placeholder_text(GTK_ENTRY(local_vfo_frequency), "Frequency (Hz)");
+      gtk_box_pack_start(GTK_BOX(body), local_vfo_frequency, FALSE, FALSE, 3);
+      local_vfo_mode = gtk_combo_box_text_new();
+      const char *modes[] = { "USB", "LSB", "AM", "CW" };
+      for (guint i = 0; i < G_N_ELEMENTS(modes); i++)
+         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(local_vfo_mode), modes[i]);
+      gtk_combo_box_set_active(GTK_COMBO_BOX(local_vfo_mode), 0);
+      gtk_box_pack_start(GTK_BOX(body), local_vfo_mode, FALSE, FALSE, 3);
+      GtkWidget *button = gtk_button_new_with_label("Tune");
+      gtk_box_pack_start(GTK_BOX(body), button, FALSE, FALSE, 3);
+      g_signal_connect(button, "clicked", G_CALLBACK(local_vfo_apply), NULL);
+      g_signal_connect(local_vfo_frequency, "activate", G_CALLBACK(local_vfo_apply), NULL);
+      local_vfo_tick_source = g_timeout_add(200, local_vfo_tick, NULL);
+   }
+   rr_floating_panel_show(local_vfo_panel);
+   local_vfo_tick(NULL);
+}
+
 
 
 /* Sort Country by region then city where region abbreviations are reliable. */
@@ -493,6 +576,8 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    if (!GPOINTER_TO_INT(save) && !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(proxy_bridge))) {
       if (!rrclient_local_bridge_connect(r->url))
          gtk_label_set_text(GTK_LABEL(directory_status), "Unable to start local SDR bridge");
+      else
+         local_vfo_show();
       selection_changed(NULL, NULL);
       return;
    }
@@ -790,6 +875,7 @@ void gtk_receiver_directory_init(void) {
    failure_token = event_on_token("client.receiver-directory.failed", receiver_failed, NULL);
 }
 void gtk_receiver_directory_shutdown(void) {
+   local_vfo_close(NULL);
    if (connection_token) {
       event_off_token(connection_token);
    }
