@@ -241,13 +241,55 @@ bool rrclient_local_bridge_command(const char *line) {
       ui_print("&local-sdr", "Invalid, unsupported or failed local rig command: %s", line);
    return true;
 }
+static bool directory_matches(const receiver_directory_entry_t *r, const char *needle) {
+   const char *fields[] = {r->name, r->url, r->description, r->location,
+      r->country, r->grid, r->antenna, r->hardware, r->driver};
+   for (size_t i = 0; i < G_N_ELEMENTS(fields); i++) {
+      if (!fields[i]) continue;
+      char *haystack = g_utf8_casefold(fields[i], -1);
+      bool found = strstr(haystack, needle) != NULL;
+      g_free(haystack);
+      if (found) return true;
+   }
+   return false;
+}
+static void bridge_directory_list(int argc, char **argv) {
+   if (argc >= 4 && g_ascii_strcasecmp(argv[3], "list") && g_ascii_strcasecmp(argv[3], "l")) {
+      ui_print("&local-sdr", "Usage: /bridge dir list [search text]");
+      return;
+   }
+   GString *search = g_string_new(NULL);
+   for (int i = 4; i < argc; i++) {
+      if (search->len) g_string_append_c(search, ' ');
+      g_string_append(search, argv[i]);
+   }
+   char *needle = g_utf8_casefold(search->str, -1);
+   size_t total = receiver_directory_count(), matches = 0;
+   for (size_t i = 0; i < total; i++) {
+      const receiver_directory_entry_t *r = receiver_directory_receiver(i);
+      if (!r || r->deleted || (search->len && !directory_matches(r, needle))) continue;
+      ui_print("&local-sdr", "%zu. [%s] %s | %s | %s | users %d/%d%s",
+         i + 1, r->driver ? r->driver : "unknown", r->name && *r->name ? r->name : "Unnamed SDR",
+         r->location && *r->location ? r->location : "unknown location",
+         r->url ? r->url : "", r->users, r->users_max, r->offline ? " [offline]" : "");
+      matches++;
+   }
+   ui_print("&local-sdr", "Directory: %zu matches / %zu cached (%s)",
+      matches, total, receiver_directory_status());
+   g_free(needle);
+   g_string_free(search, TRUE);
+}
 static void bridge_stop(bridge_instance *b);
 bool rrclient_local_bridge_cli(int argc, char **argv) {
    if (argc < 3) {
-      ui_print("&local-sdr", "Usage: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]");
+      ui_print("&local-sdr", "Usage: /bridge dir list [search] OR /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]");
       return true;
    }
    const char *driver = argv[1], *action = argv[2];
+   if (!g_ascii_strcasecmp(driver, "dir") || !g_ascii_strcasecmp(driver, "directory")) {
+      bridge_directory_list(argc, argv);
+      return true;
+   }
    if (!g_ascii_strcasecmp(action, "list") || !g_ascii_strcasecmp(action, "l")) {
       bool connected = argc > 3 && (!g_ascii_strcasecmp(argv[3], "c") || !g_ascii_strcasecmp(argv[3], "connected"));
       unsigned count = 0;
