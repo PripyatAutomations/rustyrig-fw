@@ -253,9 +253,9 @@ static bool directory_matches(const receiver_directory_entry_t *r, const char *n
    }
    return false;
 }
-static void bridge_directory_list(int argc, char **argv) {
-   if (argc >= 4 && g_ascii_strcasecmp(argv[3], "list") && g_ascii_strcasecmp(argv[3], "l")) {
-      ui_print("&local-sdr", "Usage: /bridge dir list [search text]");
+static void bridge_directory_list(int argc, char **argv, const char *driver) {
+   if (argc < 4 || (g_ascii_strcasecmp(argv[3], "list") && g_ascii_strcasecmp(argv[3], "l"))) {
+      ui_print("&local-sdr", "Usage: /bridge %s dir list [search text]", driver);
       return;
    }
    GString *search = g_string_new(NULL);
@@ -267,7 +267,8 @@ static void bridge_directory_list(int argc, char **argv) {
    size_t total = receiver_directory_count(), matches = 0;
    for (size_t i = 0; i < total; i++) {
       const receiver_directory_entry_t *r = receiver_directory_receiver(i);
-      if (!r || r->deleted || (search->len && !directory_matches(r, needle))) continue;
+      if (!r || r->deleted || !r->driver || g_ascii_strcasecmp(r->driver, driver) ||
+          (search->len && !directory_matches(r, needle))) continue;
       ui_print("&local-sdr", "%zu. [%s] %s | %s | %s | users %d/%d%s",
          i + 1, r->driver ? r->driver : "unknown", r->name && *r->name ? r->name : "Unnamed SDR",
          r->location && *r->location ? r->location : "unknown location",
@@ -282,12 +283,12 @@ static void bridge_directory_list(int argc, char **argv) {
 static void bridge_stop(bridge_instance *b);
 bool rrclient_local_bridge_cli(int argc, char **argv) {
    if (argc < 3) {
-      ui_print("&local-sdr", "Usage: /bridge dir list [search] OR /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]");
+      ui_print("&local-sdr", "Usage: /bridge <driver> dir list [search] | list [c] | open <url> | close <VFO|url|all> | caps [VFO]");
       return true;
    }
    const char *driver = argv[1], *action = argv[2];
-   if (!g_ascii_strcasecmp(driver, "dir") || !g_ascii_strcasecmp(driver, "directory")) {
-      bridge_directory_list(argc, argv);
+   if (!g_ascii_strcasecmp(action, "dir") || !g_ascii_strcasecmp(action, "directory")) {
+      bridge_directory_list(argc, argv, driver);
       return true;
    }
    if (!g_ascii_strcasecmp(action, "list") || !g_ascii_strcasecmp(action, "l")) {
