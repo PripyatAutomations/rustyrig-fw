@@ -152,3 +152,23 @@ For arbitrary VFO windows, introduce a per-panel model:
 
 **Important:** the new floating local Kiwi panel currently provides tuning,
 not a spectrum. Its RF strip stays absent until the above data path exists.
+
+## Local Kiwi RF spectrum prototype
+
+The local `rrbridge-kiwi` now opens a separate W/F websocket when
+`[bridge:instance] waterfall=true`. Local rrclient sets this on its
+temporary Kiwi instance. Uncompressed 1040-byte W/F messages containing
+1024 bins are copied into a bounded independent `SOCK_SEQPACKET` channel
+(FD 5) using `rrbridge/spectrum.row.h`. A full socket drops spectrum
+rows without holding up SND. The local VFO panel has a spectrum trace
+and a shallow waterfall history; neither is displayed until an actual
+validated spectrum row arrives. Disconnect and stale rows hide the strip.
+
+This is deliberately only the **local, full-span prototype**. Kiwi
+`SET zoom=0 cf=0` selects its full RF span; the viewer labels this
+as RF MHz, not audio frequency. Follow-up work must decode the
+server-advertised W/F center, span, start and zoom precisely, move the
+RF frame schema into librrprotocol, implement zoom/frequency-follow,
+and publish versioned network frames from rrserver with demand-based
+fanout. Non-1040-byte/compressed W/F payloads are ignored.
+The existing server bridge remains audio-only for spectrum purposes.
