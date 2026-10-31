@@ -85,7 +85,8 @@ bool rrclient_local_bridge_connected(const char *url) {
 }
 bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom) {
    bridge_instance *b = bridge_active();
-   if (!b || b->control < 0 || zoom > 14) return false;
+   if (!b || b->control < 0 || !(b->caps.flags & RRP_BRIDGE_WATERFALL) ||
+       zoom < b->caps.waterfall_zoom_min || zoom > b->caps.waterfall_zoom_max) return false;
    rrp_bridge_ipc_message_t msg;
    rrp_bridge_ipc_init(&msg, RRP_BRIDGE_IPC_WATERFALL);
    g_strlcpy(msg.name, "local", sizeof(msg.name));
@@ -231,6 +232,53 @@ bool rrclient_local_bridge_command(const char *line) {
    }
    if (!rr_rig_parse_commands(line, local_rig_action, NULL))
       ui_print("&local-sdr", "Invalid, unsupported or failed local rig command: %s", line);
+   return true;
+}
+bool rrclient_local_bridge_cli(int argc, char **argv) {
+   if (argc < 3) {
+      ui_print("&local-sdr", "Usage: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]");
+      return true;
+   }
+   const char *driver = argv[1], *action = argv[2];
+   if (!g_ascii_strcasecmp(action, "list") || !g_ascii_strcasecmp(action, "l")) {
+      bool connected = argc > 3 && (!g_ascii_strcasecmp(argv[3], "c") || !g_ascii_strcasecmp(argv[3], "connected"));
+      unsigned count = 0;
+      for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+         bridge_instance *b = bridges[i];
+         if (!b || g_ascii_strcasecmp(b->driver, driver) || (connected && !b->online)) continue;
+         ui_print("&local-sdr", "%c: %s %s (%s)", 'A' + i, b->url ? b->url : "",
+            b->online ? "connected" : "connecting", b->stream);
+         count++;
+      }
+      if (!count) ui_print("&local-sdr", "No %s bridges %s", driver, connected ? "connected" : "open");
+   } else if (!g_ascii_strcasecmp(action, "open") || !g_ascii_strcasecmp(action, "o")) {
+      if (argc != 4 || !rrclient_local_bridge_connect_driver(argv[3], driver))
+         ui_print("&local-sdr", "Usage: /bridge %s open <http[s]://host:port> (connection failed or invalid URL)", driver);
+   } else if (!g_ascii_strcasecmp(action, "close") || !g_ascii_strcasecmp(action, "c")) {
+      if (argc != 4) { ui_print("&local-sdr", "Usage: /bridge %s close <VFO|url|all>", driver); return true; }
+      unsigned count = 0;
+      for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+         bridge_instance *b = bridges[i];
+         if (!b || g_ascii_strcasecmp(b->driver, driver)) continue;
+         if (g_ascii_strcasecmp(argv[3], "all") &&
+             !(strlen(argv[3]) == 1 && g_ascii_toupper(argv[3][0]) == 'A' + (int)i) &&
+             (!b->url || strcmp(b->url, argv[3]))) continue;
+         bridge_stop(b);
+         count++;
+      }
+      if (!count) ui_print("&local-sdr", "No matching %s bridge", driver);
+   } else if (!g_ascii_strcasecmp(action, "caps") || !g_ascii_strcasecmp(action, "capabilities")) {
+      for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+         bridge_instance *b = bridges[i];
+         if (!b || g_ascii_strcasecmp(b->driver, driver) ||
+             (argc > 3 && !(strlen(argv[3]) == 1 && g_ascii_toupper(argv[3][0]) == 'A' + (int)i))) continue;
+         ui_print("&local-sdr", "%c: flags=0x%x RX=%llu-%llu Hz modes=%s waterfall=%s zoom=%u..%u",
+            'A' + i, b->caps.flags, (unsigned long long)b->caps.rx_min_hz,
+            (unsigned long long)b->caps.rx_max_hz, b->caps.rx_modes,
+            (b->caps.flags & RRP_BRIDGE_WATERFALL) ? "yes" : "no",
+            b->caps.waterfall_zoom_min, b->caps.waterfall_zoom_max);
+      }
+   } else ui_print("&local-sdr", "Unknown bridge action: %s", action);
    return true;
 }
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
