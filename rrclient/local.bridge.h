@@ -9,6 +9,7 @@ size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacit
 bool rrclient_local_bridge_connected(const char *url);
 bool rrclient_local_bridge_active(void);
 bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom);
+bool rrclient_local_bridge_waterfall_caps(unsigned *min_zoom, unsigned *max_zoom);
 bool rrclient_local_bridge_state(uint64_t *hz, const char **mode);
 bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode);
 bool rrclient_local_bridge_tune(uint64_t hz, const char *mode);
