@@ -62,6 +62,10 @@ void vfo_controls_set_rx_only(bool rx_only) {
    }
 }
 
+void vfo_controls_set_local_sdr(bool local) {
+   if (vfo_codec_box) gtk_widget_set_visible(vfo_codec_box, !local);
+}
+
 // Should we pause the VFO widget being updated until after the server has sent response?
 bool vfo_muted = false;
 struct timeval vfo_muted_since = {
