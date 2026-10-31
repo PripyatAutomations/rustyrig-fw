@@ -129,10 +129,11 @@ static gboolean routing_refresh(gpointer unused) {
       for (size_t i = 0 ; i < count ; i++) {
          /* Show the room/path users recognize, not the internal stream UUID or another copy of the site name. IDs remain opaque combo keys. */
          const char *path = streams[i].room;
-
-         if (*path == '#' || *path == '&') {
+         /* Local SDRs share &local-sdr, but each bridge is a distinct VFO. */
+         if (!strcmp(path, "&local-sdr") && !strncmp(streams[i].id, "local.sdr.", 10))
+            path = streams[i].id;
+         else if (*path == '#' || *path == '&')
             path++;
-         }
          char *label = g_strdup(*path ? path : streams[i].server);
          gtk_combo_box_text_append(combo, streams[i].id, label);
          g_free(label);
