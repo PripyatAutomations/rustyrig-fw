@@ -1243,6 +1243,12 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 /* The room VFO title operates only on VFOs mapped to the room displayed by the floating rig controls. The server's selection acknowledgement remains
  * authoritative for the active VFO. */
 static char room_vfo_title_room[128];
+/* The floating controls are bound to a rig room, not necessarily the
+ * currently selected notebook page (which may be Receiver Directory). */
+const char *gtk_chat_controls_room(void) {
+   return room_vfo_title_room[0] ? room_vfo_title_room : gtk_chat_current_room();
+}
+
 static gboolean room_vfo_title_tick(gpointer unused);
 
 static void room_vfo_title_select(char vfo) {
