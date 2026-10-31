@@ -164,6 +164,8 @@ static void bridge_stop(bridge_instance *b) {
    audio_local_rx_stop(b->stream);
    if (b->config) { g_unlink(b->config); g_clear_pointer(&b->config, g_free); }
    g_clear_pointer(&b->url, g_free);
+   if (b->online || b->pid > 0)
+      ui_print("&local-sdr", "%s: disconnected", b->stream);
    b->online = false;
    if (b->process.pid > 0) {
       kill(b->process.pid, SIGTERM);
@@ -190,7 +192,8 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
    (void)status;
    bridge_instance *b = user;
    if (b && b->pid == pid) {
-      Log(LOG_WARN, "local.bridge", "Local SDR process %ld exited", (long)pid);
+      Log(LOG_WARN, "local.bridge", "Local SDR process %ld exited (status %d)", (long)pid, status);
+      ui_print("&local-sdr", "%s: rrbridge exited unexpectedly (status %d)", b->stream, status);
       bridge_stop(b);
    }
    if (b) {
@@ -209,6 +212,7 @@ static gboolean poll_local(gpointer unused) {
       int got = rrp_bridge_ipc_recv(b->control, &m);
       if (!got) break;
       if (got < 0) {
+         ui_print("&local-sdr", "%s: rrbridge control channel closed or failed", b->stream);
          b->timer = 0;
          bridge_stop(b);
          return G_SOURCE_REMOVE;
@@ -248,6 +252,7 @@ static gboolean poll_local(gpointer unused) {
          }
       } else if (m.type == RRP_BRIDGE_IPC_LOG) {
          Log(LOG_INFO, "local.bridge", "%s", m.metadata_value);
+         ui_print("&local-sdr", "%s: %s", b->stream, m.metadata_value);
       }
    }
    for (unsigned n = 0; n < 16; n++) {
@@ -255,6 +260,7 @@ static gboolean poll_local(gpointer unused) {
       int got = rrp_bridge_media_recv(b->media, &frame);
       if (!got) break;
       if (got < 0) {
+         ui_print("&local-sdr", "%s: rrbridge media channel closed or failed", b->stream);
          b->timer = 0;
          bridge_stop(b);
          return G_SOURCE_REMOVE;
@@ -270,6 +276,8 @@ static gboolean poll_local(gpointer unused) {
          b->pcm_started = fwdsp_audio_resampler_start(b->resampler, frame.rate, local_pcm, b);
          b->rate = frame.rate;
          b->resampler_retry_at = b->pcm_started ? 0 : current + 5000000;
+         if (!b->pcm_started)
+            ui_print("&local-sdr", "%s: PCM resampler failed for input rate %u Hz; retrying", b->stream, frame.rate);
          Log(b->pcm_started ? LOG_INFO : LOG_WARN, "local.bridge",
              "Local PCM resampler %s (input=%u Hz, output=16000 Hz)%s",
              b->pcm_started ? "started" : "failed", frame.rate,
@@ -283,6 +291,7 @@ static gboolean poll_local(gpointer unused) {
          }
          if (!fwdsp_processor_write(b->resampler, samples, frame.count * 2)) {
             Log(LOG_WARN, "local.bridge", "Local PCM resampler input write failed");
+            ui_print("&local-sdr", "%s: PCM resampler input write failed", b->stream);
             fwdsp_processor_stop(b->resampler);
             b->pcm_started = false;
             b->resampler_retry_at = g_get_monotonic_time() + 5000000;
@@ -296,6 +305,7 @@ static gboolean poll_local(gpointer unused) {
       int received = rr_bridge_spectrum_recv(b->spectrum, &row);
       if (received == 0) break;
       if (received < 0) {
+         ui_print("&local-sdr", "%s: waterfall channel closed or failed", b->stream);
          close(b->spectrum);
          b->spectrum = -1;
          break;
