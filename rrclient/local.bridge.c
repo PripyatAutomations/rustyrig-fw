@@ -2,6 +2,7 @@
  * All control and resampler callbacks are owned by the client main context. */
 #include <rrclient/local.bridge.h>
 #include <rrclient/rooms.h>
+#include <rrclient/ui.h>
 #include <rrclient/audio.h>
 #include <rrclient/receiver.directory.h>
 #include <librrprotocol/bridge.ipc.h>
@@ -36,6 +37,9 @@ typedef struct bridge_instance {
    unsigned rate;
    gint64 resampler_retry_at;
    uint64_t pending, serial, frequency_hz;
+   bool queued_tune;
+   uint64_t queued_hz;
+   char queued_mode[16];
    char mode[16];
    rrp_bridge_ipc_message_t caps;
 } bridge_instance;
@@ -95,10 +99,16 @@ bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
    unsigned slot = (unsigned)(vfo - 'A');
    if (slot >= G_N_ELEMENTS(bridges)) return false;
    bridge_instance *b = bridges[slot];
-   if (!b || !b->online || b->control < 0 || b->pending ||
+   if (!b || !b->online || b->control < 0 ||
        !(b->caps.flags & RRP_BRIDGE_RX) ||
        hz < b->caps.rx_min_hz || hz > b->caps.rx_max_hz ||
        !mode || !rrp_bridge_mode_valid(b->caps.rx_modes, mode)) return false;
+   if (b->pending) {
+      b->queued_tune = true;
+      b->queued_hz = hz;
+      g_strlcpy(b->queued_mode, mode, sizeof(b->queued_mode));
+      return true;
+   }
    rrp_bridge_ipc_message_t command;
    rrp_bridge_ipc_init(&command, RRP_BRIDGE_IPC_SET);
    command.request = ++b->serial;
@@ -141,6 +151,7 @@ static gboolean bridge_kill_timeout(gpointer user) {
 static void bridge_stop(bridge_instance *b) {
    if (!b) return;
    if (b->timer) { g_source_remove(b->timer); b->timer = 0; }
+   b->queued_tune = false;
    if (b->control >= 0) {
       rrp_bridge_ipc_message_t m;
       rrp_bridge_ipc_init(&m, RRP_BRIDGE_IPC_SHUTDOWN);
@@ -207,8 +218,17 @@ static gboolean poll_local(gpointer unused) {
       } else if (m.type == RRP_BRIDGE_IPC_RESULT) {
          if (m.request == b->pending) {
             b->pending = 0;
-            if (!m.success)
-               Log(LOG_WARN, "local.bridge", "Local SDR tuning request rejected");
+            if (!m.success) {
+               Log(LOG_WARN, "local.bridge", "%s tuning request rejected", b->stream);
+               ui_print("&local-sdr", "%s: tuning rejected by receiver", b->stream);
+            }
+            if (b->queued_tune) {
+               uint64_t hz = b->queued_hz;
+               char mode[sizeof(b->queued_mode)];
+               g_strlcpy(mode, b->queued_mode, sizeof(mode));
+               b->queued_tune = false;
+               rrclient_local_bridge_tune_vfo((char)('A' + b->slot), hz, mode);
+            }
          }
       } else if (m.type == RRP_BRIDGE_IPC_STATE) {
          bool was_online = b->online;
@@ -222,7 +242,8 @@ static gboolean poll_local(gpointer unused) {
          if (b->online && !was_online) {
             receiver_directory_record_connection(b->url);
             Log(LOG_INFO, "local.bridge", "Local Kiwi online: %s", b->url);
-            event_emit("client.receiver-directory.connection", NULL, "Local Kiwi connected.");
+            event_emit("client.receiver-directory.connection", NULL, "Local SDR connected.");
+            ui_print("&local-sdr", "Connected: %s (%s)", b->stream, b->url ? b->url : "unknown");
             event_emit("client.audio.streams.changed", NULL, NULL);
          }
       } else if (m.type == RRP_BRIDGE_IPC_LOG) {
@@ -391,6 +412,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    rrclient_room_set_active_vfo("&local-sdr", (char)('A' + slot));
    char *status = g_strdup_printf("Connecting to %s at %s", driver, url);
    event_emit("client.receiver-directory.connection", NULL, status);
+   ui_print("&local-sdr", "%s", status);
    g_free(status);
    Log(LOG_INFO, "local.bridge", "Started local %s bridge pid=%ld for %s", driver, (long)pid, url);
    return true;
