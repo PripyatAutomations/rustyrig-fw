@@ -1360,22 +1360,20 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       }
    }
 
-   bool started = subproc_spawn_fds(&sp->process, fwdsp_path, args, mappings, sp->io_type == FW_IO_STDIO ? 4 : 0, close_fds, 8);
+   const char *profile_key = sp->role == FWDSP_ROLE_PROCESSOR ?
+      (sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ||
+       sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ?
+       "scheduler.fwdsp.device.profile" : "scheduler.fwdsp.processor.profile") :
+       "scheduler.fwdsp.codec.profile";
+   const char *profile = cfg_get(profile_key);
+   if (!profile || !*profile) profile = "normal";
+   bool started = subproc_spawn_fds_profile(&sp->process, fwdsp_path, args, mappings, sp->io_type == FW_IO_STDIO ? 4 : 0, close_fds, 8, profile);
 
    if (!started) {
       free(fwdsp_path);
       goto failed;
    }
    /* A child must not unintentionally retain the parent's RT policy. */
-   const char *profile = cfg_get("scheduler.fwdsp.profile");
-   if (!profile || !*profile) profile = "normal";
-   if (ra_sched_apply_profile(sp->process.pid, profile) < 0)
-      Log(LOG_WARN, "scheduler", "fwdsp pid=%ld profile=%s: %s", (long)sp->process.pid, profile, strerror(errno));
-   else {
-      ra_sched_options_t actual;
-      if (!ra_sched_query(sp->process.pid, &actual))
-         Log(LOG_INFO, "scheduler", "fwdsp pid=%ld profile=%s effective=%s priority=%d nice=%d", (long)sp->process.pid, profile, ra_sched_class_name(actual.policy), actual.priority, actual.nice);
-   }
    // cfg_get_exp() returns a malloc'd string we own
    free((char *)fwdsp_path);
    fwdsp_path = NULL;
