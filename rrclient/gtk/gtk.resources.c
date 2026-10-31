@@ -797,7 +797,8 @@ static void resource_irc_update(resource_branch *branch, rrconn_t *connection) {
 static void resource_update_branch(void *data) {
    resource_branch *branch = data;
    rrconn_t *connection = rrclient_connection_find(branch->profile);
-   branch->online = connection && connection->authenticated && connection->is_ws;
+   branch->online = connection && connection->authenticated && connection->is_ws &&
+      rrclient_connection_state(branch->profile) == 1;
 
    if (connection && !connection->is_ws) {
       set_string(&branch->root, STATE, connection->authenticated ? "Connected (IRC)" : rrclient_connection_state(branch->profile) < 0 ? "Connecting (IRC)" :
@@ -3712,8 +3713,10 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
       GtkTreeIter child;
       while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root))
          gtk_tree_store_remove(browser->store, &child);
-      set_string(&branch->root, STATE, "OFFLINE");
-      set_string(&branch->root, OURS, "OFFLINE");
+      /* Status and subscription are separate columns. Never retain a stale
+       * Connected state beside a Disconnected subscription on link loss. */
+      set_string(&branch->root, STATE, "Disconnected");
+      set_string(&branch->root, OURS, "");
       gtk_label_set_text(GTK_LABEL(browser->status), "OFFLINE");
    }
 }
