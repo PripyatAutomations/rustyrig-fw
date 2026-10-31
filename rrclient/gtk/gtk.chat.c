@@ -1241,13 +1241,18 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 /* The room VFO title operates only on VFOs mapped to the room displayed by the floating rig controls. The server's selection acknowledgement remains
  * authoritative for the active VFO. */
 static char room_vfo_title_room[128];
+static gboolean room_vfo_title_tick(gpointer unused);
 
 static void room_vfo_title_select(char vfo) {
    const char *room = room_vfo_title_room;
 
-   if (!*room || !ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1) {
+   if (!*room) return;
+   if (!g_ascii_strcasecmp(room, "&local-sdr")) {
+      rrclient_room_set_active_vfo(room, vfo);
+      room_vfo_title_tick(NULL);
       return;
    }
+   if (!ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1) return;
    char command[16];
    g_snprintf(command, sizeof(command), "!vfo %c", vfo);
    dict *request = dict_new();
