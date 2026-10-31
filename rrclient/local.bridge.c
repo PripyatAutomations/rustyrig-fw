@@ -389,7 +389,9 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    g_child_watch_add(pid, local_child_exited, b);
    b->timer = g_timeout_add(10, poll_local, b);
    rrclient_room_set_active_vfo("&local-sdr", (char)('A' + slot));
-   event_emit("client.receiver-directory.connection", NULL, "Local SDR connecting…");
+   char *status = g_strdup_printf("Connecting to %s at %s", driver, url);
+   event_emit("client.receiver-directory.connection", NULL, status);
+   g_free(status);
    Log(LOG_INFO, "local.bridge", "Started local %s bridge pid=%ld for %s", driver, (long)pid, url);
    return true;
 }
