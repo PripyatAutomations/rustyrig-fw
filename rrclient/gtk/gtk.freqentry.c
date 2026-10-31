@@ -427,8 +427,9 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
 
       bool bound_local = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(fe), "rr-local-sdr-vfo")) != 0;
       bool local_room = room && !g_ascii_strcasecmp(room, "&local-sdr");
-      bool local_only = bound_local || local_room ||
-         (rrclient_local_bridge_active() && (!ws_conn || !ws_conn->authenticated));
+      /* Never infer a local VFO from the absence of a server connection:
+       * commands must explicitly target the local room or a bound panel. */
+      bool local_only = bound_local || local_room;
       bool sent = false;
       if (local_only) {
          const char *mode = NULL;
