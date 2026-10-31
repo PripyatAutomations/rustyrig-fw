@@ -31,6 +31,8 @@
 #include <rrclient/media.h>
 #include <rrclient/rooms.h>
 #include <rrclient/vfo.h>
+#include <rrclient/local.bridge.h>
+#include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/objects.h>
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
@@ -1385,6 +1387,16 @@ static gboolean room_vfo_title_tick(gpointer unused) {
    char *title = g_strdup_printf("%s — VFO %c", room_vfo_title_room, active >= 'A' && active <= 'Z' ? active : '?');
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
+   if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
+      uint64_t hz = 0;
+      const char *mode = NULL;
+      if (rrclient_local_bridge_state_vfo(active, &hz, &mode) && freq_entry && hz) {
+         GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
+         if (!gtk_freq_entry_is_editing(fe) && gtk_freq_entry_get_frequency(fe) != (unsigned long)hz)
+            gtk_freq_entry_set_frequency(fe, (unsigned long)hz);
+         modebox_update_state(mode, 0);
+      }
+   }
 
    return G_SOURCE_CONTINUE;
 }
@@ -1434,7 +1446,10 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
    }
    room_vfo_show(tab->room);
    vfo_controls_set_rx_only(!rrclient_room_tx_control(tab->room));
-   vfo_update_ui();
+   if (!g_ascii_strcasecmp(tab->room, "&local-sdr"))
+      room_vfo_title_tick(NULL);
+   else
+      vfo_update_ui();
 }
 
 void gtk_chat_room_vfos_changed(const char *room) {
