@@ -135,7 +135,7 @@ static bool cmd_bridge(int argc, char **args) {
 }
 client_cmd_t client_cmds[] = {
    { .cmd = "bridge", .help_section = "Radio and discovery", .cb = cmd_bridge, .max_args = 4,
-     .desc = "SDR directory: /bridge dir list [search]; connections: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]" },
+     .desc = "SDR directory: /bridge <driver> dir list [search]; connections: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]" },
    {
       .cmd = "zoom", .help_section = "Display", .cb = cmd_zoom, .max_args = 1,
       .desc = "Set whole GTK interface zoom: /zoom 125%, /zoom 100, /zoom reset"
