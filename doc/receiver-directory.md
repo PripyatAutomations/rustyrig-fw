@@ -157,7 +157,7 @@ they do not authorize clients to submit unchecked endpoints to rrserver.
 ## GTK browser grouping
 
 Receiver Directory now uses an expandable tree: **Connected SDRs** appears
-first, followed by country groups (including **Country unknown** for
+first, followed by country groups (including **Unknown** for
 entries without published location metadata). A connected receiver also
 appears under its country. The connected section includes local Kiwi bridge
 attachments and **this client's own** receiver connections associated with an authenticated,
@@ -168,3 +168,5 @@ The tree uses the existing directory cache for receiver metadata. Connected
 SDR instances absent from that catalog cannot be displayed by URL yet;
 exposing those requires an additional connected-resource inventory from the
 mesh/catalog. The same receiver can be selected under either tree group.
+
+Group labels are displayed exclusively in the Location column; Receiver and Country cells remain blank on group rows. The connected group is pinned first and country groups sort alphabetically.
