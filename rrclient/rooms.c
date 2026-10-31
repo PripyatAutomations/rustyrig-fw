@@ -30,6 +30,19 @@ typedef struct client_room {
 } client_room_t;
 
 static client_room_t *rooms;
+/* Client-local namespace is not swapped with rrserver connection contexts. */
+static client_room_t local_sdr_room = {
+   .name = "&local-sdr", .topic = "Local SDR receivers",
+   .active_vfo = 'A', .rx_tunable = true
+};
+static bool local_sdr_present;
+static bool is_local_sdr(const char *name) {
+   return name && !strcasecmp(name, "&local-sdr");
+}
+static client_room_t *room_chain(const char *name) {
+   return is_local_sdr(name) ? (local_sdr_present ? &local_sdr_room : NULL) : rooms;
+}
+
 static char **available_rooms;
 static size_t available_room_count;
 static char **reconnect_rooms;
@@ -80,7 +93,7 @@ static const char *canonical(const char *room) {
 bool rrclient_room_is_joined(const char *room) {
    const char *want = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, want)) {
          return true;
       }
@@ -96,6 +109,11 @@ bool rrclient_room_join(const char *room) {
       return false;
    }
 
+   if (is_local_sdr(name)) {
+      local_sdr_present = true;
+      local_sdr_room.offline = false;
+      return true;
+   }
    if (rrclient_room_is_joined(name)) {
       rrclient_room_set_offline(name, false);
 
@@ -133,7 +151,7 @@ bool rrclient_room_offline(const char *room) {
    }
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          return r->offline;
       }
@@ -147,7 +165,7 @@ void rrclient_room_set_offline(const char *room, bool offline) {
    }
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          r->offline = offline;
 
@@ -360,7 +378,7 @@ bool rrclient_room_set_vfos(const char *room, const char *vfos) {
    }
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          strlcpy(r->vfos, vfos ? vfos : "", sizeof(r->vfos));
 
@@ -396,7 +414,7 @@ bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
    bool ok = rrclient_room_set_vfos(room, vfos);
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          r->vfo_mask = (uint32_t) mask;
          break;
@@ -409,7 +427,7 @@ bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
 const char *rrclient_room_vfos(const char *room) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          return r->vfos;
       }
@@ -424,7 +442,7 @@ bool rrclient_room_set_topic(const char *room, const char *topic) {
    }
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          strlcpy(r->topic, topic ? topic : "", sizeof(r->topic));
 
@@ -438,7 +456,7 @@ bool rrclient_room_set_topic(const char *room, const char *topic) {
 const char *rrclient_room_topic(const char *room) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          return r->topic;
       }
@@ -466,7 +484,7 @@ const char *rrclient_current_room(void) {
 void rrclient_room_set_control_flags(const char *room, bool tx, bool rx) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          r->tx_control = tx;
          r->rx_tunable = rx;
@@ -478,7 +496,7 @@ void rrclient_room_set_control_flags(const char *room, bool tx, bool rx) {
 bool rrclient_room_tx_control(const char *room) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          return r->tx_control && !r->offline;
       }
@@ -489,7 +507,7 @@ bool rrclient_room_tx_control(const char *room) {
 bool rrclient_room_rx_tunable(const char *room) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          return r->rx_tunable && !r->offline;
       }
@@ -501,7 +519,7 @@ bool rrclient_room_rx_tunable(const char *room) {
 void rrclient_room_set_rx_tuning_mask(const char *room, uint32_t mask) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          r->rx_tuning_mask = mask;
 
@@ -512,7 +530,7 @@ void rrclient_room_set_rx_tuning_mask(const char *room, uint32_t mask) {
 uint32_t rrclient_room_rx_tuning_mask(const char *room) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          return r->rx_tuning_mask;
       }
@@ -524,7 +542,7 @@ uint32_t rrclient_room_rx_tuning_mask(const char *room) {
 uint32_t rrclient_room_vfo_mask(const char *room) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          return r->vfo_mask;
       }
@@ -536,7 +554,7 @@ uint32_t rrclient_room_vfo_mask(const char *room) {
 char rrclient_room_active_vfo(const char *room) {
    const char *name = canonical(room);
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name) && r->active_vfo >= 'A' && r->active_vfo <= 'Z') {
          return r->active_vfo;
       }
@@ -552,7 +570,7 @@ void rrclient_room_set_active_vfo(const char *room, char vfo) {
       return;
    }
 
-   for (client_room_t *r = rooms ; r ; r = r->next) {
+   for (client_room_t *r = room_chain(name) ; r ; r = is_local_sdr(name) ? NULL : r->next) {
       if (!strcasecmp(r->name, name)) {
          r->active_vfo = vfo;
 
