@@ -263,6 +263,7 @@ typedef struct {
    GtkWidget *drawing;
    GtkWidget *enabled;
    GtkWidget *gain;
+   GtkWidget *fullscreen, *fullscreen_drawing;
    double display_gain_db;
    bool rf_enabled;
    unsigned zoom;
@@ -278,6 +279,7 @@ static gboolean rf_draw_later(gpointer user) {
    rf_strip_t *p = user;
    p->draw_timer = 0;
    gtk_widget_queue_draw(p->drawing);
+   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
    return G_SOURCE_REMOVE;
 }
 static void rf_row(const char *event, const void *data, size_t len,
@@ -402,6 +404,7 @@ static void rf_toggle(GtkToggleButton *button, gpointer data) {
       p->head = 0;
    }
    gtk_widget_queue_draw(p->drawing);
+   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
 }
 static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
    rf_strip_t *p = data;
@@ -421,8 +424,39 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
    gtk_widget_queue_draw(widget);
    return TRUE;
 }
+static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
+   rf_strip_t *p = user;
+   (void)widget;
+   p->fullscreen = NULL;
+   p->fullscreen_drawing = NULL;
+}
+static gboolean rf_double_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
+   rf_strip_t *p = user;
+   (void)widget;
+   if (event->type != GDK_2BUTTON_PRESS || event->button != 1) return FALSE;
+   if (p->fullscreen) {
+      gtk_widget_destroy(p->fullscreen);
+      return TRUE;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   p->fullscreen = window;
+   gtk_window_set_title(GTK_WINDOW(window), "RustyRig RF Waterfall");
+   GtkWidget *drawing = gtk_drawing_area_new();
+   p->fullscreen_drawing = drawing;
+   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+   gtk_container_add(GTK_CONTAINER(window), drawing);
+   g_signal_connect(window, "destroy", G_CALLBACK(rf_fullscreen_closed), p);
+   g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
+   g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_double_click), p);
+   g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
+   g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_double_click), p);
+   gtk_widget_show_all(window);
+   gtk_window_fullscreen(GTK_WINDOW(window));
+   return TRUE;
+}
 static void rf_destroy(gpointer data) {
    rf_strip_t *p = data;
+   if (p->fullscreen) gtk_widget_destroy(p->fullscreen);
    if (p->draw_timer) g_source_remove(p->draw_timer);
    if (p->token) event_off_token(p->token);
    if (p->caps_token) event_off_token(p->caps_token);
@@ -436,7 +470,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    GtkWidget *drawing = gtk_drawing_area_new();
    p->drawing = drawing;
    gtk_widget_set_size_request(drawing, 320, 82);
-   gtk_widget_add_events(drawing, GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
    gtk_widget_set_tooltip_text(drawing, "RF waterfall: scroll to zoom around the tuned center");
    gtk_container_add(GTK_CONTAINER(overlay), drawing);
    p->enabled = gtk_check_button_new();
