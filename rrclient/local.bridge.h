@@ -20,4 +20,5 @@ void rrclient_local_bridge_disconnect_url(const char *url);
 void rrclient_local_bridge_disconnect(void);
 /* Returns true if a local ! command was recognized and consumed. */
 bool rrclient_local_bridge_command(const char *line);
+bool rrclient_local_bridge_cli(int argc, char **argv);
 #endif
