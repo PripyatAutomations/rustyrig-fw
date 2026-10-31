@@ -462,7 +462,7 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
           * Throttle commands until the bridge delivers rows at the new center. */
          gint64 now = g_get_monotonic_time();
          if (wanted != p->pan_hz && (!p->recenter_at || now - p->recenter_at > 300000) &&
-             (!p->recenter_at || row->sequence != p->recenter_sequence)) {
+             (!p->recenter_at || row->low_hz != p->recenter_low_hz || row->high_hz != p->recenter_high_hz)) {
             double overflow = wanted - p->pan_hz;
             double new_center = CLAMP((row->low_hz + row->high_hz) / 2. + overflow,
                                       full / 2., 30000000. - full / 2.);
