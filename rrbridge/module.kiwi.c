@@ -837,9 +837,9 @@ static void kiwi_poll(void *instance) {
          memcpy(snd + 1, "W/F", 4);
          const char *ua = setting(k, "user-agent");
          if (!ua || !*ua) ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36";
-         if (strlen(ua) < 384 && !strpbrk(ua, "\\r\\n")) {
+         if (strlen(ua) < 384 && !strpbrk(ua, "\r\n")) {
             char headers[416];
-            snprintf(headers, sizeof(headers), "User-Agent: %s\\r\\n", ua);
+            snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
             char detail[560];
             snprintf(detail, sizeof(detail), "Connecting Kiwi RF waterfall: %s", wf_url);
             note(k, detail);
