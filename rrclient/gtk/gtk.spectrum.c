@@ -267,6 +267,7 @@ typedef struct {
    double display_gain_db;
    bool rf_enabled;
    unsigned zoom;
+   double zoom_fraction; /* five wheel steps per native octave */
    rr_bridge_spectrum_row rows[32];
    bool vfo_boundary[32];
    char last_vfo;
@@ -299,6 +300,21 @@ static void rf_row(const char *event, const void *data, size_t len,
    if (!p->draw_timer)
       p->draw_timer = g_timeout_add(100, rf_draw_later, p);
 }
+/* Fractional display crop between backend zoom steps. Both pixels and
+ * scale/marker must use these same frequency bounds. */
+static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *row,
+                           double *low, double *high) {
+   *low = row->low_hz;
+   *high = row->high_hz;
+   double full = *high - *low;
+   if (full <= 0) return;
+   double span = full / exp2(p->zoom_fraction);
+   uint64_t tuned = 0;
+   double center = rrclient_local_bridge_state(&tuned, NULL) ? (double)tuned : (*low + *high) / 2;
+   double start = CLAMP(center - span / 2, *low, *high - span);
+   *low = start;
+   *high = start + span;
+}
 static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    rf_strip_t *p = data;
    int w = gtk_widget_get_allocated_width(widget);
@@ -309,6 +325,9 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       return FALSE;
    int depth = MIN((int)p->count, 32);
    int plot_h = MAX(1, h - 19);
+   const rr_bridge_spectrum_row *latest = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+   double view_low, view_high;
+   rf_view_bounds(p, latest, &view_low, &view_high);
    /* Build one tightly packed ARGB32 image; avoid thousands of Cairo
     * state changes/fills on the audio client's GTK main thread. */
    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24,
@@ -322,8 +341,13 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    for (int y = 0; y < depth; y++) {
       unsigned index = (p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows);
       uint32_t *dest = (uint32_t *)(pixels + y * stride);
-      for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++)
-         dest[x] = palette_pixel(CLAMP(p->rows[index].power[x] / 255.0 + p->display_gain_db / 80.0, 0.0, 1.0));
+      for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++) {
+         double hz = view_low + (view_high - view_low) * (x + .5) / RR_BRIDGE_SPECTRUM_BINS;
+         double span = (double)p->rows[index].high_hz - p->rows[index].low_hz;
+         int bin = span > 0 ? (int)((hz - p->rows[index].low_hz) * RR_BRIDGE_SPECTRUM_BINS / span) : -1;
+         dest[x] = bin >= 0 && bin < RR_BRIDGE_SPECTRUM_BINS ?
+            palette_pixel(CLAMP(p->rows[index].power[bin] / 255.0 + p->display_gain_db / 80.0, 0.0, 1.0)) : 0xff0d1621u;
+      }
       if (p->vfo_boundary[index])
          for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++) dest[x] = 0xffe640;
    }
@@ -337,12 +361,10 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_surface_destroy(surface);
    /* Tune marker is display-only. The frequency and RF span come from
     * generic bridge state/rows, never Kiwi-specific arithmetic. */
-   const rr_bridge_spectrum_row *last_row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
    uint64_t tuned_hz = 0;
    if (rrclient_local_bridge_state(&tuned_hz, NULL) &&
-       tuned_hz >= last_row->low_hz && tuned_hz <= last_row->high_hz) {
-      double x = (double)(tuned_hz - last_row->low_hz) * (w - 1) /
-                 (double)(last_row->high_hz - last_row->low_hz);
+       tuned_hz >= view_low && tuned_hz <= view_high) {
+      double x = ((double)tuned_hz - view_low) * (w - 1) / (view_high - view_low);
       cairo_save(cr);
       cairo_set_source_rgba(cr, 1.0, .85, .25, .9);
       cairo_set_line_width(cr, 1.0);
@@ -358,8 +380,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    }
    /* Scale follows bridge-provided actual RF bounds, not the selected zoom
     * or a client-side approximation of Kiwi's tuning state. */
-   const rr_bridge_spectrum_row *latest = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
-   double low = latest->low_hz / 1e6, high = latest->high_hz / 1e6;
+   double low = view_low / 1e6, high = view_high / 1e6;
    cairo_set_source_rgba(cr, 0, 0, 0, .80);
    cairo_rectangle(cr, 0, plot_h, w, h - plot_h);
    cairo_fill(cr);
@@ -418,10 +439,17 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
    if (!delta) return FALSE;
    unsigned min_zoom, max_zoom;
    if (!rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) return FALSE;
-   int zoom = (int)p->zoom + delta;
-   p->zoom = (unsigned)CLAMP(zoom, (int)min_zoom, (int)max_zoom);
-   rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
-   gtk_widget_queue_draw(widget);
+   double requested = CLAMP((double)p->zoom + p->zoom_fraction + delta * .20,
+                            (double)min_zoom, (double)max_zoom);
+   unsigned native = (unsigned)floor(requested);
+   double fraction = requested - native;
+   if (native != p->zoom) {
+      if (!rrclient_local_bridge_waterfall(p->rf_enabled, native)) return TRUE;
+      p->zoom = native;
+   }
+   p->zoom_fraction = fraction;
+   gtk_widget_queue_draw(p->drawing);
+   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
    return TRUE;
 }
 static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
