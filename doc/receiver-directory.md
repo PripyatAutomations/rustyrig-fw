@@ -160,8 +160,9 @@ Receiver Directory now uses an expandable tree: **Connected SDRs** appears
 first, followed by country groups (including **Country unknown** for
 entries without published location metadata). A connected receiver also
 appears under its country. The connected section includes local Kiwi bridge
-attachments and receiver connections associated with any authenticated,
-currently online server profile, not only the selected connection.
+attachments and **this client's own** receiver connections associated with an authenticated,
+currently online server profile, not only the selected connection. It does not
+show SDRs merely because another mesh user is operating them.
 
 The tree uses the existing directory cache for receiver metadata. Connected
 SDR instances absent from that catalog cannot be displayed by URL yet;
