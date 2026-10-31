@@ -173,7 +173,8 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    }
    gtk_widget_set_sensitive(url_button, r != NULL);
    bool connected = r && rrclient_receiver_is_connected(r->url);
-   gtk_button_set_label(GTK_BUTTON(connect_button), connected ? "Disconnect" : "Connect");
+   gtk_button_set_label(GTK_BUTTON(connect_button),
+      r && (connected || rrclient_local_bridge_connected(r->url)) ? "Disconnect" : "Connect");
    if (local_button) {
       bool local_connected = r && rrclient_local_bridge_connected(r->url);
       gtk_button_set_label(GTK_BUTTON(local_button), local_connected ? "Disconnect local" : "Connect locally");
@@ -181,7 +182,7 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
       if (local_tune_button)
          gtk_widget_set_sensitive(local_tune_button, local_connected && rrclient_local_bridge_active());
    }
-   gtk_widget_set_sensitive(connect_button, connected || (r && receiver_directory_entry_accessible(r)));
+   gtk_widget_set_sensitive(connect_button, r && (connected || rrclient_local_bridge_connected(r->url) || receiver_directory_entry_accessible(r)));
 
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
    char *stamp = date ? g_date_time_format(date, "%Y-%m-%d %H:%M:%S %Z") : g_strdup("No local report");
@@ -671,9 +672,16 @@ static gboolean directory_finish_show(gpointer unused) {
    search_entry = gtk_search_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(search_entry), "Filter name, location, host, grid, contact or hardware…");
    gtk_box_pack_start(GTK_BOX(box), search_entry, FALSE, FALSE, 0);
+   GtkWidget *filters = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+   gtk_box_pack_start(GTK_BOX(box), filters, FALSE, FALSE, 0);
    accessible_only = gtk_check_button_new_with_label("Accessible only (API permitted; no known restriction or failure)");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(accessible_only), TRUE);
-   gtk_box_pack_start(GTK_BOX(box), accessible_only, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(filters), accessible_only, FALSE, FALSE, 0);
+   favorites_only = gtk_check_button_new_with_label("Favorites only");
+   gtk_box_pack_start(GTK_BOX(filters), favorites_only, FALSE, FALSE, 0);
+   proxy_bridge = gtk_check_button_new_with_label("Proxy rrbridge?");
+   gtk_widget_set_tooltip_text(proxy_bridge, "Use a connected rrserver for shared upstream SDR reception instead of a local bridge");
+   gtk_box_pack_start(GTK_BOX(filters), proxy_bridge, FALSE, FALSE, 0);
    directory_store =
       gtk_list_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_STRING);
@@ -738,48 +746,28 @@ static gboolean directory_finish_show(gpointer unused) {
    local_button = gtk_button_new_with_label("Connect locally");
    local_tune_button = gtk_button_new_with_label("Tune local…");
    gtk_widget_set_tooltip_text(local_button, "Run the Kiwi receiver directly using a local rrbridge process; no rrserver connection required");
-   add_button = gtk_button_new_with_label("Add to server config");
-   gtk_widget_set_tooltip_text(connect_button,
-      "Use the selected RustyRig server: websdr.listen for configured receivers, websdr.connect for temporary receivers");
-   gtk_widget_set_tooltip_text(add_button, "Add this receiver to the selected server's configuration; requires websdr.admin");
+   favorite_button = gtk_button_new_with_label("Add to favorites");
+   gtk_widget_set_tooltip_text(connect_button, "Connect to the SDR using the selected local or rrserver bridge policy");
    gtk_box_pack_start(GTK_BOX(buttons), connect_button, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(buttons), local_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(buttons), local_tune_button, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(buttons), add_button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), favorite_button, FALSE, FALSE, 0);
    g_signal_connect(connect_button, "clicked", G_CALLBACK(connect_clicked), NULL);
-   g_signal_connect(local_button, "clicked", G_CALLBACK(local_connect_clicked), NULL);
    g_signal_connect(local_tune_button, "clicked", G_CALLBACK(local_tune_clicked), NULL);
-   g_signal_connect(add_button, "clicked", G_CALLBACK(connect_clicked), GINT_TO_POINTER(1));
-   refresh_button = gtk_button_new_with_label("Refresh list");
-   gtk_widget_set_tooltip_text(refresh_button, "Use the locally cached directory for four hours; Shift+click to force a fresh download.");
+   g_signal_connect(favorite_button, "clicked", G_CALLBACK(favorite_clicked), NULL);
    GtkWidget *import = gtk_button_new_with_label("Import JSON…");
    url_button = gtk_button_new_with_label("Copy URL");
-   config_button = gtk_button_new_with_label("Copy bridge config");
-   gtk_box_pack_start(GTK_BOX(buttons), refresh_button, FALSE, FALSE, 0);
+   refresh_button = gtk_button_new_with_label("Refresh list");
+   gtk_widget_set_tooltip_text(refresh_button, "Use cached receivers for one hour; Shift+click forces a mirror refresh");
    gtk_box_pack_start(GTK_BOX(buttons), import, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(buttons), url_button, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(buttons), config_button, FALSE, FALSE, 0);
-   GtkWidget *reports = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   gtk_box_pack_start(GTK_BOX(box), reports, FALSE, FALSE, 0);
-   const char *labels[] = {
-      "Mark unreachable", "Mark restricted", "Clear report"
-   };
-   const char *states[] = {
-      "unreachable", "restricted", "unknown"
-   };
-
-   for (int i = 0 ; i < 3 ; i++) {
-      GtkWidget *button = gtk_button_new_with_label(labels[i]);
-      gtk_box_pack_start(GTK_BOX(reports), button, FALSE, FALSE, 0);
-      g_signal_connect(button, "clicked", G_CALLBACK(state_clicked), (gpointer) states[i]);
-   }
-
+   gtk_box_pack_start(GTK_BOX(buttons), refresh_button, FALSE, FALSE, 0);
    g_signal_connect(refresh_button, "clicked", G_CALLBACK(refresh_clicked), NULL);
    g_signal_connect(import, "clicked", G_CALLBACK(import_clicked), NULL);
    g_signal_connect(url_button, "clicked", G_CALLBACK(copy_clicked), NULL);
    g_signal_connect(config_button, "clicked", G_CALLBACK(copy_clicked), GINT_TO_POINTER(1));
    g_signal_connect(search_entry, "search-changed", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(accessible_only, "toggled", G_CALLBACK(filter_changed), NULL);
+   g_signal_connect(favorites_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
    g_signal_connect(directory_tree, "button-press-event", G_CALLBACK(directory_context_menu), NULL);
    /* Don't block the first paint on cached directory population. */
