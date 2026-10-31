@@ -153,6 +153,7 @@ void gtk_chat_set_navigation_only(bool value) {
 
 extern void vfo_controls_set_rx_only(bool rx_only);
 static GtkWidget *room_vfo_box;
+static GtkWidget *room_rf_strip;
 static RRFloatPanel *room_vfo_panel;
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
 
@@ -1435,14 +1436,17 @@ static void room_vfo_show(const char *name) {
       }
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
       rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);
-      GtkWidget *rf_strip = rr_gtk_rf_spectrum_new();
-      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), rf_strip, FALSE, FALSE, 0);
-      gtk_widget_show_all(rf_strip);
+      room_rf_strip = rr_gtk_rf_spectrum_new();
+      g_object_add_weak_pointer(G_OBJECT(room_rf_strip), (gpointer *) &room_rf_strip);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_rf_strip, FALSE, FALSE, 0);
+      gtk_widget_show_all(room_rf_strip);
       room_vfo_box = create_vfo_box();
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_vfo_box, FALSE, FALSE, 0);
    }
    g_strlcpy(room_vfo_title_room, name ? name : "", sizeof(room_vfo_title_room));
+   if (room_rf_strip)
+      gtk_widget_set_visible(room_rf_strip, name && !g_ascii_strcasecmp(name, "&local-sdr"));
    char active = rrclient_room_active_vfo(room_vfo_title_room);
    char *title = name && !g_ascii_strcasecmp(name, "&local-sdr")
       ? g_strdup_printf("&local-sdr — local.sdr.%c", active >= 'A' && active <= 'Z' ? active : '?')
