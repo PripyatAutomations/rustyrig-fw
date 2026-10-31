@@ -7,6 +7,7 @@
 #include <librrprotocol/bridge.media.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/event-bus.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sys/socket.h>
@@ -64,8 +65,7 @@ void rrclient_local_bridge_disconnect(void) {
    audio_local_rx_stop(LOCAL_STREAM);
    if (local.pid > 0) {
       /* Child is asked to exit; do not block the GTK main thread. */
-      waitpid(local.pid, NULL, WNOHANG);
-      local.pid = 0;
+      local.pid = 0; /* Child watch reaps the process after exit. */
    }
    if (local.config) {
       g_unlink(local.config);
@@ -74,17 +74,20 @@ void rrclient_local_bridge_disconnect(void) {
    g_clear_pointer(&local.url, g_free);
    local.online = false;
    local.rate = 0;
+   event_emit("client.receiver-directory.connection", NULL, "Local SDR disconnected.");
+}
+static void local_child_exited(GPid pid, gint status, gpointer unused) {
+   (void)status;
+   (void)unused;
+   if (local.pid == pid) {
+      Log(LOG_WARN, "local.bridge", "Local SDR process %ld exited", (long)pid);
+      rrclient_local_bridge_disconnect();
+   }
+   g_spawn_close_pid(pid);
 }
 static gboolean poll_local(gpointer unused) {
    (void)unused;
    if (local.pid <= 0) return G_SOURCE_REMOVE;
-   int status;
-   if (waitpid(local.pid, &status, WNOHANG) == local.pid) {
-      Log(LOG_WARN, "local.bridge", "Local SDR bridge exited");
-      local.timer = 0;
-      rrclient_local_bridge_disconnect();
-      return G_SOURCE_REMOVE;
-   }
    for (unsigned n = 0; n < 16; n++) {
       rrp_bridge_ipc_message_t m;
       int got = rrp_bridge_ipc_recv(local.control, &m);
@@ -100,6 +103,7 @@ static gboolean poll_local(gpointer unused) {
          if (local.online && !was_online) {
             receiver_directory_record_connection(local.url);
             Log(LOG_INFO, "local.bridge", "Local Kiwi online: %s", local.url);
+            event_emit("client.receiver-directory.connection", NULL, "Local Kiwi connected.");
          }
       } else if (m.type == RRP_BRIDGE_IPC_LOG) {
          Log(LOG_INFO, "local.bridge", "%s", m.metadata_value);
@@ -209,7 +213,9 @@ bool rrclient_local_bridge_connect(const char *url) {
    local.url = g_strdup(url);
    local.config = config;
    audio_local_rx_start(LOCAL_STREAM);
+   g_child_watch_add(pid, local_child_exited, NULL);
    local.timer = g_timeout_add(10, poll_local, NULL);
+   event_emit("client.receiver-directory.connection", NULL, "Local SDR connecting…");
    Log(LOG_INFO, "local.bridge", "Started local Kiwi bridge pid=%ld for %s", (long)pid, url);
    return true;
 }
