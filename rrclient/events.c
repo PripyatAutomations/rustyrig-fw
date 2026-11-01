@@ -759,6 +759,12 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
    return window;
 }
 
+/* GTK receives these protocol events directly on its own domain. */
+static bool rrclient_gtk_event_frontend(void) {
+   const rr_frontend_ops_t *ops = frontend_ops();
+   return ops && ops->name && !strcmp(ops->name, "gtk");
+}
+
 static void rrclient_handle_join(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -807,7 +813,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          }
 
          if (frontend_ops()) {
-            frontend_ops()->userlist_room_vfos_changed(m_room);
+            (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_room_vfos_changed(m_room) : (void)0);
          }
 
          if (has_vfos) {
@@ -851,7 +857,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       }
 
       if (frontend_ops() && m_user && login_user && strcasecmp(m_user, login_user) == 0) {
-         frontend_ops()->chat_room_add(m_room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_add(m_room) : (void)0);
       }
       const char *userhost = dict_get(d, "talk.userhost", "");
 
@@ -913,7 +919,7 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
       }
 
       if (frontend_ops()) {
-         frontend_ops()->userlist_room_vfos_changed(room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_room_vfos_changed(room) : (void)0);
       }
       ui_print(room, "\00308Room %s VFOs:\017 %s", room, *vfos ? vfos : "(none)");
    }
@@ -980,7 +986,7 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
       }
 
       if (frontend_ops()) {
-         frontend_ops()->chat_room_topic(room, topic);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_topic(room, topic) : (void)0);
       }
 
       /* PARITY: rustyrig-www/js/webui.chat.js topic notices. A query's user identifies the requester, not necessarily the original topic setter. */
@@ -1027,16 +1033,16 @@ static void rrclient_handle_room_state(const char *event, const char *data, rrco
    }
 
    if (frontend_ops() && frontend_ops()->room_state_changed) {
-      frontend_ops()->room_state_changed(room);
+      (!rrclient_gtk_event_frontend() ? frontend_ops()->room_state_changed(room) : (void)0);
    }
 
    if (frontend_ops() && rrclient_present_context()) {
       if (frontend_ops()->userlist_redraw) {
-         frontend_ops()->userlist_redraw();
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_redraw() : (void)0);
       }
 
       if (frontend_ops()->ptt_refresh) {
-         frontend_ops()->ptt_refresh();
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->ptt_refresh() : (void)0);
       }
    }
    ui_print(room, "%sRoom %s", get_chat_ts(now), offline ? "OFFLINE; chat draft retained until its owner returns" : "ONLINE");
@@ -1100,7 +1106,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
       rrclient_room_available_remove(room);
 
       if (frontend_ops()) {
-         frontend_ops()->chat_room_remove(room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_remove(room) : (void)0);
       }
 
       if (ui_mode == UI_MODE_TUI) {
@@ -1172,7 +1178,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
       rrclient_room_part(room);
 
       if (frontend_ops()) {
-         frontend_ops()->chat_room_remove(room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_remove(room) : (void)0);
       }
 
       if (ui_mode == UI_MODE_TUI) {
@@ -1727,7 +1733,7 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
    vfo_update_ui();
 
    if (frontend_ops()) {
-      frontend_ops()->userlist_redraw();
+      (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_redraw() : (void)0);
       rrclient_notify_ptt_online(cptr && cptr->is_ws && ws_connected == 1);
    }
 }
