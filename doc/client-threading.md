@@ -252,3 +252,13 @@ copy their parameters and enqueue work onto GTK's context. The synchronous
 `chat_current_room` getter still needs conversion to core-owned state;
 other frontend_ops calls and shutdown teardown remain unisolated. The
 experimental mode is not yet TX-safe.
+
+## Reusing JOIN through the event bus
+
+The authoritative room selection after a network JOIN now publishes
+`client.ui.chat.authoritative-room` using an owned NUL-terminated room-name
+payload. GTK subscribes on its `gtk` delivery domain and changes notebook
+selection on the owning GUI thread. TUI retains its existing direct path.
+This begins replacing the temporary chat command queue with native event-bus
+subscriptions. Full JOIN/room/roster state still needs a versioned owned
+snapshot before removing the other legacy frontend callbacks.
