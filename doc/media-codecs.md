@@ -41,7 +41,12 @@ if they remain in `codecs.allowed`.
 Clients have the same `audio.test-mode` setting. Set it to `false` after
 setup to hide and decline the test variants locally.
 They use the same encoding, decoding and recording branches as their normal
-counterparts, but have independent pipeline IDs. They are listed after normal
+counterparts, but have independent pipeline IDs.
+The built-in `fwdsp/default-pipelines.h` supplies every `*T` and `*P`
+pipeline without requiring entries in `rrserver.pipelines.cfg`. Custom
+pipelines remain additive: an explicitly configured pipeline overrides only
+its matching built-in pipeline key. `audio.test-mode` controls availability
+of the test codecs, not loading the rest of the user's pipeline configuration. They are listed after normal
 codecs so automatic negotiation does not prefer a test tone. Commands accept
 any letter case and send the canonical negotiated ID, including uppercase `T`.
 
