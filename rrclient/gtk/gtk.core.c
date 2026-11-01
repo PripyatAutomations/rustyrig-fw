@@ -2448,6 +2448,7 @@ static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, v
 }
 
 static void frontend_gtk_chat_incoming_event(const rr_event_message_t *message, void *unused);
+static void frontend_gtk_supervision_event(const rr_event_message_t *message, void *unused);
 static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_owner = g_thread_self();
    g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "GTK initialization tid=%p default-context=%p",
@@ -2487,6 +2488,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.ui.owner.action", frontend_gtk_owner_action_event, NULL, "gtk");
    if (action_event) rr_module_token_add(action_event);
    else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to frontend actions");
+   rr_event_token_t supervision_event = event_on_message_domain_token(
+      "client.ui.supervision.result", frontend_gtk_supervision_event, NULL, "gtk");
+   if (supervision_event) rr_module_token_add(supervision_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to supervision results");
    rr_event_token_t incoming_event = event_on_message_domain_token(
       "client.ui.chat.incoming", frontend_gtk_chat_incoming_event, NULL, "gtk");
    if (incoming_event) rr_module_token_add(incoming_event);
@@ -2692,11 +2697,43 @@ static bool frontend_gtk_chat_status_active(void) {
    return gtk_chat_status_active();
 }
 
-extern void gtk_supervision_result(const char *, rrconn_t *);
+extern void gtk_supervision_result_profile(const char *, const char *);
+/* Two copied strings; never ship rrconn_t pointers to GTK. */
+typedef struct { uint32_t profile_len, data_len; } GtkSupervisionMessage;
+static void frontend_gtk_supervision_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message->payload || message->length < sizeof(GtkSupervisionMessage)) return;
+   GtkSupervisionMessage header;
+   memcpy(&header, message->payload, sizeof(header));
+   size_t available = message->length - sizeof(header);
+   if (!header.profile_len || !header.data_len || header.profile_len > available ||
+       header.data_len != available - header.profile_len) return;
+   const char *profile = (const char *)message->payload + sizeof(header);
+   const char *data = profile + header.profile_len;
+   if (profile[header.profile_len - 1] || data[header.data_len - 1]) return;
+   gtk_supervision_result_profile(data, profile);
+}
+static void frontend_gtk_supervision_result(const char *data, rrconn_t *connection) {
+   const char *profile = rrclient_connection_name(connection);
+   if (!profile || !*profile) return;
+   size_t pl = strlen(profile) + 1, dl = strlen(data ? data : "") + 1;
+   if (pl > 4096 || dl > 1024 * 1024) return;
+   GtkSupervisionMessage header = { (uint32_t)pl, (uint32_t)dl };
+   size_t length = sizeof(header) + pl + dl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &header, sizeof(header));
+   memcpy(payload + sizeof(header), profile, pl);
+   memcpy(payload + sizeof(header) + pl, data ? data : "", dl);
+   rr_event_message_t message = {
+      .name = "client.ui.supervision.result", .payload = payload, .length = length
+   };
+   event_emit_message(&message);
+   g_free(payload);
+}
 extern void gtk_admin_result(const char *, rrconn_t *);
 
 const rr_frontend_ops_t gtk_frontend_ops = {
-   .supervision_result = gtk_supervision_result,
+   .supervision_result = frontend_gtk_supervision_result,
    .admin_result = gtk_admin_result,
    .irc_nick_prompt = frontend_gtk_irc_nick_prompt,
    .name = "gtk",
