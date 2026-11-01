@@ -2034,8 +2034,31 @@ static void gtk_identity_first_run(void) {
    g_free(path);
 }
 
+/* Event-bus dispatch bridge. GTK owns the default GLib context until
+ * the frontend-thread migration moves it to an explicit UI context. */
+typedef struct {
+   event_dispatch_fn_t fn;
+   void *arg;
+} GtkEventDelivery;
+static gboolean frontend_gtk_deliver_event(gpointer opaque) {
+   GtkEventDelivery *delivery = opaque;
+   delivery->fn(delivery->arg);
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_dispatch_event(event_dispatch_fn_t fn, void *arg, void *user) {
+   (void)user;
+   GtkEventDelivery *delivery = g_new(GtkEventDelivery, 1);
+   *delivery = (GtkEventDelivery){fn, arg};
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_deliver_event, delivery, g_free);
+   g_source_attach(source, g_main_context_default());
+   g_source_unref(source);
+}
+
 static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_init(argc, argv);
+   if (!event_domain_register("gtk", frontend_gtk_dispatch_event, NULL))
+      Log(LOG_WARN, "gtk.event", "Unable to register GTK event delivery domain");
    gtk_identity_first_run();
 #ifdef USE_LIBNOTIFY
 
@@ -2188,6 +2211,8 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
+   if (!event_domain_unregister("gtk"))
+      Log(LOG_DEBUG, "gtk.event", "GTK event domain still has listeners at shutdown");
    extern void gtk_terminal_shutdown(void);
    gtk_terminal_shutdown();
    gtk_help_shutdown();
