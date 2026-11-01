@@ -2158,6 +2158,12 @@ static void frontend_gtk_authoritative_room_event(const rr_event_message_t *mess
    gtk_chat_set_authoritative_room(room);
 }
 
+static void frontend_gtk_server_picker_show_event(const rr_event_message_t *message, void *unused) {
+   (void)message;
+   (void)unused;
+   if (!dying) gtk_show_server_chooser();
+}
+
 static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (message->length != 1 || !message->payload) return;
@@ -2243,6 +2249,11 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       NULL, "gtk");
    if (room_event) rr_module_token_add(room_event);
    else Log(LOG_WARN, "gtk.event", "Unable to subscribe to authoritative room events");
+   rr_event_token_t picker_event = event_on_message_domain_token(
+      "client.ui.server-picker.show", frontend_gtk_server_picker_show_event,
+      NULL, "gtk");
+   if (picker_event) rr_module_token_add(picker_event);
+   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to server-picker requests");
    rr_event_token_t ptt_event = event_on_message_domain_token(
       "client.ui.ptt.state", frontend_gtk_ptt_state_event, NULL, "gtk");
    if (ptt_event) rr_module_token_add(ptt_event);
