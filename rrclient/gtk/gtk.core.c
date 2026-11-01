@@ -2037,12 +2037,16 @@ static void gtk_identity_first_run(void) {
 /* Event-bus dispatch bridge. This context is captured on the GTK owner
  * thread rather than looked up from whichever thread emits an event. */
 static GMainContext *frontend_gtk_event_context;
+static GThread *frontend_gtk_owner;
 typedef struct {
    event_dispatch_fn_t fn;
    void *arg;
 } GtkEventDelivery;
 static gboolean frontend_gtk_deliver_event(gpointer opaque) {
    GtkEventDelivery *delivery = opaque;
+   if (G_UNLIKELY(g_thread_self() != frontend_gtk_owner))
+      Log(LOG_CRIT, "gtk.thread", "GTK domain callback executed on wrong thread: actual=%p expected=%p",
+          (void *)g_thread_self(), (void *)frontend_gtk_owner);
    delivery->fn(delivery->arg);
    return G_SOURCE_REMOVE;
 }
@@ -2108,6 +2112,9 @@ static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, v
 }
 
 static bool frontend_gtk_init(int *argc, char ***argv) {
+   frontend_gtk_owner = g_thread_self();
+   Log(LOG_INFO, "gtk.thread", "GTK initialization tid=%p default-context=%p",
+       (void *)frontend_gtk_owner, (void *)g_main_context_default());
    gtk_init(argc, argv);
    frontend_gtk_event_context = g_main_context_ref_thread_default();
    if (!event_domain_register("gtk", frontend_gtk_dispatch_event, frontend_gtk_event_context))
