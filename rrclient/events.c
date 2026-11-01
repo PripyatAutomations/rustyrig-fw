@@ -124,7 +124,14 @@ static void rrclient_backpressure(const char *event, const char *data, rrconn_t 
    ui_print("status", "%s%s; command was not sent", get_chat_ts(now), data ? data : "Outgoing queue full");
 }
 
+/* Only forward transitions for the currently selected VFO. A change in
+ * VFO selection or a disconnect invalidates the last delivered snapshot. */
+static bool last_ptt_valid;
+static bool last_ptt_active;
+static char last_ptt_vfo;
+
 static void rrclient_set_offline(void) {
+   last_ptt_valid = false;
    if (login_user) {
       free((void *)login_user);
       login_user = NULL;
@@ -314,6 +321,13 @@ static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) 
    if (vfo && *vfo && strcasecmp(vfo, current)) {
       return;
    }
+
+   if (last_ptt_valid && last_ptt_vfo == current[0] &&
+       last_ptt_active == active)
+      return;
+   last_ptt_valid = true;
+   last_ptt_vfo = current[0];
+   last_ptt_active = active;
 
    if (frontend_ops() && !strcmp(frontend_ops()->name, "gtk")) {
       /* This event is self-contained: no rrconn_t and no frontend pointer.
