@@ -15,6 +15,49 @@ extern GtkWidget *main_notebook;
 extern bool dying;
 static GtkLogView *shared_log;
 
+/* Logger and wire callbacks can originate on the core thread. Never
+ * touch GtkTextBuffer outside the GTK owner. Snapshot the entry first. */
+typedef struct {
+   gboolean host;
+   gchar *source, *subsys, *message;
+   logpriority_t level;
+} GtkQueuedLog;
+static GThread *gtk_log_owner;
+static gboolean gtk_queued_log_deliver(gpointer data) {
+   GtkQueuedLog *entry = data;
+   if (!dying && shared_log)
+      gtk_logview_append(shared_log, entry->host, entry->source,
+                         entry->level, entry->subsys, entry->message);
+   return G_SOURCE_REMOVE;
+}
+static void gtk_queued_log_free(gpointer data) {
+   GtkQueuedLog *entry = data;
+   g_free(entry->source);
+   g_free(entry->subsys);
+   g_free(entry->message);
+   g_free(entry);
+}
+static void gtk_log_submit(gboolean host, const char *source,
+                           logpriority_t level, const char *subsys,
+                           const char *message) {
+   GtkQueuedLog *entry = g_new0(GtkQueuedLog, 1);
+   entry->host = host;
+   entry->source = g_strdup(source ? source : "");
+   entry->subsys = g_strdup(subsys ? subsys : "");
+   entry->message = g_strdup(message ? message : "");
+   entry->level = level;
+   if (g_thread_self() == gtk_log_owner) {
+      gtk_queued_log_deliver(entry);
+      gtk_queued_log_free(entry);
+      return;
+   }
+   GSource *source_idle = g_idle_source_new();
+   g_source_set_callback(source_idle, gtk_queued_log_deliver,
+                         entry, gtk_queued_log_free);
+   g_source_attach(source_idle, g_main_context_default());
+   g_source_unref(source_idle);
+}
+
 static void host_log_frame_handler(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
    (void)event;
    (void)user;
@@ -28,7 +71,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    memcpy(subsys, bytes + 1, 16);
    subsys[16] = '\0';
 
-   if (debug_filter(subsys, level)) {
+   if (level == LOG_CRAZY || debug_filter(subsys, level)) {
       return;
    }
    const char *payload = (const char *)bytes + RR_LOGFRAME_HDR_LEN;
@@ -36,12 +79,13 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    gchar *message = g_strndup(payload, strnlen(payload, max));
    const char *source = connection && connection->server && connection->server->network[0] ?
       connection->server->network : connection && connection->hostname[0] ? connection->hostname : "host";
-   gtk_logview_append(shared_log, TRUE, source, level, subsys, message);
+   gtk_log_submit(TRUE, source, level, subsys, message);
    g_free(message);
 }
 
 bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
-   if (dying || !shared_log || !fmt) {
+   /* Keep event-bus trace traffic off the GUI delivery queue. */
+   if (priority == LOG_CRAZY || dying || !shared_log || !fmt) {
       return true;
    }
    /* The callback is registered with LOG_CALLBACK_FILTERED. */
@@ -55,7 +99,7 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    }
    char *message = g_malloc((size_t)length + 1);
    vsnprintf(message, (size_t)length + 1, fmt, ap);
-   gtk_logview_append(shared_log, FALSE, "Client", priority, subsys, message);
+   gtk_log_submit(FALSE, "Client", priority, subsys, message);
    g_free(message);
 
    return false;
@@ -77,6 +121,7 @@ GtkWidget *init_log_tab(void) {
    if (shared_log) {
       return gtk_logview_widget(shared_log);
    }
+   gtk_log_owner = g_thread_self();
    shared_log = gtk_logview_new(3000);
    GtkWidget *page = gtk_logview_widget(shared_log);
    GtkWidget *label = gtk_label_new(NULL);
