@@ -1384,32 +1384,69 @@ static void frontend_gtk_userlist_redraw(void) {
    }
 }
 
-static void frontend_gtk_userlist_set_visible(bool visible) {
-   userlist_set_visible(visible);
-}
-
-static void frontend_gtk_room_state_changed(const char *room) {
-   userlist_room_state_changed(room);
-}
-
-static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
-   gtk_chat_room_vfos_changed(room);
-}
-
-static void frontend_gtk_chat_clear(void) {
-   gtk_text_buffer_set_text(text_buffer, "", -1);
-}
-
-static void frontend_gtk_rx_volume(int value) {
-   /* Core state can arrive before the GTK VFO panel has been built. */
-   if (!rx_vol_slider || !GTK_IS_RANGE(rx_vol_slider)) {
-      return;
-   }
-   gtk_range_set_value(GTK_RANGE(rx_vol_slider), value);
-}
-
+/* Legacy frontend callbacks can originate on the core transport thread.
+ * Queue owned arguments before touching GTK widgets. */
 static GMainContext *frontend_gtk_event_context;
 static GThread *frontend_gtk_owner;
+typedef enum { GTK_UI_VISIBLE, GTK_UI_ROOM_STATE, GTK_UI_ROOM_VFOS,
+               GTK_UI_CHAT_CLEAR, GTK_UI_RX_VOLUME } GtkUiAction;
+typedef struct { GtkUiAction action; char *room; int value; } GtkUiDelivery;
+static gboolean frontend_gtk_ui_deliver(gpointer opaque) {
+   GtkUiDelivery *d = opaque;
+   if (dying) return G_SOURCE_REMOVE;
+   switch (d->action) {
+      case GTK_UI_VISIBLE: userlist_set_visible(d->value != 0); break;
+      case GTK_UI_ROOM_STATE: userlist_room_state_changed(d->room); break;
+      case GTK_UI_ROOM_VFOS: gtk_chat_room_vfos_changed(d->room); break;
+      case GTK_UI_CHAT_CLEAR:
+         if (text_buffer) gtk_text_buffer_set_text(text_buffer, "", -1);
+         break;
+      case GTK_UI_RX_VOLUME:
+         if (rx_vol_slider && GTK_IS_RANGE(rx_vol_slider))
+            gtk_range_set_value(GTK_RANGE(rx_vol_slider), d->value);
+         break;
+   }
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_ui_delivery_free(gpointer opaque) {
+   GtkUiDelivery *d = opaque;
+   g_free(d->room);
+   g_free(d);
+}
+static void frontend_gtk_ui_post(GtkUiAction action, const char *room, int value) {
+   GtkUiDelivery *d = g_new0(GtkUiDelivery, 1);
+   d->action = action;
+   d->room = g_strdup(room);
+   d->value = value;
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_ui_deliver(d);
+      frontend_gtk_ui_delivery_free(d);
+      return;
+   }
+   if (!frontend_gtk_event_context) {
+      frontend_gtk_ui_delivery_free(d);
+      return;
+   }
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_ui_deliver, d, frontend_gtk_ui_delivery_free);
+   g_source_attach(source, frontend_gtk_event_context);
+   g_source_unref(source);
+}
+static void frontend_gtk_userlist_set_visible(bool visible) {
+   frontend_gtk_ui_post(GTK_UI_VISIBLE, NULL, visible);
+}
+static void frontend_gtk_room_state_changed(const char *room) {
+   frontend_gtk_ui_post(GTK_UI_ROOM_STATE, room, 0);
+}
+static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
+   frontend_gtk_ui_post(GTK_UI_ROOM_VFOS, room, 0);
+}
+static void frontend_gtk_chat_clear(void) {
+   frontend_gtk_ui_post(GTK_UI_CHAT_CLEAR, NULL, 0);
+}
+static void frontend_gtk_rx_volume(int value) {
+   frontend_gtk_ui_post(GTK_UI_RX_VOLUME, NULL, value);
+}
 
 /* Chat widget mutations are always delivered to GTK's owning thread.
  * Never pass a borrowed core dictionary/string across the boundary. */
