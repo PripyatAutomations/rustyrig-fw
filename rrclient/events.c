@@ -130,6 +130,20 @@ static bool last_ptt_valid;
 static bool last_ptt_active;
 static char last_ptt_vfo;
 
+static void rrclient_notify_ptt_online(bool online) {
+   const rr_frontend_ops_t *ops = frontend_ops();
+   if (!ops || !ops->ptt_set_online) return;
+   if (ops->name && !strcmp(ops->name, "gtk")) {
+      const char state = online ? '1' : '0';
+      event_emit_message(&(rr_event_message_t){
+         .name = "client.ui.ptt.online", .sender = "core",
+         .payload = &state, .length = sizeof(state)
+      });
+   } else if (rrclient_present_context()) {
+      ops->ptt_set_online(online);
+   }
+}
+
 static void rrclient_set_offline(void) {
    last_ptt_valid = false;
    if (login_user) {
@@ -145,7 +159,7 @@ static void rrclient_set_offline(void) {
    if (frontend_ops()) {
       // PTT button goes back to dark grey while offline
       if (rrclient_present_context()) {
-         frontend_ops()->ptt_set_online(false);
+         rrclient_notify_ptt_online(false);
       }
 
       // Hide the userlist again when we disconnect
@@ -612,7 +626,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
       if (frontend_ops()) {
          if (rrclient_present_context()) {
-            frontend_ops()->ptt_set_online(true);
+            rrclient_notify_ptt_online(true);
          }                      // button turns green once we're online
       }
       dict_free(d);
@@ -622,7 +636,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
       if (frontend_ops()) {
          if (rrclient_present_context()) {
-            frontend_ops()->ptt_set_online(true);
+            rrclient_notify_ptt_online(true);
          }
       }
       cmd_list(0, NULL);
@@ -1694,7 +1708,7 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
 
    if (frontend_ops()) {
       frontend_ops()->userlist_redraw();
-      frontend_ops()->ptt_set_online(cptr && cptr->is_ws && ws_connected == 1);
+      rrclient_notify_ptt_online(cptr && cptr->is_ws && ws_connected == 1);
    }
 }
 
