@@ -1240,8 +1240,22 @@ static void frontend_gtk_notify(const char *title, const char *message);
 static void frontend_gtk_show_server_chooser(void);
 static void frontend_gtk_webcam_show(bool show);
 
+static gboolean frontend_gtk_ptt_hotkey_on_owner(gpointer unused) {
+   (void)unused;
+   if (!dying) ptt_button_hotkey_toggle();
+   return G_SOURCE_REMOVE;
+}
 static bool frontend_gtk_ptt_hotkey_toggle(void) {
-   return ptt_button_hotkey_toggle();
+   if (g_thread_self() == frontend_gtk_owner)
+      return ptt_button_hotkey_toggle();
+   /* Return "handled" rather than letting core issue a second TX command. */
+   if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_ptt_hotkey_on_owner, NULL, NULL);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   }
+   return false;
 }
 
 static void frontend_gtk_codec_set_active_owner(bool is_tx, const char *codec) {
@@ -1282,6 +1296,12 @@ static void frontend_gtk_switch_window_owner(int id) {
 }
 
 static bool frontend_gtk_confirm_dialog(const char *message) {
+   /* A synchronous confirmation cannot be marshaled without blocking core.
+    * Deny rather than create a modal GTK window on the wrong thread. */
+   if (g_thread_self() != frontend_gtk_owner) {
+      Log(LOG_WARN, "gtk.thread", "Synchronous confirmation requested outside GTK thread; action denied");
+      return false;
+   }
    GtkWindow *parent = NULL;
 
    if (main_window && GTK_IS_WINDOW(main_window)) {
@@ -1610,7 +1630,10 @@ static void frontend_gtk_chat_room_vfos_changed(const char *room) {
    frontend_gtk_chat_command(GTK_CHAT_VFOS, room, NULL);
 }
 static const char *frontend_gtk_chat_current_room(void) {
-   return gtk_chat_current_room(); /* TODO: core-owned snapshot for sync getter */
+   /* Never return a borrowed GtkWidget-backed string to core. Core callers
+    * must use their authoritative selected-room state instead. */
+   if (g_thread_self() != frontend_gtk_owner) return NULL;
+   return gtk_chat_current_room();
 }
 
 static void ui_print_gtk_literal(const char *window, const char *fmt, ...) {
