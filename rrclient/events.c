@@ -28,6 +28,7 @@
 #include <rrclient/rooms.h>
 #include <rrclient/media.h>
 #include <rrclient/ui.h>
+#include <rrclient/ui.navigation.h>
 #include <rrclient/vfo.h>
 #include <rrclient/frontend.h>
 #include <rrclient/supervision.h>
@@ -1743,7 +1744,27 @@ static void rrclient_handle_domain_identity(const char *event, const char *data,
    dict_free(identity);
 }
 
+/* GTK navigation is a command to the core, not a GTK-thread core call. */
+static void rrclient_ui_chat_link_join(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload ||
+       message->length != sizeof(rrclient_ui_chat_link_t)) return;
+   const rrclient_ui_chat_link_t *request = message->payload;
+   if (!memchr(request->room, '\0', sizeof(request->room)) ||
+       !memchr(request->server, '\0', sizeof(request->server)) ||
+       request->room[0] != '#') return;
+   if (!request->server[0] || rrclient_connection_select(request->server)) {
+      char command[] = "/join";
+      char *args[] = {command, (char *)request->room};
+      cmd_join(2, args);
+   }
+}
+
 void rrclient_register_events(void) {
+   rr_event_token_t link_token = event_on_message_domain_token(
+      RRCLIENT_UI_CHAT_LINK_EVENT, rrclient_ui_chat_link_join, NULL, "core");
+   if (!link_token)
+      Log(LOG_WARN, "core.event", "Unable to subscribe to GTK room-link navigation");
    event_on("client.server.selected", rrclient_server_selected, NULL);
    event_on("client.server.status.close", ui_server_status_close, NULL);
    rrclient_objects_register_events();
