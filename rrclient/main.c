@@ -50,6 +50,7 @@ extern defconfig_t defcfg[];
 #define INPUT_HISTORY_MAX 64
 #include <rrclient/ui.h>
 #include <rrclient/media.h>
+#include <rrclient/audio.h>
 #include <rrclient/frontend.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
