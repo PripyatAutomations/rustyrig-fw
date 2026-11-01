@@ -1408,40 +1408,78 @@ static void frontend_gtk_rx_volume(int value) {
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), value);
 }
 
-static void frontend_gtk_chat_room_add(const char *room) {
-   gtk_chat_room_add(room);
-}
-
-static void frontend_gtk_chat_room_remove(const char *room) {
-   gtk_chat_room_remove(room);
-}
-
-static void frontend_gtk_chat_room_topic(const char *room, const char *topic) {
-   gtk_chat_room_set_topic(room, topic);
-}
-
-static void frontend_gtk_chat_show_status(void) {
-   gtk_chat_show_status();
-}
-
-static void frontend_gtk_chat_set_authoritative_room(const char *room) {
-   gtk_chat_set_authoritative_room(room);
-}
-
-static void frontend_gtk_chat_query_add(const char *who) {
-   gtk_chat_query_add(who);
-}
-
-static void frontend_gtk_chat_room_vfos_changed(const char *room) {
-   gtk_chat_room_vfos_changed(room);
-}
-
-static const char *frontend_gtk_chat_current_room(void) {
-   return gtk_chat_current_room();
-}
-
 static GMainContext *frontend_gtk_event_context;
 static GThread *frontend_gtk_owner;
+
+/* Chat widget mutations are always delivered to GTK's owning thread.
+ * Never pass a borrowed core dictionary/string across the boundary. */
+typedef enum {
+   GTK_CHAT_ADD, GTK_CHAT_REMOVE, GTK_CHAT_TOPIC, GTK_CHAT_STATUS,
+   GTK_CHAT_AUTH, GTK_CHAT_QUERY, GTK_CHAT_VFOS
+} GtkChatAction;
+typedef struct {
+   GtkChatAction action;
+   char *a, *b;
+} GtkChatCommand;
+static gboolean frontend_gtk_chat_command_run(gpointer opaque) {
+   GtkChatCommand *cmd = opaque;
+   switch (cmd->action) {
+   case GTK_CHAT_ADD: gtk_chat_room_add(cmd->a); break;
+   case GTK_CHAT_REMOVE: gtk_chat_room_remove(cmd->a); break;
+   case GTK_CHAT_TOPIC: gtk_chat_room_set_topic(cmd->a, cmd->b); break;
+   case GTK_CHAT_STATUS: gtk_chat_show_status(); break;
+   case GTK_CHAT_AUTH: gtk_chat_set_authoritative_room(cmd->a); break;
+   case GTK_CHAT_QUERY: gtk_chat_query_add(cmd->a); break;
+   case GTK_CHAT_VFOS: gtk_chat_room_vfos_changed(cmd->a); break;
+   }
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_chat_command_free(gpointer opaque) {
+   GtkChatCommand *cmd = opaque;
+   g_free(cmd->a);
+   g_free(cmd->b);
+   g_free(cmd);
+}
+static void frontend_gtk_chat_command(GtkChatAction action, const char *a, const char *b) {
+   GtkChatCommand *cmd = g_new0(GtkChatCommand, 1);
+   cmd->action = action;
+   cmd->a = g_strdup(a);
+   cmd->b = g_strdup(b);
+   if (!frontend_gtk_event_context || g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_chat_command_run(cmd);
+      frontend_gtk_chat_command_free(cmd);
+      return;
+   }
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_chat_command_run, cmd,
+                         frontend_gtk_chat_command_free);
+   g_source_attach(source, frontend_gtk_event_context);
+   g_source_unref(source);
+}
+static void frontend_gtk_chat_room_add(const char *room) {
+   frontend_gtk_chat_command(GTK_CHAT_ADD, room, NULL);
+}
+static void frontend_gtk_chat_room_remove(const char *room) {
+   frontend_gtk_chat_command(GTK_CHAT_REMOVE, room, NULL);
+}
+static void frontend_gtk_chat_room_topic(const char *room, const char *topic) {
+   frontend_gtk_chat_command(GTK_CHAT_TOPIC, room, topic);
+}
+static void frontend_gtk_chat_show_status(void) {
+   frontend_gtk_chat_command(GTK_CHAT_STATUS, NULL, NULL);
+}
+static void frontend_gtk_chat_set_authoritative_room(const char *room) {
+   frontend_gtk_chat_command(GTK_CHAT_AUTH, room, NULL);
+}
+static void frontend_gtk_chat_query_add(const char *who) {
+   frontend_gtk_chat_command(GTK_CHAT_QUERY, who, NULL);
+}
+static void frontend_gtk_chat_room_vfos_changed(const char *room) {
+   frontend_gtk_chat_command(GTK_CHAT_VFOS, room, NULL);
+}
+static const char *frontend_gtk_chat_current_room(void) {
+   return gtk_chat_current_room(); /* TODO: core-owned snapshot for sync getter */
+}
 
 static void ui_print_gtk_literal(const char *window, const char *fmt, ...) {
    va_list args;
