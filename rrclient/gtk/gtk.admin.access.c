@@ -275,8 +275,8 @@ done:
 }
 
 
-bool gtk_admin_access_result(const char *name, const char *action, dict *row, rrconn_t *connection) {
-   if (row && !strcmp(name, "access-requests") && access_request_store && !g_strcmp0(access_request_profile, rrclient_connection_name(connection))) {
+bool gtk_admin_access_result(const char *name, const char *action, dict *row, const char *profile) {
+   if (row && !strcmp(name, "access-requests") && access_request_store && !g_strcmp0(access_request_profile, profile)) {
       if (!strcmp(action, "begin")) {
          gtk_list_store_clear(access_request_store);
          access_request_has_pending = FALSE;

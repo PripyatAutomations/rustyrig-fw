@@ -21,6 +21,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
+#include <rrclient/vfo.snapshot.h>
 #include <rrclient/rooms.h>
 #include <rrclient/frontend.h>
 #include <rrclient/media.h>
@@ -353,7 +354,28 @@ bool vfo_update_ui(void) {
       }
       tui_redraw_topline();
    } else if (frontend_ops()) {
-      frontend_ops()->vfo_state(vfo_str, vfo_freq, vfo_mode, vfo_width, vfo_power, vfo_ptt);
+      const rr_frontend_ops_t *ops = frontend_ops();
+      if (ops->name && !strcmp(ops->name, "gtk")) {
+         rrclient_vfo_snapshot_t snapshot = {0};
+         const char *server = rrclient_selected_server();
+         const char *room = rrclient_media_active_room();
+         snprintf(snapshot.vfo, sizeof(snapshot.vfo), "%s", vfo_str);
+         snprintf(snapshot.mode, sizeof(snapshot.mode), "%s", vfo_mode ? vfo_mode : "");
+         snprintf(snapshot.server, sizeof(snapshot.server), "%s", server ? server : "");
+         snprintf(snapshot.room, sizeof(snapshot.room), "%s", room ? room : "");
+         snapshot.freq = vfo_freq;
+         snapshot.width = vfo_width;
+         snapshot.power = vfo_power;
+         snapshot.ptt = vfo_ptt;
+         snapshot.has_mode = vfo_mode != NULL;
+         snapshot.available = vfo_state_get_long(vfo_str, "cat.state.freq", -1) > 0;
+         event_emit_message(&(rr_event_message_t){
+            .name = RRCLIENT_VFO_SNAPSHOT_EVENT, .sender = "core",
+            .payload = &snapshot, .length = sizeof(snapshot)
+         });
+      } else if (ops->vfo_state) {
+         ops->vfo_state(vfo_str, vfo_freq, vfo_mode, vfo_width, vfo_power, vfo_ptt);
+      }
    }
 
    return false;

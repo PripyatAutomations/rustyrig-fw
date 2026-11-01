@@ -32,6 +32,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/media.h>
 #include <rrclient/vfo.h>
+#include <rrclient/vfo.snapshot.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.connect-button.h>
@@ -74,7 +75,7 @@ static void main_width_diagnostic(GtkWidget *content, GtkAllocation *allocation,
    last_tabs = tabs_alloc;
 
    if (toolbar_min > available + 8 || tabs_min > available + 8 || toolbar_alloc > available + 8 || tabs_alloc > available + 8) {
-      Log(LOG_WARN, "gtk.width", "content=%d toolbar(min=%d nat=%d alloc=%d) tabs(min=%d nat=%d alloc=%d)", available, toolbar_min, toolbar_nat, toolbar_alloc,
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "content=%d toolbar(min=%d nat=%d alloc=%d) tabs(min=%d nat=%d alloc=%d)", available, toolbar_min, toolbar_nat, toolbar_alloc,
          tabs_min, tabs_nat, tabs_alloc);
    }
 }
@@ -98,7 +99,7 @@ extern bool cfg_fullscreen;
 static void frontend_gtk_config_refresh(const char *key) {
    (void)key;
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
-   Log(LOG_INFO, "ui.gtk3", "Effective startup setting ui.full-screen=%s (raw=%s)", cfg_fullscreen ? "true" : "false", cfg_get("ui.full-screen") ? cfg_get(
+   g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Effective startup setting ui.full-screen=%s (raw=%s)", cfg_fullscreen ? "true" : "false", cfg_get("ui.full-screen") ? cfg_get(
       "ui.full-screen") : "(absent)");
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
    const char *tabstrip = cfg_get("ui.gtk.main-tabstrip");
@@ -597,7 +598,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    if (!colorized) {
       colorize_failed = true;
       colorized = msgbuf;
-      Log(LOG_WARN, "ui.gtk3", "ui_print_gtk: gtk_colorize_string failed");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "ui_print_gtk: gtk_colorize_string failed");
    }
 
    GtkTextIter end;
@@ -606,6 +607,9 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    int start_offset = gtk_text_iter_get_offset(&end);
    gtk_text_buffer_insert_markup(target_buffer, &end, colorized, -1);
    gtk_chat_highlight_prefix(target_view, start_offset);
+   /* Markup insertion and prefix highlighting may invalidate end. Do not
+    * reuse an iterator across mutations of indexable buffer content. */
+   gtk_text_buffer_get_end_iter(target_buffer, &end);
    gtk_text_buffer_insert(target_buffer, &end, "\n", 1);
    gtk_trim_scrollback(target_buffer, "ui.gtk.scrollback.chat", 200);
 
@@ -694,7 +698,7 @@ static gboolean fullscreen_startup_check(gpointer unused) {
    }
    GdkWindowState state = gdk_window_get_state(gtk_widget_get_window(main_window));
    bool actual = (state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
-   Log(cfg_fullscreen && !actual ? LOG_WARN : LOG_INFO, "ui.gtk3", "Startup window state: requested_fullscreen=%s actual_fullscreen=%s maximized=%s",
+   g_log("RustyRig-GTK", cfg_fullscreen && !actual ? G_LOG_LEVEL_WARNING : G_LOG_LEVEL_MESSAGE, "Startup window state: requested_fullscreen=%s actual_fullscreen=%s maximized=%s",
       cfg_fullscreen ? "yes" : "no", actual ? "yes" : "no", (state & GDK_WINDOW_STATE_MAXIMIZED) ? "yes" : "no");
 
    return G_SOURCE_REMOVE;
@@ -833,7 +837,7 @@ static gboolean screensaver_launch(void) {
    GPid pid = 0;
 
    if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL, &pid, &error)) {
-      Log(LOG_WARN, "gtk.screensaver", "Unable to launch gmatrix: %s", error->message);
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to launch gmatrix: %s", error->message);
       g_clear_error(&error);
       screensaver_activity();
 
@@ -953,10 +957,14 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
-   g_signal_connect(main_content, "size-allocate", G_CALLBACK(main_width_diagnostic), NULL);
-   /* Diagnose width negotiation without changing any widget requisition. Only log when geometry changes; avoid flooding normal resize events. */
-   g_object_set_data(G_OBJECT(main_content), "rr-width-toolbar", rr_main_toolbar);
-   g_object_set_data(G_OBJECT(main_content), "rr-width-tabs", tabs_wrapper);
+   /* Preferred-width queries inside size-allocate can force nested GTK
+    * layout recalculation on every resize/focus transition. Keep this
+    * diagnostic opt-in; never run it on the normal GUI hot path. */
+   if (g_strcmp0(g_getenv("RRCLIENT_GTK_WIDTH_DIAGNOSTIC"), "1") == 0) {
+      g_object_set_data(G_OBJECT(main_content), "rr-width-toolbar", rr_main_toolbar);
+      g_object_set_data(G_OBJECT(main_content), "rr-width-tabs", tabs_wrapper);
+      g_signal_connect(main_content, "size-allocate", G_CALLBACK(main_width_diagnostic), NULL);
+   }
    gtk_ui_zoom_attach(main_window, main_content);
    /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
@@ -1032,10 +1040,10 @@ bool gui_init(void) {
 
    /* Ask GTK for fullscreen before the window is mapped. An idle callback after show_all() can lose the race against the initial WM placement. */
    if (cfg_fullscreen) {
-      Log(LOG_INFO, "ui.gtk3", "Startup requests fullscreen (ui.full-screen=true)");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Startup requests fullscreen (ui.full-screen=true)");
       gtk_window_fullscreen(GTK_WINDOW(main_window));
    } else {
-      Log(LOG_INFO, "ui.gtk3", "Startup requests normal window (ui.full-screen=false)");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Startup requests normal window (ui.full-screen=false)");
    }
 
    // Make the main window on screen
@@ -1133,12 +1141,11 @@ extern GtkWidget *chat_textview; // gtk.chat.c
 extern GtkWidget *admin_tab, *config_tab; // gtk.core.c (this file)
 extern bool cfg_gtkcss_init(void);  // cfg.gtkcss.c
 
-static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
+static void frontend_gtk_apply_vfo_state(const char *vfo, const char *room, bool available, long freq, const char *mode, int width, int power, bool ptt) {
    GtkWidget *entry = freq_entry;
 
    if (entry) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-      bool available = vfo_state_get_long(vfo, "cat.state.freq", -1) > 0;
       gtk_widget_set_tooltip_text(entry, available ? "Observed frequency" : "Frequency unavailable");
 
       if (!available) {
@@ -1148,7 +1155,7 @@ static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char 
          return;
       }
       char selection[256];
-      snprintf(selection, sizeof(selection), "%s/%s", rrclient_media_active_room(), vfo);
+      snprintf(selection, sizeof(selection), "%s/%s", room, vfo);
       const char *displayed = g_object_get_data(G_OBJECT(entry), "rr-displayed-vfo");
 
       bool switching = !displayed || strcmp(displayed, selection);
@@ -1176,17 +1183,17 @@ static struct {
    char vfo[4], mode[32], room[128], server[1024];
    long freq;
    int width, power;
-   bool ptt, has_mode;
+   bool ptt, has_mode, available;
 } pending_vfo_paint;
 static gboolean frontend_gtk_flush_vfo(gpointer unused) {
    pending_vfo_paint.source = 0;
-   const char *server = rrclient_selected_server();
-   const char *room = rrclient_media_active_room();
-
-   if (!dying && !strcmp(pending_vfo_paint.server, server ? server : "") &&
-      !strcmp(pending_vfo_paint.room, room ? room : "") && pending_vfo_paint.vfo[0] == vfo_state_get_active()) {
-      frontend_gtk_apply_vfo_state(pending_vfo_paint.vfo, pending_vfo_paint.freq, pending_vfo_paint.has_mode ? pending_vfo_paint.mode : NULL, pending_vfo_paint.
-         width, pending_vfo_paint.power, pending_vfo_paint.ptt);
+   /* The latest core snapshot is authoritative; no live core lookup in
+    * the GTK paint callback. */
+   if (!dying) {
+      frontend_gtk_apply_vfo_state(pending_vfo_paint.vfo, pending_vfo_paint.room,
+         pending_vfo_paint.available, pending_vfo_paint.freq,
+         pending_vfo_paint.has_mode ? pending_vfo_paint.mode : NULL,
+         pending_vfo_paint.width, pending_vfo_paint.power, pending_vfo_paint.ptt);
    }
 
    return G_SOURCE_REMOVE;
@@ -1212,55 +1219,57 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
    }
 }
 
-static void frontend_gtk_freq_set(long freq) {
-   GtkWidget *entry = freq_entry;
+/* All of these frontend operations may originate in the core callback path.
+ * Route them through frontend_gtk_ui_post() below, never synchronously paint. */
+static void frontend_gtk_freq_set(long freq);
+static void frontend_gtk_mode_set(const char *mode);
+static void frontend_gtk_conn_button(int connected);
+static void frontend_gtk_ptt_set_online(bool online);
+static void frontend_gtk_ptt_set_state(bool active);
+static void frontend_gtk_ptt_tot_expired(int tot_secs);
+static void frontend_gtk_ptt_refresh(void);
 
-   if (entry) {
-      GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
+static void frontend_gtk_codec_set_active(bool is_tx, const char *codec);
+static void frontend_gtk_syslog_clear(void);
+static void frontend_gtk_focus_tab(const char *tab);
+static void frontend_gtk_switch_window(int id);
+static void frontend_gtk_alert(const char *message);
+static void frontend_gtk_edit_config(const char *path);
+static void frontend_gtk_bell(void);
+static void frontend_gtk_notify(const char *title, const char *message);
+static void frontend_gtk_show_server_chooser(void);
+static void frontend_gtk_webcam_show(bool show);
 
-      if (!gtk_freq_entry_is_editing(fe)) {
-         gtk_freq_entry_set_frequency(fe, freq);
-      }
-   }
+static gboolean frontend_gtk_ptt_hotkey_on_owner(gpointer unused) {
+   (void)unused;
+   if (!dying) ptt_button_hotkey_toggle();
+   return G_SOURCE_REMOVE;
 }
-
-static void frontend_gtk_mode_set(const char *mode) {
-   modebox_update_state(mode, 0);
-}
-
-static void frontend_gtk_conn_button(int connected) {
-   rr_connect_button_update_all(connected);
-}
-
-static void frontend_gtk_ptt_set_online(bool online) {
-   ptt_button_set_online(online);
-}
-
-static void frontend_gtk_ptt_set_state(bool active) {
-   ptt_button_set_state(active);
-}
-
-static void frontend_gtk_ptt_tot_expired(int tot_secs) {
-   ptt_button_tot_expired(tot_secs);
-}
-
-static void frontend_gtk_ptt_refresh(void) {
-   ptt_button_refresh();
-}
+static GMainContext *frontend_gtk_event_context;
+static GThread *frontend_gtk_owner;
 
 static bool frontend_gtk_ptt_hotkey_toggle(void) {
-   return ptt_button_hotkey_toggle();
+   if (g_thread_self() == frontend_gtk_owner)
+      return ptt_button_hotkey_toggle();
+   /* Return "handled" rather than letting core issue a second TX command. */
+   if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_ptt_hotkey_on_owner, NULL, NULL);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   }
+   return false;
 }
 
-static void frontend_gtk_codec_set_active(bool is_tx, const char *codec) {
+static void frontend_gtk_codec_set_active_owner(bool is_tx, const char *codec) {
    codec_picker_set_active(is_tx, codec);
 }
 
-static void frontend_gtk_syslog_clear(void) {
+static void frontend_gtk_syslog_clear_owner(void) {
    syslog_clear();
 }
 
-static void frontend_gtk_focus_tab(const char *tab) {
+static void frontend_gtk_focus_tab_owner(const char *tab) {
    GtkWidget *page = NULL;
 
    if (!strcasecmp(tab, "admin")) {
@@ -1285,11 +1294,17 @@ static void frontend_gtk_focus_tab(const char *tab) {
    }
 }
 
-static void frontend_gtk_switch_window(int id) {
+static void frontend_gtk_switch_window_owner(int id) {
    gtk_tabs_select(GTK_NOTEBOOK(main_notebook), id);
 }
 
 static bool frontend_gtk_confirm_dialog(const char *message) {
+   /* A synchronous confirmation cannot be marshaled without blocking core.
+    * Deny rather than create a modal GTK window on the wrong thread. */
+   if (g_thread_self() != frontend_gtk_owner) {
+      Log(LOG_WARN, "gtk.thread", "Synchronous confirmation requested outside GTK thread; action denied");
+      return false;
+   }
    GtkWindow *parent = NULL;
 
    if (main_window && GTK_IS_WINDOW(main_window)) {
@@ -1299,7 +1314,7 @@ static bool frontend_gtk_confirm_dialog(const char *message) {
    return ui_confirm_dialog(parent, message);
 }
 
-static void frontend_gtk_alert(const char *message) {
+static void frontend_gtk_alert_owner(const char *message) {
    alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, message ? message : "");
 }
 
@@ -1336,11 +1351,11 @@ static void frontend_gtk_quit_request(const char *event, const char *data, rrcon
    dying = true;
 }
 
-static void frontend_gtk_edit_config(const char *path) {
+static void frontend_gtk_edit_config_owner(const char *path) {
    gui_file_editor_open_config(path);
 }
 
-static void frontend_gtk_bell(void) {
+static void frontend_gtk_bell_owner(void) {
    GdkDisplay *display = gtk_widget_get_display(main_window ? main_window : chat_textview);
 
    if (display) {
@@ -1348,18 +1363,18 @@ static void frontend_gtk_bell(void) {
    }
 }
 
-static void frontend_gtk_notify(const char *title, const char *message) {
+static void frontend_gtk_notify_owner(const char *title, const char *message) {
 #ifdef USE_LIBNOTIFY
    ui_message_notify(title, message);
 #endif
 }
 
-static void frontend_gtk_show_server_chooser(void) {
+static void frontend_gtk_show_server_chooser_owner(void) {
    gtk_show_server_chooser();
 }
 
 extern void gtk_webcam_show(bool show);   // gtk.webcam.c
-static void frontend_gtk_webcam_show(bool show) {
+static void frontend_gtk_webcam_show_owner(bool show) {
    gtk_webcam_show(show);
 }
 
@@ -1381,64 +1396,301 @@ static void frontend_gtk_userlist_redraw(void) {
    }
 }
 
-static void frontend_gtk_userlist_set_visible(bool visible) {
-   userlist_set_visible(visible);
-}
+/* Legacy frontend callbacks can originate on the core transport thread.
+ * Queue owned arguments before touching GTK widgets. */
 
-static void frontend_gtk_room_state_changed(const char *room) {
-   userlist_room_state_changed(room);
+typedef enum { GTK_UI_VISIBLE, GTK_UI_ROOM_STATE, GTK_UI_ROOM_VFOS,
+               GTK_UI_CHAT_CLEAR, GTK_UI_RX_VOLUME, GTK_UI_FREQ,
+               GTK_UI_MODE, GTK_UI_CONNECTION, GTK_UI_PTT_ONLINE,
+               GTK_UI_PTT_STATE, GTK_UI_PTT_TOT, GTK_UI_PTT_REFRESH } GtkUiAction;
+typedef struct { GtkUiAction action; char *room; int value; long freq; } GtkUiDelivery;
+static gboolean frontend_gtk_ui_deliver(gpointer opaque) {
+   GtkUiDelivery *d = opaque;
+   if (dying) return G_SOURCE_REMOVE;
+   switch (d->action) {
+      case GTK_UI_VISIBLE: userlist_set_visible(d->value != 0); break;
+      case GTK_UI_ROOM_STATE: userlist_room_state_changed(d->room); break;
+      case GTK_UI_ROOM_VFOS: gtk_chat_room_vfos_changed(d->room); break;
+      case GTK_UI_CHAT_CLEAR:
+         if (text_buffer) gtk_text_buffer_set_text(text_buffer, "", -1);
+         break;
+      case GTK_UI_RX_VOLUME:
+         if (rx_vol_slider && GTK_IS_RANGE(rx_vol_slider))
+            gtk_range_set_value(GTK_RANGE(rx_vol_slider), d->value);
+         break;
+      case GTK_UI_FREQ:
+         if (freq_entry && !gtk_freq_entry_is_editing(GTK_FREQ_ENTRY(freq_entry)))
+            gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(freq_entry), d->freq);
+         break;
+      case GTK_UI_MODE: modebox_update_state(d->room, 0); break;
+      case GTK_UI_CONNECTION: rr_connect_button_update_all(d->value); break;
+      case GTK_UI_PTT_ONLINE: ptt_button_set_online(d->value != 0); break;
+      case GTK_UI_PTT_STATE: ptt_button_set_state(d->value != 0); break;
+      case GTK_UI_PTT_TOT: ptt_button_tot_expired(d->value); break;
+      case GTK_UI_PTT_REFRESH: ptt_button_refresh(); break;
+   }
+   return G_SOURCE_REMOVE;
 }
-
-static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
-   gtk_chat_room_vfos_changed(room);
+static void frontend_gtk_ui_delivery_free(gpointer opaque) {
+   GtkUiDelivery *d = opaque;
+   g_free(d->room);
+   g_free(d);
 }
-
-static void frontend_gtk_chat_clear(void) {
-   gtk_text_buffer_set_text(text_buffer, "", -1);
-}
-
-static void frontend_gtk_rx_volume(int value) {
-   /* Core state can arrive before the GTK VFO panel has been built. */
-   if (!rx_vol_slider || !GTK_IS_RANGE(rx_vol_slider)) {
+static void frontend_gtk_ui_post(GtkUiAction action, const char *room, int value) {
+   GtkUiDelivery *d = g_new0(GtkUiDelivery, 1);
+   d->action = action;
+   d->room = g_strdup(room);
+   d->value = value;
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_ui_deliver(d);
+      frontend_gtk_ui_delivery_free(d);
       return;
    }
-   gtk_range_set_value(GTK_RANGE(rx_vol_slider), value);
+   if (!frontend_gtk_event_context) {
+      frontend_gtk_ui_delivery_free(d);
+      return;
+   }
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_ui_deliver, d, frontend_gtk_ui_delivery_free);
+   g_source_attach(source, frontend_gtk_event_context);
+   g_source_unref(source);
+}
+static void frontend_gtk_userlist_set_visible(bool visible) {
+   frontend_gtk_ui_post(GTK_UI_VISIBLE, NULL, visible);
+}
+static void frontend_gtk_room_state_changed(const char *room) {
+   frontend_gtk_ui_post(GTK_UI_ROOM_STATE, room, 0);
+}
+static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
+   frontend_gtk_ui_post(GTK_UI_ROOM_VFOS, room, 0);
+}
+static void frontend_gtk_chat_clear(void) {
+   frontend_gtk_ui_post(GTK_UI_CHAT_CLEAR, NULL, 0);
+}
+static void frontend_gtk_rx_volume(int value) {
+   frontend_gtk_ui_post(GTK_UI_RX_VOLUME, NULL, value);
+}
+static void frontend_gtk_freq_set(long freq) {
+   GtkUiDelivery *d = g_new0(GtkUiDelivery, 1);
+   d->action = GTK_UI_FREQ;
+   d->freq = freq;
+   /* The common queue helper accepts an int; preserve long frequencies. */
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_ui_deliver(d);
+      frontend_gtk_ui_delivery_free(d);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_ui_deliver, d, frontend_gtk_ui_delivery_free);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   } else frontend_gtk_ui_delivery_free(d);
+}
+static void frontend_gtk_mode_set(const char *mode) {
+   frontend_gtk_ui_post(GTK_UI_MODE, mode, 0);
+}
+static void frontend_gtk_conn_button(int connected) {
+   frontend_gtk_ui_post(GTK_UI_CONNECTION, NULL, connected);
+}
+static void frontend_gtk_ptt_set_online(bool online) {
+   frontend_gtk_ui_post(GTK_UI_PTT_ONLINE, NULL, online);
+}
+static void frontend_gtk_ptt_set_state(bool active) {
+   frontend_gtk_ui_post(GTK_UI_PTT_STATE, NULL, active);
+}
+static void frontend_gtk_ptt_tot_expired(int secs) {
+   frontend_gtk_ui_post(GTK_UI_PTT_TOT, NULL, secs);
+}
+static void frontend_gtk_ptt_refresh(void) {
+   frontend_gtk_ui_post(GTK_UI_PTT_REFRESH, NULL, 0);
 }
 
+/* One-way frontend operations: own strings and execute on GTK's context.
+ * The bool-returning frontend operations deliberately remain separate:
+ * synchronous results require an explicit asynchronous protocol. */
+typedef enum {
+   GTK_OP_CODEC, GTK_OP_CLEAR_LOG, GTK_OP_FOCUS, GTK_OP_WINDOW,
+   GTK_OP_ALERT, GTK_OP_EDIT, GTK_OP_BELL, GTK_OP_NOTIFY,
+   GTK_OP_CHOOSER, GTK_OP_WEBCAM
+} GtkOwnerAction;
+typedef struct {
+   uint32_t action, a_len, b_len;
+   int32_t value;
+} GtkOwnerMessage;
+static void frontend_gtk_owner_action_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message->payload || message->length < sizeof(GtkOwnerMessage)) return;
+   GtkOwnerMessage m;
+   memcpy(&m, message->payload, sizeof(m));
+   if (m.action > GTK_OP_WEBCAM || !m.a_len || !m.b_len) return;
+   size_t bytes = message->length - sizeof(m);
+   if ((size_t)m.a_len > bytes || (size_t)m.b_len != bytes - m.a_len) return;
+   const char *a = (const char *)message->payload + sizeof(m);
+   const char *b = a + m.a_len;
+   if (a[m.a_len - 1] || b[m.b_len - 1]) return;
+   switch ((GtkOwnerAction)m.action) {
+      case GTK_OP_CODEC: frontend_gtk_codec_set_active_owner(m.value != 0, a); break;
+      case GTK_OP_CLEAR_LOG: frontend_gtk_syslog_clear_owner(); break;
+      case GTK_OP_FOCUS: frontend_gtk_focus_tab_owner(a); break;
+      case GTK_OP_WINDOW: frontend_gtk_switch_window_owner(m.value); break;
+      case GTK_OP_ALERT: frontend_gtk_alert_owner(a); break;
+      case GTK_OP_EDIT: frontend_gtk_edit_config_owner(*a ? a : NULL); break;
+      case GTK_OP_BELL: frontend_gtk_bell_owner(); break;
+      case GTK_OP_NOTIFY: frontend_gtk_notify_owner(a, b); break;
+      case GTK_OP_CHOOSER: frontend_gtk_show_server_chooser_owner(); break;
+      case GTK_OP_WEBCAM: frontend_gtk_webcam_show_owner(m.value != 0); break;
+   }
+}
+static void frontend_gtk_owner_post(GtkOwnerAction action, const char *a, const char *b, int value) {
+   size_t al = strlen(a ? a : "") + 1, bl = strlen(b ? b : "") + 1;
+   if (al > 65536 || bl > 65536) return;
+   GtkOwnerMessage header = { (uint32_t)action, (uint32_t)al, (uint32_t)bl, value };
+   size_t length = sizeof(header) + al + bl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &header, sizeof(header));
+   char *p = payload + sizeof(header);
+   memcpy(p, a ? a : "", al);
+   memcpy(p + al, b ? b : "", bl);
+   rr_event_message_t message = {
+      .name = "client.ui.owner.action", .payload = payload, .length = length
+   };
+   event_emit_message(&message);
+   g_free(payload);
+}
+static void frontend_gtk_codec_set_active(bool is_tx, const char *codec) {
+   frontend_gtk_owner_post(GTK_OP_CODEC, codec, NULL, is_tx);
+}
+static void frontend_gtk_syslog_clear(void) { frontend_gtk_owner_post(GTK_OP_CLEAR_LOG, NULL, NULL, 0); }
+static void frontend_gtk_focus_tab(const char *tab) { frontend_gtk_owner_post(GTK_OP_FOCUS, tab, NULL, 0); }
+static void frontend_gtk_switch_window(int id) { frontend_gtk_owner_post(GTK_OP_WINDOW, NULL, NULL, id); }
+static void frontend_gtk_alert(const char *message) { frontend_gtk_owner_post(GTK_OP_ALERT, message, NULL, 0); }
+static void frontend_gtk_edit_config(const char *path) { frontend_gtk_owner_post(GTK_OP_EDIT, path, NULL, 0); }
+static void frontend_gtk_bell(void) { frontend_gtk_owner_post(GTK_OP_BELL, NULL, NULL, 0); }
+static void frontend_gtk_notify(const char *title, const char *message) {
+   frontend_gtk_owner_post(GTK_OP_NOTIFY, title, message, 0);
+}
+static void frontend_gtk_show_server_chooser(void) { frontend_gtk_owner_post(GTK_OP_CHOOSER, NULL, NULL, 0); }
+static void frontend_gtk_webcam_show(bool show) { frontend_gtk_owner_post(GTK_OP_WEBCAM, NULL, NULL, show); }
+
+/* Chat widget mutations are always delivered to GTK's owning thread.
+ * Never pass a borrowed core dictionary/string across the boundary. */
+typedef enum {
+   GTK_CHAT_ADD, GTK_CHAT_REMOVE, GTK_CHAT_TOPIC, GTK_CHAT_STATUS,
+   GTK_CHAT_AUTH, GTK_CHAT_QUERY, GTK_CHAT_VFOS
+} GtkChatAction;
+typedef struct {
+   GtkChatAction action;
+   char *a, *b;
+} GtkChatCommand;
+static gboolean frontend_gtk_chat_command_run(gpointer opaque) {
+   GtkChatCommand *cmd = opaque;
+   switch (cmd->action) {
+   case GTK_CHAT_ADD: gtk_chat_room_add(cmd->a); break;
+   case GTK_CHAT_REMOVE: gtk_chat_room_remove(cmd->a); break;
+   case GTK_CHAT_TOPIC: gtk_chat_room_set_topic(cmd->a, cmd->b); break;
+   case GTK_CHAT_STATUS: gtk_chat_show_status(); break;
+   case GTK_CHAT_AUTH: gtk_chat_set_authoritative_room(cmd->a); break;
+   case GTK_CHAT_QUERY: gtk_chat_query_add(cmd->a); break;
+   case GTK_CHAT_VFOS: gtk_chat_room_vfos_changed(cmd->a); break;
+   }
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_chat_command_free(gpointer opaque) {
+   GtkChatCommand *cmd = opaque;
+   g_free(cmd->a);
+   g_free(cmd->b);
+   g_free(cmd);
+}
+static void frontend_gtk_chat_command(GtkChatAction action, const char *a, const char *b) {
+   GtkChatCommand *cmd = g_new0(GtkChatCommand, 1);
+   cmd->action = action;
+   cmd->a = g_strdup(a);
+   cmd->b = g_strdup(b);
+   if (!frontend_gtk_event_context || g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_chat_command_run(cmd);
+      frontend_gtk_chat_command_free(cmd);
+      return;
+   }
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_chat_command_run, cmd,
+                         frontend_gtk_chat_command_free);
+   g_source_attach(source, frontend_gtk_event_context);
+   g_source_unref(source);
+}
 static void frontend_gtk_chat_room_add(const char *room) {
-   gtk_chat_room_add(room);
+   frontend_gtk_chat_command(GTK_CHAT_ADD, room, NULL);
 }
-
 static void frontend_gtk_chat_room_remove(const char *room) {
-   gtk_chat_room_remove(room);
+   frontend_gtk_chat_command(GTK_CHAT_REMOVE, room, NULL);
 }
-
 static void frontend_gtk_chat_room_topic(const char *room, const char *topic) {
-   gtk_chat_room_set_topic(room, topic);
+   frontend_gtk_chat_command(GTK_CHAT_TOPIC, room, topic);
 }
-
 static void frontend_gtk_chat_show_status(void) {
-   gtk_chat_show_status();
+   frontend_gtk_chat_command(GTK_CHAT_STATUS, NULL, NULL);
 }
-
 static void frontend_gtk_chat_set_authoritative_room(const char *room) {
-   gtk_chat_set_authoritative_room(room);
+   frontend_gtk_chat_command(GTK_CHAT_AUTH, room, NULL);
 }
-
 static void frontend_gtk_chat_query_add(const char *who) {
-   gtk_chat_query_add(who);
+   frontend_gtk_chat_command(GTK_CHAT_QUERY, who, NULL);
 }
-
 static void frontend_gtk_chat_room_vfos_changed(const char *room) {
-   gtk_chat_room_vfos_changed(room);
+   frontend_gtk_chat_command(GTK_CHAT_VFOS, room, NULL);
 }
-
 static const char *frontend_gtk_chat_current_room(void) {
+   /* Never return a borrowed GtkWidget-backed string to core. Core callers
+    * must use their authoritative selected-room state instead. */
+   if (g_thread_self() != frontend_gtk_owner) return NULL;
    return gtk_chat_current_room();
 }
 
+static void ui_print_gtk_literal(const char *window, const char *fmt, ...) {
+   va_list args;
+   va_start(args, fmt);
+   ui_print_gtk(window, fmt, args);
+   va_end(args);
+}
+/* A core/network callback must never edit a GTK text buffer directly.
+ * Snapshot printf output before handing it to the GUI owner thread. */
+typedef struct {
+   char *window;
+   char *message;
+} GtkQueuedPrint;
+
+static gboolean frontend_gtk_queued_print(gpointer opaque) {
+   GtkQueuedPrint *print = opaque;
+   if (!dying) {
+      ui_print_gtk_literal(print->window, "%s", print->message);
+   }
+   return G_SOURCE_REMOVE;
+}
+
+static void frontend_gtk_queued_print_free(gpointer opaque) {
+   GtkQueuedPrint *print = opaque;
+   g_free(print->window);
+   g_free(print->message);
+   g_free(print);
+}
+
 static void frontend_gtk_vprint(const char *window, const char *fmt, va_list ap) {
-   ui_print_gtk(window, fmt, ap);
+   if (!fmt || dying) return;
+   va_list copy;
+   va_copy(copy, ap);
+   char *rendered = g_strdup_vprintf(fmt, copy);
+   va_end(copy);
+   if (g_thread_self() == frontend_gtk_owner) {
+      ui_print_gtk_literal(window, "%s", rendered);
+      g_free(rendered);
+      return;
+   }
+   GtkQueuedPrint *print = g_new0(GtkQueuedPrint, 1);
+   print->window = g_strdup(window);
+   print->message = rendered;
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_queued_print, print,
+                         frontend_gtk_queued_print_free);
+   g_source_attach(source, frontend_gtk_event_context);
+   g_source_unref(source);
 }
 
 static void frontend_gtk_vfo_widths(const char *vfo, const char *widths) {
@@ -2034,13 +2286,183 @@ static void gtk_identity_first_run(void) {
    g_free(path);
 }
 
+/* Event-bus dispatch bridge. This context is captured on the GTK owner
+ * thread rather than looked up from whichever thread emits an event. */
+typedef struct {
+   event_dispatch_fn_t fn;
+   void *arg;
+} GtkEventDelivery;
+static gboolean frontend_gtk_deliver_event(gpointer opaque) {
+   GtkEventDelivery *delivery = opaque;
+   if (G_UNLIKELY(g_thread_self() != frontend_gtk_owner))
+      g_log("RustyRig-GTK", G_LOG_LEVEL_CRITICAL, "GTK domain callback executed on wrong thread: actual=%p expected=%p",
+          (void *)g_thread_self(), (void *)frontend_gtk_owner);
+   delivery->fn(delivery->arg);
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_dispatch_event(event_dispatch_fn_t fn, void *arg, void *user) {
+   GMainContext *context = user;
+   GtkEventDelivery *delivery = g_new(GtkEventDelivery, 1);
+   *delivery = (GtkEventDelivery){fn, arg};
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_deliver_event, delivery, g_free);
+   g_source_attach(source, context);
+   g_source_unref(source);
+}
+
+/* Inbound snapshot from the core domain. The payload is owned by the
+ * event bus; no connection or GTK object crosses the thread boundary. */
+static void frontend_gtk_authoritative_room_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || !message->length || message->length > 4096) return;
+   const char *room = message->payload;
+   if (room[message->length - 1] != '\0' ||
+       strnlen(room, message->length) != message->length - 1) return;
+   gtk_chat_set_authoritative_room(room);
+}
+
+static void frontend_gtk_server_picker_show_event(const rr_event_message_t *message, void *unused) {
+   (void)message;
+   (void)unused;
+   if (!dying) gtk_show_server_chooser();
+}
+
+/* Existing protocol event, copied by librustyaxe for GTK-domain delivery.
+ * No rrconn_t crosses threads. Leave core authoritative state in core. */
+/* Subscribe to the original protocol events, with owned JSON delivered by
+ * librustyaxe on the GTK domain. The core remains the state authority. */
+extern char session_token[HTTP_TOKEN_LEN + 1];
+extern const char *login_user;
+static void frontend_gtk_room_protocol_event(const char *event, const char *data,
+                                              rrconn_t *connection, void *unused) {
+   (void)connection;
+   (void)unused;
+   if (dying || !data) return;
+   if (!strcmp(event, "userinfo")) {
+      userlist_redraw_gtk();
+      return;
+   }
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+   if (!room) room = dict_get(d, "talk.target", NULL);
+   if (!room) { dict_free(d); return; }
+   if (!strcmp(event, "join")) {
+      const char *who = dict_get(d, "talk.user", NULL);
+      if (who && login_user && !strcasecmp(who, login_user))
+         gtk_chat_room_add(room);
+      userlist_redraw_gtk();
+   } else if (!strcmp(event, "part")) {
+      const char *session = dict_get(d, "talk.session", NULL);
+      bool self = session && *session && session_token[0] &&
+                  !strcmp(session, session_token);
+      if (self && !dict_get_bool(d, "talk.kicked", false))
+         gtk_chat_room_remove(room);
+      userlist_redraw_gtk();
+   } else if (!strcmp(event, "room.deleted")) {
+      gtk_chat_room_remove(room);
+      userlist_redraw_gtk();
+   } else if (!strcmp(event, "room.topic")) {
+      gtk_chat_room_set_topic(room, dict_get(d, "talk.topic", ""));
+   } else if (!strcmp(event, "room.vfo") || !strcmp(event, "room.vfo-list")) {
+      gtk_chat_room_vfos_changed(room);
+   } else if (!strcmp(event, "room.state")) {
+      userlist_room_state_changed(room);
+      userlist_redraw_gtk();
+      ptt_button_refresh();
+   }
+   dict_free(d);
+}
+
+static void frontend_gtk_talk_msg_event(const char *event, const char *data,
+                                         rrconn_t *connection, void *user) {
+   (void)event;
+   (void)connection;
+   (void)user;
+   if (dying || !data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.target", NULL);
+   const char *from = dict_get(d, "talk.from", "?");
+   const char *kind = dict_get(d, "talk.msg_type", NULL);
+   const char *text = dict_get(d, "talk.data", NULL);
+   bool query = dict_get_bool(d, "talk.query", false) ||
+      (kind && (!strcasecmp(kind, "priv") || !strcasecmp(kind, "privmsg")));
+   if (query && from && login_user && strcasecmp(from, login_user))
+      room = from;
+   if (room && *room) {
+      const char *unread = text && kind && strncasecmp(kind, "replay-", 7) &&
+         (!login_user || strcasecmp(from, login_user)) ? text : NULL;
+      gtk_chat_incoming(room, query, unread, login_user);
+   }
+   dict_free(d);
+}
+
+static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (message->length != 1 || !message->payload) return;
+   const char state = ((const char *)message->payload)[0];
+   if (state == '0' || state == '1') {
+      g_log("RustyRig-GTK", G_LOG_LEVEL_DEBUG, "PTT state received via GTK event domain: %s", state == '1' ? "ON" : "OFF");
+      ptt_button_set_state(state == '1');
+   }
+}
+
+static void frontend_gtk_ptt_online_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (message->length != 1 || !message->payload) return;
+   const char online = ((const char *)message->payload)[0];
+   if (online == '0' || online == '1')
+      ptt_button_set_online(online == '1');
+}
+
+static void frontend_gtk_connection_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(int)) return;
+   int state;
+   memcpy(&state, message->payload, sizeof(state));
+   rr_connect_button_update_all(state);
+}
+
+static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(rrclient_vfo_snapshot_t)) return;
+   const rrclient_vfo_snapshot_t *snapshot = message->payload;
+   /* Fixed-size snapshots contain only bounded, NUL-terminated strings. */
+   if (!memchr(snapshot->vfo, 0, sizeof(snapshot->vfo)) ||
+       !memchr(snapshot->mode, 0, sizeof(snapshot->mode)) ||
+       !memchr(snapshot->room, 0, sizeof(snapshot->room)) ||
+       !memchr(snapshot->server, 0, sizeof(snapshot->server))) return;
+   snprintf(pending_vfo_paint.vfo, sizeof(pending_vfo_paint.vfo), "%s", snapshot->vfo);
+   snprintf(pending_vfo_paint.mode, sizeof(pending_vfo_paint.mode), "%s", snapshot->mode);
+   snprintf(pending_vfo_paint.room, sizeof(pending_vfo_paint.room), "%s", snapshot->room);
+   snprintf(pending_vfo_paint.server, sizeof(pending_vfo_paint.server), "%s", snapshot->server);
+   pending_vfo_paint.freq = snapshot->freq;
+   pending_vfo_paint.width = snapshot->width;
+   pending_vfo_paint.power = snapshot->power;
+   pending_vfo_paint.ptt = snapshot->ptt;
+   pending_vfo_paint.has_mode = snapshot->has_mode;
+   pending_vfo_paint.available = snapshot->available;
+   if (!pending_vfo_paint.source)
+      pending_vfo_paint.source = g_idle_add(frontend_gtk_flush_vfo, NULL);
+}
+
+static void frontend_gtk_chat_incoming_event(const rr_event_message_t *message, void *unused);
+static void frontend_gtk_supervision_event(const rr_event_message_t *message, void *unused);
+static void frontend_gtk_admin_result_event(const rr_event_message_t *message, void *unused);
 static bool frontend_gtk_init(int *argc, char ***argv) {
+   frontend_gtk_owner = g_thread_self();
+   g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "GTK initialization tid=%p default-context=%p",
+       (void *)frontend_gtk_owner, (void *)g_main_context_default());
    gtk_init(argc, argv);
+   frontend_gtk_event_context = g_main_context_ref_thread_default();
+   if (!event_domain_register("gtk", frontend_gtk_dispatch_event, frontend_gtk_event_context))
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to register GTK event delivery domain");
    gtk_identity_first_run();
 #ifdef USE_LIBNOTIFY
 
    if (!ui_notify_init()) {
-      Log(LOG_WARN, "gtk.notify", "Desktop notifications unavailable");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Desktop notifications unavailable");
    }
 #endif
    alert_dialogs_init();
@@ -2058,7 +2480,67 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    // Local client log pane (GTK log tab) mirrors client logs.
    frontend_gtk_log_callback = log_add_callback_token(log_print_va, LOG_CALLBACK_FILTERED);
    extern bool rr_module_token_add(rr_event_token_t token);
-   rr_module_token_add(event_on_token("client.quit.request", frontend_gtk_quit_request, NULL));
+   /* Quit prompts own GTK widgets: dispatch on GTK, not on core. */
+   rr_event_token_t quit_event = event_on_domain_token(
+      "client.quit.request", frontend_gtk_quit_request, NULL, "gtk");
+   if (quit_event) rr_module_token_add(quit_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK quit requests");
+   rr_event_token_t action_event = event_on_message_domain_token(
+      "client.ui.owner.action", frontend_gtk_owner_action_event, NULL, "gtk");
+   if (action_event) rr_module_token_add(action_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to frontend actions");
+   rr_event_token_t admin_event = event_on_message_domain_token(
+      "client.ui.admin.result", frontend_gtk_admin_result_event, NULL, "gtk");
+   if (admin_event) rr_module_token_add(admin_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to admin results");
+   rr_event_token_t supervision_event = event_on_message_domain_token(
+      "client.ui.supervision.result", frontend_gtk_supervision_event, NULL, "gtk");
+   if (supervision_event) rr_module_token_add(supervision_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to supervision results");
+   rr_event_token_t incoming_event = event_on_message_domain_token(
+      "client.ui.chat.incoming", frontend_gtk_chat_incoming_event, NULL, "gtk");
+   if (incoming_event) rr_module_token_add(incoming_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to incoming chat");
+   rr_event_token_t room_event = event_on_message_domain_token(
+      "client.ui.chat.authoritative-room", frontend_gtk_authoritative_room_event,
+      NULL, "gtk");
+   if (room_event) rr_module_token_add(room_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to authoritative room events");
+   rr_event_token_t picker_event = event_on_message_domain_token(
+      "client.ui.server-picker.show", frontend_gtk_server_picker_show_event,
+      NULL, "gtk");
+   if (picker_event) rr_module_token_add(picker_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to server-picker requests");
+   static const char *room_events[] = {
+      "join", "part", "room.deleted", "room.topic", "room.vfo",
+      "room.vfo-list", "room.state", "userinfo"
+   };
+   for (size_t i = 0; i < sizeof(room_events) / sizeof(room_events[0]); i++) {
+      rr_event_token_t token = event_on_domain_token(
+         room_events[i], frontend_gtk_room_protocol_event, NULL, "gtk");
+      if (token) rr_module_token_add(token);
+      else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to %s on GTK domain", room_events[i]);
+   }
+   rr_event_token_t talk_event = event_on_domain_token(
+      "talk.msg", frontend_gtk_talk_msg_event, NULL, "gtk");
+   if (talk_event) rr_module_token_add(talk_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to talk.msg on GTK domain");
+   rr_event_token_t ptt_event = event_on_message_domain_token(
+      "client.ui.ptt.state", frontend_gtk_ptt_state_event, NULL, "gtk");
+   if (ptt_event) rr_module_token_add(ptt_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK PTT state updates");
+   rr_event_token_t ptt_online_event = event_on_message_domain_token(
+      "client.ui.ptt.online", frontend_gtk_ptt_online_event, NULL, "gtk");
+   if (ptt_online_event) rr_module_token_add(ptt_online_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK PTT online updates");
+   rr_event_token_t connection_event = event_on_message_domain_token(
+      "client.ui.connection.state", frontend_gtk_connection_event, NULL, "gtk");
+   if (connection_event) rr_module_token_add(connection_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK connection state");
+   rr_event_token_t vfo_event = event_on_message_domain_token(
+      RRCLIENT_VFO_SNAPSHOT_EVENT, frontend_gtk_vfo_snapshot_event, NULL, "gtk");
+   if (vfo_event) rr_module_token_add(vfo_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to VFO snapshots");
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
@@ -2068,9 +2550,19 @@ static void frontend_gtk_run(void) {
    gtk_main();
 }
 
+static gboolean frontend_gtk_quit_on_owner(gpointer unused) {
+   (void)unused;
+   if (gtk_main_level() > 0) gtk_main_quit();
+   return G_SOURCE_REMOVE;
+}
 static void frontend_gtk_quit(void) {
-   if (gtk_main_level() > 0) {
-      gtk_main_quit();
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_quit_on_owner(NULL);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_quit_on_owner, NULL, NULL);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
    }
 }
 
@@ -2101,7 +2593,7 @@ static void irc_nick_dialog_response(GtkDialog *dialog, gint response, gpointer 
    gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
-static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickname) {
+static void frontend_gtk_irc_nick_prompt_owner(const char *profile, const char *nickname) {
    if (!irc_nick_dialogs) {
       irc_nick_dialogs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    }
@@ -2135,12 +2627,151 @@ static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickna
    gtk_widget_show_all(dialog);
 }
 
-extern void gtk_supervision_result(const char *, rrconn_t *);
-extern void gtk_admin_result(const char *, rrconn_t *);
+/* IRC nickname requests can arrive from protocol/core callbacks. */
+typedef struct { char *profile, *nickname; } GtkNickPrompt;
+static gboolean frontend_gtk_nick_prompt_deliver(gpointer opaque) {
+   GtkNickPrompt *p = opaque;
+   if (!dying) frontend_gtk_irc_nick_prompt_owner(p->profile, p->nickname);
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_nick_prompt_free(gpointer opaque) {
+   GtkNickPrompt *p = opaque;
+   g_free(p->profile);
+   g_free(p->nickname);
+   g_free(p);
+}
+static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickname) {
+   if (!profile) return;
+   GtkNickPrompt *p = g_new0(GtkNickPrompt, 1);
+   p->profile = g_strdup(profile);
+   p->nickname = g_strdup(nickname);
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_nick_prompt_deliver(p);
+      frontend_gtk_nick_prompt_free(p);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_nick_prompt_deliver, p, frontend_gtk_nick_prompt_free);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   } else frontend_gtk_nick_prompt_free(p);
+}
+
+/* The event bus owns the cross-thread message copy and GTK dispatch. */
+typedef struct {
+   uint32_t room_len, text_len, nick_len;
+   uint8_t query;
+} GtkIncomingChatHeader;
+static void frontend_gtk_chat_incoming_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message->payload || message->length < sizeof(GtkIncomingChatHeader)) return;
+   GtkIncomingChatHeader header;
+   memcpy(&header, message->payload, sizeof(header));
+   size_t remaining = message->length - sizeof(header);
+   size_t required = (size_t)header.room_len + header.text_len + header.nick_len;
+   if (required != remaining || header.room_len == 0 || header.text_len == 0 || header.nick_len == 0) return;
+   const char *p = (const char *)message->payload + sizeof(header);
+   const char *room = p;
+   const char *text = room + header.room_len;
+   const char *nickname = text + header.text_len;
+   if (room[header.room_len - 1] || text[header.text_len - 1] || nickname[header.nick_len - 1]) return;
+   gtk_chat_incoming(*room ? room : NULL, header.query != 0,
+                     *text ? text : NULL, *nickname ? nickname : NULL);
+}
+static void frontend_gtk_chat_incoming(const char *room, bool query,
+                                      const char *text, const char *nickname) {
+   size_t rl = strlen(room ? room : "") + 1, tl = strlen(text ? text : "") + 1;
+   size_t nl = strlen(nickname ? nickname : "") + 1;
+   if (rl > UINT32_MAX || tl > UINT32_MAX || nl > UINT32_MAX || rl + tl + nl > 1024 * 1024) return;
+   GtkIncomingChatHeader header = { (uint32_t)rl, (uint32_t)tl, (uint32_t)nl, query };
+   size_t length = sizeof(header) + rl + tl + nl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &header, sizeof(header));
+   char *p = payload + sizeof(header);
+   memcpy(p, room ? room : "", rl); p += rl;
+   memcpy(p, text ? text : "", tl); p += tl;
+   memcpy(p, nickname ? nickname : "", nl);
+   rr_event_message_t message = { .name = "client.ui.chat.incoming",
+                                  .payload = payload, .length = length };
+   event_emit_message(&message);
+   g_free(payload);
+}
+/* Synchronous frontend getter: never inspect GTK from core. The command
+ * callers should eventually consume a core-owned UI state snapshot. */
+static bool frontend_gtk_chat_status_active(void) {
+   if (g_thread_self() != frontend_gtk_owner) return false;
+   return gtk_chat_status_active();
+}
+
+extern void gtk_supervision_result_profile(const char *, const char *);
+/* Two copied strings; never ship rrconn_t pointers to GTK. */
+typedef struct { uint32_t profile_len, data_len; } GtkSupervisionMessage;
+static void frontend_gtk_supervision_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message->payload || message->length < sizeof(GtkSupervisionMessage)) return;
+   GtkSupervisionMessage header;
+   memcpy(&header, message->payload, sizeof(header));
+   size_t available = message->length - sizeof(header);
+   if (!header.profile_len || !header.data_len || header.profile_len > available ||
+       header.data_len != available - header.profile_len) return;
+   const char *profile = (const char *)message->payload + sizeof(header);
+   const char *data = profile + header.profile_len;
+   if (profile[header.profile_len - 1] || data[header.data_len - 1]) return;
+   gtk_supervision_result_profile(data, profile);
+}
+static void frontend_gtk_supervision_result(const char *data, rrconn_t *connection) {
+   const char *profile = rrclient_connection_name(connection);
+   if (!profile || !*profile) return;
+   size_t pl = strlen(profile) + 1, dl = strlen(data ? data : "") + 1;
+   if (pl > 4096 || dl > 1024 * 1024) return;
+   GtkSupervisionMessage header = { (uint32_t)pl, (uint32_t)dl };
+   size_t length = sizeof(header) + pl + dl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &header, sizeof(header));
+   memcpy(payload + sizeof(header), profile, pl);
+   memcpy(payload + sizeof(header) + pl, data ? data : "", dl);
+   rr_event_message_t message = {
+      .name = "client.ui.supervision.result", .payload = payload, .length = length
+   };
+   event_emit_message(&message);
+   g_free(payload);
+}
+/* Admin result callbacks originate in core; snapshot profile + response first. */
+typedef struct { uint32_t profile_len, data_len; } GtkAdminResultHeader;
+static void frontend_gtk_admin_result_event(const rr_event_message_t *message, void *unused);
+extern void gtk_admin_result_profile(const char *, const char *);
+static void frontend_gtk_admin_result(const char *data, rrconn_t *connection) {
+   const char *profile = rrclient_connection_name(connection);
+   if (!profile || !*profile) return;
+   size_t pl = strlen(profile) + 1, dl = strlen(data ? data : "") + 1;
+   if (pl > 4096 || dl > 1024 * 1024) return;
+   GtkAdminResultHeader h = {(uint32_t)pl, (uint32_t)dl};
+   size_t length = sizeof(h) + pl + dl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &h, sizeof(h));
+   memcpy(payload + sizeof(h), profile, pl);
+   memcpy(payload + sizeof(h) + pl, data ? data : "", dl);
+   rr_event_message_t event = {.name = "client.ui.admin.result", .payload = payload, .length = length};
+   event_emit_message(&event);
+   g_free(payload);
+}
+static void frontend_gtk_admin_result_event(const rr_event_message_t *event, void *unused) {
+   (void)unused;
+   if (dying || !event->payload || event->length < sizeof(GtkAdminResultHeader)) return;
+   GtkAdminResultHeader h;
+   memcpy(&h, event->payload, sizeof(h));
+   size_t remaining = event->length - sizeof(h);
+   if (!h.profile_len || !h.data_len || h.profile_len > remaining ||
+       h.data_len != remaining - h.profile_len) return;
+   const char *profile = (const char *)event->payload + sizeof(h);
+   const char *data = profile + h.profile_len;
+   if (profile[h.profile_len - 1] || data[h.data_len - 1]) return;
+   gtk_admin_result_profile(data, profile);
+}
+
 
 const rr_frontend_ops_t gtk_frontend_ops = {
-   .supervision_result = gtk_supervision_result,
-   .admin_result = gtk_admin_result,
+   .supervision_result = frontend_gtk_supervision_result,
+   .admin_result = frontend_gtk_admin_result,
    .irc_nick_prompt = frontend_gtk_irc_nick_prompt,
    .name = "gtk",
    .init = frontend_gtk_init,
@@ -2152,7 +2783,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .mode_set = frontend_gtk_mode_set,
    .connection_state = frontend_gtk_conn_button,
    .conn_button_update = frontend_gtk_conn_button,
-   .chat_incoming = gtk_chat_incoming,
+   .chat_incoming = frontend_gtk_chat_incoming,
    .chat_room_add = frontend_gtk_chat_room_add,
    .chat_room_remove = frontend_gtk_chat_room_remove,
    .chat_room_topic = frontend_gtk_chat_room_topic,
@@ -2160,7 +2791,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .chat_set_authoritative_room = frontend_gtk_chat_set_authoritative_room,
    .chat_room_vfos_changed = frontend_gtk_chat_room_vfos_changed,
    .chat_current_room = frontend_gtk_chat_current_room,
-   .chat_status_active = gtk_chat_status_active,
+   .chat_status_active = frontend_gtk_chat_status_active,
    .chat_query_add = frontend_gtk_chat_query_add,
    .ptt_set_online = frontend_gtk_ptt_set_online,
    .ptt_set_state = frontend_gtk_ptt_set_state,
@@ -2188,6 +2819,14 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
+   if (!event_domain_unregister("gtk"))
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "GTK event domain still has listeners at shutdown");
+   /* Each attached GSource holds its context until finalized. Module
+    * teardown must still drain pending callbacks before dlclose(). */
+   if (frontend_gtk_event_context) {
+      g_main_context_unref(frontend_gtk_event_context);
+      frontend_gtk_event_context = NULL;
+   }
    extern void gtk_terminal_shutdown(void);
    gtk_terminal_shutdown();
    gtk_help_shutdown();

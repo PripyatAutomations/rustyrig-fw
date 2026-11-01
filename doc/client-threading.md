@@ -1,5 +1,33 @@
 # Client frontend threading — revised direction
 
+## First end-to-end event migration
+
+Confirmed PTT state now emits `client.ui.ptt.state` from the core; the
+GTK frontend subscribes on the named `gtk` domain, receiving an owned
+one-byte state snapshot. The GTK implementation no longer needs a direct
+core-thread callback for this notification. Non-GTK frontend behavior stays
+on the compatibility path.
+
+This is deliberately one notification, **not** a threaded GTK rollout.
+Other `frontend_ops` calls and GTK-to-core commands still access shared
+state. The GTK domain currently runs on the shared default loop; separating
+it is blocked until all direct calls and synchronous queries are addressed.
+
+## Branch status (v1.1/frontend-threading)
+
+The first implementation milestone is in this branch:
+
+- `rrclient/thread.dispatch.[ch]`: one-shot, owned-payload GLib dispatch
+  to an explicit context, with closed-queue rejection and cleanup.
+- `rrclient/rules.mk`: links the dispatcher into the client core.
+- `rrclient/tests/test_thread_dispatch.sh`: tests delivery and rejection.
+
+**Not enabled yet:** GTK-thread startup and frontend event migration. The
+current client still uses the original shared default context; no unsafe
+half-migration of network polling has been attempted. Build and GTK runtime
+verification are still required. The obsolete `core.loop` experiment is
+not used for this topology.
+
 ## Preferred Linux/GTK3 topology
 
 **Core owns the process main thread and default GLib context**, identical
@@ -123,3 +151,153 @@ state must all migrate together.
 - Hold a lock over network processing, codec startup, or GUI callbacks.
 - Treat `CAP_SYS_NICE` or realtime priorities as a substitute for
   isolation.
+
+## Connection status event migration
+
+`rrclient_update_connection_ui()` emits `client.ui.connection.state` with a copied
+integer snapshot for the GTK frontend. The GTK domain subscriber updates the
+connection button on the destination context. Other frontends retain the
+existing callback. VFO state still uses direct frontend callbacks: its GTK
+handler currently reads selected server and active room from core state,
+so it must be refactored to a complete snapshot before thread isolation.
+
+## Owned VFO snapshots
+
+`vfo.c` now sends `client.ui.vfo.snapshot` to GTK with copied VFO ID,
+mode, server, room, frequency, width, power, PTT and availability fields.
+GTK's paint/flush callback consumes those values rather than querying the
+core's active room, selected server, VFO selection or availability.
+The frontend's existing `vfo_state` callback remains for ABI compatibility
+but is bypassed for the current GTK sender path.
+
+**Not yet threaded:** GTK still has many core reads beyond VFO painting,
+including UI interactions and synchronous frontend operation callbacks.
+`g_idle_add` and other GTK sources must be attached to the eventual
+GTK-owned context, not the core/default context; the current domain context
+is still captured from the default thread. Module callback lifetimes and
+pending dispatch cleanup must be audited before activation.
+
+## Experimental GTK worker (diagnostic only)
+
+Set `RRCLIENT_GTK_THREAD_EXPERIMENT=1` to launch GTK init/run on a
+GLib worker while the process main thread runs a core `GMainLoop`.
+The normal configuration is unchanged. This is **not yet safe for regular
+operation or transmitting**: GTK3 uses global/default-context sources and
+many unconverted direct frontend/core calls, so two threads may service
+callbacks intended for different owners. This mode is intended to expose
+the next migration requirements and must not be promoted until thread
+ownership is verifiably isolated. A failed GTK initialization is joined
+before unloading its module. GTK's worker must finish before module unload.
+
+To complete real isolation we must migrate GTK's default-context sources
+(or make the core use a separate context, explicitly attaching all core
+sources), replace all remaining synchronous cross-thread UI invocations,
+and verify no GTK callbacks execute on the core thread. Only then test
+audio starvation with simulated slow rendering.
+
+## Experimental thread diagnostics
+
+The opt-in threaded GTK experiment now logs GTK and core GThread identities,
+checks GTK-domain event callback ownership, and logs core network scheduler
+poll gaps exceeding 100 ms (rate-limited to 10 seconds). Look for
+`gtk.thread`, `core.thread`, and `core.scheduler` diagnostics. The
+`RRCLIENT_GTK_THREAD_EXPERIMENT=1` mode is still **not safe for transmission**:
+legacy GTK idle/timeout sources and synchronous core calls need isolation.
+
+## Split core polling context (experimental)
+
+With `RRCLIENT_GTK_THREAD_EXPERIMENT=1`, the core now owns a separate
+`GMainContext`. The native/WebSocket polling timer, optional Mongoose
+sweep, fwdsp maintenance timeout, and the named `core` event domain are
+attached explicitly to it; the core main loop runs that context on the
+process main thread. GTK still runs its legacy default context on its worker.
+This is **partial isolation**, not a proof of safety: other core sources
+(e.g. additional GLib watchers, signals, and legacy callbacks) may still
+attach to the global default and be dispatched by GTK. Avoid TX until the
+remaining cross-thread API calls and source ownership are audited. Check
+`core.scheduler` thread IDs against `core.thread` again after rebuilding.
+
+## GTK text-view crash investigation (November 1)
+
+A heap double-free was detected by Pango while GTK validated a TextView
+layout. This is consistent with, but does not prove, cross-thread widget
+mutation. The GTK client and host log callbacks previously called
+`gtk_logview_append()` directly from logger/protocol threads. Those paths
+now copy complete log records and queue GLib idle delivery on GTK's default
+context instead. This removes one known cross-thread TextView mutation.
+
+This is **not yet a complete unload-safe or GUI-thread-safe solution**:
+other GTK callbacks still access core state, and pending idle callbacks
+must be explicitly drained/cancelled on module teardown. Test in the opt-in
+threaded mode without TX, under ASan/TSan where practical. Capture all
+threads with `thread apply all bt` on another crash.
+
+## GTK chat buffer cross-thread fix
+
+`frontend_gtk_vprint` previously called `ui_print_gtk` directly from
+core/transport callers and could mutate GtkTextBuffer during GTK layout.
+It now snapshots formatted text and delivers it via the GTK event context.
+This follows the prior GTK LogView marshaling fix. Remaining GTK
+frontend_ops callbacks must still be audited; these changes do not make
+the experimental thread split universally safe. Avoid TX testing.
+
+## Confirmed GTK widget mutation from core thread
+
+GDB thread dump (Nov 1) showed the process main thread handling a network
+`join` event and calling `frontend_gtk_chat_set_authoritative_room()` →
+`gtk_chat_tab_add()` → `gtk_notebook_set_current_page()`, while the GTK
+worker was measuring the same widget hierarchy. All seven void chat widget
+callbacks (add/remove/topic/show status/authoritative/query/VFO change) now
+copy their parameters and enqueue work onto GTK's context. The synchronous
+`chat_current_room` getter still needs conversion to core-owned state;
+other frontend_ops calls and shutdown teardown remain unisolated. The
+experimental mode is not yet TX-safe.
+
+## Reusing JOIN through the event bus
+
+The authoritative room selection after a network JOIN now publishes
+`client.ui.chat.authoritative-room` using an owned NUL-terminated room-name
+payload. GTK subscribes on its `gtk` delivery domain and changes notebook
+selection on the owning GUI thread. TUI retains its existing direct path.
+This begins replacing the temporary chat command queue with native event-bus
+subscriptions. Full JOIN/room/roster state still needs a versioned owned
+snapshot before removing the other legacy frontend callbacks.
+
+## Clicking lobby rig-room links
+
+GTK's `gtk.chat.links.c` click handler previously called
+`rrclient_connection_select()` and `cmd_join()` directly on the GTK thread.
+That let core networking and resulting synchronous legacy event handlers
+reenter GTK unpredictably during widget layout. The handler now publishes
+`client.ui.chat.link-join` with a copied pointer-free server/room payload;
+the core domain processes connection selection and JOIN on the core thread.
+Other GUI-to-core direct calls require the same command/event migration.
+
+## Original protocol events across domains (Nov 1)
+
+librustyaxe now exposes `event_on_domain_token(event, cb, user, domain)`
+for existing text protocol events, without introducing synthetic UI events.
+The dispatcher copies event names and JSON strings and passes a NULL
+`rrconn_t *` to the receiving thread (never borrow a live connection).
+GTK now subscribes directly to `talk.msg` on its `gtk` domain and
+creates/marks chat tabs there, rather than invoking `gtk_chat_incoming`
+from the synchronous core message handler. This addresses the observed
+replay-driven concurrent creation of a lobby chat tab.
+
+The existing GTK handler still references shared login and connection
+information, and the other legacy frontend operations need migration.
+Legacy dispatched-listener teardown, domain unregister and outstanding
+callbacks require further lifetime hardening before dynamic module unload.
+
+## Protocol-event presentation migration (Nov 1 follow-up)
+
+GTK now receives the existing `join`, `part`, `room.deleted`,
+`room.topic`, `room.vfo`, `room.vfo-list`, `room.state` and
+`userinfo` on the `gtk` event domain. The core event handlers retain
+room/session and roster authority while suppressing corresponding direct
+frontend calls to GTK. `talk.msg` already uses a GTK domain listener.
+The PART handler only closes a tab when its authenticated session token
+matches, and preserves the tab after a kick. The frontend is still not
+completely thread-isolated: other synchronous `frontend_ops` calls,
+shared core state read by GTK, and queued listener teardown remain to audit.
+Do not enable TX in the experimental split.

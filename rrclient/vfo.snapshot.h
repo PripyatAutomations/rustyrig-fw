@@ -1,0 +1,18 @@
+/* Immutable, fixed-size VFO snapshot for frontend-domain event delivery. */
+#ifndef RRCLIENT_VFO_SNAPSHOT_H
+#define RRCLIENT_VFO_SNAPSHOT_H
+#include <stdbool.h>
+typedef struct {
+   char vfo[4];
+   char mode[32];
+   char room[128];
+   char server[1024];
+   long freq;
+   int width;
+   int power;
+   bool ptt;
+   bool has_mode;
+   bool available;
+} rrclient_vfo_snapshot_t;
+#define RRCLIENT_VFO_SNAPSHOT_EVENT "client.ui.vfo.snapshot"
+#endif

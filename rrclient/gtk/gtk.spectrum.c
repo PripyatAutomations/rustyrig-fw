@@ -224,9 +224,9 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    p->enabled = gtk_check_button_new_with_label("AF waterfall");
-   /* Diagnostic baseline: the AF analyzer must be explicitly enabled. */
+   /* Start disabled; enable capture and FFT only while requested. */
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), FALSE);
-   gtk_widget_set_tooltip_text(p->enabled, "Disable all local AF spectrum capture, FFT analysis and display updates to compare audio quality");
+   gtk_widget_set_tooltip_text(p->enabled, "Enable AF spectrum and waterfall analysis for received audio");
    gtk_box_pack_end(GTK_BOX(toolbar), p->enabled, FALSE, FALSE, 3);
    p->mode = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum + Waterfall");
@@ -292,6 +292,10 @@ static gboolean rf_draw_later(gpointer user) {
    gtk_widget_queue_draw(p->drawing);
    if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
    return G_SOURCE_REMOVE;
+}
+static void rf_row(const char *, const void *, size_t, rrconn_t *, void *);
+static void rf_row_message(const rr_event_message_t *message, void *user) {
+   rf_row(RR_BRIDGE_SPECTRUM_EVENT, message->payload, message->length, NULL, user);
 }
 static void rf_row(const char *event, const void *data, size_t len,
                    rrconn_t *connection, void *user) {
@@ -669,7 +673,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
-   p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
+   p->token = event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row_message, p, "gtk");
    p->caps_token = event_on_binary_token("client.local-bridge.capabilities", rf_caps_changed, p);
    p->vfo_token = event_on_binary_token("client.local-bridge.vfo", rf_caps_changed, p);
    rf_caps_changed(NULL, NULL, 0, NULL, p);

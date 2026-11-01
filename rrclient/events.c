@@ -28,6 +28,7 @@
 #include <rrclient/rooms.h>
 #include <rrclient/media.h>
 #include <rrclient/ui.h>
+#include <rrclient/ui.navigation.h>
 #include <rrclient/vfo.h>
 #include <rrclient/frontend.h>
 #include <rrclient/supervision.h>
@@ -58,8 +59,15 @@ void rrclient_update_connection_ui(int connected) {
 
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
-   if (frontend_ops()) {
-      frontend_ops()->conn_button_update(connected);
+   const rr_frontend_ops_t *ops = frontend_ops();
+   if (ops && ops->name && !strcmp(ops->name, "gtk")) {
+      /* Serialized value, not a borrowed connection pointer. */
+      event_emit_message(&(rr_event_message_t){
+         .name = "client.ui.connection.state", .sender = "core",
+         .payload = &connected, .length = sizeof(connected)
+      });
+   } else if (ops && ops->conn_button_update) {
+      ops->conn_button_update(connected);
    }
 }
 
@@ -124,7 +132,28 @@ static void rrclient_backpressure(const char *event, const char *data, rrconn_t 
    ui_print("status", "%s%s; command was not sent", get_chat_ts(now), data ? data : "Outgoing queue full");
 }
 
+/* Only forward transitions for the currently selected VFO. A change in
+ * VFO selection or a disconnect invalidates the last delivered snapshot. */
+static bool last_ptt_valid;
+static bool last_ptt_active;
+static char last_ptt_vfo;
+
+static void rrclient_notify_ptt_online(bool online) {
+   const rr_frontend_ops_t *ops = frontend_ops();
+   if (!ops || !ops->ptt_set_online) return;
+   if (ops->name && !strcmp(ops->name, "gtk")) {
+      const char state = online ? '1' : '0';
+      event_emit_message(&(rr_event_message_t){
+         .name = "client.ui.ptt.online", .sender = "core",
+         .payload = &state, .length = sizeof(state)
+      });
+   } else if (rrclient_present_context()) {
+      ops->ptt_set_online(online);
+   }
+}
+
 static void rrclient_set_offline(void) {
+   last_ptt_valid = false;
    if (login_user) {
       free((void *)login_user);
       login_user = NULL;
@@ -138,7 +167,7 @@ static void rrclient_set_offline(void) {
    if (frontend_ops()) {
       // PTT button goes back to dark grey while offline
       if (rrclient_present_context()) {
-         frontend_ops()->ptt_set_online(false);
+         rrclient_notify_ptt_online(false);
       }
 
       // Hide the userlist again when we disconnect
@@ -315,10 +344,25 @@ static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) 
       return;
    }
 
-   if (frontend_ops() && frontend_ops()->ptt_set_state) {
-      if (rrclient_present_context()) {
+   if (last_ptt_valid && last_ptt_vfo == current[0] &&
+       last_ptt_active == active)
+      return;
+   last_ptt_valid = true;
+   last_ptt_vfo = current[0];
+   last_ptt_active = active;
+
+   if (frontend_ops() && !strcmp(frontend_ops()->name, "gtk")) {
+      /* This event is self-contained: no rrconn_t and no frontend pointer.
+       * Its callback runs in the named GTK event domain. */
+      const char value = active ? '1' : '0';
+      Log(LOG_DEBUG, "ui.event", "PTT confirmed: core emitting client.ui.ptt.state=%s via event bus", active ? "ON" : "OFF");
+      event_emit_message(&(rr_event_message_t){
+         .name = "client.ui.ptt.state", .sender = "core",
+         .payload = &value, .length = sizeof(value)
+      });
+   } else if (frontend_ops() && frontend_ops()->ptt_set_state) {
+      if (rrclient_present_context())
          frontend_ops()->ptt_set_state(active);
-      }
    }
 }
 
@@ -472,8 +516,12 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
    if (frontend_ops() && output_room) {
       if (frontend_ops()->chat_incoming) {
-         const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) && (!login_user || strcasecmp(from, login_user)) ? msg_data : NULL;
-         frontend_ops()->chat_incoming(output_room, private_msg, unread, login_user);
+         /* GTK subscribes to the original talk.msg on its own event domain.
+          * Never enter gtk_chat_incoming() from a network/core callback. */
+         if (!frontend_ops()->name || strcmp(frontend_ops()->name, "gtk")) {
+            const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) && (!login_user || strcasecmp(from, login_user)) ? msg_data : NULL;
+            frontend_ops()->chat_incoming(output_room, private_msg, unread, login_user);
+         }
       } else if (strcasecmp(output_room, ws_authoritative_room()) != 0) {
          if (private_msg) {
             frontend_ops()->chat_query_add(output_room);
@@ -590,7 +638,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
       if (frontend_ops()) {
          if (rrclient_present_context()) {
-            frontend_ops()->ptt_set_online(true);
+            rrclient_notify_ptt_online(true);
          }                      // button turns green once we're online
       }
       dict_free(d);
@@ -600,7 +648,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
 
       if (frontend_ops()) {
          if (rrclient_present_context()) {
-            frontend_ops()->ptt_set_online(true);
+            rrclient_notify_ptt_online(true);
          }
       }
       cmd_list(0, NULL);
@@ -711,6 +759,12 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
    return window;
 }
 
+/* GTK receives these protocol events directly on its own domain. */
+static bool rrclient_gtk_event_frontend(void) {
+   const rr_frontend_ops_t *ops = frontend_ops();
+   return ops && ops->name && !strcmp(ops->name, "gtk");
+}
+
 static void rrclient_handle_join(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -759,7 +813,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          }
 
          if (frontend_ops()) {
-            frontend_ops()->userlist_room_vfos_changed(m_room);
+            (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_room_vfos_changed(m_room) : (void)0);
          }
 
          if (has_vfos) {
@@ -769,9 +823,17 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          if (dict_get_bool(d, "room.site", false)) {
             ws_set_authoritative_room(m_room);
 
-            if (frontend_ops()) {
-               if (rrclient_present_context()) {
-                  frontend_ops()->chat_set_authoritative_room(m_room);
+            if (rrclient_present_context()) {
+               const rr_frontend_ops_t *ops = frontend_ops();
+               if (ops && ops->name && !strcmp(ops->name, "gtk")) {
+                  /* Owned payload is copied by the domain event bus. */
+                  event_emit_message(&(rr_event_message_t){
+                     .name = "client.ui.chat.authoritative-room",
+                     .sender = "core", .payload = m_room,
+                     .length = strlen(m_room) + 1
+                  });
+               } else if (ops && ops->chat_set_authoritative_room) {
+                  ops->chat_set_authoritative_room(m_room);
                }
             }
          }
@@ -795,7 +857,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       }
 
       if (frontend_ops() && m_user && login_user && strcasecmp(m_user, login_user) == 0) {
-         frontend_ops()->chat_room_add(m_room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_add(m_room) : (void)0);
       }
       const char *userhost = dict_get(d, "talk.userhost", "");
 
@@ -857,7 +919,7 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
       }
 
       if (frontend_ops()) {
-         frontend_ops()->userlist_room_vfos_changed(room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_room_vfos_changed(room) : (void)0);
       }
       ui_print(room, "\00308Room %s VFOs:\017 %s", room, *vfos ? vfos : "(none)");
    }
@@ -924,7 +986,7 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
       }
 
       if (frontend_ops()) {
-         frontend_ops()->chat_room_topic(room, topic);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_topic(room, topic) : (void)0);
       }
 
       /* PARITY: rustyrig-www/js/webui.chat.js topic notices. A query's user identifies the requester, not necessarily the original topic setter. */
@@ -971,16 +1033,16 @@ static void rrclient_handle_room_state(const char *event, const char *data, rrco
    }
 
    if (frontend_ops() && frontend_ops()->room_state_changed) {
-      frontend_ops()->room_state_changed(room);
+      (!rrclient_gtk_event_frontend() ? frontend_ops()->room_state_changed(room) : (void)0);
    }
 
    if (frontend_ops() && rrclient_present_context()) {
       if (frontend_ops()->userlist_redraw) {
-         frontend_ops()->userlist_redraw();
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_redraw() : (void)0);
       }
 
       if (frontend_ops()->ptt_refresh) {
-         frontend_ops()->ptt_refresh();
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->ptt_refresh() : (void)0);
       }
    }
    ui_print(room, "%sRoom %s", get_chat_ts(now), offline ? "OFFLINE; chat draft retained until its owner returns" : "ONLINE");
@@ -1020,7 +1082,13 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
          strlcat(listed, rrclient_room_available_iter(i), capacity);
       }
 
-      ui_print(ui_active_window_name(), "%s\00308Available rooms:\017 %s", get_chat_ts(now), *listed ? listed : "(none)");
+      /* Network events run on the core thread. Never read the GTK notebook
+       * selection here: route the site room directory to its lobby. */
+      const char *output = rrclient_gtk_event_frontend()
+         ? ws_authoritative_room() : ui_active_window_name();
+      ui_print(output && *output ? output : NULL,
+               "%s\00308Available rooms:\017 %s", get_chat_ts(now),
+               *listed ? listed : "(none)");
       free(listed);
    }
    dict_free(d);
@@ -1044,7 +1112,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
       rrclient_room_available_remove(room);
 
       if (frontend_ops()) {
-         frontend_ops()->chat_room_remove(room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_remove(room) : (void)0);
       }
 
       if (ui_mode == UI_MODE_TUI) {
@@ -1116,7 +1184,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
       rrclient_room_part(room);
 
       if (frontend_ops()) {
-         frontend_ops()->chat_room_remove(room);
+         (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_remove(room) : (void)0);
       }
 
       if (ui_mode == UI_MODE_TUI) {
@@ -1599,8 +1667,11 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       return;
    }
 
+   gint64 media_begin_us = g_get_monotonic_time();
    rrclient_direct_message(cptr, d);
+   gint64 direct_us = g_get_monotonic_time() - media_begin_us;
    const char *cmd = dict_get(d, "media.cmd", NULL);
+   gint64 media_dispatch_us = g_get_monotonic_time();
 
    if (cmd && strcasecmp(cmd, "capab") == 0) {
       const char *codecs = dict_get(d, "media.codecs", NULL);
@@ -1658,6 +1729,12 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
    } else {
       Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>"));
    }
+   gint64 media_elapsed_us = g_get_monotonic_time() - media_begin_us;
+   if (media_elapsed_us >= 20000)
+      Log(LOG_WARN, "ws.media.timing",
+          "Slow media handler cmd=%s total=%lldus direct=%lldus operation=%lldus",
+          cmd ? cmd : "(none)", (long long)media_elapsed_us,
+          (long long)direct_us, (long long)(g_get_monotonic_time() - media_dispatch_us));
    dict_free(d);
 }
 
@@ -1671,8 +1748,8 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
    vfo_update_ui();
 
    if (frontend_ops()) {
-      frontend_ops()->userlist_redraw();
-      frontend_ops()->ptt_set_online(cptr && cptr->is_ws && ws_connected == 1);
+      (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_redraw() : (void)0);
+      rrclient_notify_ptt_online(cptr && cptr->is_ws && ws_connected == 1);
    }
 }
 
@@ -1692,7 +1769,27 @@ static void rrclient_handle_domain_identity(const char *event, const char *data,
    dict_free(identity);
 }
 
+/* GTK navigation is a command to the core, not a GTK-thread core call. */
+static void rrclient_ui_chat_link_join(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload ||
+       message->length != sizeof(rrclient_ui_chat_link_t)) return;
+   const rrclient_ui_chat_link_t *request = message->payload;
+   if (!memchr(request->room, '\0', sizeof(request->room)) ||
+       !memchr(request->server, '\0', sizeof(request->server)) ||
+       request->room[0] != '#') return;
+   if (!request->server[0] || rrclient_connection_select(request->server)) {
+      char command[] = "/join";
+      char *args[] = {command, (char *)request->room};
+      cmd_join(2, args);
+   }
+}
+
 void rrclient_register_events(void) {
+   rr_event_token_t link_token = event_on_message_domain_token(
+      RRCLIENT_UI_CHAT_LINK_EVENT, rrclient_ui_chat_link_join, NULL, "core");
+   if (!link_token)
+      Log(LOG_WARN, "core.event", "Unable to subscribe to GTK room-link navigation");
    event_on("client.server.selected", rrclient_server_selected, NULL);
    event_on("client.server.status.close", ui_server_status_close, NULL);
    rrclient_objects_register_events();

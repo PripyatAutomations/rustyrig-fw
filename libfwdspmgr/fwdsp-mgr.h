@@ -11,6 +11,9 @@
 #define __rr_fwdsp_mgr_h
 
 #include <librustyaxe/subproc.h>
+#include <glib.h>
+/* Call before starting fwdsp subprocesses; NULL restores default context. */
+void fwdsp_set_reactor_context(GMainContext *context);
 
 enum fwdsp_io_type {
    FW_IO_NONE = 0,              // invalid

@@ -73,7 +73,7 @@ static void result(const char *table, const char *action, const char *row) {
    dict_add(message, "talk.action", action);
    dict_add(message, "talk.data", row);
    char *text = dict2json(message);
-   gtk_admin_result(text, &alpha);
+   gtk_admin_result_profile(text, "alpha");
    free(text);
    dict_free(message);
 }
@@ -254,8 +254,8 @@ int main(int argc, char **argv) {
    result("rooms", "confirm", "{\"room\":\"#test\",\"deleted\":true,\"confirmation\":\"def\"}");
    assert(!strcmp(dict_get(mutation, "talk.action", ""), "room-remove"));
    assert(!strcmp(dict_get(mutation, "talk.data", ""), "def"));
-   gtk_supervision_result(
-      "{\"talk\":{\"action\":\"request\",\"target\":\"abc\",\"room\":\"#test\",\"user\":\"NOOB\",\"data\":\"Control operator responsibility\"}}", &alpha);
+   gtk_supervision_result_profile(
+      "{\"talk\":{\"action\":\"request\",\"target\":\"abc\",\"room\":\"#test\",\"user\":\"NOOB\",\"data\":\"Control operator responsibility\"}}", "alpha");
    assert(g_list_length(supervision_dialogs) == 1);
    gtk_dialog_response(GTK_DIALOG(((supervision_dialog_t *) supervision_dialogs->data)->dialog), GTK_RESPONSE_YES);
    assert(!supervision_dialogs && !strcmp(dict_get(sent, "talk.data", ""), "accept abc"));

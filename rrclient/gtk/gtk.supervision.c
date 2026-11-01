@@ -14,26 +14,26 @@ extern GtkWidget *main_notebook;
 typedef struct {
    RRFloatPanel *dialog;
    char *profile, *id, *room;
-   rrconn_t *connection;
 } supervision_dialog_t;
 static GList *supervision_dialogs;
 static void supervision_response(RRFloatPanel *dialog, gint response, gpointer data) {
    supervision_dialog_t *prompt = data;
-   rrconn_t *client = rrclient_connection_find(prompt->profile);
-
-   if ((response == GTK_RESPONSE_YES || response == GTK_RESPONSE_NO) && client == prompt->connection && client->authenticated) {
-      dict *d = dict_new();
-
-      if (d) {
-         char tail[96];
-         snprintf(tail, sizeof(tail), "%s %s", response == GTK_RESPONSE_YES ? "accept" : "decline", prompt->id);
-         dict_add(d, "msg.type", "talk");
-         dict_add(d, "talk.cmd", "supervise");
-         dict_add(d, "talk.room", prompt->room);
-         dict_add(d, "talk.data", tail);
-         ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
-         dict_free(d);
-      }
+   if (response == GTK_RESPONSE_YES || response == GTK_RESPONSE_NO) {
+      /* Only stable identities cross into core; the core verifies the live
+       * connection and sends the actual supervision command. */
+      typedef struct {
+         char profile[128], room[128], id[96];
+         uint8_t accept;
+      } SupervisionReply;
+      SupervisionReply reply = {0};
+      snprintf(reply.profile, sizeof(reply.profile), "%s", prompt->profile);
+      snprintf(reply.room, sizeof(reply.room), "%s", prompt->room);
+      snprintf(reply.id, sizeof(reply.id), "%s", prompt->id);
+      reply.accept = response == GTK_RESPONSE_YES ? 1 : 0;
+      rr_event_message_t message = {
+         .name = "client.supervision.reply", .payload = &reply, .length = sizeof(reply)
+      };
+      event_emit_message(&message);
    }
    supervision_dialogs = g_list_remove(supervision_dialogs, prompt);
    rr_floating_panel_destroy(dialog);
@@ -42,7 +42,7 @@ static void supervision_response(RRFloatPanel *dialog, gint response, gpointer d
    g_free(prompt->room);
    g_free(prompt);
 }
-void gtk_supervision_result(const char *data, rrconn_t *connection) {
+void gtk_supervision_result_profile(const char *data, const char *profile) {
    dict *d = data ? json2dict(data) : NULL;
    const char *id = d ? dict_get(d, "talk.target", "") : "";
    const char *action = d ? dict_get(d, "talk.action", "") : "closed";
@@ -51,7 +51,7 @@ void gtk_supervision_result(const char *data, rrconn_t *connection) {
       next = p->next;
       supervision_dialog_t *prompt = p->data;
 
-      if (prompt->connection == connection && (!d || !strcmp(prompt->id, id))) {
+      if (!g_strcmp0(prompt->profile, profile) && (!d || !strcmp(prompt->id, id))) {
          if (!strcmp(action, "request")) {
             dict_free(d);
 
@@ -63,8 +63,7 @@ void gtk_supervision_result(const char *data, rrconn_t *connection) {
 
    if (d && !strcmp(action, "request")) {
       supervision_dialog_t *prompt = g_new0(supervision_dialog_t, 1);
-      prompt->profile = g_strdup(rrclient_connection_name(connection));
-      prompt->connection = connection;
+      prompt->profile = g_strdup(profile);
       prompt->id = g_strdup(id);
       prompt->room = g_strdup(dict_get(d, "talk.room", ""));
       GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;

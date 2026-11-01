@@ -50,6 +50,7 @@ extern defconfig_t defcfg[];
 #define INPUT_HISTORY_MAX 64
 #include <rrclient/ui.h>
 #include <rrclient/media.h>
+#include <rrclient/audio.h>
 #include <rrclient/frontend.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
@@ -80,6 +81,63 @@ void rrclient_send_ptt_command(rrconn_t *connection, const char *vfo, bool on, c
       return;
    }
    ws_send_ptt_cmd_in_room(connection, vfo, on, room);
+}
+
+/* GTK issues requests only; the core domain owns connection and TX state. */
+typedef struct {
+   char room[128];
+   char vfo;
+   char on;
+} RrPttRequest;
+static void rrclient_ptt_request_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(RrPttRequest)) return;
+   RrPttRequest request;
+   memcpy(&request, message->payload, sizeof(request));
+   if (request.on != 0 && request.on != 1) return;
+   if (request.vfo < 'A' || request.vfo > 'D') return;
+   if (!memchr(request.room, '\0', sizeof(request.room))) return;
+   if (!ws_conn || ws_connected != 1) return;
+   char vfo[2] = {request.vfo, '\0'};
+   /* PTT targets the rig's TX-control room, not the currently selected
+    * chat tab. rrclient_current_room() can resolve to the authoritative
+    * chat room when this event runs on core, which is not necessarily the
+    * room the GTK rig controls. */
+   if (request.on && (!rrclient_room_tx_control(request.room) ||
+                      request.vfo != vfo_state_get_active())) {
+      Log(LOG_WARN, "ptt", "Rejecting PTT ON: no TX-control access or VFO changed (room=%s vfo=%c)", request.room, request.vfo);
+      return;
+   }
+   Log(LOG_DEBUG, "ptt", "Core PTT request: %s room=%s vfo=%c", request.on ? "ON" : "OFF", request.room, request.vfo);
+   rrclient_send_ptt_command(ws_conn, vfo, request.on != 0, request.room);
+}
+
+/* Supervision decisions arrive from GTK without an rrconn_t pointer. */
+typedef struct {
+   char profile[128], room[128], id[96];
+   uint8_t accept;
+} SupervisionReply;
+static void rrclient_supervision_reply_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(SupervisionReply)) return;
+   SupervisionReply reply;
+   memcpy(&reply, message->payload, sizeof(reply));
+   if (!memchr(reply.profile, 0, sizeof(reply.profile)) ||
+       !memchr(reply.room, 0, sizeof(reply.room)) ||
+       !memchr(reply.id, 0, sizeof(reply.id)) || !reply.profile[0] ||
+       !reply.id[0] || reply.accept > 1) return;
+   rrconn_t *connection = rrclient_connection_find(reply.profile);
+   if (!connection || !connection->authenticated) return;
+   dict *d = dict_new();
+   if (!d) return;
+   char tail[128];
+   snprintf(tail, sizeof(tail), "%s %s", reply.accept ? "accept" : "decline", reply.id);
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "supervise");
+   dict_add(d, "talk.room", reply.room);
+   dict_add(d, "talk.data", tail);
+   ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
 }
 
 extern const char *configs[];   // from defcfg.c
@@ -162,7 +220,54 @@ static bool rrclient_config_refresh(const char *key) {
    return true;
 }
 
+/* The process main/default GLib context is the core domain. Messages
+ * from frontend workers enter here with owned envelopes, not rrconn_t
+ * pointers. The TUI and GTK configurations share this destination. */
+typedef struct {
+   event_dispatch_fn_t fn;
+   void *arg;
+} CoreEventDelivery;
+static gboolean rrclient_core_deliver_event(gpointer opaque) {
+   CoreEventDelivery *delivery = opaque;
+   delivery->fn(delivery->arg);
+   return G_SOURCE_REMOVE;
+}
+static void rrclient_core_dispatch_event(event_dispatch_fn_t fn, void *arg, void *user) {
+   GMainContext *context = user;
+   CoreEventDelivery *delivery = g_new(CoreEventDelivery, 1);
+   *delivery = (CoreEventDelivery){fn, arg};
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, rrclient_core_deliver_event, delivery, g_free);
+   g_source_attach(source, context);
+   g_source_unref(source);
+}
+
+/* Opt-in dedicated core scheduler context. Other legacy GLib sources must
+ * migrate before the entire core is isolated from GTK. */
+static GMainContext *rr_experiment_core_context;
+static guint rr_core_timeout(guint interval, gint priority, GSourceFunc callback) {
+   GSource *source = g_timeout_source_new(interval);
+   g_source_set_priority(source, priority);
+   g_source_set_callback(source, callback, NULL, NULL);
+   guint id = g_source_attach(source, rr_experiment_core_context ?
+                              rr_experiment_core_context : g_main_context_default());
+   g_source_unref(source);
+   return id;
+}
+
 static gboolean ws_poll_cb(gpointer user_data) {
+   /* Diagnostic latency of the core scheduler, independent of GTK's
+    * widget paint callbacks. Rate-limit reports to once per 10 seconds. */
+   static gint64 last_poll_us, last_report_us;
+   gint64 tick_us = g_get_monotonic_time();
+   if (last_poll_us && tick_us - last_poll_us > 100000 &&
+       tick_us - last_report_us > 10000000) {
+      Log(LOG_WARN, "core.scheduler",
+          "Network scheduler poll gap=%" G_GINT64_FORMAT "us tid=%p",
+          tick_us - last_poll_us, (void *)g_thread_self());
+      last_report_us = tick_us;
+   }
+   last_poll_us = tick_us;
    if (dying) {
       return G_SOURCE_REMOVE;
    }
@@ -263,7 +368,7 @@ void shutdown_app(int signum) {
 #define MG_POLL_INTERVAL_MS 10
 
 void poll_mongoose_init(void) {
-   g_timeout_add_full(G_PRIORITY_HIGH, MG_POLL_INTERVAL_MS, ws_poll_cb, NULL, NULL);
+   rr_core_timeout(MG_POLL_INTERVAL_MS, G_PRIORITY_HIGH, ws_poll_cb);
 }
 #endif // USE_MONGOOSE
 
@@ -447,6 +552,10 @@ bool rrclient_cleanup(void) {
    rrclient_receiver_connect_shutdown();
    receiver_directory_shutdown();
 
+   /* Stop/join the RX mixer and close its duplicated playback descriptor
+    * before destroying the fwdsp processes it writes to. */
+   ws_audio_shutdown();
+
    // Stop all fwdsp children while their Mongoose wrappers and logging are
    // still alive. This also releases encoders retained by fwdsp.hangtime.
    fwdsp_fini();
@@ -493,6 +602,31 @@ void show_arg_help(int argc, char **argv) {
 }
 
 ////////////////////////////
+/* Opt-in diagnostic: GTK on its own thread, core on process main.
+ * Direct GUI/core calls are not fully migrated; do not enable by default. */
+typedef struct {
+   const rr_frontend_ops_t *ops;
+   int argc;
+   char **argv;
+   GMutex mutex;
+   GCond cond;
+   bool ready, failed;
+   GMainLoop *core_loop;
+} rr_gtk_experiment_t;
+static gpointer rr_gtk_experiment_thread(gpointer data) {
+   rr_gtk_experiment_t *e = data;
+   Log(LOG_INFO, "core.thread", "GTK worker starting tid=%p", (void *)g_thread_self());
+   bool failed = e->ops->init(&e->argc, &e->argv);
+   g_mutex_lock(&e->mutex);
+   e->failed = failed;
+   e->ready = true;
+   g_cond_signal(&e->cond);
+   g_mutex_unlock(&e->mutex);
+   if (!failed) e->ops->run();
+   g_main_loop_quit(e->core_loop);
+   return NULL;
+}
+
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
    char *autoconnect_server = NULL; // -s: server profile to connect to on start
@@ -636,6 +770,19 @@ int main(int argc, char *argv[]) {
       Log(LOG_CRIT, "config", "Unable to load client configuration");
       exit(1);
    }
+   /* Choose the execution topology once, after loading configuration and
+    * before installing the core event domain, reactor and timer sources. */
+   const bool new_threading = cfg_get_bool("core.new-threading", true) && !force_tui;
+   if (new_threading) {
+      rr_experiment_core_context = g_main_context_new();
+      fwdsp_set_reactor_context(rr_experiment_core_context);
+      logger_set_drain_context(rr_experiment_core_context);
+   }
+   if (!event_domain_register("core", rrclient_core_dispatch_event,
+          rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default()))
+      Log(LOG_WARN, "core.event", "Unable to register core event delivery domain");
+   Log(LOG_INFO, "core.thread", "Frontend threading model: %s",
+       new_threading ? "new" : "legacy");
 #ifndef _WIN32
    const char *module_dir = cfg_get("path.modules");
    struct stat module_stat;
@@ -659,14 +806,16 @@ int main(int argc, char *argv[]) {
 
    // apply some global configuration
    char *logfile = cfg_get_path("log.file");
-   const char *log_target = logfile ? logfile : "-";
-
-   // "-" means stdout for GTK. Other modes use stdout for their UI, so route
-   // the common setting to the normal client log file instead.
-   if (ui_mode != UI_MODE_GTK && strcmp(log_target, "-") == 0) {
-      log_target = "rrclient.log";
+   /* Keep trace traffic on disk rather than stdout/the GTK console.
+    * An explicitly configured file path continues to take precedence. */
+   char *default_logfile = NULL;
+   const char *log_target = logfile;
+   if (!log_target || !*log_target || !strcmp(log_target, "-")) {
+      default_logfile = g_build_filename(g_get_home_dir(), "rrclient.log", NULL);
+      log_target = default_logfile;
    }
    logger_init(log_target, (ui_mode == UI_MODE_TUI));
+   g_free(default_logfile);
 
    if (!rrclient_database_init() || !rrclient_database_load_profiles() || !rrclient_database_load_themes()) {
       Log(LOG_CRIT, "db", "Unable to initialize client database");
@@ -704,13 +853,16 @@ int main(int argc, char *argv[]) {
 
    // Reap exited children and expire warm encoders after fwdsp.hangtime.
    // This is independent of the UI and Mongoose polling mechanisms.
-   g_timeout_add(1000, fwdsp_maintenance_cb, NULL);
+   rr_core_timeout(1000, G_PRIORITY_DEFAULT, fwdsp_maintenance_cb);
 
    // Setup stdio & clock: the frontend module must be chosen first, so
    // the TUI setup below runs only when no graphical frontend loaded.
    // The [modules] config section decides what to load, e.g.:
    //    [modules]
    //    rrclient-gtk.so=
+   const bool gtk_thread_experiment = new_threading;
+   rr_gtk_experiment_t gtk_test = {0};
+   GThread *gtk_worker = NULL;
    const char *module_options = NULL;
    const char *requested = force_tui ? NULL : cfg_modules_get(0, &module_options);
    const char *loaded_name = NULL;
@@ -726,8 +878,29 @@ int main(int argc, char *argv[]) {
             // init (e.g. gtk_init) needs the real argc/argv; a failed init
             // (no display, theme problems) unloads the module and we fall
             // back to TUI.
-            if (frontend_ops()->init(&argc, &argv)) {
+            if (gtk_thread_experiment) {
+               gtk_test.ops = frontend_ops();
+               gtk_test.argc = argc;
+               gtk_test.argv = argv;
+               gtk_test.core_loop = g_main_loop_new(rr_experiment_core_context, FALSE);
+               g_mutex_init(&gtk_test.mutex);
+               g_cond_init(&gtk_test.cond);
+               gtk_worker = g_thread_new("rrclient-gtk", rr_gtk_experiment_thread, &gtk_test);
+               g_mutex_lock(&gtk_test.mutex);
+               while (!gtk_test.ready)
+                  g_cond_wait(&gtk_test.cond, &gtk_test.mutex);
+               g_mutex_unlock(&gtk_test.mutex);
+            }
+            if (gtk_worker ? gtk_test.failed : frontend_ops()->init(&argc, &argv)) {
                Log(LOG_CRIT, "core", "Frontend module init failed; falling back to TUI");
+               if (gtk_worker) {
+                  /* Failed init worker must exit before we dlclose its code. */
+                  g_thread_join(gtk_worker);
+                  gtk_worker = NULL;
+                  g_main_loop_unref(gtk_test.core_loop);
+                  g_cond_clear(&gtk_test.cond);
+                  g_mutex_clear(&gtk_test.mutex);
+               }
                rr_unload_module(requested);
                frontend_module = NULL;
                loaded_name = NULL;
@@ -773,6 +946,13 @@ int main(int argc, char *argv[]) {
 
    // Register all of our core event handlers
    rrclient_register_events();
+   if (!event_on_message_domain_token("client.supervision.reply",
+          rrclient_supervision_reply_event, NULL, "core"))
+      Log(LOG_WARN, "supervision", "Unable to register supervision reply event");
+
+   if (!event_on_message_domain_token("client.ptt.request",
+          rrclient_ptt_request_event, NULL, "core"))
+      Log(LOG_WARN, "ptt", "Unable to register core PTT request handler");
    rrclient_receiver_connect_init();
    webcam_client_register_events();
    connman_register_events();
@@ -792,9 +972,19 @@ int main(int argc, char *argv[]) {
       GMainLoop *tui_loop = g_main_loop_new(NULL, FALSE);
       g_main_loop_run(tui_loop);
    } else if (frontend_module) {
-      // The frontend module owns gtk_main(); its init() built the UI and its
-      // run() below returns only when the loop ends.
-      frontend_ops()->run();
+      if (gtk_worker) {
+         /* In experimental mode the main/default context services core IO. */
+         rr_core_timeout(rr_rtp_supported(false) ? 10 : 50, G_PRIORITY_DEFAULT, ws_poll_cb);
+         Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p context=%p", (void *)g_thread_self(), (void *)rr_experiment_core_context);
+         g_main_loop_run(gtk_test.core_loop);
+         g_thread_join(gtk_worker);
+         gtk_worker = NULL;
+         g_main_loop_unref(gtk_test.core_loop);
+         g_cond_clear(&gtk_test.cond);
+         g_mutex_clear(&gtk_test.mutex);
+      } else {
+         frontend_ops()->run();
+      }
    }
    rrclient_cleanup();
 

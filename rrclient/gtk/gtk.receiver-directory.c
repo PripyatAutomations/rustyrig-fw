@@ -60,6 +60,105 @@ static GtkTreeStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token, failure_token, local_vfo_token;
 static char *receiver_failure;
+extern bool rr_module_token_add(rr_event_token_t token);
+/* GTK owns these copies. They can never be invalidated by a core refresh. */
+static rr_receiver_directory_snapshot_row_t *snapshot_rows;
+static receiver_directory_entry_t *snapshot_entries;
+static size_t snapshot_count;
+static char snapshot_status[512], snapshot_info[1024];
+static char snapshot_error[512], snapshot_source[1024];
+static gboolean snapshot_busy;
+static void directory_download_wait(void);
+static void directory_download_finished(void);
+static guint snapshot_timeout_source;
+static gboolean snapshot_pending, snapshot_dirty;
+static void populate(void);
+
+static const receiver_directory_entry_t *snapshot_receiver(size_t index) {
+   return index < snapshot_count ? &snapshot_entries[index] : NULL;
+}
+static gboolean snapshot_timeout(gpointer unused) {
+   (void)unused;
+   snapshot_timeout_source = 0;
+   if (snapshot_pending) {
+      snapshot_pending = FALSE;
+      if (download_status) {
+         gtk_spinner_stop(GTK_SPINNER(download_spinner));
+         gtk_widget_hide(download_status);
+      }
+      if (directory_status)
+         gtk_label_set_text(GTK_LABEL(directory_status),
+            "SDR directory update is taking too long. Keeping the last snapshot; try Refresh later.");
+   }
+   return G_SOURCE_REMOVE;
+}
+static void snapshot_request(void) {
+   if (snapshot_pending) { snapshot_dirty = TRUE; return; } /* Coalesce rapid changes. */
+   snapshot_pending = TRUE;
+   if (directory_status && !snapshot_count)
+      gtk_label_set_text(GTK_LABEL(directory_status), "Loading SDR directory snapshot…");
+   if (snapshot_timeout_source) g_source_remove(snapshot_timeout_source);
+   snapshot_timeout_source = g_timeout_add_seconds(5, snapshot_timeout, NULL);
+   rr_event_message_t request = { .name = "client.receiver.snapshot.request" };
+   event_emit_message(&request);
+}
+static void snapshot_received(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length < sizeof(rr_receiver_directory_snapshot_header_t)) return;
+   rr_receiver_directory_snapshot_header_t header;
+   memcpy(&header, message->payload, sizeof(header));
+   if (header.count > 10000 ||
+       message->length - sizeof(header) != (size_t)header.count *
+                                             sizeof(rr_receiver_directory_snapshot_row_t) ||
+       !memchr(header.status, 0, sizeof(header.status)) ||
+       !memchr(header.info, 0, sizeof(header.info)) ||
+       !memchr(header.error, 0, sizeof(header.error)) ||
+       !memchr(header.source, 0, sizeof(header.source)) || header.busy > 1) return;
+   rr_receiver_directory_snapshot_row_t *rows = g_memdup2(
+      (const char *)message->payload + sizeof(header),
+      (size_t)header.count * sizeof(*rows));
+   receiver_directory_entry_t *entries = g_new0(receiver_directory_entry_t, header.count);
+   for (size_t i = 0; i < header.count; ++i) {
+      rr_receiver_directory_snapshot_row_t *r = &rows[i];
+      receiver_directory_entry_t *e = &entries[i];
+#define VIEW_FIELD(name) e->name = r->name
+      VIEW_FIELD(driver); VIEW_FIELD(url); VIEW_FIELD(name);
+      VIEW_FIELD(description); VIEW_FIELD(location); VIEW_FIELD(country);
+      VIEW_FIELD(contact); VIEW_FIELD(antenna); VIEW_FIELD(hardware);
+      VIEW_FIELD(grid); VIEW_FIELD(properties); VIEW_FIELD(local_reason);
+#undef VIEW_FIELD
+      /* The policy distinguishes unknown (NULL) from a reported failure.
+       * A fixed-size snapshot encodes NULL as an empty string. Restore NULL
+       * here or Availability incorrectly hides most cached receivers. */
+      e->local_state = r->local_state[0] ? r->local_state : NULL;
+      e->users = r->users; e->users_max = r->users_max; e->ext_api = r->ext_api;
+      e->offline = r->offline; e->flagged = r->flagged; e->deleted = r->deleted;
+      e->favorite = r->favorite; e->last_seen = r->last_seen;
+      e->learned_at = r->learned_at; e->state_updated = r->state_updated;
+      e->last_connected = r->last_connected; e->low_hz = r->low_hz;
+      e->high_hz = r->high_hz;
+   }
+   g_free(snapshot_entries);
+   g_free(snapshot_rows);
+   snapshot_rows = rows; snapshot_entries = entries; snapshot_count = header.count;
+   g_strlcpy(snapshot_status, header.status, sizeof(snapshot_status));
+   g_strlcpy(snapshot_info, header.info, sizeof(snapshot_info));
+   g_strlcpy(snapshot_error, header.error, sizeof(snapshot_error));
+   g_strlcpy(snapshot_source, header.source, sizeof(snapshot_source));
+   snapshot_busy = header.busy != 0;
+   snapshot_pending = FALSE;
+   if (snapshot_timeout_source) {
+      g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0;
+   }
+   if (directory_page && directory_store) populate();
+   if (snapshot_busy) directory_download_wait();
+   else directory_download_finished();
+   if (snapshot_dirty) {
+      snapshot_dirty = FALSE;
+      snapshot_request(); /* A change arrived while the previous copy was in flight. */
+   }
+}
+
 /* Sort Country by region then city where region abbreviations are reliable. */
 static bool region_code(const char *country, const char *piece) {
    static const char *us =
@@ -172,7 +271,7 @@ static const receiver_directory_entry_t *selected_receiver(void) {
    gtk_tree_model_get(model, &iter, COL_INDEX, &index, -1);
 
    if (index == G_MAXUINT) return NULL;
-   return receiver_directory_receiver(index);
+   return snapshot_receiver(index);
 }
 static char *observation_time(long long stamp) {
    GDateTime *date = stamp > 0 ? g_date_time_new_from_unix_local(stamp) : NULL;
@@ -235,7 +334,7 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
       } while (gtk_tree_model_iter_next(model, &child));
       return FALSE;
    }
-   const receiver_directory_entry_t *r = receiver_directory_receiver(index);
+   const receiver_directory_entry_t *r = snapshot_receiver(index);
 
    if (!r) {
       return FALSE;
@@ -282,22 +381,33 @@ static void populate(void) {
    /* GtkTreeModelSort atop GtkTreeModelFilter cannot safely be switched to UNSORTED during a live rebuild: GTK can assert in fill_sort_data() while
     * selection/filter callbacks are running. Keep sort columns stable. */
    gtk_tree_store_clear(directory_store);
-   size_t count = receiver_directory_count();
+   size_t count = snapshot_count;
    GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    GtkTreeIter connected_group;
    gtk_tree_store_append(directory_store, &connected_group, NULL);
    gtk_tree_store_set(directory_store, &connected_group, COL_INDEX, G_MAXUINT,
       COL_LOCATION, "Connected SDRs", COL_GROUP, "0", -1);
+   GHashTable *country_counts = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    for (size_t i = 0; i < count; i++) {
-      const receiver_directory_entry_t *r = receiver_directory_receiver(i);
+      const receiver_directory_entry_t *r = snapshot_receiver(i);
+      if (!r) continue;
+      const char *country = r->country && *r->country ? r->country : "Unknown";
+      guint total = GPOINTER_TO_UINT(g_hash_table_lookup(country_counts, country));
+      g_hash_table_replace(country_counts, g_strdup(country), GUINT_TO_POINTER(total + 1));
+   }
+   for (size_t i = 0; i < count; i++) {
+      const receiver_directory_entry_t *r = snapshot_receiver(i);
       if (!r) continue;
       const char *country = r->country && *r->country ? r->country : "Unknown";
       GtkTreeIter *parent = g_hash_table_lookup(groups, country);
       if (!parent) {
          parent = g_new0(GtkTreeIter, 1);
          gtk_tree_store_append(directory_store, parent, NULL);
+         guint country_count = GPOINTER_TO_UINT(g_hash_table_lookup(country_counts, country));
+         char *label = g_strdup_printf("%s (%u)", country, country_count);
          gtk_tree_store_set(directory_store, parent, COL_INDEX, G_MAXUINT,
-            COL_LOCATION, country, COL_GROUP, "1", -1);
+            COL_LOCATION, label, COL_GROUP, "1", -1);
+         g_free(label);
          g_hash_table_insert(groups, g_strdup(country), parent);
       }
       bool local = rrclient_local_bridge_connected(r->url);
@@ -320,16 +430,15 @@ static void populate(void) {
       }
    }
    g_hash_table_destroy(groups);
+   g_hash_table_destroy(country_counts);
    GtkTreePath *connected_path = gtk_tree_path_new_from_indices(0, -1);
    gtk_tree_view_expand_row(GTK_TREE_VIEW(directory_tree), connected_path, FALSE);
    gtk_tree_path_free(connected_path);
 
-   char *info = receiver_directory_info();
-   char *summary = g_strdup_printf("%s\n%s", receiver_directory_status(), info);
+   char *summary = g_strdup_printf("%s\n%s", snapshot_status, snapshot_info);
    gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure ? receiver_failure : summary);
-   g_free(info);
    g_free(summary);
-   gtk_widget_set_sensitive(refresh_button, !receiver_directory_busy());
+   gtk_widget_set_sensitive(refresh_button, !snapshot_busy);
    /* Restore a receiver by walking children of both country and connected groups. */
    GtkTreeModel *tree_model = gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
    GtkTreeIter parent;
@@ -360,13 +469,13 @@ static void directory_download_wait(void) {
    if (!directory_page || !download_status) {
       return;
    }
-   bool busy = receiver_directory_busy();
+   bool busy = snapshot_busy;
    gtk_widget_set_visible(download_status, busy);
 
    if (!busy) {
       return;
    }
-   const char *url = receiver_directory_fetch_url();
+   const char *url = snapshot_source;
    char *message = g_strdup_printf("Please wait downloading directory from %s", url && *url ? url : "(unknown source)");
    GtkWidget *label = g_object_get_data(G_OBJECT(download_status), "download-label");
    gtk_label_set_text(GTK_LABEL(label), message);
@@ -374,7 +483,7 @@ static void directory_download_wait(void) {
    g_free(message);
 }
 static void directory_download_finished(void) {
-   if (!directory_page || receiver_directory_busy()) {
+   if (!directory_page || snapshot_busy) {
       return;
    }
 
@@ -382,10 +491,10 @@ static void directory_download_finished(void) {
       gtk_spinner_stop(GTK_SPINNER(download_spinner));
       gtk_widget_hide(download_status);
    }
-   const char *reason = receiver_directory_last_error();
+   const char *reason = snapshot_error;
 
    if (reason && *reason) {
-      const char *source = receiver_directory_source_url();
+      const char *source = snapshot_source;
       char *message = g_strdup_printf("Unable to download SDR Directory: %s\\nSource: %s\\n"
          "Check receiver-directory.url in rrclient.cfg (or RRCLIENT_RECEIVER_DIRECTORY_URL), "
          "the network and proxy settings. Cached receivers, if any, remain available.", reason, source && *source ? source : "(not configured)");
@@ -394,23 +503,12 @@ static void directory_download_finished(void) {
    }
 }
 static gboolean directory_start_refresh(gpointer force_request) {
-   gboolean started = receiver_directory_refresh_force(GPOINTER_TO_INT(force_request) != 0);
-
-   if (started && receiver_directory_busy()) {
-      directory_download_wait();
-   } else {
-      directory_download_finished();
-      const char *status = receiver_directory_last_error();
-
-      if (!status || !*status) {
-         status = receiver_directory_status();
-      }
-
-      if (status && *status) {
-         gtk_label_set_text(GTK_LABEL(directory_status), status);
-      }
-   }
-
+   char force = GPOINTER_TO_INT(force_request) != 0;
+   rr_event_message_t request = {
+      .name = "client.receiver.refresh.request", .payload = &force, .length = 1
+   };
+   event_emit_message(&request);
+   snapshot_request();
    return G_SOURCE_REMOVE;
 }
 static void directory_refresh_with_wait(gboolean force) {
@@ -429,8 +527,7 @@ static void directory_changed(const char *event, const char *data, rrconn_t *con
    (void)data;
    (void)connection;
    (void)unused;
-   populate();
-   directory_download_finished();
+   snapshot_request();
 }
 static void refresh_clicked(GtkButton *button, gpointer unused) {
    (void)button;
@@ -438,6 +535,26 @@ static void refresh_clicked(GtkButton *button, gpointer unused) {
    GdkModifierType modifiers = 0;
    gboolean force = gtk_get_current_event_state(&modifiers) && (modifiers & GDK_SHIFT_MASK);
    directory_refresh_with_wait(force);
+}
+
+typedef struct {
+   char action; /* I import, F favorite, S mark */
+   char value[1024], state[128];
+   char favorite;
+} ReceiverDirectoryMutation;
+
+static void directory_mutate(char action, const char *value, const char *state, bool favorite) {
+   ReceiverDirectoryMutation req = {0};
+   if (!value || strlen(value) >= sizeof(req.value) ||
+       (state && strlen(state) >= sizeof(req.state))) return;
+   req.action = action;
+   g_strlcpy(req.value, value, sizeof(req.value));
+   if (state) g_strlcpy(req.state, state, sizeof(req.state));
+   req.favorite = favorite ? 1 : 0;
+   rr_event_message_t event = {
+      .name = "client.receiver.directory.mutate", .payload = &req, .length = sizeof(req)
+   };
+   event_emit_message(&event);
 }
 static void import_clicked(GtkButton *button, gpointer unused) {
    (void)button;
@@ -447,7 +564,7 @@ static void import_clicked(GtkButton *button, gpointer unused) {
 
    if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
       char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-      receiver_directory_import(path);
+      directory_mutate('I', path, NULL, false);
       g_free(path);
    }
    gtk_widget_destroy(chooser);
@@ -465,9 +582,7 @@ static void directory_menu_command(GtkMenuItem *item, gpointer user) {
    else if (!strcmp(command, "refresh")) directory_refresh_with_wait(FALSE);
    else if (g_str_has_prefix(command, "mark:")) {
       const receiver_directory_entry_t *r = selected_receiver();
-      if (r && !receiver_directory_set_state(r->url, command + 5,
-            !strcmp(command + 5, "unknown") ? "" : "User report; receiver was not probed"))
-         gtk_label_set_text(GTK_LABEL(directory_status), "Unable to save receiver mark");
+      if (r) directory_mutate('S', r->url, command + 5, false);
    }
 }
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
@@ -527,6 +642,26 @@ static gboolean proxy_refresh_timer(gpointer unused) {
    proxy_refresh();
    return G_SOURCE_CONTINUE;
 }
+/* Thread boundary: GTK must not run the receiver connection state machine. */
+static void receiver_connect_request(const char *url, gboolean save,
+                                     const char *room, gboolean autogenerated) {
+   typedef struct {
+      char url[1024], room[256];
+      char save, autogenerated;
+   } ReceiverConnectRequest;
+   ReceiverConnectRequest req = {0};
+   if (!url || strlen(url) >= sizeof(req.url) ||
+       (room && strlen(room) >= sizeof(req.room))) return;
+   g_strlcpy(req.url, url, sizeof(req.url));
+   if (room) g_strlcpy(req.room, room, sizeof(req.room));
+   req.save = save != FALSE;
+   req.autogenerated = autogenerated != FALSE;
+   rr_event_message_t message = {
+      .name = "client.receiver.connect.request",
+      .payload = &req, .length = sizeof(req)
+   };
+   event_emit_message(&message);
+}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -567,7 +702,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    }
 
    if (GPOINTER_TO_INT(save)) {
-      rrclient_receiver_connect(r->url, true);
+      receiver_connect_request(r->url, TRUE, NULL, FALSE);
 
       return;
    }
@@ -594,7 +729,24 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       }
    }
 
-   gtk_combo_box_set_active(GTK_COMBO_BOX(choose), 0);
+   /* Prefer a joined, existing SDR room so new receivers share its VFOs.
+    * Keep "Create new room" available explicitly at index zero. */
+   int preferred = 0;
+   for (unsigned i = 0; ; i++) {
+      const char *room = rrclient_room_iter(i);
+      if (!room) break;
+      if (g_str_has_prefix(room, "#sdr-") && rrclient_room_is_joined(room)) {
+         for (int n = 1; n <= (int)count; n++) {
+            gtk_combo_box_set_active(GTK_COMBO_BOX(choose), n);
+            char *candidate = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(choose));
+            gboolean match = candidate && !g_strcmp0(candidate, room);
+            g_free(candidate);
+            if (match) { preferred = n; break; }
+         }
+         if (preferred) break;
+      }
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(choose), preferred);
    gtk_box_pack_start(GTK_BOX(area), choose, FALSE, FALSE, 4);
    GtkWidget *hint_room = gtk_label_new("Create new room on connection");
    gtk_label_set_xalign(GTK_LABEL(hint_room), 0);
@@ -607,7 +759,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       const char *room = existing ? existing : NULL;
 
       if (selected == 0 || (room && ws_room_name_valid(room))) {
-         rrclient_receiver_connect_room_ex(r->url, false, room, selected == 0);
+         receiver_connect_request(r->url, FALSE, room, selected == 0);
       } else {
          gtk_label_set_text(GTK_LABEL(directory_status), "Invalid existing room name.");
       }
@@ -635,7 +787,7 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
    (void)event; (void)connection; (void)unused;
    if (!directory_page) return;
    if (data) gtk_label_set_text(GTK_LABEL(directory_status), data);
-   populate(); /* Rebuild the connected group as connections come and go. */
+   snapshot_request(); /* Refresh the immutable GUI copy. */
 }
 static void copy_clicked(GtkButton *button, gpointer config) {
    (void)button;
@@ -655,13 +807,13 @@ static void favorite_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
    const receiver_directory_entry_t *r = selected_receiver();
-   if (r) receiver_directory_set_favorite(r->url, !r->favorite);
+   if (r) directory_mutate('F', r->url, NULL, !r->favorite);
 }
 static gboolean directory_populate_idle(gpointer unused) {
    (void)unused;
 
    if (directory_page && directory_store) {
-      populate();
+      snapshot_request();
    }
 
    return G_SOURCE_REMOVE;
@@ -843,13 +995,23 @@ static void local_vfo_changed(const char *event, const char *data, rrconn_t *con
    gtk_chat_room_vfos_changed("&local-sdr");
 }
 void gtk_receiver_directory_init(void) {
-   connection_token = event_on_token("client.receiver-directory.connection", connection_status, NULL);
-   local_vfo_token = event_on_token("client.local-bridge.vfo", local_vfo_changed, NULL);
-   directory_token = event_on_token("client.receiver-directory.changed", directory_changed, NULL);
-   show_token = event_on_token("client.receiver-directory.show", show_directory, NULL);
-   failure_token = event_on_token("client.receiver-directory.failed", receiver_failed, NULL);
+   rr_event_token_t snapshot_event = event_on_message_domain_token(
+      "client.ui.receiver.snapshot", snapshot_received, NULL, "gtk");
+   if (snapshot_event) rr_module_token_add(snapshot_event);
+
+   connection_token = event_on_domain_token("client.receiver-directory.connection", connection_status, NULL, "gtk");
+   local_vfo_token = event_on_domain_token("client.local-bridge.vfo", local_vfo_changed, NULL, "gtk");
+   directory_token = event_on_domain_token("client.receiver-directory.changed", directory_changed, NULL, "gtk");
+   show_token = event_on_domain_token("client.receiver-directory.show", show_directory, NULL, "gtk");
+   failure_token = event_on_domain_token("client.receiver-directory.failed", receiver_failed, NULL, "gtk");
 }
 void gtk_receiver_directory_shutdown(void) {
+   if (snapshot_timeout_source) { g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0; }
+   snapshot_pending = snapshot_dirty = FALSE;
+   g_clear_pointer(&snapshot_rows, g_free);
+   g_clear_pointer(&snapshot_entries, g_free);
+   snapshot_count = 0;
+
    if (local_vfo_token) event_off_token(local_vfo_token);
    local_vfo_token = 0;
    if (connection_token) {

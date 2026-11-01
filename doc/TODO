@@ -1,5 +1,18 @@
 Immediate needs
 ---------------
+rrclient: GNU radio companion style editor for gstreamer pipelines using enumerated (gst-inspect) details
+
+rrclient: qpwgraph-inspired editor for audio routing in the PCM hub and friends
+  - Should have a tab or part of the screen is a rack for hooking effects plugins into the audio graph
+    - like carla/vcv rack? :P
+
+rrclient: Add x/z-modem, etc (down|up)load to the terminal
+  - Pluggable so we can support various file transfer modes for experiments over top of HF ;)
+
+rrclient: we should offer per-side (L/R) delay to sync different SDRs
+  - maybe add some sort of "rtt sync" option to try to keep them synced
+    with network/buffer statuses?
+
 rrclient: Need to prompt for saving config after edit servers / on exit
 
 librrprotocol: Protocol versions and capabilities
@@ -34,3 +47,5 @@ librustyaxe: logger - extend log.level so its allows throttling like log.level=*
   Not required for monotonic protocol RTT; implement after beta transport/state work.
 
 rrbridge: More connectors!
+
+rrserver: A way to export a GPIO as RELAY | SWITCH | other types to clients

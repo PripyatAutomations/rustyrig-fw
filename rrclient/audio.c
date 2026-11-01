@@ -980,6 +980,10 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   /* audio_init() can fail before rx_sink_lock is initialized, and cleanup
+    * can be called more than once. Never clear an uninitialized mutex. */
+   if (!audio_enabled) return;
+   audio_enabled = false;
    rrclient_local_bridge_disconnect();
    rr_af_spectrum_shutdown();
 

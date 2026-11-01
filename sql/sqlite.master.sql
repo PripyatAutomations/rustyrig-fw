@@ -172,6 +172,7 @@ CREATE TABLE resource_privileges (
    expires_at INTEGER DEFAULT NULL,
    UNIQUE(subject_user,subject_host,resource_kind,resource_uuid,privilege)
 );
+
 CREATE INDEX resource_privileges_subject
    ON resource_privileges(subject_host,subject_user,resource_kind,resource_uuid);
 CREATE INDEX resource_privileges_resource
@@ -187,6 +188,7 @@ CREATE TABLE privilege_sets (
    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
    CHECK(length(name) BETWEEN 1 AND 96)
 );
+
 CREATE TABLE privilege_set_entries (
    set_id INTEGER NOT NULL REFERENCES privilege_sets(id) ON DELETE CASCADE,
    privilege TEXT NOT NULL,
@@ -194,6 +196,7 @@ CREATE TABLE privilege_set_entries (
    PRIMARY KEY(set_id,privilege),
    CHECK(length(privilege) BETWEEN 1 AND 128)
 );
+
 -- An assignment binds user@host and resource UUID to a reusable set.
 -- It can expire independently of the set definition.
 CREATE TABLE privilege_set_assignments (
@@ -208,21 +211,25 @@ CREATE TABLE privilege_set_assignments (
    expires_at INTEGER DEFAULT NULL,
    UNIQUE(set_id,subject_user,subject_host,resource_kind,resource_uuid)
 );
+
 CREATE INDEX privilege_set_assignments_subject
    ON privilege_set_assignments(subject_host,subject_user,resource_kind,resource_uuid);
 CREATE INDEX privilege_set_assignments_resource
    ON privilege_set_assignments(resource_kind,resource_uuid);
+
 -- Symbolic account groups survive remote node and rig UUID replacement.
 CREATE TABLE user_groups (
    name TEXT PRIMARY KEY COLLATE NOCASE,
    description TEXT NOT NULL DEFAULT ''
 );
+
 CREATE TABLE user_group_members (
    group_name TEXT NOT NULL REFERENCES user_groups(name) ON DELETE CASCADE,
    subject_user TEXT NOT NULL COLLATE NOCASE,
    subject_host TEXT NOT NULL DEFAULT '' COLLATE NOCASE,
    PRIMARY KEY(group_name,subject_user,subject_host)
 );
+
 CREATE TABLE user_group_privileges (
    group_name TEXT NOT NULL REFERENCES user_groups(name) ON DELETE CASCADE,
    resource_kind TEXT NOT NULL CHECK(resource_kind IN ('rig','room')),
@@ -231,6 +238,7 @@ CREATE TABLE user_group_privileges (
    effect TEXT NOT NULL CHECK(effect IN ('allow','deny')),
    PRIMARY KEY(group_name,resource_kind,resource_name,privilege)
 );
+
 CREATE INDEX user_group_members_identity ON user_group_members(subject_user,subject_host);
 CREATE INDEX privilege_set_entries_privilege
    ON privilege_set_entries(privilege);

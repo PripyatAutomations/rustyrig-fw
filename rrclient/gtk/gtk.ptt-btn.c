@@ -39,6 +39,24 @@ extern time_t poll_block_expire, poll_block_delay;
 extern bool dying;              // main.c
 extern bool rrclient_ptt_allowed(void);
 extern void rrclient_send_ptt_command(rrconn_t *, const char *, bool, const char *);
+/* Do not send network commands from GTK's event loop. */
+typedef struct {
+   char room[128];
+   char vfo;
+   char on;
+} RrPttRequest;
+static void gtk_ptt_request(const char *room, char vfo, bool on) {
+   RrPttRequest request = {0};
+   snprintf(request.room, sizeof(request.room), "%s", room ? room : "");
+   request.vfo = vfo;
+   request.on = on ? 1 : 0;
+   rr_event_message_t message = {
+      .name = "client.ptt.request",
+      .payload = &request,
+      .length = sizeof(request)
+   };
+   event_emit_message(&message);
+}
 GtkWidget *ptt_button = NULL;
 
 // PTT ack tracking: when the user toggles PTT we show PENDING (yellow) until
@@ -402,7 +420,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       char vfo[2] = {
          vfo_state_get_active(), 0
       };
-      rrclient_send_ptt_command(ws_conn, vfo, true, target_room);
+      gtk_ptt_request(target_room, vfo[0], true);
       ptt_button_set_state(false);
 
       return;
@@ -458,7 +476,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_state = false;
       ptt_button_pending_quiet = true;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
-      rrclient_send_ptt_command(ws_conn, vfo, false, target_room);
+      gtk_ptt_request(target_room, vfo[0], false);
    } else {
       // Start the local TX encoder before asking the server to key the rig.
       // The server starts its decoder before sending the matching cat.state
@@ -490,7 +508,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_quiet = false;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
       update_ptt_button_ui(button, -1);
-      rrclient_send_ptt_command(ws_conn, vfo, true, target_room);
+      gtk_ptt_request(target_room, vfo[0], true);
    }
 }
 

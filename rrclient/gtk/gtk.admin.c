@@ -1218,7 +1218,7 @@ static void admin_action(GtkButton *button, gpointer data) {
 }
 
 /* Shade odd visible rows using cell renderers; keep native selection colors. */
-void gtk_admin_result(const char *data, rrconn_t *connection) {
+void gtk_admin_result_profile(const char *data, const char *profile) {
    dict *reply = data ? json2dict(data) : NULL;
 
    if (!reply) {
@@ -1228,7 +1228,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    const char *action = dict_get(reply, "talk.action", "");
    dict *row = json2dict(dict_get(reply, "talk.data", "{}"));
 
-   if (row && !strcmp(name, "subjects") && copy_user_store && !g_strcmp0(copy_user_profile, rrclient_connection_name(connection))) {
+   if (row && !strcmp(name, "subjects") && copy_user_store && !g_strcmp0(copy_user_profile, profile)) {
       if (!strcmp(action, "begin")) {
          gtk_tree_store_clear(copy_user_store);
       } else if (!strcmp(action, "row") && strcmp(dict_get(row, "kind", ""), "privilege-group")) {
@@ -1271,7 +1271,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       }
    }
 
-   if (row && !strcmp(name, "subjects") && grant_subjects && grant_profile && !g_strcmp0(grant_profile, rrclient_connection_name(connection))) {
+   if (row && !strcmp(name, "subjects") && grant_subjects && grant_profile && !g_strcmp0(grant_profile, profile)) {
       if (!strcmp(action, "begin")) {
          gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(grant_subjects));
       } else if (!strcmp(action, "row")) {
@@ -1304,7 +1304,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       return;
    }
 
-   if (row && !strcmp(name, "groups") && group_store && !g_strcmp0(rrclient_connection_name(connection), tables[8].profile)) {
+   if (row && !strcmp(name, "groups") && group_store && !g_strcmp0(profile, tables[8].profile)) {
       if (!strcmp(action, "begin")) {
          gtk_tree_store_clear(group_store);
       } else if (!strcmp(action, "row")) {
@@ -1321,14 +1321,14 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       return;
    }
 
-   if (row && gtk_admin_access_result(name, action, row, connection)) {
+   if (row && gtk_admin_access_result(name, action, row, profile)) {
       dict_free(row);
       dict_free(reply);
 
       return;
    }
 
-   if (row && gtk_admin_controls_result(name, action, row, connection)) {
+   if (row && gtk_admin_controls_result(name, action, row, profile)) {
       dict_free(row);
       dict_free(reply);
 
@@ -1337,12 +1337,12 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
 
    /* The transport wrapper can be replaced during reconnect/selection while an already queued admin reply is being dispatched. Correlate replies by the stable
     * configured profile as well as the current pointer so a valid list response is not silently dropped after connection churn. */
-   const char *reply_profile = rrclient_connection_name(connection);
+   const char *reply_profile = profile;
 
    for (size_t i = 0 ; row && i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
 
-      if (strcmp(name, table->name) || !table->store || (connection != rrclient_connection_find(table->profile) && g_strcmp0(reply_profile, table->profile))) {
+      if (strcmp(name, table->name) || !table->store || g_strcmp0(reply_profile, table->profile)) {
          continue;
       }
 
