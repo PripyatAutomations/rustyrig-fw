@@ -1082,7 +1082,13 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
          strlcat(listed, rrclient_room_available_iter(i), capacity);
       }
 
-      ui_print(ui_active_window_name(), "%s\00308Available rooms:\017 %s", get_chat_ts(now), *listed ? listed : "(none)");
+      /* Network events run on the core thread. Never read the GTK notebook
+       * selection here: route the site room directory to its lobby. */
+      const char *output = rrclient_gtk_event_frontend()
+         ? ws_authoritative_room() : ui_active_window_name();
+      ui_print(output && *output ? output : NULL,
+               "%s\00308Available rooms:\017 %s", get_chat_ts(now),
+               *listed ? listed : "(none)");
       free(listed);
    }
    dict_free(d);
