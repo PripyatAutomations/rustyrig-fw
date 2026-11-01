@@ -88,7 +88,7 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
    if (!id || !pcm || !frames) return false;
    /* Local bridge audio bypasses client_channel_pcm(), where remote AF
     * spectrum is normally fed. Capture here before routing/muting. */
-   /* AF waterfall disabled temporarily to isolate RX PCM starvation. */
+   rr_af_spectrum_push(id, pcm, frames);
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
 void audio_local_rx_stop(const char *id) {
@@ -433,7 +433,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
       return;
    }
    /* AF analysis is independent of speaker muting or ear routing. */
-   /* AF waterfall disabled temporarily to isolate RX PCM starvation. */
+   rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
 
    if (route->output == 'M') {
       return;
