@@ -2056,6 +2056,16 @@ static void frontend_gtk_dispatch_event(event_dispatch_fn_t fn, void *arg, void 
    g_source_unref(source);
 }
 
+/* Inbound snapshot from the core domain. The payload is owned by the
+ * event bus; no connection or GTK object crosses the thread boundary. */
+static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (message->length != 1 || !message->payload) return;
+   const char state = ((const char *)message->payload)[0];
+   if (state == '0' || state == '1')
+      ptt_button_set_state(state == '1');
+}
+
 static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_init(argc, argv);
    frontend_gtk_event_context = g_main_context_ref_thread_default();
@@ -2084,6 +2094,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_log_callback = log_add_callback_token(log_print_va, LOG_CALLBACK_FILTERED);
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_token("client.quit.request", frontend_gtk_quit_request, NULL));
+   rr_event_token_t ptt_event = event_on_message_domain_token(
+      "client.ui.ptt.state", frontend_gtk_ptt_state_event, NULL, "gtk");
+   if (ptt_event) rr_module_token_add(ptt_event);
+   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to GTK PTT state updates");
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
