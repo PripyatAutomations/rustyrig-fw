@@ -2631,6 +2631,48 @@ static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickna
    } else frontend_gtk_nick_prompt_free(p);
 }
 
+/* Incoming chat is a core callback. The GTK side owns its copied payload. */
+typedef struct {
+   char *room, *text, *nickname;
+   bool query;
+} GtkIncomingChat;
+static gboolean frontend_gtk_chat_incoming_deliver(gpointer opaque) {
+   GtkIncomingChat *c = opaque;
+   if (!dying) gtk_chat_incoming(c->room, c->query, c->text, c->nickname);
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_chat_incoming_free(gpointer opaque) {
+   GtkIncomingChat *c = opaque;
+   g_free(c->room);
+   g_free(c->text);
+   g_free(c->nickname);
+   g_free(c);
+}
+static void frontend_gtk_chat_incoming(const char *room, bool query,
+                                      const char *text, const char *nickname) {
+   GtkIncomingChat *c = g_new0(GtkIncomingChat, 1);
+   c->room = g_strdup(room);
+   c->query = query;
+   c->text = g_strdup(text);
+   c->nickname = g_strdup(nickname);
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_chat_incoming_deliver(c);
+      frontend_gtk_chat_incoming_free(c);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_chat_incoming_deliver,
+                            c, frontend_gtk_chat_incoming_free);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   } else frontend_gtk_chat_incoming_free(c);
+}
+/* Synchronous frontend getter: never inspect GTK from core. The command
+ * callers should eventually consume a core-owned UI state snapshot. */
+static bool frontend_gtk_chat_status_active(void) {
+   if (g_thread_self() != frontend_gtk_owner) return false;
+   return gtk_chat_status_active();
+}
+
 extern void gtk_supervision_result(const char *, rrconn_t *);
 extern void gtk_admin_result(const char *, rrconn_t *);
 
@@ -2648,7 +2690,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .mode_set = frontend_gtk_mode_set,
    .connection_state = frontend_gtk_conn_button,
    .conn_button_update = frontend_gtk_conn_button,
-   .chat_incoming = gtk_chat_incoming,
+   .chat_incoming = frontend_gtk_chat_incoming,
    .chat_room_add = frontend_gtk_chat_room_add,
    .chat_room_remove = frontend_gtk_chat_room_remove,
    .chat_room_topic = frontend_gtk_chat_room_topic,
@@ -2656,7 +2698,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .chat_set_authoritative_room = frontend_gtk_chat_set_authoritative_room,
    .chat_room_vfos_changed = frontend_gtk_chat_room_vfos_changed,
    .chat_current_room = frontend_gtk_chat_current_room,
-   .chat_status_active = gtk_chat_status_active,
+   .chat_status_active = frontend_gtk_chat_status_active,
    .chat_query_add = frontend_gtk_chat_query_add,
    .ptt_set_online = frontend_gtk_ptt_set_online,
    .ptt_set_state = frontend_gtk_ptt_set_state,
