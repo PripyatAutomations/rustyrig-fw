@@ -216,3 +216,18 @@ This is **partial isolation**, not a proof of safety: other core sources
 attach to the global default and be dispatched by GTK. Avoid TX until the
 remaining cross-thread API calls and source ownership are audited. Check
 `core.scheduler` thread IDs against `core.thread` again after rebuilding.
+
+## GTK text-view crash investigation (November 1)
+
+A heap double-free was detected by Pango while GTK validated a TextView
+layout. This is consistent with, but does not prove, cross-thread widget
+mutation. The GTK client and host log callbacks previously called
+`gtk_logview_append()` directly from logger/protocol threads. Those paths
+now copy complete log records and queue GLib idle delivery on GTK's default
+context instead. This removes one known cross-thread TextView mutation.
+
+This is **not yet a complete unload-safe or GUI-thread-safe solution**:
+other GTK callbacks still access core state, and pending idle callbacks
+must be explicitly drained/cancelled on module teardown. Test in the opt-in
+threaded mode without TX, under ASan/TSan where practical. Capture all
+threads with `thread apply all bt` on another crash.
