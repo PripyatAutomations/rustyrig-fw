@@ -224,7 +224,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    p->enabled = gtk_check_button_new_with_label("AF waterfall");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
+   /* Diagnostic baseline: the AF analyzer must be explicitly enabled. */
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), FALSE);
    gtk_widget_set_tooltip_text(p->enabled, "Disable all local AF spectrum capture, FFT analysis and display updates to compare audio quality");
    gtk_box_pack_start(GTK_BOX(toolbar), p->enabled, FALSE, FALSE, 3);
    p->mode = gtk_combo_box_text_new();
