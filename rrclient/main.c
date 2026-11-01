@@ -686,6 +686,9 @@ int main(int argc, char *argv[]) {
    }
    if (g_strcmp0(g_getenv("RRCLIENT_GTK_THREAD_EXPERIMENT"), "1") == 0)
       rr_experiment_core_context = g_main_context_new();
+   /* Decoder stdout must not depend on GTK's default GLib loop. */
+   if (rr_experiment_core_context)
+      fwdsp_set_reactor_context(rr_experiment_core_context);
    event_init();
    if (!event_domain_register("core", rrclient_core_dispatch_event,
           rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default()))
