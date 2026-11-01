@@ -503,6 +503,26 @@ static void refresh_clicked(GtkButton *button, gpointer unused) {
    gboolean force = gtk_get_current_event_state(&modifiers) && (modifiers & GDK_SHIFT_MASK);
    directory_refresh_with_wait(force);
 }
+
+typedef struct {
+   char action; /* I import, F favorite, S mark */
+   char value[1024], state[128];
+   char favorite;
+} ReceiverDirectoryMutation;
+
+static void directory_mutate(char action, const char *value, const char *state, bool favorite) {
+   ReceiverDirectoryMutation req = {0};
+   if (!value || strlen(value) >= sizeof(req.value) ||
+       (state && strlen(state) >= sizeof(req.state))) return;
+   req.action = action;
+   g_strlcpy(req.value, value, sizeof(req.value));
+   if (state) g_strlcpy(req.state, state, sizeof(req.state));
+   req.favorite = favorite ? 1 : 0;
+   rr_event_message_t event = {
+      .name = "client.receiver.directory.mutate", .payload = &req, .length = sizeof(req)
+   };
+   event_emit_message(&event);
+}
 static void import_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -511,7 +531,7 @@ static void import_clicked(GtkButton *button, gpointer unused) {
 
    if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
       char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-      receiver_directory_import(path);
+      directory_mutate('I', path, NULL, false);
       g_free(path);
    }
    gtk_widget_destroy(chooser);
@@ -529,9 +549,7 @@ static void directory_menu_command(GtkMenuItem *item, gpointer user) {
    else if (!strcmp(command, "refresh")) directory_refresh_with_wait(FALSE);
    else if (g_str_has_prefix(command, "mark:")) {
       const receiver_directory_entry_t *r = selected_receiver();
-      if (r && !receiver_directory_set_state(r->url, command + 5,
-            !strcmp(command + 5, "unknown") ? "" : "User report; receiver was not probed"))
-         gtk_label_set_text(GTK_LABEL(directory_status), "Unable to save receiver mark");
+      if (r) directory_mutate('S', r->url, command + 5, false);
    }
 }
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
@@ -756,7 +774,7 @@ static void favorite_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
    const receiver_directory_entry_t *r = selected_receiver();
-   if (r) receiver_directory_set_favorite(r->url, !r->favorite);
+   if (r) directory_mutate('F', r->url, NULL, !r->favorite);
 }
 static gboolean directory_populate_idle(gpointer unused) {
    (void)unused;
