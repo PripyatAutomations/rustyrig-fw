@@ -2166,6 +2166,48 @@ static void frontend_gtk_server_picker_show_event(const rr_event_message_t *mess
 
 /* Existing protocol event, copied by librustyaxe for GTK-domain delivery.
  * No rrconn_t crosses threads. Leave core authoritative state in core. */
+/* Subscribe to the original protocol events, with owned JSON delivered by
+ * librustyaxe on the GTK domain. The core remains the state authority. */
+extern char session_token[HTTP_TOKEN_LEN + 1];
+static void frontend_gtk_room_protocol_event(const char *event, const char *data,
+                                              rrconn_t *connection, void *unused) {
+   (void)connection;
+   (void)unused;
+   if (dying || !data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", NULL);
+   if (!room) room = dict_get(d, "talk.target", NULL);
+   if (!room) { dict_free(d); return; }
+   if (!strcmp(event, "join")) {
+      const char *who = dict_get(d, "talk.user", NULL);
+      if (who && login_user && !strcasecmp(who, login_user))
+         gtk_chat_room_add(room);
+      userlist_redraw_gtk();
+   } else if (!strcmp(event, "part")) {
+      const char *session = dict_get(d, "talk.session", NULL);
+      bool self = session && *session && session_token[0] &&
+                  !strcmp(session, session_token);
+      if (self && !dict_get_bool(d, "talk.kicked", false))
+         gtk_chat_room_remove(room);
+      userlist_redraw_gtk();
+   } else if (!strcmp(event, "room.deleted")) {
+      gtk_chat_room_remove(room);
+      userlist_redraw_gtk();
+   } else if (!strcmp(event, "room.topic")) {
+      gtk_chat_room_set_topic(room, dict_get(d, "talk.topic", ""));
+   } else if (!strcmp(event, "room.vfo") || !strcmp(event, "room.vfo-list")) {
+      gtk_chat_room_vfos_changed(room);
+   } else if (!strcmp(event, "room.state")) {
+      userlist_room_state_changed(room);
+      userlist_redraw_gtk();
+      ptt_button_refresh();
+   } else if (!strcmp(event, "userinfo")) {
+      userlist_redraw_gtk();
+   }
+   dict_free(d);
+}
+
 static void frontend_gtk_talk_msg_event(const char *event, const char *data,
                                          rrconn_t *connection, void *user) {
    (void)event;
@@ -2280,6 +2322,16 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       NULL, "gtk");
    if (picker_event) rr_module_token_add(picker_event);
    else Log(LOG_WARN, "gtk.event", "Unable to subscribe to server-picker requests");
+   static const char *room_events[] = {
+      "join", "part", "room.deleted", "room.topic", "room.vfo",
+      "room.vfo-list", "room.state", "userinfo"
+   };
+   for (size_t i = 0; i < sizeof(room_events) / sizeof(room_events[0]); i++) {
+      rr_event_token_t token = event_on_domain_token(
+         room_events[i], frontend_gtk_room_protocol_event, NULL, "gtk");
+      if (token) rr_module_token_add(token);
+      else Log(LOG_WARN, "gtk.event", "Unable to subscribe to %s on GTK domain", room_events[i]);
+   }
    rr_event_token_t talk_event = event_on_domain_token(
       "talk.msg", frontend_gtk_talk_msg_event, NULL, "gtk");
    if (talk_event) rr_module_token_add(talk_event);
