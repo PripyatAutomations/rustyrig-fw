@@ -185,6 +185,18 @@ static void rrclient_core_dispatch_event(event_dispatch_fn_t fn, void *arg, void
 }
 
 static gboolean ws_poll_cb(gpointer user_data) {
+   /* Diagnostic latency of the core scheduler, independent of GTK's
+    * widget paint callbacks. Rate-limit reports to once per 10 seconds. */
+   static gint64 last_poll_us, last_report_us;
+   gint64 tick_us = g_get_monotonic_time();
+   if (last_poll_us && tick_us - last_poll_us > 100000 &&
+       tick_us - last_report_us > 10000000) {
+      Log(LOG_WARN, "core.scheduler",
+          "Network scheduler poll gap=%" G_GINT64_FORMAT "us tid=%p",
+          tick_us - last_poll_us, (void *)g_thread_self());
+      last_report_us = tick_us;
+   }
+   last_poll_us = tick_us;
    if (dying) {
       return G_SOURCE_REMOVE;
    }
@@ -528,6 +540,7 @@ typedef struct {
 } rr_gtk_experiment_t;
 static gpointer rr_gtk_experiment_thread(gpointer data) {
    rr_gtk_experiment_t *e = data;
+   Log(LOG_INFO, "core.thread", "GTK worker starting tid=%p", (void *)g_thread_self());
    bool failed = e->ops->init(&e->argc, &e->argv);
    g_mutex_lock(&e->mutex);
    e->failed = failed;
@@ -867,6 +880,7 @@ int main(int argc, char *argv[]) {
       if (gtk_worker) {
          /* In experimental mode the main/default context services core IO. */
          g_timeout_add(rr_rtp_supported(false) ? 10 : 50, ws_poll_cb, NULL);
+         Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p", (void *)g_thread_self());
          g_main_loop_run(gtk_test.core_loop);
          g_thread_join(gtk_worker);
          gtk_worker = NULL;
