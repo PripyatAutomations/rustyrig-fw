@@ -223,7 +223,6 @@ static void enable_changed(GtkToggleButton *button, gpointer data) {
       p->listening = should_listen;
    }
    gtk_widget_set_sensitive(p->mode, gtk_toggle_button_get_active(button));
-   gtk_widget_set_sensitive(p->palette, gtk_toggle_button_get_active(button));
    gtk_widget_set_sensitive(p->gain, gtk_toggle_button_get_active(button));
    gtk_widget_queue_draw(p->drawing);
 }
@@ -281,7 +280,6 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
    gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);
    gtk_widget_set_sensitive(p->mode, FALSE);
-   gtk_widget_set_sensitive(p->palette, FALSE);
    gtk_widget_set_sensitive(p->gain, FALSE);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
