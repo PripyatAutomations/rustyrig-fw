@@ -746,18 +746,7 @@ int main(int argc, char *argv[]) {
       }
       printf("\n");
    }
-   if (g_strcmp0(g_getenv("RRCLIENT_GTK_THREAD_EXPERIMENT"), "1") == 0)
-      rr_experiment_core_context = g_main_context_new();
-   /* Decoder stdout must not depend on GTK's default GLib loop. */
-   if (rr_experiment_core_context) {
-      fwdsp_set_reactor_context(rr_experiment_core_context);
-      /* Keep heavy logger I/O and filtered GUI-log dispatch off GTK too. */
-      logger_set_drain_context(rr_experiment_core_context);
-   }
    event_init();
-   if (!event_domain_register("core", rrclient_core_dispatch_event,
-          rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default()))
-      Log(LOG_WARN, "core.event", "Unable to register core event delivery domain");
    host_init();
 
    // add our configuration callbacks
@@ -781,6 +770,19 @@ int main(int argc, char *argv[]) {
       Log(LOG_CRIT, "config", "Unable to load client configuration");
       exit(1);
    }
+   /* Choose the execution topology once, after loading configuration and
+    * before installing the core event domain, reactor and timer sources. */
+   const bool new_threading = cfg_get_bool("core.new-threading", true) && !force_tui;
+   if (new_threading) {
+      rr_experiment_core_context = g_main_context_new();
+      fwdsp_set_reactor_context(rr_experiment_core_context);
+      logger_set_drain_context(rr_experiment_core_context);
+   }
+   if (!event_domain_register("core", rrclient_core_dispatch_event,
+          rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default()))
+      Log(LOG_WARN, "core.event", "Unable to register core event delivery domain");
+   Log(LOG_INFO, "core.thread", "Frontend threading model: %s",
+       new_threading ? "new" : "legacy");
 #ifndef _WIN32
    const char *module_dir = cfg_get("path.modules");
    struct stat module_stat;
@@ -858,7 +860,7 @@ int main(int argc, char *argv[]) {
    // The [modules] config section decides what to load, e.g.:
    //    [modules]
    //    rrclient-gtk.so=
-   const bool gtk_thread_experiment = g_strcmp0(g_getenv("RRCLIENT_GTK_THREAD_EXPERIMENT"), "1") == 0;
+   const bool gtk_thread_experiment = new_threading;
    rr_gtk_experiment_t gtk_test = {0};
    GThread *gtk_worker = NULL;
    const char *module_options = NULL;
