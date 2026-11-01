@@ -2062,8 +2062,10 @@ static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void
    (void)unused;
    if (message->length != 1 || !message->payload) return;
    const char state = ((const char *)message->payload)[0];
-   if (state == '0' || state == '1')
+   if (state == '0' || state == '1') {
+      Log(LOG_DEBUG, "gtk.event", "PTT state received via GTK event domain: %s", state == '1' ? "ON" : "OFF");
       ptt_button_set_state(state == '1');
+   }
 }
 
 static bool frontend_gtk_init(int *argc, char ***argv) {
