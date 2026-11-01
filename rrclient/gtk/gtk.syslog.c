@@ -71,7 +71,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    memcpy(subsys, bytes + 1, 16);
    subsys[16] = '\0';
 
-   if (debug_filter(subsys, level)) {
+   if (level == LOG_CRAZY || debug_filter(subsys, level)) {
       return;
    }
    const char *payload = (const char *)bytes + RR_LOGFRAME_HDR_LEN;
@@ -84,7 +84,8 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
 }
 
 bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
-   if (dying || !shared_log || !fmt) {
+   /* Keep event-bus trace traffic off the GUI delivery queue. */
+   if (priority == LOG_CRAZY || dying || !shared_log || !fmt) {
       return true;
    }
    /* The callback is registered with LOG_CALLBACK_FILTERED. */
