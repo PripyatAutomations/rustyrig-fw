@@ -602,28 +602,18 @@ void show_arg_help(int argc, char **argv) {
 }
 
 ////////////////////////////
-/* Opt-in diagnostic: GTK on its own thread, core on process main.
- * Direct GUI/core calls are not fully migrated; do not enable by default. */
+/* Keep GTK/GDK on the process main thread. The dedicated core context
+ * owns network polling, reconnect and decoder/logger maintenance. */
 typedef struct {
-   const rr_frontend_ops_t *ops;
-   int argc;
-   char **argv;
-   GMutex mutex;
-   GCond cond;
-   bool ready, failed;
-   GMainLoop *core_loop;
-} rr_gtk_experiment_t;
-static gpointer rr_gtk_experiment_thread(gpointer data) {
-   rr_gtk_experiment_t *e = data;
-   Log(LOG_INFO, "core.thread", "GTK worker starting tid=%p", (void *)g_thread_self());
-   bool failed = e->ops->init(&e->argc, &e->argv);
-   g_mutex_lock(&e->mutex);
-   e->failed = failed;
-   e->ready = true;
-   g_cond_signal(&e->cond);
-   g_mutex_unlock(&e->mutex);
-   if (!failed) e->ops->run();
-   g_main_loop_quit(e->core_loop);
+   GMainLoop *loop;
+} rr_core_worker_t;
+static gpointer rr_core_worker_run(gpointer opaque) {
+   rr_core_worker_t *worker = opaque;
+   Log(LOG_INFO, "core.thread", "Core worker starting tid=%p context=%p",
+       (void *)g_thread_self(), (void *)rr_experiment_core_context);
+   g_main_context_push_thread_default(rr_experiment_core_context);
+   g_main_loop_run(worker->loop);
+   g_main_context_pop_thread_default(rr_experiment_core_context);
    return NULL;
 }
 
@@ -860,9 +850,8 @@ int main(int argc, char *argv[]) {
    // The [modules] config section decides what to load, e.g.:
    //    [modules]
    //    rrclient-gtk.so=
-   const bool gtk_thread_experiment = new_threading;
-   rr_gtk_experiment_t gtk_test = {0};
-   GThread *gtk_worker = NULL;
+   rr_core_worker_t core_worker = {0};
+   GThread *core_thread = NULL;
    const char *module_options = NULL;
    const char *requested = force_tui ? NULL : cfg_modules_get(0, &module_options);
    const char *loaded_name = NULL;
@@ -878,29 +867,8 @@ int main(int argc, char *argv[]) {
             // init (e.g. gtk_init) needs the real argc/argv; a failed init
             // (no display, theme problems) unloads the module and we fall
             // back to TUI.
-            if (gtk_thread_experiment) {
-               gtk_test.ops = frontend_ops();
-               gtk_test.argc = argc;
-               gtk_test.argv = argv;
-               gtk_test.core_loop = g_main_loop_new(rr_experiment_core_context, FALSE);
-               g_mutex_init(&gtk_test.mutex);
-               g_cond_init(&gtk_test.cond);
-               gtk_worker = g_thread_new("rrclient-gtk", rr_gtk_experiment_thread, &gtk_test);
-               g_mutex_lock(&gtk_test.mutex);
-               while (!gtk_test.ready)
-                  g_cond_wait(&gtk_test.cond, &gtk_test.mutex);
-               g_mutex_unlock(&gtk_test.mutex);
-            }
-            if (gtk_worker ? gtk_test.failed : frontend_ops()->init(&argc, &argv)) {
+            if (frontend_ops()->init(&argc, &argv)) {
                Log(LOG_CRIT, "core", "Frontend module init failed; falling back to TUI");
-               if (gtk_worker) {
-                  /* Failed init worker must exit before we dlclose its code. */
-                  g_thread_join(gtk_worker);
-                  gtk_worker = NULL;
-                  g_main_loop_unref(gtk_test.core_loop);
-                  g_cond_clear(&gtk_test.cond);
-                  g_mutex_clear(&gtk_test.mutex);
-               }
                rr_unload_module(requested);
                frontend_module = NULL;
                loaded_name = NULL;
@@ -972,18 +940,21 @@ int main(int argc, char *argv[]) {
       GMainLoop *tui_loop = g_main_loop_new(NULL, FALSE);
       g_main_loop_run(tui_loop);
    } else if (frontend_module) {
-      if (gtk_worker) {
-         /* In experimental mode the main/default context services core IO. */
-         rr_core_timeout(rr_rtp_supported(false) ? 10 : 50, G_PRIORITY_DEFAULT, ws_poll_cb);
-         Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p context=%p", (void *)g_thread_self(), (void *)rr_experiment_core_context);
-         g_main_loop_run(gtk_test.core_loop);
-         g_thread_join(gtk_worker);
-         gtk_worker = NULL;
-         g_main_loop_unref(gtk_test.core_loop);
-         g_cond_clear(&gtk_test.cond);
-         g_mutex_clear(&gtk_test.mutex);
-      } else {
-         frontend_ops()->run();
+      if (new_threading) {
+         /* GTK must own the default context on the initial thread.
+          * All core timer sources use the dedicated context. */
+         core_worker.loop = g_main_loop_new(rr_experiment_core_context, FALSE);
+         rr_core_timeout(rr_rtp_supported(false) ? 10 : 50,
+                         G_PRIORITY_DEFAULT, ws_poll_cb);
+         core_thread = g_thread_new("rrclient-core", rr_core_worker_run, &core_worker);
+         Log(LOG_INFO, "core.thread", "GTK main loop starting tid=%p",
+             (void *)g_thread_self());
+      }
+      frontend_ops()->run();
+      if (core_thread) {
+         g_main_loop_quit(core_worker.loop);
+         g_thread_join(core_thread);
+         g_main_loop_unref(core_worker.loop);
       }
    }
    rrclient_cleanup();
