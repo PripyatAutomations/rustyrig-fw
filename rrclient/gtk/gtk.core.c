@@ -2215,8 +2215,12 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 void gtk_frontend_stop(void) {
    if (!event_domain_unregister("gtk"))
       Log(LOG_WARN, "gtk.event", "GTK event domain still has listeners at shutdown");
-   /* Keep the context alive through module teardown; queued deliveries must
-    * be drained before the registered callbacks can be unloaded. */
+   /* Each attached GSource holds its context until finalized. Module
+    * teardown must still drain pending callbacks before dlclose(). */
+   if (frontend_gtk_event_context) {
+      g_main_context_unref(frontend_gtk_event_context);
+      frontend_gtk_event_context = NULL;
+   }
    extern void gtk_terminal_shutdown(void);
    gtk_terminal_shutdown();
    gtk_help_shutdown();
