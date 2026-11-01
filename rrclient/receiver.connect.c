@@ -563,7 +563,29 @@ static void receiver_connect_request_event(const rr_event_message_t *message, vo
 }
 /* Catalog snapshot is assembled on core's event domain. The GUI never
  * traverses the mutable receiver array while the core is updating it. */
-static rr_event_token_t snapshot_token, refresh_token;
+static rr_event_token_t snapshot_token, refresh_token , mutation_token;
+typedef struct {
+   char action; /* I import, F favorite, S mark */
+   char value[1024], state[128];
+   char favorite;
+} ReceiverDirectoryMutation;
+
+static void receiver_directory_mutation(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(ReceiverDirectoryMutation)) return;
+   ReceiverDirectoryMutation request;
+   memcpy(&request, message->payload, sizeof(request));
+   if (!memchr(request.value, 0, sizeof(request.value)) ||
+       !memchr(request.state, 0, sizeof(request.state))) return;
+   switch (request.action) {
+   case 'I': if (request.value[0]) receiver_directory_import(request.value); break;
+   case 'F': if (request.favorite == 0 || request.favorite == 1)
+      receiver_directory_set_favorite(request.value, request.favorite != 0); break;
+   case 'S': receiver_directory_set_state(request.value, request.state,
+      !strcmp(request.state, "unknown") ? "" : "User report; receiver was not probed"); break;
+   }
+}
+
 static void receiver_snapshot_request(const rr_event_message_t *, void *);
 static void receiver_refresh_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
@@ -615,6 +637,9 @@ static void receiver_snapshot_request(const rr_event_message_t *message, void *u
    g_free(buffer);
 }
 void rrclient_receiver_connect_init(void) {
+   mutation_token = event_on_message_domain_token(
+      "client.receiver.directory.mutate", receiver_directory_mutation, NULL, "core");
+   if (!mutation_token) Log(LOG_WARN, "receiver", "Cannot register SDR directory modifications");
    refresh_token = event_on_message_domain_token(
       "client.receiver.refresh.request", receiver_refresh_request, NULL, "core");
    if (!refresh_token) Log(LOG_WARN, "receiver", "Cannot register SDR directory refresh requests");
@@ -633,6 +658,7 @@ void rrclient_receiver_connect_init(void) {
 void rrclient_receiver_connect_shutdown(void) {
    if (snapshot_token) { event_off_token(snapshot_token); snapshot_token = 0; }
    if (refresh_token) { event_off_token(refresh_token); refresh_token = 0; }
+   if (mutation_token) { event_off_token(mutation_token); mutation_token = 0; }
    if (command_token) { event_off_token(command_token); command_token = 0; }
    if (result_token) {
       event_off_token(result_token);
