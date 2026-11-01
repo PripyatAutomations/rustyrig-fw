@@ -231,3 +231,12 @@ other GTK callbacks still access core state, and pending idle callbacks
 must be explicitly drained/cancelled on module teardown. Test in the opt-in
 threaded mode without TX, under ASan/TSan where practical. Capture all
 threads with `thread apply all bt` on another crash.
+
+## GTK chat buffer cross-thread fix
+
+`frontend_gtk_vprint` previously called `ui_print_gtk` directly from
+core/transport callers and could mutate GtkTextBuffer during GTK layout.
+It now snapshots formatted text and delivers it via the GTK event context.
+This follows the prior GTK LogView marshaling fix. Remaining GTK
+frontend_ops callbacks must still be audited; these changes do not make
+the experimental thread split universally safe. Avoid TX testing.
