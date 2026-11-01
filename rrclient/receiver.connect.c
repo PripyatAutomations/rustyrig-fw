@@ -610,6 +610,11 @@ static void receiver_snapshot_request(const rr_event_message_t *message, void *u
    char *info = receiver_directory_info();
    g_strlcpy(header->info, info ? info : "", sizeof(header->info));
    g_free(info);
+   header->busy = receiver_directory_busy() ? 1 : 0;
+   g_strlcpy(header->error, receiver_directory_last_error() ?
+      receiver_directory_last_error() : "", sizeof(header->error));
+   g_strlcpy(header->source, receiver_directory_source_url() ?
+      receiver_directory_source_url() : "", sizeof(header->source));
    rr_receiver_directory_snapshot_row_t *rows = (void *)(buffer + sizeof(*header));
 #define COPY_FIELD(name) g_strlcpy(dst->name, src->name ? src->name : "", sizeof(dst->name))
    for (size_t i = 0; i < count; i++) {
