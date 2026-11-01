@@ -15,7 +15,7 @@
 #define HISTORY 48
 typedef struct {
    char *server, *room;
-   GtkWidget *drawing, *mode, *enabled, *gain;
+   GtkWidget *drawing, *mode, *palette, *enabled, *gain;
    float rows[HISTORY][RR_AF_BINS];
    float current[RR_AF_BINS];
    unsigned head, count;
@@ -28,12 +28,34 @@ static double level(float db, double noise_floor, double gain_db) {
    /* Normalize each receiver against its own noise floor so digital tones remain distinct instead of saturating the entire waterfall. */
    return CLAMP((db - noise_floor + gain_db) / 36.0, 0.0, 1.0);
 }
+/* A small piecewise-linear color map, evaluated only while painting.
+ * Both AF and RF waterfall displays share the selected palette. */
+typedef struct { double r, g, b; } palette_rgb_t;
+typedef struct { const char *name; palette_rgb_t stops[5]; } palette_t;
+static const palette_t palettes[] = {
+   { "Classic", {{.02,.05,.16},{.04,.28,.68},{.03,.77,.68},{.99,.77,.13},{1,.16,.10}} },
+   { "Viridis", {{.267,.005,.329},{.230,.322,.546},{.128,.567,.551},{.369,.789,.383},{.993,.906,.144}} },
+   { "Plasma", {{.050,.030,.528},{.495,.012,.658},{.798,.280,.470},{.973,.585,.252},{.940,.975,.131}} },
+   { "Inferno", {{.002,.001,.014},{.258,.039,.407},{.578,.148,.404},{.902,.364,.184},{.988,.998,.645}} },
+   { "Magma", {{.001,.000,.014},{.251,.059,.447},{.550,.161,.506},{.870,.369,.349},{.987,.991,.749}} },
+   { "Turbo", {{.190,.072,.232},{.160,.490,.971},{.258,.905,.497},{.984,.735,.190},{.480,.016,.011}} },
+   { "Grayscale", {{0,0,0},{.25,.25,.25},{.5,.5,.5},{.75,.75,.75},{1,1,1}} },
+   { "Green phosphor", {{0,.025,0},{0,.13,.025},{.02,.38,.06},{.22,.76,.18},{.78,1,.68}} },
+   { "Amber phosphor", {{.035,.012,0},{.22,.060,0},{.48,.18,.008},{.85,.49,.055},{1,.91,.51}} },
+   { "Ice", {{.015,.026,.095},{.035,.13,.32},{.10,.43,.68},{.41,.78,.91},{.92,1,1}} },
+   { "Heat", {{0,0,0},{.38,0,.02},{.84,.08,.01},{1,.57,.03},{1,1,.80}} },
+   { "Ocean", {{0,.018,.065},{0,.14,.29},{0,.39,.48},{.06,.72,.73},{.76,1,.91}} }
+};
+static unsigned selected_palette;
 static uint32_t palette_pixel(double v) {
-   double r = CLAMP((v - 0.40) * 2.1, 0.0, 1.0);
-   double g = CLAMP((v - 0.13) * 2.0, 0.0, 1.0);
-   double b = CLAMP(0.14 + 2.3 * v - 1.55 * v * v, 0.0, 1.0);
-
-   return 0xff000000u | ((uint32_t) (r * 255.0) << 16) | ((uint32_t) (g * 255.0) << 8) | (uint32_t) (b * 255.0);
+   v = CLAMP(v, 0., 1.) * 4.;
+   unsigned i = MIN((unsigned)v, 3u);
+   double t = v - i;
+   const palette_rgb_t *stops = palettes[selected_palette].stops;
+   unsigned r = (unsigned)(255. * (stops[i].r + t * (stops[i+1].r - stops[i].r)));
+   unsigned g = (unsigned)(255. * (stops[i].g + t * (stops[i+1].g - stops[i].g)));
+   unsigned b = (unsigned)(255. * (stops[i].b + t * (stops[i+1].b - stops[i].b)));
+   return 0xff000000u | (r << 16) | (g << 8) | b;
 }
 static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    spectrum_panel_t *p = data;
@@ -201,6 +223,7 @@ static void enable_changed(GtkToggleButton *button, gpointer data) {
       p->listening = should_listen;
    }
    gtk_widget_set_sensitive(p->mode, gtk_toggle_button_get_active(button));
+   gtk_widget_set_sensitive(p->palette, gtk_toggle_button_get_active(button));
    gtk_widget_set_sensitive(p->gain, gtk_toggle_button_get_active(button));
    gtk_widget_queue_draw(p->drawing);
 }
@@ -211,6 +234,13 @@ static void gain_changed(GtkRange *range, gpointer data) {
    gtk_widget_queue_draw(p->drawing);
 }
 
+static void palette_changed(GtkComboBox *box, gpointer data) {
+   spectrum_panel_t *p = data;
+   int index = gtk_combo_box_get_active(box);
+   if (index < 0 || index >= (int)G_N_ELEMENTS(palettes)) return;
+   selected_palette = (unsigned)index;
+   gtk_widget_queue_draw(p->drawing);
+}
 static void mode_changed(GtkComboBox *box, gpointer data) {
    (void)box;
    spectrum_panel_t *p = data;
@@ -235,6 +265,12 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Bars");
    gtk_combo_box_set_active(GTK_COMBO_BOX(p->mode), 0);
    gtk_box_pack_start(GTK_BOX(toolbar), p->mode, FALSE, FALSE, 0);
+   p->palette = gtk_combo_box_text_new();
+   for (unsigned i = 0; i < G_N_ELEMENTS(palettes); i++)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->palette), palettes[i].name);
+   gtk_combo_box_set_active(GTK_COMBO_BOX(p->palette), selected_palette);
+   gtk_widget_set_tooltip_text(p->palette, "Waterfall color scheme (AF and RF)");
+   gtk_box_pack_start(GTK_BOX(toolbar), p->palette, FALSE, FALSE, 0);
    GtkWidget *gain_label = gtk_label_new("Gain");
    gtk_box_pack_start(GTK_BOX(toolbar), gain_label, FALSE, FALSE, 4);
    p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 20.0, 1.0);
@@ -245,6 +281,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
    gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);
    gtk_widget_set_sensitive(p->mode, FALSE);
+   gtk_widget_set_sensitive(p->palette, FALSE);
    gtk_widget_set_sensitive(p->gain, FALSE);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
@@ -252,6 +289,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(box), p->drawing, FALSE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
+   g_signal_connect(p->palette, "changed", G_CALLBACK(palette_changed), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(enable_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
    p->timer = g_timeout_add(250, update, p);
