@@ -33,7 +33,8 @@ typedef struct {
 } rr_receiver_directory_snapshot_row_t;
 typedef struct {
    uint32_t count;
-   char status[512], info[1024];
+   char status[512], info[1024], error[512], source[1024];
+   uint8_t busy;
 } rr_receiver_directory_snapshot_header_t;
 size_t receiver_directory_count(void);
 const receiver_directory_entry_t *receiver_directory_receiver(size_t index);
