@@ -1245,6 +1245,9 @@ static gboolean frontend_gtk_ptt_hotkey_on_owner(gpointer unused) {
    if (!dying) ptt_button_hotkey_toggle();
    return G_SOURCE_REMOVE;
 }
+static GMainContext *frontend_gtk_event_context;
+static GThread *frontend_gtk_owner;
+
 static bool frontend_gtk_ptt_hotkey_toggle(void) {
    if (g_thread_self() == frontend_gtk_owner)
       return ptt_button_hotkey_toggle();
@@ -1395,8 +1398,7 @@ static void frontend_gtk_userlist_redraw(void) {
 
 /* Legacy frontend callbacks can originate on the core transport thread.
  * Queue owned arguments before touching GTK widgets. */
-static GMainContext *frontend_gtk_event_context;
-static GThread *frontend_gtk_owner;
+
 typedef enum { GTK_UI_VISIBLE, GTK_UI_ROOM_STATE, GTK_UI_ROOM_VFOS,
                GTK_UI_CHAT_CLEAR, GTK_UI_RX_VOLUME, GTK_UI_FREQ,
                GTK_UI_MODE, GTK_UI_CONNECTION, GTK_UI_PTT_ONLINE,
