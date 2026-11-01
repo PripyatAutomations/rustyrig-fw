@@ -203,3 +203,16 @@ poll gaps exceeding 100 ms (rate-limited to 10 seconds). Look for
 `gtk.thread`, `core.thread`, and `core.scheduler` diagnostics. The
 `RRCLIENT_GTK_THREAD_EXPERIMENT=1` mode is still **not safe for transmission**:
 legacy GTK idle/timeout sources and synchronous core calls need isolation.
+
+## Split core polling context (experimental)
+
+With `RRCLIENT_GTK_THREAD_EXPERIMENT=1`, the core now owns a separate
+`GMainContext`. The native/WebSocket polling timer, optional Mongoose
+sweep, fwdsp maintenance timeout, and the named `core` event domain are
+attached explicitly to it; the core main loop runs that context on the
+process main thread. GTK still runs its legacy default context on its worker.
+This is **partial isolation**, not a proof of safety: other core sources
+(e.g. additional GLib watchers, signals, and legacy callbacks) may still
+attach to the global default and be dispatched by GTK. Avoid TX until the
+remaining cross-thread API calls and source ownership are audited. Check
+`core.scheduler` thread IDs against `core.thread` again after rebuilding.
