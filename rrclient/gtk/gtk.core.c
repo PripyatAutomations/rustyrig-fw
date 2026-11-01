@@ -1437,8 +1437,53 @@ static const char *frontend_gtk_chat_current_room(void) {
    return gtk_chat_current_room();
 }
 
+static void ui_print_gtk_literal(const char *window, const char *fmt, ...) {
+   va_list args;
+   va_start(args, fmt);
+   ui_print_gtk(window, fmt, args);
+   va_end(args);
+}
+/* A core/network callback must never edit a GTK text buffer directly.
+ * Snapshot printf output before handing it to the GUI owner thread. */
+typedef struct {
+   char *window;
+   char *message;
+} GtkQueuedPrint;
+
+static gboolean frontend_gtk_queued_print(gpointer opaque) {
+   GtkQueuedPrint *print = opaque;
+   if (!dying) {
+      ui_print_gtk_literal(print->window, "%s", print->message);
+   }
+   return G_SOURCE_REMOVE;
+}
+
+static void frontend_gtk_queued_print_free(gpointer opaque) {
+   GtkQueuedPrint *print = opaque;
+   g_free(print->window);
+   g_free(print->message);
+   g_free(print);
+}
+
 static void frontend_gtk_vprint(const char *window, const char *fmt, va_list ap) {
-   ui_print_gtk(window, fmt, ap);
+   if (!fmt || dying) return;
+   va_list copy;
+   va_copy(copy, ap);
+   char *rendered = g_strdup_vprintf(fmt, copy);
+   va_end(copy);
+   if (g_thread_self() == frontend_gtk_owner) {
+      ui_print_gtk_literal(window, "%s", rendered);
+      g_free(rendered);
+      return;
+   }
+   GtkQueuedPrint *print = g_new0(GtkQueuedPrint, 1);
+   print->window = g_strdup(window);
+   print->message = rendered;
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_queued_print, print,
+                         frontend_gtk_queued_print_free);
+   g_source_attach(source, frontend_gtk_event_context);
+   g_source_unref(source);
 }
 
 static void frontend_gtk_vfo_widths(const char *vfo, const char *widths) {
