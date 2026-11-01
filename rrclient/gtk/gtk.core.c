@@ -2446,7 +2446,11 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    // Local client log pane (GTK log tab) mirrors client logs.
    frontend_gtk_log_callback = log_add_callback_token(log_print_va, LOG_CALLBACK_FILTERED);
    extern bool rr_module_token_add(rr_event_token_t token);
-   rr_module_token_add(event_on_token("client.quit.request", frontend_gtk_quit_request, NULL));
+   /* Quit prompts own GTK widgets: dispatch on GTK, not on core. */
+   rr_event_token_t quit_event = event_on_domain_token(
+      "client.quit.request", frontend_gtk_quit_request, NULL, "gtk");
+   if (quit_event) rr_module_token_add(quit_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK quit requests");
    rr_event_token_t room_event = event_on_message_domain_token(
       "client.ui.chat.authoritative-room", frontend_gtk_authoritative_room_event,
       NULL, "gtk");
@@ -2496,9 +2500,19 @@ static void frontend_gtk_run(void) {
    gtk_main();
 }
 
+static gboolean frontend_gtk_quit_on_owner(gpointer unused) {
+   (void)unused;
+   if (gtk_main_level() > 0) gtk_main_quit();
+   return G_SOURCE_REMOVE;
+}
 static void frontend_gtk_quit(void) {
-   if (gtk_main_level() > 0) {
-      gtk_main_quit();
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_quit_on_owner(NULL);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_quit_on_owner, NULL, NULL);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
    }
 }
 
@@ -2529,7 +2543,7 @@ static void irc_nick_dialog_response(GtkDialog *dialog, gint response, gpointer 
    gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
-static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickname) {
+static void frontend_gtk_irc_nick_prompt_owner(const char *profile, const char *nickname) {
    if (!irc_nick_dialogs) {
       irc_nick_dialogs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    }
@@ -2561,6 +2575,35 @@ static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickna
    g_signal_connect(dialog, "response", G_CALLBACK(irc_nick_dialog_response), NULL);
    g_signal_connect(dialog, "destroy", G_CALLBACK(irc_nick_dialog_destroy), NULL);
    gtk_widget_show_all(dialog);
+}
+
+/* IRC nickname requests can arrive from protocol/core callbacks. */
+typedef struct { char *profile, *nickname; } GtkNickPrompt;
+static gboolean frontend_gtk_nick_prompt_deliver(gpointer opaque) {
+   GtkNickPrompt *p = opaque;
+   if (!dying) frontend_gtk_irc_nick_prompt_owner(p->profile, p->nickname);
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_nick_prompt_free(gpointer opaque) {
+   GtkNickPrompt *p = opaque;
+   g_free(p->profile);
+   g_free(p->nickname);
+   g_free(p);
+}
+static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickname) {
+   if (!profile) return;
+   GtkNickPrompt *p = g_new0(GtkNickPrompt, 1);
+   p->profile = g_strdup(profile);
+   p->nickname = g_strdup(nickname);
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_nick_prompt_deliver(p);
+      frontend_gtk_nick_prompt_free(p);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_nick_prompt_deliver, p, frontend_gtk_nick_prompt_free);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   } else frontend_gtk_nick_prompt_free(p);
 }
 
 extern void gtk_supervision_result(const char *, rrconn_t *);
