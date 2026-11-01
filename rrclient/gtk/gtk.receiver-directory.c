@@ -60,6 +60,82 @@ static GtkTreeStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token, failure_token, local_vfo_token;
 static char *receiver_failure;
+/* GTK owns these copies. They can never be invalidated by a core refresh. */
+static rr_receiver_directory_snapshot_row_t *snapshot_rows;
+static receiver_directory_entry_t *snapshot_entries;
+static size_t snapshot_count;
+static char snapshot_status[512], snapshot_info[1024];
+static guint snapshot_timeout_source;
+static gboolean snapshot_pending;
+static void populate(void);
+
+static const receiver_directory_entry_t *snapshot_receiver(size_t index) {
+   return index < snapshot_count ? &snapshot_entries[index] : NULL;
+}
+static gboolean snapshot_timeout(gpointer unused) {
+   (void)unused;
+   snapshot_timeout_source = 0;
+   if (snapshot_pending) {
+      snapshot_pending = FALSE;
+      if (directory_status)
+         gtk_label_set_text(GTK_LABEL(directory_status),
+            "SDR directory update is taking too long. Keeping the last snapshot; try Refresh later.");
+   }
+   return G_SOURCE_REMOVE;
+}
+static void snapshot_request(void) {
+   if (snapshot_pending) return; /* Coalesce rapid core events. */
+   snapshot_pending = TRUE;
+   if (directory_status && !snapshot_count)
+      gtk_label_set_text(GTK_LABEL(directory_status), "Loading SDR directory snapshot…");
+   if (snapshot_timeout_source) g_source_remove(snapshot_timeout_source);
+   snapshot_timeout_source = g_timeout_add_seconds(5, snapshot_timeout, NULL);
+   rr_event_message_t request = { .name = "client.receiver.snapshot.request" };
+   event_emit_message(&request);
+}
+static void snapshot_received(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length < sizeof(rr_receiver_directory_snapshot_header_t)) return;
+   rr_receiver_directory_snapshot_header_t header;
+   memcpy(&header, message->payload, sizeof(header));
+   if (header.count > 10000 ||
+       message->length - sizeof(header) != (size_t)header.count *
+                                             sizeof(rr_receiver_directory_snapshot_row_t) ||
+       !memchr(header.status, 0, sizeof(header.status)) ||
+       !memchr(header.info, 0, sizeof(header.info))) return;
+   rr_receiver_directory_snapshot_row_t *rows = g_memdup2(
+      (const char *)message->payload + sizeof(header),
+      (size_t)header.count * sizeof(*rows));
+   receiver_directory_entry_t *entries = g_new0(receiver_directory_entry_t, header.count);
+   for (size_t i = 0; i < header.count; ++i) {
+      rr_receiver_directory_snapshot_row_t *r = &rows[i];
+      receiver_directory_entry_t *e = &entries[i];
+#define VIEW_FIELD(name) e->name = r->name
+      VIEW_FIELD(driver); VIEW_FIELD(url); VIEW_FIELD(name);
+      VIEW_FIELD(description); VIEW_FIELD(location); VIEW_FIELD(country);
+      VIEW_FIELD(contact); VIEW_FIELD(antenna); VIEW_FIELD(hardware);
+      VIEW_FIELD(grid); VIEW_FIELD(properties); VIEW_FIELD(local_state);
+      VIEW_FIELD(local_reason);
+#undef VIEW_FIELD
+      e->users = r->users; e->users_max = r->users_max; e->ext_api = r->ext_api;
+      e->offline = r->offline; e->flagged = r->flagged; e->deleted = r->deleted;
+      e->favorite = r->favorite; e->last_seen = r->last_seen;
+      e->learned_at = r->learned_at; e->state_updated = r->state_updated;
+      e->last_connected = r->last_connected; e->low_hz = r->low_hz;
+      e->high_hz = r->high_hz;
+   }
+   g_free(snapshot_entries);
+   g_free(snapshot_rows);
+   snapshot_rows = rows; snapshot_entries = entries; snapshot_count = header.count;
+   g_strlcpy(snapshot_status, header.status, sizeof(snapshot_status));
+   g_strlcpy(snapshot_info, header.info, sizeof(snapshot_info));
+   snapshot_pending = FALSE;
+   if (snapshot_timeout_source) {
+      g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0;
+   }
+   if (directory_page && directory_store) populate();
+}
+
 /* Sort Country by region then city where region abbreviations are reliable. */
 static bool region_code(const char *country, const char *piece) {
    static const char *us =
@@ -172,7 +248,7 @@ static const receiver_directory_entry_t *selected_receiver(void) {
    gtk_tree_model_get(model, &iter, COL_INDEX, &index, -1);
 
    if (index == G_MAXUINT) return NULL;
-   return receiver_directory_receiver(index);
+   return snapshot_receiver(index);
 }
 static char *observation_time(long long stamp) {
    GDateTime *date = stamp > 0 ? g_date_time_new_from_unix_local(stamp) : NULL;
@@ -235,7 +311,7 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
       } while (gtk_tree_model_iter_next(model, &child));
       return FALSE;
    }
-   const receiver_directory_entry_t *r = receiver_directory_receiver(index);
+   const receiver_directory_entry_t *r = snapshot_receiver(index);
 
    if (!r) {
       return FALSE;
@@ -282,14 +358,14 @@ static void populate(void) {
    /* GtkTreeModelSort atop GtkTreeModelFilter cannot safely be switched to UNSORTED during a live rebuild: GTK can assert in fill_sort_data() while
     * selection/filter callbacks are running. Keep sort columns stable. */
    gtk_tree_store_clear(directory_store);
-   size_t count = receiver_directory_count();
+   size_t count = snapshot_count;
    GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    GtkTreeIter connected_group;
    gtk_tree_store_append(directory_store, &connected_group, NULL);
    gtk_tree_store_set(directory_store, &connected_group, COL_INDEX, G_MAXUINT,
       COL_LOCATION, "Connected SDRs", COL_GROUP, "0", -1);
    for (size_t i = 0; i < count; i++) {
-      const receiver_directory_entry_t *r = receiver_directory_receiver(i);
+      const receiver_directory_entry_t *r = snapshot_receiver(i);
       if (!r) continue;
       const char *country = r->country && *r->country ? r->country : "Unknown";
       GtkTreeIter *parent = g_hash_table_lookup(groups, country);
@@ -324,10 +400,8 @@ static void populate(void) {
    gtk_tree_view_expand_row(GTK_TREE_VIEW(directory_tree), connected_path, FALSE);
    gtk_tree_path_free(connected_path);
 
-   char *info = receiver_directory_info();
-   char *summary = g_strdup_printf("%s\n%s", receiver_directory_status(), info);
+   char *summary = g_strdup_printf("%s\n%s", snapshot_status, snapshot_info);
    gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure ? receiver_failure : summary);
-   g_free(info);
    g_free(summary);
    gtk_widget_set_sensitive(refresh_button, !receiver_directory_busy());
    /* Restore a receiver by walking children of both country and connected groups. */
@@ -429,7 +503,7 @@ static void directory_changed(const char *event, const char *data, rrconn_t *con
    (void)data;
    (void)connection;
    (void)unused;
-   populate();
+   snapshot_request();
    directory_download_finished();
 }
 static void refresh_clicked(GtkButton *button, gpointer unused) {
@@ -672,7 +746,7 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
    (void)event; (void)connection; (void)unused;
    if (!directory_page) return;
    if (data) gtk_label_set_text(GTK_LABEL(directory_status), data);
-   populate(); /* Rebuild the connected group as connections come and go. */
+   snapshot_request(); /* Refresh the immutable GUI copy. */
 }
 static void copy_clicked(GtkButton *button, gpointer config) {
    (void)button;
@@ -698,7 +772,7 @@ static gboolean directory_populate_idle(gpointer unused) {
    (void)unused;
 
    if (directory_page && directory_store) {
-      populate();
+      snapshot_request();
    }
 
    return G_SOURCE_REMOVE;
@@ -880,6 +954,10 @@ static void local_vfo_changed(const char *event, const char *data, rrconn_t *con
    gtk_chat_room_vfos_changed("&local-sdr");
 }
 void gtk_receiver_directory_init(void) {
+   rr_event_token_t snapshot_event = event_on_message_domain_token(
+      "client.ui.receiver.snapshot", snapshot_received, NULL, "gtk");
+   if (snapshot_event) rr_module_token_add(snapshot_event);
+
    connection_token = event_on_domain_token("client.receiver-directory.connection", connection_status, NULL, "gtk");
    local_vfo_token = event_on_domain_token("client.local-bridge.vfo", local_vfo_changed, NULL, "gtk");
    directory_token = event_on_domain_token("client.receiver-directory.changed", directory_changed, NULL, "gtk");
@@ -887,6 +965,12 @@ void gtk_receiver_directory_init(void) {
    failure_token = event_on_domain_token("client.receiver-directory.failed", receiver_failed, NULL, "gtk");
 }
 void gtk_receiver_directory_shutdown(void) {
+   if (snapshot_timeout_source) { g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0; }
+   snapshot_pending = FALSE;
+   g_clear_pointer(&snapshot_rows, g_free);
+   g_clear_pointer(&snapshot_entries, g_free);
+   snapshot_count = 0;
+
    if (local_vfo_token) event_off_token(local_vfo_token);
    local_vfo_token = 0;
    if (connection_token) {
