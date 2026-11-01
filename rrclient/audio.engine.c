@@ -18,7 +18,6 @@
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
  * underflow, forcing unnecessary further rebuffering. */
 #define AUDIO_MAX_QUEUED (12u * AUDIO_BLOCK)
-#define AUDIO_RECOVERY_PREFILL (4u * AUDIO_BLOCK)
 #define AUDIO_FADE_IN 64u
 typedef struct stream {
    struct stream *next;
@@ -69,7 +68,7 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
          /* Require an 80 ms cushion both at start and after starvation. The old
           * 20 ms recovery threshold immediately exhausted on bursty PCM arrivals,
           * causing repeating short silences even with an on-time mixer clock. */
-         size_t threshold = s->ever_primed ? AUDIO_RECOVERY_PREFILL : AUDIO_PREFILL;
+         size_t threshold = AUDIO_PREFILL;
 
          if (s->count < threshold) {
             /* Don't mislabel a receiver's initial startup as a dropout. Count subsequent silence separately from the audio clock. */
