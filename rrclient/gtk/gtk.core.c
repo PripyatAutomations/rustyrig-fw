@@ -1215,41 +1215,15 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
    }
 }
 
-static void frontend_gtk_freq_set(long freq) {
-   GtkWidget *entry = freq_entry;
-
-   if (entry) {
-      GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-
-      if (!gtk_freq_entry_is_editing(fe)) {
-         gtk_freq_entry_set_frequency(fe, freq);
-      }
-   }
-}
-
-static void frontend_gtk_mode_set(const char *mode) {
-   modebox_update_state(mode, 0);
-}
-
-static void frontend_gtk_conn_button(int connected) {
-   rr_connect_button_update_all(connected);
-}
-
-static void frontend_gtk_ptt_set_online(bool online) {
-   ptt_button_set_online(online);
-}
-
-static void frontend_gtk_ptt_set_state(bool active) {
-   ptt_button_set_state(active);
-}
-
-static void frontend_gtk_ptt_tot_expired(int tot_secs) {
-   ptt_button_tot_expired(tot_secs);
-}
-
-static void frontend_gtk_ptt_refresh(void) {
-   ptt_button_refresh();
-}
+/* All of these frontend operations may originate in the core callback path.
+ * Route them through frontend_gtk_ui_post() below, never synchronously paint. */
+static void frontend_gtk_freq_set(long freq);
+static void frontend_gtk_mode_set(const char *mode);
+static void frontend_gtk_conn_button(int connected);
+static void frontend_gtk_ptt_set_online(bool online);
+static void frontend_gtk_ptt_set_state(bool active);
+static void frontend_gtk_ptt_tot_expired(int tot_secs);
+static void frontend_gtk_ptt_refresh(void);
 
 static bool frontend_gtk_ptt_hotkey_toggle(void) {
    return ptt_button_hotkey_toggle();
@@ -1389,8 +1363,10 @@ static void frontend_gtk_userlist_redraw(void) {
 static GMainContext *frontend_gtk_event_context;
 static GThread *frontend_gtk_owner;
 typedef enum { GTK_UI_VISIBLE, GTK_UI_ROOM_STATE, GTK_UI_ROOM_VFOS,
-               GTK_UI_CHAT_CLEAR, GTK_UI_RX_VOLUME } GtkUiAction;
-typedef struct { GtkUiAction action; char *room; int value; } GtkUiDelivery;
+               GTK_UI_CHAT_CLEAR, GTK_UI_RX_VOLUME, GTK_UI_FREQ,
+               GTK_UI_MODE, GTK_UI_CONNECTION, GTK_UI_PTT_ONLINE,
+               GTK_UI_PTT_STATE, GTK_UI_PTT_TOT, GTK_UI_PTT_REFRESH } GtkUiAction;
+typedef struct { GtkUiAction action; char *room; int value; long freq; } GtkUiDelivery;
 static gboolean frontend_gtk_ui_deliver(gpointer opaque) {
    GtkUiDelivery *d = opaque;
    if (dying) return G_SOURCE_REMOVE;
@@ -1405,6 +1381,16 @@ static gboolean frontend_gtk_ui_deliver(gpointer opaque) {
          if (rx_vol_slider && GTK_IS_RANGE(rx_vol_slider))
             gtk_range_set_value(GTK_RANGE(rx_vol_slider), d->value);
          break;
+      case GTK_UI_FREQ:
+         if (freq_entry && !gtk_freq_entry_is_editing(GTK_FREQ_ENTRY(freq_entry)))
+            gtk_freq_entry_set_frequency(GTK_FREQ_ENTRY(freq_entry), d->freq);
+         break;
+      case GTK_UI_MODE: modebox_update_state(d->room, 0); break;
+      case GTK_UI_CONNECTION: rr_connect_button_update_all(d->value); break;
+      case GTK_UI_PTT_ONLINE: ptt_button_set_online(d->value != 0); break;
+      case GTK_UI_PTT_STATE: ptt_button_set_state(d->value != 0); break;
+      case GTK_UI_PTT_TOT: ptt_button_tot_expired(d->value); break;
+      case GTK_UI_PTT_REFRESH: ptt_button_refresh(); break;
    }
    return G_SOURCE_REMOVE;
 }
@@ -1446,6 +1432,39 @@ static void frontend_gtk_chat_clear(void) {
 }
 static void frontend_gtk_rx_volume(int value) {
    frontend_gtk_ui_post(GTK_UI_RX_VOLUME, NULL, value);
+}
+static void frontend_gtk_freq_set(long freq) {
+   GtkUiDelivery *d = g_new0(GtkUiDelivery, 1);
+   d->action = GTK_UI_FREQ;
+   d->freq = freq;
+   /* The common queue helper accepts an int; preserve long frequencies. */
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_ui_deliver(d);
+      frontend_gtk_ui_delivery_free(d);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_ui_deliver, d, frontend_gtk_ui_delivery_free);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   } else frontend_gtk_ui_delivery_free(d);
+}
+static void frontend_gtk_mode_set(const char *mode) {
+   frontend_gtk_ui_post(GTK_UI_MODE, mode, 0);
+}
+static void frontend_gtk_conn_button(int connected) {
+   frontend_gtk_ui_post(GTK_UI_CONNECTION, NULL, connected);
+}
+static void frontend_gtk_ptt_set_online(bool online) {
+   frontend_gtk_ui_post(GTK_UI_PTT_ONLINE, NULL, online);
+}
+static void frontend_gtk_ptt_set_state(bool active) {
+   frontend_gtk_ui_post(GTK_UI_PTT_STATE, NULL, active);
+}
+static void frontend_gtk_ptt_tot_expired(int secs) {
+   frontend_gtk_ui_post(GTK_UI_PTT_TOT, NULL, secs);
+}
+static void frontend_gtk_ptt_refresh(void) {
+   frontend_gtk_ui_post(GTK_UI_PTT_REFRESH, NULL, 0);
 }
 
 /* Chat widget mutations are always delivered to GTK's owning thread.
