@@ -254,8 +254,8 @@ int main(int argc, char **argv) {
    result("rooms", "confirm", "{\"room\":\"#test\",\"deleted\":true,\"confirmation\":\"def\"}");
    assert(!strcmp(dict_get(mutation, "talk.action", ""), "room-remove"));
    assert(!strcmp(dict_get(mutation, "talk.data", ""), "def"));
-   gtk_supervision_result(
-      "{\"talk\":{\"action\":\"request\",\"target\":\"abc\",\"room\":\"#test\",\"user\":\"NOOB\",\"data\":\"Control operator responsibility\"}}", &alpha);
+   gtk_supervision_result_profile(
+      "{\"talk\":{\"action\":\"request\",\"target\":\"abc\",\"room\":\"#test\",\"user\":\"NOOB\",\"data\":\"Control operator responsibility\"}}", "alpha");
    assert(g_list_length(supervision_dialogs) == 1);
    gtk_dialog_response(GTK_DIALOG(((supervision_dialog_t *) supervision_dialogs->data)->dialog), GTK_RESPONSE_YES);
    assert(!supervision_dialogs && !strcmp(dict_get(sent, "talk.data", ""), "accept abc"));
