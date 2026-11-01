@@ -73,7 +73,7 @@ static void result(const char *table, const char *action, const char *row) {
    dict_add(message, "talk.action", action);
    dict_add(message, "talk.data", row);
    char *text = dict2json(message);
-   gtk_admin_result(text, &alpha);
+   gtk_admin_result_profile(text, "alpha");
    free(text);
    dict_free(message);
 }
