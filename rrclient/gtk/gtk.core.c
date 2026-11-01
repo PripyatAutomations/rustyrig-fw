@@ -75,7 +75,7 @@ static void main_width_diagnostic(GtkWidget *content, GtkAllocation *allocation,
    last_tabs = tabs_alloc;
 
    if (toolbar_min > available + 8 || tabs_min > available + 8 || toolbar_alloc > available + 8 || tabs_alloc > available + 8) {
-      Log(LOG_WARN, "gtk.width", "content=%d toolbar(min=%d nat=%d alloc=%d) tabs(min=%d nat=%d alloc=%d)", available, toolbar_min, toolbar_nat, toolbar_alloc,
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "content=%d toolbar(min=%d nat=%d alloc=%d) tabs(min=%d nat=%d alloc=%d)", available, toolbar_min, toolbar_nat, toolbar_alloc,
          tabs_min, tabs_nat, tabs_alloc);
    }
 }
@@ -99,7 +99,7 @@ extern bool cfg_fullscreen;
 static void frontend_gtk_config_refresh(const char *key) {
    (void)key;
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
-   Log(LOG_INFO, "ui.gtk3", "Effective startup setting ui.full-screen=%s (raw=%s)", cfg_fullscreen ? "true" : "false", cfg_get("ui.full-screen") ? cfg_get(
+   g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Effective startup setting ui.full-screen=%s (raw=%s)", cfg_fullscreen ? "true" : "false", cfg_get("ui.full-screen") ? cfg_get(
       "ui.full-screen") : "(absent)");
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
    const char *tabstrip = cfg_get("ui.gtk.main-tabstrip");
@@ -598,7 +598,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    if (!colorized) {
       colorize_failed = true;
       colorized = msgbuf;
-      Log(LOG_WARN, "ui.gtk3", "ui_print_gtk: gtk_colorize_string failed");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "ui_print_gtk: gtk_colorize_string failed");
    }
 
    GtkTextIter end;
@@ -698,7 +698,7 @@ static gboolean fullscreen_startup_check(gpointer unused) {
    }
    GdkWindowState state = gdk_window_get_state(gtk_widget_get_window(main_window));
    bool actual = (state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
-   Log(cfg_fullscreen && !actual ? LOG_WARN : LOG_INFO, "ui.gtk3", "Startup window state: requested_fullscreen=%s actual_fullscreen=%s maximized=%s",
+   g_log("RustyRig-GTK", cfg_fullscreen && !actual ? G_LOG_LEVEL_WARNING : G_LOG_LEVEL_MESSAGE, "Startup window state: requested_fullscreen=%s actual_fullscreen=%s maximized=%s",
       cfg_fullscreen ? "yes" : "no", actual ? "yes" : "no", (state & GDK_WINDOW_STATE_MAXIMIZED) ? "yes" : "no");
 
    return G_SOURCE_REMOVE;
@@ -837,7 +837,7 @@ static gboolean screensaver_launch(void) {
    GPid pid = 0;
 
    if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL, &pid, &error)) {
-      Log(LOG_WARN, "gtk.screensaver", "Unable to launch gmatrix: %s", error->message);
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to launch gmatrix: %s", error->message);
       g_clear_error(&error);
       screensaver_activity();
 
@@ -1036,10 +1036,10 @@ bool gui_init(void) {
 
    /* Ask GTK for fullscreen before the window is mapped. An idle callback after show_all() can lose the race against the initial WM placement. */
    if (cfg_fullscreen) {
-      Log(LOG_INFO, "ui.gtk3", "Startup requests fullscreen (ui.full-screen=true)");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Startup requests fullscreen (ui.full-screen=true)");
       gtk_window_fullscreen(GTK_WINDOW(main_window));
    } else {
-      Log(LOG_INFO, "ui.gtk3", "Startup requests normal window (ui.full-screen=false)");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Startup requests normal window (ui.full-screen=false)");
    }
 
    // Make the main window on screen
@@ -2132,7 +2132,7 @@ typedef struct {
 static gboolean frontend_gtk_deliver_event(gpointer opaque) {
    GtkEventDelivery *delivery = opaque;
    if (G_UNLIKELY(g_thread_self() != frontend_gtk_owner))
-      Log(LOG_CRIT, "gtk.thread", "GTK domain callback executed on wrong thread: actual=%p expected=%p",
+      g_log("RustyRig-GTK", G_LOG_LEVEL_CRITICAL, "GTK domain callback executed on wrong thread: actual=%p expected=%p",
           (void *)g_thread_self(), (void *)frontend_gtk_owner);
    delivery->fn(delivery->arg);
    return G_SOURCE_REMOVE;
@@ -2240,7 +2240,7 @@ static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void
    if (message->length != 1 || !message->payload) return;
    const char state = ((const char *)message->payload)[0];
    if (state == '0' || state == '1') {
-      Log(LOG_DEBUG, "gtk.event", "PTT state received via GTK event domain: %s", state == '1' ? "ON" : "OFF");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_DEBUG, "PTT state received via GTK event domain: %s", state == '1' ? "ON" : "OFF");
       ptt_button_set_state(state == '1');
    }
 }
@@ -2286,17 +2286,17 @@ static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, v
 
 static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_owner = g_thread_self();
-   Log(LOG_INFO, "gtk.thread", "GTK initialization tid=%p default-context=%p",
+   g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "GTK initialization tid=%p default-context=%p",
        (void *)frontend_gtk_owner, (void *)g_main_context_default());
    gtk_init(argc, argv);
    frontend_gtk_event_context = g_main_context_ref_thread_default();
    if (!event_domain_register("gtk", frontend_gtk_dispatch_event, frontend_gtk_event_context))
-      Log(LOG_WARN, "gtk.event", "Unable to register GTK event delivery domain");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to register GTK event delivery domain");
    gtk_identity_first_run();
 #ifdef USE_LIBNOTIFY
 
    if (!ui_notify_init()) {
-      Log(LOG_WARN, "gtk.notify", "Desktop notifications unavailable");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Desktop notifications unavailable");
    }
 #endif
    alert_dialogs_init();
@@ -2319,12 +2319,12 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.ui.chat.authoritative-room", frontend_gtk_authoritative_room_event,
       NULL, "gtk");
    if (room_event) rr_module_token_add(room_event);
-   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to authoritative room events");
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to authoritative room events");
    rr_event_token_t picker_event = event_on_message_domain_token(
       "client.ui.server-picker.show", frontend_gtk_server_picker_show_event,
       NULL, "gtk");
    if (picker_event) rr_module_token_add(picker_event);
-   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to server-picker requests");
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to server-picker requests");
    static const char *room_events[] = {
       "join", "part", "room.deleted", "room.topic", "room.vfo",
       "room.vfo-list", "room.state", "userinfo"
@@ -2333,28 +2333,28 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       rr_event_token_t token = event_on_domain_token(
          room_events[i], frontend_gtk_room_protocol_event, NULL, "gtk");
       if (token) rr_module_token_add(token);
-      else Log(LOG_WARN, "gtk.event", "Unable to subscribe to %s on GTK domain", room_events[i]);
+      else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to %s on GTK domain", room_events[i]);
    }
    rr_event_token_t talk_event = event_on_domain_token(
       "talk.msg", frontend_gtk_talk_msg_event, NULL, "gtk");
    if (talk_event) rr_module_token_add(talk_event);
-   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to talk.msg on GTK domain");
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to talk.msg on GTK domain");
    rr_event_token_t ptt_event = event_on_message_domain_token(
       "client.ui.ptt.state", frontend_gtk_ptt_state_event, NULL, "gtk");
    if (ptt_event) rr_module_token_add(ptt_event);
-   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to GTK PTT state updates");
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK PTT state updates");
    rr_event_token_t ptt_online_event = event_on_message_domain_token(
       "client.ui.ptt.online", frontend_gtk_ptt_online_event, NULL, "gtk");
    if (ptt_online_event) rr_module_token_add(ptt_online_event);
-   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to GTK PTT online updates");
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK PTT online updates");
    rr_event_token_t connection_event = event_on_message_domain_token(
       "client.ui.connection.state", frontend_gtk_connection_event, NULL, "gtk");
    if (connection_event) rr_module_token_add(connection_event);
-   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to GTK connection state");
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK connection state");
    rr_event_token_t vfo_event = event_on_message_domain_token(
       RRCLIENT_VFO_SNAPSHOT_EVENT, frontend_gtk_vfo_snapshot_event, NULL, "gtk");
    if (vfo_event) rr_module_token_add(vfo_event);
-   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to VFO snapshots");
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to VFO snapshots");
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
@@ -2485,7 +2485,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 
 void gtk_frontend_stop(void) {
    if (!event_domain_unregister("gtk"))
-      Log(LOG_WARN, "gtk.event", "GTK event domain still has listeners at shutdown");
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "GTK event domain still has listeners at shutdown");
    /* Each attached GSource holds its context until finalized. Module
     * teardown must still drain pending callbacks before dlclose(). */
    if (frontend_gtk_event_context) {
