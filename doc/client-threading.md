@@ -262,3 +262,13 @@ selection on the owning GUI thread. TUI retains its existing direct path.
 This begins replacing the temporary chat command queue with native event-bus
 subscriptions. Full JOIN/room/roster state still needs a versioned owned
 snapshot before removing the other legacy frontend callbacks.
+
+## Clicking lobby rig-room links
+
+GTK's `gtk.chat.links.c` click handler previously called
+`rrclient_connection_select()` and `cmd_join()` directly on the GTK thread.
+That let core networking and resulting synchronous legacy event handlers
+reenter GTK unpredictably during widget layout. The handler now publishes
+`client.ui.chat.link-join` with a copied pointer-free server/room payload;
+the core domain processes connection selection and JOIN on the core thread.
+Other GUI-to-core direct calls require the same command/event migration.
