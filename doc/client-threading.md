@@ -272,3 +272,19 @@ reenter GTK unpredictably during widget layout. The handler now publishes
 `client.ui.chat.link-join` with a copied pointer-free server/room payload;
 the core domain processes connection selection and JOIN on the core thread.
 Other GUI-to-core direct calls require the same command/event migration.
+
+## Original protocol events across domains (Nov 1)
+
+librustyaxe now exposes `event_on_domain_token(event, cb, user, domain)`
+for existing text protocol events, without introducing synthetic UI events.
+The dispatcher copies event names and JSON strings and passes a NULL
+`rrconn_t *` to the receiving thread (never borrow a live connection).
+GTK now subscribes directly to `talk.msg` on its `gtk` domain and
+creates/marks chat tabs there, rather than invoking `gtk_chat_incoming`
+from the synchronous core message handler. This addresses the observed
+replay-driven concurrent creation of a lobby chat tab.
+
+The existing GTK handler still references shared login and connection
+information, and the other legacy frontend operations need migration.
+Legacy dispatched-listener teardown, domain unregister and outstanding
+callbacks require further lifetime hardening before dynamic module unload.
