@@ -762,7 +762,7 @@ int main(int argc, char *argv[]) {
    }
    /* Choose the execution topology once, after loading configuration and
     * before installing the core event domain, reactor and timer sources. */
-   const bool new_threading = cfg_get_bool("core.new-threading", true) && !force_tui;
+   const bool new_threading = cfg_get_bool("core.new-threading", true) && !force_tui && cfg_modules_get(0, NULL) != NULL;
    if (new_threading) {
       rr_experiment_core_context = g_main_context_new();
       fwdsp_set_reactor_context(rr_experiment_core_context);
