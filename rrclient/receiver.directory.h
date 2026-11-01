@@ -21,6 +21,20 @@ typedef struct {
    long long state_updated, last_connected;
    uint64_t low_hz, high_hz;
 } receiver_directory_entry_t;
+/* Copied cross-thread catalog row; no borrowed pointers cross to GTK. */
+typedef struct {
+   char driver[32], url[512], name[512], description[512], location[512],
+        country[128], contact[512], antenna[512], hardware[512], grid[64],
+        properties[512], local_state[128], local_reason[512];
+   int users, users_max, ext_api;
+   bool offline, flagged, deleted, favorite;
+   long long last_seen, learned_at, state_updated, last_connected;
+   uint64_t low_hz, high_hz;
+} rr_receiver_directory_snapshot_row_t;
+typedef struct {
+   uint32_t count;
+   char status[512], info[1024];
+} rr_receiver_directory_snapshot_header_t;
 size_t receiver_directory_count(void);
 const receiver_directory_entry_t *receiver_directory_receiver(size_t index);
 const receiver_directory_entry_t *receiver_directory_find_url(const char *url);
