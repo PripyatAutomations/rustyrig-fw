@@ -82,6 +82,28 @@ void rrclient_send_ptt_command(rrconn_t *connection, const char *vfo, bool on, c
    ws_send_ptt_cmd_in_room(connection, vfo, on, room);
 }
 
+/* GTK issues requests only; the core domain owns connection and TX state. */
+typedef struct {
+   char room[128];
+   char vfo;
+   char on;
+} RrPttRequest;
+static void rrclient_ptt_request_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(RrPttRequest)) return;
+   RrPttRequest request;
+   memcpy(&request, message->payload, sizeof(request));
+   if (request.on != 0 && request.on != 1) return;
+   if (request.vfo < 'A' || request.vfo > 'D') return;
+   if (!memchr(request.room, '\0', sizeof(request.room))) return;
+   if (!ws_conn || ws_connected != 1) return;
+   char vfo[2] = {request.vfo, '\0'};
+   /* Never key a different selected room or VFO after an asynchronous delay. */
+   if (request.on && (strcmp(request.room, rrclient_current_room()) ||
+                      request.vfo != vfo_state_get_active())) return;
+   rrclient_send_ptt_command(ws_conn, vfo, request.on != 0, request.room);
+}
+
 extern const char *configs[];   // from defcfg.c
 extern const int num_configs;
 extern bool cfg_ui_bell_chat;
@@ -882,6 +904,9 @@ int main(int argc, char *argv[]) {
 
    // Register all of our core event handlers
    rrclient_register_events();
+   if (!event_on_message_domain_token("client.ptt.request",
+          rrclient_ptt_request_event, NULL, "core"))
+      Log(LOG_WARN, "ptt", "Unable to register core PTT request handler");
    rrclient_receiver_connect_init();
    webcam_client_register_events();
    connman_register_events();
