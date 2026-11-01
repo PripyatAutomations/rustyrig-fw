@@ -224,9 +224,10 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    p->enabled = gtk_check_button_new_with_label("AF waterfall");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
+   /* Diagnostic baseline: the AF analyzer must be explicitly enabled. */
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), FALSE);
    gtk_widget_set_tooltip_text(p->enabled, "Disable all local AF spectrum capture, FFT analysis and display updates to compare audio quality");
-   gtk_box_pack_start(GTK_BOX(toolbar), p->enabled, FALSE, FALSE, 3);
+   gtk_box_pack_end(GTK_BOX(toolbar), p->enabled, FALSE, FALSE, 3);
    p->mode = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum + Waterfall");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum");
@@ -243,6 +244,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_scale_set_draw_value(GTK_SCALE(p->gain), TRUE);
    gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
    gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);
+   gtk_widget_set_sensitive(p->mode, FALSE);
+   gtk_widget_set_sensitive(p->gain, FALSE);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
    gtk_widget_set_size_request(p->drawing, -1, 210);
