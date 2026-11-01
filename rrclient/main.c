@@ -551,6 +551,10 @@ bool rrclient_cleanup(void) {
    rrclient_receiver_connect_shutdown();
    receiver_directory_shutdown();
 
+   /* Stop/join the RX mixer and close its duplicated playback descriptor
+    * before destroying the fwdsp processes it writes to. */
+   ws_audio_shutdown();
+
    // Stop all fwdsp children while their Mongoose wrappers and logging are
    // still alive. This also releases encoders retained by fwdsp.hangtime.
    fwdsp_fini();
