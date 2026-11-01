@@ -1512,43 +1512,49 @@ typedef enum {
    GTK_OP_ALERT, GTK_OP_EDIT, GTK_OP_BELL, GTK_OP_NOTIFY,
    GTK_OP_CHOOSER, GTK_OP_WEBCAM
 } GtkOwnerAction;
-typedef struct { GtkOwnerAction action; char *a, *b; int value; } GtkOwnerCall;
-static gboolean frontend_gtk_owner_call_run(gpointer opaque) {
-   GtkOwnerCall *c = opaque;
-   if (dying) return G_SOURCE_REMOVE;
-   switch (c->action) {
-      case GTK_OP_CODEC: frontend_gtk_codec_set_active_owner(c->value != 0, c->a); break;
+typedef struct {
+   uint32_t action, a_len, b_len;
+   int32_t value;
+} GtkOwnerMessage;
+static void frontend_gtk_owner_action_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message->payload || message->length < sizeof(GtkOwnerMessage)) return;
+   GtkOwnerMessage m;
+   memcpy(&m, message->payload, sizeof(m));
+   if (m.action > GTK_OP_WEBCAM || !m.a_len || !m.b_len) return;
+   size_t bytes = message->length - sizeof(m);
+   if ((size_t)m.a_len > bytes || (size_t)m.b_len != bytes - m.a_len) return;
+   const char *a = (const char *)message->payload + sizeof(m);
+   const char *b = a + m.a_len;
+   if (a[m.a_len - 1] || b[m.b_len - 1]) return;
+   switch ((GtkOwnerAction)m.action) {
+      case GTK_OP_CODEC: frontend_gtk_codec_set_active_owner(m.value != 0, a); break;
       case GTK_OP_CLEAR_LOG: frontend_gtk_syslog_clear_owner(); break;
-      case GTK_OP_FOCUS: frontend_gtk_focus_tab_owner(c->a); break;
-      case GTK_OP_WINDOW: frontend_gtk_switch_window_owner(c->value); break;
-      case GTK_OP_ALERT: frontend_gtk_alert_owner(c->a); break;
-      case GTK_OP_EDIT: frontend_gtk_edit_config_owner(c->a); break;
+      case GTK_OP_FOCUS: frontend_gtk_focus_tab_owner(a); break;
+      case GTK_OP_WINDOW: frontend_gtk_switch_window_owner(m.value); break;
+      case GTK_OP_ALERT: frontend_gtk_alert_owner(a); break;
+      case GTK_OP_EDIT: frontend_gtk_edit_config_owner(*a ? a : NULL); break;
       case GTK_OP_BELL: frontend_gtk_bell_owner(); break;
-      case GTK_OP_NOTIFY: frontend_gtk_notify_owner(c->a, c->b); break;
+      case GTK_OP_NOTIFY: frontend_gtk_notify_owner(a, b); break;
       case GTK_OP_CHOOSER: frontend_gtk_show_server_chooser_owner(); break;
-      case GTK_OP_WEBCAM: frontend_gtk_webcam_show_owner(c->value != 0); break;
+      case GTK_OP_WEBCAM: frontend_gtk_webcam_show_owner(m.value != 0); break;
    }
-   return G_SOURCE_REMOVE;
-}
-static void frontend_gtk_owner_call_free(gpointer opaque) {
-   GtkOwnerCall *c = opaque;
-   g_free(c->a); g_free(c->b); g_free(c);
 }
 static void frontend_gtk_owner_post(GtkOwnerAction action, const char *a, const char *b, int value) {
-   GtkOwnerCall *c = g_new0(GtkOwnerCall, 1);
-   c->action = action;
-   c->a = g_strdup(a);
-   c->b = g_strdup(b);
-   c->value = value;
-   if (g_thread_self() == frontend_gtk_owner) {
-      frontend_gtk_owner_call_run(c);
-      frontend_gtk_owner_call_free(c);
-   } else if (frontend_gtk_event_context) {
-      GSource *source = g_idle_source_new();
-      g_source_set_callback(source, frontend_gtk_owner_call_run, c, frontend_gtk_owner_call_free);
-      g_source_attach(source, frontend_gtk_event_context);
-      g_source_unref(source);
-   } else frontend_gtk_owner_call_free(c);
+   size_t al = strlen(a ? a : "") + 1, bl = strlen(b ? b : "") + 1;
+   if (al > 65536 || bl > 65536) return;
+   GtkOwnerMessage header = { (uint32_t)action, (uint32_t)al, (uint32_t)bl, value };
+   size_t length = sizeof(header) + al + bl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &header, sizeof(header));
+   char *p = payload + sizeof(header);
+   memcpy(p, a ? a : "", al);
+   memcpy(p + al, b ? b : "", bl);
+   rr_event_message_t message = {
+      .name = "client.ui.owner.action", .payload = payload, .length = length
+   };
+   event_emit_message(&message);
+   g_free(payload);
 }
 static void frontend_gtk_codec_set_active(bool is_tx, const char *codec) {
    frontend_gtk_owner_post(GTK_OP_CODEC, codec, NULL, is_tx);
@@ -2477,6 +2483,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.quit.request", frontend_gtk_quit_request, NULL, "gtk");
    if (quit_event) rr_module_token_add(quit_event);
    else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK quit requests");
+   rr_event_token_t action_event = event_on_message_domain_token(
+      "client.ui.owner.action", frontend_gtk_owner_action_event, NULL, "gtk");
+   if (action_event) rr_module_token_add(action_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to frontend actions");
    rr_event_token_t incoming_event = event_on_message_domain_token(
       "client.ui.chat.incoming", frontend_gtk_chat_incoming_event, NULL, "gtk");
    if (incoming_event) rr_module_token_add(incoming_event);
