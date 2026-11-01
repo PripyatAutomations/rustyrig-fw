@@ -5,6 +5,7 @@
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
+#include <rrclient/ui.navigation.h>
 
 /* PARITY: rustyrig-www/js/webui.chat.js chat_room_links/ActivateRoom. One scan per main-loop batch avoids rescanning formatted markup fragments. Two shared
  * tags keep storage bounded by scrollback, rather than URL history. */
@@ -219,12 +220,20 @@ static gboolean chat_link_event(GtkWidget *view, GdkEvent *event, gpointer data)
    } else {
       const char *server = g_object_get_data(G_OBJECT(view), "rr-server-name");
 
-      if (!server || rrclient_connection_select(server)) {
-         char command[] = "/join";
-         char *args[] = {
-            command, link
-         };
-         cmd_join(2, args);
+      /* GTK must not invoke connection selection or JOIN processing.
+       * Copy the link and server identity into an owned core command. */
+      rrclient_ui_chat_link_t request = {0};
+      g_strlcpy(request.room, link, sizeof(request.room));
+      if (server)
+         g_strlcpy(request.server, server, sizeof(request.server));
+      if (strlen(link) < sizeof(request.room) &&
+          (!server || strlen(server) < sizeof(request.server))) {
+         event_emit_message(&(rr_event_message_t){
+            .name = RRCLIENT_UI_CHAT_LINK_EVENT,
+            .sender = "gtk", .payload = &request, .length = sizeof(request)
+         });
+      } else {
+         Log(LOG_WARN, "gtk.chat", "Room link or server name too long");
       }
    }
    g_free(link);
