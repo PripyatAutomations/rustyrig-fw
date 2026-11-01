@@ -2169,6 +2169,7 @@ static void frontend_gtk_server_picker_show_event(const rr_event_message_t *mess
 /* Subscribe to the original protocol events, with owned JSON delivered by
  * librustyaxe on the GTK domain. The core remains the state authority. */
 extern char session_token[HTTP_TOKEN_LEN + 1];
+extern const char *login_user;
 static void frontend_gtk_room_protocol_event(const char *event, const char *data,
                                               rrconn_t *connection, void *unused) {
    (void)connection;
