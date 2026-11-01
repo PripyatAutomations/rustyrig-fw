@@ -2476,6 +2476,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.quit.request", frontend_gtk_quit_request, NULL, "gtk");
    if (quit_event) rr_module_token_add(quit_event);
    else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK quit requests");
+   rr_event_token_t incoming_event = event_on_message_domain_token(
+      "client.ui.chat.incoming", frontend_gtk_chat_incoming_event, NULL, "gtk");
+   if (incoming_event) rr_module_token_add(incoming_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to incoming chat");
    rr_event_token_t room_event = event_on_message_domain_token(
       "client.ui.chat.authoritative-room", frontend_gtk_authoritative_room_event,
       NULL, "gtk");
@@ -2631,40 +2635,44 @@ static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickna
    } else frontend_gtk_nick_prompt_free(p);
 }
 
-/* Incoming chat is a core callback. The GTK side owns its copied payload. */
+/* The event bus owns the cross-thread message copy and GTK dispatch. */
 typedef struct {
-   char *room, *text, *nickname;
-   bool query;
-} GtkIncomingChat;
-static gboolean frontend_gtk_chat_incoming_deliver(gpointer opaque) {
-   GtkIncomingChat *c = opaque;
-   if (!dying) gtk_chat_incoming(c->room, c->query, c->text, c->nickname);
-   return G_SOURCE_REMOVE;
-}
-static void frontend_gtk_chat_incoming_free(gpointer opaque) {
-   GtkIncomingChat *c = opaque;
-   g_free(c->room);
-   g_free(c->text);
-   g_free(c->nickname);
-   g_free(c);
+   uint32_t room_len, text_len, nick_len;
+   uint8_t query;
+} GtkIncomingChatHeader;
+static void frontend_gtk_chat_incoming_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message->payload || message->length < sizeof(GtkIncomingChatHeader)) return;
+   GtkIncomingChatHeader header;
+   memcpy(&header, message->payload, sizeof(header));
+   size_t remaining = message->length - sizeof(header);
+   size_t required = (size_t)header.room_len + header.text_len + header.nick_len;
+   if (required != remaining || header.room_len == 0 || header.text_len == 0 || header.nick_len == 0) return;
+   const char *p = (const char *)message->payload + sizeof(header);
+   const char *room = p;
+   const char *text = room + header.room_len;
+   const char *nickname = text + header.text_len;
+   if (room[header.room_len - 1] || text[header.text_len - 1] || nickname[header.nick_len - 1]) return;
+   gtk_chat_incoming(*room ? room : NULL, header.query != 0,
+                     *text ? text : NULL, *nickname ? nickname : NULL);
 }
 static void frontend_gtk_chat_incoming(const char *room, bool query,
                                       const char *text, const char *nickname) {
-   GtkIncomingChat *c = g_new0(GtkIncomingChat, 1);
-   c->room = g_strdup(room);
-   c->query = query;
-   c->text = g_strdup(text);
-   c->nickname = g_strdup(nickname);
-   if (g_thread_self() == frontend_gtk_owner) {
-      frontend_gtk_chat_incoming_deliver(c);
-      frontend_gtk_chat_incoming_free(c);
-   } else if (frontend_gtk_event_context) {
-      GSource *source = g_idle_source_new();
-      g_source_set_callback(source, frontend_gtk_chat_incoming_deliver,
-                            c, frontend_gtk_chat_incoming_free);
-      g_source_attach(source, frontend_gtk_event_context);
-      g_source_unref(source);
-   } else frontend_gtk_chat_incoming_free(c);
+   size_t rl = strlen(room ? room : "") + 1, tl = strlen(text ? text : "") + 1;
+   size_t nl = strlen(nickname ? nickname : "") + 1;
+   if (rl > UINT32_MAX || tl > UINT32_MAX || nl > UINT32_MAX || rl + tl + nl > 1024 * 1024) return;
+   GtkIncomingChatHeader header = { (uint32_t)rl, (uint32_t)tl, (uint32_t)nl, query };
+   size_t length = sizeof(header) + rl + tl + nl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &header, sizeof(header));
+   char *p = payload + sizeof(header);
+   memcpy(p, room ? room : "", rl); p += rl;
+   memcpy(p, text ? text : "", tl); p += tl;
+   memcpy(p, nickname ? nickname : "", nl);
+   rr_event_message_t message = { .name = "client.ui.chat.incoming",
+                                  .payload = payload, .length = length };
+   event_emit_message(&message);
+   g_free(payload);
 }
 /* Synchronous frontend getter: never inspect GTK from core. The command
  * callers should eventually consume a core-owned UI state snapshot. */
