@@ -176,3 +176,21 @@ including UI interactions and synchronous frontend operation callbacks.
 GTK-owned context, not the core/default context; the current domain context
 is still captured from the default thread. Module callback lifetimes and
 pending dispatch cleanup must be audited before activation.
+
+## Experimental GTK worker (diagnostic only)
+
+Set `RRCLIENT_GTK_THREAD_EXPERIMENT=1` to launch GTK init/run on a
+GLib worker while the process main thread runs a core `GMainLoop`.
+The normal configuration is unchanged. This is **not yet safe for regular
+operation or transmitting**: GTK3 uses global/default-context sources and
+many unconverted direct frontend/core calls, so two threads may service
+callbacks intended for different owners. This mode is intended to expose
+the next migration requirements and must not be promoted until thread
+ownership is verifiably isolated. A failed GTK initialization is joined
+before unloading its module. GTK's worker must finish before module unload.
+
+To complete real isolation we must migrate GTK's default-context sources
+(or make the core use a separate context, explicitly attaching all core
+sources), replace all remaining synchronous cross-thread UI invocations,
+and verify no GTK callbacks execute on the core thread. Only then test
+audio starvation with simulated slow rendering.
