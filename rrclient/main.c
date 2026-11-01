@@ -792,6 +792,14 @@ int main(int argc, char *argv[]) {
             }
             if (gtk_worker ? gtk_test.failed : frontend_ops()->init(&argc, &argv)) {
                Log(LOG_CRIT, "core", "Frontend module init failed; falling back to TUI");
+               if (gtk_worker) {
+                  /* Failed init worker must exit before we dlclose its code. */
+                  g_thread_join(gtk_worker);
+                  gtk_worker = NULL;
+                  g_main_loop_unref(gtk_test.core_loop);
+                  g_cond_clear(&gtk_test.cond);
+                  g_mutex_clear(&gtk_test.mutex);
+               }
                rr_unload_module(requested);
                frontend_module = NULL;
                loaded_name = NULL;
