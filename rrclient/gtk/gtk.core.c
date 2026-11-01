@@ -32,6 +32,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/media.h>
 #include <rrclient/vfo.h>
+#include <rrclient/vfo.snapshot.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.connect-button.h>
@@ -1133,12 +1134,11 @@ extern GtkWidget *chat_textview; // gtk.chat.c
 extern GtkWidget *admin_tab, *config_tab; // gtk.core.c (this file)
 extern bool cfg_gtkcss_init(void);  // cfg.gtkcss.c
 
-static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
+static void frontend_gtk_apply_vfo_state(const char *vfo, const char *room, bool available, long freq, const char *mode, int width, int power, bool ptt) {
    GtkWidget *entry = freq_entry;
 
    if (entry) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-      bool available = vfo_state_get_long(vfo, "cat.state.freq", -1) > 0;
       gtk_widget_set_tooltip_text(entry, available ? "Observed frequency" : "Frequency unavailable");
 
       if (!available) {
@@ -1148,7 +1148,7 @@ static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char 
          return;
       }
       char selection[256];
-      snprintf(selection, sizeof(selection), "%s/%s", rrclient_media_active_room(), vfo);
+      snprintf(selection, sizeof(selection), "%s/%s", room, vfo);
       const char *displayed = g_object_get_data(G_OBJECT(entry), "rr-displayed-vfo");
 
       bool switching = !displayed || strcmp(displayed, selection);
@@ -1176,17 +1176,17 @@ static struct {
    char vfo[4], mode[32], room[128], server[1024];
    long freq;
    int width, power;
-   bool ptt, has_mode;
+   bool ptt, has_mode, available;
 } pending_vfo_paint;
 static gboolean frontend_gtk_flush_vfo(gpointer unused) {
    pending_vfo_paint.source = 0;
-   const char *server = rrclient_selected_server();
-   const char *room = rrclient_media_active_room();
-
-   if (!dying && !strcmp(pending_vfo_paint.server, server ? server : "") &&
-      !strcmp(pending_vfo_paint.room, room ? room : "") && pending_vfo_paint.vfo[0] == vfo_state_get_active()) {
-      frontend_gtk_apply_vfo_state(pending_vfo_paint.vfo, pending_vfo_paint.freq, pending_vfo_paint.has_mode ? pending_vfo_paint.mode : NULL, pending_vfo_paint.
-         width, pending_vfo_paint.power, pending_vfo_paint.ptt);
+   /* The latest core snapshot is authoritative; no live core lookup in
+    * the GTK paint callback. */
+   if (!dying) {
+      frontend_gtk_apply_vfo_state(pending_vfo_paint.vfo, pending_vfo_paint.room,
+         pending_vfo_paint.available, pending_vfo_paint.freq,
+         pending_vfo_paint.has_mode ? pending_vfo_paint.mode : NULL,
+         pending_vfo_paint.width, pending_vfo_paint.power, pending_vfo_paint.ptt);
    }
 
    return G_SOURCE_REMOVE;
@@ -2084,6 +2084,29 @@ static void frontend_gtk_connection_event(const rr_event_message_t *message, voi
    rr_connect_button_update_all(state);
 }
 
+static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(rrclient_vfo_snapshot_t)) return;
+   const rrclient_vfo_snapshot_t *snapshot = message->payload;
+   /* Fixed-size snapshots contain only bounded, NUL-terminated strings. */
+   if (!memchr(snapshot->vfo, 0, sizeof(snapshot->vfo)) ||
+       !memchr(snapshot->mode, 0, sizeof(snapshot->mode)) ||
+       !memchr(snapshot->room, 0, sizeof(snapshot->room)) ||
+       !memchr(snapshot->server, 0, sizeof(snapshot->server))) return;
+   snprintf(pending_vfo_paint.vfo, sizeof(pending_vfo_paint.vfo), "%s", snapshot->vfo);
+   snprintf(pending_vfo_paint.mode, sizeof(pending_vfo_paint.mode), "%s", snapshot->mode);
+   snprintf(pending_vfo_paint.room, sizeof(pending_vfo_paint.room), "%s", snapshot->room);
+   snprintf(pending_vfo_paint.server, sizeof(pending_vfo_paint.server), "%s", snapshot->server);
+   pending_vfo_paint.freq = snapshot->freq;
+   pending_vfo_paint.width = snapshot->width;
+   pending_vfo_paint.power = snapshot->power;
+   pending_vfo_paint.ptt = snapshot->ptt;
+   pending_vfo_paint.has_mode = snapshot->has_mode;
+   pending_vfo_paint.available = snapshot->available;
+   if (!pending_vfo_paint.source)
+      pending_vfo_paint.source = g_idle_add(frontend_gtk_flush_vfo, NULL);
+}
+
 static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_init(argc, argv);
    frontend_gtk_event_context = g_main_context_ref_thread_default();
@@ -2124,6 +2147,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.ui.connection.state", frontend_gtk_connection_event, NULL, "gtk");
    if (connection_event) rr_module_token_add(connection_event);
    else Log(LOG_WARN, "gtk.event", "Unable to subscribe to GTK connection state");
+   rr_event_token_t vfo_event = event_on_message_domain_token(
+      RRCLIENT_VFO_SNAPSHOT_EVENT, frontend_gtk_vfo_snapshot_event, NULL, "gtk");
+   if (vfo_event) rr_module_token_add(vfo_event);
+   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to VFO snapshots");
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
