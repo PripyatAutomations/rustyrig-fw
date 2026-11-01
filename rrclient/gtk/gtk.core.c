@@ -2449,6 +2449,7 @@ static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, v
 
 static void frontend_gtk_chat_incoming_event(const rr_event_message_t *message, void *unused);
 static void frontend_gtk_supervision_event(const rr_event_message_t *message, void *unused);
+static void frontend_gtk_admin_result_event(const rr_event_message_t *message, void *unused);
 static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_owner = g_thread_self();
    g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "GTK initialization tid=%p default-context=%p",
@@ -2488,6 +2489,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.ui.owner.action", frontend_gtk_owner_action_event, NULL, "gtk");
    if (action_event) rr_module_token_add(action_event);
    else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to frontend actions");
+   rr_event_token_t admin_event = event_on_message_domain_token(
+      "client.ui.admin.result", frontend_gtk_admin_result_event, NULL, "gtk");
+   if (admin_event) rr_module_token_add(admin_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to admin results");
    rr_event_token_t supervision_event = event_on_message_domain_token(
       "client.ui.supervision.result", frontend_gtk_supervision_event, NULL, "gtk");
    if (supervision_event) rr_module_token_add(supervision_event);
@@ -2730,11 +2735,43 @@ static void frontend_gtk_supervision_result(const char *data, rrconn_t *connecti
    event_emit_message(&message);
    g_free(payload);
 }
-extern void gtk_admin_result(const char *, rrconn_t *);
+/* Admin result callbacks originate in core; snapshot profile + response first. */
+typedef struct { uint32_t profile_len, data_len; } GtkAdminResultHeader;
+static void frontend_gtk_admin_result_event(const rr_event_message_t *message, void *unused);
+extern void gtk_admin_result_profile(const char *, const char *);
+static void frontend_gtk_admin_result(const char *data, rrconn_t *connection) {
+   const char *profile = rrclient_connection_name(connection);
+   if (!profile || !*profile) return;
+   size_t pl = strlen(profile) + 1, dl = strlen(data ? data : "") + 1;
+   if (pl > 4096 || dl > 1024 * 1024) return;
+   GtkAdminResultHeader h = {(uint32_t)pl, (uint32_t)dl};
+   size_t length = sizeof(h) + pl + dl;
+   char *payload = g_malloc(length);
+   memcpy(payload, &h, sizeof(h));
+   memcpy(payload + sizeof(h), profile, pl);
+   memcpy(payload + sizeof(h) + pl, data ? data : "", dl);
+   rr_event_message_t event = {.name = "client.ui.admin.result", .payload = payload, .length = length};
+   event_emit_message(&event);
+   g_free(payload);
+}
+static void frontend_gtk_admin_result_event(const rr_event_message_t *event, void *unused) {
+   (void)unused;
+   if (dying || !event->payload || event->length < sizeof(GtkAdminResultHeader)) return;
+   GtkAdminResultHeader h;
+   memcpy(&h, event->payload, sizeof(h));
+   size_t remaining = event->length - sizeof(h);
+   if (!h.profile_len || !h.data_len || h.profile_len > remaining ||
+       h.data_len != remaining - h.profile_len) return;
+   const char *profile = (const char *)event->payload + sizeof(h);
+   const char *data = profile + h.profile_len;
+   if (profile[h.profile_len - 1] || data[h.data_len - 1]) return;
+   gtk_admin_result_profile(data, profile);
+}
+
 
 const rr_frontend_ops_t gtk_frontend_ops = {
    .supervision_result = frontend_gtk_supervision_result,
-   .admin_result = gtk_admin_result,
+   .admin_result = frontend_gtk_admin_result,
    .irc_nick_prompt = frontend_gtk_irc_nick_prompt,
    .name = "gtk",
    .init = frontend_gtk_init,
