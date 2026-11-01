@@ -1667,8 +1667,11 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       return;
    }
 
+   gint64 media_begin_us = g_get_monotonic_time();
    rrclient_direct_message(cptr, d);
+   gint64 direct_us = g_get_monotonic_time() - media_begin_us;
    const char *cmd = dict_get(d, "media.cmd", NULL);
+   gint64 media_dispatch_us = g_get_monotonic_time();
 
    if (cmd && strcasecmp(cmd, "capab") == 0) {
       const char *codecs = dict_get(d, "media.codecs", NULL);
@@ -1726,6 +1729,12 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
    } else {
       Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>"));
    }
+   gint64 media_elapsed_us = g_get_monotonic_time() - media_begin_us;
+   if (media_elapsed_us >= 20000)
+      Log(LOG_WARN, "ws.media.timing",
+          "Slow media handler cmd=%s total=%lldus direct=%lldus operation=%lldus",
+          cmd ? cmd : "(none)", (long long)media_elapsed_us,
+          (long long)direct_us, (long long)(g_get_monotonic_time() - media_dispatch_us));
    dict_free(d);
 }
 
