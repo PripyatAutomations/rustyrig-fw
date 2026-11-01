@@ -319,6 +319,7 @@ static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) 
       /* This event is self-contained: no rrconn_t and no frontend pointer.
        * Its callback runs in the named GTK event domain. */
       const char value = active ? '1' : '0';
+      Log(LOG_DEBUG, "ui.event", "PTT confirmed: core emitting client.ui.ptt.state=%s via event bus", active ? "ON" : "OFF");
       event_emit_message(&(rr_event_message_t){
          .name = "client.ui.ptt.state", .sender = "core",
          .payload = &value, .length = sizeof(value)
