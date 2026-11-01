@@ -2076,6 +2076,14 @@ static void frontend_gtk_ptt_online_event(const rr_event_message_t *message, voi
       ptt_button_set_online(online == '1');
 }
 
+static void frontend_gtk_connection_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(int)) return;
+   int state;
+   memcpy(&state, message->payload, sizeof(state));
+   rr_connect_button_update_all(state);
+}
+
 static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_init(argc, argv);
    frontend_gtk_event_context = g_main_context_ref_thread_default();
@@ -2112,6 +2120,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.ui.ptt.online", frontend_gtk_ptt_online_event, NULL, "gtk");
    if (ptt_online_event) rr_module_token_add(ptt_online_event);
    else Log(LOG_WARN, "gtk.event", "Unable to subscribe to GTK PTT online updates");
+   rr_event_token_t connection_event = event_on_message_domain_token(
+      "client.ui.connection.state", frontend_gtk_connection_event, NULL, "gtk");
+   if (connection_event) rr_module_token_add(connection_event);
+   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to GTK connection state");
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
