@@ -387,6 +387,14 @@ static void populate(void) {
    gtk_tree_store_append(directory_store, &connected_group, NULL);
    gtk_tree_store_set(directory_store, &connected_group, COL_INDEX, G_MAXUINT,
       COL_LOCATION, "Connected SDRs", COL_GROUP, "0", -1);
+   GHashTable *country_counts = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   for (size_t i = 0; i < count; i++) {
+      const receiver_directory_entry_t *r = snapshot_receiver(i);
+      if (!r) continue;
+      const char *country = r->country && *r->country ? r->country : "Unknown";
+      guint total = GPOINTER_TO_UINT(g_hash_table_lookup(country_counts, country));
+      g_hash_table_replace(country_counts, g_strdup(country), GUINT_TO_POINTER(total + 1));
+   }
    for (size_t i = 0; i < count; i++) {
       const receiver_directory_entry_t *r = snapshot_receiver(i);
       if (!r) continue;
@@ -395,8 +403,11 @@ static void populate(void) {
       if (!parent) {
          parent = g_new0(GtkTreeIter, 1);
          gtk_tree_store_append(directory_store, parent, NULL);
+         guint country_count = GPOINTER_TO_UINT(g_hash_table_lookup(country_counts, country));
+         char *label = g_strdup_printf("%s (%u)", country, country_count);
          gtk_tree_store_set(directory_store, parent, COL_INDEX, G_MAXUINT,
-            COL_LOCATION, country, COL_GROUP, "1", -1);
+            COL_LOCATION, label, COL_GROUP, "1", -1);
+         g_free(label);
          g_hash_table_insert(groups, g_strdup(country), parent);
       }
       bool local = rrclient_local_bridge_connected(r->url);
@@ -419,6 +430,7 @@ static void populate(void) {
       }
    }
    g_hash_table_destroy(groups);
+   g_hash_table_destroy(country_counts);
    GtkTreePath *connected_path = gtk_tree_path_new_from_indices(0, -1);
    gtk_tree_view_expand_row(GTK_TREE_VIEW(directory_tree), connected_path, FALSE);
    gtk_tree_path_free(connected_path);
