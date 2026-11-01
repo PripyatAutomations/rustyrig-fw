@@ -240,3 +240,15 @@ It now snapshots formatted text and delivers it via the GTK event context.
 This follows the prior GTK LogView marshaling fix. Remaining GTK
 frontend_ops callbacks must still be audited; these changes do not make
 the experimental thread split universally safe. Avoid TX testing.
+
+## Confirmed GTK widget mutation from core thread
+
+GDB thread dump (Nov 1) showed the process main thread handling a network
+`join` event and calling `frontend_gtk_chat_set_authoritative_room()` →
+`gtk_chat_tab_add()` → `gtk_notebook_set_current_page()`, while the GTK
+worker was measuring the same widget hierarchy. All seven void chat widget
+callbacks (add/remove/topic/show status/authoritative/query/VFO change) now
+copy their parameters and enqueue work onto GTK's context. The synchronous
+`chat_current_room` getter still needs conversion to core-owned state;
+other frontend_ops calls and shutdown teardown remain unisolated. The
+experimental mode is not yet TX-safe.
