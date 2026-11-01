@@ -957,10 +957,14 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
-   g_signal_connect(main_content, "size-allocate", G_CALLBACK(main_width_diagnostic), NULL);
-   /* Diagnose width negotiation without changing any widget requisition. Only log when geometry changes; avoid flooding normal resize events. */
-   g_object_set_data(G_OBJECT(main_content), "rr-width-toolbar", rr_main_toolbar);
-   g_object_set_data(G_OBJECT(main_content), "rr-width-tabs", tabs_wrapper);
+   /* Preferred-width queries inside size-allocate can force nested GTK
+    * layout recalculation on every resize/focus transition. Keep this
+    * diagnostic opt-in; never run it on the normal GUI hot path. */
+   if (g_strcmp0(g_getenv("RRCLIENT_GTK_WIDTH_DIAGNOSTIC"), "1") == 0) {
+      g_object_set_data(G_OBJECT(main_content), "rr-width-toolbar", rr_main_toolbar);
+      g_object_set_data(G_OBJECT(main_content), "rr-width-tabs", tabs_wrapper);
+      g_signal_connect(main_content, "size-allocate", G_CALLBACK(main_width_diagnostic), NULL);
+   }
    gtk_ui_zoom_attach(main_window, main_content);
    /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
