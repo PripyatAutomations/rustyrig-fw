@@ -184,6 +184,19 @@ static void rrclient_core_dispatch_event(event_dispatch_fn_t fn, void *arg, void
    g_source_unref(source);
 }
 
+/* Opt-in dedicated core scheduler context. Other legacy GLib sources must
+ * migrate before the entire core is isolated from GTK. */
+static GMainContext *rr_experiment_core_context;
+static guint rr_core_timeout(guint interval, gint priority, GSourceFunc callback) {
+   GSource *source = g_timeout_source_new(interval);
+   g_source_set_priority(source, priority);
+   g_source_set_callback(source, callback, NULL, NULL);
+   guint id = g_source_attach(source, rr_experiment_core_context ?
+                              rr_experiment_core_context : g_main_context_default());
+   g_source_unref(source);
+   return id;
+}
+
 static gboolean ws_poll_cb(gpointer user_data) {
    /* Diagnostic latency of the core scheduler, independent of GTK's
     * widget paint callbacks. Rate-limit reports to once per 10 seconds. */
@@ -297,7 +310,7 @@ void shutdown_app(int signum) {
 #define MG_POLL_INTERVAL_MS 10
 
 void poll_mongoose_init(void) {
-   g_timeout_add_full(G_PRIORITY_HIGH, MG_POLL_INTERVAL_MS, ws_poll_cb, NULL, NULL);
+   rr_core_timeout(MG_POLL_INTERVAL_MS, G_PRIORITY_HIGH, ws_poll_cb);
 }
 #endif // USE_MONGOOSE
 
@@ -671,8 +684,11 @@ int main(int argc, char *argv[]) {
       }
       printf("\n");
    }
+   if (g_strcmp0(g_getenv("RRCLIENT_GTK_THREAD_EXPERIMENT"), "1") == 0)
+      rr_experiment_core_context = g_main_context_new();
    event_init();
-   if (!event_domain_register("core", rrclient_core_dispatch_event, g_main_context_default()))
+   if (!event_domain_register("core", rrclient_core_dispatch_event,
+          rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default()))
       Log(LOG_WARN, "core.event", "Unable to register core event delivery domain");
    host_init();
 
@@ -765,7 +781,7 @@ int main(int argc, char *argv[]) {
 
    // Reap exited children and expire warm encoders after fwdsp.hangtime.
    // This is independent of the UI and Mongoose polling mechanisms.
-   g_timeout_add(1000, fwdsp_maintenance_cb, NULL);
+   rr_core_timeout(1000, G_PRIORITY_DEFAULT, fwdsp_maintenance_cb);
 
    // Setup stdio & clock: the frontend module must be chosen first, so
    // the TUI setup below runs only when no graphical frontend loaded.
@@ -794,7 +810,7 @@ int main(int argc, char *argv[]) {
                gtk_test.ops = frontend_ops();
                gtk_test.argc = argc;
                gtk_test.argv = argv;
-               gtk_test.core_loop = g_main_loop_new(NULL, FALSE);
+               gtk_test.core_loop = g_main_loop_new(rr_experiment_core_context, FALSE);
                g_mutex_init(&gtk_test.mutex);
                g_cond_init(&gtk_test.cond);
                gtk_worker = g_thread_new("rrclient-gtk", rr_gtk_experiment_thread, &gtk_test);
@@ -879,8 +895,8 @@ int main(int argc, char *argv[]) {
    } else if (frontend_module) {
       if (gtk_worker) {
          /* In experimental mode the main/default context services core IO. */
-         g_timeout_add(rr_rtp_supported(false) ? 10 : 50, ws_poll_cb, NULL);
-         Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p", (void *)g_thread_self());
+         rr_core_timeout(rr_rtp_supported(false) ? 10 : 50, G_PRIORITY_DEFAULT, ws_poll_cb);
+         Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p context=%p", (void *)g_thread_self(), (void *)rr_experiment_core_context);
          g_main_loop_run(gtk_test.core_loop);
          g_thread_join(gtk_worker);
          gtk_worker = NULL;
