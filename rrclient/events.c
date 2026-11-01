@@ -58,8 +58,15 @@ void rrclient_update_connection_ui(int connected) {
 
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
-   if (frontend_ops()) {
-      frontend_ops()->conn_button_update(connected);
+   const rr_frontend_ops_t *ops = frontend_ops();
+   if (ops && ops->name && !strcmp(ops->name, "gtk")) {
+      /* Serialized value, not a borrowed connection pointer. */
+      event_emit_message(&(rr_event_message_t){
+         .name = "client.ui.connection.state", .sender = "core",
+         .payload = &connected, .length = sizeof(connected)
+      });
+   } else if (ops && ops->conn_button_update) {
+      ops->conn_button_update(connected);
    }
 }
 
