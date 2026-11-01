@@ -607,6 +607,9 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    int start_offset = gtk_text_iter_get_offset(&end);
    gtk_text_buffer_insert_markup(target_buffer, &end, colorized, -1);
    gtk_chat_highlight_prefix(target_view, start_offset);
+   /* Markup insertion and prefix highlighting may invalidate end. Do not
+    * reuse an iterator across mutations of indexable buffer content. */
+   gtk_text_buffer_get_end_iter(target_buffer, &end);
    gtk_text_buffer_insert(target_buffer, &end, "\n", 1);
    gtk_trim_scrollback(target_buffer, "ui.gtk.scrollback.chat", 200);
 
