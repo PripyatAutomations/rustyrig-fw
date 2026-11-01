@@ -1437,6 +1437,9 @@ static const char *frontend_gtk_chat_current_room(void) {
    return gtk_chat_current_room();
 }
 
+static GMainContext *frontend_gtk_event_context;
+static GThread *frontend_gtk_owner;
+
 static void ui_print_gtk_literal(const char *window, const char *fmt, ...) {
    va_list args;
    va_start(args, fmt);
@@ -2081,8 +2084,6 @@ static void gtk_identity_first_run(void) {
 
 /* Event-bus dispatch bridge. This context is captured on the GTK owner
  * thread rather than looked up from whichever thread emits an event. */
-static GMainContext *frontend_gtk_event_context;
-static GThread *frontend_gtk_owner;
 typedef struct {
    event_dispatch_fn_t fn;
    void *arg;
