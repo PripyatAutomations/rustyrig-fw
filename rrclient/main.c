@@ -104,6 +104,34 @@ static void rrclient_ptt_request_event(const rr_event_message_t *message, void *
    rrclient_send_ptt_command(ws_conn, vfo, request.on != 0, request.room);
 }
 
+/* Supervision decisions arrive from GTK without an rrconn_t pointer. */
+typedef struct {
+   char profile[128], room[128], id[96];
+   uint8_t accept;
+} SupervisionReply;
+static void rrclient_supervision_reply_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(SupervisionReply)) return;
+   SupervisionReply reply;
+   memcpy(&reply, message->payload, sizeof(reply));
+   if (!memchr(reply.profile, 0, sizeof(reply.profile)) ||
+       !memchr(reply.room, 0, sizeof(reply.room)) ||
+       !memchr(reply.id, 0, sizeof(reply.id)) || !reply.profile[0] ||
+       !reply.id[0] || reply.accept > 1) return;
+   rrconn_t *connection = rrclient_connection_find(reply.profile);
+   if (!connection || !connection->authenticated) return;
+   dict *d = dict_new();
+   if (!d) return;
+   char tail[128];
+   snprintf(tail, sizeof(tail), "%s %s", reply.accept ? "accept" : "decline", reply.id);
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "supervise");
+   dict_add(d, "talk.room", reply.room);
+   dict_add(d, "talk.data", tail);
+   ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+}
+
 extern const char *configs[];   // from defcfg.c
 extern const int num_configs;
 extern bool cfg_ui_bell_chat;
@@ -904,6 +932,10 @@ int main(int argc, char *argv[]) {
 
    // Register all of our core event handlers
    rrclient_register_events();
+   if (!event_on_message_domain_token("client.supervision.reply",
+          rrclient_supervision_reply_event, NULL, "core"))
+      Log(LOG_WARN, "supervision", "Unable to register supervision reply event");
+
    if (!event_on_message_domain_token("client.ptt.request",
           rrclient_ptt_request_event, NULL, "core"))
       Log(LOG_WARN, "ptt", "Unable to register core PTT request handler");
