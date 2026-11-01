@@ -745,8 +745,8 @@ static void admin_control_apply(GtkButton *button, gpointer user) {
 }
 
 
-bool gtk_admin_controls_result(const char *name, const char *action, dict *row, rrconn_t *connection) {
-   const char *source_profile = rrclient_connection_name(connection);
+bool gtk_admin_controls_result(const char *name, const char *action, dict *row, const char *profile) {
+   const char *source_profile = profile;
    const char *view_host = control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
    gboolean all_nodes = view_host && !strcmp(view_host, "all");
 
