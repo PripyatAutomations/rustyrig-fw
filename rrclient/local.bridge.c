@@ -590,7 +590,12 @@ static gboolean poll_local(gpointer unused) {
          break;
       }
       if (rrclient_room_active_vfo("&local-sdr") == (char)('A' + b->slot))
-         event_emit_binary(RR_BRIDGE_SPECTRUM_EVENT, NULL, &row, sizeof(row));
+      {
+         rr_event_message_t message = {
+            .name = RR_BRIDGE_SPECTRUM_EVENT, .payload = &row, .length = sizeof(row)
+         };
+         event_emit_message(&message);
+      }
    }
    return G_SOURCE_CONTINUE;
 }
