@@ -175,7 +175,12 @@ static bool try_candidate(struct direct_channel *channel) {
    while (channel->candidate_index < channel->candidate_count) {
       const char *endpoint = channel->candidates[channel->candidate_index++];
       rr_rtp_socket_detach(channel->attachment);
+      uint64_t attach_started = mono_us();
       channel->attachment = rr_rtp_socket_attach(media_socket, channel->grant_ssrc, channel->grant_key, channel->grant_encrypted, endpoint, channel);
+      uint64_t attach_elapsed = mono_us() - attach_started;
+      if (attach_elapsed >= UINT64_C(20000))
+         Log(LOG_WARN, "media.rtp.timing", "RTP candidate attach blocked core for %lluus endpoint=%s",
+             (unsigned long long)attach_elapsed, endpoint);
 
       if (!channel->attachment) {
          continue;
@@ -388,7 +393,12 @@ static bool received(void *user, const uint8_t *data, size_t length) {
    struct received_frame received = {
       channel->client, (const char *)copy, length, false
    };
+   uint64_t dispatch_started = mono_us();
    rrclient_connection_dispatch(channel->client, dispatch_received, &received);
+   uint64_t dispatch_elapsed = mono_us() - dispatch_started;
+   if (dispatch_elapsed >= UINT64_C(20000))
+      Log(LOG_WARN, "media.rtp.timing", "RTP audio dispatch blocked core for %lluus frame=%zu bytes",
+          (unsigned long long)dispatch_elapsed, length);
    free(copy);
 
    return received.result;
