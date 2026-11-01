@@ -67,7 +67,7 @@ static receiver_directory_entry_t *snapshot_entries;
 static size_t snapshot_count;
 static char snapshot_status[512], snapshot_info[1024];
 static guint snapshot_timeout_source;
-static gboolean snapshot_pending;
+static gboolean snapshot_pending, snapshot_dirty;
 static void populate(void);
 
 static const receiver_directory_entry_t *snapshot_receiver(size_t index) {
@@ -85,7 +85,7 @@ static gboolean snapshot_timeout(gpointer unused) {
    return G_SOURCE_REMOVE;
 }
 static void snapshot_request(void) {
-   if (snapshot_pending) return; /* Coalesce rapid core events. */
+   if (snapshot_pending) { snapshot_dirty = TRUE; return; } /* Coalesce rapid changes. */
    snapshot_pending = TRUE;
    if (directory_status && !snapshot_count)
       gtk_label_set_text(GTK_LABEL(directory_status), "Loading SDR directory snapshot…");
@@ -135,6 +135,10 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
       g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0;
    }
    if (directory_page && directory_store) populate();
+   if (snapshot_dirty) {
+      snapshot_dirty = FALSE;
+      snapshot_request(); /* A change arrived while the previous copy was in flight. */
+   }
 }
 
 /* Sort Country by region then city where region abbreviations are reliable. */
@@ -974,7 +978,7 @@ void gtk_receiver_directory_init(void) {
 }
 void gtk_receiver_directory_shutdown(void) {
    if (snapshot_timeout_source) { g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0; }
-   snapshot_pending = FALSE;
+   snapshot_pending = snapshot_dirty = FALSE;
    g_clear_pointer(&snapshot_rows, g_free);
    g_clear_pointer(&snapshot_entries, g_free);
    snapshot_count = 0;
