@@ -37,6 +37,13 @@
 #include <arpa/inet.h>
 #endif
 #define FWDSP_MAX_SUBPROCS 100
+/* Set before starting children: codec/PCM reader callbacks belong to core. */
+static GMainContext *fwdsp_reactor_context;
+void fwdsp_set_reactor_context(GMainContext *context) {
+   if (fwdsp_reactor_context) g_main_context_unref(fwdsp_reactor_context);
+   fwdsp_reactor_context = context ? g_main_context_ref(context) : NULL;
+}
+
 
 defconfig_t defcfg_fwdsp[] = {
    {
@@ -652,7 +659,7 @@ static struct fwdsp_io_conn *fwdsp_reader_attach(struct fwdsp_subproc *sp, int f
    if (flags >= 0) {
       fcntl(fd, F_SETFL, flags | O_NONBLOCK);
    }
-   ctx->watch = rr_reactor_watch_fd(NULL, fd, G_IO_IN, fwdsp_fd_ready, ctx);
+   ctx->watch = rr_reactor_watch_fd(fwdsp_reactor_context, fd, G_IO_IN, fwdsp_fd_ready, ctx);
 
    if (!ctx->watch) {
       g_byte_array_unref(ctx->recv);
