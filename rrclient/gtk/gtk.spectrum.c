@@ -291,6 +291,10 @@ static gboolean rf_draw_later(gpointer user) {
    if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
    return G_SOURCE_REMOVE;
 }
+static void rf_row(const char *, const void *, size_t, rrconn_t *, void *);
+static void rf_row_message(const rr_event_message_t *message, void *user) {
+   rf_row(RR_BRIDGE_SPECTRUM_EVENT, message->payload, message->length, NULL, user);
+}
 static void rf_row(const char *event, const void *data, size_t len,
                    rrconn_t *connection, void *user) {
    (void)event; (void)connection;
@@ -667,7 +671,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
-   p->token = event_on_binary_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row, p);
+   p->token = event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row_message, p, "gtk");
    p->caps_token = event_on_binary_token("client.local-bridge.capabilities", rf_caps_changed, p);
    p->vfo_token = event_on_binary_token("client.local-bridge.vfo", rf_caps_changed, p);
    rf_caps_changed(NULL, NULL, 0, NULL, p);
