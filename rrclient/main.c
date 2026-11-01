@@ -736,14 +736,16 @@ int main(int argc, char *argv[]) {
 
    // apply some global configuration
    char *logfile = cfg_get_path("log.file");
-   const char *log_target = logfile ? logfile : "-";
-
-   // "-" means stdout for GTK. Other modes use stdout for their UI, so route
-   // the common setting to the normal client log file instead.
-   if (ui_mode != UI_MODE_GTK && strcmp(log_target, "-") == 0) {
-      log_target = "rrclient.log";
+   /* Keep trace traffic on disk rather than stdout/the GTK console.
+    * An explicitly configured file path continues to take precedence. */
+   char *default_logfile = NULL;
+   const char *log_target = logfile;
+   if (!log_target || !*log_target || !strcmp(log_target, "-")) {
+      default_logfile = g_build_filename(g_get_home_dir(), "rrclient.log", NULL);
+      log_target = default_logfile;
    }
    logger_init(log_target, (ui_mode == UI_MODE_TUI));
+   g_free(default_logfile);
 
    if (!rrclient_database_init() || !rrclient_database_load_profiles() || !rrclient_database_load_themes()) {
       Log(LOG_CRIT, "db", "Unable to initialize client database");
