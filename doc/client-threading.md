@@ -1,5 +1,18 @@
 # Client frontend threading — revised direction
 
+## First end-to-end event migration
+
+Confirmed PTT state now emits `client.ui.ptt.state` from the core; the
+GTK frontend subscribes on the named `gtk` domain, receiving an owned
+one-byte state snapshot. The GTK implementation no longer needs a direct
+core-thread callback for this notification. Non-GTK frontend behavior stays
+on the compatibility path.
+
+This is deliberately one notification, **not** a threaded GTK rollout.
+Other `frontend_ops` calls and GTK-to-core commands still access shared
+state. The GTK domain currently runs on the shared default loop; separating
+it is blocked until all direct calls and synchronous queries are addressed.
+
 ## Branch status (v1.1/frontend-threading)
 
 The first implementation milestone is in this branch:
