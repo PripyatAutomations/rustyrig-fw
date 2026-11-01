@@ -14,11 +14,11 @@
 #define AUDIO_PERIOD_US 20000
 /* Buffer 60 ms before playing (and after starvation), retaining at most 160 ms of decoded PCM. This is a playout jitter cushion, not a GStreamer queue or a
  * delay on the network/codec worker. */
-#define AUDIO_PREFILL (3u * AUDIO_BLOCK)
+#define AUDIO_PREFILL (4u * AUDIO_BLOCK)
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
  * underflow, forcing unnecessary further rebuffering. */
 #define AUDIO_MAX_QUEUED (12u * AUDIO_BLOCK)
-#define AUDIO_RECOVERY_PREFILL AUDIO_BLOCK
+#define AUDIO_RECOVERY_PREFILL (4u * AUDIO_BLOCK)
 #define AUDIO_FADE_IN 64u
 typedef struct stream {
    struct stream *next;
@@ -66,8 +66,9 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       *active = true;
 
       if (!s->primed) {
-         /* Start with 60 ms of PCM, but after a genuine dropout resume as soon as a complete 20 ms block arrives. Waiting for another full 60 ms magnified a
-          * single late frame into multiple silences. */
+         /* Require an 80 ms cushion both at start and after starvation. The old
+          * 20 ms recovery threshold immediately exhausted on bursty PCM arrivals,
+          * causing repeating short silences even with an on-time mixer clock. */
          size_t threshold = s->ever_primed ? AUDIO_RECOVERY_PREFILL : AUDIO_PREFILL;
 
          if (s->count < threshold) {
