@@ -82,6 +82,10 @@ static gboolean snapshot_timeout(gpointer unused) {
    snapshot_timeout_source = 0;
    if (snapshot_pending) {
       snapshot_pending = FALSE;
+      if (download_status) {
+         gtk_spinner_stop(GTK_SPINNER(download_spinner));
+         gtk_widget_hide(download_status);
+      }
       if (directory_status)
          gtk_label_set_text(GTK_LABEL(directory_status),
             "SDR directory update is taking too long. Keeping the last snapshot; try Refresh later.");
@@ -419,7 +423,7 @@ static void populate(void) {
    char *summary = g_strdup_printf("%s\n%s", snapshot_status, snapshot_info);
    gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure ? receiver_failure : summary);
    g_free(summary);
-   gtk_widget_set_sensitive(refresh_button, !receiver_directory_busy());
+   gtk_widget_set_sensitive(refresh_button, !snapshot_busy);
    /* Restore a receiver by walking children of both country and connected groups. */
    GtkTreeModel *tree_model = gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
    GtkTreeIter parent;
