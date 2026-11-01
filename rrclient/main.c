@@ -162,6 +162,28 @@ static bool rrclient_config_refresh(const char *key) {
    return true;
 }
 
+/* The process main/default GLib context is the core domain. Messages
+ * from frontend workers enter here with owned envelopes, not rrconn_t
+ * pointers. The TUI and GTK configurations share this destination. */
+typedef struct {
+   event_dispatch_fn_t fn;
+   void *arg;
+} CoreEventDelivery;
+static gboolean rrclient_core_deliver_event(gpointer opaque) {
+   CoreEventDelivery *delivery = opaque;
+   delivery->fn(delivery->arg);
+   return G_SOURCE_REMOVE;
+}
+static void rrclient_core_dispatch_event(event_dispatch_fn_t fn, void *arg, void *user) {
+   GMainContext *context = user;
+   CoreEventDelivery *delivery = g_new(CoreEventDelivery, 1);
+   *delivery = (CoreEventDelivery){fn, arg};
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, rrclient_core_deliver_event, delivery, g_free);
+   g_source_attach(source, context);
+   g_source_unref(source);
+}
+
 static gboolean ws_poll_cb(gpointer user_data) {
    if (dying) {
       return G_SOURCE_REMOVE;
@@ -613,6 +635,8 @@ int main(int argc, char *argv[]) {
       printf("\n");
    }
    event_init();
+   if (!event_domain_register("core", rrclient_core_dispatch_event, g_main_context_default()))
+      Log(LOG_WARN, "core.event", "Unable to register core event delivery domain");
    host_init();
 
    // add our configuration callbacks
