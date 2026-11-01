@@ -98,9 +98,16 @@ static void rrclient_ptt_request_event(const rr_event_message_t *message, void *
    if (!memchr(request.room, '\0', sizeof(request.room))) return;
    if (!ws_conn || ws_connected != 1) return;
    char vfo[2] = {request.vfo, '\0'};
-   /* Never key a different selected room or VFO after an asynchronous delay. */
-   if (request.on && (strcmp(request.room, rrclient_current_room()) ||
-                      request.vfo != vfo_state_get_active())) return;
+   /* PTT targets the rig's TX-control room, not the currently selected
+    * chat tab. rrclient_current_room() can resolve to the authoritative
+    * chat room when this event runs on core, which is not necessarily the
+    * room the GTK rig controls. */
+   if (request.on && (!rrclient_room_tx_control(request.room) ||
+                      request.vfo != vfo_state_get_active())) {
+      Log(LOG_WARN, "ptt", "Rejecting PTT ON: no TX-control access or VFO changed (room=%s vfo=%c)", request.room, request.vfo);
+      return;
+   }
+   Log(LOG_DEBUG, "ptt", "Core PTT request: %s room=%s vfo=%c", request.on ? "ON" : "OFF", request.room, request.vfo);
    rrclient_send_ptt_command(ws_conn, vfo, request.on != 0, request.room);
 }
 
