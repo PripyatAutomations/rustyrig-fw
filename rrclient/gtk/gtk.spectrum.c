@@ -244,6 +244,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_scale_set_draw_value(GTK_SCALE(p->gain), TRUE);
    gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
    gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);
+   gtk_widget_set_sensitive(p->mode, FALSE);
+   gtk_widget_set_sensitive(p->gain, FALSE);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
    gtk_widget_set_size_request(p->drawing, -1, 210);
