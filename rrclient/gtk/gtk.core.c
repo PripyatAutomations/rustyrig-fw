@@ -2164,6 +2164,32 @@ static void frontend_gtk_server_picker_show_event(const rr_event_message_t *mess
    if (!dying) gtk_show_server_chooser();
 }
 
+/* Existing protocol event, copied by librustyaxe for GTK-domain delivery.
+ * No rrconn_t crosses threads. Leave core authoritative state in core. */
+static void frontend_gtk_talk_msg_event(const char *event, const char *data,
+                                         rrconn_t *connection, void *user) {
+   (void)event;
+   (void)connection;
+   (void)user;
+   if (dying || !data) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.target", NULL);
+   const char *from = dict_get(d, "talk.from", "?");
+   const char *kind = dict_get(d, "talk.msg_type", NULL);
+   const char *text = dict_get(d, "talk.data", NULL);
+   bool query = dict_get_bool(d, "talk.query", false) ||
+      (kind && (!strcasecmp(kind, "priv") || !strcasecmp(kind, "privmsg")));
+   if (query && from && login_user && strcasecmp(from, login_user))
+      room = from;
+   if (room && *room) {
+      const char *unread = text && kind && strncasecmp(kind, "replay-", 7) &&
+         (!login_user || strcasecmp(from, login_user)) ? text : NULL;
+      gtk_chat_incoming(room, query, unread, login_user);
+   }
+   dict_free(d);
+}
+
 static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (message->length != 1 || !message->payload) return;
@@ -2254,6 +2280,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       NULL, "gtk");
    if (picker_event) rr_module_token_add(picker_event);
    else Log(LOG_WARN, "gtk.event", "Unable to subscribe to server-picker requests");
+   rr_event_token_t talk_event = event_on_domain_token(
+      "talk.msg", frontend_gtk_talk_msg_event, NULL, "gtk");
+   if (talk_event) rr_module_token_add(talk_event);
+   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to talk.msg on GTK domain");
    rr_event_token_t ptt_event = event_on_message_domain_token(
       "client.ui.ptt.state", frontend_gtk_ptt_state_event, NULL, "gtk");
    if (ptt_event) rr_module_token_add(ptt_event);
