@@ -104,16 +104,43 @@ static void refresh(GtkWidget *widget, gpointer data) {
    GtkLogView *v = data;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
 }
-static void copy_item(GtkMenuItem *item, gpointer unused) {
-   (void)unused;
-   const char *text = g_object_get_data(G_OBJECT(item), "copy-value");
-   gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text ? text : "", -1);
+static gchar *logview_selected_text(GtkLogView *v, gboolean csv);
+static void copy_item(GtkMenuItem *item, gpointer data) {
+   GtkLogView *v = data;
+   gboolean csv = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "copy-csv"));
+   /* Read selection at activation, not when the menu opened: Select All
+    * can change it while this menu is being reused. */
+   gchar *text = logview_selected_text(v, csv);
+   if (*text)
+      gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, -1);
+   g_free(text);
 }
-static void copy_option(GtkWidget *menu, const char *title, const char *value) {
+static void copy_option(GtkWidget *menu, const char *title, GtkLogView *v, gboolean csv) {
    GtkWidget *item = gtk_menu_item_new_with_label(title);
-   g_object_set_data_full(G_OBJECT(item), "copy-value", g_strdup(value ? value : ""), g_free);
-   g_signal_connect(item, "activate", G_CALLBACK(copy_item), NULL);
+   g_object_set_data(G_OBJECT(item), "copy-csv", GINT_TO_POINTER(csv));
+   g_signal_connect(item, "activate", G_CALLBACK(copy_item), v);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+}
+/* GTK closes menus after activation. Reopen after the selection-done signal
+ * so Select All can be followed immediately by Copy CSV or TSV. */
+static gboolean logview_reopen_menu(gpointer data) {
+   GtkWidget *menu = data;
+   g_object_set_data(G_OBJECT(menu), "reopen-after-select", NULL);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
+   return G_SOURCE_REMOVE;
+}
+static void logview_menu_done(GtkMenuShell *shell, gpointer unused) {
+   (void)unused;
+   if (!g_object_get_data(G_OBJECT(shell), "reopen-after-select"))
+      gtk_widget_destroy(GTK_WIDGET(shell));
+}
+static void logview_select_all(GtkMenuItem *item, gpointer data) {
+   GtkLogView *v = data;
+   GtkWidget *menu = gtk_widget_get_parent(GTK_WIDGET(item));
+   gtk_tree_selection_select_all(gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)));
+   g_object_set_data(G_OBJECT(menu), "reopen-after-select", GINT_TO_POINTER(1));
+   g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, logview_reopen_menu,
+                   g_object_ref(menu), g_object_unref);
 }
 static void csv_value(GString *out, const char *s) {
    g_string_append_c(out, '"');
@@ -210,17 +237,17 @@ static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data)
    }
    gtk_tree_path_free(path);
    GtkWidget *menu = gtk_menu_new();
-   gchar *csv = logview_selected_text(v, TRUE);
-   gchar *tsv = logview_selected_text(v, FALSE);
-   copy_option(menu, "Copy Selected Rows (CSV)", csv);
-   copy_option(menu, "Copy Selected Rows (TSV)", tsv);
-   g_free(csv);
-   g_free(tsv);
+   GtkWidget *all = gtk_menu_item_new_with_label("Select All");
+   g_signal_connect(all, "activate", G_CALLBACK(logview_select_all), v);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), all);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+   copy_option(menu, "Copy Selected Rows (CSV)", v, TRUE);
+   copy_option(menu, "Copy Selected Rows (TSV)", v, FALSE);
    GtkWidget *related = gtk_menu_item_new_with_label("Find Related…");
    gtk_widget_set_sensitive(related, FALSE);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), related);
    gtk_widget_show_all(menu);
-   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   g_signal_connect(menu, "selection-done", G_CALLBACK(logview_menu_done), NULL);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
 
    return TRUE;
