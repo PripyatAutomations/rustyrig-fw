@@ -2149,6 +2149,15 @@ static void frontend_gtk_dispatch_event(event_dispatch_fn_t fn, void *arg, void 
 
 /* Inbound snapshot from the core domain. The payload is owned by the
  * event bus; no connection or GTK object crosses the thread boundary. */
+static void frontend_gtk_authoritative_room_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || !message->length || message->length > 4096) return;
+   const char *room = message->payload;
+   if (room[message->length - 1] != '\0' ||
+       strnlen(room, message->length) != message->length - 1) return;
+   gtk_chat_set_authoritative_room(room);
+}
+
 static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (message->length != 1 || !message->payload) return;
@@ -2229,6 +2238,11 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_log_callback = log_add_callback_token(log_print_va, LOG_CALLBACK_FILTERED);
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_token("client.quit.request", frontend_gtk_quit_request, NULL));
+   rr_event_token_t room_event = event_on_message_domain_token(
+      "client.ui.chat.authoritative-room", frontend_gtk_authoritative_room_event,
+      NULL, "gtk");
+   if (room_event) rr_module_token_add(room_event);
+   else Log(LOG_WARN, "gtk.event", "Unable to subscribe to authoritative room events");
    rr_event_token_t ptt_event = event_on_message_domain_token(
       "client.ui.ptt.state", frontend_gtk_ptt_state_event, NULL, "gtk");
    if (ptt_event) rr_module_token_add(ptt_event);
