@@ -1229,19 +1229,30 @@ static void frontend_gtk_ptt_set_state(bool active);
 static void frontend_gtk_ptt_tot_expired(int tot_secs);
 static void frontend_gtk_ptt_refresh(void);
 
+static void frontend_gtk_codec_set_active(bool is_tx, const char *codec);
+static void frontend_gtk_syslog_clear(void);
+static void frontend_gtk_focus_tab(const char *tab);
+static void frontend_gtk_switch_window(int id);
+static void frontend_gtk_alert(const char *message);
+static void frontend_gtk_edit_config(const char *path);
+static void frontend_gtk_bell(void);
+static void frontend_gtk_notify(const char *title, const char *message);
+static void frontend_gtk_show_server_chooser(void);
+static void frontend_gtk_webcam_show(bool show);
+
 static bool frontend_gtk_ptt_hotkey_toggle(void) {
    return ptt_button_hotkey_toggle();
 }
 
-static void frontend_gtk_codec_set_active(bool is_tx, const char *codec) {
+static void frontend_gtk_codec_set_active_owner(bool is_tx, const char *codec) {
    codec_picker_set_active(is_tx, codec);
 }
 
-static void frontend_gtk_syslog_clear(void) {
+static void frontend_gtk_syslog_clear_owner(void) {
    syslog_clear();
 }
 
-static void frontend_gtk_focus_tab(const char *tab) {
+static void frontend_gtk_focus_tab_owner(const char *tab) {
    GtkWidget *page = NULL;
 
    if (!strcasecmp(tab, "admin")) {
@@ -1266,7 +1277,7 @@ static void frontend_gtk_focus_tab(const char *tab) {
    }
 }
 
-static void frontend_gtk_switch_window(int id) {
+static void frontend_gtk_switch_window_owner(int id) {
    gtk_tabs_select(GTK_NOTEBOOK(main_notebook), id);
 }
 
@@ -1280,7 +1291,7 @@ static bool frontend_gtk_confirm_dialog(const char *message) {
    return ui_confirm_dialog(parent, message);
 }
 
-static void frontend_gtk_alert(const char *message) {
+static void frontend_gtk_alert_owner(const char *message) {
    alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, message ? message : "");
 }
 
@@ -1317,11 +1328,11 @@ static void frontend_gtk_quit_request(const char *event, const char *data, rrcon
    dying = true;
 }
 
-static void frontend_gtk_edit_config(const char *path) {
+static void frontend_gtk_edit_config_owner(const char *path) {
    gui_file_editor_open_config(path);
 }
 
-static void frontend_gtk_bell(void) {
+static void frontend_gtk_bell_owner(void) {
    GdkDisplay *display = gtk_widget_get_display(main_window ? main_window : chat_textview);
 
    if (display) {
@@ -1329,18 +1340,18 @@ static void frontend_gtk_bell(void) {
    }
 }
 
-static void frontend_gtk_notify(const char *title, const char *message) {
+static void frontend_gtk_notify_owner(const char *title, const char *message) {
 #ifdef USE_LIBNOTIFY
    ui_message_notify(title, message);
 #endif
 }
 
-static void frontend_gtk_show_server_chooser(void) {
+static void frontend_gtk_show_server_chooser_owner(void) {
    gtk_show_server_chooser();
 }
 
 extern void gtk_webcam_show(bool show);   // gtk.webcam.c
-static void frontend_gtk_webcam_show(bool show) {
+static void frontend_gtk_webcam_show_owner(bool show) {
    gtk_webcam_show(show);
 }
 
@@ -1470,6 +1481,67 @@ static void frontend_gtk_ptt_tot_expired(int secs) {
 static void frontend_gtk_ptt_refresh(void) {
    frontend_gtk_ui_post(GTK_UI_PTT_REFRESH, NULL, 0);
 }
+
+/* One-way frontend operations: own strings and execute on GTK's context.
+ * The bool-returning frontend operations deliberately remain separate:
+ * synchronous results require an explicit asynchronous protocol. */
+typedef enum {
+   GTK_OP_CODEC, GTK_OP_CLEAR_LOG, GTK_OP_FOCUS, GTK_OP_WINDOW,
+   GTK_OP_ALERT, GTK_OP_EDIT, GTK_OP_BELL, GTK_OP_NOTIFY,
+   GTK_OP_CHOOSER, GTK_OP_WEBCAM
+} GtkOwnerAction;
+typedef struct { GtkOwnerAction action; char *a, *b; int value; } GtkOwnerCall;
+static gboolean frontend_gtk_owner_call_run(gpointer opaque) {
+   GtkOwnerCall *c = opaque;
+   if (dying) return G_SOURCE_REMOVE;
+   switch (c->action) {
+      case GTK_OP_CODEC: frontend_gtk_codec_set_active_owner(c->value != 0, c->a); break;
+      case GTK_OP_CLEAR_LOG: frontend_gtk_syslog_clear_owner(); break;
+      case GTK_OP_FOCUS: frontend_gtk_focus_tab_owner(c->a); break;
+      case GTK_OP_WINDOW: frontend_gtk_switch_window_owner(c->value); break;
+      case GTK_OP_ALERT: frontend_gtk_alert_owner(c->a); break;
+      case GTK_OP_EDIT: frontend_gtk_edit_config_owner(c->a); break;
+      case GTK_OP_BELL: frontend_gtk_bell_owner(); break;
+      case GTK_OP_NOTIFY: frontend_gtk_notify_owner(c->a, c->b); break;
+      case GTK_OP_CHOOSER: frontend_gtk_show_server_chooser_owner(); break;
+      case GTK_OP_WEBCAM: frontend_gtk_webcam_show_owner(c->value != 0); break;
+   }
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_owner_call_free(gpointer opaque) {
+   GtkOwnerCall *c = opaque;
+   g_free(c->a); g_free(c->b); g_free(c);
+}
+static void frontend_gtk_owner_post(GtkOwnerAction action, const char *a, const char *b, int value) {
+   GtkOwnerCall *c = g_new0(GtkOwnerCall, 1);
+   c->action = action;
+   c->a = g_strdup(a);
+   c->b = g_strdup(b);
+   c->value = value;
+   if (g_thread_self() == frontend_gtk_owner) {
+      frontend_gtk_owner_call_run(c);
+      frontend_gtk_owner_call_free(c);
+   } else if (frontend_gtk_event_context) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_owner_call_run, c, frontend_gtk_owner_call_free);
+      g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
+   } else frontend_gtk_owner_call_free(c);
+}
+static void frontend_gtk_codec_set_active(bool is_tx, const char *codec) {
+   frontend_gtk_owner_post(GTK_OP_CODEC, codec, NULL, is_tx);
+}
+static void frontend_gtk_syslog_clear(void) { frontend_gtk_owner_post(GTK_OP_CLEAR_LOG, NULL, NULL, 0); }
+static void frontend_gtk_focus_tab(const char *tab) { frontend_gtk_owner_post(GTK_OP_FOCUS, tab, NULL, 0); }
+static void frontend_gtk_switch_window(int id) { frontend_gtk_owner_post(GTK_OP_WINDOW, NULL, NULL, id); }
+static void frontend_gtk_alert(const char *message) { frontend_gtk_owner_post(GTK_OP_ALERT, message, NULL, 0); }
+static void frontend_gtk_edit_config(const char *path) { frontend_gtk_owner_post(GTK_OP_EDIT, path, NULL, 0); }
+static void frontend_gtk_bell(void) { frontend_gtk_owner_post(GTK_OP_BELL, NULL, NULL, 0); }
+static void frontend_gtk_notify(const char *title, const char *message) {
+   frontend_gtk_owner_post(GTK_OP_NOTIFY, title, message, 0);
+}
+static void frontend_gtk_show_server_chooser(void) { frontend_gtk_owner_post(GTK_OP_CHOOSER, NULL, NULL, 0); }
+static void frontend_gtk_webcam_show(bool show) { frontend_gtk_owner_post(GTK_OP_WEBCAM, NULL, NULL, show); }
 
 /* Chat widget mutations are always delivered to GTK's owning thread.
  * Never pass a borrowed core dictionary/string across the boundary. */
