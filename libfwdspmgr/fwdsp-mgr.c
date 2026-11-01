@@ -216,7 +216,13 @@ static uint32_t frame_length_decode(const uint8_t header[FWDSP_FRAME_HEADER_SIZE
 
 static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
    while (len > 0) {
+#ifndef _WIN32
+      /* fwdsp IPC is an AF_UNIX socketpair. Suppress SIGPIPE per write so a
+       * terminated subprocess returns EPIPE instead of signaling rr-audio. */
+      ssize_t written = send(fd, data, len, MSG_NOSIGNAL);
+#else
       ssize_t written = write(fd, data, len);
+#endif
 
       if (written > 0) {
          data += written;
