@@ -160,3 +160,19 @@ connection button on the destination context. Other frontends retain the
 existing callback. VFO state still uses direct frontend callbacks: its GTK
 handler currently reads selected server and active room from core state,
 so it must be refactored to a complete snapshot before thread isolation.
+
+## Owned VFO snapshots
+
+`vfo.c` now sends `client.ui.vfo.snapshot` to GTK with copied VFO ID,
+mode, server, room, frequency, width, power, PTT and availability fields.
+GTK's paint/flush callback consumes those values rather than querying the
+core's active room, selected server, VFO selection or availability.
+The frontend's existing `vfo_state` callback remains for ABI compatibility
+but is bypassed for the current GTK sender path.
+
+**Not yet threaded:** GTK still has many core reads beyond VFO painting,
+including UI interactions and synchronous frontend operation callbacks.
+`g_idle_add` and other GTK sources must be attached to the eventual
+GTK-owned context, not the core/default context; the current domain context
+is still captured from the default thread. Module callback lifetimes and
+pending dispatch cleanup must be audited before activation.
