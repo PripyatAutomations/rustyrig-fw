@@ -194,3 +194,12 @@ To complete real isolation we must migrate GTK's default-context sources
 sources), replace all remaining synchronous cross-thread UI invocations,
 and verify no GTK callbacks execute on the core thread. Only then test
 audio starvation with simulated slow rendering.
+
+## Experimental thread diagnostics
+
+The opt-in threaded GTK experiment now logs GTK and core GThread identities,
+checks GTK-domain event callback ownership, and logs core network scheduler
+poll gaps exceeding 100 ms (rate-limited to 10 seconds). Look for
+`gtk.thread`, `core.thread`, and `core.scheduler` diagnostics. The
+`RRCLIENT_GTK_THREAD_EXPERIMENT=1` mode is still **not safe for transmission**:
+legacy GTK idle/timeout sources and synchronous core calls need isolation.
