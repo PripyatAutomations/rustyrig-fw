@@ -7,5 +7,5 @@
 GtkWidget *gtk_admin_access_page(GtkListStore *groups);
 GtkWidget *gtk_admin_access_label(void);
 void gtk_admin_access_refresh(void);
-bool gtk_admin_access_result(const char *name, const char *action, dict *row, rrconn_t *connection);
+bool gtk_admin_access_result(const char *name, const char *action, dict *row, const char *profile);
 #endif
