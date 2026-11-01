@@ -288,3 +288,16 @@ The existing GTK handler still references shared login and connection
 information, and the other legacy frontend operations need migration.
 Legacy dispatched-listener teardown, domain unregister and outstanding
 callbacks require further lifetime hardening before dynamic module unload.
+
+## Protocol-event presentation migration (Nov 1 follow-up)
+
+GTK now receives the existing `join`, `part`, `room.deleted`,
+`room.topic`, `room.vfo`, `room.vfo-list`, `room.state` and
+`userinfo` on the `gtk` event domain. The core event handlers retain
+room/session and roster authority while suppressing corresponding direct
+frontend calls to GTK. `talk.msg` already uses a GTK domain listener.
+The PART handler only closes a tab when its authenticated session token
+matches, and preserves the tab after a kick. The frontend is still not
+completely thread-isolated: other synchronous `frontend_ops` calls,
+shared core state read by GTK, and queued listener teardown remain to audit.
+Do not enable TX in the experimental split.
