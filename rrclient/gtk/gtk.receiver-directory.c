@@ -66,6 +66,10 @@ static rr_receiver_directory_snapshot_row_t *snapshot_rows;
 static receiver_directory_entry_t *snapshot_entries;
 static size_t snapshot_count;
 static char snapshot_status[512], snapshot_info[1024];
+static char snapshot_error[512], snapshot_source[1024];
+static gboolean snapshot_busy;
+static void directory_download_wait(void);
+static void directory_download_finished(void);
 static guint snapshot_timeout_source;
 static gboolean snapshot_pending, snapshot_dirty;
 static void populate(void);
@@ -103,7 +107,9 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
        message->length - sizeof(header) != (size_t)header.count *
                                              sizeof(rr_receiver_directory_snapshot_row_t) ||
        !memchr(header.status, 0, sizeof(header.status)) ||
-       !memchr(header.info, 0, sizeof(header.info))) return;
+       !memchr(header.info, 0, sizeof(header.info)) ||
+       !memchr(header.error, 0, sizeof(header.error)) ||
+       !memchr(header.source, 0, sizeof(header.source)) || header.busy > 1) return;
    rr_receiver_directory_snapshot_row_t *rows = g_memdup2(
       (const char *)message->payload + sizeof(header),
       (size_t)header.count * sizeof(*rows));
@@ -130,11 +136,16 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
    snapshot_rows = rows; snapshot_entries = entries; snapshot_count = header.count;
    g_strlcpy(snapshot_status, header.status, sizeof(snapshot_status));
    g_strlcpy(snapshot_info, header.info, sizeof(snapshot_info));
+   g_strlcpy(snapshot_error, header.error, sizeof(snapshot_error));
+   g_strlcpy(snapshot_source, header.source, sizeof(snapshot_source));
+   snapshot_busy = header.busy != 0;
    snapshot_pending = FALSE;
    if (snapshot_timeout_source) {
       g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0;
    }
    if (directory_page && directory_store) populate();
+   if (snapshot_busy) directory_download_wait();
+   else directory_download_finished();
    if (snapshot_dirty) {
       snapshot_dirty = FALSE;
       snapshot_request(); /* A change arrived while the previous copy was in flight. */
@@ -439,13 +450,13 @@ static void directory_download_wait(void) {
    if (!directory_page || !download_status) {
       return;
    }
-   bool busy = receiver_directory_busy();
+   bool busy = snapshot_busy;
    gtk_widget_set_visible(download_status, busy);
 
    if (!busy) {
       return;
    }
-   const char *url = receiver_directory_fetch_url();
+   const char *url = snapshot_source;
    char *message = g_strdup_printf("Please wait downloading directory from %s", url && *url ? url : "(unknown source)");
    GtkWidget *label = g_object_get_data(G_OBJECT(download_status), "download-label");
    gtk_label_set_text(GTK_LABEL(label), message);
@@ -453,7 +464,7 @@ static void directory_download_wait(void) {
    g_free(message);
 }
 static void directory_download_finished(void) {
-   if (!directory_page || receiver_directory_busy()) {
+   if (!directory_page || snapshot_busy) {
       return;
    }
 
@@ -461,10 +472,10 @@ static void directory_download_finished(void) {
       gtk_spinner_stop(GTK_SPINNER(download_spinner));
       gtk_widget_hide(download_status);
    }
-   const char *reason = receiver_directory_last_error();
+   const char *reason = snapshot_error;
 
    if (reason && *reason) {
-      const char *source = receiver_directory_source_url();
+      const char *source = snapshot_source;
       char *message = g_strdup_printf("Unable to download SDR Directory: %s\\nSource: %s\\n"
          "Check receiver-directory.url in rrclient.cfg (or RRCLIENT_RECEIVER_DIRECTORY_URL), "
          "the network and proxy settings. Cached receivers, if any, remain available.", reason, source && *source ? source : "(not configured)");
@@ -498,7 +509,6 @@ static void directory_changed(const char *event, const char *data, rrconn_t *con
    (void)connection;
    (void)unused;
    snapshot_request();
-   directory_download_finished();
 }
 static void refresh_clicked(GtkButton *button, gpointer unused) {
    (void)button;
