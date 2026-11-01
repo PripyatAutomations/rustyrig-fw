@@ -812,9 +812,17 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          if (dict_get_bool(d, "room.site", false)) {
             ws_set_authoritative_room(m_room);
 
-            if (frontend_ops()) {
-               if (rrclient_present_context()) {
-                  frontend_ops()->chat_set_authoritative_room(m_room);
+            if (rrclient_present_context()) {
+               const rr_frontend_ops_t *ops = frontend_ops();
+               if (ops && ops->name && !strcmp(ops->name, "gtk")) {
+                  /* Owned payload is copied by the domain event bus. */
+                  event_emit_message(&(rr_event_message_t){
+                     .name = "client.ui.chat.authoritative-room",
+                     .sender = "core", .payload = m_room,
+                     .length = strlen(m_room) + 1
+                  });
+               } else if (ops && ops->chat_set_authoritative_room) {
+                  ops->chat_set_authoritative_room(m_room);
                }
             }
          }
