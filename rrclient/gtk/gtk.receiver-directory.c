@@ -125,9 +125,12 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
       VIEW_FIELD(driver); VIEW_FIELD(url); VIEW_FIELD(name);
       VIEW_FIELD(description); VIEW_FIELD(location); VIEW_FIELD(country);
       VIEW_FIELD(contact); VIEW_FIELD(antenna); VIEW_FIELD(hardware);
-      VIEW_FIELD(grid); VIEW_FIELD(properties); VIEW_FIELD(local_state);
-      VIEW_FIELD(local_reason);
+      VIEW_FIELD(grid); VIEW_FIELD(properties); VIEW_FIELD(local_reason);
 #undef VIEW_FIELD
+      /* The policy distinguishes unknown (NULL) from a reported failure.
+       * A fixed-size snapshot encodes NULL as an empty string. Restore NULL
+       * here or Availability incorrectly hides most cached receivers. */
+      e->local_state = r->local_state[0] ? r->local_state : NULL;
       e->users = r->users; e->users_max = r->users_max; e->ext_api = r->ext_api;
       e->offline = r->offline; e->flagged = r->flagged; e->deleted = r->deleted;
       e->favorite = r->favorite; e->last_seen = r->last_seen;
