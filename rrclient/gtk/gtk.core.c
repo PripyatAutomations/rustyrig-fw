@@ -2174,6 +2174,10 @@ static void frontend_gtk_room_protocol_event(const char *event, const char *data
    (void)connection;
    (void)unused;
    if (dying || !data) return;
+   if (!strcmp(event, "userinfo")) {
+      userlist_redraw_gtk();
+      return;
+   }
    dict *d = json2dict(data);
    if (!d) return;
    const char *room = dict_get(d, "talk.room", NULL);
@@ -2202,8 +2206,6 @@ static void frontend_gtk_room_protocol_event(const char *event, const char *data
       userlist_room_state_changed(room);
       userlist_redraw_gtk();
       ptt_button_refresh();
-   } else if (!strcmp(event, "userinfo")) {
-      userlist_redraw_gtk();
    }
    dict_free(d);
 }
