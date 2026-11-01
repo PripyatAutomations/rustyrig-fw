@@ -12,8 +12,8 @@
 #define AUDIO_BLOCK 320u
 #define AUDIO_CAPACITY 4000u
 #define AUDIO_PERIOD_US 20000
-/* Buffer 60 ms before playing (and after starvation), retaining at most 160 ms of decoded PCM. This is a playout jitter cushion, not a GStreamer queue or a
- * delay on the network/codec worker. */
+/* Buffer 80 ms before startup/recovery, with a 240 ms queue ceiling. This
+ * absorbs bursty decoder output without depending on GTK scheduling. */
 #define AUDIO_PREFILL (4u * AUDIO_BLOCK)
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
  * underflow, forcing unnecessary further rebuffering. */
