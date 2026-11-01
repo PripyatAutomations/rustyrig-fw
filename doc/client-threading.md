@@ -151,3 +151,12 @@ state must all migrate together.
 - Hold a lock over network processing, codec startup, or GUI callbacks.
 - Treat `CAP_SYS_NICE` or realtime priorities as a substitute for
   isolation.
+
+## Connection status event migration
+
+`rrclient_update_connection_ui()` emits `client.ui.connection.state` with a copied
+integer snapshot for the GTK frontend. The GTK domain subscriber updates the
+connection button on the destination context. Other frontends retain the
+existing callback. VFO state still uses direct frontend callbacks: its GTK
+handler currently reads selected server and active room from core state,
+so it must be refactored to a complete snapshot before thread isolation.
