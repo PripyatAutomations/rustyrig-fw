@@ -315,10 +315,17 @@ static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) 
       return;
    }
 
-   if (frontend_ops() && frontend_ops()->ptt_set_state) {
-      if (rrclient_present_context()) {
+   if (frontend_ops() && !strcmp(frontend_ops()->name, "gtk")) {
+      /* This event is self-contained: no rrconn_t and no frontend pointer.
+       * Its callback runs in the named GTK event domain. */
+      const char value = active ? '1' : '0';
+      event_emit_message(&(rr_event_message_t){
+         .name = "client.ui.ptt.state", .sender = "core",
+         .payload = &value, .length = sizeof(value)
+      });
+   } else if (frontend_ops() && frontend_ops()->ptt_set_state) {
+      if (rrclient_present_context())
          frontend_ops()->ptt_set_state(active);
-      }
    }
 }
 
