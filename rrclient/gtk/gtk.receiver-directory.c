@@ -60,6 +60,7 @@ static GtkTreeStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token, failure_token, local_vfo_token;
 static char *receiver_failure;
+extern bool rr_module_token_add(rr_event_token_t token);
 /* GTK owns these copies. They can never be invalidated by a core refresh. */
 static rr_receiver_directory_snapshot_row_t *snapshot_rows;
 static receiver_directory_entry_t *snapshot_entries;
@@ -468,23 +469,12 @@ static void directory_download_finished(void) {
    }
 }
 static gboolean directory_start_refresh(gpointer force_request) {
-   gboolean started = receiver_directory_refresh_force(GPOINTER_TO_INT(force_request) != 0);
-
-   if (started && receiver_directory_busy()) {
-      directory_download_wait();
-   } else {
-      directory_download_finished();
-      const char *status = receiver_directory_last_error();
-
-      if (!status || !*status) {
-         status = receiver_directory_status();
-      }
-
-      if (status && *status) {
-         gtk_label_set_text(GTK_LABEL(directory_status), status);
-      }
-   }
-
+   char force = GPOINTER_TO_INT(force_request) != 0;
+   rr_event_message_t request = {
+      .name = "client.receiver.refresh.request", .payload = &force, .length = 1
+   };
+   event_emit_message(&request);
+   snapshot_request();
    return G_SOURCE_REMOVE;
 }
 static void directory_refresh_with_wait(gboolean force) {
