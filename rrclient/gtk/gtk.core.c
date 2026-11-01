@@ -2546,8 +2546,30 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    return false;
 }
 
+/* An orphaned GTK grab can leave the window painting while swallowing all
+ * keyboard/mouse input. Never remove live grabs (modal dialogs need them). */
+static gboolean frontend_gtk_grab_watchdog(gpointer unused) {
+   (void)unused;
+   GtkWidget *grab = gtk_grab_get_current();
+   if (!grab) return G_SOURCE_CONTINUE;
+   if (gtk_widget_get_mapped(grab)) return G_SOURCE_CONTINUE;
+   /* A temporarily unmapped widget may become visible in this iteration;
+    * only release a grab whose widget is no longer in a visible toplevel. */
+   GtkWidget *top = gtk_widget_get_toplevel(grab);
+   if (gtk_widget_get_visible(grab) &&
+       GTK_IS_WINDOW(top) && gtk_widget_get_mapped(top))
+      return G_SOURCE_CONTINUE;
+   g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING,
+         "Releasing orphaned GTK input grab: widget=%s mapped=%d visible=%d",
+         G_OBJECT_TYPE_NAME(grab), gtk_widget_get_mapped(grab),
+         gtk_widget_get_visible(grab));
+   gtk_grab_remove(grab);
+   return G_SOURCE_CONTINUE;
+}
 static void frontend_gtk_run(void) {
+   guint grab_watchdog = g_timeout_add_seconds(2, frontend_gtk_grab_watchdog, NULL);
    gtk_main();
+   g_source_remove(grab_watchdog);
 }
 
 static gboolean frontend_gtk_quit_on_owner(gpointer unused) {
