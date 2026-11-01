@@ -2441,6 +2441,7 @@ static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, v
       pending_vfo_paint.source = g_idle_add(frontend_gtk_flush_vfo, NULL);
 }
 
+static void frontend_gtk_chat_incoming_event(const rr_event_message_t *message, void *unused);
 static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_owner = g_thread_self();
    g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "GTK initialization tid=%p default-context=%p",
