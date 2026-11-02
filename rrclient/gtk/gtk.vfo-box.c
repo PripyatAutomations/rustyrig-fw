@@ -252,7 +252,7 @@ GtkWidget *create_vfo_box(void) {
     * immediately. */
    vfo_update_ui();
    if (!local_vfo_token)
-      local_vfo_token = event_on_token("client.local-bridge.vfo", local_vfo_refresh, NULL);
+      local_vfo_token = event_on_domain_token("client.local-bridge.vfo", local_vfo_refresh, NULL, "gtk");
    g_signal_connect(control_box, "destroy", G_CALLBACK(local_vfo_destroy), NULL);
    local_vfo_refresh(NULL, NULL, NULL, NULL);
 
