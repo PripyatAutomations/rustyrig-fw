@@ -301,3 +301,56 @@ matches, and preserves the tab after a kick. The frontend is still not
 completely thread-isolated: other synchronous `frontend_ops` calls,
 shared core state read by GTK, and queued listener teardown remain to audit.
 Do not enable TX in the experimental split.
+
+## Resource Explorer and Remote Files boundary work (Nov 2)
+
+The configured GTK topology now starts the GTK module on its owner thread
+and dispatches core events through the GTK context when
+`core.new-threading=true`; setting it to `false` retains the legacy shared
+loop. The audio pipeline was not changed. The split is **not yet release-safe
+for TX**: the outstanding paths below still access core-owned state from
+GTK or have callback lifetime assumptions that need explicit verification.
+
+Resource Explorer inventory rows now carry copied room, object, media and
+serial presentation fields, and native IRC rows/summaries are collected on
+core before GTK updates its models. Refresh/action requests, rig-property
+reads and menu writes use owned events; GTK stores property responses by
+profile/UUID/property and correlates them by request ID. The GTK event
+delivery bridge now asserts its owner thread in debug builds. The PTT
+hotkey wrapper reports a queued action as handled so core does not issue a
+duplicate command.
+
+Remote Files now receives an owned list of authenticated server profiles
+and sends listing, mutation and transfer commands through the core event
+domain. GTK no longer resolves connections or calls file-transfer/network
+APIs directly. Results return as copied status/completion events. Native
+transfer tests continue to exercise upload/download and remote editing.
+
+### Remaining unsafe or incomplete paths
+
+- `rrclient/gtk/gtk.userlist.c` still traverses `global_userlist`, reads room,
+  media and object state, resolves connections, and sends WebSocket commands
+  from GTK callbacks. GTK roster and VFO presentations need complete owned
+  snapshots and command events.
+- `rrclient/gtk/gtk.admin.c` still resolves core connections and sends
+  requests directly; account/session/group actions need core-domain
+  commands and asynchronous acceptance results.
+- Resource Explorer's local serial scan still calls `rr_serial_foreach()`,
+  `rr_sercom_info()` and `rr_serial_find()` from GTK. Device/configuration
+  state and local attach/disconnect actions need core snapshots/commands.
+  `gtk.serial.c` has an event-based remote attach path, but local settings
+  and cancellation/teardown still need review.
+- Other GTK controls (including chat, PTT, volume, TX power, codec and
+  terminal paths) still contain direct reads or writes of connection/media
+  state. Their callbacks and sources must be audited before declaring the
+  split safe.
+- The owner assertion currently guards the GTK event-delivery bridge and
+  GTK init/run entry points; it is not a blanket assertion around every GTK
+  API call. Event-listener unregister, queued callback draining, and module
+  unload ordering also remain to be verified.
+
+`gtk_resources` now tests copied property-request/result payloads and the
+serial attach-request event shape. Its legacy interactive serial-settings
+dialog automation is not covered; the prior fixture no longer matched the
+dialog's current widget structure. Do not treat this partial migration as
+completion of the v1.1 thread separation.

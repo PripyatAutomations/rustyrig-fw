@@ -43,20 +43,23 @@ static bool send_request(rrconn_t *c, dict *d) {
 
    return ok;
 }
-char *rrclient_files_request(rrconn_t *c, const char *command, const char *path, const char *dest) {
-   char *id = g_uuid_string_random();
+bool rrclient_files_request_id(rrconn_t *c, const char *command, const char *path, const char *dest, const char *id) {
+   if (!id || !*id) return false;
    dict *d = message(command, path, id);
 
    if (dest) {
       dict_add(d, "file.dest", dest);
    }
 
-   if (!send_request(c, d)) {
-      g_free(id);
+   return send_request(c, d);
+}
+char *rrclient_files_request(rrconn_t *c, const char *command, const char *path, const char *dest) {
+   char *id = g_uuid_string_random();
 
+   if (!rrclient_files_request_id(c, command, path, dest, id)) {
+      g_free(id);
       return NULL;
    }
-
    return id;
 }
 static void finish(struct transfer *t, const char *error, rrconn_t *connection) {
@@ -314,6 +317,64 @@ static void disconnected(const char *event, const char *data, rrconn_t *c, void 
       t = following;
    }
 }
+static void files_command_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   dict *request = payload ? json2dict(payload) : NULL;
+   if (!request) {
+      Log(LOG_WARN, "files", "Ignoring malformed GTK file command");
+      return;
+   }
+   const char *profile = dict_get(request, "profile", "");
+   const char *request_id = dict_get(request, "request.id", "");
+   const char *operation = dict_get(request, "operation", "");
+   rrconn_t *connection = rrclient_connection_find(profile);
+   bool accepted = false;
+   if (!strcmp(operation, "request")) {
+      accepted = rrclient_files_request_id(connection, dict_get(request, "command", ""),
+         dict_get(request, "path", "/"), dict_get(request, "dest", NULL), request_id);
+   } else if (!strcmp(operation, "transfer")) {
+      bool upload = dict_get_bool(request, "upload", false);
+      accepted = rrclient_files_transfer(connection, dict_get(request, "path", ""),
+         dict_get(request, "local", ""), upload, dict_get_bool(request, "overwrite", false));
+   }
+   dict *reply = dict_new();
+   if (reply) {
+      dict_add(reply, "profile", profile);
+      dict_add(reply, "request.id", request_id);
+      dict_add(reply, "operation", operation);
+      dict_add_bool(reply, "accepted", accepted);
+      event_emit_dict("client.files.command-result", NULL, reply);
+      dict_free(reply);
+   }
+   if (!accepted && !strcmp(operation, "transfer")) {
+      dict *complete = message("complete", dict_get(request, "path", ""), request_id);
+      dict_add(complete, "file.error", "Cannot start transfer");
+      dict_add(complete, "file.local", dict_get(request, "local", ""));
+      dict_add(complete, "client.profile", profile);
+      event_emit_dict("client.files.complete", NULL, complete);
+      dict_free(complete);
+   }
+   dict_free(request);
+}
+static void files_sites_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)payload;
+   (void)unused_connection;
+   (void)unused;
+   for (unsigned i = 0 ;; i++) {
+      const char *profile = rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *connection = rrclient_connection_find(profile);
+      if (!connection || !connection->is_ws || !connection->authenticated) continue;
+      dict *site = dict_new();
+      if (!site) continue;
+      dict_add(site, "profile", profile);
+      event_emit_dict("client.files.site", NULL, site);
+      dict_free(site);
+   }
+}
 bool cmd_files(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
       event_emit("client.files.open", NULL, ws_conn ? rrclient_connection_name(ws_conn) : NULL);
@@ -327,4 +388,6 @@ bool cmd_files(int argc, char **args) {
 void rrclient_files_register(void) {
    event_on("ws.msg.file", received, NULL);
    event_on("disconnected", disconnected, NULL);
+   event_on_domain_token("client.files.command-request", files_command_request, NULL, "core");
+   event_on_domain_token("client.files.sites-request", files_sites_request, NULL, "core");
 }

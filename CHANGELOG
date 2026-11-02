@@ -19,8 +19,14 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     by correlating responses with the stable server profile name.
   * Restore the server event-loop wait interval to prevent a Mongoose busy
     spin from consuming a full CPU core.
+  * Move Resource Explorer inventory, IRC, and rig-property reads to copied
+    core snapshots; route Explorer and Remote Files requests through events.
+  * Add debug GTK owner assertions and preserve asynchronous file-transfer
+    results without passing core connection pointers to GTK.
+  * Document remaining GTK/core crossings and retain legacy threading mode;
+    leave the audio pipeline unchanged.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 29 Oct 2026 02:59:11 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 18:52:17 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

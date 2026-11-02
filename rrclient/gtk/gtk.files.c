@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <rrclient/files.h>
-#include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.file-editor.h>
 #include "gtk.files.h"
@@ -50,6 +49,7 @@ static struct {
    GtkTreeStore *store;
    GHashTable *requests;
    GHashTable *site_requests;   /* discovery request ID -> home server profile */
+   GHashTable *connected_sites;
    guint timer;
    gulong server_changed_handler;
    char *wanted_site;
@@ -111,7 +111,7 @@ static gboolean listing_expired(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
-static rr_event_token_t open_token, row_token, done_token;
+static rr_event_token_t open_token, row_token, done_token, site_token, command_result_token;
 struct remote_edit {
    char *profile, *path, *local;
 };
@@ -128,18 +128,57 @@ static void edit_free(gpointer data) {
 }
 
 /* Selector IDs are PROFILE (local site) or PROFILE|@NODEUUID (linked site). All file operations still go through the authenticated home connection. */
-static rrconn_t *connection(void) {
+static char *selected_profile(void) {
    const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
 
    if (!id) {
       return NULL;
    }
    const char *sep = strchr(id, '|');
-   char *profile = sep ? g_strndup(id, (gsize) (sep - id)) : g_strdup(id);
-   rrconn_t *c = rrclient_connection_find(profile);
-   g_free(profile);
-
-   return c;
+   return sep ? g_strndup(id, (gsize) (sep - id)) : g_strdup(id);
+}
+static gboolean command_request(const char *profile, const char *operation, const char *command, const char *path,
+   const char *dest, const char *local, gboolean upload, gboolean overwrite, const char *request_id) {
+   if (!profile || !*profile || !request_id || !*request_id) return FALSE;
+   dict *request = dict_new();
+   if (!request) return FALSE;
+   dict_add(request, "profile", profile);
+   dict_add(request, "operation", operation);
+   dict_add(request, "request.id", request_id);
+   if (command) dict_add(request, "command", command);
+   if (path) dict_add(request, "path", path);
+   if (dest) dict_add(request, "dest", dest);
+   if (local) dict_add(request, "local", local);
+   dict_add_bool(request, "upload", upload);
+   dict_add_bool(request, "overwrite", overwrite);
+   char *payload = dict2json(request);
+   gboolean queued = payload != NULL;
+   if (payload) {
+      event_emit("client.files.command-request", NULL, payload);
+      free(payload);
+   }
+   dict_free(request);
+   return queued;
+}
+static char *files_request_id(void) {
+   return g_uuid_string_random();
+}
+static gboolean request_site_listing(const char *profile) {
+   char *id = files_request_id();
+   g_hash_table_insert(browser.site_requests, g_strdup(id), g_strdup(profile));
+   if (!command_request(profile, "request", "list", "/", NULL, NULL, FALSE, FALSE, id)) {
+      g_hash_table_remove(browser.site_requests, id);
+      g_free(id);
+      return FALSE;
+   }
+   g_free(id);
+   return TRUE;
+}
+static gboolean transfer_request(const char *profile, const char *path, const char *local, gboolean upload, gboolean overwrite) {
+   char *id = files_request_id();
+   gboolean queued = command_request(profile, "transfer", NULL, path, NULL, local, upload, overwrite, id);
+   g_free(id);
+   return queued;
 }
 static gboolean selected_profile_matches(const char *profile) {
    if (!browser.server || !profile || !*profile) return FALSE;
@@ -196,10 +235,12 @@ static void remove_placeholders(GtkTreeIter *parent) {
 static void load(GtkTreeIter *parent) {
    char *path;
    gtk_tree_model_get(GTK_TREE_MODEL(browser.store), parent, PATH, &path, -1);
-   char *id = rrclient_files_request(connection(), "list", path, NULL);
-   g_free(path);
-
-   if (!id) {
+   char *profile = selected_profile();
+   char *id = files_request_id();
+   if (!profile) {
+      g_free(profile);
+      g_free(path);
+      g_free(id);
       gtk_tree_store_set(browser.store, parent, LOADED, FALSE, -1);
       status("Connect to a RustyRig server first.");
 
@@ -214,10 +255,18 @@ static void load(GtkTreeIter *parent) {
    struct listing *request = g_new0(struct listing, 1);
    request->row = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser.store), treepath);
    request->started = mono_us();
-   g_hash_table_insert(browser.requests, id, request);
+   g_hash_table_insert(browser.requests, g_strdup(id), request);
    gtk_tree_path_free(treepath);
    gtk_tree_store_set(browser.store, parent, LOADED, TRUE, -1);
    status("Loading…");
+   if (!command_request(profile, "request", "list", path, NULL, NULL, FALSE, FALSE, id)) {
+      g_hash_table_remove(browser.requests, id);
+      gtk_tree_store_set(browser.store, parent, LOADED, FALSE, -1);
+      status("Could not queue the file listing request.");
+   }
+   g_free(profile);
+   g_free(path);
+   g_free(id);
 }
 static void expand(GtkTreeView *tree, GtkTreeIter *iter, GtkTreePath *path, gpointer data) {
    gboolean loaded;
@@ -273,51 +322,48 @@ static void refresh(void) {
 static void changed(GtkComboBox *box, gpointer data);
 /* Rebuild both direct and linked site choices. Refresh must discover links established after the Files window was first opened. */
 static void refresh_sites(void) {
-   g_free(browser.wanted_site);
-   browser.wanted_site = g_strdup(gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server)));
-   const char *selected = browser.wanted_site;
-   g_hash_table_remove_all(browser.site_requests);
+   const char *active = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
+   if (active) {
+      g_free(browser.wanted_site);
+      browser.wanted_site = g_strdup(active);
+   }
+   g_hash_table_remove_all(browser.connected_sites);
 
    if (browser.server_changed_handler) {
       g_signal_handler_block(browser.server, browser.server_changed_handler);
    }
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(browser.server));
-   const char *first = NULL;
-
-   for (unsigned i = 0 ;; ++i) {
-      const char *profile = rrclient_connection_iter(i);
-
-      if (!profile) {
-         break;
-      }
-      rrconn_t *candidate = rrclient_connection_find(profile);
-
-      if (!candidate || !candidate->is_ws || !candidate->authenticated) {
-         continue;
-      }
-
-      if (!first) {
-         first = profile;
-      }
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), profile, profile);
-      char *id = rrclient_files_request(candidate, "list", "/", NULL);
-
-      if (id) {
-         g_hash_table_insert(browser.site_requests, id, g_strdup(profile));
-      }
-   }
-
-   if (selected) {
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), selected);
-   }
-
-   if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first) {
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), first);
-   }
-
    if (browser.server_changed_handler) {
       g_signal_handler_unblock(browser.server, browser.server_changed_handler);
    }
+   event_emit("client.files.sites-request", NULL, NULL);
+}
+static void site(const char *event, const char *text, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   if (!browser.window || !text) return;
+   dict *snapshot = json2dict(text);
+   if (!snapshot) return;
+   const char *profile = dict_get(snapshot, "profile", "");
+   if (*profile && !g_hash_table_contains(browser.connected_sites, profile)) {
+      g_hash_table_add(browser.connected_sites, g_strdup(profile));
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), profile, profile);
+      if (!request_site_listing(profile))
+         status("Unable to request the server's shared-file list.");
+      const char *active = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
+      if ((browser.wanted_site && !strcmp(browser.wanted_site, profile)) || !active) {
+         if (browser.server_changed_handler)
+            g_signal_handler_block(browser.server, browser.server_changed_handler);
+         gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), profile);
+         if (browser.server_changed_handler)
+            g_signal_handler_unblock(browser.server, browser.server_changed_handler);
+         if (browser.wanted_site && !strcmp(browser.wanted_site, profile))
+            g_clear_pointer(&browser.wanted_site, g_free);
+         refresh();
+      }
+   }
+   dict_free(snapshot);
 }
 static void changed(GtkComboBox *box, gpointer data) {
    (void)box;
@@ -365,7 +411,7 @@ static bool confirm(const char *message) {
 }
 static bool edit_save(const char *local, void *data) {
    struct remote_edit *e = data;
-   bool ok = rrclient_files_transfer(rrclient_connection_find(e->profile), e->path, local, true, true);
+   bool ok = transfer_request(e->profile, e->path, local, TRUE, TRUE);
    status(ok ? "Saving remote file…" : "Could not start upload; reconnect or wait for the current transfer.");
 
    return ok;
@@ -400,26 +446,40 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
    }
    dict_free(d);
 }
+static void command_result(const char *event, const char *text, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   if (!browser.window || !text) return;
+   dict *reply = json2dict(text);
+   if (!reply) return;
+   const char *id = dict_get(reply, "request.id", "");
+   const char *operation = dict_get(reply, "operation", "");
+   if (!dict_get_bool(reply, "accepted", false)) {
+      struct listing *request = g_hash_table_lookup(browser.requests, id);
+      if (request) {
+         GtkTreePath *path = gtk_tree_row_reference_get_path(request->row);
+         GtkTreeIter iter;
+         if (path && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store), &iter, path))
+            gtk_tree_store_set(browser.store, &iter, LOADED, FALSE, -1);
+         if (path) gtk_tree_path_free(path);
+         g_hash_table_remove(browser.requests, id);
+      }
+      status(!strcmp(operation, "transfer") ? "Cannot start file transfer; check the connection and current transfer." :
+         "File request rejected; reconnect and try again.");
+   }
+   dict_free(reply);
+}
 
 /* Prefer an authenticated direct connection over a redundant relayed route when the remote node advertises the same site name/profile. */
 static gboolean directly_connected_site(const char *alias) {
-   if (!alias || !*alias) {
-      return FALSE;
+   if (!alias || !*alias) return FALSE;
+   GHashTableIter iter;
+   gpointer key;
+   g_hash_table_iter_init(&iter, browser.connected_sites);
+   while (g_hash_table_iter_next(&iter, &key, NULL)) {
+      if (!g_ascii_strcasecmp(alias, key)) return TRUE;
    }
-
-   for (unsigned i = 0 ;; i++) {
-      const char *profile = rrclient_connection_iter(i);
-
-      if (!profile) {
-         break;
-      }
-      rrconn_t *direct = rrclient_connection_find(profile);
-
-      if (direct && direct->is_ws && direct->authenticated && !g_ascii_strcasecmp(profile, alias)) {
-         return TRUE;
-      }
-   }
-
    return FALSE;
 }
 static void row(const char *event, const char *text, rrconn_t *c, void *data) {
@@ -555,10 +615,11 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
 }
 static void action(GtkButton *button, gpointer data) {
    const char *op = data;
+   char *profile = selected_profile();
 
    if (!strcmp(op, "refresh")) {
       refresh_sites();
-      refresh();
+      g_free(profile);
 
       return;
    }
@@ -568,8 +629,13 @@ static void action(GtkButton *button, gpointer data) {
 
    if (!path || !*path) {
       g_free(path);
+      g_free(profile);
 
       return;
+   }
+   if (!profile) {
+      status("Select a connected RustyRig server first.");
+      goto done;
    }
 
    if (!strcmp(op, "download") || !strcmp(op, "edit")) {
@@ -593,7 +659,7 @@ static void action(GtkButton *button, gpointer data) {
          pending_edit = g_new0(struct remote_edit, 1);
          pending_edit->local = g_strdup(local);
          pending_edit->path = g_strdup(path);
-         pending_edit->profile = g_strdup(rrclient_connection_name(connection()));
+         pending_edit->profile = g_strdup(profile);
       } else {
          GtkWidget *dialog =
             gtk_file_chooser_dialog_new("Download", GTK_WINDOW(main_window), GTK_FILE_CHOOSER_ACTION_SAVE, "Cancel", GTK_RESPONSE_CANCEL, "Save",
@@ -610,7 +676,7 @@ static void action(GtkButton *button, gpointer data) {
       }
 
       if (local) {
-         if (!rrclient_files_transfer(connection(), path, local, false, false)) {
+         if (!transfer_request(profile, path, local, FALSE, FALSE)) {
             status("Cannot start download; check the connection and current transfer.");
 
             if (pending_edit) {
@@ -640,7 +706,7 @@ static void action(GtkButton *button, gpointer data) {
          }
          char *base = g_path_get_basename(local), *remote = g_strdup_printf("%s/%s", path, base);
 
-         if (rrclient_files_transfer(connection(), remote, local, true, false)) {
+         if (transfer_request(profile, remote, local, TRUE, FALSE)) {
             status("Uploading…");
          } else {
             status("Cannot start upload.");
@@ -652,7 +718,9 @@ static void action(GtkButton *button, gpointer data) {
       gtk_widget_destroy(dialog);
    } else if (!strcmp(op, "delete")) {
       if (writable && strcmp(path, "/") && confirm("Delete the selected file or empty directory?")) {
-         char *id = rrclient_files_request(connection(), "delete", path, NULL);
+         char *id = files_request_id();
+         if (!command_request(profile, "request", "delete", path, NULL, NULL, FALSE, FALSE, id))
+            status("Unable to request deletion.");
          g_free(id);
       }
    } else if (!strcmp(op, "move")) {
@@ -666,9 +734,8 @@ static void action(GtkButton *button, gpointer data) {
       if (value && *value && strcmp(value, path)) {
          char *parent = g_path_get_dirname(path);
          char *dest = value[0] == '/' ? g_strdup(value) : g_build_filename(parent, value, NULL);
-         char *id = rrclient_files_request(connection(), "rename", path, dest);
-
-         if (!id) {
+         char *id = files_request_id();
+         if (!command_request(profile, "request", "rename", path, dest, NULL, FALSE, FALSE, id)) {
             status("Unable to request move / rename.");
          }
          g_free(id);
@@ -680,13 +747,17 @@ static void action(GtkButton *button, gpointer data) {
       char *name = prompt("New directory", "");
 
       if (name && *name) {
-         char *dest = g_strdup_printf("%s/%s", path, name), *id = rrclient_files_request(connection(), "mkdir", dest, NULL);
+         char *dest = g_strdup_printf("%s/%s", path, name), *id = files_request_id();
+         if (!command_request(profile, "request", "mkdir", dest, NULL, NULL, FALSE, FALSE, id))
+            status("Unable to request directory creation.");
          g_free(dest);
          g_free(id);
       }
       g_free(name);
    }
-done: g_free(path);
+done:
+   g_free(path);
+   g_free(profile);
 }
 static gint sort(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer data) {
    char *an, *bn;
@@ -713,6 +784,7 @@ static void destroyed(GtkWidget *window, gpointer data) {
    }
    g_hash_table_destroy(browser.requests);
    g_hash_table_destroy(browser.site_requests);
+   g_hash_table_destroy(browser.connected_sites);
    g_free(browser.wanted_site);
    g_object_unref(browser.store);
    memset(&browser, 0, sizeof(browser));
@@ -753,32 +825,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    gtk_widget_set_hexpand(browser.server, TRUE);
    gtk_box_pack_start(GTK_BOX(server_row), browser.server, TRUE, TRUE, 0);
    gtk_widget_set_tooltip_text(browser.server, "Ctrl+Tab / Ctrl+Shift+Tab switches servers");
-   /* Domain callbacks may not dereference core-owned connection pointers. */
-   const char *selected = text && *text ? text : rrclient_selected_server(), *first = NULL;
-
-   for (unsigned i = 0 ;; i++) {
-      const char *profile = rrclient_connection_iter(i);
-
-      if (!profile) {
-         break;
-      }
-      rrconn_t *candidate = rrclient_connection_find(profile);
-
-      if (candidate && candidate->is_ws && candidate->authenticated) {
-         if (!first) {
-            first = profile;
-         }
-         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), profile, profile);
-      }
-   }
-
-   if (selected) {
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), selected);
-   }
-
-   if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first) {
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), first);
-   }
+   browser.wanted_site = text && *text ? g_strdup(text) : NULL;
    browser.store = gtk_tree_store_new(COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_UINT64, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser.store), NAME, sort, NULL, NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser.store), NAME, GTK_SORT_ASCENDING);
@@ -850,6 +897,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    gtk_box_pack_start(GTK_BOX(box), browser.status, FALSE, FALSE, 0);
    browser.requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, listing_free);
    browser.site_requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   browser.connected_sites = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    browser.timer = g_timeout_add_seconds(1, listing_expired, NULL);
    g_signal_connect(browser.window, "destroy", G_CALLBACK(destroyed), NULL);
    g_signal_connect(browser.window, "key-press-event", G_CALLBACK(browser_key_press), NULL);
@@ -857,18 +905,22 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    g_signal_connect(browser.tree, "row-activated", G_CALLBACK(folder_activated), NULL);
    browser.server_changed_handler = g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
    rr_floating_panel_show(files_panel);
-   refresh();
    refresh_sites();
 }
 void gtk_files_init(void) {
    open_token = event_on_domain_token("client.files.open", open_browser, NULL, "gtk");
    row_token = event_on_domain_token("client.files.row", row, NULL, "gtk");
    done_token = event_on_domain_token("client.files.complete", complete, NULL, "gtk");
+   site_token = event_on_domain_token("client.files.site", site, NULL, "gtk");
+   command_result_token = event_on_domain_token("client.files.command-result", command_result, NULL, "gtk");
 }
 void gtk_files_shutdown(void) {
    event_off_token(open_token);
    event_off_token(row_token);
    event_off_token(done_token);
+   event_off_token(site_token);
+   event_off_token(command_result_token);
+   open_token = row_token = done_token = site_token = command_result_token = NULL;
 
    if (browser.window) {
       files_close(NULL);

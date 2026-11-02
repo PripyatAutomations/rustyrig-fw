@@ -11,11 +11,14 @@
 #include <rrclient/objects.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/connman.h>
+#include <rrclient/rooms.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/cmd.h>
 #include <rrclient/sercom.h>
 #include <rrclient/media.h>
+#include <rrclient/userlist.h>
+#include <rrclient/irc.stats.h>
 #include <librustyaxe/json.h>
 #include <librrprotocol/ws.mediachan.h>
 static rr_object_cache_t *cache;
@@ -32,6 +35,74 @@ static struct inventory_request {
    unsigned count;
    bool graphical, gps_listing;
 } inventory_requests[INVENTORY_REQUESTS_MAX];
+
+static const struct rr_client_media_chan *inventory_media_channel(const char *uuid) {
+   if (!uuid || !*uuid) return NULL;
+   for (int i = 0;; i++) {
+      const struct rr_client_media_chan *channel = rrclient_media_chan_iter(i, NULL);
+      if (!channel) return NULL;
+      if (!strcmp(channel->uuid, uuid)) return channel;
+   }
+}
+
+typedef struct {
+   const char *profile, *service;
+   char name[64], state[64];
+} inventory_attachment_t;
+
+static void inventory_find_attachment(rr_serial_t *port, void *data) {
+   inventory_attachment_t *match = data;
+   rr_sercom_info_t info;
+   if (match->name[0] || !rr_sercom_info(rr_serial_name(port), &info) ||
+       strcmp(info.service, match->service))
+      return;
+   const char *profile = *info.profile ? info.profile : rrclient_selected_server();
+   if (!profile || strcmp(profile, match->profile)) return;
+   strlcpy(match->name, info.name, sizeof(match->name));
+   strlcpy(match->state, info.state, sizeof(match->state));
+}
+
+/* Derive Explorer presentation state while core-owned caches are stable.
+ * The GTK domain receives only this copied JSON snapshot, never core pointers. */
+static void inventory_emit_graphical(dict *d, bool entry) {
+   const char *profile = ws_conn ? rrclient_connection_name(ws_conn) : "";
+   dict_add(d, "client.profile", profile ? profile : "");
+   if (entry) {
+      const char *kind = dict_get(d, "inventory.kind", "");
+      const char *uuid = dict_get(d, "inventory.uuid", "");
+      const char *room = dict_get(d, "inventory.room", "");
+      dict_add_bool(d, "client.room.joined", *room && rrclient_room_is_joined(room));
+      dict_add_bool(d, "client.room.offline", *room && rrclient_room_offline(room));
+      dict_add(d, "client.objects.subscription", object_subscription);
+
+      const dict *online = *uuid ? rrclient_object_property(uuid, "online") : NULL;
+      const dict *frequency = *uuid ? rrclient_object_property(uuid, "frequency") : NULL;
+      dict_add_bool(d, "client.object.frequency.present", frequency != NULL);
+      dict_add_bool(d, "client.object.online.known",
+         online && dict_get_bool((dict *)online, "property.known", false));
+      dict_add_bool(d, "client.object.online.value",
+         online && dict_get_bool((dict *)online, "property.value", false));
+      dict_add_bool(d, "client.object.frequency.available",
+         frequency && dict_get_bool((dict *)frequency, "property.available", false));
+
+      const struct rr_client_media_chan *channel = inventory_media_channel(uuid);
+      dict_add_bool(d, "client.media.present", channel != NULL);
+      dict_add_bool(d, "client.media.subscribed", channel && channel->subscribed);
+      dict_add(d, "client.media.coordinates",
+         channel && channel->gps_coordinates[0] ? channel->gps_coordinates : "");
+
+      inventory_attachment_t attachment = {
+         .profile = profile,
+         .service = dict_get(d, "inventory.service", "")
+      };
+      if ((!strcmp(kind, "cat") || !strcmp(kind, "serial")) &&
+          *attachment.service)
+         rr_serial_foreach(inventory_find_attachment, &attachment);
+      dict_add(d, "client.serial.name", attachment.name);
+      dict_add(d, "client.serial.state", attachment.state);
+   }
+   event_emit_dict("client.resources.row", NULL, d);
+}
 
 // PARITY: rustyrig-www/js/webui.objects.js rrInventoryMessage.
 static bool inventory_message(dict *d) {
@@ -56,8 +127,7 @@ static bool inventory_message(dict *d) {
 
    if (!strcmp(cmd, "result")) {
       if (request->graphical) {
-         dict_add(d, "client.profile", rrclient_connection_name(ws_conn));
-         event_emit_dict("client.resources.row", NULL, d);
+         inventory_emit_graphical(d, false);
       }
 
       if (!request->graphical || request->gps_listing) {
@@ -71,8 +141,7 @@ static bool inventory_message(dict *d) {
 
    if (!strcmp(cmd, "inventory-end")) {
       if (request->graphical) {
-         dict_add(d, "client.profile", rrclient_connection_name(ws_conn));
-         event_emit_dict("client.resources.row", NULL, d);
+         inventory_emit_graphical(d, false);
       } else {
          ui_print(window, "End of %s list (%u entries).", request->kind, request->count);
       }
@@ -96,8 +165,7 @@ static bool inventory_message(dict *d) {
    request->count++;
 
    if (request->graphical) {
-      dict_add(d, "client.profile", rrclient_connection_name(ws_conn));
-      event_emit_dict("client.resources.row", NULL, d);
+      inventory_emit_graphical(d, true);
 
       if (!request->gps_listing || strcmp(kind, "gps")) {
          return true;
@@ -451,6 +519,19 @@ static void explorer_action_run(void *arg) {
       failed = cmd_rig(2, argv);
    } else if (!strcmp(action, "attach")) {
       failed = !rr_sercom_attach(dict_get(d, "name", ""), value, dict_get(d, "device", ""));
+   } else if (!strcmp(action, "menu-set")) {
+      rrconn_t *connection = rrclient_connection_find(dict_get(d, "profile", ""));
+      dict *wire = dict_new();
+      if (connection && connection->authenticated && connection->is_ws && wire) {
+         dict_add(wire, "msg.type", "property");
+         dict_add(wire, "property.cmd", "menu-set");
+         dict_add(wire, "target", dict_get(d, "uuid", ""));
+         dict_add(wire, "property.name", dict_get(d, "property", ""));
+         dict_add(wire, "property.value", value);
+         dict_add(wire, "request.id", dict_get(d, "request.id", ""));
+         failed = !ws_send_dict(NULL, connection, wire, WEBSOCKET_OP_TEXT);
+      }
+      dict_free(wire);
    } else {
       char *argv[] = {(char *)"media", (char *)action, (char *)value};
       failed = cmd_media(3, argv);
@@ -488,6 +569,112 @@ static void explorer_core_request(const char *event, const char *payload, rrconn
    dict_free(reply);
    dict_free(request);
 }
+typedef struct {
+   const char *uuid, *property;
+   dict *reply;
+} explorer_property_snapshot;
+static void explorer_property_snapshot_run(void *data) {
+   explorer_property_snapshot *snapshot = data;
+   const dict *state = rrclient_object_property(snapshot->uuid, snapshot->property);
+   dict_add_bool(snapshot->reply, "found", state != NULL);
+   if (state) {
+      dict_add_bool(snapshot->reply, "known", dict_get_bool((dict *)state, "property.known", false));
+      dict_add_bool(snapshot->reply, "available", dict_get_bool((dict *)state, "property.available", true));
+      dict_add(snapshot->reply, "value", dict_get((dict *)state, "property.value", ""));
+      dict_add(snapshot->reply, "version", dict_get((dict *)state, "property.version", ""));
+   }
+}
+static void explorer_property_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)connection;
+   (void)unused;
+   dict *request = payload ? json2dict(payload) : NULL;
+   if (!request) return;
+   const char *profile = dict_get(request, "profile", "");
+   const char *uuid = dict_get(request, "uuid", "");
+   const char *property = dict_get(request, "property", "");
+   dict *reply = dict_new();
+   if (!reply) {
+      dict_free(request);
+      return;
+   }
+   dict_add(reply, "profile", profile);
+   dict_add(reply, "uuid", uuid);
+   dict_add(reply, "property", property);
+   dict_add(reply, "request.id", dict_get(request, "request.id", ""));
+   rrconn_t *target = rrclient_connection_find(profile);
+   if (target && target->authenticated && *uuid && *property) {
+      explorer_property_snapshot snapshot = {uuid, property, reply};
+      rrclient_connection_dispatch(target, explorer_property_snapshot_run, &snapshot);
+   }
+   event_emit_dict("client.resources.property-result", NULL, reply);
+   dict_free(reply);
+   dict_free(request);
+}
+static void resource_irc_snapshot_core(void *data) {
+   const char *profile = data;
+   unsigned total = 0, joined_count = 0, listed_count = 0;
+   const struct rrclient_irc_channel_stats *stats = NULL;
+   while ((stats = rrclient_irc_stats_next(profile, stats))) {
+      total++;
+      bool joined = ws_conn && ws_conn->authenticated && stats->joined;
+      unsigned users = 0, opers = 0, ops = 0, voices = 0, regular = 0;
+      if (joined) {
+         for (struct rr_user *user = global_userlist; user; user = user->next) {
+            if (strcasecmp(user->room, stats->name)) continue;
+            users++;
+            if (user->irc_oper) opers++;
+            const char *modes = !strncmp(user->privs, "irc:", 4) ? user->privs + 4 : "";
+            if (strpbrk(modes, "qaoh")) ops++;
+            else if (strchr(modes, 'v')) voices++;
+            else regular++;
+         }
+      }
+      joined_count += joined;
+      listed_count += stats->listed;
+      char joined_at[64] = "Not joined";
+      struct tm local;
+      if (joined && localtime_r(&stats->joined_at, &local))
+         strftime(joined_at, sizeof(joined_at), "%Y-%m-%d %H:%M:%S", &local);
+      uint64_t current = mono_us();
+      unsigned long long seconds = joined && current >= stats->joined_us
+         ? (current - stats->joined_us) / 1000000 : 0;
+      dict *row = dict_new();
+      if (!row) continue;
+      dict_add(row, "profile", profile);
+      dict_add(row, "room", stats->name);
+      dict_add(row, "topic", stats->topic);
+      dict_add_bool(row, "joined", joined);
+      dict_add_bool(row, "listed", stats->listed);
+      dict_add_uint(row, "listed-users", stats->listed_users);
+      dict_add_uint(row, "users", users);
+      dict_add_uint(row, "opers", opers);
+      dict_add_uint(row, "ops", ops);
+      dict_add_uint(row, "voices", voices);
+      dict_add_uint(row, "regular", regular);
+      dict_add_bool(row, "names-pending", userlist_names_pending(stats->name));
+      dict_add(row, "joined-at", joined_at);
+      char number[32];
+      snprintf(number, sizeof(number), "%llu", seconds);
+      dict_add(row, "duration", number);
+      snprintf(number, sizeof(number), "%" PRIu64, stats->seen);
+      dict_add(row, "seen", number);
+      snprintf(number, sizeof(number), "%" PRIu64, stats->sent);
+      dict_add(row, "sent", number);
+      snprintf(number, sizeof(number), "%" PRIu64, stats->highlights);
+      dict_add(row, "highlights", number);
+      event_emit_dict("client.resources.irc.row", NULL, row);
+      dict_free(row);
+   }
+   dict *summary = dict_new();
+   if (!summary) return;
+   dict_add(summary, "profile", profile);
+   dict_add_uint(summary, "total", total);
+   dict_add_uint(summary, "joined", joined_count);
+   dict_add_uint(summary, "listed", listed_count);
+   event_emit_dict("client.resources.irc.complete", NULL, summary);
+   dict_free(summary);
+}
 /* Periodic status is collected on core and copied before GTK sees it. */
 static void resource_status_request(const char *event, const char *ignored,
                                     rrconn_t *conn, void *user) {
@@ -503,12 +690,15 @@ static void resource_status_request(const char *event, const char *ignored,
       dict_add(d, "transport", active && !active->is_ws ? "irc" : "ws");
       dict_add(d, "state", state == 1 ? "online" : state < 0 ? "connecting" : "offline");
       dict_add(d, "authenticated", active && active->authenticated ? "true" : "false");
+      dict_add(d, "subscription", rrclient_objects_subscription());
       char *payload = dict2json(d);
       if (payload) {
          event_emit("client.resources.status", NULL, payload);
          free(payload);
       }
       dict_free(d);
+      if (active && !active->is_ws)
+         rrclient_connection_dispatch(active, resource_irc_snapshot_core, (void *)profile);
    }
 }
 static void explorer_control_set(const char *event, const char *payload, rrconn_t *ignored, void *unused) {
@@ -538,6 +728,7 @@ static void explorer_control_set(const char *event, const char *payload, rrconn_
 }
 void rrclient_objects_register_events(void) {
    event_on_domain_token("client.resources.control-set", explorer_control_set, NULL, "core");
+   event_on_domain_token("client.resources.property-request", explorer_property_request, NULL, "core");
    event_on_domain_token("client.resources.status-request", resource_status_request, NULL, "core");
    event_on_domain_token("client.resources.details-request", explorer_core_request, NULL, "core");
    event_on_domain_token("client.resources.action-request", explorer_core_request, NULL, "core");

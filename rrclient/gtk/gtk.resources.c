@@ -23,7 +23,8 @@
 #include "gtk.serial.h"
 
 enum {
-   NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, GENERATION, COLUMNS
+   NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, GENERATION,
+   CLIENT_SNAPSHOT, COLUMNS
 };
 enum {
    ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, TERMINAL_BUTTON, BUTTONS
@@ -31,11 +32,11 @@ enum {
 extern void gtk_terminal_open_endpoint(const char *name);
 extern void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name);
 typedef struct {
-   char *profile, *request, *selection;
+   char *profile, *request, *selection, *subscription;
    GtkTreeIter root, parents[5];
    GHashTable *irc_rows, *expanded;
    bool valid[5], loading, online, loaded, local_site_seen;
-   uint64_t requested_at, irc_updated_at;
+   uint64_t requested_at;
    guint generation;
 } resource_branch;
 typedef struct {
@@ -50,7 +51,7 @@ typedef struct {
    guint zebra_idle;
    GtkTreeStore *store;
    GtkTreeIter local_root, serial_root, network_root, health_root;
-   GHashTable *branches, *local_rows, *health_events, *health_last;
+   GHashTable *branches, *local_rows, *health_events, *health_last, *property_snapshots;
    guint timer;
    gulong initial_split_handler;
    double scroll_y;
@@ -61,7 +62,8 @@ static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
 extern void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
-static rr_event_token_t show_token, row_token, open_token, changed_tokens[4], action_reply_token, detail_reply_token, status_token;
+static rr_event_token_t show_token, row_token, open_token, changed_tokens[4], action_reply_token, detail_reply_token, property_token, status_token;
+static rr_event_token_t irc_row_token, irc_complete_token;
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
@@ -90,6 +92,7 @@ static void branch_free(gpointer data) {
    g_free(branch->profile);
    g_free(branch->request);
    g_free(branch->selection);
+   g_free(branch->subscription);
    g_free(branch);
 }
 static char *resource_display_utf8(const char *value) {
@@ -274,6 +277,9 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
    browser = NULL;
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
+   g_hash_table_destroy(view->health_events);
+   g_hash_table_destroy(view->health_last);
+   g_hash_table_destroy(view->property_snapshots);
    g_hash_table_destroy(view->enabled_kinds);
    g_ptr_array_free(view->type_checks, TRUE);
    g_hash_table_destroy(view->zebra_positions);
@@ -575,81 +581,64 @@ static void resource_find_attachment(rr_serial_t *port, void *data) {
    strlcpy(match->name, info.name, sizeof(match->name));
    strlcpy(match->state, info.state, sizeof(match->state));
 }
-static const struct rr_client_media_chan *resource_media(const char *uuid) {
-   for (int i = 0 ;; i++) {
-      const struct rr_client_media_chan *channel = rrclient_media_chan_iter(i, NULL);
-
-      if (!channel) {
-         return NULL;
-      }
-
-      if (!strcmp(channel->uuid, uuid)) {
-         return channel;
-      }
-   }
-}
-
-/* Runs in the branch's connection context; GTK owns only presentation strings. */
+/* Row status is read only from the owned core snapshot stored with the row. */
 static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
    GtkTreeIter iter;
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
 
    for (gboolean more = gtk_tree_model_iter_children(model, &iter, parent) ; more ; more = gtk_tree_model_iter_next(model, &iter)) {
-      char *kind, *uuid, *room, *service, *state;
-      gtk_tree_model_get(model, &iter, KIND, &kind, UUID, &uuid, ROOM, &room, SERVICE, &service, SERVER_STATE, &state, -1);
+      char *kind, *uuid, *room, *service, *state, *snapshot_text;
+      gtk_tree_model_get(model, &iter, KIND, &kind, UUID, &uuid, ROOM, &room, SERVICE, &service, SERVER_STATE, &state, CLIENT_SNAPSHOT, &snapshot_text, -1);
+      dict *snapshot = snapshot_text ? json2dict(snapshot_text) : NULL;
       const char *availability = state && *state ? state : "Discovered";
       char ours[256] = "", binding[64] = "";
-      bool joined = branch->online && room && *room && rrclient_room_is_joined(room);
+      bool joined = branch->online && dict_get_bool(snapshot, "client.room.joined", false);
 
       if (!branch->online) {
          availability = "Server offline";
-      } else if (uuid && *uuid && (!strcmp(kind, "rig") || !strcmp(kind, "vfo"))) {
-         const dict *online = rrclient_object_property(uuid, "online");
-         const dict *frequency = rrclient_object_property(uuid, "frequency");
-
-         if (online && dict_get_bool((dict *) online, "property.known", false)) {
-            availability = dict_get_bool((dict *) online, "property.value", false) ? "Online" : "Offline";
-         } else if (frequency) {
-            availability = dict_get_bool((dict *) frequency, "property.available", false) ? "Available" : "Unavailable";
+      } else if ((!strcmp(kind, "rig") || !strcmp(kind, "vfo"))) {
+         if (dict_get_bool(snapshot, "client.object.online.known", false)) {
+            availability = dict_get_bool(snapshot, "client.object.online.value", false) ? "Online" : "Offline";
+         } else if (dict_get_bool(snapshot, "client.object.frequency.present", false)) {
+            availability = dict_get_bool(snapshot, "client.object.frequency.available", false) ? "Available" : "Unavailable";
          }
       }
 
-      if (kind && (!strcmp(kind, "media") || !strcmp(kind, "gps")) && uuid && *uuid) {
-         const struct rr_client_media_chan *channel = resource_media(uuid);
-
-         if (channel && channel->subscribed && channel->gps_coordinates[0]) {
-            set_string(&iter, COORDINATES, channel->gps_coordinates);
-
-            /* A GPS output describes its site/rig as well as its own stream. */
-            if (!strcmp(kind, "gps") && !strcmp(channel->codec, "gpsp")) {
+      if (kind && (!strcmp(kind, "media") || !strcmp(kind, "gps"))) {
+         const char *coordinates = dict_get(snapshot, "client.media.coordinates", "");
+         bool channel_present = dict_get_bool(snapshot, "client.media.present", false);
+         bool subscribed = dict_get_bool(snapshot, "client.media.subscribed", false);
+         if (subscribed && *coordinates) {
+            set_string(&iter, COORDINATES, coordinates);
+            if (!strcmp(kind, "gps")) {
                char *parent_kind = NULL;
                gtk_tree_model_get(model, parent, KIND, &parent_kind, -1);
 
                if (!g_strcmp0(parent_kind, "site") || !g_strcmp0(parent_kind, "rig")) {
-                  set_string(parent, COORDINATES, channel->gps_coordinates);
+                  set_string(parent, COORDINATES, coordinates);
                }
                g_free(parent_kind);
             }
          }
-         strlcpy(ours, !branch->online ? "Disconnected" : channel && channel->subscribed ? "Subscribed" : "Not subscribed", sizeof(ours));
+         strlcpy(ours, !branch->online ? "Disconnected" : subscribed ? "Subscribed" : "Not subscribed", sizeof(ours));
 
          if (branch->online && !strcmp(kind, "media")) {
-            availability = !room || !*room || joined || (channel && channel->joined) ? "Available" : "Join room first";
+            availability = !room || !*room || joined ? "Available" : "Join room first";
          }
 
          /* Inventory discovery and live media-channel registration are separate.
           * A remote/relay inventory row can exist before local media metadata. */
-         if (branch->online && !channel) {
+         if (branch->online && !channel_present) {
             strlcpy(ours, "Available in server inventory · Not subscribed", sizeof(ours));
          }
       } else if (kind && (!strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo"))) {
-         snprintf(ours, sizeof(ours), "%s%s%s", room && *room ? rrclient_room_is_joined(room) ? "Room joined · " : "Room not joined · " : "", "Updates: ",
-            branch->online ? rrclient_objects_subscription() : "Disconnected");
+         snprintf(ours, sizeof(ours), "%s%s%s", room && *room ? joined ? "Room joined · " : "Room not joined · " : "", "Updates: ",
+            branch->online ? dict_get(snapshot, "client.objects.subscription", "Not subscribed") : "Disconnected");
       } else if (room && *room) {
          strlcpy(ours, joined ? "Joined" : "Not joined", sizeof(ours));
 
          if (branch->online && !strcmp(kind, "room")) {
-            availability = rrclient_room_offline(room) ? "Offline" : "Available";
+            availability = dict_get_bool(snapshot, "client.room.offline", false) ? "Offline" : "Available";
          }
       }
 
@@ -657,15 +646,12 @@ static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
        * brightness and generic controls). Only CAT/serial rows support a
        * client-side serial attachment. */
       if (kind && (!strcmp(kind, "cat") || !strcmp(kind, "serial")) && service && *service) {
-         struct attachment_match match = {
-            .profile = branch->profile, .service = service
-         };
-         rr_serial_foreach(resource_find_attachment, &match);
-
-         if (match.name[0]) {
+         const char *name = dict_get(snapshot, "client.serial.name", "");
+         const char *serial_state = dict_get(snapshot, "client.serial.state", "");
+         if (*name) {
             size_t used = strlen(ours);
-            snprintf(ours + used, sizeof(ours) - used, "%s%s · %s", used ? " · " : "", match.state, match.name);
-            strlcpy(binding, match.name, sizeof(binding));
+            snprintf(ours + used, sizeof(ours) - used, "%s%s · %s", used ? " · " : "", serial_state, name);
+            strlcpy(binding, name, sizeof(binding));
          } else {
             size_t used = strlen(ours);
             snprintf(ours + used, sizeof(ours) - used, "%sSerial not connected", used ? " · " : "");
@@ -699,123 +685,95 @@ static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
       g_free(room);
       g_free(service);
       g_free(state);
+      g_free(snapshot_text);
+      dict_free(snapshot);
       resource_update_rows(branch, &iter);
    }
 }
 
 /* IRC inventory is passive: LIST snapshots and current joined-room rosters. */
-static void resource_irc_update(resource_branch *branch, rrconn_t *connection) {
-   uint64_t updated_at = mono_us();
-
-   if (branch->irc_updated_at && updated_at - branch->irc_updated_at < 1000000) {
+static void resource_irc_row(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)connection;
+   (void)unused;
+   if (!browser || !payload) return;
+   dict *snapshot = json2dict(payload);
+   if (!snapshot) return;
+   const char *profile = dict_get(snapshot, "profile", "");
+   const char *room = dict_get(snapshot, "room", "");
+   if (!*profile || !*room) {
+      dict_free(snapshot);
       return;
    }
-   branch->irc_updated_at = updated_at;
-   unsigned total = 0, joined_count = 0, listed_count = 0;
-   const struct rrclient_irc_channel_stats *stats = NULL;
-   while ((stats = rrclient_irc_stats_next(branch->profile, stats))) {
-      total++;
-      GtkTreeIter iter;
-      GtkTreeRowReference *reference = g_hash_table_lookup(branch->irc_rows, stats->name);
-
-      gboolean row_exists = FALSE;
-
-      if (reference) {
-         GtkTreePath *path = gtk_tree_row_reference_get_path(reference);
-
-         if (path) {
-            row_exists = gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, path);
-            gtk_tree_path_free(path);
-         }
-      }
-
-      if (!row_exists) {
-         /* Older refreshes may have removed an IRC row. Replace invalid row references rather than permanently losing the channel. */
-         gtk_tree_store_append(browser->store, &iter, &branch->root);
-         GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
-         reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), path);
+   resource_branch *branch = resource_branch_get(profile);
+   GtkTreeIter iter;
+   GtkTreeRowReference *reference = g_hash_table_lookup(branch->irc_rows, room);
+   gboolean row_exists = FALSE;
+   if (reference) {
+      GtkTreePath *path = gtk_tree_row_reference_get_path(reference);
+      if (path) {
+         row_exists = gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, path);
          gtk_tree_path_free(path);
-         g_hash_table_replace(branch->irc_rows, g_strdup(stats->name), reference);
-         gtk_tree_store_set(browser->store, &iter, NAME, stats->name, KIND, "irc-channel", ROOM, stats->name, PROFILE, branch->profile, -1);
       }
-      bool joined = connection->authenticated && stats->joined;
-      unsigned users = 0, opers = 0, ops = 0, voices = 0, regular = 0;
-
-      if (joined) {
-         for (struct rr_user *user = global_userlist ; user ; user = user->next) {
-            if (strcasecmp(user->room, stats->name)) {
-               continue;
-            }
-            users++;
-
-            if (user->irc_oper) {
-               opers++;
-            }
-            const char *modes = !strncmp(user->privs, "irc:", 4) ? user->privs + 4 : "";
-
-            if (strpbrk(modes, "qaoh")) {
-               ops++;
-            } else if (strchr(modes, 'v')) {
-               voices++;
-            } else {
-               regular++;
-            }
-         }
-      }
-      joined_count += joined;
-      listed_count += stats->listed;
-      char joined_at[64] = "Not joined";
-      struct tm local;
-
-      if (joined && localtime_r(&stats->joined_at, &local)) {
-         strftime(joined_at, sizeof(joined_at), "%Y-%m-%d %H:%M:%S", &local);
-      }
-      uint64_t current = mono_us();
-      unsigned long long seconds = joined && current >= stats->joined_us ? (current - stats->joined_us) / 1000000 : 0;
-      char *details =
-         joined ?
-         g_strdup_printf(
-         "Joined: %s (%lluh %llum %llus)\nUsers: %u%s; IRC opers: %u; channel ops: %u; voices: %u; regular: %u\nLines seen: %llu; sent: %llu; highlights: %llu",
-         joined_at, seconds / 3600, seconds / 60 % 60, seconds % 60, users, userlist_names_pending(stats->name) ? " (NAMES pending)" : "", opers, ops, voices,
-         regular, (unsigned long long)stats->seen, (unsigned long long)stats->sent, (unsigned long long)stats->highlights) :
-         g_strdup_printf("LIST users: %s%u\nTopic: %s\nSession lines seen: %llu; sent: %llu; highlights: %llu", stats->listed ? "" : "unknown; last count ",
-         stats->listed_users, stats->topic, (unsigned long long)stats->seen, (unsigned long long)stats->sent, (unsigned long long)stats->highlights);
-      set_string(&iter, DETAILS, details);
-      set_string(&iter, STATE, !connection->authenticated ? "Server offline" : joined ? "Joined" : stats->listed ? "Available (cached LIST)" :
-         "Previously observed");
-      set_string(&iter, OURS, joined ? "Joined" : "Not joined");
-      gboolean was_joined = FALSE;
-      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &iter, JOINED, &was_joined, -1);
-
-      if (was_joined != joined) {
-         gtk_tree_store_set(browser->store, &iter, JOINED, joined, -1);
-      }
+   }
+   if (!row_exists) {
+      gtk_tree_store_append(browser->store, &iter, &branch->root);
+      GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
+      reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), path);
+      gtk_tree_path_free(path);
+      g_hash_table_replace(branch->irc_rows, g_strdup(room), reference);
+      gtk_tree_store_set(browser->store, &iter, NAME, room, KIND, "irc-channel", ROOM, room, PROFILE, profile, -1);
+   }
+   bool joined = dict_get_bool(snapshot, "joined", false);
+   unsigned listed_users = dict_get_uint(snapshot, "listed-users", 0);
+   unsigned users = dict_get_uint(snapshot, "users", 0);
+   unsigned opers = dict_get_uint(snapshot, "opers", 0);
+   unsigned ops = dict_get_uint(snapshot, "ops", 0);
+   unsigned voices = dict_get_uint(snapshot, "voices", 0);
+   unsigned regular = dict_get_uint(snapshot, "regular", 0);
+   bool listed = dict_get_bool(snapshot, "listed", false);
+   bool names_pending = dict_get_bool(snapshot, "names-pending", false);
+   unsigned long long duration = g_ascii_strtoull(dict_get(snapshot, "duration", "0"), NULL, 10);
+   const char *topic = dict_get(snapshot, "topic", "");
+   const char *joined_at = dict_get(snapshot, "joined-at", "Not joined");
+   const char *seen = dict_get(snapshot, "seen", "0");
+   const char *sent = dict_get(snapshot, "sent", "0");
+   const char *highlights = dict_get(snapshot, "highlights", "0");
+   char *details = joined ?
+      g_strdup_printf("Joined: %s (%lluh %llum %llus)\nUsers: %u%s; IRC opers: %u; channel ops: %u; voices: %u; regular: %u\nLines seen: %s; sent: %s; highlights: %s",
+         joined_at, duration / 3600, duration / 60 % 60, duration % 60, users,
+         names_pending ? " (NAMES pending)" : "", opers, ops, voices, regular, seen, sent, highlights) :
+      g_strdup_printf("LIST users: %s%u\nTopic: %s\nSession lines seen: %s; sent: %s; highlights: %s",
+         listed ? "" : "unknown; last count ", listed_users, topic, seen, sent, highlights);
+   set_string(&iter, DETAILS, details);
+   set_string(&iter, STATE, branch->online ? joined ? "Joined" : listed ? "Available (cached LIST)" : "Previously observed" : "Server offline");
+   set_string(&iter, OURS, joined ? "Joined" : "Not joined");
+   gboolean was_joined = FALSE;
+   gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &iter, JOINED, &was_joined, -1);
+   if (was_joined != joined)
+      gtk_tree_store_set(browser->store, &iter, JOINED, joined, -1);
+   g_free(details);
+   dict_free(snapshot);
+}
+static void resource_irc_complete(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)connection;
+   (void)unused;
+   if (!browser || !payload) return;
+   dict *snapshot = json2dict(payload);
+   if (!snapshot) return;
+   resource_branch *branch = g_hash_table_lookup(browser->branches, dict_get(snapshot, "profile", ""));
+   if (branch) {
+      char *details = g_strdup_printf("IRC channels: %u known; %u joined; %u in cached LIST. Counts cover this client session; IRC oper knowledge may be incomplete.",
+         dict_get_uint(snapshot, "total", 0), dict_get_uint(snapshot, "joined", 0), dict_get_uint(snapshot, "listed", 0));
+      set_string(&branch->root, DETAILS, details);
       g_free(details);
    }
-   char *details =
-      g_strdup_printf("IRC channels: %u known; %u joined; %u in cached LIST. Counts cover this client session; IRC oper knowledge may be incomplete.", total,
-      joined_count, listed_count);
-   set_string(&branch->root, DETAILS, details);
-   g_free(details);
+   dict_free(snapshot);
 }
 
-static void resource_update_branch(void *data) {
-   resource_branch *branch = data;
-   rrconn_t *connection = rrclient_connection_find(branch->profile);
-   branch->online = connection && connection->authenticated && connection->is_ws &&
-      rrclient_connection_state(branch->profile) == 1;
-
-   if (connection && !connection->is_ws) {
-      set_string(&branch->root, STATE, connection->authenticated ? "Connected (IRC)" : rrclient_connection_state(branch->profile) < 0 ? "Connecting (IRC)" :
-         "Disconnected (IRC)");
-      set_string(&branch->root, OURS, connection->authenticated ? "Connected" : "Disconnected");
-      resource_irc_update(branch, connection);
-
-      return;
-   }
-   set_string(&branch->root, STATE, branch->online ? "Connected" : connection && connection->authenticated
-      && !connection->is_ws ? "IRC — no resource inventory" : rrclient_connection_state(branch->profile) < 0 ? "Connecting" : "Disconnected");
-   set_string(&branch->root, OURS, branch->online ? rrclient_objects_subscription() : "");
+static void resource_update_branch(resource_branch *branch) {
+   if (!branch) return;
    resource_update_rows(branch, &branch->root);
 }
 
@@ -1424,11 +1382,59 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
 }
 
 /* Rig controls are opened on demand, not rendered as live tree sliders. */
+static char *resource_property_key(const char *profile, const char *uuid, const char *property) {
+   return g_strdup_printf("%s\037%s\037%s", profile ? profile : "", uuid ? uuid : "", property ? property : "");
+}
+static void resource_property_result(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   if (!browser || !payload) return;
+   dict *snapshot = json2dict(payload);
+   if (!snapshot) return;
+   const char *request_id = dict_get(snapshot, "request.id", "");
+   char *key = resource_property_key(dict_get(snapshot, "profile", ""), dict_get(snapshot, "uuid", ""),
+      dict_get(snapshot, "property", ""));
+   if (*request_id) {
+      g_hash_table_replace(browser->property_snapshots, key, snapshot);
+   } else {
+      g_free(key);
+      dict_free(snapshot);
+   }
+}
+static const dict *resource_property_cached(const char *profile, const char *uuid, const char *property, const char *request_id) {
+   if (!browser) return NULL;
+   char *key = resource_property_key(profile, uuid, property);
+   const dict *snapshot = g_hash_table_lookup(browser->property_snapshots, key);
+   g_free(key);
+   return snapshot && !g_strcmp0(dict_get((dict *)snapshot, "request.id", ""), request_id) ? snapshot : NULL;
+}
+static char *resource_property_request(const char *profile, const char *uuid, const char *property) {
+   if (!profile || !*profile || !uuid || !*uuid || !property || !*property) return NULL;
+   dict *request = dict_new();
+   if (!request) return NULL;
+   char *request_id = g_uuid_string_random();
+   dict_add(request, "profile", profile);
+   dict_add(request, "uuid", uuid);
+   dict_add(request, "property", property);
+   dict_add(request, "request.id", request_id);
+   char *payload = dict2json(request);
+   if (payload) {
+      event_emit("client.resources.property-request", NULL, payload);
+      free(payload);
+   } else {
+      g_clear_pointer(&request_id, g_free);
+   }
+   dict_free(request);
+   return request_id;
+}
 typedef struct {
-   char *profile, *uuid, *room, *property;
+   char *profile, *uuid, *room, *property, *request_id;
    int original;
    gboolean suppress, known, read_only;
-   GtkWidget *scale, *panel;
+   GtkWidget *scale, *panel, *label, *revert;
+   guint timer;
+   unsigned attempts;
 } resource_control_edit_t;
 
 static void resource_control_send(resource_control_edit_t *edit, int value) {
@@ -1458,11 +1464,39 @@ static void resource_control_changed(GtkRange *range, gpointer user) {
 
 static void resource_control_edit_free(gpointer data) {
    resource_control_edit_t *edit = data;
+   if (edit->timer) g_source_remove(edit->timer);
    g_free(edit->profile);
    g_free(edit->uuid);
    g_free(edit->room);
    g_free(edit->property);
+   g_free(edit->request_id);
    g_free(edit);
+}
+static gboolean resource_control_snapshot_poll(gpointer data) {
+   resource_control_edit_t *edit = data;
+   if (++edit->attempts > 50) {
+      gtk_label_set_text(GTK_LABEL(edit->label), "Unable to read the current control value.");
+      edit->timer = 0;
+      return G_SOURCE_REMOVE;
+   }
+   const dict *snapshot = resource_property_cached(edit->profile, edit->uuid, edit->property, edit->request_id);
+   if (!snapshot) return G_SOURCE_CONTINUE;
+   if (!dict_get_bool((dict *)snapshot, "found", false) || !dict_get_bool((dict *)snapshot, "known", false)) {
+      gtk_label_set_text(GTK_LABEL(edit->label), "The current value is not available from this rig.");
+      edit->timer = 0;
+      return G_SOURCE_REMOVE;
+   }
+   edit->original = CLAMP(atoi(dict_get((dict *)snapshot, "value", "50")), 0, 100);
+   edit->known = true;
+   edit->suppress = TRUE;
+   gtk_range_set_value(GTK_RANGE(edit->scale), edit->original);
+   edit->suppress = FALSE;
+   gtk_widget_set_sensitive(edit->scale, !edit->read_only);
+   gtk_widget_set_sensitive(edit->revert, !edit->read_only);
+   gtk_label_set_text(GTK_LABEL(edit->label), edit->read_only ? "This rig reports the control as read-only." :
+      "Changes apply immediately. Revert restores the original value.");
+   edit->timer = 0;
+   return G_SOURCE_REMOVE;
 }
 static void resource_control_revert(GtkButton *button, gpointer data) {
    (void)button;
@@ -1502,27 +1536,11 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
 
       return;
    }
-   rrconn_t *connection = rrclient_connection_find(profile);
-
-   if (!connection || !connection->authenticated || !connection->is_ws) {
-      gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing rig controls.");
-      g_free(uuid);
-      g_free(room);
-      g_free(details);
-
-      return;
-   }
-
-   const dict *state = rrclient_object_property(uuid, property);
-   gboolean known = state && dict_get_bool((dict *) state, "property.known", false);
-   int original = known ? CLAMP(dict_get_int((dict *) state, "property.value", 50), 0, 100) : 50;
    resource_control_edit_t *edit = g_new0(resource_control_edit_t, 1);
    edit->profile = g_strdup(profile);
    edit->uuid = uuid;
    edit->room = room;
    edit->property = g_strdup(property);
-   edit->original = original;
-   edit->known = known;
    edit->read_only = read_only;
    edit->suppress = TRUE;
 
@@ -1537,70 +1555,90 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
    }
    edit->panel = panel;
    g_object_set_data_full(G_OBJECT(panel), "rr-rig-control-state", edit, resource_control_edit_free);
-   GtkWidget *label = gtk_label_new(read_only ? "This rig reports the control as read-only." :
-      "Changes apply immediately. Revert restores the original value.");
+   GtkWidget *label = gtk_label_new("Reading the current control value…");
+   edit->label = label;
    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    edit->scale = scale;
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_widget_set_size_request(scale, 320, -1);
    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(area), scale, FALSE, FALSE, 0);
-   gtk_range_set_value(GTK_RANGE(scale), original);
    g_signal_connect(scale, "value-changed", G_CALLBACK(resource_control_changed), edit);
    edit->suppress = FALSE;
-   gtk_widget_set_sensitive(scale, !read_only);
+   gtk_widget_set_sensitive(scale, FALSE);
    GtkWidget *actions = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
    gtk_button_box_set_layout(GTK_BUTTON_BOX(actions), GTK_BUTTONBOX_END);
    GtkWidget *revert = gtk_button_new_with_mnemonic("_Revert");
+   edit->revert = revert;
    GtkWidget *close = gtk_button_new_with_mnemonic("_Close");
-   gtk_widget_set_sensitive(revert, known && !read_only);
+   gtk_widget_set_sensitive(revert, FALSE);
    gtk_container_add(GTK_CONTAINER(actions), revert);
    gtk_container_add(GTK_CONTAINER(actions), close);
    gtk_box_pack_start(GTK_BOX(area), actions, FALSE, FALSE, 0);
    g_signal_connect(revert, "clicked", G_CALLBACK(resource_control_revert), edit);
    g_signal_connect_swapped(close, "clicked", G_CALLBACK(gtk_widget_destroy), panel);
    gtk_widget_show_all(panel);
+   edit->request_id = resource_property_request(profile, uuid, property);
+   if (edit->request_id) {
+      edit->attempts = 0;
+      edit->timer = g_timeout_add(100, resource_control_snapshot_poll, edit);
+   } else {
+      gtk_label_set_text(GTK_LABEL(label), "Unable to request the current control value.");
+   }
    g_free(details);
 }
 
 typedef struct {
-   char *uuid, *property;
+   char *profile, *uuid, *property, *request_id;
    GtkWidget *label;
    GtkWidget *selector;
    guint timer;
    unsigned attempts;
    char *initial_version;
+   gboolean waiting_for_change;
 } resource_menu_read_t;
 static gboolean resource_menu_value_poll(gpointer data) {
    resource_menu_read_t *read = data;
 
    if (++read->attempts > 50) {
-      gtk_label_set_text(GTK_LABEL(read->label), "No CAT value received. Check the server and rig CAT logs.");
+      gtk_label_set_text(GTK_LABEL(read->label), read->waiting_for_change ?
+         "No CAT readback received. Check the server and rig CAT logs." :
+         "No CAT value received. Check the server and rig CAT logs.");
       read->timer = 0;
 
       return G_SOURCE_REMOVE;
    }
-   const dict *state = rrclient_object_property(read->uuid, read->property);
-   const char *version = state ? dict_get((dict *) state, "property.version", NULL) : NULL;
-
-   if (state && version && (!read->initial_version || strcmp(version, read->initial_version)) &&
-      dict_get_bool((dict *) state, "property.known", false) && dict_get_bool((dict *) state, "property.available", true)) {
-      const char *value = dict_get((dict *) state, "property.value", NULL);
-
-      if (value) {
+   const dict *snapshot = resource_property_cached(read->profile, read->uuid, read->property, read->request_id);
+   if (!snapshot) return G_SOURCE_CONTINUE;
+   if (snapshot && dict_get_bool((dict *)snapshot, "found", false) &&
+       dict_get_bool((dict *)snapshot, "known", false) &&
+       dict_get_bool((dict *)snapshot, "available", true)) {
+      const char *version = dict_get((dict *)snapshot, "version", "");
+      const char *value = dict_get((dict *)snapshot, "value", "");
+      gboolean changed = !read->waiting_for_change || !read->initial_version ||
+         strcmp(version, read->initial_version);
+      if (changed && *value) {
          char *summary = g_strdup_printf("CAT value: %s", value);
          gtk_label_set_text(GTK_LABEL(read->label), summary);
-
-         if (read->selector && GTK_IS_ENTRY(read->selector) && strlen(value) <= 4 && strspn(value, "0123456789") == strlen(value)) {
+         if (read->selector && GTK_IS_ENTRY(read->selector) && strlen(value) <= 4 &&
+             strspn(value, "0123456789") == strlen(value))
             gtk_entry_set_text(GTK_ENTRY(read->selector), value);
-         }
          g_free(summary);
          read->timer = 0;
-
          return G_SOURCE_REMOVE;
       }
+   } else if (snapshot && !read->waiting_for_change) {
+      gtk_label_set_text(GTK_LABEL(read->label), "The rig did not return a readable CAT value.");
+      read->timer = 0;
+      return G_SOURCE_REMOVE;
    }
-
+   g_free(read->request_id);
+   read->request_id = resource_property_request(read->profile, read->uuid, read->property);
+   if (!read->request_id) {
+      gtk_label_set_text(GTK_LABEL(read->label), "Unable to request a CAT value.");
+      read->timer = 0;
+      return G_SOURCE_REMOVE;
+   }
    return G_SOURCE_CONTINUE;
 }
 static void resource_menu_read_free(gpointer data) {
@@ -1609,16 +1647,16 @@ static void resource_menu_read_free(gpointer data) {
    if (read->timer) {
       g_source_remove(read->timer);
    }
+   g_free(read->profile);
    g_free(read->uuid);
    g_free(read->property);
+   g_free(read->request_id);
    g_free(read->initial_version);
    g_free(read);
 }
 static void resource_menu_apply(GtkButton *button, gpointer data) {
    resource_menu_read_t *read = data;
    GtkWidget *selector = g_object_get_data(G_OBJECT(button), "menu-selector");
-   const char *profile = g_object_get_data(G_OBJECT(button), "menu-profile");
-   const char *id = read->property + 5;
    const char *raw = GTK_IS_ENTRY(selector) ? gtk_entry_get_text(GTK_ENTRY(selector)) : NULL;
 
    if (!raw || !*raw || strlen(raw) > 4 || strspn(raw, "0123456789") != strlen(raw)) {
@@ -1626,43 +1664,38 @@ static void resource_menu_apply(GtkButton *button, gpointer data) {
 
       return;
    }
-   rrconn_t *connection = rrclient_connection_find(profile);
-
-   if (!connection || !connection->authenticated || !connection->is_ws) {
-      gtk_label_set_text(GTK_LABEL(read->label), "Server disconnected; change not sent.");
-
-      return;
-   }
-   dict *request = dict_new();
-
-   if (!request) {
-      return;
-   }
-   char request_id[64];
-   snprintf(request_id, sizeof(request_id), "menu-write-%lld", (long long)g_get_monotonic_time());
-   dict_add(request, "msg.type", "property");
-   dict_add(request, "property.cmd", "menu-set");
-   dict_add(request, "target", read->uuid);
-   dict_add(request, "property.name", read->property);
-   dict_add(request, "property.value", raw);
-   dict_add(request, "request.id", request_id);
-   const dict *cached = rrclient_object_property(read->uuid, read->property);
-   const char *version = cached ? dict_get((dict *) cached, "property.version", NULL) : NULL;
+   const dict *cached = resource_property_cached(read->profile, read->uuid, read->property, read->request_id);
+   const char *version = cached ? dict_get((dict *)cached, "version", NULL) : NULL;
    g_free(read->initial_version);
    read->initial_version = version ? g_strdup(version) : NULL;
-
    if (read->timer) {
       g_source_remove(read->timer);
       read->timer = 0;
    }
-
-   if (ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT)) {
+   dict *request = dict_new();
+   if (!request) return;
+   char *write_id = g_uuid_string_random();
+   dict_add(request, "profile", read->profile);
+   dict_add(request, "action", "menu-set");
+   dict_add(request, "uuid", read->uuid);
+   dict_add(request, "property", read->property);
+   dict_add(request, "value", raw);
+   dict_add(request, "request.id", write_id);
+   char *payload = dict2json(request);
+   if (payload) {
+      event_emit("client.resources.action-request", NULL, payload);
+      free(payload);
       gtk_label_set_text(GTK_LABEL(read->label), "Change submitted; awaiting CAT readback…");
+      read->waiting_for_change = TRUE;
       read->attempts = 0;
-      read->timer = g_timeout_add(200, resource_menu_value_poll, read);
-   } else {
-      gtk_label_set_text(GTK_LABEL(read->label), "Unable to send menu change.");
+      g_free(read->request_id);
+      read->request_id = resource_property_request(read->profile, read->uuid, read->property);
+      if (read->request_id)
+         read->timer = g_timeout_add(200, resource_menu_value_poll, read);
+      else
+         gtk_label_set_text(GTK_LABEL(read->label), "Unable to request CAT readback.");
    }
+   g_free(write_id);
    dict_free(request);
 }
 static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *title, const char *id) {
@@ -1685,9 +1718,7 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const cha
       g_free(kind);
       current = parent;
    }
-   rrconn_t *conn = rrclient_connection_find(profile);
-
-   if (!uuid || !*uuid || !conn || !conn->authenticated || !conn->is_ws) {
+   if (!uuid || !*uuid) {
       g_free(uuid);
 
       return;
@@ -1716,41 +1747,22 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const cha
    gtk_box_pack_start(GTK_BOX(area), close, FALSE, FALSE, 0);
    g_signal_connect_swapped(close, "clicked", G_CALLBACK(gtk_widget_destroy), panel);
    resource_menu_read_t *read = g_new0(resource_menu_read_t, 1);
+   read->profile = g_strdup(profile);
    read->uuid = uuid;
    read->property = g_strdup_printf("menu.%s", id);
    read->label = label;
    read->selector = selector;
-   const dict *cached = rrclient_object_property(uuid, read->property);
-
-   if (cached) {
-      const char *version = dict_get((dict *) cached, "property.version", NULL);
-      read->initial_version = version ? g_strdup(version) : NULL;
-   }
    g_object_set_data_full(G_OBJECT(panel), "rr-menu-read", read, resource_menu_read_free);
 
    if (apply) {
       g_object_set_data(G_OBJECT(apply), "menu-selector", selector);
-      g_object_set_data_full(G_OBJECT(apply), "menu-profile", g_strdup(profile), g_free);
       g_signal_connect(apply, "clicked", G_CALLBACK(resource_menu_apply), read);
    }
-   dict *request = dict_new();
-
-   if (request) {
-      dict_add(request, "msg.type", "property");
-      dict_add(request, "property.cmd", "read");
-      dict_add(request, "target", uuid);
-      dict_add(request, "property.name", read->property);
-      char request_id[64];
-      snprintf(request_id, sizeof(request_id), "menu-read-%lld", (long long)g_get_monotonic_time());
-      dict_add(request, "request.id", request_id);
-
-      if (!ws_send_dict(NULL, conn, request, WEBSOCKET_OP_TEXT)) {
-         gtk_label_set_text(GTK_LABEL(label), "Unable to send menu read request.");
-      } else {
-         read->timer = g_timeout_add(200, resource_menu_value_poll, read);
-      }
-      dict_free(request);
-   }
+   read->request_id = resource_property_request(profile, uuid, read->property);
+   if (read->request_id)
+      read->timer = g_timeout_add(200, resource_menu_value_poll, read);
+   else
+      gtk_label_set_text(GTK_LABEL(label), "Unable to request a menu value.");
    gtk_widget_show_all(panel);
 }
 
@@ -2105,14 +2117,12 @@ static void resource_refresh_all(GtkButton *button, gpointer data) {
       return;
    }
 
-   for (unsigned i = 0 ;; i++) {
-      const char *profile = rrclient_connection_iter(i);
-
-      if (!profile) {
-         break;
-      }
-      resource_refresh(resource_branch_get(profile));
-   }
+   event_emit("client.resources.status-request", NULL, NULL);
+   GHashTableIter iter;
+   gpointer key, value;
+   g_hash_table_iter_init(&iter, browser->branches);
+   while (g_hash_table_iter_next(&iter, &key, &value))
+      resource_refresh(value);
 }
 static void resource_expand(GtkButton *button, gpointer data) {
    (void)data;
@@ -2835,6 +2845,7 @@ static void resource_create(void) {
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
    browser->health_events = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, resource_health_queue_free);
    browser->health_last = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   browser->property_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)dict_free);
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    browser->panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
@@ -2963,7 +2974,7 @@ static void resource_create(void) {
    GtkWidget *hint = gtk_label_new("All resources · select a row to manage your connection");
    gtk_box_pack_end(GTK_BOX(toolbar), hint, FALSE, FALSE, 6);
    browser->store = gtk_tree_store_new(COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_UINT);
+      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_UINT, G_TYPE_STRING);
 
    for (int field = NAME ; field <= DETAILS ; field++) {
       gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser->store), field, resource_tree_compare, GINT_TO_POINTER(field), NULL);
@@ -3553,7 +3564,8 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (!strcmp(kind, "vfo") && !label) {
       label = g_strdup_printf("VFO %s", name);
    }
-   gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details
+   gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, CLIENT_SNAPSHOT,
+      text, DETAILS, details
       ->str, COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""), UUID, dict_get(row, "inventory.uuid", ""),
       ROOM, room, PROFILE, profile, SERVICE, !strcmp(kind, "rig-menu-item") ? dict_get(row, "inventory.service", "") : service ? service : "", ACTION, (!strcmp(
          kind, "control")
@@ -3648,6 +3660,8 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
       bool authenticated = dict_get_bool(d, "authenticated", false);
       bool irc = !strcmp(dict_get(d, "transport", "ws"), "irc");
       bool was_online = branch->online;
+      g_free(branch->subscription);
+      branch->subscription = g_strdup(dict_get(d, "subscription", "Not subscribed"));
       branch->online = authenticated && !irc && !strcmp(state, "online");
       if (branch->online && !was_online) {
          branch->loaded = false;
@@ -3658,7 +3672,8 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
          (authenticated ? "Connected (IRC)" : !strcmp(state, "connecting") ? "Connecting (IRC)" : "Disconnected (IRC)") :
          (branch->online ? "Connected" : !strcmp(state, "connecting") ? "Connecting" : "Disconnected"));
       set_string(&branch->root, OURS, irc ? (authenticated ? "Connected" : "Disconnected") :
-         (branch->online ? "Online" : ""));
+         (branch->online ? branch->subscription : ""));
+      resource_update_branch(branch);
    }
    dict_free(d);
 }
@@ -3730,6 +3745,9 @@ void gtk_resources_init(void) {
    status_token = event_on_domain_token("client.resources.status", resource_status, NULL, "gtk");
    action_reply_token = event_on_domain_token("client.resources.action-result", resource_reply, NULL, "gtk");
    detail_reply_token = event_on_domain_token("client.resources.details-result", resource_reply, NULL, "gtk");
+   property_token = event_on_domain_token("client.resources.property-result", resource_property_result, NULL, "gtk");
+   irc_row_token = event_on_domain_token("client.resources.irc.row", resource_irc_row, NULL, "gtk");
+   irc_complete_token = event_on_domain_token("client.resources.irc.complete", resource_irc_complete, NULL, "gtk");
    const char *events[] = {
       "client.resources.connection-state", "client.objects.changed",
       "client.explorer.control.result", "client.resources.request-failed"
@@ -3740,11 +3758,15 @@ void gtk_resources_init(void) {
    }
 }
 void gtk_resources_shutdown(void) {
+   if (irc_row_token) event_off_token(irc_row_token);
+   if (irc_complete_token) event_off_token(irc_complete_token);
+   irc_row_token = irc_complete_token = NULL;
    if (status_token) event_off_token(status_token);
    status_token = NULL;
    if (action_reply_token) event_off_token(action_reply_token);
    if (detail_reply_token) event_off_token(detail_reply_token);
-   action_reply_token = detail_reply_token = NULL;
+   if (property_token) event_off_token(property_token);
+   action_reply_token = detail_reply_token = property_token = NULL;
    if (show_token) {
       event_off_token(show_token);
    }

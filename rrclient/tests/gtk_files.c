@@ -8,11 +8,47 @@ time_t now;
 bool dying, restarting;
 enum GuiMode ui_mode = UI_MODE_GTK;
 rrconn_t *ws_conn;
+GtkWidget *main_window, *main_notebook;
 static rrconn_t client;
 static unsigned completions, pending_commits, failures;
 static GMutex flush_lock;
 static GCond flush_condition;
 static bool flush_blocked, flush_entered;
+struct rr_floating_panel {
+   GtkWidget *widget, *body;
+   void (*on_close)(gpointer);
+   gpointer close_data;
+};
+static void dispatch_immediately(event_dispatch_fn_t callback, void *arg, void *user) {
+   (void)user;
+   callback(arg);
+}
+void rrserver_relay_file_nodes(rrconn_t *connection, const char *request_id) {
+   (void)connection;
+   (void)request_id;
+}
+RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) {
+   (void)tabs;
+   (void)id;
+   RRFloatPanel *panel = g_new0(RRFloatPanel, 1);
+   panel->widget = gtk_frame_new(title);
+   panel->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_container_add(GTK_CONTAINER(panel->widget), panel->body);
+   gtk_overlay_add_overlay(overlay, panel->widget);
+   return panel;
+}
+GtkWidget *rr_floating_panel_body(RRFloatPanel *panel) { return panel->body; }
+GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel) { return panel->widget; }
+void rr_floating_panel_show(RRFloatPanel *panel) { gtk_widget_show_all(panel->widget); }
+void rr_floating_panel_restore(RRFloatPanel *panel) { gtk_widget_show_all(panel->widget); }
+void rr_floating_panel_set_close_callback(RRFloatPanel *panel, void (*callback)(gpointer), gpointer data) {
+   panel->on_close = callback;
+   panel->close_data = data;
+}
+void rr_floating_panel_destroy(RRFloatPanel *panel) {
+   gtk_widget_destroy(panel->widget);
+   g_free(panel);
+}
 /* Deterministically hold the worker while the main thread cancels or revokes access. The separate live-server test exercises actual filesystem fsync. */
 int fsync(int fd) {
    g_mutex_lock(&flush_lock);
@@ -163,6 +199,8 @@ static bool find(GtkTreeIter *parent, const char *path, GtkTreeIter *out) {
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    event_init();
+   assert(event_domain_register("core", dispatch_immediately, NULL));
+   assert(event_domain_register("gtk", dispatch_immediately, NULL));
    cfg = dict_new();
    char *work = g_dir_make_tmp("rr-gtk-files-XXXXXX", NULL);
    assert(work);
@@ -198,6 +236,11 @@ int main(int argc, char **argv) {
    g_free(contents);
    char *config = g_build_filename(work, "station.cfg", NULL);
    assert(g_file_set_contents(config, "setting=before\n", -1, NULL));
+   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *overlay = gtk_overlay_new();
+   main_notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(main_window), overlay);
+   gtk_container_add(GTK_CONTAINER(overlay), main_notebook);
    event_emit("client.files.open", &client, NULL);
    drain();
    assert(browser.window);
@@ -260,6 +303,9 @@ int main(int argc, char **argv) {
    assert(failures == 2);
    strcpy(client.user->privs, "files.read,files.write");
    gtk_files_shutdown();
+   gtk_widget_destroy(main_window);
+   main_window = NULL;
+   main_notebook = NULL;
    event_emit("protocol.session.closed", &client, NULL);
    rrserver_files_fini();
    event_shutdown();

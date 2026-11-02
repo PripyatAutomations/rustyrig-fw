@@ -1397,6 +1397,16 @@ static gboolean frontend_gtk_ptt_hotkey_on_owner(gpointer unused) {
 static GMainContext *frontend_gtk_event_context;
 static GThread *frontend_gtk_owner;
 
+static void frontend_gtk_assert_owner(void) {
+#ifndef G_DISABLE_ASSERT
+   g_assert(g_thread_self() == frontend_gtk_owner);
+#else
+   if (G_UNLIKELY(g_thread_self() != frontend_gtk_owner))
+      g_log("RustyRig-GTK", G_LOG_LEVEL_CRITICAL, "GTK operation executed on wrong thread: actual=%p expected=%p",
+          (void *)g_thread_self(), (void *)frontend_gtk_owner);
+#endif
+}
+
 static bool frontend_gtk_ptt_hotkey_toggle(void) {
    if (g_thread_self() == frontend_gtk_owner)
       return ptt_button_hotkey_toggle();
@@ -1407,7 +1417,7 @@ static bool frontend_gtk_ptt_hotkey_toggle(void) {
       g_source_attach(source, frontend_gtk_event_context);
       g_source_unref(source);
    }
-   return false;
+   return true;
 }
 
 static void frontend_gtk_codec_set_active_owner(bool is_tx, const char *codec) {
@@ -2443,9 +2453,7 @@ typedef struct {
 } GtkEventDelivery;
 static gboolean frontend_gtk_deliver_event(gpointer opaque) {
    GtkEventDelivery *delivery = opaque;
-   if (G_UNLIKELY(g_thread_self() != frontend_gtk_owner))
-      g_log("RustyRig-GTK", G_LOG_LEVEL_CRITICAL, "GTK domain callback executed on wrong thread: actual=%p expected=%p",
-          (void *)g_thread_self(), (void *)frontend_gtk_owner);
+   frontend_gtk_assert_owner();
    delivery->fn(delivery->arg);
    return G_SOURCE_REMOVE;
 }
@@ -2602,6 +2610,7 @@ static void frontend_gtk_supervision_event(const rr_event_message_t *message, vo
 static void frontend_gtk_admin_result_event(const rr_event_message_t *message, void *unused);
 static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_owner = g_thread_self();
+   frontend_gtk_assert_owner();
    g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "GTK initialization tid=%p default-context=%p",
        (void *)frontend_gtk_owner, (void *)g_main_context_default());
    gtk_init(argc, argv);
@@ -2720,6 +2729,7 @@ static gboolean frontend_gtk_grab_watchdog(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 static void frontend_gtk_run(void) {
+   frontend_gtk_assert_owner();
    guint grab_watchdog = g_timeout_add_seconds(2, frontend_gtk_grab_watchdog, NULL);
    gtk_main();
    g_source_remove(grab_watchdog);
