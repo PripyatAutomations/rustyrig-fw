@@ -1260,7 +1260,7 @@ bool gui_file_editor_open_remote(const char *local, const char *title, bool (*sa
    ctx->remote_save = save;
    ctx->remote_data = data;
    ctx->remote_destroy = destroy;
-   ctx->remote_token = event_on_token("client.files.complete", remote_edit_complete, ctx);
+   ctx->remote_token = event_on_domain_token("client.files.complete", remote_edit_complete, ctx, "gtk");
    gtk_widget_hide(ctx->save_as);
    char *remote_title = g_strdup_printf("File Editor — %s", title && *title ? title : "Remote file");
    rr_floating_panel_set_title(ctx->panel, remote_title);
