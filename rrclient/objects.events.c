@@ -90,7 +90,8 @@ static bool inventory_message(dict *d) {
    request->count++;
 
    if (request->graphical) {
-      event_emit_dict("client.resources.row", ws_conn, d);
+      dict_add(d, "client.profile", rrclient_connection_name(ws_conn));
+      event_emit_dict("client.resources.row", NULL, d);
 
       if (!request->gps_listing || strcmp(kind, "gps")) {
          return true;
