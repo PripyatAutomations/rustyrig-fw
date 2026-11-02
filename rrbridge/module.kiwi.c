@@ -30,6 +30,7 @@ struct kiwi_instance {
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
    uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
    unsigned waterfall_zoom;
+   int agc, hang, thresh, slope, decay, man_gain, squelch, squelch_max;
    uint64_t waterfall_center_hz;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
@@ -96,6 +97,8 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    k->host = *host;
    k->max_hz = 30000000;
    k->waterfall_zoom = 6;
+   k->agc = 1; k->hang = 0; k->thresh = -100; k->slope = 6;
+   k->decay = 1000; k->man_gain = 50;
    k->hz = k->wanted_hz = 14074000;
    strcpy(k->mode, "USB");
    strcpy(k->wanted_mode, "USB");
@@ -995,11 +998,41 @@ static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint
    }
    return true;
 }
+static bool kiwi_control(void *instance, const char *name, const char *value) {
+   struct kiwi_instance *k = instance;
+   if (!k || !name || !value || !*value) return false;
+   char *end = NULL;
+   long v = strtol(value, &end, 10);
+   if (end == value || *end) return false;
+   int *target = NULL;
+   int low = 0, high = 0;
+   if (!strcmp(name, "agc")) { target = &k->agc; high = 1; }
+   else if (!strcmp(name, "hang")) { target = &k->hang; high = 1; }
+   else if (!strcmp(name, "threshold")) { target = &k->thresh; low = -130; high = 0; }
+   else if (!strcmp(name, "slope")) { target = &k->slope; high = 20; }
+   else if (!strcmp(name, "decay")) { target = &k->decay; low = 50; high = 5000; }
+   else if (!strcmp(name, "manual-gain")) { target = &k->man_gain; high = 100; }
+   else if (!strcmp(name, "squelch")) { target = &k->squelch; high = 1; }
+   else if (!strcmp(name, "squelch-threshold")) { target = &k->squelch_max; high = 100; }
+   else return false;
+   if (v < low || v > high) return false;
+   int previous = *target;
+   *target = (int)v;
+   char command[192];
+   if (!strncmp(name, "squelch", 7))
+      snprintf(command, sizeof(command), "SET squelch=%d max=%d", k->squelch, k->squelch_max);
+   else
+      snprintf(command, sizeof(command), "SET agc=%d hang=%d thresh=%d slope=%d decay=%d manGain=%d",
+               k->agc, k->hang, k->thresh, k->slope, k->decay, k->man_gain);
+   if (send_command(k, command)) return true;
+   *target = previous;
+   return false;
+}
 static const rrp_sdr_driver_t kiwi_driver = {
    .abi_version = RRP_SDR_ABI_VERSION, .name = "kiwi", .create = kiwi_create,
    .destroy = kiwi_destroy, .capabilities = kiwi_capabilities, .start = kiwi_start, .poll = kiwi_poll,
    .set_receiver = kiwi_set_receiver, .tune = kiwi_tune, .receive = kiwi_receive,
-   .set_waterfall = kiwi_set_waterfall
+   .set_waterfall = kiwi_set_waterfall, .set_control = kiwi_control
 };
 
 rr_module_event_t modexports[] = { {
