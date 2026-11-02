@@ -1961,9 +1961,13 @@ static void estop_notice_event(const char *event, const char *message, rrconn_t 
    (void)event;
    (void)user;
 
-   if (!estop_window || !message || !estop_room[0]) {
-      return;
-   }
+   (void)client;
+   if (!estop_window || !message || !estop_room[0]) return;
+   dict *notice = json2dict(message);
+   if (!notice) return;
+   const char *source = dict_get(notice, "profile", "");
+   if (strcmp(source, estop_profile)) { dict_free(notice); return; }
+   message = dict_get(notice, "message", "");
    const char *id = NULL;
    bool reset = false;
 
@@ -1973,15 +1977,18 @@ static void estop_notice_event(const char *event, const char *message, rrconn_t 
    } else if (!strncmp(message, "Rig E-STOP latched: ", 20)) {
       id = message + 20;
    } else {
+      dict_free(notice);
       return;
    }
 
    /* Server reports the canonical rig ID, while the window is bound to a room. Confirm that the notice describes this room before updating. */
    if (strcmp(id, estop_room) && strcmp(id, estop_room[0] == '#' ? estop_room + 1 : estop_room)) {
+      dict_free(notice);
       return;
    }
    gtk_button_set_label(GTK_BUTTON(estop_button), reset ? "ESTOP" : "HALTED");
    gtk_label_set_text(GTK_LABEL(estop_status), reset ? "Reset confirmed by server — ready" : "HALTED — confirmed by server");
+   dict_free(notice);
 }
 
 static void estop_pressed(GtkButton *button, gpointer unused) {
@@ -2480,7 +2487,7 @@ bool chat_init(void) {
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_domain_token("client.server.selected", gtk_chat_server_selected, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop", estop_request_event, NULL, "gtk"));
-   rr_module_token_add(event_on_domain_token("client.estop.notice", estop_notice_event, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.estop.notice.owned", estop_notice_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.send-status", estop_send_status, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.zoom", gtk_chat_zoom_event, NULL, "gtk"));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
