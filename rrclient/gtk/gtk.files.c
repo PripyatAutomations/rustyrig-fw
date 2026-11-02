@@ -141,6 +141,14 @@ static rrconn_t *connection(void) {
 
    return c;
 }
+static gboolean selected_profile_matches(const char *profile) {
+   if (!browser.server || !profile || !*profile) return FALSE;
+   const char *selected = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
+   if (!selected) return FALSE;
+   const char *sep = strchr(selected, '|');
+   size_t n = sep ? (size_t)(sep - selected) : strlen(selected);
+   return strlen(profile) == n && !strncmp(selected, profile, n);
+}
 static const char *site_root(void) {
    const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
    const char *sep = id ? strchr(id, '|') : NULL;
@@ -370,7 +378,7 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
    }
    const char *error = dict_get(d, "file.error", "");
 
-   if (browser.window && c == connection()) {
+   if (browser.window && selected_profile_matches(dict_get(d, "client.profile", ""))) {
       status(*error ? error : "Transfer complete");
 
       if (!*error) {
@@ -460,7 +468,7 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
       return;
    }
 
-   if (c != connection()) {
+   if (!selected_profile_matches(dict_get(d, "client.profile", ""))) {
       dict_free(d);
 
       return;
