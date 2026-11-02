@@ -1315,19 +1315,6 @@ static void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
    g_free(action);
 }
 
-static void details_line(const char *line, void *data) {
-   g_string_append_printf(data, "%s\n", line);
-}
-
-struct resource_details {
-   const char *uuid;
-   GString *text;
-};
-static void resource_details_dump(void *data) {
-   struct resource_details *details = data;
-   rrclient_object_dump_selected(details->uuid, details_line, details->text);
-}
-
 /* Keep full inventory UUIDs in the model, but present compact IDs. */
 static char *resource_uuid_display(const char *uuid) {
    if (!uuid) {
@@ -1973,30 +1960,7 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
 
 struct resource_action {
    const char *action, *value, *name, *device;
-   bool failed;
 };
-static void resource_command(void *data) {
-   struct resource_action *action = data;
-   char *args[] = {
-      (char *)"media", (char *)action->action, (char *)action->value
-   };
-
-   if (!strcmp(action->action, "join") || !strcmp(action->action, "part")) {
-      char *room_args[] = {
-         (char *)action->action, (char *)action->value
-      };
-      action->failed = !strcmp(action->action, "join") ? cmd_join(2, room_args) : cmd_part(2, room_args);
-   } else if (!strcmp(action->action, "objects-subscribe") || !strcmp(action->action, "objects-unsubscribe")) {
-      char *object_args[] = {
-         (char *)"rig", (char *)(!strcmp(action->action, "objects-subscribe") ? "subscribe" : "unsubscribe")
-      };
-      action->failed = cmd_rig(2, object_args);
-   } else if (!strcmp(action->action, "attach")) {
-      action->failed = !rr_sercom_attach(action->name, action->value, action->device);
-   } else {
-      action->failed = cmd_media(3, args);
-   }
-}
 static void resource_clicked(GtkButton *button, gpointer data) {
    (void)data;
    GtkTreeModel *model;
