@@ -61,7 +61,7 @@ static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
 extern void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
-static rr_event_token_t show_token, row_token, open_token, changed_tokens[4], action_reply_token, detail_reply_token;
+static rr_event_token_t show_token, row_token, open_token, changed_tokens[4], action_reply_token, detail_reply_token, status_token;
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
@@ -2143,57 +2143,28 @@ static void resource_expand(GtkButton *button, gpointer data) {
 }
 static gboolean resource_tick(gpointer data) {
    (void)data;
-
-   if (!browser) {
-      return G_SOURCE_REMOVE;
-   }
-
-   for (unsigned i = 0 ;; i++) {
-      const char *profile = rrclient_connection_iter(i);
-
-      if (!profile) {
-         break;
-      }
-      resource_branch *branch = resource_branch_get(profile);
-      rrconn_t *connection = rrclient_connection_find(profile);
-      bool was_online = branch->online;
-
-      if (branch->loading && (uint64_t) mono_us() - branch->requested_at >= UINT64_C(15000000)) {
+   if (!browser) return G_SOURCE_REMOVE;
+   /* Core collects state and emits copy-owned replies on the GTK domain.
+    * No iteration of the connection manager or core media objects here. */
+   event_emit("client.resources.status-request", NULL, NULL);
+   GHashTableIter it;
+   gpointer key, value;
+   g_hash_table_iter_init(&it, browser->branches);
+   while (g_hash_table_iter_next(&it, &key, &value)) {
+      resource_branch *branch = value;
+      if (branch->loading && (uint64_t)mono_us() - branch->requested_at >= UINT64_C(15000000)) {
          branch->loading = false;
          branch->loaded = true;
-         gtk_label_set_text(GTK_LABEL(browser->status), "Resource refresh timed out. Use Refresh all to try again.");
+         gtk_label_set_text(GTK_LABEL(browser->status),
+            "Resource refresh timed out. Use Refresh all to try again.");
       }
-      /* The tree model belongs exclusively to GTK. This used to dispatch the
-       * widget-writing callback to the core/network thread. */
-      resource_update_branch(branch);
-
-      if (connection && !connection->is_ws) {
-         /* IRC is a valid connected profile, but has no rrprotocol inventory. Keep its channel rows beneath the IRC server instead of clearing them as though
-          * the server had disconnected on every tick. */
-         branch->loading = false;
-      } else if (!branch->online) {
-         /* A disconnected rrprotocol profile cannot own live inventory. Invalidate the request token too, so late replies cannot resurrect stale rows. */
-         branch->loading = false;
-         branch->loaded = false;
-         g_clear_pointer(&branch->request, g_free);
-         GtkTreeIter child;
-         while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
-            gtk_tree_store_remove(browser->store, &child);
-         }
-         set_string(&branch->root, STATE, "OFFLINE");
-         set_string(&branch->root, OURS, "OFFLINE");
-      }
-      /* Linked catalogs can arrive after the first inventory, without an object descriptor change (GPS/serial/media are inventory-only services). Refresh
-       * availability while the window is open, including late peers. */
-      else if (!was_online || !branch->loaded || (!branch->loading && (uint64_t) mono_us() - branch->requested_at >= UINT64_C(30000000))) {
+      if (!branch->loading && branch->online &&
+          (!branch->loaded || (uint64_t)mono_us() - branch->requested_at >= UINT64_C(30000000)))
          resource_refresh(branch);
-      }
    }
-
    resource_local_update();
    resource_health_update();
    resource_selection(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), NULL);
-
    return G_SOURCE_CONTINUE;
 }
 static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
@@ -3680,6 +3651,26 @@ static void resource_reply(const char *event, const char *payload, rrconn_t *unu
    }
    dict_free(reply);
 }
+/* GTK receives only immutable status data; never dereference a core connection. */
+static void resource_status(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event; (void)connection; (void)unused;
+   if (!browser || !payload) return;
+   dict *d = json2dict(payload);
+   if (!d) return;
+   resource_branch *branch = g_hash_table_lookup(browser->branches, dict_get(d, "profile", ""));
+   if (branch) {
+      const char *state = dict_get(d, "state", "offline");
+      bool authenticated = dict_get_bool(d, "authenticated", false);
+      bool irc = !strcmp(dict_get(d, "transport", "ws"), "irc");
+      branch->online = authenticated && !irc && !strcmp(state, "online");
+      set_string(&branch->root, STATE, irc ?
+         (authenticated ? "Connected (IRC)" : !strcmp(state, "connecting") ? "Connecting (IRC)" : "Disconnected (IRC)") :
+         (branch->online ? "Connected" : !strcmp(state, "connecting") ? "Connecting" : "Disconnected"));
+      set_string(&branch->root, OURS, irc ? (authenticated ? "Connected" : "Disconnected") :
+         (branch->online ? "Online" : ""));
+   }
+   dict_free(d);
+}
 static void resource_changed(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)text;
    (void)unused;
@@ -3745,6 +3736,7 @@ void gtk_resources_init(void) {
    show_token = event_on_binary_domain_token(RRCLIENT_RESOURCE_VIEW_EVENT, resource_show, NULL, "gtk");
    row_token = event_on_domain_token("client.resources.row", resource_row, NULL, "gtk");
    open_token = event_on_domain_token("client.resources.open", resource_open, NULL, "gtk");
+   status_token = event_on_domain_token("client.resources.status", resource_status, NULL, "gtk");
    action_reply_token = event_on_domain_token("client.resources.action-result", resource_reply, NULL, "gtk");
    detail_reply_token = event_on_domain_token("client.resources.details-result", resource_reply, NULL, "gtk");
    const char *events[] = {
@@ -3757,6 +3749,8 @@ void gtk_resources_init(void) {
    }
 }
 void gtk_resources_shutdown(void) {
+   if (status_token) event_off_token(status_token);
+   status_token = NULL;
    if (action_reply_token) event_off_token(action_reply_token);
    if (detail_reply_token) event_off_token(detail_reply_token);
    action_reply_token = detail_reply_token = NULL;
