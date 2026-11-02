@@ -1995,11 +1995,9 @@ static void estop_notice_event(const char *event, const char *message, rrconn_t 
 static void estop_pressed(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
+   /* Only the originating server's acknowledgment confirms E-STOP.
+    * Do not make the UI claim success before the core send result arrives. */
    estop_dispatch("estop-trip");
-
-   if (estop_button && estop_status && strcmp(gtk_label_get_text(GTK_LABEL(estop_status)), "OFFLINE — NOT CONFIRMED")) {
-      gtk_button_set_label(GTK_BUTTON(estop_button), "STOP SENT");
-   }
 }
 
 static void gtk_chat_zoom_event(const char *event, const char *percent_text, rrconn_t *client, void *user) {
