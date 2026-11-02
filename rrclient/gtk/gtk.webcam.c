@@ -357,6 +357,6 @@ static void webcam_disconnected(const char *event, const char *data, rrconn_t *c
 void rrclient_webcam_register(void) {
    /* The frontend is dlclosed before socket teardown; these callbacks must be removed by rr_module_shutdown() to avoid jumping into unmapped code. */
    extern bool rr_module_token_add(rr_event_token_t token);
-   rr_module_token_add(event_on_binary_token(RR_VIDEO_FRAME_EVENT, webcam_frame_handler, NULL));
-   rr_module_token_add(event_on_token("disconnected", webcam_disconnected, NULL));
+   rr_module_token_add(event_on_binary_domain_token(RR_VIDEO_FRAME_EVENT, webcam_frame_handler, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("disconnected", webcam_disconnected, NULL, "gtk"));
 }
