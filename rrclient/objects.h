@@ -10,8 +10,8 @@
 /* Frontends may claim a resource view; common commands retain text fallback. */
 #define RRCLIENT_RESOURCE_VIEW_EVENT "client.resources.show"
 typedef struct {
-   const char *kind, *request;
-   bool handled;
+   char kind[16], request[48], profile[128];
+   bool online;
 } rrclient_resource_view_t;
 typedef struct rr_object_cache rr_object_cache_t;
 rr_object_cache_t *rr_object_cache_new(void);
