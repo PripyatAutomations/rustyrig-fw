@@ -77,6 +77,43 @@ static bridge_instance *bridge_active(void) {
    return slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
 }
 
+static void kiwi_control_status(const rr_event_message_t *unused, void *user) {
+   (void)unused; (void)user;
+   char vfo = rrclient_room_active_vfo("&local-sdr");
+   unsigned slot = (unsigned)(vfo - 'A');
+   bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+   rrclient_kiwi_control_status_t status = { .vfo = vfo };
+   if (b && b->online && b->pid > 0 && !g_ascii_strcasecmp(b->driver, "kiwi")) {
+      status.available = true;
+      status.frequency_hz = b->frequency_hz;
+      g_strlcpy(status.mode, b->mode, sizeof(status.mode));
+   }
+   rr_event_message_t msg = { .name = RRCLIENT_KIWI_STATUS_EVENT,
+      .payload = &status, .length = sizeof(status) };
+   event_emit_message(&msg);
+}
+static void kiwi_control_request(const rr_event_message_t *message, void *user) {
+   (void)user;
+   if (!message->payload || message->length != sizeof(rrclient_kiwi_control_request_t)) return;
+   const rrclient_kiwi_control_request_t *req = message->payload;
+   unsigned slot = (unsigned)(req->vfo - 'A');
+   bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+   if (!b || !b->online || b->control < 0 || g_ascii_strcasecmp(b->driver, "kiwi")) return;
+   if (!memchr(req->control, 0, sizeof(req->control)) ||
+       !memchr(req->value, 0, sizeof(req->value))) return;
+   rrp_bridge_ipc_message_t cmd;
+   rrp_bridge_ipc_init(&cmd, RRP_BRIDGE_IPC_CONTROL);
+   g_strlcpy(cmd.name, "local", sizeof(cmd.name));
+   g_strlcpy(cmd.driver, b->driver, sizeof(cmd.driver));
+   g_strlcpy(cmd.metadata_key, req->control, sizeof(cmd.metadata_key));
+   g_strlcpy(cmd.metadata_value, req->value, sizeof(cmd.metadata_value));
+   if (!rrp_bridge_ipc_send(b->control, &cmd))
+      Log(LOG_WARN, "local.bridge", "Kiwi VFO %c: failed to queue control %s", req->vfo, req->control);
+}
+void rrclient_local_bridge_controls_init(void) {
+   event_on_message_domain_token(RRCLIENT_KIWI_CONTROL_EVENT, kiwi_control_request, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_KIWI_STATUS_REQUEST, kiwi_control_status, NULL, "core");
+}
 bool rrclient_local_bridge_connected(const char *url) {
    if (!url) return false;
    for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++)
