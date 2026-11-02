@@ -61,7 +61,7 @@ static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
 extern void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
-static rr_event_token_t show_token, row_token, open_token, changed_tokens[7];
+static rr_event_token_t show_token, row_token, open_token, changed_tokens[4];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
@@ -3687,17 +3687,27 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
 
       return;
    }
-   /* Legacy connection events may be dispatched with NULL cptr. Never
-    * dereference that pointer on GTK's thread. */
-   const char *profile = NULL;
+   /* Connection identity is an owned event string, not a core rrconn_t.
+    * Connection notifications use "profile|state"; object updates use
+    * the bare profile. */
+   const char *profile = text;
+   char *owned_profile = NULL;
+   const char *state = event;
+   if (!strcmp(event, "client.resources.connection-state")) {
+      const char *split = text ? strrchr(text, '|') : NULL;
+      if (!split) return;
+      owned_profile = g_strndup(text, split - text);
+      profile = owned_profile;
+      state = split + 1;
+   }
    resource_branch *branch = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
 
-   if (branch && strcmp(event, "client.objects.changed")) {
+   if (branch && strcmp(state, "client.objects.changed")) {
       branch->loading = false;
       branch->loaded = false;
    }
-   if (branch && (!strcmp(event, "disconnected") || !strcmp(event, "http.error") ||
-                  !strcmp(event, "auth.error"))) {
+   if (branch && (!strcmp(state, "disconnected") || !strcmp(state, "http.error") ||
+                  !strcmp(state, "auth.error"))) {
       /* Do not leave the last live inventory on screen after transport loss. */
       branch->online = false;
       g_clear_pointer(&branch->request, g_free);
@@ -3710,6 +3720,7 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
       set_string(&branch->root, OURS, "");
       gtk_label_set_text(GTK_LABEL(browser->status), "OFFLINE");
    }
+   g_free(owned_profile);
 }
 void gtk_resources_init(void) {
    resource_create();
@@ -3717,7 +3728,7 @@ void gtk_resources_init(void) {
    row_token = event_on_domain_token("client.resources.row", resource_row, NULL, "gtk");
    open_token = event_on_domain_token("client.resources.open", resource_open, NULL, "gtk");
    const char *events[] = {
-      "authorized", "disconnected", "http.error", "auth.error", "client.objects.changed",
+      "client.resources.connection-state", "client.objects.changed",
       "client.explorer.control.result", "client.resources.request-failed"
    };
 
