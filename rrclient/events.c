@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
