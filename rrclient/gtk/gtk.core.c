@@ -969,14 +969,9 @@ static gboolean kiwi_panel_poll(gpointer unused) {
 }
 static void kiwi_panel_close(gpointer unused) {
    (void)unused;
-   kiwi_controls.panel = NULL;
-   kiwi_controls.grid = kiwi_controls.status = NULL;
-   memset(kiwi_controls.scales, 0, sizeof(kiwi_controls.scales));
-   if (kiwi_controls.refresh_timer) {
-      g_source_remove(kiwi_controls.refresh_timer);
-      kiwi_controls.refresh_timer = 0;
-   }
+   if (kiwi_controls.panel) rr_floating_panel_hide(kiwi_controls.panel);
 }
+static char kiwi_last_room[128], kiwi_last_vfo[4];
 static void kiwi_slider_changed(GtkRange *range, gpointer data) {
    unsigned index = GPOINTER_TO_UINT(data);
    if (!kiwi_controls.panel || kiwi_controls.updating || !kiwi_controls.online ||
@@ -1023,6 +1018,8 @@ static void kiwi_panel_status_event(const rr_event_message_t *message, void *unu
       kiwi_controls.online ? "Connected (requested control values)" : "KiwiSDR unavailable");
 }
 static void kiwi_panel_vfo_snapshot(const rrclient_vfo_snapshot_t *snapshot) {
+   g_strlcpy(kiwi_last_room, snapshot->room, sizeof(kiwi_last_room));
+   g_strlcpy(kiwi_last_vfo, snapshot->vfo, sizeof(kiwi_last_vfo));
    if (!kiwi_controls.panel) return;
    kiwi_controls.local_room = !strcmp(snapshot->room, "&local-sdr");
    kiwi_controls.online = FALSE;
@@ -1065,7 +1062,10 @@ static void kiwi_panel_show(GtkButton *button, gpointer unused) {
    gtk_box_pack_start(GTK_BOX(body), kiwi_controls.grid, FALSE, FALSE, 2);
    gtk_widget_show_all(rr_floating_panel_widget(kiwi_controls.panel));
    kiwi_controls.refresh_timer = g_timeout_add_seconds(2, kiwi_panel_poll, NULL);
-   kiwi_panel_request_status();
+   rrclient_vfo_snapshot_t initial = {0};
+   g_strlcpy(initial.room, kiwi_last_room, sizeof(initial.room));
+   g_strlcpy(initial.vfo, kiwi_last_vfo, sizeof(initial.vfo));
+   kiwi_panel_vfo_snapshot(&initial);
 }
 
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data);
