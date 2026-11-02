@@ -3722,16 +3722,16 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
 }
 void gtk_resources_init(void) {
    resource_create();
-   show_token = event_on_binary_token(RRCLIENT_RESOURCE_VIEW_EVENT, resource_show, NULL);
-   row_token = event_on_token("client.resources.row", resource_row, NULL);
-   open_token = event_on_token("client.resources.open", resource_open, NULL);
+   show_token = event_on_binary_domain_token(RRCLIENT_RESOURCE_VIEW_EVENT, resource_show, NULL, "gtk");
+   row_token = event_on_domain_token("client.resources.row", resource_row, NULL, "gtk");
+   open_token = event_on_domain_token("client.resources.open", resource_open, NULL, "gtk");
    const char *events[] = {
       "authorized", "disconnected", "http.error", "auth.error", "client.objects.changed",
       "client.explorer.control.result"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(events) ; i++) {
-      changed_tokens[i] = event_on_token(events[i], resource_changed, NULL);
+      changed_tokens[i] = event_on_domain_token(events[i], resource_changed, NULL, "gtk");
    }
 }
 void gtk_resources_shutdown(void) {
