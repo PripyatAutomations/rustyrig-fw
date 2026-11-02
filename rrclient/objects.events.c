@@ -65,7 +65,8 @@ static bool inventory_message(dict *d) {
 
    if (!strcmp(cmd, "inventory-end")) {
       if (request->graphical) {
-         event_emit_dict("client.resources.row", ws_conn, d);
+         dict_add(d, "client.profile", rrclient_connection_name(ws_conn));
+         event_emit_dict("client.resources.row", NULL, d);
       } else {
          ui_print(window, "End of %s list (%u entries).", request->kind, request->count);
       }
