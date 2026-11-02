@@ -852,9 +852,9 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    refresh_sites();
 }
 void gtk_files_init(void) {
-   open_token = event_on_token("client.files.open", open_browser, NULL);
-   row_token = event_on_token("client.files.row", row, NULL);
-   done_token = event_on_token("client.files.complete", complete, NULL);
+   open_token = event_on_domain_token("client.files.open", open_browser, NULL, "gtk");
+   row_token = event_on_domain_token("client.files.row", row, NULL, "gtk");
+   done_token = event_on_domain_token("client.files.complete", complete, NULL, "gtk");
 }
 void gtk_files_shutdown(void) {
    event_off_token(open_token);
