@@ -203,10 +203,18 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       }
    }
    dict_free(d);
-   event_emit("client.objects.changed", NULL, NULL);
+   event_emit("client.objects.changed", NULL, ws_conn ? rrclient_connection_name(ws_conn) : NULL);
 }
 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)data; (void)user;
+   const char *profile = client ? rrclient_connection_name(client) :
+                         ws_conn ? rrclient_connection_name(ws_conn) : NULL;
+   if (profile) {
+      char *notice = g_strdup_printf("%s|%s", profile, event);
+      event_emit("client.resources.connection-state", NULL, notice);
+      g_free(notice);
+   }
    memset(inventory_requests, 0, sizeof(inventory_requests));
    object_subscription = "Disconnected";
    subscription_request[0] = 0;
