@@ -2279,7 +2279,7 @@ static void resource_files(GtkButton *button, gpointer data) {
    if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), &model, &iter)) {
       gtk_tree_model_get(model, &iter, PROFILE, &profile, -1);
    }
-   event_emit("client.files.open", profile ? rrclient_connection_find(profile) : NULL, NULL);
+   event_emit("client.files.open", NULL, profile);
    g_free(profile);
 }
 
