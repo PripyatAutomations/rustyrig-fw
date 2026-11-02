@@ -481,7 +481,31 @@ static void explorer_core_request(const char *event, const char *payload, rrconn
    dict_free(reply);
    dict_free(request);
 }
+/* Periodic status is collected on core and copied before GTK sees it. */
+static void resource_status_request(const char *event, const char *ignored,
+                                    rrconn_t *conn, void *user) {
+   (void)event; (void)ignored; (void)conn; (void)user;
+   for (unsigned i = 0;; ++i) {
+      const char *profile = rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *active = rrclient_connection_find(profile);
+      int state = rrclient_connection_state(profile);
+      dict *d = dict_new();
+      if (!d) break;
+      dict_add(d, "profile", profile);
+      dict_add(d, "transport", active && !active->is_ws ? "irc" : "ws");
+      dict_add(d, "state", state == 1 ? "online" : state < 0 ? "connecting" : "offline");
+      dict_add(d, "authenticated", active && active->authenticated ? "true" : "false");
+      char *payload = dict2json(d);
+      if (payload) {
+         event_emit("client.resources.status", NULL, payload);
+         free(payload);
+      }
+      dict_free(d);
+   }
+}
 void rrclient_objects_register_events(void) {
+   event_on_domain_token("client.resources.status-request", resource_status_request, NULL, "core");
    event_on_domain_token("client.resources.details-request", explorer_core_request, NULL, "core");
    event_on_domain_token("client.resources.action-request", explorer_core_request, NULL, "core");
    event_on_domain_token("client.resources.refresh-request", resource_refresh_request, NULL, "core");
