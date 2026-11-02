@@ -3182,13 +3182,14 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    (void)event;
    (void)unused;
 
-   if (length != sizeof(rrclient_resource_view_t) || !connection) {
-      return;
-   }
-   rrclient_resource_view_t *request = (rrclient_resource_view_t *) data;
-   const char *profile = rrclient_connection_name(connection);
-
-   if (!profile) {
+   (void)connection;
+   if (length != sizeof(rrclient_resource_view_t) || !data) return;
+   const rrclient_resource_view_t *request = data;
+   if (!memchr(request->profile, 0, sizeof(request->profile)) ||
+       !memchr(request->request, 0, sizeof(request->request)) ||
+       !memchr(request->kind, 0, sizeof(request->kind))) return;
+   const char *profile = request->profile;
+   if (!*profile) {
       return;
    }
    resource_create();
@@ -3197,7 +3198,7 @@ static void resource_show(const char *event, const void *data, size_t length, rr
       resource_present();
    }
    resource_branch *branch = resource_branch_get(profile);
-   branch->online = connection->authenticated && connection->is_ws;
+   branch->online = request->online;
    g_clear_pointer(&branch->selection, g_free);
    GtkTreeModel *model;
    GtkTreeIter selected;
@@ -3227,7 +3228,6 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    memset(branch->valid, 0, sizeof(branch->valid));
    branch->local_site_seen = false;
    gtk_label_set_text(GTK_LABEL(browser->status), "Refreshing resources…");
-   request->handled = true;
 }
 
 /* Resolve explicit inventory ownership independent of contributor emission order. This also handles linked sites whose rows share one connection. */
@@ -3298,12 +3298,11 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    (void)event;
    (void)unused;
 
-   if (!browser || !connection) {
-      return;
-   }
-   const char *profile = rrclient_connection_name(connection);
-   resource_branch *branch = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
+   (void)connection;
+   if (!browser) return;
    dict *row = text ? json2dict(text) : NULL;
+   const char *profile = row ? dict_get(row, "client.profile", "") : "";
+   resource_branch *branch = *profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
 
    if (!row) {
       return;
