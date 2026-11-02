@@ -2126,26 +2126,13 @@ static void resource_clicked(GtkButton *button, gpointer data) {
       resource_tick(browser);
    }
 }
-/* Invoked by core dispatch, never GTK. Own the profile across the handoff;
- * no widget or resource_branch pointer may cross this boundary. */
-static void resource_request(void *data) {
-   char *profile = data;
-   char *args[] = { (char *)"object" };
-   if (cmd_object(1, args))
-      event_emit("client.resources.request-failed", NULL, profile);
-   rrconn_t *connection = rrclient_connection_find(profile);
-   if (rrclient_connection_is_connected(connection))
-      rrclient_media_refresh(connection);
-   g_free(profile);
-}
 static void resource_refresh(resource_branch *branch) {
    rrconn_t *connection = rrclient_connection_find(branch->profile);
 
    if (!branch->loading && connection && connection->authenticated && connection->is_ws) {
-      bool previous = automatic_refresh;
-      automatic_refresh = true;
-      rrclient_connection_dispatch(connection, resource_request, g_strdup(branch->profile));
-      automatic_refresh = previous;
+      /* Event bus copies the profile. The command and connection-context
+       * swap execute on core, never in the GTK event loop. */
+      event_emit("client.resources.refresh-request", NULL, branch->profile);
    }
 }
 static void resource_refresh_all(GtkButton *button, gpointer data) {
