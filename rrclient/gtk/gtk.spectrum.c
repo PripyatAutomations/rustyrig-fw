@@ -828,8 +828,8 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
    p->token = event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row_message, p, "gtk");
-   p->caps_token = event_on_binary_token("client.local-bridge.capabilities", rf_caps_changed, p);
-   p->vfo_token = event_on_binary_token("client.local-bridge.vfo", rf_caps_changed, p);
+   p->caps_token = event_on_binary_domain_token("client.local-bridge.capabilities", rf_caps_changed, p, "gtk");
+   p->vfo_token = event_on_binary_domain_token("client.local-bridge.vfo", rf_caps_changed, p, "gtk");
    rf_caps_changed(NULL, NULL, 0, NULL, p);
    return overlay;
 }
