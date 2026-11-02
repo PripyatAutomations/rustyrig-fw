@@ -31,6 +31,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/ui.navigation.h>
 #include <rrclient/vfo.h>
+#include <rrclient/vfo.snapshot.h>
 #include <rrclient/frontend.h>
 #include <rrclient/supervision.h>
 #include <rrclient/dcc.h>
@@ -1827,7 +1828,62 @@ static void rrclient_estop_send(void *arg) {
    dict_add(d, "sent", sent ? "true" : "false");
    dict_free(message);
 }
+
+static void locator_collect(void *arg) {
+   rrclient_locator_snapshot_t *snap = arg;
+   const char *room = rrclient_media_active_room();
+   char active = vfo_state_get_active();
+   if (!room || !*room || !rrclient_media_vfo_uuid(room, active)) return;
+   const char *profile = rrclient_selected_server();
+   (void)profile;
+   snap->vfo = active;
+   g_strlcpy(snap->room, room, sizeof(snap->room));
+   char vfo[2] = {active, 0};
+   snap->frequency = vfo_state_get_long(vfo, "cat.state.freq", 0);
+   snap->width = vfo_state_get_long(vfo, "cat.state.width", 0);
+   g_strlcpy(snap->mode, vfo_state_get(vfo, "cat.state.mode", ""), sizeof(snap->mode));
+   const char *grid = vfo_state_get(vfo, "cat.state.gridsquare", NULL);
+   if (!grid || !*grid) grid = vfo_state_get(vfo, "cat.state.grid", "");
+   g_strlcpy(snap->grid, grid ? grid : "", sizeof(snap->grid));
+   const char *watts = vfo_state_get(vfo, "cat.state.tx-power-watts", NULL);
+   snap->watts = watts ? g_ascii_strtod(watts, NULL) : 0;
+   for (const struct rr_user *u = global_userlist; u; u = u->next) {
+      if (u->is_ptt && u->ptt_vfo == active && !strcasecmp(u->ptt_room, room)) {
+         snap->transmitting = true;
+         g_strlcpy(snap->holder, u->name, sizeof(snap->holder));
+         break;
+      }
+   }
+   snap->online = true;
+}
+static void locator_snapshot_core(const char *event, const char *previous,
+                                  rrconn_t *ignored, void *unused) {
+   (void)event; (void)ignored; (void)unused;
+   rrclient_locator_snapshot_t snap = {0};
+   const char *preferred = rrclient_selected_server();
+   for (unsigned pass = 0; pass < 3 && !snap.online; pass++) {
+      for (unsigned i = 0;; i++) {
+         const char *profile = pass == 0 ? preferred :
+                               pass == 1 ? previous : rrclient_connection_iter(i);
+         if (!profile || !*profile) break;
+         rrconn_t *conn = rrclient_connection_find(profile);
+         if (conn && conn->authenticated && conn->is_ws &&
+             rrclient_connection_state(profile) == 1) {
+            rrclient_locator_snapshot_t candidate = {0};
+            rrclient_connection_dispatch(conn, locator_collect, &candidate);
+            if (candidate.online) {
+               snap = candidate;
+               g_strlcpy(snap.profile, profile, sizeof(snap.profile));
+               break;
+            }
+         }
+         if (pass != 2) break;
+      }
+   }
+   event_emit_binary(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, NULL, &snap, sizeof(snap));
+}
 void rrclient_register_events(void) {
+   event_on_domain_token(RRCLIENT_LOCATOR_REQUEST_EVENT, locator_snapshot_core, NULL, "core");
    event_on_domain_token("client.estop.send-request", rrclient_estop_core, NULL, "core");
    rr_event_token_t link_token = event_on_message_domain_token(
       RRCLIENT_UI_CHAT_LINK_EVENT, rrclient_ui_chat_link_join, NULL, "core");
