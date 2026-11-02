@@ -11,6 +11,7 @@
 #include <rrclient/receiver.directory.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
+#include <rrclient/frontend.h>
 #include <rrclient/cmd.h>
 #include <librrprotocol/ws.mediachan.h>
 static rr_object_cache_t *cache;
@@ -49,7 +50,8 @@ static bool inventory_message(dict *d) {
 
    if (!strcmp(cmd, "result")) {
       if (request->graphical) {
-         event_emit_dict("client.resources.row", ws_conn, d);
+         dict_add(d, "client.profile", rrclient_connection_name(ws_conn));
+         event_emit_dict("client.resources.row", NULL, d);
       }
 
       if (!request->graphical || request->gps_listing) {
@@ -301,13 +303,17 @@ bool cmd_rig(int argc, char **args) {
       pending->kind = !strcasecmp(args[0], "gps") ? "gps" : !strcasecmp(args[0], "object") ? "object" : "rig";
       snprintf(pending->id, sizeof(pending->id), "%s", id);
       snprintf(pending->window, sizeof(pending->window), "%s", window ? window : "");
-      rrclient_resource_view_t view = {
-         .kind = pending->kind, .request = id
-      };
-      event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, ws_conn, &view, sizeof(view));
-      pending->graphical = view.handled;
+      const rr_frontend_ops_t *frontend = frontend_ops();
+      pending->graphical = frontend && frontend->name && !strcmp(frontend->name, "gtk");
+      if (pending->graphical) {
+         rrclient_resource_view_t view = { .online = ws_conn->authenticated && ws_conn->is_ws };
+         snprintf(view.kind, sizeof(view.kind), "%s", pending->kind);
+         snprintf(view.request, sizeof(view.request), "%s", id);
+         snprintf(view.profile, sizeof(view.profile), "%s", rrclient_connection_name(ws_conn));
+         event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, NULL, &view, sizeof(view));
+      }
 
-      if (view.handled) {
+      if (pending->graphical) {
          pending->kind = "object";  // GTK's unified browser always receives the complete tree.
       }
    }
