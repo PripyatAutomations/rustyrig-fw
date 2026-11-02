@@ -61,7 +61,7 @@ static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
 extern void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
-static rr_event_token_t show_token, row_token, open_token, changed_tokens[4];
+static rr_event_token_t show_token, row_token, open_token, changed_tokens[4], action_reply_token, detail_reply_token;
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
@@ -1939,10 +1939,15 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
       g_free(short_uuid);
 
       if (online) {
-         struct resource_details request = {
-            uuid, text
-         };
-         rrclient_connection_dispatch(connection, resource_details_dump, &request);
+         dict *request = dict_new();
+         dict_add(request, "profile", profile);
+         dict_add(request, "uuid", uuid);
+         char *json = dict2json(request);
+         if (json) {
+            event_emit("client.resources.details-request", NULL, json);
+            free(json);
+         }
+         dict_free(request);
       }
    }
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(browser->details));
@@ -2099,10 +2104,19 @@ static void resource_clicked(GtkButton *button, gpointer data) {
       }
 
       if ((action.value && *action.value) || objects) {
-         rrclient_connection_dispatch(connection, resource_command, &action);
-         refresh_after = !action.failed;
-         gtk_label_set_text(GTK_LABEL(browser->status), action.failed ? "Unable to send the action. Check the server status tab for details." :
-            "Request sent. Your state updates when the server confirms it.");
+         dict *request = dict_new();
+         dict_add(request, "profile", profile);
+         dict_add(request, "action", action.action ? action.action : "");
+         dict_add(request, "value", action.value ? action.value : "");
+         dict_add(request, "name", action.name ? action.name : "");
+         dict_add(request, "device", action.device ? action.device : "");
+         char *json = dict2json(request);
+         if (json) {
+            event_emit("client.resources.action-request", NULL, json);
+            free(json);
+            gtk_label_set_text(GTK_LABEL(browser->status), "Sending resource action…");
+         }
+         dict_free(request);
       }
    }
 
@@ -3662,6 +3676,41 @@ static void resource_open(const char *event, const char *text, rrconn_t *connect
    resource_refresh_all(NULL, NULL);
    resource_tick(browser);
 }
+static void resource_reply(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)unused_connection; (void)unused;
+   if (!browser || !payload) return;
+   dict *reply = json2dict(payload);
+   if (!reply) return;
+   const char *profile = dict_get(reply, "profile", "");
+   if (!strcmp(event, "client.resources.action-result")) {
+      bool failed = dict_get_bool(reply, "failed", true);
+      gtk_label_set_text(GTK_LABEL(browser->status), failed ?
+         "Unable to send the action. Check the server status tab for details." :
+         "Request sent. Your state updates when the server confirms it.");
+      if (!failed) {
+         resource_branch *branch = g_hash_table_lookup(browser->branches, profile);
+         if (branch) resource_refresh(branch);
+      }
+   } else {
+      GtkTreeModel *model = NULL;
+      GtkTreeIter selected;
+      if (gtk_tree_selection_get_selected(
+            gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), &model, &selected)) {
+         char *selected_profile = NULL, *selected_uuid = NULL;
+         gtk_tree_model_get(model, &selected, PROFILE, &selected_profile,
+                            UUID, &selected_uuid, -1);
+         if (!g_strcmp0(profile, selected_profile) &&
+             !g_strcmp0(dict_get(reply, "uuid", ""), selected_uuid)) {
+            GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(browser->details));
+            GtkTextIter end;
+            gtk_text_buffer_get_end_iter(buffer, &end);
+            gtk_text_buffer_insert(buffer, &end, dict_get(reply, "details", ""), -1);
+         }
+         g_free(selected_profile); g_free(selected_uuid);
+      }
+   }
+   dict_free(reply);
+}
 static void resource_changed(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)text;
    (void)unused;
@@ -3727,6 +3776,8 @@ void gtk_resources_init(void) {
    show_token = event_on_binary_domain_token(RRCLIENT_RESOURCE_VIEW_EVENT, resource_show, NULL, "gtk");
    row_token = event_on_domain_token("client.resources.row", resource_row, NULL, "gtk");
    open_token = event_on_domain_token("client.resources.open", resource_open, NULL, "gtk");
+   action_reply_token = event_on_domain_token("client.resources.action-result", resource_reply, NULL, "gtk");
+   detail_reply_token = event_on_domain_token("client.resources.details-result", resource_reply, NULL, "gtk");
    const char *events[] = {
       "client.resources.connection-state", "client.objects.changed",
       "client.explorer.control.result", "client.resources.request-failed"
@@ -3737,6 +3788,9 @@ void gtk_resources_init(void) {
    }
 }
 void gtk_resources_shutdown(void) {
+   if (action_reply_token) event_off_token(action_reply_token);
+   if (detail_reply_token) event_off_token(detail_reply_token);
+   action_reply_token = detail_reply_token = NULL;
    if (show_token) {
       event_off_token(show_token);
    }
