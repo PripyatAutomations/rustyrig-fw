@@ -954,6 +954,7 @@ int main(int argc, char *argv[]) {
           rrclient_ptt_request_event, NULL, "core"))
       Log(LOG_WARN, "ptt", "Unable to register core PTT request handler");
    rrclient_receiver_connect_init();
+   rrclient_local_bridge_controls_init();
    webcam_client_register_events();
    connman_register_events();
 
