@@ -637,8 +637,10 @@ static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
             availability = !room || !*room || joined || (channel && channel->joined) ? "Available" : "Join room first";
          }
 
+         /* Inventory discovery and live media-channel registration are separate.
+          * A remote/relay inventory row can exist before local media metadata. */
          if (branch->online && !channel) {
-            strlcpy(ours, "Not discovered yet — refresh", sizeof(ours));
+            strlcpy(ours, "Available in server inventory · Not subscribed", sizeof(ours));
          }
       } else if (kind && (!strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo"))) {
          snprintf(ours, sizeof(ours), "%s%s%s", room && *room ? rrclient_room_is_joined(room) ? "Room joined · " : "Room not joined · " : "", "Updates: ",
@@ -651,7 +653,10 @@ static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
          }
       }
 
-      if (service && *service) {
+      /* Service identifiers are not all serial endpoints (e.g. display
+       * brightness and generic controls). Only CAT/serial rows support a
+       * client-side serial attachment. */
+      if (kind && (!strcmp(kind, "cat") || !strcmp(kind, "serial")) && service && *service) {
          struct attachment_match match = {
             .profile = branch->profile, .service = service
          };
