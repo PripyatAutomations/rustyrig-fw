@@ -353,8 +353,8 @@ void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_na
       gtk_box_pack_end(GTK_BOX(session->page), session->command_entry, FALSE, FALSE, 0);
    }
    session->observer = rr_sercom_observe(name, console_bytes, session);
-   session->config_token = event_on_token("serial.console.configuration", terminal_configuration, session);
-   session->connection_token = event_on_token("serial.console.connection", terminal_connection, session);
+   session->config_token = event_on_domain_token("serial.console.configuration", terminal_configuration, session, "gtk");
+   session->connection_token = event_on_domain_token("serial.console.connection", terminal_connection, session, "gtk");
 
    if (session->endpoint_label) {
       gtk_label_set_text(GTK_LABEL(session->endpoint_label), display_name && *display_name ? display_name : name);
