@@ -2127,13 +2127,10 @@ static void resource_clicked(GtkButton *button, gpointer data) {
    }
 }
 static void resource_refresh(resource_branch *branch) {
-   rrconn_t *connection = rrclient_connection_find(branch->profile);
-
-   if (!branch->loading && connection && connection->authenticated && connection->is_ws) {
-      /* Event bus copies the profile. The command and connection-context
-       * swap execute on core, never in the GTK event loop. */
-      event_emit("client.resources.refresh-request", NULL, branch->profile);
-   }
+   if (!branch || branch->loading) return;
+   /* Core checks connection availability. GTK must not read rrconn_t fields
+    * or run the connection command dispatch itself. */
+   event_emit("client.resources.refresh-request", NULL, branch->profile);
 }
 static void resource_refresh_all(GtkButton *button, gpointer data) {
    (void)button;
