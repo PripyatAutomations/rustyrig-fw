@@ -33,6 +33,8 @@
 #include <rrclient/media.h>
 #include <rrclient/vfo.h>
 #include <rrclient/vfo.snapshot.h>
+#include <rrclient/local.bridge.h>
+#include <rrclient/gtk/gtk.floating-panel.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.connect-button.h>
@@ -928,6 +930,144 @@ static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
    }
 }
 
+
+/* Kiwi controls run on the GTK owner thread. Changes are fire-and-forget
+ * events to the core; no bridge IPC or network operations run in GTK. */
+typedef struct {
+   RRFloatPanel *panel;
+   GtkWidget *grid, *status, *scales[8];
+   char vfo;
+   gboolean local_room, online, updating;
+   guint refresh_timer;
+} KiwiControlPanel;
+static KiwiControlPanel kiwi_controls;
+static const struct {
+   const char *key, *label;
+   double minimum, maximum, initial, step;
+} kiwi_controls_spec[] = {
+   {"agc", "AGC enabled", 0, 1, 1, 1},
+   {"hang", "AGC hang", 0, 1, 0, 1},
+   {"threshold", "AGC threshold (dB)", -130, 0, -100, 1},
+   {"slope", "AGC slope", 0, 20, 6, 1},
+   {"decay", "AGC decay (ms)", 50, 5000, 1000, 50},
+   {"manual-gain", "Manual gain", 0, 100, 50, 1},
+   {"squelch", "Squelch enabled", 0, 1, 0, 1},
+   {"squelch-threshold", "Squelch threshold", 0, 100, 0, 1}
+};
+static double kiwi_values[26][G_N_ELEMENTS(kiwi_controls_spec)];
+static gboolean kiwi_values_initialized[26];
+static void kiwi_panel_request_status(void) {
+   if (!kiwi_controls.panel) return;
+   rr_event_message_t msg = { .name = RRCLIENT_KIWI_STATUS_REQUEST };
+   event_emit_message(&msg);
+}
+static gboolean kiwi_panel_poll(gpointer unused) {
+   (void)unused;
+   if (!kiwi_controls.panel) { kiwi_controls.refresh_timer = 0; return G_SOURCE_REMOVE; }
+   kiwi_panel_request_status();
+   return G_SOURCE_CONTINUE;
+}
+static void kiwi_panel_close(gpointer unused) {
+   (void)unused;
+   kiwi_controls.panel = NULL;
+   kiwi_controls.grid = kiwi_controls.status = NULL;
+   memset(kiwi_controls.scales, 0, sizeof(kiwi_controls.scales));
+   if (kiwi_controls.refresh_timer) {
+      g_source_remove(kiwi_controls.refresh_timer);
+      kiwi_controls.refresh_timer = 0;
+   }
+}
+static void kiwi_slider_changed(GtkRange *range, gpointer data) {
+   unsigned index = GPOINTER_TO_UINT(data);
+   if (!kiwi_controls.panel || kiwi_controls.updating || !kiwi_controls.online ||
+       !kiwi_controls.local_room || kiwi_controls.vfo < 'A' || kiwi_controls.vfo > 'Z' ||
+       index >= G_N_ELEMENTS(kiwi_controls_spec)) return;
+   char vfo = kiwi_controls.vfo;
+   unsigned slot = vfo - 'A';
+   int value = (int)gtk_range_get_value(range);
+   kiwi_values[slot][index] = value;
+   rrclient_kiwi_control_request_t req = { .vfo = vfo };
+   g_strlcpy(req.control, kiwi_controls_spec[index].key, sizeof(req.control));
+   g_snprintf(req.value, sizeof(req.value), "%d", value);
+   rr_event_message_t msg = { .name = RRCLIENT_KIWI_CONTROL_EVENT,
+      .payload = &req, .length = sizeof(req) };
+   event_emit_message(&msg);
+}
+static void kiwi_panel_switch_vfo(char vfo) {
+   if (!kiwi_controls.panel || vfo < 'A' || vfo > 'Z') return;
+   unsigned slot = vfo - 'A';
+   if (!kiwi_values_initialized[slot]) {
+      for (unsigned i = 0; i < G_N_ELEMENTS(kiwi_controls_spec); i++)
+         kiwi_values[slot][i] = kiwi_controls_spec[i].initial;
+      kiwi_values_initialized[slot] = TRUE;
+   }
+   kiwi_controls.updating = TRUE;
+   for (unsigned i = 0; i < G_N_ELEMENTS(kiwi_controls_spec); i++)
+      gtk_range_set_value(GTK_RANGE(kiwi_controls.scales[i]), kiwi_values[slot][i]);
+   kiwi_controls.updating = FALSE;
+   kiwi_controls.vfo = vfo;
+   char title[48];
+   g_snprintf(title, sizeof(title), "KiwiSDR VFO %c", vfo);
+   rr_floating_panel_set_title(kiwi_controls.panel, title);
+}
+static void kiwi_panel_status_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!kiwi_controls.panel || !message->payload ||
+       message->length != sizeof(rrclient_kiwi_control_status_t)) return;
+   const rrclient_kiwi_control_status_t *status = message->payload;
+   if (status->vfo != kiwi_controls.vfo) return;
+   kiwi_controls.online = kiwi_controls.local_room && status->available;
+   gtk_widget_set_sensitive(kiwi_controls.grid, kiwi_controls.online);
+   gtk_label_set_text(GTK_LABEL(kiwi_controls.status),
+      !kiwi_controls.local_room ? "Select a local KiwiSDR VFO" :
+      kiwi_controls.online ? "Connected (requested control values)" : "KiwiSDR unavailable");
+}
+static void kiwi_panel_vfo_snapshot(const rrclient_vfo_snapshot_t *snapshot) {
+   if (!kiwi_controls.panel) return;
+   kiwi_controls.local_room = !strcmp(snapshot->room, "&local-sdr");
+   kiwi_controls.online = FALSE;
+   gtk_widget_set_sensitive(kiwi_controls.grid, FALSE);
+   if (kiwi_controls.local_room && snapshot->vfo[0] >= 'A' && snapshot->vfo[0] <= 'Z' &&
+       !snapshot->vfo[1]) kiwi_panel_switch_vfo(snapshot->vfo[0]);
+   else gtk_label_set_text(GTK_LABEL(kiwi_controls.status), "Select a local KiwiSDR VFO");
+   kiwi_panel_request_status();
+}
+static void kiwi_panel_show(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   if (kiwi_controls.panel) { rr_floating_panel_show(kiwi_controls.panel); return; }
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+   kiwi_controls.panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
+                                               "kiwi-controls", "KiwiSDR VFO");
+   if (!kiwi_controls.panel) return;
+   rr_floating_panel_set_close_callback(kiwi_controls.panel, kiwi_panel_close, NULL);
+   GtkWidget *body = rr_floating_panel_body(kiwi_controls.panel);
+   kiwi_controls.status = gtk_label_new("Select a local KiwiSDR VFO");
+   gtk_box_pack_start(GTK_BOX(body), kiwi_controls.status, FALSE, FALSE, 3);
+   kiwi_controls.grid = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(kiwi_controls.grid), 4);
+   gtk_grid_set_column_spacing(GTK_GRID(kiwi_controls.grid), 8);
+   for (unsigned i = 0; i < G_N_ELEMENTS(kiwi_controls_spec); i++) {
+      GtkWidget *label = gtk_label_new(kiwi_controls_spec[i].label);
+      gtk_widget_set_halign(label, GTK_ALIGN_START);
+      gtk_grid_attach(GTK_GRID(kiwi_controls.grid), label, 0, i, 1, 1);
+      GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,
+         kiwi_controls_spec[i].minimum, kiwi_controls_spec[i].maximum,
+         kiwi_controls_spec[i].step);
+      kiwi_controls.scales[i] = scale;
+      gtk_widget_set_size_request(scale, 200, -1);
+      gtk_scale_set_digits(GTK_SCALE(scale), 0);
+      gtk_grid_attach(GTK_GRID(kiwi_controls.grid), scale, 1, i, 1, 1);
+      g_signal_connect(scale, "value-changed", G_CALLBACK(kiwi_slider_changed),
+                       GUINT_TO_POINTER(i));
+   }
+   gtk_widget_set_sensitive(kiwi_controls.grid, FALSE);
+   gtk_box_pack_start(GTK_BOX(body), kiwi_controls.grid, FALSE, FALSE, 2);
+   gtk_widget_show_all(rr_floating_panel_widget(kiwi_controls.panel));
+   kiwi_controls.refresh_timer = g_timeout_add_seconds(2, kiwi_panel_poll, NULL);
+   kiwi_panel_request_status();
+}
+
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data);
 bool gui_init(void) {
    // Apply user CSS (from [gtk-css] config section) or the default from
@@ -954,6 +1094,10 @@ bool gui_init(void) {
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
+   GtkWidget *kiwi_button = gtk_button_new_with_label("KiwiSDR");
+   gtk_widget_set_tooltip_text(kiwi_button, "KiwiSDR controls for the active VFO");
+   g_signal_connect(kiwi_button, "clicked", G_CALLBACK(kiwi_panel_show), NULL);
+   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), kiwi_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
@@ -2433,6 +2577,7 @@ static void frontend_gtk_vfo_snapshot_event(const rr_event_message_t *message, v
        !memchr(snapshot->mode, 0, sizeof(snapshot->mode)) ||
        !memchr(snapshot->room, 0, sizeof(snapshot->room)) ||
        !memchr(snapshot->server, 0, sizeof(snapshot->server))) return;
+   kiwi_panel_vfo_snapshot(snapshot);
    snprintf(pending_vfo_paint.vfo, sizeof(pending_vfo_paint.vfo), "%s", snapshot->vfo);
    snprintf(pending_vfo_paint.mode, sizeof(pending_vfo_paint.mode), "%s", snapshot->mode);
    snprintf(pending_vfo_paint.room, sizeof(pending_vfo_paint.room), "%s", snapshot->room);
@@ -2541,6 +2686,9 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       RRCLIENT_VFO_SNAPSHOT_EVENT, frontend_gtk_vfo_snapshot_event, NULL, "gtk");
    if (vfo_event) rr_module_token_add(vfo_event);
    else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to VFO snapshots");
+   rr_event_token_t kiwi_status_event = event_on_message_domain_token(
+      RRCLIENT_KIWI_STATUS_EVENT, kiwi_panel_status_event, NULL, "gtk");
+   if (kiwi_status_event) rr_module_token_add(kiwi_status_event);
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
