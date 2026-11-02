@@ -1,6 +1,17 @@
 librustyirc := librustyirc.so
 libs += ${librustyirc}
-librustyirc_objs := irc connection irc.channel irc.modes irc.user irc.capab irc.commands irc.numerics irc.event irc.dispatch irc.audio irc.dcc
+librustyirc_objs := irc
+librustyirc_objs += connection
+librustyirc_objs += irc.channel
+librustyirc_objs += irc.modes
+librustyirc_objs += irc.user
+librustyirc_objs += irc.capab
+librustyirc_objs += irc.commands
+librustyirc_objs += irc.numerics
+librustyirc_objs += irc.event
+librustyirc_objs += irc.dispatch
+librustyirc_objs += irc.audio
+librustyirc_objs += irc.dcc
 librustyirc_headers := $(wildcard librustyirc/*.h)
 librustyirc_real_objs := $(addprefix ${BUILD_DIR}/librustyirc/,$(addsuffix .o,${librustyirc_objs}))
 ${BUILD_DIR}/librustyirc/%.o: librustyirc/%.c ${librustyirc_headers} ${librustyaxe_headers} GNUmakefile librustyirc/rules.mk ${OBJECT_ORDER_ONLY}
