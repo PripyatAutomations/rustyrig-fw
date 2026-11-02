@@ -2196,7 +2196,9 @@ static gboolean resource_tick(gpointer data) {
          branch->loaded = true;
          gtk_label_set_text(GTK_LABEL(browser->status), "Resource refresh timed out. Use Refresh all to try again.");
       }
-      rrclient_connection_dispatch(connection, resource_update_branch, branch);
+      /* The tree model belongs exclusively to GTK. This used to dispatch the
+       * widget-writing callback to the core/network thread. */
+      resource_update_branch(branch);
 
       if (connection && !connection->is_ws) {
          /* IRC is a valid connected profile, but has no rrprotocol inventory. Keep its channel rows beneath the IRC server instead of clearing them as though
