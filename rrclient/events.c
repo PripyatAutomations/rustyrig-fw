@@ -1785,7 +1785,39 @@ static void rrclient_ui_chat_link_join(const rr_event_message_t *message, void *
    }
 }
 
+/* Emergency-stop requests cross into core as copied JSON. Never send
+ * transport commands from the GTK thread. */
+static void rrclient_estop_send(void *arg);
+static void rrclient_estop_core(const char *event, const char *payload, rrconn_t *ignored, void *unused) {
+   (void)event; (void)ignored; (void)unused;
+   dict *d = payload ? json2dict(payload) : NULL;
+   if (!d) return;
+   const char *profile = dict_get(d, "profile", "");
+   rrconn_t *conn = rrclient_connection_find(profile);
+   bool sent = false;
+   if (conn && conn->authenticated && conn->is_ws) {
+      rrclient_connection_dispatch(conn, rrclient_estop_send, d);
+      sent = dict_get_bool(d, "sent", false);
+   }
+   char *response = g_strdup_printf("%s|%s", profile, sent ? "sent" : "offline");
+   event_emit("client.estop.send-status", NULL, response);
+   g_free(response);
+   dict_free(d);
+}
+static void rrclient_estop_send(void *arg) {
+   dict *d = arg;
+   if (!ws_conn) return;
+   dict *message = dict_new();
+   dict_add(message, "msg.type", "talk");
+   dict_add(message, "talk.cmd", "admin");
+   dict_add(message, "talk.action", dict_get(d, "action", ""));
+   dict_add(message, "talk.target", dict_get(d, "room", ""));
+   bool sent = ws_send_dict(NULL, ws_conn, message, WEBSOCKET_OP_TEXT);
+   dict_add(d, "sent", sent ? "true" : "false");
+   dict_free(message);
+}
 void rrclient_register_events(void) {
+   event_on_domain_token("client.estop.send-request", rrclient_estop_core, NULL, "core");
    rr_event_token_t link_token = event_on_message_domain_token(
       RRCLIENT_UI_CHAT_LINK_EVENT, rrclient_ui_chat_link_join, NULL, "core");
    if (!link_token)
