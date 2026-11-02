@@ -935,7 +935,7 @@ static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
  * events to the core; no bridge IPC or network operations run in GTK. */
 typedef struct {
    RRFloatPanel *panel;
-   GtkWidget *grid, *status, *scales[8];
+   GtkWidget *grid, *status, *scales[13];
    char vfo;
    gboolean local_room, online, updating;
    guint refresh_timer;
@@ -952,7 +952,12 @@ static const struct {
    {"decay", "AGC decay (ms)", 50, 5000, 1000, 50},
    {"manual-gain", "Manual gain", 0, 100, 50, 1},
    {"squelch", "Squelch enabled", 0, 1, 0, 1},
-   {"squelch-threshold", "Squelch threshold", 0, 100, 0, 1}
+   {"squelch-threshold", "Squelch threshold", 0, 100, 0, 1},
+   {"noise-blanker", "Noise blanker", 0, 1, 0, 1},
+   {"blanker-gate", "Blanker gate (us)", 100, 5000, 100, 50},
+   {"blanker-threshold", "Blanker threshold (%)", 0, 100, 50, 1},
+   {"click-blanker", "Click blanker", 0, 1, 0, 1},
+   {"de-emphasis", "De-emphasis", 0, 1, 0, 1}
 };
 static double kiwi_values[26][G_N_ELEMENTS(kiwi_controls_spec)];
 static gboolean kiwi_values_initialized[26];
