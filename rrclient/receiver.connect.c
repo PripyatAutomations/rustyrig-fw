@@ -579,8 +579,11 @@ static void receiver_directory_mutation(const rr_event_message_t *message, void 
        !memchr(request.state, 0, sizeof(request.state))) return;
    switch (request.action) {
    case 'I': if (request.value[0]) receiver_directory_import(request.value); break;
-   case 'F': if (request.favorite == 0 || request.favorite == 1)
-      receiver_directory_set_favorite(request.value, request.favorite != 0); break;
+   case 'F':
+      if (request.favorite == 0 || request.favorite == 1) {
+         receiver_directory_set_favorite(request.value, request.favorite != 0);
+      }
+      break;
    case 'S': receiver_directory_set_state(request.value, request.state,
       !strcmp(request.state, "unknown") ? "" : "User report; receiver was not probed"); break;
    }
