@@ -417,7 +417,7 @@ static void resource_refresh_core(void *data) {
    if (cmd_object(1, args))
       event_emit("client.resources.request-failed", NULL, profile);
    rrconn_t *conn = rrclient_connection_find(profile);
-   if (rrclient_connection_is_connected(conn))
+   if (conn && conn->authenticated && conn->is_ws)
       rrclient_media_refresh(conn);
 }
 
@@ -440,12 +440,12 @@ static void explorer_action_run(void *arg) {
       char *argv[] = {(char *)action, (char *)value};
       failed = !strcmp(action, "join") ? cmd_join(2, argv) : cmd_part(2, argv);
    } else if (!strcmp(action, "objects-subscribe") || !strcmp(action, "objects-unsubscribe")) {
-      char *argv[] = {"rig", !strcmp(action, "objects-subscribe") ? "subscribe" : "unsubscribe"};
+      char *argv[] = {(char *)"rig", (char *)(!strcmp(action, "objects-subscribe") ? "subscribe" : "unsubscribe")};
       failed = cmd_rig(2, argv);
    } else if (!strcmp(action, "attach")) {
       failed = !rr_sercom_attach(dict_get(d, "name", ""), value, dict_get(d, "device", ""));
    } else {
-      char *argv[] = {"media", (char *)action, (char *)value};
+      char *argv[] = {(char *)"media", (char *)action, (char *)value};
       failed = cmd_media(3, argv);
    }
    dict_add(d, "failed", failed ? "true" : "false");
