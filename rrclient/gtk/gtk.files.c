@@ -745,7 +745,8 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    gtk_widget_set_hexpand(browser.server, TRUE);
    gtk_box_pack_start(GTK_BOX(server_row), browser.server, TRUE, TRUE, 0);
    gtk_widget_set_tooltip_text(browser.server, "Ctrl+Tab / Ctrl+Shift+Tab switches servers");
-   const char *selected = c ? rrclient_connection_name(c) : rrclient_selected_server(), *first = NULL;
+   /* Domain callbacks may not dereference core-owned connection pointers. */
+   const char *selected = text && *text ? text : rrclient_selected_server(), *first = NULL;
 
    for (unsigned i = 0 ;; i++) {
       const char *profile = rrclient_connection_iter(i);
