@@ -31,6 +31,7 @@
 #include <rrclient/media.h>
 #include <rrclient/rooms.h>
 #include <rrclient/vfo.h>
+#include <rrclient/vfo.snapshot.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/objects.h>
@@ -2127,21 +2128,25 @@ static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpoin
 
 /* The locator tracks a rig in its owning connection context, not whichever chat/IRC tab happens to be displayed in the main notebook. */
 static char vfo_locator_profile[512];
-static void vfo_locator_probe_room(void *result) {
-   const char *room = rrclient_media_active_room();
-   *(gboolean *) result = room && *room && rrclient_media_vfo_uuid(room, vfo_state_get_active());
-}
-static gboolean vfo_locator_tick_context(gpointer unused) {
-   (void)unused;
-
-   if (!main_notebook) {
-      return G_SOURCE_REMOVE;
+/* GTK renders an immutable core snapshot; no connection context or
+ * core-owned rrconn_t/userlist/VFO state is read by this timer. */
+static void vfo_locator_snapshot_event(const char *event, const void *data, size_t size,
+                                       rrconn_t *conn, void *unused) {
+   (void)event; (void)conn; (void)unused;
+   if (!main_notebook || size != sizeof(rrclient_locator_snapshot_t) || !data) return;
+   const rrclient_locator_snapshot_t *snap = data;
+   if (!memchr(snap->profile, 0, sizeof(snap->profile)) ||
+       !memchr(snap->room, 0, sizeof(snap->room)) ||
+       !memchr(snap->grid, 0, sizeof(snap->grid)) ||
+       !memchr(snap->mode, 0, sizeof(snap->mode)) ||
+       !memchr(snap->holder, 0, sizeof(snap->holder))) return;
+   if (!snap->online) {
+      locator_tx_identity[0] = 0;
+      locator_tx_started = 0;
+      if (vfo_locator_window) gtk_widget_hide(vfo_locator_window);
+      return;
    }
-   const char *profile = (const char *)unused;
-   rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
-   /* IRC and disconnected profiles have no rig/VFO state. Never present cached data from another server as though it belonged to this one. */
-   gboolean selected_online = connection && connection->is_ws && rrclient_connection_state(profile) == 1;
-
+   g_strlcpy(vfo_locator_profile, snap->profile, sizeof(vfo_locator_profile));
    if (!vfo_locator_window) {
       vfo_locator_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "RustyRig VFO");
@@ -2189,224 +2194,56 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       g_signal_connect(vfo_locator_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
    }
 
-   if (!selected_online) {
-      locator_tx_identity[0] = '\0';
-      locator_tx_started = 0;
-      gtk_widget_hide(vfo_locator_window);
 
-      return G_SOURCE_CONTINUE;
-   }
-   char vfo[2] = {
-      vfo_state_get_active(), 0
-   };
-   const char *room = rrclient_media_active_room();
-   const char *grid = NULL;
-   const char *vfo_uuid = rrclient_media_vfo_uuid(room, vfo[0]);
-
-   if (vfo_uuid) {
-      const dict *location = rrclient_object_property(vfo_uuid, "gridsquare");
-
-      if (!location) {
-         location = rrclient_object_property(vfo_uuid, "grid");
-      }
-
-      if (location && dict_get_bool((dict *) location, "property.known", false) && dict_get_bool((dict *) location, "property.available", false)) {
-         grid = dict_get((dict *) location, "property.value", NULL);
-      }
-   }
-
-   if (!grid || !*grid) {
-      grid = vfo_state_get(vfo, "cat.state.gridsquare", NULL);
-   }
-
-   if (!grid || !*grid) {
-      grid = vfo_state_get(vfo, "cat.state.grid", NULL);
-   }
-   /* Grid metadata may belong to the rig's GPS stream, not the VFO. Use the same cached coordinates that Resource Explorer receives. */
-   rr_location_t gps_location;
-
-   if ((!grid || !*grid) && rr_location_resolve(rrclient_media_rig_coordinates(room), NULL, &gps_location)) {
-      grid = gps_location.locator;
-   }
-   char path[256];
-
-   if (room && *room) {
-      /* Rig rooms are named #site-rigN. Do not invent a rig when the active room is an ordinary chat or unscoped receiver room. */
-      const char *rig = strstr(room, "-rig");
-
-      if (rig && rig[4] >= '0' && rig[4] <= '9') {
-         g_snprintf(path, sizeof(path), "%.*s.%s.%c", (int)(rig - room - (room[0] == '#')), room + (room[0] == '#'), rig + 1, vfo[0]);
-      } else {
-         g_snprintf(path, sizeof(path), "%s.%c", room, vfo[0]);
-      }
-   } else {
-      g_snprintf(path, sizeof(path), "%s.%c", profile, vfo[0]);
-   }
-   char label[360];
-   g_snprintf(label, sizeof(label), "%s\n%s", path, grid && *grid ? grid : "—");
+   char path[256], label[360];
+   const char *rig = strstr(snap->room, "-rig");
+   if (rig && rig[4] >= '0' && rig[4] <= '9')
+      g_snprintf(path, sizeof(path), "%.*s.%s.%c",
+         (int)(rig - snap->room - (snap->room[0] == '#')),
+         snap->room + (snap->room[0] == '#'), rig + 1, snap->vfo);
+   else
+      g_snprintf(path, sizeof(path), "%s.%c",
+         snap->room[0] ? snap->room : snap->profile, snap->vfo);
+   g_snprintf(label, sizeof(label), "%s\n%s", path, snap->grid[0] ? snap->grid : "—");
    gtk_label_set_text(GTK_LABEL(vfo_locator_label), label);
-   /* Use the same room/VFO identity in the desktop title and taskbar. */
    gtk_window_set_title(GTK_WINDOW(vfo_locator_window), path);
-   const char *mode = selected_online ? vfo_state_get(vfo, "cat.state.mode", NULL) : NULL;
-   long width = selected_online ? vfo_state_get_long(vfo, "cat.state.width", 0) : 0;
-   long frequency = selected_online ? vfo_state_get_long(vfo, "cat.state.freq", 0) : 0;
-   /* CAT PTT is a hardware-wide observation on some single-RX rigs. It can be cached under whichever VFO was active when polled, so it is not sufficient
-    * evidence that this room/VFO is transmitting. */
-   gboolean ptt = FALSE;
-   char formatted[64], freq_line[96], mode_line[96];
-
-   if (frequency > 0) {
-      /* Hz -> kHz with exactly three decimals and fixed comma grouping. */
-      unsigned long khz = (unsigned long)(frequency / 1000);
-      unsigned long hz = (unsigned long)(frequency % 1000);
-      char digits[40];
-      g_snprintf(digits, sizeof(digits), "%lu", khz);
-      size_t len = strlen(digits), offset = 0;
-
-      for (size_t i = 0 ; i < len && offset + 2 < sizeof(formatted) ; ++i) {
-         if (i && (len - i) % 3 == 0) {
-            formatted[offset++] = ',';
-         }
-         formatted[offset++] = digits[i];
-      }
-
-      formatted[offset] = '\0';
-      g_snprintf(freq_line, sizeof(freq_line), "Freq: %s.%03lu kHz", formatted, hz);
-   } else {
-      g_strlcpy(freq_line, "Freq: —", sizeof(freq_line));
+   char freq[96], mode[96], tx[256];
+   if (snap->frequency > 0)
+      g_snprintf(freq, sizeof(freq), "Freq: %.3f kHz", snap->frequency / 1000.0);
+   else g_strlcpy(freq, "Freq: —", sizeof(freq));
+   if (snap->width > 0)
+      g_snprintf(mode, sizeof(mode), "Mode: %s (%ld Hz)", snap->mode[0] ? snap->mode : "—", snap->width);
+   else g_snprintf(mode, sizeof(mode), "Mode: %s", snap->mode[0] ? snap->mode : "—");
+   gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), freq);
+   gtk_label_set_text(GTK_LABEL(vfo_locator_mode), mode);
+   char identity[256] = "";
+   if (snap->transmitting && snap->holder[0])
+      g_snprintf(identity, sizeof(identity), "%s/%s/%c", snap->profile, snap->holder, snap->vfo);
+   gint64 now = g_get_monotonic_time();
+   if (strcmp(identity, locator_tx_identity)) {
+      g_strlcpy(locator_tx_identity, identity, sizeof(locator_tx_identity));
+      locator_tx_started = snap->transmitting && snap->holder[0] ? now : 0;
    }
-   g_snprintf(mode_line, sizeof(mode_line), "Mode: %s  (%s)", mode && *mode ? mode : "—", width > 0 ? "" : "—");
-
-   if (width > 0) {
-      g_snprintf(mode_line, sizeof(mode_line), "Mode: %s  (%ld Hz)", mode && *mode ? mode : "—", width);
-   }
-   gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), freq_line);
-   gtk_label_set_text(GTK_LABEL(vfo_locator_mode), mode_line);
-   /* This elapsed time begins when this client observes the TX holder;
-    * reconnecting during a transmission does not reconstruct server time. */
-   const struct rr_user *holder = NULL;
-
-   if (selected_online) {
-      for (const struct rr_user *u = global_userlist ; u ; u = u->next) {
-         if (!u->is_ptt || u->ptt_vfo != vfo[0]) {
-            continue;
-         }
-
-         if (!room || !*room || !u->ptt_room[0] || strcasecmp(u->ptt_room, room)) {
-            continue;
-         }
-         holder = u;
-         break;
-      }
-   }
-   /* CAT PTT echoes carry cat.user independently of the user directory. The userlist can lag behind the PTT state, especially across relays. Prefer its
-    * room-scoped match, but fall back to the CAT holder identity. */
-   /* The room/VFO-qualified TX holder is authoritative for the locator. Do not reuse a stale CAT user/PTT flag from another VFO. */
-   ptt = holder != NULL;
-   const char *holder_name = holder ? holder->name : NULL;
-
-   if (holder_name && !*holder_name) {
-      holder_name = NULL;
-   }
-   char holder_id[256] = "";
-
-   if (ptt && holder_name) {
-      g_snprintf(holder_id, sizeof(holder_id), "%s/%s/%c", profile, holder_name, vfo[0]);
-   }
-   gint64 current_us = g_get_monotonic_time();
-
-   if (strcmp(holder_id, locator_tx_identity)) {
-      g_strlcpy(locator_tx_identity, holder_id, sizeof(locator_tx_identity));
-      locator_tx_started = ptt && holder_name ? current_us : 0;
-   }
-   /* Requested RF output setpoint from the owner, not Hamlib's RX strength or a measured forward-power meter reading. */
-   const char *watts_text = selected_online ? vfo_state_get(vfo, "cat.state.tx-power-watts", NULL) : NULL;
-   double watts = watts_text ? g_ascii_strtod(watts_text, NULL) : 0;
-   char watt_label[64] = "";
-
-   if (watts > 0 && isfinite(watts)) {
-      if (watts < 1.0) {
-         g_snprintf(watt_label, sizeof(watt_label), "  %.3g mW", watts * 1000.0);
-      } else {
-         g_snprintf(watt_label, sizeof(watt_label), "  %.3g W", watts);
-      }
-   }
-   char ptt_line[256];
-
-   if (ptt && holder_name) {
-      unsigned long elapsed = locator_tx_started && current_us >= locator_tx_started ? (unsigned long)((current_us - locator_tx_started) / G_USEC_PER_SEC) : 0;
-      g_snprintf(ptt_line, sizeof(ptt_line), "TX: %s (%lu s)%s", holder_name, elapsed, watt_label);
-   } else if (ptt) {
-      g_snprintf(ptt_line, sizeof(ptt_line), "PTT On (holder unknown)%s", watt_label);
-   } else {
-      g_strlcpy(ptt_line, "PTT Off", sizeof(ptt_line));
-   }
-   gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), ptt_line);
-   ptt = ptt || holder != NULL;
+   char power[64] = "";
+   if (snap->watts > 0 && isfinite(snap->watts))
+      g_snprintf(power, sizeof(power), snap->watts < 1 ? " %.3g mW" : " %.3g W",
+                 snap->watts < 1 ? snap->watts * 1000 : snap->watts);
+   if (snap->transmitting && snap->holder[0])
+      g_snprintf(tx, sizeof(tx), "TX: %.150s (%lu s)%s", snap->holder,
+          locator_tx_started && now >= locator_tx_started ?
+          (unsigned long)((now - locator_tx_started) / G_USEC_PER_SEC) : 0, power);
+   else g_snprintf(tx, sizeof(tx), "%s%s",
+       snap->transmitting ? "PTT On (holder unknown)" : "PTT Off", power);
+   gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), tx);
    GtkStyleContext *style = gtk_widget_get_style_context(vfo_locator_frame);
-
-   if (ptt) {
-      gtk_style_context_add_class(style, "rr-vfo-ptt");
-   } else {
-      gtk_style_context_remove_class(style, "rr-vfo-ptt");
-   }
+   if (snap->transmitting) gtk_style_context_add_class(style, "rr-vfo-ptt");
+   else gtk_style_context_remove_class(style, "rr-vfo-ptt");
    gtk_widget_show_all(vfo_locator_window);
-
-   return G_SOURCE_CONTINUE;
-}
-
-static void vfo_locator_render_context(void *unused) {
-   vfo_locator_tick_context(vfo_locator_profile);
 }
 static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
-
-   if (!main_notebook) {
-      return G_SOURCE_REMOVE;
-   }
-   const char *selected = rrclient_selected_server();
-   const char *candidate = NULL;
-
-   /* Prefer the currently selected rig, then continue tracking the last rig while the user visits IRC/status tabs on another connection. */
-   for (unsigned pass = 0 ; pass < 3 && !candidate ; ++pass) {
-      for (unsigned i = 0 ;; ++i) {
-         const char *profile = pass == 0 ? selected : pass == 1 ? vfo_locator_profile : rrclient_connection_iter(i);
-
-         if (!profile || !*profile) {
-            break;
-         }
-         rrconn_t *connection = rrclient_connection_find(profile);
-
-         if (connection && connection->is_ws && rrclient_connection_state(profile) == 1) {
-            gboolean rig_active = FALSE;
-            rrclient_connection_dispatch(connection, vfo_locator_probe_room, &rig_active);
-
-            if (rig_active) {
-               candidate = profile;
-               break;
-            }
-         }
-
-         if (pass != 2) {
-            break;
-         }
-      }
-   }
-
-   if (!candidate) {
-      vfo_locator_profile[0] = '\0';
-      locator_tx_identity[0] = '\0';
-      locator_tx_started = 0;
-
-      if (vfo_locator_window) {
-         gtk_widget_hide(vfo_locator_window);
-      }
-
-      return G_SOURCE_CONTINUE;
-   }
-   g_strlcpy(vfo_locator_profile, candidate, sizeof(vfo_locator_profile));
-   rrclient_connection_dispatch(rrclient_connection_find(candidate), vfo_locator_render_context, NULL);
-
+   if (!main_notebook) return G_SOURCE_REMOVE;
+   event_emit(RRCLIENT_LOCATOR_REQUEST_EVENT, NULL, vfo_locator_profile);
    return G_SOURCE_CONTINUE;
 }
 
@@ -2490,6 +2327,7 @@ bool chat_init(void) {
    rr_module_token_add(event_on_domain_token("client.estop.notice.owned", estop_notice_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.send-status", estop_send_status, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.zoom", gtk_chat_zoom_event, NULL, "gtk"));
+   rr_module_token_add(event_on_binary_domain_token(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, vfo_locator_snapshot_event, NULL, "gtk"));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *status_tab_label = gtk_label_new(NULL);
