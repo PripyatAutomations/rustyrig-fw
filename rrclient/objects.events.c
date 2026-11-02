@@ -13,6 +13,9 @@
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/cmd.h>
+#include <rrclient/sercom.h>
+#include <rrclient/media.h>
+#include <librustyaxe/json.h>
 #include <librrprotocol/ws.mediachan.h>
 static rr_object_cache_t *cache;
 static unsigned inventory_request;
@@ -417,7 +420,70 @@ static void resource_refresh_core(void *data) {
    if (rrclient_connection_is_connected(conn))
       rrclient_media_refresh(conn);
 }
+
+/* Explorer requests are copied JSON events. Only the core accesses mutable
+ * connection and object state; GTK gets result events without core pointers. */
+typedef struct { const char *uuid; GString *output; } explorer_detail_request;
+static void explorer_detail_line(const char *line, void *arg) {
+   g_string_append_printf((GString *)arg, "%s\n", line);
+}
+static void explorer_detail_run(void *arg) {
+   explorer_detail_request *req = arg;
+   rrclient_object_dump_selected(req->uuid, explorer_detail_line, req->output);
+}
+static void explorer_action_run(void *arg) {
+   dict *d = arg;
+   const char *action = dict_get(d, "action", "");
+   const char *value = dict_get(d, "value", "");
+   bool failed = true;
+   if (!strcmp(action, "join") || !strcmp(action, "part")) {
+      char *argv[] = {(char *)action, (char *)value};
+      failed = !strcmp(action, "join") ? cmd_join(2, argv) : cmd_part(2, argv);
+   } else if (!strcmp(action, "objects-subscribe") || !strcmp(action, "objects-unsubscribe")) {
+      char *argv[] = {"rig", !strcmp(action, "objects-subscribe") ? "subscribe" : "unsubscribe"};
+      failed = cmd_rig(2, argv);
+   } else if (!strcmp(action, "attach")) {
+      failed = !rr_sercom_attach(dict_get(d, "name", ""), value, dict_get(d, "device", ""));
+   } else {
+      char *argv[] = {"media", (char *)action, (char *)value};
+      failed = cmd_media(3, argv);
+   }
+   dict_add(d, "failed", failed ? "true" : "false");
+}
+static void explorer_core_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)connection; (void)unused;
+   dict *request = payload ? json2dict(payload) : NULL;
+   if (!request) return;
+   const char *profile = dict_get(request, "profile", "");
+   const char *uuid = dict_get(request, "uuid", "");
+   rrconn_t *conn = rrclient_connection_find(profile);
+   dict *reply = dict_new();
+   dict_add(reply, "profile", profile);
+   if (!strcmp(event, "client.resources.details-request")) {
+      dict_add(reply, "uuid", uuid);
+      if (conn && conn->authenticated && *uuid) {
+         GString *out = g_string_new("");
+         explorer_detail_request args = {uuid, out};
+         rrclient_connection_dispatch(conn, explorer_detail_run, &args);
+         dict_add(reply, "details", out->str);
+         g_string_free(out, TRUE);
+      }
+   } else {
+      if (conn && conn->authenticated) rrclient_connection_dispatch(conn, explorer_action_run, request);
+      dict_add(reply, "failed", dict_get(request, "failed", "true"));
+   }
+   char *json = dict2json(reply);
+   if (json) {
+      event_emit(!strcmp(event, "client.resources.details-request") ?
+         "client.resources.details-result" : "client.resources.action-result", NULL, json);
+      free(json);
+   }
+   dict_free(reply);
+   dict_free(request);
+}
 void rrclient_objects_register_events(void) {
+   event_on_domain_token("client.resources.details-request", explorer_core_request, NULL, "core");
+   event_on_domain_token("client.resources.action-request", explorer_core_request, NULL, "core");
    event_on_domain_token("client.resources.refresh-request", resource_refresh_request, NULL, "core");
    event_on(RR_OBJECT_MESSAGE_EVENT, receive, NULL);
    event_on("authorized", connection, NULL);
