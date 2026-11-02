@@ -363,9 +363,9 @@ void gtk_audio_routing_init(void) {
 
    gtk_widget_show_all(routing_overlay);
    rr_floating_panel_hide(routing_panel);
-   show_token = event_on_token("client.audio.routing.show", routing_show_event, NULL);
-   streams_token = event_on_token("client.audio.streams.changed", routing_event, NULL);
-   routes_token = event_on_token("client.audio.route.changed", routing_event, NULL);
+   show_token = event_on_domain_token("client.audio.routing.show", routing_show_event, NULL, "gtk");
+   streams_token = event_on_domain_token("client.audio.streams.changed", routing_event, NULL, "gtk");
+   routes_token = event_on_domain_token("client.audio.route.changed", routing_event, NULL, "gtk");
    inventory_dirty = true;
    routing_queue();
 }
