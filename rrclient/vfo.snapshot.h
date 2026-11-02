@@ -15,4 +15,13 @@ typedef struct {
    bool available;
 } rrclient_vfo_snapshot_t;
 #define RRCLIENT_VFO_SNAPSHOT_EVENT "client.ui.vfo.snapshot"
+typedef struct {
+   char profile[512], room[128], grid[32], mode[32], holder[128];
+   char vfo;
+   bool online, transmitting;
+   long frequency, width;
+   double watts;
+} rrclient_locator_snapshot_t;
+#define RRCLIENT_LOCATOR_REQUEST_EVENT "client.ui.locator.request"
+#define RRCLIENT_LOCATOR_SNAPSHOT_EVENT "client.ui.locator.snapshot"
 #endif
