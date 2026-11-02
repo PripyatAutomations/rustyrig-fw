@@ -16,6 +16,7 @@
 typedef struct {
    char *server, *room;
    GtkWidget *drawing, *mode, *palette, *enabled, *gain;
+   unsigned zoom;
    float rows[HISTORY][RR_AF_BINS];
    float current[RR_AF_BINS];
    unsigned head, count;
@@ -47,6 +48,37 @@ static const palette_t palettes[] = {
    { "Ocean", {{0,.018,.065},{0,.14,.29},{0,.39,.48},{.06,.72,.73},{.76,1,.91}} }
 };
 static unsigned selected_palette;
+static GPtrArray *palette_selectors;
+static void palette_selector_register(GtkWidget *combo) {
+   if (!palette_selectors) palette_selectors = g_ptr_array_new();
+   g_ptr_array_add(palette_selectors, combo);
+}
+static void palette_selector_unregister(gpointer data, GObject *old) {
+   (void)data;
+   if (palette_selectors) g_ptr_array_remove(palette_selectors, old);
+}
+static void palette_select(unsigned index) {
+   if (index >= G_N_ELEMENTS(palettes)) return;
+   selected_palette = index;
+   if (palette_selectors) for (unsigned i = 0; i < palette_selectors->len; i++)
+      gtk_combo_box_set_active(GTK_COMBO_BOX(g_ptr_array_index(palette_selectors, i)), index);
+}
+static void palette_menu_activate(GtkCheckMenuItem *item, gpointer data) {
+   if (gtk_check_menu_item_get_active(item)) palette_select(GPOINTER_TO_UINT(data));
+}
+static GtkWidget *palette_menu_new(void) {
+   GtkWidget *menu = gtk_menu_new();
+   GSList *group = NULL;
+   for (unsigned i = 0; i < G_N_ELEMENTS(palettes); i++) {
+      GtkWidget *item = gtk_radio_menu_item_new_with_label(group, palettes[i].name);
+      group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
+      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), i == selected_palette);
+      g_signal_connect(item, "activate", G_CALLBACK(palette_menu_activate), GUINT_TO_POINTER(i));
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+   }
+   return menu;
+}
+
 static uint32_t palette_pixel(double v) {
    v = CLAMP(v, 0., 1.) * 4.;
    unsigned i = MIN((unsigned)v, 3u);
@@ -70,6 +102,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    int mode = gtk_combo_box_get_active(GTK_COMBO_BOX(p->mode));
    bool trace = mode == 0 || mode == 1 || mode == 3;
    bool waterfall = mode == 0 || mode == 2;
+   unsigned af_zoom = p->zoom ? p->zoom : 1;
    int trace_height = trace ? (waterfall ? MAX(34, height / 4) : height - 16) : 0;
 
    if (trace) {
@@ -112,7 +145,8 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
             const float *row = age < p->count ? p->rows[(p->head + HISTORY - 1 - age) % HISTORY] : NULL;
 
             for (unsigned bin = 0 ; bin < RR_AF_BINS ; bin++) {
-               scanline[bin] = row ? palette_pixel(level(row[bin], p->noise_floor, p->display_gain_db)) : 0xff0d1621u;
+               unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + bin / af_zoom;
+               scanline[bin] = row ? palette_pixel(level(row[MIN(source_bin, RR_AF_BINS-1)], p->noise_floor, p->display_gain_db)) : 0xff0d1621u;
             }
          }
 
@@ -214,6 +248,41 @@ static void destroy_panel(gpointer data) {
    g_free(p->room);
    g_free(p);
 }
+static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
+   if (!gtk_check_menu_item_get_active(item)) return;
+   spectrum_panel_t *p = g_object_get_data(G_OBJECT(item), "spectrum-panel");
+   p->zoom = GPOINTER_TO_UINT(data);
+   gtk_widget_queue_draw(p->drawing);
+}
+static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget;
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   spectrum_panel_t *p = data;
+   GtkWidget *menu = gtk_menu_new();
+   GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), palette_menu_new());
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), palette_item);
+   GtkWidget *zoom_item = gtk_menu_item_new_with_label("Zoom");
+   GtkWidget *zoom_menu = gtk_menu_new();
+   GSList *group = NULL;
+   const unsigned factors[] = {1, 2, 4, 8};
+   for (unsigned i = 0; i < G_N_ELEMENTS(factors); i++) {
+      char label[16];
+      g_snprintf(label, sizeof(label), "%ux", factors[i]);
+      GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
+      group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
+      g_object_set_data(G_OBJECT(item), "spectrum-panel", p);
+      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), factors[i] == (p->zoom ? p->zoom : 1));
+      g_signal_connect(item, "activate", G_CALLBACK(af_zoom_activate), GUINT_TO_POINTER(factors[i]));
+      gtk_menu_shell_append(GTK_MENU_SHELL(zoom_menu), item);
+   }
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(zoom_item), zoom_menu);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), zoom_item);
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
 static void enable_changed(GtkToggleButton *button, gpointer data) {
    spectrum_panel_t *p = data;
    bool should_listen = gtk_toggle_button_get_active(button) && gtk_widget_get_mapped(p->drawing);
@@ -237,7 +306,7 @@ static void palette_changed(GtkComboBox *box, gpointer data) {
    spectrum_panel_t *p = data;
    int index = gtk_combo_box_get_active(box);
    if (index < 0 || index >= (int)G_N_ELEMENTS(palettes)) return;
-   selected_palette = (unsigned)index;
+   palette_select((unsigned)index);
    gtk_widget_queue_draw(p->drawing);
 }
 static void mode_changed(GtkComboBox *box, gpointer data) {
@@ -268,6 +337,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    for (unsigned i = 0; i < G_N_ELEMENTS(palettes); i++)
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->palette), palettes[i].name);
    gtk_combo_box_set_active(GTK_COMBO_BOX(p->palette), selected_palette);
+   palette_selector_register(p->palette);
+   g_object_weak_ref(G_OBJECT(p->palette), palette_selector_unregister, NULL);
    gtk_widget_set_tooltip_text(p->palette, "Waterfall color scheme (AF and RF)");
    gtk_box_pack_start(GTK_BOX(toolbar), p->palette, FALSE, FALSE, 0);
    GtkWidget *gain_label = gtk_label_new("Gain");
@@ -283,9 +354,11 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_widget_set_sensitive(p->gain, FALSE);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
+   gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK);
    gtk_widget_set_size_request(p->drawing, -1, 210);
    gtk_box_pack_start(GTK_BOX(box), p->drawing, FALSE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
+   g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_context_menu), p);
    g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
    g_signal_connect(p->palette, "changed", G_CALLBACK(palette_changed), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(enable_changed), p);
@@ -605,8 +678,53 @@ static gboolean rf_release(GtkWidget *widget, GdkEventButton *event, gpointer us
    if (event->button == 1) p->dragging = false;
    return FALSE;
 }
+static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
+   if (!gtk_check_menu_item_get_active(item)) return;
+   rf_strip_t *p = g_object_get_data(G_OBJECT(item), "rf-panel");
+   unsigned zoom = GPOINTER_TO_UINT(data);
+   if (!rrclient_local_bridge_waterfall(p->rf_enabled, zoom)) return;
+   p->zoom = zoom;
+   p->zoom_fraction = 0;
+   p->pan_hz = 0;
+   gtk_widget_queue_draw(p->drawing);
+   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+}
+static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   GtkWidget *menu = gtk_menu_new();
+   GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), palette_menu_new());
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), palette_item);
+   GtkWidget *zoom_item = gtk_menu_item_new_with_label("Zoom");
+   GtkWidget *zoom_menu = gtk_menu_new();
+   GSList *group = NULL;
+   unsigned min_zoom, max_zoom;
+   if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) {
+      for (unsigned z = min_zoom; z <= max_zoom && z - min_zoom < 32; z++) {
+         char label[32];
+         g_snprintf(label, sizeof(label), "Level %u", z);
+         GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
+         group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
+         g_object_set_data(G_OBJECT(item), "rf-panel", p);
+         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), z == p->zoom);
+         g_signal_connect(item, "activate", G_CALLBACK(rf_zoom_activate), GUINT_TO_POINTER(z));
+         gtk_menu_shell_append(GTK_MENU_SHELL(zoom_menu), item);
+      }
+   } else {
+      GtkWidget *item = gtk_menu_item_new_with_label("Receiver zoom unavailable");
+      gtk_widget_set_sensitive(item, FALSE);
+      gtk_menu_shell_append(GTK_MENU_SHELL(zoom_menu), item);
+   }
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(zoom_item), zoom_menu);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), zoom_item);
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
 static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
+   if (rf_context_menu(event, p)) return TRUE;
    if (event->button != 1) return FALSE;
    if (event->type == GDK_BUTTON_PRESS) {
       p->dragging = true;
