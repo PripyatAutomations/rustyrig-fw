@@ -5,6 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <string.h>
+#include <inttypes.h>
 #include <glib.h>
 #include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
@@ -504,7 +505,33 @@ static void resource_status_request(const char *event, const char *ignored,
       dict_free(d);
    }
 }
+static void explorer_control_set(const char *event, const char *payload, rrconn_t *ignored, void *unused) {
+   (void)event; (void)ignored; (void)unused;
+   dict *request = payload ? json2dict(payload) : NULL;
+   if (!request) return;
+   rrconn_t *conn = rrclient_connection_find(dict_get(request, "profile", ""));
+   bool sent = false;
+   if (conn && conn->authenticated && conn->is_ws) {
+      dict *wire = dict_new();
+      if (wire) {
+         dict_add(wire, "msg.type", "property");
+         dict_add(wire, "property.cmd", "set");
+         dict_add(wire, "target", dict_get(request, "target", ""));
+         dict_add(wire, "property.name", dict_get(request, "property", ""));
+         dict_add(wire, "property.value", dict_get(request, "value", ""));
+         dict_add(wire, "request.room", dict_get(request, "room", ""));
+         char id[64];
+         snprintf(id, sizeof(id), "explorer-control-%" PRIu64, (uint64_t)mono_us());
+         dict_add(wire, "request.id", id);
+         sent = ws_send_dict(NULL, conn, wire, WEBSOCKET_OP_TEXT);
+         dict_free(wire);
+      }
+   }
+   if (!sent) event_emit("client.explorer.control.result", NULL, "Control request could not be sent");
+   dict_free(request);
+}
 void rrclient_objects_register_events(void) {
+   event_on_domain_token("client.resources.control-set", explorer_control_set, NULL, "core");
    event_on_domain_token("client.resources.status-request", resource_status_request, NULL, "core");
    event_on_domain_token("client.resources.details-request", explorer_core_request, NULL, "core");
    event_on_domain_token("client.resources.action-request", explorer_core_request, NULL, "core");
