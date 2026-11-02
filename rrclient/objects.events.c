@@ -385,7 +385,32 @@ bool cmd_gps(int argc, char **args) {
    return true;
 }
 
+/* GTK requests an inventory by profile; core resolves the connection and
+ * runs the command in its own execution context. No GTK objects cross over. */
+static void resource_refresh_core(void *data);
+static void resource_refresh_request(const char *event, const char *profile,
+                                     rrconn_t *ignored, void *unused) {
+   (void)event; (void)ignored; (void)unused;
+   if (!profile || !*profile) return;
+   rrconn_t *conn = rrclient_connection_find(profile);
+   if (!conn || !conn->authenticated || !conn->is_ws) {
+      event_emit("client.resources.request-failed", NULL, profile);
+      return;
+   }
+   /* Use a local callback to preserve the intended per-connection command context. */
+   rrclient_connection_dispatch(conn, resource_refresh_core, (void *)profile);
+}
+static void resource_refresh_core(void *data) {
+   const char *profile = data;
+   char *args[] = { (char *)"object" };
+   if (cmd_object(1, args))
+      event_emit("client.resources.request-failed", NULL, profile);
+   rrconn_t *conn = rrclient_connection_find(profile);
+   if (rrclient_connection_is_connected(conn))
+      rrclient_media_refresh(conn);
+}
 void rrclient_objects_register_events(void) {
+   event_on_domain_token("client.resources.refresh-request", resource_refresh_request, NULL, "core");
    event_on(RR_OBJECT_MESSAGE_EVENT, receive, NULL);
    event_on("authorized", connection, NULL);
    event_on("disconnected", connection, NULL);
