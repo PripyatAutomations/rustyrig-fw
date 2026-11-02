@@ -199,7 +199,7 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    // Populate both pickers; pre-negotiation we show codecs.allowed, and the
    // media.codecs event (below) re-populates once the server answers.
    codec_pickers_refresh();
-   event_on("media.codecs", codec_media_codecs_cb, NULL);
+   event_on_domain_token("media.codecs", codec_media_codecs_cb, NULL, "gtk");
 #if     defined(USE_MONGOOSE)
 
    if (ws_tx_conn) {
