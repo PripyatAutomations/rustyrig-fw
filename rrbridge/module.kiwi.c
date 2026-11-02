@@ -166,12 +166,16 @@ static bool configure(struct kiwi_instance *k) {
    if (!k->authenticated || !k->rate || k->configured) {
       return true;
    }
-   char tune[160];
+   char tune[160], agc[160], squelch[64];
+   snprintf(agc, sizeof(agc),
+      "SET agc=%d hang=%d thresh=%d slope=%d decay=%d manGain=%d",
+      k->agc, k->hang, k->thresh, k->slope, k->decay, k->man_gain);
+   snprintf(squelch, sizeof(squelch), "SET squelch=%d max=%d", k->squelch, k->squelch_max);
 
    if (!kiwi_tune(k, k->wanted_hz, k->wanted_mode, tune, sizeof(tune)) ||
-      !send_command(k, "SET compression=0") || !send_command(k, "SET squelch=0 max=0") ||
+      !send_command(k, "SET compression=0") || !send_command(k, squelch) ||
       !send_command(k, "SET genattn=0") || !send_command(k, "SET gen=0 mix=-1") ||
-      !send_command(k, "SET agc=1 hang=0 thresh=-100 slope=6 decay=1000 manGain=50") || !send_command(k, tune)) {
+      !send_command(k, agc) || !send_command(k, tune)) {
       return false;
    }
    k->configured = true;
