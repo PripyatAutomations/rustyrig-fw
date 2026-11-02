@@ -6,6 +6,21 @@
 bool rrclient_local_bridge_connect(const char *url);
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver);
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity);
+#define RRCLIENT_KIWI_CONTROL_EVENT "client.kiwi.control.request"
+#define RRCLIENT_KIWI_STATUS_EVENT "client.kiwi.control.status"
+#define RRCLIENT_KIWI_STATUS_REQUEST "client.kiwi.control.status.request"
+typedef struct {
+   char vfo;
+   char control[32];
+   char value[32];
+} rrclient_kiwi_control_request_t;
+typedef struct {
+   char vfo;
+   bool available;
+   uint64_t frequency_hz;
+   char mode[16];
+} rrclient_kiwi_control_status_t;
+void rrclient_local_bridge_controls_init(void);
 bool rrclient_local_bridge_connected(const char *url);
 bool rrclient_local_bridge_active(void);
 bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom);
