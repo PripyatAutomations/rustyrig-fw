@@ -3639,12 +3639,21 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
    if (!browser || !payload) return;
    dict *d = json2dict(payload);
    if (!d) return;
-   resource_branch *branch = g_hash_table_lookup(browser->branches, dict_get(d, "profile", ""));
+   const char *profile = dict_get(d, "profile", "");
+   /* Core knows the profile list; GTK's table may not have a branch yet.
+    * Create it here so the first online status can start discovery. */
+   resource_branch *branch = *profile ? resource_branch_get(profile) : NULL;
    if (branch) {
       const char *state = dict_get(d, "state", "offline");
       bool authenticated = dict_get_bool(d, "authenticated", false);
       bool irc = !strcmp(dict_get(d, "transport", "ws"), "irc");
+      bool was_online = branch->online;
       branch->online = authenticated && !irc && !strcmp(state, "online");
+      if (branch->online && !was_online) {
+         branch->loaded = false;
+         branch->loading = false;
+         resource_refresh(branch);
+      }
       set_string(&branch->root, STATE, irc ?
          (authenticated ? "Connected (IRC)" : !strcmp(state, "connecting") ? "Connecting (IRC)" : "Disconnected (IRC)") :
          (branch->online ? "Connected" : !strcmp(state, "connecting") ? "Connecting" : "Disconnected"));
