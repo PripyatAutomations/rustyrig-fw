@@ -96,13 +96,7 @@ bool rustyirc_builtin_part_cb(irc_conn_t *cptr, irc_message_t *mp) {
       return true;
    }
 
-   if (!cptr) {
-      Log(LOG_CRIT, "irc", "%s: No cptr given", __FUNCTION__);
-
-      return true;
-   }
-
-   if (!mp->prefix || !mp->argv[1]) {
+    if (!mp->prefix || !mp->argv[1]) {
       return true;
    }
    char *win_title = mp->argv[1];
