@@ -55,6 +55,7 @@ extern defconfig_t defcfg[];
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
 #include <rrclient/rooms.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/dcc.h>
 #include <rrclient/media.direct.h>
 #include <rrclient/config.layers.h>
