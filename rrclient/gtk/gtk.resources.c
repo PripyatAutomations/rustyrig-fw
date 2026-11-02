@@ -1960,8 +1960,8 @@ static void resource_clicked(GtkButton *button, gpointer data) {
    gtk_tree_model_get(model, &iter, PROFILE, &profile, KIND, &kind, ROOM, &room, UUID, &uuid, SERVICE, &service, BINDING, &binding, OURS, &ours, -1);
    int which = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "resource-action"));
    bool refresh_after = false;
-   rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
-   bool online = connection && connection->is_ws && connection->authenticated;
+   resource_branch *selected_branch = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
+   bool online = selected_branch && selected_branch->online;
 
    if (which == TERMINAL_BUTTON) {
       char *endpoint = NULL;
