@@ -1527,7 +1527,7 @@ GtkWidget *init_admin_tab(void) {
    gtk_admin_session_set_sender(admin_session_command);
    admin_view = gtk_notebook_new();
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(admin_view), TRUE);
-   admin_password_notice_token = event_on_token("notice.msg", admin_password_notice, NULL);
+   admin_password_notice_token = event_on_domain_token("notice.msg", admin_password_notice, NULL, "gtk");
    g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
 
