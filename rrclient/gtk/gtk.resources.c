@@ -1858,13 +1858,13 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    char *profile, *kind, *room, *uuid, *service, *binding, *state, *ours, *details;
    gtk_tree_model_get(model, &iter, PROFILE, &profile, KIND, &kind, ROOM, &room, UUID, &uuid, SERVICE, &service, BINDING, &binding, STATE, &state, OURS, &ours,
       DETAILS, &details, -1);
-   rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
-   bool online = connection && connection->is_ws && connection->authenticated;
+   resource_branch *selected_branch = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
+   bool online = selected_branch && selected_branch->online;
    gboolean joined = FALSE;
    gtk_tree_model_get(model, &iter, JOINED, &joined, -1);
    gtk_button_set_label(GTK_BUTTON(browser->buttons[ROOM_BUTTON]), !strcmp(kind, "irc-channel") ? joined ? "Leave channel" : "Join channel" : joined ?
       "Leave room" : "Join room");
-   gtk_widget_set_sensitive(browser->buttons[ROOM_BUTTON], connection && connection->authenticated && room && *room);
+   gtk_widget_set_sensitive(browser->buttons[ROOM_BUTTON], online && room && *room);
    bool media = uuid && *uuid && (!strcmp(kind, "media") || !strcmp(kind, "gps"));
    bool objects = !strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo") || !strcmp(kind, "server");
    bool subscribed = ours && (strstr(ours, "Subscribed") || !strcmp(ours, "Subscribed"));
@@ -1882,7 +1882,7 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    gtk_widget_set_sensitive(browser->buttons[TERMINAL_BUTTON], (!strcmp(kind, "device")) ||
       (!strcmp(kind, "local-port") && rr_serial_find(binding && *binding ? binding : "")) ||
       (binding && *binding && rr_serial_find(binding)) || (online && service && *service));
-   gtk_button_set_label(GTK_BUTTON(browser->buttons[SERVER_BUTTON]), profile && rrclient_connection_state(profile) ? "Disconnect server" : "Connect server");
+   gtk_button_set_label(GTK_BUTTON(browser->buttons[SERVER_BUTTON]), online ? "Disconnect server" : "Connect server");
    gtk_widget_set_sensitive(browser->buttons[SERVER_BUTTON], profile && *profile);
    GString *text = g_string_new(details ? details : "");
    char *coordinates = NULL;
@@ -2033,7 +2033,7 @@ static void resource_clicked(GtkButton *button, gpointer data) {
       bool ok = rr_sercom_disconnect(binding);
       refresh_after = ok;
       gtk_label_set_text(GTK_LABEL(browser->status), ok ? "Serial endpoint disconnected." : "The serial endpoint is already disconnected.");
-   } else if (!connection || !connection->authenticated || (!connection->is_ws && which != ROOM_BUTTON)) {
+   } else if (!online) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing its resources.");
    } else if (which == SERIAL_BUTTON && service && *service) {
       refresh_after = gtk_serial_attach(resource_parent(), profile, service);
