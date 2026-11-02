@@ -29,6 +29,7 @@ struct kiwi_instance {
    struct mg_connection *waterfall;
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
    uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
+   uint64_t wf_stats_at, wf_received, wf_throttled, wf_ipc_dropped, wf_invalid, wf_sent;
    unsigned waterfall_zoom;
    int agc, hang, thresh, slope, decay, man_gain, squelch, squelch_max;
    int nb, nb_gate, nb_thresh, nb_click, de_emp;
@@ -663,7 +664,9 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
             note(k, detail);
          }
       }
-      if (m->data.len >= 1040 && !memcmp(m->data.buf, "W/F", 3)) {
+      if (m->data.len >= 3 && !memcmp(m->data.buf, "W/F", 3)) {
+         k->wf_received++;
+         if (m->data.len != 1040) k->wf_invalid++;
          /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
           * Keep parsing conservative pending normalized spectrum transport. */
          if (m->data.len != 1040 && !k->waterfall_ready) {
@@ -675,8 +678,10 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
             /* Drop surplus W/F rows before IPC to protect the audio pipeline.
              * Keep audio WebSocket and watchdog handling independent. */
             uint64_t now = mono_us();
-            if (k->waterfall_last_sent && now - k->waterfall_last_sent < 100000)
+            if (k->waterfall_last_sent && now - k->waterfall_last_sent < 100000) {
+               k->wf_throttled++;
                return;
+            }
             k->waterfall_last_sent = now;
             uint64_t low_hz, high_hz;
             waterfall_range(k, &low_hz, &high_hz);
@@ -687,8 +692,13 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
                .bins = RR_BRIDGE_SPECTRUM_BINS
             };
             memcpy(row.power, m->data.buf + 16, RR_BRIDGE_SPECTRUM_BINS);
-            rr_bridge_spectrum_send(RR_BRIDGE_SPECTRUM_FD, &row);
-            k->waterfall_rows++;
+            int sent = rr_bridge_spectrum_send(RR_BRIDGE_SPECTRUM_FD, &row);
+            if (sent == 1) {
+               k->wf_sent++;
+               k->waterfall_rows++;
+            } else {
+               k->wf_ipc_dropped++;
+            }
             if (!k->waterfall_ready) {
                k->waterfall_ready = true;
                note(k, "Kiwi W/F stream ready (1024 RF power bins per row)");
@@ -923,6 +933,24 @@ static void kiwi_poll(void *instance) {
    }
    mg_mgr_poll(&k->manager, 0);
    current = mono_us();
+   /* Separate intentional rate limiting from actual IPC loss. */
+   if (!k->wf_stats_at) k->wf_stats_at = current;
+   if (current - k->wf_stats_at >= UINT64_C(10000000)) {
+      if (k->wf_received || k->wf_throttled || k->wf_ipc_dropped || k->wf_invalid) {
+         char detail[256];
+         uint64_t dropped = k->wf_throttled + k->wf_ipc_dropped + k->wf_invalid;
+         snprintf(detail, sizeof(detail),
+            "Kiwi RF waterfall/10s received=%" PRIu64 " sent=%" PRIu64
+            " throttle=%" PRIu64 " ipc-drop=%" PRIu64 " malformed=%" PRIu64
+            " dropped=%.1f%%",
+            k->wf_received, k->wf_sent, k->wf_throttled, k->wf_ipc_dropped,
+            k->wf_invalid, k->wf_received ? 100.0 * (double)dropped / (double)k->wf_received : 0.0);
+         note(k, detail);
+      }
+      k->wf_received = k->wf_sent = k->wf_throttled = 0;
+      k->wf_ipc_dropped = k->wf_invalid = 0;
+      k->wf_stats_at = current;
+   }
    /* Kiwi W/F has its own session timer, separate from SND. */
    if (k->waterfall_enabled && k->waterfall && k->waterfall->is_websocket &&
        !k->waterfall->is_closing && current - k->waterfall_keepalive >= 1000000) {
