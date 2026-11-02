@@ -23,6 +23,8 @@ static unsigned inventory_request;
 static const char *object_subscription = "Not subscribed";
 static char subscription_request[48];
 static bool subscription_stopping;
+/* Core-only flag scoped to an Explorer-originated inventory command. */
+static bool explorer_inventory_request;
 #define INVENTORY_REQUESTS_MAX 32
 static struct inventory_request {
    char id[48], window[128];
@@ -318,7 +320,7 @@ bool cmd_rig(int argc, char **args) {
       snprintf(pending->id, sizeof(pending->id), "%s", id);
       snprintf(pending->window, sizeof(pending->window), "%s", window ? window : "");
       const rr_frontend_ops_t *frontend = frontend_ops();
-      pending->graphical = frontend && frontend->name && !strcmp(frontend->name, "gtk");
+      pending->graphical = explorer_inventory_request || (frontend && frontend->name && !strcmp(frontend->name, "gtk"));
       if (pending->graphical) {
          rrclient_resource_view_t view = { .online = ws_conn->authenticated && ws_conn->is_ws };
          snprintf(view.kind, sizeof(view.kind), "%s", pending->kind);
@@ -415,7 +417,11 @@ static void resource_refresh_request(const char *event, const char *profile,
 static void resource_refresh_core(void *data) {
    const char *profile = data;
    char *args[] = { (char *)"object" };
-   if (cmd_object(1, args))
+   bool previous = explorer_inventory_request;
+   explorer_inventory_request = true;
+   bool failed = cmd_object(1, args);
+   explorer_inventory_request = previous;
+   if (failed)
       event_emit("client.resources.request-failed", NULL, profile);
    rrconn_t *conn = rrclient_connection_find(profile);
    if (conn && conn->authenticated && conn->is_ws)
