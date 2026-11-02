@@ -31,6 +31,7 @@ struct kiwi_instance {
    uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
    unsigned waterfall_zoom;
    int agc, hang, thresh, slope, decay, man_gain, squelch, squelch_max;
+   int nb, nb_gate, nb_thresh, nb_click, de_emp;
    uint64_t waterfall_center_hz;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures, attempts, redirects;
@@ -99,6 +100,7 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    k->waterfall_zoom = 6;
    k->agc = 1; k->hang = 0; k->thresh = -100; k->slope = 6;
    k->decay = 1000; k->man_gain = 50;
+   k->nb_gate = 100; k->nb_thresh = 50;
    k->hz = k->wanted_hz = 14074000;
    strcpy(k->mode, "USB");
    strcpy(k->wanted_mode, "USB");
@@ -172,10 +174,13 @@ static bool configure(struct kiwi_instance *k) {
       k->agc, k->hang, k->thresh, k->slope, k->decay, k->man_gain);
    snprintf(squelch, sizeof(squelch), "SET squelch=%d max=%d", k->squelch, k->squelch_max);
 
+   char de_emp[32];
+   snprintf(de_emp, sizeof(de_emp), "SET de_emp=%d", k->de_emp);
    if (!kiwi_tune(k, k->wanted_hz, k->wanted_mode, tune, sizeof(tune)) ||
       !send_command(k, "SET compression=0") || !send_command(k, squelch) ||
       !send_command(k, "SET genattn=0") || !send_command(k, "SET gen=0 mix=-1") ||
-      !send_command(k, agc) || !send_command(k, tune)) {
+      !send_command(k, agc) || !send_command(k, de_emp) ||
+      !kiwi_noise_blanker(k) || !send_command(k, tune)) {
       return false;
    }
    k->configured = true;
@@ -1002,6 +1007,18 @@ static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint
    }
    return true;
 }
+static bool kiwi_noise_blanker(struct kiwi_instance *k) {
+   char gate[80], threshold[80], enabled[48], click[48];
+   snprintf(gate, sizeof(gate), "SET nb type=0 param=0 pval=%d", k->nb_gate);
+   snprintf(threshold, sizeof(threshold), "SET nb type=0 param=1 pval=%d", k->nb_thresh);
+   snprintf(enabled, sizeof(enabled), "SET nb type=0 en=%d", k->nb);
+   snprintf(click, sizeof(click), "SET nb type=2 en=%d", k->nb_click);
+   return send_command(k, "SET nb algo=1") && send_command(k, gate) &&
+      send_command(k, threshold) && send_command(k, enabled) &&
+      send_command(k, "SET nb type=2 param=0 pval=1") &&
+      send_command(k, "SET nb type=2 param=1 pval=1") &&
+      send_command(k, click);
+}
 static bool kiwi_control(void *instance, const char *name, const char *value) {
    struct kiwi_instance *k = instance;
    if (!k || !name || !value || !*value) return false;
@@ -1018,6 +1035,11 @@ static bool kiwi_control(void *instance, const char *name, const char *value) {
    else if (!strcmp(name, "manual-gain")) { target = &k->man_gain; high = 100; }
    else if (!strcmp(name, "squelch")) { target = &k->squelch; high = 1; }
    else if (!strcmp(name, "squelch-threshold")) { target = &k->squelch_max; high = 100; }
+   else if (!strcmp(name, "noise-blanker")) { target = &k->nb; high = 1; }
+   else if (!strcmp(name, "blanker-gate")) { target = &k->nb_gate; low = 100; high = 5000; }
+   else if (!strcmp(name, "blanker-threshold")) { target = &k->nb_thresh; high = 100; }
+   else if (!strcmp(name, "click-blanker")) { target = &k->nb_click; high = 1; }
+   else if (!strcmp(name, "de-emphasis")) { target = &k->de_emp; high = 1; }
    else return false;
    if (v < low || v > high) return false;
    int previous = *target;
@@ -1025,7 +1047,14 @@ static bool kiwi_control(void *instance, const char *name, const char *value) {
    char command[192];
    if (!strncmp(name, "squelch", 7))
       snprintf(command, sizeof(command), "SET squelch=%d max=%d", k->squelch, k->squelch_max);
-   else
+   else if (!strcmp(name, "de-emphasis"))
+      snprintf(command, sizeof(command), "SET de_emp=%d", k->de_emp);
+   else if (!strcmp(name, "noise-blanker") || !strcmp(name, "blanker-gate") ||
+            !strcmp(name, "blanker-threshold") || !strcmp(name, "click-blanker")) {
+      if (kiwi_noise_blanker(k)) return true;
+      *target = previous;
+      return false;
+   } else
       snprintf(command, sizeof(command), "SET agc=%d hang=%d thresh=%d slope=%d decay=%d manGain=%d",
                k->agc, k->hang, k->thresh, k->slope, k->decay, k->man_gain);
    if (send_command(k, command)) return true;
