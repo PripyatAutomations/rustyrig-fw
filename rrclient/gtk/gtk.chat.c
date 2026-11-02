@@ -2489,10 +2489,10 @@ static gboolean status_network_tick(gpointer unused) {
 bool chat_init(void) {
    typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
-   rr_module_token_add(event_on_token("client.server.selected", gtk_chat_server_selected, NULL));
-   rr_module_token_add(event_on_token("client.estop", estop_request_event, NULL));
-   rr_module_token_add(event_on_token("client.estop.notice", estop_notice_event, NULL));
-   rr_module_token_add(event_on_token("client.zoom", gtk_chat_zoom_event, NULL));
+   rr_module_token_add(event_on_domain_token("client.server.selected", gtk_chat_server_selected, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.estop", estop_request_event, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.estop.notice", estop_notice_event, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.zoom", gtk_chat_zoom_event, NULL, "gtk"));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *status_tab_label = gtk_label_new(NULL);
