@@ -342,8 +342,11 @@ static void serial_attach_result(const char *event, const char *payload, rrconn_
    if (!reply) return;
    if (!strcmp(dict_get(reply, "id", ""), attach_pending_id)) {
       attach_pending_success = dict_get_bool(reply, "success", false);
-      gtk_dialog_set_response_sensitive(GTK_DIALOG(attach_pending_dialog), GTK_RESPONSE_ACCEPT, TRUE);
-      gtk_dialog_response(GTK_DIALOG(attach_pending_dialog), attach_pending_success ? 2002 : 2003);
+      GtkWidget *dialog = attach_pending_dialog;
+      attach_pending_dialog = NULL;
+      attach_pending_id[0] = 0;
+      gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT, TRUE);
+      gtk_dialog_response(GTK_DIALOG(dialog), attach_pending_success ? 2002 : 2003);
    }
    dict_free(reply);
 }
