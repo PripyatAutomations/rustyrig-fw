@@ -79,7 +79,8 @@ static void finish(struct transfer *t, const char *error, rrconn_t *connection) 
    dict *d = message("complete", t->remote, t->id);
    dict_add(d, "file.error", error ? error : "");
    dict_add(d, "file.local", t->local);
-   event_emit_dict("client.files.complete", connection, d);
+   dict_add(d, "client.profile", connection ? rrclient_connection_name(connection) : "");
+   event_emit_dict("client.files.complete", NULL, d);
    dict_free(d);
 
    if (error && *error) {
@@ -255,7 +256,8 @@ static void received(const char *event, const char *data, rrconn_t *c, void *con
                "");
          }
       }
-      event_emit_dict("client.files.row", c, d);
+      dict_add(d, "client.profile", c ? rrclient_connection_name(c) : "");
+      event_emit_dict("client.files.row", NULL, d);
       dict_free(d);
 
       return;
