@@ -1442,7 +1442,17 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
 
    if (msg) {
       if (!strncmp(msg, "Rig E-STOP ", 11)) {
-         event_emit("client.estop.notice", cptr, msg);
+         dict *notice = dict_new();
+         if (notice) {
+            dict_add(notice, "profile", cptr ? rrclient_connection_name(cptr) : "");
+            dict_add(notice, "message", msg);
+            char *json = dict2json(notice);
+            if (json) {
+               event_emit("client.estop.notice.owned", NULL, json);
+               free(json);
+            }
+            dict_free(notice);
+         }
       }
       // Notices are plain text, one line per notice.
       bool callsign_field = strncmp(msg, "Callsign:", 9) == 0 ||
