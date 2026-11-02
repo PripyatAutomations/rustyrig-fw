@@ -1249,13 +1249,11 @@ static void resource_health_update(void) {
       while (g_hash_table_iter_next(&branches, NULL, &value)) {
          resource_branch *branch = value;
 
-         if ((pass == 0) != (rrclient_connection_state(branch->profile) == 1)) {
+         if ((pass == 0) != branch->online) {
             continue;
          }
-         rrconn_t *connection = rrclient_connection_find(branch->profile);
-
-         /* An IRC (or other non-rrprotocol) profile is not a cluster node. Retain previously discovered rrprotocol sites when disconnected. */
-         if ((connection && connection->is_ws) || branch->local_site_seen) {
+         /* Connection state is supplied by the core status snapshot. */
+         if (branch->online || branch->local_site_seen) {
             resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
          }
       }
@@ -1427,7 +1425,6 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
 
 /* Rig controls are opened on demand, not rendered as live tree sliders. */
 typedef struct {
-   rrconn_t *connection;
    char *profile, *uuid, *room, *property;
    int original;
    gboolean suppress, known, read_only;
@@ -1435,34 +1432,20 @@ typedef struct {
 } resource_control_edit_t;
 
 static void resource_control_send(resource_control_edit_t *edit, int value) {
-   /* A reconnect must not send a control to a different server session. */
-   if (!edit->connection || rrclient_connection_find(edit->profile) != edit->connection || !edit->connection->authenticated || !edit->connection->is_ws) {
-      gtk_label_set_text(GTK_LABEL(browser->status), "Control not sent: server connection changed.");
-
-      return;
+   if (!edit || !edit->profile || !edit->uuid) return;
+   dict *request = dict_new();
+   if (!request) return;
+   dict_add(request, "profile", edit->profile);
+   dict_add(request, "target", edit->uuid);
+   dict_add(request, "property", edit->property);
+   dict_add(request, "room", edit->room ? edit->room : "");
+   dict_add_int(request, "value", value);
+   char *json = dict2json(request);
+   if (json) {
+      event_emit("client.resources.control-set", NULL, json);
+      free(json);
    }
-   dict *message = dict_new();
-
-   if (!message) {
-      return;
-   }
-   dict_add(message, "msg.type", "property");
-   dict_add(message, "property.cmd", "set");
-   dict_add(message, "target", edit->uuid);
-   dict_add(message, "property.name", edit->property);
-   dict_add_int(message, "property.value", value);
-
-   if (edit->room && *edit->room) {
-      dict_add(message, "request.room", edit->room);
-   }
-   char request[64];
-   snprintf(request, sizeof(request), "explorer-control-%lld", (long long)g_get_monotonic_time());
-   dict_add(message, "request.id", request);
-
-   if (!ws_send_dict(NULL, edit->connection, message, WEBSOCKET_OP_TEXT)) {
-      gtk_label_set_text(GTK_LABEL(browser->status), "Unable to send rig control request.");
-   }
-   dict_free(message);
+   dict_free(request);
 }
 
 static void resource_control_changed(GtkRange *range, gpointer user) {
@@ -1534,7 +1517,6 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
    gboolean known = state && dict_get_bool((dict *) state, "property.known", false);
    int original = known ? CLAMP(dict_get_int((dict *) state, "property.value", 50), 0, 100) : 50;
    resource_control_edit_t *edit = g_new0(resource_control_edit_t, 1);
-   edit->connection = connection;
    edit->profile = g_strdup(profile);
    edit->uuid = uuid;
    edit->room = room;
