@@ -61,7 +61,7 @@ static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
 extern void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
-static rr_event_token_t show_token, row_token, open_token, changed_tokens[6];
+static rr_event_token_t show_token, row_token, open_token, changed_tokens[7];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
@@ -2126,23 +2126,17 @@ static void resource_clicked(GtkButton *button, gpointer data) {
       resource_tick(browser);
    }
 }
+/* Invoked by core dispatch, never GTK. Own the profile across the handoff;
+ * no widget or resource_branch pointer may cross this boundary. */
 static void resource_request(void *data) {
-   resource_branch *branch = data;
-   char *args[] = {
-      (char *)"object"
-   };
-
-   if (cmd_object(1, args)) {
-      branch->loading = false;
-      branch->loaded = true;
-      gtk_label_set_text(GTK_LABEL(browser->status), "Unable to refresh this server. Reconnect or try Refresh all again.");
-   }
-   /* This callback may run after a profile disconnect. Do not ask the global selected connection to refresh another server's media catalog. */
-   rrconn_t *connection = rrclient_connection_find(branch->profile);
-
-   if (rrclient_connection_is_connected(connection)) {
+   char *profile = data;
+   char *args[] = { (char *)"object" };
+   if (cmd_object(1, args))
+      event_emit("client.resources.request-failed", NULL, profile);
+   rrconn_t *connection = rrclient_connection_find(profile);
+   if (rrclient_connection_is_connected(connection))
       rrclient_media_refresh(connection);
-   }
+   g_free(profile);
 }
 static void resource_refresh(resource_branch *branch) {
    rrconn_t *connection = rrclient_connection_find(branch->profile);
@@ -2150,7 +2144,7 @@ static void resource_refresh(resource_branch *branch) {
    if (!branch->loading && connection && connection->authenticated && connection->is_ws) {
       bool previous = automatic_refresh;
       automatic_refresh = true;
-      rrclient_connection_dispatch(connection, resource_request, branch);
+      rrclient_connection_dispatch(connection, resource_request, g_strdup(branch->profile));
       automatic_refresh = previous;
    }
 }
@@ -3690,6 +3684,16 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
       return;
    }
 
+   if (!strcmp(event, "client.resources.request-failed")) {
+      resource_branch *failed = text ? g_hash_table_lookup(browser->branches, text) : NULL;
+      if (failed) {
+         failed->loading = false;
+         failed->loaded = true;
+         gtk_label_set_text(GTK_LABEL(browser->status),
+            "Unable to refresh this server. Reconnect or try Refresh all again.");
+      }
+      return;
+   }
    if (!strcmp(event, "client.explorer.control.result")) {
       char *message = g_strdup_printf("Rig control: %s", text ? text : "unknown result");
       gtk_label_set_text(GTK_LABEL(browser->status), message);
@@ -3697,7 +3701,9 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
 
       return;
    }
-   const char *profile = rrclient_connection_name(connection);
+   /* Legacy connection events may be dispatched with NULL cptr. Never
+    * dereference that pointer on GTK's thread. */
+   const char *profile = NULL;
    resource_branch *branch = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
 
    if (branch && strcmp(event, "client.objects.changed")) {
@@ -3726,7 +3732,7 @@ void gtk_resources_init(void) {
    open_token = event_on_domain_token("client.resources.open", resource_open, NULL, "gtk");
    const char *events[] = {
       "authorized", "disconnected", "http.error", "auth.error", "client.objects.changed",
-      "client.explorer.control.result"
+      "client.explorer.control.result", "client.resources.request-failed"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(events) ; i++) {
