@@ -1932,47 +1932,36 @@ void gtk_chat_set_authoritative_room(const char *room) {
 static GtkWidget *estop_window, *estop_status, *estop_button;
 static char estop_room[128], estop_profile[512];
 
-static void estop_send_in_context(void *action_ptr) {
-   const char *action = action_ptr;
-
-   if (!ws_conn) {
-      return;
-   }
-   dict *request = dict_new();
-
-   if (!request) {
-      return;
-   }
-   dict_add(request, "msg.type", "talk");
-   dict_add(request, "talk.cmd", "admin");
-   dict_add(request, "talk.action", action);
-   dict_add(request, "talk.target", estop_room);
-   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
-   dict_free(request);
-}
-
 static void estop_dispatch(const char *action) {
-   rrconn_t *connection = rrclient_connection_find(estop_profile);
-
-   if (!connection || !connection->is_ws || rrclient_connection_state(estop_profile) != 1) {
-      if (estop_status) {
-         gtk_label_set_text(GTK_LABEL(estop_status), "OFFLINE — NOT CONFIRMED");
-      }
-
-      return;
+   if (!estop_profile[0] || !estop_room[0]) return;
+   dict *request = dict_new();
+   dict_add(request, "profile", estop_profile);
+   dict_add(request, "room", estop_room);
+   dict_add(request, "action", action);
+   char *json = dict2json(request);
+   if (json) {
+      event_emit("client.estop.send-request", NULL, json);
+      free(json);
    }
-
-   if (estop_status) {
-      gtk_label_set_text(GTK_LABEL(estop_status), "Request sent — check server acknowledgment");
-   }
-   rrclient_connection_dispatch(connection, estop_send_in_context, (void *)action);
+   dict_free(request);
+   if (estop_status)
+      gtk_label_set_text(GTK_LABEL(estop_status), "Sending — awaiting transport result");
 }
-
+static void estop_send_status(const char *event, const char *message, rrconn_t *client, void *unused) {
+   (void)event; (void)client; (void)unused;
+   if (!estop_status || !message) return;
+   const char *separator = strrchr(message, '|');
+   if (!separator || (size_t)(separator-message) != strlen(estop_profile) ||
+       strncmp(message, estop_profile, strlen(estop_profile))) return;
+   bool sent = !strcmp(separator+1, "sent");
+   gtk_label_set_text(GTK_LABEL(estop_status), sent ?
+      "Request sent — check server acknowledgment" : "OFFLINE — NOT CONFIRMED");
+}
 static void estop_notice_event(const char *event, const char *message, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
 
-   if (!estop_window || !message || !estop_room[0] || client != rrclient_connection_find(estop_profile)) {
+   if (!estop_window || !message || !estop_room[0]) {
       return;
    }
    const char *id = NULL;
@@ -2492,6 +2481,7 @@ bool chat_init(void) {
    rr_module_token_add(event_on_domain_token("client.server.selected", gtk_chat_server_selected, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop", estop_request_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.notice", estop_notice_event, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.estop.send-status", estop_send_status, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.zoom", gtk_chat_zoom_event, NULL, "gtk"));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
