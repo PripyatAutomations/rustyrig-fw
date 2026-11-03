@@ -1141,6 +1141,11 @@ bool gui_init(void) {
    gtk_widget_set_vexpand(rr_client_overlay, TRUE);
    gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport);
+   GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
+   GtkWidget *upper_extra = cfg_ui_gtk_main_tabstrip == GTK_POS_TOP ? tab_strip : NULL;
+   GtkWidget *lower = cfg_ui_gtk_main_tabstrip == GTK_POS_BOTTOM ? tab_strip : NULL;
+   rr_floating_panel_set_reserved_widgets(GTK_OVERLAY(rr_client_overlay), rr_main_toolbar,
+      upper_extra, lower, RR_FLOATING_PANEL_SCROLLBAR_INSET);
    g_object_unref(viewport);
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(matrix_key_press), NULL);
    g_signal_connect(main_window, "event", G_CALLBACK(screensaver_activity_event), NULL);

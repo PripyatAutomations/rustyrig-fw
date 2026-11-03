@@ -34,8 +34,59 @@ struct rr_floating_panel {
 #define PANEL_GAP 12
 static GList *floating_panels;
 
-static void panel_add_candidate(GArray *positions, int position, int limit) {
-   if (position < 0 || position > limit) return;
+void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *upper,
+                                            GtkWidget *upper_extra, GtkWidget *lower,
+                                            gint right_inset) {
+   if (!GTK_IS_OVERLAY(overlay)) return;
+   g_object_set_data(G_OBJECT(overlay), "rr-panel-upper-reserve", upper);
+   g_object_set_data(G_OBJECT(overlay), "rr-panel-upper-extra-reserve", upper_extra);
+   g_object_set_data(G_OBJECT(overlay), "rr-panel-lower-reserve", lower);
+   g_object_set_data(G_OBJECT(overlay), "rr-panel-right-inset",
+                     GINT_TO_POINTER(MAX(0, right_inset)));
+}
+
+static gboolean panel_widget_vertical_bounds(GtkOverlay *overlay, GtkWidget *widget,
+                                             int *top, int *bottom) {
+   if (!GTK_IS_WIDGET(widget) || !gtk_widget_get_visible(widget)) return FALSE;
+   int y = 0;
+   if (!gtk_widget_translate_coordinates(widget, GTK_WIDGET(overlay), 0, 0,
+                                         NULL, &y)) return FALSE;
+   int height = gtk_widget_get_allocated_height(widget);
+   if (height <= 0) return FALSE;
+   *top = y;
+   *bottom = y + height;
+   return TRUE;
+}
+
+static void panel_bounds(RRFloatPanel *p, int panel_width, int panel_height,
+                         int *min_x, int *min_y, int *max_x, int *max_y) {
+   int overlay_width = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
+   int overlay_height = gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay));
+   int upper = 0, lower = 0, widget_top, widget_bottom;
+   GtkOverlay *overlay = p->overlay;
+   GtkWidget *reserved[] = {
+      g_object_get_data(G_OBJECT(overlay), "rr-panel-upper-reserve"),
+      g_object_get_data(G_OBJECT(overlay), "rr-panel-upper-extra-reserve")
+   };
+   for (size_t i = 0; i < G_N_ELEMENTS(reserved); i++) {
+      if (panel_widget_vertical_bounds(overlay, reserved[i], &widget_top, &widget_bottom))
+         upper = MAX(upper, widget_bottom);
+   }
+   GtkWidget *bottom_widget =
+      g_object_get_data(G_OBJECT(overlay), "rr-panel-lower-reserve");
+   if (panel_widget_vertical_bounds(overlay, bottom_widget, &widget_top, &widget_bottom))
+      lower = overlay_height - widget_top;
+
+   int right_inset = GPOINTER_TO_INT(
+      g_object_get_data(G_OBJECT(overlay), "rr-panel-right-inset"));
+   *min_x = PANEL_GAP;
+   *min_y = upper + PANEL_GAP;
+   *max_x = MAX(*min_x, overlay_width - right_inset - panel_width - PANEL_GAP);
+   *max_y = MAX(*min_y, overlay_height - lower - panel_height - PANEL_GAP);
+}
+
+static void panel_add_candidate(GArray *positions, int position, int minimum, int limit) {
+   if (position < minimum || position > limit) return;
    for (guint i = 0; i < positions->len; i++) {
       if (g_array_index(positions, int, i) == position) return;
    }
@@ -68,14 +119,15 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
 
    GtkRequisition natural;
    gtk_widget_get_preferred_size(p->frame, NULL, &natural);
-   int max_x = overlay_width - natural.width - PANEL_GAP;
-   int max_y = overlay_height - natural.height - PANEL_GAP;
-   if (max_x < 0 || max_y < 0) return TRUE;
+   int min_x, min_y, max_x, max_y;
+   panel_bounds(p, natural.width, natural.height, &min_x, &min_y, &max_x, &max_y);
 
    GArray *xs = g_array_new(FALSE, FALSE, sizeof(int));
    GArray *ys = g_array_new(FALSE, FALSE, sizeof(int));
-   panel_add_candidate(xs, PANEL_GAP, max_x);
-   panel_add_candidate(ys, PANEL_GAP, max_y);
+   panel_add_candidate(xs, min_x, min_x, max_x);
+   panel_add_candidate(xs, max_x, min_x, max_x);
+   panel_add_candidate(ys, min_y, min_y, max_y);
+   panel_add_candidate(ys, max_y, min_y, max_y);
    for (GList *it = floating_panels; it; it = it->next) {
       RRFloatPanel *q = it->data;
       if (q == p || q->overlay != p->overlay || q->minimized || q->modal ||
@@ -86,10 +138,10 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       int qh = MAX(gtk_widget_get_allocated_height(q->frame), q_natural.height);
       int qx = gtk_widget_get_margin_start(q->frame);
       int qy = gtk_widget_get_margin_top(q->frame);
-      panel_add_candidate(xs, qx + qw + PANEL_GAP, max_x);
-      panel_add_candidate(xs, qx - natural.width - PANEL_GAP, max_x);
-      panel_add_candidate(ys, qy + qh + PANEL_GAP, max_y);
-      panel_add_candidate(ys, qy - natural.height - PANEL_GAP, max_y);
+      panel_add_candidate(xs, qx + qw + PANEL_GAP, min_x, max_x);
+      panel_add_candidate(xs, qx - natural.width - PANEL_GAP, min_x, max_x);
+      panel_add_candidate(ys, qy + qh + PANEL_GAP, min_y, max_y);
+      panel_add_candidate(ys, qy - natural.height - PANEL_GAP, min_y, max_y);
    }
 
    gboolean placed = FALSE;
@@ -110,11 +162,12 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
 }
 
 static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw,
-                           gboolean horizontal, int limit) {
+                           gboolean horizontal, int minimum, int limit) {
    gboolean *engaged = horizontal ? &p->snapped_x : &p->snapped_y;
    int *anchor = horizontal ? &p->snap_x : &p->snap_y;
    if (*engaged) {
-      if (abs(raw - *anchor) <= SNAP_RELEASE) return *anchor;
+      if (*anchor >= minimum && *anchor <= limit &&
+          abs(raw - *anchor) <= SNAP_RELEASE) return *anchor;
       *engaged = FALSE;
    }
    int width = gtk_widget_get_allocated_width(p->frame);
@@ -140,7 +193,7 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw,
                               edge, edge + size - own_size };
       for (size_t i = 0; i < G_N_ELEMENTS(possibilities); i++) {
          int target = possibilities[i];
-         if (target < 0 || target > limit) continue;
+         if (target < minimum || target > limit) continue;
          int distance = abs(raw - target);
          if (distance < closest) { closest = distance; candidate = target; }
       }
@@ -154,19 +207,19 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw,
 }
 
 static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
-   int max_x = MAX(0, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
-                       gtk_widget_get_allocated_width(p->frame));
-   int max_y = MAX(0, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) -
-                       gtk_widget_get_allocated_height(p->frame));
-   int raw_x = CLAMP(p->start_x + (int)(x_root - p->drag_x), 0, max_x);
-   int raw_y = CLAMP(p->start_y + (int)(y_root - p->drag_y), 0, max_y);
+   int min_x, min_y, max_x, max_y;
+   panel_bounds(p, gtk_widget_get_allocated_width(p->frame),
+                gtk_widget_get_allocated_height(p->frame),
+                &min_x, &min_y, &max_x, &max_y);
+   int raw_x = CLAMP(p->start_x + (int)(x_root - p->drag_x), min_x, max_x);
+   int raw_y = CLAMP(p->start_y + (int)(y_root - p->drag_y), min_y, max_y);
    int x = raw_x;
    int y = raw_y;
    if (p->snap_disabled) {
       p->snapped_x = p->snapped_y = FALSE;
    } else {
-      x = panel_snap_axis(p, raw_x, raw_y, TRUE, max_x);
-      y = panel_snap_axis(p, raw_y, x, FALSE, max_y);
+      x = panel_snap_axis(p, raw_x, raw_y, TRUE, min_x, max_x);
+      y = panel_snap_axis(p, raw_y, x, FALSE, min_y, max_y);
    }
    gtk_widget_set_margin_start(p->frame, x);
    gtk_widget_set_margin_top(p->frame, y);

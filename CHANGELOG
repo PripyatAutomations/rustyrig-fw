@@ -37,8 +37,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
   * Keep the toolbar at natural height while filling the available width.
   * Place new GTK floating panels in free space and allow Shift-drag to bypass
     panel snapping; document floating-panel navigation.
+  * Keep floating panels clear of the main toolbar, tab strips, and right-edge
+    scrollbar space during placement and dragging.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:28:03 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:35:46 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

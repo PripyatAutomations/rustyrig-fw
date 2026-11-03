@@ -568,6 +568,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    /* GtkFlowBox's minimum width grows with its children when it is packed directly in a vbox. Give it a viewport of the allocated width so it wraps rows
     * instead of widening the notebook and pushing chat controls off the right edge. */
    GtkWidget *tab_scroll = gtk_scrolled_window_new(NULL, NULL);
+   g_object_set_data(G_OBJECT(notebook), "rr-tab-strip-widget", tab_scroll);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(tab_scroll), 1);
