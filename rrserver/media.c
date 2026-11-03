@@ -101,6 +101,11 @@ static const char *rig_endpoint(rr_server_rig_t *radio, bool tx, char *buf, size
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    const char *configured = rr_rig_config_get(alias, tx ? "audio.sink" : "audio.source");
 
+   /* "none" deliberately disables this rig endpoint, even when a
+    * built-in pipeline exists for the default src/sink alias. */
+   if (configured && !g_ascii_strcasecmp(configured, "none")) {
+      return NULL;
+   }
    if (configured && *configured) {
       return configured;
    }
@@ -188,7 +193,7 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
    const char *sink = rig_endpoint(radio, true, endpoint, sizeof(endpoint));
    size_t slot = channel - media_channels;
 
-   if (!fwdsp_processor_write(sink, samples, len) &&
+   if (sink && !fwdsp_processor_write(sink, samples, len) &&
       (rig_tx_write_warned[slot] == 0 || now < rig_tx_write_warned[slot] || now - rig_tx_write_warned[slot] >= 5)) {
       rig_tx_write_warned[slot] = now;
       char description[512];
@@ -209,13 +214,14 @@ static bool start_rig_audio(rr_server_rig_t *radio, void *user) {
    char rx_buf[128], tx_buf[128];
    const char *rx = rig_endpoint(radio, false, rx_buf, sizeof(rx_buf));
    const char *tx = rig_endpoint(radio, true, tx_buf, sizeof(tx_buf));
-   bool source_ok = fwdsp_audio_capture_start(rx, NULL, rrserver_rig_rx_pcm, radio);
-   bool sink_ok = fwdsp_audio_playback_start(tx, NULL);
+   bool source_ok = !rx || fwdsp_audio_capture_start(rx, NULL, rrserver_rig_rx_pcm, radio);
+   bool sink_ok = !tx || fwdsp_audio_playback_start(tx, NULL);
 
-   if (!source_ok || !sink_ok) {
-      Log(LOG_WARN, "pcm.hub", "Rig %s PCM endpoints: %s=%s, %s=%s", rr_rig_registry_alias(rig.rigs, radio), rx, source_ok ? "ready" : "unavailable", tx,
-         sink_ok ? "ready" : "unavailable");
-   }
+   Log(source_ok && sink_ok ? LOG_INFO : LOG_WARN, "pcm.hub",
+      "Rig %s PCM endpoints: RX=%s (%s), TX=%s (%s)",
+      rr_rig_registry_alias(rig.rigs, radio),
+      rx ? rx : "none", !rx ? "disabled" : source_ok ? "ready" : "unavailable",
+      tx ? tx : "none", !tx ? "disabled" : sink_ok ? "ready" : "unavailable");
 
    return !source_ok || !sink_ok;
 }
