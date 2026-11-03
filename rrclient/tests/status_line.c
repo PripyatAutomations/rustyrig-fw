@@ -14,6 +14,9 @@ static rrconn_t connection = {
 };
 
 rrconn_t *ws_conn = &connection;
+const char *rrclient_selected_server(void) {
+   return "SELECTED-SERVER";
+}
 struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
 void tui_refresh_sb_window(void) {
