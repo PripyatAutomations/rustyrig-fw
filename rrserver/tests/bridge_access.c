@@ -5,6 +5,30 @@ bool rrserver_bridge_temporary(const rr_server_rig_t *radio) {
    return temporary;
 }
 
+/* The bridge policy fixture has no database or remote relay. */
+sqlite3 *masterdb;
+const char *rrserver_relay_client_server(const rrconn_t *client) {
+   (void)client;
+   return NULL;
+}
+struct remote_session *rr_relay_remote_for(rrconn_t *client) {
+   (void)client;
+   return NULL;
+}
+const char *rr_server_rig_id(const rr_server_rig_t *radio) {
+   (void)radio;
+   return "12345678-1234-4234-8234-1234567890ab";
+}
+rr_resource_access_t db_resource_access(sqlite3 *db, const char *user, const char *site, const char *kind,
+   const char *uuid, const char *privilege, time_t when) {
+   (void)db; (void)user; (void)site; (void)kind; (void)uuid; (void)privilege; (void)when;
+   return RR_RESOURCE_UNSET;
+}
+rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *user, const char *site, const char *kind,
+   const char *uuid, const char *privilege, time_t when, const char *name) {
+   (void)db; (void)user; (void)site; (void)kind; (void)uuid; (void)privilege; (void)when; (void)name;
+   return RR_RESOURCE_UNSET;
+}
 static rr_server_rig_t *fixture_rig = (rr_server_rig_t *) 1;
 static const rr_backend_type_t bridge_type = {
    .name = "bridge"
