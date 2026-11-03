@@ -51,6 +51,7 @@ class LinkSocket(WebSocket):
 
 with tempfile.TemporaryDirectory(prefix='rr-links-') as temporary:
     work = pathlib.Path(temporary)
+    (work / 'modules').mkdir()
     cert, key = work / 'cert.pem', work / 'key.pem'
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
         '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost',
