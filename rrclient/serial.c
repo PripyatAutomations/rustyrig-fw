@@ -324,12 +324,16 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
          goto failed;
       }
       /* The symlink's permissions do not control access to the PTY. Group the actual slave device so local loggers can use ttyCAT/ttyGPS. */
-      struct group *access_group = getgrnam("rruser");
+      struct group group_entry, *access_group = NULL;
+      char group_buffer[16384];
+      int group_error = getgrnam_r("rruser", &group_entry, group_buffer, sizeof(group_buffer), &access_group);
 
-      if (access_group) {
+      if (!group_error && access_group) {
          if (fchown(p->keeper, (uid_t) -1, access_group->gr_gid) || fchmod(p->keeper, 0660)) {
             Log(LOG_WARN, "serial", "%s: cannot grant rruser group access to %s: %s (join the rruser group and log in again)", name, slave, strerror(errno));
          }
+      } else if (group_error) {
+         Log(LOG_WARN, "serial", "%s: cannot look up rruser group: %s; %s remains owner-only", name, strerror(group_error), slave);
       } else {
          Log(LOG_WARN, "serial", "%s: rruser group not found; %s remains owner-only", name, slave);
       }
