@@ -1120,7 +1120,7 @@ bool gui_init(void) {
    gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
    g_signal_connect(quit_button, "clicked", G_CALLBACK(main_toolbar_quit), NULL);
    gtk_box_pack_end(GTK_BOX(rr_main_toolbar), quit_button, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, TRUE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
    /* Preferred-width queries inside size-allocate can force nested GTK
