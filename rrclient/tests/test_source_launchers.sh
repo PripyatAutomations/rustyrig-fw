@@ -6,7 +6,7 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/config" "$work/tools" "$work/bin"
 touch "$work/librustyaxe.so.0" "$work/librrprotocol.so.0" "$work/libfwdspmgr.so.0"
 cp tools/test-env.sh tools/test-config.py tools/test-client.sh tools/test-server.sh "$work/tools/"
-cp config/rrclient.cfg config/rrserver.cfg config/callsign-lookup.cli.cfg config/callsign-lookup.srv.cfg "$work/config/"
+cp config/*.cfg "$work/config/"
 for program in rrclient rrserver; do
   cat > "$work/bin/$program" <<'MOCK'
 #!/bin/bash
