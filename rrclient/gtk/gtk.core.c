@@ -1099,8 +1099,6 @@ bool gui_init(void) {
    GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    gtk_widget_set_margin_start(rr_main_toolbar, 4);
-   /* Temporary width test: inset the upper toolbar 40px from the right. */
-   gtk_widget_set_margin_end(rr_main_toolbar, 44);
    GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
@@ -1127,8 +1125,6 @@ bool gui_init(void) {
    g_object_ref(viewport);
    gtk_container_remove(GTK_CONTAINER(main_window), viewport);
    rr_client_overlay = gtk_overlay_new();
-   /* Layout test: bound the shared viewport and RX/TX overlay 60px inside the window's right edge instead of shrinking only the tab strip. */
-   gtk_widget_set_margin_end(rr_client_overlay, 60);
    gtk_widget_set_hexpand(rr_client_overlay, TRUE);
    gtk_widget_set_vexpand(rr_client_overlay, TRUE);
    gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);

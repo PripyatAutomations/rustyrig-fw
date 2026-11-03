@@ -574,8 +574,6 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
    gtk_widget_set_size_request(tab_scroll, -1, 32);
    gtk_widget_set_hexpand(tab_scroll, TRUE);
-   /* Keep the tab strip 60px short of the right edge; pages retain full width. */
-   gtk_widget_set_margin_end(tab_scroll, 60);
    gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
    gtk_widget_set_size_request(flow, 1, -1);
    g_object_set_data(G_OBJECT(tab_scroll), "rr-tab-flow", flow);
