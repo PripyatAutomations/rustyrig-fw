@@ -17,7 +17,22 @@ callback on the manager/event-loop thread, so callbacks must return promptly.
 The server's `src.rig0` and `sink.rig0` pipelines use PulseAudio (including
 PipeWire's PulseAudio compatibility layer) by default and can be overridden in
 the normal `[pipelines]` config section. Set `device=` in the pipelines when
-the rig audio interface is not the host default. Normal codec IDs always use
+the rig audio interface is not the host default. Each `[rig:<alias>]` section
+can select separate `audio.source=src.<name>` and `audio.sink=sink.<name>`
+endpoints. Set either to `none` to disable that direction completely, even
+when a built-in default pipeline exists. No fwdsp subprocess starts for
+a disabled endpoint; the other direction remains independently available.
+
+For a host with PipeWire's PulseAudio compatibility layer or PulseAudio,
+run `sh tools/ensure-dummy-audio.sh` as the audio session user to create a
+`rustyrig_test` null sink and `rustyrig_test.monitor` recording source
+if absent. This is idempotent for a running PulseAudio-compatible service;
+the device may need recreation when that service restarts. Example capture:
+`pulsesrc device=rustyrig_test.monitor`; example playback:
+`pulsesink device=rustyrig_test`. A null monitor emits silence until
+something plays into the sink. The server needs access to the same
+PulseAudio-compatible session as the script; system services do not
+automatically see a desktop user's audio server. Normal codec IDs always use
 the `src.rig0` host/radio input. With `audio.test-mode=true`, the server also
 advertises RX-only tone (`*T`) and pink-noise (`*P`) codec variants, whose
 fwdsp pipelines generate their own source. Set it to `false` to hide those
