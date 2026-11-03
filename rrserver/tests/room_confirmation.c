@@ -44,7 +44,7 @@ int main(void) {
    assert(sqlite3_open(":memory:", &masterdb) == SQLITE_OK);
    assert(sqlite3_exec(masterdb,
       "CREATE TABLE rooms(name TEXT PRIMARY KEY,uuid TEXT NOT NULL UNIQUE,has_vfos INTEGER,vfo_mask INTEGER,deleted INTEGER DEFAULT 0); CREATE TABLE audit_log(username "
-      "TEXT,event_type TEXT,details TEXT);", NULL, NULL, NULL) == SQLITE_OK);
+      "TEXT,event_type TEXT,details TEXT,session_id TEXT);", NULL, NULL, NULL) == SQLITE_OK);
    assert(db_room_ensure(masterdb, "#expiry", false, 0, "ADMIN"));
    http_user_t user = {
       .uid = 1
