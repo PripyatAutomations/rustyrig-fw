@@ -1,5 +1,8 @@
 # Stop at common fatal signals; retain the program for inspection.
 set pagination off
+set logging file /tmp/rr-gdb-crashes.log
+set logging overwrite on
+set logging enabled on
 set breakpoint pending on
 set print thread-events off
 set print pretty on
