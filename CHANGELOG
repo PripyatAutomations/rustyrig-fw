@@ -47,8 +47,15 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     the active bridge driver, and show Kiwi-specific controls only for KiwiSDR.
   * Dispatch batched GTK roster redraws explicitly on the GTK-owned context
     and assert thread ownership at both enqueue and delivery.
+  * Add terminal copy/paste context-menu actions and Ctrl+Shift+C/V shortcuts
+    for VTE-backed serial terminal tabs.
+  * Add combined AF waterfall/bars rendering and SDR-style palettes; use a
+    fixed dBFS display window instead of per-frame noise-floor normalization.
+  * Marshal GTK roster redraw notifications through the GTK event domain before
+    queuing the coalesced widget paint.
+  * Default AF display gain to 0 dB and extend its range to +60 dB.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 22:58:09 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 03 Nov 2026 00:11:24 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

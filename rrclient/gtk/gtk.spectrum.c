@@ -1,5 +1,6 @@
-/* Lightweight AF visualizer. Presentation modes consume identical power bins;
-* future server RF rows can feed this widget without changing its renderer. */
+/* Lightweight AF visualizer. Presentation modes consume identical dBFS bins;
+ * waterfall contrast is tied to an absolute level window, not per-frame AGC.
+ * Future server RF rows can feed this widget without changing its renderer. */
 #include <gtk/gtk.h>
 #include <math.h>
 #include <string.h>
@@ -22,12 +23,12 @@ typedef struct {
    unsigned head, count;
    guint timer;
    bool listening;
-   double noise_floor;
    double display_gain_db;
 } spectrum_panel_t;
-static double level(float db, double noise_floor, double gain_db) {
-   /* Normalize each receiver against its own noise floor so digital tones remain distinct instead of saturating the entire waterfall. */
-   return CLAMP((db - noise_floor + gain_db) / 36.0, 0.0, 1.0);
+static double level(float db, double gain_db) {
+   /* The FFT normalization uses 8192, half the signed 16-bit full scale.
+    * Correct the reference, then show a fixed -90..-30 dBFS window. */
+   return CLAMP((db + 30.0 + gain_db) / 60.0, 0.0, 1.0);
 }
 /* A small piecewise-linear color map, evaluated only while painting.
  * Both AF and RF waterfall displays share the selected palette. */
@@ -45,7 +46,15 @@ static const palette_t palettes[] = {
    { "Amber phosphor", {{.035,.012,0},{.22,.060,0},{.48,.18,.008},{.85,.49,.055},{1,.91,.51}} },
    { "Ice", {{.015,.026,.095},{.035,.13,.32},{.10,.43,.68},{.41,.78,.91},{.92,1,1}} },
    { "Heat", {{0,0,0},{.38,0,.02},{.84,.08,.01},{1,.57,.03},{1,1,.80}} },
-   { "Ocean", {{0,.018,.065},{0,.14,.29},{0,.39,.48},{.06,.72,.73},{.76,1,.91}} }
+   { "Ocean", {{0,.018,.065},{0,.14,.29},{0,.39,.48},{.06,.72,.73},{.76,1,.91}} },
+   { "SDR# classic", {{0,0,0},{.04,.06,.12},{.02,.30,.58},{.02,.75,.95},{1,.86,.24}} },
+   { "SDR# enhanced", {{0,0,0},{.02,.08,.24},{.04,.53,.63},{.95,.80,.12},{1,1,.94}} },
+   { "HDSDR", {{0,0,0},{0,.08,.28},{.02,.40,.72},{.10,.90,.95},{1,.95,.85}} },
+   { "GQRX", {{0,0,.05},{.10,.05,.35},{.65,.03,.45},{1,.30,.12},{1,.95,.55}} },
+   { "SDR++", {{0,0,.05},{.03,.13,.46},{.04,.58,.78},{.25,.90,.48},{1,.92,.24}} },
+   { "Sora", {{.01,.01,.04},{.03,.05,.31},{.08,.32,.72},{.20,.78,.88},{.98,.90,.43}} },
+   { "Red", {{.01,.01,.02},{.08,.02,.03},{.38,.04,.05},{.82,.13,.08},{1,.66,.28}} },
+   { "Classic black-blue", {{0,0,0},{0,.025,.12},{0,.12,.40},{.05,.50,.80},{.75,.95,1}} }
 };
 static unsigned selected_palette;
 static GPtrArray *palette_selectors;
@@ -100,8 +109,10 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_set_source_rgb(cr, 0.05, 0.085, 0.13);
    cairo_paint(cr);
    int mode = gtk_combo_box_get_active(GTK_COMBO_BOX(p->mode));
-   bool trace = mode == 0 || mode == 1 || mode == 3;
-   bool waterfall = mode == 0 || mode == 2;
+   bool bars = mode == 3 || mode == 4;
+   bool trace = mode == 0 || mode == 1 || bars;
+   bool waterfall = mode == 0 || mode == 2 || mode == 4;
+
    unsigned af_zoom = p->zoom ? p->zoom : 1;
    int trace_height = trace ? (waterfall ? MAX(34, height / 4) : height - 16) : 0;
 
@@ -111,10 +122,18 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
       for (unsigned i = 0 ; i < RR_AF_BINS ; i++) {
          double x = (double)i * (width - 1) / (RR_AF_BINS - 1);
-         double y = trace_height - 3 - level(p->current[i], p->noise_floor, p->display_gain_db) * (trace_height - 6);
+         double y = trace_height - 3 - level(p->current[i], p->display_gain_db) * (trace_height - 6);
 
-         if (mode == 3) {
-            cairo_rectangle(cr, x, y, MAX(1.0, width / (double)RR_AF_BINS - 1), trace_height - y);
+         if (bars) {
+            double bar_width = MAX(1.0, width / (double)RR_AF_BINS - 1);
+            if (waterfall) {
+               cairo_set_source_rgba(cr, .43, .79, .99, .72);
+               cairo_rectangle(cr, x, y, bar_width, trace_height - y);
+               cairo_fill(cr);
+               cairo_set_source_rgb(cr, .43, .79, .99);
+            } else {
+               cairo_rectangle(cr, x, y, bar_width, trace_height - y);
+            }
          } else if (i == 0) {
             cairo_move_to(cr, x, y);
          } else {
@@ -122,7 +141,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
          }
       }
 
-      if (mode == 3) {
+      if (bars) {
          cairo_fill(cr);
       } else {
          cairo_stroke(cr);
@@ -146,7 +165,9 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
             for (unsigned bin = 0 ; bin < RR_AF_BINS ; bin++) {
                unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + bin / af_zoom;
-               scanline[bin] = row ? palette_pixel(level(row[MIN(source_bin, RR_AF_BINS-1)], p->noise_floor, p->display_gain_db)) : 0xff0d1621u;
+               double normalized = row ? level(row[MIN(source_bin, RR_AF_BINS-1)], p->display_gain_db) : 0.0;
+               scanline[bin] = row ? palette_pixel(normalized) : 0xff0d1621u;
+               if (mode == 4 && normalized >= .94) scanline[bin] = 0xff8ff7f7u;
             }
          }
 
@@ -202,29 +223,6 @@ static gboolean update(gpointer data) {
    }
 
    if (selected < MIN(count, G_N_ELEMENTS(streams)) && rr_af_spectrum_read(streams[selected].id, p->current)) {
-      /* Estimate the 25th-percentile background level using a bounded histogram. This avoids a full sort and follows slow gain changes. */
-      unsigned histogram[121] = {
-         0
-      };
-
-      for (unsigned bin = 0 ; bin < RR_AF_BINS ; bin++) {
-         unsigned bucket = (unsigned)CLAMP((int)(p->current[bin] + 120.0f), 0, 120);
-         histogram[bucket]++;
-      }
-
-      unsigned total = 0;
-      double floor = -100.0;
-
-      for (unsigned bucket = 0 ; bucket < G_N_ELEMENTS(histogram) ; bucket++) {
-         total += histogram[bucket];
-
-         if (total >= RR_AF_BINS / 4) {
-            floor = (double)bucket - 120.0;
-            break;
-         }
-      }
-
-      p->noise_floor = p->count ? 0.85 * p->noise_floor + 0.15 * floor : floor;
       memcpy(p->rows[p->head], p->current, sizeof(p->current));
       p->head = (p->head + 1) % HISTORY;
       p->count = MIN(p->count + 1, HISTORY);
@@ -331,6 +329,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Waterfall");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Bars");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Waterfall + Bars");
    gtk_combo_box_set_active(GTK_COMBO_BOX(p->mode), 0);
    gtk_box_pack_start(GTK_BOX(toolbar), p->mode, FALSE, FALSE, 0);
    p->palette = gtk_combo_box_text_new();
@@ -343,10 +342,10 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(toolbar), p->palette, FALSE, FALSE, 0);
    GtkWidget *gain_label = gtk_label_new("Gain");
    gtk_box_pack_start(GTK_BOX(toolbar), gain_label, FALSE, FALSE, 4);
-   p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 20.0, 1.0);
+   p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 60.0, 1.0);
    gtk_widget_set_size_request(p->gain, 140, -1);
-   gtk_range_set_value(GTK_RANGE(p->gain), -12.0);
-   p->display_gain_db = -12.0;
+   gtk_range_set_value(GTK_RANGE(p->gain), 0.0);
+   p->display_gain_db = 0.0;
    gtk_scale_set_draw_value(GTK_SCALE(p->gain), TRUE);
    gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
    gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);

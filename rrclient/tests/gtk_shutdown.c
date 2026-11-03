@@ -4,11 +4,6 @@
 time_t now;
 bool dying, restarting;
 static unsigned quit_calls, refresh_calls, roster_paints;
-static gpointer roster_redraw_thread(gpointer unused) {
-   (void)unused;
-   frontend_gtk_userlist_redraw();
-   return NULL;
-}
 void userlist_redraw_gtk(void) {
    roster_paints++;
 }
@@ -120,9 +115,9 @@ int main(void) {
       frontend_gtk_userlist_redraw();
    }
 
-   assert(!roster_paints && frontend_gtk_roster_source);
-   GThread *caller = g_thread_new("roster-caller", roster_redraw_thread, NULL);
-   g_thread_join(caller);
+   assert(!roster_paints && !frontend_gtk_roster_source);
+   frontend_gtk_roster_redraw_event(NULL, NULL);
+   assert(frontend_gtk_roster_source);
    while (g_main_context_pending(NULL)) {
       g_main_context_iteration(NULL, false);
    }

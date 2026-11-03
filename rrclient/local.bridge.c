@@ -7,6 +7,9 @@
 #include <rrclient/ui.h>
 #include <rrclient/audio.h>
 #include <rrclient/receiver.directory.h>
+#include <rrclient/sercom.h>
+#include <librrprotocol/ws.serial.h>
+#include <librustyaxe/maidenhead.h>
 #include <librrprotocol/bridge.ipc.h>
 #include <librrprotocol/bridge.media.h>
 #include <rrbridge/spectrum.row.h>
@@ -37,7 +40,7 @@ typedef struct bridge_instance {
    char driver[32];
    char stream[64], resampler[64];
    unsigned slot;
-   bool online, pcm_started;
+   bool online, pcm_started, gps_position_sent;
    unsigned rate;
    gint64 resampler_retry_at;
    uint64_t pending, serial, frequency_hz, pending_hz;

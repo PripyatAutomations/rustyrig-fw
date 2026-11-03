@@ -172,3 +172,21 @@ RF frame schema into librrprotocol, implement zoom/frequency-follow,
 and publish versioned network frames from rrserver with demand-based
 fanout. Non-1040-byte/compressed W/F payloads are ignored.
 The existing server bridge remains audio-only for spectrum purposes.
+
+## AF waterfall display and dBFS scaling
+The AF visualizer provides independent Spectrum, Waterfall, Bars, combined
+Spectrum + Waterfall, and Waterfall + Bars views. Its palette selector includes
+basic perceptual/monochrome and SDR-inspired schemes. The SDR-named schemes are
+local approximations, not claims of exact reproduction of another program's
+proprietary palette tables.
+
+AF row values are calculated as `20*log10(magnitude / (FFT length * 8192))`;
+they are dBFS-like levels based on signed 16-bit PCM. The display therefore
+uses a fixed nominal window from -90 dBFS to -30 dBFS (with the Gain control
+shifting that window), rather than estimating and subtracting a new noise floor
+every frame. Per-frame floor normalization can make stationary wideband noise
+look bright and nearly full-scale, even with no strong carrier. A real AM
+station is expected to show a persistent narrow carrier/sideband structure;
+this local AF analyzer sees only demodulated PCM (0-4 kHz), not the RF tuning
+spectrum. Validate against known silence, injected tones/noise, and independently
+captured PCM before treating colors as calibrated power measurements.

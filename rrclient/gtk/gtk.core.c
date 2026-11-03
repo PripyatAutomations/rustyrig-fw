@@ -1614,13 +1614,13 @@ static void frontend_gtk_webcam_show_owner(bool show) {
    gtk_webcam_show(show);
 }
 
-static gint frontend_gtk_roster_source;
-static void frontend_gtk_queue_roster_redraw(void);
-static gboolean frontend_gtk_queue_roster_redraw_on_owner(gpointer unused);
+static guint frontend_gtk_roster_source;
+static gboolean frontend_gtk_roster_queued;
 static gboolean frontend_gtk_flush_roster(gpointer unused) {
    (void)unused;
    frontend_gtk_assert_owner();
-   g_atomic_int_set(&frontend_gtk_roster_source, 0);
+   frontend_gtk_roster_queued = false;
+   frontend_gtk_roster_source = 0;
 
    if (!dying) {
       userlist_redraw_gtk();
@@ -1629,35 +1629,23 @@ static gboolean frontend_gtk_flush_roster(gpointer unused) {
    return G_SOURCE_REMOVE;
 }
 static void frontend_gtk_userlist_redraw(void) {
-   // One network sweep can deliver many observations. Drain audio/transport
-   // first, then paint the latest roster once instead of inside every callback.
-   if (dying) return;
-   if (g_thread_self() == frontend_gtk_owner) {
-      frontend_gtk_queue_roster_redraw();
-      return;
-   }
-   if (!frontend_gtk_event_context) return;
-   GSource *source = g_idle_source_new();
-   g_source_set_callback(source, frontend_gtk_queue_roster_redraw_on_owner, NULL, NULL);
-   g_source_attach(source, frontend_gtk_event_context);
-   g_source_unref(source);
+   // One network sweep can deliver many observations. Core callers publish a
+   // single event; GTK-thread listeners coalesce and schedule the widget paint.
+   if (!dying) event_emit_message(&(rr_event_message_t){
+      .name = "client.ui.roster.redraw", .sender = "core",
+      .payload = NULL, .length = 0
+   });
 }
-static gboolean frontend_gtk_queue_roster_redraw_on_owner(gpointer unused) {
+static void frontend_gtk_roster_redraw_event(const rr_event_message_t *message, void *unused) {
+   (void)message;
    (void)unused;
    frontend_gtk_assert_owner();
-   frontend_gtk_queue_roster_redraw();
-   return G_SOURCE_REMOVE;
-}
-static void frontend_gtk_queue_roster_redraw(void) {
-   frontend_gtk_assert_owner();
-   if (!g_atomic_int_compare_and_exchange(&frontend_gtk_roster_source, 0, -1)) return;
+   if (dying || frontend_gtk_roster_queued) return;
+   frontend_gtk_roster_queued = true;
    GSource *source = g_idle_source_new();
    g_source_set_callback(source, frontend_gtk_flush_roster, NULL, NULL);
-   guint source_id = g_source_attach(source, frontend_gtk_event_context);
+   frontend_gtk_roster_source = g_source_attach(source, frontend_gtk_event_context);
    g_source_unref(source);
-   if (!g_atomic_int_compare_and_exchange(&frontend_gtk_roster_source, -1, (gint)source_id)) {
-      g_source_remove(source_id);
-   }
 }
 
 /* Legacy frontend callbacks can originate on the core transport thread.
@@ -2763,6 +2751,10 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       "client.ui.supervision.result", frontend_gtk_supervision_event, NULL, "gtk");
    if (supervision_event) rr_module_token_add(supervision_event);
    else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to supervision results");
+   rr_event_token_t roster_redraw_event = event_on_message_domain_token(
+      "client.ui.roster.redraw", frontend_gtk_roster_redraw_event, NULL, "gtk");
+   if (roster_redraw_event) rr_module_token_add(roster_redraw_event);
+   else g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK roster redraws");
    rr_event_token_t incoming_event = event_on_message_domain_token(
       "client.ui.chat.incoming", frontend_gtk_chat_incoming_event, NULL, "gtk");
    if (incoming_event) rr_module_token_add(incoming_event);

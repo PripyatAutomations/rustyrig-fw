@@ -6,6 +6,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
 #include "gtk.serial.h"
+#include <rrclient/gtk/gtk.chat.h>
 #ifdef RR_HAVE_VTE
 #include <vte/vte.h>
 #endif
@@ -21,6 +22,83 @@ typedef struct {
 static GtkWidget *terminal_notebook;
 static GtkWidget *terminal_root;
 static GtkWidget *terminal_ports;
+
+static void terminal_copy(GtkMenuItem *item, gpointer data) {
+   (void)item;
+   GtkWidget *view = GTK_WIDGET(data);
+#ifdef RR_HAVE_VTE
+   vte_terminal_copy_clipboard_format(VTE_TERMINAL(view), VTE_FORMAT_TEXT);
+#else
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   gtk_text_buffer_copy_clipboard(buffer, gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+#endif
+}
+
+static void terminal_paste(GtkMenuItem *item, gpointer data) {
+   (void)item;
+   GtkWidget *view = GTK_WIDGET(data);
+#ifdef RR_HAVE_VTE
+   vte_terminal_paste_clipboard(VTE_TERMINAL(view));
+#else
+   (void)view;
+#endif
+}
+
+static gboolean terminal_key_press(GtkWidget *view, GdkEventKey *event, gpointer unused) {
+   (void)unused;
+   if (!event || event->type != GDK_KEY_PRESS) return FALSE;
+   GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+   if (modifiers != (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) return FALSE;
+
+   if (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C) {
+      if (gtk_chat_copy_selection()) return TRUE;
+#ifdef RR_HAVE_VTE
+      terminal_copy(NULL, view);
+      return TRUE;
+#else
+      return FALSE;
+#endif
+   }
+   if (event->keyval == GDK_KEY_v || event->keyval == GDK_KEY_V) {
+#ifdef RR_HAVE_VTE
+      terminal_paste(NULL, view);
+      return TRUE;
+#else
+      return FALSE;
+#endif
+   }
+   return FALSE;
+}
+
+static void terminal_populate_menu(GtkWidget *view, GtkWidget *menu) {
+   GtkWidget *copy = gtk_menu_item_new_with_label("Copy");
+   gtk_widget_set_sensitive(copy,
+#ifdef RR_HAVE_VTE
+      vte_terminal_get_has_selection(VTE_TERMINAL(view))
+#else
+      gtk_text_buffer_get_has_selection(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)))
+#endif
+   );
+   g_signal_connect(copy, "activate", G_CALLBACK(terminal_copy), view);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), copy);
+#ifdef RR_HAVE_VTE
+   GtkWidget *paste = gtk_menu_item_new_with_label("Paste");
+   g_signal_connect(paste, "activate", G_CALLBACK(terminal_paste), view);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), paste);
+#endif
+   gtk_widget_show_all(menu);
+}
+
+static gboolean terminal_button_press(GtkWidget *view, GdkEventButton *event, gpointer unused) {
+   (void)unused;
+   if (!event || event->button != GDK_BUTTON_SECONDARY) return FALSE;
+   gtk_widget_grab_focus(view);
+   GtkWidget *menu = gtk_menu_new();
+   terminal_populate_menu(view, menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   return TRUE;
+}
 
 static void console_bytes(const char *name, const char *bytes, size_t length, bool incoming, void *user) {
    (void)name;
@@ -336,6 +414,8 @@ void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_na
    gtk_text_view_set_editable(GTK_TEXT_VIEW(session->view), FALSE);
    gtk_text_view_set_monospace(GTK_TEXT_VIEW(session->view), TRUE);
 #endif
+   g_signal_connect(session->view, "key-press-event", G_CALLBACK(terminal_key_press), NULL);
+   g_signal_connect(session->view, "button-press-event", G_CALLBACK(terminal_button_press), NULL);
    terminal_toolbar(session);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), session->view);

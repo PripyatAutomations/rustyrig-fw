@@ -358,13 +358,14 @@ safe for the threaded mode.
 
 ### GTK roster redraw dispatch follow-up (Nov 2)
 
-The coalesced `userlist_redraw` frontend callback now asserts GTK ownership
-and attaches its idle source directly to the captured GTK event context,
-rather than relying on `g_idle_add()` and whichever thread-default context is
-implicit. Its delivery callback also asserts ownership. This only hardens the
-redraw scheduling boundary: roster rendering still traverses the core-owned
-`global_userlist` and other shared client state, so this is not a full roster
-snapshot migration or evidence that threaded operation is release-safe.
+The coalesced `userlist_redraw` frontend callback previously asserted GTK
+ownership even though core event handlers call that callback directly from the
+core thread. It now publishes the owned, pointer-free
+`client.ui.roster.redraw` message; a GTK-domain listener coalesces it and
+attaches the paint idle source to the captured GTK event context. This fixes
+the reported assertion failure, but the paint still traverses shared core-owned
+`global_userlist` state. That model needs snapshot/ownership migration before
+threaded GTK is generally safe.
 
 `gtk_resources` now tests copied property-request/result payloads and the
 serial attach-request event shape. Its legacy interactive serial-settings

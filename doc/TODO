@@ -1,5 +1,8 @@
 Immediate needs
 ---------------
+rrclient: Finish moving *all* colors/formatting out into themes
+  - This should interact with the GTK CSS programmatically
+
 rrclient: GNU radio companion style editor for gstreamer pipelines using enumerated (gst-inspect) details
 
 rrclient: qpwgraph-inspired editor for audio routing in the PCM hub and friends
