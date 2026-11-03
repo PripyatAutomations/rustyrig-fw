@@ -1,4 +1,5 @@
 # Trace common child process creation paths.
+set debuginfod enabled on
 set pagination off
 set logging file /tmp/rr-gdb-processes.log
 set logging overwrite on

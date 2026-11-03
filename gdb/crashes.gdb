@@ -1,4 +1,5 @@
 # Stop at common fatal signals; retain the program for inspection.
+set debuginfod enabled on
 set pagination off
 set logging file /tmp/rr-gdb-crashes.log
 set logging overwrite on

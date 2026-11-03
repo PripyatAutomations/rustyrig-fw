@@ -1,4 +1,5 @@
 # Trace thread creation, including threads created by shared libraries.
+set debuginfod enabled on
 set pagination off
 set logging file /tmp/rr-gdb-threads.log
 set logging overwrite on

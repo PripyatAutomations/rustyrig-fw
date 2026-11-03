@@ -3,6 +3,8 @@ set -euo pipefail
 source "$(dirname -- "${BASH_SOURCE[0]}")/test-env.sh"
 source "$rr_test_root/tools/test-sanitizers.sh"
 
+export DEBUGINFOD_URLS=https://debuginfod.debian.net
+
 sanitizer=plain
 media_san=false
 debugger=

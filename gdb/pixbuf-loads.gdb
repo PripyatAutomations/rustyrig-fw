@@ -1,4 +1,5 @@
 # Trace decoded image requests, including plugins loaded after startup.
+set debuginfod enabled on
 set pagination off
 set logging file /tmp/rr-gdb-pixbuf.log
 set logging overwrite on

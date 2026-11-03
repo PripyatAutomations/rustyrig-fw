@@ -3,6 +3,8 @@ set -e
 source "$(dirname -- "${BASH_SOURCE[0]}")/test-env.sh"
 source "$rr_test_root/tools/test-sanitizers.sh"
 
+export DEBUGINFOD_URLS=https://debuginfod.debian.net
+
 # Options are independent of order: gtk gdb == gdb gtk.
 # GTK is the normal configured frontend; -T explicitly selects TUI.
 mode=gtk
