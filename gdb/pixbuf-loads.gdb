@@ -10,7 +10,7 @@ break gdk_pixbuf_loader_close
 commands
   silent
   printf "\n=== gdk_pixbuf_loader_close ===\n"
-  bt 16
+  bt 40
   continue
 end
 
@@ -18,6 +18,6 @@ break gdk_pixbuf_new_from_stream
 commands
   silent
   printf "\n=== gdk_pixbuf_new_from_stream ===\n"
-  bt 16
+  bt 40
   continue
 end
