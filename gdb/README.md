@@ -10,15 +10,23 @@ gdb -q --args /usr/bin/rrclient
 At the `(gdb)` prompt:
 
 ```gdb
-set logging file /tmp/rr-debug.log
-set logging overwrite on
-set logging enabled on
 source gdb/threads.gdb
 run
 ```
 
 Pick **one** trace to start with; each trace prints a backtrace and continues,
-so multiple active traces can produce substantial logs. You can also launch
+so multiple active traces can produce substantial logs. Each script enables
+logging automatically, overwriting its own file under `/tmp` on each run:
+
+| Script | Log file |
+| --- | --- |
+| `threads.gdb` | `/tmp/rr-gdb-threads.log` |
+| `pixbuf-loads.gdb` | `/tmp/rr-gdb-pixbuf.log` |
+| `processes.gdb` | `/tmp/rr-gdb-processes.log` |
+| `glib-logs.gdb` | `/tmp/rr-gdb-glib.log` |
+| `crashes.gdb` | `/tmp/rr-gdb-crashes.log` |
+
+You can also launch
 directly with `gdb -q -x gdb/pixbuf-loads.gdb --args /usr/bin/rrclient`;
 then enter `run`.
 
