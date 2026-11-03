@@ -17,12 +17,12 @@
 //   rr_module_init()      gtk_init, register ops, register event tokens,
 //                         build windows; on any failure unwind and return
 //                         true so the loader dlclose()s us again.
-//   rr_module_shutdown()  unregister every event token, remove GLib sources,
-//                         tear down widgets, unregister frontend ops. After
-//                         this returns the loader may dlclose() the module.
+//   frontend stop hook    stop sources and destroy widgets on the GTK owner
+//                         thread, then remove tokens and the event domain.
+//   rr_module_shutdown()  unregister frontend ops after owner-thread stop.
 //
 // Unload safety: GTK keeps GLib sources (timeouts/idles/GSources) and widget
-// signal handlers pointing into module code. rr_module_shutdown() removes
+// signal handlers pointing into module code. The frontend stop hook removes
 // every source the module created and destroys all windows before returning.
 // We deliberately never hot-unload a running module: gtk_main() would be
 // executing module code as the unload request arrives. The core only unloads
@@ -99,11 +99,25 @@ bool rr_module_init(void) {
    return true;
 }
 
-void rr_module_shutdown(void) {
-   if (module_running) {
-      module_running = false;
-      gtk_frontend_stop();
-   }
+void rr_module_frontend_stop(void) {
+   if (!module_running) return;
+   gtk_frontend_stop();
    rr_module_tokens_release();
+   extern bool gtk_frontend_events_shutdown(void);
+   if (!gtk_frontend_events_shutdown()) {
+      Log(LOG_CRIT, "module", "rrclient-gtk: refusing unload while GTK event listeners remain");
+      frontend_ops_unregister();
+      return;
+   }
+   module_running = false;
+   frontend_ops_unregister();
+}
+
+bool rr_module_can_unload(void) {
+   return !module_running;
+}
+
+void rr_module_shutdown(void) {
+   rr_module_frontend_stop();
    frontend_ops_unregister();
 }

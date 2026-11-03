@@ -77,20 +77,26 @@ unmapped; even the loader's post-`dlclose()` log message must not call a module
 callback. The existing boolean `log_add_callback()` API remains compatible for
 host callbacks whose code lives for the entire process.
 
-The GTK clock exits the GTK loop when shutdown is requested. Core cleanup runs
-after the loop returns, so no module callback unloads its own executing code.
+The GTK clock exits the GTK loop when shutdown is requested. In threaded mode,
+the GTK worker asks the core loop to stop and waits until it has returned before
+tearing down widgets, event tokens, and its event domain on the GTK owner thread.
+Core cleanup runs afterward, so no module callback unloads its own executing
+code or calls into a stopped frontend.
 
 GTK/GLib callbacks
 ------------------
 
-The module removes, in rr_module_shutdown -> gtk_frontend_stop:
+The frontend stop hook runs on the GTK owner thread after the core loop stops.
+It removes, in gtk_frontend_stop:
   - the 1hz update_now timeout
   - the per-room userlist refresh timeouts (gtk.userlist.c)
   - pending window configure debounce sources (gtk.winmgr.c)
   - all windows (destroying them removes their signal handlers)
 
-Event-bus tokens are released before the module is unmapped, so no event
-dispatch can reach unloaded code.
+Event-bus tokens are released after widget teardown. The GTK event domain
+refuses unregistration while any text, binary, or owned-message listener still
+uses its dispatcher; the module is kept mapped if shutdown cannot remove every
+listener.
 
 Hot unload/reload
 -----------------

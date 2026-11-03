@@ -135,8 +135,9 @@ state must all migrate together.
    with marshaled events. Check multi-homed connection selection semantics.
 5. Keep media ingress buffered independently, then move RTP decrypt,
    decoder delivery, and audio stream tracking behind stable handles.
-6. Shutdown: stop accepting commands, stop/close core transports, join
-   workers, drain queues, then release UI and logger resources.
+6. Shutdown: stop the core loop and wait for it to return before the GTK
+   owner thread removes widgets, event tokens, and the GTK event domain.
+   Release the event context only after listener removal is verified.
 7. Compare RTP ingress backlog, dispatch gaps, PCM starvation, UI
    responsiveness, CPU overhead, and thread sanitizer reports.
 

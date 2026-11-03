@@ -94,6 +94,7 @@ GtkCssProvider *css_provider = NULL;
 bool cfg_use_gtk = true;        // Default to using GTK3
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_host_log_tab(void);
+extern void rr_module_frontend_stop(void);
 static int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM; // module-local
 extern bool cfg_ui_gtk_vfo_on_top;  // Defined by the rrclient host.
 extern bool cfg_fullscreen;
@@ -1074,6 +1075,12 @@ static void kiwi_panel_show(GtkButton *button, gpointer unused) {
 }
 
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data);
+static void frontend_gtk_main_window_destroy(GtkWidget *widget, gpointer unused) {
+   (void)unused;
+   if (main_window == widget) main_window = NULL;
+   if (gtk_main_level() > 0) gtk_main_quit();
+}
+
 bool gui_init(void) {
    // Apply user CSS (from [gtk-css] config section) or the default from
    // defconfig.c. See cfg.gtkcss.c, reloadable at runtime with /css-reload
@@ -1176,7 +1183,7 @@ bool gui_init(void) {
 
    // GTK Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
-   g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+   g_signal_connect(main_window, "destroy", G_CALLBACK(frontend_gtk_main_window_destroy), NULL);
    g_signal_connect(main_window, "focus-in-event", G_CALLBACK(on_focus_in), NULL);
    g_signal_connect(main_window, "delete-event", G_CALLBACK(on_window_delete), NULL);
 
@@ -1358,6 +1365,7 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
    snprintf(pending_vfo_paint.server, sizeof(pending_vfo_paint.server), "%s", server ? server : "");
    snprintf(pending_vfo_paint.room, sizeof(pending_vfo_paint.room), "%s", room ? room : "");
    pending_vfo_paint.has_mode = mode != NULL;
+   pending_vfo_paint.available = freq > 0;
    pending_vfo_paint.freq = freq;
    pending_vfo_paint.width = width;
    pending_vfo_paint.power = power;
@@ -1396,6 +1404,8 @@ static gboolean frontend_gtk_ptt_hotkey_on_owner(gpointer unused) {
 }
 static GMainContext *frontend_gtk_event_context;
 static GThread *frontend_gtk_owner;
+static bool frontend_gtk_domain_registered;
+static bool frontend_gtk_stopped;
 
 static void frontend_gtk_assert_owner(void) {
 #ifndef G_DISABLE_ASSERT
@@ -2617,6 +2627,8 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_event_context = g_main_context_ref_thread_default();
    if (!event_domain_register("gtk", frontend_gtk_dispatch_event, frontend_gtk_event_context))
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to register GTK event delivery domain");
+   else
+      frontend_gtk_domain_registered = true;
    gtk_identity_first_run();
 #ifdef USE_LIBNOTIFY
 
@@ -2962,6 +2974,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .init = frontend_gtk_init,
    .run = frontend_gtk_run,
    .quit = frontend_gtk_quit,
+   .stop = rr_module_frontend_stop,
    .vfo_state = frontend_gtk_vfo_state,
    .vfo_widths = frontend_gtk_vfo_widths,
    .freq_set = frontend_gtk_freq_set,
@@ -3004,14 +3017,9 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
-   if (!event_domain_unregister("gtk"))
-      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "GTK event domain still has listeners at shutdown");
-   /* Each attached GSource holds its context until finalized. Module
-    * teardown must still drain pending callbacks before dlclose(). */
-   if (frontend_gtk_event_context) {
-      g_main_context_unref(frontend_gtk_event_context);
-      frontend_gtk_event_context = NULL;
-   }
+   if (frontend_gtk_stopped) return;
+   frontend_gtk_assert_owner();
+   frontend_gtk_stopped = true;
    extern void gtk_terminal_shutdown(void);
    gtk_terminal_shutdown();
    gtk_help_shutdown();
@@ -3051,9 +3059,7 @@ void gtk_frontend_stop(void) {
    gtk_userlist_stop_timers();
    extern void gtk_winmgr_stop_sources(void);   // gtk.winmgr.c
    gtk_winmgr_stop_sources();
-   extern bool dying;
-
-   if (!dying && main_window && GTK_IS_WINDOW(main_window)) {
+   if (main_window && GTK_IS_WINDOW(main_window)) {
       gtk_widget_destroy(main_window);
       main_window = NULL;
    }
@@ -3061,6 +3067,18 @@ void gtk_frontend_stop(void) {
    if (gtk_main_level() > 0) {
       gtk_main_quit();
    }
+}
+
+bool gtk_frontend_events_shutdown(void) {
+   if (frontend_gtk_domain_registered) {
+      if (!event_domain_unregister("gtk")) return false;
+      frontend_gtk_domain_registered = false;
+   }
+   if (frontend_gtk_event_context) {
+      g_main_context_unref(frontend_gtk_event_context);
+      frontend_gtk_event_context = NULL;
+   }
+   return true;
 }
 
 void rrclient_gtk_open_key_manager(void) {

@@ -129,8 +129,8 @@ typedef struct rr_frontend_ops {
    /* Request the frontend main loop to quit (idempotent). */
    void (*quit)(void);
 
-   /* Called by the module glue when shutting down: destroy windows/sources.
-    * (Internal to the GTK module.) */
+   /* Called on the frontend owner thread after its main loop exits:
+    * destroy windows/sources before the module is unloaded. */
    void (*stop)(void);
 
    /* True only for the shared status chat tab, not other frontend pages. */

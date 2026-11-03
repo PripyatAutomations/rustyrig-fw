@@ -546,8 +546,12 @@ bool rrclient_cleanup(void) {
    // Let the frontend module tear down first: it must unregister its event
    // tokens and idle/timer sources before the event bus goes away.
    if (frontend_module) {
-      rr_unload_module(frontend_module->mod_name);
-      frontend_module = NULL;
+      if (rr_unload_module(frontend_module->mod_name)) {
+         frontend_module = NULL;
+      } else {
+         Log(LOG_CRIT, "module", "Frontend module %s remains mapped because shutdown was incomplete",
+             frontend_module->mod_name);
+      }
    }
 
    rrclient_receiver_connect_shutdown();
@@ -612,6 +616,7 @@ typedef struct {
    GMutex mutex;
    GCond cond;
    bool ready, failed;
+   bool core_stopped;
    GMainLoop *core_loop;
 } rr_gtk_experiment_t;
 static gpointer rr_gtk_experiment_thread(gpointer data) {
@@ -623,8 +628,16 @@ static gpointer rr_gtk_experiment_thread(gpointer data) {
    e->ready = true;
    g_cond_signal(&e->cond);
    g_mutex_unlock(&e->mutex);
-   if (!failed) e->ops->run();
-   g_main_loop_quit(e->core_loop);
+   if (!failed) {
+      e->ops->run();
+      g_main_loop_quit(e->core_loop);
+      g_mutex_lock(&e->mutex);
+      /* Do not tear down GTK while a core event callback can still queue UI work. */
+      while (!e->core_stopped)
+         g_cond_wait(&e->cond, &e->mutex);
+      g_mutex_unlock(&e->mutex);
+   }
+   if (e->ops->stop) e->ops->stop();
    return NULL;
 }
 
@@ -901,6 +914,8 @@ int main(int argc, char *argv[]) {
                   g_main_loop_unref(gtk_test.core_loop);
                   g_cond_clear(&gtk_test.cond);
                   g_mutex_clear(&gtk_test.mutex);
+               } else if (frontend_ops() && frontend_ops()->stop) {
+                  frontend_ops()->stop();
                }
                rr_unload_module(requested);
                frontend_module = NULL;
@@ -979,6 +994,10 @@ int main(int argc, char *argv[]) {
          rr_core_timeout(rr_rtp_supported(false) ? 10 : 50, G_PRIORITY_DEFAULT, ws_poll_cb);
          Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p context=%p", (void *)g_thread_self(), (void *)rr_experiment_core_context);
          g_main_loop_run(gtk_test.core_loop);
+         g_mutex_lock(&gtk_test.mutex);
+         gtk_test.core_stopped = true;
+         g_cond_signal(&gtk_test.cond);
+         g_mutex_unlock(&gtk_test.mutex);
          g_thread_join(gtk_worker);
          gtk_worker = NULL;
          g_main_loop_unref(gtk_test.core_loop);
@@ -986,6 +1005,7 @@ int main(int argc, char *argv[]) {
          g_mutex_clear(&gtk_test.mutex);
       } else {
          frontend_ops()->run();
+         if (frontend_ops() && frontend_ops()->stop) frontend_ops()->stop();
       }
    }
    rrclient_cleanup();
