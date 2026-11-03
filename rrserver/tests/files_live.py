@@ -12,6 +12,7 @@ from ws_helpers import WebSocket, TEST_ACLS
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix='rr-files-live-') as temporary:
     work = pathlib.Path(temporary)
+    (work / 'modules').mkdir()
     share = work / 'export'; share.mkdir()
     (share / 'existing.cfg').write_text('original\n')
     (share / 'nested').mkdir()
