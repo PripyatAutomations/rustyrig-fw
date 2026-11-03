@@ -55,6 +55,7 @@ def inventory(client):
 
 with tempfile.TemporaryDirectory(prefix="rr-serial-live-") as temporary:
     work = pathlib.Path(temporary)
+    (work / 'modules').mkdir()
     database = work / "master.db"
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
