@@ -77,7 +77,7 @@ rrserver_objs += filters.o		# Support for managing BPF/LPF/HPF
 rrserver_objs += gpio.o			# GPIO controls
 rrserver_objs += hostlog.o		# Stream host Log() lines to FLAG_SYSLOG clients as binframes
 rrserver_objs += help.o			# support for help menus from filesystem, if available
-rrserver_objs += http.bans.o
+# User-agent bans are owned by librrprotocol (shared HTTP/native TLS policy).
 rrserver_objs += i2c.o			# Support for i2c bus devices
 rrserver_objs += identity.o
 rrserver_objs += link.o		        # Authenticated server-link sessions
