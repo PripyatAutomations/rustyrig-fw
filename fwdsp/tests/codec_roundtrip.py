@@ -49,7 +49,7 @@ int main(void) {
 }
 ''')
     sources = [('client', config_pipelines('config/rrclient.cfg')),
-               ('server', config_pipelines('config/rrserver.cfg'))]
+               ('server', config_pipelines('config/rrserver.pipelines.cfg'))]
     for role, macro in [('client', 'FWDSP_RIG_PCM_SOURCE'), ('server', 'FWDSP_RIG_PCM_SOURCE')]:
         subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
                        ['-I.', '-DTEST_SOURCE=' + macro, str(source), '-o', str(work / 'defaults')], check=True)
