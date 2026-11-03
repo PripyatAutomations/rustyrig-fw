@@ -1,3 +1,4 @@
+#include "gtk.chat-context.h"
 //
 // rrclient/gtk/gtk.chat.c: Chat stuff
 //    This is part of rustyrig-fw.
@@ -247,7 +248,7 @@ bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget *
    if (!room || !*room || !strcasecmp(room, "status")) {
       tab = status_room_tab;
    } else if (room_tabs) {
-      tab = g_hash_table_lookup(room_tabs, rrclient_window_name(room));
+      tab = g_hash_table_lookup(room_tabs, gtk_chat_window_name(room));
    }
 
    if (!tab) {
@@ -1608,7 +1609,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    (void)is_rig;                /* Historical hint is not room-type authority. */
 
    if (!is_query && gtk_chat_room_has_waterfall(room)) {
-      GtkWidget *spectrum = rr_gtk_spectrum_panel_new(!g_ascii_strcasecmp(room, "&local-sdr") ? "Local" : server_name, room);
+      GtkWidget *spectrum = rr_gtk_spectrum_panel_new(!g_ascii_strcasecmp(room, "&local-sdr") ? "Local" : gtk_chat_profile(), room);
       gtk_box_pack_start(GTK_BOX(chat_box), spectrum, FALSE, TRUE, 2);
       gtk_widget_show_all(spectrum);
    }
@@ -1627,7 +1628,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_widget_add_events(chat_textview, GDK_POINTER_MOTION_MASK);
    g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
-   g_object_set_data_full(G_OBJECT(chat_textview), "rr-server-name", room ? g_strdup(server_name) : NULL, g_free);
+   g_object_set_data_full(G_OBJECT(chat_textview), "rr-server-name", room ? g_strdup(gtk_chat_profile()) : NULL, g_free);
    gtk_chat_links_attach(chat_textview);
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
@@ -1767,7 +1768,7 @@ static void gtk_chat_tab_close(GtkWidget *page, gboolean force) {
 
       return;
    }
-   char *window = g_strdup(rrclient_window_name(tab->room));
+   char *window = g_strdup(gtk_chat_window_name(tab->room));
 
    if (window) {
       gtk_chat_execute_command(window, force ? "/win close -force" : "/win close");
@@ -1783,7 +1784,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    if (!room_tabs) {
       room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    }
-   GtkRoomTab *existing = g_hash_table_lookup(room_tabs, rrclient_window_name(room));
+   GtkRoomTab *existing = g_hash_table_lookup(room_tabs, gtk_chat_window_name(room));
 
    if (existing) {
       if (is_query && !existing->is_query) {
@@ -1791,7 +1792,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
          userlist_remove_room_view(existing->room);
       }
 
-      if (!select || !rrclient_present_context()) {
+      if (!select || !gtk_chat_context_selected()) {
          return;
       }
       gtk_chat_select_existing_tab(existing);
@@ -1803,7 +1804,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    GtkRoomTab *tab = g_new0(GtkRoomTab, 1);
    tab->is_query = is_query;
    snprintf(tab->room, sizeof(tab->room), "%s", room);
-   snprintf(tab->server, sizeof(tab->server), "%s", server_name ? server_name : "");
+   snprintf(tab->server, sizeof(tab->server), "%s", gtk_chat_profile() ? gtk_chat_profile() : "");
    tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *box = create_chat_box_for_room(!is_query && !strcasecmp(room, ws_authoritative_room()), room, is_query);
    g_object_set_data(G_OBJECT(tab->page), "rr-chat-box", box);
@@ -1817,11 +1818,11 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    GtkWidget *label = gtk_label_new(room);
    gtk_widget_show_all(label);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), tab->page, label);
-   g_hash_table_insert(room_tabs, g_strdup(rrclient_window_name(room)), tab);
+   g_hash_table_insert(room_tabs, g_strdup(gtk_chat_window_name(room)), tab);
    gtk_widget_show_all(tab->page);
 
    if (is_query) {
-      rrclient_irc_query_opened(ws_conn, room);
+      gtk_chat_note_activity(room, true);
    }
 
    if (!select) {
@@ -1833,7 +1834,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    }
 
    // Background servers create tabs without stealing the active conversation.
-   if (server_name && rrclient_selected_server() && strcmp(server_name, rrclient_selected_server())) {
+   if (!gtk_chat_context_selected()) {
       return;
    }
    // A successful JOIN changes the active conversation. Select the new tab
@@ -1856,9 +1857,9 @@ static bool gtk_chat_nick_character(unsigned char c) {
 
 /* Incoming traffic ensures a tab exists while preserving selection and draft focus. */
 void gtk_chat_incoming(const char *room, bool query, const char *text, const char *nickname) {
-   bool irc_query = ws_conn && !ws_conn->is_ws && room && room[0] != '#' && room[0] != '&';
+   bool irc_query = gtk_chat_context_irc() && room && room[0] != '#' && room[0] != '&';
    gtk_chat_tab_add(room, query || irc_query, false);
-   GtkRoomTab *tab = room && room_tabs ? g_hash_table_lookup(room_tabs, rrclient_window_name(room)) : NULL;
+   GtkRoomTab *tab = room && room_tabs ? g_hash_table_lookup(room_tabs, gtk_chat_window_name(room)) : NULL;
    bool mention = false;
    size_t length = nickname ? strlen(nickname) : 0;
 
@@ -1880,7 +1881,7 @@ void gtk_chat_incoming(const char *room, bool query, const char *text, const cha
 
    if (tab && text) {
       if (mention) {
-         rrclient_irc_stats_highlight(ws_conn, room);
+         gtk_chat_note_activity(room, false);
       }
       gtk_tabs_page_activity(GTK_NOTEBOOK(main_notebook), tab->page, mention);
    }
@@ -1888,7 +1889,7 @@ void gtk_chat_incoming(const char *room, bool query, const char *text, const cha
 
 void gtk_chat_room_add(const char *room) {
    /* IRC NOTICE/ACTION and diagnostic paths can ensure a nick tab through room_add. Only actual channels own rosters on an IRC connection. */
-   bool query = ws_conn && !ws_conn->is_ws && room && room[0] != '#' && room[0] != '&';
+   bool query = gtk_chat_context_irc() && room && room[0] != '#' && room[0] != '&';
    gtk_chat_tab_add(room, query, true);
 }
 
@@ -1915,7 +1916,7 @@ void gtk_chat_room_remove(const char *room) {
    if (!room_tabs || !room) {
       return;
    }
-   GtkRoomTab *tab = g_hash_table_lookup(room_tabs, rrclient_window_name(room));
+   GtkRoomTab *tab = g_hash_table_lookup(room_tabs, gtk_chat_window_name(room));
 
    if (!tab) {
       return;
@@ -1926,7 +1927,7 @@ void gtk_chat_room_remove(const char *room) {
    if (page >= 0) {
       gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), page);
    }
-   g_hash_table_remove(room_tabs, rrclient_window_name(room));
+   g_hash_table_remove(room_tabs, gtk_chat_window_name(room));
    /* Removing the selected room does not necessarily emit a notebook switch signal; explicitly re-evaluate the shared floating VFO panel. */
    gtk_chat_room_vfos_changed(NULL);
 }
@@ -1939,7 +1940,7 @@ void gtk_chat_room_set_topic(const char *room, const char *topic) {
    if (!room_tabs || !main_notebook) {
       return;
    }
-   GtkRoomTab *tab = g_hash_table_lookup(room_tabs, rrclient_window_name(room));
+   GtkRoomTab *tab = g_hash_table_lookup(room_tabs, gtk_chat_window_name(room));
 
    if (tab && tab->page) {
       gtk_tabs_page_set_topic(GTK_NOTEBOOK(main_notebook), tab->page, topic);

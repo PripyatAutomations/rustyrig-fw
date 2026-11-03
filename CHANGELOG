@@ -1,6 +1,9 @@
 rustyrig-fw (1.0.0) testing; urgency=medium
 
   * Prepare RustyRig 1.0.0 release.
+  * Preserve originating network and room identity in queued GTK chat events,
+    tab commands, roster bindings and text; create channel tabs before drawing
+    join notices and keep IRC query/highlight bookkeeping on the core thread.
   * Define librrsdrutils before rrbridge build rules so the library builds
     with rrbridge instead of first compiling during make install.
   * Replace Mongoose server-link sockets with authenticated OpenSSL/wslay WSS
@@ -67,7 +70,7 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     headers in standalone component-test builds.
   * Update GTK test harnesses for current widget and floating-panel APIs.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 03 Nov 2026 03:46:30 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 03 Nov 2026 04:01:04 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

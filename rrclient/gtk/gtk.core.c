@@ -1,3 +1,4 @@
+#include "gtk.chat-context.h"
 #include <rrclient/config.layers.h>
 #include <rrclient/database.h>
 //
@@ -2058,10 +2059,12 @@ typedef enum {
 } GtkChatAction;
 typedef struct {
    GtkChatAction action;
+   GtkChatContext context;
    char *a, *b;
 } GtkChatCommand;
 static gboolean frontend_gtk_chat_command_run(gpointer opaque) {
    GtkChatCommand *cmd = opaque;
+   const GtkChatContext *previous = gtk_chat_context_push(&cmd->context);
 
    switch (cmd->action) {
       case GTK_CHAT_ADD: {
@@ -2094,10 +2097,13 @@ static gboolean frontend_gtk_chat_command_run(gpointer opaque) {
       }
    }
 
+   gtk_chat_context_pop(previous);
+
    return G_SOURCE_REMOVE;
 }
 static void frontend_gtk_chat_command_free(gpointer opaque) {
    GtkChatCommand *cmd = opaque;
+   gtk_chat_context_clear(&cmd->context);
    g_free(cmd->a);
    g_free(cmd->b);
    g_free(cmd);
@@ -2105,6 +2111,7 @@ static void frontend_gtk_chat_command_free(gpointer opaque) {
 static void frontend_gtk_chat_command(GtkChatAction action, const char *a, const char *b) {
    GtkChatCommand *cmd = g_new0(GtkChatCommand, 1);
    cmd->action = action;
+   gtk_chat_context_capture(&cmd->context, a);
    cmd->a = g_strdup(a);
    cmd->b = g_strdup(b);
 
@@ -2160,13 +2167,16 @@ static void ui_print_gtk_literal(const char *window, const char *fmt, ...) {
 typedef struct {
    char *window;
    char *message;
+   GtkChatContext context;
 } GtkQueuedPrint;
 
 static gboolean frontend_gtk_queued_print(gpointer opaque) {
    GtkQueuedPrint *print = opaque;
 
    if (!dying) {
+      const GtkChatContext *previous = gtk_chat_context_push(&print->context);
       ui_print_gtk_literal(print->window, "%s", print->message);
+      gtk_chat_context_pop(previous);
    }
 
    return G_SOURCE_REMOVE;
@@ -2174,6 +2184,7 @@ static gboolean frontend_gtk_queued_print(gpointer opaque) {
 
 static void frontend_gtk_queued_print_free(gpointer opaque) {
    GtkQueuedPrint *print = opaque;
+   gtk_chat_context_clear(&print->context);
    g_free(print->window);
    g_free(print->message);
    g_free(print);
@@ -2188,16 +2199,19 @@ static void frontend_gtk_vprint(const char *window, const char *fmt, va_list ap)
    char *rendered = g_strdup_vprintf(fmt, copy);
    va_end(copy);
 
-   if (g_thread_self() == frontend_gtk_owner) {
+   if (!frontend_gtk_event_context) {
       ui_print_gtk_literal(window, "%s", rendered);
       g_free(rendered);
 
       return;
    }
    GtkQueuedPrint *print = g_new0(GtkQueuedPrint, 1);
+   gtk_chat_context_capture(&print->context, window);
    print->window = g_strdup(window);
    print->message = rendered;
    GSource *source = g_idle_source_new();
+   /* Protocol delivery must create a JOIN/query tab before its text is drawn. */
+   g_source_set_priority(source, G_PRIORITY_DEFAULT_IDLE + 1);
    g_source_set_callback(source, frontend_gtk_queued_print, print, frontend_gtk_queued_print_free);
    g_source_attach(source, frontend_gtk_event_context);
    g_source_unref(source);
@@ -2844,100 +2858,6 @@ static void frontend_gtk_server_picker_show_event(const rr_event_message_t *mess
    }
 }
 
-/* Existing protocol event, copied by librustyaxe for GTK-domain delivery. No rrconn_t crosses threads. Leave core authoritative state in core. */
-/* Subscribe to the original protocol events, with owned JSON delivered by librustyaxe on the GTK domain. The core remains the state authority. */
-extern char session_token[HTTP_TOKEN_LEN + 1];
-extern const char *login_user;
-static void frontend_gtk_room_protocol_event(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)connection;
-   (void)unused;
-
-   if (dying || !data) {
-      return;
-   }
-
-   if (!strcmp(event, "userinfo")) {
-      userlist_redraw_gtk();
-
-      return;
-   }
-   dict *d = json2dict(data);
-
-   if (!d) {
-      return;
-   }
-   const char *room = dict_get(d, "talk.room", NULL);
-
-   if (!room) {
-      room = dict_get(d, "talk.target", NULL);
-   }
-
-   if (!room) {
-      dict_free(d);
-
-      return;
-   }
-
-   if (!strcmp(event, "join")) {
-      const char *who = dict_get(d, "talk.user", NULL);
-
-      if (who && login_user && !strcasecmp(who, login_user)) {
-         gtk_chat_room_add(room);
-      }
-      userlist_redraw_gtk();
-   } else if (!strcmp(event, "part")) {
-      const char *session = dict_get(d, "talk.session", NULL);
-      bool self = session && *session && session_token[0] && !strcmp(session, session_token);
-
-      if (self && !dict_get_bool(d, "talk.kicked", false)) {
-         gtk_chat_room_remove(room);
-      }
-      userlist_redraw_gtk();
-   } else if (!strcmp(event, "room.deleted")) {
-      gtk_chat_room_remove(room);
-      userlist_redraw_gtk();
-   } else if (!strcmp(event, "room.topic")) {
-      gtk_chat_room_set_topic(room, dict_get(d, "talk.topic", ""));
-   } else if (!strcmp(event, "room.vfo") || !strcmp(event, "room.vfo-list")) {
-      gtk_chat_room_vfos_changed(room);
-   } else if (!strcmp(event, "room.state")) {
-      userlist_room_state_changed(room);
-      userlist_redraw_gtk();
-      ptt_button_refresh();
-   }
-   dict_free(d);
-}
-
-static void frontend_gtk_talk_msg_event(const char *event, const char *data, rrconn_t *connection, void *user) {
-   (void)event;
-   (void)connection;
-   (void)user;
-
-   if (dying || !data) {
-      return;
-   }
-   dict *d = json2dict(data);
-
-   if (!d) {
-      return;
-   }
-   const char *room = dict_get(d, "talk.target", NULL);
-   const char *from = dict_get(d, "talk.from", "?");
-   const char *kind = dict_get(d, "talk.msg_type", NULL);
-   const char *text = dict_get(d, "talk.data", NULL);
-   bool query = dict_get_bool(d, "talk.query", false) || (kind && (!strcasecmp(kind, "priv") || !strcasecmp(kind, "privmsg")));
-
-   if (query && from && login_user && strcasecmp(from, login_user)) {
-      room = from;
-   }
-
-   if (room && *room) {
-      const char *unread = text && kind && strncasecmp(kind, "replay-", 7) && (!login_user || strcasecmp(from, login_user)) ? text : NULL;
-      gtk_chat_incoming(room, query, unread, login_user);
-   }
-   dict_free(d);
-}
-
 static void frontend_gtk_ptt_state_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -3101,28 +3021,8 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    } else {
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to server-picker requests");
    }
-   static const char *room_events[] = {
-      "join", "part", "room.deleted", "room.topic", "room.vfo",
-      "room.vfo-list", "room.state", "userinfo"
-   };
+   gtk_chat_protocol_register(frontend_gtk_event_context);
 
-   for (size_t i = 0 ; i < sizeof(room_events) / sizeof(room_events[0]) ; i++) {
-      rr_event_token_t token = event_on_domain_token(room_events[i], frontend_gtk_room_protocol_event, NULL, "gtk");
-
-      if (token) {
-         rr_module_token_add(token);
-      } else {
-         g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to %s on GTK domain", room_events[i]);
-      }
-   }
-
-   rr_event_token_t talk_event = event_on_domain_token("talk.msg", frontend_gtk_talk_msg_event, NULL, "gtk");
-
-   if (talk_event) {
-      rr_module_token_add(talk_event);
-   } else {
-      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to talk.msg on GTK domain");
-   }
    rr_event_token_t ptt_event = event_on_message_domain_token("client.ui.ptt.state", frontend_gtk_ptt_state_event, NULL, "gtk");
 
    if (ptt_event) {

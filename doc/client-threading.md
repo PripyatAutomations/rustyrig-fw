@@ -372,3 +372,20 @@ serial attach-request event shape. Its legacy interactive serial-settings
 dialog automation is not covered; the prior fixture no longer matched the
 dialog's current widget structure. Do not treat this partial migration as
 completion of the v1.1 thread separation.
+
+### GTK chat routing identity (Nov 3)
+
+Chat protocol listeners now capture the originating profile, room window key,
+login identity and session before leaving the core connection context. GTK
+renders that copied identity through a presentation scope; it does not switch
+the core connection to route an event. Queued frontend tab commands and text
+carry the same identity. Protocol/tab delivery precedes text delivery so a
+JOIN notice cannot fall back to STATUS while its channel tab is still queued.
+Roster widgets and chat entries retain the profile and window key that created
+them, including when another network has a channel with the same name.
+Query-open notifications and highlight counters return to core through
+`client.ui.chat.activity` instead of using a GTK-side connection pointer.
+
+This fixes chat destination identity and delivery ordering. The remaining
+shared roster-model and GTK input/control accesses listed above still require
+an ownership migration; this is not a complete threading migration.

@@ -1,3 +1,4 @@
+#include "gtk.chat-context.h"
 #include "gtk.tree-style.h"
 //
 
@@ -119,7 +120,7 @@ static GtkTreeViewColumn *userlist_column(GtkWidget *view, int id);
 static room_userlist_entry_t *current_room_userlist(void) {
    const char *room = rrclient_current_room();
 
-   return room && room_userlist_views ? g_hash_table_lookup(room_userlist_views, rrclient_window_name(room)) : NULL;
+   return room && room_userlist_views ? g_hash_table_lookup(room_userlist_views, gtk_chat_window_name(room)) : NULL;
 }
 
 
@@ -1752,7 +1753,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
       room_userlist_views = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, free);
    }
 
-   if (g_hash_table_lookup(room_userlist_views, rrclient_window_name(room))) {
+   if (g_hash_table_lookup(room_userlist_views, gtk_chat_window_name(room))) {
       return;
    }
 
@@ -1765,7 +1766,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    entry->paned = paned;
    entry->dock_paned = paned;
    entry->docked = true;
-   entry->server = g_strdup(server_name ? server_name : "");
+   entry->server = g_strdup(gtk_chat_profile() ? gtk_chat_profile() : "");
 
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
@@ -1791,7 +1792,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    entry->auto_dock_width = userlist_layout_int(view, "dock-width", 0) <= 0;
    entry->auto_window_width = userlist_layout_int(view, "width", 0) <= 0;
    g_object_set_data(G_OBJECT(view), "rr-room-roster", entry);
-   g_object_set_data_full(G_OBJECT(view), "rr-roster-window", g_strdup(rrclient_window_name(room)), g_free);
+   g_object_set_data_full(G_OBJECT(view), "rr-roster-window", g_strdup(gtk_chat_window_name(room)), g_free);
    userlist_fit_columns(view);
    /* Keep the panel alive while it moves between the chat pane and a detachable window.  The extra reference is released when the room is removed. */
    g_object_ref_sink(panel);
@@ -1809,7 +1810,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    g_signal_connect(paned, "notify::position", G_CALLBACK(room_userlist_position), entry);
    g_signal_connect(paned, "size-allocate", G_CALLBACK(room_userlist_allocate), entry);
    entry->resize_watch_id = g_timeout_add_seconds(1, room_userlist_resize_watch, entry);
-   g_hash_table_insert(room_userlist_views, g_strdup(rrclient_window_name(room)), entry);
+   g_hash_table_insert(room_userlist_views, g_strdup(gtk_chat_window_name(room)), entry);
    userlist_redraw_view(view, room);
    gtk_widget_show_all(panel);
    /* Initial allocation measures visible columns and VFO controls after show. */
@@ -1819,7 +1820,7 @@ void userlist_remove_room_view(const char *room) {
    if (!room_userlist_views || !room) {
       return;
    }
-   room_userlist_entry_t *entry = g_hash_table_lookup(room_userlist_views, rrclient_window_name(room));
+   room_userlist_entry_t *entry = g_hash_table_lookup(room_userlist_views, gtk_chat_window_name(room));
 
    if (entry) {
       g_object_set_data(G_OBJECT(entry->view), "rr-room-roster", NULL);
@@ -1860,14 +1861,14 @@ void userlist_remove_room_view(const char *room) {
       g_free(entry->room);
       g_free(entry->server);
    }
-   g_hash_table_remove(room_userlist_views, rrclient_window_name(room));
+   g_hash_table_remove(room_userlist_views, gtk_chat_window_name(room));
 }
 
 void userlist_room_state_changed(const char *room) {
    if (!room || !*room) {
       return;
    }
-   room_userlist_entry_t *entry = room_userlist_views ? g_hash_table_lookup(room_userlist_views, rrclient_window_name(room)) : NULL;
+   room_userlist_entry_t *entry = room_userlist_views ? g_hash_table_lookup(room_userlist_views, gtk_chat_window_name(room)) : NULL;
 
    if (!entry && rrclient_present_context() && !strcasecmp(room, ws_authoritative_room())) {
       entry = &rig_userlist_entry;
@@ -1890,7 +1891,7 @@ void userlist_room_vfos_changed(const char *room) {
    room_userlist_entry_t *entry = NULL;
 
    if (room_userlist_views) {
-      entry = g_hash_table_lookup(room_userlist_views, rrclient_window_name(room));
+      entry = g_hash_table_lookup(room_userlist_views, gtk_chat_window_name(room));
    }
 
    if (!entry && strcasecmp(room, ws_authoritative_room()) == 0) {

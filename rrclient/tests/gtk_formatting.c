@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
+#include "rrclient/gtk/gtk.chat-protocol.c"
 #include "rrclient/gtk/gtk.chat.c"
 #include "rrclient/gtk/gtk.chat.links.c"
 #include "rrclient/gtk/gtk.chat.highlight.c"
@@ -23,13 +24,14 @@ gui_window_t *create_vfo_window(GtkWidget *controls, char vfo) {
    return NULL;
 }
 
-static rrconn_t origin_connection;
+static rrconn_t origin_connection, irc_origin_connection;
+static bool checking_irc_input;
 rrconn_t *ws_conn;
 void userlist_remove_room_view(const char *room) {
    (void)room;
 }
 rrconn_t *rrclient_connection_find(const char *name) {
-   return name && !strcmp(name, "server") ? &origin_connection : NULL;
+   return name && !strcmp(name, "efnet") ? &irc_origin_connection : name && !strcmp(name, "server") ? &origin_connection : NULL;
 }
 char *client_chat_complete(const char *line, size_t *cursor, void **state) {
    return NULL;
@@ -51,15 +53,16 @@ static char parsed_menu_command[128];
 static const char *dispatched_room;
 static unsigned dispatched;
 void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback) (void *), void *data) {
-   assert(connection == &origin_connection && room && !strcmp(room, "#origin"));
+   assert(connection == (checking_irc_input ? &irc_origin_connection : &origin_connection));
+   assert(room && !strcmp(room, checking_irc_input ? "#HamRadio" : "#origin"));
    dispatched_room = room;
    dispatched++;
    callback(data);
    dispatched_room = NULL;
 }
 bool parse_chat_input_real(const char *message) {
-   assert(!strcmp(dispatched_room ? dispatched_room : gtk_chat_current_room(), "#origin"));
-   assert(!strcmp(selected_server, "server"));
+   assert(!strcmp(dispatched_room ? dispatched_room : gtk_chat_current_room(), checking_irc_input ? "#HamRadio" : "#origin"));
+   assert(!strcmp(selected_server, checking_irc_input ? "efnet" : "server"));
    snprintf(parsed_menu_command, sizeof(parsed_menu_command), "%s", message);
 
    return false;
@@ -600,9 +603,50 @@ static void test_input_history_focus(void) {
    puts("PASS: GTK focused chat history, keypad arrows and draft restoration; other entries keep arrows");
 }
 
+/* Optional widget/runtime dependencies are not exercised by this fixture. */
+GtkWidget *rr_connect_button_new(void) { return gtk_button_new(); }
+GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) { return gtk_label_new(room); }
+bool rrclient_room_part(const char *room) { return false; }
+void rrclient_media_room_parted(const char *room) { }
+bool rrclient_connection_traffic(const char *profile, uint64_t *rx, uint64_t *tx) { return false; }
+bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) { return false; }
+void userlist_redraw_gtk(void) { }
+void userlist_room_state_changed(const char *room) { }
+void ptt_button_refresh(void) { }
+
+const char *login_user;
+uint32_t rrclient_room_vfo_mask(const char *room) { return 0; }
+const char *rrclient_room_vfos(const char *room) { return ""; }
+char rrclient_room_active_vfo(const char *room) { return 'A'; }
+void rrclient_room_set_active_vfo(const char *room, char vfo) { }
+bool rrclient_room_tx_control(const char *room) { return false; }
+bool rrclient_room_rx_tunable(const char *room) { return false; }
+const char *rrclient_media_vfo_uuid(const char *room, char vfo) { return NULL; }
+const dict *rrclient_object_property(const char *uuid, const char *name) { return NULL; }
+bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode) { return false; }
+void userlist_room_vfos_changed(const char *room) { }
+void vfo_controls_set_local_sdr(bool local) { }
+void vfo_controls_set_rx_only(bool rx_only) { }
+bool vfo_update_ui(void) { return false; }
+GType gtk_freq_entry_get_type(void) { return G_TYPE_OBJECT; }
+bool gtk_freq_entry_is_editing(GtkFreqEntry *fe) { return false; }
+unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *fe) { return 0; }
+void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long hz) { }
+void modebox_update_state(const char *mode, int width) { }
+GtkWidget *rr_gtk_rf_spectrum_new(void) { return gtk_label_new(""); }
+RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) { return NULL; }
+GtkWidget *rr_floating_panel_body(RRFloatPanel *panel) { return NULL; }
+void rr_floating_panel_show(RRFloatPanel *panel) { }
+void rr_floating_panel_hide(RRFloatPanel *panel) { }
+void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable) { }
+void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title) { }
+void rr_floating_panel_set_title_click(RRFloatPanel *panel, GCallback callback, gpointer data) { }
+
 static unsigned roster_docks;
+static char roster_profile[128];
 void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    roster_docks++;
+   snprintf(roster_profile, sizeof(roster_profile), "%s", gtk_chat_profile() ? gtk_chat_profile() : "");
 }
 bool gui_hotkey_register(GtkWidget *widget) {
    return false;
@@ -631,7 +675,104 @@ static void test_query_has_no_roster(void) {
    puts("PASS: query widgets have no roster while IRC channels keep theirs");
 }
 
-int main(void) {
+/* Reproduce core producing text before GTK receives JOIN, then selecting a
+ * different network before GTK drains either queue. */
+static void queued_chat_text(const char *room, const char *format, ...) {
+   va_list args;
+   va_start(args, format);
+   frontend_gtk_vprint(room, format, args);
+   va_end(args);
+}
+static gpointer produce_irc_chat(gpointer unused) {
+   queued_chat_text("#HamRadio", "joined #HamRadio");
+   frontend_gtk_chat_protocol_capture("join",
+      "{\"talk.room\":\"#HamRadio\",\"talk.user\":\"rustyape\"}", ws_conn, NULL);
+   frontend_gtk_chat_protocol_capture("room.topic",
+      "{\"talk.room\":\"#HamRadio\",\"talk.topic\":\"Radio topic\"}", ws_conn, NULL);
+   queued_chat_text("#HamRadio", "Topic: Radio topic");
+   frontend_gtk_chat_protocol_capture("talk.msg",
+      "{\"talk.target\":\"#HamRadio\",\"talk.from\":\"alice\",\"talk.msg_type\":\"pub\",\"talk.data\":\"hello rustyape\"}", ws_conn, NULL);
+   queued_chat_text("#HamRadio", "hello rustyape");
+   queued_chat_text(NULL, "End of MOTD");
+
+   return NULL;
+}
+static void test_queued_irc_identity(void) {
+   assert(gtk_init_check(NULL, NULL));
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   main_notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(window), main_notebook);
+   GtkRoomTab status = { .page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), .view = gtk_text_view_new() };
+   gtk_box_pack_start(GTK_BOX(status.page), status.view, TRUE, TRUE, 0);
+   status_room_tab = &status;
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status.page, gtk_label_new("STATUS"));
+   gtk_widget_show_all(window);
+   frontend_gtk_owner = g_thread_self();
+   frontend_gtk_event_context = g_main_context_ref_thread_default();
+   const char *old_server = server_name, *old_user = login_user;
+   server_name = "efnet";
+   login_user = "rustyape";
+   snprintf(selected_server, sizeof(selected_server), "efnet");
+   rrconn_t irc = { .is_ws = false };
+   ws_conn = &irc;
+   GThread *producer = g_thread_new("irc-test", produce_irc_chat, NULL);
+   g_thread_join(producer);
+   /* Neither connection pointers nor these compatibility globals may be used
+    * when rendering the now-queued messages. */
+   server_name = "server";
+   login_user = "different-nickname";
+   snprintf(selected_server, sizeof(selected_server), "server");
+   ws_conn = NULL;
+   gtk_chat_room_add("#HamRadio");
+   GtkRoomTab *other = g_hash_table_lookup(room_tabs, "server:#HamRadio");
+   assert(other);
+   gtk_entry_set_text(GTK_ENTRY(other->entry), "other network draft");
+   int selected_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
+   drain_gtk_events();
+   GtkRoomTab *tab = g_hash_table_lookup(room_tabs, "efnet:#HamRadio");
+   assert(tab && !tab->is_query && !strcmp(tab->server, "efnet"));
+   assert(tab != other && g_hash_table_lookup(room_tabs, "server:#HamRadio") == other);
+   assert(!strcmp(roster_profile, "efnet"));
+   assert(!strcmp(g_object_get_data(G_OBJECT(tab->entry), "rr-server-name"), "efnet"));
+   assert(!strcmp(g_object_get_data(G_OBJECT(tab->page), "rr-tab-topic"), "Radio topic"));
+   GtkTextIter start, end;
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tab->view));
+   gtk_text_buffer_get_bounds(buffer, &start, &end);
+   char *text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
+   assert(strstr(text, "joined #HamRadio") && strstr(text, "Topic: Radio topic") && strstr(text, "hello rustyape"));
+   assert(!strstr(text, "End of MOTD"));
+   g_free(text);
+   buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(status.view));
+   gtk_text_buffer_get_bounds(buffer, &start, &end);
+   text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
+   assert(strstr(text, "End of MOTD") && !strstr(text, "#HamRadio") && !strstr(text, "hello rustyape"));
+   g_free(text);
+   assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == selected_page);
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(other->entry)), "other network draft"));
+   buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(other->view));
+   assert(gtk_text_buffer_get_char_count(buffer) == 0);
+   checking_irc_input = true;
+   gtk_entry_set_text(GTK_ENTRY(tab->entry), "send to efnet");
+   assert(!parse_chat_input_gtk(NULL, tab->entry));
+   assert(!strcmp(parsed_menu_command, "send to efnet"));
+   checking_irc_input = false;
+   gtk_widget_destroy(window);
+   g_hash_table_destroy(room_tabs);
+   room_tabs = NULL;
+   status_room_tab = NULL;
+   main_notebook = chat_entry = chat_textview = NULL;
+   g_main_context_unref(frontend_gtk_event_context);
+   frontend_gtk_event_context = NULL;
+   server_name = old_server;
+   login_user = old_user;
+   puts("PASS: queued IRC JOIN, topic, roster and text retain network identity; STATUS keeps server notices");
+}
+
+int main(int argc, char **argv) {
+   if (argc == 2 && !strcmp(argv[1], "--irc-routing")) {
+      test_queued_irc_identity();
+      return 0;
+   }
    assert(gtk_formatting_control('B') == 0x02);
    assert(gtk_formatting_control('C') == 0x03);
    assert(gtk_formatting_control('U') == 0x1f);
@@ -707,5 +848,6 @@ int main(void) {
    test_room_links();
    test_input_history_focus();
    test_query_has_no_roster();
+   test_queued_irc_identity();
    puts("PASS: GTK mIRC red headings, numeric text, reset and markup escaping");
 }
