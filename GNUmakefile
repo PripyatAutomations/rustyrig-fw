@@ -68,9 +68,9 @@ callsign-lookup-world: librustyaxe.so
 	$(MAKE) -C callsign-lookup RUSTYRIG_FW_BUILD=true world
 extra_build += callsign-lookup-world
 endif
-include rrbridge/rules.mk
 include libfwdspmgr/rules.mk
 include librrsdrutils/rules.mk
+include rrbridge/rules.mk
 
 ifeq (${BUILD_RRCLIENT},true)
 include rrclient/rules.mk

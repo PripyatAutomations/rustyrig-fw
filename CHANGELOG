@@ -1,6 +1,8 @@
 rustyrig-fw (1.0.0) testing; urgency=medium
 
   * Prepare RustyRig 1.0.0 release.
+  * Define librrsdrutils before rrbridge build rules so the library builds
+    with rrbridge instead of first compiling during make install.
   * Replace Mongoose server-link sockets with authenticated OpenSSL/wslay WSS
     on TCP 4421; retain client HTTPS and enrollment on TCP 4420.
   * Automatically dial enrolled issuer identities without peer passwords,
@@ -65,7 +67,7 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     headers in standalone component-test builds.
   * Update GTK test harnesses for current widget and floating-panel APIs.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 03 Nov 2026 03:20:08 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 03 Nov 2026 03:46:30 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 
