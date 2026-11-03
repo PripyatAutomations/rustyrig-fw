@@ -16,6 +16,12 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/database.h>
+/* Serial fanout is outside this media-channel unit test. */
+void rrserver_serial_rx_pcm(struct rr_server_rig *radio, const void *samples, size_t len) {
+   (void)radio;
+   (void)samples;
+   (void)len;
+}
 struct GlobalState rig;
 
 
