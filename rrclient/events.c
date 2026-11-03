@@ -1773,14 +1773,20 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
 
    if (connected > 0) {
       char buf[64];
-      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&connected));
-      ui_print(output, "\00310***\017 Connected:  %s", buf);
+      struct tm local_tm;
+
+      if (localtime_r(&connected, &local_tm) && strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &local_tm)) {
+         ui_print(output, "\00310***\017 Connected:  %s", buf);
+      }
    }
 
    if (last_heard > 0) {
       char buf[64];
-      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&last_heard));
-      ui_print(output, "\00310***\017 Last heard: %s", buf);
+      struct tm local_tm;
+
+      if (localtime_r(&last_heard, &local_tm) && strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &local_tm)) {
+         ui_print(output, "\00310***\017 Last heard: %s", buf);
+      }
    }
 
    if (dict_get(d, "talk.usage.total-bytes", NULL)) {
