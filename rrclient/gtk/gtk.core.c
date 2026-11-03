@@ -931,6 +931,12 @@ static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
    }
 }
 
+static void main_toolbar_quit(GtkButton *button, gpointer unused) {
+   (void)button;
+   (void)unused;
+   event_emit("client.quit.request", NULL, NULL);
+}
+
 
 /* Kiwi controls run on the GTK owner thread. Changes are fire-and-forget
  * events to the core; no bridge IPC or network operations run in GTK. */
@@ -1098,6 +1104,7 @@ bool gui_init(void) {
    /* The shared status/command toolbar belongs above every notebook page. */
    GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+   gtk_widget_set_hexpand(rr_main_toolbar, TRUE);
    gtk_widget_set_margin_start(rr_main_toolbar, 4);
    GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
@@ -1108,7 +1115,12 @@ bool gui_init(void) {
    gtk_widget_set_tooltip_text(kiwi_button, "KiwiSDR controls for the active VFO");
    g_signal_connect(kiwi_button, "clicked", G_CALLBACK(kiwi_panel_show), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), kiwi_button, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
+   GtkWidget *quit_button = gtk_button_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_BUTTON);
+   gtk_button_set_relief(GTK_BUTTON(quit_button), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
+   g_signal_connect(quit_button, "clicked", G_CALLBACK(main_toolbar_quit), NULL);
+   gtk_box_pack_end(GTK_BOX(rr_main_toolbar), quit_button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, TRUE, TRUE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
    /* Preferred-width queries inside size-allocate can force nested GTK

@@ -33,8 +33,9 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     preserve legacy VFO availability updates.
   * Remove temporary right-edge margins from the GTK window, toolbar, and
     wrapped tab strip.
+  * Add a GTK toolbar close button that uses the existing confirmed quit flow.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:07:26 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:10:00 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 
