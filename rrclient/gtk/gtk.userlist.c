@@ -909,7 +909,7 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
     * control. */
    const char *label = talker && talker->name[0] ? talker->name : "PTT OFF";
    /* Keep the actual release target unchanged; only shorten its visible label. A 12-character cap prevents long usernames widening the docked roster. */
-   char *short_label = g_utf8_substring(label, 0, 12);
+   char *short_label = g_utf8_substring(label, 0, MIN(g_utf8_strlen(label, -1), 12));
 
    if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(control->ptt)), short_label)) {
       gtk_button_set_label(GTK_BUTTON(control->ptt), short_label);
