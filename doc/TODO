@@ -1,5 +1,6 @@
 Immediate needs
 ---------------
+rrclient: SDR Directory - Add left/right on group headers to collapse/expand in addition to existing -/+
 
 rrclient: Remove pipeline: from config tab since we have gui editor now
 
