@@ -1,5 +1,8 @@
 # Trace common child process creation paths.
 set pagination off
+set logging file /tmp/rr-gdb-processes.log
+set logging overwrite on
+set logging enabled on
 set breakpoint pending on
 set print thread-events off
 set follow-fork-mode parent
