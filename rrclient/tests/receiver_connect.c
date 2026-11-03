@@ -1,5 +1,9 @@
 #include <assert.h>
 #include <rrclient/receiver.connect.c>
+/* Directory fetch status belongs to the separate catalog fixture. */
+bool receiver_directory_busy(void) { return false; }
+const char *receiver_directory_last_error(void) { return NULL; }
+const char *receiver_directory_source_url(void) { return ""; }
 time_t now;
 static rrconn_t alpha = {
    .is_ws = true, .authenticated = true
