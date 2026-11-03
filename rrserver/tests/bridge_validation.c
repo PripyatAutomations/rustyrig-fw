@@ -46,7 +46,9 @@ static void program_lookup(void) {
    fclose(f);
    assert(!chmod("system/rrbridge", 0700));
    cfg = dict_new();
-   assert(cfg && !setenv("PATH", "system", 1));
+   char system_path[PATH_MAX];
+   assert(realpath("system", system_path));
+   assert(cfg && !setenv("PATH", system_path, 1));
    char *path = bridge_program_path();
    assert(path && g_str_has_suffix(path, "/system/rrbridge"));
    g_free(path);
