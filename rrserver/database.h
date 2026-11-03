@@ -11,6 +11,7 @@
 #if     !defined(__rrserver_database_h)
 #define __rrserver_database_h
 #include <stdbool.h>
+#include <librustyaxe/struct.h> /* rrconn_t */
 #include <stddef.h>
 #include <time.h>
 #if     defined(USE_SQLITE)
