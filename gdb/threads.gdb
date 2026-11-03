@@ -1,5 +1,8 @@
 # Trace thread creation, including threads created by shared libraries.
 set pagination off
+set logging file /tmp/rr-gdb-threads.log
+set logging overwrite on
+set logging enabled on
 set breakpoint pending on
 set print thread-events off
 
