@@ -1139,6 +1139,16 @@ void gtk_local_sdr_controls_show(void) {
 }
 
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data);
+GtkWidget *gtk_certificates_button_new(void) {
+   GtkWidget *button = gtk_button_new_with_label("Certificates");
+   GtkWidget *icon = gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON);
+   gtk_button_set_image(GTK_BUTTON(button), icon);
+   gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
+   gtk_widget_set_tooltip_text(button, "Manage local Ed25519 client keys");
+   g_signal_connect(button, "clicked", G_CALLBACK(gtk_manage_certificates), NULL);
+   return button;
+}
+
 static void frontend_gtk_main_window_destroy(GtkWidget *widget, gpointer unused) {
    (void)unused;
    if (main_window == widget) main_window = NULL;
@@ -1213,30 +1223,6 @@ bool gui_init(void) {
 
    // CONFIG tab (alt-2)
    config_tab = init_config_tab();
-   /* Settings, not a global connection control. */
-   GtkWidget *certificates = gtk_button_new_with_label("Manage Certificates");
-   GtkWidget *cert_icon = gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON);
-   gtk_button_set_image(GTK_BUTTON(certificates), cert_icon);
-   gtk_button_set_always_show_image(GTK_BUTTON(certificates), TRUE);
-   gtk_widget_set_tooltip_text(certificates, "Manage local Ed25519 client keys");
-   g_signal_connect(certificates, "clicked", G_CALLBACK(gtk_manage_certificates), NULL);
-
-   if (GTK_IS_BOX(config_tab)) {
-      gtk_box_pack_start(GTK_BOX(config_tab), certificates, FALSE, FALSE, 8);
-      gtk_widget_show_all(certificates);
-   } else {
-      /* A settings tab may be a scrolled container: attach to its outer vertical box where possible rather than putting it in the toolbar. */
-      GtkWidget *child = GTK_IS_BIN(config_tab) ? gtk_bin_get_child(GTK_BIN(config_tab)) : NULL;
-
-      if (GTK_IS_BOX(child)) {
-         gtk_box_pack_start(GTK_BOX(child), certificates, FALSE, FALSE, 8);
-         gtk_widget_show_all(certificates);
-      } else {
-         Log(LOG_WARN, "client.identity", "Config tab has no usable box for certificate action");
-         gtk_widget_destroy(certificates);
-      }
-   }
-
    // One GTK Log tab combines Client and Host streams; TUI tabs stay separate.
    log_tab = init_log_tab();
    host_log_tab = log_tab;

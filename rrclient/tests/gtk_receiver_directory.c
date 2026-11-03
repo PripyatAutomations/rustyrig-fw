@@ -34,11 +34,11 @@ int main(int argc, char **argv) {
    assert(receiver_directory_import(path));
    gtk_receiver_directory_init();
    event_emit("client.receiver-directory.show", NULL, NULL);
-   assert(directory_window && visible_count() == 2 && !receiver_directory_busy());
+   assert(directory_page && visible_count() == 2 && !receiver_directory_busy());
    GtkTreeIter iter;
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(directory_filter), &iter));
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
-   assert(gtk_widget_get_sensitive(config_button) && gtk_widget_get_sensitive(connect_button));
+   assert(gtk_widget_get_sensitive(favorite_button) && gtk_widget_get_sensitive(connect_button));
    connect_clicked(NULL, NULL);
    assert(connects == 1);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(directory_details));
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
    char *text = gtk_text_buffer_get_text(buffer, &first, &last, FALSE);
    assert(strstr(text, "<b>Receiver A</b>") && strstr(text, "sysop@example.invalid") && strstr(text, "30000000"));
    g_free(text);
-   state_clicked(NULL, "unreachable");
+   assert(receiver_directory_set_state("http://a.invalid:8073/", "unreachable", "Test failure"));
    assert(visible_count() == 1);
    assert(receiver_directory_set_state("http://a.invalid:8073/", "unknown", "Cleared"));
    assert(visible_count() == 2);
@@ -65,12 +65,11 @@ int main(int argc, char **argv) {
    // No URL configured: repeated opening/filtering causes zero fetches.
    event_emit("client.receiver-directory.show", NULL, NULL);
    assert(!receiver_directory_busy());
-   assert(hide_directory(directory_window, NULL, NULL));
-   assert(!gtk_widget_get_visible(directory_window));
    gtk_receiver_directory_shutdown();
+   assert(!directory_page);
    receiver_directory_shutdown();
    event_emit("client.receiver-directory.show", NULL, NULL);
-   assert(!directory_window);
+   assert(!directory_page);
    event_shutdown();
    g_unlink(path);
    g_free(path);

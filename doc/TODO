@@ -1,5 +1,8 @@
 Immediate needs
 ---------------
+
+rrclient: Remove pipeline: from config tab since we have gui editor now
+
 rrclient: Finish moving *all* colors/formatting out into themes
   - This should interact with the GTK CSS programmatically
 
@@ -9,8 +12,9 @@ rrclient: qpwgraph-inspired editor for audio routing in the PCM hub and friends
   - Should have a tab or part of the screen is a rack for hooking effects plugins into the audio graph
     - like carla/vcv rack? :P
 
-rrclient: Add x/z-modem, etc (down|up)load to the terminal
+rrclient: Add support for using kermit/x/z-modem, etc (down|up)load to the terminal
   - Pluggable so we can support various file transfer modes for experiments over top of HF ;)
+  - Should be able to spawn & attach ckermit/lrzsz
 
 rrclient: we should offer per-side (L/R) delay to sync different SDRs
   - maybe add some sort of "rtt sync" option to try to keep them synced

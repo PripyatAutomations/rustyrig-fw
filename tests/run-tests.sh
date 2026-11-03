@@ -7,6 +7,18 @@ if [[ ${RR_TEST_XVFB:-} != 1 ]]; then
   exec "$ROOT/tests/with-xvfb.sh" bash "$ROOT/tests/run-tests.sh" "$@"
 fi
 
+# Many component tests compile small C harnesses directly and rely on GLib
+# headers without going through the project makefiles. Keep their compiler
+# search path consistent with the normal build's pkg-config flags.
+if pkg-config --exists glib-2.0; then
+  for include_flag in $(pkg-config --cflags-only-I glib-2.0); do
+    if [[ $include_flag == -I* ]]; then
+      C_INCLUDE_PATH="${C_INCLUDE_PATH:+$C_INCLUDE_PATH:}${include_flag#-I}"
+    fi
+  done
+  export C_INCLUDE_PATH
+fi
+
 SKIP_CODECS=0
 if [[ ${1:-} == --skip-codecs ]]; then
   SKIP_CODECS=1
@@ -47,6 +59,7 @@ run_suite() {
     librrprotocol) run_dir "$suite" librrprotocol/tests ;;
     rrclient)    run_dir "$suite" rrclient/tests ;;
     rrserver)    run_dir "$suite" rrserver/tests ;;
+    rrpipelines) run_dir "$suite" rrpipelines/tests ;;
     selftest)    run_dir "$suite" tests/selftest ;;
     packaging)   run_dir "$suite" packaging/tests ;;
     librustyirc) run_dir "$suite" librustyirc/tests ;;
@@ -57,7 +70,7 @@ run_suite() {
 }
 
 if [ "$#" -eq 0 ]; then
-  SUITES="selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient rrbridge fwdsp libfwdspmgr www"
+  SUITES="selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient rrbridge fwdsp libfwdspmgr rrpipelines www"
 else
   SUITES="$*"
 fi

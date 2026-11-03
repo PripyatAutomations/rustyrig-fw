@@ -14,7 +14,6 @@ The SDR problem needs a server-side root-cause fix, not merely a room rename or 
 
 | Area | Issue | Expected result | Status |
 | --- | --- | --- | --- |
-| rrclient config editor | If `~/.config/rrclient.cfg` does not exist, opening the editor currently skips writing the active settings there. | First save a snapshot of the in-memory configuration to that path (creating the directory as needed), then open the editor. Preserve permissions and do not overwrite an existing file. | Open |
 | GTK dialogs | Confirm Quit may be obscured by another always-on-top/modal dialog. | Confirm Quit should be presented above the relevant client dialogs and remain accessible; use correct GTK transient/modal/window-group behavior rather than relying only on an always-on-top hint. | Open |
 | TUI prompt | Prompt repeats information already in the status line. | Display a simple `>` prompt, with status kept directly above it. | Open |
 | SDR Directory | Tab appears to wait for receiver details before presenting loading feedback. | Show the tab immediately with a clear loading state, then populate results or show an actionable error/empty state. | Open |

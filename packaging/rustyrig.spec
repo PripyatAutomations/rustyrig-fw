@@ -38,11 +38,12 @@ Requires: %{name}-libs = %{version}-%{release}, glib2, gstreamer1
 RustyRig client with TUI interface; the GTK interface ships separately
 in rustyrig-client-gtk as a loadable module.
 %package client-gtk
-Summary: RustyRig GTK client module
+Summary: RustyRig GTK client module and GStreamer pipeline editor
 Requires: %{name}-client = %{version}-%{release}, gtk3
 %description client-gtk
 GTK frontend for the RustyRig client, loaded from
-/usr/lib/rustyrig/modules/rrclient by the core client's [modules] configuration.
+/usr/lib/rustyrig/modules/rrclient by the core client's [modules] configuration,
+and a standalone graph editor for GStreamer pipelines.
 
 %package fwdsp
 Summary: RustyRig GStreamer audio DSP service
@@ -71,6 +72,7 @@ install -Dpm0755 tools/rr-get-chat-log %{buildroot}%{_bindir}/rr-get-chat-log
 install -Dpm0755 tools/rr-get-ptt-log %{buildroot}%{_bindir}/rr-get-ptt-log
 install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/rrclient-gtk.so %{buildroot}/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
+install -Dpm0755 bin/rrpipelines %{buildroot}%{_bindir}/rrpipelines
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
 install -Dpm0755 bin/callsign-lookup %{buildroot}%{_bindir}/callsign-lookup
 install -Dpm0755 librustyaxe.so %{buildroot}%{_libdir}/librustyaxe.so.0
@@ -141,6 +143,7 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %dir /usr/lib/rustyrig/modules/rrclient
 %files client-gtk
 /usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
+%{_bindir}/rrpipelines
 %{_datadir}/applications/rustyrig-client.desktop
 %{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 %files fwdsp

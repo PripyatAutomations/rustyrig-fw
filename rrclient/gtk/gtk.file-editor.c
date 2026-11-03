@@ -22,8 +22,10 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <gtk/gtk.h>
+#include <gio/gio.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/config.h>
+#include <librustyaxe/json.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
 #include "gtk.floating-panel.h"
@@ -929,6 +931,193 @@ static void on_fullscreen_button(GtkButton *button, gpointer user_data) {
    gui_fullscreen_toggle();
 }
 
+static GtkWidget *config_action_button(const gchar *label, const gchar *icon, const gchar *tooltip) {
+   GtkWidget *button = gtk_button_new_with_label(label);
+   gtk_button_set_image(GTK_BUTTON(button), gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_BUTTON));
+   gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
+   gtk_widget_set_tooltip_text(button, tooltip);
+   return button;
+}
+
+typedef struct {
+   GtkWidget *parent;
+   GSubprocess *process;
+} pipeline_editor_process_t;
+
+static void pipeline_editor_process_free(pipeline_editor_process_t *context) {
+   g_clear_object(&context->process);
+   if (context->parent) g_object_unref(context->parent);
+   g_free(context);
+}
+
+static gboolean pipeline_editor_apply_output(GtkWidget *parent, const gchar *output, gchar **error_message) {
+   dict *edited = json2dict(output);
+   if (!edited) {
+      *error_message = g_strdup("The pipeline editor returned invalid JSON.");
+      return FALSE;
+   }
+   int count = dict_get_int(edited, "pipelines.count", -1);
+   if (count < 0 || count > 512) {
+      *error_message = g_strdup("The pipeline editor returned an invalid pipeline count.");
+      dict_free(edited);
+      return FALSE;
+   }
+   GHashTable *ids = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   dict *updates = dict_new();
+   gboolean ok = ids != NULL && updates != NULL;
+   if (!ok) *error_message = g_strdup("Cannot allocate pipeline configuration updates.");
+   for (int i = 0; ok && i < count; i++) {
+      gchar *id_key = g_strdup_printf("pipelines.%d.id", i);
+      gchar *launch_key = g_strdup_printf("pipelines.%d.launch", i);
+      const gchar *id = dict_get(edited, id_key, NULL);
+      const gchar *launch = dict_get(edited, launch_key, NULL);
+      gboolean valid = id && *id && launch && *launch;
+      for (const gchar *p = id; valid && *p; p++) {
+         if (g_ascii_isspace(*p) || *p == '=' || *p == '[' || *p == ']' || *p == '\n' || *p == '\r') valid = FALSE;
+      }
+      if (!valid || g_hash_table_contains(ids, id)) {
+         *error_message = g_strdup_printf("The pipeline editor returned an invalid or duplicate pipeline at entry %d.", i);
+         ok = FALSE;
+      } else {
+         g_hash_table_add(ids, g_strdup(id));
+         gchar *config_key = g_strdup_printf("pipeline:%s", id);
+         if (!config_key || dict_add(updates, config_key, launch)) {
+            *error_message = g_strdup_printf("Could not stage pipeline '%s' for client configuration.", id);
+            ok = FALSE;
+         }
+         g_free(config_key);
+      }
+      g_free(id_key);
+      g_free(launch_key);
+   }
+   if (ok && dict_merge(cfg, updates)) {
+      *error_message = g_strdup("Could not apply pipeline updates to client configuration.");
+      ok = FALSE;
+   }
+   if (ok) {
+      rrclient_config_mark_dirty();
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Pipelines updated. Click Save Config to persist the changes.");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+   }
+   if (ids) g_hash_table_unref(ids);
+   dict_free(updates);
+   dict_free(edited);
+   return ok;
+}
+
+static void pipeline_editor_communicate_done(GObject *source, GAsyncResult *result, gpointer user_data) {
+   pipeline_editor_process_t *context = user_data;
+   GError *error = NULL;
+   gchar *output = NULL, *stderr_text = NULL;
+   gboolean communicated = g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, &stderr_text, &error);
+   if (!communicated) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Pipeline editor communication failed: %s", error ? error->message : "unknown error");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+   } else if (g_subprocess_get_if_exited(context->process) && g_subprocess_get_exit_status(context->process) == 0) {
+      gchar *message = NULL;
+      if (!output || !*output || !pipeline_editor_apply_output(context->parent, output, &message)) {
+         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", message ? message : "Pipeline editor returned no JSON.");
+         gtk_dialog_run(GTK_DIALOG(dialog));
+         gtk_widget_destroy(dialog);
+      }
+      g_free(message);
+   } else if (!(g_subprocess_get_if_exited(context->process) && g_subprocess_get_exit_status(context->process) == 2)) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Pipeline editor failed: %s",
+         stderr_text && *stderr_text ? stderr_text : "the editor exited unsuccessfully");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+   }
+   g_clear_error(&error);
+   g_free(output);
+   g_free(stderr_text);
+   pipeline_editor_process_free(context);
+}
+
+static void on_edit_pipelines_button(GtkButton *button, gpointer user_data) {
+   (void)user_data;
+   GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   dict *request = dict_new();
+   if (!request) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot allocate pipeline editor request.");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      return;
+   }
+   guint count = 0;
+   const char *key;
+   char *value;
+   int rank = 0;
+   gboolean ok = TRUE;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (strncmp(key, "pipeline:", 9)) continue;
+      if (count == 512) {
+         ok = FALSE;
+         break;
+      }
+      gchar *id_key = g_strdup_printf("pipelines.%u.id", count);
+      gchar *launch_key = g_strdup_printf("pipelines.%u.launch", count);
+      ok = dict_add(request, id_key, key + 9) == 0 && dict_add(request, launch_key, value ? value : "") == 0;
+      g_free(id_key);
+      g_free(launch_key);
+      if (!ok) break;
+      count++;
+   }
+   if (ok) ok = dict_add_uint(request, "pipelines.count", count) == 0;
+   if (!ok) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot prepare pipeline editor request.");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      dict_free(request);
+      return;
+   }
+   gchar *json = dict2json(request);
+   dict_free(request);
+   if (!json) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "librustyaxe could not serialize the pipeline editor request.");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      return;
+   }
+   gchar *program = g_find_program_in_path("rrpipelines");
+   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE)) program = g_strdup("bin/rrpipelines");
+   if (!program) {
+      g_free(json);
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot find rrpipelines. Install it alongside rrclient or run from the source tree.");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      return;
+   }
+   const gchar *argv[] = { program, NULL };
+   GError *error = NULL;
+   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE |
+      G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
+   g_free(program);
+   if (!process) {
+      g_free(json);
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot start pipeline editor: %s", error ? error->message : "unknown error");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      g_clear_error(&error);
+      return;
+   }
+   pipeline_editor_process_t *context = g_new0(pipeline_editor_process_t, 1);
+   context->parent = g_object_ref(parent);
+   context->process = process;
+   g_subprocess_communicate_utf8_async(process, json, NULL, pipeline_editor_communicate_done, context);
+   g_free(json);
+}
+
 static void on_save_config_button(GtkButton *button, gpointer user_data) {
    (void)user_data;
    static char save_path[PATH_MAX];
@@ -1180,21 +1369,28 @@ GtkWidget *init_config_tab(void) {
    gtk_widget_set_halign(buttons, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(nw), buttons, FALSE, FALSE, 0);
 
-   GtkWidget *btn_savecfg = gtk_button_new_with_label("Save Config");
+   GtkWidget *btn_savecfg = config_action_button("Save Config", "document-save-symbolic", "Save configuration to ~/.config/rrclient.cfg");
    g_signal_connect(btn_savecfg, "clicked", G_CALLBACK(on_save_config_button), NULL);
    gtk_box_pack_start(GTK_BOX(buttons), btn_savecfg, FALSE, FALSE, 0);
 
-   GtkWidget *btn_fullscreen = gtk_button_new_with_label("Toggle Fullscreen");
-   g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);
-   gtk_box_pack_start(GTK_BOX(buttons), btn_fullscreen, FALSE, FALSE, 0);
-
-   GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
-   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), (gpointer) config_file);
+   GtkWidget *btn_cfgedit = config_action_button("Edit Raw", "document-edit-symbolic", "Edit the active configuration file as text");
+   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), NULL);
    gtk_box_pack_start(GTK_BOX(buttons), btn_cfgedit, FALSE, FALSE, 0);
 
-   GtkWidget *btn_reloadcfg = gtk_button_new_with_label("Reload Config");
+   GtkWidget *btn_reloadcfg = config_action_button("Reload Config", "view-refresh-symbolic", "Reload configuration from its active source");
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer) config_file);
    gtk_box_pack_start(GTK_BOX(buttons), btn_reloadcfg, FALSE, FALSE, 0);
+
+   GtkWidget *btn_certificates = gtk_certificates_button_new();
+   gtk_box_pack_start(GTK_BOX(buttons), btn_certificates, FALSE, FALSE, 0);
+
+   GtkWidget *btn_pipelines = config_action_button("Edit Pipelines…", "applications-multimedia-symbolic", "Edit or compose GStreamer pipelines");
+   g_signal_connect(btn_pipelines, "clicked", G_CALLBACK(on_edit_pipelines_button), NULL);
+   gtk_box_pack_start(GTK_BOX(buttons), btn_pipelines, FALSE, FALSE, 0);
+
+   GtkWidget *btn_fullscreen = config_action_button("Toggle Fullscreen", "view-fullscreen-symbolic", "Toggle fullscreen mode");
+   g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);
+   gtk_box_pack_start(GTK_BOX(buttons), btn_fullscreen, FALSE, FALSE, 0);
 
    /* One empty text row separates destructive/config actions from main tabs. */
    GtkWidget *spacer = gtk_label_new(" ");

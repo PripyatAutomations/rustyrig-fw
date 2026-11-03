@@ -4,6 +4,10 @@ if [[ ${RR_TEST_XVFB:-} != 1 ]]; then
 fi
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+if [[ ! -f rrclient/gtk/gtk.matrix.c ]]; then
+   echo 'SKIP: GTK Matrix component is not present in this source tree'
+   exit 0
+fi
 if ! pkg-config --exists gtk+-3.0 || ! command -v xvfb-run >/dev/null; then
    echo 'SKIP: GTK Matrix requires GTK3 and Xvfb'; exit 0
 fi

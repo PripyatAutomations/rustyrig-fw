@@ -63,6 +63,7 @@ endif
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
 	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk$(MODULEDIR)/rrclient/rrclient-gtk.so
+	install -Dm755 bin/rrpipelines debian/rustyrig-client-gtk$(BINDIR)/rrpipelines
 	$(MAKE) -C gmatrix -f debian/package.mk install DEB_DESTDIR=../debian/gmatrix
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png

@@ -105,6 +105,7 @@ extern bool log_print_va(logpriority_t priority, const char *subsys, const char 
 extern void gui_file_editor_open(const char *filepath);
 extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
+extern GtkWidget *gtk_certificates_button_new(void);
 extern GtkWidget *mode_combo;   // if mode_combo is a GtkWidget*
 extern GtkWidget *width_combo;
 

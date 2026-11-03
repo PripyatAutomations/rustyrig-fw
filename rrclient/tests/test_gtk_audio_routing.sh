@@ -12,7 +12,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-radio} \
    -ffunction-sections -fdata-sections $(pkg-config --cflags gtk+-3.0) \
-   rrclient/tests/gtk_audio_routing.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
+   rrclient/tests/gtk_audio_routing.c rrclient/gtk/gtk.floating-panel.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol $(pkg-config --libs gtk+-3.0) -o "$work/gtk_audio_routing"
 if command -v xvfb-run >/dev/null 2>&1 && [[ -z "${DISPLAY:-}" ]]; then
    xvfb-run -a "$work/gtk_audio_routing"

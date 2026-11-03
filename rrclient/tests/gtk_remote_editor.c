@@ -3,8 +3,19 @@
 #include <rrclient/gtk/gtk.file-editor.c>
 time_t now;
 bool dying, restarting;
+GtkWidget *main_window, *main_notebook;
 static gui_window_t window_record;
 static unsigned saves, destroyed, reloads;
+GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, GCallback callback, gpointer data) {
+   (void)notebook;
+   (void)title;
+   (void)callback;
+   (void)data;
+   return NULL;
+}
+void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
+   (void)tab;
+}
 static void registry_destroyed(GtkWidget *widget, gpointer data) {
    window_record.gtk_win = NULL;
 }
@@ -47,9 +58,30 @@ static void reply(const char *local, const char *error) {
    event_emit_dict("client.files.complete", NULL, d);
    dict_free(d);
 }
+static GtkWidget *find_label(GtkWidget *widget, const char *text) {
+   if (GTK_IS_LABEL(widget) && !strcmp(gtk_label_get_text(GTK_LABEL(widget)), text)) {
+      return widget;
+   }
+   if (!GTK_IS_CONTAINER(widget)) {
+      return NULL;
+   }
+   GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
+   GtkWidget *found = NULL;
+   for (GList *item = children; item && !found; item = item->next) {
+      found = find_label(item->data, text);
+   }
+   g_list_free(children);
+   return found;
+}
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    event_init();
+   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *overlay = gtk_overlay_new();
+   main_notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(overlay), main_notebook);
+   gtk_container_add(GTK_CONTAINER(main_window), overlay);
+   gtk_widget_show_all(main_window);
    char *directory = g_dir_make_tmp("rr-editor-XXXXXX", NULL);
    assert(directory);
    char *path = g_build_filename(directory, "draft.cfg", NULL);
@@ -58,7 +90,8 @@ int main(int argc, char **argv) {
    EditorContext *ctx = active_editor;
    assert(ctx);
    assert(!gtk_widget_get_visible(ctx->save_as));
-   assert(!strcmp(gtk_window_get_title(GTK_WINDOW(ctx->window)), "server:/configs/test.cfg"));
+   assert(GTK_IS_FRAME(ctx->window));
+   assert(find_label(ctx->window, "File Editor — server:/configs/test.cfg"));
    gtk_text_buffer_set_text(ctx->buffer, "new=2\n", -1);
    on_save_clicked(NULL, ctx);
    assert(saves == 1 && ctx->remote_pending && !reloads);
@@ -85,5 +118,7 @@ int main(int argc, char **argv) {
    rmdir(directory);
    g_free(path);
    g_free(directory);
+   gtk_widget_destroy(main_window);
+   main_window = main_notebook = NULL;
    puts("PASS: remote editor save/failed retry, no local config application, pending-save guard and callback cleanup on close/shutdown");
 }

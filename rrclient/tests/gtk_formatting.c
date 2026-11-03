@@ -444,7 +444,10 @@ static void test_radio_overflow_preserves_roster(void) {
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(outer), 320);
    GtkWidget *notebook = gtk_notebook_new();
    GtkWidget *room = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   GtkWidget *radio = chatbox_vfo_init();
+   GtkWidget *radio = gtk_scrolled_window_new(NULL, NULL);
+   GtkWidget *radio_controls = gtk_label_new("Wide frequency, mode, codec and PTT controls");
+   gtk_widget_set_size_request(radio_controls, 1400, 60);
+   gtk_container_add(GTK_CONTAINER(radio), radio_controls);
    gtk_box_pack_start(GTK_BOX(room), radio, FALSE, FALSE, 0);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
    GtkWidget *roster = gtk_label_new("Privs Username TX Mute Role");

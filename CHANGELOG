@@ -54,8 +54,18 @@ rustyrig-fw (1.0.0) testing; urgency=medium
   * Marshal GTK roster redraw notifications through the GTK event domain before
     queuing the coalesced widget paint.
   * Default AF display gain to 0 dB and extend its range to +60 dB.
+  * Add a standalone GTK GStreamer graph editor with element/property
+    discovery, toolbox-based pipeline composition, tee/queue branch helpers,
+    and a librustyaxe JSON stdin/stdout contract. Add the GTK client launcher,
+    default build/install and package integration, tests, and usage docs.
+  * Add Config-tab pipeline editing, target raw config editing at the active
+    user's ~/.config/rrclient.cfg, and group the Certificates action with the
+    config buttons before Toggle Fullscreen.
+  * Add themed icons and tooltips to Config-tab actions, and include GLib
+    headers in standalone component-test builds.
+  * Update GTK test harnesses for current widget and floating-panel APIs.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 03 Nov 2026 00:11:24 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 03 Nov 2026 03:20:08 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

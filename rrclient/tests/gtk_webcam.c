@@ -3,6 +3,20 @@
 #include <librrprotocol/server.events.h>
 bool dying;
 rrconn_t *ws_conn;
+GtkWidget *main_window, *main_notebook;
+bool rr_module_token_add(rr_event_token_t token) {
+   return token != NULL;
+}
+GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, GCallback callback, gpointer data) {
+   (void)notebook;
+   (void)title;
+   (void)callback;
+   (void)data;
+   return NULL;
+}
+void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
+   (void)tab;
+}
 bool ui_print(const char *window, const char *fmt, ...) {
    return false;
 }
@@ -54,6 +68,12 @@ static void drain(void) {
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    event_init();
+   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *overlay = gtk_overlay_new();
+   main_notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(overlay), main_notebook);
+   gtk_container_add(GTK_CONTAINER(main_window), overlay);
+   gtk_widget_show_all(main_window);
    rrconn_t first = {
       0
    }, other = {
@@ -107,5 +127,7 @@ int main(int argc, char **argv) {
    free(wire);
    g_free(jpeg);
    g_string_free(display_frame, TRUE);
+   gtk_widget_destroy(main_window);
+   main_window = main_notebook = NULL;
    puts("PASS: JPEG wire dispatch preserves server identity, bounded GTK rendering and closed-viewer cleanup");
 }

@@ -90,10 +90,11 @@ package_rustyrig-client() {
 }
 
 package_rustyrig-client-gtk() {
-   pkgdesc='RustyRig GTK client module'
+   pkgdesc='RustyRig GTK client module and GStreamer pipeline editor'
    depends=('rustyrig-client' 'gtk3')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrclient-gtk.so "$pkgdir/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so"
+   install -Dm755 bin/rrpipelines "$pkgdir/usr/bin/rrpipelines"
    install -Dm644 packaging/rustyrig-client.desktop "$pkgdir/usr/share/applications/rustyrig-client.desktop"
    install -Dm644 res/rustyrig.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/rustyrig.png"
 }

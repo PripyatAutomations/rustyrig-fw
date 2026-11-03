@@ -10,7 +10,7 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
-   $(pkg-config --cflags gtk+-3.0) rrclient/tests/gtk_help.c rrclient/cmd.help.c \
+   $(pkg-config --cflags gtk+-3.0) rrclient/tests/gtk_help.c rrclient/cmd.help.c rrclient/gtk/gtk.floating-panel.c \
    -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
    $(pkg-config --libs gtk+-3.0) -o "$work/help"
 G_DEBUG=fatal-warnings xvfb-run -a "$work/help"

@@ -1,6 +1,21 @@
 // Exercise the real GTK selectors against an isolated subscribed-stream catalog.
 #include <assert.h>
 #include <rrclient/gtk/gtk.audio-routing.c>
+GtkWidget *main_window, *main_notebook, *rx_vol_slider, *rx_rig_vol_slider;
+GtkWidget *create_volbox(void) {
+   return gtk_label_new("Volume");
+}
+bool audio_set_rx_volume(int percent) {
+   return true;
+}
+bool audio_set_rx_channel_volume(unsigned channel, int percent) {
+   return true;
+}
+GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, GCallback callback, gpointer data) {
+   return NULL;
+}
+void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
+}
 static struct rrclient_rx_stream catalog[4];
 static size_t catalog_count;
 static unsigned writes, shows;
@@ -48,6 +63,12 @@ static const char *choice(unsigned ear) {
 int main(int argc, char **argv) {
    event_init();
    gtk_init(&argc, &argv);
+   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *overlay = gtk_overlay_new();
+   main_notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(overlay), main_notebook);
+   gtk_container_add(GTK_CONTAINER(main_window), overlay);
+   gtk_widget_show_all(main_window);
    gtk_audio_routing_init();
    flush();
    assert(!gtk_widget_get_visible(routing_window));
@@ -123,8 +144,8 @@ int main(int argc, char **argv) {
    flush();
    assert(!strcmp(choice(0), "~") && !strcmp(choice(1), "~"));
    assert(catalog[0].output == 'S' && catalog[1].output == 'S' && catalog[2].output == 'M');
-   // Close minimizes rather than dismissing a window with active streams.
-   assert(routing_minimize(routing_window, NULL, NULL));
+   // The routing panel is deliberately non-closable while active; later
+   // inventory changes continue to update the same in-client panel.
    catalog_count = 0;
    catalog_changed();
    assert(!gtk_widget_get_visible(routing_window));
@@ -138,5 +159,7 @@ int main(int argc, char **argv) {
    event_emit("client.audio.streams.changed", NULL, NULL);
    flush();
    assert(!routing_source);
+   gtk_widget_destroy(main_window);
+   main_window = main_notebook = NULL;
    puts("PASS: RX window lifecycle, split/unified ears, mute, independent servers, retained choices, external routing and shutdown");
 }

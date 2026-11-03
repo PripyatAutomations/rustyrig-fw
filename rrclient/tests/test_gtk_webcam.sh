@@ -11,6 +11,6 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-radio} \
    -ffunction-sections -fdata-sections $(pkg-config --cflags gtk+-3.0) \
-   rrclient/tests/gtk_webcam.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
+   rrclient/tests/gtk_webcam.c rrclient/gtk/gtk.floating-panel.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lfwdspmgr -lrustyaxe -lrrprotocol $(pkg-config --libs gtk+-3.0) -o "$work/webcam"
 G_DEBUG=fatal-warnings xvfb-run -a "$work/webcam"
