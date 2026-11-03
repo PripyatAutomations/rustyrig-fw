@@ -8,7 +8,8 @@ assert 'install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/db' in rules
 assert 'install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/modems' in rules
 assert 'install -d -m0775 debian/rustyrig-client/var/lib/rustyrig/db' in rules
 assert 'override_dh_installdeb:' in rules
-assert 'install -Dm755 debian/$$p.preinst debian/$$p/DEBIAN/preinst' in rules
+assert 'dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(FT8_DH_EXCLUDE)' in rules
+assert 'Do not overwrite its generated preinst' in rules
 assert 'install -d -orustyrig ' not in rules
 assert 'install -o rustyrig' not in rules
 assert Path('debian/rustyrig-server.preinst').exists()
