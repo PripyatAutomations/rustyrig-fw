@@ -10,4 +10,4 @@ if ! command -v xvfb-run >/dev/null 2>&1; then
 fi
 unset DISPLAY WAYLAND_DISPLAY
 export GDK_BACKEND=x11 RR_TEST_XVFB=1
-exec xvfb-run -a "$@"
+exec python3 "$(dirname "$0")/run-command.py" -- xvfb-run -a "$@"

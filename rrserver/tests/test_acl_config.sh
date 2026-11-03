@@ -34,5 +34,5 @@ ports=9000-9010
 acl=staff
 CONFIG
 ${CC:-cc} -std=gnu11 -I. -Ibuild/${PROFILE:-radio} rrserver/tests/acl_config.c \
-   rrserver/acl.c rrserver/cfg.peer.c rrserver/cfg.rtp.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -o "$work/acl-config"
+   rrserver/acl.c rrserver/cfg.acl.c rrserver/cfg.peer.c rrserver/cfg.rtp.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -o "$work/acl-config"
 "$work/acl-config" "$work/input.cfg" "$work/saved.cfg"

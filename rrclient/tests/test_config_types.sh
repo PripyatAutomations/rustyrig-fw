@@ -5,5 +5,5 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrclient/tests/config_types.c rrclient/defconfig.c \
-   -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -o "$work/config_types"
+   -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -o "$work/config_types"
 "$work/config_types"

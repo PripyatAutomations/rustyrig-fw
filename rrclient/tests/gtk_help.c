@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
    gtk_widget_show_all(main_window);
    gtk_help_show();
    char *text = contents();
-   assert(strstr(text, "/help") && strstr(text, "Connection") && !strstr(text, "/admin"));
+   assert(strstr(text, "/help") && strstr(text, "Connection") && strstr(text, "/admin") && strstr(text, "(admin/owner)"));
    g_free(text);
    staff = true;
    gtk_help_show();
@@ -80,5 +80,5 @@ int main(int argc, char **argv) {
    gtk_widget_destroy(main_window);
    main_window = NULL;
    main_notebook = NULL;
-   puts("PASS: GTK help popup shares categorized/filtered help, refreshes, reopens and shuts down");
+   puts("PASS: GTK help popup shares categorized help with privilege annotations, refreshes, reopens and shuts down");
 }

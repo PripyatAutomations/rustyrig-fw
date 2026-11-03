@@ -5,5 +5,5 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
    rrclient/tests/offline_input.c rrclient/rooms.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
-   -lrustyaxe -lrrprotocol -o "$work/offline-input"
+   -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -lrrprotocol -o "$work/offline-input"
 "$work/offline-input"

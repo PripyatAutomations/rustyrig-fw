@@ -80,7 +80,11 @@ int main(int argc, char **argv) {
    int neighbor_x = 600;
    gtk_widget_set_margin_start(second_frame, neighbor_x);
    gtk_widget_set_margin_top(second_frame, first_y);
-   int snapped_x = neighbor_x - first_width;
+   drain_events();
+   int actual_neighbor_x, actual_neighbor_y;
+   gtk_widget_translate_coordinates(second_frame, overlay, 0, 0, &actual_neighbor_x, &actual_neighbor_y);
+   first_width = gtk_widget_get_allocated_width(first_frame);
+   int snapped_x = actual_neighbor_x - first_width;
    GdkEventButton press = {
       0
    };

@@ -9,5 +9,5 @@ ${CC:-cc} -pthread -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrserver/media.c rrserver/rig.registry.c rrserver/backend.instance.c rrserver/backend.worker.c \
    rrserver/rig.properties.c rrserver/cfg.rig.c rrserver/rig.rooms.c \
    rrserver/database.c rrserver/database.rooms.c rrserver/database.users.c rrserver/database.accounting.c $(pkg-config --cflags --libs sqlite3 glib-2.0) -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
-   -lrrprotocol -lfwdspmgr -lrustyaxe ${LDFLAGS:-} -o "$work/media_channels"
+   -lrrprotocol -lfwdspmgr -lrustyaxe $(pkg-config --cflags --libs glib-2.0) ${LDFLAGS:-} -o "$work/media_channels"
 LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$work/media_channels"

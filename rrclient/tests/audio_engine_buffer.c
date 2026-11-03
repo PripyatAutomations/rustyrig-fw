@@ -27,22 +27,26 @@ int main(void) {
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.startup_blocks == 1 && stats.underrun_blocks == 0);
 
-   /* At 60 ms accumulated, play without waiting for the UI loop. */
-   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 640));
+   /* At 80 ms accumulated, play without waiting for the UI loop. */
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 960));
    tick(engine, stereo, &active);
    assert(active && stereo[0] == 0 && stereo[200] == 1000);
+   tick(engine, stereo, &active);
    tick(engine, stereo, &active);
    tick(engine, stereo, &active);
    tick(engine, stereo, &active);   /* First genuine starvation. */
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.starvation_events == 1 && stats.underrun_blocks == 1);
 
-   /* After a dropout, restart after one complete frame rather than imposing the full 60 ms startup delay on every short gap. */
+   /* Recovery also requires 80 ms; a single frame must remain buffered. */
    assert(rr_audio_engine_push(engine, "receiver-a", pcm, 320));
+   tick(engine, stereo, &active);
+   assert(stereo[0] == 0 && stereo[200] == 0);
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 960));
    tick(engine, stereo, &active);
    assert(stereo[0] == 0 && stereo[200] == 1000);
    rr_audio_engine_stats(engine, &stats, false);
-   assert(stats.rebuffer_blocks == 0 && stats.starvation_events == 1);
+   assert(stats.rebuffer_blocks == 1 && stats.starvation_events == 1);
 
    /* A 200 ms decoder burst is retained under the new 240 ms ceiling. */
    assert(rr_audio_engine_route(engine, "receiver-a", 'S'));

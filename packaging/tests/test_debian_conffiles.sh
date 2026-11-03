@@ -23,7 +23,7 @@ trap cleanup EXIT
 
 # Exercise the real packaging override in an isolated, minimal staging tree.
 mkdir -p "$work/source/debian" "$work/source/mk" "$work/source/packaging" "$work/source/config"
-cp mk/optional-modules.mk "$work/source/mk/"
+cp mk/optional-modules.mk mk/install-paths.mk "$work/source/mk/"
 cp packaging/optional-modules.mk "$work/source/packaging/"
 jq '.backend.hamlib = false' config/radio.config.json > "$work/source/config/radio.config.json"
 cp debian/control debian/rules debian/rustyrig-server.maintscript "$work/source/debian/"

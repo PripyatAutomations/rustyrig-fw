@@ -235,7 +235,7 @@ int main(void) {
    assert(known_chans[0].disabled && !local_codec[0][0] && subscribed == 0);
    dict *d = dict_new();
    dict_add(d, "media.chan-uuid", "rx-a");
-   rrclient_media_subscribed(d, false);   // late subscribe confirmation
+   rrclient_media_subscribed(d, ws_conn, false);   // late subscribe confirmation
    dict_free(d);
    assert(known_chans[0].disabled && !known_chans[0].subscribed);
    char *on[] = {
@@ -320,7 +320,7 @@ int main(void) {
    dict *ack = dict_new();
    dict_add(ack, "media.chan-uuid", "persistent-0");
    dict_add_int(ack, "media.stream", 10);
-   rrclient_media_subscribed(ack, false);
+   rrclient_media_subscribed(ack, ws_conn, false);
    dict_free(ack);
    assert(known_chans[0].subscribed && known_chans[0].stream_valid && unsubscribed == before_unsub);
    rrclient_media_room_selected("#rig0");
@@ -379,7 +379,7 @@ int main(void) {
    dict_add(gps_ack, "media.chan-uuid", "gps0");
    dict_add_int(gps_ack, "media.stream", 7);
    dict_add(gps_ack, "media.codec", "gpsp");
-   rrclient_media_subscribed(gps_ack, false);
+   rrclient_media_subscribed(gps_ack, ws_conn, false);
    dict_free(gps_ack);
    assert(known_chans[0].stream_valid && known_chans[0].stream == 7);
    uint8_t *frame = NULL;
@@ -556,7 +556,7 @@ int main(void) {
    dict_add(background_ack, "media.chan-uuid", "background");
    dict_add(background_ack, "media.codec", "opus");
    dict_add_int(background_ack, "media.stream", 12);
-   rrclient_media_subscribed(background_ack, false);
+   rrclient_media_subscribed(background_ack, ws_conn, false);
    dict_free(background_ack);
    assert(codec_widget_updates == 0);
    assert(!strcmp(rrclient_media_current_codec(false), "opus"));

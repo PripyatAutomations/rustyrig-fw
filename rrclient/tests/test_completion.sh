@@ -3,7 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+source rrclient/tests/irc-adapter.sh
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
    rrclient/tests/completion.c rrclient/tests/client_stubs.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
-   -lrustyaxe -lrrprotocol -o "$work/completion"
+   -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -lrrprotocol ${LDFLAGS:-} -o "$work/completion"
 "$work/completion"

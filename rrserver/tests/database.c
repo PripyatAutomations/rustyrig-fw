@@ -452,8 +452,13 @@ int main(void) {
    assert(fresh_fd >= 0);
    close(fresh_fd);
    unlink(fresh_path);
-   dict_add(cfg, "path.db.master.template", "sql/sqlite.master.sql");
-   dict_add(cfg, "path.db.master.preload", "sql/sqlite.master.preload.sql");
+   char *template = realpath("sql/sqlite.master.sql", NULL);
+   char *preload = realpath("sql/sqlite.master.preload.sql", NULL);
+   assert(template && preload);
+   dict_add(cfg, "path.db.master.template", template);
+   dict_add(cfg, "path.db.master.preload", preload);
+   free(template);
+   free(preload);
    db = db_open(fresh_path);
    assert(db);
    char credential_path[128];

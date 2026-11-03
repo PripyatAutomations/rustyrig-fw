@@ -9,6 +9,6 @@ if ! grep -q '^#define USE_SQLITE' "build/${PROFILE:-radio}/build_config.h"; the
 fi
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} \
    -ffunction-sections -fdata-sections rrserver/tests/ptt_release.c rrserver/ptt.c \
-   -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lsqlite3 \
+   -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -lsqlite3 \
    -o "$work/ptt_release"
 "$work/ptt_release"

@@ -41,10 +41,10 @@ int main(void) {
    assert(!cfg_set_value("rig:rig0.backend", "invalid"));
    assert(cfg_set_value("recording.codec", "flac"));
    assert(!cfg_set_value("recording.codec", "opus"));
-   assert(cfg_set_value("net.http.port", "9000"));
-   assert(!cfg_set_value("net.http.port", "9000/tcp"));
-   assert(cfg_set_value("net.http.enabled", "false"));
-   assert(!cfg_set_value("net.http.enabled", "sometimes"));
+   assert(cfg_set_value("net.http.tls-port", "9000"));
+   assert(!cfg_set_value("net.http.tls-port", "9000/tcp"));
+   assert(cfg_set_value("net.mqtt.enabled", "false"));
+   assert(!cfg_set_value("net.mqtt.enabled", "sometimes"));
    assert(cfg_set_value("path.db.master", "~/master.db"));
 
    dict_free(cfg);

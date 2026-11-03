@@ -80,7 +80,8 @@ int main(int argc, char **argv) {
       test_colors(notebook);
       GtkWidget *box = gtk_wrapping_tabs_new(notebook, top ? GTK_POS_TOP : GTK_POS_BOTTOM);
       GList *children = gtk_container_get_children(GTK_CONTAINER(box));
-      GtkWidget *flow = top ? children->data : children->next->data;
+      GtkWidget *flow = g_object_get_data(G_OBJECT(notebook), "rr-tab-flow");
+      assert(GTK_IS_FLOW_BOX(flow));
       g_list_free(children);
       /* Match the real window's zoom viewport, including auto scrollbars. */
       GtkWidget *viewport = gtk_scrolled_window_new(NULL, NULL);

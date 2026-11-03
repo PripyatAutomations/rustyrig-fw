@@ -6,5 +6,5 @@ trap 'rm -rf "$work"' EXIT
 cd "$ROOT"
 ${CC:-cc} -std=gnu11 -Wall -Wextra -Werror -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrclient/tests/typing.c -L. -Wl,-rpath,"$PWD" \
-   -lrrprotocol -lrustyaxe -o "$work/typing"
+   -lrrprotocol -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -o "$work/typing"
 LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$work/typing"

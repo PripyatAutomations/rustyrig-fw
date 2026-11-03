@@ -67,9 +67,9 @@ for script in "$work"/source/tools/rr-get-*-log; do
    [[ "$(cat "$capture")" == "/srv/rustyrig/field.db" ]]
 done
 
-make -s -C "$ROOT" install-tools PROFILE=radio INSTALL_DIR="$work/install"
+make -s -C "$ROOT" install-tools PROFILE=radio DESTDIR="$work/install"
 for script in rr-get-audit-log rr-get-chat-log rr-get-ptt-log; do
-   [[ -x "$work/install/bin/$script" ]]
+   [[ -x "$work/install/usr/bin/$script" ]]
 done
 
 echo "PASS: log tools distinguish source and installed locations and select profiles"

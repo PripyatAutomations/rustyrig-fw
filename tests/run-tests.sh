@@ -30,11 +30,41 @@ if [[ ${1:-} == --help ]]; then
   exit 0
 fi
 
+# Wait asynchronously so a signal to the runner itself can interrupt wait and
+# cancel the active supervisor, rather than waiting for the test to finish.
+ACTIVE_TEST=
+stop_tests() {
+  local code="$1"
+  trap '' INT TERM HUP
+  if [[ -n "$ACTIVE_TEST" ]]; then
+    kill -TERM "$ACTIVE_TEST" 2>/dev/null || true
+    wait "$ACTIVE_TEST" 2>/dev/null || true
+  fi
+  exit "$code"
+}
+trap 'stop_tests 130' INT
+trap 'stop_tests 143' TERM
+trap 'stop_tests 129' HUP
+run_test() {
+  local result
+  python3 "$ROOT/tests/run-command.py" --timeout "${RR_TEST_TIMEOUT:-180}" -- "$@" &
+  ACTIVE_TEST=$!
+  if wait "$ACTIVE_TEST"; then result=0; else result=$?; fi
+  ACTIVE_TEST=
+  case "$result" in
+    129|130|143) exit "$result" ;;
+  esac
+  if [[ "$result" != 0 ]]; then
+    echo "FAIL ($result): $*" >&2
+  fi
+  return "$result"
+}
+
 run_dir() {
   local label="$1" dir="$2" total=0 t
   echo "=== suite: $label ($dir) ==="
   if [ -f "$dir/GNUmakefile" ] || [ -f "$dir/Makefile" ]; then
-    make -C "$dir" check || total=$((total+1))
+    run_test make -C "$dir" check || total=$((total+1))
   fi
   for t in "$dir"/test_*.sh; do
     [ -e "$t" ] || continue
@@ -45,9 +75,9 @@ run_dir() {
       esac
     fi
     echo "--- test: $t ---"
-    if timeout "${RR_TEST_TIMEOUT:-180}" bash "$t"; then :; else total=$((total+1)); fi
+    if run_test bash "$t"; then :; else total=$((total+1)); fi
   done
-  return "$total"
+  [[ "$total" == 0 ]]
 }
 
 run_suite() {
@@ -64,7 +94,12 @@ run_suite() {
     packaging)   run_dir "$suite" packaging/tests ;;
     librustyirc) run_dir "$suite" librustyirc/tests ;;
     librustyaxe) run_dir "$suite" librustyaxe/tests ;;
-    www)         node www/tests/files.js && node www/tests/audio_routes.js && node www/tests/chat_rooms.js && node www/tests/auth.js && node www/tests/wire.js && node www/tests/media_health.js && node www/tests/audio_backlog.js && node www/tests/binframe_validation.js && node www/tests/chat_security.js && node www/tests/web_completion.js && node www/tests/media_rooms.js && node www/tests/ptt_pending.js && node www/tests/reconnect.js && node www/tests/gps_nmea.js && node www/tests/resource_discovery.js && node www/tests/resource_navigation.js && node www/tests/webcam.js ;;
+    www)
+      local failed=0 test
+      for test in www/tests/*.js; do
+        run_test node "$test" || failed=1
+      done
+      return "$failed" ;;
     *) echo "Unknown test suite: $suite" >&2; return 1 ;;
   esac
 }

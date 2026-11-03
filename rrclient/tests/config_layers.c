@@ -3,6 +3,7 @@
 static char site_path[512];
 #define RRCLIENT_SYSTEM_CONFIG_PATH site_path
 #include <rrclient/config.layers.c>
+bool rrclient_database_load_themes(void) { return true; }
 int main(void) {
    char directory[] = "/tmp/rrclient-config-layers-XXXXXX";
    assert(mkdtemp(directory));

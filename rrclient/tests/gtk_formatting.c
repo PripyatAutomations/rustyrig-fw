@@ -481,6 +481,13 @@ static void test_radio_overflow_preserves_roster(void) {
    puts("PASS: wide VFO controls scroll locally and keep the rig roster inside the main viewport");
 }
 
+static rrclient_ui_chat_link_t link_request;
+static unsigned link_requests;
+static void capture_room_link(const rr_event_message_t *message, void *user) {
+   assert(message->length == sizeof(link_request));
+   memcpy(&link_request, message->payload, sizeof(link_request));
+   link_requests++;
+}
 static void test_room_links(void) {
    if (!gtk_init_check(NULL, NULL)) {
       return;
@@ -522,10 +529,10 @@ static void test_room_links(void) {
    chat_link_event(view, &event, NULL);
    g_hash_table_destroy(room_tabs);
    room_tabs = NULL;
-   assert(!strcmp(joined_room, "#remote-rig0"));
-   assert(!strcmp(joined_server, "origin-server"));
+   assert(link_requests == 1 && !strcmp(link_request.room, "#remote-rig0"));
+   assert(!strcmp(link_request.server, "origin-server"));
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
-   /* Existing rooms switch tabs without sending a JOIN. */
+   /* Existing-room selection is a core decision; GTK sends the same owned request. */
    GtkRoomTab tab = {
       .page = page, .entry = entry, .view = view
    };
@@ -533,7 +540,7 @@ static void test_room_links(void) {
    g_hash_table_insert(room_tabs, "origin-server:#remote-rig0", &tab);
    joined_room[0] = 0;
    chat_link_event(view, &event, NULL);
-   assert(!joined_room[0]);
+   assert(link_requests == 2);
    g_hash_table_destroy(room_tabs);
    room_tabs = NULL;
    /* Selecting text suppresses activation, even over a link. */
@@ -541,7 +548,7 @@ static void test_room_links(void) {
    gtk_text_buffer_get_bounds(buffer, &a, &b);
    gtk_text_buffer_select_range(buffer, &a, &b);
    chat_link_event(view, &event, NULL);
-   assert(!joined_room[0]);
+   assert(link_requests == 2);
    gtk_widget_destroy(window);
    main_notebook = NULL;
    puts("PASS: GTK room links keep source-server context, select tabs, preserve drafts and allow text selection");
@@ -769,6 +776,8 @@ static void test_queued_irc_identity(void) {
 }
 
 int main(int argc, char **argv) {
+   event_init();
+   event_on_message_token(RRCLIENT_UI_CHAT_LINK_EVENT, capture_room_link, NULL, NULL, NULL);
    if (argc == 2 && !strcmp(argv[1], "--irc-routing")) {
       test_queued_irc_identity();
       return 0;

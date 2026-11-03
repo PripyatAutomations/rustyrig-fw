@@ -1,5 +1,6 @@
 // Remote editor saves must not apply local config or leave module callbacks alive.
 #include <assert.h>
+#include "gtk_test_events.h"
 #include <rrclient/gtk/gtk.file-editor.c>
 time_t now;
 bool dying, restarting;
@@ -80,7 +81,7 @@ static GtkWidget *find_label(GtkWidget *widget, const char *text) {
 }
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
-   event_init();
+   gtk_test_events_init();
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    GtkWidget *overlay = gtk_overlay_new();
    main_notebook = gtk_notebook_new();

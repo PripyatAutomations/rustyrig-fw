@@ -1,5 +1,6 @@
 // Exercise the real GTK selectors against an isolated subscribed-stream catalog.
 #include <assert.h>
+#include "gtk_test_events.h"
 #include <rrclient/gtk/gtk.audio-routing.c>
 GtkWidget *main_window, *main_notebook, *rx_vol_slider, *rx_rig_vol_slider;
 GtkWidget *create_volbox(void) {
@@ -62,7 +63,7 @@ static const char *choice(unsigned ear) {
    return gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear_combo[ear]));
 }
 int main(int argc, char **argv) {
-   event_init();
+   gtk_test_events_init();
    gtk_init(&argc, &argv);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    GtkWidget *overlay = gtk_overlay_new();

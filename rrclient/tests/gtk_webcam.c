@@ -1,4 +1,5 @@
 #include <assert.h>
+#include "gtk_test_events.h"
 #include <rrclient/gtk/gtk.webcam.c>
 #include <librrprotocol/server.events.h>
 bool dying;
@@ -68,7 +69,7 @@ static void drain(void) {
 
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
-   event_init();
+   gtk_test_events_init();
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    GtkWidget *overlay = gtk_overlay_new();
    main_notebook = gtk_notebook_new();
