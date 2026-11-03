@@ -1,5 +1,8 @@
 #include <assert.h>
 #include <rrclient/receiver.directory.c>
+/* Remote catalog requests are outside this directory parser fixture. */
+void rrclient_receiver_catalog_init(void) {}
+void rrclient_receiver_catalog_shutdown(void) {}
 time_t now = 1792080000;
 static const char *database;
 const char *cfg_get(const char *key) {
