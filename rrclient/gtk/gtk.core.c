@@ -1614,11 +1614,11 @@ static void frontend_gtk_webcam_show_owner(bool show) {
    gtk_webcam_show(show);
 }
 
-static guint frontend_gtk_roster_source;
+static gint frontend_gtk_roster_source;
 static gboolean frontend_gtk_flush_roster(gpointer unused) {
    (void)unused;
    frontend_gtk_assert_owner();
-   frontend_gtk_roster_source = 0;
+   g_atomic_int_set(&frontend_gtk_roster_source, 0);
 
    if (!dying) {
       userlist_redraw_gtk();
@@ -1631,11 +1631,13 @@ static void frontend_gtk_userlist_redraw(void) {
    // first, then paint the latest roster once instead of inside every callback.
    if (dying) return;
    frontend_gtk_assert_owner();
-   if (!frontend_gtk_roster_source) {
-      GSource *source = g_idle_source_new();
-      g_source_set_callback(source, frontend_gtk_flush_roster, NULL, NULL);
-      frontend_gtk_roster_source = g_source_attach(source, frontend_gtk_event_context);
-      g_source_unref(source);
+   if (!g_atomic_int_compare_and_exchange(&frontend_gtk_roster_source, 0, -1)) return;
+   GSource *source = g_idle_source_new();
+   g_source_set_callback(source, frontend_gtk_flush_roster, NULL, NULL);
+   guint source_id = g_source_attach(source, frontend_gtk_event_context);
+   g_source_unref(source);
+   if (!g_atomic_int_compare_and_exchange(&frontend_gtk_roster_source, -1, (gint)source_id)) {
+      g_source_remove(source_id);
    }
 }
 

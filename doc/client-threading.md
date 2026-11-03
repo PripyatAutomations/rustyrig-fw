@@ -356,6 +356,16 @@ safe for the threaded mode.
   API call. Event-listener unregister, queued callback draining, and module
   unload ordering also remain to be verified.
 
+### GTK roster redraw dispatch follow-up (Nov 2)
+
+The coalesced `userlist_redraw` frontend callback now asserts GTK ownership
+and attaches its idle source directly to the captured GTK event context,
+rather than relying on `g_idle_add()` and whichever thread-default context is
+implicit. Its delivery callback also asserts ownership. This only hardens the
+redraw scheduling boundary: roster rendering still traverses the core-owned
+`global_userlist` and other shared client state, so this is not a full roster
+snapshot migration or evidence that threaded operation is release-safe.
+
 `gtk_resources` now tests copied property-request/result payloads and the
 serial attach-request event shape. Its legacy interactive serial-settings
 dialog automation is not covered; the prior fixture no longer matched the

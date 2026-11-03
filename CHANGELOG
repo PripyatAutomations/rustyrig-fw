@@ -45,8 +45,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     notebook page; only explicit open requests focus the Explorer.
   * Move remote SDR controls into the VFO controls row, label the button for
     the active bridge driver, and show Kiwi-specific controls only for KiwiSDR.
+  * Dispatch batched GTK roster redraws explicitly on the GTK-owned context
+    and assert thread ownership at both enqueue and delivery.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:58:15 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 22:58:09 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

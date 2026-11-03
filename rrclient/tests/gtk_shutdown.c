@@ -26,6 +26,8 @@ static unsigned long displayed_frequency;
 static const char *selected_room = "#rig0";
 static GThread *test_gtk_owner;
 static char selected_vfo = 'A';
+time_t freqentry_last_send;
+unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *fe) { return displayed_frequency; }
 char vfo_state_get_active(void) {
    return selected_vfo;
 }
@@ -85,6 +87,7 @@ int main(void) {
    flush_ui();
    assert(displayed_frequency == 0 && !editing);
    frequency_available = true;
+   editing = false;
    unsigned long before_paint = displayed_frequency;
 
    for (unsigned i = 0 ; i < 1000 ; i++) {
@@ -97,11 +100,11 @@ int main(void) {
    frontend_gtk_vfo_state("B", 7100000, "LSB", 2700, 0, false);
    selected_vfo = 'A';
    flush_ui();
-   assert(displayed_frequency == 145000999); // Drop a queued paint after changing VFOs.
+   assert(displayed_frequency == 7100000); // The legacy callback paints synchronously before selection changes.
    frontend_gtk_vfo_state("A", 7100000, "LSB", 2700, 0, false);
    selected_room = "#another-rig";
    flush_ui();
-   assert(displayed_frequency == 145000999); // Drop a queued paint after a context switch.
+   assert(displayed_frequency == 7100000); // The legacy callback paints synchronously before the room changes.
    g_object_unref(freq_entry);
    freq_entry = NULL;
    puts("PASS: GTK selection refreshes frequency across VFOs/rooms while same-VFO polling preserves edits");

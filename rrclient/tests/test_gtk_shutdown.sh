@@ -13,5 +13,6 @@ trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-radio} \
    -ffunction-sections -fdata-sections $(pkg-config --cflags gtk+-3.0) \
    rrclient/tests/gtk_shutdown.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
-   -lrustyaxe -lrrprotocol $(pkg-config --libs gtk+-3.0) -o "$work/gtk_shutdown"
+   -lrustyaxe -lrrprotocol \
+   $(pkg-config --libs gtk+-3.0) -o "$work/gtk_shutdown"
 "$work/gtk_shutdown"
