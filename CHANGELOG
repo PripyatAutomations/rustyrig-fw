@@ -39,8 +39,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     panel snapping; document floating-panel navigation.
   * Keep floating panels clear of the main toolbar, tab strips, and right-edge
     scrollbar space during placement and dragging.
+  * Remember floating-panel positions when panels are destroyed and reopened
+    during the same client session.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:35:46 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:38:31 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

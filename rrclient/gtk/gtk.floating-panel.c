@@ -27,12 +27,33 @@ struct rr_floating_panel {
    gboolean snapped_x, snapped_y;
 };
 
+typedef struct panel_position {
+   int x, y;
+} panel_position_t;
+
 /* All panel geometry is owned by the GTK thread. Edges catch independently;
  * continuing the drag by SNAP_RELEASE pixels breaks free in either direction. */
 #define SNAP_DISTANCE 12
 #define SNAP_RELEASE 26
 #define PANEL_GAP 12
 static GList *floating_panels;
+
+static GHashTable *panel_positions(GtkOverlay *overlay) {
+   GHashTable *positions = g_object_get_data(G_OBJECT(overlay), "rr-panel-positions");
+   if (!positions) {
+      positions = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+      g_object_set_data_full(G_OBJECT(overlay), "rr-panel-positions", positions,
+                             (GDestroyNotify)g_hash_table_destroy);
+   }
+   return positions;
+}
+
+static void panel_position_save(RRFloatPanel *p, int x, int y) {
+   panel_position_t *position = g_new(panel_position_t, 1);
+   position->x = x;
+   position->y = y;
+   g_hash_table_replace(panel_positions(p->overlay), g_strdup(p->id), position);
+}
 
 void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *upper,
                                             GtkWidget *upper_extra, GtkWidget *lower,
@@ -119,8 +140,24 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
 
    GtkRequisition natural;
    gtk_widget_get_preferred_size(p->frame, NULL, &natural);
+   int panel_width = gtk_widget_get_allocated_width(p->frame);
+   int panel_height = gtk_widget_get_allocated_height(p->frame);
+   if (panel_width <= 1) panel_width = natural.width;
+   if (panel_height <= 1) panel_height = natural.height;
    int min_x, min_y, max_x, max_y;
-   panel_bounds(p, natural.width, natural.height, &min_x, &min_y, &max_x, &max_y);
+   panel_bounds(p, panel_width, panel_height, &min_x, &min_y, &max_x, &max_y);
+
+   panel_position_t *saved = g_hash_table_lookup(panel_positions(p->overlay), p->id);
+   if (saved) {
+      int x = CLAMP(saved->x, min_x, max_x);
+      int y = CLAMP(saved->y, min_y, max_y);
+      if (panel_position_clear(p, x, y, panel_width, panel_height)) {
+         gtk_widget_set_margin_start(p->frame, x);
+         gtk_widget_set_margin_top(p->frame, y);
+         panel_position_save(p, x, y);
+         return TRUE;
+      }
+   }
 
    GArray *xs = g_array_new(FALSE, FALSE, sizeof(int));
    GArray *ys = g_array_new(FALSE, FALSE, sizeof(int));
@@ -139,9 +176,9 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       int qx = gtk_widget_get_margin_start(q->frame);
       int qy = gtk_widget_get_margin_top(q->frame);
       panel_add_candidate(xs, qx + qw + PANEL_GAP, min_x, max_x);
-      panel_add_candidate(xs, qx - natural.width - PANEL_GAP, min_x, max_x);
+      panel_add_candidate(xs, qx - panel_width - PANEL_GAP, min_x, max_x);
       panel_add_candidate(ys, qy + qh + PANEL_GAP, min_y, max_y);
-      panel_add_candidate(ys, qy - natural.height - PANEL_GAP, min_y, max_y);
+      panel_add_candidate(ys, qy - panel_height - PANEL_GAP, min_y, max_y);
    }
 
    gboolean placed = FALSE;
@@ -149,9 +186,10 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       int y = g_array_index(ys, int, yi);
       for (guint xi = 0; xi < xs->len; xi++) {
          int x = g_array_index(xs, int, xi);
-         if (!panel_position_clear(p, x, y, natural.width, natural.height)) continue;
+         if (!panel_position_clear(p, x, y, panel_width, panel_height)) continue;
          gtk_widget_set_margin_start(p->frame, x);
          gtk_widget_set_margin_top(p->frame, y);
+         panel_position_save(p, x, y);
          placed = TRUE;
          break;
       }
@@ -223,6 +261,7 @@ static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
    }
    gtk_widget_set_margin_start(p->frame, x);
    gtk_widget_set_margin_top(p->frame, y);
+   panel_position_save(p, x, y);
 }
 
 /* GtkOverlay paints children in overlay order. Raise the selected panel rather than merely presenting the containing desktop window. */
@@ -714,6 +753,10 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    }
 
    floating_panels = g_list_remove(floating_panels, p);
+   if (p->frame && gtk_widget_get_visible(p->frame)) {
+      panel_position_save(p, gtk_widget_get_margin_start(p->frame),
+                          gtk_widget_get_margin_top(p->frame));
+   }
    if (p->restore_tab) {
       gtk_tabs_panel_restore_remove(p->restore_tab);
    }

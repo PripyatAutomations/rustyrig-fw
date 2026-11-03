@@ -118,8 +118,36 @@ int main(int argc, char **argv) {
    g_assert_cmpint(gtk_widget_get_margin_top(first_frame), ==,
       lower_y - gtk_widget_get_allocated_height(first_frame) - PANEL_GAP);
 
+   GdkEventButton release = {0};
+   release.button = GDK_BUTTON_PRIMARY;
+   release.x_root = motion.x_root;
+   release.y_root = motion.y_root;
+   drag_release(NULL, &release, first);
+   press.x_root = motion.x_root;
+   press.y_root = motion.y_root;
+   drag_press(NULL, &press, first);
+   motion.x_root = press.x_root + 300 - gtk_widget_get_margin_start(first_frame);
+   motion.y_root = press.y_root + 200 - gtk_widget_get_margin_top(first_frame);
+   drag_move(NULL, &motion, first);
+   release.x_root = motion.x_root;
+   release.y_root = motion.y_root;
+   drag_release(NULL, &release, first);
+   int saved_x = gtk_widget_get_margin_start(first_frame);
+   int saved_y = gtk_widget_get_margin_top(first_frame);
+   g_assert_cmpint(saved_x, ==, 300);
+   g_assert_cmpint(saved_y, ==, 200);
    rr_floating_panel_destroy(first);
    rr_floating_panel_destroy(second);
+   first = rr_floating_panel_new(GTK_OVERLAY(overlay), GTK_NOTEBOOK(tabs),
+      "first", "First panel");
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(first)),
+      gtk_label_new("First panel body"), FALSE, FALSE, 0);
+   rr_floating_panel_show(first);
+   drain_events();
+   first_frame = rr_floating_panel_widget(first);
+   g_assert_cmpint(gtk_widget_get_margin_start(first_frame), ==, saved_x);
+   g_assert_cmpint(gtk_widget_get_margin_top(first_frame), ==, saved_y);
+   rr_floating_panel_destroy(first);
    gtk_widget_destroy(window);
    return 0;
 }
