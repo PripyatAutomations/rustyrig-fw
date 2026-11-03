@@ -23,6 +23,12 @@
 #undef rrclient_update_connection_ui
 #undef tui_refresh_sb_online
 
+void userlist_remove_room(const char *room) {
+   (void)room;
+}
+bool rrclient_config_is_dirty(void) {
+   return false;
+}
 bool userlist_remove_by_name_room(const char *name, const char *room) {
    (void)name;
    (void)room;
