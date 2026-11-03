@@ -41,6 +41,7 @@ def cat(client, cmd, **fields):
 
 with tempfile.TemporaryDirectory(prefix="rr-transport-audit-") as temporary:
     work = pathlib.Path(temporary)
+    (work / 'modules').mkdir()
     webroot = work / "www"
     webroot.mkdir()
     (webroot / "index.html").write_text("safe index")
