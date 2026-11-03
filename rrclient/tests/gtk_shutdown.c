@@ -24,6 +24,7 @@ static bool editing;
 static bool frequency_available = true;
 static unsigned long displayed_frequency;
 static const char *selected_room = "#rig0";
+static GThread *test_gtk_owner;
 static char selected_vfo = 'A';
 char vfo_state_get_active(void) {
    return selected_vfo;
@@ -59,6 +60,9 @@ long vfo_state_get_long(const char *vfo, const char *key, long fallback) {
 void modebox_update_state(const char *mode, int width) {
 }
 int main(void) {
+   test_gtk_owner = g_thread_self();
+   frontend_gtk_owner = test_gtk_owner;
+   frontend_gtk_event_context = g_main_context_ref_thread_default();
    freq_entry = (GtkWidget *) g_object_new(G_TYPE_OBJECT, NULL);
    frontend_gtk_vfo_state("A", 7200000, "LSB", 2700, 0, false);
    flush_ui();

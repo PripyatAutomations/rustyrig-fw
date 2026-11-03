@@ -1616,6 +1616,8 @@ static void frontend_gtk_webcam_show_owner(bool show) {
 
 static guint frontend_gtk_roster_source;
 static gboolean frontend_gtk_flush_roster(gpointer unused) {
+   (void)unused;
+   frontend_gtk_assert_owner();
    frontend_gtk_roster_source = 0;
 
    if (!dying) {
@@ -1627,8 +1629,13 @@ static gboolean frontend_gtk_flush_roster(gpointer unused) {
 static void frontend_gtk_userlist_redraw(void) {
    // One network sweep can deliver many observations. Drain audio/transport
    // first, then paint the latest roster once instead of inside every callback.
-   if (!dying && !frontend_gtk_roster_source) {
-      frontend_gtk_roster_source = g_idle_add(frontend_gtk_flush_roster, NULL);
+   if (dying) return;
+   frontend_gtk_assert_owner();
+   if (!frontend_gtk_roster_source) {
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, frontend_gtk_flush_roster, NULL, NULL);
+      frontend_gtk_roster_source = g_source_attach(source, frontend_gtk_event_context);
+      g_source_unref(source);
    }
 }
 
