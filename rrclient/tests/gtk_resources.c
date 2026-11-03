@@ -253,6 +253,12 @@ int main(int argc, char **argv) {
    event_init();
    cfg = dict_new();
    main_notebook = gtk_notebook_new();
+   GtkWidget *other_page = gtk_label_new("Other page");
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), other_page,
+                            gtk_label_new("Other"));
+   gtk_widget_show_all(main_notebook);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
+   assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == 0);
    char *saved_config = NULL;
    int saved_fd = g_file_open_tmp("rr-serial-config-XXXXXX", &saved_config, NULL);
    assert(saved_fd >= 0);
@@ -277,10 +283,16 @@ int main(int argc, char **argv) {
    };
    resource_show(RRCLIENT_RESOURCE_VIEW_EVENT, &request, sizeof(request), NULL, NULL);
    assert(browser != NULL);
+   assert(gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
+                                    gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) ==
+          other_page);
    resource_browser *view = browser;
    assert(gtk_tree_view_get_level_indentation(GTK_TREE_VIEW(view->tree)) == 0);
    assert(gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view->tree)) == 5);
    assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(view->tree), 4)), "Details"));
+   resource_open("client.resources.open", NULL, NULL, NULL);
+   assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) ==
+          gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), view->page));
    resource_branch *branch = g_hash_table_lookup(browser->branches, "alpha");
    row(&beta, 0, "site", "wrong-server");
    assert(!gtk_tree_model_iter_n_children(GTK_TREE_MODEL(view->store), &branch->root));

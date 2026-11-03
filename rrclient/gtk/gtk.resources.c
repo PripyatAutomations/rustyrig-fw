@@ -58,7 +58,6 @@ typedef struct {
    bool scroll_saved;
 } resource_browser;
 static resource_browser *browser;
-static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
 extern void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
@@ -2836,6 +2835,9 @@ static void resource_create(void) {
    if (browser) {
       return;
    }
+   gint selected_page_number = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
+   GtkWidget *selected_page = selected_page_number >= 0 ?
+      gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), selected_page_number) : NULL;
    browser = g_new0(resource_browser, 1);
    browser->enabled_kinds = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    browser->type_checks = g_ptr_array_new();
@@ -3103,6 +3105,11 @@ static void resource_create(void) {
    g_signal_connect(browser->page, "destroy", G_CALLBACK(resource_destroy), browser);
    browser->timer = g_timeout_add_seconds(2, resource_tick, browser);
    gtk_widget_show_all(browser->page);
+   if (selected_page) {
+      gint selected_index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), selected_page);
+      if (selected_index >= 0)
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), selected_index);
+   }
 }
 
 static void resource_show(const char *event, const void *data, size_t length, rrconn_t *connection, void *unused) {
@@ -3120,10 +3127,6 @@ static void resource_show(const char *event, const void *data, size_t length, rr
       return;
    }
    resource_create();
-
-   if (!automatic_refresh) {
-      resource_present();
-   }
    resource_branch *branch = resource_branch_get(profile);
    branch->online = request->online;
    g_clear_pointer(&branch->selection, g_free);
