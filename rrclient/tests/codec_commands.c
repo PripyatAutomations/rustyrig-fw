@@ -8,6 +8,9 @@
 #include "rrclient/media.c"
 
 static rrconn_t connection;
+rrconn_t *rrclient_active_connection(void) {
+   return &connection;
+}
 bool dying, restarting;
 enum GuiMode ui_mode = UI_MODE_NONE;
 time_t now;
