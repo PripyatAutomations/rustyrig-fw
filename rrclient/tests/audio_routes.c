@@ -252,7 +252,7 @@ int main(void) {
    }
 
    client_channel_pcm("", loud, sizeof(loud), r);
-   assert(r->pending_count == 1600);
+   assert(r->pending_count == MIN(G_N_ELEMENTS(r->pending), G_N_ELEMENTS(loud)));
    rx_route_t extra = {
       .output = 'S', .pending_count = 320, .next = r
    };
