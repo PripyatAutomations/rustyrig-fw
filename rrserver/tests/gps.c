@@ -12,6 +12,14 @@ long long mono_us(void) {
    return clock_us;
 }
 
+/* GPS unit tests keep their fixture UUIDs; persistence is exercised elsewhere. */
+bool rrserver_media_uuid_assign(struct rr_mediachan *channel, const char *scope_uuid, const char *role) {
+   return channel && scope_uuid && *scope_uuid && role && *role;
+}
+bool rrserver_media_uuid_assign_node(struct rr_mediachan *channel, const char *role) {
+   return channel && role && *role;
+}
+
 static struct rr_mediachan channels[6];
 static unsigned sent[3], direct[3];
 static uint8_t payload[3][RR_GPS_POSITION_PAYLOAD_LEN];
