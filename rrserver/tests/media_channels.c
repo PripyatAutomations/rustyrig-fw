@@ -195,7 +195,7 @@ int main(void) {
    assert(sqlite3_open(":memory:", &masterdb) == SQLITE_OK);
    assert(sqlite3_exec(masterdb,
       "CREATE TABLE rooms(name TEXT PRIMARY KEY,uuid TEXT NOT NULL UNIQUE,has_vfos INTEGER,vfo_mask INTEGER,deleted INTEGER DEFAULT 0);"
-      "CREATE TABLE audit_log(username TEXT,event_type TEXT,details TEXT);" "CREATE TABLE room_vfos(room TEXT,binding TEXT,PRIMARY KEY(room,binding));", NULL,
+      "CREATE TABLE audit_log(username TEXT,event_type TEXT,details TEXT,session_id TEXT);" "CREATE TABLE room_vfos(room TEXT,binding TEXT,PRIMARY KEY(room,binding));", NULL,
       NULL, NULL) == SQLITE_OK);
    assert(!rrserver_rig_rooms_init());
    assert(!strcmp(rr_rig_registry_room(rig.rigs, radio0), "#testsite-rig0"));
