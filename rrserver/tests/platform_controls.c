@@ -4,6 +4,9 @@
 #include <string.h>
 #include <rrserver/platform.controls.h>
 #include <rrserver/platform.backlight.h>
+bool rrserver_backlight_writable(void) {
+   return false; /* No physical backlight in this fixture. */
+}
 static int speaker = 25;
 static int observed;
 bool rrserver_backlight_control(int request, rr_backlight_state_t *state) {
