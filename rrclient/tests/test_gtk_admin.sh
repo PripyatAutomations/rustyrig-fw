@@ -11,6 +11,9 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} $(pkg-config --cflags gtk+-3.0) \
-   -ffunction-sections -fdata-sections rrclient/tests/gtk_admin.c rrclient/gtk/gtk.privileges.c -Wl,--gc-sections \
+   -ffunction-sections -fdata-sections rrclient/tests/gtk_admin.c rrclient/gtk/gtk.privileges.c \
+   rrclient/gtk/gtk.admin.access.c rrclient/gtk/gtk.admin.controls.c rrclient/gtk/gtk.admin.password.c \
+   rrclient/gtk/gtk.admin.privgroup.c rrclient/gtk/gtk.admin.sessions.c rrclient/gtk/gtk.admin.selection.c \
+   -Wl,--gc-sections \
    -L. -Wl,-rpath,"$PWD" -lrustyaxe -lrrprotocol $(pkg-config --libs gtk+-3.0) -o "$work/gtk_admin"
 xvfb-run -a "$work/gtk_admin"

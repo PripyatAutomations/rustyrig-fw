@@ -7,53 +7,35 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.admin.access.h>
+#include <rrclient/gtk/gtk.admin.command.h>
 
 enum {
    AR_ID, AR_USER, AR_RESOURCE, AR_REASON, AR_STATUS, AR_AGE, AR_COUNT
 };
 static GtkWidget *access_request_tree;
 static GtkListStore *access_request_store;
-static GtkWidget *access_request_tab_label;
+static GtkWidget *access_request_tab_label, *access_request_status;
 static GtkWidget *access_request_filter, *access_request_approve, *access_request_deny;
 static gboolean access_request_has_pending;
 static char access_request_profile[128];
 static GtkListStore *privilege_groups;
 
 static gboolean admin_access_send(const char *action, const char *id, const char *decision) {
-   rrconn_t *connection = rrclient_connection_find(access_request_profile);
-
-   if (!connection || !connection->authenticated) {
-      return FALSE;
-   }
-   dict *d = dict_new();
-
-   if (!d) {
-      return FALSE;
-   }
-   dict_add(d, "msg.type", "talk");
-   dict_add(d, "talk.cmd", "admin");
-   dict_add(d, "talk.action", action);
-   dict_add(d, "talk.data", "");
-
-   if (id) {
-      dict_add(d, "request.id", id);
-   }
-
+   dict *fields = dict_new();
+   if (!fields) return false;
    if (decision) {
-      dict_add(d, "request.decision", decision);
+      dict_add(fields, "request.decision", decision);
    }
-   gboolean ok = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
-
+   gboolean ok = gtk_admin_command_event(access_request_status, access_request_profile, action, "", id, fields);
+   dict_free(fields);
    return ok;
 }
 static void admin_access_refresh(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;
-   const char *profile = rrclient_selected_server();
+   const char *profile = gtk_admin_selected_profile();
    g_strlcpy(access_request_profile, profile ? profile : "", sizeof(access_request_profile));
 
    if (access_request_store) {
@@ -243,23 +225,14 @@ static void admin_access_review(GtkButton *button, gpointer user) {
       }
 
       if (!approving || selection->len) {
-         rrconn_t *connection = rrclient_connection_find(access_request_profile);
+         dict *fields = dict_new();
 
-         if (connection && connection->authenticated) {
-            dict *message = dict_new();
-
-            if (message) {
-               dict_add(message, "msg.type", "talk");
-               dict_add(message, "talk.cmd", "admin");
-               dict_add(message, "talk.action", "access-request-review");
-               dict_add(message, "talk.data", "");
-               dict_add(message, "request.id", id);
-               dict_add(message, "request.decision", decision);
-               dict_add(message, "request.grants", selection->str);
-               dict_add_bool(message, "request.remote", remote && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote)));
-               ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT);
-               dict_free(message);
-            }
+         if (fields) {
+            dict_add(fields, "request.decision", decision);
+            dict_add(fields, "request.grants", selection->str);
+            dict_add_bool(fields, "request.remote", remote && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote)));
+            gtk_admin_command_event(access_request_status, access_request_profile, "access-request-review", "", id, fields);
+            dict_free(fields);
          }
       }
       g_string_free(selection, TRUE);
@@ -324,12 +297,14 @@ GtkWidget *gtk_admin_access_page(GtkListStore *groups) {
    GtkWidget *refresh = gtk_button_new_with_label("Refresh");
    GtkWidget *approve = gtk_button_new_with_label("Approve");
    GtkWidget *deny = gtk_button_new_with_label("Deny");
+   access_request_status = gtk_label_new("");
    access_request_filter = gtk_search_entry_new();
    gtk_entry_set_width_chars(GTK_ENTRY(access_request_filter), 16);
    gtk_entry_set_placeholder_text(GTK_ENTRY(access_request_filter), "Filter requests…");
    gtk_box_pack_start(GTK_BOX(actions), gtk_label_new("Filter:"), FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(actions), access_request_filter, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(actions), refresh, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(actions), access_request_status, FALSE, FALSE, 0);
    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(actions), spacer, TRUE, TRUE, 0);
    gtk_box_pack_end(GTK_BOX(actions), deny, FALSE, FALSE, 0);

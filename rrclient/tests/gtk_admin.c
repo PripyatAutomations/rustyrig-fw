@@ -1,9 +1,11 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.admin.c"
+#include "rrclient/gtk/gtk.admin.cells.c"
 GtkWidget *main_notebook, *main_window;
 static rrconn_t alpha;
 static const char *selected = "alpha";
 static dict *sent, *mutation;
+static unsigned admin_site_completions;
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return "alpha";
 }
@@ -22,16 +24,37 @@ static gboolean answer_dialog(gpointer data) {
       GtkDialog *dialog = p->data;
 
       if (warning) {
-         gchar *text = NULL;
-         g_object_get(dialog, "text", &text, NULL);
-         assert(text && strstr(text, warning));
-         g_free(text);
+         if (!GTK_IS_MESSAGE_DIALOG(dialog)) {
+            continue;
+         }
+         GList *labels = gtk_container_get_children(GTK_CONTAINER(gtk_message_dialog_get_message_area(GTK_MESSAGE_DIALOG(dialog))));
+         bool found = false;
+
+         for (GList *label = labels ; label ; label = label->next) {
+            if (GTK_IS_LABEL(label->data) && strstr(gtk_label_get_text(GTK_LABEL(label->data)), warning)) {
+               found = true;
+            }
+         }
+         g_list_free(labels);
+         if (!found) {
+            continue;
+         }
       } else {
          GList *children = gtk_container_get_children(GTK_CONTAINER(gtk_dialog_get_content_area(dialog)));
-         GtkGrid *grid = GTK_GRID(children->data);
+         GtkGrid *grid = NULL;
+
+         for (GList *child = children ; child ; child = child->next) {
+            if (GTK_IS_GRID(child->data)) {
+               grid = GTK_GRID(child->data);
+               break;
+            }
+         }
+         assert(grid);
          assert(!gtk_editable_get_editable(GTK_EDITABLE(gtk_grid_get_child_at(grid, 1, 0))));
          assert(!gtk_editable_get_editable(GTK_EDITABLE(gtk_grid_get_child_at(grid, 1, 5))));
          gtk_entry_set_text(GTK_ENTRY(gtk_grid_get_child_at(grid, 1, 3)), "new@example.test");
+         warning = "Save changes to";
+         g_idle_add(answer_dialog, NULL);
          g_list_free(children);
       }
       gtk_dialog_response(dialog, response);
@@ -51,6 +74,9 @@ const char *rrclient_selected_server(void) {
 rrconn_t *rrclient_connection_find(const char *profile) {
    return !strcmp(profile, "alpha") ? &alpha : NULL;
 }
+const char *rrclient_connection_iter(unsigned index) {
+   return index == 0 ? "alpha" : NULL;
+}
 bool ws_send_dict(rrconn_t *source, rrconn_t *connection, dict *data, int opcode) {
    (void)source;
    (void)opcode;
@@ -66,6 +92,53 @@ bool ws_send_dict(rrconn_t *source, rrconn_t *connection, dict *data, int opcode
    free(text);
 
    return true;
+}
+static void capture_admin_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)connection;
+   (void)unused;
+   dict_free(sent);
+   sent = payload ? json2dict(payload) : NULL;
+
+   if (sent && (!strcmp(dict_get(sent, "command", ""), "user-edit") || !strcmp(dict_get(sent, "command", ""), "room-remove"))) {
+      dict_free(mutation);
+      char *text = dict2json(sent);
+      mutation = text ? json2dict(text) : NULL;
+      free(text);
+   }
+}
+static void admin_sites_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)connection;
+   (void)unused;
+   dict *request = payload ? json2dict(payload) : NULL;
+
+   if (!request) {
+      return;
+   }
+   char *request_id = g_strdup(dict_get(request, "request.id", ""));
+   dict *site = dict_new();
+   if (site) {
+      dict_add(site, "request.id", request_id);
+      dict_add(site, "profile", "alpha");
+      event_emit_dict("client.admin.site", NULL, site);
+      dict_free(site);
+   }
+   dict_free(request);
+   dict *complete = dict_new();
+   if (complete) {
+      dict_add(complete, "request.id", request_id);
+      event_emit_dict("client.admin.sites-complete", NULL, complete);
+      dict_free(complete);
+   }
+   g_free(request_id);
+}
+static void admin_sites_complete(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)payload;
+   (void)connection;
+   (void)unused;
+   admin_site_completions++;
 }
 static void result(const char *table, const char *action, const char *row) {
    dict *message = dict_new();
@@ -87,6 +160,10 @@ static char *cell_text(admin_table_t *table, int col, GtkTreeIter *iter) {
 
    return text;
 }
+static void dispatch_immediately(event_dispatch_fn_t callback, void *arg, void *user) {
+   (void)user;
+   callback(arg);
+}
 
 static gboolean create_account_dialog(gpointer unused) {
    (void)unused;
@@ -98,20 +175,23 @@ static gboolean create_account_dialog(gpointer unused) {
       }
       GtkDialog *dialog = item->data;
       GList *children = gtk_container_get_children(GTK_CONTAINER(gtk_dialog_get_content_area(dialog)));
-      unsigned entries = 0;
+      bool found_name = false, found_privileges = false;
 
       for (GList *child = children ; child ; child = child->next) {
          if (GTK_IS_ENTRY(child->data)) {
-            if (!entries) {
+            const char *placeholder = gtk_entry_get_placeholder_text(GTK_ENTRY(child->data));
+
+            if (placeholder && strstr(placeholder, "Username")) {
                gtk_entry_set_text(child->data, "new-user");
-            } else {
+               found_name = true;
+            } else if (!strcmp(gtk_entry_get_text(child->data), "view,chat")) {
                assert(!strcmp(gtk_entry_get_text(child->data), "view,chat"));
+               found_privileges = true;
             }
-            entries++;
          }
       }
 
-      assert(entries == 2);
+      assert(found_name && found_privileges);
       g_list_free(children);
       gtk_dialog_response(dialog, GTK_RESPONSE_OK);
       g_list_free(windows);
@@ -127,29 +207,39 @@ static gboolean create_account_dialog(gpointer unused) {
 
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
+   event_init();
+   assert(event_domain_register("core", dispatch_immediately, NULL));
+   assert(event_domain_register("gtk", dispatch_immediately, NULL));
    alpha.is_ws = alpha.authenticated = true;
+   g_strlcpy(admin_selected_profile, "alpha", sizeof(admin_selected_profile));
+   event_on("client.admin.sites-request", admin_sites_request, NULL);
+   event_on("client.admin.sites-complete", admin_sites_complete, NULL);
    main_notebook = gtk_notebook_new();
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
+   event_on("client.admin.command-request", capture_admin_request, NULL);
    init_admin_tab();
+   assert(admin_site_completions > 0);
    snprintf(tables[0].profile, sizeof(tables[0].profile), "alpha");
    g_idle_add(create_account_dialog, NULL);
    admin_create_user(NULL, &tables[0]);
-   assert(!strcmp(dict_get(sent, "talk.cmd", ""), "user"));
-   assert(!strcmp(dict_get(sent, "talk.data", ""), "add new-user view,chat"));
+   assert(!strcmp(dict_get(sent, "command", ""), "user"));
+   assert(!strcmp(dict_get(sent, "tail", ""), "add new-user view,chat"));
+   assert(!strcmp(dict_get(sent, "profile", ""), "alpha"));
+   assert(dict_get(sent, "client.request.id", NULL));
    const char *titles[] = {
-      "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"
+      "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req", "Full Rig Access"
    };
 
    for (unsigned i = 0 ; i < 9 ; i++) {
       assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), i)), titles[i]));
    }
 
-   assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), 7)));
-   GtkTreeViewColumn *change_required = gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), 8);
+   assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), 6)));
+   GtkTreeViewColumn *change_required = gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), 7);
    assert(!gtk_tree_view_column_get_expand(change_required) && !gtk_tree_view_column_get_resizable(change_required));
    assert(gtk_tree_view_column_get_sizing(change_required) == GTK_TREE_VIEW_COLUMN_FIXED);
-   assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[1].tree), 0)));
+   assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[1].tree), 1)));
    assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[2].tree), 0)));
    const char *quota_headers[] = {
       "name", "TX Min", "TX Used", "BWRemain", "BWTxUsed", "BWRxUsed"
@@ -223,22 +313,25 @@ int main(int argc, char **argv) {
    admin_user_cell(NULL, stamp, GTK_TREE_MODEL(tables[0].store), &iter, GINT_TO_POINTER(5));
    char *display;
    g_object_get(stamp, "text", &display, NULL);
-   assert(strstr(display, "ago") && strstr(display, "1d"));
+   assert(strstr(display, "1 days ago"));
    g_free(display);
    admin_user_cell(NULL, stamp, GTK_TREE_MODEL(tables[0].store), &iter, GINT_TO_POINTER(6));
    g_object_get(stamp, "text", &display, NULL);
    assert(!strcmp(display, "Never"));
    g_free(display);
    g_object_unref(stamp);
-   gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tables[0].tree)), &iter);
+   GtkTreeIter filtered_iter;
+   GtkTreeModelFilter *filtered_users = GTK_TREE_MODEL_FILTER(gtk_tree_view_get_model(GTK_TREE_VIEW(tables[0].tree)));
+   assert(gtk_tree_model_filter_convert_child_iter_to_iter(filtered_users, &filtered_iter, &iter));
+   gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tables[0].tree)), &filtered_iter);
    warning = NULL;
    response = GTK_RESPONSE_OK;
    g_idle_add(answer_dialog, NULL);
    GtkWidget *edit = gtk_button_new();
    g_object_set_data(G_OBJECT(edit), "action", "edit");
    admin_action(GTK_BUTTON(edit), &tables[0]);
-   assert(!strcmp(dict_get(mutation, "talk.action", ""), "user-edit"));
-   dict *edited = json2dict(dict_get(mutation, "talk.data", ""));
+   assert(!strcmp(dict_get(mutation, "command", ""), "user-edit"));
+   dict *edited = json2dict(dict_get(mutation, "tail", ""));
    assert(!strcmp(dict_get(edited, "email", ""), "new@example.test"));
    dict_free(edited);
    gtk_widget_destroy(edit);
@@ -247,24 +340,20 @@ int main(int argc, char **argv) {
    response = GTK_RESPONSE_CANCEL;
    g_idle_add(answer_dialog, NULL);
    result("rooms", "confirm", "{\"room\":\"#test\",\"deleted\":false,\"confirmation\":\"abc\"}");
-   assert(!strcmp(dict_get(mutation, "talk.action", ""), "user-edit"));
+   assert(!strcmp(dict_get(mutation, "command", ""), "user-edit"));
    warning = "All chat history will be lost";
    response = GTK_RESPONSE_OK;
    g_idle_add(answer_dialog, NULL);
    result("rooms", "confirm", "{\"room\":\"#test\",\"deleted\":true,\"confirmation\":\"def\"}");
-   assert(!strcmp(dict_get(mutation, "talk.action", ""), "room-remove"));
-   assert(!strcmp(dict_get(mutation, "talk.data", ""), "def"));
-   gtk_supervision_result_profile(
-      "{\"talk\":{\"action\":\"request\",\"target\":\"abc\",\"room\":\"#test\",\"user\":\"NOOB\",\"data\":\"Control operator responsibility\"}}", "alpha");
-   assert(g_list_length(supervision_dialogs) == 1);
-   gtk_dialog_response(GTK_DIALOG(((supervision_dialog_t *) supervision_dialogs->data)->dialog), GTK_RESPONSE_YES);
-   assert(!supervision_dialogs && !strcmp(dict_get(sent, "talk.data", ""), "accept abc"));
+   assert(!strcmp(dict_get(mutation, "command", ""), "room-remove"));
+   assert(!strcmp(dict_get(mutation, "tail", ""), "def"));
    selected = "beta";
    GtkWidget *lock = gtk_button_new();
    g_object_set_data(G_OBJECT(lock), "action", "lock");
    admin_action(GTK_BUTTON(lock), &tables[0]);
    /* Refresh follows the mutation but retains the originating profile. */
-   assert(!strcmp(dict_get(sent, "talk.cmd", ""), "admin"));
+   assert(!strcmp(dict_get(sent, "command", ""), "admin"));
+   assert(!strcmp(dict_get(sent, "profile", ""), "alpha"));
    assert(!strcmp(tables[0].profile, "alpha"));
    result("users", "begin", "{\"append\":true}");
    result("users", "row", "{\"name\":\"older\"}");

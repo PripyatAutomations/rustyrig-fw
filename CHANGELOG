@@ -25,8 +25,11 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     results without passing core connection pointers to GTK.
   * Document remaining GTK/core crossings and retain legacy threading mode;
     leave the audio pipeline unchanged.
+  * Route GTK administration and access commands through copied core events,
+    return authenticated server profiles as snapshots, and unregister
+    Controls-page event listeners on teardown.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 18:52:17 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 19:18:02 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

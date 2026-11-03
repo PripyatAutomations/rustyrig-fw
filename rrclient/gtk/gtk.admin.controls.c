@@ -12,10 +12,10 @@
 #include <librustyaxe/util.time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.privileges.h>
 #include <rrclient/gtk/gtk.admin.controls.h>
+#include <rrclient/gtk/gtk.admin.command.h>
 
 extern GtkWidget *admin_view;
 extern GtkWidget *main_notebook;
@@ -26,12 +26,17 @@ static guint control_pending_lists;
 static GHashTable *control_row_buttons;
 static char *control_pending_name;
 static char *control_server_profile;
+static char *control_hosts_request_id, *control_hosts_wanted;
+static GPtrArray *control_host_profiles;
+static gboolean control_refresh_pending;
+static rr_event_token_t control_site_token, control_sites_complete_token;
 
 static bool admin_control_request(const char *name, int value);
 static bool admin_control_request_profile(const char *profile, const char *name, int value);
 static void admin_control_rows_clear(void);
 static void admin_control_update_revert(void);
 static void admin_control_refresh(GtkButton *button, gpointer user);
+static void admin_control_refresh_discovered(void);
 static void admin_control_row_add(dict *data, const char *profile);
 
 /* The client owns local controls; they need not be exported to a server. Do not expose sysfs paths or allow names supplied by a remote peer. */
@@ -200,43 +205,102 @@ static void admin_control_filter_apply(void) {
    g_list_free(rows);
    admin_control_stripe_rows();
 }
-static void admin_control_hosts_refresh(void) {
-   if (!control_hosts) {
+static void admin_control_site(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   dict *site = payload ? json2dict(payload) : NULL;
+
+   if (!site) {
       return;
    }
-   const char *chosen = gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts));
-   char *remember = g_strdup(chosen ? chosen : "local");
+   const char *request_id = dict_get(site, "request.id", "");
+   const char *profile = dict_get(site, "profile", "");
 
-   if (control_host_handler) {
-      g_signal_handler_block(control_hosts, control_host_handler);
-   }
-   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_hosts));
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), "local", "This Client");
+   if (control_host_profiles && !g_strcmp0(control_hosts_request_id, request_id) && *profile) {
+      bool duplicate = false;
 
-   for (unsigned i = 0 ;; ++i) {
-      const char *profile = rrclient_connection_iter(i);
-
-      if (!profile) {
-         break;
+      for (guint i = 0 ; i < control_host_profiles->len ; i++) {
+         if (!g_strcmp0(g_ptr_array_index(control_host_profiles, i), profile)) {
+            duplicate = true;
+            break;
+         }
       }
-      rrconn_t *connection = rrclient_connection_find(profile);
 
-      if (!connection || !connection->is_ws || !connection->authenticated) {
-         continue;
+      if (!duplicate) {
+         g_ptr_array_add(control_host_profiles, g_strdup(profile));
       }
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), profile, profile);
    }
+   dict_free(site);
+}
+static void admin_control_sites_complete(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   dict *complete = payload ? json2dict(payload) : NULL;
 
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), "all", "All Nodes");
-
-   if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), remember)) {
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), "local");
+   if (!complete) {
+      return;
    }
-   g_free(remember);
+   const char *request_id = dict_get(complete, "request.id", "");
 
-   if (control_host_handler) {
-      g_signal_handler_unblock(control_hosts, control_host_handler);
+   if (control_hosts && !g_strcmp0(control_hosts_request_id, request_id)) {
+      if (control_host_handler) {
+         g_signal_handler_block(control_hosts, control_host_handler);
+      }
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_hosts));
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), "local", "This Client");
+
+      for (guint i = 0 ; control_host_profiles && i < control_host_profiles->len ; i++) {
+         const char *profile = g_ptr_array_index(control_host_profiles, i);
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), profile, profile);
+      }
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), "all", "All Nodes");
+
+      if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), control_hosts_wanted ? control_hosts_wanted : "local")) {
+         gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), "local");
+      }
+
+      if (control_host_handler) {
+         g_signal_handler_unblock(control_hosts, control_host_handler);
+      }
+      g_clear_pointer(&control_hosts_request_id, g_free);
+      g_clear_pointer(&control_hosts_wanted, g_free);
+
+      if (control_refresh_pending) {
+         control_refresh_pending = FALSE;
+         admin_control_refresh_discovered();
+      }
    }
+   dict_free(complete);
+}
+static bool admin_control_hosts_refresh(const char *wanted) {
+   if (!control_hosts || !control_site_token || !control_sites_complete_token) {
+      return false;
+   }
+   const char *active = gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts));
+   g_free(control_hosts_wanted);
+   control_hosts_wanted = g_strdup(wanted && *wanted ? wanted : active ? active : "local");
+   g_clear_pointer(&control_hosts_request_id, g_free);
+   control_hosts_request_id = g_uuid_string_random();
+
+   if (!control_hosts_request_id) {
+      return false;
+   }
+   if (!control_host_profiles) {
+      control_host_profiles = g_ptr_array_new_with_free_func(g_free);
+   }
+   g_ptr_array_set_size(control_host_profiles, 0);
+   dict *request = dict_new();
+
+   if (!request) {
+      return false;
+   }
+   dict_add(request, "request.id", control_hosts_request_id);
+   event_emit_dict("client.admin.sites-request", NULL, request);
+   dict_free(request);
+
+   return true;
 }
 static void admin_control_host_changed(GtkComboBox *box, gpointer unused) {
    (void)unused;
@@ -332,22 +396,7 @@ void gtk_admin_open_control_on_server(const char *profile, const char *name) {
    gboolean server_changed = g_strcmp0(control_server_profile, profile) != 0;
    g_free(control_server_profile);
    control_server_profile = g_strdup(profile);
-   admin_control_hosts_refresh();
-
-   if (control_hosts) {
-      if (control_host_handler) {
-         g_signal_handler_block(control_hosts, control_host_handler);
-      }
-
-      if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), profile)) {
-         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), profile, profile);
-         gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), profile);
-      }
-
-      if (control_host_handler) {
-         g_signal_handler_unblock(control_hosts, control_host_handler);
-      }
-   }
+   admin_control_hosts_refresh(profile);
 
    if (server_changed && control_combo) {
       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
@@ -383,7 +432,7 @@ void gtk_admin_open_control_on_server(const char *profile, const char *name) {
    }
 }
 void gtk_admin_open_control(const char *name) {
-   gtk_admin_open_control_on_server(rrclient_selected_server(), name);
+   gtk_admin_open_control_on_server(gtk_admin_selected_profile(), name);
 }
 
 /* Sort current row widgets in place; preserves each live slider and owner. */
@@ -624,16 +673,6 @@ static void admin_control_row_add(dict *data, const char *profile) {
 }
 
 static bool admin_control_request_profile(const char *profile, const char *name, int value) {
-   rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
-
-   if (!connection || !connection->is_ws || !connection->authenticated) {
-      return false;
-   }
-   dict *d = dict_new();
-
-   if (!d) {
-      return false;
-   }
    char data[160];
 
    if (!name) {
@@ -643,22 +682,12 @@ static bool admin_control_request_profile(const char *profile, const char *name,
    } else {
       snprintf(data, sizeof(data), "control %s %d", name, value);
    }
-   dict_add(d, "msg.type", "talk");
-   dict_add(d, "talk.cmd", "admin");
-   dict_add(d, "talk.data", data);
-   bool ok = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
-
-   return ok;
+   return gtk_admin_command_event(control_status, profile, "admin", data, NULL, NULL);
 }
 static bool admin_control_request(const char *name, int value) {
    return admin_control_request_profile(control_server_profile, name, value);
 }
-static void admin_control_refresh(GtkButton *button, gpointer user) {
-   (void)button;
-   (void)user;
-   admin_control_hosts_refresh();
-
+static void admin_control_refresh_discovered(void) {
    if (control_scale) {
       gtk_widget_set_sensitive(control_scale, FALSE);
    }
@@ -667,13 +696,8 @@ static void admin_control_refresh(GtkButton *button, gpointer user) {
    control_pending_lists = 0;
 
    if (host && !strcmp(host, "all")) {
-      for (unsigned i = 0 ;; ++i) {
-         const char *profile = rrclient_connection_iter(i);
-
-         if (!profile) {
-            break;
-         }
-
+      for (guint i = 0 ; control_host_profiles && i < control_host_profiles->len ; ++i) {
+         const char *profile = g_ptr_array_index(control_host_profiles, i);
          if (admin_control_request_profile(profile, NULL, -1)) {
             ++control_pending_lists;
          }
@@ -689,6 +713,19 @@ static void admin_control_refresh(GtkButton *button, gpointer user) {
 
       if (!admin_control_request_profile(host, NULL, -1)) {
          gtk_label_set_text(GTK_LABEL(control_status), "Cannot query selected server");
+      }
+   }
+}
+static void admin_control_refresh(GtkButton *button, gpointer user) {
+   (void)button;
+   (void)user;
+   control_refresh_pending = TRUE;
+
+   if (!admin_control_hosts_refresh(NULL)) {
+      control_refresh_pending = FALSE;
+
+      if (control_status) {
+         gtk_label_set_text(GTK_LABEL(control_status), "Unable to refresh connected server profiles");
       }
    }
 }
@@ -744,6 +781,43 @@ static void admin_control_apply(GtkButton *button, gpointer user) {
    gtk_label_set_text(GTK_LABEL(control_status), message);
 }
 
+static void admin_control_page_destroy(GtkWidget *page, gpointer unused) {
+   (void)page;
+   (void)unused;
+
+   if (control_site_token) {
+      event_off_token(control_site_token);
+      control_site_token = 0;
+   }
+   if (control_sites_complete_token) {
+      event_off_token(control_sites_complete_token);
+      control_sites_complete_token = 0;
+   }
+   control_hosts = NULL;
+   control_combo = NULL;
+   control_scale = NULL;
+   control_status = NULL;
+   control_apply = NULL;
+   control_filter = NULL;
+   control_rows_box = NULL;
+   control_scroll = NULL;
+   control_host_handler = 0;
+   control_pending_lists = 0;
+   control_refresh_pending = FALSE;
+   g_clear_pointer(&control_hosts_request_id, g_free);
+   g_clear_pointer(&control_hosts_wanted, g_free);
+   g_clear_pointer(&control_server_profile, g_free);
+   g_clear_pointer(&control_pending_name, g_free);
+
+   if (control_host_profiles) {
+      g_ptr_array_unref(control_host_profiles);
+      control_host_profiles = NULL;
+   }
+   if (control_row_buttons) {
+      g_hash_table_unref(control_row_buttons);
+      control_row_buttons = NULL;
+   }
+}
 
 bool gtk_admin_controls_result(const char *name, const char *action, dict *row, const char *profile) {
    const char *source_profile = profile;
@@ -838,7 +912,6 @@ GtkWidget *gtk_admin_controls_page(void) {
    control_hosts = gtk_combo_box_text_new();
    gtk_widget_set_hexpand(control_hosts, TRUE);
    gtk_box_pack_start(GTK_BOX(filter_header), control_hosts, TRUE, TRUE, 0);
-   admin_control_hosts_refresh();
    control_host_handler = g_signal_connect(control_hosts, "changed", G_CALLBACK(admin_control_host_changed), NULL);
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(admin_controls_star), NULL);
    gtk_box_pack_start(GTK_BOX(box), filter_header, FALSE, FALSE, 0);
@@ -894,6 +967,14 @@ GtkWidget *gtk_admin_controls_page(void) {
    g_signal_connect(control_combo, "changed", G_CALLBACK(admin_control_selection), NULL);
    g_signal_connect(control_apply, "clicked", G_CALLBACK(admin_control_apply), NULL);
    g_object_set_data(G_OBJECT(control_combo), "control-page", box);
+   control_site_token = event_on_domain_token("client.admin.site", admin_control_site, NULL, "gtk");
+   control_sites_complete_token = event_on_domain_token("client.admin.sites-complete", admin_control_sites_complete, NULL, "gtk");
+   g_signal_connect(box, "destroy", G_CALLBACK(admin_control_page_destroy), NULL);
+   if (!control_site_token || !control_sites_complete_token) {
+      gtk_label_set_text(GTK_LABEL(control_status), "Unable to subscribe to server profile events");
+   } else if (!admin_control_hosts_refresh(NULL)) {
+      gtk_label_set_text(GTK_LABEL(control_status), "Unable to request connected server profiles");
+   }
 
    return box;
 }

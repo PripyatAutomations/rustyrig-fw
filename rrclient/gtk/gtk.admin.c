@@ -13,8 +13,8 @@
 #include <librustyaxe/util.time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.admin.command.h>
 #include <rrclient/gtk/gtk.privileges.h>
 #include <rrclient/gtk/gtk.admin.controls.h>
 #include <rrclient/gtk/gtk.admin.access.h>
@@ -35,6 +35,21 @@ static char explorer_target_profile[128];
 static gboolean explorer_open_edit_idle(gpointer unused);
 static void admin_action(GtkButton *button, gpointer data);
 void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
+void gtk_admin_refresh(void);
+typedef struct {
+   admin_table_t *table;
+   GWeakRef status;
+   char profile[128];
+} admin_pending_request_t;
+typedef struct {
+   GtkWidget *status;
+   char profile[128];
+   char *message;
+} admin_command_rejection_t;
+static GHashTable *admin_pending_requests;
+static rr_event_token_t admin_password_notice_token, admin_command_result_token, admin_profile_token;
+static GtkWidget *admin_account_dialog;
+static char admin_selected_profile[128];
 static admin_table_t tables[] = {
    {
       .name = "users", .fields = {
@@ -103,11 +118,19 @@ static GtkWidget *privileges_notebook;
 /* Keep raw server fields in the model for account editing. Formatting and display order belong only to the GTK view. */
 /* Wrapping must follow the actual allocated column width. A permanent 112px wrap width made Audit Log details consume many lines in a wide window. */
 /* UUIDs remain complete in the model. Only their on-screen rendering is abbreviated; commands, sorting and clipboard operations use the raw ID. */
-static bool admin_command(admin_table_t *table, const char *command, const char *tail, const char *target) {
-   rrconn_t *connection = rrclient_connection_find(table->profile);
+static void admin_pending_request_free(gpointer data) {
+   admin_pending_request_t *pending = data;
+   g_weak_ref_clear(&pending->status);
+   g_free(pending);
+}
+static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const char *profile, const char *command, const char *tail, const char *target,
+   dict *fields) {
+   if (!profile || !*profile) {
+      GtkWidget *label = status ? status : table ? table->status : NULL;
 
-   if (!connection || !connection->is_ws || !connection->authenticated) {
-      gtk_label_set_text(GTK_LABEL(table->status), "Select a connected RustyRig server and Refresh");
+      if (label) {
+         gtk_label_set_text(GTK_LABEL(label), "Select a server and Refresh");
+      }
 
       return false;
    }
@@ -116,49 +139,144 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
    if (!request) {
       return false;
    }
-   dict_add(request, "msg.type", "talk");
+   char *request_id = g_uuid_string_random();
 
-   if (!strncmp(command, "group-", 6) || !strncmp(command, "privset-", 8) || !strncmp(command, "resource-", 9) || !strcmp(command, "rig-access")
-      || !strcmp(command, "room-access") || !strcmp(command, "user-edit")
-      || !strcmp(command, "room-remove") || !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all")) {
-      dict_add(request, "talk.action", command);
-      command = "admin";
-   }
-   dict_add(request, "talk.cmd", command);
-   dict_add(request, "talk.data", tail);
+   if (!request_id) {
+      dict_free(request);
 
-   if (target) {
-      dict_add(request, "talk.target", target);
+      return false;
    }
-   bool sent = ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
+   dict_add(request, "profile", profile);
+   dict_add(request, "client.request.id", request_id);
+   dict_add(request, "command", command);
+   dict_add(request, "tail", tail ? tail : "");
+   dict_add(request, "target", target ? target : "");
+   const char *field_names[] = {"user.email", "user.real_name", "user.phone"};
 
-   if (!sent) {
-      gtk_label_set_text(GTK_LABEL(table->status), "Unable to send administration request");
+   for (size_t i = 0 ; fields && i < G_N_ELEMENTS(field_names) ; i++) {
+      const char *value = dict_get(fields, field_names[i], NULL);
+
+      if (value) {
+         dict_add(request, field_names[i], value);
+      }
    }
+   if (!admin_pending_requests) {
+      admin_pending_requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, admin_pending_request_free);
+   }
+   admin_pending_request_t *pending = g_new0(admin_pending_request_t, 1);
+   pending->table = table;
+   g_weak_ref_init(&pending->status, status ? G_OBJECT(status) : NULL);
+   g_strlcpy(pending->profile, profile, sizeof(pending->profile));
+   g_hash_table_replace(admin_pending_requests, g_strdup(request_id), pending);
+   event_emit_dict("client.admin.command-request", NULL, request);
    dict_free(request);
+   g_free(request_id);
 
-   return sent;
+   return true;
+}
+bool gtk_admin_command_event(GtkWidget *status, const char *profile, const char *command, const char *tail, const char *target, dict *fields) {
+   return admin_command_queue(NULL, status, profile, command, tail, target, fields);
+}
+const char *gtk_admin_selected_profile(void) {
+   return admin_selected_profile;
+}
+static bool admin_command_profile(admin_table_t *table, const char *profile, const char *command, const char *tail, const char *target, dict *fields) {
+   return admin_command_queue(table, table ? table->status : NULL, profile, command, tail, target, fields);
+}
+static bool admin_command(admin_table_t *table, const char *command, const char *tail, const char *target) {
+   return admin_command_profile(table, table->profile, command, tail, target, NULL);
 }
 
 /* Reuse the server's password command; credentials never enter chat input/history. */
 static bool admin_session_command(admin_table_t *table, const char *command, const char *id) {
    return admin_command(table, command, "", id);
 }
-
+typedef struct {
+   admin_table_t *table;
+   char profile[128];
+} admin_password_context_t;
 static void admin_password_submit(void *context, const char *tail) {
-   admin_table_t *table = context;
-   admin_command(table, "user", tail, NULL);
+   admin_password_context_t *password = context;
+   admin_command_profile(password->table, password->profile, "user", tail, NULL, NULL);
 }
 
-static rr_event_token_t admin_password_notice_token;
-static GtkWidget *admin_account_dialog;
+static void admin_profile_result(const char *event, const char *data, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   dict *reply = data ? json2dict(data) : NULL;
+
+   if (reply) {
+      const char *profile = dict_get(reply, "profile", "");
+      bool changed = g_strcmp0(admin_selected_profile, profile) != 0;
+      g_strlcpy(admin_selected_profile, profile, sizeof(admin_selected_profile));
+      dict_free(reply);
+
+      if (changed && admin_view && main_notebook && gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
+         gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_view) {
+         gtk_admin_refresh();
+      }
+   }
+}
+static gboolean admin_command_result_apply(gpointer data) {
+   admin_command_rejection_t *result = data;
+
+   if (result->status && !gtk_widget_in_destruction(result->status)) {
+      gtk_label_set_text(GTK_LABEL(result->status), result->message);
+   }
+   if (result->status) {
+      g_object_unref(result->status);
+   }
+   g_free(result->message);
+   g_free(result);
+
+   return G_SOURCE_REMOVE;
+}
+static void admin_command_result(const char *event, const char *data, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   dict *reply = data ? json2dict(data) : NULL;
+
+   if (!reply) {
+      return;
+   }
+   const char *request_id = dict_get(reply, "client.request.id", "");
+   admin_pending_request_t *pending = admin_pending_requests ? g_hash_table_lookup(admin_pending_requests, request_id) : NULL;
+
+   if (pending) {
+      const char *profile = dict_get(reply, "profile", "");
+      bool rejected = !dict_get_bool(reply, "accepted", false);
+
+      if (g_strcmp0(pending->profile, profile)) {
+         rejected = false;
+      }
+
+      bool current = !pending->table || !g_strcmp0(pending->table->profile, pending->profile);
+      GObject *status_object = rejected && current ? g_weak_ref_get(&pending->status) : NULL;
+      GtkWidget *status = status_object ? GTK_WIDGET(status_object) : NULL;
+
+      if (status) {
+         admin_command_rejection_t *result = g_new0(admin_command_rejection_t, 1);
+         result->status = status;
+         g_strlcpy(result->profile, pending->profile, sizeof(result->profile));
+         const char *message = dict_get(reply, "message", "Administration request rejected");
+         result->message = g_strdup(message);
+         g_idle_add(admin_command_result_apply, result);
+      }
+      g_hash_table_remove(admin_pending_requests, request_id);
+   }
+   dict_free(reply);
+}
 
 /* Temporary credentials are returned only to the requester, never through audit. */
-static void admin_password_notice(const char *event, const char *data, rrconn_t *connection, void *unused) {
+static void admin_password_notice(const char *event, const char *data, rrconn_t *unused_connection, void *unused) {
    (void)event;
+   (void)unused_connection;
    (void)unused;
    dict *notice = data ? json2dict(data) : NULL;
    const char *text = notice ? dict_get(notice, "notice.msg", "") : "";
+   const char *profile = notice ? dict_get(notice, "profile", "") : "";
 
    if (g_str_has_prefix(text, "USER: temporary password for ") ||
       g_str_has_prefix(text, "USER: failed to add ") ||
@@ -169,11 +287,11 @@ static void admin_password_notice(const char *event, const char *data, rrconn_t 
       g_str_has_prefix(text, "USER: password changed for ") ||
       g_str_has_prefix(text, "USER: failed to reset password for ") ||
       g_str_has_prefix(text, "USER: failed to change password for ") || g_str_has_prefix(text, "USER: insufficient privilege to modify ")) {
-      const char *server = rrclient_connection_name(connection);
+      const char *server = profile;
 
-      if (g_str_has_prefix(text, "USER: added ") && tables[0].store && connection == rrclient_connection_find(tables[0].profile)) {
+      if (g_str_has_prefix(text, "USER: added ") && tables[0].store && !g_strcmp0(profile, tables[0].profile)) {
          gtk_label_set_text(GTK_LABEL(tables[0].status), "Account created");
-         admin_command(&tables[0], "admin", "users", NULL);
+         admin_command_profile(&tables[0], profile, "admin", "users", NULL, NULL);
       }
       GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(admin_account_dialog ? admin_account_dialog : main_window), GTK_DIALOG_DESTROY_WITH_PARENT,
          GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Account result — %s", server ? server : "server");
@@ -201,13 +319,21 @@ static void admin_password_notice_destroy(GtkWidget *widget, gpointer unused) {
    if (admin_password_notice_token) {
       event_off_token(admin_password_notice_token);
    }
+   if (admin_command_result_token) {
+      event_off_token(admin_command_result_token);
+   }
+   if (admin_profile_token) {
+      event_off_token(admin_profile_token);
+   }
+   if (admin_pending_requests) {
+      g_hash_table_remove_all(admin_pending_requests);
+   }
    admin_password_notice_token = NULL;
+   admin_command_result_token = NULL;
+   admin_profile_token = NULL;
 }
 
-static void admin_refresh(GtkButton *button, gpointer data) {
-   (void)button;
-   admin_table_t *table = data;
-   const char *profile = rrclient_selected_server();
+static void admin_refresh_profile(admin_table_t *table, const char *profile) {
    snprintf(table->profile, sizeof(table->profile), "%s", profile ? profile : "");
    table->next[0] = 0;
    gtk_widget_set_sensitive(table->older, FALSE);
@@ -220,6 +346,10 @@ static void admin_refresh(GtkButton *button, gpointer data) {
       admin_command(table, "admin", "groups", NULL);
    }
 }
+static void admin_refresh(GtkButton *button, gpointer data) {
+   (void)button;
+   admin_refresh_profile(data, admin_selected_profile);
+}
 
 /* A grant subject is selected from the linked directory, not typed as a UUID. */
 static GtkWidget *grant_subjects, *grant_privilege_choices;
@@ -227,10 +357,9 @@ static char *grant_profile;
 static void admin_add_privilege(GtkButton *button, gpointer user) {
    (void)button;
    admin_table_t *table = user;
-   rrconn_t *connection = rrclient_connection_find(table->profile);
 
-   if (!connection || !connection->authenticated) {
-      gtk_label_set_text(GTK_LABEL(table->status), "Connect to the destination server first");
+   if (!*table->profile) {
+      gtk_label_set_text(GTK_LABEL(table->status), "Select a destination server and Refresh");
 
       return;
    }
@@ -365,10 +494,9 @@ static void admin_group_tree_row(const char *group, const char *kind, const char
 static void admin_manage_groups(GtkButton *button, gpointer user) {
    (void)button;
    admin_table_t *table = user;
-   rrconn_t *connection = rrclient_connection_find(table->profile);
 
-   if (!connection || !connection->authenticated) {
-      gtk_label_set_text(GTK_LABEL(table->status), "Connect to the destination server first");
+   if (!*table->profile) {
+      gtk_label_set_text(GTK_LABEL(table->status), "Select a destination server and Refresh");
 
       return;
    }
@@ -691,22 +819,15 @@ static void admin_create_user(GtkButton *button, gpointer data) {
       }
       char *request = g_strdup_printf("add %s %s", username, permissions);
       g_free(permissions);
-      rrconn_t *connection = rrclient_connection_find(table->profile);
+      dict *fields = dict_new();
       bool sent = false;
 
-      if (connection && connection->authenticated) {
-         dict *d = dict_new();
-
-         if (d) {
-            dict_add(d, "msg.type", "talk");
-            dict_add(d, "talk.cmd", "user");
-            dict_add(d, "talk.data", request);
-            dict_add(d, "user.email", gtk_entry_get_text(GTK_ENTRY(email)));
-            dict_add(d, "user.real_name", gtk_entry_get_text(GTK_ENTRY(real)));
-            dict_add(d, "user.phone", gtk_entry_get_text(GTK_ENTRY(phone)));
-            sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
-            dict_free(d);
-         }
+      if (fields) {
+         dict_add(fields, "user.email", gtk_entry_get_text(GTK_ENTRY(email)));
+         dict_add(fields, "user.real_name", gtk_entry_get_text(GTK_ENTRY(real)));
+         dict_add(fields, "user.phone", gtk_entry_get_text(GTK_ENTRY(phone)));
+         sent = admin_command_profile(table, table->profile, "user", request, NULL, fields);
+         dict_free(fields);
       }
       g_free(request);
 
@@ -996,6 +1117,8 @@ static void admin_action(GtkButton *button, gpointer data) {
       /* Snapshot the destination before entering the modal dialog: changing the globally selected server must not redirect this edit. */
       char destination[sizeof(table->profile)];
       g_strlcpy(destination, table->profile, sizeof(destination));
+      admin_password_context_t password_context = {.table = table};
+      g_strlcpy(password_context.profile, destination, sizeof(password_context.profile));
       gchar *account_uid = NULL;
       gtk_tree_model_get(model, &iter, 8, &account_uid, -1);
       /* The UID is displayed for disambiguation, never edited or used as a replacement for the server-authoritative account selector. */
@@ -1066,23 +1189,23 @@ static void admin_action(GtkButton *button, gpointer data) {
       int response;
       while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == 1001 || response == 1002 || response == 1003) {
          if (response == 1003) {
-            char *privileges = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile, name, gtk_entry_get_text(GTK_ENTRY(entries[2])));
+            char *privileges = gtk_edit_privileges(GTK_WINDOW(dialog), destination, name, gtk_entry_get_text(GTK_ENTRY(entries[2])));
 
             if (privileges) {
                gtk_entry_set_text(GTK_ENTRY(entries[2]), privileges);
             }
             g_free(privileges);
          } else if (response == 1001) {
-            gtk_admin_password_dialog(GTK_WINDOW(dialog), table->profile, name, admin_password_submit, table);
+            gtk_admin_password_dialog(GTK_WINDOW(dialog), destination, name, admin_password_submit, &password_context);
          } else {
             char *request = g_strdup_printf("resetpw %s", name);
-            admin_command(table, "user", request, NULL);
+            admin_command_profile(table, destination, "user", request, NULL, NULL);
             g_free(request);
          }
       }
 
       if (response == 1004) {
-         char *server = g_strdup(table->profile);
+         char *server = g_strdup(destination);
          char *username = g_strdup(name);
          gtk_widget_destroy(dialog);
          admin_account_dialog = NULL;
@@ -1100,10 +1223,10 @@ static void admin_action(GtkButton *button, gpointer data) {
       }
 
       if (response == GTK_RESPONSE_OK) {
-         /* Never silently send an account edit to a different server after a context switch or connection change while the dialog is open. */
-         if (g_strcmp0(table->profile, destination) || !rrclient_connection_find(destination) || !rrclient_connection_find(destination)->authenticated) {
+         /* Never silently send an account edit to a different server after the table changes while the dialog is open. */
+         if (g_strcmp0(table->profile, destination)) {
             GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-               "Cannot save %s on %s: destination connection changed or disconnected.", name, destination);
+               "Cannot save %s on %s: the selected destination changed while the dialog was open.", name, destination);
             gtk_dialog_run(GTK_DIALOG(error));
             gtk_widget_destroy(error);
             response = GTK_RESPONSE_CANCEL;
@@ -1152,7 +1275,7 @@ static void admin_action(GtkButton *button, gpointer data) {
                gboolean approved = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_OK;
                gtk_widget_destroy(confirm);
 
-               if (approved && admin_command(table, "user-edit", json, name)) {
+               if (approved && admin_command_profile(table, destination, "user-edit", json, name, NULL)) {
                   gtk_label_set_text(GTK_LABEL(table->status), "Saving account; awaiting server confirmation");
                }
             } else {
@@ -1472,8 +1595,10 @@ void gtk_admin_open_resource(const char *profile, const char *kind, const char *
       return;
    }
 
-   if (profile && *profile && g_strcmp0(rrclient_selected_server(), profile)) {
-      rrclient_connection_select(profile);
+   const char *destination = profile && *profile ? profile : admin_selected_profile;
+
+   if (profile && *profile && g_strcmp0(admin_selected_profile, profile)) {
+      event_emit("client.admin.select-profile", NULL, profile);
    }
    admin_table_t *table = &tables[index];
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_view));
@@ -1494,11 +1619,11 @@ void gtk_admin_open_resource(const char *profile, const char *kind, const char *
    if (index != 5) {
       g_strlcpy(explorer_target_name, name, sizeof(explorer_target_name));
       g_strlcpy(explorer_target_table, table->name, sizeof(explorer_target_table));
-      g_strlcpy(explorer_target_profile, profile ? profile : rrclient_selected_server(), sizeof(explorer_target_profile));
+      g_strlcpy(explorer_target_profile, destination, sizeof(explorer_target_profile));
       explorer_edit_table = index;
       g_strlcpy(explorer_edit_name, name, sizeof(explorer_edit_name));
    }
-   admin_refresh(NULL, table);
+   admin_refresh_profile(table, destination);
 }
 
 void gtk_admin_refresh(void) {
@@ -1525,9 +1650,18 @@ static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint nu
 GtkWidget *init_admin_tab(void) {
    gtk_admin_privgroup_set_sender(admin_command);
    gtk_admin_session_set_sender(admin_session_command);
+   if (!admin_pending_requests) {
+      admin_pending_requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, admin_pending_request_free);
+   }
    admin_view = gtk_notebook_new();
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(admin_view), TRUE);
-   admin_password_notice_token = event_on_domain_token("notice.msg", admin_password_notice, NULL, "gtk");
+   admin_password_notice_token = event_on_domain_token("client.ui.admin.notice", admin_password_notice, NULL, "gtk");
+   admin_command_result_token = event_on_domain_token("client.admin.command-result", admin_command_result, NULL, "gtk");
+   admin_profile_token = event_on_domain_token("client.admin.profile", admin_profile_result, NULL, "gtk");
+
+   if (!admin_password_notice_token || !admin_command_result_token || !admin_profile_token) {
+      g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK administration events");
+   }
    g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
 
@@ -1889,6 +2023,7 @@ GtkWidget *init_admin_tab(void) {
    }
 
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
+   event_emit("client.admin.profile-request", NULL, NULL);
 
    return admin_view;
 }

@@ -326,15 +326,21 @@ domain. GTK no longer resolves connections or calls file-transfer/network
 APIs directly. Results return as copied status/completion events. Native
 transfer tests continue to exercise upload/download and remote editing.
 
+Administration tables, access requests and controls now submit copied
+profile-scoped command events instead of resolving connections or sending
+WebSocket messages from GTK. The Controls page also receives its connected
+server list as correlated profile snapshot events. Rejection status uses
+weak widget references, and the Controls page unregisters its event
+subscriptions on destruction. These changes do not cover every callback
+lifetime in the Administration window or make the remaining client paths
+safe for the threaded mode.
+
 ### Remaining unsafe or incomplete paths
 
 - `rrclient/gtk/gtk.userlist.c` still traverses `global_userlist`, reads room,
   media and object state, resolves connections, and sends WebSocket commands
   from GTK callbacks. GTK roster and VFO presentations need complete owned
   snapshots and command events.
-- `rrclient/gtk/gtk.admin.c` still resolves core connections and sends
-  requests directly; account/session/group actions need core-domain
-  commands and asynchronous acceptance results.
 - Resource Explorer's local serial scan still calls `rr_serial_foreach()`,
   `rr_sercom_info()` and `rr_serial_find()` from GTK. Device/configuration
   state and local attach/disconnect actions need core snapshots/commands.

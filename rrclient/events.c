@@ -1235,6 +1235,135 @@ static void rrclient_handle_admin_result(const char *event, const char *data, rr
    dict_free(reply);
 }
 
+static void rrclient_handle_admin_command_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   dict *request = payload ? json2dict(payload) : NULL;
+
+   if (!request) {
+      Log(LOG_WARN, "admin", "Ignoring malformed GTK administration command");
+      return;
+   }
+   const char *profile = dict_get(request, "profile", "");
+   const char *request_id = dict_get(request, "client.request.id", "");
+   const char *command = dict_get(request, "command", "");
+   rrconn_t *connection = rrclient_connection_find(profile);
+   bool accepted = false;
+   const char *result = "Select a connected RustyRig server and Refresh";
+
+   if (connection && connection->is_ws && connection->authenticated) {
+      dict *message = dict_new();
+
+      if (message) {
+         dict_add(message, "msg.type", "talk");
+
+         bool access_action = !strncmp(command, "access-request-", 15);
+
+         if (!strncmp(command, "group-", 6) || !strncmp(command, "privset-", 8) || !strncmp(command, "resource-", 9) ||
+            !strcmp(command, "rig-access") || !strcmp(command, "room-access") || !strcmp(command, "user-edit") ||
+            !strcmp(command, "room-remove") || !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all") || access_action) {
+            dict_add(message, "talk.action", command);
+            dict_add(message, "talk.cmd", "admin");
+         } else {
+            dict_add(message, "talk.cmd", command);
+         }
+         dict_add(message, "talk.data", dict_get(request, "tail", ""));
+         const char *target = dict_get(request, "target", "");
+
+         if (access_action && *target) {
+            dict_add(message, "request.id", target);
+         } else if (*target) {
+            dict_add(message, "talk.target", target);
+         }
+         const char *fields[] = {"user.email", "user.real_name", "user.phone", "request.decision", "request.grants", "request.remote"};
+
+         for (size_t i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
+            const char *value = dict_get(request, fields[i], NULL);
+
+            if (value) {
+               dict_add(message, fields[i], value);
+            }
+         }
+         accepted = ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT);
+         result = accepted ? "" : "Unable to send administration request";
+         dict_free(message);
+      } else {
+         result = "Unable to allocate administration request";
+      }
+   }
+   dict *reply = dict_new();
+
+   if (reply) {
+      dict_add(reply, "profile", profile);
+      dict_add(reply, "client.request.id", request_id);
+      dict_add_bool(reply, "accepted", accepted);
+      dict_add(reply, "message", result);
+      event_emit_dict("client.admin.command-result", NULL, reply);
+      dict_free(reply);
+   }
+   if (!accepted) {
+      Log(LOG_WARN, "admin", "Administration request rejected for profile=%s command=%s: %s", profile, command, result);
+   }
+   dict_free(request);
+}
+
+static void rrclient_admin_profile_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)payload;
+   (void)unused_connection;
+   (void)unused;
+   dict *reply = dict_new();
+
+   if (reply) {
+      const char *profile = rrclient_selected_server();
+      dict_add(reply, "profile", profile ? profile : "");
+      event_emit_dict("client.admin.profile", NULL, reply);
+      dict_free(reply);
+   }
+}
+static void rrclient_admin_select_profile(const char *event, const char *profile, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+
+   if (profile && *profile && !rrclient_connection_select(profile)) {
+      Log(LOG_WARN, "admin", "Cannot select unknown or unavailable server profile %s", profile);
+   }
+}
+static void rrclient_admin_sites_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
+   dict *request = payload ? json2dict(payload) : NULL;
+
+   if (!request) {
+      Log(LOG_WARN, "admin", "Ignoring malformed GTK server-profile request");
+      return;
+   }
+   const char *request_id = dict_get(request, "request.id", "");
+
+   for (unsigned i = 0 ;; i++) {
+      const char *profile = rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *connection = rrclient_connection_find(profile);
+      if (!connection || !connection->is_ws || !connection->authenticated) continue;
+      dict *site = dict_new();
+      if (!site) continue;
+      dict_add(site, "request.id", request_id);
+      dict_add(site, "profile", profile);
+      event_emit_dict("client.admin.site", NULL, site);
+      dict_free(site);
+   }
+   dict *complete = dict_new();
+   if (complete) {
+      dict_add(complete, "request.id", request_id);
+      event_emit_dict("client.admin.sites-complete", NULL, complete);
+      dict_free(complete);
+   }
+   dict_free(request);
+}
+
 // Generic ws.msg.talk listener: the specific commands are dispatched by
 // ws_handle_talk_msg() into dedicated events (userinfo, join, talk.msg,
 // chat.replay, ...). We register a handler so the event system doesn't fire
@@ -1442,6 +1571,24 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
    const char *output = ui_active_window_name();
 
    if (msg) {
+      bool admin_notice = g_str_has_prefix(msg, "USER: temporary password for ") || g_str_has_prefix(msg, "USER: failed to add ") ||
+         g_str_has_prefix(msg, "USER: account already exists: ") || g_str_has_prefix(msg, "USER: no user slots are available") ||
+         g_str_has_prefix(msg, "USER: administrators cannot create ") ||
+         (g_str_has_prefix(msg, "USER: added ") && strstr(msg, " with temporary password ")) ||
+         g_str_has_prefix(msg, "USER: password changed for ") || g_str_has_prefix(msg, "USER: failed to reset password for ") ||
+         g_str_has_prefix(msg, "USER: failed to change password for ") || g_str_has_prefix(msg, "USER: insufficient privilege to modify ");
+
+      if (admin_notice && cptr) {
+         const char *profile = rrclient_connection_name(cptr);
+         dict *notice = dict_new();
+
+         if (notice) {
+            dict_add(notice, "profile", profile ? profile : "");
+            dict_add(notice, "notice.msg", msg);
+            event_emit_dict("client.ui.admin.notice", NULL, notice);
+            dict_free(notice);
+         }
+      }
       if (!strncmp(msg, "Rig E-STOP ", 11)) {
          dict *notice = dict_new();
          if (notice) {
@@ -1751,6 +1898,13 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
 }
 
 static void rrclient_server_selected(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   dict *profile = dict_new();
+
+   if (profile) {
+      dict_add(profile, "profile", data ? data : "");
+      event_emit_dict("client.admin.profile", NULL, profile);
+      dict_free(profile);
+   }
    if (!rrclient_present_context()) {
       return;
    }
@@ -1943,6 +2097,10 @@ void rrclient_register_events(void) {
    event_on("notice.msg", rrclient_handle_notice, NULL);
    event_on("supervise.result", rrclient_supervision_result, NULL);
    event_on("admin.result", rrclient_handle_admin_result, NULL);
+   event_on_domain_token("client.admin.command-request", rrclient_handle_admin_command_request, NULL, "core");
+   event_on_domain_token("client.admin.profile-request", rrclient_admin_profile_request, NULL, "core");
+   event_on_domain_token("client.admin.select-profile", rrclient_admin_select_profile, NULL, "core");
+   event_on_domain_token("client.admin.sites-request", rrclient_admin_sites_request, NULL, "core");
    event_on("ws.msg.ping", rrclient_handle_ping, NULL);
    event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);
    event_on("ws.msg.talk", rrclient_handle_talk, NULL);
