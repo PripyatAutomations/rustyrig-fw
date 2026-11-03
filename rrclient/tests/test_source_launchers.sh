@@ -6,6 +6,11 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/config" "$work/tools" "$work/bin"
 touch "$work/librustyaxe.so.0" "$work/librrprotocol.so.0" "$work/libfwdspmgr.so.0"
 cp tools/test-env.sh tools/test-config.py tools/test-client.sh tools/test-server.sh "$work/tools/"
+# The fixture validates launcher paths, not sanitizer builds. Stub only
+# the shared build-mode hook used before launching the mock binaries.
+cat > "$work/tools/test-sanitizers.sh" <<'STUB'
+rr_test_prepare_build() { :; }
+STUB
 cp config/*.cfg "$work/config/"
 for program in rrclient rrserver; do
   cat > "$work/bin/$program" <<'MOCK'
