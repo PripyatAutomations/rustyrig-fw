@@ -113,8 +113,11 @@ static void activate(client_server_t *s) {
       exchange_views(context);
    }
    context = s;
-   free((void *)server_name);
-   server_name = s ? strdup(s->name) : NULL;
+   /* Compatibility view, borrowed from the active profile. Avoid allocating
+    * and freeing this name on every nested connection dispatch. Profile
+    * names remain alive until connman_shutdown(), which calls activate(NULL)
+    * before releasing them. */
+   server_name = s ? s->name : NULL;
    login_user = s ? s->user : NULL;
    ws_conn = s ? s->connection : NULL;
    ws_connected = s ? s->connected : 0;
