@@ -24,6 +24,7 @@ def login(c, name):
 
 with tempfile.TemporaryDirectory(prefix='rr-acl-live-') as temporary:
     work = pathlib.Path(temporary)
+    (work / 'modules').mkdir()
     database = work / 'users.db'
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
