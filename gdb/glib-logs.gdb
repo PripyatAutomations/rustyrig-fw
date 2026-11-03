@@ -1,6 +1,9 @@
 # Trace traditional GLib log calls to their application origin.
 # This is verbose; use only for short reproductions.
 set pagination off
+set logging file /tmp/rr-gdb-glib.log
+set logging overwrite on
+set logging enabled on
 set breakpoint pending on
 set print thread-events off
 
