@@ -10,11 +10,13 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
    (void)title;
    (void)callback;
    (void)data;
+
    return NULL;
 }
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
    (void)tab;
 }
+
 static bool staff;
 client_cmd_t client_cmds[] = {
    {
@@ -36,12 +38,16 @@ static char *contents(void) {
    g_queue_push_tail(&queue, gtk_bin_get_child(GTK_BIN(main_window)));
    while (!g_queue_is_empty(&queue) && !view) {
       GtkWidget *widget = g_queue_pop_head(&queue);
+
       if (!g_strcmp0(gtk_widget_get_name(widget), "help-view")) {
          view = widget;
       } else if (GTK_IS_CONTAINER(widget)) {
          GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
-         for (GList *item = children; item; item = item->next)
+
+         for (GList *item = children ; item ; item = item->next) {
             g_queue_push_tail(&queue, item->data);
+         }
+
          g_list_free(children);
       }
    }

@@ -8,11 +8,13 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
    (void)title;
    (void)callback;
    (void)data;
+
    return NULL;
 }
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
    (void)tab;
 }
+
 static gui_window_t picker;
 static char connected_profile[512], edited_profile[512];
 GtkWidget *gtk_show_server_editor(const char *profile) {

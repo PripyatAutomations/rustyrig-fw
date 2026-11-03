@@ -16,6 +16,7 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
 }
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
 }
+
 static struct rrclient_rx_stream catalog[4];
 static size_t catalog_count;
 static unsigned writes, shows;

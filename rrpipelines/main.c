@@ -51,15 +51,18 @@ typedef struct {
 } editor_t;
 
 static void show_error(editor_t *editor, const gchar *message) {
-   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(editor->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", message ? message : "Pipeline editor error");
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(editor->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+      GTK_BUTTONS_CLOSE, "%s", message ? message : "Pipeline editor error");
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
 }
 
 static void pipeline_entry_free(gpointer data) {
    pipeline_entry_t *entry = data;
-   if (!entry) return;
+
+   if (!entry) {
+      return;
+   }
    g_free(entry->id);
    g_free(entry->launch);
    g_free(entry->parse_error);
@@ -80,18 +83,28 @@ static gboolean flush_properties_with_dialog(editor_t *editor);
 static gboolean json_key_pipeline_index(const gchar *key, guint *index, const gchar **suffix);
 
 static gboolean pipeline_id_valid(const gchar *id) {
-   if (!id || !*id || strlen(id) > 127) return FALSE;
-   for (const gchar *p = id; *p; p++) {
-      if (g_ascii_isspace(*p) || *p == '=' || *p == '[' || *p == ']') return FALSE;
+   if (!id || !*id || strlen(id) > 127) {
+      return FALSE;
    }
+
+   for (const gchar *p = id ; *p ; p++) {
+      if (g_ascii_isspace(*p) || *p == '=' || *p == '[' || *p == ']') {
+         return FALSE;
+      }
+   }
+
    return TRUE;
 }
 
 static gboolean pipeline_id_exists(editor_t *editor, const gchar *id) {
-   for (guint i = 0; i < editor->pipelines->len; i++) {
+   for (guint i = 0 ; i < editor->pipelines->len ; i++) {
       pipeline_entry_t *entry = g_ptr_array_index(editor->pipelines, i);
-      if (!g_strcmp0(entry->id, id)) return TRUE;
+
+      if (!g_strcmp0(entry->id, id)) {
+         return TRUE;
+      }
    }
+
    return FALSE;
 }
 
@@ -103,74 +116,95 @@ static gchar *input_read_all(GError **error) {
       if (text->len + n > RR_PIPELINE_INPUT_LIMIT) {
          g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOMEM, "Pipeline JSON exceeds the 16 MiB input limit");
          g_string_free(text, TRUE);
+
          return NULL;
       }
       g_string_append_len(text, buffer, n);
    }
+
    if (ferror(stdin)) {
       g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno), "Cannot read pipeline JSON from stdin");
       g_string_free(text, TRUE);
+
       return NULL;
    }
+
    return g_string_free(text, FALSE);
 }
 
 static gboolean document_load(editor_t *editor, GError **error) {
    gchar *input = input_read_all(error);
-   if (!input) return FALSE;
+
+   if (!input) {
+      return FALSE;
+   }
+
    if (!g_utf8_validate(input, -1, NULL)) {
       g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "Pipeline JSON on stdin is not valid UTF-8");
       g_free(input);
+
       return FALSE;
    }
    editor->document = json2dict(input);
    g_free(input);
+
    if (!editor->document) {
       g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "Cannot parse pipeline JSON with librustyaxe");
+
       return FALSE;
    }
    val_type_t count_type = dict_get_type(editor->document, "pipelines.count");
    guint count = 0;
+
    if (count_type != VAL_END) {
       if (count_type != VAL_INT && count_type != VAL_UINT && count_type != VAL_LONG && count_type != VAL_ULONG &&
-          count_type != VAL_LLONG && count_type != VAL_ULLONG) {
+         count_type != VAL_LLONG && count_type != VAL_ULLONG) {
          g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "Pipeline JSON has an invalid pipelines.count");
+
          return FALSE;
       }
       unsigned long parsed = dict_get_ulong(editor->document, "pipelines.count", ULONG_MAX);
+
       if (parsed > RR_PIPELINE_LIMIT) {
          g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "Pipeline JSON has an invalid pipelines.count");
+
          return FALSE;
       }
-      count = (guint)parsed;
+      count = (guint) parsed;
    }
    int rank = 0;
    const gchar *key;
    char *value;
    while ((rank = dict_enumerate(editor->document, rank, &key, &value)) >= 0) {
       if (!*key || strchr(key, '[')) {
-         g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL,
-            "The librustyaxe JSON contract requires an object-only envelope; arrays cannot be round-tripped");
+         g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "The librustyaxe JSON contract requires an object-only envelope; arrays cannot be round-tripped");
+
          return FALSE;
       }
+
       if (g_str_has_prefix(key, "pipelines.") && strcmp(key, "pipelines.count")) {
          guint index = 0;
          const gchar *suffix = NULL;
+
          if (count_type == VAL_END || !json_key_pipeline_index(key, &index, &suffix) || index >= count || !*suffix) {
             g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "Pipeline JSON contains an invalid indexed pipeline field");
+
             return FALSE;
          }
       }
    }
-   for (guint i = 0; i < count; i++) {
+
+   for (guint i = 0 ; i < count ; i++) {
       gchar *id_key = g_strdup_printf("pipelines.%u.id", i);
       gchar *launch_key = g_strdup_printf("pipelines.%u.launch", i);
       const gchar *id = dict_get(editor->document, id_key, NULL);
       const gchar *launch = dict_get(editor->document, launch_key, NULL);
+
       if (!pipeline_id_valid(id) || !launch || pipeline_id_exists(editor, id)) {
          g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "Pipeline entry %u has a missing, invalid, or duplicate id/launch", i);
          g_free(id_key);
          g_free(launch_key);
+
          return FALSE;
       }
       pipeline_entry_t *entry = g_new0(pipeline_entry_t, 1);
@@ -178,19 +212,26 @@ static gboolean document_load(editor_t *editor, GError **error) {
       entry->launch = g_strdup(launch);
       entry->original_index = i;
       entry->graph = rr_pipeline_graph_parse(launch, error);
+
       if (!entry->graph) {
          entry->parse_error = g_strdup(error && *error ? (*error)->message : "Unsupported pipeline syntax");
-         if (error) g_clear_error(error);
+
+         if (error) {
+            g_clear_error(error);
+         }
       }
       g_free(id_key);
       g_free(launch_key);
+
       if (!entry->id || !entry->launch || (!entry->graph && !entry->parse_error)) {
          pipeline_entry_free(entry);
          g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOMEM, "Cannot store pipeline entry %u", i);
+
          return FALSE;
       }
       g_ptr_array_add(editor->pipelines, entry);
    }
+
    return TRUE;
 }
 
@@ -205,15 +246,17 @@ static gboolean factory_filter_visible(GtkTreeModel *model, GtkTreeIter *iter, g
    g_free(query);
    g_free(raw);
    g_free(haystack);
-   g_free((gpointer)name);
-   g_free((gpointer)klass);
-   g_free((gpointer)description);
+   g_free((gpointer) name);
+   g_free((gpointer) klass);
+   g_free((gpointer) description);
+
    return visible;
 }
 
 static gint factory_feature_compare(gconstpointer left, gconstpointer right) {
-   const gchar *a = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE((gpointer)left));
-   const gchar *b = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE((gpointer)right));
+   const gchar *a = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE((gpointer) left));
+   const gchar *b = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE((gpointer) right));
+
    return g_strcmp0(a, b);
 }
 
@@ -227,38 +270,52 @@ static void factory_search_changed(GtkEditable *editable, gpointer data) {
 static void append_registry_factories(GtkListStore *store) {
    GList *features = gst_registry_get_feature_list(gst_registry_get(), GST_TYPE_ELEMENT_FACTORY);
    features = g_list_sort(features, factory_feature_compare);
-   for (GList *item = features; item; item = item->next) {
+
+   for (GList *item = features ; item ; item = item->next) {
       GstElementFactory *factory = item->data;
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
-      gtk_list_store_set(store, &iter, FACTORY_NAME, gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)),
-         FACTORY_CLASS, gst_element_factory_get_klass(factory), FACTORY_DESCRIPTION, gst_element_factory_get_description(factory), -1);
+      gtk_list_store_set(store, &iter, FACTORY_NAME, gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)), FACTORY_CLASS, gst_element_factory_get_klass(
+         factory), FACTORY_DESCRIPTION, gst_element_factory_get_description(factory), -1);
    }
+
    gst_plugin_feature_list_free(features);
 }
 
 static void refresh_pipeline_combo(editor_t *editor) {
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->pipeline_combo));
-   for (guint i = 0; i < editor->pipelines->len; i++) {
+
+   for (guint i = 0 ; i < editor->pipelines->len ; i++) {
       pipeline_entry_t *entry = g_ptr_array_index(editor->pipelines, i);
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(editor->pipeline_combo), entry->id);
    }
+
    if (editor->pipelines->len) {
-      if (editor->selected_pipeline >= editor->pipelines->len) editor->selected_pipeline = editor->pipelines->len - 1;
-      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->pipeline_combo), (gint)editor->selected_pipeline);
+      if (editor->selected_pipeline >= editor->pipelines->len) {
+         editor->selected_pipeline = editor->pipelines->len - 1;
+      }
+      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->pipeline_combo), (gint) editor->selected_pipeline);
    }
 }
 
 static void pipeline_selected(GtkComboBox *combo, gpointer data) {
    editor_t *editor = data;
    gint selected = gtk_combo_box_get_active(combo);
-   if (selected < 0 || (guint)selected >= editor->pipelines->len) return;
-   if ((guint)selected == editor->selected_pipeline) return;
-   if (!flush_properties_with_dialog(editor)) {
-      gtk_combo_box_set_active(combo, (gint)editor->selected_pipeline);
+
+   if (selected < 0 || (guint) selected >= editor->pipelines->len) {
       return;
    }
-   editor->selected_pipeline = (guint)selected;
+
+   if ((guint) selected == editor->selected_pipeline) {
+      return;
+   }
+
+   if (!flush_properties_with_dialog(editor)) {
+      gtk_combo_box_set_active(combo, (gint) editor->selected_pipeline);
+
+      return;
+   }
+   editor->selected_pipeline = (guint) selected;
    editor->selected_node = -1;
    refresh_canvas(editor);
    refresh_properties(editor);
@@ -268,9 +325,12 @@ static void pipeline_selected(GtkComboBox *combo, gpointer data) {
 static void pipeline_new(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
-   if (!flush_properties_with_dialog(editor)) return;
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("New pipeline", GTK_WINDOW(editor->window), GTK_DIALOG_MODAL,
-      "_Cancel", GTK_RESPONSE_CANCEL, "_Create", GTK_RESPONSE_ACCEPT, NULL);
+
+   if (!flush_properties_with_dialog(editor)) {
+      return;
+   }
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("New pipeline", GTK_WINDOW(editor->window), GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL, "_Create",
+      GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Pipeline id (for example custom.rx)");
    gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
@@ -278,8 +338,10 @@ static void pipeline_new(GtkButton *button, gpointer data) {
    gtk_container_set_border_width(GTK_CONTAINER(entry), 8);
    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry, TRUE, TRUE, 0);
    gtk_widget_show_all(dialog);
+
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const gchar *id = gtk_entry_get_text(GTK_ENTRY(entry));
+
       if (!pipeline_id_valid(id) || pipeline_id_exists(editor, id)) {
          show_error(editor, "Choose a unique pipeline id with no spaces or '=' characters.");
       } else {
@@ -288,6 +350,7 @@ static void pipeline_new(GtkButton *button, gpointer data) {
          pipeline->launch = g_strdup("");
          pipeline->original_index = G_MAXUINT;
          pipeline->graph = rr_pipeline_graph_new();
+
          if (!pipeline->id || !pipeline->launch || !pipeline->graph) {
             pipeline_entry_free(pipeline);
             show_error(editor, "Cannot allocate a new pipeline.");
@@ -315,22 +378,30 @@ static gboolean canvas_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    (void)widget;
    editor_t *editor = data;
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   if (!pipeline) return FALSE;
+
+   if (!pipeline) {
+      return FALSE;
+   }
    guint node_count = rr_pipeline_graph_node_count(pipeline->graph);
    cairo_set_line_width(cr, 2.0);
-   for (guint i = 0; i < rr_pipeline_graph_link_count(pipeline->graph); i++) {
+
+   for (guint i = 0 ; i < rr_pipeline_graph_link_count(pipeline->graph) ; i++) {
       const rr_pipeline_link_t *link = rr_pipeline_graph_link(pipeline->graph, i);
       const rr_pipeline_node_t *src = rr_pipeline_graph_node(pipeline->graph, link->src);
       const rr_pipeline_node_t *dst = rr_pipeline_graph_node(pipeline->graph, link->dst);
-      if (!src || !dst) continue;
+
+      if (!src || !dst) {
+         continue;
+      }
       cairo_set_source_rgb(cr, 0.35, 0.42, 0.50);
       cairo_move_to(cr, src->x + 150, src->y + 31);
       cairo_line_to(cr, dst->x, dst->y + 31);
       cairo_stroke(cr);
    }
-   for (guint i = 0; i < node_count; i++) {
+
+   for (guint i = 0 ; i < node_count ; i++) {
       const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
-      gboolean selected = (gint)i == editor->selected_node;
+      gboolean selected = (gint) i == editor->selected_node;
       cairo_set_source_rgb(cr, selected ? 0.18 : 0.17, selected ? 0.42 : 0.24, selected ? 0.72 : 0.34);
       cairo_rectangle(cr, node->x, node->y, 150, 62);
       cairo_fill_preserve(cr);
@@ -347,22 +418,31 @@ static gboolean canvas_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_move_to(cr, node->x + 8, node->y + 47);
       cairo_show_text(cr, rr_pipeline_node_name(node) ? rr_pipeline_node_name(node) : "");
    }
+
    return FALSE;
 }
 
 static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
-   if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
+
+   if (event->button != GDK_BUTTON_PRIMARY) {
+      return FALSE;
+   }
    editor_t *editor = data;
-   if (!flush_properties_with_dialog(editor)) return TRUE;
+
+   if (!flush_properties_with_dialog(editor)) {
+      return TRUE;
+   }
    pipeline_entry_t *pipeline = active_pipeline(editor);
    editor->selected_node = -1;
    editor->dragging = FALSE;
+
    if (pipeline) {
-      for (guint i = 0; i < rr_pipeline_graph_node_count(pipeline->graph); i++) {
+      for (guint i = 0 ; i < rr_pipeline_graph_node_count(pipeline->graph) ; i++) {
          const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
+
          if (event->x >= node->x && event->x <= node->x + 150 && event->y >= node->y && event->y <= node->y + 62) {
-            editor->selected_node = (gint)i;
+            editor->selected_node = (gint) i;
             editor->dragging = TRUE;
             editor->drag_x = event->x - node->x;
             editor->drag_y = event->y - node->y;
@@ -373,6 +453,7 @@ static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gp
    refresh_properties(editor);
    refresh_link_combos(editor);
    gtk_widget_queue_draw(editor->canvas);
+
    return TRUE;
 }
 
@@ -381,6 +462,7 @@ static gboolean canvas_button_release(GtkWidget *widget, GdkEventButton *event, 
    (void)event;
    editor_t *editor = data;
    editor->dragging = FALSE;
+
    return FALSE;
 }
 
@@ -388,19 +470,23 @@ static gboolean canvas_motion(GtkWidget *widget, GdkEventMotion *event, gpointer
    (void)widget;
    editor_t *editor = data;
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   if (!editor->dragging || !pipeline || editor->selected_node < 0) return FALSE;
-   rr_pipeline_node_t *node = rr_pipeline_graph_node_edit(pipeline->graph, (guint)editor->selected_node);
+
+   if (!editor->dragging || !pipeline || editor->selected_node < 0) {
+      return FALSE;
+   }
+   rr_pipeline_node_t *node = rr_pipeline_graph_node_edit(pipeline->graph, (guint) editor->selected_node);
    rr_pipeline_node_set_position(node, MAX(0, event->x - editor->drag_x), MAX(0, event->y - editor->drag_y));
    gtk_widget_queue_draw(editor->canvas);
+
    return TRUE;
 }
 
 static void refresh_canvas(editor_t *editor) {
    pipeline_entry_t *pipeline = active_pipeline(editor);
+
    if (editor->pipeline_status) {
       if (pipeline && pipeline->parse_error) {
-         gchar *message = g_strdup_printf("This pipeline cannot be edited and will be preserved unchanged: %s",
-            pipeline->parse_error);
+         gchar *message = g_strdup_printf("This pipeline cannot be edited and will be preserved unchanged: %s", pipeline->parse_error);
          gtk_label_set_text(GTK_LABEL(editor->pipeline_status), message);
          gtk_widget_show(editor->pipeline_status);
          g_free(message);
@@ -414,28 +500,44 @@ static void refresh_canvas(editor_t *editor) {
 static void property_box_clear(editor_t *editor) {
    g_ptr_array_set_size(editor->property_entries, 0);
    GList *children = gtk_container_get_children(GTK_CONTAINER(editor->property_box));
-   for (GList *item = children; item; item = item->next) gtk_widget_destroy(GTK_WIDGET(item->data));
+
+   for (GList *item = children ; item ; item = item->next) {
+      gtk_widget_destroy(GTK_WIDGET(item->data));
+   }
+
    g_list_free(children);
 }
 
 static void refresh_properties(editor_t *editor) {
    property_box_clear(editor);
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   if (!pipeline || !pipeline->graph || editor->selected_node < 0) return;
-   rr_pipeline_node_t *node = rr_pipeline_graph_node_edit(pipeline->graph, (guint)editor->selected_node);
-   if (!node) return;
+
+   if (!pipeline || !pipeline->graph || editor->selected_node < 0) {
+      return;
+   }
+   rr_pipeline_node_t *node = rr_pipeline_graph_node_edit(pipeline->graph, (guint) editor->selected_node);
+
+   if (!node) {
+      return;
+   }
    guint count = 0;
    GParamSpec **properties = g_object_class_list_properties(G_OBJECT_GET_CLASS(node->element), &count);
-   for (guint i = 0; i < count; i++) {
+
+   for (guint i = 0 ; i < count ; i++) {
       GParamSpec *spec = properties[i];
-      if (!(spec->flags & G_PARAM_READABLE) || !(spec->flags & G_PARAM_WRITABLE) ||
-          (spec->flags & G_PARAM_CONSTRUCT_ONLY) || !strcmp(spec->name, "name")) continue;
+
+      if (!(spec->flags & G_PARAM_READABLE) || !(spec->flags & G_PARAM_WRITABLE) || (spec->flags & G_PARAM_CONSTRUCT_ONLY) || !strcmp(spec->name, "name")) {
+         continue;
+      }
       GValue value = G_VALUE_INIT;
       g_value_init(&value, G_PARAM_SPEC_VALUE_TYPE(spec));
       g_object_get_property(G_OBJECT(node->element), spec->name, &value);
       gchar *serialized = gst_value_serialize(&value);
       g_value_unset(&value);
-      if (!serialized) continue;
+
+      if (!serialized) {
+         continue;
+      }
       GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
       GtkWidget *label = gtk_label_new(spec->name);
       gtk_widget_set_size_request(label, 150, -1);
@@ -446,37 +548,49 @@ static void refresh_properties(editor_t *editor) {
       gtk_widget_set_hexpand(entry, TRUE);
       g_object_set_data_full(G_OBJECT(entry), "rr-property-name", g_strdup(spec->name), g_free);
       g_object_set_data_full(G_OBJECT(entry), "rr-property-original", g_strdup(serialized), g_free);
-      g_object_set_data(G_OBJECT(entry), "rr-property-node", GUINT_TO_POINTER((guint)editor->selected_node + 1));
+      g_object_set_data(G_OBJECT(entry), "rr-property-node", GUINT_TO_POINTER((guint) editor->selected_node + 1));
       gtk_box_pack_start(GTK_BOX(row), label, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(row), entry, TRUE, TRUE, 0);
       gtk_box_pack_start(GTK_BOX(editor->property_box), row, FALSE, FALSE, 0);
       g_ptr_array_add(editor->property_entries, entry);
       g_free(serialized);
    }
+
    g_free(properties);
    gtk_widget_show_all(editor->property_box);
 }
 
 static gboolean flush_properties(editor_t *editor, GError **error) {
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   if (!pipeline || !pipeline->graph) return TRUE;
-   for (guint i = 0; i < editor->property_entries->len; i++) {
+
+   if (!pipeline || !pipeline->graph) {
+      return TRUE;
+   }
+
+   for (guint i = 0 ; i < editor->property_entries->len ; i++) {
       GtkWidget *entry = g_ptr_array_index(editor->property_entries, i);
       const gchar *property = g_object_get_data(G_OBJECT(entry), "rr-property-name");
       const gchar *original = g_object_get_data(G_OBJECT(entry), "rr-property-original");
       const gchar *value = gtk_entry_get_text(GTK_ENTRY(entry));
       guint node = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(entry), "rr-property-node")) - 1;
-      if (g_strcmp0(value, original) &&
-          !rr_pipeline_graph_set_property(pipeline->graph, node, property, value, error)) return FALSE;
+
+      if (g_strcmp0(value, original) && !rr_pipeline_graph_set_property(pipeline->graph, node, property, value, error)) {
+         return FALSE;
+      }
    }
+
    return TRUE;
 }
 
 static gboolean flush_properties_with_dialog(editor_t *editor) {
    GError *error = NULL;
-   if (flush_properties(editor, &error)) return TRUE;
+
+   if (flush_properties(editor, &error)) {
+      return TRUE;
+   }
    show_error(editor, error ? error->message : "Pipeline property is invalid.");
    g_clear_error(&error);
+
    return FALSE;
 }
 
@@ -484,15 +598,23 @@ static void refresh_link_combos(editor_t *editor) {
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->source_combo));
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->target_combo));
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   if (pipeline && !pipeline->graph) return;
-   if (!pipeline) return;
-   for (guint i = 0; i < rr_pipeline_graph_node_count(pipeline->graph); i++) {
+
+   if (pipeline && !pipeline->graph) {
+      return;
+   }
+
+   if (!pipeline) {
+      return;
+   }
+
+   for (guint i = 0 ; i < rr_pipeline_graph_node_count(pipeline->graph) ; i++) {
       const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
       gchar *label = g_strdup_printf("%u: %s (%s)", i + 1, rr_pipeline_node_factory(node), rr_pipeline_node_name(node));
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(editor->source_combo), label);
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(editor->target_combo), label);
       g_free(label);
    }
+
    if (rr_pipeline_graph_node_count(pipeline->graph) > 1) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(editor->source_combo), 0);
       gtk_combo_box_set_active(GTK_COMBO_BOX(editor->target_combo), 1);
@@ -505,22 +627,28 @@ static void refresh_link_combos(editor_t *editor) {
 static void add_element_clicked(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
-   if (!flush_properties_with_dialog(editor)) return;
+
+   if (!flush_properties_with_dialog(editor)) {
+      return;
+   }
    pipeline_entry_t *pipeline = active_pipeline(editor);
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(editor->factory_view));
    GtkTreeModel *model = NULL;
    GtkTreeIter iter;
+
    if (!pipeline || !pipeline->graph || !gtk_tree_selection_get_selected(selection, &model, &iter)) {
       show_error(editor, "Choose an element from the GStreamer toolbox first.");
+
       return;
    }
    gchar *factory = NULL;
    gtk_tree_model_get(model, &iter, FACTORY_NAME, &factory, -1);
    guint index = 0;
    GError *error = NULL;
-   if (rr_pipeline_graph_add_element(pipeline->graph, factory, 40 + rr_pipeline_graph_node_count(pipeline->graph) % 4 * 190,
-         40 + rr_pipeline_graph_node_count(pipeline->graph) / 4 * 110, &index, &error)) {
-      editor->selected_node = (gint)index;
+
+   if (rr_pipeline_graph_add_element(pipeline->graph, factory, 40 + rr_pipeline_graph_node_count(pipeline->graph) % 4 * 190, 40 + rr_pipeline_graph_node_count(
+      pipeline->graph) / 4 * 110, &index, &error)) {
+      editor->selected_node = (gint) index;
       refresh_canvas(editor);
       refresh_properties(editor);
       refresh_link_combos(editor);
@@ -538,10 +666,11 @@ static void add_link_clicked(GtkButton *button, gpointer data) {
    gint src = gtk_combo_box_get_active(GTK_COMBO_BOX(editor->source_combo));
    gint dst = gtk_combo_box_get_active(GTK_COMBO_BOX(editor->target_combo));
    GError *error = NULL;
-   if (!pipeline || src < 0 || dst < 0 || !rr_pipeline_graph_add_link(pipeline ? pipeline->graph : NULL,
-         (guint)src, (guint)dst, &error)) {
+
+   if (!pipeline || src < 0 || dst < 0 || !rr_pipeline_graph_add_link(pipeline ? pipeline->graph : NULL, (guint) src, (guint) dst, &error)) {
       show_error(editor, error ? error->message : "Choose the two elements to connect.");
       g_clear_error(&error);
+
       return;
    }
    refresh_canvas(editor);
@@ -550,17 +679,21 @@ static void add_link_clicked(GtkButton *button, gpointer data) {
 static void add_tee_clicked(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
-   if (!flush_properties_with_dialog(editor)) return;
+
+   if (!flush_properties_with_dialog(editor)) {
+      return;
+   }
    pipeline_entry_t *pipeline = active_pipeline(editor);
    GError *error = NULL;
    guint tee = 0;
-   if (editor->selected_node < 0 || !pipeline ||
-       !rr_pipeline_graph_add_tee(pipeline->graph, (guint)editor->selected_node, &tee, &error)) {
+
+   if (editor->selected_node < 0 || !pipeline || !rr_pipeline_graph_add_tee(pipeline->graph, (guint) editor->selected_node, &tee, &error)) {
       show_error(editor, error ? error->message : "Select an element with an existing downstream link first.");
       g_clear_error(&error);
+
       return;
    }
-   editor->selected_node = (gint)tee;
+   editor->selected_node = (gint) tee;
    refresh_canvas(editor);
    refresh_properties(editor);
    refresh_link_combos(editor);
@@ -569,13 +702,17 @@ static void add_tee_clicked(GtkButton *button, gpointer data) {
 static void remove_node_clicked(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
-   if (!flush_properties_with_dialog(editor)) return;
+
+   if (!flush_properties_with_dialog(editor)) {
+      return;
+   }
    pipeline_entry_t *pipeline = active_pipeline(editor);
    GError *error = NULL;
-   if (!pipeline || editor->selected_node < 0 ||
-       !rr_pipeline_graph_remove_node(pipeline ? pipeline->graph : NULL, (guint)editor->selected_node, &error)) {
+
+   if (!pipeline || editor->selected_node < 0 || !rr_pipeline_graph_remove_node(pipeline ? pipeline->graph : NULL, (guint) editor->selected_node, &error)) {
       show_error(editor, error ? error->message : "Select an element to remove.");
       g_clear_error(&error);
+
       return;
    }
    editor->selected_node = -1;
@@ -588,19 +725,21 @@ static void add_branch_clicked(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Add tee branch", GTK_WINDOW(editor->window), GTK_DIALOG_MODAL,
-      "_Cancel", GTK_RESPONSE_CANCEL, "_Add branch", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Add tee branch", GTK_WINDOW(editor->window), GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL,
+      "_Add branch", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_text(GTK_ENTRY(entry), "fakesink");
    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "GStreamer sink element (for example filesink)");
    gtk_container_set_border_width(GTK_CONTAINER(entry), 8);
    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry, TRUE, TRUE, 0);
    gtk_widget_show_all(dialog);
+
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       GError *error = NULL;
       const gchar *sink = gtk_entry_get_text(GTK_ENTRY(entry));
+
       if (editor->selected_node < 0 || !pipeline ||
-          !rr_pipeline_graph_add_branch(pipeline ? pipeline->graph : NULL, (guint)editor->selected_node, sink, &error)) {
+         !rr_pipeline_graph_add_branch(pipeline ? pipeline->graph : NULL, (guint) editor->selected_node, sink, &error)) {
          show_error(editor, error ? error->message : "Select a tee before adding a branch.");
          g_clear_error(&error);
       } else {
@@ -613,33 +752,44 @@ static void add_branch_clicked(GtkButton *button, gpointer data) {
 }
 
 static gboolean json_key_pipeline_index(const gchar *key, guint *index, const gchar **suffix) {
-   if (!g_str_has_prefix(key, "pipelines.")) return FALSE;
+   if (!g_str_has_prefix(key, "pipelines.")) {
+      return FALSE;
+   }
    const gchar *start = key + strlen("pipelines.");
    gchar *end = NULL;
    guint64 parsed = g_ascii_strtoull(start, &end, 10);
-   if (end == start || *end != '.' || parsed > RR_PIPELINE_LIMIT) return FALSE;
-   *index = (guint)parsed;
+
+   if (end == start || *end != '.' || parsed > RR_PIPELINE_LIMIT) {
+      return FALSE;
+   }
+   *index = (guint) parsed;
    *suffix = end + 1;
+
    return TRUE;
 }
 
 static gchar *document_serialize(editor_t *editor, GError **error) {
    dict *result = dict_new();
+
    if (!result || dict_merge(result, editor->document)) {
       dict_free(result);
       g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOMEM, "Cannot copy the pipeline JSON envelope");
+
       return NULL;
    }
-   guint next_index = (guint)dict_get_ulong(editor->document, "pipelines.count", 0);
-   for (guint i = 0; i < editor->pipelines->len; i++) {
+   guint next_index = (guint) dict_get_ulong(editor->document, "pipelines.count", 0);
+
+   for (guint i = 0 ; i < editor->pipelines->len ; i++) {
       pipeline_entry_t *entry = g_ptr_array_index(editor->pipelines, i);
       GError *graph_error = NULL;
       gchar *launch = entry->graph ? rr_pipeline_graph_serialize(entry->graph, &graph_error) : g_strdup(entry->launch);
+
       if (!launch) {
-         g_set_error(error, RR_PIPELINE_ERROR, RR_PIPELINE_ERROR_SERIALIZE, "%s: %s", entry->id,
-            graph_error ? graph_error->message : "cannot serialize pipeline");
+         g_set_error(error, RR_PIPELINE_ERROR, RR_PIPELINE_ERROR_SERIALIZE, "%s: %s", entry->id, graph_error ? graph_error->message :
+            "cannot serialize pipeline");
          g_clear_error(&graph_error);
          dict_free(result);
+
          return NULL;
       }
       guint output_index = entry->original_index != G_MAXUINT ? entry->original_index : next_index++;
@@ -648,22 +798,30 @@ static gchar *document_serialize(editor_t *editor, GError **error) {
       gboolean ok = dict_add(result, id_key, entry->id) == 0 && dict_add(result, launch_key, launch) == 0;
       g_free(id_key);
       g_free(launch_key);
+
       if (!ok) {
          g_free(launch);
          dict_free(result);
          g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOMEM, "Cannot store edited pipeline JSON");
+
          return NULL;
       }
       g_free(launch);
    }
+
    if (dict_add_uint(result, "pipelines.count", next_index)) {
       dict_free(result);
       g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOMEM, "Cannot store pipeline count");
+
       return NULL;
    }
    gchar *json = dict2json(result);
    dict_free(result);
-   if (!json) g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOMEM, "librustyaxe could not serialize pipeline JSON");
+
+   if (!json) {
+      g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOMEM, "librustyaxe could not serialize pipeline JSON");
+   }
+
    return json;
 }
 
@@ -671,20 +829,26 @@ static void apply_clicked(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
    GError *error = NULL;
+
    if (!flush_properties(editor, &error)) {
       show_error(editor, error ? error->message : "Pipeline property is invalid.");
       g_clear_error(&error);
+
       return;
    }
    gchar *json = document_serialize(editor, &error);
+
    if (!json) {
       show_error(editor, error ? error->message : "Cannot serialize pipelines.");
       g_clear_error(&error);
+
       return;
    }
+
    if (fprintf(stdout, "%s\n", json) < 0 || fflush(stdout) == EOF) {
       show_error(editor, "Cannot write pipeline JSON to stdout.");
       g_free(json);
+
       return;
    }
    editor->applied = TRUE;
@@ -703,6 +867,7 @@ static gboolean window_delete(GtkWidget *widget, GdkEvent *event, gpointer data)
    (void)event;
    (void)data;
    gtk_main_quit();
+
    return TRUE;
 }
 
@@ -732,6 +897,7 @@ static GtkWidget *build_factory_toolbox(editor_t *editor) {
    gtk_box_pack_start(GTK_BOX(box), add, FALSE, FALSE, 4);
    g_signal_connect(editor->factory_search, "changed", G_CALLBACK(factory_search_changed), editor);
    g_object_unref(store);
+
    return box;
 }
 
@@ -789,6 +955,7 @@ static GtkWidget *build_work_area(editor_t *editor) {
    gtk_container_add(GTK_CONTAINER(properties_scroll), editor->property_box);
    gtk_box_pack_start(GTK_BOX(box), properties_scroll, FALSE, TRUE, 0);
    g_signal_connect(editor->pipeline_combo, "changed", G_CALLBACK(pipeline_selected), editor);
+
    return box;
 }
 
@@ -820,22 +987,33 @@ static GtkWidget *build_window(editor_t *editor) {
    refresh_canvas(editor);
    refresh_properties(editor);
    refresh_link_combos(editor);
+
    return editor->window;
 }
 
 int main(int argc, char **argv) {
    gst_init(&argc, &argv);
    gtk_init(&argc, &argv);
-   editor_t editor = { 0 };
+   editor_t editor = {
+      0
+   };
    editor.pipelines = g_ptr_array_new_with_free_func(pipeline_entry_free);
    editor.property_entries = g_ptr_array_new();
    GError *error = NULL;
+
    if (!editor.pipelines || !editor.property_entries || !document_load(&editor, &error)) {
       fprintf(stderr, "rrpipelines: %s\n", error ? error->message : "Cannot initialize pipeline editor");
       g_clear_error(&error);
       dict_free(editor.document);
-      if (editor.pipelines) g_ptr_array_unref(editor.pipelines);
-      if (editor.property_entries) g_ptr_array_unref(editor.property_entries);
+
+      if (editor.pipelines) {
+         g_ptr_array_unref(editor.pipelines);
+      }
+
+      if (editor.property_entries) {
+         g_ptr_array_unref(editor.property_entries);
+      }
+
       return 1;
    }
    build_window(&editor);
@@ -846,5 +1024,6 @@ int main(int argc, char **argv) {
    g_ptr_array_unref(editor.property_entries);
    g_ptr_array_unref(editor.pipelines);
    dict_free(editor.document);
+
    return editor.applied ? 0 : 2;
 }

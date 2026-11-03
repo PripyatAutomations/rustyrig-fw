@@ -85,14 +85,18 @@ bool audio_local_rx_start(const char *id) {
    return rx_engine && id && rr_audio_engine_add_stream(rx_engine, id);
 }
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
-   if (!id || !pcm || !frames) return false;
-   /* Local bridge audio bypasses client_channel_pcm(), where remote AF
-    * spectrum is normally fed. Capture here before routing/muting. */
+   if (!id || !pcm || !frames) {
+      return false;
+   }
+   /* Local bridge audio bypasses client_channel_pcm(), where remote AF spectrum is normally fed. Capture here before routing/muting. */
    rr_af_spectrum_push(id, pcm, frames);
+
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
 void audio_local_rx_stop(const char *id) {
-   if (rx_engine && id) rr_audio_engine_remove_stream(rx_engine, id);
+   if (rx_engine && id) {
+      rr_audio_engine_remove_stream(rx_engine, id);
+   }
 }
 
 static char local_rx_routes[26]; /* zero means default Stereo */
@@ -311,7 +315,8 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
 
    char local_ids[26][64], vfos[26];
    size_t local_count = rrclient_local_bridge_streams(local_ids, vfos, 26);
-   for (size_t i = 0; i < local_count && i < 26; i++) {
+
+   for (size_t i = 0 ; i < local_count && i < 26 ; i++) {
       if (streams && count < capacity) {
          struct rrclient_rx_stream *stream = &streams[count];
          memset(stream, 0, sizeof(*stream));
@@ -324,6 +329,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
       }
       count++;
    }
+
    return count;
 }
 
@@ -334,13 +340,19 @@ bool audio_set_rx_stream_route(const char *id, char output) {
 
    if (!strncmp(id, "local.sdr.", 10) && id[10] >= 'A' && id[10] <= 'Z' && !id[11]) {
       unsigned slot = (unsigned)(id[10] - 'A');
+
       if (local_rx_routes[slot] != output) {
          local_rx_routes[slot] = output;
-         if (rx_engine) rr_audio_engine_route(rx_engine, id, output);
+
+         if (rx_engine) {
+            rr_audio_engine_route(rx_engine, id, output);
+         }
          event_emit("client.audio.route.changed", NULL, NULL);
       }
+
       return true;
    }
+
    for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       if (!strcmp(r->identity, id)) {
          if (r->output != output) {
@@ -980,9 +992,10 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
-   /* audio_init() can fail before rx_sink_lock is initialized, and cleanup
-    * can be called more than once. Never clear an uninitialized mutex. */
-   if (!audio_enabled) return;
+   /* audio_init() can fail before rx_sink_lock is initialized, and cleanup can be called more than once. Never clear an uninitialized mutex. */
+   if (!audio_enabled) {
+      return;
+   }
    audio_enabled = false;
    rrclient_local_bridge_disconnect();
    rr_af_spectrum_shutdown();

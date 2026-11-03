@@ -24,8 +24,7 @@ typedef struct {
 /* Copied cross-thread catalog row; no borrowed pointers cross to GTK. */
 typedef struct {
    char driver[32], url[512], name[512], description[512], location[512],
-        country[128], contact[512], antenna[512], hardware[512], grid[64],
-        properties[512], local_state[128], local_reason[512];
+      country[128], contact[512], antenna[512], hardware[512], grid[64], properties[512], local_state[128], local_reason[512];
    int users, users_max, ext_api;
    bool offline, flagged, deleted, favorite;
    long long last_seen, learned_at, state_updated, last_connected;

@@ -1,6 +1,5 @@
 /* Lightweight AF visualizer. Presentation modes consume identical dBFS bins;
- * waterfall contrast is tied to an absolute level window, not per-frame AGC.
- * Future server RF rows can feed this widget without changing its renderer. */
+ * waterfall contrast is tied to an absolute level window, not per-frame AGC. Future server RF rows can feed this widget without changing its renderer. */
 #include <gtk/gtk.h>
 #include <math.h>
 #include <string.h>
@@ -26,65 +25,325 @@ typedef struct {
    double display_gain_db;
 } spectrum_panel_t;
 static double level(float db, double gain_db) {
-   /* The FFT normalization uses 8192, half the signed 16-bit full scale.
-    * Correct the reference, then show a fixed -90..-30 dBFS window. */
+   /* The FFT normalization uses 8192, half the signed 16-bit full scale. Correct the reference, then show a fixed -90..-30 dBFS window. */
    return CLAMP((db + 30.0 + gain_db) / 60.0, 0.0, 1.0);
 }
-/* A small piecewise-linear color map, evaluated only while painting.
- * Both AF and RF waterfall displays share the selected palette. */
-typedef struct { double r, g, b; } palette_rgb_t;
-typedef struct { const char *name; palette_rgb_t stops[5]; } palette_t;
+
+/* A small piecewise-linear color map, evaluated only while painting. Both AF and RF waterfall displays share the selected palette. */
+typedef struct {
+   double r, g, b;
+} palette_rgb_t;
+typedef struct {
+   const char *name;
+   palette_rgb_t stops[5];
+} palette_t;
 static const palette_t palettes[] = {
-   { "Classic", {{.02,.05,.16},{.04,.28,.68},{.03,.77,.68},{.99,.77,.13},{1,.16,.10}} },
-   { "Viridis", {{.267,.005,.329},{.230,.322,.546},{.128,.567,.551},{.369,.789,.383},{.993,.906,.144}} },
-   { "Plasma", {{.050,.030,.528},{.495,.012,.658},{.798,.280,.470},{.973,.585,.252},{.940,.975,.131}} },
-   { "Inferno", {{.002,.001,.014},{.258,.039,.407},{.578,.148,.404},{.902,.364,.184},{.988,.998,.645}} },
-   { "Magma", {{.001,.000,.014},{.251,.059,.447},{.550,.161,.506},{.870,.369,.349},{.987,.991,.749}} },
-   { "Turbo", {{.190,.072,.232},{.160,.490,.971},{.258,.905,.497},{.984,.735,.190},{.480,.016,.011}} },
-   { "Grayscale", {{0,0,0},{.25,.25,.25},{.5,.5,.5},{.75,.75,.75},{1,1,1}} },
-   { "Green phosphor", {{0,.025,0},{0,.13,.025},{.02,.38,.06},{.22,.76,.18},{.78,1,.68}} },
-   { "Amber phosphor", {{.035,.012,0},{.22,.060,0},{.48,.18,.008},{.85,.49,.055},{1,.91,.51}} },
-   { "Ice", {{.015,.026,.095},{.035,.13,.32},{.10,.43,.68},{.41,.78,.91},{.92,1,1}} },
-   { "Heat", {{0,0,0},{.38,0,.02},{.84,.08,.01},{1,.57,.03},{1,1,.80}} },
-   { "Ocean", {{0,.018,.065},{0,.14,.29},{0,.39,.48},{.06,.72,.73},{.76,1,.91}} },
-   { "SDR# classic", {{0,0,0},{.04,.06,.12},{.02,.30,.58},{.02,.75,.95},{1,.86,.24}} },
-   { "SDR# enhanced", {{0,0,0},{.02,.08,.24},{.04,.53,.63},{.95,.80,.12},{1,1,.94}} },
-   { "HDSDR", {{0,0,0},{0,.08,.28},{.02,.40,.72},{.10,.90,.95},{1,.95,.85}} },
-   { "GQRX", {{0,0,.05},{.10,.05,.35},{.65,.03,.45},{1,.30,.12},{1,.95,.55}} },
-   { "SDR++", {{0,0,.05},{.03,.13,.46},{.04,.58,.78},{.25,.90,.48},{1,.92,.24}} },
-   { "Sora", {{.01,.01,.04},{.03,.05,.31},{.08,.32,.72},{.20,.78,.88},{.98,.90,.43}} },
-   { "Red", {{.01,.01,.02},{.08,.02,.03},{.38,.04,.05},{.82,.13,.08},{1,.66,.28}} },
-   { "Classic black-blue", {{0,0,0},{0,.025,.12},{0,.12,.40},{.05,.50,.80},{.75,.95,1}} }
+   {
+      "Classic", { {
+                      .02, .05, .16
+                   }, {
+                      .04, .28, .68
+                   }, {
+                      .03, .77, .68
+                   }, {
+                      .99, .77, .13
+                   }, {
+                      1, .16, .10
+                   } }
+   },
+   {
+      "Viridis", { {
+                      .267, .005, .329
+                   }, {
+                      .230, .322, .546
+                   }, {
+                      .128, .567, .551
+                   }, {
+                      .369, .789, .383
+                   }, {
+                      .993, .906, .144
+                   } }
+   },
+   {
+      "Plasma", { {
+                     .050, .030, .528
+                  }, {
+                     .495, .012, .658
+                  }, {
+                     .798, .280, .470
+                  }, {
+                     .973, .585, .252
+                  }, {
+                     .940, .975, .131
+                  } }
+   },
+   {
+      "Inferno", { {
+                      .002, .001, .014
+                   }, {
+                      .258, .039, .407
+                   }, {
+                      .578, .148, .404
+                   }, {
+                      .902, .364, .184
+                   }, {
+                      .988, .998, .645
+                   } }
+   },
+   {
+      "Magma", { {
+                    .001, .000, .014
+                 }, {
+                    .251, .059, .447
+                 }, {
+                    .550, .161, .506
+                 }, {
+                    .870, .369, .349
+                 }, {
+                    .987, .991, .749
+                 } }
+   },
+   {
+      "Turbo", { {
+                    .190, .072, .232
+                 }, {
+                    .160, .490, .971
+                 }, {
+                    .258, .905, .497
+                 }, {
+                    .984, .735, .190
+                 }, {
+                    .480, .016, .011
+                 } }
+   },
+   {
+      "Grayscale", { {
+                        0, 0, 0
+                     }, {
+                        .25, .25, .25
+                     }, {
+                        .5, .5, .5
+                     }, {
+                        .75, .75, .75
+                     }, {
+                        1, 1, 1
+                     } }
+   },
+   {
+      "Green phosphor", { {
+                             0, .025, 0
+                          }, {
+                             0, .13, .025
+                          }, {
+                             .02, .38, .06
+                          }, {
+                             .22, .76, .18
+                          }, {
+                             .78, 1, .68
+                          } }
+   },
+   {
+      "Amber phosphor", { {
+                             .035, .012, 0
+                          }, {
+                             .22, .060, 0
+                          }, {
+                             .48, .18, .008
+                          }, {
+                             .85, .49, .055
+                          }, {
+                             1, .91, .51
+                          } }
+   },
+   {
+      "Ice", { {
+                  .015, .026, .095
+               }, {
+                  .035, .13, .32
+               }, {
+                  .10, .43, .68
+               }, {
+                  .41, .78, .91
+               }, {
+                  .92, 1, 1
+               } }
+   },
+   {
+      "Heat", { {
+                   0, 0, 0
+                }, {
+                   .38, 0, .02
+                }, {
+                   .84, .08, .01
+                }, {
+                   1, .57, .03
+                }, {
+                   1, 1, .80
+                } }
+   },
+   {
+      "Ocean", { {
+                    0, .018, .065
+                 }, {
+                    0, .14, .29
+                 }, {
+                    0, .39, .48
+                 }, {
+                    .06, .72, .73
+                 }, {
+                    .76, 1, .91
+                 } }
+   },
+   {
+      "SDR# classic", { {
+                           0, 0, 0
+                        }, {
+                           .04, .06, .12
+                        }, {
+                           .02, .30, .58
+                        }, {
+                           .02, .75, .95
+                        }, {
+                           1, .86, .24
+                        } }
+   },
+   {
+      "SDR# enhanced", { {
+                            0, 0, 0
+                         }, {
+                            .02, .08, .24
+                         }, {
+                            .04, .53, .63
+                         }, {
+                            .95, .80, .12
+                         }, {
+                            1, 1, .94
+                         } }
+   },
+   {
+      "HDSDR", { {
+                    0, 0, 0
+                 }, {
+                    0, .08, .28
+                 }, {
+                    .02, .40, .72
+                 }, {
+                    .10, .90, .95
+                 }, {
+                    1, .95, .85
+                 } }
+   },
+   {
+      "GQRX", { {
+                   0, 0, .05
+                }, {
+                   .10, .05, .35
+                }, {
+                   .65, .03, .45
+                }, {
+                   1, .30, .12
+                }, {
+                   1, .95, .55
+                } }
+   },
+   {
+      "SDR++", { {
+                    0, 0, .05
+                 }, {
+                    .03, .13, .46
+                 }, {
+                    .04, .58, .78
+                 }, {
+                    .25, .90, .48
+                 }, {
+                    1, .92, .24
+                 } }
+   },
+   {
+      "Sora", { {
+                   .01, .01, .04
+                }, {
+                   .03, .05, .31
+                }, {
+                   .08, .32, .72
+                }, {
+                   .20, .78, .88
+                }, {
+                   .98, .90, .43
+                } }
+   },
+   {
+      "Red", { {
+                  .01, .01, .02
+               }, {
+                  .08, .02, .03
+               }, {
+                  .38, .04, .05
+               }, {
+                  .82, .13, .08
+               }, {
+                  1, .66, .28
+               } }
+   },
+   {
+      "Classic black-blue", { {
+                                 0, 0, 0
+                              }, {
+                                 0, .025, .12
+                              }, {
+                                 0, .12, .40
+                              }, {
+                                 .05, .50, .80
+                              }, {
+                                 .75, .95, 1
+                              } }
+   }
 };
+
 static unsigned selected_palette;
 static GPtrArray *palette_selectors;
 static void palette_selector_register(GtkWidget *combo) {
-   if (!palette_selectors) palette_selectors = g_ptr_array_new();
+   if (!palette_selectors) {
+      palette_selectors = g_ptr_array_new();
+   }
    g_ptr_array_add(palette_selectors, combo);
 }
 static void palette_selector_unregister(gpointer data, GObject *old) {
    (void)data;
-   if (palette_selectors) g_ptr_array_remove(palette_selectors, old);
+
+   if (palette_selectors) {
+      g_ptr_array_remove(palette_selectors, old);
+   }
 }
 static void palette_select(unsigned index) {
-   if (index >= G_N_ELEMENTS(palettes)) return;
+   if (index >= G_N_ELEMENTS(palettes)) {
+      return;
+   }
    selected_palette = index;
-   if (palette_selectors) for (unsigned i = 0; i < palette_selectors->len; i++)
-      gtk_combo_box_set_active(GTK_COMBO_BOX(g_ptr_array_index(palette_selectors, i)), index);
+
+   if (palette_selectors) {
+      for (unsigned i = 0 ; i < palette_selectors->len ; i++) {
+         gtk_combo_box_set_active(GTK_COMBO_BOX(g_ptr_array_index(palette_selectors, i)), index);
+      }
+   }
 }
 static void palette_menu_activate(GtkCheckMenuItem *item, gpointer data) {
-   if (gtk_check_menu_item_get_active(item)) palette_select(GPOINTER_TO_UINT(data));
+   if (gtk_check_menu_item_get_active(item)) {
+      palette_select(GPOINTER_TO_UINT(data));
+   }
 }
 static GtkWidget *palette_menu_new(void) {
    GtkWidget *menu = gtk_menu_new();
    GSList *group = NULL;
-   for (unsigned i = 0; i < G_N_ELEMENTS(palettes); i++) {
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(palettes) ; i++) {
       GtkWidget *item = gtk_radio_menu_item_new_with_label(group, palettes[i].name);
       group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
       gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), i == selected_palette);
       g_signal_connect(item, "activate", G_CALLBACK(palette_menu_activate), GUINT_TO_POINTER(i));
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
+
    return menu;
 }
 
@@ -93,9 +352,10 @@ static uint32_t palette_pixel(double v) {
    unsigned i = MIN((unsigned)v, 3u);
    double t = v - i;
    const palette_rgb_t *stops = palettes[selected_palette].stops;
-   unsigned r = (unsigned)(255. * (stops[i].r + t * (stops[i+1].r - stops[i].r)));
-   unsigned g = (unsigned)(255. * (stops[i].g + t * (stops[i+1].g - stops[i].g)));
-   unsigned b = (unsigned)(255. * (stops[i].b + t * (stops[i+1].b - stops[i].b)));
+   unsigned r = (unsigned)(255. * (stops[i].r + t * (stops[i + 1].r - stops[i].r)));
+   unsigned g = (unsigned)(255. * (stops[i].g + t * (stops[i + 1].g - stops[i].g)));
+   unsigned b = (unsigned)(255. * (stops[i].b + t * (stops[i + 1].b - stops[i].b)));
+
    return 0xff000000u | (r << 16) | (g << 8) | b;
 }
 static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -126,6 +386,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
          if (bars) {
             double bar_width = MAX(1.0, width / (double)RR_AF_BINS - 1);
+
             if (waterfall) {
                cairo_set_source_rgba(cr, .43, .79, .99, .72);
                cairo_rectangle(cr, x, y, bar_width, trace_height - y);
@@ -165,9 +426,12 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
             for (unsigned bin = 0 ; bin < RR_AF_BINS ; bin++) {
                unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + bin / af_zoom;
-               double normalized = row ? level(row[MIN(source_bin, RR_AF_BINS-1)], p->display_gain_db) : 0.0;
+               double normalized = row ? level(row[MIN(source_bin, RR_AF_BINS - 1)], p->display_gain_db) : 0.0;
                scanline[bin] = row ? palette_pixel(normalized) : 0xff0d1621u;
-               if (mode == 4 && normalized >= .94) scanline[bin] = 0xff8ff7f7u;
+
+               if (mode == 4 && normalized >= .94) {
+                  scanline[bin] = 0xff8ff7f7u;
+               }
             }
          }
 
@@ -247,14 +511,19 @@ static void destroy_panel(gpointer data) {
    g_free(p);
 }
 static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
-   if (!gtk_check_menu_item_get_active(item)) return;
+   if (!gtk_check_menu_item_get_active(item)) {
+      return;
+   }
    spectrum_panel_t *p = g_object_get_data(G_OBJECT(item), "spectrum-panel");
    p->zoom = GPOINTER_TO_UINT(data);
    gtk_widget_queue_draw(p->drawing);
 }
 static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
+      return FALSE;
+   }
    spectrum_panel_t *p = data;
    GtkWidget *menu = gtk_menu_new();
    GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
@@ -263,8 +532,11 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
    GtkWidget *zoom_item = gtk_menu_item_new_with_label("Zoom");
    GtkWidget *zoom_menu = gtk_menu_new();
    GSList *group = NULL;
-   const unsigned factors[] = {1, 2, 4, 8};
-   for (unsigned i = 0; i < G_N_ELEMENTS(factors); i++) {
+   const unsigned factors[] = {
+      1, 2, 4, 8
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(factors) ; i++) {
       char label[16];
       g_snprintf(label, sizeof(label), "%ux", factors[i]);
       GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
@@ -274,11 +546,13 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
       g_signal_connect(item, "activate", G_CALLBACK(af_zoom_activate), GUINT_TO_POINTER(factors[i]));
       gtk_menu_shell_append(GTK_MENU_SHELL(zoom_menu), item);
    }
+
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(zoom_item), zoom_menu);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), zoom_item);
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 static void enable_changed(GtkToggleButton *button, gpointer data) {
@@ -303,7 +577,10 @@ static void gain_changed(GtkRange *range, gpointer data) {
 static void palette_changed(GtkComboBox *box, gpointer data) {
    spectrum_panel_t *p = data;
    int index = gtk_combo_box_get_active(box);
-   if (index < 0 || index >= (int)G_N_ELEMENTS(palettes)) return;
+
+   if (index < 0 || index >= (int)G_N_ELEMENTS(palettes)) {
+      return;
+   }
    palette_select((unsigned)index);
    gtk_widget_queue_draw(p->drawing);
 }
@@ -333,8 +610,11 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(p->mode), 0);
    gtk_box_pack_start(GTK_BOX(toolbar), p->mode, FALSE, FALSE, 0);
    p->palette = gtk_combo_box_text_new();
-   for (unsigned i = 0; i < G_N_ELEMENTS(palettes); i++)
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(palettes) ; i++) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->palette), palettes[i].name);
+   }
+
    gtk_combo_box_set_active(GTK_COMBO_BOX(p->palette), selected_palette);
    palette_selector_register(p->palette);
    g_object_weak_ref(G_OBJECT(p->palette), palette_selector_unregister, NULL);
@@ -368,8 +648,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
 }
 
 
-/* RF rows arrive on the main event bus, independently of audio and GTK.
- * The bridge host currently publishes the active local VFO only. */
+/* RF rows arrive on the main event bus, independently of audio and GTK. The bridge host currently publishes the active local VFO only. */
 typedef struct {
    GtkWidget *drawing;
    GtkWidget *enabled;
@@ -381,7 +660,7 @@ typedef struct {
    bool rf_enabled;
    unsigned zoom;
    bool zoom_initialized;
-   double zoom_fraction; /* five wheel steps per native octave */
+   double zoom_fraction;        /* five wheel steps per native octave */
    double pan_hz, drag_x, drag_pan_hz;
    bool dragging;
    gint64 recenter_at;
@@ -398,20 +677,31 @@ static gboolean rf_draw_later(gpointer user) {
    rf_strip_t *p = user;
    p->draw_timer = 0;
    gtk_widget_queue_draw(p->drawing);
-   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+
+   if (p->fullscreen_drawing) {
+      gtk_widget_queue_draw(p->fullscreen_drawing);
+   }
+
    return G_SOURCE_REMOVE;
 }
+
 static void rf_row(const char *, const void *, size_t, rrconn_t *, void *);
 static void rf_row_message(const rr_event_message_t *message, void *user) {
    rf_row(RR_BRIDGE_SPECTRUM_EVENT, message->payload, message->length, NULL, user);
 }
-static void rf_row(const char *event, const void *data, size_t len,
-                   rrconn_t *connection, void *user) {
-   (void)event; (void)connection;
+static void rf_row(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
+   (void)event;
+   (void)connection;
    rf_strip_t *p = user;
-   if (!p->rf_enabled || len != sizeof(rr_bridge_spectrum_row) || !data) return;
+
+   if (!p->rf_enabled || len != sizeof(rr_bridge_spectrum_row) || !data) {
+      return;
+   }
    const rr_bridge_spectrum_row *row = data;
-   if (!rr_bridge_spectrum_valid(row)) return;
+
+   if (!rr_bridge_spectrum_valid(row)) {
+      return;
+   }
    char vfo = rrclient_room_active_vfo("&local-sdr");
    p->vfo_boundary[p->head] = p->last_vfo && p->last_vfo != vfo;
    p->last_vfo = vfo;
@@ -419,23 +709,28 @@ static void rf_row(const char *event, const void *data, size_t len,
    p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
    p->count = MIN(p->count + 1, G_N_ELEMENTS(p->rows));
    p->received_at = g_get_monotonic_time();
+
    if (p->recenter_at && (row->low_hz != p->recenter_low_hz || row->high_hz != p->recenter_high_hz)) {
       p->recenter_at = 0;
       p->pan_hz = 0;
       p->drag_x = p->hover_x;
       p->drag_pan_hz = 0;
    }
-   if (!p->draw_timer)
+
+   if (!p->draw_timer) {
       p->draw_timer = g_timeout_add(100, rf_draw_later, p);
+   }
 }
-/* Fractional display crop between backend zoom steps. Both pixels and
- * scale/marker must use these same frequency bounds. */
-static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *row,
-                           double *low, double *high) {
+
+/* Fractional display crop between backend zoom steps. Both pixels and scale/marker must use these same frequency bounds. */
+static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *row, double *low, double *high) {
    *low = row->low_hz;
    *high = row->high_hz;
    double full = *high - *low;
-   if (full <= 0) return;
+
+   if (full <= 0) {
+      return;
+   }
    double span = full / exp2(p->zoom_fraction);
    uint64_t tuned = 0;
    double center = rrclient_local_bridge_state(&tuned, NULL) ? (double)tuned : (*low + *high) / 2;
@@ -449,36 +744,45 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    int h = gtk_widget_get_allocated_height(widget);
    cairo_set_source_rgb(cr, .06, .08, .11);
    cairo_paint(cr);
-   if (!p->rf_enabled || !p->count || g_get_monotonic_time() - p->received_at > 3000000)
+
+   if (!p->rf_enabled || !p->count || g_get_monotonic_time() - p->received_at > 3000000) {
       return FALSE;
+   }
    int depth = MIN((int)p->count, 32);
    int plot_h = MAX(1, h - 19);
    const rr_bridge_spectrum_row *latest = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
    double view_low, view_high;
    rf_view_bounds(p, latest, &view_low, &view_high);
-   /* Build one tightly packed ARGB32 image; avoid thousands of Cairo
-    * state changes/fills on the audio client's GTK main thread. */
-   cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24,
-      RR_BRIDGE_SPECTRUM_BINS, depth);
+   /* Build one tightly packed ARGB32 image; avoid thousands of Cairo state changes/fills on the audio client's GTK main thread. */
+   cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, RR_BRIDGE_SPECTRUM_BINS, depth);
+
    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
       cairo_surface_destroy(surface);
+
       return FALSE;
    }
    unsigned char *pixels = cairo_image_surface_get_data(surface);
    int stride = cairo_image_surface_get_stride(surface);
-   for (int y = 0; y < depth; y++) {
+
+   for (int y = 0 ; y < depth ; y++) {
       unsigned index = (p->head + G_N_ELEMENTS(p->rows) - 1 - y) % G_N_ELEMENTS(p->rows);
-      uint32_t *dest = (uint32_t *)(pixels + y * stride);
-      for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++) {
+      uint32_t *dest = (uint32_t *) (pixels + y * stride);
+
+      for (unsigned x = 0 ; x < RR_BRIDGE_SPECTRUM_BINS ; x++) {
          double hz = view_low + (view_high - view_low) * (x + .5) / RR_BRIDGE_SPECTRUM_BINS;
          double span = (double)p->rows[index].high_hz - p->rows[index].low_hz;
          int bin = span > 0 ? (int)((hz - p->rows[index].low_hz) * RR_BRIDGE_SPECTRUM_BINS / span) : -1;
          dest[x] = bin >= 0 && bin < RR_BRIDGE_SPECTRUM_BINS ?
             palette_pixel(CLAMP(p->rows[index].power[bin] / 255.0 + p->display_gain_db / 80.0, 0.0, 1.0)) : 0xff0d1621u;
       }
-      if (p->vfo_boundary[index])
-         for (unsigned x = 0; x < RR_BRIDGE_SPECTRUM_BINS; x++) dest[x] = 0xffe640;
+
+      if (p->vfo_boundary[index]) {
+         for (unsigned x = 0 ; x < RR_BRIDGE_SPECTRUM_BINS ; x++) {
+            dest[x] = 0xffe640;
+         }
+      }
    }
+
    cairo_surface_mark_dirty(surface);
    cairo_save(cr);
    cairo_scale(cr, (double)w / RR_BRIDGE_SPECTRUM_BINS, (double)plot_h / depth);
@@ -487,11 +791,10 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_paint(cr);
    cairo_restore(cr);
    cairo_surface_destroy(surface);
-   /* Tune marker is display-only. The frequency and RF span come from
-    * generic bridge state/rows, never Kiwi-specific arithmetic. */
+   /* Tune marker is display-only. The frequency and RF span come from generic bridge state/rows, never Kiwi-specific arithmetic. */
    uint64_t tuned_hz = 0;
-   if (rrclient_local_bridge_state(&tuned_hz, NULL) &&
-       tuned_hz >= view_low && tuned_hz <= view_high) {
+
+   if (rrclient_local_bridge_state(&tuned_hz, NULL) && tuned_hz >= view_low && tuned_hz <= view_high) {
       double x = ((double)tuned_hz - view_low) * (w - 1) / (view_high - view_low);
       cairo_save(cr);
       cairo_set_source_rgba(cr, 1.0, .85, .25, .9);
@@ -506,29 +809,32 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_fill(cr);
       cairo_restore(cr);
    }
-   /* Scale follows bridge-provided actual RF bounds, not the selected zoom
-    * or a client-side approximation of Kiwi's tuning state. */
+   /* Scale follows bridge-provided actual RF bounds, not the selected zoom or a client-side approximation of Kiwi's tuning state. */
    double low = view_low / 1e6, high = view_high / 1e6;
    cairo_set_source_rgba(cr, 0, 0, 0, .80);
    cairo_rectangle(cr, 0, plot_h, w, h - plot_h);
    cairo_fill(cr);
    cairo_set_source_rgb(cr, .85, .88, .91);
    cairo_set_font_size(cr, 10);
-   for (int tick = 0; tick <= 4; tick++) {
+
+   for (int tick = 0 ; tick <= 4 ; tick++) {
       double x = (w - 1.) * tick / 4.;
       double mhz = low + (high - low) * tick / 4.;
       char label[40];
       snprintf(label, sizeof(label), "%.3f", mhz);
       cairo_text_extents_t ext;
       cairo_text_extents(cr, label, &ext);
+
       /* Leave the bottom-right corner clear for the gain slider. */
-      if (tick > 2 && w < 520) continue;
+      if (tick > 2 && w < 520) {
+         continue;
+      }
       double tx = CLAMP(x - ext.width / 2, 2., MAX(2., w - ext.width - 2.));
       cairo_move_to(cr, tx, h - 5);
       cairo_show_text(cr, label);
    }
-   if (p->hover_widget == widget && p->hover_x >= 0 && p->hover_x < w &&
-       p->hover_y >= 0 && p->hover_y < plot_h && view_high > view_low && w > 1) {
+
+   if (p->hover_widget == widget && p->hover_x >= 0 && p->hover_x < w && p->hover_y >= 0 && p->hover_y < plot_h && view_high > view_low && w > 1) {
       double x = p->hover_x;
       double freq = (view_low + (view_high - view_low) * x / (w - 1)) / 1e6;
       char label[48];
@@ -551,20 +857,25 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_show_text(cr, label);
       cairo_restore(cr);
    }
+
    return FALSE;
 }
 static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    rf_strip_t *p = data;
-   if (p->hover_widget && p->hover_widget != widget)
+
+   if (p->hover_widget && p->hover_widget != widget) {
       gtk_widget_queue_draw(p->hover_widget);
+   }
    p->hover_widget = widget;
    p->hover_x = event->x;
    p->hover_y = event->y;
+
    if (p->dragging && (event->state & GDK_BUTTON1_MASK) && p->count) {
       int width = gtk_widget_get_allocated_width(widget);
       const rr_bridge_spectrum_row *row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
       double full = (double)row->high_hz - row->low_hz;
       double span = full / exp2(p->zoom_fraction);
+
       if (width > 1 && full > 0) {
          double wanted = p->drag_pan_hz - (event->x - p->drag_x) * span / (width - 1);
          uint64_t tuned = 0;
@@ -573,15 +884,15 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
          double min_pan = (double)row->low_hz - base;
          double max_pan = (double)row->high_hz - span - base;
          p->pan_hz = CLAMP(wanted, min_pan, max_pan);
-         /* Crossing the current W/F data edge requests a new RF window.
-          * Throttle commands until the bridge delivers rows at the new center. */
+         /* Crossing the current W/F data edge requests a new RF window. Throttle commands until the bridge delivers rows at the new center. */
          gint64 now = g_get_monotonic_time();
+
          if (wanted != p->pan_hz && (!p->recenter_at || now - p->recenter_at > 300000) &&
-             (!p->recenter_at || row->low_hz != p->recenter_low_hz || row->high_hz != p->recenter_high_hz)) {
+            (!p->recenter_at || row->low_hz != p->recenter_low_hz || row->high_hz != p->recenter_high_hz)) {
             double overflow = wanted - p->pan_hz;
-            double new_center = CLAMP((row->low_hz + row->high_hz) / 2. + overflow,
-                                      full / 2., 30000000. - full / 2.);
-            if (rrclient_local_bridge_waterfall_at(p->rf_enabled, p->zoom, (uint64_t)(new_center + .5))) {
+            double new_center = CLAMP((row->low_hz + row->high_hz) / 2. + overflow, full / 2., 30000000. - full / 2.);
+
+            if (rrclient_local_bridge_waterfall_at(p->rf_enabled, p->zoom, (uint64_t) (new_center + .5))) {
                p->recenter_at = now;
                p->recenter_low_hz = row->low_hz;
                p->recenter_high_hz = row->high_hz;
@@ -590,13 +901,18 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
       }
    }
    gtk_widget_queue_draw(widget);
+
    return FALSE;
 }
 static gboolean rf_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
    rf_strip_t *p = data;
    (void)event;
-   if (p->hover_widget == widget) p->hover_widget = NULL;
+
+   if (p->hover_widget == widget) {
+      p->hover_widget = NULL;
+   }
    gtk_widget_queue_draw(widget);
+
    return FALSE;
 }
 static void rf_gain_changed(GtkRange *range, gpointer data) {
@@ -604,17 +920,19 @@ static void rf_gain_changed(GtkRange *range, gpointer data) {
    p->display_gain_db = gtk_range_get_value(range);
    gtk_widget_queue_draw(p->drawing);
 }
-static void rf_caps_changed(const char *event, const void *data, size_t len,
-                            rrconn_t *connection, void *user) {
-   (void)event; (void)data; (void)len; (void)connection;
+static void rf_caps_changed(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
+   (void)event;
+   (void)data;
+   (void)len;
+   (void)connection;
    rf_strip_t *p = user;
    unsigned min_zoom, max_zoom;
    bool available = rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom);
    gtk_widget_set_visible(p->enabled, available);
    gtk_widget_set_visible(p->gain, available);
+
    if (available && !p->zoom_initialized) {
-      /* The bridge may already be running at its own default zoom (Kiwi: 6).
-       * Establish a shared starting point before accepting wheel events. */
+      /* The bridge may already be running at its own default zoom (Kiwi: 6). Establish a shared starting point before accepting wheel events. */
       p->zoom = min_zoom + (max_zoom - min_zoom) / 2;
       p->zoom_fraction = 0;
       p->pan_hz = 0;
@@ -624,72 +942,117 @@ static void rf_caps_changed(const char *event, const void *data, size_t len,
       p->zoom_fraction = 0;
       rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
    }
-   if (!available) p->zoom_initialized = false;
+
+   if (!available) {
+      p->zoom_initialized = false;
+   }
 }
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
    rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
+
    if (!p->rf_enabled) {
       p->count = 0;
       p->head = 0;
    }
    gtk_widget_queue_draw(p->drawing);
-   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+
+   if (p->fullscreen_drawing) {
+      gtk_widget_queue_draw(p->fullscreen_drawing);
+   }
 }
 static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
    rf_strip_t *p = data;
    int delta = 0;
-   if (event->direction == GDK_SCROLL_UP) delta = 1;
-   else if (event->direction == GDK_SCROLL_DOWN) delta = -1;
-   else if (event->direction == GDK_SCROLL_SMOOTH) {
-      if (event->delta_y < 0) delta = 1;
-      else if (event->delta_y > 0) delta = -1;
+
+   if (event->direction == GDK_SCROLL_UP) {
+      delta = 1;
+   } else if (event->direction == GDK_SCROLL_DOWN) {
+      delta = -1;
+   } else if (event->direction == GDK_SCROLL_SMOOTH) {
+      if (event->delta_y < 0) {
+         delta = 1;
+      } else if (event->delta_y > 0) {
+         delta = -1;
+      }
    }
-   if (!delta) return FALSE;
+
+   if (!delta) {
+      return FALSE;
+   }
    unsigned min_zoom, max_zoom;
-   if (!rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) return FALSE;
-   double requested = CLAMP((double)p->zoom + p->zoom_fraction + delta * .20,
-                            (double)min_zoom, (double)max_zoom);
+
+   if (!rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) {
+      return FALSE;
+   }
+   double requested = CLAMP((double)p->zoom + p->zoom_fraction + delta * .20, (double)min_zoom, (double)max_zoom);
    unsigned native = (unsigned)floor(requested);
    double fraction = requested - native;
    bool native_changed = native != p->zoom;
+
    if (native != p->zoom) {
-      if (!rrclient_local_bridge_waterfall(p->rf_enabled, native)) return TRUE;
+      if (!rrclient_local_bridge_waterfall(p->rf_enabled, native)) {
+         return TRUE;
+      }
       p->zoom = native;
    }
    p->zoom_fraction = fraction;
-   if (native_changed || fraction == 0) p->pan_hz = 0;
+
+   if (native_changed || fraction == 0) {
+      p->pan_hz = 0;
+   }
    gtk_widget_queue_draw(p->drawing);
-   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+
+   if (p->fullscreen_drawing) {
+      gtk_widget_queue_draw(p->fullscreen_drawing);
+   }
+
    return TRUE;
 }
 static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
    rf_strip_t *p = user;
    (void)widget;
    p->fullscreen = NULL;
-   if (p->hover_widget == p->fullscreen_drawing) p->hover_widget = NULL;
+
+   if (p->hover_widget == p->fullscreen_drawing) {
+      p->hover_widget = NULL;
+   }
    p->fullscreen_drawing = NULL;
 }
 static gboolean rf_release(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
    (void)widget;
-   if (event->button == 1) p->dragging = false;
+
+   if (event->button == 1) {
+      p->dragging = false;
+   }
+
    return FALSE;
 }
 static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
-   if (!gtk_check_menu_item_get_active(item)) return;
+   if (!gtk_check_menu_item_get_active(item)) {
+      return;
+   }
    rf_strip_t *p = g_object_get_data(G_OBJECT(item), "rf-panel");
    unsigned zoom = GPOINTER_TO_UINT(data);
-   if (!rrclient_local_bridge_waterfall(p->rf_enabled, zoom)) return;
+
+   if (!rrclient_local_bridge_waterfall(p->rf_enabled, zoom)) {
+      return;
+   }
    p->zoom = zoom;
    p->zoom_fraction = 0;
    p->pan_hz = 0;
    gtk_widget_queue_draw(p->drawing);
-   if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+
+   if (p->fullscreen_drawing) {
+      gtk_widget_queue_draw(p->fullscreen_drawing);
+   }
 }
 static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
+      return FALSE;
+   }
    GtkWidget *menu = gtk_menu_new();
    GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), palette_menu_new());
@@ -698,8 +1061,9 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    GtkWidget *zoom_menu = gtk_menu_new();
    GSList *group = NULL;
    unsigned min_zoom, max_zoom;
+
    if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) {
-      for (unsigned z = min_zoom; z <= max_zoom && z - min_zoom < 32; z++) {
+      for (unsigned z = min_zoom ; z <= max_zoom && z - min_zoom < 32 ; z++) {
          char label[32];
          g_snprintf(label, sizeof(label), "Level %u", z);
          GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
@@ -718,50 +1082,75 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), zoom_item);
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
-   if (rf_context_menu(event, p)) return TRUE;
-   if (event->button != 1) return FALSE;
+
+   if (rf_context_menu(event, p)) {
+      return TRUE;
+   }
+
+   if (event->button != 1) {
+      return FALSE;
+   }
+
    if (event->type == GDK_BUTTON_PRESS) {
       p->dragging = true;
       p->drag_x = event->x;
       p->drag_pan_hz = p->pan_hz;
+
       return TRUE;
    }
-   if (event->type != GDK_2BUTTON_PRESS) return FALSE;
+
+   if (event->type != GDK_2BUTTON_PRESS) {
+      return FALSE;
+   }
    p->dragging = false;
+
    if (!(event->state & GDK_CONTROL_MASK)) {
-      if (!p->rf_enabled || !p->count) return TRUE;
+      if (!p->rf_enabled || !p->count) {
+         return TRUE;
+      }
       int width = gtk_widget_get_allocated_width(widget);
       int height = gtk_widget_get_allocated_height(widget);
-      if (width < 2 || event->x < 0 || event->x >= width ||
-          event->y < 0 || event->y >= height - 19) return TRUE;
-      const rr_bridge_spectrum_row *row =
-         &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+
+      if (width < 2 || event->x < 0 || event->x >= width || event->y < 0 || event->y >= height - 19) {
+         return TRUE;
+      }
+      const rr_bridge_spectrum_row *row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
       double low, high;
       rf_view_bounds(p, row, &low, &high);
-      if (high <= low) return TRUE;
+
+      if (high <= low) {
+         return TRUE;
+      }
       double hz = low + (high - low) * event->x / (width - 1);
       char vfo = rrclient_room_active_vfo("&local-sdr");
-      if (rrclient_local_bridge_set_frequency(vfo, (uint64_t)(hz + .5))) {
+
+      if (rrclient_local_bridge_set_frequency(vfo, (uint64_t) (hz + .5))) {
          unsigned min_zoom, max_zoom;
-         if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom) &&
-             p->zoom < max_zoom &&
-             rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom + 1)) {
+
+         if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom) && p->zoom < max_zoom && rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom + 1)) {
             p->zoom++;
             p->zoom_fraction = 0;
             p->pan_hz = 0;
             gtk_widget_queue_draw(p->drawing);
-            if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+
+            if (p->fullscreen_drawing) {
+               gtk_widget_queue_draw(p->fullscreen_drawing);
+            }
          }
       }
+
       return TRUE;
    }
+
    if (p->fullscreen) {
       gtk_widget_destroy(p->fullscreen);
+
       return TRUE;
    }
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -769,7 +1158,8 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
    gtk_window_set_title(GTK_WINDOW(window), "RustyRig RF Waterfall");
    GtkWidget *drawing = gtk_drawing_area_new();
    p->fullscreen_drawing = drawing;
-   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK);
+   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK | GDK_POINTER_MOTION_MASK |
+      GDK_LEAVE_NOTIFY_MASK);
    gtk_container_add(GTK_CONTAINER(window), drawing);
    g_signal_connect(window, "destroy", G_CALLBACK(rf_fullscreen_closed), p);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
@@ -780,15 +1170,31 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
    gtk_widget_show_all(window);
    gtk_window_fullscreen(GTK_WINDOW(window));
+
    return TRUE;
 }
 static void rf_destroy(gpointer data) {
    rf_strip_t *p = data;
-   if (p->fullscreen) gtk_widget_destroy(p->fullscreen);
-   if (p->draw_timer) g_source_remove(p->draw_timer);
-   if (p->token) event_off_token(p->token);
-   if (p->caps_token) event_off_token(p->caps_token);
-   if (p->vfo_token) event_off_token(p->vfo_token);
+
+   if (p->fullscreen) {
+      gtk_widget_destroy(p->fullscreen);
+   }
+
+   if (p->draw_timer) {
+      g_source_remove(p->draw_timer);
+   }
+
+   if (p->token) {
+      event_off_token(p->token);
+   }
+
+   if (p->caps_token) {
+      event_off_token(p->caps_token);
+   }
+
+   if (p->vfo_token) {
+      event_off_token(p->vfo_token);
+   }
    g_free(p);
 }
 GtkWidget *rr_gtk_rf_spectrum_new(void) {
@@ -830,5 +1236,6 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    p->caps_token = event_on_binary_domain_token("client.local-bridge.capabilities", rf_caps_changed, p, "gtk");
    p->vfo_token = event_on_binary_domain_token("client.local-bridge.vfo", rf_caps_changed, p, "gtk");
    rf_caps_changed(NULL, NULL, 0, NULL, p);
+
    return overlay;
 }

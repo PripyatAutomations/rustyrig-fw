@@ -100,13 +100,17 @@ bool rr_module_init(void) {
 }
 
 void rr_module_frontend_stop(void) {
-   if (!module_running) return;
+   if (!module_running) {
+      return;
+   }
    gtk_frontend_stop();
    rr_module_tokens_release();
    extern bool gtk_frontend_events_shutdown(void);
+
    if (!gtk_frontend_events_shutdown()) {
       Log(LOG_CRIT, "module", "rrclient-gtk: refusing unload while GTK event listeners remain");
       frontend_ops_unregister();
+
       return;
    }
    module_running = false;

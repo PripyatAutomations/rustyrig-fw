@@ -1266,28 +1266,33 @@ static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer 
    char *name = NULL;
    char *display = NULL;
    gtk_tree_model_get(model, iter, COL_USERNAME, &name, COL_DISPLAY_NAME, &display, -1);
-   /* Keep IRC/operator privilege prefixes in the normal text color; only
-    * the username itself receives its stable nickname color. */
+   /* Keep IRC/operator privilege prefixes in the normal text color; only the username itself receives its stable nickname color. */
    const char *shown = display ? display : "";
    const char *nick = name ? strstr(shown, name) : NULL;
+
    if (nick && *name && strcmp(name, "OFFLINE")) {
       gchar *before = g_markup_escape_text(shown, nick - shown);
       gchar *colored = g_markup_escape_text(nick, -1);
       rr_nick_color_t color = rr_nick_color(name);
-      /* Match chat's IRC prefix palette: + = 13, @ = 11, ! = 05.
-       * Keep each privilege marker separate from the nickname color. */
+      /* Match chat's IRC prefix palette: + = 13, @ = 11, ! = 05. Keep each privilege marker separate from the nickname color. */
       GString *styled = g_string_new("");
-      for (const char *p = shown; p < nick; ++p) {
+
+      for (const char *p = shown ; p < nick ; ++p) {
          unsigned color_index = *p == '+' ? 13 : *p == '@' ? 11 : *p == '!' ? 5 : 99;
          const char *hex = color_index == 99 ? NULL : irc_color_rgb(color_index);
-         gchar glyph[2] = { *p, 0 };
+         gchar glyph[2] = {
+            *p, 0
+         };
          gchar *escaped = g_markup_escape_text(glyph, -1);
-         if (hex)
+
+         if (hex) {
             g_string_append_printf(styled, "<span foreground='%s'>%s</span>", hex, escaped);
-         else
+         } else {
             g_string_append(styled, escaped);
+         }
          g_free(escaped);
       }
+
       g_string_append_printf(styled, "<span foreground='%s'>%s</span>", color.hex, colored);
       gchar *markup = g_string_free(styled, FALSE);
       g_object_set(cell, "foreground-set", FALSE, "markup", markup, NULL);

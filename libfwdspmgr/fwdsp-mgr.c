@@ -40,7 +40,9 @@
 /* Set before starting children: codec/PCM reader callbacks belong to core. */
 static GMainContext *fwdsp_reactor_context;
 void fwdsp_set_reactor_context(GMainContext *context) {
-   if (fwdsp_reactor_context) g_main_context_unref(fwdsp_reactor_context);
+   if (fwdsp_reactor_context) {
+      g_main_context_unref(fwdsp_reactor_context);
+   }
    fwdsp_reactor_context = context ? g_main_context_ref(context) : NULL;
 }
 
@@ -217,8 +219,7 @@ static uint32_t frame_length_decode(const uint8_t header[FWDSP_FRAME_HEADER_SIZE
 static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
    while (len > 0) {
 #ifndef _WIN32
-      /* fwdsp IPC is an AF_UNIX socketpair. Suppress SIGPIPE per write so a
-       * terminated subprocess returns EPIPE instead of signaling rr-audio. */
+      /* fwdsp IPC is an AF_UNIX socketpair. Suppress SIGPIPE per write so a terminated subprocess returns EPIPE instead of signaling rr-audio. */
       ssize_t written = send(fd, data, len, MSG_NOSIGNAL);
 #else
       ssize_t written = write(fd, data, len);
@@ -1375,11 +1376,13 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
    const char *profile_key = sp->role == FWDSP_ROLE_PROCESSOR ?
       (sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ||
-       sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ?
-       "scheduler.fwdsp.device.profile" : "scheduler.fwdsp.processor.profile") :
-       "scheduler.fwdsp.codec.profile";
+         sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ?
+         "scheduler.fwdsp.device.profile" : "scheduler.fwdsp.processor.profile") : "scheduler.fwdsp.codec.profile";
    const char *profile = cfg_get(profile_key);
-   if (!profile || !*profile) profile = "normal";
+
+   if (!profile || !*profile) {
+      profile = "normal";
+   }
    bool started = subproc_spawn_fds_profile(&sp->process, fwdsp_path, args, mappings, sp->io_type == FW_IO_STDIO ? 4 : 0, close_fds, 8, profile);
 
    if (!started) {

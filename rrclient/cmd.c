@@ -133,9 +133,12 @@ bool cmd_zoom(int argc, char **args) {
 static bool cmd_bridge(int argc, char **args) {
    return rrclient_local_bridge_cli(argc, args);
 }
+
 client_cmd_t client_cmds[] = {
-   { .cmd = "bridge", .help_section = "Radio and discovery", .cb = cmd_bridge, .max_args = 4,
-     .desc = "SDR directory: /bridge <driver> dir list [search]; connections: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]" },
+   {
+      .cmd = "bridge", .help_section = "Radio and discovery", .cb = cmd_bridge, .max_args = 4,
+      .desc = "SDR directory: /bridge <driver> dir list [search]; connections: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]"
+   },
    {
       .cmd = "zoom", .help_section = "Display", .cb = cmd_zoom, .max_args = 1,
       .desc = "Set whole GTK interface zoom: /zoom 125%, /zoom 100, /zoom reset"
@@ -441,8 +444,8 @@ static bool parse_chat_input(const char *msg, bool commands) {
    }
 
    /* Local bridge management must work even without an online room/server. */
-   bool bridge_command = commands && !g_ascii_strncasecmp(msg, "/bridge", 7) &&
-      (!msg[7] || isspace((unsigned char)msg[7]));
+   bool bridge_command = commands && !g_ascii_strncasecmp(msg, "/bridge", 7) && (!msg[7] || isspace((unsigned char)msg[7]));
+
    if (!bridge_command && rrclient_chat_input_blocked(commands ? msg : "text")) {
       ui_print(ui_active_window_name(), "Room is OFFLINE; message not sent");
 
@@ -570,8 +573,11 @@ static bool parse_chat_input(const char *msg, bool commands) {
 
       /* Local rig commands must not require a server or leak to IRC/chat. */
       if (active_room && !strcasecmp(active_room, "&local-sdr")) {
-         if (rrclient_local_bridge_command(msg)) return true;
+         if (rrclient_local_bridge_command(msg)) {
+            return true;
+         }
          ui_print("&local-sdr", "Local SDR room accepts !vfo, !freq, !mode, !width and !status");
+
          return true;
       }
 

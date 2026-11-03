@@ -37,11 +37,20 @@ static struct inventory_request {
 } inventory_requests[INVENTORY_REQUESTS_MAX];
 
 static const struct rr_client_media_chan *inventory_media_channel(const char *uuid) {
-   if (!uuid || !*uuid) return NULL;
-   for (int i = 0;; i++) {
+   if (!uuid || !*uuid) {
+      return NULL;
+   }
+
+   for (int i = 0 ;; i++) {
       const struct rr_client_media_chan *channel = rrclient_media_chan_iter(i, NULL);
-      if (!channel) return NULL;
-      if (!strcmp(channel->uuid, uuid)) return channel;
+
+      if (!channel) {
+         return NULL;
+      }
+
+      if (!strcmp(channel->uuid, uuid)) {
+         return channel;
+      }
    }
 }
 
@@ -53,20 +62,24 @@ typedef struct {
 static void inventory_find_attachment(rr_serial_t *port, void *data) {
    inventory_attachment_t *match = data;
    rr_sercom_info_t info;
-   if (match->name[0] || !rr_sercom_info(rr_serial_name(port), &info) ||
-       strcmp(info.service, match->service))
+
+   if (match->name[0] || !rr_sercom_info(rr_serial_name(port), &info) || strcmp(info.service, match->service)) {
       return;
+   }
    const char *profile = *info.profile ? info.profile : rrclient_selected_server();
-   if (!profile || strcmp(profile, match->profile)) return;
+
+   if (!profile || strcmp(profile, match->profile)) {
+      return;
+   }
    strlcpy(match->name, info.name, sizeof(match->name));
    strlcpy(match->state, info.state, sizeof(match->state));
 }
 
-/* Derive Explorer presentation state while core-owned caches are stable.
- * The GTK domain receives only this copied JSON snapshot, never core pointers. */
+/* Derive Explorer presentation state while core-owned caches are stable. The GTK domain receives only this copied JSON snapshot, never core pointers. */
 static void inventory_emit_graphical(dict *d, bool entry) {
    const char *profile = ws_conn ? rrclient_connection_name(ws_conn) : "";
    dict_add(d, "client.profile", profile ? profile : "");
+
    if (entry) {
       const char *kind = dict_get(d, "inventory.kind", "");
       const char *uuid = dict_get(d, "inventory.uuid", "");
@@ -78,26 +91,23 @@ static void inventory_emit_graphical(dict *d, bool entry) {
       const dict *online = *uuid ? rrclient_object_property(uuid, "online") : NULL;
       const dict *frequency = *uuid ? rrclient_object_property(uuid, "frequency") : NULL;
       dict_add_bool(d, "client.object.frequency.present", frequency != NULL);
-      dict_add_bool(d, "client.object.online.known",
-         online && dict_get_bool((dict *)online, "property.known", false));
-      dict_add_bool(d, "client.object.online.value",
-         online && dict_get_bool((dict *)online, "property.value", false));
-      dict_add_bool(d, "client.object.frequency.available",
-         frequency && dict_get_bool((dict *)frequency, "property.available", false));
+      dict_add_bool(d, "client.object.online.known", online && dict_get_bool((dict *) online, "property.known", false));
+      dict_add_bool(d, "client.object.online.value", online && dict_get_bool((dict *) online, "property.value", false));
+      dict_add_bool(d, "client.object.frequency.available", frequency && dict_get_bool((dict *) frequency, "property.available", false));
 
       const struct rr_client_media_chan *channel = inventory_media_channel(uuid);
       dict_add_bool(d, "client.media.present", channel != NULL);
       dict_add_bool(d, "client.media.subscribed", channel && channel->subscribed);
-      dict_add(d, "client.media.coordinates",
-         channel && channel->gps_coordinates[0] ? channel->gps_coordinates : "");
+      dict_add(d, "client.media.coordinates", channel && channel->gps_coordinates[0] ? channel->gps_coordinates : "");
 
       inventory_attachment_t attachment = {
          .profile = profile,
          .service = dict_get(d, "inventory.service", "")
       };
-      if ((!strcmp(kind, "cat") || !strcmp(kind, "serial")) &&
-          *attachment.service)
+
+      if ((!strcmp(kind, "cat") || !strcmp(kind, "serial")) && *attachment.service) {
          rr_serial_foreach(inventory_find_attachment, &attachment);
+      }
       dict_add(d, "client.serial.name", attachment.name);
       dict_add(d, "client.serial.state", attachment.state);
    }
@@ -281,9 +291,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 }
 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)data; (void)user;
-   const char *profile = client ? rrclient_connection_name(client) :
-                         ws_conn ? rrclient_connection_name(ws_conn) : NULL;
+   (void)data;
+   (void)user;
+   const char *profile = client ? rrclient_connection_name(client) : ws_conn ? rrclient_connection_name(ws_conn) : NULL;
+
    if (profile) {
       char *notice = g_strdup_printf("%s|%s", profile, event);
       event_emit("client.resources.connection-state", NULL, notice);
@@ -389,8 +400,11 @@ bool cmd_rig(int argc, char **args) {
       snprintf(pending->window, sizeof(pending->window), "%s", window ? window : "");
       const rr_frontend_ops_t *frontend = frontend_ops();
       pending->graphical = explorer_inventory_request || (frontend && frontend->name && !strcmp(frontend->name, "gtk"));
+
       if (pending->graphical) {
-         rrclient_resource_view_t view = { .online = ws_conn->authenticated && ws_conn->is_ws };
+         rrclient_resource_view_t view = {
+            .online = ws_conn->authenticated && ws_conn->is_ws
+         };
          snprintf(view.kind, sizeof(view.kind), "%s", pending->kind);
          snprintf(view.request, sizeof(view.request), "%s", id);
          snprintf(view.profile, sizeof(view.profile), "%s", rrclient_connection_name(ws_conn));
@@ -467,16 +481,21 @@ bool cmd_gps(int argc, char **args) {
    return true;
 }
 
-/* GTK requests an inventory by profile; core resolves the connection and
- * runs the command in its own execution context. No GTK objects cross over. */
+/* GTK requests an inventory by profile; core resolves the connection and runs the command in its own execution context. No GTK objects cross over. */
 static void resource_refresh_core(void *data);
-static void resource_refresh_request(const char *event, const char *profile,
-                                     rrconn_t *ignored, void *unused) {
-   (void)event; (void)ignored; (void)unused;
-   if (!profile || !*profile) return;
+static void resource_refresh_request(const char *event, const char *profile, rrconn_t *ignored, void *unused) {
+   (void)event;
+   (void)ignored;
+   (void)unused;
+
+   if (!profile || !*profile) {
+      return;
+   }
    rrconn_t *conn = rrclient_connection_find(profile);
+
    if (!conn || !conn->authenticated || !conn->is_ws) {
       event_emit("client.resources.request-failed", NULL, profile);
+
       return;
    }
    /* Use a local callback to preserve the intended per-connection command context. */
@@ -484,23 +503,31 @@ static void resource_refresh_request(const char *event, const char *profile,
 }
 static void resource_refresh_core(void *data) {
    const char *profile = data;
-   char *args[] = { (char *)"object" };
+   char *args[] = {
+      (char *)"object"
+   };
    bool previous = explorer_inventory_request;
    explorer_inventory_request = true;
    bool failed = cmd_object(1, args);
    explorer_inventory_request = previous;
-   if (failed)
+
+   if (failed) {
       event_emit("client.resources.request-failed", NULL, profile);
+   }
    rrconn_t *conn = rrclient_connection_find(profile);
-   if (conn && conn->authenticated && conn->is_ws)
+
+   if (conn && conn->authenticated && conn->is_ws) {
       rrclient_media_refresh(conn);
+   }
 }
 
-/* Explorer requests are copied JSON events. Only the core accesses mutable
- * connection and object state; GTK gets result events without core pointers. */
-typedef struct { const char *uuid; GString *output; } explorer_detail_request;
+/* Explorer requests are copied JSON events. Only the core accesses mutable connection and object state; GTK gets result events without core pointers. */
+typedef struct {
+   const char *uuid;
+   GString *output;
+} explorer_detail_request;
 static void explorer_detail_line(const char *line, void *arg) {
-   g_string_append_printf((GString *)arg, "%s\n", line);
+   g_string_append_printf((GString *) arg, "%s\n", line);
 }
 static void explorer_detail_run(void *arg) {
    explorer_detail_request *req = arg;
@@ -511,17 +538,23 @@ static void explorer_action_run(void *arg) {
    const char *action = dict_get(d, "action", "");
    const char *value = dict_get(d, "value", "");
    bool failed = true;
+
    if (!strcmp(action, "join") || !strcmp(action, "part")) {
-      char *argv[] = {(char *)action, (char *)value};
+      char *argv[] = {
+         (char *)action, (char *)value
+      };
       failed = !strcmp(action, "join") ? cmd_join(2, argv) : cmd_part(2, argv);
    } else if (!strcmp(action, "objects-subscribe") || !strcmp(action, "objects-unsubscribe")) {
-      char *argv[] = {(char *)"rig", (char *)(!strcmp(action, "objects-subscribe") ? "subscribe" : "unsubscribe")};
+      char *argv[] = {
+         (char *)"rig", (char *)(!strcmp(action, "objects-subscribe") ? "subscribe" : "unsubscribe")
+      };
       failed = cmd_rig(2, argv);
    } else if (!strcmp(action, "attach")) {
       failed = !rr_sercom_attach(dict_get(d, "name", ""), value, dict_get(d, "device", ""));
    } else if (!strcmp(action, "menu-set")) {
       rrconn_t *connection = rrclient_connection_find(dict_get(d, "profile", ""));
       dict *wire = dict_new();
+
       if (connection && connection->authenticated && connection->is_ws && wire) {
          dict_add(wire, "msg.type", "property");
          dict_add(wire, "property.cmd", "menu-set");
@@ -533,42 +566,55 @@ static void explorer_action_run(void *arg) {
       }
       dict_free(wire);
    } else {
-      char *argv[] = {(char *)"media", (char *)action, (char *)value};
+      char *argv[] = {
+         (char *)"media", (char *)action, (char *)value
+      };
       failed = cmd_media(3, argv);
    }
    dict_add(d, "failed", failed ? "true" : "false");
 }
 static void explorer_core_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
-   (void)connection; (void)unused;
+   (void)connection;
+   (void)unused;
    dict *request = payload ? json2dict(payload) : NULL;
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    const char *profile = dict_get(request, "profile", "");
    const char *uuid = dict_get(request, "uuid", "");
    rrconn_t *conn = rrclient_connection_find(profile);
    dict *reply = dict_new();
    dict_add(reply, "profile", profile);
+
    if (!strcmp(event, "client.resources.details-request")) {
       dict_add(reply, "uuid", uuid);
+
       if (conn && conn->authenticated && *uuid) {
          GString *out = g_string_new("");
-         explorer_detail_request args = {uuid, out};
+         explorer_detail_request args = {
+            uuid, out
+         };
          rrclient_connection_dispatch(conn, explorer_detail_run, &args);
          dict_add(reply, "details", out->str);
          g_string_free(out, TRUE);
       }
    } else {
-      if (conn && conn->authenticated) rrclient_connection_dispatch(conn, explorer_action_run, request);
+      if (conn && conn->authenticated) {
+         rrclient_connection_dispatch(conn, explorer_action_run, request);
+      }
       dict_add(reply, "failed", dict_get(request, "failed", "true"));
    }
    char *json = dict2json(reply);
+
    if (json) {
-      event_emit(!strcmp(event, "client.resources.details-request") ?
-         "client.resources.details-result" : "client.resources.action-result", NULL, json);
+      event_emit(!strcmp(event, "client.resources.details-request") ? "client.resources.details-result" : "client.resources.action-result", NULL, json);
       free(json);
    }
    dict_free(reply);
    dict_free(request);
 }
+
 typedef struct {
    const char *uuid, *property;
    dict *reply;
@@ -577,11 +623,12 @@ static void explorer_property_snapshot_run(void *data) {
    explorer_property_snapshot *snapshot = data;
    const dict *state = rrclient_object_property(snapshot->uuid, snapshot->property);
    dict_add_bool(snapshot->reply, "found", state != NULL);
+
    if (state) {
-      dict_add_bool(snapshot->reply, "known", dict_get_bool((dict *)state, "property.known", false));
-      dict_add_bool(snapshot->reply, "available", dict_get_bool((dict *)state, "property.available", true));
-      dict_add(snapshot->reply, "value", dict_get((dict *)state, "property.value", ""));
-      dict_add(snapshot->reply, "version", dict_get((dict *)state, "property.version", ""));
+      dict_add_bool(snapshot->reply, "known", dict_get_bool((dict *) state, "property.known", false));
+      dict_add_bool(snapshot->reply, "available", dict_get_bool((dict *) state, "property.available", true));
+      dict_add(snapshot->reply, "value", dict_get((dict *) state, "property.value", ""));
+      dict_add(snapshot->reply, "version", dict_get((dict *) state, "property.version", ""));
    }
 }
 static void explorer_property_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
@@ -589,13 +636,18 @@ static void explorer_property_request(const char *event, const char *payload, rr
    (void)connection;
    (void)unused;
    dict *request = payload ? json2dict(payload) : NULL;
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    const char *profile = dict_get(request, "profile", "");
    const char *uuid = dict_get(request, "uuid", "");
    const char *property = dict_get(request, "property", "");
    dict *reply = dict_new();
+
    if (!reply) {
       dict_free(request);
+
       return;
    }
    dict_add(reply, "profile", profile);
@@ -603,8 +655,11 @@ static void explorer_property_request(const char *event, const char *payload, rr
    dict_add(reply, "property", property);
    dict_add(reply, "request.id", dict_get(request, "request.id", ""));
    rrconn_t *target = rrclient_connection_find(profile);
+
    if (target && target->authenticated && *uuid && *property) {
-      explorer_property_snapshot snapshot = {uuid, property, reply};
+      explorer_property_snapshot snapshot = {
+         uuid, property, reply
+      };
       rrclient_connection_dispatch(target, explorer_property_snapshot_run, &snapshot);
    }
    event_emit_dict("client.resources.property-result", NULL, reply);
@@ -619,28 +674,43 @@ static void resource_irc_snapshot_core(void *data) {
       total++;
       bool joined = ws_conn && ws_conn->authenticated && stats->joined;
       unsigned users = 0, opers = 0, ops = 0, voices = 0, regular = 0;
+
       if (joined) {
-         for (struct rr_user *user = global_userlist; user; user = user->next) {
-            if (strcasecmp(user->room, stats->name)) continue;
+         for (struct rr_user *user = global_userlist ; user ; user = user->next) {
+            if (strcasecmp(user->room, stats->name)) {
+               continue;
+            }
             users++;
-            if (user->irc_oper) opers++;
+
+            if (user->irc_oper) {
+               opers++;
+            }
             const char *modes = !strncmp(user->privs, "irc:", 4) ? user->privs + 4 : "";
-            if (strpbrk(modes, "qaoh")) ops++;
-            else if (strchr(modes, 'v')) voices++;
-            else regular++;
+
+            if (strpbrk(modes, "qaoh")) {
+               ops++;
+            } else if (strchr(modes, 'v')) {
+               voices++;
+            } else {
+               regular++;
+            }
          }
       }
       joined_count += joined;
       listed_count += stats->listed;
       char joined_at[64] = "Not joined";
       struct tm local;
-      if (joined && localtime_r(&stats->joined_at, &local))
+
+      if (joined && localtime_r(&stats->joined_at, &local)) {
          strftime(joined_at, sizeof(joined_at), "%Y-%m-%d %H:%M:%S", &local);
+      }
       uint64_t current = mono_us();
-      unsigned long long seconds = joined && current >= stats->joined_us
-         ? (current - stats->joined_us) / 1000000 : 0;
+      unsigned long long seconds = joined && current >= stats->joined_us ? (current - stats->joined_us) / 1000000 : 0;
       dict *row = dict_new();
-      if (!row) continue;
+
+      if (!row) {
+         continue;
+      }
       dict_add(row, "profile", profile);
       dict_add(row, "room", stats->name);
       dict_add(row, "topic", stats->topic);
@@ -667,7 +737,10 @@ static void resource_irc_snapshot_core(void *data) {
       dict_free(row);
    }
    dict *summary = dict_new();
-   if (!summary) return;
+
+   if (!summary) {
+      return;
+   }
    dict_add(summary, "profile", profile);
    dict_add_uint(summary, "total", total);
    dict_add_uint(summary, "joined", joined_count);
@@ -675,40 +748,60 @@ static void resource_irc_snapshot_core(void *data) {
    event_emit_dict("client.resources.irc.complete", NULL, summary);
    dict_free(summary);
 }
+
 /* Periodic status is collected on core and copied before GTK sees it. */
-static void resource_status_request(const char *event, const char *ignored,
-                                    rrconn_t *conn, void *user) {
-   (void)event; (void)ignored; (void)conn; (void)user;
-   for (unsigned i = 0;; ++i) {
+static void resource_status_request(const char *event, const char *ignored, rrconn_t *conn, void *user) {
+   (void)event;
+   (void)ignored;
+   (void)conn;
+   (void)user;
+
+   for (unsigned i = 0 ;; ++i) {
       const char *profile = rrclient_connection_iter(i);
-      if (!profile) break;
+
+      if (!profile) {
+         break;
+      }
       rrconn_t *active = rrclient_connection_find(profile);
       int state = rrclient_connection_state(profile);
       dict *d = dict_new();
-      if (!d) break;
+
+      if (!d) {
+         break;
+      }
       dict_add(d, "profile", profile);
       dict_add(d, "transport", active && !active->is_ws ? "irc" : "ws");
       dict_add(d, "state", state == 1 ? "online" : state < 0 ? "connecting" : "offline");
       dict_add(d, "authenticated", active && active->authenticated ? "true" : "false");
       dict_add(d, "subscription", rrclient_objects_subscription());
       char *payload = dict2json(d);
+
       if (payload) {
          event_emit("client.resources.status", NULL, payload);
          free(payload);
       }
       dict_free(d);
-      if (active && !active->is_ws)
+
+      if (active && !active->is_ws) {
          rrclient_connection_dispatch(active, resource_irc_snapshot_core, (void *)profile);
+      }
    }
 }
 static void explorer_control_set(const char *event, const char *payload, rrconn_t *ignored, void *unused) {
-   (void)event; (void)ignored; (void)unused;
+   (void)event;
+   (void)ignored;
+   (void)unused;
    dict *request = payload ? json2dict(payload) : NULL;
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    rrconn_t *conn = rrclient_connection_find(dict_get(request, "profile", ""));
    bool sent = false;
+
    if (conn && conn->authenticated && conn->is_ws) {
       dict *wire = dict_new();
+
       if (wire) {
          dict_add(wire, "msg.type", "property");
          dict_add(wire, "property.cmd", "set");
@@ -717,13 +810,16 @@ static void explorer_control_set(const char *event, const char *payload, rrconn_
          dict_add(wire, "property.value", dict_get(request, "value", ""));
          dict_add(wire, "request.room", dict_get(request, "room", ""));
          char id[64];
-         snprintf(id, sizeof(id), "explorer-control-%" PRIu64, (uint64_t)mono_us());
+         snprintf(id, sizeof(id), "explorer-control-%" PRIu64, (uint64_t) mono_us());
          dict_add(wire, "request.id", id);
          sent = ws_send_dict(NULL, conn, wire, WEBSOCKET_OP_TEXT);
          dict_free(wire);
       }
    }
-   if (!sent) event_emit("client.explorer.control.result", NULL, "Control request could not be sent");
+
+   if (!sent) {
+      event_emit("client.explorer.control.result", NULL, "Control request could not be sent");
+   }
    dict_free(request);
 }
 void rrclient_objects_register_events(void) {

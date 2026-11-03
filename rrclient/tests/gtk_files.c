@@ -35,13 +35,22 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    panel->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_add(GTK_CONTAINER(panel->widget), panel->body);
    gtk_overlay_add_overlay(overlay, panel->widget);
+
    return panel;
 }
-GtkWidget *rr_floating_panel_body(RRFloatPanel *panel) { return panel->body; }
-GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel) { return panel->widget; }
-void rr_floating_panel_show(RRFloatPanel *panel) { gtk_widget_show_all(panel->widget); }
-void rr_floating_panel_restore(RRFloatPanel *panel) { gtk_widget_show_all(panel->widget); }
-void rr_floating_panel_set_close_callback(RRFloatPanel *panel, void (*callback)(gpointer), gpointer data) {
+GtkWidget *rr_floating_panel_body(RRFloatPanel *panel) {
+   return panel->body;
+}
+GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel) {
+   return panel->widget;
+}
+void rr_floating_panel_show(RRFloatPanel *panel) {
+   gtk_widget_show_all(panel->widget);
+}
+void rr_floating_panel_restore(RRFloatPanel *panel) {
+   gtk_widget_show_all(panel->widget);
+}
+void rr_floating_panel_set_close_callback(RRFloatPanel *panel, void (*callback) (gpointer), gpointer data) {
    panel->on_close = callback;
    panel->close_data = data;
 }
@@ -49,6 +58,7 @@ void rr_floating_panel_destroy(RRFloatPanel *panel) {
    gtk_widget_destroy(panel->widget);
    g_free(panel);
 }
+
 /* Deterministically hold the worker while the main thread cancels or revokes access. The separate live-server test exercises actual filesystem fsync. */
 int fsync(int fd) {
    g_mutex_lock(&flush_lock);

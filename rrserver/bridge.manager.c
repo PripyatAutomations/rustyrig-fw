@@ -47,8 +47,7 @@ struct bridge_child {
    char initiated_by[HTTP_USER_LEN + 1];
    char audit_session_id[21];
    uint64_t idle_since;
-   /* Explicit connect request keeps a new temporary SDR alive while the
-    * client receives websdr-result and joins the generated room. */
+   /* Explicit connect request keeps a new temporary SDR alive while the client receives websdr-result and joins the generated room. */
    uint64_t join_grace_until;
    /* Event-loop-owned hardware demand, never an authorization decision. */
    uint64_t demand_epoch, demand_check_at;
@@ -115,17 +114,16 @@ static bool bridge_rx_requested(struct bridge_child *bridge, uint64_t current) {
    if (bridge->demand_epoch != demand_epoch || current >= bridge->demand_check_at) {
       bridge->demand_epoch = demand_epoch;
       bridge->rx_requested = rrserver_media_rx_requested(bridge->backend->owner);
-      if (!bridge->rx_requested && bridge->temporary && bridge->attached_room[0] &&
-          current < bridge->join_grace_until)
+
+      if (!bridge->rx_requested && bridge->temporary && bridge->attached_room[0] && current < bridge->join_grace_until) {
          bridge->rx_requested = true;
-      /* A temporary receiver is requested as soon as an authenticated
-       * listener joins its assigned SDR room. The media channel may not have
-       * a selected codec or subscription yet, so do not wait for either to
-       * start the bridge which supplies that channel. */
+      }
+
+      /* A temporary receiver is requested as soon as an authenticated listener joins its assigned SDR room. The media channel may not have a selected codec or
+       * subscription yet, so do not wait for either to start the bridge which supplies that channel. */
       if (!bridge->rx_requested && bridge->temporary && bridge->attached_room[0]) {
          for (rrconn_t *member = http_client_list ; member ; member = member->next) {
-            if (member->is_ws && member->authenticated && !member->is_server &&
-                ws_client_in_room(member, bridge->attached_room)) {
+            if (member->is_ws && member->authenticated && !member->is_server && ws_client_in_room(member, bridge->attached_room)) {
                bridge->rx_requested = true;
                break;
             }
@@ -639,7 +637,10 @@ static bool spawn_child(struct bridge_child *b) {
       sv[0], sv[1], media[0], media[1]
    };
    const char *profile = cfg_get("scheduler.rrbridge.profile");
-   if (!profile || !*profile) profile = "normal";
+
+   if (!profile || !*profile) {
+      profile = "normal";
+   }
    bool ok = subproc_spawn_fds_profile(&b->process, path, argv, map, 2, closes, 4, profile);
    close(sv[1]);
    close(media[1]);
@@ -993,8 +994,8 @@ void rrserver_bridges_poll(void) {
 
       if (wanted) {
          b->idle_since = 0;
-         /* A bridge can become wanted after an earlier idle poll. Cancel
-          * the idle state so capability negotiation and IPC are handled. */
+
+         /* A bridge can become wanted after an earlier idle poll. Cancel the idle state so capability negotiation and IPC are handled. */
          if (b->idling) {
             b->idling = false;
             b->kill_deadline = 0;
@@ -1110,11 +1111,9 @@ void rrserver_bridges_poll(void) {
       }
 
       if (b->temporary && b->idle_since && current - b->idle_since >= temporary_idle_us) {
-         Log(LOG_WARN, "sdr.status",
-             "[%s] removing temporary receiver after %llu seconds without RX demand (room=%s joined-listener=%s spawned=%s)",
-             bridge_public_name(b), (unsigned long long)((current - b->idle_since) / 1000000),
-             b->attached_room, websdr_room_has_other_listeners(b->attached_room, NULL) ? "yes" : "no",
-             b->process.pid > 0 ? "yes" : "no");
+         Log(LOG_WARN, "sdr.status", "[%s] removing temporary receiver after %llu seconds without RX demand (room=%s joined-listener=%s spawned=%s)",
+            bridge_public_name(b), (unsigned long long)((current - b->idle_since) / 1000000), b->attached_room, websdr_room_has_other_listeners(b->attached_room
+            , NULL) ? "yes" : "no", b->process.pid > 0 ? "yes" : "no");
          websdr_audit_end(b->backend->owner, "idle-timeout");
          websdr_remove(b->backend->owner);
          break;
@@ -1688,12 +1687,12 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             Log(LOG_WARN, "sdr.status", "Could not register SDR VFO A for room %s", selected_room);
          }
 
-         /* Generated receiver rooms are owned by this request. Admit the
-          * initiating session now instead of depending on the separate
-          * websdr-result round trip to trigger a client-side JOIN. */
+         /* Generated receiver rooms are owned by this request. Admit the initiating session now instead of depending on the separate websdr-result round trip
+          * to trigger a client-side JOIN. */
          if (generated && !ws_client_in_room(client, selected_room)) {
             if (ws_client_join_room(client, selected_room)) {
                dict *joined = dict_new();
+
                if (joined) {
                   dict_add(joined, "msg.type", "talk");
                   dict_add(joined, "talk.cmd", "join");
@@ -1717,10 +1716,10 @@ static void websdr_request(const char *event, const void *data, size_t length, r
                Log(LOG_WARN, "sdr.status", "SDR creator could not join generated room %s", selected_room);
             }
          }
+
          if (b->temporary) {
             snprintf(b->attached_room, sizeof(b->attached_room), "%s", selected_room);
-            /* Autogenerated rooms are joined after the websdr-result reply.
-             * The request itself constitutes bounded initial receiver demand. */
+            /* Autogenerated rooms are joined after the websdr-result reply. The request itself constitutes bounded initial receiver demand. */
             b->join_grace_until = mono_us() + UINT64_C(15000000);
             snprintf(b->initiated_by, sizeof(b->initiated_by), "%s", client->chatname);
             /* Same non-secret fingerprint used by the Sessions admin table. */
@@ -1746,17 +1745,18 @@ static void websdr_request(const char *event, const void *data, size_t length, r
 
          Log(moved ? LOG_INFO : LOG_WARN, "bridge", "[%s] attached receiver room=%s rig_uuid=%s RX-channels=%u%s", bridge_public_name(b), selected_room,
             rig_uuid, moved, moved ? "" : " (NO RX CHANNELS: audio cannot be advertised)");
-         /* Force demand reconciliation after the room and receiver are
-          * associated; attaching alone must not silently strand the bridge. */
+         /* Force demand reconciliation after the room and receiver are associated; attaching alone must not silently strand the bridge. */
          b->demand_check_at = 0;
          unsigned listeners = 0;
+
          for (rrconn_t *member = http_client_list ; member ; member = member->next) {
-            if (member->is_ws && member->authenticated && !member->is_server &&
-                ws_client_in_room(member, selected_room))
+            if (member->is_ws && member->authenticated && !member->is_server && ws_client_in_room(member, selected_room)) {
                listeners++;
+            }
          }
-         Log(LOG_INFO, "bridge", "[%s] SDR room demand: room=%s authenticated-listeners=%u (15s connect-request startup grace)",
-             bridge_public_name(b), selected_room, listeners);
+
+         Log(LOG_INFO, "bridge", "[%s] SDR room demand: room=%s authenticated-listeners=%u (15s connect-request startup grace)", bridge_public_name(b),
+            selected_room, listeners);
          /* The room JOIN preceded this attachment. Notify its members of the newly bound receiver UUID so their VFO panels refresh. */
          char *vfos = db_room_vfo_list(masterdb, selected_room);
          Log(vfos && *vfos ? LOG_INFO : LOG_WARN, "sdr.status", "SDR attachment %s: receiver=%s room=%s VFO=%s RX-channels=%u", vfos && *vfos ? "bound" :
@@ -1850,25 +1850,18 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    size_t queued_before = client && client->native_transport ? rr_transport_queued_bytes(client->native_transport) : 0;
    bool reply_sent = ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
    size_t queued_after = client && client->native_transport ? rr_transport_queued_bytes(client->native_transport) : 0;
+
    if (!reply_sent) {
-      /* A rejected reply strands the generated-room JOIN. Distinguish a
-       * serializer failure from transport/backpressure or remote routing. */
+      /* A rejected reply strands the generated-room JOIN. Distinguish a serializer failure from transport/backpressure or remote routing. */
       char *wire = rr_wire_encode(reply);
-      Log(LOG_WARN, "sdr.status",
-          "SDR result reply rejected: client=%p ws=%d auth=%d adapter=%p state=%d queued-before=%zu queued-after=%zu wire=%s bytes=%zu",
-          (void *)client, client ? (int)client->is_ws : 0,
-          client ? (int)client->authenticated : 0,
-          client ? (void *)client->native_transport : NULL,
-          client && client->native_transport ? (int)rr_transport_state(client->native_transport) : -1,
-          queued_before, queued_after,
-          wire ? "encoded" : "FAILED", wire ? strlen(wire) : 0);
+      Log(LOG_WARN, "sdr.status", "SDR result reply rejected: client=%p ws=%d auth=%d adapter=%p state=%d queued-before=%zu queued-after=%zu wire=%s bytes=%zu",
+         (void *)client, client ? (int)client->is_ws : 0, client ? (int)client->authenticated : 0, client ? (void *)client->native_transport : NULL, client &&
+         client->native_transport ? (int)rr_transport_state(client->native_transport) : -1, queued_before, queued_after, wire ? "encoded" : "FAILED", wire ?
+         strlen(wire) : 0);
       free(wire);
    }
-   Log(reply_sent ? LOG_INFO : LOG_WARN, "sdr.status",
-       "SDR result: request=%s room=%s error=%s delivered=%s",
-       request ? dict_get(request, "request", "") : "",
-       b ? target_room : "(none)", release && !*error ? "" : b ? "" : error,
-       reply_sent ? "yes" : "no");
+   Log(reply_sent ? LOG_INFO : LOG_WARN, "sdr.status", "SDR result: request=%s room=%s error=%s delivered=%s", request ? dict_get(request, "request", "") : "",
+      b ? target_room : "(none)", release && !*error ? "" : b ? "" : error, reply_sent ? "yes" : "no");
    free(json);
    dict_free(result);
    dict_free(reply);

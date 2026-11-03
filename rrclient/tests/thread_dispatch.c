@@ -9,6 +9,7 @@ static gboolean receive(gpointer data) {
    assert(g_thread_self() == owner);
    assert(*value == 42);
    g_atomic_int_inc(&delivered);
+
    return G_SOURCE_REMOVE;
 }
 static void release(gpointer data) {
@@ -20,6 +21,7 @@ static gpointer producer(gpointer data) {
    int *value = g_new(int, 1);
    *value = 42;
    assert(rr_thread_dispatch_post(bridge, receive, value, release));
+
    return NULL;
 }
 int main(void) {
@@ -27,8 +29,9 @@ int main(void) {
    GMainContext *ctx = g_main_context_new();
    rr_thread_dispatch_t *bridge = rr_thread_dispatch_new(ctx);
    GThread *worker = g_thread_new("dispatch-producer", producer, bridge);
-   while (!g_atomic_int_get(&delivered))
+   while (!g_atomic_int_get(&delivered)) {
       g_main_context_iteration(ctx, TRUE);
+   }
    g_thread_join(worker);
    assert(g_atomic_int_get(&released) == 1);
 
@@ -39,5 +42,6 @@ int main(void) {
    assert(g_atomic_int_get(&released) == 2);
    rr_thread_dispatch_free(bridge);
    g_main_context_unref(ctx);
+
    return 0;
 }

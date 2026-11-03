@@ -25,7 +25,7 @@ typedef struct {
    GString *body;
 } catalog_download_t;
 typedef struct {
-   GPtrArray *chunks; /* owned by worker; immutable GBytes */
+   GPtrArray *chunks;           /* owned by worker; immutable GBytes */
    guint total;
    guint64 generation;
    char digest[65];
@@ -41,28 +41,35 @@ typedef struct {
 } catalog_result_t;
 static gboolean catalog_apply(gpointer data) {
    catalog_result_t *r = data;
+
    if (r->verified && receiver_directory_import_snapshot(r->body, r->len, "rrserver")) {
-      Log(LOG_INFO, "receiver.directory", "Applied %u verified chunks of server SDR catalog (generation %llu)",
-          r->total, (unsigned long long)r->generation);
+      Log(LOG_INFO, "receiver.directory", "Applied %u verified chunks of server SDR catalog (generation %llu)", r->total, (unsigned long long)r->generation);
    } else {
       Log(LOG_WARN, "receiver.directory", "Rejected incomplete or invalid server directory digest");
    }
    g_free(r->body);
    g_main_context_unref(r->context);
    g_free(r);
+
    return G_SOURCE_REMOVE;
 }
 static gpointer catalog_verify_worker(gpointer data) {
    catalog_job_t *job = data;
    GString *body = g_string_sized_new(MIN(CATALOG_MAX, (size_t)job->total * CATALOG_CHUNK));
    bool valid = true;
-   for (guint i = 0; i < job->total; i++) {
+
+   for (guint i = 0 ; i < job->total ; i++) {
       GBytes *chunk = g_ptr_array_index(job->chunks, i);
       gsize len = 0;
       const void *mem = chunk ? g_bytes_get_data(chunk, &len) : NULL;
-      if (!mem || body->len + len > CATALOG_MAX) { valid = false; break; }
+
+      if (!mem || body->len + len > CATALOG_MAX) {
+         valid = false;
+         break;
+      }
       g_string_append_len(body, mem, len);
    }
+
    char *sum = valid ? g_compute_checksum_for_string(G_CHECKSUM_SHA256, body->str, body->len) : NULL;
    catalog_result_t *result = g_new0(catalog_result_t, 1);
    result->verified = sum && !strcmp(sum, job->digest);
@@ -75,8 +82,10 @@ static gpointer catalog_verify_worker(gpointer data) {
    g_free(sum);
    g_ptr_array_free(job->chunks, TRUE);
    g_free(job);
+
    return NULL;
 }
+
 static catalog_download_t transfer;
 static rr_event_token_t catalog_token;
 static guint timer_id;
@@ -255,11 +264,11 @@ static void received(const char *event, const char *data, rrconn_t *connection, 
          job->context = g_main_context_ref(g_main_context_default());
          reset();
          GThread *worker = g_thread_try_new("sdr-catalog-verify", catalog_verify_worker, job, NULL);
+
          if (worker) {
             g_thread_unref(worker);
          } else {
-            /* No worker available: retain correct behavior, including
-             * ownership and checksum validation. */
+            /* No worker available: retain correct behavior, including ownership and checksum validation. */
             catalog_verify_worker(job);
          }
       } else if (transfer.received % 8 == 0) {

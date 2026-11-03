@@ -342,16 +342,19 @@ int main(int argc, char **argv) {
             }
 
             if (command.type == RRP_BRIDGE_IPC_CONTROL) {
-               if (!driver->set_control ||
-                   !driver->set_control(instance, command.metadata_key, command.metadata_value))
+               if (!driver->set_control || !driver->set_control(instance, command.metadata_key, command.metadata_value)) {
                   Log(LOG_WARN, "rrbridge", "Unsupported or rejected control %s", command.metadata_key);
+               }
                continue;
             }
+
             if (command.type == RRP_BRIDGE_IPC_WATERFALL) {
-               if (driver->set_waterfall)
+               if (driver->set_waterfall) {
                   driver->set_waterfall(instance, command.available != 0, command.flags, command.frequency_hz);
+               }
                continue;
             }
+
             if (command.type != RRP_BRIDGE_IPC_SET || host.pending) {
                host.failed = true;
                break;

@@ -231,12 +231,10 @@ void ui_list_servers(void) {
 void show_server_chooser(void) {
    ui_list_servers();
 
-   if (frontend_ops() && frontend_ops()->name &&
-       strcmp(frontend_ops()->name, "gtk") == 0) {
+   if (frontend_ops() && frontend_ops()->name && strcmp(frontend_ops()->name, "gtk") == 0) {
       /* GTK owns its picker; send an asynchronous domain-delivered request. */
-      event_emit_message(&(rr_event_message_t){
-         .name = "client.ui.server-picker.show", .sender = "core",
-         .payload = NULL, .length = 0
+      event_emit_message(&(rr_event_message_t) {
+         .name = "client.ui.server-picker.show", .sender = "core", .payload = NULL, .length = 0
       });
    } else if (frontend_ops() && frontend_ops()->show_server_chooser) {
       frontend_ops()->show_server_chooser();

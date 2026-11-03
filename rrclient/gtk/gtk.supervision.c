@@ -18,14 +18,16 @@ typedef struct {
 static GList *supervision_dialogs;
 static void supervision_response(RRFloatPanel *dialog, gint response, gpointer data) {
    supervision_dialog_t *prompt = data;
+
    if (response == GTK_RESPONSE_YES || response == GTK_RESPONSE_NO) {
-      /* Only stable identities cross into core; the core verifies the live
-       * connection and sends the actual supervision command. */
+      /* Only stable identities cross into core; the core verifies the live connection and sends the actual supervision command. */
       typedef struct {
          char profile[128], room[128], id[96];
          uint8_t accept;
       } SupervisionReply;
-      SupervisionReply reply = {0};
+      SupervisionReply reply = {
+         0
+      };
       snprintf(reply.profile, sizeof(reply.profile), "%s", prompt->profile);
       snprintf(reply.room, sizeof(reply.room), "%s", prompt->room);
       snprintf(reply.id, sizeof(reply.id), "%s", prompt->id);

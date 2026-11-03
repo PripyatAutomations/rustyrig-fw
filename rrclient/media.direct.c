@@ -178,9 +178,10 @@ static bool try_candidate(struct direct_channel *channel) {
       uint64_t attach_started = mono_us();
       channel->attachment = rr_rtp_socket_attach(media_socket, channel->grant_ssrc, channel->grant_key, channel->grant_encrypted, endpoint, channel);
       uint64_t attach_elapsed = mono_us() - attach_started;
-      if (attach_elapsed >= UINT64_C(20000))
-         Log(LOG_WARN, "media.rtp.timing", "RTP candidate attach blocked core for %lluus endpoint=%s",
-             (unsigned long long)attach_elapsed, endpoint);
+
+      if (attach_elapsed >= UINT64_C(20000)) {
+         Log(LOG_WARN, "media.rtp.timing", "RTP candidate attach blocked core for %lluus endpoint=%s", (unsigned long long)attach_elapsed, endpoint);
+      }
 
       if (!channel->attachment) {
          continue;
@@ -396,41 +397,54 @@ static bool received(void *user, const uint8_t *data, size_t length) {
    uint64_t dispatch_started = mono_us();
    rrclient_connection_dispatch(channel->client, dispatch_received, &received);
    uint64_t dispatch_elapsed = mono_us() - dispatch_started;
-   if (dispatch_elapsed >= UINT64_C(20000))
-      Log(LOG_WARN, "media.rtp.timing", "RTP audio dispatch blocked core for %lluus frame=%zu bytes",
-          (unsigned long long)dispatch_elapsed, length);
+
+   if (dispatch_elapsed >= UINT64_C(20000)) {
+      Log(LOG_WARN, "media.rtp.timing", "RTP audio dispatch blocked core for %lluus frame=%zu bytes", (unsigned long long)dispatch_elapsed, length);
+   }
    free(copy);
 
    return received.result;
 }
 void rrclient_direct_poll(void) {
    uint64_t now = mono_us();
-   /* RTP receive is serviced by the GLib main loop. Long gaps here mean
-    * UI/catalog work can starve audio even on localhost. Track the actual
-    * poll cadence independently of the playback worker's timing. */
+   /* RTP receive is serviced by the GLib main loop. Long gaps here mean UI/catalog work can starve audio even on localhost. Track the actual poll cadence
+    * independently of the playback worker's timing. */
    static uint64_t last_poll, diag_at, max_gap_us, gaps_over_40ms, gaps_over_100ms;
+
    if (last_poll && now >= last_poll) {
       uint64_t gap = now - last_poll;
-      if (gap > max_gap_us) max_gap_us = gap;
-      if (gap > 40000) gaps_over_40ms++;
-      if (gap > 100000) gaps_over_100ms++;
+
+      if (gap > max_gap_us) {
+         max_gap_us = gap;
+      }
+
+      if (gap > 40000) {
+         gaps_over_40ms++;
+      }
+
+      if (gap > 100000) {
+         gaps_over_100ms++;
+      }
    }
    last_poll = now;
-   if (!diag_at) diag_at = now;
+
+   if (!diag_at) {
+      diag_at = now;
+   }
+
    if (now - diag_at >= UINT64_C(10000000)) {
-      if (gaps_over_40ms || gaps_over_100ms)
-         Log(LOG_WARN, "media.rtp.timing",
-             "RTP main-loop poll gaps/10s: >40ms=%llu >100ms=%llu max=%lluus",
-             (unsigned long long)gaps_over_40ms,
-             (unsigned long long)gaps_over_100ms,
-             (unsigned long long)max_gap_us);
+      if (gaps_over_40ms || gaps_over_100ms) {
+         Log(LOG_WARN, "media.rtp.timing", "RTP main-loop poll gaps/10s: >40ms=%llu >100ms=%llu max=%lluus", (unsigned long long)gaps_over_40ms, (unsigned long
+            long)gaps_over_100ms, (unsigned long long)max_gap_us);
+      }
       unsigned queue_high_water = 0;
       uint64_t queue_max_age_us = 0;
       rr_rtp_socket_ingress_stats(media_socket, &queue_high_water, &queue_max_age_us);
-      if (queue_high_water || queue_max_age_us >= 40000)
-         Log(queue_max_age_us >= 100000 ? LOG_WARN : LOG_INFO, "media.rtp.timing",
-             "RTP ingress backlog/10s: peak=%u/256 max-queue-delay=%lluus",
-             queue_high_water, (unsigned long long)queue_max_age_us);
+
+      if (queue_high_water || queue_max_age_us >= 40000) {
+         Log(queue_max_age_us >= 100000 ? LOG_WARN : LOG_INFO, "media.rtp.timing", "RTP ingress backlog/10s: peak=%u/256 max-queue-delay=%lluus",
+            queue_high_water, (unsigned long long)queue_max_age_us);
+      }
       max_gap_us = gaps_over_40ms = gaps_over_100ms = 0;
       diag_at = now;
    }

@@ -31,6 +31,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    gtk_tree_model_get(model, iter, COL_CONNECTED_COLOR, &connected_color, -1);
    gboolean connected = connected_color && *connected_color;
    g_free(connected_color);
+
    if ((connected || odd) && !selected && view) {
       GtkStyleContext *style = gtk_widget_get_style_context(view);
       GdkRGBA base, ink, shade;
@@ -80,82 +81,128 @@ static const receiver_directory_entry_t *snapshot_receiver(size_t index) {
 static gboolean snapshot_timeout(gpointer unused) {
    (void)unused;
    snapshot_timeout_source = 0;
+
    if (snapshot_pending) {
       snapshot_pending = FALSE;
+
       if (download_status) {
          gtk_spinner_stop(GTK_SPINNER(download_spinner));
          gtk_widget_hide(download_status);
       }
-      if (directory_status)
-         gtk_label_set_text(GTK_LABEL(directory_status),
-            "SDR directory update is taking too long. Keeping the last snapshot; try Refresh later.");
+
+      if (directory_status) {
+         gtk_label_set_text(GTK_LABEL(directory_status), "SDR directory update is taking too long. Keeping the last snapshot; try Refresh later.");
+      }
    }
+
    return G_SOURCE_REMOVE;
 }
 static void snapshot_request(void) {
-   if (snapshot_pending) { snapshot_dirty = TRUE; return; } /* Coalesce rapid changes. */
+   if (snapshot_pending) {
+      snapshot_dirty = TRUE;
+
+      return;
+   }                            /* Coalesce rapid changes. */
    snapshot_pending = TRUE;
-   if (directory_status && !snapshot_count)
+
+   if (directory_status && !snapshot_count) {
       gtk_label_set_text(GTK_LABEL(directory_status), "Loading SDR directory snapshot…");
-   if (snapshot_timeout_source) g_source_remove(snapshot_timeout_source);
+   }
+
+   if (snapshot_timeout_source) {
+      g_source_remove(snapshot_timeout_source);
+   }
    snapshot_timeout_source = g_timeout_add_seconds(5, snapshot_timeout, NULL);
-   rr_event_message_t request = { .name = "client.receiver.snapshot.request" };
+   rr_event_message_t request = {
+      .name = "client.receiver.snapshot.request"
+   };
    event_emit_message(&request);
 }
 static void snapshot_received(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message->payload || message->length < sizeof(rr_receiver_directory_snapshot_header_t)) return;
+
+   if (!message->payload || message->length < sizeof(rr_receiver_directory_snapshot_header_t)) {
+      return;
+   }
    rr_receiver_directory_snapshot_header_t header;
    memcpy(&header, message->payload, sizeof(header));
+
    if (header.count > 10000 ||
-       message->length - sizeof(header) != (size_t)header.count *
-                                             sizeof(rr_receiver_directory_snapshot_row_t) ||
-       !memchr(header.status, 0, sizeof(header.status)) ||
-       !memchr(header.info, 0, sizeof(header.info)) ||
-       !memchr(header.error, 0, sizeof(header.error)) ||
-       !memchr(header.source, 0, sizeof(header.source)) || header.busy > 1) return;
-   rr_receiver_directory_snapshot_row_t *rows = g_memdup2(
-      (const char *)message->payload + sizeof(header),
-      (size_t)header.count * sizeof(*rows));
+      message->length - sizeof(header) != (size_t)header.count *
+      sizeof(rr_receiver_directory_snapshot_row_t) ||
+      !memchr(header.status, 0, sizeof(header.status)) ||
+      !memchr(header.info, 0, sizeof(header.info)) ||
+      !memchr(header.error, 0, sizeof(header.error)) || !memchr(header.source, 0, sizeof(header.source)) || header.busy > 1) {
+      return;
+   }
+   rr_receiver_directory_snapshot_row_t *rows = g_memdup2((const char *)message->payload + sizeof(header), (size_t)header.count * sizeof(*rows));
    receiver_directory_entry_t *entries = g_new0(receiver_directory_entry_t, header.count);
-   for (size_t i = 0; i < header.count; ++i) {
+
+   for (size_t i = 0 ; i < header.count ; ++i) {
       rr_receiver_directory_snapshot_row_t *r = &rows[i];
       receiver_directory_entry_t *e = &entries[i];
 #define VIEW_FIELD(name) e->name = r->name
-      VIEW_FIELD(driver); VIEW_FIELD(url); VIEW_FIELD(name);
-      VIEW_FIELD(description); VIEW_FIELD(location); VIEW_FIELD(country);
-      VIEW_FIELD(contact); VIEW_FIELD(antenna); VIEW_FIELD(hardware);
-      VIEW_FIELD(grid); VIEW_FIELD(properties); VIEW_FIELD(local_reason);
+      VIEW_FIELD(driver);
+      VIEW_FIELD(url);
+      VIEW_FIELD(name);
+      VIEW_FIELD(description);
+      VIEW_FIELD(location);
+      VIEW_FIELD(country);
+      VIEW_FIELD(contact);
+      VIEW_FIELD(antenna);
+      VIEW_FIELD(hardware);
+      VIEW_FIELD(grid);
+      VIEW_FIELD(properties);
+      VIEW_FIELD(local_reason);
 #undef VIEW_FIELD
-      /* The policy distinguishes unknown (NULL) from a reported failure.
-       * A fixed-size snapshot encodes NULL as an empty string. Restore NULL
-       * here or Availability incorrectly hides most cached receivers. */
+      /* The policy distinguishes unknown (NULL) from a reported failure. A fixed-size snapshot encodes NULL as an empty string. Restore NULL here or
+       * Availability incorrectly hides most cached receivers. */
       e->local_state = r->local_state[0] ? r->local_state : NULL;
-      e->users = r->users; e->users_max = r->users_max; e->ext_api = r->ext_api;
-      e->offline = r->offline; e->flagged = r->flagged; e->deleted = r->deleted;
-      e->favorite = r->favorite; e->last_seen = r->last_seen;
-      e->learned_at = r->learned_at; e->state_updated = r->state_updated;
-      e->last_connected = r->last_connected; e->low_hz = r->low_hz;
+      e->users = r->users;
+      e->users_max = r->users_max;
+      e->ext_api = r->ext_api;
+      e->offline = r->offline;
+      e->flagged = r->flagged;
+      e->deleted = r->deleted;
+      e->favorite = r->favorite;
+      e->last_seen = r->last_seen;
+      e->learned_at = r->learned_at;
+      e->state_updated = r->state_updated;
+      e->last_connected = r->last_connected;
+      e->low_hz = r->low_hz;
       e->high_hz = r->high_hz;
    }
+
    g_free(snapshot_entries);
    g_free(snapshot_rows);
-   snapshot_rows = rows; snapshot_entries = entries; snapshot_count = header.count;
+   snapshot_rows = rows;
+   snapshot_entries = entries;
+   snapshot_count = header.count;
    g_strlcpy(snapshot_status, header.status, sizeof(snapshot_status));
    g_strlcpy(snapshot_info, header.info, sizeof(snapshot_info));
    g_strlcpy(snapshot_error, header.error, sizeof(snapshot_error));
    g_strlcpy(snapshot_source, header.source, sizeof(snapshot_source));
    snapshot_busy = header.busy != 0;
    snapshot_pending = FALSE;
+
    if (snapshot_timeout_source) {
-      g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0;
+      g_source_remove(snapshot_timeout_source);
+      snapshot_timeout_source = 0;
    }
-   if (directory_page && directory_store) populate();
-   if (snapshot_busy) directory_download_wait();
-   else directory_download_finished();
+
+   if (directory_page && directory_store) {
+      populate();
+   }
+
+   if (snapshot_busy) {
+      directory_download_wait();
+   } else {
+      directory_download_finished();
+   }
+
    if (snapshot_dirty) {
       snapshot_dirty = FALSE;
-      snapshot_request(); /* A change arrived while the previous copy was in flight. */
+      snapshot_request();       /* A change arrived while the previous copy was in flight. */
    }
 }
 
@@ -227,6 +274,7 @@ static gint country_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b,
 
    return result;
 }
+
 /* Connected group always first; countries alphabetical, receivers by location. */
 static gint group_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer unused) {
    (void)unused;
@@ -235,6 +283,7 @@ static gint group_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, g
    gtk_tree_model_get(model, a, COL_INDEX, &ai, COL_LOCATION, &al, -1);
    gtk_tree_model_get(model, b, COL_INDEX, &bi, COL_LOCATION, &bl, -1);
    gint result;
+
    if (ai == G_MAXUINT && bi == G_MAXUINT) {
       bool ac = !g_strcmp0(al, "Connected SDRs");
       bool bc = !g_strcmp0(bl, "Connected SDRs");
@@ -244,6 +293,7 @@ static gint group_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, g
    }
    g_free(al);
    g_free(bl);
+
    return result;
 }
 static const char *api_policy(const receiver_directory_entry_t *r) {
@@ -270,7 +320,10 @@ static const receiver_directory_entry_t *selected_receiver(void) {
    guint index;
    gtk_tree_model_get(model, &iter, COL_INDEX, &index, -1);
 
-   if (index == G_MAXUINT) return NULL;
+   if (index == G_MAXUINT) {
+      return NULL;
+   }
+
    return snapshot_receiver(index);
 }
 static char *observation_time(long long stamp) {
@@ -287,14 +340,14 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    (void)selection;
    (void)unused;
    const receiver_directory_entry_t *r = selected_receiver();
+
    if (favorite_button) {
       gtk_widget_set_sensitive(favorite_button, r != NULL);
       gtk_button_set_label(GTK_BUTTON(favorite_button), r && r->favorite ? "Remove from favorites" : "Add to favorites");
    }
    gtk_widget_set_sensitive(url_button, r != NULL);
    bool connected = r && rrclient_receiver_is_connected(r->url);
-   gtk_button_set_label(GTK_BUTTON(connect_button),
-      r && (connected || rrclient_local_bridge_connected(r->url)) ? "Disconnect" : "Connect");
+   gtk_button_set_label(GTK_BUTTON(connect_button), r && (connected || rrclient_local_bridge_connected(r->url)) ? "Disconnect" : "Connect");
    gtk_widget_set_sensitive(connect_button, r && (connected || rrclient_local_bridge_connected(r->url) || receiver_directory_entry_accessible(r)));
 
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
@@ -305,10 +358,10 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    char *last_connected = r && r->last_connected ? observation_time(r->last_connected) : g_strdup("Never");
    char *text = r ? g_strdup_printf("%s\nURL: %s\nLocation: %s  Country: %s  Grid: %s\nContact: %s\n"
       "Antenna: %s\nHardware / limits: %s\nUsers (published): %d / %d\nExternal API: %s (%s)\n"
-      "Coverage hint: %s\nStatus: %s\nLocal report: %s — %s\nLast seen: %s\nLast connected: %s\nLive metadata learned: %s\n\nPublished properties:\n%s", r->name, r->url, r->
-      location, *r->country ? r->country : "Not published", r->grid, *r->contact ? r->contact : "Not published", r->antenna, r->hardware, r->users, r->users_max
-      , api_policy(r), allowance, coverage, receiver_state(r), r->local_reason ? r->local_reason : "None", stamp, seen, last_connected, learned, r->properties) : g_strdup(
-      "Select a receiver to view its published details.\nBrowsing does not contact receivers.");
+      "Coverage hint: %s\nStatus: %s\nLocal report: %s — %s\nLast seen: %s\nLast connected: %s\nLive metadata learned: %s\n\nPublished properties:\n%s", r->name
+      , r->url, r->location, *r->country ? r->country : "Not published", r->grid, *r->contact ? r->contact : "Not published", r->antenna, r->hardware, r->users,
+      r->users_max, api_policy(r), allowance, coverage, receiver_state(r), r->local_reason ? r->local_reason : "None", stamp, seen, last_connected, learned, r->
+      properties) : g_strdup("Select a receiver to view its published details.\nBrowsing does not contact receivers.");
 
    if (date) {
       g_date_time_unref(date);
@@ -326,11 +379,17 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
    (void)unused;
    guint index;
    gtk_tree_model_get(model, iter, COL_INDEX, &index, -1);
+
    if (index == G_MAXUINT) {
       GtkTreeIter child;
-      if (!gtk_tree_model_iter_children(model, &child, iter)) return TRUE;
+
+      if (!gtk_tree_model_iter_children(model, &child, iter)) {
+         return TRUE;
+      }
       do {
-         if (visible_receiver(model, &child, unused)) return TRUE;
+         if (visible_receiver(model, &child, unused)) {
+            return TRUE;
+         }
       } while (gtk_tree_model_iter_next(model, &child));
       return FALSE;
    }
@@ -340,13 +399,18 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
       return FALSE;
    }
 
-   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) && !receiver_directory_entry_accessible(r))
+   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) && !receiver_directory_entry_accessible(r)) {
       return FALSE;
+   }
+
    if (connected_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(connected_only)) &&
-       !rrclient_local_bridge_connected(r->url) && !rrclient_receiver_is_connected_any(r->url))
+      !rrclient_local_bridge_connected(r->url) && !rrclient_receiver_is_connected_any(r->url)) {
       return FALSE;
-   if (favorites_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) && !r->favorite)
+   }
+
+   if (favorites_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) && !r->favorite) {
       return FALSE;
+   }
    const char *query = gtk_entry_get_text(GTK_ENTRY(search_entry));
 
    if (!*query) {
@@ -385,28 +449,35 @@ static void populate(void) {
    GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    GtkTreeIter connected_group;
    gtk_tree_store_append(directory_store, &connected_group, NULL);
-   gtk_tree_store_set(directory_store, &connected_group, COL_INDEX, G_MAXUINT,
-      COL_LOCATION, "Connected SDRs", COL_GROUP, "0", -1);
+   gtk_tree_store_set(directory_store, &connected_group, COL_INDEX, G_MAXUINT, COL_LOCATION, "Connected SDRs", COL_GROUP, "0", -1);
    GHashTable *country_counts = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-   for (size_t i = 0; i < count; i++) {
+
+   for (size_t i = 0 ; i < count ; i++) {
       const receiver_directory_entry_t *r = snapshot_receiver(i);
-      if (!r) continue;
+
+      if (!r) {
+         continue;
+      }
       const char *country = r->country && *r->country ? r->country : "Unknown";
       guint total = GPOINTER_TO_UINT(g_hash_table_lookup(country_counts, country));
       g_hash_table_replace(country_counts, g_strdup(country), GUINT_TO_POINTER(total + 1));
    }
-   for (size_t i = 0; i < count; i++) {
+
+   for (size_t i = 0 ; i < count ; i++) {
       const receiver_directory_entry_t *r = snapshot_receiver(i);
-      if (!r) continue;
+
+      if (!r) {
+         continue;
+      }
       const char *country = r->country && *r->country ? r->country : "Unknown";
       GtkTreeIter *parent = g_hash_table_lookup(groups, country);
+
       if (!parent) {
          parent = g_new0(GtkTreeIter, 1);
          gtk_tree_store_append(directory_store, parent, NULL);
          guint country_count = GPOINTER_TO_UINT(g_hash_table_lookup(country_counts, country));
          char *label = g_strdup_printf("%s (%u)", country, country_count);
-         gtk_tree_store_set(directory_store, parent, COL_INDEX, G_MAXUINT,
-            COL_LOCATION, label, COL_GROUP, "1", -1);
+         gtk_tree_store_set(directory_store, parent, COL_INDEX, G_MAXUINT, COL_LOCATION, label, COL_GROUP, "1", -1);
          g_free(label);
          g_hash_table_insert(groups, g_strdup(country), parent);
       }
@@ -414,21 +485,18 @@ static void populate(void) {
       bool remote = rrclient_receiver_is_connected_any(r->url);
       char users[32];
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
-      for (unsigned copy = 0; copy < ((local || remote) ? 2u : 1u); copy++) {
+
+      for (unsigned copy = 0 ; copy < ((local || remote) ? 2u : 1u) ; copy++) {
          GtkTreeIter iter;
          GtkTreeIter *group = (local || remote) && !copy ? &connected_group : parent;
          gtk_tree_store_append(directory_store, &iter, group);
-         gtk_tree_store_set(directory_store, &iter, COL_INDEX, (guint)i,
-            COL_NAME, *r->name ? r->name : r->url,
-            COL_LOCATION, r->location, COL_COUNTRY, r->country,
-            COL_USERS, users, COL_API, api_policy(r),
-            COL_STATE, local ? "Local" : remote ? "Connected (server)" : receiver_state(r),
-            COL_CONNECTED_COLOR, local || remote ? "connected" : NULL,
-            COL_URL, r->url,
-            COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver,
-            COL_GROUP, "2", -1);
+         gtk_tree_store_set(directory_store, &iter, COL_INDEX, (guint) i, COL_NAME, *r->name ? r->name : r->url, COL_LOCATION, r->location, COL_COUNTRY, r->
+            country, COL_USERS, users, COL_API, api_policy(r), COL_STATE, local ? "Local" : remote ? "Connected (server)" : receiver_state(r),
+            COL_CONNECTED_COLOR, local
+            || remote ? "connected" : NULL, COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, COL_GROUP, "2", -1);
       }
    }
+
    g_hash_table_destroy(groups);
    g_hash_table_destroy(country_counts);
    GtkTreePath *connected_path = gtk_tree_path_new_from_indices(0, -1);
@@ -442,15 +510,17 @@ static void populate(void) {
    /* Restore a receiver by walking children of both country and connected groups. */
    GtkTreeModel *tree_model = gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
    GtkTreeIter parent;
-   for (gboolean group_valid = gtk_tree_model_get_iter_first(tree_model, &parent);
-        group_valid && url; group_valid = gtk_tree_model_iter_next(tree_model, &parent)) {
+
+   for (gboolean group_valid = gtk_tree_model_get_iter_first(tree_model, &parent) ;
+      group_valid && url ; group_valid = gtk_tree_model_iter_next(tree_model, &parent)) {
       GtkTreeIter child;
-      for (gboolean valid = gtk_tree_model_iter_children(tree_model, &child, &parent);
-           valid; valid = gtk_tree_model_iter_next(tree_model, &child)) {
+
+      for (gboolean valid = gtk_tree_model_iter_children(tree_model, &child, &parent) ; valid ; valid = gtk_tree_model_iter_next(tree_model, &child)) {
          char *candidate = NULL;
          gtk_tree_model_get(tree_model, &child, COL_URL, &candidate, -1);
          bool match = candidate && !strcmp(url, candidate);
          g_free(candidate);
+
          if (match) {
             GtkTreePath *path = gtk_tree_model_get_path(tree_model, &child);
             gtk_tree_view_expand_to_path(GTK_TREE_VIEW(directory_tree), path);
@@ -460,6 +530,7 @@ static void populate(void) {
          }
       }
    }
+
    g_free(url);
    selection_changed(NULL, NULL);
 }
@@ -509,6 +580,7 @@ static gboolean directory_start_refresh(gpointer force_request) {
    };
    event_emit_message(&request);
    snapshot_request();
+
    return G_SOURCE_REMOVE;
 }
 static void directory_refresh_with_wait(gboolean force) {
@@ -538,18 +610,25 @@ static void refresh_clicked(GtkButton *button, gpointer unused) {
 }
 
 typedef struct {
-   char action; /* I import, F favorite, S mark */
+   char action;                 /* I import, F favorite, S mark */
    char value[1024], state[128];
    char favorite;
 } ReceiverDirectoryMutation;
 
 static void directory_mutate(char action, const char *value, const char *state, bool favorite) {
-   ReceiverDirectoryMutation req = {0};
-   if (!value || strlen(value) >= sizeof(req.value) ||
-       (state && strlen(state) >= sizeof(req.state))) return;
+   ReceiverDirectoryMutation req = {
+      0
+   };
+
+   if (!value || strlen(value) >= sizeof(req.value) || (state && strlen(state) >= sizeof(req.state))) {
+      return;
+   }
    req.action = action;
    g_strlcpy(req.value, value, sizeof(req.value));
-   if (state) g_strlcpy(req.state, state, sizeof(req.state));
+
+   if (state) {
+      g_strlcpy(req.state, state, sizeof(req.state));
+   }
    req.favorite = favorite ? 1 : 0;
    rr_event_message_t event = {
       .name = "client.receiver.directory.mutate", .payload = &req, .length = sizeof(req)
@@ -576,84 +655,127 @@ static void favorite_clicked(GtkButton *button, gpointer unused);
 static void directory_menu_command(GtkMenuItem *item, gpointer user) {
    (void)item;
    const char *command = user;
-   if (!strcmp(command, "connect")) connect_clicked(NULL, NULL);
-   else if (!strcmp(command, "favorite")) favorite_clicked(NULL, NULL);
-   else if (!strcmp(command, "copy-url")) copy_clicked(NULL, NULL);
-   else if (!strcmp(command, "refresh")) directory_refresh_with_wait(FALSE);
-   else if (g_str_has_prefix(command, "mark:")) {
+
+   if (!strcmp(command, "connect")) {
+      connect_clicked(NULL, NULL);
+   } else if (!strcmp(command, "favorite")) {
+      favorite_clicked(NULL, NULL);
+   } else if (!strcmp(command, "copy-url")) {
+      copy_clicked(NULL, NULL);
+   } else if (!strcmp(command, "refresh")) {
+      directory_refresh_with_wait(FALSE);
+   } else if (g_str_has_prefix(command, "mark:")) {
       const receiver_directory_entry_t *r = selected_receiver();
-      if (r) directory_mutate('S', r->url, command + 5, false);
+
+      if (r) {
+         directory_mutate('S', r->url, command + 5, false);
+      }
    }
 }
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    (void)user;
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
-   GtkTreePath *path = NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x, (gint)event->y, &path, NULL, NULL, NULL))
+
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
       return FALSE;
+   }
+   GtkTreePath *path = NULL;
+
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint) event->x, (gint) event->y, &path, NULL, NULL, NULL)) {
+      return FALSE;
+   }
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), path);
    gtk_tree_path_free(path);
    const receiver_directory_entry_t *r = selected_receiver();
-   if (!r) return FALSE;
+
+   if (!r) {
+      return FALSE;
+   }
    GtkWidget *menu = gtk_menu_new();
    const char *labels[] = {
       rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url) ? "Disconnect" : "Connect",
       r->favorite ? "Remove from favorites" : "Add to favorites", "Copy URL", "Refresh list"
    };
-   const char *actions[] = { "connect", "favorite", "copy-url", "refresh" };
-   for (unsigned i = 0; i < G_N_ELEMENTS(labels); i++) {
+   const char *actions[] = {
+      "connect", "favorite", "copy-url", "refresh"
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(labels) ; i++) {
       GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
       gtk_widget_set_sensitive(item, i != 0 || receiver_directory_entry_accessible(r) ||
          rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url));
-      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer)actions[i]);
+      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer) actions[i]);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
+
    GtkWidget *mark = gtk_menu_item_new_with_label("Mark");
    GtkWidget *submenu = gtk_menu_new();
-   const char *marks[] = { "Unreachable", "Restricted", "Good", "Clear Mark" };
-   const char *states[] = { "mark:unreachable", "mark:restricted", "mark:good", "mark:unknown" };
-   for (unsigned i = 0; i < G_N_ELEMENTS(marks); i++) {
+   const char *marks[] = {
+      "Unreachable", "Restricted", "Good", "Clear Mark"
+   };
+   const char *states[] = {
+      "mark:unreachable", "mark:restricted", "mark:good", "mark:unknown"
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(marks) ; i++) {
       GtkWidget *item = gtk_menu_item_new_with_label(marks[i]);
-      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer)states[i]);
+      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer) states[i]);
       gtk_menu_shell_append(GTK_MENU_SHELL(submenu), item);
    }
+
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(mark), submenu);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), mark);
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 static gboolean proxy_server_online(void) {
    rrconn_t *connection = rrclient_active_connection();
    const char *profile = rrclient_connection_name(connection);
-   return connection && connection->is_ws && connection->authenticated &&
-      profile && rrclient_connection_state(profile) == 1;
+
+   return connection && connection->is_ws && connection->authenticated && profile && rrclient_connection_state(profile) == 1;
 }
 static void proxy_refresh(void) {
-   if (!proxy_bridge) return;
+   if (!proxy_bridge) {
+      return;
+   }
    gboolean online = proxy_server_online();
    gtk_widget_set_sensitive(proxy_bridge, online);
-   if (!online) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(proxy_bridge), FALSE);
+
+   if (!online) {
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(proxy_bridge), FALSE);
+   }
 }
 static gboolean proxy_refresh_timer(gpointer unused) {
    (void)unused;
-   if (!directory_page || !proxy_bridge) return G_SOURCE_REMOVE;
+
+   if (!directory_page || !proxy_bridge) {
+      return G_SOURCE_REMOVE;
+   }
    proxy_refresh();
+
    return G_SOURCE_CONTINUE;
 }
+
 /* Thread boundary: GTK must not run the receiver connection state machine. */
-static void receiver_connect_request(const char *url, gboolean save,
-                                     const char *room, gboolean autogenerated) {
+static void receiver_connect_request(const char *url, gboolean save, const char *room, gboolean autogenerated) {
    typedef struct {
       char url[1024], room[256];
       char save, autogenerated;
    } ReceiverConnectRequest;
-   ReceiverConnectRequest req = {0};
-   if (!url || strlen(url) >= sizeof(req.url) ||
-       (room && strlen(room) >= sizeof(req.room))) return;
+   ReceiverConnectRequest req = {
+      0
+   };
+
+   if (!url || strlen(url) >= sizeof(req.url) || (room && strlen(room) >= sizeof(req.room))) {
+      return;
+   }
    g_strlcpy(req.url, url, sizeof(req.url));
-   if (room) g_strlcpy(req.room, room, sizeof(req.room));
+
+   if (room) {
+      g_strlcpy(req.room, room, sizeof(req.room));
+   }
    req.save = save != FALSE;
    req.autogenerated = autogenerated != FALSE;
    rr_event_message_t message = {
@@ -673,23 +795,30 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_connected(r->url)) {
       rrclient_local_bridge_disconnect_url(r->url);
       selection_changed(NULL, NULL);
+
       return;
    }
    proxy_refresh();
+
    if (GPOINTER_TO_INT(save) && !proxy_server_online()) {
       gtk_label_set_text(GTK_LABEL(directory_status), "Remote SDR connection requires an online rrserver");
+
       return;
    }
+
    if (!GPOINTER_TO_INT(save) && !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(proxy_bridge))) {
       /* Create the destination before the bridge emits its connecting message. */
       gtk_chat_room_add("&local-sdr");
+
       if (!rrclient_local_bridge_connect_driver(r->url, r->driver && *r->driver ? r->driver : "kiwi")) {
          gtk_label_set_text(GTK_LABEL(directory_status), "Unable to start local SDR bridge");
          ui_print("&local-sdr", "Unable to start local SDR bridge for %s", r->url);
       }
       selection_changed(NULL, NULL);
+
       return;
    }
+
    if (!GPOINTER_TO_INT(save) && rrclient_receiver_is_connected(r->url)) {
       rrclient_receiver_disconnect(r->url);
 
@@ -698,6 +827,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
 
    if (!proxy_server_online()) {
       gtk_label_set_text(GTK_LABEL(directory_status), "Proxy rrbridge requires an online rrserver");
+
       return;
    }
 
@@ -729,23 +859,35 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       }
    }
 
-   /* Prefer a joined, existing SDR room so new receivers share its VFOs.
-    * Keep "Create new room" available explicitly at index zero. */
+   /* Prefer a joined, existing SDR room so new receivers share its VFOs. Keep "Create new room" available explicitly at index zero. */
    int preferred = 0;
-   for (unsigned i = 0; ; i++) {
+
+   for (unsigned i = 0 ;; i++) {
       const char *room = rrclient_room_iter(i);
-      if (!room) break;
+
+      if (!room) {
+         break;
+      }
+
       if (g_str_has_prefix(room, "#sdr-") && rrclient_room_is_joined(room)) {
-         for (int n = 1; n <= (int)count; n++) {
+         for (int n = 1 ; n <= (int)count ; n++) {
             gtk_combo_box_set_active(GTK_COMBO_BOX(choose), n);
             char *candidate = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(choose));
             gboolean match = candidate && !g_strcmp0(candidate, room);
             g_free(candidate);
-            if (match) { preferred = n; break; }
+
+            if (match) {
+               preferred = n;
+               break;
+            }
          }
-         if (preferred) break;
+
+         if (preferred) {
+            break;
+         }
       }
    }
+
    gtk_combo_box_set_active(GTK_COMBO_BOX(choose), preferred);
    gtk_box_pack_start(GTK_BOX(area), choose, FALSE, FALSE, 4);
    GtkWidget *hint_room = gtk_label_new("Create new room on connection");
@@ -777,17 +919,24 @@ static void receiver_failed(const char *event, const char *data, rrconn_t *conne
    if (directory_status) {
       gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure);
    }
-   GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
-      GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", receiver_failure);
+   GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", receiver_failure);
    gtk_window_set_title(GTK_WINDOW(dialog), "SDR connection failed");
    g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
    gtk_widget_show(dialog);
 }
 static void connection_status(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)event; (void)connection; (void)unused;
-   if (!directory_page) return;
-   if (data) gtk_label_set_text(GTK_LABEL(directory_status), data);
-   snapshot_request(); /* Refresh the immutable GUI copy. */
+   (void)event;
+   (void)connection;
+   (void)unused;
+
+   if (!directory_page) {
+      return;
+   }
+
+   if (data) {
+      gtk_label_set_text(GTK_LABEL(directory_status), data);
+   }
+   snapshot_request();          /* Refresh the immutable GUI copy. */
 }
 static void copy_clicked(GtkButton *button, gpointer config) {
    (void)button;
@@ -807,7 +956,10 @@ static void favorite_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
    const receiver_directory_entry_t *r = selected_receiver();
-   if (r) directory_mutate('F', r->url, NULL, !r->favorite);
+
+   if (r) {
+      directory_mutate('F', r->url, NULL, !r->favorite);
+   }
 }
 static gboolean directory_populate_idle(gpointer unused) {
    (void)unused;
@@ -850,8 +1002,7 @@ static gboolean directory_finish_show(gpointer unused) {
    gtk_widget_set_tooltip_text(accessible_only,
       "Show only receivers whose directory API policy permits access and which have no known restriction or reported connection failure. This does not guarantee that a receiver is currently online.");
    connected_only = gtk_check_button_new_with_label("Connected?");
-   gtk_widget_set_tooltip_text(connected_only,
-      "Show only receivers currently connected locally or through an online rrserver.");
+   gtk_widget_set_tooltip_text(connected_only, "Show only receivers currently connected locally or through an online rrserver.");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(accessible_only), TRUE);
    gtk_box_pack_start(GTK_BOX(filters), accessible_only, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(filters), connected_only, FALSE, FALSE, 0);
@@ -964,6 +1115,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    if (!main_notebook) {
       return;
    }
+
    if (directory_page) {
       proxy_refresh();
       int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page);
@@ -989,15 +1141,19 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    g_idle_add(directory_finish_show, NULL);
 }
 static void local_vfo_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)event; (void)data; (void)connection; (void)unused;
-   /* The bridge can become ready after the tab was selected. Re-evaluate
-    * VFO visibility using the same room path as an rrserver announcement. */
+   (void)event;
+   (void)data;
+   (void)connection;
+   (void)unused;
+   /* The bridge can become ready after the tab was selected. Re-evaluate VFO visibility using the same room path as an rrserver announcement. */
    gtk_chat_room_vfos_changed("&local-sdr");
 }
 void gtk_receiver_directory_init(void) {
-   rr_event_token_t snapshot_event = event_on_message_domain_token(
-      "client.ui.receiver.snapshot", snapshot_received, NULL, "gtk");
-   if (snapshot_event) rr_module_token_add(snapshot_event);
+   rr_event_token_t snapshot_event = event_on_message_domain_token("client.ui.receiver.snapshot", snapshot_received, NULL, "gtk");
+
+   if (snapshot_event) {
+      rr_module_token_add(snapshot_event);
+   }
 
    connection_token = event_on_domain_token("client.receiver-directory.connection", connection_status, NULL, "gtk");
    local_vfo_token = event_on_domain_token("client.local-bridge.vfo", local_vfo_changed, NULL, "gtk");
@@ -1006,14 +1162,20 @@ void gtk_receiver_directory_init(void) {
    failure_token = event_on_domain_token("client.receiver-directory.failed", receiver_failed, NULL, "gtk");
 }
 void gtk_receiver_directory_shutdown(void) {
-   if (snapshot_timeout_source) { g_source_remove(snapshot_timeout_source); snapshot_timeout_source = 0; }
+   if (snapshot_timeout_source) {
+      g_source_remove(snapshot_timeout_source);
+      snapshot_timeout_source = 0;
+   }
    snapshot_pending = snapshot_dirty = FALSE;
    g_clear_pointer(&snapshot_rows, g_free);
    g_clear_pointer(&snapshot_entries, g_free);
    snapshot_count = 0;
 
-   if (local_vfo_token) event_off_token(local_vfo_token);
+   if (local_vfo_token) {
+      event_off_token(local_vfo_token);
+   }
    local_vfo_token = 0;
+
    if (connection_token) {
       event_off_token(connection_token);
    }

@@ -15,8 +15,7 @@ extern GtkWidget *main_notebook;
 extern bool dying;
 static GtkLogView *shared_log;
 
-/* Logger and wire callbacks can originate on the core thread. Never
- * touch GtkTextBuffer outside the GTK owner. Snapshot the entry first. */
+/* Logger and wire callbacks can originate on the core thread. Never touch GtkTextBuffer outside the GTK owner. Snapshot the entry first. */
 typedef struct {
    gboolean host;
    gchar *source, *subsys, *message;
@@ -25,9 +24,11 @@ typedef struct {
 static GThread *gtk_log_owner;
 static gboolean gtk_queued_log_deliver(gpointer data) {
    GtkQueuedLog *entry = data;
-   if (!dying && shared_log)
-      gtk_logview_append(shared_log, entry->host, entry->source,
-                         entry->level, entry->subsys, entry->message);
+
+   if (!dying && shared_log) {
+      gtk_logview_append(shared_log, entry->host, entry->source, entry->level, entry->subsys, entry->message);
+   }
+
    return G_SOURCE_REMOVE;
 }
 static void gtk_queued_log_free(gpointer data) {
@@ -37,23 +38,22 @@ static void gtk_queued_log_free(gpointer data) {
    g_free(entry->message);
    g_free(entry);
 }
-static void gtk_log_submit(gboolean host, const char *source,
-                           logpriority_t level, const char *subsys,
-                           const char *message) {
+static void gtk_log_submit(gboolean host, const char *source, logpriority_t level, const char *subsys, const char *message) {
    GtkQueuedLog *entry = g_new0(GtkQueuedLog, 1);
    entry->host = host;
    entry->source = g_strdup(source ? source : "");
    entry->subsys = g_strdup(subsys ? subsys : "");
    entry->message = g_strdup(message ? message : "");
    entry->level = level;
+
    if (g_thread_self() == gtk_log_owner) {
       gtk_queued_log_deliver(entry);
       gtk_queued_log_free(entry);
+
       return;
    }
    GSource *source_idle = g_idle_source_new();
-   g_source_set_callback(source_idle, gtk_queued_log_deliver,
-                         entry, gtk_queued_log_free);
+   g_source_set_callback(source_idle, gtk_queued_log_deliver, entry, gtk_queued_log_free);
    g_source_attach(source_idle, g_main_context_default());
    g_source_unref(source_idle);
 }

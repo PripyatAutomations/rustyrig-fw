@@ -19,7 +19,7 @@
 
 #define DIRECTORY_MAX_BODY (8 * 1024 * 1024)
 #define DIRECTORY_MAX_ROWS 10000
-#define DIRECTORY_INTERVAL (3600)  /* Local cache is fresh for one hour. */
+#define DIRECTORY_INTERVAL (3600)   /* Local cache is fresh for one hour. */
 extern time_t now;
 static GPtrArray *receivers;
 static char *payload, *source, *etag, *modified;
@@ -852,15 +852,20 @@ static void restore_states(void) {
    }
 
    sqlite3_finalize(statement);
+
    if (sqlite3_prepare_v2(cache_db, "SELECT last_connected FROM receiver_connections WHERE url=?", -1, &statement, NULL) == SQLITE_OK) {
-      for (guint i = 0; i < receivers->len; i++) {
+      for (guint i = 0 ; i < receivers->len ; i++) {
          receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
          r->last_connected = 0;
          sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT);
-         if (sqlite3_step(statement) == SQLITE_ROW) r->last_connected = sqlite3_column_int64(statement, 0);
+
+         if (sqlite3_step(statement) == SQLITE_ROW) {
+            r->last_connected = sqlite3_column_int64(statement, 0);
+         }
          sqlite3_reset(statement);
          sqlite3_clear_bindings(statement);
       }
+
       sqlite3_finalize(statement);
    }
 }
@@ -908,8 +913,7 @@ static void ensure(void) {
          "CREATE TABLE IF NOT EXISTS receiver_details(url TEXT,key TEXT,value TEXT NOT NULL,origin TEXT NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(url,key));"
          "CREATE TABLE IF NOT EXISTS receiver_state(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
          "CREATE TABLE IF NOT EXISTS receiver_connections(url TEXT PRIMARY KEY,last_connected INTEGER NOT NULL);"
-         "CREATE TABLE IF NOT EXISTS receiver_favorites(url TEXT PRIMARY KEY);",
-         NULL, NULL, NULL) != SQLITE_OK) {
+         "CREATE TABLE IF NOT EXISTS receiver_favorites(url TEXT PRIMARY KEY);", NULL, NULL, NULL) != SQLITE_OK) {
          sqlite3_close(cache_db);
          cache_db = NULL;
       }
@@ -922,13 +926,10 @@ static void ensure(void) {
       sqlite3_exec(cache_db, "ALTER TABLE receiver_records ADD COLUMN offline INTEGER NOT NULL DEFAULT 0", NULL, NULL, NULL);
       sqlite3_exec(cache_db, "ALTER TABLE receiver_records ADD COLUMN provider TEXT NOT NULL DEFAULT 'kiwi'", NULL, NULL, NULL);
       /* Rebuild the legacy state table to admit the explicit 'good' mark. */
-      sqlite3_exec(cache_db,
-         "BEGIN;"
+      sqlite3_exec(cache_db, "BEGIN;"
          "CREATE TABLE IF NOT EXISTS receiver_state_new(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
          "INSERT OR REPLACE INTO receiver_state_new SELECT * FROM receiver_state;"
-         "DROP TABLE receiver_state;"
-         "ALTER TABLE receiver_state_new RENAME TO receiver_state;"
-         "COMMIT;", NULL, NULL, NULL);
+         "DROP TABLE receiver_state;" "ALTER TABLE receiver_state_new RENAME TO receiver_state;" "COMMIT;", NULL, NULL, NULL);
    }
    sqlite3_stmt *statement = NULL;
 
@@ -1080,53 +1081,71 @@ void receiver_directory_queue_learn(const char *url, dict *fields) {
 bool receiver_directory_record_connection(const char *endpoint) {
    ensure();
    char *url = endpoint ? canonical_url(endpoint) : NULL;
+
    if (!cache_db || !url) {
       g_free(url);
+
       return false;
    }
    sqlite3_stmt *statement = NULL;
-   bool ok = sqlite3_prepare_v2(cache_db,
-      "INSERT INTO receiver_connections(url,last_connected) VALUES(?,?) "
-      "ON CONFLICT(url) DO UPDATE SET last_connected=excluded.last_connected",
-      -1, &statement, NULL) == SQLITE_OK;
+   bool ok = sqlite3_prepare_v2(cache_db, "INSERT INTO receiver_connections(url,last_connected) VALUES(?,?) "
+      "ON CONFLICT(url) DO UPDATE SET last_connected=excluded.last_connected", -1, &statement, NULL) == SQLITE_OK;
    time_t stamp = time(NULL);
+
    if (ok) {
       sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT);
       sqlite3_bind_int64(statement, 2, stamp);
       ok = sqlite3_step(statement) == SQLITE_DONE;
    }
    sqlite3_finalize(statement);
+
    if (ok) {
-      for (guint i = 0; i < receivers->len; i++) {
+      for (guint i = 0 ; i < receivers->len ; i++) {
          receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
-         if (!strcmp(r->url, url)) r->last_connected = stamp;
+
+         if (!strcmp(r->url, url)) {
+            r->last_connected = stamp;
+         }
       }
+
       changed();
    }
    g_free(url);
+
    return ok;
 }
 bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
    ensure();
    char *url = endpoint ? canonical_url(endpoint) : NULL;
-   if (!url || !cache_db) { g_free(url); return false; }
+
+   if (!url || !cache_db) {
+      g_free(url);
+
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
    bool ok = sqlite3_prepare_v2(cache_db, favorite ?
-      "INSERT OR IGNORE INTO receiver_favorites(url) VALUES(?)" :
-      "DELETE FROM receiver_favorites WHERE url=?", -1, &stmt, NULL) == SQLITE_OK;
+      "INSERT OR IGNORE INTO receiver_favorites(url) VALUES(?)" : "DELETE FROM receiver_favorites WHERE url=?", -1, &stmt, NULL) == SQLITE_OK;
+
    if (ok) {
       sqlite3_bind_text(stmt, 1, url, -1, SQLITE_TRANSIENT);
       ok = sqlite3_step(stmt) == SQLITE_DONE;
    }
    sqlite3_finalize(stmt);
+
    if (ok) {
-      for (guint i = 0; i < receivers->len; i++) {
+      for (guint i = 0 ; i < receivers->len ; i++) {
          receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
-         if (!strcmp(r->url, url)) r->favorite = favorite;
+
+         if (!strcmp(r->url, url)) {
+            r->favorite = favorite;
+         }
       }
+
       changed();
    }
    g_free(url);
+
    return ok;
 }
 bool receiver_directory_set_state(const char *endpoint, const char *state, const char *reason) {
@@ -1143,11 +1162,11 @@ bool receiver_directory_set_state(const char *endpoint, const char *state, const
    sqlite3_stmt *statement = NULL;
    bool clearing = !strcmp(state, "unknown");
    bool ok = sqlite3_prepare_v2(cache_db, clearing ?
-      "DELETE FROM receiver_state WHERE url=?" :
-      "INSERT OR REPLACE INTO receiver_state VALUES(?,?,?,?)", -1, &statement, NULL) == SQLITE_OK;
+      "DELETE FROM receiver_state WHERE url=?" : "INSERT OR REPLACE INTO receiver_state VALUES(?,?,?,?)", -1, &statement, NULL) == SQLITE_OK;
 
    if (ok) {
       sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT);
+
       if (!clearing) {
          sqlite3_bind_text(statement, 2, state, -1, SQLITE_TRANSIENT);
          sqlite3_bind_text(statement, 3, reason ? reason : "User report", -1, SQLITE_TRANSIENT);
@@ -1437,11 +1456,9 @@ bool receiver_directory_refresh_force(bool force) {
    }
 
    if (!url || !*url) {
-      g_snprintf(status_text, sizeof(status_text),
-         receivers && receivers->len ?
-            "Showing %u locally cached SDRs. Configure receiver-directory.url for an independent HTTPS refresh." :
-            "No SDR catalog cached. Configure receiver-directory.url to an HTTPS mirror or import JSON.",
-         receivers ? receivers->len : 0);
+      g_snprintf(status_text, sizeof(status_text), receivers && receivers->len ?
+         "Showing %u locally cached SDRs. Configure receiver-directory.url for an independent HTTPS refresh." :
+         "No SDR catalog cached. Configure receiver-directory.url to an HTTPS mirror or import JSON.", receivers ? receivers->len : 0);
       changed();
 
       return false;
@@ -1454,15 +1471,14 @@ bool receiver_directory_refresh_force(bool force) {
       return false;
    }
 
-   /* Display cached records immediately, regardless of where the last
-    * verified snapshot came from. Fetch only when older than one hour. */
+   /* Display cached records immediately, regardless of where the last verified snapshot came from. Fetch only when older than one hour. */
    if (!force && receivers && receivers->len && next_request > now) {
-      g_snprintf(status_text, sizeof(status_text),
-         "Using %u cached receivers; refresh in %lld seconds.",
-         receivers->len, (long long)(next_request - now));
+      g_snprintf(status_text, sizeof(status_text), "Using %u cached receivers; refresh in %lld seconds.", receivers->len, (long long)(next_request - now));
       changed();
+
       return false;
    }
+
    if (!force && !g_strcmp0(source, url) && now < next_request) {
       g_snprintf(status_text, sizeof(status_text), "Using %u cached receivers. Next refresh allowed in %lld seconds.", receivers->len, (long long)(next_request
          - now));
@@ -1543,12 +1559,10 @@ bool receiver_directory_refresh(void) {
 }
 void receiver_directory_clear_server_snapshot(void) {
    ensure();
-   /* A disconnected rrserver does not invalidate its last verified catalog.
-    * Keep the disk cache and the in-memory directory for standalone operation. */
+
+   /* A disconnected rrserver does not invalidate its last verified catalog. Keep the disk cache and the in-memory directory for standalone operation. */
    if (source && !strcmp(source, "rrserver")) {
-      g_snprintf(status_text, sizeof(status_text),
-         "Offline: showing %u cached receivers from the last server catalog.",
-         receivers ? receivers->len : 0);
+      g_snprintf(status_text, sizeof(status_text), "Offline: showing %u cached receivers from the last server catalog.", receivers ? receivers->len : 0);
       changed();
    }
 }

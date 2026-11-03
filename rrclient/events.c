@@ -58,15 +58,14 @@ void rrclient_update_connection_ui(int connected) {
    if (!rrclient_present_context()) {
       return;
    }
-
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
    const rr_frontend_ops_t *ops = frontend_ops();
+
    if (ops && ops->name && !strcmp(ops->name, "gtk")) {
       /* Serialized value, not a borrowed connection pointer. */
-      event_emit_message(&(rr_event_message_t){
-         .name = "client.ui.connection.state", .sender = "core",
-         .payload = &connected, .length = sizeof(connected)
+      event_emit_message(&(rr_event_message_t) {
+         .name = "client.ui.connection.state", .sender = "core", .payload = &connected, .length = sizeof(connected)
       });
    } else if (ops && ops->conn_button_update) {
       ops->conn_button_update(connected);
@@ -134,20 +133,22 @@ static void rrclient_backpressure(const char *event, const char *data, rrconn_t 
    ui_print("status", "%s%s; command was not sent", get_chat_ts(now), data ? data : "Outgoing queue full");
 }
 
-/* Only forward transitions for the currently selected VFO. A change in
- * VFO selection or a disconnect invalidates the last delivered snapshot. */
+/* Only forward transitions for the currently selected VFO. A change in VFO selection or a disconnect invalidates the last delivered snapshot. */
 static bool last_ptt_valid;
 static bool last_ptt_active;
 static char last_ptt_vfo;
 
 static void rrclient_notify_ptt_online(bool online) {
    const rr_frontend_ops_t *ops = frontend_ops();
-   if (!ops || !ops->ptt_set_online) return;
+
+   if (!ops || !ops->ptt_set_online) {
+      return;
+   }
+
    if (ops->name && !strcmp(ops->name, "gtk")) {
       const char state = online ? '1' : '0';
-      event_emit_message(&(rr_event_message_t){
-         .name = "client.ui.ptt.online", .sender = "core",
-         .payload = &state, .length = sizeof(state)
+      event_emit_message(&(rr_event_message_t) {
+         .name = "client.ui.ptt.online", .sender = "core", .payload = &state, .length = sizeof(state)
       });
    } else if (rrclient_present_context()) {
       ops->ptt_set_online(online);
@@ -156,6 +157,7 @@ static void rrclient_notify_ptt_online(bool online) {
 
 static void rrclient_set_offline(void) {
    last_ptt_valid = false;
+
    if (login_user) {
       free((void *)login_user);
       login_user = NULL;
@@ -346,25 +348,24 @@ static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) 
       return;
    }
 
-   if (last_ptt_valid && last_ptt_vfo == current[0] &&
-       last_ptt_active == active)
+   if (last_ptt_valid && last_ptt_vfo == current[0] && last_ptt_active == active) {
       return;
+   }
    last_ptt_valid = true;
    last_ptt_vfo = current[0];
    last_ptt_active = active;
 
    if (frontend_ops() && !strcmp(frontend_ops()->name, "gtk")) {
-      /* This event is self-contained: no rrconn_t and no frontend pointer.
-       * Its callback runs in the named GTK event domain. */
+      /* This event is self-contained: no rrconn_t and no frontend pointer. Its callback runs in the named GTK event domain. */
       const char value = active ? '1' : '0';
       Log(LOG_DEBUG, "ui.event", "PTT confirmed: core emitting client.ui.ptt.state=%s via event bus", active ? "ON" : "OFF");
-      event_emit_message(&(rr_event_message_t){
-         .name = "client.ui.ptt.state", .sender = "core",
-         .payload = &value, .length = sizeof(value)
+      event_emit_message(&(rr_event_message_t) {
+         .name = "client.ui.ptt.state", .sender = "core", .payload = &value, .length = sizeof(value)
       });
    } else if (frontend_ops() && frontend_ops()->ptt_set_state) {
-      if (rrclient_present_context())
+      if (rrclient_present_context()) {
          frontend_ops()->ptt_set_state(active);
+      }
    }
 }
 
@@ -518,8 +519,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
    if (frontend_ops() && output_room) {
       if (frontend_ops()->chat_incoming) {
-         /* GTK subscribes to the original talk.msg on its own event domain.
-          * Never enter gtk_chat_incoming() from a network/core callback. */
+         /* GTK subscribes to the original talk.msg on its own event domain. Never enter gtk_chat_incoming() from a network/core callback. */
          if (!frontend_ops()->name || strcmp(frontend_ops()->name, "gtk")) {
             const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) && (!login_user || strcasecmp(from, login_user)) ? msg_data : NULL;
             frontend_ops()->chat_incoming(output_room, private_msg, unread, login_user);
@@ -764,6 +764,7 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
 /* GTK receives these protocol events directly on its own domain. */
 static bool rrclient_gtk_event_frontend(void) {
    const rr_frontend_ops_t *ops = frontend_ops();
+
    return ops && ops->name && !strcmp(ops->name, "gtk");
 }
 
@@ -784,9 +785,8 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       if (m_user && login_user && strcasecmp(m_user, login_user) == 0) {
          /* The server includes the room's VFO mapping on our join event. Clear any stale client-side mapping when joining an ordinary room; otherwise its top
           * line incorrectly retains PTT/VFO state from the rig room. */
-         /* A server-directed JOIN is authoritative, even without a local
-          * JOIN intent (SDR auto-rooms and IRC redirects). Create the room
-          * before applying its advertised VFO/control state. */
+         /* A server-directed JOIN is authoritative, even without a local JOIN intent (SDR auto-rooms and IRC redirects). Create the room before applying its
+          * advertised VFO/control state. */
          rrclient_room_join(m_room);
          rrclient_room_set_offline(m_room, false);
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
@@ -827,12 +827,11 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
 
             if (rrclient_present_context()) {
                const rr_frontend_ops_t *ops = frontend_ops();
+
                if (ops && ops->name && !strcmp(ops->name, "gtk")) {
                   /* Owned payload is copied by the domain event bus. */
-                  event_emit_message(&(rr_event_message_t){
-                     .name = "client.ui.chat.authoritative-room",
-                     .sender = "core", .payload = m_room,
-                     .length = strlen(m_room) + 1
+                  event_emit_message(&(rr_event_message_t) {
+                     .name = "client.ui.chat.authoritative-room", .sender = "core", .payload = m_room, .length = strlen(m_room) + 1
                   });
                } else if (ops && ops->chat_set_authoritative_room) {
                   ops->chat_set_authoritative_room(m_room);
@@ -1084,13 +1083,10 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
          strlcat(listed, rrclient_room_available_iter(i), capacity);
       }
 
-      /* Network events run on the core thread. Never read the GTK notebook
-       * selection here: route the site room directory to its lobby. */
+      /* Network events run on the core thread. Never read the GTK notebook selection here: route the site room directory to its lobby. */
       const char *output = rrclient_gtk_event_frontend()
          ? ws_authoritative_room() : ui_active_window_name();
-      ui_print(output && *output ? output : NULL,
-               "%s\00308Available rooms:\017 %s", get_chat_ts(now),
-               *listed ? listed : "(none)");
+      ui_print(output && *output ? output : NULL, "%s\00308Available rooms:\017 %s", get_chat_ts(now), *listed ? listed : "(none)");
       free(listed);
    }
    dict_free(d);
@@ -1243,6 +1239,7 @@ static void rrclient_handle_admin_command_request(const char *event, const char 
 
    if (!request) {
       Log(LOG_WARN, "admin", "Ignoring malformed GTK administration command");
+
       return;
    }
    const char *profile = dict_get(request, "profile", "");
@@ -1276,7 +1273,9 @@ static void rrclient_handle_admin_command_request(const char *event, const char 
          } else if (*target) {
             dict_add(message, "talk.target", target);
          }
-         const char *fields[] = {"user.email", "user.real_name", "user.phone", "request.decision", "request.grants", "request.remote"};
+         const char *fields[] = {
+            "user.email", "user.real_name", "user.phone", "request.decision", "request.grants", "request.remote"
+         };
 
          for (size_t i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
             const char *value = dict_get(request, fields[i], NULL);
@@ -1285,6 +1284,7 @@ static void rrclient_handle_admin_command_request(const char *event, const char 
                dict_add(message, fields[i], value);
             }
          }
+
          accepted = ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT);
          result = accepted ? "" : "Unable to send administration request";
          dict_free(message);
@@ -1302,6 +1302,7 @@ static void rrclient_handle_admin_command_request(const char *event, const char 
       event_emit_dict("client.admin.command-result", NULL, reply);
       dict_free(reply);
    }
+
    if (!accepted) {
       Log(LOG_WARN, "admin", "Administration request rejected for profile=%s command=%s: %s", profile, command, result);
    }
@@ -1339,23 +1340,35 @@ static void rrclient_admin_sites_request(const char *event, const char *payload,
 
    if (!request) {
       Log(LOG_WARN, "admin", "Ignoring malformed GTK server-profile request");
+
       return;
    }
    const char *request_id = dict_get(request, "request.id", "");
 
    for (unsigned i = 0 ;; i++) {
       const char *profile = rrclient_connection_iter(i);
-      if (!profile) break;
+
+      if (!profile) {
+         break;
+      }
       rrconn_t *connection = rrclient_connection_find(profile);
-      if (!connection || !connection->is_ws || !connection->authenticated) continue;
+
+      if (!connection || !connection->is_ws || !connection->authenticated) {
+         continue;
+      }
       dict *site = dict_new();
-      if (!site) continue;
+
+      if (!site) {
+         continue;
+      }
       dict_add(site, "request.id", request_id);
       dict_add(site, "profile", profile);
       event_emit_dict("client.admin.site", NULL, site);
       dict_free(site);
    }
+
    dict *complete = dict_new();
+
    if (complete) {
       dict_add(complete, "request.id", request_id);
       event_emit_dict("client.admin.sites-complete", NULL, complete);
@@ -1589,12 +1602,15 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
             dict_free(notice);
          }
       }
+
       if (!strncmp(msg, "Rig E-STOP ", 11)) {
          dict *notice = dict_new();
+
          if (notice) {
             dict_add(notice, "profile", cptr ? rrclient_connection_name(cptr) : "");
             dict_add(notice, "message", msg);
             char *json = dict2json(notice);
+
             if (json) {
                event_emit("client.estop.notice.owned", NULL, json);
                free(json);
@@ -1889,11 +1905,11 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>"));
    }
    gint64 media_elapsed_us = g_get_monotonic_time() - media_begin_us;
-   if (media_elapsed_us >= 20000)
-      Log(LOG_WARN, "ws.media.timing",
-          "Slow media handler cmd=%s total=%lldus direct=%lldus operation=%lldus",
-          cmd ? cmd : "(none)", (long long)media_elapsed_us,
-          (long long)direct_us, (long long)(g_get_monotonic_time() - media_dispatch_us));
+
+   if (media_elapsed_us >= 20000) {
+      Log(LOG_WARN, "ws.media.timing", "Slow media handler cmd=%s total=%lldus direct=%lldus operation=%lldus", cmd ? cmd : "(none)", (long long)
+         media_elapsed_us, (long long)direct_us, (long long)(g_get_monotonic_time() - media_dispatch_us));
+   }
    dict_free(d);
 }
 
@@ -1905,6 +1921,7 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
       event_emit_dict("client.admin.profile", NULL, profile);
       dict_free(profile);
    }
+
    if (!rrclient_present_context()) {
       return;
    }
@@ -1938,29 +1955,40 @@ static void rrclient_handle_domain_identity(const char *event, const char *data,
 /* GTK navigation is a command to the core, not a GTK-thread core call. */
 static void rrclient_ui_chat_link_join(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload ||
-       message->length != sizeof(rrclient_ui_chat_link_t)) return;
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_ui_chat_link_t)) {
+      return;
+   }
    const rrclient_ui_chat_link_t *request = message->payload;
-   if (!memchr(request->room, '\0', sizeof(request->room)) ||
-       !memchr(request->server, '\0', sizeof(request->server)) ||
-       request->room[0] != '#') return;
+
+   if (!memchr(request->room, '\0', sizeof(request->room)) || !memchr(request->server, '\0', sizeof(request->server)) || request->room[0] != '#') {
+      return;
+   }
+
    if (!request->server[0] || rrclient_connection_select(request->server)) {
       char command[] = "/join";
-      char *args[] = {command, (char *)request->room};
+      char *args[] = {
+         command, (char *)request->room
+      };
       cmd_join(2, args);
    }
 }
 
-/* Emergency-stop requests cross into core as copied JSON. Never send
- * transport commands from the GTK thread. */
+/* Emergency-stop requests cross into core as copied JSON. Never send transport commands from the GTK thread. */
 static void rrclient_estop_send(void *arg);
 static void rrclient_estop_core(const char *event, const char *payload, rrconn_t *ignored, void *unused) {
-   (void)event; (void)ignored; (void)unused;
+   (void)event;
+   (void)ignored;
+   (void)unused;
    dict *d = payload ? json2dict(payload) : NULL;
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    const char *profile = dict_get(d, "profile", "");
    rrconn_t *conn = rrclient_connection_find(profile);
    bool sent = false;
+
    if (conn && conn->authenticated && conn->is_ws) {
       rrclient_connection_dispatch(conn, rrclient_estop_send, d);
       sent = dict_get_bool(d, "sent", false);
@@ -1972,7 +2000,10 @@ static void rrclient_estop_core(const char *event, const char *payload, rrconn_t
 }
 static void rrclient_estop_send(void *arg) {
    dict *d = arg;
-   if (!ws_conn) return;
+
+   if (!ws_conn) {
+      return;
+   }
    dict *message = dict_new();
    dict_add(message, "msg.type", "talk");
    dict_add(message, "talk.cmd", "admin");
@@ -1987,62 +2018,86 @@ static void locator_collect(void *arg) {
    rrclient_locator_snapshot_t *snap = arg;
    const char *room = rrclient_media_active_room();
    char active = vfo_state_get_active();
-   if (!room || !*room || !rrclient_media_vfo_uuid(room, active)) return;
+
+   if (!room || !*room || !rrclient_media_vfo_uuid(room, active)) {
+      return;
+   }
    const char *profile = rrclient_selected_server();
    (void)profile;
    snap->vfo = active;
    g_strlcpy(snap->room, room, sizeof(snap->room));
-   char vfo[2] = {active, 0};
+   char vfo[2] = {
+      active, 0
+   };
    snap->frequency = vfo_state_get_long(vfo, "cat.state.freq", 0);
    snap->width = vfo_state_get_long(vfo, "cat.state.width", 0);
    g_strlcpy(snap->mode, vfo_state_get(vfo, "cat.state.mode", ""), sizeof(snap->mode));
    const char *grid = vfo_state_get(vfo, "cat.state.gridsquare", NULL);
-   if (!grid || !*grid) grid = vfo_state_get(vfo, "cat.state.grid", "");
+
+   if (!grid || !*grid) {
+      grid = vfo_state_get(vfo, "cat.state.grid", "");
+   }
    g_strlcpy(snap->grid, grid ? grid : "", sizeof(snap->grid));
    const char *watts = vfo_state_get(vfo, "cat.state.tx-power-watts", NULL);
    snap->watts = watts ? g_ascii_strtod(watts, NULL) : 0;
-   for (const struct rr_user *u = global_userlist; u; u = u->next) {
+
+   for (const struct rr_user *u = global_userlist ; u ; u = u->next) {
       if (u->is_ptt && u->ptt_vfo == active && !strcasecmp(u->ptt_room, room)) {
          snap->transmitting = true;
          g_strlcpy(snap->holder, u->name, sizeof(snap->holder));
          break;
       }
    }
+
    snap->online = true;
 }
-static void locator_snapshot_core(const char *event, const char *previous,
-                                  rrconn_t *ignored, void *unused) {
-   (void)event; (void)ignored; (void)unused;
-   rrclient_locator_snapshot_t snap = {0};
+static void locator_snapshot_core(const char *event, const char *previous, rrconn_t *ignored, void *unused) {
+   (void)event;
+   (void)ignored;
+   (void)unused;
+   rrclient_locator_snapshot_t snap = {
+      0
+   };
    const char *preferred = rrclient_selected_server();
-   for (unsigned pass = 0; pass < 3 && !snap.online; pass++) {
-      for (unsigned i = 0;; i++) {
-         const char *profile = pass == 0 ? preferred :
-                               pass == 1 ? previous : rrclient_connection_iter(i);
-         if (!profile || !*profile) break;
+
+   for (unsigned pass = 0 ; pass < 3 && !snap.online ; pass++) {
+      for (unsigned i = 0 ;; i++) {
+         const char *profile = pass == 0 ? preferred : pass == 1 ? previous : rrclient_connection_iter(i);
+
+         if (!profile || !*profile) {
+            break;
+         }
          rrconn_t *conn = rrclient_connection_find(profile);
-         if (conn && conn->authenticated && conn->is_ws &&
-             rrclient_connection_state(profile) == 1) {
-            rrclient_locator_snapshot_t candidate = {0};
+
+         if (conn && conn->authenticated && conn->is_ws && rrclient_connection_state(profile) == 1) {
+            rrclient_locator_snapshot_t candidate = {
+               0
+            };
             rrclient_connection_dispatch(conn, locator_collect, &candidate);
+
             if (candidate.online) {
                snap = candidate;
                g_strlcpy(snap.profile, profile, sizeof(snap.profile));
                break;
             }
          }
-         if (pass != 2) break;
+
+         if (pass != 2) {
+            break;
+         }
       }
    }
+
    event_emit_binary(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, NULL, &snap, sizeof(snap));
 }
 void rrclient_register_events(void) {
    event_on_domain_token(RRCLIENT_LOCATOR_REQUEST_EVENT, locator_snapshot_core, NULL, "core");
    event_on_domain_token("client.estop.send-request", rrclient_estop_core, NULL, "core");
-   rr_event_token_t link_token = event_on_message_domain_token(
-      RRCLIENT_UI_CHAT_LINK_EVENT, rrclient_ui_chat_link_join, NULL, "core");
-   if (!link_token)
+   rr_event_token_t link_token = event_on_message_domain_token(RRCLIENT_UI_CHAT_LINK_EVENT, rrclient_ui_chat_link_join, NULL, "core");
+
+   if (!link_token) {
       Log(LOG_WARN, "core.event", "Unable to subscribe to GTK room-link navigation");
+   }
    event_on("client.server.selected", rrclient_server_selected, NULL);
    event_on("client.server.status.close", ui_server_status_close, NULL);
    rrclient_objects_register_events();

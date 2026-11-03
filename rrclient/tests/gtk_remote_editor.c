@@ -11,6 +11,7 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
    (void)title;
    (void)callback;
    (void)data;
+
    return NULL;
 }
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
@@ -62,15 +63,19 @@ static GtkWidget *find_label(GtkWidget *widget, const char *text) {
    if (GTK_IS_LABEL(widget) && !strcmp(gtk_label_get_text(GTK_LABEL(widget)), text)) {
       return widget;
    }
+
    if (!GTK_IS_CONTAINER(widget)) {
       return NULL;
    }
    GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
    GtkWidget *found = NULL;
-   for (GList *item = children; item && !found; item = item->next) {
+
+   for (GList *item = children ; item && !found ; item = item->next) {
       found = find_label(item->data, text);
    }
+
    g_list_free(children);
+
    return found;
 }
 int main(int argc, char **argv) {

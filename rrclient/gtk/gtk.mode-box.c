@@ -64,7 +64,10 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       bool sent = room && !g_ascii_strcasecmp(room, "&local-sdr")
          ? rrclient_local_bridge_set_width(rrclient_room_active_vfo("&local-sdr"), text)
          : ws_send_width_cmd_in_room(ws_conn, vfo, text, room);
-      if (sent) widthbox_last_send = now;
+
+      if (sent) {
+         widthbox_last_send = now;
+      }
 #endif // defined(USE_MONGOOSE)
       g_free((gchar *) text);
    }
@@ -76,18 +79,23 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    if (text) {
       const char *room = gtk_chat_controls_room();
       bool sent = false;
+
       if (room && !g_ascii_strcasecmp(room, "&local-sdr")) {
          sent = rrclient_local_bridge_set_mode(rrclient_room_active_vfo("&local-sdr"), text);
       } else {
 #if defined(USE_MONGOOSE)
-         char vfo[2] = { vfo_state_get_active(), '\0' };
+         char vfo[2] = {
+            vfo_state_get_active(), '\0'
+         };
          sent = ws_send_mode_cmd_in_room(ws_conn, vfo, text, room);
 #endif
       }
-      if (sent)
+
+      if (sent) {
          modebox_last_send = now;
-      else
+      } else {
          Log(LOG_WARN, "gtk.modebox", "Unable to send mode %s for room %s", text, room ? room : "(none)");
+      }
 
       // Show/hide repeater dialog locally based on FM mode
       if (g_str_equal(text, "FM")) {

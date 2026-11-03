@@ -26,5 +26,6 @@ int main(void) {
    dict_free(parsed);
    dict_free(request);
    puts("rrpipelines librustyaxe JSON contract tests passed");
+
    return 0;
 }

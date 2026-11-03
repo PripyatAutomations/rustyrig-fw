@@ -4,10 +4,14 @@
 #include <string.h>
 
 static guint find_factory(rr_pipeline_graph_t *graph, const gchar *factory) {
-   for (guint i = 0; i < rr_pipeline_graph_node_count(graph); i++) {
-      if (!g_strcmp0(rr_pipeline_node_factory(rr_pipeline_graph_node(graph, i)), factory)) return i;
+   for (guint i = 0 ; i < rr_pipeline_graph_node_count(graph) ; i++) {
+      if (!g_strcmp0(rr_pipeline_node_factory(rr_pipeline_graph_node(graph, i)), factory)) {
+         return i;
+      }
    }
+
    assert(false);
+
    return 0;
 }
 
@@ -43,18 +47,20 @@ static void test_edit_and_round_trip(void) {
 }
 
 static void test_existing_tee_branches(void) {
-   const gchar *launch = "fakesrc num-buffers=3 name=src ! tee name=t "
-      "t. ! queue name=q1 ! fakesink name=s1 "
-      "t. ! queue name=q2 ! fakesink name=s2";
+   const gchar *launch = "fakesrc num-buffers=3 name=src ! tee name=t " "t. ! queue name=q1 ! fakesink name=s1 " "t. ! queue name=q2 ! fakesink name=s2";
    GError *error = NULL;
    rr_pipeline_graph_t *graph = rr_pipeline_graph_parse(launch, &error);
    assert(graph && !error);
    assert(rr_pipeline_graph_node_count(graph) == 6);
    assert(rr_pipeline_graph_link_count(graph) == 5);
    guint tee = 0;
-   for (guint i = 0; i < rr_pipeline_graph_node_count(graph); i++) {
-      if (!g_strcmp0(rr_pipeline_node_factory(rr_pipeline_graph_node(graph, i)), "tee")) tee = i;
+
+   for (guint i = 0 ; i < rr_pipeline_graph_node_count(graph) ; i++) {
+      if (!g_strcmp0(rr_pipeline_node_factory(rr_pipeline_graph_node(graph, i)), "tee")) {
+         tee = i;
+      }
    }
+
    assert(tee);
    assert(rr_pipeline_graph_add_branch(graph, tee, "fakesink", &error));
    gchar *serialized = rr_pipeline_graph_serialize(graph, &error);
@@ -112,7 +118,10 @@ static void test_edited_string_property(void) {
    guint sink = find_factory(graph, "filesink");
    assert(rr_pipeline_graph_set_property(graph, sink, "location", "new capture.wav", &error));
    gchar *serialized = rr_pipeline_graph_serialize(graph, &error);
-   if (!serialized || error) fprintf(stderr, "string property serialization failed: %s\n", error ? error->message : "unknown");
+
+   if (!serialized || error) {
+      fprintf(stderr, "string property serialization failed: %s\n", error ? error->message : "unknown");
+   }
    assert(serialized && !error);
    rr_pipeline_graph_t *round_trip = rr_pipeline_graph_parse(serialized, &error);
    assert(round_trip && !error);
@@ -123,12 +132,15 @@ static void test_edited_string_property(void) {
 
 static void test_caps_and_property_round_trip(void) {
    GError *error = NULL;
-   rr_pipeline_graph_t *graph = rr_pipeline_graph_parse(
-      "fakesrc num-buffers=3 name=src ! capsfilter caps=\"audio/x-raw,rate=8000\" name=caps ! fakesink name=sink", &error);
+   rr_pipeline_graph_t *graph =
+      rr_pipeline_graph_parse("fakesrc num-buffers=3 name=src ! capsfilter caps=\"audio/x-raw,rate=8000\" name=caps ! fakesink name=sink", &error);
    assert(graph && !error);
    assert(rr_pipeline_graph_set_property(graph, find_factory(graph, "fakesrc"), "num-buffers", "5", &error));
    gchar *serialized = rr_pipeline_graph_serialize(graph, &error);
-   if (!serialized || error) fprintf(stderr, "caps serialization failed: %s\n", error ? error->message : "unknown");
+
+   if (!serialized || error) {
+      fprintf(stderr, "caps serialization failed: %s\n", error ? error->message : "unknown");
+   }
    assert(serialized && !error);
    rr_pipeline_graph_t *round_trip = rr_pipeline_graph_parse(serialized, &error);
    assert(round_trip && !error);
@@ -162,5 +174,6 @@ int main(int argc, char **argv) {
    test_caps_and_property_round_trip();
    test_invalid_pipeline_and_property();
    puts("rrpipelines graph tests passed");
+
    return 0;
 }

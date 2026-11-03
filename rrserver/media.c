@@ -84,8 +84,7 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
 
       /* Joined local users already constitute demand. Avoid a second policy check and a relay query for every channel on every server poll. */
       for (rrconn_t *client = http_client_list ; client ; client = client->next) {
-         if (rrserver_client_is_connected(client) && !client->is_server &&
-            media_client_in_channel_room(client, channel)) {
+         if (rrserver_client_is_connected(client) && !client->is_server && media_client_in_channel_room(client, channel)) {
             return true;
          }
       }

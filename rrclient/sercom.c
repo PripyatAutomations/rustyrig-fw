@@ -1526,21 +1526,28 @@ void rr_sercom_shutdown(void) {
 }
 static void serial_attach_in_context(void *arg) {
    dict *request = arg;
-   bool ok = rr_sercom_attach(dict_get(request, "name", ""),
-                             dict_get(request, "service", ""), NULL);
+   bool ok = rr_sercom_attach(dict_get(request, "name", ""), dict_get(request, "service", ""), NULL);
    dict_add(request, "success", ok ? "true" : "false");
 }
 static void serial_attach_event(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
-   (void)event; (void)unused_connection; (void)unused;
+   (void)event;
+   (void)unused_connection;
+   (void)unused;
    dict *request = payload ? json2dict(payload) : NULL;
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    rrconn_t *conn = rrclient_connection_find(dict_get(request, "profile", ""));
-   if (conn && conn->authenticated && conn->is_ws)
+
+   if (conn && conn->authenticated && conn->is_ws) {
       rrclient_connection_dispatch(conn, serial_attach_in_context, request);
+   }
    dict *reply = dict_new();
    dict_add(reply, "id", dict_get(request, "id", ""));
    dict_add(reply, "success", dict_get(request, "success", "false"));
    char *json = dict2json(reply);
+
    if (json) {
       event_emit("client.serial.attach-result", NULL, json);
       free(json);
@@ -1550,6 +1557,7 @@ static void serial_attach_event(const char *event, const char *payload, rrconn_t
 }
 bool rr_sercom_init(void) {
    event_on_domain_token("client.serial.attach-request", serial_attach_event, NULL, "core");
+
    /* Must precede opening any PTYs, including configured ones. */
    if (!serial_pty_startup_cleanup()) {
       return false;

@@ -44,7 +44,9 @@ static bool send_request(rrconn_t *c, dict *d) {
    return ok;
 }
 bool rrclient_files_request_id(rrconn_t *c, const char *command, const char *path, const char *dest, const char *id) {
-   if (!id || !*id) return false;
+   if (!id || !*id) {
+      return false;
+   }
    dict *d = message(command, path, id);
 
    if (dest) {
@@ -58,8 +60,10 @@ char *rrclient_files_request(rrconn_t *c, const char *command, const char *path,
 
    if (!rrclient_files_request_id(c, command, path, dest, id)) {
       g_free(id);
+
       return NULL;
    }
+
    return id;
 }
 static void finish(struct transfer *t, const char *error, rrconn_t *connection) {
@@ -322,8 +326,10 @@ static void files_command_request(const char *event, const char *payload, rrconn
    (void)unused_connection;
    (void)unused;
    dict *request = payload ? json2dict(payload) : NULL;
+
    if (!request) {
       Log(LOG_WARN, "files", "Ignoring malformed GTK file command");
+
       return;
    }
    const char *profile = dict_get(request, "profile", "");
@@ -331,15 +337,17 @@ static void files_command_request(const char *event, const char *payload, rrconn
    const char *operation = dict_get(request, "operation", "");
    rrconn_t *connection = rrclient_connection_find(profile);
    bool accepted = false;
+
    if (!strcmp(operation, "request")) {
-      accepted = rrclient_files_request_id(connection, dict_get(request, "command", ""),
-         dict_get(request, "path", "/"), dict_get(request, "dest", NULL), request_id);
+      accepted = rrclient_files_request_id(connection, dict_get(request, "command", ""), dict_get(request, "path", "/"), dict_get(request, "dest", NULL),
+         request_id);
    } else if (!strcmp(operation, "transfer")) {
       bool upload = dict_get_bool(request, "upload", false);
-      accepted = rrclient_files_transfer(connection, dict_get(request, "path", ""),
-         dict_get(request, "local", ""), upload, dict_get_bool(request, "overwrite", false));
+      accepted = rrclient_files_transfer(connection, dict_get(request, "path", ""), dict_get(request, "local", ""), upload, dict_get_bool(request, "overwrite",
+         false));
    }
    dict *reply = dict_new();
+
    if (reply) {
       dict_add(reply, "profile", profile);
       dict_add(reply, "request.id", request_id);
@@ -348,6 +356,7 @@ static void files_command_request(const char *event, const char *payload, rrconn
       event_emit_dict("client.files.command-result", NULL, reply);
       dict_free(reply);
    }
+
    if (!accepted && !strcmp(operation, "transfer")) {
       dict *complete = message("complete", dict_get(request, "path", ""), request_id);
       dict_add(complete, "file.error", "Cannot start transfer");
@@ -363,13 +372,23 @@ static void files_sites_request(const char *event, const char *payload, rrconn_t
    (void)payload;
    (void)unused_connection;
    (void)unused;
+
    for (unsigned i = 0 ;; i++) {
       const char *profile = rrclient_connection_iter(i);
-      if (!profile) break;
+
+      if (!profile) {
+         break;
+      }
       rrconn_t *connection = rrclient_connection_find(profile);
-      if (!connection || !connection->is_ws || !connection->authenticated) continue;
+
+      if (!connection || !connection->is_ws || !connection->authenticated) {
+         continue;
+      }
       dict *site = dict_new();
-      if (!site) continue;
+
+      if (!site) {
+         continue;
+      }
       dict_add(site, "profile", profile);
       event_emit_dict("client.files.site", NULL, site);
       dict_free(site);

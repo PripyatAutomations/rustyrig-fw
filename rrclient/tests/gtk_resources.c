@@ -14,7 +14,9 @@ static void core_refresh_request(const char *event, const char *profile, rrconn_
    (void)profile;
    (void)connection;
    (void)user;
-   char *args[] = {(char *)"object"};
+   char *args[] = {
+      (char *)"object"
+   };
    cmd_object(1, args);
 }
 static void core_action_request(const char *event, const char *payload, rrconn_t *connection, void *user) {
@@ -25,15 +27,22 @@ static void core_action_request(const char *event, const char *payload, rrconn_t
    rrconn_t *target = rrclient_connection_find(dict_get(request, "profile", ""));
    const char *action = dict_get(request, "action", "");
    const char *value = dict_get(request, "value", "");
+
    if (!target || !target->authenticated) {
       dict_free(request);
+
       return;
    }
+
    if (!strcmp(action, "join")) {
-      char *args[] = {(char *)"join", (char *)value};
+      char *args[] = {
+         (char *)"join", (char *)value
+      };
       cmd_join(2, args);
    } else if (!strcmp(action, "subscribe")) {
-      char *args[] = {(char *)"media", (char *)"subscribe", (char *)value};
+      char *args[] = {
+         (char *)"media", (char *)"subscribe", (char *)value
+      };
       cmd_media(3, args);
    }
    dict_free(request);
@@ -76,9 +85,17 @@ bool rr_module_token_add(rr_event_token_t token) {
    return token != NULL;
 }
 void rrclient_wsjtx_status(char *state, size_t state_len, char *connection, size_t connection_len, char *details, size_t details_len) {
-   if (state_len) state[0] = 0;
-   if (connection_len) connection[0] = 0;
-   if (details_len) details[0] = 0;
+   if (state_len) {
+      state[0] = 0;
+   }
+
+   if (connection_len) {
+      connection[0] = 0;
+   }
+
+   if (details_len) {
+      details[0] = 0;
+   }
 }
 void rrclient_wsjtx_foreach_field(rr_wsjtx_field_cb callback, void *data) {
    (void)callback;
@@ -87,6 +104,7 @@ void rrclient_wsjtx_foreach_field(rr_wsjtx_field_cb callback, void *data) {
 GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
    (void)title;
    (void)panel_out;
+
    return NULL;
 }
 void gtk_admin_open_resource(const char *profile, const char *kind, const char *name) {
@@ -162,6 +180,7 @@ const char *rrclient_connection_iter(unsigned index) {
 int rrclient_connection_state(const char *profile) {
    return !strcmp(profile, "alpha") ? 1 : 0;
 }
+
 static struct rr_client_media_chan channel = {
    .uuid = "stream-1", .name = "test.rx", .room = "#station-rig1"
 };
@@ -254,8 +273,7 @@ int main(int argc, char **argv) {
    cfg = dict_new();
    main_notebook = gtk_notebook_new();
    GtkWidget *other_page = gtk_label_new("Other page");
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), other_page,
-                            gtk_label_new("Other"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), other_page, gtk_label_new("Other"));
    gtk_widget_show_all(main_notebook);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
    assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == 0);
@@ -275,24 +293,21 @@ int main(int argc, char **argv) {
    char *property_request_id = resource_property_request("alpha", "rig-1", "audio.speaker.volume");
    assert(property_request_id);
    const dict *property_snapshot = resource_property_cached("alpha", "rig-1", "audio.speaker.volume", property_request_id);
-   assert(property_snapshot && dict_get_bool((dict *)property_snapshot, "known", false));
-   assert(!strcmp(dict_get((dict *)property_snapshot, "value", ""), "73"));
+   assert(property_snapshot && dict_get_bool((dict *) property_snapshot, "known", false));
+   assert(!strcmp(dict_get((dict *) property_snapshot, "value", ""), "73"));
    g_free(property_request_id);
    rrclient_resource_view_t request = {
       .kind = "object", .request = "resource-1", .profile = "alpha", .online = true
    };
    resource_show(RRCLIENT_RESOURCE_VIEW_EVENT, &request, sizeof(request), NULL, NULL);
    assert(browser != NULL);
-   assert(gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-                                    gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) ==
-          other_page);
+   assert(gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == other_page);
    resource_browser *view = browser;
    assert(gtk_tree_view_get_level_indentation(GTK_TREE_VIEW(view->tree)) == 0);
    assert(gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view->tree)) == 5);
    assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(view->tree), 4)), "Details"));
    resource_open("client.resources.open", NULL, NULL, NULL);
-   assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) ==
-          gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), view->page));
+   assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), view->page));
    resource_branch *branch = g_hash_table_lookup(browser->branches, "alpha");
    row(&beta, 0, "site", "wrong-server");
    assert(!gtk_tree_model_iter_n_children(GTK_TREE_MODEL(view->store), &branch->root));
@@ -370,8 +385,11 @@ int main(int argc, char **argv) {
    resource_local_update();
    gtk_resources_shutdown();
    assert(!browser);
-   for (unsigned i = 0; i < G_N_ELEMENTS(core_test_tokens); i++)
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(core_test_tokens) ; i++) {
       event_off_token(core_test_tokens[i]);
+   }
+
    assert(event_domain_unregister("gtk"));
    assert(event_domain_unregister("core"));
    gtk_widget_destroy(main_notebook);

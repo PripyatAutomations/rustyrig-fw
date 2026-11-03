@@ -46,7 +46,9 @@ typedef struct {
    char on;
 } RrPttRequest;
 static void gtk_ptt_request(const char *room, char vfo, bool on) {
-   RrPttRequest request = {0};
+   RrPttRequest request = {
+      0
+   };
    snprintf(request.room, sizeof(request.room), "%s", room ? room : "");
    request.vfo = vfo;
    request.on = on ? 1 : 0;
@@ -57,6 +59,7 @@ static void gtk_ptt_request(const char *room, char vfo, bool on) {
    };
    event_emit_message(&message);
 }
+
 GtkWidget *ptt_button = NULL;
 
 // PTT ack tracking: when the user toggles PTT we show PENDING (yellow) until

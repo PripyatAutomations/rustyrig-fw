@@ -126,8 +126,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       }
 
       for (rrconn_t *cur = http_client_list ; cur ; cur = cur->next) {
-         if (rrserver_client_can_send_binary(cur) && cur->user &&
-            has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG)) {
+         if (rrserver_client_can_send_binary(cur) && cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG)) {
             /* Avoid unbounded buffering when a log subscriber is slow. */
             if (rr_transport_queued_bytes(cur->native_transport) <= 262144) {
                rr_transport_send_binary_message(cur->native_transport, frame, (size_t)flen);

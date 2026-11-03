@@ -328,18 +328,26 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    gtk_widget_destroy(dialog);
 }
 
-/* One modal attach dialog at a time. The event callback references only
- * stable static state, never a disposed dialog or a stack request. */
+/* One modal attach dialog at a time. The event callback references only stable static state, never a disposed dialog or a stack request. */
 static GtkWidget *attach_pending_dialog;
 static char attach_pending_id[40];
 static gboolean attach_pending_success;
 static unsigned attach_serial;
 static rr_event_token_t attach_result_token;
 static void serial_attach_result(const char *event, const char *payload, rrconn_t *conn, void *user) {
-   (void)event; (void)conn; (void)user;
-   if (!attach_pending_dialog || !payload) return;
+   (void)event;
+   (void)conn;
+   (void)user;
+
+   if (!attach_pending_dialog || !payload) {
+      return;
+   }
    dict *reply = json2dict(payload);
-   if (!reply) return;
+
+   if (!reply) {
+      return;
+   }
+
    if (!strcmp(dict_get(reply, "id", ""), attach_pending_id)) {
       attach_pending_success = dict_get_bool(reply, "success", false);
       GtkWidget *dialog = attach_pending_dialog;
@@ -373,26 +381,30 @@ char *gtk_serial_attach_named(GtkWindow *parent, const char *profile, const char
    gtk_entry_set_text(GTK_ENTRY(entry), next_name);
    gtk_box_pack_start(GTK_BOX(box), combo, FALSE, FALSE, 8);
    gtk_widget_show_all(dialog);
+
    if (!attach_result_token) {
-      attach_result_token = event_on_domain_token("client.serial.attach-result",
-                                                   serial_attach_result, NULL, "gtk");
+      attach_result_token = event_on_domain_token("client.serial.attach-result", serial_attach_result, NULL, "gtk");
       extern bool rr_module_token_add(rr_event_token_t token);
-      if (attach_result_token) rr_module_token_add(attach_result_token);
+
+      if (attach_result_token) {
+         rr_module_token_add(attach_result_token);
+      }
    }
    char *attached_name = NULL;
    int response;
    char *requested_name = NULL;
-   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_ACCEPT ||
-          response == 1001 || response == 2002 || response == 2003) {
+   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_ACCEPT || response == 1001 || response == 2002 || response == 2003) {
       if (response == 2002) {
          attached_name = g_steal_pointer(&requested_name);
          break;
       }
+
       if (response == 2003) {
          message(GTK_WINDOW(dialog), "Unable to attach. Check the connection, endpoint settings and server permissions.");
          g_clear_pointer(&requested_name, g_free);
          continue;
       }
+
       if (response == 1001) {
          char *name = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
          gtk_serial_configure(GTK_WINDOW(dialog), name);
@@ -401,6 +413,7 @@ char *gtk_serial_attach_named(GtkWindow *parent, const char *profile, const char
          g_free(name);
          continue;
       }
+
       if (!attach_result_token || attach_pending_dialog) {
          message(GTK_WINDOW(dialog), "Serial control events unavailable or another attach is pending.");
          continue;
@@ -415,12 +428,16 @@ char *gtk_serial_attach_named(GtkWindow *parent, const char *profile, const char
       dict_add(request, "name", requested_name);
       char *json = dict2json(request);
       dict_free(request);
-      if (!json) continue;
+
+      if (!json) {
+         continue;
+      }
       attach_pending_dialog = dialog;
       gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT, FALSE);
       event_emit("client.serial.attach-request", NULL, json);
       free(json);
    }
+
    if (attach_pending_dialog == dialog) {
       attach_pending_dialog = NULL;
       attach_pending_id[0] = 0;

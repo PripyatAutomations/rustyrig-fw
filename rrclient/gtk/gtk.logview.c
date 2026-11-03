@@ -104,15 +104,17 @@ static void refresh(GtkWidget *widget, gpointer data) {
    GtkLogView *v = data;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
 }
+
 static gchar *logview_selected_text(GtkLogView *v, gboolean csv);
 static void copy_item(GtkMenuItem *item, gpointer data) {
    GtkLogView *v = data;
    gboolean csv = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "copy-csv"));
-   /* Read selection at activation, not when the menu opened: Select All
-    * can change it while this menu is being reused. */
+   /* Read selection at activation, not when the menu opened: Select All can change it while this menu is being reused. */
    gchar *text = logview_selected_text(v, csv);
-   if (*text)
+
+   if (*text) {
       gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, -1);
+   }
    g_free(text);
 }
 static void copy_option(GtkWidget *menu, const char *title, GtkLogView *v, gboolean csv) {
@@ -121,26 +123,28 @@ static void copy_option(GtkWidget *menu, const char *title, GtkLogView *v, gbool
    g_signal_connect(item, "activate", G_CALLBACK(copy_item), v);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
-/* GTK closes menus after activation. Reopen after the selection-done signal
- * so Select All can be followed immediately by Copy CSV or TSV. */
+
+/* GTK closes menus after activation. Reopen after the selection-done signal so Select All can be followed immediately by Copy CSV or TSV. */
 static gboolean logview_reopen_menu(gpointer data) {
    GtkWidget *menu = data;
    g_object_set_data(G_OBJECT(menu), "reopen-after-select", NULL);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
+
    return G_SOURCE_REMOVE;
 }
 static void logview_menu_done(GtkMenuShell *shell, gpointer unused) {
    (void)unused;
-   if (!g_object_get_data(G_OBJECT(shell), "reopen-after-select"))
+
+   if (!g_object_get_data(G_OBJECT(shell), "reopen-after-select")) {
       gtk_widget_destroy(GTK_WIDGET(shell));
+   }
 }
 static void logview_select_all(GtkMenuItem *item, gpointer data) {
    GtkLogView *v = data;
    GtkWidget *menu = gtk_widget_get_parent(GTK_WIDGET(item));
    gtk_tree_selection_select_all(gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)));
    g_object_set_data(G_OBJECT(menu), "reopen-after-select", GINT_TO_POINTER(1));
-   g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, logview_reopen_menu,
-                   g_object_ref(menu), g_object_unref);
+   g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, logview_reopen_menu, g_object_ref(menu), g_object_unref);
 }
 static void csv_value(GString *out, const char *s) {
    g_string_append_c(out, '"');

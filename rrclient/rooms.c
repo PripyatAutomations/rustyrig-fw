@@ -35,6 +35,7 @@ static client_room_t local_sdr_room = {
    .name = "&local-sdr", .topic = "Local SDR receivers",
    .active_vfo = 'A', .rx_tunable = true
 };
+
 static bool local_sdr_present;
 static bool is_local_sdr(const char *name) {
    return name && !strcasecmp(name, "&local-sdr");
@@ -113,10 +114,14 @@ bool rrclient_room_join(const char *room) {
       bool first_join = !local_sdr_present;
       local_sdr_present = true;
       local_sdr_room.offline = false;
-      if (first_join)
+
+      if (first_join) {
          event_emit("client.room.joined", NULL, "&local-sdr");
+      }
+
       return true;
    }
+
    if (rrclient_room_is_joined(name)) {
       rrclient_room_set_offline(name, false);
 
@@ -272,10 +277,8 @@ void rrclient_rooms_clear(void) {
 
 void rrclient_rooms_disconnect(void) {
    for (client_room_t *room = rooms ; room ; room = room->next) {
-      /* Temporary SDR rooms cannot be restored with a bare JOIN: their
-       * owning receiver bridge must first be created again. */
-      if ((room->name[0] == '#' || room->name[0] == '&') &&
-          !(strlen(room->name) == 13 && !strncasecmp(room->name, "#sdr-", 5))) {
+      /* Temporary SDR rooms cannot be restored with a bare JOIN: their owning receiver bridge must first be created again. */
+      if ((room->name[0] == '#' || room->name[0] == '&') && !(strlen(room->name) == 13 && !strncasecmp(room->name, "#sdr-", 5))) {
          remember_join(room->name);
       }
    }
@@ -290,11 +293,11 @@ void rrclient_rooms_rejoin_available(void) {
       if (strlen(reconnect_rooms[i]) == 13 && !strncasecmp(reconnect_rooms[i], "#sdr-", 5)) {
          /* Also discard stale intents saved by older client versions. */
          free(reconnect_rooms[i]);
-         memmove(reconnect_rooms + i, reconnect_rooms + i + 1,
-                 (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
+         memmove(reconnect_rooms + i, reconnect_rooms + i + 1, (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
          reconnect_room_count--;
          continue;
       }
+
       if (!rrclient_room_is_joined(reconnect_rooms[i])) {
          rrclient_room_request_join(reconnect_rooms[i]);
       }
@@ -401,7 +404,8 @@ bool rrclient_room_set_vfos(const char *room, const char *vfos) {
 bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
    if (is_local_sdr(room)) {
       local_sdr_present = true;
-      local_sdr_room.vfo_mask = (uint32_t)mask;
+      local_sdr_room.vfo_mask = (uint32_t) mask;
+
       return true;
    }
    char vfos[256] = "";

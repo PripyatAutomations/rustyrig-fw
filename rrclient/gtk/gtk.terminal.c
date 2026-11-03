@@ -46,27 +46,41 @@ static void terminal_paste(GtkMenuItem *item, gpointer data) {
 
 static gboolean terminal_key_press(GtkWidget *view, GdkEventKey *event, gpointer unused) {
    (void)unused;
-   if (!event || event->type != GDK_KEY_PRESS) return FALSE;
+
+   if (!event || event->type != GDK_KEY_PRESS) {
+      return FALSE;
+   }
    GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
-   if (modifiers != (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) return FALSE;
+
+   if (modifiers != (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
+      return FALSE;
+   }
 
    if (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C) {
-      if (gtk_chat_copy_selection()) return TRUE;
+      if (gtk_chat_copy_selection()) {
+         return TRUE;
+      }
 #ifdef RR_HAVE_VTE
       terminal_copy(NULL, view);
+
       return TRUE;
 #else
+
       return FALSE;
 #endif
    }
+
    if (event->keyval == GDK_KEY_v || event->keyval == GDK_KEY_V) {
 #ifdef RR_HAVE_VTE
       terminal_paste(NULL, view);
+
       return TRUE;
 #else
+
       return FALSE;
 #endif
    }
+
    return FALSE;
 }
 
@@ -78,7 +92,7 @@ static void terminal_populate_menu(GtkWidget *view, GtkWidget *menu) {
 #else
       gtk_text_buffer_get_has_selection(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)))
 #endif
-   );
+      );
    g_signal_connect(copy, "activate", G_CALLBACK(terminal_copy), view);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), copy);
 #ifdef RR_HAVE_VTE
@@ -91,12 +105,16 @@ static void terminal_populate_menu(GtkWidget *view, GtkWidget *menu) {
 
 static gboolean terminal_button_press(GtkWidget *view, GdkEventButton *event, gpointer unused) {
    (void)unused;
-   if (!event || event->button != GDK_BUTTON_SECONDARY) return FALSE;
+
+   if (!event || event->button != GDK_BUTTON_SECONDARY) {
+      return FALSE;
+   }
    gtk_widget_grab_focus(view);
    GtkWidget *menu = gtk_menu_new();
    terminal_populate_menu(view, menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+
    return TRUE;
 }
 

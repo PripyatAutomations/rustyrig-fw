@@ -28,17 +28,15 @@
 #include <rrclient/gtk/gtk.serverpick.h>
 #include "gtk.floating-panel.h"
 
-/* Network headers get a muted theme-relative fill; server rows use the
- * GTK theme's ordinary background, including checkbox columns. */
-static void picker_row_style(GtkTreeViewColumn *column, GtkCellRenderer *cell,
-                             GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+/* Network headers get a muted theme-relative fill; server rows use the GTK theme's ordinary background, including checkbox columns. */
+static void picker_row_style(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)data;
    GtkWidget *view = g_object_get_data(G_OBJECT(column), "picker-view");
    gboolean network = FALSE;
    gtk_tree_model_get(model, iter, 7, &network, -1);
    GtkTreePath *path = gtk_tree_model_get_path(model, iter);
-   gboolean selected = view && path &&
-      gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
+   gboolean selected = view && path && gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
+
    if (network && !selected && view) {
       GtkStyleContext *style = gtk_widget_get_style_context(view);
       GdkRGBA base, ink, shade;
@@ -52,9 +50,14 @@ static void picker_row_style(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    } else {
       g_object_set(cell, "cell-background-set", FALSE, NULL);
    }
-   if (GTK_IS_CELL_RENDERER_TEXT(cell))
+
+   if (GTK_IS_CELL_RENDERER_TEXT(cell)) {
       g_object_set(cell, "weight", network ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL, NULL);
-   if (path) gtk_tree_path_free(path);
+   }
+
+   if (path) {
+      gtk_tree_path_free(path);
+   }
 }
 
 
@@ -122,12 +125,18 @@ static int picker_group_state(GtkTreeModel *model, GtkTreeIter *parent) {
 static void picker_group_counts(GtkTreeModel *model, GtkTreeIter *parent, int *online, int *total) {
    GtkTreeIter child;
    *online = *total = 0;
-   if (!gtk_tree_model_iter_children(model, &child, parent)) return;
+
+   if (!gtk_tree_model_iter_children(model, &child, parent)) {
+      return;
+   }
    do {
       char *name = NULL;
       gtk_tree_model_get(model, &child, 0, &name, -1);
       ++*total;
-      if (name && rrclient_connection_state(name) == 1) ++*online;
+
+      if (name && rrclient_connection_state(name) == 1) {
+         ++*online;
+      }
       g_free(name);
    } while (gtk_tree_model_iter_next(model, &child));
 }
@@ -183,7 +192,9 @@ static void do_connect_from_tree(GtkTreeView *view) {
    GtkTreeIter iter;
 
    if (gtk_tree_selection_get_selected(sel, &model, &iter)) {
-      if (picker_is_network(model, &iter)) return;
+      if (picker_is_network(model, &iter)) {
+         return;
+      }
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
 
@@ -341,8 +352,7 @@ static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
    if (connect) {
       GtkTreeModel *model = NULL;
       GtkTreeIter iter;
-      gboolean server_selected = gtk_tree_selection_get_selected(selection, &model, &iter) &&
-         !picker_is_network(model, &iter);
+      gboolean server_selected = gtk_tree_selection_get_selected(selection, &model, &iter) && !picker_is_network(model, &iter);
       gtk_widget_set_sensitive(connect, server_selected);
    }
    GtkWidget *edit = g_object_get_data(G_OBJECT(tree), "rr-edit-button");
@@ -353,16 +363,15 @@ static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
       g_free(profile);
    }
 }
+
 /* Network rows are headings: don't paint per-server toggles on them. */
-static void picker_server_toggle_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
-                                     GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+static void picker_server_toggle_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    gboolean network = picker_is_network(model, iter);
    picker_row_style(column, cell, model, iter, data);
-   /* GtkCellRenderer instances are reused across rows: explicitly reset both
-    * properties so network headers never inherit a previous server toggle. */
+
+   /* GtkCellRenderer instances are reused across rows: explicitly reset both properties so network headers never inherit a previous server toggle. */
    if (network) {
-      g_object_set(cell, "visible", FALSE, "sensitive", FALSE,
-                   "active", FALSE, "inconsistent", FALSE, NULL);
+      g_object_set(cell, "visible", FALSE, "sensitive", FALSE, "active", FALSE, "inconsistent", FALSE, NULL);
    } else {
       g_object_set(cell, "visible", TRUE, "sensitive", TRUE, NULL);
    }
@@ -931,8 +940,11 @@ void gtk_server_picker_edit_network(GtkButton *button, gpointer data) {
 
 /* Alt-X toggles this floating panel; ordinary show requests still raise it. */
 gboolean gtk_server_picker_toggle(void) {
-   if (!picker_panel) return FALSE;
+   if (!picker_panel) {
+      return FALSE;
+   }
    picker_close(NULL);
+
    return TRUE;
 }
 

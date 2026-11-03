@@ -12,8 +12,7 @@
 #define AUDIO_BLOCK 320u
 #define AUDIO_CAPACITY 4000u
 #define AUDIO_PERIOD_US 20000
-/* Buffer 80 ms before startup/recovery, with a 240 ms queue ceiling. This
- * absorbs bursty decoder output without depending on GTK scheduling. */
+/* Buffer 80 ms before startup/recovery, with a 240 ms queue ceiling. This absorbs bursty decoder output without depending on GTK scheduling. */
 #define AUDIO_PREFILL (4u * AUDIO_BLOCK)
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
  * underflow, forcing unnecessary further rebuffering. */
@@ -65,9 +64,8 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       *active = true;
 
       if (!s->primed) {
-         /* Require an 80 ms cushion both at start and after starvation. The old
-          * 20 ms recovery threshold immediately exhausted on bursty PCM arrivals,
-          * causing repeating short silences even with an on-time mixer clock. */
+         /* Require an 80 ms cushion both at start and after starvation. The old 20 ms recovery threshold immediately exhausted on bursty PCM arrivals, causing
+          * repeating short silences even with an on-time mixer clock. */
          size_t threshold = AUDIO_PREFILL;
 
          if (s->count < threshold) {

@@ -35,7 +35,9 @@ static gboolean answer_dialog(gpointer data) {
                found = true;
             }
          }
+
          g_list_free(labels);
+
          if (!found) {
             continue;
          }
@@ -49,6 +51,7 @@ static gboolean answer_dialog(gpointer data) {
                break;
             }
          }
+
          assert(grid);
          assert(!gtk_editable_get_editable(GTK_EDITABLE(gtk_grid_get_child_at(grid, 1, 0))));
          assert(!gtk_editable_get_editable(GTK_EDITABLE(gtk_grid_get_child_at(grid, 1, 5))));
@@ -118,6 +121,7 @@ static void admin_sites_request(const char *event, const char *payload, rrconn_t
    }
    char *request_id = g_strdup(dict_get(request, "request.id", ""));
    dict *site = dict_new();
+
    if (site) {
       dict_add(site, "request.id", request_id);
       dict_add(site, "profile", "alpha");
@@ -126,6 +130,7 @@ static void admin_sites_request(const char *event, const char *payload, rrconn_t
    }
    dict_free(request);
    dict *complete = dict_new();
+
    if (complete) {
       dict_add(complete, "request.id", request_id);
       event_emit_dict("client.admin.sites-complete", NULL, complete);

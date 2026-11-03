@@ -17,5 +17,6 @@ int main(void) {
    slice.center_hz = 145100000;
    slice.output_rate_hz = 2000;
    assert(!rr_slice_fits(&source, &slice));
+
    return 0;
 }

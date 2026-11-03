@@ -53,7 +53,9 @@ static void note(struct kiwi_instance *k, const char *text) {
    }
 }
 static void unavailable(struct kiwi_instance *k) {
-   if (k->waterfall) k->waterfall->is_closing = 1;
+   if (k->waterfall) {
+      k->waterfall->is_closing = 1;
+   }
    uint64_t request = k->request;
    k->request = 0;
 
@@ -100,9 +102,14 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    k->host = *host;
    k->max_hz = 30000000;
    k->waterfall_zoom = 6;
-   k->agc = 1; k->hang = 0; k->thresh = -100; k->slope = 6;
-   k->decay = 1000; k->man_gain = 50;
-   k->nb_gate = 100; k->nb_thresh = 50;
+   k->agc = 1;
+   k->hang = 0;
+   k->thresh = -100;
+   k->slope = 6;
+   k->decay = 1000;
+   k->man_gain = 50;
+   k->nb_gate = 100;
+   k->nb_thresh = 50;
    k->hz = k->wanted_hz = 14074000;
    strcpy(k->mode, "USB");
    strcpy(k->wanted_mode, "USB");
@@ -121,8 +128,8 @@ static bool kiwi_capabilities(void *instance, rrp_sdr_capabilities_t *out) {
       return false;
    }
    *out = (rrp_sdr_capabilities_t) {
-      .rx = true, .rx_audio = true, .rx_waterfall = true,
-      .waterfall_zoom = true, .waterfall_zoom_min = 0, .waterfall_zoom_max = 14, .rx_min_hz = 0, .rx_max_hz = ((struct kiwi_instance *)instance)->max_hz, .rx_modes = "USB LSB AM CW"
+      .rx = true, .rx_audio = true, .rx_waterfall = true, .waterfall_zoom = true, .waterfall_zoom_min = 0, .waterfall_zoom_max = 14, .rx_min_hz = 0, .rx_max_hz
+         = ((struct kiwi_instance *)instance)->max_hz, .rx_modes = "USB LSB AM CW"
    };
 
    return true;
@@ -171,18 +178,16 @@ static bool configure(struct kiwi_instance *k) {
       return true;
    }
    char tune[160], agc[160], squelch[64];
-   snprintf(agc, sizeof(agc),
-      "SET agc=%d hang=%d thresh=%d slope=%d decay=%d manGain=%d",
-      k->agc, k->hang, k->thresh, k->slope, k->decay, k->man_gain);
+   snprintf(agc, sizeof(agc), "SET agc=%d hang=%d thresh=%d slope=%d decay=%d manGain=%d", k->agc, k->hang, k->thresh, k->slope, k->decay, k->man_gain);
    snprintf(squelch, sizeof(squelch), "SET squelch=%d max=%d", k->squelch, k->squelch_max);
 
    char de_emp[32];
    snprintf(de_emp, sizeof(de_emp), "SET de_emp=%d", k->de_emp);
+
    if (!kiwi_tune(k, k->wanted_hz, k->wanted_mode, tune, sizeof(tune)) ||
       !send_command(k, "SET compression=0") || !send_command(k, squelch) ||
       !send_command(k, "SET genattn=0") || !send_command(k, "SET gen=0 mix=-1") ||
-      !send_command(k, agc) || !send_command(k, de_emp) ||
-      !kiwi_noise_blanker(k) || !send_command(k, tune)) {
+      !send_command(k, agc) || !send_command(k, de_emp) || !kiwi_noise_blanker(k) || !send_command(k, tune)) {
       return false;
    }
    k->configured = true;
@@ -393,7 +398,10 @@ static bool kiwi_receive(void *instance, const void *frame, size_t length) {
    if ((!k->online || k->request) && (data[3] & 0x04)) {
       k->hz = k->wanted_hz;
       snprintf(k->mode, sizeof(k->mode), "%s", k->wanted_mode);
-      if (k->waterfall && k->waterfall_ready) waterfall_center(k);
+
+      if (k->waterfall && k->waterfall_ready) {
+         waterfall_center(k);
+      }
 
       if (!k->online) {
          k->online_since = mono_us();
@@ -590,23 +598,30 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
 
    return true;
 }
-/* W/F is an independent Kiwi websocket; never let spectrum failures
- * interrupt SND or the audio watchdog. Uncompressed rows are 1024 bins. */
-/* Kiwi waterfall start is a fixed-point low-edge offset, not kHz.
- * A 1024-bin row at zoom 6 spans 1/64 of the full receiver bandwidth.
- * MAX_ZOOM=14 gives a 24-bit start scale for current KiwiSDR. */
+
+/* W/F is an independent Kiwi websocket; never let spectrum failures interrupt SND or the audio watchdog. Uncompressed rows are 1024 bins. */
+/* Kiwi waterfall start is a fixed-point low-edge offset, not kHz. A 1024-bin row at zoom 6 spans 1/64 of the full receiver bandwidth. MAX_ZOOM=14 gives a
+ * 24-bit start scale for current KiwiSDR. */
 static void waterfall_range(const struct kiwi_instance *k, uint64_t *low_hz, uint64_t *high_hz) {
    double full = (double)k->max_hz;
    double span = full / (1u << k->waterfall_zoom);
    double center = (double)(k->waterfall_center_hz ? k->waterfall_center_hz : (k->wanted_hz ? k->wanted_hz : k->hz));
    double low = center - span / 2.;
-   if (low < 0.) low = 0.;
-   if (low > full - span) low = full - span;
-   *low_hz = (uint64_t)(low + .5);
-   *high_hz = (uint64_t)(low + span + .5);
+
+   if (low < 0.) {
+      low = 0.;
+   }
+
+   if (low > full - span) {
+      low = full - span;
+   }
+   *low_hz = (uint64_t) (low + .5);
+   *high_hz = (uint64_t) (low + span + .5);
 }
 static void waterfall_center(struct kiwi_instance *k) {
-   if (!k->waterfall || !k->max_hz) return;
+   if (!k->waterfall || !k->max_hz) {
+      return;
+   }
    const unsigned zoom = k->waterfall_zoom;
    uint64_t low_hz, high_hz;
    waterfall_range(k, &low_hz, &high_hz);
@@ -619,27 +634,35 @@ static void waterfall_center(struct kiwi_instance *k) {
 }
 static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
+
    if (event == MG_EV_WS_OPEN) {
       note(k, "Kiwi RF waterfall websocket opened");
       k->waterfall_keepalive = mono_us();
       const char *password = setting(k, "password");
-      if (!password) password = "";
+
+      if (!password) {
+         password = "";
+      }
+
       if (strlen(password) > 128 || strpbrk(password, " \\r\\n")) {
          c->is_closing = 1;
+
          return;
       }
       char auth[192];
       snprintf(auth, sizeof(auth), "SET auth t=kiwi p=%s", password);
       mg_ws_send(c, auth, strlen(auth), WEBSOCKET_OP_TEXT);
-      /* Kiwi requires start= for waterfall positioning; cf= is not the
-       * corresponding W/F command. Initialize display range and pacing. */
+      /* Kiwi requires start= for waterfall positioning; cf= is not the corresponding W/F command. Initialize display range and pacing. */
       const char *commands[] = {
          "SERVER DE CLIENT RustyRig W/F",
          "SET wf_comp=0",
          "SET maxdb=-20 mindb=-120", "SET wf_speed=2", "SET interp=13"
       };
-      for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++)
+
+      for (size_t i = 0 ; i < sizeof(commands) / sizeof(commands[0]) ; i++) {
          mg_ws_send(c, commands[i], strlen(commands[i]), WEBSOCKET_OP_TEXT);
+      }
+
       waterfall_center(k);
    } else if (event == MG_EV_ERROR) {
       char detail[256];
@@ -647,15 +670,16 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       note(k, detail);
    } else if (event == MG_EV_WS_MSG) {
       struct mg_ws_message *m = data;
+
       if (!k->waterfall_first_frame_logged && m->data.len > 0) {
          k->waterfall_first_frame_logged = true;
          char detail[128];
          snprintf(detail, sizeof(detail), "Kiwi W/F frame: %zu bytes, type=0x%x", m->data.len, m->flags);
          note(k, detail);
       }
+
       if (m->data.len >= 3 && !memcmp(m->data.buf, "MSG", 3)) {
-         /* Control messages precede the first spectrum row; these are not
-          * decoder failures and may carry receiver setup state. */
+         /* Control messages precede the first spectrum row; these are not decoder failures and may carry receiver setup state. */
          if (!k->waterfall_setup_logged) {
             k->waterfall_setup_logged = true;
             char detail[220];
@@ -664,22 +688,28 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
             note(k, detail);
          }
       }
+
       if (m->data.len >= 3 && !memcmp(m->data.buf, "W/F", 3)) {
          k->wf_received++;
-         if (m->data.len != 1040) k->wf_invalid++;
-         /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins.
-          * Keep parsing conservative pending normalized spectrum transport. */
+
+         if (m->data.len != 1040) {
+            k->wf_invalid++;
+         }
+
+         /* Default uncompressed Kiwi rows: fixed 16-byte header + 1024 bins. Keep parsing conservative pending normalized spectrum transport. */
          if (m->data.len != 1040 && !k->waterfall_ready) {
             char detail[128];
             snprintf(detail, sizeof(detail), "Kiwi RF waterfall: unexpected frame length %zu (expected 1040)", m->data.len);
             note(k, detail);
          }
+
          if (m->data.len == 1040) {
-            /* Drop surplus W/F rows before IPC to protect the audio pipeline.
-             * Keep audio WebSocket and watchdog handling independent. */
+            /* Drop surplus W/F rows before IPC to protect the audio pipeline. Keep audio WebSocket and watchdog handling independent. */
             uint64_t now = mono_us();
+
             if (k->waterfall_last_sent && now - k->waterfall_last_sent < 100000) {
                k->wf_throttled++;
+
                return;
             }
             k->waterfall_last_sent = now;
@@ -688,17 +718,19 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
             rr_bridge_spectrum_row row = {
                .magic = RR_BRIDGE_SPECTRUM_MAGIC, .version = 1,
                .low_hz = low_hz, .high_hz = high_hz,
-               .sequence = (uint32_t)k->waterfall_rows,
+               .sequence = (uint32_t) k->waterfall_rows,
                .bins = RR_BRIDGE_SPECTRUM_BINS
             };
             memcpy(row.power, m->data.buf + 16, RR_BRIDGE_SPECTRUM_BINS);
             int sent = rr_bridge_spectrum_send(RR_BRIDGE_SPECTRUM_FD, &row);
+
             if (sent == 1) {
                k->wf_sent++;
                k->waterfall_rows++;
             } else {
                k->wf_ipc_dropped++;
             }
+
             if (!k->waterfall_ready) {
                k->waterfall_ready = true;
                note(k, "Kiwi W/F stream ready (1024 RF power bins per row)");
@@ -708,9 +740,9 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_READ && c->recv.len > 65536) {
       c->is_closing = 1;
    } else if (event == MG_EV_CLOSE && c == k->waterfall) {
-      if (k->waterfall_enabled)
-         note(k, k->waterfall_ready ? "Kiwi W/F socket closed; will retry independently of audio" :
-              "Kiwi W/F socket closed before receiving spectrum data");
+      if (k->waterfall_enabled) {
+         note(k, k->waterfall_ready ? "Kiwi W/F socket closed; will retry independently of audio" : "Kiwi W/F socket closed before receiving spectrum data");
+      }
       k->waterfall = NULL;
       k->waterfall_ready = false;
       k->waterfall_first_frame_logged = false;
@@ -860,8 +892,7 @@ static bool kiwi_start(void *instance) {
    const char *secure = setting(k, "secure");
    bool tls = secure && (!strcasecmp(secure, "true") || !strcmp(secure, "1") || !strcasecmp(secure, "yes"));
    // Same timestamped SND route as kiwiclient, with a unique process suffix.
-   snprintf(k->url, sizeof(k->url), "%s://%s:%lu/%" PRIu64 "/SND", tls ? "wss" : "ws", host, port,
-      (uint64_t) time(NULL) * 1000 + (unsigned)getpid() % 1000);
+   snprintf(k->url, sizeof(k->url), "%s://%s:%lu/%" PRIu64 "/SND", tls ? "wss" : "ws", host, port, (uint64_t) time(NULL) * 1000 + (unsigned)getpid() % 1000);
 
    if (k->host.metadata) {
       char endpoint[320];
@@ -911,15 +942,21 @@ static void kiwi_poll(void *instance) {
          k->retry = current + 1000000;
       }
    }
+
    /* Waterfall is optional and independently retried. Never block audio. */
    if (k->waterfall_enabled && k->online && !k->waterfall && current >= k->waterfall_retry) {
       char wf_url[512];
       snprintf(wf_url, sizeof(wf_url), "%s", k->url);
       char *snd = strstr(wf_url, "/SND");
+
       if (snd && !snd[4]) {
          memcpy(snd + 1, "W/F", 4);
          const char *ua = setting(k, "user-agent");
-         if (!ua || !*ua) ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36";
+
+         if (!ua || !*ua) {
+            ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36";
+         }
+
          if (strlen(ua) < 384 && !strpbrk(ua, "\r\n")) {
             char headers[416];
             snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
@@ -933,30 +970,34 @@ static void kiwi_poll(void *instance) {
    }
    mg_mgr_poll(&k->manager, 0);
    current = mono_us();
+
    /* Separate intentional rate limiting from actual IPC loss. */
-   if (!k->wf_stats_at) k->wf_stats_at = current;
+   if (!k->wf_stats_at) {
+      k->wf_stats_at = current;
+   }
+
    if (current - k->wf_stats_at >= UINT64_C(10000000)) {
       if (k->wf_received || k->wf_throttled || k->wf_ipc_dropped || k->wf_invalid) {
          char detail[256];
          uint64_t dropped = k->wf_throttled + k->wf_ipc_dropped + k->wf_invalid;
-         snprintf(detail, sizeof(detail),
-            "Kiwi RF waterfall/10s received=%" PRIu64 " sent=%" PRIu64
+         snprintf(detail, sizeof(detail), "Kiwi RF waterfall/10s received=%" PRIu64 " sent=%" PRIu64
             " throttle=%" PRIu64 " ipc-drop=%" PRIu64 " malformed=%" PRIu64
-            " dropped=%.1f%%",
-            k->wf_received, k->wf_sent, k->wf_throttled, k->wf_ipc_dropped,
-            k->wf_invalid, k->wf_received ? 100.0 * (double)dropped / (double)k->wf_received : 0.0);
+            " dropped=%.1f%%", k->wf_received, k->wf_sent, k->wf_throttled, k->wf_ipc_dropped, k->wf_invalid, k->wf_received ? 100.0 * (double)dropped / (
+               double)k->wf_received : 0.0);
          note(k, detail);
       }
       k->wf_received = k->wf_sent = k->wf_throttled = 0;
       k->wf_ipc_dropped = k->wf_invalid = 0;
       k->wf_stats_at = current;
    }
+
    /* Kiwi W/F has its own session timer, separate from SND. */
-   if (k->waterfall_enabled && k->waterfall && k->waterfall->is_websocket &&
-       !k->waterfall->is_closing && current - k->waterfall_keepalive >= 1000000) {
+   if (k->waterfall_enabled && k->waterfall && k->waterfall->is_websocket && !k->waterfall->is_closing && current - k->waterfall_keepalive >= 1000000) {
       const char *keepalive = "SET keepalive";
-      if (k->waterfall->send.len < KIWI_QUEUE_MAX)
+
+      if (k->waterfall->send.len < KIWI_QUEUE_MAX) {
          mg_ws_send(k->waterfall, keepalive, strlen(keepalive), WEBSOCKET_OP_TEXT);
+      }
       k->waterfall_keepalive = current;
    }
 
@@ -1012,7 +1053,10 @@ static bool kiwi_set_receiver(void *instance, uint64_t request, uint64_t hz, con
    }
    k->wanted_hz = hz;
    snprintf(k->wanted_mode, sizeof(k->wanted_mode), "%s", mode);
-   if (k->waterfall) waterfall_center(k);
+
+   if (k->waterfall) {
+      waterfall_center(k);
+   }
    k->request = request;
    k->deadline = mono_us() + 4000000;
 
@@ -1021,11 +1065,15 @@ static bool kiwi_set_receiver(void *instance, uint64_t request, uint64_t hz, con
 
 static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint64_t center_hz) {
    struct kiwi_instance *k = instance;
-   if (!k || zoom > 14 || center_hz > k->max_hz) return false;
+
+   if (!k || zoom > 14 || center_hz > k->max_hz) {
+      return false;
+   }
    k->waterfall_zoom = zoom;
    k->waterfall_center_hz = center_hz;
    k->waterfall_enabled = enabled;
    k->waterfall_last_sent = 0;
+
    if (!enabled && k->waterfall) {
       k->waterfall->is_closing = 1;
       k->waterfall_retry = 0;
@@ -1034,6 +1082,7 @@ static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint
    } else if (enabled) {
       k->waterfall_retry = 0;
    }
+
    return true;
 }
 static bool kiwi_noise_blanker(struct kiwi_instance *k) {
@@ -1042,54 +1091,103 @@ static bool kiwi_noise_blanker(struct kiwi_instance *k) {
    snprintf(threshold, sizeof(threshold), "SET nb type=0 param=1 pval=%d", k->nb_thresh);
    snprintf(enabled, sizeof(enabled), "SET nb type=0 en=%d", k->nb);
    snprintf(click, sizeof(click), "SET nb type=2 en=%d", k->nb_click);
+
    return send_command(k, "SET nb algo=1") && send_command(k, gate) &&
-      send_command(k, threshold) && send_command(k, enabled) &&
-      send_command(k, "SET nb type=2 param=0 pval=1") &&
-      send_command(k, "SET nb type=2 param=1 pval=1") &&
-      send_command(k, click);
+          send_command(k, threshold) && send_command(k, enabled) &&
+          send_command(k, "SET nb type=2 param=0 pval=1") && send_command(k, "SET nb type=2 param=1 pval=1") && send_command(k, click);
 }
 static bool kiwi_control(void *instance, const char *name, const char *value) {
    struct kiwi_instance *k = instance;
-   if (!k || !name || !value || !*value) return false;
+
+   if (!k || !name || !value || !*value) {
+      return false;
+   }
    char *end = NULL;
    long v = strtol(value, &end, 10);
-   if (end == value || *end) return false;
+
+   if (end == value || *end) {
+      return false;
+   }
    int *target = NULL;
    int low = 0, high = 0;
-   if (!strcmp(name, "agc")) { target = &k->agc; high = 1; }
-   else if (!strcmp(name, "hang")) { target = &k->hang; high = 1; }
-   else if (!strcmp(name, "threshold")) { target = &k->thresh; low = -130; high = 0; }
-   else if (!strcmp(name, "slope")) { target = &k->slope; high = 20; }
-   else if (!strcmp(name, "decay")) { target = &k->decay; low = 50; high = 5000; }
-   else if (!strcmp(name, "manual-gain")) { target = &k->man_gain; high = 100; }
-   else if (!strcmp(name, "squelch")) { target = &k->squelch; high = 1; }
-   else if (!strcmp(name, "squelch-threshold")) { target = &k->squelch_max; high = 100; }
-   else if (!strcmp(name, "noise-blanker")) { target = &k->nb; high = 1; }
-   else if (!strcmp(name, "blanker-gate")) { target = &k->nb_gate; low = 100; high = 5000; }
-   else if (!strcmp(name, "blanker-threshold")) { target = &k->nb_thresh; high = 100; }
-   else if (!strcmp(name, "click-blanker")) { target = &k->nb_click; high = 1; }
-   else if (!strcmp(name, "de-emphasis")) { target = &k->de_emp; high = 1; }
-   else return false;
-   if (v < low || v > high) return false;
+
+   if (!strcmp(name, "agc")) {
+      target = &k->agc;
+      high = 1;
+   } else if (!strcmp(name, "hang")) {
+      target = &k->hang;
+      high = 1;
+   } else if (!strcmp(name, "threshold")) {
+      target = &k->thresh;
+      low = -130;
+      high = 0;
+   } else if (!strcmp(name, "slope")) {
+      target = &k->slope;
+      high = 20;
+   } else if (!strcmp(name, "decay")) {
+      target = &k->decay;
+      low = 50;
+      high = 5000;
+   } else if (!strcmp(name, "manual-gain")) {
+      target = &k->man_gain;
+      high = 100;
+   } else if (!strcmp(name, "squelch")) {
+      target = &k->squelch;
+      high = 1;
+   } else if (!strcmp(name, "squelch-threshold")) {
+      target = &k->squelch_max;
+      high = 100;
+   } else if (!strcmp(name, "noise-blanker")) {
+      target = &k->nb;
+      high = 1;
+   } else if (!strcmp(name, "blanker-gate")) {
+      target = &k->nb_gate;
+      low = 100;
+      high = 5000;
+   } else if (!strcmp(name, "blanker-threshold")) {
+      target = &k->nb_thresh;
+      high = 100;
+   } else if (!strcmp(name, "click-blanker")) {
+      target = &k->nb_click;
+      high = 1;
+   } else if (!strcmp(name, "de-emphasis")) {
+      target = &k->de_emp;
+      high = 1;
+   } else {
+      return false;
+   }
+
+   if (v < low || v > high) {
+      return false;
+   }
    int previous = *target;
    *target = (int)v;
    char command[192];
-   if (!strncmp(name, "squelch", 7))
+
+   if (!strncmp(name, "squelch", 7)) {
       snprintf(command, sizeof(command), "SET squelch=%d max=%d", k->squelch, k->squelch_max);
-   else if (!strcmp(name, "de-emphasis"))
+   } else if (!strcmp(name, "de-emphasis")) {
       snprintf(command, sizeof(command), "SET de_emp=%d", k->de_emp);
-   else if (!strcmp(name, "noise-blanker") || !strcmp(name, "blanker-gate") ||
-            !strcmp(name, "blanker-threshold") || !strcmp(name, "click-blanker")) {
-      if (kiwi_noise_blanker(k)) return true;
+   } else if (!strcmp(name, "noise-blanker") || !strcmp(name, "blanker-gate") || !strcmp(name, "blanker-threshold") || !strcmp(name, "click-blanker")) {
+      if (kiwi_noise_blanker(k)) {
+         return true;
+      }
       *target = previous;
+
       return false;
-   } else
-      snprintf(command, sizeof(command), "SET agc=%d hang=%d thresh=%d slope=%d decay=%d manGain=%d",
-               k->agc, k->hang, k->thresh, k->slope, k->decay, k->man_gain);
-   if (send_command(k, command)) return true;
+   } else {
+      snprintf(command, sizeof(command), "SET agc=%d hang=%d thresh=%d slope=%d decay=%d manGain=%d", k->agc, k->hang, k->thresh, k->slope, k->decay, k->
+         man_gain);
+   }
+
+   if (send_command(k, command)) {
+      return true;
+   }
    *target = previous;
+
    return false;
 }
+
 static const rrp_sdr_driver_t kiwi_driver = {
    .abi_version = RRP_SDR_ABI_VERSION, .name = "kiwi", .create = kiwi_create,
    .destroy = kiwi_destroy, .capabilities = kiwi_capabilities, .start = kiwi_start, .poll = kiwi_poll,

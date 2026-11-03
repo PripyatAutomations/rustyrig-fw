@@ -123,8 +123,8 @@ static void admin_pending_request_free(gpointer data) {
    g_weak_ref_clear(&pending->status);
    g_free(pending);
 }
-static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const char *profile, const char *command, const char *tail, const char *target,
-   dict *fields) {
+static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const char *profile, const char *command, const char *tail, const char *target, dict *
+   fields) {
    if (!profile || !*profile) {
       GtkWidget *label = status ? status : table ? table->status : NULL;
 
@@ -151,7 +151,9 @@ static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const c
    dict_add(request, "command", command);
    dict_add(request, "tail", tail ? tail : "");
    dict_add(request, "target", target ? target : "");
-   const char *field_names[] = {"user.email", "user.real_name", "user.phone"};
+   const char *field_names[] = {
+      "user.email", "user.real_name", "user.phone"
+   };
 
    for (size_t i = 0 ; fields && i < G_N_ELEMENTS(field_names) ; i++) {
       const char *value = dict_get(fields, field_names[i], NULL);
@@ -160,6 +162,7 @@ static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const c
          dict_add(request, field_names[i], value);
       }
    }
+
    if (!admin_pending_requests) {
       admin_pending_requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, admin_pending_request_free);
    }
@@ -191,6 +194,7 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
 static bool admin_session_command(admin_table_t *table, const char *command, const char *id) {
    return admin_command(table, command, "", id);
 }
+
 typedef struct {
    admin_table_t *table;
    char profile[128];
@@ -212,8 +216,8 @@ static void admin_profile_result(const char *event, const char *data, rrconn_t *
       g_strlcpy(admin_selected_profile, profile, sizeof(admin_selected_profile));
       dict_free(reply);
 
-      if (changed && admin_view && main_notebook && gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-         gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_view) {
+      if (changed && admin_view && main_notebook
+         && gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_view) {
          gtk_admin_refresh();
       }
    }
@@ -224,6 +228,7 @@ static gboolean admin_command_result_apply(gpointer data) {
    if (result->status && !gtk_widget_in_destruction(result->status)) {
       gtk_label_set_text(GTK_LABEL(result->status), result->message);
    }
+
    if (result->status) {
       g_object_unref(result->status);
    }
@@ -319,12 +324,15 @@ static void admin_password_notice_destroy(GtkWidget *widget, gpointer unused) {
    if (admin_password_notice_token) {
       event_off_token(admin_password_notice_token);
    }
+
    if (admin_command_result_token) {
       event_off_token(admin_command_result_token);
    }
+
    if (admin_profile_token) {
       event_off_token(admin_profile_token);
    }
+
    if (admin_pending_requests) {
       g_hash_table_remove_all(admin_pending_requests);
    }
@@ -1117,7 +1125,9 @@ static void admin_action(GtkButton *button, gpointer data) {
       /* Snapshot the destination before entering the modal dialog: changing the globally selected server must not redirect this edit. */
       char destination[sizeof(table->profile)];
       g_strlcpy(destination, table->profile, sizeof(destination));
-      admin_password_context_t password_context = {.table = table};
+      admin_password_context_t password_context = {
+         .table = table
+      };
       g_strlcpy(password_context.profile, destination, sizeof(password_context.profile));
       gchar *account_uid = NULL;
       gtk_tree_model_get(model, &iter, 8, &account_uid, -1);
@@ -1650,6 +1660,7 @@ static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint nu
 GtkWidget *init_admin_tab(void) {
    gtk_admin_privgroup_set_sender(admin_command);
    gtk_admin_session_set_sender(admin_session_command);
+
    if (!admin_pending_requests) {
       admin_pending_requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, admin_pending_request_free);
    }

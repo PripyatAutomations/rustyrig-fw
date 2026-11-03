@@ -46,7 +46,11 @@ bool rrclient_database_init(void) {
    sqlite3_finalize(stmt);
 
    if (version == 2 || version == 3 || version == 4) {
-      if (sqlite3_exec(client_db, "CREATE TABLE IF NOT EXISTS proxies (name TEXT PRIMARY KEY COLLATE NOCASE, url TEXT NOT NULL); CREATE TABLE IF NOT EXISTS themes (name TEXT NOT NULL COLLATE NOCASE, property TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(name,property)); PRAGMA user_version=4", NULL, NULL, NULL) != SQLITE_OK) goto fail;
+      if (sqlite3_exec(client_db,
+         "CREATE TABLE IF NOT EXISTS proxies (name TEXT PRIMARY KEY COLLATE NOCASE, url TEXT NOT NULL); CREATE TABLE IF NOT EXISTS themes (name TEXT NOT NULL COLLATE NOCASE, property TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(name,property)); PRAGMA user_version=4",
+         NULL, NULL, NULL) != SQLITE_OK) {
+         goto fail;
+      }
       g_free(path);
       g_free(dir);
 
@@ -376,28 +380,44 @@ bool rrclient_database_config_save(const char *path) {
 
 /* Named proxies are stored alongside server profiles in client.db. */
 bool rrclient_database_proxy_set(const char *name, const char *url) {
-   if (!client_db || !name || !*name || !url) return false;
+   if (!client_db || !name || !*name || !url) {
+      return false;
+   }
+
    return db_exec3("INSERT INTO proxies(name,url) VALUES(?1,?2) ON CONFLICT(name) DO UPDATE SET url=excluded.url", name, url, NULL);
 }
 bool rrclient_database_proxy_delete(const char *name) {
-   if (!client_db || !name) return false;
+   if (!client_db || !name) {
+      return false;
+   }
+
    return db_exec3("DELETE FROM proxies WHERE name=?1", name, NULL, NULL);
 }
-void rrclient_database_proxy_foreach(void (*cb)(const char *, const char *, void *), void *data) {
-   if (!client_db || !cb) return;
+void rrclient_database_proxy_foreach(void (*cb) (const char *, const char *, void *), void *data) {
+   if (!client_db || !cb) {
+      return;
+   }
    sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db, "SELECT name,url FROM proxies ORDER BY name COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) return;
-   while (sqlite3_step(q) == SQLITE_ROW)
+
+   if (sqlite3_prepare_v2(client_db, "SELECT name,url FROM proxies ORDER BY name COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) {
+      return;
+   }
+   while (sqlite3_step(q) == SQLITE_ROW) {
       cb((const char *)sqlite3_column_text(q, 0), (const char *)sqlite3_column_text(q, 1), data);
+   }
    sqlite3_finalize(q);
 }
 
 /* Database theme definitions override file definitions of the same name/key. */
 bool rrclient_database_load_themes(void) {
-   if (!client_db || !cfg) return false;
-   sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db, "SELECT name,property,value FROM themes ORDER BY name,property", -1, &q, NULL) != SQLITE_OK)
+   if (!client_db || !cfg) {
       return false;
+   }
+   sqlite3_stmt *q = NULL;
+
+   if (sqlite3_prepare_v2(client_db, "SELECT name,property,value FROM themes ORDER BY name,property", -1, &q, NULL) != SQLITE_OK) {
+      return false;
+   }
    while (sqlite3_step(q) == SQLITE_ROW) {
       const char *name = (const char *)sqlite3_column_text(q, 0);
       const char *property = (const char *)sqlite3_column_text(q, 1);
@@ -407,13 +427,15 @@ bool rrclient_database_load_themes(void) {
       g_free(key);
    }
    sqlite3_finalize(q);
+
    return true;
 }
 
 bool rrclient_database_theme_set(const char *name, const char *property, const char *value) {
-   if (!client_db || !name || !*name || !property || !*property || !value ||
-       strchr(name, '.') || strchr(name, '\n') || strchr(property, '\n'))
+   if (!client_db || !name || !*name || !property || !*property || !value || strchr(name, '.') || strchr(name, '\n') || strchr(property, '\n')) {
       return false;
+   }
+
    return db_exec3("INSERT INTO themes(name,property,value) VALUES(?1,?2,?3) "
       "ON CONFLICT(name,property) DO UPDATE SET value=excluded.value", name, property, value);
 }

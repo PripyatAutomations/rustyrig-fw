@@ -15,9 +15,15 @@
 #endif
 static bool layered;
 static bool config_dirty;
-void rrclient_config_mark_dirty(void) { config_dirty = true; }
-bool rrclient_config_is_dirty(void) { return config_dirty; }
-void rrclient_config_clear_dirty(void) { config_dirty = false; }
+void rrclient_config_mark_dirty(void) {
+   config_dirty = true;
+}
+bool rrclient_config_is_dirty(void) {
+   return config_dirty;
+}
+void rrclient_config_clear_dirty(void) {
+   config_dirty = false;
+}
 
 /* The host builds default_cfg before loading any file. Preserve it as the lowest-precedence layer without mutating the shared defaults table. */
 static dict *with_defaults(dict *loaded) {
@@ -40,33 +46,51 @@ static dict *with_defaults(dict *loaded) {
 
 /* Named themes are source records; only theme.* contains active values. */
 void rrclient_theme_apply(void) {
-   if (!cfg) return;
+   if (!cfg) {
+      return;
+   }
    const char *active = dict_get(cfg, "theme", "Stock");
    /* Reset the previously selected theme's values before applying a new one. */
    const char *default_key;
    char *default_value;
    int di = 0;
+
    if (default_cfg) {
       while ((di = dict_enumerate(default_cfg, di, &default_key, &default_value)) >= 0) {
-         if (!strncmp(default_key, "theme.", 6))
+         if (!strncmp(default_key, "theme.", 6)) {
             dict_add(cfg, default_key, default_value ? default_value : "");
+         }
       }
    }
-   if (!active || !*active || !strcmp(active, "Stock")) return;
+
+   if (!active || !*active || !strcmp(active, "Stock")) {
+      return;
+   }
    size_t prefix_len = strlen(active) + sizeof("theme:");
    char *prefix = malloc(prefix_len + 1);
-   if (!prefix) return;
+
+   if (!prefix) {
+      return;
+   }
    snprintf(prefix, prefix_len + 1, "theme:%s.", active);
    size_t len = strlen(prefix);
    dict *values = dict_new();
-   if (!values) { free(prefix); return; }
+
+   if (!values) {
+      free(prefix);
+
+      return;
+   }
    const char *key;
    char *value;
    int index = 0;
    while ((index = dict_enumerate(cfg, index, &key, &value)) >= 0) {
       if (!strncmp(key, prefix, len)) {
          char *dest = malloc(strlen(key + len) + sizeof("theme."));
-         if (!dest) continue;
+
+         if (!dest) {
+            continue;
+         }
          sprintf(dest, "theme.%s", key + len);
          dict_add(values, dest, value ? value : "");
          free(dest);
@@ -119,7 +143,10 @@ bool rrclient_config_load(void) {
    if (config_file) {
       cfg = with_defaults(cfg_load(config_file));
 
-      if (cfg) rrclient_theme_apply();
+      if (cfg) {
+         rrclient_theme_apply();
+      }
+
       return cfg != NULL;
    }
 #ifndef _WIN32
@@ -144,27 +171,34 @@ bool rrclient_config_load(void) {
    layered = true;
    cfg = read_layers(RRCLIENT_SYSTEM_CONFIG_PATH, config_file);
 
-   if (cfg) rrclient_theme_apply();
+   if (cfg) {
+      rrclient_theme_apply();
+   }
+
    return cfg != NULL;
 }
 
 bool rrclient_config_reload(const char *path) {
    if (!layered || (path && strcmp(path, config_file))) {
       bool ok = cfg_reload(path);
+
       if (ok) {
          rrclient_database_load_themes();
          rrclient_theme_apply();
          rrclient_config_clear_dirty();
       }
+
       return ok;
    }
    dict *replacement = read_layers(RRCLIENT_SYSTEM_CONFIG_PATH, config_file);
 
    bool ok = replacement && cfg_apply_new(cfg, replacement);
+
    if (ok) {
       rrclient_database_load_themes();
       rrclient_theme_apply();
       rrclient_config_clear_dirty();
    }
+
    return ok;
 }

@@ -44,12 +44,10 @@ const rr_pipeline_link_t *rr_pipeline_graph_link(const rr_pipeline_graph_t *grap
 const gchar *rr_pipeline_node_factory(const rr_pipeline_node_t *node);
 const gchar *rr_pipeline_node_name(const rr_pipeline_node_t *node);
 void rr_pipeline_node_set_position(rr_pipeline_node_t *node, double x, double y);
-gboolean rr_pipeline_graph_add_element(rr_pipeline_graph_t *graph, const gchar *factory, double x, double y, guint *index,
-   GError **error);
+gboolean rr_pipeline_graph_add_element(rr_pipeline_graph_t *graph, const gchar *factory, double x, double y, guint *index, GError **error);
 gboolean rr_pipeline_graph_add_link(rr_pipeline_graph_t *graph, guint src, guint dst, GError **error);
 gboolean rr_pipeline_graph_remove_node(rr_pipeline_graph_t *graph, guint index, GError **error);
-gboolean rr_pipeline_graph_set_property(rr_pipeline_graph_t *graph, guint node, const gchar *property, const gchar *value,
-   GError **error);
+gboolean rr_pipeline_graph_set_property(rr_pipeline_graph_t *graph, guint node, const gchar *property, const gchar *value, GError **error);
 gboolean rr_pipeline_graph_add_tee(rr_pipeline_graph_t *graph, guint source, guint *tee_index, GError **error);
 gboolean rr_pipeline_graph_add_branch(rr_pipeline_graph_t *graph, guint tee, const gchar *sink_factory, GError **error);
 gchar *rr_pipeline_graph_serialize(const rr_pipeline_graph_t *graph, GError **error);

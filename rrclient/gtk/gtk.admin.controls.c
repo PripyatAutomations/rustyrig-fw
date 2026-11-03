@@ -255,6 +255,7 @@ static void admin_control_sites_complete(const char *event, const char *payload,
          const char *profile = g_ptr_array_index(control_host_profiles, i);
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), profile, profile);
       }
+
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), "all", "All Nodes");
 
       if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), control_hosts_wanted ? control_hosts_wanted : "local")) {
@@ -287,6 +288,7 @@ static bool admin_control_hosts_refresh(const char *wanted) {
    if (!control_hosts_request_id) {
       return false;
    }
+
    if (!control_host_profiles) {
       control_host_profiles = g_ptr_array_new_with_free_func(g_free);
    }
@@ -682,6 +684,7 @@ static bool admin_control_request_profile(const char *profile, const char *name,
    } else {
       snprintf(data, sizeof(data), "control %s %d", name, value);
    }
+
    return gtk_admin_command_event(control_status, profile, "admin", data, NULL, NULL);
 }
 static bool admin_control_request(const char *name, int value) {
@@ -698,6 +701,7 @@ static void admin_control_refresh_discovered(void) {
    if (host && !strcmp(host, "all")) {
       for (guint i = 0 ; control_host_profiles && i < control_host_profiles->len ; ++i) {
          const char *profile = g_ptr_array_index(control_host_profiles, i);
+
          if (admin_control_request_profile(profile, NULL, -1)) {
             ++control_pending_lists;
          }
@@ -789,6 +793,7 @@ static void admin_control_page_destroy(GtkWidget *page, gpointer unused) {
       event_off_token(control_site_token);
       control_site_token = 0;
    }
+
    if (control_sites_complete_token) {
       event_off_token(control_sites_complete_token);
       control_sites_complete_token = 0;
@@ -813,6 +818,7 @@ static void admin_control_page_destroy(GtkWidget *page, gpointer unused) {
       g_ptr_array_unref(control_host_profiles);
       control_host_profiles = NULL;
    }
+
    if (control_row_buttons) {
       g_hash_table_unref(control_row_buttons);
       control_row_buttons = NULL;
@@ -970,6 +976,7 @@ GtkWidget *gtk_admin_controls_page(void) {
    control_site_token = event_on_domain_token("client.admin.site", admin_control_site, NULL, "gtk");
    control_sites_complete_token = event_on_domain_token("client.admin.sites-complete", admin_control_sites_complete, NULL, "gtk");
    g_signal_connect(box, "destroy", G_CALLBACK(admin_control_page_destroy), NULL);
+
    if (!control_site_token || !control_sites_complete_token) {
       gtk_label_set_text(GTK_LABEL(control_status), "Unable to subscribe to server profile events");
    } else if (!admin_control_hosts_refresh(NULL)) {

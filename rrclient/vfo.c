@@ -355,8 +355,11 @@ bool vfo_update_ui(void) {
       tui_redraw_topline();
    } else if (frontend_ops()) {
       const rr_frontend_ops_t *ops = frontend_ops();
+
       if (ops->name && !strcmp(ops->name, "gtk")) {
-         rrclient_vfo_snapshot_t snapshot = {0};
+         rrclient_vfo_snapshot_t snapshot = {
+            0
+         };
          const char *server = rrclient_selected_server();
          const char *room = rrclient_media_active_room();
          snprintf(snapshot.vfo, sizeof(snapshot.vfo), "%s", vfo_str);
@@ -369,9 +372,8 @@ bool vfo_update_ui(void) {
          snapshot.ptt = vfo_ptt;
          snapshot.has_mode = vfo_mode != NULL;
          snapshot.available = vfo_state_get_long(vfo_str, "cat.state.freq", -1) > 0;
-         event_emit_message(&(rr_event_message_t){
-            .name = RRCLIENT_VFO_SNAPSHOT_EVENT, .sender = "core",
-            .payload = &snapshot, .length = sizeof(snapshot)
+         event_emit_message(&(rr_event_message_t) {
+            .name = RRCLIENT_VFO_SNAPSHOT_EVENT, .sender = "core", .payload = &snapshot, .length = sizeof(snapshot)
          });
       } else if (ops->vfo_state) {
          ops->vfo_state(vfo_str, vfo_freq, vfo_mode, vfo_width, vfo_power, vfo_ptt);

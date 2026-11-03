@@ -1245,8 +1245,7 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 /* The room VFO title operates only on VFOs mapped to the room displayed by the floating rig controls. The server's selection acknowledgement remains
  * authoritative for the active VFO. */
 static char room_vfo_title_room[128];
-/* The floating controls are bound to a rig room, not necessarily the
- * currently selected notebook page (which may be Receiver Directory). */
+/* The floating controls are bound to a rig room, not necessarily the currently selected notebook page (which may be Receiver Directory). */
 const char *gtk_chat_controls_room(void) {
    return room_vfo_title_room[0] ? room_vfo_title_room : gtk_chat_current_room();
 }
@@ -1256,13 +1255,20 @@ static gboolean room_vfo_title_tick(gpointer unused);
 static void room_vfo_title_select(char vfo) {
    const char *room = room_vfo_title_room;
 
-   if (!*room) return;
+   if (!*room) {
+      return;
+   }
+
    if (!g_ascii_strcasecmp(room, "&local-sdr")) {
       rrclient_room_set_active_vfo(room, vfo);
       room_vfo_title_tick(NULL);
+
       return;
    }
-   if (!ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1) return;
+
+   if (!ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1) {
+      return;
+   }
    char command[16];
    g_snprintf(command, sizeof(command), "!vfo %c", vfo);
    dict *request = dict_new();
@@ -1349,9 +1355,11 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       const char *mode = mode_property && dict_get_bool((dict *) mode_property, "property.known", false)
          ? dict_get((dict *) mode_property, "property.value", "---") : "---";
       char name[128];
+
       if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
          uint64_t local_hz = 0;
          const char *local_mode = NULL;
+
          if (rrclient_local_bridge_state_vfo(letter, &local_hz, &local_mode)) {
             freq = (long)local_hz;
             mode = local_mode;
@@ -1364,9 +1372,10 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       } else {
          g_snprintf(name, sizeof(name), "%c VFO %c  —  ---  —  %s", letter == active ? '*' : ' ', letter, mode ? mode : "---");
       }
+
       if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
-         g_snprintf(name, sizeof(name), "%c local.sdr.%c  —  %ld.%03ld kHz  —  %s",
-            letter == active ? '*' : ' ', letter, freq / 1000, freq % 1000, mode ? mode : "---");
+         g_snprintf(name, sizeof(name), "%c local.sdr.%c  —  %ld.%03ld kHz  —  %s", letter == active ? '*' : ' ', letter, freq / 1000, freq % 1000, mode ? mode
+            : "---");
       }
       GtkWidget *item = gtk_menu_item_new_with_label(name);
       g_object_set_data(G_OBJECT(item), "rr-vfo-id", GINT_TO_POINTER('A' + i));
@@ -1409,13 +1418,17 @@ static gboolean room_vfo_title_tick(gpointer unused) {
       : g_strdup_printf("%s — VFO %c", room_vfo_title_room, active >= 'A' && active <= 'Z' ? active : '?');
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
+
    if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
       uint64_t hz = 0;
       const char *mode = NULL;
+
       if (rrclient_local_bridge_state_vfo(active, &hz, &mode) && freq_entry && hz) {
          GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
-         if (!gtk_freq_entry_is_editing(fe) && gtk_freq_entry_get_frequency(fe) != (unsigned long)hz)
+
+         if (!gtk_freq_entry_is_editing(fe) && gtk_freq_entry_get_frequency(fe) != (unsigned long)hz) {
             gtk_freq_entry_set_frequency(fe, (unsigned long)hz);
+         }
          modebox_update_state(mode, 0);
       }
    }
@@ -1446,8 +1459,10 @@ static void room_vfo_show(const char *name) {
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_vfo_box, FALSE, FALSE, 0);
    }
    g_strlcpy(room_vfo_title_room, name ? name : "", sizeof(room_vfo_title_room));
-   if (room_rf_strip)
+
+   if (room_rf_strip) {
       gtk_widget_set_visible(room_rf_strip, name && !g_ascii_strcasecmp(name, "&local-sdr"));
+   }
    char active = rrclient_room_active_vfo(room_vfo_title_room);
    char *title = name && !g_ascii_strcasecmp(name, "&local-sdr")
       ? g_strdup_printf("&local-sdr — local.sdr.%c", active >= 'A' && active <= 'Z' ? active : '?')
@@ -1470,6 +1485,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
 
    if (!has_vfos) {
       room_vfo_title_room[0] = '\0';
+
       if (room_vfo_panel) {
          rr_floating_panel_hide(room_vfo_panel);
       }
@@ -1478,10 +1494,12 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
    }
    room_vfo_show(tab->room);
    vfo_controls_set_rx_only(!rrclient_room_tx_control(tab->room));
-   if (!g_ascii_strcasecmp(tab->room, "&local-sdr"))
+
+   if (!g_ascii_strcasecmp(tab->room, "&local-sdr")) {
       room_vfo_title_tick(NULL);
-   else
+   } else {
       vfo_update_ui();
+   }
 }
 
 void gtk_chat_room_vfos_changed(const char *room) {
@@ -1537,9 +1555,17 @@ static void rr_wrapping_chat_view_init(RRWrappingChatView *self) {
 
 /* The AF waterfall is meaningful only in receiver/VFO contexts. A server's authoritative room may also be an ordinary chat room. */
 static bool gtk_chat_room_has_waterfall(const char *room) {
-   if (!room) return false;
-   if (!g_ascii_strcasecmp(room, "&local-sdr")) return true;
-   if (room[0] != '#') return false;
+   if (!room) {
+      return false;
+   }
+
+   if (!g_ascii_strcasecmp(room, "&local-sdr")) {
+      return true;
+   }
+
+   if (room[0] != '#') {
+      return false;
+   }
 
    if (g_ascii_strncasecmp(room, "#sdr-", 5) == 0 && room[5]) {
       return true;
@@ -1613,8 +1639,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
 
    /* Every room owns its detachable roster, including authoritative rooms on different servers. Private query tabs stay chat-only. */
-   if ((is_rig || (!is_query && room && *room)) &&
-       !(room && !g_ascii_strcasecmp(room, "&local-sdr"))) {
+   if ((is_rig || (!is_query && room && *room)) && !(room && !g_ascii_strcasecmp(room, "&local-sdr"))) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
       /* Both children must be shrinkable: otherwise the chat view's preferred width clamps the handle and prevents the roster from expanding again. */
@@ -1934,40 +1959,62 @@ static GtkWidget *estop_window, *estop_status, *estop_button;
 static char estop_room[128], estop_profile[512];
 
 static void estop_dispatch(const char *action) {
-   if (!estop_profile[0] || !estop_room[0]) return;
+   if (!estop_profile[0] || !estop_room[0]) {
+      return;
+   }
    dict *request = dict_new();
    dict_add(request, "profile", estop_profile);
    dict_add(request, "room", estop_room);
    dict_add(request, "action", action);
    char *json = dict2json(request);
+
    if (json) {
       event_emit("client.estop.send-request", NULL, json);
       free(json);
    }
    dict_free(request);
-   if (estop_status)
+
+   if (estop_status) {
       gtk_label_set_text(GTK_LABEL(estop_status), "Sending — awaiting transport result");
+   }
 }
 static void estop_send_status(const char *event, const char *message, rrconn_t *client, void *unused) {
-   (void)event; (void)client; (void)unused;
-   if (!estop_status || !message) return;
+   (void)event;
+   (void)client;
+   (void)unused;
+
+   if (!estop_status || !message) {
+      return;
+   }
    const char *separator = strrchr(message, '|');
-   if (!separator || (size_t)(separator-message) != strlen(estop_profile) ||
-       strncmp(message, estop_profile, strlen(estop_profile))) return;
-   bool sent = !strcmp(separator+1, "sent");
-   gtk_label_set_text(GTK_LABEL(estop_status), sent ?
-      "Request sent — check server acknowledgment" : "OFFLINE — NOT CONFIRMED");
+
+   if (!separator || (size_t)(separator - message) != strlen(estop_profile) || strncmp(message, estop_profile, strlen(estop_profile))) {
+      return;
+   }
+   bool sent = !strcmp(separator + 1, "sent");
+   gtk_label_set_text(GTK_LABEL(estop_status), sent ? "Request sent — check server acknowledgment" : "OFFLINE — NOT CONFIRMED");
 }
 static void estop_notice_event(const char *event, const char *message, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
 
    (void)client;
-   if (!estop_window || !message || !estop_room[0]) return;
+
+   if (!estop_window || !message || !estop_room[0]) {
+      return;
+   }
    dict *notice = json2dict(message);
-   if (!notice) return;
+
+   if (!notice) {
+      return;
+   }
    const char *source = dict_get(notice, "profile", "");
-   if (strcmp(source, estop_profile)) { dict_free(notice); return; }
+
+   if (strcmp(source, estop_profile)) {
+      dict_free(notice);
+
+      return;
+   }
    message = dict_get(notice, "message", "");
    const char *id = NULL;
    bool reset = false;
@@ -1979,12 +2026,14 @@ static void estop_notice_event(const char *event, const char *message, rrconn_t 
       id = message + 20;
    } else {
       dict_free(notice);
+
       return;
    }
 
    /* Server reports the canonical rig ID, while the window is bound to a room. Confirm that the notice describes this room before updating. */
    if (strcmp(id, estop_room) && strcmp(id, estop_room[0] == '#' ? estop_room + 1 : estop_room)) {
       dict_free(notice);
+
       return;
    }
    gtk_button_set_label(GTK_BUTTON(estop_button), reset ? "ESTOP" : "HALTED");
@@ -1995,8 +2044,7 @@ static void estop_notice_event(const char *event, const char *message, rrconn_t 
 static void estop_pressed(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
-   /* Only the originating server's acknowledgment confirms E-STOP.
-    * Do not make the UI claim success before the core send result arrives. */
+   /* Only the originating server's acknowledgment confirms E-STOP. Do not make the UI claim success before the core send result arrives. */
    estop_dispatch("estop-trip");
 }
 
@@ -2126,25 +2174,35 @@ static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpoin
 
 /* The locator tracks a rig in its owning connection context, not whichever chat/IRC tab happens to be displayed in the main notebook. */
 static char vfo_locator_profile[512];
-/* GTK renders an immutable core snapshot; no connection context or
- * core-owned rrconn_t/userlist/VFO state is read by this timer. */
-static void vfo_locator_snapshot_event(const char *event, const void *data, size_t size,
-                                       rrconn_t *conn, void *unused) {
-   (void)event; (void)conn; (void)unused;
-   if (!main_notebook || size != sizeof(rrclient_locator_snapshot_t) || !data) return;
+/* GTK renders an immutable core snapshot; no connection context or core-owned rrconn_t/userlist/VFO state is read by this timer. */
+static void vfo_locator_snapshot_event(const char *event, const void *data, size_t size, rrconn_t *conn, void *unused) {
+   (void)event;
+   (void)conn;
+   (void)unused;
+
+   if (!main_notebook || size != sizeof(rrclient_locator_snapshot_t) || !data) {
+      return;
+   }
    const rrclient_locator_snapshot_t *snap = data;
+
    if (!memchr(snap->profile, 0, sizeof(snap->profile)) ||
-       !memchr(snap->room, 0, sizeof(snap->room)) ||
-       !memchr(snap->grid, 0, sizeof(snap->grid)) ||
-       !memchr(snap->mode, 0, sizeof(snap->mode)) ||
-       !memchr(snap->holder, 0, sizeof(snap->holder))) return;
+      !memchr(snap->room, 0, sizeof(snap->room)) ||
+      !memchr(snap->grid, 0, sizeof(snap->grid)) || !memchr(snap->mode, 0, sizeof(snap->mode)) || !memchr(snap->holder, 0, sizeof(snap->holder))) {
+      return;
+   }
+
    if (!snap->online) {
       locator_tx_identity[0] = 0;
       locator_tx_started = 0;
-      if (vfo_locator_window) gtk_widget_hide(vfo_locator_window);
+
+      if (vfo_locator_window) {
+         gtk_widget_hide(vfo_locator_window);
+      }
+
       return;
    }
    g_strlcpy(vfo_locator_profile, snap->profile, sizeof(vfo_locator_profile));
+
    if (!vfo_locator_window) {
       vfo_locator_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "RustyRig VFO");
@@ -2195,53 +2253,71 @@ static void vfo_locator_snapshot_event(const char *event, const void *data, size
 
    char path[256], label[360];
    const char *rig = strstr(snap->room, "-rig");
-   if (rig && rig[4] >= '0' && rig[4] <= '9')
-      g_snprintf(path, sizeof(path), "%.*s.%s.%c",
-         (int)(rig - snap->room - (snap->room[0] == '#')),
-         snap->room + (snap->room[0] == '#'), rig + 1, snap->vfo);
-   else
-      g_snprintf(path, sizeof(path), "%s.%c",
-         snap->room[0] ? snap->room : snap->profile, snap->vfo);
+
+   if (rig && rig[4] >= '0' && rig[4] <= '9') {
+      g_snprintf(path, sizeof(path), "%.*s.%s.%c", (int)(rig - snap->room - (snap->room[0] == '#')), snap->room + (snap->room[0] == '#'), rig + 1, snap->vfo);
+   } else {
+      g_snprintf(path, sizeof(path), "%s.%c", snap->room[0] ? snap->room : snap->profile, snap->vfo);
+   }
    g_snprintf(label, sizeof(label), "%s\n%s", path, snap->grid[0] ? snap->grid : "—");
    gtk_label_set_text(GTK_LABEL(vfo_locator_label), label);
    gtk_window_set_title(GTK_WINDOW(vfo_locator_window), path);
    char freq[96], mode[96], tx[256];
-   if (snap->frequency > 0)
+
+   if (snap->frequency > 0) {
       g_snprintf(freq, sizeof(freq), "Freq: %.3f kHz", snap->frequency / 1000.0);
-   else g_strlcpy(freq, "Freq: —", sizeof(freq));
-   if (snap->width > 0)
+   } else {
+      g_strlcpy(freq, "Freq: —", sizeof(freq));
+   }
+
+   if (snap->width > 0) {
       g_snprintf(mode, sizeof(mode), "Mode: %s (%ld Hz)", snap->mode[0] ? snap->mode : "—", snap->width);
-   else g_snprintf(mode, sizeof(mode), "Mode: %s", snap->mode[0] ? snap->mode : "—");
+   } else {
+      g_snprintf(mode, sizeof(mode), "Mode: %s", snap->mode[0] ? snap->mode : "—");
+   }
    gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), freq);
    gtk_label_set_text(GTK_LABEL(vfo_locator_mode), mode);
    char identity[256] = "";
-   if (snap->transmitting && snap->holder[0])
+
+   if (snap->transmitting && snap->holder[0]) {
       g_snprintf(identity, sizeof(identity), "%s/%s/%c", snap->profile, snap->holder, snap->vfo);
+   }
    gint64 now = g_get_monotonic_time();
+
    if (strcmp(identity, locator_tx_identity)) {
       g_strlcpy(locator_tx_identity, identity, sizeof(locator_tx_identity));
       locator_tx_started = snap->transmitting && snap->holder[0] ? now : 0;
    }
    char power[64] = "";
-   if (snap->watts > 0 && isfinite(snap->watts))
-      g_snprintf(power, sizeof(power), snap->watts < 1 ? " %.3g mW" : " %.3g W",
-                 snap->watts < 1 ? snap->watts * 1000 : snap->watts);
-   if (snap->transmitting && snap->holder[0])
-      g_snprintf(tx, sizeof(tx), "TX: %.150s (%lu s)%s", snap->holder,
-          locator_tx_started && now >= locator_tx_started ?
-          (unsigned long)((now - locator_tx_started) / G_USEC_PER_SEC) : 0, power);
-   else g_snprintf(tx, sizeof(tx), "%s%s",
-       snap->transmitting ? "PTT On (holder unknown)" : "PTT Off", power);
+
+   if (snap->watts > 0 && isfinite(snap->watts)) {
+      g_snprintf(power, sizeof(power), snap->watts < 1 ? " %.3g mW" : " %.3g W", snap->watts < 1 ? snap->watts * 1000 : snap->watts);
+   }
+
+   if (snap->transmitting && snap->holder[0]) {
+      g_snprintf(tx, sizeof(tx), "TX: %.150s (%lu s)%s", snap->holder, locator_tx_started && now >= locator_tx_started ? (unsigned long)((now -
+         locator_tx_started) / G_USEC_PER_SEC) : 0, power);
+   } else {
+      g_snprintf(tx, sizeof(tx), "%s%s", snap->transmitting ? "PTT On (holder unknown)" : "PTT Off", power);
+   }
    gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), tx);
    GtkStyleContext *style = gtk_widget_get_style_context(vfo_locator_frame);
-   if (snap->transmitting) gtk_style_context_add_class(style, "rr-vfo-ptt");
-   else gtk_style_context_remove_class(style, "rr-vfo-ptt");
+
+   if (snap->transmitting) {
+      gtk_style_context_add_class(style, "rr-vfo-ptt");
+   } else {
+      gtk_style_context_remove_class(style, "rr-vfo-ptt");
+   }
    gtk_widget_show_all(vfo_locator_window);
 }
 static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
-   if (!main_notebook) return G_SOURCE_REMOVE;
+
+   if (!main_notebook) {
+      return G_SOURCE_REMOVE;
+   }
    event_emit(RRCLIENT_LOCATOR_REQUEST_EVENT, NULL, vfo_locator_profile);
+
    return G_SOURCE_CONTINUE;
 }
 

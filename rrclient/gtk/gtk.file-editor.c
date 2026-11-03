@@ -936,6 +936,7 @@ static GtkWidget *config_action_button(const gchar *label, const gchar *icon, co
    gtk_button_set_image(GTK_BUTTON(button), gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_BUTTON));
    gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
    gtk_widget_set_tooltip_text(button, tooltip);
+
    return button;
 }
 
@@ -946,41 +947,57 @@ typedef struct {
 
 static void pipeline_editor_process_free(pipeline_editor_process_t *context) {
    g_clear_object(&context->process);
-   if (context->parent) g_object_unref(context->parent);
+
+   if (context->parent) {
+      g_object_unref(context->parent);
+   }
    g_free(context);
 }
 
 static gboolean pipeline_editor_apply_output(GtkWidget *parent, const gchar *output, gchar **error_message) {
    dict *edited = json2dict(output);
+
    if (!edited) {
       *error_message = g_strdup("The pipeline editor returned invalid JSON.");
+
       return FALSE;
    }
    int count = dict_get_int(edited, "pipelines.count", -1);
+
    if (count < 0 || count > 512) {
       *error_message = g_strdup("The pipeline editor returned an invalid pipeline count.");
       dict_free(edited);
+
       return FALSE;
    }
    GHashTable *ids = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    dict *updates = dict_new();
    gboolean ok = ids != NULL && updates != NULL;
-   if (!ok) *error_message = g_strdup("Cannot allocate pipeline configuration updates.");
-   for (int i = 0; ok && i < count; i++) {
+
+   if (!ok) {
+      *error_message = g_strdup("Cannot allocate pipeline configuration updates.");
+   }
+
+   for (int i = 0 ; ok && i < count ; i++) {
       gchar *id_key = g_strdup_printf("pipelines.%d.id", i);
       gchar *launch_key = g_strdup_printf("pipelines.%d.launch", i);
       const gchar *id = dict_get(edited, id_key, NULL);
       const gchar *launch = dict_get(edited, launch_key, NULL);
       gboolean valid = id && *id && launch && *launch;
-      for (const gchar *p = id; valid && *p; p++) {
-         if (g_ascii_isspace(*p) || *p == '=' || *p == '[' || *p == ']' || *p == '\n' || *p == '\r') valid = FALSE;
+
+      for (const gchar *p = id ; valid && *p ; p++) {
+         if (g_ascii_isspace(*p) || *p == '=' || *p == '[' || *p == ']' || *p == '\n' || *p == '\r') {
+            valid = FALSE;
+         }
       }
+
       if (!valid || g_hash_table_contains(ids, id)) {
          *error_message = g_strdup_printf("The pipeline editor returned an invalid or duplicate pipeline at entry %d.", i);
          ok = FALSE;
       } else {
          g_hash_table_add(ids, g_strdup(id));
          gchar *config_key = g_strdup_printf("pipeline:%s", id);
+
          if (!config_key || dict_add(updates, config_key, launch)) {
             *error_message = g_strdup_printf("Could not stage pipeline '%s' for client configuration.", id);
             ok = FALSE;
@@ -990,20 +1007,26 @@ static gboolean pipeline_editor_apply_output(GtkWidget *parent, const gchar *out
       g_free(id_key);
       g_free(launch_key);
    }
+
    if (ok && dict_merge(cfg, updates)) {
       *error_message = g_strdup("Could not apply pipeline updates to client configuration.");
       ok = FALSE;
    }
+
    if (ok) {
       rrclient_config_mark_dirty();
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Pipelines updated. Click Save Config to persist the changes.");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE,
+         "Pipelines updated. Click Save Config to persist the changes.");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
    }
-   if (ids) g_hash_table_unref(ids);
+
+   if (ids) {
+      g_hash_table_unref(ids);
+   }
    dict_free(updates);
    dict_free(edited);
+
    return ok;
 }
 
@@ -1012,24 +1035,25 @@ static void pipeline_editor_communicate_done(GObject *source, GAsyncResult *resu
    GError *error = NULL;
    gchar *output = NULL, *stderr_text = NULL;
    gboolean communicated = g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, &stderr_text, &error);
+
    if (!communicated) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Pipeline editor communication failed: %s", error ? error->message : "unknown error");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Pipeline editor communication failed: %s", error ? error->message : "unknown error");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
    } else if (g_subprocess_get_if_exited(context->process) && g_subprocess_get_exit_status(context->process) == 0) {
       gchar *message = NULL;
+
       if (!output || !*output || !pipeline_editor_apply_output(context->parent, output, &message)) {
-         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-            GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", message ? message : "Pipeline editor returned no JSON.");
+         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s",
+            message ? message : "Pipeline editor returned no JSON.");
          gtk_dialog_run(GTK_DIALOG(dialog));
          gtk_widget_destroy(dialog);
       }
       g_free(message);
    } else if (!(g_subprocess_get_if_exited(context->process) && g_subprocess_get_exit_status(context->process) == 2)) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Pipeline editor failed: %s",
-         stderr_text && *stderr_text ? stderr_text : "the editor exited unsuccessfully");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Pipeline editor failed: %s", stderr_text && *stderr_text ? stderr_text : "the editor exited unsuccessfully");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
    }
@@ -1043,11 +1067,13 @@ static void on_edit_pipelines_button(GtkButton *button, gpointer user_data) {
    (void)user_data;
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
    dict *request = dict_new();
+
    if (!request) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot allocate pipeline editor request.");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Cannot allocate pipeline editor request.");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
+
       return;
    }
    guint count = 0;
@@ -1056,7 +1082,10 @@ static void on_edit_pipelines_button(GtkButton *button, gpointer user_data) {
    int rank = 0;
    gboolean ok = TRUE;
    while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-      if (strncmp(key, "pipeline:", 9)) continue;
+      if (strncmp(key, "pipeline:", 9)) {
+         continue;
+      }
+
       if (count == 512) {
          ok = FALSE;
          break;
@@ -1066,49 +1095,67 @@ static void on_edit_pipelines_button(GtkButton *button, gpointer user_data) {
       ok = dict_add(request, id_key, key + 9) == 0 && dict_add(request, launch_key, value ? value : "") == 0;
       g_free(id_key);
       g_free(launch_key);
-      if (!ok) break;
+
+      if (!ok) {
+         break;
+      }
       count++;
    }
-   if (ok) ok = dict_add_uint(request, "pipelines.count", count) == 0;
+
+   if (ok) {
+      ok = dict_add_uint(request, "pipelines.count", count) == 0;
+   }
+
    if (!ok) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot prepare pipeline editor request.");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Cannot prepare pipeline editor request.");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
       dict_free(request);
+
       return;
    }
    gchar *json = dict2json(request);
    dict_free(request);
+
    if (!json) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "librustyaxe could not serialize the pipeline editor request.");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "librustyaxe could not serialize the pipeline editor request.");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
+
       return;
    }
    gchar *program = g_find_program_in_path("rrpipelines");
-   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE)) program = g_strdup("bin/rrpipelines");
+
+   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE)) {
+      program = g_strdup("bin/rrpipelines");
+   }
+
    if (!program) {
       g_free(json);
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot find rrpipelines. Install it alongside rrclient or run from the source tree.");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Cannot find rrpipelines. Install it alongside rrclient or run from the source tree.");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
+
       return;
    }
-   const gchar *argv[] = { program, NULL };
+   const gchar *argv[] = {
+      program, NULL
+   };
    GError *error = NULL;
-   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-      G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
+   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
    g_free(program);
+
    if (!process) {
       g_free(json);
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Cannot start pipeline editor: %s", error ? error->message : "unknown error");
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Cannot start pipeline editor: %s", error ? error->message : "unknown error");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
       g_clear_error(&error);
+
       return;
    }
    pipeline_editor_process_t *context = g_new0(pipeline_editor_process_t, 1);
@@ -1150,14 +1197,23 @@ typedef struct theme_field {
    GtkWidget *value;
 } theme_field_t;
 
-static void theme_field_free(gpointer data) { g_free(data); }
+static void theme_field_free(gpointer data) {
+   g_free(data);
+}
 
 static void theme_field_changed(GtkEditable *editable, gpointer data) {
    theme_field_t *field = data;
-   if (g_object_get_data(G_OBJECT(editable), "theme-refresh")) return;
+
+   if (g_object_get_data(G_OBJECT(editable), "theme-refresh")) {
+      return;
+   }
    const char *value = gtk_entry_get_text(GTK_ENTRY(editable));
-   if (!cfg_set_value(field->definition->key, value)) return;
+
+   if (!cfg_set_value(field->definition->key, value)) {
+      return;
+   }
    const char *selected = cfg_get("theme");
+
    if (selected && *selected && strcmp(selected, "Stock")) {
       char *key = g_strdup_printf("theme:%s.%s", selected, field->definition->key + strlen("theme."));
       dict_add(cfg, key, value);
@@ -1176,14 +1232,14 @@ static void theme_field_pick(GtkButton *button, gpointer data) {
    theme_field_t *field = data;
    GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(button));
    GtkWidget *dialog = gtk_color_chooser_dialog_new("Theme color", GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL);
+
    /* IRC hexadecimal color syntax is also accepted by the chat renderer. */
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
       GdkRGBA chosen;
       gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(dialog), &chosen);
       char encoded[12];
-      snprintf(encoded, sizeof(encoded), "\004%02X%02X%02X",
-         (unsigned)(chosen.red * 255.0 + .5), (unsigned)(chosen.green * 255.0 + .5),
-         (unsigned)(chosen.blue * 255.0 + .5));
+      snprintf(encoded, sizeof(encoded), "\004%02X%02X%02X", (unsigned)(chosen.red * 255.0 + .5), (unsigned)(chosen.green * 255.0 + .5), (unsigned)(chosen.blue
+         * 255.0 + .5));
       gtk_entry_set_text(GTK_ENTRY(field->value), encoded);
    }
    gtk_widget_destroy(dialog);
@@ -1192,32 +1248,37 @@ static void theme_field_pick(GtkButton *button, gpointer data) {
 static void theme_selected(GtkComboBox *combo, gpointer data) {
    GtkWidget *list = GTK_WIDGET(data);
    const char *name = gtk_combo_box_get_active_id(combo);
-   if (!name || !cfg_set_value("theme", name)) return;
+
+   if (!name || !cfg_set_value("theme", name)) {
+      return;
+   }
    rrclient_theme_apply();
    rrclient_config_mark_dirty();
    GList *rows = gtk_container_get_children(GTK_CONTAINER(list));
-   for (GList *row = rows; row; row = row->next) {
+
+   for (GList *row = rows ; row ; row = row->next) {
       theme_field_t *field = g_object_get_data(G_OBJECT(row->data), "theme-field");
-      if (!field) continue;
+
+      if (!field) {
+         continue;
+      }
       const char *val = cfg_get(field->definition->key);
       g_object_set_data(G_OBJECT(field->value), "theme-refresh", GINT_TO_POINTER(1));
       gtk_entry_set_text(GTK_ENTRY(field->value), val ? val : "");
       g_object_set_data(G_OBJECT(field->value), "theme-refresh", NULL);
    }
+
    g_list_free(rows);
 }
 
 
-/* Save the visible active colors under an editable named theme. A changed name
- * creates a new named theme rather than silently deleting the previous one. */
+/* Save the visible active colors under an editable named theme. A changed name creates a new named theme rather than silently deleting the previous one. */
 static void theme_save_clicked(GtkButton *button, gpointer user_data) {
    GtkWidget *chooser = GTK_WIDGET(user_data);
    const char *current = gtk_combo_box_get_active_id(GTK_COMBO_BOX(chooser));
    GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(button));
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Save Theme",
-      GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL,
-      "_Save", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Save Theme", GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
    gtk_entry_set_text(GTK_ENTRY(entry), current ? current : "Stock");
@@ -1228,37 +1289,42 @@ static void theme_save_clicked(GtkButton *button, gpointer user_data) {
    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry);
    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
    gtk_widget_show(entry);
+
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *entered = gtk_entry_get_text(GTK_ENTRY(entry));
       char *name = g_strdup(entered);
       g_strstrip(name);
+
       if (!*name || !strcmp(name, "Stock") || strchr(name, '.') ||
-         strchr(name, ':') || strchr(name, '[') || strchr(name, ']') ||
-         strchr(name, '\n') || strchr(name, '\r')) {
-         GtkWidget *error = gtk_message_dialog_new(GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
-            GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         strchr(name, ':') || strchr(name, '[') || strchr(name, ']') || strchr(name, '\n') || strchr(name, '\r')) {
+         GtkWidget *error = gtk_message_dialog_new(GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
             "Enter a theme name other than Stock, without dots, colons, brackets or line breaks.");
          gtk_dialog_run(GTK_DIALOG(error));
          gtk_widget_destroy(error);
       } else {
          gboolean ok = TRUE;
-         for (const defconfig_t *def = defcfg; def->key; ++def) {
-            if (!g_str_has_prefix(def->key, "theme.")) continue;
+
+         for (const defconfig_t *def = defcfg ; def->key ; ++def) {
+            if (!g_str_has_prefix(def->key, "theme.")) {
+               continue;
+            }
             const char *value = cfg_get(def->key);
             char *key = g_strdup_printf("theme:%s.%s", name, def->key + 6);
-            if (dict_add(cfg, key, value ? value : "") != 0 ||
-               !rrclient_database_theme_set(name, def->key + 6, value ? value : ""))
+
+            if (dict_add(cfg, key, value ? value : "") != 0 || !rrclient_database_theme_set(name, def->key + 6, value ? value : "")) {
                ok = FALSE;
+            }
             g_free(key);
          }
+
          if (ok) {
             cfg_set_value("theme", name);
             rrclient_config_mark_dirty();
             gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(chooser), name, name);
             gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), name);
          } else {
-            GtkWidget *error = gtk_message_dialog_new(GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
-               GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Unable to save theme to the database.");
+            GtkWidget *error = gtk_message_dialog_new(GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+               "Unable to save theme to the database.");
             gtk_dialog_run(GTK_DIALOG(error));
             gtk_widget_destroy(error);
          }
@@ -1284,18 +1350,27 @@ static GtkWidget *cfg_theme_panel(void) {
    int index = 0;
    GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    while ((index = dict_enumerate(cfg, index, &key, &value)) >= 0) {
-      if (!g_str_has_prefix(key, "theme:")) continue;
+      if (!g_str_has_prefix(key, "theme:")) {
+         continue;
+      }
       const char *start = key + strlen("theme:");
       const char *dot = strchr(start, '.');
-      if (!dot || dot == start) continue;
+
+      if (!dot || dot == start) {
+         continue;
+      }
       char *name = g_strndup(start, dot - start);
-      if (g_hash_table_add(seen, name))
+
+      if (g_hash_table_add(seen, name)) {
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(chooser), name, name);
+      }
    }
    g_hash_table_destroy(seen);
    const char *selected = cfg_get("theme");
-   if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), selected ? selected : "Stock"))
+
+   if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), selected ? selected : "Stock")) {
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(chooser), "Stock");
+   }
    gtk_box_pack_start(GTK_BOX(chooser_row), chooser, FALSE, FALSE, 0);
    GtkWidget *save_theme = gtk_button_new_with_label("Save Theme…");
    g_signal_connect(save_theme, "clicked", G_CALLBACK(theme_save_clicked), chooser);
@@ -1306,8 +1381,11 @@ static GtkWidget *cfg_theme_panel(void) {
    GtkWidget *list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_add(GTK_CONTAINER(scroll), list);
    g_signal_connect(chooser, "changed", G_CALLBACK(theme_selected), list);
-   for (const defconfig_t *def = defcfg; def->key; ++def) {
-      if (!g_str_has_prefix(def->key, "theme.")) continue;
+
+   for (const defconfig_t *def = defcfg ; def->key ; ++def) {
+      if (!g_str_has_prefix(def->key, "theme.")) {
+         continue;
+      }
       theme_field_t *field = g_new0(theme_field_t, 1);
       field->definition = def;
       GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -1330,6 +1408,7 @@ static GtkWidget *cfg_theme_panel(void) {
       gtk_box_pack_start(GTK_BOX(row), reset, FALSE, FALSE, 0);
       g_signal_connect(field->value, "changed", G_CALLBACK(theme_field_changed), field);
    }
+
    return container;
 }
 

@@ -220,17 +220,19 @@ static gboolean chat_link_event(GtkWidget *view, GdkEvent *event, gpointer data)
    } else {
       const char *server = g_object_get_data(G_OBJECT(view), "rr-server-name");
 
-      /* GTK must not invoke connection selection or JOIN processing.
-       * Copy the link and server identity into an owned core command. */
-      rrclient_ui_chat_link_t request = {0};
+      /* GTK must not invoke connection selection or JOIN processing. Copy the link and server identity into an owned core command. */
+      rrclient_ui_chat_link_t request = {
+         0
+      };
       g_strlcpy(request.room, link, sizeof(request.room));
-      if (server)
+
+      if (server) {
          g_strlcpy(request.server, server, sizeof(request.server));
-      if (strlen(link) < sizeof(request.room) &&
-          (!server || strlen(server) < sizeof(request.server))) {
-         event_emit_message(&(rr_event_message_t){
-            .name = RRCLIENT_UI_CHAT_LINK_EVENT,
-            .sender = "gtk", .payload = &request, .length = sizeof(request)
+      }
+
+      if (strlen(link) < sizeof(request.room) && (!server || strlen(server) < sizeof(request.server))) {
+         event_emit_message(&(rr_event_message_t) {
+            .name = RRCLIENT_UI_CHAT_LINK_EVENT, .sender = "gtk", .payload = &request, .length = sizeof(request)
          });
       } else {
          Log(LOG_WARN, "gtk.chat", "Room link or server name too long");

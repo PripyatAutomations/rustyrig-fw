@@ -266,8 +266,7 @@ static void proxy_add_option(const char *name, const char *url, void *data) {
 static void proxy_editor_clicked(GtkButton *button, gpointer data) {
    (void)button;
    GtkServerEditor *editor = data;
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Proxies", NULL, GTK_DIALOG_MODAL,
-      "_Close", GTK_RESPONSE_CLOSE, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Proxies", NULL, GTK_DIALOG_MODAL, "_Close", GTK_RESPONSE_CLOSE, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    GtkWidget *grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
@@ -283,7 +282,8 @@ static void proxy_editor_clicked(GtkButton *button, gpointer data) {
    gtk_grid_attach(GTK_GRID(grid), url, 1, 1, 1, 1);
    GtkWidget *save = gtk_dialog_add_button(GTK_DIALOG(dialog), "Save proxy", 1);
    GtkWidget *remove = gtk_dialog_add_button(GTK_DIALOG(dialog), "Delete proxy", 2);
-   (void)save; (void)remove;
+   (void)save;
+   (void)remove;
    GtkWidget *status = gtk_label_new("");
    gtk_grid_attach(GTK_GRID(grid), status, 0, 3, 2, 1);
    /* Dialog actions use response IDs, keeping editing modal and explicit. */
@@ -291,15 +291,20 @@ static void proxy_editor_clicked(GtkButton *button, gpointer data) {
    gtk_widget_show_all(dialog);
    while (true) {
       gint response = gtk_dialog_run(GTK_DIALOG(dialog));
-      if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) break;
+
+      if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) {
+         break;
+      }
       const char *n = gtk_entry_get_text(GTK_ENTRY(name));
       const char *u = gtk_entry_get_text(GTK_ENTRY(url));
+
       if (!*n || (response != 2 && !*u)) {
          gtk_label_set_text(GTK_LABEL(status), "Enter a name and proxy URL.");
          continue;
       }
       bool ok = response == 2 ? rrclient_database_proxy_delete(n) : rrclient_database_proxy_set(n, u);
       gtk_label_set_text(GTK_LABEL(status), ok ? "Saved." : "Database update failed.");
+
       if (ok) {
          gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->proxy));
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->proxy), "", "None");
@@ -415,7 +420,10 @@ static void server_editor_save(GtkButton *button, gpointer data) {
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
       const char *value = i == 3 ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->proxy)) : gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
-      if (!value) value = "";
+
+      if (!value) {
+         value = "";
+      }
 
       if (editor->creating || strcmp(value, editor->initial[i])) {
          char key[640];
@@ -539,8 +547,10 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
          editor->proxy = gtk_combo_box_text_new();
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor->proxy), "", "None");
          rrclient_database_proxy_foreach(proxy_add_option, editor->proxy);
-         if (!editor->initial[i][0] || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->proxy), editor->initial[i]))
+
+         if (!editor->initial[i][0] || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->proxy), editor->initial[i])) {
             gtk_combo_box_set_active(GTK_COMBO_BOX(editor->proxy), 0);
+         }
          GtkWidget *proxy_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
          gtk_box_pack_start(GTK_BOX(proxy_row), editor->proxy, TRUE, TRUE, 0);
          GtkWidget *proxies = gtk_button_new_with_label("Proxies");

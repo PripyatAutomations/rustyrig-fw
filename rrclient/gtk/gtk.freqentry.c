@@ -432,11 +432,13 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
        * commands must explicitly target the local room or a bound panel. */
       bool local_only = bound_local || local_room;
       bool sent = false;
+
       if (local_only) {
          sent = rrclient_local_bridge_set_frequency(rrclient_room_active_vfo("&local-sdr"), freq);
       } else {
          sent = ws_send_freq_cmd_in_room(ws_conn, vfo, freq, room);
       }
+
       if (!sent) {
          Log(LOG_WARN, "gtk.freqentry", "Unable to send VFO %s frequency %lu Hz for room %s", vfo, freq, room ? room : "(none)");
 

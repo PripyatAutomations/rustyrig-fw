@@ -24,12 +24,17 @@ static GtkListStore *privilege_groups;
 
 static gboolean admin_access_send(const char *action, const char *id, const char *decision) {
    dict *fields = dict_new();
-   if (!fields) return false;
+
+   if (!fields) {
+      return false;
+   }
+
    if (decision) {
       dict_add(fields, "request.decision", decision);
    }
    gboolean ok = gtk_admin_command_event(access_request_status, access_request_profile, action, "", id, fields);
    dict_free(fields);
+
    return ok;
 }
 static void admin_access_refresh(GtkButton *button, gpointer user) {
