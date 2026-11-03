@@ -95,10 +95,15 @@ run_suite() {
     librustyirc) run_dir "$suite" librustyirc/tests ;;
     librustyaxe) run_dir "$suite" librustyaxe/tests ;;
     www)
-      local failed=0 test
+      local failed=0 test found=0
       for test in www/tests/*.js; do
+        [[ -f "$test" ]] || continue
+        found=1
         run_test node "$test" || failed=1
       done
+      if [[ $found == 0 ]]; then
+        echo "SKIP: no browser tests installed (www was removed)"
+      fi
       return "$failed" ;;
     *) echo "Unknown test suite: $suite" >&2; return 1 ;;
   esac
