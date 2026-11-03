@@ -41,15 +41,42 @@ static GtkWidget *vfo_controls_row = NULL;
 static GtkWidget *vfo_mode_box = NULL;
 static GtkWidget *vfo_codec_box = NULL;
 static GtkWidget *vfo_ptt_box = NULL, *vfo_tx_power_box = NULL;
+static GtkWidget *vfo_sdr_button;
+static bool vfo_local_sdr, vfo_rx_only, vfo_sdr_connected;
+static char vfo_sdr_driver[32];
+static rr_event_token_t local_sdr_driver_token;
+
+static void vfo_sdr_button_update(void) {
+   if (!GTK_IS_BUTTON(vfo_sdr_button)) return;
+   const char *label = !g_ascii_strcasecmp(vfo_sdr_driver, "kiwi") ? "KiwiSDR" :
+      !g_ascii_strcasecmp(vfo_sdr_driver, "rtl_tcp") ? "RTL-SDR" :
+      !g_ascii_strcasecmp(vfo_sdr_driver, "sdrplay") ? "SDRplay" : NULL;
+   char *generic = NULL;
+   if (!label && vfo_sdr_driver[0]) {
+      generic = g_strdup(vfo_sdr_driver);
+      for (char *p = generic; *p; p++) {
+         if (*p == '_' || *p == '-') *p = ' ';
+      }
+      generic[0] = g_ascii_toupper(generic[0]);
+      label = generic;
+   }
+   gtk_button_set_label(GTK_BUTTON(vfo_sdr_button), label ? label : "Remote SDR");
+   char *tooltip = g_strdup_printf("Open %s controls", label ? label : "remote SDR");
+   gtk_widget_set_tooltip_text(vfo_sdr_button, tooltip);
+   gtk_widget_set_visible(vfo_sdr_button, vfo_local_sdr && vfo_sdr_connected);
+   g_free(tooltip);
+   g_free(generic);
+}
 
 /* Preserve RX frequency, mode and audio while removing TX affordances from receive-only rooms and remotely sliced SDR VFOs. */
 void vfo_controls_set_rx_only(bool rx_only) {
+   vfo_rx_only = rx_only;
    if (vfo_ptt_box) {
       gtk_widget_set_visible(vfo_ptt_box, !rx_only);
    }
 
    if (vfo_tx_power_box) {
-      gtk_widget_set_visible(vfo_tx_power_box, !rx_only);
+      gtk_widget_set_visible(vfo_tx_power_box, !rx_only && !vfo_local_sdr);
    }
 
    if (tx_codec_combo) {
@@ -63,7 +90,21 @@ void vfo_controls_set_rx_only(bool rx_only) {
 }
 
 void vfo_controls_set_local_sdr(bool local) {
+   vfo_local_sdr = local;
    if (vfo_codec_box) gtk_widget_set_visible(vfo_codec_box, !local);
+   if (vfo_tx_power_box) gtk_widget_set_visible(vfo_tx_power_box, !local && !vfo_rx_only);
+   vfo_sdr_button_update();
+   if (local) {
+      rr_event_message_t request = { .name = RRCLIENT_LOCAL_BRIDGE_ACTIVE_REQUEST };
+      event_emit_message(&request);
+   }
+}
+
+void vfo_controls_set_sdr_driver(const rrclient_local_bridge_active_t *active) {
+   if (!active || !memchr(active->driver, 0, sizeof(active->driver))) return;
+   g_strlcpy(vfo_sdr_driver, active->driver, sizeof(vfo_sdr_driver));
+   vfo_sdr_connected = active->connected;
+   vfo_sdr_button_update();
 }
 
 // Should we pause the VFO widget being updated until after the server has sent response?
@@ -140,6 +181,16 @@ void vfo_controls_fit_width(int width) {
 }
 
 static rr_event_token_t local_vfo_token;
+static void local_sdr_driver_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(rrclient_local_bridge_active_t)) return;
+   vfo_controls_set_sdr_driver(message->payload);
+}
+static void local_sdr_controls_clicked(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   gtk_local_sdr_controls_show();
+}
+
 static void local_vfo_refresh(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event; (void)data; (void)connection; (void)unused;
    const char *room = gtk_chat_controls_room();
@@ -159,6 +210,8 @@ static void local_vfo_destroy(GtkWidget *widget, gpointer unused) {
    (void)widget; (void)unused;
    if (local_vfo_token) event_off_token(local_vfo_token);
    local_vfo_token = 0;
+   if (local_sdr_driver_token) event_off_token(local_sdr_driver_token);
+   local_sdr_driver_token = 0;
 }
 GtkWidget *create_vfo_box(void) {
    // Create the control box
@@ -190,11 +243,18 @@ GtkWidget *create_vfo_box(void) {
    }
    gtk_box_pack_start(GTK_BOX(vfo_controls_row), codec_selectors, FALSE, FALSE, 0);
 
-   // TX POWER Box
+   // TX power for transceivers; the same space hosts the active remote SDR button.
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
    gtk_box_pack_start(GTK_BOX(vfo_controls_row), tx_power_vbox, FALSE, FALSE, 0);
+   vfo_sdr_button = gtk_button_new_with_label("Remote SDR");
+   gtk_widget_set_no_show_all(vfo_sdr_button, TRUE);
+   gtk_widget_set_tooltip_text(vfo_sdr_button, "Remote SDR controls");
+   g_signal_connect(vfo_sdr_button, "clicked",
+                    G_CALLBACK(local_sdr_controls_clicked), NULL);
+   gtk_box_pack_start(GTK_BOX(vfo_controls_row), vfo_sdr_button, FALSE, FALSE, 0);
+   g_object_add_weak_pointer(G_OBJECT(vfo_sdr_button), (gpointer *)&vfo_sdr_button);
 
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
@@ -253,6 +313,8 @@ GtkWidget *create_vfo_box(void) {
    vfo_update_ui();
    if (!local_vfo_token)
       local_vfo_token = event_on_domain_token("client.local-bridge.vfo", local_vfo_refresh, NULL, "gtk");
+   local_sdr_driver_token = event_on_message_domain_token(
+      RRCLIENT_LOCAL_BRIDGE_ACTIVE_EVENT, local_sdr_driver_event, NULL, "gtk");
    g_signal_connect(control_box, "destroy", G_CALLBACK(local_vfo_destroy), NULL);
    local_vfo_refresh(NULL, NULL, NULL, NULL);
 

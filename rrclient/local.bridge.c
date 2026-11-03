@@ -51,6 +51,33 @@ typedef struct bridge_instance {
 
 static bridge_instance *bridges[26];
 
+static void local_bridge_active_event(void) {
+   char vfo = rrclient_room_active_vfo("&local-sdr");
+   unsigned slot = (unsigned)(vfo - 'A');
+   bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+   rrclient_local_bridge_active_t active = { .vfo = vfo };
+   if (b) {
+      active.connected = b->online && b->pid > 0;
+      g_strlcpy(active.driver, b->driver, sizeof(active.driver));
+   }
+   rr_event_message_t message = {
+      .name = RRCLIENT_LOCAL_BRIDGE_ACTIVE_EVENT,
+      .payload = &active,
+      .length = sizeof(active)
+   };
+   event_emit_message(&message);
+}
+
+static void local_bridge_vfo_changed(void) {
+   event_emit("client.local-bridge.vfo", NULL, NULL);
+   local_bridge_active_event();
+}
+
+static void local_bridge_active_request(const rr_event_message_t *unused, void *user) {
+   (void)unused; (void)user;
+   local_bridge_active_event();
+}
+
 static void local_room_refresh(void) {
    uint32_t mask = 0;
    char bindings[512] = "";
@@ -68,7 +95,7 @@ static void local_room_refresh(void) {
    rrclient_room_set_vfo_mask("&local-sdr", mask);
    rrclient_room_set_control_flags("&local-sdr", false, mask != 0);
    rrclient_room_set_offline("&local-sdr", mask == 0);
-   event_emit("client.local-bridge.vfo", NULL, NULL);
+   local_bridge_vfo_changed();
    event_emit("client.audio.streams.changed", NULL, NULL);
 }
 
@@ -88,6 +115,7 @@ static void kiwi_control_status(const rr_event_message_t *unused, void *user) {
       status.frequency_hz = b->frequency_hz;
       g_strlcpy(status.mode, b->mode, sizeof(status.mode));
    }
+
    rr_event_message_t msg = { .name = RRCLIENT_KIWI_STATUS_EVENT,
       .payload = &status, .length = sizeof(status) };
    event_emit_message(&msg);
@@ -113,6 +141,8 @@ static void kiwi_control_request(const rr_event_message_t *message, void *user) 
 void rrclient_local_bridge_controls_init(void) {
    event_on_message_domain_token(RRCLIENT_KIWI_CONTROL_EVENT, kiwi_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_KIWI_STATUS_REQUEST, kiwi_control_status, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_ACTIVE_REQUEST,
+                                 local_bridge_active_request, NULL, "core");
 }
 bool rrclient_local_bridge_connected(const char *url) {
    if (!url) return false;
@@ -251,7 +281,7 @@ static bool local_rig_action(const rr_rig_cmd_t *cmd, void *unused) {
          return false;
       }
       rrclient_room_set_active_vfo("&local-sdr", target);
-      event_emit("client.local-bridge.vfo", NULL, NULL);
+      local_bridge_vfo_changed();
       ui_print("&local-sdr", "Selected local.sdr.%c", target);
       return true;
    }
@@ -556,7 +586,7 @@ static gboolean poll_local(gpointer unused) {
          if (b->online) {
             b->frequency_hz = m.frequency_hz;
             g_strlcpy(b->mode, m.mode, sizeof(b->mode));
-            event_emit("client.local-bridge.vfo", NULL, NULL);
+            local_bridge_vfo_changed();
          }
          if (b->online != was_online) local_room_refresh();
          if (b->online && !was_online) {

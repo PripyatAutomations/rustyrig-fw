@@ -93,6 +93,7 @@ extern void gtk_ui_zoom_recheck(void);
 extern void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content);
 extern void gtk_ui_zoom_step(int direction);
 extern void gtk_ui_zoom_set(unsigned percent);
+extern void gtk_local_sdr_controls_show(void);
 extern gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data);
 extern gboolean gtk_ui_zoom_key_release(GtkWidget *widget, GdkEventKey *event, gpointer data);
 extern void gtk_ui_zoom_shutdown(void);

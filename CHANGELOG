@@ -43,8 +43,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     during the same client session.
   * Keep background Resource Explorer snapshots from changing the selected
     notebook page; only explicit open requests focus the Explorer.
+  * Move remote SDR controls into the VFO controls row, label the button for
+    the active bridge driver, and show Kiwi-specific controls only for KiwiSDR.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:50:28 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 02 Nov 2026 21:58:15 -0500
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

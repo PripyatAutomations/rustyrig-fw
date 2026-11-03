@@ -944,7 +944,8 @@ typedef struct {
    RRFloatPanel *panel;
    GtkWidget *grid, *status, *scales[13];
    char vfo;
-   gboolean local_room, online, updating;
+   char driver[32];
+   gboolean local_room, connected, online, updating;
    guint refresh_timer;
 } KiwiControlPanel;
 static KiwiControlPanel kiwi_controls;
@@ -968,6 +969,64 @@ static const struct {
 };
 static double kiwi_values[26][G_N_ELEMENTS(kiwi_controls_spec)];
 static gboolean kiwi_values_initialized[26];
+static void kiwi_panel_request_status(void);
+
+static const char *kiwi_driver_label(const char *driver) {
+   if (!driver || !*driver) return "Remote SDR";
+   if (!g_ascii_strcasecmp(driver, "kiwi")) return "KiwiSDR";
+   if (!g_ascii_strcasecmp(driver, "rtl_tcp")) return "RTL-SDR";
+   if (!g_ascii_strcasecmp(driver, "sdrplay")) return "SDRplay";
+   static char label[32];
+   g_strlcpy(label, driver, sizeof(label));
+   for (char *p = label; *p; p++)
+      if (*p == '_' || *p == '-') *p = ' ';
+   label[0] = g_ascii_toupper(label[0]);
+   return label;
+}
+
+static void kiwi_panel_update_driver(void) {
+   if (!kiwi_controls.panel) return;
+   gboolean kiwi = !g_ascii_strcasecmp(kiwi_controls.driver, "kiwi");
+   gtk_widget_set_visible(kiwi_controls.grid, kiwi);
+   gtk_widget_set_sensitive(kiwi_controls.grid, kiwi && kiwi_controls.online);
+   if (!kiwi_controls.connected) {
+      gtk_label_set_text(GTK_LABEL(kiwi_controls.status), "Remote SDR disconnected");
+   } else if (kiwi) {
+      gtk_label_set_text(GTK_LABEL(kiwi_controls.status), kiwi_controls.online ?
+         "Connected (requested control values)" : "Waiting for KiwiSDR controls");
+   } else {
+      char *status = g_strdup_printf("Additional controls are not available for %s yet.",
+                                     kiwi_driver_label(kiwi_controls.driver));
+      gtk_label_set_text(GTK_LABEL(kiwi_controls.status), status);
+      g_free(status);
+   }
+   char *title = g_strdup_printf("%s VFO %c", kiwi_driver_label(kiwi_controls.driver),
+                                 kiwi_controls.vfo >= 'A' && kiwi_controls.vfo <= 'Z' ?
+                                 kiwi_controls.vfo : '?');
+   rr_floating_panel_set_title(kiwi_controls.panel, title);
+   g_free(title);
+}
+
+static void kiwi_panel_active_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message->payload || message->length != sizeof(rrclient_local_bridge_active_t)) return;
+   const rrclient_local_bridge_active_t *active = message->payload;
+   if (!memchr(active->driver, 0, sizeof(active->driver)) ||
+       (active->vfo && (active->vfo < 'A' || active->vfo > 'Z'))) return;
+   gboolean changed = kiwi_controls.vfo != active->vfo ||
+      kiwi_controls.connected != active->connected ||
+      g_ascii_strcasecmp(kiwi_controls.driver, active->driver) != 0;
+   g_strlcpy(kiwi_controls.driver, active->driver, sizeof(kiwi_controls.driver));
+   kiwi_controls.connected = active->connected;
+   kiwi_controls.local_room = TRUE;
+   if (active->vfo) kiwi_controls.vfo = active->vfo;
+   vfo_controls_set_sdr_driver(active);
+   if (!changed) return;
+   kiwi_controls.online = FALSE;
+   kiwi_panel_update_driver();
+   kiwi_panel_request_status();
+}
+
 static void kiwi_panel_request_status(void) {
    if (!kiwi_controls.panel) return;
    rr_event_message_t msg = { .name = RRCLIENT_KIWI_STATUS_REQUEST };
@@ -1013,9 +1072,7 @@ static void kiwi_panel_switch_vfo(char vfo) {
       gtk_range_set_value(GTK_RANGE(kiwi_controls.scales[i]), kiwi_values[slot][i]);
    kiwi_controls.updating = FALSE;
    kiwi_controls.vfo = vfo;
-   char title[48];
-   g_snprintf(title, sizeof(title), "KiwiSDR VFO %c", vfo);
-   rr_floating_panel_set_title(kiwi_controls.panel, title);
+   kiwi_panel_update_driver();
 }
 static void kiwi_panel_status_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
@@ -1023,11 +1080,9 @@ static void kiwi_panel_status_event(const rr_event_message_t *message, void *unu
        message->length != sizeof(rrclient_kiwi_control_status_t)) return;
    const rrclient_kiwi_control_status_t *status = message->payload;
    if (status->vfo != kiwi_controls.vfo) return;
-   kiwi_controls.online = kiwi_controls.local_room && status->available;
-   gtk_widget_set_sensitive(kiwi_controls.grid, kiwi_controls.online);
-   gtk_label_set_text(GTK_LABEL(kiwi_controls.status),
-      !kiwi_controls.local_room ? "Select a local KiwiSDR VFO" :
-      kiwi_controls.online ? "Connected (requested control values)" : "KiwiSDR unavailable");
+   kiwi_controls.online = kiwi_controls.local_room &&
+      !g_ascii_strcasecmp(kiwi_controls.driver, "kiwi") && status->available;
+   kiwi_panel_update_driver();
 }
 static void kiwi_panel_vfo_snapshot(const rrclient_vfo_snapshot_t *snapshot) {
    g_strlcpy(kiwi_last_room, snapshot->room, sizeof(kiwi_last_room));
@@ -1041,17 +1096,16 @@ static void kiwi_panel_vfo_snapshot(const rrclient_vfo_snapshot_t *snapshot) {
    else gtk_label_set_text(GTK_LABEL(kiwi_controls.status), "Select a local KiwiSDR VFO");
    kiwi_panel_request_status();
 }
-static void kiwi_panel_show(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+static void kiwi_panel_show(void) {
    if (kiwi_controls.panel) { rr_floating_panel_show(kiwi_controls.panel); return; }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
    if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
    kiwi_controls.panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-                                               "kiwi-controls", "KiwiSDR VFO");
+                                               "remote-sdr-controls", "Remote SDR");
    if (!kiwi_controls.panel) return;
    rr_floating_panel_set_close_callback(kiwi_controls.panel, kiwi_panel_close, NULL);
    GtkWidget *body = rr_floating_panel_body(kiwi_controls.panel);
-   kiwi_controls.status = gtk_label_new("Select a local KiwiSDR VFO");
+   kiwi_controls.status = gtk_label_new("Remote SDR disconnected");
    gtk_box_pack_start(GTK_BOX(body), kiwi_controls.status, FALSE, FALSE, 3);
    kiwi_controls.grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(kiwi_controls.grid), 4);
@@ -1073,11 +1127,15 @@ static void kiwi_panel_show(GtkButton *button, gpointer unused) {
    gtk_widget_set_sensitive(kiwi_controls.grid, FALSE);
    gtk_box_pack_start(GTK_BOX(body), kiwi_controls.grid, FALSE, FALSE, 2);
    gtk_widget_show_all(rr_floating_panel_widget(kiwi_controls.panel));
+   kiwi_panel_update_driver();
    kiwi_controls.refresh_timer = g_timeout_add_seconds(2, kiwi_panel_poll, NULL);
    rrclient_vfo_snapshot_t initial = {0};
    g_strlcpy(initial.room, kiwi_last_room, sizeof(initial.room));
    g_strlcpy(initial.vfo, kiwi_last_vfo, sizeof(initial.vfo));
    kiwi_panel_vfo_snapshot(&initial);
+}
+void gtk_local_sdr_controls_show(void) {
+   kiwi_panel_show();
 }
 
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data);
@@ -1111,10 +1169,6 @@ bool gui_init(void) {
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
-   GtkWidget *kiwi_button = gtk_button_new_with_label("KiwiSDR");
-   gtk_widget_set_tooltip_text(kiwi_button, "KiwiSDR controls for the active VFO");
-   g_signal_connect(kiwi_button, "clicked", G_CALLBACK(kiwi_panel_show), NULL);
-   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), kiwi_button, FALSE, FALSE, 0);
    GtkWidget *quit_button = gtk_button_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_BUTTON);
    gtk_button_set_relief(GTK_BUTTON(quit_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
@@ -2728,6 +2782,9 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    rr_event_token_t kiwi_status_event = event_on_message_domain_token(
       RRCLIENT_KIWI_STATUS_EVENT, kiwi_panel_status_event, NULL, "gtk");
    if (kiwi_status_event) rr_module_token_add(kiwi_status_event);
+   rr_event_token_t local_sdr_event = event_on_message_domain_token(
+      RRCLIENT_LOCAL_BRIDGE_ACTIVE_EVENT, kiwi_panel_active_event, NULL, "gtk");
+   if (local_sdr_event) rr_module_token_add(local_sdr_event);
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
