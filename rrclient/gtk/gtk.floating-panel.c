@@ -20,6 +20,7 @@ struct rr_floating_panel {
    gpointer title_click_data;
    guint32 title_press_time;
    gboolean title_moved;
+   gboolean snap_disabled, initial_positioned;
    double drag_x, drag_y;
    int start_x, start_y;
    int snap_x, snap_y;
@@ -27,11 +28,86 @@ struct rr_floating_panel {
 };
 
 /* All panel geometry is owned by the GTK thread. Edges catch independently;
- * continuing the drag by SNAP_RELEASE pixels breaks free in either direction.
- * We do not prevent overlaps or move other panels. */
+ * continuing the drag by SNAP_RELEASE pixels breaks free in either direction. */
 #define SNAP_DISTANCE 12
 #define SNAP_RELEASE 26
+#define PANEL_GAP 12
 static GList *floating_panels;
+
+static void panel_add_candidate(GArray *positions, int position, int limit) {
+   if (position < 0 || position > limit) return;
+   for (guint i = 0; i < positions->len; i++) {
+      if (g_array_index(positions, int, i) == position) return;
+   }
+   g_array_append_val(positions, position);
+}
+
+static gboolean panel_position_clear(RRFloatPanel *p, int x, int y,
+                                     int width, int height) {
+   for (GList *it = floating_panels; it; it = it->next) {
+      RRFloatPanel *q = it->data;
+      if (q == p || q->overlay != p->overlay || q->minimized || q->modal ||
+          !gtk_widget_get_visible(q->frame)) continue;
+      GtkRequisition natural;
+      gtk_widget_get_preferred_size(q->frame, NULL, &natural);
+      int qw = MAX(gtk_widget_get_allocated_width(q->frame), natural.width);
+      int qh = MAX(gtk_widget_get_allocated_height(q->frame), natural.height);
+      int qx = gtk_widget_get_margin_start(q->frame);
+      int qy = gtk_widget_get_margin_top(q->frame);
+      if (x < qx + qw + PANEL_GAP && x + width + PANEL_GAP > qx &&
+          y < qy + qh + PANEL_GAP && y + height + PANEL_GAP > qy)
+         return FALSE;
+   }
+   return TRUE;
+}
+
+static gboolean panel_place_initial(RRFloatPanel *p) {
+   int overlay_width = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
+   int overlay_height = gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay));
+   if (overlay_width <= 0 || overlay_height <= 0) return FALSE;
+
+   GtkRequisition natural;
+   gtk_widget_get_preferred_size(p->frame, NULL, &natural);
+   int max_x = overlay_width - natural.width - PANEL_GAP;
+   int max_y = overlay_height - natural.height - PANEL_GAP;
+   if (max_x < 0 || max_y < 0) return TRUE;
+
+   GArray *xs = g_array_new(FALSE, FALSE, sizeof(int));
+   GArray *ys = g_array_new(FALSE, FALSE, sizeof(int));
+   panel_add_candidate(xs, PANEL_GAP, max_x);
+   panel_add_candidate(ys, PANEL_GAP, max_y);
+   for (GList *it = floating_panels; it; it = it->next) {
+      RRFloatPanel *q = it->data;
+      if (q == p || q->overlay != p->overlay || q->minimized || q->modal ||
+          !gtk_widget_get_visible(q->frame)) continue;
+      GtkRequisition q_natural;
+      gtk_widget_get_preferred_size(q->frame, NULL, &q_natural);
+      int qw = MAX(gtk_widget_get_allocated_width(q->frame), q_natural.width);
+      int qh = MAX(gtk_widget_get_allocated_height(q->frame), q_natural.height);
+      int qx = gtk_widget_get_margin_start(q->frame);
+      int qy = gtk_widget_get_margin_top(q->frame);
+      panel_add_candidate(xs, qx + qw + PANEL_GAP, max_x);
+      panel_add_candidate(xs, qx - natural.width - PANEL_GAP, max_x);
+      panel_add_candidate(ys, qy + qh + PANEL_GAP, max_y);
+      panel_add_candidate(ys, qy - natural.height - PANEL_GAP, max_y);
+   }
+
+   gboolean placed = FALSE;
+   for (guint yi = 0; yi < ys->len && !placed; yi++) {
+      int y = g_array_index(ys, int, yi);
+      for (guint xi = 0; xi < xs->len; xi++) {
+         int x = g_array_index(xs, int, xi);
+         if (!panel_position_clear(p, x, y, natural.width, natural.height)) continue;
+         gtk_widget_set_margin_start(p->frame, x);
+         gtk_widget_set_margin_top(p->frame, y);
+         placed = TRUE;
+         break;
+      }
+   }
+   g_array_free(xs, TRUE);
+   g_array_free(ys, TRUE);
+   return TRUE;
+}
 
 static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw,
                            gboolean horizontal, int limit) {
@@ -84,8 +160,14 @@ static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
                        gtk_widget_get_allocated_height(p->frame));
    int raw_x = CLAMP(p->start_x + (int)(x_root - p->drag_x), 0, max_x);
    int raw_y = CLAMP(p->start_y + (int)(y_root - p->drag_y), 0, max_y);
-   int x = panel_snap_axis(p, raw_x, raw_y, TRUE, max_x);
-   int y = panel_snap_axis(p, raw_y, x, FALSE, max_y);
+   int x = raw_x;
+   int y = raw_y;
+   if (p->snap_disabled) {
+      p->snapped_x = p->snapped_y = FALSE;
+   } else {
+      x = panel_snap_axis(p, raw_x, raw_y, TRUE, max_x);
+      y = panel_snap_axis(p, raw_y, x, FALSE, max_y);
+   }
    gtk_widget_set_margin_start(p->frame, x);
    gtk_widget_set_margin_top(p->frame, y);
 }
@@ -307,6 +389,7 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    p->drag_y = event->y_root;
    p->start_x = gtk_widget_get_margin_start(p->frame);
    p->start_y = gtk_widget_get_margin_top(p->frame);
+   p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    p->snapped_x = p->snapped_y = FALSE;
 
    return TRUE;
@@ -319,6 +402,7 @@ static gboolean drag_move(GtkWidget *widget, GdkEventMotion *event, gpointer dat
    if (!p->dragging) {
       return FALSE;
    }
+   p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    panel_drag_position(p, event->x_root, event->y_root);
 
    return TRUE;
@@ -332,6 +416,7 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
       return FALSE;
    }
    p->dragging = FALSE;
+   p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    panel_drag_position(p, event->x_root, event->y_root);
 
    return TRUE;
@@ -391,7 +476,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(handle, "button-press-event", G_CALLBACK(drag_press), p);
    g_signal_connect(handle, "motion-notify-event", G_CALLBACK(drag_move), p);
    g_signal_connect(handle, "button-release-event", G_CALLBACK(drag_release), p);
-   gtk_widget_set_tooltip_text(handle, "Drag to move panel");
+   gtk_widget_set_tooltip_text(handle, "Drag to move panel; hold Shift to disable snapping");
    p->minimize = gtk_button_new_from_icon_name("window-minimize", GTK_ICON_SIZE_MENU);
    p->roll = gtk_button_new_from_icon_name("go-up", GTK_ICON_SIZE_MENU);
    /* Close stays at the left; the remaining controls belong on the right. */
@@ -543,7 +628,8 @@ void rr_floating_panel_set_title_click(RRFloatPanel *p, GCallback callback, gpoi
    gtk_style_context_add_provider(gtk_widget_get_style_context(p->title_hit), GTK_STYLE_PROVIDER(chooser_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(chooser_css);
    gtk_widget_add_events(p->title_hit, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-   gtk_widget_set_tooltip_text(p->title_hit, "Click to choose VFO; drag to move panel");
+   gtk_widget_set_tooltip_text(p->title_hit,
+      "Click to choose VFO; drag to move panel; hold Shift to disable snapping");
    g_signal_connect(p->title_hit, "button-press-event", G_CALLBACK(panel_title_press), p);
    g_signal_connect(p->title_hit, "motion-notify-event", G_CALLBACK(panel_title_move), p);
    g_signal_connect(p->title_hit, "button-release-event", G_CALLBACK(panel_title_release), p);
@@ -564,6 +650,8 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       return;
    }
    gtk_widget_show_all(p->frame);
+   if (!p->initial_positioned)
+      p->initial_positioned = panel_place_initial(p);
    panel_chrome(p);
 }
 

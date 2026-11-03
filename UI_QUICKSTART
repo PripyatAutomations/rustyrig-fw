@@ -15,6 +15,9 @@ Some quick notes to introduce the features of the user interface:
     * Note that this soon will be improved to include help split across multiple topics
 - Chats
   - alt-c always focuses the input field
+- Floating panels
+  - New panels look for a free spot instead of opening directly on top of another panel
+  - Drag a panel by its header; hold Shift while dragging to disable edge snapping
 - Rig controls
   - In dropdowns, shortcut keys (A/N/W) / mode first letter exist
 - PTT:
