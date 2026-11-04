@@ -7,7 +7,11 @@
 # librrprotocol, but does not use libfwdspmgr itself at runtime.
 
 CFLAGS_FWDSP = ${MEDIA_CFLAGS} -I${BUILD_DIR} ${gst_cflags}
-LDFLAGS_FWDSP = ${MEDIA_LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lpthread -lrrprotocol
+# fwdsp objects are unsanitized by default, but shared librustyaxe/librrprotocol
+# can be ASan/UBSan-instrumented. Link the matching runtimes into the executable
+# so their interceptors are available from process startup.
+FWDSP_SANITIZER_RUNTIME_LDFLAGS = $(filter -fsanitize=%,$(LDFLAGS))
+LDFLAGS_FWDSP = ${MEDIA_LDFLAGS} ${FWDSP_SANITIZER_RUNTIME_LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lpthread -lrrprotocol
 fwdsp := bin/fwdsp
 bins += ${fwdsp}
 
