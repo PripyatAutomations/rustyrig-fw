@@ -3884,6 +3884,19 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
       while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
          gtk_tree_store_remove(browser->store, &child);
       }
+      /* Linked nodes live beside the directly connected node, so discard
+       * their stale inventory when this profile disconnects as well. */
+      GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+      GtkTreePath *direct_path = gtk_tree_model_get_path(model, &branch->root);
+      gboolean more = gtk_tree_model_iter_children(model, &child, &branch->domain_root);
+      while (more) {
+         GtkTreePath *path = gtk_tree_model_get_path(model, &child);
+         gboolean direct = gtk_tree_path_compare(path, direct_path) == 0;
+         gtk_tree_path_free(path);
+         more = direct ? gtk_tree_model_iter_next(model, &child) : gtk_tree_store_remove(browser->store, &child);
+      }
+      gtk_tree_path_free(direct_path);
+      set_string(&branch->domain_root, STATE, "Disconnected");
       /* Status and subscription are separate columns. Never retain a stale Connected state beside a Disconnected subscription on link loss. */
       set_string(&branch->root, STATE, "Disconnected");
       set_string(&branch->root, OURS, "");
