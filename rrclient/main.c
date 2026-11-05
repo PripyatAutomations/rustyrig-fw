@@ -463,7 +463,7 @@ static void tui_sdr_line(int row, const char *label, const char *value) {
    printf("\033[%d;1H%-18s ", row, label);
    tui_sdr_safe_text(value, tui_cols() - 21);
 }
-enum { SDR_BTN_CONNECT, SDR_BTN_INFO, SDR_BTN_MARK, SDR_BTN_FAVORITE, SDR_BTN_REFRESH, SDR_BTN_COUNT };
+enum { SDR_BTN_BACK, SDR_BTN_CONNECT, SDR_BTN_INFO, SDR_BTN_MARK, SDR_BTN_FAVORITE, SDR_BTN_REFRESH, SDR_BTN_COUNT };
 static int tui_sdr_button_focus = -1; /* -1 = receiver tree */
 static int tui_sdr_button_start[SDR_BTN_COUNT], tui_sdr_button_end[SDR_BTN_COUNT];
 static int tui_sdr_mark_focus;
@@ -496,8 +496,9 @@ static void tui_sdr_draw_mark_buttons(int row, int cols) {
 static const char *tui_sdr_button_label(int button) {
    const receiver_directory_entry_t *r = tui_sdr_current();
    switch (button) {
+      case SDR_BTN_BACK: return "Back";
       case SDR_BTN_CONNECT: return r && tui_sdr_is_connected(r) ? "Disconnect" : "Connect";
-      case SDR_BTN_INFO: return tui_sdr_info ? "List" : "Info";
+      case SDR_BTN_INFO: return "Info";
       case SDR_BTN_MARK: return "Mark";
       case SDR_BTN_FAVORITE: return r && r->favorite ? "Unfavorite" : "Favorite";
       case SDR_BTN_REFRESH: return "Refresh";
@@ -508,6 +509,9 @@ static void tui_sdr_draw_buttons(int row, int cols) {
    int col = 1;
    printf("\033[%d;1H\033[K", row);
    for (int i = 0; i < SDR_BTN_COUNT; i++) {
+      tui_sdr_button_start[i] = tui_sdr_button_end[i] = 0;
+      if ((i == SDR_BTN_BACK && !tui_sdr_info) ||
+          (i == SDR_BTN_INFO && tui_sdr_info)) continue;
       const char *label = tui_sdr_button_label(i);
       int width = (int)strlen(label) + 2;
       tui_sdr_button_start[i] = col;
@@ -618,8 +622,17 @@ static void tui_sdr_mark_activate(int option) {
 static void tui_sdr_button_activate(int button) {
    const receiver_directory_entry_t *r = tui_sdr_current();
    switch (button) {
+      case SDR_BTN_BACK:
+         tui_sdr_info = false;
+         tui_sdr_button_focus = -1;
+         break;
       case SDR_BTN_CONNECT: tui_sdr_connect(); break;
-      case SDR_BTN_INFO: tui_sdr_info = !tui_sdr_info; break;
+      case SDR_BTN_INFO:
+         if (r) {
+            tui_sdr_info = true;
+            tui_sdr_button_focus = SDR_BTN_BACK;
+         }
+         break;
       case SDR_BTN_MARK:
          if (r) {
             tui_sdr_mark_menu = true;
@@ -644,6 +657,12 @@ static void tui_sdr_activate(void) {
 }
 static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data) {
    (void)w; (void)data;
+   /* Escape returns from receiver details without leaving the directory. */
+   if (tui_sdr_info && !tui_sdr_mark_menu &&
+       (key == TERMKEY_SYM_ESCAPE || key == 27)) {
+      tui_sdr_button_activate(SDR_BTN_BACK);
+      return true;
+   }
    if (tui_sdr_search_active && (key == TERMKEY_SYM_TAB || key == '\t')) tui_sdr_search_active = false;
    else if (tui_sdr_search_active) {
       size_t len = strlen(tui_sdr_search);
@@ -673,14 +692,15 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
       return true;
    }
    if (key == TERMKEY_SYM_TAB || key == '\t') {
-      bool backwards = (mods & TERMKEY_KEYMOD_SHIFT) != 0;
-      if (backwards) {
-         tui_sdr_button_focus = tui_sdr_button_focus < 0 ? SDR_BTN_COUNT - 1 :
-                                tui_sdr_button_focus == 0 ? -1 : tui_sdr_button_focus - 1;
-      } else {
-         tui_sdr_button_focus = tui_sdr_button_focus >= SDR_BTN_COUNT - 1 ? -1 :
-                                tui_sdr_button_focus + 1;
-      }
+      int step = (mods & TERMKEY_KEYMOD_SHIFT) ? -1 : 1;
+      int next = tui_sdr_button_focus;
+      do {
+         next += step;
+         if (next >= SDR_BTN_COUNT) next = -1;
+         if (next < -1) next = SDR_BTN_COUNT - 1;
+      } while ((next == SDR_BTN_BACK && !tui_sdr_info) ||
+               (next == SDR_BTN_INFO && tui_sdr_info));
+      tui_sdr_button_focus = next;
       return true;
    }
    if (mods) return false;
@@ -702,7 +722,7 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
    } else if (key == '/') {
       tui_sdr_search_active = true;
    } else if (key == 'i' || key == 'I') {
-      tui_sdr_info = !tui_sdr_info;
+      if (!tui_sdr_info) tui_sdr_button_activate(SDR_BTN_INFO);
    } else if (key == 'm' || key == 'M') {
       if (tui_sdr_current()) tui_sdr_button_activate(SDR_BTN_MARK);
    } else if (key == 'f' || key == 'F') {
