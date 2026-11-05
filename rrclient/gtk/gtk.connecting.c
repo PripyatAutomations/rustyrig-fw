@@ -125,11 +125,32 @@ static void state_free(gpointer data){
    if(s->timer)g_source_remove(s->timer);
    g_clear_object(&s->logo);g_clear_object(&s->earth);g_free(s->status);g_free(s);
 }
-static GdkPixbuf *load_logo(void){
-   GdkPixbuf *icon=gtk_icon_theme_load_icon(gtk_icon_theme_get_default(),"rustyrig",64,0,NULL);
-   if(!icon)icon=gdk_pixbuf_new_from_file_at_scale("res/rustyrig.png",64,64,TRUE,NULL);
-   if(!icon)icon=gdk_pixbuf_new_from_file_at_scale("/usr/share/icons/hicolor/48x48/apps/rustyrig.png",64,64,TRUE,NULL);
-   return icon;
+static GdkPixbuf *load_logo(void) {
+   /* Prefer the exact same icon already loaded for the main window. */
+   if (main_window && GTK_IS_WINDOW(main_window)) {
+      GdkPixbuf *icon = gtk_window_get_icon(GTK_WINDOW(main_window));
+      if (icon) {
+         return g_object_ref(icon);
+      }
+   }
+
+   const char *paths[] = {
+      "./res/rustyrig.png",
+      "./rustyrig.png",
+      "/usr/local/share/icons/hicolor/48x48/apps/rustyrig.png",
+      "/usr/share/icons/hicolor/48x48/apps/rustyrig.png",
+      "/usr/share/pixmaps/rustyrig.png",
+      NULL
+   };
+   for (size_t i = 0; paths[i]; ++i) {
+      GdkPixbuf *icon = gdk_pixbuf_new_from_file_at_scale(paths[i],
+                                                            64, 64, TRUE, NULL);
+      if (icon) {
+         return icon;
+      }
+   }
+   return gtk_icon_theme_load_icon(gtk_icon_theme_get_default(),
+                                   "rustyrig", 64, 0, NULL);
 }
 static GdkPixbuf *load_earth(void){
    const char *encoded="/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAwADADASIAAhEBAxEB/8QAGgAAAwEAAwAAAAAAAAAAAAAABAYHBQIDCP/EADIQAAIBAwIEBQIDCQAAAAAAAAECAwQFEQAhEhMxQQYHUWFxgZEUFSIkMkJDkqHB0fD/xAAYAQEBAQEBAAAAAAAAAAAAAAADAgQBAP/EAB4RAAICAwEAAwAAAAAAAAAAAAECAAMREiExBCJB/9oADAMBAAIRAxEAPwDz/rb8PeFLr4lmdaGDEMe8k8h4UT69z7DQ1itL3m6R0qhuADjkK9Qo6/6+urjboDaqWipIVldn4eXDTABYhgnBBB9iSckk76VUGpdvJBbuoi1b/KWy8pGrr60x/mNTvGiofQcWSfTtoeq8tPD1TRTyWu81dPURRiUx1iKyspOAcqBj4023COuutZTQ1FKJF3URqiqF2PbGDt1z6aCvtFc7VJHDZ6mnETqy8FNUK3JAG6+vfrkami1LTgLJs2QyOXiw19klC1UY5bHCSoco/wAH/B31maqNXdI62nNsriJqeKBI5pP32aQZyeL2JGCPTU6udA1trnp2YOuAyOOjqRkHS3U6dHk9XZtw+xq8HW6WSx3G4QTRxvFIitxSBTw4yOEHqc4+2mSr8S3w0yuVEEfLXgkXJk26vnbJO2lHwjH+No6+iiP7SgE8ak7OoBDD56H6a16aorCixxKxhbpGJcjPqATrVUAahM7kiwzW/Mvz9aShq7nNb5I4SgdUJWYk/pJYHYZ/7OgI7PcK2Q00wqoaYyhZXAJiB7tjb2PTTbQ2t6iqjp6yV1kEQ4FIVgMDfZgR9tG3G4W6xRmhnt9W6ugJkiYLk+hPQZ9j01kZx8cfSJoXOWk4p7fxXGOjgT8WysxAiBPMAz01k+LQGit7snBJGrwNnY4U5Gf6iNMkyNLHJVyvJSMpJQxNhsZ2BI676TvEErtNEkjFnwXZick59ftpTct1JacRCjiA2q5TWm5Q1sBPHG2cA4yO4zqopOl/anultaMM6iOqEYCye7cI/i6Zx899SLRlsu1dZ6sVNBUvBKO6nY+xHQ6Gq0pz8jPXtK5Qw1luucYmjlrFBJBeXgcfAOxP10RcL4yQ1FPX2/MPO5dOr8SmVcAjHfOT20kr5nVtRE0dzttJVqxBbhHLLYHsD/bGhq/zAqKqGBILfBGYMcuSZjM6Y6YLaqxksGDOKrL5Nqrukllhq2rQohngMcNO2Cc5+O3XOpzUTvUzvNIcsxydcqqsqK6dp6qZ5ZG6sxzro0bOMaqMCUq46fZ//9k=";
