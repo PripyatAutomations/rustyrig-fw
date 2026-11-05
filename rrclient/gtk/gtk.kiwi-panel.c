@@ -8,6 +8,8 @@
 #include <gtk/gtk.h>
 #include <string.h>
 
+extern GtkWidget *main_notebook;
+
 /* Kiwi controls run on the GTK owner thread. Changes are fire-and-forget events to the core; no bridge IPC or network operations run in GTK. */
 typedef struct {
    RRFloatPanel *panel;
