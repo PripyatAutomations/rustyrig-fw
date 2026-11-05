@@ -60,9 +60,6 @@ const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
    {
-      "core.new-threading", "true", "Use separate frontend/core threading; false restores legacy shared-loop mode", DEFCONFIG_BOOL, NULL
-   },
-   {
       "chat.send.burst", "4", "Client chat messages allowed in an immediate burst (1-100)", DEFCONFIG_UINT, NULL
    },
    {
