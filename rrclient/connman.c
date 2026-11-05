@@ -1306,6 +1306,11 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       return true;
    }
    dispatch_depth++;
+   /* Emit at the actual connection attempt, not a transport event which may
+    * never be delivered. IRC profiles deliberately do not show this dialog. */
+   if (!endpoint.irc) {
+      rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
+   }
    ui_print(NULL, "%sConnecting to %s", get_chat_ts(now), endpoint.credentials ? connect_url : url);
    const char *socket_url = t->proxy_pending ? t->socks.url : connect_url;
    struct mg_connection *c = endpoint.irc ? mg_connect(&mgr, socket_url, rrclient_transport_handler, t) :
