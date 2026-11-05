@@ -1150,6 +1150,218 @@ static bool rrclient_tui_server_picker_hotkey(tui_window_t *win, unsigned key,
    return true;
 }
 
+/* Local SDR VFO controls use the core bridge APIs, never an rrserver. */
+static char tui_local_vfo = 'A';
+static bool tui_local_freq_edit;
+static char tui_local_freq[32], tui_local_message[180];
+static int tui_local_focus = -1;
+enum { LOCAL_DEC, LOCAL_INC, LOCAL_MODE, LOCAL_FREQ, LOCAL_VFO, LOCAL_BACK, LOCAL_BUTTONS };
+static int tui_local_button_start[LOCAL_BUTTONS], tui_local_button_end[LOCAL_BUTTONS];
+static char tui_local_vfos[26];
+static size_t tui_local_count;
+
+static void tui_local_update_vfos(void) {
+   char names[26][64];
+   tui_local_count = rrclient_local_bridge_streams(names, tui_local_vfos, G_N_ELEMENTS(tui_local_vfos));
+   if (tui_local_count > G_N_ELEMENTS(tui_local_vfos)) tui_local_count = G_N_ELEMENTS(tui_local_vfos);
+   if (!tui_local_count) return;
+   bool found = false;
+   for (size_t i = 0; i < tui_local_count; i++) {
+      if (tui_local_vfos[i] == tui_local_vfo) found = true;
+   }
+   if (!found) tui_local_vfo = tui_local_vfos[0];
+}
+static void tui_local_select_vfo(char vfo) {
+   if (!rrclient_local_bridge_state_vfo(vfo, NULL, NULL)) return;
+   tui_local_vfo = vfo;
+   rrclient_room_set_active_vfo("&local-sdr", vfo);
+}
+static bool tui_local_tune_delta(int64_t delta) {
+   uint64_t hz = 0;
+   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, NULL)) return false;
+   if (delta < 0 && hz < (uint64_t)(-delta)) return false;
+   uint64_t target = delta < 0 ? hz - (uint64_t)(-delta) : hz + (uint64_t)delta;
+   return rrclient_local_bridge_set_frequency(tui_local_vfo, target);
+}
+static bool tui_local_set_frequency(void) {
+   char *end = NULL;
+   double mhz = g_ascii_strtod(tui_local_freq, &end);
+   if (!tui_local_freq[0] || !end || *end || mhz <= 0.0 || mhz >= 100000.0) {
+      g_strlcpy(tui_local_message, "Enter a valid frequency in MHz, e.g. 14.074000.", sizeof(tui_local_message));
+      return false;
+   }
+   uint64_t hz = (uint64_t)(mhz * 1000000.0 + 0.5);
+   if (!rrclient_local_bridge_set_frequency(tui_local_vfo, hz)) {
+      g_strlcpy(tui_local_message, "Tune rejected; see local SDR log for receiver limits.", sizeof(tui_local_message));
+      return false;
+   }
+   g_strlcpy(tui_local_message, "Frequency change requested.", sizeof(tui_local_message));
+   return true;
+}
+static void tui_local_start_frequency(void) {
+   uint64_t hz = 0;
+   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, NULL)) return;
+   g_snprintf(tui_local_freq, sizeof(tui_local_freq), "%.6f", (double)hz / 1000000.0);
+   tui_local_freq_edit = true;
+}
+static void tui_local_cycle_mode(void) {
+   uint64_t hz = 0;
+   const char *mode = NULL;
+   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, &mode)) return;
+   static const char *modes[] = { "USB", "LSB", "AM", "CW", "FM" };
+   unsigned i = 0;
+   while (i < G_N_ELEMENTS(modes) && g_ascii_strcasecmp(modes[i], mode ? mode : "")) i++;
+   const char *next = modes[(i + 1) % G_N_ELEMENTS(modes)];
+   if (!rrclient_local_bridge_set_mode(tui_local_vfo, next))
+      g_snprintf(tui_local_message, sizeof(tui_local_message), "%s unsupported; check bridge capabilities.", next);
+   else
+      g_snprintf(tui_local_message, sizeof(tui_local_message), "Requested mode %s.", next);
+}
+static void tui_local_action(int action) {
+   switch (action) {
+      case LOCAL_DEC:
+      case LOCAL_INC:
+         if (!tui_local_tune_delta(action == LOCAL_DEC ? -1000 : 1000))
+            g_strlcpy(tui_local_message, "Unable to step frequency; see local SDR log.", sizeof(tui_local_message));
+         break;
+      case LOCAL_MODE: tui_local_cycle_mode(); break;
+      case LOCAL_FREQ: tui_local_start_frequency(); break;
+      case LOCAL_VFO:
+         if (tui_local_count) {
+            size_t i = 0;
+            for (; i < tui_local_count; i++)
+               if (tui_local_vfos[i] == tui_local_vfo) break;
+            tui_local_select_vfo(tui_local_vfos[(i + 1) % tui_local_count]);
+         }
+         break;
+      case LOCAL_BACK: tui_window_focus("SDR Directory"); break;
+   }
+}
+static void tui_local_sdr_draw(tui_window_t *win, int rows, int cols, void *unused) {
+   (void)win; (void)unused;
+   tui_local_update_vfos();
+   char active = rrclient_room_active_vfo("&local-sdr");
+   printf("\033[2;1H" SDR_TITLE " Local SDR / rrbridge VFO controls (RX only)" SDR_NORMAL "\033[K");
+   printf("\033[3;1H" SDR_TITLE "   VFO       Frequency           Mode      Status" SDR_NORMAL "\033[K");
+   if (!tui_local_count)
+      printf("\033[4;1H" SDR_WARNING "  Waiting for local rrbridge receiver..." SDR_NORMAL "\033[K");
+   for (size_t i = 0; i < tui_local_count && (int)i + 4 < rows - 5; i++) {
+      char vfo = tui_local_vfos[i];
+      uint64_t hz = 0;
+      const char *mode = NULL;
+      bool online = rrclient_local_bridge_state_vfo(vfo, &hz, &mode);
+      printf("\033[%zu;1H%s  %c VFO %c  " SDR_NORMAL,
+             i + 4, vfo == tui_local_vfo ? SDR_HILITE : SDR_NAME,
+             vfo == active ? '*' : ' ', vfo);
+      if (online) {
+         printf(SDR_USERS "%11.6f MHz" SDR_NORMAL "    " SDR_GOOD "%-8s" SDR_NORMAL "  Online",
+                (double)hz / 1000000.0, mode ? mode : "---");
+      } else fputs(SDR_WARNING "Not ready" SDR_NORMAL, stdout);
+      fputs("\033[K", stdout);
+   }
+   printf("\033[%d;1H" SDR_TITLE "Selected VFO %c" SDR_NORMAL, rows - 5, tui_local_vfo);
+   printf("\033[%d;1H", rows - 4);
+   if (tui_local_freq_edit)
+      printf(SDR_FOCUS " Frequency (MHz): %s_  [Enter apply / Esc cancel] " SDR_NORMAL, tui_local_freq);
+   else printf(" F: enter MHz frequency    +/-: 1 kHz    M: change mode    V: next VFO");
+   const char *buttons[] = {"-1 kHz", "+1 kHz", "Mode", "Frequency", "Next VFO", "Directory"};
+   int x = 1;
+   for (int i = 0; i < LOCAL_BUTTONS; i++) {
+      int width = (int)strlen(buttons[i]) + 2;
+      tui_local_button_start[i] = tui_local_button_end[i] = 0;
+      if (x + width - 1 <= cols) {
+         tui_local_button_start[i] = x;
+         tui_local_button_end[i] = x + width - 1;
+         printf("\033[%d;%dH%s[%s]" SDR_NORMAL, rows - 2, x,
+                i == tui_local_focus ? SDR_FOCUS : SDR_BUTTON, buttons[i]);
+      }
+      x += width + 1;
+   }
+   printf("\033[%d;1H" SDR_MUTED "Tab: buttons / list   Space/Enter: activate   Esc: directory" SDR_NORMAL "\033[K", rows - 1);
+   printf("\033[%d;1H", rows);
+   tui_sdr_safe_text(tui_local_message[0] ? tui_local_message : "Use arrow keys to choose a VFO; tuning is RX-only.", cols - 1);
+   fputs("\033[K", stdout);
+}
+static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, void *unused) {
+   (void)win; (void)unused;
+   if (tui_local_freq_edit) {
+      size_t len = strlen(tui_local_freq);
+      if (key == TERMKEY_SYM_ESCAPE || key == 27) tui_local_freq_edit = false;
+      else if (key == TERMKEY_SYM_ENTER || key == 10) {
+         if (tui_local_set_frequency()) tui_local_freq_edit = false;
+      } else if (key == TERMKEY_SYM_BACKSPACE || key == 8 || key == 127) {
+         if (len) tui_local_freq[len - 1] = 0;
+      } else if ((key >= '0' && key <= '9' || key == '.') && len + 1 < sizeof(tui_local_freq)) {
+         tui_local_freq[len] = (char)key;
+         tui_local_freq[len + 1] = 0;
+      }
+      return true;
+   }
+   if (key == TERMKEY_SYM_ESCAPE || key == 27) {
+      tui_window_focus("SDR Directory"); return true;
+   }
+   if (key == TERMKEY_SYM_TAB || key == '\t') {
+      tui_local_focus += mods & TERMKEY_KEYMOD_SHIFT ? -1 : 1;
+      if (tui_local_focus >= LOCAL_BUTTONS) tui_local_focus = -1;
+      if (tui_local_focus < -1) tui_local_focus = LOCAL_BUTTONS - 1;
+      return true;
+   }
+   if (mods) return false;
+   if (key == TERMKEY_SYM_UP || key == TERMKEY_SYM_DOWN) {
+      if (tui_local_count) {
+         size_t i = 0;
+         for (; i < tui_local_count; i++)
+            if (tui_local_vfos[i] == tui_local_vfo) break;
+         i = key == TERMKEY_SYM_DOWN ? (i + 1) % tui_local_count :
+             (i + tui_local_count - 1) % tui_local_count;
+         tui_local_select_vfo(tui_local_vfos[i]);
+      }
+   } else if (key == TERMKEY_SYM_ENTER || key == 10 || key == ' ') {
+      if (tui_local_focus >= 0) tui_local_action(tui_local_focus);
+   } else if (key == '-' || key == '+') {
+      tui_local_action(key == '-' ? LOCAL_DEC : LOCAL_INC);
+   } else if (key == 'f' || key == 'F') tui_local_action(LOCAL_FREQ);
+   else if (key == 'm' || key == 'M') tui_local_action(LOCAL_MODE);
+   else if (key == 'v' || key == 'V') tui_local_action(LOCAL_VFO);
+   else return false;
+   return true;
+}
+static bool tui_local_sdr_mouse(tui_window_t *win, int row, int col, int button,
+                                 int action, unsigned mods, void *unused) {
+   (void)win; (void)mods; (void)unused;
+   if (action != TERMKEY_MOUSE_PRESS || button != 1) return false;
+   if (row >= 4 && row < 4 + (int)tui_local_count) {
+      tui_local_select_vfo(tui_local_vfos[row - 4]);
+      tui_local_focus = -1;
+      return true;
+   }
+   if (row == tui_rows() - 2) {
+      for (int i = 0; i < LOCAL_BUTTONS; i++) {
+         if (tui_local_button_start[i] && col >= tui_local_button_start[i] &&
+             col <= tui_local_button_end[i]) {
+            tui_local_focus = i;
+            tui_local_action(i);
+            return true;
+         }
+      }
+   }
+   return false;
+}
+void rrclient_tui_local_sdr_open(void) {
+   if (ui_mode != UI_MODE_TUI) return;
+   tui_window_t *window = tui_window_create("&local-sdr");
+   if (!window) return;
+   window->view_draw = tui_local_sdr_draw;
+   window->view_key = tui_local_sdr_key;
+   window->view_mouse = tui_local_sdr_mouse;
+   window->view_full_height = true;
+   tui_local_freq_edit = false;
+   tui_local_focus = -1;
+   tui_local_message[0] = 0;
+   tui_window_focus("&local-sdr");
+   tui_redraw_request();
+}
+
 static bool rrclient_sdr_hotkey(tui_window_t *win, unsigned key, unsigned mods, void *user_data) {
    (void)win; (void)key; (void)mods; (void)user_data;
    if (tui_window_focus("SDR Directory")) {
