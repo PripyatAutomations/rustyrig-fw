@@ -875,6 +875,38 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    }
    const char *cmd = dict_get(d, "talk.cmd", "");
 
+   if (!strcmp(cmd, "join") && (!ok || !ws_client_in_room(&r->client, room))) {
+      bool rig_base = room && ws_room_rig_base(room);
+      bool configured = room && rrserver_rig_room_configured(room);
+      bool metadata = room && ws_room_tx_control(room);
+      bool exists = false, deleted = false, db_ok = false;
+#ifdef USE_SQLITE
+      db_ok = room && db_room_status(masterdb, room, &exists, &deleted);
+#endif
+      Log(LOG_WARN, "relay.join",
+         "Remote JOIN failed on owner: room=%s user=%s origin=%s session=%s "
+         "process_ok=%s member=%s rig_base=%s configured=%s room_metadata=%s "
+         "db_ok=%s db_exists=%s db_deleted=%s",
+         room ? room : "(none)", username, origin, id,
+         ok ? "yes" : "no", room && ws_client_in_room(&r->client, room) ? "yes" : "no",
+         rig_base ? "yes" : "no", configured ? "yes" : "no",
+         metadata ? "yes" : "no", db_ok ? "yes" : "no",
+         exists ? "yes" : "no", deleted ? "yes" : "no");
+      /* The protocol handler already sends its generic failure. Add the
+       * reason that distinguishes a stale catalog from an authorization
+       * or room-initialization problem on the actual owning server. */
+      if (rig_base && !configured)
+         ws_send_error(&r->client, "JOIN %s: owning server has no configured rig room (stale catalog or rig unavailable)", room);
+      else if (rig_base && !metadata)
+         ws_send_error(&r->client, "JOIN %s: owning server has no active rig-room metadata", room);
+      else if (!db_ok)
+         ws_send_error(&r->client, "JOIN %s: owning server could not read room database status", room ? room : "");
+      else if (deleted)
+         ws_send_error(&r->client, "JOIN %s: room is marked deleted on owning server", room);
+      else
+         ws_send_error(&r->client, "JOIN %s: owning server rejected room membership; check relay.join and room logs", room ? room : "");
+   }
+
    if (ok && !strcmp(cmd, "join") && ws_client_in_room(&r->client, room)) {
       dict *joined = dict_new();
 
