@@ -16,6 +16,8 @@
 #define MAX_PEERS 16
 #define MAX_SESSIONS 32
 #define MAX_QUEUE 262144
+#define MAX_DEFERRED_QUEUE (4u * 1024u * 1024u)
+#define MAX_DEFERRED_FRAMES 4096u
 
 extern struct GlobalState rig;
 struct link_session;
@@ -45,6 +47,9 @@ struct link_peer {
 struct link_session {
    struct link_session *next;
    rr_transport_t *transport;
+   GQueue *deferred_messages;
+   size_t deferred_bytes;
+   long long deferred_since, last_backpressure_log;
    struct rr_mesh_auth auth;
    bool closing;
    struct link_peer *peer;
