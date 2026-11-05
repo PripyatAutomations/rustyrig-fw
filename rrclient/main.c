@@ -1291,7 +1291,7 @@ static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, vo
          if (tui_local_set_frequency()) tui_local_freq_edit = false;
       } else if (key == TERMKEY_SYM_BACKSPACE || key == 8 || key == 127) {
          if (len) tui_local_freq[len - 1] = 0;
-      } else if ((key >= '0' && key <= '9' || key == '.') && len + 1 < sizeof(tui_local_freq)) {
+      } else if (((key >= '0' && key <= '9') || key == '.') && len + 1 < sizeof(tui_local_freq)) {
          tui_local_freq[len] = (char)key;
          tui_local_freq[len + 1] = 0;
       }
@@ -1489,6 +1489,9 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
    tui_refresh_sb_vfo();
    tui_update_status(tw, "%s %s", sb_online, sb_window);
    tui_redraw_clock();
+   /* Local receiver state is updated asynchronously by rrbridge IPC. */
+   if (tw && tw->view_draw == tui_local_sdr_draw)
+      tui_redraw_request();
 
    return G_SOURCE_CONTINUE;
 }
