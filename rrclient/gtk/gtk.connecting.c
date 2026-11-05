@@ -194,7 +194,10 @@ static void on_progress(const rr_event_message_t *m,void *unused){
    if(!memchr(v.profile,0,sizeof(v.profile))||!v.profile[0])return;
    GtkWidget *d=dialogs?g_hash_table_lookup(dialogs,v.profile):NULL;
    if(v.phase==RR_CONNECT_PHASE_FAILED){if(d)gtk_widget_destroy(d);return;}
-   if(!d && v.phase!=RR_CONNECT_PHASE_LOOKUP)return;
+   /* The first progress notification can be delayed or skipped by a transport.
+    * Later phases must still be able to bring up the sign-on window. */
+   if (!d && v.phase == RR_CONNECT_PHASE_COMPLETE)
+      return;
    if(!d){
       d=rr_connect_dialog_new(GTK_IS_WINDOW(main_window)?GTK_WINDOW(main_window):NULL);
       g_object_set_data_full(G_OBJECT(d),"rr-profile",g_strdup(v.profile),g_free);
