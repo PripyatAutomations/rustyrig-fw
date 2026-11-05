@@ -211,8 +211,13 @@ GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
       gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
    if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook))
       return NULL;
+   /* Separate IDs allow simultaneous connection attempts to keep their
+    * own panel geometry and lifecycle. */
+   static guint next_panel_id;
+   char *panel_id = g_strdup_printf("connecting-%u", ++next_panel_id);
    RRFloatPanel *panel = rr_floating_panel_new(GTK_OVERLAY(root),
-      GTK_NOTEBOOK(main_notebook), "connecting", "RustyRig — Connecting");
+      GTK_NOTEBOOK(main_notebook), panel_id, "RustyRig — Connecting");
+   g_free(panel_id);
    if (!panel) return NULL;
    RRConnect *state = g_new0(RRConnect, 1);
    state->panel = panel;
