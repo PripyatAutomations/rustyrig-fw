@@ -166,6 +166,9 @@ static help_line_t help_msg_after[] = {
       UI_MODE_NONE, "\t\00309Ctrl-Tab     \00308Select next server: GTK Status/Admin; TUI Status/Client Log/Host Log (shared selection)"
    },
    {
+      UI_MODE_TUI, "\t\00309Alt-S        \00308Next server in TUI Status/Logs/SDR Directory (works when Ctrl-Tab is unavailable)"
+   },
+   {
       UI_MODE_GTK, "\t\00309Ctrl +/-     \00308Zoom fonts and resize window; Alt +/- changes fonts only; Ctrl/Alt 0 resets zoom"
    },
    {
