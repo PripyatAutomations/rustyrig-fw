@@ -1122,6 +1122,9 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    char *status = g_strdup_printf("Connecting to %s at %s", driver, url);
    event_emit("client.receiver-directory.connection", NULL, status);
    ui_print("&local-sdr", "%s", status);
+   /* TUI presents an interactive local RX VFO panel on this existing tab. */
+   extern void rrclient_tui_local_sdr_open(void) __attribute__((weak));
+   if (rrclient_tui_local_sdr_open) rrclient_tui_local_sdr_open();
    g_free(status);
    Log(LOG_INFO, "local.bridge", "Started local %s bridge pid=%ld for %s", driver, (long)pid, url);
 
