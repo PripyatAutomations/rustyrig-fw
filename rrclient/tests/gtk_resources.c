@@ -455,6 +455,10 @@ int main(int argc, char **argv) {
    assert(mesh && other);
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), mesh) == 2);
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), other) == 1);
+   /* Health is a separate read-only projection: same-domain alternate
+    * connections must not duplicate nodes, while other domains remain distinct. */
+   resource_health_update();
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &browser->health_root) == 3);
    GtkTreeIter found;
    assert(resource_find_uuid(mesh, "node-alpha", &found));
    assert(resource_find_uuid(mesh, "node-beta", &found));
