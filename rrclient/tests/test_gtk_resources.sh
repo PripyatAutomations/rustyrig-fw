@@ -15,6 +15,7 @@ ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} $(pkg-config --cflags gtk+-3.0) \
    rrclient/gtk/gtk.catalog.health.c \
    rrclient/gtk/gtk.catalog.view.c \
    rrclient/gtk/gtk.catalog.controls.c \
+   rrclient/gtk/gtk.catalog.inventory.c \
    rrclient/gtk/gtk.serial.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
    $(pkg-config --libs gtk+-3.0) -o "$work/resources"
 xvfb-run -a "$work/resources"
