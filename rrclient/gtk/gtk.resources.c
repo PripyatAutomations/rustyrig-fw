@@ -167,8 +167,24 @@ static void resource_domain_rebuild(const char *domain);
 /* Domain changes on reconnect must never move the old domain's other nodes.
  * Keep a shared root per verified domain and discard unused old roots. */
 static void resource_domain_assign(resource_branch *branch, const char *identity) {
-   const char *domain = identity && *identity ? identity : branch->profile;
-   if (branch->domain && !g_strcmp0(branch->domain, domain)) return;
+   /* DNS domains are case-insensitive, and a terminal dot is equivalent.
+    * Unknown identities remain isolated by profile until verified. */
+   gboolean known = identity && *identity;
+   char *domain = known ? g_ascii_strdown(identity, -1) :
+      g_strdup_printf("unknown-profile:%s", branch->profile);
+   if (known) {
+      gsize len = strlen(domain);
+      while (len && domain[len - 1] == '.') domain[--len] = 0;
+      if (!len) {
+         g_free(domain);
+         domain = g_strdup_printf("unknown-profile:%s", branch->profile);
+         known = FALSE;
+      }
+   }
+   if (branch->domain && !g_strcmp0(branch->domain, domain)) {
+      g_free(domain);
+      return;
+   }
    char *previous = g_strdup(branch->domain);
    GtkTreeIter *existing = g_hash_table_lookup(browser->domains, domain);
    if (existing) {
@@ -185,12 +201,12 @@ static void resource_domain_assign(resource_branch *branch, const char *identity
       GtkTreeIter *root = g_new(GtkTreeIter, 1);
       *root = branch->domain_root;
       g_hash_table_insert(browser->domains, g_strdup(domain), root);
-      set_string(root, NAME, domain);
-      set_string(root, STATE, "Mesh domain");
+      set_string(root, NAME, known ? domain : "Unknown domain");
+      set_string(root, STATE, known ? "Mesh domain" : "Domain unavailable");
    }
    branch->root_valid = false;
    g_free(branch->domain);
-   branch->domain = g_strdup(domain);
+   branch->domain = domain;
 
    if (previous) {
       gboolean still_used = FALSE;
