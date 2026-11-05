@@ -52,6 +52,7 @@ void resource_local_configure(GtkButton *, gpointer);
 void resource_files(GtkButton *, gpointer);
 void resource_zebra_structure_changed(gpointer);
 void resource_zebra_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
+GtkWindow *resource_parent(void);
 void resource_present(void);
 void resource_initial_split(GtkWidget *, GtkAllocation *, gpointer);
 gboolean resource_search_equal(GtkTreeModel *, gint, const gchar *, GtkTreeIter *, gpointer);
