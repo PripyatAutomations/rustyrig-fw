@@ -263,8 +263,48 @@ static void row(rrconn_t *connection, unsigned depth, const char *kind, const ch
    dict_add(d, "client.serial.name", "");
    dict_add(d, "client.serial.state", "");
    char *payload = dict2json(d);
-   resource_row("client.resources.row", payload, NULL, NULL);
+   /* Existing component tests exercise the presenter directly. The wire
+    * inventory collector is exercised separately below with complete
+    * snapshots, including the inventory-end barrier. */
+   resource_branch *branch = browser ?
+      g_hash_table_lookup(browser->branches, rrclient_connection_name(connection)) : NULL;
+   if (branch) {
+      gboolean direct = depth == 0 && !strcmp(kind, "site");
+      if (direct) {
+         if (!branch->domain) resource_domain_assign(branch, "mesh.example");
+         g_free(branch->direct_uuid);
+         branch->direct_uuid = g_strdup(uuid);
+      }
+      resource_render_row(branch, payload, direct);
+   }
    free(payload);
+   dict_free(d);
+}
+static void wire_row(const char *profile, const char *request,
+                     unsigned depth, const char *kind, const char *name,
+                     const char *uuid, const char *domain) {
+   dict *d = dict_new();
+   dict_add(d, "client.profile", profile);
+   dict_add(d, "request.id", request);
+   dict_add(d, "object.cmd", "inventory-entry");
+   dict_add_uint(d, "inventory.depth", depth);
+   dict_add(d, "inventory.kind", kind);
+   dict_add(d, "inventory.name", name);
+   dict_add(d, "inventory.uuid", uuid);
+   if (domain) dict_add(d, "inventory.domain", domain);
+   char *json = dict2json(d);
+   resource_row("client.resources.row", json, NULL, NULL);
+   free(json);
+   dict_free(d);
+}
+static void wire_end(const char *profile, const char *request) {
+   dict *d = dict_new();
+   dict_add(d, "client.profile", profile);
+   dict_add(d, "request.id", request);
+   dict_add(d, "object.cmd", "inventory-end");
+   char *json = dict2json(d);
+   resource_row("client.resources.row", json, NULL, NULL);
+   free(json);
    dict_free(d);
 }
 int main(int argc, char **argv) {
@@ -383,6 +423,47 @@ int main(int argc, char **argv) {
    dict_free(serial_request);
    assert(attachments == 1);
    resource_local_update();
+
+   /* Multiple connections to one domain produce one set of node UUIDs;
+    * connections to a different domain remain separate. Losing one route
+    * retains nodes still advertised by another connection. */
+   rrclient_resource_view_t alpha_request = {
+      .kind = "object", .request = "union-alpha", .profile = "alpha", .online = true
+   }, beta_request = {
+      .kind = "object", .request = "union-beta", .profile = "beta", .online = true
+   }, gamma_request = {
+      .kind = "object", .request = "union-gamma", .profile = "gamma", .online = true
+   };
+   resource_show(RRCLIENT_RESOURCE_VIEW_EVENT, &alpha_request, sizeof(alpha_request), NULL, NULL);
+   resource_show(RRCLIENT_RESOURCE_VIEW_EVENT, &beta_request, sizeof(beta_request), NULL, NULL);
+   resource_show(RRCLIENT_RESOURCE_VIEW_EVENT, &gamma_request, sizeof(gamma_request), NULL, NULL);
+   wire_row("alpha", "union-alpha", 0, "site", "alpha-node", "node-alpha", "mesh.example");
+   wire_row("alpha", "union-alpha", 1, "rig", "alpha-rig", "rig-alpha", NULL);
+   wire_row("alpha", "union-alpha", 0, "site", "beta-node", "node-beta", "mesh.example");
+   wire_row("alpha", "union-alpha", 1, "rig", "beta-rig", "rig-beta", NULL);
+   wire_end("alpha", "union-alpha");
+   wire_row("beta", "union-beta", 0, "site", "beta-node", "node-beta", "mesh.example");
+   wire_row("beta", "union-beta", 1, "rig", "beta-rig", "rig-beta", NULL);
+   wire_row("beta", "union-beta", 0, "site", "alpha-node", "node-alpha", "mesh.example");
+   wire_row("beta", "union-beta", 1, "rig", "alpha-rig", "rig-alpha", NULL);
+   wire_end("beta", "union-beta");
+   wire_row("gamma", "union-gamma", 0, "site", "gamma-node", "node-gamma", "different.example");
+   wire_end("gamma", "union-gamma");
+   GtkTreeIter *mesh = g_hash_table_lookup(browser->domains, "mesh.example");
+   GtkTreeIter *other = g_hash_table_lookup(browser->domains, "different.example");
+   assert(mesh && other);
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), mesh) == 2);
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), other) == 1);
+   GtkTreeIter found;
+   assert(resource_find_uuid(mesh, "node-alpha", &found));
+   assert(resource_find_uuid(mesh, "node-beta", &found));
+   assert(!resource_find_uuid(mesh, "node-gamma", &found));
+   resource_branch *beta_branch = g_hash_table_lookup(browser->branches, "beta");
+   beta_branch->online = false;
+   resource_domain_rebuild("mesh.example");
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), mesh) == 2);
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), other) == 1);
+
    gtk_resources_shutdown();
    assert(!browser);
 
