@@ -390,6 +390,9 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
 
    for (size_t i = 0 ; defcfg[i].key ; i++) {
       const defconfig_t *def = &defcfg[i];
+      /* Pipeline definitions are managed exclusively by Edit Pipelines. */
+      if (g_str_has_prefix(def->key, "pipeline:"))
+         continue;
       const char *value = cfg_get(def->key);
       cfg_editor_binding_t *binding = NULL;
       GtkWidget *editor = cfg_editor_widget(def, value ? value : def->val, &binding);
