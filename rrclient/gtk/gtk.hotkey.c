@@ -211,6 +211,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    }
 
    if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Escape) {
+      if (gtk_help_is_open()) {
+         gtk_help_hide();
+         gtk_escape_prefix = FALSE;
+         return TRUE;
+      }
       gtk_escape_prefix = TRUE;
 
       /* Let GTK's normal Escape handling close menus and popups. */
@@ -265,7 +270,8 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    }
 
    if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_F1 && !modifiers) {
-      gtk_help_show();
+      gtk_escape_prefix = FALSE;
+      gtk_help_toggle();
 
       return TRUE;
    }
