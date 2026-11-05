@@ -66,6 +66,7 @@ void resource_cat_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, G
 
 GtkTreePath *resource_view_path(GtkTreePath *child_path);
 gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *found);
+void resource_health_queue_free(gpointer value);
 void resource_health_update(void);
 void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item);
 void resource_local_update(void);
