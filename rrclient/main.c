@@ -855,6 +855,257 @@ static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button,
    return true;
 }
 
+/* Temporary TUI server chooser. Created on demand and destroyed on exit;
+ * the Status tab remains the stable home for connection selection. */
+#define RR_TUI_SERVER_PICKER "Server Picker"
+typedef struct {
+   char *name;
+   char *url;
+} tui_server_entry_t;
+static GPtrArray *tui_server_entries;
+static size_t tui_server_selected, tui_server_scroll;
+static int tui_server_button_focus = -1;
+static int tui_server_buttons_start[3], tui_server_buttons_end[3];
+static char tui_server_notice[160];
+
+static void tui_server_entry_free(gpointer item) {
+   tui_server_entry_t *entry = item;
+   if (!entry) return;
+   g_free(entry->name);
+   g_free(entry->url);
+   g_free(entry);
+}
+static gint tui_server_entry_cmp(gconstpointer ap, gconstpointer bp) {
+   const tui_server_entry_t *a = *(tui_server_entry_t * const *)ap;
+   const tui_server_entry_t *b = *(tui_server_entry_t * const *)bp;
+   return g_ascii_strcasecmp(a->name, b->name);
+}
+static void tui_server_reload(void) {
+   if (!tui_server_entries)
+      tui_server_entries = g_ptr_array_new_with_free_func(tui_server_entry_free);
+   g_ptr_array_set_size(tui_server_entries, 0);
+   int rank = 0;
+   const char *key;
+   char *url;
+   while ((rank = dict_enumerate(cfg, rank, &key, &url)) >= 0) {
+      char name[512];
+      if (!rrclient_server_profile_name(key, name, sizeof(name))) continue;
+      tui_server_entry_t *entry = g_new0(tui_server_entry_t, 1);
+      entry->name = g_strdup(name);
+      entry->url = g_strdup(url ? url : "");
+      g_ptr_array_add(tui_server_entries, entry);
+   }
+   g_ptr_array_sort(tui_server_entries, tui_server_entry_cmp);
+   if (tui_server_selected >= tui_server_entries->len)
+      tui_server_selected = tui_server_entries->len ? tui_server_entries->len - 1 : 0;
+   if (tui_server_scroll > tui_server_selected) tui_server_scroll = tui_server_selected;
+}
+static tui_server_entry_t *tui_server_current(void) {
+   return tui_server_entries && tui_server_selected < tui_server_entries->len ?
+      g_ptr_array_index(tui_server_entries, tui_server_selected) : NULL;
+}
+static void tui_server_picker_close(void) {
+   tui_window_t *picker = tui_window_find(RR_TUI_SERVER_PICKER);
+   if (!picker) return;
+   /* Focus before freeing the currently active window. */
+   tui_window_focus("status");
+   tui_window_destroy(picker);
+   tui_redraw_request();
+}
+static void tui_server_picker_choose(void) {
+   tui_server_entry_t *entry = tui_server_current();
+   if (!entry) return;
+   char *name = g_strdup(entry->name);
+   int state = rrclient_connection_state(name);
+   if (state) {
+      if (rrclient_connection_select(name))
+         tui_server_picker_close();
+      else
+         g_strlcpy(tui_server_notice, "Unable to select this connection.", sizeof(tui_server_notice));
+   } else {
+      /* Existing /server behavior: false indicates a successful request. */
+      if (!connect_server(name))
+         tui_server_picker_close();
+      else
+         g_strlcpy(tui_server_notice, "Unable to initiate connection; check the Status log.", sizeof(tui_server_notice));
+   }
+   g_free(name);
+}
+static void tui_server_picker_disconnect(void) {
+   tui_server_entry_t *entry = tui_server_current();
+   if (entry && rrclient_connection_state(entry->name))
+      disconnect_server(entry->name);
+   else
+      g_strlcpy(tui_server_notice, "Selected profile is not connected.", sizeof(tui_server_notice));
+}
+static void tui_server_picker_action(int action) {
+   switch (action) {
+      case 0: tui_server_picker_choose(); break;
+      case 1: tui_server_picker_disconnect(); break;
+      case 2: tui_server_picker_close(); break;
+   }
+}
+static void tui_server_picker_draw(tui_window_t *w, int rows, int cols, void *unused) {
+   (void)w; (void)unused;
+   tui_server_reload();
+   printf("\033[2;1H" SDR_TITLE " Server Picker" SDR_NORMAL
+          "   Select a profile (Enter), or Esc / Alt-X to close\033[K");
+   printf("\033[3;1H" SDR_TITLE "    %-23s %-15s %-9s %s" SDR_NORMAL "\033[K",
+          "Profile", "Connection", "Active", "URL");
+   const char *selected = rrclient_selected_server();
+   int height = rows - 6;
+   if (height < 1) height = 1;
+   if (tui_server_selected < tui_server_scroll) tui_server_scroll = tui_server_selected;
+   if (tui_server_selected >= tui_server_scroll + (size_t)height)
+      tui_server_scroll = tui_server_selected - (size_t)height + 1;
+   if (!tui_server_entries->len) {
+      printf("\033[4;1H" SDR_WARNING
+             " No server profiles configured. Add server:<name>.server.url to configuration."
+             SDR_NORMAL);
+   }
+   for (int y = 4; y < rows - 2; y++) {
+      size_t idx = tui_server_scroll + (size_t)(y - 4);
+      if (idx >= tui_server_entries->len) break;
+      const tui_server_entry_t *entry = g_ptr_array_index(tui_server_entries, idx);
+      int state = rrclient_connection_state(entry->name);
+      const char *status = state == 1 ? "Online" : state < 0 ? "Connecting" : "Offline";
+      printf("\033[%d;1H", y);
+      fputs(idx == tui_server_selected ? SDR_HILITE :
+            state == 1 ? SDR_ENABLED : SDR_NORMAL, stdout);
+      printf(" %c  %-23.23s %-15.15s %-9.9s ",
+             idx == tui_server_selected ? '>' : ' ',
+             entry->name, status,
+             selected && !strcmp(selected, entry->name) ? "Selected" : "");
+      int remain = cols - 59;
+      if (remain > 0) printf("%.*s", remain, entry->url);
+      fputs(SDR_NORMAL "\033[K", stdout);
+   }
+   const char *labels[] = {"Select/Connect", "Disconnect", "Cancel"};
+   int x = 2;
+   for (int i = 0; i < 3; i++) {
+      int width = (int)strlen(labels[i]) + 2;
+      tui_server_buttons_start[i] = tui_server_buttons_end[i] = 0;
+      if (x + width - 1 <= cols) {
+         tui_server_buttons_start[i] = x;
+         tui_server_buttons_end[i] = x + width - 1;
+         printf("\033[%d;%dH%s[%s]" SDR_NORMAL, rows - 1, x,
+                i == tui_server_button_focus ? SDR_FOCUS : SDR_BUTTON, labels[i]);
+      }
+      x += width + 2;
+   }
+   printf("\033[%d;1H", rows);
+   if (tui_server_notice[0]) {
+      fputs(SDR_WARNING, stdout);
+      tui_sdr_safe_text(tui_server_notice, cols - 1);
+      fputs(SDR_NORMAL, stdout);
+   } else {
+      printf("%zu configured profiles  |  Up/Down: select  Tab: buttons  Space/Enter: activate",
+             tui_server_entries->len);
+   }
+   fputs("\033[K", stdout);
+}
+static bool tui_server_picker_key(tui_window_t *w, unsigned key, unsigned mods, void *unused) {
+   (void)w; (void)unused;
+   if (key == TERMKEY_SYM_ESCAPE || key == 27) {
+      tui_server_picker_close();
+      return true;
+   }
+   if (key == TERMKEY_SYM_TAB || key == '\t') {
+      int step = mods & TERMKEY_KEYMOD_SHIFT ? -1 : 1;
+      tui_server_button_focus += step;
+      if (tui_server_button_focus >= 3) tui_server_button_focus = -1;
+      if (tui_server_button_focus < -1) tui_server_button_focus = 2;
+      return true;
+   }
+   if (mods) return false;
+   size_t n = tui_server_entries ? tui_server_entries->len : 0;
+   if (key == TERMKEY_SYM_UP) {
+      tui_server_button_focus = -1;
+      if (tui_server_selected) tui_server_selected--;
+   } else if (key == TERMKEY_SYM_DOWN) {
+      tui_server_button_focus = -1;
+      if (n && tui_server_selected + 1 < n) tui_server_selected++;
+   } else if (key == TERMKEY_SYM_PAGEUP) {
+      tui_server_button_focus = -1;
+      size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
+      tui_server_selected = tui_server_selected > page ? tui_server_selected - page : 0;
+   } else if (key == TERMKEY_SYM_PAGEDOWN) {
+      tui_server_button_focus = -1;
+      size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
+      if (n) tui_server_selected = page < n - 1 - tui_server_selected ?
+         tui_server_selected + page : n - 1;
+   } else if (key == TERMKEY_SYM_ENTER || key == 10 || key == ' ') {
+      tui_server_picker_action(tui_server_button_focus < 0 ? 0 : tui_server_button_focus);
+   } else return false;
+   return true;
+}
+static bool tui_server_picker_mouse(tui_window_t *w, int row, int col,
+                                   int button, int action, unsigned mods, void *unused) {
+   (void)w; (void)mods; (void)unused;
+   if (action != TERMKEY_MOUSE_PRESS) return false;
+   if (button == 4 || button == 5) {
+      if (button == 4 && tui_server_selected) tui_server_selected--;
+      if (button == 5 && tui_server_entries && tui_server_selected + 1 < tui_server_entries->len)
+         tui_server_selected++;
+      return true;
+   }
+   if (button != 1) return false;
+   if (row >= 4 && row < tui_rows() - 2) {
+      size_t idx = tui_server_scroll + (size_t)(row - 4);
+      if (tui_server_entries && idx < tui_server_entries->len) {
+         tui_server_selected = idx;
+         tui_server_button_focus = -1;
+      }
+      return true;
+   }
+   if (row == tui_rows() - 1) {
+      for (int i = 0; i < 3; i++) {
+         if (tui_server_buttons_start[i] && col >= tui_server_buttons_start[i] &&
+             col <= tui_server_buttons_end[i]) {
+            tui_server_button_focus = i;
+            tui_server_picker_action(i);
+            return true;
+         }
+      }
+   }
+   return false;
+}
+void rrclient_tui_server_picker_toggle(void) {
+   if (ui_mode != UI_MODE_TUI) return;
+   if (tui_window_find(RR_TUI_SERVER_PICKER)) {
+      tui_server_picker_close();
+      return;
+   }
+   tui_server_selected = tui_server_scroll = 0;
+   tui_server_button_focus = -1;
+   tui_server_notice[0] = 0;
+   tui_window_t *window = tui_window_create(RR_TUI_SERVER_PICKER);
+   if (!window) return;
+   window->view_draw = tui_server_picker_draw;
+   window->view_key = tui_server_picker_key;
+   window->view_mouse = tui_server_picker_mouse;
+   window->view_full_height = true;
+   const char *selected = rrclient_selected_server();
+   tui_server_reload();
+   if (selected) {
+      for (size_t i = 0; i < tui_server_entries->len; i++) {
+         tui_server_entry_t *e = g_ptr_array_index(tui_server_entries, i);
+         if (!strcmp(selected, e->name)) {
+            tui_server_selected = i;
+            break;
+         }
+      }
+   }
+   tui_window_focus(RR_TUI_SERVER_PICKER);
+   tui_redraw_request();
+}
+static bool rrclient_tui_server_picker_hotkey(tui_window_t *win, unsigned key,
+                                              unsigned mods, void *data) {
+   (void)win; (void)key; (void)mods; (void)data;
+   rrclient_tui_server_picker_toggle();
+   return true;
+}
+
 static bool rrclient_sdr_hotkey(tui_window_t *win, unsigned key, unsigned mods, void *user_data) {
    (void)win; (void)key; (void)mods; (void)user_data;
    if (tui_window_focus("SDR Directory")) {
@@ -1523,6 +1774,8 @@ int main(int argc, char *argv[]) {
       /* Ctrl-Tab is indistinguishable from Tab in many terminals. */
       tui_hotkey_register('s', TERMKEY_KEYMOD_ALT, rrclient_server_hotkey, NULL);
       tui_hotkey_register('S', TERMKEY_KEYMOD_ALT, rrclient_server_hotkey, NULL);
+      tui_hotkey_register('x', TERMKEY_KEYMOD_ALT, rrclient_tui_server_picker_hotkey, NULL);
+      tui_hotkey_register('X', TERMKEY_KEYMOD_ALT, rrclient_tui_server_picker_hotkey, NULL);
       tui_hotkey_register('z', TERMKEY_KEYMOD_ALT, rrclient_sdr_hotkey, NULL);
       tui_hotkey_register('Z', TERMKEY_KEYMOD_ALT, rrclient_sdr_hotkey, NULL);
       tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
