@@ -33,6 +33,8 @@ void rrserver_relay_fini(void);
 void rrserver_relay_inventory(rrconn_t *client, const char *request);
 void rrserver_relay_file_nodes(rrconn_t *client, const char *request_id);
 void rrserver_relay_objects(rrconn_t *client, const char *request);
+/* Collect relayed object descriptors for paced snapshot delivery (caller owns dicts). */
+void rrserver_relay_objects_collect(GPtrArray *messages, const char *request);
 char *rrserver_relay_remote_rooms(void);
 char *rrserver_relay_servers(void);
 char *rrserver_relay_rooms(const char *local);
