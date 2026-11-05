@@ -162,25 +162,56 @@ static resource_branch *resource_branch_get(const char *profile) {
 /* Domain identity comes from the authenticated server's inventory, never
  * the transport address or the route through the mesh. Until known, each
  * profile has a separate provisional domain row. */
+static void resource_domain_rebuild(const char *domain);
+
+/* Domain changes on reconnect must never move the old domain's other nodes.
+ * Keep a shared root per verified domain and discard unused old roots. */
 static void resource_domain_assign(resource_branch *branch, const char *identity) {
    const char *domain = identity && *identity ? identity : branch->profile;
    if (branch->domain && !g_strcmp0(branch->domain, domain)) return;
+   char *previous = g_strdup(branch->domain);
    GtkTreeIter *existing = g_hash_table_lookup(browser->domains, domain);
    if (existing) {
-      /* The initial provisional row has no committed inventory children.
-       * Once snapshots arrive, the shared domain rebuild supplies the nodes. */
-      if (!branch->domain) gtk_tree_store_remove(browser->store, &branch->domain_root);
+      if (!previous) gtk_tree_store_remove(browser->store, &branch->domain_root);
       branch->domain_root = *existing;
-      branch->root_valid = false;
    } else {
+      if (previous) {
+         /* The previous domain may be shared; never reuse its GTK row. */
+         gtk_tree_store_insert_before(browser->store, &branch->domain_root,
+                                      NULL, &browser->local_root);
+         gtk_tree_store_set(browser->store, &branch->domain_root,
+                            KIND, "domain", PROFILE, branch->profile, -1);
+      }
       GtkTreeIter *root = g_new(GtkTreeIter, 1);
       *root = branch->domain_root;
       g_hash_table_insert(browser->domains, g_strdup(domain), root);
       set_string(root, NAME, domain);
       set_string(root, STATE, "Mesh domain");
    }
+   branch->root_valid = false;
    g_free(branch->domain);
    branch->domain = g_strdup(domain);
+
+   if (previous) {
+      gboolean still_used = FALSE;
+      GHashTableIter it;
+      gpointer value;
+      g_hash_table_iter_init(&it, browser->branches);
+      while (g_hash_table_iter_next(&it, NULL, &value)) {
+         resource_branch *other = value;
+         if (other != branch && !g_strcmp0(other->domain, previous)) {
+            still_used = TRUE;
+            break;
+         }
+      }
+      if (still_used) resource_domain_rebuild(previous);
+      else {
+         GtkTreeIter *old_root = g_hash_table_lookup(browser->domains, previous);
+         if (old_root) gtk_tree_store_remove(browser->store, old_root);
+         g_hash_table_remove(browser->domains, previous);
+      }
+      g_free(previous);
+   }
 }
 
 /* Expansion is keyed by stable resource identity and ancestry, not row numbers: sorting and a fresh inventory can change every GtkTreePath. */
