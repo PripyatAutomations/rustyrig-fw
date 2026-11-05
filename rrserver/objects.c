@@ -890,6 +890,7 @@ static void inventory(rrconn_t *client, const char *id) {
    if (row) {
       rrserver_gps_inventory_position(row, "station");
       dict_add(row, "inventory.room", ws_site_room());
+      dict_add(row, "inventory.domain", cfg_get("domain"));
       dict_add(row, "inventory.description", cfg_get("station.description"));
       dict_add(row, "inventory.location", cfg_get("station.location"));
    }
