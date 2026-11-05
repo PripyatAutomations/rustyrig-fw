@@ -74,6 +74,7 @@ void resource_domain_assign(resource_branch *branch, const char *identity);
 void resource_domain_rebuild(const char *domain);
 void resource_expansion_save(resource_branch *branch);
 void resource_expansion_restore(resource_branch *branch);
+gboolean resource_restore_scroll(gpointer unused);
 void resource_update_branch(resource_branch *branch);
 void resource_row(const char *event, const char *text, rrconn_t *connection, void *user);
 
