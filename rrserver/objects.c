@@ -334,7 +334,12 @@ void rrserver_objects_poll(void) {
                   rr_object_seq_put(d, "stream.seq", ++sequence);
                }
                dict *end = message("object", "end", s->request);
-               if (end) g_ptr_array_add(s->frames, end);
+               if (!end) {
+                  /* Do not mark a truncated snapshot complete on allocation failure. */
+                  g_ptr_array_set_size(s->frames, 0);
+                  break;
+               }
+               g_ptr_array_add(s->frames, end);
                s->relay_queued = true;
             } else {
                g_ptr_array_free(s->pending, TRUE);
