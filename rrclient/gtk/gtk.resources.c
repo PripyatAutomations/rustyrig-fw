@@ -3397,7 +3397,6 @@ static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, c
    return FALSE;
 }
 
-static void resource_domain_rebuild(const char *domain);
 
 static void resource_row(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event;
