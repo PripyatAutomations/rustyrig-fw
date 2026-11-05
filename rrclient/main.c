@@ -466,6 +466,32 @@ static void tui_sdr_line(int row, const char *label, const char *value) {
 enum { SDR_BTN_CONNECT, SDR_BTN_INFO, SDR_BTN_MARK, SDR_BTN_FAVORITE, SDR_BTN_REFRESH, SDR_BTN_COUNT };
 static int tui_sdr_button_focus = -1; /* -1 = receiver tree */
 static int tui_sdr_button_start[SDR_BTN_COUNT], tui_sdr_button_end[SDR_BTN_COUNT];
+static int tui_sdr_mark_focus;
+static int tui_sdr_mark_start[5], tui_sdr_mark_end[5];
+static const char *tui_sdr_mark_labels[] = {
+   "Unreachable", "Restricted", "Good", "Clear", "Cancel"
+};
+static const char *tui_sdr_mark_values[] = {
+   "unreachable", "restricted", "good", "unknown", NULL
+};
+static void tui_sdr_draw_mark_buttons(int row, int cols) {
+   int col = 1;
+   printf("\033[%d;1H\033[K", row);
+   for (unsigned i = 0; i < G_N_ELEMENTS(tui_sdr_mark_labels); i++) {
+      int width = (int)strlen(tui_sdr_mark_labels[i]) + 2;
+      tui_sdr_mark_start[i] = tui_sdr_mark_end[i] = 0;
+      if (col + width - 1 <= cols) {
+         tui_sdr_mark_start[i] = col;
+         tui_sdr_mark_end[i] = col + width - 1;
+         printf("\033[%d;%dH", row, col);
+         if ((int)i == tui_sdr_mark_focus) fputs("\033[7m", stdout);
+         printf("[%s]", tui_sdr_mark_labels[i]);
+         if ((int)i == tui_sdr_mark_focus) fputs("\033[0m", stdout);
+      }
+      col += width + 1;
+   }
+}
+
 
 static const char *tui_sdr_button_label(int button) {
    const receiver_directory_entry_t *r = tui_sdr_current();
@@ -555,11 +581,8 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
       }
    }
    int action_row = rows - 1;
-   if (tui_sdr_mark_menu) {
-      printf("\033[%d;1H [1 Unreachable] [2 Restricted] [3 Good] [4 Clear] [Esc Cancel]\033[K", action_row);
-   } else {
-      tui_sdr_draw_buttons(action_row, cols);
-   }
+   if (tui_sdr_mark_menu) tui_sdr_draw_mark_buttons(action_row, cols);
+   else tui_sdr_draw_buttons(action_row, cols);
    const char *message = tui_sdr_message[0] ? tui_sdr_message : receiver_directory_status();
    printf("\033[%d;1H", rows);
    tui_sdr_safe_text(message, cols - 1);
@@ -588,12 +611,21 @@ static void tui_sdr_mark(const char *state) {
          !strcmp(state, "unknown") ? "" : "User report; receiver was not probed");
    tui_sdr_mark_menu = false;
 }
+static void tui_sdr_mark_activate(int option) {
+   if (option >= 0 && option < 4) tui_sdr_mark(tui_sdr_mark_values[option]);
+   else tui_sdr_mark_menu = false;
+}
 static void tui_sdr_button_activate(int button) {
    const receiver_directory_entry_t *r = tui_sdr_current();
    switch (button) {
       case SDR_BTN_CONNECT: tui_sdr_connect(); break;
       case SDR_BTN_INFO: tui_sdr_info = !tui_sdr_info; break;
-      case SDR_BTN_MARK: if (r) tui_sdr_mark_menu = true; break;
+      case SDR_BTN_MARK:
+         if (r) {
+            tui_sdr_mark_menu = true;
+            tui_sdr_mark_focus = 0;
+         }
+         break;
       case SDR_BTN_FAVORITE:
          if (r && r->url) receiver_directory_set_favorite(r->url, !r->favorite);
          break;
@@ -628,10 +660,16 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
       return true;
    }
    if (tui_sdr_mark_menu) {
-      const char *state = key == '1' ? "unreachable" : key == '2' ? "restricted" :
-                          key == '3' ? "good" : key == '4' ? "unknown" : NULL;
-      if (state) tui_sdr_mark(state);
-      else if (key == 27 || key == TERMKEY_SYM_ESCAPE) tui_sdr_mark_menu = false;
+      if (key == TERMKEY_SYM_TAB || key == '\t') {
+         int direction = mods & TERMKEY_KEYMOD_SHIFT ? -1 : 1;
+         tui_sdr_mark_focus = (tui_sdr_mark_focus + 5 + direction) % 5;
+      } else if (key == TERMKEY_SYM_ENTER || key == 10 || key == ' ') {
+         tui_sdr_mark_activate(tui_sdr_mark_focus);
+      } else if (key >= '1' && key <= '4') {
+         tui_sdr_mark_activate((int)(key - '1'));
+      } else if (key == 27 || key == TERMKEY_SYM_ESCAPE) {
+         tui_sdr_mark_menu = false;
+      }
       return true;
    }
    if (key == TERMKEY_SYM_TAB || key == '\t') {
@@ -655,7 +693,7 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
       size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
       tui_sdr_selected = tui_sdr_selected > page ? tui_sdr_selected - page : 0;
    } else if (key == TERMKEY_SYM_PAGEDOWN) {
-      size_t page = tui_rows() > 7 ? tui_rows() - 7 : 1;
+      size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
       if (count) tui_sdr_selected = page < count - 1 - tui_sdr_selected ? tui_sdr_selected + page : count - 1;
    } else if (key == TERMKEY_SYM_ENTER || key == 10 || key == ' ') {
       if (tui_sdr_button_focus >= 0) tui_sdr_button_activate(tui_sdr_button_focus);
@@ -666,7 +704,7 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
    } else if (key == 'i' || key == 'I') {
       tui_sdr_info = !tui_sdr_info;
    } else if (key == 'm' || key == 'M') {
-      if (tui_sdr_current()) tui_sdr_mark_menu = true;
+      if (tui_sdr_current()) tui_sdr_button_activate(SDR_BTN_MARK);
    } else if (key == 'f' || key == 'F') {
       const receiver_directory_entry_t *r = tui_sdr_current();
       if (r) receiver_directory_set_favorite(r->url, !r->favorite);
@@ -702,10 +740,14 @@ static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button,
       tui_sdr_selected = tui_sdr_scroll = 0;
    } else if (row == tui_rows() - 1) {
       if (tui_sdr_mark_menu) {
-         const char *state = col < 17 ? "unreachable" : col < 32 ? "restricted" :
-                             col < 41 ? "good" : col < 51 ? "unknown" : NULL;
-         if (state) tui_sdr_mark(state);
-         else tui_sdr_mark_menu = false;
+         for (int i = 0; i < 5; i++) {
+            if (tui_sdr_mark_start[i] && col >= tui_sdr_mark_start[i] &&
+                col <= tui_sdr_mark_end[i]) {
+               tui_sdr_mark_focus = i;
+               tui_sdr_mark_activate(i);
+               break;
+            }
+         }
       } else {
          for (int i = 0; i < SDR_BTN_COUNT; i++) {
             if (tui_sdr_button_start[i] && col >= tui_sdr_button_start[i] &&
