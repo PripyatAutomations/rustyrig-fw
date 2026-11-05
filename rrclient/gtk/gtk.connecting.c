@@ -108,7 +108,7 @@ static gboolean redraw(GtkWidget *widget,cairo_t *c,gpointer user){
       cairo_translate(c,x+8,130);
       if((unsigned)i<=s->step){
          if(i==0){
-            if(s->earth){gdk_cairo_set_source_pixbuf(c,s->earth,91,4);cairo_paint_with_alpha(c,.78);}
+            if(s->earth){gdk_cairo_set_source_pixbuf(c,s->earth,91,4);cairo_paint(c);}
             tower(c,s->frame);
          }else if(i==1)runner(c,s->frame);
          else cluster(c,s->frame);
