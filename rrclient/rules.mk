@@ -3,10 +3,16 @@ rrclient_src = $(rrclient_objs:.o=.c)
 gtk_headers := $(wildcard rrclient/gtk/*.h)
 
 rrclient := bin/rrclient
-rrclient_objs += files.o objects.o objects.events.o
+rrclient_objs += files.o
+rrclient_objs += objects.o
+rrclient_objs += objects.events.o
 bins += ${rrclient}
 
-rrclient_objs += receiver.directory.o receiver.connect.o receiver.catalog.o local.bridge.o spectrum.af.o
+rrclient_objs += receiver.directory.o
+rrclient_objs += receiver.connect.o
+rrclient_objs += receiver.catalog.o
+rrclient_objs += local.bridge.o
+rrclient_objs += spectrum.af.o
 rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
 rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
@@ -101,7 +107,8 @@ gtk_module_objs += gtk/gtk.floating-panel.o
 gtk_module_objs += gtk/gtk.fm-mode.o	# FM mode dialog
 gtk_module_objs += gtk/gtk.freqentry.o	# Frequency Entry Widget
 gtk_module_objs += gtk/gtk.help.o
-gtk_module_objs += gtk/gtk.hotkey.o	# Hotkey support
+gtk_module_objs += gtk/gtk.hotkey.o
+gtk_module_objs += gtk/gtk.irc-format.o # IRC color and Pango markup formatting	# Hotkey support
 gtk_module_objs += gtk/gtk.icons.o
 gtk_module_objs += gtk/gtk.logview.o
 gtk_module_objs += gtk/gtk.mode-box.o	# Modulation Mode / width box
