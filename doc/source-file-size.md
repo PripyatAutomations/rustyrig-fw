@@ -73,6 +73,27 @@ All changes were made through repository source edits. No compiler or
 working source checkout was available in this environment; a full GTK
 build and smoke test are still required before further invasive splits.
 
+## GTK core decomposition continued (2026-11-05)
+
+Further responsibility-based extractions:
+- `gtk.identity.c` (595 lines): complete local Ed25519 certificate/key
+  management, dialogs, first-run setup and key-manager entry points.
+- `gtk.output.c` (199 lines): GTK chat/status printing, startup backlog,
+  timestamp/markup display, and scrollback trimming.
+- `gtk.window.c` (472 lines): main window and tab assembly, fullscreen,
+  toolbar, confirmation dialogs and configuration refresh hooks.
+- Each new source has a narrow header as needed; object entries in
+  `rrclient/rules.mk` remain one per `gtk_module_objs +=` line.
+
+`gtk.core.c` is now approximately **1,591 lines**, down from 3,527
+before the initial splitting effort. Its remaining large responsibility is
+frontend event dispatch, synchronization and lifecycle. Split that next
+only with an explicit event-domain ownership interface; avoid moving
+private GTK state into global variables merely to satisfy line counts.
+
+Source-level checks were performed against GitHub main. Compilation,
+linking and GTK runtime validation remain outstanding.
+
 ## Recommended sequence
 
 1. Split `gtk.admin.c` first; the largest file and most clearly separated dialogs/tabs.
