@@ -69,4 +69,10 @@ gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *fo
 void resource_health_update(void);
 void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item);
 void resource_local_update(void);
+void resource_property_result(const char *event, const char *payload, rrconn_t *connection, void *user);
+const dict *resource_property_cached(const char *profile, const char *uuid, const char *property, const char *request_id);
+char *resource_property_request(const char *profile, const char *uuid, const char *property);
+void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *name, const char *property);
+void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *title, const char *id);
+
 #endif
