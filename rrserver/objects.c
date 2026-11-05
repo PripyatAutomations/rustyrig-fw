@@ -25,6 +25,7 @@
 #include <rrserver/platform.controls.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/ws.mediachan.h>
+#include <librustyaxe/transport.h>
 
 extern struct GlobalState rig;
 
