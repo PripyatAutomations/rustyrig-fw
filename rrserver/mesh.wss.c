@@ -872,16 +872,35 @@ void rr_mesh_wss_stop(void) {
       timer = 0;
    }
 
+   size_t active = 0;
    for (struct mesh_wss *c = connections ; c ; c = c->next) {
-      rr_mesh_wss_abort(c->transport, "Server shutdown");
+      ++active;
+      rr_transport_close(c->transport);
    }
+   Log(LOG_INFO, "mesh.native", "Graceful shutdown: closing %zu native TLS/WebSocket connections", active);
 
-   /* Resolve cancellations before releasing borrowed application contexts. */
+   /* The normal main loop has stopped: explicitly service the GLib/reactor
+    * context while close frames and TLS notifications drain. Never let a
+    * wedged peer prevent termination. */
+   long long deadline = mono_ms() + 2500;
+   while (connections && mono_ms() < deadline) {
+      while (g_main_context_pending(NULL))
+         g_main_context_iteration(NULL, FALSE);
+      rr_reactor_dispatch_ready(NULL);
+      maintenance(NULL);
+      if (connections)
+         g_usleep(10000);
+   }
+   if (connections)
+      Log(LOG_WARN, "mesh.native", "Graceful shutdown deadline exceeded; aborting remaining connections");
+   for (struct mesh_wss *c = connections ; c ; c = c->next)
+      rr_mesh_wss_abort(c->transport, "Graceful shutdown timeout");
    while (connections) {
       maintenance(NULL);
-
       if (connections) {
-         g_main_context_iteration(NULL, TRUE);
+         while (g_main_context_pending(NULL))
+            g_main_context_iteration(NULL, FALSE);
+         rr_reactor_dispatch_ready(NULL);
       }
    }
 
