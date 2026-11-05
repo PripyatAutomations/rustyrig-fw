@@ -3395,7 +3395,7 @@ static gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeI
 }
 static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, const char *uuid, const char *name, guint generation, GtkTreeIter *found) {
    (void)generation;
-   GtkTreeModel = GTK_TREE_MODEL(browser->store);
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
 
    for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
