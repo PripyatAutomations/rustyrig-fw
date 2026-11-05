@@ -33,7 +33,7 @@ extern void gtk_terminal_open_endpoint(const char *name);
 extern void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name);
 typedef struct {
    char *profile, *request, *selection, *subscription;
-   GtkTreeIter root, parents[5];
+   GtkTreeIter domain_root, root, parents[5];
    GHashTable *irc_rows, *expanded;
    bool valid[5], loading, online, loaded, local_site_seen;
    uint64_t requested_at;
@@ -142,7 +142,11 @@ static resource_branch *resource_branch_get(const char *profile) {
    branch = g_new0(resource_branch, 1);
    branch->profile = g_strdup(profile);
    branch->irc_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
-   gtk_tree_store_insert_before(browser->store, &branch->root, NULL, &browser->local_root);
+   /* Display topology is domain -> nodes, regardless of the relay route. */
+   gtk_tree_store_insert_before(browser->store, &branch->domain_root, NULL, &browser->local_root);
+   gtk_tree_store_set(browser->store, &branch->domain_root, NAME, "Domain (discovering…)", KIND, "domain",
+                      PROFILE, profile, STATE, "Discovering", -1);
+   gtk_tree_store_append(browser->store, &branch->root, &branch->domain_root);
    gtk_tree_store_set(browser->store, &branch->root, NAME, profile, KIND, "server", PROFILE, profile, -1);
    g_hash_table_insert(browser->branches, branch->profile, branch);
 
@@ -192,7 +196,7 @@ static void resource_expansion_save(resource_branch *branch) {
    }
    branch->expanded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    /* Include the branch root itself, which can also be manually collapsed. */
-   GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
+   GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->domain_root);
    GtkTreePath *path = resource_view_path(child_path);
    gtk_tree_path_free(child_path);
 
@@ -203,7 +207,7 @@ static void resource_expansion_save(resource_branch *branch) {
    if (path) {
       gtk_tree_path_free(path);
    }
-   resource_expansion_walk(&branch->root, branch->profile, branch->expanded, false);
+   resource_expansion_walk(&branch->domain_root, branch->profile, branch->expanded, false);
 }
 
 /* Expand the useful topology on first load, leaving extensive configuration branches closed until explicitly requested. */
@@ -232,7 +236,7 @@ static void resource_collapse_settings(GtkTreeIter *parent) {
    }
 }
 static void resource_expansion_restore(resource_branch *branch) {
-   GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
+   GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->domain_root);
    GtkTreePath *path = resource_view_path(child_path);
    gtk_tree_path_free(child_path);
 
@@ -246,10 +250,10 @@ static void resource_expansion_restore(resource_branch *branch) {
 
    if (!branch->expanded) {
       gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
-      resource_collapse_settings(&branch->root);
+      resource_collapse_settings(&branch->domain_root);
    } else if (g_hash_table_contains(branch->expanded, "@root")) {
       gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
-      resource_expansion_walk(&branch->root, branch->profile, branch->expanded, true);
+      resource_expansion_walk(&branch->domain_root, branch->profile, branch->expanded, true);
    }
    gtk_tree_path_free(path);
 }
@@ -797,10 +801,14 @@ static void resource_irc_complete(const char *event, const char *payload, rrconn
 }
 
 static void resource_update_branch(resource_branch *branch) {
-   if (!branch) {
-      return;
-   }
-   resource_update_rows(branch, &branch->root);
+   if (!branch) return;
+   /* The connected node's own status comes from connection events. Update
+    * resource children for all peer nodes, without overwriting that status. */
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter node;
+   for (gboolean ok = gtk_tree_model_iter_children(model, &node, &branch->domain_root);
+        ok; ok = gtk_tree_model_iter_next(model, &node))
+      resource_update_rows(branch, &node);
 }
 
 /* Cluster Health is a local index over already received inventory, not a second subscription or a claim that linked-node metrics were measured locally. */
@@ -1240,6 +1248,19 @@ static void resource_health_update(void) {
          /* Connection state is supplied by the core status snapshot. */
          if (branch->online || branch->local_site_seen) {
             resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
+            GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+            GtkTreeIter node;
+            for (gboolean ok = gtk_tree_model_iter_children(model, &node, &branch->domain_root);
+                 ok; ok = gtk_tree_model_iter_next(model, &node)) {
+               char *kind = NULL, *uuid = NULL, *direct_uuid = NULL;
+               gtk_tree_model_get(model, &node, KIND, &kind, UUID, &uuid, -1);
+               gtk_tree_model_get(model, &branch->root, UUID, &direct_uuid, -1);
+               if (!g_strcmp0(kind, "site") && uuid && *uuid && g_strcmp0(uuid, direct_uuid))
+                  resource_health_node(branch, &node, FALSE, seen, &reporting, &warnings);
+               g_free(kind);
+               g_free(uuid);
+               g_free(direct_uuid);
+            }
          }
       }
    }
@@ -1274,7 +1295,7 @@ static void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
    if (branch) {
       GtkTreeIter node = branch->root, group;
 
-      if (g_strcmp0(action, "root") && (!uuid || !*uuid || !resource_find_uuid(&branch->root, uuid, &node))) {
+      if (g_strcmp0(action, "root") && (!uuid || !*uuid || !resource_find_uuid(&branch->domain_root, uuid, &node))) {
          gtk_label_set_text(GTK_LABEL(browser->status), "Cannot locate this linked node in the current inventory.");
       } else {
          unsigned total = 0, bad = 0, severity = 0;
@@ -2673,7 +2694,7 @@ static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
    char *kind = NULL;
    gtk_tree_model_get(model, iter, KIND, &kind, -1);
 
-   if (!g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "health-event")) {
+   if (!g_strcmp0(kind, "domain") || !g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "health-event")) {
       g_free(kind);
 
       return resource_search_subtree(model, iter);
@@ -2818,6 +2839,8 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 
    if (!g_strcmp0(kind, "local")) {
       icon = "computer-symbolic";
+   } else if (!g_strcmp0(kind, "domain")) {
+      icon = "network-workgroup-symbolic";
    } else if (!g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node")) {
       icon = "network-workgroup-symbolic";
    } else if (!g_strcmp0(kind, "site") || !g_strcmp0(kind, "server")) {
@@ -3358,7 +3381,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (!strcmp(dict_get(row, "object.cmd", ""), "inventory-end")) {
       branch->loading = false;
       branch->loaded = true;
-      resource_prune_snapshot(&branch->root, branch->generation);
+      resource_prune_snapshot(&branch->domain_root, branch->generation);
       GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
 
       gtk_tree_path_free(path);
@@ -3371,8 +3394,8 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       return;
    }
    unsigned depth = dict_get_uint(row, "inventory.depth", 0);
-   /* The connection itself is already the root server node. An inventory site with that same displayed name is its identity, not a child. Leave other linked
-    * sites intact; they belong below the connection. */
+   /* Linked sites are siblings of the connected node beneath the domain,
+    * never children of their current route's next hop. */
    const char *kind = dict_get(row, "inventory.kind", "resource");
    const char *name = dict_get(row, "inventory.name", "");
 
@@ -3384,6 +3407,10 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
          memset(branch->valid, 0, sizeof(branch->valid));
          branch->parents[0] = branch->root;
          branch->valid[0] = true;
+         const char *domain = dict_get(row, "inventory.domain", "");
+         set_string(&branch->domain_root, NAME, *domain ? domain : "Unknown domain");
+         set_string(&branch->domain_root, STATE, *domain ? "Mesh domain" : "Domain unavailable");
+         gtk_tree_store_set(browser->store, &branch->root, GENERATION, branch->generation, -1);
          gtk_tree_store_set(browser->store, &branch->root, KIND, "site", NAME, name, UUID, dict_get(row, "inventory.uuid", ""), ROOM, dict_get(row,
             "inventory.room", ""), DETAILS, dict_get(row, "inventory.description", ""), -1);
          dict_free(row);
@@ -3408,9 +3435,10 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    GtkTreeIter iter, explicit_parent;
    GtkTreeIter *parent_iter = parent >= 0 ? &branch->parents[parent] : &branch->root;
+   if (depth == 0 && !strcmp(kind, "site")) parent_iter = &branch->domain_root;
    const char *owner_uuid = dict_get(row, "inventory.parent", "");
 
-   gboolean owner_found = *owner_uuid && resource_find_uuid(&branch->root, owner_uuid, &explicit_parent);
+   gboolean owner_found = *owner_uuid && resource_find_uuid(&branch->domain_root, owner_uuid, &explicit_parent);
 
    if (owner_found) {
       parent_iter = &explicit_parent;
