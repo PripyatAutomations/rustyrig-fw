@@ -25,7 +25,7 @@ struct mesh_wss {
    GList *addresses, *next_address;
    int fd;
    bool client, connecting, tls_done, open, dead, resolving, peer_verified, listed;
-   bool http_reply, draining, client_route;
+   bool http_reply, draining, client_route, tls_close_sent;
    int tls_want, read_want, write_want;
    uint8_t pin[32], binding[32], expected[32];
    char ip[64], host[256], authority[320], accept[32], reason[256], path[64];
