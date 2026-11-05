@@ -181,6 +181,9 @@ static help_line_t help_msg_after[] = {
       UI_MODE_NONE, "\t\00309alt-z         \00308Open Receiver Directory"
    },
    {
+      UI_MODE_TUI, "\t\00309Tab/Shift-Tab \00308Focus SDR Directory actions; Space/Enter activates the focused button"
+   },
+   {
       UI_MODE_GTK, "\t\00309alt-o         \00308Toggle Resource Explorer (objects, rigs, GPS, serial and media)"
    },
    {
