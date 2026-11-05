@@ -138,6 +138,7 @@ gtk_module_objs += gtk/gtk.userlist.o	# GTK part of the userlist
 gtk_module_objs += gtk/gtk.vfo-box.o	# VFO box element
 gtk_module_objs += gtk/gtk.vol-box.o	# Volume widget
 gtk_module_objs += gtk/gtk.winmgr.o	# window management
+gtk_module_objs += gtk/gtk.window.o # Main window layout, fullscreen and dialogs
 gtk_module_objs += gtk/gtk.webcam.o	# webcam/video viewer window
 gtk_module_objs += gtk/gtk.zoom.o       # Whole-interface GTK zoom
 gtk_module_objs += gtk/module.o	        # Module entry points
