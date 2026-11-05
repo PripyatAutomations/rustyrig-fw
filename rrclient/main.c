@@ -766,6 +766,8 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
          tui_sdr_search_active = false;
       } else if (key == TERMKEY_SYM_BACKSPACE || key == 127 || key == 8) {
          if (len) tui_sdr_search[len - 1] = 0;
+      } else if (key == '/' && len == 0) {
+         /* '/' opens search; repeated slashes must not become a prefix. */
       } else if (key >= 32 && key < 127 && len + 1 < sizeof(tui_sdr_search)) {
          tui_sdr_search[len] = (char)key;
          tui_sdr_search[len + 1] = 0;
@@ -1041,7 +1043,7 @@ static void tui_server_picker_draw(tui_window_t *w, int rows, int cols, void *un
       tui_sdr_safe_text(tui_server_notice, cols - 1);
       fputs(SDR_NORMAL, stdout);
    } else {
-      printf("%zu configured profiles  |  Up/Down: select  Tab: buttons  Space/Enter: activate",
+      printf("%u configured profiles  |  Up/Down: select  Tab: buttons  Space/Enter: activate",
              tui_server_entries->len);
    }
    fputs("\033[K", stdout);
