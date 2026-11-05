@@ -1220,8 +1220,11 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    gboolean available = resource_health_group(node, &group, &total, &bad, &severity, reasons);
 
    if (direct || available) {
-      /* Multiple links may advertise the same physical node. Deduplicate by site name, not by the profile/path through which it was discovered. */
-      char *key = g_strdup_printf("node|%s", name && *name ? name : branch->profile);
+      /* A node identity is scoped to its mesh domain, never globally by
+       * display name: two domains may contain identically named stations. */
+      char *key = g_strdup_printf("node|%s|%s",
+         branch->domain ? branch->domain : branch->profile,
+         uuid && *uuid ? uuid : name && *name ? name : branch->profile);
 
       if (g_hash_table_contains(seen, key)) {
          g_free(key);
@@ -3375,7 +3378,8 @@ static gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeI
    return FALSE;
 }
 static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, const char *uuid, const char *name, guint generation, GtkTreeIter *found) {
-   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   (void)generation;
+   GtkTreeModel = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
 
    for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
@@ -3808,7 +3812,8 @@ static void resource_domain_rebuild(const char *domain) {
    while (g_hash_table_iter_next(&it, NULL, &value)) {
       resource_branch *branch = value;
       if (g_strcmp0(branch->domain, domain)) continue;
-      if (!expansion_owner) expansion_owner = branch;
+      if (!expansion_owner || (!expansion_owner->online && branch->online))
+         expansion_owner = branch;
       branch->root_valid = false;
       memset(branch->valid, 0, sizeof(branch->valid));
       any_online |= branch->online;
