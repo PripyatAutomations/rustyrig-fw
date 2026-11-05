@@ -1,5 +1,6 @@
 /* RustyRig sign-on animation. All GTK ownership stays in the GTK domain. */
 #include "gtk.connecting.h"
+#include "gtk.floating-panel.h"
 #include <rrclient/connecting.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
@@ -8,7 +9,8 @@
 #include <string.h>
 
 typedef struct {
-   GtkWidget *canvas;
+   GtkWidget *canvas, *close_button;
+   RRFloatPanel *panel;
    GdkPixbuf *earth, *logo;
    char *status;
    unsigned step, frame;
@@ -18,6 +20,7 @@ typedef struct {
 } RRConnect;
 static GHashTable *dialogs;
 extern GtkWidget *main_window;
+extern GtkWidget *main_notebook;
 extern bool rr_module_token_add(rr_event_token_t token);
 static void color(cairo_t *c,double r,double g,double b){cairo_set_source_rgb(c,r,g,b);}
 static void fill(cairo_t *c,double x,double y,double w,double h,double r,double g,double b){
@@ -172,83 +175,127 @@ static GdkPixbuf *load_earth(void){
    g_free(buf);
    return pix;
 }
-GtkWidget *rr_connect_dialog_new(GtkWindow *parent){
-   GtkWidget *d=gtk_dialog_new_with_buttons("Rusty Rig Remote",parent,
-      GTK_DIALOG_DESTROY_WITH_PARENT,"Cancel",GTK_RESPONSE_CANCEL,NULL);
-   RRConnect *s=g_new0(RRConnect,1);
-   s->canvas=gtk_drawing_area_new();s->earth=load_earth();s->logo=load_logo();
-   gtk_widget_set_size_request(s->canvas,520,290);
-   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(d))),s->canvas,TRUE,TRUE,0);
-   g_object_set_data_full(G_OBJECT(d),"rr-connect-state",s,state_free);
-   g_signal_connect(s->canvas,"draw",G_CALLBACK(redraw),s);
-   s->timer=g_timeout_add(150,tick,s);gtk_widget_show_all(d);return d;
-}
-void rr_connect_dialog_set_step(GtkWidget *d,unsigned step){
-   RRConnect *s=g_object_get_data(G_OBJECT(d),"rr-connect-state");
-   if(s){s->step=MIN(step,3u);gtk_widget_queue_draw(s->canvas);}
-}
-void rr_connect_dialog_set_status(GtkWidget *d,const char *message){
-   RRConnect *s=g_object_get_data(G_OBJECT(d),"rr-connect-state");
-   if(s){g_free(s->status);s->status=g_strdup(message);gtk_widget_queue_draw(s->canvas);}
-}
-static void destroyed(GtkWidget *d,gpointer unused){
-   (void)unused;const char *profile=g_object_get_data(G_OBJECT(d),"rr-profile");
-   if(dialogs && profile)g_hash_table_remove(dialogs,profile);
-}
-static void response(GtkDialog *d,gint code,gpointer unused){
-   (void)unused;const char *profile=g_object_get_data(G_OBJECT(d),"rr-profile");
-   RRConnect *state = g_object_get_data(G_OBJECT(d), "rr-connect-state");
-   if(profile && (!state || !state->completed) &&
-      (code==GTK_RESPONSE_CANCEL||code==GTK_RESPONSE_DELETE_EVENT)){
-      rr_connect_progress_t req={0};
-      snprintf(req.profile,sizeof(req.profile),"%s",profile);
-      event_emit_message(&(rr_event_message_t){
-         .name="client.connecting.cancel",.sender="gtk",.payload=&req,.length=sizeof(req)
+static void connect_panel_dismiss(GtkWidget *canvas, gboolean cancel) {
+   if (!GTK_IS_WIDGET(canvas)) return;
+   RRConnect *state = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
+   if (!state) return;
+   const char *profile = g_object_get_data(G_OBJECT(canvas), "rr-profile");
+   if (cancel && profile && !state->completed) {
+      rr_connect_progress_t req = {0};
+      g_strlcpy(req.profile, profile, sizeof(req.profile));
+      event_emit_message(&(rr_event_message_t) {
+         .name = "client.connecting.cancel", .sender = "gtk",
+         .payload = &req, .length = sizeof(req)
       });
    }
-   gtk_widget_destroy(GTK_WIDGET(d));
+   /* Destroying the panel destroys the canvas, removes the hash entry and
+    * cancels both GLib sources via state_free. Never touch state afterwards. */
+   rr_floating_panel_destroy(state->panel);
 }
-static gboolean finished(gpointer data){
-   GtkWidget *d=data;
-   RRConnect *state=g_object_get_data(G_OBJECT(d),"rr-connect-state");
-   if(state)state->dismiss_timer=0;
-   const char *p=g_object_get_data(G_OBJECT(d),"rr-profile");
-   if(dialogs && p && g_hash_table_lookup(dialogs,p)==d)gtk_widget_destroy(d);
+static void connect_panel_close(gpointer user) {
+   connect_panel_dismiss(GTK_WIDGET(user), TRUE);
+}
+static void connect_panel_button(GtkButton *button, gpointer user) {
+   (void)button;
+   connect_panel_close(user);
+}
+static void destroyed(GtkWidget *canvas, gpointer unused) {
+   (void)unused;
+   const char *profile = g_object_get_data(G_OBJECT(canvas), "rr-profile");
+   if (dialogs && profile && g_hash_table_lookup(dialogs, profile) == canvas)
+      g_hash_table_remove(dialogs, profile);
+}
+GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
+   (void)parent;
+   GtkWidget *root = main_window && GTK_IS_BIN(main_window) ?
+      gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook))
+      return NULL;
+   RRFloatPanel *panel = rr_floating_panel_new(GTK_OVERLAY(root),
+      GTK_NOTEBOOK(main_notebook), "connecting", "RustyRig — Connecting");
+   if (!panel) return NULL;
+   RRConnect *state = g_new0(RRConnect, 1);
+   state->panel = panel;
+   state->canvas = gtk_drawing_area_new();
+   state->earth = load_earth();
+   state->logo = load_logo();
+   gtk_widget_set_size_request(state->canvas, 520, 290);
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(panel)),
+                      state->canvas, TRUE, TRUE, 0);
+   g_object_set_data_full(G_OBJECT(state->canvas), "rr-connect-state", state, state_free);
+   g_signal_connect(state->canvas, "draw", G_CALLBACK(redraw), state);
+   g_signal_connect(state->canvas, "destroy", G_CALLBACK(destroyed), NULL);
+   rr_floating_panel_set_close_callback(panel, connect_panel_close, state->canvas);
+   GtkWidget *actions = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
+   gtk_button_box_set_layout(GTK_BUTTON_BOX(actions), GTK_BUTTONBOX_END);
+   state->close_button = gtk_button_new_with_label("Cancel");
+   g_signal_connect(state->close_button, "clicked", G_CALLBACK(connect_panel_button), state->canvas);
+   gtk_container_add(GTK_CONTAINER(actions), state->close_button);
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(panel)), actions, FALSE, FALSE, 2);
+   state->timer = g_timeout_add(150, tick, state);
+   rr_floating_panel_show(panel);
+   return state->canvas;
+}
+void rr_connect_dialog_set_step(GtkWidget *canvas, unsigned step) {
+   RRConnect *s = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
+   if (s) { s->step = MIN(step, 3u); gtk_widget_queue_draw(s->canvas); }
+}
+void rr_connect_dialog_set_status(GtkWidget *canvas, const char *message) {
+   RRConnect *s = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
+   if (s) { g_free(s->status); s->status = g_strdup(message); gtk_widget_queue_draw(s->canvas); }
+}
+static gboolean finished(gpointer data) {
+   GtkWidget *canvas = data;
+   RRConnect *state = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
+   if (state) state->dismiss_timer = 0;
+   const char *profile = g_object_get_data(G_OBJECT(canvas), "rr-profile");
+   if (dialogs && profile && g_hash_table_lookup(dialogs, profile) == canvas)
+      connect_panel_dismiss(canvas, FALSE);
    return G_SOURCE_REMOVE;
 }
-static void on_progress(const rr_event_message_t *m,void *unused){
+static void on_progress(const rr_event_message_t *m, void *unused) {
    (void)unused;
-   if(!m||!m->payload||m->length!=sizeof(rr_connect_progress_t))return;
-   rr_connect_progress_t v;memcpy(&v,m->payload,sizeof(v));
-   if(!memchr(v.profile,0,sizeof(v.profile))||!v.profile[0])return;
-   GtkWidget *d=dialogs?g_hash_table_lookup(dialogs,v.profile):NULL;
-   if(v.phase==RR_CONNECT_PHASE_FAILED){if(d)gtk_widget_destroy(d);return;}
-   /* The first progress notification can be delayed or skipped by a transport.
-    * Later phases must still be able to bring up the sign-on window. */
-   if (!d && v.phase == RR_CONNECT_PHASE_COMPLETE)
+   if (!m || !m->payload || m->length != sizeof(rr_connect_progress_t)) return;
+   rr_connect_progress_t v;
+   memcpy(&v, m->payload, sizeof(v));
+   if (!memchr(v.profile, 0, sizeof(v.profile)) || !v.profile[0]) return;
+   GtkWidget *canvas = dialogs ? g_hash_table_lookup(dialogs, v.profile) : NULL;
+   if (v.phase == RR_CONNECT_PHASE_FAILED) {
+      if (canvas) connect_panel_dismiss(canvas, FALSE);
       return;
-   if(!d){
-      d=rr_connect_dialog_new(GTK_IS_WINDOW(main_window)?GTK_WINDOW(main_window):NULL);
-      g_object_set_data_full(G_OBJECT(d),"rr-profile",g_strdup(v.profile),g_free);
-      g_hash_table_insert(dialogs,g_strdup(v.profile),d);
-      g_signal_connect(d,"destroy",G_CALLBACK(destroyed),NULL);
-      g_signal_connect(d,"response",G_CALLBACK(response),NULL);
    }
-   if(v.phase==RR_CONNECT_PHASE_LOOKUP){rr_connect_dialog_set_step(d,0);rr_connect_dialog_set_status(d,"Finding RustyRig server...");}
-   if(v.phase==RR_CONNECT_PHASE_TRANSPORT){rr_connect_dialog_set_step(d,1);rr_connect_dialog_set_status(d,"Establishing secure connection...");}
-   if(v.phase==RR_CONNECT_PHASE_AUTHORIZED){rr_connect_dialog_set_step(d,2);rr_connect_dialog_set_status(d,"Authenticated; discovering the cluster...");}
-   if(v.phase==RR_CONNECT_PHASE_CATALOG){rr_connect_dialog_set_step(d,2);rr_connect_dialog_set_status(d,"Synchronizing cluster objects...");}
-   if(v.phase==RR_CONNECT_PHASE_COMPLETE){
-      RRConnect *state=g_object_get_data(G_OBJECT(d),"rr-connect-state");
-      if(!state || state->completed)return;
-      state->completed=true;
-      rr_connect_dialog_set_step(d,3);
-      rr_connect_dialog_set_status(d,"Catalog synchronized. Welcome to RustyRig!");
-      GtkWidget *close_button=gtk_dialog_get_widget_for_response(GTK_DIALOG(d),GTK_RESPONSE_CANCEL);
-      if(GTK_IS_BUTTON(close_button))
-         gtk_button_set_label(GTK_BUTTON(close_button),"✕ Close");
-      /* Removed by state_free if the user dismisses the window first. */
-      state->dismiss_timer=g_timeout_add(3500,finished,d);
+   /* Only actual in-progress connections create a panel. */
+   if (!canvas && v.phase == RR_CONNECT_PHASE_COMPLETE) return;
+   if (!canvas) {
+      canvas = rr_connect_dialog_new(GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL);
+      if (!canvas) return;
+      g_object_set_data_full(G_OBJECT(canvas), "rr-profile", g_strdup(v.profile), g_free);
+      g_hash_table_insert(dialogs, g_strdup(v.profile), canvas);
+   }
+   if (v.phase == RR_CONNECT_PHASE_LOOKUP) {
+      rr_connect_dialog_set_step(canvas, 0);
+      rr_connect_dialog_set_status(canvas, "Finding RustyRig server...");
+   }
+   if (v.phase == RR_CONNECT_PHASE_TRANSPORT) {
+      rr_connect_dialog_set_step(canvas, 1);
+      rr_connect_dialog_set_status(canvas, "Establishing secure connection...");
+   }
+   if (v.phase == RR_CONNECT_PHASE_AUTHORIZED) {
+      rr_connect_dialog_set_step(canvas, 2);
+      rr_connect_dialog_set_status(canvas, "Authenticated; discovering the cluster...");
+   }
+   if (v.phase == RR_CONNECT_PHASE_CATALOG) {
+      rr_connect_dialog_set_step(canvas, 2);
+      rr_connect_dialog_set_status(canvas, "Synchronizing cluster objects...");
+   }
+   if (v.phase == RR_CONNECT_PHASE_COMPLETE) {
+      RRConnect *state = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
+      if (!state || state->completed) return;
+      state->completed = true;
+      rr_connect_dialog_set_step(canvas, 3);
+      rr_connect_dialog_set_status(canvas, "Catalog synchronized. Welcome to RustyRig!");
+      gtk_button_set_label(GTK_BUTTON(state->close_button), "✕ Close");
+      state->dismiss_timer = g_timeout_add(3500, finished, canvas);
    }
 }
 void gtk_connecting_init(void){
@@ -260,6 +307,7 @@ void gtk_connecting_init(void){
 void gtk_connecting_shutdown(void){
    if(!dialogs)return;
    GList *values=g_hash_table_get_values(dialogs);
-   for(GList *p=values;p;p=p->next)gtk_widget_destroy(GTK_WIDGET(p->data));
+   for (GList *p = values; p; p = p->next)
+      connect_panel_dismiss(GTK_WIDGET(p->data), FALSE);
    g_list_free(values);g_hash_table_destroy(dialogs);dialogs=NULL;
 }
