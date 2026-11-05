@@ -228,7 +228,13 @@ void ui_list_servers(void) {
    }
 }
 
+/* The TUI implements /server and Alt-X as the same transient chooser. */
+extern void rrclient_tui_server_picker_toggle(void) __attribute__((weak));
 void show_server_chooser(void) {
+   if (ui_mode == UI_MODE_TUI && rrclient_tui_server_picker_toggle) {
+      rrclient_tui_server_picker_toggle();
+      return;
+   }
    ui_list_servers();
 
    if (frontend_ops() && frontend_ops()->name && strcmp(frontend_ops()->name, "gtk") == 0) {
