@@ -683,7 +683,11 @@ static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned mod
       return false;
    }
 
-   return rrclient_connection_cycle_status(win && rrclient_window_is_shared(win->title));
+   /* Directory browsing is a shared view too: its selected server controls
+    * proxy receiver connections, just as Status/Client Log/Host Log do. */
+   return rrclient_connection_cycle_status(win &&
+      (rrclient_window_is_shared(win->title) ||
+       !strcasecmp(win->title, "SDR Directory")));
 }
 
 static void *tui_nick_completion;
