@@ -277,6 +277,10 @@ bool rr_relay_state_demand(const char *owner, const char *room, dict *d) {
 
 /* Forward owner state once per interested downstream branch. */
 void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
+   /* State/chat is per subscribed neighbor, not per remote user. The
+    * receiving node fans out to its local clients and downstream branches.
+    * Keep duplicate subscriptions from creating duplicate mesh packets. */
+   guint interested = 0, forwarded = 0, duplicates = 0, failed = 0;
    for (struct subscription *s = rr_relay_subscriptions ; s ; s = s->next) {
       if (strcmp(s->owner, owner) || !rr_relay_interested(s->room, room, d)) {
          continue;
@@ -289,13 +293,23 @@ void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
          }
       }
 
+      ++interested;
       if (duplicate) {
+         ++duplicates;
          continue;
       }
-      rr_relay_packet(s->node, "state", NULL, owner, d);
-      char branch_label[192];
-      Log(LOG_DEBUG, "relay", "State %s %s room %s to branch %s", dict_get(d, "msg.type", ""), dict_get(d, "cat.cmd", dict_get(d, "property.cmd", dict_get(d,
-         "talk.cmd", ""))), room, rrserver_links_format_node(s->node, branch_label, sizeof(branch_label)));
+      if (rr_relay_packet(s->node, "state", NULL, owner, d))
+         ++forwarded;
+      else
+         ++failed;
+   }
+   if (interested) {
+      Log(failed ? LOG_WARN : LOG_DEBUG, "relay.fanout",
+         "Mesh state fanout: type=%s cmd=%s room=%s interested=%u next_hops=%u "
+         "duplicate_subscriptions=%u failed=%u (one packet per subscribed branch, local delivery on receiver)",
+         dict_get(d, "msg.type", ""),
+         dict_get(d, "talk.cmd", dict_get(d, "cat.cmd", dict_get(d, "property.cmd", ""))),
+         room ? room : "", interested, forwarded, duplicates, failed);
    }
 }
 
