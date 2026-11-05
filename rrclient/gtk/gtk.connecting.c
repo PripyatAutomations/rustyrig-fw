@@ -16,9 +16,10 @@ typedef struct {
    unsigned step, frame;
    guint timer;
    guint dismiss_timer;
+   gulong escape_handler;
    bool completed;
 } RRConnect;
-static GHashTable *dialogs;
+static GHashTable *dialogs, *dismissed;
 extern GtkWidget *main_window;
 extern GtkWidget *main_notebook;
 extern bool rr_module_token_add(rr_event_token_t token);
@@ -129,6 +130,8 @@ static void state_free(gpointer data){
    RRConnect *s=data;
    if(s->timer)g_source_remove(s->timer);
    if(s->dismiss_timer)g_source_remove(s->dismiss_timer);
+   if (s->escape_handler && GTK_IS_WINDOW(main_window))
+      g_signal_handler_disconnect(main_window, s->escape_handler);
    g_clear_object(&s->logo);g_clear_object(&s->earth);g_free(s->status);g_free(s);
 }
 static GdkPixbuf *load_logo(void) {
@@ -192,6 +195,18 @@ static void connect_panel_dismiss(GtkWidget *canvas, gboolean cancel) {
     * cancels both GLib sources via state_free. Never touch state afterwards. */
    rr_floating_panel_destroy(state->panel);
 }
+/* Escape dismisses only the UI, not the in-flight transport. Remember that
+ * choice so subsequent progress phases cannot reopen the panel. */
+static gboolean connect_panel_escape(GtkWidget *widget, GdkEventKey *event, gpointer user) {
+   (void)widget;
+   GtkWidget *canvas = GTK_WIDGET(user);
+   if (event->keyval != GDK_KEY_Escape || !gtk_widget_get_visible(canvas))
+      return FALSE;
+   const char *profile = g_object_get_data(G_OBJECT(canvas), "rr-profile");
+   if (dismissed && profile) g_hash_table_add(dismissed, g_strdup(profile));
+   connect_panel_dismiss(canvas, FALSE);
+   return TRUE;
+}
 static void connect_panel_close(gpointer user) {
    connect_panel_dismiss(GTK_WIDGET(user), TRUE);
 }
@@ -231,6 +246,8 @@ GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
    g_object_set_data_full(G_OBJECT(state->canvas), "rr-connect-state", state, state_free);
    g_signal_connect(state->canvas, "draw", G_CALLBACK(redraw), state);
    g_signal_connect(state->canvas, "destroy", G_CALLBACK(destroyed), NULL);
+   state->escape_handler = g_signal_connect(main_window, "key-press-event",
+                                            G_CALLBACK(connect_panel_escape), state->canvas);
    rr_floating_panel_set_close_callback(panel, connect_panel_close, state->canvas);
    GtkWidget *actions = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
    gtk_button_box_set_layout(GTK_BUTTON_BOX(actions), GTK_BUTTONBOX_END);
@@ -266,6 +283,11 @@ static void on_progress(const rr_event_message_t *m, void *unused) {
    memcpy(&v, m->payload, sizeof(v));
    if (!memchr(v.profile, 0, sizeof(v.profile)) || !v.profile[0]) return;
    GtkWidget *canvas = dialogs ? g_hash_table_lookup(dialogs, v.profile) : NULL;
+   if (dismissed && g_hash_table_contains(dismissed, v.profile)) {
+      if (v.phase == RR_CONNECT_PHASE_FAILED || v.phase == RR_CONNECT_PHASE_COMPLETE)
+         g_hash_table_remove(dismissed, v.profile);
+      return;
+   }
    if (v.phase == RR_CONNECT_PHASE_FAILED) {
       if (canvas) connect_panel_dismiss(canvas, FALSE);
       return;
@@ -307,6 +329,7 @@ static void on_progress(const rr_event_message_t *m, void *unused) {
 void gtk_connecting_init(void){
    if(dialogs)return;
    dialogs=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   dismissed=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
    rr_event_token_t token=event_on_message_domain_token(RR_CONNECT_PROGRESS_EVENT,on_progress,NULL,"gtk");
    if(token)rr_module_token_add(token);
 }
@@ -316,4 +339,5 @@ void gtk_connecting_shutdown(void){
    for (GList *p = values; p; p = p->next)
       connect_panel_dismiss(GTK_WIDGET(p->data), FALSE);
    g_list_free(values);g_hash_table_destroy(dialogs);dialogs=NULL;
+   g_clear_pointer(&dismissed, g_hash_table_destroy);
 }
