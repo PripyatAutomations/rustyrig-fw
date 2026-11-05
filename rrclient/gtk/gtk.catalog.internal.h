@@ -1,0 +1,53 @@
+#ifndef RRCLIENT_GTK_CATALOG_INTERNAL_H
+#define RRCLIENT_GTK_CATALOG_INTERNAL_H
+/* Private implementation state shared by catalog modules. GTK owner thread only. */
+#include <gtk/gtk.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <rrclient/objects.h>
+
+enum {
+   NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, GENERATION,
+   CLIENT_SNAPSHOT, COLUMNS
+};
+enum {
+   ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, TERMINAL_BUTTON, BUTTONS
+};
+extern void gtk_terminal_open_endpoint(const char *name);
+extern void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name);
+typedef struct {
+   char *profile, *domain, *direct_uuid, *request, *selection, *subscription;
+   GPtrArray *inventory, *pending_inventory; /* complete and in-flight wire rows */
+   GtkTreeIter domain_root, root, parents[5];
+   GHashTable *irc_rows, *expanded;
+   bool valid[5], loading, online, loaded, local_site_seen, root_valid;
+   uint64_t requested_at;
+   guint generation;
+} resource_branch;
+typedef struct {
+   GtkWidget *page, *panel, *tree, *status, *details, *search, *buttons[BUTTONS];
+   GtkTreeModelFilter *filter;
+   GHashTable *enabled_kinds;
+   GPtrArray *type_checks;
+   GtkWidget *type_toggle_all;
+   gboolean type_bulk_update;
+   GHashTable *zebra_positions;
+   gboolean zebra_dirty, zebra_rebuilding;
+   guint zebra_idle;
+   GtkTreeStore *store;
+   GtkTreeIter local_root, serial_root, network_root, health_root;
+   GHashTable *branches, *domains, *local_rows, *health_events, *health_last, *property_snapshots;
+   guint timer;
+   gulong initial_split_handler;
+   double scroll_y;
+   bool scroll_saved;
+} resource_browser;
+
+extern resource_browser *browser;
+void resource_set_string(GtkTreeIter *iter, int column, const char *value);
+GtkTreePath *resource_view_path(GtkTreePath *child_path);
+gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *found);
+void resource_health_update(void);
+void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item);
+void resource_local_update(void);
+#endif
