@@ -34,7 +34,7 @@ static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
 
 
-static GtkWindow *resource_parent(void);
+
 GtkTreePath *resource_view_path(GtkTreePath *child_path) {
    if (!child_path || !browser) {
       return NULL;
