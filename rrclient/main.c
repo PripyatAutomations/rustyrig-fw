@@ -345,7 +345,11 @@ static bool tui_sdr_is_connected(const receiver_directory_entry_t *r) {
                           rrclient_receiver_is_connected_any(r->url));
 }
 static bool tui_sdr_contains(const char *text, const char *needle) {
-   return text && g_strrstr(g_ascii_strdown(text, -1), needle) != NULL;
+   if (!text) return false;
+   char *lower = g_ascii_strdown(text, -1);
+   bool found = g_strrstr(lower, needle) != NULL;
+   g_free(lower);
+   return found;
 }
 static bool tui_sdr_matches(const receiver_directory_entry_t *r) {
    if (!r || r->deleted) return false;
@@ -357,7 +361,7 @@ static bool tui_sdr_matches(const receiver_directory_entry_t *r) {
    const char *fields[] = {r->name, r->location, r->country, r->url,
                             r->grid, r->contact, r->hardware, r->description, NULL};
    bool match = false;
-   for (unsigned i = 0; fields[i]; i++) {
+   for (unsigned i = 0; i < G_N_ELEMENTS(fields) - 1; i++) {
       if (fields[i] && tui_sdr_contains(fields[i], needle)) {
          match = true; break;
       }
