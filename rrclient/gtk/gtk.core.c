@@ -830,8 +830,21 @@ static gboolean screensaver_activity_event(GtkWidget *widget, GdkEvent *event, g
 
    return FALSE;
 }
+/* Never start gmatrix unless the main window itself has focus and occupies
+ * the display as a maximized or fullscreen window. */
+static gboolean screensaver_window_eligible(void) {
+   if (!main_window || !GTK_IS_WINDOW(main_window) ||
+       !gtk_window_has_toplevel_focus(GTK_WINDOW(main_window)))
+      return FALSE;
+   GdkWindow *window = gtk_widget_get_window(main_window);
+   if (!window) return FALSE;
+   GdkWindowState state = gdk_window_get_state(window);
+   return (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN)) != 0 &&
+          !(state & GDK_WINDOW_STATE_ICONIFIED);
+}
+
 static gboolean screensaver_launch(void) {
-   if (screensaver_pid) {
+   if (!screensaver_window_eligible() || screensaver_pid) {
       return FALSE;
    }
    gchar program[] = "gmatrix";
@@ -880,16 +893,9 @@ static gboolean screensaver_idle_check(gpointer unused) {
    int timeout = cfg_get_int("ui.screensaver.timeout", 3600);
    const char *selected = cfg_get("ui.screensaver");
 
-   if (!selected || strcmp(selected, "matrix") || timeout <= 0 || screensaver_pid || !gtk_window_is_active(GTK_WINDOW(main_window))) {
+   if (!selected || strcmp(selected, "matrix") || timeout <= 0 ||
+       screensaver_pid || !screensaver_window_eligible()) {
       screensaver_activity();
-
-      return G_SOURCE_CONTINUE;
-   }
-   GdkWindow *window = gtk_widget_get_window(main_window);
-
-   if (!window || !(gdk_window_get_state(window) & GDK_WINDOW_STATE_FULLSCREEN)) {
-      screensaver_activity();
-
       return G_SOURCE_CONTINUE;
    }
 
