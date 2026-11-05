@@ -139,7 +139,7 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
 }
 
 /* Bounded in-memory history of state transitions in this client session. */
-static void resource_health_queue_free(gpointer value) {
+void resource_health_queue_free(gpointer value) {
    g_queue_free_full(value, g_free);
 }
 static void resource_health_history(const char *key, const char *status, const char *reason, GtkTreeIter *node) {
