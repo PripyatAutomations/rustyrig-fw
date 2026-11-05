@@ -2266,6 +2266,25 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
 }
 
 /* Send discovered remote objects to an object-list requester. */
+void rrserver_relay_objects_collect(GPtrArray *messages, const char *request) {
+   if (!messages) return;
+   /* Parents before children, same order as the direct-send implementation. */
+   const char *types[] = {"node", "rig", "vfo"};
+   for (unsigned i = 0; i < G_N_ELEMENTS(types); i++) {
+      for (struct catalog *c = rr_relay_catalogs; c; c = c->next) {
+         if (!catalog_client_visible(c->descriptor) ||
+             rr_relay_local_owner(c->owner) ||
+             strcmp(dict_get(c->descriptor, "object.type", ""), types[i]))
+            continue;
+         dict *d = dict_clone(c->descriptor);
+         if (!d) continue;
+         rr_relay_strip_catalog_identity(d);
+         dict_add(d, "request.id", request);
+         g_ptr_array_add(messages, d);
+      }
+   }
+}
+
 void rrserver_relay_objects(rrconn_t *client, const char *request) {
    // Parent descriptors must precede their children in both native/browser caches.
    const char *types[] = {
