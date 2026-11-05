@@ -22,6 +22,19 @@ static void help_line(const char *line, void *data) {
    gtk_text_buffer_insert(buffer, &end, "\n", 1);
 }
 
+gboolean gtk_help_is_open(void) {
+   return help_panel && gtk_widget_get_visible(rr_floating_panel_widget(help_panel));
+}
+
+void gtk_help_hide(void) {
+   if (help_panel) rr_floating_panel_hide(help_panel);
+}
+
+void gtk_help_toggle(void) {
+   if (gtk_help_is_open()) gtk_help_hide();
+   else gtk_help_show();
+}
+
 void gtk_help_show(void) {
    if (!help_panel) {
       GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
