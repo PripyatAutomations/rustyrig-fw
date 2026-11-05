@@ -253,13 +253,20 @@ static void driver_close(void *arg) {
       return;
    }
 
-   if (!c->open || !c->ws || (!c->tx_len && !wslay_event_want_write(c->ws))) {
-      reject(c, "Local transport close");
-
+   if (!c->open || !c->ws) {
+      reject(c, "Local transport close before WebSocket upgrade");
       return;
    }
-   c->draining = true;
-   c->close_started = mono_ms();
+   /* WebSocket close code 1001 means server is going away. Drain pending
+    * application frames first and then send TLS close_notify. */
+   if (!c->draining) {
+      if (wslay_event_queue_close(c->ws, WSLAY_CODE_GOING_AWAY, NULL, 0) != 0) {
+         reject(c, "Cannot queue graceful WebSocket close");
+         return;
+      }
+      c->draining = true;
+      c->close_started = mono_ms();
+   }
    rr_mesh_wss_arm(c);
 }
 static size_t queued_bytes(void *arg) {
@@ -462,7 +469,7 @@ static bool ready(int fd, GIOCondition events, void *arg) {
    if (!c->dead) {
       c->read_budget = 65536;
 
-      if (!c->draining && wslay_event_recv(c->ws)) {
+      if (wslay_event_recv(c->ws)) {
          reject(c, "WebSocket receive failed");
       }
 
@@ -476,13 +483,29 @@ static bool ready(int fd, GIOCondition events, void *arg) {
       flush(c);
 
       if (c->draining && !c->dead && !c->tx_len && !wslay_event_want_write(c->ws)) {
-         reject(c, "Local transport close");
+         if (!c->tls_close_sent) {
+            ERR_clear_error();
+            int status = SSL_shutdown(c->ssl);
+            if (status >= 0) {
+               c->tls_close_sent = true; /* status=0 means our close_notify was sent */
+            } else {
+               int error = SSL_get_error(c->ssl, status);
+               if (error != SSL_ERROR_WANT_READ && error != SSL_ERROR_WANT_WRITE) {
+                  reject(c, "TLS close_notify failed during graceful shutdown");
+               } else {
+                  c->write_want = error;
+               }
+            }
+         }
+         if (c->tls_close_sent && !c->dead)
+            reject(c, "Graceful WebSocket close and TLS close_notify sent");
       }
    }
 done:
 
    if ((events & G_IO_HUP) && !c->dead) {
-      reject(c, "Socket hangup (G_IO_HUP) without completed WebSocket/TLS shutdown");
+      reject(c, c->draining ? "Peer hangup during graceful close" :
+         "Socket hangup (G_IO_HUP) without completed WebSocket/TLS shutdown");
    }
    rr_mesh_wss_arm(c);
 
@@ -530,10 +553,11 @@ static gboolean maintenance(void *unused) {
          *p = c->next;
 
          if (*c->reason && !c->http_reply) {
+            bool graceful = c->tls_close_sent || c->websocket_close_seen;
             long long at = mono_ms();
             size_t ws_bytes = c->ws ? wslay_event_get_queued_msg_length(c->ws) : 0;
             size_t ws_frames = c->ws ? wslay_event_get_queued_msg_count(c->ws) : 0;
-            Log(LOG_WARN, "mesh.native",
+            Log(graceful ? LOG_INFO : LOG_WARN, "mesh.native",
                 "Transport closed: peer=%s:%u authority=%s path=%s role=%s phase=%s "
                 "reason=%s ws_close_seen=%s ws_close_code=%u tls_shutdown=0x%x "
                 "alive=%lldms since_rx=%lldms since_tx=%lldms rx=%lluB tx=%lluB "
@@ -549,7 +573,8 @@ static gboolean maintenance(void *unused) {
                 c->last_write_ms ? at - c->last_write_ms : -1LL,
                 (unsigned long long)c->bytes_read, (unsigned long long)c->bytes_written,
                 c->tx_len + ws_bytes, ws_frames);
-            rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_ERROR, NULL, c->reason, strlen(c->reason));
+            if (!graceful)
+               rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_ERROR, NULL, c->reason, strlen(c->reason));
          }
          rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_CLOSE, NULL, NULL, 0);
          release(c);
