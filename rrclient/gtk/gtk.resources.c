@@ -3380,9 +3380,10 @@ static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, c
 
    for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
       char *k = NULL, *u = NULL, *n = NULL;
-      guint seen = 0;
-      gtk_tree_model_get(model, &child, KIND, &k, UUID, &u, NAME, &n, GENERATION, &seen, -1);
-      gboolean match = seen != generation && !g_strcmp0(kind, k) && (uuid && *uuid ? !g_strcmp0(uuid, u) : (!u || !*u) && !g_strcmp0(name, n));
+      gtk_tree_model_get(model, &child, KIND, &k, UUID, &u, NAME, &n, -1);
+      /* Multiple routes can report the same resource during one rebuild. */
+      gboolean match = !g_strcmp0(kind, k) &&
+         (uuid && *uuid ? !g_strcmp0(uuid, u) : (!u || !*u) && !g_strcmp0(name, n));
       g_free(k);
       g_free(u);
       g_free(n);
@@ -3817,7 +3818,8 @@ static void resource_domain_rebuild(const char *domain) {
    while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, root))
       gtk_tree_store_remove(browser->store, &child);
 
-   GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   /* Union all reachable snapshots. Direct owners override relay metadata
+    * in the second pass, while peers supply resources they did not report. */
    for (unsigned pass = 0; pass < 2; ++pass) {
       g_hash_table_iter_init(&it, browser->branches);
       while (g_hash_table_iter_next(&it, NULL, &value)) {
@@ -3835,7 +3837,6 @@ static void resource_domain_rebuild(const char *domain) {
             }
             const char *uuid = dict_get(site, "inventory.uuid", "");
             const char *name = dict_get(site, "inventory.name", "");
-            char *key = g_strdup(*uuid ? uuid : name);
             gboolean direct = branch->direct_uuid &&
                               !strcmp(branch->direct_uuid, *uuid ? uuid : name);
             dict_free(site);
@@ -3849,19 +3850,16 @@ static void resource_domain_rebuild(const char *domain) {
                if (next_site) break;
                ++end;
             }
-            if (direct == (pass == 0) && !g_hash_table_contains(seen, key)) {
-               g_hash_table_add(seen, g_strdup(key));
+            if (direct == (pass == 1)) {
                memset(branch->valid, 0, sizeof(branch->valid));
                for (guint i = begin; i < end; ++i)
                   resource_render_row(branch,
                      g_ptr_array_index(branch->inventory, i), direct);
             }
-            g_free(key);
             begin = end;
          }
       }
    }
-   g_hash_table_destroy(seen);
    set_string(root, STATE, any_online ? "Online" : "Disconnected");
 
    /* Direct node references may be shared: refresh every branch's iterator
