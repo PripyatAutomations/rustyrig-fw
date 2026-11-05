@@ -25,6 +25,39 @@ RustyRig's owned C sources should be organized by responsibility, not collected 
 
 The numbers are estimates from fetched source contents, not formatter-normalized line counts. Other components and new files still need a complete tracked-file sweep.
 
+## Updated hotspot sample (2026-11-05, main)
+
+The earlier table is historical; these are measured line counts from the current
+GitHub source, before today's formatter extraction. This is a selected audit,
+not yet a complete tracked-file sweep.
+
+| Source | Lines | Next suggested boundary |
+| --- | ---: | --- |
+| `rrclient/gtk/gtk.resources.c` | 4,204 | Local serial discovery; cluster health; inventory projection; tree/filter UI |
+| `rrclient/gtk/gtk.core.c` | 3,527 | IRC formatting (extracted); Kiwi control panel; frontend event dispatch |
+| `rrclient/gtk/gtk.chat.c` | 2,559 | Chat input, roster, context actions, display |
+| `rrserver/relay.catalog.c` | 2,311 | Performance inventory sampling; catalog signing/validation; snapshots |
+| `rrclient/gtk/gtk.admin.c` | 2,041 | Remaining users/grants pages |
+| `rrserver/bridge.manager.c` | 1,938 | Bridge process lifecycle and IPC |
+| `libfwdspmgr/fwdsp-mgr.c` | 1,893 | DSP worker lifecycle and media framing |
+| `rrclient/media.c` | 1,826 | Media catalog, subscription and transport logic |
+| `rrserver/events.admin.c` | 1,732 | Admin command handlers by resource family |
+| `rrserver/link.c` | 1,678 | Link session lifecycle, topology, send queue |
+| `rrserver/relay.c` | 1,605 | Route/interceptor, sync health, application forwarding |
+| `rrserver/objects.c` | 1,405 | Inventory emission and property handling |
+
+Completed today:
+- Extracted `gtk.irc-format.c` (323 lines) from `gtk.core.c`, leaving
+  `gtk.core.c` at ~3,217 lines. Its public functions remain declared in
+  `gtk.core.h`, and its GTK module object is included in `rrclient/rules.mk`.
+- Normalized multiple-object `*_objs +=` lines in `rrclient/rules.mk` to **one object per line**.
+- GitHub source inspection only; compile/link and GTK regression tests remain pending.
+
+For subsequent splits, start with the Resource Explorer's independently
+owned local device scan or health snapshot code. Keep GTK tree and subscription
+ownership explicit. The Kiwi panel in `gtk.core.c` is another cohesive extraction
+but needs a narrow event/snapshot API because the current callbacks are private.
+
 ## Recommended sequence
 
 1. Split `gtk.admin.c` first; the largest file and most clearly separated dialogs/tabs.
