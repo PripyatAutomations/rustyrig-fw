@@ -330,7 +330,8 @@ typedef struct {
    bool group, connected;
 } tui_sdr_row_t;
 static GArray *tui_sdr_rows;
-static GHashTable *tui_sdr_collapsed;
+/* Set of expanded groups; countries are collapsed by default. */
+static GHashTable *tui_sdr_expanded;
 static size_t tui_sdr_selected, tui_sdr_scroll;
 static bool tui_sdr_availability, tui_sdr_connected, tui_sdr_favorites;
 static bool tui_sdr_info, tui_sdr_mark_menu, tui_sdr_search_active;
@@ -384,7 +385,10 @@ static gint tui_sdr_entry_compare(gconstpointer av, gconstpointer bv) {
 }
 static void tui_sdr_rebuild(void) {
    if (!tui_sdr_rows) tui_sdr_rows = g_array_new(FALSE, FALSE, sizeof(tui_sdr_row_t));
-   if (!tui_sdr_collapsed) tui_sdr_collapsed = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   if (!tui_sdr_expanded) {
+      tui_sdr_expanded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+      g_hash_table_add(tui_sdr_expanded, g_strdup("Connected SDRs"));
+   }
    g_array_set_size(tui_sdr_rows, 0);
    GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_array_unref);
    GArray *connected = g_array_new(FALSE, FALSE, sizeof(size_t));
@@ -406,7 +410,7 @@ static void tui_sdr_rebuild(void) {
       g_array_sort(connected, tui_sdr_entry_compare);
       tui_sdr_row_t header = {.group = true, .connected = true, .country = "Connected SDRs", .count = connected->len};
       g_array_append_val(tui_sdr_rows, header);
-      if (!g_hash_table_contains(tui_sdr_collapsed, "Connected SDRs")) {
+      if (g_hash_table_contains(tui_sdr_expanded, "Connected SDRs")) {
          for (unsigned j = 0; j < connected->len; j++) {
             tui_sdr_row_t row = {.index = g_array_index(connected, size_t, j), .connected = true};
             g_array_append_val(tui_sdr_rows, row);
@@ -424,7 +428,7 @@ static void tui_sdr_rebuild(void) {
        * namespace before releasing temporary country names. */
       header.country = g_intern_string(country);
       g_array_append_val(tui_sdr_rows, header);
-      if (g_hash_table_contains(tui_sdr_collapsed, country)) continue;
+      if (!g_hash_table_contains(tui_sdr_expanded, country)) continue;
       for (unsigned j = 0; j < indices->len; j++) {
          tui_sdr_row_t row = {.index = g_array_index(indices, size_t, j)};
          g_array_append_val(tui_sdr_rows, row);
@@ -496,7 +500,7 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
          printf("\033[%d;1H", y);
          if (i == tui_sdr_selected) fputs("\033[7m", stdout);
          if (item->group) {
-            bool collapsed = g_hash_table_contains(tui_sdr_collapsed, item->country);
+            bool collapsed = !g_hash_table_contains(tui_sdr_expanded, item->country);
             printf(" %c  ", collapsed ? '+' : '-');
             tui_sdr_safe_text(item->country, 27);
             printf(" (%u)", item->count);
@@ -557,9 +561,9 @@ static void tui_sdr_activate(void) {
    tui_sdr_row_t *row = tui_sdr_current_row();
    if (!row) return;
    if (row->group) {
-      if (g_hash_table_contains(tui_sdr_collapsed, row->country))
-         g_hash_table_remove(tui_sdr_collapsed, row->country);
-      else g_hash_table_add(tui_sdr_collapsed, g_strdup(row->country));
+      if (g_hash_table_contains(tui_sdr_expanded, row->country))
+         g_hash_table_remove(tui_sdr_expanded, row->country);
+      else g_hash_table_add(tui_sdr_expanded, g_strdup(row->country));
       tui_sdr_rebuild();
    } else tui_sdr_connect();
 }
@@ -679,9 +683,9 @@ static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned mod
    (void)key;
    (void)user_data;
 
-   if (modifiers & (TERMKEY_KEYMOD_ALT | TERMKEY_KEYMOD_SHIFT)) {
+   if (modifiers & TERMKEY_KEYMOD_SHIFT) return false;
+   if ((modifiers & TERMKEY_KEYMOD_ALT) && key != 's' && key != 'S')
       return false;
-   }
 
    /* Directory browsing is a shared view too: its selected server controls
     * proxy receiver connections, just as Status/Client Log/Host Log do. */
@@ -1331,6 +1335,9 @@ int main(int argc, char *argv[]) {
       tui_set_completion_handler(rrclient_tui_chat_completion);
       tui_set_completion_describer(client_cmd_completion_describe);
       tui_hotkey_register(TERMKEY_SYM_TAB, TERMKEY_KEYMOD_CTRL, rrclient_server_hotkey, NULL);
+      /* Ctrl-Tab is indistinguishable from Tab in many terminals. */
+      tui_hotkey_register('s', TERMKEY_KEYMOD_ALT, rrclient_server_hotkey, NULL);
+      tui_hotkey_register('S', TERMKEY_KEYMOD_ALT, rrclient_server_hotkey, NULL);
       tui_hotkey_register('z', TERMKEY_KEYMOD_ALT, rrclient_sdr_hotkey, NULL);
       tui_hotkey_register('Z', TERMKEY_KEYMOD_ALT, rrclient_sdr_hotkey, NULL);
       tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
