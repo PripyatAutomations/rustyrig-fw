@@ -142,7 +142,11 @@ static GdkPixbuf *load_earth(void){
       if(original)pix=gdk_pixbuf_scale_simple(original,36,36,GDK_INTERP_BILINEAR);
    }
    if(!pix)g_warning("RustyRig connecting dialog: unable to decode embedded Earth image");
-   if(loader)g_object_unref(loader);g_free(buf);return pix;
+   if (loader) {
+      g_object_unref(loader);
+   }
+   g_free(buf);
+   return pix;
 }
 GtkWidget *rr_connect_dialog_new(GtkWindow *parent){
    GtkWidget *d=gtk_dialog_new_with_buttons("Rusty Rig Remote",parent,
