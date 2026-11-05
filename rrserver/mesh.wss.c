@@ -192,7 +192,11 @@ static void ws_message(wslay_event_context_ptr ws, const struct wslay_event_on_m
       char reason[128];
       snprintf(reason, sizeof(reason), "WebSocket peer closed (code=%u payload_bytes=%zu)",
          c->websocket_close_code, msg->msg_length);
-      reject(c, reason);
+      /* The peer initiated an orderly WebSocket close. Let wslay send
+       * the close response and follow with TLS close_notify rather than
+       * turning a normal shutdown into an unexpected TCP EOF. */
+      c->draining = true;
+      c->close_started = mono_ms();
    } else if (msg->opcode == WSLAY_PONG) {
       rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_PONG, NULL, NULL, 0);
    } else if (msg->opcode == WSLAY_TEXT_FRAME) {
@@ -573,8 +577,12 @@ static gboolean maintenance(void *unused) {
                 c->last_write_ms ? at - c->last_write_ms : -1LL,
                 (unsigned long long)c->bytes_read, (unsigned long long)c->bytes_written,
                 c->tx_len + ws_bytes, ws_frames);
-            if (!graceful)
+            if (graceful && c->websocket_close_seen) {
+               const char notice[] = "Peer sent graceful WebSocket close";
+               rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_ERROR, NULL, notice, sizeof(notice) - 1);
+            } else if (!graceful) {
                rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_ERROR, NULL, c->reason, strlen(c->reason));
+            }
          }
          rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_CLOSE, NULL, NULL, 0);
          release(c);
