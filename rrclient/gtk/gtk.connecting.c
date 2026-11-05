@@ -13,6 +13,8 @@ typedef struct {
    char *status;
    unsigned step, frame;
    guint timer;
+   guint dismiss_timer;
+   bool completed;
 } RRConnect;
 static GHashTable *dialogs;
 extern GtkWidget *main_window;
@@ -123,6 +125,7 @@ static gboolean tick(gpointer user){RRConnect *s=user;s->frame++;gtk_widget_queu
 static void state_free(gpointer data){
    RRConnect *s=data;
    if(s->timer)g_source_remove(s->timer);
+   if(s->dismiss_timer)g_source_remove(s->dismiss_timer);
    g_clear_object(&s->logo);g_clear_object(&s->earth);g_free(s->status);g_free(s);
 }
 static GdkPixbuf *load_logo(void) {
@@ -194,7 +197,9 @@ static void destroyed(GtkWidget *d,gpointer unused){
 }
 static void response(GtkDialog *d,gint code,gpointer unused){
    (void)unused;const char *profile=g_object_get_data(G_OBJECT(d),"rr-profile");
-   if(profile && (code==GTK_RESPONSE_CANCEL||code==GTK_RESPONSE_DELETE_EVENT)){
+   RRConnect *state = g_object_get_data(G_OBJECT(d), "rr-connect-state");
+   if(profile && (!state || !state->completed) &&
+      (code==GTK_RESPONSE_CANCEL||code==GTK_RESPONSE_DELETE_EVENT)){
       rr_connect_progress_t req={0};
       snprintf(req.profile,sizeof(req.profile),"%s",profile);
       event_emit_message(&(rr_event_message_t){
@@ -204,7 +209,10 @@ static void response(GtkDialog *d,gint code,gpointer unused){
    gtk_widget_destroy(GTK_WIDGET(d));
 }
 static gboolean finished(gpointer data){
-   GtkWidget *d=data;const char *p=g_object_get_data(G_OBJECT(d),"rr-profile");
+   GtkWidget *d=data;
+   RRConnect *state=g_object_get_data(G_OBJECT(d),"rr-connect-state");
+   if(state)state->dismiss_timer=0;
+   const char *p=g_object_get_data(G_OBJECT(d),"rr-profile");
    if(dialogs && p && g_hash_table_lookup(dialogs,p)==d)gtk_widget_destroy(d);
    return G_SOURCE_REMOVE;
 }
@@ -231,8 +239,16 @@ static void on_progress(const rr_event_message_t *m,void *unused){
    if(v.phase==RR_CONNECT_PHASE_AUTHORIZED){rr_connect_dialog_set_step(d,2);rr_connect_dialog_set_status(d,"Authenticated; discovering the cluster...");}
    if(v.phase==RR_CONNECT_PHASE_CATALOG){rr_connect_dialog_set_step(d,2);rr_connect_dialog_set_status(d,"Synchronizing cluster objects...");}
    if(v.phase==RR_CONNECT_PHASE_COMPLETE){
-      rr_connect_dialog_set_step(d,3);rr_connect_dialog_set_status(d,"Catalog synchronized. Welcome to RustyRig!");
-      g_timeout_add_full(G_PRIORITY_DEFAULT,1100,finished,g_object_ref(d),g_object_unref);
+      RRConnect *state=g_object_get_data(G_OBJECT(d),"rr-connect-state");
+      if(!state || state->completed)return;
+      state->completed=true;
+      rr_connect_dialog_set_step(d,3);
+      rr_connect_dialog_set_status(d,"Catalog synchronized. Welcome to RustyRig!");
+      GtkWidget *close_button=gtk_dialog_get_widget_for_response(GTK_DIALOG(d),GTK_RESPONSE_CANCEL);
+      if(GTK_IS_BUTTON(close_button))
+         gtk_button_set_label(GTK_BUTTON(close_button),"✕ Close");
+      /* Removed by state_free if the user dismisses the window first. */
+      state->dismiss_timer=g_timeout_add(3500,finished,d);
    }
 }
 void gtk_connecting_init(void){
