@@ -7,6 +7,8 @@
 #include "gtk.floating-panel.h"
 #include "gtk.chat.h"
 #include "gtk.tabs.h"
+#include "gtk.winmgr.h"
+#include "gtk.hotkey.h"
 #include <rrclient/gtk/gtk.file-editor.h>
 #include <rrclient/gtk/gtk.resources.h>
 #include <rrclient/gtk/gtk.receiver-directory.h>
