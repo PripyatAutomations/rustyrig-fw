@@ -32,10 +32,11 @@ enum {
 extern void gtk_terminal_open_endpoint(const char *name);
 extern void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name);
 typedef struct {
-   char *profile, *request, *selection, *subscription;
+   char *profile, *domain, *direct_uuid, *request, *selection, *subscription;
+   GPtrArray *inventory, *pending_inventory; /* complete and in-flight wire rows */
    GtkTreeIter domain_root, root, parents[5];
    GHashTable *irc_rows, *expanded;
-   bool valid[5], loading, online, loaded, local_site_seen;
+   bool valid[5], loading, online, loaded, local_site_seen, root_valid;
    uint64_t requested_at;
    guint generation;
 } resource_branch;
@@ -51,7 +52,7 @@ typedef struct {
    guint zebra_idle;
    GtkTreeStore *store;
    GtkTreeIter local_root, serial_root, network_root, health_root;
-   GHashTable *branches, *local_rows, *health_events, *health_last, *property_snapshots;
+   GHashTable *branches, *domains, *local_rows, *health_events, *health_last, *property_snapshots;
    guint timer;
    gulong initial_split_handler;
    double scroll_y;
@@ -89,6 +90,10 @@ static void branch_free(gpointer data) {
       g_hash_table_destroy(branch->expanded);
    }
    g_free(branch->profile);
+   g_free(branch->domain);
+   g_free(branch->direct_uuid);
+   if (branch->inventory) g_ptr_array_free(branch->inventory, TRUE);
+   if (branch->pending_inventory) g_ptr_array_free(branch->pending_inventory, TRUE);
    g_free(branch->request);
    g_free(branch->selection);
    g_free(branch->subscription);
@@ -148,9 +153,34 @@ static resource_branch *resource_branch_get(const char *profile) {
                       PROFILE, profile, STATE, "Discovering", -1);
    gtk_tree_store_append(browser->store, &branch->root, &branch->domain_root);
    gtk_tree_store_set(browser->store, &branch->root, NAME, profile, KIND, "server", PROFILE, profile, -1);
+   branch->root_valid = true;
    g_hash_table_insert(browser->branches, branch->profile, branch);
 
    return branch;
+}
+
+/* Domain identity comes from the authenticated server's inventory, never
+ * the transport address or the route through the mesh. Until known, each
+ * profile has a separate provisional domain row. */
+static void resource_domain_assign(resource_branch *branch, const char *identity) {
+   const char *domain = identity && *identity ? identity : branch->profile;
+   if (branch->domain && !g_strcmp0(branch->domain, domain)) return;
+   GtkTreeIter *existing = g_hash_table_lookup(browser->domains, domain);
+   if (existing) {
+      /* The initial provisional row has no committed inventory children.
+       * Once snapshots arrive, the shared domain rebuild supplies the nodes. */
+      if (!branch->domain) gtk_tree_store_remove(browser->store, &branch->domain_root);
+      branch->domain_root = *existing;
+      branch->root_valid = false;
+   } else {
+      GtkTreeIter *root = g_new(GtkTreeIter, 1);
+      *root = branch->domain_root;
+      g_hash_table_insert(browser->domains, g_strdup(domain), root);
+      set_string(root, NAME, domain);
+      set_string(root, STATE, "Mesh domain");
+   }
+   g_free(branch->domain);
+   branch->domain = g_strdup(domain);
 }
 
 /* Expansion is keyed by stable resource identity and ancestry, not row numbers: sorting and a fresh inventory can change every GtkTreePath. */
@@ -280,6 +310,7 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
    browser = NULL;
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
+   g_hash_table_destroy(view->domains);
    g_hash_table_destroy(view->health_events);
    g_hash_table_destroy(view->health_last);
    g_hash_table_destroy(view->property_snapshots);
@@ -2955,6 +2986,7 @@ static void resource_create(void) {
    browser->zebra_positions = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    browser->zebra_dirty = TRUE;
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
+   browser->domains = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
    browser->health_events = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, resource_health_queue_free);
    browser->health_last = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
@@ -3268,6 +3300,8 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    g_free(branch->request);
    branch->request = g_strdup(request->request);
    branch->loading = true;
+   if (branch->pending_inventory) g_ptr_array_free(branch->pending_inventory, TRUE);
+   branch->pending_inventory = g_ptr_array_new_with_free_func(g_free);
    branch->requested_at = mono_us();
 
    if (!++branch->generation) {
