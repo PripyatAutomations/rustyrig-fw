@@ -1282,7 +1282,7 @@ static void resource_health_update(void) {
          }
 
          /* Connection state is supplied by the core status snapshot. */
-         if (branch->root_valid && (branch->online || branch->local_site_seen)) {
+         if (branch->root_valid && branch->online) {
             resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
             GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
             GtkTreeIter node;
