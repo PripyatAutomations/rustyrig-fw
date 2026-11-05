@@ -303,7 +303,7 @@ void resource_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, G
    }
 }
 
-static GtkWindow *resource_parent(void) {
+GtkWindow *resource_parent(void) {
    gui_window_t *main = gui_find_window(NULL, "main");
 
    return main && main->gtk_win ? GTK_WINDOW(main->gtk_win) : NULL;
