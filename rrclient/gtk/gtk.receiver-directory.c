@@ -672,6 +672,38 @@ static void directory_menu_command(GtkMenuItem *item, gpointer user) {
       }
    }
 }
+/* Keep navigation consistent with the GTK tree expander arrows. */
+static gboolean directory_tree_key_press(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
+   (void)unused;
+   if (event->keyval != GDK_KEY_Left && event->keyval != GDK_KEY_KP_Left &&
+       event->keyval != GDK_KEY_Right && event->keyval != GDK_KEY_KP_Right)
+      return FALSE;
+   GtkTreeView *tree = GTK_TREE_VIEW(widget);
+   GtkTreeModel *model = NULL;
+   GtkTreeIter iter;
+   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(tree), &model, &iter))
+      return FALSE;
+   GtkTreePath *path = gtk_tree_model_get_path(model, &iter);
+   if (!path)
+      return FALSE;
+   gboolean right = event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right;
+   if (right) {
+      if (gtk_tree_model_iter_has_child(model, &iter))
+         gtk_tree_view_expand_row(tree, path, FALSE);
+      else {
+         gtk_tree_path_free(path);
+         return FALSE;
+      }
+   } else {
+      if (gtk_tree_view_row_expanded(tree, path))
+         gtk_tree_view_collapse_row(tree, path);
+      else if (gtk_tree_path_up(path)) {
+         gtk_tree_view_set_cursor(tree, path, NULL, FALSE);
+      }
+   }
+   gtk_tree_path_free(path);
+   return TRUE;
+}
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    (void)user;
 
@@ -1097,6 +1129,7 @@ static gboolean directory_finish_show(gpointer unused) {
    g_signal_connect(favorites_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
    g_signal_connect(directory_tree, "button-press-event", G_CALLBACK(directory_context_menu), NULL);
+    g_signal_connect(directory_tree, "key-press-event", G_CALLBACK(directory_tree_key_press), NULL);
    /* Don't block the first paint on cached directory population. */
    gtk_widget_show_all(directory_page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
