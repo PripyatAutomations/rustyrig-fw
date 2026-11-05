@@ -49,6 +49,42 @@ typedef struct object_send {
 } object_send_t;
 
 static subscriber_t *subscribers;
+
+/* Inventory requests may contain hundreds of entries. Build synchronously,
+ * deliver asynchronously, preserving each row until accepted by transport. */
+typedef struct inventory_delivery {
+   rrconn_t *client;
+   GPtrArray *frames;
+   guint cursor;
+   struct inventory_delivery *next;
+} inventory_delivery_t;
+static inventory_delivery_t *inventory_deliveries;
+static inventory_delivery_t *inventory_collecting;
+
+void rrserver_inventory_send(rrconn_t *client, dict *d) {
+   if (!d) return;
+   if (inventory_collecting && inventory_collecting->client == client) {
+      g_ptr_array_add(inventory_collecting->frames, d);
+      return;
+   }
+   ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+}
+static void inventory_delivery_free(inventory_delivery_t *delivery) {
+   g_ptr_array_free(delivery->frames, TRUE);
+   g_free(delivery);
+}
+static void inventory_delivery_close(rrconn_t *client) {
+   inventory_delivery_t **next = &inventory_deliveries;
+   while (*next) {
+      inventory_delivery_t *delivery = *next;
+      if (delivery->client == client) {
+         *next = delivery->next;
+         inventory_delivery_free(delivery);
+      } else next = &delivery->next;
+   }
+}
+
 static char *epoch;
 static uint64_t sequence;
 
@@ -366,6 +402,28 @@ void rrserver_objects_poll(void) {
          sent++;
       }
    }
+   inventory_delivery_t **next = &inventory_deliveries;
+   while (*next) {
+      inventory_delivery_t *delivery = *next;
+      unsigned sent = 0;
+      while (delivery->cursor < delivery->frames->len &&
+             sent < OBJECT_SNAPSHOT_FRAMES_PER_POLL) {
+         rrconn_t *client = delivery->client;
+         if (!client->authenticated || !client->native_transport ||
+             rr_transport_state(client->native_transport) != RR_TRANSPORT_OPEN ||
+             rr_transport_queued_bytes(client->native_transport) >= OBJECT_SNAPSHOT_QUEUE_HWM)
+            break;
+         dict *frame = g_ptr_array_index(delivery->frames, delivery->cursor);
+         if (!ws_send_dict(NULL, client, frame, WEBSOCKET_OP_TEXT))
+            break;
+         delivery->cursor++;
+         sent++;
+      }
+      if (delivery->cursor == delivery->frames->len) {
+         *next = delivery->next;
+         inventory_delivery_free(delivery);
+      } else next = &delivery->next;
+   }
 }
 
 static void result(rrconn_t *client, const char *family, const char *id, const char *code) {
@@ -410,6 +468,7 @@ static void rr_object_close_client(const char *event, const char *data, rrconn_t
          }
       }
    }
+   inventory_delivery_close(client);
    subscriber_t **link = &subscribers;
    while (*link) {
       subscriber_t *s = *link;
@@ -819,6 +878,10 @@ static bool inventory_node_control(const rr_platform_control_state_t *state, voi
    return false;
 }
 static void inventory(rrconn_t *client, const char *id) {
+   inventory_delivery_t *delivery = g_new0(inventory_delivery_t, 1);
+   delivery->client = client;
+   delivery->frames = g_ptr_array_new_with_free_func((GDestroyNotify)dict_free);
+   inventory_collecting = delivery;
    object_send_t ctx = {
       .client = client, .request = id
    };
@@ -838,7 +901,15 @@ static void inventory(rrconn_t *client, const char *id) {
    inventory_media(&ctx, "", 1);
    rr_rig_registry_foreach(rig.rigs, inventory_rig, &ctx);
    rrserver_relay_inventory(client, id);
-   send_message(client, message("object", "inventory-end", id));
+   dict *end = message("object", "inventory-end", id);
+   if (end) rr_inventory_send(client, end);
+   inventory_collecting = NULL;
+   if (!end) {
+      inventory_delivery_free(delivery);
+      return;
+   }
+   delivery->next = inventory_deliveries;
+   inventory_deliveries = delivery;
 }
 
 static void rr_object_request(const char *event, const char *data, rrconn_t *client, void *user) {
@@ -1265,6 +1336,11 @@ void rrserver_objects_register_events(void) {
 }
 
 void rrserver_objects_fini(void) {
+   while (inventory_deliveries) {
+      inventory_delivery_t *delivery = inventory_deliveries;
+      inventory_deliveries = delivery->next;
+      inventory_delivery_free(delivery);
+   }
    for (pending_control_t *pending = pending_controls ; pending ; pending = pending->next) {
       pending->client = NULL;
    }
