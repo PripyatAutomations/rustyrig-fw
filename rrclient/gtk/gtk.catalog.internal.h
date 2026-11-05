@@ -45,6 +45,24 @@ typedef struct {
 
 extern resource_browser *browser;
 void resource_set_string(GtkTreeIter *iter, int column, const char *value);
+char *resource_display_utf8(const char *value);
+char *resource_location_details(const char *coords, const char *grid, gboolean compact);
+gint resource_tree_compare(GtkTreeModel *, GtkTreeIter *, GtkTreeIter *, gpointer);
+void resource_local_configure(GtkButton *, gpointer);
+void resource_files(GtkButton *, gpointer);
+void resource_zebra_structure_changed(gpointer);
+void resource_zebra_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
+void resource_present(void);
+void resource_initial_split(GtkWidget *, GtkAllocation *, gpointer);
+gboolean resource_search_equal(GtkTreeModel *, gint, const gchar *, GtkTreeIter *, gpointer);
+void resource_search_changed(GtkEditable *, gpointer);
+gboolean resource_type_visible(GtkTreeModel *, GtkTreeIter *, gpointer);
+void resource_type_sync_all(void);
+void resource_type_toggle_all(GtkToggleButton *, gpointer);
+void resource_type_changed(GtkToggleButton *, gpointer);
+void resource_icon_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
+void resource_cat_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
+
 GtkTreePath *resource_view_path(GtkTreePath *child_path);
 gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *found);
 void resource_health_update(void);
