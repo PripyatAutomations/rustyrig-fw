@@ -838,8 +838,13 @@ static void resource_update_branch(resource_branch *branch) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter node;
    for (gboolean ok = gtk_tree_model_iter_children(model, &node, &branch->domain_root);
-        ok; ok = gtk_tree_model_iter_next(model, &node))
-      resource_update_rows(branch, &node);
+        ok; ok = gtk_tree_model_iter_next(model, &node)) {
+      char *profile = NULL;
+      gtk_tree_model_get(model, &node, PROFILE, &profile, -1);
+      resource_branch *source = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
+      if (source) resource_update_rows(source, &node);
+      g_free(profile);
+   }
 }
 
 /* Cluster Health is a local index over already received inventory, not a second subscription or a claim that linked-node metrics were measured locally. */
@@ -1277,7 +1282,7 @@ static void resource_health_update(void) {
          }
 
          /* Connection state is supplied by the core status snapshot. */
-         if (branch->online || branch->local_site_seen) {
+         if (branch->root_valid && (branch->online || branch->local_site_seen)) {
             resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
             GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
             GtkTreeIter node;
@@ -3361,23 +3366,6 @@ static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, c
    return FALSE;
 }
 
-static void resource_prune_snapshot(GtkTreeIter *parent, guint generation) {
-   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
-   GtkTreeIter child;
-   gboolean ok = gtk_tree_model_iter_children(model, &child, parent);
-   while (ok) {
-      guint seen = 0;
-      gtk_tree_model_get(model, &child, GENERATION, &seen, -1);
-
-      if (seen != generation) {
-         ok = gtk_tree_store_remove(browser->store, &child);
-      } else {
-         resource_prune_snapshot(&child, generation);
-         ok = gtk_tree_model_iter_next(model, &child);
-      }
-   }
-}
-
 static void resource_domain_rebuild(const char *domain);
 
 static void resource_row(const char *event, const char *text, rrconn_t *connection, void *unused) {
@@ -3955,10 +3943,29 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
          branch->loading = false;
          resource_refresh(branch);
       }
-      set_string(&branch->root, STATE, irc ?
-         (authenticated ? "Connected (IRC)" : !strcmp(state, "connecting") ? "Connecting (IRC)" : "Disconnected (IRC)") :
-         (branch->online ? "Connected" : !strcmp(state, "connecting") ? "Connecting" : "Disconnected"));
-      set_string(&branch->root, OURS, irc ? (authenticated ? "Connected" : "Disconnected") : (branch->online ? branch->subscription : ""));
+      if (was_online && !branch->online && branch->domain)
+         resource_domain_rebuild(branch->domain);
+      if (branch->root_valid) {
+         /* Multiple profiles can reach the same physical node. */
+         gboolean reachable = branch->online;
+         if (branch->domain && branch->direct_uuid) {
+            GHashTableIter profiles;
+            gpointer other_value;
+            g_hash_table_iter_init(&profiles, browser->branches);
+            while (g_hash_table_iter_next(&profiles, NULL, &other_value)) {
+               resource_branch *other = other_value;
+               if (other->online && !g_strcmp0(other->domain, branch->domain) &&
+                   !g_strcmp0(other->direct_uuid, branch->direct_uuid))
+                  reachable = TRUE;
+            }
+         }
+         set_string(&branch->root, STATE, irc ?
+            (authenticated ? "Connected (IRC)" : !strcmp(state, "connecting") ? "Connecting (IRC)" : "Disconnected (IRC)") :
+            (reachable ? "Connected" : !strcmp(state, "connecting") ? "Connecting" : "Disconnected"));
+         if (reachable || irc)
+            set_string(&branch->root, OURS, irc ? (authenticated ? "Connected" : "Disconnected") : branch->subscription);
+         else set_string(&branch->root, OURS, "");
+      }
       resource_update_branch(branch);
    }
    dict_free(d);
@@ -4013,30 +4020,22 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
    }
 
    if (branch && (!strcmp(state, "disconnected") || !strcmp(state, "http.error") || !strcmp(state, "auth.error"))) {
-      /* Do not leave the last live inventory on screen after transport loss. */
+      /* Remove only this source, preserving resources still available via
+       * another connection to the same mesh domain. */
       branch->online = false;
+      branch->loading = false;
       g_clear_pointer(&branch->request, g_free);
-      GtkTreeIter child;
-      while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
-         gtk_tree_store_remove(browser->store, &child);
+      g_clear_pointer(&branch->pending_inventory, g_ptr_array_unref);
+      if (branch->domain) {
+         resource_domain_rebuild(branch->domain);
+      } else if (branch->root_valid) {
+         GtkTreeIter child;
+         while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root))
+            gtk_tree_store_remove(browser->store, &child);
+         set_string(&branch->root, STATE, "Disconnected");
+         set_string(&branch->root, OURS, "");
       }
-      /* Linked nodes live beside the directly connected node, so discard
-       * their stale inventory when this profile disconnects as well. */
-      GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
-      GtkTreePath *direct_path = gtk_tree_model_get_path(model, &branch->root);
-      gboolean more = gtk_tree_model_iter_children(model, &child, &branch->domain_root);
-      while (more) {
-         GtkTreePath *path = gtk_tree_model_get_path(model, &child);
-         gboolean direct = gtk_tree_path_compare(path, direct_path) == 0;
-         gtk_tree_path_free(path);
-         more = direct ? gtk_tree_model_iter_next(model, &child) : gtk_tree_store_remove(browser->store, &child);
-      }
-      gtk_tree_path_free(direct_path);
-      set_string(&branch->domain_root, STATE, "Disconnected");
-      /* Status and subscription are separate columns. Never retain a stale Connected state beside a Disconnected subscription on link loss. */
-      set_string(&branch->root, STATE, "Disconnected");
-      set_string(&branch->root, OURS, "");
-      gtk_label_set_text(GTK_LABEL(browser->status), "OFFLINE");
+      gtk_label_set_text(GTK_LABEL(browser->status), "Connection offline");
    }
    g_free(owned_profile);
 }
