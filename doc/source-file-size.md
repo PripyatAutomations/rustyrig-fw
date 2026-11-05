@@ -94,6 +94,35 @@ private GTK state into global variables merely to satisfy line counts.
 Source-level checks were performed against GitHub main. Compilation,
 linking and GTK runtime validation remain outstanding.
 
+## GTK catalog decomposition (2026-11-05)
+
+The former `rrclient/gtk/gtk.resources.c` was **removed**, not duplicated.
+The same public `gtk_resources_init()` and `gtk_resources_shutdown()`
+entry points remain available through `gtk.catalog.h`, with
+`gtk.resources.h` retained as a compatibility include.
+
+| Unit | Approx. lines | Owns |
+| --- | ---: | --- |
+| `gtk.catalog.c` | 1,697 | Browser lifecycle, branch state, actions, core snapshot orchestration |
+| `gtk.catalog.inventory.c` | 590 | Inventory row replay, UUID reconciliation, domain-scoped union projection |
+| `gtk.catalog.view.c` | 703 | Tree view presentation, sorting, search, category filters, icon and zebra rendering |
+| `gtk.catalog.controls.c` | 459 | Property snapshots, rig sliders, menu editors |
+| `gtk.catalog.health.c` | 522 | Cluster Health and historical observations |
+| `gtk.catalog.local.c` | 285 | Local serial/PTY enumeration and WSJT-X reporting |
+| `gtk.catalog.internal.h` | — | Owner-thread-only shared model and private module interfaces |
+
+The Xvfb regression harness remains
+`rrclient/tests/test_gtk_resources.sh`; it now includes
+`gtk.catalog.c` in its test translation unit and links the five
+companion source files. Its existing hierarchy, action, serial,
+same-domain union and disconnect cases are preserved, with a new
+Cluster Health deduplication assertion. The owning `rrclient/rules.mk`
+has one `gtk_module_objs +=` object per line.
+
+All edits were source-reviewed against GitHub main. A working checkout
+and GTK/Xvfb toolchain were not available here, so **compilation and
+runtime tests are pending**; do not assume the split has passed CI.
+
 ## Recommended sequence
 
 1. Split `gtk.admin.c` first; the largest file and most clearly separated dialogs/tabs.
