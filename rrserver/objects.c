@@ -32,6 +32,9 @@ typedef struct subscriber {
    rrconn_t *client;
    GPtrArray *pending;
    unsigned cursor;
+   GPtrArray *frames;
+   guint frame_cursor;
+   bool relay_queued;
    char *request;
    struct subscriber *next;
 } subscriber_t;
@@ -41,6 +44,7 @@ typedef struct object_send {
    const char *request;
    rr_server_rig_t *radio;
    rr_server_vfo_t *vfo;
+   GPtrArray *frames;
 } object_send_t;
 
 static subscriber_t *subscribers;
@@ -95,6 +99,13 @@ static void send_message(rrconn_t *client, dict *d) {
    dict_free(d);
 }
 
+/* Snapshot frames remain owned by the subscriber until the transport accepts them. */
+static void object_emit(object_send_t *ctx, dict *d) {
+   if (ctx->frames) {
+      if (d) g_ptr_array_add(ctx->frames, d);
+   } else send_message(ctx->client, d);
+}
+
 static bool resolve(const char *uuid, object_send_t *ctx) {
    ctx->radio = rr_rig_registry_find_uuid(rig.rigs, uuid);
    ctx->vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, uuid);
@@ -144,7 +155,7 @@ static void send_state(object_send_t *ctx, const char *name, const char *cmd) {
 
       return;
    }
-   send_message(ctx->client, d);
+   object_emit(ctx, d);
 }
 
 static bool send_property(const rr_property_descriptor_t *p, void *user) {
@@ -184,7 +195,7 @@ static bool send_property(const rr_property_descriptor_t *p, void *user) {
    if (p->enum_values) {
       dict_add(d, "property.enum", p->enum_values);
    }
-   send_message(ctx->client, d);
+   object_emit(ctx, d);
 
    if (p->readable) {
       send_state(ctx, p->name, "state");
@@ -196,10 +207,13 @@ static bool send_property(const rr_property_descriptor_t *p, void *user) {
 typedef struct {
    rrconn_t *client;
    const char *request;
+   GPtrArray *frames;
 } node_control_context_t;
 
 /* Platform knobs belong to the persistent node, not an invented rig. */
-static void send_node_control_state(rrconn_t *client, const char *request, const rr_platform_control_state_t *state, const char *command) {
+static void send_node_control_state_to(rrconn_t *client, const char *request,
+                                        const rr_platform_control_state_t *state,
+                                        const char *command, GPtrArray *frames) {
    dict *d = message("property", command, request);
 
    if (!d) {
@@ -213,7 +227,13 @@ static void send_node_control_state(rrconn_t *client, const char *request, const
    dict_add_bool(d, "property.known", true);
    dict_add_bool(d, "property.available", true);
    rr_object_seq_put(d, "property.version", sequence);
-   send_message(client, d);
+   if (frames) g_ptr_array_add(frames, d);
+   else send_message(client, d);
+}
+static void send_node_control_state(rrconn_t *client, const char *request,
+                                    const rr_platform_control_state_t *state,
+                                    const char *command) {
+   send_node_control_state_to(client, request, state, command, NULL);
 }
 
 /* Publish updates from every command surface, not only property.set. */
@@ -240,8 +260,9 @@ static bool send_node_control(const rr_platform_control_state_t *state, void *us
    dict_add_int(d, "property.minimum", state->minimum);
    dict_add_int(d, "property.maximum", state->maximum);
    dict_add_int(d, "property.step", state->step);
-   send_message(ctx->client, d);
-   send_node_control_state(ctx->client, ctx->request, state, "state");
+   if (ctx->frames) g_ptr_array_add(ctx->frames, d);
+   else send_message(ctx->client, d);
+   send_node_control_state_to(ctx->client, ctx->request, state, "state", ctx->frames);
 
    return false;
 }
@@ -263,7 +284,7 @@ static void send_object(object_send_t *ctx, const char *cmd) {
    if (!ctx->vfo) {
       dict_add(d, "object.backend", rr_server_rig_backend(ctx->radio)->type->name);
    }
-   send_message(ctx->client, d);
+   object_emit(ctx, d);
 
    if (ctx->vfo) {
       rr_vfo_property_foreach(ctx->vfo, send_property, ctx);
@@ -284,31 +305,59 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
    return rr_server_vfo_foreach(radio, collect_vfo, user);
 }
 
+/* Native wslay caps queued frames at 256, before the byte high-water mark.
+ * Bound each pump to 12 frames and leave ample room for other traffic. */
+#define OBJECT_SNAPSHOT_FRAMES_PER_POLL 12
+#define OBJECT_SNAPSHOT_QUEUE_HWM 32768
 void rrserver_objects_poll(void) {
-   // Bounded serialization batches on the existing server event loop.
-   for (subscriber_t *s = subscribers ; s ; s = s->next) {
-      if (!s->pending || !s->client->authenticated) {
+   for (subscriber_t *s = subscribers; s; s = s->next) {
+      if (!s->pending || !s->frames || !s->client->authenticated)
          continue;
-      }
 
-      for (unsigned sent = 0 ; sent < 4 && s->cursor < s->pending->len ; sent++) {
-         const char *uuid = g_ptr_array_index(s->pending, s->cursor++);
-         object_send_t ctx = {
-            .client = s->client, .request = s->request
-         };
-
-         if (resolve(uuid, &ctx)) {
-            send_object(&ctx, "descriptor");
+      for (unsigned sent = 0; sent < OBJECT_SNAPSHOT_FRAMES_PER_POLL; ) {
+         if (s->frame_cursor >= s->frames->len) {
+            g_ptr_array_set_size(s->frames, 0);
+            s->frame_cursor = 0;
+            if (s->cursor < s->pending->len) {
+               const char *uuid = g_ptr_array_index(s->pending, s->cursor);
+               object_send_t ctx = {
+                  .client = s->client, .request = s->request, .frames = s->frames
+               };
+               if (resolve(uuid, &ctx)) send_object(&ctx, "descriptor");
+               s->cursor++;
+            } else if (!s->relay_queued) {
+               rrserver_relay_objects_collect(s->frames, s->request);
+               for (guint i = 0; i < s->frames->len; i++) {
+                  dict *d = g_ptr_array_index(s->frames, i);
+                  if (!epoch) epoch = g_uuid_string_random();
+                  if (epoch) dict_add(d, "stream.epoch", epoch);
+                  rr_object_seq_put(d, "stream.seq", ++sequence);
+               }
+               dict *end = message("object", "end", s->request);
+               if (end) g_ptr_array_add(s->frames, end);
+               s->relay_queued = true;
+            } else {
+               g_ptr_array_free(s->pending, TRUE);
+               s->pending = NULL;
+               g_ptr_array_free(s->frames, TRUE);
+               s->frames = NULL;
+               free(s->request);
+               s->request = NULL;
+               break;
+            }
+            if (!s->frames->len) continue;
          }
-      }
-
-      if (s->cursor == s->pending->len) {
-         rrserver_relay_objects(s->client, s->request);
-         send_message(s->client, message("object", "end", s->request));
-         g_ptr_array_free(s->pending, true);
-         s->pending = NULL;
-         free(s->request);
-         s->request = NULL;
+         if (!s->client->native_transport ||
+             rr_transport_state(s->client->native_transport) != RR_TRANSPORT_OPEN)
+            break;
+         if (rr_transport_queued_bytes(s->client->native_transport) >=
+             OBJECT_SNAPSHOT_QUEUE_HWM)
+            break;
+         dict *d = g_ptr_array_index(s->frames, s->frame_cursor);
+         if (!ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT))
+            break; /* Retry the same frame next poll. */
+         s->frame_cursor++;
+         sent++;
       }
    }
 }
@@ -365,6 +414,7 @@ static void rr_object_close_client(const char *event, const char *data, rrconn_t
          if (s->pending) {
             g_ptr_array_free(s->pending, true);
          }
+         if (s->frames) g_ptr_array_free(s->frames, TRUE);
          free(s->request);
          free(s);
       } else {
@@ -839,8 +889,9 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          subscribers = s;
          s->request = strdup(id);
          s->pending = g_ptr_array_new_with_free_func(g_free);
+         s->frames = g_ptr_array_new_with_free_func((GDestroyNotify)dict_free);
 
-         if (!s->request || !s->pending) {
+         if (!s->request || !s->pending || !s->frames) {
             rr_object_close_client(NULL, NULL, client, NULL);
             code = "unavailable";
             goto done;
@@ -852,7 +903,8 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
             code = "too-large";
             goto done;
          }
-         send_message(client, message("object", "begin", id));
+         dict *begin = message("object", "begin", id);
+         if (begin) g_ptr_array_add(s->frames, begin);
          dict *node = message("object", "descriptor", id);
 
          if (!node) {
@@ -867,9 +919,9 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          dict_add(node, "object.description", cfg_get("station.description"));
          dict_add(node, "object.location", cfg_get("station.location"));
          dict_add(node, "object.lifecycle", "persistent");
-         send_message(client, node);
+         g_ptr_array_add(s->frames, node);
          node_control_context_t controls = {
-            .client = client, .request = id
+            .client = client, .request = id, .frames = s->frames
          };
          rrserver_platform_control_foreach(send_node_control, &controls);
          dict_free(d);
