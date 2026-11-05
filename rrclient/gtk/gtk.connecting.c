@@ -219,6 +219,7 @@ GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
       GTK_NOTEBOOK(main_notebook), panel_id, "RustyRig — Connecting");
    g_free(panel_id);
    if (!panel) return NULL;
+   rr_floating_panel_set_initial_centered(panel, TRUE);
    RRConnect *state = g_new0(RRConnect, 1);
    state->panel = panel;
    state->canvas = gtk_drawing_area_new();
