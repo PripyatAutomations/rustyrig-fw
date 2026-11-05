@@ -1,5 +1,6 @@
 #include <assert.h>
-#include <rrclient/gtk/gtk.resources.c>
+/* Exercise catalog implementation entry points with linked health/local modules. */
+#include <rrclient/gtk/gtk.catalog.c>
 time_t now;
 const char *config_file;
 GtkWidget *main_notebook;
