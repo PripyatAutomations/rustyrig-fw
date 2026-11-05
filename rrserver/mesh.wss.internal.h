@@ -33,6 +33,10 @@ struct mesh_wss {
    unsigned port, peer_port;
    long long started;
    long long close_started;
+   long long last_read_ms, last_write_ms;
+   guint64 bytes_read, bytes_written;
+   unsigned websocket_close_code;
+   bool websocket_close_seen;
    /* Stable plaintext buffer: retry SSL_write with the same bytes/length. */
    uint8_t tx[MESH_QUEUE];
    size_t tx_len, retry_len, read_budget;
