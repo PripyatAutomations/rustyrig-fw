@@ -1030,7 +1030,15 @@ void close_session(struct link_session *session) {
       rr_mesh_remove_edge(links.mesh, links.node, session->node);
    }
 
-   if (session->established && session->peer && !links.stopping && !session->peer->manually_closed) {
+   bool planned_peer_shutdown = session->close_cause &&
+      !strcmp(session->close_cause, "peer-graceful-shutdown");
+   if (session->established && session->peer && planned_peer_shutdown && !links.stopping) {
+      Log(LOG_INFO, "link",
+         "Peer %s [%s] completed graceful WebSocket shutdown; withdrawing its topology without counting a transport fault",
+         session->peer->site, session->node);
+   }
+   if (session->established && session->peer && !links.stopping &&
+       !session->peer->manually_closed && !planned_peer_shutdown) {
       health_window(session->peer);
       session->peer->health_flaps++;
       long long now = mono_ms();
