@@ -150,7 +150,7 @@ static resource_branch *resource_branch_get(const char *profile) {
    /* Display topology is domain -> nodes, regardless of the relay route. */
    gtk_tree_store_insert_before(browser->store, &branch->domain_root, NULL, &browser->local_root);
    gtk_tree_store_set(browser->store, &branch->domain_root, NAME, "Domain (discovering…)", KIND, "domain",
-                      PROFILE, profile, STATE, "Discovering", -1);
+                      PROFILE, "", STATE, "Discovering", -1);
    gtk_tree_store_append(browser->store, &branch->root, &branch->domain_root);
    gtk_tree_store_set(browser->store, &branch->root, NAME, profile, KIND, "server", PROFILE, profile, -1);
    branch->root_valid = true;
@@ -180,7 +180,7 @@ static void resource_domain_assign(resource_branch *branch, const char *identity
          gtk_tree_store_insert_before(browser->store, &branch->domain_root,
                                       NULL, &browser->local_root);
          gtk_tree_store_set(browser->store, &branch->domain_root,
-                            KIND, "domain", PROFILE, branch->profile, -1);
+                            KIND, "domain", PROFILE, "", -1);
       }
       GtkTreeIter *root = g_new(GtkTreeIter, 1);
       *root = branch->domain_root;
