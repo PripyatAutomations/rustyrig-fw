@@ -120,6 +120,7 @@ gtk_module_objs += gtk/gtk.receiver-directory.o # Cached public receiver browser
 gtk_module_objs += gtk/gtk.catalog.o # Catalog presentation and inventory state
 gtk_module_objs += gtk/gtk.catalog.local.o # Local serial and WSJT-X inventory
 gtk_module_objs += gtk/gtk.catalog.health.o # Cluster health and history
+gtk_module_objs += gtk/gtk.catalog.view.o # Catalog tree presentation and filtering
 gtk_module_objs += gtk/gtk.screensaver.o # Idle screensaver and gmatrix launcher
 gtk_module_objs += gtk/gtk.serial.o
 gtk_module_objs += gtk/gtk.spectrum.o
