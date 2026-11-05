@@ -116,6 +116,7 @@ gtk_module_objs += gtk/gtk.mode-box.o	# Modulation Mode / width box
 gtk_module_objs += gtk/gtk.privileges.o
 gtk_module_objs += gtk/gtk.receiver-directory.o # Cached public receiver browser
 gtk_module_objs += gtk/gtk.resources.o
+gtk_module_objs += gtk/gtk.screensaver.o # Idle screensaver and gmatrix launcher
 gtk_module_objs += gtk/gtk.serial.o
 gtk_module_objs += gtk/gtk.spectrum.o
 gtk_module_objs += gtk/gtk.supervision.o # Independent supervision dialogs
