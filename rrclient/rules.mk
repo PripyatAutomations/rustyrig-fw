@@ -31,6 +31,7 @@ rrclient_objs += database.o
 rrclient_objs += config.layers.o
 rrclient_objs += identity.store.o
 rrclient_objs += connman.o		# connection manager
+rrclient_objs += connecting.o	# connection progress snapshots
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
 rrclient_objs += thread.dispatch.o
@@ -92,6 +93,7 @@ gtk_module_objs += gtk/gtk.chat.highlight.o
 gtk_module_objs += gtk/gtk.chat.links.o
 gtk_module_objs += gtk/gtk.codecpicker.o # codec picker widget
 gtk_module_objs += gtk/gtk.connect-button.o
+gtk_module_objs += gtk/gtk.connecting.o # Retro sign-on dialog
 gtk_module_objs += gtk/gtk.core.o            # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.files.o
 gtk_module_objs += gtk/gtk.file-editor.o # configuration tab
@@ -147,7 +149,7 @@ VTE_CFLAGS := $(shell pkg-config --cflags vte-2.91) -DRR_HAVE_VTE=1
 VTE_LIBS := $(shell pkg-config --libs vte-2.91)
 endif
 GTK_CFLAGS := ${GTK_MODULE_CFLAGS} ${VTE_CFLAGS}
-GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS}
+GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS} -lm
 
 ${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${librustyirc_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
