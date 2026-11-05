@@ -439,7 +439,33 @@ void rr_relay_send_remote(const char *event, const void *data, size_t length, rr
       // Carry the complete relay session ID; the origin substitutes its token.
       dict_add(forward, "talk.session", r->id);
    }
-   io->result = rr_relay_packet(r->origin, "reply", r->id, NULL, forward);
+   /* A virtual session may outlive its origin's route until the link-loss
+    * cleanup runs. It has no local socket to deliver to, so consume the
+    * message, record the failed forward, and avoid an unbounded warning per
+    * property/media descriptor during link teardown. Never treat a failed
+    * relay as successfully delivered. */
+   bool reachable = rrserver_links_route(r->origin) != NULL;
+   bool delivered = reachable && rr_relay_packet(r->origin, "reply", r->id, NULL, forward);
+   io->result = true;           /* consumed by the virtual-session transport */
+   if (!delivered) {
+      static guint64 dropped;
+      static gint64 last_report;
+      static guint64 last_count;
+      ++dropped;
+      gint64 at = g_get_monotonic_time();
+      if (!last_report || at - last_report >= G_USEC_PER_SEC) {
+         Log(LOG_WARN, "relay.reply",
+            "Remote reply not delivered: origin=%s session=%.36s type=%s cmd=%s reason=%s dropped=%llu (+%llu since last report)",
+            r->origin, r->id, family,
+            !strcmp(family, "property") ? dict_get(io->message, "property.cmd", "") :
+            !strcmp(family, "media") ? dict_get(io->message, "media.cmd", "") :
+            !strcmp(family, "talk") ? dict_get(io->message, "talk.cmd", "") : "",
+            reachable ? "relay send failed" : "origin route unavailable",
+            (unsigned long long)dropped, (unsigned long long)(dropped - last_count));
+         last_report = at;
+         last_count = dropped;
+      }
+   }
 
    if (forward != io->message) {
       dict_free(forward);
