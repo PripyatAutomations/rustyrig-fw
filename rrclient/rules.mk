@@ -110,6 +110,7 @@ gtk_module_objs += gtk/gtk.help.o
 gtk_module_objs += gtk/gtk.hotkey.o # Hotkey support
 gtk_module_objs += gtk/gtk.identity.o # Local identity and certificate manager
 gtk_module_objs += gtk/gtk.irc-format.o # IRC color and Pango markup formatting
+gtk_module_objs += gtk/gtk.output.o # Chat/status output and backlog
 gtk_module_objs += gtk/gtk.kiwi-panel.o # KiwiSDR floating control panel
 gtk_module_objs += gtk/gtk.icons.o
 gtk_module_objs += gtk/gtk.logview.o
