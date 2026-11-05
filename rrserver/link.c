@@ -302,50 +302,100 @@ static bool introduction_policy(const struct link_session *session, const char *
    }
    return current && depth <= limit + 1 && (!session->peer->max_depth || depth <= session->peer->max_depth);
 }
+/* Keep wire messages in FIFO order across short WebSocket backpressure.
+ * Never drop/control-reorder a mesh frame or declare a link dead merely
+ * because wslay has 256 messages waiting to be written. */
+static bool defer_message(struct link_session *session, char *wire, size_t length, const char *op) {
+   if (!session->deferred_messages)
+      session->deferred_messages = g_queue_new();
+   if (!session->deferred_messages || length > MAX_DEFERRED_QUEUE - MIN(session->deferred_bytes, MAX_DEFERRED_QUEUE) ||
+       g_queue_get_length(session->deferred_messages) >= MAX_DEFERRED_FRAMES) {
+      char reason[256];
+      snprintf(reason, sizeof(reason),
+         "Deferred mesh send queue exhausted: op=%.64s deferred=%zuB frames=%u new=%zuB (limit=%uB/%u frames)",
+         op, session->deferred_bytes,
+         session->deferred_messages ? g_queue_get_length(session->deferred_messages) : 0u,
+         length, MAX_DEFERRED_QUEUE, MAX_DEFERRED_FRAMES);
+      fail_cause(session, "persistent-backpressure", reason);
+      return false;
+   }
+   if (g_queue_is_empty(session->deferred_messages))
+      session->deferred_since = mono_ms();
+   g_queue_push_tail(session->deferred_messages, wire);
+   session->deferred_bytes += length;
+   long long at = mono_ms();
+   if (!session->last_backpressure_log || at - session->last_backpressure_log >= 5000) {
+      Log(LOG_INFO, "link.backpressure",
+         "Deferring mesh output to %s: deferred=%zuB frames=%u transport=%zuB op=%.64s",
+         session->peer ? session->peer->site : "unknown",
+         session->deferred_bytes, g_queue_get_length(session->deferred_messages),
+         rr_mesh_wss_queued(session->transport), op);
+      session->last_backpressure_log = at;
+   }
+   return true;
+}
+static void drain_deferred(struct link_session *session) {
+   if (!session->deferred_messages || session_closing(session) || !session->transport)
+      return;
+   unsigned sent = 0;
+   while (!g_queue_is_empty(session->deferred_messages) && sent < 128) {
+      char *wire = g_queue_peek_head(session->deferred_messages);
+      size_t length = strlen(wire);
+      int result = rr_transport_send_message(session->transport, wire, length);
+      if (result == RR_TRANSPORT_BACKPRESSURE)
+         break;
+      if (result != RR_TRANSPORT_OK) {
+         fail_cause(session, "transport-send-failure", "Deferred mesh send failed while draining output");
+         return;
+      }
+      g_queue_pop_head(session->deferred_messages);
+      session->deferred_bytes -= length;
+      free(wire);
+      ++sent;
+   }
+   if (g_queue_is_empty(session->deferred_messages) && session->deferred_since) {
+      Log(LOG_INFO, "link.backpressure",
+         "Mesh output recovered for %s: deferred queue drained in %lldms",
+         session->peer ? session->peer->site : "unknown", mono_ms() - session->deferred_since);
+      session->deferred_since = 0;
+   }
+}
 static bool send_message(struct link_session *session, dict *d) {
    const char *op = dict_get(d, "op", "unknown");
    char *wire = rr_link_wire_encode(d);
-
    if (!wire) {
       char reason[256];
-      snprintf(reason, sizeof(reason), "Cannot encode %.96s message (invalid fields or wire size limit); check link protocol compatibility", op);
+      snprintf(reason, sizeof(reason),
+         "Cannot encode %.96s message (invalid fields or wire size limit); check link protocol compatibility", op);
       fail(session, reason);
-
       return false;
    }
-
-   size_t length = strlen(wire);
-   size_t queued = rr_mesh_wss_queued(session->transport);
-
    if (session_closing(session)) {
       free(wire);
-
       return false;
    }
-
-   if (queued > MAX_QUEUE || length > MAX_QUEUE - queued || MAX_QUEUE - queued - length < 16) {
-      char reason[256];
-      snprintf(reason, sizeof(reason), "Cannot send %.96s: output queue full (%zu bytes queued, %zu-byte message, %d-byte limit)", op, queued, length, MAX_QUEUE
-         );
+   size_t length = strlen(wire);
+   /* Any pending older message goes first, even if wslay is currently
+    * writable again. This avoids reordering catalog/control envelopes. */
+   if (session->deferred_messages && !g_queue_is_empty(session->deferred_messages)) {
+      if (defer_message(session, wire, length, op))
+         return true;
       free(wire);
-      fail(session, reason);
-
       return false;
    }
-
-   {
-      if (rr_transport_send_message(session->transport, wire, length) != RR_TRANSPORT_OK) {
-         free(wire);
-         fail(session, "Native mesh send queue failed or exceeded its bound");
-
-         return false;
-      }
+   int result = rr_transport_send_message(session->transport, wire, length);
+   if (result == RR_TRANSPORT_BACKPRESSURE) {
+      if (defer_message(session, wire, length, op))
+         return true;
+   } else if (result != RR_TRANSPORT_OK) {
+      char reason[256];
+      snprintf(reason, sizeof(reason), "Native mesh transport send failed: op=%.64s status=%d queued=%zuB",
+         op, result, rr_mesh_wss_queued(session->transport));
+      fail_cause(session, "transport-send-failure", reason);
    }
    free(wire);
-
-   return true;
+   return result == RR_TRANSPORT_OK;
 }
-
 static dict *message(const char *op) {
    dict *d = dict_new();
 
@@ -1043,6 +1093,8 @@ void close_session(struct link_session *session) {
    if (*p) {
       *p = session->next;
    }
+   if (session->deferred_messages)
+      g_queue_free_full(session->deferred_messages, free);
    free(session);
    links.session_count--;
 }
@@ -1524,6 +1576,7 @@ void rrserver_links_poll(void) {
    long long at = mono_ms();
 
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
+      drain_deferred(s);
       if (!s->established && at - s->started > cfg_get_int("links.handshake-seconds", 10) * 1000LL) {
          fail_cause(s, "handshake-timeout", "Connection setup timed out; check network reachability, TLS and peer configuration");
       }
