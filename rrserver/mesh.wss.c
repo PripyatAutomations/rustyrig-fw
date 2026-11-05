@@ -78,7 +78,7 @@ static int verify_certificate(X509_STORE_CTX *store, void *unused) {
 
 /* SSL error queues are cleared before every operation. WANT states retain stable write arguments and drive fd interests, including cross-direction WANT_READ
  * from write and WANT_WRITE from read. */
-static int ssl_result(struct mesh_wss *c, int result, int *want) {
+static int ssl_result(struct mesh_wss *c, int result, int *want, const char *operation) {
    *want = 0;
 
    if (result > 0) {
@@ -92,9 +92,18 @@ static int ssl_result(struct mesh_wss *c, int result, int *want) {
       return 0;
    }
    unsigned long code = ERR_peek_last_error();
+   int saved_errno = errno, so_error = 0;
+   socklen_t len = sizeof(so_error);
+   if (c->fd >= 0 && getsockopt(c->fd, SOL_SOCKET, SO_ERROR, &so_error, &len))
+      so_error = 0;
+   const char *detail = code ? ERR_reason_error_string(code) :
+      error == SSL_ERROR_ZERO_RETURN ? "TLS close_notify received" :
+      error == SSL_ERROR_SYSCALL ? (saved_errno ? g_strerror(saved_errno) :
+         so_error ? g_strerror(so_error) : "unexpected EOF without TLS close_notify") :
+      "TLS processing failed";
    char reason[256];
-   snprintf(reason, sizeof(reason), "TLS %s: %s", error == SSL_ERROR_ZERO_RETURN ? "peer closed" : "I/O failed", code ? ERR_reason_error_string(code) : (error
-      == SSL_ERROR_SYSCALL ? g_strerror(errno) : "connection ended"));
+   snprintf(reason, sizeof(reason), "TLS %s: %s (ssl_error=%d errno=%d so_error=%d)",
+      operation, detail ? detail : "unknown", error, saved_errno, so_error);
    reject(c, reason);
 
    return -1;
@@ -119,11 +128,12 @@ static ssize_t ws_receive(wslay_event_context_ptr ws, uint8_t *buf, size_t len, 
    len = MIN(len, c->read_budget);
    ERR_clear_error();
    int n = SSL_read(c->ssl, buf, (int)len);
-   n = ssl_result(c, n, &c->read_want);
+   n = ssl_result(c, n, &c->read_want, "WebSocket read");
 
    if (n > 0) {
       c->read_budget -= n;
-
+      c->last_read_ms = mono_ms();
+      c->bytes_read += (guint64)n;
       return n;
    }
 
@@ -176,7 +186,13 @@ static void ws_message(wslay_event_context_ptr ws, const struct wslay_event_on_m
    }
 
    if (msg->opcode == WSLAY_CONNECTION_CLOSE) {
-      reject(c, "WebSocket peer closed");
+      c->websocket_close_seen = true;
+      if (msg->msg_length >= 2)
+         c->websocket_close_code = ((unsigned)msg->msg[0] << 8) | msg->msg[1];
+      char reason[128];
+      snprintf(reason, sizeof(reason), "WebSocket peer closed (code=%u payload_bytes=%zu)",
+         c->websocket_close_code, msg->msg_length);
+      reject(c, reason);
    } else if (msg->opcode == WSLAY_PONG) {
       rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_PONG, NULL, NULL, 0);
    } else if (msg->opcode == WSLAY_TEXT_FRAME) {
@@ -281,9 +297,11 @@ static void flush(struct mesh_wss *c) {
    }
    ERR_clear_error();
    int n = SSL_write(c->ssl, c->tx, (int)c->retry_len);
-   n = ssl_result(c, n, &c->write_want);
+   n = ssl_result(c, n, &c->write_want, "write");
 
    if (n > 0) {
+      c->last_write_ms = mono_ms();
+      c->bytes_written += (guint64)n;
       memmove(c->tx, c->tx + n, c->tx_len - n);
       c->tx_len -= n;
       c->retry_len = 0;
@@ -333,13 +351,19 @@ static bool ready(int fd, GIOCondition events, void *arg) {
    }
 
    if (events & (G_IO_ERR | G_IO_NVAL)) {
-      reject(c, "Socket error; check remote listener and routing");
+      int so_error = 0;
+      socklen_t len = sizeof(so_error);
+      if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len)) so_error = errno;
+      char reason[160];
+      snprintf(reason, sizeof(reason), "Socket event failure (events=0x%x SO_ERROR=%d: %s)",
+         (unsigned)events, so_error, so_error ? g_strerror(so_error) : "unspecified");
+      reject(c, reason);
       goto done;
    }
 
    if (!c->tls_done) {
       ERR_clear_error();
-      int n = ssl_result(c, SSL_do_handshake(c->ssl), &c->tls_want);
+      int n = ssl_result(c, SSL_do_handshake(c->ssl), &c->tls_want, "handshake");
 
       if (n <= 0) {
          goto done;
@@ -381,11 +405,13 @@ static bool ready(int fd, GIOCondition events, void *arg) {
       }
       ERR_clear_error();
       int n = SSL_read(c->ssl, c->http + c->http_len, sizeof(c->http) - 1 - c->http_len);
-      n = ssl_result(c, n, &c->read_want);
+      n = ssl_result(c, n, &c->read_want, "HTTP upgrade read");
 
       if (n <= 0) {
          goto done;
       }
+      c->last_read_ms = mono_ms();
+      c->bytes_read += (guint64)n;
 
       if (memchr(c->http + c->http_len, 0, n)) {
          reject(c, "NUL in HTTP upgrade");
@@ -456,7 +482,7 @@ static bool ready(int fd, GIOCondition events, void *arg) {
 done:
 
    if ((events & G_IO_HUP) && !c->dead) {
-      reject(c, "Peer disconnected");
+      reject(c, "Socket hangup (G_IO_HUP) without completed WebSocket/TLS shutdown");
    }
    rr_mesh_wss_arm(c);
 
@@ -504,6 +530,25 @@ static gboolean maintenance(void *unused) {
          *p = c->next;
 
          if (*c->reason && !c->http_reply) {
+            long long at = mono_ms();
+            size_t ws_bytes = c->ws ? wslay_event_get_queued_msg_length(c->ws) : 0;
+            size_t ws_frames = c->ws ? wslay_event_get_queued_msg_count(c->ws) : 0;
+            Log(LOG_WARN, "mesh.native",
+                "Transport closed: peer=%s:%u authority=%s path=%s role=%s phase=%s "
+                "reason=%s ws_close_seen=%s ws_close_code=%u tls_shutdown=0x%x "
+                "alive=%lldms since_rx=%lldms since_tx=%lldms rx=%lluB tx=%lluB "
+                "queued=%zuB ws_frames=%zu",
+                c->ip[0] ? c->ip : "unknown", c->peer_port ? c->peer_port : c->port,
+                c->authority[0] ? c->authority : "inbound",
+                c->path[0] ? c->path : "unknown", c->client ? "outgoing" : "incoming",
+                c->open ? "websocket" : c->tls_done ? "http-upgrade" : "tls-handshake",
+                c->reason, c->websocket_close_seen ? "yes" : "no", c->websocket_close_code,
+                c->ssl ? SSL_get_shutdown(c->ssl) : 0,
+                at - c->started,
+                c->last_read_ms ? at - c->last_read_ms : -1LL,
+                c->last_write_ms ? at - c->last_write_ms : -1LL,
+                (unsigned long long)c->bytes_read, (unsigned long long)c->bytes_written,
+                c->tx_len + ws_bytes, ws_frames);
             rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_ERROR, NULL, c->reason, strlen(c->reason));
          }
          rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_CLOSE, NULL, NULL, 0);
@@ -573,6 +618,7 @@ static struct mesh_wss *allocate(rr_transport_callback_t cb, void *arg, bool cli
    c->fd = -1;
    c->client = client;
    c->started = mono_ms();
+   c->last_read_ms = c->last_write_ms = c->started;
    c->ssl = SSL_new(tls);
 
    if (!c->ssl) {
