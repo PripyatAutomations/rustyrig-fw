@@ -334,6 +334,7 @@ static GArray *tui_sdr_rows;
 static GHashTable *tui_sdr_expanded;
 static size_t tui_sdr_selected, tui_sdr_scroll;
 static bool tui_sdr_availability, tui_sdr_connected, tui_sdr_favorites;
+static bool tui_sdr_proxy_bridge; /* Off = use local rrbridge, as in GTK. */
 static bool tui_sdr_info, tui_sdr_mark_menu, tui_sdr_search_active;
 static char tui_sdr_search[128];
 static char tui_sdr_message[256];
@@ -343,11 +344,17 @@ static size_t tui_sdr_total, tui_sdr_matched;
 #define SDR_TITLE    "\033[1;36m"
 #define SDR_GROUP    "\033[1;34m"
 #define SDR_HILITE   "\033[1;37;44m"
-#define SDR_BUTTON   "\033[37;100m"
+#define SDR_BUTTON   "\033[1;37;44m"
 #define SDR_FOCUS    "\033[1;30;46m"
-#define SDR_ENABLED  "\033[1;30;42m"
+#define SDR_ENABLED  "\033[1;30;102m"
 #define SDR_WARNING  "\033[1;33m"
-static int tui_sdr_filter_start[3], tui_sdr_filter_end[3];
+#define SDR_NAME     "\033[1;96m"
+#define SDR_LOCATION "\033[37m"
+#define SDR_USERS    "\033[1;93m"
+#define SDR_GOOD     "\033[1;92m"
+#define SDR_BAD      "\033[1;91m"
+#define SDR_MUTED    "\033[2;37m"
+static int tui_sdr_filter_start[4], tui_sdr_filter_end[4];
 static void tui_sdr_filters_changed(void) {
    /* Never retain a scroll offset into the old filtered row set. */
    tui_sdr_selected = 0;
@@ -566,9 +573,10 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
           tui_sdr_search, tui_sdr_search_active ? "_" : "  (/ to edit)");
    printf("\033[3;1H\033[K");
    int filter_col = 1;
-   const char *filters[] = {"Availability", "Connected", "Favorites"};
-   const bool enabled[] = {tui_sdr_availability, tui_sdr_connected, tui_sdr_favorites};
-   for (int i = 0; i < 3; i++) {
+   const char *filters[] = {"Availability", "Connected", "Favorites", "Proxy rrbridge"};
+   const bool enabled[] = {tui_sdr_availability, tui_sdr_connected, tui_sdr_favorites,
+                           tui_sdr_proxy_bridge};
+   for (int i = 0; i < 4; i++) {
       int width = (int)strlen(filters[i]) + 4;
       tui_sdr_filter_start[i] = tui_sdr_filter_end[i] = 0;
       if (filter_col + width - 1 <= cols) {
@@ -579,7 +587,7 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
       }
       filter_col += width + 2;
    }
-   if (filter_col + 18 <= cols)
+   if (filter_col + 19 <= cols)
       printf("\033[3;%dH" SDR_TITLE "%zu / %zu receivers" SDR_NORMAL, filter_col,
              tui_sdr_matched, tui_sdr_total);
    if (tui_sdr_info) {
@@ -627,14 +635,25 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
          } else {
             const receiver_directory_entry_t *r = receiver_directory_receiver(item->index);
             if (r) {
-               printf("    ");
-               tui_sdr_safe_text(r->name && *r->name ? r->name : r->url, 26);
-               printf(" ");
-               tui_sdr_safe_text(r->location, 26);
-               printf(" %2d/%-3d  %-12s", r->users, r->users_max,
-                      tui_sdr_is_connected(r) ? "Connected" :
+               bool selected = i == tui_sdr_selected;
+               const char *state = tui_sdr_is_connected(r) ? "Connected" :
                       r->local_state && strcmp(r->local_state, "unknown") ? r->local_state :
-                      r->flagged ? "Flagged" : r->offline ? "Offline" : "Not tested");
+                      r->flagged ? "Flagged" : r->offline ? "Offline" : "Not tested";
+               bool good = tui_sdr_is_connected(r) || !g_ascii_strcasecmp(state, "good");
+               bool bad = r->flagged || r->offline ||
+                  !g_ascii_strcasecmp(state, "restricted") ||
+                  !g_ascii_strcasecmp(state, "unreachable");
+               printf("    ");
+               if (!selected) fputs(SDR_NAME, stdout);
+               tui_sdr_safe_text(r->name && *r->name ? r->name : r->url, 26);
+               if (!selected) fputs(SDR_NORMAL, stdout);
+               printf(" ");
+               if (!selected) fputs(SDR_LOCATION, stdout);
+               tui_sdr_safe_text(r->location, 26);
+               if (!selected) fputs(SDR_NORMAL SDR_USERS, stdout);
+               printf(" %2d/%-3d  ", r->users, r->users_max);
+               if (!selected) fputs(good ? SDR_GOOD : bad ? SDR_BAD : SDR_MUTED, stdout);
+               printf("%-12.12s", state);
             }
          }
          fputs(SDR_NORMAL, stdout);
@@ -663,8 +682,18 @@ static void tui_sdr_connect(void) {
       g_strlcpy(tui_sdr_message, "Receiver is restricted or flagged; see Info.", sizeof(tui_sdr_message));
       return;
    }
-   /* GTK's default is a client-local rrbridge, not a receiver room
-    * hosted by an authenticated rrserver. */
+   if (tui_sdr_proxy_bridge) {
+      if (!rrclient_receiver_connect(r->url, false)) {
+         g_strlcpy(tui_sdr_message,
+            "Unable to start proxy rrbridge: select an authenticated RustyRig server.",
+            sizeof(tui_sdr_message));
+      } else {
+         g_strlcpy(tui_sdr_message, "Requesting remote SDR bridge...",
+                    sizeof(tui_sdr_message));
+      }
+      return;
+   }
+   /* Local rrbridge is the default, with no rrserver required. */
    if (!rrclient_local_bridge_connect_driver(r->url,
          r->driver && *r->driver ? r->driver : "kiwi")) {
       g_strlcpy(tui_sdr_message,
@@ -803,6 +832,8 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
       tui_sdr_connected = !tui_sdr_connected; tui_sdr_filters_changed();
    } else if (key == 'v' || key == 'V') {
       tui_sdr_favorites = !tui_sdr_favorites; tui_sdr_filters_changed();
+   } else if (key == 'p' || key == 'P') {
+      tui_sdr_proxy_bridge = !tui_sdr_proxy_bridge;
    } else if (key == '0') {
       tui_sdr_clear_filters();
    } else {
@@ -823,15 +854,16 @@ static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button,
       tui_sdr_search_active = true;
    } else if (row == 3) {
       int filter = -1;
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < 4; i++) {
          if (tui_sdr_filter_start[i] && col >= tui_sdr_filter_start[i] &&
              col <= tui_sdr_filter_end[i]) { filter = i; break; }
       }
       if (filter == 0) tui_sdr_availability = !tui_sdr_availability;
       else if (filter == 1) tui_sdr_connected = !tui_sdr_connected;
       else if (filter == 2) tui_sdr_favorites = !tui_sdr_favorites;
+      else if (filter == 3) tui_sdr_proxy_bridge = !tui_sdr_proxy_bridge;
       else return false;
-      tui_sdr_filters_changed();
+      if (filter < 3) tui_sdr_filters_changed();
    } else if (row == tui_rows() - 1) {
       if (tui_sdr_mark_menu) {
          for (int i = 0; i < 5; i++) {
