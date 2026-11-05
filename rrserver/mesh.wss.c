@@ -189,9 +189,6 @@ static void ws_message(wslay_event_context_ptr ws, const struct wslay_event_on_m
       c->websocket_close_seen = true;
       if (msg->msg_length >= 2)
          c->websocket_close_code = ((unsigned)msg->msg[0] << 8) | msg->msg[1];
-      char reason[128];
-      snprintf(reason, sizeof(reason), "WebSocket peer closed (code=%u payload_bytes=%zu)",
-         c->websocket_close_code, msg->msg_length);
       /* The peer initiated an orderly WebSocket close. Let wslay send
        * the close response and follow with TLS close_notify rather than
        * turning a normal shutdown into an unexpected TCP EOF. */
