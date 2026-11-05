@@ -663,7 +663,17 @@ static void tui_sdr_connect(void) {
       g_strlcpy(tui_sdr_message, "Receiver is restricted or flagged; see Info.", sizeof(tui_sdr_message));
       return;
    }
-   rrclient_receiver_connect(r->url, false);
+   /* GTK's default is a client-local rrbridge, not a receiver room
+    * hosted by an authenticated rrserver. */
+   if (!rrclient_local_bridge_connect_driver(r->url,
+         r->driver && *r->driver ? r->driver : "kiwi")) {
+      g_strlcpy(tui_sdr_message,
+         "Unable to start local rrbridge (check executable/module and Client Log).",
+         sizeof(tui_sdr_message));
+   } else {
+      g_strlcpy(tui_sdr_message, "Starting local SDR bridge...",
+                sizeof(tui_sdr_message));
+   }
 }
 static void tui_sdr_mark(const char *state) {
    const receiver_directory_entry_t *r = tui_sdr_current();
