@@ -349,24 +349,20 @@ bool rrclient_connection_cycle_status(bool status_active) {
 }
 
 bool rrclient_connection_cycle(void) {
-#ifndef USE_MONGOOSE
-
-   return false;
-#else
-
    if (!servers) {
       return false;
    }
    client_server_t *next = selected && selected->next ? selected->next : servers;
    client_server_t *first = next;
    do {
-      if (next->connection && next->connection->conn && !next->connection->conn->is_closing) {
+      /* 'connected' is the transport-independent online state, updated by
+       * both native TLS and legacy transports. */
+      if (next->connected == 1) {
          return rrclient_connection_select(next->name);
       }
       next = next->next ? next->next : servers;
    } while (next != first);
    return false;
-#endif
 }
 
 /* Stable, bounded window keys keep equal room names on different servers separate without changing their wire names or storing stale socket pointers. */
