@@ -3814,6 +3814,28 @@ static void resource_domain_rebuild(const char *domain) {
       any_online |= branch->online;
    }
    if (expansion_owner) resource_expansion_save(expansion_owner);
+   /* A refresh through one profile must not deselect a resource selected
+    * through a different profile in this same domain. GTK selection uses
+    * model paths; preserve the stable object UUID before recreating rows. */
+   char *selected_uuid = NULL;
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree));
+   GtkTreeModel *selected_model = NULL;
+   GtkTreeIter selected_view;
+   if (gtk_tree_selection_get_selected(selection, &selected_model, &selected_view)) {
+      GtkTreeIter selected_child;
+      {
+         gtk_tree_model_filter_convert_iter_to_child_iter(browser->filter, &selected_child, &selected_view);
+         GtkTreeIter ancestor = selected_child, parent;
+         GtkTreePath *domain_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), root);
+         while (gtk_tree_model_iter_parent(GTK_TREE_MODEL(browser->store), &parent, &ancestor))
+            ancestor = parent;
+         GtkTreePath *ancestor_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &ancestor);
+         if (gtk_tree_path_compare(domain_path, ancestor_path) == 0)
+            gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &selected_child, UUID, &selected_uuid, -1);
+         gtk_tree_path_free(domain_path);
+         gtk_tree_path_free(ancestor_path);
+      }
+   }
    GtkTreeIter child;
    while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, root))
       gtk_tree_store_remove(browser->store, &child);
@@ -3880,6 +3902,20 @@ static void resource_domain_rebuild(const char *domain) {
    }
    if (expansion_owner) resource_expansion_restore(expansion_owner);
    if (expansion_owner) resource_update_branch(expansion_owner);
+   if (selected_uuid && *selected_uuid) {
+      GtkTreeIter selected;
+      if (resource_find_uuid(root, selected_uuid, &selected)) {
+         GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &selected);
+         GtkTreePath *visible = resource_view_path(path);
+         if (visible) {
+            gtk_tree_view_expand_to_path(GTK_TREE_VIEW(browser->tree), visible);
+            gtk_tree_selection_select_path(selection, visible);
+            gtk_tree_path_free(visible);
+         }
+         gtk_tree_path_free(path);
+      }
+   }
+   g_free(selected_uuid);
 }
 
 static void resource_open(const char *event, const char *text, rrconn_t *connection, void *unused) {
