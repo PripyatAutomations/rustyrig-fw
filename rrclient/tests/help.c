@@ -68,6 +68,7 @@ int main(void) {
    assert(defer_count == 1 && flush_count == 1);
    assert(strstr(output, "Ctrl-Tab") && strstr(output, "TUI Status/Client Log/Host Log") && strstr(output, "shared selection"));
    assert(strstr(output, "alt-z"));
+   assert(strstr(output, "Alt-S"));
    output[0] = 0;
    ui_mode = UI_MODE_GTK;
    cmd_help(0, NULL);
