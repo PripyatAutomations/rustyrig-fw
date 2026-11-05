@@ -169,7 +169,29 @@ static GdkPixbuf *load_earth(void){
    if(loader && gdk_pixbuf_loader_write(loader,buf,len,NULL) &&
       gdk_pixbuf_loader_close(loader,NULL)){
       GdkPixbuf *original=gdk_pixbuf_loader_get_pixbuf(loader);
-      if(original)pix=gdk_pixbuf_scale_simple(original,36,36,GDK_INTERP_BILINEAR);
+      if (original) {
+         /* The embedded JPEG has no alpha channel. Remove the near-black
+          * backdrop while preserving the illuminated globe, with a small
+          * feather to avoid a jagged JPEG-compression halo. */
+         GdkPixbuf *scaled = gdk_pixbuf_scale_simple(original, 36, 36, GDK_INTERP_BILINEAR);
+         if (scaled) {
+            pix = gdk_pixbuf_add_alpha(scaled, FALSE, 0, 0, 0);
+            g_object_unref(scaled);
+            if (pix) {
+               guchar *pixels = gdk_pixbuf_get_pixels(pix);
+               int stride = gdk_pixbuf_get_rowstride(pix);
+               int channels = gdk_pixbuf_get_n_channels(pix);
+               for (int y = 0; y < gdk_pixbuf_get_height(pix); ++y) {
+                  guchar *p = pixels + y * stride;
+                  for (int x = 0; x < gdk_pixbuf_get_width(pix); ++x, p += channels) {
+                     unsigned brightness = MAX(p[0], MAX(p[1], p[2]));
+                     p[3] = brightness <= 16 ? 0 :
+                            brightness >= 56 ? 255 : (guchar)((brightness - 16) * 255 / 40);
+                  }
+               }
+            }
+         }
+      }
    }
    if(!pix)g_warning("RustyRig connecting dialog: unable to decode embedded Earth image");
    if (loader) {
