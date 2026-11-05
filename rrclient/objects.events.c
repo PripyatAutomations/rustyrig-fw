@@ -11,6 +11,7 @@
 #include <rrclient/objects.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/connman.h>
+#include <rrclient/connecting.h>
 #include <rrclient/rooms.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
@@ -276,8 +277,12 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
          if (!strcmp(cmd, "begin")) {
             object_subscription = "Synchronizing";
+            if (ws_conn && ws_conn->is_ws)
+               rrclient_connect_progress(rrclient_connection_name(ws_conn), RR_CONNECT_PHASE_CATALOG);
          } else if (!strcmp(cmd, "end")) {
             object_subscription = "Subscribed";
+            if (ws_conn && ws_conn->is_ws && rr_object_cache_ready(cache))
+               rrclient_connect_progress(rrclient_connection_name(ws_conn), RR_CONNECT_PHASE_COMPLETE);
          } else if (!strcmp(cmd, "result") && subscription_request[0] && !strcmp(dict_get(d, "request.id", ""), subscription_request)) {
             object_subscription = !strcmp(dict_get(d, "result.code", ""), "ok")
                ? subscription_stopping ? "Not subscribed" : "Subscribed" : "Request failed";
