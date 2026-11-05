@@ -299,7 +299,7 @@ void resource_expansion_restore(resource_branch *branch) {
    }
    gtk_tree_path_free(path);
 }
-static gboolean resource_restore_scroll(gpointer unused) {
+gboolean resource_restore_scroll(gpointer unused) {
    (void)unused;
 
    if (!browser || !browser->scroll_saved) {
