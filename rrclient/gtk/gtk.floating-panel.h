@@ -10,6 +10,8 @@ void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *uppe
 GtkWidget *rr_floating_panel_body(RRFloatPanel *panel);
 GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel);
 void rr_floating_panel_show(RRFloatPanel *panel);
+/* Center the panel in the main overlay on its first show, ignoring saved positions. */
+void rr_floating_panel_set_initial_centered(RRFloatPanel *panel, gboolean centered);
 void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title);
 void rr_floating_panel_set_title_click(RRFloatPanel *panel, GCallback callback, gpointer data);
 void rr_floating_panel_hide(RRFloatPanel *panel);
