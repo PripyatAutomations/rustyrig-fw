@@ -20,7 +20,7 @@ struct rr_floating_panel {
    gpointer title_click_data;
    guint32 title_press_time;
    gboolean title_moved;
-   gboolean snap_disabled, initial_positioned;
+   gboolean snap_disabled, initial_positioned, initial_centered;
    double drag_x, drag_y;
    int start_x, start_y;
    int snap_x, snap_y;
@@ -173,6 +173,14 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    }
    int min_x, min_y, max_x, max_y;
    panel_bounds(p, panel_width, panel_height, &min_x, &min_y, &max_x, &max_y);
+
+   if (p->initial_centered) {
+      int x = CLAMP((overlay_width - panel_width) / 2, min_x, max_x);
+      int y = CLAMP((overlay_height - panel_height) / 2, min_y, max_y);
+      gtk_widget_set_margin_start(p->frame, x);
+      gtk_widget_set_margin_top(p->frame, y);
+      return TRUE;
+   }
 
    panel_position_t *saved = g_hash_table_lookup(panel_positions(p->overlay), p->id);
 
@@ -793,6 +801,12 @@ GtkWidget *rr_floating_panel_widget(RRFloatPanel *p) {
 }
 gboolean rr_floating_panel_is_minimized(const RRFloatPanel *p) {
    return p && p->minimized;
+}
+
+void rr_floating_panel_set_initial_centered(RRFloatPanel *p, gboolean centered) {
+   if (!p) return;
+   p->initial_centered = centered;
+   p->initial_positioned = FALSE;
 }
 
 void rr_floating_panel_show(RRFloatPanel *p) {
