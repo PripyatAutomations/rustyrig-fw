@@ -20,7 +20,7 @@ struct rr_floating_panel {
    gpointer title_click_data;
    guint32 title_press_time;
    gboolean title_moved;
-   gboolean snap_disabled, initial_positioned, initial_centered;
+   gboolean snap_disabled, initial_positioned, initial_centered, initial_center_pending;
    double drag_x, drag_y;
    int start_x, start_y;
    int snap_x, snap_y;
@@ -245,6 +245,28 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    g_array_free(ys, TRUE);
 
    return TRUE;
+}
+
+/* The preferred size used during show() can differ from the first real GTK
+ * allocation (notably for the Server Picker tree). Center once more with the
+ * actual allocation, before allowing the user to drag the panel freely. */
+static void panel_initial_allocation(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
+   (void)widget;
+   RRFloatPanel *p = data;
+   if (!p->initial_center_pending || !p->initial_positioned || p->dragging ||
+       !gtk_widget_get_visible(p->frame) || allocation->width <= 1 || allocation->height <= 1)
+      return;
+   p->initial_center_pending = FALSE;
+   int min_x, min_y, max_x, max_y;
+   int width = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
+   int height = gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay));
+   if (width <= 1 || height <= 1) return;
+   panel_bounds(p, allocation->width, allocation->height,
+                &min_x, &min_y, &max_x, &max_y);
+   gtk_widget_set_margin_start(p->frame,
+      CLAMP((width - allocation->width) / 2, min_x, max_x));
+   gtk_widget_set_margin_top(p->frame,
+      CLAMP((height - allocation->height) / 2, min_y, max_y));
 }
 
 static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean horizontal, int minimum, int limit) {
@@ -619,6 +641,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
    gtk_overlay_add_overlay(overlay, p->frame);
+   g_signal_connect(p->frame, "size-allocate", G_CALLBACK(panel_initial_allocation), p);
    /* Capture clicks from all descendants, including sliders, buttons, lists and scrolled content. A bubbling frame handler misses consumed events. */
    GtkGesture *raise_gesture = gtk_gesture_multi_press_new(p->frame);
    gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(raise_gesture), GTK_PHASE_CAPTURE);
@@ -807,6 +830,7 @@ void rr_floating_panel_set_initial_centered(RRFloatPanel *p, gboolean centered) 
    if (!p) return;
    p->initial_centered = centered;
    p->initial_positioned = FALSE;
+   p->initial_center_pending = centered;
 }
 
 void rr_floating_panel_show(RRFloatPanel *p) {
@@ -817,6 +841,8 @@ void rr_floating_panel_show(RRFloatPanel *p) {
 
    if (!p->initial_positioned) {
       p->initial_positioned = panel_place_initial(p);
+      if (p->initial_positioned && p->initial_center_pending)
+         gtk_widget_queue_resize(p->frame);
    }
    panel_chrome(p);
 }
