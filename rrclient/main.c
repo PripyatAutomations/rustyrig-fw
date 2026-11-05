@@ -378,7 +378,9 @@ static bool tui_sdr_contains(const char *text, const char *needle) {
    return found;
 }
 static bool tui_sdr_matches(const receiver_directory_entry_t *r) {
-   if (!r || r->deleted) return false;
+   /* GTK shows deleted/stale catalog entries when Availability is off.
+    * Only the Availability predicate should hide them. */
+   if (!r) return false;
    if (tui_sdr_availability && !receiver_directory_entry_accessible(r)) return false;
    if (tui_sdr_connected && !tui_sdr_is_connected(r)) return false;
    if (tui_sdr_favorites && !r->favorite) return false;
