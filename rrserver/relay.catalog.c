@@ -2052,6 +2052,7 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
          dict_add(d, "inventory.location", location);
       }
       dict_add(d, "inventory.room", room);
+      if (!strcmp(kind, "site")) dict_add(d, "inventory.domain", cfg_get("domain"));
 
       if (depth > 0) {
          dict_add(d, "inventory.parent", !strcmp(kind, "rig") || !strcmp(kind, "room") ? c->owner : dict_get(c->descriptor, "object.owner", c->owner));
