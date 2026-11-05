@@ -37,6 +37,7 @@
 #include <rrclient/local.bridge.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.connecting.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.connect-button.h>
 #include <rrclient/gtk/gtk.vol-box.h>
@@ -2959,6 +2960,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    }
    gtk_audio_routing_init();
    gtk_receiver_directory_init();
+   gtk_connecting_init();
    gtk_resources_init();
    gtk_files_init();
    // Local client log pane (GTK log tab) mirrors client logs.
@@ -3453,6 +3455,7 @@ void gtk_frontend_stop(void) {
    gtk_files_shutdown();
    gtk_file_editor_shutdown();
    gtk_receiver_directory_shutdown();
+   gtk_connecting_shutdown();
    gtk_audio_routing_shutdown();
    gtk_ui_zoom_shutdown();
 
