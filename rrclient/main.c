@@ -416,6 +416,15 @@ static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button,
    return true;
 }
 
+static bool rrclient_sdr_hotkey(tui_window_t *win, unsigned key, unsigned mods, void *user_data) {
+   (void)win; (void)key; (void)mods; (void)user_data;
+   if (tui_window_focus("SDR Directory")) {
+      tui_redraw_screen();
+      return true;
+   }
+   return false;
+}
+
 static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned modifiers, void *user_data) {
    (void)key;
    (void)user_data;
@@ -1068,6 +1077,8 @@ int main(int argc, char *argv[]) {
       tui_set_completion_handler(rrclient_tui_chat_completion);
       tui_set_completion_describer(client_cmd_completion_describe);
       tui_hotkey_register(TERMKEY_SYM_TAB, TERMKEY_KEYMOD_CTRL, rrclient_server_hotkey, NULL);
+      tui_hotkey_register('z', TERMKEY_KEYMOD_ALT, rrclient_sdr_hotkey, NULL);
+      tui_hotkey_register('Z', TERMKEY_KEYMOD_ALT, rrclient_sdr_hotkey, NULL);
       tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
       tui_hotkey_register(' ', TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
       tui_hotkey_register(0, TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
