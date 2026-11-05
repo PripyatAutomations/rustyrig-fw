@@ -442,7 +442,7 @@ int main(int argc, char **argv) {
    wire_row("alpha", "union-alpha", 0, "site", "beta-node", "node-beta", "mesh.example");
    wire_row("alpha", "union-alpha", 1, "rig", "beta-rig", "rig-beta", NULL);
    wire_end("alpha", "union-alpha");
-   wire_row("beta", "union-beta", 0, "site", "beta-node", "node-beta", "mesh.example");
+   wire_row("beta", "union-beta", 0, "site", "beta-node", "node-beta", "MESH.EXAMPLE.");
    wire_row("beta", "union-beta", 1, "rig", "beta-rig", "rig-beta", NULL);
    wire_row("beta", "union-beta", 0, "site", "alpha-node", "node-alpha", "mesh.example");
    wire_row("beta", "union-beta", 1, "rig", "alpha-rig", "rig-alpha", NULL);
