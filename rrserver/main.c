@@ -1037,6 +1037,11 @@ int main(int argc, char **argv) {
          break;
       }
    }
+   /* Stop accepting clients and gracefully detach peers while the event bus,
+    * relay state and module callbacks are still alive. In particular, do not
+    * destroy a backend while a remote session can still call into it. */
+   Log(LOG_INFO, "core", "Stopping native listeners and closing mesh/client sessions before backend teardown");
+   rr_mesh_native_listener_stop();
    extern void rrserver_objects_fini(void);
 
    // Unload configured modules while the event bus and transports still exist.
@@ -1088,7 +1093,6 @@ int main(int argc, char **argv) {
    }
    host_cleanup();
 
-   rr_mesh_native_listener_stop();
    rrserver_receiver_directory_shutdown();
 #ifdef USE_MONGOOSE
    mg_mgr_free(&mg_mgr);
