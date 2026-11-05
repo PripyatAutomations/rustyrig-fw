@@ -15,6 +15,7 @@
 #include <librrprotocol/http.h>
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
+#include <rrclient/connecting.h>
 #include <rrclient/media.direct.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
@@ -650,6 +651,25 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       return;
    }
 
+   /* The sign-on dialog is only for RustyRig WebSocket sessions, never IRC. */
+   const char *url = get_server_property(s->name, "server.url");
+   bool irc = (url && (!strncasecmp(url, "irc:", 4) ||
+                        !strncasecmp(url, "ircs:", 5))) || (cptr && !cptr->is_ws);
+   if (!irc) {
+      if (!strcmp(event, "connecting"))
+         rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
+      else if (!strcmp(event, "connected"))
+         rrclient_connect_progress(s->name, RR_CONNECT_PHASE_TRANSPORT);
+      else if (!strcmp(event, "authorized"))
+         rrclient_connect_progress(s->name, RR_CONNECT_PHASE_AUTHORIZED);
+      else if (!strcmp(event, "disconnected") || !strcmp(event, "http.error") ||
+               !strcmp(event, "auth.error") || !strcmp(event, "error"))
+         rrclient_connect_progress(s->name, RR_CONNECT_PHASE_FAILED);
+   }
+   /* These milestones are not reconnection failures. */
+   if (!strcmp(event, "connecting") || !strcmp(event, "connected"))
+      return;
+
    if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected") || !strcmp(event, "disconnected")) {
       nick_prompt_close(s);
       s->nick_recovering = false;
@@ -692,7 +712,21 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
    }
 }
 
+static void connecting_cancel_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_connect_progress_t))
+      return;
+   rr_connect_progress_t request;
+   memcpy(&request, message->payload, sizeof(request));
+   if (!memchr(request.profile, 0, sizeof(request.profile)) || !request.profile[0])
+      return;
+   disconnect_server(request.profile);
+}
+
 void connman_register_events(void) {
+   event_on_message_domain_token("client.connecting.cancel", connecting_cancel_event, NULL, "core");
+   event_on("connecting", connection_event, NULL);
+   event_on("connected", connection_event, NULL);
    event_on("irc.nick-in-use", nick_in_use, NULL);
    event_on("irc.nick", nick_accepted, NULL);
    event_on("authorized", connection_event, NULL);
