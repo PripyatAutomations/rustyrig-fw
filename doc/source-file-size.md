@@ -58,6 +58,21 @@ owned local device scan or health snapshot code. Keep GTK tree and subscription
 ownership explicit. The Kiwi panel in `gtk.core.c` is another cohesive extraction
 but needs a narrow event/snapshot API because the current callbacks are private.
 
+## Additional GTK core extractions (2026-11-05)
+
+- `gtk.kiwi-panel.c` / `gtk.kiwi-panel.h`: KiwiSDR control model,
+  floating panel, event handlers and VFO snapshots. The GTK core retains
+  only event subscriptions and the snapshot handoff.
+- `gtk.screensaver.c` / `gtk.screensaver.h`: idle detection, mouse/keyboard
+  activity, `gmatrix` child lifecycle and fullscreen eligibility.
+- `gtk.core.c` now measures **2,788 lines** (down from 3,527 before the
+  IRC formatter, Kiwi panel and screensaver extractions).
+- Each added GTK object has its own `gtk_module_objs +=` entry.
+
+All changes were made through repository source edits. No compiler or
+working source checkout was available in this environment; a full GTK
+build and smoke test are still required before further invasive splits.
+
 ## Recommended sequence
 
 1. Split `gtk.admin.c` first; the largest file and most clearly separated dialogs/tabs.
