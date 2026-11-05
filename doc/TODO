@@ -1,13 +1,7 @@
 Immediate needs
 ---------------
-rrclient: SDR Directory - Add left/right on group headers to collapse/expand in addition to existing -/+
-
-rrclient: Remove pipeline: from config tab since we have gui editor now
-
 rrclient: Finish moving *all* colors/formatting out into themes
   - This should interact with the GTK CSS programmatically
-
-rrclient: GNU radio companion style editor for gstreamer pipelines using enumerated (gst-inspect) details
 
 rrclient: qpwgraph-inspired editor for audio routing in the PCM hub and friends
   - Should have a tab or part of the screen is a rack for hooking effects plugins into the audio graph
@@ -22,9 +16,6 @@ rrclient: we should offer per-side (L/R) delay to sync different SDRs
     with network/buffer statuses?
 
 rrclient: Need to prompt for saving config after edit servers / on exit
-
-librrprotocol: Protocol versions and capabilities
-  - we should support talking to older stuff now by degrading to their capabilities
 
 rrclient: Support for multiple theme files in ~/.config/rustyrig/themes/ and /etc/rustyrig/themes/
 
@@ -43,8 +34,6 @@ rrserver: Add support for SCRAM gpio
 
 *: Rotator/amp/ATU support
    - backend.internal, backend.hamlib, and backend.network based
-
-librustyaxe: logger - extend log.level so its allows throttling like log.level=*:info,event:crazy@10,6 to allow 10 messages in 6 seconds?
 
 * WebTransport support
   - https://github.com/ngtcp2/ngtcp2/
