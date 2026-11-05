@@ -321,6 +321,101 @@ time_t poll_block_expire = 0;   // Here we set this to now +
                                 // config:cat.poll-blocking to prevent rig
                                 // polling from sclearing local controls
 
+/* First structured TUI tab: the cached SDR directory. This does not perform
+ * network discovery while drawing. Receiver connection still uses core API. */
+static size_t tui_sdr_selected, tui_sdr_scroll;
+
+static void tui_sdr_visible(void) {
+   size_t n = receiver_directory_count();
+   if (!n) {
+      tui_sdr_selected = tui_sdr_scroll = 0;
+   } else if (tui_sdr_selected >= n) {
+      tui_sdr_selected = n - 1;
+   }
+   int height = tui_rows() - 5;
+   if (height < 1) height = 1;
+   if (tui_sdr_selected < tui_sdr_scroll) tui_sdr_scroll = tui_sdr_selected;
+   if (tui_sdr_selected >= tui_sdr_scroll + (size_t)height)
+      tui_sdr_scroll = tui_sdr_selected - (size_t)height + 1;
+}
+static void tui_sdr_safe_text(const char *s, int width) {
+   for (int i = 0; i < width && s && s[i]; i++) {
+      unsigned char c = (unsigned char)s[i];
+      putchar(c >= 32 && c < 127 ? c : ' ');
+   }
+}
+static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
+   (void)w; (void)data;
+   tui_sdr_visible();
+   size_t n = receiver_directory_count();
+   printf("\033[2;1H [Refresh]  [Connect]    SDR Directory (%zu)\033[K", n);
+   printf("\033[3;1H  %-4s %-30s %-20s %-7s %s\033[K",
+          "No.", "Receiver", "Country", "Users", "Status");
+   for (int y = 4; y < rows - 1; y++) {
+      size_t i = tui_sdr_scroll + (size_t)(y - 4);
+      printf("\033[%d;1H\033[K", y);
+      if (i >= n) continue;
+      const receiver_directory_entry_t *r = receiver_directory_receiver(i);
+      if (!r) continue;
+      if (i == tui_sdr_selected) fputs("\033[7m", stdout);
+      printf(" %4zu ", i + 1);
+      tui_sdr_safe_text(r->name ? r->name : r->url, 30);
+      printf("  ");
+      tui_sdr_safe_text(r->country, 20);
+      printf("  %2d/%-3d  %s", r->users, r->users_max, r->offline ? "offline" : "online");
+      if (i == tui_sdr_selected) fputs("\033[0m", stdout);
+   }
+   (void)cols;
+}
+static void tui_sdr_connect(void) {
+   const receiver_directory_entry_t *r = receiver_directory_receiver(tui_sdr_selected);
+   if (r && r->url && *r->url) rrclient_receiver_connect(r->url, false);
+}
+static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data) {
+   (void)w; (void)data;
+   if (mods) return false;
+   size_t n = receiver_directory_count();
+   if (key == TERMKEY_SYM_UP) {
+      if (tui_sdr_selected) tui_sdr_selected--;
+   } else if (key == TERMKEY_SYM_DOWN) {
+      if (n && tui_sdr_selected + 1 < n) tui_sdr_selected++;
+   } else if (key == TERMKEY_SYM_PAGEUP) {
+      size_t page = tui_rows() > 5 ? (size_t)(tui_rows() - 5) : 1;
+      tui_sdr_selected = tui_sdr_selected > page ? tui_sdr_selected - page : 0;
+   } else if (key == TERMKEY_SYM_PAGEDOWN) {
+      size_t page = tui_rows() > 5 ? (size_t)(tui_rows() - 5) : 1;
+      if (n) tui_sdr_selected = page < n - 1 - tui_sdr_selected ? tui_sdr_selected + page : n - 1;
+   } else if (key == TERMKEY_SYM_ENTER || key == '\n') {
+      tui_sdr_connect();
+   } else if (key == 'r' || key == 'R') {
+      receiver_directory_refresh_force(true);
+   } else {
+      return false;
+   }
+   tui_sdr_visible();
+   return true;
+}
+static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button,
+                          int action, unsigned mods, void *data) {
+   (void)w; (void)mods; (void)data;
+   if (action != TERMKEY_MOUSE_PRESS) return false;
+   if (button == 4 || button == 5) {
+      size_t n = receiver_directory_count();
+      if (button == 4 && tui_sdr_selected) tui_sdr_selected--;
+      if (button == 5 && n && tui_sdr_selected + 1 < n) tui_sdr_selected++;
+   } else if (button == 1 && row == 2) {
+      if (col >= 2 && col <= 10) receiver_directory_refresh_force(true);
+      else if (col >= 13 && col <= 22) tui_sdr_connect();
+   } else if (button == 1 && row >= 4 && row < tui_rows() - 1) {
+      size_t i = tui_sdr_scroll + (size_t)(row - 4);
+      if (i < receiver_directory_count()) tui_sdr_selected = i;
+   } else {
+      return false;
+   }
+   tui_sdr_visible();
+   return true;
+}
+
 static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned modifiers, void *user_data) {
    (void)key;
    (void)user_data;
@@ -984,6 +1079,12 @@ int main(int argc, char *argv[]) {
       // One shared tab per system output type, independent of server count.
       tui_window_create("host log");
       tui_window_create("client log");
+      tui_window_t *sdr_tab = tui_window_create("SDR Directory");
+      if (sdr_tab) {
+         sdr_tab->view_draw = tui_sdr_draw;
+         sdr_tab->view_key = tui_sdr_key;
+         sdr_tab->view_mouse = tui_sdr_mouse;
+      }
       event_on_binary("media.frame.log", rrclient_tui_host_log_frame, NULL);
       log_add_callback(rrclient_tui_log_print_va, LOG_CALLBACK_FILTERED);
 
