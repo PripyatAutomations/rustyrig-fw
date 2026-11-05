@@ -7,6 +7,7 @@
 // Owner-directed application relay and demand-based branch subscriptions.
 #ifndef RR_SERVER_RELAY_H
 #define RR_SERVER_RELAY_H
+#include <glib.h>
 #include <librustyaxe/core.h>
 bool rrserver_relay_proxy_tx_active(rrconn_t *client, const char *room, uint64_t at);
 bool rrserver_relay_media_valid(rrconn_t *client, const char *uuid, unsigned stream);
