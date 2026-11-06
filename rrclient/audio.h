@@ -66,6 +66,13 @@ struct rrclient_rx_stream {
    char output;
 };
 size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity);
+#define RRCLIENT_AUDIO_SNAPSHOT_REQUEST "client.audio.snapshot.request"
+#define RRCLIENT_AUDIO_SNAPSHOT_RESULT "client.audio.snapshot.result"
+typedef struct {
+   uint32_t count;
+   struct rrclient_rx_stream streams[];
+} rr_audio_stream_snapshot_t;
+
 bool audio_set_rx_stream_route(const char *id, char output);
 /* Synchronize this connection's subscribed decoders without stopping muted ones. */
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count);
