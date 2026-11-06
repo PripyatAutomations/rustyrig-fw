@@ -95,15 +95,15 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    rr_gtk_graph_node_t nodes[18] = {0};
    rr_gtk_graph_edge_t edges[17] = {0};
    gchar labels[16][32] = {{0}};
-   nodes[0] = (rr_gtk_graph_node_t) { .x = 350, .y = 80, .title = "RX mixer", .subtitle = "Core / 16 kHz" };
-   nodes[1] = (rr_gtk_graph_node_t) { .x = 620, .y = 80, .title = "Playback", .subtitle = "fwdsp sink" };
+   nodes[0] = (rr_gtk_graph_node_t) { .x = 350, .y = 80, .title = "RX mixer", .subtitle = "Core / 16 kHz", .bypass_pins = TRUE };
+   nodes[1] = (rr_gtk_graph_node_t) { .x = 620, .y = 80, .title = "Playback", .subtitle = "fwdsp sink", .bypass_pins = TRUE };
    edges[0] = (rr_gtk_graph_edge_t) { .from = 0, .to = 1, .kind = RR_GTK_GRAPH_NORMAL };
    guint edge_count = 1;
    for (guint i = 0; i < count; i++) {
       const struct rrclient_rx_stream *stream = &g_array_index(routing_cache, struct rrclient_rx_stream, i);
       g_strlcpy(labels[i], stream->id, sizeof(labels[i]));
       nodes[i + 2] = (rr_gtk_graph_node_t) {
-         .x = 25, .y = 20 + i * 108, .title = labels[i], .subtitle = stream->server
+         .x = 25, .y = 20 + i * 108, .title = labels[i], .subtitle = stream->server, .bypass_pins = TRUE
       };
       if (stream->output != 'M')
          edges[edge_count++] = (rr_gtk_graph_edge_t) { .from = i + 2, .to = 0, .kind = RR_GTK_GRAPH_NORMAL };
