@@ -2345,11 +2345,14 @@ static gboolean status_network_tick(gpointer unused) {
       return G_SOURCE_REMOVE;
    }
    static uint64_t previous_rx, previous_tx, previous_rtp_rx, previous_rtp_tx;
+   static uint64_t previous_kiwi_rx, previous_kiwi_tx;
    static gint64 previous_time;
    static char previous_server[512];
    const char *server = rrclient_selected_server();
    gboolean online = server && rrclient_connection_state(server) == 1;
    uint64_t rx = 0, tx = 0, rtp_rx = 0, rtp_tx = 0;
+   uint64_t kiwi_rx = 0, kiwi_tx = 0;
+   rrclient_local_bridge_traffic(&kiwi_rx, &kiwi_tx);
    gboolean known = server && rrclient_connection_traffic(server, &rx, &tx);
    rrconn_t *connection = server ? rrclient_connection_find(server) : NULL;
    gboolean rtp_active = connection && rrclient_direct_traffic(connection, &rtp_rx, &rtp_tx);
@@ -2357,7 +2360,9 @@ static gboolean status_network_tick(gpointer unused) {
    gtk_widget_set_tooltip_text(status_server_label, server && *server ? server : "No server selected");
    gint64 now_us = g_get_monotonic_time();
 
-   if (!known || !online) {
+   /* The selected server and locally spawned Kiwi bridges are distinct
+    * transports. Report both; never add RTP into the WebSocket total. */
+   if ((!known || !online) && !kiwi_rx && !kiwi_tx) {
       gtk_label_set_text(GTK_LABEL(status_network_label), "RX —  TX —");
       previous_time = 0;
       previous_server[0] = '\0';
@@ -2365,13 +2370,20 @@ static gboolean status_network_tick(gpointer unused) {
       return G_SOURCE_CONTINUE;
    }
 
-   if (!previous_time || strcmp(previous_server, server) ||
-      now_us <= previous_time || rx < previous_rx || tx < previous_tx || rtp_rx < previous_rtp_rx || rtp_tx < previous_rtp_tx) {
-      g_strlcpy(previous_server, server, sizeof(previous_server));
+   if (!online || !known) {
+      rx = tx = rtp_rx = rtp_tx = 0;
+      rtp_active = FALSE;
+   }
+   if (!previous_time || strcmp(previous_server, server ? server : "") ||
+      now_us <= previous_time || rx < previous_rx || tx < previous_tx || rtp_rx < previous_rtp_rx || rtp_tx < previous_rtp_tx ||
+      kiwi_rx < previous_kiwi_rx || kiwi_tx < previous_kiwi_tx) {
+      g_strlcpy(previous_server, server ? server : "", sizeof(previous_server));
       previous_rx = rx;
       previous_tx = tx;
       previous_rtp_rx = rtp_rx;
       previous_rtp_tx = rtp_tx;
+      previous_kiwi_rx = kiwi_rx;
+      previous_kiwi_tx = kiwi_tx;
       previous_time = now_us;
       gtk_label_set_text(GTK_LABEL(status_network_label), rtp_active ? "RX 0.0 (0.0)  TX 0.0 (0.0) kb/s" : "RX 0.0  TX 0.0 kb/s");
 
@@ -2381,16 +2393,21 @@ static gboolean status_network_tick(gpointer unused) {
    char label[160];
 
    if (rtp_active) {
-      g_snprintf(label, sizeof(label), "RX %.1f (%.1f)  TX %.1f (%.1f) kb/s", (rx - previous_rx) * scale, (rtp_rx - previous_rtp_rx) * scale, (tx - previous_tx)
-         * scale, (rtp_tx - previous_rtp_tx) * scale);
+      g_snprintf(label, sizeof(label), "RX %.1f (%.1f)  TX %.1f (%.1f) kb/s", ((rx - previous_rx) + (kiwi_rx - previous_kiwi_rx)) * scale,
+         (rtp_rx - previous_rtp_rx) * scale,
+         ((tx - previous_tx) + (kiwi_tx - previous_kiwi_tx)) * scale,
+         (rtp_tx - previous_rtp_tx) * scale);
    } else {
-      g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s", (rx - previous_rx) * scale, (tx - previous_tx) * scale);
+      g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s", ((rx - previous_rx) + (kiwi_rx - previous_kiwi_rx)) * scale,
+         ((tx - previous_tx) + (kiwi_tx - previous_kiwi_tx)) * scale);
    }
    gtk_label_set_text(GTK_LABEL(status_network_label), label);
    previous_rx = rx;
    previous_tx = tx;
    previous_rtp_rx = rtp_rx;
    previous_rtp_tx = rtp_tx;
+   previous_kiwi_rx = kiwi_rx;
+   previous_kiwi_tx = kiwi_tx;
    previous_time = now_us;
 
    return G_SOURCE_CONTINUE;
@@ -2443,7 +2460,7 @@ bool chat_init(void) {
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), status_server_label, FALSE, FALSE, 2);
    status_network_label = gtk_label_new("RX —  TX —");
    gtk_widget_set_tooltip_text(status_network_label,
-      "Selected server RX/TX kilobits/s sampled every second. Parenthesized values are RTP media rates when active; primary values are IRC/WebSocket traffic.");
+      "RX/TX kb/s: selected server IRC/WebSocket plus local KiwiSDR audio/waterfall socket traffic. Parenthesized values show RTP separately.");
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 0);
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
