@@ -814,8 +814,11 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) continue;
       rr_audio_graph_set_health(graph, stream->id, RR_AG_HEALTHY);
       rr_audio_graph_set_route(graph, stream->id, stream->output);
-      if (stream->output != 'M')
-         rr_audio_graph_add_link(graph, stream->id, "rx.mix", RR_AG_NORMAL);
+      unsigned channels = stream->output == 'L' ? RR_AG_CHANNEL_LEFT :
+                          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT :
+                          stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
+      if (channels)
+         rr_audio_graph_add_channel_link(graph, stream->id, "rx.mix", RR_AG_NORMAL, channels);
    }
    rr_audio_graph_snapshot_t *snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
    if (snapshot && rr_audio_graph_snapshot(graph, snapshot)) {
