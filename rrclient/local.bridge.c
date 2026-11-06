@@ -50,6 +50,7 @@ typedef struct bridge_instance {
    unsigned rate;
    gint64 resampler_retry_at;
    uint64_t pending, serial, frequency_hz, pending_hz;
+   uint64_t traffic_rx, traffic_tx;
    char pending_mode[16];
    bool queued_tune;
    uint64_t queued_hz;
@@ -59,6 +60,38 @@ typedef struct bridge_instance {
 } bridge_instance;
 
 static bridge_instance *bridges[26];
+/* Core writes, GTK reads a snapshot. Keep totals monotonic across child
+ * restarts/disconnects; a subprocess's counters start at zero each time. */
+static GMutex kiwi_traffic_lock;
+static uint64_t kiwi_traffic_rx, kiwi_traffic_tx;
+void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx) {
+   g_mutex_lock(&kiwi_traffic_lock);
+   if (rx) *rx = kiwi_traffic_rx;
+   if (tx) *tx = kiwi_traffic_tx;
+   g_mutex_unlock(&kiwi_traffic_lock);
+}
+static void bridge_traffic_update(bridge_instance *b, const char *key, const char *value) {
+   if (!b || g_strcmp0(b->driver, "kiwi") || !value || !*value)
+      return;
+   char *end = NULL;
+   uint64_t count = g_ascii_strtoull(value, &end, 10);
+   if (!end || end == value || *end) return;
+   uint64_t *last = NULL, *total = NULL;
+   if (!strcmp(key, "traffic.rx")) {
+      last = &b->traffic_rx;
+      total = &kiwi_traffic_rx;
+   } else if (!strcmp(key, "traffic.tx")) {
+      last = &b->traffic_tx;
+      total = &kiwi_traffic_tx;
+   } else return;
+   g_mutex_lock(&kiwi_traffic_lock);
+   /* A counter reset is possible after a driver retry; don't subtract it. */
+   uint64_t delta = count >= *last ? count - *last : count;
+   *total += delta;
+   *last = count;
+   g_mutex_unlock(&kiwi_traffic_lock);
+}
+
 
 /* Core publishes a value-only view. GTK never dereferences bridge instances. */
 static GMutex bridge_ui_lock;
@@ -1019,6 +1052,11 @@ static gboolean poll_local(gpointer unused) {
             ui_print("&local-sdr", "Connected: %s (%s)", b->stream, b->url ? b->url : "unknown");
             event_emit("client.audio.streams.changed", NULL, NULL);
          }
+      } else if (m.type == RRP_BRIDGE_IPC_METADATA) {
+         /* The bridge reports cumulative external Kiwi socket bytes. */
+         if (memchr(m.metadata_key, 0, sizeof(m.metadata_key)) &&
+             memchr(m.metadata_value, 0, sizeof(m.metadata_value)))
+            bridge_traffic_update(b, m.metadata_key, m.metadata_value);
       } else if (m.type == RRP_BRIDGE_IPC_LOG) {
          Log(LOG_INFO, "local.bridge", "%s", m.metadata_value);
          ui_print("&local-sdr", "%s: %s", b->stream, m.metadata_value);
