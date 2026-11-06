@@ -16,6 +16,8 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static GtkWidget *graph_window, *graph_canvas;
 static guint routing_source;
+static guint routing_watchdog_source;
+static gint64 snapshot_sent_at;
 static rr_event_token_t streams_token, routes_token, show_token, snapshot_token, graph_token;
 static rr_audio_graph_snapshot_t *graph_snapshot;
 static GArray *routing_cache;
@@ -267,19 +269,34 @@ static void routing_snapshot_event(const rr_event_message_t *message, void *unus
    if (snapshot->count)
       g_array_append_vals(routing_cache, snapshot->streams, snapshot->count);
    snapshot_waiting = false;
+   snapshot_sent_at = 0;
    if (!routing_source)
       routing_source = g_idle_add(routing_refresh, NULL);
 }
+/* A request can be sent before audio_init() installs the core handler.
+ * Never let that leave the routing panel permanently waiting for a reply. */
 static void routing_queue(void) {
-   if (snapshot_waiting)
+   if (snapshot_waiting && g_get_monotonic_time() - snapshot_sent_at < G_USEC_PER_SEC)
       return;
    snapshot_waiting = true;
+   snapshot_sent_at = g_get_monotonic_time();
    const guint8 request_marker = 1;
    rr_event_message_t request = {
       .name = RRCLIENT_AUDIO_SNAPSHOT_REQUEST,
       .payload = &request_marker, .length = sizeof(request_marker)
    };
    event_emit_message(&request);
+}
+
+static gboolean routing_watchdog(gpointer unused) {
+   (void)unused;
+   /* A missing first reply must be retried after core audio initialization.
+    * While either window is visible, refresh from core to recover missed
+    * stream-change events without reading core state on GTK. */
+   if (routing_panel && (routing_explicit_show ||
+       (graph_window && gtk_widget_get_visible(graph_window)) || snapshot_waiting))
+      routing_queue();
+   return G_SOURCE_CONTINUE;
 }
 
 /* Local RX playback gain, separate from per-ear routing and rig speaker volume. */
@@ -494,10 +511,15 @@ void gtk_audio_routing_init(void) {
    snapshot_token = event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_RESULT, routing_snapshot_event, NULL, "gtk");
    graph_token = event_on_message_domain_token(RRCLIENT_AUDIO_GRAPH_RESULT, routing_graph_snapshot_event, NULL, "gtk");
    inventory_dirty = true;
+   routing_watchdog_source = g_timeout_add(1500, routing_watchdog, NULL);
    routing_queue();
 }
 
 void gtk_audio_routing_shutdown(void) {
+   if (routing_watchdog_source) {
+      g_source_remove(routing_watchdog_source);
+      routing_watchdog_source = 0;
+   }
    if (graph_token) {
       event_off_token(graph_token);
       graph_token = 0;
@@ -516,6 +538,7 @@ void gtk_audio_routing_shutdown(void) {
       routing_cache = NULL;
    }
    snapshot_waiting = false;
+   snapshot_sent_at = 0;
    routing_explicit_show = false;
    if (show_token) {
       event_off_token(show_token);
