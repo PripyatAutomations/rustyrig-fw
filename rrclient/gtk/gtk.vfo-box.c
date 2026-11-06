@@ -305,8 +305,9 @@ static void vfo_layout_restore(void) {
    g_free(stored);
 }
 
+static gchar vfo_drag_target_name[] = "application/x-rustyrig-vfo-control";
 static GtkTargetEntry vfo_drag_target[] = {
-   { "application/x-rustyrig-vfo-control", GTK_TARGET_SAME_APP, 0 }
+   { vfo_drag_target_name, GTK_TARGET_SAME_APP, 0 }
 };
 static GtkCssProvider *vfo_dock_css;
 
