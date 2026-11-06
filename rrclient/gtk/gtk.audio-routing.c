@@ -62,6 +62,9 @@ static bool snapshot_waiting;
 /* Initial integrated audio graph view. It renders GTK-owned inventory
  * snapshots only; fwdsp, mixer and supervisor never run in this window. */
 static void routing_queue(void);
+static gint graph_drag_source = -1, graph_drag_channel = -1;
+static gboolean graph_drag_mixer, graph_drag_moved;
+static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    (void)widget; (void)unused;
    if (!graph_snapshot) return FALSE;
@@ -123,6 +126,28 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    cairo_translate(cr, graph_offset_x, graph_offset_y);
    cairo_scale(cr, graph_scale, graph_scale);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
+   /* Temporary wire preview while dragging an RX output or mixer input. */
+   if (graph_drag_channel >= 0) {
+      double x = graph_drag_mixer ? 355.0 : 25.0 + RR_GTK_GRAPH_NODE_W;
+      double y = 80.0;
+      if (!graph_drag_mixer && graph_drag_source >= 0) {
+         guint row = 0;
+         for (guint i = 0; i < (guint)graph_drag_source && i < g->node_count; i++)
+            row += g->nodes[i].type == RR_AG_SOURCE;
+         y = 20.0 + 140.0 * row;
+      }
+      y += graph_drag_channel ? 79.0 : 60.0;
+      cairo_set_source_rgba(cr, graph_drag_channel ? .73 : .34,
+         graph_drag_channel ? .48 : .78, graph_drag_channel ? 1.0 : .93, .9);
+      const double dash[] = {5, 4};
+      cairo_set_dash(cr, dash, 2, 0);
+      cairo_set_line_width(cr, 2.5);
+      cairo_move_to(cr, x, y);
+      cairo_curve_to(cr, (x + graph_drag_x) / 2, y,
+         (x + graph_drag_x) / 2, graph_drag_y, graph_drag_x, graph_drag_y);
+      cairo_stroke(cr);
+      cairo_set_dash(cr, NULL, 0, 0);
+   }
    cairo_restore(cr);
    return FALSE;
 }
@@ -137,6 +162,10 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    if (!graph_snapshot)
       graph_snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
    *graph_snapshot = *incoming;
+   if (graph_drag_source >= (gint)incoming->node_count) {
+      graph_drag_source = graph_drag_channel = -1;
+      graph_drag_mixer = graph_drag_moved = FALSE;
+   }
    graph_canvas_update_size();
 }
 /* The pipeline viewer remains a separate process. A GStreamer crash in the
@@ -189,10 +218,6 @@ static void routing_pipeline_open(const char *id) {
    g_free(program);
    g_free(json);
 }
-
-static gint graph_drag_source = -1, graph_drag_channel = -1;
-static gboolean graph_drag_mixer, graph_drag_moved;
-static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 
 static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
    if (!graph_snapshot || graph_scale <= 0) return FALSE;
@@ -449,7 +474,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
-      GtkWidget *info = gtk_label_new("Click L OUT / R OUT on an RX source to connect or disconnect that channel. Cyan = left, purple = right.");
+      GtkWidget *info = gtk_label_new("Drag RX outputs to matching mixer inputs to connect; click a link to disconnect. Cyan = left, purple = right.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -460,7 +485,7 @@ void gtk_audio_graph_present(void) {
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
       gtk_widget_set_tooltip_text(graph_canvas,
-         "Click a source's L OUT or R OUT connector to toggle that ear; click the sink to inspect its pipeline.");
+         "Drag RX outputs to matching mixer inputs; click a link to disconnect or source port to toggle that ear.");
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
@@ -472,9 +497,9 @@ void gtk_audio_graph_present(void) {
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
-      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |\n         GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
       g_signal_connect(graph_canvas, "scroll-event", G_CALLBACK(routing_graph_scroll), NULL);
-      g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
+      g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);\n      g_signal_connect(graph_canvas, "motion-notify-event", G_CALLBACK(routing_graph_motion), NULL);\n      g_signal_connect(graph_canvas, "button-release-event", G_CALLBACK(routing_graph_released), NULL);
       g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
    }
    rr_floating_panel_restore(graph_panel);
