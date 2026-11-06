@@ -633,6 +633,38 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    return TRUE;
 }
 
+static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget;
+   RRFloatPanel *p = data;
+   if (!p->resizable || p->rolled || event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   p->resizing = TRUE;
+   p->resize_x = event->x_root;
+   p->resize_y = event->y_root;
+   p->resize_width = gtk_widget_get_allocated_width(p->frame);
+   p->resize_height = gtk_widget_get_allocated_height(p->frame);
+   panel_raise(p);
+   return TRUE;
+}
+static gboolean panel_resize_move(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+   (void)widget;
+   RRFloatPanel *p = data;
+   if (!p->resizing) return FALSE;
+   gint max_w = MAX(280, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
+      gtk_widget_get_margin_start(p->frame) - 12);
+   gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) -
+      gtk_widget_get_margin_top(p->frame) - 12);
+   gint w = CLAMP(p->resize_width + (gint)(event->x_root - p->resize_x), 280, max_w);
+   gint h = CLAMP(p->resize_height + (gint)(event->y_root - p->resize_y), 180, max_h);
+   gtk_widget_set_size_request(p->frame, w, h);
+   return TRUE;
+}
+static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   RRFloatPanel *p = data;
+   if (!p->resizing || event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   panel_resize_move(widget, (GdkEventMotion *)event, data);
+   p->resizing = FALSE;
+   return TRUE;
+}
 RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) {
    if (!GTK_IS_OVERLAY(overlay) || !GTK_IS_NOTEBOOK(tabs) || !id || !*id) {
       return NULL;
@@ -779,6 +811,19 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(header), p->title_hit, TRUE, TRUE, 0);
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_box_pack_start(GTK_BOX(panel), p->body, TRUE, TRUE, 0);
+   p->resize_grip = gtk_event_box_new();
+   GtkWidget *resize_icon = gtk_image_new_from_icon_name("view-restore-symbolic", GTK_ICON_SIZE_MENU);
+   gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
+   gtk_widget_set_halign(p->resize_grip, GTK_ALIGN_END);
+   gtk_widget_set_tooltip_text(p->resize_grip, "Drag to resize panel");
+   gtk_widget_add_events(p->resize_grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+      GDK_POINTER_MOTION_MASK);
+   g_signal_connect(p->resize_grip, "button-press-event", G_CALLBACK(panel_resize_press), p);
+   g_signal_connect(p->resize_grip, "motion-notify-event", G_CALLBACK(panel_resize_move), p);
+   g_signal_connect(p->resize_grip, "button-release-event", G_CALLBACK(panel_resize_release), p);
+   gtk_box_pack_end(GTK_BOX(panel), p->resize_grip, FALSE, FALSE, 0);
+   gtk_widget_set_no_show_all(p->resize_grip, TRUE);
+   gtk_widget_hide(p->resize_grip);
    gtk_widget_show_all(p->frame);
    gtk_widget_hide(p->frame);
    /* A newly added overlay must not cover already visible pinned utilities. */
@@ -936,6 +981,15 @@ void rr_floating_panel_set_minimizable(RRFloatPanel *p, gboolean minimizable) {
    if (p->menu_minimize) {
       gtk_widget_set_no_show_all(p->menu_minimize, !p->minimizable);
       gtk_widget_set_visible(p->menu_minimize, p->minimizable);
+   }
+}
+
+void rr_floating_panel_set_resizable(RRFloatPanel *p, gboolean resizable) {
+   if (!p) return;
+   p->resizable = !!resizable;
+   if (p->resize_grip) {
+      gtk_widget_set_no_show_all(p->resize_grip, !p->resizable);
+      gtk_widget_set_visible(p->resize_grip, p->resizable);
    }
 }
 
