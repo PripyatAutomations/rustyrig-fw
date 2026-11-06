@@ -1319,7 +1319,7 @@ static uint32_t room_vfo_available_mask(const char *room) {
          const char *dot = strrchr(part, '.');
          if (dot && !g_ascii_strncasecmp(dot + 1, "vfo_", 4) &&
              strlen(dot + 1) >= 5) {
-            char letter = g_ascii_toupper(dot[6]);
+            char letter = g_ascii_toupper(dot[5]);
             if (letter >= 'A' && letter <= 'Z')
                mask |= UINT32_C(1) << (letter - 'A');
          }
