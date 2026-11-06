@@ -659,23 +659,26 @@ static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpo
    panel_raise(p);
    return TRUE;
 }
-static gboolean panel_resize_move(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
-   (void)widget;
-   RRFloatPanel *p = data;
-   if (!p->resizing) return FALSE;
+static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
+   if (!p || !p->resizing) return FALSE;
    gint max_w = MAX(280, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
       gtk_widget_get_margin_start(p->frame) - 12);
    gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) -
       gtk_widget_get_margin_top(p->frame) - 12);
-   gint w = CLAMP(p->resize_width + (gint)(event->x_root - p->resize_x), 280, max_w);
-   gint h = CLAMP(p->resize_height + (gint)(event->y_root - p->resize_y), 180, max_h);
+   gint w = CLAMP(p->resize_width + (gint)(x_root - p->resize_x), 280, max_w);
+   gint h = CLAMP(p->resize_height + (gint)(y_root - p->resize_y), 180, max_h);
    gtk_widget_set_size_request(p->frame, w, h);
    return TRUE;
 }
+static gboolean panel_resize_move(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+   (void)widget;
+   return panel_resize_to(data, event->x_root, event->y_root);
+}
 static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget;
    RRFloatPanel *p = data;
    if (!p->resizing || event->button != GDK_BUTTON_PRIMARY) return FALSE;
-   panel_resize_move(widget, (GdkEventMotion *)event, data);
+   panel_resize_to(p, event->x_root, event->y_root);
    p->resizing = FALSE;
    return TRUE;
 }
