@@ -6,6 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Local SDR host: reuse the rrbridge process and Kiwi driver, no rrserver. All control and resampler callbacks are owned by the client main context. */
 #include <rrclient/local.bridge.h>
+#include <rrclient/rrclient.h>
 #include <librrprotocol/rig.command.h>
 #include <rrclient/rooms.h>
 #include <librrprotocol/rrprotocol.h>
@@ -58,6 +59,36 @@ typedef struct bridge_instance {
 } bridge_instance;
 
 static bridge_instance *bridges[26];
+
+/* The local bridge PCM socket must be drained on the core scheduler, not
+ * GTK's global default context: compositor/window activity can stall GTK
+ * enough to starve the RX mixer even when the audio worker stays on time.
+ * Explicit source attachment also keeps the child lifecycle on that owner. */
+static guint bridge_core_timer(guint interval_ms, GSourceFunc fn, gpointer user) {
+   GSource *source = g_timeout_source_new(interval_ms);
+   g_source_set_priority(source, G_PRIORITY_HIGH);
+   g_source_set_callback(source, fn, user, NULL);
+   guint id = g_source_attach(source, rrclient_core_context());
+   g_source_unref(source);
+   return id;
+}
+
+static guint bridge_core_kill_timer(GSourceFunc fn, gpointer user) {
+   GSource *source = g_timeout_source_new_seconds(2);
+   g_source_set_callback(source, fn, user, NULL);
+   guint id = g_source_attach(source, rrclient_core_context());
+   g_source_unref(source);
+   return id;
+}
+
+static void bridge_core_remove_source(guint id) {
+   if (!id)
+      return;
+   GSource *source = g_main_context_find_source_by_id(rrclient_core_context(), id);
+   if (source)
+      g_source_destroy(source);
+}
+
 
 static void local_bridge_active_event(void) {
    char vfo = rrclient_room_active_vfo("&local-sdr");
@@ -681,7 +712,7 @@ static void bridge_stop(bridge_instance *b) {
    }
 
    if (b->timer) {
-      g_source_remove(b->timer);
+      bridge_core_remove_source(b->timer);
       b->timer = 0;
    }
    b->queued_tune = false;
@@ -725,7 +756,7 @@ static void bridge_stop(bridge_instance *b) {
       kill(b->process.pid, SIGTERM);
 
       if (!b->kill_timer) {
-         b->kill_timer = g_timeout_add_seconds(2, bridge_kill_timeout, b);
+         b->kill_timer = bridge_core_kill_timer(bridge_kill_timeout, b);
       }
    }
    b->pid = 0;
@@ -769,7 +800,7 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
 
    if (b) {
       if (b->kill_timer) {
-         g_source_remove(b->kill_timer);
+         bridge_core_remove_source(b->kill_timer);
          b->kill_timer = 0;
       }
       b->process.pid = -1;      /* GChildWatch already reaped this child. */
@@ -1116,8 +1147,11 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    b->url = g_strdup(url);
    b->config = config;
    audio_local_rx_start(b->stream);
-   g_child_watch_add(pid, local_child_exited, b);
-   b->timer = g_timeout_add(10, poll_local, b);
+   GSource *watch = g_child_watch_source_new(pid);
+   g_source_set_callback(watch, (GSourceFunc) local_child_exited, b, NULL);
+   g_source_attach(watch, rrclient_core_context());
+   g_source_unref(watch);
+   b->timer = bridge_core_timer(10, poll_local, b);
    rrclient_room_set_active_vfo("&local-sdr", (char)('A' + slot));
    char *status = g_strdup_printf("Connecting to %s at %s", driver, url);
    event_emit("client.receiver-directory.connection", NULL, status);
