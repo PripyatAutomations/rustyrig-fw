@@ -122,7 +122,7 @@ void resource_row(const char *event, const char *text, rrconn_t *connection, voi
       }
       if (!branch->domain) resource_domain_assign(branch, NULL);
       resource_domain_rebuild(branch->domain);
-      g_idle_add(resource_restore_scroll, NULL);
+      resource_schedule_restore_scroll();
       gtk_label_set_text(GTK_LABEL(browser->status),
          "All available resources are shown. Select a resource to manage your connection.");
    } else if (branch->pending_inventory && !strcmp(cmd, "inventory-entry")) {
