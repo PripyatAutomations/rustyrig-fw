@@ -93,24 +93,36 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
                cairo_set_source_rgb(cr, .73, .48, 1.0);
             else
                cairo_set_source_rgb(cr, .34, .78, .93);
-            cairo_arc(cr, n->x, py, 6.5, 0, 2 * G_PI);
-            cairo_fill(cr);
-            cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W, py, 6.5, 0, 2 * G_PI);
-            cairo_fill(cr);
+            if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
+               cairo_arc(cr, n->x, py, 6.5, 0, 2 * G_PI);
+               cairo_fill(cr);
+            }
+            if (n->io != RR_GTK_GRAPH_IO_SINK) {
+               cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W, py, 6.5, 0, 2 * G_PI);
+               cairo_fill(cr);
+            }
             cairo_set_source_rgb(cr, 1, 1, 1);
             cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-            cairo_move_to(cr, n->x + 12, py + 3.5);
-            cairo_show_text(cr, channel ? "R IN" : "L IN");
-            cairo_move_to(cr, n->x + RR_GTK_GRAPH_NODE_W - 43, py + 3.5);
-            cairo_show_text(cr, channel ? "R OUT" : "L OUT");
+            if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
+               cairo_move_to(cr, n->x + 12, py + 3.5);
+               cairo_show_text(cr, channel ? "R IN" : "L IN");
+            }
+            if (n->io != RR_GTK_GRAPH_IO_SINK) {
+               cairo_move_to(cr, n->x + RR_GTK_GRAPH_NODE_W - 43, py + 3.5);
+               cairo_show_text(cr, channel ? "R OUT" : "L OUT");
+            }
          }
       } else {
-         pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
-         pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
+         if (n->io != RR_GTK_GRAPH_IO_SOURCE)
+            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
+         if (n->io != RR_GTK_GRAPH_IO_SINK)
+            pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
       }
       if (n->bypass_pins) {
-         pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE);
-         pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE);
+         if (n->io != RR_GTK_GRAPH_IO_SOURCE)
+            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE);
+         if (n->io != RR_GTK_GRAPH_IO_SINK)
+            pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE);
          cairo_set_source_rgb(cr, .96, .65, .27);
          cairo_set_font_size(cr, 8);
          cairo_move_to(cr, n->x + 10, n->y + 102);
