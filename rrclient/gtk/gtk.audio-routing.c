@@ -420,8 +420,8 @@ static gboolean routing_refresh(gpointer unused) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), FALSE);
 
    for (unsigned ear = 0; ear < 2; ear++) {
-      GtkWidget *popover = gtk_menu_button_get_popover(GTK_MENU_BUTTON(ear_button[ear]));
-      if (popover && gtk_widget_get_mapped(popover))
+      GtkPopover *popover = gtk_menu_button_get_popover(GTK_MENU_BUTTON(ear_button[ear]));
+      if (popover && gtk_widget_get_mapped(GTK_WIDGET(popover)))
          routing_check_summary(ear, streams, count);
       else
          routing_check_build(ear, streams, count);
