@@ -802,7 +802,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    if (tuned_hz && tuned_hz >= view_low && tuned_hz <= view_high) {
       double x = ((double)tuned_hz - view_low) * (w - 1) / (view_high - view_low);
       cairo_save(cr);
-      cairo_set_source_rgba(cr, 1.0, .85, .25, .9);
+      cairo_set_source_rgba(cr, 1.0, .16, .14, .98);
       cairo_set_line_width(cr, 1.0);
       cairo_move_to(cr, x + .5, 0);
       cairo_line_to(cr, x + .5, plot_h);
