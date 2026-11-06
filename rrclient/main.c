@@ -1488,9 +1488,10 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
    last_repaint = now;
 
    tui_window_t *tw = tui_active_window();
-   tui_refresh_sb_window();
    tui_refresh_sb_vfo();
-   tui_update_status(tw, "%s %s", sb_online, sb_window);
+   /* The active tab is already visible in the tab strip. Keep the status
+    * indicator compact so long room names do not consume terminal width. */
+   tui_update_status(tw, "%s", sb_online);
    tui_redraw_clock();
    /* Local receiver state is updated asynchronously by rrbridge IPC. */
    if (tw && tw->view_draw == tui_local_sdr_draw)
