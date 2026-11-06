@@ -107,6 +107,14 @@ static void metadata(void *user, const char *key, const char *value) {
    message(host, &m, RRP_BRIDGE_IPC_METADATA);
    snprintf(m.metadata_key, sizeof(m.metadata_key), "%s", key);
    snprintf(m.metadata_value, sizeof(m.metadata_value), "%s", value);
+   /* Statistics are advisory; a full IPC socket must not stop a radio.
+    * Control, status and state messages retain strict delivery semantics. */
+   if (!strcmp(key, "_rr_stats") || !strcmp(key, "traffic.rx") ||
+       !strcmp(key, "traffic.tx")) {
+      if (rrp_bridge_ipc_send(RRP_BRIDGE_IPC_FD, &m))
+         host->stats_ipc_out++;
+      return;
+   }
    send_message(host, &m);
 }
 static void status(void *user, const char *text) {
