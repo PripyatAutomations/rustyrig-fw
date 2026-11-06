@@ -894,8 +894,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    p->scale_wrapper = rr_scale_container_new(p->body);
    gtk_box_pack_start(GTK_BOX(panel), p->scale_wrapper, TRUE, TRUE, 0);
-   if (p->zoom)
-      rr_scale_container_set_zoom(p->scale_wrapper, MAX(.10, 1.0 + p->zoom / 100.0));
+   /* Content is populated by the caller after panel construction; apply
+    * saved zoom when the panel is actually shown, not to an empty body. */
    p->resize_grip = gtk_event_box_new();
    GtkWidget *resize_icon = gtk_image_new_from_icon_name("view-restore-symbolic", GTK_ICON_SIZE_MENU);
    gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
@@ -1025,6 +1025,11 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       p->ever_shown = TRUE;
    }
    gtk_widget_show_all(p->frame);
+   /* The saved slider value was set before its change handler existed,
+    * and most panels build their widgets after rr_floating_panel_new().
+    * Reapply the saved zoom to the now-complete widget hierarchy. */
+   if (p->scale_wrapper)
+      rr_scale_container_set_zoom(p->scale_wrapper, MAX(.10, 1.0 + p->zoom / 100.0));
 
    if (!p->initial_positioned) {
       p->initial_positioned = panel_place_initial(p);
