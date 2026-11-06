@@ -798,6 +798,24 @@ static void dcc_closed(const char *event, const char *data, rrconn_t *client, vo
       }
    }
 }
+static void audio_snapshot_request(const rr_event_message_t *unused_message, void *unused) {
+   (void)unused_message;
+   (void)unused;
+   size_t count = audio_rx_streams(NULL, 0);
+   if (count > 128) count = 128;
+   size_t bytes = sizeof(rr_audio_stream_snapshot_t) + count * sizeof(struct rrclient_rx_stream);
+   rr_audio_stream_snapshot_t *snapshot = g_malloc0(bytes);
+   snapshot->count = (uint32_t)count;
+   if (count)
+      audio_rx_streams(snapshot->streams, count);
+   rr_event_message_t reply = {
+      .name = RRCLIENT_AUDIO_SNAPSHOT_RESULT,
+      .payload = snapshot, .length = bytes
+   };
+   event_emit_message(&reply);
+   g_free(snapshot);
+}
+
 static void audio_control_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (!message || !message->payload || message->length != sizeof(rr_audio_control_request_t))
@@ -852,6 +870,7 @@ bool audio_init(void) {
    event_on("media.quality-hint", audio_quality_hint, NULL);
    event_on("ws.msg.media", audio_feedback, NULL);
    event_on_message_domain_token(RRCLIENT_AUDIO_CONTROL_REQUEST, audio_control_request, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_REQUEST, audio_snapshot_request, NULL, "core");
 
    if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
