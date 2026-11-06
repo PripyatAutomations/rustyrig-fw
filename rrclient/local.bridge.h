@@ -12,6 +12,9 @@
 bool rrclient_local_bridge_connect(const char *url);
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver);
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity);
+/* Cumulative bytes on local Kiwi's remote sockets (audio and waterfall).
+ * Excludes bridge IPC and any server/relay transport already counted. */
+void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx);
 #define RRCLIENT_KIWI_CONTROL_EVENT "client.kiwi.control.request"
 #define RRCLIENT_KIWI_STATUS_EVENT "client.kiwi.control.status"
 #define RRCLIENT_KIWI_STATUS_REQUEST "client.kiwi.control.status.request"
