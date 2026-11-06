@@ -556,6 +556,16 @@ static void routing_show_event(const char *event, const char *data, rrconn_t *co
    }
 }
 
+void gtk_volume_toggle(void) {
+   if (!routing_panel || !routing_window) return;
+   if (gtk_widget_get_visible(routing_window))
+      rr_floating_panel_hide(routing_panel);
+   else {
+      rr_floating_panel_restore(routing_panel);
+      rr_floating_panel_show(routing_panel);
+   }
+}
+
 void gtk_audio_routing_init(void) {
    if (routing_window) {
       return;
