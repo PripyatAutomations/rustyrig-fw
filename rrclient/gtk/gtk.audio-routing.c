@@ -109,7 +109,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
                           n->route == 'M' ? "Muted" : "Stereo";
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355,
-         .y = source ? 20 + 108 * source_index++ : 80,
+         .y = source ? 20 + 140 * source_index++ : 80,
          .title = n->id,
          .subtitle = source ? route : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer",
          .failed = n->health == RR_AG_FAILED,
@@ -157,7 +157,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    *graph_snapshot = *incoming;
    if (graph_canvas) {
       guint sources = graph_snapshot->node_count > 2 ? graph_snapshot->node_count - 2 : 0;
-      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 32 + 108 * sources));
+      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 36 + 140 * sources));
       gtk_widget_queue_draw(graph_canvas);
    }
 }
@@ -246,13 +246,13 @@ static void routing_graph_show(GtkButton *button, gpointer unused) {
       g_signal_connect(graph_window, "delete-event", G_CALLBACK(routing_graph_hide), NULL);
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
       gtk_container_add(GTK_CONTAINER(graph_window), box);
-      GtkWidget *info = gtk_label_new("Current RX topology. Rounded fwdsp nodes open read-only GStreamer pipelines; amber pins indicate bypass.");
+      GtkWidget *info = gtk_label_new("Current RX topology: cyan = left, purple = right; rounded fwdsp blocks open read-only pipelines.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
       graph_canvas = gtk_drawing_area_new();
-      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 32 + 108 * MIN(routing_cache ? routing_cache->len : 0u, 32u)));
+      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 36 + 140 * MIN(routing_cache ? routing_cache->len : 0u, 32u)));
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
       gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK);
