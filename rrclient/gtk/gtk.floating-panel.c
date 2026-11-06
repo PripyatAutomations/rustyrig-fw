@@ -1112,6 +1112,11 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
       gtk_tabs_panel_restore_remove(p->restore_tab);
    }
 
+   /* The measurement widget may outlive its panel; never leave a weak
+    * pointer targeting freed panel storage. */
+   if (p->min_width_widget)
+      g_object_remove_weak_pointer(G_OBJECT(p->min_width_widget), (gpointer *)&p->min_width_widget);
+   p->min_width_widget = NULL;
    if (p->frame) {
       gtk_widget_destroy(p->frame);
    }
