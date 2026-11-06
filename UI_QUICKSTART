@@ -34,6 +34,7 @@ Some quick notes to introduce the features of the user interface:
   - F11: Toggle full screen
 - Servers:
   - ctrl-tab switches active server for admin/status/host log tabs
-- Resource Explorer: ALT-O
+- Resource Explorer: ALT-O (or the Explorer button in the upper status toolbar)
+- Upper status toolbar: Explorer, Audio Graph, Admin, Config (each opens a separate tool window; none occupies a main tab slot)
 - Server choser: ALT-X
 - Remote Receiver directory: ALT-Z
