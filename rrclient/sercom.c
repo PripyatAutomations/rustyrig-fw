@@ -25,6 +25,7 @@
 #include <librrprotocol/ws.serial.h>
 #include <rrclient/cat.h>
 #include <rrclient/sercom.h>
+#include <rrclient/rrclient.h>
 #include <rrclient/objects.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
@@ -141,7 +142,7 @@ static bool serial_pty_startup_cleanup(void) {
 
 static rr_event_token_t gps_output_token, serial_message_token, serial_binary_token;
 static rr_event_token_t authorized_token, disconnected_token, auth_error_token, http_error_token;
-static guint host_timer, gps_invalid_timer;
+static GSource *host_timer, *gps_invalid_timer;
 static void console_notify(const char *name, const char *bytes, size_t len, bool incoming);
 struct rr_sercom_observer {
    char name[64];
@@ -1498,13 +1499,15 @@ void rr_sercom_shutdown(void) {
    }
 
    if (host_timer) {
-      g_source_remove(host_timer);
-      host_timer = 0;
+      g_source_destroy(host_timer);
+      g_source_unref(host_timer);
+      host_timer = NULL;
    }
 
    if (gps_invalid_timer) {
-      g_source_remove(gps_invalid_timer);
-      gps_invalid_timer = 0;
+      g_source_destroy(gps_invalid_timer);
+      g_source_unref(gps_invalid_timer);
+      gps_invalid_timer = NULL;
    }
    event_off_token(serial_message_token);
    event_off_token(serial_binary_token);
@@ -1592,11 +1595,15 @@ bool rr_sercom_init(void) {
    }
 
    if (!host_timer) {
-      host_timer = g_timeout_add(20, host_tick, NULL);
+      host_timer = g_timeout_source_new(20);
+      g_source_set_callback(host_timer, host_tick, NULL, NULL);
+      g_source_attach(host_timer, rrclient_core_context());
    }
 
    if (!gps_invalid_timer) {
-      gps_invalid_timer = g_timeout_add_seconds(1, gps_invalid_tick, NULL);
+      gps_invalid_timer = g_timeout_source_new_seconds(1);
+      g_source_set_callback(gps_invalid_timer, gps_invalid_tick, NULL, NULL);
+      g_source_attach(gps_invalid_timer, rrclient_core_context());
    }
    bool ok = true;
    // [serial] is an extensible name -> service map. Defaults are read separately.
