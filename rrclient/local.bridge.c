@@ -205,10 +205,25 @@ static void kiwi_control_request(const rr_event_message_t *message, void *user) 
       Log(LOG_WARN, "local.bridge", "Kiwi VFO %c: failed to queue control %s", req->vfo, req->control);
    }
 }
+static void local_bridge_lifecycle_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rrclient_local_bridge_lifecycle_request_t))
+      return;
+   const rrclient_local_bridge_lifecycle_request_t *req = message->payload;
+   if (!memchr(req->url, 0, sizeof(req->url)) ||
+       !memchr(req->driver, 0, sizeof(req->driver)))
+      return;
+   if (req->disconnect) {
+      rrclient_local_bridge_disconnect_url(req->url);
+   } else if (!rrclient_local_bridge_connect_driver(req->url, req->driver)) {
+      ui_print("&local-sdr", "Unable to start local SDR bridge for %s", req->url);
+   }
+}
 void rrclient_local_bridge_controls_init(void) {
    event_on_message_domain_token(RRCLIENT_KIWI_CONTROL_EVENT, kiwi_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_KIWI_STATUS_REQUEST, kiwi_control_status, NULL, "core");
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_ACTIVE_REQUEST, local_bridge_active_request, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST, local_bridge_lifecycle_request, NULL, "core");
 }
 bool rrclient_local_bridge_connected(const char *url) {
    if (!url) {
