@@ -63,6 +63,7 @@ static bridge_instance *bridges[26];
 /* Core publishes a value-only view. GTK never dereferences bridge instances. */
 static GMutex bridge_ui_lock;
 static rr_local_bridge_ui_state_t bridge_ui;
+static rr_local_bridge_ui_state_t bridge_ui_vfos[26];
 static char bridge_ui_urls[26][1024];
 static bool bridge_ui_urls_live[26];
 
@@ -83,6 +84,17 @@ static void bridge_publish_ui(void) {
    bridge_ui = state;
    for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
       bridge_instance *b = bridges[i];
+      rr_local_bridge_ui_state_t *view = &bridge_ui_vfos[i];
+      memset(view, 0, sizeof(*view));
+      view->vfo = (char)('A' + i);
+      if (b && b->online && b->pid > 0) {
+         view->connected = true;
+         view->frequency_hz = b->frequency_hz;
+         g_strlcpy(view->mode, b->mode, sizeof(view->mode));
+         view->waterfall = (b->caps.flags & RRP_BRIDGE_WATERFALL) != 0;
+         view->min_zoom = b->caps.waterfall_zoom_min;
+         view->max_zoom = b->caps.waterfall_zoom_max;
+      }
       bridge_ui_urls_live[i] = b && b->pid > 0 && b->url;
       bridge_ui_urls[i][0] = 0;
       if (bridge_ui_urls_live[i])
@@ -94,6 +106,13 @@ bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out) {
    if (!out) return false;
    g_mutex_lock(&bridge_ui_lock);
    *out = bridge_ui;
+   g_mutex_unlock(&bridge_ui_lock);
+   return out->connected;
+}
+bool rrclient_local_bridge_ui_state_vfo(char vfo, rr_local_bridge_ui_state_t *out) {
+   if (!out || vfo < 'A' || vfo > 'Z') return false;
+   g_mutex_lock(&bridge_ui_lock);
+   *out = bridge_ui_vfos[vfo - 'A'];
    g_mutex_unlock(&bridge_ui_lock);
    return out->connected;
 }
