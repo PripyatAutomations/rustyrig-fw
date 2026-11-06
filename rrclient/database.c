@@ -564,6 +564,32 @@ done:
       sqlite3_exec(client_db, "ROLLBACK TO audio_profile_save; RELEASE audio_profile_save", NULL, NULL, NULL);
    return ok;
 }
+char *rrclient_database_vfo_layout_load(void) {
+   if (!client_db) return NULL;
+   sqlite3_stmt *q = NULL;
+   char *order = NULL;
+   if (sqlite3_prepare_v2(client_db,
+       "SELECT value FROM client_settings WHERE key='ui.vfo.dock-order'",
+       -1, &q, NULL) == SQLITE_OK && sqlite3_step(q) == SQLITE_ROW) {
+      const char *value = (const char *)sqlite3_column_text(q, 0);
+      if (value) order = g_strdup(value);
+   }
+   sqlite3_finalize(q);
+   return order;
+}
+bool rrclient_database_vfo_layout_save(const char *order) {
+   if (!client_db || !order) return false;
+   sqlite3_stmt *q = NULL;
+   if (sqlite3_prepare_v2(client_db,
+       "INSERT INTO client_settings(key,value) VALUES('ui.vfo.dock-order',?1)"
+       " ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+       -1, &q, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(q, 1, order, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(q) == SQLITE_DONE;
+   sqlite3_finalize(q);
+   return ok;
+}
+
 bool rrclient_database_audio_profile_delete(const char *name) {
    if (!client_db || !name || !*name) return false;
    sqlite3_stmt *q = NULL;
