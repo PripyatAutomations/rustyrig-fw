@@ -1185,21 +1185,21 @@ void rr_floating_panel_set_min_width_widget(RRFloatPanel *p, GtkWidget *widget) 
 
 void rr_floating_panel_fit_content(RRFloatPanel *p) {
    if (!p || !p->frame || p->resizing || p->rolled) return;
+   /* Only establish a compact default. Once shown, a manual resize must
+    * survive tab changes rather than being reset on every VFO activation. */
+   if (p->ever_shown && p->fit_content) return;
    p->fit_content = TRUE;
-   /* Discard the previous wide request before measuring the contents. */
    gtk_widget_set_size_request(p->frame, -1, -1);
    if (p->min_width_widget) {
-      gint minimum = 0, natural = 0;
-      gtk_widget_get_preferred_width(p->frame, &minimum, &natural);
+      gint minimum = 0;
+      gtk_widget_get_preferred_width(p->frame, &minimum, NULL);
       gint overlay_w = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
       gint inset = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
-      gint available = MAX(1, overlay_w - inset);
-      if (overlay_w > 1) {
-         /* GTK FlowBox may report an all-in-one-row natural width.
-          * Cap that width to the viewport; it will wrap the docked groups. */
-         gint width = MIN(MAX(minimum, natural), available);
-         gtk_widget_set_size_request(p->frame, width, -1);
-      }
+      /* FlowBox's natural width packs several controls in one row.
+       * Use its one-column minimum instead; users can widen it themselves. */
+      gint width = MAX(minimum, panel_minimum_width(p));
+      if (overlay_w > 1) width = MIN(width, MAX(1, overlay_w - inset));
+      gtk_widget_set_size_request(p->frame, width, -1);
    }
    gtk_widget_queue_resize(p->frame);
 }
