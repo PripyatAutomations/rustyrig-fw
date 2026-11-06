@@ -421,10 +421,12 @@ static void panel_roll(GtkButton *button, gpointer data);
 static void panel_close(GtkButton *button, gpointer data);
 static void panel_zoom_changed(GtkRange *range, gpointer data) {
    RRFloatPanel *p = data;
+   double old_scale = MAX(.10, 1.0 + p->zoom / 100.0);
+   gint old_width = gtk_widget_get_allocated_width(p->frame);
+   gint old_height = gtk_widget_get_allocated_height(p->frame);
    p->zoom = (gint)gtk_range_get_value(range);
-   /* 0 = 100%, -100 = minimum usable 10%, +200 = 300%. GTK3 does
-    * not have a widget-subtree affine transform, so scale GTK dimensions
-    * through local CSS and allow custom renderers to scale their canvas. */
+   /* 0 = 100%, -100 = minimum usable 10%, +200 = 300%.
+    * Zoom belongs to this panel; unrelated panels are not affected. */
    double scale = MAX(.10, 1.0 + p->zoom / 100.0);
    char css[420];
    g_snprintf(css, sizeof(css),
@@ -435,6 +437,21 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
       13.0 * scale, 19.0 * scale, 3.0 * scale, 6.0 * scale);
    gtk_css_provider_load_from_data(p->scale_css, css, -1, NULL);
    if (p->zoom_callback) p->zoom_callback(scale, p->zoom_data);
+   if (p->resizable && !p->rolled && old_width > 1 && old_height > 1) {
+      /* Scale the current user-chosen viewport, not its initial default.
+       * Clamp it to the overlay; users can still drag the resize handle. */
+      gint max_w = MAX(280, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
+         gtk_widget_get_margin_start(p->frame) - 12);
+      gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) -
+         gtk_widget_get_margin_top(p->frame) - 12);
+      gtk_widget_set_size_request(p->frame,
+         CLAMP((gint)round(old_width * scale / old_scale), 280, max_w),
+         CLAMP((gint)round(old_height * scale / old_scale), 180, max_h));
+   } else if (!p->resizable && !p->rolled) {
+      /* Fixed panels should follow the content's newly computed natural
+       * dimensions rather than retain a stale size request. */
+      gtk_widget_set_size_request(p->frame, -1, -1);
+   }
    gtk_widget_queue_resize(p->frame);
 }
 
