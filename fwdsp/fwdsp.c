@@ -21,6 +21,7 @@
 // needed
 //
 #include <stdint.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
@@ -76,6 +77,27 @@ bool dying = false;
 bool restarting = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
+static fwdsp_proc_stats_t metrics;
+static gint64 metrics_reported_us;
+/* A single small, best-effort line on stderr keeps stats out of framed
+ * media stdout and the realtime processing path. No allocation or blocking. */
+static void metrics_publish(void) {
+   gint64 now_us = g_get_monotonic_time();
+   if (metrics_reported_us && now_us - metrics_reported_us < G_USEC_PER_SEC) return;
+   metrics_reported_us = now_us;
+   char line[256];
+   int length = snprintf(line, sizeof(line),
+      "RRSTAT1 in_bytes=%" PRIu64 " out_bytes=%" PRIu64
+      " in_frames=%" PRIu64 " out_frames=%" PRIu64
+      " warnings=%" PRIu64 " errors=%" PRIu64 "\\n",
+      metrics.input_bytes, metrics.output_bytes,
+      metrics.input_frames, metrics.output_frames, metrics.warnings, metrics.errors);
+   if (length <= 0 || (size_t)length >= sizeof(line)) return;
+   struct pollfd fd = { .fd = STDERR_FILENO, .events = POLLOUT };
+   if (poll(&fd, 1, 0) > 0 && (fd.revents & POLLOUT))
+      (void)write(STDERR_FILENO, line, (size_t)length);
+}
+
 
 time_t now = -1;                // time() called once a second in main loop to
                                 // update
@@ -741,8 +763,11 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
       }
 
       if (gst_app_src_push_buffer(appsrc, buffer) != GST_FLOW_OK) {
+         metrics.errors++;
          return false;
       }
+      metrics.input_frames++;
+      metrics.input_bytes += frame_len;
 
       reader->len -= total_len;
 
@@ -1004,6 +1029,8 @@ static void run_loop(struct audio_config *cfg) {
       struct fwdsp_frame_reader input_reader = {
          0
       };
+      memset(&metrics, 0, sizeof(metrics));
+      metrics_reported_us = 0;
       struct fwdsp_control_msg control;
       size_t control_used = 0;
       record_tx = cfg->tx_mode;
@@ -1029,8 +1056,14 @@ static void run_loop(struct audio_config *cfg) {
                   }
                   bool is_header = !processor_mode && GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_HEADER);
 
-                  if (output_ok && !write_frame(STDOUT_FD, map.data, map.size, is_header)) {
-                     dying = true;
+                  if (output_ok) {
+                     if (!write_frame(STDOUT_FD, map.data, map.size, is_header)) {
+                        metrics.errors++;
+                        dying = true;
+                     } else {
+                        metrics.output_bytes += map.size;
+                        metrics.output_frames++;
+                     }
                   }
                   gst_buffer_unmap(buffer, &map);
                }
@@ -1056,8 +1089,14 @@ static void run_loop(struct audio_config *cfg) {
                gst_sample_unref(hub_sample);
             }
 
-            if (pcm.len && !write_pcm_tap_frame(STDOUT_FD, pcm.data, pcm.len)) {
-               dying = true;
+            if (pcm.len) {
+               if (!write_pcm_tap_frame(STDOUT_FD, pcm.data, pcm.len)) {
+                  metrics.errors++;
+                  dying = true;
+               } else {
+                  metrics.output_bytes += pcm.len;
+                  metrics.output_frames++;
+               }
             }
          }
          // Record either the encoded Ogg stream or the PCM recording branch.
@@ -1122,6 +1161,7 @@ static void run_loop(struct audio_config *cfg) {
 
          if (msg) {
             if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_WARNING) {
+               metrics.warnings++;
                GError *warning = NULL;
                gchar *details = NULL;
                gst_message_parse_warning(msg, &warning, &details);
@@ -1133,6 +1173,7 @@ static void run_loop(struct audio_config *cfg) {
                g_clear_error(&warning);
                g_free(details);
             } else if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
+               metrics.errors++;
                GError *err;
                gchar *dbg;
                gst_message_parse_error(msg, &err, &dbg);
@@ -1286,6 +1327,7 @@ static void run_loop(struct audio_config *cfg) {
                }
             }
          }
+         metrics_publish();
          // Service input/control promptly without sleeping once per audio packet.
          // Encoders may produce several packets from one capture buffer.
          struct pollfd pending[2] = {
