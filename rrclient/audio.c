@@ -831,6 +831,23 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    g_free(snapshot);
    rr_audio_graph_free(graph);
 }
+/* Count transitions only: no per-second log spam from the GUI watchdog.
+ * If the UI shows one source, this identifies which streams the core knew. */
+static void audio_log_stream_inventory(const struct rrclient_rx_stream *streams, size_t count) {
+   static GString *last;
+   GString *current = g_string_new(NULL);
+   for (size_t i = 0; i < count; i++)
+      g_string_append_printf(current, "%s%s[%s/%s]", i ? ", " : "",
+         streams[i].id, streams[i].server, streams[i].room);
+   if (!last || strcmp(last->str, current->str)) {
+      Log(LOG_DEBUG, "audio.routing", "RX routing inventory: %zu stream(s): %s",
+          count, count ? current->str : "(none)");
+      if (last) g_string_free(last, TRUE);
+      last = current;
+   } else {
+      g_string_free(current, TRUE);
+   }
+}
 static void audio_snapshot_request(const rr_event_message_t *unused_message, void *unused) {
    (void)unused_message;
    (void)unused;
@@ -841,6 +858,7 @@ static void audio_snapshot_request(const rr_event_message_t *unused_message, voi
    snapshot->count = (uint32_t)count;
    if (count)
       audio_rx_streams(snapshot->streams, count);
+   audio_log_stream_inventory(snapshot->streams, count);
    audio_publish_graph(snapshot->streams, count);
    rr_event_message_t reply = {
       .name = RRCLIENT_AUDIO_SNAPSHOT_RESULT,
