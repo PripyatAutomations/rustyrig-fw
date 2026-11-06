@@ -4,7 +4,7 @@
 #include "gtk.tabs.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close;
+   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top;
    GtkCssProvider *scale_css;
    guint zoom;
    GtkOverlay *overlay;
@@ -431,6 +431,11 @@ static void panel_opacity_changed(GtkRange *range, gpointer data) {
    gtk_widget_set_opacity(p->frame, gtk_range_get_value(range) / 100.0);
 }
 
+static void panel_on_top_changed(GtkToggleButton *button, gpointer data) {
+   RRFloatPanel *p = data;
+   rr_floating_panel_set_pinned(p, gtk_toggle_button_get_active(button));
+}
+
 static void panel_menu_action(GtkButton *button, gpointer data) {
    RRFloatPanel *p = data;
    const char *action = g_object_get_data(G_OBJECT(button), "rr-action");
@@ -732,6 +737,12 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_scale_set_value_pos(GTK_SCALE(opacity), GTK_POS_RIGHT);
    gtk_box_pack_start(GTK_BOX(settings), opacity, FALSE, FALSE, 0);
    g_signal_connect(opacity, "value-changed", G_CALLBACK(panel_opacity_changed), p);
+   p->menu_on_top = gtk_check_button_new_with_label("Always on Top");
+   gtk_widget_set_tooltip_text(p->menu_on_top,
+      "Keep this panel above other non-modal floating panels in RustyRig");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->menu_on_top), p->pinned);
+   g_signal_connect(p->menu_on_top, "toggled", G_CALLBACK(panel_on_top_changed), p);
+   gtk_box_pack_start(GTK_BOX(settings), p->menu_on_top, FALSE, FALSE, 0);
    panel_menu_add_action(p, settings, "Roll up / expand", "roll");
    panel_menu_add_action(p, settings, "Minimize to tabs", "minimize");
    p->menu_close = gtk_button_new_with_label("Close panel");
@@ -888,7 +899,10 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
 
 void rr_floating_panel_set_pinned(RRFloatPanel *p, gboolean pinned) {
    if (!p) return;
-   p->pinned = pinned;
+   p->pinned = !!pinned;
+   if (p->menu_on_top &&
+       gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->menu_on_top)) != p->pinned)
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->menu_on_top), p->pinned);
    panel_raise(p);
 }
 
