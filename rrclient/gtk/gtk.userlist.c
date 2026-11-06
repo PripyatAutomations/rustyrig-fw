@@ -1121,7 +1121,19 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
    if (!bindings || !*bindings) {
       return NULL;
    }
-   GtkWidget *strip = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+   GtkWidget *strip = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
+   gtk_widget_set_name(strip, "room-vfo-compact");
+   /* Apply a small local style without shrinking unrelated userlist controls. */
+   static GtkCssProvider *compact_css;
+   if (!compact_css) {
+      compact_css = gtk_css_provider_new();
+      gtk_css_provider_load_from_data(compact_css,
+         "#room-vfo-compact label { font-size: 10px; }"
+         "#room-vfo-compact button { font-size: 10px; padding: 0 3px; min-height: 18px; }"
+         "#room-vfo-compact #room-vfo-row { padding: 1px 2px; }", -1, NULL);
+   }
+   gtk_style_context_add_provider(gtk_widget_get_style_context(strip),
+      GTK_STYLE_PROVIDER(compact_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    /* The strip must follow the docked roster allocation, not its natural width. */
    gtk_widget_set_hexpand(strip, TRUE);
    char *copy = strdup(bindings);
@@ -1149,7 +1161,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
          "VFOs select tuning and audio routes. On single-receiver radios, A/B usually share receiver audio; independent RX/TX audio depends on the rig and "
          "station setup.");
       gtk_widget_add_events(row, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-      GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+      GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
       GtkWidget *details = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
       gtk_container_add(GTK_CONTAINER(row), content);
       gtk_box_pack_start(GTK_BOX(content), details, FALSE, FALSE, 0);
@@ -1171,7 +1183,8 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
             gtk_label_set_xalign(GTK_LABEL(ptt_label), 0.5);
          }
       }
-      gtk_widget_set_size_request(freq, 88, -1);
+      gtk_widget_set_size_request(freq, 72, -1);
+      gtk_label_set_ellipsize(GTK_LABEL(freq), PANGO_ELLIPSIZE_END);
       gtk_widget_set_name(freq, "room-vfo-frequency");
       room_vfo_control_t *control = calloc(1, sizeof(*control));
 
@@ -1193,26 +1206,28 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
-      /* One compact header plus a separate frequency row. Keep the VFO strip narrow enough for a docked roster, even when names are long. */
+      /* One compact line: VFO identity, frequency, mode and stop/tune action.
+       * No oversized second/third rows in the docked roster. */
       gtk_label_set_xalign(GTK_LABEL(name), 0.0);
       gtk_label_set_xalign(GTK_LABEL(freq), 0.0);
       gtk_widget_set_halign(freq, GTK_ALIGN_START);
-      gtk_box_pack_start(GTK_BOX(details), name, FALSE, FALSE, 2);
+      gtk_box_pack_start(GTK_BOX(details), name, FALSE, FALSE, 1);
+      gtk_widget_set_margin_start(freq, 1);
+      gtk_box_pack_start(GTK_BOX(details), freq, FALSE, FALSE, 1);
       gtk_label_set_ellipsize(GTK_LABEL(mode), PANGO_ELLIPSIZE_END);
       gtk_widget_set_size_request(mode, 0, -1);
-      gtk_box_pack_start(GTK_BOX(details), mode, TRUE, TRUE, 2);
-      gtk_widget_set_margin_start(freq, 2);
-      gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(details), mode, TRUE, TRUE, 1);
 
       if (ptt) {
-         /* Keep the action below the frequency line: a narrow roster must never put PTT outside the visible pane. */
-         gtk_box_pack_start(GTK_BOX(content), ptt, FALSE, FALSE, 0);
+         gtk_widget_set_size_request(ptt, 58, 20);
+         gtk_box_pack_end(GTK_BOX(details), ptt, FALSE, FALSE, 0);
       } else if (rrclient_room_rx_tuning_mask(entry->room) & (UINT32_C(1) << (vfo - 'A'))) {
          GtkWidget *tune = gtk_button_new_with_label("Tune");
-         gtk_box_pack_start(GTK_BOX(content), tune, FALSE, FALSE, 0);
+         gtk_widget_set_size_request(tune, 42, 20);
+         gtk_box_pack_end(GTK_BOX(details), tune, FALSE, FALSE, 0);
          g_signal_connect(tune, "clicked", G_CALLBACK(room_vfo_tune_clicked), control);
       }
-      gtk_box_pack_start(GTK_BOX(strip), row, FALSE, FALSE, 1);
+      gtk_box_pack_start(GTK_BOX(strip), row, FALSE, FALSE, 0);
       room_vfo_refresh_one(control);
    }
 
