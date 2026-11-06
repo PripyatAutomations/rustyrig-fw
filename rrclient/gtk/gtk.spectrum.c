@@ -702,7 +702,9 @@ static void rf_row(const char *event, const void *data, size_t len, rrconn_t *co
    if (!rr_bridge_spectrum_valid(row)) {
       return;
    }
-   char vfo = rrclient_room_active_vfo("&local-sdr");
+   rr_local_bridge_ui_state_t state = {0};
+   rrclient_local_bridge_ui_state(&state);
+   char vfo = state.vfo;
    p->vfo_boundary[p->head] = p->last_vfo && p->last_vfo != vfo;
    p->last_vfo = vfo;
    p->rows[p->head] = *row;
@@ -732,8 +734,8 @@ static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *ro
       return;
    }
    double span = full / exp2(p->zoom_fraction);
-   uint64_t tuned = 0;
-   double center = rrclient_local_bridge_state(&tuned, NULL) ? (double)tuned : (*low + *high) / 2;
+   rr_local_bridge_ui_state_t bridge_state = {0};
+   double center = rrclient_local_bridge_ui_state(&bridge_state) ? (double)bridge_state.frequency_hz : (*low + *high) / 2;
    double start = CLAMP(center - span / 2 + p->pan_hz, *low, *high - span);
    *low = start;
    *high = start + span;
@@ -792,9 +794,12 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_restore(cr);
    cairo_surface_destroy(surface);
    /* Tune marker is display-only. The frequency and RF span come from generic bridge state/rows, never Kiwi-specific arithmetic. */
+   rr_local_bridge_ui_state_t marker_state = {0};
    uint64_t tuned_hz = 0;
+   if (rrclient_local_bridge_ui_state(&marker_state))
+      tuned_hz = marker_state.frequency_hz;
 
-   if (rrclient_local_bridge_state(&tuned_hz, NULL) && tuned_hz >= view_low && tuned_hz <= view_high) {
+   if (tuned_hz && tuned_hz >= view_low && tuned_hz <= view_high) {
       double x = ((double)tuned_hz - view_low) * (w - 1) / (view_high - view_low);
       cairo_save(cr);
       cairo_set_source_rgba(cr, 1.0, .85, .25, .9);
@@ -878,8 +883,8 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
 
       if (width > 1 && full > 0) {
          double wanted = p->drag_pan_hz - (event->x - p->drag_x) * span / (width - 1);
-         uint64_t tuned = 0;
-         double center = rrclient_local_bridge_state(&tuned, NULL) ? (double)tuned : (row->low_hz + row->high_hz) / 2.;
+         rr_local_bridge_ui_state_t bridge_state = {0};
+         double center = rrclient_local_bridge_ui_state(&bridge_state) ? (double)bridge_state.frequency_hz : (row->low_hz + row->high_hz) / 2.;
          double base = center - span / 2.;
          double min_pan = (double)row->low_hz - base;
          double max_pan = (double)row->high_hz - span - base;
@@ -892,7 +897,7 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
             double overflow = wanted - p->pan_hz;
             double new_center = CLAMP((row->low_hz + row->high_hz) / 2. + overflow, full / 2., 30000000. - full / 2.);
 
-            if (rrclient_local_bridge_waterfall_at(p->rf_enabled, p->zoom, (uint64_t) (new_center + .5))) {
+            if (rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, (uint64_t) (new_center + .5))) {
                p->recenter_at = now;
                p->recenter_low_hz = row->low_hz;
                p->recenter_high_hz = row->high_hz;
@@ -920,6 +925,15 @@ static void rf_gain_changed(GtkRange *range, gpointer data) {
    p->display_gain_db = gtk_range_get_value(range);
    gtk_widget_queue_draw(p->drawing);
 }
+/* Only copied, immutable bridge fields may be read by GTK. */
+static gboolean rf_ui_caps(unsigned *min_zoom, unsigned *max_zoom) {
+   rr_local_bridge_ui_state_t state = {0};
+   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall)
+      return FALSE;
+   if (min_zoom) *min_zoom = state.min_zoom;
+   if (max_zoom) *max_zoom = state.max_zoom;
+   return TRUE;
+}
 static void rf_caps_changed(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
    (void)event;
    (void)data;
@@ -927,7 +941,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
    (void)connection;
    rf_strip_t *p = user;
    unsigned min_zoom, max_zoom;
-   bool available = rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom);
+   bool available = rf_ui_caps(&min_zoom, &max_zoom);
    gtk_widget_set_visible(p->enabled, available);
    gtk_widget_set_visible(p->gain, available);
 
@@ -936,11 +950,11 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
       p->zoom = min_zoom + (max_zoom - min_zoom) / 2;
       p->zoom_fraction = 0;
       p->pan_hz = 0;
-      p->zoom_initialized = rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
+      p->zoom_initialized = rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, 0);
    } else if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) {
       p->zoom = min_zoom;
       p->zoom_fraction = 0;
-      rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
+      rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, 0);
    }
 
    if (!available) {
@@ -950,7 +964,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
-   rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom);
+   rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, 0);
 
    if (!p->rf_enabled) {
       p->count = 0;
@@ -983,7 +997,7 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
    }
    unsigned min_zoom, max_zoom;
 
-   if (!rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) {
+   if (!rf_ui_caps(&min_zoom, &max_zoom)) {
       return FALSE;
    }
    double requested = CLAMP((double)p->zoom + p->zoom_fraction + delta * .20, (double)min_zoom, (double)max_zoom);
@@ -992,7 +1006,7 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
    bool native_changed = native != p->zoom;
 
    if (native != p->zoom) {
-      if (!rrclient_local_bridge_waterfall(p->rf_enabled, native)) {
+      if (!rrclient_local_bridge_request_waterfall(p->rf_enabled, native, 0)) {
          return TRUE;
       }
       p->zoom = native;
@@ -1037,7 +1051,7 @@ static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    rf_strip_t *p = g_object_get_data(G_OBJECT(item), "rf-panel");
    unsigned zoom = GPOINTER_TO_UINT(data);
 
-   if (!rrclient_local_bridge_waterfall(p->rf_enabled, zoom)) {
+   if (!rrclient_local_bridge_request_waterfall(p->rf_enabled, zoom, 0)) {
       return;
    }
    p->zoom = zoom;
@@ -1062,7 +1076,7 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    GSList *group = NULL;
    unsigned min_zoom, max_zoom;
 
-   if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) {
+   if (rf_ui_caps(&min_zoom, &max_zoom)) {
       for (unsigned z = min_zoom ; z <= max_zoom && z - min_zoom < 32 ; z++) {
          char label[32];
          g_snprintf(label, sizeof(label), "Level %u", z);
@@ -1128,12 +1142,10 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
          return TRUE;
       }
       double hz = low + (high - low) * event->x / (width - 1);
-      char vfo = rrclient_room_active_vfo("&local-sdr");
-
-      if (rrclient_local_bridge_set_frequency(vfo, (uint64_t) (hz + .5))) {
+      if (rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, 0, (uint64_t) (hz + .5), NULL)) {
          unsigned min_zoom, max_zoom;
 
-         if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom) && p->zoom < max_zoom && rrclient_local_bridge_waterfall(p->rf_enabled, p->zoom + 1)) {
+         if (rf_ui_caps(&min_zoom, &max_zoom) && p->zoom < max_zoom && rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom + 1, 0)) {
             p->zoom++;
             p->zoom_fraction = 0;
             p->pan_hz = 0;
