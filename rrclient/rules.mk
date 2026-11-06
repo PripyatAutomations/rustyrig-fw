@@ -19,6 +19,7 @@ ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cfla
 
 rrclient_objs += audio.o
 rrclient_objs += audio.engine.o
+rrclient_objs += audio.graph.o # GTK-free logical routing and bypass policies
 rrclient_objs += cat.o
 rrclient_objs += cat.kpa500.o
 rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
@@ -90,6 +91,7 @@ gtk_module_objs += gtk/gtk.admin.sessions.o # Session actions
 gtk_module_objs += gtk/gtk.admin.privgroup.o # Privilege set editing
 gtk_module_objs += gtk/gtk.admin.selection.o # Administrative table selection and filtering
 gtk_module_objs += gtk/gtk.alertdialog.o # alert/error/warning dialogs
+gtk_module_objs += gtk/gtk.graph.o # Shared graph canvas (also used by rrpipelines)
 gtk_module_objs += gtk/gtk.audio-routing.o # RX ear routing window
 gtk_module_objs += gtk/gtk.control-panel.o # Draggable in-client control popups
 gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff
