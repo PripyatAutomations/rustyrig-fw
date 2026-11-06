@@ -443,47 +443,7 @@ static void routing_check_build(unsigned ear, const struct rrclient_rx_stream *s
 static gboolean routing_refresh(gpointer unused) {
    (void)unused;
    routing_source = 0;
-   size_t count;
-   struct rrclient_rx_stream *streams = routing_snapshot(&count);
-
-   /* Keep the floating panel alive through empty snapshots. */
-   if (!count && !routing_explicit_show && !gtk_widget_get_visible(routing_window)) {
-      have_choices = false;
-      inventory_dirty = false;
-      g_free(streams);
-      return G_SOURCE_REMOVE;
-   }
-   if (inventory_dirty && have_choices) {
-      /* Existing selections survive inventory refreshes; "All" includes
-       * newly connected sources. External route changes still win. */
-      routing_apply(streams, count);
-   } else {
-      routing_read_ears(streams, count);
-   }
-   inventory_dirty = false;
-   g_qsort_with_data(streams, count, sizeof(*streams), routing_compare, NULL);
-   routing_updating = true;
-   gboolean asymmetric = FALSE;
-   for (size_t i = 0; i < count; i++)
-      asymmetric |= streams[i].output == 'L' || streams[i].output == 'R';
-   if (asymmetric)
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), TRUE);
-   else if (!have_choices)
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), FALSE);
-
-   for (unsigned ear = 0; ear < 2; ear++) {
-      GtkPopover *popover = gtk_menu_button_get_popover(GTK_MENU_BUTTON(ear_button[ear]));
-      if (popover && gtk_widget_get_mapped(GTK_WIDGET(popover)))
-         routing_check_summary(ear, streams, count);
-      else
-         routing_check_build(ear, streams, count);
-   }
-   gtk_widget_set_sensitive(ear_button[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
-   gtk_widget_set_sensitive(ear_volume[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
-   routing_updating = false;
-   have_choices = true;
-   rr_floating_panel_show(routing_panel);
-   g_free(streams);
+   /* Volume only: live routing changes belong to the Audio Graph. */
    return G_SOURCE_REMOVE;
 }
 
@@ -553,24 +513,15 @@ static void routing_volume_changed(GtkRange *range, gpointer user) {
 
 static void routing_changed(GtkWidget *widget, gpointer unused) {
    (void)widget; (void)unused;
-   if (routing_updating) return;
    gboolean split = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx));
-   if (!split)
-      routing_ear_copy(1, 0);
-   gtk_widget_set_sensitive(ear_button[1], split);
    gtk_widget_set_sensitive(ear_volume[1], split);
    if (!split) {
-      volume_updating = true;
+      volume_updating = TRUE;
       int percent = (int)gtk_range_get_value(GTK_RANGE(ear_volume[0]));
       gtk_range_set_value(GTK_RANGE(ear_volume[1]), percent);
       audio_request_rx_channel_volume(1, percent);
-      volume_updating = false;
+      volume_updating = FALSE;
    }
-   size_t count;
-   struct rrclient_rx_stream *streams = routing_snapshot(&count);
-   routing_apply(streams, count);
-   g_free(streams);
-   routing_queue();
 }
 
 static void routing_event(const char *event, const char *data, rrconn_t *connection, void *unused) {
@@ -625,7 +576,7 @@ void gtk_audio_routing_init(void) {
    gtk_container_add(GTK_CONTAINER(routing_overlay), content);
    g_object_unref(content);
    gtk_container_add(GTK_CONTAINER(main_window), routing_overlay);
-   routing_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "RX Audio Routing", "RX Audio Routing");
+   routing_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "Volume", "Volume");
 
    if (!routing_panel) {
       return;
@@ -650,40 +601,11 @@ void gtk_audio_routing_init(void) {
    gtk_widget_set_tooltip_text(rx_vol_slider, "Client RX playback gain (independent of rig speaker volume)");
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), CLAMP(cfg_get_int("audio.volume.rx", 30), 0, 100));
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(routing_rx_gain_changed), NULL);
-   gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 5, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 1, 5, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 3, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 1, 3, 1, 1);
 
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
    gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
-
-   for (unsigned ear = 0; ear < 2; ear++) {
-      GtkWidget *label = gtk_label_new(ear ? "Right:" : "Left:");
-      gtk_widget_set_halign(label, GTK_ALIGN_START);
-      ear_button[ear] = gtk_menu_button_new();
-      gtk_button_set_label(GTK_BUTTON(ear_button[ear]), "Muted");
-      gtk_widget_set_size_request(ear_button[ear], 190, -1);
-      GtkWidget *popover = gtk_popover_new(ear_button[ear]);
-      GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
-      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-      gtk_widget_set_size_request(scroller, 260, -1);
-      gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scroller), 310);
-      gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroller), 80);
-      gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroller), TRUE);
-      ear_list[ear] = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-      gtk_container_set_border_width(GTK_CONTAINER(ear_list[ear]), 8);
-      gtk_container_add(GTK_CONTAINER(scroller), ear_list[ear]);
-      gtk_container_add(GTK_CONTAINER(popover), scroller);
-      /* Popovers aren't descendants of the floating panel's body. Its
-       * show_all() doesn't show these scrolled windows, leaving the menu
-       * button's label visible but the popup content empty/invisible. Do
-       * not show the popover itself here: only its contained widgets. */
-      gtk_widget_show(scroller);
-      gtk_widget_show(ear_list[ear]);
-      gtk_menu_button_set_popover(GTK_MENU_BUTTON(ear_button[ear]), popover);
-      g_signal_connect(popover, "closed", G_CALLBACK(routing_check_popover_closed), NULL);
-      gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 1, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), ear_button[ear], 1, ear + 1, 1, 1);
-   }
 
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
       GtkWidget *label = gtk_label_new(ear ? "Right Vol" : "Left Vol");
@@ -693,8 +615,8 @@ void gtk_audio_routing_init(void) {
       gtk_widget_set_size_request(ear_volume[ear], 110, -1);
       gtk_widget_set_hexpand(ear_volume[ear], TRUE);
       gtk_range_set_value(GTK_RANGE(ear_volume[ear]), CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
-      gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 3, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear + 3, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 1, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear + 1, 1, 1);
       g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
    }
 
