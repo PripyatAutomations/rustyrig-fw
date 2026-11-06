@@ -230,6 +230,11 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    return FALSE;
 }
+static void routing_graph_button_clicked(GtkButton *button, gpointer unused) {
+   (void)button;
+   (void)unused;
+   gtk_audio_graph_present();
+}
 static gboolean routing_graph_hide(GtkWidget *widget, GdkEvent *event, gpointer unused) {
    (void)event;
    (void)unused;
@@ -551,7 +556,7 @@ void gtk_audio_routing_init(void) {
    routing_grid_volume_row(grid, gain_row, 5);
 
    GtkWidget *graph_button = gtk_button_new_with_label("Audio Graph…");
-   g_signal_connect_swapped(graph_button, "clicked", G_CALLBACK(gtk_audio_graph_present), NULL);
+   g_signal_connect(graph_button, "clicked", G_CALLBACK(routing_graph_button_clicked), NULL);
    gtk_grid_attach(GTK_GRID(grid), graph_button, 0, 7, 2, 1);
 
    GtkWidget *rig_volume = create_volbox();
