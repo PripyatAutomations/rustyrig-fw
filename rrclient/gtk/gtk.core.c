@@ -258,6 +258,12 @@ static void frontend_gtk_focus_tab_owner(const char *tab) {
       page = status_tab;
    }
 
+   /* Detached tools are real windows, not notebook pages. */
+   if (page && GTK_IS_WINDOW(page)) {
+      gtk_widget_show_all(page);
+      gtk_window_present(GTK_WINDOW(page));
+      return;
+   }
    if (!page || !main_notebook) {
       return;
    }
