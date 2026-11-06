@@ -443,6 +443,8 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    gtk_widget_set_no_show_all(control, TRUE);
    gtk_widget_set_visible(control, wanted);
    GtkWidget *group = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   /* Do not stretch a lone docked group across the entire FlowBox row. */
+   gtk_widget_set_halign(group, GTK_ALIGN_START);
    GtkWidget *handle = gtk_event_box_new();
    GtkWidget *hint = gtk_label_new(name);
    gtk_label_set_xalign(GTK_LABEL(hint), 0.5);
