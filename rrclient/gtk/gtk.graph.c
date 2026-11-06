@@ -35,9 +35,9 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
          cairo_set_dash(cr, NULL, 0, 0);
       }
       cairo_move_to(cr, a->x + RR_GTK_GRAPH_NODE_W, from_y);
-      cairo_curve_to(cr, (a->x + b->x + RR_GTK_GRAPH_NODE_W) / 2, a->y + yoff,
+      cairo_curve_to(cr, (a->x + b->x + RR_GTK_GRAPH_NODE_W) / 2, from_y,
                      (a->x + b->x + RR_GTK_GRAPH_NODE_W) / 2, to_y,
-                     b->x, b->y + yoff);
+                     b->x, to_y);
       cairo_stroke(cr);
    }
    cairo_set_dash(cr, NULL, 0, 0);
