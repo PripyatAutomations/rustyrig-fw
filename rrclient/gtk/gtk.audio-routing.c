@@ -54,20 +54,11 @@ static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, g
    return TRUE;
 }
 
-static guint routing_source;
 static guint routing_watchdog_source;
 static gint64 snapshot_sent_at;
-static rr_event_token_t show_token, snapshot_token, graph_token;
-static GArray *routing_cache;
+static rr_event_token_t show_token, snapshot_token, graph_token, routes_token;
 static bool snapshot_waiting;
 
-/* Ear selections are sets of stream IDs; a stream may be in both ears. */
-static struct rrclient_rx_stream *routing_snapshot(size_t *count) {
-   *count = routing_cache ? routing_cache->len : 0;
-   struct rrclient_rx_stream *streams = g_new0(struct rrclient_rx_stream, *count);
-   if (*count) memcpy(streams, routing_cache->data, *count * sizeof(*streams));
-   return streams;
-}
 /* Initial integrated audio graph view. It renders GTK-owned inventory
  * snapshots only; fwdsp, mixer and supervisor never run in this window. */
 static void routing_queue(void);
@@ -334,13 +325,6 @@ void gtk_audio_graph_present(void) {
       gtk_widget_queue_draw(graph_canvas);
 }
 
-static gboolean routing_refresh(gpointer unused) {
-   (void)unused;
-   routing_source = 0;
-   /* Volume only: live routing changes belong to the Audio Graph. */
-   return G_SOURCE_REMOVE;
-}
-
 static void routing_snapshot_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (!message || !message->payload || message->length < sizeof(rr_audio_stream_snapshot_t))
@@ -349,15 +333,8 @@ static void routing_snapshot_event(const rr_event_message_t *message, void *unus
    if (snapshot->count > 128 ||
        message->length != sizeof(*snapshot) + (size_t)snapshot->count * sizeof(struct rrclient_rx_stream))
       return;
-   if (!routing_cache)
-      routing_cache = g_array_new(FALSE, FALSE, sizeof(struct rrclient_rx_stream));
-   g_array_set_size(routing_cache, 0);
-   if (snapshot->count)
-      g_array_append_vals(routing_cache, snapshot->streams, snapshot->count);
    snapshot_waiting = false;
    snapshot_sent_at = 0;
-   if (!routing_source)
-      routing_source = g_idle_add(routing_refresh, NULL);
 }
 /* A request can be sent before audio_init() installs the core handler.
  * Never let that leave the routing panel permanently waiting for a reply. */
@@ -416,6 +393,14 @@ static void routing_changed(GtkWidget *widget, gpointer unused) {
       audio_request_rx_channel_volume(1, percent);
       volume_updating = FALSE;
    }
+}
+
+static void routing_live_changed(const char *event, const char *data,
+                                  rrconn_t *connection, void *unused) {
+   (void)event; (void)data; (void)connection; (void)unused;
+   /* Refresh the graph on external routing edits without changing them. */
+   if (graph_panel && graph_canvas && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel)))
+      routing_queue();
 }
 
 static void routing_show_event(const char *event, const char *data, rrconn_t *connection, void *context) {
@@ -513,6 +498,7 @@ void gtk_audio_routing_init(void) {
    show_token = event_on_domain_token("client.audio.routing.show", routing_show_event, NULL, "gtk");
    snapshot_token = event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_RESULT, routing_snapshot_event, NULL, "gtk");
    graph_token = event_on_message_domain_token(RRCLIENT_AUDIO_GRAPH_RESULT, routing_graph_snapshot_event, NULL, "gtk");
+   routes_token = event_on_domain_token("client.audio.route.changed", routing_live_changed, NULL, "gtk");
    routing_watchdog_source = g_timeout_add(1500, routing_watchdog, NULL);
    routing_queue();
 }
@@ -526,6 +512,10 @@ void gtk_audio_routing_shutdown(void) {
       event_off_token(graph_token);
       graph_token = 0;
    }
+   if (routes_token) {
+      event_off_token(routes_token);
+      routes_token = 0;
+   }
    g_clear_pointer(&graph_snapshot, g_free);
    if (graph_panel) {
       rr_floating_panel_destroy(graph_panel);
@@ -537,20 +527,11 @@ void gtk_audio_routing_shutdown(void) {
       event_off_token(snapshot_token);
       snapshot_token = 0;
    }
-   if (routing_cache) {
-      g_array_free(routing_cache, TRUE);
-      routing_cache = NULL;
-   }
    snapshot_waiting = false;
    snapshot_sent_at = 0;
    if (show_token) {
       event_off_token(show_token);
       show_token = 0;
-   }
-
-   if (routing_source) {
-      g_source_remove(routing_source);
-      routing_source = 0;
    }
 
    rr_floating_panel_destroy(routing_panel);
