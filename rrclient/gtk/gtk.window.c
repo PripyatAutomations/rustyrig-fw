@@ -412,7 +412,7 @@ bool gui_init(void) {
 
    /* Tool windows have no tabs in the lower strip. */
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer");
-   main_toolbar_tool(rr_main_toolbar, "Audio Graph", "audio-card-symbolic", "audio");
+   main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio");
    main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-system-symbolic", "admin");
    main_toolbar_tool(rr_main_toolbar, "Config", "preferences-other-symbolic", "config");
 
