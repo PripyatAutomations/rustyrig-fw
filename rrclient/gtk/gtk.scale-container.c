@@ -21,7 +21,12 @@ static gint rr_scale_dim(gint base, double scale) {
    if (base < 0) return base;
    return (gint)CLAMP(round(base * scale), 0.0, (double)G_MAXINT);
 }
-static void rr_scale_widget(GtkWidget *widget, double scale) {
+static void rr_scale_widget(GtkWidget *widget, double scale, GtkCssProvider *css) {
+   if (css && !g_object_get_data(G_OBJECT(widget), "rr-scale-styled")) {
+      gtk_style_context_add_provider(gtk_widget_get_style_context(widget),
+         GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      g_object_set_data(G_OBJECT(widget), "rr-scale-styled", GINT_TO_POINTER(1));
+   }
    RRScaleGeometry *g = g_object_get_data(G_OBJECT(widget), "rr-scale-geometry");
    gint raw[11] = {0};
    gtk_widget_get_size_request(widget, &raw[0], &raw[1]);
@@ -55,6 +60,7 @@ static void rr_scale_widget(GtkWidget *widget, double scale) {
    }
    if (!g) {
       g = g_new0(RRScaleGeometry, 1);
+      memcpy(&g->width, raw, sizeof(raw));
       memcpy(g->applied, raw, sizeof(raw));
       g->initialized = TRUE;
       g_object_set_data_full(G_OBJECT(widget), "rr-scale-geometry", g, g_free);
@@ -81,14 +87,14 @@ static void rr_scale_widget(GtkWidget *widget, double scale) {
    if (GTK_IS_CONTAINER(widget)) {
       GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
       for (GList *i = children; i; i = i->next)
-         rr_scale_widget(GTK_WIDGET(i->data), scale);
+         rr_scale_widget(GTK_WIDGET(i->data), scale, css);
       g_list_free(children);
    }
 }
 static void rr_scale_child_added(GtkContainer *container, GtkWidget *child, gpointer user) {
    (void)container;
    RRScaleContainer *ctx = user;
-   if (ctx && ctx->scale != 1.0) rr_scale_widget(child, ctx->scale);
+   if (ctx && ctx->scale != 1.0) rr_scale_widget(child, ctx->scale, ctx->css);
 }
 static void rr_scale_install(GtkWidget *widget, RRScaleContainer *ctx) {
    if (!GTK_IS_CONTAINER(widget)) return;
@@ -131,7 +137,7 @@ void rr_scale_container_set_zoom(GtkWidget *wrapper, double scale) {
       ".rr-scale-container combobox { min-height: %.2fpx; padding: %.2fpx; }",
       13.0 * ctx->scale, 20.0 * ctx->scale, 4.0 * ctx->scale);
    gtk_css_provider_load_from_data(ctx->css, css, -1, NULL);
-   rr_scale_widget(ctx->content, ctx->scale);
+   rr_scale_widget(ctx->content, ctx->scale, ctx->css);
    rr_scale_install(ctx->content, ctx);
    gtk_widget_queue_resize(wrapper);
 }
