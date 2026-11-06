@@ -107,6 +107,7 @@ gtk_module_objs += gtk/gtk.core.o            # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.files.o
 gtk_module_objs += gtk/gtk.file-editor.o # configuration tab
 gtk_module_objs += gtk/gtk.floating-panel.o
+gtk_module_objs += gtk/gtk.scale-container.o # Per-panel native widget zoom wrapper
 gtk_module_objs += gtk/gtk.fm-mode.o	# FM mode dialog
 gtk_module_objs += gtk/gtk.freqentry.o	# Frequency Entry Widget
 gtk_module_objs += gtk/gtk.help.o
