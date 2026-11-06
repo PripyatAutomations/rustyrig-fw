@@ -800,6 +800,42 @@ static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, g
    panel_state_save(p);
    return TRUE;
 }
+/* For compact/reflowing panels GTK's natural size can exceed the width
+ * requested by the user (GtkFlowBox prefers putting several controls on one
+ * line). An overlay normally allocates that natural width regardless of the
+ * available space. Size the floating panel against the actual viewport. */
+static gboolean panel_overlay_position(GtkOverlay *overlay, GtkWidget *child,
+                                       GdkRectangle *rect, gpointer data) {
+   RRFloatPanel *p = data;
+   if (child != p->frame || !p->min_width_widget || !gtk_widget_get_visible(child))
+      return FALSE;
+
+   gint overlay_w = gtk_widget_get_allocated_width(GTK_WIDGET(overlay));
+   gint overlay_h = gtk_widget_get_allocated_height(GTK_WIDGET(overlay));
+   if (overlay_w <= 1 || overlay_h <= 1) return FALSE;
+
+   gint inset = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(overlay), "rr-panel-right-inset"));
+   gint right = MAX(1, overlay_w - inset);
+   gint requested_w = -1, requested_h = -1;
+   gint natural_w = 0, natural_h = 0;
+   gtk_widget_get_size_request(child, &requested_w, &requested_h);
+   gtk_widget_get_preferred_width(child, NULL, &natural_w);
+   gtk_widget_get_preferred_height(child, NULL, &natural_h);
+
+   /* A size request is only a GTK minimum, not a maximum. Treat explicit
+    * panel widths as the intended allocation, then enforce the viewport. */
+   gint width = requested_w > 1 ? requested_w : natural_w;
+   width = CLAMP(width, 1, right);
+   gint x = gtk_widget_get_margin_start(child);
+   gint y = gtk_widget_get_margin_top(child);
+   x = CLAMP(x, 0, MAX(0, right - width));
+   rect->x = x;
+   rect->y = MAX(0, y);
+   rect->width = width;
+   rect->height = requested_h > 1 ? requested_h : natural_h;
+   rect->height = CLAMP(rect->height, 1, MAX(1, overlay_h - rect->y));
+   return TRUE;
+}
 RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) {
    if (!GTK_IS_OVERLAY(overlay) || !GTK_IS_NOTEBOOK(tabs) || !id || !*id) {
       return NULL;
@@ -850,6 +886,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
    gtk_overlay_add_overlay(overlay, p->frame);
+   g_signal_connect(overlay, "get-child-position", G_CALLBACK(panel_overlay_position), p);
    g_signal_connect(p->frame, "size-allocate", G_CALLBACK(panel_initial_allocation), p);
    /* Capture clicks from all descendants, including sliders, buttons, lists and scrolled content. A bubbling frame handler misses consumed events. */
    GtkGesture *raise_gesture = gtk_gesture_multi_press_new(p->frame);
@@ -1132,6 +1169,8 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    if (p->min_width_widget)
       g_object_remove_weak_pointer(G_OBJECT(p->min_width_widget), (gpointer *)&p->min_width_widget);
    p->min_width_widget = NULL;
+   if (p->overlay)
+      g_signal_handlers_disconnect_by_func(p->overlay, G_CALLBACK(panel_overlay_position), p);
    if (p->frame) {
       gtk_widget_destroy(p->frame);
    }
