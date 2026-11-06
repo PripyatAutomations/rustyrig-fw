@@ -12,6 +12,8 @@
 
 #include <librustyaxe/subproc.h>
 #include <glib.h>
+#include <stdint.h>
+#include <stddef.h>
 /* Call before starting fwdsp subprocesses; NULL restores default context. */
 void fwdsp_set_reactor_context(GMainContext *context);
 
