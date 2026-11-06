@@ -367,78 +367,39 @@ static gboolean routing_refresh(gpointer unused) {
    size_t count;
    struct rrclient_rx_stream *streams = routing_snapshot(&count);
 
-   /* A temporary empty inventory is not a reason to close the controls.
-    * In particular, the first snapshot can arrive before any RX streams. */
+   /* Keep the floating panel alive through empty snapshots. */
    if (!count && !routing_explicit_show && !gtk_widget_get_visible(routing_window)) {
       have_choices = false;
       inventory_dirty = false;
       g_free(streams);
       return G_SOURCE_REMOVE;
    }
-
    if (inventory_dirty && have_choices) {
-      /* New subscriptions follow the user's ear choices; disappearance mutes that ear rather than silently replacing it with a different receiver. */
+      /* Existing selections survive inventory refreshes; "All" includes
+       * newly connected sources. External route changes still win. */
       routing_apply(streams, count);
+   } else {
+      routing_read_ears(streams, count);
    }
    inventory_dirty = false;
    g_qsort_with_data(streams, count, sizeof(*streams), routing_compare, NULL);
    routing_updating = true;
-   routing_read_ear(streams, count, 0);
-   routing_read_ear(streams, count, 1);
-   bool asymmetric = false;
-
-   for (size_t i = 0 ; i < count ; i++) {
+   gboolean asymmetric = FALSE;
+   for (size_t i = 0; i < count; i++)
       asymmetric |= streams[i].output == 'L' || streams[i].output == 'R';
-   }
-
-   if (asymmetric || strcmp(ear_choice[0], ear_choice[1])) {
+   if (asymmetric)
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), TRUE);
-   } else if (!have_choices) {
+   else if (!have_choices)
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), FALSE);
-   }
 
-   for (unsigned ear = 0 ; ear < 2 ; ear++) {
-      GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(ear_combo[ear]);
-      gtk_combo_box_text_remove_all(combo);
-      gtk_combo_box_text_append(combo, "", "Muted");
-      gtk_combo_box_text_append(combo, "*", "All streams");
-      if (!count)
-         gtk_combo_box_text_append(combo, "no-streams", "No RX streams connected");
-
-      if (!strcmp(ear_choice[ear], "~")) {
-         gtk_combo_box_text_append(combo, "~", "Custom mix (tab routing)");
-      }
-
-      for (size_t i = 0 ; i < count ; i++) {
-         /* Show the room/path users recognize, not the internal stream UUID or another copy of the site name. IDs remain opaque combo keys. */
-         const char *path = streams[i].room;
-
-         /* Local SDRs share &local-sdr, but each bridge is a distinct VFO. */
-         if (!strcmp(path, "&local-sdr") && !strncmp(streams[i].id, "local.sdr.", 10)) {
-            path = streams[i].id;
-         } else if (*path == '#' || *path == '&') {
-            path++;
-         }
-         char *label = g_strdup(*path ? path : streams[i].server);
-         gtk_combo_box_text_append(combo, streams[i].id, label);
-         g_free(label);
-      }
-
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), count ? ear_choice[ear] : "no-streams");
-      char *label = gtk_combo_box_text_get_active_text(combo);
-      gtk_widget_set_tooltip_text(ear_combo[ear], label);
-      g_free(label);
-   }
-
-   gtk_widget_set_sensitive(ear_combo[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
+   for (unsigned ear = 0; ear < 2; ear++)
+      routing_check_build(ear, streams, count);
+   gtk_widget_set_sensitive(ear_button[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
    gtk_widget_set_sensitive(ear_volume[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
    routing_updating = false;
    have_choices = true;
-
-   /* Showing an already visible window would undo minimization on some WMs. */
    rr_floating_panel_show(routing_panel);
    g_free(streams);
-
    return G_SOURCE_REMOVE;
 }
 
