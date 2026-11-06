@@ -60,6 +60,75 @@ typedef struct bridge_instance {
 
 static bridge_instance *bridges[26];
 
+/* Core publishes a value-only view. GTK never dereferences bridge instances. */
+static GMutex bridge_ui_lock;
+static rr_local_bridge_ui_state_t bridge_ui;
+static char bridge_ui_urls[26][1024];
+static bool bridge_ui_urls_live[26];
+
+static void bridge_publish_ui(void) {
+   rr_local_bridge_ui_state_t state = {0};
+   state.vfo = rrclient_room_active_vfo("&local-sdr");
+   unsigned slot = (unsigned)(state.vfo - 'A');
+   bridge_instance *active = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+   if (active && active->online && active->pid > 0) {
+      state.connected = true;
+      state.frequency_hz = active->frequency_hz;
+      g_strlcpy(state.mode, active->mode, sizeof(state.mode));
+      state.waterfall = (active->caps.flags & RRP_BRIDGE_WATERFALL) != 0;
+      state.min_zoom = active->caps.waterfall_zoom_min;
+      state.max_zoom = active->caps.waterfall_zoom_max;
+   }
+   g_mutex_lock(&bridge_ui_lock);
+   bridge_ui = state;
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+      bridge_instance *b = bridges[i];
+      bridge_ui_urls_live[i] = b && b->pid > 0 && b->url;
+      bridge_ui_urls[i][0] = 0;
+      if (bridge_ui_urls_live[i])
+         g_strlcpy(bridge_ui_urls[i], b->url, sizeof(bridge_ui_urls[i]));
+   }
+   g_mutex_unlock(&bridge_ui_lock);
+}
+bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out) {
+   if (!out) return false;
+   g_mutex_lock(&bridge_ui_lock);
+   *out = bridge_ui;
+   g_mutex_unlock(&bridge_ui_lock);
+   return out->connected;
+}
+bool rrclient_local_bridge_ui_connected(const char *url) {
+   if (!url) return false;
+   bool found = false;
+   g_mutex_lock(&bridge_ui_lock);
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridge_ui_urls_live); i++)
+      if (bridge_ui_urls_live[i] && !strcmp(url, bridge_ui_urls[i])) {
+         found = true;
+         break;
+      }
+   g_mutex_unlock(&bridge_ui_lock);
+   return found;
+}
+bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz) {
+   rr_local_bridge_waterfall_request_t request = {
+      .enabled = enabled, .zoom = zoom, .center_hz = center_hz
+   };
+   rr_event_message_t event = {
+      .name = RRCLIENT_LOCAL_BRIDGE_WATERFALL_REQUEST,
+      .payload = &request, .length = sizeof(request)
+   };
+   event_emit_message(&event);
+   return true; /* Queued; the core validates receiver capabilities. */
+}
+static void bridge_waterfall_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_local_bridge_waterfall_request_t))
+      return;
+   const rr_local_bridge_waterfall_request_t *req = message->payload;
+   rrclient_local_bridge_waterfall_at(req->enabled, req->zoom, req->center_hz);
+}
+
+
 /* The local bridge PCM socket must be drained on the core scheduler, not
  * GTK's global default context: compositor/window activity can stall GTK
  * enough to starve the RX mixer even when the audio worker stays on time.
@@ -91,6 +160,7 @@ static void bridge_core_remove_source(guint id) {
 
 
 static void local_bridge_active_event(void) {
+   bridge_publish_ui();
    char vfo = rrclient_room_active_vfo("&local-sdr");
    unsigned slot = (unsigned)(vfo - 'A');
    bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
@@ -261,6 +331,7 @@ void rrclient_local_bridge_controls_init(void) {
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_ACTIVE_REQUEST, local_bridge_active_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST, local_bridge_lifecycle_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_TUNE_REQUEST, local_bridge_tune_request, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_WATERFALL_REQUEST, bridge_waterfall_request, NULL, "core");
 }
 bool rrclient_local_bridge_connected(const char *url) {
    if (!url) {
@@ -812,11 +883,13 @@ static void bridge_stop(bridge_instance *b) {
       }
    }
    b->pid = 0;
+   bridge_publish_ui();
 
    if (b->slot < G_N_ELEMENTS(bridges) && bridges[b->slot] == b) {
       bridges[b->slot] = NULL;
    }
    local_room_refresh();
+   bridge_publish_ui();
 }
 void rrclient_local_bridge_disconnect_url(const char *url) {
    if (!url) {
@@ -886,6 +959,7 @@ static gboolean poll_local(gpointer unused) {
 
       if (m.type == RRP_BRIDGE_IPC_CAPABILITIES) {
          b->caps = m;
+         bridge_publish_ui();
          event_emit("client.local-bridge.capabilities", NULL, NULL);
       } else if (m.type == RRP_BRIDGE_IPC_RESULT) {
          if (m.request == b->pending) {
@@ -907,10 +981,12 @@ static gboolean poll_local(gpointer unused) {
       } else if (m.type == RRP_BRIDGE_IPC_STATE) {
          bool was_online = b->online;
          b->online = m.available != 0;
+         bridge_publish_ui();
 
          if (b->online) {
             b->frequency_hz = m.frequency_hz;
             g_strlcpy(b->mode, m.mode, sizeof(b->mode));
+            bridge_publish_ui();
             local_bridge_vfo_changed();
          }
 
@@ -1197,6 +1273,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    b->spectrum = spectrum[0];
    b->pid = pid;
    b->url = g_strdup(url);
+   bridge_publish_ui();
    b->config = config;
    audio_local_rx_start(b->stream);
    GSource *watch = g_child_watch_source_new(pid);
