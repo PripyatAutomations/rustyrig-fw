@@ -397,7 +397,7 @@ static gboolean canvas_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       const rr_pipeline_link_t *link = rr_pipeline_graph_link(pipeline->graph, i);
       edges[i] = (rr_gtk_graph_edge_t) {
          .from = link->src, .to = link->dst,
-         .kind = link->kind == RR_PIPELINE_LINK_NORMAL ? RR_GTK_GRAPH_NORMAL : RR_GTK_GRAPH_BYPASS
+         .kind = RR_GTK_GRAPH_NORMAL
       };
    }
    rr_gtk_graph_draw(cr, nodes, count, edges, link_count);
