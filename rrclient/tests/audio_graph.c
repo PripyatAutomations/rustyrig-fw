@@ -27,6 +27,14 @@ int main(void) {
    assert(rr_audio_graph_input(g, "eq") == NULL);
    assert(rr_audio_graph_set_health(g, "sdr", RR_AG_HEALTHY));
    assert(!g_strcmp0(rr_audio_graph_input(g, "eq"), "sdr"));
+   rr_audio_graph_snapshot_t *view = g_new0(rr_audio_graph_snapshot_t, 1);
+   assert(rr_audio_graph_set_route(g, "sdr", 'L'));
+   assert(rr_audio_graph_snapshot(g, view));
+   assert(view->node_count == 4 && view->link_count == 3);
+   assert(!g_strcmp0(view->nodes[0].id, "sdr"));
+   assert(view->nodes[0].route == 'L');
+   assert(view->links[1].kind == RR_AG_BYPASS);
+   g_free(view);
    rr_audio_graph_free(g);
    puts("audio graph bypass selection passed");
    return 0;
