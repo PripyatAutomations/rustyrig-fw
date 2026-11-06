@@ -1309,6 +1309,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!fwdsp_spawn_permitted(sp)) {
       return false;
    }
+   memset(&sp->stats, 0, sizeof(sp->stats));
 
    int in_pipe[2] = {
       -1, -1
