@@ -2332,19 +2332,6 @@ static gboolean vfo_locator_tick(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
-static GtkWidget *shared_tab_context;
-static void shared_tab_context_changed(GtkNotebook *notebook, GtkWidget *page, guint page_num, gpointer unused) {
-   (void)page_num;
-   (void)unused;
-
-   if (!shared_tab_context || !page) {
-      return;
-   }
-   GtkWidget *title = gtk_notebook_get_tab_label(notebook, page);
-   const char *name = GTK_IS_LABEL(title) ? gtk_label_get_text(GTK_LABEL(title)) : NULL;
-   gtk_label_set_text(GTK_LABEL(shared_tab_context), name && *name ? name : "Status");
-}
-
 /* Compact per-selected-server transport rates. Counts wire RX/TX for both IRC and WebSocket; the selection is not tied to the current chat tab. */
 static GtkWidget *status_network_label, *status_server_label;
 static gboolean status_network_tick(gpointer unused) {
@@ -2457,13 +2444,6 @@ bool chat_init(void) {
       status_room_tab->view = chat_textview;
       status_room_tab->entry = chat_entry;
    }
-   shared_tab_context = gtk_label_new("Status");
-   gtk_widget_set_tooltip_text(shared_tab_context, "Current tab; reserved for tab-specific status");
-   gtk_label_set_ellipsize(GTK_LABEL(shared_tab_context), PANGO_ELLIPSIZE_END);
-   gtk_label_set_max_width_chars(GTK_LABEL(shared_tab_context), 12);
-   gtk_widget_set_hexpand(shared_tab_context, FALSE);
-   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), shared_tab_context, FALSE, FALSE, 5);
-   g_signal_connect(main_notebook, "switch-page", G_CALLBACK(shared_tab_context_changed), NULL);
    GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    status_server_label = gtk_label_new("No server");
    gtk_label_set_ellipsize(GTK_LABEL(status_server_label), PANGO_ELLIPSIZE_MIDDLE);
