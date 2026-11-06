@@ -192,10 +192,10 @@ void vfo_controls_fit_width(int width) {
       return;
    }
 
-   /* Frequency always has its own row; only the controls below it reflow. */
-   if (GTK_IS_ORIENTABLE(vfo_controls_row)) {
-      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_controls_row), width < 600 ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
-   }
+   /* The FlowBox owns responsive wrapping and user-defined ordering.
+    * Changing its orientation at a threshold destroys that layout. */
+   if (GTK_IS_FLOW_BOX(vfo_controls_row))
+      gtk_widget_queue_resize(vfo_controls_row);
 }
 
 static rr_event_token_t local_vfo_token;
@@ -416,7 +416,6 @@ GtkWidget *create_vfo_box(void) {
    g_object_add_weak_pointer(G_OBJECT(control_box), (gpointer *) &vfo_layout_box);
 
    vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, FALSE, FALSE, 0);
    vfo_controls_row = gtk_flow_box_new();
    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(vfo_controls_row), GTK_SELECTION_NONE);
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
@@ -431,6 +430,7 @@ GtkWidget *create_vfo_box(void) {
    // FREQ selection
    freq_entry = gtk_freq_entry_new(-1);
    gtk_box_pack_start(GTK_BOX(vfo_tunable_box), freq_entry, TRUE, TRUE, 0);
+   vfo_control_add(vfo_tunable_box, "⋮⋮ Frequency");
 
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
