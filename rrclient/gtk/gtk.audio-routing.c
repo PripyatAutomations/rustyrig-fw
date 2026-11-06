@@ -301,10 +301,14 @@ void gtk_audio_graph_present(void) {
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
-      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
+      gtk_widget_set_hexpand(graph_canvas, TRUE);
+      gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_widget_set_size_request(scroller, 320, 240);
+      gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroller), 240);
+      gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroller), 160);
       gtk_widget_set_hexpand(scroller, TRUE);
       gtk_widget_set_vexpand(scroller, TRUE);
       graph_canvas_update_size();
