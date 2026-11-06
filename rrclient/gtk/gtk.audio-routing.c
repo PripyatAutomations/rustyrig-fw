@@ -2,6 +2,7 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/config.h>
 #include <rrclient/audio.h>
+#include <rrclient/gtk/gtk.graph.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.vol-box.h>
 #include "gtk.audio-routing.h"
@@ -12,6 +13,7 @@ static GtkWidget *routing_window, *split_rx, *ear_combo[2], *ear_volume[2];
 static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
+static GtkWidget *graph_window, *graph_canvas;
 static guint routing_source;
 static rr_event_token_t streams_token, routes_token, show_token, snapshot_token;
 static GArray *routing_cache;
@@ -81,6 +83,66 @@ static gint routing_compare(gconstpointer a, gconstpointer b, gpointer unused) {
    }
 
    return result ? result : strcmp(left->uuid, right->uuid);
+}
+
+/* Initial integrated audio graph view. It renders GTK-owned inventory
+ * snapshots only; fwdsp, mixer and supervisor never run in this window. */
+static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   guint available = routing_cache ? routing_cache->len : 0;
+   guint count = MIN(available, 16u);
+   rr_gtk_graph_node_t nodes[18] = {0};
+   rr_gtk_graph_edge_t edges[17] = {0};
+   gchar labels[16][32] = {{0}};
+   nodes[0] = (rr_gtk_graph_node_t) { .x = 350, .y = 80, .title = "RX mixer", .subtitle = "Core / 16 kHz" };
+   nodes[1] = (rr_gtk_graph_node_t) { .x = 620, .y = 80, .title = "Playback", .subtitle = "fwdsp sink" };
+   edges[0] = (rr_gtk_graph_edge_t) { .from = 0, .to = 1, .kind = RR_GTK_GRAPH_NORMAL };
+   guint edge_count = 1;
+   for (guint i = 0; i < count; i++) {
+      const struct rrclient_rx_stream *stream = &g_array_index(routing_cache, struct rrclient_rx_stream, i);
+      g_strlcpy(labels[i], stream->id, sizeof(labels[i]));
+      nodes[i + 2] = (rr_gtk_graph_node_t) {
+         .x = 25, .y = 20 + i * 108, .title = labels[i], .subtitle = stream->server
+      };
+      if (stream->output != 'M')
+         edges[edge_count++] = (rr_gtk_graph_edge_t) { .from = i + 2, .to = 0, .kind = RR_GTK_GRAPH_NORMAL };
+   }
+   rr_gtk_graph_draw(cr, nodes, count + 2, edges, edge_count);
+   return FALSE;
+}
+static gboolean routing_graph_hide(GtkWidget *widget, GdkEvent *event, gpointer unused) {
+   (void)event;
+   (void)unused;
+   gtk_widget_hide(widget);
+   return TRUE;
+}
+static void routing_graph_show(GtkButton *button, gpointer unused) {
+   (void)button;
+   (void)unused;
+   if (!graph_window) {
+      graph_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+      gtk_window_set_title(GTK_WINDOW(graph_window), "RustyRig Audio Graph");
+      gtk_window_set_default_size(GTK_WINDOW(graph_window), 870, 590);
+      if (GTK_IS_WINDOW(main_window))
+         gtk_window_set_transient_for(GTK_WINDOW(graph_window), GTK_WINDOW(main_window));
+      g_signal_connect(graph_window, "delete-event", G_CALLBACK(routing_graph_hide), NULL);
+      GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+      gtk_container_add(GTK_CONTAINER(graph_window), box);
+      GtkWidget *info = gtk_label_new("Current RX topology (read-only). Amber BYPASS pins are reserved for supervised fallback connections.");
+      gtk_label_set_xalign(GTK_LABEL(info), 0);
+      gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
+      GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+      graph_canvas = gtk_drawing_area_new();
+      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 32 + 108 * MIN(routing_cache ? routing_cache->len : 0u, 16u)));
+      gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
+      gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
+      g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
+   }
+   gtk_widget_show_all(graph_window);
+   if (graph_canvas)
+      gtk_widget_queue_draw(graph_canvas);
 }
 
 static gboolean routing_refresh(gpointer unused) {
@@ -178,6 +240,10 @@ static void routing_snapshot_event(const rr_event_message_t *message, void *unus
    if (snapshot->count)
       g_array_append_vals(routing_cache, snapshot->streams, snapshot->count);
    snapshot_waiting = false;
+   if (graph_canvas) {
+      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 32 + 108 * MIN(routing_cache->len, 16u)));
+      gtk_widget_queue_draw(graph_canvas);
+   }
    if (!routing_source)
       routing_source = g_idle_add(routing_refresh, NULL);
 }
@@ -355,6 +421,10 @@ void gtk_audio_routing_init(void) {
    gtk_box_pack_start(GTK_BOX(gain_row), rx_vol_slider, TRUE, TRUE, 0);
    routing_grid_volume_row(grid, gain_row, 5);
 
+   GtkWidget *graph_button = gtk_button_new_with_label("Audio Graph…");
+   g_signal_connect(graph_button, "clicked", G_CALLBACK(routing_graph_show), NULL);
+   gtk_grid_attach(GTK_GRID(grid), graph_button, 0, 7, 2, 1);
+
    GtkWidget *rig_volume = create_volbox();
    routing_grid_volume_row(grid, rig_volume, 6);
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
@@ -404,6 +474,10 @@ void gtk_audio_routing_init(void) {
 }
 
 void gtk_audio_routing_shutdown(void) {
+   if (graph_window) {
+      gtk_widget_destroy(graph_window);
+      graph_window = graph_canvas = NULL;
+   }
    if (snapshot_token) {
       event_off_token(snapshot_token);
       snapshot_token = 0;
