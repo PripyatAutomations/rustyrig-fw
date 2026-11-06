@@ -48,7 +48,7 @@ typedef struct {
    GtkWidget *source_combo;
    GtkWidget *target_combo;
    GPtrArray *property_entries;
-   gboolean applied;
+   gboolean applied, read_only;
 } editor_t;
 
 static void show_error(editor_t *editor, const gchar *message) {
@@ -427,7 +427,7 @@ static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gp
 
          if (event->x >= node->x && event->x <= node->x + RR_GTK_GRAPH_NODE_W && event->y >= node->y && event->y <= node->y + RR_GTK_GRAPH_NODE_H) {
             editor->selected_node = (gint) i;
-            editor->dragging = TRUE;
+            editor->dragging = !editor->read_only;
             editor->drag_x = event->x - node->x;
             editor->drag_y = event->y - node->y;
             break;
@@ -529,6 +529,7 @@ static void refresh_properties(editor_t *editor) {
       gtk_widget_set_tooltip_text(label, g_param_spec_get_blurb(spec));
       GtkWidget *entry = gtk_entry_new();
       gtk_entry_set_text(GTK_ENTRY(entry), serialized);
+      gtk_editable_set_editable(GTK_EDITABLE(entry), !editor->read_only);
       gtk_widget_set_hexpand(entry, TRUE);
       g_object_set_data_full(G_OBJECT(entry), "rr-property-name", g_strdup(spec->name), g_free);
       g_object_set_data_full(G_OBJECT(entry), "rr-property-original", g_strdup(serialized), g_free);
@@ -945,14 +946,32 @@ static GtkWidget *build_work_area(editor_t *editor) {
 
 static GtkWidget *build_window(editor_t *editor) {
    editor->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(editor->window), "RustyRig GStreamer Pipeline Editor");
+   gtk_window_set_title(GTK_WINDOW(editor->window), editor->read_only ?
+      "RustyRig GStreamer Pipeline Viewer (read-only)" : "RustyRig GStreamer Pipeline Editor");
    gtk_window_set_default_size(GTK_WINDOW(editor->window), 1400, 900);
    g_signal_connect(editor->window, "delete-event", G_CALLBACK(window_delete), editor);
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_set_border_width(GTK_CONTAINER(root), 8);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-   gtk_paned_pack1(GTK_PANED(paned), build_factory_toolbox(editor), FALSE, FALSE);
-   gtk_paned_pack2(GTK_PANED(paned), build_work_area(editor), TRUE, FALSE);
+   GtkWidget *toolbox = build_factory_toolbox(editor);
+   gtk_paned_pack1(GTK_PANED(paned), toolbox, FALSE, FALSE);
+   if (editor->read_only) gtk_widget_set_sensitive(toolbox, FALSE);
+   GtkWidget *work = build_work_area(editor);
+   gtk_paned_pack2(GTK_PANED(paned), work, TRUE, FALSE);
+   if (editor->read_only) {
+      GList *children = gtk_container_get_children(GTK_CONTAINER(work));
+      GtkWidget *header = children ? GTK_WIDGET(children->data) : NULL;
+      if (header && GTK_IS_CONTAINER(header)) {
+         GList *controls = gtk_container_get_children(GTK_CONTAINER(header));
+         for (GList *item = controls; item; item = item->next) {
+            GtkWidget *w = GTK_WIDGET(item->data);
+            if (GTK_IS_BUTTON(w) || (GTK_IS_COMBO_BOX(w) && w != editor->pipeline_combo))
+               gtk_widget_set_sensitive(w, FALSE);
+         }
+         g_list_free(controls);
+      }
+      g_list_free(children);
+   }
    gtk_paned_set_position(GTK_PANED(paned), 300);
    gtk_box_pack_start(GTK_BOX(root), paned, TRUE, TRUE, 0);
    GtkWidget *buttons = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
@@ -965,6 +984,11 @@ static GtkWidget *build_window(editor_t *editor) {
    g_signal_connect(apply, "clicked", G_CALLBACK(apply_clicked), editor);
    gtk_container_add(GTK_CONTAINER(buttons), cancel);
    gtk_container_add(GTK_CONTAINER(buttons), apply);
+   if (editor->read_only) {
+      gtk_button_set_label(GTK_BUTTON(cancel), "Close");
+      gtk_widget_set_no_show_all(apply, TRUE);
+      gtk_widget_hide(apply);
+   }
    gtk_box_pack_start(GTK_BOX(root), buttons, FALSE, FALSE, 0);
    gtk_container_add(GTK_CONTAINER(editor->window), root);
    refresh_pipeline_combo(editor);
@@ -976,11 +1000,14 @@ static GtkWidget *build_window(editor_t *editor) {
 }
 
 int main(int argc, char **argv) {
+   gboolean read_only = argc > 1 && !strcmp(argv[1], "--read-only");
+   if (read_only) { argv++; argc--; }
    gst_init(&argc, &argv);
    gtk_init(&argc, &argv);
    editor_t editor = {
       0
    };
+   editor.read_only = read_only;
    editor.pipelines = g_ptr_array_new_with_free_func(pipeline_entry_free);
    editor.property_entries = g_ptr_array_new();
    GError *error = NULL;
