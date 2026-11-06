@@ -330,7 +330,8 @@ GtkWidget *create_mode_box(void) {
 
       for (GList *cell = cells ; cell ; cell = cell->next) {
          if (GTK_IS_CELL_RENDERER_TEXT(cell->data)) {
-            g_object_set(cell->data, "width-chars", 7, NULL);
+            g_object_set(cell->data, "width-chars", 5,
+                         "ellipsize", PANGO_ELLIPSIZE_END, NULL);
          }
       }
 
