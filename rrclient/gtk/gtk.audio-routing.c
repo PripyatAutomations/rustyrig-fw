@@ -250,6 +250,7 @@ void gtk_audio_graph_present(void) {
       if (!graph_panel)
          return;
       rr_floating_panel_set_close_callback(graph_panel, routing_graph_close, NULL);
+      rr_floating_panel_set_minimizable(graph_panel, FALSE);
       GtkWidget *box = rr_floating_panel_body(graph_panel);
       GtkWidget *info = gtk_label_new("Current RX topology: cyan = left, purple = right; rounded fwdsp blocks open read-only pipelines.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
