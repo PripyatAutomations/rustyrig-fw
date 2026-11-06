@@ -820,12 +820,14 @@ static gboolean panel_overlay_position(GtkOverlay *overlay, GtkWidget *child,
    gint natural_w = 0, natural_h = 0;
    gtk_widget_get_size_request(child, &requested_w, &requested_h);
    gtk_widget_get_preferred_width(child, NULL, &natural_w);
-   gtk_widget_get_preferred_height(child, NULL, &natural_h);
 
    /* A size request is only a GTK minimum, not a maximum. Treat explicit
     * panel widths as the intended allocation, then enforce the viewport. */
    gint width = requested_w > 1 ? requested_w : natural_w;
    width = CLAMP(width, 1, right);
+   /* Once narrowed, a FlowBox can wrap into more rows. Obtain its height
+    * for the constrained width, not the original wide natural width. */
+   gtk_widget_get_preferred_height_for_width(child, width, NULL, &natural_h);
    gint x = gtk_widget_get_margin_start(child);
    gint y = gtk_widget_get_margin_top(child);
    x = CLAMP(x, 0, MAX(0, right - width));
