@@ -11,7 +11,7 @@ typedef enum {
 typedef struct {
    double x, y;
    const char *title, *subtitle;
-   gboolean selected, failed;
+   gboolean selected, failed, bypass_pins;
 } rr_gtk_graph_node_t;
 typedef struct {
    unsigned from, to;
