@@ -234,6 +234,13 @@ static void tab_native_color(GtkNotebook *notebook, GtkWidget *page, guint numbe
    (void)number;
    (void)data;
    GtkWidget *label = gtk_notebook_get_tab_label(notebook, page);
+   if (g_object_get_data(G_OBJECT(page), "rr-tab-hidden")) {
+      if (label) {
+         gtk_widget_set_no_show_all(label, TRUE);
+         gtk_widget_hide(label);
+      }
+      return;
+   }
 
    if (label) {
       if (!GTK_IS_EVENT_BOX(label)) {
