@@ -1,4 +1,5 @@
 #include "gtk.chat-context.h"
+#include "gtk.clock.h"
 //
 // rrclient/gtk/gtk.chat.c: Chat stuff
 //    This is part of rustyrig-fw.
@@ -2452,6 +2453,10 @@ bool chat_init(void) {
    gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_START);
    gtk_label_set_max_width_chars(GTK_LABEL(status_network_label), 33);
    gtk_label_set_xalign(GTK_LABEL(status_network_label), 1.0);
+   /* Docked clock sits after transfer counters and before the Quit button. */
+   GtkWidget *status_clock = gtk_clock_status_new();
+   if (status_clock)
+      gtk_box_pack_start(GTK_BOX(network_row), status_clock, FALSE, FALSE, 5);
    gtk_widget_set_hexpand(network_row, FALSE);
    gtk_widget_set_margin_end(network_row, 42);
    /* The entire notebook lives inside a non-horizontally-scrollable viewport. A wide notebook page can therefore push the toolbar's end past the visible
