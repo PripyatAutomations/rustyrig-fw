@@ -341,6 +341,9 @@ bool gui_init(void) {
    main_notebook = gtk_notebook_new();
    /* The shared status/command toolbar belongs above every notebook page. */
    GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   /* GtkScrolledWindow must never give the complete UI a horizontal
+    * minimum derived from a wide notebook page or transient toolbar text. */
+   gtk_widget_set_size_request(main_content, 1, -1);
    rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    gtk_widget_set_hexpand(rr_main_toolbar, TRUE);
    gtk_widget_set_margin_start(rr_main_toolbar, 4);
@@ -356,6 +359,7 @@ bool gui_init(void) {
    gtk_box_pack_end(GTK_BOX(rr_main_toolbar), quit_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, TRUE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
+   gtk_widget_set_size_request(tabs_wrapper, 1, -1);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
 
    /* Preferred-width queries inside size-allocate can force nested GTK layout recalculation on every resize/focus transition. Keep this diagnostic opt-in;
