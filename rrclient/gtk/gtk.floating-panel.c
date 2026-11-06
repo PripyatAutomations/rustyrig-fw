@@ -8,6 +8,8 @@
 struct rr_floating_panel {
    GtkWidget *frame, *scrim, *body, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top, *menu_minimize, *resize_grip;
    GtkCssProvider *scale_css;
+   GtkWidget *min_width_widget;
+   gboolean fit_content;
    gint zoom;
    void (*zoom_callback)(double, gpointer);
    gpointer zoom_data;
@@ -499,6 +501,15 @@ static gboolean panel_zoom_reset(GtkWidget *widget, GdkEventButton *event, gpoin
    gtk_range_set_value(GTK_RANGE(widget), 0);
    return TRUE;
 }
+static gint panel_minimum_width(RRFloatPanel *p) {
+   if (!p->min_width_widget) return 280;
+   gint minimum = 0;
+   gtk_widget_get_preferred_width(p->min_width_widget, &minimum, NULL);
+   /* The scaled frequency widget plus the dock border and panel chrome. */
+   double scale = MAX(.10, 1.0 + p->zoom / 100.0);
+   return MAX(100, (gint)ceil(minimum * scale) + 24);
+}
+
 static void panel_zoom_changed(GtkRange *range, gpointer data) {
    RRFloatPanel *p = data;
    double old_scale = MAX(.10, 1.0 + p->zoom / 100.0);
@@ -516,12 +527,13 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
    if (p->resizable && !p->rolled && old_width > 1 && old_height > 1) {
       /* Scale the current user-chosen viewport, not its initial default.
        * Clamp it to the overlay; users can still drag the resize handle. */
-      gint max_w = MAX(280, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
+      gint min_w = panel_minimum_width(p);
+      gint max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
          gtk_widget_get_margin_start(p->frame) - 12);
       gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) -
          gtk_widget_get_margin_top(p->frame) - 12);
       gtk_widget_set_size_request(p->frame,
-         CLAMP((gint)round(old_width * scale / old_scale), 280, max_w),
+         CLAMP((gint)round(old_width * scale / old_scale), min_w, max_w),
          CLAMP((gint)round(old_height * scale / old_scale), 180, max_h));
    } else if (!p->resizable && !p->rolled) {
       /* Fixed panels should follow the content's newly computed natural
@@ -750,11 +762,12 @@ static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpo
 }
 static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
    if (!p || !p->resizing) return FALSE;
-   gint max_w = MAX(280, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
+   gint min_w = panel_minimum_width(p);
+   gint max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
       gtk_widget_get_margin_start(p->frame) - 12);
    gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) -
       gtk_widget_get_margin_top(p->frame) - 12);
-   gint w = CLAMP(p->resize_width + (gint)(x_root - p->resize_x), 280, max_w);
+   gint w = CLAMP(p->resize_width + (gint)(x_root - p->resize_x), min_w, max_w);
    gint h = CLAMP(p->resize_height + (gint)(y_root - p->resize_y), 180, max_h);
    gtk_widget_set_size_request(p->frame, w, h);
    return TRUE;
@@ -1050,7 +1063,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    }
    if (!p->ever_shown) {
       p->restoring_state = TRUE;
-      if (p->saved_width > 1 && p->saved_height > 1) {
+      if (!p->fit_content && p->saved_width > 1 && p->saved_height > 1) {
          int max_w = MAX(200, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - 24);
          int max_h = MAX(120, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - 24);
          if (p->rolled)
@@ -1139,6 +1152,22 @@ void rr_floating_panel_set_resizable(RRFloatPanel *p, gboolean resizable) {
       gtk_widget_set_no_show_all(p->resize_grip, !p->resizable);
       gtk_widget_set_visible(p->resize_grip, p->resizable);
    }
+}
+
+void rr_floating_panel_set_min_width_widget(RRFloatPanel *p, GtkWidget *widget) {
+   if (!p) return;
+   if (p->min_width_widget)
+      g_object_remove_weak_pointer(G_OBJECT(p->min_width_widget), (gpointer *)&p->min_width_widget);
+   p->min_width_widget = widget;
+   if (widget)
+      g_object_add_weak_pointer(G_OBJECT(widget), (gpointer *)&p->min_width_widget);
+}
+
+void rr_floating_panel_fit_content(RRFloatPanel *p) {
+   if (!p || !p->frame || p->resizing || p->rolled) return;
+   p->fit_content = TRUE;
+   gtk_widget_set_size_request(p->frame, -1, -1);
+   gtk_widget_queue_resize(p->frame);
 }
 
 void rr_floating_panel_set_zoom_callback(RRFloatPanel *p,
