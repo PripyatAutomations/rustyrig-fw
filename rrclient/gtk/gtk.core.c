@@ -246,7 +246,10 @@ static void frontend_gtk_syslog_clear_owner(void) {
 static void frontend_gtk_focus_tab_owner(const char *tab) {
    GtkWidget *page = NULL;
 
-   if (!strcasecmp(tab, "admin")) {
+   if (!strcasecmp(tab, "explorer") || !strcasecmp(tab, "resource explorer")) {
+      event_emit("client.resources.open", NULL, NULL);
+      return;
+   } else if (!strcasecmp(tab, "admin")) {
       page = admin_tab;
    } else if (!strcasecmp(tab, "config")) {
       page = config_tab;
