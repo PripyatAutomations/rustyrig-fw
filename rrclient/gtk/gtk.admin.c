@@ -1664,7 +1664,7 @@ GtkWidget *init_admin_tab(void) {
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK administration events");
    }
    g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
-   /* Admin is now a separate tool window, not a main notebook page. */
+   /* The main notebook owns this page; the toolbar selects it directly. */
 
    GtkWidget *privileges_page = NULL;
 
@@ -2023,7 +2023,7 @@ GtkWidget *init_admin_tab(void) {
       }
    }
 
-   /* The main window owns and presents this notebook in a standalone window. */
+   /* The parent main notebook presents this tool page without a tab-strip entry. */
    event_emit("client.admin.profile-request", NULL, NULL);
 
    return admin_view;
