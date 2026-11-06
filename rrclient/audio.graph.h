@@ -20,6 +20,7 @@ void rr_audio_graph_free(rr_audio_graph_t *graph);
 bool rr_audio_graph_add_node(rr_audio_graph_t *graph, const char *id, rr_ag_node_type_t type);
 bool rr_audio_graph_add_link(rr_audio_graph_t *graph, const char *src, const char *dst, rr_ag_link_type_t type);
 bool rr_audio_graph_set_health(rr_audio_graph_t *graph, const char *id, rr_ag_health_t health);
+bool rr_audio_graph_set_route(rr_audio_graph_t *graph, const char *id, char route);
 /* Resolve one selected input; NULL means muted/no usable route. The BYPASS
  * input is only selected when the normal source is FAILED, never mixed with it. */
 const char *rr_audio_graph_input(const rr_audio_graph_t *graph, const char *dst);
