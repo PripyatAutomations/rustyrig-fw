@@ -10,6 +10,7 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <stdio.h>
+#include <string.h>
 #include <librustyaxe/core.h>
 extern dict *cfg;
 
@@ -20,6 +21,12 @@ static bool window_state_schema(void) {
    /* Window state is an additive migration, independent of older installed
     * SQL schema files. Session id advances once per successful DB open. */
    if (sqlite3_exec(client_db,
+      "CREATE TABLE IF NOT EXISTS audio_profiles ("
+      "name TEXT PRIMARY KEY COLLATE NOCASE, updated INTEGER NOT NULL);"
+      "CREATE TABLE IF NOT EXISTS audio_profile_routes ("
+      "profile TEXT NOT NULL REFERENCES audio_profiles(name) ON DELETE CASCADE,"
+      "stream_id TEXT NOT NULL, route TEXT NOT NULL,"
+      "PRIMARY KEY(profile,stream_id));"
       "CREATE TABLE IF NOT EXISTS window_states ("
       "id TEXT PRIMARY KEY, x INTEGER NOT NULL, y INTEGER NOT NULL,"
       "width INTEGER NOT NULL, height INTEGER NOT NULL, zoom INTEGER NOT NULL,"
@@ -515,4 +522,70 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
    bool ok = sqlite3_step(q) == SQLITE_DONE;
    sqlite3_finalize(q);
    return ok;
+}
+
+
+bool rrclient_database_audio_profile_save(const char *name, const char *const *ids,
+                                           const char *routes, size_t count) {
+   if (!client_db || !name || !*name || !ids || !routes || count > 128) return false;
+   if (sqlite3_exec(client_db, "SAVEPOINT audio_profile_save", NULL, NULL, NULL) != SQLITE_OK) return false;
+   sqlite3_stmt *q = NULL;
+   bool ok = false;
+   if (sqlite3_prepare_v2(client_db,
+       "INSERT INTO audio_profiles(name,updated) VALUES(?1,strftime('%s','now'))"
+       " ON CONFLICT(name) DO UPDATE SET updated=excluded.updated", -1, &q, NULL) != SQLITE_OK)
+      goto done;
+   sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
+   ok = sqlite3_step(q) == SQLITE_DONE;
+   sqlite3_finalize(q); q = NULL;
+   if (!ok || sqlite3_prepare_v2(client_db,
+       "DELETE FROM audio_profile_routes WHERE profile=?1", -1, &q, NULL) != SQLITE_OK) goto done;
+   sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
+   ok = sqlite3_step(q) == SQLITE_DONE;
+   sqlite3_finalize(q); q = NULL;
+   if (!ok || sqlite3_prepare_v2(client_db,
+       "INSERT INTO audio_profile_routes(profile,stream_id,route) VALUES(?1,?2,?3)",
+       -1, &q, NULL) != SQLITE_OK) goto done;
+   for (size_t i = 0; i < count; i++) {
+      if (!ids[i] || !*ids[i] || !strchr("SLRM", routes[i])) { ok = false; break; }
+      char route[2] = { routes[i], 0 };
+      sqlite3_reset(q);
+      sqlite3_clear_bindings(q);
+      sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(q, 2, ids[i], -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(q, 3, route, -1, SQLITE_TRANSIENT);
+      if (sqlite3_step(q) != SQLITE_DONE) { ok = false; break; }
+   }
+done:
+   sqlite3_finalize(q);
+   if (ok)
+      ok = sqlite3_exec(client_db, "RELEASE audio_profile_save", NULL, NULL, NULL) == SQLITE_OK;
+   if (!ok)
+      sqlite3_exec(client_db, "ROLLBACK TO audio_profile_save; RELEASE audio_profile_save", NULL, NULL, NULL);
+   return ok;
+}
+void rrclient_database_audio_profile_list(void (*cb)(const char *, void *), void *user) {
+   if (!client_db || !cb) return;
+   sqlite3_stmt *q = NULL;
+   if (sqlite3_prepare_v2(client_db, "SELECT name FROM audio_profiles ORDER BY name COLLATE NOCASE",
+       -1, &q, NULL) != SQLITE_OK) return;
+   while (sqlite3_step(q) == SQLITE_ROW)
+      cb((const char *)sqlite3_column_text(q, 0), user);
+   sqlite3_finalize(q);
+}
+void rrclient_database_audio_profile_load(const char *name,
+   void (*cb)(const char *, char, void *), void *user) {
+   if (!client_db || !name || !cb) return;
+   sqlite3_stmt *q = NULL;
+   if (sqlite3_prepare_v2(client_db,
+       "SELECT stream_id,route FROM audio_profile_routes WHERE profile=?1 ORDER BY stream_id",
+       -1, &q, NULL) != SQLITE_OK) return;
+   sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
+   while (sqlite3_step(q) == SQLITE_ROW) {
+      const char *id = (const char *)sqlite3_column_text(q, 0);
+      const char *route = (const char *)sqlite3_column_text(q, 1);
+      if (id && route && route[0] && strchr("SLRM", route[0]))
+         cb(id, route[0], user);
+   }
+   sqlite3_finalize(q);
 }
