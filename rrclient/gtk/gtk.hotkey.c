@@ -308,19 +308,19 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          int page = digit == 0 ? 9 : digit - 1;
 
          if (page < gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_view))) {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_tab), page);
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view), page);
          }
 
          return TRUE;
       }
 
       if (event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left || event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
-         int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_tab));
-         int current = gtk_notebook_get_current_page(GTK_NOTEBOOK(admin_tab));
+         int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_view));
+         int current = gtk_notebook_get_current_page(GTK_NOTEBOOK(admin_view));
          bool previous = event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left;
 
          if (pages > 0) {
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_tab), (current + (previous ? pages - 1 : 1)) % pages);
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view), (current + (previous ? pages - 1 : 1)) % pages);
          }
 
          return TRUE;
