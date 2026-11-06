@@ -3,4 +3,5 @@
 #define RRCLIENT_GTK_AUDIO_ROUTING_H
 void gtk_audio_routing_init(void);
 void gtk_audio_routing_shutdown(void);
+void gtk_audio_graph_present(void);
 #endif
