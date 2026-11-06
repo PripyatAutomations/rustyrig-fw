@@ -8,11 +8,17 @@ typedef enum {
    RR_GTK_GRAPH_NORMAL,
    RR_GTK_GRAPH_BYPASS
 } rr_gtk_graph_edge_kind_t;
+typedef enum {
+   RR_GTK_GRAPH_IO_BOTH = 0,
+   RR_GTK_GRAPH_IO_SOURCE,
+   RR_GTK_GRAPH_IO_SINK
+} rr_gtk_graph_io_t;
 typedef struct {
    double x, y;
    const char *title, *subtitle;
    gboolean selected, failed, bypass_pins;
    gboolean stereo_pins, fwdsp;
+   rr_gtk_graph_io_t io;
 } rr_gtk_graph_node_t;
 typedef enum {
    RR_GTK_GRAPH_PIN_DEFAULT,
