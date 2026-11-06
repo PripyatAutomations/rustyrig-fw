@@ -9,6 +9,7 @@ typedef struct {
 typedef struct {
    guint src, dst;
    rr_ag_link_type_t type;
+   guint8 channels;
 } rr_ag_edge_t;
 struct rr_audio_graph {
    GArray *nodes, *edges;
@@ -62,9 +63,10 @@ static bool graph_reaches(const rr_audio_graph_t *g, guint start, guint target) 
    }
    return false;
 }
-bool rr_audio_graph_add_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type) {
+bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels) {
    gint a = lookup(g, src), b = lookup(g, dst);
-   if (a < 0 || b < 0 || a == b || type > RR_AG_BYPASS || g->edges->len >= 512)
+   if (a < 0 || b < 0 || a == b || type > RR_AG_BYPASS || !channels ||
+       (channels & ~RR_AG_CHANNEL_STEREO) || g->edges->len >= 512)
       return false;
    const rr_ag_node_t *from = &g_array_index(g->nodes, rr_ag_node_t, (guint)a);
    const rr_ag_node_t *to = &g_array_index(g->nodes, rr_ag_node_t, (guint)b);
@@ -80,9 +82,12 @@ bool rr_audio_graph_add_link(rr_audio_graph_t *g, const char *src, const char *d
       if (to->type != RR_AG_MIXER && e->dst == (guint)b && e->type == type)
          return false;
    }
-   rr_ag_edge_t e = { .src = (guint)a, .dst = (guint)b, .type = type };
+   rr_ag_edge_t e = { .src = (guint)a, .dst = (guint)b, .type = type, .channels = (guint8)channels };
    g_array_append_val(g->edges, e);
    return true;
+}
+bool rr_audio_graph_add_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type) {
+   return rr_audio_graph_add_channel_link(g, src, dst, type, RR_AG_CHANNEL_STEREO);
 }
 bool rr_audio_graph_set_health(rr_audio_graph_t *g, const char *id, rr_ag_health_t health) {
    gint index = lookup(g, id);
@@ -130,7 +135,7 @@ bool rr_audio_graph_snapshot(const rr_audio_graph_t *g, rr_audio_graph_snapshot_
    }
    for (guint i = 0; i < g->edges->len; i++) {
       const rr_ag_edge_t *e = &g_array_index(g->edges, rr_ag_edge_t, i);
-      out->links[i] = (rr_ag_view_link_t) { .src = e->src, .dst = e->dst, .kind = e->type };
+      out->links[i] = (rr_ag_view_link_t) { .src = e->src, .dst = e->dst, .kind = e->type, .channels = e->channels };
    }
    return true;
 }
