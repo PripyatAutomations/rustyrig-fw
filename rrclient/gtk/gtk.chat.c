@@ -1288,118 +1288,137 @@ static void room_vfo_title_select(char vfo) {
    dict_free(request);
 }
 
-static void room_vfo_title_menu_activate(GtkMenuItem *item, gpointer unused) {
-   (void)unused;
-   char vfo = (char)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "rr-vfo-id"));
-
-   if (vfo >= 'A' && vfo <= 'Z') {
-      room_vfo_title_select(vfo);
-   }
+/* Each menu entry identifies its chat tab as well as its VFO. Selecting a
+ * remote VFO therefore switches both the operating and conversation context,
+ * rather than sending CAT commands to whichever tab happened to be active. */
+typedef struct {
+   char server[512];
+   char room[128];
+   char vfo;
+} VfoMenuTarget;
+static gboolean room_vfo_tab_has_controls(const GtkRoomTab *tab) {
+   if (!tab || !tab->room[0]) return FALSE;
+   gboolean ephemeral = !g_ascii_strncasecmp(tab->room, "#sdr-", 5) &&
+      strlen(tab->room) == 13;
+   return rrclient_room_tx_control(tab->room) ||
+      ((rrclient_room_vfos(tab->room)[0] || rrclient_room_vfo_mask(tab->room)) &&
+       (rrclient_room_rx_tunable(tab->room) || ephemeral));
 }
-
-static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
-   (void)widget;
-   (void)unused;
-
-   if (!event || event->type != GDK_BUTTON_RELEASE || event->button != GDK_BUTTON_PRIMARY) {
-      return FALSE;
-   }
-
-   if (!room_vfo_title_room[0]) {
-      return FALSE;
-   }
-   uint32_t mask = rrclient_room_vfo_mask(room_vfo_title_room);
-
-   /* Older servers may advertise bindings before the mask is available. */
+static uint32_t room_vfo_available_mask(const char *room) {
+   uint32_t mask = rrclient_room_vfo_mask(room);
    if (!mask) {
-      const char *bindings = rrclient_room_vfos(room_vfo_title_room);
+      const char *bindings = rrclient_room_vfos(room);
       char *copy = g_strdup(bindings ? bindings : "");
       char *save = NULL;
-
-      for (char *part = strtok_r(copy, " \t", &save) ; part ; part = strtok_r(NULL, " \t", &save)) {
+      for (char *part = strtok_r(copy, " \t", &save); part;
+           part = strtok_r(NULL, " \t", &save)) {
          const char *dot = strrchr(part, '.');
-
-         if (dot && !g_ascii_strncasecmp(dot + 1, "vfo_", 4) && dot[5]) {
+         if (dot && !g_ascii_strncasecmp(dot + 1, "vfo_", 4) &&
+             strlen(dot + 1) >= 5) {
             char letter = g_ascii_toupper(dot[5]);
-
-            if (letter >= 'A' && letter <= 'Z') {
+            if (letter >= 'A' && letter <= 'Z')
                mask |= UINT32_C(1) << (letter - 'A');
-            }
          }
       }
-
       g_free(copy);
    }
-   unsigned count = 0;
-
-   for (unsigned i = 0 ; i < 26 ; i++) {
-      if (mask & (UINT32_C(1) << i)) {
-         count++;
-      }
+   /* For older servers with an active VFO but no mask, still offer the
+    * currently selected control instead of presenting an empty dropdown. */
+   if (!mask) {
+      char active = rrclient_room_active_vfo(room);
+      if (active >= 'A' && active <= 'Z')
+         mask = UINT32_C(1) << (active - 'A');
    }
-
-   if (count <= 1) {
-      return count == 1;
+   return mask;
+}
+static void room_vfo_title_menu_activate(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   VfoMenuTarget *target = g_object_get_data(G_OBJECT(item), "rr-vfo-target");
+   if (!target || !main_notebook) return;
+   /* Resolve the page at activation time; tabs may have been closed while
+    * the menu was open, and their GtkRoomTab pointers must not be retained. */
+   GtkNotebook *notebook = GTK_NOTEBOOK(main_notebook);
+   for (gint i = 0, count = gtk_notebook_get_n_pages(notebook); i < count; i++) {
+      GtkWidget *page = gtk_notebook_get_nth_page(notebook, i);
+      GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+      if (!tab || g_strcmp0(tab->server, target->server) ||
+          g_strcmp0(tab->room, target->room)) continue;
+      gtk_notebook_set_current_page(notebook, i);
+      /* The normal page-switch handler has now selected this server and
+       * rebound the shared VFO controls to the chosen rig room. */
+      if (g_strcmp0(room_vfo_title_room, target->room))
+         gtk_chat_update_vfo_controls(tab);
+      room_vfo_title_select(target->vfo);
+      return;
    }
-   /* Even two VFOs get an explicit menu on a short title click. */
+}
+static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)unused;
+   if (!event || event->type != GDK_BUTTON_RELEASE ||
+       event->button != GDK_BUTTON_PRIMARY || !main_notebook)
+      return FALSE;
    GtkWidget *menu = gtk_menu_new();
-   const char active = rrclient_room_active_vfo(room_vfo_title_room);
-
-   for (unsigned i = 0 ; i < 26 ; i++) {
-      if (!(mask & (UINT32_C(1) << i))) {
-         continue;
-      }
-      char letter = (char)('A' + i);
-      const char *uuid = rrclient_media_vfo_uuid(room_vfo_title_room, letter);
-      const dict *freq_property = uuid ? rrclient_object_property(uuid, "frequency") : NULL;
-      const dict *mode_property = uuid ? rrclient_object_property(uuid, "mode") : NULL;
-      long freq = freq_property && dict_get_bool((dict *) freq_property, "property.known", false)
-         ? dict_get_long((dict *) freq_property, "property.value", 0) : 0;
-      const char *mode = mode_property && dict_get_bool((dict *) mode_property, "property.known", false)
-         ? dict_get((dict *) mode_property, "property.value", "---") : "---";
-      char name[128];
-      char local_mode_copy[16] = {0};
-
-      if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
-         rr_local_bridge_ui_state_t local = {0};
-         if (rrclient_local_bridge_ui_state_vfo(letter, &local)) {
-            freq = (long)local.frequency_hz;
-            g_strlcpy(local_mode_copy, local.mode, sizeof(local_mode_copy));
-            mode = local_mode_copy;
+   GtkNotebook *notebook = GTK_NOTEBOOK(main_notebook);
+   guint entries = 0;
+   for (gint page_idx = 0, count = gtk_notebook_get_n_pages(notebook);
+        page_idx < count; page_idx++) {
+      GtkWidget *page = gtk_notebook_get_nth_page(notebook, page_idx);
+      GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+      if (!room_vfo_tab_has_controls(tab)) continue;
+      uint32_t mask = room_vfo_available_mask(tab->room);
+      char active = rrclient_room_active_vfo(tab->room);
+      for (unsigned i = 0; i < 26; i++) {
+         if (!(mask & (UINT32_C(1) << i))) continue;
+         char vfo = (char)('A' + i);
+         gboolean selected = !g_strcmp0(room_vfo_title_room, tab->room) &&
+            vfo == active;
+         const char *uuid = rrclient_media_vfo_uuid(tab->room, vfo);
+         const dict *freq_property = uuid ? rrclient_object_property(uuid, "frequency") : NULL;
+         const dict *mode_property = uuid ? rrclient_object_property(uuid, "mode") : NULL;
+         long freq = freq_property && dict_get_bool((dict *)freq_property, "property.known", false)
+            ? dict_get_long((dict *)freq_property, "property.value", 0) : 0;
+         const char *mode = mode_property && dict_get_bool((dict *)mode_property, "property.known", false)
+            ? dict_get((dict *)mode_property, "property.value", "---") : "---";
+         char local_mode[16] = {0};
+         if (!g_ascii_strcasecmp(tab->room, "&local-sdr")) {
+            rr_local_bridge_ui_state_t local = {0};
+            if (rrclient_local_bridge_ui_state_vfo(vfo, &local)) {
+               freq = (long)local.frequency_hz;
+               g_strlcpy(local_mode, local.mode, sizeof(local_mode));
+               mode = local_mode;
+            }
          }
+         gchar *label = freq > 0
+            ? g_strdup_printf("%s%s / %s — VFO %c — %ld.%03ld kHz — %s",
+                 selected ? "● " : "", tab->server[0] ? tab->server : "Local",
+                 tab->room, vfo, freq / 1000, freq % 1000, mode ? mode : "---")
+            : g_strdup_printf("%s%s / %s — VFO %c",
+                 selected ? "● " : "", tab->server[0] ? tab->server : "Local",
+                 tab->room, vfo);
+         GtkWidget *entry = gtk_menu_item_new_with_label(label);
+         g_free(label);
+         VfoMenuTarget *target = g_new0(VfoMenuTarget, 1);
+         g_strlcpy(target->server, tab->server, sizeof(target->server));
+         g_strlcpy(target->room, tab->room, sizeof(target->room));
+         target->vfo = vfo;
+         g_object_set_data_full(G_OBJECT(entry), "rr-vfo-target", target, g_free);
+         g_signal_connect(entry, "activate", G_CALLBACK(room_vfo_title_menu_activate), NULL);
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu), entry);
+         entries++;
       }
-
-      if (freq > 0) {
-         g_snprintf(name, sizeof(name), "%c VFO %c  —  %ld.%03ld kHz  —  %s", letter == active ? '*' : ' ', letter, freq / 1000, freq % 1000, mode ? mode :
-            "---");
-      } else {
-         g_snprintf(name, sizeof(name), "%c VFO %c  —  ---  —  %s", letter == active ? '*' : ' ', letter, mode ? mode : "---");
-      }
-
-      if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
-         g_snprintf(name, sizeof(name), "%c local.sdr.%c  —  %ld.%03ld kHz  —  %s", letter == active ? '*' : ' ', letter, freq / 1000, freq % 1000, mode ? mode
-            : "---");
-      }
-      GtkWidget *item = gtk_menu_item_new_with_label(name);
-      g_object_set_data(G_OBJECT(item), "rr-vfo-id", GINT_TO_POINTER('A' + i));
-      g_signal_connect(item, "activate", G_CALLBACK(room_vfo_title_menu_activate), NULL);
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
-
+   if (!entries) { gtk_widget_destroy(menu); return FALSE; }
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
-   /* Anchor a 1px rectangle to the actual pointer position. Center the menu horizontally there, with its top just beneath the click. */
    GdkWindow *window = gtk_widget_get_window(widget);
-
    if (window) {
-      GdkRectangle at = {
-         (int)event->x, (int)event->y, 1, 1
-      };
-      gtk_menu_popup_at_rect(GTK_MENU(menu), window, &at, GDK_GRAVITY_SOUTH, GDK_GRAVITY_NORTH, NULL);
+      GdkRectangle at = { (int)event->x, (int)event->y, 1, 1 };
+      gtk_menu_popup_at_rect(GTK_MENU(menu), window, &at,
+         GDK_GRAVITY_SOUTH, GDK_GRAVITY_NORTH, NULL);
    } else {
-      gtk_menu_popup_at_widget(GTK_MENU(menu), widget, GDK_GRAVITY_SOUTH, GDK_GRAVITY_NORTH, NULL);
+      gtk_menu_popup_at_widget(GTK_MENU(menu), widget,
+         GDK_GRAVITY_SOUTH, GDK_GRAVITY_NORTH, NULL);
    }
-
    return TRUE;
 }
 
@@ -1490,19 +1509,10 @@ static void room_vfo_show(const char *name) {
 // query tabs never own radio widgets; creating one per rig would overwrite
 // the GTK module's shared frequency/PTT widget pointers.
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
-   /* A UUID-bound temporary SDR is RX-only even if its capability flags arrive after room-vfo. Do not require the flags to precede the binding. */
-   bool ephemeral_sdr = tab && g_ascii_strncasecmp(tab->room, "#sdr-", 5) == 0 && strlen(tab->room) == 13;
-   bool has_vfos = tab && tab->room[0] &&
-      (rrclient_room_tx_control(tab->room) ||
-         ((rrclient_room_vfos(tab->room)[0] || rrclient_room_vfo_mask(tab->room)) && (rrclient_room_rx_tunable(tab->room) || ephemeral_sdr)));
-
+   gboolean has_vfos = room_vfo_tab_has_controls(tab);
    if (!has_vfos) {
-      room_vfo_title_room[0] = '\0';
-
-      if (room_vfo_panel) {
-         rr_floating_panel_hide(room_vfo_panel);
-      }
-
+      /* An ordinary chat tab changes conversation focus, not the current
+       * operating resource. Keep the VFO panel visible while chatting. */
       return;
    }
    room_vfo_show(tab->room);
