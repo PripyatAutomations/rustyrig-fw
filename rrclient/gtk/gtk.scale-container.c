@@ -22,6 +22,9 @@ static gint rr_scale_dim(gint base, double scale) {
    return (gint)CLAMP(round(base * scale), 0.0, (double)G_MAXINT);
 }
 static void rr_scale_widget(GtkWidget *widget, double scale, GtkCssProvider *css) {
+   /* Custom Cairo canvases maintain their own visual and pointer-coordinate
+    * transforms; scaling their size request again would apply zoom twice. */
+   if (g_object_get_data(G_OBJECT(widget), "rr-scale-exempt")) return;
    if (css && !g_object_get_data(G_OBJECT(widget), "rr-scale-styled")) {
       gtk_style_context_add_provider(gtk_widget_get_style_context(widget),
          GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
