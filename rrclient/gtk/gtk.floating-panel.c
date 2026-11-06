@@ -198,7 +198,7 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    int min_x, min_y, max_x, max_y;
    panel_bounds(p, panel_width, panel_height, &min_x, &min_y, &max_x, &max_y);
 
-   if (p->initial_centered) {
+   if (p->initial_centered && !p->loaded_state) {
       int x = CLAMP((overlay_width - panel_width) / 2, min_x, max_x);
       int y = CLAMP((overlay_height - panel_height) / 2, min_y, max_y);
       gtk_widget_set_margin_start(p->frame, x);
@@ -212,7 +212,7 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       int x = CLAMP(saved->x, min_x, max_x);
       int y = CLAMP(saved->y, min_y, max_y);
 
-      if (panel_position_clear(p, x, y, panel_width, panel_height)) {
+      if (p->loaded_state || panel_position_clear(p, x, y, panel_width, panel_height)) {
          gtk_widget_set_margin_start(p->frame, x);
          gtk_widget_set_margin_top(p->frame, y);
          panel_position_save(p, x, y);
@@ -584,7 +584,9 @@ static void panel_roll(GtkButton *button, gpointer data) {
          gtk_widget_set_size_request(p->frame, p->roll_width, -1);
       }
    } else {
-      gtk_widget_set_size_request(p->frame, -1, -1);
+      gtk_widget_set_size_request(p->frame,
+         p->saved_width > 1 ? p->saved_width : -1,
+         p->saved_height > 1 ? p->saved_height : -1);
    }
 
    if (p->modal) {
@@ -720,6 +722,17 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    floating_panels = g_list_prepend(floating_panels, p);
    p->closable = TRUE;
    p->minimizable = TRUE;
+   rrclient_window_state_t stored = {0};
+   if (rrclient_database_window_load(id, &stored)) {
+      p->loaded_state = TRUE;
+      p->saved_width = CLAMP(stored.width, 0, 8192);
+      p->saved_height = CLAMP(stored.height, 0, 8192);
+      p->zoom = CLAMP(stored.zoom, -100, 200);
+      p->rolled = stored.rolled;
+      p->saved_minimized = stored.minimized;
+      p->pinned = stored.pinned;
+      panel_position_save(p, stored.x, stored.y);
+   }
    p->scrim = gtk_event_box_new();
    /* The scrim must never be revealed by a parent gtk_widget_show_all(). A non-modal scrim covers the notebook and silently eats tab clicks. */
    gtk_widget_set_no_show_all(p->scrim, TRUE);
@@ -775,7 +788,6 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(p->minimize, "clicked", G_CALLBACK(panel_minimize), p);
    g_signal_connect(p->roll, "clicked", G_CALLBACK(panel_roll), p);
    gtk_widget_set_tooltip_text(p->roll, "Roll up panel");
-   p->zoom = 0;
    p->scale_css = gtk_css_provider_new();
    GtkStyleContext *panel_style = gtk_widget_get_style_context(p->frame);
    gtk_style_context_add_class(panel_style, "rr-panel-local-zoom");
@@ -814,7 +826,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
    GtkWidget *zoom = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -100, 200, 5);
-   gtk_range_set_value(GTK_RANGE(zoom), 0);
+   gtk_range_set_value(GTK_RANGE(zoom), p->zoom);
    gtk_widget_set_tooltip_text(zoom, "0 = 100% of normal size; -100 = minimum; +200 = 300%");
    gtk_scale_set_value_pos(GTK_SCALE(zoom), GTK_POS_RIGHT);
    gtk_box_pack_start(GTK_BOX(settings), zoom, FALSE, FALSE, 0);
@@ -856,6 +868,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    p->scale_wrapper = rr_scale_container_new(p->body);
    gtk_box_pack_start(GTK_BOX(panel), p->scale_wrapper, TRUE, TRUE, 0);
+   if (p->zoom)
+      rr_scale_container_set_zoom(p->scale_wrapper, MAX(.10, 1.0 + p->zoom / 100.0));
    p->resize_grip = gtk_event_box_new();
    GtkWidget *resize_icon = gtk_image_new_from_icon_name("view-restore-symbolic", GTK_ICON_SIZE_MENU);
    gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
@@ -962,14 +976,27 @@ gboolean rr_floating_panel_is_minimized(const RRFloatPanel *p) {
 
 void rr_floating_panel_set_initial_centered(RRFloatPanel *p, gboolean centered) {
    if (!p) return;
-   p->initial_centered = centered;
+   p->initial_centered = centered && !p->loaded_state;
    p->initial_positioned = FALSE;
-   p->initial_center_pending = centered;
+   p->initial_center_pending = p->initial_centered;
 }
 
 void rr_floating_panel_show(RRFloatPanel *p) {
    if (!p || p->minimized) {
       return;
+   }
+   if (!p->ever_shown) {
+      p->restoring_state = TRUE;
+      if (p->saved_width > 1 && p->saved_height > 1) {
+         int max_w = MAX(200, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - 24);
+         int max_h = MAX(120, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - 24);
+         if (p->rolled)
+            gtk_widget_set_size_request(p->frame, MIN(p->saved_width, max_w), -1);
+         else
+            gtk_widget_set_size_request(p->frame, MIN(p->saved_width, max_w),
+               MIN(p->saved_height, max_h));
+      }
+      p->ever_shown = TRUE;
    }
    gtk_widget_show_all(p->frame);
 
@@ -980,6 +1007,12 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    }
    panel_chrome(p);
    panel_raise(p);
+   p->restoring_state = FALSE;
+   if (p->saved_minimized && p->minimizable) {
+      p->saved_minimized = FALSE;
+      panel_minimize(NULL, p);
+   }
+   panel_state_save(p);
 }
 
 void rr_floating_panel_destroy(RRFloatPanel *p) {
@@ -989,7 +1022,8 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
 
    floating_panels = g_list_remove(floating_panels, p);
 
-   if (p->frame && gtk_widget_get_visible(p->frame)) {
+   if (p->ever_shown) {
+      panel_state_save(p);
       panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
    }
 
