@@ -425,7 +425,7 @@ static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gp
       for (guint i = 0 ; i < rr_pipeline_graph_node_count(pipeline->graph) ; i++) {
          const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
 
-         if (event->x >= node->x && event->x <= node->x + 150 && event->y >= node->y && event->y <= node->y + 62) {
+         if (event->x >= node->x && event->x <= node->x + RR_GTK_GRAPH_NODE_W && event->y >= node->y && event->y <= node->y + RR_GTK_GRAPH_NODE_H) {
             editor->selected_node = (gint) i;
             editor->dragging = TRUE;
             editor->drag_x = event->x - node->x;
