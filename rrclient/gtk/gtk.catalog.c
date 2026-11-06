@@ -1095,8 +1095,6 @@ static void resource_create(void) {
    if (browser) {
       return;
    }
-   gint selected_page_number = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
-   GtkWidget *selected_page = selected_page_number >= 0 ? gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), selected_page_number) : NULL;
    browser = g_new0(resource_browser, 1);
    browser->enabled_kinds = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    browser->type_checks = g_ptr_array_new();
@@ -1108,13 +1106,19 @@ static void resource_create(void) {
    browser->health_events = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, resource_health_queue_free);
    browser->health_last = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    browser->property_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) dict_free);
+   /* Explorer is a tool window, never a notebook tab. Keep it alive while
+    * hidden so the tree, expansion, and inventory subscriptions survive. */
+   browser->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gtk_window_set_title(GTK_WINDOW(browser->window), "RustyRig Resource Explorer");
+   gtk_window_set_default_size(GTK_WINDOW(browser->window), 1100, 740);
+   gtk_window_set_destroy_with_parent(GTK_WINDOW(browser->window), TRUE);
+   gtk_window_set_transient_for(GTK_WINDOW(browser->window), GTK_WINDOW(main_window));
+   g_signal_connect(browser->window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   gtk_container_add(GTK_CONTAINER(browser->window), browser->page);
    browser->panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
-   /* GtkBox gtk_container_add() defaults to expand=FALSE; the panel must consume the full notebook page or most of Explorer stays blank. */
    gtk_box_pack_start(GTK_BOX(browser->page), browser->panel, TRUE, TRUE, 0);
-   GtkWidget *tab_label = gtk_label_new("Explorer");
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), browser->page, tab_label);
    GtkWidget *box = browser->panel;
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
@@ -1365,14 +1369,6 @@ static void resource_create(void) {
    g_signal_connect(browser->page, "destroy", G_CALLBACK(resource_destroy), browser);
    browser->timer = g_timeout_add_seconds(2, resource_tick, browser);
    gtk_widget_show_all(browser->page);
-
-   if (selected_page) {
-      gint selected_index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), selected_page);
-
-      if (selected_index >= 0) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), selected_index);
-      }
-   }
 }
 
 static void resource_show(const char *event, const void *data, size_t length, rrconn_t *connection, void *unused) {
@@ -1691,6 +1687,6 @@ void gtk_resources_shutdown(void) {
          g_source_remove(browser->zebra_idle);
          browser->zebra_idle = 0;
       }
-      gtk_widget_destroy(browser->page);
+      gtk_widget_destroy(browser->window);
    }
 }
