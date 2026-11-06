@@ -2,9 +2,10 @@
 #include <math.h>
 #include "gtk.floating-panel.h"
 #include "gtk.tabs.h"
+#include "gtk.scale-container.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top, *menu_minimize, *resize_grip;
+   GtkWidget *frame, *scrim, *body, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top, *menu_minimize, *resize_grip;
    GtkCssProvider *scale_css;
    gint zoom;
    void (*zoom_callback)(double, gpointer);
@@ -428,14 +429,10 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
    /* 0 = 100%, -100 = minimum usable 10%, +200 = 300%.
     * Zoom belongs to this panel; unrelated panels are not affected. */
    double scale = MAX(.10, 1.0 + p->zoom / 100.0);
-   char css[420];
-   g_snprintf(css, sizeof(css),
-      ".rr-panel-local-zoom { font-size: %.2fpx; } "
-      ".rr-panel-local-zoom button, .rr-panel-local-zoom entry, "
-      ".rr-panel-local-zoom combobox, .rr-panel-local-zoom spinbutton { "
-      "min-height: %.2fpx; padding: %.2fpx %.2fpx; }",
-      13.0 * scale, 19.0 * scale, 3.0 * scale, 6.0 * scale);
-   gtk_css_provider_load_from_data(p->scale_css, css, -1, NULL);
+   /* Scale only this panel's native widget tree. The header and settings
+    * remain usable even at extreme content zoom levels. */
+   if (p->scale_wrapper)
+      rr_scale_container_set_zoom(p->scale_wrapper, scale);
    if (p->zoom_callback) p->zoom_callback(scale, p->zoom_data);
    if (p->resizable && !p->rolled && old_width > 1 && old_height > 1) {
       /* Scale the current user-chosen viewport, not its initial default.
@@ -827,7 +824,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_container_add(GTK_CONTAINER(p->title_hit), p->title);
    gtk_box_pack_start(GTK_BOX(header), p->title_hit, TRUE, TRUE, 0);
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-   gtk_box_pack_start(GTK_BOX(panel), p->body, TRUE, TRUE, 0);
+   p->scale_wrapper = rr_scale_container_new(p->body);
+   gtk_box_pack_start(GTK_BOX(panel), p->scale_wrapper, TRUE, TRUE, 0);
    p->resize_grip = gtk_event_box_new();
    GtkWidget *resize_icon = gtk_image_new_from_icon_name("view-restore-symbolic", GTK_ICON_SIZE_MENU);
    gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
