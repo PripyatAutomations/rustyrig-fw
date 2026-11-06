@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <rrclient/audio.engine.h>
+#include <rrclient/audio.graph.h>
 #include <rrclient/rrclient.h>
 #include <glib.h>
 #include <stdint.h>
@@ -798,6 +799,35 @@ static void dcc_closed(const char *event, const char *data, rrconn_t *client, vo
       }
    }
 }
+/* Mirror the *existing* mixer topology; the realtime engine remains the
+ * executor until graph-driven process supervision is implemented. */
+static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t count) {
+   rr_audio_graph_t *graph = rr_audio_graph_new();
+   if (!graph) return;
+   rr_audio_graph_add_node(graph, "rx.mix", RR_AG_MIXER);
+   rr_audio_graph_add_node(graph, "sink.client.dsp0", RR_AG_SINK);
+   rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_add_link(graph, "rx.mix", "sink.client.dsp0", RR_AG_NORMAL);
+   for (size_t i = 0; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 2; i++) {
+      const struct rrclient_rx_stream *stream = &streams[i];
+      if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) continue;
+      rr_audio_graph_set_health(graph, stream->id, RR_AG_HEALTHY);
+      rr_audio_graph_set_route(graph, stream->id, stream->output);
+      if (stream->output != 'M')
+         rr_audio_graph_add_link(graph, stream->id, "rx.mix", RR_AG_NORMAL);
+   }
+   rr_audio_graph_snapshot_t *snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
+   if (snapshot && rr_audio_graph_snapshot(graph, snapshot)) {
+      rr_event_message_t event = {
+         .name = RRCLIENT_AUDIO_GRAPH_RESULT,
+         .payload = snapshot, .length = sizeof(*snapshot)
+      };
+      event_emit_message(&event);
+   }
+   g_free(snapshot);
+   rr_audio_graph_free(graph);
+}
 static void audio_snapshot_request(const rr_event_message_t *unused_message, void *unused) {
    (void)unused_message;
    (void)unused;
@@ -808,6 +838,7 @@ static void audio_snapshot_request(const rr_event_message_t *unused_message, voi
    snapshot->count = (uint32_t)count;
    if (count)
       audio_rx_streams(snapshot->streams, count);
+   audio_publish_graph(snapshot->streams, count);
    rr_event_message_t reply = {
       .name = RRCLIENT_AUDIO_SNAPSHOT_RESULT,
       .payload = snapshot, .length = bytes
