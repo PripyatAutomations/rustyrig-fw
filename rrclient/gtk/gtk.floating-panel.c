@@ -16,7 +16,8 @@ struct rr_floating_panel {
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
    gint roll_width, saved_width, saved_height;
-   gboolean saved_minimized, loaded_state, ever_shown, restoring_state;
+   gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
+   rrclient_window_state_t last_saved;
    void (*on_close)(gpointer);
    gpointer close_data;
    void (*on_response)(RRFloatPanel *, gint, gpointer);
@@ -67,9 +68,13 @@ static void panel_state_save(RRFloatPanel *p) {
    if (!p || p->restoring_state || !p->ever_shown || p->modal) return;
    gint w = gtk_widget_get_allocated_width(p->frame);
    gint h = gtk_widget_get_allocated_height(p->frame);
-   if (!p->rolled && !p->minimized && w > 1 && h > 1) {
-      p->saved_width = w;
-      p->saved_height = h;
+   gint requested_w = -1, requested_h = -1;
+   gtk_widget_get_size_request(p->frame, &requested_w, &requested_h);
+   if (!p->rolled && !p->minimized) {
+      if (requested_w > 1) p->saved_width = requested_w;
+      else if (w > 1) p->saved_width = w;
+      if (requested_h > 1) p->saved_height = requested_h;
+      else if (h > 1) p->saved_height = h;
    }
    rrclient_window_state_t state = {
       .x = gtk_widget_get_margin_start(p->frame),
@@ -78,7 +83,16 @@ static void panel_state_save(RRFloatPanel *p) {
       .zoom = p->zoom, .rolled = p->rolled,
       .minimized = p->minimized, .pinned = p->pinned
    };
-   rrclient_database_window_save(p->id, &state);
+   if (p->last_saved_valid &&
+       p->last_saved.x == state.x && p->last_saved.y == state.y &&
+       p->last_saved.width == state.width && p->last_saved.height == state.height &&
+       p->last_saved.zoom == state.zoom && p->last_saved.rolled == state.rolled &&
+       p->last_saved.minimized == state.minimized && p->last_saved.pinned == state.pinned)
+      return;
+   if (rrclient_database_window_save(p->id, &state)) {
+      p->last_saved = state;
+      p->last_saved_valid = TRUE;
+   }
 }
 void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *upper, GtkWidget *upper_extra, GtkWidget *lower, gint right_inset) {
    if (!GTK_IS_OVERLAY(overlay)) {
@@ -563,6 +577,7 @@ static void panel_minimize(GtkButton *button, gpointer data) {
    if (p->minimized || !p->minimizable) {
       return;
    }
+   panel_state_save(p); /* capture full-size geometry before hiding */
    p->restore_tab = gtk_tabs_panel_restore_add(p->tabs, p->id, G_CALLBACK(panel_restore), p);
 
    if (!p->restore_tab) {
@@ -578,6 +593,7 @@ static void panel_roll(GtkButton *button, gpointer data) {
    RRFloatPanel *p = data;
 
    if (!p->rolled) {
+      panel_state_save(p); /* preserve expanded height */
       p->roll_width = gtk_widget_get_allocated_width(p->frame);
 
       if (p->roll_width > 1) {
