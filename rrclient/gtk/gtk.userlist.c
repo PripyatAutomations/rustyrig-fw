@@ -1187,6 +1187,8 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
 
          if (GTK_IS_LABEL(ptt_label)) {
             gtk_label_set_xalign(GTK_LABEL(ptt_label), 0.5);
+            gtk_label_set_ellipsize(GTK_LABEL(ptt_label), PANGO_ELLIPSIZE_END);
+            gtk_label_set_max_width_chars(GTK_LABEL(ptt_label), 7);
          }
       }
       gtk_widget_set_size_request(freq, 72, -1);
