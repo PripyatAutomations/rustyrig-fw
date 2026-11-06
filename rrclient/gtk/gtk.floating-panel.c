@@ -312,6 +312,21 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
 static void panel_initial_allocation(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
+   /* A resized, zoomed or reflowed VFO must not retain a position that
+    * leaves its right edge behind the notebook/overlay boundary. */
+   if (p->min_width_widget && !p->dragging && !p->resizing &&
+       gtk_widget_get_visible(p->frame) && allocation->width > 1) {
+      int overlay_w = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
+      int inset = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
+      if (overlay_w > 1) {
+         int x = gtk_widget_get_margin_start(p->frame);
+         int max_x = MAX(0, overlay_w - inset - allocation->width);
+         if (x > max_x) {
+            gtk_widget_set_margin_start(p->frame, max_x);
+            panel_position_save(p, max_x, gtk_widget_get_margin_top(p->frame));
+         }
+      }
+   }
    if (!p->initial_center_pending || !p->initial_positioned || p->dragging ||
        !gtk_widget_get_visible(p->frame) || allocation->width <= 1 || allocation->height <= 1)
       return;
@@ -505,9 +520,9 @@ static gint panel_minimum_width(RRFloatPanel *p) {
    if (!p->min_width_widget) return 280;
    gint minimum = 0;
    gtk_widget_get_preferred_width(p->min_width_widget, &minimum, NULL);
-   /* The scaled frequency widget plus the dock border and panel chrome. */
-   double scale = MAX(.10, 1.0 + p->zoom / 100.0);
-   return MAX(100, (gint)ceil(minimum * scale) + 24);
+   /* The frequency widget's GTK requisition already includes panel zoom.
+    * Applying the scale again made the VFO wider than the overlay. */
+   return MAX(100, minimum + 24);
 }
 
 static void panel_zoom_changed(GtkRange *range, gpointer data) {
@@ -1171,7 +1186,21 @@ void rr_floating_panel_set_min_width_widget(RRFloatPanel *p, GtkWidget *widget) 
 void rr_floating_panel_fit_content(RRFloatPanel *p) {
    if (!p || !p->frame || p->resizing || p->rolled) return;
    p->fit_content = TRUE;
+   /* Discard the previous wide request before measuring the contents. */
    gtk_widget_set_size_request(p->frame, -1, -1);
+   if (p->min_width_widget) {
+      gint minimum = 0, natural = 0;
+      gtk_widget_get_preferred_width(p->frame, &minimum, &natural);
+      gint overlay_w = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
+      gint inset = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
+      gint available = MAX(1, overlay_w - inset);
+      if (overlay_w > 1) {
+         /* GTK FlowBox may report an all-in-one-row natural width.
+          * Cap that width to the viewport; it will wrap the docked groups. */
+         gint width = MIN(MAX(minimum, natural), available);
+         gtk_widget_set_size_request(p->frame, width, -1);
+      }
+   }
    gtk_widget_queue_resize(p->frame);
 }
 
