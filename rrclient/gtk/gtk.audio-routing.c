@@ -18,7 +18,8 @@ static gboolean ear_all[2];
 static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
-static GtkWidget *graph_window, *graph_canvas;
+static RRFloatPanel *graph_panel;
+static GtkWidget *graph_canvas;
 static guint routing_source;
 static guint routing_watchdog_source;
 static gint64 snapshot_sent_at;
@@ -235,28 +236,28 @@ static void routing_graph_button_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    gtk_audio_graph_present();
 }
-static gboolean routing_graph_hide(GtkWidget *widget, GdkEvent *event, gpointer unused) {
-   (void)event;
+static void routing_graph_close(gpointer unused) {
    (void)unused;
-   gtk_widget_hide(widget);
-   return TRUE;
+   if (graph_panel)
+      rr_floating_panel_hide(graph_panel);
 }
 void gtk_audio_graph_present(void) {
-   if (!graph_window) {
-      graph_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-      gtk_window_set_title(GTK_WINDOW(graph_window), "RustyRig Audio Graph");
-      gtk_window_set_default_size(GTK_WINDOW(graph_window), 870, 590);
-      if (GTK_IS_WINDOW(main_window))
-         gtk_window_set_transient_for(GTK_WINDOW(graph_window), GTK_WINDOW(main_window));
-      g_signal_connect(graph_window, "delete-event", G_CALLBACK(routing_graph_hide), NULL);
-      GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-      gtk_container_add(GTK_CONTAINER(graph_window), box);
+   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook))
+      return;
+   if (!graph_panel) {
+      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
+         GTK_NOTEBOOK(main_notebook), "Audio Graph", "Audio Graph");
+      if (!graph_panel)
+         return;
+      rr_floating_panel_set_close_callback(graph_panel, routing_graph_close, NULL);
+      GtkWidget *box = rr_floating_panel_body(graph_panel);
       GtkWidget *info = gtk_label_new("Current RX topology: cyan = left, purple = right; rounded fwdsp blocks open read-only pipelines.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
       graph_canvas = gtk_drawing_area_new();
+      gtk_widget_set_size_request(scroller, 640, 390);
       gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 36 + 140 * MIN(routing_cache ? routing_cache->len : 0u, 32u)));
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
@@ -264,7 +265,8 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
       g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
    }
-   gtk_widget_show_all(graph_window);
+   rr_floating_panel_restore(graph_panel);
+   rr_floating_panel_show(graph_panel);
    routing_queue(); /* Request an up-to-date core graph, not a stale UI cache. */
    if (graph_canvas)
       gtk_widget_queue_draw(graph_canvas);
@@ -662,9 +664,10 @@ void gtk_audio_routing_shutdown(void) {
       graph_token = 0;
    }
    g_clear_pointer(&graph_snapshot, g_free);
-   if (graph_window) {
-      gtk_widget_destroy(graph_window);
-      graph_window = graph_canvas = NULL;
+   if (graph_panel) {
+      rr_floating_panel_destroy(graph_panel);
+      graph_panel = NULL;
+      graph_canvas = NULL;
    }
    if (snapshot_token) {
       event_off_token(snapshot_token);
