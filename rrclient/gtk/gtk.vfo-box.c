@@ -318,6 +318,7 @@ static void vfo_dock_style(void) {
       ".rr-vfo-group.rr-vfo-moving { border-color: #66caff; background-color: rgba(80,180,255,.17); }"
       ".rr-vfo-group.rr-vfo-before { border-left: 4px solid #48c5ff; }"
       ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
+      ".rr-vfo-group.rr-vfo-shift { background-color: rgba(60,180,240,.10); box-shadow: inset 0 0 0 1px #479bd0; }"
       ".rr-vfo-grip { color: #8bbbd1; font-size: 10px; padding: 0 4px; }", -1, NULL);
 }
 static void vfo_clear_drop(GtkWidget *child) {
@@ -325,6 +326,7 @@ static void vfo_clear_drop(GtkWidget *child) {
    GtkStyleContext *ctx = gtk_widget_get_style_context(child);
    gtk_style_context_remove_class(ctx, "rr-vfo-before");
    gtk_style_context_remove_class(ctx, "rr-vfo-after");
+   gtk_style_context_remove_class(ctx, "rr-vfo-shift");
 }
 static void vfo_drag_begin(GtkWidget *handle, GdkDragContext *context, gpointer unused) {
    (void)context; (void)unused;
@@ -352,6 +354,25 @@ static void vfo_drag_data_get(GtkWidget *widget, GdkDragContext *context,
    gtk_selection_data_set(selection, gdk_atom_intern_static_string(vfo_drag_target[0].target),
                           8, (const guchar *)value, sizeof(value) - 1);
 }
+static void vfo_preview_shift(GtkWidget *target, gboolean after) {
+   if (!GTK_IS_CONTAINER(vfo_controls_row)) return;
+   GList *children = gtk_container_get_children(GTK_CONTAINER(vfo_controls_row));
+   gint from = g_list_index(children, vfo_dragging_child);
+   gint to = g_list_index(children, target);
+   if (after) to++;
+   if (from >= 0 && from < to) to--;
+   gint index = 0;
+   for (GList *it = children; it; it = it->next, index++) {
+      GtkWidget *child = it->data;
+      GtkStyleContext *ctx = gtk_widget_get_style_context(child);
+      gboolean shifts = child != vfo_dragging_child &&
+         ((from < to && index > from && index <= to) ||
+          (from > to && index >= to && index < from));
+      if (shifts) gtk_style_context_add_class(ctx, "rr-vfo-shift");
+      else gtk_style_context_remove_class(ctx, "rr-vfo-shift");
+   }
+   g_list_free(children);
+}
 static gboolean vfo_drop_after(GtkWidget *child, gint x) {
    return x >= gtk_widget_get_allocated_width(child) / 2;
 }
@@ -366,6 +387,7 @@ static gboolean vfo_drag_motion(GtkWidget *child, GdkDragContext *context,
    GtkStyleContext *ctx = gtk_widget_get_style_context(child);
    gtk_style_context_remove_class(ctx, after ? "rr-vfo-before" : "rr-vfo-after");
    gtk_style_context_add_class(ctx, after ? "rr-vfo-after" : "rr-vfo-before");
+   vfo_preview_shift(child, after);
    gdk_drag_status(context, GDK_ACTION_MOVE, time);
    return TRUE;
 }
