@@ -12,7 +12,9 @@
 #include "gtk.floating-panel.h"
 extern GtkWidget *main_notebook;
 
-static GtkWidget *routing_window, *split_rx, *ear_combo[2], *ear_volume[2];
+static GtkWidget *routing_window, *split_rx, *ear_button[2], *ear_list[2], *ear_volume[2];
+static GHashTable *ear_selected[2];
+static gboolean ear_all[2];
 static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
@@ -25,58 +27,56 @@ static rr_audio_graph_snapshot_t *graph_snapshot;
 static GArray *routing_cache;
 static bool snapshot_waiting, routing_explicit_show;
 static bool routing_updating, inventory_dirty, have_choices;
-/* Empty = muted, * = all streams, ~ = existing custom mix. Otherwise opaque ID. */
-static char ear_choice[2][64];
-
+/* Ear selections are sets of stream IDs; a stream may be in both ears. */
 static struct rrclient_rx_stream *routing_snapshot(size_t *count) {
    *count = routing_cache ? routing_cache->len : 0;
    struct rrclient_rx_stream *streams = g_new0(struct rrclient_rx_stream, *count);
-   if (*count)
-      memcpy(streams, routing_cache->data, *count * sizeof(*streams));
+   if (*count) memcpy(streams, routing_cache->data, *count * sizeof(*streams));
    return streams;
 }
-
-static bool routing_ear_matches(const char *choice, const struct rrclient_rx_stream *stream, bool right) {
-   if (!strcmp(choice, "~")) {
-      return stream->output == 'S' || stream->output == (right ? 'R' : 'L');
-   }
-
-   return !strcmp(choice, "*") || !strcmp(choice, stream->id);
+static gboolean routing_ear_has(unsigned ear, const char *id) {
+   return ear_selected[ear] && g_hash_table_contains(ear_selected[ear], id);
 }
-
+static void routing_ear_set(unsigned ear, const char *id, gboolean enabled) {
+   if (!ear_selected[ear]) return;
+   if (enabled) g_hash_table_add(ear_selected[ear], g_strdup(id));
+   else g_hash_table_remove(ear_selected[ear], id);
+}
+static void routing_ear_copy(unsigned dst, unsigned src) {
+   if (!ear_selected[dst] || !ear_selected[src]) return;
+   g_hash_table_remove_all(ear_selected[dst]);
+   GHashTableIter iter;
+   gpointer key;
+   g_hash_table_iter_init(&iter, ear_selected[src]);
+   while (g_hash_table_iter_next(&iter, &key, NULL))
+      g_hash_table_add(ear_selected[dst], g_strdup(key));
+   ear_all[dst] = ear_all[src];
+}
 static void routing_apply(struct rrclient_rx_stream *streams, size_t count) {
    routing_updating = true;
-
-   for (size_t i = 0 ; i < count ; i++) {
-      bool left = routing_ear_matches(ear_choice[0], &streams[i], false);
-      bool right = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))
-         ? routing_ear_matches(ear_choice[1], &streams[i], true) : left;
+   gboolean split = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx));
+   for (size_t i = 0; i < count; i++) {
+      gboolean left = ear_all[0] || routing_ear_has(0, streams[i].id);
+      gboolean right = split ? (ear_all[1] || routing_ear_has(1, streams[i].id)) : left;
       char output = left ? (right ? 'S' : 'L') : (right ? 'R' : 'M');
-      audio_request_rx_stream_route(streams[i].id, output);
+      if (output != streams[i].output)
+         audio_request_rx_stream_route(streams[i].id, output);
       streams[i].output = output;
    }
-
    routing_updating = false;
 }
-
-static void routing_read_ear(const struct rrclient_rx_stream *streams, size_t count, unsigned ear) {
-   size_t audible = 0;
-   const char *id = "";
-
-   for (size_t i = 0 ; i < count ; i++) {
-      if (streams[i].output == 'S' || streams[i].output == (ear ? 'R' : 'L')) {
-         audible++;
-         id = streams[i].id;
+static void routing_read_ears(const struct rrclient_rx_stream *streams, size_t count) {
+   for (unsigned ear = 0; ear < 2; ear++) {
+      g_hash_table_remove_all(ear_selected[ear]);
+      size_t selected = 0;
+      for (size_t i = 0; i < count; i++) {
+         if (streams[i].output == 'S' || streams[i].output == (ear ? 'R' : 'L')) {
+            routing_ear_set(ear, streams[i].id, TRUE);
+            selected++;
+         }
       }
+      ear_all[ear] = count && selected == count;
    }
-
-   /* Keep a specific stream selected when it is temporarily the only stream. */
-   if (audible > 1) {
-      id = audible == count ? "*" : "~";
-   } else if (audible == 1 && !strcmp(ear_choice[ear], "*")) {
-      id = "*";
-   }
-   g_strlcpy(ear_choice[ear], id, sizeof(ear_choice[ear]));
 }
 
 static gint routing_compare(gconstpointer a, gconstpointer b, gpointer unused) {
