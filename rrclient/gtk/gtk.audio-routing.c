@@ -15,7 +15,7 @@ static RRFloatPanel *routing_panel;
 static guint routing_source;
 static rr_event_token_t streams_token, routes_token, show_token, snapshot_token;
 static GArray *routing_cache;
-static bool snapshot_waiting;
+static bool snapshot_waiting, routing_explicit_show;
 static bool routing_updating, inventory_dirty, have_choices;
 /* Empty = muted, * = all streams, ~ = existing custom mix. Otherwise opaque ID. */
 static char ear_choice[2][64];
@@ -89,12 +89,12 @@ static gboolean routing_refresh(gpointer unused) {
    size_t count;
    struct rrclient_rx_stream *streams = routing_snapshot(&count);
 
-   if (!count) {
-      rr_floating_panel_hide(routing_panel);
+   /* A temporary empty inventory is not a reason to close the controls.
+    * In particular, the first snapshot can arrive before any RX streams. */
+   if (!count && !routing_explicit_show && !gtk_widget_get_visible(routing_window)) {
       have_choices = false;
       inventory_dirty = false;
       g_free(streams);
-
       return G_SOURCE_REMOVE;
    }
 
@@ -124,6 +124,8 @@ static gboolean routing_refresh(gpointer unused) {
       gtk_combo_box_text_remove_all(combo);
       gtk_combo_box_text_append(combo, "", "Muted");
       gtk_combo_box_text_append(combo, "*", "All streams");
+      if (!count)
+         gtk_combo_box_text_append(combo, "no-streams", "No RX streams connected");
 
       if (!strcmp(ear_choice[ear], "~")) {
          gtk_combo_box_text_append(combo, "~", "Custom mix (tab routing)");
@@ -144,7 +146,7 @@ static gboolean routing_refresh(gpointer unused) {
          g_free(label);
       }
 
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), ear_choice[ear]);
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), count ? ear_choice[ear] : "no-streams");
       char *label = gtk_combo_box_text_get_active_text(combo);
       gtk_widget_set_tooltip_text(ear_combo[ear], label);
       g_free(label);
@@ -275,8 +277,10 @@ static void routing_show_event(const char *event, const char *data, rrconn_t *co
    (void)context;
 
    if (routing_panel) {
+      routing_explicit_show = true;
       rr_floating_panel_restore(routing_panel);
       rr_floating_panel_show(routing_panel);
+      routing_queue();
    }
 }
 
@@ -409,6 +413,7 @@ void gtk_audio_routing_shutdown(void) {
       routing_cache = NULL;
    }
    snapshot_waiting = false;
+   routing_explicit_show = false;
    if (show_token) {
       event_off_token(show_token);
       show_token = 0;
