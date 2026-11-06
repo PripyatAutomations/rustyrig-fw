@@ -32,6 +32,7 @@ struct bridge_host {
    const rrp_sdr_driver_t *api;
    void *instance;
    rrp_bridge_ipc_message_t caps;
+   uint64_t stats_ipc_in, stats_ipc_out, stats_pcm_bytes, stats_pcm_frames, stats_errors;
 };
 static void message(struct bridge_host *host, rrp_bridge_ipc_message_t *m, uint32_t type) {
    rrp_bridge_ipc_init(m, type);
@@ -41,7 +42,10 @@ static void message(struct bridge_host *host, rrp_bridge_ipc_message_t *m, uint3
 static void send_message(struct bridge_host *host, const rrp_bridge_ipc_message_t *m) {
    // No unbounded output queue. A stalled parent forces a clean reconnect.
    if (!rrp_bridge_ipc_send(RRP_BRIDGE_IPC_FD, m)) {
+      host->stats_errors++;
       host->failed = true;
+   } else {
+      host->stats_ipc_out++;
    }
 }
 
@@ -86,7 +90,11 @@ static void audio(void *user, const int16_t *samples, size_t count, unsigned rat
    struct bridge_host *host = user;
 
    if (rrp_bridge_media_send(RRP_BRIDGE_MEDIA_FD, samples, count, rate) < 0) {
+      host->stats_errors++;
       host->failed = true;
+   } else {
+      host->stats_pcm_frames++;
+      host->stats_pcm_bytes += count * sizeof(*samples);
    }
 }
 static void metadata(void *user, const char *key, const char *value) {
@@ -333,9 +341,11 @@ int main(int argc, char **argv) {
             }
 
             if (got < 0 || strcmp(command.name, name) || strcmp(command.driver, driver_name)) {
+               host.stats_errors++;
                host.failed = true;
                break;
             }
+            host.stats_ipc_in++;
 
             if (command.type == RRP_BRIDGE_IPC_SHUTDOWN) {
                goto finished;
@@ -372,6 +382,17 @@ int main(int argc, char **argv) {
          uint64_t current = mono_us();
 
          if (current - heartbeat >= 1000000) {
+            /* Private supervisor counters: never exported as receiver
+             * catalog metadata. No per-packet logging or additional threads. */
+            char counters[192];
+            snprintf(counters, sizeof(counters),
+               "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu",
+               (unsigned long long)host.stats_ipc_in,
+               (unsigned long long)host.stats_ipc_out,
+               (unsigned long long)host.stats_pcm_bytes,
+               (unsigned long long)host.stats_pcm_frames,
+               (unsigned long long)host.stats_errors);
+            metadata(&host, "_rr_stats", counters);
             message(&host, &m, RRP_BRIDGE_IPC_HEARTBEAT);
             send_message(&host, &m);
             heartbeat = current;
