@@ -454,13 +454,21 @@ static gboolean panel_scrim_press(GtkWidget *widget, GdkEventButton *event, gpoi
 static void panel_minimize(GtkButton *button, gpointer data);
 static void panel_roll(GtkButton *button, gpointer data);
 static void panel_close(GtkButton *button, gpointer data);
+/* Double-click anywhere on the panel's zoom slider to restore 1:1. */
+static gboolean panel_zoom_reset(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)data;
+   if (event->button != GDK_BUTTON_PRIMARY || event->type != GDK_2BUTTON_PRESS)
+      return FALSE;
+   gtk_range_set_value(GTK_RANGE(widget), 0);
+   return TRUE;
+}
 static void panel_zoom_changed(GtkRange *range, gpointer data) {
    RRFloatPanel *p = data;
    double old_scale = MAX(.10, 1.0 + p->zoom / 100.0);
    gint old_width = gtk_widget_get_allocated_width(p->frame);
    gint old_height = gtk_widget_get_allocated_height(p->frame);
    p->zoom = (gint)gtk_range_get_value(range);
-   /* 0 = 100%, -100 = minimum usable 10%, +200 = 300%.
+   /* 0 = 100%, -100 = minimum usable 10%, +100 = 200%.
     * Zoom belongs to this panel; unrelated panels are not affected. */
    double scale = MAX(.10, 1.0 + p->zoom / 100.0);
    /* Scale only this panel's native widget tree. The header and settings
@@ -743,7 +751,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
       p->loaded_state = TRUE;
       p->saved_width = CLAMP(stored.width, 0, 8192);
       p->saved_height = CLAMP(stored.height, 0, 8192);
-      p->zoom = CLAMP(stored.zoom, -100, 200);
+      p->zoom = CLAMP(stored.zoom, -100, 100);
       p->rolled = stored.rolled;
       p->saved_minimized = stored.minimized;
       p->pinned = stored.pinned;
@@ -841,12 +849,14 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    GtkWidget *label = gtk_label_new("Zoom");
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
-   GtkWidget *zoom = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -100, 200, 5);
+   GtkWidget *zoom = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -100, 100, 5);
    gtk_range_set_value(GTK_RANGE(zoom), p->zoom);
-   gtk_widget_set_tooltip_text(zoom, "0 = 100% of normal size; -100 = minimum; +200 = 300%");
+   gtk_widget_set_tooltip_text(zoom, "0 = 100% normal size; -100 = minimum (10%); +100 = 200%; double-click to reset");
    gtk_scale_set_value_pos(GTK_SCALE(zoom), GTK_POS_RIGHT);
    gtk_box_pack_start(GTK_BOX(settings), zoom, FALSE, FALSE, 0);
    g_signal_connect(zoom, "value-changed", G_CALLBACK(panel_zoom_changed), p);
+   gtk_widget_add_events(zoom, GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(zoom, "button-press-event", G_CALLBACK(panel_zoom_reset), p);
    label = gtk_label_new("Opacity");
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
