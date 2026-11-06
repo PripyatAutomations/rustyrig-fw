@@ -357,7 +357,14 @@ static void tabs_reordered(GtkNotebook *notebook, GtkWidget *page, guint number,
       if (g_object_get_data(G_OBJECT(button), "rr-panel-restore")) {
          continue;
       }
-      int index = gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(button), "rr-tab-page")) + 1;
+      GtkWidget *target = g_object_get_data(G_OBJECT(button), "rr-tab-page");
+      int index = 0;
+      for (int i = 0; i < gtk_notebook_get_n_pages(notebook); i++) {
+         GtkWidget *candidate = gtk_notebook_get_nth_page(notebook, i);
+         if (g_object_get_data(G_OBJECT(candidate), "rr-tab-hidden")) continue;
+         index++;
+         if (candidate == target) break;
+      }
       GtkLabel *label = g_object_get_data(G_OBJECT(button), "rr-tab-number");
       char markup[48];
 
@@ -449,6 +456,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
 
    for (int i = 0 ; i < gtk_notebook_get_n_pages(notebook) ; i++) {
       GtkWidget *child = gtk_notebook_get_nth_page(notebook, i);
+      if (g_object_get_data(G_OBJECT(child), "rr-tab-hidden")) continue;
       GtkWidget *source = gtk_notebook_get_tab_label(notebook, child);
       GtkWidget *button = gtk_toggle_button_new();
       GtkWidget *label = gtk_label_new(NULL);
@@ -629,28 +637,40 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    return box;
 }
 
-/* All numbered and relative navigation follows the same reordered pages. */
+/* Numeric shortcuts and relative navigation only traverse visible tabs.
+ * Hidden Admin/Config pages remain selectable by the toolbar or by name. */
 gboolean gtk_tabs_select(GtkNotebook *notebook, int number) {
-   if (!notebook || number < 1 || number > gtk_notebook_get_n_pages(notebook)) {
-      return FALSE;
+   if (!notebook || number < 1) return FALSE;
+   for (int i = 0; i < gtk_notebook_get_n_pages(notebook); i++) {
+      GtkWidget *page = gtk_notebook_get_nth_page(notebook, i);
+      if (g_object_get_data(G_OBJECT(page), "rr-tab-hidden")) continue;
+      if (--number == 0) {
+         gtk_notebook_set_current_page(notebook, i);
+         return TRUE;
+      }
    }
-   gtk_notebook_set_current_page(notebook, number - 1);
-
-   return TRUE;
+   return FALSE;
 }
 
 gboolean gtk_tabs_step(GtkNotebook *notebook, int direction) {
-   if (!notebook) {
+   if (!notebook) return FALSE;
+   GArray *visible = g_array_new(FALSE, FALSE, sizeof(int));
+   int current = gtk_notebook_get_current_page(notebook), selected = -1;
+   for (int i = 0; i < gtk_notebook_get_n_pages(notebook); i++) {
+      GtkWidget *page = gtk_notebook_get_nth_page(notebook, i);
+      if (g_object_get_data(G_OBJECT(page), "rr-tab-hidden")) continue;
+      if (i == current) selected = (int)visible->len;
+      g_array_append_val(visible, i);
+   }
+   if (!visible->len) {
+      g_array_free(visible, TRUE);
       return FALSE;
    }
-   int count = gtk_notebook_get_n_pages(notebook);
-
-   if (count < 1) {
-      return FALSE;
-   }
-   int current = gtk_notebook_get_current_page(notebook);
-
-   return gtk_tabs_select(notebook, (current + (direction < 0 ? count - 1 : 1)) % count + 1);
+   int target = selected < 0 ? (direction < 0 ? (int)visible->len - 1 : 0) :
+      (selected + (direction < 0 ? (int)visible->len - 1 : 1)) % (int)visible->len;
+   gtk_notebook_set_current_page(notebook, g_array_index(visible, int, target));
+   g_array_free(visible, TRUE);
+   return TRUE;
 }
 
 /* A minimized floating panel is a restore action at the end of the tab strip, not a notebook page (so it never steals a chat tab/shortcut). */
