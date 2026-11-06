@@ -3,6 +3,7 @@
 #include "gtk.floating-panel.h"
 #include "gtk.tabs.h"
 #include "gtk.scale-container.h"
+#include <rrclient/database.h>
 
 struct rr_floating_panel {
    GtkWidget *frame, *scrim, *body, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top, *menu_minimize, *resize_grip;
@@ -14,7 +15,8 @@ struct rr_floating_panel {
    GtkNotebook *tabs;
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
-   gint roll_width;
+   gint roll_width, saved_width, saved_height;
+   gboolean saved_minimized, loaded_state, ever_shown, restoring_state;
    void (*on_close)(gpointer);
    gpointer close_data;
    void (*on_response)(RRFloatPanel *, gint, gpointer);
@@ -60,6 +62,24 @@ static void panel_position_save(RRFloatPanel *p, int x, int y) {
    g_hash_table_replace(panel_positions(p->overlay), g_strdup(p->id), position);
 }
 
+/* Persist expanded dimensions, never the collapsed title-bar height. */
+static void panel_state_save(RRFloatPanel *p) {
+   if (!p || p->restoring_state || !p->ever_shown || p->modal) return;
+   gint w = gtk_widget_get_allocated_width(p->frame);
+   gint h = gtk_widget_get_allocated_height(p->frame);
+   if (!p->rolled && !p->minimized && w > 1 && h > 1) {
+      p->saved_width = w;
+      p->saved_height = h;
+   }
+   rrclient_window_state_t state = {
+      .x = gtk_widget_get_margin_start(p->frame),
+      .y = gtk_widget_get_margin_top(p->frame),
+      .width = p->saved_width, .height = p->saved_height,
+      .zoom = p->zoom, .rolled = p->rolled,
+      .minimized = p->minimized, .pinned = p->pinned
+   };
+   rrclient_database_window_save(p->id, &state);
+}
 void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *upper, GtkWidget *upper_extra, GtkWidget *lower, gint right_inset) {
    if (!GTK_IS_OVERLAY(overlay)) {
       return;
@@ -450,6 +470,7 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
       gtk_widget_set_size_request(p->frame, -1, -1);
    }
    gtk_widget_queue_resize(p->frame);
+   panel_state_save(p);
 }
 
 static void panel_opacity_changed(GtkRange *range, gpointer data) {
@@ -527,6 +548,7 @@ void rr_floating_panel_restore(RRFloatPanel *p) {
    gtk_widget_show(p->frame);
    panel_raise(p);
    panel_chrome(p);
+   panel_state_save(p);
 }
 
 static void panel_restore(GtkButton *button, gpointer data) {
@@ -548,6 +570,7 @@ static void panel_minimize(GtkButton *button, gpointer data) {
    }
    p->minimized = TRUE;
    panel_chrome(p);
+   panel_state_save(p);
 }
 
 static void panel_roll(GtkButton *button, gpointer data) {
@@ -573,6 +596,7 @@ static void panel_roll(GtkButton *button, gpointer data) {
       panel_raise(p);
    }
    panel_chrome(p);
+   panel_state_save(p);
 }
 
 void rr_floating_panel_hide(RRFloatPanel *p) {
@@ -585,6 +609,7 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
       p->restore_tab = NULL;
    }
    p->minimized = FALSE;
+   panel_state_save(p);
    gtk_widget_hide(p->frame);
 }
 
@@ -643,6 +668,7 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    p->dragging = FALSE;
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    panel_drag_position(p, event->x_root, event->y_root);
+   panel_state_save(p);
 
    return TRUE;
 }
@@ -680,6 +706,7 @@ static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, g
    if (!p->resizing || event->button != GDK_BUTTON_PRIMARY) return FALSE;
    panel_resize_to(p, event->x_root, event->y_root);
    p->resizing = FALSE;
+   panel_state_save(p);
    return TRUE;
 }
 RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) {
@@ -985,6 +1012,7 @@ void rr_floating_panel_set_pinned(RRFloatPanel *p, gboolean pinned) {
        gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->menu_on_top)) != p->pinned)
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->menu_on_top), p->pinned);
    panel_raise(p);
+   panel_state_save(p);
 }
 
 void rr_floating_panel_set_minimizable(RRFloatPanel *p, gboolean minimizable) {
