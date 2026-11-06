@@ -1517,12 +1517,6 @@ void gtk_chat_room_vfos_changed(const char *room) {
 
 
 
-static void gtk_chat_resources_clicked(GtkButton *button, gpointer data) {
-   (void)button;
-   (void)data;
-   event_emit("client.resources.open", NULL, NULL);
-}
-
 /* Chat is a wrapped viewport: no replay line may pan its left edge away. */
 static void chat_horizontal_keep_left(GtkAdjustment *adjustment, gpointer unused) {
    (void)unused;
@@ -1602,11 +1596,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
 
    if (!room || !*room) {
       GtkWidget *tools = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-      GtkWidget *resources = gtk_button_new_with_label("Resource Explorer");
-      gtk_widget_set_tooltip_text(resources, "Browse and manage all server resources (Alt-O)");
-      g_signal_connect(resources, "clicked", G_CALLBACK(gtk_chat_resources_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(tools), rr_connect_button_new(), FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(rr_main_toolbar), tools, FALSE, FALSE, 0);
    }
    (void)is_rig;                /* Historical hint is not room-type authority. */
