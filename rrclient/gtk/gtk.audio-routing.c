@@ -183,7 +183,11 @@ static void routing_queue(void) {
    if (snapshot_waiting)
       return;
    snapshot_waiting = true;
-   rr_event_message_t request = { .name = RRCLIENT_AUDIO_SNAPSHOT_REQUEST };
+   const guint8 request_marker = 1;
+   rr_event_message_t request = {
+      .name = RRCLIENT_AUDIO_SNAPSHOT_REQUEST,
+      .payload = &request_marker, .length = sizeof(request_marker)
+   };
    event_emit_message(&request);
 }
 
