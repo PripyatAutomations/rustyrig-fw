@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <rrclient/audio.engine.h>
+#include <rrclient/rrclient.h>
 #include <glib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -57,7 +58,7 @@ static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
-static guint rx_maintenance_source;
+static GSource *rx_maintenance_source;
 static rr_audio_engine_t *rx_engine;
 static GMutex rx_sink_lock;
 static int rx_sink_fd = -1;
@@ -856,7 +857,10 @@ bool audio_init(void) {
    }
    rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
    rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
-   rx_maintenance_source = g_timeout_add_seconds(10, rx_engine_maintenance, NULL);
+   GSource *maintenance = g_timeout_source_new_seconds(10);
+   g_source_set_callback(maintenance, rx_engine_maintenance, NULL, NULL);
+   g_source_attach(maintenance, rrclient_core_context());
+   rx_maintenance_source = maintenance;
    audio_enabled = true;
    gst_active = true;
    Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
@@ -1001,8 +1005,9 @@ void ws_audio_shutdown(void) {
    rr_af_spectrum_shutdown();
 
    if (rx_maintenance_source) {
-      g_source_remove(rx_maintenance_source);
-      rx_maintenance_source = 0;
+      g_source_destroy(rx_maintenance_source);
+      g_source_unref(rx_maintenance_source);
+      rx_maintenance_source = NULL;
    }
 
    if (rx_engine) {
