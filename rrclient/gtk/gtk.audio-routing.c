@@ -274,6 +274,7 @@ void gtk_audio_graph_present(void) {
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
       graph_canvas = gtk_drawing_area_new();
+      g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_widget_set_size_request(scroller, 640, 390);
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
