@@ -269,7 +269,12 @@ static void vfo_control_visibility_changed(GtkWidget *widget, GParamSpec *spec, 
    gtk_flow_box_invalidate_filter(GTK_FLOW_BOX(user));
 }
 static void vfo_control_add(GtkWidget *control) {
+   /* Initialize descendants once. A parent show_all() must not later undo
+    * RX-only/SDR visibility decisions for this whole control group. */
+   gboolean wanted = gtk_widget_get_visible(control);
+   gtk_widget_show_all(control);
    gtk_widget_set_no_show_all(control, TRUE);
+   gtk_widget_set_visible(control, wanted);
    gtk_container_add(GTK_CONTAINER(vfo_controls_row), control);
    g_signal_connect_object(control, "notify::visible",
       G_CALLBACK(vfo_control_visibility_changed), G_OBJECT(vfo_controls_row), 0);
