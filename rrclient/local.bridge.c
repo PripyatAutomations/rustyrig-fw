@@ -902,7 +902,6 @@ static void bridge_stop(bridge_instance *b) {
       }
    }
    b->pid = 0;
-   bridge_publish_ui();
 
    if (b->slot < G_N_ELEMENTS(bridges) && bridges[b->slot] == b) {
       bridges[b->slot] = NULL;
@@ -1000,14 +999,14 @@ static gboolean poll_local(gpointer unused) {
       } else if (m.type == RRP_BRIDGE_IPC_STATE) {
          bool was_online = b->online;
          b->online = m.available != 0;
-         bridge_publish_ui();
 
          if (b->online) {
             b->frequency_hz = m.frequency_hz;
             g_strlcpy(b->mode, m.mode, sizeof(b->mode));
-            bridge_publish_ui();
-            local_bridge_vfo_changed();
          }
+         bridge_publish_ui();
+         if (b->online)
+            local_bridge_vfo_changed();
 
          if (b->online != was_online) {
             local_room_refresh();
@@ -1301,6 +1300,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    g_source_unref(watch);
    b->timer = bridge_core_timer(10, poll_local, b);
    rrclient_room_set_active_vfo("&local-sdr", (char)('A' + slot));
+   local_bridge_vfo_changed();
    char *status = g_strdup_printf("Connecting to %s at %s", driver, url);
    event_emit("client.receiver-directory.connection", NULL, status);
    ui_print("&local-sdr", "%s", status);
