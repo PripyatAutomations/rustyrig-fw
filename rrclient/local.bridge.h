@@ -40,6 +40,7 @@ typedef struct {
    unsigned min_zoom, max_zoom;
 } rr_local_bridge_ui_state_t;
 bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out);
+bool rrclient_local_bridge_ui_state_vfo(char vfo, rr_local_bridge_ui_state_t *out);
 bool rrclient_local_bridge_ui_connected(const char *url);
 #define RRCLIENT_LOCAL_BRIDGE_WATERFALL_REQUEST "client.local-bridge.waterfall.request"
 typedef struct {
