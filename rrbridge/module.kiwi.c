@@ -20,11 +20,13 @@
 #include <ctype.h>
 #include <time.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #define KIWI_QUEUE_MAX 16384
 struct kiwi_instance {
    rrp_sdr_host_t host;
    struct mg_mgr manager;
+   char dns_url[64];
    struct mg_connection *connection;
    struct mg_connection *waterfall;
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
@@ -43,6 +45,25 @@ struct kiwi_instance {
    uint32_t sequence;
    bool have_sequence;
 };
+/* Mongoose's built-in resolver does not consult the system resolver and
+ * otherwise defaults to 8.8.8.8, which may be unreachable on this network.
+ * Honor the first usable IPv4 nameserver configured on the host instead. */
+static void kiwi_setup_dns(struct kiwi_instance *k) {
+   snprintf(k->dns_url, sizeof(k->dns_url), "udp://1.1.1.1:53");
+   FILE *file = fopen("/etc/resolv.conf", "r");
+   if (file) {
+      char line[256], addr[64];
+      struct in_addr ip;
+      while (fgets(line, sizeof(line), file)) {
+         if (sscanf(line, " nameserver %63s", addr) != 1) continue;
+         if (inet_pton(AF_INET, addr, &ip) != 1) continue;
+         snprintf(k->dns_url, sizeof(k->dns_url), "udp://%s:53", addr);
+         break;
+      }
+      fclose(file);
+   }
+   k->manager.dns4.url = k->dns_url;
+}
 static void waterfall_center(struct kiwi_instance *k);
 static bool kiwi_noise_blanker(struct kiwi_instance *k);
 static const char *setting(struct kiwi_instance *k, const char *key) {
@@ -115,6 +136,7 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    strcpy(k->mode, "USB");
    strcpy(k->wanted_mode, "USB");
    mg_mgr_init(&k->manager);
+   kiwi_setup_dns(k);
 
    return k;
 }
