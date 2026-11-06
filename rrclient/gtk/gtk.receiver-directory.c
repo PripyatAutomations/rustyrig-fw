@@ -98,6 +98,28 @@ static void directory_disconnect_clear(void) {
    g_hash_table_remove_all(disconnect_pending);
    if (directory_page && directory_store) populate();
 }
+/* Local bridge teardown is asynchronous and has no server release ACK.
+ * Retry a bounded number of times before restoring the real backend state. */
+typedef struct {
+   char *url;
+   unsigned attempts;
+} DirectoryDisconnectWatch;
+static gboolean directory_disconnect_watch(gpointer user) {
+   DirectoryDisconnectWatch *watch = user;
+   if (!directory_disconnecting(watch->url)) {
+      g_free(watch->url);
+      g_free(watch);
+      return G_SOURCE_REMOVE;
+   }
+   if (!rrclient_local_bridge_ui_connected(watch->url) || ++watch->attempts >= 20) {
+      g_hash_table_remove(disconnect_pending, watch->url);
+      if (directory_page && directory_store) populate();
+      g_free(watch->url);
+      g_free(watch);
+      return G_SOURCE_REMOVE;
+   }
+   return G_SOURCE_CONTINUE;
+}
 
 static const receiver_directory_entry_t *snapshot_receiver(size_t index) {
    return index < snapshot_count ? &snapshot_entries[index] : NULL;
@@ -870,6 +892,9 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_ui_connected(r->url)) {
       receiver_local_lifecycle(r->url, NULL, TRUE);
       directory_disconnect_pending(r->url);
+      DirectoryDisconnectWatch *watch = g_new0(DirectoryDisconnectWatch, 1);
+      watch->url = g_strdup(r->url);
+      g_timeout_add(250, directory_disconnect_watch, watch);
       return;
    }
    proxy_refresh();
