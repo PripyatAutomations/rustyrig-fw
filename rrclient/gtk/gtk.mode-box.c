@@ -62,7 +62,7 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       };
       const char *room = gtk_chat_controls_room();
       bool sent = room && !g_ascii_strcasecmp(room, "&local-sdr")
-         ? rrclient_local_bridge_set_width(rrclient_room_active_vfo("&local-sdr"), text)
+         ? rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_WIDTH, 0, 0, text)
          : ws_send_width_cmd_in_room(ws_conn, vfo, text, room);
 
       if (sent) {
@@ -81,7 +81,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       bool sent = false;
 
       if (room && !g_ascii_strcasecmp(room, "&local-sdr")) {
-         sent = rrclient_local_bridge_set_mode(rrclient_room_active_vfo("&local-sdr"), text);
+         sent = rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_MODE, 0, 0, text);
       } else {
 #if defined(USE_MONGOOSE)
          char vfo[2] = {
