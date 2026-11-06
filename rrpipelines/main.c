@@ -4,6 +4,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include "pipeline.h"
+#include <rrclient/gtk/gtk.graph.h>
 #include <librustyaxe/json.h>
 #include <gtk/gtk.h>
 #include <errno.h>
@@ -378,47 +379,30 @@ static gboolean canvas_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    (void)widget;
    editor_t *editor = data;
    pipeline_entry_t *pipeline = active_pipeline(editor);
-
-   if (!pipeline) {
-      return FALSE;
-   }
-   guint node_count = rr_pipeline_graph_node_count(pipeline->graph);
-   cairo_set_line_width(cr, 2.0);
-
-   for (guint i = 0 ; i < rr_pipeline_graph_link_count(pipeline->graph) ; i++) {
-      const rr_pipeline_link_t *link = rr_pipeline_graph_link(pipeline->graph, i);
-      const rr_pipeline_node_t *src = rr_pipeline_graph_node(pipeline->graph, link->src);
-      const rr_pipeline_node_t *dst = rr_pipeline_graph_node(pipeline->graph, link->dst);
-
-      if (!src || !dst) {
-         continue;
-      }
-      cairo_set_source_rgb(cr, 0.35, 0.42, 0.50);
-      cairo_move_to(cr, src->x + 150, src->y + 31);
-      cairo_line_to(cr, dst->x, dst->y + 31);
-      cairo_stroke(cr);
-   }
-
-   for (guint i = 0 ; i < node_count ; i++) {
+   if (!pipeline || !pipeline->graph) return FALSE;
+   guint count = rr_pipeline_graph_node_count(pipeline->graph);
+   guint link_count = rr_pipeline_graph_link_count(pipeline->graph);
+   rr_gtk_graph_node_t *nodes = g_new0(rr_gtk_graph_node_t, count);
+   rr_gtk_graph_edge_t *edges = g_new0(rr_gtk_graph_edge_t, link_count);
+   for (guint i = 0; i < count; i++) {
       const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
-      gboolean selected = (gint) i == editor->selected_node;
-      cairo_set_source_rgb(cr, selected ? 0.18 : 0.17, selected ? 0.42 : 0.24, selected ? 0.72 : 0.34);
-      cairo_rectangle(cr, node->x, node->y, 150, 62);
-      cairo_fill_preserve(cr);
-      cairo_set_source_rgb(cr, selected ? 0.85 : 0.45, selected ? 0.9 : 0.54, selected ? 1.0 : 0.64);
-      cairo_set_line_width(cr, selected ? 3.0 : 1.4);
-      cairo_stroke(cr);
-      cairo_set_source_rgb(cr, 1, 1, 1);
-      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-      cairo_set_font_size(cr, 13);
-      cairo_move_to(cr, node->x + 8, node->y + 25);
-      cairo_show_text(cr, rr_pipeline_node_factory(node) ? rr_pipeline_node_factory(node) : "element");
-      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-      cairo_set_font_size(cr, 11);
-      cairo_move_to(cr, node->x + 8, node->y + 47);
-      cairo_show_text(cr, rr_pipeline_node_name(node) ? rr_pipeline_node_name(node) : "");
+      nodes[i] = (rr_gtk_graph_node_t) {
+         .x = node->x, .y = node->y,
+         .title = rr_pipeline_node_factory(node),
+         .subtitle = rr_pipeline_node_name(node),
+         .selected = (gint)i == editor->selected_node
+      };
    }
-
+   for (guint i = 0; i < link_count; i++) {
+      const rr_pipeline_link_t *link = rr_pipeline_graph_link(pipeline->graph, i);
+      edges[i] = (rr_gtk_graph_edge_t) {
+         .from = link->src, .to = link->dst,
+         .kind = link->kind == RR_PIPELINE_LINK_NORMAL ? RR_GTK_GRAPH_NORMAL : RR_GTK_GRAPH_BYPASS
+      };
+   }
+   rr_gtk_graph_draw(cr, nodes, count, edges, link_count);
+   g_free(edges);
+   g_free(nodes);
    return FALSE;
 }
 
