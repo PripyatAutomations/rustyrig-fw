@@ -35,7 +35,7 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    if (!range) {
       return;
    }
-   audio_set_rx_volume((int)gtk_range_get_value(range));
+   audio_request_rx_volume((int)gtk_range_get_value(range));
 }
 
 /* Rig Vol is a property of the VFO's owning rig, not a client audio gain. Keep the target transient: every update resolves the active room and VFO. */
