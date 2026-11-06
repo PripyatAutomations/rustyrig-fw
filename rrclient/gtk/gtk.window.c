@@ -11,6 +11,7 @@
 #include "gtk.hotkey.h"
 #include <rrclient/gtk/gtk.file-editor.h>
 #include <rrclient/gtk/gtk.resources.h>
+#include <rrclient/gtk/gtk.audio-routing.h>
 #include <rrclient/gtk/gtk.receiver-directory.h>
 #include <rrclient/ui.h>
 #include <rrclient/gtk/gtk.connect-button.h>
@@ -267,6 +268,44 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 }
 
 static GtkWidget *rr_client_overlay;
+static GtkWidget *tool_window_new(const char *title, GtkWidget *content, gint width, gint height) {
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gtk_window_set_title(GTK_WINDOW(window), title);
+   gtk_window_set_default_size(GTK_WINDOW(window), width, height);
+   gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(main_window));
+   gtk_window_set_destroy_with_parent(GTK_WINDOW(window), TRUE);
+   g_signal_connect(window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+   gtk_container_add(GTK_CONTAINER(window), content);
+   return window;
+}
+static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
+   (void)button;
+   const char *tool = data;
+   if (!strcmp(tool, "explorer")) event_emit("client.resources.open", NULL, NULL);
+   else if (!strcmp(tool, "audio")) gtk_audio_graph_present();
+   else {
+      GtkWidget *window = !strcmp(tool, "admin") ? admin_tab : config_tab;
+      if (GTK_IS_WINDOW(window)) {
+         gtk_widget_show_all(window);
+         gtk_window_present(GTK_WINDOW(window));
+         if (!strcmp(tool, "admin")) {
+            extern void gtk_admin_refresh(void);
+            gtk_admin_refresh();
+         }
+      }
+   }
+}
+static void main_toolbar_tool(GtkWidget *toolbar, const char *text,
+                              const char *icon, const char *tool) {
+   GtkWidget *button = gtk_button_new_with_label(text);
+   GtkWidget *image = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
+   gtk_button_set_image(GTK_BUTTON(button), image);
+   gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
+   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
+   g_signal_connect(button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer)tool);
+   gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
+}
+
 static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -358,16 +397,24 @@ bool gui_init(void) {
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
    // ADMIN tab (alt-1)
-   admin_tab = init_admin_tab();
+   GtkWidget *admin_content = init_admin_tab();
+   admin_tab = tool_window_new("RustyRig Admin", admin_content, 1150, 760);
 
    // CONFIG tab (alt-2)
-   config_tab = init_config_tab();
+   GtkWidget *config_content = init_config_tab();
+   config_tab = tool_window_new("RustyRig Configuration", config_content, 1100, 720);
    // One GTK Log tab combines Client and Host streams; TUI tabs stay separate.
    log_tab = init_log_tab();
    host_log_tab = log_tab;
 
    //// CHAT stuff (alt-5+)...
    chat_init();
+
+   /* Tool windows have no tabs in the lower strip. */
+   main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer");
+   main_toolbar_tool(rr_main_toolbar, "Audio Graph", "audio-card-symbolic", "audio");
+   main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-system-symbolic", "admin");
+   main_toolbar_tool(rr_main_toolbar, "Config", "preferences-other-symbolic", "config");
 
    // Shared serial console page, with top-aligned endpoint subtabs.
    extern GtkWidget *init_terminal_tab(void);
