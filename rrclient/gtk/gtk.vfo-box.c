@@ -405,6 +405,8 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    g_signal_connect(child, "drag-data-received", G_CALLBACK(vfo_drag_received), NULL);
    g_signal_connect_object(control, "notify::visible",
       G_CALLBACK(vfo_control_visibility_changed), G_OBJECT(vfo_controls_row), 0);
+   /* The FlowBox may filter the new child before rr-vfo-content exists. */
+   gtk_flow_box_invalidate_filter(GTK_FLOW_BOX(vfo_controls_row));
    gtk_widget_show_all(group);
    /* Revealing the wrapper must never force an RX-only control visible. */
    gtk_widget_set_visible(control, wanted);
