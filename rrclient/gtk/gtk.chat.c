@@ -2168,9 +2168,17 @@ static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpoin
    (void)widget;
    (void)unused;
 
-   if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY || !vfo_locator_window) {
+   if (event->button != GDK_BUTTON_PRIMARY || !vfo_locator_window)
       return FALSE;
+
+   /* An undecorated top-level has no native minimize button. Preserve
+    * single-click dragging, but iconify on double-click. */
+   if (event->type == GDK_2BUTTON_PRESS) {
+      gtk_window_iconify(GTK_WINDOW(vfo_locator_window));
+      return TRUE;
    }
+   if (event->type != GDK_BUTTON_PRESS)
+      return FALSE;
    gtk_window_begin_move_drag(GTK_WINDOW(vfo_locator_window), event->button, (gint) event->x_root, (gint) event->y_root, event->time);
 
    return TRUE;
