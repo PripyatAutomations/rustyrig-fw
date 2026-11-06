@@ -8,6 +8,7 @@
 #include <rrclient/audio.graph.h>
 #include <rrclient/gtk/gtk.graph.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/database.h>
 #include "gtk.audio-routing.h"
 #include "gtk.floating-panel.h"
 extern GtkWidget *main_notebook;
@@ -18,6 +19,7 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
+static GtkWidget *graph_profiles;
 static rr_audio_graph_snapshot_t *graph_snapshot;
 /* Fit the topology to the actual viewport. Panel zoom and wheel zoom
  * multiply independently; neither forces a large GTK size requisition. */
@@ -215,6 +217,57 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    return FALSE;
 }
+/* Route IDs are stable protocol stream IDs; missing streams are skipped on
+ * load, so presets remain useful as receivers connect and disconnect. */
+static void graph_profile_name(const char *name, void *user) {
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(user), name);
+}
+static void graph_profile_refresh(const char *selected) {
+   if (!graph_profiles) return;
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(graph_profiles));
+   rrclient_database_audio_profile_list(graph_profile_name, graph_profiles);
+   if (selected)
+      gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(graph_profiles))), selected);
+}
+static char *graph_profile_selected(void) {
+   if (!graph_profiles) return NULL;
+   const char *typed = gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(graph_profiles))));
+   char *name = g_strdup(typed);
+   g_strstrip(name);
+   if (!name[0]) { g_free(name); return NULL; }
+   return name;
+}
+static void graph_profile_save(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   char *name = graph_profile_selected();
+   if (!name || !graph_snapshot) { g_free(name); return; }
+   const char *ids[RR_AUDIO_GRAPH_MAX_NODES];
+   char routes[RR_AUDIO_GRAPH_MAX_NODES] = {0};
+   size_t count = 0;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      if (n->type != RR_AG_SOURCE || !strchr("SLRM", n->route)) continue;
+      ids[count] = n->id;
+      routes[count++] = n->route;
+   }
+   if (rrclient_database_audio_profile_save(name, ids, routes, count))
+      graph_profile_refresh(name);
+   else
+      g_warning("Unable to save audio route profile '%s'", name);
+   g_free(name);
+}
+static void graph_profile_apply(const char *id, char route, void *unused) {
+   (void)unused;
+   audio_request_rx_stream_route(id, route);
+}
+static void graph_profile_load(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   char *name = graph_profile_selected();
+   if (!name) return;
+   rrclient_database_audio_profile_load(name, graph_profile_apply, NULL);
+   routing_queue();
+   g_free(name);
+}
 static void routing_graph_close(gpointer unused) {
    (void)unused;
    if (graph_panel)
@@ -233,6 +286,21 @@ void gtk_audio_graph_present(void) {
       rr_floating_panel_set_resizable(graph_panel, TRUE);
       rr_floating_panel_set_zoom_callback(graph_panel, routing_graph_zoom, NULL);
       GtkWidget *box = rr_floating_panel_body(graph_panel);
+      GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+      graph_profiles = gtk_combo_box_text_new_with_entry();
+      gtk_widget_set_hexpand(graph_profiles, TRUE);
+      gtk_widget_set_tooltip_text(graph_profiles, "Choose a saved profile or type a new profile name");
+      gtk_box_pack_start(GTK_BOX(profiles), graph_profiles, TRUE, TRUE, 0);
+      GtkWidget *load = gtk_button_new_with_label("Load");
+      GtkWidget *save = gtk_button_new_with_label("Save");
+      gtk_widget_set_tooltip_text(load, "Apply the selected profile's stream routes");
+      gtk_widget_set_tooltip_text(save, "Save the current stream routes under this profile name");
+      g_signal_connect(load, "clicked", G_CALLBACK(graph_profile_load), NULL);
+      g_signal_connect(save, "clicked", G_CALLBACK(graph_profile_save), NULL);
+      gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
+      graph_profile_refresh(NULL);
       GtkWidget *info = gtk_label_new("Current RX topology: cyan = left, purple = right; rounded fwdsp blocks open read-only pipelines.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
@@ -463,6 +531,7 @@ void gtk_audio_routing_shutdown(void) {
       rr_floating_panel_destroy(graph_panel);
       graph_panel = NULL;
       graph_canvas = NULL;
+      graph_profiles = NULL;
    }
    if (snapshot_token) {
       event_off_token(snapshot_token);
