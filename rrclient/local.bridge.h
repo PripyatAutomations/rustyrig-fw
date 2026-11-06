@@ -17,6 +17,12 @@ size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacit
 #define RRCLIENT_KIWI_STATUS_REQUEST "client.kiwi.control.status.request"
 #define RRCLIENT_LOCAL_BRIDGE_ACTIVE_EVENT "client.local-bridge.active"
 #define RRCLIENT_LOCAL_BRIDGE_ACTIVE_REQUEST "client.local-bridge.active.request"
+#define RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST "client.local-bridge.lifecycle.request"
+typedef struct {
+   char url[1024];
+   char driver[32];
+   bool disconnect;
+} rrclient_local_bridge_lifecycle_request_t;
 typedef struct {
    char vfo;
    bool connected;
