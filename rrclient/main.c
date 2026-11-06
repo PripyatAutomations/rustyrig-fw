@@ -2006,9 +2006,7 @@ int main(int argc, char *argv[]) {
                loaded_name = NULL;
             } else {
                ui_mode = UI_MODE_GTK;
-#ifdef USE_MONGOOSE
-               poll_mongoose_init();   // Nonblocking transport sweeps via GLib
-#endif
+
             }
          }
       } else {
@@ -2089,8 +2087,8 @@ int main(int argc, char *argv[]) {
       g_main_loop_run(tui_loop);
    } else if (frontend_module) {
       if (gtk_worker) {
-         /* Core IO stays on its dedicated main-thread context. */
-         rr_core_timeout(rr_rtp_supported(false) ? 10 : 50, G_PRIORITY_DEFAULT, ws_poll_cb);
+         /* A single high-priority transport sweep runs on the core context, regardless of backend. */
+         rr_core_timeout(rr_rtp_supported(false) ? 10 : 50, G_PRIORITY_HIGH, ws_poll_cb);
          Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p context=%p", (void *)g_thread_self(), (void *)rr_experiment_core_context);
          g_main_loop_run(gtk_test.core_loop);
          g_mutex_lock(&gtk_test.mutex);
