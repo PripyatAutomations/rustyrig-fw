@@ -468,27 +468,13 @@ static void routing_volume_changed(GtkRange *range, gpointer user) {
 }
 
 static void routing_changed(GtkWidget *widget, gpointer unused) {
-   (void)widget;
-   (void)unused;
-
-   if (routing_updating) {
-      return;
-   }
-   bool split = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx));
-
-   for (unsigned ear = 0 ; ear < 2 ; ear++) {
-      const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear_combo[split ? ear : 0]));
-      g_strlcpy(ear_choice[ear], id ? id : "", sizeof(ear_choice[ear]));
-   }
-
-   routing_updating = true;
-
-   if (!split) {
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(ear_combo[1]), ear_choice[0]);
-   }
-   gtk_widget_set_sensitive(ear_combo[1], split);
+   (void)widget; (void)unused;
+   if (routing_updating) return;
+   gboolean split = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx));
+   if (!split)
+      routing_ear_copy(1, 0);
+   gtk_widget_set_sensitive(ear_button[1], split);
    gtk_widget_set_sensitive(ear_volume[1], split);
-
    if (!split) {
       volume_updating = true;
       int percent = (int)gtk_range_get_value(GTK_RANGE(ear_volume[0]));
@@ -496,7 +482,6 @@ static void routing_changed(GtkWidget *widget, gpointer unused) {
       audio_request_rx_channel_volume(1, percent);
       volume_updating = false;
    }
-   routing_updating = false;
    size_t count;
    struct rrclient_rx_stream *streams = routing_snapshot(&count);
    routing_apply(streams, count);
@@ -616,21 +601,25 @@ void gtk_audio_routing_init(void) {
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
    gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
 
-   for (unsigned ear = 0 ; ear < 2 ; ear++) {
-      GtkWidget *label = gtk_label_new_with_mnemonic(ear ? "_Right:" : "_Left:");
-      ear_combo[ear] = gtk_combo_box_text_new();
-      gtk_label_set_mnemonic_widget(GTK_LABEL(label), ear_combo[ear]);
+   for (unsigned ear = 0; ear < 2; ear++) {
+      GtkWidget *label = gtk_label_new(ear ? "Right:" : "Left:");
       gtk_widget_set_halign(label, GTK_ALIGN_START);
-      /* Long server/channel names must not change the fixed window width. */
-      GList *cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(ear_combo[ear]));
-
-      if (cells) {
-         g_object_set(cells->data, "ellipsize", PANGO_ELLIPSIZE_END, "width-chars", 16, "max-width-chars", 16, NULL);
-      }
-      g_list_free(cells);
+      ear_button[ear] = gtk_menu_button_new();
+      gtk_button_set_label(GTK_BUTTON(ear_button[ear]), "Muted");
+      gtk_widget_set_size_request(ear_button[ear], 190, -1);
+      GtkWidget *popover = gtk_popover_new(ear_button[ear]);
+      GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+      gtk_widget_set_size_request(scroller, 260, -1);
+      gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scroller), 310);
+      gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroller), TRUE);
+      ear_list[ear] = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+      gtk_container_set_border_width(GTK_CONTAINER(ear_list[ear]), 8);
+      gtk_container_add(GTK_CONTAINER(scroller), ear_list[ear]);
+      gtk_container_add(GTK_CONTAINER(popover), scroller);
+      gtk_menu_button_set_popover(GTK_MENU_BUTTON(ear_button[ear]), popover);
       gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 1, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), ear_combo[ear], 1, ear + 1, 1, 1);
-      g_signal_connect(ear_combo[ear], "changed", G_CALLBACK(routing_changed), NULL);
+      gtk_grid_attach(GTK_GRID(grid), ear_button[ear], 1, ear + 1, 1, 1);
    }
 
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
@@ -648,6 +637,8 @@ void gtk_audio_routing_init(void) {
 
    g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
    gtk_widget_set_sensitive(ear_volume[1], FALSE);
+   for (unsigned ear = 0; ear < 2; ear++)
+      ear_selected[ear] = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
    gtk_widget_show_all(routing_overlay);
    rr_floating_panel_hide(routing_panel);
@@ -711,7 +702,11 @@ void gtk_audio_routing_shutdown(void) {
    rx_vol_slider = NULL;
    rx_rig_vol_slider = NULL;
    ear_volume[0] = ear_volume[1] = NULL;
-   routing_window = routing_overlay = routing_body = split_rx = ear_combo[0] = ear_combo[1] = NULL;
+   routing_window = routing_overlay = routing_body = split_rx = ear_button[0] = ear_button[1] = NULL;
+   ear_list[0] = ear_list[1] = NULL;
+   for (unsigned ear = 0; ear < 2; ear++) {
+      g_clear_pointer(&ear_selected[ear], g_hash_table_destroy);
+      ear_all[ear] = FALSE;
+   }
    routing_updating = inventory_dirty = have_choices = false;
-   memset(ear_choice, 0, sizeof(ear_choice));
 }
