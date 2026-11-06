@@ -1455,6 +1455,9 @@ static void room_vfo_show(const char *name) {
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
       rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);
       room_rf_strip = rr_gtk_rf_spectrum_new();
+      /* show_all() on the floating panel must never resurrect the RF strip
+       * when the active VFO is not a local SDR. */
+      gtk_widget_set_no_show_all(room_rf_strip, TRUE);
       g_object_add_weak_pointer(G_OBJECT(room_rf_strip), (gpointer *) &room_rf_strip);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_rf_strip, TRUE, TRUE, 0);
       gtk_widget_show_all(room_rf_strip);
