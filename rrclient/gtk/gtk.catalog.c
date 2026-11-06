@@ -300,9 +300,12 @@ void resource_expansion_restore(resource_branch *branch) {
    gtk_tree_path_free(path);
 }
 gboolean resource_restore_scroll(gpointer unused) {
-   (void)unused;
+   resource_browser *view = unused;
+   if (!view || browser != view)
+      return G_SOURCE_REMOVE;
+   view->scroll_idle = 0;
 
-   if (!browser || !browser->scroll_saved) {
+   if (!view->scroll_saved) {
       return G_SOURCE_REMOVE;
    }
    GtkAdjustment *adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(browser->tree));
@@ -311,6 +314,10 @@ gboolean resource_restore_scroll(gpointer unused) {
    browser->scroll_saved = false;
 
    return G_SOURCE_REMOVE;
+}
+void resource_schedule_restore_scroll(void) {
+   if (browser && !browser->scroll_idle)
+      browser->scroll_idle = g_idle_add(resource_restore_scroll, browser);
 }
 static void resource_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
@@ -323,6 +330,10 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
    if (view->zebra_idle) {
       g_source_remove(view->zebra_idle);
       view->zebra_idle = 0;
+   }
+   if (view->scroll_idle) {
+      g_source_remove(view->scroll_idle);
+      view->scroll_idle = 0;
    }
    /* A pending restore callback consults the global browser. Keep the
     * pointer cleared before any child widgets are finalized. */
