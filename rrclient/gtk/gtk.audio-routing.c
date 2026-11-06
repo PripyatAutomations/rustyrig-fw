@@ -290,11 +290,9 @@ static void routing_queue(void) {
 
 static gboolean routing_watchdog(gpointer unused) {
    (void)unused;
-   /* A missing first reply must be retried after core audio initialization.
-    * While either window is visible, refresh from core to recover missed
-    * stream-change events without reading core state on GTK. */
-   if (routing_panel && (routing_explicit_show ||
-       (graph_window && gtk_widget_get_visible(graph_window)) || snapshot_waiting))
+   /* Retry only an unanswered request; normal updates are event-driven.
+    * Polling visible panels unnecessarily could redisplay a hidden panel. */
+   if (routing_panel && snapshot_waiting)
       routing_queue();
    return G_SOURCE_CONTINUE;
 }
