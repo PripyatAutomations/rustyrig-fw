@@ -89,6 +89,7 @@ static gint routing_compare(gconstpointer a, gconstpointer b, gpointer unused) {
 
 /* Initial integrated audio graph view. It renders GTK-owned inventory
  * snapshots only; fwdsp, mixer and supervisor never run in this window. */
+static void routing_queue(void);
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    (void)widget; (void)unused;
    if (!graph_snapshot) return FALSE;
@@ -166,6 +167,7 @@ static void routing_graph_show(GtkButton *button, gpointer unused) {
       g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
    }
    gtk_widget_show_all(graph_window);
+   routing_queue(); /* Request an up-to-date core graph, not a stale UI cache. */
    if (graph_canvas)
       gtk_widget_queue_draw(graph_canvas);
 }
