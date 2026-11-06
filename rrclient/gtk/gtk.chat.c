@@ -2416,6 +2416,11 @@ static gboolean status_network_tick(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+static void status_volume_clicked(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   gtk_volume_toggle();
+}
+
 bool chat_init(void) {
    typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
@@ -2479,7 +2484,7 @@ bool chat_init(void) {
    GtkWidget *volume_button = gtk_button_new_from_icon_name("audio-volume-high-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(volume_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(volume_button, "Show or hide Volume");
-   g_signal_connect_swapped(volume_button, "clicked", G_CALLBACK(gtk_volume_toggle), NULL);
+   g_signal_connect(volume_button, "clicked", G_CALLBACK(status_volume_clicked), NULL);
    gtk_box_pack_start(GTK_BOX(network_row), volume_button, FALSE, FALSE, 0);
    GtkWidget *status_clock = gtk_clock_status_new();
    if (status_clock)
