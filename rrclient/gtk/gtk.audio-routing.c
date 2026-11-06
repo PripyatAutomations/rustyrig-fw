@@ -259,6 +259,31 @@ static void graph_profile_load(GtkButton *button, gpointer unused) {
    routing_queue();
    g_free(name);
 }
+static void graph_profile_remove(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   char *name = graph_profile_selected();
+   if (!name) return;
+   GtkWidget *parent = graph_panel ?
+      gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
+   GtkWidget *dialog = gtk_message_dialog_new(
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+      "Remove audio profile \"%s\"?", name);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "The saved routing profile will be deleted. Active audio routing will not change.");
+   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL,
+                          "_Remove", GTK_RESPONSE_ACCEPT, NULL);
+   gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+   if (response == GTK_RESPONSE_ACCEPT) {
+      if (rrclient_database_audio_profile_delete(name))
+         graph_profile_refresh(NULL);
+      else
+         g_warning("Unable to remove audio route profile '%s'", name);
+   }
+   g_free(name);
+}
 static void routing_graph_close(gpointer unused) {
    (void)unused;
    if (graph_panel)
@@ -284,12 +309,16 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), graph_profiles, TRUE, TRUE, 0);
       GtkWidget *load = gtk_button_new_with_label("Load");
       GtkWidget *save = gtk_button_new_with_label("Save");
+      GtkWidget *remove = gtk_button_new_with_label("Remove");
       gtk_widget_set_tooltip_text(load, "Apply the selected profile's stream routes");
       gtk_widget_set_tooltip_text(save, "Save the current stream routes under this profile name");
+      gtk_widget_set_tooltip_text(remove, "Delete the selected saved profile (confirmation required)");
       g_signal_connect(load, "clicked", G_CALLBACK(graph_profile_load), NULL);
       g_signal_connect(save, "clicked", G_CALLBACK(graph_profile_save), NULL);
+      g_signal_connect(remove, "clicked", G_CALLBACK(graph_profile_remove), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info = gtk_label_new("Current RX topology: cyan = left, purple = right; rounded fwdsp blocks open read-only pipelines.");
