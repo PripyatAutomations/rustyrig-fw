@@ -506,6 +506,7 @@ GtkWidget *create_vfo_box(void) {
    // FREQ selection
    freq_entry = gtk_freq_entry_new(-1);
    gtk_box_pack_start(GTK_BOX(vfo_tunable_box), freq_entry, TRUE, TRUE, 0);
+   gtk_widget_show(vfo_tunable_box);
    vfo_control_add(vfo_tunable_box, "⋮⋮ Frequency");
 
    // MODE selection
