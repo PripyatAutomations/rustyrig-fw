@@ -318,8 +318,16 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
 
    if (view->timer) {
       g_source_remove(view->timer);
+      view->timer = 0;
    }
-   browser = NULL;
+   if (view->zebra_idle) {
+      g_source_remove(view->zebra_idle);
+      view->zebra_idle = 0;
+   }
+   /* A pending restore callback consults the global browser. Keep the
+    * pointer cleared before any child widgets are finalized. */
+   if (browser == view)
+      browser = NULL;
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
    g_hash_table_destroy(view->domains);
