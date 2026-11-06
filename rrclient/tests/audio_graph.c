@@ -10,7 +10,7 @@ int main(void) {
    assert(rr_audio_graph_add_node(g, "eq", RR_AG_PROCESSOR));
    assert(rr_audio_graph_add_node(g, "sink", RR_AG_SINK));
    assert(!rr_audio_graph_add_node(g, "eq", RR_AG_PROCESSOR));
-   assert(rr_audio_graph_add_link(g, "sdr", "eq", RR_AG_NORMAL));
+   assert(rr_audio_graph_add_channel_link(g, "sdr", "eq", RR_AG_NORMAL, RR_AG_CHANNEL_LEFT));
    assert(rr_audio_graph_add_link(g, "fallback", "eq", RR_AG_BYPASS));
    assert(rr_audio_graph_add_link(g, "eq", "sink", RR_AG_NORMAL));
    assert(!rr_audio_graph_add_link(g, "fallback", "eq", RR_AG_NORMAL));
@@ -33,7 +33,9 @@ int main(void) {
    assert(view->node_count == 4 && view->link_count == 3);
    assert(!g_strcmp0(view->nodes[0].id, "sdr"));
    assert(view->nodes[0].route == 'L');
+   assert(view->links[0].channels == RR_AG_CHANNEL_LEFT);
    assert(view->links[1].kind == RR_AG_BYPASS);
+   assert(view->links[1].channels == RR_AG_CHANNEL_STEREO);
    g_free(view);
    rr_audio_graph_free(g);
    puts("audio graph bypass selection passed");
