@@ -191,6 +191,18 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
       UI_ROLE_COMBOBOX,         // role
       true);                    // focusable
    gtk_widget_set_tooltip_text(rx_combo, "Receive codec");
+   /* The VFO's dockable codec group should use the width of a short codec
+    * name, not the longest negotiated codec string. */
+   GtkWidget *combos[] = { tx_combo, rx_combo };
+   for (guint i = 0; i < G_N_ELEMENTS(combos); i++) {
+      GList *cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(combos[i]));
+      for (GList *it = cells; it; it = it->next)
+         if (GTK_IS_CELL_RENDERER_TEXT(it->data))
+            g_object_set(it->data, "width-chars", 6,
+                         "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+      g_list_free(cells);
+      gtk_widget_set_halign(combos[i], GTK_ALIGN_START);
+   }
    picker_list_initialized = false;
 
    CodecSelectorCtx *tx_ctx = g_new0(CodecSelectorCtx, 1);
