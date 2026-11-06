@@ -223,18 +223,16 @@ static void local_vfo_refresh(const char *event, const char *data, rrconn_t *con
    if (!freq_entry || !room || g_ascii_strcasecmp(room, "&local-sdr")) {
       return;
    }
-   uint64_t hz = 0;
-   const char *mode = NULL;
-
-   if (!rrclient_local_bridge_state(&hz, &mode) || !hz) {
+   rr_local_bridge_ui_state_t state = {0};
+   if (!rrclient_local_bridge_ui_state(&state) || !state.frequency_hz)
       return;
-   }
+   uint64_t hz = state.frequency_hz;
    GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
 
    if (!gtk_freq_entry_is_editing(fe)) {
       gtk_freq_entry_set_frequency(fe, (unsigned long)hz);
    }
-   modebox_update_state(mode, 0);
+   modebox_update_state(state.mode, 0);
    vfo_controls_set_rx_only(true);
 
    if (vfo_tunable_box) {
