@@ -270,6 +270,97 @@ void gtk_audio_graph_present(void) {
       gtk_widget_queue_draw(graph_canvas);
 }
 
+static const char *routing_stream_label(const struct rrclient_rx_stream *stream) {
+   const char *path = stream->room;
+   if (!strcmp(path, "&local-sdr") && !strncmp(stream->id, "local.sdr.", 10))
+      return stream->id;
+   if (*path == '#' || *path == '&') path++;
+   return *path ? path : stream->server;
+}
+static void routing_check_summary(unsigned ear, const struct rrclient_rx_stream *streams, size_t count) {
+   size_t selected = 0;
+   const char *single = NULL;
+   for (size_t i = 0; i < count; i++) {
+      if (ear_all[ear] || routing_ear_has(ear, streams[i].id)) {
+         selected++;
+         single = routing_stream_label(&streams[i]);
+      }
+   }
+   char *title = !selected ? g_strdup("Muted") :
+      selected == count ? g_strdup_printf("All streams (%zu)", count) :
+      selected == 1 ? g_strdup(single) : g_strdup_printf("%zu streams selected", selected);
+   gtk_button_set_label(GTK_BUTTON(ear_button[ear]), title);
+   gtk_widget_set_tooltip_text(ear_button[ear], title);
+   g_free(title);
+}
+static void routing_check_toggled(GtkToggleButton *button, gpointer user) {
+   unsigned ear = GPOINTER_TO_UINT(user);
+   if (routing_updating) return;
+   const char *id = g_object_get_data(G_OBJECT(button), "rr-stream-id");
+   if (!id) return;
+   /* Materialize an "All" selection before changing one box. */
+   if (ear_all[ear]) {
+      size_t count;
+      struct rrclient_rx_stream *streams = routing_snapshot(&count);
+      for (size_t i = 0; i < count; i++)
+         routing_ear_set(ear, streams[i].id, TRUE);
+      g_free(streams);
+   }
+   ear_all[ear] = FALSE;
+   routing_ear_set(ear, id, gtk_toggle_button_get_active(button));
+   if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)))
+      routing_ear_copy(1, 0);
+   size_t count;
+   struct rrclient_rx_stream *streams = routing_snapshot(&count);
+   routing_apply(streams, count);
+   routing_check_summary(ear, streams, count);
+   g_free(streams);
+   routing_queue();
+}
+static void routing_check_all_clicked(GtkButton *button, gpointer user) {
+   unsigned ear = GPOINTER_TO_UINT(user);
+   if (routing_updating) return;
+   gboolean enabled = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "rr-all")) != 0;
+   ear_all[ear] = enabled;
+   g_hash_table_remove_all(ear_selected[ear]);
+   if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)))
+      routing_ear_copy(1, 0);
+   size_t count;
+   struct rrclient_rx_stream *streams = routing_snapshot(&count);
+   routing_apply(streams, count);
+   routing_check_summary(ear, streams, count);
+   g_free(streams);
+   routing_queue();
+}
+static void routing_check_build(unsigned ear, const struct rrclient_rx_stream *streams, size_t count) {
+   GtkWidget *box = ear_list[ear];
+   GList *children = gtk_container_get_children(GTK_CONTAINER(box));
+   for (GList *it = children; it; it = it->next)
+      gtk_widget_destroy(GTK_WIDGET(it->data));
+   g_list_free(children);
+   GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   for (unsigned i = 0; i < 2; i++) {
+      GtkWidget *button = gtk_button_new_with_label(i ? "None" : "All");
+      g_object_set_data(G_OBJECT(button), "rr-all", GINT_TO_POINTER(!i));
+      g_signal_connect(button, "clicked", G_CALLBACK(routing_check_all_clicked), GUINT_TO_POINTER(ear));
+      gtk_box_pack_start(GTK_BOX(actions), button, TRUE, TRUE, 0);
+   }
+   gtk_box_pack_start(GTK_BOX(box), actions, FALSE, FALSE, 0);
+   if (!count)
+      gtk_box_pack_start(GTK_BOX(box), gtk_label_new("No RX streams connected"), FALSE, FALSE, 2);
+   for (size_t i = 0; i < count; i++) {
+      GtkWidget *check = gtk_check_button_new_with_label(routing_stream_label(&streams[i]));
+      gtk_widget_set_tooltip_text(check, streams[i].id);
+      g_object_set_data_full(G_OBJECT(check), "rr-stream-id", g_strdup(streams[i].id), g_free);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+         ear_all[ear] || routing_ear_has(ear, streams[i].id));
+      g_signal_connect(check, "toggled", G_CALLBACK(routing_check_toggled), GUINT_TO_POINTER(ear));
+      gtk_box_pack_start(GTK_BOX(box), check, FALSE, FALSE, 0);
+   }
+   gtk_widget_show_all(box);
+   routing_check_summary(ear, streams, count);
+}
+
 static gboolean routing_refresh(gpointer unused) {
    (void)unused;
    routing_source = 0;
