@@ -1359,12 +1359,12 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       char name[128];
 
       if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
-         uint64_t local_hz = 0;
-         const char *local_mode = NULL;
-
-         if (rrclient_local_bridge_state_vfo(letter, &local_hz, &local_mode)) {
-            freq = (long)local_hz;
-            mode = local_mode;
+         rr_local_bridge_ui_state_t local = {0};
+         if (rrclient_local_bridge_ui_state_vfo(letter, &local)) {
+            freq = (long)local.frequency_hz;
+            /* Build the menu label while the copied mode remains in scope. */
+            g_strlcpy(name, local.mode, sizeof(name));
+            mode = name;
          }
       }
 
@@ -1422,16 +1422,18 @@ static gboolean room_vfo_title_tick(gpointer unused) {
    g_free(title);
 
    if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
+      rr_local_bridge_ui_state_t local = {0};
       uint64_t hz = 0;
-      const char *mode = NULL;
+      if (rrclient_local_bridge_ui_state_vfo(active, &local))
+         hz = local.frequency_hz;
 
-      if (rrclient_local_bridge_state_vfo(active, &hz, &mode) && freq_entry && hz) {
+      if (hz && freq_entry) {
          GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
 
          if (!gtk_freq_entry_is_editing(fe) && gtk_freq_entry_get_frequency(fe) != (unsigned long)hz) {
             gtk_freq_entry_set_frequency(fe, (unsigned long)hz);
          }
-         modebox_update_state(mode, 0);
+         modebox_update_state(local.mode, 0);
       }
    }
 
