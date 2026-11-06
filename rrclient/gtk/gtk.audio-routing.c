@@ -107,16 +107,18 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          };
          continue;
       }
-      if (link->channels & RR_AG_CHANNEL_LEFT)
+      if (link->channels & RR_AG_CHANNEL_LEFT) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
             .from = link->src, .to = link->dst, .kind = kind,
             .src_pin = RR_GTK_GRAPH_PIN_LEFT, .dst_pin = RR_GTK_GRAPH_PIN_LEFT
          };
-      if (link->channels & RR_AG_CHANNEL_RIGHT)
+      }
+      if (link->channels & RR_AG_CHANNEL_RIGHT) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
             .from = link->src, .to = link->dst, .kind = kind,
             .src_pin = RR_GTK_GRAPH_PIN_RIGHT, .dst_pin = RR_GTK_GRAPH_PIN_RIGHT
          };
+      }
    }
    double natural_w, natural_h;
    routing_graph_bounds(&natural_w, &natural_h);
