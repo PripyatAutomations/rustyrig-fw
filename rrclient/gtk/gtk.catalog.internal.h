@@ -25,7 +25,7 @@ typedef struct {
    guint generation;
 } resource_branch;
 typedef struct {
-   GtkWidget *page, *panel, *tree, *status, *details, *search, *buttons[BUTTONS];
+   GtkWidget *window, *page, *panel, *tree, *status, *details, *search, *buttons[BUTTONS];
    GtkTreeModelFilter *filter;
    GHashTable *enabled_kinds;
    GPtrArray *type_checks;
