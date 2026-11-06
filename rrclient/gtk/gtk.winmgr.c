@@ -21,28 +21,12 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
-#include <rrclient/database.h>
 
 // Linked list of all of our windows, usually 'status' will be the head of the list
 gui_window_t *gui_windows = NULL;
 
 // Linked list of all our widgets
 gui_widget_t *gui_widgets = NULL;
-
-static char *window_db_key(const char *name) {
-   return g_strdup_printf("toplevel:%s", name);
-}
-static void window_db_save(gui_window_t *win) {
-   if (!win || !win->name[0] || win->w < 1 || win->h < 1) return;
-   rrclient_window_state_t state = {
-      .x = win->x, .y = win->y, .width = win->w, .height = win->h,
-      .zoom = 0, .rolled = false,
-      .minimized = win->win_minimized, .pinned = win->win_modal
-   };
-   char *key = window_db_key(win->name);
-   rrclient_database_window_save(key, &state);
-   g_free(key);
-}
 
 // Timer for delaying window move announcements
 static guint configure_event_timeout = 0;
@@ -122,13 +106,11 @@ static gboolean on_configure_timeout(gpointer data) {
 
          // Save it to the running-config
          dict_add(cfg, key, val);
-         window_db_save(win);
 
          // No, send it as a log message instead
          Log(LOG_INFO, "gtk-ui", "Window %s moved, new cfg entry: %s=%s", win->name, key, val);
       }
    }
-   window_db_save(win);
    configure_event_timeout = 0;
 
    return G_SOURCE_REMOVE;
@@ -379,20 +361,6 @@ bool place_window(GtkWidget *window) {
       free((void *)cfg_full);
    }
 
-   /* Persisted window geometry takes precedence over legacy cfg placement. */
-   rrclient_window_state_t stored = {0};
-   char *db_key = window_db_key(win->name);
-   gboolean have_stored = rrclient_database_window_load(db_key, &stored);
-   g_free(db_key);
-   if (have_stored && stored.width > 0 && stored.height > 0) {
-      win->x = stored.x;
-      win->y = stored.y;
-      win->w = CLAMP(stored.width, 160, 8192);
-      win->h = CLAMP(stored.height, 100, 8192);
-      win->win_minimized = stored.minimized;
-      win->win_modal = stored.pinned;
-   }
-
    if (win->w > 0 && win->h > 0) {
       gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), win->w, win->h);
       gtk_window_resize(GTK_WINDOW(win->gtk_win), win->w, win->h);
@@ -405,11 +373,6 @@ bool place_window(GtkWidget *window) {
 
    }
 
-   if (have_stored) {
-      gtk_window_set_keep_above(GTK_WINDOW(win->gtk_win), stored.pinned);
-      if (stored.minimized) gtk_window_iconify(GTK_WINDOW(win->gtk_win));
-   }
-   window_db_save(win);
    return false;
 }
 
@@ -437,20 +400,12 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
 }
 
 static void on_window_destroy(GtkWidget *w, gpointer user_data) {
-   if (!w) {
-      return;
-   }
-   gui_window_t *p = (gui_window_t *) user_data;   // always valid
+   if (!w) return;
+   gui_window_t *p = user_data;
+   /* The pending debounce may otherwise dereference a destroyed toplevel. */
    if (configure_event_timeout) {
       g_source_remove(configure_event_timeout);
       configure_event_timeout = 0;
-   }
-   if (p) {
-      if (p->last_w > 0 && p->last_h > 0) {
-         p->x = p->last_x; p->y = p->last_y;
-         p->w = p->last_w; p->h = p->last_h;
-      }
-      window_db_save(p);
    }
    gui_forget_window(p, NULL);
 }
