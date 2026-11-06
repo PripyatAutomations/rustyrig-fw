@@ -20,6 +20,14 @@ bool rrclient_database_network_set(const char *name, const char *members);
 bool rrclient_database_proxy_set(const char *name, const char *url);
 bool rrclient_database_proxy_delete(const char *name);
 void rrclient_database_proxy_foreach(void (*cb) (const char *, const char *, void *), void *data);
+typedef struct {
+   int x, y, width, height;
+   int zoom;
+   bool rolled, minimized, pinned;
+} rrclient_window_state_t;
+/* Session-count expiration: untouched records are pruned after five runs. */
+bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out);
+bool rrclient_database_window_save(const char *id, const rrclient_window_state_t *state);
 bool rrclient_database_load_themes(void);
 bool rrclient_database_theme_set(const char *name, const char *property, const char *value);
 #endif
