@@ -20,6 +20,20 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
+static double graph_zoom = 1.0;
+static void graph_canvas_update_size(void) {
+   if (!graph_canvas) return;
+   guint sources = graph_snapshot && graph_snapshot->node_count > 2 ? graph_snapshot->node_count - 2 : 0;
+   gtk_widget_set_size_request(graph_canvas, (gint)(850 * graph_zoom),
+      (gint)(MAX(480u, 36u + 140u * sources) * graph_zoom));
+   gtk_widget_queue_draw(graph_canvas);
+}
+static void routing_graph_zoom(double scale, gpointer unused) {
+   (void)unused;
+   graph_zoom = scale;
+   graph_canvas_update_size();
+}
+
 static guint routing_source;
 static guint routing_watchdog_source;
 static gint64 snapshot_sent_at;
@@ -144,7 +158,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             .src_pin = RR_GTK_GRAPH_PIN_RIGHT, .dst_pin = RR_GTK_GRAPH_PIN_RIGHT
          };
    }
+   cairo_save(cr);
+   cairo_scale(cr, graph_zoom, graph_zoom);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
+   cairo_restore(cr);
    return FALSE;
 }
 static void routing_graph_snapshot_event(const rr_event_message_t *message, void *unused) {
@@ -158,11 +175,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    if (!graph_snapshot)
       graph_snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
    *graph_snapshot = *incoming;
-   if (graph_canvas) {
-      guint sources = graph_snapshot->node_count > 2 ? graph_snapshot->node_count - 2 : 0;
-      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 36 + 140 * sources));
-      gtk_widget_queue_draw(graph_canvas);
-   }
+   graph_canvas_update_size();
 }
 /* The pipeline viewer remains a separate process. A GStreamer crash in the
  * inspector must not affect the client, its radio controls or audio engine. */
@@ -218,13 +231,14 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    (void)widget; (void)unused;
    if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
        !graph_snapshot) return FALSE;
-   /* Click detection uses the same node positions as routing_graph_draw(). */
+   /* Convert pointer coordinates to the graph's unscaled model space. */
+   double gx = event->x / graph_zoom, gy = event->y / graph_zoom;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (n->type != RR_AG_SINK || strcmp(n->id, "sink.client.dsp0")) continue;
       double x = 650, y = 80;
-      if (event->x >= x && event->x <= x + RR_GTK_GRAPH_NODE_W &&
-          event->y >= y && event->y <= y + RR_GTK_GRAPH_NODE_H) {
+      if (gx >= x && gx <= x + RR_GTK_GRAPH_NODE_W &&
+          gy >= y && gy <= y + RR_GTK_GRAPH_NODE_H) {
          routing_pipeline_open(n->id);
          return TRUE;
       }
@@ -251,6 +265,8 @@ void gtk_audio_graph_present(void) {
          return;
       rr_floating_panel_set_close_callback(graph_panel, routing_graph_close, NULL);
       rr_floating_panel_set_minimizable(graph_panel, FALSE);
+      rr_floating_panel_set_resizable(graph_panel, TRUE);
+      rr_floating_panel_set_zoom_callback(graph_panel, routing_graph_zoom, NULL);
       GtkWidget *box = rr_floating_panel_body(graph_panel);
       GtkWidget *info = gtk_label_new("Current RX topology: cyan = left, purple = right; rounded fwdsp blocks open read-only pipelines.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
@@ -259,7 +275,7 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(scroller, 640, 390);
-      gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 36 + 140 * MIN(routing_cache ? routing_cache->len : 0u, 32u)));
+      graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
       gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK);
