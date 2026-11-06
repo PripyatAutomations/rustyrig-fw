@@ -320,6 +320,24 @@ static void routing_check_toggled(GtkToggleButton *button, gpointer user) {
    g_free(streams);
    routing_queue();
 }
+/* Update visible checks without destroying the popover while the user
+ * is selecting multiple streams. */
+static void routing_check_sync(unsigned ear) {
+   if (!ear_list[ear]) return;
+   gboolean updating = routing_updating;
+   routing_updating = TRUE;
+   GList *children = gtk_container_get_children(GTK_CONTAINER(ear_list[ear]));
+   for (GList *it = children; it; it = it->next) {
+      GtkWidget *child = GTK_WIDGET(it->data);
+      if (!GTK_IS_CHECK_BUTTON(child)) continue;
+      const char *id = g_object_get_data(G_OBJECT(child), "rr-stream-id");
+      if (id)
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(child),
+            ear_all[ear] || routing_ear_has(ear, id));
+   }
+   g_list_free(children);
+   routing_updating = updating;
+}
 static void routing_check_all_clicked(GtkButton *button, gpointer user) {
    unsigned ear = GPOINTER_TO_UINT(user);
    if (routing_updating) return;
@@ -331,6 +349,7 @@ static void routing_check_all_clicked(GtkButton *button, gpointer user) {
    size_t count;
    struct rrclient_rx_stream *streams = routing_snapshot(&count);
    routing_apply(streams, count);
+   routing_check_sync(ear);
    routing_check_summary(ear, streams, count);
    g_free(streams);
    routing_queue();
@@ -395,8 +414,13 @@ static gboolean routing_refresh(gpointer unused) {
    else if (!have_choices)
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), FALSE);
 
-   for (unsigned ear = 0; ear < 2; ear++)
-      routing_check_build(ear, streams, count);
+   for (unsigned ear = 0; ear < 2; ear++) {
+      GtkWidget *popover = gtk_menu_button_get_popover(GTK_MENU_BUTTON(ear_button[ear]));
+      if (popover && gtk_widget_get_mapped(popover))
+         routing_check_summary(ear, streams, count);
+      else
+         routing_check_build(ear, streams, count);
+   }
    gtk_widget_set_sensitive(ear_button[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
    gtk_widget_set_sensitive(ear_volume[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
    routing_updating = false;
