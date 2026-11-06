@@ -103,7 +103,7 @@ static void rr_scale_install(GtkWidget *widget, GtkWidget *wrapper) {
    if (!GTK_IS_CONTAINER(widget)) return;
    /* Use a weak object-bound signal connection so a reparented child
     * cannot call into freed zoom state after its former panel closes. */
-   if (!g_object_get_data(G_OBJECT(widget), "rr-scale-observed")) {
+   if (g_object_get_data(G_OBJECT(widget), "rr-scale-observed") != wrapper) {
       g_object_set_data(G_OBJECT(widget), "rr-scale-observed", wrapper);
       g_signal_connect_object(widget, "add",
          G_CALLBACK(rr_scale_child_added), G_OBJECT(wrapper), 0);
