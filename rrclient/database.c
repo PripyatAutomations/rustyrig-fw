@@ -564,6 +564,18 @@ done:
       sqlite3_exec(client_db, "ROLLBACK TO audio_profile_save; RELEASE audio_profile_save", NULL, NULL, NULL);
    return ok;
 }
+bool rrclient_database_audio_profile_delete(const char *name) {
+   if (!client_db || !name || !*name) return false;
+   sqlite3_stmt *q = NULL;
+   if (sqlite3_prepare_v2(client_db,
+       "DELETE FROM audio_profiles WHERE name=?1", -1, &q, NULL) != SQLITE_OK)
+      return false;
+   sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(q) == SQLITE_DONE && sqlite3_changes(client_db) > 0;
+   sqlite3_finalize(q);
+   return ok;
+}
+
 void rrclient_database_audio_profile_list(void (*cb)(const char *, void *), void *user) {
    if (!client_db || !cb) return;
    sqlite3_stmt *q = NULL;
