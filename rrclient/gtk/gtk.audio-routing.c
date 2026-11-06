@@ -1,5 +1,7 @@
 // RustyRig GTK RX routing window. Licensed under the project's MIT/GPL terms.
 #include <gtk/gtk.h>
+#include <gio/gio.h>
+#include <librustyaxe/json.h>
 #include <librustyaxe/config.h>
 #include <rrclient/audio.h>
 #include <rrclient/audio.graph.h>
@@ -111,7 +113,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          .title = n->id,
          .subtitle = source ? route : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer",
          .failed = n->health == RR_AG_FAILED,
-         .bypass_pins = TRUE, .stereo_pins = TRUE
+         .bypass_pins = TRUE, .stereo_pins = TRUE,
+         .fwdsp = n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
    guint edge_count = 0;
@@ -158,6 +161,73 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
       gtk_widget_queue_draw(graph_canvas);
    }
 }
+/* The pipeline viewer remains a separate process. A GStreamer crash in the
+ * inspector must not affect the client, its radio controls or audio engine. */
+static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, gpointer unused) {
+   (void)unused;
+   GError *error = NULL;
+   gchar *out = NULL, *err = NULL;
+   if (!g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &out, &err, &error)) {
+      g_warning("Read-only pipeline viewer failed: %s", error ? error->message : "unknown error");
+      g_clear_error(&error);
+   }
+   g_free(out);
+   g_free(err);
+   g_object_unref(source);
+}
+static void routing_pipeline_open(const char *id) {
+   if (g_strcmp0(id, "sink.client.dsp0")) return;
+   const char *launch = cfg_get("pipeline:sink.client.mix");
+   if (!launch || !*launch) {
+      g_warning("No configured GStreamer pipeline for sink.client.dsp0");
+      return;
+   }
+   dict *document = dict_new();
+   if (!document) return;
+   gboolean valid = !dict_add_uint(document, "pipelines.count", 1) &&
+      !dict_add(document, "pipelines.0.id", "sink.client.mix") &&
+      !dict_add(document, "pipelines.0.launch", launch);
+   gchar *json = valid ? dict2json(document) : NULL;
+   dict_free(document);
+   if (!json) return;
+   gchar *program = g_find_program_in_path("rrpipelines");
+   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE))
+      program = g_strdup("bin/rrpipelines");
+   if (!program) {
+      g_warning("Cannot find rrpipelines to inspect %s", id);
+      g_free(json);
+      return;
+   }
+   const gchar *argv[] = { program, "--read-only", NULL };
+   GError *error = NULL;
+   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE |
+      G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
+   if (process)
+      g_subprocess_communicate_utf8_async(process, json, NULL, routing_pipeline_viewer_done, NULL);
+   else {
+      g_warning("Unable to launch pipeline viewer: %s", error ? error->message : "unknown error");
+      g_clear_error(&error);
+   }
+   g_free(program);
+   g_free(json);
+}
+static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget; (void)unused;
+   if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
+       !graph_snapshot) return FALSE;
+   /* Click detection uses the same node positions as routing_graph_draw(). */
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      if (n->type != RR_AG_SINK || strcmp(n->id, "sink.client.dsp0")) continue;
+      double x = 650, y = 80;
+      if (event->x >= x && event->x <= x + RR_GTK_GRAPH_NODE_W &&
+          event->y >= y && event->y <= y + RR_GTK_GRAPH_NODE_H) {
+         routing_pipeline_open(n->id);
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
 static gboolean routing_graph_hide(GtkWidget *widget, GdkEvent *event, gpointer unused) {
    (void)event;
    (void)unused;
@@ -176,7 +246,7 @@ static void routing_graph_show(GtkButton *button, gpointer unused) {
       g_signal_connect(graph_window, "delete-event", G_CALLBACK(routing_graph_hide), NULL);
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
       gtk_container_add(GTK_CONTAINER(graph_window), box);
-      GtkWidget *info = gtk_label_new("Current RX topology (read-only). Amber BYPASS pins are reserved for supervised fallback connections.");
+      GtkWidget *info = gtk_label_new("Current RX topology. Rounded fwdsp nodes open read-only GStreamer pipelines; amber pins indicate bypass.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -185,6 +255,8 @@ static void routing_graph_show(GtkButton *button, gpointer unused) {
       gtk_widget_set_size_request(graph_canvas, 850, MAX(480, 32 + 108 * MIN(routing_cache ? routing_cache->len : 0u, 32u)));
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
+      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK);
+      g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
       g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
    }
    gtk_widget_show_all(graph_window);
