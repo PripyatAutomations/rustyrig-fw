@@ -46,7 +46,19 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
       cairo_set_source_rgb(cr, n->failed ? .40 : n->selected ? .20 : .15,
                               n->failed ? .18 : n->selected ? .38 : .25,
                               n->failed ? .18 : n->selected ? .56 : .34);
-      cairo_rectangle(cr, n->x, n->y, RR_GTK_GRAPH_NODE_W, RR_GTK_GRAPH_NODE_H);
+      if (n->fwdsp) {
+         /* Capsule silhouette distinguishes an external fwdsp/GStreamer process
+          * from the in-process mixer and source nodes. */
+         double r = 18, x = n->x, y = n->y;
+         cairo_new_sub_path(cr);
+         cairo_arc(cr, x + RR_GTK_GRAPH_NODE_W - r, y + r, r, -G_PI / 2, 0);
+         cairo_arc(cr, x + RR_GTK_GRAPH_NODE_W - r, y + RR_GTK_GRAPH_NODE_H - r, r, 0, G_PI / 2);
+         cairo_arc(cr, x + r, y + RR_GTK_GRAPH_NODE_H - r, r, G_PI / 2, G_PI);
+         cairo_arc(cr, x + r, y + r, r, G_PI, 3 * G_PI / 2);
+         cairo_close_path(cr);
+      } else {
+         cairo_rectangle(cr, n->x, n->y, RR_GTK_GRAPH_NODE_W, RR_GTK_GRAPH_NODE_H);
+      }
       cairo_fill_preserve(cr);
       cairo_set_source_rgb(cr, n->failed ? .95 : .53, n->failed ? .32 : .65, n->failed ? .28 : .75);
       cairo_set_line_width(cr, n->selected ? 2.8 : 1.3);
@@ -60,6 +72,12 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
       cairo_set_font_size(cr, 10);
       cairo_move_to(cr, n->x + 10, n->y + 39);
       cairo_show_text(cr, n->subtitle ? n->subtitle : "");
+      if (n->fwdsp) {
+         cairo_set_source_rgb(cr, .98, .77, .43);
+         cairo_set_font_size(cr, 9);
+         cairo_move_to(cr, n->x + 99, n->y + 24);
+         cairo_show_text(cr, "fwdsp");
+      }
       cairo_set_font_size(cr, 9);
       if (n->stereo_pins) {
          pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_LEFT, FALSE), FALSE);
