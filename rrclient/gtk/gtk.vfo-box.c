@@ -257,27 +257,157 @@ static void local_vfo_destroy(GtkWidget *widget, gpointer unused) {
    }
    local_sdr_driver_token = 0;
 }
-/* FlowBox keeps whole control groups together when a floating VFO is
- * narrowed. A hidden RX-only control must not reserve a blank cell. */
+/* A FlowBox supplies the gravity/reflow; DnD changes the packing order.
+ * Only grab handles are drag sources, so CAT digits and PTT remain clickable. */
+static GtkWidget *vfo_dragging_child;
+static const GtkTargetEntry vfo_drag_target[] = {
+   { "application/x-rustyrig-vfo-control", GTK_TARGET_SAME_APP, 0 }
+};
+static GtkCssProvider *vfo_dock_css;
+
+static void vfo_dock_style(void) {
+   if (vfo_dock_css) return;
+   vfo_dock_css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(vfo_dock_css,
+      ".rr-vfo-group { border: 2px solid transparent; border-radius: 4px; }"
+      ".rr-vfo-group.rr-vfo-moving { border-color: #66caff; background-color: rgba(80,180,255,.17); }"
+      ".rr-vfo-group.rr-vfo-before { border-left: 4px solid #48c5ff; }"
+      ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
+      ".rr-vfo-grip { color: #8bbbd1; font-size: 10px; padding: 0 4px; }", -1, NULL);
+}
+static void vfo_clear_drop(GtkWidget *child) {
+   if (!child) return;
+   GtkStyleContext *ctx = gtk_widget_get_style_context(child);
+   gtk_style_context_remove_class(ctx, "rr-vfo-before");
+   gtk_style_context_remove_class(ctx, "rr-vfo-after");
+}
+static void vfo_drag_begin(GtkWidget *handle, GdkDragContext *context, gpointer unused) {
+   (void)context; (void)unused;
+   GtkWidget *child = g_object_get_data(G_OBJECT(handle), "rr-vfo-child");
+   vfo_dragging_child = child;
+   if (child)
+      gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-moving");
+}
+static void vfo_drag_end(GtkWidget *handle, GdkDragContext *context, gpointer unused) {
+   (void)handle; (void)context; (void)unused;
+   if (vfo_dragging_child)
+      gtk_style_context_remove_class(gtk_widget_get_style_context(vfo_dragging_child), "rr-vfo-moving");
+   vfo_dragging_child = NULL;
+   if (!GTK_IS_CONTAINER(vfo_controls_row)) return;
+   GList *children = gtk_container_get_children(GTK_CONTAINER(vfo_controls_row));
+   for (GList *it = children; it; it = it->next)
+      vfo_clear_drop(it->data);
+   g_list_free(children);
+}
+static void vfo_drag_data_get(GtkWidget *widget, GdkDragContext *context,
+                               GtkSelectionData *selection, guint info, guint time,
+                               gpointer unused) {
+   (void)widget; (void)context; (void)info; (void)time; (void)unused;
+   const char value[] = "vfo";
+   gtk_selection_data_set(selection, gdk_atom_intern_static_string(vfo_drag_target[0].target),
+                          8, (const guchar *)value, sizeof(value) - 1);
+}
+static gboolean vfo_drop_after(GtkWidget *child, gint x) {
+   return x >= gtk_widget_get_allocated_width(child) / 2;
+}
+static gboolean vfo_drag_motion(GtkWidget *child, GdkDragContext *context,
+                                 gint x, gint y, guint time, gpointer unused) {
+   (void)y; (void)unused;
+   if (!vfo_dragging_child || vfo_dragging_child == child) {
+      vfo_clear_drop(child);
+      return FALSE;
+   }
+   gboolean after = vfo_drop_after(child, x);
+   GtkStyleContext *ctx = gtk_widget_get_style_context(child);
+   gtk_style_context_remove_class(ctx, after ? "rr-vfo-before" : "rr-vfo-after");
+   gtk_style_context_add_class(ctx, after ? "rr-vfo-after" : "rr-vfo-before");
+   gdk_drag_status(context, GDK_ACTION_MOVE, time);
+   return TRUE;
+}
+static void vfo_drag_leave(GtkWidget *child, GdkDragContext *context,
+                            guint time, gpointer unused) {
+   (void)context; (void)time; (void)unused;
+   vfo_clear_drop(child);
+}
+static void vfo_drag_received(GtkWidget *child, GdkDragContext *context,
+                               gint x, gint y, GtkSelectionData *selection,
+                               guint info, guint time, gpointer unused) {
+   (void)y; (void)info; (void)unused;
+   gboolean ok = FALSE;
+   GtkWidget *source = vfo_dragging_child;
+   if (source && source != child && GTK_IS_FLOW_BOX(vfo_controls_row) &&
+       gtk_selection_data_get_length(selection) == 3 &&
+       memcmp(gtk_selection_data_get_data(selection), "vfo", 3) == 0) {
+      GList *siblings = gtk_container_get_children(GTK_CONTAINER(vfo_controls_row));
+      gint source_pos = g_list_index(siblings, source);
+      gint target_pos = g_list_index(siblings, child);
+      gint to = target_pos + (vfo_drop_after(child, x) ? 1 : 0);
+      if (source_pos >= 0 && target_pos >= 0) {
+         if (source_pos < to) to--;
+         if (source_pos != to) {
+            g_object_ref(source);
+            gtk_container_remove(GTK_CONTAINER(vfo_controls_row), source);
+            gtk_flow_box_insert(GTK_FLOW_BOX(vfo_controls_row), source, to);
+            g_object_unref(source);
+            gtk_widget_show(source);
+         }
+         ok = TRUE;
+      }
+      g_list_free(siblings);
+   }
+   vfo_clear_drop(child);
+   gtk_drag_finish(context, ok, ok, time);
+}
 static gboolean vfo_control_visible(GtkFlowBoxChild *child, gpointer unused) {
    (void)unused;
-   GtkWidget *content = gtk_bin_get_child(GTK_BIN(child));
-   return content && gtk_widget_get_visible(content);
+   GtkWidget *control = g_object_get_data(G_OBJECT(child), "rr-vfo-content");
+   return control && gtk_widget_get_visible(control);
 }
 static void vfo_control_visibility_changed(GtkWidget *widget, GParamSpec *spec, gpointer user) {
    (void)widget; (void)spec;
-   gtk_flow_box_invalidate_filter(GTK_FLOW_BOX(user));
+   if (GTK_IS_FLOW_BOX(user))
+      gtk_flow_box_invalidate_filter(GTK_FLOW_BOX(user));
 }
-static void vfo_control_add(GtkWidget *control) {
-   /* Initialize descendants once. A parent show_all() must not later undo
-    * RX-only/SDR visibility decisions for this whole control group. */
+static void vfo_control_add(GtkWidget *control, const char *name) {
    gboolean wanted = gtk_widget_get_visible(control);
    gtk_widget_show_all(control);
    gtk_widget_set_no_show_all(control, TRUE);
    gtk_widget_set_visible(control, wanted);
-   gtk_container_add(GTK_CONTAINER(vfo_controls_row), control);
+   GtkWidget *group = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *handle = gtk_event_box_new();
+   GtkWidget *hint = gtk_label_new(name);
+   gtk_label_set_xalign(GTK_LABEL(hint), 0.5);
+   gtk_widget_set_name(hint, "rr-vfo-drag-label");
+   gtk_widget_set_tooltip_text(handle, "Drag to rearrange VFO controls");
+   gtk_container_add(GTK_CONTAINER(handle), hint);
+   gtk_box_pack_start(GTK_BOX(group), handle, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(group), control, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(vfo_controls_row), group);
+   GtkWidget *child = gtk_widget_get_parent(group);
+   g_object_set_data(G_OBJECT(child), "rr-vfo-content", control);
+   g_object_set_data(G_OBJECT(handle), "rr-vfo-child", child);
+   gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-group");
+   gtk_style_context_add_class(gtk_widget_get_style_context(hint), "rr-vfo-grip");
+   vfo_dock_style();
+   gtk_style_context_add_provider(gtk_widget_get_style_context(child),
+      GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(hint),
+      GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_drag_source_set(handle, GDK_BUTTON1_MASK, vfo_drag_target,
+                       G_N_ELEMENTS(vfo_drag_target), GDK_ACTION_MOVE);
+   gtk_drag_dest_set(child, GTK_DEST_DEFAULT_MOTION | GTK_DEST_DEFAULT_DROP,
+                     vfo_drag_target, G_N_ELEMENTS(vfo_drag_target), GDK_ACTION_MOVE);
+   g_signal_connect(handle, "drag-begin", G_CALLBACK(vfo_drag_begin), NULL);
+   g_signal_connect(handle, "drag-end", G_CALLBACK(vfo_drag_end), NULL);
+   g_signal_connect(handle, "drag-data-get", G_CALLBACK(vfo_drag_data_get), NULL);
+   g_signal_connect(child, "drag-motion", G_CALLBACK(vfo_drag_motion), NULL);
+   g_signal_connect(child, "drag-leave", G_CALLBACK(vfo_drag_leave), NULL);
+   g_signal_connect(child, "drag-data-received", G_CALLBACK(vfo_drag_received), NULL);
    g_signal_connect_object(control, "notify::visible",
       G_CALLBACK(vfo_control_visibility_changed), G_OBJECT(vfo_controls_row), 0);
+   gtk_widget_show_all(group);
+   /* Revealing the wrapper must never force an RX-only control visible. */
+   gtk_widget_set_visible(control, wanted);
 }
 GtkWidget *create_vfo_box(void) {
    // Create the control box
@@ -306,7 +436,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *mode_box = create_mode_box();
    vfo_mode_box = mode_box;
    gtk_widget_show(mode_box);
-   vfo_control_add(mode_box);
+   vfo_control_add(mode_box, "⋮⋮ Mode");
 
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
@@ -315,19 +445,19 @@ GtkWidget *create_vfo_box(void) {
       const char *room = gtk_chat_controls_room();
       gtk_widget_set_visible(codec_selectors, !room || g_ascii_strcasecmp(room, "&local-sdr") != 0);
    }
-   vfo_control_add(codec_selectors);
+   vfo_control_add(codec_selectors, "⋮⋮ Codecs");
 
    // TX power for transceivers; the same space hosts the active remote SDR button.
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
    gtk_widget_show(tx_power_vbox);
-   vfo_control_add(tx_power_vbox);
+   vfo_control_add(tx_power_vbox, "⋮⋮ TX Power");
    vfo_sdr_button = gtk_button_new_with_label("Remote SDR");
    gtk_widget_set_no_show_all(vfo_sdr_button, TRUE);
    gtk_widget_set_tooltip_text(vfo_sdr_button, "Remote SDR controls");
    g_signal_connect(vfo_sdr_button, "clicked", G_CALLBACK(local_sdr_controls_clicked), NULL);
-   vfo_control_add(vfo_sdr_button);
+   vfo_control_add(vfo_sdr_button, "⋮⋮ SDR");
    g_object_add_weak_pointer(G_OBJECT(vfo_sdr_button), (gpointer *) &vfo_sdr_button);
 
    // These globals are borrowed widget references used by protocol/event
@@ -377,7 +507,7 @@ GtkWidget *create_vfo_box(void) {
    vfo_ptt_box = ptt_box;
    g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *) &vfo_ptt_box);
    gtk_widget_show(ptt_box);
-   vfo_control_add(ptt_box);
+   vfo_control_add(ptt_box, "⋮⋮ PTT");
 
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
