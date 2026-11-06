@@ -205,6 +205,42 @@ static void kiwi_control_request(const rr_event_message_t *message, void *user) 
       Log(LOG_WARN, "local.bridge", "Kiwi VFO %c: failed to queue control %s", req->vfo, req->control);
    }
 }
+bool rrclient_local_bridge_request_tune(rr_local_tune_kind_t kind, char vfo, uint64_t hz, const char *value) {
+   if (kind != RR_LOCAL_TUNE_FREQUENCY && kind != RR_LOCAL_TUNE_MODE && kind != RR_LOCAL_TUNE_WIDTH)
+      return false;
+   if (value && strlen(value) >= sizeof(((rr_local_tune_request_t *)0)->value))
+      return false;
+   rr_local_tune_request_t req = { .kind = kind, .vfo = vfo, .hz = hz };
+   if (value)
+      g_strlcpy(req.value, value, sizeof(req.value));
+   rr_event_message_t message = {
+      .name = RRCLIENT_LOCAL_BRIDGE_TUNE_REQUEST, .payload = &req, .length = sizeof(req)
+   };
+   event_emit_message(&message);
+   return true;
+}
+static void local_bridge_tune_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_local_tune_request_t))
+      return;
+   const rr_local_tune_request_t *req = message->payload;
+   if (!memchr(req->value, 0, sizeof(req->value)))
+      return;
+   char vfo = req->vfo ? req->vfo : rrclient_room_active_vfo("&local-sdr");
+   switch (req->kind) {
+   case RR_LOCAL_TUNE_FREQUENCY:
+      rrclient_local_bridge_set_frequency(vfo, req->hz);
+      break;
+   case RR_LOCAL_TUNE_MODE:
+      rrclient_local_bridge_set_mode(vfo, req->value);
+      break;
+   case RR_LOCAL_TUNE_WIDTH:
+      rrclient_local_bridge_set_width(vfo, req->value);
+      break;
+   default:
+      break;
+   }
+}
 static void local_bridge_lifecycle_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (!message || !message->payload || message->length != sizeof(rrclient_local_bridge_lifecycle_request_t))
@@ -224,6 +260,7 @@ void rrclient_local_bridge_controls_init(void) {
    event_on_message_domain_token(RRCLIENT_KIWI_STATUS_REQUEST, kiwi_control_status, NULL, "core");
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_ACTIVE_REQUEST, local_bridge_active_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST, local_bridge_lifecycle_request, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_TUNE_REQUEST, local_bridge_tune_request, NULL, "core");
 }
 bool rrclient_local_bridge_connected(const char *url) {
    if (!url) {
