@@ -15,6 +15,30 @@ extern dict *cfg;
 
 static sqlite3 *client_db;
 
+static bool window_state_schema(void) {
+   if (!client_db) return false;
+   /* Window state is an additive migration, independent of older installed
+    * SQL schema files. Session id advances once per successful DB open. */
+   if (sqlite3_exec(client_db,
+      "CREATE TABLE IF NOT EXISTS window_states ("
+      "id TEXT PRIMARY KEY, x INTEGER NOT NULL, y INTEGER NOT NULL,"
+      "width INTEGER NOT NULL, height INTEGER NOT NULL, zoom INTEGER NOT NULL,"
+      "rolled INTEGER NOT NULL, minimized INTEGER NOT NULL, pinned INTEGER NOT NULL,"
+      "last_used INTEGER NOT NULL DEFAULT (strftime('%s','now')),"
+      "last_session INTEGER NOT NULL DEFAULT 0);"
+      "INSERT OR IGNORE INTO client_settings(key,value) VALUES('window.session','0');"
+      "UPDATE client_settings SET value=CAST(value AS INTEGER)+1 WHERE key='window.session';"
+      "DELETE FROM window_states WHERE last_session < "
+      "(SELECT CAST(value AS INTEGER)-5 FROM client_settings WHERE key='window.session');",
+      NULL, NULL, NULL) != SQLITE_OK) {
+      fprintf(stderr, "Window-state table initialization failed: %s\n", sqlite3_errmsg(client_db));
+      goto fail;
+   }
+
+
+   return true;
+}
+
 bool rrclient_database_init(void) {
    if (client_db) {
       return true;
@@ -51,6 +75,7 @@ bool rrclient_database_init(void) {
          NULL, NULL, NULL) != SQLITE_OK) {
          goto fail;
       }
+      if (!window_state_schema()) goto fail;
       g_free(path);
       g_free(dir);
 
@@ -89,6 +114,7 @@ bool rrclient_database_init(void) {
    if (!ok) {
       goto fail;
    }
+   if (!window_state_schema()) goto fail;
    g_free(path);
    g_free(dir);
 
@@ -438,4 +464,55 @@ bool rrclient_database_theme_set(const char *name, const char *property, const c
 
    return db_exec3("INSERT INTO themes(name,property,value) VALUES(?1,?2,?3) "
       "ON CONFLICT(name,property) DO UPDATE SET value=excluded.value", name, property, value);
+}
+
+
+bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out) {
+   if (!client_db || !id || !*id || !out) return false;
+   sqlite3_stmt *q = NULL;
+   bool found = false;
+   const char *sql = "SELECT x,y,width,height,zoom,rolled,minimized,pinned FROM window_states WHERE id=?1";
+   if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) == SQLITE_OK) {
+      sqlite3_bind_text(q, 1, id, -1, SQLITE_TRANSIENT);
+      if (sqlite3_step(q) == SQLITE_ROW) {
+         *out = (rrclient_window_state_t) {
+            .x = sqlite3_column_int(q, 0), .y = sqlite3_column_int(q, 1),
+            .width = sqlite3_column_int(q, 2), .height = sqlite3_column_int(q, 3),
+            .zoom = sqlite3_column_int(q, 4),
+            .rolled = sqlite3_column_int(q, 5) != 0,
+            .minimized = sqlite3_column_int(q, 6) != 0,
+            .pinned = sqlite3_column_int(q, 7) != 0
+         };
+         found = true;
+      }
+   }
+   sqlite3_finalize(q);
+   return found;
+}
+
+bool rrclient_database_window_save(const char *id, const rrclient_window_state_t *state) {
+   if (!client_db || !id || !*id || !state) return false;
+   sqlite3_stmt *q = NULL;
+   const char *sql = "INSERT INTO window_states"
+      "(id,x,y,width,height,zoom,rolled,minimized,pinned,last_used,last_session) "
+      "VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%s','now'),"
+      "(SELECT CAST(value AS INTEGER) FROM client_settings WHERE key='window.session')) "
+      "ON CONFLICT(id) DO UPDATE SET "
+      "x=excluded.x,y=excluded.y,width=excluded.width,height=excluded.height,"
+      "zoom=excluded.zoom,rolled=excluded.rolled,minimized=excluded.minimized,"
+      "pinned=excluded.pinned,last_used=excluded.last_used,last_session=excluded.last_session";
+   if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) != SQLITE_OK)
+      return false;
+   sqlite3_bind_text(q, 1, id, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int(q, 2, state->x);
+   sqlite3_bind_int(q, 3, state->y);
+   sqlite3_bind_int(q, 4, state->width);
+   sqlite3_bind_int(q, 5, state->height);
+   sqlite3_bind_int(q, 6, state->zoom);
+   sqlite3_bind_int(q, 7, state->rolled);
+   sqlite3_bind_int(q, 8, state->minimized);
+   sqlite3_bind_int(q, 9, state->pinned);
+   bool ok = sqlite3_step(q) == SQLITE_DONE;
+   sqlite3_finalize(q);
+   return ok;
 }
