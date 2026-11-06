@@ -278,9 +278,7 @@ void modebox_update_state(const char *mode, int width) {
 
 GtkWidget *create_mode_box(void) {
    GtkWidget *mode_combo_wrapper = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   GtkWidget *mode_box_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(mode_box_label), "Mo<u>d</u>e/<u>W</u>idth");
+   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
 
    ///////
    mode_combo = gtk_combo_box_text_new();
@@ -300,7 +298,6 @@ GtkWidget *create_mode_box(void) {
 
    gtk_widget_set_can_focus(mode_combo_wrapper, TRUE);
    gtk_widget_add_events(mode_combo_wrapper, GDK_KEY_PRESS_MASK);
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(mode_combo_wrapper), mode_combo, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(mode_box), mode_combo_wrapper, FALSE, FALSE, 0);
 
