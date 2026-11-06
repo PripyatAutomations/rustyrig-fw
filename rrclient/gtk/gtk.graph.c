@@ -52,11 +52,13 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
       cairo_show_text(cr, n->subtitle ? n->subtitle : "");
       pin(cr, n->x, n->y + 43, FALSE);
       pin(cr, n->x + RR_GTK_GRAPH_NODE_W, n->y + 43, FALSE);
-      pin(cr, n->x, n->y + 67, TRUE);
-      pin(cr, n->x + RR_GTK_GRAPH_NODE_W, n->y + 67, TRUE);
-      cairo_set_source_rgb(cr, .96, .65, .27);
-      cairo_set_font_size(cr, 8);
-      cairo_move_to(cr, n->x + 9, n->y + 70);
-      cairo_show_text(cr, "BYPASS");
+      if (n->bypass_pins) {
+         pin(cr, n->x, n->y + 67, TRUE);
+         pin(cr, n->x + RR_GTK_GRAPH_NODE_W, n->y + 67, TRUE);
+         cairo_set_source_rgb(cr, .96, .65, .27);
+         cairo_set_font_size(cr, 8);
+         cairo_move_to(cr, n->x + 9, n->y + 70);
+         cairo_show_text(cr, "BYPASS");
+      }
    }
 }
