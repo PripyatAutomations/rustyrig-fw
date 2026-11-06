@@ -1454,6 +1454,7 @@ static void room_vfo_show(const char *name) {
          return;
       }
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
+      rr_floating_panel_set_resizable(room_vfo_panel, TRUE);
       rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);
       room_rf_strip = rr_gtk_rf_spectrum_new();
       /* show_all() on the floating panel must never resurrect the RF strip
@@ -1463,6 +1464,8 @@ static void room_vfo_show(const char *name) {
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_rf_strip, TRUE, TRUE, 0);
       gtk_widget_show_all(room_rf_strip);
       room_vfo_box = create_vfo_box();
+      rr_floating_panel_set_min_width_widget(room_vfo_panel, freq_entry);
+      rr_floating_panel_fit_content(room_vfo_panel);
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_vfo_box, FALSE, FALSE, 0);
    }
@@ -1479,6 +1482,8 @@ static void room_vfo_show(const char *name) {
    g_free(title);
    rr_floating_panel_show(room_vfo_panel);
    vfo_controls_set_local_sdr(name && !g_ascii_strcasecmp(name, "&local-sdr"));
+   /* A previously larger layout must not leave the VFO floating in blank space. */
+   rr_floating_panel_fit_content(room_vfo_panel);
 }
 
 // A single control box follows the selected rig room.  The site lobby and
