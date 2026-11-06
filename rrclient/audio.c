@@ -798,6 +798,49 @@ static void dcc_closed(const char *event, const char *data, rrconn_t *client, vo
       }
    }
 }
+static void audio_control_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_audio_control_request_t))
+      return;
+   const rr_audio_control_request_t *req = message->payload;
+   switch (req->kind) {
+   case RR_AUDIO_CONTROL_MASTER:
+      audio_set_rx_volume(req->percent);
+      break;
+   case RR_AUDIO_CONTROL_EAR:
+      audio_set_rx_channel_volume(req->channel, req->percent);
+      break;
+   case RR_AUDIO_CONTROL_STREAM:
+      if (memchr(req->stream, 0, sizeof(req->stream)))
+         audio_set_rx_stream_route(req->stream, req->output);
+      break;
+   default:
+      break;
+   }
+}
+static void audio_submit_control(const rr_audio_control_request_t *req) {
+   rr_event_message_t message = {
+      .name = RRCLIENT_AUDIO_CONTROL_REQUEST,
+      .payload = req, .length = sizeof(*req)
+   };
+   event_emit_message(&message);
+}
+void audio_request_rx_volume(int percent) {
+   rr_audio_control_request_t req = { .kind = RR_AUDIO_CONTROL_MASTER, .percent = percent };
+   audio_submit_control(&req);
+}
+void audio_request_rx_channel_volume(unsigned channel, int percent) {
+   rr_audio_control_request_t req = { .kind = RR_AUDIO_CONTROL_EAR, .channel = channel, .percent = percent };
+   audio_submit_control(&req);
+}
+void audio_request_rx_stream_route(const char *id, char output) {
+   if (!id || strlen(id) >= sizeof(((rr_audio_control_request_t *)0)->stream))
+      return;
+   rr_audio_control_request_t req = { .kind = RR_AUDIO_CONTROL_STREAM, .output = output };
+   g_strlcpy(req.stream, id, sizeof(req.stream));
+   audio_submit_control(&req);
+}
+
 bool audio_init(void) {
    // RX audio is routed by the frame header (stream id + codec) via the
    // full-frame event; see audio_full_frame_cb. The legacy payload-only
@@ -808,6 +851,7 @@ bool audio_init(void) {
    event_on(IRC_AUDIO_CLOSED_EVENT, dcc_closed, NULL);
    event_on("media.quality-hint", audio_quality_hint, NULL);
    event_on("ws.msg.media", audio_feedback, NULL);
+   event_on_message_domain_token(RRCLIENT_AUDIO_CONTROL_REQUEST, audio_control_request, NULL, "core");
 
    if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
