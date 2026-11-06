@@ -12,7 +12,7 @@ typedef struct {
    double x, y;
    const char *title, *subtitle;
    gboolean selected, failed, bypass_pins;
-   gboolean stereo_pins;
+   gboolean stereo_pins, fwdsp;
 } rr_gtk_graph_node_t;
 typedef enum {
    RR_GTK_GRAPH_PIN_DEFAULT,
