@@ -98,7 +98,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    const rr_audio_graph_snapshot_t *g = graph_snapshot;
    if (g->node_count > RR_AUDIO_GRAPH_MAX_NODES || g->link_count > RR_AUDIO_GRAPH_MAX_LINKS) return FALSE;
    rr_gtk_graph_node_t nodes[RR_AUDIO_GRAPH_MAX_NODES] = {{0}};
-   rr_gtk_graph_edge_t edges[RR_AUDIO_GRAPH_MAX_LINKS] = {{0}};
+   rr_gtk_graph_edge_t edges[RR_AUDIO_GRAPH_MAX_LINKS * 2] = {{0}};
    guint source_index = 0;
    for (guint i = 0; i < g->node_count; i++) {
       const rr_ag_view_node_t *n = &g->nodes[i];
@@ -111,15 +111,34 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          .title = n->id,
          .subtitle = source ? route : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer",
          .failed = n->health == RR_AG_FAILED,
-         .bypass_pins = TRUE
+         .bypass_pins = TRUE, .stereo_pins = TRUE
       };
    }
-   for (guint i = 0; i < g->link_count; i++)
-      edges[i] = (rr_gtk_graph_edge_t) {
-         .from = g->links[i].src, .to = g->links[i].dst,
-         .kind = g->links[i].kind == RR_AG_BYPASS ? RR_GTK_GRAPH_BYPASS : RR_GTK_GRAPH_NORMAL
-      };
-   rr_gtk_graph_draw(cr, nodes, g->node_count, edges, g->link_count);
+   guint edge_count = 0;
+   for (guint i = 0; i < g->link_count; i++) {
+      const rr_ag_view_link_t *link = &g->links[i];
+      if (link->src >= g->node_count || link->dst >= g->node_count)
+         continue;
+      rr_gtk_graph_edge_kind_t kind = link->kind == RR_AG_BYPASS ?
+         RR_GTK_GRAPH_BYPASS : RR_GTK_GRAPH_NORMAL;
+      if (kind == RR_GTK_GRAPH_BYPASS) {
+         edges[edge_count++] = (rr_gtk_graph_edge_t) {
+            .from = link->src, .to = link->dst, .kind = kind
+         };
+         continue;
+      }
+      if (link->channels & RR_AG_CHANNEL_LEFT)
+         edges[edge_count++] = (rr_gtk_graph_edge_t) {
+            .from = link->src, .to = link->dst, .kind = kind,
+            .src_pin = RR_GTK_GRAPH_PIN_LEFT, .dst_pin = RR_GTK_GRAPH_PIN_LEFT
+         };
+      if (link->channels & RR_AG_CHANNEL_RIGHT)
+         edges[edge_count++] = (rr_gtk_graph_edge_t) {
+            .from = link->src, .to = link->dst, .kind = kind,
+            .src_pin = RR_GTK_GRAPH_PIN_RIGHT, .dst_pin = RR_GTK_GRAPH_PIN_RIGHT
+         };
+   }
+   rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
    return FALSE;
 }
 static void routing_graph_snapshot_event(const rr_event_message_t *message, void *unused) {
