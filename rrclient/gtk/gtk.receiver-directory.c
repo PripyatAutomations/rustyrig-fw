@@ -816,6 +816,21 @@ static void receiver_connect_request(const char *url, gboolean save, const char 
    };
    event_emit_message(&message);
 }
+/* The bridge IPC/PCM owner is the core thread. Never start or tear down
+ * its child process from GTK's event loop. The event bus copies this payload. */
+static void receiver_local_lifecycle(const char *url, const char *driver, gboolean disconnect) {
+   rrclient_local_bridge_lifecycle_request_t req = {0};
+   if (!url || strlen(url) >= sizeof(req.url))
+      return;
+   g_strlcpy(req.url, url, sizeof(req.url));
+   g_strlcpy(req.driver, driver && *driver ? driver : "kiwi", sizeof(req.driver));
+   req.disconnect = disconnect != FALSE;
+   rr_event_message_t event = {
+      .name = RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST,
+      .payload = &req, .length = sizeof(req)
+   };
+   event_emit_message(&event);
+}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -825,7 +840,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    }
 
    if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_connected(r->url)) {
-      rrclient_local_bridge_disconnect_url(r->url);
+      receiver_local_lifecycle(r->url, NULL, TRUE);
       selection_changed(NULL, NULL);
 
       return;
@@ -842,10 +857,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       /* Create the destination before the bridge emits its connecting message. */
       gtk_chat_room_add("&local-sdr");
 
-      if (!rrclient_local_bridge_connect_driver(r->url, r->driver && *r->driver ? r->driver : "kiwi")) {
-         gtk_label_set_text(GTK_LABEL(directory_status), "Unable to start local SDR bridge");
-         ui_print("&local-sdr", "Unable to start local SDR bridge for %s", r->url);
-      }
+      receiver_local_lifecycle(r->url, r->driver, FALSE);
       selection_changed(NULL, NULL);
 
       return;
