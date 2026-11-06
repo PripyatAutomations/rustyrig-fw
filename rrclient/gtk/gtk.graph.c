@@ -31,7 +31,11 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
          const double dash[] = {6, 5};
          cairo_set_dash(cr, dash, 2, 0);
       } else {
-         cairo_set_source_rgb(cr, .34, .70, .88);
+         /* Use distinct colors even where the two paths run in parallel. */
+         if (e->dst_pin == RR_GTK_GRAPH_PIN_RIGHT)
+            cairo_set_source_rgb(cr, .73, .48, 1.0);
+         else
+            cairo_set_source_rgb(cr, .34, .78, .93);
          cairo_set_dash(cr, NULL, 0, 0);
       }
       cairo_move_to(cr, a->x + RR_GTK_GRAPH_NODE_W, from_y);
@@ -78,17 +82,28 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
          cairo_move_to(cr, n->x + 116, n->y + 102);
          cairo_show_text(cr, "fwdsp");
       }
-      cairo_set_font_size(cr, 9);
+      cairo_set_font_size(cr, 10);
       if (n->stereo_pins) {
-         pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_LEFT, FALSE), FALSE);
-         pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_LEFT, FALSE), FALSE);
-         pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_RIGHT, FALSE), FALSE);
-         pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_RIGHT, FALSE), FALSE);
-         cairo_set_source_rgb(cr, .75, .86, .95);
-         cairo_move_to(cr, n->x + 10, n->y + 63);
-         cairo_show_text(cr, "L");
-         cairo_move_to(cr, n->x + 10, n->y + 82);
-         cairo_show_text(cr, "R");
+         /* Both ends have independent L/R ports. Label them at both edges,
+          * not just the left, so ear-specific routes are legible. */
+         for (unsigned channel = 0; channel < 2; channel++) {
+            rr_gtk_graph_pin_t side = channel ? RR_GTK_GRAPH_PIN_RIGHT : RR_GTK_GRAPH_PIN_LEFT;
+            double py = pin_y(n, side, FALSE);
+            if (channel)
+               cairo_set_source_rgb(cr, .73, .48, 1.0);
+            else
+               cairo_set_source_rgb(cr, .34, .78, .93);
+            cairo_arc(cr, n->x, py, 6.5, 0, 2 * G_PI);
+            cairo_fill(cr);
+            cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W, py, 6.5, 0, 2 * G_PI);
+            cairo_fill(cr);
+            cairo_set_source_rgb(cr, 1, 1, 1);
+            cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+            cairo_move_to(cr, n->x + 12, py + 3.5);
+            cairo_show_text(cr, channel ? "R IN" : "L IN");
+            cairo_move_to(cr, n->x + RR_GTK_GRAPH_NODE_W - 43, py + 3.5);
+            cairo_show_text(cr, channel ? "R OUT" : "L OUT");
+         }
       } else {
          pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
          pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
