@@ -41,7 +41,7 @@ static void routing_apply(const struct rrclient_rx_stream *streams, size_t count
       bool left = routing_ear_matches(ear_choice[0], &streams[i], false);
       bool right = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))
          ? routing_ear_matches(ear_choice[1], &streams[i], true) : left;
-      audio_set_rx_stream_route(streams[i].id, left ? (right ? 'S' : 'L') : (right ? 'R' : 'M'));
+      audio_request_rx_stream_route(streams[i].id, left ? (right ? 'S' : 'L') : (right ? 'R' : 'M'));
    }
 
    routing_updating = false;
@@ -168,7 +168,7 @@ static void routing_queue(void) {
 /* Local RX playback gain, separate from per-ear routing and rig speaker volume. */
 static void routing_rx_gain_changed(GtkRange *range, gpointer unused) {
    (void)unused;
-   audio_set_rx_volume((int)gtk_range_get_value(range));
+   audio_request_rx_volume((int)gtk_range_get_value(range));
 }
 
 static void routing_volume_changed(GtkRange *range, gpointer user) {
@@ -177,12 +177,12 @@ static void routing_volume_changed(GtkRange *range, gpointer user) {
    }
    unsigned ear = GPOINTER_TO_UINT(user);
    int percent = (int)gtk_range_get_value(range);
-   audio_set_rx_channel_volume(ear, percent);
+   audio_request_rx_channel_volume(ear, percent);
 
    if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))) {
       volume_updating = true;
       gtk_range_set_value(GTK_RANGE(ear_volume[1 - ear]), percent);
-      audio_set_rx_channel_volume(1 - ear, percent);
+      audio_request_rx_channel_volume(1 - ear, percent);
       volume_updating = false;
    }
 }
@@ -213,7 +213,7 @@ static void routing_changed(GtkWidget *widget, gpointer unused) {
       volume_updating = true;
       int percent = (int)gtk_range_get_value(GTK_RANGE(ear_volume[0]));
       gtk_range_set_value(GTK_RANGE(ear_volume[1]), percent);
-      audio_set_rx_channel_volume(1, percent);
+      audio_request_rx_channel_volume(1, percent);
       volume_updating = false;
    }
    routing_updating = false;
