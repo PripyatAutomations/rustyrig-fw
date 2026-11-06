@@ -20,6 +20,7 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
+static rr_audio_graph_snapshot_t *graph_snapshot;
 static double graph_zoom = 1.0;
 static void graph_canvas_update_size(void) {
    if (!graph_canvas) return;
@@ -38,7 +39,6 @@ static guint routing_source;
 static guint routing_watchdog_source;
 static gint64 snapshot_sent_at;
 static rr_event_token_t streams_token, routes_token, show_token, snapshot_token, graph_token;
-static rr_audio_graph_snapshot_t *graph_snapshot;
 static GArray *routing_cache;
 static bool snapshot_waiting, routing_explicit_show;
 static bool routing_updating, inventory_dirty, have_choices;
