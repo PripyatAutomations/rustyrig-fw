@@ -257,6 +257,23 @@ static void local_vfo_destroy(GtkWidget *widget, gpointer unused) {
    }
    local_sdr_driver_token = 0;
 }
+/* FlowBox keeps whole control groups together when a floating VFO is
+ * narrowed. A hidden RX-only control must not reserve a blank cell. */
+static gboolean vfo_control_visible(GtkFlowBoxChild *child, gpointer unused) {
+   (void)unused;
+   GtkWidget *content = gtk_bin_get_child(GTK_BIN(child));
+   return content && gtk_widget_get_visible(content);
+}
+static void vfo_control_visibility_changed(GtkWidget *widget, GParamSpec *spec, gpointer user) {
+   (void)widget; (void)spec;
+   gtk_flow_box_invalidate_filter(GTK_FLOW_BOX(user));
+}
+static void vfo_control_add(GtkWidget *control) {
+   gtk_widget_set_no_show_all(control, TRUE);
+   gtk_container_add(GTK_CONTAINER(vfo_controls_row), control);
+   g_signal_connect_object(control, "notify::visible",
+      G_CALLBACK(vfo_control_visibility_changed), G_OBJECT(vfo_controls_row), 0);
+}
 GtkWidget *create_vfo_box(void) {
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -265,7 +282,15 @@ GtkWidget *create_vfo_box(void) {
 
    vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, FALSE, FALSE, 0);
-   vfo_controls_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   vfo_controls_row = gtk_flow_box_new();
+   gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(vfo_controls_row), GTK_SELECTION_NONE);
+   gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
+   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 4);
+   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
+   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
+   gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(vfo_controls_row), FALSE);
+   gtk_flow_box_set_filter_func(GTK_FLOW_BOX(vfo_controls_row), vfo_control_visible, NULL, NULL);
+   gtk_widget_set_halign(vfo_controls_row, GTK_ALIGN_FILL);
    gtk_box_pack_start(GTK_BOX(control_box), vfo_controls_row, FALSE, FALSE, 0);
 
    // FREQ selection
@@ -275,7 +300,7 @@ GtkWidget *create_vfo_box(void) {
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
    vfo_mode_box = mode_box;
-   gtk_box_pack_start(GTK_BOX(vfo_controls_row), mode_box, FALSE, FALSE, 0);
+   vfo_control_add(mode_box);
 
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
@@ -284,18 +309,18 @@ GtkWidget *create_vfo_box(void) {
       const char *room = gtk_chat_controls_room();
       gtk_widget_set_visible(codec_selectors, !room || g_ascii_strcasecmp(room, "&local-sdr") != 0);
    }
-   gtk_box_pack_start(GTK_BOX(vfo_controls_row), codec_selectors, FALSE, FALSE, 0);
+   vfo_control_add(codec_selectors);
 
    // TX power for transceivers; the same space hosts the active remote SDR button.
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
-   gtk_box_pack_start(GTK_BOX(vfo_controls_row), tx_power_vbox, FALSE, FALSE, 0);
+   vfo_control_add(tx_power_vbox);
    vfo_sdr_button = gtk_button_new_with_label("Remote SDR");
    gtk_widget_set_no_show_all(vfo_sdr_button, TRUE);
    gtk_widget_set_tooltip_text(vfo_sdr_button, "Remote SDR controls");
    g_signal_connect(vfo_sdr_button, "clicked", G_CALLBACK(local_sdr_controls_clicked), NULL);
-   gtk_box_pack_start(GTK_BOX(vfo_controls_row), vfo_sdr_button, FALSE, FALSE, 0);
+   vfo_control_add(vfo_sdr_button);
    g_object_add_weak_pointer(G_OBJECT(vfo_sdr_button), (gpointer *) &vfo_sdr_button);
 
    // These globals are borrowed widget references used by protocol/event
@@ -344,7 +369,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *ptt_box = ptt_button_create();
    vfo_ptt_box = ptt_box;
    g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *) &vfo_ptt_box);
-   gtk_box_pack_end(GTK_BOX(vfo_controls_row), ptt_box, FALSE, FALSE, 0);
+   vfo_control_add(ptt_box);
 
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
