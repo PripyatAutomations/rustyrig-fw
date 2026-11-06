@@ -1,115 +1,68 @@
-/* Compact in-client VFD clock: local wall time and UTC, no external font dependency. */
+/* Compact local/UTC status clock, owned entirely by the GTK thread. */
 #include <gtk/gtk.h>
-#include <cairo.h>
 #include <time.h>
 #include "gtk.clock.h"
-#include "gtk.floating-panel.h"
 
-extern GtkWidget *main_window, *main_notebook;
-
-static RRFloatPanel *clock_panel;
-static GtkWidget *clock_display;
+static GtkWidget *status_clock;
 static guint clock_source;
 
-/* Seven segment topology: top, upper right, lower right, bottom,
- * lower left, upper left, middle. */
-static const guint8 segments[10] = {
-   0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f
-};
-static const gdouble paths[7][4] = {
-   {3, 2, 15, 2}, {17, 4, 17, 16}, {17, 20, 17, 32},
-   {3, 34, 15, 34}, {1, 20, 1, 32}, {1, 4, 1, 16}, {3, 18, 15, 18}
-};
-static void segment(cairo_t *cr, int part, gboolean lit) {
-   cairo_move_to(cr, paths[part][0], paths[part][1]);
-   cairo_line_to(cr, paths[part][2], paths[part][3]);
-   cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-   if (lit) {
-      cairo_set_source_rgba(cr, 0.90, 0.44, 0.08, 0.13);
-      cairo_set_line_width(cr, 7);
-      cairo_stroke_preserve(cr);
-      cairo_set_source_rgb(cr, 0.94, 0.57, 0.18);
-      cairo_set_line_width(cr, 3.0);
-   } else {
-      cairo_set_source_rgba(cr, 0.34, 0.17, 0.05, 0.24);
-      cairo_set_line_width(cr, 2.5);
-   }
-   cairo_stroke(cr);
-}
-static void digit(cairo_t *cr, char c, gdouble x, gdouble y) {
-   cairo_save(cr);
-   cairo_translate(cr, x, y);
-   if (c == ':') {
-      cairo_set_source_rgb(cr, 0.94, 0.57, 0.18);
-      cairo_arc(cr, 8, 11, 2.1, 0, 6.2831853);
-      cairo_fill(cr);
-      cairo_arc(cr, 8, 26, 2.1, 0, 6.2831853);
-      cairo_fill(cr);
-   } else if (c >= '0' && c <= '9') {
-      for (int i = 0; i < 7; i++)
-         segment(cr, i, (segments[c - '0'] & (1u << i)) != 0);
-   }
-   cairo_restore(cr);
-}
-static void display_row(cairo_t *cr, const char *name, const struct tm *tm, gdouble y) {
-   char value[16];
-   strftime(value, sizeof(value), "%H:%M:%S", tm);
-   cairo_set_source_rgb(cr, 0.68, 0.39, 0.13);
-   cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-   cairo_set_font_size(cr, 11);
-   cairo_move_to(cr, 9, y + 23);
-   cairo_show_text(cr, name);
-   for (int i = 0; value[i]; i++)
-      digit(cr, value[i], 59 + i * 23, y);
-}
-static gboolean clock_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
-   (void)unused;
-   GtkAllocation alloc;
-   gtk_widget_get_allocation(widget, &alloc);
-   cairo_set_source_rgb(cr, 0.055, 0.043, 0.025);
-   cairo_rectangle(cr, 0, 0, alloc.width, alloc.height);
-   cairo_fill(cr);
-   time_t now = time(NULL);
-   struct tm local_tm = {0}, utc_tm = {0};
-   localtime_r(&now, &local_tm);
-   gmtime_r(&now, &utc_tm);
-   display_row(cr, "LOCAL", &local_tm, 6);
-   display_row(cr, "UTC", &utc_tm, 47);
-   return FALSE;
-}
 static gboolean clock_tick(gpointer unused) {
    (void)unused;
-   if (!clock_display) return G_SOURCE_REMOVE;
-   gtk_widget_queue_draw(clock_display);
+   if (!status_clock)
+      return G_SOURCE_REMOVE;
+   time_t t = time(NULL);
+   struct tm local_tm = {0}, utc_tm = {0};
+   localtime_r(&t, &local_tm);
+   gmtime_r(&t, &utc_tm);
+   char local[16], utc[16];
+   strftime(local, sizeof(local), "%H:%M:%S", &local_tm);
+   strftime(utc, sizeof(utc), "%H:%M:%S", &utc_tm);
+   char *markup = g_markup_printf_escaped(
+      "<span foreground='#C88A39'><b>LOCAL</b> %s   <b>UTC</b> %s</span>",
+      local, utc);
+   gtk_label_set_markup(GTK_LABEL(status_clock), markup);
+   g_free(markup);
    return G_SOURCE_CONTINUE;
 }
-void gtk_clock_init(void) {
-   if (clock_panel || !GTK_IS_WINDOW(main_window) || !GTK_IS_NOTEBOOK(main_notebook))
+static void clock_destroyed(GtkWidget *widget, gpointer unused) {
+   (void)unused;
+   if (widget != status_clock)
       return;
-   GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
-   if (!GTK_IS_OVERLAY(root))
-      return;
-   clock_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "client-clock", "Clock");
-   if (!clock_panel) return;
-   rr_floating_panel_set_closable(clock_panel, FALSE);
-   GtkWidget *body = rr_floating_panel_body(clock_panel);
-   clock_display = gtk_drawing_area_new();
-   gtk_widget_set_size_request(clock_display, 247, 88);
-   g_signal_connect(clock_display, "draw", G_CALLBACK(clock_draw), NULL);
-   gtk_box_pack_start(GTK_BOX(body), clock_display, FALSE, FALSE, 0);
-   gtk_widget_show_all(rr_floating_panel_widget(clock_panel));
-   rr_floating_panel_show(clock_panel);
-   rr_floating_panel_set_pinned(clock_panel, TRUE);
+   if (clock_source) {
+      g_source_remove(clock_source);
+      clock_source = 0;
+   }
+   status_clock = NULL;
+}
+GtkWidget *gtk_clock_status_new(void) {
+   if (status_clock)
+      return status_clock;
+   status_clock = gtk_label_new(NULL);
+   gtk_label_set_single_line_mode(GTK_LABEL(status_clock), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(status_clock), 0.5);
+   gtk_widget_set_tooltip_text(status_clock, "Local time and UTC (24-hour)");
+   GtkStyleContext *style = gtk_widget_get_style_context(status_clock);
+   GtkCssProvider *css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(css,
+      "label.rr-status-clock { font-family: monospace; font-size: 11px; "
+      "background-color: #20180f; border: 1px solid #50371a; "
+      "border-radius: 3px; padding: 2px 5px; }", -1, NULL);
+   gtk_style_context_add_class(style, "rr-status-clock");
+   gtk_style_context_add_provider(style, GTK_STYLE_PROVIDER(css),
+      GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(css);
+   g_signal_connect(status_clock, "destroy", G_CALLBACK(clock_destroyed), NULL);
+   clock_tick(NULL);
    clock_source = g_timeout_add_seconds(1, clock_tick, NULL);
+   return status_clock;
+}
+void gtk_clock_init(void) {
+   /* Status clock is constructed after the toolbar transfer counters. */
 }
 void gtk_clock_shutdown(void) {
    if (clock_source) {
       g_source_remove(clock_source);
       clock_source = 0;
    }
-   clock_display = NULL;
-   if (clock_panel) {
-      rr_floating_panel_destroy(clock_panel);
-      clock_panel = NULL;
-   }
+   status_clock = NULL;
 }
