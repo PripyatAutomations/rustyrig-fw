@@ -1125,16 +1125,14 @@ static void resource_create(void) {
    browser->health_events = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, resource_health_queue_free);
    browser->health_last = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    browser->property_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) dict_free);
-   /* Explorer is a tool window, never a notebook tab. Keep it alive while
-    * hidden so the tree, expansion, and inventory subscriptions survive. */
-   browser->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(browser->window), "RustyRig Resource Explorer");
-   gtk_window_set_default_size(GTK_WINDOW(browser->window), 1100, 740);
-   gtk_window_set_destroy_with_parent(GTK_WINDOW(browser->window), TRUE);
-   gtk_window_set_transient_for(GTK_WINDOW(browser->window), GTK_WINDOW(main_window));
-   g_signal_connect(browser->window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+   /* Explorer is a persistent main-notebook tool page, selected from the
+    * toolbar. Keep its tree and subscriptions alive when another page wins. */
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   gtk_container_add(GTK_CONTAINER(browser->window), browser->page);
+   g_object_set_data(G_OBJECT(browser->page), "rr-tab-hidden", GINT_TO_POINTER(1));
+   GtkWidget *label = gtk_label_new("Explorer");
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), browser->page, label);
+   gtk_widget_set_no_show_all(label, TRUE);
+   gtk_widget_hide(label);
    browser->panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
    gtk_box_pack_start(GTK_BOX(browser->page), browser->panel, TRUE, TRUE, 0);
@@ -1706,6 +1704,6 @@ void gtk_resources_shutdown(void) {
          g_source_remove(browser->zebra_idle);
          browser->zebra_idle = 0;
       }
-      gtk_widget_destroy(browser->window);
+      gtk_widget_destroy(browser->page);
    }
 }
