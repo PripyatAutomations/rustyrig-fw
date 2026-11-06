@@ -236,9 +236,7 @@ static gboolean routing_graph_hide(GtkWidget *widget, GdkEvent *event, gpointer 
    gtk_widget_hide(widget);
    return TRUE;
 }
-static void routing_graph_show(GtkButton *button, gpointer unused) {
-   (void)button;
-   (void)unused;
+void gtk_audio_graph_present(void) {
    if (!graph_window) {
       graph_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(graph_window), "RustyRig Audio Graph");
@@ -553,7 +551,7 @@ void gtk_audio_routing_init(void) {
    routing_grid_volume_row(grid, gain_row, 5);
 
    GtkWidget *graph_button = gtk_button_new_with_label("Audio Graph…");
-   g_signal_connect(graph_button, "clicked", G_CALLBACK(routing_graph_show), NULL);
+   g_signal_connect_swapped(graph_button, "clicked", G_CALLBACK(gtk_audio_graph_present), NULL);
    gtk_grid_attach(GTK_GRID(grid), graph_button, 0, 7, 2, 1);
 
    GtkWidget *rig_volume = create_volbox();
