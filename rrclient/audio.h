@@ -33,6 +33,23 @@ extern void audio_tx_free_frame(void);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
+#define RRCLIENT_AUDIO_CONTROL_REQUEST "client.audio.control.request"
+typedef enum {
+   RR_AUDIO_CONTROL_MASTER = 1,
+   RR_AUDIO_CONTROL_EAR,
+   RR_AUDIO_CONTROL_STREAM
+} rr_audio_control_kind_t;
+typedef struct {
+   rr_audio_control_kind_t kind;
+   unsigned channel;
+   int percent;
+   char stream[64];
+   char output;
+} rr_audio_control_request_t;
+/* Asynchronous GTK -> core dispatch; do not mutate fwdsp or routing state on GTK. */
+void audio_request_rx_volume(int percent);
+void audio_request_rx_channel_volume(unsigned channel, int percent);
+void audio_request_rx_stream_route(const char *id, char output);
 extern bool audio_set_rx_volume(int percent);
 extern bool audio_set_rx_channel_volume(unsigned channel, int percent);
 extern bool audio_set_tx_volume(int percent);
