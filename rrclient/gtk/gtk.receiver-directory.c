@@ -347,8 +347,8 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    }
    gtk_widget_set_sensitive(url_button, r != NULL);
    bool connected = r && rrclient_receiver_is_connected(r->url);
-   gtk_button_set_label(GTK_BUTTON(connect_button), r && (connected || rrclient_local_bridge_connected(r->url)) ? "Disconnect" : "Connect");
-   gtk_widget_set_sensitive(connect_button, r && (connected || rrclient_local_bridge_connected(r->url) || receiver_directory_entry_accessible(r)));
+   gtk_button_set_label(GTK_BUTTON(connect_button), r && (connected || rrclient_local_bridge_ui_connected(r->url)) ? "Disconnect" : "Connect");
+   gtk_widget_set_sensitive(connect_button, r && (connected || rrclient_local_bridge_ui_connected(r->url) || receiver_directory_entry_accessible(r)));
 
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
    char *stamp = date ? g_date_time_format(date, "%Y-%m-%d %H:%M:%S %Z") : g_strdup("No local report");
@@ -404,7 +404,7 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
    }
 
    if (connected_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(connected_only)) &&
-      !rrclient_local_bridge_connected(r->url) && !rrclient_receiver_is_connected_any(r->url)) {
+      !rrclient_local_bridge_ui_connected(r->url) && !rrclient_receiver_is_connected_any(r->url)) {
       return FALSE;
    }
 
@@ -481,7 +481,7 @@ static void populate(void) {
          g_free(label);
          g_hash_table_insert(groups, g_strdup(country), parent);
       }
-      bool local = rrclient_local_bridge_connected(r->url);
+      bool local = rrclient_local_bridge_ui_connected(r->url);
       bool remote = rrclient_receiver_is_connected_any(r->url);
       char users[32];
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
@@ -724,7 +724,7 @@ static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event,
    }
    GtkWidget *menu = gtk_menu_new();
    const char *labels[] = {
-      rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url) ? "Disconnect" : "Connect",
+      rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_ui_connected(r->url) ? "Disconnect" : "Connect",
       r->favorite ? "Remove from favorites" : "Add to favorites", "Copy URL", "Refresh list"
    };
    const char *actions[] = {
@@ -734,7 +734,7 @@ static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event,
    for (unsigned i = 0 ; i < G_N_ELEMENTS(labels) ; i++) {
       GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
       gtk_widget_set_sensitive(item, i != 0 || receiver_directory_entry_accessible(r) ||
-         rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_connected(r->url));
+         rrclient_receiver_is_connected(r->url) || rrclient_local_bridge_ui_connected(r->url));
       g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer) actions[i]);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
@@ -839,7 +839,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       return;
    }
 
-   if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_connected(r->url)) {
+   if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_ui_connected(r->url)) {
       receiver_local_lifecycle(r->url, NULL, TRUE);
       selection_changed(NULL, NULL);
 
