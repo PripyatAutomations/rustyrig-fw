@@ -1418,10 +1418,6 @@ static GtkWidget *cfg_theme_panel(void) {
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
-   GtkWidget *cfg_tab_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>2</u>) Config");
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, cfg_tab_label);
-
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(header), 6);
    gtk_box_pack_start(GTK_BOX(nw), header, FALSE, FALSE, 6);
