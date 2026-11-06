@@ -31,6 +31,24 @@ typedef struct {
 } rr_local_tune_request_t;
 /* Posts an owned copy; success means queued, not that the receiver accepted tuning. */
 bool rrclient_local_bridge_request_tune(rr_local_tune_kind_t kind, char vfo, uint64_t hz, const char *value);
+/* GTK reads copies of published core-owned bridge state; no borrowed pointers. */
+typedef struct {
+   char vfo;
+   bool connected, waterfall;
+   uint64_t frequency_hz;
+   char mode[16];
+   unsigned min_zoom, max_zoom;
+} rr_local_bridge_ui_state_t;
+bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out);
+bool rrclient_local_bridge_ui_connected(const char *url);
+#define RRCLIENT_LOCAL_BRIDGE_WATERFALL_REQUEST "client.local-bridge.waterfall.request"
+typedef struct {
+   bool enabled;
+   unsigned zoom;
+   uint64_t center_hz;
+} rr_local_bridge_waterfall_request_t;
+bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz);
+
 #define RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST "client.local-bridge.lifecycle.request"
 typedef struct {
    char url[1024];
