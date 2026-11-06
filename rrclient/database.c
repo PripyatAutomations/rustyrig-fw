@@ -539,7 +539,7 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
    ok = sqlite3_step(q) == SQLITE_DONE;
    sqlite3_finalize(q); q = NULL;
    if (!ok || sqlite3_prepare_v2(client_db,
-       "DELETE FROM audio_profile_routes WHERE profile=?1", -1, &q, NULL) != SQLITE_OK) goto done;
+       "DELETE FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) goto done;
    sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
    ok = sqlite3_step(q) == SQLITE_DONE;
    sqlite3_finalize(q); q = NULL;
@@ -547,7 +547,7 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
        "INSERT INTO audio_profile_routes(profile,stream_id,route) VALUES(?1,?2,?3)",
        -1, &q, NULL) != SQLITE_OK) goto done;
    for (size_t i = 0; i < count; i++) {
-      if (!ids[i] || !*ids[i] || !strchr("SLRM", routes[i])) { ok = false; break; }
+      if (!ids[i] || !*ids[i] || routes[i] == '\0' || !strchr("SLRM", routes[i])) { ok = false; break; }
       char route[2] = { routes[i], 0 };
       sqlite3_reset(q);
       sqlite3_clear_bindings(q);
@@ -578,7 +578,7 @@ void rrclient_database_audio_profile_load(const char *name,
    if (!client_db || !name || !cb) return;
    sqlite3_stmt *q = NULL;
    if (sqlite3_prepare_v2(client_db,
-       "SELECT stream_id,route FROM audio_profile_routes WHERE profile=?1 ORDER BY stream_id",
+       "SELECT stream_id,route FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE ORDER BY stream_id",
        -1, &q, NULL) != SQLITE_OK) return;
    sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
    while (sqlite3_step(q) == SQLITE_ROW) {
