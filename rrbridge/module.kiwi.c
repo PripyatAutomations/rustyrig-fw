@@ -30,6 +30,7 @@ struct kiwi_instance {
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
    uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
    uint64_t wf_stats_at, wf_received, wf_throttled, wf_ipc_dropped, wf_invalid, wf_sent;
+   uint64_t traffic_rx, traffic_tx, traffic_report_at;
    unsigned waterfall_zoom;
    int agc, hang, thresh, slope, decay, man_gain, squelch, squelch_max;
    int nb, nb_gate, nb_thresh, nb_click, de_emp;
@@ -632,8 +633,18 @@ static void waterfall_center(struct kiwi_instance *k) {
    snprintf(command, sizeof(command), "SET zoom=%u start=%u", zoom, start);
    mg_ws_send(k->waterfall, command, strlen(command), WEBSOCKET_OP_TEXT);
 }
+/* Count socket bytes once at Mongoose's transport edge, including protocol
+ * overhead and the independently connected waterfall channel. */
+static void kiwi_count_wire(struct kiwi_instance *k, int event, void *data) {
+   if (!k || !data || (event != MG_EV_READ && event != MG_EV_WRITE)) return;
+   long bytes = *(long *)data;
+   if (bytes <= 0) return;
+   if (event == MG_EV_READ) k->traffic_rx += (uint64_t)bytes;
+   else k->traffic_tx += (uint64_t)bytes;
+}
 static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
+   kiwi_count_wire(k, event, data);
 
    if (event == MG_EV_WS_OPEN) {
       note(k, "Kiwi RF waterfall websocket opened");
@@ -752,6 +763,7 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
 }
 static void websocket(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
+   kiwi_count_wire(k, event, data);
 
    if (event == MG_EV_WS_OPEN) {
       const char *password = setting(k, "password");
@@ -970,6 +982,16 @@ static void kiwi_poll(void *instance) {
    }
    mg_mgr_poll(&k->manager, 0);
    current = mono_us();
+   /* One cumulative IPC sample per second; the parent computes rates.
+    * This is not PCM/media IPC traffic and must not be counted twice. */
+   if ((!k->traffic_report_at || current - k->traffic_report_at >= UINT64_C(1000000)) && k->host.metadata) {
+      char total[32];
+      snprintf(total, sizeof(total), "%" PRIu64, k->traffic_rx);
+      k->host.metadata(k->host.user, "traffic.rx", total);
+      snprintf(total, sizeof(total), "%" PRIu64, k->traffic_tx);
+      k->host.metadata(k->host.user, "traffic.tx", total);
+      k->traffic_report_at = current;
+   }
 
    /* Separate intentional rate limiting from actual IPC loss. */
    if (!k->wf_stats_at) {
