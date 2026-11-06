@@ -27,6 +27,28 @@ memory-safety certification or runtime sanitizer pass.
    during resize release. Both now pass coordinates to one shared geometry
    function without type punning.
 
+## Follow-up: GTK/core ownership and process shutdown
+
+A second review of `rrclient/local.bridge.c`, `rrserver/bridge.manager.c`,
+Resource Explorer, and the GTK frontend shutdown sequence found:
+
+- **Fixed:** Resource Explorer's zebra-row rebuild source was left queued when
+  its backing browser was destroyed. The browser's destroy callback now
+  cancels the source.
+- **Fixed:** A scroll-restore idle used the global `browser` pointer without
+  carrying the identity of the browser that requested it. It is now coalesced,
+  owned by the requesting browser, and cancelled on destroy. This prevents
+  a stale callback from changing a newly recreated explorer.
+- **Reviewed, no confirmed double-free:** The local bridge's normal stop path
+  removes core poll/kill timers and retains the allocation until the GLib
+  child-watch handler reaps the process. This remains a useful target for
+  ASan under rapid reconnect/shutdown, but should not be rewritten without
+  reproducing a defect.
+- **Outstanding:** The GTK domain is bound to its owning context, but several
+  frontend callbacks still need a complete snapshot audit to establish that
+  no core-owned pointers are accessed on GTK. See `doc/client-threading.md`.
+  No claim of full thread isolation is made here.
+
 ## Further priority audits
 
 - **High: GTK lifecycle**: inspect all event subscriptions, timers, signal
