@@ -1,3 +1,4 @@
+#include <rrclient/gtk/gtk.audio-routing.h>
 #include "gtk.chat-context.h"
 #include "gtk.clock.h"
 //
@@ -2473,19 +2474,24 @@ bool chat_init(void) {
    gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_START);
    gtk_label_set_max_width_chars(GTK_LABEL(status_network_label), 33);
    gtk_label_set_xalign(GTK_LABEL(status_network_label), 1.0);
-   /* Docked clock sits after transfer counters and before the Quit button. */
+   /* Volume lives immediately left of the clock; toggles the floating
+    * panel without affecting the active notebook page. */
+   GtkWidget *volume_button = gtk_button_new_from_icon_name("audio-volume-high-symbolic", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(volume_button), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(volume_button, "Show or hide Volume");
+   g_signal_connect_swapped(volume_button, "clicked", G_CALLBACK(gtk_volume_toggle), NULL);
+   gtk_box_pack_start(GTK_BOX(network_row), volume_button, FALSE, FALSE, 0);
    GtkWidget *status_clock = gtk_clock_status_new();
    if (status_clock)
-      gtk_box_pack_start(GTK_BOX(network_row), status_clock, FALSE, FALSE, 5);
+      gtk_box_pack_start(GTK_BOX(network_row), status_clock, FALSE, FALSE, 0);
    gtk_widget_set_hexpand(network_row, FALSE);
-   gtk_widget_set_margin_end(network_row, 42);
    /* The entire notebook lives inside a non-horizontally-scrollable viewport. A wide notebook page can therefore push the toolbar's end past the visible
     * window. Anchor network status to the window-sized overlay instead, not the potentially oversized scrolled content. */
    GtkWidget *window_overlay = gtk_bin_get_child(GTK_BIN(main_window));
    gtk_widget_set_halign(network_row, GTK_ALIGN_END);
    gtk_widget_set_valign(network_row, GTK_ALIGN_START);
    gtk_widget_set_margin_top(network_row, 3);
-   gtk_widget_set_margin_end(network_row, 42);
+   gtk_widget_set_margin_end(network_row, 24);
 
    if (GTK_IS_OVERLAY(window_overlay)) {
       gtk_overlay_add_overlay(GTK_OVERLAY(window_overlay), network_row);
