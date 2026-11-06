@@ -51,16 +51,8 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
       gtk_window_present(GTK_WINDOW(main_win));
       place_window(main_win);
    }
-   /* Admin and Config moved into independent tool windows. Retain the
-    * historical Alt-1/Alt-2 shortcuts without allocating notebook slots. */
-   if (digit == 1 || digit == 2) {
-      GtkWidget *tool = digit == 1 ? admin_tab : config_tab;
-      if (!GTK_IS_WINDOW(tool)) return FALSE;
-      gtk_widget_show_all(tool);
-      gtk_window_present(GTK_WINDOW(tool));
-      if (digit == 1) gtk_admin_refresh();
-      return TRUE;
-   }
+   /* Number shortcuts follow the *visible* tab strip. Tool windows do
+    * not reserve or intercept any notebook numbers. */
    int tab_number = digit == 0 ? 10 : digit;
 
    if (!gtk_tabs_select(GTK_NOTEBOOK(main_notebook), tab_number)) {
