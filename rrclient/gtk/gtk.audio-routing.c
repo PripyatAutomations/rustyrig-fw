@@ -21,18 +21,37 @@ static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
 static rr_audio_graph_snapshot_t *graph_snapshot;
-static double graph_zoom = 1.0;
+/* Fit the topology to the actual viewport. Panel zoom and wheel zoom
+ * multiply independently; neither forces a large GTK size requisition. */
+static double graph_zoom = 1.0, graph_wheel_zoom = 1.0;
+static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
 static void graph_canvas_update_size(void) {
-   if (!graph_canvas) return;
-   guint sources = graph_snapshot && graph_snapshot->node_count > 2 ? graph_snapshot->node_count - 2 : 0;
-   gtk_widget_set_size_request(graph_canvas, (gint)(850 * graph_zoom),
-      (gint)(MAX(480u, 36u + 140u * sources) * graph_zoom));
-   gtk_widget_queue_draw(graph_canvas);
+   if (graph_canvas)
+      gtk_widget_queue_draw(graph_canvas);
 }
 static void routing_graph_zoom(double scale, gpointer unused) {
    (void)unused;
    graph_zoom = scale;
    graph_canvas_update_size();
+}
+static void routing_graph_bounds(double *width, double *height) {
+   guint sources = 0;
+   if (graph_snapshot)
+      for (guint i = 0; i < graph_snapshot->node_count; i++)
+         sources += graph_snapshot->nodes[i].type == RR_AG_SOURCE;
+   *width = 850.0;
+   *height = MAX(180.0, 36.0 + 140.0 * sources);
+}
+static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer unused) {
+   (void)widget; (void)unused;
+   double step = 0.0;
+   if (event->direction == GDK_SCROLL_UP) step = 1.0;
+   else if (event->direction == GDK_SCROLL_DOWN) step = -1.0;
+   else if (event->direction == GDK_SCROLL_SMOOTH) step = -event->delta_y;
+   if (!step) return FALSE;
+   graph_wheel_zoom = CLAMP(graph_wheel_zoom * pow(1.12, step), 0.10, 6.0);
+   graph_canvas_update_size();
+   return TRUE;
 }
 
 static guint routing_source;
@@ -158,8 +177,17 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             .src_pin = RR_GTK_GRAPH_PIN_RIGHT, .dst_pin = RR_GTK_GRAPH_PIN_RIGHT
          };
    }
+   double natural_w, natural_h;
+   routing_graph_bounds(&natural_w, &natural_h);
+   double available_w = MAX(1, gtk_widget_get_allocated_width(widget));
+   double available_h = MAX(1, gtk_widget_get_allocated_height(widget));
+   double fit = MIN(available_w / natural_w, available_h / natural_h);
+   graph_scale = MAX(0.01, fit * graph_zoom * graph_wheel_zoom);
+   graph_offset_x = MAX(0.0, (available_w - natural_w * graph_scale) / 2.0);
+   graph_offset_y = MAX(0.0, (available_h - natural_h * graph_scale) / 2.0);
    cairo_save(cr);
-   cairo_scale(cr, graph_zoom, graph_zoom);
+   cairo_translate(cr, graph_offset_x, graph_offset_y);
+   cairo_scale(cr, graph_scale, graph_scale);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
    cairo_restore(cr);
    return FALSE;
@@ -232,7 +260,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
        !graph_snapshot) return FALSE;
    /* Convert pointer coordinates to the graph's unscaled model space. */
-   double gx = event->x / graph_zoom, gy = event->y / graph_zoom;
+   double gx = (event->x - graph_offset_x) / graph_scale;
+   double gy = (event->y - graph_offset_y) / graph_scale;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (n->type != RR_AG_SINK || strcmp(n->id, "sink.client.dsp0")) continue;
@@ -275,11 +304,14 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
       graph_canvas = gtk_drawing_area_new();
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
-      gtk_widget_set_size_request(scroller, 640, 390);
+      gtk_widget_set_size_request(scroller, 320, 240);
+      gtk_widget_set_hexpand(scroller, TRUE);
+      gtk_widget_set_vexpand(scroller, TRUE);
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
-      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK);
+      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+      g_signal_connect(graph_canvas, "scroll-event", G_CALLBACK(routing_graph_scroll), NULL);
       g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
       g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
    }
