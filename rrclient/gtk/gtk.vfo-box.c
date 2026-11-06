@@ -22,6 +22,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/vfo.h>
+#include <rrclient/database.h>
 #include <rrclient/local.bridge.h>
 #include <librustyaxe/event-bus.h>
 
@@ -260,6 +261,50 @@ static void local_vfo_destroy(GtkWidget *widget, gpointer unused) {
 /* A FlowBox supplies the gravity/reflow; DnD changes the packing order.
  * Only grab handles are drag sources, so CAT digits and PTT remain clickable. */
 static GtkWidget *vfo_dragging_child;
+/* Store order, not coordinates: GtkFlowBox keeps docks packed and wrapping
+ * correctly even after panel resize and zoom changes. */
+static void vfo_layout_save(void) {
+   if (!GTK_IS_FLOW_BOX(vfo_controls_row)) return;
+   GString *order = g_string_new(NULL);
+   GList *children = gtk_container_get_children(GTK_CONTAINER(vfo_controls_row));
+   for (GList *it = children; it; it = it->next) {
+      const char *id = g_object_get_data(G_OBJECT(it->data), "rr-vfo-id");
+      if (id) {
+         if (order->len) g_string_append_c(order, ',');
+         g_string_append(order, id);
+      }
+   }
+   rrclient_database_vfo_layout_save(order->str);
+   g_list_free(children);
+   g_string_free(order, TRUE);
+}
+static void vfo_layout_restore(void) {
+   if (!GTK_IS_FLOW_BOX(vfo_controls_row)) return;
+   char *stored = rrclient_database_vfo_layout_load();
+   if (!stored) return;
+   gchar **ids = g_strsplit(stored, ",", -1);
+   guint index = 0;
+   for (guint i = 0; ids[i]; i++) {
+      GList *children = gtk_container_get_children(GTK_CONTAINER(vfo_controls_row));
+      GtkWidget *found = NULL;
+      for (GList *it = children; it; it = it->next) {
+         if (!g_strcmp0(g_object_get_data(G_OBJECT(it->data), "rr-vfo-id"), ids[i])) {
+            found = it->data; break;
+         }
+      }
+      if (found) {
+         g_object_ref(found);
+         gtk_container_remove(GTK_CONTAINER(vfo_controls_row), found);
+         gtk_flow_box_insert(GTK_FLOW_BOX(vfo_controls_row), found, index++);
+         gtk_widget_show(found);
+         g_object_unref(found);
+      }
+      g_list_free(children);
+   }
+   g_strfreev(ids);
+   g_free(stored);
+}
+
 static const GtkTargetEntry vfo_drag_target[] = {
    { "application/x-rustyrig-vfo-control", GTK_TARGET_SAME_APP, 0 }
 };
@@ -352,6 +397,7 @@ static void vfo_drag_received(GtkWidget *child, GdkDragContext *context,
             gtk_widget_show(source);
          }
          ok = TRUE;
+         vfo_layout_save();
       }
       g_list_free(siblings);
    }
@@ -385,6 +431,12 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    gtk_container_add(GTK_CONTAINER(vfo_controls_row), group);
    GtkWidget *child = gtk_widget_get_parent(group);
    g_object_set_data(G_OBJECT(child), "rr-vfo-content", control);
+   const char *id = !strcmp(name, "⋮⋮ Frequency") ? "frequency" :
+                    !strcmp(name, "⋮⋮ Mode") ? "mode" :
+                    !strcmp(name, "⋮⋮ Codecs") ? "codecs" :
+                    !strcmp(name, "⋮⋮ TX Power") ? "txpower" :
+                    !strcmp(name, "⋮⋮ SDR") ? "sdr" : "ptt";
+   g_object_set_data(G_OBJECT(child), "rr-vfo-id", (gpointer)id);
    g_object_set_data(G_OBJECT(handle), "rr-vfo-child", child);
    gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-group");
    gtk_style_context_add_class(gtk_widget_get_style_context(hint), "rr-vfo-grip");
@@ -510,6 +562,7 @@ GtkWidget *create_vfo_box(void) {
    g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *) &vfo_ptt_box);
    gtk_widget_show(ptt_box);
    vfo_control_add(ptt_box, "⋮⋮ PTT");
+   vfo_layout_restore();
 
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
