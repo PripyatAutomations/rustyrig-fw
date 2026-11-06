@@ -12,6 +12,9 @@ typedef enum {
 typedef enum {
    RR_AG_NORMAL = 0, RR_AG_BYPASS
 } rr_ag_link_type_t;
+#define RR_AG_CHANNEL_LEFT  1u
+#define RR_AG_CHANNEL_RIGHT 2u
+#define RR_AG_CHANNEL_STEREO (RR_AG_CHANNEL_LEFT | RR_AG_CHANNEL_RIGHT)
 typedef enum {
    RR_AG_STOPPED, RR_AG_STARTING, RR_AG_HEALTHY, RR_AG_FAILED
 } rr_ag_health_t;
@@ -19,6 +22,7 @@ rr_audio_graph_t *rr_audio_graph_new(void);
 void rr_audio_graph_free(rr_audio_graph_t *graph);
 bool rr_audio_graph_add_node(rr_audio_graph_t *graph, const char *id, rr_ag_node_type_t type);
 bool rr_audio_graph_add_link(rr_audio_graph_t *graph, const char *src, const char *dst, rr_ag_link_type_t type);
+bool rr_audio_graph_add_channel_link(rr_audio_graph_t *graph, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels);
 bool rr_audio_graph_set_health(rr_audio_graph_t *graph, const char *id, rr_ag_health_t health);
 bool rr_audio_graph_set_route(rr_audio_graph_t *graph, const char *id, char route);
 /* Resolve one selected input; NULL means muted/no usable route. The BYPASS
@@ -37,6 +41,7 @@ typedef struct {
 typedef struct {
    guint32 src, dst;
    rr_ag_link_type_t kind;
+   guint8 channels; /* L=1, R=2; both use separate stereo pins */
 } rr_ag_view_link_t;
 typedef struct {
    guint32 node_count, link_count;
