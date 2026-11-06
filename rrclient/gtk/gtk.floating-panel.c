@@ -14,6 +14,7 @@ struct rr_floating_panel {
    void (*zoom_callback)(double, gpointer);
    gpointer zoom_data;
    GtkOverlay *overlay;
+   gulong overlay_position_handler;
    GtkNotebook *tabs;
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
@@ -888,7 +889,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
    gtk_overlay_add_overlay(overlay, p->frame);
-   g_signal_connect(overlay, "get-child-position", G_CALLBACK(panel_overlay_position), p);
+   p->overlay_position_handler = g_signal_connect(overlay, "get-child-position",
+      G_CALLBACK(panel_overlay_position), p);
    g_signal_connect(p->frame, "size-allocate", G_CALLBACK(panel_initial_allocation), p);
    /* Capture clicks from all descendants, including sliders, buttons, lists and scrolled content. A bubbling frame handler misses consumed events. */
    GtkGesture *raise_gesture = gtk_gesture_multi_press_new(p->frame);
@@ -1171,8 +1173,8 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    if (p->min_width_widget)
       g_object_remove_weak_pointer(G_OBJECT(p->min_width_widget), (gpointer *)&p->min_width_widget);
    p->min_width_widget = NULL;
-   if (p->overlay)
-      g_signal_handlers_disconnect_by_func(p->overlay, G_CALLBACK(panel_overlay_position), p);
+   if (p->overlay && p->overlay_position_handler)
+      g_signal_handler_disconnect(p->overlay, p->overlay_position_handler);
    if (p->frame) {
       gtk_widget_destroy(p->frame);
    }
