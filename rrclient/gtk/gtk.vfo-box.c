@@ -300,6 +300,7 @@ GtkWidget *create_vfo_box(void) {
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
    vfo_mode_box = mode_box;
+   gtk_widget_show(mode_box);
    vfo_control_add(mode_box);
 
    // CODEC selectors
@@ -315,6 +316,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
+   gtk_widget_show(tx_power_vbox);
    vfo_control_add(tx_power_vbox);
    vfo_sdr_button = gtk_button_new_with_label("Remote SDR");
    gtk_widget_set_no_show_all(vfo_sdr_button, TRUE);
@@ -369,6 +371,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *ptt_box = ptt_button_create();
    vfo_ptt_box = ptt_box;
    g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *) &vfo_ptt_box);
+   gtk_widget_show(ptt_box);
    vfo_control_add(ptt_box);
 
    // This will sort out tab order between previous/next widget
