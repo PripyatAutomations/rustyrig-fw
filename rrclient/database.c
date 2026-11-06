@@ -527,13 +527,16 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
 
 bool rrclient_database_audio_profile_save(const char *name, const char *const *ids,
                                            const char *routes, size_t count) {
-   if (!client_db || !name || !*name || !ids || !routes || count > 128) return false;
+   /* Presets are named snapshots, never implicit overwrites. The existing
+    * NOCASE primary key enforces uniqueness even for differently cased names. */
+   if (!client_db || !name || !*name || !g_ascii_strcasecmp(name, "***AUTO***") ||
+       !g_ascii_strcasecmp(name, "New Preset") || !ids || !routes || count > 128) return false;
    if (sqlite3_exec(client_db, "SAVEPOINT audio_profile_save", NULL, NULL, NULL) != SQLITE_OK) return false;
    sqlite3_stmt *q = NULL;
    bool ok = false;
    if (sqlite3_prepare_v2(client_db,
-       "INSERT INTO audio_profiles(name,updated) VALUES(?1,strftime('%s','now'))"
-       " ON CONFLICT(name) DO UPDATE SET updated=excluded.updated", -1, &q, NULL) != SQLITE_OK)
+       "INSERT INTO audio_profiles(name,updated) VALUES(?1,strftime('%s','now'))",
+       -1, &q, NULL) != SQLITE_OK)
       goto done;
    sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
    ok = sqlite3_step(q) == SQLITE_DONE;
