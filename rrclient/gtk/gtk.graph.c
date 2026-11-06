@@ -75,7 +75,7 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
       if (n->fwdsp) {
          cairo_set_source_rgb(cr, .98, .77, .43);
          cairo_set_font_size(cr, 9);
-         cairo_move_to(cr, n->x + 99, n->y + 24);
+         cairo_move_to(cr, n->x + 116, n->y + 102);
          cairo_show_text(cr, "fwdsp");
       }
       cairo_set_font_size(cr, 9);
