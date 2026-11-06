@@ -216,8 +216,7 @@ static void admin_profile_result(const char *event, const char *data, rrconn_t *
       g_strlcpy(admin_selected_profile, profile, sizeof(admin_selected_profile));
       dict_free(reply);
 
-      if (changed && admin_view && main_notebook
-         && gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_view) {
+      if (changed && admin_view && admin_tab && gtk_widget_get_visible(admin_tab)) {
          gtk_admin_refresh();
       }
    }
@@ -1611,7 +1610,10 @@ void gtk_admin_open_resource(const char *profile, const char *kind, const char *
       event_emit("client.admin.select-profile", NULL, profile);
    }
    admin_table_t *table = &tables[index];
-   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_view));
+   if (GTK_IS_WINDOW(admin_tab)) {
+      gtk_widget_show_all(admin_tab);
+      gtk_window_present(GTK_WINDOW(admin_tab));
+   }
    GtkWidget *page = gtk_widget_get_parent(table->tree);
    while (page && gtk_widget_get_parent(page) != admin_view) {
       page = gtk_widget_get_parent(page);
@@ -1645,18 +1647,6 @@ void gtk_admin_refresh(void) {
    gtk_admin_access_refresh();
 }
 
-static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
-   (void)notebook;
-   (void)number;
-   (void)data;
-
-   if (page != admin_view) {
-      return;
-   }
-
-   gtk_admin_refresh();
-}
-
 GtkWidget *init_admin_tab(void) {
    gtk_admin_privgroup_set_sender(admin_command);
    gtk_admin_session_set_sender(admin_session_command);
@@ -1674,7 +1664,7 @@ GtkWidget *init_admin_tab(void) {
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to GTK administration events");
    }
    g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
-   g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
+   /* Admin is now a separate tool window, not a main notebook page. */
 
    GtkWidget *privileges_page = NULL;
 
@@ -2033,7 +2023,7 @@ GtkWidget *init_admin_tab(void) {
       }
    }
 
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
+   /* The main window owns and presents this notebook in a standalone window. */
    event_emit("client.admin.profile-request", NULL, NULL);
 
    return admin_view;
