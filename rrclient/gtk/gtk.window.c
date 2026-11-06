@@ -268,26 +268,17 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 }
 
 static GtkWidget *rr_client_overlay;
-static GtkWidget *tool_window_new(const char *title, GtkWidget *content, gint width, gint height) {
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(window), title);
-   gtk_window_set_default_size(GTK_WINDOW(window), width, height);
-   gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(main_window));
-   gtk_window_set_destroy_with_parent(GTK_WINDOW(window), TRUE);
-   g_signal_connect(window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
-   gtk_container_add(GTK_CONTAINER(window), content);
-   return window;
-}
 static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
    (void)button;
    const char *tool = data;
    if (!strcmp(tool, "explorer")) event_emit("client.resources.open", NULL, NULL);
    else if (!strcmp(tool, "audio")) gtk_audio_graph_present();
    else {
-      GtkWidget *window = !strcmp(tool, "admin") ? admin_tab : config_tab;
-      if (GTK_IS_WINDOW(window)) {
-         gtk_widget_show_all(window);
-         gtk_window_present(GTK_WINDOW(window));
+      GtkWidget *page = !strcmp(tool, "admin") ? admin_tab : config_tab;
+      if (page && GTK_IS_NOTEBOOK(main_notebook)) {
+         int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), page);
+         if (index >= 0)
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
          if (!strcmp(tool, "admin")) {
             extern void gtk_admin_refresh(void);
             gtk_admin_refresh();
@@ -396,13 +387,24 @@ bool gui_init(void) {
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
-   // ADMIN tab (alt-1)
-   GtkWidget *admin_content = init_admin_tab();
-   admin_tab = tool_window_new("RustyRig Admin", admin_content, 1150, 760);
-
-   // CONFIG tab (alt-2)
-   GtkWidget *config_content = init_config_tab();
-   config_tab = tool_window_new("RustyRig Configuration", config_content, 1100, 720);
+   /* Tool pages occupy the main notebook but never appear in the tab strip.
+    * Toolbar actions (and named focus commands) select them directly. */
+   admin_tab = init_admin_tab();
+   config_tab = init_config_tab();
+   if (admin_tab) {
+      g_object_set_data(G_OBJECT(admin_tab), "rr-tab-hidden", GINT_TO_POINTER(1));
+      GtkWidget *label = gtk_label_new("Admin");
+      gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_tab, label);
+      gtk_widget_set_no_show_all(label, TRUE);
+      gtk_widget_hide(label);
+   }
+   if (config_tab) {
+      g_object_set_data(G_OBJECT(config_tab), "rr-tab-hidden", GINT_TO_POINTER(1));
+      GtkWidget *label = gtk_label_new("Config");
+      gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), config_tab, label);
+      gtk_widget_set_no_show_all(label, TRUE);
+      gtk_widget_hide(label);
+   }
    // One GTK Log tab combines Client and Host streams; TUI tabs stay separate.
    log_tab = init_log_tab();
    host_log_tab = log_tab;
@@ -410,7 +412,7 @@ bool gui_init(void) {
    //// CHAT stuff (alt-5+)...
    chat_init();
 
-   /* Tool windows have no tabs in the lower strip. */
+   /* Tool pages are selected from the toolbar, not the tab strip. */
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer");
    main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio");
    main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-system-symbolic", "admin");
