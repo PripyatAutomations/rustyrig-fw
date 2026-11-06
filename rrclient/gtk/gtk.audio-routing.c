@@ -1,6 +1,7 @@
 // RustyRig GTK RX routing window. Licensed under the project's MIT/GPL terms.
 #include <gtk/gtk.h>
 #include <gio/gio.h>
+#include <math.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/config.h>
 #include <rrclient/audio.h>
@@ -303,6 +304,7 @@ void gtk_audio_graph_present(void) {
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
+      gtk_widget_set_size_request(graph_canvas, 1, 1);
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
