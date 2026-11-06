@@ -38,8 +38,8 @@ typedef struct panel_position {
    int x, y;
 } panel_position_t;
 
-/* All panel geometry is owned by the GTK thread. Edges catch independently;
- * continuing the drag by SNAP_RELEASE pixels breaks free in either direction. */
+/* All panel geometry is owned by the GTK thread. The inset is a soft
+ * magnetic edge: drag beyond SNAP_RELEASE to reach the actual viewport edge. */
 #define SNAP_DISTANCE 12
 #define SNAP_RELEASE 26
 #define PANEL_GAP 12
@@ -153,6 +153,22 @@ static void panel_bounds(RRFloatPanel *p, int panel_width, int panel_height, int
    *max_y = MAX(*min_y, overlay_height - lower - panel_height - PANEL_GAP);
 }
 
+/* Unlike the soft (PANEL_GAP) placement guides, these are the real
+ * limits. Reserve the toolbar/tab strips but allow panels to touch them. */
+static void panel_hard_bounds(RRFloatPanel *p, int width, int height,
+                              int *min_x, int *min_y, int *max_x, int *max_y) {
+   int soft_min_x, soft_min_y, soft_max_x, soft_max_y;
+   panel_bounds(p, width, height, &soft_min_x, &soft_min_y, &soft_max_x, &soft_max_y);
+   int overlay_w = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
+   int overlay_h = gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay));
+   int right_inset = GPOINTER_TO_INT(
+      g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
+   *min_x = MAX(0, soft_min_x - PANEL_GAP);
+   *min_y = MAX(0, soft_min_y - PANEL_GAP);
+   *max_x = MAX(*min_x, overlay_w - right_inset - width);
+   *max_y = MAX(*min_y, MIN(overlay_h - height, soft_max_y + PANEL_GAP));
+}
+
 static void panel_add_candidate(GArray *positions, int position, int minimum, int limit) {
    if (position < minimum || position > limit) {
       return;
@@ -223,8 +239,11 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    panel_position_t *saved = g_hash_table_lookup(panel_positions(p->overlay), p->id);
 
    if (saved) {
-      int x = CLAMP(saved->x, min_x, max_x);
-      int y = CLAMP(saved->y, min_y, max_y);
+      int hard_min_x, hard_min_y, hard_max_x, hard_max_y;
+      panel_hard_bounds(p, panel_width, panel_height,
+         &hard_min_x, &hard_min_y, &hard_max_x, &hard_max_y);
+      int x = CLAMP(saved->x, hard_min_x, hard_max_x);
+      int y = CLAMP(saved->y, hard_min_y, hard_max_y);
 
       if (p->loaded_state || panel_position_clear(p, x, y, panel_width, panel_height)) {
          gtk_widget_set_margin_start(p->frame, x);
@@ -322,6 +341,15 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean hor
    int own_size = horizontal ? width : height;
    int own_perp = horizontal ? height : width;
    int closest = SNAP_DISTANCE + 1, candidate = raw;
+   /* The ordinary 12px inset is a snap guide, not a hard wall. */
+   if (abs(raw - minimum) <= SNAP_DISTANCE) {
+      closest = abs(raw - minimum);
+      candidate = minimum;
+   }
+   if (abs(raw - limit) < closest) {
+      closest = abs(raw - limit);
+      candidate = limit;
+   }
 
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
@@ -374,11 +402,18 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean hor
 
 static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
    int min_x, min_y, max_x, max_y;
-   panel_bounds(p, gtk_widget_get_allocated_width(p->frame), gtk_widget_get_allocated_height(p->frame), &min_x, &min_y, &max_x, &max_y);
-   int raw_x = CLAMP(p->start_x + (int)(x_root - p->drag_x), min_x, max_x);
-   int raw_y = CLAMP(p->start_y + (int)(y_root - p->drag_y), min_y, max_y);
-   int x = raw_x;
-   int y = raw_y;
+   int width = gtk_widget_get_allocated_width(p->frame);
+   int height = gtk_widget_get_allocated_height(p->frame);
+   panel_bounds(p, width, height, &min_x, &min_y, &max_x, &max_y);
+   int hard_min_x, hard_min_y, hard_max_x, hard_max_y;
+   panel_hard_bounds(p, width, height, &hard_min_x, &hard_min_y,
+                     &hard_max_x, &hard_max_y);
+   /* Keep pointer travel unbounded while testing the release threshold.
+    * Clamping first would make a 12px inset impossible to break free of
+    * when SNAP_RELEASE is 26px. */
+   int raw_x = p->start_x + (int)(x_root - p->drag_x);
+   int raw_y = p->start_y + (int)(y_root - p->drag_y);
+   int x = raw_x, y = raw_y;
 
    if (p->snap_disabled) {
       p->snapped_x = p->snapped_y = FALSE;
@@ -386,6 +421,8 @@ static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
       x = panel_snap_axis(p, raw_x, raw_y, TRUE, min_x, max_x);
       y = panel_snap_axis(p, raw_y, x, FALSE, min_y, max_y);
    }
+   x = CLAMP(x, hard_min_x, hard_max_x);
+   y = CLAMP(y, hard_min_y, hard_max_y);
    gtk_widget_set_margin_start(p->frame, x);
    gtk_widget_set_margin_top(p->frame, y);
    panel_position_save(p, x, y);
