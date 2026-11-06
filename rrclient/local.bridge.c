@@ -995,12 +995,24 @@ void rrclient_local_bridge_disconnect(void) {
    }
 }
 static void local_child_exited(GPid pid, gint status, gpointer user) {
-   (void)status;
    bridge_instance *b = user;
 
    if (b && b->pid == pid) {
-      Log(LOG_WARN, "local.bridge", "Local SDR process %ld exited (status %d)", (long)pid, status);
-      ui_print("&local-sdr", "%s: rrbridge exited unexpectedly (status %d)", b->stream, status);
+      char detail[96];
+      if (WIFEXITED(status))
+         g_snprintf(detail, sizeof(detail), "exit code %d", WEXITSTATUS(status));
+      else if (WIFSIGNALED(status))
+         g_snprintf(detail, sizeof(detail), "signal %d%s", WTERMSIG(status),
+#ifdef WCOREDUMP
+            WCOREDUMP(status) ? " (core dumped)" : ""
+#else
+            ""
+#endif
+         );
+      else
+         g_snprintf(detail, sizeof(detail), "wait status %d", status);
+      Log(LOG_WARN, "local.bridge", "Local SDR process %ld terminated: %s", (long)pid, detail);
+      ui_print("&local-sdr", "%s: rrbridge terminated (%s)", b->stream, detail);
       bridge_stop(b);
    }
 
@@ -1024,14 +1036,22 @@ static gboolean poll_local(gpointer unused) {
 
    for (unsigned n = 0 ; n < 16 ; n++) {
       rrp_bridge_ipc_message_t m;
+      errno = 0;
       int got = rrp_bridge_ipc_recv(b->control, &m);
+      int read_errno = errno;
 
       if (!got) {
          break;
       }
 
       if (got < 0) {
-         ui_print("&local-sdr", "%s: rrbridge control channel closed or failed", b->stream);
+         if (read_errno)
+            Log(LOG_WARN, "local.bridge", "%s: rrbridge IPC read failed (pid=%ld fd=%d errno=%d: %s)",
+               b->stream, (long)b->pid, b->control, read_errno, g_strerror(read_errno));
+         else
+            Log(LOG_WARN, "local.bridge", "%s: rrbridge IPC closed or malformed response (pid=%ld fd=%d)",
+               b->stream, (long)b->pid, b->control);
+         ui_print("&local-sdr", "%s: rrbridge control channel closed (see client log for details and child exit status)", b->stream);
          b->timer = 0;
          bridge_stop(b);
 
