@@ -5,10 +5,7 @@
 #include "gtk.scale-container.h"
 
 typedef struct {
-   gint width, height, left, right, top, bottom, spacing, row, col, icon;
-   guint packing;
-   gint applied[11];
-   gboolean initialized;
+   gint base[11], applied[11];
 } RRScaleGeometry;
 
 typedef struct {
@@ -63,14 +60,13 @@ static void rr_scale_widget(GtkWidget *widget, double scale, GtkCssProvider *css
    }
    if (!g) {
       g = g_new0(RRScaleGeometry, 1);
-      memcpy(&g->width, raw, sizeof(raw));
+      memcpy(g->base, raw, sizeof(raw));
       memcpy(g->applied, raw, sizeof(raw));
-      g->initialized = TRUE;
       g_object_set_data_full(G_OBJECT(widget), "rr-scale-geometry", g, g_free);
    }
    for (guint i = 0; i < G_N_ELEMENTS(raw); ++i) {
-      if (raw[i] != g->applied[i]) ((gint *)&g->width)[i] = raw[i];
-      g->applied[i] = rr_scale_dim(((gint *)&g->width)[i], scale);
+      if (raw[i] != g->applied[i]) g->base[i] = raw[i];
+      g->applied[i] = rr_scale_dim(g->base[i], scale);
    }
    gtk_widget_set_size_request(widget, g->applied[0], g->applied[1]);
    gtk_widget_set_margin_start(widget, g->applied[2]);
@@ -94,10 +90,13 @@ static void rr_scale_widget(GtkWidget *widget, double scale, GtkCssProvider *css
       g_list_free(children);
    }
 }
+static void rr_scale_install(GtkWidget *widget, RRScaleContainer *ctx);
 static void rr_scale_child_added(GtkContainer *container, GtkWidget *child, gpointer user) {
    (void)container;
    RRScaleContainer *ctx = user;
-   if (ctx && ctx->scale != 1.0) rr_scale_widget(child, ctx->scale, ctx->css);
+   if (!ctx) return;
+   if (ctx->scale != 1.0) rr_scale_widget(child, ctx->scale, ctx->css);
+   rr_scale_install(child, ctx);
 }
 static void rr_scale_install(GtkWidget *widget, RRScaleContainer *ctx) {
    if (!GTK_IS_CONTAINER(widget)) return;
