@@ -73,7 +73,31 @@ static void directory_download_wait(void);
 static void directory_download_finished(void);
 static guint snapshot_timeout_source;
 static gboolean snapshot_pending, snapshot_dirty;
+/* Optimistic visual state for disconnect requests. The transport/bridge
+ * remains authoritative, and failures restore the previous row. */
+static GHashTable *disconnect_pending;
 static void populate(void);
+static gboolean directory_disconnecting(const char *url) {
+   return url && disconnect_pending && g_hash_table_contains(disconnect_pending, url);
+}
+static gboolean directory_connected_local(const char *url) {
+   return !directory_disconnecting(url) && rrclient_local_bridge_ui_connected(url);
+}
+static gboolean directory_connected_remote(const char *url) {
+   return !directory_disconnecting(url) && rrclient_receiver_is_connected_any(url);
+}
+static void directory_disconnect_pending(const char *url) {
+   if (!url || !*url) return;
+   if (!disconnect_pending)
+      disconnect_pending = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   g_hash_table_add(disconnect_pending, g_strdup(url));
+   if (directory_page && directory_store) populate();
+}
+static void directory_disconnect_clear(void) {
+   if (!disconnect_pending || !g_hash_table_size(disconnect_pending)) return;
+   g_hash_table_remove_all(disconnect_pending);
+   if (directory_page && directory_store) populate();
+}
 
 static const receiver_directory_entry_t *snapshot_receiver(size_t index) {
    return index < snapshot_count ? &snapshot_entries[index] : NULL;
@@ -346,9 +370,13 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
       gtk_button_set_label(GTK_BUTTON(favorite_button), r && r->favorite ? "Remove from favorites" : "Add to favorites");
    }
    gtk_widget_set_sensitive(url_button, r != NULL);
-   bool connected = r && rrclient_receiver_is_connected(r->url);
-   gtk_button_set_label(GTK_BUTTON(connect_button), r && (connected || rrclient_local_bridge_ui_connected(r->url)) ? "Disconnect" : "Connect");
-   gtk_widget_set_sensitive(connect_button, r && (connected || rrclient_local_bridge_ui_connected(r->url) || receiver_directory_entry_accessible(r)));
+   bool pending = r && directory_disconnecting(r->url);
+   bool connected = r && !pending && (directory_connected_local(r->url) ||
+      directory_connected_remote(r->url));
+   gtk_button_set_label(GTK_BUTTON(connect_button), pending ? "Disconnecting…" :
+      connected ? "Disconnect" : "Connect");
+   gtk_widget_set_sensitive(connect_button, r && !pending &&
+      (connected || receiver_directory_entry_accessible(r)));
 
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
    char *stamp = date ? g_date_time_format(date, "%Y-%m-%d %H:%M:%S %Z") : g_strdup("No local report");
@@ -404,7 +432,7 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
    }
 
    if (connected_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(connected_only)) &&
-      !rrclient_local_bridge_ui_connected(r->url) && !rrclient_receiver_is_connected_any(r->url)) {
+      !directory_connected_local(r->url) && !directory_connected_remote(r->url)) {
       return FALSE;
    }
 
@@ -481,8 +509,8 @@ static void populate(void) {
          g_free(label);
          g_hash_table_insert(groups, g_strdup(country), parent);
       }
-      bool local = rrclient_local_bridge_ui_connected(r->url);
-      bool remote = rrclient_receiver_is_connected_any(r->url);
+      bool local = directory_connected_local(r->url);
+      bool remote = directory_connected_remote(r->url);
       char users[32];
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
 
@@ -841,8 +869,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
 
    if (!GPOINTER_TO_INT(save) && rrclient_local_bridge_ui_connected(r->url)) {
       receiver_local_lifecycle(r->url, NULL, TRUE);
-      selection_changed(NULL, NULL);
-
+      directory_disconnect_pending(r->url);
       return;
    }
    proxy_refresh();
@@ -864,8 +891,8 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    }
 
    if (!GPOINTER_TO_INT(save) && rrclient_receiver_is_connected(r->url)) {
-      rrclient_receiver_disconnect(r->url);
-
+      if (rrclient_receiver_disconnect(r->url))
+         directory_disconnect_pending(r->url);
       return;
    }
 
@@ -963,6 +990,7 @@ static void receiver_failed(const char *event, const char *data, rrconn_t *conne
    if (directory_status) {
       gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure);
    }
+   directory_disconnect_clear();
    GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", receiver_failure);
    gtk_window_set_title(GTK_WINDOW(dialog), "SDR connection failed");
    g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
@@ -979,6 +1007,14 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
 
    if (data) {
       gtk_label_set_text(GTK_LABEL(directory_status), data);
+      /* Acknowledgement or rejection ends the optimistic disconnect state.
+       * In either case rebuild from the core's actual connection table. */
+      if (strstr(data, "SDR disconnected:") ||
+          strstr(data, "SDR receiver was already removed") ||
+          strstr(data, "SDR server rejected disconnect") ||
+          strstr(data, "SDR request transport failed") ||
+          strstr(data, "SDR timeout:"))
+         directory_disconnect_clear();
    }
    snapshot_request();          /* Refresh the immutable GUI copy. */
 }
@@ -1202,6 +1238,7 @@ void gtk_receiver_directory_init(void) {
 
    connection_token = event_on_domain_token("client.receiver-directory.connection", connection_status, NULL, "gtk");
    local_vfo_token = event_on_domain_token("client.local-bridge.vfo", local_vfo_changed, NULL, "gtk");
+   /* Reconcile local bridge disconnects on their lifecycle update as well. */
    directory_token = event_on_domain_token("client.receiver-directory.changed", directory_changed, NULL, "gtk");
    show_token = event_on_domain_token("client.receiver-directory.show", show_directory, NULL, "gtk");
    failure_token = event_on_domain_token("client.receiver-directory.failed", receiver_failed, NULL, "gtk");
