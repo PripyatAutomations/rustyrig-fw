@@ -4,6 +4,7 @@ typedef struct {
    char id[64];
    rr_ag_node_type_t type;
    rr_ag_health_t health;
+   char route;
 } rr_ag_node_t;
 typedef struct {
    guint src, dst;
@@ -111,3 +112,31 @@ const char *rr_audio_graph_input(const rr_audio_graph_t *g, const char *dst) {
 }
 guint rr_audio_graph_node_count(const rr_audio_graph_t *g) { return g ? g->nodes->len : 0; }
 guint rr_audio_graph_link_count(const rr_audio_graph_t *g) { return g ? g->edges->len : 0; }
+
+bool rr_audio_graph_snapshot(const rr_audio_graph_t *g, rr_audio_graph_snapshot_t *out) {
+   if (!g || !out || g->nodes->len > RR_AUDIO_GRAPH_MAX_NODES ||
+       g->edges->len > RR_AUDIO_GRAPH_MAX_LINKS)
+      return false;
+   memset(out, 0, sizeof(*out));
+   out->node_count = g->nodes->len;
+   out->link_count = g->edges->len;
+   for (guint i = 0; i < g->nodes->len; i++) {
+      const rr_ag_node_t *n = &g_array_index(g->nodes, rr_ag_node_t, i);
+      rr_ag_view_node_t *view = &out->nodes[i];
+      g_strlcpy(view->id, n->id, sizeof(view->id));
+      view->type = n->type;
+      view->health = n->health;
+      view->route = n->route;
+   }
+   for (guint i = 0; i < g->edges->len; i++) {
+      const rr_ag_edge_t *e = &g_array_index(g->edges, rr_ag_edge_t, i);
+      out->links[i] = (rr_ag_view_link_t) { .src = e->src, .dst = e->dst, .kind = e->type };
+   }
+   return true;
+}
+bool rr_audio_graph_set_route(rr_audio_graph_t *g, const char *id, char route) {
+   gint index = lookup(g, id);
+   if (index < 0 || !strchr("LRSM", route)) return false;
+   g_array_index(g->nodes, rr_ag_node_t, (guint)index).route = route;
+   return true;
+}
