@@ -640,7 +640,6 @@ void gtk_audio_routing_init(void) {
    gtk_box_pack_start(GTK_BOX(routing_body), grid, TRUE, TRUE, 0);
 
    /* Client-side playback gain is separate from the rig's hardware speaker level. */
-   GtkWidget *gain_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    GtkWidget *gain_label = gtk_label_new("RX Gain");
    gtk_widget_set_halign(gain_label, GTK_ALIGN_START);
    gtk_widget_set_size_request(gain_label, 72, -1);
@@ -651,9 +650,8 @@ void gtk_audio_routing_init(void) {
    gtk_widget_set_tooltip_text(rx_vol_slider, "Client RX playback gain (independent of rig speaker volume)");
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), CLAMP(cfg_get_int("audio.volume.rx", 30), 0, 100));
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(routing_rx_gain_changed), NULL);
-   gtk_box_pack_start(GTK_BOX(gain_row), gain_label, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(gain_row), rx_vol_slider, TRUE, TRUE, 0);
-   routing_grid_volume_row(grid, gain_row, 5);
+   gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 5, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 1, 5, 1, 1);
 
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
    gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
