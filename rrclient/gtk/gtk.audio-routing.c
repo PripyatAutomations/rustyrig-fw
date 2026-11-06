@@ -20,6 +20,9 @@ static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
 static GtkWidget *graph_profiles;
+static GtkWidget *graph_profile_load_button, *graph_profile_save_button, *graph_profile_remove_button;
+static gboolean graph_profile_updating;
+static void graph_profile_modified(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
 /* Fit the topology to the actual viewport. Panel zoom and wheel zoom
  * multiply independently; neither forces a large GTK size requisition. */
@@ -263,6 +266,7 @@ static void graph_set_channel(guint source, gint channel, gboolean connect) {
    char route = mask == 3 ? 'S' : mask == 1 ? 'L' : mask == 2 ? 'R' : 'M';
    if (route == node->route) return;
    node->route = route;
+   graph_profile_modified();
    audio_request_rx_stream_route(node->id, route);
    graph_canvas_update_size();
 }
@@ -363,28 +367,110 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
 }
 /* Route IDs are stable protocol stream IDs; missing streams are skipped on
  * load, so presets remain useful as receivers connect and disconnect. */
-static void graph_profile_name(const char *name, void *user) {
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(user), name);
+#define GRAPH_PROFILE_AUTO "***AUTO***"
+#define GRAPH_PROFILE_NEW "New Preset"
+
+static gboolean graph_profile_is_auto(const char *name) {
+   return name && !g_ascii_strcasecmp(name, GRAPH_PROFILE_AUTO);
 }
-static void graph_profile_refresh(const char *selected) {
-   if (!graph_profiles) return;
-   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(graph_profiles));
-   rrclient_database_audio_profile_list(graph_profile_name, graph_profiles);
-   if (selected)
-      gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(graph_profiles))), selected);
+static gboolean graph_profile_is_placeholder(const char *name) {
+   return !name || !*name || !g_ascii_strcasecmp(name, GRAPH_PROFILE_NEW);
+}
+static GtkWidget *graph_profile_entry(void) {
+   return graph_profiles ? gtk_bin_get_child(GTK_BIN(graph_profiles)) : NULL;
 }
 static char *graph_profile_selected(void) {
-   if (!graph_profiles) return NULL;
-   const char *typed = gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(graph_profiles))));
-   char *name = g_strdup(typed);
+   GtkWidget *entry = graph_profile_entry();
+   if (!GTK_IS_ENTRY(entry)) return NULL;
+   char *name = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
    g_strstrip(name);
    if (!name[0]) { g_free(name); return NULL; }
    return name;
 }
+typedef struct {
+   const char *name;
+   gboolean found;
+} GraphProfileLookup;
+static void graph_profile_lookup_cb(const char *name, void *user) {
+   GraphProfileLookup *lookup = user;
+   if (!g_ascii_strcasecmp(name, lookup->name))
+      lookup->found = TRUE;
+}
+static gboolean graph_profile_exists(const char *name) {
+   if (!name || graph_profile_is_auto(name) || graph_profile_is_placeholder(name))
+      return FALSE;
+   GraphProfileLookup lookup = { .name = name };
+   rrclient_database_audio_profile_list(graph_profile_lookup_cb, &lookup);
+   return lookup.found;
+}
+static void graph_profile_update_buttons(void) {
+   char *name = graph_profile_selected();
+   gboolean editable = !graph_profile_is_auto(name) && !graph_profile_is_placeholder(name);
+   gboolean exists = editable && graph_profile_exists(name);
+   if (graph_profile_load_button)
+      gtk_widget_set_sensitive(graph_profile_load_button, exists);
+   if (graph_profile_save_button)
+      gtk_widget_set_sensitive(graph_profile_save_button, editable && graph_snapshot != NULL);
+   if (graph_profile_remove_button)
+      gtk_widget_set_sensitive(graph_profile_remove_button, exists);
+   g_free(name);
+}
+static void graph_profile_entry_changed(GtkEditable *editable, gpointer unused) {
+   (void)editable; (void)unused;
+   if (!graph_profile_updating) graph_profile_update_buttons();
+}
+static void graph_profile_name(const char *name, void *user) {
+   /* Older versions could have persisted reserved display names. Do not
+    * expose those rows as writable presets. */
+   if (!graph_profile_is_auto(name) && g_ascii_strcasecmp(name, GRAPH_PROFILE_NEW))
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(user), name);
+}
+static void graph_profile_refresh(const char *selected) {
+   if (!graph_profiles) return;
+   graph_profile_updating = TRUE;
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(graph_profiles));
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(graph_profiles), GRAPH_PROFILE_AUTO);
+   rrclient_database_audio_profile_list(graph_profile_name, graph_profiles);
+   gtk_entry_set_text(GTK_ENTRY(graph_profile_entry()),
+      selected && *selected ? selected : GRAPH_PROFILE_AUTO);
+   graph_profile_updating = FALSE;
+   graph_profile_update_buttons();
+}
+static void graph_profile_modified(void) {
+   char *name = graph_profile_selected();
+   if (graph_profile_is_auto(name)) {
+      graph_profile_updating = TRUE;
+      gtk_entry_set_text(GTK_ENTRY(graph_profile_entry()), GRAPH_PROFILE_NEW);
+      graph_profile_updating = FALSE;
+      graph_profile_update_buttons();
+   }
+   g_free(name);
+}
+static gboolean graph_profile_confirm_replace(const char *name) {
+   GtkWidget *parent = graph_panel ?
+      gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
+   GtkWidget *dialog = gtk_message_dialog_new(
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+      "Replace audio preset \"%s\"?", name);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "This will overwrite the saved routes. The preset name remains unique.");
+   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL,
+                          "_Replace", GTK_RESPONSE_ACCEPT, NULL);
+   gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+   return response == GTK_RESPONSE_ACCEPT;
+}
 static void graph_profile_save(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    char *name = graph_profile_selected();
-   if (!name || !graph_snapshot) { g_free(name); return; }
+   if (!name || graph_profile_is_auto(name) || graph_profile_is_placeholder(name) ||
+       !graph_snapshot) { g_free(name); return; }
+   if (graph_profile_exists(name) && !graph_profile_confirm_replace(name)) {
+      g_free(name);
+      return;
+   }
    const char *ids[RR_AUDIO_GRAPH_MAX_NODES];
    char routes[RR_AUDIO_GRAPH_MAX_NODES] = {0};
    size_t count = 0;
@@ -407,7 +493,7 @@ static void graph_profile_apply(const char *id, char route, void *unused) {
 static void graph_profile_load(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    char *name = graph_profile_selected();
-   if (!name) return;
+   if (!graph_profile_exists(name)) { g_free(name); return; }
    rrclient_database_audio_profile_load(name, graph_profile_apply, NULL);
    routing_queue();
    g_free(name);
@@ -415,7 +501,7 @@ static void graph_profile_load(GtkButton *button, gpointer unused) {
 static void graph_profile_remove(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    char *name = graph_profile_selected();
-   if (!name) return;
+   if (!graph_profile_exists(name)) { g_free(name); return; }
    GtkWidget *parent = graph_panel ?
       gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
    GtkWidget *dialog = gtk_message_dialog_new(
@@ -457,12 +543,16 @@ void gtk_audio_graph_present(void) {
       GtkWidget *box = rr_floating_panel_body(graph_panel);
       GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       graph_profiles = gtk_combo_box_text_new_with_entry();
+      g_signal_connect(graph_profile_entry(), "changed", G_CALLBACK(graph_profile_entry_changed), NULL);
       gtk_widget_set_hexpand(graph_profiles, TRUE);
       gtk_widget_set_tooltip_text(graph_profiles, "Choose a saved profile or type a new profile name");
       gtk_box_pack_start(GTK_BOX(profiles), graph_profiles, TRUE, TRUE, 0);
       GtkWidget *load = gtk_button_new_with_label("Load");
       GtkWidget *save = gtk_button_new_with_label("Save");
       GtkWidget *remove = gtk_button_new_with_label("Remove");
+      graph_profile_load_button = load;
+      graph_profile_save_button = save;
+      graph_profile_remove_button = remove;
       gtk_widget_set_tooltip_text(load, "Apply the selected profile's stream routes");
       gtk_widget_set_tooltip_text(save, "Save the current stream routes under this profile name");
       gtk_widget_set_tooltip_text(remove, "Delete the selected saved profile (confirmation required)");
@@ -709,6 +799,7 @@ void gtk_audio_routing_shutdown(void) {
       graph_panel = NULL;
       graph_canvas = NULL;
       graph_profiles = NULL;
+      graph_profile_load_button = graph_profile_save_button = graph_profile_remove_button = NULL;
    }
    if (snapshot_token) {
       event_off_token(snapshot_token);
