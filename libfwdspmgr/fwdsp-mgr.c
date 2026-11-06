@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
@@ -173,6 +174,26 @@ static void fwdsp_reader_detach(struct fwdsp_io_conn *ctx);
 static bool fwdsp_send_control(struct fwdsp_subproc *sp, uint8_t type, uint8_t value);
 static bool fwdsp_destroy(struct fwdsp_subproc *sp);
 
+size_t fwdsp_stats_snapshot(fwdsp_worker_stats_t *out, size_t capacity) {
+   size_t count = 0;
+   if (!fwdsp_subprocs) return 0;
+   for (int i = 0; i < max_subprocs; i++) {
+      const struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+      if (sp->role == FWDSP_ROLE_NONE || sp->process.pid <= 0) continue;
+      if (out && count < capacity) {
+         fwdsp_worker_stats_t *sample = &out[count];
+         memset(sample, 0, sizeof(*sample));
+         if (sp->role == FWDSP_ROLE_PROCESSOR)
+            snprintf(sample->name, sizeof(sample->name), "%s.%s", sp->processor_namespace, sp->processor_name);
+         else
+            snprintf(sample->name, sizeof(sample->name), "%.4s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
+         sample->pid = (int)sp->process.pid;
+         sample->counters = sp->stats;
+      }
+      count++;
+   }
+   return count;
+}
 static bool fwdsp_slot_active(const struct fwdsp_subproc *sp) {
    return sp && sp->role != FWDSP_ROLE_NONE;
 }
@@ -395,6 +416,26 @@ static void fwdsp_parse_read(struct fwdsp_io_conn *ctx) {
 
          memcpy(message, ctx->recv->data, line_len);
          message[line_len] = '\0';
+         /* Versioned stats are consumed by the core, not forwarded as log
+          * spam. Ignore malformed records and leave stderr diagnostics intact. */
+         if (!strncmp(message, "RRSTAT1 ", 8)) {
+            fwdsp_proc_stats_t next = {0};
+            int n = 0;
+            int parsed = sscanf(message,
+               "RRSTAT1 in_bytes=%" SCNu64 " out_bytes=%" SCNu64
+               " in_frames=%" SCNu64 " out_frames=%" SCNu64
+               " warnings=%" SCNu64 " errors=%" SCNu64 "%n",
+               &next.input_bytes, &next.output_bytes,
+               &next.input_frames, &next.output_frames,
+               &next.warnings, &next.errors, &n);
+            if (parsed == 6 && n > 0 && message[n] == '\0') {
+               next.last_report_us = mono_us();
+               ctx->sp->stats = next;
+            }
+            free(message);
+            g_byte_array_remove_range(ctx->recv, 0, consumed);
+            continue;
+         }
          /* A pipeline's actual GStreamer failure must never be hidden behind the later EPIPE/decoder restart warning. Other verbose stderr remains at debug
           * level. */
          bool important = strstr(message, "GStreamer error:") ||
