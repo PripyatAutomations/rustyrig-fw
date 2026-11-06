@@ -4,4 +4,5 @@
 void gtk_audio_routing_init(void);
 void gtk_audio_routing_shutdown(void);
 void gtk_audio_graph_present(void);
+void gtk_volume_toggle(void);
 #endif
