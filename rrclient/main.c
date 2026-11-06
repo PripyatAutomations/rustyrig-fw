@@ -273,11 +273,14 @@ static void rrclient_core_dispatch_event(event_dispatch_fn_t fn, void *arg, void
 
 /* Dedicated core context for GTK; TUI uses the default context. */
 static GMainContext *rr_experiment_core_context;
+GMainContext *rrclient_core_context(void) {
+   return rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default();
+}
 static guint rr_core_timeout(guint interval, gint priority, GSourceFunc callback) {
    GSource *source = g_timeout_source_new(interval);
    g_source_set_priority(source, priority);
    g_source_set_callback(source, callback, NULL, NULL);
-   guint id = g_source_attach(source, rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default());
+   guint id = g_source_attach(source, rrclient_core_context());
    g_source_unref(source);
 
    return id;
