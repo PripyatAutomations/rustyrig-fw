@@ -51,6 +51,7 @@ typedef struct bridge_instance {
    gint64 resampler_retry_at;
    uint64_t pending, serial, frequency_hz, pending_hz;
    uint64_t traffic_rx, traffic_tx;
+   rr_local_bridge_stats_t stats;
    char pending_mode[16];
    bool queued_tune;
    uint64_t queued_hz;
@@ -60,6 +61,35 @@ typedef struct bridge_instance {
 } bridge_instance;
 
 static bridge_instance *bridges[26];
+size_t rrclient_local_bridge_stats_snapshot(rr_local_bridge_stats_t *out, size_t capacity) {
+   size_t count = 0;
+   for (size_t i = 0; i < G_N_ELEMENTS(bridges); i++) {
+      const bridge_instance *b = bridges[i];
+      if (!b || b->pid <= 0) continue;
+      if (out && count < capacity) {
+         out[count] = b->stats;
+         g_strlcpy(out[count].id, b->stream, sizeof(out[count].id));
+         g_strlcpy(out[count].driver, b->driver, sizeof(out[count].driver));
+         out[count].pid = (int)b->pid;
+      }
+      count++;
+   }
+   return count;
+}
+static void local_bridge_stats_update(bridge_instance *b, const char *value) {
+   unsigned long long in = 0, out = 0, bytes = 0, frames = 0, errors = 0;
+   int n = 0;
+   if (sscanf(value, "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu%n",
+              &in, &out, &bytes, &frames, &errors, &n) != 5 ||
+       n <= 0 || value[n] != '\0') return;
+   b->stats.ipc_in = (uint64_t)in;
+   b->stats.ipc_out = (uint64_t)out;
+   b->stats.pcm_bytes = (uint64_t)bytes;
+   b->stats.pcm_frames = (uint64_t)frames;
+   b->stats.errors = (uint64_t)errors;
+   b->stats.last_report_us = (uint64_t)g_get_monotonic_time();
+}
+
 /* Core writes, GTK reads a snapshot. Keep totals monotonic across child
  * restarts/disconnects; a subprocess's counters start at zero each time. */
 static GMutex kiwi_traffic_lock;
@@ -1053,10 +1083,16 @@ static gboolean poll_local(gpointer unused) {
             event_emit("client.audio.streams.changed", NULL, NULL);
          }
       } else if (m.type == RRP_BRIDGE_IPC_METADATA) {
-         /* The bridge reports cumulative external Kiwi socket bytes. */
+         /* Private subprocess accounting, not receiver inventory fields. */
          if (memchr(m.metadata_key, 0, sizeof(m.metadata_key)) &&
-             memchr(m.metadata_value, 0, sizeof(m.metadata_value)))
-            bridge_traffic_update(b, m.metadata_key, m.metadata_value);
+             memchr(m.metadata_value, 0, sizeof(m.metadata_value))) {
+            if (!strcmp(m.metadata_key, "_rr_stats"))
+               local_bridge_stats_update(b, m.metadata_value);
+            else
+               bridge_traffic_update(b, m.metadata_key, m.metadata_value);
+            b->stats.wire_rx = b->traffic_rx;
+            b->stats.wire_tx = b->traffic_tx;
+         }
       } else if (m.type == RRP_BRIDGE_IPC_LOG) {
          Log(LOG_INFO, "local.bridge", "%s", m.metadata_value);
          ui_print("&local-sdr", "%s: %s", b->stream, m.metadata_value);
