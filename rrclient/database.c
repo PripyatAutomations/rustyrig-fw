@@ -32,7 +32,7 @@ static bool window_state_schema(void) {
       "(SELECT CAST(value AS INTEGER)-5 FROM client_settings WHERE key='window.session');",
       NULL, NULL, NULL) != SQLITE_OK) {
       fprintf(stderr, "Window-state table initialization failed: %s\n", sqlite3_errmsg(client_db));
-      goto fail;
+      return false;
    }
 
 
