@@ -17,9 +17,16 @@ struct rr_pipeline_node {
    double x, y;
 };
 
+typedef enum {
+   RR_PIPELINE_LINK_NORMAL = 0,
+   RR_PIPELINE_LINK_BYPASS_IN,
+   RR_PIPELINE_LINK_BYPASS_OUT
+} rr_pipeline_link_kind_t;
+
 struct rr_pipeline_link {
    guint src, dst;
    gchar *src_pad, *dst_pad;
+   rr_pipeline_link_kind_t kind;
 };
 
 typedef enum {
@@ -46,6 +53,8 @@ const gchar *rr_pipeline_node_name(const rr_pipeline_node_t *node);
 void rr_pipeline_node_set_position(rr_pipeline_node_t *node, double x, double y);
 gboolean rr_pipeline_graph_add_element(rr_pipeline_graph_t *graph, const gchar *factory, double x, double y, guint *index, GError **error);
 gboolean rr_pipeline_graph_add_link(rr_pipeline_graph_t *graph, guint src, guint dst, GError **error);
+/* Conditional supervisor routing: not GStreamer pads or launch-string connections. */
+gboolean rr_pipeline_graph_add_bypass_link(rr_pipeline_graph_t *graph, guint src, guint dst, rr_pipeline_link_kind_t kind, GError **error);
 gboolean rr_pipeline_graph_remove_node(rr_pipeline_graph_t *graph, guint index, GError **error);
 gboolean rr_pipeline_graph_set_property(rr_pipeline_graph_t *graph, guint node, const gchar *property, const gchar *value, GError **error);
 gboolean rr_pipeline_graph_add_tee(rr_pipeline_graph_t *graph, guint source, guint *tee_index, GError **error);
