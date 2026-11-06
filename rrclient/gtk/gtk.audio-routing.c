@@ -13,16 +13,18 @@ static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static guint routing_source;
-static rr_event_token_t streams_token, routes_token, show_token;
+static rr_event_token_t streams_token, routes_token, show_token, snapshot_token;
+static GArray *routing_cache;
+static bool snapshot_waiting;
 static bool routing_updating, inventory_dirty, have_choices;
 /* Empty = muted, * = all streams, ~ = existing custom mix. Otherwise opaque ID. */
 static char ear_choice[2][64];
 
 static struct rrclient_rx_stream *routing_snapshot(size_t *count) {
-   *count = audio_rx_streams(NULL, 0);
+   *count = routing_cache ? routing_cache->len : 0;
    struct rrclient_rx_stream *streams = g_new0(struct rrclient_rx_stream, *count);
-   audio_rx_streams(streams, *count);
-
+   if (*count)
+      memcpy(streams, routing_cache->data, *count * sizeof(*streams));
    return streams;
 }
 
@@ -34,14 +36,16 @@ static bool routing_ear_matches(const char *choice, const struct rrclient_rx_str
    return !strcmp(choice, "*") || !strcmp(choice, stream->id);
 }
 
-static void routing_apply(const struct rrclient_rx_stream *streams, size_t count) {
+static void routing_apply(struct rrclient_rx_stream *streams, size_t count) {
    routing_updating = true;
 
    for (size_t i = 0 ; i < count ; i++) {
       bool left = routing_ear_matches(ear_choice[0], &streams[i], false);
       bool right = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))
          ? routing_ear_matches(ear_choice[1], &streams[i], true) : left;
-      audio_request_rx_stream_route(streams[i].id, left ? (right ? 'S' : 'L') : (right ? 'R' : 'M'));
+      char output = left ? (right ? 'S' : 'L') : (right ? 'R' : 'M');
+      audio_request_rx_stream_route(streams[i].id, output);
+      streams[i].output = output;
    }
 
    routing_updating = false;
@@ -97,7 +101,6 @@ static gboolean routing_refresh(gpointer unused) {
    if (inventory_dirty && have_choices) {
       /* New subscriptions follow the user's ear choices; disappearance mutes that ear rather than silently replacing it with a different receiver. */
       routing_apply(streams, count);
-      audio_rx_streams(streams, count);
    }
    inventory_dirty = false;
    g_qsort_with_data(streams, count, sizeof(*streams), routing_compare, NULL);
@@ -159,10 +162,29 @@ static gboolean routing_refresh(gpointer unused) {
    return G_SOURCE_REMOVE;
 }
 
-static void routing_queue(void) {
-   if (!routing_source) {
+static void routing_snapshot_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length < sizeof(rr_audio_stream_snapshot_t))
+      return;
+   const rr_audio_stream_snapshot_t *snapshot = message->payload;
+   if (snapshot->count > 128 ||
+       message->length != sizeof(*snapshot) + (size_t)snapshot->count * sizeof(struct rrclient_rx_stream))
+      return;
+   if (!routing_cache)
+      routing_cache = g_array_new(FALSE, FALSE, sizeof(struct rrclient_rx_stream));
+   g_array_set_size(routing_cache, 0);
+   if (snapshot->count)
+      g_array_append_vals(routing_cache, snapshot->streams, snapshot->count);
+   snapshot_waiting = false;
+   if (!routing_source)
       routing_source = g_idle_add(routing_refresh, NULL);
-   }
+}
+static void routing_queue(void) {
+   if (snapshot_waiting)
+      return;
+   snapshot_waiting = true;
+   rr_event_message_t request = { .name = RRCLIENT_AUDIO_SNAPSHOT_REQUEST };
+   event_emit_message(&request);
 }
 
 /* Local RX playback gain, separate from per-ear routing and rig speaker volume. */
@@ -368,11 +390,21 @@ void gtk_audio_routing_init(void) {
    show_token = event_on_domain_token("client.audio.routing.show", routing_show_event, NULL, "gtk");
    streams_token = event_on_domain_token("client.audio.streams.changed", routing_event, NULL, "gtk");
    routes_token = event_on_domain_token("client.audio.route.changed", routing_event, NULL, "gtk");
+   snapshot_token = event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_RESULT, routing_snapshot_event, NULL, "gtk");
    inventory_dirty = true;
    routing_queue();
 }
 
 void gtk_audio_routing_shutdown(void) {
+   if (snapshot_token) {
+      event_off_token(snapshot_token);
+      snapshot_token = 0;
+   }
+   if (routing_cache) {
+      g_array_free(routing_cache, TRUE);
+      routing_cache = NULL;
+   }
+   snapshot_waiting = false;
    if (show_token) {
       event_off_token(show_token);
       show_token = 0;
