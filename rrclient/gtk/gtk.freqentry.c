@@ -434,7 +434,7 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
       bool sent = false;
 
       if (local_only) {
-         sent = rrclient_local_bridge_set_frequency(rrclient_room_active_vfo("&local-sdr"), freq);
+         sent = rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, 0, freq, NULL);
       } else {
          sent = ws_send_freq_cmd_in_room(ws_conn, vfo, freq, room);
       }
