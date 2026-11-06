@@ -90,23 +90,27 @@ static void rr_scale_widget(GtkWidget *widget, double scale, GtkCssProvider *css
       g_list_free(children);
    }
 }
-static void rr_scale_install(GtkWidget *widget, RRScaleContainer *ctx);
+static void rr_scale_install(GtkWidget *widget, GtkWidget *wrapper);
 static void rr_scale_child_added(GtkContainer *container, GtkWidget *child, gpointer user) {
    (void)container;
-   RRScaleContainer *ctx = user;
+   GtkWidget *wrapper = GTK_WIDGET(user);
+   RRScaleContainer *ctx = g_object_get_data(G_OBJECT(wrapper), "rr-scale-context");
    if (!ctx) return;
    if (ctx->scale != 1.0) rr_scale_widget(child, ctx->scale, ctx->css);
-   rr_scale_install(child, ctx);
+   rr_scale_install(child, wrapper);
 }
-static void rr_scale_install(GtkWidget *widget, RRScaleContainer *ctx) {
+static void rr_scale_install(GtkWidget *widget, GtkWidget *wrapper) {
    if (!GTK_IS_CONTAINER(widget)) return;
+   /* Use a weak object-bound signal connection so a reparented child
+    * cannot call into freed zoom state after its former panel closes. */
    if (!g_object_get_data(G_OBJECT(widget), "rr-scale-observed")) {
-      g_object_set_data(G_OBJECT(widget), "rr-scale-observed", GINT_TO_POINTER(1));
-      g_signal_connect(GTK_CONTAINER(widget), "add", G_CALLBACK(rr_scale_child_added), ctx);
+      g_object_set_data(G_OBJECT(widget), "rr-scale-observed", wrapper);
+      g_signal_connect_object(widget, "add",
+         G_CALLBACK(rr_scale_child_added), G_OBJECT(wrapper), 0);
    }
    GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
    for (GList *i = children; i; i = i->next)
-      rr_scale_install(GTK_WIDGET(i->data), ctx);
+      rr_scale_install(GTK_WIDGET(i->data), wrapper);
    g_list_free(children);
 }
 static void rr_scale_dispose(gpointer data) {
@@ -140,6 +144,6 @@ void rr_scale_container_set_zoom(GtkWidget *wrapper, double scale) {
       13.0 * ctx->scale, 20.0 * ctx->scale, 4.0 * ctx->scale);
    gtk_css_provider_load_from_data(ctx->css, css, -1, NULL);
    rr_scale_widget(ctx->content, ctx->scale, ctx->css);
-   rr_scale_install(ctx->content, ctx);
+   rr_scale_install(ctx->content, wrapper);
    gtk_widget_queue_resize(wrapper);
 }
