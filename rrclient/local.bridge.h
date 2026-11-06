@@ -15,6 +15,14 @@ size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacit
 /* Cumulative bytes on local Kiwi's remote sockets (audio and waterfall).
  * Excludes bridge IPC and any server/relay transport already counted. */
 void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx);
+typedef struct {
+   char id[64], driver[32];
+   int pid;
+   uint64_t ipc_in, ipc_out, pcm_bytes, pcm_frames, errors;
+   uint64_t wire_rx, wire_tx, last_report_us;
+} rr_local_bridge_stats_t;
+/* Core-thread snapshot; GTK uses events or separately published values. */
+size_t rrclient_local_bridge_stats_snapshot(rr_local_bridge_stats_t *out, size_t capacity);
 #define RRCLIENT_KIWI_CONTROL_EVENT "client.kiwi.control.request"
 #define RRCLIENT_KIWI_STATUS_EVENT "client.kiwi.control.status"
 #define RRCLIENT_KIWI_STATUS_REQUEST "client.kiwi.control.status.request"
