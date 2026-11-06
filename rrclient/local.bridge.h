@@ -17,6 +17,20 @@ size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacit
 #define RRCLIENT_KIWI_STATUS_REQUEST "client.kiwi.control.status.request"
 #define RRCLIENT_LOCAL_BRIDGE_ACTIVE_EVENT "client.local-bridge.active"
 #define RRCLIENT_LOCAL_BRIDGE_ACTIVE_REQUEST "client.local-bridge.active.request"
+#define RRCLIENT_LOCAL_BRIDGE_TUNE_REQUEST "client.local-bridge.tune.request"
+typedef enum {
+   RR_LOCAL_TUNE_FREQUENCY = 1,
+   RR_LOCAL_TUNE_MODE,
+   RR_LOCAL_TUNE_WIDTH
+} rr_local_tune_kind_t;
+typedef struct {
+   rr_local_tune_kind_t kind;
+   char vfo; /* Zero selects the core-owned active local VFO. */
+   uint64_t hz;
+   char value[32];
+} rr_local_tune_request_t;
+/* Posts an owned copy; success means queued, not that the receiver accepted tuning. */
+bool rrclient_local_bridge_request_tune(rr_local_tune_kind_t kind, char vfo, uint64_t hz, const char *value);
 #define RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST "client.local-bridge.lifecycle.request"
 typedef struct {
    char url[1024];
