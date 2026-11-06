@@ -8,7 +8,6 @@
 #include <rrclient/audio.graph.h>
 #include <rrclient/gtk/gtk.graph.h>
 #include <rrclient/gtk/gtk.core.h>
-#include <rrclient/gtk/gtk.vol-box.h>
 #include "gtk.audio-routing.h"
 #include "gtk.floating-panel.h"
 extern GtkWidget *main_notebook;
@@ -274,11 +273,6 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       }
    }
    return FALSE;
-}
-static void routing_graph_button_clicked(GtkButton *button, gpointer unused) {
-   (void)button;
-   (void)unused;
-   gtk_audio_graph_present();
 }
 static void routing_graph_close(gpointer unused) {
    (void)unused;
@@ -611,27 +605,6 @@ static void routing_show_event(const char *event, const char *data, rrconn_t *co
    }
 }
 
-/* Reparent the standard label/slider row into the shared routing grid. A single GTK grid column gives every slider identical alignment and width. */
-static void routing_grid_volume_row(GtkWidget *grid, GtkWidget *row, gint grid_row) {
-   GList *children = gtk_container_get_children(GTK_CONTAINER(row));
-
-   if (children && children->next) {
-      GtkWidget *label = GTK_WIDGET(children->data);
-      GtkWidget *slider = GTK_WIDGET(children->next->data);
-      g_object_ref(label);
-      g_object_ref(slider);
-      gtk_container_remove(GTK_CONTAINER(row), label);
-      gtk_container_remove(GTK_CONTAINER(row), slider);
-      gtk_grid_attach(GTK_GRID(grid), label, 0, grid_row, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), slider, 1, grid_row, 1, 1);
-      gtk_widget_set_hexpand(slider, TRUE);
-      g_object_unref(label);
-      g_object_unref(slider);
-   }
-   g_list_free(children);
-   gtk_widget_destroy(row);
-}
-
 void gtk_audio_routing_init(void) {
    if (routing_window) {
       return;
@@ -682,12 +655,6 @@ void gtk_audio_routing_init(void) {
    gtk_box_pack_start(GTK_BOX(gain_row), rx_vol_slider, TRUE, TRUE, 0);
    routing_grid_volume_row(grid, gain_row, 5);
 
-   GtkWidget *graph_button = gtk_button_new_with_label("Audio Graph…");
-   g_signal_connect(graph_button, "clicked", G_CALLBACK(routing_graph_button_clicked), NULL);
-   gtk_grid_attach(GTK_GRID(grid), graph_button, 0, 7, 2, 1);
-
-   GtkWidget *rig_volume = create_volbox();
-   routing_grid_volume_row(grid, rig_volume, 6);
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
    gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
 
