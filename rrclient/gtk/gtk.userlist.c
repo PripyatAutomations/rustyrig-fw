@@ -837,6 +837,13 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
       return;
    }
    bool offline = rrclient_room_offline(control->room);
+   struct rr_user *talker = offline ? NULL : room_vfo_talker(control->room, control->vfo);
+   bool transmitting = talker != NULL;
+   GtkStyleContext *tx_ctx = gtk_widget_get_style_context(control->row);
+   if (transmitting)
+      gtk_style_context_add_class(tx_ctx, "rr-vfo-transmitting");
+   else
+      gtk_style_context_remove_class(tx_ctx, "rr-vfo-transmitting");
    gtk_widget_set_sensitive(control->row, !offline);
 
    if (offline) {
@@ -903,8 +910,6 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    if (!control->ptt) {
       return;
    }
-   struct rr_user *talker = room_vfo_talker(control->room, control->vfo);
-   bool transmitting = talker != NULL;
    /* Keep the compact control consistent with the main VFO widget.  The active/idle color conveys state; the action remains the familiar PTT OFF release
     * control. */
    const char *label = talker && talker->name[0] ? talker->name : "PTT OFF";
@@ -1130,7 +1135,10 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       gtk_css_provider_load_from_data(compact_css,
          "#room-vfo-compact label { font-size: 10px; }"
          "#room-vfo-compact button { font-size: 10px; padding: 0 3px; min-height: 18px; }"
-         "#room-vfo-compact #room-vfo-row { padding: 1px 2px; }", -1, NULL);
+         "#room-vfo-compact #room-vfo-row { padding: 1px 2px; }"
+         "#room-vfo-compact #room-vfo-row.rr-vfo-transmitting {"
+         " background-color: #ad1826; border: 1px solid #ef4a52; }"
+         "#room-vfo-compact #room-vfo-row.rr-vfo-transmitting label { color: #fff; }", -1, NULL);
    }
    /* Descendant rules need a screen provider, not one installed only on
     * the strip's own style context. */
