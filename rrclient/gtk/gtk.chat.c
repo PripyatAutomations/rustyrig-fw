@@ -1357,14 +1357,14 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       const char *mode = mode_property && dict_get_bool((dict *) mode_property, "property.known", false)
          ? dict_get((dict *) mode_property, "property.value", "---") : "---";
       char name[128];
+      char local_mode_copy[16] = {0};
 
       if (!g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")) {
          rr_local_bridge_ui_state_t local = {0};
          if (rrclient_local_bridge_ui_state_vfo(letter, &local)) {
             freq = (long)local.frequency_hz;
-            /* Build the menu label while the copied mode remains in scope. */
-            g_strlcpy(name, local.mode, sizeof(name));
-            mode = name;
+            g_strlcpy(local_mode_copy, local.mode, sizeof(local_mode_copy));
+            mode = local_mode_copy;
          }
       }
 
