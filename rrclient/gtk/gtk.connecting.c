@@ -82,7 +82,8 @@ static void runner(cairo_t *c,unsigned t) {
    cairo_restore(c);
 }
 static void cluster(cairo_t *c,unsigned t) {
-   static const double p[][2]={{37,46},{73,20},{111,33},{34,76},{77,71},{114,73}};
+   /* Keep the lower row inside the third tile's clipped 135x78 viewport. */
+    static const double p[][2]={{37,46},{73,20},{111,33},{34,62},{77,59},{114,60}};
    int count=1+(t/4)%6;
    cairo_set_line_width(c,1.3);
    for(int i=1;i<count;i++){color(c,.27,.42,.78);line(c,p[0][0],p[0][1],p[i][0],p[i][1]);}
