@@ -30,6 +30,8 @@ typedef struct {
 /* Named RX graph route presets; callers retain ownership of their strings. */
 bool rrclient_database_audio_profile_save(const char *name, const char *const *ids,
                                            const char *routes, size_t count);
+char *rrclient_database_vfo_layout_load(void);
+bool rrclient_database_vfo_layout_save(const char *order);
 bool rrclient_database_audio_profile_delete(const char *name);
 void rrclient_database_audio_profile_list(void (*cb)(const char *, void *), void *user);
 void rrclient_database_audio_profile_load(const char *name,
