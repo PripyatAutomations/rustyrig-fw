@@ -23,6 +23,7 @@ static GtkWidget *graph_profiles;
 static GtkWidget *graph_profile_load_button, *graph_profile_save_button, *graph_profile_remove_button;
 static gboolean graph_profile_updating;
 static void graph_profile_modified(void);
+static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
 /* Fit the topology to the actual viewport. Panel zoom and wheel zoom
  * multiply independently; neither forces a large GTK size requisition. */
@@ -170,6 +171,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
       graph_drag_mixer = graph_drag_moved = FALSE;
    }
    graph_canvas_update_size();
+   graph_profile_update_buttons();
 }
 /* The pipeline viewer remains a separate process. A GStreamer crash in the
  * inspector must not affect the client, its radio controls or audio engine. */
@@ -545,7 +547,7 @@ void gtk_audio_graph_present(void) {
       graph_profiles = gtk_combo_box_text_new_with_entry();
       g_signal_connect(graph_profile_entry(), "changed", G_CALLBACK(graph_profile_entry_changed), NULL);
       gtk_widget_set_hexpand(graph_profiles, TRUE);
-      gtk_widget_set_tooltip_text(graph_profiles, "Choose a saved profile or type a new profile name");
+      gtk_widget_set_tooltip_text(graph_profiles, "***AUTO*** is live routing; edit a link to start a New Preset, or choose a saved preset");
       gtk_box_pack_start(GTK_BOX(profiles), graph_profiles, TRUE, TRUE, 0);
       GtkWidget *load = gtk_button_new_with_label("Load");
       GtkWidget *save = gtk_button_new_with_label("Save");
@@ -554,7 +556,7 @@ void gtk_audio_graph_present(void) {
       graph_profile_save_button = save;
       graph_profile_remove_button = remove;
       gtk_widget_set_tooltip_text(load, "Apply the selected profile's stream routes");
-      gtk_widget_set_tooltip_text(save, "Save the current stream routes under this profile name");
+      gtk_widget_set_tooltip_text(save, "Save the current routes; replacing an existing preset requires confirmation");
       gtk_widget_set_tooltip_text(remove, "Delete the selected saved profile (confirmation required)");
       g_signal_connect(load, "clicked", G_CALLBACK(graph_profile_load), NULL);
       g_signal_connect(save, "clicked", G_CALLBACK(graph_profile_save), NULL);
