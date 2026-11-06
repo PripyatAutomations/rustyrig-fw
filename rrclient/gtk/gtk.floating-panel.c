@@ -4,13 +4,15 @@
 #include "gtk.tabs.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top, *menu_minimize;
+   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top, *menu_minimize, *resize_grip;
    GtkCssProvider *scale_css;
-   guint zoom;
+   gint zoom;
+   void (*zoom_callback)(double, gpointer);
+   gpointer zoom_data;
    GtkOverlay *overlay;
    GtkNotebook *tabs;
    char *id;
-   gboolean rolled, minimized, dragging, closable, minimizable, modal, modal_grabbed, pinned;
+   gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
    gint roll_width;
    void (*on_close)(gpointer);
    gpointer close_data;
@@ -21,7 +23,8 @@ struct rr_floating_panel {
    guint32 title_press_time;
    gboolean title_moved;
    gboolean snap_disabled, initial_positioned, initial_centered, initial_center_pending;
-   double drag_x, drag_y;
+   double drag_x, drag_y, resize_x, resize_y;
+   int resize_width, resize_height;
    int start_x, start_y;
    int snap_x, snap_y;
    gboolean snapped_x, snapped_y;
@@ -418,11 +421,20 @@ static void panel_roll(GtkButton *button, gpointer data);
 static void panel_close(GtkButton *button, gpointer data);
 static void panel_zoom_changed(GtkRange *range, gpointer data) {
    RRFloatPanel *p = data;
-   p->zoom = (guint) gtk_range_get_value(range);
-   /* GTK3 has no subtree-local DPI setting. An inherited font size scales labels and font-based controls without changing application-wide DPI. */
-   char css[160];
-   g_snprintf(css, sizeof(css), ".rr-panel-local-zoom { font-size: %.2fpx; }", 13.0 * p->zoom / 100.0);
+   p->zoom = (gint)gtk_range_get_value(range);
+   /* 0 = 100%, -100 = minimum usable 10%, +200 = 300%. GTK3 does
+    * not have a widget-subtree affine transform, so scale GTK dimensions
+    * through local CSS and allow custom renderers to scale their canvas. */
+   double scale = MAX(.10, 1.0 + p->zoom / 100.0);
+   char css[420];
+   g_snprintf(css, sizeof(css),
+      ".rr-panel-local-zoom { font-size: %.2fpx; } "
+      ".rr-panel-local-zoom button, .rr-panel-local-zoom entry, "
+      ".rr-panel-local-zoom combobox, .rr-panel-local-zoom spinbutton { "
+      "min-height: %.2fpx; padding: %.2fpx %.2fpx; }",
+      13.0 * scale, 19.0 * scale, 3.0 * scale, 6.0 * scale);
    gtk_css_provider_load_from_data(p->scale_css, css, -1, NULL);
+   if (p->zoom_callback) p->zoom_callback(scale, p->zoom_data);
    gtk_widget_queue_resize(p->frame);
 }
 
@@ -687,7 +699,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(p->minimize, "clicked", G_CALLBACK(panel_minimize), p);
    g_signal_connect(p->roll, "clicked", G_CALLBACK(panel_roll), p);
    gtk_widget_set_tooltip_text(p->roll, "Roll up panel");
-   p->zoom = 100;
+   p->zoom = 0;
    p->scale_css = gtk_css_provider_new();
    GtkStyleContext *panel_style = gtk_widget_get_style_context(p->frame);
    gtk_style_context_add_class(panel_style, "rr-panel-local-zoom");
@@ -722,11 +734,12 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
    gtk_container_add(GTK_CONTAINER(p->menu), settings);
-   GtkWidget *label = gtk_label_new("Text zoom");
+   GtkWidget *label = gtk_label_new("Zoom");
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
-   GtkWidget *zoom = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 60, 200, 5);
-   gtk_range_set_value(GTK_RANGE(zoom), 100);
+   GtkWidget *zoom = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -100, 200, 5);
+   gtk_range_set_value(GTK_RANGE(zoom), 0);
+   gtk_widget_set_tooltip_text(zoom, "0 = 100% of normal size; -100 = minimum; +200 = 300%");
    gtk_scale_set_value_pos(GTK_SCALE(zoom), GTK_POS_RIGHT);
    gtk_box_pack_start(GTK_BOX(settings), zoom, FALSE, FALSE, 0);
    g_signal_connect(zoom, "value-changed", G_CALLBACK(panel_zoom_changed), p);
@@ -924,6 +937,14 @@ void rr_floating_panel_set_minimizable(RRFloatPanel *p, gboolean minimizable) {
       gtk_widget_set_no_show_all(p->menu_minimize, !p->minimizable);
       gtk_widget_set_visible(p->menu_minimize, p->minimizable);
    }
+}
+
+void rr_floating_panel_set_zoom_callback(RRFloatPanel *p,
+                                          void (*callback)(double, gpointer), gpointer user) {
+   if (!p) return;
+   p->zoom_callback = callback;
+   p->zoom_data = user;
+   if (callback) callback(MAX(.10, 1.0 + p->zoom / 100.0), user);
 }
 
 void rr_floating_panel_set_closable(RRFloatPanel *p, gboolean closable) {
