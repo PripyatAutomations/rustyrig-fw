@@ -100,6 +100,7 @@ gtk_module_objs += gtk/gtk.chat.links.o
 gtk_module_objs += gtk/gtk.codecpicker.o # codec picker widget
 gtk_module_objs += gtk/gtk.connect-button.o
 gtk_module_objs += gtk/gtk.connecting.o # Retro sign-on dialog
+gtk_module_objs += gtk/gtk.clock.o # Amber VFD-style local/UTC floating clock
 gtk_module_objs += gtk/gtk.core.o            # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.files.o
 gtk_module_objs += gtk/gtk.file-editor.o # configuration tab
