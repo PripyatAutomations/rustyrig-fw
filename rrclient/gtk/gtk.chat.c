@@ -159,6 +159,8 @@ extern void vfo_controls_set_rx_only(bool rx_only);
 static GtkWidget *room_vfo_box;
 static GtkWidget *room_rf_strip;
 static RRFloatPanel *room_vfo_panel;
+/* Default follows rig tabs; an explicit title-menu selection always wins. */
+static gboolean room_vfo_follow_chat = TRUE;
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
 
 static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint page_num, gpointer user_data) {
@@ -183,7 +185,8 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
       if (!navigation_only && rig_connection && rig_connection->is_ws) {
          rr_sercom_focus_room(tab->server, tab->room);
       }
-      gtk_chat_update_vfo_controls(tab);
+      if (room_vfo_follow_chat)
+         gtk_chat_update_vfo_controls(tab);
       // Retained streams send no new subscription reply when revisiting a tab.
       // Refresh after moving/creating the shared VFO widget, including its list.
       codec_pickers_refresh();
@@ -1300,8 +1303,9 @@ static gboolean room_vfo_tab_has_controls(const GtkRoomTab *tab) {
    if (!tab || !tab->room[0]) return FALSE;
    gboolean ephemeral = !g_ascii_strncasecmp(tab->room, "#sdr-", 5) &&
       strlen(tab->room) == 13;
+   const char *vfos = rrclient_room_vfos(tab->room);
    return rrclient_room_tx_control(tab->room) ||
-      ((rrclient_room_vfos(tab->room)[0] || rrclient_room_vfo_mask(tab->room)) &&
+      (((vfos && *vfos) || rrclient_room_vfo_mask(tab->room)) &&
        (rrclient_room_rx_tunable(tab->room) || ephemeral));
 }
 static uint32_t room_vfo_available_mask(const char *room) {
@@ -1315,7 +1319,7 @@ static uint32_t room_vfo_available_mask(const char *room) {
          const char *dot = strrchr(part, '.');
          if (dot && !g_ascii_strncasecmp(dot + 1, "vfo_", 4) &&
              strlen(dot + 1) >= 5) {
-            char letter = g_ascii_toupper(dot[5]);
+            char letter = g_ascii_toupper(dot[6]);
             if (letter >= 'A' && letter <= 'Z')
                mask |= UINT32_C(1) << (letter - 'A');
          }
@@ -1351,6 +1355,17 @@ static void room_vfo_title_menu_activate(GtkMenuItem *item, gpointer unused) {
       room_vfo_title_select(target->vfo);
       return;
    }
+}
+static void room_vfo_follow_changed(GtkCheckMenuItem *item, gpointer unused) {
+   (void)unused;
+   room_vfo_follow_chat = gtk_check_menu_item_get_active(item);
+   if (!room_vfo_follow_chat || !main_notebook) return;
+   GtkNotebook *notebook = GTK_NOTEBOOK(main_notebook);
+   GtkWidget *page = gtk_notebook_get_nth_page(notebook,
+      gtk_notebook_get_current_page(notebook));
+   GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+   if (room_vfo_tab_has_controls(tab))
+      gtk_chat_update_vfo_controls(tab);
 }
 static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
@@ -1408,6 +1423,12 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       }
    }
    if (!entries) { gtk_widget_destroy(menu); return FALSE; }
+   GtkWidget *separator = gtk_separator_menu_item_new();
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), separator);
+   GtkWidget *follow = gtk_check_menu_item_new_with_label("Follow chat room");
+   gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(follow), room_vfo_follow_chat);
+   g_signal_connect(follow, "toggled", G_CALLBACK(room_vfo_follow_changed), NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), follow);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
    GdkWindow *window = gtk_widget_get_window(widget);
@@ -1530,7 +1551,8 @@ void gtk_chat_room_vfos_changed(const char *room) {
    gint page = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
    GtkWidget *widget = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), page);
    GtkRoomTab *tab = widget ? g_object_get_data(G_OBJECT(widget), "rr-room-tab") : NULL;
-   gtk_chat_update_vfo_controls(tab);
+   if (room_vfo_follow_chat || (tab && !g_strcmp0(room_vfo_title_room, tab->room)))
+      gtk_chat_update_vfo_controls(tab);
 }
 
 
