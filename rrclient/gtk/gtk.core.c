@@ -38,6 +38,7 @@
 #include <rrclient/gtk/gtk.floating-panel.h>
 #include <rrclient/gtk/gtk.core.h>
 #include "gtk.kiwi-panel.h"
+#include "gtk.clock.h"
 #include "gtk.identity.h"
 #include "gtk.window.h"
 #include "gtk.screensaver.h"
@@ -1031,6 +1032,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    if (gui_init()) {
       return true;              // gui_init failed; module loader will unload us
    }
+   gtk_clock_init();
    gtk_audio_routing_init();
    gtk_receiver_directory_init();
    gtk_connecting_init();
@@ -1529,6 +1531,7 @@ void gtk_frontend_stop(void) {
    gtk_file_editor_shutdown();
    gtk_receiver_directory_shutdown();
    gtk_connecting_shutdown();
+   gtk_clock_shutdown();
    gtk_audio_routing_shutdown();
    gtk_ui_zoom_shutdown();
 
