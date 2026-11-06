@@ -2491,11 +2491,12 @@ bool chat_init(void) {
    gtk_widget_set_halign(network_row, GTK_ALIGN_END);
    gtk_widget_set_valign(network_row, GTK_ALIGN_START);
    gtk_widget_set_margin_top(network_row, 3);
-   gtk_widget_set_margin_end(network_row, 24);
+   gtk_widget_set_margin_end(network_row, 34);
 
    if (GTK_IS_OVERLAY(window_overlay)) {
       gtk_overlay_add_overlay(GTK_OVERLAY(window_overlay), network_row);
-      gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(window_overlay), network_row, TRUE);
+      /* A pass-through overlay makes the new Volume button unclickable. */
+      gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(window_overlay), network_row, FALSE);
       gtk_widget_show_all(network_row);
    } else {
       gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
