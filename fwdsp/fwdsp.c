@@ -89,7 +89,7 @@ static void metrics_publish(void) {
    int length = snprintf(line, sizeof(line),
       "RRSTAT1 in_bytes=%" PRIu64 " out_bytes=%" PRIu64
       " in_frames=%" PRIu64 " out_frames=%" PRIu64
-      " warnings=%" PRIu64 " errors=%" PRIu64 "\\n",
+      " warnings=%" PRIu64 " errors=%" PRIu64 "\n",
       metrics.input_bytes, metrics.output_bytes,
       metrics.input_frames, metrics.output_frames, metrics.warnings, metrics.errors);
    if (length <= 0 || (size_t)length >= sizeof(line)) return;
