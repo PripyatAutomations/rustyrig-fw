@@ -10,7 +10,7 @@ struct rr_floating_panel {
    GtkOverlay *overlay;
    GtkNotebook *tabs;
    char *id;
-   gboolean rolled, minimized, dragging, closable, modal, modal_grabbed;
+   gboolean rolled, minimized, dragging, closable, modal, modal_grabbed, pinned;
    gint roll_width;
    void (*on_close)(gpointer);
    gpointer close_data;
@@ -355,8 +355,21 @@ static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
 
 /* GtkOverlay paints children in overlay order. Raise the selected panel rather than merely presenting the containing desktop window. */
 static void panel_raise(RRFloatPanel *p) {
-   if (p && p->overlay && p->frame && !p->modal) {
+   if (!p || !p->overlay || !p->frame) return;
+   if (!p->modal)
       gtk_overlay_reorder_overlay(p->overlay, p->frame, -1);
+   for (GList *it = floating_panels; it; it = it->next) {
+      RRFloatPanel *q = it->data;
+      if (q->pinned && !q->minimized && !q->modal && q->overlay == p->overlay && gtk_widget_get_visible(q->frame))
+         gtk_overlay_reorder_overlay(q->overlay, q->frame, -1);
+   }
+   for (GList *it = floating_panels; it; it = it->next) {
+      RRFloatPanel *q = it->data;
+      if (q->modal && q->overlay == p->overlay && gtk_widget_get_visible(q->frame)) {
+         if (q->scrim && gtk_widget_get_visible(q->scrim))
+            gtk_overlay_reorder_overlay(q->overlay, q->scrim, -1);
+         gtk_overlay_reorder_overlay(q->overlay, q->frame, -1);
+      }
    }
 }
 
@@ -845,6 +858,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
          gtk_widget_queue_resize(p->frame);
    }
    panel_chrome(p);
+   panel_raise(p);
 }
 
 void rr_floating_panel_destroy(RRFloatPanel *p) {
@@ -868,6 +882,12 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    g_clear_object(&p->scale_css);
    g_free(p->id);
    g_free(p);
+}
+
+void rr_floating_panel_set_pinned(RRFloatPanel *p, gboolean pinned) {
+   if (!p) return;
+   p->pinned = pinned;
+   panel_raise(p);
 }
 
 void rr_floating_panel_set_closable(RRFloatPanel *p, gboolean closable) {
