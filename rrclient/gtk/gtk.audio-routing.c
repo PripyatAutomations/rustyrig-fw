@@ -196,6 +196,33 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    /* Convert pointer coordinates to the graph's unscaled model space. */
    double gx = (event->x - graph_offset_x) / graph_scale;
    double gy = (event->y - graph_offset_y) / graph_scale;
+   /* Clicking a source's L OUT / R OUT port toggles just that channel.
+    * A stream can be stereo, left-only, right-only, or disconnected.
+    * The graph is a view of the core routing state, not a second mixer. */
+   guint source_index = 0;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      if (node->type != RR_AG_SOURCE) continue;
+      double x = 25 + RR_GTK_GRAPH_NODE_W;
+      double y = 20 + 140 * source_index++;
+      double tolerance = CLAMP(9.0 / MAX(.01, graph_scale), 8.0, 22.0);
+      if (gx < x - 52 - tolerance || gx > x + tolerance) continue;
+      for (unsigned channel = 0; channel < 2; channel++) {
+         double pin_y = y + (channel ? 79 : 60);
+         if (fabs(gy - pin_y) > tolerance) continue;
+         unsigned mask = node->route == 'S' ? 3 :
+                         node->route == 'L' ? 1 :
+                         node->route == 'R' ? 2 : 0;
+         mask ^= channel ? 2 : 1;
+         char route = mask == 3 ? 'S' : mask == 1 ? 'L' : mask == 2 ? 'R' : 'M';
+         if (node->route != route) {
+            node->route = route;
+            audio_request_rx_stream_route(node->id, route);
+            graph_canvas_update_size();
+         }
+         return TRUE;
+      }
+   }
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (n->type != RR_AG_SINK || strcmp(n->id, "sink.client.dsp0")) continue;
@@ -321,7 +348,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
-      GtkWidget *info = gtk_label_new("Current RX topology: cyan = left, purple = right; rounded fwdsp blocks open read-only pipelines.");
+      GtkWidget *info = gtk_label_new("Click L OUT / R OUT on an RX source to connect or disconnect that channel. Cyan = left, purple = right.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -331,6 +358,8 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
+      gtk_widget_set_tooltip_text(graph_canvas,
+         "Click a source's L OUT or R OUT connector to toggle that ear; click the sink to inspect its pipeline.");
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
