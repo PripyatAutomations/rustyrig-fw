@@ -17,16 +17,9 @@ struct rr_pipeline_node {
    double x, y;
 };
 
-typedef enum {
-   RR_PIPELINE_LINK_NORMAL = 0,
-   RR_PIPELINE_LINK_BYPASS_IN,
-   RR_PIPELINE_LINK_BYPASS_OUT
-} rr_pipeline_link_kind_t;
-
 struct rr_pipeline_link {
    guint src, dst;
    gchar *src_pad, *dst_pad;
-   rr_pipeline_link_kind_t kind;
 };
 
 typedef enum {
