@@ -33,7 +33,7 @@ typedef struct {
    gboolean type_bulk_update;
    GHashTable *zebra_positions;
    gboolean zebra_dirty, zebra_rebuilding;
-   guint zebra_idle;
+   guint zebra_idle, scroll_idle;
    GtkTreeStore *store;
    GtkTreeIter local_root, serial_root, network_root, health_root;
    GHashTable *branches, *domains, *local_rows, *health_events, *health_last, *property_snapshots;
@@ -75,6 +75,7 @@ void resource_domain_rebuild(const char *domain);
 void resource_expansion_save(resource_branch *branch);
 void resource_expansion_restore(resource_branch *branch);
 gboolean resource_restore_scroll(gpointer unused);
+void resource_schedule_restore_scroll(void);
 void resource_update_branch(resource_branch *branch);
 void resource_row(const char *event, const char *text, rrconn_t *connection, void *user);
 
