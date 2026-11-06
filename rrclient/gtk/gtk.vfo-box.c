@@ -315,12 +315,12 @@ static void vfo_dock_style(void) {
    if (vfo_dock_css) return;
    vfo_dock_css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(vfo_dock_css,
-      ".rr-vfo-group { border: 2px solid transparent; border-radius: 4px; }"
+      ".rr-vfo-group { border: 1px solid alpha(currentColor, .26); border-radius: 3px; padding: 2px; }"
       ".rr-vfo-group.rr-vfo-moving { border-color: #66caff; background-color: rgba(80,180,255,.17); }"
       ".rr-vfo-group.rr-vfo-before { border-left: 4px solid #48c5ff; }"
       ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
       ".rr-vfo-group.rr-vfo-shift { background-color: rgba(60,180,240,.10); box-shadow: inset 0 0 0 1px #479bd0; }"
-      ".rr-vfo-grip { color: #8bbbd1; font-size: 10px; padding: 0 4px; }", -1, NULL);
+      ".rr-vfo-grip { background-color: alpha(currentColor, .09); border-radius: 2px; min-height: 7px; }", -1, NULL);
 }
 static void vfo_clear_drop(GtkWidget *child) {
    if (!child) return;
@@ -446,11 +446,8 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    /* Do not stretch a lone docked group across the entire FlowBox row. */
    gtk_widget_set_halign(group, GTK_ALIGN_START);
    GtkWidget *handle = gtk_event_box_new();
-   GtkWidget *hint = gtk_label_new(name);
-   gtk_label_set_xalign(GTK_LABEL(hint), 0.5);
-   gtk_widget_set_name(hint, "rr-vfo-drag-label");
+   gtk_widget_set_size_request(handle, -1, 8);
    gtk_widget_set_tooltip_text(handle, "Drag to rearrange VFO controls");
-   gtk_container_add(GTK_CONTAINER(handle), hint);
    gtk_box_pack_start(GTK_BOX(group), handle, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(group), control, FALSE, FALSE, 0);
    gtk_container_add(GTK_CONTAINER(vfo_controls_row), group);
@@ -464,11 +461,11 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    g_object_set_data(G_OBJECT(child), "rr-vfo-id", (gpointer)id);
    g_object_set_data(G_OBJECT(handle), "rr-vfo-child", child);
    gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-group");
-   gtk_style_context_add_class(gtk_widget_get_style_context(hint), "rr-vfo-grip");
+   gtk_style_context_add_class(gtk_widget_get_style_context(handle), "rr-vfo-grip");
    vfo_dock_style();
    gtk_style_context_add_provider(gtk_widget_get_style_context(child),
       GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-   gtk_style_context_add_provider(gtk_widget_get_style_context(hint),
+   gtk_style_context_add_provider(gtk_widget_get_style_context(handle),
       GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    gtk_drag_source_set(handle, GDK_BUTTON1_MASK, vfo_drag_target,
                        G_N_ELEMENTS(vfo_drag_target), GDK_ACTION_MOVE);
