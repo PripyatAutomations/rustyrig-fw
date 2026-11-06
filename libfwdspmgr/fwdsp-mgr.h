@@ -69,6 +69,23 @@ struct fwdsp_control_msg {
    char record_file[FWDSP_RECORD_FILE_LEN];
 };
 
+/* Child-produced totals, reported no more than once per second.
+ * Rates are derived by the host; this is not a GTK/UI API. */
+typedef struct {
+   uint64_t input_bytes, output_bytes;
+   uint64_t input_frames, output_frames;
+   uint64_t warnings, errors;
+   uint64_t last_report_us;
+} fwdsp_proc_stats_t;
+typedef struct {
+   char name[80];
+   int pid;
+   fwdsp_proc_stats_t counters;
+} fwdsp_worker_stats_t;
+/* Call on the manager/core thread. Frontends receive copied snapshots via
+ * core events, never by reading fwdsp instances directly. */
+size_t fwdsp_stats_snapshot(fwdsp_worker_stats_t *out, size_t capacity);
+
 struct fwdsp_subproc {
    subproc_t process;
    enum fwdsp_pipeline_role role;
@@ -107,6 +124,7 @@ struct fwdsp_subproc {
    enum fwdsp_processor_io processor_io;
    fwdsp_processor_output_cb processor_output;
    void *processor_output_data;
+   fwdsp_proc_stats_t stats;
 };
 
 extern void fwdsp_reap_children(void);
