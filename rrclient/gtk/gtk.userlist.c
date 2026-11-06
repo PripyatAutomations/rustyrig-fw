@@ -1132,8 +1132,14 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
          "#room-vfo-compact button { font-size: 10px; padding: 0 3px; min-height: 18px; }"
          "#room-vfo-compact #room-vfo-row { padding: 1px 2px; }", -1, NULL);
    }
-   gtk_style_context_add_provider(gtk_widget_get_style_context(strip),
-      GTK_STYLE_PROVIDER(compact_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   /* Descendant rules need a screen provider, not one installed only on
+    * the strip's own style context. */
+   GdkScreen *screen = gdk_screen_get_default();
+   if (screen && !g_object_get_data(G_OBJECT(screen), "rr-vfo-compact-css")) {
+      gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(compact_css),
+         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      g_object_set_data(G_OBJECT(screen), "rr-vfo-compact-css", GINT_TO_POINTER(1));
+   }
    /* The strip must follow the docked roster allocation, not its natural width. */
    gtk_widget_set_hexpand(strip, TRUE);
    char *copy = strdup(bindings);
