@@ -34,6 +34,7 @@ extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkNotebook *main_notebook;
+extern GtkWidget *admin_view;
 extern GtkWidget *freq_entry;
 
 /* GTK reports an Escape-prefix as two ordinary key events, unlike termkey, which presents ESC-number as an Alt modifier.  Keep the prefix briefly in the GTK
@@ -49,6 +50,16 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
       gtk_widget_show_all(main_win);
       gtk_window_present(GTK_WINDOW(main_win));
       place_window(main_win);
+   }
+   /* Admin and Config moved into independent tool windows. Retain the
+    * historical Alt-1/Alt-2 shortcuts without allocating notebook slots. */
+   if (digit == 1 || digit == 2) {
+      GtkWidget *tool = digit == 1 ? admin_tab : config_tab;
+      if (!GTK_IS_WINDOW(tool)) return FALSE;
+      gtk_widget_show_all(tool);
+      gtk_window_present(GTK_WINDOW(tool));
+      if (digit == 1) gtk_admin_refresh();
+      return TRUE;
    }
    int tab_number = digit == 0 ? 10 : digit;
 
@@ -180,7 +191,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return TRUE;
    }
 
-   bool admin_active = main_notebook && admin_tab && gtk_notebook_get_nth_page(main_notebook, gtk_notebook_get_current_page(main_notebook)) == admin_tab;
+   bool admin_active = GTK_IS_WINDOW(admin_tab) && gtk_window_is_active(GTK_WINDOW(admin_tab));
 
    if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab &&
       (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) && (gtk_chat_status_active() || admin_active)) {
@@ -296,7 +307,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       if (digit >= 0) {
          int page = digit == 0 ? 9 : digit - 1;
 
-         if (page < gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_tab))) {
+         if (page < gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_view))) {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_tab), page);
          }
 
