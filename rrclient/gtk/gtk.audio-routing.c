@@ -354,6 +354,11 @@ static void routing_check_all_clicked(GtkButton *button, gpointer user) {
    g_free(streams);
    routing_queue();
 }
+static void routing_check_popover_closed(GtkPopover *popover, gpointer unused) {
+   (void)popover; (void)unused;
+   /* Pick up inventory changes deferred while the checklist was open. */
+   routing_queue();
+}
 static void routing_check_build(unsigned ear, const struct rrclient_rx_stream *streams, size_t count) {
    GtkWidget *box = ear_list[ear];
    GList *children = gtk_container_get_children(GTK_CONTAINER(box));
@@ -645,6 +650,7 @@ void gtk_audio_routing_init(void) {
       gtk_container_add(GTK_CONTAINER(scroller), ear_list[ear]);
       gtk_container_add(GTK_CONTAINER(popover), scroller);
       gtk_menu_button_set_popover(GTK_MENU_BUTTON(ear_button[ear]), popover);
+      g_signal_connect(popover, "closed", G_CALLBACK(routing_check_popover_closed), NULL);
       gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 1, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), ear_button[ear], 1, ear + 1, 1, 1);
    }
