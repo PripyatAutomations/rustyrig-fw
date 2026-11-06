@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
+#include <stdio.h>
 #include <signal.h>
 #include <time.h>
 #include <stdlib.h>
@@ -697,6 +698,7 @@ static bool spawn_child(struct bridge_child *b) {
    }
    b->fd = sv[0];
    b->media_fd = media[0];
+   memset(&b->stats, 0, sizeof(b->stats));
    b->started = b->last_seen = mono_us();
    b->kill_deadline = 0;
    b->hello = b->ready = b->idling = false;
