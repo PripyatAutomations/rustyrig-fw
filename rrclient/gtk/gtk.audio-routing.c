@@ -189,51 +189,152 @@ static void routing_pipeline_open(const char *id) {
    g_free(program);
    g_free(json);
 }
+
+static gint graph_drag_source = -1, graph_drag_channel = -1;
+static gboolean graph_drag_mixer, graph_drag_moved;
+static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
+
+static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
+   if (!graph_snapshot || graph_scale <= 0) return FALSE;
+   *gx = (x - graph_offset_x) / graph_scale;
+   *gy = (y - graph_offset_y) / graph_scale;
+   return TRUE;
+}
+static gboolean graph_port_at(double x, double y, gint *source, gint *channel, gboolean *mixer) {
+   double radius = CLAMP(10.0 / MAX(.01, graph_scale), 8.0, 20.0);
+   guint row = 0;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) continue;
+      double px = 25 + RR_GTK_GRAPH_NODE_W, py = 20 + 140 * row++;
+      for (gint ch = 0; ch < 2; ch++) {
+         if (hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
+            *source = (gint)i; *channel = ch; *mixer = FALSE;
+            return TRUE;
+         }
+      }
+   }
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      if (graph_snapshot->nodes[i].type != RR_AG_MIXER ||
+          strcmp(graph_snapshot->nodes[i].id, "rx.mix")) continue;
+      for (gint ch = 0; ch < 2; ch++) {
+         if (hypot(x - 355, y - 80 - (ch ? 79 : 60)) <= radius) {
+            *source = -1; *channel = ch; *mixer = TRUE;
+            return TRUE;
+         }
+      }
+   }
+   return FALSE;
+}
+static unsigned graph_route_mask(char route) {
+   return route == 'S' ? 3u : route == 'L' ? 1u : route == 'R' ? 2u : 0u;
+}
+static void graph_set_channel(guint source, gint channel, gboolean connect) {
+   if (!graph_snapshot || source >= graph_snapshot->node_count ||
+       graph_snapshot->nodes[source].type != RR_AG_SOURCE) return;
+   rr_ag_view_node_t *node = &graph_snapshot->nodes[source];
+   unsigned bit = channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
+   unsigned mask = graph_route_mask(node->route);
+   mask = connect ? mask | bit : mask & ~bit;
+   char route = mask == 3 ? 'S' : mask == 1 ? 'L' : mask == 2 ? 'R' : 'M';
+   if (route == node->route) return;
+   node->route = route;
+   audio_request_rx_stream_route(node->id, route);
+   graph_canvas_update_size();
+}
+/* Match the actual cubic Bezier curves rather than merely the bounding box. */
+static gboolean graph_link_at(double x, double y, guint *source, gint *channel) {
+   double limit = CLAMP(7.0 / MAX(.01, graph_scale), 5.0, 17.0);
+   double best = limit;
+   gboolean found = FALSE;
+   guint row = 0;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      if (n->type != RR_AG_SOURCE) continue;
+      double x0 = 25 + RR_GTK_GRAPH_NODE_W, y0 = 20 + 140 * row++;
+      unsigned mask = graph_route_mask(n->route);
+      for (gint ch = 0; ch < 2; ch++) {
+         if (!(mask & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) continue;
+         double ya = y0 + (ch ? 79 : 60), yb = 80 + (ch ? 79 : 60);
+         double x1 = 355, cx = (x0 + x1) / 2;
+         for (unsigned k = 0; k <= 48; k++) {
+            double t = (double)k / 48, u = 1 - t;
+            double px = u*u*u*x0 + 3*u*u*t*cx + 3*u*t*t*cx + t*t*t*x1;
+            double py = u*u*u*ya + 3*u*u*t*ya + 3*u*t*t*yb + t*t*t*yb;
+            double d = hypot(px - x, py - y);
+            if (d < best) { best = d; *source = i; *channel = ch; found = TRUE; }
+         }
+      }
+   }
+   return found;
+}
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget; (void)unused;
    if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
        !graph_snapshot) return FALSE;
-   /* Convert pointer coordinates to the graph's unscaled model space. */
-   double gx = (event->x - graph_offset_x) / graph_scale;
-   double gy = (event->y - graph_offset_y) / graph_scale;
-   /* Clicking a source's L OUT / R OUT port toggles just that channel.
-    * A stream can be stereo, left-only, right-only, or disconnected.
-    * The graph is a view of the core routing state, not a second mixer. */
-   guint source_index = 0;
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
-      rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
-      if (node->type != RR_AG_SOURCE) continue;
-      double x = 25 + RR_GTK_GRAPH_NODE_W;
-      double y = 20 + 140 * source_index++;
-      double tolerance = CLAMP(9.0 / MAX(.01, graph_scale), 8.0, 22.0);
-      if (gx < x - 52 - tolerance || gx > x + tolerance) continue;
-      for (unsigned channel = 0; channel < 2; channel++) {
-         double pin_y = y + (channel ? 79 : 60);
-         if (fabs(gy - pin_y) > tolerance) continue;
-         unsigned mask = node->route == 'S' ? 3 :
-                         node->route == 'L' ? 1 :
-                         node->route == 'R' ? 2 : 0;
-         mask ^= channel ? 2 : 1;
-         char route = mask == 3 ? 'S' : mask == 1 ? 'L' : mask == 2 ? 'R' : 'M';
-         if (node->route != route) {
-            node->route = route;
-            audio_request_rx_stream_route(node->id, route);
-            graph_canvas_update_size();
-         }
-         return TRUE;
-      }
+   double gx, gy;
+   if (!graph_pointer(event->x, event->y, &gx, &gy)) return FALSE;
+   gint source = -1, channel = -1;
+   gboolean mixer = FALSE;
+   if (graph_port_at(gx, gy, &source, &channel, &mixer)) {
+      graph_drag_source = source;
+      graph_drag_channel = channel;
+      graph_drag_mixer = mixer;
+      graph_drag_start_x = graph_drag_x = gx;
+      graph_drag_start_y = graph_drag_y = gy;
+      graph_drag_moved = FALSE;
+      return TRUE;
+   }
+   guint linked_source = 0;
+   gint linked_channel = -1;
+   if (graph_link_at(gx, gy, &linked_source, &linked_channel)) {
+      graph_set_channel(linked_source, linked_channel, FALSE);
+      return TRUE;
    }
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      if (n->type != RR_AG_SINK || strcmp(n->id, "sink.client.dsp0")) continue;
-      double x = 650, y = 80;
-      if (gx >= x && gx <= x + RR_GTK_GRAPH_NODE_W &&
-          gy >= y && gy <= y + RR_GTK_GRAPH_NODE_H) {
+      if (n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0") &&
+          gx >= 650 && gx <= 650 + RR_GTK_GRAPH_NODE_W &&
+          gy >= 80 && gy <= 80 + RR_GTK_GRAPH_NODE_H) {
          routing_pipeline_open(n->id);
          return TRUE;
       }
    }
    return FALSE;
+}
+static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
+   (void)widget; (void)unused;
+   if (graph_drag_channel < 0) return FALSE;
+   double gx, gy;
+   if (!graph_pointer(event->x, event->y, &gx, &gy)) return FALSE;
+   graph_drag_moved |= hypot(gx - graph_drag_start_x, gy - graph_drag_start_y) > 4;
+   graph_drag_x = gx;
+   graph_drag_y = gy;
+   graph_canvas_update_size();
+   return TRUE;
+}
+static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget; (void)unused;
+   if (event->button != GDK_BUTTON_PRIMARY || graph_drag_channel < 0) return FALSE;
+   double gx, gy;
+   gint target = -1, channel = -1;
+   gboolean mixer = FALSE;
+   gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) &&
+      graph_port_at(gx, gy, &target, &channel, &mixer);
+   if (graph_drag_moved && hit && channel == graph_drag_channel) {
+      /* The executable mixer currently accepts matched L/R RX inputs only. */
+      if (graph_drag_mixer && target >= 0)
+         graph_set_channel((guint)target, channel, TRUE);
+      else if (!graph_drag_mixer && mixer && graph_drag_source >= 0)
+         graph_set_channel((guint)graph_drag_source, channel, TRUE);
+   } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0) {
+      unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
+      unsigned bit = graph_drag_channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
+      graph_set_channel((guint)graph_drag_source, graph_drag_channel, !(mask & bit));
+   }
+   graph_drag_source = graph_drag_channel = -1;
+   graph_drag_mixer = graph_drag_moved = FALSE;
+   graph_canvas_update_size();
+   return TRUE;
 }
 /* Route IDs are stable protocol stream IDs; missing streams are skipped on
  * load, so presets remain useful as receivers connect and disconnect. */
