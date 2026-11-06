@@ -4,13 +4,13 @@
 #include "gtk.tabs.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top;
+   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top, *menu_minimize;
    GtkCssProvider *scale_css;
    guint zoom;
    GtkOverlay *overlay;
    GtkNotebook *tabs;
    char *id;
-   gboolean rolled, minimized, dragging, closable, modal, modal_grabbed, pinned;
+   gboolean rolled, minimized, dragging, closable, minimizable, modal, modal_grabbed, pinned;
    gint roll_width;
    void (*on_close)(gpointer);
    gpointer close_data;
@@ -512,7 +512,7 @@ static void panel_minimize(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
 
-   if (p->minimized) {
+   if (p->minimized || !p->minimizable) {
       return;
    }
    p->restore_tab = gtk_tabs_panel_restore_add(p->tabs, p->id, G_CALLBACK(panel_restore), p);
@@ -631,6 +631,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->id = g_strdup(id);
    floating_panels = g_list_prepend(floating_panels, p);
    p->closable = TRUE;
+   p->minimizable = TRUE;
    p->scrim = gtk_event_box_new();
    /* The scrim must never be revealed by a parent gtk_widget_show_all(). A non-modal scrim covers the notebook and silently eats tab clicks. */
    gtk_widget_set_no_show_all(p->scrim, TRUE);
@@ -744,7 +745,11 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(p->menu_on_top, "toggled", G_CALLBACK(panel_on_top_changed), p);
    gtk_box_pack_start(GTK_BOX(settings), p->menu_on_top, FALSE, FALSE, 0);
    panel_menu_add_action(p, settings, "Roll up / expand", "roll");
-   panel_menu_add_action(p, settings, "Minimize to tabs", "minimize");
+   p->menu_minimize = gtk_button_new_with_label("Minimize to tabs");
+   gtk_button_set_relief(GTK_BUTTON(p->menu_minimize), GTK_RELIEF_NONE);
+   g_object_set_data(G_OBJECT(p->menu_minimize), "rr-action", (gpointer)"minimize");
+   g_signal_connect(p->menu_minimize, "clicked", G_CALLBACK(panel_menu_action), p);
+   gtk_box_pack_start(GTK_BOX(settings), p->menu_minimize, FALSE, FALSE, 0);
    p->menu_close = gtk_button_new_with_label("Close panel");
    gtk_button_set_relief(GTK_BUTTON(p->menu_close), GTK_RELIEF_NONE);
    g_object_set_data(G_OBJECT(p->menu_close), "rr-action", (gpointer) "close");
@@ -904,6 +909,21 @@ void rr_floating_panel_set_pinned(RRFloatPanel *p, gboolean pinned) {
        gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->menu_on_top)) != p->pinned)
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->menu_on_top), p->pinned);
    panel_raise(p);
+}
+
+void rr_floating_panel_set_minimizable(RRFloatPanel *p, gboolean minimizable) {
+   if (!p) return;
+   p->minimizable = !!minimizable;
+   if (!p->minimizable && p->minimized)
+      rr_floating_panel_restore(p);
+   if (p->minimize) {
+      gtk_widget_set_no_show_all(p->minimize, !p->minimizable);
+      gtk_widget_set_visible(p->minimize, p->minimizable);
+   }
+   if (p->menu_minimize) {
+      gtk_widget_set_no_show_all(p->menu_minimize, !p->minimizable);
+      gtk_widget_set_visible(p->menu_minimize, p->minimizable);
+   }
 }
 
 void rr_floating_panel_set_closable(RRFloatPanel *p, gboolean closable) {
