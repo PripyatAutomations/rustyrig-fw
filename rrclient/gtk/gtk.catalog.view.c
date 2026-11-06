@@ -309,12 +309,9 @@ GtkWindow *resource_parent(void) {
    return main && main->gtk_win ? GTK_WINDOW(main->gtk_win) : NULL;
 }
 void resource_present(void) {
-   if (browser && main_notebook && browser->page) {
-      gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), browser->page);
-
-      if (page >= 0) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
-      }
+   if (browser && browser->window) {
+      gtk_widget_show_all(browser->window);
+      gtk_window_present(GTK_WINDOW(browser->window));
    }
 }
 
