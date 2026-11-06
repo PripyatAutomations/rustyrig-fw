@@ -702,11 +702,18 @@ void gtk_audio_routing_init(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
       gtk_widget_set_size_request(scroller, 260, -1);
       gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scroller), 310);
+      gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroller), 80);
       gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroller), TRUE);
       ear_list[ear] = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
       gtk_container_set_border_width(GTK_CONTAINER(ear_list[ear]), 8);
       gtk_container_add(GTK_CONTAINER(scroller), ear_list[ear]);
       gtk_container_add(GTK_CONTAINER(popover), scroller);
+      /* Popovers aren't descendants of the floating panel's body. Its
+       * show_all() doesn't show these scrolled windows, leaving the menu
+       * button's label visible but the popup content empty/invisible. Do
+       * not show the popover itself here: only its contained widgets. */
+      gtk_widget_show(scroller);
+      gtk_widget_show(ear_list[ear]);
       gtk_menu_button_set_popover(GTK_MENU_BUTTON(ear_button[ear]), popover);
       g_signal_connect(popover, "closed", G_CALLBACK(routing_check_popover_closed), NULL);
       gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 1, 1, 1);
