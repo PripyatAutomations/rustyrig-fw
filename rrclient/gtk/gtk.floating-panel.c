@@ -752,6 +752,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(panel), p->body, TRUE, TRUE, 0);
    gtk_widget_show_all(p->frame);
    gtk_widget_hide(p->frame);
+   /* A newly added overlay must not cover already visible pinned utilities. */
+   panel_raise(p);
 
    return p;
 }
