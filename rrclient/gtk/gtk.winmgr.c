@@ -74,7 +74,8 @@ static void main_window_geometry_clamp(GtkWidget *window, int *w, int *h, int *x
 // This is called when the window has stopped moving
 static gboolean on_configure_timeout(gpointer data) {
    if (!data) {
-      return true;
+      configure_event_timeout = 0;
+      return G_SOURCE_REMOVE;
    }
    // Find the GTK window
    GtkWidget *window = (GtkWidget *) data;
@@ -84,8 +85,10 @@ static gboolean on_configure_timeout(gpointer data) {
 
    // if we can't find the window, there's no state
    if (!win) {
-//      Log(LOG_CRAZY, "gtk-ui", "No window name for id:<%p>", window);
-      return true;
+      /* A destroyed window must not leave its 1.5-second timer running
+       * forever with a retained widget reference. */
+      configure_event_timeout = 0;
+      return G_SOURCE_REMOVE;
    }
    // If timeout is called, window has stopped moving
    win->is_moving = false;
