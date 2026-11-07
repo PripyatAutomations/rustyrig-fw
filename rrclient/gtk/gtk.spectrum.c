@@ -830,10 +830,8 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_text_extents_t ext;
       cairo_text_extents(cr, label, &ext);
 
-      /* Leave the bottom-right corner clear for the gain slider. */
-      if (tick > 2 && w < 520) {
-         continue;
-      }
+      /* Keep every frequency tick visible. The gain slider is over the
+       * waterfall instead of obscuring the right end of the RF axis. */
       double tx = CLAMP(x - ext.width / 2, 2., MAX(2., w - ext.width - 2.));
       cairo_move_to(cr, tx, h - 5);
       cairo_show_text(cr, label);
@@ -1232,8 +1230,9 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    gtk_scale_set_draw_value(GTK_SCALE(p->gain), FALSE);
    gtk_widget_set_size_request(p->gain, 105, -1);
    gtk_widget_set_halign(p->gain, GTK_ALIGN_END);
-   gtk_widget_set_valign(p->gain, GTK_ALIGN_END);
-   gtk_widget_set_margin_bottom(p->gain, 16);
+   gtk_widget_set_valign(p->gain, GTK_ALIGN_START);
+   /* Position below the enable checkbox, away from RF axis tick labels. */
+   gtk_widget_set_margin_top(p->gain, 24);
    gtk_widget_set_tooltip_text(p->gain, "RF waterfall display gain (dB); does not alter receiver gain");
    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), p->gain);
    g_object_set_data_full(G_OBJECT(overlay), "rr-rf-spectrum", p, rf_destroy);
