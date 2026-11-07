@@ -2454,6 +2454,8 @@ static void vfo_locator_snapshot_event(const char *event, const void *data, size
       gtk_window_set_skip_pager_hint(GTK_WINDOW(vfo_locator_window), FALSE);
       /* A native undecorated top-level, with the same lightweight border treatment as in-window floating panels. The frame owns PTT styling. */
       vfo_locator_frame = gtk_event_box_new();
+      gtk_widget_set_tooltip_text(vfo_locator_frame,
+         "Double-click to hide (minimize); right-click for settings");
       gtk_widget_add_events(vfo_locator_frame, GDK_BUTTON_PRESS_MASK);
       g_signal_connect(vfo_locator_frame, "button-press-event", G_CALLBACK(vfo_locator_drag), NULL);
       gtk_widget_set_name(vfo_locator_frame, "rr-vfo-locator");
