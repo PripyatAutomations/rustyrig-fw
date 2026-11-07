@@ -1625,7 +1625,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
 
 /* The VFO is shared by rig tabs, not owned by a particular chat page.
  * Reconcile it after PART, tab removal and room capability changes. */
-static void room_vfo_reconcile(void) {
+static void room_vfo_reconcile(const char *changed_room) {
    if (!main_notebook)
       return;
    GtkNotebook *notebook = GTK_NOTEBOOK(main_notebook);
@@ -1659,13 +1659,14 @@ static void room_vfo_reconcile(void) {
    if (!target)
       target = current ? current : fallback;
 
-   if (!room_vfo_panel || !bound || g_strcmp0(room_vfo_title_room, target->room))
+   if (!room_vfo_panel || !bound || g_strcmp0(room_vfo_title_room, target->room) ||
+       (changed_room && !g_strcmp0(changed_room, target->room)))
       gtk_chat_update_vfo_controls(target);
 }
 
 void gtk_chat_room_vfos_changed(const char *room) {
    userlist_room_vfos_changed(room);
-   room_vfo_reconcile();
+   room_vfo_reconcile(room);
 }
 
 
