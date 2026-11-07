@@ -41,6 +41,7 @@
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
+#include <rrclient/database.h>
 #include <rrclient/gtk/gtk.spectrum.h>
 #include <rrclient/gtk/gtk.connect-button.h>
 #include <rrclient/gtk/gtk.vfo-box.h>
@@ -2308,14 +2309,70 @@ static void estop_request_event(const char *event, const char *action, rrconn_t 
 static GtkWidget *vfo_locator_window, *vfo_locator_frame, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode, *vfo_locator_ptt;
 static char locator_tx_identity[256];
 static gint64 locator_tx_started;
-/* Drag the undecorated top-level using GTK's native window-manager move. The handler runs on the event box covering all three locator rows. */
+static gint locator_opacity = 100;
+static gboolean locator_on_top = TRUE;
+
+static void vfo_locator_settings_save(void) {
+   rrclient_window_state_t state = { .opacity = locator_opacity, .pinned = locator_on_top };
+   rrclient_database_window_save("vfo-locator", &state);
+}
+static void vfo_locator_opacity_changed(GtkRange *scale, gpointer unused) {
+   (void)unused;
+   locator_opacity = (gint) gtk_range_get_value(scale);
+   if (vfo_locator_window)
+      gtk_widget_set_opacity(vfo_locator_window, locator_opacity / 100.0);
+   vfo_locator_settings_save();
+}
+static void vfo_locator_on_top_changed(GtkCheckMenuItem *item, gpointer unused) {
+   (void)unused;
+   locator_on_top = gtk_check_menu_item_get_active(item);
+   if (vfo_locator_window)
+      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), locator_on_top);
+   vfo_locator_settings_save();
+}
+static void vfo_locator_minimize(GtkMenuItem *item, gpointer unused) {
+   (void)item; (void)unused;
+   if (vfo_locator_window)
+      gtk_window_iconify(GTK_WINDOW(vfo_locator_window));
+}
+static void vfo_locator_popup(GdkEventButton *event) {
+   GtkWidget *menu = gtk_menu_new();
+   GtkWidget *opacity_item = gtk_menu_item_new();
+   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   GtkWidget *label = gtk_label_new("Opacity");
+   GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 30, 100, 5);
+   gtk_widget_set_size_request(scale, 175, -1);
+   gtk_range_set_value(GTK_RANGE(scale), locator_opacity);
+   gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
+   gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), scale, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(opacity_item), box);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), opacity_item);
+   g_signal_connect(scale, "value-changed", G_CALLBACK(vfo_locator_opacity_changed), NULL);
+   GtkWidget *minimize = gtk_menu_item_new_with_label("Minimize");
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), minimize);
+   g_signal_connect(minimize, "activate", G_CALLBACK(vfo_locator_minimize), NULL);
+   GtkWidget *on_top = gtk_check_menu_item_new_with_label("Always on top");
+   gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(on_top), locator_on_top);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), on_top);
+   g_signal_connect(on_top, "toggled", G_CALLBACK(vfo_locator_on_top_changed), NULL);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+}
+/* Drag the undecorated top-level with primary click; secondary click opens status settings. */
 static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
 
-   if (event->button != GDK_BUTTON_PRIMARY || !vfo_locator_window) {
+   if (!vfo_locator_window)
       return FALSE;
+   if (event->button == GDK_BUTTON_SECONDARY && event->type == GDK_BUTTON_PRESS) {
+      vfo_locator_popup(event);
+      return TRUE;
    }
+   if (event->button != GDK_BUTTON_PRIMARY)
+      return FALSE;
 
    /* An undecorated top-level has no native minimize button. Preserve single-click dragging, but iconify on double-click. */
    if (event->type == GDK_2BUTTON_PRESS) {
@@ -2364,14 +2421,20 @@ static void vfo_locator_snapshot_event(const char *event, const void *data, size
    g_strlcpy(vfo_locator_profile, snap->profile, sizeof(vfo_locator_profile));
 
    if (!vfo_locator_window) {
+      rrclient_window_state_t saved = { 0 };
+      if (rrclient_database_window_load("vfo-locator", &saved)) {
+         locator_opacity = CLAMP(saved.opacity, 30, 100);
+         locator_on_top = saved.pinned;
+      }
       vfo_locator_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+      gtk_widget_set_opacity(vfo_locator_window, locator_opacity / 100.0);
       gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "RustyRig VFO");
       gtk_window_set_decorated(GTK_WINDOW(vfo_locator_window), FALSE);
       /* An independent normal top-level avoids window-manager utility/transient grouping that can iconify it along with the main window. */
       gtk_window_set_type_hint(GTK_WINDOW(vfo_locator_window), GDK_WINDOW_TYPE_HINT_NORMAL);
       gtk_window_set_resizable(GTK_WINDOW(vfo_locator_window), FALSE);
       /* Independent desktop-level window: taskbar entry, native minimization, and always-on-top stacking without system decorations. */
-      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
+      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), locator_on_top);
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), FALSE);
       gtk_window_set_skip_pager_hint(GTK_WINDOW(vfo_locator_window), FALSE);
       /* A native undecorated top-level, with the same lightweight border treatment as in-window floating panels. The frame owns PTT styling. */
