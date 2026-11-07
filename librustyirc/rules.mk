@@ -11,7 +11,7 @@ ${BUILD_DIR}/librustyirc/%.o: librustyirc/%.c ${librustyirc_headers} ${librustya
 
 ${librustyirc}: ${librustyirc_real_objs} ${librustyaxe}
 	@echo "[link] $@ from $(words ${librustyirc_real_objs}) objects"
-	@${CC} ${LDFLAGS} ${LIB_LDFLAGS} -Wl,-soname,librustyirc.so.0 -o $@ ${librustyirc_real_objs} -lrustyaxe || exit 2
+	@${CC} ${LDFLAGS} ${LIB_LDFLAGS} $(call SHARED_ID_FLAG,librustyirc.so) -o $@ ${librustyirc_real_objs} -lrustyaxe || exit 2
 	@ln -sf librustyirc.so librustyirc.so.0
 
 extra_clean += ${librustyirc} librustyirc.so.0
