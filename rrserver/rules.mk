@@ -1,7 +1,7 @@
 CFLAGS_RRSERVER += -pthread
 CFLAGS_RRSERVER += $(shell pkg-config --cflags openssl gio-2.0)
 LDFLAGS_RRSERVER += $(shell pkg-config --libs openssl gio-2.0) -lwslay
-LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic $(shell pkg-config --libs libcurl sqlite3)
+LDFLAGS_RRSERVER += -pthread $(SERVER_EXPORT_FLAGS) $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrserver/receiver.directory.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags libcurl sqlite3)
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
