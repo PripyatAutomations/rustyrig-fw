@@ -218,9 +218,17 @@ ${BUILD_DIR}/rrclient/%.o: ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUIL
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
+ifeq ($(OS),DARWIN)
+RRCLIENT_AS_NEEDED_OFF :=
+RRCLIENT_AS_NEEDED_ON :=
+else
+RRCLIENT_AS_NEEDED_OFF := -Wl,--no-as-needed
+RRCLIENT_AS_NEEDED_ON := -Wl,--as-needed
+endif
+
 bin/rrclient: ${librustyirc} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} -lrustyaxe -lrrprotocol -lrustyirc -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed ${LDFLAGS} || exit 2
+	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} -lrustyaxe -lrrprotocol -lrustyirc $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) ${LDFLAGS} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@
