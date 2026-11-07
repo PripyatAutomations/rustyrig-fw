@@ -57,8 +57,14 @@ static void branch_free(gpointer data) {
    g_free(branch->profile);
    g_free(branch->domain);
    g_free(branch->direct_uuid);
-   if (branch->inventory) g_ptr_array_free(branch->inventory, TRUE);
-   if (branch->pending_inventory) g_ptr_array_free(branch->pending_inventory, TRUE);
+
+   if (branch->inventory) {
+      g_ptr_array_free(branch->inventory, TRUE);
+   }
+
+   if (branch->pending_inventory) {
+      g_ptr_array_free(branch->pending_inventory, TRUE);
+   }
    g_free(branch->request);
    g_free(branch->selection);
    g_free(branch->subscription);
@@ -114,8 +120,7 @@ static resource_branch *resource_branch_get(const char *profile) {
    branch->irc_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
    /* Display topology is domain -> nodes, regardless of the relay route. */
    gtk_tree_store_insert_before(browser->store, &branch->domain_root, NULL, &browser->local_root);
-   gtk_tree_store_set(browser->store, &branch->domain_root, NAME, "Domain (discovering…)", KIND, "domain",
-                      PROFILE, "", STATE, "Discovering", -1);
+   gtk_tree_store_set(browser->store, &branch->domain_root, NAME, "Domain (discovering…)", KIND, "domain", PROFILE, "", STATE, "Discovering", -1);
    gtk_tree_store_append(browser->store, &branch->root, &branch->domain_root);
    gtk_tree_store_set(browser->store, &branch->root, NAME, profile, KIND, "server", PROFILE, profile, -1);
    branch->root_valid = true;
@@ -124,44 +129,47 @@ static resource_branch *resource_branch_get(const char *profile) {
    return branch;
 }
 
-/* Domain identity comes from the authenticated server's inventory, never
- * the transport address or the route through the mesh. Until known, each
- * profile has a separate provisional domain row. */
+/* Domain identity comes from the authenticated server's inventory, never the transport address or the route through the mesh. Until known, each profile has a
+ * separate provisional domain row. */
 
 
-/* Domain changes on reconnect must never move the old domain's other nodes.
- * Keep a shared root per verified domain and discard unused old roots. */
+/* Domain changes on reconnect must never move the old domain's other nodes. Keep a shared root per verified domain and discard unused old roots. */
 void resource_domain_assign(resource_branch *branch, const char *identity) {
-   /* DNS domains are case-insensitive, and a terminal dot is equivalent.
-    * Unknown identities remain isolated by profile until verified. */
+   /* DNS domains are case-insensitive, and a terminal dot is equivalent. Unknown identities remain isolated by profile until verified. */
    gboolean known = identity && *identity;
-   char *domain = known ? g_ascii_strdown(identity, -1) :
-      g_strdup_printf("unknown-profile:%s", branch->profile);
+   char *domain = known ? g_ascii_strdown(identity, -1) : g_strdup_printf("unknown-profile:%s", branch->profile);
+
    if (known) {
       gsize len = strlen(domain);
-      while (len && domain[len - 1] == '.') domain[--len] = 0;
+      while (len && domain[len - 1] == '.') {
+         domain[--len] = 0;
+      }
+
       if (!len) {
          g_free(domain);
          domain = g_strdup_printf("unknown-profile:%s", branch->profile);
          known = FALSE;
       }
    }
+
    if (branch->domain && !g_strcmp0(branch->domain, domain)) {
       g_free(domain);
+
       return;
    }
    char *previous = g_strdup(branch->domain);
    GtkTreeIter *existing = g_hash_table_lookup(browser->domains, domain);
+
    if (existing) {
-      if (!previous) gtk_tree_store_remove(browser->store, &branch->domain_root);
+      if (!previous) {
+         gtk_tree_store_remove(browser->store, &branch->domain_root);
+      }
       branch->domain_root = *existing;
    } else {
       if (previous) {
          /* The previous domain may be shared; never reuse its GTK row. */
-         gtk_tree_store_insert_before(browser->store, &branch->domain_root,
-                                      NULL, &browser->local_root);
-         gtk_tree_store_set(browser->store, &branch->domain_root,
-                            KIND, "domain", PROFILE, "", -1);
+         gtk_tree_store_insert_before(browser->store, &branch->domain_root, NULL, &browser->local_root);
+         gtk_tree_store_set(browser->store, &branch->domain_root, KIND, "domain", PROFILE, "", -1);
       }
       GtkTreeIter *root = g_new(GtkTreeIter, 1);
       *root = branch->domain_root;
@@ -180,15 +188,21 @@ void resource_domain_assign(resource_branch *branch, const char *identity) {
       g_hash_table_iter_init(&it, browser->branches);
       while (g_hash_table_iter_next(&it, NULL, &value)) {
          resource_branch *other = value;
+
          if (other != branch && !g_strcmp0(other->domain, previous)) {
             still_used = TRUE;
             break;
          }
       }
-      if (still_used) resource_domain_rebuild(previous);
-      else {
+
+      if (still_used) {
+         resource_domain_rebuild(previous);
+      } else {
          GtkTreeIter *old_root = g_hash_table_lookup(browser->domains, previous);
-         if (old_root) gtk_tree_store_remove(browser->store, old_root);
+
+         if (old_root) {
+            gtk_tree_store_remove(browser->store, old_root);
+         }
          g_hash_table_remove(browser->domains, previous);
       }
       g_free(previous);
@@ -301,8 +315,10 @@ void resource_expansion_restore(resource_branch *branch) {
 }
 gboolean resource_restore_scroll(gpointer unused) {
    resource_browser *view = unused;
-   if (!view || browser != view)
+
+   if (!view || browser != view) {
       return G_SOURCE_REMOVE;
+   }
    view->scroll_idle = 0;
 
    if (!view->scroll_saved) {
@@ -316,8 +332,9 @@ gboolean resource_restore_scroll(gpointer unused) {
    return G_SOURCE_REMOVE;
 }
 void resource_schedule_restore_scroll(void) {
-   if (browser && !browser->scroll_idle)
+   if (browser && !browser->scroll_idle) {
       browser->scroll_idle = g_idle_add(resource_restore_scroll, browser);
+   }
 }
 static void resource_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
@@ -327,18 +344,21 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
       g_source_remove(view->timer);
       view->timer = 0;
    }
+
    if (view->zebra_idle) {
       g_source_remove(view->zebra_idle);
       view->zebra_idle = 0;
    }
+
    if (view->scroll_idle) {
       g_source_remove(view->scroll_idle);
       view->scroll_idle = 0;
    }
-   /* A pending restore callback consults the global browser. Keep the
-    * pointer cleared before any child widgets are finalized. */
-   if (browser == view)
+
+   /* A pending restore callback consults the global browser. Keep the pointer cleared before any child widgets are finalized. */
+   if (browser == view) {
       browser = NULL;
+   }
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
    g_hash_table_destroy(view->domains);
@@ -589,17 +609,21 @@ static void resource_irc_complete(const char *event, const char *payload, rrconn
 }
 
 void resource_update_branch(resource_branch *branch) {
-   if (!branch) return;
-   /* The connected node's own status comes from connection events. Update
-    * resource children for all peer nodes, without overwriting that status. */
+   if (!branch) {
+      return;
+   }
+   /* The connected node's own status comes from connection events. Update resource children for all peer nodes, without overwriting that status. */
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter node;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &node, &branch->domain_root);
-        ok; ok = gtk_tree_model_iter_next(model, &node)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, &node, &branch->domain_root) ; ok ; ok = gtk_tree_model_iter_next(model, &node)) {
       char *profile = NULL;
       gtk_tree_model_get(model, &node, PROFILE, &profile, -1);
       resource_branch *source = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
-      if (source) resource_update_rows(source, &node);
+
+      if (source) {
+         resource_update_rows(source, &node);
+      }
       g_free(profile);
    }
 }
@@ -1125,8 +1149,7 @@ static void resource_create(void) {
    browser->health_events = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, resource_health_queue_free);
    browser->health_last = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    browser->property_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) dict_free);
-   /* Explorer is a persistent main-notebook tool page, selected from the
-    * toolbar. Keep its tree and subscriptions alive when another page wins. */
+   /* Explorer is a persistent main-notebook tool page, selected from the toolbar. Keep its tree and subscriptions alive when another page wins. */
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    g_object_set_data(G_OBJECT(browser->page), "rr-tab-hidden", GINT_TO_POINTER(1));
    GtkWidget *label = gtk_label_new("Explorer");
@@ -1430,7 +1453,10 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    g_free(branch->request);
    branch->request = g_strdup(request->request);
    branch->loading = true;
-   if (branch->pending_inventory) g_ptr_array_free(branch->pending_inventory, TRUE);
+
+   if (branch->pending_inventory) {
+      g_ptr_array_free(branch->pending_inventory, TRUE);
+   }
    branch->pending_inventory = g_ptr_array_new_with_free_func(g_free);
    branch->requested_at = mono_us();
 
@@ -1534,28 +1560,36 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
          branch->loading = false;
          resource_refresh(branch);
       }
-      if (was_online && !branch->online && branch->domain)
+
+      if (was_online && !branch->online && branch->domain) {
          resource_domain_rebuild(branch->domain);
+      }
+
       if (branch->root_valid) {
          /* Multiple profiles can reach the same physical node. */
          gboolean reachable = branch->online;
+
          if (branch->domain && branch->direct_uuid) {
             GHashTableIter profiles;
             gpointer other_value;
             g_hash_table_iter_init(&profiles, browser->branches);
             while (g_hash_table_iter_next(&profiles, NULL, &other_value)) {
                resource_branch *other = other_value;
-               if (other->online && !g_strcmp0(other->domain, branch->domain) &&
-                   !g_strcmp0(other->direct_uuid, branch->direct_uuid))
+
+               if (other->online && !g_strcmp0(other->domain, branch->domain) && !g_strcmp0(other->direct_uuid, branch->direct_uuid)) {
                   reachable = TRUE;
+               }
             }
          }
          resource_set_string(&branch->root, STATE, irc ?
             (authenticated ? "Connected (IRC)" : !strcmp(state, "connecting") ? "Connecting (IRC)" : "Disconnected (IRC)") :
             (reachable ? "Connected" : !strcmp(state, "connecting") ? "Connecting" : "Disconnected"));
-         if (reachable || irc)
+
+         if (reachable || irc) {
             resource_set_string(&branch->root, OURS, irc ? (authenticated ? "Connected" : "Disconnected") : branch->subscription);
-         else resource_set_string(&branch->root, OURS, "");
+         } else {
+            resource_set_string(&branch->root, OURS, "");
+         }
       }
       resource_update_branch(branch);
    }
@@ -1611,18 +1645,19 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
    }
 
    if (branch && (!strcmp(state, "disconnected") || !strcmp(state, "http.error") || !strcmp(state, "auth.error"))) {
-      /* Remove only this source, preserving resources still available via
-       * another connection to the same mesh domain. */
+      /* Remove only this source, preserving resources still available via another connection to the same mesh domain. */
       branch->online = false;
       branch->loading = false;
       g_clear_pointer(&branch->request, g_free);
       g_clear_pointer(&branch->pending_inventory, g_ptr_array_unref);
+
       if (branch->domain) {
          resource_domain_rebuild(branch->domain);
       } else if (branch->root_valid) {
          GtkTreeIter child;
-         while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root))
+         while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
             gtk_tree_store_remove(browser->store, &child);
+         }
          resource_set_string(&branch->root, STATE, "Disconnected");
          resource_set_string(&branch->root, OURS, "");
       }

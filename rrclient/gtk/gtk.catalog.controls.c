@@ -454,4 +454,3 @@ void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const char *prof
    }
    gtk_widget_show_all(panel);
 }
-

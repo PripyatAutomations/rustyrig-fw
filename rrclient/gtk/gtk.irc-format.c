@@ -319,4 +319,3 @@ char *gtk_colorize_string(const char *in) {
 
    return result;
 }
-

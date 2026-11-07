@@ -271,14 +271,21 @@ static GtkWidget *rr_client_overlay;
 static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
    (void)button;
    const char *tool = data;
-   if (!strcmp(tool, "explorer")) event_emit("client.resources.open", NULL, NULL);
-   else if (!strcmp(tool, "audio")) gtk_audio_graph_present();
-   else {
+
+   if (!strcmp(tool, "explorer")) {
+      event_emit("client.resources.open", NULL, NULL);
+   } else if (!strcmp(tool, "audio")) {
+      gtk_audio_graph_present();
+   } else {
       GtkWidget *page = !strcmp(tool, "admin") ? admin_tab : config_tab;
+
       if (page && GTK_IS_NOTEBOOK(main_notebook)) {
          int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), page);
-         if (index >= 0)
+
+         if (index >= 0) {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
+         }
+
          if (!strcmp(tool, "admin")) {
             extern void gtk_admin_refresh(void);
             gtk_admin_refresh();
@@ -286,14 +293,13 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
       }
    }
 }
-static void main_toolbar_tool(GtkWidget *toolbar, const char *text,
-                              const char *icon, const char *tool) {
+static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *icon, const char *tool) {
    GtkWidget *button = gtk_button_new_with_label(text);
    GtkWidget *image = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
    gtk_button_set_image(GTK_BUTTON(button), image);
    gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-   g_signal_connect(button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer)tool);
+   g_signal_connect(button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) tool);
    gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
 }
 
@@ -341,8 +347,7 @@ bool gui_init(void) {
    main_notebook = gtk_notebook_new();
    /* The shared status/command toolbar belongs above every notebook page. */
    GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   /* GtkScrolledWindow must never give the complete UI a horizontal
-    * minimum derived from a wide notebook page or transient toolbar text. */
+   /* GtkScrolledWindow must never give the complete UI a horizontal minimum derived from a wide notebook page or transient toolbar text. */
    gtk_widget_set_size_request(main_content, 1, -1);
    rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    gtk_widget_set_hexpand(rr_main_toolbar, TRUE);
@@ -356,17 +361,14 @@ bool gui_init(void) {
    gtk_button_set_relief(GTK_BUTTON(quit_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
    g_signal_connect(quit_button, "clicked", G_CALLBACK(main_toolbar_quit), NULL);
-   /* Keep Quit outside the clipped notebook/toolbar viewport. Dynamic
-    * room content may exceed its horizontal allocation, but the close control
-    * must remain anchored to the visible toplevel's right edge. */
+   /* Keep Quit outside the clipped notebook/toolbar viewport. Dynamic room content may exceed its horizontal allocation, but the close control must remain
+    * anchored to the visible toplevel's right edge. */
    gtk_widget_set_valign(quit_button, GTK_ALIGN_CENTER);
    gtk_widget_set_margin_end(quit_button, 2);
-   /* Fixed right status cluster never shares the oversized minimum width of
-    * the left toolbar or the notebook. Give each side its own allocation. */
+   /* Fixed right status cluster never shares the oversized minimum width of the left toolbar or the notebook. Give each side its own allocation. */
    GtkWidget *toolbar_shell = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    GtkWidget *toolbar_viewport = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport),
-      GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(toolbar_viewport), 1);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(toolbar_viewport), FALSE);
    gtk_widget_set_hexpand(toolbar_viewport, TRUE);
@@ -398,18 +400,15 @@ bool gui_init(void) {
    gtk_widget_set_hexpand(rr_client_overlay, TRUE);
    gtk_widget_set_vexpand(rr_client_overlay, TRUE);
    gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);
-   /* GtkOverlay has special placement semantics when its main child is a
-    * GtkScrolledWindow: overlays are positioned relative to the scrolled
-    * *contents*, not the visible viewport. On connected rooms the content
-    * may be wider than the window, pushing floating panels and the clock/X
-    * offscreen. Make an ordinary box the overlay's main child instead. */
+   /* GtkOverlay has special placement semantics when its main child is a GtkScrolledWindow: overlays are positioned relative to the scrolled contents*, not the
+    * visible viewport. On connected rooms the content may be wider than the window, pushing floating panels and the clock/X offscreen. Make an ordinary box the
+    * overlay's main child instead. */
    GtkWidget *viewport_host = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_widget_set_hexpand(viewport_host, TRUE);
    gtk_widget_set_vexpand(viewport_host, TRUE);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport_host);
-   /* The entire toolbar must be outside the app-wide scroll viewport.
-    * Otherwise the content can exceed the viewport and shift even the
-    * fixed right cluster off screen when a rig room is opened. */
+   /* The entire toolbar must be outside the app-wide scroll viewport. Otherwise the content can exceed the viewport and shift even the fixed right cluster off
+    * screen when a rig room is opened. */
    gtk_box_pack_start(GTK_BOX(viewport_host), toolbar_shell, FALSE, FALSE, 1);
    gtk_box_pack_start(GTK_BOX(viewport_host), viewport, TRUE, TRUE, 0);
    GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
@@ -424,10 +423,10 @@ bool gui_init(void) {
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
-   /* Tool pages occupy the main notebook but never appear in the tab strip.
-    * Toolbar actions (and named focus commands) select them directly. */
+   /* Tool pages occupy the main notebook but never appear in the tab strip. Toolbar actions (and named focus commands) select them directly. */
    admin_tab = init_admin_tab();
    config_tab = init_config_tab();
+
    if (admin_tab) {
       g_object_set_data(G_OBJECT(admin_tab), "rr-tab-hidden", GINT_TO_POINTER(1));
       GtkWidget *label = gtk_label_new("Admin");
@@ -435,6 +434,7 @@ bool gui_init(void) {
       gtk_widget_set_no_show_all(label, TRUE);
       gtk_widget_hide(label);
    }
+
    if (config_tab) {
       g_object_set_data(G_OBJECT(config_tab), "rr-tab-hidden", GINT_TO_POINTER(1));
       GtkWidget *label = gtk_label_new("Config");
@@ -554,4 +554,3 @@ bool gui_fullscreen_toggle(void) {
 
    return false;
 }
-

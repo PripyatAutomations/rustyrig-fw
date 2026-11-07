@@ -248,6 +248,7 @@ static void frontend_gtk_focus_tab_owner(const char *tab) {
 
    if (!strcasecmp(tab, "explorer") || !strcasecmp(tab, "resource explorer")) {
       event_emit("client.resources.open", NULL, NULL);
+
       return;
    } else if (!strcasecmp(tab, "admin")) {
       page = admin_tab;
@@ -1593,4 +1594,3 @@ bool gtk_frontend_events_shutdown(void) {
 
    return true;
 }
-

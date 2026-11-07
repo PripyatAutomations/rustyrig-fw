@@ -1,5 +1,10 @@
-/* Logical audio routing graph: control-plane model, no GTK or GStreamer.
- * Runtime processing remains in fwdsp; graph mutation belongs to core.
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+/* Logical audio routing graph: control-plane model, no GTK or GStreamer. Runtime processing remains in fwdsp; graph mutation belongs to core.
  */
 #ifndef RRCLIENT_AUDIO_GRAPH_H
 #define RRCLIENT_AUDIO_GRAPH_H
@@ -12,7 +17,7 @@ typedef enum {
 typedef enum {
    RR_AG_NORMAL = 0, RR_AG_BYPASS
 } rr_ag_link_type_t;
-#define RR_AG_CHANNEL_LEFT  1u
+#define RR_AG_CHANNEL_LEFT 1u
 #define RR_AG_CHANNEL_RIGHT 2u
 #define RR_AG_CHANNEL_STEREO (RR_AG_CHANNEL_LEFT | RR_AG_CHANNEL_RIGHT)
 typedef enum {
@@ -25,8 +30,7 @@ bool rr_audio_graph_add_link(rr_audio_graph_t *graph, const char *src, const cha
 bool rr_audio_graph_add_channel_link(rr_audio_graph_t *graph, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels);
 bool rr_audio_graph_set_health(rr_audio_graph_t *graph, const char *id, rr_ag_health_t health);
 bool rr_audio_graph_set_route(rr_audio_graph_t *graph, const char *id, char route);
-/* Resolve one selected input; NULL means muted/no usable route. The BYPASS
- * input is only selected when the normal source is FAILED, never mixed with it. */
+/* Resolve one selected input; NULL means muted/no usable route. The BYPASS input is only selected when the normal source is FAILED, never mixed with it. */
 const char *rr_audio_graph_input(const rr_audio_graph_t *graph, const char *dst);
 /* Value-copy topology for frontends. Indices are local to each snapshot. */
 #define RR_AUDIO_GRAPH_MAX_NODES 34
@@ -41,7 +45,7 @@ typedef struct {
 typedef struct {
    guint32 src, dst;
    rr_ag_link_type_t kind;
-   guint8 channels; /* L=1, R=2; both use separate stereo pins */
+   guint8 channels;             /* L=1, R=2; both use separate stereo pins */
 } rr_ag_view_link_t;
 typedef struct {
    guint32 node_count, link_count;

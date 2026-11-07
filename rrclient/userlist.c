@@ -103,9 +103,8 @@ void userlist_names_end(const char *room) {
          free(batch->room);
          free(batch);
 
-         /* Background/autojoin NAMES may complete before the room is selected.
-          * GTK queues this redraw on its owner thread and filters views by
-          * originating connection. */
+         /* Background/autojoin NAMES may complete before the room is selected. GTK queues this redraw on its owner thread and filters views by originating
+          * connection. */
          if (!dying && frontend_ops()) {
             frontend_ops()->userlist_redraw();
          }

@@ -25,13 +25,13 @@ static gboolean graph_profile_updating;
 static void graph_profile_modified(void);
 static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
-/* Fit the topology to the actual viewport. Panel zoom and wheel zoom
- * multiply independently; neither forces a large GTK size requisition. */
+/* Fit the topology to the actual viewport. Panel zoom and wheel zoom multiply independently; neither forces a large GTK size requisition. */
 static double graph_zoom = 1.0, graph_wheel_zoom = 1.0;
 static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
 static void graph_canvas_update_size(void) {
-   if (graph_canvas)
+   if (graph_canvas) {
       gtk_widget_queue_draw(graph_canvas);
+   }
 }
 static void routing_graph_zoom(double scale, gpointer unused) {
    (void)unused;
@@ -40,21 +40,34 @@ static void routing_graph_zoom(double scale, gpointer unused) {
 }
 static void routing_graph_bounds(double *width, double *height) {
    guint sources = 0;
-   if (graph_snapshot)
-      for (guint i = 0; i < graph_snapshot->node_count; i++)
+
+   if (graph_snapshot) {
+      for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
          sources += graph_snapshot->nodes[i].type == RR_AG_SOURCE;
+      }
+   }
    *width = 850.0;
    *height = MAX(180.0, 36.0 + 140.0 * sources);
 }
 static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer unused) {
-   (void)widget; (void)unused;
+   (void)widget;
+   (void)unused;
    double step = 0.0;
-   if (event->direction == GDK_SCROLL_UP) step = 1.0;
-   else if (event->direction == GDK_SCROLL_DOWN) step = -1.0;
-   else if (event->direction == GDK_SCROLL_SMOOTH) step = -event->delta_y;
-   if (!step) return FALSE;
+
+   if (event->direction == GDK_SCROLL_UP) {
+      step = 1.0;
+   } else if (event->direction == GDK_SCROLL_DOWN) {
+      step = -1.0;
+   } else if (event->direction == GDK_SCROLL_SMOOTH) {
+      step = -event->delta_y;
+   }
+
+   if (!step) {
+      return FALSE;
+   }
    graph_wheel_zoom = CLAMP(graph_wheel_zoom * pow(1.12, step), 0.10, 6.0);
    graph_canvas_update_size();
+
    return TRUE;
 }
 
@@ -63,63 +76,74 @@ static gint64 snapshot_sent_at;
 static rr_event_token_t show_token, snapshot_token, graph_token, routes_token;
 static bool snapshot_waiting;
 
-/* Initial integrated audio graph view. It renders GTK-owned inventory
- * snapshots only; fwdsp, mixer and supervisor never run in this window. */
+/* Initial integrated audio graph view. It renders GTK-owned inventory snapshots only; fwdsp, mixer and supervisor never run in this window. */
 static void routing_queue(void);
 static gint graph_drag_source = -1, graph_drag_channel = -1;
 static gboolean graph_drag_mixer, graph_drag_moved;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
-   (void)widget; (void)unused;
-   if (!graph_snapshot) return FALSE;
+   (void)widget;
+   (void)unused;
+
+   if (!graph_snapshot) {
+      return FALSE;
+   }
    const rr_audio_graph_snapshot_t *g = graph_snapshot;
-   if (g->node_count > RR_AUDIO_GRAPH_MAX_NODES || g->link_count > RR_AUDIO_GRAPH_MAX_LINKS) return FALSE;
-   rr_gtk_graph_node_t nodes[RR_AUDIO_GRAPH_MAX_NODES] = {{0}};
-   rr_gtk_graph_edge_t edges[RR_AUDIO_GRAPH_MAX_LINKS * 2] = {{0}};
+
+   if (g->node_count > RR_AUDIO_GRAPH_MAX_NODES || g->link_count > RR_AUDIO_GRAPH_MAX_LINKS) {
+      return FALSE;
+   }
+   rr_gtk_graph_node_t nodes[RR_AUDIO_GRAPH_MAX_NODES] = { {
+                                                              0
+                                                           } };
+   rr_gtk_graph_edge_t edges[RR_AUDIO_GRAPH_MAX_LINKS * 2] = { {
+                                                                  0
+                                                               } };
    guint source_index = 0;
-   for (guint i = 0; i < g->node_count; i++) {
+
+   for (guint i = 0 ; i < g->node_count ; i++) {
       const rr_ag_view_node_t *n = &g->nodes[i];
       gboolean source = n->type == RR_AG_SOURCE;
-      const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" :
-                          n->route == 'M' ? "Muted" : "Stereo";
+      const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
       nodes[i] = (rr_gtk_graph_node_t) {
-         .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355,
-         .y = source ? 20 + 140 * source_index++ : 80,
-         .title = n->id,
-         .subtitle = source ? route : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer",
-         .failed = n->health == RR_AG_FAILED,
-         .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE,
-         .io = n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE :
-               n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH,
-         .fwdsp = n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
+         .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = n->id, .subtitle =
+            source ? route : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer", .failed = n->health == RR_AG_FAILED, .bypass_pins =
+            n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .fwdsp =
+            n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
+
    guint edge_count = 0;
-   for (guint i = 0; i < g->link_count; i++) {
+
+   for (guint i = 0 ; i < g->link_count ; i++) {
       const rr_ag_view_link_t *link = &g->links[i];
-      if (link->src >= g->node_count || link->dst >= g->node_count)
+
+      if (link->src >= g->node_count || link->dst >= g->node_count) {
          continue;
-      rr_gtk_graph_edge_kind_t kind = link->kind == RR_AG_BYPASS ?
-         RR_GTK_GRAPH_BYPASS : RR_GTK_GRAPH_NORMAL;
+      }
+      rr_gtk_graph_edge_kind_t kind = link->kind == RR_AG_BYPASS ? RR_GTK_GRAPH_BYPASS : RR_GTK_GRAPH_NORMAL;
+
       if (kind == RR_GTK_GRAPH_BYPASS) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
             .from = link->src, .to = link->dst, .kind = kind
          };
          continue;
       }
+
       if (link->channels & RR_AG_CHANNEL_LEFT) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
-            .from = link->src, .to = link->dst, .kind = kind,
-            .src_pin = RR_GTK_GRAPH_PIN_LEFT, .dst_pin = RR_GTK_GRAPH_PIN_LEFT
+            .from = link->src, .to = link->dst, .kind = kind, .src_pin = RR_GTK_GRAPH_PIN_LEFT, .dst_pin = RR_GTK_GRAPH_PIN_LEFT
          };
       }
+
       if (link->channels & RR_AG_CHANNEL_RIGHT) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
-            .from = link->src, .to = link->dst, .kind = kind,
-            .src_pin = RR_GTK_GRAPH_PIN_RIGHT, .dst_pin = RR_GTK_GRAPH_PIN_RIGHT
+            .from = link->src, .to = link->dst, .kind = kind, .src_pin = RR_GTK_GRAPH_PIN_RIGHT, .dst_pin = RR_GTK_GRAPH_PIN_RIGHT
          };
       }
    }
+
    double natural_w, natural_h;
    routing_graph_bounds(&natural_w, &natural_h);
    double available_w = MAX(1, gtk_widget_get_allocated_width(widget));
@@ -132,55 +156,68 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    cairo_translate(cr, graph_offset_x, graph_offset_y);
    cairo_scale(cr, graph_scale, graph_scale);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
+
    /* Temporary wire preview while dragging an RX output or mixer input. */
    if (graph_drag_channel >= 0) {
       double x = graph_drag_mixer ? 355.0 : 25.0 + RR_GTK_GRAPH_NODE_W;
       double y = 80.0;
+
       if (!graph_drag_mixer && graph_drag_source >= 0) {
          guint row = 0;
-         for (guint i = 0; i < (guint)graph_drag_source && i < g->node_count; i++)
+
+         for (guint i = 0 ; i < (guint) graph_drag_source && i < g->node_count ; i++) {
             row += g->nodes[i].type == RR_AG_SOURCE;
+         }
+
          y = 20.0 + 140.0 * row;
       }
       y += graph_drag_channel ? 79.0 : 60.0;
-      cairo_set_source_rgba(cr, graph_drag_channel ? .73 : .34,
-         graph_drag_channel ? .48 : .78, graph_drag_channel ? 1.0 : .93, .9);
-      const double dash[] = {5, 4};
+      cairo_set_source_rgba(cr, graph_drag_channel ? .73 : .34, graph_drag_channel ? .48 : .78, graph_drag_channel ? 1.0 : .93, .9);
+      const double dash[] = {
+         5, 4
+      };
       cairo_set_dash(cr, dash, 2, 0);
       cairo_set_line_width(cr, 2.5);
       cairo_move_to(cr, x, y);
-      cairo_curve_to(cr, (x + graph_drag_x) / 2, y,
-         (x + graph_drag_x) / 2, graph_drag_y, graph_drag_x, graph_drag_y);
+      cairo_curve_to(cr, (x + graph_drag_x) / 2, y, (x + graph_drag_x) / 2, graph_drag_y, graph_drag_x, graph_drag_y);
       cairo_stroke(cr);
       cairo_set_dash(cr, NULL, 0, 0);
    }
    cairo_restore(cr);
+
    return FALSE;
 }
 static void routing_graph_snapshot_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload || message->length != sizeof(rr_audio_graph_snapshot_t))
+
+   if (!message || !message->payload || message->length != sizeof(rr_audio_graph_snapshot_t)) {
       return;
+   }
    const rr_audio_graph_snapshot_t *incoming = message->payload;
-   if (incoming->node_count > RR_AUDIO_GRAPH_MAX_NODES ||
-       incoming->link_count > RR_AUDIO_GRAPH_MAX_LINKS)
+
+   if (incoming->node_count > RR_AUDIO_GRAPH_MAX_NODES || incoming->link_count > RR_AUDIO_GRAPH_MAX_LINKS) {
       return;
-   if (!graph_snapshot)
+   }
+
+   if (!graph_snapshot) {
       graph_snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
+   }
    *graph_snapshot = *incoming;
-   if (graph_drag_source >= (gint)incoming->node_count) {
+
+   if (graph_drag_source >= (gint) incoming->node_count) {
       graph_drag_source = graph_drag_channel = -1;
       graph_drag_mixer = graph_drag_moved = FALSE;
    }
    graph_canvas_update_size();
    graph_profile_update_buttons();
 }
-/* The pipeline viewer remains a separate process. A GStreamer crash in the
- * inspector must not affect the client, its radio controls or audio engine. */
+
+/* The pipeline viewer remains a separate process. A GStreamer crash in the inspector must not affect the client, its radio controls or audio engine. */
 static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, gpointer unused) {
    (void)unused;
    GError *error = NULL;
    gchar *out = NULL, *err = NULL;
+
    if (!g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &out, &err, &error)) {
       g_warning("Read-only pipeline viewer failed: %s", error ? error->message : "unknown error");
       g_clear_error(&error);
@@ -190,35 +227,50 @@ static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, 
    g_object_unref(source);
 }
 static void routing_pipeline_open(const char *id) {
-   if (g_strcmp0(id, "sink.client.dsp0")) return;
+   if (g_strcmp0(id, "sink.client.dsp0")) {
+      return;
+   }
    const char *launch = cfg_get("pipeline:sink.client.mix");
+
    if (!launch || !*launch) {
       g_warning("No configured GStreamer pipeline for sink.client.dsp0");
+
       return;
    }
    dict *document = dict_new();
-   if (!document) return;
+
+   if (!document) {
+      return;
+   }
    gboolean valid = !dict_add_uint(document, "pipelines.count", 1) &&
-      !dict_add(document, "pipelines.0.id", "sink.client.mix") &&
-      !dict_add(document, "pipelines.0.launch", launch);
+      !dict_add(document, "pipelines.0.id", "sink.client.mix") && !dict_add(document, "pipelines.0.launch", launch);
    gchar *json = valid ? dict2json(document) : NULL;
    dict_free(document);
-   if (!json) return;
+
+   if (!json) {
+      return;
+   }
    gchar *program = g_find_program_in_path("rrpipelines");
-   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE))
+
+   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE)) {
       program = g_strdup("bin/rrpipelines");
+   }
+
    if (!program) {
       g_warning("Cannot find rrpipelines to inspect %s", id);
       g_free(json);
+
       return;
    }
-   const gchar *argv[] = { program, "--read-only", NULL };
+   const gchar *argv[] = {
+      program, "--read-only", NULL
+   };
    GError *error = NULL;
-   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE |
-      G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
-   if (process)
+   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
+
+   if (process) {
       g_subprocess_communicate_utf8_async(process, json, NULL, routing_pipeline_viewer_done, NULL);
-   else {
+   } else {
       g_warning("Unable to launch pipeline viewer: %s", error ? error->message : "unknown error");
       g_clear_error(&error);
    }
@@ -227,87 +279,131 @@ static void routing_pipeline_open(const char *id) {
 }
 
 static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
-   if (!graph_snapshot || graph_scale <= 0) return FALSE;
+   if (!graph_snapshot || graph_scale <= 0) {
+      return FALSE;
+   }
    *gx = (x - graph_offset_x) / graph_scale;
    *gy = (y - graph_offset_y) / graph_scale;
+
    return TRUE;
 }
 static gboolean graph_port_at(double x, double y, gint *source, gint *channel, gboolean *mixer) {
    double radius = CLAMP(10.0 / MAX(.01, graph_scale), 8.0, 20.0);
    guint row = 0;
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
-      if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) continue;
+
+   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
+      if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) {
+         continue;
+      }
       double px = 25 + RR_GTK_GRAPH_NODE_W, py = 20 + 140 * row++;
-      for (gint ch = 0; ch < 2; ch++) {
+
+      for (gint ch = 0 ; ch < 2 ; ch++) {
          if (hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
-            *source = (gint)i; *channel = ch; *mixer = FALSE;
+            *source = (gint) i;
+            *channel = ch;
+            *mixer = FALSE;
+
             return TRUE;
          }
       }
    }
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
-      if (graph_snapshot->nodes[i].type != RR_AG_MIXER ||
-          strcmp(graph_snapshot->nodes[i].id, "rx.mix")) continue;
-      for (gint ch = 0; ch < 2; ch++) {
+
+   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
+      if (graph_snapshot->nodes[i].type != RR_AG_MIXER || strcmp(graph_snapshot->nodes[i].id, "rx.mix")) {
+         continue;
+      }
+
+      for (gint ch = 0 ; ch < 2 ; ch++) {
          if (hypot(x - 355, y - 80 - (ch ? 79 : 60)) <= radius) {
-            *source = -1; *channel = ch; *mixer = TRUE;
+            *source = -1;
+            *channel = ch;
+            *mixer = TRUE;
+
             return TRUE;
          }
       }
    }
+
    return FALSE;
 }
 static unsigned graph_route_mask(char route) {
    return route == 'S' ? 3u : route == 'L' ? 1u : route == 'R' ? 2u : 0u;
 }
 static void graph_set_channel(guint source, gint channel, gboolean connect) {
-   if (!graph_snapshot || source >= graph_snapshot->node_count ||
-       graph_snapshot->nodes[source].type != RR_AG_SOURCE) return;
+   if (!graph_snapshot || source >= graph_snapshot->node_count || graph_snapshot->nodes[source].type != RR_AG_SOURCE) {
+      return;
+   }
    rr_ag_view_node_t *node = &graph_snapshot->nodes[source];
    unsigned bit = channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
    unsigned mask = graph_route_mask(node->route);
    mask = connect ? mask | bit : mask & ~bit;
    char route = mask == 3 ? 'S' : mask == 1 ? 'L' : mask == 2 ? 'R' : 'M';
-   if (route == node->route) return;
+
+   if (route == node->route) {
+      return;
+   }
    node->route = route;
    graph_profile_modified();
    audio_request_rx_stream_route(node->id, route);
    graph_canvas_update_size();
 }
+
 /* Match the actual cubic Bezier curves rather than merely the bounding box. */
 static gboolean graph_link_at(double x, double y, guint *source, gint *channel) {
    double limit = CLAMP(7.0 / MAX(.01, graph_scale), 5.0, 17.0);
    double best = limit;
    gboolean found = FALSE;
    guint row = 0;
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+
+   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      if (n->type != RR_AG_SOURCE) continue;
+
+      if (n->type != RR_AG_SOURCE) {
+         continue;
+      }
       double x0 = 25 + RR_GTK_GRAPH_NODE_W, y0 = 20 + 140 * row++;
       unsigned mask = graph_route_mask(n->route);
-      for (gint ch = 0; ch < 2; ch++) {
-         if (!(mask & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) continue;
+
+      for (gint ch = 0 ; ch < 2 ; ch++) {
+         if (!(mask & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) {
+            continue;
+         }
          double ya = y0 + (ch ? 79 : 60), yb = 80 + (ch ? 79 : 60);
          double x1 = 355, cx = (x0 + x1) / 2;
-         for (unsigned k = 0; k <= 48; k++) {
+
+         for (unsigned k = 0 ; k <= 48 ; k++) {
             double t = (double)k / 48, u = 1 - t;
-            double px = u*u*u*x0 + 3*u*u*t*cx + 3*u*t*t*cx + t*t*t*x1;
-            double py = u*u*u*ya + 3*u*u*t*ya + 3*u*t*t*yb + t*t*t*yb;
+            double px = u * u * u * x0 + 3 * u * u * t * cx + 3 * u * t * t * cx + t * t * t * x1;
+            double py = u * u * u * ya + 3 * u * u * t * ya + 3 * u * t * t * yb + t * t * t * yb;
             double d = hypot(px - x, py - y);
-            if (d < best) { best = d; *source = i; *channel = ch; found = TRUE; }
+
+            if (d < best) {
+               best = d;
+               *source = i;
+               *channel = ch;
+               found = TRUE;
+            }
          }
       }
    }
+
    return found;
 }
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
-   (void)widget; (void)unused;
-   if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
-       !graph_snapshot) return FALSE;
+   (void)widget;
+   (void)unused;
+
+   if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY || !graph_snapshot) {
+      return FALSE;
+   }
    double gx, gy;
-   if (!graph_pointer(event->x, event->y, &gx, &gy)) return FALSE;
+
+   if (!graph_pointer(event->x, event->y, &gx, &gy)) {
+      return FALSE;
+   }
    gint source = -1, channel = -1;
    gboolean mixer = FALSE;
+
    if (graph_port_at(gx, gy, &source, &channel, &mixer)) {
       graph_drag_source = source;
       graph_drag_channel = channel;
@@ -315,62 +411,82 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       graph_drag_start_x = graph_drag_x = gx;
       graph_drag_start_y = graph_drag_y = gy;
       graph_drag_moved = FALSE;
+
       return TRUE;
    }
    guint linked_source = 0;
    gint linked_channel = -1;
+
    if (graph_link_at(gx, gy, &linked_source, &linked_channel)) {
       graph_set_channel(linked_source, linked_channel, FALSE);
+
       return TRUE;
    }
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+
+   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+
       if (n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0") &&
-          gx >= 650 && gx <= 650 + RR_GTK_GRAPH_NODE_W &&
-          gy >= 80 && gy <= 80 + RR_GTK_GRAPH_NODE_H) {
+         gx >= 650 && gx <= 650 + RR_GTK_GRAPH_NODE_W && gy >= 80 && gy <= 80 + RR_GTK_GRAPH_NODE_H) {
          routing_pipeline_open(n->id);
+
          return TRUE;
       }
    }
+
    return FALSE;
 }
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
-   (void)widget; (void)unused;
-   if (graph_drag_channel < 0) return FALSE;
+   (void)widget;
+   (void)unused;
+
+   if (graph_drag_channel < 0) {
+      return FALSE;
+   }
    double gx, gy;
-   if (!graph_pointer(event->x, event->y, &gx, &gy)) return FALSE;
+
+   if (!graph_pointer(event->x, event->y, &gx, &gy)) {
+      return FALSE;
+   }
    graph_drag_moved |= hypot(gx - graph_drag_start_x, gy - graph_drag_start_y) > 4;
    graph_drag_x = gx;
    graph_drag_y = gy;
    graph_canvas_update_size();
+
    return TRUE;
 }
 static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
-   (void)widget; (void)unused;
-   if (event->button != GDK_BUTTON_PRIMARY || graph_drag_channel < 0) return FALSE;
+   (void)widget;
+   (void)unused;
+
+   if (event->button != GDK_BUTTON_PRIMARY || graph_drag_channel < 0) {
+      return FALSE;
+   }
    double gx, gy;
    gint target = -1, channel = -1;
    gboolean mixer = FALSE;
-   gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) &&
-      graph_port_at(gx, gy, &target, &channel, &mixer);
+   gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) && graph_port_at(gx, gy, &target, &channel, &mixer);
+
    if (graph_drag_moved && hit && channel == graph_drag_channel) {
       /* The executable mixer currently accepts matched L/R RX inputs only. */
-      if (graph_drag_mixer && target >= 0)
-         graph_set_channel((guint)target, channel, TRUE);
-      else if (!graph_drag_mixer && mixer && graph_drag_source >= 0)
-         graph_set_channel((guint)graph_drag_source, channel, TRUE);
+      if (graph_drag_mixer && target >= 0) {
+         graph_set_channel((guint) target, channel, TRUE);
+      } else if (!graph_drag_mixer && mixer && graph_drag_source >= 0) {
+         graph_set_channel((guint) graph_drag_source, channel, TRUE);
+      }
    } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0) {
       unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
       unsigned bit = graph_drag_channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
-      graph_set_channel((guint)graph_drag_source, graph_drag_channel, !(mask & bit));
+      graph_set_channel((guint) graph_drag_source, graph_drag_channel, !(mask & bit));
    }
    graph_drag_source = graph_drag_channel = -1;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
+
    return TRUE;
 }
-/* Route IDs are stable protocol stream IDs; missing streams are skipped on
- * load, so presets remain useful as receivers connect and disconnect. */
+
+/* Route IDs are stable protocol stream IDs; missing streams are skipped on load, so presets remain useful as receivers connect and disconnect. */
 #define GRAPH_PROFILE_AUTO "***AUTO***"
 #define GRAPH_PROFILE_NEW "New Preset"
 
@@ -385,63 +501,91 @@ static GtkWidget *graph_profile_entry(void) {
 }
 static char *graph_profile_selected(void) {
    GtkWidget *entry = graph_profile_entry();
-   if (!GTK_IS_ENTRY(entry)) return NULL;
+
+   if (!GTK_IS_ENTRY(entry)) {
+      return NULL;
+   }
    char *name = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
    g_strstrip(name);
-   if (!name[0]) { g_free(name); return NULL; }
+
+   if (!name[0]) {
+      g_free(name);
+
+      return NULL;
+   }
+
    return name;
 }
+
 typedef struct {
    const char *name;
    gboolean found;
 } GraphProfileLookup;
 static void graph_profile_lookup_cb(const char *name, void *user) {
    GraphProfileLookup *lookup = user;
-   if (!g_ascii_strcasecmp(name, lookup->name))
+
+   if (!g_ascii_strcasecmp(name, lookup->name)) {
       lookup->found = TRUE;
+   }
 }
 static gboolean graph_profile_exists(const char *name) {
-   if (!name || graph_profile_is_auto(name) || graph_profile_is_placeholder(name))
+   if (!name || graph_profile_is_auto(name) || graph_profile_is_placeholder(name)) {
       return FALSE;
-   GraphProfileLookup lookup = { .name = name };
+   }
+   GraphProfileLookup lookup = {
+      .name = name
+   };
    rrclient_database_audio_profile_list(graph_profile_lookup_cb, &lookup);
+
    return lookup.found;
 }
 static void graph_profile_update_buttons(void) {
    char *name = graph_profile_selected();
    gboolean editable = !graph_profile_is_auto(name) && !graph_profile_is_placeholder(name);
    gboolean exists = editable && graph_profile_exists(name);
-   if (graph_profile_load_button)
+
+   if (graph_profile_load_button) {
       gtk_widget_set_sensitive(graph_profile_load_button, exists);
-   if (graph_profile_save_button)
+   }
+
+   if (graph_profile_save_button) {
       gtk_widget_set_sensitive(graph_profile_save_button, editable && graph_snapshot != NULL);
-   if (graph_profile_remove_button)
+   }
+
+   if (graph_profile_remove_button) {
       gtk_widget_set_sensitive(graph_profile_remove_button, exists);
+   }
    g_free(name);
 }
 static void graph_profile_entry_changed(GtkEditable *editable, gpointer unused) {
-   (void)editable; (void)unused;
-   if (!graph_profile_updating) graph_profile_update_buttons();
+   (void)editable;
+   (void)unused;
+
+   if (!graph_profile_updating) {
+      graph_profile_update_buttons();
+   }
 }
 static void graph_profile_name(const char *name, void *user) {
-   /* Older versions could have persisted reserved display names. Do not
-    * expose those rows as writable presets. */
-   if (!graph_profile_is_auto(name) && g_ascii_strcasecmp(name, GRAPH_PROFILE_NEW))
+   /* Older versions could have persisted reserved display names. Do not expose those rows as writable presets. */
+   if (!graph_profile_is_auto(name) && g_ascii_strcasecmp(name, GRAPH_PROFILE_NEW)) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(user), name);
+   }
 }
 static void graph_profile_refresh(const char *selected) {
-   if (!graph_profiles) return;
+   if (!graph_profiles) {
+      return;
+   }
    graph_profile_updating = TRUE;
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(graph_profiles));
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(graph_profiles), GRAPH_PROFILE_AUTO);
    rrclient_database_audio_profile_list(graph_profile_name, graph_profiles);
-   gtk_entry_set_text(GTK_ENTRY(graph_profile_entry()),
-      selected && *selected ? selected : GRAPH_PROFILE_AUTO);
+   gtk_entry_set_text(GTK_ENTRY(graph_profile_entry()), selected && *selected ? selected : GRAPH_PROFILE_AUTO);
    graph_profile_updating = FALSE;
    graph_profile_update_buttons();
 }
 static void graph_profile_modified(void) {
    char *name = graph_profile_selected();
+
    if (graph_profile_is_auto(name)) {
       graph_profile_updating = TRUE;
       gtk_entry_set_text(GTK_ENTRY(graph_profile_entry()), GRAPH_PROFILE_NEW);
@@ -451,43 +595,53 @@ static void graph_profile_modified(void) {
    g_free(name);
 }
 static gboolean graph_profile_confirm_replace(const char *name) {
-   GtkWidget *parent = graph_panel ?
-      gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
-   GtkWidget *dialog = gtk_message_dialog_new(
-      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
-      "Replace audio preset \"%s\"?", name);
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-      "This will overwrite the saved routes. The preset name remains unique.");
-   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL,
-                          "_Replace", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *parent = graph_panel ? gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "Replace audio preset \"%s\"?", name);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "This will overwrite the saved routes. The preset name remains unique.");
+   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL, "_Replace", GTK_RESPONSE_ACCEPT, NULL);
    gint response = gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
+
    return response == GTK_RESPONSE_ACCEPT;
 }
 static void graph_profile_save(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+   (void)button;
+   (void)unused;
    char *name = graph_profile_selected();
-   if (!name || graph_profile_is_auto(name) || graph_profile_is_placeholder(name) ||
-       !graph_snapshot) { g_free(name); return; }
+
+   if (!name || graph_profile_is_auto(name) || graph_profile_is_placeholder(name) || !graph_snapshot) {
+      g_free(name);
+
+      return;
+   }
+
    if (graph_profile_exists(name) && !graph_profile_confirm_replace(name)) {
       g_free(name);
+
       return;
    }
    const char *ids[RR_AUDIO_GRAPH_MAX_NODES];
-   char routes[RR_AUDIO_GRAPH_MAX_NODES] = {0};
+   char routes[RR_AUDIO_GRAPH_MAX_NODES] = {
+      0
+   };
    size_t count = 0;
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+
+   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      if (n->type != RR_AG_SOURCE || !strchr("SLRM", n->route)) continue;
+
+      if (n->type != RR_AG_SOURCE || !strchr("SLRM", n->route)) {
+         continue;
+      }
       ids[count] = n->id;
       routes[count++] = n->route;
    }
-   if (rrclient_database_audio_profile_save(name, ids, routes, count))
+
+   if (rrclient_database_audio_profile_save(name, ids, routes, count)) {
       graph_profile_refresh(name);
-   else
+   } else {
       g_warning("Unable to save audio route profile '%s'", name);
+   }
    g_free(name);
 }
 static void graph_profile_apply(const char *id, char route, void *unused) {
@@ -495,51 +649,64 @@ static void graph_profile_apply(const char *id, char route, void *unused) {
    audio_request_rx_stream_route(id, route);
 }
 static void graph_profile_load(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+   (void)button;
+   (void)unused;
    char *name = graph_profile_selected();
-   if (!graph_profile_exists(name)) { g_free(name); return; }
+
+   if (!graph_profile_exists(name)) {
+      g_free(name);
+
+      return;
+   }
    rrclient_database_audio_profile_load(name, graph_profile_apply, NULL);
    routing_queue();
    g_free(name);
 }
 static void graph_profile_remove(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+   (void)button;
+   (void)unused;
    char *name = graph_profile_selected();
-   if (!graph_profile_exists(name)) { g_free(name); return; }
-   GtkWidget *parent = graph_panel ?
-      gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
-   GtkWidget *dialog = gtk_message_dialog_new(
-      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
-      "Remove audio profile \"%s\"?", name);
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-      "The saved routing profile will be deleted. Active audio routing will not change.");
-   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL,
-                          "_Remove", GTK_RESPONSE_ACCEPT, NULL);
+
+   if (!graph_profile_exists(name)) {
+      g_free(name);
+
+      return;
+   }
+   GtkWidget *parent = graph_panel ? gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "Remove audio profile \"%s\"?", name);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "The saved routing profile will be deleted. Active audio routing will not change.");
+   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL, "_Remove", GTK_RESPONSE_ACCEPT, NULL);
    gint response = gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
+
    if (response == GTK_RESPONSE_ACCEPT) {
-      if (rrclient_database_audio_profile_delete(name))
+      if (rrclient_database_audio_profile_delete(name)) {
          graph_profile_refresh(NULL);
-      else
+      } else {
          g_warning("Unable to remove audio route profile '%s'", name);
+      }
    }
    g_free(name);
 }
 static void routing_graph_close(gpointer unused) {
    (void)unused;
-   if (graph_panel)
+
+   if (graph_panel) {
       rr_floating_panel_hide(graph_panel);
+   }
 }
 void gtk_audio_graph_present(void) {
-   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook))
+   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook)) {
       return;
+   }
+
    if (!graph_panel) {
-      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
-         GTK_NOTEBOOK(main_notebook), "Audio Graph", "Audio Graph");
-      if (!graph_panel)
+      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "Audio Graph", "Audio Graph");
+
+      if (!graph_panel) {
          return;
+      }
       rr_floating_panel_set_close_callback(graph_panel, routing_graph_close, NULL);
       rr_floating_panel_set_minimizable(graph_panel, FALSE);
       rr_floating_panel_set_resizable(graph_panel, TRUE);
@@ -572,14 +739,12 @@ void gtk_audio_graph_present(void) {
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
-      /* The graph has its own Cairo zoom. Never scale its viewport size
-       * request through the generic widget wrapper as well. */
+      /* The graph has its own Cairo zoom. Never scale its viewport size request through the generic widget wrapper as well. */
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
-      gtk_widget_set_tooltip_text(graph_canvas,
-         "Drag RX outputs to matching mixer inputs; click a link to disconnect or source port to toggle that ear.");
+      gtk_widget_set_tooltip_text(graph_canvas, "Drag RX outputs to matching mixer inputs; click a link to disconnect or source port to toggle that ear.");
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
@@ -591,8 +756,7 @@ void gtk_audio_graph_present(void) {
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
-      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
-         GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
       g_signal_connect(graph_canvas, "scroll-event", G_CALLBACK(routing_graph_scroll), NULL);
       g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
       g_signal_connect(graph_canvas, "motion-notify-event", G_CALLBACK(routing_graph_motion), NULL);
@@ -601,27 +765,33 @@ void gtk_audio_graph_present(void) {
    }
    rr_floating_panel_restore(graph_panel);
    rr_floating_panel_show(graph_panel);
-   routing_queue(); /* Request an up-to-date core graph, not a stale UI cache. */
-   if (graph_canvas)
+   routing_queue();             /* Request an up-to-date core graph, not a stale UI cache. */
+
+   if (graph_canvas) {
       gtk_widget_queue_draw(graph_canvas);
+   }
 }
 
 static void routing_snapshot_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload || message->length < sizeof(rr_audio_stream_snapshot_t))
+
+   if (!message || !message->payload || message->length < sizeof(rr_audio_stream_snapshot_t)) {
       return;
+   }
    const rr_audio_stream_snapshot_t *snapshot = message->payload;
-   if (snapshot->count > 128 ||
-       message->length != sizeof(*snapshot) + (size_t)snapshot->count * sizeof(struct rrclient_rx_stream))
+
+   if (snapshot->count > 128 || message->length != sizeof(*snapshot) + (size_t)snapshot->count * sizeof(struct rrclient_rx_stream)) {
       return;
+   }
    snapshot_waiting = false;
    snapshot_sent_at = 0;
 }
-/* A request can be sent before audio_init() installs the core handler.
- * Never let that leave the routing panel permanently waiting for a reply. */
+
+/* A request can be sent before audio_init() installs the core handler. Never let that leave the routing panel permanently waiting for a reply. */
 static void routing_queue(void) {
-   if (snapshot_waiting && g_get_monotonic_time() - snapshot_sent_at < G_USEC_PER_SEC)
+   if (snapshot_waiting && g_get_monotonic_time() - snapshot_sent_at < G_USEC_PER_SEC) {
       return;
+   }
    snapshot_waiting = true;
    snapshot_sent_at = g_get_monotonic_time();
    const guint8 request_marker = 1;
@@ -634,10 +804,12 @@ static void routing_queue(void) {
 
 static gboolean routing_watchdog(gpointer unused) {
    (void)unused;
-   /* Retry only an unanswered request; normal updates are event-driven.
-    * Polling visible panels unnecessarily could redisplay a hidden panel. */
-   if (routing_panel && snapshot_waiting)
+
+   /* Retry only an unanswered request; normal updates are event-driven. Polling visible panels unnecessarily could redisplay a hidden panel. */
+   if (routing_panel && snapshot_waiting) {
       routing_queue();
+   }
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -664,9 +836,11 @@ static void routing_volume_changed(GtkRange *range, gpointer user) {
 }
 
 static void routing_changed(GtkWidget *widget, gpointer unused) {
-   (void)widget; (void)unused;
+   (void)widget;
+   (void)unused;
    gboolean split = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx));
    gtk_widget_set_sensitive(ear_volume[1], split);
+
    if (!split) {
       volume_updating = TRUE;
       int percent = (int)gtk_range_get_value(GTK_RANGE(ear_volume[0]));
@@ -676,12 +850,16 @@ static void routing_changed(GtkWidget *widget, gpointer unused) {
    }
 }
 
-static void routing_live_changed(const char *event, const char *data,
-                                  rrconn_t *connection, void *unused) {
-   (void)event; (void)data; (void)connection; (void)unused;
+static void routing_live_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)data;
+   (void)connection;
+   (void)unused;
+
    /* Refresh the graph on external routing edits without changing them. */
-   if (graph_panel && graph_canvas && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel)))
+   if (graph_panel && graph_canvas && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel))) {
       routing_queue();
+   }
 }
 
 static void routing_show_event(const char *event, const char *data, rrconn_t *connection, void *context) {
@@ -698,10 +876,13 @@ static void routing_show_event(const char *event, const char *data, rrconn_t *co
 }
 
 void gtk_volume_toggle(void) {
-   if (!routing_panel || !routing_window) return;
-   if (gtk_widget_get_visible(routing_window))
+   if (!routing_panel || !routing_window) {
+      return;
+   }
+
+   if (gtk_widget_get_visible(routing_window)) {
       rr_floating_panel_hide(routing_panel);
-   else {
+   } else {
       rr_floating_panel_restore(routing_panel);
       rr_floating_panel_show(routing_panel);
    }
@@ -789,15 +970,18 @@ void gtk_audio_routing_shutdown(void) {
       g_source_remove(routing_watchdog_source);
       routing_watchdog_source = 0;
    }
+
    if (graph_token) {
       event_off_token(graph_token);
       graph_token = 0;
    }
+
    if (routes_token) {
       event_off_token(routes_token);
       routes_token = 0;
    }
    g_clear_pointer(&graph_snapshot, g_free);
+
    if (graph_panel) {
       rr_floating_panel_destroy(graph_panel);
       graph_panel = NULL;
@@ -805,12 +989,14 @@ void gtk_audio_routing_shutdown(void) {
       graph_profiles = NULL;
       graph_profile_load_button = graph_profile_save_button = graph_profile_remove_button = NULL;
    }
+
    if (snapshot_token) {
       event_off_token(snapshot_token);
       snapshot_token = 0;
    }
    snapshot_waiting = false;
    snapshot_sent_at = 0;
+
    if (show_token) {
       event_off_token(show_token);
       show_token = 0;

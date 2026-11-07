@@ -50,8 +50,7 @@ typedef struct object_send {
 
 static subscriber_t *subscribers;
 
-/* Inventory requests may contain hundreds of entries. Build synchronously,
- * deliver asynchronously, preserving each row until accepted by transport. */
+/* Inventory requests may contain hundreds of entries. Build synchronously, deliver asynchronously, preserving each row until accepted by transport. */
 typedef struct inventory_delivery {
    rrconn_t *client;
    GPtrArray *frames;
@@ -62,9 +61,13 @@ static inventory_delivery_t *inventory_deliveries;
 static inventory_delivery_t *inventory_collecting;
 
 void rrserver_inventory_send(rrconn_t *client, dict *d) {
-   if (!d) return;
+   if (!d) {
+      return;
+   }
+
    if (inventory_collecting && inventory_collecting->client == client) {
       g_ptr_array_add(inventory_collecting->frames, d);
+
       return;
    }
    ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
@@ -78,10 +81,13 @@ static void inventory_delivery_close(rrconn_t *client) {
    inventory_delivery_t **next = &inventory_deliveries;
    while (*next) {
       inventory_delivery_t *delivery = *next;
+
       if (delivery->client == client) {
          *next = delivery->next;
          inventory_delivery_free(delivery);
-      } else next = &delivery->next;
+      } else {
+         next = &delivery->next;
+      }
    }
 }
 
@@ -139,8 +145,12 @@ static void send_message(rrconn_t *client, dict *d) {
 /* Snapshot frames remain owned by the subscriber until the transport accepts them. */
 static void object_emit(object_send_t *ctx, dict *d) {
    if (ctx->frames) {
-      if (d) g_ptr_array_add(ctx->frames, d);
-   } else send_message(ctx->client, d);
+      if (d) {
+         g_ptr_array_add(ctx->frames, d);
+      }
+   } else {
+      send_message(ctx->client, d);
+   }
 }
 
 static bool resolve(const char *uuid, object_send_t *ctx) {
@@ -248,9 +258,8 @@ typedef struct {
 } node_control_context_t;
 
 /* Platform knobs belong to the persistent node, not an invented rig. */
-static void send_node_control_state_to(rrconn_t *client, const char *request,
-                                        const rr_platform_control_state_t *state,
-                                        const char *command, GPtrArray *frames) {
+static void send_node_control_state_to(rrconn_t *client, const char *request, const rr_platform_control_state_t *state, const char *command, GPtrArray *frames)
+{
    dict *d = message("property", command, request);
 
    if (!d) {
@@ -264,12 +273,14 @@ static void send_node_control_state_to(rrconn_t *client, const char *request,
    dict_add_bool(d, "property.known", true);
    dict_add_bool(d, "property.available", true);
    rr_object_seq_put(d, "property.version", sequence);
-   if (frames) g_ptr_array_add(frames, d);
-   else send_message(client, d);
+
+   if (frames) {
+      g_ptr_array_add(frames, d);
+   } else {
+      send_message(client, d);
+   }
 }
-static void send_node_control_state(rrconn_t *client, const char *request,
-                                    const rr_platform_control_state_t *state,
-                                    const char *command) {
+static void send_node_control_state(rrconn_t *client, const char *request, const rr_platform_control_state_t *state, const char *command) {
    send_node_control_state_to(client, request, state, command, NULL);
 }
 
@@ -297,8 +308,12 @@ static bool send_node_control(const rr_platform_control_state_t *state, void *us
    dict_add_int(d, "property.minimum", state->minimum);
    dict_add_int(d, "property.maximum", state->maximum);
    dict_add_int(d, "property.step", state->step);
-   if (ctx->frames) g_ptr_array_add(ctx->frames, d);
-   else send_message(ctx->client, d);
+
+   if (ctx->frames) {
+      g_ptr_array_add(ctx->frames, d);
+   } else {
+      send_message(ctx->client, d);
+   }
    send_node_control_state_to(ctx->client, ctx->request, state, "state", ctx->frames);
 
    return false;
@@ -342,35 +357,48 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
    return rr_server_vfo_foreach(radio, collect_vfo, user);
 }
 
-/* Native wslay caps queued frames at 256, before the byte high-water mark.
- * Bound each pump to 12 frames and leave ample room for other traffic. */
+/* Native wslay caps queued frames at 256, before the byte high-water mark. Bound each pump to 12 frames and leave ample room for other traffic. */
 #define OBJECT_SNAPSHOT_FRAMES_PER_POLL 12
 #define OBJECT_SNAPSHOT_QUEUE_HWM 32768
 void rrserver_objects_poll(void) {
-   for (subscriber_t *s = subscribers; s; s = s->next) {
-      if (!s->pending || !s->frames || !s->client->authenticated)
+   for (subscriber_t *s = subscribers ; s ; s = s->next) {
+      if (!s->pending || !s->frames || !s->client->authenticated) {
          continue;
+      }
 
-      for (unsigned sent = 0; sent < OBJECT_SNAPSHOT_FRAMES_PER_POLL; ) {
+      for (unsigned sent = 0 ; sent < OBJECT_SNAPSHOT_FRAMES_PER_POLL ; ) {
          if (s->frame_cursor >= s->frames->len) {
             g_ptr_array_set_size(s->frames, 0);
             s->frame_cursor = 0;
+
             if (s->cursor < s->pending->len) {
                const char *uuid = g_ptr_array_index(s->pending, s->cursor);
                object_send_t ctx = {
                   .client = s->client, .request = s->request, .frames = s->frames
                };
-               if (resolve(uuid, &ctx)) send_object(&ctx, "descriptor");
+
+               if (resolve(uuid, &ctx)) {
+                  send_object(&ctx, "descriptor");
+               }
                s->cursor++;
             } else if (!s->relay_queued) {
                rrserver_relay_objects_collect(s->frames, s->request);
-               for (guint i = 0; i < s->frames->len; i++) {
+
+               for (guint i = 0 ; i < s->frames->len ; i++) {
                   dict *d = g_ptr_array_index(s->frames, i);
-                  if (!epoch) epoch = g_uuid_string_random();
-                  if (epoch) dict_add(d, "stream.epoch", epoch);
+
+                  if (!epoch) {
+                     epoch = g_uuid_string_random();
+                  }
+
+                  if (epoch) {
+                     dict_add(d, "stream.epoch", epoch);
+                  }
                   rr_object_seq_put(d, "stream.seq", ++sequence);
                }
+
                dict *end = message("object", "end", s->request);
+
                if (!end) {
                   /* Do not mark a truncated snapshot complete on allocation failure. */
                   g_ptr_array_set_size(s->frames, 0);
@@ -387,42 +415,56 @@ void rrserver_objects_poll(void) {
                s->request = NULL;
                break;
             }
-            if (!s->frames->len) continue;
+
+            if (!s->frames->len) {
+               continue;
+            }
          }
-         if (!s->client->native_transport ||
-             rr_transport_state(s->client->native_transport) != RR_TRANSPORT_OPEN)
+
+         if (!s->client->native_transport || rr_transport_state(s->client->native_transport) != RR_TRANSPORT_OPEN) {
             break;
-         if (rr_transport_queued_bytes(s->client->native_transport) >=
-             OBJECT_SNAPSHOT_QUEUE_HWM)
+         }
+
+         if (rr_transport_queued_bytes(s->client->native_transport) >= OBJECT_SNAPSHOT_QUEUE_HWM) {
             break;
+         }
          dict *d = g_ptr_array_index(s->frames, s->frame_cursor);
-         if (!ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT))
-            break; /* Retry the same frame next poll. */
+
+         if (!ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT)) {
+            break;              /* Retry the same frame next poll. */
+         }
          s->frame_cursor++;
          sent++;
       }
    }
+
    inventory_delivery_t **next = &inventory_deliveries;
    while (*next) {
       inventory_delivery_t *delivery = *next;
       unsigned sent = 0;
-      while (delivery->cursor < delivery->frames->len &&
-             sent < OBJECT_SNAPSHOT_FRAMES_PER_POLL) {
+      while (delivery->cursor < delivery->frames->len && sent < OBJECT_SNAPSHOT_FRAMES_PER_POLL) {
          rrconn_t *client = delivery->client;
+
          if (!client->authenticated || !client->native_transport ||
-             rr_transport_state(client->native_transport) != RR_TRANSPORT_OPEN ||
-             rr_transport_queued_bytes(client->native_transport) >= OBJECT_SNAPSHOT_QUEUE_HWM)
+            rr_transport_state(client->native_transport) != RR_TRANSPORT_OPEN ||
+            rr_transport_queued_bytes(client->native_transport) >= OBJECT_SNAPSHOT_QUEUE_HWM) {
             break;
+         }
          dict *frame = g_ptr_array_index(delivery->frames, delivery->cursor);
-         if (!ws_send_dict(NULL, client, frame, WEBSOCKET_OP_TEXT))
+
+         if (!ws_send_dict(NULL, client, frame, WEBSOCKET_OP_TEXT)) {
             break;
+         }
          delivery->cursor++;
          sent++;
       }
+
       if (delivery->cursor == delivery->frames->len) {
          *next = delivery->next;
          inventory_delivery_free(delivery);
-      } else next = &delivery->next;
+      } else {
+         next = &delivery->next;
+      }
    }
 }
 
@@ -479,7 +521,10 @@ static void rr_object_close_client(const char *event, const char *data, rrconn_t
          if (s->pending) {
             g_ptr_array_free(s->pending, true);
          }
-         if (s->frames) g_ptr_array_free(s->frames, TRUE);
+
+         if (s->frames) {
+            g_ptr_array_free(s->frames, TRUE);
+         }
          free(s->request);
          free(s);
       } else {
@@ -880,7 +925,7 @@ static bool inventory_node_control(const rr_platform_control_state_t *state, voi
 static void inventory(rrconn_t *client, const char *id) {
    inventory_delivery_t *delivery = g_new0(inventory_delivery_t, 1);
    delivery->client = client;
-   delivery->frames = g_ptr_array_new_with_free_func((GDestroyNotify)dict_free);
+   delivery->frames = g_ptr_array_new_with_free_func((GDestroyNotify) dict_free);
    inventory_collecting = delivery;
    object_send_t ctx = {
       .client = client, .request = id
@@ -903,10 +948,15 @@ static void inventory(rrconn_t *client, const char *id) {
    rr_rig_registry_foreach(rig.rigs, inventory_rig, &ctx);
    rrserver_relay_inventory(client, id);
    dict *end = message("object", "inventory-end", id);
-   if (end) rr_inventory_send(client, end);
+
+   if (end) {
+      rr_inventory_send(client, end);
+   }
    inventory_collecting = NULL;
+
    if (!end) {
       inventory_delivery_free(delivery);
+
       return;
    }
    delivery->next = inventory_deliveries;
@@ -967,7 +1017,7 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          subscribers = s;
          s->request = strdup(id);
          s->pending = g_ptr_array_new_with_free_func(g_free);
-         s->frames = g_ptr_array_new_with_free_func((GDestroyNotify)dict_free);
+         s->frames = g_ptr_array_new_with_free_func((GDestroyNotify) dict_free);
 
          if (!s->request || !s->pending || !s->frames) {
             rr_object_close_client(NULL, NULL, client, NULL);
@@ -982,7 +1032,10 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
             goto done;
          }
          dict *begin = message("object", "begin", id);
-         if (begin) g_ptr_array_add(s->frames, begin);
+
+         if (begin) {
+            g_ptr_array_add(s->frames, begin);
+         }
          dict *node = message("object", "descriptor", id);
 
          if (!node) {
@@ -1342,6 +1395,7 @@ void rrserver_objects_fini(void) {
       inventory_deliveries = delivery->next;
       inventory_delivery_free(delivery);
    }
+
    for (pending_control_t *pending = pending_controls ; pending ; pending = pending->next) {
       pending->client = NULL;
    }

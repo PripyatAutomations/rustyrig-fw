@@ -79,23 +79,28 @@ bool empty_config = true;
 static GstElement *pipeline = NULL;
 static fwdsp_proc_stats_t metrics;
 static gint64 metrics_reported_us;
-/* A single small, best-effort line on stderr keeps stats out of framed
- * media stdout and the realtime processing path. No allocation or blocking. */
+/* A single small, best-effort line on stderr keeps stats out of framed media stdout and the realtime processing path. No allocation or blocking. */
 static void metrics_publish(void) {
    gint64 now_us = g_get_monotonic_time();
-   if (metrics_reported_us && now_us - metrics_reported_us < G_USEC_PER_SEC) return;
+
+   if (metrics_reported_us && now_us - metrics_reported_us < G_USEC_PER_SEC) {
+      return;
+   }
    metrics_reported_us = now_us;
    char line[256];
-   int length = snprintf(line, sizeof(line),
-      "RRSTAT1 in_bytes=%" PRIu64 " out_bytes=%" PRIu64
-      " in_frames=%" PRIu64 " out_frames=%" PRIu64
-      " warnings=%" PRIu64 " errors=%" PRIu64 "\n",
-      metrics.input_bytes, metrics.output_bytes,
-      metrics.input_frames, metrics.output_frames, metrics.warnings, metrics.errors);
-   if (length <= 0 || (size_t)length >= sizeof(line)) return;
-   struct pollfd fd = { .fd = STDERR_FILENO, .events = POLLOUT };
-   if (poll(&fd, 1, 0) > 0 && (fd.revents & POLLOUT))
+   int length = snprintf(line, sizeof(line), "RRSTAT1 in_bytes=%" PRIu64 " out_bytes=%" PRIu64 " in_frames=%" PRIu64 " out_frames=%" PRIu64 " warnings=%" PRIu64
+      " errors=%" PRIu64 "\n", metrics.input_bytes, metrics.output_bytes, metrics.input_frames, metrics.output_frames, metrics.warnings, metrics.errors);
+
+   if (length <= 0 || (size_t)length >= sizeof(line)) {
+      return;
+   }
+   struct pollfd fd = {
+      .fd = STDERR_FILENO, .events = POLLOUT
+   };
+
+   if (poll(&fd, 1, 0) > 0 && (fd.revents & POLLOUT)) {
       (void)write(STDERR_FILENO, line, (size_t)length);
+   }
 }
 
 
@@ -764,6 +769,7 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
 
       if (gst_app_src_push_buffer(appsrc, buffer) != GST_FLOW_OK) {
          metrics.errors++;
+
          return false;
       }
       metrics.input_frames++;

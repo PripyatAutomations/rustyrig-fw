@@ -309,16 +309,20 @@ GtkWindow *resource_parent(void) {
    return main && main->gtk_win ? GTK_WINDOW(main->gtk_win) : NULL;
 }
 void resource_present(void) {
-   if (!browser || !browser->page || !GTK_IS_NOTEBOOK(main_notebook))
+   if (!browser || !browser->page || !GTK_IS_NOTEBOOK(main_notebook)) {
       return;
-   /* The Explorer is a full main-notebook page: retain the same shared
-    * toolbar/status strip (server, transport rates and clock) as other pages. */
+   }
+   /* The Explorer is a full main-notebook page: retain the same shared toolbar/status strip (server, transport rates and clock) as other pages. */
    extern GtkWidget *rr_main_toolbar;
-   if (rr_main_toolbar)
+
+   if (rr_main_toolbar) {
       gtk_widget_show(rr_main_toolbar);
+   }
    int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), browser->page);
-   if (index >= 0)
+
+   if (index >= 0) {
       gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
+   }
 }
 
 /* Initialize against the actual notebook allocation, not a fixed standalone window height. Only do this once; later splitter dragging is user-owned. */

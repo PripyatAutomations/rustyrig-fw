@@ -27,12 +27,17 @@ gboolean gtk_help_is_open(void) {
 }
 
 void gtk_help_hide(void) {
-   if (help_panel) rr_floating_panel_hide(help_panel);
+   if (help_panel) {
+      rr_floating_panel_hide(help_panel);
+   }
 }
 
 void gtk_help_toggle(void) {
-   if (gtk_help_is_open()) gtk_help_hide();
-   else gtk_help_show();
+   if (gtk_help_is_open()) {
+      gtk_help_hide();
+   } else {
+      gtk_help_show();
+   }
 }
 
 void gtk_help_show(void) {

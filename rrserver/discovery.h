@@ -50,6 +50,7 @@ static inline dict *rr_inventory_row(const char *request, unsigned depth, const 
 
    return d;
 }
+
 /* Transfers ownership of each row to the server's paced inventory sender. */
 void rrserver_inventory_send(rrconn_t *client, dict *d);
 static inline void rr_inventory_send(rrconn_t *client, dict *d) {

@@ -101,11 +101,11 @@ static const char *rig_endpoint(rr_server_rig_t *radio, bool tx, char *buf, size
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    const char *configured = rr_rig_config_get(alias, tx ? "audio.sink" : "audio.source");
 
-   /* "none" deliberately disables this rig endpoint, even when a
-    * built-in pipeline exists for the default src/sink alias. */
+   /* "none" deliberately disables this rig endpoint, even when a built-in pipeline exists for the default src/sink alias. */
    if (configured && !g_ascii_strcasecmp(configured, "none")) {
       return NULL;
    }
+
    if (configured && *configured) {
       return configured;
    }
@@ -217,11 +217,8 @@ static bool start_rig_audio(rr_server_rig_t *radio, void *user) {
    bool source_ok = !rx || fwdsp_audio_capture_start(rx, NULL, rrserver_rig_rx_pcm, radio);
    bool sink_ok = !tx || fwdsp_audio_playback_start(tx, NULL);
 
-   Log(source_ok && sink_ok ? LOG_INFO : LOG_WARN, "pcm.hub",
-      "Rig %s PCM endpoints: RX=%s (%s), TX=%s (%s)",
-      rr_rig_registry_alias(rig.rigs, radio),
-      rx ? rx : "none", !rx ? "disabled" : source_ok ? "ready" : "unavailable",
-      tx ? tx : "none", !tx ? "disabled" : sink_ok ? "ready" : "unavailable");
+   Log(source_ok && sink_ok ? LOG_INFO : LOG_WARN, "pcm.hub", "Rig %s PCM endpoints: RX=%s (%s), TX=%s (%s)", rr_rig_registry_alias(rig.rigs, radio), rx ? rx :
+      "none", !rx ? "disabled" : source_ok ? "ready" : "unavailable", tx ? tx : "none", !tx ? "disabled" : sink_ok ? "ready" : "unavailable");
 
    return !source_ok || !sink_ok;
 }

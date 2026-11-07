@@ -840,10 +840,12 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    struct rr_user *talker = offline ? NULL : room_vfo_talker(control->room, control->vfo);
    bool transmitting = talker != NULL;
    GtkStyleContext *tx_ctx = gtk_widget_get_style_context(control->row);
-   if (transmitting)
+
+   if (transmitting) {
       gtk_style_context_add_class(tx_ctx, "rr-vfo-transmitting");
-   else
+   } else {
       gtk_style_context_remove_class(tx_ctx, "rr-vfo-transmitting");
+   }
    gtk_widget_set_sensitive(control->row, !offline);
 
    if (offline) {
@@ -1130,22 +1132,20 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
    gtk_widget_set_name(strip, "room-vfo-compact");
    /* Apply a small local style without shrinking unrelated userlist controls. */
    static GtkCssProvider *compact_css;
+
    if (!compact_css) {
       compact_css = gtk_css_provider_new();
-      gtk_css_provider_load_from_data(compact_css,
-         "#room-vfo-compact label { font-size: 10px; }"
+      gtk_css_provider_load_from_data(compact_css, "#room-vfo-compact label { font-size: 10px; }"
          "#room-vfo-compact button { font-size: 10px; padding: 0 3px; min-height: 18px; }"
          "#room-vfo-compact #room-vfo-row { padding: 1px 2px; }"
          "#room-vfo-compact #room-vfo-row.rr-vfo-transmitting {"
-         " background-color: #ad1826; border: 1px solid #ef4a52; }"
-         "#room-vfo-compact #room-vfo-row.rr-vfo-transmitting label { color: #fff; }", -1, NULL);
+         " background-color: #ad1826; border: 1px solid #ef4a52; }" "#room-vfo-compact #room-vfo-row.rr-vfo-transmitting label { color: #fff; }", -1, NULL);
    }
-   /* Descendant rules need a screen provider, not one installed only on
-    * the strip's own style context. */
+   /* Descendant rules need a screen provider, not one installed only on the strip's own style context. */
    GdkScreen *screen = gdk_screen_get_default();
+
    if (screen && !g_object_get_data(G_OBJECT(screen), "rr-vfo-compact-css")) {
-      gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(compact_css),
-         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(compact_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
       g_object_set_data(G_OBJECT(screen), "rr-vfo-compact-css", GINT_TO_POINTER(1));
    }
    /* The strip must follow the docked roster allocation, not its natural width. */
@@ -1222,8 +1222,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
-      /* One compact line: VFO identity, frequency, mode and stop/tune action.
-       * No oversized second/third rows in the docked roster. */
+      /* One compact line: VFO identity, frequency, mode and stop/tune action. No oversized second/third rows in the docked roster. */
       gtk_label_set_xalign(GTK_LABEL(name), 0.0);
       gtk_label_set_xalign(GTK_LABEL(freq), 0.0);
       gtk_widget_set_halign(freq, GTK_ALIGN_START);

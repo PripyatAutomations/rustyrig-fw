@@ -5,7 +5,7 @@
 pkgbase=rustyrig
 pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
 options=('!emptydirs')
-pkgver=1.0.1
+pkgver=1.0.2
 pkgrel=1
 pkgdesc='RustyRig remote radio software'
 arch=('x86_64')

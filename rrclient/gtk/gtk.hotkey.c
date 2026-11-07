@@ -51,8 +51,7 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
       gtk_window_present(GTK_WINDOW(main_win));
       place_window(main_win);
    }
-   /* Number shortcuts follow the *visible* tab strip. Tool windows do
-    * not reserve or intercept any notebook numbers. */
+   /* Number shortcuts follow the *visible* tab strip. Tool windows do not reserve or intercept any notebook numbers. */
    int tab_number = digit == 0 ? 10 : digit;
 
    if (!gtk_tabs_select(GTK_NOTEBOOK(main_notebook), tab_number)) {
@@ -217,6 +216,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       if (gtk_help_is_open()) {
          gtk_help_hide();
          gtk_escape_prefix = FALSE;
+
          return TRUE;
       }
       gtk_escape_prefix = TRUE;

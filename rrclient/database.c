@@ -17,11 +17,12 @@ extern dict *cfg;
 static sqlite3 *client_db;
 
 static bool window_state_schema(void) {
-   if (!client_db) return false;
-   /* Window state is an additive migration, independent of older installed
-    * SQL schema files. Session id advances once per successful DB open. */
-   if (sqlite3_exec(client_db,
-      "CREATE TABLE IF NOT EXISTS audio_profiles ("
+   if (!client_db) {
+      return false;
+   }
+
+   /* Window state is an additive migration, independent of older installed SQL schema files. Session id advances once per successful DB open. */
+   if (sqlite3_exec(client_db, "CREATE TABLE IF NOT EXISTS audio_profiles ("
       "name TEXT PRIMARY KEY COLLATE NOCASE, updated INTEGER NOT NULL);"
       "CREATE TABLE IF NOT EXISTS audio_profile_routes ("
       "profile TEXT NOT NULL REFERENCES audio_profiles(name) ON DELETE CASCADE,"
@@ -36,9 +37,9 @@ static bool window_state_schema(void) {
       "INSERT OR IGNORE INTO client_settings(key,value) VALUES('window.session','0');"
       "UPDATE client_settings SET value=CAST(value AS INTEGER)+1 WHERE key='window.session';"
       "DELETE FROM window_states WHERE last_session < "
-      "(SELECT CAST(value AS INTEGER)-5 FROM client_settings WHERE key='window.session');",
-      NULL, NULL, NULL) != SQLITE_OK) {
+      "(SELECT CAST(value AS INTEGER)-5 FROM client_settings WHERE key='window.session');", NULL, NULL, NULL) != SQLITE_OK) {
       fprintf(stderr, "Window-state table initialization failed: %s\n", sqlite3_errmsg(client_db));
+
       return false;
    }
 
@@ -82,7 +83,10 @@ bool rrclient_database_init(void) {
          NULL, NULL, NULL) != SQLITE_OK) {
          goto fail;
       }
-      if (!window_state_schema()) goto fail;
+
+      if (!window_state_schema()) {
+         goto fail;
+      }
       g_free(path);
       g_free(dir);
 
@@ -121,7 +125,10 @@ bool rrclient_database_init(void) {
    if (!ok) {
       goto fail;
    }
-   if (!window_state_schema()) goto fail;
+
+   if (!window_state_schema()) {
+      goto fail;
+   }
    g_free(path);
    g_free(dir);
 
@@ -475,30 +482,34 @@ bool rrclient_database_theme_set(const char *name, const char *property, const c
 
 
 bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out) {
-   if (!client_db || !id || !*id || !out) return false;
+   if (!client_db || !id || !*id || !out) {
+      return false;
+   }
    sqlite3_stmt *q = NULL;
    bool found = false;
    const char *sql = "SELECT x,y,width,height,zoom,rolled,minimized,pinned FROM window_states WHERE id=?1";
+
    if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) == SQLITE_OK) {
       sqlite3_bind_text(q, 1, id, -1, SQLITE_TRANSIENT);
+
       if (sqlite3_step(q) == SQLITE_ROW) {
          *out = (rrclient_window_state_t) {
-            .x = sqlite3_column_int(q, 0), .y = sqlite3_column_int(q, 1),
-            .width = sqlite3_column_int(q, 2), .height = sqlite3_column_int(q, 3),
-            .zoom = sqlite3_column_int(q, 4),
-            .rolled = sqlite3_column_int(q, 5) != 0,
-            .minimized = sqlite3_column_int(q, 6) != 0,
-            .pinned = sqlite3_column_int(q, 7) != 0
+            .x = sqlite3_column_int(q, 0), .y = sqlite3_column_int(q, 1), .width = sqlite3_column_int(q, 2), .height = sqlite3_column_int(q, 3), .zoom =
+               sqlite3_column_int(q, 4), .rolled = sqlite3_column_int(q, 5) != 0, .minimized = sqlite3_column_int(q, 6) != 0, .pinned =
+               sqlite3_column_int(q, 7) != 0
          };
          found = true;
       }
    }
    sqlite3_finalize(q);
+
    return found;
 }
 
 bool rrclient_database_window_save(const char *id, const rrclient_window_state_t *state) {
-   if (!client_db || !id || !*id || !state) return false;
+   if (!client_db || !id || !*id || !state) {
+      return false;
+   }
    sqlite3_stmt *q = NULL;
    const char *sql = "INSERT INTO window_states"
       "(id,x,y,width,height,zoom,rolled,minimized,pinned,last_used,last_session) "
@@ -508,8 +519,10 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
       "x=excluded.x,y=excluded.y,width=excluded.width,height=excluded.height,"
       "zoom=excluded.zoom,rolled=excluded.rolled,minimized=excluded.minimized,"
       "pinned=excluded.pinned,last_used=excluded.last_used,last_session=excluded.last_session";
-   if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) != SQLITE_OK)
+
+   if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) != SQLITE_OK) {
       return false;
+   }
    sqlite3_bind_text(q, 1, id, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(q, 2, state->x);
    sqlite3_bind_int(q, 3, state->y);
@@ -521,112 +534,161 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
    sqlite3_bind_int(q, 9, state->pinned);
    bool ok = sqlite3_step(q) == SQLITE_DONE;
    sqlite3_finalize(q);
+
    return ok;
 }
 
 
-bool rrclient_database_audio_profile_save(const char *name, const char *const *ids,
-                                           const char *routes, size_t count) {
-   /* Keep preset names unique case-insensitively. Explicit Save replacement
-    * is confirmed in GTK before calling this transactional upsert. */
-   if (!client_db || !name || !*name || !g_ascii_strcasecmp(name, "***AUTO***") ||
-       !g_ascii_strcasecmp(name, "New Preset") || !ids || !routes || count > 128) return false;
-   if (sqlite3_exec(client_db, "SAVEPOINT audio_profile_save", NULL, NULL, NULL) != SQLITE_OK) return false;
+bool rrclient_database_audio_profile_save(const char *name, const char *const *ids, const char *routes, size_t count) {
+   /* Keep preset names unique case-insensitively. Explicit Save replacement is confirmed in GTK before calling this transactional upsert. */
+   if (!client_db || !name || !*name || !g_ascii_strcasecmp(name, "***AUTO***") || !g_ascii_strcasecmp(name, "New Preset") || !ids || !routes || count > 128) {
+      return false;
+   }
+
+   if (sqlite3_exec(client_db, "SAVEPOINT audio_profile_save", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_stmt *q = NULL;
    bool ok = false;
-   if (sqlite3_prepare_v2(client_db,
-       "INSERT INTO audio_profiles(name,updated) VALUES(?1,strftime('%s','now'))"
-       " ON CONFLICT(name) DO UPDATE SET updated=excluded.updated", -1, &q, NULL) != SQLITE_OK)
+
+   if (sqlite3_prepare_v2(client_db, "INSERT INTO audio_profiles(name,updated) VALUES(?1,strftime('%s','now'))"
+      " ON CONFLICT(name) DO UPDATE SET updated=excluded.updated", -1, &q, NULL) != SQLITE_OK) {
       goto done;
+   }
    sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
    ok = sqlite3_step(q) == SQLITE_DONE;
-   sqlite3_finalize(q); q = NULL;
-   if (!ok || sqlite3_prepare_v2(client_db,
-       "DELETE FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) goto done;
+   sqlite3_finalize(q);
+   q = NULL;
+
+   if (!ok || sqlite3_prepare_v2(client_db, "DELETE FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) {
+      goto done;
+   }
    sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
    ok = sqlite3_step(q) == SQLITE_DONE;
-   sqlite3_finalize(q); q = NULL;
-   if (!ok || sqlite3_prepare_v2(client_db,
-       "INSERT INTO audio_profile_routes(profile,stream_id,route) VALUES(?1,?2,?3)",
-       -1, &q, NULL) != SQLITE_OK) goto done;
-   for (size_t i = 0; i < count; i++) {
-      if (!ids[i] || !*ids[i] || routes[i] == '\0' || !strchr("SLRM", routes[i])) { ok = false; break; }
-      char route[2] = { routes[i], 0 };
+   sqlite3_finalize(q);
+   q = NULL;
+
+   if (!ok || sqlite3_prepare_v2(client_db, "INSERT INTO audio_profile_routes(profile,stream_id,route) VALUES(?1,?2,?3)", -1, &q, NULL) != SQLITE_OK) {
+      goto done;
+   }
+
+   for (size_t i = 0 ; i < count ; i++) {
+      if (!ids[i] || !*ids[i] || routes[i] == '\0' || !strchr("SLRM", routes[i])) {
+         ok = false;
+         break;
+      }
+      char route[2] = {
+         routes[i], 0
+      };
       sqlite3_reset(q);
       sqlite3_clear_bindings(q);
       sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
       sqlite3_bind_text(q, 2, ids[i], -1, SQLITE_TRANSIENT);
       sqlite3_bind_text(q, 3, route, -1, SQLITE_TRANSIENT);
-      if (sqlite3_step(q) != SQLITE_DONE) { ok = false; break; }
+
+      if (sqlite3_step(q) != SQLITE_DONE) {
+         ok = false;
+         break;
+      }
    }
+
 done:
    sqlite3_finalize(q);
-   if (ok)
+
+   if (ok) {
       ok = sqlite3_exec(client_db, "RELEASE audio_profile_save", NULL, NULL, NULL) == SQLITE_OK;
-   if (!ok)
+   }
+
+   if (!ok) {
       sqlite3_exec(client_db, "ROLLBACK TO audio_profile_save; RELEASE audio_profile_save", NULL, NULL, NULL);
+   }
+
    return ok;
 }
 char *rrclient_database_vfo_layout_load(void) {
-   if (!client_db) return NULL;
+   if (!client_db) {
+      return NULL;
+   }
    sqlite3_stmt *q = NULL;
    char *order = NULL;
-   if (sqlite3_prepare_v2(client_db,
-       "SELECT value FROM client_settings WHERE key='ui.vfo.dock-order'",
-       -1, &q, NULL) == SQLITE_OK && sqlite3_step(q) == SQLITE_ROW) {
+
+   if (sqlite3_prepare_v2(client_db, "SELECT value FROM client_settings WHERE key='ui.vfo.dock-order'", -1, &q, NULL) == SQLITE_OK && sqlite3_step(q) ==
+      SQLITE_ROW) {
       const char *value = (const char *)sqlite3_column_text(q, 0);
-      if (value) order = g_strdup(value);
+
+      if (value) {
+         order = g_strdup(value);
+      }
    }
    sqlite3_finalize(q);
+
    return order;
 }
 bool rrclient_database_vfo_layout_save(const char *order) {
-   if (!client_db || !order) return false;
+   if (!client_db || !order) {
+      return false;
+   }
    sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db,
-       "INSERT INTO client_settings(key,value) VALUES('ui.vfo.dock-order',?1)"
-       " ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-       -1, &q, NULL) != SQLITE_OK) return false;
+
+   if (sqlite3_prepare_v2(client_db, "INSERT INTO client_settings(key,value) VALUES('ui.vfo.dock-order',?1)"
+      " ON CONFLICT(key) DO UPDATE SET value=excluded.value", -1, &q, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(q, 1, order, -1, SQLITE_TRANSIENT);
    bool ok = sqlite3_step(q) == SQLITE_DONE;
    sqlite3_finalize(q);
+
    return ok;
 }
 
 bool rrclient_database_audio_profile_delete(const char *name) {
-   if (!client_db || !name || !*name) return false;
-   sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db,
-       "DELETE FROM audio_profiles WHERE name=?1", -1, &q, NULL) != SQLITE_OK)
+   if (!client_db || !name || !*name) {
       return false;
+   }
+   sqlite3_stmt *q = NULL;
+
+   if (sqlite3_prepare_v2(client_db, "DELETE FROM audio_profiles WHERE name=?1", -1, &q, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
    bool ok = sqlite3_step(q) == SQLITE_DONE && sqlite3_changes(client_db) > 0;
    sqlite3_finalize(q);
+
    return ok;
 }
 
-void rrclient_database_audio_profile_list(void (*cb)(const char *, void *), void *user) {
-   if (!client_db || !cb) return;
+void rrclient_database_audio_profile_list(void (*cb) (const char *, void *), void *user) {
+   if (!client_db || !cb) {
+      return;
+   }
    sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db, "SELECT name FROM audio_profiles ORDER BY name COLLATE NOCASE",
-       -1, &q, NULL) != SQLITE_OK) return;
-   while (sqlite3_step(q) == SQLITE_ROW)
+
+   if (sqlite3_prepare_v2(client_db, "SELECT name FROM audio_profiles ORDER BY name COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) {
+      return;
+   }
+   while (sqlite3_step(q) == SQLITE_ROW) {
       cb((const char *)sqlite3_column_text(q, 0), user);
+   }
    sqlite3_finalize(q);
 }
-void rrclient_database_audio_profile_load(const char *name,
-   void (*cb)(const char *, char, void *), void *user) {
-   if (!client_db || !name || !cb) return;
+void rrclient_database_audio_profile_load(const char *name, void (*cb) (const char *, char, void *), void *user) {
+   if (!client_db || !name || !cb) {
+      return;
+   }
    sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db,
-       "SELECT stream_id,route FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE ORDER BY stream_id",
-       -1, &q, NULL) != SQLITE_OK) return;
+
+   if (sqlite3_prepare_v2(client_db, "SELECT stream_id,route FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE ORDER BY stream_id", -1, &q, NULL) !=
+      SQLITE_OK) {
+      return;
+   }
    sqlite3_bind_text(q, 1, name, -1, SQLITE_TRANSIENT);
    while (sqlite3_step(q) == SQLITE_ROW) {
       const char *id = (const char *)sqlite3_column_text(q, 0);
       const char *route = (const char *)sqlite3_column_text(q, 1);
-      if (id && route && route[0] && strchr("SLRM", route[0]))
+
+      if (id && route && route[0] && strchr("SLRM", route[0])) {
          cb(id, route[0], user);
+      }
    }
    sqlite3_finalize(q);
 }

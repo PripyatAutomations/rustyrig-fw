@@ -30,6 +30,7 @@ const char *cfg_get(const char *key) {
    if (!strcmp(key, "fwdsp:subproc.max")) {
       return "16";
    }
+
    if (soak_codec && !strncmp(key, "pipeline:", 9) && !strncmp(key + 9, soak_codec, 4) && !strcmp(key + 13, ".rx")) {
       // The native client consumes the PCM hub tap, not the legacy direct
       // playback branch which the older switching test replaces with appsink.

@@ -107,12 +107,13 @@ static void metadata(void *user, const char *key, const char *value) {
    message(host, &m, RRP_BRIDGE_IPC_METADATA);
    snprintf(m.metadata_key, sizeof(m.metadata_key), "%s", key);
    snprintf(m.metadata_value, sizeof(m.metadata_value), "%s", value);
-   /* Statistics are advisory; a full IPC socket must not stop a radio.
-    * Control, status and state messages retain strict delivery semantics. */
-   if (!strcmp(key, "_rr_stats") || !strcmp(key, "traffic.rx") ||
-       !strcmp(key, "traffic.tx")) {
-      if (rrp_bridge_ipc_send(RRP_BRIDGE_IPC_FD, &m))
+
+   /* Statistics are advisory; a full IPC socket must not stop a radio. Control, status and state messages retain strict delivery semantics. */
+   if (!strcmp(key, "_rr_stats") || !strcmp(key, "traffic.rx") || !strcmp(key, "traffic.tx")) {
+      if (rrp_bridge_ipc_send(RRP_BRIDGE_IPC_FD, &m)) {
          host->stats_ipc_out++;
+      }
+
       return;
    }
    send_message(host, &m);
@@ -390,16 +391,11 @@ int main(int argc, char **argv) {
          uint64_t current = mono_us();
 
          if (current - heartbeat >= 1000000) {
-            /* Private supervisor counters: never exported as receiver
-             * catalog metadata. No per-packet logging or additional threads. */
+            /* Private supervisor counters: never exported as receiver catalog metadata. No per-packet logging or additional threads. */
             char counters[192];
-            snprintf(counters, sizeof(counters),
-               "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu",
-               (unsigned long long)host.stats_ipc_in,
-               (unsigned long long)host.stats_ipc_out,
-               (unsigned long long)host.stats_pcm_bytes,
-               (unsigned long long)host.stats_pcm_frames,
-               (unsigned long long)host.stats_errors);
+            snprintf(counters, sizeof(counters), "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu", (unsigned long long)host.stats_ipc_in, (
+               unsigned long long)host.stats_ipc_out, (unsigned long long)host.stats_pcm_bytes, (unsigned long long)host.stats_pcm_frames, (unsigned long long)
+               host.stats_errors);
             metadata(&host, "_rr_stats", counters);
             message(&host, &m, RRP_BRIDGE_IPC_HEARTBEAT);
             send_message(&host, &m);

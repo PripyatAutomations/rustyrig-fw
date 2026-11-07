@@ -702,7 +702,9 @@ static void rf_row(const char *event, const void *data, size_t len, rrconn_t *co
    if (!rr_bridge_spectrum_valid(row)) {
       return;
    }
-   rr_local_bridge_ui_state_t state = {0};
+   rr_local_bridge_ui_state_t state = {
+      0
+   };
    rrclient_local_bridge_ui_state(&state);
    char vfo = state.vfo;
    p->vfo_boundary[p->head] = p->last_vfo && p->last_vfo != vfo;
@@ -734,7 +736,9 @@ static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *ro
       return;
    }
    double span = full / exp2(p->zoom_fraction);
-   rr_local_bridge_ui_state_t bridge_state = {0};
+   rr_local_bridge_ui_state_t bridge_state = {
+      0
+   };
    double center = rrclient_local_bridge_ui_state(&bridge_state) ? (double)bridge_state.frequency_hz : (*low + *high) / 2;
    double start = CLAMP(center - span / 2 + p->pan_hz, *low, *high - span);
    *low = start;
@@ -794,10 +798,14 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_restore(cr);
    cairo_surface_destroy(surface);
    /* Tune marker is display-only. The frequency and RF span come from generic bridge state/rows, never Kiwi-specific arithmetic. */
-   rr_local_bridge_ui_state_t marker_state = {0};
+   rr_local_bridge_ui_state_t marker_state = {
+      0
+   };
    uint64_t tuned_hz = 0;
-   if (rrclient_local_bridge_ui_state(&marker_state))
+
+   if (rrclient_local_bridge_ui_state(&marker_state)) {
       tuned_hz = marker_state.frequency_hz;
+   }
 
    if (tuned_hz && tuned_hz >= view_low && tuned_hz <= view_high) {
       double x = ((double)tuned_hz - view_low) * (w - 1) / (view_high - view_low);
@@ -830,8 +838,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_text_extents_t ext;
       cairo_text_extents(cr, label, &ext);
 
-      /* Keep every frequency tick visible. The gain slider is over the
-       * waterfall instead of obscuring the right end of the RF axis. */
+      /* Keep every frequency tick visible. The gain slider is over the waterfall instead of obscuring the right end of the RF axis. */
       double tx = CLAMP(x - ext.width / 2, 2., MAX(2., w - ext.width - 2.));
       cairo_move_to(cr, tx, h - 5);
       cairo_show_text(cr, label);
@@ -881,7 +888,9 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
 
       if (width > 1 && full > 0) {
          double wanted = p->drag_pan_hz - (event->x - p->drag_x) * span / (width - 1);
-         rr_local_bridge_ui_state_t bridge_state = {0};
+         rr_local_bridge_ui_state_t bridge_state = {
+            0
+         };
          double center = rrclient_local_bridge_ui_state(&bridge_state) ? (double)bridge_state.frequency_hz : (row->low_hz + row->high_hz) / 2.;
          double base = center - span / 2.;
          double min_pan = (double)row->low_hz - base;
@@ -923,13 +932,25 @@ static void rf_gain_changed(GtkRange *range, gpointer data) {
    p->display_gain_db = gtk_range_get_value(range);
    gtk_widget_queue_draw(p->drawing);
 }
+
 /* Only copied, immutable bridge fields may be read by GTK. */
 static gboolean rf_ui_caps(unsigned *min_zoom, unsigned *max_zoom) {
-   rr_local_bridge_ui_state_t state = {0};
-   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall)
+   rr_local_bridge_ui_state_t state = {
+      0
+   };
+
+   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall) {
       return FALSE;
-   if (min_zoom) *min_zoom = state.min_zoom;
-   if (max_zoom) *max_zoom = state.max_zoom;
+   }
+
+   if (min_zoom) {
+      *min_zoom = state.min_zoom;
+   }
+
+   if (max_zoom) {
+      *max_zoom = state.max_zoom;
+   }
+
    return TRUE;
 }
 static void rf_caps_changed(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
@@ -1140,6 +1161,7 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
          return TRUE;
       }
       double hz = low + (high - low) * event->x / (width - 1);
+
       if (rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, 0, (uint64_t) (hz + .5), NULL)) {
          unsigned min_zoom, max_zoom;
 

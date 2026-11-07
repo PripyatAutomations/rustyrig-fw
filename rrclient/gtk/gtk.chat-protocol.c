@@ -1,5 +1,4 @@
-/* RustyRig GTK protocol presentation. MIT / GPL when built with Mongoose.
- * Capture connection identity in core; render copied data on the GTK owner. */
+/* RustyRig GTK protocol presentation. MIT / GPL when built with Mongoose. Capture connection identity in core; render copied data on the GTK owner. */
 #include "gtk.chat-context.h"
 #include "gtk.core.h"
 #include "gtk.chat.h"
@@ -108,8 +107,7 @@ static void frontend_gtk_talk_msg_event(const char *event, const char *data, rrc
    dict_free(d);
 }
 
-/* Capture synchronously while the transport's core context is still active.
- * All chat work uses idle priority, so JOIN/tab creation precedes its text. */
+/* Capture synchronously while the transport's core context is still active. All chat work uses idle priority, so JOIN/tab creation precedes its text. */
 typedef struct {
    GtkChatContext context;
    char *event, *data;

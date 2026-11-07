@@ -94,16 +94,16 @@ static int ssl_result(struct mesh_wss *c, int result, int *want, const char *ope
    unsigned long code = ERR_peek_last_error();
    int saved_errno = errno, so_error = 0;
    socklen_t len = sizeof(so_error);
-   if (c->fd >= 0 && getsockopt(c->fd, SOL_SOCKET, SO_ERROR, &so_error, &len))
+
+   if (c->fd >= 0 && getsockopt(c->fd, SOL_SOCKET, SO_ERROR, &so_error, &len)) {
       so_error = 0;
+   }
    const char *detail = code ? ERR_reason_error_string(code) :
       error == SSL_ERROR_ZERO_RETURN ? "TLS close_notify received" :
       error == SSL_ERROR_SYSCALL ? (saved_errno ? g_strerror(saved_errno) :
-         so_error ? g_strerror(so_error) : "unexpected EOF without TLS close_notify") :
-      "TLS processing failed";
+         so_error ? g_strerror(so_error) : "unexpected EOF without TLS close_notify") : "TLS processing failed";
    char reason[256];
-   snprintf(reason, sizeof(reason), "TLS %s: %s (ssl_error=%d errno=%d so_error=%d)",
-      operation, detail ? detail : "unknown", error, saved_errno, so_error);
+   snprintf(reason, sizeof(reason), "TLS %s: %s (ssl_error=%d errno=%d so_error=%d)", operation, detail ? detail : "unknown", error, saved_errno, so_error);
    reject(c, reason);
 
    return -1;
@@ -133,7 +133,8 @@ static ssize_t ws_receive(wslay_event_context_ptr ws, uint8_t *buf, size_t len, 
    if (n > 0) {
       c->read_budget -= n;
       c->last_read_ms = mono_ms();
-      c->bytes_read += (guint64)n;
+      c->bytes_read += (guint64) n;
+
       return n;
    }
 
@@ -187,11 +188,12 @@ static void ws_message(wslay_event_context_ptr ws, const struct wslay_event_on_m
 
    if (msg->opcode == WSLAY_CONNECTION_CLOSE) {
       c->websocket_close_seen = true;
-      if (msg->msg_length >= 2)
+
+      if (msg->msg_length >= 2) {
          c->websocket_close_code = ((unsigned)msg->msg[0] << 8) | msg->msg[1];
-      /* The peer initiated an orderly WebSocket close. Let wslay send
-       * the close response and follow with TLS close_notify rather than
-       * turning a normal shutdown into an unexpected TCP EOF. */
+      }
+      /* The peer initiated an orderly WebSocket close. Let wslay send the close response and follow with TLS close_notify rather than turning a normal shutdown
+       * into an unexpected TCP EOF. */
       c->draining = true;
       c->close_started = mono_ms();
    } else if (msg->opcode == WSLAY_PONG) {
@@ -256,13 +258,15 @@ static void driver_close(void *arg) {
 
    if (!c->open || !c->ws) {
       reject(c, "Local transport close before WebSocket upgrade");
+
       return;
    }
-   /* WebSocket close code 1001 means server is going away. Drain pending
-    * application frames first and then send TLS close_notify. */
+
+   /* WebSocket close code 1001 means server is going away. Drain pending application frames first and then send TLS close_notify. */
    if (!c->draining) {
       if (wslay_event_queue_close(c->ws, WSLAY_CODE_GOING_AWAY, NULL, 0) != 0) {
          reject(c, "Cannot queue graceful WebSocket close");
+
          return;
       }
       c->draining = true;
@@ -309,7 +313,7 @@ static void flush(struct mesh_wss *c) {
 
    if (n > 0) {
       c->last_write_ms = mono_ms();
-      c->bytes_written += (guint64)n;
+      c->bytes_written += (guint64) n;
       memmove(c->tx, c->tx + n, c->tx_len - n);
       c->tx_len -= n;
       c->retry_len = 0;
@@ -361,10 +365,13 @@ static bool ready(int fd, GIOCondition events, void *arg) {
    if (events & (G_IO_ERR | G_IO_NVAL)) {
       int so_error = 0;
       socklen_t len = sizeof(so_error);
-      if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len)) so_error = errno;
+
+      if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len)) {
+         so_error = errno;
+      }
       char reason[160];
-      snprintf(reason, sizeof(reason), "Socket event failure (events=0x%x SO_ERROR=%d: %s)",
-         (unsigned)events, so_error, so_error ? g_strerror(so_error) : "unspecified");
+      snprintf(reason, sizeof(reason), "Socket event failure (events=0x%x SO_ERROR=%d: %s)", (unsigned)events, so_error, so_error ? g_strerror(so_error) :
+         "unspecified");
       reject(c, reason);
       goto done;
    }
@@ -419,7 +426,7 @@ static bool ready(int fd, GIOCondition events, void *arg) {
          goto done;
       }
       c->last_read_ms = mono_ms();
-      c->bytes_read += (guint64)n;
+      c->bytes_read += (guint64) n;
 
       if (memchr(c->http + c->http_len, 0, n)) {
          reject(c, "NUL in HTTP upgrade");
@@ -487,10 +494,12 @@ static bool ready(int fd, GIOCondition events, void *arg) {
          if (!c->tls_close_sent) {
             ERR_clear_error();
             int status = SSL_shutdown(c->ssl);
+
             if (status >= 0) {
-               c->tls_close_sent = true; /* status=0 means our close_notify was sent */
+               c->tls_close_sent = true;  /* status=0 means our close_notify was sent */
             } else {
                int error = SSL_get_error(c->ssl, status);
+
                if (error != SSL_ERROR_WANT_READ && error != SSL_ERROR_WANT_WRITE) {
                   reject(c, "TLS close_notify failed during graceful shutdown");
                } else {
@@ -498,15 +507,16 @@ static bool ready(int fd, GIOCondition events, void *arg) {
                }
             }
          }
-         if (c->tls_close_sent && !c->dead)
+
+         if (c->tls_close_sent && !c->dead) {
             reject(c, "Graceful WebSocket close and TLS close_notify sent");
+         }
       }
    }
 done:
 
    if ((events & G_IO_HUP) && !c->dead) {
-      reject(c, c->draining ? "Peer hangup during graceful close" :
-         "Socket hangup (G_IO_HUP) without completed WebSocket/TLS shutdown");
+      reject(c, c->draining ? "Peer hangup during graceful close" : "Socket hangup (G_IO_HUP) without completed WebSocket/TLS shutdown");
    }
    rr_mesh_wss_arm(c);
 
@@ -558,22 +568,15 @@ static gboolean maintenance(void *unused) {
             long long at = mono_ms();
             size_t ws_bytes = c->ws ? wslay_event_get_queued_msg_length(c->ws) : 0;
             size_t ws_frames = c->ws ? wslay_event_get_queued_msg_count(c->ws) : 0;
-            Log(graceful ? LOG_INFO : LOG_WARN, "mesh.native",
-                "Transport closed: peer=%s:%u authority=%s path=%s role=%s phase=%s "
-                "reason=%s ws_close_seen=%s ws_close_code=%u tls_shutdown=0x%x "
-                "alive=%lldms since_rx=%lldms since_tx=%lldms rx=%lluB tx=%lluB "
-                "queued=%zuB ws_frames=%zu",
-                c->ip[0] ? c->ip : "unknown", c->peer_port ? c->peer_port : c->port,
-                c->authority[0] ? c->authority : "inbound",
-                c->path[0] ? c->path : "unknown", c->client ? "outgoing" : "incoming",
-                c->open ? "websocket" : c->tls_done ? "http-upgrade" : "tls-handshake",
-                c->reason, c->websocket_close_seen ? "yes" : "no", c->websocket_close_code,
-                c->ssl ? SSL_get_shutdown(c->ssl) : 0,
-                at - c->started,
-                c->last_read_ms ? at - c->last_read_ms : -1LL,
-                c->last_write_ms ? at - c->last_write_ms : -1LL,
-                (unsigned long long)c->bytes_read, (unsigned long long)c->bytes_written,
-                c->tx_len + ws_bytes, ws_frames);
+            Log(graceful ? LOG_INFO : LOG_WARN, "mesh.native", "Transport closed: peer=%s:%u authority=%s path=%s role=%s phase=%s "
+               "reason=%s ws_close_seen=%s ws_close_code=%u tls_shutdown=0x%x "
+               "alive=%lldms since_rx=%lldms since_tx=%lldms rx=%lluB tx=%lluB "
+               "queued=%zuB ws_frames=%zu", c->ip[0] ? c->ip : "unknown", c->peer_port ? c->peer_port : c->port, c->authority[0] ? c->authority : "inbound", c->
+               path[0] ? c->path : "unknown", c->client ? "outgoing" : "incoming", c->open ? "websocket" : c->tls_done ? "http-upgrade" : "tls-handshake", c->
+               reason, c->websocket_close_seen ? "yes" : "no", c->websocket_close_code, c->ssl ? SSL_get_shutdown(c->ssl) : 0, at - c->started, c->last_read_ms
+               ? at - c->last_read_ms : -1LL, c->last_write_ms ? at - c->last_write_ms : -1LL, (unsigned long long)c->bytes_read, (unsigned long long)c->
+               bytes_written, c->tx_len + ws_bytes, ws_frames);
+
             if (graceful && c->websocket_close_seen) {
                const char notice[] = "Peer sent graceful WebSocket close";
                rr_transport_emit(c->transport, RR_TRANSPORT_EVENT_ERROR, NULL, notice, sizeof(notice) - 1);
@@ -878,33 +881,44 @@ void rr_mesh_wss_stop(void) {
    }
 
    size_t active = 0;
+
    for (struct mesh_wss *c = connections ; c ; c = c->next) {
       ++active;
       rr_transport_close(c->transport);
    }
+
    Log(LOG_INFO, "mesh.native", "Graceful shutdown: closing %zu native TLS/WebSocket connections", active);
 
-   /* The normal main loop has stopped: explicitly service the GLib/reactor
-    * context while close frames and TLS notifications drain. Never let a
-    * wedged peer prevent termination. */
+   /* The normal main loop has stopped: explicitly service the GLib/reactor context while close frames and TLS notifications drain. Never let a wedged peer
+    * prevent termination. */
    long long deadline = mono_ms() + 2500;
    while (connections && mono_ms() < deadline) {
-      while (g_main_context_pending(NULL))
+      while (g_main_context_pending(NULL)) {
          g_main_context_iteration(NULL, FALSE);
+      }
       rr_reactor_dispatch_ready(NULL);
       maintenance(NULL);
-      if (connections)
+
+      if (connections) {
          g_usleep(10000);
+      }
    }
-   if (connections)
+
+   if (connections) {
       Log(LOG_WARN, "mesh.native", "Graceful shutdown deadline exceeded; aborting remaining connections");
-   for (struct mesh_wss *c = connections ; c ; c = c->next)
+   }
+
+   for (struct mesh_wss *c = connections ; c ; c = c->next) {
       rr_mesh_wss_abort(c->transport, "Graceful shutdown timeout");
+   }
+
    while (connections) {
       maintenance(NULL);
+
       if (connections) {
-         while (g_main_context_pending(NULL))
+         while (g_main_context_pending(NULL)) {
             g_main_context_iteration(NULL, FALSE);
+         }
          rr_reactor_dispatch_ready(NULL);
       }
    }

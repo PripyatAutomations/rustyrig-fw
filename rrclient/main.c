@@ -324,8 +324,7 @@ time_t poll_block_expire = 0;   // Here we set this to now +
                                 // config:cat.poll-blocking to prevent rig
                                 // polling from sclearing local controls
 
-/* Text-mode receiver directory. All data comes from the local catalog.
- * Grouping, filtering and user marks mirror gtk.receiver-directory.c. */
+/* Text-mode receiver directory. All data comes from the local catalog. Grouping, filtering and user marks mirror gtk.receiver-directory.c. */
 typedef struct {
    size_t index;
    const char *country;
@@ -337,26 +336,26 @@ static GArray *tui_sdr_rows;
 static GHashTable *tui_sdr_expanded;
 static size_t tui_sdr_selected, tui_sdr_scroll;
 static bool tui_sdr_availability, tui_sdr_connected, tui_sdr_favorites;
-static bool tui_sdr_proxy_bridge; /* Off = use local rrbridge, as in GTK. */
+static bool tui_sdr_proxy_bridge;   /* Off = use local rrbridge, as in GTK. */
 static bool tui_sdr_info, tui_sdr_mark_menu, tui_sdr_search_active;
 static char tui_sdr_search[128];
 static char tui_sdr_message[256];
 static size_t tui_sdr_total, tui_sdr_matched;
 /* ANSI 16-color foreground/background combinations for dark terminals. */
-#define SDR_NORMAL   "\033[0m"
-#define SDR_TITLE    "\033[1;36m"
-#define SDR_GROUP    "\033[1;34m"
-#define SDR_HILITE   "\033[1;37;44m"
-#define SDR_BUTTON   "\033[1;37;44m"
-#define SDR_FOCUS    "\033[1;30;46m"
-#define SDR_ENABLED  "\033[1;30;102m"
-#define SDR_WARNING  "\033[1;33m"
-#define SDR_NAME     "\033[1;96m"
+#define SDR_NORMAL "\033[0m"
+#define SDR_TITLE "\033[1;36m"
+#define SDR_GROUP "\033[1;34m"
+#define SDR_HILITE "\033[1;37;44m"
+#define SDR_BUTTON "\033[1;37;44m"
+#define SDR_FOCUS "\033[1;30;46m"
+#define SDR_ENABLED "\033[1;30;102m"
+#define SDR_WARNING "\033[1;33m"
+#define SDR_NAME "\033[1;96m"
 #define SDR_LOCATION "\033[37m"
-#define SDR_USERS    "\033[1;93m"
-#define SDR_GOOD     "\033[1;92m"
-#define SDR_BAD      "\033[1;91m"
-#define SDR_MUTED    "\033[2;37m"
+#define SDR_USERS "\033[1;93m"
+#define SDR_GOOD "\033[1;92m"
+#define SDR_BAD "\033[1;91m"
+#define SDR_MUTED "\033[2;37m"
 static int tui_sdr_filter_start[4], tui_sdr_filter_end[4];
 static void tui_sdr_filters_changed(void) {
    /* Never retain a scroll offset into the old filtered row set. */
@@ -377,51 +376,75 @@ static const char *tui_sdr_country(const receiver_directory_entry_t *r) {
    return r && r->country && *r->country ? r->country : "Unknown";
 }
 static bool tui_sdr_is_connected(const receiver_directory_entry_t *r) {
-   return r && r->url && (rrclient_local_bridge_connected(r->url) ||
-                          rrclient_receiver_is_connected_any(r->url));
+   return r && r->url && (rrclient_local_bridge_connected(r->url) || rrclient_receiver_is_connected_any(r->url));
 }
 static bool tui_sdr_contains(const char *text, const char *needle) {
-   if (!text) return false;
+   if (!text) {
+      return false;
+   }
    char *lower = g_ascii_strdown(text, -1);
    bool found = g_strrstr(lower, needle) != NULL;
    g_free(lower);
+
    return found;
 }
 static bool tui_sdr_matches(const receiver_directory_entry_t *r) {
-   /* GTK shows deleted/stale catalog entries when Availability is off.
-    * Only the Availability predicate should hide them. */
-   if (!r) return false;
-   if (tui_sdr_availability && !receiver_directory_entry_accessible(r)) return false;
-   if (tui_sdr_connected && !tui_sdr_is_connected(r)) return false;
-   if (tui_sdr_favorites && !r->favorite) return false;
-   if (!tui_sdr_search[0]) return true;
+   /* GTK shows deleted/stale catalog entries when Availability is off. Only the Availability predicate should hide them. */
+   if (!r) {
+      return false;
+   }
+
+   if (tui_sdr_availability && !receiver_directory_entry_accessible(r)) {
+      return false;
+   }
+
+   if (tui_sdr_connected && !tui_sdr_is_connected(r)) {
+      return false;
+   }
+
+   if (tui_sdr_favorites && !r->favorite) {
+      return false;
+   }
+
+   if (!tui_sdr_search[0]) {
+      return true;
+   }
    char *needle = g_ascii_strdown(tui_sdr_search, -1);
-   const char *fields[] = {r->name, r->location, r->country, r->url,
-                            r->grid, r->contact, r->hardware, r->description, NULL};
+   const char *fields[] = {
+      r->name, r->location, r->country, r->url,
+      r->grid, r->contact, r->hardware, r->description, NULL
+   };
    bool match = false;
-   for (unsigned i = 0; i < G_N_ELEMENTS(fields) - 1; i++) {
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(fields) - 1 ; i++) {
       if (fields[i] && tui_sdr_contains(fields[i], needle)) {
-         match = true; break;
+         match = true;
+         break;
       }
    }
+
    g_free(needle);
+
    return match;
 }
 static gint tui_sdr_country_compare(gconstpointer av, gconstpointer bv) {
    const char *a = av, *b = bv;
+
    return g_ascii_strcasecmp(a, b);
 }
 static gint tui_sdr_entry_compare(gconstpointer av, gconstpointer bv) {
    const size_t a = *(const size_t *)av, b = *(const size_t *)bv;
    const receiver_directory_entry_t *ra = receiver_directory_receiver(a);
    const receiver_directory_entry_t *rb = receiver_directory_receiver(b);
-   int cmp = g_ascii_strcasecmp(ra && ra->location ? ra->location : "",
-                                 rb && rb->location ? rb->location : "");
-   return cmp ? cmp : g_ascii_strcasecmp(ra && ra->name ? ra->name : "",
-                                         rb && rb->name ? rb->name : "");
+   int cmp = g_ascii_strcasecmp(ra && ra->location ? ra->location : "", rb && rb->location ? rb->location : "");
+
+   return cmp ? cmp : g_ascii_strcasecmp(ra && ra->name ? ra->name : "", rb && rb->name ? rb->name : "");
 }
 static void tui_sdr_rebuild(void) {
-   if (!tui_sdr_rows) tui_sdr_rows = g_array_new(FALSE, FALSE, sizeof(tui_sdr_row_t));
+   if (!tui_sdr_rows) {
+      tui_sdr_rows = g_array_new(FALSE, FALSE, sizeof(tui_sdr_row_t));
+   }
+
    if (!tui_sdr_expanded) {
       tui_sdr_expanded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
       g_hash_table_add(tui_sdr_expanded, g_strdup("Connected SDRs"));
@@ -429,73 +452,118 @@ static void tui_sdr_rebuild(void) {
    g_array_set_size(tui_sdr_rows, 0);
    tui_sdr_total = receiver_directory_count();
    tui_sdr_matched = 0;
-   GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_array_unref);
+   GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) g_array_unref);
    GArray *connected = g_array_new(FALSE, FALSE, sizeof(size_t));
    GList *countries = NULL;
-   for (size_t i = 0, n = receiver_directory_count(); i < n; i++) {
+
+   for (size_t i = 0, n = receiver_directory_count() ; i < n ; i++) {
       const receiver_directory_entry_t *r = receiver_directory_receiver(i);
-      if (!tui_sdr_matches(r)) continue;
+
+      if (!tui_sdr_matches(r)) {
+         continue;
+      }
       tui_sdr_matched++;
       const char *country = tui_sdr_country(r);
       GArray *indices = g_hash_table_lookup(groups, country);
+
       if (!indices) {
          indices = g_array_new(FALSE, FALSE, sizeof(size_t));
          g_hash_table_insert(groups, g_strdup(country), indices);
          countries = g_list_prepend(countries, g_strdup(country));
       }
       g_array_append_val(indices, i);
-      if (tui_sdr_is_connected(r)) g_array_append_val(connected, i);
+
+      if (tui_sdr_is_connected(r)) {
+         g_array_append_val(connected, i);
+      }
    }
+
    if (connected->len) {
       g_array_sort(connected, tui_sdr_entry_compare);
-      tui_sdr_row_t header = {.group = true, .connected = true, .country = "Connected SDRs", .count = connected->len};
+      tui_sdr_row_t header = {
+         .group = true, .connected = true, .country = "Connected SDRs", .count = connected->len
+      };
       g_array_append_val(tui_sdr_rows, header);
+
       if (g_hash_table_contains(tui_sdr_expanded, "Connected SDRs")) {
-         for (unsigned j = 0; j < connected->len; j++) {
-            tui_sdr_row_t row = {.index = g_array_index(connected, size_t, j), .connected = true};
+         for (unsigned j = 0 ; j < connected->len ; j++) {
+            tui_sdr_row_t row = {
+               .index = g_array_index(connected, size_t, j), .connected = true
+            };
             g_array_append_val(tui_sdr_rows, row);
          }
       }
    }
    countries = g_list_sort(countries, tui_sdr_country_compare);
-   for (GList *c = countries; c; c = c->next) {
+
+   for (GList *c = countries ; c ; c = c->next) {
       const char *country = c->data;
       GArray *indices = g_hash_table_lookup(groups, country);
-      if (!indices) continue;
+
+      if (!indices) {
+         continue;
+      }
       g_array_sort(indices, tui_sdr_entry_compare);
-      tui_sdr_row_t header = {.group = true, .country = country, .count = indices->len};
-      /* Store country strings in the persistent collapse table's separate key
-       * namespace before releasing temporary country names. */
+      tui_sdr_row_t header = {
+         .group = true, .country = country, .count = indices->len
+      };
+      /* Store country strings in the persistent collapse table's separate key namespace before releasing temporary country names. */
       header.country = g_intern_string(country);
       g_array_append_val(tui_sdr_rows, header);
-      if (!g_hash_table_contains(tui_sdr_expanded, country)) continue;
-      for (unsigned j = 0; j < indices->len; j++) {
-         tui_sdr_row_t row = {.index = g_array_index(indices, size_t, j)};
+
+      if (!g_hash_table_contains(tui_sdr_expanded, country)) {
+         continue;
+      }
+
+      for (unsigned j = 0 ; j < indices->len ; j++) {
+         tui_sdr_row_t row = {
+            .index = g_array_index(indices, size_t, j)
+         };
          g_array_append_val(tui_sdr_rows, row);
       }
    }
+
    g_list_free_full(countries, g_free);
    g_array_unref(connected);
    g_hash_table_unref(groups);
-   if (!tui_sdr_rows->len) tui_sdr_selected = tui_sdr_scroll = 0;
-   else if (tui_sdr_selected >= tui_sdr_rows->len) tui_sdr_selected = tui_sdr_rows->len - 1;
+
+   if (!tui_sdr_rows->len) {
+      tui_sdr_selected = tui_sdr_scroll = 0;
+   } else if (tui_sdr_selected >= tui_sdr_rows->len) {
+      tui_sdr_selected = tui_sdr_rows->len - 1;
+   }
    int height = tui_rows() - 6;
-   if (height < 1) height = 1;
-   if (tui_sdr_scroll >= tui_sdr_rows->len) tui_sdr_scroll = 0;
-   if (tui_sdr_selected < tui_sdr_scroll) tui_sdr_scroll = tui_sdr_selected;
-   if (tui_sdr_selected >= tui_sdr_scroll + (size_t)height)
+
+   if (height < 1) {
+      height = 1;
+   }
+
+   if (tui_sdr_scroll >= tui_sdr_rows->len) {
+      tui_sdr_scroll = 0;
+   }
+
+   if (tui_sdr_selected < tui_sdr_scroll) {
+      tui_sdr_scroll = tui_sdr_selected;
+   }
+
+   if (tui_sdr_selected >= tui_sdr_scroll + (size_t)height) {
       tui_sdr_scroll = tui_sdr_selected - (size_t)height + 1;
+   }
 }
 static tui_sdr_row_t *tui_sdr_current_row(void) {
-   if (!tui_sdr_rows || tui_sdr_selected >= tui_sdr_rows->len) return NULL;
+   if (!tui_sdr_rows || tui_sdr_selected >= tui_sdr_rows->len) {
+      return NULL;
+   }
+
    return &g_array_index(tui_sdr_rows, tui_sdr_row_t, tui_sdr_selected);
 }
 static const receiver_directory_entry_t *tui_sdr_current(void) {
    tui_sdr_row_t *row = tui_sdr_current_row();
+
    return row && !row->group ? receiver_directory_receiver(row->index) : NULL;
 }
 static void tui_sdr_safe_text(const char *s, int width) {
-   for (int i = 0; i < width && s && s[i]; i++) {
+   for (int i = 0 ; i < width && s && s[i] ; i++) {
       unsigned char c = (unsigned char)s[i];
       putchar(c >= 32 && c < 127 ? c : ' ');
    }
@@ -504,23 +572,29 @@ static void tui_sdr_line(int row, const char *label, const char *value) {
    printf("\033[%d;1H%-18s ", row, label);
    tui_sdr_safe_text(value, tui_cols() - 21);
 }
-enum { SDR_BTN_BACK, SDR_BTN_CONNECT, SDR_BTN_INFO, SDR_BTN_MARK, SDR_BTN_FAVORITE, SDR_BTN_REFRESH, SDR_BTN_RESET, SDR_BTN_COUNT };
-static int tui_sdr_button_focus = -1; /* -1 = receiver tree */
+
+enum {
+   SDR_BTN_BACK, SDR_BTN_CONNECT, SDR_BTN_INFO, SDR_BTN_MARK, SDR_BTN_FAVORITE, SDR_BTN_REFRESH, SDR_BTN_RESET, SDR_BTN_COUNT
+};
+static int tui_sdr_button_focus = -1;  /* -1 = receiver tree */
 static int tui_sdr_button_start[SDR_BTN_COUNT], tui_sdr_button_end[SDR_BTN_COUNT];
 static int tui_sdr_mark_focus;
 static int tui_sdr_mark_start[5], tui_sdr_mark_end[5];
 static const char *tui_sdr_mark_labels[] = {
    "Unreachable", "Restricted", "Good", "Clear", "Cancel"
 };
+
 static const char *tui_sdr_mark_values[] = {
    "unreachable", "restricted", "good", "unknown", NULL
 };
 static void tui_sdr_draw_mark_buttons(int row, int cols) {
    int col = 1;
    printf("\033[%d;1H\033[K", row);
-   for (unsigned i = 0; i < G_N_ELEMENTS(tui_sdr_mark_labels); i++) {
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(tui_sdr_mark_labels) ; i++) {
       int width = (int)strlen(tui_sdr_mark_labels[i]) + 2;
       tui_sdr_mark_start[i] = tui_sdr_mark_end[i] = 0;
+
       if (col + width - 1 <= cols) {
          tui_sdr_mark_start[i] = col;
          tui_sdr_mark_end[i] = col + width - 1;
@@ -536,28 +610,49 @@ static void tui_sdr_draw_mark_buttons(int row, int cols) {
 
 static const char *tui_sdr_button_label(int button) {
    const receiver_directory_entry_t *r = tui_sdr_current();
+
    switch (button) {
-      case SDR_BTN_BACK: return "Back";
-      case SDR_BTN_CONNECT: return r && tui_sdr_is_connected(r) ? "Disconnect" : "Connect";
-      case SDR_BTN_INFO: return "Info";
-      case SDR_BTN_MARK: return "Mark";
-      case SDR_BTN_FAVORITE: return r && r->favorite ? "Unfavorite" : "Favorite";
-      case SDR_BTN_REFRESH: return "Refresh";
-      case SDR_BTN_RESET: return "Reset filters";
-      default: return "";
+      case SDR_BTN_BACK: {
+         return "Back";
+      }
+      case SDR_BTN_CONNECT: {
+         return r && tui_sdr_is_connected(r) ? "Disconnect" : "Connect";
+      }
+      case SDR_BTN_INFO: {
+         return "Info";
+      }
+      case SDR_BTN_MARK: {
+         return "Mark";
+      }
+      case SDR_BTN_FAVORITE: {
+         return r && r->favorite ? "Unfavorite" : "Favorite";
+      }
+      case SDR_BTN_REFRESH: {
+         return "Refresh";
+      }
+      case SDR_BTN_RESET: {
+         return "Reset filters";
+      }
+      default: {
+         return "";
+      }
    }
 }
 static void tui_sdr_draw_buttons(int row, int cols) {
    int col = 1;
    printf("\033[%d;1H\033[K", row);
-   for (int i = 0; i < SDR_BTN_COUNT; i++) {
+
+   for (int i = 0 ; i < SDR_BTN_COUNT ; i++) {
       tui_sdr_button_start[i] = tui_sdr_button_end[i] = 0;
-      if ((i == SDR_BTN_BACK && !tui_sdr_info) ||
-          (i == SDR_BTN_INFO && tui_sdr_info)) continue;
+
+      if ((i == SDR_BTN_BACK && !tui_sdr_info) || (i == SDR_BTN_INFO && tui_sdr_info)) {
+         continue;
+      }
       const char *label = tui_sdr_button_label(i);
       int width = (int)strlen(label) + 2;
       tui_sdr_button_start[i] = col;
       tui_sdr_button_end[i] = col + width - 1;
+
       if (col + width - 1 > cols) {
          tui_sdr_button_start[i] = tui_sdr_button_end[i] = 0;
       } else {
@@ -570,31 +665,39 @@ static void tui_sdr_draw_buttons(int row, int cols) {
    }
 }
 static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
-   (void)w; (void)data;
+   (void)w;
+   (void)data;
    tui_sdr_rebuild();
-   printf("\033[2;1H" SDR_TITLE "Search:" SDR_NORMAL " %s%s\033[K",
-          tui_sdr_search, tui_sdr_search_active ? "_" : "  (/ to edit)");
+   printf("\033[2;1H" SDR_TITLE "Search:" SDR_NORMAL " %s%s\033[K", tui_sdr_search, tui_sdr_search_active ? "_" : "  (/ to edit)");
    printf("\033[3;1H\033[K");
    int filter_col = 1;
-   const char *filters[] = {"Availability", "Connected", "Favorites", "Proxy rrbridge"};
-   const bool enabled[] = {tui_sdr_availability, tui_sdr_connected, tui_sdr_favorites,
-                           tui_sdr_proxy_bridge};
-   for (int i = 0; i < 4; i++) {
+   const char *filters[] = {
+      "Availability", "Connected", "Favorites", "Proxy rrbridge"
+   };
+   const bool enabled[] = {
+      tui_sdr_availability, tui_sdr_connected, tui_sdr_favorites,
+      tui_sdr_proxy_bridge
+   };
+
+   for (int i = 0 ; i < 4 ; i++) {
       int width = (int)strlen(filters[i]) + 4;
       tui_sdr_filter_start[i] = tui_sdr_filter_end[i] = 0;
+
       if (filter_col + width - 1 <= cols) {
          tui_sdr_filter_start[i] = filter_col;
          tui_sdr_filter_end[i] = filter_col + width - 1;
-         printf("\033[3;%dH%s[%c] %s" SDR_NORMAL, filter_col,
-                enabled[i] ? SDR_ENABLED : SDR_BUTTON, enabled[i] ? 'x' : ' ', filters[i]);
+         printf("\033[3;%dH%s[%c] %s" SDR_NORMAL, filter_col, enabled[i] ? SDR_ENABLED : SDR_BUTTON, enabled[i] ? 'x' : ' ', filters[i]);
       }
       filter_col += width + 2;
    }
-   if (filter_col + 19 <= cols)
-      printf("\033[3;%dH" SDR_TITLE "%zu / %zu receivers" SDR_NORMAL, filter_col,
-             tui_sdr_matched, tui_sdr_total);
+
+   if (filter_col + 19 <= cols) {
+      printf("\033[3;%dH" SDR_TITLE "%zu / %zu receivers" SDR_NORMAL, filter_col, tui_sdr_matched, tui_sdr_total);
+   }
+
    if (tui_sdr_info) {
       const receiver_directory_entry_t *r = tui_sdr_current();
+
       if (r) {
          tui_sdr_line(4, "Name:", r->name);
          tui_sdr_line(5, "URL:", r->url);
@@ -606,30 +709,40 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
          tui_sdr_line(11, "Description:", r->description);
          tui_sdr_line(12, "Local report:", r->local_state);
          tui_sdr_line(13, "Reason:", r->local_reason);
-         printf("\033[14;1H Users: %d/%d   API channels: %d   Range: %llu-%llu Hz",
-                r->users, r->users_max, r->ext_api,
-                (unsigned long long)r->low_hz, (unsigned long long)r->high_hz);
+         printf("\033[14;1H Users: %d/%d   API channels: %d   Range: %llu-%llu Hz", r->users, r->users_max, r->ext_api, (unsigned long long)r->low_hz, (unsigned
+            long long)r->high_hz);
       } else {
          tui_sdr_line(4, "Info:", "Select a receiver first.");
       }
    } else {
-      printf("\033[4;1H" SDR_TITLE "    %-26s %-26s %-8s %-12s" SDR_NORMAL,
-             "Receiver / Country", "Location", "Users", "Status");
+      printf("\033[4;1H" SDR_TITLE "    %-26s %-26s %-8s %-12s" SDR_NORMAL, "Receiver / Country", "Location", "Users", "Status");
+
       if (!tui_sdr_rows->len) {
          printf("\033[5;1H" SDR_WARNING);
-         if (tui_sdr_total == 0)
+
+         if (tui_sdr_total == 0) {
             fputs("Directory cache is empty. Try Refresh.", stdout);
-         else
+         } else {
             printf("No receivers match these filters (%zu cached). Press 0 or Reset filters.", tui_sdr_total);
+         }
          fputs(SDR_NORMAL, stdout);
       }
-      for (int y = 5; y < rows - 1; y++) {
+
+      for (int y = 5 ; y < rows - 1 ; y++) {
          size_t i = tui_sdr_scroll + (size_t)(y - 5);
-         if (i >= tui_sdr_rows->len) break;
+
+         if (i >= tui_sdr_rows->len) {
+            break;
+         }
          tui_sdr_row_t *item = &g_array_index(tui_sdr_rows, tui_sdr_row_t, i);
          printf("\033[%d;1H", y);
-         if (i == tui_sdr_selected) fputs(SDR_HILITE, stdout);
-         else if (item->group) fputs(SDR_GROUP, stdout);
+
+         if (i == tui_sdr_selected) {
+            fputs(SDR_HILITE, stdout);
+         } else if (item->group) {
+            fputs(SDR_GROUP, stdout);
+         }
+
          if (item->group) {
             bool collapsed = !g_hash_table_contains(tui_sdr_expanded, item->country);
             printf(" %c  ", collapsed ? '+' : '-');
@@ -637,25 +750,38 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
             printf(" (%u)", item->count);
          } else {
             const receiver_directory_entry_t *r = receiver_directory_receiver(item->index);
+
             if (r) {
                bool selected = i == tui_sdr_selected;
                const char *state = tui_sdr_is_connected(r) ? "Connected" :
-                      r->local_state && strcmp(r->local_state, "unknown") ? r->local_state :
-                      r->flagged ? "Flagged" : r->offline ? "Offline" : "Not tested";
+                  r->local_state && strcmp(r->local_state, "unknown") ? r->local_state : r->flagged ? "Flagged" : r->offline ? "Offline" : "Not tested";
                bool good = tui_sdr_is_connected(r) || !g_ascii_strcasecmp(state, "good");
-               bool bad = r->flagged || r->offline ||
-                  !g_ascii_strcasecmp(state, "restricted") ||
-                  !g_ascii_strcasecmp(state, "unreachable");
+               bool bad = r->flagged || r->offline || !g_ascii_strcasecmp(state, "restricted") || !g_ascii_strcasecmp(state, "unreachable");
                printf("    ");
-               if (!selected) fputs(SDR_NAME, stdout);
+
+               if (!selected) {
+                  fputs(SDR_NAME, stdout);
+               }
                tui_sdr_safe_text(r->name && *r->name ? r->name : r->url, 26);
-               if (!selected) fputs(SDR_NORMAL, stdout);
+
+               if (!selected) {
+                  fputs(SDR_NORMAL, stdout);
+               }
                printf(" ");
-               if (!selected) fputs(SDR_LOCATION, stdout);
+
+               if (!selected) {
+                  fputs(SDR_LOCATION, stdout);
+               }
                tui_sdr_safe_text(r->location, 26);
-               if (!selected) fputs(SDR_NORMAL SDR_USERS, stdout);
+
+               if (!selected) {
+                  fputs(SDR_NORMAL SDR_USERS, stdout);
+               }
                printf(" %2d/%-3d  ", r->users, r->users_max);
-               if (!selected) fputs(good ? SDR_GOOD : bad ? SDR_BAD : SDR_MUTED, stdout);
+
+               if (!selected) {
+                  fputs(good ? SDR_GOOD : bad ? SDR_BAD : SDR_MUTED, stdout);
+               }
                printf("%-12.12s", state);
             }
          }
@@ -663,8 +789,12 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
       }
    }
    int action_row = rows - 1;
-   if (tui_sdr_mark_menu) tui_sdr_draw_mark_buttons(action_row, cols);
-   else tui_sdr_draw_buttons(action_row, cols);
+
+   if (tui_sdr_mark_menu) {
+      tui_sdr_draw_mark_buttons(action_row, cols);
+   } else {
+      tui_sdr_draw_buttons(action_row, cols);
+   }
    const char *message = tui_sdr_message[0] ? tui_sdr_message : receiver_directory_status();
    printf("\033[%d;1H", rows);
    tui_sdr_safe_text(message, cols - 1);
@@ -672,113 +802,158 @@ static void tui_sdr_draw(tui_window_t *w, int rows, int cols, void *data) {
 }
 static void tui_sdr_connect(void) {
    const receiver_directory_entry_t *r = tui_sdr_current();
-   if (!r || !r->url) return;
+
+   if (!r || !r->url) {
+      return;
+   }
+
    if (rrclient_local_bridge_connected(r->url)) {
       rrclient_local_bridge_disconnect_url(r->url);
+
       return;
    }
+
    if (rrclient_receiver_is_connected(r->url)) {
       rrclient_receiver_disconnect(r->url);
+
       return;
    }
+
    if (!receiver_directory_entry_accessible(r)) {
       g_strlcpy(tui_sdr_message, "Receiver is restricted or flagged; see Info.", sizeof(tui_sdr_message));
+
       return;
    }
+
    if (tui_sdr_proxy_bridge) {
       if (!rrclient_receiver_connect(r->url, false)) {
-         g_strlcpy(tui_sdr_message,
-            "Unable to start proxy rrbridge: select an authenticated RustyRig server.",
-            sizeof(tui_sdr_message));
+         g_strlcpy(tui_sdr_message, "Unable to start proxy rrbridge: select an authenticated RustyRig server.", sizeof(tui_sdr_message));
       } else {
-         g_strlcpy(tui_sdr_message, "Requesting remote SDR bridge...",
-                    sizeof(tui_sdr_message));
+         g_strlcpy(tui_sdr_message, "Requesting remote SDR bridge...", sizeof(tui_sdr_message));
       }
+
       return;
    }
+
    /* Local rrbridge is the default, with no rrserver required. */
-   if (!rrclient_local_bridge_connect_driver(r->url,
-         r->driver && *r->driver ? r->driver : "kiwi")) {
-      g_strlcpy(tui_sdr_message,
-         "Unable to start local rrbridge (check executable/module and Client Log).",
-         sizeof(tui_sdr_message));
+   if (!rrclient_local_bridge_connect_driver(r->url, r->driver && *r->driver ? r->driver : "kiwi")) {
+      g_strlcpy(tui_sdr_message, "Unable to start local rrbridge (check executable/module and Client Log).", sizeof(tui_sdr_message));
    } else {
-      g_strlcpy(tui_sdr_message, "Starting local SDR bridge...",
-                sizeof(tui_sdr_message));
+      g_strlcpy(tui_sdr_message, "Starting local SDR bridge...", sizeof(tui_sdr_message));
    }
 }
 static void tui_sdr_mark(const char *state) {
    const receiver_directory_entry_t *r = tui_sdr_current();
-   if (r && r->url) receiver_directory_set_state(r->url, state,
-         !strcmp(state, "unknown") ? "" : "User report; receiver was not probed");
+
+   if (r && r->url) {
+      receiver_directory_set_state(r->url, state, !strcmp(state, "unknown") ? "" : "User report; receiver was not probed");
+   }
    tui_sdr_mark_menu = false;
 }
 static void tui_sdr_mark_activate(int option) {
-   if (option >= 0 && option < 4) tui_sdr_mark(tui_sdr_mark_values[option]);
-   else tui_sdr_mark_menu = false;
+   if (option >= 0 && option < 4) {
+      tui_sdr_mark(tui_sdr_mark_values[option]);
+   } else {
+      tui_sdr_mark_menu = false;
+   }
 }
 static void tui_sdr_button_activate(int button) {
    const receiver_directory_entry_t *r = tui_sdr_current();
+
    switch (button) {
-      case SDR_BTN_BACK:
+      case SDR_BTN_BACK: {
          tui_sdr_info = false;
          tui_sdr_button_focus = -1;
          break;
-      case SDR_BTN_CONNECT: tui_sdr_connect(); break;
-      case SDR_BTN_INFO:
+      }
+      case SDR_BTN_CONNECT: {
+         tui_sdr_connect();
+         break;
+      }
+      case SDR_BTN_INFO: {
          if (r) {
             tui_sdr_info = true;
             tui_sdr_button_focus = SDR_BTN_BACK;
          }
          break;
-      case SDR_BTN_MARK:
+      }
+      case SDR_BTN_MARK: {
          if (r) {
             tui_sdr_mark_menu = true;
             tui_sdr_mark_focus = 0;
          }
          break;
-      case SDR_BTN_FAVORITE:
-         if (r && r->url) receiver_directory_set_favorite(r->url, !r->favorite);
+      }
+      case SDR_BTN_FAVORITE: {
+         if (r && r->url) {
+            receiver_directory_set_favorite(r->url, !r->favorite);
+         }
          break;
-      case SDR_BTN_REFRESH: receiver_directory_refresh(); break;
-      case SDR_BTN_RESET: tui_sdr_clear_filters(); break;
+      }
+      case SDR_BTN_REFRESH: {
+         receiver_directory_refresh();
+         break;
+      }
+      case SDR_BTN_RESET: {
+         tui_sdr_clear_filters();
+         break;
+      }
    }
 }
 static void tui_sdr_activate(void) {
    tui_sdr_row_t *row = tui_sdr_current_row();
-   if (!row) return;
+
+   if (!row) {
+      return;
+   }
+
    if (row->group) {
-      if (g_hash_table_contains(tui_sdr_expanded, row->country))
+      if (g_hash_table_contains(tui_sdr_expanded, row->country)) {
          g_hash_table_remove(tui_sdr_expanded, row->country);
-      else g_hash_table_add(tui_sdr_expanded, g_strdup(row->country));
+      } else {
+         g_hash_table_add(tui_sdr_expanded, g_strdup(row->country));
+      }
       tui_sdr_rebuild();
-   } else tui_sdr_connect();
+   } else {
+      tui_sdr_connect();
+   }
 }
 static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data) {
-   (void)w; (void)data;
+   (void)w;
+   (void)data;
+
    /* Escape returns from receiver details without leaving the directory. */
-   if (tui_sdr_info && !tui_sdr_mark_menu &&
-       (key == TERMKEY_SYM_ESCAPE || key == 27)) {
+   if (tui_sdr_info && !tui_sdr_mark_menu && (key == TERMKEY_SYM_ESCAPE || key == 27)) {
       tui_sdr_button_activate(SDR_BTN_BACK);
+
       return true;
    }
-   if (tui_sdr_search_active && (key == TERMKEY_SYM_TAB || key == '\t')) tui_sdr_search_active = false;
-   else if (tui_sdr_search_active) {
+
+   if (tui_sdr_search_active && (key == TERMKEY_SYM_TAB || key == '\t')) {
+      tui_sdr_search_active = false;
+   } else if (tui_sdr_search_active) {
       size_t len = strlen(tui_sdr_search);
+
       if (key == TERMKEY_SYM_ENTER || key == 10 || key == 27) {
          tui_sdr_search_active = false;
       } else if (key == TERMKEY_SYM_BACKSPACE || key == 127 || key == 8) {
-         if (len) tui_sdr_search[len - 1] = 0;
+         if (len) {
+            tui_sdr_search[len - 1] = 0;
+         }
       } else if (key == '/' && len == 0) {
          /* '/' opens search; repeated slashes must not become a prefix. */
       } else if (key >= 32 && key < 127 && len + 1 < sizeof(tui_sdr_search)) {
          tui_sdr_search[len] = (char)key;
          tui_sdr_search[len + 1] = 0;
-      } else return true;
+      } else {
+         return true;
+      }
       tui_sdr_filters_changed();
       tui_sdr_rebuild();
+
       return true;
    }
+
    if (tui_sdr_mark_menu) {
       if (key == TERMKEY_SYM_TAB || key == '\t') {
          int direction = mods & TERMKEY_KEYMOD_SHIFT ? -1 : 1;
@@ -790,53 +965,86 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
       } else if (key == 27 || key == TERMKEY_SYM_ESCAPE) {
          tui_sdr_mark_menu = false;
       }
+
       return true;
    }
+
    if (key == TERMKEY_SYM_TAB || key == '\t') {
       int step = (mods & TERMKEY_KEYMOD_SHIFT) ? -1 : 1;
       int next = tui_sdr_button_focus;
       do {
          next += step;
-         if (next >= SDR_BTN_COUNT) next = -1;
-         if (next < -1) next = SDR_BTN_COUNT - 1;
-      } while ((next == SDR_BTN_BACK && !tui_sdr_info) ||
-               (next == SDR_BTN_INFO && tui_sdr_info));
+
+         if (next >= SDR_BTN_COUNT) {
+            next = -1;
+         }
+
+         if (next < -1) {
+            next = SDR_BTN_COUNT - 1;
+         }
+      } while ((next == SDR_BTN_BACK && !tui_sdr_info) || (next == SDR_BTN_INFO && tui_sdr_info));
       tui_sdr_button_focus = next;
+
       return true;
    }
-   if (mods) return false;
+
+   if (mods) {
+      return false;
+   }
    size_t count = tui_sdr_rows ? tui_sdr_rows->len : 0;
+
    if (key == TERMKEY_SYM_UP) {
-      if (tui_sdr_selected) tui_sdr_selected--;
+      if (tui_sdr_selected) {
+         tui_sdr_selected--;
+      }
    } else if (key == TERMKEY_SYM_DOWN) {
-      if (count && tui_sdr_selected + 1 < count) tui_sdr_selected++;
+      if (count && tui_sdr_selected + 1 < count) {
+         tui_sdr_selected++;
+      }
    } else if (key == TERMKEY_SYM_PAGEUP) {
       size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
       tui_sdr_selected = tui_sdr_selected > page ? tui_sdr_selected - page : 0;
    } else if (key == TERMKEY_SYM_PAGEDOWN) {
       size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
-      if (count) tui_sdr_selected = page < count - 1 - tui_sdr_selected ? tui_sdr_selected + page : count - 1;
+
+      if (count) {
+         tui_sdr_selected = page < count - 1 - tui_sdr_selected ? tui_sdr_selected + page : count - 1;
+      }
    } else if (key == TERMKEY_SYM_ENTER || key == 10 || key == ' ') {
-      if (tui_sdr_button_focus >= 0) tui_sdr_button_activate(tui_sdr_button_focus);
-      else if (tui_sdr_info) tui_sdr_info = false;
-      else tui_sdr_activate();
+      if (tui_sdr_button_focus >= 0) {
+         tui_sdr_button_activate(tui_sdr_button_focus);
+      } else if (tui_sdr_info) {
+         tui_sdr_info = false;
+      } else {
+         tui_sdr_activate();
+      }
    } else if (key == '/') {
       tui_sdr_search_active = true;
    } else if (key == 'i' || key == 'I') {
-      if (!tui_sdr_info) tui_sdr_button_activate(SDR_BTN_INFO);
+      if (!tui_sdr_info) {
+         tui_sdr_button_activate(SDR_BTN_INFO);
+      }
    } else if (key == 'm' || key == 'M') {
-      if (tui_sdr_current()) tui_sdr_button_activate(SDR_BTN_MARK);
+      if (tui_sdr_current()) {
+         tui_sdr_button_activate(SDR_BTN_MARK);
+      }
    } else if (key == 'f' || key == 'F') {
       const receiver_directory_entry_t *r = tui_sdr_current();
-      if (r) receiver_directory_set_favorite(r->url, !r->favorite);
+
+      if (r) {
+         receiver_directory_set_favorite(r->url, !r->favorite);
+      }
    } else if (key == 'r' || key == 'R') {
       receiver_directory_refresh();
    } else if (key == 'a' || key == 'A') {
-      tui_sdr_availability = !tui_sdr_availability; tui_sdr_filters_changed();
+      tui_sdr_availability = !tui_sdr_availability;
+      tui_sdr_filters_changed();
    } else if (key == 'c' || key == 'C') {
-      tui_sdr_connected = !tui_sdr_connected; tui_sdr_filters_changed();
+      tui_sdr_connected = !tui_sdr_connected;
+      tui_sdr_filters_changed();
    } else if (key == 'v' || key == 'V') {
-      tui_sdr_favorites = !tui_sdr_favorites; tui_sdr_filters_changed();
+      tui_sdr_favorites = !tui_sdr_favorites;
+      tui_sdr_filters_changed();
    } else if (key == 'p' || key == 'P') {
       tui_sdr_proxy_bridge = !tui_sdr_proxy_bridge;
    } else if (key == '0') {
@@ -845,44 +1053,67 @@ static bool tui_sdr_key(tui_window_t *w, unsigned key, unsigned mods, void *data
       return false;
    }
    tui_sdr_rebuild();
+
    return true;
 }
-static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button,
-                          int action, unsigned mods, void *data) {
-   (void)w; (void)mods; (void)data;
-   if (action != TERMKEY_MOUSE_PRESS) return false;
+static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button, int action, unsigned mods, void *data) {
+   (void)w;
+   (void)mods;
+   (void)data;
+
+   if (action != TERMKEY_MOUSE_PRESS) {
+      return false;
+   }
+
    if (button == 4 || button == 5) {
-      if (button == 4 && tui_sdr_selected) tui_sdr_selected--;
-      if (button == 5 && tui_sdr_rows && tui_sdr_selected + 1 < tui_sdr_rows->len) tui_sdr_selected++;
-   } else if (button != 1) return false;
-   else if (row == 2) {
+      if (button == 4 && tui_sdr_selected) {
+         tui_sdr_selected--;
+      }
+
+      if (button == 5 && tui_sdr_rows && tui_sdr_selected + 1 < tui_sdr_rows->len) {
+         tui_sdr_selected++;
+      }
+   } else if (button != 1) {
+      return false;
+   } else if (row == 2) {
       tui_sdr_search_active = true;
    } else if (row == 3) {
       int filter = -1;
-      for (int i = 0; i < 4; i++) {
-         if (tui_sdr_filter_start[i] && col >= tui_sdr_filter_start[i] &&
-             col <= tui_sdr_filter_end[i]) { filter = i; break; }
+
+      for (int i = 0 ; i < 4 ; i++) {
+         if (tui_sdr_filter_start[i] && col >= tui_sdr_filter_start[i] && col <= tui_sdr_filter_end[i]) {
+            filter = i;
+            break;
+         }
       }
-      if (filter == 0) tui_sdr_availability = !tui_sdr_availability;
-      else if (filter == 1) tui_sdr_connected = !tui_sdr_connected;
-      else if (filter == 2) tui_sdr_favorites = !tui_sdr_favorites;
-      else if (filter == 3) tui_sdr_proxy_bridge = !tui_sdr_proxy_bridge;
-      else return false;
-      if (filter < 3) tui_sdr_filters_changed();
+
+      if (filter == 0) {
+         tui_sdr_availability = !tui_sdr_availability;
+      } else if (filter == 1) {
+         tui_sdr_connected = !tui_sdr_connected;
+      } else if (filter == 2) {
+         tui_sdr_favorites = !tui_sdr_favorites;
+      } else if (filter == 3) {
+         tui_sdr_proxy_bridge = !tui_sdr_proxy_bridge;
+      } else {
+         return false;
+      }
+
+      if (filter < 3) {
+         tui_sdr_filters_changed();
+      }
    } else if (row == tui_rows() - 1) {
       if (tui_sdr_mark_menu) {
-         for (int i = 0; i < 5; i++) {
-            if (tui_sdr_mark_start[i] && col >= tui_sdr_mark_start[i] &&
-                col <= tui_sdr_mark_end[i]) {
+         for (int i = 0 ; i < 5 ; i++) {
+            if (tui_sdr_mark_start[i] && col >= tui_sdr_mark_start[i] && col <= tui_sdr_mark_end[i]) {
                tui_sdr_mark_focus = i;
                tui_sdr_mark_activate(i);
                break;
             }
          }
       } else {
-         for (int i = 0; i < SDR_BTN_COUNT; i++) {
-            if (tui_sdr_button_start[i] && col >= tui_sdr_button_start[i] &&
-                col <= tui_sdr_button_end[i]) {
+         for (int i = 0 ; i < SDR_BTN_COUNT ; i++) {
+            if (tui_sdr_button_start[i] && col >= tui_sdr_button_start[i] && col <= tui_sdr_button_end[i]) {
                tui_sdr_button_focus = i;
                tui_sdr_button_activate(i);
                break;
@@ -891,14 +1122,21 @@ static bool tui_sdr_mouse(tui_window_t *w, int row, int col, int button,
       }
    } else if (!tui_sdr_info && row >= 5 && row < tui_rows() - 1) {
       size_t i = tui_sdr_scroll + (size_t)(row - 5);
+
       if (tui_sdr_rows && i < tui_sdr_rows->len) {
          tui_sdr_selected = i;
          tui_sdr_button_focus = -1;
          tui_sdr_row_t *item = tui_sdr_current_row();
-         if (item && item->group && col <= 4) tui_sdr_activate();
+
+         if (item && item->group && col <= 4) {
+            tui_sdr_activate();
+         }
       }
-   } else return false;
+   } else {
+      return false;
+   }
    tui_sdr_rebuild();
+
    return true;
 }
 
@@ -917,7 +1155,10 @@ static char tui_server_notice[160];
 
 static void tui_server_entry_free(gpointer item) {
    tui_server_entry_t *entry = item;
-   if (!entry) return;
+
+   if (!entry) {
+      return;
+   }
    g_free(entry->name);
    g_free(entry->url);
    g_free(entry);
@@ -925,35 +1166,47 @@ static void tui_server_entry_free(gpointer item) {
 static gint tui_server_entry_cmp(gconstpointer ap, gconstpointer bp) {
    const tui_server_entry_t *a = *(tui_server_entry_t * const *)ap;
    const tui_server_entry_t *b = *(tui_server_entry_t * const *)bp;
+
    return g_ascii_strcasecmp(a->name, b->name);
 }
 static void tui_server_reload(void) {
-   if (!tui_server_entries)
+   if (!tui_server_entries) {
       tui_server_entries = g_ptr_array_new_with_free_func(tui_server_entry_free);
+   }
    g_ptr_array_set_size(tui_server_entries, 0);
    int rank = 0;
    const char *key;
    char *url;
    while ((rank = dict_enumerate(cfg, rank, &key, &url)) >= 0) {
       char name[512];
-      if (!rrclient_server_profile_name(key, name, sizeof(name))) continue;
+
+      if (!rrclient_server_profile_name(key, name, sizeof(name))) {
+         continue;
+      }
       tui_server_entry_t *entry = g_new0(tui_server_entry_t, 1);
       entry->name = g_strdup(name);
       entry->url = g_strdup(url ? url : "");
       g_ptr_array_add(tui_server_entries, entry);
    }
    g_ptr_array_sort(tui_server_entries, tui_server_entry_cmp);
-   if (tui_server_selected >= tui_server_entries->len)
+
+   if (tui_server_selected >= tui_server_entries->len) {
       tui_server_selected = tui_server_entries->len ? tui_server_entries->len - 1 : 0;
-   if (tui_server_scroll > tui_server_selected) tui_server_scroll = tui_server_selected;
+   }
+
+   if (tui_server_scroll > tui_server_selected) {
+      tui_server_scroll = tui_server_selected;
+   }
 }
 static tui_server_entry_t *tui_server_current(void) {
-   return tui_server_entries && tui_server_selected < tui_server_entries->len ?
-      g_ptr_array_index(tui_server_entries, tui_server_selected) : NULL;
+   return tui_server_entries && tui_server_selected < tui_server_entries->len ? g_ptr_array_index(tui_server_entries, tui_server_selected) : NULL;
 }
 static void tui_server_picker_close(void) {
    tui_window_t *picker = tui_window_find(RR_TUI_SERVER_PICKER);
-   if (!picker) return;
+
+   if (!picker) {
+      return;
+   }
    /* Focus before freeing the currently active window. */
    tui_window_focus("status");
    tui_window_destroy(picker);
@@ -961,117 +1214,170 @@ static void tui_server_picker_close(void) {
 }
 static void tui_server_picker_choose(void) {
    tui_server_entry_t *entry = tui_server_current();
-   if (!entry) return;
+
+   if (!entry) {
+      return;
+   }
    char *name = g_strdup(entry->name);
    int state = rrclient_connection_state(name);
+
    if (state) {
-      if (rrclient_connection_select(name))
+      if (rrclient_connection_select(name)) {
          tui_server_picker_close();
-      else
+      } else {
          g_strlcpy(tui_server_notice, "Unable to select this connection.", sizeof(tui_server_notice));
+      }
    } else {
       /* Existing /server behavior: false indicates a successful request. */
-      if (!connect_server(name))
+      if (!connect_server(name)) {
          tui_server_picker_close();
-      else
+      } else {
          g_strlcpy(tui_server_notice, "Unable to initiate connection; check the Status log.", sizeof(tui_server_notice));
+      }
    }
    g_free(name);
 }
 static void tui_server_picker_disconnect(void) {
    tui_server_entry_t *entry = tui_server_current();
-   if (entry && rrclient_connection_state(entry->name))
+
+   if (entry && rrclient_connection_state(entry->name)) {
       disconnect_server(entry->name);
-   else
+   } else {
       g_strlcpy(tui_server_notice, "Selected profile is not connected.", sizeof(tui_server_notice));
+   }
 }
 static void tui_server_picker_action(int action) {
    switch (action) {
-      case 0: tui_server_picker_choose(); break;
-      case 1: tui_server_picker_disconnect(); break;
-      case 2: tui_server_picker_close(); break;
+      case 0: {
+         tui_server_picker_choose();
+         break;
+      }
+      case 1: {
+         tui_server_picker_disconnect();
+         break;
+      }
+      case 2: {
+         tui_server_picker_close();
+         break;
+      }
    }
 }
 static void tui_server_picker_draw(tui_window_t *w, int rows, int cols, void *unused) {
-   (void)w; (void)unused;
+   (void)w;
+   (void)unused;
    tui_server_reload();
-   printf("\033[2;1H" SDR_TITLE " Server Picker" SDR_NORMAL
-          "   Select a profile (Enter), or Esc / Alt-X to close\033[K");
-   printf("\033[3;1H" SDR_TITLE "    %-23s %-15s %-9s %s" SDR_NORMAL "\033[K",
-          "Profile", "Connection", "Active", "URL");
+   printf("\033[2;1H" SDR_TITLE " Server Picker" SDR_NORMAL "   Select a profile (Enter), or Esc / Alt-X to close\033[K");
+   printf("\033[3;1H" SDR_TITLE "    %-23s %-15s %-9s %s" SDR_NORMAL "\033[K", "Profile", "Connection", "Active", "URL");
    const char *selected = rrclient_selected_server();
    int height = rows - 6;
-   if (height < 1) height = 1;
-   if (tui_server_selected < tui_server_scroll) tui_server_scroll = tui_server_selected;
-   if (tui_server_selected >= tui_server_scroll + (size_t)height)
-      tui_server_scroll = tui_server_selected - (size_t)height + 1;
-   if (!tui_server_entries->len) {
-      printf("\033[4;1H" SDR_WARNING
-             " No server profiles configured. Add server:<name>.server.url to configuration."
-             SDR_NORMAL);
+
+   if (height < 1) {
+      height = 1;
    }
-   for (int y = 4; y < rows - 2; y++) {
+
+   if (tui_server_selected < tui_server_scroll) {
+      tui_server_scroll = tui_server_selected;
+   }
+
+   if (tui_server_selected >= tui_server_scroll + (size_t)height) {
+      tui_server_scroll = tui_server_selected - (size_t)height + 1;
+   }
+
+   if (!tui_server_entries->len) {
+      printf("\033[4;1H" SDR_WARNING " No server profiles configured. Add server:<name>.server.url to configuration." SDR_NORMAL);
+   }
+
+   for (int y = 4 ; y < rows - 2 ; y++) {
       size_t idx = tui_server_scroll + (size_t)(y - 4);
-      if (idx >= tui_server_entries->len) break;
+
+      if (idx >= tui_server_entries->len) {
+         break;
+      }
       const tui_server_entry_t *entry = g_ptr_array_index(tui_server_entries, idx);
       int state = rrclient_connection_state(entry->name);
       const char *status = state == 1 ? "Online" : state < 0 ? "Connecting" : "Offline";
       printf("\033[%d;1H", y);
-      fputs(idx == tui_server_selected ? SDR_HILITE :
-            state == 1 ? SDR_ENABLED : SDR_NORMAL, stdout);
-      printf(" %c  %-23.23s %-15.15s %-9.9s ",
-             idx == tui_server_selected ? '>' : ' ',
-             entry->name, status,
-             selected && !strcmp(selected, entry->name) ? "Selected" : "");
+      fputs(idx == tui_server_selected ? SDR_HILITE : state == 1 ? SDR_ENABLED : SDR_NORMAL, stdout);
+      printf(" %c  %-23.23s %-15.15s %-9.9s ", idx == tui_server_selected ? '>' : ' ', entry->name, status, selected && !strcmp(selected, entry->name) ?
+         "Selected" : "");
       int remain = cols - 59;
-      if (remain > 0) printf("%.*s", remain, entry->url);
+
+      if (remain > 0) {
+         printf("%.*s", remain, entry->url);
+      }
       fputs(SDR_NORMAL "\033[K", stdout);
    }
-   const char *labels[] = {"Select/Connect", "Disconnect", "Cancel"};
+
+   const char *labels[] = {
+      "Select/Connect", "Disconnect", "Cancel"
+   };
    int x = 2;
-   for (int i = 0; i < 3; i++) {
+
+   for (int i = 0 ; i < 3 ; i++) {
       int width = (int)strlen(labels[i]) + 2;
       tui_server_buttons_start[i] = tui_server_buttons_end[i] = 0;
+
       if (x + width - 1 <= cols) {
          tui_server_buttons_start[i] = x;
          tui_server_buttons_end[i] = x + width - 1;
-         printf("\033[%d;%dH%s[%s]" SDR_NORMAL, rows - 1, x,
-                i == tui_server_button_focus ? SDR_FOCUS : SDR_BUTTON, labels[i]);
+         printf("\033[%d;%dH%s[%s]" SDR_NORMAL, rows - 1, x, i == tui_server_button_focus ? SDR_FOCUS : SDR_BUTTON, labels[i]);
       }
       x += width + 2;
    }
+
    printf("\033[%d;1H", rows);
+
    if (tui_server_notice[0]) {
       fputs(SDR_WARNING, stdout);
       tui_sdr_safe_text(tui_server_notice, cols - 1);
       fputs(SDR_NORMAL, stdout);
    } else {
-      printf("%u configured profiles  |  Up/Down: select  Tab: buttons  Space/Enter: activate",
-             tui_server_entries->len);
+      printf("%u configured profiles  |  Up/Down: select  Tab: buttons  Space/Enter: activate", tui_server_entries->len);
    }
    fputs("\033[K", stdout);
 }
 static bool tui_server_picker_key(tui_window_t *w, unsigned key, unsigned mods, void *unused) {
-   (void)w; (void)unused;
+   (void)w;
+   (void)unused;
+
    if (key == TERMKEY_SYM_ESCAPE || key == 27) {
       tui_server_picker_close();
+
       return true;
    }
+
    if (key == TERMKEY_SYM_TAB || key == '\t') {
       int step = mods & TERMKEY_KEYMOD_SHIFT ? -1 : 1;
       tui_server_button_focus += step;
-      if (tui_server_button_focus >= 3) tui_server_button_focus = -1;
-      if (tui_server_button_focus < -1) tui_server_button_focus = 2;
+
+      if (tui_server_button_focus >= 3) {
+         tui_server_button_focus = -1;
+      }
+
+      if (tui_server_button_focus < -1) {
+         tui_server_button_focus = 2;
+      }
+
       return true;
    }
-   if (mods) return false;
+
+   if (mods) {
+      return false;
+   }
    size_t n = tui_server_entries ? tui_server_entries->len : 0;
+
    if (key == TERMKEY_SYM_UP) {
       tui_server_button_focus = -1;
-      if (tui_server_selected) tui_server_selected--;
+
+      if (tui_server_selected) {
+         tui_server_selected--;
+      }
    } else if (key == TERMKEY_SYM_DOWN) {
       tui_server_button_focus = -1;
-      if (n && tui_server_selected + 1 < n) tui_server_selected++;
+
+      if (n && tui_server_selected + 1 < n) {
+         tui_server_selected++;
+      }
    } else if (key == TERMKEY_SYM_PAGEUP) {
       tui_server_button_focus = -1;
       size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
@@ -1079,64 +1385,96 @@ static bool tui_server_picker_key(tui_window_t *w, unsigned key, unsigned mods, 
    } else if (key == TERMKEY_SYM_PAGEDOWN) {
       tui_server_button_focus = -1;
       size_t page = tui_rows() > 6 ? tui_rows() - 6 : 1;
-      if (n) tui_server_selected = page < n - 1 - tui_server_selected ?
-         tui_server_selected + page : n - 1;
+
+      if (n) {
+         tui_server_selected = page < n - 1 - tui_server_selected ? tui_server_selected + page : n - 1;
+      }
    } else if (key == TERMKEY_SYM_ENTER || key == 10 || key == ' ') {
       tui_server_picker_action(tui_server_button_focus < 0 ? 0 : tui_server_button_focus);
-   } else return false;
+   } else {
+      return false;
+   }
+
    return true;
 }
-static bool tui_server_picker_mouse(tui_window_t *w, int row, int col,
-                                   int button, int action, unsigned mods, void *unused) {
-   (void)w; (void)mods; (void)unused;
-   if (action != TERMKEY_MOUSE_PRESS) return false;
+static bool tui_server_picker_mouse(tui_window_t *w, int row, int col, int button, int action, unsigned mods, void *unused) {
+   (void)w;
+   (void)mods;
+   (void)unused;
+
+   if (action != TERMKEY_MOUSE_PRESS) {
+      return false;
+   }
+
    if (button == 4 || button == 5) {
-      if (button == 4 && tui_server_selected) tui_server_selected--;
-      if (button == 5 && tui_server_entries && tui_server_selected + 1 < tui_server_entries->len)
+      if (button == 4 && tui_server_selected) {
+         tui_server_selected--;
+      }
+
+      if (button == 5 && tui_server_entries && tui_server_selected + 1 < tui_server_entries->len) {
          tui_server_selected++;
+      }
+
       return true;
    }
-   if (button != 1) return false;
+
+   if (button != 1) {
+      return false;
+   }
+
    if (row >= 4 && row < tui_rows() - 2) {
       size_t idx = tui_server_scroll + (size_t)(row - 4);
+
       if (tui_server_entries && idx < tui_server_entries->len) {
          tui_server_selected = idx;
          tui_server_button_focus = -1;
       }
+
       return true;
    }
+
    if (row == tui_rows() - 1) {
-      for (int i = 0; i < 3; i++) {
-         if (tui_server_buttons_start[i] && col >= tui_server_buttons_start[i] &&
-             col <= tui_server_buttons_end[i]) {
+      for (int i = 0 ; i < 3 ; i++) {
+         if (tui_server_buttons_start[i] && col >= tui_server_buttons_start[i] && col <= tui_server_buttons_end[i]) {
             tui_server_button_focus = i;
             tui_server_picker_action(i);
+
             return true;
          }
       }
    }
+
    return false;
 }
 void rrclient_tui_server_picker_toggle(void) {
-   if (ui_mode != UI_MODE_TUI) return;
+   if (ui_mode != UI_MODE_TUI) {
+      return;
+   }
+
    if (tui_window_find(RR_TUI_SERVER_PICKER)) {
       tui_server_picker_close();
+
       return;
    }
    tui_server_selected = tui_server_scroll = 0;
    tui_server_button_focus = -1;
    tui_server_notice[0] = 0;
    tui_window_t *window = tui_window_create(RR_TUI_SERVER_PICKER);
-   if (!window) return;
+
+   if (!window) {
+      return;
+   }
    window->view_draw = tui_server_picker_draw;
    window->view_key = tui_server_picker_key;
    window->view_mouse = tui_server_picker_mouse;
    window->view_full_height = true;
    const char *selected = rrclient_selected_server();
    tui_server_reload();
+
    if (selected) {
-      for (size_t i = 0; i < tui_server_entries->len; i++) {
+      for (size_t i = 0 ; i < tui_server_entries->len ; i++) {
          tui_server_entry_t *e = g_ptr_array_index(tui_server_entries, i);
+
          if (!strcmp(selected, e->name)) {
             tui_server_selected = i;
             break;
@@ -1146,10 +1484,13 @@ void rrclient_tui_server_picker_toggle(void) {
    tui_window_focus(RR_TUI_SERVER_PICKER);
    tui_redraw_request();
 }
-static bool rrclient_tui_server_picker_hotkey(tui_window_t *win, unsigned key,
-                                              unsigned mods, void *data) {
-   (void)win; (void)key; (void)mods; (void)data;
+static bool rrclient_tui_server_picker_hotkey(tui_window_t *win, unsigned key, unsigned mods, void *data) {
+   (void)win;
+   (void)key;
+   (void)mods;
+   (void)data;
    rrclient_tui_server_picker_toggle();
+
    return true;
 }
 
@@ -1158,7 +1499,9 @@ static char tui_local_vfo = 'A';
 static bool tui_local_freq_edit;
 static char tui_local_freq[32], tui_local_message[180];
 static int tui_local_focus = -1;
-enum { LOCAL_DEC, LOCAL_INC, LOCAL_MODE, LOCAL_FREQ, LOCAL_VFO, LOCAL_BACK, LOCAL_BUTTONS };
+enum {
+   LOCAL_DEC, LOCAL_INC, LOCAL_MODE, LOCAL_FREQ, LOCAL_VFO, LOCAL_BACK, LOCAL_BUTTONS
+};
 static int tui_local_button_start[LOCAL_BUTTONS], tui_local_button_end[LOCAL_BUTTONS];
 static char tui_local_vfos[26];
 static size_t tui_local_count;
@@ -1166,194 +1509,310 @@ static size_t tui_local_count;
 static void tui_local_update_vfos(void) {
    char names[26][64];
    tui_local_count = rrclient_local_bridge_streams(names, tui_local_vfos, G_N_ELEMENTS(tui_local_vfos));
-   if (tui_local_count > G_N_ELEMENTS(tui_local_vfos)) tui_local_count = G_N_ELEMENTS(tui_local_vfos);
-   if (!tui_local_count) return;
-   bool found = false;
-   for (size_t i = 0; i < tui_local_count; i++) {
-      if (tui_local_vfos[i] == tui_local_vfo) found = true;
+
+   if (tui_local_count > G_N_ELEMENTS(tui_local_vfos)) {
+      tui_local_count = G_N_ELEMENTS(tui_local_vfos);
    }
-   if (!found) tui_local_vfo = tui_local_vfos[0];
+
+   if (!tui_local_count) {
+      return;
+   }
+   bool found = false;
+
+   for (size_t i = 0 ; i < tui_local_count ; i++) {
+      if (tui_local_vfos[i] == tui_local_vfo) {
+         found = true;
+      }
+   }
+
+   if (!found) {
+      tui_local_vfo = tui_local_vfos[0];
+   }
 }
 static void tui_local_select_vfo(char vfo) {
-   if (!rrclient_local_bridge_state_vfo(vfo, NULL, NULL)) return;
+   if (!rrclient_local_bridge_state_vfo(vfo, NULL, NULL)) {
+      return;
+   }
    tui_local_vfo = vfo;
    rrclient_room_set_active_vfo("&local-sdr", vfo);
 }
 static bool tui_local_tune_delta(int64_t delta) {
    uint64_t hz = 0;
-   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, NULL)) return false;
-   if (delta < 0 && hz < (uint64_t)(-delta)) return false;
-   uint64_t target = delta < 0 ? hz - (uint64_t)(-delta) : hz + (uint64_t)delta;
+
+   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, NULL)) {
+      return false;
+   }
+
+   if (delta < 0 && hz < (uint64_t) (-delta)) {
+      return false;
+   }
+   uint64_t target = delta < 0 ? hz - (uint64_t) (-delta) : hz + (uint64_t) delta;
+
    return rrclient_local_bridge_set_frequency(tui_local_vfo, target);
 }
 static bool tui_local_set_frequency(void) {
    char *end = NULL;
    double mhz = g_ascii_strtod(tui_local_freq, &end);
+
    if (!tui_local_freq[0] || !end || *end || mhz <= 0.0 || mhz >= 100000.0) {
       g_strlcpy(tui_local_message, "Enter a valid frequency in MHz, e.g. 14.074000.", sizeof(tui_local_message));
+
       return false;
    }
-   uint64_t hz = (uint64_t)(mhz * 1000000.0 + 0.5);
+   uint64_t hz = (uint64_t) (mhz * 1000000.0 + 0.5);
+
    if (!rrclient_local_bridge_set_frequency(tui_local_vfo, hz)) {
       g_strlcpy(tui_local_message, "Tune rejected; see local SDR log for receiver limits.", sizeof(tui_local_message));
+
       return false;
    }
    g_strlcpy(tui_local_message, "Frequency change requested.", sizeof(tui_local_message));
+
    return true;
 }
 static void tui_local_start_frequency(void) {
    uint64_t hz = 0;
-   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, NULL)) return;
+
+   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, NULL)) {
+      return;
+   }
    g_snprintf(tui_local_freq, sizeof(tui_local_freq), "%.6f", (double)hz / 1000000.0);
    tui_local_freq_edit = true;
 }
 static void tui_local_cycle_mode(void) {
    uint64_t hz = 0;
    const char *mode = NULL;
-   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, &mode)) return;
-   static const char *modes[] = { "USB", "LSB", "AM", "CW", "FM" };
+
+   if (!rrclient_local_bridge_state_vfo(tui_local_vfo, &hz, &mode)) {
+      return;
+   }
+   static const char *modes[] = {
+      "USB", "LSB", "AM", "CW", "FM"
+   };
    unsigned i = 0;
-   while (i < G_N_ELEMENTS(modes) && g_ascii_strcasecmp(modes[i], mode ? mode : "")) i++;
+   while (i < G_N_ELEMENTS(modes) && g_ascii_strcasecmp(modes[i], mode ? mode : "")) {
+      i++;
+   }
    const char *next = modes[(i + 1) % G_N_ELEMENTS(modes)];
-   if (!rrclient_local_bridge_set_mode(tui_local_vfo, next))
+
+   if (!rrclient_local_bridge_set_mode(tui_local_vfo, next)) {
       g_snprintf(tui_local_message, sizeof(tui_local_message), "%s unsupported; check bridge capabilities.", next);
-   else
+   } else {
       g_snprintf(tui_local_message, sizeof(tui_local_message), "Requested mode %s.", next);
+   }
 }
 static void tui_local_action(int action) {
    switch (action) {
       case LOCAL_DEC:
-      case LOCAL_INC:
-         if (!tui_local_tune_delta(action == LOCAL_DEC ? -1000 : 1000))
+      case LOCAL_INC: {
+         if (!tui_local_tune_delta(action == LOCAL_DEC ? -1000 : 1000)) {
             g_strlcpy(tui_local_message, "Unable to step frequency; see local SDR log.", sizeof(tui_local_message));
+         }
          break;
-      case LOCAL_MODE: tui_local_cycle_mode(); break;
-      case LOCAL_FREQ: tui_local_start_frequency(); break;
-      case LOCAL_VFO:
+      }
+      case LOCAL_MODE: {
+         tui_local_cycle_mode();
+         break;
+      }
+      case LOCAL_FREQ: {
+         tui_local_start_frequency();
+         break;
+      }
+      case LOCAL_VFO: {
          if (tui_local_count) {
             size_t i = 0;
-            for (; i < tui_local_count; i++)
-               if (tui_local_vfos[i] == tui_local_vfo) break;
+
+            for ( ; i < tui_local_count ; i++) {
+               if (tui_local_vfos[i] == tui_local_vfo) {
+                  break;
+               }
+            }
+
             tui_local_select_vfo(tui_local_vfos[(i + 1) % tui_local_count]);
          }
          break;
-      case LOCAL_BACK: tui_window_focus("SDR Directory"); break;
+      }
+      case LOCAL_BACK: {
+         tui_window_focus("SDR Directory");
+         break;
+      }
    }
 }
 static void tui_local_sdr_draw(tui_window_t *win, int rows, int cols, void *unused) {
-   (void)win; (void)unused;
+   (void)win;
+   (void)unused;
    tui_local_update_vfos();
    char active = rrclient_room_active_vfo("&local-sdr");
    printf("\033[2;1H" SDR_TITLE " Local SDR / rrbridge VFO controls (RX only)" SDR_NORMAL "\033[K");
    printf("\033[3;1H" SDR_TITLE "   VFO       Frequency           Mode      Status" SDR_NORMAL "\033[K");
-   if (!tui_local_count)
+
+   if (!tui_local_count) {
       printf("\033[4;1H" SDR_WARNING "  Waiting for local rrbridge receiver..." SDR_NORMAL "\033[K");
-   for (size_t i = 0; i < tui_local_count && (int)i + 4 < rows - 5; i++) {
+   }
+
+   for (size_t i = 0 ; i < tui_local_count && (int)i + 4 < rows - 5 ; i++) {
       char vfo = tui_local_vfos[i];
       uint64_t hz = 0;
       const char *mode = NULL;
       bool online = rrclient_local_bridge_state_vfo(vfo, &hz, &mode);
-      printf("\033[%zu;1H%s  %c VFO %c  " SDR_NORMAL,
-             i + 4, vfo == tui_local_vfo ? SDR_HILITE : SDR_NAME,
-             vfo == active ? '*' : ' ', vfo);
+      printf("\033[%zu;1H%s  %c VFO %c  " SDR_NORMAL, i + 4, vfo == tui_local_vfo ? SDR_HILITE : SDR_NAME, vfo == active ? '*' : ' ', vfo);
+
       if (online) {
-         printf(SDR_USERS "%11.6f MHz" SDR_NORMAL "    " SDR_GOOD "%-8s" SDR_NORMAL "  Online",
-                (double)hz / 1000000.0, mode ? mode : "---");
-      } else fputs(SDR_WARNING "Not ready" SDR_NORMAL, stdout);
+         printf(SDR_USERS "%11.6f MHz" SDR_NORMAL "    " SDR_GOOD "%-8s" SDR_NORMAL "  Online", (double)hz / 1000000.0, mode ? mode : "---");
+      } else {
+         fputs(SDR_WARNING "Not ready" SDR_NORMAL, stdout);
+      }
       fputs("\033[K", stdout);
    }
+
    printf("\033[%d;1H" SDR_TITLE "Selected VFO %c" SDR_NORMAL, rows - 5, tui_local_vfo);
    printf("\033[%d;1H", rows - 4);
-   if (tui_local_freq_edit)
+
+   if (tui_local_freq_edit) {
       printf(SDR_FOCUS " Frequency (MHz): %s_  [Enter apply / Esc cancel] " SDR_NORMAL, tui_local_freq);
-   else printf(" F: enter MHz frequency    +/-: 1 kHz    M: change mode    V: next VFO");
-   const char *buttons[] = {"-1 kHz", "+1 kHz", "Mode", "Frequency", "Next VFO", "Directory"};
+   } else {
+      printf(" F: enter MHz frequency    +/-: 1 kHz    M: change mode    V: next VFO");
+   }
+   const char *buttons[] = {
+      "-1 kHz", "+1 kHz", "Mode", "Frequency", "Next VFO", "Directory"
+   };
    int x = 1;
-   for (int i = 0; i < LOCAL_BUTTONS; i++) {
+
+   for (int i = 0 ; i < LOCAL_BUTTONS ; i++) {
       int width = (int)strlen(buttons[i]) + 2;
       tui_local_button_start[i] = tui_local_button_end[i] = 0;
+
       if (x + width - 1 <= cols) {
          tui_local_button_start[i] = x;
          tui_local_button_end[i] = x + width - 1;
-         printf("\033[%d;%dH%s[%s]" SDR_NORMAL, rows - 2, x,
-                i == tui_local_focus ? SDR_FOCUS : SDR_BUTTON, buttons[i]);
+         printf("\033[%d;%dH%s[%s]" SDR_NORMAL, rows - 2, x, i == tui_local_focus ? SDR_FOCUS : SDR_BUTTON, buttons[i]);
       }
       x += width + 1;
    }
+
    printf("\033[%d;1H" SDR_MUTED "Tab: buttons / list   Space/Enter: activate   Esc: directory" SDR_NORMAL "\033[K", rows - 1);
    printf("\033[%d;1H", rows);
    tui_sdr_safe_text(tui_local_message[0] ? tui_local_message : "Use arrow keys to choose a VFO; tuning is RX-only.", cols - 1);
    fputs("\033[K", stdout);
 }
 static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, void *unused) {
-   (void)win; (void)unused;
+   (void)win;
+   (void)unused;
+
    if (tui_local_freq_edit) {
       size_t len = strlen(tui_local_freq);
-      if (key == TERMKEY_SYM_ESCAPE || key == 27) tui_local_freq_edit = false;
-      else if (key == TERMKEY_SYM_ENTER || key == 10) {
-         if (tui_local_set_frequency()) tui_local_freq_edit = false;
+
+      if (key == TERMKEY_SYM_ESCAPE || key == 27) {
+         tui_local_freq_edit = false;
+      } else if (key == TERMKEY_SYM_ENTER || key == 10) {
+         if (tui_local_set_frequency()) {
+            tui_local_freq_edit = false;
+         }
       } else if (key == TERMKEY_SYM_BACKSPACE || key == 8 || key == 127) {
-         if (len) tui_local_freq[len - 1] = 0;
+         if (len) {
+            tui_local_freq[len - 1] = 0;
+         }
       } else if (((key >= '0' && key <= '9') || key == '.') && len + 1 < sizeof(tui_local_freq)) {
          tui_local_freq[len] = (char)key;
          tui_local_freq[len + 1] = 0;
       }
+
       return true;
    }
+
    if (key == TERMKEY_SYM_ESCAPE || key == 27) {
-      tui_window_focus("SDR Directory"); return true;
+      tui_window_focus("SDR Directory");
+
+      return true;
    }
+
    if (key == TERMKEY_SYM_TAB || key == '\t') {
       tui_local_focus += mods & TERMKEY_KEYMOD_SHIFT ? -1 : 1;
-      if (tui_local_focus >= LOCAL_BUTTONS) tui_local_focus = -1;
-      if (tui_local_focus < -1) tui_local_focus = LOCAL_BUTTONS - 1;
+
+      if (tui_local_focus >= LOCAL_BUTTONS) {
+         tui_local_focus = -1;
+      }
+
+      if (tui_local_focus < -1) {
+         tui_local_focus = LOCAL_BUTTONS - 1;
+      }
+
       return true;
    }
-   if (mods) return false;
+
+   if (mods) {
+      return false;
+   }
+
    if (key == TERMKEY_SYM_UP || key == TERMKEY_SYM_DOWN) {
       if (tui_local_count) {
          size_t i = 0;
-         for (; i < tui_local_count; i++)
-            if (tui_local_vfos[i] == tui_local_vfo) break;
-         i = key == TERMKEY_SYM_DOWN ? (i + 1) % tui_local_count :
-             (i + tui_local_count - 1) % tui_local_count;
+
+         for ( ; i < tui_local_count ; i++) {
+            if (tui_local_vfos[i] == tui_local_vfo) {
+               break;
+            }
+         }
+
+         i = key == TERMKEY_SYM_DOWN ? (i + 1) % tui_local_count : (i + tui_local_count - 1) % tui_local_count;
          tui_local_select_vfo(tui_local_vfos[i]);
       }
    } else if (key == TERMKEY_SYM_ENTER || key == 10 || key == ' ') {
-      if (tui_local_focus >= 0) tui_local_action(tui_local_focus);
+      if (tui_local_focus >= 0) {
+         tui_local_action(tui_local_focus);
+      }
    } else if (key == '-' || key == '+') {
       tui_local_action(key == '-' ? LOCAL_DEC : LOCAL_INC);
-   } else if (key == 'f' || key == 'F') tui_local_action(LOCAL_FREQ);
-   else if (key == 'm' || key == 'M') tui_local_action(LOCAL_MODE);
-   else if (key == 'v' || key == 'V') tui_local_action(LOCAL_VFO);
-   else return false;
+   } else if (key == 'f' || key == 'F') {
+      tui_local_action(LOCAL_FREQ);
+   } else if (key == 'm' || key == 'M') {
+      tui_local_action(LOCAL_MODE);
+   } else if (key == 'v' || key == 'V') {
+      tui_local_action(LOCAL_VFO);
+   } else {
+      return false;
+   }
+
    return true;
 }
-static bool tui_local_sdr_mouse(tui_window_t *win, int row, int col, int button,
-                                 int action, unsigned mods, void *unused) {
-   (void)win; (void)mods; (void)unused;
-   if (action != TERMKEY_MOUSE_PRESS || button != 1) return false;
+static bool tui_local_sdr_mouse(tui_window_t *win, int row, int col, int button, int action, unsigned mods, void *unused) {
+   (void)win;
+   (void)mods;
+   (void)unused;
+
+   if (action != TERMKEY_MOUSE_PRESS || button != 1) {
+      return false;
+   }
+
    if (row >= 4 && row < 4 + (int)tui_local_count) {
       tui_local_select_vfo(tui_local_vfos[row - 4]);
       tui_local_focus = -1;
+
       return true;
    }
+
    if (row == tui_rows() - 2) {
-      for (int i = 0; i < LOCAL_BUTTONS; i++) {
-         if (tui_local_button_start[i] && col >= tui_local_button_start[i] &&
-             col <= tui_local_button_end[i]) {
+      for (int i = 0 ; i < LOCAL_BUTTONS ; i++) {
+         if (tui_local_button_start[i] && col >= tui_local_button_start[i] && col <= tui_local_button_end[i]) {
             tui_local_focus = i;
             tui_local_action(i);
+
             return true;
          }
       }
    }
+
    return false;
 }
 void rrclient_tui_local_sdr_open(void) {
-   if (ui_mode != UI_MODE_TUI) return;
+   if (ui_mode != UI_MODE_TUI) {
+      return;
+   }
    tui_window_t *window = tui_window_create("&local-sdr");
-   if (!window) return;
+
+   if (!window) {
+      return;
+   }
    window->view_draw = tui_local_sdr_draw;
    window->view_key = tui_local_sdr_key;
    window->view_mouse = tui_local_sdr_mouse;
@@ -1366,11 +1825,17 @@ void rrclient_tui_local_sdr_open(void) {
 }
 
 static bool rrclient_sdr_hotkey(tui_window_t *win, unsigned key, unsigned mods, void *user_data) {
-   (void)win; (void)key; (void)mods; (void)user_data;
+   (void)win;
+   (void)key;
+   (void)mods;
+   (void)user_data;
+
    if (tui_window_focus("SDR Directory")) {
       tui_redraw_screen();
+
       return true;
    }
+
    return false;
 }
 
@@ -1378,15 +1843,16 @@ static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned mod
    (void)key;
    (void)user_data;
 
-   if (modifiers & TERMKEY_KEYMOD_SHIFT) return false;
-   if ((modifiers & TERMKEY_KEYMOD_ALT) && key != 's' && key != 'S')
+   if (modifiers & TERMKEY_KEYMOD_SHIFT) {
       return false;
+   }
 
-   /* Directory browsing is a shared view too: its selected server controls
-    * proxy receiver connections, just as Status/Client Log/Host Log do. */
-   return rrclient_connection_cycle_status(win &&
-      (rrclient_window_is_shared(win->title) ||
-       !strcasecmp(win->title, "SDR Directory")));
+   if ((modifiers & TERMKEY_KEYMOD_ALT) && key != 's' && key != 'S') {
+      return false;
+   }
+
+   /* Directory browsing is a shared view too: its selected server controls proxy receiver connections, just as Status/Client Log/Host Log do. */
+   return rrclient_connection_cycle_status(win && (rrclient_window_is_shared(win->title) || !strcasecmp(win->title, "SDR Directory")));
 }
 
 static void *tui_nick_completion;
@@ -1492,9 +1958,11 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
    tui_refresh_sb_vfo();
    tui_update_status(tw, "%s %s", sb_online, sb_window);
    tui_redraw_clock();
+
    /* Local receiver state is updated asynchronously by rrbridge IPC. */
-   if (tw && tw->view_draw == tui_local_sdr_draw)
+   if (tw && tw->view_draw == tui_local_sdr_draw) {
       tui_redraw_request();
+   }
 
    return G_SOURCE_CONTINUE;
 }
@@ -1981,29 +2449,29 @@ int main(int argc, char *argv[]) {
             // init (e.g. gtk_init) needs the real argc/argv; a failed init
             // (no display, theme problems) unloads the module and we fall
             // back to TUI.
-            
-               gtk_test.ops = frontend_ops();
-               gtk_test.argc = argc;
-               gtk_test.argv = argv;
-               gtk_test.core_loop = g_main_loop_new(rr_experiment_core_context, FALSE);
-               g_mutex_init(&gtk_test.mutex);
-               g_cond_init(&gtk_test.cond);
-               gtk_worker = g_thread_new("rrclient-gtk", rr_gtk_experiment_thread, &gtk_test);
-               g_mutex_lock(&gtk_test.mutex);
-               while (!gtk_test.ready) {
-                  g_cond_wait(&gtk_test.cond, &gtk_test.mutex);
-               }
-               g_mutex_unlock(&gtk_test.mutex);
+
+            gtk_test.ops = frontend_ops();
+            gtk_test.argc = argc;
+            gtk_test.argv = argv;
+            gtk_test.core_loop = g_main_loop_new(rr_experiment_core_context, FALSE);
+            g_mutex_init(&gtk_test.mutex);
+            g_cond_init(&gtk_test.cond);
+            gtk_worker = g_thread_new("rrclient-gtk", rr_gtk_experiment_thread, &gtk_test);
+            g_mutex_lock(&gtk_test.mutex);
+            while (!gtk_test.ready) {
+               g_cond_wait(&gtk_test.cond, &gtk_test.mutex);
+            }
+            g_mutex_unlock(&gtk_test.mutex);
 
             if (gtk_test.failed) {
                Log(LOG_CRIT, "core", "Frontend module init failed; falling back to TUI");
 
                /* Failed init worker must exit before we dlclose its code. */
-                  g_thread_join(gtk_worker);
-                  gtk_worker = NULL;
-                  g_main_loop_unref(gtk_test.core_loop);
-                  g_cond_clear(&gtk_test.cond);
-                  g_mutex_clear(&gtk_test.mutex);
+               g_thread_join(gtk_worker);
+               gtk_worker = NULL;
+               g_main_loop_unref(gtk_test.core_loop);
+               g_cond_clear(&gtk_test.cond);
+               g_mutex_clear(&gtk_test.mutex);
                rr_unload_module(requested);
                frontend_module = NULL;
                loaded_name = NULL;
@@ -2044,6 +2512,7 @@ int main(int argc, char *argv[]) {
       tui_window_create("host log");
       tui_window_create("client log");
       tui_window_t *sdr_tab = tui_window_create("SDR Directory");
+
       if (sdr_tab) {
          sdr_tab->view_draw = tui_sdr_draw;
          sdr_tab->view_full_height = true;
@@ -2104,8 +2573,8 @@ int main(int argc, char *argv[]) {
          g_cond_clear(&gtk_test.cond);
          g_mutex_clear(&gtk_test.mutex);
       }
-    }
-    rrclient_cleanup();
+   }
+   rrclient_cleanup();
 
    return 0;
 }

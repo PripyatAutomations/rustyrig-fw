@@ -114,10 +114,8 @@ static void activate(client_server_t *s) {
       exchange_views(context);
    }
    context = s;
-   /* Compatibility view, borrowed from the active profile. Avoid allocating
-    * and freeing this name on every nested connection dispatch. Profile
-    * names remain alive until connman_shutdown(), which calls activate(NULL)
-    * before releasing them. */
+   /* Compatibility view, borrowed from the active profile. Avoid allocating and freeing this name on every nested connection dispatch. Profile names remain
+    * alive until connman_shutdown(), which calls activate(NULL) before releasing them. */
    server_name = s ? s->name : NULL;
    login_user = s ? s->user : NULL;
    ws_conn = s ? s->connection : NULL;
@@ -355,8 +353,7 @@ bool rrclient_connection_cycle(void) {
    client_server_t *next = selected && selected->next ? selected->next : servers;
    client_server_t *first = next;
    do {
-      /* 'connected' is the transport-independent online state, updated by
-       * both native TLS and legacy transports. */
+      /* 'connected' is the transport-independent online state, updated by both native TLS and legacy transports. */
       if (next->connected == 1) {
          return rrclient_connection_select(next->name);
       }
@@ -649,22 +646,24 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
 
    /* The sign-on dialog is only for RustyRig WebSocket sessions, never IRC. */
    const char *url = get_server_property(s->name, "server.url");
-   bool irc = (url && (!strncasecmp(url, "irc:", 4) ||
-                        !strncasecmp(url, "ircs:", 5))) || (cptr && !cptr->is_ws);
+   bool irc = (url && (!strncasecmp(url, "irc:", 4) || !strncasecmp(url, "ircs:", 5))) || (cptr && !cptr->is_ws);
+
    if (!irc) {
-      if (!strcmp(event, "connecting"))
+      if (!strcmp(event, "connecting")) {
          rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
-      else if (!strcmp(event, "connected"))
+      } else if (!strcmp(event, "connected")) {
          rrclient_connect_progress(s->name, RR_CONNECT_PHASE_TRANSPORT);
-      else if (!strcmp(event, "authorized"))
+      } else if (!strcmp(event, "authorized")) {
          rrclient_connect_progress(s->name, RR_CONNECT_PHASE_AUTHORIZED);
-      else if (!strcmp(event, "disconnected") || !strcmp(event, "http.error") ||
-               !strcmp(event, "auth.error") || !strcmp(event, "error"))
+      } else if (!strcmp(event, "disconnected") || !strcmp(event, "http.error") || !strcmp(event, "auth.error") || !strcmp(event, "error")) {
          rrclient_connect_progress(s->name, RR_CONNECT_PHASE_FAILED);
+      }
    }
+
    /* These milestones are not reconnection failures. */
-   if (!strcmp(event, "connecting") || !strcmp(event, "connected"))
+   if (!strcmp(event, "connecting") || !strcmp(event, "connected")) {
       return;
+   }
 
    if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected") || !strcmp(event, "disconnected")) {
       nick_prompt_close(s);
@@ -710,12 +709,16 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
 
 static void connecting_cancel_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload || message->length != sizeof(rr_connect_progress_t))
+
+   if (!message || !message->payload || message->length != sizeof(rr_connect_progress_t)) {
       return;
+   }
    rr_connect_progress_t request;
    memcpy(&request, message->payload, sizeof(request));
-   if (!memchr(request.profile, 0, sizeof(request.profile)) || !request.profile[0])
+
+   if (!memchr(request.profile, 0, sizeof(request.profile)) || !request.profile[0]) {
       return;
+   }
    disconnect_server(request.profile);
 }
 
@@ -1302,8 +1305,8 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       return true;
    }
    dispatch_depth++;
-   /* Emit at the actual connection attempt, not a transport event which may
-    * never be delivered. IRC profiles deliberately do not show this dialog. */
+
+   /* Emit at the actual connection attempt, not a transport event which may never be delivered. IRC profiles deliberately do not show this dialog. */
    if (!endpoint.irc) {
       rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
    }

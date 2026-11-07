@@ -130,10 +130,10 @@ void native_callback(rr_transport_t *t, enum rr_transport_event event, rr_transp
    }
 
    if (event == RR_TRANSPORT_EVENT_ERROR) {
-      if (data && length == strlen("Peer sent graceful WebSocket close") &&
-          !memcmp(data, "Peer sent graceful WebSocket close", length)) {
+      if (data && length == strlen("Peer sent graceful WebSocket close") && !memcmp(data, "Peer sent graceful WebSocket close", length)) {
          s->close_cause = "peer-graceful-shutdown";
          snprintf(s->close_reason, sizeof(s->close_reason), "Peer sent WebSocket close and disconnected cleanly");
+
          return;
       }
       char reason[256];

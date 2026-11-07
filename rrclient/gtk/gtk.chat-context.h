@@ -1,6 +1,5 @@
-/* RustyRig GTK chat delivery identity. MIT / GPL when built with Mongoose.
- * Snapshots are captured in core and consumed only on the GTK owner thread.
- * They contain no borrowed connection or component-state pointers. */
+/* RustyRig GTK chat delivery identity. MIT / GPL when built with Mongoose. Snapshots are captured in core and consumed only on the GTK owner thread. They
+ * contain no borrowed connection or component-state pointers. */
 #ifndef RR_GTK_CHAT_CONTEXT_H
 #define RR_GTK_CHAT_CONTEXT_H
 #include <glib.h>

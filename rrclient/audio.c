@@ -799,28 +799,38 @@ static void dcc_closed(const char *event, const char *data, rrconn_t *client, vo
       }
    }
 }
-/* Mirror the *existing* mixer topology; the realtime engine remains the
- * executor until graph-driven process supervision is implemented. */
+
+/* Mirror the *existing* mixer topology; the realtime engine remains the executor until graph-driven process supervision is implemented. */
 static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t count) {
    rr_audio_graph_t *graph = rr_audio_graph_new();
-   if (!graph) return;
+
+   if (!graph) {
+      return;
+   }
    rr_audio_graph_add_node(graph, "rx.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "sink.client.dsp0", RR_AG_SINK);
    rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_add_link(graph, "rx.mix", "sink.client.dsp0", RR_AG_NORMAL);
-   for (size_t i = 0; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 2; i++) {
+
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 2 ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
-      if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) continue;
+
+      if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
+         continue;
+      }
       rr_audio_graph_set_health(graph, stream->id, RR_AG_HEALTHY);
       rr_audio_graph_set_route(graph, stream->id, stream->output);
       unsigned channels = stream->output == 'L' ? RR_AG_CHANNEL_LEFT :
-                          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT :
-                          stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
-      if (channels)
+         stream->output == 'R' ? RR_AG_CHANNEL_RIGHT : stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
+
+      if (channels) {
          rr_audio_graph_add_channel_link(graph, stream->id, "rx.mix", RR_AG_NORMAL, channels);
+      }
    }
+
    rr_audio_graph_snapshot_t *snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
+
    if (snapshot && rr_audio_graph_snapshot(graph, snapshot)) {
       rr_event_message_t event = {
          .name = RRCLIENT_AUDIO_GRAPH_RESULT,
@@ -831,18 +841,22 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    g_free(snapshot);
    rr_audio_graph_free(graph);
 }
-/* Count transitions only: no per-second log spam from the GUI watchdog.
- * If the UI shows one source, this identifies which streams the core knew. */
+
+/* Count transitions only: no per-second log spam from the GUI watchdog. If the UI shows one source, this identifies which streams the core knew. */
 static void audio_log_stream_inventory(const struct rrclient_rx_stream *streams, size_t count) {
    static GString *last;
    GString *current = g_string_new(NULL);
-   for (size_t i = 0; i < count; i++)
-      g_string_append_printf(current, "%s%s[%s/%s]", i ? ", " : "",
-         streams[i].id, streams[i].server, streams[i].room);
+
+   for (size_t i = 0 ; i < count ; i++) {
+      g_string_append_printf(current, "%s%s[%s/%s]", i ? ", " : "", streams[i].id, streams[i].server, streams[i].room);
+   }
+
    if (!last || strcmp(last->str, current->str)) {
-      Log(LOG_DEBUG, "audio.routing", "RX routing inventory: %zu stream(s): %s",
-          count, count ? current->str : "(none)");
-      if (last) g_string_free(last, TRUE);
+      Log(LOG_DEBUG, "audio.routing", "RX routing inventory: %zu stream(s): %s", count, count ? current->str : "(none)");
+
+      if (last) {
+         g_string_free(last, TRUE);
+      }
       last = current;
    } else {
       g_string_free(current, TRUE);
@@ -852,12 +866,17 @@ static void audio_snapshot_request(const rr_event_message_t *unused_message, voi
    (void)unused_message;
    (void)unused;
    size_t count = audio_rx_streams(NULL, 0);
-   if (count > 128) count = 128;
+
+   if (count > 128) {
+      count = 128;
+   }
    size_t bytes = sizeof(rr_audio_stream_snapshot_t) + count * sizeof(struct rrclient_rx_stream);
    rr_audio_stream_snapshot_t *snapshot = g_malloc0(bytes);
-   snapshot->count = (uint32_t)count;
-   if (count)
+   snapshot->count = (uint32_t) count;
+
+   if (count) {
       audio_rx_streams(snapshot->streams, count);
+   }
    audio_log_stream_inventory(snapshot->streams, count);
    audio_publish_graph(snapshot->streams, count);
    rr_event_message_t reply = {
@@ -870,22 +889,30 @@ static void audio_snapshot_request(const rr_event_message_t *unused_message, voi
 
 static void audio_control_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload || message->length != sizeof(rr_audio_control_request_t))
+
+   if (!message || !message->payload || message->length != sizeof(rr_audio_control_request_t)) {
       return;
+   }
    const rr_audio_control_request_t *req = message->payload;
+
    switch (req->kind) {
-   case RR_AUDIO_CONTROL_MASTER:
-      audio_set_rx_volume(req->percent);
-      break;
-   case RR_AUDIO_CONTROL_EAR:
-      audio_set_rx_channel_volume(req->channel, req->percent);
-      break;
-   case RR_AUDIO_CONTROL_STREAM:
-      if (memchr(req->stream, 0, sizeof(req->stream)))
-         audio_set_rx_stream_route(req->stream, req->output);
-      break;
-   default:
-      break;
+      case RR_AUDIO_CONTROL_MASTER: {
+         audio_set_rx_volume(req->percent);
+         break;
+      }
+      case RR_AUDIO_CONTROL_EAR: {
+         audio_set_rx_channel_volume(req->channel, req->percent);
+         break;
+      }
+      case RR_AUDIO_CONTROL_STREAM: {
+         if (memchr(req->stream, 0, sizeof(req->stream))) {
+            audio_set_rx_stream_route(req->stream, req->output);
+         }
+         break;
+      }
+      default: {
+         break;
+      }
    }
 }
 static void audio_submit_control(const rr_audio_control_request_t *req) {
@@ -896,17 +923,24 @@ static void audio_submit_control(const rr_audio_control_request_t *req) {
    event_emit_message(&message);
 }
 void audio_request_rx_volume(int percent) {
-   rr_audio_control_request_t req = { .kind = RR_AUDIO_CONTROL_MASTER, .percent = percent };
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_MASTER, .percent = percent
+   };
    audio_submit_control(&req);
 }
 void audio_request_rx_channel_volume(unsigned channel, int percent) {
-   rr_audio_control_request_t req = { .kind = RR_AUDIO_CONTROL_EAR, .channel = channel, .percent = percent };
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_EAR, .channel = channel, .percent = percent
+   };
    audio_submit_control(&req);
 }
 void audio_request_rx_stream_route(const char *id, char output) {
-   if (!id || strlen(id) >= sizeof(((rr_audio_control_request_t *)0)->stream))
+   if (!id || strlen(id) >= sizeof(((rr_audio_control_request_t *) 0)->stream)) {
       return;
-   rr_audio_control_request_t req = { .kind = RR_AUDIO_CONTROL_STREAM, .output = output };
+   }
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_STREAM, .output = output
+   };
    g_strlcpy(req.stream, id, sizeof(req.stream));
    audio_submit_control(&req);
 }

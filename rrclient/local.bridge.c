@@ -63,9 +63,14 @@ typedef struct bridge_instance {
 static bridge_instance *bridges[26];
 size_t rrclient_local_bridge_stats_snapshot(rr_local_bridge_stats_t *out, size_t capacity) {
    size_t count = 0;
-   for (size_t i = 0; i < G_N_ELEMENTS(bridges); i++) {
+
+   for (size_t i = 0 ; i < G_N_ELEMENTS(bridges) ; i++) {
       const bridge_instance *b = bridges[i];
-      if (!b || b->pid <= 0) continue;
+
+      if (!b || b->pid <= 0) {
+         continue;
+      }
+
       if (out && count < capacity) {
          out[count] = b->stats;
          g_strlcpy(out[count].id, b->stream, sizeof(out[count].id));
@@ -74,46 +79,61 @@ size_t rrclient_local_bridge_stats_snapshot(rr_local_bridge_stats_t *out, size_t
       }
       count++;
    }
+
    return count;
 }
 static void local_bridge_stats_update(bridge_instance *b, const char *value) {
    unsigned long long in = 0, out = 0, bytes = 0, frames = 0, errors = 0;
    int n = 0;
-   if (sscanf(value, "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu%n",
-              &in, &out, &bytes, &frames, &errors, &n) != 5 ||
-       n <= 0 || value[n] != '\0') return;
-   b->stats.ipc_in = (uint64_t)in;
-   b->stats.ipc_out = (uint64_t)out;
-   b->stats.pcm_bytes = (uint64_t)bytes;
-   b->stats.pcm_frames = (uint64_t)frames;
-   b->stats.errors = (uint64_t)errors;
-   b->stats.last_report_us = (uint64_t)g_get_monotonic_time();
+
+   if (sscanf(value, "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu%n", &in, &out, &bytes, &frames, &errors, &n) != 5 || n <= 0 || value[n] !=
+      '\0') {
+      return;
+   }
+   b->stats.ipc_in = (uint64_t) in;
+   b->stats.ipc_out = (uint64_t) out;
+   b->stats.pcm_bytes = (uint64_t) bytes;
+   b->stats.pcm_frames = (uint64_t) frames;
+   b->stats.errors = (uint64_t) errors;
+   b->stats.last_report_us = (uint64_t) g_get_monotonic_time();
 }
 
-/* Core writes, GTK reads a snapshot. Keep totals monotonic across child
- * restarts/disconnects; a subprocess's counters start at zero each time. */
+/* Core writes, GTK reads a snapshot. Keep totals monotonic across child restarts/disconnects; a subprocess's counters start at zero each time. */
 static GMutex kiwi_traffic_lock;
 static uint64_t kiwi_traffic_rx, kiwi_traffic_tx;
 void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx) {
    g_mutex_lock(&kiwi_traffic_lock);
-   if (rx) *rx = kiwi_traffic_rx;
-   if (tx) *tx = kiwi_traffic_tx;
+
+   if (rx) {
+      *rx = kiwi_traffic_rx;
+   }
+
+   if (tx) {
+      *tx = kiwi_traffic_tx;
+   }
    g_mutex_unlock(&kiwi_traffic_lock);
 }
 static void bridge_traffic_update(bridge_instance *b, const char *key, const char *value) {
-   if (!b || g_strcmp0(b->driver, "kiwi") || !value || !*value)
+   if (!b || g_strcmp0(b->driver, "kiwi") || !value || !*value) {
       return;
+   }
    char *end = NULL;
    uint64_t count = g_ascii_strtoull(value, &end, 10);
-   if (!end || end == value || *end) return;
+
+   if (!end || end == value || *end) {
+      return;
+   }
    uint64_t *last = NULL, *total = NULL;
+
    if (!strcmp(key, "traffic.rx")) {
       last = &b->traffic_rx;
       total = &kiwi_traffic_rx;
    } else if (!strcmp(key, "traffic.tx")) {
       last = &b->traffic_tx;
       total = &kiwi_traffic_tx;
-   } else return;
+   } else {
+      return;
+   }
    g_mutex_lock(&kiwi_traffic_lock);
    /* A counter reset is possible after a driver retry; don't subtract it. */
    uint64_t delta = count >= *last ? count - *last : count;
@@ -131,10 +151,13 @@ static char bridge_ui_urls[26][1024];
 static bool bridge_ui_urls_live[26];
 
 static void bridge_publish_ui(void) {
-   rr_local_bridge_ui_state_t state = {0};
+   rr_local_bridge_ui_state_t state = {
+      0
+   };
    state.vfo = rrclient_room_active_vfo("&local-sdr");
    unsigned slot = (unsigned)(state.vfo - 'A');
    bridge_instance *active = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+
    if (active && active->online && active->pid > 0) {
       state.connected = true;
       state.frequency_hz = active->frequency_hz;
@@ -145,11 +168,13 @@ static void bridge_publish_ui(void) {
    }
    g_mutex_lock(&bridge_ui_lock);
    bridge_ui = state;
-   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(bridges) ; i++) {
       bridge_instance *b = bridges[i];
       rr_local_bridge_ui_state_t *view = &bridge_ui_vfos[i];
       memset(view, 0, sizeof(*view));
       view->vfo = (char)('A' + i);
+
       if (b && b->online && b->pid > 0) {
          view->connected = true;
          view->frequency_hz = b->frequency_hz;
@@ -160,35 +185,50 @@ static void bridge_publish_ui(void) {
       }
       bridge_ui_urls_live[i] = b && b->pid > 0 && b->url;
       bridge_ui_urls[i][0] = 0;
-      if (bridge_ui_urls_live[i])
+
+      if (bridge_ui_urls_live[i]) {
          g_strlcpy(bridge_ui_urls[i], b->url, sizeof(bridge_ui_urls[i]));
+      }
    }
+
    g_mutex_unlock(&bridge_ui_lock);
 }
 bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out) {
-   if (!out) return false;
+   if (!out) {
+      return false;
+   }
    g_mutex_lock(&bridge_ui_lock);
    *out = bridge_ui;
    g_mutex_unlock(&bridge_ui_lock);
+
    return out->connected;
 }
 bool rrclient_local_bridge_ui_state_vfo(char vfo, rr_local_bridge_ui_state_t *out) {
-   if (!out || vfo < 'A' || vfo > 'Z') return false;
+   if (!out || vfo < 'A' || vfo > 'Z') {
+      return false;
+   }
    g_mutex_lock(&bridge_ui_lock);
    *out = bridge_ui_vfos[vfo - 'A'];
    g_mutex_unlock(&bridge_ui_lock);
+
    return out->connected;
 }
 bool rrclient_local_bridge_ui_connected(const char *url) {
-   if (!url) return false;
+   if (!url) {
+      return false;
+   }
    bool found = false;
    g_mutex_lock(&bridge_ui_lock);
-   for (unsigned i = 0; i < G_N_ELEMENTS(bridge_ui_urls_live); i++)
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(bridge_ui_urls_live) ; i++) {
       if (bridge_ui_urls_live[i] && !strcmp(url, bridge_ui_urls[i])) {
          found = true;
          break;
       }
+   }
+
    g_mutex_unlock(&bridge_ui_lock);
+
    return found;
 }
 bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz) {
@@ -200,27 +240,29 @@ bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64
       .payload = &request, .length = sizeof(request)
    };
    event_emit_message(&event);
-   return true; /* Queued; the core validates receiver capabilities. */
+
+   return true;                 /* Queued; the core validates receiver capabilities. */
 }
 static void bridge_waterfall_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload || message->length != sizeof(rr_local_bridge_waterfall_request_t))
+
+   if (!message || !message->payload || message->length != sizeof(rr_local_bridge_waterfall_request_t)) {
       return;
+   }
    const rr_local_bridge_waterfall_request_t *req = message->payload;
    rrclient_local_bridge_waterfall_at(req->enabled, req->zoom, req->center_hz);
 }
 
 
-/* The local bridge PCM socket must be drained on the core scheduler, not
- * GTK's global default context: compositor/window activity can stall GTK
- * enough to starve the RX mixer even when the audio worker stays on time.
- * Explicit source attachment also keeps the child lifecycle on that owner. */
+/* The local bridge PCM socket must be drained on the core scheduler, not GTK's global default context: compositor/window activity can stall GTK enough to
+ * starve the RX mixer even when the audio worker stays on time. Explicit source attachment also keeps the child lifecycle on that owner. */
 static guint bridge_core_timer(guint interval_ms, GSourceFunc fn, gpointer user) {
    GSource *source = g_timeout_source_new(interval_ms);
    g_source_set_priority(source, G_PRIORITY_HIGH);
    g_source_set_callback(source, fn, user, NULL);
    guint id = g_source_attach(source, rrclient_core_context());
    g_source_unref(source);
+
    return id;
 }
 
@@ -229,15 +271,19 @@ static guint bridge_core_kill_timer(GSourceFunc fn, gpointer user) {
    g_source_set_callback(source, fn, user, NULL);
    guint id = g_source_attach(source, rrclient_core_context());
    g_source_unref(source);
+
    return id;
 }
 
 static void bridge_core_remove_source(guint id) {
-   if (!id)
+   if (!id) {
       return;
+   }
    GSource *source = g_main_context_find_source_by_id(rrclient_core_context(), id);
-   if (source)
+
+   if (source) {
       g_source_destroy(source);
+   }
 }
 
 
@@ -358,49 +404,70 @@ static void kiwi_control_request(const rr_event_message_t *message, void *user) 
    }
 }
 bool rrclient_local_bridge_request_tune(rr_local_tune_kind_t kind, char vfo, uint64_t hz, const char *value) {
-   if (kind != RR_LOCAL_TUNE_FREQUENCY && kind != RR_LOCAL_TUNE_MODE && kind != RR_LOCAL_TUNE_WIDTH)
+   if (kind != RR_LOCAL_TUNE_FREQUENCY && kind != RR_LOCAL_TUNE_MODE && kind != RR_LOCAL_TUNE_WIDTH) {
       return false;
-   if (value && strlen(value) >= sizeof(((rr_local_tune_request_t *)0)->value))
+   }
+
+   if (value && strlen(value) >= sizeof(((rr_local_tune_request_t *) 0)->value)) {
       return false;
-   rr_local_tune_request_t req = { .kind = kind, .vfo = vfo, .hz = hz };
-   if (value)
+   }
+   rr_local_tune_request_t req = {
+      .kind = kind, .vfo = vfo, .hz = hz
+   };
+
+   if (value) {
       g_strlcpy(req.value, value, sizeof(req.value));
+   }
    rr_event_message_t message = {
       .name = RRCLIENT_LOCAL_BRIDGE_TUNE_REQUEST, .payload = &req, .length = sizeof(req)
    };
    event_emit_message(&message);
+
    return true;
 }
 static void local_bridge_tune_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload || message->length != sizeof(rr_local_tune_request_t))
+
+   if (!message || !message->payload || message->length != sizeof(rr_local_tune_request_t)) {
       return;
+   }
    const rr_local_tune_request_t *req = message->payload;
-   if (!memchr(req->value, 0, sizeof(req->value)))
+
+   if (!memchr(req->value, 0, sizeof(req->value))) {
       return;
+   }
    char vfo = req->vfo ? req->vfo : rrclient_room_active_vfo("&local-sdr");
+
    switch (req->kind) {
-   case RR_LOCAL_TUNE_FREQUENCY:
-      rrclient_local_bridge_set_frequency(vfo, req->hz);
-      break;
-   case RR_LOCAL_TUNE_MODE:
-      rrclient_local_bridge_set_mode(vfo, req->value);
-      break;
-   case RR_LOCAL_TUNE_WIDTH:
-      rrclient_local_bridge_set_width(vfo, req->value);
-      break;
-   default:
-      break;
+      case RR_LOCAL_TUNE_FREQUENCY: {
+         rrclient_local_bridge_set_frequency(vfo, req->hz);
+         break;
+      }
+      case RR_LOCAL_TUNE_MODE: {
+         rrclient_local_bridge_set_mode(vfo, req->value);
+         break;
+      }
+      case RR_LOCAL_TUNE_WIDTH: {
+         rrclient_local_bridge_set_width(vfo, req->value);
+         break;
+      }
+      default: {
+         break;
+      }
    }
 }
 static void local_bridge_lifecycle_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload || message->length != sizeof(rrclient_local_bridge_lifecycle_request_t))
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_local_bridge_lifecycle_request_t)) {
       return;
+   }
    const rrclient_local_bridge_lifecycle_request_t *req = message->payload;
-   if (!memchr(req->url, 0, sizeof(req->url)) ||
-       !memchr(req->driver, 0, sizeof(req->driver)))
+
+   if (!memchr(req->url, 0, sizeof(req->url)) || !memchr(req->driver, 0, sizeof(req->driver))) {
       return;
+   }
+
    if (req->disconnect) {
       rrclient_local_bridge_disconnect_url(req->url);
    } else if (!rrclient_local_bridge_connect_driver(req->url, req->driver)) {
@@ -999,18 +1066,20 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
 
    if (b && b->pid == pid) {
       char detail[96];
-      if (WIFEXITED(status))
+
+      if (WIFEXITED(status)) {
          g_snprintf(detail, sizeof(detail), "exit code %d", WEXITSTATUS(status));
-      else if (WIFSIGNALED(status))
+      } else if (WIFSIGNALED(status)) {
          g_snprintf(detail, sizeof(detail), "signal %d%s", WTERMSIG(status),
 #ifdef WCOREDUMP
             WCOREDUMP(status) ? " (core dumped)" : ""
 #else
             ""
 #endif
-         );
-      else
+            );
+      } else {
          g_snprintf(detail, sizeof(detail), "wait status %d", status);
+      }
       Log(LOG_WARN, "local.bridge", "Local SDR process %ld terminated: %s", (long)pid, detail);
       ui_print("&local-sdr", "%s: rrbridge terminated (%s)", b->stream, detail);
       bridge_stop(b);
@@ -1045,12 +1114,12 @@ static gboolean poll_local(gpointer unused) {
       }
 
       if (got < 0) {
-         if (read_errno)
-            Log(LOG_WARN, "local.bridge", "%s: rrbridge IPC read failed (pid=%ld fd=%d errno=%d: %s)",
-               b->stream, (long)b->pid, b->control, read_errno, g_strerror(read_errno));
-         else
-            Log(LOG_WARN, "local.bridge", "%s: rrbridge IPC closed or malformed response (pid=%ld fd=%d)",
-               b->stream, (long)b->pid, b->control);
+         if (read_errno) {
+            Log(LOG_WARN, "local.bridge", "%s: rrbridge IPC read failed (pid=%ld fd=%d errno=%d: %s)", b->stream, (long)b->pid, b->control, read_errno,
+               g_strerror(read_errno));
+         } else {
+            Log(LOG_WARN, "local.bridge", "%s: rrbridge IPC closed or malformed response (pid=%ld fd=%d)", b->stream, (long)b->pid, b->control);
+         }
          ui_print("&local-sdr", "%s: rrbridge control channel closed (see client log for details and child exit status)", b->stream);
          b->timer = 0;
          bridge_stop(b);
@@ -1088,8 +1157,10 @@ static gboolean poll_local(gpointer unused) {
             g_strlcpy(b->mode, m.mode, sizeof(b->mode));
          }
          bridge_publish_ui();
-         if (b->online)
+
+         if (b->online) {
             local_bridge_vfo_changed();
+         }
 
          if (b->online != was_online) {
             local_room_refresh();
@@ -1104,12 +1175,12 @@ static gboolean poll_local(gpointer unused) {
          }
       } else if (m.type == RRP_BRIDGE_IPC_METADATA) {
          /* Private subprocess accounting, not receiver inventory fields. */
-         if (memchr(m.metadata_key, 0, sizeof(m.metadata_key)) &&
-             memchr(m.metadata_value, 0, sizeof(m.metadata_value))) {
-            if (!strcmp(m.metadata_key, "_rr_stats"))
+         if (memchr(m.metadata_key, 0, sizeof(m.metadata_key)) && memchr(m.metadata_value, 0, sizeof(m.metadata_value))) {
+            if (!strcmp(m.metadata_key, "_rr_stats")) {
                local_bridge_stats_update(b, m.metadata_value);
-            else
+            } else {
                bridge_traffic_update(b, m.metadata_key, m.metadata_value);
+            }
             b->stats.wire_rx = b->traffic_rx;
             b->stats.wire_tx = b->traffic_tx;
          }
@@ -1400,7 +1471,10 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    ui_print("&local-sdr", "%s", status);
    /* TUI presents an interactive local RX VFO panel on this existing tab. */
    extern void rrclient_tui_local_sdr_open(void) __attribute__((weak));
-   if (rrclient_tui_local_sdr_open) rrclient_tui_local_sdr_open();
+
+   if (rrclient_tui_local_sdr_open) {
+      rrclient_tui_local_sdr_open();
+   }
    g_free(status);
    Log(LOG_INFO, "local.bridge", "Started local %s bridge pid=%ld for %s", driver, (long)pid, url);
 

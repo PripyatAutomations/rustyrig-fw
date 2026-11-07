@@ -195,4 +195,3 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
 
    return false;
 }
-

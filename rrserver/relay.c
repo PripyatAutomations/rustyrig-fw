@@ -307,16 +307,14 @@ static void route_request(const char *event, const void *data, size_t length, rr
    }
    rr_server_io_t *io = (rr_server_io_t *) data;
 
-   /* RR_SERVER_SEND_EVENT runs for server-to-client replies as well as
-    * client-originated relay commands. Property descriptor/state/changed and
-    * media discovery/subscription replies can reference a remote room, but
-    * must be delivered locally, never interpreted as outbound relay requests.
-    * Previously these were marked handled with result=false, silently
-    * dropping the replies and flooding the log. */
+   /* RR_SERVER_SEND_EVENT runs for server-to-client replies as well as client-originated relay commands. Property descriptor/state/changed and media
+    * discovery/subscription replies can reference a remote room, but must be delivered locally, never interpreted as outbound relay requests. Previously these
+    * were marked handled with result=false, silently dropping the replies and flooding the log. */
    const char *family = dict_get(io->message, "msg.type", "");
-   if ((!strcmp(family, "property") || !strcmp(family, "media")) &&
-       !rr_relay_permitted_message(io->message))
+
+   if ((!strcmp(family, "property") || !strcmp(family, "media")) && !rr_relay_permitted_message(io->message)) {
       return;
+   }
 
    if (!strcmp(dict_get(io->message, "msg.type", ""), "talk") && !strcmp(dict_get(io->message, "talk.cmd", ""), "users")) {
       io->handled = true;

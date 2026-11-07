@@ -307,6 +307,10 @@ int main(void) {
 }
 
 /* This fixture models network receivers, not local SDR or visualization. */
-size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) { return 0; }
-void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames) { }
-void rr_af_spectrum_forget(const char *stream) { }
+size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
+   return 0;
+}
+void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames) {
+}
+void rr_af_spectrum_forget(const char *stream) {
+}

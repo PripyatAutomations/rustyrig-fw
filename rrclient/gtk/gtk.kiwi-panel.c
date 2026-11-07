@@ -311,4 +311,3 @@ static void kiwi_panel_show(void) {
 void gtk_local_sdr_controls_show(void) {
    kiwi_panel_show();
 }
-

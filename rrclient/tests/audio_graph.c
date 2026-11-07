@@ -39,5 +39,6 @@ int main(void) {
    g_free(view);
    rr_audio_graph_free(g);
    puts("audio graph bypass selection passed");
+
    return 0;
 }

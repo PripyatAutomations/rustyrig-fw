@@ -233,6 +233,7 @@ extern void rrclient_tui_server_picker_toggle(void) __attribute__((weak));
 void show_server_chooser(void) {
    if (ui_mode == UI_MODE_TUI && rrclient_tui_server_picker_toggle) {
       rrclient_tui_server_picker_toggle();
+
       return;
    }
    ui_list_servers();

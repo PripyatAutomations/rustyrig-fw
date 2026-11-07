@@ -8,8 +8,15 @@
 #include <rrclient/frontend.h>
 bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
    (void)client;
-   if (rx) *rx = 0;
-   if (tx) *tx = 0;
+
+   if (rx) {
+      *rx = 0;
+   }
+
+   if (tx) {
+      *tx = 0;
+   }
+
    return false;
 }
 const rr_frontend_ops_t *frontend_ops(void) {

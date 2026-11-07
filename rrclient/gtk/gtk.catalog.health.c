@@ -345,11 +345,9 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    gboolean available = resource_health_group(node, &group, &total, &bad, &severity, reasons);
 
    if (direct || available) {
-      /* A node identity is scoped to its mesh domain, never globally by
-       * display name: two domains may contain identically named stations. */
-      char *key = g_strdup_printf("node|%s|%s",
-         branch->domain ? branch->domain : branch->profile,
-         uuid && *uuid ? uuid : name && *name ? name : branch->profile);
+      /* A node identity is scoped to its mesh domain, never globally by display name: two domains may contain identically named stations. */
+      char *key = g_strdup_printf("node|%s|%s", branch->domain ? branch->domain : branch->profile, uuid && *uuid ? uuid : name
+         && *name ? name : branch->profile);
 
       if (g_hash_table_contains(seen, key)) {
          g_free(key);
@@ -445,13 +443,15 @@ void resource_health_update(void) {
             resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
             GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
             GtkTreeIter node;
-            for (gboolean ok = gtk_tree_model_iter_children(model, &node, &branch->domain_root);
-                 ok; ok = gtk_tree_model_iter_next(model, &node)) {
+
+            for (gboolean ok = gtk_tree_model_iter_children(model, &node, &branch->domain_root) ; ok ; ok = gtk_tree_model_iter_next(model, &node)) {
                char *kind = NULL, *uuid = NULL, *direct_uuid = NULL;
                gtk_tree_model_get(model, &node, KIND, &kind, UUID, &uuid, -1);
                gtk_tree_model_get(model, &branch->root, UUID, &direct_uuid, -1);
-               if (!g_strcmp0(kind, "site") && uuid && *uuid && g_strcmp0(uuid, direct_uuid))
+
+               if (!g_strcmp0(kind, "site") && uuid && *uuid && g_strcmp0(uuid, direct_uuid)) {
                   resource_health_node(branch, &node, FALSE, seen, &reporting, &warnings);
+               }
                g_free(kind);
                g_free(uuid);
                g_free(direct_uuid);
@@ -518,4 +518,3 @@ void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
    g_free(uuid);
    g_free(action);
 }
-

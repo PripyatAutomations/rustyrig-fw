@@ -281,4 +281,3 @@ void resource_local_update(void) {
    g_free(count);
    g_hash_table_destroy(scan.seen);
 }
-

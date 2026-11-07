@@ -1,5 +1,4 @@
-/* Single-owner UI fixtures use real named-domain subscriptions. Cross-thread
- * queueing and ownership are exercised separately by thread_dispatch.c. */
+/* Single-owner UI fixtures use real named-domain subscriptions. Cross-thread queueing and ownership are exercised separately by thread_dispatch.c. */
 #ifndef RR_GTK_TEST_EVENTS_H
 #define RR_GTK_TEST_EVENTS_H
 #include <assert.h>

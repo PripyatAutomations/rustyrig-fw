@@ -379,30 +379,34 @@ static gboolean canvas_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    (void)widget;
    editor_t *editor = data;
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   if (!pipeline || !pipeline->graph) return FALSE;
+
+   if (!pipeline || !pipeline->graph) {
+      return FALSE;
+   }
    guint count = rr_pipeline_graph_node_count(pipeline->graph);
    guint link_count = rr_pipeline_graph_link_count(pipeline->graph);
    rr_gtk_graph_node_t *nodes = g_new0(rr_gtk_graph_node_t, count);
    rr_gtk_graph_edge_t *edges = g_new0(rr_gtk_graph_edge_t, link_count);
-   for (guint i = 0; i < count; i++) {
+
+   for (guint i = 0 ; i < count ; i++) {
       const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
       nodes[i] = (rr_gtk_graph_node_t) {
-         .x = node->x, .y = node->y,
-         .title = rr_pipeline_node_factory(node),
-         .subtitle = rr_pipeline_node_name(node),
-         .selected = (gint)i == editor->selected_node
+         .x = node->x, .y = node->y, .title = rr_pipeline_node_factory(node), .subtitle = rr_pipeline_node_name(node), .selected = (gint) i == editor->
+            selected_node
       };
    }
-   for (guint i = 0; i < link_count; i++) {
+
+   for (guint i = 0 ; i < link_count ; i++) {
       const rr_pipeline_link_t *link = rr_pipeline_graph_link(pipeline->graph, i);
       edges[i] = (rr_gtk_graph_edge_t) {
-         .from = link->src, .to = link->dst,
-         .kind = RR_GTK_GRAPH_NORMAL
+         .from = link->src, .to = link->dst, .kind = RR_GTK_GRAPH_NORMAL
       };
    }
+
    rr_gtk_graph_draw(cr, nodes, count, edges, link_count);
    g_free(edges);
    g_free(nodes);
+
    return FALSE;
 }
 
@@ -955,19 +959,28 @@ static GtkWidget *build_window(editor_t *editor) {
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
    GtkWidget *toolbox = build_factory_toolbox(editor);
    gtk_paned_pack1(GTK_PANED(paned), toolbox, FALSE, FALSE);
-   if (editor->read_only) gtk_widget_set_sensitive(toolbox, FALSE);
+
+   if (editor->read_only) {
+      gtk_widget_set_sensitive(toolbox, FALSE);
+   }
    GtkWidget *work = build_work_area(editor);
    gtk_paned_pack2(GTK_PANED(paned), work, TRUE, FALSE);
+
    if (editor->read_only) {
       GList *children = gtk_container_get_children(GTK_CONTAINER(work));
       GtkWidget *header = children ? GTK_WIDGET(children->data) : NULL;
+
       if (header && GTK_IS_CONTAINER(header)) {
          GList *controls = gtk_container_get_children(GTK_CONTAINER(header));
-         for (GList *item = controls; item; item = item->next) {
+
+         for (GList *item = controls ; item ; item = item->next) {
             GtkWidget *w = GTK_WIDGET(item->data);
-            if (GTK_IS_BUTTON(w) || (GTK_IS_COMBO_BOX(w) && w != editor->pipeline_combo))
+
+            if (GTK_IS_BUTTON(w) || (GTK_IS_COMBO_BOX(w) && w != editor->pipeline_combo)) {
                gtk_widget_set_sensitive(w, FALSE);
+            }
          }
+
          g_list_free(controls);
       }
       g_list_free(children);
@@ -984,6 +997,7 @@ static GtkWidget *build_window(editor_t *editor) {
    g_signal_connect(apply, "clicked", G_CALLBACK(apply_clicked), editor);
    gtk_container_add(GTK_CONTAINER(buttons), cancel);
    gtk_container_add(GTK_CONTAINER(buttons), apply);
+
    if (editor->read_only) {
       gtk_button_set_label(GTK_BUTTON(cancel), "Close");
       gtk_widget_set_no_show_all(apply, TRUE);
@@ -1001,7 +1015,11 @@ static GtkWidget *build_window(editor_t *editor) {
 
 int main(int argc, char **argv) {
    gboolean read_only = argc > 1 && !strcmp(argv[1], "--read-only");
-   if (read_only) { argv++; argc--; }
+
+   if (read_only) {
+      argv++;
+      argc--;
+   }
    gst_init(&argc, &argv);
    gtk_init(&argc, &argv);
    editor_t editor = {

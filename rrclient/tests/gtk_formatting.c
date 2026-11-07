@@ -611,43 +611,98 @@ static void test_input_history_focus(void) {
 }
 
 /* Optional widget/runtime dependencies are not exercised by this fixture. */
-GtkWidget *rr_connect_button_new(void) { return gtk_button_new(); }
-GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) { return gtk_label_new(room); }
-bool rrclient_room_part(const char *room) { return false; }
-void rrclient_media_room_parted(const char *room) { }
-bool rrclient_connection_traffic(const char *profile, uint64_t *rx, uint64_t *tx) { return false; }
-bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) { return false; }
-void userlist_redraw_gtk(void) { }
-void userlist_room_state_changed(const char *room) { }
-void ptt_button_refresh(void) { }
+GtkWidget *rr_connect_button_new(void) {
+   return gtk_button_new();
+}
+GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
+   return gtk_label_new(room);
+}
+bool rrclient_room_part(const char *room) {
+   return false;
+}
+void rrclient_media_room_parted(const char *room) {
+}
+bool rrclient_connection_traffic(const char *profile, uint64_t *rx, uint64_t *tx) {
+   return false;
+}
+bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
+   return false;
+}
+void userlist_redraw_gtk(void) {
+}
+void userlist_room_state_changed(const char *room) {
+}
+void ptt_button_refresh(void) {
+}
 
 const char *login_user;
-uint32_t rrclient_room_vfo_mask(const char *room) { return 0; }
-const char *rrclient_room_vfos(const char *room) { return ""; }
-char rrclient_room_active_vfo(const char *room) { return 'A'; }
-void rrclient_room_set_active_vfo(const char *room, char vfo) { }
-bool rrclient_room_tx_control(const char *room) { return false; }
-bool rrclient_room_rx_tunable(const char *room) { return false; }
-const char *rrclient_media_vfo_uuid(const char *room, char vfo) { return NULL; }
-const dict *rrclient_object_property(const char *uuid, const char *name) { return NULL; }
-bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode) { return false; }
-void userlist_room_vfos_changed(const char *room) { }
-void vfo_controls_set_local_sdr(bool local) { }
-void vfo_controls_set_rx_only(bool rx_only) { }
-bool vfo_update_ui(void) { return false; }
-GType gtk_freq_entry_get_type(void) { return G_TYPE_OBJECT; }
-bool gtk_freq_entry_is_editing(GtkFreqEntry *fe) { return false; }
-unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *fe) { return 0; }
-void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long hz) { }
-void modebox_update_state(const char *mode, int width) { }
-GtkWidget *rr_gtk_rf_spectrum_new(void) { return gtk_label_new(""); }
-RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) { return NULL; }
-GtkWidget *rr_floating_panel_body(RRFloatPanel *panel) { return NULL; }
-void rr_floating_panel_show(RRFloatPanel *panel) { }
-void rr_floating_panel_hide(RRFloatPanel *panel) { }
-void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable) { }
-void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title) { }
-void rr_floating_panel_set_title_click(RRFloatPanel *panel, GCallback callback, gpointer data) { }
+uint32_t rrclient_room_vfo_mask(const char *room) {
+   return 0;
+}
+const char *rrclient_room_vfos(const char *room) {
+   return "";
+}
+char rrclient_room_active_vfo(const char *room) {
+   return 'A';
+}
+void rrclient_room_set_active_vfo(const char *room, char vfo) {
+}
+bool rrclient_room_tx_control(const char *room) {
+   return false;
+}
+bool rrclient_room_rx_tunable(const char *room) {
+   return false;
+}
+const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
+   return NULL;
+}
+const dict *rrclient_object_property(const char *uuid, const char *name) {
+   return NULL;
+}
+bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode) {
+   return false;
+}
+void userlist_room_vfos_changed(const char *room) {
+}
+void vfo_controls_set_local_sdr(bool local) {
+}
+void vfo_controls_set_rx_only(bool rx_only) {
+}
+bool vfo_update_ui(void) {
+   return false;
+}
+GType gtk_freq_entry_get_type(void) {
+   return G_TYPE_OBJECT;
+}
+bool gtk_freq_entry_is_editing(GtkFreqEntry *fe) {
+   return false;
+}
+unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *fe) {
+   return 0;
+}
+void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long hz) {
+}
+void modebox_update_state(const char *mode, int width) {
+}
+GtkWidget *rr_gtk_rf_spectrum_new(void) {
+   return gtk_label_new("");
+}
+RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) {
+   return NULL;
+}
+GtkWidget *rr_floating_panel_body(RRFloatPanel *panel) {
+   return NULL;
+}
+void rr_floating_panel_show(RRFloatPanel *panel) {
+}
+void rr_floating_panel_hide(RRFloatPanel *panel) {
+}
+void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable) {
+}
+void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title) {
+}
+void rr_floating_panel_set_title_click(RRFloatPanel *panel, GCallback callback, gpointer data) {
+}
 
 static unsigned roster_docks;
 static char roster_profile[128];
@@ -682,8 +737,7 @@ static void test_query_has_no_roster(void) {
    puts("PASS: query widgets have no roster while IRC channels keep theirs");
 }
 
-/* Reproduce core producing text before GTK receives JOIN, then selecting a
- * different network before GTK drains either queue. */
+/* Reproduce core producing text before GTK receives JOIN, then selecting a different network before GTK drains either queue. */
 static void queued_chat_text(const char *room, const char *format, ...) {
    va_list args;
    va_start(args, format);
@@ -692,10 +746,8 @@ static void queued_chat_text(const char *room, const char *format, ...) {
 }
 static gpointer produce_irc_chat(gpointer unused) {
    queued_chat_text("#HamRadio", "joined #HamRadio");
-   frontend_gtk_chat_protocol_capture("join",
-      "{\"talk.room\":\"#HamRadio\",\"talk.user\":\"rustyape\"}", ws_conn, NULL);
-   frontend_gtk_chat_protocol_capture("room.topic",
-      "{\"talk.room\":\"#HamRadio\",\"talk.topic\":\"Radio topic\"}", ws_conn, NULL);
+   frontend_gtk_chat_protocol_capture("join", "{\"talk.room\":\"#HamRadio\",\"talk.user\":\"rustyape\"}", ws_conn, NULL);
+   frontend_gtk_chat_protocol_capture("room.topic", "{\"talk.room\":\"#HamRadio\",\"talk.topic\":\"Radio topic\"}", ws_conn, NULL);
    queued_chat_text("#HamRadio", "Topic: Radio topic");
    frontend_gtk_chat_protocol_capture("talk.msg",
       "{\"talk.target\":\"#HamRadio\",\"talk.from\":\"alice\",\"talk.msg_type\":\"pub\",\"talk.data\":\"hello rustyape\"}", ws_conn, NULL);
@@ -709,7 +761,9 @@ static void test_queued_irc_identity(void) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    main_notebook = gtk_notebook_new();
    gtk_container_add(GTK_CONTAINER(window), main_notebook);
-   GtkRoomTab status = { .page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), .view = gtk_text_view_new() };
+   GtkRoomTab status = {
+      .page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), .view = gtk_text_view_new()
+   };
    gtk_box_pack_start(GTK_BOX(status.page), status.view, TRUE, TRUE, 0);
    status_room_tab = &status;
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status.page, gtk_label_new("STATUS"));
@@ -720,12 +774,13 @@ static void test_queued_irc_identity(void) {
    server_name = "efnet";
    login_user = "rustyape";
    snprintf(selected_server, sizeof(selected_server), "efnet");
-   rrconn_t irc = { .is_ws = false };
+   rrconn_t irc = {
+      .is_ws = false
+   };
    ws_conn = &irc;
    GThread *producer = g_thread_new("irc-test", produce_irc_chat, NULL);
    g_thread_join(producer);
-   /* Neither connection pointers nor these compatibility globals may be used
-    * when rendering the now-queued messages. */
+   /* Neither connection pointers nor these compatibility globals may be used when rendering the now-queued messages. */
    server_name = "server";
    login_user = "different-nickname";
    snprintf(selected_server, sizeof(selected_server), "server");
@@ -778,8 +833,10 @@ static void test_queued_irc_identity(void) {
 int main(int argc, char **argv) {
    event_init();
    event_on_message_token(RRCLIENT_UI_CHAT_LINK_EVENT, capture_room_link, NULL, NULL, NULL);
+
    if (argc == 2 && !strcmp(argv[1], "--irc-routing")) {
       test_queued_irc_identity();
+
       return 0;
    }
    assert(gtk_formatting_control('B') == 0x02);

@@ -12,8 +12,7 @@
 bool rrclient_local_bridge_connect(const char *url);
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver);
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity);
-/* Cumulative bytes on local Kiwi's remote sockets (audio and waterfall).
- * Excludes bridge IPC and any server/relay transport already counted. */
+/* Cumulative bytes on local Kiwi's remote sockets (audio and waterfall). Excludes bridge IPC and any server/relay transport already counted. */
 void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx);
 typedef struct {
    char id[64], driver[32];
@@ -36,7 +35,7 @@ typedef enum {
 } rr_local_tune_kind_t;
 typedef struct {
    rr_local_tune_kind_t kind;
-   char vfo; /* Zero selects the core-owned active local VFO. */
+   char vfo;                    /* Zero selects the core-owned active local VFO. */
    uint64_t hz;
    char value[32];
 } rr_local_tune_request_t;

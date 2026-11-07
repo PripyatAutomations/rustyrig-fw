@@ -73,8 +73,7 @@ static void directory_download_wait(void);
 static void directory_download_finished(void);
 static guint snapshot_timeout_source;
 static gboolean snapshot_pending, snapshot_dirty;
-/* Optimistic visual state for disconnect requests. The transport/bridge
- * remains authoritative, and failures restore the previous row. */
+/* Optimistic visual state for disconnect requests. The transport/bridge remains authoritative, and failures restore the previous row. */
 static GHashTable *disconnect_pending;
 static void populate(void);
 static gboolean directory_disconnecting(const char *url) {
@@ -87,37 +86,57 @@ static gboolean directory_connected_remote(const char *url) {
    return !directory_disconnecting(url) && rrclient_receiver_is_connected_any(url);
 }
 static void directory_disconnect_pending(const char *url) {
-   if (!url || !*url) return;
-   if (!disconnect_pending)
+   if (!url || !*url) {
+      return;
+   }
+
+   if (!disconnect_pending) {
       disconnect_pending = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   }
    g_hash_table_add(disconnect_pending, g_strdup(url));
-   if (directory_page && directory_store) populate();
+
+   if (directory_page && directory_store) {
+      populate();
+   }
 }
 static void directory_disconnect_clear(void) {
-   if (!disconnect_pending || !g_hash_table_size(disconnect_pending)) return;
+   if (!disconnect_pending || !g_hash_table_size(disconnect_pending)) {
+      return;
+   }
    g_hash_table_remove_all(disconnect_pending);
-   if (directory_page && directory_store) populate();
+
+   if (directory_page && directory_store) {
+      populate();
+   }
 }
-/* Local bridge teardown is asynchronous and has no server release ACK.
- * Retry a bounded number of times before restoring the real backend state. */
+
+/* Local bridge teardown is asynchronous and has no server release ACK. Retry a bounded number of times before restoring the real backend state. */
 typedef struct {
    char *url;
    unsigned attempts;
 } DirectoryDisconnectWatch;
 static gboolean directory_disconnect_watch(gpointer user) {
    DirectoryDisconnectWatch *watch = user;
+
    if (!directory_disconnecting(watch->url)) {
       g_free(watch->url);
       g_free(watch);
+
       return G_SOURCE_REMOVE;
    }
+
    if (!rrclient_local_bridge_ui_connected(watch->url) || ++watch->attempts >= 20) {
       g_hash_table_remove(disconnect_pending, watch->url);
-      if (directory_page && directory_store) populate();
+
+      if (directory_page && directory_store) {
+         populate();
+      }
       g_free(watch->url);
       g_free(watch);
+
       return G_SOURCE_REMOVE;
    }
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -393,12 +412,9 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    }
    gtk_widget_set_sensitive(url_button, r != NULL);
    bool pending = r && directory_disconnecting(r->url);
-   bool connected = r && !pending && (directory_connected_local(r->url) ||
-      directory_connected_remote(r->url));
-   gtk_button_set_label(GTK_BUTTON(connect_button), pending ? "Disconnecting…" :
-      connected ? "Disconnect" : "Connect");
-   gtk_widget_set_sensitive(connect_button, r && !pending &&
-      (connected || receiver_directory_entry_accessible(r)));
+   bool connected = r && !pending && (directory_connected_local(r->url) || directory_connected_remote(r->url));
+   gtk_button_set_label(GTK_BUTTON(connect_button), pending ? "Disconnecting…" : connected ? "Disconnect" : "Connect");
+   gtk_widget_set_sensitive(connect_button, r && !pending && (connected || receiver_directory_entry_accessible(r)));
 
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
    char *stamp = date ? g_date_time_format(date, "%Y-%m-%d %H:%M:%S %Z") : g_strdup("No local report");
@@ -722,36 +738,45 @@ static void directory_menu_command(GtkMenuItem *item, gpointer user) {
       }
    }
 }
+
 /* Keep navigation consistent with the GTK tree expander arrows. */
 static gboolean directory_tree_key_press(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
    (void)unused;
-   if (event->keyval != GDK_KEY_Left && event->keyval != GDK_KEY_KP_Left &&
-       event->keyval != GDK_KEY_Right && event->keyval != GDK_KEY_KP_Right)
+
+   if (event->keyval != GDK_KEY_Left && event->keyval != GDK_KEY_KP_Left && event->keyval != GDK_KEY_Right && event->keyval != GDK_KEY_KP_Right) {
       return FALSE;
+   }
    GtkTreeView *tree = GTK_TREE_VIEW(widget);
    GtkTreeModel *model = NULL;
    GtkTreeIter iter;
-   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(tree), &model, &iter))
+
+   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(tree), &model, &iter)) {
       return FALSE;
+   }
    GtkTreePath *path = gtk_tree_model_get_path(model, &iter);
-   if (!path)
+
+   if (!path) {
       return FALSE;
+   }
    gboolean right = event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right;
+
    if (right) {
-      if (gtk_tree_model_iter_has_child(model, &iter))
+      if (gtk_tree_model_iter_has_child(model, &iter)) {
          gtk_tree_view_expand_row(tree, path, FALSE);
-      else {
+      } else {
          gtk_tree_path_free(path);
+
          return FALSE;
       }
    } else {
-      if (gtk_tree_view_row_expanded(tree, path))
+      if (gtk_tree_view_row_expanded(tree, path)) {
          gtk_tree_view_collapse_row(tree, path);
-      else if (gtk_tree_path_up(path)) {
+      } else if (gtk_tree_path_up(path)) {
          gtk_tree_view_set_cursor(tree, path, NULL, FALSE);
       }
    }
    gtk_tree_path_free(path);
+
    return TRUE;
 }
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
@@ -866,12 +891,16 @@ static void receiver_connect_request(const char *url, gboolean save, const char 
    };
    event_emit_message(&message);
 }
-/* The bridge IPC/PCM owner is the core thread. Never start or tear down
- * its child process from GTK's event loop. The event bus copies this payload. */
+
+/* The bridge IPC/PCM owner is the core thread. Never start or tear down its child process from GTK's event loop. The event bus copies this payload. */
 static void receiver_local_lifecycle(const char *url, const char *driver, gboolean disconnect) {
-   rrclient_local_bridge_lifecycle_request_t req = {0};
-   if (!url || strlen(url) >= sizeof(req.url))
+   rrclient_local_bridge_lifecycle_request_t req = {
+      0
+   };
+
+   if (!url || strlen(url) >= sizeof(req.url)) {
       return;
+   }
    g_strlcpy(req.url, url, sizeof(req.url));
    g_strlcpy(req.driver, driver && *driver ? driver : "kiwi", sizeof(req.driver));
    req.disconnect = disconnect != FALSE;
@@ -895,6 +924,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       DirectoryDisconnectWatch *watch = g_new0(DirectoryDisconnectWatch, 1);
       watch->url = g_strdup(r->url);
       g_timeout_add(250, directory_disconnect_watch, watch);
+
       return;
    }
    proxy_refresh();
@@ -916,8 +946,10 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    }
 
    if (!GPOINTER_TO_INT(save) && rrclient_receiver_is_connected(r->url)) {
-      if (rrclient_receiver_disconnect(r->url))
+      if (rrclient_receiver_disconnect(r->url)) {
          directory_disconnect_pending(r->url);
+      }
+
       return;
    }
 
@@ -1032,14 +1064,13 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
 
    if (data) {
       gtk_label_set_text(GTK_LABEL(directory_status), data);
-      /* Acknowledgement or rejection ends the optimistic disconnect state.
-       * In either case rebuild from the core's actual connection table. */
+
+      /* Acknowledgement or rejection ends the optimistic disconnect state. In either case rebuild from the core's actual connection table. */
       if (strstr(data, "SDR disconnected:") ||
-          strstr(data, "SDR receiver was already removed") ||
-          strstr(data, "SDR server rejected disconnect") ||
-          strstr(data, "SDR request transport failed") ||
-          strstr(data, "SDR timeout:"))
+         strstr(data, "SDR receiver was already removed") ||
+         strstr(data, "SDR server rejected disconnect") || strstr(data, "SDR request transport failed") || strstr(data, "SDR timeout:")) {
          directory_disconnect_clear();
+      }
    }
    snapshot_request();          /* Refresh the immutable GUI copy. */
 }
@@ -1202,7 +1233,7 @@ static gboolean directory_finish_show(gpointer unused) {
    g_signal_connect(favorites_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
    g_signal_connect(directory_tree, "button-press-event", G_CALLBACK(directory_context_menu), NULL);
-    g_signal_connect(directory_tree, "key-press-event", G_CALLBACK(directory_tree_key_press), NULL);
+   g_signal_connect(directory_tree, "key-press-event", G_CALLBACK(directory_tree_key_press), NULL);
    /* Don't block the first paint on cached directory population. */
    gtk_widget_show_all(directory_page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));

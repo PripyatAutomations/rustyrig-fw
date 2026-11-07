@@ -277,10 +277,10 @@ bool rr_relay_state_demand(const char *owner, const char *room, dict *d) {
 
 /* Forward owner state once per interested downstream branch. */
 void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
-   /* State/chat is per subscribed neighbor, not per remote user. The
-    * receiving node fans out to its local clients and downstream branches.
-    * Keep duplicate subscriptions from creating duplicate mesh packets. */
+   /* State/chat is per subscribed neighbor, not per remote user. The receiving node fans out to its local clients and downstream branches. Keep duplicate
+    * subscriptions from creating duplicate mesh packets. */
    guint interested = 0, forwarded = 0, duplicates = 0, failed = 0;
+
    for (struct subscription *s = rr_relay_subscriptions ; s ; s = s->next) {
       if (strcmp(s->owner, owner) || !rr_relay_interested(s->room, room, d)) {
          continue;
@@ -294,22 +294,23 @@ void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
       }
 
       ++interested;
+
       if (duplicate) {
          ++duplicates;
          continue;
       }
-      if (rr_relay_packet(s->node, "state", NULL, owner, d))
+
+      if (rr_relay_packet(s->node, "state", NULL, owner, d)) {
          ++forwarded;
-      else
+      } else {
          ++failed;
+      }
    }
+
    if (interested) {
-      Log(failed ? LOG_WARN : LOG_DEBUG, "relay.fanout",
-         "Mesh state fanout: type=%s cmd=%s room=%s interested=%u next_hops=%u "
-         "duplicate_subscriptions=%u failed=%u (one packet per subscribed branch, local delivery on receiver)",
-         dict_get(d, "msg.type", ""),
-         dict_get(d, "talk.cmd", dict_get(d, "cat.cmd", dict_get(d, "property.cmd", ""))),
-         room ? room : "", interested, forwarded, duplicates, failed);
+      Log(failed ? LOG_WARN : LOG_DEBUG, "relay.fanout", "Mesh state fanout: type=%s cmd=%s room=%s interested=%u next_hops=%u "
+         "duplicate_subscriptions=%u failed=%u (one packet per subscribed branch, local delivery on receiver)", dict_get(d, "msg.type", ""), dict_get(d,
+         "talk.cmd", dict_get(d, "cat.cmd", dict_get(d, "property.cmd", ""))), room ? room : "", interested, forwarded, duplicates, failed);
    }
 }
 
@@ -453,29 +454,25 @@ void rr_relay_send_remote(const char *event, const void *data, size_t length, rr
       // Carry the complete relay session ID; the origin substitutes its token.
       dict_add(forward, "talk.session", r->id);
    }
-   /* A virtual session may outlive its origin's route until the link-loss
-    * cleanup runs. It has no local socket to deliver to, so consume the
-    * message, record the failed forward, and avoid an unbounded warning per
-    * property/media descriptor during link teardown. Never treat a failed
-    * relay as successfully delivered. */
+   /* A virtual session may outlive its origin's route until the link-loss cleanup runs. It has no local socket to deliver to, so consume the message, record
+    * the failed forward, and avoid an unbounded warning per property/media descriptor during link teardown. Never treat a failed relay as successfully
+    * delivered. */
    bool reachable = rrserver_links_route(r->origin) != NULL;
    bool delivered = reachable && rr_relay_packet(r->origin, "reply", r->id, NULL, forward);
    io->result = true;           /* consumed by the virtual-session transport */
+
    if (!delivered) {
       static guint64 dropped;
       static gint64 last_report;
       static guint64 last_count;
       ++dropped;
       gint64 at = g_get_monotonic_time();
+
       if (!last_report || at - last_report >= G_USEC_PER_SEC) {
-         Log(LOG_WARN, "relay.reply",
-            "Remote reply not delivered: origin=%s session=%.36s type=%s cmd=%s reason=%s dropped=%llu (+%llu since last report)",
-            r->origin, r->id, family,
-            !strcmp(family, "property") ? dict_get(io->message, "property.cmd", "") :
-            !strcmp(family, "media") ? dict_get(io->message, "media.cmd", "") :
-            !strcmp(family, "talk") ? dict_get(io->message, "talk.cmd", "") : "",
-            reachable ? "relay send failed" : "origin route unavailable",
-            (unsigned long long)dropped, (unsigned long long)(dropped - last_count));
+         Log(LOG_WARN, "relay.reply", "Remote reply not delivered: origin=%s session=%.36s type=%s cmd=%s reason=%s dropped=%llu (+%llu since last report)", r->
+            origin, r->id, family, !strcmp(family, "property") ? dict_get(io->message, "property.cmd", "") : !strcmp(family, "media") ? dict_get(io->message,
+            "media.cmd", "") : !strcmp(family, "talk") ? dict_get(io->message, "talk.cmd", "") : "", reachable ? "relay send failed" :
+            "origin route unavailable", (unsigned long long)dropped, (unsigned long long)(dropped - last_count));
          last_report = at;
          last_count = dropped;
       }
@@ -883,28 +880,25 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
 #ifdef USE_SQLITE
       db_ok = room && db_room_status(masterdb, room, &exists, &deleted);
 #endif
-      Log(LOG_WARN, "relay.join",
-         "Remote JOIN failed on owner: room=%s user=%s origin=%s session=%s "
+      Log(LOG_WARN, "relay.join", "Remote JOIN failed on owner: room=%s user=%s origin=%s session=%s "
          "process_ok=%s member=%s rig_base=%s configured=%s room_metadata=%s "
-         "db_ok=%s db_exists=%s db_deleted=%s",
-         room ? room : "(none)", username, origin, id,
-         ok ? "yes" : "no", room && ws_client_in_room(&r->client, room) ? "yes" : "no",
-         rig_base ? "yes" : "no", configured ? "yes" : "no",
-         metadata ? "yes" : "no", db_ok ? "yes" : "no",
-         exists ? "yes" : "no", deleted ? "yes" : "no");
-      /* The protocol handler already sends its generic failure. Add the
-       * reason that distinguishes a stale catalog from an authorization
-       * or room-initialization problem on the actual owning server. */
-      if (rig_base && !configured)
+         "db_ok=%s db_exists=%s db_deleted=%s", room ? room : "(none)", username, origin, id, ok ? "yes" : "no", room && ws_client_in_room(&r->client, room) ?
+         "yes" : "no", rig_base ? "yes" : "no", configured ? "yes" : "no", metadata ? "yes" : "no", db_ok ? "yes" : "no", exists ? "yes" : "no", deleted ?
+         "yes" : "no");
+
+      /* The protocol handler already sends its generic failure. Add the reason that distinguishes a stale catalog from an authorization or room-initialization
+       * problem on the actual owning server. */
+      if (rig_base && !configured) {
          ws_send_error(&r->client, "JOIN %s: owning server has no configured rig room (stale catalog or rig unavailable)", room);
-      else if (rig_base && !metadata)
+      } else if (rig_base && !metadata) {
          ws_send_error(&r->client, "JOIN %s: owning server has no active rig-room metadata", room);
-      else if (!db_ok)
+      } else if (!db_ok) {
          ws_send_error(&r->client, "JOIN %s: owning server could not read room database status", room ? room : "");
-      else if (deleted)
+      } else if (deleted) {
          ws_send_error(&r->client, "JOIN %s: room is marked deleted on owning server", room);
-      else
+      } else {
          ws_send_error(&r->client, "JOIN %s: owning server rejected room membership; check relay.join and room logs", room ? room : "");
+      }
    }
 
    if (ok && !strcmp(cmd, "join") && ws_client_in_room(&r->client, room)) {

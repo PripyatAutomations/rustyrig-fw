@@ -413,26 +413,21 @@ bool rr_identity_accept_revision(sqlite3 *db, const char *domain, const char *ow
 
    if (ok) {
       if (proposed < current || (proposed == current && (!previous || strcmp(digest, previous)))) {
-         /* A verified signature may still be a replay or a signed fork. Keep
-          * fail-closed semantics, but distinguish the two for mesh debugging.
-          * Hashes are diagnostic only; do not log catalog payload contents. */
-         Log(LOG_WARN, "mesh.identity",
-            "Catalog revision rejected: owner=%s key=%s reason=%s received=%lld stored=%lld "
-            "incoming_sha256=%s stored_sha256=%s",
-            owner, key, proposed < current ? "stale-replay" : "same-revision-content-conflict",
-            (long long)proposed, (long long)current,
-            digest ? digest : "(unavailable)", previous ? previous : "(unavailable)");
+         /* A verified signature may still be a replay or a signed fork. Keep fail-closed semantics, but distinguish the two for mesh debugging. Hashes are
+          * diagnostic only; do not log catalog payload contents. */
+         Log(LOG_WARN, "mesh.identity", "Catalog revision rejected: owner=%s key=%s reason=%s received=%lld stored=%lld "
+            "incoming_sha256=%s stored_sha256=%s", owner, key, proposed < current ? "stale-replay" : "same-revision-content-conflict", (long long)proposed, (
+               long long)current, digest ? digest : "(unavailable)", previous ? previous : "(unavailable)");
          ok = false;
       } else if (proposed > current) {
          ok = revision_store(db, domain, owner, key, proposed, digest);
-         if (!ok)
-            Log(LOG_WARN, "mesh.identity",
-               "Unable to persist accepted catalog revision: owner=%s key=%s revision=%lld",
-               owner, key, (long long)proposed);
+
+         if (!ok) {
+            Log(LOG_WARN, "mesh.identity", "Unable to persist accepted catalog revision: owner=%s key=%s revision=%lld", owner, key, (long long)proposed);
+         }
       }
    } else {
-      Log(LOG_WARN, "mesh.identity",
-          "Cannot read persistent catalog revision journal: owner=%s key=%s", owner, key);
+      Log(LOG_WARN, "mesh.identity", "Cannot read persistent catalog revision journal: owner=%s key=%s", owner, key);
    }
    g_free(previous);
    g_free(digest);

@@ -79,8 +79,12 @@ extern struct GlobalState rig;
 static struct bridge_child *children;
 size_t rrserver_bridges_stats_snapshot(rr_bridge_worker_stats_t *out, size_t capacity) {
    size_t count = 0;
-   for (struct bridge_child *b = children; b; b = b->next) {
-      if (b->process.pid <= 0) continue;
+
+   for (struct bridge_child *b = children ; b ; b = b->next) {
+      if (b->process.pid <= 0) {
+         continue;
+      }
+
       if (out && count < capacity) {
          out[count] = b->stats;
          g_strlcpy(out[count].name, b->name ? b->name : "", sizeof(out[count].name));
@@ -89,33 +93,42 @@ size_t rrserver_bridges_stats_snapshot(rr_bridge_worker_stats_t *out, size_t cap
       }
       count++;
    }
+
    return count;
 }
 static bool bridge_private_stats(struct bridge_child *b, const char *key, const char *value) {
    if (!strcmp(key, "_rr_stats")) {
       unsigned long long in = 0, out = 0, bytes = 0, frames = 0, errors = 0;
       int length = 0;
-      if (sscanf(value, "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu%n",
-                 &in, &out, &bytes, &frames, &errors, &length) == 5 &&
-          length > 0 && value[length] == '\0') {
-         b->stats.ipc_in = (uint64_t)in;
-         b->stats.ipc_out = (uint64_t)out;
-         b->stats.pcm_bytes = (uint64_t)bytes;
-         b->stats.pcm_frames = (uint64_t)frames;
-         b->stats.errors = (uint64_t)errors;
+
+      if (sscanf(value, "v1 in=%llu out=%llu pcm_bytes=%llu pcm_frames=%llu errors=%llu%n", &in, &out, &bytes, &frames, &errors, &length) == 5 && length > 0 &&
+         value[length] == '\0') {
+         b->stats.ipc_in = (uint64_t) in;
+         b->stats.ipc_out = (uint64_t) out;
+         b->stats.pcm_bytes = (uint64_t) bytes;
+         b->stats.pcm_frames = (uint64_t) frames;
+         b->stats.errors = (uint64_t) errors;
          b->stats.last_report_us = mono_us();
       }
-      return true; /* Invalid stats must never disconnect radio control. */
+
+      return true;              /* Invalid stats must never disconnect radio control. */
    }
+
    if (!strcmp(key, "traffic.rx") || !strcmp(key, "traffic.tx")) {
       char *end = NULL;
       guint64 bytes = g_ascii_strtoull(value, &end, 10);
+
       if (end && end != value && !*end) {
-         if (!strcmp(key, "traffic.rx")) b->stats.wire_rx = bytes;
-         else b->stats.wire_tx = bytes;
+         if (!strcmp(key, "traffic.rx")) {
+            b->stats.wire_rx = bytes;
+         } else {
+            b->stats.wire_tx = bytes;
+         }
       }
-      return true; /* Kiwi wire counters are not public receiver metadata. */
+
+      return true;              /* Kiwi wire counters are not public receiver metadata. */
    }
+
    return false;
 }
 
@@ -873,8 +886,10 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
    }
 
    if (m->type == RRP_BRIDGE_IPC_METADATA) {
-      if (bridge_private_stats(b, m->metadata_key, m->metadata_value))
+      if (bridge_private_stats(b, m->metadata_key, m->metadata_value)) {
          return true;
+      }
+
       return publish_metadata(b, m->metadata_key, m->metadata_value, true);
    }
 

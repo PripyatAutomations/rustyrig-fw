@@ -42,23 +42,29 @@ void gtk_winmgr_stop_sources(void) {
 
 /* Main-window geometry is user configuration, not a reliable GTK minimum:
  * connected notebook content can transiently request a larger width. */
-static void main_window_geometry_clamp(GtkWidget *window, int *w, int *h,
-                                       int *x, int *y) {
-   if (!GTK_IS_WINDOW(window) || !w || !h || !x || !y)
+static void main_window_geometry_clamp(GtkWidget *window, int *w, int *h, int *x, int *y) {
+   if (!GTK_IS_WINDOW(window) || !w || !h || !x || !y) {
       return;
+   }
    GdkDisplay *display = gtk_widget_get_display(window);
    GdkWindow *gdk_window = gtk_widget_get_window(window);
-   GdkMonitor *monitor = gdk_window ?
-      gdk_display_get_monitor_at_window(display, gdk_window) :
-      gdk_display_get_primary_monitor(display);
-   if (!monitor)
+   GdkMonitor *monitor = gdk_window ? gdk_display_get_monitor_at_window(display, gdk_window) : gdk_display_get_primary_monitor(display);
+
+   if (!monitor) {
       monitor = gdk_display_get_monitor(display, 0);
-   if (!monitor)
+   }
+
+   if (!monitor) {
       return;
-   GdkRectangle work = {0};
+   }
+   GdkRectangle work = {
+      0
+   };
    gdk_monitor_get_workarea(monitor, &work);
-   if (work.width < 1 || work.height < 1)
+
+   if (work.width < 1 || work.height < 1) {
       return;
+   }
    *w = CLAMP(*w, 1, work.width);
    *h = CLAMP(*h, 1, work.height);
    *x = CLAMP(*x, work.x, work.x + work.width - *w);
@@ -90,8 +96,7 @@ static gboolean on_configure_timeout(gpointer data) {
       if (win->x != win->last_x || win->y != win->last_y || win->w != win->last_w || win->h != win->last_h) {
          // Store the position, etc 'permanently'
          if (!strcmp(win->name, "main")) {
-            main_window_geometry_clamp(window, &win->last_w, &win->last_h,
-                                       &win->last_x, &win->last_y);
+            main_window_geometry_clamp(window, &win->last_w, &win->last_h, &win->last_x, &win->last_y);
          }
          win->x = win->last_x;
          win->y = win->last_y;
@@ -391,9 +396,9 @@ bool place_window(GtkWidget *window) {
    }
 
    if (win->w > 0 && win->h > 0) {
-      if (!strcmp(win->name, "main"))
-         main_window_geometry_clamp(win->gtk_win, &win->w, &win->h,
-                                    &win->x, &win->y);
+      if (!strcmp(win->name, "main")) {
+         main_window_geometry_clamp(win->gtk_win, &win->w, &win->h, &win->x, &win->y);
+      }
       gtk_window_set_default_size(GTK_WINDOW(win->gtk_win), win->w, win->h);
       gtk_window_resize(GTK_WINDOW(win->gtk_win), win->w, win->h);
    }
@@ -432,8 +437,11 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
 }
 
 static void on_window_destroy(GtkWidget *w, gpointer user_data) {
-   if (!w) return;
+   if (!w) {
+      return;
+   }
    gui_window_t *p = user_data;
+
    /* The pending debounce may otherwise dereference a destroyed toplevel. */
    if (configure_event_timeout) {
       g_source_remove(configure_event_timeout);

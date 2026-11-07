@@ -1610,6 +1610,7 @@ void gtk_admin_open_resource(const char *profile, const char *kind, const char *
       event_emit("client.admin.select-profile", NULL, profile);
    }
    admin_table_t *table = &tables[index];
+
    if (GTK_IS_WINDOW(admin_tab)) {
       gtk_widget_show_all(admin_tab);
       gtk_window_present(GTK_WINDOW(admin_tab));

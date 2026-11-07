@@ -45,18 +45,23 @@ struct kiwi_instance {
    uint32_t sequence;
    bool have_sequence;
 };
-/* Mongoose's built-in resolver does not consult the system resolver and
- * otherwise defaults to 8.8.8.8, which may be unreachable on this network.
- * Honor the first usable IPv4 nameserver configured on the host instead. */
+/* Mongoose's built-in resolver does not consult the system resolver and otherwise defaults to 8.8.8.8, which may be unreachable on this network. Honor the
+ * first usable IPv4 nameserver configured on the host instead. */
 static void kiwi_setup_dns(struct kiwi_instance *k) {
    snprintf(k->dns_url, sizeof(k->dns_url), "udp://1.1.1.1:53");
    FILE *file = fopen("/etc/resolv.conf", "r");
+
    if (file) {
       char line[256], addr[64];
       struct in_addr ip;
       while (fgets(line, sizeof(line), file)) {
-         if (sscanf(line, " nameserver %63s", addr) != 1) continue;
-         if (inet_pton(AF_INET, addr, &ip) != 1) continue;
+         if (sscanf(line, " nameserver %63s", addr) != 1) {
+            continue;
+         }
+
+         if (inet_pton(AF_INET, addr, &ip) != 1) {
+            continue;
+         }
          snprintf(k->dns_url, sizeof(k->dns_url), "udp://%s:53", addr);
          break;
       }
@@ -64,6 +69,7 @@ static void kiwi_setup_dns(struct kiwi_instance *k) {
    }
    k->manager.dns4.url = k->dns_url;
 }
+
 static void waterfall_center(struct kiwi_instance *k);
 static bool kiwi_noise_blanker(struct kiwi_instance *k);
 static const char *setting(struct kiwi_instance *k, const char *key) {
@@ -655,14 +661,23 @@ static void waterfall_center(struct kiwi_instance *k) {
    snprintf(command, sizeof(command), "SET zoom=%u start=%u", zoom, start);
    mg_ws_send(k->waterfall, command, strlen(command), WEBSOCKET_OP_TEXT);
 }
-/* Count socket bytes once at Mongoose's transport edge, including protocol
- * overhead and the independently connected waterfall channel. */
+
+/* Count socket bytes once at Mongoose's transport edge, including protocol overhead and the independently connected waterfall channel. */
 static void kiwi_count_wire(struct kiwi_instance *k, int event, void *data) {
-   if (!k || !data || (event != MG_EV_READ && event != MG_EV_WRITE)) return;
+   if (!k || !data || (event != MG_EV_READ && event != MG_EV_WRITE)) {
+      return;
+   }
    long bytes = *(long *)data;
-   if (bytes <= 0) return;
-   if (event == MG_EV_READ) k->traffic_rx += (uint64_t)bytes;
-   else k->traffic_tx += (uint64_t)bytes;
+
+   if (bytes <= 0) {
+      return;
+   }
+
+   if (event == MG_EV_READ) {
+      k->traffic_rx += (uint64_t) bytes;
+   } else {
+      k->traffic_tx += (uint64_t) bytes;
+   }
 }
 static void waterfall_ws(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
@@ -1004,8 +1019,8 @@ static void kiwi_poll(void *instance) {
    }
    mg_mgr_poll(&k->manager, 0);
    current = mono_us();
-   /* One cumulative IPC sample per second; the parent computes rates.
-    * This is not PCM/media IPC traffic and must not be counted twice. */
+
+   /* One cumulative IPC sample per second; the parent computes rates. This is not PCM/media IPC traffic and must not be counted twice. */
    if ((!k->traffic_report_at || current - k->traffic_report_at >= UINT64_C(1000000)) && k->host.metadata) {
       char total[32];
       snprintf(total, sizeof(total), "%" PRIu64, k->traffic_rx);
