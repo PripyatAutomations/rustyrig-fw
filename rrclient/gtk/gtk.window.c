@@ -394,8 +394,9 @@ bool gui_init(void) {
    gtk_widget_set_vexpand(viewport_host, TRUE);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport_host);
    gtk_box_pack_start(GTK_BOX(viewport_host), viewport, TRUE, TRUE, 0);
-   gtk_overlay_add_overlay(GTK_OVERLAY(rr_client_overlay), quit_button);
-   gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(rr_client_overlay), quit_button, FALSE);
+   /* Chat's right status row takes ownership of this button so the clock
+    * and X are measured/positioned as one unit, without a 34px spacer. */
+   g_object_set_data(G_OBJECT(rr_client_overlay), "rr-main-quit-button", quit_button);
    GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
    GtkWidget *upper_extra = cfg_ui_gtk_main_tabstrip == GTK_POS_TOP ? tab_strip : NULL;
    GtkWidget *lower = cfg_ui_gtk_main_tabstrip == GTK_POS_BOTTOM ? tab_strip : NULL;
