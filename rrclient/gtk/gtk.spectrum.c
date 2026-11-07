@@ -21,7 +21,10 @@ typedef struct {
    float current[RR_AF_BINS];
    unsigned head, count;
    guint timer;
-   bool listening;
+   bool listening, af_pending;
+   gint64 af_requested_at;
+   guint64 af_request_id;
+   rr_event_token_t af_result_token;
    double display_gain_db;
 } spectrum_panel_t;
 static double level(float db, double gain_db) {
@@ -459,6 +462,24 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
    return FALSE;
 }
+static guint64 af_next_request_id;
+static void af_result_event(const rr_event_message_t *message, void *data) {
+   spectrum_panel_t *p = data;
+   if (!message || !message->payload ||
+       message->length != sizeof(rrclient_af_spectrum_result_t))
+      return;
+   const rrclient_af_spectrum_result_t *result = message->payload;
+   if (!p->af_pending || result->request_id != p->af_request_id)
+      return;
+   p->af_pending = false;
+   if (!p->listening || !result->ready)
+      return;
+   memcpy(p->current, result->bins, sizeof(p->current));
+   memcpy(p->rows[p->head], p->current, sizeof(p->current));
+   p->head = (p->head + 1) % HISTORY;
+   p->count = MIN(p->count + 1, HISTORY);
+   gtk_widget_queue_draw(p->drawing);
+}
 static gboolean update(gpointer data) {
    spectrum_panel_t *p = data;
    bool visible = gtk_widget_get_mapped(p->drawing) && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->enabled));
@@ -471,32 +492,29 @@ static gboolean update(gpointer data) {
    if (!visible) {
       return G_SOURCE_CONTINUE;
    }
-   struct rrclient_rx_stream streams[64];
-   size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
-   /* Prefer the audible RX route when several streams share a room. A muted/stale first route must not hide the signal the operator hears. */
-   size_t selected = count;
-
-   for (size_t i = 0 ; i < MIN(count, G_N_ELEMENTS(streams)) ; i++) {
-      if (g_strcmp0(streams[i].server, p->server) || g_ascii_strcasecmp(streams[i].room, p->room)) {
-         continue;
-      }
-
-      if (selected == count || (streams[selected].output == 'M' && streams[i].output != 'M')) {
-         selected = i;
-      }
-   }
-
-   if (selected < MIN(count, G_N_ELEMENTS(streams)) && rr_af_spectrum_read(streams[selected].id, p->current)) {
-      memcpy(p->rows[p->head], p->current, sizeof(p->current));
-      p->head = (p->head + 1) % HISTORY;
-      p->count = MIN(p->count + 1, HISTORY);
-      gtk_widget_queue_draw(p->drawing);
+   /* Only a copied request crosses to the core. Bound outstanding requests
+    * if the core stalls so GTK cannot build an unbounded event backlog. */
+   gint64 now = g_get_monotonic_time();
+   if (!p->af_pending || now - p->af_requested_at > G_USEC_PER_SEC) {
+      rrclient_af_spectrum_request_t req = { .request_id = ++af_next_request_id };
+      g_strlcpy(req.server, p->server, sizeof(req.server));
+      g_strlcpy(req.room, p->room, sizeof(req.room));
+      p->af_request_id = req.request_id;
+      p->af_requested_at = now;
+      p->af_pending = true;
+      rr_event_message_t message = {
+         .name = RRCLIENT_AF_SPECTRUM_REQUEST,
+         .payload = &req, .length = sizeof(req)
+      };
+      event_emit_message(&message);
    }
 
    return G_SOURCE_CONTINUE;
 }
 static void destroy_panel(gpointer data) {
    spectrum_panel_t *p = data;
+   if (p->af_result_token)
+      event_off_token(p->af_result_token);
 
    if (p->listening) {
       rr_af_spectrum_listen(false);
@@ -642,6 +660,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    g_signal_connect(p->palette, "changed", G_CALLBACK(palette_changed), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(enable_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
+   p->af_result_token = event_on_message_domain_token(
+      RRCLIENT_AF_SPECTRUM_RESULT, af_result_event, p, "gtk");
    p->timer = g_timeout_add(250, update, p);
 
    return box;
