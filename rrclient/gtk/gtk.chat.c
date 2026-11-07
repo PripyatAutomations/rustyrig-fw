@@ -1623,15 +1623,49 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
    }
 }
 
+/* The VFO is shared by rig tabs, not owned by a particular chat page.
+ * Reconcile it after PART, tab removal and room capability changes. */
+static void room_vfo_reconcile(void) {
+   if (!main_notebook)
+      return;
+   GtkNotebook *notebook = GTK_NOTEBOOK(main_notebook);
+   GtkRoomTab *current = NULL, *bound = NULL, *fallback = NULL;
+   gint selected = gtk_notebook_get_current_page(notebook);
+
+   for (gint i = 0, n = gtk_notebook_get_n_pages(notebook); i < n; ++i) {
+      GtkWidget *page = gtk_notebook_get_nth_page(notebook, i);
+      GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+      if (!room_vfo_tab_has_controls(tab))
+         continue;
+      if (!fallback)
+         fallback = tab;
+      if (i == selected)
+         current = tab;
+      if (room_vfo_title_room[0] && !g_strcmp0(tab->room, room_vfo_title_room))
+         bound = tab;
+   }
+
+   if (!fallback) {
+      /* Ordinary chat/status tabs cannot keep an orphaned operating panel
+       * alive after the final rig tab closes. Preserve panel layout for
+       * the next rig rather than destroying its saved geometry. */
+      if (room_vfo_panel)
+         rr_floating_panel_hide(room_vfo_panel);
+      room_vfo_title_room[0] = '\0';
+      return;
+   }
+
+   GtkRoomTab *target = room_vfo_follow_chat && current ? current : bound;
+   if (!target)
+      target = current ? current : fallback;
+
+   if (!room_vfo_panel || !bound || g_strcmp0(room_vfo_title_room, target->room))
+      gtk_chat_update_vfo_controls(target);
+}
+
 void gtk_chat_room_vfos_changed(const char *room) {
    userlist_room_vfos_changed(room);
-   gint page = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
-   GtkWidget *widget = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), page);
-   GtkRoomTab *tab = widget ? g_object_get_data(G_OBJECT(widget), "rr-room-tab") : NULL;
-
-   if (room_vfo_follow_chat || (tab && !g_strcmp0(room_vfo_title_room, tab->room))) {
-      gtk_chat_update_vfo_controls(tab);
-   }
+   room_vfo_reconcile();
 }
 
 
