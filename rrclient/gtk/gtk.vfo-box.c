@@ -482,7 +482,18 @@ GtkWidget *create_vfo_box(void) {
    gtk_flow_box_set_filter_func(GTK_FLOW_BOX(vfo_controls_row), vfo_control_visible, NULL, NULL);
    gtk_widget_set_halign(vfo_controls_row, GTK_ALIGN_FILL);
    gtk_widget_set_valign(vfo_controls_row, GTK_ALIGN_START);
-   gtk_box_pack_start(GTK_BOX(control_box), vfo_controls_row, FALSE, FALSE, 0);
+   /* GtkFlowBox's natural width wants all controls on one row. Its direct
+    * parent must constrain the width *before* GTK measures the floating
+    * panel, otherwise that natural width makes the panel overflow. */
+   GtkWidget *flow_viewport = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(flow_viewport),
+      GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(flow_viewport), 1);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(flow_viewport), FALSE);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(flow_viewport), TRUE);
+   gtk_widget_set_hexpand(flow_viewport, TRUE);
+   gtk_container_add(GTK_CONTAINER(flow_viewport), vfo_controls_row);
+   gtk_box_pack_start(GTK_BOX(control_box), flow_viewport, FALSE, FALSE, 0);
 
    // FREQ selection
    freq_entry = gtk_freq_entry_new(-1);
