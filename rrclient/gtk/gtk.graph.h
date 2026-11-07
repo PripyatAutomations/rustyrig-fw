@@ -14,7 +14,7 @@ typedef enum {
 } rr_gtk_graph_io_t;
 typedef struct {
    double x, y;
-   const char *title, *subtitle;
+   const char *title, *subtitle, *detail;
    gboolean selected, failed, bypass_pins;
    gboolean stereo_pins, fwdsp;
    rr_gtk_graph_io_t io;
