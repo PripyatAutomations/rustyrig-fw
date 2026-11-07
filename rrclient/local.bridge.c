@@ -309,8 +309,10 @@ static void local_bridge_active_event(void) {
 }
 
 static void local_bridge_vfo_changed(void) {
-   event_emit("client.local-bridge.vfo", NULL, NULL);
+   /* Publish the new active VFO/capability snapshot before GTK listeners
+    * inspect it in response to the change notification. */
    local_bridge_active_event();
+   event_emit("client.local-bridge.vfo", NULL, NULL);
 }
 
 static void local_bridge_active_request(const rr_event_message_t *unused, void *user) {
