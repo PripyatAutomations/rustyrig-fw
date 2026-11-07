@@ -705,13 +705,17 @@ static void panel_roll(GtkButton *button, gpointer data) {
    if (p->modal) {
       return;
    }
-   if (!p->rolled)
-      panel_state_save(p); /* preserve expanded geometry before collapsing */
+   if (!p->rolled) {
+      /* Preserve the visible titlebar width as well as expanded geometry.
+       * A rolled panel only collapses vertically. */
+      gint width = gtk_widget_get_allocated_width(p->frame);
+      panel_state_save(p);
+      if (width > 1)
+         p->saved_width = width;
+   }
    p->rolled = !p->rolled;
-   /* Let the titlebar determine the collapsed width and height; restore
-    * the original viewport dimensions when expanding. */
    gtk_widget_set_size_request(p->frame,
-      p->rolled ? -1 : (p->saved_width > 1 ? p->saved_width : -1),
+      p->saved_width > 1 ? p->saved_width : -1,
       p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
 
    if (!p->rolled) {
@@ -1166,7 +1170,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    }
    panel_chrome(p);
    if (p->rolled)
-      gtk_widget_set_size_request(p->frame, -1, -1);
+      gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? p->saved_width : -1, -1);
    panel_raise(p);
    p->restoring_state = FALSE;
 
