@@ -22,15 +22,34 @@ profile. Build, sanitizer, and live mesh tests have **not** yet been run here.
   The authoritative `link.tree.c` already performs this check. Add
   malformed-identifier regression assertions.
 
+## AF spectrum threading follow-up (this session)
+
+- GTK no longer calls `audio_rx_streams()` in its 250 ms update loop.
+  An async `RRCLIENT_AF_SPECTRUM_REQUEST` carries only a copied server and
+  room identifier plus a request ID. The core resolves the preferred non-muted
+  stream and copies the analyzer's FFT bins into `RRCLIENT_AF_SPECTRUM_RESULT`
+  on the GTK event domain.
+- GTK tracks one in-flight request per AF panel, times out a lost response
+  after one second, and discards stale/foreign replies by request ID. Panel
+  destruction cancels its event subscription.
+- `rrclient/spectrum.af.c` now precomputes Hann window and FFT twiddle
+  coefficients once instead of recalculating thousands of trig functions on
+  every analysis pass.
+- `fwdsp` decoder stdout watches run on `fwdsp_reactor_context` (set to
+  core for threaded GTK); `fwdsp_destroy` detaches those watches before
+  freeing the decoder slot. The PCM route user pointer is therefore
+  normally consumed on the same owner context as the route teardown. This
+  assumption still needs a sanitizer test across shutdown/reconnect and
+  other non-core entry points.
+- Source inspected only: build, sanitizer, audio and GTK live tests not yet
+  executed. In particular, verify `NONE` + AF visualization under rapid
+  connect/disconnect and multiple active streams.
+
 ## High-priority outstanding risks
 
-1. **AF spectrum GTK/core ownership.** `gtk.spectrum.c:update()` calls
-   `audio_rx_streams()` every 250 ms while visible. That function traverses
-   `rx_routes`, which is mutated and freed on the core thread by
-   `audio_sync_rx_channels()`. `audio.h` explicitly marks that inventory
-   as core-loop-only. Replace GTK direct reads with a *core-produced immutable
-   snapshot* delivered to GTK, not a GTK-side mutex around the route list.
-   Verify rapidly switching RX codec to NONE while AF waterfall is open.
+1. **AF spectrum GTK/core ownership (patched, needs testing).** GTK now
+   requests core-owned FFT snapshots instead of traversing `rx_routes`.
+   Verify rapid codec NONE switching, reconnect and panel destruction.
 2. **RX decoder callback lifetime.** `audio_sync_rx_channels()` registers
    `client_channel_pcm` with an `rx_route_t *` user pointer and later
    destroys the route when a subscription disappears. Verify that
