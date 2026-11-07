@@ -2440,27 +2440,6 @@ static gboolean status_network_tick(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
-/* The notebook can temporarily exceed the outer viewport's width while a
- * room or roster is being rebuilt. Anchor the clock to the *window*, not to
- * that oversized allocation, or it disappears off the right edge. */
-static gboolean status_network_position(GtkOverlay *overlay, GtkWidget *child,
-                                         GdkRectangle *allocation, gpointer row) {
-   if (child != row || !main_window) return FALSE;
-   gint visible = gtk_widget_get_allocated_width(main_window);
-   gint overlay_width = gtk_widget_get_allocated_width(GTK_WIDGET(overlay));
-   if (visible <= 1) visible = overlay_width;
-   if (overlay_width > 1) visible = MIN(visible, overlay_width);
-   gint minimum = 0, natural = 0;
-   gint min_height = 0, natural_height = 0;
-   gtk_widget_get_preferred_width(child, &minimum, &natural);
-   gtk_widget_get_preferred_height(child, &min_height, &natural_height);
-   if (visible < 200) return FALSE;
-   allocation->width = MIN(MAX(minimum, natural), MAX(1, visible - 4));
-   allocation->height = MAX(min_height, natural_height);
-   allocation->x = MAX(0, visible - allocation->width - 2);
-   allocation->y = 3;
-   return TRUE;
-}
 static void status_volume_clicked(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    gtk_volume_toggle();
@@ -2529,24 +2508,18 @@ bool chat_init(void) {
       gtk_box_pack_start(GTK_BOX(network_row), status_clock, FALSE, FALSE, 0);
    /* Clock and main Quit belong in the same row. Separate overlay children
     * drift apart when the underlying notebook width changes. */
-   GtkWidget *quit = g_object_get_data(G_OBJECT(gtk_bin_get_child(GTK_BIN(main_window))), "rr-main-quit-button");
+   GtkWidget *quit = g_object_get_data(G_OBJECT(main_window), "rr-main-quit-button");
    if (quit)
       gtk_box_pack_end(GTK_BOX(network_row), quit, FALSE, FALSE, 0);
    gtk_widget_set_hexpand(network_row, FALSE);
-   /* The entire notebook lives inside a non-horizontally-scrollable viewport. A wide notebook page can therefore push the toolbar's end past the visible
-    * window. Anchor network status to the window-sized overlay instead, not the potentially oversized scrolled content. */
-   GtkWidget *window_overlay = gtk_bin_get_child(GTK_BIN(main_window));
-   gtk_widget_set_halign(network_row, GTK_ALIGN_END);
-   gtk_widget_set_valign(network_row, GTK_ALIGN_START);
-   gtk_widget_set_margin_top(network_row, 3);
-   gtk_widget_set_margin_end(network_row, 2);
-
-   if (GTK_IS_OVERLAY(window_overlay)) {
-      g_signal_connect(window_overlay, "get-child-position",
-         G_CALLBACK(status_network_position), network_row);
-      gtk_overlay_add_overlay(GTK_OVERLAY(window_overlay), network_row);
-      /* A pass-through overlay makes the new Volume button unclickable. */
-      gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(window_overlay), network_row, FALSE);
+   gtk_widget_set_valign(network_row, GTK_ALIGN_CENTER);
+   if (status_clock)
+      gtk_widget_set_valign(status_clock, GTK_ALIGN_CENTER);
+   if (quit)
+      gtk_widget_set_valign(quit, GTK_ALIGN_CENTER);
+   GtkWidget *toolbar_right = g_object_get_data(G_OBJECT(main_window), "rr-main-toolbar-right");
+   if (GTK_IS_BOX(toolbar_right)) {
+      gtk_box_pack_end(GTK_BOX(toolbar_right), network_row, FALSE, FALSE, 0);
       gtk_widget_show_all(network_row);
    } else {
       gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
