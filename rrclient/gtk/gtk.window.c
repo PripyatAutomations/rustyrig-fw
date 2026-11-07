@@ -377,7 +377,7 @@ bool gui_init(void) {
    gtk_box_pack_end(GTK_BOX(toolbar_shell), toolbar_right, FALSE, FALSE, 2);
    g_object_set_data(G_OBJECT(main_window), "rr-main-toolbar-right", toolbar_right);
    g_object_set_data(G_OBJECT(main_window), "rr-main-quit-button", quit_button);
-   gtk_box_pack_start(GTK_BOX(main_content), toolbar_shell, FALSE, FALSE, 1);
+   /* Attach the toolbar outside the scrolling content below. */
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_widget_set_size_request(tabs_wrapper, 1, -1);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
@@ -407,6 +407,10 @@ bool gui_init(void) {
    gtk_widget_set_hexpand(viewport_host, TRUE);
    gtk_widget_set_vexpand(viewport_host, TRUE);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport_host);
+   /* The entire toolbar must be outside the app-wide scroll viewport.
+    * Otherwise the content can exceed the viewport and shift even the
+    * fixed right cluster off screen when a rig room is opened. */
+   gtk_box_pack_start(GTK_BOX(viewport_host), toolbar_shell, FALSE, FALSE, 1);
    gtk_box_pack_start(GTK_BOX(viewport_host), viewport, TRUE, TRUE, 0);
    GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
    GtkWidget *upper_extra = cfg_ui_gtk_main_tabstrip == GTK_POS_TOP ? tab_strip : NULL;
