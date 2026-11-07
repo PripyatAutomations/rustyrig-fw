@@ -31,6 +31,7 @@ static bool window_state_schema(void) {
       "CREATE TABLE IF NOT EXISTS window_states ("
       "id TEXT PRIMARY KEY, x INTEGER NOT NULL, y INTEGER NOT NULL,"
       "width INTEGER NOT NULL, height INTEGER NOT NULL, zoom INTEGER NOT NULL,"
+      "opacity INTEGER NOT NULL DEFAULT 100,"
       "rolled INTEGER NOT NULL, minimized INTEGER NOT NULL, pinned INTEGER NOT NULL,"
       "last_used INTEGER NOT NULL DEFAULT (strftime('%s','now')),"
       "last_session INTEGER NOT NULL DEFAULT 0);"
@@ -43,7 +44,21 @@ static bool window_state_schema(void) {
       return false;
    }
 
-
+   /* Existing client DBs predate opacity: migrate without resetting geometry. */
+   sqlite3_stmt *columns = NULL;
+   bool has_opacity = false;
+   if (sqlite3_prepare_v2(client_db, "PRAGMA table_info(window_states)", -1, &columns, NULL) != SQLITE_OK)
+      return false;
+   while (sqlite3_step(columns) == SQLITE_ROW) {
+      const char *name = (const char *) sqlite3_column_text(columns, 1);
+      if (name && !strcmp(name, "opacity"))
+         has_opacity = true;
+   }
+   sqlite3_finalize(columns);
+   if (!has_opacity && sqlite3_exec(client_db,
+      "ALTER TABLE window_states ADD COLUMN opacity INTEGER NOT NULL DEFAULT 100",
+      NULL, NULL, NULL) != SQLITE_OK)
+      return false;
    return true;
 }
 
@@ -487,7 +502,7 @@ bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out)
    }
    sqlite3_stmt *q = NULL;
    bool found = false;
-   const char *sql = "SELECT x,y,width,height,zoom,rolled,minimized,pinned FROM window_states WHERE id=?1";
+   const char *sql = "SELECT x,y,width,height,zoom,rolled,minimized,pinned,opacity FROM window_states WHERE id=?1";
 
    if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) == SQLITE_OK) {
       sqlite3_bind_text(q, 1, id, -1, SQLITE_TRANSIENT);
@@ -496,7 +511,7 @@ bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out)
          *out = (rrclient_window_state_t) {
             .x = sqlite3_column_int(q, 0), .y = sqlite3_column_int(q, 1), .width = sqlite3_column_int(q, 2), .height = sqlite3_column_int(q, 3), .zoom =
                sqlite3_column_int(q, 4), .rolled = sqlite3_column_int(q, 5) != 0, .minimized = sqlite3_column_int(q, 6) != 0, .pinned =
-               sqlite3_column_int(q, 7) != 0
+               sqlite3_column_int(q, 7) != 0, .opacity = sqlite3_column_int(q, 8)
          };
          found = true;
       }
@@ -512,13 +527,13 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
    }
    sqlite3_stmt *q = NULL;
    const char *sql = "INSERT INTO window_states"
-      "(id,x,y,width,height,zoom,rolled,minimized,pinned,last_used,last_session) "
-      "VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%s','now'),"
+      "(id,x,y,width,height,zoom,rolled,minimized,pinned,opacity,last_used,last_session) "
+      "VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,strftime('%s','now'),"
       "(SELECT CAST(value AS INTEGER) FROM client_settings WHERE key='window.session')) "
       "ON CONFLICT(id) DO UPDATE SET "
       "x=excluded.x,y=excluded.y,width=excluded.width,height=excluded.height,"
       "zoom=excluded.zoom,rolled=excluded.rolled,minimized=excluded.minimized,"
-      "pinned=excluded.pinned,last_used=excluded.last_used,last_session=excluded.last_session";
+      "pinned=excluded.pinned,opacity=excluded.opacity,last_used=excluded.last_used,last_session=excluded.last_session";
 
    if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) != SQLITE_OK) {
       return false;
@@ -532,6 +547,7 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
    sqlite3_bind_int(q, 7, state->rolled);
    sqlite3_bind_int(q, 8, state->minimized);
    sqlite3_bind_int(q, 9, state->pinned);
+   sqlite3_bind_int(q, 10, state->opacity ? state->opacity : 100);
    bool ok = sqlite3_step(q) == SQLITE_DONE;
    sqlite3_finalize(q);
 
