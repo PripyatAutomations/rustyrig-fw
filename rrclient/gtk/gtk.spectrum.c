@@ -669,10 +669,34 @@ typedef struct {
    bool vfo_boundary[32];
    char last_vfo;
    unsigned head, count;
-   gint64 received_at, drawn_at;
-   guint draw_timer;
+   gint64 received_at, drawn_at, last_retry_at;
+   guint draw_timer, recovery_timer;
    rr_event_token_t token, caps_token, vfo_token;
 } rf_strip_t;
+/* A Kiwi W/F connection may become ready after audio and capability
+ * negotiation. Do not leave an enabled viewer blank indefinitely if no RF
+ * rows arrive; reassert interest at a bounded rate. */
+static gboolean rf_recover_stream(gpointer user) {
+   rf_strip_t *p = user;
+   if (!p->rf_enabled)
+      return G_SOURCE_CONTINUE;
+   unsigned min_zoom = 0, max_zoom = 0;
+   rr_local_bridge_ui_state_t state = {0};
+   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall)
+      return G_SOURCE_CONTINUE;
+   gint64 now = g_get_monotonic_time();
+   if (p->received_at && now - p->received_at <= G_GINT64_CONSTANT(3000000))
+      return G_SOURCE_CONTINUE;
+   if (!p->last_retry_at || now - p->last_retry_at >= G_GINT64_CONSTANT(10000000)) {
+      if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) {
+         unsigned zoom = CLAMP(p->zoom, min_zoom, max_zoom);
+         rrclient_local_bridge_request_waterfall(TRUE, zoom, 0);
+         p->last_retry_at = now;
+      }
+   }
+   gtk_widget_queue_draw(p->drawing);
+   return G_SOURCE_CONTINUE;
+}
 static gboolean rf_draw_later(gpointer user) {
    rf_strip_t *p = user;
    p->draw_timer = 0;
@@ -752,6 +776,12 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_paint(cr);
 
    if (!p->rf_enabled || !p->count || g_get_monotonic_time() - p->received_at > 3000000) {
+      if (p->rf_enabled) {
+         cairo_set_source_rgb(cr, .72, .77, .82);
+         cairo_set_font_size(cr, 12);
+         cairo_move_to(cr, 12, 24);
+         cairo_show_text(cr, "Waiting for RF spectrum data...");
+      }
       return FALSE;
    }
    int depth = MIN((int)p->count, 32);
@@ -1215,6 +1245,8 @@ static void rf_destroy(gpointer data) {
    if (p->draw_timer) {
       g_source_remove(p->draw_timer);
    }
+   if (p->recovery_timer)
+      g_source_remove(p->recovery_timer);
 
    if (p->token) {
       event_off_token(p->token);
@@ -1265,6 +1297,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
+   p->recovery_timer = g_timeout_add_seconds(2, rf_recover_stream, p);
    p->token = event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row_message, p, "gtk");
    p->caps_token = event_on_binary_domain_token("client.local-bridge.capabilities", rf_caps_changed, p, "gtk");
    p->vfo_token = event_on_binary_domain_token("client.local-bridge.vfo", rf_caps_changed, p, "gtk");
