@@ -51,6 +51,8 @@ typedef struct bridge_instance {
    gint64 resampler_retry_at;
    uint64_t pending, serial, frequency_hz, pending_hz;
    uint64_t traffic_rx, traffic_tx;
+   uint64_t rf_rows_received, rf_rows_published;
+   gint64 rf_report_at;
    rr_local_bridge_stats_t stats;
    char pending_mode[16];
    bool queued_tune;
@@ -1267,14 +1269,32 @@ static gboolean poll_local(gpointer unused) {
          break;
       }
 
+      b->rf_rows_received++;
       if (rrclient_room_active_vfo("&local-sdr") == (char)('A' + b->slot)) {
          rr_event_message_t message = {
             .name = RR_BRIDGE_SPECTRUM_EVENT, .payload = &row, .length = sizeof(row)
          };
          event_emit_message(&message);
+         b->rf_rows_published++;
       }
    }
 
+   /* A spectrum producer can fail without breaking control or RX audio.
+    * Log at most once per 10 seconds and only while an RF-capable local
+    * bridge is online; distinguish no incoming IPC from VFO filtering. */
+   if (b->online && (b->caps.flags & RRP_BRIDGE_WATERFALL)) {
+      gint64 current = g_get_monotonic_time();
+      if (!b->rf_report_at || current - b->rf_report_at >= 10000000) {
+         Log(LOG_INFO, "local.bridge.rf",
+             "%s RF/10s received=%llu published=%llu active-vfo=%c socket=%s",
+             b->stream, (unsigned long long)b->rf_rows_received,
+             (unsigned long long)b->rf_rows_published,
+             rrclient_room_active_vfo("&local-sdr"),
+             b->spectrum >= 0 ? "open" : "closed");
+         b->rf_report_at = current;
+         b->rf_rows_received = b->rf_rows_published = 0;
+      }
+   }
    return G_SOURCE_CONTINUE;
 }
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
