@@ -1272,7 +1272,30 @@ static void media_transport_notice(const char *event, const char *data, rrconn_t
    dict_free(d);
 }
 
+/* Run codec changes on the core owner. The GTK combo signal must never
+ * synchronously tear down RX routes while the core/audio scheduler owns them. */
+static void media_codec_select_in_connection(void *data) {
+   const rrclient_media_codec_select_request_t *request = data;
+   rrclient_media_select_codec(ws_conn, request->is_tx, request->codec);
+}
+static void media_codec_select_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload ||
+       message->length != sizeof(rrclient_media_codec_select_request_t))
+      return;
+   rrclient_media_codec_select_request_t request;
+   memcpy(&request, message->payload, sizeof(request));
+   request.profile[sizeof(request.profile) - 1] = '\0';
+   request.codec[sizeof(request.codec) - 1] = '\0';
+   if (strlen(request.codec) != 4 || !request.profile[0])
+      return;
+   rrconn_t *connection = rrclient_connection_find(request.profile);
+   if (connection && connection->is_ws)
+      rrclient_connection_dispatch(connection, media_codec_select_in_connection, &request);
+}
 void rrclient_media_register_events(void) {
+   event_on_message_domain_token(RRCLIENT_MEDIA_CODEC_SELECT_REQUEST,
+      media_codec_select_request, NULL, "core");
    if (!gps_nmea_timer) {
       gps_nmea_timer = g_timeout_add_seconds(1, gps_nmea_tick, NULL);
    }
