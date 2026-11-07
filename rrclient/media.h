@@ -9,6 +9,14 @@
 
 #include <librrprotocol/rrprotocol.h>
 
+/* GTK and other non-core threads request codec changes through the core
+ * event domain; never mutate media/channel/audio routes on the GTK thread. */
+#define RRCLIENT_MEDIA_CODEC_SELECT_REQUEST "client.media.codec.select.request"
+typedef struct {
+   char profile[256];
+   char codec[5];
+   bool is_tx;
+} rrclient_media_codec_select_request_t;
 void rrclient_media_sync_audio(void);
 void rrclient_media_refresh(rrconn_t *connection);
 /* Current connection: local confirmed TX feeding this RX resource. */
