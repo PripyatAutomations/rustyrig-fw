@@ -538,6 +538,7 @@ static gboolean panel_scrim_press(GtkWidget *widget, GdkEventButton *event, gpoi
    return TRUE;
 }
 
+static void panel_drag_cancel_tick(RRFloatPanel *p);
 static void panel_minimize(GtkButton *button, gpointer data);
 static void panel_roll(GtkButton *button, gpointer data);
 static void panel_close(GtkButton *button, gpointer data);
