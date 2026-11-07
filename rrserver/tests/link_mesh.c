@@ -11,6 +11,11 @@ int main(void) {
    rr_mesh_t *m = rr_mesh_new(A);
    rr_mesh_route_t r;
    assert(m);
+   /* Same-length malformed UUIDs and case aliases are not valid mesh IDs. */
+   assert(!rr_mesh_new("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"));
+   assert(!rr_mesh_edge(m, A, "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", 1));
+   assert(!rr_mesh_edge(m, A, "00000000-0000-4000-8000-00000000000G", 1));
+   assert(rr_mesh_node_count(m) == 1);
    assert(rr_mesh_edge(m, A, B, 1));
    assert(rr_mesh_edge(m, B, D, 1));
    assert(rr_mesh_edge(m, A, C, 2));
