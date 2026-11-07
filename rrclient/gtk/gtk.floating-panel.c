@@ -30,7 +30,9 @@ struct rr_floating_panel {
    guint32 title_press_time;
    gboolean title_moved;
    gboolean snap_disabled, initial_positioned, initial_centered, initial_center_pending;
-   double drag_x, drag_y, resize_x, resize_y;
+   double drag_x, drag_y, drag_pending_x, drag_pending_y, resize_x, resize_y;
+   guint drag_tick_id;
+   gboolean drag_pending;
    int resize_width, resize_height;
    int start_x, start_y;
    int snap_x, snap_y;
@@ -458,9 +460,12 @@ static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
    }
    x = CLAMP(x, hard_min_x, hard_max_x);
    y = CLAMP(y, hard_min_y, hard_max_y);
-   gtk_widget_set_margin_start(p->frame, x);
-   gtk_widget_set_margin_top(p->frame, y);
-   panel_position_save(p, x, y);
+   /* Avoid queuing GTK layout when the pointer has not changed the
+    * resulting position (e.g. while held against a snap guide). */
+   if (gtk_widget_get_margin_start(p->frame) != x)
+      gtk_widget_set_margin_start(p->frame, x);
+   if (gtk_widget_get_margin_top(p->frame) != y)
+      gtk_widget_set_margin_top(p->frame, y);
 }
 
 /* GtkOverlay paints children in overlay order. Raise the selected panel rather than merely presenting the containing desktop window. */
@@ -729,6 +734,8 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
    if (!p) {
       return;
    }
+   panel_drag_cancel_tick(p);
+   p->dragging = FALSE;
 
    if (p->restore_tab) {
       gtk_tabs_panel_restore_remove(p->restore_tab);
@@ -752,6 +759,29 @@ static void panel_close(GtkButton *button, gpointer data) {
    }
 }
 
+/* GTK margin changes invalidate overlay layout. Process only the latest
+ * pointer sample once per frame rather than relayout on every motion event. */
+static gboolean panel_drag_tick(GtkWidget *widget, GdkFrameClock *clock, gpointer data) {
+   (void)widget;
+   (void)clock;
+   RRFloatPanel *p = data;
+   if (!p->dragging)
+      return G_SOURCE_REMOVE;
+   if (p->drag_pending) {
+      p->drag_pending = FALSE;
+      panel_drag_position(p, p->drag_pending_x, p->drag_pending_y);
+   }
+   return G_SOURCE_CONTINUE;
+}
+
+static void panel_drag_cancel_tick(RRFloatPanel *p) {
+   if (p->drag_tick_id) {
+      gtk_widget_remove_tick_callback(p->frame, p->drag_tick_id);
+      p->drag_tick_id = 0;
+   }
+   p->drag_pending = FALSE;
+}
+
 static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
@@ -767,6 +797,8 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    p->start_y = gtk_widget_get_margin_top(p->frame);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    p->snapped_x = p->snapped_y = FALSE;
+   panel_drag_cancel_tick(p);
+   p->drag_tick_id = gtk_widget_add_tick_callback(p->frame, panel_drag_tick, p, NULL);
 
    return TRUE;
 }
@@ -779,7 +811,9 @@ static gboolean drag_move(GtkWidget *widget, GdkEventMotion *event, gpointer dat
       return FALSE;
    }
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
-   panel_drag_position(p, event->x_root, event->y_root);
+   p->drag_pending_x = event->x_root;
+   p->drag_pending_y = event->y_root;
+   p->drag_pending = TRUE;
 
    return TRUE;
 }
@@ -792,8 +826,10 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
       return FALSE;
    }
    p->dragging = FALSE;
+   panel_drag_cancel_tick(p);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    panel_drag_position(p, event->x_root, event->y_root);
+   panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
    panel_state_save(p);
 
    return TRUE;
@@ -1188,6 +1224,8 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    if (!p) {
       return;
    }
+   panel_drag_cancel_tick(p);
+   p->dragging = FALSE;
 
    floating_panels = g_list_remove(floating_panels, p);
 
