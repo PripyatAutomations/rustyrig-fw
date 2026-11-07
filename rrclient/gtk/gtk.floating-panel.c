@@ -1198,8 +1198,11 @@ void rr_floating_panel_fit_content(RRFloatPanel *p) {
       /* FlowBox's natural width packs several controls in one row.
        * Use its one-column minimum instead; users can widen it themselves. */
       gint width = MAX(minimum, panel_minimum_width(p));
-      if (overlay_w > 1) width = MIN(width, MAX(1, overlay_w - inset));
-      gtk_widget_set_size_request(p->frame, width, -1);
+      /* During initial map the overlay may momentarily be only a few
+       * pixels wide. Never persist such a transient width as panel state. */
+      if (overlay_w > inset + 200)
+         width = MIN(width, overlay_w - inset);
+      gtk_widget_set_size_request(p->frame, MAX(200, width), -1);
    }
    gtk_widget_queue_resize(p->frame);
 }
