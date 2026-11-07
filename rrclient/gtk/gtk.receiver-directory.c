@@ -313,29 +313,50 @@ static char *regional_sort_key(const char *country, const char *location) {
 
    return key;
 }
+/* Child rows are sorted within their country by location, then receiver
+ * name and URL. For US/CA/AU, keep the established state/province-first
+ * ordering; other countries previously fell back to receiver name only. */
 static gint country_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer unused) {
    (void)unused;
-   char *ac = NULL, *bc = NULL, *al = NULL, *bl = NULL, *an = NULL, *bn = NULL;
-   gtk_tree_model_get(model, a, COL_COUNTRY, &ac, COL_LOCATION, &al, COL_NAME, &an, -1);
-   gtk_tree_model_get(model, b, COL_COUNTRY, &bc, COL_LOCATION, &bl, COL_NAME, &bn, -1);
+   char *ac = NULL, *bc = NULL, *al = NULL, *bl = NULL;
+   char *an = NULL, *bn = NULL, *au = NULL, *bu = NULL;
+   gtk_tree_model_get(model, a, COL_COUNTRY, &ac, COL_LOCATION, &al,
+      COL_NAME, &an, COL_URL, &au, -1);
+   gtk_tree_model_get(model, b, COL_COUNTRY, &bc, COL_LOCATION, &bl,
+      COL_NAME, &bn, COL_URL, &bu, -1);
    gint result = g_utf8_collate(ac ? ac : "", bc ? bc : "");
 
-   if (!result && ac && (!g_ascii_strcasecmp(ac, "United States") || !g_ascii_strcasecmp(ac, "Canada") || !g_ascii_strcasecmp(ac, "Australia"))) {
-      char *ak = regional_sort_key(ac, al), *bk = regional_sort_key(bc, bl);
-      result = strcmp(ak, bk);
-      g_free(ak);
-      g_free(bk);
+   if (!result) {
+      if (ac && (!g_ascii_strcasecmp(ac, "United States") ||
+                 !g_ascii_strcasecmp(ac, "Canada") ||
+                 !g_ascii_strcasecmp(ac, "Australia"))) {
+         char *ak = regional_sort_key(ac, al), *bk = regional_sort_key(bc, bl);
+         result = g_utf8_collate(ak, bk);
+         g_free(ak);
+         g_free(bk);
+      } else {
+         /* Unpublished locations go last, rather than before real cities. */
+         bool a_missing = !al || !*al, b_missing = !bl || !*bl;
+         if (a_missing != b_missing)
+            result = a_missing ? 1 : -1;
+         else
+            result = g_utf8_collate(al ? al : "", bl ? bl : "");
+      }
    }
 
-   if (!result) {
+   if (!result)
       result = g_utf8_collate(an ? an : "", bn ? bn : "");
-   }
+   if (!result)
+      result = g_strcmp0(au, bu);
+
    g_free(ac);
    g_free(bc);
    g_free(al);
    g_free(bl);
    g_free(an);
    g_free(bn);
+   g_free(au);
+   g_free(bu);
 
    return result;
 }
