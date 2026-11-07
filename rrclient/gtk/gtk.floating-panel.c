@@ -342,17 +342,23 @@ static void panel_initial_allocation(GtkWidget *widget, GtkAllocation *allocatio
       !gtk_widget_get_visible(p->frame) || allocation->width <= 1 || allocation->height <= 1) {
       return;
    }
-   p->initial_center_pending = FALSE;
-   int min_x, min_y, max_x, max_y;
    int width = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
    int height = gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay));
 
    if (width <= 1 || height <= 1) {
       return;
    }
+   p->initial_center_pending = FALSE;
+   int min_x, min_y, max_x, max_y;
    panel_bounds(p, allocation->width, allocation->height, &min_x, &min_y, &max_x, &max_y);
-   gtk_widget_set_margin_start(p->frame, CLAMP((width - allocation->width) / 2, min_x, max_x));
-   gtk_widget_set_margin_top(p->frame, CLAMP((height - allocation->height) / 2, min_y, max_y));
+   int x = CLAMP((width - allocation->width) / 2, min_x, max_x);
+   int y = CLAMP((height - allocation->height) / 2, min_y, max_y);
+   gtk_widget_set_margin_start(p->frame, x);
+   gtk_widget_set_margin_top(p->frame, y);
+   panel_position_save(p, x, y);
+   /* Save the *actual* centered coordinates, not the provisional position
+    * calculated before the panel's tree and controls were allocated. */
+   panel_state_save(p);
 }
 
 static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean horizontal, int minimum, int limit) {
@@ -1163,7 +1169,10 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       p->saved_minimized = FALSE;
       panel_minimize(NULL, p);
    }
-   panel_state_save(p);
+   /* The first GTK allocation still needs to center this panel at its
+    * final size. Persist only after panel_initial_allocation completes. */
+   if (!p->initial_center_pending)
+      panel_state_save(p);
 }
 
 void rr_floating_panel_destroy(RRFloatPanel *p) {
