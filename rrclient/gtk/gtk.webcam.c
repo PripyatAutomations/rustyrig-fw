@@ -335,22 +335,18 @@ void gtk_webcam_show(bool show) {
    }
 }
 
-static gboolean webcam_close_disconnected(gpointer user) {
-   if (!webcam_connection) {
-      gtk_webcam_show(false);
-   }
-
-   return G_SOURCE_REMOVE;
-}
 static void webcam_disconnected(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)data;
+   (void)user;
+   /* This callback is registered on the GTK event domain. g_idle_add()
+    * would attach to the process-default/core context in threaded mode,
+    * invoking gtk_webcam_show() on the wrong thread. */
    g_mutex_lock(&webcam_lock);
-
-   if (client && client == webcam_connection) {
-      webcam_connection = NULL;
-      webcam_visible = false;
-      g_idle_add(webcam_close_disconnected, NULL);
-   }
+   bool active = client && client == webcam_connection;
    g_mutex_unlock(&webcam_lock);
+   if (active)
+      gtk_webcam_show(false);
 }
 
 // Register the video frame listener (called from gtk init)
