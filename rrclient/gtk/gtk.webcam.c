@@ -26,6 +26,7 @@
 #include "gtk.floating-panel.h"
 #include <rrclient/media.h>
 #include <rrclient/connman.h>
+#include <rrclient/connection.state.h>
 #include <librustyaxe/event-bus.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 
@@ -70,6 +71,10 @@ static GtkWidget *webcam_codecs, *webcam_rates;
 static char webcam_core_uuid[64];
 static void webcam_controls_refresh(void);
 void gtk_webcam_show(bool show);
+static void webcam_panel_close(gpointer user) {
+   (void)user;
+   gtk_webcam_show(false);
+}
 
 static void webcam_publish_status(bool subscribed) {
    webcam_status_t status = { .epoch = webcam_core_epoch,
