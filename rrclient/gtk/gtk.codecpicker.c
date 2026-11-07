@@ -61,17 +61,19 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       // the matching fwdsp pipeline and re-announces the channel with the
       // active codec magic.
       // PARITY: rustyrig-www/js/webui.media.js (codec select)
-      rrconn_t *cptr = ws_conn;
-
-      if (cptr) {
-         const struct rr_client_media_chan *channel = rrclient_media_codec_target_channel(ctx->is_tx);
-
-         if (channel && !rrclient_media_select_codec_channel(cptr, ctx->is_tx, codec, channel->uuid)) {
-            char description[512];
-            rrclient_media_description(channel ? channel->uuid : NULL, description, sizeof(description));
-            const char *room = channel && channel->room[0] ? channel->room : ui_active_window_name();
-            ui_print(room, "Requested %s codec %s for %s", ctx->is_tx ? "TX" : "RX", codec, description);
-         }
+      const char *profile = rrclient_selected_server();
+      if (profile && *profile) {
+         rrclient_media_codec_select_request_t request = {
+            .is_tx = ctx->is_tx
+         };
+         g_strlcpy(request.profile, profile, sizeof(request.profile));
+         g_strlcpy(request.codec, codec, sizeof(request.codec));
+         rr_event_message_t message = {
+            .name = RRCLIENT_MEDIA_CODEC_SELECT_REQUEST,
+            .payload = &request,
+            .length = sizeof(request)
+         };
+         event_emit_message(&message);
       }
    }
 }
