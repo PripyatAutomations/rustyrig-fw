@@ -2330,50 +2330,90 @@ static void vfo_locator_on_top_changed(GtkToggleButton *button, gpointer unused)
       gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), locator_on_top);
    vfo_locator_settings_save();
 }
-static GtkWidget *vfo_locator_popover;
+/* This is an independent toplevel, not a GtkPopover child. A popover on
+ * the tiny undecorated locator is clipped to that window's allocation. */
+static GtkWidget *vfo_locator_settings_window;
+static gboolean vfo_locator_settings_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer unused) {
+   (void)event; (void)unused;
+   gtk_widget_destroy(widget);
+   return FALSE;
+}
+static gboolean vfo_locator_settings_key(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
+   (void)unused;
+   if (event->keyval == GDK_KEY_Escape) {
+      gtk_widget_destroy(widget);
+      return TRUE;
+   }
+   return FALSE;
+}
 static void vfo_locator_minimize(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
-   if (vfo_locator_popover)
-      gtk_popover_popdown(GTK_POPOVER(vfo_locator_popover));
+   if (vfo_locator_settings_window)
+      gtk_widget_destroy(vfo_locator_settings_window);
    if (vfo_locator_window)
       gtk_window_iconify(GTK_WINDOW(vfo_locator_window));
 }
 static void vfo_locator_popup(GdkEventButton *event) {
-   if (!vfo_locator_frame)
+   if (!vfo_locator_window)
       return;
-   if (!vfo_locator_popover) {
-      vfo_locator_popover = gtk_popover_new(vfo_locator_frame);
-      g_object_add_weak_pointer(G_OBJECT(vfo_locator_popover), (gpointer *)&vfo_locator_popover);
-      gtk_popover_set_position(GTK_POPOVER(vfo_locator_popover), GTK_POS_BOTTOM);
-      GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-      gtk_container_set_border_width(GTK_CONTAINER(box), 7);
-      gtk_container_add(GTK_CONTAINER(vfo_locator_popover), box);
+   if (vfo_locator_settings_window)
+      gtk_widget_destroy(vfo_locator_settings_window);
 
-      GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-      gtk_box_pack_start(GTK_BOX(row), gtk_label_new("Opacity"), FALSE, FALSE, 0);
-      GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 30, 100, 5);
-      gtk_widget_set_size_request(scale, 125, -1);
-      gtk_range_set_value(GTK_RANGE(scale), locator_opacity);
-      gtk_scale_set_draw_value(GTK_SCALE(scale), FALSE);
-      gtk_widget_set_hexpand(scale, TRUE);
-      gtk_box_pack_start(GTK_BOX(row), scale, TRUE, TRUE, 0);
-      gtk_box_pack_start(GTK_BOX(box), row, FALSE, FALSE, 0);
-      g_signal_connect(scale, "value-changed", G_CALLBACK(vfo_locator_opacity_changed), NULL);
+   GtkWidget *popup = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   vfo_locator_settings_window = popup;
+   g_object_add_weak_pointer(G_OBJECT(popup), (gpointer *)&vfo_locator_settings_window);
+   gtk_window_set_title(GTK_WINDOW(popup), "VFO status settings");
+   gtk_window_set_decorated(GTK_WINDOW(popup), FALSE);
+   gtk_window_set_type_hint(GTK_WINDOW(popup), GDK_WINDOW_TYPE_HINT_UTILITY);
+   gtk_window_set_transient_for(GTK_WINDOW(popup), GTK_WINDOW(vfo_locator_window));
+   gtk_window_set_skip_taskbar_hint(GTK_WINDOW(popup), TRUE);
+   gtk_window_set_skip_pager_hint(GTK_WINDOW(popup), TRUE);
+   gtk_window_set_resizable(GTK_WINDOW(popup), FALSE);
+   gtk_window_set_keep_above(GTK_WINDOW(popup), TRUE);
+   g_signal_connect(popup, "focus-out-event", G_CALLBACK(vfo_locator_settings_focus_out), NULL);
+   g_signal_connect(popup, "key-press-event", G_CALLBACK(vfo_locator_settings_key), NULL);
 
-      GtkWidget *on_top = gtk_check_button_new_with_label("Always on top");
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(on_top), locator_on_top);
-      gtk_box_pack_start(GTK_BOX(box), on_top, FALSE, FALSE, 0);
-      g_signal_connect(on_top, "toggled", G_CALLBACK(vfo_locator_on_top_changed), NULL);
+   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+   gtk_container_set_border_width(GTK_CONTAINER(box), 8);
+   gtk_container_add(GTK_CONTAINER(popup), box);
+   GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(row), gtk_label_new("Opacity"), FALSE, FALSE, 0);
+   GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 30, 100, 5);
+   gtk_widget_set_size_request(scale, 125, -1);
+   gtk_range_set_value(GTK_RANGE(scale), locator_opacity);
+   gtk_scale_set_draw_value(GTK_SCALE(scale), FALSE);
+   gtk_box_pack_start(GTK_BOX(row), scale, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(box), row, FALSE, FALSE, 0);
+   g_signal_connect(scale, "value-changed", G_CALLBACK(vfo_locator_opacity_changed), NULL);
 
-      GtkWidget *minimize = gtk_button_new_with_label("Minimize");
-      gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
-      gtk_box_pack_start(GTK_BOX(box), minimize, FALSE, FALSE, 0);
-      g_signal_connect(minimize, "clicked", G_CALLBACK(vfo_locator_minimize), NULL);
-      gtk_widget_show_all(box);
+   GtkWidget *on_top = gtk_check_button_new_with_label("Always on top");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(on_top), locator_on_top);
+   gtk_box_pack_start(GTK_BOX(box), on_top, FALSE, FALSE, 0);
+   g_signal_connect(on_top, "toggled", G_CALLBACK(vfo_locator_on_top_changed), NULL);
+
+   GtkWidget *minimize = gtk_button_new_with_label("Minimize");
+   gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
+   gtk_box_pack_start(GTK_BOX(box), minimize, FALSE, FALSE, 0);
+   g_signal_connect(minimize, "clicked", G_CALLBACK(vfo_locator_minimize), NULL);
+
+   /* Position beside the cursor, independently of the locator's allocation,
+    * and keep the complete settings window inside the active monitor. */
+   GtkRequisition minimum, natural;
+   gtk_widget_get_preferred_size(popup, &minimum, &natural);
+   gint x = (gint)event->x_root, y = (gint)event->y_root + 8;
+   GdkDisplay *display = gtk_widget_get_display(vfo_locator_window);
+   GdkMonitor *monitor = gdk_display_get_monitor_at_point(display, x, y);
+   if (monitor) {
+      GdkRectangle work;
+      gdk_monitor_get_workarea(monitor, &work);
+      x = CLAMP(x, work.x, MAX(work.x, work.x + work.width - natural.width));
+      if (y + natural.height > work.y + work.height)
+         y = (gint)event->y_root - natural.height - 8;
+      y = CLAMP(y, work.y, MAX(work.y, work.y + work.height - natural.height));
    }
-   GdkRectangle rect = { (gint)event->x, (gint)event->y, 1, 1 };
-   gtk_popover_set_pointing_to(GTK_POPOVER(vfo_locator_popover), &rect);
-   gtk_popover_popup(GTK_POPOVER(vfo_locator_popover));
+   gtk_window_move(GTK_WINDOW(popup), x, y);
+   gtk_widget_show_all(popup);
+   gtk_window_present(GTK_WINDOW(popup));
 }
 /* Drag the undecorated top-level with primary click; secondary click opens status settings. */
 static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
