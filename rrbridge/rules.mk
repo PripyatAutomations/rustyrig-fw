@@ -1,4 +1,5 @@
 # KiwiSDR loadable receiver module. Runtime host will be added separately.
+ifneq ($(OS),DARWIN)
 ifeq (${PLATFORM},posix)
 rrbridge_modules := bin/rrbridge-kiwi.so
 bins += ${rrbridge_modules}
@@ -10,6 +11,7 @@ bin/rrbridge-kiwi.so: ${BUILD_DIR}/rrbridge/module.kiwi.o ${librrprotocol} ${lib
 	@mkdir -p bin
 	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrrprotocol -lrustyaxe ${MEDIA_LDFLAGS}
 endif
+endif
 
 .PHONY: test-rrbridge-kiwi
 test-rrbridge-kiwi:
@@ -18,6 +20,7 @@ test-rrbridge-kiwi:
 	@${BUILD_DIR}/rrbridge/test.kiwi
 
 # Bridge host uses the same named-section parser as rrserver (one source of truth).
+ifneq ($(OS),DARWIN)
 ifeq (${PLATFORM},posix)
 rrbridge_host_objs := ${BUILD_DIR}/rrbridge/main.o
 bins += bin/rrbridge
@@ -28,4 +31,5 @@ ${BUILD_DIR}/rrbridge/main.o: rrbridge/main.c librrprotocol/bridge.sdr.h librrpr
 bin/rrbridge: ${rrbridge_host_objs} ${librustyaxe} ${librrprotocol} ${librrsdrutils}
 	@mkdir -p bin
 	@${CC} -o $@ ${rrbridge_host_objs} -lrrprotocol -lrustyaxe ${MEDIA_LDFLAGS}
+endif
 endif
