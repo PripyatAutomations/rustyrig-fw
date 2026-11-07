@@ -144,6 +144,7 @@ rrserver-deps:
 # Modules #
 ###########
 # Receiver adapters use the existing loadable-module lifecycle and event bus.
+ifneq ($(OS),DARWIN)
 gps_modules := bin/rrserver-gps-nmea.so
 # XXX: This is mongoose based but needs thats fixed asap
 gps_modules += bin/rrserver-gpsd.so
@@ -153,6 +154,8 @@ bin/rrserver-gps-nmea.so: ${BUILD_DIR}/rrserver/module.gps-nmea.o ${librustyaxe}
 bin/rrserver-gpsd.so: ${BUILD_DIR}/rrserver/module.gpsd.o ${librustyaxe} ${librrprotocol}
 	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrustyaxe -lrrprotocol ${LDFLAGS}
 extra_clean += ${BUILD_DIR}/rrserver/module.gps-nmea.o ${BUILD_DIR}/rrserver/module.gpsd.o ${gps_modules}
+
+endif
 
 # Hamlib is an optional backend module; never link it into the server/core libs.
 ifeq (${USE_HAMLIB},true)
@@ -165,7 +168,9 @@ endif
 extra_clean += ${BUILD_DIR}/rrserver/backend.hamlib.o ${BUILD_DIR}/rrserver/module.hamlib.o bin/rrserver-hamlib.so
 
 # Standalone preview/explicit hardware bring-up tool; no radio backend required.
+ifneq ($(OS),DARWIN)
 bins += bin/rr-dds-si5351
 bin/rr-dds-si5351: ${BUILD_DIR}/rrserver/si5351-tool.o ${BUILD_DIR}/rrserver/si5351.o ${BUILD_DIR}/rrserver/hardware.si5351.o ${BUILD_DIR}/rrserver/hardware.o ${librustyaxe}
 	@${CC} -o $@ $(filter %.o,$^) -lrustyaxe ${LDFLAGS} || exit 1
 extra_clean += ${BUILD_DIR}/rrserver/si5351-tool.o bin/rr-dds-si5351 bin/rr-si5351
+endif
