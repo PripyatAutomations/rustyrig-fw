@@ -421,7 +421,7 @@ bool gui_init(void) {
     * directory button is recognizable on XFCE and other GTK icon themes. */
    GtkWidget *sdr_directory_button = gtk_button_new_with_label("📻");
    gtk_button_set_relief(GTK_BUTTON(sdr_directory_button), GTK_RELIEF_NONE);
-   gtk_widget_set_tooltip_text(sdr_directory_button, "SDR Receiver Directory (Alt+Z)");
+   gtk_widget_set_tooltip_text(sdr_directory_button, "SDR Directory");
    g_signal_connect(sdr_directory_button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) "sdr-directory");
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), sdr_directory_button, FALSE, FALSE, 0);
    main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio");
