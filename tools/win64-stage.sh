@@ -16,7 +16,23 @@ done
 [[ -f "$root/bin/rrclient.exe" ]] || { echo "Missing bin/rrclient.exe: build the Windows target first." >&2; exit 1; }
 [[ -f "$root/bin/rrclient-gtk.dll" ]] || { echo "Missing bin/rrclient-gtk.dll: GTK frontend DLL has not been linked." >&2; exit 1; }
 [[ -d "$prefix/bin" ]] || { echo "Missing MSYS2 runtime $prefix/bin" >&2; exit 1; }
+[[ "$stage" != "$root" && "$stage" != / && "$stage" != "$prefix" ]] || {
+  echo "Refusing to stage over source root, /, or the toolchain." >&2
+  exit 1
+}
+# Rebuild cleanly so an upgraded MSYS2 runtime cannot leave stale DLLs in
+# the installer. Do not erase an arbitrary populated destination.
+if [[ -d "$stage" ]]; then
+  if [[ -f "$stage/.rustyrig-win64-stage" ]]; then
+    rm -rf -- "$stage/bin" "$stage/lib" "$stage/share" "$stage/config"
+    rm -f -- "$stage/RustyRig.cmd" "$stage/manifest.txt"
+  elif [[ -n "$(find "$stage" -mindepth 1 -print -quit)" ]]; then
+    echo "Nonempty directory is not a RustyRig stage: $stage" >&2
+    exit 1
+  fi
+fi
 mkdir -p "$stage/bin" "$stage/lib" "$stage/share" "$stage/config"
+touch "$stage/.rustyrig-win64-stage"
 cp -f "$root/bin/rrclient.exe" "$root/bin/rrclient-gtk.dll" "$stage/bin/"
 # Copy locally built RustyRig DLLs (including librrprotocol and librustyaxe).
 shopt -s nullglob
@@ -70,5 +86,10 @@ for (( i=0; i<${#queue[@]}; i++ )); do
     esac
   done < <(objdump -p "$binary" 2>/dev/null | awk '/DLL Name:/{print $3}')
 done
+if [[ -f "$stage/bin/msys-2.0.dll" ]]; then
+  echo "Refusing an MSYS POSIX-runtime build (msys-2.0.dll found)." >&2
+  exit 1
+fi
+(cd "$stage" && find . -type f -print | LC_ALL=C sort > manifest.txt)
 echo "Staged Win64 distribution: $stage"
 echo "Experimental packaging only: Windows build and runtime remain unverified."
