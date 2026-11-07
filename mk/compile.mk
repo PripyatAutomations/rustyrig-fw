@@ -86,7 +86,7 @@ else
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$$ORIGIN:$$ORIGIN/../lib:$$ORIGIN/..'
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
 LIB_LDFLAGS := -fPIC -shared
-SHARED_ID_FLAG = -Wl,-soname,$(1)
+SHARED_ID_FLAG = -Wl,-soname,$(1).0
 CLIENT_EXPORT_FLAGS := -rdynamic
 SERVER_EXPORT_FLAGS := -Wl,--export-dynamic
 endif
