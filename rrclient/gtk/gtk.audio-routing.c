@@ -106,8 +106,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       gboolean source = n->type == RR_AG_SOURCE;
       const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
       nodes[i] = (rr_gtk_graph_node_t) {
-         .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = n->id, .subtitle =
-            source ? route : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer", .failed = n->health == RR_AG_FAILED, .bypass_pins =
+         .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80,
+         .title = source && n->rig[0] ? n->rig : n->id,
+         .subtitle = source ? n->id : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer",
+         .detail = source ? route : NULL, .failed = n->health == RR_AG_FAILED, .bypass_pins =
             n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
