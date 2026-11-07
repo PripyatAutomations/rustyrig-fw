@@ -932,8 +932,13 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
       GtkWidget *glyph = gtk_button_get_image(GTK_BUTTON(button));
 
       if (GTK_IS_IMAGE(glyph)) {
-         gtk_image_set_pixel_size(GTK_IMAGE(glyph), 12);
+         /* The theme's window-close glyph has more internal whitespace than
+          * minimize/roll/menu. Give the X a slightly larger pixel box so
+          * all four icons have comparable visual weight. */
+         gtk_image_set_pixel_size(GTK_IMAGE(glyph),
+            button == p->close_button ? 15 : 12);
       }
+      gtk_widget_set_size_request(button, 22, 22);
       GtkStyleContext *style = gtk_widget_get_style_context(button);
       gtk_style_context_add_class(style, "rr-panel-chrome-button");
       gtk_style_context_add_provider(style, GTK_STYLE_PROVIDER(chrome_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
