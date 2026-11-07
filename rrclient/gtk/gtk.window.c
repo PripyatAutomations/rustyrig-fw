@@ -244,6 +244,9 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
 
    if (!strcmp(tool, "explorer")) {
       event_emit("client.resources.open", NULL, NULL);
+   } else if (!strcmp(tool, "sdr-directory")) {
+      /* Same GTK event-domain action as Alt-Z. */
+      event_emit("client.receiver-directory.show", NULL, NULL);
    } else if (!strcmp(tool, "audio")) {
       gtk_audio_graph_present();
    } else {
@@ -414,6 +417,13 @@ bool gui_init(void) {
 
    /* Tool pages are selected from the toolbar, not the tab strip. */
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer");
+   /* Use a radio glyph rather than a theme-dependent icon name, so the
+    * directory button is recognizable on XFCE and other GTK icon themes. */
+   GtkWidget *sdr_directory_button = gtk_button_new_with_label("📻");
+   gtk_button_set_relief(GTK_BUTTON(sdr_directory_button), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(sdr_directory_button, "SDR Receiver Directory (Alt+Z)");
+   g_signal_connect(sdr_directory_button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) "sdr-directory");
+   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), sdr_directory_button, FALSE, FALSE, 0);
    main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio");
    main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-system-symbolic", "admin");
    main_toolbar_tool(rr_main_toolbar, "Config", "preferences-other-symbolic", "config");
