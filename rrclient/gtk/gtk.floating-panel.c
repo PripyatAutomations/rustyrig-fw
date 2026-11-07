@@ -1063,6 +1063,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->resize_grip = gtk_event_box_new();
    GtkWidget *resize_icon = gtk_image_new_from_icon_name("view-restore-symbolic", GTK_ICON_SIZE_MENU);
    gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
+   /* The grip itself uses no-show-all so rolled panels stay collapsed.
+    * Explicitly show the child: parent show_all() skips this subtree. */
+   gtk_widget_show(resize_icon);
    gtk_widget_set_halign(p->resize_grip, GTK_ALIGN_END);
    gtk_widget_set_tooltip_text(p->resize_grip, "Drag to resize panel");
    gtk_widget_add_events(p->resize_grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
