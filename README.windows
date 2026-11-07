@@ -1,18 +1,84 @@
-While win32 is mentioned in various places, that would require some
-cleanup of places we hardcode 64bit toolchain paths.
+RustyRig experimental Windows x64 port
+======================================
 
-Eventually I do intend to setup a toolchain to target builds for
-win32 as well, but I won't be able to test them at all as I don't own
-windows.
+STATUS: NOT BUILDABLE OR TESTED AS A NATIVE WINDOWS RELEASE (November 2026).
+These are packaging/build handoff files, NOT evidence of a working Windows
+client. Linux/Devuan remains the supported development platform.
 
-Win64 builds i can at least test a little before uploading.
+Target: MSYS2 UCRT64 (native MinGW-w64 binaries, NOT the MSYS POSIX runtime).
+Do not mix UCRT64, MINGW64 and MSYS libraries in one build. No 32-bit port
+is planned as part of this work.
 
-Before first build:
+1. Install MSYS2 (https://www.msys2.org/), update its packages as directed
+   by MSYS2, then open **MSYS2 UCRT64**.
+2. Clone the repository with submodules and enter its root:
 
+       git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+       cd rustyrig-fw
+       bash rrclient/win32/install-deps.sh
 
-XXX: Insert windows pre-req instructions
-XXX: Insert windows build instructions
-XXX: Insert windows test instructions
-XXX: Insert windows configuraiton instructions
+3. Try a native build and **record the first compile/link failure**. There
+   is no working Win64 make configuration yet. The POSIX recipes still
+   hardcode ELF SONAMEs, .so modules, Unix-only libraries, Unix process
+   supervision/PTY facilities, and glib-unix APIs. Expect failures;
+   fixing them is the next contributor task. Do NOT mask errors with -i.
 
-Consult README.md and QUICKSTART.txt as well
+4. Once the port can supply these native PE binaries:
+
+       bin/rrclient.exe
+       bin/rrclient-gtk.dll
+       librustyaxe.dll, librrprotocol.dll, librustyirc.dll,
+       libfwdspmgr.dll (or their actual linked dependencies)
+
+   stage a self-contained distribution from the repository root:
+
+       make win64-preflight
+       make win64-stage
+       make win64-installer
+
+   The stage target invokes tools/win64-stage.sh. It creates
+   build/win64-stage with bin/, lib/, share/, config/ and RustyRig.cmd.
+   It scans PE imports using objdump, recursively copies MinGW runtime
+   DLLs from /ucrt64/bin, and fails on unrecognized missing DLL imports.
+   GTK/GStreamer runtime plugins, data and icon themes are also staged.
+   No fixed third-party DLL version list is used.
+
+   The installer is build/rustyrig-win64-unsigned.exe by default, and is
+   per-user. For an existing stage, makensis can also be called directly
+   with /DSTAGE_DIR=<absolute Windows path> and /DOUTFILE=<output path>.
+   The GNUmakefile target passes those defines automatically.
+
+5. Installer layout:
+       %LOCALAPPDATA%\Programs\RustyRig\RustyRig.cmd   (launcher)
+       %LOCALAPPDATA%\Programs\RustyRig\bin\rrclient.exe
+       %LOCALAPPDATA%\Programs\RustyRig\bin\rrclient-gtk.dll
+       %APPDATA%\rustyrigs\rrclient.cfg
+
+   The first-run config is copied from config/rrclient.cfg.example only
+   when absent; it selects the .dll frontend and uses path.modules=./bin.
+   The launcher sets its working directory to the installation root.
+   Uninstall intentionally preserves the user config and databases.
+
+Outstanding blockers / contributions welcome
+---------------------------------------------
+- Replace Linux-specific Makefile suffixes/linker flags with native PE
+  targets and import libraries. In particular GTK needs the client
+  executable's exported API or a shared core DLL; ELF -rdynamic does not
+  transfer to PE without work. This is not solved by renaming .so to .dll.
+- Port or conditionally disable the POSIX-only pieces in librustyaxe,
+  librrprotocol, librustyirc, libfwdspmgr, fwdsp and rrclient. The current
+  core uses glib-unix, pty, signals, fork/exec, descriptors and Unix paths.
+- Make dynamic frontend loading resolve .dll via native module paths;
+  verify Windows TLS/socket behavior before connecting to real sites.
+- Check runtime GSettings schemas, icon loaders, GTK themes, GStreamer
+  plugins, codec availability and the test configuration on a real Win64
+  machine. Plugin search paths and cache files may require relocation.
+- Inspect the installer and dependency closure on a clean Windows VM.
+  Check Win64 machine architecture, network connection, audio capture/
+  playback, foreground/background behavior and cleanup. Sign binaries
+  only after such tests; this installer is explicitly unsigned.
+
+For now, send compiler errors and a short environment report (MSYSTEM,
+gcc --version, pkg-config --version, make version) with fixes as separate,
+reviewable patches. Do not claim the installer or client works merely
+because makensis produced an .exe.
