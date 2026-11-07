@@ -862,6 +862,38 @@ static void audio_log_stream_inventory(const struct rrclient_rx_stream *streams,
       g_string_free(current, TRUE);
    }
 }
+/* The core owns rx_routes; never let a GTK redraw enumerate the list.
+ * Resolve the audible route here and return only a copy of its FFT bins. */
+static void audio_af_spectrum_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload ||
+       message->length != sizeof(rrclient_af_spectrum_request_t))
+      return;
+   rrclient_af_spectrum_request_t req;
+   memcpy(&req, message->payload, sizeof(req));
+   if (!memchr(req.server, 0, sizeof(req.server)) ||
+       !memchr(req.room, 0, sizeof(req.room)))
+      return;
+   struct rrclient_rx_stream streams[64];
+   size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
+   size_t selected = count;
+   for (size_t i = 0; i < count; i++) {
+      if (strcmp(streams[i].server, req.server) ||
+          g_ascii_strcasecmp(streams[i].room, req.room))
+         continue;
+      if (selected == count ||
+          (streams[selected].output == 'M' && streams[i].output != 'M'))
+         selected = i;
+   }
+   rrclient_af_spectrum_result_t result = { .request_id = req.request_id };
+   if (selected != count)
+      result.ready = rr_af_spectrum_read(streams[selected].id, result.bins);
+   rr_event_message_t reply = {
+      .name = RRCLIENT_AF_SPECTRUM_RESULT,
+      .payload = &result, .length = sizeof(result)
+   };
+   event_emit_message(&reply);
+}
 static void audio_snapshot_request(const rr_event_message_t *unused_message, void *unused) {
    (void)unused_message;
    (void)unused;
@@ -957,6 +989,7 @@ bool audio_init(void) {
    event_on("ws.msg.media", audio_feedback, NULL);
    event_on_message_domain_token(RRCLIENT_AUDIO_CONTROL_REQUEST, audio_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_REQUEST, audio_snapshot_request, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_REQUEST, audio_af_spectrum_request, NULL, "core");
 
    if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
