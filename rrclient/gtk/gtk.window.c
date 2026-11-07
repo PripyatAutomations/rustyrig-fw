@@ -419,7 +419,7 @@ bool gui_init(void) {
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer");
    /* Use a radio glyph rather than a theme-dependent icon name, so the
     * directory button is recognizable on XFCE and other GTK icon themes. */
-   GtkWidget *sdr_directory_button = gtk_button_new_with_label("📻");
+   GtkWidget *sdr_directory_button = gtk_button_new_with_label("📻 Remote SDRs");
    gtk_button_set_relief(GTK_BUTTON(sdr_directory_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(sdr_directory_button, "SDR Directory");
    g_signal_connect(sdr_directory_button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) "sdr-directory");
