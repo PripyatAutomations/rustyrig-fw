@@ -50,7 +50,7 @@ profile. Build, sanitizer, and live mesh tests have **not** yet been run here.
 
 ## Memory and CPU follow-ups
 
-- **SDL/GTK spectrum:** AF view wakes at 4 Hz when hidden/disabled; consider
+- **AF/GTK spectrum:** AF view wakes at 4 Hz when hidden/disabled; consider
   pausing its timer when the view is unmapped and rearming on map. Keep the
   decoder/audio engine entirely independent.
 - **RF waterfall:** the renderer creates a fresh Cairo RGB24 surface for each
