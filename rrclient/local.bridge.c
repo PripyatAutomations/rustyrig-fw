@@ -1263,6 +1263,9 @@ static gboolean poll_local(gpointer unused) {
       }
 
       if (received < 0) {
+         int saved_errno = errno;
+         Log(LOG_WARN, "local.bridge.rf", "%s spectrum IPC closed, malformed or failed: errno=%d (%s)",
+             b->stream, saved_errno, saved_errno ? g_strerror(saved_errno) : "invalid/short spectrum row");
          ui_print("&local-sdr", "%s: waterfall channel closed or failed", b->stream);
          close(b->spectrum);
          b->spectrum = -1;
