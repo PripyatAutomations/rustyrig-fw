@@ -25,7 +25,7 @@ extra_clean += ${real_libfwdspmgr_objs} ${libfwdspmgr} libfwdspmgr.so.0
 ${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h ${librustyaxe} ${librrprotocol} GNUmakefile
 	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_libfwdspmgr_objs}) objects"
-	@${CC} ${LIB_LDFLAGS} -Wl,-soname,libfwdspmgr.so.0 -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${MEDIA_LDFLAGS}
+	@${CC} ${LIB_LDFLAGS} $(call SHARED_ID_FLAG,libfwdspmgr.so) -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${MEDIA_LDFLAGS}
 	@ln -sf libfwdspmgr.so libfwdspmgr.so.0
 	@ls -a1ls $@
 
