@@ -66,6 +66,19 @@ struct rrclient_rx_stream {
    char output;
 };
 size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity);
+/* AF visualization request/reply. Only core reads RX route inventory;
+ * GTK receives an owned spectrum sample, never a route pointer. */
+#define RRCLIENT_AF_SPECTRUM_REQUEST "client.audio.af-spectrum.request"
+#define RRCLIENT_AF_SPECTRUM_RESULT "client.audio.af-spectrum.result"
+typedef struct {
+   guint64 request_id;
+   char server[512], room[128];
+} rrclient_af_spectrum_request_t;
+typedef struct {
+   guint64 request_id;
+   bool ready;
+   float bins[1024]; /* RR_AF_BINS; fixed-size event payload */
+} rrclient_af_spectrum_result_t;
 #define RRCLIENT_AUDIO_SNAPSHOT_REQUEST "client.audio.snapshot.request"
 #define RRCLIENT_AUDIO_SNAPSHOT_RESULT "client.audio.snapshot.result"
 typedef struct {
