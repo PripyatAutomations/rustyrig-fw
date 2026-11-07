@@ -356,7 +356,13 @@ bool gui_init(void) {
    gtk_button_set_relief(GTK_BUTTON(quit_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
    g_signal_connect(quit_button, "clicked", G_CALLBACK(main_toolbar_quit), NULL);
-   gtk_box_pack_end(GTK_BOX(rr_main_toolbar), quit_button, FALSE, FALSE, 0);
+   /* Keep Quit outside the clipped notebook/toolbar viewport. Dynamic
+    * room content may exceed its horizontal allocation, but the close control
+    * must remain anchored to the visible toplevel's right edge. */
+   gtk_widget_set_halign(quit_button, GTK_ALIGN_END);
+   gtk_widget_set_valign(quit_button, GTK_ALIGN_START);
+   gtk_widget_set_margin_top(quit_button, 2);
+   gtk_widget_set_margin_end(quit_button, 2);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, TRUE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_widget_set_size_request(tabs_wrapper, 1, -1);
@@ -379,6 +385,8 @@ bool gui_init(void) {
    gtk_widget_set_vexpand(rr_client_overlay, TRUE);
    gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport);
+   gtk_overlay_add_overlay(GTK_OVERLAY(rr_client_overlay), quit_button);
+   gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(rr_client_overlay), quit_button, FALSE);
    GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
    GtkWidget *upper_extra = cfg_ui_gtk_main_tabstrip == GTK_POS_TOP ? tab_strip : NULL;
    GtkWidget *lower = cfg_ui_gtk_main_tabstrip == GTK_POS_BOTTOM ? tab_strip : NULL;
