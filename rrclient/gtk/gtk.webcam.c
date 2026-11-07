@@ -229,8 +229,14 @@ static void webcam_image_event(const rr_event_message_t *event, void *user) {
    if (webcam_pending)
       g_bytes_unref(webcam_pending);
    webcam_pending = g_bytes_new(image->bytes, event->length - sizeof(webcam_image_t));
-   if (!webcam_idle)
-      webcam_idle = g_idle_add(webcam_blit_cb, NULL);
+   if (!webcam_idle) {
+      /* This event is delivered on the GTK domain. g_idle_add() instead
+       * attaches to the process-default (core) context in threaded builds. */
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, webcam_blit_cb, NULL, NULL);
+      webcam_idle = g_source_attach(source, g_main_context_get_thread_default());
+      g_source_unref(source);
+   }
 }
 static void webcam_status_event(const rr_event_message_t *event, void *user) {
    (void)user;
@@ -356,9 +362,13 @@ void gtk_webcam_show(bool show) {
       webcam_panel = rr_floating_panel_new(GTK_OVERLAY(root),
          GTK_NOTEBOOK(main_notebook), "webcam", "Webcam");
       rr_floating_panel_set_close_callback(webcam_panel, webcam_panel_close, NULL);
+      rr_floating_panel_set_resizable(webcam_panel, TRUE);
+      rr_floating_panel_set_minimizable(webcam_panel, TRUE);
    }
    webcam_win = rr_floating_panel_widget(webcam_panel);
-   gtk_widget_set_size_request(rr_floating_panel_body(webcam_panel), 640, 480);
+   /* Do not force a 640x480 minimum: let the floating frame resize and
+    * persist its own geometry independently of the main window. */
+   gtk_widget_set_size_request(rr_floating_panel_body(webcam_panel), 360, 240);
    webcam_image = gtk_image_new();
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    GtkWidget *controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
