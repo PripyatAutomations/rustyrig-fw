@@ -537,6 +537,11 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       gtk_entry_set_width_chars(GTK_ENTRY(editor->fields[i]), 48);
       gtk_entry_set_visibility(GTK_ENTRY(editor->fields[i]), i != 2);
 
+      if (i == 0) {
+         gtk_widget_set_tooltip_text(editor->fields[i],
+            "RustyRig server: wss://server:4420/ws/\n"
+            "IRC server: irc://server:port or ircs://server:port");
+      }
       if (i == 4) {
          gtk_entry_set_placeholder_text(GTK_ENTRY(editor->fields[i]), "#lobby #station-rig0 #hamradio");
          gtk_widget_set_tooltip_text(editor->fields[i], "Rooms to join, separated by spaces.");
