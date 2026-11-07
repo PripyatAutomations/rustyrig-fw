@@ -2454,9 +2454,10 @@ static gboolean status_network_position(GtkOverlay *overlay, GtkWidget *child,
    gint min_height = 0, natural_height = 0;
    gtk_widget_get_preferred_width(child, &minimum, &natural);
    gtk_widget_get_preferred_height(child, &min_height, &natural_height);
-   allocation->width = MIN(MAX(minimum, natural), MAX(1, visible - 38));
+   if (visible < 200) return FALSE;
+   allocation->width = MIN(MAX(minimum, natural), MAX(1, visible - 4));
    allocation->height = MAX(min_height, natural_height);
-   allocation->x = MAX(0, visible - allocation->width - 34);
+   allocation->x = MAX(0, visible - allocation->width - 2);
    allocation->y = 3;
    return TRUE;
 }
@@ -2526,6 +2527,11 @@ bool chat_init(void) {
    GtkWidget *status_clock = gtk_clock_status_new();
    if (status_clock)
       gtk_box_pack_start(GTK_BOX(network_row), status_clock, FALSE, FALSE, 0);
+   /* Clock and main Quit belong in the same row. Separate overlay children
+    * drift apart when the underlying notebook width changes. */
+   GtkWidget *quit = g_object_get_data(G_OBJECT(gtk_bin_get_child(GTK_BIN(main_window))), "rr-main-quit-button");
+   if (quit)
+      gtk_box_pack_end(GTK_BOX(network_row), quit, FALSE, FALSE, 0);
    gtk_widget_set_hexpand(network_row, FALSE);
    /* The entire notebook lives inside a non-horizontally-scrollable viewport. A wide notebook page can therefore push the toolbar's end past the visible
     * window. Anchor network status to the window-sized overlay instead, not the potentially oversized scrolled content. */
@@ -2533,7 +2539,7 @@ bool chat_init(void) {
    gtk_widget_set_halign(network_row, GTK_ALIGN_END);
    gtk_widget_set_valign(network_row, GTK_ALIGN_START);
    gtk_widget_set_margin_top(network_row, 3);
-   gtk_widget_set_margin_end(network_row, 34);
+   gtk_widget_set_margin_end(network_row, 2);
 
    if (GTK_IS_OVERLAY(window_overlay)) {
       g_signal_connect(window_overlay, "get-child-position",
