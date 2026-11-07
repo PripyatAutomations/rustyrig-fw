@@ -58,6 +58,9 @@ typedef struct {
    guint8 bytes[];
 } webcam_image_t;
 static GBytes *webcam_pending;
+static guint webcam_idle;
+/* Keep at most one decoded frame in transit if the GTK thread is busy. */
+static gint webcam_frame_inflight;
 static bool webcam_visible;
 static guint64 webcam_epoch;
 static rrconn_t *webcam_core_connection;
@@ -85,7 +88,8 @@ static void webcam_core_stop(void) {
       fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
       webcam_decoder[0] = 0;
    }
-   if (webcam_core_connection && *webcam_core_uuid)
+   if (webcam_core_connection && *webcam_core_uuid &&
+       rrclient_connection_is_connected(webcam_core_connection))
       media_send_unsubscribe(webcam_core_connection, webcam_core_uuid);
    webcam_core_connection = NULL;
    webcam_core_uuid[0] = 0;
@@ -127,7 +131,8 @@ static void webcam_core_command(const rr_event_message_t *event, void *user) {
       webcam_core_stop();
       webcam_core_epoch = req.epoch;
       webcam_core_connection = rrclient_connection_find(req.server);
-      if (webcam_core_connection && webcam_core_connection->is_ws)
+      if (webcam_core_connection && webcam_core_connection->is_ws &&
+          rrclient_connection_is_connected(webcam_core_connection))
          rrclient_connection_dispatch(webcam_core_connection, webcam_open_on_connection, NULL);
       else {
          webcam_core_connection = NULL;
@@ -142,6 +147,8 @@ static void webcam_decoded(const char *name, const void *data, size_t len, void 
    (void)name;
    (void)user;
    if (!webcam_core_connection || !data || len < 3 || len > 8 * 1024 * 1024)
+      return;
+   if (!g_atomic_int_compare_and_exchange(&webcam_frame_inflight, 0, 1))
       return;
    size_t bytes = sizeof(webcam_image_t) + len;
    webcam_image_t *image = g_malloc(bytes);
@@ -187,6 +194,7 @@ static void webcam_send_command(unsigned action, const char *profile) {
 }
 static gboolean webcam_blit_cb(gpointer user) {
    (void)user;
+   webcam_idle = 0;
    GBytes *frame = webcam_pending;
    webcam_pending = NULL;
    if (!frame || !webcam_visible || !webcam_image) {
@@ -208,9 +216,9 @@ static gboolean webcam_blit_cb(gpointer user) {
    g_bytes_unref(frame);
    return G_SOURCE_REMOVE;
 }
-static guint webcam_idle;
 static void webcam_image_event(const rr_event_message_t *event, void *user) {
    (void)user;
+   g_atomic_int_set(&webcam_frame_inflight, 0);
    if (!webcam_visible || !event || !event->payload ||
        event->length < sizeof(webcam_image_t) + 3 ||
        event->length > sizeof(webcam_image_t) + 8 * 1024 * 1024)
