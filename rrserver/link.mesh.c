@@ -6,6 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Bounded mesh Dijkstra; pure route computation, no forwarding side effects.
 #include <rrserver/link.mesh.h>
+#include <librrprotocol/objects.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -30,7 +31,13 @@ static int index_of(const rr_mesh_t *m, const char *id) {
    return -1;
 }
 static bool valid(const char *id) {
-   return id && strlen(id) == 36;
+   if (!rr_object_uuid_valid(id))
+      return false;
+   /* The mesh catalog uses lowercase UUIDs as canonical node keys. */
+   for (const char *p = id ; *p ; p++)
+      if (*p >= 'A' && *p <= 'F')
+         return false;
+   return true;
 }
 static int index_add(rr_mesh_t *m, const char *id) {
    int n = index_of(m, id);
