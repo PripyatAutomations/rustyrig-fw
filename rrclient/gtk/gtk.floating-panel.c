@@ -18,7 +18,7 @@ struct rr_floating_panel {
    GtkNotebook *tabs;
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
-   gint roll_width, saved_width, saved_height, opacity;
+   gint saved_width, saved_height, opacity;
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
    void (*on_close)(gpointer);
@@ -637,11 +637,15 @@ static void panel_chrome(RRFloatPanel *p) {
       return;
    }
 
+   /* Hide the entire content wrapper, not just its inner box: otherwise
+    * the wrapper can still contribute spacing to a rolled-up panel. */
    if (p->rolled || p->minimized) {
-      gtk_widget_hide(p->body);
+      gtk_widget_hide(p->scale_wrapper);
    } else {
-      gtk_widget_show(p->body);
+      gtk_widget_show(p->scale_wrapper);
    }
+   /* The resize grip belongs to the expanded panel only. */
+   gtk_widget_set_visible(p->resize_grip, p->resizable && !p->rolled && !p->minimized);
 
    if (p->minimized) {
       gtk_widget_hide(p->frame);
@@ -698,21 +702,17 @@ static void panel_roll(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
 
-   if (!p->rolled) {
-      panel_state_save(p);      /* preserve expanded height */
-      p->roll_width = gtk_widget_get_allocated_width(p->frame);
-
-      if (p->roll_width > 1) {
-         gtk_widget_set_size_request(p->frame, p->roll_width, -1);
-      }
-   } else {
-      gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? p->saved_width : -1, p->saved_height > 1 ? p->saved_height : -1);
-   }
-
    if (p->modal) {
       return;
    }
+   if (!p->rolled)
+      panel_state_save(p); /* preserve expanded geometry before collapsing */
    p->rolled = !p->rolled;
+   /* Let the titlebar determine the collapsed width and height; restore
+    * the original viewport dimensions when expanding. */
+   gtk_widget_set_size_request(p->frame,
+      p->rolled ? -1 : (p->saved_width > 1 ? p->saved_width : -1),
+      p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
 
    if (!p->rolled) {
       panel_raise(p);
@@ -1165,6 +1165,8 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       }
    }
    panel_chrome(p);
+   if (p->rolled)
+      gtk_widget_set_size_request(p->frame, -1, -1);
    panel_raise(p);
    p->restoring_state = FALSE;
 
@@ -1249,8 +1251,8 @@ void rr_floating_panel_set_resizable(RRFloatPanel *p, gboolean resizable) {
    p->resizable = !!resizable;
 
    if (p->resize_grip) {
-      gtk_widget_set_no_show_all(p->resize_grip, !p->resizable);
-      gtk_widget_set_visible(p->resize_grip, p->resizable);
+      gtk_widget_set_no_show_all(p->resize_grip, TRUE);
+      gtk_widget_set_visible(p->resize_grip, p->resizable && !p->rolled && !p->minimized);
    }
 }
 
