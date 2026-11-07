@@ -38,7 +38,11 @@ done
 # Avoid the Linux paths in the sample config. No installed config is replaced.
 sed -e 's@^path.modules=.*@path.modules=./bin@' \
     -e 's@^path.help-dir=.*@path.help-dir=./share/rustyrig/help@' \
+    -e 's@rrclient-gtk\.so@rrclient-gtk.dll@g' \
     "$root/config/rrclient.cfg" > "$stage/config/rrclient.cfg.example"
+# The config uses a relative module directory. Launch from the installation
+# root, regardless of the Start Menu / Explorer working directory.
+printf '@echo off\r\ncd /d "%%~dp0"\r\n"%%~dp0bin\\rrclient.exe" %%*\r\n' > "$stage/RustyRig.cmd"
 # Resolve MinGW import dependencies for the executable, local DLLs and plugins.
 # Fail loudly on unknown missing imports instead of silently shipping a broken
 # archive. Windows system libraries are supplied by the OS.
