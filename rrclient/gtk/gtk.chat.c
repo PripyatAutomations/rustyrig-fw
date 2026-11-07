@@ -2476,7 +2476,7 @@ bool chat_init(void) {
       status_room_tab->view = chat_textview;
       status_room_tab->entry = chat_entry;
    }
-   GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    status_server_label = gtk_label_new("No server");
    gtk_label_set_ellipsize(GTK_LABEL(status_server_label), PANGO_ELLIPSIZE_MIDDLE);
    gtk_label_set_max_width_chars(GTK_LABEL(status_server_label), 12);
@@ -2510,7 +2510,7 @@ bool chat_init(void) {
     * drift apart when the underlying notebook width changes. */
    GtkWidget *quit = g_object_get_data(G_OBJECT(main_window), "rr-main-quit-button");
    if (quit)
-      gtk_box_pack_end(GTK_BOX(network_row), quit, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(network_row), quit, FALSE, FALSE, 0);
    gtk_widget_set_hexpand(network_row, FALSE);
    gtk_widget_set_valign(network_row, GTK_ALIGN_CENTER);
    if (status_clock)
