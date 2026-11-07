@@ -1518,7 +1518,10 @@ static void room_rf_panel_refresh(void) {
       state.vfo >= 'A' && state.vfo <= 'Z' ? state.vfo : 'A');
    rr_floating_panel_set_title(room_rf_panel, title);
    g_free(title);
-   if (!rr_floating_panel_is_minimized(room_rf_panel))
+   /* State reports may be frequent; do not continually raise this panel
+    * above other utilities merely because a receiver sent an update. */
+   if (!rr_floating_panel_is_minimized(room_rf_panel) &&
+       !gtk_widget_get_visible(rr_floating_panel_widget(room_rf_panel)))
       rr_floating_panel_show(room_rf_panel);
 }
 
