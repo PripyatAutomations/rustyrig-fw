@@ -45,6 +45,26 @@ profile. Build, sanitizer, and live mesh tests have **not** yet been run here.
   executed. In particular, verify `NONE` + AF visualization under rapid
   connect/disconnect and multiple active streams.
 
+## Webcam GTK/core ownership migration
+
+- `gtk.webcam.c` now registers incoming video frames and disconnect
+  notifications on the **core** event domain. The core owns video subscription,
+  profile changes, `fwdsp` decoder startup/stop, and connection identity.
+  GTK no longer stores or dereferences an `rrconn_t *` for the webcam.
+- Open, close, and profile requests use copied command envelopes; core sends
+  immutable status snapshots and decoded image buffers to GTK via events.
+  A monotonically increasing viewer epoch rejects images and status responses
+  from an earlier open/reconnect.
+- Decoded-frame delivery is bounded to **one in-flight frame**, preventing a
+  blocked GTK loop from accumulating an unbounded video queue; GTK displays
+  only the most recent frame. GTK redraw source IDs are reset after dispatch.
+- Core checks WebSocket connectivity before unsubscribe/reconnect operations;
+  decoder watches are detached on core during close.
+- Runtime verification still needed: open/close/reopen while video streams,
+  disconnect and switch servers, profile changes, and frontend shutdown while
+  decoding. Audit `rrclient_selected_server()` in GTK callbacks as part of the
+  remaining broader selected-connection snapshot migration.
+
 ## High-priority outstanding risks
 
 1. **AF spectrum GTK/core ownership (patched, needs testing).** GTK now
@@ -57,10 +77,10 @@ profile. Build, sanitizer, and live mesh tests have **not** yet been run here.
    callbacks, including callbacks already queued on another thread, before
    freeing the route. Consider a generation/refcount or queued owner-side
    teardown if not guaranteed.
-3. **Webcam state ownership.** `gtk.webcam.c` protects its pending-frame
-   `GBytes` with a mutex but reads `webcam_connection` and visibility in
-   several other callbacks without a single consistent ownership contract.
-   Review disconnect/reconnect and decoder startup on the core thread.
+3. **Webcam state ownership (patched; needs testing).** Webcam network,
+   decoder and subscription operations now run on core; GUI receives copied
+   status and image events. Verify reconnect, profile selection and rapid
+   viewer close/reopen under ASan/TSan where available.
 4. **Transport trust and resources.** Re-audit certificate verification,
    bounded send queues, and per-peer resource quotas under actual native TLS
    deployment. The October audit in `doc/transport-security-audit.md`
