@@ -949,6 +949,12 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
    g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
    p->title = gtk_label_new(title ? title : id);
+   if (!strcmp(id, "rig-vfo")) {
+      /* A long rig/room name must not dictate the width of the VFO panel. */
+      gtk_label_set_ellipsize(GTK_LABEL(p->title), PANGO_ELLIPSIZE_END);
+      gtk_label_set_width_chars(GTK_LABEL(p->title), 1);
+      gtk_label_set_max_width_chars(GTK_LABEL(p->title), 28);
+   }
 
    if (!strcmp(id, "RX Audio Routing")) {
       gtk_widget_set_margin_start(p->title, 8);
