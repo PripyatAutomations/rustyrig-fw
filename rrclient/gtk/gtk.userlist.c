@@ -1136,8 +1136,9 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
    if (!compact_css) {
       compact_css = gtk_css_provider_new();
       gtk_css_provider_load_from_data(compact_css, "#room-vfo-compact label { font-size: 10px; }"
+         "#room-vfo-compact #room-vfo-frequency { font-family: monospace; font-size: 17px; font-weight: bold; }"
          "#room-vfo-compact button { font-size: 10px; padding: 0 3px; min-height: 18px; }"
-         "#room-vfo-compact #room-vfo-row { padding: 1px 2px; }"
+         "#room-vfo-compact #room-vfo-row { padding: 2px 3px; }"
          "#room-vfo-compact #room-vfo-row.rr-vfo-transmitting {"
          " background-color: #ad1826; border: 1px solid #ef4a52; }" "#room-vfo-compact #room-vfo-row.rr-vfo-transmitting label { color: #fff; }", -1, NULL);
    }
@@ -1199,7 +1200,6 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
             gtk_label_set_max_width_chars(GTK_LABEL(ptt_label), 7);
          }
       }
-      gtk_widget_set_size_request(freq, 72, -1);
       gtk_label_set_ellipsize(GTK_LABEL(freq), PANGO_ELLIPSIZE_END);
       gtk_widget_set_name(freq, "room-vfo-frequency");
       room_vfo_control_t *control = calloc(1, sizeof(*control));
@@ -1222,16 +1222,18 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
-      /* One compact line: VFO identity, frequency, mode and stop/tune action. No oversized second/third rows in the docked roster. */
+      /* Two rows per VFO: small identity/mode/PTT header and a prominent
+       * frequency below it. Keep all controls attached to the original row. */
       gtk_label_set_xalign(GTK_LABEL(name), 0.0);
+      gtk_box_pack_start(GTK_BOX(details), name, FALSE, FALSE, 1);
+      gtk_label_set_ellipsize(GTK_LABEL(mode), PANGO_ELLIPSIZE_END);
+      gtk_label_set_xalign(GTK_LABEL(mode), 0.0);
+      gtk_widget_set_size_request(mode, 0, -1);
+      gtk_box_pack_start(GTK_BOX(details), mode, TRUE, TRUE, 4);
       gtk_label_set_xalign(GTK_LABEL(freq), 0.0);
       gtk_widget_set_halign(freq, GTK_ALIGN_START);
-      gtk_box_pack_start(GTK_BOX(details), name, FALSE, FALSE, 1);
-      gtk_widget_set_margin_start(freq, 1);
-      gtk_box_pack_start(GTK_BOX(details), freq, FALSE, FALSE, 1);
-      gtk_label_set_ellipsize(GTK_LABEL(mode), PANGO_ELLIPSIZE_END);
-      gtk_widget_set_size_request(mode, 0, -1);
-      gtk_box_pack_start(GTK_BOX(details), mode, TRUE, TRUE, 1);
+      gtk_widget_set_margin_start(freq, 2);
+      gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 0);
 
       if (ptt) {
          gtk_widget_set_size_request(ptt, 58, 20);
