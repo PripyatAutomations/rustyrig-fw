@@ -1628,8 +1628,8 @@ int main(int argc, char *argv[]) {
       logfile = NULL;
    }
 
-   // Set up some debugging
-   setenv("GST_DEBUG_DUMP_DOT_DIR", ".", 0);
+   /* Respect an explicitly configured GStreamer dump directory instead of
+    * enabling DOT file output in every fwdsp subprocess by default. */
    const char *cfg_log_audio = cfg_get("fwdsp:log.audio");
 
    if (cfg_log_audio) {
