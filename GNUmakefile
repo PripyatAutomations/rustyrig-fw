@@ -95,9 +95,11 @@ endif
 # Optional standalone GTK screensaver. Part of the ordinary build and
 # install-bin artifact list, so 'make install' and Debian packaging agree.
 ifneq ($(filter true,$(USE_GTK)),)
+ifneq ($(OS),DARWIN)
 bins += gmatrix/gmatrix
 gmatrix/gmatrix: gmatrix/gmatrix.c gmatrix/gmatrix.h gmatrix/Makefile
 	$(MAKE) -C gmatrix all
+endif
 endif
 
 include mk/install.mk
