@@ -384,7 +384,16 @@ bool gui_init(void) {
    gtk_widget_set_hexpand(rr_client_overlay, TRUE);
    gtk_widget_set_vexpand(rr_client_overlay, TRUE);
    gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);
-   gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport);
+   /* GtkOverlay has special placement semantics when its main child is a
+    * GtkScrolledWindow: overlays are positioned relative to the scrolled
+    * *contents*, not the visible viewport. On connected rooms the content
+    * may be wider than the window, pushing floating panels and the clock/X
+    * offscreen. Make an ordinary box the overlay's main child instead. */
+   GtkWidget *viewport_host = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   gtk_widget_set_hexpand(viewport_host, TRUE);
+   gtk_widget_set_vexpand(viewport_host, TRUE);
+   gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport_host);
+   gtk_box_pack_start(GTK_BOX(viewport_host), viewport, TRUE, TRUE, 0);
    gtk_overlay_add_overlay(GTK_OVERLAY(rr_client_overlay), quit_button);
    gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(rr_client_overlay), quit_button, FALSE);
    GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
