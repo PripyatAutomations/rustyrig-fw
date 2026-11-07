@@ -31,11 +31,15 @@ Section "RustyRig Client" SEC_MAIN
   File /r "${STAGE_DIR}\*"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\RustyRig"
-  CreateShortCut "$SMPROGRAMS\RustyRig\RustyRig Client.lnk" "$INSTDIR\bin\rrclient.exe" "" "$INSTDIR\bin\rrclient.exe" 0 SW_SHOWNORMAL "" "Start RustyRig Client"
+  CreateShortCut "$SMPROGRAMS\RustyRig\RustyRig Client.lnk" "$INSTDIR\RustyRig.cmd" "" "$INSTDIR\bin\rrclient.exe" 0 SW_SHOWNORMAL "" "Start RustyRig Client"
   CreateShortCut "$SMPROGRAMS\RustyRig\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
 
-  ; The sample config is packaged as config/rrclient.cfg.example only. Do
-  ; not overwrite a user's existing settings during installation or upgrade.
+  ; First-run configuration only: never overwrite an existing profile.
+  CreateDirectory "$APPDATA\rustyrigs"
+  IfFileExists "$APPDATA\rustyrigs\rrclient.cfg" config_done
+  CopyFiles /SILENT "$INSTDIR\config\rrclient.cfg.example" "$APPDATA\rustyrigs\rrclient.cfg"
+config_done:
+
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RustyRigClient" "DisplayName" "RustyRig Client (experimental Win64)"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RustyRigClient" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RustyRigClient" "InstallLocation" "$INSTDIR"
