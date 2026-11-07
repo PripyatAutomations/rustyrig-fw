@@ -18,7 +18,7 @@ struct rr_floating_panel {
    GtkNotebook *tabs;
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
-   gint roll_width, saved_width, saved_height;
+   gint roll_width, saved_width, saved_height, opacity;
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
    void (*on_close)(gpointer);
@@ -92,14 +92,14 @@ static void panel_state_save(RRFloatPanel *p) {
       .x = gtk_widget_get_margin_start(p->frame),
       .y = gtk_widget_get_margin_top(p->frame),
       .width = p->saved_width, .height = p->saved_height,
-      .zoom = p->zoom, .rolled = p->rolled,
+      .zoom = p->zoom, .opacity = p->opacity, .rolled = p->rolled,
       .minimized = p->minimized, .pinned = p->pinned
    };
 
    if (p->last_saved_valid &&
       p->last_saved.x == state.x && p->last_saved.y == state.y &&
       p->last_saved.width == state.width && p->last_saved.height == state.height &&
-      p->last_saved.zoom == state.zoom && p->last_saved.rolled == state.rolled &&
+      p->last_saved.zoom == state.zoom && p->last_saved.opacity == state.opacity && p->last_saved.rolled == state.rolled &&
       p->last_saved.minimized == state.minimized && p->last_saved.pinned == state.pinned) {
       return;
    }
@@ -593,7 +593,9 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
 
 static void panel_opacity_changed(GtkRange *range, gpointer data) {
    RRFloatPanel *p = data;
-   gtk_widget_set_opacity(p->frame, gtk_range_get_value(range) / 100.0);
+   p->opacity = (gint) gtk_range_get_value(range);
+   gtk_widget_set_opacity(p->frame, p->opacity / 100.0);
+   panel_state_save(p);
 }
 
 static void panel_on_top_changed(GtkToggleButton *button, gpointer data) {
@@ -851,6 +853,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    floating_panels = g_list_prepend(floating_panels, p);
    p->closable = TRUE;
    p->minimizable = TRUE;
+   p->opacity = 100;
    rrclient_window_state_t stored = {
       0
    };
@@ -860,6 +863,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
       p->saved_width = CLAMP(stored.width, 0, 8192);
       p->saved_height = CLAMP(stored.height, 0, 8192);
       p->zoom = CLAMP(stored.zoom, -100, 100);
+      p->opacity = CLAMP(stored.opacity, 30, 100);
       p->rolled = stored.rolled;
       p->saved_minimized = stored.minimized;
       p->pinned = stored.pinned;
@@ -882,6 +886,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_overlay_add_overlay(overlay, p->scrim);
    gtk_widget_hide(p->scrim);
    p->frame = gtk_frame_new(NULL);
+   gtk_widget_set_opacity(p->frame, p->opacity / 100.0);
    gtk_style_context_add_class(gtk_widget_get_style_context(p->frame), "rr-floating-panel");
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
@@ -974,7 +979,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
    GtkWidget *opacity = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 30, 100, 5);
-   gtk_range_set_value(GTK_RANGE(opacity), 100);
+   gtk_range_set_value(GTK_RANGE(opacity), p->opacity);
    gtk_scale_set_value_pos(GTK_SCALE(opacity), GTK_POS_RIGHT);
    gtk_box_pack_start(GTK_BOX(settings), opacity, FALSE, FALSE, 0);
    g_signal_connect(opacity, "value-changed", G_CALLBACK(panel_opacity_changed), p);
@@ -1134,15 +1139,13 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    if (!p->ever_shown) {
       p->restoring_state = TRUE;
 
-      if (!p->fit_content && p->saved_width > 1 && p->saved_height > 1) {
+      if (p->loaded_state && (p->saved_width > 1 || p->saved_height > 1)) {
          int max_w = MAX(200, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - 24);
          int max_h = MAX(120, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - 24);
 
-         if (p->rolled) {
-            gtk_widget_set_size_request(p->frame, MIN(p->saved_width, max_w), -1);
-         } else {
-            gtk_widget_set_size_request(p->frame, MIN(p->saved_width, max_w), MIN(p->saved_height, max_h));
-         }
+         gtk_widget_set_size_request(p->frame,
+            p->saved_width > 1 ? MIN(p->saved_width, max_w) : -1,
+            !p->rolled && p->saved_height > 1 ? MIN(p->saved_height, max_h) : -1);
       }
       p->ever_shown = TRUE;
    }
@@ -1272,7 +1275,7 @@ void rr_floating_panel_fit_content(RRFloatPanel *p) {
    }
 
    /* Only establish a compact default. Once shown, a manual resize must survive tab changes rather than being reset on every VFO activation. */
-   if (p->ever_shown && p->fit_content) {
+   if ((p->ever_shown && p->fit_content) || (p->loaded_state && p->saved_width > 1)) {
       return;
    }
    p->fit_content = TRUE;
@@ -1284,7 +1287,7 @@ void rr_floating_panel_fit_content(RRFloatPanel *p) {
       gint overlay_w = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
       gint inset = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
       /* FlowBox's natural width packs several controls in one row. Use its one-column minimum instead; users can widen it themselves. */
-      gint width = MAX(minimum, panel_minimum_width(p));
+      gint width = panel_minimum_width(p);
 
       /* During initial map the overlay may momentarily be only a few pixels wide. Never persist such a transient width as panel state. */
       if (overlay_w > inset + 200) {
