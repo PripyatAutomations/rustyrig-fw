@@ -473,9 +473,11 @@ GtkWidget *create_vfo_box(void) {
    vfo_controls_row = gtk_flow_box_new();
    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(vfo_controls_row), GTK_SELECTION_NONE);
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
-   /* Default to the compact one-column arrangement; a wider user-resized
-    * panel can still lay out multiple controls side by side. */
-   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 4);
+   /* Keep the controls in one compact column. With multiple columns GTK
+    * advertises their combined natural width to the parent, widening the
+    * floating panel even when its initial size request is small. Users can
+    * still rearrange individual blocks with their drag handles. */
+   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
    gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(vfo_controls_row), FALSE);
