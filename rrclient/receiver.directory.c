@@ -16,6 +16,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include "receiver.directory.h"
 #include "receiver.catalog.h"
+#include "rrclient.h"
 
 #define DIRECTORY_MAX_BODY (8 * 1024 * 1024)
 #define DIRECTORY_MAX_ROWS 10000
@@ -28,6 +29,13 @@ static time_t next_request;
 static char status_text[512] = "No directory loaded. Import a list or configure a permitted mirror.";
 static bool initialized;
 static sqlite3 *cache_db;
+/* Directory cache and SQLite operations belong to the client core context,
+ * not GLib's process-default context (which runs GTK when threaded). */
+static guint directory_attach_source(GSource *source) {
+   guint id = g_source_attach(source, rrclient_core_context());
+   g_source_unref(source);
+   return id;
+}
 static guint completion_source, learn_source;
 static GHashTable *pending_learn;
 struct directory_job {
@@ -1075,7 +1083,9 @@ void receiver_directory_queue_learn(const char *url, dict *fields) {
    dict_merge(copy, fields);
 
    if (!learn_source) {
-      learn_source = g_idle_add(flush_learn, NULL);
+      GSource *source = g_idle_source_new();
+      g_source_set_callback(source, flush_learn, NULL, NULL);
+      learn_source = directory_attach_source(source);
    }
 }
 bool receiver_directory_record_connection(const char *endpoint) {
@@ -1548,7 +1558,9 @@ bool receiver_directory_refresh_force(bool force) {
    next_request = now + DIRECTORY_INTERVAL;
    cache_write();               // Persist the attempt so a restart cannot hammer the mirror.
    job->thread = g_thread_new("receiver-directory", fetch, job);
-   completion_source = g_timeout_add(50, finish, NULL);
+   GSource *source_timer = g_timeout_source_new(50);
+   g_source_set_callback(source_timer, finish, NULL, NULL);
+   completion_source = directory_attach_source(source_timer);
    g_strlcpy(status_text, "Fetching directory metadata from the configured mirror…", sizeof(status_text));
    changed();
 
