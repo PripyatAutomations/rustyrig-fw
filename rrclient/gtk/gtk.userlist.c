@@ -2079,9 +2079,12 @@ void gtk_userlist_stop_timers(void) {
       while (g_hash_table_iter_next(&iter, &key, &value)) {
          room_userlist_entry_t *entry = value;
 
-         if (entry && entry->refresh_id) {
-            g_source_remove(entry->refresh_id);
-            entry->refresh_id = 0;
+         if (entry) {
+            room_userlist_stop_resize_sources(entry);
+            if (entry->refresh_id) {
+               g_source_remove(entry->refresh_id);
+               entry->refresh_id = 0;
+            }
          }
       }
    }
