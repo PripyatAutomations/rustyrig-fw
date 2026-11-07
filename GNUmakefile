@@ -88,7 +88,9 @@ endif
 # dependencies and is built alongside the GTK client.
 ifeq (${USE_GTK},true)
 ifeq (${USE_GSTREAMER},true)
+ifneq ($(OS),DARWIN)
 include rrpipelines/rules.mk
+endif
 endif
 endif
 
