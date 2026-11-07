@@ -8,6 +8,8 @@ ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
 OS := MINGW64
 else ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)
 OS := MSYS
+else ifeq ($(UNAME_S),Darwin)
+OS := DARWIN
 else
 OS := POSIX
 endif
@@ -70,8 +72,23 @@ endif
 
 # Resolve shared libraries beside the executable/library or in its prefix,
 # including bin/ programs running directly from the source tree.
-LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$$ORIGIN:$$ORIGIN/../lib:$$ORIGIN/..'
+ifeq ($(OS),DARWIN)
+# Start with the existing .so artifact names: Mach-O can load a dylib
+# regardless of filename extension. A full .dylib naming migration can
+# follow once client and server compile successfully.
+LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,@executable_path/.. -Wl,-rpath,@loader_path/..
+LDFLAGS += -lm -g
+LIB_LDFLAGS := -dynamiclib -Wl,-undefined,dynamic_lookup
+SHARED_ID_FLAG = -Wl,-install_name,@rpath/$(1)
+CLIENT_EXPORT_FLAGS := -Wl,-export_dynamic
+SERVER_EXPORT_FLAGS := -Wl,-export_dynamic
+else
+LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib:$ORIGIN/..'
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
+ SHARED_ID_FLAG = -Wl,-soname,$(1)
+CLIENT_EXPORT_FLAGS := -rdynamic
+SERVER_EXPORT_FLAGS := -Wl,--export-dynamic
+endif
 # librustyaxe is linked in every host build, including headless rrserver.
 # Its event loop / TUI needs glib-unix.h, g_unix_fd_add(), and GLib core.
 # Resolve headers and link libraries together, independently of GTK/GStreamer.
