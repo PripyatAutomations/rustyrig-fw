@@ -171,30 +171,22 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       // decoration)
       win->move_evt = e;
 
-#if     0                       // Alternative path to account for wm decoration frame
-      GdkRectangle frame;
-      gdk_window_get_frame_extents(gtk_widget_get_window(window), &frame);
-      win->last_x = frame.x;
-      win->last_y = frame.y;
-      win->last_w = frame.width;
-      win->last_h = frame.height;
-#else // this seems to work OK, but we'll leave the other for testing for now...
-      // Instead, we should use gtk_window_get_position
       int x, y;
       gtk_window_get_position(GTK_WINDOW(window), &x, &y);
       win->last_x = x;
       win->last_y = y;
-
       win->last_w = e->width;
       win->last_h = e->height;
-#endif
 
       // Restart timeout (debounce)
       if (configure_event_timeout != 0) {
          g_source_remove(configure_event_timeout);
       }
       // Add a timeout to delay printing the position again
-      configure_event_timeout = g_timeout_add(1500, on_configure_timeout, widget);
+      /* The idle resize debounce can outlive a disappearing utility window.
+       * Keep the GObject alive until removal or dispatch, then release it. */
+      configure_event_timeout = g_timeout_add_full(G_PRIORITY_DEFAULT, 1500,
+         on_configure_timeout, g_object_ref(widget), g_object_unref);
    }
 
    return FALSE;
