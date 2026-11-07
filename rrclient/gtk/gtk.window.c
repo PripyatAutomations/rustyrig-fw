@@ -359,11 +359,25 @@ bool gui_init(void) {
    /* Keep Quit outside the clipped notebook/toolbar viewport. Dynamic
     * room content may exceed its horizontal allocation, but the close control
     * must remain anchored to the visible toplevel's right edge. */
-   gtk_widget_set_halign(quit_button, GTK_ALIGN_END);
-   gtk_widget_set_valign(quit_button, GTK_ALIGN_START);
-   gtk_widget_set_margin_top(quit_button, 2);
+   gtk_widget_set_valign(quit_button, GTK_ALIGN_CENTER);
    gtk_widget_set_margin_end(quit_button, 2);
-   gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, TRUE, 1);
+   /* Fixed right status cluster never shares the oversized minimum width of
+    * the left toolbar or the notebook. Give each side its own allocation. */
+   GtkWidget *toolbar_shell = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   GtkWidget *toolbar_viewport = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport),
+      GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(toolbar_viewport), 1);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(toolbar_viewport), FALSE);
+   gtk_widget_set_hexpand(toolbar_viewport, TRUE);
+   gtk_container_add(GTK_CONTAINER(toolbar_viewport), rr_main_toolbar);
+   gtk_box_pack_start(GTK_BOX(toolbar_shell), toolbar_viewport, TRUE, TRUE, 0);
+   GtkWidget *toolbar_right = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   gtk_widget_set_valign(toolbar_right, GTK_ALIGN_CENTER);
+   gtk_box_pack_end(GTK_BOX(toolbar_shell), toolbar_right, FALSE, FALSE, 2);
+   g_object_set_data(G_OBJECT(main_window), "rr-main-toolbar-right", toolbar_right);
+   g_object_set_data(G_OBJECT(main_window), "rr-main-quit-button", quit_button);
+   gtk_box_pack_start(GTK_BOX(main_content), toolbar_shell, FALSE, FALSE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_widget_set_size_request(tabs_wrapper, 1, -1);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
@@ -394,9 +408,6 @@ bool gui_init(void) {
    gtk_widget_set_vexpand(viewport_host, TRUE);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport_host);
    gtk_box_pack_start(GTK_BOX(viewport_host), viewport, TRUE, TRUE, 0);
-   /* Chat's right status row takes ownership of this button so the clock
-    * and X are measured/positioned as one unit, without a 34px spacer. */
-   g_object_set_data(G_OBJECT(rr_client_overlay), "rr-main-quit-button", quit_button);
    GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
    GtkWidget *upper_extra = cfg_ui_gtk_main_tabstrip == GTK_POS_TOP ? tab_strip : NULL;
    GtkWidget *lower = cfg_ui_gtk_main_tabstrip == GTK_POS_BOTTOM ? tab_strip : NULL;
