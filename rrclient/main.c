@@ -272,9 +272,9 @@ static void rrclient_core_dispatch_event(event_dispatch_fn_t fn, void *arg, void
 }
 
 /* Dedicated core context for GTK; TUI uses the default context. */
-static GMainContext *rr_experiment_core_context;
+static GMainContext *rr_core_context;
 GMainContext *rrclient_core_context(void) {
-   return rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default();
+   return rr_core_context ? rr_core_context : g_main_context_default();
 }
 static guint rr_core_timeout(guint interval, gint priority, GSourceFunc callback) {
    GSource *source = g_timeout_source_new(interval);
@@ -2168,9 +2168,9 @@ typedef struct {
    bool ready, failed;
    bool core_stopped;
    GMainLoop *core_loop;
-} rr_gtk_experiment_t;
-static gpointer rr_gtk_experiment_thread(gpointer data) {
-   rr_gtk_experiment_t *e = data;
+} rr_gtk_frontend_state_t;
+static gpointer rr_gtk_frontend_thread(gpointer data) {
+   rr_gtk_frontend_state_t *e = data;
    Log(LOG_INFO, "core.thread", "GTK worker starting tid=%p", (void *)g_thread_self());
    bool failed = e->ops->init(&e->argc, &e->argv);
    g_mutex_lock(&e->mutex);
@@ -2344,12 +2344,12 @@ int main(int argc, char *argv[]) {
    const bool threaded_gtk = !force_tui && cfg_modules_get(0, NULL) != NULL;
 
    if (threaded_gtk) {
-      rr_experiment_core_context = g_main_context_new();
-      fwdsp_set_reactor_context(rr_experiment_core_context);
-      logger_set_drain_context(rr_experiment_core_context);
+      rr_core_context = g_main_context_new();
+      fwdsp_set_reactor_context(rr_core_context);
+      logger_set_drain_context(rr_core_context);
    }
 
-   if (!event_domain_register("core", rrclient_core_dispatch_event, rr_experiment_core_context ? rr_experiment_core_context : g_main_context_default())) {
+   if (!event_domain_register("core", rrclient_core_dispatch_event, rr_core_context ? rr_core_context : g_main_context_default())) {
       Log(LOG_WARN, "core.event", "Unable to register core event delivery domain");
    }
    Log(LOG_INFO, "core.thread", "Frontend threading model: %s", threaded_gtk ? "dedicated GTK thread" : "TUI");
@@ -2430,7 +2430,7 @@ int main(int argc, char *argv[]) {
    // The [modules] config section decides what to load, e.g.:
    //    [modules]
    //    rrclient-gtk.so=
-   rr_gtk_experiment_t gtk_test = {
+   rr_gtk_frontend_state_t gtk_frontend = {
       0
    };
    GThread *gtk_worker = NULL;
@@ -2450,28 +2450,28 @@ int main(int argc, char *argv[]) {
             // (no display, theme problems) unloads the module and we fall
             // back to TUI.
 
-            gtk_test.ops = frontend_ops();
-            gtk_test.argc = argc;
-            gtk_test.argv = argv;
-            gtk_test.core_loop = g_main_loop_new(rr_experiment_core_context, FALSE);
-            g_mutex_init(&gtk_test.mutex);
-            g_cond_init(&gtk_test.cond);
-            gtk_worker = g_thread_new("rrclient-gtk", rr_gtk_experiment_thread, &gtk_test);
-            g_mutex_lock(&gtk_test.mutex);
-            while (!gtk_test.ready) {
-               g_cond_wait(&gtk_test.cond, &gtk_test.mutex);
+            gtk_frontend.ops = frontend_ops();
+            gtk_frontend.argc = argc;
+            gtk_frontend.argv = argv;
+            gtk_frontend.core_loop = g_main_loop_new(rr_core_context, FALSE);
+            g_mutex_init(&gtk_frontend.mutex);
+            g_cond_init(&gtk_frontend.cond);
+            gtk_worker = g_thread_new("rrclient-gtk", rr_gtk_frontend_thread, &gtk_frontend);
+            g_mutex_lock(&gtk_frontend.mutex);
+            while (!gtk_frontend.ready) {
+               g_cond_wait(&gtk_frontend.cond, &gtk_frontend.mutex);
             }
-            g_mutex_unlock(&gtk_test.mutex);
+            g_mutex_unlock(&gtk_frontend.mutex);
 
-            if (gtk_test.failed) {
+            if (gtk_frontend.failed) {
                Log(LOG_CRIT, "core", "Frontend module init failed; falling back to TUI");
 
                /* Failed init worker must exit before we dlclose its code. */
                g_thread_join(gtk_worker);
                gtk_worker = NULL;
-               g_main_loop_unref(gtk_test.core_loop);
-               g_cond_clear(&gtk_test.cond);
-               g_mutex_clear(&gtk_test.mutex);
+               g_main_loop_unref(gtk_frontend.core_loop);
+               g_cond_clear(&gtk_frontend.cond);
+               g_mutex_clear(&gtk_frontend.mutex);
                rr_unload_module(requested);
                frontend_module = NULL;
                loaded_name = NULL;
@@ -2561,17 +2561,17 @@ int main(int argc, char *argv[]) {
       if (gtk_worker) {
          /* A single high-priority transport sweep runs on the core context, regardless of backend. */
          rr_core_timeout(rr_rtp_supported(false) ? 10 : 50, G_PRIORITY_HIGH, ws_poll_cb);
-         Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p context=%p", (void *)g_thread_self(), (void *)rr_experiment_core_context);
-         g_main_loop_run(gtk_test.core_loop);
-         g_mutex_lock(&gtk_test.mutex);
-         gtk_test.core_stopped = true;
-         g_cond_signal(&gtk_test.cond);
-         g_mutex_unlock(&gtk_test.mutex);
+         Log(LOG_INFO, "core.thread", "Core main loop starting tid=%p context=%p", (void *)g_thread_self(), (void *)rr_core_context);
+         g_main_loop_run(gtk_frontend.core_loop);
+         g_mutex_lock(&gtk_frontend.mutex);
+         gtk_frontend.core_stopped = true;
+         g_cond_signal(&gtk_frontend.cond);
+         g_mutex_unlock(&gtk_frontend.mutex);
          g_thread_join(gtk_worker);
          gtk_worker = NULL;
-         g_main_loop_unref(gtk_test.core_loop);
-         g_cond_clear(&gtk_test.cond);
-         g_mutex_clear(&gtk_test.mutex);
+         g_main_loop_unref(gtk_frontend.core_loop);
+         g_cond_clear(&gtk_frontend.cond);
+         g_mutex_clear(&gtk_frontend.mutex);
       }
    }
    rrclient_cleanup();
