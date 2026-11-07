@@ -2472,6 +2472,11 @@ static gboolean status_network_tick(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+static void room_rf_source_changed(const char *event, const char *data,
+                                   rrconn_t *connection, void *unused) {
+   (void)event; (void)data; (void)connection; (void)unused;
+   room_rf_panel_refresh();
+}
 static void status_volume_clicked(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    gtk_volume_toggle();
@@ -2481,6 +2486,7 @@ bool chat_init(void) {
    typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_domain_token("client.server.selected", gtk_chat_server_selected, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.local-bridge.vfo", room_rf_source_changed, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop", estop_request_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.notice.owned", estop_notice_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.send-status", estop_send_status, NULL, "gtk"));
