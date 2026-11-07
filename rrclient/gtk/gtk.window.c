@@ -425,8 +425,8 @@ bool gui_init(void) {
    g_signal_connect(sdr_directory_button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) "sdr-directory");
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), sdr_directory_button, FALSE, FALSE, 0);
    main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio");
-   main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-system-symbolic", "admin");
-   main_toolbar_tool(rr_main_toolbar, "Config", "preferences-other-symbolic", "config");
+   main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-other-symbolic", "admin");
+   main_toolbar_tool(rr_main_toolbar, "Config", "preferences-system-symbolic", "config");
 
    // Shared serial console page, with top-aligned endpoint subtabs.
    extern GtkWidget *init_terminal_tab(void);
