@@ -274,22 +274,12 @@ static void webcam_codec_changed(GtkComboBox *combo, gpointer user) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(webcam_rates), 0);
 }
 static void webcam_apply(GtkButton *button, gpointer user) {
+   (void)button; (void)user;
    const char *profile = gtk_combo_box_get_active_id(GTK_COMBO_BOX(webcam_rates));
-
-   if (!profile || !webcam_connection || !*webcam_uuid) {
-      return;
-   }
-   dict *message = dict_new();
-   dict_add(message, "msg.type", "media");
-   dict_add(message, "media.cmd", "profile");
-   dict_add(message, "media.chan-uuid", webcam_uuid);
-   dict_add(message, "media.profile", profile);
-   ws_send_dict(NULL, webcam_connection, message, WEBSOCKET_OP_TEXT);
-   dict_free(message);
+   if (webcam_visible && profile && *profile && *webcam_uuid)
+      webcam_send_command(WEBCAM_PROFILE, profile);
 }
 static void webcam_controls_refresh(void) {
-   webcam_profiles[0] = webcam_uuid[0] = '\0';
-   rrclient_media_video_info(webcam_uuid, sizeof(webcam_uuid), webcam_profiles, sizeof(webcam_profiles));
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(webcam_codecs));
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(webcam_codecs), "", "Source codec");
    char copy[sizeof(webcam_profiles)], seen[256] = " ";
@@ -314,99 +304,53 @@ static void webcam_controls_refresh(void) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(webcam_codecs), 0);
 }
 
-// Called when the viewer window is destroyed
 static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
-   (void)widget;
-   (void)user;
-
-   if (webcam_connection && *webcam_uuid) {
-      media_send_unsubscribe(webcam_connection, webcam_uuid);
-   }
-
-   if (*webcam_decoder) {
-      fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
-   }
-   webcam_decoder[0] = '\0';
-   webcam_image = NULL;
-   webcam_win = NULL;
-
+   (void)widget; (void)user;
+   webcam_image = webcam_win = webcam_codecs = webcam_rates = NULL;
    if (webcam_panel) {
       GtkWidget *body = rr_floating_panel_body(webcam_panel);
       GList *children = gtk_container_get_children(GTK_CONTAINER(body));
-
-      for (GList *it = children ; it ; it = it->next) {
+      for (GList *it = children; it; it = it->next)
          gtk_widget_destroy(GTK_WIDGET(it->data));
-      }
-
       g_list_free(children);
    }
-
-   g_mutex_lock(&webcam_lock);
-   webcam_visible = false;
-   webcam_connection = NULL;
-
    if (webcam_idle) {
       g_source_remove(webcam_idle);
       webcam_idle = 0;
    }
-
-   if (webcam_pending) {
-      g_bytes_unref(webcam_pending);
-      webcam_pending = NULL;
-   }
-   g_mutex_unlock(&webcam_lock);
+   g_clear_pointer(&webcam_pending, g_bytes_unref);
 }
-
-// Show or hide the viewer window; frames are only decoded when it exists.
+/* GUI state is GTK-only; the core command handles subscription/decoder. */
 void gtk_webcam_show(bool show) {
    if (!show) {
-      if (webcam_panel) {
+      if (webcam_panel)
          rr_floating_panel_hide(webcam_panel);
-      }
+      webcam_visible = false;
+      ++webcam_epoch;
+      webcam_send_command(WEBCAM_CLOSE, NULL);
       webcam_destroy_cb(NULL, NULL);
-
       return;
    }
-
-   if (webcam_win) {
-      if (webcam_connection && webcam_connection != ws_conn && *webcam_uuid) {
-         media_send_unsubscribe(webcam_connection, webcam_uuid);
-      }
-
-      if (webcam_connection != ws_conn && *webcam_decoder) {
-         fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
-         webcam_decoder[0] = '\0';
-      }
-      g_mutex_lock(&webcam_lock);
-      webcam_connection = ws_conn;
-      webcam_visible = true;
-      g_mutex_unlock(&webcam_lock);
-      webcam_controls_refresh();
-      rrclient_media_subscribe_single_video();
+   if (webcam_visible && webcam_win) {
       rr_floating_panel_restore(webcam_panel);
       rr_floating_panel_show(webcam_panel);
-
       return;
    }
-   g_mutex_lock(&webcam_lock);
    webcam_visible = true;
-   webcam_connection = ws_conn;
-   g_mutex_unlock(&webcam_lock);
+   ++webcam_epoch;
+   webcam_uuid[0] = webcam_profiles[0] = 0;
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-
    if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
-      webcam_destroy_cb(NULL, NULL);
-
+      webcam_visible = false;
       return;
    }
-
    if (!webcam_panel) {
-      webcam_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "webcam", "Webcam");
+      webcam_panel = rr_floating_panel_new(GTK_OVERLAY(root),
+         GTK_NOTEBOOK(main_notebook), "webcam", "Webcam");
       rr_floating_panel_set_close_callback(webcam_panel, webcam_panel_close, NULL);
    }
    webcam_win = rr_floating_panel_widget(webcam_panel);
    gtk_widget_set_size_request(rr_floating_panel_body(webcam_panel), 640, 480);
-
    webcam_image = gtk_image_new();
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    GtkWidget *controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -425,32 +369,37 @@ void gtk_webcam_show(bool show) {
    gtk_box_pack_start(GTK_BOX(box), webcam_image, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(webcam_panel)), box, TRUE, TRUE, 0);
    rr_floating_panel_show(webcam_panel);
-
-   if (rrclient_media_subscribe_single_video()) {
-      ui_print(NULL, "\00311Webcam viewer open; subscribed to the only video stream\017");
-   } else {
-      ui_print(NULL, "\00311Webcam viewer open; subscribe to the video channel with \017/media SUB <uuid|#>\00311 to start the stream\017");
+   webcam_send_command(WEBCAM_OPEN, NULL);
+}
+static void webcam_disconnected(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event; (void)data; (void)user;
+   if (client && client == webcam_core_connection) {
+      webcam_core_stop();
+      webcam_publish_status(false);
    }
 }
-
-static void webcam_disconnected(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)data;
-   (void)user;
-   /* This callback is registered on the GTK event domain. g_idle_add()
-    * would attach to the process-default/core context in threaded mode,
-    * invoking gtk_webcam_show() on the wrong thread. */
-   g_mutex_lock(&webcam_lock);
-   bool active = client && client == webcam_connection;
-   g_mutex_unlock(&webcam_lock);
-   if (active)
+static void webcam_closed_event(const rr_event_message_t *event, void *unused) {
+   (void)unused;
+   if (!event || event->length != sizeof(webcam_status_t) || !event->payload)
+      return;
+   const webcam_status_t *status = event->payload;
+   if (webcam_visible && status->epoch == webcam_epoch && !status->open)
       gtk_webcam_show(false);
 }
 
-// Register the video frame listener (called from gtk init)
+/* Core owns all media operations; GTK owns only presentation. */
 void rrclient_webcam_register(void) {
-   /* The frontend is dlclosed before socket teardown; these callbacks must be removed by rr_module_shutdown() to avoid jumping into unmapped code. */
    extern bool rr_module_token_add(rr_event_token_t token);
-   rr_module_token_add(event_on_binary_domain_token(RR_VIDEO_FRAME_EVENT, webcam_frame_handler, NULL, "gtk"));
-   rr_module_token_add(event_on_domain_token("disconnected", webcam_disconnected, NULL, "gtk"));
+   rr_module_token_add(event_on_binary_domain_token(RR_VIDEO_FRAME_EVENT,
+      webcam_frame_handler, NULL, "core"));
+   rr_module_token_add(event_on_message_domain_token(RR_WEBCAM_COMMAND,
+      webcam_core_command, NULL, "core"));
+   rr_module_token_add(event_on_domain_token("disconnected",
+      webcam_disconnected, NULL, "core"));
+   rr_module_token_add(event_on_message_domain_token(RR_WEBCAM_IMAGE,
+      webcam_image_event, NULL, "gtk"));
+   rr_module_token_add(event_on_message_domain_token(RR_WEBCAM_STATUS,
+      webcam_status_event, NULL, "gtk"));
+   rr_module_token_add(event_on_message_domain_token(RR_WEBCAM_STATUS,
+      webcam_closed_event, NULL, "gtk"));
 }
