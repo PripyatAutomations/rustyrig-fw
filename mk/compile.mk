@@ -162,5 +162,3 @@ strip: ${bins}
 	@strip $^
 	@ls -a1ls $^
 
-LIB_LDFLAGS := -fPIC -shared
-
