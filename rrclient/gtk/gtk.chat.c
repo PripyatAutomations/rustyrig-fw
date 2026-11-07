@@ -2594,34 +2594,34 @@ bool chat_init(void) {
    gtk_widget_set_tooltip_text(volume_button, "Show or hide Volume");
    g_signal_connect(volume_button, "clicked", G_CALLBACK(status_volume_clicked), NULL);
    gtk_box_pack_start(GTK_BOX(network_row), volume_button, FALSE, FALSE, 0);
-   GtkWidget *status_clock = gtk_clock_status_new();
+   /* RX/TX text expands after connection (especially with RTP rates).
+    * Keep it inside the left toolbar's horizontal clipping viewport: it must
+    * never increase the width of the fixed clock/Quit cluster. */
+   gtk_widget_set_valign(network_row, GTK_ALIGN_CENTER);
+   gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
 
-   if (status_clock) {
-      gtk_box_pack_start(GTK_BOX(network_row), status_clock, FALSE, FALSE, 0);
-   }
-   /* Clock and main Quit belong in the same row. Separate overlay children drift apart when the underlying notebook width changes. */
+   GtkWidget *toolbar_right = g_object_get_data(G_OBJECT(main_window), "rr-main-toolbar-right");
+   GtkWidget *status_clock = gtk_clock_status_new();
    GtkWidget *quit = g_object_get_data(G_OBJECT(main_window), "rr-main-quit-button");
 
-   if (quit) {
-      gtk_box_pack_start(GTK_BOX(network_row), quit, FALSE, FALSE, 0);
-   }
-   gtk_widget_set_hexpand(network_row, FALSE);
-   gtk_widget_set_valign(network_row, GTK_ALIGN_CENTER);
-
-   if (status_clock) {
-      gtk_widget_set_valign(status_clock, GTK_ALIGN_CENTER);
-   }
-
-   if (quit) {
-      gtk_widget_set_valign(quit, GTK_ALIGN_CENTER);
-   }
-   GtkWidget *toolbar_right = g_object_get_data(G_OBJECT(main_window), "rr-main-toolbar-right");
-
    if (GTK_IS_BOX(toolbar_right)) {
-      gtk_box_pack_end(GTK_BOX(toolbar_right), network_row, FALSE, FALSE, 0);
-      gtk_widget_show_all(network_row);
+      /* Only fixed-size controls live outside the clipped toolbar viewport.
+       * Both remain visible even if the connected server adds wide labels. */
+      if (status_clock) {
+         gtk_widget_set_valign(status_clock, GTK_ALIGN_CENTER);
+         gtk_box_pack_start(GTK_BOX(toolbar_right), status_clock, FALSE, FALSE, 0);
+      }
+      if (quit) {
+         gtk_widget_set_valign(quit, GTK_ALIGN_CENTER);
+         gtk_box_pack_start(GTK_BOX(toolbar_right), quit, FALSE, FALSE, 0);
+      }
+      gtk_widget_show_all(toolbar_right);
    } else {
-      gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
+      /* Fallback for alternative frontends without the split toolbar. */
+      if (status_clock)
+         gtk_box_pack_end(GTK_BOX(rr_main_toolbar), status_clock, FALSE, FALSE, 0);
+      if (quit)
+         gtk_box_pack_end(GTK_BOX(rr_main_toolbar), quit, FALSE, FALSE, 0);
    }
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(1, status_network_tick, NULL);
