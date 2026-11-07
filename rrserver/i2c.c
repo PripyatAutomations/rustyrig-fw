@@ -20,7 +20,9 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#ifdef __linux__
 #include <linux/i2c-dev.h>
+#endif
 #include <unistd.h>
 #include <stdio.h>
 #include <librustyaxe/core.h>
