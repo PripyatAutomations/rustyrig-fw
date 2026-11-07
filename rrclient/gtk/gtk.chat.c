@@ -159,6 +159,8 @@ extern void vfo_controls_set_rx_only(bool rx_only);
 static GtkWidget *room_vfo_box;
 static GtkWidget *room_rf_strip;
 static RRFloatPanel *room_vfo_panel;
+static RRFloatPanel *room_rf_panel;
+static void room_rf_panel_refresh(void);
 /* Default follows rig tabs; an explicit title-menu selection always wins. */
 static gboolean room_vfo_follow_chat = TRUE;
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
@@ -1481,6 +1483,45 @@ static gboolean room_vfo_title_tick(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
+/* Spectrum sources own this panel, independently of chat/VFO tabs.
+ * The local bridge is currently the only producer publishing RF rows. */
+static void room_rf_panel_refresh(void) {
+   rr_local_bridge_ui_state_t state = {0};
+   gboolean available = rrclient_local_bridge_ui_state(&state) &&
+      state.connected && state.waterfall;
+   if (!available) {
+      if (room_rf_panel)
+         rr_floating_panel_hide(room_rf_panel);
+      return;
+   }
+   if (!room_rf_panel) {
+      GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
+      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook))
+         return;
+      room_rf_panel = rr_floating_panel_new(GTK_OVERLAY(root),
+         GTK_NOTEBOOK(main_notebook), "rf-spectrum", "RF Spectrum");
+      if (!room_rf_panel)
+         return;
+      rr_floating_panel_set_resizable(room_rf_panel, TRUE);
+      rr_floating_panel_set_minimizable(room_rf_panel, TRUE);
+      rr_floating_panel_set_closable(room_rf_panel, FALSE);
+      room_rf_strip = rr_gtk_rf_spectrum_new();
+      g_object_add_weak_pointer(G_OBJECT(room_rf_strip),
+         (gpointer *)&room_rf_strip);
+      gtk_widget_set_size_request(room_rf_strip, 420, 190);
+      gtk_widget_set_hexpand(room_rf_strip, TRUE);
+      gtk_widget_set_vexpand(room_rf_strip, TRUE);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_rf_panel)),
+         room_rf_strip, TRUE, TRUE, 0);
+   }
+   char *title = g_strdup_printf("RF Spectrum — Local VFO %c",
+      state.vfo >= 'A' && state.vfo <= 'Z' ? state.vfo : 'A');
+   rr_floating_panel_set_title(room_rf_panel, title);
+   g_free(title);
+   if (!rr_floating_panel_is_minimized(room_rf_panel))
+      rr_floating_panel_show(room_rf_panel);
+}
+
 static void room_vfo_show(const char *name) {
    if (!room_vfo_panel) {
       GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
@@ -1496,13 +1537,6 @@ static void room_vfo_show(const char *name) {
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
       rr_floating_panel_set_resizable(room_vfo_panel, TRUE);
       rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);
-      room_rf_strip = rr_gtk_rf_spectrum_new();
-      /* show_all() on the floating panel must never resurrect the RF strip
-       * when the active VFO is not a local SDR. */
-      gtk_widget_set_no_show_all(room_rf_strip, TRUE);
-      g_object_add_weak_pointer(G_OBJECT(room_rf_strip), (gpointer *) &room_rf_strip);
-      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_rf_strip, TRUE, TRUE, 0);
-      gtk_widget_show_all(room_rf_strip);
       room_vfo_box = create_vfo_box();
       rr_floating_panel_set_min_width_widget(room_vfo_panel, freq_entry);
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
@@ -1510,9 +1544,6 @@ static void room_vfo_show(const char *name) {
    }
    g_strlcpy(room_vfo_title_room, name ? name : "", sizeof(room_vfo_title_room));
 
-   if (room_rf_strip) {
-      gtk_widget_set_visible(room_rf_strip, name && !g_ascii_strcasecmp(name, "&local-sdr"));
-   }
    char active = rrclient_room_active_vfo(room_vfo_title_room);
    char *title = name && !g_ascii_strcasecmp(name, "&local-sdr")
       ? g_strdup_printf("&local-sdr — local.sdr.%c", active >= 'A' && active <= 'Z' ? active : '?')
@@ -1524,6 +1555,7 @@ static void room_vfo_show(const char *name) {
     * packed and current receiver-specific visibility has been applied. */
    rr_floating_panel_fit_content(room_vfo_panel);
    rr_floating_panel_show(room_vfo_panel);
+   room_rf_panel_refresh();
 }
 
 // A single control box follows the selected rig room.  The site lobby and
