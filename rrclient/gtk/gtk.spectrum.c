@@ -680,7 +680,6 @@ static gboolean rf_recover_stream(gpointer user) {
    rf_strip_t *p = user;
    if (!p->rf_enabled)
       return G_SOURCE_CONTINUE;
-   unsigned min_zoom = 0, max_zoom = 0;
    rr_local_bridge_ui_state_t state = {0};
    if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall)
       return G_SOURCE_CONTINUE;
@@ -688,11 +687,9 @@ static gboolean rf_recover_stream(gpointer user) {
    if (p->received_at && now - p->received_at <= G_GINT64_CONSTANT(3000000))
       return G_SOURCE_CONTINUE;
    if (!p->last_retry_at || now - p->last_retry_at >= G_GINT64_CONSTANT(10000000)) {
-      if (rrclient_local_bridge_waterfall_caps(&min_zoom, &max_zoom)) {
-         unsigned zoom = CLAMP(p->zoom, min_zoom, max_zoom);
-         rrclient_local_bridge_request_waterfall(TRUE, zoom, 0);
-         p->last_retry_at = now;
-      }
+      unsigned zoom = CLAMP(p->zoom, state.min_zoom, state.max_zoom);
+      rrclient_local_bridge_request_waterfall(TRUE, zoom, 0);
+      p->last_retry_at = now;
    }
    gtk_widget_queue_draw(p->drawing);
    return G_SOURCE_CONTINUE;
