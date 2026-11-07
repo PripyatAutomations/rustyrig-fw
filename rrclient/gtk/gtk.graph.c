@@ -92,6 +92,11 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       cairo_set_font_size(cr, 10);
       cairo_move_to(cr, n->x + 10, n->y + 39);
       cairo_show_text(cr, n->subtitle ? n->subtitle : "");
+      if (n->detail && *n->detail) {
+         cairo_set_font_size(cr, 9);
+         cairo_move_to(cr, n->x + 10, n->y + 52);
+         cairo_show_text(cr, n->detail);
+      }
 
       if (n->fwdsp) {
          cairo_set_source_rgb(cr, .98, .77, .43);
