@@ -9,6 +9,7 @@
 #include "link.h"
 #include "mesh.enroll.native.h"
 #include "acl.h"
+#include "http.bans.h"
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/http.h>
@@ -21,8 +22,6 @@
 #include <unistd.h>
 
 extern time_t now;
-/* Native TLS applies the server's user-agent ban policy unconditionally. */
-extern bool is_http_banned(const char *ua);
 
 struct native_session {
    rr_transport_t *transport;
