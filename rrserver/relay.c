@@ -266,7 +266,7 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    dict_add(d, "dest", dest);
    dict_add(d, "kind", kind);
    dict_add(d, "session", "");
-   dict_add(d, "username", "");
+   dict_add(d, "username", !strcmp(kind,"state") ? owner : "");
    dict_add(d, "payload", json);
    rrserver_links_send(dest, d);
    dict_free(d);
@@ -694,7 +694,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          !g_ascii_strcasecmp(dict_get(d,"identity.domain",""),cfg_get("domain")) &&
          !strcmp(dict_get(d,"identity.operation",""),operation) &&
          !strcmp(dict_get(d,"identity.scheme",""),"ed25519-catalog-v1") &&
-         !strcmp(dict_get(d,"identity.destination",""),dest) &&
+         (!strcmp(kind,"state") ?
+            !strcmp(dict_get(d,"identity.destination",""),"*") :
+            !strcmp(dict_get(d,"identity.destination",""),dest)) &&
          !strcmp(dict_get(d,"identity.session",""),id) &&
          !strcmp(dict_get(d,"identity.username",""),dict_get(envelope,"username","")) &&
          rr_identity_verify_catalog(d);
@@ -709,9 +711,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          Log(LOG_WARN,"mesh.control","Rejected unsigned/forged %s from %s",kind,origin);
          goto done;
       }
-      rr_relay_strip_catalog_identity(d);
-      dict_del(d,"identity.destination");
-      dict_del(d,"identity.username");
+      if (strcmp(kind,"state")) {
+         rr_relay_strip_catalog_identity(d);
+         dict_del(d,"identity.destination");
+         dict_del(d,"identity.username");
+      }
    }
    if (!strcmp(kind, "identity-revocation")) {
 #ifdef USE_SQLITE
@@ -1315,12 +1319,18 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          goto done;
       }
 
-      for (struct relay_client *local = rr_relay_clients ; local ; local = local->next) {
-         if (rr_relay_client_interested(local->client, room, d)) {
-            rr_relay_deliver(local->client, d);
+      dict *client_state=dict_clone(d);
+      if (client_state) {
+         rr_relay_strip_catalog_identity(client_state);
+         dict_del(client_state,"identity.destination");
+         dict_del(client_state,"identity.username");
+         for (struct relay_client *local = rr_relay_clients ; local ; local = local->next) {
+            if (rr_relay_client_interested(local->client, room, client_state))
+               rr_relay_deliver(local->client,client_state);
          }
+         dict_free(client_state);
       }
-
+      /* Keep owner's signature in d for downstream forwarding. */
       rr_relay_publish_state(c->owner, room, d);
    } else if (!strcmp(kind, "close")) {
       struct remote_session **p = &rr_relay_remotes;
