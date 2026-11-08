@@ -640,7 +640,12 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
 
    /* A joined rig room implicitly requests any advertised GPS/NMEA RX channels for that rig. Output selection is still handled separately by serial.gps.output,
     * so ttyGPS follows the active rig. */
-   if (channel->room[0] && rrclient_room_is_joined(channel->room) && rrclient_room_vfo_mask(channel->room)) {
+   if (channel->room[0] && rrclient_room_is_joined(channel->room) &&
+      (rrclient_room_vfo_mask(channel->room) ||
+         (channel->rig_uuid[0] && !strncasecmp(channel->room, "#sdr-", 5)))) {
+      /* Temporary SDR rooms may advertise GPSP before their VFO mask arrives.
+       * A receiver-scoped UUID is enough to subscribe; room membership still
+       * controls access, and output follows the selected RX room below. */
       return true;
    }
 
@@ -1165,6 +1170,7 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
          return;
       }
       dict_add(d, "gps.channel-uuid", channel->uuid);
+      dict_add(d, "gps.control-room", channel->control_room);
       dict_add(d, "gps.source", source);
       dict_add(d, "gps.nmea", sentence);
       dict_add_bool(d, "gps.raw", raw);
