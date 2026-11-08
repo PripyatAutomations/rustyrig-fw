@@ -100,7 +100,7 @@ Depends: librustyaxe0,
  ${shlibs:Depends}, ${misc:Depends}
 Conflicts: libfwdspmgr (<< 1.0.2-4~), libfwdspmgr-dev (<< 1.0.2-4~)
 Replaces: libfwdspmgr (<< 1.0.2-4~), libfwdspmgr-dev (<< 1.0.2-4~)
-Description: audio processing engine
+Description: Rusty Rigs shared audio processing engine
  RustyRig audio processing engine including the fwdsp GStreamer worker,
  the shared DSP pipeline manager library, and development headers.
 
