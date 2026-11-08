@@ -266,6 +266,35 @@ bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, c
    if (revoked_row != SQLITE_DONE) {
       return false;
    }
+   /* If this UUID has an explicit enrollment, never let an untrusted
+    * transit catalog install a different TOFU key. The enrolled identity is
+    * authoritative even before the first catalog snapshot arrives. */
+   sqlite3_stmt *enrolled = NULL;
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_explicit_trust ("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL,"
+      "catalog_pubkey TEXT NOT NULL, tls_spki_sha256 TEXT NOT NULL,"
+      "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid))", NULL,NULL,NULL) != SQLITE_OK)
+      return false;
+   if (sqlite3_prepare_v2(db,
+      "SELECT catalog_pubkey FROM mesh_explicit_trust "
+      "WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2",
+      -1,&enrolled,NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(enrolled,1,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(enrolled,2,owner,-1,SQLITE_TRANSIENT);
+   int enrollment = sqlite3_step(enrolled);
+   if (enrollment == SQLITE_ROW) {
+      const char *expected=(const char *)sqlite3_column_text(enrolled,0);
+      bool match=expected && !strcmp(expected,pubkey);
+      sqlite3_finalize(enrolled);
+      if (!match) {
+         Log(LOG_WARN, "mesh.identity", "Rejecting catalog key substitution for explicitly enrolled node %s",owner);
+         return false;
+      }
+   } else {
+      sqlite3_finalize(enrolled);
+      if (enrollment != SQLITE_DONE) return false;
+   }
    char *scope = g_ascii_strdown(domain, -1);
    sqlite3_stmt *insert = NULL, *lookup = NULL;
    bool ok = false;
