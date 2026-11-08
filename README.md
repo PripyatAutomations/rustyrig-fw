@@ -104,3 +104,7 @@ version 2 only** (`GPL-2.0-only`); see [doc/LICENSE](doc/LICENSE).
 The `librrprotocol` submodule is GPLv2. The `librustyaxe` submodule retains
 its MIT license. Other bundled components, dependencies and Windows themes
 retain their respective upstream licenses.
+
+
+For a complete mesh bootstrap or post-compromise credential rotation, see the
+[cluster rebuild and breach-recovery runbook](doc/cluster-rebuild-recovery.md).
