@@ -11,6 +11,7 @@
 #include <librustyaxe/transport.wss.h>
 #include <librustyaxe/transport.h>
 #include <librrprotocol/wire-version.h>
+#include <librrprotocol/traffic.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/http.h>
 #include <rrclient/irc.h>
