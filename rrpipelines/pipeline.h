@@ -2,7 +2,7 @@
 // rrpipelines/pipeline.h: GStreamer pipeline graph model.
 //    This is part of rustyrig-fw.
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 #ifndef RRPIPELINES_PIPELINE_H
 #define RRPIPELINES_PIPELINE_H
 

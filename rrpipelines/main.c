@@ -2,7 +2,7 @@
 // rrpipelines/main.c: Standalone GTK GStreamer pipeline editor.
 //    This is part of rustyrig-fw.
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 #include "pipeline.h"
 #include <rrclient/gtk/gtk.graph.h>
 #include <librustyaxe/json.h>
