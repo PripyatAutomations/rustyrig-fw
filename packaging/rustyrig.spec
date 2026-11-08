@@ -6,7 +6,7 @@ License: MIT
 URL: https://github.com/PripyatAutomations/rustyrig-fw
 Source0: %{name}-%{version}.tar.gz
 BuildRequires: gcc, make, pkgconfig, jq, perl
-BuildRequires: pkgconfig(librustyaxe), pkgconfig(glib-2.0), pkgconfig(sqlite3), pkgconfig(libcurl)
+BuildRequires: pkgconfig(librustyaxe), pkgconfig(librrprotocol), pkgconfig(glib-2.0), pkgconfig(sqlite3), pkgconfig(libcurl)
 BuildRequires: pkgconfig(gtk+-3.0), pkgconfig(gstreamer-1.0), pkgconfig(gstreamer-base-1.0)
 BuildRequires: pkgconfig(libgpiod), pkgconfig(hamlib), ncurses-devel
 BuildRequires: systemd-rpm-macros
@@ -61,8 +61,8 @@ Callsign lookup helper using local databases and the QRZ XML API.
 %autosetup
 
 %build
-%make_build PROFILE=radio LIBRUSTYAXE_PROVIDER=system
-%make_build -C callsign-lookup LIBRUSTYAXE_PROVIDER=system
+%make_build PROFILE=radio LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system
+%make_build -C callsign-lookup LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system
 
 %install
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
@@ -76,7 +76,6 @@ install -Dpm0755 bin/rrpipelines %{buildroot}%{_bindir}/rrpipelines
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
 install -Dpm0755 bin/callsign-lookup %{buildroot}%{_bindir}/callsign-lookup
 install -Dpm0755 librustyirc.so %{buildroot}%{_libdir}/librustyirc.so.0
-install -Dpm0755 librrprotocol.so %{buildroot}%{_libdir}/librrprotocol.so.0
 install -Dpm0755 libfwdspmgr.so %{buildroot}%{_libdir}/libfwdspmgr.so.0
 install -Dpm0644 packaging/rrserver.service %{buildroot}%{_unitdir}/rustyrig-server.service
 install -Dpm0755 packaging/rrserver.rc %{buildroot}%{_sysconfdir}/init.d/rrserver
@@ -109,7 +108,6 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %systemd_postun_with_restart rustyrig-server.service
 
 %files libs
-%{_libdir}/librrprotocol.so.0
 %{_libdir}/librustyirc.so.0
 %{_libdir}/libfwdspmgr.so.0
 %files server
