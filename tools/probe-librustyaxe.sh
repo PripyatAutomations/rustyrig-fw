@@ -17,11 +17,13 @@ int main(void) {
 EOF
 cd "$tmp"
 check() {
-    # Compiler command and build flags are developer-supplied make settings.
-    # Word splitting is deliberate for options like CC="ccache gcc".
-    set -- $compiler
-    "$@" ${AXE_CPPFLAGS:-} ${AXE_CFLAGS:-} $1 \
-        check.c -o check ${AXE_LDFLAGS:-} $2 >/dev/null 2>&1
+    cflags=$1
+    libs=$2
+    # This intentionally uses the configured compiler and its normal search
+    # paths, not a Debian package name or a pkg-config requirement.
+    # shellcheck disable=SC2086
+    $compiler ${AXE_CPPFLAGS:-} ${AXE_CFLAGS:-} $cflags \
+        check.c -o check ${AXE_LDFLAGS:-} $libs >/dev/null 2>&1
 }
 if command -v "$pc" >/dev/null 2>&1 && "$pc" --exists librustyaxe; then
     cflags=$("$pc" --cflags librustyaxe)
