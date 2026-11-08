@@ -35,6 +35,7 @@
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/bridge.config.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/maidenhead.h>
 #include <librustyaxe/scheduler.h>
 #include <rrserver/bridge.manager.h>
 #include <rrserver/bridge.hints.h>
@@ -220,7 +221,7 @@ static void capability_source(struct bridge_child *b, const char *source) {
 static const char *metadata_fields[] = {
    "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at", "initiated_by",
    "requested_at", "directory_name", "directory_location", "directory_country", "directory_contact", "directory_antenna", "directory_hardware",
-   "directory_grid", "directory_users", "directory_users_max", "directory_low_hz", "directory_high_hz", "directory_last_seen", "attached_room"
+   "directory_grid", "directory_coordinates", "directory_location_source", "directory_users", "directory_users_max", "directory_low_hz", "directory_high_hz", "directory_last_seen", "attached_room"
 };
 static bool publish_metadata(struct bridge_child *b, const char *key, const char *text, bool save) {
    bool known = false;
@@ -1896,6 +1897,17 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          if (value && *value) {
             publish_metadata(b, property_key, value, false);
          }
+      }
+      /* A receiver directory locator describes an approximate site, not
+       * actual GPS telemetry. Publish derived coordinates as metadata only;
+       * never overwrite a real GPS fix or station-level position. */
+      const char *grid = request ? dict_get(request, "directory.grid", NULL) : NULL;
+      rr_location_t derived;
+      if (grid && rr_location_resolve(NULL, grid, &derived)) {
+         char coordinates[64];
+         snprintf(coordinates, sizeof(coordinates), "%.7f, %.7f", derived.latitude, derived.longitude);
+         publish_metadata(b, "directory_coordinates", coordinates, false);
+         publish_metadata(b, "directory_location_source", "maidenhead-grid-center", false);
       }
    }
    dict *result = dict_new(), *reply = dict_new();
