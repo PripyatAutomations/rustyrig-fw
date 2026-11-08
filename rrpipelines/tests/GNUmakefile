@@ -13,8 +13,19 @@ check: test_pipeline test_json
 test_pipeline: test_pipeline.c ../pipeline.c ../pipeline.h
 	$(CC) $(CFLAGS) $(GST_CFLAGS) -I.. -o $@ test_pipeline.c ../pipeline.c $(GST_LIBS)
 
-test_json: test_json.c ../../librustyaxe.so ../../build/$(PROFILE)/build_config.h
-	$(CC) $(CFLAGS) -I../.. -I../../build/$(PROFILE) -L../.. -Wl,-rpath,'$$ORIGIN/../..' -o $@ test_json.c -lrustyaxe
+AXE_PKG_AVAILABLE := $(shell $(PKG_CONFIG) --exists librustyaxe && echo yes)
+ifeq ($(AXE_PKG_AVAILABLE),yes)
+AXE_TEST_CFLAGS := $(shell $(PKG_CONFIG) --cflags librustyaxe)
+AXE_TEST_LIBS := $(shell $(PKG_CONFIG) --libs librustyaxe)
+AXE_TEST_DEP :=
+else
+AXE_TEST_CFLAGS := -I../..
+AXE_TEST_LIBS := -L../.. -Wl,-rpath,'$ORIGIN/../..' -lrustyaxe
+AXE_TEST_DEP := ../../librustyaxe.so
+endif
+
+test_json: test_json.c $(AXE_TEST_DEP) ../../build/$(PROFILE)/build_config.h
+	$(CC) $(CFLAGS) $(AXE_TEST_CFLAGS) -I../../build/$(PROFILE) -o $@ test_json.c $(AXE_TEST_LIBS)
 
 clean:
 	rm -f test_pipeline test_json
