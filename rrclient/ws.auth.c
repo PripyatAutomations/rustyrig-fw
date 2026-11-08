@@ -18,6 +18,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;
