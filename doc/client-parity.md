@@ -387,10 +387,18 @@ and browser clients use the same authentication, wire and media handlers.
 
 Native GTK/TUI profiles require a complete `server.url`; ports are optional:
 `ws://host:port/path`, `wss://host:port/path`, `irc://host:port`, or
-`ircs://host:port`. Defaults are WS 8420, WSS 4422, IRC 6667 and IRCS 6697.
-The shared native connection manager selects WebSocket,
-WebSocket with TLS, IRC, or IRC with TLS. IRC message events are JSON and
-native application listeners translate them into shared chat/room events.
+`ircs://host:port`. The RustyRig WSS default is port **4420**; native
+WS/WSS URLs with no path are directed to `/ws`. IRC defaults remain 6667/6697.
+
+The build selects native OpenSSL/wslay when Mongoose is disabled. The native
+path uses strict TLS certificate verification and negotiates `rustyrig.v2`.
+For a private/self-signed server certificate, export its **public certificate**
+to a client-readable PEM file and set `server.tls-ca` on that server profile
+(or `tls.ca-file` globally). Never copy private keys to clients. A TLS
+verification failure does not trigger a less-verified Mongoose retry. Native
+SOCKS5 and IRC are not yet implemented: those require a Mongoose-enabled build.
+IRC message events are JSON and native application listeners translate them
+into shared chat/room events.
 IRC provides conventional chat; RustyRig JSON control/media commands require
 WebSocket. See [IRC and server URLs](irc-client.md).
 
