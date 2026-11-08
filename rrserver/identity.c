@@ -233,6 +233,58 @@ bool rr_identity_verify_catalog(dict *d) {
 }
 
 #ifdef USE_SQLITE
+/* A signed command is not automatically fresh. Persist a bounded, one-time
+ * nonce so a transit relay cannot replay a prior valid command, reply or
+ * subscription operation—even across a process restart. */
+bool rr_identity_accept_control_nonce(sqlite3 *db, dict *d) {
+   if (!db || !d) return false;
+   const char *domain=dict_get(d,"identity.domain","");
+   const char *owner=dict_get(d,"identity.owner","");
+   const char *pubkey=dict_get(d,"identity.public-key","");
+   const char *nonce=dict_get(d,"identity.nonce","");
+   const char *stamp=dict_get(d,"identity.timestamp","");
+   if (!*domain || !g_uuid_string_is_valid(owner) ||
+       strlen(pubkey)!=44 || !g_uuid_string_is_valid(nonce) || !*stamp)
+      return false;
+   char *end=NULL;
+   gint64 issued=g_ascii_strtoll(stamp,&end,10);
+   gint64 now=(gint64)time(NULL);
+   if (!end || *end || issued<now-300 || issued>now+300) return false;
+   if (sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_signed_control_nonces ("
+      "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
+      "public_key TEXT NOT NULL,nonce TEXT NOT NULL,"
+      "issued_at INTEGER NOT NULL,"
+      "PRIMARY KEY(domain,owner_uuid,public_key,nonce))",
+      NULL,NULL,NULL)!=SQLITE_OK) return false;
+   sqlite3_stmt *stmt=NULL;
+   bool ok=sqlite3_prepare_v2(db,
+      "INSERT INTO mesh_signed_control_nonces("
+      "domain,owner_uuid,public_key,nonce,issued_at)"
+      " VALUES(?1,?2,?3,?4,?5)",-1,&stmt,NULL)==SQLITE_OK;
+   if (ok) {
+      sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,3,pubkey,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,4,nonce,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_int64(stmt,5,issued);
+      ok=sqlite3_step(stmt)==SQLITE_DONE;
+   }
+   sqlite3_finalize(stmt);
+   static gint64 prune_at;
+   if (ok && now-prune_at>=600) {
+      if (sqlite3_prepare_v2(db,
+         "DELETE FROM mesh_signed_control_nonces WHERE issued_at<?1",
+         -1,&stmt,NULL)==SQLITE_OK) {
+         sqlite3_bind_int64(stmt,1,now-900);
+         sqlite3_step(stmt);
+      }
+      sqlite3_finalize(stmt);
+      prune_at=now;
+   }
+   return ok;
+}
+
 /* Strict read-only authority lookup for relayed commands/replies.
  * Unlike catalog discovery, this never creates a TOFU pin. */
 bool rr_identity_known_signer(sqlite3 *db, const char *domain,
