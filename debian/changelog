@@ -1,3 +1,14 @@
+rustyrig-fw (1.0.2-10) unstable; urgency=medium
+
+  * Require per-packet mesh TTL; default 10, INFO warnings at 5 remaining.
+  * Decrement TTL per authenticated hop, preserving remaining budget when
+    forwarding signed state and revocation notices; drop exhausted transit.
+  * Discard application frames whose signature owner differs from their
+    claimed sender, before routing or state mutation.
+  * Require librrprotocol 0.1.0-5 TTL wire validation.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 15:25:00 -0500
+
 rustyrig-fw (1.0.2-9) unstable; urgency=medium
 
   * Introduce local-only stopped-server certificate retirement and rotation
