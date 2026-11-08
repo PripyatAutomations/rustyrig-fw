@@ -3,7 +3,7 @@
 # for reproducible release packages, and update pkgrel for package revisions.
 # Arch Linux split packages; build from the checked-out repository and its submodules.
 pkgbase=rustyrig
-pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp )
+pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-rrbridge)
 options=('!emptydirs')
 pkgver=1.0.2
 pkgrel=1
@@ -40,12 +40,11 @@ package_rustyrig-libs() {
 
 package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'libgpiod' 'shadow' 'acl')
+   optdepends=('rustyrig-rrbridge: SDR bridge support' 'rustyrig-callsign-lookup: callsign lookup')
    install=rustyrig.install
    backup=('etc/rustyrig/ua-bans.txt' 'etc/rustyrig/radio.config.json')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
-   install -Dm755 bin/rrbridge "$pkgdir/usr/bin/rrbridge"
-   install -Dm755 bin/rrbridge-kiwi.so "$pkgdir/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so"
    install -Dm755 bin/rr-dds-si5351 "$pkgdir/usr/bin/rr-dds-si5351"
    install -Dm755 packaging/admin-permissions.sh "$pkgdir/usr/lib/rustyrig/admin-permissions"
    install -Dm755 bin/rrserver-gps-nmea.so "$pkgdir/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so"
@@ -74,6 +73,7 @@ package_rustyrig-client() {
    pkgdesc='RustyRig client'
    backup=('etc/rustyrig/rrclient.cfg' 'etc/rustyrig/callsign-lookup.cli.cfg')
    depends=('rustyrig-libs' 'glib2' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
+   optdepends=('rustyrig-rrbridge: SDR bridge support' 'rustyrig-callsign-lookup: callsign lookup')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrclient "$pkgdir/usr/bin/rrclient"
    install -Dm644 config/rrclient.cfg "$pkgdir/etc/rustyrig/rrclient.cfg"
@@ -108,4 +108,12 @@ package_rustyrig-server-hamlib() {
    depends=('rustyrig-server' 'hamlib')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver-hamlib.so "$pkgdir/usr/lib/rustyrig/modules/rrserver/rrserver-hamlib.so"
+}
+
+package_rustyrig-rrbridge() {
+   pkgdesc='RustyRig remote SDR bridge and KiwiSDR driver'
+   depends=('librustyaxe' 'librrprotocol' 'glib2' 'curl' 'openssl')
+   cd "$srcdir/rustyrig-fw"
+   install -Dm755 bin/rrbridge "$pkgdir/usr/bin/rrbridge"
+   install -Dm755 bin/rrbridge-kiwi.so "$pkgdir/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so"
 }

@@ -9,7 +9,7 @@ these concepts separate:
 | `librustyaxe` | `PripyatAutomations/librustyaxe` | `librustyaxe0`, `librustyaxe-dev`, `librustyirc0`, `librustyirc-dev` |
 | `librrprotocol` | `PripyatAutomations/librrprotocol` | `librrprotocol0`, `librrprotocol-dev` |
 | `rustyrig-callsign-lookup` | `PripyatAutomations/callsign-lookup` | `rustyrig-callsign-lookup` |
-| `rustyrig-fw` | `PripyatAutomations/rustyrig-fw` | `rustyrig-common`, `rustyrig-server`, `rustyrig-client`, `rustyrig-client-gtk`, `rustyrig-bridge`, `rustyrig-fwdsp`, ``libfwdspmgr` runtime + dev packages, and optional module packages |
+| `rustyrig-fw` | `PripyatAutomations/rustyrig-fw` | `rustyrig-common`, `rustyrig-server`, `rustyrig-client`, `rustyrig-client-gtk`, `rustyrig-rrbridge`, `rustyrig-fwdsp`, ``libfwdspmgr` runtime + dev packages, and optional module packages |
 
 **The library-package names ending in `0` are provisional.** Confirm actual
 ELF SONAMEs and ABI policy before publishing; do not rename just because the
@@ -20,7 +20,7 @@ source build emits `*.so.0`.
 - `rustyrig-common` owns `/usr/lib/rustyrig/admin-permissions`, previously
   misplaced in the `librustyaxe` Debian binary package. Both server and client
   depend on this common binary package.
-- `rustyrig-bridge` owns `/usr/bin/rrbridge` and
+- `rustyrig-rrbridge` owns `/usr/bin/rrbridge` and
   `/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so`. The server recommends
   this optional bridge.
 - `librustyaxe` now has its own standalone Debian source packaging, with
@@ -102,7 +102,7 @@ their release cadence.
   `debian/rules`, even with `HOME` and network access restricted.
 - `dpkg-buildpackage -S`, clean `sbuild`, `lintian`, and a fresh install,
   upgrade and purge pass on Debian and Devuan.
-- `dpkg -S /usr/bin/rrbridge` resolves to `rustyrig-bridge`.
+- `dpkg -S /usr/bin/rrbridge` resolves to `rustyrig-rrbridge`.
 - `dpkg -S /usr/lib/rustyrig/admin-permissions` resolves to
   `rustyrig-common`.
 - All three source packages have accurate `debian/copyright` entries;

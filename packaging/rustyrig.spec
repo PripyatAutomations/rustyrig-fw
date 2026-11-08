@@ -19,9 +19,15 @@ Summary: RustyRig shared libraries
 %description libs
 Runtime libraries used by RustyRig programs.
 
+%package -n rustyrig-rrbridge
+Summary: RustyRig SDR bridge and KiwiSDR module
+%description -n rustyrig-rrbridge
+Standalone SDR bridge executable and KiwiSDR driver for clients and servers.
+
 %package server
 Summary: RustyRig radio server
 Requires: %{name}-libs = %{version}-%{release}, jq, sqlite, systemd
+Recommends: rustyrig-rrbridge, rustyrig-callsign-lookup
 %description server
 Backend server for remote radio operation.
 
@@ -34,6 +40,7 @@ Optional GPSD connection for station and rig coordinates.
 %package client
 Summary: RustyRig client
 Requires: %{name}-libs = %{version}-%{release}, glib2, gstreamer1
+Recommends: rustyrig-rrbridge, rustyrig-callsign-lookup
 %description client
 RustyRig client with TUI interface; the GTK interface ships separately
 in rustyrig-client-gtk as a loadable module.
@@ -58,6 +65,8 @@ GStreamer-based audio codec and pipeline service.
 %make_build PROFILE=radio LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system
 
 %install
+install -Dpm0755 bin/rrbridge %{buildroot}%{_bindir}/rrbridge
+install -Dpm0755 bin/rrbridge-kiwi.so %{buildroot}/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
 for module in bin/rrserver-gps*.so; do install -Dpm0755 "$module" "%{buildroot}/usr/lib/rustyrig/modules/rrserver/${module##*/}"; done
 install -Dpm0755 tools/rr-get-audit-log %{buildroot}%{_bindir}/rr-get-audit-log
@@ -98,6 +107,9 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %postun server
 %systemd_postun_with_restart rustyrig-server.service
 
+%files -n rustyrig-rrbridge
+%{_bindir}/rrbridge
+/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
 %files libs
 %{_libdir}/libfwdspmgr.so.0
 %files server
