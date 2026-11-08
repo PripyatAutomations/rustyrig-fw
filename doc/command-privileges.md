@@ -148,7 +148,7 @@ own cached privilege hints from that update. Server authorization remains author
   chat, notices, account data and user menus. Link attributes and inline menu
   arguments are escaped independently. Added inert HTML regression cases.
 - Fresh databases provision a random initial administrator password in an
-  exclusive `0600` file beside the database. First login requires changing it.
+  exclusive `0600` file at `/var/lib/rustyrig/temp-admin-passwd`. First login requires changing it.
   Existing database credentials are not reset. Shipped guest/static examples are
   disabled with unusable verifier placeholders; accidental enabling alone cannot
   activate a known password.
