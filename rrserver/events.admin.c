@@ -1229,7 +1229,10 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
             unsigned removed = 0;
             for (unsigned i = 0; ok && i < G_N_ELEMENTS(queries); ++i) {
                if (sqlite3_prepare_v2(masterdb, queries[i], -1, &stmt, NULL) != SQLITE_OK) {
-                  ok = false;
+                  /* Optional endpoint tables may not exist on older installations.
+                   * Only their absence is benign; never bypass other SQL failures. */
+                  ok = sqlite3_errcode(masterdb) == SQLITE_ERROR &&
+                     strstr(sqlite3_errmsg(masterdb), "no such table:") != NULL;
                } else {
                   sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
                   sqlite3_bind_text(stmt, 2, uuid, -1, SQLITE_TRANSIENT);
