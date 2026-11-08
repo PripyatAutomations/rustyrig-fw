@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // rrserver/cfg.gpio.c: named GPIO mappings, validated before hardware claims
-// SPDX-License-Identifier: GPL-2.0-only
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>

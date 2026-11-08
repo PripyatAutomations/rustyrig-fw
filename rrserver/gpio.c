@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // rrserver/gpio.c: libgpiod v2 adapter for any kernel GPIO controller
-// SPDX-License-Identifier: GPL-2.0-only
 #include <errno.h>
 #include <glob.h>
 #include <stdlib.h>

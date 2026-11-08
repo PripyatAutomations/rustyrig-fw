@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // rrserver/hardware.c: attached-device registry; no protocol or UI ownership
-// SPDX-License-Identifier: GPL-2.0-only
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>

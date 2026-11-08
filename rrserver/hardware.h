@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // rrserver/hardware.h: server-owned attached hardware and exclusive leases
-// SPDX-License-Identifier: GPL-2.0-only
 #ifndef RRSERVER_HARDWARE_H
 #define RRSERVER_HARDWARE_H
 #include <stdbool.h>

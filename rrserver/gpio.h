@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // rrserver/gpio.h: kernel GPIO controllers and explicitly configured lines
-// SPDX-License-Identifier: GPL-2.0-only
 #ifndef RRSERVER_GPIO_H
 #define RRSERVER_GPIO_H
 #include <rrserver/hardware.h>
