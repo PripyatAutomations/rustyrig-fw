@@ -56,6 +56,8 @@ install-dev: install-libs
 	done
 
 install-assets:
+	# Generated from the built-in stylesheet. Reference only; never loaded by GTK.
+	perl tools/releng-dump-css.pl --css | install -Dm644 /dev/stdin "$(DESTDIR)$(CONF_DIR)/rrclient.css"
 	install -Dm644 res/rustyrig.png "$(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps/rustyrig.png"
 	install -Dm644 packaging/rustyrig-client.desktop "$(DESTDIR)$(PREFIX)/share/applications/rustyrig-client.desktop"
 	install -d "$(DESTDIR)$(WEB_ROOT)"
