@@ -124,10 +124,8 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %{_unitdir}/rustyrig-server.service
 %{_tmpfilesdir}/rustyrig.conf
 %config(noreplace) %{_sysconfdir}/init.d/rrserver
-%config(noreplace) %{_sysconfdir}/rustyrig/rrserver.cfg
-%config(noreplace) %{_sysconfdir}/rustyrig/radio.config.json
-%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.srv.cfg
-%config(noreplace) %{_sysconfdir}/rustyrig/ua-bans.txt
+%config(noreplace) %{_sysconfdir}/rustyrig/rrserver*.cfg
+%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cfg
 %dir %attr(0770,rustyrig,rustyrig) %{_localstatedir}/log/rustyrig
 %{_sharedstatedir}/rustyrig
 /usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
@@ -137,8 +135,7 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %dir %attr(0770,rustyrig,rustyrig) %{_sharedstatedir}/rustyrig/db
 %dir %attr(0770,rustyrig,rustyrig) %{_sharedstatedir}/rustyrig/recordings
 %{_bindir}/rrclient
-%config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg
-%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg
+%config(noreplace) %{_sysconfdir}/rustyrig/rrclient*.cfg
 %dir /usr/lib/rustyrig/modules/rrclient
 %files client-gtk
 /usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
