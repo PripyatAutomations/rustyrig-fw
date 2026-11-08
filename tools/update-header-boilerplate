@@ -1,3 +1,10 @@
 #!/bin/bash
-HEADER_MATCH="MIT license"
-grep -L "${HEADER_MATCH}" */*.[ch] | grep -v 'ext/' | xargs -d '\n' -n 1 ./tools/insert-header-boilerplate
+# Add the RustyRig GPLv2 boilerplate only to files without a license header.
+# Never rewrite separately licensed dependencies or bundled themes.
+set -euo pipefail
+find rrclient rrserver rrbridge rrpipelines fwdsp libfwdspmgr librrsdrutils librustyirc modems -type f \( -name '*.c' -o -name '*.h' \) \
+   ! -path '*/win32/share/themes/*' -print0 |
+   xargs -0 -r grep -L 'SPDX-License-Identifier\|Licensed under' |
+   while IFS= read -r file; do
+      ./tools/insert-header-boilerplate "$file"
+   done
