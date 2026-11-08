@@ -7,6 +7,10 @@ The old compatibility HTTPS/WSS listener on TCP **4422** is retired. Native clie
 automatic discovery of non-issuer neighbors and multipath forwarding remain
 future work; existing tree admission/routing and topology ACLs are retained.
 
+For fresh installation, full cluster reinitialization, or post-compromise
+credential replacement, follow the
+[cluster rebuild and breach-recovery runbook](cluster-rebuild-recovery.md).
+
 ## Operator setup
 
 Install the OpenSSL, wslay, GLib/GIO development packages when building
@@ -38,7 +42,7 @@ disables listening only. `net.mesh-linking=false` disables enrolled automatic
 connections/admission while preserving explicitly configured peers.
 
 Run `rrserver --mesh-join` on the joining host to obtain its persistent UUID.
-On the issuer, use `/link invite UUID [issuer-IP:4422]` over authenticated
+On the issuer, use `/link invite UUID [issuer-IP:4420]` over authenticated
 HTTPS, and securely deliver the resulting one-use token to the joining host.
 Complete `--mesh-join`, then restart the joining server. Both peers prove their
 identities automatically; no `[peer]` password is necessary. `/link list`
@@ -53,7 +57,7 @@ default pair (enrollment 4420, mesh 4421) is migrated to mesh 4420. Old
 enrollment records without this table derive `wss://invited-host:4420/link`,
 never the enrollment port. Existing invitation tokens naming 4420 remain redeemable through the native
 enrollment handler. Previously enrolled identities keep their trust. Clients
-may use `wss://host:4420/ws`; 4422 remains available during migration. NAT deployments must expose the configured native
+may use `wss://host:4420/ws`; the retired 4422 listener is unavailable. NAT deployments must expose the configured native
 port at the invited host. Re-enroll/reconfirm the consumed invitation after a
 port change, or deliberately update the local endpoint record; TLS pin and
 identity checks still apply to that endpoint.
