@@ -245,6 +245,27 @@ bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, c
    if (sqlite3_exec(db, schema, NULL, NULL, NULL) != SQLITE_OK) {
       return false;
    }
+   /* A revoked owner/key must never be resurrected by catalog TOFU.
+    * A new key for the same owner may be explicitly re-enrolled. */
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys ("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid,public_key))", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_stmt *revoked = NULL;
+   if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_revoked_identity_keys "
+      "WHERE domain=?1 AND owner_uuid=?2 AND public_key=?3", -1, &revoked, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(revoked, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(revoked, 2, owner, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(revoked, 3, pubkey, -1, SQLITE_TRANSIENT);
+   int revoked_row = sqlite3_step(revoked);
+   sqlite3_finalize(revoked);
+   if (revoked_row != SQLITE_DONE) {
+      return false;
+   }
    char *scope = g_ascii_strdown(domain, -1);
    sqlite3_stmt *insert = NULL, *lookup = NULL;
    bool ok = false;
