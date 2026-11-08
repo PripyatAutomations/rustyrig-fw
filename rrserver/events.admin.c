@@ -1179,7 +1179,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    }
    const char *action = dict_get(request, "talk.action", "");
 
-   if (!strcmp(action, "identity-list") || !strcmp(action, "identity-revoke")) {
+   if (!strcmp(action, "identity-list") || !strcmp(action, "identity-revoke") || !strcmp(action, "peer-remove")) {
       if (!admin_actor_has_priv(client, "admin|owner")) {
          ws_send_error(client, "Admin or owner privilege required to manage mesh trust");
          dict_free(request);
@@ -1221,20 +1221,23 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          } else {
             sqlite3_stmt *stmt = NULL;
             bool ok = sqlite3_exec(masterdb, "BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK;
+            bool revoke = !strcmp(action, "identity-revoke");
+            /* Depeering removes only dial configuration; revocation also
+             * retires key trust, blocks signatures and clears the catalog. */
             const char *queries[] = {
-               "DELETE FROM mesh_explicit_trust WHERE domain=?1 AND owner_uuid=?2",
                "DELETE FROM mesh_bootstrap_peers WHERE domain=?1 AND node_uuid=?2",
-               "DELETE FROM mesh_link_endpoints WHERE domain=?1 AND node_uuid=?2"
+               "DELETE FROM mesh_link_endpoints WHERE domain=?1 AND node_uuid=?2",
+               "DELETE FROM mesh_explicit_trust WHERE domain=?1 AND owner_uuid=?2"
             };
             unsigned removed = 0;
             /* Record the exact compromised signing key before removing active
              * trust. Catalog TOFU must never resurrect a revoked key. */
-            if (ok) ok = sqlite3_exec(masterdb,
+            if (ok && revoke) ok = sqlite3_exec(masterdb,
                "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys ("
                "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
                "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
                "PRIMARY KEY(domain,owner_uuid,public_key))", NULL, NULL, NULL) == SQLITE_OK;
-            if (ok) {
+            if (ok && revoke) {
                if (sqlite3_prepare_v2(masterdb,
                   "INSERT OR IGNORE INTO mesh_revoked_identity_keys(domain,owner_uuid,public_key) "
                   "SELECT domain,owner_uuid,catalog_pubkey FROM mesh_explicit_trust "
@@ -1248,7 +1251,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
                sqlite3_finalize(stmt);
                stmt = NULL;
             }
-            for (unsigned i = 0; ok && i < G_N_ELEMENTS(queries); ++i) {
+            for (unsigned i = 0; ok && i < (revoke ? G_N_ELEMENTS(queries) : 2); ++i) {
                if (sqlite3_prepare_v2(masterdb, queries[i], -1, &stmt, NULL) != SQLITE_OK) {
                   /* Optional endpoint tables may not exist on older installations.
                    * Only their absence is benign; never bypass other SQL failures. */
@@ -1264,7 +1267,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
                stmt = NULL;
             }
             if (ok && !removed) ok = false;
-            if (ok) {
+            if (ok && revoke) {
                /* The revoked key stays on the denylist, but its obsolete
                 * TOFU pin must not block a separately authorized new key. */
                if (sqlite3_prepare_v2(masterdb,
@@ -1282,15 +1285,19 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
             if (ok) ok = sqlite3_exec(masterdb, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
             if (!ok) {
                sqlite3_exec(masterdb, "ROLLBACK", NULL, NULL, NULL);
-               ws_send_error(client, "Revocation failed or peer is unknown; trust not changed");
+               ws_send_error(client, revoke ? "Revocation failed or peer is unknown; trust not changed" : "Peering removal failed or peer is unknown");
             } else {
-               size_t purged = rr_relay_catalog_revoke_owner(uuid);
-               char *detail = g_strdup_printf("uuid=%s domain=%s trust-rows=%u catalog-purged=%zu", uuid, domain, removed, purged);
+               size_t purged = revoke ? rr_relay_catalog_revoke_owner(uuid) : 0;
+               char *detail = g_strdup_printf("uuid=%s domain=%s rows=%u catalog-purged=%zu", uuid, domain, removed, purged);
                if (detail) {
-                  db_add_audit_event(masterdb, client->chatname, "mesh.identity.revoked", detail);
+                  db_add_audit_event(masterdb, client->chatname, revoke ? "mesh.identity.revoked" : "mesh.peering.removed", detail);
                   g_free(detail);
                }
-               Log(LOG_AUDIT, "mesh.identity", "%s revoked trust for %s; %zu cached catalog entries removed", client->chatname, uuid, purged);
+               Log(LOG_AUDIT, "mesh.identity", "%s %s %s; catalog-purged=%zu",
+                  client->chatname, revoke ? "revoked identity" : "removed peering for", uuid, purged);
+               if (!revoke) {
+                  ws_send_notice(client, "Removed peering configuration for %s; signing-key trust retained. Existing live links may require disconnect.", uuid);
+               }
                rrserver_admin_send(client, "identities", "updated", NULL);
             }
          }
