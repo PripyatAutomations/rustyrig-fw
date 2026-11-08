@@ -152,7 +152,7 @@ static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const c
    dict_add(request, "tail", tail ? tail : "");
    dict_add(request, "target", target ? target : "");
    const char *field_names[] = {
-      "user.email", "user.real_name", "user.phone"
+      "user.email", "user.real_name", "user.phone", "user.maxsessions"
    };
 
    for (size_t i = 0 ; fields && i < G_N_ELEMENTS(field_names) ; i++) {
@@ -744,12 +744,11 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    g_free(context);
    GtkWidget *name = gtk_entry_new(), *privileges = gtk_entry_new(), *error = gtk_label_new("");
    GtkWidget *email = gtk_entry_new(), *real = gtk_entry_new(), *phone = gtk_entry_new();
-   GtkWidget *max_clones = gtk_spin_button_new_with_range(1, 64, 1);
+   GtkWidget *max_clones = gtk_spin_button_new_with_range(1, 32, 1);
    GtkWidget *password_change = gtk_check_button_new_with_label("Password change required at first login");
    GtkWidget *priv_summary = gtk_label_new("view, chat");
    gtk_label_set_xalign(GTK_LABEL(priv_summary), 0);
-   gtk_widget_set_sensitive(max_clones, FALSE);
-   gtk_widget_set_tooltip_text(max_clones, "Future option; currently one session");
+   gtk_widget_set_tooltip_text(max_clones, "Maximum concurrent sessions for this user (1–32)");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(password_change), TRUE);
    gtk_widget_set_sensitive(password_change, FALSE);
    gtk_widget_set_tooltip_text(password_change, "Temporary passwords always expire and require a change");
@@ -769,7 +768,7 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    gtk_box_pack_start(GTK_BOX(box), real, FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Phone (public contact)"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), phone, FALSE, FALSE, 3);
-   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Max Clones (coming soon)"), FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Max Clones"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), max_clones, FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), password_change, FALSE, FALSE, 3);
    GtkWidget *priv_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
@@ -833,6 +832,7 @@ static void admin_create_user(GtkButton *button, gpointer data) {
          dict_add(fields, "user.email", gtk_entry_get_text(GTK_ENTRY(email)));
          dict_add(fields, "user.real_name", gtk_entry_get_text(GTK_ENTRY(real)));
          dict_add(fields, "user.phone", gtk_entry_get_text(GTK_ENTRY(phone)));
+         dict_add_int(fields, "user.maxsessions", gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(max_clones)));
          sent = admin_command_profile(table, table->profile, "user", request, NULL, fields);
          dict_free(fields);
       }
