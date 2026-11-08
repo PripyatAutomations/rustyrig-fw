@@ -65,7 +65,9 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
 
    for (guint i = 0 ; i < n_nodes ; i++) {
       const rr_gtk_graph_node_t *n = &nodes[i];
-      cairo_set_source_rgb(cr, n->failed ? .40 : n->selected ? .20 : .15, n->failed ? .18 : n->selected ? .38 : .25, n->failed ? .18 : n->selected ? .56 : .34);
+      cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 : n->selected ? .20 : .15,
+         n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25,
+         n->stale ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
 
       if (n->fwdsp) {
          /* Capsule silhouette distinguishes an external fwdsp/GStreamer process from the in-process mixer and source nodes. */
@@ -80,10 +82,12 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_rectangle(cr, n->x, n->y, RR_GTK_GRAPH_NODE_W, RR_GTK_GRAPH_NODE_H);
       }
       cairo_fill_preserve(cr);
-      cairo_set_source_rgb(cr, n->failed ? .95 : .53, n->failed ? .32 : .65, n->failed ? .28 : .75);
+      cairo_set_source_rgb(cr, n->stale ? .42 : n->failed ? .95 : .53,
+         n->stale ? .43 : n->failed ? .32 : .65,
+         n->stale ? .46 : n->failed ? .28 : .75);
       cairo_set_line_width(cr, n->selected ? 2.8 : 1.3);
       cairo_stroke(cr);
-      cairo_set_source_rgb(cr, 1, 1, 1);
+      cairo_set_source_rgb(cr, n->stale ? .66 : 1, n->stale ? .68 : 1, n->stale ? .70 : 1);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr, 12);
       cairo_move_to(cr, n->x + 10, n->y + 23);
@@ -112,7 +116,9 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
             rr_gtk_graph_pin_t side = channel ? RR_GTK_GRAPH_PIN_RIGHT : RR_GTK_GRAPH_PIN_LEFT;
             double py = pin_y(n, side, FALSE);
 
-            if (channel) {
+            if (n->stale) {
+               cairo_set_source_rgb(cr, .46, .48, .51);
+            } else if (channel) {
                cairo_set_source_rgb(cr, .73, .48, 1.0);
             } else {
                cairo_set_source_rgb(cr, .34, .78, .93);
