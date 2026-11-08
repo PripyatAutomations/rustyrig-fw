@@ -44,8 +44,8 @@ override_dh_auto_clean:
 
 override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(OPTIONAL_MAKE_FLAGS)
-	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) LIBRUSTYAXE_PROVIDER=system $(OPTIONAL_MAKE_FLAGS)
+	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup LIBRUSTYAXE_PROVIDER=system
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 endif
