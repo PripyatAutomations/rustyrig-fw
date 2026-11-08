@@ -2351,9 +2351,11 @@ int main(int argc, char *argv[]) {
     * logger, or creating frontend modules. --ignore-db-config is a recovery
     * boot: no DB-managed config, profiles, or themes are overlaid. */
    if (!rrclient_database_init()) {
-      Log(LOG_CRIT, "db", "Unable to initialize client database");
-
-      return EXIT_FAILURE;
+      if (!rrclient_config_ignore_db()) {
+         Log(LOG_CRIT, "db", "Unable to initialize client database");
+         return EXIT_FAILURE;
+      }
+      Log(LOG_WARN, "db", "Recovery boot: client database unavailable; continuing from file configuration");
    }
    if (!rrclient_config_ignore_db() &&
       (!rrclient_database_config_overlay() || !rrclient_database_load_profiles() ||
