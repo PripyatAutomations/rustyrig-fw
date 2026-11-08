@@ -6,7 +6,7 @@
 # fwdsp uses the shared [fwdsp]/[pipelines] config callbacks from
 # librrprotocol, but does not use libfwdspmgr itself at runtime.
 
-CFLAGS_FWDSP = ${MEDIA_CFLAGS} -I${BUILD_DIR} ${gst_cflags} -DVERSION=\\\"$(VERSION)\\\"
+CFLAGS_FWDSP = ${MEDIA_CFLAGS} -I${BUILD_DIR} ${gst_cflags} -DVERSION=\"$(VERSION)\"
 # fwdsp objects are unsanitized by default, but shared librustyaxe/librrprotocol
 # can be ASan/UBSan-instrumented. Link the matching runtimes into the executable
 # so their interceptors are available from process startup.
