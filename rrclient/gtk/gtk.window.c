@@ -372,6 +372,11 @@ bool gui_init(void) {
    // defconfig.c. See cfg.gtkcss.c, reloadable at runtime with /css-reload
    gtk_css_apply_cfg();
 
+   /* Reinitialization must never retain label pointers from a destroyed GUI. */
+   toolbar_action_count = 0;
+   memset(toolbar_action_labels, 0, sizeof(toolbar_action_labels));
+   toolbar_titles_visible = false;
+   toolbar_action_viewport = NULL;
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
