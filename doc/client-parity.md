@@ -275,7 +275,8 @@ Browser chat and notice rendering escapes plain text before producing DOM HTML;
 URLs remain clickable without interpreting message text as markup.
 
 Fresh SQLite databases place the random first-login administrator password in
-`<database-path>.bootstrap-password` with mode `0600`. Login with it and run
+`/var/lib/rustyrig/temp-admin-passwd` (configurable via
+`path.admin.bootstrap-password`) with mode `0600`. Login with it and run
 `/user pass admin <new-password>`, then remove the credential file securely.
 Existing databases and custom preloads are not reprovisioned. Authentication
 wire messages and password hashing remain compatible; migrated storage is deferred.

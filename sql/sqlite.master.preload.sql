@@ -1,8 +1,9 @@
 -- sqlite.master.preload.sql: Seed data applied to the master
 -- database after sql/sqlite.master.sql when a new database is created.
 -- The disabled, empty admin placeholder is provisioned with a random password
--- on first database creation. Its credential file is beside the database with
--- suffix .bootstrap-password, mode 0600; change it at first login.
+-- on first database creation. Its credential file is
+-- /var/lib/rustyrig/temp-admin-passwd (path.admin.bootstrap-password),
+-- mode 0600; change it at first login.
 -- Guest remains disabled by default.
 -- Everything else (schema, indexes) belongs in sql/sqlite.master.sql.
 

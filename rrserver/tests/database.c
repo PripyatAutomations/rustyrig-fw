@@ -462,10 +462,11 @@ int main(void) {
    dict_add(cfg, "path.db.master.preload", preload);
    free(template);
    free(preload);
+   char credential_path[128];
+   snprintf(credential_path, sizeof(credential_path), "%s-temp-admin-passwd", fresh_path);
+   dict_add(cfg, "path.admin.bootstrap-password", credential_path);
    db = db_open(fresh_path);
    assert(db);
-   char credential_path[128];
-   snprintf(credential_path, sizeof(credential_path), "%s.bootstrap-password", fresh_path);
    struct stat credential_stat;
    assert(stat(credential_path, &credential_stat) == 0);
    assert((credential_stat.st_mode & 0777) == 0600);

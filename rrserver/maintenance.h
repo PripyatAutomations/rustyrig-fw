@@ -576,8 +576,9 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
             if (ok) {
                char *wal = g_strdup_printf("%s-wal", resolved);
                char *shm = g_strdup_printf("%s-shm", resolved);
-               char *bootstrap = g_strdup_printf("%s.bootstrap-password", resolved);
-               bool cleaned = wal && shm && bootstrap;
+               char *bootstrap = cfg_get_path("path.admin.bootstrap-password");
+               char *old_bootstrap = g_strdup_printf("%s.bootstrap-password", resolved);
+               bool cleaned = wal && shm && bootstrap && bootstrap[0] == '/' && old_bootstrap;
 
                if (cleaned && unlink(wal) != 0 && errno != ENOENT) {
                   cleaned = false;
@@ -589,14 +590,21 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
 
                if (cleaned && unlink(resolved) == 0) {
                   if (unlink(bootstrap) != 0 && errno != ENOENT) {
-                     fprintf(stderr, "Warning: could not remove old bootstrap credential %s\n", bootstrap);
+                     fprintf(stderr, "Cannot remove old temporary admin credential %s: %s\n", bootstrap, strerror(errno));
+                     cleaned = false;
+                  }
+                  if (unlink(old_bootstrap) != 0 && errno != ENOENT) {
+                     fprintf(stderr, "Cannot remove legacy bootstrap credential %s: %s\n", old_bootstrap, strerror(errno));
+                     cleaned = false;
                   }
                   /* Reinitialize immediately using the same configured schema, preload and bootstrap credentials as a clean first start. Never report a
                    * successful reset with an unseeded database. */
                   char *schema = cfg_get_path("path.db.master.template");
                   char *preload = cfg_get_path("path.db.master.preload");
 
-                  if (!schema || !preload || access(schema, R_OK) != 0 || access(preload, R_OK) != 0) {
+                  if (!cleaned) {
+                     fprintf(stderr, "Database reset stopped because stale admin credentials could not be removed.\n");
+                  } else if (!schema || !preload || access(schema, R_OK) != 0 || access(preload, R_OK) != 0) {
                      fprintf(stderr, "Cannot initialize reset database: schema=%s preload=%s (both must be readable)\n", schema ? schema : "(unset)", preload ?
                         preload : "(unset)");
                   } else {
@@ -632,7 +640,8 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
                }
                g_free(wal);
                g_free(shm);
-               g_free(bootstrap);
+               free(bootstrap);
+               g_free(old_bootstrap);
             }
          } else {
             const char *sql = NULL;
