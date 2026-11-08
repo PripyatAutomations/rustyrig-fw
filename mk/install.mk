@@ -5,9 +5,9 @@ CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
     config/callsign-lookup.cli.cfg $(CF)
 LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 # Only libraries still owned by rustyrig-fw may be installed here.
-RUSTYRIG_OWNED_LIBS = $(filter-out librustyaxe.so librrprotocol.so,$(libs))
+RUSTYRIG_OWNED_LIBS = $(filter-out librustyaxe.so librrprotocol.so librustyirc.so,$(libs))
 
-.PHONY: windows-install posix-install install install-dependency-check install-bin install-modules install-libs install-config install-assets install-tools install-sql install-dev install-check
+.PHONY: windows-install posix-install install uninstall install-dependency-check install-bin install-modules install-libs install-config install-assets install-tools install-sql install-dev install-check
 
 windows-install:
 	@echo "Use the win64-installer target for Windows"
@@ -15,7 +15,7 @@ windows-install:
 posix-install: install
 
 install-dependency-check:
-	@test "$(LIBRUSTYAXE_PROVIDER)" = system && test "$(LIBRRPROTOCOL_PROVIDER)" = system || { echo "Install librustyaxe and librrprotocol separately before installing RustyRig; local submodules are for temporary testing." >&2; exit 1; }
+	@test "$(LIBRUSTYAXE_PROVIDER)" = system && test "$(LIBRRPROTOCOL_PROVIDER)" = system && test "$(LIBRUSTYIRC_PROVIDER)" = system || { echo "Install librustyaxe, librrprotocol and librustyirc separately before installing RustyRig; local submodules are for temporary testing." >&2; exit 1; }
 
 # No configuration is touched by the default install target.
 install: install-dependency-check
@@ -49,10 +49,10 @@ install-libs: $(RUSTYRIG_OWNED_LIBS)
 	done
 
 install-dev: install-libs
-	@set -e; for src in ${libs}; do \
+	@set -e; for src in $(RUSTYRIG_OWNED_LIBS); do \
 		ln -sfn "$$(basename "$$src").0" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src")"; \
 	done
-	@set -e; for component in librustyirc libfwdspmgr; do \
+	@set -e; for component in libfwdspmgr; do \
 		install -d "$(DESTDIR)$(PREFIX)/include/$$component"; \
 		for header in $$component/*.h; do \
 			[ -f "$$header" ] || continue; \
@@ -111,3 +111,24 @@ install-check:
 	@test "$(CONF_DIR)" = /etc/rustyrig || { echo "Not Debian config directory" >&2; exit 1; }
 	@test "$(WEB_ROOT)" = /var/lib/rustyrig/www || { echo "Not Debian WebUI directory" >&2; exit 1; }
 	@echo "Runtime paths match Debian's installation layout."
+
+# Reverse only files RustyRig owns. Never remove independently installed
+# librustyaxe, librustyirc, librrprotocol, operator configs, or state databases.
+# Installation of web assets may mingle with user data, so leave them in place.
+uninstall:
+	@set -e; for src in $(filter-out %.so,$(bins)); do \
+		rm -f "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; \
+	done
+	@set -e; for src in $(filter %.so,$(bins)); do \
+		case "$$src" in *rrbridge*.so) family=rrbridge ;; *rrserver*.so) family=rrserver ;; *rrclient*.so) family=rrclient ;; *) continue;; esac; \
+		rm -f "$(DESTDIR)$(MODULEDIR)/$$family/$${src##*/}"; \
+	done
+	@set -e; for src in $(RUSTYRIG_OWNED_LIBS); do \
+		rm -f "$(DESTDIR)$(LIBDIR)/$$(basename "$$src")" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src").0"; \
+	done
+	@set -e; for src in $(LOG_TOOLS); do rm -f "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; done
+	rm -f "$(DESTDIR)$(CONF_DIR)/rrclient.css"
+	rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps/rustyrig.png"
+	rm -f "$(DESTDIR)$(PREFIX)/share/applications/rustyrig-client.desktop"
+	rm -f "$(DESTDIR)$(DATADIR)/sql/sqlite.master.sql" "$(DESTDIR)$(DATADIR)/sql/sqlite.master.preload.sql" "$(DESTDIR)$(DATADIR)/sql/sqlite.client.sql"
+	@echo "Removed RustyRig-owned installed files; retained configs, state and web data."
