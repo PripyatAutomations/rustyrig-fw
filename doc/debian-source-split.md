@@ -26,7 +26,9 @@ source build emits `*.so.0`.
   `librustyaxe0` and `librustyaxe-dev` binaries. The main tree no longer
   stages those binaries or declares them as output packages; it retains its
   in-tree development build pending the system-library compilation switch.
-- `librrprotocol` is still built and packaged in-tree.
+- `librrprotocol` now has its own standalone source build, `librrprotocol0`
+  and `librrprotocol-dev` packages, plus source-package support. The main
+  RustyRig Debian packaging no longer installs its shared library or headers.
 
 ## Required work before moving the library binaries out of rustyrig-fw
 
@@ -35,9 +37,12 @@ source build emits `*.so.0`.
 The `librustyaxe` repository now has its own standalone `GNUmakefile` and
 Debian packaging. `make deb` builds its two binary packages; `make distclean`
 removes generated build and Debian staging artifacts. The package build still
-needs confirmation in a clean Debian/Devuan builder. `librrprotocol` needs the
-same standalone packaging work. Give each repository its own complete,
-versioned standalone build, with `make`, `make check`, and DESTDIR installation.
+needs confirmation in a clean Debian/Devuan builder. `librrprotocol` now has
+standalone packaging and DESTDIR installation as well. Both library repositories
+provide `make deb` (binary packages) and `make src-deb` (Debian source
+package with an upstream Git archive); `make distclean` removes build and
+package staging files. Verify these commands in a clean Debian/Devuan build
+before releasing.
 
 The new build must produce a versioned real shared library, SONAME symlink,
 development linker symlink, public headers, and pkg-config metadata. Make
@@ -60,25 +65,25 @@ Version dependencies must follow library ABI compatibility and
 
 ### 3. RustyRig external-library build
 
-Introduce and test an explicit mode such as
-`USE_SYSTEM_RUSTYRIG_LIBS=1` *after* the upstream library packages are
-buildable. That mode must not include `librustyaxe/rules.mk` or
-`librrprotocol/rules.mk`, must find installed headers and linker libraries
-(and not accidentally prefer Git-submodule headers), must not demand local
-submodule `*.h` as make prerequisites, and must not stage either external
-library in `debian/rules`.
+Ordinary builds select each library using a compiler/linker probe. A usable
+installed library takes precedence even without a pkg-config file or Debian
+packaging. The optional pkg-config metadata only supplies additional include
+and link search paths. `LIBRUSTYAXE_PROVIDER` and `LIBRRPROTOCOL_PROVIDER`
+can each be `auto`, `system`, or `local`. Protocol system mode requires
+installed RustyAxe to avoid mixing incompatible library ABIs. An uninstalled
+developer build uses the checkout submodules. Debian packaging forces system
+mode, and does not stage either external library.
 
 A clean Debian orig tarball for this mode must omit those submodule sources.
 Preserve a separate in-tree developer build workflow.
 
 ### 4. Transition
 
-The `librustyaxe*` package stanzas and staging recipes have been removed
-from `rustyrig-fw`; its packages now depend on `librustyaxe0`, without a
-cross-source `${binary:Version}` pin. Before release, test the external library
-build and binary upgrades. Remove `librrprotocol*` from the main source only
-after its own package and external build path are ready. Rename runtime
-library packages based on verified SONAMEs. Avoid file-overlap in upgrades from
+Both `librustyaxe*` and `librrprotocol*` binary package stanzas and staging
+recipes have been removed from `rustyrig-fw`; its packages depend on the
+external `librustyaxe0` and `librrprotocol0` libraries. Before release,
+validate clean builds and upgrades. Rename runtime packages based on verified
+SONAMEs. Avoid file-overlap in upgrades from
 the current combined source package and confirm all binary package dependency
 relations with dpkg-shlibdeps.
 
@@ -103,18 +108,24 @@ their release cadence.
 
 Reference: https://www.debian.org/doc/debian-policy/ch-sharedlibs.html
 
-## librustyaxe provider selection
+## Library provider selection (non-Debian builds)
 
-Ordinary builds now choose the installed `librustyaxe` pkg-config package first.
-Set `LIBRUSTYAXE_PROVIDER=system` to require it, or
-`LIBRUSTYAXE_PROVIDER=local` to build from the checked-out submodule.
-Auto mode initializes that submodule when its files are absent. Debian,
-Arch, and RPM builds require the installed library; they must not package
-another copy. `librrprotocol` remains built in-tree pending its separate
-source-package transition.
+Normal `make` selects an installed, compiler-linkable copy of `librustyaxe`
+and `librrprotocol` before using a Git submodule. Neither library has to be
+installed through Debian; custom compiler include and library paths work, and
+pkg-config is optional for discovery. The submodules remain available for
+temporary uninstalled testing. No automatic upgrade of installed libraries
+occurs; update/install each upstream library separately when desired.
 
-The selected provider supplies matching headers and linker inputs. No
-checkout-root symlink is generated for a system library; source-build tests
-and the callsign lookup sub-build follow the same provider mode. When
-switching from a local build to system mode, run `make distclean` first to
-remove old root-level shared objects that could shadow the installed SONAME.
+Force a mode with `LIBRUSTYAXE_PROVIDER=system|local` and
+`LIBRRPROTOCOL_PROVIDER=system|local`. An old checkout-root SONAME must be
+removed with `make distclean` before switching to a system provider.
+Standalone library source packages are created with `make src-deb`, which
+requires a clean Git working tree and writes the `.dsc`, orig tarball and
+Debian packaging artifacts beside the repository.
+
+`librustyirc` remains a separately versioned library inside `rustyrig-fw`
+for now. Its currently inspected implementation uses RustyAxe utilities and
+standard system facilities, not the RustyRig protocol library. Moving it to
+a separate library maintained alongside RustyAxe is feasible, but its GPLv2
+license must remain distinct from MIT-licensed `librustyaxe`.
