@@ -2,7 +2,7 @@
 # not /usr/local shadow copies. Paths are in mk/install-paths.mk.
 CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
     config/rrclient.cfg \
-    config/callsign-lookup.cli.cfg $(CF)
+    config/rrclient.callsign-lookup.cfg $(CF)
 LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 # Only libraries still owned by rustyrig-fw may be installed here.
 RUSTYRIG_OWNED_LIBS = $(filter-out librustyaxe.so librrprotocol.so librustyirc.so,$(libs))
