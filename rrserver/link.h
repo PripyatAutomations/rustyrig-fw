@@ -31,4 +31,8 @@ const char *rrserver_links_route(const char *node);
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity);
 bool rrserver_links_send(const char *node, dict *message);
 void rrserver_links_broadcast(dict *message);
+typedef void (*rr_link_neighbor_fn)(const char *uuid, void *context);
+void rrserver_links_each_neighbor(rr_link_neighbor_fn cb, void *context);
+/* Gracefully depart after a signed self-revocation is saved and forwarded. */
+void rrserver_links_depart_revoked(const char *uuid);
 #endif
