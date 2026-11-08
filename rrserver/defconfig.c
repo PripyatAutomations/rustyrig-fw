@@ -575,6 +575,9 @@ defconfig_t defcfg[] = {
       "path.db.master", "/var/lib/rustyrig/db/master.db", "Master database path", DEFCONFIG_PATH, NULL
    },
    {
+      "path.admin.bootstrap-password", "/var/lib/rustyrig/temp-admin-passwd", "Temporary first-login admin password file", DEFCONFIG_PATH, NULL
+   },
+   {
       "path.db.master.template", "/var/lib/rustyrig/sql/sqlite.master.sql", "Path to sql file to initialize database", DEFCONFIG_PATH,
       NULL
    },
