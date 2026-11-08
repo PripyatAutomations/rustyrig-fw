@@ -2,7 +2,8 @@
 
 export DH_VERBOSE = 1
 .DEFAULT_GOAL := binary
-PROFILE ?= radio
+PROFILE ?= rrserver
+CLIENT_PROFILE ?= rrclient
 include mk/optional-modules.mk
 include mk/install-paths.mk
 
@@ -43,7 +44,11 @@ override_dh_auto_clean:
 
 override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) BUILD_CALLSIGN_LOOKUP=false LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system $(OPTIONAL_MAKE_FLAGS)
+	# Compile server-side binaries and shared helpers with their own profile.
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system $(OPTIONAL_MAKE_FLAGS)
+	# Executables live in bin/, not build/PROFILE: prevent cross-profile reuse.
+	rm -f bin/rrclient bin/rrclient-gtk.so bin/rrpipelines gmatrix/gmatrix
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(CLIENT_PROFILE) LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system WITH_HAMLIB=no
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 endif
@@ -94,6 +99,7 @@ endif
 		install -Dm644 "$$cfg" "debian/rustyrig-server$(CONF_DIR)/$${cfg##*/}"; \
 	done
 	install -Dm644 config/$(PROFILE).config.json debian/rustyrig-server$(CONF_DIR)/$(PROFILE).config.json
+	install -Dm644 config/$(CLIENT_PROFILE).config.json debian/rustyrig-client$(CONF_DIR)/$(CLIENT_PROFILE).config.json
 	# Removed: callsign lookup server settings now live in rrserver.callsign-lookup.cfg.
 	install -Dm644 config/ua-bans debian/rustyrig-server$(CONF_DIR)/ua-bans.txt
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
