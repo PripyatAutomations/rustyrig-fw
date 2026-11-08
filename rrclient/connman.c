@@ -1513,6 +1513,11 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    }
    free(s->url);
    s->url = saved_url;
+   /* endpoint.path borrows storage from the URL; reparse after replacing
+    * the saved profile URL, especially on reconnect. */
+   if (!rr_server_url_parse(s->url, &endpoint)) {
+      return true;
+   }
    rrclient_native_connection_t *native = calloc(1, sizeof(*native));
 
    if (!native) {
