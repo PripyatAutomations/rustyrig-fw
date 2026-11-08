@@ -19,6 +19,9 @@
 #include <limits.h>
 #include <strings.h>
 #include <librustyaxe/config.h>
+#include <rrserver/identity.h>
+#include <rrserver/revocation.h>
+#include <librrprotocol/crypto.h>
 
 /* Cooperating v1 servers and maintenance actions hold this lock for the process lifetime. Do not unlink the lock file: doing so breaks exclusion. */
 static int rr_maintenance_lock_fd = -1;
@@ -67,7 +70,8 @@ static bool rrserver_maintenance_lock(void) {
 enum rr_maintenance_action {
    RR_MAINT_NONE, RR_MAINT_PURGE_RECORDINGS, RR_MAINT_RESET_DB,
    RR_MAINT_RESET_ROOMS, RR_MAINT_RESET_LOGS, RR_MAINT_RESET_AUDIT,
-   RR_MAINT_RESET_ADMINPW, RR_MAINT_RESET_UUIDS
+   RR_MAINT_RESET_ADMINPW, RR_MAINT_RESET_UUIDS,
+   RR_MAINT_ROTATE_CERTS, RR_MAINT_REVOKE_CERTS
 };
 
 static const char *rr_maintenance_name(enum rr_maintenance_action action) {
@@ -93,6 +97,8 @@ static const char *rr_maintenance_name(enum rr_maintenance_action action) {
       case RR_MAINT_RESET_UUIDS: {
          return "--reset-uuids";
       }
+      case RR_MAINT_ROTATE_CERTS: return "--rotate-certs";
+      case RR_MAINT_REVOKE_CERTS: return "--revoke-certs";
       default: {
          return "unknown";
       }
@@ -281,7 +287,137 @@ extern bool db_reset_admin_password(sqlite3 *db, const char *password);
 
 #endif
 
+/* One-shot certificate maintenance operates ONLY on local server files.
+ * Revoke first using the existing Ed25519 key, durably persist that signature,
+ * and only then move the retiring PEMs out of the active identity directory. */
+static int rr_maintenance_certs(enum rr_maintenance_action action) {
+#ifndef USE_SQLITE
+   fprintf(stderr,"Certificate maintenance requires SQLite.\\n");
+   return EXIT_FAILURE;
+#else
+   const char *dir=cfg_get("path.identity");
+   if (!dir || !*dir) dir="/var/lib/rustyrig/identity";
+   const char *cert=cfg_get("net.http.tls-cert");
+   const char *tlskey=cfg_get("net.http.tls-key");
+   if (!cert || !*cert || !tlskey || !*tlskey ||
+       !g_path_is_absolute(dir) || !g_path_is_absolute(cert) ||
+       !g_path_is_absolute(tlskey)) {
+      fprintf(stderr,"Certificate paths must be configured as absolute paths.\\n");
+      return EXIT_FAILURE;
+   }
+   char *signing=g_build_filename(dir,"server-ed25519.pem",NULL);
+   char *marker=g_build_filename(dir,"revoked.lock",NULL);
+   struct stat st;
+   bool locked=lstat(marker,&st)==0;
+   if (!signing || !marker || !rrserver_maintenance_lock() ||
+       !rr_maintenance_confirm(action,dir)) {
+      g_free(signing);g_free(marker);
+      return EXIT_FAILURE;
+   }
+   char *dbpath=cfg_get_path("path.db.master");
+   sqlite3 *db=NULL;
+   if (!dbpath || sqlite3_open_v2(dbpath,&db,SQLITE_OPEN_READWRITE,NULL)!=SQLITE_OK) {
+      fprintf(stderr,"Cannot open existing master database for identity maintenance.\\n");
+      if (db)sqlite3_close(db);
+      free(dbpath);g_free(signing);g_free(marker);
+      return EXIT_FAILURE;
+   }
+   free(dbpath);
+   bool ok=rr_revocation_schema(db);
+   if (!locked) {
+      struct stat private_st,tls_st,cert_st;
+      ok=ok && lstat(signing,&private_st)==0 && S_ISREG(private_st.st_mode) &&
+         private_st.st_uid==geteuid() && !(private_st.st_mode&0077) &&
+         lstat(tlskey,&tls_st)==0 && S_ISREG(tls_st.st_mode) &&
+         tls_st.st_uid==geteuid() && !(tls_st.st_mode&0077) &&
+         lstat(cert,&cert_st)==0 && S_ISREG(cert_st.st_mode);
+      if (!ok) fprintf(stderr,"Active signing/TLS key files are missing or not owned securely by this user.\\n");
+      sqlite3_stmt *stmt=NULL;
+      char uuid[37]="";
+      if (ok && sqlite3_prepare_v2(db,
+         "SELECT uuid FROM rig_identities WHERE identity_namespace='@server' AND alias='@node'",
+         -1,&stmt,NULL)==SQLITE_OK) {
+         if (sqlite3_step(stmt)==SQLITE_ROW) {
+            const char *v=(const char *)sqlite3_column_text(stmt,0);
+            if (v)g_strlcpy(uuid,v,sizeof(uuid));
+         }
+      }
+      sqlite3_finalize(stmt);
+      ok=ok && g_uuid_string_is_valid(uuid) && rr_identity_init(dir);
+      char *spki=ok?rr_crypto_cert_spki_sha256(cert):NULL;
+      ok=ok && spki;
+      if (ok) {
+         ok=sqlite3_exec(db,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
+         if (ok)ok=rr_revocation_stage(db,cfg_get("domain"),uuid,spki);
+         if (ok) {
+            sqlite3_stmt *revoke=NULL;
+            ok=sqlite3_prepare_v2(db,
+               "INSERT OR IGNORE INTO mesh_revoked_identity_keys"
+               "(domain,owner_uuid,public_key) VALUES(?1,?2,?3)",
+               -1,&revoke,NULL)==SQLITE_OK;
+            if (ok) {
+               sqlite3_bind_text(revoke,1,cfg_get("domain"),-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(revoke,2,uuid,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(revoke,3,rr_identity_public_base64(),-1,SQLITE_TRANSIENT);
+               ok=sqlite3_step(revoke)==SQLITE_DONE;
+            }
+            sqlite3_finalize(revoke);
+         }
+         if (ok)ok=sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+         if (!ok)sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);
+      }
+      free(spki);
+      rr_identity_fini();
+   } else if (action==RR_MAINT_REVOKE_CERTS) {
+      fprintf(stderr,"Identity already revoked; use --rotate-certs to prepare new keys.\\n");
+      ok=false;
+   }
+   if (ok && !locked) {
+      /* The files are retained in a private archive for incident evidence;
+       * the server will not load these retired names. */
+      char *archive=g_strdup_printf("%s/retired-%lld-%ld",dir,
+         (long long)time(NULL),(long)getpid());
+      ok=archive && mkdir(archive,0700)==0;
+      if (ok) {
+         const char *files[]={signing,tlskey,cert};
+         for(unsigned i=0;i<G_N_ELEMENTS(files);++i) {
+            char *base=g_path_get_basename(files[i]);
+            char *target=g_build_filename(archive,base,NULL);
+            bool moved=target && rename(files[i],target)==0;
+            g_free(base);g_free(target);
+            if (!moved) {ok=false;break;}
+         }
+      }
+      if (ok)fprintf(stderr,"Retired PEMs saved privately in %s\\n",archive);
+      else fprintf(stderr,"PEM move incomplete; inspect %s manually before restart.\\n",archive?archive:dir);
+      g_free(archive);
+   }
+   if (ok && action==RR_MAINT_REVOKE_CERTS) {
+      int fd=open(marker,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
+      if (fd<0)ok=false;
+      else {
+         static const char reason[]="Local identity revoked. Use rrserver --rotate-certs before starting.\\n";
+         ok=write(fd,reason,sizeof(reason)-1)==(ssize_t)(sizeof(reason)-1) && fsync(fd)==0;
+         if (close(fd))ok=false;
+      }
+   }
+   if (ok && action==RR_MAINT_ROTATE_CERTS && locked) {
+      if (unlink(marker))ok=false;
+   }
+   sqlite3_close(db);
+   g_free(signing);g_free(marker);
+   if (ok) {
+      fprintf(stderr,"%s completed. Original identity revoked locally and signed notice queued.\\n"
+         "Remote delivery REQUIRES successfully re-enrolling the new identity and starting the mesh.\\n"
+         "Do not treat queued notices as cluster-wide confirmation.\\n",rr_maintenance_name(action));
+   }
+   return ok?EXIT_SUCCESS:EXIT_FAILURE;
+#endif
+}
+
 static int rrserver_maintenance_run(enum rr_maintenance_action action) {
+   if (action==RR_MAINT_ROTATE_CERTS || action==RR_MAINT_REVOKE_CERTS)
+      return rr_maintenance_certs(action);
    const bool recordings = action == RR_MAINT_PURGE_RECORDINGS;
    char *path = cfg_get_path(recordings ? "fwdsp:recording.path" : "path.db.master");
 
