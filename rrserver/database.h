@@ -49,6 +49,7 @@ extern bool db_user_edit(sqlite3 *db, const char *name, dict *fields);
 extern bool db_user_set_enabled(sqlite3 *db, const char *name, bool enabled);
 extern bool db_user_set_privileges(sqlite3 *db, const char *name, const char *privileges);
 extern bool db_user_remove(sqlite3 *db, const char *name);
+extern bool db_user_password_authenticate(sqlite3 *db, const char *username, const char *password, bool *upgraded);
 extern bool db_user_update_password(sqlite3 *db, const char *name, const char *password_hash, bool password_change_required, time_t password_expires);
 extern int db_user_next_uid(sqlite3 *db);
 extern int db_get_users(sqlite3 *db);
