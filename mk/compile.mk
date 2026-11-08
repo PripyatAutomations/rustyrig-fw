@@ -44,6 +44,10 @@ CFLAGS += -Wno-duplicated-branches
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -Wno-deprecated-declarations
 # Prefer the checked-out dependency headers over system-installed copies.
+ifeq ($(LIBRUSTYAXE_PROVIDER),system)
+# Override even the checkout-root headers with the installed API.
+CFLAGS += -I$(BUILD_DIR)/axe-system-include
+endif
 CFLAGS += -I./ -I./librrprotocol -I./librustyaxe -I../ -I./inc -I${BUILD_DIR}
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
