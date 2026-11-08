@@ -156,6 +156,23 @@ endif
 
 ###########################################
 
+
+# Application-owned handlers moved out of standalone librrprotocol.
+rrclient_objs += cli.alert.o
+rrclient_objs += cli.chat.o
+rrclient_objs += cli.error.o
+rrclient_objs += cli.main.o
+rrclient_objs += cli.media.o
+rrclient_objs += cli.notice.o
+rrclient_objs += cli.ping.o
+rrclient_objs += cli.rigctl.o
+rrclient_objs += cli.syslog.o
+
+# Protocol-facing application components, not shared library code.
+rrclient_objs += cfg.servers.o
+rrclient_objs += ws.auth.o
+rrclient_objs += ws.serial.o
+
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
 extra_clean += ${rrclient_real_objs}
 
@@ -232,19 +249,3 @@ bin/rrclient: ${librustyirc} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${
 	@ls -a1ls $@
 	@file $@
 	@size $@
-
-# Application-owned handlers moved out of standalone librrprotocol.
-rrclient_objs += cli.alert.o
-rrclient_objs += cli.chat.o
-rrclient_objs += cli.error.o
-rrclient_objs += cli.main.o
-rrclient_objs += cli.media.o
-rrclient_objs += cli.notice.o
-rrclient_objs += cli.ping.o
-rrclient_objs += cli.rigctl.o
-rrclient_objs += cli.syslog.o
-
-# Protocol-facing application components, not shared library code.
-rrclient_objs += cfg.servers.o
-rrclient_objs += ws.auth.o
-rrclient_objs += ws.serial.o
