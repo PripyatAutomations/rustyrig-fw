@@ -1456,6 +1456,12 @@ void gtk_admin_result_profile(const char *data, const char *profile) {
       return;
    }
 
+   if (row && gtk_admin_security_result(name, action, row, profile)) {
+      dict_free(row);
+      dict_free(reply);
+      return;
+   }
+
    if (row && gtk_admin_access_result(name, action, row, profile)) {
       dict_free(row);
       dict_free(reply);
@@ -2008,6 +2014,7 @@ GtkWidget *init_admin_tab(void) {
    GtkWidget *access_page = gtk_admin_access_page(tables[6].store);
    gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), access_page, gtk_admin_access_label());
    gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), gtk_admin_controls_page(), gtk_label_new("Controls"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), gtk_admin_security_page(), gtk_label_new("Security & Trust"));
    /* Operator workflow first; diagnostics and history last. */
    const char *order[] = {
       "Controls", "Sessions", "Users", "Security & Trust", "Rooms", "Assignments",
