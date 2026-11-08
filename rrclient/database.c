@@ -365,7 +365,7 @@ bool rrclient_database_load_profiles(void) {
       for (int i = 0 ; i < 3 ; i++) {
          const char *value = (const char *)sqlite3_column_text(q, i + 1);
          char *key = g_strdup_printf("server:%s.%s", name, props[i]);
-         dict_add(target, key, value ? value : "");
+         dict_add(cfg, key, value ? value : "");
          g_free(key);
       }
    }
