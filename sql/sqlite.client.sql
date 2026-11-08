@@ -1,4 +1,4 @@
--- RustyRig client persistent state, schema v1.
+-- RustyRig client persistent state, schema v4.
 -- Ungrouped is virtual: a server without network_memberships rows.
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS networks (
