@@ -1584,6 +1584,11 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!selected || !reconnect_attempting) {
       selected = s;
    }
+   /* A reconnect may replace the transport while the same profile is
+    * selected; refresh the borrowed ws_conn/global context pointers. */
+   if (context == s) {
+      activate(NULL);
+   }
    activate(s);
    rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
    ui_print(NULL, "%sConnecting to %s via OpenSSL/wslay", get_chat_ts(now), connect_url);
