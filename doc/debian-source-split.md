@@ -1,13 +1,14 @@
 # Debian source/package split plan
 
 RustyRig's main development checkout remains a **single tree** with submodules,
-but the Debian archive should build three independent source packages. Keep
+but the Debian archive should build four independent source packages. Keep
 these concepts separate:
 
 | Debian source | Git origin | Debian binary packages |
 | --- | --- | --- |
 | `librustyaxe` | `PripyatAutomations/librustyaxe` | `librustyaxe0`, `librustyaxe-dev`, `librustyirc0`, `librustyirc-dev` |
 | `librrprotocol` | `PripyatAutomations/librrprotocol` | `librrprotocol0`, `librrprotocol-dev` |
+| `rustyrig-callsign-lookup` | `PripyatAutomations/callsign-lookup` | `rustyrig-callsign-lookup` |
 | `rustyrig-fw` | `PripyatAutomations/rustyrig-fw` | `rustyrig-common`, `rustyrig-server`, `rustyrig-client`, `rustyrig-client-gtk`, `rustyrig-bridge`, `rustyrig-fwdsp`, ``libfwdspmgr` runtime + dev packages, and optional module packages |
 
 **The library-package names ending in `0` are provisional.** Confirm actual
@@ -57,7 +58,9 @@ for development, and can use explicit in-tree mode.
 1. Publish/build/install `librustyaxe0` and `librustyaxe-dev` (MIT).
 2. Build `librrprotocol` against the installed `librustyaxe-dev` package.
    Publish/install `librrprotocol0` and `librrprotocol-dev` (GPLv2).
-3. Build `rustyrig-fw` with both installed -dev packages.
+3. Build `rustyrig-callsign-lookup` independently against `librustyaxe-dev`.
+4. Build `rustyrig-fw` against the installed libraries; the callsign lookup
+   helper is an optional runtime package, not an in-tree build prerequisite.
 
 Version dependencies must follow library ABI compatibility and
 `dh_makeshlibs`/`dh_shlibdeps`, **not**
@@ -138,3 +141,11 @@ need Debian tools.
 a distinct MIT shared library and separate Debian runtime/development
 binary pair. RustyRig uses an installed IRC library by default and falls back
 to the RustyAxe submodule for uninstalled development.
+
+## Standalone callsign-lookup
+
+The callsign helper is no longer a RustyRig Git submodule, source build target,
+or binary package of the main `rustyrig-fw` Debian source. Its own repository
+owns `/usr/bin/callsign-lookup` and `/etc/rustyrig/callsign-lookup.cfg`, with
+`make deb` and `make src-deb`. Its QRZ endpoint uses libcurl HTTPS, so it
+requires neither Mongoose nor wslay: wslay is only needed for WebSockets.

@@ -1,3 +1,4 @@
+<!-- callsign-lookup now lives and is packaged in PripyatAutomations/callsign-lookup; old file size figures are historical. -->
 # Source organization review — 15 October 2026
 
 ## Counting and scope

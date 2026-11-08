@@ -70,7 +70,7 @@ Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
 Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol0, libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
-Recommends: rustyrig-bridge (= ${binary:Version})
+Recommends: rustyrig-bridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3)
 Suggests: rustyrig-server-hamlib
 Description: RustyRig server
  Backend server for remote radio operation.
@@ -80,6 +80,7 @@ Architecture: any
 Pre-Depends: adduser
 Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0, libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rrclient-screensaver
+Suggests: rustyrig-callsign-lookup (>= 1.0.3)
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
  in rustyrig-client-gtk as a loadable module.
