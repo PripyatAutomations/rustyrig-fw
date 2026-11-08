@@ -34,7 +34,7 @@ MOCK
 done
 (cd /tmp && bash "$work/tools/test-client.sh")
 (cd /tmp && bash "$work/tools/test-server.sh")
-rm "$work/librrprotocol.so.0"
+rm "$work/libfwdspmgr.so.0"
 if (cd /tmp && bash "$work/tools/test-client.sh" 2>/dev/null); then
   echo 'FAIL: launcher accepted a missing local library' >&2
   exit 1
