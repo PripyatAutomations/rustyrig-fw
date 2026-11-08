@@ -9,12 +9,14 @@
 
 enum { SECURITY_DOMAIN, SECURITY_UUID, SECURITY_SIGNING, SECURITY_TLS, SECURITY_COLUMNS };
 static GtkListStore *trust_rows;
-static GtkWidget *trust_tree, *trust_status, *trust_local, *trust_revoke;
+static GtkWidget *trust_tree, *trust_status, *trust_local, *trust_revoke, *trust_remove;
 static char trust_profile[128];
 
 static void trust_selection_changed(GtkTreeSelection *selection, gpointer unused) {
    (void)unused;
    gtk_widget_set_sensitive(trust_revoke,
+      gtk_tree_selection_count_selected_rows(selection) == 1);
+   gtk_widget_set_sensitive(trust_remove,
       gtk_tree_selection_count_selected_rows(selection) == 1);
 }
 
@@ -33,7 +35,8 @@ static void trust_refresh_click(GtkButton *button, gpointer unused) {
 }
 
 static void trust_revoke_click(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+   (void)unused;
+   bool remove_peering = GTK_WIDGET(button) == trust_remove;
    GtkTreeIter iter;
    GtkTreeModel *model = NULL;
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(trust_tree));
@@ -43,13 +46,16 @@ static void trust_revoke_click(GtkButton *button, gpointer unused) {
    if (!uuid || !*uuid) { g_free(uuid); return; }
    GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL,
       GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
-      "Revoke trust for server %s on the selected server?\n\n"
-      "The old key will be rejected and its signed catalog entries purged locally.\n"
-      "This does not revoke trust on offline/other servers or rotate any keys.", uuid);
+      "%s server %s on the selected server?\n\n%s",
+      remove_peering ? "Remove peering for" : "Revoke identity of", uuid,
+      remove_peering ?
+        "This removes enrollment/dial settings only. The signing identity remains trusted.\nExisting live links may require disconnect." :
+        "The old signing key will be denied and cached catalog entries purged locally.\nCluster-wide propagation is not implemented yet.");
    gint response = gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
    if (response == GTK_RESPONSE_OK)
-      gtk_admin_command_event(trust_status, trust_profile, "identity-revoke", uuid, uuid, NULL);
+      gtk_admin_command_event(trust_status, trust_profile,
+         remove_peering ? "peer-remove" : "identity-revoke", uuid, uuid, NULL);
    g_free(uuid);
 }
 
@@ -75,7 +81,7 @@ bool gtk_admin_security_result(const char *name, const char *action, dict *row, 
    } else if (!strcmp(action, "end")) {
       gtk_label_set_text(GTK_LABEL(trust_status), "Trust inventory loaded.");
    } else if (!strcmp(action, "updated")) {
-      gtk_label_set_text(GTK_LABEL(trust_status), "Trust revoked; refreshing inventory.");
+      gtk_label_set_text(GTK_LABEL(trust_status), "Server trust/peering updated; refreshing inventory.");
       gtk_admin_security_refresh();
    }
    return true;
@@ -94,10 +100,13 @@ GtkWidget *gtk_admin_security_page(void) {
    gtk_box_pack_start(GTK_BOX(page), info, FALSE, FALSE, 0);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    GtkWidget *refresh = gtk_button_new_with_label("Refresh Trust");
-   trust_revoke = gtk_button_new_with_label("Revoke Selected Server");
+   trust_remove = gtk_button_new_with_label("Remove Peering");
+   trust_revoke = gtk_button_new_with_label("Revoke Identity");
+   gtk_widget_set_sensitive(trust_remove, FALSE);
    gtk_widget_set_sensitive(trust_revoke, FALSE);
    trust_status = gtk_label_new("");
    gtk_box_pack_start(GTK_BOX(toolbar), refresh, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(toolbar), trust_remove, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), trust_revoke, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), trust_status, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(page), toolbar, FALSE, FALSE, 0);
@@ -117,6 +126,7 @@ GtkWidget *gtk_admin_security_page(void) {
    gtk_box_pack_start(GTK_BOX(page), scroll, TRUE, TRUE, 0);
    g_signal_connect(refresh, "clicked", G_CALLBACK(trust_refresh_click), NULL);
    g_signal_connect(trust_revoke, "clicked", G_CALLBACK(trust_revoke_click), NULL);
+   g_signal_connect(trust_remove, "clicked", G_CALLBACK(trust_revoke_click), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(trust_tree)), "changed",
       G_CALLBACK(trust_selection_changed), NULL);
    return page;
