@@ -131,6 +131,15 @@ world: after-eeprom
 test-rrclient-codecs: ${bins}
 	bash rrclient/tests/test_codec_commands.sh
 
+# Audit RustyRig-owned files for legacy dual-license boilerplate without
+# modifying any source. Third-party submodules and Windows themes are excluded.
+.PHONY: license-check license-migrate
+license-check:
+	perl tools/releng-gplv2-headers.pl --check
+
+license-migrate:
+	perl tools/releng-gplv2-headers.pl
+
 # Build configured programs and run the maintained project test suites.
 TEST_SUITES ?= selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient fwdsp libfwdspmgr www
 .PHONY: test
