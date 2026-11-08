@@ -10,14 +10,14 @@ pkgrel=1
 pkgdesc='RustyRig remote radio software'
 arch=('x86_64')
 url='https://github.com/PripyatAutomations/rustyrig-fw'
-license=('MIT')
+license=('GPL2')
 makedepends=('git' 'make' 'jq' 'pkgconf' 'perl' 'libbsd' 'ncurses' 'sqlite' 'curl' 'hamlib' 'libgpiod' 'glib2' 'librustyaxe' 'librrprotocol' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'libev' 'libsrtp')
 source=('git+https://github.com/PripyatAutomations/rustyrig-fw.git')
 sha256sums=('SKIP')
 
 prepare() {
    cd "$srcdir/rustyrig-fw"
-   git submodule update --init --recursive
+   git submodule update --init callsign-lookup ext/libmongoose ext/ft8_lib
    test "$(cat .version)" = "$pkgver" || warning "PKGBUILD pkgver differs from source .version"
 }
 
