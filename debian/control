@@ -111,12 +111,6 @@ Depends: libfwdspmgr (= ${binary:Version}), librustyaxe0,
 Description: RustyRig audio DSP service
  GStreamer-based audio codec and pipeline service.
 
-Package: rustyrig-callsign-lookup
-Architecture: any
-Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
-Description: RustyRig callsign lookup service
- Callsign lookup helper using local databases and the QRZ XML API.
-
 Package: rustyrig-server-gpsd
 Architecture: any
 Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}

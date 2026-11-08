@@ -39,12 +39,11 @@ override_dh_auto_test:
 override_dh_auto_clean:
 	$(MAKE) distclean || true
 	$(MAKE) -C gmatrix clean || true
-	$(MAKE) -C callsign-lookup clean || true
 	$(MAKE) -C modems/ft8 clean || true
 
 override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) BUILD_CALLSIGN_LOOKUP=true LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system $(OPTIONAL_MAKE_FLAGS)
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) BUILD_CALLSIGN_LOOKUP=false LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system $(OPTIONAL_MAKE_FLAGS)
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 endif
@@ -67,8 +66,6 @@ endif
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp$(BINDIR)/fwdsp
-	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup$(BINDIR)/callsign-lookup
-	install -Dm644 config/callsign-lookup.cfg debian/rustyrig-callsign-lookup$(CONF_DIR)/callsign-lookup.cfg
 	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server$(BINDIR)/rr-get-audit-log
 	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server$(BINDIR)/rr-get-chat-log
 	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server$(BINDIR)/rr-get-ptt-log

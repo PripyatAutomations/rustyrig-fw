@@ -1,7 +1,7 @@
 # Source installs deliberately target the files owned by Debian packages,
 # not /usr/local shadow copies. Paths are in mk/install-paths.mk.
 CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
-    config/rrclient.cfg config/callsign-lookup.cfg \
+    config/rrclient.cfg \
     config/callsign-lookup.cli.cfg $(CF)
 LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 # Only libraries still owned by rustyrig-fw may be installed here.
