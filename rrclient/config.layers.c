@@ -45,7 +45,7 @@ static void log_level_apply_request(const rr_event_message_t *message, void *use
    }
    const rrclient_log_level_request_t *request = message->payload;
 
-   if (!memchr(request->spec, '\\0', sizeof(request->spec))) {
+   if (!memchr(request->spec, '\0', sizeof(request->spec))) {
       return;
    }
    dict_add(cfg, "log.level", request->spec);
