@@ -82,9 +82,10 @@ install -Dpm0755 packaging/rrserver.rc %{buildroot}%{_sysconfdir}/init.d/rrserve
 install -Dpm0644 packaging/rustyrig.tmpfiles %{buildroot}%{_tmpfilesdir}/rustyrig.conf
 install -Dpm0644 packaging/rustyrig-client.desktop %{buildroot}%{_datadir}/applications/rustyrig-client.desktop
 install -Dpm0644 res/rustyrig.png %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
-for f in rrserver.cfg rrclient.cfg callsign-lookup.srv.cfg callsign-lookup.cli.cfg; do install -Dpm0644 config/$f %{buildroot}%{_sysconfdir}/rustyrig/$f; done
-install -Dpm0644 config/radio.config.json %{buildroot}%{_sysconfdir}/rustyrig/radio.config.json
-install -Dpm0644 config/ua-bans %{buildroot}%{_sysconfdir}/rustyrig/ua-bans.txt
+for f in config/*.cfg config/*.md; do
+  [ -f "$f" ] || continue
+  install -Dpm0644 "$f" "%{buildroot}%{_sysconfdir}/rustyrig/${f##*/}"
+done
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
 install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.preload.sql
 install -Dpm0755 tools/dummy-rigctld.sh %{buildroot}%{_sharedstatedir}/rustyrig/tools/dummy-rigctld.sh

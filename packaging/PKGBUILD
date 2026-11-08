@@ -42,7 +42,7 @@ package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'libgpiod' 'shadow' 'acl')
    optdepends=('rustyrig-rrbridge: SDR bridge support' 'rustyrig-callsign-lookup: callsign lookup')
    install=rustyrig.install
-   backup=('etc/rustyrig/ua-bans.txt' 'etc/rustyrig/radio.config.json')
+   backup=()
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
    install -Dm755 bin/rr-dds-si5351 "$pkgdir/usr/bin/rr-dds-si5351"
@@ -71,7 +71,7 @@ package_rustyrig-server() {
 
 package_rustyrig-client() {
    pkgdesc='RustyRig client'
-   backup=('etc/rustyrig/rrclient.cfg' 'etc/rustyrig/callsign-lookup.cli.cfg')
+   backup=()
    depends=('rustyrig-libs' 'glib2' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
    optdepends=('rustyrig-rrbridge: SDR bridge support' 'rustyrig-callsign-lookup: callsign lookup')
    cd "$srcdir/rustyrig-fw"
