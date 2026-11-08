@@ -58,7 +58,7 @@ bool ws_handle_rigctl_cli_msg(rrconn_t *cptr, dict *d) {
          memset(real_mode, 0, sizeof(real_mode));
          snprintf(real_mode, sizeof(real_mode), "%s", mode);
 
-         if (real_mode && strlen(real_mode) > 0) {
+         if (real_mode[0]) {
             // XXX: We need to suppress sending a CAT message by disabling the
             // changed signal on the mode combo
 
