@@ -1449,11 +1449,17 @@ bool rrserver_links_init(void) {
    /* Import durable, explicitly enrolled issuer coordinates and trust. */
    if (masterdb && cfg_get_bool("net.mesh-linking", true)) {
       sqlite3_stmt *stmt = NULL;
+      unsigned eligible = 0, imported = 0, rejected = 0;
 
-      if (sqlite3_prepare_v2(masterdb, "SELECT node_uuid,url,catalog_pubkey,tls_spki_sha256 "
-         "FROM mesh_bootstrap_peers WHERE domain=?1 AND state='enrolled'", -1, &stmt, NULL) == SQLITE_OK) {
+      int prepared = sqlite3_prepare_v2(masterdb, "SELECT node_uuid,url,catalog_pubkey,tls_spki_sha256 "
+         "FROM mesh_bootstrap_peers WHERE domain=?1 AND state='enrolled'", -1, &stmt, NULL);
+
+      if (prepared == SQLITE_OK) {
          sqlite3_bind_text(stmt, 1, links.domain, -1, SQLITE_TRANSIENT);
-         while (sqlite3_step(stmt) == SQLITE_ROW) {
+         int step;
+
+         while ((step = sqlite3_step(stmt)) == SQLITE_ROW) {
+            eligible++;
             const char *uuid = (const char *)sqlite3_column_text(stmt, 0);
             const char *url = (const char *)sqlite3_column_text(stmt, 1);
             const char *pub = (const char *)sqlite3_column_text(stmt, 2);
@@ -1462,7 +1468,8 @@ bool rrserver_links_init(void) {
             if (!uuid || !rr_object_uuid_valid(uuid) || !strcmp(uuid, links.node) ||
                !url || strncmp(url, "wss://", 6) ||
                !pub || strlen(pub) != 44 || !pin || strlen(pin) != 44 || !rr_identity_trust_verify(masterdb, links.domain, uuid, pub, pin)) {
-               Log(LOG_WARN, "mesh.bootstrap", "Ignoring malformed stored issuer bootstrap entry");
+               rejected++;
+               Log(LOG_WARN, "mesh.bootstrap", "Ignoring malformed/untrusted issuer bootstrap entry for domain %s", links.domain);
                continue;
             }
             bool already_known = false;
@@ -1512,11 +1519,46 @@ bool rrserver_links_init(void) {
             peer->max_depth = (unsigned)cfg_get_int("links.max-depth", 5);
             peer->autoconnect = true;
             ++links.peer_count;
+            imported++;
             Log(LOG_INFO, "mesh.bootstrap", "Loaded enrolled issuer %s: historical enrollment URL %s; mesh dial target %s (SPKI %s)", uuid, url, peer->url, pin)
             ;
          }
+         if (step != SQLITE_DONE) {
+            Log(LOG_WARN, "mesh.bootstrap", "Reading enrolled issuers failed: %s", sqlite3_errmsg(masterdb));
+         }
          sqlite3_finalize(stmt);
+         Log(LOG_INFO, "mesh.bootstrap", "Domain %s: %u enrolled issuer row(s), %u imported, %u rejected",
+            links.domain, eligible, imported, rejected);
+
+         if (!eligible) {
+            sqlite3_stmt *domains = NULL;
+            if (sqlite3_prepare_v2(masterdb,
+               "SELECT domain, count(*) FROM mesh_bootstrap_peers WHERE state='enrolled' GROUP BY domain",
+               -1, &domains, NULL) == SQLITE_OK) {
+               bool other_domains = false;
+               while (sqlite3_step(domains) == SQLITE_ROW) {
+                  const char *stored = (const char *)sqlite3_column_text(domains, 0);
+                  int count = sqlite3_column_int(domains, 1);
+                  if (stored && strcmp(stored, links.domain)) {
+                     other_domains = true;
+                     Log(LOG_WARN, "mesh.bootstrap", "Enrolled issuer(s) found for another domain %s (%d); current domain is %s",
+                        stored, count, links.domain);
+                  }
+               }
+               if (!other_domains) {
+                  Log(LOG_INFO, "mesh.bootstrap", "No enrolled issuer records found; autoconnect requires a trusted peer");
+               }
+               sqlite3_finalize(domains);
+            }
+         }
+      } else {
+         Log(LOG_WARN, "mesh.bootstrap", "Cannot query enrolled peers: %s (database may predate mesh enrollment)",
+            sqlite3_errmsg(masterdb));
       }
+   } else if (!cfg_get_bool("net.mesh-linking", true)) {
+      Log(LOG_INFO, "mesh.bootstrap", "Database enrolled-peer import disabled by net.mesh-linking=false");
+   } else {
+      Log(LOG_WARN, "mesh.bootstrap", "No master database; enrolled-peer autoconnect unavailable");
    }
 #endif
 
