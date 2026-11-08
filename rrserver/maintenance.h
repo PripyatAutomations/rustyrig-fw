@@ -71,7 +71,7 @@ enum rr_maintenance_action {
    RR_MAINT_NONE, RR_MAINT_PURGE_RECORDINGS, RR_MAINT_RESET_DB,
    RR_MAINT_RESET_ROOMS, RR_MAINT_RESET_LOGS, RR_MAINT_RESET_AUDIT,
    RR_MAINT_RESET_ADMINPW, RR_MAINT_RESET_UUIDS,
-   RR_MAINT_ROTATE_CERTS, RR_MAINT_REVOKE_CERTS
+   RR_MAINT_ROTATE_CERTS, RR_MAINT_REVOKE_CERTS, RR_MAINT_RESET_CERTS
 };
 
 static const char *rr_maintenance_name(enum rr_maintenance_action action) {
@@ -99,6 +99,7 @@ static const char *rr_maintenance_name(enum rr_maintenance_action action) {
       }
       case RR_MAINT_ROTATE_CERTS: return "--rotate-certs";
       case RR_MAINT_REVOKE_CERTS: return "--revoke-certs";
+      case RR_MAINT_RESET_CERTS: return "--reset-certs";
       default: {
          return "unknown";
       }
@@ -287,6 +288,76 @@ extern bool db_reset_admin_password(sqlite3 *db, const char *password);
 
 #endif
 
+/* A mesh rebuild deliberately abandons local trust. Archive private keys
+ * rather than deleting them, and only unlock identity generation after every
+ * active file has been retired. This does NOT notify other mesh members. */
+static int rr_maintenance_reset_certs(void) {
+   const char *dir = cfg_get("path.identity");
+   if (!dir || !*dir) dir = "/var/lib/rustyrig/identity";
+   const char *cert = cfg_get("net.http.tls-cert");
+   const char *key = cfg_get("net.http.tls-key");
+   if (!g_path_is_absolute(dir) || !cert || !key ||
+       !g_path_is_absolute(cert) || !g_path_is_absolute(key) ||
+       !strcmp(cert, key)) {
+      fprintf(stderr, "Certificate reset requires absolute, distinct identity and TLS paths.\n");
+      return EXIT_FAILURE;
+   }
+   char *signing = g_build_filename(dir, "server-ed25519.pem", NULL);
+   char *marker = g_build_filename(dir, "revoked.lock", NULL);
+   if (!signing || !marker || !rrserver_maintenance_lock() ||
+       !rr_maintenance_confirm(RR_MAINT_RESET_CERTS, dir)) {
+      g_free(signing); g_free(marker);
+      return EXIT_FAILURE;
+   }
+   const char *files[] = { signing, cert, key };
+   /* Reject symlinks and nonregular files before touching anything. */
+   bool ok = true;
+   bool present[3] = { false, false, false };
+   for (unsigned i = 0; i < G_N_ELEMENTS(files); ++i) {
+      struct stat st;
+      if (lstat(files[i], &st) == 0) {
+         present[i] = true;
+         if (!S_ISREG(st.st_mode)) ok = false;
+      } else if (errno != ENOENT) ok = false;
+   }
+   struct stat marker_st;
+   bool has_marker = lstat(marker, &marker_st) == 0;
+   if (has_marker && !S_ISREG(marker_st.st_mode)) ok = false;
+   if (!ok) {
+      fprintf(stderr, "Unsafe or inaccessible certificate path; refusing reset.\n");
+      g_free(signing); g_free(marker);
+      return EXIT_FAILURE;
+   }
+   char *archive = g_strdup_printf("%s/retired-%lld-%ld", dir,
+      (long long)time(NULL), (long)getpid());
+   if (!archive || mkdir(archive, 0700) != 0) {
+      fprintf(stderr, "Cannot create private retired-key archive: %s\n", strerror(errno));
+      g_free(archive); g_free(signing); g_free(marker);
+      return EXIT_FAILURE;
+   }
+   for (unsigned i = 0; i < G_N_ELEMENTS(files); ++i) {
+      if (!present[i]) continue;
+      char *base = g_path_get_basename(files[i]);
+      char *dest = g_build_filename(archive, base, NULL);
+      if (!dest || rename(files[i], dest) != 0) {
+         fprintf(stderr, "Could not retire %s: %s\n", files[i], strerror(errno));
+         ok = false;
+      }
+      g_free(base); g_free(dest);
+      if (!ok) break;
+   }
+   if (ok && has_marker && unlink(marker) != 0) {
+      fprintf(stderr, "Cannot clear old revocation lock: %s\n", strerror(errno));
+      ok = false;
+   }
+   if (ok) fprintf(stderr, "Local TLS and Ed25519 identities retired in %s.\n"
+       "Start rrserver as the service user to generate fresh keys.\n"
+       "Other nodes have NOT been notified; clear their previous trust separately.\n", archive);
+   else fprintf(stderr, "Partial reset: inspect %s before starting rrserver.\n", archive);
+   g_free(archive); g_free(signing); g_free(marker);
+   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 /* One-shot certificate maintenance operates ONLY on local server files.
  * Revoke first using the existing Ed25519 key, durably persist that signature,
  * and only then move the retiring PEMs out of the active identity directory. */
@@ -425,6 +496,7 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
 }
 
 static int rrserver_maintenance_run(enum rr_maintenance_action action) {
+   if (action==RR_MAINT_RESET_CERTS) return rr_maintenance_reset_certs();
    if (action==RR_MAINT_ROTATE_CERTS || action==RR_MAINT_REVOKE_CERTS)
       return rr_maintenance_certs(action);
    const bool recordings = action == RR_MAINT_PURGE_RECORDINGS;
