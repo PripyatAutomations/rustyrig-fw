@@ -1,12 +1,12 @@
 #!/bin/bash
 SZ_C_FWDSP=$(ls libfwdspmgr/*.[ch] fwdsp/*.[ch] | xargs cat | wc -l)
-SZ_C_LRR=$(ls librustyaxe/*.[ch] | xargs cat | wc -l)
-SZ_C_LRP=$(ls librrprotocol/*.[ch] | xargs cat | wc -l)
+SZ_C_LRR=0 # standalone installed project
+SZ_C_LRP=0 # standalone installed project
 SZ_C_RRBRI=$((ls rrbridge/*.[ch]) | xargs cat | wc -l)
 SZ_C_RRCLI=$((ls rrclient/*.[ch] rrclient/gtk/*.[ch]) | xargs cat | wc -l)
 SZ_C_RRFW=$(ls rrserver/*.[ch] | xargs cat | wc -l)
 SZ_C_CALL=0 # callsign-lookup is packaged from its own repository
-SZ_C_LRI=$(ls librustyaxe/librustyirc/*.[ch] 2>/dev/null | xargs -r cat | wc -l)
+SZ_C_LRI=0 # standalone installed project
 SZ_PL=$(cat tools/*.pl | wc -l)
 #SZ_HTML=$(cat www/index.html | wc -l)
 #SZ_CSS=$(cat www/css/*.css | wc -l)
@@ -21,9 +21,6 @@ SZ_C_TTL=$((${SZ_C_LRP} + ${SZ_C_LRR} + ${SZ_C_LRI} + ${SZ_C_RRFW} + ${SZ_C_RRCL
 SZ_TTL=$((${SZ_C_TTL} + ${SZ_PL} + ${SZ_SH} + ${SZ_SQL} + ${SZ_MK}))
 
 echo -e "Lines of code in rustyrig-fw: " \
-        "[librustyaxe C: ${SZ_C_LRR}] " \
-        "[librustyirc C: ${SZ_C_LRI}] " \
-        "[librrprotocol C: ${SZ_C_LRP}] " \
         ""  \
         "[fwdsp C: ${SZ_C_FWDSP}] " \
         "[rrbridge C: ${SZ_C_RRBRI}] " \

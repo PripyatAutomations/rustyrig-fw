@@ -50,6 +50,7 @@ RustyRig currently targets Debian-family Linux distributions for building and pa
 
 ```sh
 git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+# Install librustyaxe-dev, librrprotocol-dev and librustyirc-dev separately before building.
 cd rustyrig-fw
 ./install-deps.sh
 ```
@@ -101,7 +102,7 @@ Contributions, hardware compatibility reports, documentation improvements, and r
 
 RustyRig-owned code is licensed under the **GNU General Public License,
 version 2 only** (`GPL-2.0-only`); see [doc/LICENSE](doc/LICENSE).
-The `librrprotocol` submodule is GPLv2. The `librustyaxe` submodule retains
+The independently installed `librrprotocol` library is GPLv2. The `librustyaxe` library retains
 its MIT license. Other bundled components, dependencies and Windows themes
 retain their respective upstream licenses.
 

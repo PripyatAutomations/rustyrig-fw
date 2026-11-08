@@ -71,12 +71,10 @@ MEDIA_CFLAGS = $(filter-out -fsanitize=% -fno-sanitize-recover=all,$(CFLAGS))
 MEDIA_LDFLAGS = $(filter-out -fsanitize=%,$(LDFLAGS))
 endif
 
-# Resolve shared libraries beside the executable/library or in its prefix,
-# including bin/ programs running directly from the source tree.
+# Resolve RustyRig-owned local libfwdspmgr; external dependencies must be
+# provided by the installed loader paths, not checkout-root copies.
 ifeq ($(OS),DARWIN)
-# Start with the existing .so artifact names: Mach-O can load a dylib
-# regardless of filename extension. A full .dylib naming migration can
-# follow once client and server compile successfully.
+# Darwin build uses local search only for RustyRig-owned shared objects.
 LDFLAGS += -L. -Wl,-rpath,@executable_path/.. -Wl,-rpath,@loader_path/..
 LDFLAGS += -lm -g
 LIB_LDFLAGS := -dynamiclib -Wl,-undefined,dynamic_lookup

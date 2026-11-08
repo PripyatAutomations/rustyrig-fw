@@ -6,7 +6,7 @@ AUDIT_TIDY_JOBS ?= 4
 ifndef AUDIT_DIR
 AUDIT_DIR := audit-logs/$(shell date +%Y%m%d.%H%M%S)
 endif
-audit_files = $(wildcard librustyaxe/*.[ch] librrprotocol/*.[ch] rrclient/*.[ch] rrserver/*.[ch] fwdsp/*.[ch])
+audit_files = $(wildcard rrclient/*.[ch] rrserver/*.[ch] fwdsp/*.[ch])
 # Use only translation units that were actually compiled.  Passing directory
 # globs directly to clang-tidy makes it invent command lines for generated
 # headers and files from the wrong build profile.  The compile database also
@@ -87,12 +87,12 @@ clang-tidy: compile_commands.json audit-init
 	if command -v "$(CLANG_TIDY_RUNNER)" >/dev/null 2>&1; then \
 		"$(CLANG_TIDY_RUNNER)" -p . -j "$(AUDIT_TIDY_JOBS)" -quiet -use-color false \
 			-checks '$(AUDIT_TIDY_CHECKS)' \
-			-header-filter '^$(CURDIR)/(librustyaxe|librrprotocol|rrclient|rrserver|libfwdspmgr|fwdsp)/' \
-			'librustyaxe/.*|librrprotocol/.*|rrclient/.*|rrserver/.*|libfwdspmgr/.*|fwdsp/.*' > "$$raw" 2>&1; rc=$$?; \
+			-header-filter '^$(CURDIR)/(rrclient|rrserver|libfwdspmgr|fwdsp)/' \
+			'rrclient/.*|rrserver/.*|libfwdspmgr/.*|fwdsp/.*' > "$$raw" 2>&1; rc=$$?; \
 	else \
-		files=$$(find librustyaxe librrprotocol rrclient rrserver libfwdspmgr fwdsp -maxdepth 1 -type f -name '*.c' -print); \
+		files=$$(find rrclient rrserver libfwdspmgr fwdsp -maxdepth 1 -type f -name '*.c' -print); \
 		clang-tidy -p . --quiet --use-color=false -checks='$(AUDIT_TIDY_CHECKS)' \
-			-header-filter='^$(CURDIR)/(librustyaxe|librrprotocol|rrclient|rrserver|libfwdspmgr|fwdsp)/' \
+			-header-filter='^$(CURDIR)/(rrclient|rrserver|libfwdspmgr|fwdsp)/' \
 			$$files > "$$raw" 2>&1; rc=$$?; \
 	fi; \
 	sed -E '/^[[:space:]]*[0-9]+ warnings generated\.$$/d; /^[[:space:]]*\[[[:space:]]*[0-9]+\/[0-9]+\]\[[^]]+\] clang-tidy-/d; /^[[]([0-9]+)\/[0-9]+[]] Processing file /d' "$$raw" > "$(AUDIT_DIR)/clang-tidy.log"; \

@@ -46,6 +46,12 @@ ifeq ($(IRC_PROBE),none)
 $(error Installed librustyirc development headers/library required)
 endif
 endif
+# Never link against stale local copies from pre-split checkouts.
+ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
+ifneq ($(strip $(wildcard librustyaxe.so* librrprotocol.so* librustyirc.so*)),)
+$(error Stale local shared libraries in checkout; run make distclean)
+endif
+endif
 AXE_SYSTEM_CFLAGS := $(shell $(AXE_PKG_CONFIG) --cflags librustyaxe 2>/dev/null)
 AXE_SYSTEM_LDFLAGS := $(shell $(AXE_PKG_CONFIG) --libs-only-L librustyaxe 2>/dev/null)
 RRPROTO_SYSTEM_CFLAGS := $(shell $(RRPROTO_PKG_CONFIG) --cflags librrprotocol 2>/dev/null)
@@ -58,7 +64,7 @@ include mk/database.mk
 include mk/eeprom.mk
 
 extra_clean += $(wildcard ${BUILD_DIR}/*.h) $(wildcard */compile_commands.json)
-extra_clean += ${EEPROM_FILE}
+extra_clean += ${EEPROM_FILE} librustyaxe.so librustyaxe.so.0 librrprotocol.so librrprotocol.so.0 librustyirc.so librustyirc.so.0
 extra_clean += firmware.log
 extra_clean_targets += gmatrix-clean
 .PHONY: gmatrix-clean
@@ -74,10 +80,7 @@ BUILD_HEADERS += $(wildcard ${BUILD_DIR}/*.h)
 EEPROM_GENERATED := ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_types.h ${BUILD_DIR}/eeprom_layout.h
 OBJECT_ORDER_ONLY := | ${EEPROM_GENERATED}
 
-# Directory-stamping prerequisites ensure the build tree exists before
-# pack-eeprom-derived objects are written.
-# Any build/ tree object (e.g. mongoose.c -> build/$PROFILE/librustyaxe/mongoose.o)
-# must wait for pack-eeprom to generate the headers in build/$PROFILE first.
+# Objects must wait for pack-eeprom to generate build configuration headers.
 ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
 
@@ -145,8 +148,8 @@ world: after-eeprom
 test-rrclient-codecs: ${bins}
 	bash rrclient/tests/test_codec_commands.sh
 
-# Audit RustyRig-owned files for legacy dual-license boilerplate without
-# modifying any source. Third-party submodules and Windows themes are excluded.
+# Audit RustyRig-owned files without modifying the sources. External libraries
+# are maintained separately, and third-party assets are excluded.
 .PHONY: license-check license-migrate
 license-check:
 	perl tools/releng-gplv2-headers.pl --check
