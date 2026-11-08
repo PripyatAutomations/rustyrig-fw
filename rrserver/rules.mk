@@ -189,3 +189,8 @@ rrserver_objs += srv.ping.o
 rrserver_objs += srv.rigctl.o
 rrserver_objs += srv.send.o
 rrserver_objs += srv.session.o
+
+# Protocol-facing application components, not shared library code.
+rrserver_objs += http.api.o
+rrserver_objs += http.bans.o
+rrserver_objs += ws.mediachan.o
