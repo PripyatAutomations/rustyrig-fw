@@ -25,6 +25,76 @@
 
 extern time_t now;
 
+/* Server-owned protocol replies, independent of the selected transport. */
+static bool ws_send_formatted(rrconn_t *client, const char *type, const char *field,
+                              const char *format, va_list args) {
+   if (!client || !format) {
+      return false;
+   }
+   char message[HTTP_WS_MAX_MSG - 55];
+   vsnprintf(message, sizeof(message), format, args);
+   dict *reply = dict_new();
+
+   if (!reply) {
+      return false;
+   }
+   dict_add(reply, "msg.type", type);
+   dict_add(reply, field, message);
+   dict_add_ulong(reply, "msg.ts", now);
+   bool sent = ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   dict_free(reply);
+
+   return sent;
+}
+
+bool ws_send_error(rrconn_t *client, const char *format, ...) {
+   va_list args;
+   va_start(args, format);
+   bool sent = ws_send_formatted(client, "error", "error.msg", format, args);
+   va_end(args);
+
+   return sent;
+}
+
+bool ws_send_notice(rrconn_t *client, const char *format, ...) {
+   va_list args;
+   va_start(args, format);
+   bool sent = ws_send_formatted(client, "notice", "notice.msg", format, args);
+   va_end(args);
+
+   return sent;
+}
+
+bool ws_kick_client(rrconn_t *client, const char *reason) {
+   if (!client || !client->active) {
+      return false;
+   }
+   dict *reply = dict_new();
+
+   if (reply) {
+      dict_add(reply, "msg.type", "auth");
+      dict_add(reply, "auth.error", reason ? reason : "Disconnected");
+      dict_add_ulong(reply, "msg.ts", now);
+      ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+      dict_free(reply);
+   }
+
+   /* Closing the transport queues its close event; session teardown owns
+    * removal from http_client_list and freeing the client. */
+   if (client->native_transport) {
+      rr_transport_close(client->native_transport);
+      return true;
+   }
+#ifdef USE_MONGOOSE
+   if (client->conn) {
+      client->conn->is_closing = 1;
+      return true;
+   }
+#endif
+   return false;
+}
+
+
 #ifdef  USE_MONGOOSE
 // Broadcast a message to all WebSocket clients (using http_client_list)
 void ws_broadcast(rrconn_t *sender, struct mg_str *msg_data, int data_type) {
