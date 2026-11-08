@@ -22,6 +22,8 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/codecneg.h>
 #include <librrprotocol/server.events.h>
+#include <librustyaxe/transport.h>
+#include <rrserver/database.h>
 
 // This defines a hard-coded fallback path for httpd root, if not set in config
 #ifdef  HOST_POSIX
@@ -206,6 +208,18 @@ bool ws_auth_refresh(rrconn_t *client) {
    return refresh.allowed;
 }
 
+/* No password credential may travel over an unencrypted WebSocket. */
+static bool auth_tls_connection(const rrconn_t *client) {
+   if (!client) return false;
+   if (client->native_transport &&
+       (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_ENCRYPTED))
+      return true;
+#ifdef USE_MONGOOSE
+   if (client->conn && client->conn->is_tls) return true;
+#endif
+   return false;
+}
+
 bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
    bool rv = true;
 
@@ -224,7 +238,6 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
    const char *pass = dict_get(d, "auth.pass", NULL);
    const char *token = dict_get(d, "auth.token", NULL);
    const char *user = dict_get(d, "auth.user", NULL);
-   char *temp_pw = NULL;
 
    // Must always send a command and username during auth
    if (!cmd || (!user && !token)) {
@@ -234,6 +247,11 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
    if (cptr->authenticated && (!strcasecmp(cmd, "login") || !strcasecmp(cmd, "pass"))) {
       ws_send_error(cptr, "Already authenticated; reconnect to change accounts");
 
+      return false;
+   }
+
+   if ((!strcasecmp(cmd, "login") || !strcasecmp(cmd, "pass")) && !auth_tls_connection(cptr)) {
+      ws_kick_client(cptr, "Password login requires TLS");
       return false;
    }
 
@@ -280,9 +298,8 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
          return false;
       }
 
-      if (strlen(cptr->user->pass) != HTTP_HASH_LEN || strspn(cptr->user->pass, "0123456789abcdefABCDEF") != HTTP_HASH_LEN) {
-         ws_kick_client(cptr, "Account password unavailable; ask an administrator to reset it");
-
+      if (!masterdb) {
+         ws_kick_client(cptr, "SQLite authentication database unavailable");
          return false;
       }
 
@@ -318,6 +335,7 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
       dict *auth_msg = dict_new();
       dict_add(auth_msg, "msg.type", "auth");
       dict_add(auth_msg, "auth.cmd", "challenge");
+      dict_add(auth_msg, "auth.method", "tls-password-v1");
       dict_add(auth_msg, "auth.nonce", cptr->nonce);
       dict_add(auth_msg, "auth.user", user);
       dict_add(auth_msg, "auth.token", cptr->token);
@@ -372,40 +390,21 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
          return false;
       }
 
-      // Deal with double-hashed (reply-protected) responses
-      char *nonce = cptr->nonce;
-
-      if (nonce == NULL) {
-         Log(LOG_WARN, "auth", "No nonce for user %d", login_uid);
-
+      const char *method = dict_get(d, "auth.method", "");
+      if (strcmp(method, "tls-password-v1") || strlen(pass) > 256 ||
+          !cptr->nonce[0] || !auth_tls_connection(cptr)) {
+         cptr->nonce[0] = '\0';
+         ws_kick_client(cptr, "Unsupported or expired TLS password challenge");
          return false;
       }
-
-      if (!cptr->nonce[0]) {
-         ws_kick_client(cptr, "Request a login challenge first");
-
-         return false;
-      }
-      temp_pw = compute_wire_password(up->pass, nonce);
+      /* Consume the nonce before expensive verification. */
       cptr->nonce[0] = '\0';
+      bool upgraded = false;
+      bool password_valid = db_user_password_authenticate(masterdb, up->name, pass, &upgraded);
+      if (upgraded)
+         Log(LOG_INFO, "auth", "Upgraded legacy account %s to Argon2id", up->name);
 
-      if (temp_pw == NULL) {
-         Log(LOG_WARN, "auth", "Got NULL return from compute_wire_password for cptr:<%p>, kicking!", cptr);
-
-         return false;
-      }
-
-      unsigned difference = 0;
-      size_t expected_length = strlen(temp_pw);
-      bool correct_length = strlen(pass) == expected_length;
-
-      if (correct_length) {
-         for (size_t i = 0 ; i < expected_length ; i++) {
-            difference |= (unsigned char)temp_pw[i] ^ (unsigned char)pass[i];
-         }
-      }
-
-      if (correct_length && difference == 0) {
+      if (password_valid) {
 #ifdef USE_MONGOOSE
 
          if (cptr->conn || cptr->native_transport) {
@@ -415,7 +414,6 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
             event_emit_binary(RR_SERVER_ADMISSION_EVENT, cptr, &admission, sizeof(admission));
 
             if (!admission.allowed) {
-               free(temp_pw);
                ws_kick_client(cptr, "Listener access denied");
 
                return false;
@@ -569,9 +567,7 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
          rv = false;
       }
 
-      // AUDIT: Sanitize buffers containing sensitive data before freeing
-      explicit_bzero(temp_pw, strlen(temp_pw));
-      free(temp_pw);
+      /* auth.pass belongs to the incoming dictionary: never log credentials. */
    }
 cleanup:
 
