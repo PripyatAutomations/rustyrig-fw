@@ -535,16 +535,12 @@ void rrserver_links_depart_revoked(const char *uuid) {
    if (!uuid || !g_uuid_string_is_valid(uuid)) return;
    for (struct link_session *s=links.sessions; s; s=s->next) {
       if (!s->established || strcmp(s->node,uuid) || session_closing(s)) continue;
-      /* Enqueue a graceful notice; the regular session-close path broadcasts
-       * link.withdraw and releases all relay/catalog state. */
-      dict *bye=message("link.withdraw");
-      if (bye) {
-         dict_add(bye,"node",uuid);
-         /* The normal withdraw belongs to the closing session, not this sender.
-          * Do not forge a withdraw operation on the revoked peer's behalf. */
-         dict_free(bye);
-      }
-      fail_cause(s,"trust-revoked","Signed identity revocation accepted; goodbye");
+      /* Let the WebSocket deliver revocation ACKs and a graceful close.
+       * The regular close_session() performs link.withdraw and downstream
+       * resource removal. Never forge a withdraw from the remote node. */
+      s->revocation_depart_after=mono_ms()+300;
+      s->revocation_depart_deadline=mono_ms()+2000;
+      if (s->peer) s->peer->manually_closed=true;
    }
 }
 
@@ -1684,6 +1680,15 @@ void rrserver_links_poll(void) {
 
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
       drain_deferred(s);
+      if (s->revocation_depart_after && at >= s->revocation_depart_after &&
+          (!rr_transport_queued_bytes(s->transport) || at >= s->revocation_depart_deadline)) {
+         s->revocation_depart_after=0;
+         s->close_cause="trust-revoked";
+         snprintf(s->close_reason,sizeof(s->close_reason),"Signing identity revoked; goodbye");
+         s->closing=true;
+         rr_transport_close(s->transport);
+         continue;
+      }
 
       if (!s->established && at - s->started > cfg_get_int("links.handshake-seconds", 10) * 1000LL) {
          fail_cause(s, "handshake-timeout", "Connection setup timed out; check network reachability, TLS and peer configuration");
