@@ -157,6 +157,16 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
       dict_add(signed_reply,"identity.session",session?session:"");
       dict_add(signed_reply,"identity.destination",dest?dest:"");
       dict_add(signed_reply,"identity.username",username?username:"");
+      char stamped[32];
+      snprintf(stamped,sizeof(stamped),"%lld",(long long)time(NULL));
+      char *nonce=g_uuid_string_random();
+      if (!nonce) {
+         dict_free(signed_reply);
+         return false;
+      }
+      dict_add(signed_reply,"identity.timestamp",stamped);
+      dict_add(signed_reply,"identity.nonce",nonce);
+      g_free(nonce);
       if (!rr_identity_sign_catalog(signed_reply)) {
          dict_free(signed_reply);
          return false;
@@ -673,6 +683,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 #ifdef USE_SQLITE
       if (verified) verified=rr_identity_known_signer(masterdb,cfg_get("domain"),
          origin,dict_get(d,"identity.public-key",""));
+      if (verified) verified=rr_identity_accept_control_nonce(masterdb,d);
 #else
       verified=false;
 #endif
@@ -1132,6 +1143,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 #ifdef USE_SQLITE
       if (valid) valid=rr_identity_known_signer(masterdb,cfg_get("domain"),
          origin,dict_get(d,"identity.public-key",""));
+      if (valid) valid=rr_identity_accept_control_nonce(masterdb,d);
 #else
       valid=false;
 #endif
@@ -1156,6 +1168,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
          if (valid) {
             valid = rr_identity_known_signer(masterdb, cfg_get("domain"), origin, dict_get(d, "identity.public-key", ""));
+            if (valid) valid=rr_identity_accept_control_nonce(masterdb,d);
          }
 #endif
 
