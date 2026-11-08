@@ -533,8 +533,10 @@ void rrserver_links_each_neighbor(rr_link_neighbor_fn cb, void *context) {
 }
 void rrserver_links_depart_revoked(const char *uuid) {
    if (!uuid || !g_uuid_string_is_valid(uuid)) return;
+   bool direct=false;
    for (struct link_session *s=links.sessions; s; s=s->next) {
       if (!s->established || strcmp(s->node,uuid) || session_closing(s)) continue;
+      direct=true;
       /* Let the WebSocket deliver revocation ACKs and a graceful close.
        * The regular close_session() performs link.withdraw and downstream
        * resource removal. Never forge a withdraw from the remote node. */
@@ -547,6 +549,25 @@ void rrserver_links_depart_revoked(const char *uuid) {
       s->revocation_depart_after=mono_ms()+300;
       s->revocation_depart_deadline=mono_ms()+2000;
       if (s->peer) s->peer->manually_closed=true;
+   }
+   if (!direct) {
+      /* A revoked descendant can sit behind a healthy intermediary. Withdraw
+       * only that branch, preserving independently authenticated neighbors. */
+      const char *via=rrserver_links_route(uuid);
+      if (via && links.tree) {
+         remember_topology_sites();
+         if (rr_link_tree_remove(links.tree,via,uuid)) {
+            links.generation++;
+            dict *withdrawal=message("link.withdraw");
+            if (withdrawal) {
+               dict_add(withdrawal,"node",uuid);
+               broadcast(NULL,withdrawal);
+               dict_free(withdrawal);
+            }
+            event_emit("server.link.lost",NULL,uuid);
+            Log(LOG_AUDIT,"mesh.identity","Withdrew revoked remote node %s from route via %s",uuid,via);
+         }
+      }
    }
 }
 
