@@ -1,3 +1,12 @@
+rustyrig-fw (1.0.2-4) unstable; urgency=medium
+
+  * Combine the fwdsp executable, libfwdspmgr shared library, and SDK
+    headers in rustyrig-fwdsp, described as the audio processing engine.
+  * Retire libfwdspmgr and libfwdspmgr-dev binary packages; migrate their
+    installed files and update client/server dependencies.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 09:00:00 -0500
+
 rustyrig-fw (1.0.2-3) unstable; urgency=medium
 
   * Use native RustyAxe OpenSSL/wslay for KiwiSDR audio/control and waterfall.

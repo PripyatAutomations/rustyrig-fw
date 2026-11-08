@@ -117,12 +117,11 @@ endif
 	install -Dm644 sql/sqlite.master.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.sql
 	install -Dm644 sql/sqlite.master.preload.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.preload.sql
 
-	install -Dm755 libfwdspmgr.so debian/libfwdspmgr$(LIBDIR)/libfwdspmgr.so.0
-	install -d debian/libfwdspmgr-dev$(LIBDIR)
-	ln -sf libfwdspmgr.so.0 debian/libfwdspmgr-dev$(LIBDIR)/libfwdspmgr.so
-
-	install -d debian/libfwdspmgr-dev/usr/include/libfwdspmgr
-	cp -a libfwdspmgr/*.h debian/libfwdspmgr-dev/usr/include/libfwdspmgr/
+	# fwdsp and its manager shared library are one binary package.
+	install -Dm755 libfwdspmgr.so debian/rustyrig-fwdsp$(LIBDIR)/libfwdspmgr.so.0
+	ln -sf libfwdspmgr.so.0 debian/rustyrig-fwdsp$(LIBDIR)/libfwdspmgr.so
+	install -d debian/rustyrig-fwdsp/usr/include/libfwdspmgr
+	cp -a libfwdspmgr/*.h debian/rustyrig-fwdsp/usr/include/libfwdspmgr/
 
 	install -d debian/rustyrig-server/usr/share/doc/rustyrig/config
 	cp -a config/rrserver.cfg config/rrserver.*.cfg config/rrclient.cfg config/callsign-lookup.cfg config/callsign-lookup.cli.cfg config/ua-bans debian/rustyrig-server/usr/share/doc/rustyrig/config/

@@ -13,7 +13,6 @@ case ${UNAME_M} in
       ;;
 esac
 
-DEBS="../libfwdspmgr_*_${ARCH}.deb"
 DEBS="$DEBS ../libfwdspmgr-dbgsym_*_${ARCH}.deb"
 DEBS="$DEBS ../libfwdspmgr-dev_*_${ARCH}.deb"
 DEBS="$DEBS ../librustyirc_*_${ARCH}.deb"
