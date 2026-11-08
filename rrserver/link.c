@@ -1354,6 +1354,17 @@ bool rrserver_links_init(void) {
 
    links.domain[domain_len] = '\0';
 
+   /* --revoke-certs intentionally locks the server until a local rotation.
+    * Never silently generate a replacement credential for a revoked host. */
+   const char *identity_dir=config_value("path.identity","/var/lib/rustyrig/identity");
+   char *revoked_lock=g_build_filename(identity_dir,"revoked.lock",NULL);
+   bool suspended=revoked_lock && g_file_test(revoked_lock,G_FILE_TEST_EXISTS);
+   g_free(revoked_lock);
+   if (suspended) {
+      Log(LOG_CRIT,"mesh.identity","Server identity has been revoked locally; run rrserver --rotate-certs before restarting");
+      return false;
+   }
+
    /* The signing identity is local, durable, and independent of link sessions. */
    if (!rr_identity_init(config_value("path.identity", "/var/lib/rustyrig/identity"))) {
       Log(LOG_CRIT, "link", "Cannot securely load or create server Ed25519 identity");
