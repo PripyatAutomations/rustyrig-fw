@@ -1227,6 +1227,27 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
                "DELETE FROM mesh_link_endpoints WHERE domain=?1 AND node_uuid=?2"
             };
             unsigned removed = 0;
+            /* Record the exact compromised signing key before removing active
+             * trust. Catalog TOFU must never resurrect a revoked key. */
+            if (ok) ok = sqlite3_exec(masterdb,
+               "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys ("
+               "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
+               "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+               "PRIMARY KEY(domain,owner_uuid,public_key))", NULL, NULL, NULL) == SQLITE_OK;
+            if (ok) {
+               if (sqlite3_prepare_v2(masterdb,
+                  "INSERT OR IGNORE INTO mesh_revoked_identity_keys(domain,owner_uuid,public_key) "
+                  "SELECT domain,owner_uuid,catalog_pubkey FROM mesh_explicit_trust "
+                  "WHERE domain=?1 AND owner_uuid=?2", -1, &stmt, NULL) != SQLITE_OK) {
+                  ok = false;
+               } else {
+                  sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+                  sqlite3_bind_text(stmt, 2, uuid, -1, SQLITE_TRANSIENT);
+                  ok = sqlite3_step(stmt) == SQLITE_DONE;
+               }
+               sqlite3_finalize(stmt);
+               stmt = NULL;
+            }
             for (unsigned i = 0; ok && i < G_N_ELEMENTS(queries); ++i) {
                if (sqlite3_prepare_v2(masterdb, queries[i], -1, &stmt, NULL) != SQLITE_OK) {
                   /* Optional endpoint tables may not exist on older installations.
@@ -1243,6 +1264,21 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
                stmt = NULL;
             }
             if (ok && !removed) ok = false;
+            if (ok) {
+               /* The revoked key stays on the denylist, but its obsolete
+                * TOFU pin must not block a separately authorized new key. */
+               if (sqlite3_prepare_v2(masterdb,
+                  "DELETE FROM mesh_identity_pins WHERE domain=?1 AND owner_uuid=?2",
+                  -1, &stmt, NULL) != SQLITE_OK) {
+                  ok = sqlite3_errcode(masterdb) == SQLITE_ERROR &&
+                     strstr(sqlite3_errmsg(masterdb), "no such table:") != NULL;
+               } else {
+                  sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+                  sqlite3_bind_text(stmt, 2, uuid, -1, SQLITE_TRANSIENT);
+                  ok = sqlite3_step(stmt) == SQLITE_DONE;
+               }
+               sqlite3_finalize(stmt);
+            }
             if (ok) ok = sqlite3_exec(masterdb, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
             if (!ok) {
                sqlite3_exec(masterdb, "ROLLBACK", NULL, NULL, NULL);
