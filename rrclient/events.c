@@ -1274,7 +1274,7 @@ static void rrclient_handle_admin_command_request(const char *event, const char 
             dict_add(message, "talk.target", target);
          }
          const char *fields[] = {
-            "user.email", "user.real_name", "user.phone", "request.decision", "request.grants", "request.remote"
+            "user.email", "user.real_name", "user.phone", "user.maxsessions", "request.decision", "request.grants", "request.remote"
          };
 
          for (size_t i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
