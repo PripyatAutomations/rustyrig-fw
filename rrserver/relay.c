@@ -989,7 +989,22 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             }
          }
       } else if (!strcmp(kind, "users")) {
-         rr_relay_directory_put(origin, d);
+         bool valid=!strcmp(dict_get(d,"identity.owner",""),origin) &&
+            !g_ascii_strcasecmp(dict_get(d,"identity.domain",""),cfg_get("domain")) &&
+            !strcmp(dict_get(d,"identity.operation",""),"users-snapshot") &&
+            !strcmp(dict_get(d,"identity.scheme",""),"ed25519-catalog-v1") &&
+            rr_identity_verify_catalog(d);
+#ifdef USE_SQLITE
+         if (valid) valid=rr_identity_known_signer(masterdb,cfg_get("domain"),
+            origin,dict_get(d,"identity.public-key",""));
+#else
+         valid=false;
+#endif
+         if (!valid) {
+            Log(LOG_WARN,"mesh.identity","Rejecting unsigned or forged user-directory snapshot for %s",origin);
+            goto done;
+         }
+         rr_relay_directory_put(origin,d);
       } else {
          /* Removal descriptors are catalog records too. Prevent unsigned or forged removals from bypassing normal catalog admission. */
          const char *signature = dict_get(d, "identity.signature", NULL);
