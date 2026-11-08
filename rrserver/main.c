@@ -6,7 +6,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //
 #include "build_config.h" /* Server profile feature flags. */
-#include <librrprotocol/http.h> /* load_http_ua_bans() */
+#include <librrprotocol/http.h>
+#include <rrserver/http.bans.h>
 #include <rrserver/receiver.directory.h>
 #include <rrserver/link.h>
 #include <librustyaxe/reactor.glib.h>
