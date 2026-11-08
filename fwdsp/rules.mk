@@ -20,7 +20,7 @@ fwdsp_real_objs := $(addprefix ${BUILD_DIR}/fwdsp/,$(fwdsp_objs))
 
 # Only fwdsp.c needs VERSION from the command line. defconfig.c gets it
 # from generated build_config.h, avoiding a macro redefinition.
-${BUILD_DIR}/fwdsp/fwdsp.o: CFLAGS_FWDSP += -DVERSION=\\\"$(VERSION)\\\"
+${BUILD_DIR}/fwdsp/fwdsp.o: CFLAGS_FWDSP += -DVERSION=\"$(VERSION)\"
 
 # fwdsp/defconfig.c includes build_config.h, which pack-eeprom generates; wait
 # for it before compiling so parallel builds cannot race the generator.
