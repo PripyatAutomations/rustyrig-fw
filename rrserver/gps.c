@@ -1,10 +1,7 @@
 // rrserver/gps.c: GPS related bits
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 // Rig-scoped GPS publication. Adapters supply validated receiver sentences;
 // configured coordinates generate RMC in manual mode. No floating point.
 #include <ctype.h>

@@ -1,11 +1,8 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 // rrserver/gpio.c: libgpiod v2 adapter for any kernel GPIO controller
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-only
 #include <errno.h>
 #include <glob.h>
 #include <stdlib.h>
