@@ -1474,8 +1474,13 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       ui_print(NULL, "IRC requires the Mongoose backend; native transport supports RustyRig WebSocket");
       return true;
    }
-   if (proxy_override || (cfg_get("server.proxy") && *cfg_get("server.proxy"))) {
-      ui_print(NULL, "SOCKS5 proxy transport is not yet available with native WSS");
+   const char *proxy = profile ? get_server_property(profile, "server.proxy") : NULL;
+
+   if (!proxy || !*proxy) {
+      proxy = cfg_get("server.proxy");
+   }
+   if ((proxy_override && *proxy_override) || (proxy && *proxy)) {
+      ui_print(NULL, "SOCKS5 proxy transport requires a Mongoose-enabled build");
       return true;
    }
    if (!profile || !*profile) {
@@ -1524,8 +1529,12 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    const char *nick = get_server_property(s->name, "server.user");
    const char *password = get_server_property(s->name, "server.pass");
 
+   if (endpoint.credentials) {
+      nick = endpoint.user;
+      password = endpoint.pass;
+   }
    if (!nick || !*nick) {
-      nick = endpoint.credentials ? endpoint.user : "guest";
+      nick = "guest";
    }
    if (strlen(nick) >= sizeof(native->server.nick) ||
        (password && strlen(password) >= sizeof(native->server.pass))) {
