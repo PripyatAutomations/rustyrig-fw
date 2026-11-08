@@ -595,6 +595,12 @@ int main(int argc, char **argv) {
          "reset-uuids", no_argument, NULL, 1007
       },
       {
+         "rotate-certs", no_argument, NULL, 1010
+      },
+      {
+         "revoke-certs", no_argument, NULL, 1011
+      },
+      {
          "help", no_argument, NULL, 'h'
       },
       {
@@ -639,6 +645,15 @@ int main(int argc, char **argv) {
             }
             mesh_join = true;
             mesh_join_path = optarg;
+            break;
+         }
+         case 1010:
+         case 1011: {
+            if (maintenance != RR_MAINT_NONE || mesh_join) {
+               fprintf(stderr, "Specify only one maintenance operation.\\n");
+               return EXIT_FAILURE;
+            }
+            maintenance = opt==1010 ? RR_MAINT_ROTATE_CERTS : RR_MAINT_REVOKE_CERTS;
             break;
          }
          case 1001:
