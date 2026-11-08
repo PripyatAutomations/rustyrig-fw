@@ -93,4 +93,5 @@ if command -v db_get >/dev/null 2>&1 && db_get rustyrig/serial-users; then
         adduser "$user" rruser
     done
 fi
+#DEBHELPER#
 exit 0
