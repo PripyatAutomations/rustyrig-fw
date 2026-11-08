@@ -117,7 +117,28 @@ select a codec supported by the client, and verify receive audio before TX.
 Opus is a useful initial choice; native /rxcodec opus selects it. Use /help
 for codec controls and doc/media-codecs.md for decoder/pipeline requirements.
 
-5. Temporary cross-site demo access
+5. Customize the GTK appearance (fonts, sizes, colors)
+------------------------------------------------------
+RustyRig has built-in GTK CSS defaults. On Linux installations,
+/etc/rustyrig/rrclient.css is a REFERENCE COPY of those defaults, not a
+configuration file; the client does not read it automatically.
+
+To export the CSS from a source checkout, run:
+
+    perl tools/releng-dump-css.pl --css > rrclient.css
+
+For a paste-ready [gtk-css] block (including escaped # selectors), run:
+
+    perl tools/releng-dump-css.pl > gtk-css.cfg
+
+Copy the rules you want to customize into a [gtk-css] section of your own
+rrclient.cfg. Change fonts, sizes, or colors there, then use /css-reload in
+the GTK client to apply edits without rebuilding. You do not need to add any
+CSS to rrclient.cfg unless you want to override the compiled defaults.
+Note: rrclient.css is reference documentation only and is NOT a CSS include.
+See doc/gtk-typography.md for platform font fallbacks and more details.
+
+6. Temporary cross-site demo access
 -----------------------------------
 For a multi-server demonstration, run the following on EACH destination server
 to grant authenticated remote admin accounts from any linked site full rig
