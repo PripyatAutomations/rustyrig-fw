@@ -125,6 +125,12 @@ ${BUILD_DIR}/.stamp:
 
 world: after-eeprom
 
+# The codec/GPSP harness also runs automatically in make test through
+# rrclient/tests/test_codec_commands.sh (run-tests.sh discovers test_*.sh).
+.PHONY: test-rrclient-codecs
+test-rrclient-codecs: ${bins}
+	bash rrclient/tests/test_codec_commands.sh
+
 # Build configured programs and run the maintained project test suites.
 TEST_SUITES ?= selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient fwdsp libfwdspmgr www
 .PHONY: test
