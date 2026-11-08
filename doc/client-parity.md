@@ -984,15 +984,17 @@ token handling and supplies auth.msg; `/logout` retains its default reason.
 
 ## Exporting native default CSS
 
-Run `./tools/dump-css.pl > gtk-css.cfg` to extract the compiled client stylesheet
-from `rrclient/defconfig.c` as a pasteable `[gtk-css]` section. The helper decodes
-C string literals, ignores source comments, deduplicates identical definitions
-and rejects conflicting variants. It escapes leading config comment characters
-without changing CSS rules. It does not read or replace user configuration.
-Replace the existing client CSS section with the generated block, edit it and
-run `/css-reload`. Native config loading, saving and CSS reload preserve escaped
-ID selectors; a closed one-line block comment cannot consume subsequent rules.
-This helper and INI/CSS escaping are native-specific.
+Run `perl tools/releng-dump-css.pl --css > rrclient.css` to export the
+compiled Linux GTK stylesheet as plain CSS. Packaged/source installs also
+place that reference at `/etc/rustyrig/rrclient.css`; it is **documentation,
+not configuration**, and is never automatically loaded.
+
+Use `perl tools/releng-dump-css.pl > gtk-css.cfg` to export a paste-ready
+`[gtk-css]` block. This helper decodes the C literals and font-stack macros
+and escapes selectors that the INI parser would otherwise interpret as
+comments. Copy only rules you want to customize into your own
+`rrclient.cfg` `[gtk-css]` section, then run `/css-reload`. The sample config
+ships without active CSS; compiled styles remain in effect until overridden.
 
 Remote inventory service rows use the existing inventory wire contract and are
 consumed by native and browser discovery. Relay-private catalog fields are
