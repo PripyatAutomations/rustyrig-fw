@@ -1644,6 +1644,39 @@ void rr_relay_catalog_pump(void) {
    }
 }
 
+/* A revoked owner's descriptors must disappear immediately and must not
+ * survive catalog refreshes. Trust revocation is committed by the caller
+ * before this purge; catalog admission still verifies the owner's key. */
+size_t rr_relay_catalog_revoke_owner(const char *owner) {
+   if (!owner || !*owner || !g_uuid_string_is_valid(owner) ||
+       !strcmp(owner, rrserver_links_node())) {
+      return 0;
+   }
+   size_t count = 0;
+   struct catalog **cursor = &rr_relay_catalogs;
+
+   while (*cursor) {
+      struct catalog *entry = *cursor;
+
+      if (strcmp(entry->owner, owner)) {
+         cursor = &entry->next;
+         continue;
+      }
+      *cursor = entry->next;
+      dict_free(entry->descriptor);
+      free(entry);
+      if (rr_relay_catalog_count) {
+         rr_relay_catalog_count--;
+      }
+      count++;
+   }
+   if (count) {
+      rr_relay_catalog_dirty = true;
+      Log(LOG_AUDIT, "mesh.identity", "Purged %zu catalog descriptors belonging to revoked owner %s", count, owner);
+   }
+   return count;
+}
+
 /* Link generations must not share in-flight catalog transports. */
 void rr_relay_catalog_peer_lost(const char *node) {
    if (!node || !*node) {
