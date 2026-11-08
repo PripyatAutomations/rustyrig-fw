@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 # Dump the native client's compiled default CSS as an editable config section.
-# Part of rustyrig-fw; MIT without mongoose, GPL when built with it.
+# Part of RustyRig.
+# SPDX-License-Identifier: GPL-2.0-only
 use strict;
 use warnings;
 use FindBin qw($RealBin);
