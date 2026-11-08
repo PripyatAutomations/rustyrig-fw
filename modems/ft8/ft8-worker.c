@@ -1,5 +1,5 @@
 // Receive-only FT8 worker for RustyRig. No TX, rig control or GUI required.
-// Copyright RustyRig contributors, MIT license when built without Mongoose.
+// Copyright RustyRig contributors, GPL-2.0-only.
 // External dependency: Karlis Goba's MIT licensed ft8_lib.
 #define _POSIX_C_SOURCE 200809L
 #include <errno.h>
