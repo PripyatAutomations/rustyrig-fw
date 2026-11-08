@@ -25,6 +25,10 @@ bool rr_revocation_schema(sqlite3 *db) {
       "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
       "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
       "PRIMARY KEY(domain,owner_uuid,public_key));"
+      "CREATE TABLE IF NOT EXISTS mesh_revoked_tls_spki("
+      "domain TEXT NOT NULL,spki TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,spki));"
       "CREATE TABLE IF NOT EXISTS mesh_revocation_acks("
       "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
       "peer_uuid TEXT NOT NULL,acknowledged_at INTEGER NOT NULL DEFAULT (unixepoch()),"
@@ -64,6 +68,21 @@ static bool store(sqlite3 *db, dict *d, bool *fresh) {
    free(json);
    return ok;
 }
+static bool record_tls_pin(sqlite3 *db, const char *domain, const char *uuid,
+      const char *spki) {
+   sqlite3_stmt *stmt=NULL;
+   bool ok=sqlite3_prepare_v2(db,
+      "INSERT OR IGNORE INTO mesh_revoked_tls_spki(domain,spki,owner_uuid)"
+      " VALUES(?1,?2,?3)",-1,&stmt,NULL)==SQLITE_OK;
+   if (ok) {
+      sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,2,spki,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,3,uuid,-1,SQLITE_TRANSIENT);
+      ok=sqlite3_step(stmt)==SQLITE_DONE;
+   }
+   sqlite3_finalize(stmt);
+   return ok;
+}
 bool rr_revocation_stage(sqlite3 *db,const char *domain,const char *uuid,const char *spki) {
    const char *key=rr_identity_public_base64();
    if (!key || !g_uuid_string_is_valid(uuid) || !domain || !spki) return false;
@@ -81,7 +100,8 @@ bool rr_revocation_stage(sqlite3 *db,const char *domain,const char *uuid,const c
    char *nonce=g_uuid_string_random();
    dict_add(d,"identity.nonce",nonce);
    g_free(nonce);
-   bool ok=rr_identity_sign_catalog(d) && store(db,d,NULL);
+   bool ok=rr_identity_sign_catalog(d) && store(db,d,NULL) &&
+      record_tls_pin(db,domain,uuid,spki);
    dict_free(d);
    return ok;
 }
@@ -121,6 +141,7 @@ bool rr_revocation_receive(sqlite3 *db,dict *d,bool *fresh) {
    if (!known) return false;
    bool ok=sqlite3_exec(db,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
    if (ok) ok=store(db,d,fresh);
+   if (ok) ok=record_tls_pin(db,domain,uuid,spki);
    if (ok) {
       if (sqlite3_prepare_v2(db,
          "INSERT OR IGNORE INTO mesh_revoked_identity_keys(domain,owner_uuid,public_key)"
