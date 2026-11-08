@@ -1015,6 +1015,7 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
          dict_free(info);
       }
    }
+   s->connected = ws_connected;
    dispatch_depth--;
    activate(dispatch_depth ? previous : selected);
 }
