@@ -839,6 +839,15 @@ static void kiwi_poll(void *instance) {
    }
 
    if (current - k->wf_stats_at >= UINT64_C(10000000)) {
+      if (k->waterfall_enabled && k->online && !k->wf_received && !k->wf_sent) {
+         char detail[256];
+         snprintf(detail, sizeof(detail),
+            "Kiwi RF waterfall/10s no frames: socket=%s ready=%s max_hz=%" PRIu64 " zoom=%u",
+            !k->waterfall ? "disconnected" :
+            rr_transport_state(k->waterfall) == RR_TRANSPORT_OPEN ? "open" : "connecting/closing",
+            k->waterfall_ready ? "yes" : "no", k->max_hz, k->waterfall_zoom);
+         note(k, detail);
+      }
       if (k->wf_received || k->wf_throttled || k->wf_ipc_dropped || k->wf_invalid) {
          char detail[256];
          uint64_t dropped = k->wf_throttled + k->wf_ipc_dropped + k->wf_invalid;
