@@ -277,6 +277,14 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    g_strlcpy(profile_email, dict_get(request, "user.email", ""), sizeof(profile_email));
    g_strlcpy(profile_real, dict_get(request, "user.real_name", ""), sizeof(profile_real));
    g_strlcpy(profile_phone, dict_get(request, "user.phone", ""), sizeof(profile_phone));
+   /* The admin editor chooses an account-specific concurrency limit. The
+    * existing database/auth layer already enforces max_sessions. */
+   const char *limit_text = dict_get(request, "user.maxsessions", "1");
+   char *limit_end = NULL;
+   errno = 0;
+   long requested_sessions = strtol(limit_text, &limit_end, 10);
+   bool sessions_valid = *limit_text && limit_end && !*limit_end && !errno &&
+      requested_sessions >= 1 && requested_sessions <= HTTP_MAX_SESSIONS;
    const char *command_data = dict_get(request, "user.data", NULL);
 
    if (!command_data) {
@@ -376,6 +384,10 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    }
 
    if (strcasecmp(argv[0], "add") == 0) {
+      if (!sessions_valid) {
+         ws_send_notice(cptr, "USER: max sessions must be between 1 and %d", HTTP_MAX_SESSIONS);
+         return;
+      }
       if (argc < 2 || argc > 3 || !user_name_valid(argv[1])) {
          ws_send_notice(cptr, "Usage: /user add <user> [privileges]");
 
@@ -414,7 +426,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          ok = sqlite3_exec(masterdb, "BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK;
 
          if (ok) {
-            ok = db_user_create(masterdb, uid, argv[1], true, password_hash, *profile_email ? profile_email : "", 1, privileges, true, now + 7 * 86400);
+            ok = db_user_create(masterdb, uid, argv[1], true, password_hash, *profile_email ? profile_email : "", (int)requested_sessions, privileges, true, now + 7 * 86400);
 
             if (ok) {
                dict *fields = dict_new();
