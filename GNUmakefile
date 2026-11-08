@@ -22,6 +22,44 @@ include mk/optional-modules.mk
 # Keep targets and SDK checks in agreement, including command-line opt-outs.
 $(foreach m,$(OPTIONAL_MODULES),$(eval override $(OPTIONAL_$(m)_FEATURE) := $(OPTIONAL_$(m)_ENABLED)))
 BUILD_DIR := ./build/${PROFILE}
+
+# Prefer the standalone installed library; build the submodule only when
+# pkg-config cannot find its development package. Override with
+# LIBRUSTYAXE_PROVIDER=system|local (default: auto).
+LIBRUSTYAXE_PROVIDER ?= auto
+AXE_PKG_CONFIG ?= pkg-config
+ifeq ($(LIBRUSTYAXE_PROVIDER),auto)
+ifneq ($(shell $(AXE_PKG_CONFIG) --exists librustyaxe && echo yes),)
+LIBRUSTYAXE_PROVIDER := system
+else
+LIBRUSTYAXE_PROVIDER := local
+endif
+endif
+ifeq ($(LIBRUSTYAXE_PROVIDER),system)
+ifeq ($(shell $(AXE_PKG_CONFIG) --exists librustyaxe && echo yes),)
+$(error librustyaxe not available through pkg-config; install librustyaxe-dev or set LIBRUSTYAXE_PROVIDER=local)
+endif
+AXE_SYSTEM_LIBDIR := $(shell $(AXE_PKG_CONFIG) --variable=libdir librustyaxe)
+AXE_SYSTEM_INCLUDEDIR := $(shell $(AXE_PKG_CONFIG) --variable=includedir librustyaxe)
+ifeq ($(wildcard $(AXE_SYSTEM_LIBDIR)/librustyaxe.so),)
+$(error Missing $(AXE_SYSTEM_LIBDIR)/librustyaxe.so from librustyaxe-dev)
+endif
+ifeq ($(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h),)
+$(error Missing $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h from librustyaxe-dev)
+endif
+else ifeq ($(LIBRUSTYAXE_PROVIDER),local)
+ifeq ($(wildcard librustyaxe/rules.mk),)
+ifneq ($(wildcard .gitmodules),)
+$(info [librustyaxe] checking out missing submodule)
+$(shell git submodule update --init librustyaxe)
+endif
+endif
+ifeq ($(wildcard librustyaxe/rules.mk),)
+$(error Missing librustyaxe/rules.mk; initialize the librustyaxe submodule)
+endif
+else
+$(error Unsupported LIBRUSTYAXE_PROVIDER=$(LIBRUSTYAXE_PROVIDER), expected auto, system or local)
+endif
 include mk/compile.mk
 include mk/database.mk
 include mk/eeprom.mk
@@ -55,7 +93,23 @@ ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
 
 extra_clean += ${librustyaxe} librustyaxe/irc-test
+ifeq ($(LIBRUSTYAXE_PROVIDER),system)
+# Keep the historical checkout-root .so expected by linked subprojects.
+# Refuse to overwrite a real local build: make distclean first when switching.
+.PHONY: axe-system-check
+axe-system-check:
+	@test ! -e librustyaxe.so || test -L librustyaxe.so || { echo "Local librustyaxe.so exists; run make distclean before selecting system librustyaxe" >&2; exit 1; }
+librustyaxe.so: | axe-system-check
+	@ln -sfn "$(AXE_SYSTEM_LIBDIR)/librustyaxe.so" $@
+	@echo "[librustyaxe] using installed $(AXE_SYSTEM_LIBDIR)/librustyaxe.so"
+# Public headers from the installed -dev package take priority over the
+# checkout's top-level -I.  Create a single overlay, not source-tree copies.
+$(BUILD_DIR)/axe-system-include/librustyaxe:
+	@mkdir -p $(dir $@)
+	@ln -sfn "$(AXE_SYSTEM_INCLUDEDIR)/librustyaxe" $@
+else
 include librustyaxe/rules.mk
+endif
 include librustyirc/rules.mk
 include librrprotocol/rules.mk
 
