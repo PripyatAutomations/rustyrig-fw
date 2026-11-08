@@ -215,6 +215,15 @@ endif
 ifeq ($(BUILD_CALLSIGN_LOOKUP),true)
 .PHONY: callsign-lookup-world
 callsign-lookup-world: $(librustyaxe)
+	@if [ ! -f callsign-lookup/GNUmakefile ]; then \
+		if [ -d .git ] || [ -f .git ]; then \
+			git submodule update --init callsign-lookup || exit $?; \
+		fi; \
+	fi
+	@test -f callsign-lookup/GNUmakefile || { \
+		echo 'Missing callsign-lookup/GNUmakefile: initialize the submodule (git submodule update --init callsign-lookup), or include callsign-lookup in the source distribution.' >&2; \
+		exit 1; \
+	}
 	$(MAKE) -C callsign-lookup RUSTYRIG_FW_BUILD=true LIBRUSTYAXE_PROVIDER=$(LIBRUSTYAXE_PROVIDER) world
 extra_build += callsign-lookup-world
 endif
