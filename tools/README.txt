@@ -23,9 +23,13 @@ If not listed, look at the top of the script for more info. Names should be clea
     stop-pulse-loopback.sh	Stop pulseaudio loopback
     update-tree.sh		Update all of the tree, including third-party submodules
 
-./tools/dump-css.pl > gtk-css.cfg
-  Extract the native client's compiled default CSS into a standalone [gtk-css]
-  block, including escaped ID selectors. Copy that block into rrclient.cfg,
-  replacing the existing [gtk-css] section, then edit and run /css-reload.
-  The helper reads rrclient/defconfig.c relative to its own location, so it can
-  run from any directory. It never reads user configuration or overwrites it.
+perl tools/releng-dump-css.pl --css > rrclient.css
+  Export the compiled Linux GTK defaults as plain CSS. The generated reference
+  is installed at /etc/rustyrig/rrclient.css, but is NOT loaded automatically.
+  Copy only the rules you want to change into an optional [gtk-css] section
+  in rrclient.cfg, then run /css-reload. Escape leading # or ; selectors when
+  pasting into the INI file.
+
+perl tools/releng-dump-css.pl > gtk-css.cfg
+  Emit the same defaults as a paste-ready [gtk-css] section, with escaped
+  selectors. No CSS is required in the example rrclient.cfg.
