@@ -7,7 +7,7 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/module.h>
-#include <ext/libmongoose/mongoose.h>
+#include <mongoose.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

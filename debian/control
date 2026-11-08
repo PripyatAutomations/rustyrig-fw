@@ -14,6 +14,7 @@ Build-Depends:
  libcurl4-openssl-dev,
  libssl-dev,
  libwslay-dev,
+ mongoose-webserver-source,
  libev-dev,
  libgpiod-dev,
  libglib2.0-dev,

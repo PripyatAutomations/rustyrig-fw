@@ -1,4 +1,6 @@
-# KiwiSDR loadable receiver module. Runtime host will be added separately.
+# KiwiSDR bridge uses Mongoose from the Debian mongoose-webserver-source
+# development headers, not RustyRig's retired ext/libmongoose submodule.
+# Keep the legacy transport until its native OpenSSL/wslay conversion.
 ifneq ($(OS),DARWIN)
 ifeq (${PLATFORM},posix)
 rrbridge_modules := bin/rrbridge-kiwi.so

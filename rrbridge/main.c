@@ -6,7 +6,7 @@
 #include <librrprotocol/bridge.ipc.h>
 #include <librrprotocol/bridge.media.h>
 #include <time.h>
-#include <ext/libmongoose/mongoose.h>
+#include <mongoose.h>
 #include <librrprotocol/bridge.config.h>
 #include <librustyaxe/core.h>
 #include <poll.h>
