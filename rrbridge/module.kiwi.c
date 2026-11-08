@@ -7,7 +7,8 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/module.h>
-#include <mongoose.h>
+#include <librustyaxe/transport.wss.h>
+#include <librustyaxe/transport.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,10 +23,8 @@
 #define KIWI_QUEUE_MAX 16384
 struct kiwi_instance {
    rrp_sdr_host_t host;
-   struct mg_mgr manager;
-   char dns_url[64];
-   struct mg_connection *connection;
-   struct mg_connection *waterfall;
+   rr_transport_t *connection;
+   rr_transport_t *waterfall;
    bool waterfall_enabled, waterfall_ready, waterfall_first_frame_logged, waterfall_setup_logged;
    uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
    uint64_t wf_stats_at, wf_received, wf_throttled, wf_ipc_dropped, wf_invalid, wf_sent;
@@ -42,31 +41,7 @@ struct kiwi_instance {
    uint32_t sequence;
    bool have_sequence;
 };
-/* Mongoose's built-in resolver does not consult the system resolver and otherwise defaults to 8.8.8.8, which may be unreachable on this network. Honor the
- * first usable IPv4 nameserver configured on the host instead. */
-static void kiwi_setup_dns(struct kiwi_instance *k) {
-   snprintf(k->dns_url, sizeof(k->dns_url), "udp://1.1.1.1:53");
-   FILE *file = fopen("/etc/resolv.conf", "r");
-
-   if (file) {
-      char line[256], addr[64];
-      struct in_addr ip;
-      while (fgets(line, sizeof(line), file)) {
-         if (sscanf(line, " nameserver %63s", addr) != 1) {
-            continue;
-         }
-
-         if (inet_pton(AF_INET, addr, &ip) != 1) {
-            continue;
-         }
-         snprintf(k->dns_url, sizeof(k->dns_url), "udp://%s:53", addr);
-         break;
-      }
-      fclose(file);
-   }
-   k->manager.dns4.url = k->dns_url;
-}
-
+/* Native socket, DNS, TLS and WebSocket state belong to RustyAxe. */
 static void waterfall_center(struct kiwi_instance *k);
 static bool kiwi_noise_blanker(struct kiwi_instance *k);
 static const char *setting(struct kiwi_instance *k, const char *key) {
@@ -79,7 +54,7 @@ static void note(struct kiwi_instance *k, const char *text) {
 }
 static void unavailable(struct kiwi_instance *k) {
    if (k->waterfall) {
-      k->waterfall->is_closing = 1;
+      rr_transport_close(k->waterfall);
    }
    uint64_t request = k->request;
    k->request = 0;
@@ -108,15 +83,15 @@ static void fail(struct kiwi_instance *k, const char *reason) {
    unavailable(k);
 
    if (k->connection) {
-      k->connection->is_closing = 1;
+      rr_transport_close(k->connection);
    }
 }
 static bool send_command(struct kiwi_instance *k, const char *command) {
-   if (!k->connection || !k->connection->is_websocket || k->connection->is_closing || k->connection->send.len > KIWI_QUEUE_MAX) {
+   if (!k->connection || rr_transport_state(k->connection) != RR_TRANSPORT_OPEN || rr_transport_queued_bytes(k->connection) > KIWI_QUEUE_MAX) {
       return false;
    }
 
-   return mg_ws_send(k->connection, command, strlen(command), WEBSOCKET_OP_TEXT) != 0;
+   return rr_transport_send_message(k->connection, command, strlen(command)) == RR_TRANSPORT_OK;
 }
 static void *kiwi_create(const rrp_sdr_host_t *host) {
    struct kiwi_instance *k = host ? calloc(1, sizeof(*k)) : NULL;
@@ -138,15 +113,22 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    k->hz = k->wanted_hz = 14074000;
    strcpy(k->mode, "USB");
    strcpy(k->wanted_mode, "USB");
-   mg_mgr_init(&k->manager);
-   kiwi_setup_dns(k);
 
    return k;
 }
 static void kiwi_destroy(void *instance) {
    struct kiwi_instance *k = instance;
    k->closing = true;
-   mg_mgr_free(&k->manager);
+   if (k->connection) {
+      rr_transport_close(k->connection);
+      rr_transport_poll(k->connection, 0);
+      if (rr_transport_state(k->connection) == RR_TRANSPORT_CLOSED) rr_transport_wss_release(k->connection);
+   }
+   if (k->waterfall) {
+      rr_transport_close(k->waterfall);
+      rr_transport_poll(k->waterfall, 0);
+      if (rr_transport_state(k->waterfall) == RR_TRANSPORT_CLOSED) rr_transport_wss_release(k->waterfall);
+   }
    free(k);
 }
 static bool kiwi_capabilities(void *instance, rrp_sdr_capabilities_t *out) {
@@ -221,6 +203,23 @@ static bool configure(struct kiwi_instance *k) {
 
    return true;
 }
+static int kiwi_url_decode(const char *src, size_t n, char *dst, size_t capacity) {
+   if (n + 1 > capacity) return -1;
+   size_t used = 0;
+   for (size_t i = 0; i < n; i++) {
+      unsigned char value = (unsigned char)src[i];
+      if (value == '%') {
+         if (i + 2 >= n || !isxdigit((unsigned char)src[i+1]) || !isxdigit((unsigned char)src[i+2])) return -1;
+         char hex[3] = {src[i+1],src[i+2],0};
+         value = (unsigned char)strtoul(hex, NULL, 16);
+         i += 2;
+      }
+      if (!value) return -1;
+      dst[used++] = (char)value;
+   }
+   dst[used] = 0;
+   return (int)used;
+}
 static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
    if (strlen(encoded) > 60000) {
       return;
@@ -230,7 +229,7 @@ static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
    if (!text) {
       return;
    }
-   int length = mg_url_decode(encoded, strlen(encoded), text, strlen(encoded) + 1, 0);
+   int length = kiwi_url_decode(encoded, strlen(encoded), text, strlen(encoded) + 1);
 
    if (length >= 0) {
       text[length] = 0;
@@ -476,155 +475,6 @@ static bool kiwi_receive(void *instance, const void *frame, size_t length) {
    return true;
 }
 
-/* Only inspect a complete response header, never arbitrary response text. Redirects are connection attempts too; no loops or unlimited retries. */
-static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
-   if (c->is_websocket || c->recv.len < 12 || c->recv.len > 8192 || memcmp(c->recv.buf, "HTTP/", 5)) {
-      return false;
-   }
-   const char *buf = (const char *)c->recv.buf;
-   const char *end = buf + c->recv.len;
-   const char *headers_end = NULL;
-
-   for (const char *p = buf ; p + 3 < end ; p++) {
-      if (!memcmp(p, "\r\n\r\n", 4)) {
-         headers_end = p;
-         break;
-      }
-   }
-
-   if (!headers_end || end - buf < 12 || memcmp(buf + 9, "307", 3)) {
-      return false;
-   }
-   const char *loc = NULL;
-   size_t len = 0;
-
-   for (const char *p = buf ; p < headers_end ; ) {
-      const char *line = NULL;
-
-      for (const char *scan = p ; scan + 1 < headers_end + 2 ; scan++) {
-         if (scan[0] == '\r' && scan[1] == '\n') {
-            line = scan;
-            break;
-         }
-      }
-
-      if (!line || line > headers_end) {
-         break;
-      }
-
-      if (line - p >= 9 && !strncasecmp(p, "Location:", 9)) {
-         loc = p + 9;
-         while (loc < line && (*loc == ' ' || *loc == '\t')) {
-            loc++;
-         }
-         len = (size_t)(line - loc);
-         break;
-      }
-      p = line + 2;
-   }
-
-   if (k->redirects >= 8) {
-      note(k, "Kiwi HTTP 307 redirect chain exceeded eight hops");
-
-      return false;
-   }
-
-   if (!loc || !len || len >= sizeof(k->redirect_url)) {
-      return false;
-   }
-   char target[512];
-   memcpy(target, loc, len);
-   target[len] = 0;
-
-   for (size_t i = 0 ; i < len ; i++) {
-      if ((unsigned char)target[i] < 33 || (unsigned char)target[i] > 126) {
-         return false;
-      }
-   }
-
-   char next[512];
-
-   if (!strncasecmp(target, "https://", 8)) {
-      snprintf(next, sizeof(next), "wss://%s", target + 8);
-   } else if (!strncasecmp(target, "http://", 7)) {
-      snprintf(next, sizeof(next), "ws://%s", target + 7);
-   } else if (!strncasecmp(target, "wss://", 6) || !strncasecmp(target, "ws://", 5)) {
-      snprintf(next, sizeof(next), "%s", target);
-   } else if (*target == '/') {
-      const char *path = strstr(k->url, "://");
-
-      if (!path) {
-         return false;
-      }
-      path = strchr(path + 3, '/');
-      size_t authority = path ? (size_t)(path - k->url) : strlen(k->url);
-
-      if (authority + len >= sizeof(next)) {
-         return false;
-      }
-      memcpy(next, k->url, authority);
-      memcpy(next + authority, target, len + 1);
-   } else {
-      return false;
-   }
-
-   if (strlen(next) >= sizeof(k->url)) {
-      return false;
-   }
-
-   if (!strcmp(next, k->url)) {
-      note(k, "Kiwi HTTP 307 redirects to the same WebSocket URL (redirect loop)");
-
-      return false;
-   }
-
-   /* Proxy load balancers sometimes redirect to the new authority root. Retain the actual SND WebSocket resource across that hop. */
-   if (next[strlen(next) - 1] == '/' && (strstr(k->url, "/SND") != NULL)) {
-      const char *current_path = strstr(k->url, "://");
-      current_path = current_path ? strchr(current_path + 3, '/') : NULL;
-
-      if (current_path && strlen(next) + strlen(current_path) - 1 < sizeof(next)) {
-         size_t prefix = strlen(next) - 1;
-         memcpy(next + prefix, current_path, strlen(current_path) + 1);
-      }
-   }
-   /* Never forward configured credentials to a different origin. */
-   const char *password = setting(k, "password");
-
-   if (password && *password) {
-      const char *old = strstr(k->url, "://"), *dest = strstr(next, "://");
-
-      if (!old || !dest) {
-         return false;
-      }
-      old += 3;
-      dest += 3;
-      size_t olen = strcspn(old, "/"), dlen = strcspn(dest, "/");
-
-      if (olen != dlen || strncasecmp(old, dest, olen)) {
-         return false;
-      }
-   }
-   /* This is a diagnostic for the peer redirect, not a credential dump. */
-   const char *authority = strstr(next, "://");
-   const char *path = authority ? strchr(authority + 3, '/') : NULL;
-   char origin[160] = "";
-
-   if (authority) {
-      size_t length = path ? (size_t)(path - next) : strlen(next);
-      snprintf(origin, sizeof(origin), "%.*s", (int)(length < sizeof(origin) - 1 ? length : sizeof(origin) - 1), next);
-   }
-   char diagnostic[240];
-   snprintf(diagnostic, sizeof(diagnostic), "Kiwi HTTP 307: redirect hop %u/8 to %.150s (path length %zu)", k->redirects + 1, origin, path ? strlen(path) : 0u);
-   note(k, diagnostic);
-   snprintf(k->redirect_url, sizeof(k->redirect_url), "%s", next);
-   k->redirects++;
-   k->redirecting = true;
-   c->is_closing = 1;
-
-   return true;
-}
-
 /* W/F is an independent Kiwi websocket; never let spectrum failures interrupt SND or the audio watchdog. Uncompressed rows are 1024 bins. */
 /* Kiwi waterfall start is a fixed-point low-edge offset, not kHz. A 1024-bin row at zoom 6 spans 1/64 of the full receiver bandwidth. MAX_ZOOM=14 gives a
  * 24-bit start scale for current KiwiSDR. */
@@ -656,31 +506,18 @@ static void waterfall_center(struct kiwi_instance *k) {
    unsigned start = (unsigned)(low / full * (1024u << 14) + .5);
    char command[96];
    snprintf(command, sizeof(command), "SET zoom=%u start=%u", zoom, start);
-   mg_ws_send(k->waterfall, command, strlen(command), WEBSOCKET_OP_TEXT);
+   rr_transport_send_message(k->waterfall, command, strlen(command));
 }
 
-/* Count socket bytes once at Mongoose's transport edge, including protocol overhead and the independently connected waterfall channel. */
-static void kiwi_count_wire(struct kiwi_instance *k, int event, void *data) {
-   if (!k || !data || (event != MG_EV_READ && event != MG_EV_WRITE)) {
-      return;
-   }
-   long bytes = *(long *)data;
+typedef struct kiwi_frame {
+   struct {const uint8_t *buf; size_t len;} data;
+   unsigned flags;
+} kiwi_frame_t;
+static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
+   (void)channel;
+   struct kiwi_instance *k = user;
 
-   if (bytes <= 0) {
-      return;
-   }
-
-   if (event == MG_EV_READ) {
-      k->traffic_rx += (uint64_t) bytes;
-   } else {
-      k->traffic_tx += (uint64_t) bytes;
-   }
-}
-static void waterfall_ws(struct mg_connection *c, int event, void *data) {
-   struct kiwi_instance *k = c->fn_data;
-   kiwi_count_wire(k, event, data);
-
-   if (event == MG_EV_WS_OPEN) {
+   if (event == RR_TRANSPORT_EVENT_OPEN) {
       note(k, "Kiwi RF waterfall websocket opened");
       k->waterfall_keepalive = mono_us();
       const char *password = setting(k, "password");
@@ -690,13 +527,13 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       }
 
       if (strlen(password) > 128 || strpbrk(password, " \\r\\n")) {
-         c->is_closing = 1;
+         rr_transport_close(t);
 
          return;
       }
       char auth[192];
       snprintf(auth, sizeof(auth), "SET auth t=kiwi p=%s", password);
-      mg_ws_send(c, auth, strlen(auth), WEBSOCKET_OP_TEXT);
+      rr_transport_send_message(t, auth, strlen(auth));
       /* Kiwi requires start= for waterfall positioning; cf= is not the corresponding W/F command. Initialize display range and pacing. */
       const char *commands[] = {
          "SERVER DE CLIENT RustyRig W/F",
@@ -705,16 +542,17 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
       };
 
       for (size_t i = 0 ; i < sizeof(commands) / sizeof(commands[0]) ; i++) {
-         mg_ws_send(c, commands[i], strlen(commands[i]), WEBSOCKET_OP_TEXT);
+         rr_transport_send_message(t, commands[i], strlen(commands[i]);
       }
 
       waterfall_center(k);
-   } else if (event == MG_EV_ERROR) {
+   } else if (event == RR_TRANSPORT_EVENT_ERROR) {
       char detail[256];
       snprintf(detail, sizeof(detail), "Kiwi W/F connection error: %s", data ? (const char *)data : "unknown");
       note(k, detail);
-   } else if (event == MG_EV_WS_MSG) {
-      struct mg_ws_message *m = data;
+   } else if (event == RR_TRANSPORT_EVENT_MESSAGE || event == RR_TRANSPORT_EVENT_BINARY_MESSAGE) {
+      kiwi_frame_t frame = {.data = {.buf = data, .len = len}, .flags = (unsigned)event};
+      kiwi_frame_t *m = &frame;
 
       if (!k->waterfall_first_frame_logged && m->data.len > 0) {
          k->waterfall_first_frame_logged = true;
@@ -782,112 +620,51 @@ static void waterfall_ws(struct mg_connection *c, int event, void *data) {
             }
          }
       }
-   } else if (event == MG_EV_READ && c->recv.len > 65536) {
-      c->is_closing = 1;
-   } else if (event == MG_EV_CLOSE && c == k->waterfall) {
+   }   } else if (event == RR_TRANSPORT_EVENT_CLOSE && t == k->waterfall) {
       if (k->waterfall_enabled) {
          note(k, k->waterfall_ready ? "Kiwi W/F socket closed; will retry independently of audio" : "Kiwi W/F socket closed before receiving spectrum data");
       }
-      k->waterfall = NULL;
       k->waterfall_ready = false;
       k->waterfall_first_frame_logged = false;
       k->waterfall_setup_logged = false;
       k->waterfall_retry = mono_us() + UINT64_C(10000000);
    }
 }
-static void websocket(struct mg_connection *c, int event, void *data) {
-   struct kiwi_instance *k = c->fn_data;
-   kiwi_count_wire(k, event, data);
-
-   if (event == MG_EV_WS_OPEN) {
+static void websocket(rr_transport_t *t, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
+   (void)channel;
+   struct kiwi_instance *k = user;
+   if (event == RR_TRANSPORT_EVENT_OPEN) {
       const char *password = setting(k, "password");
-
-      if (!password) {
-         password = "";
-      }
-
+      if (!password) password = "";
       if (strlen(password) > 128 || strpbrk(password, " \r\n")) {
          fail(k, "Invalid Kiwi password configuration");
-
          return;
       }
       char auth[192];
       snprintf(auth, sizeof(auth), "SET auth t=kiwi p=%s", password);
-
-      if (!send_command(k, auth)) {
-         fail(k, "Cannot send Kiwi authentication");
-      }
-   } else if (event == MG_EV_WS_MSG && !k->failed) {
-      struct mg_ws_message *m = data;
-
-      if (!kiwi_receive(k, m->data.buf, m->data.len)) {
-         fail(k, "Invalid or unsupported Kiwi stream");
-      }
-   } else if (event == MG_EV_READ && !k->redirecting && kiwi_redirect(k, c)) {
-      /* The next connection uses Location after this socket closes. */
-   } else if (event == MG_EV_READ && c->recv.len > 65536) {
-      fail(k, "Kiwi WebSocket receive limit exceeded");
-   } else if (event == MG_EV_ERROR && !k->redirecting && kiwi_redirect(k, c)) {
-      /* The WebSocket handshake parser can raise ERROR before the application receives READ. Inspect the retained HTTP response here as well. */
-   } else if (event == MG_EV_ERROR && !k->redirecting) {
-      /* Mongoose reports any non-101 HTTP response as "ws handshake error". Keep only the numeric status; never log peer response bodies/headers that could
-       * contain credentials or arbitrary text. */
-      if (!c->is_websocket && c->recv.len >= 12 && !memcmp(c->recv.buf, "HTTP/", 5)) {
-         const char *p = (const char *)c->recv.buf;
-         const char *end = p + c->recv.len;
-         const char *space = memchr(p, ' ', (size_t)(end - p));
-
-         if (space && end - space >= 4 && isdigit((unsigned char)space[1]) && isdigit((unsigned char)space[2]) && isdigit((unsigned char)space[3])) {
-            char reason[96];
-
-            if (!memcmp(space + 1, "307", 3)) {
-               snprintf(reason, sizeof(reason), "%s", "Kiwi HTTP 307 redirect could not be followed (missing, invalid, or unsupported Location)");
-            } else {
-               snprintf(reason, sizeof(reason), "Kiwi WebSocket handshake rejected (HTTP %.3s)", space + 1);
-            }
-            fail(k, reason);
-         } else {
-            fail(k, "Kiwi WebSocket connection failed");
-         }
-      } else {
-         fail(k, "Kiwi WebSocket connection failed");
-      }
-   } else if (event == MG_EV_CLOSE && c == k->connection) {
-      k->connection = NULL;
-
-      if (k->redirecting) {
-         k->redirecting = false;
-
-         /* Redirects are routing hops, not failed receiver attempts. */
-         if (k->attempts) {
-            k->attempts--;
-         }
-         snprintf(k->url, sizeof(k->url), "%s", k->redirect_url);
-         k->retry = mono_us();
-         note(k, "Kiwi WebSocket redirected (HTTP 307); following Location");
-      } else if (!k->closing) {
+      if (!send_command(k, auth)) fail(k, "Cannot send Kiwi authentication");
+   } else if ((event == RR_TRANSPORT_EVENT_MESSAGE || event == RR_TRANSPORT_EVENT_BINARY_MESSAGE) && !k->failed) {
+      if (!kiwi_receive(k, data, len)) fail(k, "Invalid or unsupported Kiwi stream");
+   } else if (event == RR_TRANSPORT_EVENT_ERROR && !k->closing) {
+      char detail[200];
+      snprintf(detail, sizeof(detail), "Kiwi WebSocket: %.*s", (int)(len < 150 ? len : 150), data ? (const char *)data : "unknown");
+      fail(k, detail);
+   } else if (event == RR_TRANSPORT_EVENT_CLOSE && t == k->connection) {
+      if (!k->closing) {
          bool was_online = k->online;
          unavailable(k);
-
-         if (was_online) {
-            note(k, "Kiwi WebSocket connection lost after receiver was online");
-         }
-
+         if (was_online) note(k, "Kiwi WebSocket connection lost after receiver was online");
          if (k->attempts >= 3) {
             note(k, "Kiwi receiver stopped after 3 connection attempts");
             k->retry = UINT64_MAX;
-
-            return;
+         } else {
+            unsigned delay = 1u << (k->failures < 6 ? k->failures : 6);
+            if (k->failures < 6) k->failures++;
+            char text[96];
+            snprintf(text, sizeof(text), "Kiwi receiver disconnected; retrying in %u seconds", delay);
+            note(k, text);
+            k->retry = mono_us() + (uint64_t)delay * 1000000;
          }
-         unsigned delay = 1u << (k->failures < 6 ? k->failures : 6);
-
-         if (k->failures < 6) {
-            k->failures++;
-         }
-         char text[96];
-         snprintf(text, sizeof(text), "Kiwi receiver disconnected; retrying in %u seconds", delay);
-         note(k, text);
-         k->retry = mono_us() + (uint64_t) delay * 1000000;
       }
    }
 }
@@ -979,7 +756,8 @@ static void kiwi_poll(void *instance) {
       }
       char headers[416];
       snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
-      k->connection = mg_ws_connect(&k->manager, k->url, websocket, k, "%s", headers);
+      rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = !(setting(k, "password") && *setting(k, "password"))};
+       k->connection = rr_transport_wss_connect(k->url, &options, websocket, k);
       k->deadline = current + 10000000;
       k->received = current;
       k->keepalive = current;
@@ -1009,12 +787,26 @@ static void kiwi_poll(void *instance) {
             char detail[560];
             snprintf(detail, sizeof(detail), "Connecting Kiwi RF waterfall: %s", wf_url);
             note(k, detail);
-            k->waterfall = mg_ws_connect(&k->manager, wf_url, waterfall_ws, k, "%s", headers);
+            rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = false};
+             k->waterfall = rr_transport_wss_connect(wf_url, &options, waterfall_ws, k);
          }
       }
       k->waterfall_retry = current + UINT64_C(10000000);
    }
-   mg_mgr_poll(&k->manager, 0);
+   if (k->connection) {
+      rr_transport_poll(k->connection, 0);
+      if (rr_transport_state(k->connection) == RR_TRANSPORT_CLOSED) {
+         rr_transport_wss_release(k->connection);
+         k->connection = NULL;
+      }
+   }
+   if (k->waterfall) {
+      rr_transport_poll(k->waterfall, 0);
+      if (rr_transport_state(k->waterfall) == RR_TRANSPORT_CLOSED) {
+         rr_transport_wss_release(k->waterfall);
+         k->waterfall = NULL;
+      }
+   }
    current = mono_us();
 
    /* One cumulative IPC sample per second; the parent computes rates. This is not PCM/media IPC traffic and must not be counted twice. */
@@ -1048,11 +840,11 @@ static void kiwi_poll(void *instance) {
    }
 
    /* Kiwi W/F has its own session timer, separate from SND. */
-   if (k->waterfall_enabled && k->waterfall && k->waterfall->is_websocket && !k->waterfall->is_closing && current - k->waterfall_keepalive >= 1000000) {
+   if (k->waterfall_enabled && k->waterfall && rr_transport_state(k->waterfall) == RR_TRANSPORT_OPEN && current - k->waterfall_keepalive >= 1000000) {
       const char *keepalive = "SET keepalive";
 
-      if (k->waterfall->send.len < KIWI_QUEUE_MAX) {
-         mg_ws_send(k->waterfall, keepalive, strlen(keepalive), WEBSOCKET_OP_TEXT);
+      if (rr_transport_queued_bytes(k->waterfall) < KIWI_QUEUE_MAX) {
+         rr_transport_send_message(k->waterfall, keepalive, strlen(keepalive));
       }
       k->waterfall_keepalive = current;
    }
@@ -1066,18 +858,18 @@ static void kiwi_poll(void *instance) {
       char reason[192];
       snprintf(reason, sizeof(reason), "Kiwi receiver timed out (%s; ws=%s auth=%s configured=%s online=%s rate=%u; last-audio=%" PRIu64 "ms)", k->request ?
          "tune acknowledgement" :
-         !k->connection->is_websocket ? "WebSocket handshake" :
+         !(rr_transport_state(k->connection) == RR_TRANSPORT_OPEN) ? "WebSocket handshake" :
          !k->authenticated ? "authentication" :
          !k->rate ? "sample-rate announcement" :
          !k->configured ? "receiver configuration" :
-         !k->online ? "first tuned audio packet" : "audio stream stalled", k->connection->is_websocket ? "yes" : "no", k->authenticated ? "yes" : "no", k->
+         !k->online ? "first tuned audio packet" : "audio stream stalled", (rr_transport_state(k->connection) == RR_TRANSPORT_OPEN) ? "yes" : "no", k->authenticated ? "yes" : "no", k->
          configured ? "yes" : "no", k->online ? "yes" : "no", k->rate, (uint64_t) ((current - k->received) / 1000));
       fail(k, reason);
 
       return;
    }
 
-   if (k->connection->is_websocket && current - k->keepalive >= 1000000) {
+   if ((rr_transport_state(k->connection) == RR_TRANSPORT_OPEN) && current - k->keepalive >= 1000000) {
       if (!send_command(k, "SET keepalive")) {
          fail(k, "Cannot send Kiwi keepalive");
       }
@@ -1131,9 +923,9 @@ static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint
    k->waterfall_last_sent = 0;
 
    if (!enabled && k->waterfall) {
-      k->waterfall->is_closing = 1;
+      rr_transport_close(k->waterfall);
       k->waterfall_retry = 0;
-   } else if (enabled && k->waterfall && k->waterfall->is_websocket) {
+   } else if (enabled && k->waterfall && rr_transport_state(k->waterfall) == RR_TRANSPORT_OPEN) {
       waterfall_center(k);
    } else if (enabled) {
       k->waterfall_retry = 0;
