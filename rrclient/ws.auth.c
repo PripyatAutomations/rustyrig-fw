@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
-#include "build_config.h" /* VERSION/HARDWARE come from the client profile. */
+#include "build_config.h"       /* VERSION/HARDWARE come from the client profile. */
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>

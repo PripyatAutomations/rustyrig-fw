@@ -4,7 +4,10 @@
 #include <assert.h>
 #include <rrclient/receiver.directory.c>
 /* Standalone tests run their core scheduler on GLib's default context. */
-GMainContext *rrclient_core_context(void) { return g_main_context_default(); }
+GMainContext *rrclient_core_context(void) {
+   return g_main_context_default();
+}
+
 #include <rrclient/gtk/gtk.receiver-directory.c>
 time_t now = 1792080000;
 static const char *test_db;

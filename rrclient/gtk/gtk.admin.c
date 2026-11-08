@@ -1462,6 +1462,7 @@ void gtk_admin_result_profile(const char *data, const char *profile) {
    if (row && gtk_admin_security_result(name, action, row, profile)) {
       dict_free(row);
       dict_free(reply);
+
       return;
    }
 

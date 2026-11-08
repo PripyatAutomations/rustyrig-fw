@@ -1621,45 +1621,56 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
    }
 }
 
-/* The VFO is shared by rig tabs, not owned by a particular chat page.
- * Reconcile it after PART, tab removal and room capability changes. */
+/* The VFO is shared by rig tabs, not owned by a particular chat page. Reconcile it after PART, tab removal and room capability changes. */
 static void room_vfo_reconcile(const char *changed_room) {
-   if (!main_notebook)
+   if (!main_notebook) {
       return;
+   }
    GtkNotebook *notebook = GTK_NOTEBOOK(main_notebook);
    GtkRoomTab *current = NULL, *bound = NULL, *fallback = NULL;
    gint selected = gtk_notebook_get_current_page(notebook);
 
-   for (gint i = 0, n = gtk_notebook_get_n_pages(notebook); i < n; ++i) {
+   for (gint i = 0, n = gtk_notebook_get_n_pages(notebook) ; i < n ; ++i) {
       GtkWidget *page = gtk_notebook_get_nth_page(notebook, i);
       GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
-      if (!room_vfo_tab_has_controls(tab))
+
+      if (!room_vfo_tab_has_controls(tab)) {
          continue;
-      if (!fallback)
+      }
+
+      if (!fallback) {
          fallback = tab;
-      if (i == selected)
+      }
+
+      if (i == selected) {
          current = tab;
-      if (room_vfo_title_room[0] && !g_strcmp0(tab->room, room_vfo_title_room))
+      }
+
+      if (room_vfo_title_room[0] && !g_strcmp0(tab->room, room_vfo_title_room)) {
          bound = tab;
+      }
    }
 
    if (!fallback) {
-      /* Ordinary chat/status tabs cannot keep an orphaned operating panel
-       * alive after the final rig tab closes. Preserve panel layout for
-       * the next rig rather than destroying its saved geometry. */
-      if (room_vfo_panel)
+      /* Ordinary chat/status tabs cannot keep an orphaned operating panel alive after the final rig tab closes. Preserve panel layout for the next rig rather
+       * than destroying its saved geometry. */
+      if (room_vfo_panel) {
          rr_floating_panel_hide(room_vfo_panel);
+      }
       room_vfo_title_room[0] = '\0';
+
       return;
    }
 
    GtkRoomTab *target = room_vfo_follow_chat && current ? current : bound;
-   if (!target)
-      target = current ? current : fallback;
 
-   if (!room_vfo_panel || !bound || g_strcmp0(room_vfo_title_room, target->room) ||
-       (changed_room && !g_strcmp0(changed_room, target->room)))
+   if (!target) {
+      target = current ? current : fallback;
+   }
+
+   if (!room_vfo_panel || !bound || g_strcmp0(room_vfo_title_room, target->room) || (changed_room && !g_strcmp0(changed_room, target->room))) {
       gtk_chat_update_vfo_controls(target);
+   }
 }
 
 void gtk_chat_room_vfos_changed(const char *room) {
@@ -2310,55 +2321,74 @@ static gint locator_opacity = 100;
 static gboolean locator_on_top = TRUE;
 
 static void vfo_locator_settings_save(void) {
-   rrclient_window_state_t state = { .opacity = locator_opacity, .pinned = locator_on_top };
+   rrclient_window_state_t state = {
+      .opacity = locator_opacity, .pinned = locator_on_top
+   };
    rrclient_database_window_save("vfo-locator", &state);
 }
 static void vfo_locator_opacity_changed(GtkRange *scale, gpointer unused) {
    (void)unused;
    locator_opacity = (gint) gtk_range_get_value(scale);
-   if (vfo_locator_window)
+
+   if (vfo_locator_window) {
       gtk_widget_set_opacity(vfo_locator_window, locator_opacity / 100.0);
+   }
    vfo_locator_settings_save();
 }
 static void vfo_locator_on_top_changed(GtkToggleButton *button, gpointer unused) {
    (void)unused;
    locator_on_top = gtk_toggle_button_get_active(button);
-   if (vfo_locator_window)
+
+   if (vfo_locator_window) {
       gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), locator_on_top);
+   }
    vfo_locator_settings_save();
 }
-/* This is an independent toplevel, not a GtkPopover child. A popover on
- * the tiny undecorated locator is clipped to that window's allocation. */
+
+/* This is an independent toplevel, not a GtkPopover child. A popover on the tiny undecorated locator is clipped to that window's allocation. */
 static GtkWidget *vfo_locator_settings_window;
 static gboolean vfo_locator_settings_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer unused) {
-   (void)event; (void)unused;
+   (void)event;
+   (void)unused;
    gtk_widget_destroy(widget);
+
    return FALSE;
 }
 static gboolean vfo_locator_settings_key(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
    (void)unused;
+
    if (event->keyval == GDK_KEY_Escape) {
       gtk_widget_destroy(widget);
+
       return TRUE;
    }
+
    return FALSE;
 }
 static void vfo_locator_minimize(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   if (vfo_locator_settings_window)
+   (void)button;
+   (void)unused;
+
+   if (vfo_locator_settings_window) {
       gtk_widget_destroy(vfo_locator_settings_window);
-   if (vfo_locator_window)
+   }
+
+   if (vfo_locator_window) {
       gtk_window_iconify(GTK_WINDOW(vfo_locator_window));
+   }
 }
 static void vfo_locator_popup(GdkEventButton *event) {
-   if (!vfo_locator_window)
+   if (!vfo_locator_window) {
       return;
-   if (vfo_locator_settings_window)
+   }
+
+   if (vfo_locator_settings_window) {
       gtk_widget_destroy(vfo_locator_settings_window);
+   }
 
    GtkWidget *popup = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    vfo_locator_settings_window = popup;
-   g_object_add_weak_pointer(G_OBJECT(popup), (gpointer *)&vfo_locator_settings_window);
+   g_object_add_weak_pointer(G_OBJECT(popup), (gpointer *) &vfo_locator_settings_window);
    gtk_window_set_title(GTK_WINDOW(popup), "VFO status settings");
    gtk_window_set_decorated(GTK_WINDOW(popup), FALSE);
    gtk_window_set_type_hint(GTK_WINDOW(popup), GDK_WINDOW_TYPE_HINT_UTILITY);
@@ -2393,38 +2423,46 @@ static void vfo_locator_popup(GdkEventButton *event) {
    gtk_box_pack_start(GTK_BOX(box), minimize, FALSE, FALSE, 0);
    g_signal_connect(minimize, "clicked", G_CALLBACK(vfo_locator_minimize), NULL);
 
-   /* Position beside the cursor, independently of the locator's allocation,
-    * and keep the complete settings window inside the active monitor. */
+   /* Position beside the cursor, independently of the locator's allocation, and keep the complete settings window inside the active monitor. */
    GtkRequisition minimum, natural;
    gtk_widget_get_preferred_size(popup, &minimum, &natural);
-   gint x = (gint)event->x_root, y = (gint)event->y_root + 8;
+   gint x = (gint) event->x_root, y = (gint) event->y_root + 8;
    GdkDisplay *display = gtk_widget_get_display(vfo_locator_window);
    GdkMonitor *monitor = gdk_display_get_monitor_at_point(display, x, y);
+
    if (monitor) {
       GdkRectangle work;
       gdk_monitor_get_workarea(monitor, &work);
       x = CLAMP(x, work.x, MAX(work.x, work.x + work.width - natural.width));
-      if (y + natural.height > work.y + work.height)
-         y = (gint)event->y_root - natural.height - 8;
+
+      if (y + natural.height > work.y + work.height) {
+         y = (gint) event->y_root - natural.height - 8;
+      }
       y = CLAMP(y, work.y, MAX(work.y, work.y + work.height - natural.height));
    }
    gtk_window_move(GTK_WINDOW(popup), x, y);
    gtk_widget_show_all(popup);
    gtk_window_present(GTK_WINDOW(popup));
 }
+
 /* Drag the undecorated top-level with primary click; secondary click opens status settings. */
 static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
 
-   if (!vfo_locator_window)
+   if (!vfo_locator_window) {
       return FALSE;
+   }
+
    if (event->button == GDK_BUTTON_SECONDARY && event->type == GDK_BUTTON_PRESS) {
       vfo_locator_popup(event);
+
       return TRUE;
    }
-   if (event->button != GDK_BUTTON_PRIMARY)
+
+   if (event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
+   }
 
    /* An undecorated top-level has no native minimize button. Preserve single-click dragging, but iconify on double-click. */
    if (event->type == GDK_2BUTTON_PRESS) {
@@ -2473,7 +2511,10 @@ static void vfo_locator_snapshot_event(const char *event, const void *data, size
    g_strlcpy(vfo_locator_profile, snap->profile, sizeof(vfo_locator_profile));
 
    if (!vfo_locator_window) {
-      rrclient_window_state_t saved = { 0 };
+      rrclient_window_state_t saved = {
+         0
+      };
+
       if (rrclient_database_window_load("vfo-locator", &saved)) {
          locator_opacity = CLAMP(saved.opacity, 30, 100);
          locator_on_top = saved.pinned;
@@ -2491,8 +2532,7 @@ static void vfo_locator_snapshot_event(const char *event, const void *data, size
       gtk_window_set_skip_pager_hint(GTK_WINDOW(vfo_locator_window), FALSE);
       /* A native undecorated top-level, with the same lightweight border treatment as in-window floating panels. The frame owns PTT styling. */
       vfo_locator_frame = gtk_event_box_new();
-      gtk_widget_set_tooltip_text(vfo_locator_frame,
-         "Double-click to hide (minimize); right-click for settings");
+      gtk_widget_set_tooltip_text(vfo_locator_frame, "Double-click to hide (minimize); right-click for settings");
       gtk_widget_add_events(vfo_locator_frame, GDK_BUTTON_PRESS_MASK);
       g_signal_connect(vfo_locator_frame, "button-press-event", G_CALLBACK(vfo_locator_drag), NULL);
       gtk_widget_set_name(vfo_locator_frame, "rr-vfo-locator");
@@ -2690,8 +2730,7 @@ bool chat_init(void) {
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_domain_token("client.server.selected", gtk_chat_server_selected, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.local-bridge.vfo", room_rf_source_changed, NULL, "gtk"));
-   /* Capabilities may arrive after the VFO goes online; do not wait for
-    * another room/VFO switch before displaying the RF spectrum panel. */
+   /* Capabilities may arrive after the VFO goes online; do not wait for another room/VFO switch before displaying the RF spectrum panel. */
    rr_module_token_add(event_on_domain_token("client.local-bridge.capabilities", room_rf_source_changed, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop", estop_request_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.notice.owned", estop_notice_event, NULL, "gtk"));
@@ -2747,11 +2786,9 @@ bool chat_init(void) {
    g_signal_connect(volume_button, "clicked", G_CALLBACK(status_volume_clicked), NULL);
    gtk_widget_set_margin_start(volume_button, 0);
    gtk_widget_set_margin_end(volume_button, 0);
-   /* Keep the volume button in the fixed right cluster with the clock and
-    * close button, rather than separated by the clipped toolbar viewport. */
-   /* RX/TX text expands after connection (especially with RTP rates).
-    * Keep it inside the left toolbar's horizontal clipping viewport: it must
-    * never increase the width of the fixed clock/Quit cluster. */
+   /* Keep the volume button in the fixed right cluster with the clock and close button, rather than separated by the clipped toolbar viewport. */
+   /* RX/TX text expands after connection (especially with RTP rates). Keep it inside the left toolbar's horizontal clipping viewport: it must never increase
+    * the width of the fixed clock/Quit cluster. */
    gtk_widget_set_valign(network_row, GTK_ALIGN_CENTER);
    gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
 
@@ -2760,13 +2797,14 @@ bool chat_init(void) {
    GtkWidget *quit = g_object_get_data(G_OBJECT(main_window), "rr-main-quit-button");
 
    if (GTK_IS_BOX(toolbar_right)) {
-      /* Compact right status cluster remains visible regardless of the
-       * clipped, variable-width room toolbar. */
+      /* Compact right status cluster remains visible regardless of the clipped, variable-width room toolbar. */
       gtk_box_pack_start(GTK_BOX(toolbar_right), volume_button, FALSE, FALSE, 0);
+
       if (status_clock) {
          gtk_widget_set_valign(status_clock, GTK_ALIGN_CENTER);
          gtk_box_pack_start(GTK_BOX(toolbar_right), status_clock, FALSE, FALSE, 0);
       }
+
       if (quit) {
          gtk_widget_set_valign(quit, GTK_ALIGN_CENTER);
          gtk_box_pack_start(GTK_BOX(toolbar_right), quit, FALSE, FALSE, 0);
@@ -2775,10 +2813,14 @@ bool chat_init(void) {
    } else {
       /* Fallback for alternative frontends without the split toolbar. */
       gtk_box_pack_end(GTK_BOX(rr_main_toolbar), volume_button, FALSE, FALSE, 0);
-      if (status_clock)
+
+      if (status_clock) {
          gtk_box_pack_end(GTK_BOX(rr_main_toolbar), status_clock, FALSE, FALSE, 0);
-      if (quit)
+      }
+
+      if (quit) {
          gtk_box_pack_end(GTK_BOX(rr_main_toolbar), quit, FALSE, FALSE, 0);
+      }
    }
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(1, status_network_tick, NULL);

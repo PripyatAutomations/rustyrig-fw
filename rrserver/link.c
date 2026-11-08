@@ -366,21 +366,31 @@ static void drain_deferred(struct link_session *session) {
 }
 static bool send_message(struct link_session *session, dict *d) {
    const char *op = dict_get(d, "op", "unknown");
-   /* Mutable hop budget belongs only to the outer link envelope. Never
-    * alter the origin-signed payload or a packet shared across neighbors. */
+   /* Mutable hop budget belongs only to the outer link envelope. Never alter the origin-signed payload or a packet shared across neighbors. */
    dict *packet = dict_clone(d);
-   if (!packet) return false;
+
+   if (!packet) {
+      return false;
+   }
    const char *existing = dict_get(packet, "ttl", NULL);
+
    if (!existing) {
       int def = cfg_get_int("mesh.default-ttl", 10);
-      if (def < 1) def = 1;
-      if (def > 255) def = 255;
+
+      if (def < 1) {
+         def = 1;
+      }
+
+      if (def > 255) {
+         def = 255;
+      }
       char ttl_text[4];
       snprintf(ttl_text, sizeof(ttl_text), "%d", def);
       dict_add(packet, "ttl", ttl_text);
    } else if (!strcmp(existing, "0")) {
       Log(LOG_INFO, "mesh.ttl", "Dropped forwarding of expired mesh packet op=%s", op);
       dict_free(packet);
+
       return false;
    }
    char *wire = rr_link_wire_encode(packet);
@@ -546,51 +556,73 @@ void rrserver_links_broadcast(dict *d) {
 }
 
 void rrserver_links_each_neighbor(rr_link_neighbor_fn cb, void *context) {
-   if (!cb) return;
-   for (struct link_session *s = links.sessions; s; s=s->next)
-      if (s->established && !session_closing(s)) cb(s->node, context);
+   if (!cb) {
+      return;
+   }
+
+   for (struct link_session *s = links.sessions ; s ; s = s->next) {
+      if (s->established && !session_closing(s)) {
+         cb(s->node, context);
+      }
+   }
 }
 void rrserver_links_depart_revoked(const char *uuid, const char *ingress) {
-   if (!uuid || !g_uuid_string_is_valid(uuid)) return;
-   bool direct=false;
-   for (struct link_session *s=links.sessions; s; s=s->next) {
-      if (!s->established || strcmp(s->node,uuid) || session_closing(s)) continue;
-      direct=true;
-      /* Let the WebSocket deliver revocation ACKs and a graceful close.
-       * The regular close_session() performs link.withdraw and downstream
-       * resource removal. Never forge a withdraw from the remote node. */
-      dict *goodbye=message("link.goodbye");
+   if (!uuid || !g_uuid_string_is_valid(uuid)) {
+      return;
+   }
+   bool direct = false;
+
+   for (struct link_session *s = links.sessions ; s ; s = s->next) {
+      if (!s->established || strcmp(s->node, uuid) || session_closing(s)) {
+         continue;
+      }
+      direct = true;
+      /* Let the WebSocket deliver revocation ACKs and a graceful close. The regular close_session() performs link.withdraw and downstream resource removal.
+       * Never forge a withdraw from the remote node. */
+      dict *goodbye = message("link.goodbye");
+
       if (goodbye) {
-         dict_add(goodbye,"node",links.node);
-         send_message(s,goodbye);
+         dict_add(goodbye, "node", links.node);
+         send_message(s, goodbye);
          dict_free(goodbye);
       }
-      s->revocation_depart_after=mono_ms()+300;
-      s->revocation_depart_deadline=mono_ms()+2000;
-      if (s->peer) s->peer->manually_closed=true;
+      s->revocation_depart_after = mono_ms() + 300;
+      s->revocation_depart_deadline = mono_ms() + 2000;
+
+      if (s->peer) {
+         s->peer->manually_closed = true;
+      }
    }
+
    if (!direct) {
-      /* A revoked descendant can sit behind a healthy intermediary. Withdraw
-       * only that branch, preserving independently authenticated neighbors. */
-      const char *via=rrserver_links_route(uuid);
+      /* A revoked descendant can sit behind a healthy intermediary. Withdraw only that branch, preserving independently authenticated neighbors. */
+      const char *via = rrserver_links_route(uuid);
+
       if (via && links.tree) {
          remember_topology_sites();
-         if (rr_link_tree_remove(links.tree,via,uuid)) {
+
+         if (rr_link_tree_remove(links.tree, via, uuid)) {
             links.generation++;
-            dict *withdrawal=message("link.withdraw");
+            dict *withdrawal = message("link.withdraw");
+
             if (withdrawal) {
-               dict_add(withdrawal,"node",uuid);
-               /* Never send this withdraw back toward the branch we
-                * just invalidated: that branch would see a forged ancestry
-                * claim and disconnect the healthy intermediary. */
-               struct link_session *exclude=NULL;
-               for (struct link_session *peer=links.sessions;peer;peer=peer->next)
-                  if (ingress && !strcmp(peer->node,ingress)) {exclude=peer;break;}
-               broadcast(exclude,withdrawal);
+               dict_add(withdrawal, "node", uuid);
+               /* Never send this withdraw back toward the branch we just invalidated: that branch would see a forged ancestry claim and disconnect the healthy
+                * intermediary. */
+               struct link_session *exclude = NULL;
+
+               for (struct link_session *peer = links.sessions ; peer ; peer = peer->next) {
+                  if (ingress && !strcmp(peer->node, ingress)) {
+                     exclude = peer;
+                     break;
+                  }
+               }
+
+               broadcast(exclude, withdrawal);
                dict_free(withdrawal);
             }
-            event_emit("server.link.lost",NULL,uuid);
-            Log(LOG_AUDIT,"mesh.identity","Withdrew revoked remote node %s from route via %s",uuid,via);
+            event_emit("server.link.lost", NULL, uuid);
+            Log(LOG_AUDIT, "mesh.identity", "Withdrew revoked remote node %s from route via %s", uuid, via);
          }
       }
    }
@@ -1008,19 +1040,22 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
 
       return;
    }
-   /* Every authenticated link frame consumes one hop. A frame with TTL=1
-    * may be delivered locally, but cannot be forwarded again. */
+   /* Every authenticated link frame consumes one hop. A frame with TTL=1 may be delivered locally, but cannot be forwarded again. */
    const char *ttl_text = dict_get(d, "ttl", NULL);
+
    if (!ttl_text || !*ttl_text) {
       Log(LOG_WARN, "mesh.ttl", "Peer %s sent a packet without mesh TTL", session->node);
       dict_free(d);
       fail(session, "Mesh TTL missing (incompatible peer protocol)");
+
       return;
    }
    unsigned received_ttl = (unsigned)atoi(ttl_text);
+
    if (received_ttl < 1 || received_ttl > 255) {
       dict_free(d);
       fail(session, "Invalid mesh TTL");
+
       return;
    }
    unsigned remaining_ttl = received_ttl - 1;
@@ -1028,12 +1063,11 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
    snprintf(ttl_next, sizeof(ttl_next), "%u", remaining_ttl);
    dict_add(d, "ttl", ttl_next);
    int configured_warning = cfg_get_int("mesh.warn-ttl", 5);
-   unsigned warn_at = configured_warning <= 0 ? 0 :
-      (configured_warning > 255 ? 255u : (unsigned)configured_warning);
+   unsigned warn_at = configured_warning <= 0 ? 0 : (configured_warning > 255 ? 255u : (unsigned)configured_warning);
+
    if (warn_at && remaining_ttl <= warn_at) {
-      Log(LOG_INFO, "mesh.ttl",
-         "Mesh packet near hop limit: op=%s sender=%s remaining=%u warn-at=%u",
-         dict_get(d, "op", ""), dict_get(d, "node", ""), remaining_ttl, warn_at);
+      Log(LOG_INFO, "mesh.ttl", "Mesh packet near hop limit: op=%s sender=%s remaining=%u warn-at=%u", dict_get(d, "op", ""), dict_get(d, "node", ""),
+         remaining_ttl, warn_at);
    }
    const char *op = dict_get(d, "op", "");
 
@@ -1081,13 +1115,12 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
             tree));
       }
    } else if (session->established && !strcmp(op, "link.goodbye")) {
-      if (strcmp(dict_get(d,"node",""),session->node)) {
-         fail(session,"Unauthenticated link.goodbye origin");
+      if (strcmp(dict_get(d, "node", ""), session->node)) {
+         fail(session, "Unauthenticated link.goodbye origin");
       } else {
-         session->close_cause="peer-graceful-shutdown";
-         snprintf(session->close_reason,sizeof(session->close_reason),
-            "Received authenticated peer goodbye");
-         session->closing=true;
+         session->close_cause = "peer-graceful-shutdown";
+         snprintf(session->close_reason, sizeof(session->close_reason), "Received authenticated peer goodbye");
+         session->closing = true;
          rr_transport_close(session->transport);
       }
    } else if (session->established && !strcmp(op, "link.withdraw")) {
@@ -1106,29 +1139,27 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
       const char *origin = dict_get(d, "node", ""), *route = rrserver_links_route(origin);
       const char *kind = dict_get(d, "kind", "");
       /* All resource/state/control traffic must carry the *claimed sender's*
-       * signature. Relay transport identity alone cannot authorize spoofing
-       * another node. Catalog sync delimiters are generated by, and must
-       * name, the directly authenticated neighbor. */
-      bool sync_marker = !strcmp(kind, "catalog-begin") ||
-         !strcmp(kind, "catalog-end") || !strcmp(kind, "catalog-ack");
+       * signature. Relay transport identity alone cannot authorize spoofing another node. Catalog sync delimiters are generated by, and must name, the directly
+       * authenticated neighbor. */
+      bool sync_marker = !strcmp(kind, "catalog-begin") || !strcmp(kind, "catalog-end") || !strcmp(kind, "catalog-ack");
+
       if (sync_marker && strcmp(origin, session->node)) {
-         Log(LOG_WARN, "mesh.identity",
-            "Discarded unsigned mesh sync control claiming sender %s via %s",
-            origin, session->node);
+         Log(LOG_WARN, "mesh.identity", "Discarded unsigned mesh sync control claiming sender %s via %s", origin, session->node);
          dict_free(d);
+
          return;
       }
+
       if (!sync_marker) {
          dict *signed_data = json2dict(dict_get(d, "payload", ""));
-         bool match = signed_data && !strcmp(dict_get(signed_data,"identity.owner",""),origin) &&
-            !g_ascii_strcasecmp(dict_get(signed_data,"identity.domain",""),links.domain) &&
-            rr_identity_verify_catalog(signed_data);
+         bool match = signed_data && !strcmp(dict_get(signed_data, "identity.owner", ""), origin) &&
+            !g_ascii_strcasecmp(dict_get(signed_data, "identity.domain", ""), links.domain) && rr_identity_verify_catalog(signed_data);
          dict_free(signed_data);
+
          if (!match) {
-            Log(LOG_WARN, "mesh.identity",
-               "Discarded mesh packet: signer does not match claimed sender %s via %s (kind=%s)",
-               origin, session->node, kind);
+            Log(LOG_WARN, "mesh.identity", "Discarded mesh packet: signer does not match claimed sender %s via %s (kind=%s)", origin, session->node, kind);
             dict_free(d);
+
             return;
          }
       }
@@ -1140,6 +1171,7 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
        * Future mesh routing must replace this tree-path assertion with a mesh-aware origin/route validation, NOT remove origin validation. The origin station
        * vouches for its authenticated username; a transit peer cannot substitute a user from a different branch. */
       const bool revocation = !strcmp(dict_get(d, "kind", ""), "identity-revocation");
+
       if ((!route || strcmp(route, session->node)) && !revocation) {
          char peer_label[192], origin_label[192], route_label[192];
          Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s", rrserver_links_format_node(session->node, peer_label, sizeof(
@@ -1467,14 +1499,15 @@ bool rrserver_links_init(void) {
 
    links.domain[domain_len] = '\0';
 
-   /* --revoke-certs intentionally locks the server until a local rotation.
-    * Never silently generate a replacement credential for a revoked host. */
-   const char *identity_dir=config_value("path.identity","/var/lib/rustyrig/identity");
-   char *revoked_lock=g_build_filename(identity_dir,"revoked.lock",NULL);
-   bool suspended=revoked_lock && g_file_test(revoked_lock,G_FILE_TEST_EXISTS);
+   /* --revoke-certs intentionally locks the server until a local rotation. Never silently generate a replacement credential for a revoked host. */
+   const char *identity_dir = config_value("path.identity", "/var/lib/rustyrig/identity");
+   char *revoked_lock = g_build_filename(identity_dir, "revoked.lock", NULL);
+   bool suspended = revoked_lock && g_file_test(revoked_lock, G_FILE_TEST_EXISTS);
    g_free(revoked_lock);
+
    if (suspended) {
-      Log(LOG_CRIT,"mesh.identity","Server identity has been revoked locally; run rrserver --rotate-certs before restarting");
+      Log(LOG_CRIT, "mesh.identity", "Server identity has been revoked locally; run rrserver --rotate-certs before restarting");
+
       return false;
    }
 
@@ -1490,9 +1523,8 @@ bool rrserver_links_init(void) {
       const char *cert = cfg_get("net.http.tls-cert");
       const char *key = cfg_get("net.http.tls-key");
       const char *name = cfg_get("station.name");
-      /* TLS identity is the logical station name in the configured mesh
-       * domain. This name need not resolve in DNS: clients may dial an IP
-       * address while verifying the certificate against this DNS SAN. */
+      /* TLS identity is the logical station name in the configured mesh domain. This name need not resolve in DNS: clients may dial an IP address while
+       * verifying the certificate against this DNS SAN. */
       char tls_name[254];
       const char *site = name;
 
@@ -1501,18 +1533,20 @@ bool rrserver_links_init(void) {
 
          return false;
       }
+
       for (const unsigned char *p = (const unsigned char *)site ; *p ; ++p) {
-         if (!(g_ascii_isalnum(*p) || *p == '-') ||
-            (p == (const unsigned char *)site && *p == '-') ||
-            (!p[1] && *p == '-')) {
+         if (!(g_ascii_isalnum(*p) || *p == '-') || (p == (const unsigned char *)site && *p == '-') || (!p[1] && *p == '-')) {
             Log(LOG_CRIT, "mesh.identity", "Invalid station.name for TLS DNS identity: %s", site);
+
             return false;
          }
       }
+
       int name_length = snprintf(tls_name, sizeof(tls_name), "%s.%s", site, links.domain);
 
       if (name_length < 1 || (size_t)name_length >= sizeof(tls_name)) {
          Log(LOG_CRIT, "mesh.identity", "TLS hostname exceeds DNS length: %s.%s", site, links.domain);
+
          return false;
       }
       name = tls_name;
@@ -1682,28 +1716,29 @@ bool rrserver_links_init(void) {
             Log(LOG_INFO, "mesh.bootstrap", "Loaded enrolled issuer %s: historical enrollment URL %s; mesh dial target %s (SPKI %s)", uuid, url, peer->url, pin)
             ;
          }
+
          if (step != SQLITE_DONE) {
             Log(LOG_WARN, "mesh.bootstrap", "Reading enrolled issuers failed: %s", sqlite3_errmsg(masterdb));
          }
          sqlite3_finalize(stmt);
-         Log(LOG_INFO, "mesh.bootstrap", "Domain %s: %u enrolled issuer row(s), %u imported, %u rejected",
-            links.domain, eligible, imported, rejected);
+         Log(LOG_INFO, "mesh.bootstrap", "Domain %s: %u enrolled issuer row(s), %u imported, %u rejected", links.domain, eligible, imported, rejected);
 
          if (!eligible) {
             sqlite3_stmt *domains = NULL;
-            if (sqlite3_prepare_v2(masterdb,
-               "SELECT domain, count(*) FROM mesh_bootstrap_peers WHERE state='enrolled' GROUP BY domain",
-               -1, &domains, NULL) == SQLITE_OK) {
+
+            if (sqlite3_prepare_v2(masterdb, "SELECT domain, count(*) FROM mesh_bootstrap_peers WHERE state='enrolled' GROUP BY domain", -1, &domains, NULL) ==
+               SQLITE_OK) {
                bool other_domains = false;
                while (sqlite3_step(domains) == SQLITE_ROW) {
                   const char *stored = (const char *)sqlite3_column_text(domains, 0);
                   int count = sqlite3_column_int(domains, 1);
+
                   if (stored && strcmp(stored, links.domain)) {
                      other_domains = true;
-                     Log(LOG_WARN, "mesh.bootstrap", "Enrolled issuer(s) found for another domain %s (%d); current domain is %s",
-                        stored, count, links.domain);
+                     Log(LOG_WARN, "mesh.bootstrap", "Enrolled issuer(s) found for another domain %s (%d); current domain is %s", stored, count, links.domain);
                   }
                }
+
                if (!other_domains) {
                   Log(LOG_INFO, "mesh.bootstrap", "No enrolled issuer records found; autoconnect requires a trusted peer");
                }
@@ -1711,8 +1746,7 @@ bool rrserver_links_init(void) {
             }
          }
       } else {
-         Log(LOG_WARN, "mesh.bootstrap", "Cannot query enrolled peers: %s (database may predate mesh enrollment)",
-            sqlite3_errmsg(masterdb));
+         Log(LOG_WARN, "mesh.bootstrap", "Cannot query enrolled peers: %s (database may predate mesh enrollment)", sqlite3_errmsg(masterdb));
       }
    } else if (!cfg_get_bool("net.mesh-linking", true)) {
       Log(LOG_INFO, "mesh.bootstrap", "Database enrolled-peer import disabled by net.mesh-linking=false");
@@ -1797,12 +1831,12 @@ void rrserver_links_poll(void) {
 
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
       drain_deferred(s);
-      if (s->revocation_depart_after && at >= s->revocation_depart_after &&
-          (!rr_transport_queued_bytes(s->transport) || at >= s->revocation_depart_deadline)) {
-         s->revocation_depart_after=0;
-         s->close_cause="trust-revoked";
-         snprintf(s->close_reason,sizeof(s->close_reason),"Signing identity revoked; goodbye");
-         s->closing=true;
+
+      if (s->revocation_depart_after && at >= s->revocation_depart_after && (!rr_transport_queued_bytes(s->transport) || at >= s->revocation_depart_deadline)) {
+         s->revocation_depart_after = 0;
+         s->close_cause = "trust-revoked";
+         snprintf(s->close_reason, sizeof(s->close_reason), "Signing identity revoked; goodbye");
+         s->closing = true;
          rr_transport_close(s->transport);
          continue;
       }

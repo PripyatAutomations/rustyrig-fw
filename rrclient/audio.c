@@ -797,24 +797,30 @@ static void dcc_closed(const char *event, const char *data, rrconn_t *client, vo
    }
 }
 
-/* Render a rig room (#site-rigN) as site.rigN. The stream's opaque ID
- * remains the authoritative routing identity; this is display-only. */
+/* Render a rig room (#site-rigN) as site.rigN. The stream's opaque ID remains the authoritative routing identity; this is display-only. */
 static void audio_graph_rig_label(const struct rrclient_rx_stream *stream, char *label, size_t size) {
    const char *room = stream->room;
+
    if (!strcmp(room, "&local-sdr")) {
       g_strlcpy(label, "local.sdr", size);
+
       return;
    }
-   if (*room == '#')
+
+   if (*room == '#') {
       room++;
+   }
    const char *rig = strstr(room, "-rig");
+
    if (rig && rig[4] && g_ascii_isdigit(rig[4])) {
       g_snprintf(label, size, "%.*s.rig%s", (int)(rig - room), room, rig + 4);
+
       return;
    }
    /* Remote SDR and non-rig receiver names have no site.rig suffix. */
    g_strlcpy(label, *room ? room : stream->server, size);
 }
+
 /* Mirror the *existing* mixer topology; the realtime engine remains the executor until graph-driven process supervision is implemented. */
 static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t count) {
    rr_audio_graph_t *graph = rr_audio_graph_new();
@@ -847,17 +853,21 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    rr_audio_graph_snapshot_t *snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
 
    if (snapshot && rr_audio_graph_snapshot(graph, snapshot)) {
-      for (guint i = 0; i < snapshot->node_count; ++i) {
+      for (guint i = 0 ; i < snapshot->node_count ; ++i) {
          rr_ag_view_node_t *node = &snapshot->nodes[i];
-         if (node->type != RR_AG_SOURCE)
+
+         if (node->type != RR_AG_SOURCE) {
             continue;
-         for (size_t j = 0; j < count; ++j) {
+         }
+
+         for (size_t j = 0 ; j < count ; ++j) {
             if (!strcmp(node->id, streams[j].id)) {
                audio_graph_rig_label(&streams[j], node->rig, sizeof(node->rig));
                break;
             }
          }
       }
+
       rr_event_message_t event = {
          .name = RRCLIENT_AUDIO_GRAPH_RESULT,
          .payload = snapshot, .length = sizeof(*snapshot)
@@ -888,32 +898,41 @@ static void audio_log_stream_inventory(const struct rrclient_rx_stream *streams,
       g_string_free(current, TRUE);
    }
 }
-/* The core owns rx_routes; never let a GTK redraw enumerate the list.
- * Resolve the audible route here and return only a copy of its FFT bins. */
+
+/* The core owns rx_routes; never let a GTK redraw enumerate the list. Resolve the audible route here and return only a copy of its FFT bins. */
 static void audio_af_spectrum_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload ||
-       message->length != sizeof(rrclient_af_spectrum_request_t))
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_af_spectrum_request_t)) {
       return;
+   }
    rrclient_af_spectrum_request_t req;
    memcpy(&req, message->payload, sizeof(req));
-   if (!memchr(req.server, 0, sizeof(req.server)) ||
-       !memchr(req.room, 0, sizeof(req.room)))
+
+   if (!memchr(req.server, 0, sizeof(req.server)) || !memchr(req.room, 0, sizeof(req.room))) {
       return;
+   }
    struct rrclient_rx_stream streams[64];
    size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
    size_t selected = count;
-   for (size_t i = 0; i < count; i++) {
-      if (strcmp(streams[i].server, req.server) ||
-          g_ascii_strcasecmp(streams[i].room, req.room))
+
+   for (size_t i = 0 ; i < count ; i++) {
+      if (strcmp(streams[i].server, req.server) || g_ascii_strcasecmp(streams[i].room, req.room)) {
          continue;
-      if (selected == count ||
-          (streams[selected].output == 'M' && streams[i].output != 'M'))
+      }
+
+      if (selected == count || (streams[selected].output == 'M' && streams[i].output != 'M')) {
          selected = i;
+      }
    }
-   rrclient_af_spectrum_result_t result = { .request_id = req.request_id };
-   if (selected != count)
+
+   rrclient_af_spectrum_result_t result = {
+      .request_id = req.request_id
+   };
+
+   if (selected != count) {
       result.ready = rr_af_spectrum_read(streams[selected].id, result.bins);
+   }
    rr_event_message_t reply = {
       .name = RRCLIENT_AF_SPECTRUM_RESULT,
       .payload = &result, .length = sizeof(result)

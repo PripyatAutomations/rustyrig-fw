@@ -958,8 +958,8 @@ struct rrclient_native_connection {
    bool closed;
 };
 
-static void native_event(rr_transport_t *transport, enum rr_transport_event event,
-      rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
+static void native_event(rr_transport_t *transport, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user)
+{
    (void)channel;
    (void)transport;
    rrclient_native_connection_t *native = user;
@@ -1000,8 +1000,7 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       rr_traffic_count(cptr, false, true, len);
       ws_binframe_process_client(cptr, (const char *)data, len);
    } else if (event == RR_TRANSPORT_EVENT_ERROR) {
-      Log(LOG_WARN, "connman", "Native connection to %s: %.*s",
-         s->name, (int)MIN(len, (size_t)240), data ? (const char *)data : "");
+      Log(LOG_WARN, "connman", "Native connection to %s: %.*s", s->name, (int)MIN(len, (size_t)240), data ? (const char *)data : "");
       event_emit("http.error", cptr, NULL);
    } else if (event == RR_TRANSPORT_EVENT_CLOSE) {
       native->closed = true;
@@ -1024,6 +1023,7 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
 
 void rrclient_poll_events_reconnect(void) {
 #ifndef USE_MONGOOSE
+
    for (client_server_t *s = servers ; s ; s = s->next) {
       rrclient_native_connection_t *native = s->native;
 
@@ -1040,10 +1040,12 @@ void rrclient_poll_events_reconnect(void) {
                /* The selected profile may still be the active context;
                 * rebuild its borrowed pointers before releasing the session. */
                bool active = context == s;
+
                if (active) {
                   activate(NULL);
                }
                s->connection = NULL;
+
                if (active) {
                   activate(s);
                }
@@ -1051,6 +1053,7 @@ void rrclient_poll_events_reconnect(void) {
             free(native);
          }
       }
+
       if (s->reconnect_pending && now >= s->reconnect_at && !dying && !s->native) {
          s->reconnect_pending = false;
 
@@ -1061,6 +1064,7 @@ void rrclient_poll_events_reconnect(void) {
          }
       }
    }
+
 #else
 
    for (client_server_t *s = servers ; s ; s = s->next) {
@@ -1093,10 +1097,12 @@ bool disconnect_server(const char *name) {
    s->nick_recovering = false;
    cancel_reconnect(s);
 #ifndef USE_MONGOOSE
+
    if (s->native && s->native->transport) {
       rr_transport_close(s->native->transport);
    }
 #else
+
    if (s->connection && s->connection->conn) {
       s->connection->conn->is_closing = 1;
    }
@@ -1471,8 +1477,10 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
 
    return !c;
 #else
+
    if (endpoint.irc) {
       ui_print(NULL, "IRC requires the Mongoose backend; native transport supports RustyRig WebSocket");
+
       return true;
    }
    const char *proxy = profile ? get_server_property(profile, "server.proxy") : NULL;
@@ -1480,10 +1488,13 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!proxy || !*proxy) {
       proxy = cfg_get("server.proxy");
    }
+
    if ((proxy_override && *proxy_override) || (proxy && *proxy)) {
       ui_print(NULL, "SOCKS5 proxy transport requires a Mongoose-enabled build");
+
       return true;
    }
+
    if (!profile || !*profile) {
       profile = endpoint.host;
    }
@@ -1491,13 +1502,16 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
 
    if (s && s->native) {
       rrclient_connection_select(s->name);
+
       return false;
    }
+
    if (!s) {
       s = calloc(1, sizeof(*s));
 
       if (!s || !(s->name = strdup(profile))) {
          free(s);
+
          return true;
       }
       client_server_t **tail = &servers;
@@ -1514,8 +1528,8 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    }
    free(s->url);
    s->url = saved_url;
-   /* endpoint.path borrows storage from the URL; reparse after replacing
-    * the saved profile URL, especially on reconnect. */
+
+   /* endpoint.path borrows storage from the URL; reparse after replacing the saved profile URL, especially on reconnect. */
    if (!rr_server_url_parse(s->url, &endpoint)) {
       return true;
    }
@@ -1539,12 +1553,14 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       nick = endpoint.user;
       password = endpoint.pass;
    }
+
    if (!nick || !*nick) {
       nick = "guest";
    }
-   if (strlen(nick) >= sizeof(native->server.nick) ||
-       (password && strlen(password) >= sizeof(native->server.pass))) {
+
+   if (strlen(nick) >= sizeof(native->server.nick) || (password && strlen(password) >= sizeof(native->server.pass))) {
       free(native);
+
       return true;
    }
    g_strlcpy(native->connection.nick, nick, sizeof(native->connection.nick));
@@ -1555,8 +1571,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!ca || !*ca) {
       ca = cfg_get("tls.ca-file");
    }
-   /* The logical TLS name is independent of the URL's dial address.
-    * Require an explicit per-profile hostname when dialing by IP/alias;
+   /* The logical TLS name is independent of the URL's dial address. Require an explicit per-profile hostname when dialing by IP/alias;
     * never substitute a claimed peer identity after the TLS handshake. */
    const char *tls_name = get_server_property(s->name, "server.tls-name");
    rr_wss_client_options_ex_t opts = {
@@ -1566,15 +1581,14 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       .tls_server_name = tls_name && *tls_name ? tls_name : NULL
    };
    char connect_url[2048];
-   snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s",
-      endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "",
-      endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port,
-      !strcmp(endpoint.path, "/") ? "/ws" : endpoint.path);
+   snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" :
+      "", endpoint.port, !strcmp(endpoint.path, "/") ? "/ws" : endpoint.path);
    native->transport = rr_transport_wss_connect_ex(connect_url, &opts, native_event, native);
 
    if (!native->transport) {
       ui_print(NULL, "Unable to initialize native WebSocket connection for %s", s->name);
       free(native);
+
       return true;
    }
    native->connection.native_transport = native->transport;
@@ -1587,11 +1601,12 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!reconnect_attempting) {
       s->reconnect_tries = 0;
    }
+
    if (!selected || !reconnect_attempting) {
       selected = s;
    }
-   /* A reconnect may replace the transport while the same profile is
-    * selected; refresh the borrowed ws_conn/global context pointers. */
+
+   /* A reconnect may replace the transport while the same profile is selected; refresh the borrowed ws_conn/global context pointers. */
    if (context == s) {
       activate(NULL);
    }
@@ -1599,6 +1614,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
    ui_print(NULL, "%sConnecting to %s via OpenSSL/wslay", get_chat_ts(now), connect_url);
    event_emit("client.server.selected", s->connection, s->name);
+
    return false;
 #endif
 }
@@ -1611,6 +1627,7 @@ bool connect_or_disconnect(const char *name) {
       return disconnect_server(name);
    }
 #else
+
    if (s && s->native) {
       return disconnect_server(name);
    }
@@ -1676,6 +1693,7 @@ void rrclient_quit_servers(const char *reason) {
    }
 
 #else
+
    for (client_server_t *s = servers ; s ; s = s->next) {
       cancel_reconnect(s);
 
@@ -1694,11 +1712,13 @@ void rrclient_quit_servers(const char *reason) {
          rr_transport_close(s->native->transport);
       }
    }
+
 #endif
 }
 
 void rrclient_flush_quit(void) {
 #ifndef USE_MONGOOSE
+
    for (unsigned i = 0 ; i < 20 ; i++) {
       bool pending = false;
 
@@ -1708,9 +1728,13 @@ void rrclient_flush_quit(void) {
             pending = pending || rr_transport_state(s->native->transport) != RR_TRANSPORT_CLOSED;
          }
       }
-      if (!pending) break;
+
+      if (!pending) {
+         break;
+      }
       g_usleep(10000);
    }
+
 #else
    uint64_t deadline = mg_millis() + 1000;
    while (mg_millis() < deadline) {
@@ -1770,10 +1794,12 @@ void connman_shutdown(void) {
       free(servers->wire_rooms);
       free((void *)servers->user);
 #ifndef USE_MONGOOSE
+
       if (servers->native) {
          if (servers->native->transport) {
             rr_transport_close(servers->native->transport);
             rr_transport_poll(servers->native->transport, 0);
+
             if (rr_transport_state(servers->native->transport) == RR_TRANSPORT_CLOSED) {
                rr_transport_wss_release(servers->native->transport);
             }

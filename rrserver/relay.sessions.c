@@ -276,39 +276,49 @@ bool rr_relay_state_demand(const char *owner, const char *room, dict *d) {
 
 /* Forward owner state once per interested downstream branch. */
 void rr_relay_publish_state(const char *owner, const char *room, dict *d, int remaining_ttl) {
-   /* Only the owning node can sign this state. Every intermediary forwards
-    * its immutable signed payload; never sign somebody else's state. */
-   dict *signed_state=NULL;
+   /* Only the owning node can sign this state. Every intermediary forwards its immutable signed payload; never sign somebody else's state. */
+   dict *signed_state = NULL;
+
    if (rr_relay_local_owner(owner)) {
-      signed_state=dict_clone(d);
+      signed_state = dict_clone(d);
+
       if (!signed_state || !rr_identity_public_base64()) {
          dict_free(signed_state);
+
          return;
       }
-      dict_add(signed_state,"identity.owner",owner);
-      dict_add(signed_state,"identity.domain",cfg_get("domain"));
-      dict_add(signed_state,"identity.public-key",rr_identity_public_base64());
-      dict_add(signed_state,"identity.scheme","ed25519-catalog-v1");
-      dict_add(signed_state,"identity.operation","relay-state");
-      dict_add(signed_state,"identity.session","");
-      dict_add(signed_state,"identity.destination","*");
-      dict_add(signed_state,"identity.username",owner);
+      dict_add(signed_state, "identity.owner", owner);
+      dict_add(signed_state, "identity.domain", cfg_get("domain"));
+      dict_add(signed_state, "identity.public-key", rr_identity_public_base64());
+      dict_add(signed_state, "identity.scheme", "ed25519-catalog-v1");
+      dict_add(signed_state, "identity.operation", "relay-state");
+      dict_add(signed_state, "identity.session", "");
+      dict_add(signed_state, "identity.destination", "*");
+      dict_add(signed_state, "identity.username", owner);
       char stamp[32];
-      snprintf(stamp,sizeof(stamp),"%lld",(long long)time(NULL));
-      dict_add(signed_state,"identity.timestamp",stamp);
-      char *nonce=g_uuid_string_random();
-      if (!nonce) {dict_free(signed_state);return;}
-      dict_add(signed_state,"identity.nonce",nonce);
+      snprintf(stamp, sizeof(stamp), "%lld", (long long)time(NULL));
+      dict_add(signed_state, "identity.timestamp", stamp);
+      char *nonce = g_uuid_string_random();
+
+      if (!nonce) {
+         dict_free(signed_state);
+
+         return;
+      }
+      dict_add(signed_state, "identity.nonce", nonce);
       g_free(nonce);
+
       if (!rr_identity_sign_catalog(signed_state)) {
          dict_free(signed_state);
+
          return;
       }
    } else {
-      if (strcmp(dict_get(d,"identity.owner",""),owner) ||
-          strcmp(dict_get(d,"identity.operation",""),"relay-state") ||
-          !dict_get(d,"identity.signature",NULL)) return;
-      signed_state=d;
+      if (strcmp(dict_get(d, "identity.owner", ""), owner) ||
+         strcmp(dict_get(d, "identity.operation", ""), "relay-state") || !dict_get(d, "identity.signature", NULL)) {
+         return;
+      }
+      signed_state = d;
    }
    /* State/chat is per subscribed neighbor, not per remote user. The receiving node fans out to its local clients and downstream branches. Keep duplicate
     * subscriptions from creating duplicate mesh packets. */
@@ -333,11 +343,14 @@ void rr_relay_publish_state(const char *owner, const char *room, dict *d, int re
          continue;
       }
 
-      rr_relay_send_owned_ttl(s->node,owner,"state",signed_state,remaining_ttl);
+      rr_relay_send_owned_ttl(s->node, owner, "state", signed_state, remaining_ttl);
       ++forwarded;
    }
 
-   if (signed_state!=d) dict_free(signed_state);
+   if (signed_state != d) {
+      dict_free(signed_state);
+   }
+
    if (interested) {
       Log(failed ? LOG_WARN : LOG_DEBUG, "relay.fanout", "Mesh state fanout: type=%s cmd=%s room=%s interested=%u next_hops=%u "
          "duplicate_subscriptions=%u failed=%u (one packet per subscribed branch, local delivery on receiver)", dict_get(d, "msg.type", ""), dict_get(d,

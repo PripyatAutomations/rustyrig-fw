@@ -25,8 +25,7 @@ static gboolean graph_profile_updating;
 static void graph_profile_modified(void);
 static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
-/* Preserve display order through transient disconnects. Only GTK owns this
- * history: the core graph and audio routing never contain retired nodes. */
+/* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
 static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
 /* Fit the topology to the actual viewport. Panel zoom and wheel zoom multiply independently; neither forces a large GTK size requisition. */
@@ -110,12 +109,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       gboolean source = n->type == RR_AG_SOURCE;
       const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
       nodes[i] = (rr_gtk_graph_node_t) {
-         .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80,
-         .title = source && n->rig[0] ? n->rig : n->id,
-         .subtitle = source ? n->id : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer",
-         .detail = graph_missing_since[i] ? "Disconnected" : source ? route : NULL,
-         .failed = n->health == RR_AG_FAILED, .stale = graph_missing_since[i] != 0, .bypass_pins =
-            n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
+         .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = source
+            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer", .detail =
+            graph_missing_since[i] ? "Disconnected" : source ? route : NULL, .failed = n->health == RR_AG_FAILED, .stale =
+            graph_missing_since[i] != 0, .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
@@ -208,24 +205,29 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
 
    gint64 now = g_get_monotonic_time();
    rr_audio_graph_snapshot_t *merged = g_new0(rr_audio_graph_snapshot_t, 1);
-   gint64 missing[RR_AUDIO_GRAPH_MAX_NODES] = {0};
+   gint64 missing[RR_AUDIO_GRAPH_MAX_NODES] = {
+      0
+   };
    guint incoming_to_display[RR_AUDIO_GRAPH_MAX_NODES];
-   gboolean matched[RR_AUDIO_GRAPH_MAX_NODES] = {FALSE};
+   gboolean matched[RR_AUDIO_GRAPH_MAX_NODES] = {
+      FALSE
+   };
    guint ghosts = 0;
    gboolean topology_changed = FALSE;
 
-   /* Reuse slots by stable node ID, keeping their screen locations unchanged.
-    * A vanished source becomes an inert grey ghost until the grace period
-    * expires. Reserve capacity for every live node before keeping ghosts. */
+   /* Reuse slots by stable node ID, keeping their screen locations unchanged. A vanished source becomes an inert grey ghost until the grace period expires.
+    * Reserve capacity for every live node before keeping ghosts. */
    if (graph_snapshot) {
       for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
          const rr_ag_view_node_t *old = &graph_snapshot->nodes[i];
          guint j = 0;
+
          for ( ; j < incoming->node_count ; j++) {
-            if (!matched[j] && incoming->nodes[j].type == old->type &&
-               !strcmp(incoming->nodes[j].id, old->id))
+            if (!matched[j] && incoming->nodes[j].type == old->type && !strcmp(incoming->nodes[j].id, old->id)) {
                break;
+            }
          }
+
          if (j < incoming->node_count) {
             guint k = merged->node_count++;
             merged->nodes[k] = incoming->nodes[j];
@@ -233,20 +235,23 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
             matched[j] = TRUE;
          } else {
             gint64 since = graph_missing_since[i] ? graph_missing_since[i] : now;
-            if (now - since < GRAPH_GHOST_US &&
-               incoming->node_count + ghosts < RR_AUDIO_GRAPH_MAX_NODES) {
+
+            if (now - since < GRAPH_GHOST_US && incoming->node_count + ghosts < RR_AUDIO_GRAPH_MAX_NODES) {
                guint k = merged->node_count++;
                merged->nodes[k] = *old;
                missing[k] = since;
                ghosts++;
-               if (!graph_missing_since[i])
+
+               if (!graph_missing_since[i]) {
                   topology_changed = TRUE;
+               }
             } else {
                topology_changed = TRUE;
             }
          }
       }
    }
+
    for (guint j = 0 ; j < incoming->node_count ; j++) {
       if (!matched[j]) {
          guint k = merged->node_count++;
@@ -255,12 +260,14 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
          topology_changed = TRUE;
       }
    }
-   /* Only active links are drawn. A ghost must never remain connected to
-    * the mixer, even if the route in its last snapshot was Stereo. */
+
+   /* Only active links are drawn. A ghost must never remain connected to the mixer, even if the route in its last snapshot was Stereo. */
    for (guint i = 0 ; i < incoming->link_count ; i++) {
       rr_ag_view_link_t link = incoming->links[i];
-      if (link.src >= incoming->node_count || link.dst >= incoming->node_count)
+
+      if (link.src >= incoming->node_count || link.dst >= incoming->node_count) {
          continue;
+      }
       link.src = incoming_to_display[link.src];
       link.dst = incoming_to_display[link.dst];
       merged->links[merged->link_count++] = link;
@@ -396,8 +403,7 @@ static unsigned graph_route_mask(char route) {
    return route == 'S' ? 3u : route == 'L' ? 1u : route == 'R' ? 2u : 0u;
 }
 static void graph_set_channel(guint source, gint channel, gboolean connect) {
-   if (!graph_snapshot || source >= graph_snapshot->node_count || graph_missing_since[source] ||
-       graph_snapshot->nodes[source].type != RR_AG_SOURCE) {
+   if (!graph_snapshot || source >= graph_snapshot->node_count || graph_missing_since[source] || graph_snapshot->nodes[source].type != RR_AG_SOURCE) {
       return;
    }
    rr_ag_view_node_t *node = &graph_snapshot->nodes[source];
@@ -803,7 +809,8 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
-      GtkWidget *info = gtk_label_new("Drag RX outputs to mixer inputs; click links to disconnect. Grey nodes are disconnected and disappear after 15 seconds.");
+      GtkWidget *info =
+         gtk_label_new("Drag RX outputs to mixer inputs; click links to disconnect. Grey nodes are disconnected and disappear after 15 seconds.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -873,11 +880,9 @@ static void routing_queue(void) {
 static gboolean routing_watchdog(gpointer unused) {
    (void)unused;
 
-   /* Refresh topology while visible, even if a stream disappears without
-    * producing a route.changed event. The core returns an immutable snapshot;
+   /* Refresh topology while visible, even if a stream disappears without producing a route.changed event. The core returns an immutable snapshot;
     * no GTK calls touch the mixer or network thread. */
-   if ((graph_panel && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel))) ||
-       snapshot_waiting) {
+   if ((graph_panel && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel))) || snapshot_waiting) {
       routing_queue();
    }
 

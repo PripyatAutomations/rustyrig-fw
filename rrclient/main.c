@@ -2128,6 +2128,7 @@ bool rrclient_cleanup(void) {
    // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
    if (cfg && cfg_get_bool("ui.save-on-exit", false)) {
       Log(LOG_INFO, "config", "ui.save-on-exit: saving config overrides to client.db");
+
       if (!rrclient_config_save()) {
          Log(LOG_WARN, "config", "Unable to save configuration overrides to client.db");
       }
@@ -2347,20 +2348,21 @@ int main(int argc, char *argv[]) {
       Log(LOG_CRIT, "config", "Unable to load client configuration");
       exit(1);
    }
-   /* Load persistent overrides before selecting GTK/TUI, initializing the
-    * logger, or creating frontend modules. --ignore-db-config is a recovery
-    * boot: no DB config overrides are applied; profiles/themes still load. */
+
+   /* Load persistent overrides before selecting GTK/TUI, initializing the logger, or creating frontend modules. --ignore-db-config is a recovery boot: no DB
+    * config overrides are applied; profiles/themes still load. */
    if (!rrclient_database_init()) {
       Log(LOG_WARN, "db", "Client database unavailable; using file configuration (saved profiles and themes unavailable)");
    } else {
-      /* Config overrides are optional; they must not prevent startup.
-       * Profiles and themes remain independent of --ignore-db-config. */
+      /* Config overrides are optional; they must not prevent startup. Profiles and themes remain independent of --ignore-db-config. */
       if (!rrclient_config_ignore_db() && !rrclient_database_config_overlay()) {
          Log(LOG_WARN, "db", "Saved config overrides could not be read; using rrclient.cfg defaults. Try --ignore-db-config for recovery");
       }
+
       if (!rrclient_database_load_profiles()) {
          Log(LOG_WARN, "db", "Unable to load saved server profiles");
       }
+
       if (!rrclient_database_load_themes()) {
          Log(LOG_WARN, "db", "Unable to load saved themes");
       }
@@ -2556,6 +2558,7 @@ int main(int argc, char *argv[]) {
 
    rrclient_log_level_register();
    rrclient_config_reload_register();
+
    if (!event_on_message_domain_token("client.ptt.request", rrclient_ptt_request_event, NULL, "core")) {
       Log(LOG_WARN, "ptt", "Unable to register core PTT request handler");
    }

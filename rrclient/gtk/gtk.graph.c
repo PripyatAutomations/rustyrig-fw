@@ -68,9 +68,8 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
 
    for (guint i = 0 ; i < n_nodes ; i++) {
       const rr_gtk_graph_node_t *n = &nodes[i];
-      cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 : n->selected ? .20 : .15,
-         n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25,
-         n->stale ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
+      cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 : n->selected ? .20 : .15, n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25, n->stale
+         ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
 
       if (n->fwdsp) {
          /* Capsule silhouette distinguishes an external fwdsp/GStreamer process from the in-process mixer and source nodes. */
@@ -85,9 +84,7 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_rectangle(cr, n->x, n->y, RR_GTK_GRAPH_NODE_W, RR_GTK_GRAPH_NODE_H);
       }
       cairo_fill_preserve(cr);
-      cairo_set_source_rgb(cr, n->stale ? .42 : n->failed ? .95 : .53,
-         n->stale ? .43 : n->failed ? .32 : .65,
-         n->stale ? .46 : n->failed ? .28 : .75);
+      cairo_set_source_rgb(cr, n->stale ? .42 : n->failed ? .95 : .53, n->stale ? .43 : n->failed ? .32 : .65, n->stale ? .46 : n->failed ? .28 : .75);
       cairo_set_line_width(cr, n->selected ? 2.8 : 1.3);
       cairo_stroke(cr);
       cairo_set_source_rgb(cr, n->stale ? .66 : 1, n->stale ? .68 : 1, n->stale ? .70 : 1);
@@ -99,6 +96,7 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       cairo_set_font_size(cr, 10);
       cairo_move_to(cr, n->x + 10, n->y + 39);
       cairo_show_text(cr, n->subtitle ? n->subtitle : "");
+
       if (n->detail && *n->detail) {
          cairo_set_font_size(cr, 9);
          cairo_move_to(cr, n->x + 10, n->y + 52);

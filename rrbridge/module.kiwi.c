@@ -121,17 +121,25 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
 static void kiwi_destroy(void *instance) {
    struct kiwi_instance *k = instance;
    k->closing = true;
+
    if (k->connection) {
       rr_transport_close(k->connection);
       rr_transport_poll(k->connection, 0);
       kiwi_traffic(k, k->connection, false);
-      if (rr_transport_state(k->connection) == RR_TRANSPORT_CLOSED) rr_transport_wss_release(k->connection);
+
+      if (rr_transport_state(k->connection) == RR_TRANSPORT_CLOSED) {
+         rr_transport_wss_release(k->connection);
+      }
    }
+
    if (k->waterfall) {
       rr_transport_close(k->waterfall);
       rr_transport_poll(k->waterfall, 0);
       kiwi_traffic(k, k->waterfall, true);
-      if (rr_transport_state(k->waterfall) == RR_TRANSPORT_CLOSED) rr_transport_wss_release(k->waterfall);
+
+      if (rr_transport_state(k->waterfall) == RR_TRANSPORT_CLOSED) {
+         rr_transport_wss_release(k->waterfall);
+      }
    }
    free(k);
 }
@@ -208,20 +216,33 @@ static bool configure(struct kiwi_instance *k) {
    return true;
 }
 static int kiwi_url_decode(const char *src, size_t n, char *dst, size_t capacity) {
-   if (n + 1 > capacity) return -1;
+   if (n + 1 > capacity) {
+      return -1;
+   }
    size_t used = 0;
-   for (size_t i = 0; i < n; i++) {
+
+   for (size_t i = 0 ; i < n ; i++) {
       unsigned char value = (unsigned char)src[i];
+
       if (value == '%') {
-         if (i + 2 >= n || !isxdigit((unsigned char)src[i+1]) || !isxdigit((unsigned char)src[i+2])) return -1;
-         char hex[3] = {src[i+1],src[i+2],0};
+         if (i + 2 >= n || !isxdigit((unsigned char)src[i + 1]) || !isxdigit((unsigned char)src[i + 2])) {
+            return -1;
+         }
+         char hex[3] = {
+            src[i + 1], src[i + 2], 0
+         };
          value = (unsigned char)strtoul(hex, NULL, 16);
          i += 2;
       }
-      if (!value) return -1;
+
+      if (!value) {
+         return -1;
+      }
       dst[used++] = (char)value;
    }
+
    dst[used] = 0;
+
    return (int)used;
 }
 static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
@@ -514,7 +535,10 @@ static void waterfall_center(struct kiwi_instance *k) {
 }
 
 typedef struct kiwi_frame {
-   struct {const uint8_t *buf; size_t len;} data;
+   struct {
+      const uint8_t *buf;
+      size_t len;
+   } data;
    unsigned flags;
 } kiwi_frame_t;
 static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
@@ -555,7 +579,11 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
       snprintf(detail, sizeof(detail), "Kiwi W/F connection error: %s", data ? (const char *)data : "unknown");
       note(k, detail);
    } else if (event == RR_TRANSPORT_EVENT_MESSAGE || event == RR_TRANSPORT_EVENT_BINARY_MESSAGE) {
-      kiwi_frame_t frame = {.data = {.buf = data, .len = len}, .flags = (unsigned)event};
+      kiwi_frame_t frame = {
+         .data = {
+            .buf = data, .len = len
+         }, .flags = (unsigned)event
+      };
       kiwi_frame_t *m = &frame;
 
       if (!k->waterfall_first_frame_logged && m->data.len > 0) {
@@ -637,18 +665,29 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
 static void websocket(rr_transport_t *t, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
    (void)channel;
    struct kiwi_instance *k = user;
+
    if (event == RR_TRANSPORT_EVENT_OPEN) {
       const char *password = setting(k, "password");
-      if (!password) password = "";
+
+      if (!password) {
+         password = "";
+      }
+
       if (strlen(password) > 128 || strpbrk(password, " \r\n")) {
          fail(k, "Invalid Kiwi password configuration");
+
          return;
       }
       char auth[192];
       snprintf(auth, sizeof(auth), "SET auth t=kiwi p=%s", password);
-      if (!send_command(k, auth)) fail(k, "Cannot send Kiwi authentication");
+
+      if (!send_command(k, auth)) {
+         fail(k, "Cannot send Kiwi authentication");
+      }
    } else if ((event == RR_TRANSPORT_EVENT_MESSAGE || event == RR_TRANSPORT_EVENT_BINARY_MESSAGE) && !k->failed) {
-      if (!kiwi_receive(k, data, len)) fail(k, "Invalid or unsupported Kiwi stream");
+      if (!kiwi_receive(k, data, len)) {
+         fail(k, "Invalid or unsupported Kiwi stream");
+      }
    } else if (event == RR_TRANSPORT_EVENT_ERROR && !k->closing) {
       char detail[200];
       snprintf(detail, sizeof(detail), "Kiwi WebSocket: %.*s", (int)(len < 150 ? len : 150), data ? (const char *)data : "unknown");
@@ -657,17 +696,24 @@ static void websocket(rr_transport_t *t, enum rr_transport_event event, rr_trans
       if (!k->closing) {
          bool was_online = k->online;
          unavailable(k);
-         if (was_online) note(k, "Kiwi WebSocket connection lost after receiver was online");
+
+         if (was_online) {
+            note(k, "Kiwi WebSocket connection lost after receiver was online");
+         }
+
          if (k->attempts >= 3) {
             note(k, "Kiwi receiver stopped after 3 connection attempts");
             k->retry = UINT64_MAX;
          } else {
             unsigned delay = 1u << (k->failures < 6 ? k->failures : 6);
-            if (k->failures < 6) k->failures++;
+
+            if (k->failures < 6) {
+               k->failures++;
+            }
             char text[96];
             snprintf(text, sizeof(text), "Kiwi receiver disconnected; retrying in %u seconds", delay);
             note(k, text);
-            k->retry = mono_us() + (uint64_t)delay * 1000000;
+            k->retry = mono_us() + (uint64_t) delay * 1000000;
          }
       }
    }
@@ -737,8 +783,14 @@ static void kiwi_traffic(struct kiwi_instance *k, rr_transport_t *transport, boo
    rr_transport_wss_traffic(transport, &rx, &tx);
    uint64_t *last_rx = waterfall ? &k->wf_last_rx : &k->snd_last_rx;
    uint64_t *last_tx = waterfall ? &k->wf_last_tx : &k->snd_last_tx;
-   if (rx >= *last_rx) k->traffic_rx += rx - *last_rx;
-   if (tx >= *last_tx) k->traffic_tx += tx - *last_tx;
+
+   if (rx >= *last_rx) {
+      k->traffic_rx += rx - *last_rx;
+   }
+
+   if (tx >= *last_tx) {
+      k->traffic_tx += tx - *last_tx;
+   }
    *last_rx = rx;
    *last_tx = tx;
 }
@@ -768,7 +820,9 @@ static void kiwi_poll(void *instance) {
 
          return;
       }
-      rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = !(setting(k, "password") && *setting(k, "password"))};
+      rr_wss_client_options_t options = {
+         .user_agent = ua, .allow_cross_origin_redirect = !(setting(k, "password") && *setting(k, "password"))
+      };
       k->connection = rr_transport_wss_connect(k->url, &options, websocket, k);
       k->snd_last_rx = k->snd_last_tx = 0;
       k->deadline = current + 10000000;
@@ -798,24 +852,30 @@ static void kiwi_poll(void *instance) {
             char detail[560];
             snprintf(detail, sizeof(detail), "Connecting Kiwi RF waterfall: %s", wf_url);
             note(k, detail);
-            rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = false};
+            rr_wss_client_options_t options = {
+               .user_agent = ua, .allow_cross_origin_redirect = false
+            };
             k->waterfall = rr_transport_wss_connect(wf_url, &options, waterfall_ws, k);
             k->wf_last_rx = k->wf_last_tx = 0;
          }
       }
       k->waterfall_retry = current + UINT64_C(10000000);
    }
+
    if (k->connection) {
       rr_transport_poll(k->connection, 0);
       kiwi_traffic(k, k->connection, false);
+
       if (rr_transport_state(k->connection) == RR_TRANSPORT_CLOSED) {
          rr_transport_wss_release(k->connection);
          k->connection = NULL;
       }
    }
+
    if (k->waterfall) {
       rr_transport_poll(k->waterfall, 0);
       kiwi_traffic(k, k->waterfall, true);
+
       if (rr_transport_state(k->waterfall) == RR_TRANSPORT_CLOSED) {
          rr_transport_wss_release(k->waterfall);
          k->waterfall = NULL;
@@ -841,13 +901,12 @@ static void kiwi_poll(void *instance) {
    if (current - k->wf_stats_at >= UINT64_C(10000000)) {
       if (k->waterfall_enabled && k->online && !k->wf_received && !k->wf_sent) {
          char detail[256];
-         snprintf(detail, sizeof(detail),
-            "Kiwi RF waterfall/10s no frames: socket=%s ready=%s max_hz=%" PRIu64 " zoom=%u",
-            !k->waterfall ? "disconnected" :
-            rr_transport_state(k->waterfall) == RR_TRANSPORT_OPEN ? "open" : "connecting/closing",
-            k->waterfall_ready ? "yes" : "no", k->max_hz, k->waterfall_zoom);
+         snprintf(detail, sizeof(detail), "Kiwi RF waterfall/10s no frames: socket=%s ready=%s max_hz=%" PRIu64 " zoom=%u", !k->waterfall ? "disconnected" :
+            rr_transport_state(k->waterfall) == RR_TRANSPORT_OPEN ? "open" : "connecting/closing", k->waterfall_ready ? "yes" : "no", k->max_hz, k->
+            waterfall_zoom);
          note(k, detail);
       }
+
       if (k->wf_received || k->wf_throttled || k->wf_ipc_dropped || k->wf_invalid) {
          char detail[256];
          uint64_t dropped = k->wf_throttled + k->wf_ipc_dropped + k->wf_invalid;
@@ -885,8 +944,8 @@ static void kiwi_poll(void *instance) {
          !k->authenticated ? "authentication" :
          !k->rate ? "sample-rate announcement" :
          !k->configured ? "receiver configuration" :
-         !k->online ? "first tuned audio packet" : "audio stream stalled", (rr_transport_state(k->connection) == RR_TRANSPORT_OPEN) ? "yes" : "no", k->authenticated ? "yes" : "no", k->
-         configured ? "yes" : "no", k->online ? "yes" : "no", k->rate, (uint64_t) ((current - k->received) / 1000));
+         !k->online ? "first tuned audio packet" : "audio stream stalled", (rr_transport_state(k->connection) == RR_TRANSPORT_OPEN) ? "yes" : "no", k->
+         authenticated ? "yes" : "no", k->configured ? "yes" : "no", k->online ? "yes" : "no", k->rate, (uint64_t) ((current - k->received) / 1000));
       fail(k, reason);
 
       return;

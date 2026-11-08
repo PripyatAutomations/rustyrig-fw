@@ -731,8 +731,8 @@ void ws_send_to_name(rrconn_t *sender, const char *username, struct mg_str *msg_
 }
 #endif // USE_MONGOOSE
 
-/* Server-side session kick and inbound media processing belong to rrserver.
- * The client only processes incoming server messages through ws_binframe_process_client(). */
+/* Server-side session kick and inbound media processing belong to rrserver. The client only processes incoming server messages through
+ * ws_binframe_process_client(). */
 
 ///////////////////////////////////////////////////////////////
 // Send an error message to the user

@@ -101,11 +101,12 @@ static void log_source_toggled(GtkToggleButton *button, gpointer data) {
    const char *key = button == GTK_TOGGLE_BUTTON(v->host) ? "ui.gtk.log.host" : "ui.gtk.log.client";
 
    const gboolean active = gtk_toggle_button_get_active(button);
-   /* Also update the in-memory effective config. This UI choice is saved
-    * immediately and should not require the exit-time Save dialog. */
+
+   /* Also update the in-memory effective config. This UI choice is saved immediately and should not require the exit-time Save dialog. */
    if (cfg) {
       dict_add_bool(cfg, key, active);
    }
+
    if (!rrclient_database_setting_set(key, active ? "true" : "false")) {
       Log(LOG_WARN, "gtk.log", "Unable to persist %s", key);
    }
@@ -268,14 +269,14 @@ static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
    return TRUE;
 }
+
 /* The server side is a template only. Never send a log.level command. */
 typedef struct {
    GtkWidget *dialog, *target, *spec, *subsys, *level, *apply;
    gchar *client_draft, *server_draft;
    int current_target;
 } LogComposer;
-/* Filter the subsystem dropdown against text typed directly into its entry.
- * Keep the entry editable so manually specified subsystem globs still work. */
+/* Filter the subsystem dropdown against text typed directly into its entry. Keep the entry editable so manually specified subsystem globs still work. */
 static gboolean composer_subsys_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    GtkEntry *entry = GTK_ENTRY(data);
    const gchar *search = gtk_entry_get_text(entry);
@@ -302,6 +303,7 @@ static void composer_target_changed(GtkComboBox *combo, gpointer data) {
    LogComposer *c = data;
    int target = gtk_combo_box_get_active(combo);
    gboolean server = target == 1;
+
    if (c->current_target == 1) {
       g_free(c->server_draft);
       c->server_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(c->spec)));
@@ -312,8 +314,7 @@ static void composer_target_changed(GtkComboBox *combo, gpointer data) {
    c->current_target = target;
    gtk_entry_set_text(GTK_ENTRY(c->spec), server ? c->server_draft : c->client_draft);
    gtk_widget_set_sensitive(c->apply, !server);
-   gtk_widget_set_tooltip_text(c->apply, server ?
-      "Remote log.level cannot be changed over the network; copy it for the server administrator." : NULL);
+   gtk_widget_set_tooltip_text(c->apply, server ? "Remote log.level cannot be changed over the network; copy it for the server administrator." : NULL);
 }
 static void composer_add_rule(GtkButton *button, gpointer data) {
    (void)button;
@@ -324,6 +325,7 @@ static void composer_add_rule(GtkButton *button, gpointer data) {
    if (!name || !level) {
       g_free(name);
       g_free(level);
+
       return;
    }
    const char *old = gtk_entry_get_text(GTK_ENTRY(c->spec));
@@ -336,10 +338,11 @@ static void composer_add_rule(GtkButton *button, gpointer data) {
 static void composer_open(GtkButton *button, gpointer data) {
    (void)button;
    GtkLogView *view = data;
-   LogComposer c = {.current_target = -1};
-   c.dialog = gtk_dialog_new_with_buttons("Log-level composer",
-      GTK_WINDOW(gtk_widget_get_toplevel(view->page)), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Close", GTK_RESPONSE_CLOSE, "_Copy", GTK_RESPONSE_APPLY, "_Apply to Client", GTK_RESPONSE_ACCEPT, NULL);
+   LogComposer c = {
+      .current_target = -1
+   };
+   c.dialog = gtk_dialog_new_with_buttons("Log-level composer", GTK_WINDOW(gtk_widget_get_toplevel(view->page)), GTK_DIALOG_MODAL |
+      GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, "_Copy", GTK_RESPONSE_APPLY, "_Apply to Client", GTK_RESPONSE_ACCEPT, NULL);
    c.apply = gtk_dialog_get_widget_for_response(GTK_DIALOG(c.dialog), GTK_RESPONSE_ACCEPT);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(c.dialog));
    GtkWidget *layout = gtk_grid_new();
@@ -356,25 +359,29 @@ static void composer_open(GtkButton *button, gpointer data) {
 
    c.subsys = gtk_combo_box_text_new_with_entry();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.subsys), "*");
+
    for (size_t i = 0 ; rr_log_subsystems[i] ; i++) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.subsys), rr_log_subsystems[i]);
    }
-   /* Wrap the built-in subsystem list in a live substring filter. The
-    * combo's entry is both the search field and the custom-rule input. */
+
+   /* Wrap the built-in subsystem list in a live substring filter. The combo's entry is both the search field and the custom-rule input. */
    GtkTreeModel *subsystems = gtk_combo_box_get_model(GTK_COMBO_BOX(c.subsys));
    GtkTreeModel *filtered_subsystems = gtk_tree_model_filter_new(subsystems, NULL);
    GtkWidget *subsys_entry = gtk_bin_get_child(GTK_BIN(c.subsys));
-   gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered_subsystems),
-      composer_subsys_visible, subsys_entry, NULL);
+   gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered_subsystems), composer_subsys_visible, subsys_entry, NULL);
    gtk_combo_box_set_model(GTK_COMBO_BOX(c.subsys), filtered_subsystems);
    g_signal_connect(subsys_entry, "changed", G_CALLBACK(composer_subsys_search_changed), filtered_subsystems);
    gtk_combo_box_set_active(GTK_COMBO_BOX(c.subsys), 0);
    g_object_unref(filtered_subsystems);
    c.level = gtk_combo_box_text_new();
-   const char *const levels[] = {"crit", "audit", "warn", "info", "debug", "crazy", "blitz", NULL};
+   const char *const levels[] = {
+      "crit", "audit", "warn", "info", "debug", "crazy", "blitz", NULL
+   };
+
    for (unsigned i = 0 ; levels[i] ; i++) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.level), levels[i]);
    }
+
    gtk_combo_box_set_active(GTK_COMBO_BOX(c.level), 3);
    GtkWidget *add = gtk_button_new_with_label("Add rule");
    gtk_grid_attach(GTK_GRID(layout), gtk_label_new("Subsystem"), 0, 1, 1, 1);
@@ -399,20 +406,20 @@ static void composer_open(GtkButton *button, gpointer data) {
    gtk_widget_show_all(area);
 
    int response;
-   while ((response = gtk_dialog_run(GTK_DIALOG(c.dialog))) != GTK_RESPONSE_CLOSE &&
-          response != GTK_RESPONSE_DELETE_EVENT) {
+   while ((response = gtk_dialog_run(GTK_DIALOG(c.dialog))) != GTK_RESPONSE_CLOSE && response != GTK_RESPONSE_DELETE_EVENT) {
       const char *text = gtk_entry_get_text(GTK_ENTRY(c.spec));
 
       if (response == GTK_RESPONSE_APPLY) {
          gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, -1);
       } else if (response == GTK_RESPONSE_ACCEPT && gtk_combo_box_get_active(GTK_COMBO_BOX(c.target)) == 0) {
-         if (strlen(text) >= sizeof(((rrclient_log_level_request_t *)0)->spec)) {
-            GtkWidget *warning = gtk_message_dialog_new(GTK_WINDOW(c.dialog), GTK_DIALOG_MODAL,
-               GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "log.level is too long");
+         if (strlen(text) >= sizeof(((rrclient_log_level_request_t *) 0)->spec)) {
+            GtkWidget *warning = gtk_message_dialog_new(GTK_WINDOW(c.dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "log.level is too long");
             gtk_dialog_run(GTK_DIALOG(warning));
             gtk_widget_destroy(warning);
          } else {
-            rrclient_log_level_request_t request = {0};
+            rrclient_log_level_request_t request = {
+               0
+            };
             g_strlcpy(request.spec, text, sizeof(request.spec));
             rr_event_message_t message = {
                .name = RRCLIENT_LOG_LEVEL_REQUEST, .payload = &request, .length = sizeof(request)
@@ -435,10 +442,9 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    v->host = gtk_check_button_new_with_label("Host");
    char *client_setting = rrclient_config_ignore_db() ? NULL : rrclient_database_setting_get("ui.gtk.log.client");
    char *host_setting = rrclient_config_ignore_db() ? NULL : rrclient_database_setting_get("ui.gtk.log.host");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client),
-      client_setting ? !g_ascii_strcasecmp(client_setting, "true") : cfg_get_bool("ui.gtk.log.client", true));
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->host),
-      host_setting ? !g_ascii_strcasecmp(host_setting, "true") : cfg_get_bool("ui.gtk.log.host", false));
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client), client_setting ? !g_ascii_strcasecmp(client_setting, "true") : cfg_get_bool("ui.gtk.log.client",
+      true));
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->host), host_setting ? !g_ascii_strcasecmp(host_setting, "true") : cfg_get_bool("ui.gtk.log.host", false));
    g_free(client_setting);
    g_free(host_setting);
    GtkWidget *levels_button = gtk_button_new_with_label("Log levels…");

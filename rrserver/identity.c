@@ -233,69 +233,72 @@ bool rr_identity_verify_catalog(dict *d) {
 }
 
 #ifdef USE_SQLITE
-/* A signed command is not automatically fresh. Persist a bounded, one-time
- * nonce so a transit relay cannot replay a prior valid command, reply or
- * subscription operation—even across a process restart. */
+/* A signed command is not automatically fresh. Persist a bounded, one-time nonce so a transit relay cannot replay a prior valid command, reply or subscription
+ * operation—even across a process restart. */
 bool rr_identity_accept_control_nonce(sqlite3 *db, dict *d) {
-   if (!db || !d) return false;
-   const char *domain=dict_get(d,"identity.domain","");
-   const char *owner=dict_get(d,"identity.owner","");
-   const char *pubkey=dict_get(d,"identity.public-key","");
-   const char *nonce=dict_get(d,"identity.nonce","");
-   const char *stamp=dict_get(d,"identity.timestamp","");
-   if (!*domain || !g_uuid_string_is_valid(owner) ||
-       strlen(pubkey)!=44 || !g_uuid_string_is_valid(nonce) || !*stamp)
+   if (!db || !d) {
       return false;
-   char *end=NULL;
-   gint64 issued=g_ascii_strtoll(stamp,&end,10);
-   gint64 now=(gint64)time(NULL);
-   if (!end || *end || issued<now-300 || issued>now+300) return false;
-   if (sqlite3_exec(db,
-      "CREATE TABLE IF NOT EXISTS mesh_signed_control_nonces ("
+   }
+   const char *domain = dict_get(d, "identity.domain", "");
+   const char *owner = dict_get(d, "identity.owner", "");
+   const char *pubkey = dict_get(d, "identity.public-key", "");
+   const char *nonce = dict_get(d, "identity.nonce", "");
+   const char *stamp = dict_get(d, "identity.timestamp", "");
+
+   if (!*domain || !g_uuid_string_is_valid(owner) || strlen(pubkey) != 44 || !g_uuid_string_is_valid(nonce) || !*stamp) {
+      return false;
+   }
+   char *end = NULL;
+   gint64 issued = g_ascii_strtoll(stamp, &end, 10);
+   gint64 now = (gint64) time(NULL);
+
+   if (!end || *end || issued < now - 300 || issued > now + 300) {
+      return false;
+   }
+
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_signed_control_nonces ("
       "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
       "public_key TEXT NOT NULL,nonce TEXT NOT NULL,"
-      "issued_at INTEGER NOT NULL,"
-      "PRIMARY KEY(domain,owner_uuid,public_key,nonce))",
-      NULL,NULL,NULL)!=SQLITE_OK) return false;
-   sqlite3_stmt *stmt=NULL;
-   bool ok=sqlite3_prepare_v2(db,
-      "INSERT INTO mesh_signed_control_nonces("
-      "domain,owner_uuid,public_key,nonce,issued_at)"
-      " VALUES(?1,?2,?3,?4,?5)",-1,&stmt,NULL)==SQLITE_OK;
+      "issued_at INTEGER NOT NULL," "PRIMARY KEY(domain,owner_uuid,public_key,nonce))", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_stmt *stmt = NULL;
+   bool ok =
+      sqlite3_prepare_v2(db, "INSERT INTO mesh_signed_control_nonces(" "domain,owner_uuid,public_key,nonce,issued_at)" " VALUES(?1,?2,?3,?4,?5)", -1, &stmt,
+      NULL) == SQLITE_OK;
+
    if (ok) {
-      sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt,3,pubkey,-1,SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt,4,nonce,-1,SQLITE_TRANSIENT);
-      sqlite3_bind_int64(stmt,5,issued);
-      ok=sqlite3_step(stmt)==SQLITE_DONE;
+      sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 2, owner, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 3, pubkey, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 4, nonce, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_int64(stmt, 5, issued);
+      ok = sqlite3_step(stmt) == SQLITE_DONE;
    }
    sqlite3_finalize(stmt);
    static gint64 prune_at;
-   if (ok && now-prune_at>=600) {
-      if (sqlite3_prepare_v2(db,
-         "DELETE FROM mesh_signed_control_nonces WHERE issued_at<?1",
-         -1,&stmt,NULL)==SQLITE_OK) {
-         sqlite3_bind_int64(stmt,1,now-900);
+
+   if (ok && now - prune_at >= 600) {
+      if (sqlite3_prepare_v2(db, "DELETE FROM mesh_signed_control_nonces WHERE issued_at<?1", -1, &stmt, NULL) == SQLITE_OK) {
+         sqlite3_bind_int64(stmt, 1, now - 900);
          sqlite3_step(stmt);
       }
       sqlite3_finalize(stmt);
-      prune_at=now;
+      prune_at = now;
    }
+
    return ok;
 }
 
-/* Strict read-only authority lookup for relayed commands/replies.
- * Unlike catalog discovery, this never creates a TOFU pin. */
-bool rr_identity_known_signer(sqlite3 *db, const char *domain,
-      const char *owner, const char *public_key) {
-   if (!db || !domain || !*domain || !g_uuid_string_is_valid(owner) ||
-       !public_key || !*public_key) return false;
-   /* Schema creation is not identity admission: no unverified key is
-    * inserted by this helper. Fresh nodes may receive signed control traffic
-    * immediately after enrollment, before their first catalog snapshot. */
-   if (sqlite3_exec(db,
-      "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+/* Strict read-only authority lookup for relayed commands/replies. Unlike catalog discovery, this never creates a TOFU pin. */
+bool rr_identity_known_signer(sqlite3 *db, const char *domain, const char *owner, const char *public_key) {
+   if (!db || !domain || !*domain || !g_uuid_string_is_valid(owner) || !public_key || !*public_key) {
+      return false;
+   }
+
+   /* Schema creation is not identity admission: no unverified key is inserted by this helper. Fresh nodes may receive signed control traffic immediately after
+    * enrollment, before their first catalog snapshot. */
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
       "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
       "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
       "PRIMARY KEY(domain,owner_uuid));"
@@ -306,35 +309,40 @@ bool rr_identity_known_signer(sqlite3 *db, const char *domain,
       "CREATE TABLE IF NOT EXISTS mesh_explicit_trust("
       "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
       "catalog_pubkey TEXT NOT NULL,tls_spki_sha256 TEXT NOT NULL,"
-      "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch()),"
-      "PRIMARY KEY(domain,owner_uuid));",NULL,NULL,NULL)!=SQLITE_OK)
+      "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid));", NULL, NULL, NULL) != SQLITE_OK) {
       return false;
-   sqlite3_stmt *stmt=NULL;
-   if (sqlite3_prepare_v2(db,
-      "SELECT 1 FROM mesh_explicit_trust WHERE domain=?1 COLLATE NOCASE "
+   }
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_explicit_trust WHERE domain=?1 COLLATE NOCASE "
       "AND owner_uuid=?2 AND catalog_pubkey=?3 "
       "UNION SELECT 1 FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE "
       "AND owner_uuid=?2 AND public_key=?3 "
-      "AND NOT EXISTS(SELECT 1 FROM mesh_explicit_trust "
-      " WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2)", -1,&stmt,NULL)!=SQLITE_OK)
+      "AND NOT EXISTS(SELECT 1 FROM mesh_explicit_trust " " WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2)", -1, &stmt, NULL) != SQLITE_OK) {
       return false;
-   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(stmt,3,public_key,-1,SQLITE_TRANSIENT);
-   bool known=sqlite3_step(stmt)==SQLITE_ROW;
+   }
+   sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, owner, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, public_key, -1, SQLITE_TRANSIENT);
+   bool known = sqlite3_step(stmt) == SQLITE_ROW;
    sqlite3_finalize(stmt);
-   if (!known) return false;
+
+   if (!known) {
+      return false;
+   }
+
    /* Existing denylist is authoritative and must fail closed on SQL errors. */
-   if (sqlite3_prepare_v2(db,
-      "SELECT 1 FROM mesh_revoked_identity_keys WHERE domain=?1 COLLATE NOCASE "
-      "AND owner_uuid=?2 AND public_key=?3", -1,&stmt,NULL)!=SQLITE_OK)
+   if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_revoked_identity_keys WHERE domain=?1 COLLATE NOCASE " "AND owner_uuid=?2 AND public_key=?3", -1, &stmt, NULL)
+      != SQLITE_OK) {
       return false;
-   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(stmt,3,public_key,-1,SQLITE_TRANSIENT);
-   int state=sqlite3_step(stmt);
+   }
+   sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, owner, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, public_key, -1, SQLITE_TRANSIENT);
+   int state = sqlite3_step(stmt);
    sqlite3_finalize(stmt);
-   return state==SQLITE_DONE;
+
+   return state == SQLITE_DONE;
 }
 bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, const char *pubkey) {
    if (!db || !domain || !*domain || !owner || !*owner || !pubkey || !*pubkey) {
@@ -348,15 +356,15 @@ bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, c
    if (sqlite3_exec(db, schema, NULL, NULL, NULL) != SQLITE_OK) {
       return false;
    }
-   /* A revoked owner/key must never be resurrected by catalog TOFU.
-    * A new key for the same owner may be explicitly re-enrolled. */
+
+   /* A revoked owner/key must never be resurrected by catalog TOFU. A new key for the same owner may be explicitly re-enrolled. */
    if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys ("
       "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
-      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
-      "PRIMARY KEY(domain,owner_uuid,public_key))", NULL, NULL, NULL) != SQLITE_OK) {
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid,public_key))", NULL, NULL, NULL) != SQLITE_OK) {
       return false;
    }
    sqlite3_stmt *revoked = NULL;
+
    if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_revoked_identity_keys "
       "WHERE domain=?1 AND owner_uuid=?2 AND public_key=?3", -1, &revoked, NULL) != SQLITE_OK) {
       return false;
@@ -366,37 +374,45 @@ bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, c
    sqlite3_bind_text(revoked, 3, pubkey, -1, SQLITE_TRANSIENT);
    int revoked_row = sqlite3_step(revoked);
    sqlite3_finalize(revoked);
+
    if (revoked_row != SQLITE_DONE) {
       return false;
    }
-   /* If this UUID has an explicit enrollment, never let an untrusted
-    * transit catalog install a different TOFU key. The enrolled identity is
-    * authoritative even before the first catalog snapshot arrives. */
+   /* If this UUID has an explicit enrollment, never let an untrusted transit catalog install a different TOFU key. The enrolled identity is authoritative even
+    * before the first catalog snapshot arrives. */
    sqlite3_stmt *enrolled = NULL;
+
    if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_explicit_trust ("
       "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL,"
       "catalog_pubkey TEXT NOT NULL, tls_spki_sha256 TEXT NOT NULL,"
-      "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch()),"
-      "PRIMARY KEY(domain,owner_uuid))", NULL,NULL,NULL) != SQLITE_OK)
+      "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) != SQLITE_OK) {
       return false;
-   if (sqlite3_prepare_v2(db,
-      "SELECT catalog_pubkey FROM mesh_explicit_trust "
-      "WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2",
-      -1,&enrolled,NULL) != SQLITE_OK) return false;
-   sqlite3_bind_text(enrolled,1,domain,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(enrolled,2,owner,-1,SQLITE_TRANSIENT);
+   }
+
+   if (sqlite3_prepare_v2(db, "SELECT catalog_pubkey FROM mesh_explicit_trust " "WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2", -1, &enrolled, NULL) !=
+      SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(enrolled, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(enrolled, 2, owner, -1, SQLITE_TRANSIENT);
    int enrollment = sqlite3_step(enrolled);
+
    if (enrollment == SQLITE_ROW) {
-      const char *expected=(const char *)sqlite3_column_text(enrolled,0);
-      bool match=expected && !strcmp(expected,pubkey);
+      const char *expected = (const char *)sqlite3_column_text(enrolled, 0);
+      bool match = expected && !strcmp(expected, pubkey);
       sqlite3_finalize(enrolled);
+
       if (!match) {
-         Log(LOG_WARN, "mesh.identity", "Rejecting catalog key substitution for explicitly enrolled node %s",owner);
+         Log(LOG_WARN, "mesh.identity", "Rejecting catalog key substitution for explicitly enrolled node %s", owner);
+
          return false;
       }
    } else {
       sqlite3_finalize(enrolled);
-      if (enrollment != SQLITE_DONE) return false;
+
+      if (enrollment != SQLITE_DONE) {
+         return false;
+      }
    }
    char *scope = g_ascii_strdown(domain, -1);
    sqlite3_stmt *insert = NULL, *lookup = NULL;
@@ -621,77 +637,85 @@ static bool trust_schema(sqlite3 *db) {
       "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) == SQLITE_OK;
 }
 
-/* Explicit enrollment and live TLS authentication must both refuse a
- * previously retired Ed25519 signing key, even if an old trust row survives. */
-/* Revoked TLS SPKIs are globally denied within the mesh domain, not
- * just for their previous UUID. This prevents reusing a compromised
- * certificate with a fresh signing key or a different claimed server. */
+/* Explicit enrollment and live TLS authentication must both refuse a previously retired Ed25519 signing key, even if an old trust row survives. */
+/* Revoked TLS SPKIs are globally denied within the mesh domain, not just for their previous UUID. This prevents reusing a compromised certificate with a fresh
+ * signing key or a different claimed server. */
 bool rr_identity_tls_pin_revoked(sqlite3 *db, const char *domain, const char *spki) {
-   if (!db || !domain || !*domain || !spki || strlen(spki)!=44) return true;
-   if (sqlite3_exec(db,"CREATE TABLE IF NOT EXISTS mesh_revoked_tls_spki("
-      "domain TEXT NOT NULL,spki TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
-      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
-      "PRIMARY KEY(domain,spki))",NULL,NULL,NULL)!=SQLITE_OK) return true;
-   sqlite3_stmt *stmt=NULL;
-   if (sqlite3_prepare_v2(db,"SELECT 1 FROM mesh_revoked_tls_spki"
-      " WHERE domain=?1 COLLATE NOCASE AND spki=?2",-1,&stmt,NULL)!=SQLITE_OK)
+   if (!db || !domain || !*domain || !spki || strlen(spki) != 44) {
       return true;
-   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(stmt,2,spki,-1,SQLITE_TRANSIENT);
-   int state=sqlite3_step(stmt);
+   }
+
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_revoked_tls_spki("
+      "domain TEXT NOT NULL,spki TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,spki))", NULL, NULL, NULL) != SQLITE_OK) {
+      return true;
+   }
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_revoked_tls_spki" " WHERE domain=?1 COLLATE NOCASE AND spki=?2", -1, &stmt, NULL) != SQLITE_OK) {
+      return true;
+   }
+   sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, spki, -1, SQLITE_TRANSIENT);
+   int state = sqlite3_step(stmt);
    sqlite3_finalize(stmt);
-   return state!=SQLITE_DONE;
+
+   return state != SQLITE_DONE;
 }
-bool rr_identity_key_revoked(sqlite3 *db, const char *domain,
-      const char *owner, const char *key) {
-   if (!db || !domain || !owner || !key) return true;
+bool rr_identity_key_revoked(sqlite3 *db, const char *domain, const char *owner, const char *key) {
+   if (!db || !domain || !owner || !key) {
+      return true;
+   }
+
    if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys("
       "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
-      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
-      "PRIMARY KEY(domain,owner_uuid,public_key))",NULL,NULL,NULL)!=SQLITE_OK)
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid,public_key))", NULL, NULL, NULL) != SQLITE_OK) {
       return true;
-   sqlite3_stmt *stmt=NULL;
-   if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_revoked_identity_keys"
-      " WHERE domain=?1 AND owner_uuid=?2 AND public_key=?3", -1, &stmt,NULL)!=SQLITE_OK)
+   }
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_revoked_identity_keys" " WHERE domain=?1 AND owner_uuid=?2 AND public_key=?3", -1, &stmt, NULL) != SQLITE_OK)
+   {
       return true;
-   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
-   sqlite3_bind_text(stmt,3,key,-1,SQLITE_TRANSIENT);
-   int found=sqlite3_step(stmt);
+   }
+   sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, owner, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, key, -1, SQLITE_TRANSIENT);
+   int found = sqlite3_step(stmt);
    sqlite3_finalize(stmt);
-   return found!=SQLITE_DONE;
+
+   return found != SQLITE_DONE;
 }
 
 bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner, const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
    if (!domain || !*domain || !owner || !g_uuid_string_is_valid(owner) ||
       !trust_key_valid(catalog_key_b64, 32) || !trust_key_valid(tls_spki_sha256_b64, 32) || !trust_schema(db) ||
-       rr_identity_key_revoked(db, domain, owner, catalog_key_b64) ||
-       rr_identity_tls_pin_revoked(db, domain, tls_spki_sha256_b64)) {
+      rr_identity_key_revoked(db, domain, owner, catalog_key_b64) || rr_identity_tls_pin_revoked(db, domain, tls_spki_sha256_b64)) {
       return false;
    }
-   /* An explicit enrollment cannot overwrite a live catalog pin for this
-    * UUID, including when called outside invitation redemption. */
-   if (sqlite3_exec(db,
-      "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+
+   /* An explicit enrollment cannot overwrite a live catalog pin for this UUID, including when called outside invitation redemption. */
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
       "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
-      "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
-      "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) != SQLITE_OK) {
+      "first_seen INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) != SQLITE_OK) {
       return false;
    }
    sqlite3_stmt *pinned = NULL;
-   if (sqlite3_prepare_v2(db,
-      "SELECT public_key FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE"
-      " AND owner_uuid=?2", -1, &pinned, NULL) != SQLITE_OK) {
+
+   if (sqlite3_prepare_v2(db, "SELECT public_key FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE" " AND owner_uuid=?2", -1, &pinned, NULL) != SQLITE_OK)
+   {
       return false;
    }
    sqlite3_bind_text(pinned, 1, domain, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(pinned, 2, owner, -1, SQLITE_TRANSIENT);
    int pin_row = sqlite3_step(pinned);
    bool pin_ok = pin_row == SQLITE_DONE ||
-      (pin_row == SQLITE_ROW && sqlite3_column_text(pinned, 0) &&
-       !strcmp((const char *)sqlite3_column_text(pinned, 0), catalog_key_b64));
+      (pin_row == SQLITE_ROW && sqlite3_column_text(pinned, 0) && !strcmp((const char *)sqlite3_column_text(pinned, 0), catalog_key_b64));
    sqlite3_finalize(pinned);
-   if (!pin_ok) return false;
+
+   if (!pin_ok) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO mesh_explicit_trust" "(domain,owner_uuid,catalog_pubkey,tls_spki_sha256) VALUES(?1,?2,?3,?4)", -1, &stmt,
@@ -710,8 +734,7 @@ bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner
 
 bool rr_identity_trust_verify(sqlite3 *db, const char *domain, const char *owner, const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
    if (!domain || !owner || !catalog_key_b64 || !tls_spki_sha256_b64 || !trust_schema(db) ||
-       rr_identity_key_revoked(db, domain, owner, catalog_key_b64) ||
-       rr_identity_tls_pin_revoked(db, domain, tls_spki_sha256_b64)) {
+      rr_identity_key_revoked(db, domain, owner, catalog_key_b64) || rr_identity_tls_pin_revoked(db, domain, tls_spki_sha256_b64)) {
       return false;
    }
    sqlite3_stmt *stmt = NULL;
@@ -1030,32 +1053,33 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain, 
    bool ok = sqlite3_step(s) == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(s);
 
-   /* A node UUID must not acquire a different signing key while an old
-    * independently authenticated catalog pin remains active. This check is
-    * inside the invitation's transaction to close issuer-side races. */
+   /* A node UUID must not acquire a different signing key while an old independently authenticated catalog pin remains active. This check is inside the
+    * invitation's transaction to close issuer-side races. */
    if (ok) {
-      ok = sqlite3_exec(db,
-         "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+      ok = sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
          "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
-         "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
-         "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) == SQLITE_OK;
+         "first_seen INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) == SQLITE_OK;
    }
+
    if (ok) {
       sqlite3_stmt *pin = NULL;
-      ok = sqlite3_prepare_v2(db,
-         "SELECT public_key FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE"
-         " AND owner_uuid=?2", -1, &pin, NULL) == SQLITE_OK;
+      ok = sqlite3_prepare_v2(db, "SELECT public_key FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE" " AND owner_uuid=?2", -1, &pin, NULL) == SQLITE_OK;
+
       if (ok) {
          sqlite3_bind_text(pin, 1, domain, -1, SQLITE_TRANSIENT);
          sqlite3_bind_text(pin, 2, node, -1, SQLITE_TRANSIENT);
          int row = sqlite3_step(pin);
+
          if (row == SQLITE_ROW) {
             const char *prior = (const char *)sqlite3_column_text(pin, 0);
             ok = prior && !strcmp(prior, catalog);
-         } else ok = row == SQLITE_DONE;
+         } else {
+            ok = row == SQLITE_DONE;
+         }
       }
       sqlite3_finalize(pin);
    }
+
    if (ok) {
       ok = rr_identity_trust_enroll(db, domain, node, catalog, spki);
    }

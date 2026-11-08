@@ -23,30 +23,38 @@ static gint af_listeners;
 static gint af_stopping;
 static GThread *af_worker;
 
-/* Static analysis coefficients do not depend on incoming PCM. Computing
- * trig functions for every FFT bin was unnecessarily expensive with several
- * remote/local RX streams open simultaneously. */
+/* Static analysis coefficients do not depend on incoming PCM. Computing trig functions for every FFT bin was unnecessarily expensive with several remote/local
+ * RX streams open simultaneously. */
 static double af_window[RR_AF_FFT_N];
 static double af_twiddle_re[RR_AF_FFT_N / 2], af_twiddle_im[RR_AF_FFT_N / 2];
 static gsize af_tables_ready;
 static void af_init_tables(void) {
-   if (!g_once_init_enter(&af_tables_ready))
+   if (!g_once_init_enter(&af_tables_ready)) {
       return;
-   for (unsigned i = 0; i < RR_AF_FFT_N; i++)
+   }
+
+   for (unsigned i = 0 ; i < RR_AF_FFT_N ; i++) {
       af_window[i] = 0.5 - 0.5 * cos(2.0 * G_PI * i / (RR_AF_FFT_N - 1));
-   for (unsigned i = 0; i < RR_AF_FFT_N / 2; i++) {
+   }
+
+   for (unsigned i = 0 ; i < RR_AF_FFT_N / 2 ; i++) {
       double phase = -2.0 * G_PI * i / RR_AF_FFT_N;
       af_twiddle_re[i] = cos(phase);
       af_twiddle_im[i] = sin(phase);
    }
+
    g_once_init_leave(&af_tables_ready, 1);
 }
 static void calculate(const int16_t input[RR_AF_FFT_N], float result[RR_AF_BINS]) {
    af_init_tables();
    /* All temporary FFT memory is owned by the analyzer thread. */
-   double re[RR_AF_FFT_N], im[RR_AF_FFT_N] = { 0 };
-   for (unsigned i = 0; i < RR_AF_FFT_N; i++)
+   double re[RR_AF_FFT_N], im[RR_AF_FFT_N] = {
+      0
+   };
+
+   for (unsigned i = 0 ; i < RR_AF_FFT_N ; i++) {
       re[i] = (double)input[i] * af_window[i];
+   }
 
    for (unsigned i = 1, j = 0 ; i < RR_AF_FFT_N ; i++) {
       unsigned bit = RR_AF_FFT_N >> 1;

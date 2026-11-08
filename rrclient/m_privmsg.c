@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // Native IRC event adapter, shared by GTK and TUI.
-#include "build_config.h" /* Application VERSION is profile-generated. */
+#include "build_config.h"       /* Application VERSION is profile-generated. */
 #include <rrclient/irc.stats.h>
 #include <stdio.h>
 #include <stdlib.h>

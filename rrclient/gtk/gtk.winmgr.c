@@ -72,6 +72,7 @@ static void main_window_geometry_clamp(GtkWidget *window, int *w, int *h, int *x
 static gboolean on_configure_timeout(gpointer data) {
    if (!data) {
       configure_event_timeout = 0;
+
       return G_SOURCE_REMOVE;
    }
    // Find the GTK window
@@ -82,9 +83,9 @@ static gboolean on_configure_timeout(gpointer data) {
 
    // if we can't find the window, there's no state
    if (!win) {
-      /* A destroyed window must not leave its 1.5-second timer running
-       * forever with a retained widget reference. */
+      /* A destroyed window must not leave its 1.5-second timer running forever with a retained widget reference. */
       configure_event_timeout = 0;
+
       return G_SOURCE_REMOVE;
    }
    // If timeout is called, window has stopped moving
@@ -183,10 +184,8 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
          g_source_remove(configure_event_timeout);
       }
       // Add a timeout to delay printing the position again
-      /* The idle resize debounce can outlive a disappearing utility window.
-       * Keep the GObject alive until removal or dispatch, then release it. */
-      configure_event_timeout = g_timeout_add_full(G_PRIORITY_DEFAULT, 1500,
-         on_configure_timeout, g_object_ref(widget), g_object_unref);
+      /* The idle resize debounce can outlive a disappearing utility window. Keep the GObject alive until removal or dispatch, then release it. */
+      configure_event_timeout = g_timeout_add_full(G_PRIORITY_DEFAULT, 1500, on_configure_timeout, g_object_ref(widget), g_object_unref);
    }
 
    return FALSE;

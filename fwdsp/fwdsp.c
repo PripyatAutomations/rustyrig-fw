@@ -1625,8 +1625,7 @@ int main(int argc, char *argv[]) {
       logfile = NULL;
    }
 
-   /* Respect an explicitly configured GStreamer dump directory instead of
-    * enabling DOT file output in every fwdsp subprocess by default. */
+   /* Respect an explicitly configured GStreamer dump directory instead of enabling DOT file output in every fwdsp subprocess by default. */
    const char *cfg_log_audio = cfg_get("fwdsp:log.audio");
 
    if (cfg_log_audio) {

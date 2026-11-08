@@ -367,73 +367,85 @@ static void subscribed(const char *event, const char *data, rrconn_t *client, vo
    dict_free(d);
 }
 
-/* Dynamic receivers are created after GPS initialization. The directory
- * locator is approximate: do not inherit the host station GPS, and do not
- * present its center as measured GPS telemetry. The GPSP manual flag records
- * that the position is derived from metadata. */
+/* Dynamic receivers are created after GPS initialization. The directory locator is approximate: do not inherit the host station GPS, and do not present its
+ * center as measured GPS telemetry. The GPSP manual flag records that the position is derived from metadata. */
 bool rrserver_gps_websdr_grid(rr_server_rig_t *radio, const char *grid, const char *room) {
-   if (!radio || !grid || !room || !*room)
+   if (!radio || !grid || !room || !*room) {
       return false;
+   }
    rr_location_t location;
-   if (!rr_location_resolve(NULL, grid, &location))
+
+   if (!rr_location_resolve(NULL, grid, &location)) {
       return false;
+   }
    const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
-   if (!alias || !*alias)
+
+   if (!alias || !*alias) {
       return false;
+   }
    struct gps_source *source = find(alias);
    bool created = false;
+
    if (!source) {
       if (count >= GPS_SOURCES_MAX) {
          Log(LOG_WARN, "gps", "Cannot provision WebSDR GPSP for %s: source limit reached", alias);
+
          return false;
       }
       source = &sources[count];
       memset(source, 0, sizeof(*source));
       snprintf(source->alias, sizeof(source->alias), "%s", alias);
       snprintf(source->config_alias, sizeof(source->config_alias), "%s", rr_rig_registry_alias(rig.rigs, radio));
-      source->channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX,
-         RR_BINFRAME_VFO_NA, rr_rig_registry_media_index(rig.rigs, radio),
+      source->channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, rr_rig_registry_media_index(rig.rigs, radio),
          RR_GPS_FRAME_CODEC, "Approximate WebSDR GPS position (grid center)");
+
       if (!source->channel) {
          memset(source, 0, sizeof(*source));
+
          return false;
       }
       snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", alias);
       snprintf(source->channel->room, sizeof(source->channel->room), "%s", room);
-      snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s",
-         rr_server_rig_id(radio));
+      snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s", rr_server_rig_id(radio));
+
       if (!rrserver_media_uuid_assign(source->channel, rr_server_rig_id(radio), "gps.position")) {
          media_chan_remove(source->channel->uuid);
          memset(source, 0, sizeof(*source));
+
          return false;
       }
       count++;
       created = true;
    }
    snprintf(source->channel->room, sizeof(source->channel->room), "%s", room);
-   source->lat = (int32_t)llround(location.latitude * 10000000.0);
-   source->lon = (int32_t)llround(location.longitude * 10000000.0);
+   source->lat = (int32_t) llround(location.latitude * 10000000.0);
+   source->lon = (int32_t) llround(location.longitude * 10000000.0);
    source->own_input = true;
    source->fixed = true;
    source->manual = true;
    source->valid = true;
    source->published = false;
-   Log(LOG_INFO, "gps", "%s: WebSDR GPSP from Maidenhead %.10s (approximate %.6f, %.6f)%s",
-      alias, grid, location.latitude, location.longitude, created ? " channel created" : " updated");
+   Log(LOG_INFO, "gps", "%s: WebSDR GPSP from Maidenhead %.10s (approximate %.6f, %.6f)%s", alias, grid, location.latitude, location.longitude, created ?
+      " channel created" : " updated");
+
    return true;
 }
 
-/* The bridge manager retires all channels belonging to the removed rig.
- * Drop the GPS source bookkeeping before those channels are freed. */
+/* The bridge manager retires all channels belonging to the removed rig. Drop the GPS source bookkeeping before those channels are freed. */
 void rrserver_gps_websdr_remove(const char *rig_uuid) {
-   if (!rig_uuid || !*rig_uuid)
+   if (!rig_uuid || !*rig_uuid) {
       return;
-   for (unsigned i = 1; i < count; i++) {
+   }
+
+   for (unsigned i = 1 ; i < count ; i++) {
       if (sources[i].channel && !strcmp(sources[i].channel->rig_uuid, rig_uuid)) {
-         for (unsigned j = i + 1; j < count; j++)
+         for (unsigned j = i + 1 ; j < count ; j++) {
             sources[j - 1] = sources[j];
+         }
+
          count--;
          memset(&sources[count], 0, sizeof(sources[count]));
+
          return;
       }
    }

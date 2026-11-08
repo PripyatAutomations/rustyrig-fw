@@ -34,9 +34,8 @@
 #ifndef _WIN32
 #include <arpa/inet.h>
 #endif
-/* Server media hooks are optional: the same shared manager is loaded by
- * rrclient, which has no server session registry. A future revision can
- * replace these compatibility imports with an explicit callback interface. */
+/* Server media hooks are optional: the same shared manager is loaded by rrclient, which has no server session registry. A future revision can replace these
+ * compatibility imports with an explicit callback interface. */
 #if defined(__GNUC__) && !defined(_WIN32)
 #pragma weak media_chan_find_uuid
 #pragma weak media_chan_find
@@ -49,10 +48,10 @@
 #endif
 static bool fwdsp_has_server_media(void) {
    return media_chan_find_uuid && media_chan_find &&
-      ws_media_send_setup_frame && ws_media_broadcast_subscribed &&
-      ws_media_channel_has_subscribers && chan_id_in_array &&
-      (void *)&http_client_list != NULL && (void *)&media_channels != NULL;
+          ws_media_send_setup_frame && ws_media_broadcast_subscribed &&
+          ws_media_channel_has_subscribers && chan_id_in_array && (void *)&http_client_list != NULL && (void *)&media_channels != NULL;
 }
+
 #define FWDSP_MAX_SUBPROCS 100
 /* Set before starting children: codec/PCM reader callbacks belong to core. */
 static GMainContext *fwdsp_reactor_context;
@@ -387,7 +386,10 @@ void fwdsp_reap_children(void) {
 // Header packets keep their existing encoded payload on the network. Only
 // child IPC carries the marker used to cache them for late subscribers.
 static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp, struct rr_mediachan *channel, rrconn_t *cptr) {
-   if (!fwdsp_has_server_media()) return;
+   if (!fwdsp_has_server_media()) {
+      return;
+   }
+
    for (size_t pos = 0 ; pos + 4 <= sp->stream_headers_len ; ) {
       uint32_t len = frame_length_decode(sp->stream_headers + pos);
       pos += 4;
@@ -401,7 +403,9 @@ static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp, struct rr_medi
 }
 
 void fwdsp_send_stream_headers(const char *uuid, rrconn_t *cptr) {
-   if (!fwdsp_has_server_media()) return;
+   if (!fwdsp_has_server_media()) {
+      return;
+   }
    struct rr_mediachan *channel = media_chan_find_uuid(uuid);
 
    if (!channel || channel->direction != RR_BINFRAME_DIR_RX) {
@@ -1733,7 +1737,9 @@ void fwdsp_sweep_expired(void) {
          continue;
       }
 
-      if (!fwdsp_has_server_media()) continue;
+      if (!fwdsp_has_server_media()) {
+         continue;
+      }
       struct rr_mediachan *channel = media_chan_find_uuid(sp->channel_uuid);
       u_int32_t chan_id = channel ? (u_int32_t) (channel - media_channels) + 1 : 0;
       int users = 0;

@@ -219,7 +219,8 @@ static void capability_source(struct bridge_child *b, const char *source) {
 static const char *metadata_fields[] = {
    "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at", "initiated_by",
    "requested_at", "directory_name", "directory_location", "directory_country", "directory_contact", "directory_antenna", "directory_hardware",
-   "directory_grid", "directory_coordinates", "directory_location_source", "directory_users", "directory_users_max", "directory_low_hz", "directory_high_hz", "directory_last_seen", "attached_room"
+   "directory_grid", "directory_coordinates", "directory_location_source", "directory_users", "directory_users_max", "directory_low_hz", "directory_high_hz",
+   "directory_last_seen", "attached_room"
 };
 static bool publish_metadata(struct bridge_child *b, const char *key, const char *text, bool save) {
    bool known = false;
@@ -1371,6 +1372,7 @@ static void websdr_remove(rr_server_rig_t *radio) {
 
    /* Drop dynamic GPSP bookkeeping before retiring this rig's channels. */
    rrserver_gps_websdr_remove(uuid);
+
    for (unsigned i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
       if (media_channels[i].uuid[0] && !strcmp(media_channels[i].rig_uuid, uuid)) {
          media_send_chan_removed_all(&media_channels[i]);
@@ -1898,28 +1900,29 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             publish_metadata(b, property_key, value, false);
          }
       }
-      /* A receiver directory locator describes an approximate site, not
-       * actual GPS telemetry. Expose the grid center as receiver metadata
-       * and a rig-scoped GPSP source without overwriting station GPS. */
+
+      /* A receiver directory locator describes an approximate site, not actual GPS telemetry. Expose the grid center as receiver metadata and a rig-scoped GPSP
+       * source without overwriting station GPS. */
       const char *grid = request ? dict_get(request, "directory.grid", NULL) : NULL;
       rr_location_t derived;
+
       if (grid && rr_location_resolve(NULL, grid, &derived)) {
          char coordinates[64];
          snprintf(coordinates, sizeof(coordinates), "%.7f, %.7f", derived.latitude, derived.longitude);
          publish_metadata(b, "directory_coordinates", coordinates, false);
          publish_metadata(b, "directory_location_source", "maidenhead-grid-center", false);
-         /* This source has its own rig-scoped GPSP UUID. The receiver room
-          * and its members are already known; advertise along with the
-          * normal receiver audio below. */
+
+         /* This source has its own rig-scoped GPSP UUID. The receiver room and its members are already known; advertise along with the normal receiver audio
+          * below. */
          if (!rrserver_gps_websdr_grid(b->backend->owner, grid, target_room)) {
             Log(LOG_WARN, "gps", "[%s] unable to provision directory-grid GPSP", bridge_public_name(b));
          } else {
-            /* Earlier in this handler, RX availability was announced before
-             * the directory fields arrived. Announce the newly created GPSP
-             * channel to listeners already in the chosen WebSDR room. */
+            /* Earlier in this handler, RX availability was announced before the directory fields arrived. Announce the newly created GPSP channel to listeners
+             * already in the chosen WebSDR room. */
             for (rrconn_t *member = http_client_list ; member ; member = member->next) {
-               if (member->authenticated && ws_client_in_room(member, target_room))
+               if (member->authenticated && ws_client_in_room(member, target_room)) {
                   media_send_available_all(member);
+               }
             }
          }
       }

@@ -45,9 +45,8 @@ static void picker_row_style(GtkTreeViewColumn *column, GtkCellRenderer *cell, G
       shade.alpha = 1.0;
       g_object_set(cell, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
    } else if (!network && !selected && view && GTK_IS_CELL_RENDERER_TOGGLE(cell)) {
-      /* GtkCellRendererToggle does not reliably inherit TreeView's striped
-       * background across GTK themes. Paint the same base/stripe behind the
-       * Proxy and Online controls rather than leaving dark rectangular cells. */
+      /* GtkCellRendererToggle does not reliably inherit TreeView's striped background across GTK themes. Paint the same base/stripe behind the Proxy and Online
+       * controls rather than leaving dark rectangular cells. */
       GtkStyleContext *style = gtk_widget_get_style_context(view);
       GdkRGBA base, ink, shade;
       gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);

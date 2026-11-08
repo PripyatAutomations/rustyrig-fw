@@ -316,23 +316,19 @@ static char *regional_sort_key(const char *country, const char *location) {
 
    return key;
 }
-/* Child rows are sorted within their country by location, then receiver
- * name and URL. For US/CA/AU, keep the established state/province-first
- * ordering; other countries previously fell back to receiver name only. */
+
+/* Child rows are sorted within their country by location, then receiver name and URL. For US/CA/AU, keep the established state/province-first ordering; other
+ * countries previously fell back to receiver name only. */
 static gint country_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer unused) {
    (void)unused;
    char *ac = NULL, *bc = NULL, *al = NULL, *bl = NULL;
    char *an = NULL, *bn = NULL, *au = NULL, *bu = NULL;
-   gtk_tree_model_get(model, a, COL_COUNTRY, &ac, COL_LOCATION, &al,
-      COL_NAME, &an, COL_URL, &au, -1);
-   gtk_tree_model_get(model, b, COL_COUNTRY, &bc, COL_LOCATION, &bl,
-      COL_NAME, &bn, COL_URL, &bu, -1);
+   gtk_tree_model_get(model, a, COL_COUNTRY, &ac, COL_LOCATION, &al, COL_NAME, &an, COL_URL, &au, -1);
+   gtk_tree_model_get(model, b, COL_COUNTRY, &bc, COL_LOCATION, &bl, COL_NAME, &bn, COL_URL, &bu, -1);
    gint result = g_utf8_collate(ac ? ac : "", bc ? bc : "");
 
    if (!result) {
-      if (ac && (!g_ascii_strcasecmp(ac, "United States") ||
-                 !g_ascii_strcasecmp(ac, "Canada") ||
-                 !g_ascii_strcasecmp(ac, "Australia"))) {
+      if (ac && (!g_ascii_strcasecmp(ac, "United States") || !g_ascii_strcasecmp(ac, "Canada") || !g_ascii_strcasecmp(ac, "Australia"))) {
          char *ak = regional_sort_key(ac, al), *bk = regional_sort_key(bc, bl);
          result = g_utf8_collate(ak, bk);
          g_free(ak);
@@ -340,17 +336,22 @@ static gint country_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b,
       } else {
          /* Unpublished locations go last, rather than before real cities. */
          bool a_missing = !al || !*al, b_missing = !bl || !*bl;
-         if (a_missing != b_missing)
+
+         if (a_missing != b_missing) {
             result = a_missing ? 1 : -1;
-         else
+         } else {
             result = g_utf8_collate(al ? al : "", bl ? bl : "");
+         }
       }
    }
 
-   if (!result)
+   if (!result) {
       result = g_utf8_collate(an ? an : "", bn ? bn : "");
-   if (!result)
+   }
+
+   if (!result) {
       result = g_strcmp0(au, bu);
+   }
 
    g_free(ac);
    g_free(bc);

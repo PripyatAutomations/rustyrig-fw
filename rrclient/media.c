@@ -56,21 +56,32 @@ static char media_my_privs[128] = {
    0
 };
 
-/* Client-local matcher for privileges received from the server.
- * Authentication remains server-owned; this is a UI capability check. */
+/* Client-local matcher for privileges received from the server. Authentication remains server-owned; this is a UI capability check. */
 static bool media_priv_matches(const char *grants, const char *requested) {
-   if (!grants || !requested || !*requested) return false;
+   if (!grants || !requested || !*requested) {
+      return false;
+   }
    const char *cursor = grants;
    const size_t requested_len = strlen(requested);
    while (*cursor) {
       const char *end = strchr(cursor, ',');
       size_t n = end ? (size_t)(end - cursor) : strlen(cursor);
-      if (n == requested_len && !strncmp(cursor, requested, n)) return true;
-      if (n > 7 && requested_len >= n-1 && !strncmp(cursor, "serial.", 7) &&
-          cursor[n-1] == '*' && !strncmp(requested, cursor, n-1)) return true;
-      if (n >= 2 && requested_len > n-2 && cursor[n-2] == '.' && cursor[n-1] == '*' &&
-          !strncmp(requested, cursor, n-2) && requested[n-2] == '.') return true;
-      if (!end) break;
+
+      if (n == requested_len && !strncmp(cursor, requested, n)) {
+         return true;
+      }
+
+      if (n > 7 && requested_len >= n - 1 && !strncmp(cursor, "serial.", 7) && cursor[n - 1] == '*' && !strncmp(requested, cursor, n - 1)) {
+         return true;
+      }
+
+      if (n >= 2 && requested_len > n - 2 && cursor[n - 2] == '.' && cursor[n - 1] == '*' && !strncmp(requested, cursor, n - 2) && requested[n - 2] == '.') {
+         return true;
+      }
+
+      if (!end) {
+         break;
+      }
       cursor = end + 1;
    }
    return false;
@@ -657,11 +668,9 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
    /* A joined rig room implicitly requests any advertised GPS/NMEA RX channels for that rig. Output selection is still handled separately by serial.gps.output,
     * so ttyGPS follows the active rig. */
    if (channel->room[0] && rrclient_room_is_joined(channel->room) &&
-      (rrclient_room_vfo_mask(channel->room) ||
-         (channel->rig_uuid[0] && !strncasecmp(channel->room, "#sdr-", 5)))) {
-      /* Temporary SDR rooms may advertise GPSP before their VFO mask arrives.
-       * A receiver-scoped UUID is enough to subscribe; room membership still
-       * controls access, and output follows the selected RX room below. */
+      (rrclient_room_vfo_mask(channel->room) || (channel->rig_uuid[0] && !strncasecmp(channel->room, "#sdr-", 5)))) {
+      /* Temporary SDR rooms may advertise GPSP before their VFO mask arrives. A receiver-scoped UUID is enough to subscribe; room membership still controls
+       * access, and output follows the selected RX room below. */
       return true;
    }
 
@@ -1294,30 +1303,34 @@ static void media_transport_notice(const char *event, const char *data, rrconn_t
    dict_free(d);
 }
 
-/* Run codec changes on the core owner. The GTK combo signal must never
- * synchronously tear down RX routes while the core/audio scheduler owns them. */
+/* Run codec changes on the core owner. The GTK combo signal must never synchronously tear down RX routes while the core/audio scheduler owns them. */
 static void media_codec_select_in_connection(void *data) {
    const rrclient_media_codec_select_request_t *request = data;
    rrclient_media_select_codec(ws_conn, request->is_tx, request->codec);
 }
 static void media_codec_select_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!message || !message->payload ||
-       message->length != sizeof(rrclient_media_codec_select_request_t))
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_media_codec_select_request_t)) {
       return;
+   }
    rrclient_media_codec_select_request_t request;
    memcpy(&request, message->payload, sizeof(request));
    request.profile[sizeof(request.profile) - 1] = '\0';
    request.codec[sizeof(request.codec) - 1] = '\0';
-   if (strlen(request.codec) != 4 || !request.profile[0])
+
+   if (strlen(request.codec) != 4 || !request.profile[0]) {
       return;
+   }
    rrconn_t *connection = rrclient_connection_find(request.profile);
-   if (connection && connection->is_ws)
+
+   if (connection && connection->is_ws) {
       rrclient_connection_dispatch(connection, media_codec_select_in_connection, &request);
+   }
 }
 void rrclient_media_register_events(void) {
-   event_on_message_domain_token(RRCLIENT_MEDIA_CODEC_SELECT_REQUEST,
-      media_codec_select_request, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_MEDIA_CODEC_SELECT_REQUEST, media_codec_select_request, NULL, "core");
+
    if (!gps_nmea_timer) {
       gps_nmea_timer = g_timeout_add_seconds(1, gps_nmea_tick, NULL);
    }

@@ -500,8 +500,7 @@ bool cmd_save(int argc, char **args) {
    }
 
    if (!confirmed) {
-      if (frontend_ops() && frontend_ops()->confirm_dialog &&
-          frontend_ops()->confirm_dialog("Save client configuration overrides to client.db?")) {
+      if (frontend_ops() && frontend_ops()->confirm_dialog && frontend_ops()->confirm_dialog("Save client configuration overrides to client.db?")) {
          confirmed = true;
       } else if (ui_mode == UI_MODE_TUI) {
          ui_print(ui_active_window_name(), "Save current configuration to client.db? Run /save yes to confirm.");
@@ -511,11 +510,14 @@ bool cmd_save(int argc, char **args) {
    if (!confirmed) {
       return false;
    }
+
    if (!rrclient_config_save()) {
       ui_print(ui_active_window_name(), "Unable to save client configuration to client.db");
+
       return false;
    }
    ui_print(ui_active_window_name(), "Configuration saved to client.db");
+
    return false;
 }
 

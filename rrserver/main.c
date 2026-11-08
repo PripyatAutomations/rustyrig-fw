@@ -5,7 +5,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 //
-#include "build_config.h" /* Server profile feature flags. */
+#include "build_config.h"       /* Server profile feature flags. */
 #include <librrprotocol/http.h>
 #include <rrserver/http.bans.h>
 #include <rrserver/receiver.directory.h>
@@ -655,10 +655,10 @@ int main(int argc, char **argv) {
          case 1012: {
             if (maintenance != RR_MAINT_NONE || mesh_join) {
                fprintf(stderr, "Specify only one maintenance operation.\\n");
+
                return EXIT_FAILURE;
             }
-            maintenance = opt==1010 ? RR_MAINT_ROTATE_CERTS :
-               opt==1011 ? RR_MAINT_REVOKE_CERTS : RR_MAINT_RESET_CERTS;
+            maintenance = opt == 1010 ? RR_MAINT_ROTATE_CERTS : opt == 1011 ? RR_MAINT_REVOKE_CERTS : RR_MAINT_RESET_CERTS;
             break;
          }
          case 1001:
@@ -946,8 +946,7 @@ int main(int argc, char **argv) {
    }
 
    /* Callsign lookup is optional. Spawn its helper on the first /qrz or
-    * /grid request, not during radio/network startup. This also avoids a
-    * five-second helper readiness wait before the TLS listener opens. */
+    * /grid request, not during radio/network startup. This also avoids a five-second helper readiness wait before the TLS listener opens. */
 
    /* Load optional receiver directory cache only after configuration, database, hardware, rigs and media have initialized successfully. Keep it ready before
     * opening the TLS listener for client requests. */

@@ -7,8 +7,7 @@
 //
 #if     !defined(__rrserver_database_h)
 #define __rrserver_database_h
-/* USE_SQLITE is selected by the application's generated build profile,
- * not by the installed librustyaxe SDK headers. */
+/* USE_SQLITE is selected by the application's generated build profile, not by the installed librustyaxe SDK headers. */
 #include "build_config.h"
 #include <stdbool.h>
 #include <librustyaxe/struct.h> /* rrconn_t */

@@ -6,8 +6,7 @@
 
 #include <librrprotocol/rrprotocol.h>
 
-/* GTK and other non-core threads request codec changes through the core
- * event domain; never mutate media/channel/audio routes on the GTK thread. */
+/* GTK and other non-core threads request codec changes through the core event domain; never mutate media/channel/audio routes on the GTK thread. */
 #define RRCLIENT_MEDIA_CODEC_SELECT_REQUEST "client.media.codec.select.request"
 typedef struct {
    char profile[256];

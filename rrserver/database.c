@@ -97,6 +97,7 @@ static bool db_provision_admin(sqlite3 *db) {
    if (!path || path[0] != '/') {
       Log(LOG_CRIT, "auth", "Invalid path.admin.bootstrap-password setting");
       free(path);
+
       return false;
    }
    char password[25];

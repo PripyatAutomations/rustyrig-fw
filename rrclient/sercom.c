@@ -326,10 +326,11 @@ static gboolean gps_invalid_tick(gpointer unused) {
          continue;
       }
 
-      /* The selected local SDR synthesizes its position from the directory
-       * locator. Do not interleave a contradictory no-fix NMEA epoch. */
-      if (rrclient_local_bridge_gps_active())
+      /* The selected local SDR synthesizes its position from the directory locator. Do not interleave a contradictory no-fix NMEA epoch. */
+      if (rrclient_local_bridge_gps_active()) {
          continue;
+      }
+
       if (!b->focus_room[0] || !b->profile[0] || rrclient_connection_state(b->profile) != 1) {
          gps_send_invalid(b);
       }
@@ -1455,11 +1456,12 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    Log(LOG_INFO, "serial", "%s (%s) attached to %s", name, path, service);
    host_sync(b);
    gps_outputs_changed();
-   /* The terminal may have been opened before this local PTY existed.
-    * Host tunnels publish their own state through host_sync(); local
-    * endpoints need an explicit attach notification. */
-   if (!host_binding(b))
+
+   /* The terminal may have been opened before this local PTY existed. Host tunnels publish their own state through host_sync(); local endpoints need an
+    * explicit attach notification. */
+   if (!host_binding(b)) {
       console_connection_status(b, "CONNECTED");
+   }
 
    return true;
 failed:

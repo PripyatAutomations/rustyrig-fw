@@ -59,6 +59,7 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       // active codec magic.
       // PARITY: rustyrig-www/js/webui.media.js (codec select)
       const char *profile = rrclient_selected_server();
+
       if (profile && *profile) {
          rrclient_media_codec_select_request_t request = {
             .is_tx = ctx->is_tx

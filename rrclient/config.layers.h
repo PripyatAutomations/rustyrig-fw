@@ -14,12 +14,16 @@ bool rrclient_config_reload(const char *path);
 bool rrclient_config_reload_mode(const char *path, bool include_db_overrides);
 void rrclient_config_reload_register(void);
 #define RRCLIENT_CONFIG_RELOAD_REQUEST "client.config.reload"
-typedef struct { bool from_db; } rrclient_config_reload_request_t;
+typedef struct {
+   bool from_db;
+} rrclient_config_reload_request_t;
 void rrclient_config_set_ignore_db(bool ignore);
 bool rrclient_config_ignore_db(void);
 bool rrclient_config_save(void);
 /* Core-domain handler for local-only log verbosity changes from GTK. */
 void rrclient_log_level_register(void);
 #define RRCLIENT_LOG_LEVEL_REQUEST "client.log.level.apply"
-typedef struct { char spec[2048]; } rrclient_log_level_request_t;
+typedef struct {
+   char spec[2048];
+} rrclient_log_level_request_t;
 #endif

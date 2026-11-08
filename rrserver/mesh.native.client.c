@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 /* Route completed native WSS upgrades to existing server-link or client protocol handlers. A socket can never change route after upgrade. */
-#include "build_config.h" /* Application profile: VERSION and feature flags. */
+#include "build_config.h"       /* Application profile: VERSION and feature flags. */
 #include "mesh.native.client.h"
 #include "mesh.wss.h"
 #include "link.internal.h"

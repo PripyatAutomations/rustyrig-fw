@@ -26,8 +26,7 @@
 extern time_t now;
 
 /* Server-owned protocol replies, independent of the selected transport. */
-static bool ws_send_formatted(rrconn_t *client, const char *type, const char *field,
-                              const char *format, va_list args) {
+static bool ws_send_formatted(rrconn_t *client, const char *type, const char *field, const char *format, va_list args) {
    if (!client || !format) {
       return false;
    }
@@ -79,18 +78,21 @@ bool ws_kick_client(rrconn_t *client, const char *reason) {
       dict_free(reply);
    }
 
-   /* Closing the transport queues its close event; session teardown owns
-    * removal from http_client_list and freeing the client. */
+   /* Closing the transport queues its close event; session teardown owns removal from http_client_list and freeing the client. */
    if (client->native_transport) {
       rr_transport_close(client->native_transport);
+
       return true;
    }
 #ifdef USE_MONGOOSE
+
    if (client->conn) {
       client->conn->is_closing = 1;
+
       return true;
    }
 #endif
+
    return false;
 }
 

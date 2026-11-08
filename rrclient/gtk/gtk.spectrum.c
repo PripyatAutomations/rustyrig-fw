@@ -465,18 +465,24 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
    return FALSE;
 }
+
 static guint64 af_next_request_id;
 static void af_result_event(const rr_event_message_t *message, void *data) {
    spectrum_panel_t *p = data;
-   if (!message || !message->payload ||
-       message->length != sizeof(rrclient_af_spectrum_result_t))
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_af_spectrum_result_t)) {
       return;
+   }
    const rrclient_af_spectrum_result_t *result = message->payload;
-   if (!p->af_pending || result->request_id != p->af_request_id)
+
+   if (!p->af_pending || result->request_id != p->af_request_id) {
       return;
+   }
    p->af_pending = false;
-   if (!p->listening || !result->ready)
+
+   if (!p->listening || !result->ready) {
       return;
+   }
    memcpy(p->current, result->bins, sizeof(p->current));
    memcpy(p->rows[p->head], p->current, sizeof(p->current));
    p->head = (p->head + 1) % HISTORY;
@@ -495,11 +501,13 @@ static gboolean update(gpointer data) {
    if (!visible) {
       return G_SOURCE_CONTINUE;
    }
-   /* Only a copied request crosses to the core. Bound outstanding requests
-    * if the core stalls so GTK cannot build an unbounded event backlog. */
+   /* Only a copied request crosses to the core. Bound outstanding requests if the core stalls so GTK cannot build an unbounded event backlog. */
    gint64 now = g_get_monotonic_time();
+
    if (!p->af_pending || now - p->af_requested_at > G_USEC_PER_SEC) {
-      rrclient_af_spectrum_request_t req = { .request_id = ++af_next_request_id };
+      rrclient_af_spectrum_request_t req = {
+         .request_id = ++af_next_request_id
+      };
       g_strlcpy(req.server, p->server, sizeof(req.server));
       g_strlcpy(req.room, p->room, sizeof(req.room));
       p->af_request_id = req.request_id;
@@ -516,8 +524,10 @@ static gboolean update(gpointer data) {
 }
 static void destroy_panel(gpointer data) {
    spectrum_panel_t *p = data;
-   if (p->af_result_token)
+
+   if (p->af_result_token) {
       event_off_token(p->af_result_token);
+   }
 
    if (p->listening) {
       rr_af_spectrum_listen(false);
@@ -663,8 +673,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    g_signal_connect(p->palette, "changed", G_CALLBACK(palette_changed), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(enable_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
-   p->af_result_token = event_on_message_domain_token(
-      RRCLIENT_AF_SPECTRUM_RESULT, af_result_event, p, "gtk");
+   p->af_result_token = event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_RESULT, af_result_event, p, "gtk");
    p->timer = g_timeout_add(250, update, p);
 
    return box;
@@ -696,25 +705,34 @@ typedef struct {
    guint draw_timer, recovery_timer;
    rr_event_token_t token, caps_token, vfo_token;
 } rf_strip_t;
-/* A Kiwi W/F connection may become ready after audio and capability
- * negotiation. Do not leave an enabled viewer blank indefinitely if no RF
- * rows arrive; reassert interest at a bounded rate. */
+/* A Kiwi W/F connection may become ready after audio and capability negotiation. Do not leave an enabled viewer blank indefinitely if no RF rows arrive;
+ * reassert interest at a bounded rate. */
 static gboolean rf_recover_stream(gpointer user) {
    rf_strip_t *p = user;
-   if (!p->rf_enabled)
+
+   if (!p->rf_enabled) {
       return G_SOURCE_CONTINUE;
-   rr_local_bridge_ui_state_t state = {0};
-   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall)
+   }
+   rr_local_bridge_ui_state_t state = {
+      0
+   };
+
+   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall) {
       return G_SOURCE_CONTINUE;
+   }
    gint64 now = g_get_monotonic_time();
-   if (p->received_at && now - p->received_at <= G_GINT64_CONSTANT(3000000))
+
+   if (p->received_at && now - p->received_at <= G_GINT64_CONSTANT(3000000)) {
       return G_SOURCE_CONTINUE;
+   }
+
    if (!p->last_retry_at || now - p->last_retry_at >= G_GINT64_CONSTANT(10000000)) {
       unsigned zoom = CLAMP(p->zoom, state.min_zoom, state.max_zoom);
       rrclient_local_bridge_request_waterfall(TRUE, zoom, 0);
       p->last_retry_at = now;
    }
    gtk_widget_queue_draw(p->drawing);
+
    return G_SOURCE_CONTINUE;
 }
 static gboolean rf_draw_later(gpointer user) {
@@ -802,6 +820,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
          cairo_move_to(cr, 12, 24);
          cairo_show_text(cr, "Waiting for RF spectrum data...");
       }
+
       return FALSE;
    }
    int depth = MIN((int)p->count, 32);
@@ -1265,8 +1284,10 @@ static void rf_destroy(gpointer data) {
    if (p->draw_timer) {
       g_source_remove(p->draw_timer);
    }
-   if (p->recovery_timer)
+
+   if (p->recovery_timer) {
       g_source_remove(p->recovery_timer);
+   }
 
    if (p->token) {
       event_off_token(p->token);

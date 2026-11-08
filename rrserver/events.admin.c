@@ -1183,10 +1183,13 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       if (!admin_actor_has_priv(client, "admin|owner")) {
          ws_send_error(client, "Admin or owner privilege required to manage peering");
          dict_free(request);
+
          return;
       }
+
       if (!strcmp(action, "identity-list")) {
          dict *local = dict_new();
+
          if (local) {
             dict_add(local, "uuid", rrserver_links_node());
             dict_add(local, "domain", cfg_get("domain"));
@@ -1196,10 +1199,14 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          }
          sqlite3_stmt *stmt = NULL;
          const char *sql = "SELECT domain,owner_uuid,catalog_pubkey,tls_spki_sha256 FROM mesh_explicit_trust ORDER BY domain,owner_uuid LIMIT 500";
+
          if (sqlite3_prepare_v2(masterdb, sql, -1, &stmt, NULL) == SQLITE_OK) {
             while (sqlite3_step(stmt) == SQLITE_ROW) {
                dict *row = dict_new();
-               if (!row) break;
+
+               if (!row) {
+                  break;
+               }
                dict_add(row, "domain", (const char *)sqlite3_column_text(stmt, 0));
                dict_add(row, "uuid", (const char *)sqlite3_column_text(stmt, 1));
                dict_add(row, "catalog_key", (const char *)sqlite3_column_text(stmt, 2));
@@ -1216,38 +1223,49 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          const char *uuid = dict_get(request, "talk.target", "");
          const char *confirmation = dict_get(request, "talk.data", "");
          const char *domain = cfg_get("domain");
+
          if (!g_uuid_string_is_valid(uuid) || !strcmp(uuid, rrserver_links_node()) || strcmp(confirmation, uuid)) {
             ws_send_error(client, "Select a remote peer UUID and confirm it exactly");
          } else {
             sqlite3_stmt *stmt = NULL;
             bool ok = sqlite3_exec(masterdb, "BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK;
-            /* Removing peering only removes dial/enrollment records.
-             * It MUST NOT change signing keys, TLS pins, trust, or catalogs. */
+            /* Removing peering only removes dial/enrollment records. It MUST NOT change signing keys, TLS pins, trust, or catalogs. */
             const char *queries[] = {
                "DELETE FROM mesh_bootstrap_peers WHERE domain=?1 AND node_uuid=?2",
                "DELETE FROM mesh_link_endpoints WHERE domain=?1 AND node_uuid=?2"
             };
             unsigned removed = 0;
-            for (unsigned i = 0; ok && i < G_N_ELEMENTS(queries); ++i) {
+
+            for (unsigned i = 0 ; ok && i < G_N_ELEMENTS(queries) ; ++i) {
                if (sqlite3_prepare_v2(masterdb, queries[i], -1, &stmt, NULL) != SQLITE_OK) {
-                  ok = sqlite3_errcode(masterdb) == SQLITE_ERROR &&
-                     strstr(sqlite3_errmsg(masterdb), "no such table:") != NULL;
+                  ok = sqlite3_errcode(masterdb) == SQLITE_ERROR && strstr(sqlite3_errmsg(masterdb), "no such table:") != NULL;
                } else {
                   sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
                   sqlite3_bind_text(stmt, 2, uuid, -1, SQLITE_TRANSIENT);
                   ok = sqlite3_step(stmt) == SQLITE_DONE;
-                  if (ok) removed += (unsigned)sqlite3_changes(masterdb);
+
+                  if (ok) {
+                     removed += (unsigned)sqlite3_changes(masterdb);
+                  }
                }
                sqlite3_finalize(stmt);
                stmt = NULL;
             }
-            if (ok && !removed) ok = false;
-            if (ok) ok = sqlite3_exec(masterdb, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+
+            if (ok && !removed) {
+               ok = false;
+            }
+
+            if (ok) {
+               ok = sqlite3_exec(masterdb, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+            }
+
             if (!ok) {
                sqlite3_exec(masterdb, "ROLLBACK", NULL, NULL, NULL);
                ws_send_error(client, "Peering removal failed or peer is unknown");
             } else {
                char *detail = g_strdup_printf("uuid=%s domain=%s rows=%u", uuid, domain, removed);
+
                if (detail) {
                   db_add_audit_event(masterdb, client->chatname, "mesh.peering.removed", detail);
                   g_free(detail);
@@ -1259,6 +1277,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          }
       }
       dict_free(request);
+
       return;
    }
 

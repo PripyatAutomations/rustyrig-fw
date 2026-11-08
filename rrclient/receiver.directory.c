@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // RustyRig directory metadata service: no receiver probes or implicit streams.
-#include "build_config.h" /* Application profile: VERSION and feature flags. */
+#include "build_config.h"       /* Application profile: VERSION and feature flags. */
 #include <glib.h>
 #include <sqlite3.h>
 #include <errno.h>
@@ -27,13 +27,14 @@ static time_t next_request;
 static char status_text[512] = "No directory loaded. Import a list or configure a permitted mirror.";
 static bool initialized;
 static sqlite3 *cache_db;
-/* Directory cache and SQLite operations belong to the client core context,
- * not GLib's process-default context (which runs GTK when threaded). */
+/* Directory cache and SQLite operations belong to the client core context, not GLib's process-default context (which runs GTK when threaded). */
 static guint directory_attach_source(GSource *source) {
    guint id = g_source_attach(source, rrclient_core_context());
    g_source_unref(source);
+
    return id;
 }
+
 static guint completion_source, learn_source;
 static GHashTable *pending_learn;
 struct directory_job {

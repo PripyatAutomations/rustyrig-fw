@@ -75,7 +75,7 @@ typedef struct {
 typedef struct {
    guint64 request_id;
    bool ready;
-   float bins[RR_AF_BINS]; /* fixed-size event payload */
+   float bins[RR_AF_BINS];      /* fixed-size event payload */
 } rrclient_af_spectrum_result_t;
 #define RRCLIENT_AUDIO_SNAPSHOT_REQUEST "client.audio.snapshot.request"
 #define RRCLIENT_AUDIO_SNAPSHOT_RESULT "client.audio.snapshot.result"

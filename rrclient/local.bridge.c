@@ -315,8 +315,7 @@ static void local_bridge_active_event(void) {
 }
 
 static void local_bridge_vfo_changed(void) {
-   /* Publish the new active VFO/capability snapshot before GTK listeners
-    * inspect it in response to the change notification. */
+   /* Publish the new active VFO/capability snapshot before GTK listeners inspect it in response to the change notification. */
    local_bridge_active_event();
    event_emit("client.local-bridge.vfo", NULL, NULL);
 }
@@ -1104,36 +1103,45 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
    g_free(b);
    g_spawn_close_pid(pid);
 }
-/* The directory gives a receiver's approximate site, not a live GPS
- * measurement. Only publish while the matching local VFO is active. */
+
+/* The directory gives a receiver's approximate site, not a live GPS measurement. Only publish while the matching local VFO is active. */
 bool rrclient_local_bridge_gps_active(void) {
    const char *room = rrclient_media_active_room();
-   if (!room || strcmp(room, "&local-sdr"))
+
+   if (!room || strcmp(room, "&local-sdr")) {
       return false;
+   }
    char vfo = rrclient_room_active_vfo("&local-sdr");
    unsigned slot = (unsigned)(vfo - 'A');
    bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+
    return b && b->online && b->approximate_location;
 }
 
 static void local_bridge_gps_tick(bridge_instance *b) {
    /* Do not override a real rig's ttyGPS output while its tab is active. */
    const char *selected_room = rrclient_media_active_room();
+
    if (!b->online || !b->approximate_location || !selected_room ||
-      strcmp(selected_room, "&local-sdr") ||
-      rrclient_room_active_vfo("&local-sdr") != (char)('A' + b->slot))
+      strcmp(selected_room, "&local-sdr") || rrclient_room_active_vfo("&local-sdr") != (char)('A' + b->slot)) {
       return;
+   }
    gint64 now = g_get_monotonic_time();
-   if (b->gps_last_emit && now - b->gps_last_emit < G_USEC_PER_SEC)
+
+   if (b->gps_last_emit && now - b->gps_last_emit < G_USEC_PER_SEC) {
       return;
+   }
    b->gps_last_emit = now;
    char sentence[128];
-   if (!rr_gps_nmea_rmc(b->latitude_e7, b->longitude_e7, RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL,
-      time(NULL), sentence, sizeof(sentence)))
+
+   if (!rr_gps_nmea_rmc(b->latitude_e7, b->longitude_e7, RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL, time(NULL), sentence, sizeof(sentence))) {
       return;
+   }
    dict *data = dict_new();
-   if (!data)
+
+   if (!data) {
       return;
+   }
    dict_add(data, "gps.source", "active");
    dict_add(data, "gps.nmea", sentence);
    dict_add(data, "gps.grid", b->location_grid);
@@ -1310,8 +1318,8 @@ static gboolean poll_local(gpointer unused) {
 
       if (received < 0) {
          int saved_errno = errno;
-         Log(LOG_WARN, "local.bridge.rf", "%s spectrum IPC closed, malformed or failed: errno=%d (%s)",
-             b->stream, saved_errno, saved_errno ? g_strerror(saved_errno) : "invalid/short spectrum row");
+         Log(LOG_WARN, "local.bridge.rf", "%s spectrum IPC closed, malformed or failed: errno=%d (%s)", b->stream, saved_errno, saved_errno ? g_strerror(
+            saved_errno) : "invalid/short spectrum row");
          ui_print("&local-sdr", "%s: waterfall channel closed or failed", b->stream);
          close(b->spectrum);
          b->spectrum = -1;
@@ -1319,6 +1327,7 @@ static gboolean poll_local(gpointer unused) {
       }
 
       b->rf_rows_received++;
+
       if (rrclient_room_active_vfo("&local-sdr") == (char)('A' + b->slot)) {
          rr_event_message_t message = {
             .name = RR_BRIDGE_SPECTRUM_EVENT, .payload = &row, .length = sizeof(row)
@@ -1328,22 +1337,19 @@ static gboolean poll_local(gpointer unused) {
       }
    }
 
-   /* A spectrum producer can fail without breaking control or RX audio.
-    * Log at most once per 10 seconds and only while an RF-capable local
-    * bridge is online; distinguish no incoming IPC from VFO filtering. */
+   /* A spectrum producer can fail without breaking control or RX audio. Log at most once per 10 seconds and only while an RF-capable local bridge is online;
+    * distinguish no incoming IPC from VFO filtering. */
    if (b->online && (b->caps.flags & RRP_BRIDGE_WATERFALL)) {
       gint64 current = g_get_monotonic_time();
+
       if (!b->rf_report_at || current - b->rf_report_at >= 10000000) {
-         Log(LOG_INFO, "local.bridge.rf",
-             "%s RF/10s received=%llu published=%llu active-vfo=%c socket=%s",
-             b->stream, (unsigned long long)b->rf_rows_received,
-             (unsigned long long)b->rf_rows_published,
-             rrclient_room_active_vfo("&local-sdr"),
-             b->spectrum >= 0 ? "open" : "closed");
+         Log(LOG_INFO, "local.bridge.rf", "%s RF/10s received=%llu published=%llu active-vfo=%c socket=%s", b->stream, (unsigned long long)b->rf_rows_received,
+            (unsigned long long)b->rf_rows_published, rrclient_room_active_vfo("&local-sdr"), b->spectrum >= 0 ? "open" : "closed");
          b->rf_report_at = current;
          b->rf_rows_received = b->rf_rows_published = 0;
       }
    }
+
    return G_SOURCE_CONTINUE;
 }
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
@@ -1527,17 +1533,16 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    b->spectrum = spectrum[0];
    b->pid = pid;
    b->url = g_strdup(url);
-   /* Resolve only valid directory locators. No fabricated position for a
-    * receiver whose directory entry has no grid square. */
+   /* Resolve only valid directory locators. No fabricated position for a receiver whose directory entry has no grid square. */
    const receiver_directory_entry_t *directory = receiver_directory_find_url(url);
    rr_location_t location;
+
    if (directory && directory->grid && rr_location_resolve(NULL, directory->grid, &location)) {
       b->approximate_location = true;
       b->latitude_e7 = (int32_t) llround(location.latitude * 10000000.0);
       b->longitude_e7 = (int32_t) llround(location.longitude * 10000000.0);
       g_strlcpy(b->location_grid, directory->grid, sizeof(b->location_grid));
-      Log(LOG_INFO, "local.bridge.gps", "%s: approximate location from %s: %.5f, %.5f",
-         b->stream, b->location_grid, location.latitude, location.longitude);
+      Log(LOG_INFO, "local.bridge.gps", "%s: approximate location from %s: %.5f, %.5f", b->stream, b->location_grid, location.latitude, location.longitude);
    }
    bridge_publish_ui();
    b->config = config;

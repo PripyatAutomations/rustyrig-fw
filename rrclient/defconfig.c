@@ -31,9 +31,8 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
-/* Prefer fonts native to each desktop. All are optional: Pango falls back to
- * the generic family, so no proprietary font is redistributed by RustyRig.
- * Keep text and measurement/readout typography distinct. */
+/* Prefer fonts native to each desktop. All are optional: Pango falls back to the generic family, so no proprietary font is redistributed by RustyRig. Keep text
+ * and measurement/readout typography distinct. */
 #if defined(_WIN32)
 #define RR_UI_FONT "\"Segoe UI\", \"Arial\", \"Sans\""
 #define RR_MONO_FONT "\"Consolas\", \"DejaVu Sans Mono\", \"Monospace\""

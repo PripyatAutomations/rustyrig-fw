@@ -730,21 +730,16 @@ static void on_reload_config_button(GtkButton *btn, gpointer user_data) {
    (void)user_data;
    GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(btn));
    GtkWindow *parent = GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL;
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Reload client configuration", parent,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Cancel", GTK_RESPONSE_CANCEL,
-      "Reload _rrclient.cfg", 1,
-      "Reload _DB config", 2, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Reload client configuration", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel",
+      GTK_RESPONSE_CANCEL, "Reload _rrclient.cfg", 1, "Reload _DB config", 2, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *explanation = gtk_label_new(
-      "rrclient.cfg supplies bootstrap defaults. Saved client.db config values\n"
+   GtkWidget *explanation = gtk_label_new("rrclient.cfg supplies bootstrap defaults. Saved client.db config values\n"
       "normally override them when the client starts.\n\n"
       "Reload rrclient.cfg: use the system/user config files without DB\n"
       "configuration overrides (does not delete saved values).\n\n"
       "Reload DB config: rebuild from rrclient.cfg, then apply saved\n"
       "configuration overrides.\n\n"
-      "Server profiles and themes are loaded from their separate DB tables\n"
-      "in either case. For startup recovery use --ignore-db-config.");
+      "Server profiles and themes are loaded from their separate DB tables\n" "in either case. For startup recovery use --ignore-db-config.");
    gtk_label_set_xalign(GTK_LABEL(explanation), 0);
    gtk_container_set_border_width(GTK_CONTAINER(area), 12);
    gtk_box_pack_start(GTK_BOX(area), explanation, TRUE, TRUE, 0);
@@ -753,7 +748,9 @@ static void on_reload_config_button(GtkButton *btn, gpointer user_data) {
    gtk_widget_destroy(dialog);
 
    if (choice == 1 || choice == 2) {
-      rrclient_config_reload_request_t request = {.from_db = choice == 2};
+      rrclient_config_reload_request_t request = {
+         .from_db = choice == 2
+      };
       rr_event_message_t message = {
          .name = RRCLIENT_CONFIG_RELOAD_REQUEST,
          .payload = &request, .length = sizeof(request)
@@ -1169,8 +1166,7 @@ static void on_save_config_button(GtkButton *button, gpointer user_data) {
    GtkWindow *parent = GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(button)));
 
    if (!rrclient_config_save()) {
-      GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
-         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Unable to save configuration to client.db");
+      GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Unable to save configuration to client.db");
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
 
@@ -1437,7 +1433,8 @@ GtkWidget *init_config_tab(void) {
    g_signal_connect(btn_savecfg, "clicked", G_CALLBACK(on_save_config_button), NULL);
    gtk_box_pack_start(GTK_BOX(buttons), btn_savecfg, FALSE, FALSE, 0);
 
-   GtkWidget *btn_reloadcfg = config_action_button("Reload Config", "view-refresh-symbolic", "Choose whether to reload file bootstrap or saved database configuration");
+   GtkWidget *btn_reloadcfg =
+      config_action_button("Reload Config", "view-refresh-symbolic", "Choose whether to reload file bootstrap or saved database configuration");
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer) config_file);
    gtk_box_pack_start(GTK_BOX(buttons), btn_reloadcfg, FALSE, FALSE, 0);
 

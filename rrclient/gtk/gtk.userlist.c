@@ -1219,8 +1219,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
-      /* Two rows per VFO: small identity/mode/PTT header and a prominent
-       * frequency below it. Keep all controls attached to the original row. */
+      /* Two rows per VFO: small identity/mode/PTT header and a prominent frequency below it. Keep all controls attached to the original row. */
       gtk_label_set_xalign(GTK_LABEL(name), 0.0);
       gtk_box_pack_start(GTK_BOX(details), name, FALSE, FALSE, 1);
       gtk_label_set_ellipsize(GTK_LABEL(mode), PANGO_ELLIPSIZE_END);
@@ -1631,13 +1630,13 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
 
 /* Reapply after GTK has finished the allocation pass. Setting a paned position from size-allocate may be overridden by the same pass and can strand the second
  * child at zero width until the next window resize. */
-/* Room page destruction can precede roster removal. Stop callbacks before
- * the paned becomes invalid. */
+/* Room page destruction can precede roster removal. Stop callbacks before the paned becomes invalid. */
 static void room_userlist_stop_resize_sources(room_userlist_entry_t *entry) {
    if (entry->resize_idle_id) {
       g_source_remove(entry->resize_idle_id);
       entry->resize_idle_id = 0;
    }
+
    if (entry->resize_watch_id) {
       g_source_remove(entry->resize_watch_id);
       entry->resize_watch_id = 0;
@@ -1646,6 +1645,7 @@ static void room_userlist_stop_resize_sources(room_userlist_entry_t *entry) {
 static void room_userlist_paned_destroyed(GtkWidget *widget, gpointer data) {
    room_userlist_entry_t *entry = data;
    room_userlist_stop_resize_sources(entry);
+
    if (entry->dock_paned == GTK_PANED(widget)) {
       entry->dock_paned = NULL;
       entry->paned = NULL;
@@ -1874,14 +1874,19 @@ void userlist_remove_room_view(const char *room) {
 
    if (entry) {
       room_userlist_stop_resize_sources(entry);
+
       if (entry->refresh_id) {
          g_source_remove(entry->refresh_id);
          entry->refresh_id = 0;
       }
-      if (entry->dock_paned)
+
+      if (entry->dock_paned) {
          g_signal_handlers_disconnect_by_data(entry->dock_paned, entry);
-      if (entry->view)
+      }
+
+      if (entry->view) {
          g_object_set_data(G_OBJECT(entry->view), "rr-room-roster", NULL);
+      }
       GtkWidget *parent = entry->panel ? gtk_widget_get_parent(entry->panel) : NULL;
 
       if (parent && GTK_IS_CONTAINER(parent)) {
@@ -2080,6 +2085,7 @@ void gtk_userlist_stop_timers(void) {
 
          if (entry) {
             room_userlist_stop_resize_sources(entry);
+
             if (entry->refresh_id) {
                g_source_remove(entry->refresh_id);
                entry->refresh_id = 0;

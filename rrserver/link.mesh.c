@@ -28,12 +28,17 @@ static int index_of(const rr_mesh_t *m, const char *id) {
    return -1;
 }
 static bool valid(const char *id) {
-   if (!rr_object_uuid_valid(id))
+   if (!rr_object_uuid_valid(id)) {
       return false;
+   }
+
    /* The mesh catalog uses lowercase UUIDs as canonical node keys. */
-   for (const char *p = id ; *p ; p++)
-      if (*p >= 'A' && *p <= 'F')
+   for (const char *p = id ; *p ; p++) {
+      if (*p >= 'A' && *p <= 'F') {
          return false;
+      }
+   }
+
    return true;
 }
 static int index_add(rr_mesh_t *m, const char *id) {

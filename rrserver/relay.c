@@ -122,19 +122,22 @@ static bool catalog_mutation_fresh(dict *d, const char *owner) {
 /* Send a link envelope, adding the authenticated origin IP for requests. */
 bool rr_relay_packet(const char *dest, const char *kind, const char *session, const char *username, dict *payload) {
    if (!strcmp(kind, "request")) {
-      /* A client must never inject identity.* claims that become server-signed
-       * authority. Strip every such field, not just the known signature keys. */
-      GPtrArray *injected=g_ptr_array_new_with_free_func(g_free);
-      int rank=0;
+      /* A client must never inject identity.* claims that become server-signed authority. Strip every such field, not just the known signature keys. */
+      GPtrArray *injected = g_ptr_array_new_with_free_func(g_free);
+      int rank = 0;
       const char *field;
       char *value;
-      while ((rank=dict_enumerate(payload,rank,&field,&value))>=0) {
-         if (g_str_has_prefix(field,"identity."))
-            g_ptr_array_add(injected,g_strdup(field));
+      while ((rank = dict_enumerate(payload, rank, &field, &value)) >= 0) {
+         if (g_str_has_prefix(field, "identity.")) {
+            g_ptr_array_add(injected, g_strdup(field));
+         }
       }
-      for (guint i=0;i<injected->len;i++)
-         dict_del(payload,g_ptr_array_index(injected,i));
-      g_ptr_array_free(injected,TRUE);
+
+      for (guint i = 0 ; i < injected->len ; i++) {
+         dict_del(payload, g_ptr_array_index(injected, i));
+      }
+
+      g_ptr_array_free(injected, TRUE);
       /* Referral hint supplied by the authenticated origin, never by client JSON. */
       dict_del(payload, "relay.ip");
 
@@ -147,44 +150,49 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
          }
       }
    }
-   /* Sign all commands and replies end-to-end. Relays cannot change their
-    * content, destination, identity, authenticated user or session token. */
-   dict *signed_reply=NULL;
-   if (!strcmp(kind,"request") || !strcmp(kind,"reply") ||
-       !strcmp(kind,"subscribe") || !strcmp(kind,"unsubscribe") ||
-       !strcmp(kind,"state") || !strcmp(kind,"close") ||
-       !strcmp(kind,"identity-revocation-ack")) {
-      signed_reply=dict_clone(payload);
+   /* Sign all commands and replies end-to-end. Relays cannot change their content, destination, identity, authenticated user or session token. */
+   dict *signed_reply = NULL;
+
+   if (!strcmp(kind, "request") || !strcmp(kind, "reply") ||
+      !strcmp(kind, "subscribe") || !strcmp(kind, "unsubscribe") ||
+      !strcmp(kind, "state") || !strcmp(kind, "close") || !strcmp(kind, "identity-revocation-ack")) {
+      signed_reply = dict_clone(payload);
+
       if (!signed_reply || !rr_identity_public_base64()) {
          dict_free(signed_reply);
-         Log(LOG_WARN,"mesh.control","Unable to sign relay %s",kind);
+         Log(LOG_WARN, "mesh.control", "Unable to sign relay %s", kind);
+
          return false;
       }
-      dict_add(signed_reply,"identity.owner",rrserver_links_node());
-      dict_add(signed_reply,"identity.domain",cfg_get("domain"));
-      dict_add(signed_reply,"identity.public-key",rr_identity_public_base64());
-      dict_add(signed_reply,"identity.scheme","ed25519-catalog-v1");
+      dict_add(signed_reply, "identity.owner", rrserver_links_node());
+      dict_add(signed_reply, "identity.domain", cfg_get("domain"));
+      dict_add(signed_reply, "identity.public-key", rr_identity_public_base64());
+      dict_add(signed_reply, "identity.scheme", "ed25519-catalog-v1");
       char operation[96];
-      snprintf(operation,sizeof(operation),"relay-%s",kind);
-      dict_add(signed_reply,"identity.operation",operation);
-      dict_add(signed_reply,"identity.session",session?session:"");
-      dict_add(signed_reply,"identity.destination",dest?dest:"");
-      dict_add(signed_reply,"identity.username",username?username:"");
+      snprintf(operation, sizeof(operation), "relay-%s", kind);
+      dict_add(signed_reply, "identity.operation", operation);
+      dict_add(signed_reply, "identity.session", session ? session : "");
+      dict_add(signed_reply, "identity.destination", dest ? dest : "");
+      dict_add(signed_reply, "identity.username", username ? username : "");
       char stamped[32];
-      snprintf(stamped,sizeof(stamped),"%lld",(long long)time(NULL));
-      char *nonce=g_uuid_string_random();
+      snprintf(stamped, sizeof(stamped), "%lld", (long long)time(NULL));
+      char *nonce = g_uuid_string_random();
+
       if (!nonce) {
          dict_free(signed_reply);
+
          return false;
       }
-      dict_add(signed_reply,"identity.timestamp",stamped);
-      dict_add(signed_reply,"identity.nonce",nonce);
+      dict_add(signed_reply, "identity.timestamp", stamped);
+      dict_add(signed_reply, "identity.nonce", nonce);
       g_free(nonce);
+
       if (!rr_identity_sign_catalog(signed_reply)) {
          dict_free(signed_reply);
+
          return false;
       }
-      payload=signed_reply;
+      payload = signed_reply;
    }
    char *json = dict2json(payload);
    dict *d = dict_new();
@@ -266,8 +274,9 @@ void rr_relay_send_owned_ttl(const char *dest, const char *owner, const char *ki
    dict_add(d, "dest", dest);
    dict_add(d, "kind", kind);
    dict_add(d, "session", "");
-   dict_add(d, "username", !strcmp(kind,"state") ? owner : "");
+   dict_add(d, "username", !strcmp(kind, "state") ? owner : "");
    dict_add(d, "payload", json);
+
    if (ttl >= 0) {
       char hop_budget[4];
       snprintf(hop_budget, sizeof(hop_budget), "%d", ttl);
@@ -279,7 +288,7 @@ void rr_relay_send_owned_ttl(const char *dest, const char *owner, const char *ki
    dict_free(mutation);
 }
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
-   rr_relay_send_owned_ttl(dest,owner,kind,payload,-1);
+   rr_relay_send_owned_ttl(dest, owner, kind, payload, -1);
 }
 
 /* File operations use correlated results, never generic chat errors, so transfers fail immediately rather than waiting for the client timeout. */
@@ -657,18 +666,27 @@ static void catalog_receive_free(gpointer ptr) {
    g_free(r);
 }
 
-/* Revocations are signed by the retiring node, not by a client or relay.
- * Persist before forwarding and before dropping the revoked topology edge. */
-typedef struct { const char *from; const char *owner; dict *notice; int ttl; } revocation_fanout_t;
+/* Revocations are signed by the retiring node, not by a client or relay. Persist before forwarding and before dropping the revoked topology edge. */
+typedef struct {
+   const char *from;
+   const char *owner;
+   dict *notice;
+   int ttl;
+} revocation_fanout_t;
 static void revocation_send_neighbor(const char *peer, void *arg) {
-   revocation_fanout_t *v=arg;
-   if (peer && *peer && strcmp(peer,v->from) && strcmp(peer,v->owner))
-      rr_relay_send_owned_ttl(peer,v->owner,"identity-revocation",v->notice,v->ttl);
+   revocation_fanout_t *v = arg;
+
+   if (peer && *peer && strcmp(peer, v->from) && strcmp(peer, v->owner)) {
+      rr_relay_send_owned_ttl(peer, v->owner, "identity-revocation", v->notice, v->ttl);
+   }
 }
 static void revocation_forward(const char *from, const char *owner, dict *notice, int ttl) {
-   revocation_fanout_t fanout={from,owner,notice,ttl};
-   rrserver_links_each_neighbor(revocation_send_neighbor,&fanout);
+   revocation_fanout_t fanout = {
+      from, owner, notice, ttl
+   };
+   rrserver_links_each_neighbor(revocation_send_neighbor, &fanout);
 }
+
 /* Validate a received link envelope and dispatch its payload by kind. */
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *envelope = json2dict(data);
@@ -677,10 +695,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       return;
    }
    char ingress[37];
-   g_strlcpy(ingress,dict_get(envelope,"_ingress",""),sizeof(ingress));
-   /* The authenticated ingress is local routing metadata, never a wire
-    * field. Forwarding it would violate the strict link.wire schema. */
-   dict_del(envelope,"_ingress");
+   g_strlcpy(ingress, dict_get(envelope, "_ingress", ""), sizeof(ingress));
+   /* The authenticated ingress is local routing metadata, never a wire field. Forwarding it would violate the strict link.wire schema. */
+   dict_del(envelope, "_ingress");
    const char *origin = dict_get(envelope, "node", ""), *dest = dict_get(envelope, "dest", ""),
       *kind = dict_get(envelope, "kind", ""), *id = dict_get(envelope, "session", "");
    dict *d = json2dict(dict_get(envelope, "payload", ""));
@@ -689,77 +706,85 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       goto done;
    }
 
-   /* Control-plane operations other than object catalogs and signed
-    * revocation notices must also have end-to-end origin authenticity.
-    * No intermediary may forge state, subscriptions, close or ACK traffic. */
-   bool signed_control=!strcmp(kind,"subscribe") ||
-      !strcmp(kind,"unsubscribe") || !strcmp(kind,"state") ||
-      !strcmp(kind,"close") || !strcmp(kind,"identity-revocation-ack");
+   /* Control-plane operations other than object catalogs and signed revocation notices must also have end-to-end origin authenticity. No intermediary may forge
+    * state, subscriptions, close or ACK traffic. */
+   bool signed_control = !strcmp(kind, "subscribe") ||
+      !strcmp(kind, "unsubscribe") || !strcmp(kind, "state") || !strcmp(kind, "close") || !strcmp(kind, "identity-revocation-ack");
+
    if (signed_control) {
       char operation[96];
-      snprintf(operation,sizeof(operation),"relay-%s",kind);
-      bool verified=!strcmp(dict_get(d,"identity.owner",""),origin) &&
-         !g_ascii_strcasecmp(dict_get(d,"identity.domain",""),cfg_get("domain")) &&
-         !strcmp(dict_get(d,"identity.operation",""),operation) &&
-         !strcmp(dict_get(d,"identity.scheme",""),"ed25519-catalog-v1") &&
-         (!strcmp(kind,"state") ?
-            !strcmp(dict_get(d,"identity.destination",""),"*") :
-            !strcmp(dict_get(d,"identity.destination",""),dest)) &&
-         !strcmp(dict_get(d,"identity.session",""),id) &&
-         !strcmp(dict_get(d,"identity.username",""),dict_get(envelope,"username","")) &&
-         rr_identity_verify_catalog(d);
+      snprintf(operation, sizeof(operation), "relay-%s", kind);
+      bool verified = !strcmp(dict_get(d, "identity.owner", ""), origin) &&
+         !g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) &&
+         !strcmp(dict_get(d, "identity.operation", ""), operation) &&
+         !strcmp(dict_get(d, "identity.scheme", ""), "ed25519-catalog-v1") &&
+         (!strcmp(kind, "state") ?
+            !strcmp(dict_get(d, "identity.destination", ""), "*") :
+            !strcmp(dict_get(d, "identity.destination", ""), dest)) &&
+         !strcmp(dict_get(d, "identity.session", ""), id) &&
+         !strcmp(dict_get(d, "identity.username", ""), dict_get(envelope, "username", "")) && rr_identity_verify_catalog(d);
 #ifdef USE_SQLITE
-      if (verified) verified=rr_identity_known_signer(masterdb,cfg_get("domain"),
-         origin,dict_get(d,"identity.public-key",""));
-      if (verified) verified=rr_identity_accept_control_nonce(masterdb,d);
+
+      if (verified) {
+         verified = rr_identity_known_signer(masterdb, cfg_get("domain"), origin, dict_get(d, "identity.public-key", ""));
+      }
+
+      if (verified) {
+         verified = rr_identity_accept_control_nonce(masterdb, d);
+      }
 #else
-      verified=false;
+      verified = false;
 #endif
+
       if (!verified) {
-         Log(LOG_WARN,"mesh.control","Rejected unsigned/forged %s from %s",kind,origin);
+         Log(LOG_WARN, "mesh.control", "Rejected unsigned/forged %s from %s", kind, origin);
          goto done;
       }
-      if (strcmp(kind,"state")) {
+
+      if (strcmp(kind, "state")) {
          rr_relay_strip_catalog_identity(d);
-         dict_del(d,"identity.destination");
-         dict_del(d,"identity.username");
+         dict_del(d, "identity.destination");
+         dict_del(d, "identity.username");
       }
    }
+
    if (!strcmp(kind, "identity-revocation")) {
 #ifdef USE_SQLITE
-      const char *incoming_peer=ingress;
-      const char *key=dict_get(d,"identity.public-key","");
-      bool fresh=false;
-      if (strcmp(origin,dict_get(d,"identity.owner","")) ||
-          !rr_revocation_receive(masterdb,d,&fresh)) {
-         Log(LOG_WARN,"mesh.identity","Rejected untrusted or invalid identity revocation for %s",origin);
+      const char *incoming_peer = ingress;
+      const char *key = dict_get(d, "identity.public-key", "");
+      bool fresh = false;
+
+      if (strcmp(origin, dict_get(d, "identity.owner", "")) || !rr_revocation_receive(masterdb, d, &fresh)) {
+         Log(LOG_WARN, "mesh.identity", "Rejected untrusted or invalid identity revocation for %s", origin);
          goto done;
       }
+
       /* Preserve the owner's original signature for every transit hop. */
       if (fresh) {
-         revocation_forward(incoming_peer,origin,d,atoi(dict_get(envelope,"ttl","0")));
-         rrserver_links_depart_revoked(origin,incoming_peer);
+         revocation_forward(incoming_peer, origin, d, atoi(dict_get(envelope, "ttl", "0")));
+         rrserver_links_depart_revoked(origin, incoming_peer);
       }
+
       if (*incoming_peer) {
-         dict *ack=dict_new();
+         dict *ack = dict_new();
+
          if (ack) {
-            dict_add(ack,"owner",origin);
-            dict_add(ack,"public-key",key);
-            rr_relay_packet(incoming_peer,"identity-revocation-ack","",NULL,ack);
+            dict_add(ack, "owner", origin);
+            dict_add(ack, "public-key", key);
+            rr_relay_packet(incoming_peer, "identity-revocation-ack", "", NULL, ack);
             dict_free(ack);
          }
       }
 #endif
       goto done;
    }
+
    if (!strcmp(kind, "identity-revocation-ack")) {
       /* This reports one direct peer's acceptance, not global convergence. */
 #ifdef USE_SQLITE
-      if (!strcmp(ingress,origin) &&
-          rr_revocation_ack(masterdb, origin, dict_get(d,"owner",""),
-             dict_get(d,"public-key",""))) {
-         Log(LOG_INFO,"mesh.identity","Direct peer %s accepted revocation for signer %s",
-            origin,dict_get(d,"owner",""));
+
+      if (!strcmp(ingress, origin) && rr_revocation_ack(masterdb, origin, dict_get(d, "owner", ""), dict_get(d, "public-key", ""))) {
+         Log(LOG_INFO, "mesh.identity", "Direct peer %s accepted revocation for signer %s", origin, dict_get(d, "owner", ""));
       }
 #endif
       goto done;
@@ -1065,29 +1090,31 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             }
          }
       } else if (!strcmp(kind, "users")) {
-         bool valid=!strcmp(dict_get(d,"identity.owner",""),origin) &&
-            !g_ascii_strcasecmp(dict_get(d,"identity.domain",""),cfg_get("domain")) &&
-            !strcmp(dict_get(d,"identity.operation",""),"users-snapshot") &&
-            !strcmp(dict_get(d,"identity.scheme",""),"ed25519-catalog-v1") &&
-            rr_identity_verify_catalog(d);
+         bool valid = !strcmp(dict_get(d, "identity.owner", ""), origin) &&
+            !g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) &&
+            !strcmp(dict_get(d, "identity.operation", ""), "users-snapshot") &&
+            !strcmp(dict_get(d, "identity.scheme", ""), "ed25519-catalog-v1") && rr_identity_verify_catalog(d);
 #ifdef USE_SQLITE
-         if (valid) valid=rr_identity_known_signer(masterdb,cfg_get("domain"),
-            origin,dict_get(d,"identity.public-key",""));
+
+         if (valid) {
+            valid = rr_identity_known_signer(masterdb, cfg_get("domain"), origin, dict_get(d, "identity.public-key", ""));
+         }
 #else
-         valid=false;
+         valid = false;
 #endif
+
          if (!valid) {
-            Log(LOG_WARN,"mesh.identity","Rejecting unsigned or forged user-directory snapshot for %s",origin);
+            Log(LOG_WARN, "mesh.identity", "Rejecting unsigned or forged user-directory snapshot for %s", origin);
             goto done;
          }
 #ifdef USE_SQLITE
-         if (!rr_identity_accept_revision(masterdb,cfg_get("domain"),origin,
-            "users-snapshot",d)) {
-            Log(LOG_WARN,"mesh.identity","Rejecting stale or conflicting user-directory snapshot for %s",origin);
+
+         if (!rr_identity_accept_revision(masterdb, cfg_get("domain"), origin, "users-snapshot", d)) {
+            Log(LOG_WARN, "mesh.identity", "Rejecting stale or conflicting user-directory snapshot for %s", origin);
             goto done;
          }
 #endif
-         rr_relay_directory_put(origin,d);
+         rr_relay_directory_put(origin, d);
       } else {
          /* Removal descriptors are catalog records too. Prevent unsigned or forged removals from bypassing normal catalog admission. */
          const char *signature = dict_get(d, "identity.signature", NULL);
@@ -1161,30 +1188,35 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          }
       }
    } else if (!strcmp(kind, "request")) {
-      const char *username=dict_get(envelope,"username","");
-      bool valid=!strcmp(dict_get(d,"identity.owner",""),origin) &&
-         !g_ascii_strcasecmp(dict_get(d,"identity.domain",""),cfg_get("domain")) &&
-         !strcmp(dict_get(d,"identity.operation",""),"relay-request") &&
-         !strcmp(dict_get(d,"identity.session",""),id) &&
-         !strcmp(dict_get(d,"identity.destination",""),dest) &&
-         !strcmp(dict_get(d,"identity.username",""),username) &&
-         !strcmp(dict_get(d,"identity.scheme",""),"ed25519-catalog-v1") &&
-         rr_identity_verify_catalog(d);
+      const char *username = dict_get(envelope, "username", "");
+      bool valid = !strcmp(dict_get(d, "identity.owner", ""), origin) &&
+         !g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) &&
+         !strcmp(dict_get(d, "identity.operation", ""), "relay-request") &&
+         !strcmp(dict_get(d, "identity.session", ""), id) &&
+         !strcmp(dict_get(d, "identity.destination", ""), dest) &&
+         !strcmp(dict_get(d, "identity.username", ""), username) &&
+         !strcmp(dict_get(d, "identity.scheme", ""), "ed25519-catalog-v1") && rr_identity_verify_catalog(d);
 #ifdef USE_SQLITE
-      if (valid) valid=rr_identity_known_signer(masterdb,cfg_get("domain"),
-         origin,dict_get(d,"identity.public-key",""));
-      if (valid) valid=rr_identity_accept_control_nonce(masterdb,d);
+
+      if (valid) {
+         valid = rr_identity_known_signer(masterdb, cfg_get("domain"), origin, dict_get(d, "identity.public-key", ""));
+      }
+
+      if (valid) {
+         valid = rr_identity_accept_control_nonce(masterdb, d);
+      }
 #else
-      valid=false;
+      valid = false;
 #endif
+
       if (!valid) {
-         Log(LOG_WARN,"mesh.control","Rejected unsigned or forged command from %s",origin);
+         Log(LOG_WARN, "mesh.control", "Rejected unsigned or forged command from %s", origin);
          goto done;
       }
       rr_relay_strip_catalog_identity(d);
-      dict_del(d,"identity.destination");
-      dict_del(d,"identity.username");
-      rr_relay_execute(origin,id,username,d);
+      dict_del(d, "identity.destination");
+      dict_del(d, "identity.username");
+      rr_relay_execute(origin, id, username, d);
    } else if (!strcmp(kind, "reply")) {
       {
          bool valid = !strcmp(dict_get(d, "identity.owner", ""), origin) &&
@@ -1192,13 +1224,16 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             !strcmp(dict_get(d, "identity.operation", ""), "relay-reply") &&
             !strcmp(dict_get(d, "identity.session", ""), id) &&
             !strcmp(dict_get(d, "identity.destination", ""), dest) &&
-            !strcmp(dict_get(d, "identity.username", ""), dict_get(envelope,"username","")) &&
+            !strcmp(dict_get(d, "identity.username", ""), dict_get(envelope, "username", "")) &&
             !strcmp(dict_get(d, "identity.scheme", ""), "ed25519-catalog-v1") && rr_identity_verify_catalog(d);
 #ifdef USE_SQLITE
 
          if (valid) {
             valid = rr_identity_known_signer(masterdb, cfg_get("domain"), origin, dict_get(d, "identity.public-key", ""));
-            if (valid) valid=rr_identity_accept_control_nonce(masterdb,d);
+
+            if (valid) {
+               valid = rr_identity_accept_control_nonce(masterdb, d);
+            }
          }
 #endif
 
@@ -1209,8 +1244,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             goto done;
          }
          rr_relay_strip_catalog_identity(d);
-         dict_del(d,"identity.destination");
-         dict_del(d,"identity.username");
+         dict_del(d, "identity.destination");
+         dict_del(d, "identity.username");
       }
 
       for (struct relay_client *c = rr_relay_clients ; c ; c = c->next) {
@@ -1327,19 +1362,23 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          goto done;
       }
 
-      dict *client_state=dict_clone(d);
+      dict *client_state = dict_clone(d);
+
       if (client_state) {
          rr_relay_strip_catalog_identity(client_state);
-         dict_del(client_state,"identity.destination");
-         dict_del(client_state,"identity.username");
+         dict_del(client_state, "identity.destination");
+         dict_del(client_state, "identity.username");
+
          for (struct relay_client *local = rr_relay_clients ; local ; local = local->next) {
-            if (rr_relay_client_interested(local->client, room, client_state))
-               rr_relay_deliver(local->client,client_state);
+            if (rr_relay_client_interested(local->client, room, client_state)) {
+               rr_relay_deliver(local->client, client_state);
+            }
          }
+
          dict_free(client_state);
       }
       /* Keep owner's signature in d for downstream forwarding. */
-      rr_relay_publish_state(c->owner, room, d, atoi(dict_get(envelope,"ttl","0")));
+      rr_relay_publish_state(c->owner, room, d, atoi(dict_get(envelope, "ttl", "0")));
    } else if (!strcmp(kind, "close")) {
       struct remote_session **p = &rr_relay_remotes;
       while (*p) {
@@ -1370,8 +1409,7 @@ static void ready(const char *event, const char *node, rrconn_t *client, void *u
    }
    rr_relay_collect_local();
    rr_relay_users_poll(true);
-   /* Revocations precede any catalog snapshot: a peer must install its
-    * revoked-key denylist before admitting replayed discovery entries. */
+   /* Revocations precede any catalog snapshot: a peer must install its revoked-key denylist before admitting replayed discovery entries. */
    rr_revocation_replay(node);
    rr_relay_send_catalogs(node);
    rrserver_relay_poll();

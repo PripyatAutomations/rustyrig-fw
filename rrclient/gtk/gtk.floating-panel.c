@@ -361,8 +361,7 @@ static void panel_initial_allocation(GtkWidget *widget, GtkAllocation *allocatio
    gtk_widget_set_margin_start(p->frame, x);
    gtk_widget_set_margin_top(p->frame, y);
    panel_position_save(p, x, y);
-   /* Save the *actual* centered coordinates, not the provisional position
-    * calculated before the panel's tree and controls were allocated. */
+   /* Save the *actual* centered coordinates, not the provisional position calculated before the panel's tree and controls were allocated. */
    panel_state_save(p);
 }
 
@@ -463,12 +462,15 @@ static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
    }
    x = CLAMP(x, hard_min_x, hard_max_x);
    y = CLAMP(y, hard_min_y, hard_max_y);
-   /* Avoid queuing GTK layout when the pointer has not changed the
-    * resulting position (e.g. while held against a snap guide). */
-   if (gtk_widget_get_margin_start(p->frame) != x)
+
+   /* Avoid queuing GTK layout when the pointer has not changed the resulting position (e.g. while held against a snap guide). */
+   if (gtk_widget_get_margin_start(p->frame) != x) {
       gtk_widget_set_margin_start(p->frame, x);
-   if (gtk_widget_get_margin_top(p->frame) != y)
+   }
+
+   if (gtk_widget_get_margin_top(p->frame) != y) {
       gtk_widget_set_margin_top(p->frame, y);
+   }
 }
 
 /* GtkOverlay paints children in overlay order. Raise the selected panel rather than merely presenting the containing desktop window. */
@@ -646,8 +648,7 @@ static void panel_chrome(RRFloatPanel *p) {
       return;
    }
 
-   /* Hide the entire content wrapper, not just its inner box: otherwise
-    * the wrapper can still contribute spacing to a rolled-up panel. */
+   /* Hide the entire content wrapper, not just its inner box: otherwise the wrapper can still contribute spacing to a rolled-up panel. */
    if (p->rolled || p->minimized) {
       gtk_widget_hide(p->scale_wrapper);
    } else {
@@ -714,18 +715,18 @@ static void panel_roll(GtkButton *button, gpointer data) {
    if (p->modal) {
       return;
    }
+
    if (!p->rolled) {
-      /* Preserve the visible titlebar width as well as expanded geometry.
-       * A rolled panel only collapses vertically. */
+      /* Preserve the visible titlebar width as well as expanded geometry. A rolled panel only collapses vertically. */
       gint width = gtk_widget_get_allocated_width(p->frame);
       panel_state_save(p);
-      if (width > 1)
+
+      if (width > 1) {
          p->saved_width = width;
+      }
    }
    p->rolled = !p->rolled;
-   gtk_widget_set_size_request(p->frame,
-      p->saved_width > 1 ? p->saved_width : -1,
-      p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
+   gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? p->saved_width : -1, p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
 
    if (!p->rolled) {
       panel_raise(p);
@@ -763,18 +764,21 @@ static void panel_close(GtkButton *button, gpointer data) {
    }
 }
 
-/* GTK margin changes invalidate overlay layout. Process only the latest
- * pointer sample once per frame rather than relayout on every motion event. */
+/* GTK margin changes invalidate overlay layout. Process only the latest pointer sample once per frame rather than relayout on every motion event. */
 static gboolean panel_drag_tick(GtkWidget *widget, GdkFrameClock *clock, gpointer data) {
    (void)widget;
    (void)clock;
    RRFloatPanel *p = data;
-   if (!p->dragging)
+
+   if (!p->dragging) {
       return G_SOURCE_REMOVE;
+   }
+
    if (p->drag_pending) {
       p->drag_pending = FALSE;
       panel_drag_position(p, p->drag_pending_x, p->drag_pending_y);
    }
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -949,8 +953,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(raise_gesture, "pressed", G_CALLBACK(panel_raise_gesture), p);
    g_object_set_data_full(G_OBJECT(p->frame), "rr-panel-raise-gesture", raise_gesture, g_object_unref);
    g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
-   /* The resize grip floats over the content instead of reserving a
-    * dedicated row below it. Keep the overlay inside the panel frame. */
+   /* The resize grip floats over the content instead of reserving a dedicated row below it. Keep the overlay inside the panel frame. */
    GtkWidget *panel_overlay = gtk_overlay_new();
    gtk_container_add(GTK_CONTAINER(p->frame), panel_overlay);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
@@ -991,11 +994,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
       GtkWidget *glyph = gtk_button_get_image(GTK_BUTTON(button));
 
       if (GTK_IS_IMAGE(glyph)) {
-         /* The theme's window-close glyph has more internal whitespace than
-          * minimize/roll/menu. Give the X a slightly larger pixel box so
-          * all four icons have comparable visual weight. */
-         gtk_image_set_pixel_size(GTK_IMAGE(glyph),
-            button == p->close_button ? 15 : 12);
+         /* The theme's window-close glyph has more internal whitespace than minimize/roll/menu. Give the X a slightly larger pixel box so all four icons have
+          * comparable visual weight. */
+         gtk_image_set_pixel_size(GTK_IMAGE(glyph), button == p->close_button ? 15 : 12);
       }
       gtk_widget_set_size_request(button, 22, 22);
       GtkStyleContext *style = gtk_widget_get_style_context(button);
@@ -1070,8 +1071,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->resize_grip = gtk_event_box_new();
    GtkWidget *resize_icon = gtk_image_new_from_icon_name("view-restore-symbolic", GTK_ICON_SIZE_MENU);
    gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
-   /* The grip itself uses no-show-all so rolled panels stay collapsed.
-    * Explicitly show the child: parent show_all() skips this subtree. */
+   /* The grip itself uses no-show-all so rolled panels stay collapsed. Explicitly show the child: parent show_all() skips this subtree. */
    gtk_widget_show(resize_icon);
    gtk_widget_set_halign(p->resize_grip, GTK_ALIGN_END);
    gtk_widget_set_valign(p->resize_grip, GTK_ALIGN_END);
@@ -1200,9 +1200,8 @@ void rr_floating_panel_show(RRFloatPanel *p) {
          int max_w = MAX(200, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - 24);
          int max_h = MAX(120, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - 24);
 
-         gtk_widget_set_size_request(p->frame,
-            p->saved_width > 1 ? MIN(p->saved_width, max_w) : -1,
-            !p->rolled && p->saved_height > 1 ? MIN(p->saved_height, max_h) : -1);
+         gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? MIN(p->saved_width, max_w) : -1, !p->rolled && p->saved_height > 1 ? MIN(p->saved_height,
+            max_h) : -1);
       }
       p->ever_shown = TRUE;
    }
@@ -1222,8 +1221,10 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       }
    }
    panel_chrome(p);
-   if (p->rolled)
+
+   if (p->rolled) {
       gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? p->saved_width : -1, -1);
+   }
    panel_raise(p);
    p->restoring_state = FALSE;
 
@@ -1231,10 +1232,11 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       p->saved_minimized = FALSE;
       panel_minimize(NULL, p);
    }
-   /* The first GTK allocation still needs to center this panel at its
-    * final size. Persist only after panel_initial_allocation completes. */
-   if (!p->initial_center_pending)
+
+   /* The first GTK allocation still needs to center this panel at its final size. Persist only after panel_initial_allocation completes. */
+   if (!p->initial_center_pending) {
       panel_state_save(p);
+   }
 }
 
 void rr_floating_panel_destroy(RRFloatPanel *p) {

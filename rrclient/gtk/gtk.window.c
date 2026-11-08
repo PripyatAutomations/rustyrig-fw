@@ -32,8 +32,7 @@ extern GtkWidget *init_log_tab(void);
 extern bool chat_init(void);
 extern bool cfg_fullscreen;
 
-/* Labels are separate widgets so the icon and hit target remain intact when
- * the toolbar is compacted. The scroll viewport provides the usable width. */
+/* Labels are separate widgets so the icon and hit target remain intact when the toolbar is compacted. The scroll viewport provides the usable width. */
 #define RR_TOOLBAR_ACTIONS 5
 static GtkWidget *toolbar_action_labels[RR_TOOLBAR_ACTIONS];
 static unsigned toolbar_action_count;
@@ -41,19 +40,23 @@ static bool toolbar_titles_visible;
 static GtkWidget *toolbar_action_viewport;
 
 static void toolbar_titles_update(int available) {
-   if (!GTK_IS_WIDGET(rr_main_toolbar) || available <= 0)
+   if (!GTK_IS_WIDGET(rr_main_toolbar) || available <= 0) {
       return;
+   }
    bool show = !cfg_get_bool("ui.status.collapse-buttons", true);
+
    if (show) {
       int minimum = 0, natural = 0;
       gtk_widget_get_preferred_width(rr_main_toolbar, &minimum, &natural);
-      /* In compact mode, calculate the extra width of all labels; while
-       * expanded, the preferred width already includes them. */
+
+      /* In compact mode, calculate the extra width of all labels; while expanded, the preferred width already includes them. */
       if (!toolbar_titles_visible) {
-         for (unsigned i = 0; i < toolbar_action_count; ++i) {
+         for (unsigned i = 0 ; i < toolbar_action_count ; ++i) {
             GtkWidget *label = toolbar_action_labels[i];
-            if (!label)
+
+            if (!label) {
                continue;
+            }
             PangoLayout *layout = gtk_widget_create_pango_layout(label, gtk_label_get_text(GTK_LABEL(label)));
             int width = 0;
             pango_layout_get_pixel_size(layout, &width, NULL);
@@ -63,16 +66,21 @@ static void toolbar_titles_update(int available) {
       }
       show = available >= natural + 8;
    }
-   if (show == toolbar_titles_visible)
+
+   if (show == toolbar_titles_visible) {
       return;
+   }
    toolbar_titles_visible = show;
-   for (unsigned i = 0; i < toolbar_action_count; ++i) {
+
+   for (unsigned i = 0 ; i < toolbar_action_count ; ++i) {
       GtkWidget *label = toolbar_action_labels[i];
+
       if (label) {
-         if (show)
+         if (show) {
             gtk_widget_show(label);
-         else
+         } else {
             gtk_widget_hide(label);
+         }
       }
    }
 }
@@ -90,8 +98,10 @@ extern bool cfg_fullscreen;
 void frontend_gtk_config_refresh(const char *key) {
    (void)key;
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
-   if (toolbar_action_viewport)
+
+   if (toolbar_action_viewport) {
       toolbar_titles_update(gtk_widget_get_allocated_width(toolbar_action_viewport));
+   }
    g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Effective startup setting ui.full-screen=%s (raw=%s)", cfg_fullscreen ? "true" : "false", cfg_get(
       "ui.full-screen") ? cfg_get("ui.full-screen") : "(absent)");
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
@@ -323,8 +333,7 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
 static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *icon, const char *tool, const char *tooltip) {
    GtkWidget *button = gtk_button_new();
    GtkWidget *contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   GtkWidget *image = !strcmp(icon, "📻") ? gtk_label_new(icon) :
-      gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
+   GtkWidget *image = !strcmp(icon, "📻") ? gtk_label_new(icon) : gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
    GtkWidget *label = gtk_label_new(text);
    gtk_box_pack_start(GTK_BOX(contents), image, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(contents), label, FALSE, FALSE, 0);
@@ -332,8 +341,10 @@ static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *
    /* no-show-all preserves compact layout during the initial show_all(). */
    gtk_widget_set_no_show_all(label, TRUE);
    gtk_widget_hide(label);
-   if (toolbar_action_count < RR_TOOLBAR_ACTIONS)
+
+   if (toolbar_action_count < RR_TOOLBAR_ACTIONS) {
       toolbar_action_labels[toolbar_action_count++] = label;
+   }
    gtk_widget_set_tooltip_text(button, tooltip);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
    g_signal_connect(button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) tool);
@@ -487,16 +498,11 @@ bool gui_init(void) {
    chat_init();
 
    /* Tool pages are selected from the toolbar, not the tab strip. */
-   main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer",
-      "Explorer: Explore available resources in the cluster");
-   main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory",
-      "Remote SDRs: Access remote SDRs such as KiwiSDR");
-   main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio",
-      "Audio Graph: Edit local audio routing/effects");
-   main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-other-symbolic", "admin",
-      "Admin: Administer the server/cluster");
-   main_toolbar_tool(rr_main_toolbar, "Config", "preferences-system-symbolic", "config",
-      "Config: Edit client configuration");
+   main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer", "Explorer: Explore available resources in the cluster");
+   main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory", "Remote SDRs: Access remote SDRs such as KiwiSDR");
+   main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio", "Audio Graph: Edit local audio routing/effects");
+   main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-other-symbolic", "admin", "Admin: Administer the server/cluster");
+   main_toolbar_tool(rr_main_toolbar, "Config", "preferences-system-symbolic", "config", "Config: Edit client configuration");
 
    // Shared serial console page, with top-aligned endpoint subtabs.
    extern GtkWidget *init_terminal_tab(void);

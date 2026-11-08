@@ -79,28 +79,31 @@ void rr_relay_users_poll(bool force) {
 
    if (changed) {
       if (!rr_identity_public_base64()) {
-         Log(LOG_WARN,"mesh.identity","Cannot publish local user directory before signing identity initialization");
+         Log(LOG_WARN, "mesh.identity", "Cannot publish local user directory before signing identity initialization");
          dict_free(local);
+
          return;
       }
-      /* Directory state includes users, sessions and displayed privileges.
-       * Sign the complete snapshot before storing or forwarding it. */
-      dict_add(local,"identity.owner",rrserver_links_node());
-      dict_add(local,"identity.domain",cfg_get("domain"));
-      dict_add(local,"identity.public-key",rr_identity_public_base64());
-      dict_add(local,"identity.scheme","ed25519-catalog-v1");
-      dict_add(local,"identity.operation","users-snapshot");
+      /* Directory state includes users, sessions and displayed privileges. Sign the complete snapshot before storing or forwarding it. */
+      dict_add(local, "identity.owner", rrserver_links_node());
+      dict_add(local, "identity.domain", cfg_get("domain"));
+      dict_add(local, "identity.public-key", rr_identity_public_base64());
+      dict_add(local, "identity.scheme", "ed25519-catalog-v1");
+      dict_add(local, "identity.operation", "users-snapshot");
 #ifdef USE_SQLITE
-      if (!rr_identity_local_revision(masterdb,cfg_get("domain"),rrserver_links_node(),
-         "users-snapshot",local)) {
-         Log(LOG_WARN,"mesh.identity","Cannot allocate user-directory revision; refusing publication");
+
+      if (!rr_identity_local_revision(masterdb, cfg_get("domain"), rrserver_links_node(), "users-snapshot", local)) {
+         Log(LOG_WARN, "mesh.identity", "Cannot allocate user-directory revision; refusing publication");
          dict_free(local);
+
          return;
       }
 #endif
+
       if (!rr_identity_sign_catalog(local)) {
-         Log(LOG_WARN,"mesh.identity","Cannot sign user-directory snapshot; refusing publication");
+         Log(LOG_WARN, "mesh.identity", "Cannot sign user-directory snapshot; refusing publication");
          dict_free(local);
+
          return;
       }
       rr_relay_directory_put(rrserver_links_node(), local);

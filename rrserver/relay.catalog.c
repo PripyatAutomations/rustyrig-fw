@@ -1644,24 +1644,27 @@ void rr_relay_catalog_pump(void) {
    }
 }
 
-/* A revoked owner's descriptors must disappear immediately and must not
- * survive catalog refreshes. Trust revocation is committed by the caller
- * before this purge; catalog admission still verifies the owner's key. */
+/* A revoked owner's descriptors must disappear immediately and must not survive catalog refreshes. Trust revocation is committed by the caller before this
+ * purge; catalog admission still verifies the owner's key. */
 size_t rr_relay_catalog_revoke_signer(const char *owner, const char *key) {
-   if (!owner || !*owner || !key || !*key || !g_uuid_string_is_valid(owner)) return 0;
+   if (!owner || !*owner || !key || !*key || !g_uuid_string_is_valid(owner)) {
+      return 0;
+   }
    size_t count = 0;
    struct catalog **cursor = &rr_relay_catalogs;
 
    while (*cursor) {
       struct catalog *entry = *cursor;
-      if (strcmp(entry->owner, owner) ||
-          strcmp(dict_get(entry->descriptor, "identity.public-key", ""), key)) {
+
+      if (strcmp(entry->owner, owner) || strcmp(dict_get(entry->descriptor, "identity.public-key", ""), key)) {
          cursor = &entry->next;
          continue;
       }
       const char *uuid = dict_get(entry->descriptor, "object.uuid", "");
+
       if (*uuid && strcmp(dict_get(entry->descriptor, "catalog.visibility", "clients"), "server-only")) {
          dict *removed = dict_clone(entry->descriptor);
+
          if (removed) {
             rr_relay_strip_catalog_identity(removed);
             dict_add(removed, "msg.type", "object");
@@ -1673,13 +1676,18 @@ size_t rr_relay_catalog_revoke_signer(const char *owner, const char *key) {
       *cursor = entry->next;
       dict_free(entry->descriptor);
       free(entry);
-      if (rr_relay_catalog_count) rr_relay_catalog_count--;
+
+      if (rr_relay_catalog_count) {
+         rr_relay_catalog_count--;
+      }
       count++;
    }
+
    if (count) {
       rr_relay_catalog_dirty = true;
       Log(LOG_AUDIT, "mesh.identity", "Removed %zu signed catalog descriptors for retired key of %s", count, owner);
    }
+
    return count;
 }
 

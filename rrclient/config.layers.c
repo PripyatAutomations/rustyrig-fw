@@ -16,13 +16,18 @@ extern void load_log_filters_from_config(void);
 static bool layered;
 static bool config_dirty;
 static bool ignore_db_config;
-void rrclient_config_set_ignore_db(bool ignore) { ignore_db_config = ignore; }
-bool rrclient_config_ignore_db(void) { return ignore_db_config; }
+void rrclient_config_set_ignore_db(bool ignore) {
+   ignore_db_config = ignore;
+}
+bool rrclient_config_ignore_db(void) {
+   return ignore_db_config;
+}
 bool rrclient_config_save(void) {
    if (!rrclient_database_config_store()) {
       return false;
    }
    rrclient_config_clear_dirty();
+
    return true;
 }
 
@@ -211,8 +216,7 @@ bool rrclient_config_load(void) {
    return cfg != NULL;
 }
 
-/* A file-only reload is an explicit recovery operation. The DB's saved
- * profiles and themes are separate from the config override snapshot. */
+/* A file-only reload is an explicit recovery operation. The DB's saved profiles and themes are separate from the config override snapshot. */
 bool rrclient_config_reload_mode(const char *path, bool include_db_overrides) {
    dict *replacement = NULL;
 
@@ -226,8 +230,10 @@ bool rrclient_config_reload_mode(const char *path, bool include_db_overrides) {
    if (!replacement) {
       return false;
    }
+
    if (include_db_overrides && !rrclient_database_config_overlay_into(replacement)) {
       dict_free(replacement);
+
       return false;
    }
    bool ok = cfg_apply_new(cfg, replacement);
@@ -237,6 +243,7 @@ bool rrclient_config_reload_mode(const char *path, bool include_db_overrides) {
       if (!rrclient_database_load_profiles()) {
          Log(LOG_WARN, "config", "Unable to reload saved server profiles");
       }
+
       if (!rrclient_database_load_themes()) {
          Log(LOG_WARN, "config", "Unable to reload saved themes");
       }
@@ -261,11 +268,9 @@ static void config_reload_request(const rr_event_message_t *message, void *user)
    bool use_db = request->from_db;
 
    if (rrclient_config_reload_mode(NULL, use_db)) {
-      Log(LOG_INFO, "config", "Reloaded %s configuration (server profiles/themes retained)",
-         use_db ? "saved SQLite overlay" : "rrclient.cfg bootstrap");
+      Log(LOG_INFO, "config", "Reloaded %s configuration (server profiles/themes retained)", use_db ? "saved SQLite overlay" : "rrclient.cfg bootstrap");
    } else {
-      Log(LOG_WARN, "config", "Unable to reload %s configuration; current settings retained",
-         use_db ? "SQLite" : "file");
+      Log(LOG_WARN, "config", "Unable to reload %s configuration; current settings retained", use_db ? "SQLite" : "file");
    }
 }
 void rrclient_config_reload_register(void) {

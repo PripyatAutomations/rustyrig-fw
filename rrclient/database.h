@@ -27,7 +27,7 @@ bool rrclient_database_proxy_delete(const char *name);
 void rrclient_database_proxy_foreach(void (*cb) (const char *, const char *, void *), void *data);
 typedef struct {
    int x, y, width, height;
-   int zoom, opacity; /* opacity percentage, 30..100 */
+   int zoom, opacity;           /* opacity percentage, 30..100 */
    bool rolled, minimized, pinned;
 } rrclient_window_state_t;
 /* Session-count expiration: untouched records are pruned after five runs. */
