@@ -61,13 +61,14 @@ static char media_my_privs[128] = {
 static bool media_priv_matches(const char *grants, const char *requested) {
    if (!grants || !requested || !*requested) return false;
    const char *cursor = grants;
+   const size_t requested_len = strlen(requested);
    while (*cursor) {
       const char *end = strchr(cursor, ',');
       size_t n = end ? (size_t)(end - cursor) : strlen(cursor);
-      if (n == strlen(requested) && !strncmp(cursor, requested, n)) return true;
-      if (n > 7 && !strncmp(cursor, "serial.", 7) && cursor[n-1] == '*' &&
-          !strncmp(requested, cursor, n-1)) return true;
-      if (n >= 2 && cursor[n-2] == '.' && cursor[n-1] == '*' &&
+      if (n == requested_len && !strncmp(cursor, requested, n)) return true;
+      if (n > 7 && requested_len >= n-1 && !strncmp(cursor, "serial.", 7) &&
+          cursor[n-1] == '*' && !strncmp(requested, cursor, n-1)) return true;
+      if (n >= 2 && requested_len > n-2 && cursor[n-2] == '.' && cursor[n-1] == '*' &&
           !strncmp(requested, cursor, n-2) && requested[n-2] == '.') return true;
       if (!end) break;
       cursor = end + 1;
