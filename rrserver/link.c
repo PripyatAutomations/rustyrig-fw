@@ -36,6 +36,7 @@
 struct rr_links links;
 
 static void send_snapshot(struct link_session *session);
+static void broadcast(struct link_session *exclude, dict *d);
 
 static const char *config_value(const char *key, const char *fallback) {
    const char *value = cfg_get(key);
