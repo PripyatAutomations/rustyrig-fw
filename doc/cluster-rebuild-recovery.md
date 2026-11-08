@@ -181,11 +181,43 @@ does not authorize the client to rotate keys.
 
 No remote `identity-revoke` command is supported. Server cryptographic
 revocation and rotation are reserved for local, stopped-server maintenance.
-The proposed `rrserver --revoke-certs` and `--rotate-certs` commands must
-not be documented as available until implemented and tested. Cluster-wide
-signed revocation distribution, offline replay, catalog invalidation and
-acknowledgments remain required work before certificate revocation is
-considered operational.
+
+The new `rrserver --revoke-certs` and `--rotate-certs` maintenance commands
+require a stopped server, the exact interactive `YES --<option>` confirmation,
+and an existing master database containing the persistent server UUID.
+Run them with the server's usual `-f` configuration and the filesystem account
+that owns the private identity. Both **sign and durably queue** a revocation of
+the *previous* signing key and TLS SPKI before archiving its PEM files.
+
+- `--revoke-certs` retires keys and places `identity/revoked.lock`, deliberately
+  preventing normal startup until a later local rotation.
+- `--rotate-certs` retires the prior keys and leaves the normal auto-generation
+  path to provision a fresh signing/TLS keypair at next startup. When recovering
+  a previously revoked server it removes `revoked.lock` after verifying the
+  active PEM paths have been cleared.
+- Retired private PEMs are archived in a private `identity/retired-...`
+  directory for incident forensics; protect or securely destroy the archive
+  under the incident-response policy.
+- Existing peers will initially reject the **new** keys until separately
+  authorized enrollment updates their trust. The queued signed notice can
+  replay over newly established, authenticated links. Old keys remain denied.
+
+**Important operational limitation:** these one-shot commands do not yet
+establish outbound network sessions *while the old keys remain active*.
+The durable revocation ledger is replayed after the new identity successfully
+connects. Received revocations are authenticated, persisted, forwarded, and
+acknowledged by direct peers; ACKs are not proof that every remote node has
+converged. Do not claim cluster-wide completed revocation until every intended
+node has accepted the new denylist and the stale catalog is gone. Full
+adversarial integration testing remains required.
+
+Catalog resource upserts/removals, user-directory snapshots and relay
+commands/replies are end-to-end signed. A server's existing explicit enrollment
+takes precedence over historical first-seen catalog pins. **First-seen
+catalog keys for previously unknown UUIDs remain a bootstrap weakness**:
+without a cluster-authorized membership registry, a malicious peer can claim
+an unregistered UUID first. Treat unfamiliar nodes as untrusted and verify
+membership identities out of band.
 
 ## 5. Validate and revoke
 
