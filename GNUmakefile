@@ -113,6 +113,45 @@ endif
 else
 $(error Invalid LIBRRPROTOCOL_PROVIDER=$(LIBRRPROTOCOL_PROVIDER); use auto, system or local)
 endif
+# IRC is maintained inside RustyAxe, but is a separate GPLv2 shared
+# library. Installed IRC takes priority; local fallback is the Axe submodule.
+LIBRUSTYIRC_PROVIDER ?= auto
+IRC_PKG_CONFIG ?= pkg-config
+IRC_CC ?= $(AXE_CC)
+IRC_PROBE := $(shell IRC_CC='$(IRC_CC)' IRC_PKG_CONFIG='$(IRC_PKG_CONFIG)' \
+  IRC_CPPFLAGS='$(CPPFLAGS)' IRC_CFLAGS='$(CFLAGS) $(shell pkg-config --cflags glib-2.0 2>/dev/null)' \
+  IRC_LDFLAGS='$(LDFLAGS)' sh tools/probe-librustyirc.sh)
+ifeq ($(LIBRUSTYIRC_PROVIDER),auto)
+LIBRUSTYIRC_PROVIDER := $(if $(filter none,$(IRC_PROBE)),local,system)
+endif
+ifeq ($(LIBRUSTYIRC_PROVIDER),system)
+ifeq ($(IRC_PROBE),none)
+$(error Installed librustyirc not usable; select local fallback or install the IRC SDK)
+endif
+librustyirc :=
+ifeq ($(IRC_PROBE),pkgconfig)
+IRC_SYSTEM_CFLAGS := $(shell $(IRC_PKG_CONFIG) --cflags librustyirc)
+IRC_SYSTEM_LDFLAGS := $(shell $(IRC_PKG_CONFIG) --libs-only-L librustyirc)
+endif
+ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifneq ($(wildcard librustyirc.so librustyirc.so.0),)
+$(error Stale local librustyirc; run make distclean before system mode)
+endif
+endif
+else ifeq ($(LIBRUSTYIRC_PROVIDER),local)
+librustyirc := librustyirc.so
+ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifeq ($(wildcard librustyaxe/librustyirc/rules.mk),)
+$(shell git submodule update --init librustyaxe)
+endif
+ifeq ($(wildcard librustyaxe/librustyirc/rules.mk),)
+$(error Missing RustyAxe IRC source; initialize librustyaxe submodule)
+endif
+endif
+else
+$(error Invalid LIBRUSTYIRC_PROVIDER=$(LIBRUSTYIRC_PROVIDER))
+endif
+
 include mk/compile.mk
 include mk/database.mk
 include mk/eeprom.mk
@@ -147,7 +186,7 @@ ${BUILD_DIR}/librustyaxe/.timestamp ${BUILD_DIR}/librrprotocol/.stamp: ${BUILD_D
 ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
 
-extra_clean += librustyaxe.so librustyaxe.so.0 librustyaxe/irc-test
+extra_clean += librustyaxe.so librustyaxe.so.0 librustyirc.so librustyirc.so.0 librustyaxe/irc-test
 ifeq ($(LIBRUSTYAXE_PROVIDER),local)
 ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
 -include librustyaxe/rules.mk
@@ -155,7 +194,13 @@ else
 include librustyaxe/rules.mk
 endif
 endif
-include librustyirc/rules.mk
+ifeq ($(LIBRUSTYIRC_PROVIDER),local)
+ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
+-include librustyaxe/librustyirc/rules.mk
+else
+include librustyaxe/librustyirc/rules.mk
+endif
+endif
 ifeq ($(LIBRRPROTOCOL_PROVIDER),local)
 ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
 -include librrprotocol/rules.mk
