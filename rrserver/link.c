@@ -1026,13 +1026,15 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
        *
        * Future mesh routing must replace this tree-path assertion with a mesh-aware origin/route validation, NOT remove origin validation. The origin station
        * vouches for its authenticated username; a transit peer cannot substitute a user from a different branch. */
-      if (!route || strcmp(route, session->node)) {
+      const bool revocation = !strcmp(dict_get(d, "kind", ""), "identity-revocation");
+      if ((!route || strcmp(route, session->node)) && !revocation) {
          char peer_label[192], origin_label[192], route_label[192];
          Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s", rrserver_links_format_node(session->node, peer_label, sizeof(
             peer_label)), rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), route ? rrserver_links_format_node(route, route_label, sizeof(
                route_label)) : "(unreachable)");
          fail(session, "Message claims to originate from a server outside this peer's network branch");
       } else {
+         dict_add(d, "_ingress", session->node);
          event_emit_dict("server.link.application", NULL, d);
       }
    } else {
