@@ -212,23 +212,29 @@ bool rrclient_config_load(void) {
 }
 
 bool rrclient_config_reload(const char *path) {
-   if (!layered || (path && strcmp(path, config_file))) {
-      bool ok = cfg_reload(path);
+   dict *replacement = NULL;
 
-      if (ok) {
-         rrclient_database_load_themes();
-         rrclient_theme_apply();
-         rrclient_config_clear_dirty();
-      }
-
-      return ok;
+   if (layered && (!path || !strcmp(path, config_file))) {
+      replacement = read_layers(RRCLIENT_SYSTEM_CONFIG_PATH, config_file);
+   } else {
+      const char *source = path ? path : config_file;
+      replacement = source ? with_defaults(cfg_load(source)) : NULL;
    }
-   dict *replacement = read_layers(RRCLIENT_SYSTEM_CONFIG_PATH, config_file);
 
-   bool ok = replacement && cfg_apply_new(cfg, replacement);
+   if (!replacement) {
+      return false;
+   }
+   if (!ignore_db_config && !rrclient_database_config_overlay_into(replacement)) {
+      dict_free(replacement);
+      return false;
+   }
+   bool ok = cfg_apply_new(cfg, replacement);
 
    if (ok) {
-      rrclient_database_load_themes();
+      if (!ignore_db_config) {
+         rrclient_database_load_profiles();
+         rrclient_database_load_themes();
+      }
       rrclient_theme_apply();
       rrclient_config_clear_dirty();
    }
