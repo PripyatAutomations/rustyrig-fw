@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# SPDX-License-Identifier: GPL-2.0-only
 # Convert historical RustyRig-owned dual MIT/Mongoose notices to GPLv2-only.
 # Safe to rerun. Submodules and bundled third-party files are deliberately skipped.
 use strict;
