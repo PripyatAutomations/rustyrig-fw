@@ -50,12 +50,16 @@ do_start() {
 
 do_stop() {
    log_daemon_msg "Stopping $NAME"
-   start-stop-daemon --stop --quiet --retry=TERM/15/KILL/5 \
-      --pidfile "$PIDFILE" --exec "$DAEMON"
-   result=$?
-   rm -f "$PIDFILE"
-   log_end_msg $result
-   return $result
+   # Stale/missing PID files are normal after crashes or manual shutdown.
+   # Do not fail package configuration if there is nothing to stop.
+   result=0
+   start-stop-daemon --stop --quiet --oknodo --retry=TERM/15/KILL/5 \
+      --pidfile "$PIDFILE" --exec "$DAEMON" || result=$?
+   if [ "$result" -eq 0 ]; then
+      rm -f "$PIDFILE"
+   fi
+   log_end_msg "$result"
+   return "$result"
 }
 
 case "$1" in
