@@ -1,3 +1,12 @@
+rustyrig-fw (1.0.2-8) unstable; urgency=medium
+
+  * Exclude the persistent mesh identity subtree from recursive rradmin ACL
+    grants; previous upgrades made signing keys and TLS keys too permissive.
+  * Repair existing identity ACLs and modes after admin access provisioning
+    without regenerating or replacing any trust material.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 13:55:00 -0500
+
 rustyrig-fw (1.0.2-7) unstable; urgency=medium
 
   * Connect the client to native OpenSSL/wslay WebSockets when built without
