@@ -46,11 +46,11 @@ CFLAGS += -Wno-deprecated-declarations
 # System mode must not shadow installed librustyaxe headers with the
 # submodule in ./ or ./inc. -idirafter still exposes our own project headers.
 ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-CFLAGS += $(AXE_SYSTEM_CFLAGS) $(RRPROTO_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./inc -idirafter .
+CFLAGS += $(AXE_SYSTEM_CFLAGS) $(RRPROTO_SYSTEM_CFLAGS) $(IRC_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./librustyaxe -idirafter ./inc -idirafter .
 else ifeq ($(LIBRRPROTOCOL_PROVIDER),system)
-CFLAGS += $(RRPROTO_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./inc -idirafter .
+CFLAGS += $(RRPROTO_SYSTEM_CFLAGS) $(IRC_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./librustyaxe -idirafter ./inc -idirafter .
 else
-CFLAGS += -I./ -I./librrprotocol -I./librustyaxe -I../ -I./inc -I${BUILD_DIR}
+CFLAGS += $(IRC_SYSTEM_CFLAGS) -I./ -I./librrprotocol -I./librustyaxe -I../ -I./inc -I${BUILD_DIR}
 endif
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
@@ -104,6 +104,9 @@ LDFLAGS := $(AXE_SYSTEM_LDFLAGS) $(LDFLAGS)
 endif
 ifeq ($(LIBRRPROTOCOL_PROVIDER),system)
 LDFLAGS := $(RRPROTO_SYSTEM_LDFLAGS) $(LDFLAGS)
+endif
+ifeq ($(LIBRUSTYIRC_PROVIDER),system)
+LDFLAGS := $(IRC_SYSTEM_LDFLAGS) $(LDFLAGS)
 endif
 
 # librustyaxe is linked in every host build, including headless rrserver.
