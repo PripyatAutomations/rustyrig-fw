@@ -39,6 +39,7 @@
 #include <rrserver/bridge.manager.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
+#include <rrserver/link.h>
 #include <rrserver/relay.internal.h>
 #include <rrserver/platform.controls.h>
 #include <rrserver/objects.h>
@@ -1177,6 +1178,87 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
+
+   if (!strcmp(action, "identity-list") || !strcmp(action, "identity-revoke")) {
+      if (!admin_actor_has_priv(client, "owner")) {
+         ws_send_error(client, "Only owners may manage mesh trust");
+         dict_free(request);
+         return;
+      }
+      if (!strcmp(action, "identity-list")) {
+         dict *local = dict_new();
+         if (local) {
+            dict_add(local, "uuid", rrserver_links_node());
+            dict_add(local, "domain", cfg_get("domain"));
+            dict_add(local, "site", cfg_get("station.name"));
+            rrserver_admin_send(client, "identities", "begin", local);
+            dict_free(local);
+         }
+         sqlite3_stmt *stmt = NULL;
+         const char *sql = "SELECT domain,owner_uuid,catalog_pubkey,tls_spki_sha256 FROM mesh_explicit_trust ORDER BY domain,owner_uuid LIMIT 500";
+         if (sqlite3_prepare_v2(masterdb, sql, -1, &stmt, NULL) == SQLITE_OK) {
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+               dict *row = dict_new();
+               if (!row) break;
+               dict_add(row, "domain", (const char *)sqlite3_column_text(stmt, 0));
+               dict_add(row, "uuid", (const char *)sqlite3_column_text(stmt, 1));
+               dict_add(row, "catalog_key", (const char *)sqlite3_column_text(stmt, 2));
+               dict_add(row, "tls_spki", (const char *)sqlite3_column_text(stmt, 3));
+               rrserver_admin_send(client, "identities", "row", row);
+               dict_free(row);
+            }
+         } else {
+            ws_send_error(client, "Trust table unavailable");
+         }
+         sqlite3_finalize(stmt);
+         rrserver_admin_send(client, "identities", "end", NULL);
+      } else {
+         const char *uuid = dict_get(request, "talk.target", "");
+         const char *confirmation = dict_get(request, "talk.data", "");
+         const char *domain = cfg_get("domain");
+         if (!g_uuid_string_is_valid(uuid) || !strcmp(uuid, rrserver_links_node()) || strcmp(confirmation, uuid)) {
+            ws_send_error(client, "Select a remote UUID and confirm it exactly; local certificate rotation is CLI-only");
+         } else {
+            sqlite3_stmt *stmt = NULL;
+            bool ok = sqlite3_exec(masterdb, "BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK;
+            const char *queries[] = {
+               "DELETE FROM mesh_explicit_trust WHERE domain=?1 AND owner_uuid=?2",
+               "DELETE FROM mesh_bootstrap_peers WHERE domain=?1 AND node_uuid=?2",
+               "DELETE FROM mesh_link_endpoints WHERE domain=?1 AND node_uuid=?2"
+            };
+            unsigned removed = 0;
+            for (unsigned i = 0; ok && i < G_N_ELEMENTS(queries); ++i) {
+               if (sqlite3_prepare_v2(masterdb, queries[i], -1, &stmt, NULL) != SQLITE_OK) {
+                  ok = false;
+               } else {
+                  sqlite3_bind_text(stmt, 1, domain, -1, SQLITE_TRANSIENT);
+                  sqlite3_bind_text(stmt, 2, uuid, -1, SQLITE_TRANSIENT);
+                  ok = sqlite3_step(stmt) == SQLITE_DONE;
+                  if (ok) removed += (unsigned)sqlite3_changes(masterdb);
+               }
+               sqlite3_finalize(stmt);
+               stmt = NULL;
+            }
+            if (ok && !removed) ok = false;
+            if (ok) ok = sqlite3_exec(masterdb, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+            if (!ok) {
+               sqlite3_exec(masterdb, "ROLLBACK", NULL, NULL, NULL);
+               ws_send_error(client, "Revocation failed or peer is unknown; trust not changed");
+            } else {
+               size_t purged = rr_relay_catalog_revoke_owner(uuid);
+               char *detail = g_strdup_printf("uuid=%s domain=%s trust-rows=%u catalog-purged=%zu", uuid, domain, removed, purged);
+               if (detail) {
+                  db_add_audit_event(masterdb, client->chatname, "mesh.identity.revoked", detail);
+                  g_free(detail);
+               }
+               Log(LOG_AUDIT, "mesh.identity", "%s revoked trust for %s; %zu cached catalog entries removed", client->chatname, uuid, purged);
+               rrserver_admin_send(client, "identities", "updated", NULL);
+            }
+         }
+      }
+      dict_free(request);
+      return;
+   }
 
    if (!strncmp(action, "access-request-", 15)) {
       admin_access_requests(client, request);
