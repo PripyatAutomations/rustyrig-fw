@@ -1,11 +1,8 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 // rrserver/hardware.h: server-owned attached hardware and exclusive leases
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-only
 #ifndef RRSERVER_HARDWARE_H
 #define RRSERVER_HARDWARE_H
 #include <stdbool.h>
