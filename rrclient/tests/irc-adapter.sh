@@ -1,7 +1,7 @@
 # Source this after cd to the repository root. Build only the transport adapter.
 test -f librustyirc.so && test -f librrprotocol.so
 if pkg-config --exists librustyaxe; then
-   axe_cflags=$(pkg-config --cflags librustyaxe)
+   axe_cflags="-Ibuild/${PROFILE:-radio}/axe-system-include $(pkg-config --cflags librustyaxe)"
    axe_libs=$(pkg-config --libs librustyaxe)
 else
    test -f librustyaxe.so
