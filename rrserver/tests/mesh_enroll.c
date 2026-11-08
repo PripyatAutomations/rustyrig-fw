@@ -59,6 +59,23 @@ int main(void) {
    assert(!rr_identity_invite_redeem(db, fields[1], "testdomain", JOINER, join_pub, join_spki));
    assert(!rr_identity_invite_challenge(db, fields[1], "testdomain", JOINER));
    assert(!rr_identity_invite_verify_proof(db, fields[1], "testdomain", transcript, strlen(transcript), signature));
+   /* Re-enrollment cannot replace the active node signing identity. */
+   char *replacement = rr_identity_invite_issue(db, "testdomain",
+      "wss://127.0.0.1:4420/link", issuer_spki, JOINER, time(NULL) + 3600);
+   assert(replacement);
+   char **replacement_fields = g_strsplit(replacement, "\n", -1);
+   rr_crypto_key_t *different = rr_crypto_ed25519_generate();
+   assert(different && rr_crypto_ed25519_public_bytes(different, pub));
+   char *different_pub = g_base64_encode(pub, sizeof(pub));
+   assert(!rr_identity_invite_redeem(db, replacement_fields[1],
+      "testdomain", JOINER, different_pub, join_spki));
+   assert(rr_identity_trust_verify(db, "testdomain", JOINER, join_pub, join_spki));
+   assert(!rr_identity_trust_verify(db, "testdomain", JOINER, different_pub, join_spki));
+   g_free(different_pub);
+   rr_crypto_key_free(different);
+   g_strfreev(replacement_fields);
+   memset(replacement, 0, strlen(replacement));
+   g_free(replacement);
    g_free(transcript);
    g_free(join_pub);
    g_free(join_spki);
