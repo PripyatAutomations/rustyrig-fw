@@ -77,6 +77,8 @@ endif
 	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server$(BINDIR)/rr-get-audit-log
 	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server$(BINDIR)/rr-get-chat-log
 	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server$(BINDIR)/rr-get-ptt-log
+	# Private Ed25519 identity directory; keys are runtime state, never packaged.
+	install -d -m0700 debian/rustyrig-server/var/lib/rustyrig/identity
 	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/db
 	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/recordings
 	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/modems
