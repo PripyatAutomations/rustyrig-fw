@@ -211,9 +211,16 @@ converged. Do not claim cluster-wide completed revocation until every intended
 node has accepted the new denylist and the stale catalog is gone. Full
 adversarial integration testing remains required.
 
-Catalog resource upserts/removals, user-directory snapshots and relay
-commands/replies are end-to-end signed. A server's existing explicit enrollment
-takes precedence over historical first-seen catalog pins. **First-seen
+Catalog resource upserts/removals and user-directory snapshots have
+end-to-end signatures and persistent revisions/replay protection. Relay
+commands, replies, subscriptions, administrative state and revocation ACKs
+carry origin-server signatures bound to the operation, destination and
+session, with a timestamp and persistent one-use nonce. Relayed room state
+is signed by its *owning* server and forwarded without intermediary
+re-signing; a rogue intermediate cannot claim to be another state owner.
+Retired signing keys and TLS SPKI fingerprints remain denied. A server's
+existing explicit enrollment takes precedence over historical first-seen
+catalog pins. **First-seen
 catalog keys for previously unknown UUIDs remain a bootstrap weakness**:
 without a cluster-authorized membership registry, a malicious peer can claim
 an unregistered UUID first. Treat unfamiliar nodes as untrusted and verify
