@@ -922,12 +922,9 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "fwdsp", "fwdsp manager failed to initialize; audio will be unavailable");
    }
 
-   // Launch the persistent callsign helper while the radio is coming online.
-   // Readiness is checked when the first /qrz or /grid request arrives so a
-   // slow helper cannot delay the websocket server from starting.
-   if (!ws_callsign_lookup_init()) {
-      Log(LOG_WARN, "callsign", "Callsign lookup helper was not ready at radio initialization; lookups will retry on demand");
-   }
+   /* Callsign lookup is optional. Spawn its helper on the first /qrz or
+    * /grid request, not during radio/network startup. This also avoids a
+    * five-second helper readiness wait before the TLS listener opens. */
 
    /* Load optional receiver directory cache only after configuration, database, hardware, rigs and media have initialized successfully. Keep it ready before
     * opening the TLS listener for client requests. */
