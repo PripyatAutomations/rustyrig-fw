@@ -110,7 +110,7 @@ endif
 	# Reference copy of the compiled CSS; not a client configuration input.
 	perl tools/releng-dump-css.pl --css > debian/rustyrig-client$(CONF_DIR)/rrclient.css
 	chmod 644 debian/rustyrig-client$(CONF_DIR)/rrclient.css
-	install -Dm644 config/rrclient.callsign-lookup.cfg debian/rustyrig-client$(CONF_DIR)/callsign-lookup.cli.cfg
+	install -Dm644 config/rrclient.callsign-lookup.cfg debian/rustyrig-client$(CONF_DIR)/rrclient.callsign-lookup.cfg
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
 	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server$(WEB_ROOT)/ \;
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
