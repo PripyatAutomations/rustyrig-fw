@@ -44,14 +44,14 @@ AXE_SYSTEM_CFLAGS := $(shell $(AXE_PKG_CONFIG) --cflags librustyaxe)
 AXE_SYSTEM_LDFLAGS := $(shell $(AXE_PKG_CONFIG) --libs-only-L librustyaxe)
 endif
 # Never let an old in-tree SONAME supersede an installed one at runtime.
-ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 ifneq ($(wildcard librustyaxe.so librustyaxe.so.0),)
 $(error Stale checkout-root librustyaxe.so; run make distclean before using system librustyaxe)
 endif
 endif
 else ifeq ($(LIBRUSTYAXE_PROVIDER),local)
 librustyaxe := librustyaxe.so
-ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 ifeq ($(wildcard librustyaxe/rules.mk),)
 ifneq ($(wildcard .gitmodules),)
 $(info [librustyaxe] initializing submodule for uninstalled development build)
@@ -94,14 +94,14 @@ ifeq ($(RRPROTO_PROBE),pkgconfig)
 RRPROTO_SYSTEM_CFLAGS := $(shell $(RRPROTO_PKG_CONFIG) --cflags librrprotocol)
 RRPROTO_SYSTEM_LDFLAGS := $(shell $(RRPROTO_PKG_CONFIG) --libs-only-L librrprotocol)
 endif
-ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 ifneq ($(wildcard librrprotocol.so librrprotocol.so.0),)
 $(error Stale local librrprotocol; run make distclean before selecting installed protocol library)
 endif
 endif
 else ifeq ($(LIBRRPROTOCOL_PROVIDER),local)
 librrprotocol := librrprotocol.so
-ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 ifeq ($(wildcard librrprotocol/rules.mk),)
 $(info [librrprotocol] initializing submodule for uninstalled development build)
 $(shell git submodule update --init librrprotocol)
@@ -133,14 +133,14 @@ ifeq ($(IRC_PROBE),pkgconfig)
 IRC_SYSTEM_CFLAGS := $(shell $(IRC_PKG_CONFIG) --cflags librustyirc)
 IRC_SYSTEM_LDFLAGS := $(shell $(IRC_PKG_CONFIG) --libs-only-L librustyirc)
 endif
-ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 ifneq ($(wildcard librustyirc.so librustyirc.so.0),)
 $(error Stale local librustyirc; run make distclean before system mode)
 endif
 endif
 else ifeq ($(LIBRUSTYIRC_PROVIDER),local)
 librustyirc := librustyirc.so
-ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 ifeq ($(wildcard librustyaxe/librustyirc/rules.mk),)
 $(shell git submodule update --init librustyaxe)
 endif
@@ -188,21 +188,21 @@ ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
 extra_clean += librustyaxe.so librustyaxe.so.0 librustyirc.so librustyirc.so.0 librustyaxe/irc-test
 ifeq ($(LIBRUSTYAXE_PROVIDER),local)
-ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifneq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 -include librustyaxe/rules.mk
 else
 include librustyaxe/rules.mk
 endif
 endif
 ifeq ($(LIBRUSTYIRC_PROVIDER),local)
-ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifneq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 -include librustyaxe/librustyirc/rules.mk
 else
 include librustyaxe/librustyirc/rules.mk
 endif
 endif
 ifeq ($(LIBRRPROTOCOL_PROVIDER),local)
-ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifneq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
 -include librrprotocol/rules.mk
 else
 include librrprotocol/rules.mk
