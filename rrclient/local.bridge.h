@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <stddef.h>
 bool rrclient_local_bridge_connect(const char *url);
+/* Core-thread query: true when the selected local receiver has an approximate directory-grid location. */
+bool rrclient_local_bridge_gps_active(void);
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver);
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity);
 /* Cumulative bytes on local Kiwi's remote sockets (audio and waterfall). Excludes bridge IPC and any server/relay transport already counted. */
