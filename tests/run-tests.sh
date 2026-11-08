@@ -92,7 +92,7 @@ run_suite() {
     rrpipelines) run_dir "$suite" rrpipelines/tests ;;
     selftest)    run_dir "$suite" tests/selftest ;;
     packaging)   run_dir "$suite" packaging/tests ;;
-    librustyirc) run_dir "$suite" librustyirc/tests ;;
+    librustyirc) run_dir "$suite" librustyaxe/librustyirc ;;
     librustyaxe) run_dir "$suite" librustyaxe/tests ;;
     www)
       local failed=0 test found=0
