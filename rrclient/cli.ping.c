@@ -21,7 +21,8 @@
 #include <librrprotocol/media.health.h>
 
 extern dict *cfg;               // config.c
-extern bool cfg_show_pings;
+bool cfg_show_pings = true;
+long long last_ping_rtt_ms = 0;
 
 bool ws_handle_ping_msg(rrconn_t *cptr, dict *d) {
    if (!cptr || !d) {

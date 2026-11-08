@@ -21,7 +21,8 @@
 #include <librrprotocol/ws.h>
 #include <librrprotocol/vfo.h>
 
-extern char session_token[HTTP_TOKEN_LEN + 1];
+/* Compatibility token for the currently selected connection. */
+char session_token[HTTP_TOKEN_LEN + 1];
 const char *login_user = NULL;
 
 /* Selected client sessions are transport-independent. */

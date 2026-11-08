@@ -3,6 +3,7 @@ rrclient_src = $(rrclient_objs:.o=.c)
 gtk_headers := $(wildcard rrclient/gtk/*.h)
 
 rrclient := bin/rrclient
+rrclient_objs += ws.client.shared.o
 rrclient_objs += files.o
 rrclient_objs += objects.o
 rrclient_objs += objects.events.o
