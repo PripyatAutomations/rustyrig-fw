@@ -494,51 +494,30 @@ bool cmd_save(int argc, char **args) {
    bool confirmed = false;
 
    for (int i = 1 ; i < argc ; i++) {
-      if (args[i] && (strcasecmp(args[i], "-y") == 0 || strcasecmp(args[i], "yes") == 0 || strcasecmp(args[i], "y") == 0)) {
+      if (args[i] && (!strcasecmp(args[i], "-y") || !strcasecmp(args[i], "yes") || !strcasecmp(args[i], "y"))) {
          confirmed = true;
       }
    }
 
-   if (frontend_ops() && frontend_ops()->confirm_dialog && !confirmed) {
-      if (!frontend_ops()->confirm_dialog("Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up.")) {
+   if (!confirmed) {
+      if (frontend_ops() && frontend_ops()->confirm_dialog &&
+          frontend_ops()->confirm_dialog("Save client configuration overrides to client.db?")) {
          confirmed = true;
-
-         return false;
+      } else if (ui_mode == UI_MODE_TUI) {
+         ui_print(ui_active_window_name(), "Save current configuration to client.db? Run /save yes to confirm.");
       }
-
-      if (ui_mode == UI_MODE_TUI && !confirmed) {
-         ui_print(ui_active_window_name(), "Save configuration to ~/.config/rrclient.cfg? Existing config will be backed up. Run /save yes to confirm.");
-      }
-
-      return false;
    }
 
-   if (!cfg) {
-      ui_print(ui_active_window_name(), "\00304*** Cannot save: configuration is not loaded\017");
-
+   if (!confirmed) {
       return false;
    }
-
-   char path[PATH_MAX];
-   const char *home = getenv("HOME");
-   int written = snprintf(path, sizeof(path), "%s/.config/rrclient.cfg", (home && *home) ? home : ".");
-
-   if (written < 0 || (size_t)written >= sizeof(path)) {
-      ui_print(ui_active_window_name(), "\00304*** Cannot save: configuration path is too long\017");
-
+   if (!rrclient_config_save()) {
+      ui_print(ui_active_window_name(), "Unable to save client configuration to client.db");
       return false;
    }
-
-   if (!rrclient_database_config_save(path)) {
-      ui_print(ui_active_window_name(), "\00304*** Failed to save configuration to %s\017", path);
-
-      return false;
-   }
-   ui_print(ui_active_window_name(), "\00303Configuration saved to %s\017", path);
-
+   ui_print(ui_active_window_name(), "Configuration saved to client.db");
    return false;
 }
-
 
 bool cmd_quit(int argc, char **args) {
    char reason[IRC_MSGLEN - 8] = "";
