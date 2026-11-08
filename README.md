@@ -2,7 +2,7 @@
 
 **Share radios, audio, and station resources over a network.**
 
-RustyRig is an open-source, multi-user amateur-radio platform. Operate radios from another computer, listen with friends, or bring multiple stations together. Operators get live radio controls, audio, chat, and access to the resources they are allowed to use.
+RustyRig is a GPLv2-licensed, open-source, multi-user amateur-radio platform. Operate radios from another computer, listen with friends, or bring multiple stations together. Operators get live radio controls, audio, chat, and access to the resources they are allowed to use.
 
 RustyRig is under active development. The current releases are for testing; features and configuration can change.
 
@@ -94,3 +94,11 @@ work well, let me know and in the meanwhile try hamlib backend.
 The main pieces are `rrserver` (server), `rrclient` (GTK/TUI), `rrbridge` (SDR bridges), `librrprotocol` (shared protocol), `librustyaxe` (application support), and `fwdsp` / `libfwdspmgr` (audio). The browser UI is developed in [rustyrig-www](https://github.com/PripyatAutomations/rustyrig-www).
 
 Contributions, hardware compatibility reports, documentation improvements, and reproducible bug reports are welcome. See the [issue tracker](https://github.com/PripyatAutomations/rustyrig-fw/issues).
+
+## License
+
+RustyRig-owned code is licensed under the **GNU General Public License,
+version 2 only** (`GPL-2.0-only`); see [doc/LICENSE](doc/LICENSE).
+The `librrprotocol` submodule is GPLv2. The `librustyaxe` submodule retains
+its MIT license. Other bundled components, dependencies and Windows themes
+retain their respective upstream licenses.
