@@ -53,6 +53,29 @@ int main(void) {
    assert(rr_identity_invite_verify_proof(db, fields[1], "testdomain", transcript, strlen(transcript), signature));
    assert(rr_identity_invite_redeem(db, fields[1], "testdomain", JOINER, join_pub, join_spki));
    assert(rr_identity_trust_verify(db, "testdomain", JOINER, join_pub, join_spki));
+   /* An independent catalog pin cannot be displaced by enrollment. */
+   const char *pinned_uuid = "00000000-0000-4000-8000-000000000003";
+   assert(sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+      "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
+      "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) == SQLITE_OK);
+   sqlite3_stmt *pin = NULL;
+   assert(sqlite3_prepare_v2(db,
+      "INSERT INTO mesh_identity_pins(domain,owner_uuid,public_key)"
+      " VALUES(?1,?2,?3)", -1, &pin, NULL) == SQLITE_OK);
+   sqlite3_bind_text(pin, 1, "testdomain", -1, SQLITE_STATIC);
+   sqlite3_bind_text(pin, 2, pinned_uuid, -1, SQLITE_STATIC);
+   sqlite3_bind_text(pin, 3, join_pub, -1, SQLITE_TRANSIENT);
+   assert(sqlite3_step(pin) == SQLITE_DONE);
+   sqlite3_finalize(pin);
+   rr_crypto_key_t *intruder = rr_crypto_ed25519_generate();
+   assert(intruder && rr_crypto_ed25519_public_bytes(intruder, pub));
+   char *intruder_pub = g_base64_encode(pub, sizeof(pub));
+   assert(!rr_identity_trust_enroll(db, "testdomain", pinned_uuid, intruder_pub, join_spki));
+   assert(rr_identity_trust_enroll(db, "testdomain", pinned_uuid, join_pub, join_spki));
+   g_free(intruder_pub);
+   rr_crypto_key_free(intruder);
    assert(rr_identity_invite_redeemed(db, fields[1], "testdomain", JOINER, join_pub, join_spki));
    assert(!rr_identity_invite_redeemed(db, fields[1], "other-domain", JOINER, join_pub, join_spki));
    assert(!rr_identity_invite_redeemed(db, fields[1], "testdomain", JOINER, fields[6], join_spki));
