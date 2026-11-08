@@ -80,6 +80,7 @@ rrserver_objs += help.o			# support for help menus from filesystem, if available
 # User-agent bans are owned by librrprotocol (shared HTTP/native TLS policy).
 rrserver_objs += i2c.o			# Support for i2c bus devices
 rrserver_objs += identity.o
+rrserver_objs += revocation.o
 rrserver_objs += link.o		        # Authenticated server-link sessions
 rrserver_objs += link.admin.o
 rrserver_objs += link.mesh.o		# Shadow mesh adjacency and Dijkstra routing
