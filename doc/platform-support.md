@@ -16,7 +16,7 @@ system.  Packaging is a separate step.  The long-term supported targets are:
 
 ## Build boundaries
 
-The `librustyaxe` repository owns MIT `librustyaxe` and GPLv2
+The `librustyaxe` repository owns MIT `librustyaxe` and MIT
 `librustyirc`, compiled as independent shared libraries. `librustyirc`
 depends on `librustyaxe`; the latter merely recommends the IRC runtime
 in Debian packaging. `librrprotocol` remains a separate GPLv2 upstream.

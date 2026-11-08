@@ -135,6 +135,6 @@ library's runtime and development binaries. Source-package generation uses
 need Debian tools.
 
 `librustyirc` is maintained in `librustyaxe/librustyirc/`, while remaining
-a distinct GPLv2 shared library and separate Debian runtime/development
+a distinct MIT shared library and separate Debian runtime/development
 binary pair. RustyRig uses an installed IRC library by default and falls back
 to the RustyAxe submodule for uninstalled development.
