@@ -347,9 +347,9 @@ bool gui_init(void) {
    gtk_widget_set_hexpand(toolbar_viewport, TRUE);
    gtk_container_add(GTK_CONTAINER(toolbar_viewport), rr_main_toolbar);
    gtk_box_pack_start(GTK_BOX(toolbar_shell), toolbar_viewport, TRUE, TRUE, 0);
-   GtkWidget *toolbar_right = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   GtkWidget *toolbar_right = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
    gtk_widget_set_valign(toolbar_right, GTK_ALIGN_CENTER);
-   gtk_box_pack_end(GTK_BOX(toolbar_shell), toolbar_right, FALSE, FALSE, 2);
+   gtk_box_pack_end(GTK_BOX(toolbar_shell), toolbar_right, FALSE, FALSE, 0);
    g_object_set_data(G_OBJECT(main_window), "rr-main-toolbar-right", toolbar_right);
    g_object_set_data(G_OBJECT(main_window), "rr-main-quit-button", quit_button);
    /* Attach the toolbar outside the scrolling content below. */
