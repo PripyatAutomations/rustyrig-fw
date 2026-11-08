@@ -1,3 +1,13 @@
+rustyrig-fw (1.0.2-5) unstable; urgency=medium
+
+  * Preserve active rrserver sessions on package upgrades.
+  * Do not fail SysV service stop when rrserver is already stopped or its
+    PID file is stale; retain failure reporting for real stop errors.
+  * Rebuild maintainer scripts so upgrades replace the previously generated
+    restart action.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 11:45:00 -0500
+
 rustyrig-fw (1.0.2-4) unstable; urgency=medium
 
   * Combine the fwdsp executable, libfwdspmgr shared library, and SDK
