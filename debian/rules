@@ -102,6 +102,8 @@ endif
 	install -Dm644 config/ua-bans debian/rustyrig-server$(CONF_DIR)/ua-bans.txt
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
 	install -Dm644 config/rrclient.cfg debian/rustyrig-client$(CONF_DIR)/rrclient.cfg
+	# Reference copy of the compiled CSS; not a client configuration input.
+	perl tools/releng-dump-css.pl --css | install -Dm644 /dev/stdin debian/rustyrig-client$(CONF_DIR)/rrclient.css
 	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client$(CONF_DIR)/callsign-lookup.cli.cfg
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
 	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server$(WEB_ROOT)/ \;
