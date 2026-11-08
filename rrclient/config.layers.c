@@ -15,6 +15,17 @@ extern void load_log_filters_from_config(void);
 #endif
 static bool layered;
 static bool config_dirty;
+static bool ignore_db_config;
+void rrclient_config_set_ignore_db(bool ignore) { ignore_db_config = ignore; }
+bool rrclient_config_ignore_db(void) { return ignore_db_config; }
+bool rrclient_config_save(void) {
+   if (!rrclient_database_config_store()) {
+      return false;
+   }
+   rrclient_config_clear_dirty();
+   return true;
+}
+
 void rrclient_config_mark_dirty(void) {
    config_dirty = true;
 }
