@@ -37,7 +37,7 @@ stage_config() {
    printf 'packaged-default-v1\n' > "$work/source/debian/$package/etc/rustyrig/$name"
 }
 stage_config rustyrig-client rrclient.cfg
-stage_config rustyrig-client callsign-lookup.cli.cfg
+stage_config rustyrig-client rrclient.callsign-lookup.cfg
 stage_config rustyrig-server rrserver.cfg
 # Every required server include is a separate managed conffile.
 for config in config/rrserver.*.cfg; do
