@@ -10,6 +10,8 @@ bool rrclient_database_init(void);
 void rrclient_database_shutdown(void);
 bool rrclient_database_load_profiles(void);
 bool rrclient_database_config_save(const char *path);
+bool rrclient_database_config_store(void);
+bool rrclient_database_config_overlay(void);
 /* Persistent UI preferences, independent of rrclient.cfg save prompts. */
 char *rrclient_database_setting_get(const char *key);
 bool rrclient_database_setting_set(const char *key, const char *value);
