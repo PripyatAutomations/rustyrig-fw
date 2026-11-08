@@ -122,6 +122,19 @@ static bool catalog_mutation_fresh(dict *d, const char *owner) {
 /* Send a link envelope, adding the authenticated origin IP for requests. */
 bool rr_relay_packet(const char *dest, const char *kind, const char *session, const char *username, dict *payload) {
    if (!strcmp(kind, "request")) {
+      /* A client must never inject identity.* claims that become server-signed
+       * authority. Strip every such field, not just the known signature keys. */
+      GPtrArray *injected=g_ptr_array_new_with_free_func(g_free);
+      int rank=0;
+      const char *field;
+      char *value;
+      while ((rank=dict_enumerate(payload,rank,&field,&value))>=0) {
+         if (g_str_has_prefix(field,"identity."))
+            g_ptr_array_add(injected,g_strdup(field));
+      }
+      for (guint i=0;i<injected->len;i++)
+         dict_del(payload,g_ptr_array_index(injected,i));
+      g_ptr_array_free(injected,TRUE);
       /* Referral hint supplied by the authenticated origin, never by client JSON. */
       dict_del(payload, "relay.ip");
 
