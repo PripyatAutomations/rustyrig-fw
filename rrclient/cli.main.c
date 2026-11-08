@@ -217,6 +217,40 @@ static bool ws_txtframe_dispatch(rrconn_t *cptr, dict *d) {
    return false;
 }
 
+/* Native OpenSSL/wslay receive path, using the same protocol router as Mongoose. */
+bool rrclient_native_text_receive(rrconn_t *cptr, const uint8_t *data, size_t len) {
+   if (!cptr || !data || !len || len > HTTP_WS_MAX_MSG || memchr(data, 0, len)) {
+      return false;
+   }
+   char *buf = malloc(len + 1);
+
+   if (!buf) {
+      return false;
+   }
+   memcpy(buf, data, len);
+   buf[len] = 0;
+   const char *root = buf;
+
+   while (*root == ' ' || *root == '\t' || *root == '\r' || *root == '\n') {
+      root++;
+   }
+   dict *message = *root == '{' ? rr_wire_decode(buf) : NULL;
+   bool ok = false;
+
+   if (message) {
+      if (rr_latency_received(cptr, message, mono_us())) {
+         Log(LOG_DEBUG, "ws", "Correlated response RTT: %llu us", (unsigned long long)cptr->response_rtt_us);
+      }
+      ok = ws_txtframe_dispatch(cptr, message);
+      dict_free(message);
+   } else {
+      Log(LOG_WARN, "ws", "Invalid native WebSocket control frame (%zu bytes)", len);
+   }
+   free(buf);
+
+   return ok;
+}
+
 // Deal with the binary frames we receive from the server
 // (audio, waterfall, modem data, etc). See doc/media-frames.md.
 bool ws_binframe_process_client(rrconn_t *client, const char *data, size_t len) {
