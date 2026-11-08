@@ -1234,8 +1234,10 @@ static void ready(const char *event, const char *node, rrconn_t *client, void *u
    }
    rr_relay_collect_local();
    rr_relay_users_poll(true);
-   rr_relay_send_catalogs(node);
+   /* Revocations precede any catalog snapshot: a peer must install its
+    * revoked-key denylist before admitting replayed discovery entries. */
    rr_revocation_replay(node);
+   rr_relay_send_catalogs(node);
    rrserver_relay_poll();
 
    for (struct directory *entry = rr_relay_directories ; entry ; entry = entry->next) {
