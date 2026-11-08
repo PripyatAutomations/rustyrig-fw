@@ -664,7 +664,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       /* Preserve the owner's original signature for every transit hop. */
       if (fresh) {
          revocation_forward(ingress,origin,d);
-         rrserver_links_depart_revoked(origin);
+         rrserver_links_depart_revoked(origin,ingress);
       }
       if (*ingress) {
          dict *ack=dict_new();
