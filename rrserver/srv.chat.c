@@ -960,7 +960,7 @@ bool ws_send_userinfo_room(rrconn_t *cptr, rrconn_t *acptr, const char *room) {
    const char *target_room = (room && *room) ? room : ws_authoritative_room();
 
    if (!target_room || !*target_room) {
-      Log(LOG_WARN, "ws.chat", "Refusing userinfo for %s without a room", cptr->chatname ? cptr->chatname : "<unknown>");
+      Log(LOG_WARN, "ws.chat", "Refusing userinfo for %s without a room", cptr->chatname[0] ? cptr->chatname : "<unknown>");
 
       return false;
    }
