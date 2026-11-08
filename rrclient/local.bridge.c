@@ -12,6 +12,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 #include <rrclient/audio.h>
+#include <rrclient/media.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/sercom.h>
 #include <time.h>
@@ -1109,7 +1110,9 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
 /* The directory gives a receiver's approximate site, not a live GPS
  * measurement. Only publish while the matching local VFO is active. */
 static void local_bridge_gps_tick(bridge_instance *b) {
+   /* Do not override a real rig's ttyGPS output while its tab is active. */
    if (!b->online || !b->approximate_location ||
+      strcmp(rrclient_media_active_room(), "&local-sdr") ||
       rrclient_room_active_vfo("&local-sdr") != (char)('A' + b->slot))
       return;
    gint64 now = g_get_monotonic_time();
