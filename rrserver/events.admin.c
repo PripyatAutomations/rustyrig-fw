@@ -1180,8 +1180,8 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    const char *action = dict_get(request, "talk.action", "");
 
    if (!strcmp(action, "identity-list") || !strcmp(action, "identity-revoke")) {
-      if (!admin_actor_has_priv(client, "owner")) {
-         ws_send_error(client, "Only owners may manage mesh trust");
+      if (!admin_actor_has_priv(client, "admin|owner")) {
+         ws_send_error(client, "Admin or owner privilege required to manage mesh trust");
          dict_free(request);
          return;
       }
