@@ -131,7 +131,7 @@ void rr_relay_subscribe_upstream(const char *owner, const char *room, bool subsc
 bool rr_relay_interested(const char *joined, const char *room, dict *d);
 bool rr_relay_client_interested(rrconn_t *client, const char *room, dict *d);
 bool rr_relay_state_demand(const char *owner, const char *room, dict *d);
-void rr_relay_publish_state(const char *owner, const char *room, dict *d);
+void rr_relay_publish_state(const char *owner, const char *room, dict *d, int remaining_ttl);
 bool rr_relay_remove_remote(struct remote_session **link);
 void rr_relay_send_remote(const char *event, const void *data, size_t length, rrconn_t *client, void *user);
 void rr_relay_publish(const char *event, const void *data, size_t length, rrconn_t *client, void *user);
@@ -141,5 +141,7 @@ void rr_relay_update_membership(rrconn_t *client, const char *room, bool joined)
 void rr_relay_deliver(rrconn_t *client, dict *d);
 bool rr_relay_packet(const char *dest, const char *kind, const char *session, const char *username, dict *payload);
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload);
+/* Pass remaining TTL when forwarding an existing signed envelope (-1 means new). */
+void rr_relay_send_owned_ttl(const char *dest, const char *owner, const char *kind, dict *payload, int ttl);
 bool rr_relay_permitted_message(dict *d);
 #endif /* RRSERVER_RELAY_INTERNAL_H */
