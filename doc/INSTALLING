@@ -8,10 +8,10 @@ testing on your distribution.
 
 Debian packages
 ---------------
-Build packages from a matching source/submodule checkout:
+Build packages from this source checkout against **installed** separate\nlibrustyaxe, librustyirc and librrprotocol development packages:
 
     sudo apt update
-    sudo apt install jq fakeroot dpkg-dev debhelper
+    sudo apt install jq fakeroot dpkg-dev debhelper librustyaxe-dev librrprotocol-dev librustyirc-dev
     ./install-deps.sh
 
 Run the apt command it prints with sudo, then:

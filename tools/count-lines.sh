@@ -1,31 +1,18 @@
 #!/bin/bash
-SZ_C_FWDSP=$(ls libfwdspmgr/*.[ch] fwdsp/*.[ch] | xargs cat | wc -l)
-SZ_C_LRR=0 # standalone installed project
-SZ_C_LRP=0 # standalone installed project
-SZ_C_RRBRI=$((ls rrbridge/*.[ch]) | xargs cat | wc -l)
-SZ_C_RRCLI=$((ls rrclient/*.[ch] rrclient/gtk/*.[ch]) | xargs cat | wc -l)
-SZ_C_RRFW=$(ls rrserver/*.[ch] | xargs cat | wc -l)
-SZ_C_CALL=0 # callsign-lookup is packaged from its own repository
-SZ_C_LRI=0 # standalone installed project
-SZ_PL=$(cat tools/*.pl | wc -l)
-#SZ_HTML=$(cat www/index.html | wc -l)
-#SZ_CSS=$(cat www/css/*.css | wc -l)
-SZ_SH=$(cat *.sh tools/*.sh | wc -l)
-SZ_SQL=$(cat sql/*.sql | wc -l)
-SZ_MK=$(cat GNUmakefile */rules.mk | wc -l)
-
-SZ_C_TTL=$((${SZ_C_LRP} + ${SZ_C_LRR} + ${SZ_C_LRI} + ${SZ_C_RRFW} + ${SZ_C_RRCLI} + ${SZ_C_FWDSP} + ${SZ_C_RRBRI} + ${SZ_C_CALL}))
-#SZ_JS_TTL=$(cat www/js/webui*.js | wc -l)
-#SZ_WEB_TTL=$((${SZ_HTML} + ${SZ_CSS} + ${SZ_JS_TTL}))
-#SZ_TTL=$((${SZ_C_TTL} + ${SZ_PL} + ${SZ_WEB_TTL} + ${SZ_SH} + ${SZ_SQL} + ${SZ_MK}))
-SZ_TTL=$((${SZ_C_TTL} + ${SZ_PL} + ${SZ_SH} + ${SZ_SQL} + ${SZ_MK}))
-
-echo -e "Lines of code in rustyrig-fw: " \
-        ""  \
-        "[fwdsp C: ${SZ_C_FWDSP}] " \
-        "[rrbridge C: ${SZ_C_RRBRI}] " \
-        "[rrclient C: ${SZ_C_RRCLI}] " \
-        "[rrserver C: ${SZ_C_RRFW}] " \
-        "[BuildEnv Perl: ${SZ_PL}, gmake: ${SZ_MK}, SH: ${SZ_SH}, SQL: ${SZ_SQL}] " \
-        "--- Grand Total: ${SZ_TTL} (C: ${SZ_C_TTL}, JS: ${SZ_JS_TTL} Perl: ${SZ_PL})"
-#        "[WebUI JS: ${SZ_JS_TTL}, HTML: ${SZ_HTML}, CSS: ${SZ_CSS}] " \
+set -euo pipefail
+cd "$(dirname "$0")/.."
+count() {
+    find "$@" -maxdepth 1 -type f \( -name '*.c' -o -name '*.h' \) -print0 |
+        xargs -0 -r cat | wc -l
+}
+fwdsp=$(count libfwdspmgr fwdsp)
+bridge=$(count rrbridge)
+client=$(count rrclient rrclient/gtk)
+server=$(count rrserver)
+perl_lines=$(cat tools/*.pl | wc -l)
+shell_lines=$(cat ./*.sh tools/*.sh | wc -l)
+sql_lines=$(cat sql/*.sql | wc -l)
+make_lines=$(cat GNUmakefile */rules.mk | wc -l)
+total=$((fwdsp + bridge + client + server + perl_lines + shell_lines + sql_lines + make_lines))
+printf 'RustyRig source lines: %d (fwdsp=%d bridge=%d client=%d server=%d Perl=%d shell=%d SQL=%d Make=%d)\n' \
+    "$total" "$fwdsp" "$bridge" "$client" "$server" "$perl_lines" "$shell_lines" "$sql_lines" "$make_lines"

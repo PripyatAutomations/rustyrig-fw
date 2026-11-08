@@ -9,8 +9,8 @@ package is not automatically an uploadable source package.
 - [ ] **Complete `debian/copyright`** in machine-readable format (DEP-5 is
   recommended). The file is currently absent. Include accurate upstream
   ownership and licenses for all distributed sources and compiled assets;
-  `doc/LICENSE` covers only RustyRig GPL-2.0-only. `librustyaxe` remains
-  MIT, `librrprotocol` is GPLv2, and all other submodules, Windows GTK themes,
+  `doc/LICENSE` covers only RustyRig GPL-2.0-only. Separately packaged
+  `librustyaxe` remains MIT, `librrprotocol` GPLv2; other bundled submodules, Windows GTK themes,
   icon artwork, and bundled source must retain their actual upstream
   copyrights/licenses. Do not declare whole trees GPLv2 blindly.
 - [ ] **Use non-native Debian packaging**: `debian/source/format` currently
@@ -20,8 +20,9 @@ package is not automatically an uploadable source package.
   the source tarball naming before switching; do not break RustyRig's
   upstream release process.
 - [ ] **Make the source tarball self-contained.** The current build requires
-  Git submodules including `librustyaxe`, `librrprotocol`,
-  `callsign-lookup`, and optional `ext/ft8_lib` / `ext/libmongoose`.
+  only optional third-party submodules `ext/ft8_lib` / `ext/libmongoose`.
+  `librustyaxe`, `librustyirc` and `librrprotocol` are now installed build
+  dependencies, not sources in the RustyRig checkout.
   `dpkg-buildpackage` and a Debian build daemon must not have to clone or
   fetch anything from the network. Decide which dependencies to package
   separately and which (if legally and technically appropriate) to include

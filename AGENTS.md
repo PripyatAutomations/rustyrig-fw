@@ -7,11 +7,12 @@ repository contains:
 
 - `fwdsp/` - DSP function subprocess, for capture/playback and (en|de)coding
 - `libfwdspmgr/` - Management for fwdsp sub processes
-- `librrprotocol/` - RustyRig protocol library and wire-level behavior
-- `librustyaxe/` - shared C code used by multiple projects
 - `rrclient/` - native GTK/TUI client
 - `rrserver/` - backend server
-- `www/` - web UI integration/submodule
+
+The `librrprotocol` and `librustyaxe` libraries are separate repositories,
+used through their installed development headers and shared objects. Never
+restore in-tree fallback builds or Git submodules for either library.
 
 The browser WebUI source itself lives in the separate
 `PripyatAutomations/rustyrig-www` repository.
@@ -109,7 +110,7 @@ See `doc/client-parity.md` for the current parity map.
 ## Test placement and validation
 
 - Keep tests beside the component they exercise: `rrclient/tests/`,
-  `rrserver/tests/`, `fwdsp/tests/`, `librrprotocol/tests/`,
+  `rrserver/tests/`, `fwdsp/tests/`,
   `libfwdspmgr/tests/`, and equivalent
   component-local directories. Keep the root `tests/` directory for shared
   test helpers, the root test runner, and tests of those shared helpers.
