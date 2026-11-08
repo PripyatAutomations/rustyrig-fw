@@ -365,7 +365,7 @@ bool rrclient_database_load_profiles(void) {
       for (int i = 0 ; i < 3 ; i++) {
          const char *value = (const char *)sqlite3_column_text(q, i + 1);
          char *key = g_strdup_printf("server:%s.%s", name, props[i]);
-         dict_add(cfg, key, value ? value : "");
+         dict_add(target, key, value ? value : "");
          g_free(key);
       }
    }
@@ -441,8 +441,8 @@ bool rrclient_database_config_store(void) {
 
    return ok;
 }
-bool rrclient_database_config_overlay(void) {
-   if (!client_db || !cfg) {
+bool rrclient_database_config_overlay_into(dict *target) {
+   if (!client_db || !target) {
       return false;
    }
    sqlite3_stmt *stmt = NULL;
@@ -467,6 +467,10 @@ bool rrclient_database_config_overlay(void) {
    sqlite3_finalize(stmt);
 
    return ok;
+}
+
+bool rrclient_database_config_overlay(void) {
+   return rrclient_database_config_overlay_into(cfg);
 }
 
 /* Small persistent preferences; values are owned by the caller. */
