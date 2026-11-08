@@ -365,7 +365,25 @@ static void drain_deferred(struct link_session *session) {
 }
 static bool send_message(struct link_session *session, dict *d) {
    const char *op = dict_get(d, "op", "unknown");
-   char *wire = rr_link_wire_encode(d);
+   /* Mutable hop budget belongs only to the outer link envelope. Never
+    * alter the origin-signed payload or a packet shared across neighbors. */
+   dict *packet = dict_clone(d);
+   if (!packet) return false;
+   const char *existing = dict_get(packet, "ttl", NULL);
+   if (!existing) {
+      int def = cfg_get_int("mesh.default-ttl", 10);
+      if (def < 1) def = 1;
+      if (def > 255) def = 255;
+      char ttl_text[4];
+      snprintf(ttl_text, sizeof(ttl_text), "%d", def);
+      dict_add(packet, "ttl", ttl_text);
+   } else if (!strcmp(existing, "0")) {
+      Log(LOG_INFO, "mesh.ttl", "Dropped forwarding of expired mesh packet op=%s", op);
+      dict_free(packet);
+      return false;
+   }
+   char *wire = rr_link_wire_encode(packet);
+   dict_free(packet);
 
    if (!wire) {
       char reason[256];
@@ -988,6 +1006,33 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
       fail(session, "Invalid link protocol message");
 
       return;
+   }
+   /* Every authenticated link frame consumes one hop. A frame with TTL=1
+    * may be delivered locally, but cannot be forwarded again. */
+   const char *ttl_text = dict_get(d, "ttl", NULL);
+   if (!ttl_text || !*ttl_text) {
+      Log(LOG_WARN, "mesh.ttl", "Peer %s sent a packet without mesh TTL", session->node);
+      dict_free(d);
+      fail(session, "Mesh TTL missing (incompatible peer protocol)");
+      return;
+   }
+   unsigned received_ttl = (unsigned)atoi(ttl_text);
+   if (received_ttl < 1 || received_ttl > 255) {
+      dict_free(d);
+      fail(session, "Invalid mesh TTL");
+      return;
+   }
+   unsigned remaining_ttl = received_ttl - 1;
+   char ttl_next[4];
+   snprintf(ttl_next, sizeof(ttl_next), "%u", remaining_ttl);
+   dict_add(d, "ttl", ttl_next);
+   int configured_warning = cfg_get_int("mesh.warn-ttl", 5);
+   unsigned warn_at = configured_warning <= 0 ? 0 :
+      (configured_warning > 255 ? 255u : (unsigned)configured_warning);
+   if (warn_at && remaining_ttl <= warn_at) {
+      Log(LOG_INFO, "mesh.ttl",
+         "Mesh packet near hop limit: op=%s sender=%s remaining=%u warn-at=%u",
+         dict_get(d, "op", ""), dict_get(d, "node", ""), remaining_ttl, warn_at);
    }
    const char *op = dict_get(d, "op", "");
 
