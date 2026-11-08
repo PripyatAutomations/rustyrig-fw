@@ -1342,22 +1342,33 @@ bool rrserver_links_init(void) {
       const char *cert = cfg_get("net.http.tls-cert");
       const char *key = cfg_get("net.http.tls-key");
       const char *name = cfg_get("station.name");
-      /* station.name is a UI label, not necessarily a legal DNS SAN. Provision with a stable DNS-safe fallback instead of failing startup. */
-      bool valid_dns = name && *name && strlen(name) <= 253;
+      /* TLS identity is the logical station name in the configured mesh
+       * domain. This name need not resolve in DNS: clients may dial an IP
+       * address while verifying the certificate against this DNS SAN. */
+      char tls_name[254];
+      const char *site = name;
 
-      for (const unsigned char *p = (const unsigned char *)(name ? name : "") ; valid_dns && *p ; ++p) {
-         if (!g_ascii_isalnum(*p) && *p != '.' && *p != '-') {
-            valid_dns = false;
+      if (!site || !*site || strchr(site, '.') || strlen(site) > 63) {
+         Log(LOG_CRIT, "mesh.identity", "station.name must be a single DNS label (1-63 characters) for TLS naming");
+
+         return false;
+      }
+      for (const unsigned char *p = (const unsigned char *)site ; *p ; ++p) {
+         if (!(g_ascii_isalnum(*p) || *p == '-') ||
+            (p == (const unsigned char *)site && *p == '-') ||
+            (!p[1] && *p == '-')) {
+            Log(LOG_CRIT, "mesh.identity", "Invalid station.name for TLS DNS identity: %s", site);
+            return false;
          }
       }
+      int name_length = snprintf(tls_name, sizeof(tls_name), "%s.%s", site, links.domain);
 
-      char fallback_name[64];
-      snprintf(fallback_name, sizeof(fallback_name), "node-%s", links.node);
-
-      if (!valid_dns) {
-         Log(LOG_WARN, "mesh.identity", "station.name is not a DNS hostname; using %s for generated TLS certificate SAN", fallback_name);
-         name = fallback_name;
+      if (name_length < 1 || (size_t)name_length >= sizeof(tls_name)) {
+         Log(LOG_CRIT, "mesh.identity", "TLS hostname exceeds DNS length: %s.%s", site, links.domain);
+         return false;
       }
+      name = tls_name;
+      Log(LOG_INFO, "mesh.identity", "Expected TLS identity %s (station.name + configured domain; no DNS resolution required)", name);
 
       if (!cert || !*cert || !key || !*key) {
          Log(LOG_CRIT, "mesh.identity", "TLS identity paths not configured: cert=%s key=%s", cert ? cert : "(unset)", key ? key : "(unset)");
