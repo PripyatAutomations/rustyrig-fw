@@ -2148,11 +2148,12 @@ bool rrclient_cleanup(void) {
 }
 
 void show_arg_help(int argc, char **argv) {
-   printf("%s [-T] [-f config] [-s server] [-S] [-h]\n", argv[0]);
+   printf("%s [-T] [-f config] [-s server] [-S] [--ignore-db-config] [-h]\n", argv[0]);
    printf("\t-S\t\tssh mode (implies -T; throttle screen updates)\n");
    printf("\t-T\t\tTUI only mode (no X11)\n");
    printf("\t-f config\tChose an alternative configuration file\n");
    printf("\t-s server\tServer profile to autoconnect to on start\n");
+   printf("\t--ignore-db-config\tUse file config only (no DB overrides, profiles or themes)\n");
    printf("\t-h\t\tHelp\n");
 }
 
