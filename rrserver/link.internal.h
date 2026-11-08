@@ -1,9 +1,6 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 /* Component-private session state, shared by admission and native adapter. */
 #ifndef RR_LINK_INTERNAL_H
 #define RR_LINK_INTERNAL_H
