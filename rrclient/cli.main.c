@@ -478,18 +478,12 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
 }
 #endif // USE_MONGOOSE
 void ws_client_init(void) {
+#ifdef USE_MONGOOSE
    const char *log_http = cfg_get_exp("log.http");
-
-   if (log_http && (strcasecmp(log_http, "true") == 0 || strcasecmp(log_http, "yes") == 0)) {
-#ifdef  USE_MONGOOSE
-      mg_log_set(MG_LL_DEBUG);  // or MG_LL_VERBOSE for even more
-#endif // USE_MONGOOSE
-   } else {
-#ifdef  USE_MONGOOSE
-      mg_log_set(MG_LL_ERROR);
-#endif // USE_MONGOOSE
-   }
+   bool verbose = log_http && (!strcasecmp(log_http, "true") || !strcasecmp(log_http, "yes"));
+   mg_log_set(verbose ? MG_LL_DEBUG : MG_LL_ERROR);
    free((void *)log_http);
+#endif
    const char *log_http_crazy = cfg_get_exp("log.http.crazy");
 
    if (log_http_crazy && (strcasecmp(log_http_crazy, "true") == 0 || strcasecmp(log_http_crazy, "yes") == 0)) {
