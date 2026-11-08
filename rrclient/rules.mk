@@ -232,3 +232,14 @@ bin/rrclient: ${librustyirc} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${
 	@ls -a1ls $@
 	@file $@
 	@size $@
+
+# Application-owned handlers moved out of standalone librrprotocol.
+rrclient_objs += cli.alert.o
+rrclient_objs += cli.chat.o
+rrclient_objs += cli.error.o
+rrclient_objs += cli.main.o
+rrclient_objs += cli.media.o
+rrclient_objs += cli.notice.o
+rrclient_objs += cli.ping.o
+rrclient_objs += cli.rigctl.o
+rrclient_objs += cli.syslog.o
