@@ -445,13 +445,19 @@ bool rrclient_database_config_overlay_into(dict *target) {
    if (!client_db || !target) {
       return false;
    }
+   /* Stage the whole snapshot so a corrupt/unreadable DB cannot apply
+    * only half the settings before falling back to rrclient.cfg. */
+   dict *pending = dict_new();
    sqlite3_stmt *stmt = NULL;
 
-   if (sqlite3_prepare_v2(client_db,
-      "SELECT key,value FROM config_overrides ORDER BY key", -1, &stmt, NULL) != SQLITE_OK) {
+   if (!pending) {
       return false;
    }
-   bool ok = true;
+   if (sqlite3_prepare_v2(client_db,
+      "SELECT key,value FROM config_overrides ORDER BY key", -1, &stmt, NULL) != SQLITE_OK) {
+      dict_free(pending);
+      return false;
+   }
    int step;
 
    while ((step = sqlite3_step(stmt)) == SQLITE_ROW) {
@@ -460,12 +466,16 @@ bool rrclient_database_config_overlay_into(dict *target) {
 
       if (key && !g_str_has_prefix(key, "server:") && !g_str_has_prefix(key, "network:") &&
           !g_str_has_prefix(key, "theme:")) {
-         dict_add(target, key, value ? value : "");
+         dict_add(pending, key, value ? value : "");
       }
    }
-   ok = step == SQLITE_DONE;
    sqlite3_finalize(stmt);
+   bool ok = step == SQLITE_DONE;
 
+   if (ok) {
+      ok = !dict_merge(target, pending);
+   }
+   dict_free(pending);
    return ok;
 }
 
