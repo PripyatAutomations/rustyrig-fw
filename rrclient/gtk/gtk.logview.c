@@ -6,6 +6,9 @@ extern dict *cfg;
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/logger.h>
+#include <rrclient/database.h>
+#include <rrclient/config.layers.h>
+#include "log-subsystems.h"
 #include <rrclient/gtk/gtk.logview.h>
 
 enum {
@@ -94,8 +97,10 @@ static void log_source_toggled(GtkToggleButton *button, gpointer data) {
    GtkLogView *v = data;
    const char *key = button == GTK_TOGGLE_BUTTON(v->host) ? "ui.gtk.log.host" : "ui.gtk.log.client";
 
-   if (cfg) {
-      dict_add_bool(cfg, key, gtk_toggle_button_get_active(button));
+   const gboolean active = gtk_toggle_button_get_active(button);
+   /* Stored in client.db immediately, independent of Save-on-exit. */
+   if (!rrclient_database_setting_set(key, active ? "true" : "false")) {
+      Log(LOG_WARN, "gtk.log", "Unable to persist %s", key);
    }
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
 }
@@ -256,6 +261,122 @@ static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
    return TRUE;
 }
+/* The server side is a template only. Never send a log.level command. */
+typedef struct {
+   GtkWidget *dialog, *target, *spec, *subsys, *level, *apply;
+   gchar *client_draft, *server_draft;
+} LogComposer;
+static void composer_store(LogComposer *c) {
+   const char *text = gtk_entry_get_text(GTK_ENTRY(c->spec));
+   gboolean server = gtk_combo_box_get_active(GTK_COMBO_BOX(c->target)) == 1;
+   gchar **slot = server ? &c->server_draft : &c->client_draft;
+   g_free(*slot);
+   *slot = g_strdup(text);
+}
+static void composer_target_changed(GtkComboBox *combo, gpointer data) {
+   LogComposer *c = data;
+   gboolean server = gtk_combo_box_get_active(combo) == 1;
+   gtk_entry_set_text(GTK_ENTRY(c->spec), server ? c->server_draft : c->client_draft);
+   gtk_widget_set_sensitive(c->apply, !server);
+   gtk_widget_set_tooltip_text(c->apply, server ?
+      "Remote log.level cannot be changed over the network; copy it for the server administrator." : NULL);
+}
+static void composer_add_rule(GtkButton *button, gpointer data) {
+   (void)button;
+   LogComposer *c = data;
+   const gchar *name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(c->subsys));
+   const gchar *level = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(c->level));
+
+   if (!name || !level) {
+      return;
+   }
+   const char *old = gtk_entry_get_text(GTK_ENTRY(c->spec));
+   gchar *next = g_strdup_printf("%s%s%s:%s", old, *old ? "," : "", name, level);
+   gtk_entry_set_text(GTK_ENTRY(c->spec), next);
+   g_free(next);
+}
+static void composer_open(GtkButton *button, gpointer data) {
+   (void)button;
+   GtkLogView *view = data;
+   LogComposer c = {0};
+   c.dialog = gtk_dialog_new_with_buttons("Log-level composer",
+      GTK_WINDOW(gtk_widget_get_toplevel(view->page)), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Close", GTK_RESPONSE_CLOSE, "_Copy", GTK_RESPONSE_APPLY, "_Apply to Client", GTK_RESPONSE_ACCEPT, NULL);
+   c.apply = gtk_dialog_get_widget_for_response(GTK_DIALOG(c.dialog), GTK_RESPONSE_ACCEPT);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(c.dialog));
+   GtkWidget *layout = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(layout), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(layout), 8);
+   gtk_container_set_border_width(GTK_CONTAINER(layout), 12);
+   gtk_container_add(GTK_CONTAINER(area), layout);
+
+   c.target = gtk_combo_box_text_new();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.target), "Client (local)");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.target), "Server (copy only)");
+   gtk_grid_attach(GTK_GRID(layout), gtk_label_new("Target"), 0, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(layout), c.target, 1, 0, 2, 1);
+
+   c.subsys = gtk_combo_box_text_new_with_entry();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.subsys), "*");
+   for (size_t i = 0 ; rr_log_subsystems[i] ; i++) {
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.subsys), rr_log_subsystems[i]);
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(c.subsys), 0);
+   c.level = gtk_combo_box_text_new();
+   const char *const levels[] = {"crit", "audit", "warn", "info", "debug", "crazy", "blitz", NULL};
+   for (unsigned i = 0 ; levels[i] ; i++) {
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.level), levels[i]);
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(c.level), 3);
+   GtkWidget *add = gtk_button_new_with_label("Add rule");
+   gtk_grid_attach(GTK_GRID(layout), gtk_label_new("Subsystem"), 0, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(layout), c.subsys, 1, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(layout), c.level, 2, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(layout), add, 2, 2, 1, 1);
+   g_signal_connect(add, "clicked", G_CALLBACK(composer_add_rule), &c);
+
+   c.spec = gtk_entry_new();
+   gtk_widget_set_hexpand(c.spec, TRUE);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(c.spec), "*:info,media.*:debug");
+   gtk_grid_attach(GTK_GRID(layout), gtk_label_new("log.level"), 0, 3, 1, 1);
+   gtk_grid_attach(GTK_GRID(layout), c.spec, 1, 3, 2, 1);
+   GtkWidget *help = gtk_label_new("Client applies locally; server can only be copied. No network changes.");
+   gtk_grid_attach(GTK_GRID(layout), help, 0, 4, 3, 1);
+
+   c.client_draft = g_strdup(cfg_get("log.level") ? cfg_get("log.level") : "*:info");
+   c.server_draft = g_strdup("*:info");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(c.target), 0);
+   gtk_entry_set_text(GTK_ENTRY(c.spec), c.client_draft);
+   g_signal_connect(c.target, "changed", G_CALLBACK(composer_target_changed), &c);
+   gtk_widget_show_all(area);
+
+   int response;
+   while ((response = gtk_dialog_run(GTK_DIALOG(c.dialog))) != GTK_RESPONSE_CLOSE &&
+          response != GTK_RESPONSE_DELETE_EVENT) {
+      const char *text = gtk_entry_get_text(GTK_ENTRY(c.spec));
+
+      if (response == GTK_RESPONSE_APPLY) {
+         gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, -1);
+      } else if (response == GTK_RESPONSE_ACCEPT && gtk_combo_box_get_active(GTK_COMBO_BOX(c.target)) == 0) {
+         if (strlen(text) >= sizeof(((rrclient_log_level_request_t *)0)->spec)) {
+            GtkWidget *warning = gtk_message_dialog_new(GTK_WINDOW(c.dialog), GTK_DIALOG_MODAL,
+               GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "log.level is too long");
+            gtk_dialog_run(GTK_DIALOG(warning));
+            gtk_widget_destroy(warning);
+         } else {
+            rrclient_log_level_request_t request = {0};
+            g_strlcpy(request.spec, text, sizeof(request.spec));
+            rr_event_message_t message = {
+               .name = RRCLIENT_LOG_LEVEL_REQUEST, .payload = &request, .length = sizeof(request)
+            };
+            event_emit_message(&message);
+         }
+      }
+   }
+   gtk_widget_destroy(c.dialog);
+   g_free(c.client_draft);
+   g_free(c.server_draft);
+}
 GtkLogView *gtk_logview_new(unsigned limit) {
    GtkLogView *v = g_new0(GtkLogView, 1);
    v->limit = limit ? limit : 1000;
@@ -266,12 +387,15 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    v->host = gtk_check_button_new_with_label("Host");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client), cfg_get_bool("ui.gtk.log.client", true));
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->host), cfg_get_bool("ui.gtk.log.host", false));
+   GtkWidget *levels_button = gtk_button_new_with_label("Log levels…");
+   g_signal_connect(levels_button, "clicked", G_CALLBACK(composer_open), v);
    v->filter = gtk_search_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(v->filter), "Filter logs…");
    gtk_entry_set_width_chars(GTK_ENTRY(v->filter), 24);
    gtk_box_pack_start(GTK_BOX(top), v->client, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(top), v->host, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(top), v->filter, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(top), levels_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(v->page), top, FALSE, FALSE, 0);
    v->store = gtk_list_store_new(COL_COUNT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
    v->filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(v->store), NULL);
