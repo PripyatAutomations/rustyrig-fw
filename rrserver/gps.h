@@ -22,7 +22,7 @@ bool rrserver_gps_init(void);
 /* Dynamically publish an approximate WebSDR site as a rig-scoped GPSP source.
  * Both functions run on the server event loop, alongside the bridge manager. */
 struct rr_server_rig;
-bool rrserver_gps_websdr_grid(struct rr_server_rig *radio, const char *grid);
+bool rrserver_gps_websdr_grid(struct rr_server_rig *radio, const char *grid, const char *room);
 void rrserver_gps_websdr_remove(const char *rig_uuid);
 /* Add the effective known location to discovery; absence means unknown/no fix. */
 void rrserver_gps_inventory_position(dict *row, const char *scope);
