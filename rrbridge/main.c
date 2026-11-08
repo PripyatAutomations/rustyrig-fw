@@ -6,7 +6,6 @@
 #include <librrprotocol/bridge.ipc.h>
 #include <librrprotocol/bridge.media.h>
 #include <time.h>
-#include <mongoose.h>
 #include <librrprotocol/bridge.config.h>
 #include <librustyaxe/core.h>
 #include <poll.h>
@@ -238,7 +237,6 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;
    }
    // Keep connection diagnostics without logging every audio socket read/write.
-   mg_log_set(MG_LL_INFO);
    now = time(NULL);
    logger_init("-", false);
 
