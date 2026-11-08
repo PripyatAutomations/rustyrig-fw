@@ -14,5 +14,3 @@ ext/libmongoose/mongoose.c:
 git-pull:
 	git pull
 	git submodule update --init --recursive
-	git -C librustyaxe pull
-	git -C librrprotocol pull

@@ -1,12 +1,6 @@
 [submodule "ext/libmongoose"]
 	path = ext/libmongoose
 	url = https://github.com/cesanta/mongoose.git
-[submodule "librustyaxe"]
-	path = librustyaxe
-	url = https://github.com/PripyatAutomations/librustyaxe
-[submodule "librrprotocol"]
-	path = librrprotocol
-	url = https://github.com/PripyatAutomations/librrprotocol
 [submodule "ext/ft8_lib"]
 	path = ext/ft8_lib
 	url = https://github.com/kgoba/ft8_lib.git

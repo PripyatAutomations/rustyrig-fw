@@ -19,19 +19,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-18 make pkg-config jq libglib2.0-dev libbsd-dev libcrypt-dev libncurses-dev libssl-dev libwslay-dev libcurl4-openssl-dev libsqlite3-dev libsrtp2-dev libev-dev libjson-perl libmojolicious-perl libhash-merge-perl libjson-xs-perl libstring-crc32-perl libjson-validator-perl libterm-readline-perl-perl
-      - name: Build and install standalone RustyAxe
+      - name: Install independently maintained libraries
         run: |
-          make -C librustyaxe -j2 CC=clang-18 WITH_MONGOOSE=false
-          sudo make -C librustyaxe CC=clang-18 WITH_MONGOOSE=false PREFIX=/usr install
-          sudo ldconfig
-      - name: Build and install standalone wire protocol
-        run: |
-          make -C librrprotocol -j2 CC=clang-18
-          sudo make -C librrprotocol CC=clang-18 PREFIX=/usr install
+          git clone --depth=1 https://github.com/PripyatAutomations/librustyaxe.git /tmp/rustyrig-librustyaxe
+          make -C /tmp/rustyrig-librustyaxe -j2 CC=clang-18 WITH_MONGOOSE=false
+          sudo make -C /tmp/rustyrig-librustyaxe CC=clang-18 WITH_MONGOOSE=false PREFIX=/usr install
+          git clone --depth=1 https://github.com/PripyatAutomations/librrprotocol.git /tmp/rustyrig-librrprotocol
+          make -C /tmp/rustyrig-librrprotocol -j2 CC=clang-18
+          sudo make -C /tmp/rustyrig-librrprotocol CC=clang-18 PREFIX=/usr install
           sudo ldconfig
       - name: Build only native bridge and Kiwi plugin
         run: |
-          make -j2 PROFILE=rrserver CC=clang-18 WITH_HAMLIB=no LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system bin/rrbridge bin/rrbridge-kiwi.so
+          make -j2 PROFILE=rrserver CC=clang-18 WITH_HAMLIB=no bin/rrbridge bin/rrbridge-kiwi.so
       - name: Run Kiwi protocol regression and Mongoose boundary test
         run: |
-          make PROFILE=rrserver CC=clang-18 WITH_HAMLIB=no LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system test-rrbridge-kiwi check-rrbridge-native
+          make PROFILE=rrserver CC=clang-18 WITH_HAMLIB=no test-rrbridge-kiwi check-rrbridge-native

@@ -62,7 +62,7 @@ GStreamer-based audio codec and pipeline service.
 %autosetup
 
 %build
-%make_build PROFILE=radio LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system
+%make_build PROFILE=radio
 
 %install
 install -Dpm0755 bin/rrbridge %{buildroot}%{_bindir}/rrbridge

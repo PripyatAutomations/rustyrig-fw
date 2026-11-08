@@ -18,8 +18,7 @@ fi
 
 # If it looks like submodules are missing, pull them now
 if [ ! -f ext/libmongoose/mongoose.c ]; then
-   git submodule init
-   git submodule update --depth=1
+   git submodule update --init --depth=1 ext/libmongoose
 fi
 
 # Clean up the tree

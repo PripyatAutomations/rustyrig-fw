@@ -1,7 +1,7 @@
 # Build with: makepkg -f
 # IMPORTANT: this VCS source follows the main branch; pin a release tag or commit
 # for reproducible release packages, and update pkgrel for package revisions.
-# Arch Linux split packages; build from the checked-out repository and its submodules.
+# Arch Linux split packages; use installed core libraries and optional third-party sources.
 pkgbase=rustyrig
 pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-rrbridge)
 options=('!emptydirs')
@@ -23,7 +23,7 @@ prepare() {
 
 build() {
    cd "$srcdir/rustyrig-fw"
-   make PROFILE=radio LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system
+   make PROFILE=radio
 }
 
 _install_libs() {
