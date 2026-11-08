@@ -27,6 +27,7 @@
 #include <librrprotocol/media.health.h>
 #include <librrprotocol/wire.h>
 #include <librrprotocol/wire-version.h>
+#include <librrprotocol/ws.serial.h>
 
 extern time_t now;
 
@@ -589,6 +590,44 @@ cleanup:
 //
 // Handle a websocket request
 //
+/* Server-side v2 binary frame dispatch. Keep the complete envelope for
+ * authenticated TX audio; the media worker validates rig/room access. */
+bool ws_binframe_process_mg(rrconn_t *client, const char *data, size_t len) {
+   if (!client || !data || len < RR_BINFRAME_HDR_LEN) {
+      return false;
+   }
+   struct rr_binframe frame;
+
+   if (rr_binframe_parse((const uint8_t *)data, len, &frame) < 0 ||
+       len != RR_BINFRAME_HDR_LEN + frame.len) {
+      return false;
+   }
+
+   if (frame.hdr.subsystem == RR_BINFRAME_SUBSYS_MODEM &&
+       !memcmp(frame.hdr.codec, RR_SERIAL_FRAME_CODEC, 4)) {
+      if (!client->authenticated ||
+          frame.hdr.direction != RR_BINFRAME_DIR_TX ||
+          frame.hdr.vfo != RR_BINFRAME_VFO_NA ||
+          frame.hdr.rig != RR_BINFRAME_RIG_NA ||
+          !frame.hdr.stream || !frame.len || frame.len > RR_SERIAL_BLOCK_MAX) {
+         return false;
+      }
+      event_emit_binary(RR_SERIAL_FRAME_EVENT, client, data, len);
+      return true;
+   }
+
+   if (frame.hdr.subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
+       frame.hdr.direction == RR_BINFRAME_DIR_TX) {
+      if (!client->authenticated) {
+         return false;
+      }
+      event_emit_binary("media.frame.tx.channel", client, data, len);
+      return true;
+   }
+
+   return false;
+}
+
 /* Backend-independent entry point for complete WebSocket messages. */
 bool ws_handle_payload(rrconn_t *cptr, const void *data, size_t len, bool binary) {
    if (!cptr || (!data && len)) {
