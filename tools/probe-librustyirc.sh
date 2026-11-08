@@ -32,7 +32,7 @@ if command -v "$pc" >/dev/null 2>&1 && "$pc" --exists librustyirc; then
         exit 0
     fi
 fi
-if check "" "-lrrprotocol"; then
+if check "" "-lrustyirc"; then
     echo compiler
 else
     echo none
