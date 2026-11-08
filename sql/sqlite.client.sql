@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS client_settings (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+-- Saved effective rrclient configuration; loaded over rrclient.cfg at startup.
+CREATE TABLE IF NOT EXISTS config_overrides (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS server_properties (
   server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
   property TEXT NOT NULL,
