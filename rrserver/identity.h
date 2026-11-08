@@ -22,6 +22,8 @@ const char *rr_identity_public_base64(void);
 #ifdef USE_SQLITE
 /* Pins are never overwritten by catalog refreshes or key substitutions. */
 bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, const char *public_key);
+/* Read-only: control traffic must not bootstrap untrusted signing keys. */
+bool rr_identity_known_signer(sqlite3 *db, const char *domain, const char *owner, const char *public_key);
 /* Monotonic content revision assigned before signing; rejects stale remote updates. */
 bool rr_identity_local_revision(sqlite3 *db, const char *domain, const char *owner, const char *key, dict *descriptor);
 bool rr_identity_accept_revision(sqlite3 *db, const char *domain, const char *owner, const char *key, dict *descriptor);
