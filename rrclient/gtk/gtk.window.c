@@ -1,5 +1,6 @@
 // GTK main window construction, layout, fullscreen and confirmation dialogs.
-// Part of rustyrig-fw; GPL-2.0-only.
+// Part of rustyrig-fw.
+// SPDX-License-Identifier: GPL-2.0-only
 #include "gtk.window.h"
 #include "gtk.core.h"
 #include "gtk.screensaver.h"
