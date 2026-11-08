@@ -239,6 +239,8 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
                merged->nodes[k] = *old;
                missing[k] = since;
                ghosts++;
+               if (!graph_missing_since[i])
+                  topology_changed = TRUE;
             } else {
                topology_changed = TRUE;
             }
@@ -801,7 +803,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
-      GtkWidget *info = gtk_label_new("Drag RX outputs to matching mixer inputs to connect; click a link to disconnect. Cyan = left, purple = right.");
+      GtkWidget *info = gtk_label_new("Drag RX outputs to mixer inputs; click links to disconnect. Grey nodes are disconnected and disappear after 15 seconds.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
