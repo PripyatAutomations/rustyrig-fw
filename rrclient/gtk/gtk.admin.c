@@ -832,7 +832,9 @@ static void admin_create_user(GtkButton *button, gpointer data) {
          dict_add(fields, "user.email", gtk_entry_get_text(GTK_ENTRY(email)));
          dict_add(fields, "user.real_name", gtk_entry_get_text(GTK_ENTRY(real)));
          dict_add(fields, "user.phone", gtk_entry_get_text(GTK_ENTRY(phone)));
-         dict_add_int(fields, "user.maxsessions", gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(max_clones)));
+         char sessions[16];
+         snprintf(sessions, sizeof(sessions), "%d", gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(max_clones)));
+         dict_add(fields, "user.maxsessions", sessions);
          sent = admin_command_profile(table, table->profile, "user", request, NULL, fields);
          dict_free(fields);
       }
