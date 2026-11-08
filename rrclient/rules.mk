@@ -86,6 +86,7 @@ gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab
 gtk_module_objs += gtk/gtk.admin.controls.o # Node and platform controls
 gtk_module_objs += gtk/gtk.admin.access.o   # Access requests and grant review
+gtk_module_objs += gtk/gtk.admin.security.o # Mesh trust and revocation
 gtk_module_objs += gtk/gtk.admin.cells.o    # Administrative table renderers
 gtk_module_objs += gtk/gtk.admin.password.o # Password dialog
 gtk_module_objs += gtk/gtk.admin.sessions.o # Session actions
