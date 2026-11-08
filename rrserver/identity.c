@@ -623,6 +623,25 @@ static bool trust_schema(sqlite3 *db) {
 
 /* Explicit enrollment and live TLS authentication must both refuse a
  * previously retired Ed25519 signing key, even if an old trust row survives. */
+/* Revoked TLS SPKIs are globally denied within the mesh domain, not
+ * just for their previous UUID. This prevents reusing a compromised
+ * certificate with a fresh signing key or a different claimed server. */
+bool rr_identity_tls_pin_revoked(sqlite3 *db, const char *domain, const char *spki) {
+   if (!db || !domain || !*domain || !spki || strlen(spki)!=44) return true;
+   if (sqlite3_exec(db,"CREATE TABLE IF NOT EXISTS mesh_revoked_tls_spki("
+      "domain TEXT NOT NULL,spki TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,spki))",NULL,NULL,NULL)!=SQLITE_OK) return true;
+   sqlite3_stmt *stmt=NULL;
+   if (sqlite3_prepare_v2(db,"SELECT 1 FROM mesh_revoked_tls_spki"
+      " WHERE domain=?1 COLLATE NOCASE AND spki=?2",-1,&stmt,NULL)!=SQLITE_OK)
+      return true;
+   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,2,spki,-1,SQLITE_TRANSIENT);
+   int state=sqlite3_step(stmt);
+   sqlite3_finalize(stmt);
+   return state!=SQLITE_DONE;
+}
 bool rr_identity_key_revoked(sqlite3 *db, const char *domain,
       const char *owner, const char *key) {
    if (!db || !domain || !owner || !key) return true;
@@ -646,7 +665,8 @@ bool rr_identity_key_revoked(sqlite3 *db, const char *domain,
 bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner, const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
    if (!domain || !*domain || !owner || !g_uuid_string_is_valid(owner) ||
       !trust_key_valid(catalog_key_b64, 32) || !trust_key_valid(tls_spki_sha256_b64, 32) || !trust_schema(db) ||
-       rr_identity_key_revoked(db, domain, owner, catalog_key_b64)) {
+       rr_identity_key_revoked(db, domain, owner, catalog_key_b64) ||
+       rr_identity_tls_pin_revoked(db, domain, tls_spki_sha256_b64)) {
       return false;
    }
    sqlite3_stmt *stmt = NULL;
@@ -667,7 +687,8 @@ bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner
 
 bool rr_identity_trust_verify(sqlite3 *db, const char *domain, const char *owner, const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
    if (!domain || !owner || !catalog_key_b64 || !tls_spki_sha256_b64 || !trust_schema(db) ||
-       rr_identity_key_revoked(db, domain, owner, catalog_key_b64)) {
+       rr_identity_key_revoked(db, domain, owner, catalog_key_b64) ||
+       rr_identity_tls_pin_revoked(db, domain, tls_spki_sha256_b64)) {
       return false;
    }
    sqlite3_stmt *stmt = NULL;
