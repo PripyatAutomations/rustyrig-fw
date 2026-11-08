@@ -1109,6 +1109,16 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
 }
 /* The directory gives a receiver's approximate site, not a live GPS
  * measurement. Only publish while the matching local VFO is active. */
+bool rrclient_local_bridge_gps_active(void) {
+   const char *room = rrclient_media_active_room();
+   if (!room || strcmp(room, "&local-sdr"))
+      return false;
+   char vfo = rrclient_room_active_vfo("&local-sdr");
+   unsigned slot = (unsigned)(vfo - 'A');
+   bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+   return b && b->online && b->approximate_location;
+}
+
 static void local_bridge_gps_tick(bridge_instance *b) {
    /* Do not override a real rig's ttyGPS output while its tab is active. */
    const char *selected_room = rrclient_media_active_room();
