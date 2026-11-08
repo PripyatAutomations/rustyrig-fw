@@ -292,7 +292,7 @@ extern bool db_reset_admin_password(sqlite3 *db, const char *password);
  * and only then move the retiring PEMs out of the active identity directory. */
 static int rr_maintenance_certs(enum rr_maintenance_action action) {
 #ifndef USE_SQLITE
-   fprintf(stderr,"Certificate maintenance requires SQLite.\\n");
+   fprintf(stderr,"Certificate maintenance requires SQLite.\n");
    return EXIT_FAILURE;
 #else
    const char *dir=cfg_get("path.identity");
@@ -302,7 +302,7 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
    if (!cert || !*cert || !tlskey || !*tlskey ||
        !g_path_is_absolute(dir) || !g_path_is_absolute(cert) ||
        !g_path_is_absolute(tlskey)) {
-      fprintf(stderr,"Certificate paths must be configured as absolute paths.\\n");
+      fprintf(stderr,"Certificate paths must be configured as absolute paths.\n");
       return EXIT_FAILURE;
    }
    char *signing=g_build_filename(dir,"server-ed25519.pem",NULL);
@@ -317,7 +317,7 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
    char *dbpath=cfg_get_path("path.db.master");
    sqlite3 *db=NULL;
    if (!dbpath || sqlite3_open_v2(dbpath,&db,SQLITE_OPEN_READWRITE,NULL)!=SQLITE_OK) {
-      fprintf(stderr,"Cannot open existing master database for identity maintenance.\\n");
+      fprintf(stderr,"Cannot open existing master database for identity maintenance.\n");
       if (db)sqlite3_close(db);
       free(dbpath);g_free(signing);g_free(marker);
       return EXIT_FAILURE;
@@ -331,7 +331,7 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
          lstat(tlskey,&tls_st)==0 && S_ISREG(tls_st.st_mode) &&
          tls_st.st_uid==geteuid() && !(tls_st.st_mode&0077) &&
          lstat(cert,&cert_st)==0 && S_ISREG(cert_st.st_mode);
-      if (!ok) fprintf(stderr,"Active signing/TLS key files are missing or not owned securely by this user.\\n");
+      if (!ok) fprintf(stderr,"Active signing/TLS key files are missing or not owned securely by this user.\n");
       sqlite3_stmt *stmt=NULL;
       char uuid[37]="";
       if (ok && sqlite3_prepare_v2(db,
@@ -369,7 +369,7 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
       free(spki);
       rr_identity_fini();
    } else if (action==RR_MAINT_REVOKE_CERTS) {
-      fprintf(stderr,"Identity already revoked; use --rotate-certs to prepare new keys.\\n");
+      fprintf(stderr,"Identity already revoked; use --rotate-certs to prepare new keys.\n");
       ok=false;
    }
    /* Commit a fail-closed lock BEFORE any destructive PEM move. If a move
@@ -400,8 +400,8 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
             if (!moved) {ok=false;break;}
          }
       }
-      if (ok)fprintf(stderr,"Retired PEMs saved privately in %s\\n",archive);
-      else fprintf(stderr,"PEM move incomplete; inspect %s manually before restart.\\n",archive?archive:dir);
+      if (ok)fprintf(stderr,"Retired PEMs saved privately in %s\n",archive);
+      else fprintf(stderr,"PEM move incomplete; inspect %s manually before restart.\n",archive?archive:dir);
       g_free(archive);
    }
    if (ok && action==RR_MAINT_ROTATE_CERTS) {
@@ -416,9 +416,9 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
    sqlite3_close(db);
    g_free(signing);g_free(marker);
    if (ok) {
-      fprintf(stderr,"%s completed. Original identity revoked locally and signed notice queued.\\n"
-         "Remote delivery REQUIRES successfully re-enrolling the new identity and starting the mesh.\\n"
-         "Do not treat queued notices as cluster-wide confirmation.\\n",rr_maintenance_name(action));
+      fprintf(stderr,"%s completed. Original identity revoked locally and signed notice queued.\n"
+         "Remote delivery REQUIRES successfully re-enrolling the new identity and starting the mesh.\n"
+         "Do not treat queued notices as cluster-wide confirmation.\n",rr_maintenance_name(action));
    }
    return ok?EXIT_SUCCESS:EXIT_FAILURE;
 #endif
