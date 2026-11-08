@@ -9,7 +9,6 @@ endif
 
 .PHONY: world
 all: world
-librustyaxe := librustyaxe.so
 librrprotocol := librrprotocol.so
 
 VERSION=$(shell cat .version)
@@ -40,6 +39,7 @@ ifeq ($(shell $(AXE_PKG_CONFIG) --exists librustyaxe && echo yes),)
 $(error librustyaxe not available through pkg-config; install librustyaxe-dev or set LIBRUSTYAXE_PROVIDER=local)
 endif
 AXE_SYSTEM_LIBDIR := $(shell $(AXE_PKG_CONFIG) --variable=libdir librustyaxe)
+AXE_SYSTEM_LIB := $(AXE_SYSTEM_LIBDIR)/librustyaxe.so
 AXE_SYSTEM_INCLUDEDIR := $(shell $(AXE_PKG_CONFIG) --variable=includedir librustyaxe)
 ifeq ($(wildcard $(AXE_SYSTEM_LIBDIR)/librustyaxe.so),)
 $(error Missing $(AXE_SYSTEM_LIBDIR)/librustyaxe.so from librustyaxe-dev)
@@ -47,7 +47,10 @@ endif
 ifeq ($(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h),)
 $(error Missing $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h from librustyaxe-dev)
 endif
+librustyaxe := $(AXE_SYSTEM_LIB)
+librustyaxe_headers := $(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/*.h)
 else ifeq ($(LIBRUSTYAXE_PROVIDER),local)
+librustyaxe := librustyaxe.so
 ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
 ifeq ($(wildcard librustyaxe/rules.mk),)
 ifneq ($(wildcard .gitmodules),)
@@ -67,7 +70,7 @@ include mk/database.mk
 include mk/eeprom.mk
 
 extra_clean += $(wildcard ${BUILD_DIR}/*.h) $(wildcard */compile_commands.json)
-extra_clean += ${EEPROM_FILE} ${librustyaxe} ${librrprotocol}
+extra_clean += ${EEPROM_FILE} ${librrprotocol}
 extra_clean += firmware.log
 extra_clean_targets += gmatrix-clean
 .PHONY: gmatrix-clean
@@ -98,19 +101,10 @@ ${BUILD_DIR}/librustyaxe/.timestamp ${BUILD_DIR}/librrprotocol/.stamp: ${BUILD_D
 ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
 
-extra_clean += ${librustyaxe} librustyaxe/irc-test
+extra_clean += librustyaxe.so librustyaxe.so.0 librustyaxe/irc-test
 ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-# Keep the historical checkout-root .so expected by linked subprojects.
-# Refuse to overwrite a real local build: make distclean first when switching.
-.PHONY: axe-system-check
-axe-system-check:
-	@test ! -e librustyaxe.so || test -L librustyaxe.so || { echo "Local librustyaxe.so exists; run make distclean before selecting system librustyaxe" >&2; exit 1; }
-	@if test -L librustyaxe.so && test "$(readlink librustyaxe.so)" != "$(AXE_SYSTEM_LIBDIR)/librustyaxe.so"; then ln -sfn "$(AXE_SYSTEM_LIBDIR)/librustyaxe.so" librustyaxe.so; fi
-librustyaxe.so: | axe-system-check
-	@ln -sfn "$(AXE_SYSTEM_LIBDIR)/librustyaxe.so" $@
-	@echo "[librustyaxe] using installed $(AXE_SYSTEM_LIBDIR)/librustyaxe.so"
-# Public headers from the installed -dev package take priority over the
-# checkout's top-level -I.  Create a single overlay, not source-tree copies.
+# An installed library is an external prerequisite, never a generated output.
+# Headers need a first-position -I overlay to beat the checkout-root -I.
 $(BUILD_DIR)/axe-system-include/librustyaxe:
 	@mkdir -p $(dir $@)
 	@ln -sfn "$(AXE_SYSTEM_INCLUDEDIR)/librustyaxe" $@
@@ -129,8 +123,8 @@ include librrprotocol/rules.mk
 # Its ../librustyaxe.so prerequisite must be ready even under -j.
 ifeq ($(BUILD_CALLSIGN_LOOKUP),true)
 .PHONY: callsign-lookup-world
-callsign-lookup-world: librustyaxe.so
-	$(MAKE) -C callsign-lookup RUSTYRIG_FW_BUILD=true world
+callsign-lookup-world: $(librustyaxe)
+	$(MAKE) -C callsign-lookup RUSTYRIG_FW_BUILD=true LIBRUSTYAXE_PROVIDER=$(LIBRUSTYAXE_PROVIDER) world
 extra_build += callsign-lookup-world
 endif
 include libfwdspmgr/rules.mk
