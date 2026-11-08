@@ -80,16 +80,16 @@ Debian fresh installations ask for the admin password through debconf. Use
 that password; package upgrades preserve existing accounts and databases.
 
 On a manual installation, a newly initialized database can provision admin with
-a random password, saved beside the database in a mode-0600 file:
+a random password, saved in a mode-0600 file:
 
-    /var/lib/rustyrig/db/master.db.bootstrap-password
+    /var/lib/rustyrig/temp-admin-passwd
 
 Read it as the account running the server. Log in as admin, then change the
 temporary password immediately:
 
     /user pass admin <new-password>
 
-Remove the bootstrap-password file after successfully changing the password.
+Remove the temporary admin password file after successfully changing the password.
 There is no shipped admin/admin login. Guest is disabled by default; Debian's
 fresh-install prompt can enable the shared guest/guest login with RX and chat
 privileges only.
