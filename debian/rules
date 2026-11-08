@@ -104,6 +104,7 @@ endif
 		case "$${cfg##*/}" in rrclient*) pkg=rustyrig-client ;; *) pkg=rustyrig-server ;; esac; \
 		install -Dm644 "$$cfg" "debian/$$pkg$(CONF_DIR)/$${cfg##*/}"; \
 	done
+	install -Dm644 config/ua-bans debian/rustyrig-server$(CONF_DIR)/ua-bans
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
 	# Generated CSS is not a config/ source file.
 	perl tools/releng-dump-css.pl --css > debian/rustyrig-client$(CONF_DIR)/rrclient.css
@@ -123,6 +124,7 @@ endif
 	for cfg in config/*.cfg config/*.md; do \
 		[ -f "$cfg" ] && cp -a "$cfg" debian/rustyrig-server/usr/share/doc/rustyrig/config/ || true; \
 	done
+	install -Dm644 config/ua-bans debian/rustyrig-server/usr/share/doc/rustyrig/config/ua-bans
 	cp -a doc debian/rustyrig-server/usr/share/doc/rustyrig/
 
 # Don't interrupt active radio sessions or fail package upgrades because an

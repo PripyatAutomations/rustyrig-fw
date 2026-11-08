@@ -126,6 +126,7 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %config(noreplace) %{_sysconfdir}/init.d/rrserver
 %config(noreplace) %{_sysconfdir}/rustyrig/rrserver*.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cfg
+%config(noreplace) %{_sysconfdir}/rustyrig/ua-bans
 %dir %attr(0770,rustyrig,rustyrig) %{_localstatedir}/log/rustyrig
 %{_sharedstatedir}/rustyrig
 /usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
