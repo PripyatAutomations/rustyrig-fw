@@ -53,7 +53,7 @@ extern struct mg_tls_opts tls_opts;
 #endif // USE_MONGOOSE
 
 static const char s_content_type[] = "Content-Type: ";
-static struct http_res_types http_res_types[] = {
+static const struct http_res_types http_res_types[] = {
    {
       "7z", "application/x-7z-compressed\r\n"
    },
