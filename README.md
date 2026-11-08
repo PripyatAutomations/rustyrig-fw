@@ -74,6 +74,7 @@ The dependency helper prints the installation command for your selected build pr
 | [RC release checklist](doc/release-checklist.md) | Build, package, smoke-test and tag a release |
 | [Release packaging guide](doc/RELEASING.md) | Debian RC versions, reproducible builds and upgrades |
 | [Debian archive readiness](doc/debian-archive-readiness.md) | Sponsor-facing blockers, license inventory and clean-build checks |
+| [Debian source/package split](doc/debian-source-split.md) | External library source packages and retained rrserver/rrclient/rrbridge binary split |
 | [Server maintenance](doc/server-maintenance.md) | Confirmed database, log, recording and identity resets |
 | [Remote SDR architecture](doc/remote-sdr-architecture.md) | Design proposal, **not implemented functionality** |
 
