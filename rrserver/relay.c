@@ -1039,6 +1039,13 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             Log(LOG_WARN,"mesh.identity","Rejecting unsigned or forged user-directory snapshot for %s",origin);
             goto done;
          }
+#ifdef USE_SQLITE
+         if (!rr_identity_accept_revision(masterdb,cfg_get("domain"),origin,
+            "users-snapshot",d)) {
+            Log(LOG_WARN,"mesh.identity","Rejecting stale or conflicting user-directory snapshot for %s",origin);
+            goto done;
+         }
+#endif
          rr_relay_directory_put(origin,d);
       } else {
          /* Removal descriptors are catalog records too. Prevent unsigned or forged removals from bypassing normal catalog admission. */
