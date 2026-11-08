@@ -18,7 +18,8 @@ install-dependency-check:
 	@test "$(LIBRUSTYAXE_PROVIDER)" = system && test "$(LIBRRPROTOCOL_PROVIDER)" = system || { echo "Install librustyaxe and librrprotocol separately before installing RustyRig; local submodules are for temporary testing." >&2; exit 1; }
 
 # No configuration is touched by the default install target.
-install: install-dependency-check install-bin install-modules install-libs install-assets install-tools install-sql
+install: install-dependency-check
+	$(MAKE) install-bin install-modules install-libs install-assets install-tools install-sql
 	@echo "Installed runtime files at Debian package paths. Existing /etc/rustyrig config is untouched."
 	@echo "Run ldconfig after installing libraries on Linux."
 
