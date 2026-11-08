@@ -44,6 +44,7 @@ struct kiwi_instance {
 };
 /* Native socket, DNS, TLS and WebSocket state belong to RustyAxe. */
 static void waterfall_center(struct kiwi_instance *k);
+static void kiwi_traffic(struct kiwi_instance *k, rr_transport_t *transport, bool waterfall);
 static bool kiwi_noise_blanker(struct kiwi_instance *k);
 static const char *setting(struct kiwi_instance *k, const char *key) {
    return k->host.setting ? k->host.setting(k->host.user, key) : NULL;
@@ -767,8 +768,6 @@ static void kiwi_poll(void *instance) {
 
          return;
       }
-      char headers[416];
-      snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
       rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = !(setting(k, "password") && *setting(k, "password"))};
       k->connection = rr_transport_wss_connect(k->url, &options, websocket, k);
       k->snd_last_rx = k->snd_last_tx = 0;
@@ -800,14 +799,15 @@ static void kiwi_poll(void *instance) {
             snprintf(detail, sizeof(detail), "Connecting Kiwi RF waterfall: %s", wf_url);
             note(k, detail);
             rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = false};
-             k->waterfall = rr_transport_wss_connect(wf_url, &options, waterfall_ws, k);
-             k->wf_last_rx = k->wf_last_tx = 0;
+            k->waterfall = rr_transport_wss_connect(wf_url, &options, waterfall_ws, k);
+            k->wf_last_rx = k->wf_last_tx = 0;
          }
       }
       k->waterfall_retry = current + UINT64_C(10000000);
    }
    if (k->connection) {
       rr_transport_poll(k->connection, 0);
+      kiwi_traffic(k, k->connection, false);
       if (rr_transport_state(k->connection) == RR_TRANSPORT_CLOSED) {
          rr_transport_wss_release(k->connection);
          k->connection = NULL;
@@ -815,6 +815,7 @@ static void kiwi_poll(void *instance) {
    }
    if (k->waterfall) {
       rr_transport_poll(k->waterfall, 0);
+      kiwi_traffic(k, k->waterfall, true);
       if (rr_transport_state(k->waterfall) == RR_TRANSPORT_CLOSED) {
          rr_transport_wss_release(k->waterfall);
          k->waterfall = NULL;
