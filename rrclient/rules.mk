@@ -190,6 +190,17 @@ endif
 GTK_CFLAGS := ${GTK_MODULE_CFLAGS} ${VTE_CFLAGS}
 GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS} -lm
 
+# Generate a catalog of literal log subsystems for the GTK level composer.
+RR_LOG_SUBSYSTEM_SOURCES := $(shell find rrclient rrserver rrbridge fwdsp libfwdspmgr rrpipelines -type f -name '*.c' 2>/dev/null)
+RR_LOG_SUBSYSTEM_HEADER := ${BUILD_DIR}/rrclient/log-subsystems.h
+${RR_LOG_SUBSYSTEM_HEADER}: tools/releng-log-subsystems.pl ${RR_LOG_SUBSYSTEM_SOURCES}
+	@mkdir -p $(dir $@)
+	@perl tools/releng-log-subsystems.pl > $@.tmp
+	@mv $@.tmp $@
+
+${BUILD_DIR}/rrclient/gtk/gtk.logview.o: ${RR_LOG_SUBSYSTEM_HEADER}
+${BUILD_DIR}/rrclient/gtk/gtk.logview.o: extra_cflags += -I${BUILD_DIR}/rrclient
+
 ${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${librustyirc_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
