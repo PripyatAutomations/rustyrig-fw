@@ -56,8 +56,26 @@ static char media_my_privs[128] = {
    0
 };
 
-// Do we hold any of the given '|'-separated privileges? Uses the protocol
-// library's comma-list matcher against the privs the server sent us.
+/* Client-local matcher for privileges received from the server.
+ * Authentication remains server-owned; this is a UI capability check. */
+static bool media_priv_matches(const char *grants, const char *requested) {
+   if (!grants || !requested || !*requested) return false;
+   const char *cursor = grants;
+   while (*cursor) {
+      const char *end = strchr(cursor, ',');
+      size_t n = end ? (size_t)(end - cursor) : strlen(cursor);
+      if (n == strlen(requested) && !strncmp(cursor, requested, n)) return true;
+      if (n > 7 && !strncmp(cursor, "serial.", 7) && cursor[n-1] == '*' &&
+          !strncmp(requested, cursor, n-1)) return true;
+      if (n >= 2 && cursor[n-2] == '.' && cursor[n-1] == '*' &&
+          !strncmp(requested, cursor, n-2) && requested[n-2] == '.') return true;
+      if (!end) break;
+      cursor = end + 1;
+   }
+   return false;
+}
+
+// Do we hold any of the given '|'-separated privileges?
 bool media_have_priv(const char *priv) {
    if (!priv || priv[0] == '\0') {
       return false;
@@ -75,7 +93,7 @@ bool media_have_priv(const char *priv) {
       memcpy(tmp, p, len);
       tmp[len] = '\0';
 
-      if (match_priv(media_my_privs, tmp)) {
+      if (media_priv_matches(media_my_privs, tmp)) {
          return true;
       }
       p = sep ? sep + 1 : NULL;
