@@ -22,17 +22,24 @@ Typography roles:
 - Frequency controls: mono, 12pt; compact VFO readout: bold mono, 15pt.
 - Generic labels and most floating panel titles inherit the desktop GTK theme.
 
-The `[gtk-css]` section in `rrclient.cfg` overrides these defaults,
-including on-the-fly via `/css-reload`. Example:
+The compiled-in CSS is the default. Source installs and Debian packages also
+ship **`/etc/rustyrig/rrclient.css` as a reference document only**: the client
+does not read it. For a fresh copy from source, run:
 
-```ini
-[gtk-css]
-\#chat-view, \#chat-view text { font-family: "Liberation Mono", "Monospace"; font-size: 12pt; }
-treeview { font-size: 11pt; }
+```sh
+perl tools/releng-dump-css.pl --css > rrclient.css
 ```
 
-GTK's user CSS is applied above default rules. Avoid generic `label` and
-`button` overrides unless you intentionally want the same typography on
-every widget. The font families above can be used without redistributing
-proprietary font files. If fonts are bundled later, prefer a verified
-SIL Open Font License 1.1 family with its license text and attribution.
+Copy and customize specific rules in a `[gtk-css]` section of your own
+`rrclient.cfg`, then run `/css-reload`. That section overrides the compiled
+CSS. The example config intentionally contains no active CSS or font overrides.
+The script without `--css` emits the same rules in paste-ready INI format,
+including escaped `#` selectors:
+
+```sh
+perl tools/releng-dump-css.pl > gtk-css.cfg
+```
+
+Avoid generic `label` or `button` overrides unless the same typography is
+intended throughout the UI. If fonts are bundled later, verify their open
+redistribution license and include its required notices.
