@@ -22,6 +22,7 @@
 #include <librrprotocol/wire.h>
 #include <rrserver/link.h>
 #include <rrserver/identity.h>
+#include <rrserver/revocation.h>
 #include <rrserver/objects.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
@@ -623,6 +624,18 @@ static void catalog_receive_free(gpointer ptr) {
    g_free(r);
 }
 
+/* Revocations are signed by the retiring node, not by a client or relay.
+ * Persist before forwarding and before dropping the revoked topology edge. */
+typedef struct { const char *from; const char *owner; dict *notice; } revocation_fanout_t;
+static void revocation_send_neighbor(const char *peer, void *arg) {
+   revocation_fanout_t *v=arg;
+   if (peer && *peer && strcmp(peer,v->from) && strcmp(peer,v->owner))
+      rr_relay_send_owned(peer,v->owner,"identity-revocation",v->notice);
+}
+static void revocation_forward(const char *from, const char *owner, dict *notice) {
+   revocation_fanout_t fanout={from,owner,notice};
+   rrserver_links_each_neighbor(revocation_send_neighbor,&fanout);
+}
 /* Validate a received link envelope and dispatch its payload by kind. */
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *envelope = json2dict(data);
@@ -635,6 +648,40 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    dict *d = json2dict(dict_get(envelope, "payload", ""));
 
    if (!d) {
+      goto done;
+   }
+
+   if (!strcmp(kind, "identity-revocation")) {
+#ifdef USE_SQLITE
+      const char *ingress=dict_get(envelope,"_ingress","");
+      const char *key=dict_get(d,"identity.public-key","");
+      bool fresh=false;
+      if (strcmp(origin,dict_get(d,"identity.owner","")) ||
+          !rr_revocation_receive(masterdb,d,&fresh)) {
+         Log(LOG_WARN,"mesh.identity","Rejected untrusted or invalid identity revocation for %s",origin);
+         goto done;
+      }
+      /* Preserve the owner's original signature for every transit hop. */
+      if (fresh) {
+         revocation_forward(ingress,origin,d);
+         rrserver_links_depart_revoked(origin);
+      }
+      if (*ingress) {
+         dict *ack=dict_new();
+         if (ack) {
+            dict_add(ack,"owner",origin);
+            dict_add(ack,"public-key",key);
+            rr_relay_packet(ingress,"identity-revocation-ack","",NULL,ack);
+            dict_free(ack);
+         }
+      }
+#endif
+      goto done;
+   }
+   if (!strcmp(kind, "identity-revocation-ack")) {
+      /* This reports one direct peer's acceptance, not global convergence. */
+      Log(LOG_INFO,"mesh.identity","Revocation acknowledged by %s for signer %s",
+         origin,dict_get(d,"owner",""));
       goto done;
    }
 
@@ -1188,6 +1235,7 @@ static void ready(const char *event, const char *node, rrconn_t *client, void *u
    rr_relay_collect_local();
    rr_relay_users_poll(true);
    rr_relay_send_catalogs(node);
+   rr_revocation_replay(node);
    rrserver_relay_poll();
 
    for (struct directory *entry = rr_relay_directories ; entry ; entry = entry->next) {
