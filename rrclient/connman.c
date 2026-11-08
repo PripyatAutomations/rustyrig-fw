@@ -1548,7 +1548,8 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    char connect_url[2048];
    snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s",
       endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "",
-      endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port, endpoint.path);
+      endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port,
+      !strcmp(endpoint.path, "/") ? "/ws" : endpoint.path);
    native->transport = rr_transport_wss_connect_ex(connect_url, &opts, native_event, native);
 
    if (!native->transport) {
