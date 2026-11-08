@@ -2555,6 +2555,7 @@ int main(int argc, char *argv[]) {
    }
 
    rrclient_log_level_register();
+   rrclient_config_reload_register();
    if (!event_on_message_domain_token("client.ptt.request", rrclient_ptt_request_event, NULL, "core")) {
       Log(LOG_WARN, "ptt", "Unable to register core PTT request handler");
    }
