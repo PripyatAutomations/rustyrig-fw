@@ -727,11 +727,39 @@ static void file_editor_close(gpointer data) {
 }
 
 static void on_reload_config_button(GtkButton *btn, gpointer user_data) {
-   if (!user_data) {
-      return;
-   }
+   (void)user_data;
+   GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(btn));
+   GtkWindow *parent = GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Reload client configuration", parent,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL,
+      "Reload _rrclient.cfg", 1,
+      "Reload _DB config", 2, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *explanation = gtk_label_new(
+      "rrclient.cfg supplies bootstrap defaults. Saved client.db config values\n"
+      "normally override them when the client starts.\n\n"
+      "Reload rrclient.cfg: use the system/user config files without DB\n"
+      "configuration overrides (does not delete saved values).\n\n"
+      "Reload DB config: rebuild from rrclient.cfg, then apply saved\n"
+      "configuration overrides.\n\n"
+      "Server profiles and themes are loaded from their separate DB tables\n"
+      "in either case. For startup recovery use --ignore-db-config.");
+   gtk_label_set_xalign(GTK_LABEL(explanation), 0);
+   gtk_container_set_border_width(GTK_CONTAINER(area), 12);
+   gtk_box_pack_start(GTK_BOX(area), explanation, TRUE, TRUE, 0);
+   gtk_widget_show_all(area);
+   gint choice = gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
 
-   rrclient_config_reload((const char *)user_data);
+   if (choice == 1 || choice == 2) {
+      rrclient_config_reload_request_t request = {.from_db = choice == 2};
+      rr_event_message_t message = {
+         .name = RRCLIENT_CONFIG_RELOAD_REQUEST,
+         .payload = &request, .length = sizeof(request)
+      };
+      event_emit_message(&message);
+   }
 }
 
 void gui_file_editor_open(const char *filepath) {
@@ -1409,7 +1437,7 @@ GtkWidget *init_config_tab(void) {
    g_signal_connect(btn_savecfg, "clicked", G_CALLBACK(on_save_config_button), NULL);
    gtk_box_pack_start(GTK_BOX(buttons), btn_savecfg, FALSE, FALSE, 0);
 
-   GtkWidget *btn_reloadcfg = config_action_button("Reload Config", "view-refresh-symbolic", "Reload configuration from its active source");
+   GtkWidget *btn_reloadcfg = config_action_button("Reload Config", "view-refresh-symbolic", "Choose whether to reload file bootstrap or saved database configuration");
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer) config_file);
    gtk_box_pack_start(GTK_BOX(buttons), btn_reloadcfg, FALSE, FALSE, 0);
 
