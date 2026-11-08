@@ -315,3 +315,21 @@ Bridge PCM feeds the rig receive hub and therefore the modem's FD 4 path.
 This does not create a new receiver per modem; the bridge feeds one hub.
 Configured decoders may keep remote receivers active indefinitely, so
 operators should enable them deliberately, especially on shared WebSDRs.
+
+## Native KiwiSDR WebSockets (experimental)
+
+The Kiwi driver now uses the reusable `librustyaxe/transport.wss.h` client.
+It establishes separate `ws://` or `wss://` connections for sound/control
+and the RF waterfall. Native transports use POSIX sockets, OpenSSL with
+certificate/hostname verification for TLS, and wslay for WebSocket frames.
+DNS is resolved off the polling thread.
+
+HTTP 307 redirects are limited to eight hops. Cross-origin redirects are
+disabled when a receiver password is configured. Sound and waterfall retain
+independent retry and watchdog behavior.
+
+First run `make -C librustyaxe check` after rebuilding its package and
+`make PROFILE=rrserver test-rrbridge-kiwi check-rrbridge-native`.
+Live testing should exercise plain and TLS Kiwi endpoints, redirecting proxies,
+tuning, stream loss, independent waterfall reconnect and IPC frame counting.
+The transport migration has not yet been validated against a live receiver.
