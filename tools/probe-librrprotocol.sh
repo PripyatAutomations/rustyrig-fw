@@ -12,14 +12,19 @@ int check_protocol(void) {
 }
 EOF
 cd "$tmp"
+# Use target linker semantics; this probe only links, never executes, so it
+# can be used with cross-compilers (not just the build machine compiler).
+target=$($compiler -dumpmachine 2>/dev/null || echo unknown)
+case "$target" in
+    *mingw*|*windows*) shared_flags='-shared -Wl,--no-undefined' ;;
+    *darwin*|*apple*) shared_flags='-dynamiclib -Wl,-undefined,error' ;;
+    *) shared_flags='-shared -Wl,-z,defs' ;;
+esac
 check() {
     flags=$1
     libs=$2
-    # Build a shared consumer so host-supplied symbols unresolved in the
-    # protocol library are not mistaken for a missing linkable library.
-    # -z defs requires its own referenced protocol symbol to resolve on ELF.
     $compiler ${RRPROTO_CPPFLAGS:-} ${RRPROTO_CFLAGS:-} $flags \
-        -fPIC -shared -Wl,-z,defs check.c -o check.so \
+        -fPIC $shared_flags check.c -o check.so \
         ${RRPROTO_LDFLAGS:-} $libs >/dev/null 2>&1
 }
 if command -v "$pc" >/dev/null 2>&1 && "$pc" --exists librrprotocol; then
