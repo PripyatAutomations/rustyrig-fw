@@ -1,9 +1,6 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 /* Linux OpenSSL/wslay driver. Transport handles are borrowed until CLOSE;
  * the driver reclaims them after that callback returns. Abort is deferred so callers may reject a message safely from inside its callback. */
 #ifndef RR_MESH_WSS_H
