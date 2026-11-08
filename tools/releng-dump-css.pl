@@ -24,7 +24,7 @@ while (my $line = <$input>) {
    # The last definition is the Linux fallback in defconfig.c. Windows and
    # macOS choose their own families at build time; this reference is for
    # POSIX /etc/rustyrig installs.
-   if ($line =~ /^\s*#define\s+(RR_(?:UI|MONO)_FONT)\s+("(?:\\\\.|[^"\\\\])*")/) {
+   if ($line =~ /^\s*#define\s+(RR_(?:UI|MONO)_FONT)\s+("(?:\\.|[^"\\])*")/) {
       $font_macro{$1} = $2;
    }
    next unless $line =~ /^\s*#\s*define\s+DEFAULT_CSS\b/;
