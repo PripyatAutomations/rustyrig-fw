@@ -2,7 +2,7 @@
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
