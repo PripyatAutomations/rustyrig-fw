@@ -1,3 +1,11 @@
+rustyrig-fw (1.0.2-7) unstable; urgency=medium
+
+  * Connect the client to native OpenSSL/wslay WebSockets when built without
+    Mongoose, using the common wire/control and binary media message routes.
+  * Restore native client reconnect, disconnect and capability negotiation.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 13:10:00 -0500
+
 rustyrig-fw (1.0.2-6) unstable; urgency=medium
 
   * Install private mesh identity directory as rustyrig:rustyrig mode 0700.
