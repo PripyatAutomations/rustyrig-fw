@@ -71,9 +71,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    memcpy(subsys, bytes + 1, 16);
    subsys[16] = '\0';
 
-   if (level == LOG_CRAZY || debug_filter(subsys, level)) {
-      return;
-   }
+   /* Host verbosity is configured on the host itself. Never apply the\n    * local client log-level filter to received host frames. */
    const char *payload = (const char *)bytes + RR_LOGFRAME_HDR_LEN;
    size_t max = len - RR_LOGFRAME_HDR_LEN;
    gchar *message = g_strndup(payload, strnlen(payload, max));
