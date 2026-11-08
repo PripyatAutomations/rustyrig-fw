@@ -589,7 +589,12 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
 
                if (cleaned && unlink(resolved) == 0) {
                   if (unlink(bootstrap) != 0 && errno != ENOENT) {
-                     fprintf(stderr, "Warning: could not remove old bootstrap credential %s\n", bootstrap);
+                     fprintf(stderr, "Cannot remove old temporary admin credential %s: %s\n", bootstrap, strerror(errno));
+                     cleaned = false;
+                  }
+                  if (unlink(old_bootstrap) != 0 && errno != ENOENT) {
+                     fprintf(stderr, "Cannot remove legacy bootstrap credential %s: %s\n", old_bootstrap, strerror(errno));
+                     cleaned = false;
                   }
                   /* Reinitialize immediately using the same configured schema, preload and bootstrap credentials as a clean first start. Never report a
                    * successful reset with an unseeded database. */
