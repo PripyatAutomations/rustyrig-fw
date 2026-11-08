@@ -608,7 +608,7 @@ done:
 static void frame(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
    struct rr_binframe f;
 
-   if (rr_binframe_parse(data, len, &f) || !rr_serial_frame_valid(&f) || f.hdr.direction != RR_BINFRAME_DIR_TX || len != RR_BINFRAME_HDR_LEN + f.len) {
+   if (rr_binframe_parse(data, len, &f) || !(f.hdr.subsystem == RR_BINFRAME_SUBSYS_MODEM && !memcmp(f.hdr.codec, RR_SERIAL_FRAME_CODEC, 4) && f.hdr.vfo == RR_BINFRAME_VFO_NA && f.hdr.rig == RR_BINFRAME_RIG_NA && f.hdr.stream && f.len && f.len <= RR_SERIAL_BLOCK_MAX && (f.hdr.direction == RR_BINFRAME_DIR_TX || f.hdr.direction == RR_BINFRAME_DIR_RX)) || f.hdr.direction != RR_BINFRAME_DIR_TX || len != RR_BINFRAME_HDR_LEN + f.len) {
       return;
    }
 
