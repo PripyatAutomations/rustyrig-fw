@@ -1540,7 +1540,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!ca || !*ca) {
       ca = cfg_get("tls.ca-file");
    }
-   rr_wss_client_options_t opts = {
+   rr_wss_client_options_ex_t opts = {
       .user_agent = "RustyRig/1.0",
       .subprotocol = RR_WS_SUBPROTOCOL,
       .ca_file = ca
@@ -1549,7 +1549,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s",
       endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "",
       endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port, endpoint.path);
-   native->transport = rr_transport_wss_connect(connect_url, &opts, native_event, native);
+   native->transport = rr_transport_wss_connect_ex(connect_url, &opts, native_event, native);
 
    if (!native->transport) {
       ui_print(NULL, "Unable to initialize native WebSocket connection for %s", s->name);
