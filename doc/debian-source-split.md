@@ -149,3 +149,17 @@ or binary package of the main `rustyrig-fw` Debian source. Its own repository
 owns `/usr/bin/callsign-lookup` and `/etc/rustyrig/callsign-lookup.cfg`, with
 `make deb` and `make src-deb`. Its QRZ endpoint uses libcurl HTTPS, so it
 requires neither Mongoose nor wslay: wslay is only needed for WebSockets.
+
+## Separate Debian build profiles
+
+The `rustyrig-fw` source package builds server and client independently:
+`PROFILE=rrserver` selects `config/rrserver.config.json` and
+`CLIENT_PROFILE=rrclient` selects `config/rrclient.config.json`.
+Both were copied from the radio configuration, with component selection
+adjusted for one executable per profile, Mongoose disabled, and server-only
+Hamlib support. DSP, bridges, and shared supporting artifacts are assembled
+from the server build; GTK/client tools from the client build. Both profiles
+have their own channel JSON and isolated object directories.
+Binary outputs remain in the common `bin/` directory, so Debian packaging
+forces profile-specific binary relinking between the two passes. The JSON
+build defaults are installed into the matching binary package.

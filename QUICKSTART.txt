@@ -1,1 +1,206 @@
-doc/QUICKSTART.txt
+RustyRig LAN/VPN beta quickstart
+==============================
+
+Keep the server on your LAN or VPN for this beta. Install matching server,
+native-client and WebUI revisions: the compact rustyrig.v1 protocol has no
+fallback for older releases.
+
+1. Install or build
+-------------------
+For Debian packages and service setup, follow doc/INSTALLING. For a source
+build on Debian/Ubuntu, fetch the checkout and install the profile reader:
+
+XXX: This will drag in a fair bit of external sources NOT linked by
+XXX: default-- this is because we need it available for offline builds
+XXX: of rustyrig firmware (from the pi). This might change soon!
+
+    git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+    # include submodules & third party libraries we might need
+    ./tools/git-pull-all.sh
+    cd rustyrig-fw
+    sudo apt update
+    sudo apt install jq
+    ./install-deps.sh
+
+install-deps.sh PRINTS the apt command for the selected profile; run that
+command with sudo to install the dependencies. Then build:
+
+    make -j4 PROFILE=radio world
+
+The default source profile is radio. Build options live in config/radio.config.json.
+To test applications independently, build with PROFILE=rrclient or PROFILE=rrserver;
+these use config/rrclient.config.json and config/rrserver.config.json, and keep
+separate build/rrclient and build/rrserver object trees. Both initially disable
+Mongoose so the native TLS/wslay paths can be tested without it.
+
+Debian packaging builds both profiles in sequence by default: server binaries
+with PROFILE=rrserver and client binaries with PROFILE=rrclient. The packaged
+/etc/rustyrig/rrserver.config.json and rrclient.config.json belong to their
+respective packages. Override PROFILE=radio for a custom server profile or
+CLIENT_PROFILE=another-profile for a custom client build.
+For updates, use git pull followed by git submodule update --init --recursive,
+then rebuild the matching components.
+
+2. Configure a station
+----------------------
+Packaged server config: /etc/rustyrig/rrserver.cfg.
+Edit /etc/rustyrig/rrserver.cfg after package installation. Adjust existing
+settings/sections rather than adding duplicates. Start with one rig and station.name=beta:
+
+    [general]
+    station.name=beta
+    rig.instances=rig0
+    rig.default=rig0
+    audio.test-mode=false
+
+    [rig:rig0]
+    backend=hamlib
+    vfos=A B
+    room=#beta-rig0
+    hamlib.model=2
+    hamlib.device=127.0.0.1:4532
+
+To try this without hardware, start Hamlib's dummy rig in another terminal:
+
+    rigctld -o -m 1
+
+For real hardware, choose the appropriate model/device; rigctld -l lists
+models. See doc/rig-rooms.md for multiple rigs and room mappings. Configure
+[fwdsp] device/pipeline settings for your station's audio interface; leave
+PTT off while confirming receive audio.
+
+For Debian packages, start the service after configuring it:
+
+    sudo systemctl enable --now rustyrig-server
+    sudo journalctl -u rustyrig-server -f
+
+3. First login
+--------------
+Debian fresh installations ask for the admin password through debconf. Use
+that password; package upgrades preserve existing accounts and databases.
+
+On a manual installation, a newly initialized database can provision admin with
+a random password, saved beside the database in a mode-0600 file:
+
+    /var/lib/rustyrig/db/master.db.bootstrap-password
+
+Read it as the account running the server. Log in as admin, then change the
+temporary password immediately:
+
+    /user pass admin <new-password>
+
+Remove the bootstrap-password file after successfully changing the password.
+There is no shipped admin/admin login. Guest is disabled by default; Debian's
+fresh-install prompt can enable the shared guest/guest login with RX and chat
+privileges only.
+Manual bootstrap leaves guest disabled. Existing
+databases keep their credentials. Do not delete a database to reset a password.
+Use /user list to inspect accounts and /help user for account administration.
+
+4. Connect a client and receive audio
+------------------------------------
+Native client: edit /etc/rustyrig/rrclient.cfg or your home configuration.
+Set the
+localhost profile's credentials and disable unused profiles such as camp:
+
+    [server:localhost]
+    server.enabled=true
+    server.url=wss://localhost:4420/ws/
+    server.user=admin
+    server.pass=<your-admin-password>
+
+Launch the installed client with `rrclient` (or `rrclient -T` for TUI).
+Keep configuration containing credentials accessible only to the owner.
+
+The native server URL must include its scheme. Ports are optional: ws=disabled,
+wss=4420, irc=6667, ircs=6697. RustyRig radio/audio uses ws or wss; native IRC
+is chat-only. See doc/irc-client.md for proxy and multiple-server settings.
+
+The old plaintext HTTP WebUI listener is retired. Remote
+browser login needs a secure HTTPS origin for Web Crypto. The native TCP 4420
+listener serves RustyRig client WSS, not the static browser UI. Configure a
+separate HTTPS reverse proxy for WebUI if remote browser access is needed.
+A VPN alone does not make a remote HTTP origin a browser secure context.
+
+After login, /join #beta-rig0 attaches to the radio room. Confirm rig state,
+select a codec supported by the client, and verify receive audio before TX.
+Opus is a useful initial choice; native /rxcodec opus selects it. Use /help
+for codec controls and doc/media-codecs.md for decoder/pipeline requirements.
+
+5. Customize the GTK appearance (fonts, sizes, colors)
+------------------------------------------------------
+RustyRig has built-in GTK CSS defaults. On Linux installations,
+/etc/rustyrig/rrclient.css is a REFERENCE COPY of those defaults, not a
+configuration file; the client does not read it automatically.
+
+To export the CSS from a source checkout, run:
+
+    perl tools/releng-dump-css.pl --css > rrclient.css
+
+For a paste-ready [gtk-css] block (including escaped # selectors), run:
+
+    perl tools/releng-dump-css.pl > gtk-css.cfg
+
+Copy the rules you want to customize into a [gtk-css] section of your own
+rrclient.cfg. Change fonts, sizes, or colors there, then use /css-reload in
+the GTK client to apply edits without rebuilding. You do not need to add any
+CSS to rrclient.cfg unless you want to override the compiled defaults.
+Note: rrclient.css is reference documentation only and is NOT a CSS include.
+See doc/gtk-typography.md for platform font fallbacks and more details.
+
+6. Temporary cross-site demo access
+-----------------------------------
+For a multi-server demonstration, run the following on EACH destination server
+to grant authenticated remote admin accounts from any linked site full rig
+access, permission to join all rooms, and remote server administration:
+
+    sudo ./tools/grant-remote-superadmin.sh 'admin@*'
+
+The default database is /var/lib/rustyrig/db/master.db. To grant only an
+account from a specific originating site, replace the wildcard:
+
+    sudo ./tools/grant-remote-superadmin.sh 'admin@rplywv00'
+
+For a custom database path, specify it first:
+
+    sudo ./tools/grant-remote-superadmin.sh /path/to/master.db 'admin@rplywv00'
+
+Quote the identity to keep * from shell expansion. Run the script from the
+repository checkout on the destination host; it needs sqlite3 and database
+write permission. Grants are idempotent, but are intentionally VERY broad:
+they apply to present and future rigs/rooms, and site owner/admin operations.
+They do not bypass RF/PTT hardware safety or replace linked-site authentication.
+Do not use wildcard remote superadmin access in production.
+
+After the demo, remove grants created by this script on EACH destination DB
+(the example below uses the default path). This only removes grants bearing
+the script's marker, not grants configured independently:
+
+    sudo sqlite3 /var/lib/rustyrig/db/master.db "
+      DELETE FROM privilege_set_assignments
+        WHERE assigned_by='grant-remote-superadmin';
+      DELETE FROM resource_privileges
+        WHERE granted_by='grant-remote-superadmin';
+    "
+
+Review separately any pre-existing admin@* bootstrap grants from fresh test
+database preloads: removing script-generated rows does not remove those grants.
+See doc/resource-privileges.md and doc/release-checklist.md.
+
+Virtual Yaesu CAT model selection
+---------------------------------
+Each client CAT endpoint can emulate either FT-891 (the tested HF/6m default) or FT-991A (the experimental
+HF/VHF/UHF software profile).
+Add the setting to the client configuration for the PTY in question:
+
+    [serial:ttyCAT]
+    cat-model=ft891
+
+Use cat-model=ft991a for an application configured to use Yaesu FT-991A.
+The model changes the ID reply and is kept separately for each CAT endpoint;
+it does NOT change backend frequency ranges, access privileges, or transmit
+safety checks. EX032 and FT virtual state are likewise per endpoint. FT-991A
+compatibility is still evolving, and unsupported CAT commands are logged.
+
+For reports, include the release version, frontend, selected codec, relevant
+status/log messages and steps to reproduce. Redact passwords and proxy secrets.
