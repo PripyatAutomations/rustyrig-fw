@@ -897,37 +897,6 @@ void gui_file_editor_open_config(const char *filepath) {
 /////////////////////////////
 extern const char *config_file;
 
-static void on_edit_config_button(GtkButton *button, gpointer user_data) {
-   (void)button;
-
-   if (user_data != NULL) {
-      gui_file_editor_open_config(user_data);
-   } else {
-      const char *home = g_get_home_dir();
-      char *dir = g_build_filename(home, ".config", NULL);
-      char *path = g_build_filename(dir, "rrclient.cfg", NULL);
-
-      if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
-         if (g_mkdir_with_parents(dir, 0700) != 0 || !rrclient_database_config_save(path)) {
-            Log(LOG_WARN, "gtk.config", "Cannot initialize %s from active configuration: %s", path, strerror(errno));
-            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
-               GTK_BUTTONS_CLOSE, "Unable to create %s from the active configuration.", path);
-            gtk_dialog_run(GTK_DIALOG(dialog));
-            gtk_widget_destroy(dialog);
-            g_free(path);
-            g_free(dir);
-
-            return;
-         }
-         chmod(path, 0600);
-         Log(LOG_INFO, "gtk.config", "Created %s from active configuration", path);
-      }
-      gui_file_editor_open_config(path);
-      g_free(path);
-      g_free(dir);
-   }
-}
-
 static void on_fullscreen_button(GtkButton *button, gpointer user_data) {
    (void)button;
    gui_fullscreen_toggle();
@@ -1169,27 +1138,17 @@ static void on_edit_pipelines_button(GtkButton *button, gpointer user_data) {
 
 static void on_save_config_button(GtkButton *button, gpointer user_data) {
    (void)user_data;
-   static char save_path[PATH_MAX];
-   const char *home = getenv("HOME");
-   snprintf(save_path, sizeof(save_path), "%s/.config/rrclient.cfg", (home && *home) ? home : ".");
+   GtkWindow *parent = GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(button)));
 
-   GtkWindow *parent = NULL;
-   GtkWidget *toplevel = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   if (!rrclient_config_save()) {
+      GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Unable to save configuration to client.db");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
 
-   if (toplevel && GTK_IS_WINDOW(toplevel)) {
-      parent = GTK_WINDOW(toplevel);
-   }
-   char message[PATH_MAX + 128];
-   snprintf(message, sizeof(message), "Save configuration to \"%s\"?\nThe existing file will be backed up.", save_path);
-
-   if (!ui_confirm_dialog(parent, message)) {
       return;
    }
-
-   if (rrclient_database_config_save(save_path)) {
-      rrclient_config_clear_dirty();
-      Log(LOG_INFO, "gtk.config", "Configuration saved to %s", save_path);
-   }
+   Log(LOG_INFO, "gtk.config", "Configuration saved to client.db");
 }
 
 
@@ -1427,7 +1386,7 @@ GtkWidget *init_config_tab(void) {
    gtk_widget_set_tooltip_text(search,
       "Filter keys and descriptions (case-insensitive). =audio: keys containing audio; ^debug: keys starting with debug. Clear to show all fields.");
    gtk_box_pack_start(GTK_BOX(header), search, FALSE, FALSE, 0);
-   GtkWidget *config_label = gtk_label_new("Please be sure to click SAVE CONFIG when done...");
+   GtkWidget *config_label = gtk_label_new("Changes are saved to client.db when you click Save Config.");
    gtk_box_pack_start(GTK_BOX(header), config_label, FALSE, FALSE, 0);
 
    GtkWidget *cfg_list;
@@ -1446,13 +1405,9 @@ GtkWidget *init_config_tab(void) {
    gtk_widget_set_halign(buttons, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(nw), buttons, FALSE, FALSE, 0);
 
-   GtkWidget *btn_savecfg = config_action_button("Save Config", "document-save-symbolic", "Save configuration to ~/.config/rrclient.cfg");
+   GtkWidget *btn_savecfg = config_action_button("Save Config", "document-save-symbolic", "Save client configuration to client.db");
    g_signal_connect(btn_savecfg, "clicked", G_CALLBACK(on_save_config_button), NULL);
    gtk_box_pack_start(GTK_BOX(buttons), btn_savecfg, FALSE, FALSE, 0);
-
-   GtkWidget *btn_cfgedit = config_action_button("Edit Raw", "document-edit-symbolic", "Edit the active configuration file as text");
-   g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), NULL);
-   gtk_box_pack_start(GTK_BOX(buttons), btn_cfgedit, FALSE, FALSE, 0);
 
    GtkWidget *btn_reloadcfg = config_action_button("Reload Config", "view-refresh-symbolic", "Reload configuration from its active source");
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer) config_file);
