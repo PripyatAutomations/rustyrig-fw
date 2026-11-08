@@ -164,3 +164,10 @@ Do not force frontend-specific implementations to look alike. They only
 need equivalent behavior where the parity document says they do.
 If possible without large changes, we should try to adjust the webui to
 match C version as we add new protocol messages or features.
+
+## Licensing
+
+Project-owned RustyRig source uses `SPDX-License-Identifier: GPL-2.0-only`.
+The authoritative GPLv2 text is `doc/LICENSE`. Do not rewrite license headers
+in submodules, third-party libraries or bundled Windows themes.
+`librrprotocol` is GPLv2, while `librustyaxe` remains MIT.
