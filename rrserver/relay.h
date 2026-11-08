@@ -23,6 +23,8 @@ typedef struct rr_catalog_profile_info {
    uint64_t catalog_entries, pending_snapshots, pending_acks;
 } rr_catalog_profile_info_t;
 bool rr_relay_catalog_profile_summary(rr_catalog_profile_info_t *info);
+/* Invalidate cached descriptors for a revoked peer identity. */
+size_t rr_relay_catalog_revoke_owner(const char *owner);
 #ifdef USE_PROFILING
 /* Five-minute cumulative and interval catalog diagnostics; no wire changes. */
 void rr_relay_catalog_profile_dump(void);
