@@ -83,6 +83,9 @@ Description: Development files for libfwdspmgr
 Package: rustyrig-common
 Architecture: all
 Depends: adduser, acl, ${misc:Depends}
+# The helper used to ship inside librustyaxe, before this package split.
+Breaks: librustyaxe (<< 1.0.3~)
+Replaces: librustyaxe (<< 1.0.3~)
 Description: Common RustyRig administration helpers
  Shared local account, file-permission and administrative helper scripts
  used by the RustyRig server and terminal client.
@@ -90,6 +93,9 @@ Description: Common RustyRig administration helpers
 Package: rustyrig-bridge
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
+# Bridge host and Kiwi module previously belonged to rustyrig-server.
+Breaks: rustyrig-server (<< 1.0.3~)
+Replaces: rustyrig-server (<< 1.0.3~)
 Description: Remote SDR bridge host and KiwiSDR module for RustyRig
  Bridge process and receiver-driver module used for access to remote
  KiwiSDR receivers. Radio servers can install this package to provide
