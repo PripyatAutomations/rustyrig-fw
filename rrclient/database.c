@@ -460,7 +460,7 @@ bool rrclient_database_config_overlay_into(dict *target) {
 
       if (key && !g_str_has_prefix(key, "server:") && !g_str_has_prefix(key, "network:") &&
           !g_str_has_prefix(key, "theme:")) {
-         dict_add(cfg, key, value ? value : "");
+         dict_add(target, key, value ? value : "");
       }
    }
    ok = step == SQLITE_DONE;
