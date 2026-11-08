@@ -20,7 +20,11 @@ find({no_chdir => 1, wanted => sub {
    close $in;
    return unless defined $src;
    my $s = $src;
-   # GPLv2 allows commercial distribution: remove the old, misleading\n   # no-sale/no-payment warning from RustyRig-owned file headers.\n   $s =~ s{// Do not pay money for this, except donations to the project, if you wish to\\.\\n// The software is not for sale\\. It is freely available, always\\.\\n//\\n}{}g;\n   # Exact historical RustyRig boilerplates only: do not rewrite quoted
+   # GPLv2 allows commercial distribution: remove the old misleading
+   # no-sale/no-payment warning from RustyRig-owned file headers.
+   $s =~ s{// Do not pay money for this, except donations to the project, if you wish to\.\n// The software is not for sale\. It is freely available, always\.\n//\n}{}g;
+
+   # Exact historical RustyRig boilerplates only: do not rewrite quoted
    # notices documenting licenses of dependencies.
    $s =~ s{Licensed under MIT license, if built without mongoose or GPL if built with\.}{SPDX-License-Identifier: GPL-2.0-only}gi;
    $s =~ s{Part of rustyrig-fw; MIT license without mongoose, GPL with mongoose\.}{Part of rustyrig-fw; SPDX-License-Identifier: GPL-2.0-only.}gi;
