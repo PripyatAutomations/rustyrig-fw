@@ -95,13 +95,22 @@ bool rr_revocation_receive(sqlite3 *db,dict *d,bool *fresh) {
    const char *spki=dict_get(d,"identity.tls-spki","");
    if (g_ascii_strcasecmp(domain,cfg_get("domain")?cfg_get("domain"):"") ||
        !rr_identity_verify_catalog(d) || !rr_revocation_schema(db)) return false;
+   /* Catalogs from indirectly reachable nodes have already established an
+    * immutable signing-key pin. Their self-revocations must reach every node,
+    * not only servers with a direct enrollment relationship. */
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+      "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
+      "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid))",NULL,NULL,NULL)!=SQLITE_OK) return false;
    sqlite3_stmt *stmt=NULL;
    bool known=false;
    if (sqlite3_prepare_v2(db,
       "SELECT 1 FROM mesh_explicit_trust WHERE domain=?1 AND owner_uuid=?2"
       " AND catalog_pubkey=?3 AND tls_spki_sha256=?4"
       " UNION SELECT 1 FROM mesh_revocation_log WHERE domain=?1 AND owner_uuid=?2"
-      " AND public_key=?3 AND tls_spki=?4", -1,&stmt,NULL)==SQLITE_OK) {
+      " AND public_key=?3 AND tls_spki=?4"
+      " UNION SELECT 1 FROM mesh_identity_pins WHERE domain=?1 AND owner_uuid=?2"
+      " AND public_key=?3", -1,&stmt,NULL)==SQLITE_OK) {
       sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
       sqlite3_bind_text(stmt,2,uuid,-1,SQLITE_TRANSIENT);
       sqlite3_bind_text(stmt,3,key,-1,SQLITE_TRANSIENT);
