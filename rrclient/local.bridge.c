@@ -14,6 +14,8 @@
 #include <rrclient/audio.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/sercom.h>
+#include <time.h>
+#include <math.h>
 #include <librrprotocol/ws.serial.h>
 #include <librustyaxe/maidenhead.h>
 #include <librrprotocol/bridge.ipc.h>
@@ -46,7 +48,11 @@ typedef struct bridge_instance {
    char driver[32];
    char stream[64], resampler[64];
    unsigned slot;
-   bool online, pcm_started, gps_position_sent;
+   bool online, pcm_started;
+   bool approximate_location;
+   int32_t latitude_e7, longitude_e7;
+   char location_grid[11];
+   gint64 gps_last_emit;
    unsigned rate;
    gint64 resampler_retry_at;
    uint64_t pending, serial, frequency_hz, pending_hz;
@@ -1100,6 +1106,33 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
    g_free(b);
    g_spawn_close_pid(pid);
 }
+/* The directory gives a receiver's approximate site, not a live GPS
+ * measurement. Only publish while the matching local VFO is active. */
+static void local_bridge_gps_tick(bridge_instance *b) {
+   if (!b->online || !b->approximate_location ||
+      rrclient_room_active_vfo("&local-sdr") != (char)('A' + b->slot))
+      return;
+   gint64 now = g_get_monotonic_time();
+   if (b->gps_last_emit && now - b->gps_last_emit < G_USEC_PER_SEC)
+      return;
+   b->gps_last_emit = now;
+   char sentence[128];
+   if (!rr_gps_nmea_rmc(b->latitude_e7, b->longitude_e7, RR_GPS_POSITION_VALID,
+      time(NULL), sentence, sizeof(sentence)))
+      return;
+   dict *data = dict_new();
+   if (!data)
+      return;
+   dict_add(data, "gps.source", "active");
+   dict_add(data, "gps.nmea", sentence);
+   dict_add(data, "gps.grid", b->location_grid);
+   dict_add_bool(data, "gps.approximate", true);
+   dict_add_bool(data, "gps.selected", true);
+   dict_add_bool(data, "gps.raw", false);
+   event_emit_dict("serial.gps.output", NULL, data);
+   dict_free(data);
+}
+
 static gboolean poll_local(gpointer unused) {
    bridge_instance *b = unused;
 
@@ -1252,6 +1285,8 @@ static gboolean poll_local(gpointer unused) {
          }
       }
    }
+
+   local_bridge_gps_tick(b);
 
    /* Consume a bounded number of RF rows per tick; old rows are discarded by the seqpacket sender when the UI falls behind. */
    for (unsigned i = 0 ; i < 4 && b->spectrum >= 0 ; i++) {
@@ -1481,6 +1516,18 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    b->spectrum = spectrum[0];
    b->pid = pid;
    b->url = g_strdup(url);
+   /* Resolve only valid directory locators. No fabricated position for a
+    * receiver whose directory entry has no grid square. */
+   const receiver_directory_entry_t *directory = receiver_directory_find_url(url);
+   rr_location_t location;
+   if (directory && directory->grid && rr_location_resolve(NULL, directory->grid, &location)) {
+      b->approximate_location = true;
+      b->latitude_e7 = (int32_t) llround(location.latitude * 10000000.0);
+      b->longitude_e7 = (int32_t) llround(location.longitude * 10000000.0);
+      g_strlcpy(b->location_grid, directory->grid, sizeof(b->location_grid));
+      Log(LOG_INFO, "local.bridge.gps", "%s: approximate location from %s: %.5f, %.5f",
+         b->stream, b->location_grid, location.latitude, location.longitude);
+   }
    bridge_publish_ui();
    b->config = config;
    audio_local_rx_start(b->stream);
