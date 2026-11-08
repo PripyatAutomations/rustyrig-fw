@@ -3,7 +3,7 @@
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 //
 // This provides a local PTY (default $HOME/dev/ttyCAT0) that external rig-control
 // software (hamlib, rigctl, WSJT-X, etc) can open as a serial port.  Bytes
