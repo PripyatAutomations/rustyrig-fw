@@ -133,3 +133,35 @@ enrollment, strict link wire decoding, tree admission and mesh route selection.
 The older `links_live.py` media harness predates enrolled identities and the
 mandatory TLS migration; its password/plaintext fixture requires a separate
 update before it can validate direct/proxy media on this transport.
+
+
+## Mesh hop budgets and signer verification
+
+Every server-link wire packet carries an **outer** string field `ttl`,
+initialized to `mesh.default-ttl=10`. The receiving server decrements it
+once on each authenticated link hop. A packet with TTL=1 may be processed at
+the receiving node, but **must not** be forwarded further. Invalid, missing,
+non-numeric, or out-of-range TTL packets are rejected. These mesh wire
+changes require librrprotocol 0.1.0-5 and all participating peers updated.
+
+The configurable `mesh.warn-ttl=5` logs a `mesh.ttl` message at INFO when a
+packet's **remaining** hop budget reaches 5 or fewer, after decrement. Use
+`mesh.warn-ttl=0` to suppress these informational logs. The threshold is
+about **remaining budget**, not the number of hops a remote node claims to
+have traversed.
+
+The mutable outer `ttl` is **not signed**. The sender's signature covers
+the immutable application payload, including `identity.owner`, domain,
+key, operation and relevant control context. Intermediate nodes can decrement
+TTL without re-signing or altering this data. Mesh ingress drops any signed
+application whose verified signing owner does not match the envelope's
+claimed `node`. Unsigned catalog-sync delimiters must originate from the
+directly authenticated peer.
+
+A hostile intermediate node can still rewrite or replenish a mutable TTL;
+neither the field nor hop-to-hop TLS cryptographically proves its value over
+multiple hops. TTL is a loop and resource-exhaustion mitigation, **not** an
+end-to-end security guarantee against malicious relays. Original signer
+verification, durable key pinning and replay controls supply the integrity
+boundary; availability remains subject to malicious delays and drops.
+
