@@ -43,15 +43,9 @@ SHELL = bash
 CFLAGS += -Wno-duplicated-branches
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -Wno-deprecated-declarations
-# System mode must not shadow installed librustyaxe headers with the
-# submodule in ./ or ./inc. -idirafter still exposes our own project headers.
-ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-CFLAGS += $(AXE_SYSTEM_CFLAGS) $(RRPROTO_SYSTEM_CFLAGS) $(IRC_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./librustyaxe -idirafter ./inc -idirafter .
-else ifeq ($(LIBRRPROTOCOL_PROVIDER),system)
-CFLAGS += $(RRPROTO_SYSTEM_CFLAGS) $(IRC_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./librustyaxe -idirafter ./inc -idirafter .
-else
-CFLAGS += $(IRC_SYSTEM_CFLAGS) -I./ -I./librrprotocol -I./librustyaxe -I../ -I./inc -I${BUILD_DIR}
-endif
+# System headers first; RustyRig-local headers as fallback for project files.
+CFLAGS += $(AXE_SYSTEM_CFLAGS) $(RRPROTO_SYSTEM_CFLAGS) $(IRC_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./inc -idirafter .
+
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
@@ -97,23 +91,9 @@ SHARED_ID_FLAG = -Wl,-soname,$(1).0
 CLIENT_EXPORT_FLAGS := -rdynamic
 SERVER_EXPORT_FLAGS := -Wl,--export-dynamic
 endif
-# Preserve custom library search paths from pkg-config if provided; otherwise
-# the compiler's default -lrustyaxe search paths are sufficient.
-ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-LDFLAGS := $(AXE_SYSTEM_LDFLAGS) $(LDFLAGS)
-endif
-ifeq ($(LIBRRPROTOCOL_PROVIDER),system)
-LDFLAGS := $(RRPROTO_SYSTEM_LDFLAGS) $(LDFLAGS)
-endif
-ifeq ($(LIBRUSTYIRC_PROVIDER),system)
-LDFLAGS := $(IRC_SYSTEM_LDFLAGS) $(LDFLAGS)
-endif
+# Installed shared libraries, including nonstandard pkg-config directories.
+LDFLAGS := $(AXE_SYSTEM_LDFLAGS) $(RRPROTO_SYSTEM_LDFLAGS) $(IRC_SYSTEM_LDFLAGS) $(LDFLAGS)
 
-# librustyaxe is linked in every host build, including headless rrserver.
-# Its event loop / TUI needs glib-unix.h, g_unix_fd_add(), and GLib core.
-# Resolve headers and link libraries together, independently of GTK/GStreamer.
-# Keep these in the common flags: librustyaxe/rules.mk consumes CFLAGS when
-# compiling its objects and LDFLAGS when linking librustyaxe.so.
 GLIB_PACKAGES := glib-2.0
 ifeq ($(shell pkg-config --exists $(GLIB_PACKAGES) && echo yes),)
 $(error Missing $(GLIB_PACKAGES) development files; install libglib2.0-dev (or your platform equivalent) and pkg-config)

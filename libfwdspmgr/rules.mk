@@ -38,4 +38,4 @@ ${BUILD_DIR}/libfwdspmgr/%.o: libfwdspmgr/%.c ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr
 	@${CC} ${CFLAGS_LIBFWDSPMGR} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 libfwdspmgr_srcs := $(wildcard libfwdspmgr/*.c)
-${libfwdspmgr_srcs}: GNUmakefile ${librrprotocol_headers} librrprotocol/rules.mk ${BUILD_DIR}/build_config.h
+${libfwdspmgr_srcs}: GNUmakefile ${BUILD_DIR}/build_config.h

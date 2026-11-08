@@ -38,8 +38,3 @@ bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${fwdsp_real_objs}
 	@file $@
 	@size $@
 
-${BUILD_DIR}/fwdsp/cfg.fwdsp.o: librrprotocol/cfg.fwdsp.c GNUmakefile fwdsp/rules.mk
-	@${RM} -f $@
-	@mkdir -p $(dir $@)
-	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_FWDSP} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<

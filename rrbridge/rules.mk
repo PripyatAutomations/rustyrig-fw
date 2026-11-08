@@ -5,7 +5,7 @@ ifeq (${PLATFORM},posix)
 rrbridge_modules := bin/rrbridge-kiwi.so
 bins += ${rrbridge_modules}
 extra_clean += ${BUILD_DIR}/rrbridge/module.kiwi.o ${rrbridge_modules}
-${BUILD_DIR}/rrbridge/module.kiwi.o: rrbridge/module.kiwi.c librrprotocol/bridge.sdr.h librrprotocol/bridge.ipc.h ${BUILD_HEADERS} ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrbridge/module.kiwi.o: rrbridge/module.kiwi.c ${BUILD_HEADERS} ${OBJECT_ORDER_ONLY}
 	@mkdir -p $(dir $@)
 	@${CC} ${MEDIA_CFLAGS} -fPIC -c -o $@ $<
 bin/rrbridge-kiwi.so: ${BUILD_DIR}/rrbridge/module.kiwi.o ${librrprotocol} ${librustyaxe}
@@ -26,7 +26,7 @@ ifeq (${PLATFORM},posix)
 rrbridge_host_objs := ${BUILD_DIR}/rrbridge/main.o
 bins += bin/rrbridge
 extra_clean += ${rrbridge_host_objs} bin/rrbridge
-${BUILD_DIR}/rrbridge/main.o: rrbridge/main.c librrprotocol/bridge.sdr.h librrprotocol/bridge.ipc.h ${BUILD_HEADERS} ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrbridge/main.o: rrbridge/main.c ${BUILD_HEADERS} ${OBJECT_ORDER_ONLY}
 	@mkdir -p $(dir $@)
 	@${CC} ${MEDIA_CFLAGS} -c -o $@ $<
 bin/rrbridge: ${rrbridge_host_objs} ${librustyaxe} ${librrprotocol} ${librrsdrutils}

@@ -5,7 +5,7 @@ CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
     config/rrclient.callsign-lookup.cfg $(CF)
 LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 # Only libraries still owned by rustyrig-fw may be installed here.
-RUSTYRIG_OWNED_LIBS = $(filter-out librustyaxe.so librrprotocol.so librustyirc.so,$(libs))
+RUSTYRIG_OWNED_LIBS = $(libs)
 
 .PHONY: windows-install posix-install install uninstall install-dependency-check install-bin install-modules install-libs install-config install-assets install-tools install-sql install-dev install-check
 
@@ -15,7 +15,7 @@ windows-install:
 posix-install: install
 
 install-dependency-check:
-	@test "$(LIBRUSTYAXE_PROVIDER)" = system && test "$(LIBRRPROTOCOL_PROVIDER)" = system && test "$(LIBRUSTYIRC_PROVIDER)" = system || { echo "Install librustyaxe, librrprotocol and librustyirc separately before installing RustyRig; local submodules are for temporary testing." >&2; exit 1; }
+	@echo 'Using installed librustyaxe, librrprotocol and librustyirc'
 
 # No configuration is touched by the default install target.
 install: install-dependency-check
