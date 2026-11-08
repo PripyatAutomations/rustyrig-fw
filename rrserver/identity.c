@@ -669,6 +669,29 @@ bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner
        rr_identity_tls_pin_revoked(db, domain, tls_spki_sha256_b64)) {
       return false;
    }
+   /* An explicit enrollment cannot overwrite a live catalog pin for this
+    * UUID, including when called outside invitation redemption. */
+   if (sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+      "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
+      "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_stmt *pinned = NULL;
+   if (sqlite3_prepare_v2(db,
+      "SELECT public_key FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE"
+      " AND owner_uuid=?2", -1, &pinned, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(pinned, 1, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(pinned, 2, owner, -1, SQLITE_TRANSIENT);
+   int pin_row = sqlite3_step(pinned);
+   bool pin_ok = pin_row == SQLITE_DONE ||
+      (pin_row == SQLITE_ROW && sqlite3_column_text(pinned, 0) &&
+       !strcmp((const char *)sqlite3_column_text(pinned, 0), catalog_key_b64));
+   sqlite3_finalize(pinned);
+   if (!pin_ok) return false;
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO mesh_explicit_trust" "(domain,owner_uuid,catalog_pubkey,tls_spki_sha256) VALUES(?1,?2,?3,?4)", -1, &stmt,
