@@ -489,9 +489,32 @@ static bool trust_schema(sqlite3 *db) {
       "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch())," "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) == SQLITE_OK;
 }
 
+/* Explicit enrollment and live TLS authentication must both refuse a
+ * previously retired Ed25519 signing key, even if an old trust row survives. */
+static bool retired_signing_key(sqlite3 *db, const char *domain,
+      const char *owner, const char *key) {
+   if (!db || !domain || !owner || !key) return true;
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid,public_key))",NULL,NULL,NULL)!=SQLITE_OK)
+      return true;
+   sqlite3_stmt *stmt=NULL;
+   if (sqlite3_prepare_v2(db, "SELECT 1 FROM mesh_revoked_identity_keys"
+      " WHERE domain=?1 AND owner_uuid=?2 AND public_key=?3", -1, &stmt,NULL)!=SQLITE_OK)
+      return true;
+   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,3,key,-1,SQLITE_TRANSIENT);
+   int found=sqlite3_step(stmt);
+   sqlite3_finalize(stmt);
+   return found!=SQLITE_DONE;
+}
+
 bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner, const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
    if (!domain || !*domain || !owner || !g_uuid_string_is_valid(owner) ||
-      !trust_key_valid(catalog_key_b64, 32) || !trust_key_valid(tls_spki_sha256_b64, 32) || !trust_schema(db)) {
+      !trust_key_valid(catalog_key_b64, 32) || !trust_key_valid(tls_spki_sha256_b64, 32) || !trust_schema(db) ||
+       retired_signing_key(db, domain, owner, catalog_key_b64)) {
       return false;
    }
    sqlite3_stmt *stmt = NULL;
@@ -511,7 +534,8 @@ bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner
 }
 
 bool rr_identity_trust_verify(sqlite3 *db, const char *domain, const char *owner, const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
-   if (!domain || !owner || !catalog_key_b64 || !tls_spki_sha256_b64 || !trust_schema(db)) {
+   if (!domain || !owner || !catalog_key_b64 || !tls_spki_sha256_b64 || !trust_schema(db) ||
+       retired_signing_key(db, domain, owner, catalog_key_b64)) {
       return false;
    }
    sqlite3_stmt *stmt = NULL;
