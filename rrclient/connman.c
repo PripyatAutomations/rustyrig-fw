@@ -8,6 +8,9 @@
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/transport.mongoose.h>
+#include <librustyaxe/transport.wss.h>
+#include <librustyaxe/transport.h>
+#include <librrprotocol/wire-version.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/http.h>
 #include <rrclient/irc.h>
@@ -39,6 +42,12 @@ extern void rrclient_vfo_context_free(void *) __attribute__((weak));
 extern void rrclient_objects_context_free(void *) __attribute__((weak));
 
 
+#ifndef USE_MONGOOSE
+typedef struct rrclient_native_connection rrclient_native_connection_t;
+extern bool rrclient_native_text_receive(rrconn_t *cptr, const uint8_t *data, size_t len);
+extern bool ws_binframe_process_client(rrconn_t *cptr, const char *data, size_t len);
+#endif
+
 typedef struct client_server {
    char *name, *url;
    char domain[254], server_uuid[37];
@@ -47,6 +56,9 @@ typedef struct client_server {
    bool proxy_override;
 #endif
    rrconn_t *connection;
+#ifndef USE_MONGOOSE
+   rrclient_native_connection_t *native;
+#endif
    const char *user;
    int connected;
    uint64_t traffic_rx, traffic_tx;
@@ -936,8 +948,108 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
 }
 #endif
 
+#ifndef USE_MONGOOSE
+struct rrclient_native_connection {
+   rrconn_t connection;
+   server_cfg_t server;
+   rr_transport_t *transport;
+   client_server_t *owner;
+   bool closed;
+};
+
+static void native_event(rr_transport_t *transport, enum rr_transport_event event,
+      rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
+   (void)channel;
+   rrclient_native_connection_t *native = user;
+   client_server_t *s = native->owner;
+
+   if (s->native != native) {
+      return;
+   }
+   rrconn_t *cptr = &native->connection;
+   client_server_t *previous = context;
+   activate(s);
+   dispatch_depth++;
+
+   if (event == RR_TRANSPORT_EVENT_OPEN) {
+      s->connected = ws_connected = -1;
+      Log(LOG_INFO, "connman", "Native WebSocket connected to %s", s->name);
+      dict *info = dict_new();
+
+      if (info) {
+         dict_add(info, "connected.server", s->name);
+         event_emit_dict("connected", cptr, info);
+         dict_free(info);
+      }
+      dict *cap = dict_new();
+
+      if (cap) {
+         dict_add(cap, "msg.type", "cap");
+         dict_add(cap, "cap.cmd", "req");
+         dict_add_int(cap, "cap.version", RR_PROTOCOL_VERSION);
+         dict_add(cap, "cap.features", "wire.json-v2 binframe.v2 object.inventory-v2");
+         ws_send_dict(NULL, cptr, cap, WEBSOCKET_OP_TEXT);
+         dict_free(cap);
+      }
+   } else if (event == RR_TRANSPORT_EVENT_MESSAGE) {
+      rr_traffic_count(cptr, false, false, len);
+      rrclient_native_text_receive(cptr, data, len);
+   } else if (event == RR_TRANSPORT_EVENT_BINARY_MESSAGE) {
+      rr_traffic_count(cptr, false, true, len);
+      ws_binframe_process_client(cptr, (const char *)data, len);
+   } else if (event == RR_TRANSPORT_EVENT_ERROR) {
+      Log(LOG_WARN, "connman", "Native connection to %s: %.*s",
+         s->name, (int)MIN(len, (size_t)240), data ? (const char *)data : "");
+      event_emit("http.error", cptr, NULL);
+   } else if (event == RR_TRANSPORT_EVENT_CLOSE) {
+      native->closed = true;
+      s->connected = ws_connected = 0;
+      s->domain[0] = s->server_uuid[0] = 0;
+      dict *info = dict_new();
+
+      if (info) {
+         dict_add(info, "msg.type", "auth");
+         dict_add(info, "auth.server", s->name);
+         event_emit_dict("disconnected", cptr, info);
+         dict_free(info);
+      }
+   }
+   dispatch_depth--;
+   activate(dispatch_depth ? previous : selected);
+}
+#endif
+
 void rrclient_poll_events_reconnect(void) {
-#ifdef USE_MONGOOSE
+#ifndef USE_MONGOOSE
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      rrclient_native_connection_t *native = s->native;
+
+      if (native && native->transport) {
+         rr_transport_poll(native->transport, 0);
+
+         if (native->closed || rr_transport_state(native->transport) == RR_TRANSPORT_CLOSED) {
+            rr_transport_wss_release(native->transport);
+            native->connection.native_transport = NULL;
+            native->transport = NULL;
+            s->native = NULL;
+
+            if (s->connection == &native->connection) {
+               s->connection = NULL;
+            }
+            free(native);
+         }
+      }
+      if (s->reconnect_pending && now >= s->reconnect_at && !dying && !s->native) {
+         s->reconnect_pending = false;
+
+         if (s->reconnect_enabled) {
+            reconnect_attempting = true;
+            rrclient_connect_url(s->name, s->url);
+            reconnect_attempting = false;
+         }
+      }
+   }
+#else
 
    for (client_server_t *s = servers ; s ; s = s->next) {
       if (s->nick_deadline && now >= s->nick_deadline) {
@@ -968,8 +1080,11 @@ bool disconnect_server(const char *name) {
    nick_prompt_close(s);
    s->nick_recovering = false;
    cancel_reconnect(s);
-#ifdef USE_MONGOOSE
-
+#ifndef USE_MONGOOSE
+   if (s->native && s->native->transport) {
+      rr_transport_close(s->native->transport);
+   }
+#else
    if (s->connection && s->connection->conn) {
       s->connection->conn->is_closing = 1;
    }
@@ -1344,10 +1459,110 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
 
    return !c;
 #else
-   (void)proxy_override;
-   ui_print(NULL, "Server connections require the Mongoose transport backend");
+   if (endpoint.irc) {
+      ui_print(NULL, "IRC requires the Mongoose backend; native transport supports RustyRig WebSocket");
+      return true;
+   }
+   if (proxy_override || (cfg_get("server.proxy") && *cfg_get("server.proxy"))) {
+      ui_print(NULL, "SOCKS5 proxy transport is not yet available with native WSS");
+      return true;
+   }
+   if (!profile || !*profile) {
+      profile = endpoint.host;
+   }
+   client_server_t *s = find_server(profile);
 
-   return true;
+   if (s && s->native) {
+      rrclient_connection_select(s->name);
+      return false;
+   }
+   if (!s) {
+      s = calloc(1, sizeof(*s));
+
+      if (!s || !(s->name = strdup(profile))) {
+         free(s);
+         return true;
+      }
+      client_server_t **tail = &servers;
+
+      while (*tail) {
+         tail = &(*tail)->next;
+      }
+      *tail = s;
+   }
+   char *saved_url = strdup(url);
+
+   if (!saved_url) {
+      return true;
+   }
+   free(s->url);
+   s->url = saved_url;
+   rrclient_native_connection_t *native = calloc(1, sizeof(*native));
+
+   if (!native) {
+      return true;
+   }
+   native->owner = s;
+   native->connection.fd = -1;
+   native->connection.is_ws = true;
+   native->connection.server = &native->server;
+   g_strlcpy(native->server.network, s->name, sizeof(native->server.network));
+   g_strlcpy(native->server.host, endpoint.host, sizeof(native->server.host));
+   native->server.port = endpoint.port;
+   native->server.tls = endpoint.tls;
+   const char *nick = get_server_property(s->name, "server.user");
+   const char *password = get_server_property(s->name, "server.pass");
+
+   if (!nick || !*nick) {
+      nick = endpoint.credentials ? endpoint.user : "guest";
+   }
+   if (strlen(nick) >= sizeof(native->server.nick) ||
+       (password && strlen(password) >= sizeof(native->server.pass))) {
+      free(native);
+      return true;
+   }
+   g_strlcpy(native->connection.nick, nick, sizeof(native->connection.nick));
+   g_strlcpy(native->server.nick, nick, sizeof(native->server.nick));
+   g_strlcpy(native->server.pass, password ? password : "", sizeof(native->server.pass));
+   const char *ca = get_server_property(s->name, "server.tls-ca");
+
+   if (!ca || !*ca) {
+      ca = cfg_get("tls.ca-file");
+   }
+   rr_wss_client_options_t opts = {
+      .user_agent = "RustyRig/1.0",
+      .subprotocol = RR_WS_SUBPROTOCOL,
+      .ca_file = ca
+   };
+   char connect_url[2048];
+   snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s",
+      endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "",
+      endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port, endpoint.path);
+   native->transport = rr_transport_wss_connect(connect_url, &opts, native_event, native);
+
+   if (!native->transport) {
+      ui_print(NULL, "Unable to initialize native WebSocket connection for %s", s->name);
+      free(native);
+      return true;
+   }
+   native->connection.native_transport = native->transport;
+   s->connection = &native->connection;
+   s->native = native;
+   s->connected = -1;
+   s->reconnect_pending = false;
+   s->reconnect_enabled = true;
+
+   if (!reconnect_attempting) {
+      s->reconnect_tries = 0;
+   }
+   if (!selected || !reconnect_attempting) {
+      selected = s;
+   }
+   activate(s);
+   rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
+   ui_print(NULL, "%sConnecting to %s via OpenSSL/wslay", get_chat_ts(now), connect_url);
+   event_emit("client.server.selected", s->connection, s->name);
+   return false;
 #endif
 }
 
@@ -1359,7 +1574,9 @@ bool connect_or_disconnect(const char *name) {
       return disconnect_server(name);
    }
 #else
-   (void)s;
+   if (s && s->native) {
+      return disconnect_server(name);
+   }
 #endif
 
    return connect_server(name);
@@ -1422,12 +1639,42 @@ void rrclient_quit_servers(const char *reason) {
    }
 
 #else
-   (void)reason;
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      cancel_reconnect(s);
+
+      if (s->native && s->native->transport) {
+         if (s->connection && s->connection->authenticated) {
+            dict *request = dict_new();
+
+            if (request) {
+               dict_add(request, "msg.type", "auth");
+               dict_add(request, "auth.cmd", "quit");
+               dict_add(request, "auth.msg", reason ? reason : "Client exiting");
+               ws_send_dict(NULL, s->connection, request, WEBSOCKET_OP_TEXT);
+               dict_free(request);
+            }
+         }
+         rr_transport_close(s->native->transport);
+      }
+   }
 #endif
 }
 
 void rrclient_flush_quit(void) {
-#ifdef USE_MONGOOSE
+#ifndef USE_MONGOOSE
+   for (unsigned i = 0 ; i < 20 ; i++) {
+      bool pending = false;
+
+      for (client_server_t *s = servers ; s ; s = s->next) {
+         if (s->native && s->native->transport) {
+            rr_transport_poll(s->native->transport, 0);
+            pending = pending || rr_transport_state(s->native->transport) != RR_TRANSPORT_CLOSED;
+         }
+      }
+      if (!pending) break;
+      g_usleep(10000);
+   }
+#else
    uint64_t deadline = mg_millis() + 1000;
    while (mg_millis() < deadline) {
       bool pending = false;
@@ -1485,6 +1732,19 @@ void connman_shutdown(void) {
       free(servers->media);
       free(servers->wire_rooms);
       free((void *)servers->user);
+#ifndef USE_MONGOOSE
+      if (servers->native) {
+         if (servers->native->transport) {
+            rr_transport_close(servers->native->transport);
+            rr_transport_poll(servers->native->transport, 0);
+            if (rr_transport_state(servers->native->transport) == RR_TRANSPORT_CLOSED) {
+               rr_transport_wss_release(servers->native->transport);
+            }
+         }
+         free(servers->native);
+         servers->connection = NULL;
+      }
+#endif
       free(servers->connection);
       free(servers->name);
       free(servers->url);
