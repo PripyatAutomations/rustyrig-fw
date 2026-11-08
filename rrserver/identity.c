@@ -239,6 +239,24 @@ bool rr_identity_known_signer(sqlite3 *db, const char *domain,
       const char *owner, const char *public_key) {
    if (!db || !domain || !*domain || !g_uuid_string_is_valid(owner) ||
        !public_key || !*public_key) return false;
+   /* Schema creation is not identity admission: no unverified key is
+    * inserted by this helper. Fresh nodes may receive signed control traffic
+    * immediately after enrollment, before their first catalog snapshot. */
+   if (sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
+      "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid));"
+      "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
+      "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid,public_key));"
+      "CREATE TABLE IF NOT EXISTS mesh_explicit_trust("
+      "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
+      "catalog_pubkey TEXT NOT NULL,tls_spki_sha256 TEXT NOT NULL,"
+      "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid));",NULL,NULL,NULL)!=SQLITE_OK)
+      return false;
    sqlite3_stmt *stmt=NULL;
    if (sqlite3_prepare_v2(db,
       "SELECT 1 FROM mesh_explicit_trust WHERE domain=?1 COLLATE NOCASE "
