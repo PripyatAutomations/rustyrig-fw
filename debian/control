@@ -58,7 +58,7 @@ Description: Remote SDR bridge host and KiwiSDR module for RustyRig
 Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol0, rustyrig-fwdsp (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol0 (>= 0.1.0-5), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3)
 Suggests: rustyrig-server-hamlib
 Description: RustyRig server
@@ -67,7 +67,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0, rustyrig-fwdsp (= ${binary:Version}), librustyaxe0 (>= 0.1.0-5), ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0 (>= 0.1.0-5), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0 (>= 0.1.0-5), ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3)
 Suggests: rrclient-screensaver
 Description: RustyRig client
