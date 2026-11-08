@@ -54,6 +54,7 @@ struct link_session {
    char close_reason[256];
    const char *close_cause;
    bool ping_pending;
+   long long revocation_depart_after, revocation_depart_deadline;
    unsigned generation;
    char node[37];
    bool outbound, dedicated, hello, snapshot, admitted, ready, established;
