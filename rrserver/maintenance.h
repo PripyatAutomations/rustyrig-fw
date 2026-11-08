@@ -372,6 +372,18 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
       fprintf(stderr,"Identity already revoked; use --rotate-certs to prepare new keys.\\n");
       ok=false;
    }
+   /* Commit a fail-closed lock BEFORE any destructive PEM move. If a move
+    * fails, the old credentials must never be accidentally usable again. */
+   if (ok && !locked) {
+      int fd=open(marker,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
+      if (fd<0) ok=false;
+      else {
+         static const char reason[]="Old identity retired; complete local rotation before restart.\n";
+         ok=write(fd,reason,sizeof(reason)-1)==(ssize_t)(sizeof(reason)-1) &&
+            fsync(fd)==0;
+         if (close(fd)) ok=false;
+      }
+   }
    if (ok && !locked) {
       /* The files are retained in a private archive for incident evidence;
        * the server will not load these retired names. */
@@ -392,17 +404,14 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
       else fprintf(stderr,"PEM move incomplete; inspect %s manually before restart.\\n",archive?archive:dir);
       g_free(archive);
    }
-   if (ok && action==RR_MAINT_REVOKE_CERTS) {
-      int fd=open(marker,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
-      if (fd<0)ok=false;
-      else {
-         static const char reason[]="Local identity revoked. Use rrserver --rotate-certs before starting.\\n";
-         ok=write(fd,reason,sizeof(reason)-1)==(ssize_t)(sizeof(reason)-1) && fsync(fd)==0;
-         if (close(fd))ok=false;
-      }
-   }
-   if (ok && action==RR_MAINT_ROTATE_CERTS && locked) {
-      if (unlink(marker))ok=false;
+   if (ok && action==RR_MAINT_ROTATE_CERTS) {
+      /* Never clear the lock if any active retiring credential remains. */
+      struct stat old;
+      if (lstat(signing,&old)==0 || lstat(tlskey,&old)==0 ||
+          lstat(cert,&old)==0) {
+         fprintf(stderr,"Retired active PEM still exists; keeping revoked.lock.\n");
+         ok=false;
+      } else if (unlink(marker)!=0) ok=false;
    }
    sqlite3_close(db);
    g_free(signing);g_free(marker);
