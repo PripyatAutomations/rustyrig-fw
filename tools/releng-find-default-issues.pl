@@ -27,7 +27,7 @@
 #
 # Usage: tools/cfg-find-defaults.pl [-v] [rootdir]
 #
-# Licensed under MIT license, if built without mongoose or GPL if built with.
+# SPDX-License-Identifier: GPL-2.0-only
 #
 
 use strict;
