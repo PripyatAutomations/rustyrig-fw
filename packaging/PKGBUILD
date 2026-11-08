@@ -3,7 +3,7 @@
 # for reproducible release packages, and update pkgrel for package revisions.
 # Arch Linux split packages; build from the checked-out repository and its submodules.
 pkgbase=rustyrig
-pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
+pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp )
 options=('!emptydirs')
 pkgver=1.0.2
 pkgrel=1
@@ -17,14 +17,13 @@ sha256sums=('SKIP')
 
 prepare() {
    cd "$srcdir/rustyrig-fw"
-   git submodule update --init callsign-lookup ext/libmongoose ext/ft8_lib
+   git submodule update --init ext/ft8_lib
    test "$(cat .version)" = "$pkgver" || warning "PKGBUILD pkgver differs from source .version"
 }
 
 build() {
    cd "$srcdir/rustyrig-fw"
    make PROFILE=radio LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system
-   make -C callsign-lookup LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system
 }
 
 _install_libs() {
@@ -96,11 +95,6 @@ package_rustyrig-fwdsp() {
    pkgdesc='RustyRig GStreamer audio DSP service'; install=rustyrig.install; depends=('rustyrig-libs' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'shadow')
    cd "$srcdir/rustyrig-fw"; install -Dm755 bin/fwdsp "$pkgdir/usr/bin/fwdsp"
 }
-package_rustyrig-callsign-lookup() {
-   pkgdesc='RustyRig callsign lookup service'; backup=('etc/rustyrig/callsign-lookup.cfg'); depends=('rustyrig-libs' 'curl' 'sqlite')
-   cd "$srcdir/rustyrig-fw"; install -Dm755 bin/callsign-lookup "$pkgdir/usr/bin/callsign-lookup"; install -Dm644 config/callsign-lookup.cfg "$pkgdir/etc/rustyrig/callsign-lookup.cfg"
-}
-
 
 package_rustyrig-server-gpsd() {
    pkgdesc='GPSD receiver module for RustyRig server'

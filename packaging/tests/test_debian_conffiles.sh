@@ -45,13 +45,12 @@ for config in config/rrserver.*.cfg; do
 done
 stage_config rustyrig-server radio.config.json
 stage_config rustyrig-server ua-bans.txt
-stage_config rustyrig-callsign-lookup callsign-lookup.cfg
 (
    cd "$work/source"
    fakeroot make -f debian/rules override_dh_installdeb > "$work/installdeb.log" 2>&1
 )
 test ! -e "$work/source/debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg"
-for package in rustyrig-client rustyrig-server rustyrig-callsign-lookup; do
+for package in rustyrig-client rustyrig-server; do
    for config in "$work/source/debian/$package/etc/rustyrig/"*; do
       grep -Fxq "/etc/rustyrig/$(basename "$config")" \
          "$work/source/debian/$package/DEBIAN/conffiles"
