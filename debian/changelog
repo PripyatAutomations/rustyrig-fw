@@ -1,3 +1,14 @@
+rustyrig-fw (1.0.2-9) unstable; urgency=medium
+
+  * Introduce local-only stopped-server certificate retirement and rotation
+    with persistent signed mesh key-revocation messages and reconnection replay.
+  * Enforce immutable enrolled signing-key identity and revoked-key denial.
+  * Sign and verify remote catalog user snapshots and all relayed commands,
+    replies, state mutations, subscriptions and close/ack operations.
+  * Require librrprotocol 0.1.0-4 mesh revocation wire extensions.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 15:15:00 -0500
+
 rustyrig-fw (1.0.2-8) unstable; urgency=medium
 
   * Exclude the persistent mesh identity subtree from recursive rradmin ACL
