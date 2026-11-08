@@ -9,6 +9,7 @@ Build-Depends:
  pkg-config,
  libbsd-dev,
  librustyaxe-dev,
+ librrprotocol-dev,
  libcurl4-openssl-dev,
  libssl-dev,
  libwslay-dev,
@@ -45,18 +46,6 @@ Depends: librustyirc (= ${binary:Version}), librustyaxe-dev, ${misc:Depends}
 Description: Development files for librustyirc
  Public headers and linker files for the standalone IRC library.
 
-Package: librrprotocol
-Architecture: any
-Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
-Description: RustyRig protocol shared library
- WebSocket, media, chat, and rig-control protocol implementation.
-
-Package: librrprotocol-dev
-Architecture: any
-Depends: librrprotocol (= ${binary:Version}), librustyaxe-dev, ${misc:Depends}
-Description: Development files for librrprotocol
- Headers and linker files for the RustyRig protocol library.
-
 Package: libfwdspmgr
 Architecture: any
 Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
@@ -91,7 +80,7 @@ Description: Remote SDR bridge host and KiwiSDR module for RustyRig
 Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol0, libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-bridge (= ${binary:Version})
 Suggests: rustyrig-server-hamlib
 Description: RustyRig server
@@ -100,7 +89,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), librustyirc (= ${binary:Version}), acl, debconf, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), librustyirc (= ${binary:Version}), acl, debconf, librrprotocol0, libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rrclient-screensaver
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
