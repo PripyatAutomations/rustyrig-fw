@@ -22,6 +22,16 @@ The command performs the requested action and **exits without starting rrserver*
 
 Run `rrserver --help` (or `rrserver -h`) to see the full descriptions. `--reset-adminpw` asks for the new password twice **after** the exact maintenance confirmation; both password entries are hidden and must match. Passwords must be 8–256 characters. It re-enables the admin account with that password and does not write a `.bootstrap-password` file. For example:\n\n```sh\nrrserver -f /etc/rustyrig/rrserver.cfg --reset-adminpw\n```\n\n`--reset-db` on a nonexistent database is a no-op and reports success; after removing an existing database, the next normal startup provisions a new one.\n\nThe `--reset-db`, `--reset-rooms`, `--reset-logs`, `--reset-audit`, `--reset-adminpw` and `--reset-uuids` actions operate on `path.db.master` from the effective rrserver configuration. Do not guess which database is active when multiple instances are installed.
 
+## TLS keys and full cluster rekey
+
+There is **no** `rrserver --reset-certs` option currently.
+`--reset-db` and `--reset-uuids` do **not** rotate the PEM
+files under `path.identity`. For an intentional TLS/signing-key
+rotation, perform the coordinated, stopped-node steps in
+[Cluster rebuild and breach recovery](cluster-rebuild-recovery.md).
+Never delete private key material blindly on a running server or expect
+existing mesh SPKI trust pins to follow a new certificate.
+
 ## Identity rules for v1
 
 The clean v1 database assigns a durable UUID to every persistent room; this UUID is sent in resource inventory and is independent of the readable room name. The local server/node UUID is bound to the database, not `station.name`. Configured rig and VFO UUIDs are persisted using stable configuration identities. Persistent audio, GPS/NMEA and station webcam stream UUIDs are deterministically derived from their owning rig or server UUID, so reconnecting subscribers see the same logical resource after restart.
