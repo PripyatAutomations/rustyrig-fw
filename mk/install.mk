@@ -4,16 +4,21 @@ CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
     config/rrclient.cfg config/callsign-lookup.cfg \
     config/callsign-lookup.cli.cfg $(CF)
 LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
+# Only libraries still owned by rustyrig-fw may be installed here.
+RUSTYRIG_OWNED_LIBS = $(filter-out librustyaxe.so librrprotocol.so,$(libs))
 
-.PHONY: windows-install posix-install install install-bin install-modules install-libs install-config install-assets install-tools install-sql install-dev install-check
+.PHONY: windows-install posix-install install install-dependency-check install-bin install-modules install-libs install-config install-assets install-tools install-sql install-dev install-check
 
 windows-install:
 	@echo "Use the win64-installer target for Windows"
 
 posix-install: install
 
+install-dependency-check:
+	@test "$(LIBRUSTYAXE_PROVIDER)" = system && test "$(LIBRRPROTOCOL_PROVIDER)" = system || { echo "Install librustyaxe and librrprotocol separately before installing RustyRig; local submodules are for temporary testing." >&2; exit 1; }
+
 # No configuration is touched by the default install target.
-install: install-bin install-modules install-libs install-assets install-tools install-sql
+install: install-dependency-check install-bin install-modules install-libs install-assets install-tools install-sql
 	@echo "Installed runtime files at Debian package paths. Existing /etc/rustyrig config is untouched."
 	@echo "Run ldconfig after installing libraries on Linux."
 
@@ -37,8 +42,8 @@ install-modules: $(filter %.so,${bins})
 	done
 
 # Install real SONAME objects, never copy a symlink over a shared object.
-install-libs: ${libs}
-	@set -e; for src in ${libs}; do \
+install-libs: $(RUSTYRIG_OWNED_LIBS)
+	@set -e; for src in $(RUSTYRIG_OWNED_LIBS); do \
 		install -Dm755 "$$src" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src").0"; \
 	done
 
@@ -46,7 +51,7 @@ install-dev: install-libs
 	@set -e; for src in ${libs}; do \
 		ln -sfn "$$(basename "$$src").0" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src")"; \
 	done
-	@set -e; for component in librustyaxe librustyirc librrprotocol libfwdspmgr; do \
+	@set -e; for component in librustyirc libfwdspmgr; do \
 		install -d "$(DESTDIR)$(PREFIX)/include/$$component"; \
 		for header in $$component/*.h; do \
 			[ -f "$$header" ] || continue; \
