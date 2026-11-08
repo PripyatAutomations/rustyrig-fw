@@ -1914,7 +1914,7 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          /* This source has its own rig-scoped GPSP UUID. The receiver room
           * and its members are already known; advertise along with the
           * normal receiver audio below. */
-         if (!rrserver_gps_websdr_grid(b->backend->owner, grid)) {
+         if (!rrserver_gps_websdr_grid(b->backend->owner, grid, target_room)) {
             Log(LOG_WARN, "gps", "[%s] unable to provision directory-grid GPSP", bridge_public_name(b));
          } else {
             /* Earlier in this handler, RX availability was announced before
