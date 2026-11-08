@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 // RustyRig directory metadata service: no receiver probes or implicit streams.
+#include "build_config.h" /* Application profile: VERSION and feature flags. */
 #include <glib.h>
 #include <sqlite3.h>
 #include <errno.h>
