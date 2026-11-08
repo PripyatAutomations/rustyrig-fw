@@ -41,6 +41,9 @@ Additional tools include remote serial/GPS access, audio recording, administrati
 
 ![Resource Explorer](doc/screenshot-explorer.png)
 
+### Audio Routing
+![Audio Graph](doc/screenshot-gtk-audiograph.png)
+
 ## Get started
 
 RustyRig currently targets Debian-family Linux distributions for building and packaging.
