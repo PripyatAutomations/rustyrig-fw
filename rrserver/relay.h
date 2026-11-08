@@ -25,6 +25,8 @@ typedef struct rr_catalog_profile_info {
 bool rr_relay_catalog_profile_summary(rr_catalog_profile_info_t *info);
 /* Invalidate cached descriptors for a revoked peer identity. */
 size_t rr_relay_catalog_revoke_signer(const char *owner, const char *public_key);
+/* Forward original signed ownership statements without re-signing. */
+void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload);
 #ifdef USE_PROFILING
 /* Five-minute cumulative and interval catalog diagnostics; no wire changes. */
 void rr_relay_catalog_profile_dump(void);
