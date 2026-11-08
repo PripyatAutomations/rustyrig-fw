@@ -6,7 +6,7 @@
 # fwdsp uses the shared [fwdsp]/[pipelines] config callbacks from
 # librrprotocol, but does not use libfwdspmgr itself at runtime.
 
-CFLAGS_FWDSP = ${MEDIA_CFLAGS} -I${BUILD_DIR} ${gst_cflags} -DVERSION=\"$(VERSION)\"
+CFLAGS_FWDSP = ${MEDIA_CFLAGS} -I${BUILD_DIR} ${gst_cflags}
 # fwdsp objects are unsanitized by default, but shared librustyaxe/librrprotocol
 # can be ASan/UBSan-instrumented. Link the matching runtimes into the executable
 # so their interceptors are available from process startup.
@@ -17,6 +17,10 @@ bins += ${fwdsp}
 
 fwdsp_objs := defconfig.o fwdsp.o
 fwdsp_real_objs := $(addprefix ${BUILD_DIR}/fwdsp/,$(fwdsp_objs))
+
+# Only fwdsp.c needs VERSION from the command line. defconfig.c gets it
+# from generated build_config.h, avoiding a macro redefinition.
+${BUILD_DIR}/fwdsp/fwdsp.o: CFLAGS_FWDSP += -DVERSION=\\\"$(VERSION)\\\"
 
 # fwdsp/defconfig.c includes build_config.h, which pack-eeprom generates; wait
 # for it before compiling so parallel builds cannot race the generator.
