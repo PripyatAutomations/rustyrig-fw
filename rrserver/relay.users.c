@@ -77,6 +77,11 @@ void rr_relay_users_poll(bool force) {
    }
 
    if (changed) {
+      if (!rr_identity_public_base64()) {
+         Log(LOG_WARN,"mesh.identity","Cannot publish local user directory before signing identity initialization");
+         dict_free(local);
+         return;
+      }
       /* Directory state includes users, sessions and displayed privileges.
        * Sign the complete snapshot before storing or forwarding it. */
       dict_add(local,"identity.owner",rrserver_links_node());
