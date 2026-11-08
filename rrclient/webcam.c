@@ -7,7 +7,7 @@
 // Do not pay money this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 //
 // When client.role is set to video-source in the config, we announce that
 // role in the initial HELLO (PARITY: librrprotocol/ws.auth.c ws_send_hello),
