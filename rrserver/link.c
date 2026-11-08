@@ -526,6 +526,28 @@ void rrserver_links_broadcast(dict *d) {
    }
 }
 
+void rrserver_links_each_neighbor(rr_link_neighbor_fn cb, void *context) {
+   if (!cb) return;
+   for (struct link_session *s = links.sessions; s; s=s->next)
+      if (s->established && !session_closing(s)) cb(s->node, context);
+}
+void rrserver_links_depart_revoked(const char *uuid) {
+   if (!uuid || !g_uuid_string_is_valid(uuid)) return;
+   for (struct link_session *s=links.sessions; s; s=s->next) {
+      if (!s->established || strcmp(s->node,uuid) || session_closing(s)) continue;
+      /* Enqueue a graceful notice; the regular session-close path broadcasts
+       * link.withdraw and releases all relay/catalog state. */
+      dict *bye=message("link.withdraw");
+      if (bye) {
+         dict_add(bye,"node",uuid);
+         /* The normal withdraw belongs to the closing session, not this sender.
+          * Do not forge a withdraw operation on the revoked peer's behalf. */
+         dict_free(bye);
+      }
+      fail_cause(s,"trust-revoked","Signed identity revocation accepted; goodbye");
+   }
+}
+
 void send_hello(struct link_session *session) {
    dict *d = message("link.hello");
 
