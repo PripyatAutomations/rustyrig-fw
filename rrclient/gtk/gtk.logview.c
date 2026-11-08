@@ -271,6 +271,30 @@ typedef struct {
    gchar *client_draft, *server_draft;
    int current_target;
 } LogComposer;
+/* Filter the subsystem dropdown against text typed directly into its entry.
+ * Keep the entry editable so manually specified subsystem globs still work. */
+static gboolean composer_subsys_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   GtkEntry *entry = GTK_ENTRY(data);
+   const gchar *search = gtk_entry_get_text(entry);
+
+   if (!search || !*search) {
+      return TRUE;
+   }
+   gchar *name = NULL;
+   gtk_tree_model_get(model, iter, 0, &name, -1);
+   gchar *needle = g_utf8_casefold(search, -1);
+   gchar *haystack = g_utf8_casefold(name ? name : "", -1);
+   gboolean match = g_strstr_len(haystack, -1, needle) != NULL;
+   g_free(name);
+   g_free(needle);
+   g_free(haystack);
+
+   return match;
+}
+static void composer_subsys_search_changed(GtkEditable *entry, gpointer data) {
+   (void)entry;
+   gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
+}
 static void composer_target_changed(GtkComboBox *combo, gpointer data) {
    LogComposer *c = data;
    int target = gtk_combo_box_get_active(combo);
@@ -332,7 +356,17 @@ static void composer_open(GtkButton *button, gpointer data) {
    for (size_t i = 0 ; rr_log_subsystems[i] ; i++) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(c.subsys), rr_log_subsystems[i]);
    }
+   /* Wrap the built-in subsystem list in a live substring filter. The
+    * combo's entry is both the search field and the custom-rule input. */
+   GtkTreeModel *subsystems = gtk_combo_box_get_model(GTK_COMBO_BOX(c.subsys));
+   GtkTreeModel *filtered_subsystems = gtk_tree_model_filter_new(subsystems, NULL);
+   GtkWidget *subsys_entry = gtk_bin_get_child(GTK_BIN(c.subsys));
+   gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered_subsystems),
+      composer_subsys_visible, subsys_entry, NULL);
+   gtk_combo_box_set_model(GTK_COMBO_BOX(c.subsys), filtered_subsystems);
+   g_signal_connect(subsys_entry, "changed", G_CALLBACK(composer_subsys_search_changed), filtered_subsystems);
    gtk_combo_box_set_active(GTK_COMBO_BOX(c.subsys), 0);
+   g_object_unref(filtered_subsystems);
    c.level = gtk_combo_box_text_new();
    const char *const levels[] = {"crit", "audit", "warn", "info", "debug", "crazy", "blitz", NULL};
    for (unsigned i = 0 ; levels[i] ; i++) {
