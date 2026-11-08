@@ -60,6 +60,11 @@ const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
    {
+      "ui.status.collapse-buttons", "true",
+      "GTK upper toolbar: true uses icon-only tool buttons; false shows labels when space allows",
+      DEFCONFIG_BOOL, NULL
+   },
+   {
       "chat.send.burst", "4", "Client chat messages allowed in an immediate burst (1-100)", DEFCONFIG_UINT, NULL
    },
    {
