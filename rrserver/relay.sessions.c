@@ -275,7 +275,7 @@ bool rr_relay_state_demand(const char *owner, const char *room, dict *d) {
 }
 
 /* Forward owner state once per interested downstream branch. */
-void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
+void rr_relay_publish_state(const char *owner, const char *room, dict *d, int remaining_ttl) {
    /* Only the owning node can sign this state. Every intermediary forwards
     * its immutable signed payload; never sign somebody else's state. */
    dict *signed_state=NULL;
@@ -333,7 +333,7 @@ void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
          continue;
       }
 
-      rr_relay_send_owned(s->node,owner,"state",signed_state);
+      rr_relay_send_owned_ttl(s->node,owner,"state",signed_state,remaining_ttl);
       ++forwarded;
    }
 
@@ -538,7 +538,7 @@ void rr_relay_publish(const char *event, const void *data, size_t length, rrconn
    struct catalog *c = rr_relay_room_catalog(room);
 
    if (c && rr_relay_local_owner(c->owner)) {
-      rr_relay_publish_state(c->owner, room, message);
+      rr_relay_publish_state(c->owner, room, message, -1);
    }
 
    if (message != p->message) {
