@@ -14,4 +14,5 @@ if [ -d /var/lib/rustyrig/recordings ]; then
     chmod 0775 /var/lib/rustyrig/recordings
 fi
 
+#DEBHELPER#
 exit 0
