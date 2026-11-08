@@ -655,6 +655,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    if (!envelope) {
       return;
    }
+   char ingress[37];
+   g_strlcpy(ingress,dict_get(envelope,"_ingress",""),sizeof(ingress));
+   /* The authenticated ingress is local routing metadata, never a wire
+    * field. Forwarding it would violate the strict link.wire schema. */
+   dict_del(envelope,"_ingress");
    const char *origin = dict_get(envelope, "node", ""), *dest = dict_get(envelope, "dest", ""),
       *kind = dict_get(envelope, "kind", ""), *id = dict_get(envelope, "session", "");
    dict *d = json2dict(dict_get(envelope, "payload", ""));
@@ -697,7 +702,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    }
    if (!strcmp(kind, "identity-revocation")) {
 #ifdef USE_SQLITE
-      const char *ingress=dict_get(envelope,"_ingress","");
+      const char *incoming_peer=ingress;
       const char *key=dict_get(d,"identity.public-key","");
       bool fresh=false;
       if (strcmp(origin,dict_get(d,"identity.owner","")) ||
@@ -707,15 +712,15 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       }
       /* Preserve the owner's original signature for every transit hop. */
       if (fresh) {
-         revocation_forward(ingress,origin,d);
-         rrserver_links_depart_revoked(origin,ingress);
+         revocation_forward(incoming_peer,origin,d);
+         rrserver_links_depart_revoked(origin,incoming_peer);
       }
-      if (*ingress) {
+      if (*incoming_peer) {
          dict *ack=dict_new();
          if (ack) {
             dict_add(ack,"owner",origin);
             dict_add(ack,"public-key",key);
-            rr_relay_packet(ingress,"identity-revocation-ack","",NULL,ack);
+            rr_relay_packet(incoming_peer,"identity-revocation-ack","",NULL,ack);
             dict_free(ack);
          }
       }
@@ -725,7 +730,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    if (!strcmp(kind, "identity-revocation-ack")) {
       /* This reports one direct peer's acceptance, not global convergence. */
 #ifdef USE_SQLITE
-      if (!strcmp(dict_get(envelope,"_ingress",""),origin) &&
+      if (!strcmp(ingress,origin) &&
           rr_revocation_ack(masterdb, origin, dict_get(d,"owner",""),
              dict_get(d,"public-key",""))) {
          Log(LOG_INFO,"mesh.identity","Direct peer %s accepted revocation for signer %s",
