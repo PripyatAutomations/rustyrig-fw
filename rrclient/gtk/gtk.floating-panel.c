@@ -946,8 +946,12 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(raise_gesture, "pressed", G_CALLBACK(panel_raise_gesture), p);
    g_object_set_data_full(G_OBJECT(p->frame), "rr-panel-raise-gesture", raise_gesture, g_object_unref);
    g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
+   /* The resize grip floats over the content instead of reserving a
+    * dedicated row below it. Keep the overlay inside the panel frame. */
+   GtkWidget *panel_overlay = gtk_overlay_new();
+   gtk_container_add(GTK_CONTAINER(p->frame), panel_overlay);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-   gtk_container_add(GTK_CONTAINER(p->frame), panel);
+   gtk_container_add(GTK_CONTAINER(panel_overlay), panel);
    GtkWidget *handle = gtk_event_box_new();
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_container_add(GTK_CONTAINER(handle), header);
@@ -1067,12 +1071,18 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
     * Explicitly show the child: parent show_all() skips this subtree. */
    gtk_widget_show(resize_icon);
    gtk_widget_set_halign(p->resize_grip, GTK_ALIGN_END);
+   gtk_widget_set_valign(p->resize_grip, GTK_ALIGN_END);
+   gtk_widget_set_margin_end(p->resize_grip, 2);
+   gtk_widget_set_margin_bottom(p->resize_grip, 2);
+   gtk_widget_set_size_request(p->resize_grip, 22, 22);
+   gtk_widget_set_opacity(p->resize_grip, 0.60);
+   gtk_event_box_set_visible_window(GTK_EVENT_BOX(p->resize_grip), FALSE);
    gtk_widget_set_tooltip_text(p->resize_grip, "Drag to resize panel");
    gtk_widget_add_events(p->resize_grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
    g_signal_connect(p->resize_grip, "button-press-event", G_CALLBACK(panel_resize_press), p);
    g_signal_connect(p->resize_grip, "motion-notify-event", G_CALLBACK(panel_resize_move), p);
    g_signal_connect(p->resize_grip, "button-release-event", G_CALLBACK(panel_resize_release), p);
-   gtk_box_pack_end(GTK_BOX(panel), p->resize_grip, FALSE, FALSE, 0);
+   gtk_overlay_add_overlay(GTK_OVERLAY(panel_overlay), p->resize_grip);
    gtk_widget_set_no_show_all(p->resize_grip, TRUE);
    gtk_widget_hide(p->resize_grip);
    gtk_widget_show_all(p->frame);
