@@ -1,10 +1,7 @@
 // rrserver/rig.properties.h: backend-neutral per-rig property state
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 #if !defined(__rrserver_rig_properties_h)
 #define __rrserver_rig_properties_h
 

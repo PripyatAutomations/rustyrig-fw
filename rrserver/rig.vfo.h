@@ -2,7 +2,7 @@
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 #if !defined(__rrserver_rig_vfo_h)
 #define __rrserver_rig_vfo_h
 
