@@ -171,7 +171,30 @@ void link_command(const char *event, const char *data, rrconn_t *client, void *u
          path = "/var/lib/rustyrig/db/master.db";
       }
       bool opened = sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK;
-      char *token = opened && spki ? rr_identity_invite_issue(db, links.domain, url, spki, name, 0) : NULL;
+      /* A UUID may have exactly one explicitly trusted keypair. Make the
+       * conflict visible before issuing a secret that cannot be redeemed.
+       * Never silently approve a changed signing key via an invitation. */
+      bool existing_identity = false;
+      if (opened) {
+         sqlite3_stmt *existing = NULL;
+         if (sqlite3_prepare_v2(db,
+            "SELECT catalog_pubkey,tls_spki_sha256 FROM mesh_explicit_trust"
+            " WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2", -1, &existing, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(existing, 1, links.domain, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(existing, 2, name, -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(existing) == SQLITE_ROW) {
+               const char *old_key = (const char *)sqlite3_column_text(existing, 0);
+               const char *old_spki = (const char *)sqlite3_column_text(existing, 1);
+               ws_send_notice(client, "Node %s already enrolled (signer %.16s..., TLS SPKI %.16s...)."
+                  " Existing identity must be explicitly revoked and authenticated before replacement.",
+                  name, old_key ? old_key : "", old_spki ? old_spki : "");
+               existing_identity = true;
+            }
+         }
+         sqlite3_finalize(existing);
+      }
+      char *token = opened && spki && !existing_identity ?
+         rr_identity_invite_issue(db, links.domain, url, spki, name, 0) : NULL;
 
       if (db) {
          sqlite3_close(db);
@@ -179,6 +202,10 @@ void link_command(const char *event, const char *data, rrconn_t *client, void *u
       free(spki);
 
       if (!token) {
+         if (existing_identity) {
+            ws_send_error(client, "Enrollment refused: this node UUID already has a trusted identity. No replacement invitation was issued.");
+            return;
+         }
          ws_send_error(client, "Could not issue enrollment invitation; check database, TLS identity and invitation expiry");
 
          return;
