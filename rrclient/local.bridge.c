@@ -1111,8 +1111,9 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
  * measurement. Only publish while the matching local VFO is active. */
 static void local_bridge_gps_tick(bridge_instance *b) {
    /* Do not override a real rig's ttyGPS output while its tab is active. */
-   if (!b->online || !b->approximate_location ||
-      strcmp(rrclient_media_active_room(), "&local-sdr") ||
+   const char *selected_room = rrclient_media_active_room();
+   if (!b->online || !b->approximate_location || !selected_room ||
+      strcmp(selected_room, "&local-sdr") ||
       rrclient_room_active_vfo("&local-sdr") != (char)('A' + b->slot))
       return;
    gint64 now = g_get_monotonic_time();
@@ -1120,7 +1121,7 @@ static void local_bridge_gps_tick(bridge_instance *b) {
       return;
    b->gps_last_emit = now;
    char sentence[128];
-   if (!rr_gps_nmea_rmc(b->latitude_e7, b->longitude_e7, RR_GPS_POSITION_VALID,
+   if (!rr_gps_nmea_rmc(b->latitude_e7, b->longitude_e7, RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL,
       time(NULL), sentence, sizeof(sentence)))
       return;
    dict *data = dict_new();
