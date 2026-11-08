@@ -26,6 +26,8 @@ bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, c
 bool rr_identity_known_signer(sqlite3 *db, const char *domain, const char *owner, const char *public_key);
 /* Fail closed: missing/unreadable denylist is not permission to reconnect. */
 bool rr_identity_key_revoked(sqlite3 *db, const char *domain, const char *owner, const char *public_key);
+/* Persistent one-time nonce gate, called only after signature and signer validation. */
+bool rr_identity_accept_control_nonce(sqlite3 *db, dict *signed_message);
 /* Monotonic content revision assigned before signing; rejects stale remote updates. */
 bool rr_identity_local_revision(sqlite3 *db, const char *domain, const char *owner, const char *key, dict *descriptor);
 bool rr_identity_accept_revision(sqlite3 *db, const char *domain, const char *owner, const char *key, dict *descriptor);
