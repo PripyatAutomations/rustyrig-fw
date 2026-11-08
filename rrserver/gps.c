@@ -374,8 +374,8 @@ static void subscribed(const char *event, const char *data, rrconn_t *client, vo
  * locator is approximate: do not inherit the host station GPS, and do not
  * present its center as measured GPS telemetry. The GPSP manual flag records
  * that the position is derived from metadata. */
-bool rrserver_gps_websdr_grid(rr_server_rig_t *radio, const char *grid) {
-   if (!radio || !grid)
+bool rrserver_gps_websdr_grid(rr_server_rig_t *radio, const char *grid, const char *room) {
+   if (!radio || !grid || !room || !*room)
       return false;
    rr_location_t location;
    if (!rr_location_resolve(NULL, grid, &location))
@@ -402,8 +402,7 @@ bool rrserver_gps_websdr_grid(rr_server_rig_t *radio, const char *grid) {
          return false;
       }
       snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", alias);
-      snprintf(source->channel->room, sizeof(source->channel->room), "%s",
-         rr_rig_registry_room(rig.rigs, radio));
+      snprintf(source->channel->room, sizeof(source->channel->room), "%s", room);
       snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s",
          rr_server_rig_id(radio));
       if (!rrserver_media_uuid_assign(source->channel, rr_server_rig_id(radio), "gps.position")) {
@@ -414,6 +413,7 @@ bool rrserver_gps_websdr_grid(rr_server_rig_t *radio, const char *grid) {
       count++;
       created = true;
    }
+   snprintf(source->channel->room, sizeof(source->channel->room), "%s", room);
    source->lat = (int32_t)llround(location.latitude * 10000000.0);
    source->lon = (int32_t)llround(location.longitude * 10000000.0);
    source->own_input = true;
