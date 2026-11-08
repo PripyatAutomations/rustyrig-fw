@@ -41,8 +41,12 @@ bool rrserver_links_native_pin(const uint8_t pin[32]) {
 
 bool native_identity_trusted(const char *node, const char *key, const char *pin) {
 #ifdef USE_SQLITE
+   /* Legacy/static peers must not bypass the persistent revoked-key list.
+    * Rejection must happen before either DB trust or config pin fallback. */
+   if (!masterdb || rr_identity_key_revoked(masterdb, links.domain, node, key))
+      return false;
 
-   if (masterdb && cfg_get_bool("net.mesh-linking", true) && rr_identity_trust_verify(masterdb, links.domain, node, key, pin)) {
+   if (cfg_get_bool("net.mesh-linking", true) && rr_identity_trust_verify(masterdb, links.domain, node, key, pin)) {
       return true;
    }
 #endif
