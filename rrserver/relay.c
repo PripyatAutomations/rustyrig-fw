@@ -212,7 +212,7 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
 }
 
 /* Forward a link payload while retaining its authoritative owner. */
-void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
+void rr_relay_send_owned_ttl(const char *dest, const char *owner, const char *kind, dict *payload, int ttl) {
    dict *mutation = NULL;
 
    if (!strcmp(kind, "catalog-remove") && rr_relay_local_owner(owner)) {
@@ -268,10 +268,18 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    dict_add(d, "session", "");
    dict_add(d, "username", !strcmp(kind,"state") ? owner : "");
    dict_add(d, "payload", json);
+   if (ttl >= 0) {
+      char hop_budget[4];
+      snprintf(hop_budget, sizeof(hop_budget), "%d", ttl);
+      dict_add(d, "ttl", hop_budget);
+   }
    rrserver_links_send(dest, d);
    dict_free(d);
    free(json);
    dict_free(mutation);
+}
+void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
+   rr_relay_send_owned_ttl(dest,owner,kind,payload,-1);
 }
 
 /* File operations use correlated results, never generic chat errors, so transfers fail immediately rather than waiting for the client timeout. */
@@ -651,14 +659,14 @@ static void catalog_receive_free(gpointer ptr) {
 
 /* Revocations are signed by the retiring node, not by a client or relay.
  * Persist before forwarding and before dropping the revoked topology edge. */
-typedef struct { const char *from; const char *owner; dict *notice; } revocation_fanout_t;
+typedef struct { const char *from; const char *owner; dict *notice; int ttl; } revocation_fanout_t;
 static void revocation_send_neighbor(const char *peer, void *arg) {
    revocation_fanout_t *v=arg;
    if (peer && *peer && strcmp(peer,v->from) && strcmp(peer,v->owner))
-      rr_relay_send_owned(peer,v->owner,"identity-revocation",v->notice);
+      rr_relay_send_owned_ttl(peer,v->owner,"identity-revocation",v->notice,v->ttl);
 }
-static void revocation_forward(const char *from, const char *owner, dict *notice) {
-   revocation_fanout_t fanout={from,owner,notice};
+static void revocation_forward(const char *from, const char *owner, dict *notice, int ttl) {
+   revocation_fanout_t fanout={from,owner,notice,ttl};
    rrserver_links_each_neighbor(revocation_send_neighbor,&fanout);
 }
 /* Validate a received link envelope and dispatch its payload by kind. */
@@ -729,7 +737,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       }
       /* Preserve the owner's original signature for every transit hop. */
       if (fresh) {
-         revocation_forward(incoming_peer,origin,d);
+         revocation_forward(incoming_peer,origin,d,atoi(dict_get(envelope,"ttl","0")));
          rrserver_links_depart_revoked(origin,incoming_peer);
       }
       if (*incoming_peer) {
@@ -1331,7 +1339,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          dict_free(client_state);
       }
       /* Keep owner's signature in d for downstream forwarding. */
-      rr_relay_publish_state(c->owner, room, d);
+      rr_relay_publish_state(c->owner, room, d, atoi(dict_get(envelope,"ttl","0")));
    } else if (!strcmp(kind, "close")) {
       struct remote_session **p = &rr_relay_remotes;
       while (*p) {
