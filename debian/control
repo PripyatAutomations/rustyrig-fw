@@ -9,7 +9,7 @@ Build-Depends:
  pkg-config,
  libbsd-dev,
  librustyaxe-dev (>= 0.1.0-5),
- librrprotocol-dev,
+ librrprotocol-dev (>= 0.1.0-3),
  librustyirc-dev,
  libcurl4-openssl-dev,
  libssl-dev,
