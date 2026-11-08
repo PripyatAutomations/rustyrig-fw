@@ -6,7 +6,7 @@ pc=${IRC_PKG_CONFIG:-pkg-config}
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 cat > "$tmp/check.c" <<'EOF'
-#include <librustyirc/rrprotocol.h>
+#include <librustyirc/irc.h>
 int check_protocol(void) {
     irc_message_t *m = irc_parse_message("PING");
     irc_message_free(m);
