@@ -1,5 +1,5 @@
 // KiwiSDR floating controls; GTK owner-thread only.
-// Part of rustyrig-fw; MIT license without mongoose, GPL with mongoose.
+// Part of rustyrig-fw; GPL-2.0-only.
 #include "gtk.kiwi-panel.h"
 #include "gtk.core.h"
 #include "gtk.vfo-box.h"

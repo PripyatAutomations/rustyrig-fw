@@ -1,5 +1,5 @@
 // IRC text formatting and Pango markup for the GTK frontend.
-// Part of rustyrig-fw; MIT license without mongoose, GPL with mongoose.
+// Part of rustyrig-fw; GPL-2.0-only.
 #include <rrclient/gtk/gtk.core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/core.h>

@@ -1,5 +1,5 @@
 // Client certificate management and first-run local Ed25519 identity setup.
-// Part of rustyrig-fw; MIT license without mongoose, GPL with mongoose.
+// Part of rustyrig-fw; GPL-2.0-only.
 #include "gtk.identity.h"
 #include "gtk.core.h"
 #include <rrclient/identity.store.h>
