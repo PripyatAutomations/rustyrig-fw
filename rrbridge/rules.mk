@@ -17,7 +17,7 @@ endif
 .PHONY: test-rrbridge-kiwi
 test-rrbridge-kiwi:
 	@mkdir -p ${BUILD_DIR}/rrbridge
-	@${CC} ${MEDIA_CFLAGS} -Wall -Wextra -Werror -I. -o ${BUILD_DIR}/rrbridge/test.kiwi rrbridge/module.kiwi.c rrbridge/tests/kiwi.c -L. -Wl,-rpath,"${CURDIR}" -lrrprotocol -lrustyaxe ${MEDIA_LDFLAGS}
+	@${CC} ${MEDIA_CFLAGS} -Wno-unknown-warning-option -Wall -Wextra -Werror -I. -o ${BUILD_DIR}/rrbridge/test.kiwi rrbridge/module.kiwi.c rrbridge/tests/kiwi.c -L. -Wl,-rpath,"${CURDIR}" -lrrprotocol -lrustyaxe ${MEDIA_LDFLAGS}
 	@${BUILD_DIR}/rrbridge/test.kiwi
 
 # Bridge host uses the same named-section parser as rrserver (one source of truth).
