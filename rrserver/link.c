@@ -538,6 +538,12 @@ void rrserver_links_depart_revoked(const char *uuid) {
       /* Let the WebSocket deliver revocation ACKs and a graceful close.
        * The regular close_session() performs link.withdraw and downstream
        * resource removal. Never forge a withdraw from the remote node. */
+      dict *goodbye=message("link.goodbye");
+      if (goodbye) {
+         dict_add(goodbye,"node",links.node);
+         send_message(s,goodbye);
+         dict_free(goodbye);
+      }
       s->revocation_depart_after=mono_ms()+300;
       s->revocation_depart_deadline=mono_ms()+2000;
       if (s->peer) s->peer->manually_closed=true;
@@ -1000,6 +1006,16 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
          broadcast(session, d);
          Log(LOG_INFO, "link", "Introduced server %s [%s] via %s [%s], servers %zu", site, node, session->peer->site, session->node, rr_link_tree_count(links.
             tree));
+      }
+   } else if (session->established && !strcmp(op, "link.goodbye")) {
+      if (strcmp(dict_get(d,"node",""),session->node)) {
+         fail(session,"Unauthenticated link.goodbye origin");
+      } else {
+         session->close_cause="peer-graceful-shutdown";
+         snprintf(session->close_reason,sizeof(session->close_reason),
+            "Received authenticated peer goodbye");
+         session->closing=true;
+         rr_transport_close(session->transport);
       }
    } else if (session->established && !strcmp(op, "link.withdraw")) {
       const char *node = dict_get(d, "node", "");
