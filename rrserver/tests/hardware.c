@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-only
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
