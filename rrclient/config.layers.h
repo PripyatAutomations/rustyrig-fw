@@ -11,6 +11,9 @@ void rrclient_config_mark_dirty(void);
 bool rrclient_config_is_dirty(void);
 void rrclient_config_clear_dirty(void);
 bool rrclient_config_reload(const char *path);
+bool rrclient_config_reload_mode(const char *path, bool include_db_overrides);
+#define RRCLIENT_CONFIG_RELOAD_REQUEST "client.config.reload"
+typedef struct { bool from_db; } rrclient_config_reload_request_t;
 void rrclient_config_set_ignore_db(bool ignore);
 bool rrclient_config_ignore_db(void);
 bool rrclient_config_save(void);
