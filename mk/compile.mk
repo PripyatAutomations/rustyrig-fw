@@ -46,7 +46,7 @@ CFLAGS += -Wno-deprecated-declarations
 # Prefer the checked-out dependency headers over system-installed copies.
 ifeq ($(LIBRUSTYAXE_PROVIDER),system)
 # Override even the checkout-root headers with the installed API.
-CFLAGS += -I$(BUILD_DIR)/axe-system-include
+CFLAGS += -I$(BUILD_DIR)/axe-system-include $(shell $(AXE_PKG_CONFIG) --cflags librustyaxe)
 endif
 CFLAGS += -I./ -I./librrprotocol -I./librustyaxe -I../ -I./inc -I${BUILD_DIR}
 CFLAGS += -DMG_ENABLE_IPV6=1
@@ -87,13 +87,19 @@ SHARED_ID_FLAG = -Wl,-install_name,@rpath/$(1)
 CLIENT_EXPORT_FLAGS := -Wl,-export_dynamic
 SERVER_EXPORT_FLAGS := -Wl,-export_dynamic
 else
-LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$$ORIGIN:$$ORIGIN/../lib:$$ORIGIN/..'
+LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib:$ORIGIN/..'
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
 LIB_LDFLAGS := -fPIC -shared
 SHARED_ID_FLAG = -Wl,-soname,$(1).0
 CLIENT_EXPORT_FLAGS := -rdynamic
 SERVER_EXPORT_FLAGS := -Wl,--export-dynamic
 endif
+ifeq ($(LIBRUSTYAXE_PROVIDER),system)
+# The shared library is already installed; never stage a checkout-root copy.
+# The -L flag precedes fallback source directories.
+LDFLAGS := -L$(AXE_SYSTEM_LIBDIR) $(LDFLAGS)
+endif
+
 # librustyaxe is linked in every host build, including headless rrserver.
 # Its event loop / TUI needs glib-unix.h, g_unix_fd_add(), and GLib core.
 # Resolve headers and link libraries together, independently of GTK/GStreamer.
