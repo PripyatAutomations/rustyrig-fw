@@ -19,7 +19,7 @@ for binary in "$root/bin/rrclient" "$work/prefix/bin/rrclient"; do
    (
       cd "$work/outside"
       # Bind every symbol, including helpers not called by --help.
-      env -u LD_PRELOAD LD_LIBRARY_PATH="$library_dir" LD_BIND_NOW=1 "$binary" -h > "$work/help"
+      env -u LD_PRELOAD LD_LIBRARY_PATH="$library_dir:$root" LD_BIND_NOW=1 "$binary" -h > "$work/help"
       env -u LD_PRELOAD LD_LIBRARY_PATH="$library_dir" ldd "$binary" > "$work/ldd"
    )
    for library in libfwdspmgr; do
