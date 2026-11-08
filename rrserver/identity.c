@@ -1007,6 +1007,32 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain, 
    bool ok = sqlite3_step(s) == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(s);
 
+   /* A node UUID must not acquire a different signing key while an old
+    * independently authenticated catalog pin remains active. This check is
+    * inside the invitation's transaction to close issuer-side races. */
+   if (ok) {
+      ok = sqlite3_exec(db,
+         "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+         "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
+         "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
+         "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) == SQLITE_OK;
+   }
+   if (ok) {
+      sqlite3_stmt *pin = NULL;
+      ok = sqlite3_prepare_v2(db,
+         "SELECT public_key FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE"
+         " AND owner_uuid=?2", -1, &pin, NULL) == SQLITE_OK;
+      if (ok) {
+         sqlite3_bind_text(pin, 1, domain, -1, SQLITE_TRANSIENT);
+         sqlite3_bind_text(pin, 2, node, -1, SQLITE_TRANSIENT);
+         int row = sqlite3_step(pin);
+         if (row == SQLITE_ROW) {
+            const char *prior = (const char *)sqlite3_column_text(pin, 0);
+            ok = prior && !strcmp(prior, catalog);
+         } else ok = row == SQLITE_DONE;
+      }
+      sqlite3_finalize(pin);
+   }
    if (ok) {
       ok = rr_identity_trust_enroll(db, domain, node, catalog, spki);
    }
