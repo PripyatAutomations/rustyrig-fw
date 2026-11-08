@@ -11,4 +11,8 @@ void rrclient_config_mark_dirty(void);
 bool rrclient_config_is_dirty(void);
 void rrclient_config_clear_dirty(void);
 bool rrclient_config_reload(const char *path);
+/* Core-domain handler for local-only log verbosity changes from GTK. */
+void rrclient_log_level_register(void);
+#define RRCLIENT_LOG_LEVEL_REQUEST "client.log.level.apply"
+typedef struct { char spec[2048]; } rrclient_log_level_request_t;
 #endif
