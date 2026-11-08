@@ -27,7 +27,8 @@ find({no_chdir => 1, wanted => sub {
    # Exact historical RustyRig boilerplates only: do not rewrite quoted
    # notices documenting licenses of dependencies.
    $s =~ s{Licensed under MIT license, if built without mongoose or GPL if built with\.}{SPDX-License-Identifier: GPL-2.0-only}gi;
-   $s =~ s{Part of rustyrig-fw; MIT license without mongoose, GPL with mongoose\.}{Part of rustyrig-fw; SPDX-License-Identifier: GPL-2.0-only.}gi;
+   $s =~ s{Part of rustyrig-fw; MIT license without mongoose, GPL with mongoose\.}{Part of rustyrig-fw. SPDX-License-Identifier: GPL-2.0-only.}gi;
+   $s =~ s{Part of rustyrig-fw; GPL-2\.0-only\.}{Part of rustyrig-fw. SPDX-License-Identifier: GPL-2.0-only.}gi;
    $s =~ s{Copyright RustyRig contributors, MIT license when built without Mongoose\.}{Copyright RustyRig contributors. SPDX-License-Identifier: GPL-2.0-only.}g;
    if ($s =~ /(?:This is part of rustyrig-fw|Part of rustyrig-fw|Copyright RustyRig|rrserver\/|rrclient\/)/i) {
       $s =~ s{SPDX-License-Identifier:\s*MIT\b}{SPDX-License-Identifier: GPL-2.0-only}g;
