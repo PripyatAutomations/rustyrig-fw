@@ -44,7 +44,7 @@ override_dh_auto_clean:
 
 override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) LIBRUSTYAXE_PROVIDER=system $(OPTIONAL_MAKE_FLAGS)
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system $(OPTIONAL_MAKE_FLAGS)
 	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup LIBRUSTYAXE_PROVIDER=system
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
@@ -116,15 +116,10 @@ endif
 	install -d debian/librustyirc-dev$(LIBDIR) debian/librustyirc-dev/usr/include/librustyirc
 	ln -sf librustyirc.so.0 debian/librustyirc-dev$(LIBDIR)/librustyirc.so
 	for header in librustyirc/*.h; do [ "$$header" = librustyirc/internal.h ] || install -m644 "$$header" debian/librustyirc-dev/usr/include/librustyirc/; done
-	install -Dm755 librrprotocol.so debian/librrprotocol$(LIBDIR)/librrprotocol.so.0
 	install -Dm755 libfwdspmgr.so debian/libfwdspmgr$(LIBDIR)/libfwdspmgr.so.0
-	install -d debian/librrprotocol-dev$(LIBDIR)
 	install -d debian/libfwdspmgr-dev$(LIBDIR)
-	ln -sf librrprotocol.so.0 debian/librrprotocol-dev$(LIBDIR)/librrprotocol.so
 	ln -sf libfwdspmgr.so.0 debian/libfwdspmgr-dev$(LIBDIR)/libfwdspmgr.so
 
-	install -d debian/librrprotocol-dev/usr/include/librrprotocol
-	cp -a librrprotocol/*.h debian/librrprotocol-dev/usr/include/librrprotocol/
 	install -d debian/libfwdspmgr-dev/usr/include/libfwdspmgr
 	cp -a libfwdspmgr/*.h debian/libfwdspmgr-dev/usr/include/libfwdspmgr/
 
