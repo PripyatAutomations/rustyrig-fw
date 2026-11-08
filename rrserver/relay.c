@@ -680,8 +680,14 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    }
    if (!strcmp(kind, "identity-revocation-ack")) {
       /* This reports one direct peer's acceptance, not global convergence. */
-      Log(LOG_INFO,"mesh.identity","Revocation acknowledged by %s for signer %s",
-         origin,dict_get(d,"owner",""));
+#ifdef USE_SQLITE
+      if (!strcmp(dict_get(envelope,"_ingress",""),origin) &&
+          rr_revocation_ack(masterdb, origin, dict_get(d,"owner",""),
+             dict_get(d,"public-key",""))) {
+         Log(LOG_INFO,"mesh.identity","Direct peer %s accepted revocation for signer %s",
+            origin,dict_get(d,"owner",""));
+      }
+#endif
       goto done;
    }
 
