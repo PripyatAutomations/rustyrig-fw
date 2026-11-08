@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #ifndef RRSERVER_USAGE_H
 #define RRSERVER_USAGE_H
+/* USE_SQLITE is supplied by the RustyRig profile, not RustyAxe. */
+#include "build_config.h"
 #include <librustyaxe/core.h>
 #ifdef USE_SQLITE
 #include <sqlite3.h>
