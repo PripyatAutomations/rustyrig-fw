@@ -13,14 +13,14 @@ check: test_pipeline test_json
 test_pipeline: test_pipeline.c ../pipeline.c ../pipeline.h
 	$(CC) $(CFLAGS) $(GST_CFLAGS) -I.. -o $@ test_pipeline.c ../pipeline.c $(GST_LIBS)
 
-AXE_PKG_AVAILABLE := $(shell $(PKG_CONFIG) --exists librustyaxe && echo yes)
-ifeq ($(AXE_PKG_AVAILABLE),yes)
-AXE_TEST_CFLAGS := $(shell $(PKG_CONFIG) --cflags librustyaxe)
-AXE_TEST_LIBS := $(shell $(PKG_CONFIG) --libs librustyaxe)
+AXE_PROBE := $(shell cd ../.. && AXE_CC='$(CC)' AXE_CFLAGS='$(CFLAGS)' sh tools/probe-librustyaxe.sh)
+ifneq ($(filter pkgconfig compiler,$(AXE_PROBE)),)
+AXE_TEST_CFLAGS := $(shell $(PKG_CONFIG) --cflags librustyaxe 2>/dev/null)
+AXE_TEST_LIBS := $(shell $(PKG_CONFIG) --libs-only-L librustyaxe 2>/dev/null) -lrustyaxe
 AXE_TEST_DEP :=
 else
 AXE_TEST_CFLAGS := -I../..
-AXE_TEST_LIBS := -L../.. -Wl,-rpath,'$ORIGIN/../..' -lrustyaxe
+AXE_TEST_LIBS := -L../.. -Wl,-rpath,'$$ORIGIN/../..' -lrustyaxe
 AXE_TEST_DEP := ../../librustyaxe.so
 endif
 
