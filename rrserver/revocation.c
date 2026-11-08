@@ -12,6 +12,8 @@
 #include <glib.h>
 #include <string.h>
 #include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
 #ifdef USE_SQLITE
 bool rr_revocation_schema(sqlite3 *db) {
    return db && sqlite3_exec(db,
