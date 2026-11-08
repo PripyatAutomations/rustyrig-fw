@@ -7,6 +7,9 @@
 #include <sys/stat.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/database.h>
+#include <librustyaxe/logger.h>
+/* The runtime logger exposes its config loader; changes run in the core domain. */
+extern void load_log_filters_from_config(void);
 #ifndef RRCLIENT_SYSTEM_CONFIG_PATH
 #define RRCLIENT_SYSTEM_CONFIG_PATH "/etc/rustyrig/rrclient.cfg"
 #endif
@@ -20,6 +23,28 @@ bool rrclient_config_is_dirty(void) {
 }
 void rrclient_config_clear_dirty(void) {
    config_dirty = false;
+}
+
+/* Only the local core may change the client's logger. No wire handler exists. */
+static void log_level_apply_request(const rr_event_message_t *message, void *user) {
+   (void)user;
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_log_level_request_t)) {
+      return;
+   }
+   const rrclient_log_level_request_t *request = message->payload;
+
+   if (!memchr(request->spec, '\\0', sizeof(request->spec))) {
+      return;
+   }
+   dict_add(cfg, "log.level", request->spec);
+   rrclient_config_mark_dirty();
+   log_clear_filters();
+   load_log_filters_from_config();
+   Log(LOG_INFO, "client.log", "Applied local client log.level filter (config marked dirty)");
+}
+void rrclient_log_level_register(void) {
+   event_on_message_domain_token(RRCLIENT_LOG_LEVEL_REQUEST, log_level_apply_request, NULL, "core");
 }
 
 /* The host builds default_cfg before loading any file. Preserve it as the lowest-precedence layer without mutating the shared defaults table. */
