@@ -889,10 +889,6 @@ sub generate_config_h {
          printf $fh "#define USE_GSTREAMER\n";
       }
 
-      if (defined($config->{features}{'http'}) && match_boolean($config->{features}{'http'})) {
-         printf $fh "#define USE_HTTP\n";
-      }
-
       if (defined($config->{features}{'libnotify'}) && match_boolean($config->{features}{'libnotify'})) {
          printf $fh "#define USE_LIBNOTIFY\n";
       }
