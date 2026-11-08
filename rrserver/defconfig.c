@@ -33,6 +33,12 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
    {
+      "mesh.default-ttl", "10", "Default mesh packet hop limit (1..255); decremented once per authenticated hop", DEFCONFIG_UINT, NULL
+   },
+   {
+      "mesh.warn-ttl", "5", "Log mesh INFO when a packet has reached this remaining hop budget or lower (0 disables)", DEFCONFIG_UINT, NULL
+   },
+   {
       "bridge.proxy-enabled", "true", "Allow authenticated clients to launch or share server-hosted SDR bridges", DEFCONFIG_BOOL, NULL
    },
    {
