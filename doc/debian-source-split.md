@@ -117,12 +117,21 @@ pkg-config is optional for discovery. The submodules remain available for
 temporary uninstalled testing. No automatic upgrade of installed libraries
 occurs; update/install each upstream library separately when desired.
 
+Normal source-tree builds can use the local submodules without installing them.
+The top-level `make install` instead requires both library providers to be
+`system`: RustyRig never permanently installs `librustyaxe` or
+`librrprotocol` from its fallback submodules. `make install-dev` likewise
+installs only the development files still owned by RustyRig.
+
 Force a mode with `LIBRUSTYAXE_PROVIDER=system|local` and
 `LIBRRPROTOCOL_PROVIDER=system|local`. An old checkout-root SONAME must be
 removed with `make distclean` before switching to a system provider.
 Standalone library source packages are created with `make src-deb`, which
 requires a clean Git working tree and writes the `.dsc`, orig tarball and
-Debian packaging artifacts beside the repository.
+Debian packaging artifacts beside the repository. `make deb` builds each
+library's runtime and development binaries. Source-package generation uses
+`dpkg-buildpackage` only for the packaging target; ordinary `make` does not
+need Debian tools.
 
 `librustyirc` remains a separately versioned library inside `rustyrig-fw`
 for now. Its currently inspected implementation uses RustyAxe utilities and
