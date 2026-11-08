@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <assert.h>
 #include <rrclient/receiver.directory.c>
 /* Standalone tests run their core scheduler on GLib's default context. */

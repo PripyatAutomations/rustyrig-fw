@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Standalone lifecycle/render/control checks: deliberately no client linkage. */
 #include "../gtk/gtk.matrix.c"
 

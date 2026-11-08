@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <rrclient/connection.state.h>
 #include "gtk.tree-style.h"
 // Resource manager presentation. State and actions belong to the common client.

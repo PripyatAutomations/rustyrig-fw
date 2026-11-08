@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Linux I2C adapter for Si5351A. Part of RustyRig; MIT license.
 #include <errno.h>
 #include <fcntl.h>

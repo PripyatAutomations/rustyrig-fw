@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Shared RX slice identities. No SDR/DSP implementation is required here.
 // MIT license; independent of server transport and GTK.
 #ifndef RR_RX_SLICE_H

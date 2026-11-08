@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Generic external DSP worker: process isolation and typed media ports.
 // MIT license. This header is independent of GStreamer and GTK.
 #ifndef RR_DSP_WORKER_H

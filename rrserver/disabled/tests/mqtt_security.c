@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // MQTT packets are untrusted network input. Verify bounded parsing,
 // subscription limits, disconnect cleanup, and the listener enable switch.
 #include <assert.h>

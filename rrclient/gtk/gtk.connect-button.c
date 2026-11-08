@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Reusable GTK connection toggle, independent of the VFO layout. */
 #include <rrclient/gtk/gtk.connect-button.h>
 #include <librustyaxe/core.h>

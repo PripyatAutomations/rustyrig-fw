@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // GTK screensaver idle state and gmatrix launcher.
 // Part of rustyrig-fw; GPL-2.0-only.
 #include "gtk.screensaver.h"

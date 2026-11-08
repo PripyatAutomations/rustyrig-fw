@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Adversarial real TLS client. Deliberately independent of the production WSS driver and auth receiver; signs using the permanent identity API. */
 #include <rrserver/identity.h>
 #include <openssl/ssl.h>

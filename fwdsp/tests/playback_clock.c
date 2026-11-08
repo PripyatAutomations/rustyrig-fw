@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Exercise the actual framed-input path with a deterministic pipeline clock.
 #define main fwdsp_program_main
 #include <fwdsp/fwdsp.c>

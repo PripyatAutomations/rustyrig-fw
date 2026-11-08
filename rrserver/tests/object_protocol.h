@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <librrprotocol/wire.h>
 // Live WebSocket harness using production serialization, server protocol,
 // backend instances, and rrclient's generic cache. Authentication is pre-set

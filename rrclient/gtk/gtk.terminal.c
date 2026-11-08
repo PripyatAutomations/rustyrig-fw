@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // GTK3 serial terminal: VTE presentation over common sercom byte streams.
 // This module is optional; rrclient/sercom.c has no GTK or VTE dependency.
 #include <gtk/gtk.h>

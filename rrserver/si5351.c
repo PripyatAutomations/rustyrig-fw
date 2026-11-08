@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Si5351A register generation and sequencing. Part of RustyRig; MIT license.
 // Register equations/layout: Skyworks AN619 (10-MSOP/20-QFN), rev 0.8.
 #include <errno.h>

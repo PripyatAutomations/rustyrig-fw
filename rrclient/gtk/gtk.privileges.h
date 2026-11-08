@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // GTK privilege selection; server validation remains authoritative.
 #ifndef RRCLIENT_GTK_PRIVILEGES_H
 #define RRCLIENT_GTK_PRIVILEGES_H

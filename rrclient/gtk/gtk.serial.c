@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Native serial endpoint chooser and settings. Common sercom owns all I/O.
 // Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
 #include <stdbool.h>

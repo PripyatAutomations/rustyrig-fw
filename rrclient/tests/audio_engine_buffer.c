@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Exercise the actual independent PCM mixer without GTK or fwdsp children. Keep the startup/recovery rules deterministic rather than relying on sleep. */
 #include <assert.h>
 #include <stdint.h>

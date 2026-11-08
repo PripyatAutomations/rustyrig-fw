@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Standalone asynchronous AF FFT regression test. Compile with rrclient/spectrum.af.c, GLib threads and -lm. */
 #include <assert.h>
 #include <math.h>

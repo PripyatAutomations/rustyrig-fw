@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Catalog snapshot application, UUID reconciliation and domain union projection. All tree operations run on the GTK owner thread. */
 #include <rrclient/connection.state.h>
 #include "gtk.catalog.internal.h"

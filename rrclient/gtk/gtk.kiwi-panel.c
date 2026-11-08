@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // KiwiSDR floating controls; GTK owner-thread only.
 // Part of rustyrig-fw; GPL-2.0-only.
 #include "gtk.kiwi-panel.h"

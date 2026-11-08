@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Remote media loss must retry backend key-up even after the grant is gone. */
 #include <assert.h>
 #include <rrserver/relay.c>

@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Focused Phase 2 tests for the runtime rig and backend-instance registry.
 #include <assert.h>
 #include <stdbool.h>

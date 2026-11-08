@@ -112,6 +112,9 @@ debian/rustyrig-fwdsp/*
 debian/rustyrig-server.substvars
 debian/rustyrig-server/*
 debian/rustyrig-server/*/*
+debian/gmatrix/*
+debian/rustyrig-common/*
+debian/rustyrig-rrbridge/*
 !debian/rustyrig-server.config
 !debian/rustyrig-server.templates
 modems/*/rrmodem-*

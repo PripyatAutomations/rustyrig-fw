@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Local serial, PTY and WSJT-X catalog projection; GTK owner thread only. */
 #include "gtk.catalog.internal.h"
 #include "gtk.serial.h"
