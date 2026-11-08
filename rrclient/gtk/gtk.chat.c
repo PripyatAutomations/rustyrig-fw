@@ -2748,7 +2748,10 @@ bool chat_init(void) {
    gtk_button_set_relief(GTK_BUTTON(volume_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(volume_button, "Show or hide Volume");
    g_signal_connect(volume_button, "clicked", G_CALLBACK(status_volume_clicked), NULL);
-   gtk_box_pack_start(GTK_BOX(network_row), volume_button, FALSE, FALSE, 0);
+   gtk_widget_set_margin_start(volume_button, 0);
+   gtk_widget_set_margin_end(volume_button, 0);
+   /* Keep the volume button in the fixed right cluster with the clock and
+    * close button, rather than separated by the clipped toolbar viewport. */
    /* RX/TX text expands after connection (especially with RTP rates).
     * Keep it inside the left toolbar's horizontal clipping viewport: it must
     * never increase the width of the fixed clock/Quit cluster. */
@@ -2760,8 +2763,9 @@ bool chat_init(void) {
    GtkWidget *quit = g_object_get_data(G_OBJECT(main_window), "rr-main-quit-button");
 
    if (GTK_IS_BOX(toolbar_right)) {
-      /* Only fixed-size controls live outside the clipped toolbar viewport.
-       * Both remain visible even if the connected server adds wide labels. */
+      /* Compact right status cluster remains visible regardless of the
+       * clipped, variable-width room toolbar. */
+      gtk_box_pack_start(GTK_BOX(toolbar_right), volume_button, FALSE, FALSE, 0);
       if (status_clock) {
          gtk_widget_set_valign(status_clock, GTK_ALIGN_CENTER);
          gtk_box_pack_start(GTK_BOX(toolbar_right), status_clock, FALSE, FALSE, 0);
@@ -2773,6 +2777,7 @@ bool chat_init(void) {
       gtk_widget_show_all(toolbar_right);
    } else {
       /* Fallback for alternative frontends without the split toolbar. */
+      gtk_box_pack_end(GTK_BOX(rr_main_toolbar), volume_button, FALSE, FALSE, 0);
       if (status_clock)
          gtk_box_pack_end(GTK_BOX(rr_main_toolbar), status_clock, FALSE, FALSE, 0);
       if (quit)
