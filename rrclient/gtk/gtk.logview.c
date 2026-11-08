@@ -265,17 +265,20 @@ static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data)
 typedef struct {
    GtkWidget *dialog, *target, *spec, *subsys, *level, *apply;
    gchar *client_draft, *server_draft;
+   int current_target;
 } LogComposer;
-static void composer_store(LogComposer *c) {
-   const char *text = gtk_entry_get_text(GTK_ENTRY(c->spec));
-   gboolean server = gtk_combo_box_get_active(GTK_COMBO_BOX(c->target)) == 1;
-   gchar **slot = server ? &c->server_draft : &c->client_draft;
-   g_free(*slot);
-   *slot = g_strdup(text);
-}
 static void composer_target_changed(GtkComboBox *combo, gpointer data) {
    LogComposer *c = data;
-   gboolean server = gtk_combo_box_get_active(combo) == 1;
+   int target = gtk_combo_box_get_active(combo);
+   gboolean server = target == 1;
+   if (c->current_target == 1) {
+      g_free(c->server_draft);
+      c->server_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(c->spec)));
+   } else if (c->current_target == 0) {
+      g_free(c->client_draft);
+      c->client_draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(c->spec)));
+   }
+   c->current_target = target;
    gtk_entry_set_text(GTK_ENTRY(c->spec), server ? c->server_draft : c->client_draft);
    gtk_widget_set_sensitive(c->apply, !server);
    gtk_widget_set_tooltip_text(c->apply, server ?
@@ -284,21 +287,25 @@ static void composer_target_changed(GtkComboBox *combo, gpointer data) {
 static void composer_add_rule(GtkButton *button, gpointer data) {
    (void)button;
    LogComposer *c = data;
-   const gchar *name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(c->subsys));
-   const gchar *level = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(c->level));
+   gchar *name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(c->subsys));
+   gchar *level = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(c->level));
 
    if (!name || !level) {
+      g_free(name);
+      g_free(level);
       return;
    }
    const char *old = gtk_entry_get_text(GTK_ENTRY(c->spec));
    gchar *next = g_strdup_printf("%s%s%s:%s", old, *old ? "," : "", name, level);
    gtk_entry_set_text(GTK_ENTRY(c->spec), next);
    g_free(next);
+   g_free(name);
+   g_free(level);
 }
 static void composer_open(GtkButton *button, gpointer data) {
    (void)button;
    GtkLogView *view = data;
-   LogComposer c = {0};
+   LogComposer c = {.current_target = -1};
    c.dialog = gtk_dialog_new_with_buttons("Log-level composer",
       GTK_WINDOW(gtk_widget_get_toplevel(view->page)), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       "_Close", GTK_RESPONSE_CLOSE, "_Copy", GTK_RESPONSE_APPLY, "_Apply to Client", GTK_RESPONSE_ACCEPT, NULL);
@@ -385,8 +392,14 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    GtkWidget *top = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    v->client = gtk_check_button_new_with_label("Client");
    v->host = gtk_check_button_new_with_label("Host");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client), cfg_get_bool("ui.gtk.log.client", true));
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->host), cfg_get_bool("ui.gtk.log.host", false));
+   char *client_setting = rrclient_database_setting_get("ui.gtk.log.client");
+   char *host_setting = rrclient_database_setting_get("ui.gtk.log.host");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client),
+      client_setting ? !g_ascii_strcasecmp(client_setting, "true") : cfg_get_bool("ui.gtk.log.client", true));
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->host),
+      host_setting ? !g_ascii_strcasecmp(host_setting, "true") : cfg_get_bool("ui.gtk.log.host", false));
+   g_free(client_setting);
+   g_free(host_setting);
    GtkWidget *levels_button = gtk_button_new_with_label("Log levels…");
    g_signal_connect(levels_button, "clicked", G_CALLBACK(composer_open), v);
    v->filter = gtk_search_entry_new();
