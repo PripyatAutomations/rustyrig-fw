@@ -175,25 +175,44 @@ void link_command(const char *event, const char *data, rrconn_t *client, void *u
        * conflict visible before issuing a secret that cannot be redeemed.
        * Never silently approve a changed signing key via an invitation. */
       bool existing_identity = false;
+      bool identity_query_ok = false;
       if (opened) {
+         /* Both explicit enrollments and independently authenticated
+          * catalog pins block silent substitution of a node's key. */
+         identity_query_ok = sqlite3_exec(db,
+            "CREATE TABLE IF NOT EXISTS mesh_explicit_trust("
+            "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
+            "catalog_pubkey TEXT NOT NULL,tls_spki_sha256 TEXT NOT NULL,"
+            "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+            "PRIMARY KEY(domain,owner_uuid));"
+            "CREATE TABLE IF NOT EXISTS mesh_identity_pins("
+            "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,"
+            "public_key TEXT NOT NULL,"
+            "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
+            "PRIMARY KEY(domain,owner_uuid));",
+            NULL, NULL, NULL) == SQLITE_OK;
          sqlite3_stmt *existing = NULL;
-         if (sqlite3_prepare_v2(db,
+         if (identity_query_ok && sqlite3_prepare_v2(db,
             "SELECT catalog_pubkey,tls_spki_sha256 FROM mesh_explicit_trust"
-            " WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2", -1, &existing, NULL) == SQLITE_OK) {
+            " WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2"
+            " UNION ALL SELECT public_key,'' FROM mesh_identity_pins"
+            " WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2"
+            " LIMIT 1", -1, &existing, NULL) == SQLITE_OK) {
             sqlite3_bind_text(existing, 1, links.domain, -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(existing, 2, name, -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(existing) == SQLITE_ROW) {
+            int step = sqlite3_step(existing);
+            if (step == SQLITE_ROW) {
                const char *old_key = (const char *)sqlite3_column_text(existing, 0);
                const char *old_spki = (const char *)sqlite3_column_text(existing, 1);
-               ws_send_notice(client, "Node %s already enrolled (signer %.16s..., TLS SPKI %.16s...)."
-                  " Existing identity must be explicitly revoked and authenticated before replacement.",
+               ws_send_notice(client, "Node %s already has a trusted signing key (%.16s...); TLS SPKI %.16s..."
+                  " Replacement requires revoking the old key with authenticated authority.",
                   name, old_key ? old_key : "", old_spki ? old_spki : "");
                existing_identity = true;
-            }
-         }
+            } else if (step != SQLITE_DONE) identity_query_ok = false;
+         } else identity_query_ok = false;
          sqlite3_finalize(existing);
       }
-      char *token = opened && spki && !existing_identity ?
+      char *token = opened && identity_query_ok && spki && !existing_identity ?
          rr_identity_invite_issue(db, links.domain, url, spki, name, 0) : NULL;
 
       if (db) {
