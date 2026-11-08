@@ -77,6 +77,10 @@ bool rrclient_database_init(void) {
    }
    g_chmod(path, 0600);
    sqlite3_busy_timeout(client_db, 250);
+   /* Migrates existing v4 databases without changing their user_version. */
+   if (sqlite3_exec(client_db, "CREATE TABLE IF NOT EXISTS config_overrides (key TEXT PRIMARY KEY, value TEXT NOT NULL)", NULL, NULL, NULL) != SQLITE_OK) {
+      goto fail;
+   }
 
    if (sqlite3_exec(client_db, "PRAGMA foreign_keys=ON", NULL, NULL, NULL) != SQLITE_OK) {
       goto fail;
@@ -397,6 +401,73 @@ bool rrclient_database_load_profiles(void) {
    return true;
 }
 
+
+/* Effective configuration is saved as one atomic override snapshot. Server
+ * profiles, networks and named themes are already stored in dedicated tables. */
+bool rrclient_database_config_store(void) {
+   if (!client_db || !cfg || sqlite3_exec(client_db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   bool ok = sqlite3_exec(client_db, "DELETE FROM config_overrides", NULL, NULL, NULL) == SQLITE_OK;
+   sqlite3_stmt *stmt = NULL;
+
+   if (ok) {
+      ok = sqlite3_prepare_v2(client_db,
+         "INSERT INTO config_overrides(key,value) VALUES(?1,?2)", -1, &stmt, NULL) == SQLITE_OK;
+   }
+   const char *key;
+   char *value;
+   int rank = 0;
+
+   while (ok && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (g_str_has_prefix(key, "server:") || g_str_has_prefix(key, "network:") ||
+          g_str_has_prefix(key, "theme:")) {
+         continue;
+      }
+      sqlite3_bind_text(stmt, 1, key, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 2, value ? value : "", -1, SQLITE_TRANSIENT);
+      ok = sqlite3_step(stmt) == SQLITE_DONE;
+      sqlite3_reset(stmt);
+      sqlite3_clear_bindings(stmt);
+   }
+   sqlite3_finalize(stmt);
+
+   if (ok) {
+      ok = sqlite3_exec(client_db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+   }
+   if (!ok) {
+      sqlite3_exec(client_db, "ROLLBACK", NULL, NULL, NULL);
+   }
+
+   return ok;
+}
+bool rrclient_database_config_overlay(void) {
+   if (!client_db || !cfg) {
+      return false;
+   }
+   sqlite3_stmt *stmt = NULL;
+
+   if (sqlite3_prepare_v2(client_db,
+      "SELECT key,value FROM config_overrides ORDER BY key", -1, &stmt, NULL) != SQLITE_OK) {
+      return false;
+   }
+   bool ok = true;
+   int step;
+
+   while ((step = sqlite3_step(stmt)) == SQLITE_ROW) {
+      const char *key = (const char *)sqlite3_column_text(stmt, 0);
+      const char *value = (const char *)sqlite3_column_text(stmt, 1);
+
+      if (key && !g_str_has_prefix(key, "server:") && !g_str_has_prefix(key, "network:") &&
+          !g_str_has_prefix(key, "theme:")) {
+         dict_add(cfg, key, value ? value : "");
+      }
+   }
+   ok = step == SQLITE_DONE;
+   sqlite3_finalize(stmt);
+
+   return ok;
+}
 
 /* Small persistent preferences; values are owned by the caller. */
 char *rrclient_database_setting_get(const char *key) {
