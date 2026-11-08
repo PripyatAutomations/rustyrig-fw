@@ -24,14 +24,6 @@
 #include <librrprotocol/objects.h>
 #include <librrprotocol/server.events.h>
 
-bool rr_set_width(rr_vfo_t vfo, const char *width) {
-   return false;
-}
-
-bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
-   return false;
-}
-
 extern time_t now;
 
 /* Legacy rig-state resend interval (seconds), unrelated to server backend polling (milliseconds). */
