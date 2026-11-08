@@ -11,6 +11,10 @@ if [ ! -d /home/rustyrig/SHARED ]; then
 fi
 install -d -o rustyrig-modems -g rustyrig-modems -m 0770 /var/lib/rustyrig/modems
 install -d -o rustyrig -g rustyrig -m 0770 /var/run/rustyrig
+# Mesh identity files are durable trust anchors. Never recreate them on upgrade.
+# rr_identity_init rejects a directory writable/readable by group or others.
+# Restrict the directory itself without touching existing private keys.
+install -d -o rustyrig -g rustyrig -m 0700 /var/lib/rustyrig/identity
 
 # The preload SQL contains a disabled admin placeholder with an empty password.
 # Enable it with the chosen password before the service can start. Existing
