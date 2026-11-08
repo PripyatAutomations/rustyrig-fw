@@ -367,7 +367,7 @@ int main(void) {
    assert(!gps_wanted(&known_chans[0]));
    test_join_sdr = true;
    assert(gps_wanted(&known_chans[0]));
-   known_chans[0].rig_uuid[0] = '\\0';
+   known_chans[0].rig_uuid[0] = '\0';
    assert(!gps_wanted(&known_chans[0]));
    test_join_sdr = false;
    // Active GPS switches subscriptions with the rig; pinned output stays subscribed.
