@@ -5,7 +5,7 @@ SZ_C_LRP=$(ls librrprotocol/*.[ch] | xargs cat | wc -l)
 SZ_C_RRBRI=$((ls rrbridge/*.[ch]) | xargs cat | wc -l)
 SZ_C_RRCLI=$((ls rrclient/*.[ch] rrclient/gtk/*.[ch]) | xargs cat | wc -l)
 SZ_C_RRFW=$(ls rrserver/*.[ch] | xargs cat | wc -l)
-SZ_C_CALL=$(ls callsign-lookup/{include,src}/*.[ch] | xargs cat | wc -l)
+SZ_C_CALL=0 # callsign-lookup is packaged from its own repository
 SZ_C_LRI=$(ls librustyirc/*.[ch] | xargs cat | wc -l)
 SZ_PL=$(cat tools/*.pl | wc -l)
 #SZ_HTML=$(cat www/index.html | wc -l)
@@ -24,7 +24,7 @@ echo -e "Lines of code in rustyrig-fw: " \
         "[librustyaxe C: ${SZ_C_LRR}] " \
         "[librustyirc C: ${SZ_C_LRI}] " \
         "[librrprotocol C: ${SZ_C_LRP}] " \
-        "[callsign-lookup C: ${SZ_C_CALL}] " \
+        ""  \
         "[fwdsp C: ${SZ_C_FWDSP}] " \
         "[rrbridge C: ${SZ_C_RRBRI}] " \
         "[rrclient C: ${SZ_C_RRCLI}] " \

@@ -1,6 +1,5 @@
 {
    "components": {
-      "callsign-lookup": "true",
       "fwdsp": "true",
       "rrclient": "true",
       "rrserver": "true"
