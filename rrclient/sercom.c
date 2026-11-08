@@ -1453,6 +1453,11 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    Log(LOG_INFO, "serial", "%s (%s) attached to %s", name, path, service);
    host_sync(b);
    gps_outputs_changed();
+   /* The terminal may have been opened before this local PTY existed.
+    * Host tunnels publish their own state through host_sync(); local
+    * endpoints need an explicit attach notification. */
+   if (!host_binding(b))
+      console_connection_status(b, "CONNECTED");
 
    return true;
 failed:
@@ -1480,6 +1485,7 @@ bool rr_sercom_disconnect(const char *name) {
    if (host_binding(b)) {
       host_command(b, "close");
    }
+   console_connection_status(b, "UNAVAILABLE");
    rr_serial_close(b->port);
 
    if (b->host_pending) {
