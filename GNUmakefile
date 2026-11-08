@@ -48,6 +48,7 @@ ifeq ($(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h),)
 $(error Missing $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h from librustyaxe-dev)
 endif
 else ifeq ($(LIBRUSTYAXE_PROVIDER),local)
+ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
 ifeq ($(wildcard librustyaxe/rules.mk),)
 ifneq ($(wildcard .gitmodules),)
 $(info [librustyaxe] checking out missing submodule)
@@ -56,6 +57,7 @@ endif
 endif
 ifeq ($(wildcard librustyaxe/rules.mk),)
 $(error Missing librustyaxe/rules.mk; initialize the librustyaxe submodule)
+endif
 endif
 else
 $(error Unsupported LIBRUSTYAXE_PROVIDER=$(LIBRUSTYAXE_PROVIDER), expected auto, system or local)
@@ -82,6 +84,10 @@ BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h)
 # same pack-eeprom invocation and their timestamps must not force relinking.
 EEPROM_GENERATED := ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_types.h ${BUILD_DIR}/eeprom_layout.h
 OBJECT_ORDER_ONLY := | ${EEPROM_GENERATED}
+ifeq ($(LIBRUSTYAXE_PROVIDER),system)
+OBJECT_ORDER_ONLY += $(BUILD_DIR)/axe-system-include/librustyaxe
+BUILD_HEADERS += $(BUILD_DIR)/axe-system-include/librustyaxe
+endif
 
 # Directory-stamping prerequisites ensure the build tree exists before
 # pack-eeprom-derived objects are written.
@@ -99,6 +105,7 @@ ifeq ($(LIBRUSTYAXE_PROVIDER),system)
 .PHONY: axe-system-check
 axe-system-check:
 	@test ! -e librustyaxe.so || test -L librustyaxe.so || { echo "Local librustyaxe.so exists; run make distclean before selecting system librustyaxe" >&2; exit 1; }
+	@if test -L librustyaxe.so && test "$(readlink librustyaxe.so)" != "$(AXE_SYSTEM_LIBDIR)/librustyaxe.so"; then ln -sfn "$(AXE_SYSTEM_LIBDIR)/librustyaxe.so" librustyaxe.so; fi
 librustyaxe.so: | axe-system-check
 	@ln -sfn "$(AXE_SYSTEM_LIBDIR)/librustyaxe.so" $@
 	@echo "[librustyaxe] using installed $(AXE_SYSTEM_LIBDIR)/librustyaxe.so"
@@ -108,7 +115,11 @@ $(BUILD_DIR)/axe-system-include/librustyaxe:
 	@mkdir -p $(dir $@)
 	@ln -sfn "$(AXE_SYSTEM_INCLUDEDIR)/librustyaxe" $@
 else
+ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
+-include librustyaxe/rules.mk
+else
 include librustyaxe/rules.mk
+endif
 endif
 include librustyirc/rules.mk
 include librrprotocol/rules.mk
