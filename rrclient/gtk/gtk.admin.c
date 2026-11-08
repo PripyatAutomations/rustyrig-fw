@@ -18,6 +18,7 @@
 #include <rrclient/gtk/gtk.privileges.h>
 #include <rrclient/gtk/gtk.admin.controls.h>
 #include <rrclient/gtk/gtk.admin.access.h>
+#include <rrclient/gtk/gtk.admin.security.h>
 #include <rrclient/gtk/gtk.admin.cells.h>
 #include <rrclient/gtk/gtk.admin.password.h>
 #include <rrclient/gtk/gtk.admin.sessions.h>
@@ -1648,6 +1649,7 @@ void gtk_admin_refresh(void) {
 
    gtk_admin_controls_refresh();
    gtk_admin_access_refresh();
+   gtk_admin_security_refresh();
 }
 
 GtkWidget *init_admin_tab(void) {
@@ -2008,7 +2010,7 @@ GtkWidget *init_admin_tab(void) {
    gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), gtk_admin_controls_page(), gtk_label_new("Controls"));
    /* Operator workflow first; diagnostics and history last. */
    const char *order[] = {
-      "Controls", "Sessions", "Users", "Rooms", "Assignments",
+      "Controls", "Sessions", "Users", "Security & Trust", "Rooms", "Assignments",
       "Direct Grants", "Privilege Sets", "Quotas", "Audit Log", "PTT Log"
    };
 
