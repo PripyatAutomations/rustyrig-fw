@@ -243,3 +243,8 @@ rrclient_objs += cli.notice.o
 rrclient_objs += cli.ping.o
 rrclient_objs += cli.rigctl.o
 rrclient_objs += cli.syslog.o
+
+# Protocol-facing application components, not shared library code.
+rrclient_objs += cfg.servers.o
+rrclient_objs += ws.auth.o
+rrclient_objs += ws.serial.o
