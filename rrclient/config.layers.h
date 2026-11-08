@@ -11,6 +11,9 @@ void rrclient_config_mark_dirty(void);
 bool rrclient_config_is_dirty(void);
 void rrclient_config_clear_dirty(void);
 bool rrclient_config_reload(const char *path);
+void rrclient_config_set_ignore_db(bool ignore);
+bool rrclient_config_ignore_db(void);
+bool rrclient_config_save(void);
 /* Core-domain handler for local-only log verbosity changes from GTK. */
 void rrclient_log_level_register(void);
 #define RRCLIENT_LOG_LEVEL_REQUEST "client.log.level.apply"
