@@ -6,7 +6,7 @@
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 #include "build_config.h"
 #include <fwdsp/default-pipelines.h>
 #include <librustyaxe/config.h>
