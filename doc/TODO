@@ -1,5 +1,9 @@
 Immediate needs
 ---------------
+rrserver: Add support for librnnoise0 to denoise before compressing
+
+rrbridge: Add support for librnnoise0 to denoise remote SDRs
+
 rrclient: Finish moving *all* colors/formatting out into themes
   - This should interact with the GTK CSS programmatically
 
