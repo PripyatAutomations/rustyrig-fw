@@ -47,6 +47,14 @@ endif
 ifeq ($(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h),)
 $(error Missing $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h from librustyaxe-dev)
 endif
+# A leftover local SONAME can be preferred by the runtime loader's source
+# rpath even when linking selected the installed library. Require a clean
+# checkout before switching providers rather than silently mixing ABIs.
+ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
+ifneq ($(wildcard librustyaxe.so librustyaxe.so.0),)
+$(error Stale checkout-root librustyaxe library; run make distclean before using LIBRUSTYAXE_PROVIDER=system)
+endif
+endif
 librustyaxe := $(AXE_SYSTEM_LIB)
 librustyaxe_headers := $(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/*.h)
 else ifeq ($(LIBRUSTYAXE_PROVIDER),local)
