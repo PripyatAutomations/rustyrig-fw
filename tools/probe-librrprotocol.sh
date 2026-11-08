@@ -6,9 +6,9 @@ pc=${RRPROTO_PKG_CONFIG:-pkg-config}
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 cat > "$tmp/check.c" <<'EOF'
-#include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/codecneg.h>
 int check_protocol(void) {
-    return ws_room_name_valid("#probe") ? 0 : 1;
+    return codec_is_test_variant("pc1T") ? 0 : 1;
 }
 EOF
 cd "$tmp"
