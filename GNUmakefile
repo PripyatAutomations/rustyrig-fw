@@ -22,57 +22,51 @@ include mk/optional-modules.mk
 $(foreach m,$(OPTIONAL_MODULES),$(eval override $(OPTIONAL_$(m)_FEATURE) := $(OPTIONAL_$(m)_ENABLED)))
 BUILD_DIR := ./build/${PROFILE}
 
-# Prefer the standalone installed library; build the submodule only when
-# pkg-config cannot find its development package. Override with
-# LIBRUSTYAXE_PROVIDER=system|local (default: auto).
+# Compiler-first external library selection. pkg-config is an optional source
+# of flags, never a requirement and not an indication that a library is usable.
+# The probe links a symbol against installed headers/libs outside this tree.
 LIBRUSTYAXE_PROVIDER ?= auto
 AXE_PKG_CONFIG ?= pkg-config
+AXE_CC ?= $(if $(strip $(TC_PREFIX)),$(TC_PREFIX)-gcc,$(if $(filter command line environment environment override,$(origin CC)),$(CC),gcc))
+AXE_PROBE := $(shell AXE_CC='$(AXE_CC)' AXE_PKG_CONFIG='$(AXE_PKG_CONFIG)' \
+    AXE_CPPFLAGS='$(CPPFLAGS)' AXE_CFLAGS='$(CFLAGS) $(shell pkg-config --cflags glib-2.0 2>/dev/null)' \
+    AXE_LDFLAGS='$(LDFLAGS)' sh tools/probe-librustyaxe.sh)
 ifeq ($(LIBRUSTYAXE_PROVIDER),auto)
-ifneq ($(shell $(AXE_PKG_CONFIG) --exists librustyaxe && echo yes),)
-LIBRUSTYAXE_PROVIDER := system
-else
-LIBRUSTYAXE_PROVIDER := local
-endif
+LIBRUSTYAXE_PROVIDER := $(if $(filter none,$(AXE_PROBE)),local,system)
 endif
 ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-ifeq ($(shell $(AXE_PKG_CONFIG) --exists librustyaxe && echo yes),)
-$(error librustyaxe not available through pkg-config; install librustyaxe-dev or set LIBRUSTYAXE_PROVIDER=local)
+ifeq ($(AXE_PROBE),none)
+$(error Cannot compile/link against installed librustyaxe; set LIBRUSTYAXE_PROVIDER=local for the submodule)
 endif
-AXE_SYSTEM_LIBDIR := $(shell $(AXE_PKG_CONFIG) --variable=libdir librustyaxe)
-AXE_SYSTEM_LIB := $(AXE_SYSTEM_LIBDIR)/librustyaxe.so
-AXE_SYSTEM_INCLUDEDIR := $(shell $(AXE_PKG_CONFIG) --variable=includedir librustyaxe)
-ifeq ($(wildcard $(AXE_SYSTEM_LIBDIR)/librustyaxe.so),)
-$(error Missing $(AXE_SYSTEM_LIBDIR)/librustyaxe.so from librustyaxe-dev)
+librustyaxe :=
+librustyaxe_headers :=
+ifeq ($(AXE_PROBE),pkgconfig)
+AXE_SYSTEM_CFLAGS := $(shell $(AXE_PKG_CONFIG) --cflags librustyaxe)
+AXE_SYSTEM_LDFLAGS := $(shell $(AXE_PKG_CONFIG) --libs-only-L librustyaxe)
 endif
-ifeq ($(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h),)
-$(error Missing $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/core.h from librustyaxe-dev)
-endif
-# A leftover local SONAME can be preferred by the runtime loader's source
-# rpath even when linking selected the installed library. Require a clean
-# checkout before switching providers rather than silently mixing ABIs.
+# Never let an old in-tree SONAME supersede an installed one at runtime.
 ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
 ifneq ($(wildcard librustyaxe.so librustyaxe.so.0),)
-$(error Stale checkout-root librustyaxe library; run make distclean before using LIBRUSTYAXE_PROVIDER=system)
+$(error Stale checkout-root librustyaxe.so; run make distclean before using system librustyaxe)
 endif
 endif
-librustyaxe := $(AXE_SYSTEM_LIB)
-librustyaxe_headers := $(wildcard $(AXE_SYSTEM_INCLUDEDIR)/librustyaxe/*.h)
 else ifeq ($(LIBRUSTYAXE_PROVIDER),local)
 librustyaxe := librustyaxe.so
 ifeq ($(filter clean distclean,$(MAKECMDGOALS)),)
 ifeq ($(wildcard librustyaxe/rules.mk),)
 ifneq ($(wildcard .gitmodules),)
-$(info [librustyaxe] checking out missing submodule)
+$(info [librustyaxe] initializing submodule for uninstalled development build)
 $(shell git submodule update --init librustyaxe)
 endif
 endif
 ifeq ($(wildcard librustyaxe/rules.mk),)
-$(error Missing librustyaxe/rules.mk; initialize the librustyaxe submodule)
+$(error Missing librustyaxe/rules.mk; run git submodule update --init librustyaxe)
 endif
 endif
 else
-$(error Unsupported LIBRUSTYAXE_PROVIDER=$(LIBRUSTYAXE_PROVIDER), expected auto, system or local)
+$(error Invalid LIBRUSTYAXE_PROVIDER=$(LIBRUSTYAXE_PROVIDER); use auto, system or local)
 endif
+
 include mk/compile.mk
 include mk/database.mk
 include mk/eeprom.mk
@@ -95,10 +89,6 @@ BUILD_HEADERS += $(wildcard inc/librustyaxe/*.h)
 # same pack-eeprom invocation and their timestamps must not force relinking.
 EEPROM_GENERATED := ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_types.h ${BUILD_DIR}/eeprom_layout.h
 OBJECT_ORDER_ONLY := | ${EEPROM_GENERATED}
-ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-OBJECT_ORDER_ONLY += $(BUILD_DIR)/axe-system-include/librustyaxe
-BUILD_HEADERS += $(BUILD_DIR)/axe-system-include/librustyaxe
-endif
 
 # Directory-stamping prerequisites ensure the build tree exists before
 # pack-eeprom-derived objects are written.
@@ -110,13 +100,7 @@ ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
 
 extra_clean += librustyaxe.so librustyaxe.so.0 librustyaxe/irc-test
-ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-# An installed library is an external prerequisite, never a generated output.
-# Headers need a first-position -I overlay to beat the checkout-root -I.
-$(BUILD_DIR)/axe-system-include/librustyaxe:
-	@mkdir -p $(dir $@)
-	@ln -sfn "$(AXE_SYSTEM_INCLUDEDIR)/librustyaxe" $@
-else
+ifeq ($(LIBRUSTYAXE_PROVIDER),local)
 ifneq ($(filter clean distclean,$(MAKECMDGOALS)),)
 -include librustyaxe/rules.mk
 else
@@ -128,7 +112,7 @@ include librrprotocol/rules.mk
 
 # callsign-lookup maintains its own object dependency graph. Run its make
 # each world build so changed submodule sources rebuild automatically.
-# Its ../librustyaxe.so prerequisite must be ready even under -j.
+# The local fallback library must be ready before the sub-build under -j.
 ifeq ($(BUILD_CALLSIGN_LOOKUP),true)
 .PHONY: callsign-lookup-world
 callsign-lookup-world: $(librustyaxe)
