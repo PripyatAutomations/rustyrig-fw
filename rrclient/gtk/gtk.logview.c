@@ -98,7 +98,11 @@ static void log_source_toggled(GtkToggleButton *button, gpointer data) {
    const char *key = button == GTK_TOGGLE_BUTTON(v->host) ? "ui.gtk.log.host" : "ui.gtk.log.client";
 
    const gboolean active = gtk_toggle_button_get_active(button);
-   /* Stored in client.db immediately, independent of Save-on-exit. */
+   /* Also update the in-memory effective config. This UI choice is saved
+    * immediately and should not require the exit-time Save dialog. */
+   if (cfg) {
+      dict_add_bool(cfg, key, active);
+   }
    if (!rrclient_database_setting_set(key, active ? "true" : "false")) {
       Log(LOG_WARN, "gtk.log", "Unable to persist %s", key);
    }
@@ -392,8 +396,8 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    GtkWidget *top = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    v->client = gtk_check_button_new_with_label("Client");
    v->host = gtk_check_button_new_with_label("Host");
-   char *client_setting = rrclient_database_setting_get("ui.gtk.log.client");
-   char *host_setting = rrclient_database_setting_get("ui.gtk.log.host");
+   char *client_setting = rrclient_config_ignore_db() ? NULL : rrclient_database_setting_get("ui.gtk.log.client");
+   char *host_setting = rrclient_config_ignore_db() ? NULL : rrclient_database_setting_get("ui.gtk.log.host");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client),
       client_setting ? !g_ascii_strcasecmp(client_setting, "true") : cfg_get_bool("ui.gtk.log.client", true));
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->host),
