@@ -48,9 +48,8 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
 #define RR_MONO_FONT "\"DejaVu Sans Mono\", \"Liberation Mono\", \"Monospace\""
 #endif
 
+/* Keep normal GTK theme defaults for generic labels and application chrome. */
 #define DEFAULT_CSS \
-        /* Do not override every label/button: let GTK theme fonts handle
-         * application chrome and reserve explicit faces for meaningful roles. */ \
         "button, entry, combobox, spinbutton { font-family: " RR_UI_FONT "; font-size: 10.5pt; }\n" \
         "notebook tab label, headerbar label { font-family: " RR_UI_FONT "; font-weight: 600; }\n" \
         "treeview, treeview.view { font-family: " RR_UI_FONT "; font-size: 10pt; }\n" \
