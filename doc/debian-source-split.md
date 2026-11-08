@@ -6,9 +6,9 @@ these concepts separate:
 
 | Debian source | Git origin | Debian binary packages |
 | --- | --- | --- |
-| `librustyaxe` | `PripyatAutomations/librustyaxe` | `librustyaxe0`, `librustyaxe-dev` |
+| `librustyaxe` | `PripyatAutomations/librustyaxe` | `librustyaxe0`, `librustyaxe-dev`, `librustyirc0`, `librustyirc-dev` |
 | `librrprotocol` | `PripyatAutomations/librrprotocol` | `librrprotocol0`, `librrprotocol-dev` |
-| `rustyrig-fw` | `PripyatAutomations/rustyrig-fw` | `rustyrig-common`, `rustyrig-server`, `rustyrig-client`, `rustyrig-client-gtk`, `rustyrig-bridge`, `rustyrig-fwdsp`, `librustyirc` / `libfwdspmgr` runtime + dev packages, and optional module packages |
+| `rustyrig-fw` | `PripyatAutomations/rustyrig-fw` | `rustyrig-common`, `rustyrig-server`, `rustyrig-client`, `rustyrig-client-gtk`, `rustyrig-bridge`, `rustyrig-fwdsp`, ``libfwdspmgr` runtime + dev packages, and optional module packages |
 
 **The library-package names ending in `0` are provisional.** Confirm actual
 ELF SONAMEs and ABI policy before publishing; do not rename just because the
@@ -79,7 +79,7 @@ Preserve a separate in-tree developer build workflow.
 
 ### 4. Transition
 
-Both `librustyaxe*` and `librrprotocol*` binary package stanzas and staging
+The `librustyaxe*`, `librustyirc*` and `librrprotocol*` binary package stanzas and staging
 recipes have been removed from `rustyrig-fw`; its packages depend on the
 external `librustyaxe0` and `librrprotocol0` libraries. Before release,
 validate clean builds and upgrades. Rename runtime packages based on verified
@@ -87,8 +87,9 @@ SONAMEs. Avoid file-overlap in upgrades from
 the current combined source package and confirm all binary package dependency
 relations with dpkg-shlibdeps.
 
-`librustyirc` and `libfwdspmgr` can remain binary packages of the main
-RustyRig source. `rrbridge`, `rrserver`, and `rrclient` should stay in the
+`librustyirc` now builds as a separate GPLv2 library within the RustyAxe
+repository; its runtime depends on RustyAxe and RustyAxe recommends IRC.
+`libfwdspmgr` remains in the RustyRig source. `rrbridge`, `rrserver`, and `rrclient` should stay in the
 same Git checkout and Debian source unless there's a separate reason to change
 their release cadence.
 
@@ -133,8 +134,7 @@ library's runtime and development binaries. Source-package generation uses
 `dpkg-buildpackage` only for the packaging target; ordinary `make` does not
 need Debian tools.
 
-`librustyirc` remains a separately versioned library inside `rustyrig-fw`
-for now. Its currently inspected implementation uses RustyAxe utilities and
-standard system facilities, not the RustyRig protocol library. Moving it to
-a separate library maintained alongside RustyAxe is feasible, but its GPLv2
-license must remain distinct from MIT-licensed `librustyaxe`.
+`librustyirc` is maintained in `librustyaxe/librustyirc/`, while remaining
+a distinct GPLv2 shared library and separate Debian runtime/development
+binary pair. RustyRig uses an installed IRC library by default and falls back
+to the RustyAxe submodule for uninstalled development.
