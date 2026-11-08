@@ -25,6 +25,10 @@ static gboolean graph_profile_updating;
 static void graph_profile_modified(void);
 static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
+/* Preserve display order through transient disconnects. Only GTK owns this
+ * history: the core graph and audio routing never contain retired nodes. */
+#define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
+static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
 /* Fit the topology to the actual viewport. Panel zoom and wheel zoom multiply independently; neither forces a large GTK size requisition. */
 static double graph_zoom = 1.0, graph_wheel_zoom = 1.0;
 static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
@@ -109,7 +113,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80,
          .title = source && n->rig[0] ? n->rig : n->id,
          .subtitle = source ? n->id : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer",
-         .detail = source ? route : NULL, .failed = n->health == RR_AG_FAILED, .bypass_pins =
+         .detail = graph_missing_since[i] ? "Disconnected" : source ? route : NULL,
+         .failed = n->health == RR_AG_FAILED, .stale = graph_missing_since[i] != 0, .bypass_pins =
             n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
@@ -201,15 +206,71 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
       return;
    }
 
-   if (!graph_snapshot) {
-      graph_snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
-   }
-   *graph_snapshot = *incoming;
+   gint64 now = g_get_monotonic_time();
+   rr_audio_graph_snapshot_t *merged = g_new0(rr_audio_graph_snapshot_t, 1);
+   gint64 missing[RR_AUDIO_GRAPH_MAX_NODES] = {0};
+   guint incoming_to_display[RR_AUDIO_GRAPH_MAX_NODES];
+   gboolean matched[RR_AUDIO_GRAPH_MAX_NODES] = {FALSE};
+   guint ghosts = 0;
+   gboolean topology_changed = FALSE;
 
-   if (graph_drag_source >= (gint) incoming->node_count) {
+   /* Reuse slots by stable node ID, keeping their screen locations unchanged.
+    * A vanished source becomes an inert grey ghost until the grace period
+    * expires. Reserve capacity for every live node before keeping ghosts. */
+   if (graph_snapshot) {
+      for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
+         const rr_ag_view_node_t *old = &graph_snapshot->nodes[i];
+         guint j = 0;
+         for ( ; j < incoming->node_count ; j++) {
+            if (!matched[j] && incoming->nodes[j].type == old->type &&
+               !strcmp(incoming->nodes[j].id, old->id))
+               break;
+         }
+         if (j < incoming->node_count) {
+            guint k = merged->node_count++;
+            merged->nodes[k] = incoming->nodes[j];
+            incoming_to_display[j] = k;
+            matched[j] = TRUE;
+         } else {
+            gint64 since = graph_missing_since[i] ? graph_missing_since[i] : now;
+            if (now - since < GRAPH_GHOST_US &&
+               incoming->node_count + ghosts < RR_AUDIO_GRAPH_MAX_NODES) {
+               guint k = merged->node_count++;
+               merged->nodes[k] = *old;
+               missing[k] = since;
+               ghosts++;
+            } else {
+               topology_changed = TRUE;
+            }
+         }
+      }
+   }
+   for (guint j = 0 ; j < incoming->node_count ; j++) {
+      if (!matched[j]) {
+         guint k = merged->node_count++;
+         merged->nodes[k] = incoming->nodes[j];
+         incoming_to_display[j] = k;
+         topology_changed = TRUE;
+      }
+   }
+   /* Only active links are drawn. A ghost must never remain connected to
+    * the mixer, even if the route in its last snapshot was Stereo. */
+   for (guint i = 0 ; i < incoming->link_count ; i++) {
+      rr_ag_view_link_t link = incoming->links[i];
+      if (link.src >= incoming->node_count || link.dst >= incoming->node_count)
+         continue;
+      link.src = incoming_to_display[link.src];
+      link.dst = incoming_to_display[link.dst];
+      merged->links[merged->link_count++] = link;
+   }
+
+   if (graph_drag_channel >= 0 && topology_changed) {
       graph_drag_source = graph_drag_channel = -1;
       graph_drag_mixer = graph_drag_moved = FALSE;
    }
+   g_free(graph_snapshot);
+   graph_snapshot = merged;
+   memcpy(graph_missing_since, missing, sizeof(missing));
    graph_canvas_update_size();
    graph_profile_update_buttons();
 }
@@ -297,10 +358,11 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
       if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) {
          continue;
       }
+      gboolean inactive = graph_missing_since[i] != 0;
       double px = 25 + RR_GTK_GRAPH_NODE_W, py = 20 + 140 * row++;
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
+         if (!inactive && hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
             *source = (gint) i;
             *channel = ch;
             *mixer = FALSE;
@@ -311,7 +373,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
    }
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
-      if (graph_snapshot->nodes[i].type != RR_AG_MIXER || strcmp(graph_snapshot->nodes[i].id, "rx.mix")) {
+      if (graph_missing_since[i] || graph_snapshot->nodes[i].type != RR_AG_MIXER || strcmp(graph_snapshot->nodes[i].id, "rx.mix")) {
          continue;
       }
 
@@ -332,7 +394,8 @@ static unsigned graph_route_mask(char route) {
    return route == 'S' ? 3u : route == 'L' ? 1u : route == 'R' ? 2u : 0u;
 }
 static void graph_set_channel(guint source, gint channel, gboolean connect) {
-   if (!graph_snapshot || source >= graph_snapshot->node_count || graph_snapshot->nodes[source].type != RR_AG_SOURCE) {
+   if (!graph_snapshot || source >= graph_snapshot->node_count || graph_missing_since[source] ||
+       graph_snapshot->nodes[source].type != RR_AG_SOURCE) {
       return;
    }
    rr_ag_view_node_t *node = &graph_snapshot->nodes[source];
@@ -363,11 +426,12 @@ static gboolean graph_link_at(double x, double y, guint *source, gint *channel) 
       if (n->type != RR_AG_SOURCE) {
          continue;
       }
+      gboolean inactive = graph_missing_since[i] != 0;
       double x0 = 25 + RR_GTK_GRAPH_NODE_W, y0 = 20 + 140 * row++;
       unsigned mask = graph_route_mask(n->route);
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (!(mask & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) {
+         if (inactive || !(mask & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) {
             continue;
          }
          double ya = y0 + (ch ? 79 : 60), yb = 80 + (ch ? 79 : 60);
@@ -428,7 +492,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
 
-      if (n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0") &&
+      if (!graph_missing_since[i] && n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0") &&
          gx >= 650 && gx <= 650 + RR_GTK_GRAPH_NODE_W && gy >= 80 && gy <= 80 + RR_GTK_GRAPH_NODE_H) {
          routing_pipeline_open(n->id);
 
@@ -632,7 +696,7 @@ static void graph_profile_save(GtkButton *button, gpointer unused) {
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
 
-      if (n->type != RR_AG_SOURCE || !strchr("SLRM", n->route)) {
+      if (graph_missing_since[i] || n->type != RR_AG_SOURCE || !strchr("SLRM", n->route)) {
          continue;
       }
       ids[count] = n->id;
@@ -807,8 +871,11 @@ static void routing_queue(void) {
 static gboolean routing_watchdog(gpointer unused) {
    (void)unused;
 
-   /* Retry only an unanswered request; normal updates are event-driven. Polling visible panels unnecessarily could redisplay a hidden panel. */
-   if (routing_panel && snapshot_waiting) {
+   /* Refresh topology while visible, even if a stream disappears without
+    * producing a route.changed event. The core returns an immutable snapshot;
+    * no GTK calls touch the mixer or network thread. */
+   if ((graph_panel && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel))) ||
+       snapshot_waiting) {
       routing_queue();
    }
 
@@ -983,6 +1050,7 @@ void gtk_audio_routing_shutdown(void) {
       routes_token = 0;
    }
    g_clear_pointer(&graph_snapshot, g_free);
+   memset(graph_missing_since, 0, sizeof(graph_missing_since));
 
    if (graph_panel) {
       rr_floating_panel_destroy(graph_panel);
