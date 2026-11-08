@@ -14,6 +14,13 @@ bool rrserver_links_native_pin(const uint8_t pin[32]) {
    char *encoded = g_base64_encode(pin, 32);
    bool allowed = false;
 #ifdef USE_SQLITE
+   if (!encoded || !masterdb ||
+       rr_identity_tls_pin_revoked(masterdb,links.domain,encoded)) {
+      g_free(encoded);
+      return false;
+   }
+#endif
+#ifdef USE_SQLITE
    sqlite3_stmt *s = NULL;
 
    if (masterdb && cfg_get_bool("net.mesh-linking", true) && sqlite3_prepare_v2(masterdb,
@@ -43,7 +50,8 @@ bool native_identity_trusted(const char *node, const char *key, const char *pin)
 #ifdef USE_SQLITE
    /* Legacy/static peers must not bypass the persistent revoked-key list.
     * Rejection must happen before either DB trust or config pin fallback. */
-   if (!masterdb || rr_identity_key_revoked(masterdb, links.domain, node, key))
+   if (!masterdb || rr_identity_key_revoked(masterdb, links.domain, node, key) ||
+       rr_identity_tls_pin_revoked(masterdb, links.domain, pin))
       return false;
 
    if (cfg_get_bool("net.mesh-linking", true) && rr_identity_trust_verify(masterdb, links.domain, node, key, pin)) {
