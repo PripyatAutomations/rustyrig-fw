@@ -960,6 +960,7 @@ struct rrclient_native_connection {
 static void native_event(rr_transport_t *transport, enum rr_transport_event event,
       rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
    (void)channel;
+   (void)transport;
    rrclient_native_connection_t *native = user;
    client_server_t *s = native->owner;
 
@@ -1034,7 +1035,16 @@ void rrclient_poll_events_reconnect(void) {
             s->native = NULL;
 
             if (s->connection == &native->connection) {
+               /* The selected profile may still be the active context;
+                * rebuild its borrowed pointers before releasing the session. */
+               bool active = context == s;
+               if (active) {
+                  activate(NULL);
+               }
                s->connection = NULL;
+               if (active) {
+                  activate(s);
+               }
             }
             free(native);
          }
