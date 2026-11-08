@@ -315,9 +315,7 @@ static void frontend_gtk_quit_request(const char *event, const char *data, rrcon
       }
 
       if (response == GTK_RESPONSE_ACCEPT) {
-         char *path = rrclient_user_config_path();
-         gboolean saved = path && rrclient_database_config_save(path);
-         free(path);
+         gboolean saved = rrclient_config_save();
 
          if (!saved) {
             GtkWidget *error = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
