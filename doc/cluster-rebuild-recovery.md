@@ -80,12 +80,16 @@ For a clean rebuild where all former identities are intentionally retired:
    client configuration, or Git repositories. Example, with the default paths:
 
    ```sh
-   sudo install -d -m 0700 /root/rustyrig-old-identity
-   sudo mv /var/lib/rustyrig/identity/server-ed25519.pem \
-           /var/lib/rustyrig/identity/tls-key.pem \
-           /var/lib/rustyrig/identity/tls-cert.pem \
-           /root/rustyrig-old-identity/
-   sudo install -d -o rustyrig -g rustyrig -m 0700 /var/lib/rustyrig/identity
+   sudo sh -c '
+   set -eu
+   archive=$(mktemp -d /root/rustyrig-old-identity.XXXXXXXX)
+   chmod 0700 "$archive"
+   mv /var/lib/rustyrig/identity/server-ed25519.pem \
+      /var/lib/rustyrig/identity/tls-key.pem \
+      /var/lib/rustyrig/identity/tls-cert.pem "$archive/"
+   echo "Previous keys archived under $archive"
+   install -d -o rustyrig -g rustyrig -m 0700 /var/lib/rustyrig/identity
+   '
    ```
 
    Use a **unique** secure archive directory per node and do not overwrite
