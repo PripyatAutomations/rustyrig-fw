@@ -1902,8 +1902,8 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          }
       }
       /* A receiver directory locator describes an approximate site, not
-       * actual GPS telemetry. Publish derived coordinates as metadata only;
-       * never overwrite a real GPS fix or station-level position. */
+       * actual GPS telemetry. Expose the grid center as receiver metadata
+       * and a rig-scoped GPSP source without overwriting station GPS. */
       const char *grid = request ? dict_get(request, "directory.grid", NULL) : NULL;
       rr_location_t derived;
       if (grid && rr_location_resolve(NULL, grid, &derived)) {
