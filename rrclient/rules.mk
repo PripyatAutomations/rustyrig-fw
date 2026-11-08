@@ -173,6 +173,7 @@ rrclient_objs += cfg.servers.o
 rrclient_objs += ws.auth.o
 rrclient_objs += ws.serial.o
 
+rrclient_objs += cfg.fwdsp.o
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
 extra_clean += ${rrclient_real_objs}
 
