@@ -92,18 +92,13 @@ static bool db_provision_admin(sqlite3 *db) {
    if (!provision) {
       return true;
    }
-   const char *database_path = sqlite3_db_filename(db, "main");
+   char *path = cfg_get_path("path.admin.bootstrap-password");
 
-   if (!database_path) {
+   if (!path || path[0] != '/') {
+      Log(LOG_CRIT, "auth", "Invalid path.admin.bootstrap-password setting");
+      free(path);
       return false;
    }
-   size_t size = strlen(database_path) + sizeof(".bootstrap-password");
-   char *path = malloc(size);
-
-   if (!path) {
-      return false;
-   }
-   snprintf(path, size, "%s.bootstrap-password", database_path);
    char password[25];
    bool ok = auth_generate_nonce(password, sizeof(password)) == sizeof(password) - 1;
    char *hash = ok ? hash_passwd(password) : NULL;
