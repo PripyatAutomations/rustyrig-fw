@@ -1,3 +1,10 @@
+rustyrig-fw (1.0.2-6) unstable; urgency=medium
+
+  * Install private mesh identity directory as rustyrig:rustyrig mode 0700.
+  * Preserve existing Ed25519 signing keys and TLS material across upgrades.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 12:45:00 -0500
+
 rustyrig-fw (1.0.2-5) unstable; urgency=medium
 
   * Preserve active rrserver sessions on package upgrades.
