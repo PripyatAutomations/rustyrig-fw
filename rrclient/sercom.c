@@ -30,6 +30,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
 #include <rrclient/media.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/userlist.h>
 #include <rrclient/connman.h>
 
@@ -328,6 +329,10 @@ static gboolean gps_invalid_tick(gpointer unused) {
          continue;
       }
 
+      /* The selected local SDR synthesizes its position from the directory
+       * locator. Do not interleave a contradictory no-fix NMEA epoch. */
+      if (rrclient_local_bridge_gps_active())
+         continue;
       if (!b->focus_room[0] || !b->profile[0] || rrclient_connection_state(b->profile) != 1) {
          gps_send_invalid(b);
       }
