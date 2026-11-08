@@ -69,6 +69,28 @@ fi
 
 # Grant administrative access without changing service ownership.
 /usr/lib/rustyrig/admin-permissions
+
+# Recover preexisting installations where older admin-permissions recursively
+# granted rradmin/group ACLs to private signing/TLS identities. These files
+# are durable mesh trust anchors: change permissions, never replace content.
+identity=/var/lib/rustyrig/identity
+if [ -d "$identity" ] && [ ! -L "$identity" ]; then
+    chown rustyrig:rustyrig "$identity"
+    setfacl -b -k "$identity"
+    chmod 0700 "$identity"
+    for private in server-ed25519.pem tls-key.pem; do
+        if [ -f "$identity/$private" ] && [ ! -L "$identity/$private" ]; then
+            chown rustyrig:rustyrig "$identity/$private"
+            setfacl -b "$identity/$private"
+            chmod 0600 "$identity/$private"
+        fi
+    done
+    if [ -f "$identity/tls-cert.pem" ] && [ ! -L "$identity/tls-cert.pem" ]; then
+        chown rustyrig:rustyrig "$identity/tls-cert.pem"
+        setfacl -b "$identity/tls-cert.pem"
+        chmod 0644 "$identity/tls-cert.pem"
+    fi
+fi
 if [ -r /usr/share/debconf/confmodule ]; then
     . /usr/share/debconf/confmodule
 fi
