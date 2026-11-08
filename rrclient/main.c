@@ -2349,7 +2349,7 @@ int main(int argc, char *argv[]) {
    }
    /* Load persistent overrides before selecting GTK/TUI, initializing the
     * logger, or creating frontend modules. --ignore-db-config is a recovery
-    * boot: no DB-managed config, profiles, or themes are overlaid. */
+    * boot: no DB config overrides are applied; profiles/themes still load. */
    if (!rrclient_database_init()) {
       Log(LOG_WARN, "db", "Client database unavailable; using file configuration (saved profiles and themes unavailable)");
    } else {
