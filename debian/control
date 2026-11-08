@@ -10,6 +10,7 @@ Build-Depends:
  libbsd-dev,
  librustyaxe-dev,
  librrprotocol-dev,
+ librustyirc-dev,
  libcurl4-openssl-dev,
  libssl-dev,
  libwslay-dev,
@@ -33,18 +34,6 @@ Standards-Version: 4.7.2
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw
 Vcs-Git: https://github.com/PripyatAutomations/rustyrig-fw.git
 Vcs-Browser: https://github.com/PripyatAutomations/rustyrig-fw
-
-Package: librustyirc
-Architecture: any
-Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
-Description: Reusable IRC protocol library
- IRC parsing, registration, CAP/SASL and DCC offer codecs without socket ownership.
-
-Package: librustyirc-dev
-Architecture: any
-Depends: librustyirc (= ${binary:Version}), librustyaxe-dev, ${misc:Depends}
-Description: Development files for librustyirc
- Public headers and linker files for the standalone IRC library.
 
 Package: libfwdspmgr
 Architecture: any
@@ -89,7 +78,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), librustyirc (= ${binary:Version}), acl, debconf, librrprotocol0, libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0, libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rrclient-screensaver
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
