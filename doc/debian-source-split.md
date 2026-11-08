@@ -22,16 +22,21 @@ source build emits `*.so.0`.
 - `rustyrig-bridge` owns `/usr/bin/rrbridge` and
   `/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so`. The server recommends
   this optional bridge.
-- The rest of the existing source and packaging still builds the two libraries
-  **in-tree**. No conflicting partial switch to external libraries has occurred.
+- `librustyaxe` now has its own standalone Debian source packaging, with
+  `librustyaxe0` and `librustyaxe-dev` binaries. The main tree no longer
+  stages those binaries or declares them as output packages; it retains its
+  in-tree development build pending the system-library compilation switch.
+- `librrprotocol` is still built and packaged in-tree.
 
 ## Required work before moving the library binaries out of rustyrig-fw
 
 ### 1. Standalone upstream builds
 
-Both library repositories currently contain a `GNUmakefile` symlink pointing
-to `../rrclient/GNUmakefile`. They therefore cannot be independently built
-from their own source packages. Give each repository its own complete,
+The `librustyaxe` repository now has its own standalone `GNUmakefile` and
+Debian packaging. `make deb` builds its two binary packages; `make distclean`
+removes generated build and Debian staging artifacts. The package build still
+needs confirmation in a clean Debian/Devuan builder. `librrprotocol` needs the
+same standalone packaging work. Give each repository its own complete,
 versioned standalone build, with `make`, `make check`, and DESTDIR installation.
 
 The new build must produce a versioned real shared library, SONAME symlink,
@@ -68,9 +73,11 @@ Preserve a separate in-tree developer build workflow.
 
 ### 4. Transition
 
-Remove the `librustyaxe*` and `librrprotocol*` binary package stanzas from
-`rustyrig-fw/debian/control` only after the separate source packages are
-available and its external-library mode passes a clean sbuild. Rename runtime
+The `librustyaxe*` package stanzas and staging recipes have been removed
+from `rustyrig-fw`; its packages now depend on `librustyaxe0`, without a
+cross-source `${binary:Version}` pin. Before release, test the external library
+build and binary upgrades. Remove `librrprotocol*` from the main source only
+after its own package and external build path are ready. Rename runtime
 library packages based on verified SONAMEs. Avoid file-overlap in upgrades from
 the current combined source package and confirm all binary package dependency
 relations with dpkg-shlibdeps.
