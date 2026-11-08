@@ -23,7 +23,6 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#ifdef  USE_HTTP
 struct http_ua_ban {
    char *useragent;             // saved user agent regex
    regex_t regex;
@@ -191,4 +190,3 @@ bool load_http_ua_bans(const char *path) {
 
    return false;
 }
-#endif // USE_HTTP
