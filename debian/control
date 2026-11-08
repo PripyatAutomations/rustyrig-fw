@@ -8,7 +8,7 @@ Build-Depends:
  jq,
  pkg-config,
  libbsd-dev,
- librustyaxe-dev (>= 0.1.0-3),
+ librustyaxe-dev (>= 0.1.0-4),
  librrprotocol-dev,
  librustyirc-dev,
  libcurl4-openssl-dev,
@@ -37,7 +37,7 @@ Vcs-Browser: https://github.com/PripyatAutomations/rustyrig-fw
 
 Package: libfwdspmgr
 Architecture: any
-Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyaxe0 (>= 0.1.0-4), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig DSP manager shared library
  Shared process and pipeline manager used by RustyRig audio services.
 
