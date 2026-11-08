@@ -102,3 +102,19 @@ their release cadence.
   SONAME and package dependencies.
 
 Reference: https://www.debian.org/doc/debian-policy/ch-sharedlibs.html
+
+## librustyaxe provider selection
+
+Ordinary builds now choose the installed `librustyaxe` pkg-config package first.
+Set `LIBRUSTYAXE_PROVIDER=system` to require it, or
+`LIBRUSTYAXE_PROVIDER=local` to build from the checked-out submodule.
+Auto mode initializes that submodule when its files are absent. Debian,
+Arch, and RPM builds require the installed library; they must not package
+another copy. `librrprotocol` remains built in-tree pending its separate
+source-package transition.
+
+The selected provider supplies matching headers and linker inputs. No
+checkout-root symlink is generated for a system library; source-build tests
+and the callsign lookup sub-build follow the same provider mode. When
+switching from a local build to system mode, run `make distclean` first to
+remove old root-level shared objects that could shadow the installed SONAME.
