@@ -59,7 +59,7 @@ Description: Common RustyRig administration helpers
 
 Package: rustyrig-rrbridge
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyaxe0 (>= 0.1.0-3), ${shlibs:Depends}, ${misc:Depends}
 # Bridge host and Kiwi module previously belonged to rustyrig-server and rustyrig-bridge.
 Breaks: rustyrig-bridge (<< 1.0.3~)
 Replaces: rustyrig-bridge (<< 1.0.3~), rustyrig-server (<< 1.0.3~)
