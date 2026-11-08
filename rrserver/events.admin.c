@@ -400,7 +400,7 @@ static void admin_sessions_list(rrconn_t *client) {
       dict_add(row, "username", session->chatname);
       dict_add(row, "ip", session->user_ip);
       dict_add(row, "client", session->user_agent ? session->user_agent : "Unknown");
-      dict_add(row, "server", rig_name && *rig_name ? rig_name : "Local");
+      dict_add(row, "server", cfg_get("station.name") ? cfg_get("station.name") : "Local");
       char exports[256];
       rrserver_serial_client_exports(session, exports, sizeof(exports));
       dict_add(row, "serial_ports", exports);
