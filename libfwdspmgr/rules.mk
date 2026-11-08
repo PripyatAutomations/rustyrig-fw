@@ -22,7 +22,7 @@ libs += ${libfwdspmgr}
 real_libfwdspmgr_objs := $(addprefix ${BUILD_DIR}/libfwdspmgr/,$(libfwdspmgr_objs))
 extra_clean += ${real_libfwdspmgr_objs} ${libfwdspmgr} libfwdspmgr.so.0
 
-${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h ${librustyaxe} ${librrprotocol} GNUmakefile
+${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h GNUmakefile
 	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_libfwdspmgr_objs}) objects"
 	@${CC} ${LIB_LDFLAGS} $(call SHARED_ID_FLAG,libfwdspmgr.so) -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${MEDIA_LDFLAGS}
@@ -31,7 +31,7 @@ ${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${
 
 # Consumes build_config.h and the protocol/rustyaxe headers that follow from
 # it; wait for pack-eeprom before compiling.
-${BUILD_DIR}/libfwdspmgr/%.o: libfwdspmgr/%.c ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h GNUmakefile libfwdspmgr/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/libfwdspmgr/%.o: libfwdspmgr/%.c ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h GNUmakefile libfwdspmgr/rules.mk ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(dir $@)
 	@echo "[compile] $< => $@"

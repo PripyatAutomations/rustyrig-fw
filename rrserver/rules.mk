@@ -147,13 +147,13 @@ rrserver_objs += ws.mediachan.o
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
-${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${BUILD_DIR}/build_config.h ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
+bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
 	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
 	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@
@@ -171,9 +171,9 @@ gps_modules := bin/rrserver-gps-nmea.so
 # XXX: This is mongoose based but needs thats fixed asap
 gps_modules += bin/rrserver-gpsd.so
 bins += ${gps_modules}
-bin/rrserver-gps-nmea.so: ${BUILD_DIR}/rrserver/module.gps-nmea.o ${librustyaxe} ${librrprotocol}
+bin/rrserver-gps-nmea.so: ${BUILD_DIR}/rrserver/module.gps-nmea.o
 	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrustyaxe -lrrprotocol ${LDFLAGS}
-bin/rrserver-gpsd.so: ${BUILD_DIR}/rrserver/module.gpsd.o ${librustyaxe} ${librrprotocol}
+bin/rrserver-gpsd.so: ${BUILD_DIR}/rrserver/module.gpsd.o
 	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrustyaxe -lrrprotocol ${LDFLAGS}
 extra_clean += ${BUILD_DIR}/rrserver/module.gps-nmea.o ${BUILD_DIR}/rrserver/module.gpsd.o ${gps_modules}
 
@@ -184,7 +184,7 @@ ifeq (${USE_HAMLIB},true)
 hamlib_module := bin/rrserver-hamlib.so
 bins += ${hamlib_module}
 ${BUILD_DIR}/rrserver/backend.hamlib.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags hamlib)
-bin/rrserver-hamlib.so: ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o ${librustyaxe} ${librrprotocol}
+bin/rrserver-hamlib.so: ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o
 	@${CC} ${LIB_LDFLAGS} -o $@ ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o -lrustyaxe -lrrprotocol $(shell pkg-config --libs hamlib) ${LDFLAGS}
 endif
 extra_clean += ${BUILD_DIR}/rrserver/backend.hamlib.o ${BUILD_DIR}/rrserver/module.hamlib.o bin/rrserver-hamlib.so
@@ -192,7 +192,7 @@ extra_clean += ${BUILD_DIR}/rrserver/backend.hamlib.o ${BUILD_DIR}/rrserver/modu
 # Standalone preview/explicit hardware bring-up tool; no radio backend required.
 ifneq ($(OS),DARWIN)
 bins += bin/rr-dds-si5351
-bin/rr-dds-si5351: ${BUILD_DIR}/rrserver/si5351-tool.o ${BUILD_DIR}/rrserver/si5351.o ${BUILD_DIR}/rrserver/hardware.si5351.o ${BUILD_DIR}/rrserver/hardware.o ${librustyaxe}
+bin/rr-dds-si5351: ${BUILD_DIR}/rrserver/si5351-tool.o ${BUILD_DIR}/rrserver/si5351.o ${BUILD_DIR}/rrserver/hardware.si5351.o ${BUILD_DIR}/rrserver/hardware.o
 	@${CC} -o $@ $(filter %.o,$^) -lrustyaxe ${LDFLAGS} || exit 1
 extra_clean += ${BUILD_DIR}/rrserver/si5351-tool.o bin/rr-dds-si5351 bin/rr-si5351
 endif

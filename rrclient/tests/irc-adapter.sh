@@ -1,8 +1,7 @@
 # Source this after cd to the repository root. Build only the transport adapter.
-irc_mode=$(sh tools/probe-librustyirc.sh)
-if [ "$irc_mode" = none ]; then test -f librustyirc.so; fi
-axe_mode=$(sh tools/probe-librustyaxe.sh)
-proto_mode=$(sh tools/probe-librrprotocol.sh)
+test "$(sh tools/probe-librustyirc.sh)" != none
+test "$(sh tools/probe-librustyaxe.sh)" != none
+test "$(sh tools/probe-librrprotocol.sh)" != none
 axe_cflags=$(pkg-config --cflags librustyaxe 2>/dev/null || :)
 proto_cflags=$(pkg-config --cflags librrprotocol 2>/dev/null || :)
 irc_cflags=$(pkg-config --cflags librustyirc 2>/dev/null || :)
@@ -10,17 +9,6 @@ irc_libs="$(pkg-config --libs-only-L librustyirc 2>/dev/null || :) -lrustyirc"
 axe_libs="$(pkg-config --libs-only-L librustyaxe 2>/dev/null || :) -lrustyaxe"
 proto_libs="$(pkg-config --libs-only-L librrprotocol 2>/dev/null || :) -lrrprotocol"
 test_includes="-idirafter . -idirafter inc"
-if [ "$axe_mode" = none ]; then
-   test -f librustyaxe.so
-   axe_libs="-L. -lrustyaxe"
-   test_includes="-I. -Iinc"
-fi
-if [ "$proto_mode" = none ]; then
-   test -f librrprotocol.so
-   proto_libs="-L. -lrrprotocol"
-   test_includes="-I. -Iinc"
-fi
-if [ "$irc_mode" = none ]; then irc_libs="-L. -lrustyirc"; fi
 export LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Caller owns the temporary directory through its existing work-directory trap.
 irc_adapter_dir="$work/irc-adapter"

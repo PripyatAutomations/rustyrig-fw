@@ -202,7 +202,7 @@ ${RR_LOG_SUBSYSTEM_HEADER}: tools/releng-log-subsystems.pl ${RR_LOG_SUBSYSTEM_SO
 ${BUILD_DIR}/rrclient/gtk/gtk.logview.o: ${RR_LOG_SUBSYSTEM_HEADER}
 ${BUILD_DIR}/rrclient/gtk/gtk.logview.o: extra_cflags += -I${BUILD_DIR}/rrclient
 
-${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${librustyirc_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
@@ -230,13 +230,13 @@ ${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} $
 # client API it uses) from the rrclient executable itself, which is linked
 # with -rdynamic so the module's undefined symbols bind against the host at
 # dlopen() time. Only GTK libraries are linked directly here.
-${gtk_module}: ${librustyirc} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${gtk_module_real_objs}
+${gtk_module}: ${BUILD_HEADERS} ${gtk_module_real_objs}
 	@echo "[link] $@ from $(words ${gtk_module_real_objs}) objects"
 	@${CC} ${LIB_LDFLAGS} -o $@ ${gtk_module_real_objs} ${GTK_LDFLAGS} ${notify_ldflags} || exit 2
 	@ls -a1ls $@
 	@file $@
 
-${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${librustyirc_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
@@ -256,7 +256,7 @@ RRCLIENT_AS_NEEDED_OFF := -Wl,--no-as-needed
 RRCLIENT_AS_NEEDED_ON := -Wl,--as-needed
 endif
 
-bin/rrclient: ${librustyirc} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
+bin/rrclient: ${BUILD_HEADERS} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
 	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} -lrustyaxe -lrrprotocol -lrustyirc $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) ${LDFLAGS} || exit 2
 	@ls -a1ls $@
