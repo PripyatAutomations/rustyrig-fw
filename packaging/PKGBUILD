@@ -11,7 +11,7 @@ pkgdesc='RustyRig remote radio software'
 arch=('x86_64')
 url='https://github.com/PripyatAutomations/rustyrig-fw'
 license=('GPL2')
-makedepends=('git' 'make' 'jq' 'pkgconf' 'perl' 'libbsd' 'ncurses' 'sqlite' 'curl' 'hamlib' 'libgpiod' 'glib2' 'librustyaxe' 'librrprotocol' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'libev' 'libsrtp')
+makedepends=('git' 'make' 'jq' 'pkgconf' 'perl' 'libbsd' 'ncurses' 'sqlite' 'curl' 'hamlib' 'libgpiod' 'glib2' 'librustyaxe' 'librustyirc' 'librrprotocol' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'libev' 'libsrtp')
 source=('git+https://github.com/PripyatAutomations/rustyrig-fw.git')
 sha256sums=('SKIP')
 
@@ -23,21 +23,19 @@ prepare() {
 
 build() {
    cd "$srcdir/rustyrig-fw"
-   make PROFILE=radio LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system
-   make -C callsign-lookup LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system
+   make PROFILE=radio LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system
+   make -C callsign-lookup LIBRUSTYAXE_PROVIDER=system LIBRRPROTOCOL_PROVIDER=system LIBRUSTYIRC_PROVIDER=system
 }
 
 _install_libs() {
    cd "$srcdir/rustyrig-fw"
-   install -Dm755 librustyirc.so "$pkgdir/usr/lib/librustyirc.so.0"
-   ln -s librustyirc.so.0 "$pkgdir/usr/lib/librustyirc.so"
    install -Dm755 libfwdspmgr.so "$pkgdir/usr/lib/libfwdspmgr.so.0"
    ln -s libfwdspmgr.so.0 "$pkgdir/usr/lib/libfwdspmgr.so"
 }
 
 package_rustyrig-libs() {
    pkgdesc='RustyRig shared libraries'
-   depends=('librustyaxe' 'librrprotocol' 'glib2' 'sqlite' 'libbsd' 'libev' 'libsrtp')
+   depends=('librustyaxe' 'librustyirc' 'librrprotocol' 'glib2' 'sqlite' 'libbsd' 'libev' 'libsrtp')
    _install_libs
 }
 
