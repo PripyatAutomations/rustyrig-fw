@@ -15,8 +15,11 @@ see every field again, and click **Save Config** to save the effective configura
 
 System `rrclient.cfg` and optional user configuration provide bootstrap defaults. At
 startup the saved SQLite snapshot takes precedence. Launch with
-`rrclient --ignore-db-config` to use only the config files (and skip saved
-server profiles and themes) for recovery. The **Edit Raw** button is no longer
+`rrclient --ignore-db-config` to skip only the saved configuration overrides
+at startup; saved server profiles and themes still load from their separate DB
+tables. If the override snapshot is unreadable, startup falls back to file
+defaults rather than exiting. The **Reload Config** button offers a file-only
+reload or a file-plus-DB reload; neither deletes saved settings. The **Edit Raw** button is no longer
 in the Config tab; the same editor remains available through Remote Files.
 
 The GTK Config tab labels the search box **Filter:** and shows an empty-field
