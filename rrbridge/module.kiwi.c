@@ -29,6 +29,7 @@ struct kiwi_instance {
    uint64_t waterfall_rows, waterfall_retry, waterfall_last_sent, waterfall_keepalive;
    uint64_t wf_stats_at, wf_received, wf_throttled, wf_ipc_dropped, wf_invalid, wf_sent;
    uint64_t traffic_rx, traffic_tx, traffic_report_at;
+   uint64_t snd_last_rx, snd_last_tx, wf_last_rx, wf_last_tx;
    unsigned waterfall_zoom;
    int agc, hang, thresh, slope, decay, man_gain, squelch, squelch_max;
    int nb, nb_gate, nb_thresh, nb_click, de_emp;
@@ -122,11 +123,13 @@ static void kiwi_destroy(void *instance) {
    if (k->connection) {
       rr_transport_close(k->connection);
       rr_transport_poll(k->connection, 0);
+      kiwi_traffic(k, k->connection, false);
       if (rr_transport_state(k->connection) == RR_TRANSPORT_CLOSED) rr_transport_wss_release(k->connection);
    }
    if (k->waterfall) {
       rr_transport_close(k->waterfall);
       rr_transport_poll(k->waterfall, 0);
+      kiwi_traffic(k, k->waterfall, true);
       if (rr_transport_state(k->waterfall) == RR_TRANSPORT_CLOSED) rr_transport_wss_release(k->waterfall);
    }
    free(k);
@@ -728,6 +731,16 @@ static bool kiwi_start(void *instance) {
 
    return true;
 }
+static void kiwi_traffic(struct kiwi_instance *k, rr_transport_t *transport, bool waterfall) {
+   uint64_t rx = 0, tx = 0;
+   rr_transport_wss_traffic(transport, &rx, &tx);
+   uint64_t *last_rx = waterfall ? &k->wf_last_rx : &k->snd_last_rx;
+   uint64_t *last_tx = waterfall ? &k->wf_last_tx : &k->snd_last_tx;
+   if (rx >= *last_rx) k->traffic_rx += rx - *last_rx;
+   if (tx >= *last_tx) k->traffic_tx += tx - *last_tx;
+   *last_rx = rx;
+   *last_tx = tx;
+}
 static void kiwi_poll(void *instance) {
    struct kiwi_instance *k = instance;
    uint64_t current = mono_us();
@@ -758,6 +771,7 @@ static void kiwi_poll(void *instance) {
       snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
       rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = !(setting(k, "password") && *setting(k, "password"))};
       k->connection = rr_transport_wss_connect(k->url, &options, websocket, k);
+      k->snd_last_rx = k->snd_last_tx = 0;
       k->deadline = current + 10000000;
       k->received = current;
       k->keepalive = current;
@@ -787,6 +801,7 @@ static void kiwi_poll(void *instance) {
             note(k, detail);
             rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = false};
              k->waterfall = rr_transport_wss_connect(wf_url, &options, waterfall_ws, k);
+             k->wf_last_rx = k->wf_last_tx = 0;
          }
       }
       k->waterfall_retry = current + UINT64_C(10000000);
