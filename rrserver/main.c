@@ -601,6 +601,9 @@ int main(int argc, char **argv) {
          "revoke-certs", no_argument, NULL, 1011
       },
       {
+         "reset-certs", no_argument, NULL, 1012
+      },
+      {
          "help", no_argument, NULL, 'h'
       },
       {
@@ -648,12 +651,14 @@ int main(int argc, char **argv) {
             break;
          }
          case 1010:
-         case 1011: {
+         case 1011:
+         case 1012: {
             if (maintenance != RR_MAINT_NONE || mesh_join) {
                fprintf(stderr, "Specify only one maintenance operation.\\n");
                return EXIT_FAILURE;
             }
-            maintenance = opt==1010 ? RR_MAINT_ROTATE_CERTS : RR_MAINT_REVOKE_CERTS;
+            maintenance = opt==1010 ? RR_MAINT_ROTATE_CERTS :
+               opt==1011 ? RR_MAINT_REVOKE_CERTS : RR_MAINT_RESET_CERTS;
             break;
          }
          case 1001:
@@ -694,6 +699,9 @@ int main(int argc, char **argv) {
             puts("  --reset-adminpw     Prompt for NEW admin password twice, hidden (8-256 chars)");
             puts("                      Update account directly; no random password or file");
             puts("  --reset-uuids       Regenerate room UUIDs and clear rig/VFO UUID mappings");
+            puts("  --rotate-certs      Retire identity and queue signed revocation");
+            puts("  --revoke-certs      Retire identity and queue signed revocation");
+            puts("  --reset-certs       Archive TLS/Ed25519 keys for fresh mesh (no revocation)");
             puts("\nRequires an interactive terminal and YES <full-option> confirmation.");
             puts("Only one full maintenance option per invocation; no --force.");
             puts("Commands exit without starting rrserver. Back up data first.");
