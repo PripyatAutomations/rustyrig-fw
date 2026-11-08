@@ -174,3 +174,18 @@ bin/rr-dds-si5351: ${BUILD_DIR}/rrserver/si5351-tool.o ${BUILD_DIR}/rrserver/si5
 	@${CC} -o $@ $(filter %.o,$^) -lrustyaxe ${LDFLAGS} || exit 1
 extra_clean += ${BUILD_DIR}/rrserver/si5351-tool.o bin/rr-dds-si5351 bin/rr-si5351
 endif
+
+# Application-owned handlers moved out of standalone librrprotocol.
+rrserver_objs += srv.auth.o
+rrserver_objs += srv.auth.passdb.o
+rrserver_objs += srv.chat.error.o
+rrserver_objs += srv.chat.o
+rrserver_objs += srv.chat.whois.o
+rrserver_objs += srv.client.o
+rrserver_objs += srv.http.listeners.o
+rrserver_objs += srv.http.o
+rrserver_objs += srv.ptt.disconnect.o
+rrserver_objs += srv.ping.o
+rrserver_objs += srv.rigctl.o
+rrserver_objs += srv.send.o
+rrserver_objs += srv.session.o
