@@ -1,3 +1,11 @@
+rustyrig-fw (1.0.2-3) unstable; urgency=medium
+
+  * Use native RustyAxe OpenSSL/wslay for KiwiSDR audio/control and waterfall.
+  * Remove the bridge's Mongoose dependency and retain independent reconnects.
+  * Add source guard against reintroducing Mongoose inside rrbridge.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 03:00:00 -0500
+
 rustyrig-fw (1.0.2-2) unstable; urgency=medium
 
   * Rename the separate SDR bridge package to rustyrig-rrbridge.
