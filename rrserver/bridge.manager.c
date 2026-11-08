@@ -26,6 +26,7 @@
 #include <librustyaxe/transport.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <rrserver/media.h>
+#include <rrserver/gps.h>
 #include <rrserver/bridge.access.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/database.h>
@@ -1371,6 +1372,8 @@ static void websdr_remove(rr_server_rig_t *radio) {
       }
    }
 
+   /* Drop dynamic GPSP bookkeeping before retiring this rig's channels. */
+   rrserver_gps_websdr_remove(uuid);
    for (unsigned i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
       if (media_channels[i].uuid[0] && !strcmp(media_channels[i].rig_uuid, uuid)) {
          media_send_chan_removed_all(&media_channels[i]);
@@ -1908,6 +1911,11 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          snprintf(coordinates, sizeof(coordinates), "%.7f, %.7f", derived.latitude, derived.longitude);
          publish_metadata(b, "directory_coordinates", coordinates, false);
          publish_metadata(b, "directory_location_source", "maidenhead-grid-center", false);
+         /* This source has its own rig-scoped GPSP UUID. The receiver room
+          * and its members are already known; advertise along with the
+          * normal receiver audio below. */
+         if (!rrserver_gps_websdr_grid(b->backend->owner, grid))
+            Log(LOG_WARN, "gps", "[%s] unable to provision directory-grid GPSP", bridge_public_name(b));
       }
    }
    dict *result = dict_new(), *reply = dict_new();
