@@ -322,7 +322,8 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
 static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *icon, const char *tool, const char *tooltip) {
    GtkWidget *button = gtk_button_new();
    GtkWidget *contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   GtkWidget *image = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
+   GtkWidget *image = !strcmp(icon, "📻") ? gtk_label_new(icon) :
+      gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
    GtkWidget *label = gtk_label_new(text);
    gtk_box_pack_start(GTK_BOX(contents), image, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(contents), label, FALSE, FALSE, 0);
