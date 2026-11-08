@@ -8,6 +8,8 @@
 #include <glib.h>
 #include <stdio.h>
 #include <rrserver/link.h>
+#include <rrserver/identity.h>
+#include <librustyaxe/config.h>
 #include <librrprotocol/auth.h>
 
 #define USER_RECONCILE_MS 5000
@@ -75,6 +77,18 @@ void rr_relay_users_poll(bool force) {
    }
 
    if (changed) {
+      /* Directory state includes users, sessions and displayed privileges.
+       * Sign the complete snapshot before storing or forwarding it. */
+      dict_add(local,"identity.owner",rrserver_links_node());
+      dict_add(local,"identity.domain",cfg_get("domain"));
+      dict_add(local,"identity.public-key",rr_identity_public_base64());
+      dict_add(local,"identity.scheme","ed25519-catalog-v1");
+      dict_add(local,"identity.operation","users-snapshot");
+      if (!rr_identity_sign_catalog(local)) {
+         Log(LOG_WARN,"mesh.identity","Cannot sign user-directory snapshot; refusing publication");
+         dict_free(local);
+         return;
+      }
       rr_relay_directory_put(rrserver_links_node(), local);
 
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
