@@ -43,12 +43,13 @@ SHELL = bash
 CFLAGS += -Wno-duplicated-branches
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -Wno-deprecated-declarations
-# Prefer the checked-out dependency headers over system-installed copies.
+# System mode must not shadow installed librustyaxe headers with the
+# submodule in ./ or ./inc. -idirafter still exposes our own project headers.
 ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-# Override even the checkout-root headers with the installed API.
-CFLAGS += -I$(BUILD_DIR)/axe-system-include $(shell $(AXE_PKG_CONFIG) --cflags librustyaxe)
-endif
+CFLAGS += $(AXE_SYSTEM_CFLAGS) -I./librrprotocol -I${BUILD_DIR} -idirafter ./inc -idirafter .
+else
 CFLAGS += -I./ -I./librrprotocol -I./librustyaxe -I../ -I./inc -I${BUILD_DIR}
+endif
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
@@ -80,24 +81,24 @@ ifeq ($(OS),DARWIN)
 # Start with the existing .so artifact names: Mach-O can load a dylib
 # regardless of filename extension. A full .dylib naming migration can
 # follow once client and server compile successfully.
-LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,@executable_path/.. -Wl,-rpath,@loader_path/..
+LDFLAGS += -L. -Wl,-rpath,@executable_path/.. -Wl,-rpath,@loader_path/..
 LDFLAGS += -lm -g
 LIB_LDFLAGS := -dynamiclib -Wl,-undefined,dynamic_lookup
 SHARED_ID_FLAG = -Wl,-install_name,@rpath/$(1)
 CLIENT_EXPORT_FLAGS := -Wl,-export_dynamic
 SERVER_EXPORT_FLAGS := -Wl,-export_dynamic
 else
-LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib:$ORIGIN/..'
+LDFLAGS += -L. -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib:$ORIGIN/..'
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
 LIB_LDFLAGS := -fPIC -shared
 SHARED_ID_FLAG = -Wl,-soname,$(1).0
 CLIENT_EXPORT_FLAGS := -rdynamic
 SERVER_EXPORT_FLAGS := -Wl,--export-dynamic
 endif
+# Preserve custom library search paths from pkg-config if provided; otherwise
+# the compiler's default -lrustyaxe search paths are sufficient.
 ifeq ($(LIBRUSTYAXE_PROVIDER),system)
-# The shared library is already installed; never stage a checkout-root copy.
-# The -L flag precedes fallback source directories.
-LDFLAGS := -L$(AXE_SYSTEM_LIBDIR) $(LDFLAGS)
+LDFLAGS := $(AXE_SYSTEM_LDFLAGS) $(LDFLAGS)
 endif
 
 # librustyaxe is linked in every host build, including headless rrserver.
