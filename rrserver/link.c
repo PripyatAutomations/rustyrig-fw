@@ -531,7 +531,7 @@ void rrserver_links_each_neighbor(rr_link_neighbor_fn cb, void *context) {
    for (struct link_session *s = links.sessions; s; s=s->next)
       if (s->established && !session_closing(s)) cb(s->node, context);
 }
-void rrserver_links_depart_revoked(const char *uuid) {
+void rrserver_links_depart_revoked(const char *uuid, const char *ingress) {
    if (!uuid || !g_uuid_string_is_valid(uuid)) return;
    bool direct=false;
    for (struct link_session *s=links.sessions; s; s=s->next) {
@@ -561,7 +561,13 @@ void rrserver_links_depart_revoked(const char *uuid) {
             dict *withdrawal=message("link.withdraw");
             if (withdrawal) {
                dict_add(withdrawal,"node",uuid);
-               broadcast(NULL,withdrawal);
+               /* Never send this withdraw back toward the branch we
+                * just invalidated: that branch would see a forged ancestry
+                * claim and disconnect the healthy intermediary. */
+               struct link_session *exclude=NULL;
+               for (struct link_session *peer=links.sessions;peer;peer=peer->next)
+                  if (ingress && !strcmp(peer->node,ingress)) {exclude=peer;break;}
+               broadcast(exclude,withdrawal);
                dict_free(withdrawal);
             }
             event_emit("server.link.lost",NULL,uuid);
