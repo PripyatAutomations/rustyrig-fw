@@ -526,7 +526,7 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
          password = "";
       }
 
-      if (strlen(password) > 128 || strpbrk(password, " \\r\\n")) {
+      if (strlen(password) > 128 || strpbrk(password, " \r\n")) {
          rr_transport_close(t);
 
          return;
@@ -542,7 +542,7 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
       };
 
       for (size_t i = 0 ; i < sizeof(commands) / sizeof(commands[0]) ; i++) {
-         rr_transport_send_message(t, commands[i], strlen(commands[i]);
+         rr_transport_send_message(t, commands[i], strlen(commands[i]));
       }
 
       waterfall_center(k);
@@ -620,7 +620,7 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
             }
          }
       }
-   }   } else if (event == RR_TRANSPORT_EVENT_CLOSE && t == k->waterfall) {
+   } else if (event == RR_TRANSPORT_EVENT_CLOSE && t == k->waterfall) {
       if (k->waterfall_enabled) {
          note(k, k->waterfall_ready ? "Kiwi W/F socket closed; will retry independently of audio" : "Kiwi W/F socket closed before receiving spectrum data");
       }
@@ -757,7 +757,7 @@ static void kiwi_poll(void *instance) {
       char headers[416];
       snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
       rr_wss_client_options_t options = {.user_agent = ua, .allow_cross_origin_redirect = !(setting(k, "password") && *setting(k, "password"))};
-       k->connection = rr_transport_wss_connect(k->url, &options, websocket, k);
+      k->connection = rr_transport_wss_connect(k->url, &options, websocket, k);
       k->deadline = current + 10000000;
       k->received = current;
       k->keepalive = current;
@@ -782,8 +782,6 @@ static void kiwi_poll(void *instance) {
          }
 
          if (strlen(ua) < 384 && !strpbrk(ua, "\r\n")) {
-            char headers[416];
-            snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
             char detail[560];
             snprintf(detail, sizeof(detail), "Connecting Kiwi RF waterfall: %s", wf_url);
             note(k, detail);
