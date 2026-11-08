@@ -137,7 +137,10 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
    /* Sign all commands and replies end-to-end. Relays cannot change their
     * content, destination, identity, authenticated user or session token. */
    dict *signed_reply=NULL;
-   if (!strcmp(kind,"request") || !strcmp(kind,"reply")) {
+   if (!strcmp(kind,"request") || !strcmp(kind,"reply") ||
+       !strcmp(kind,"subscribe") || !strcmp(kind,"unsubscribe") ||
+       !strcmp(kind,"state") || !strcmp(kind,"close") ||
+       !strcmp(kind,"identity-revocation-ack")) {
       signed_reply=dict_clone(payload);
       if (!signed_reply || !rr_identity_public_base64()) {
          dict_free(signed_reply);
@@ -148,8 +151,9 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
       dict_add(signed_reply,"identity.domain",cfg_get("domain"));
       dict_add(signed_reply,"identity.public-key",rr_identity_public_base64());
       dict_add(signed_reply,"identity.scheme","ed25519-catalog-v1");
-      dict_add(signed_reply,"identity.operation",
-         !strcmp(kind,"request")?"relay-request":"relay-reply");
+      char operation[96];
+      snprintf(operation,sizeof(operation),"relay-%s",kind);
+      dict_add(signed_reply,"identity.operation",operation);
       dict_add(signed_reply,"identity.session",session?session:"");
       dict_add(signed_reply,"identity.destination",dest?dest:"");
       dict_add(signed_reply,"identity.username",username?username:"");
@@ -649,6 +653,37 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       goto done;
    }
 
+   /* Control-plane operations other than object catalogs and signed
+    * revocation notices must also have end-to-end origin authenticity.
+    * No intermediary may forge state, subscriptions, close or ACK traffic. */
+   bool signed_control=!strcmp(kind,"subscribe") ||
+      !strcmp(kind,"unsubscribe") || !strcmp(kind,"state") ||
+      !strcmp(kind,"close") || !strcmp(kind,"identity-revocation-ack");
+   if (signed_control) {
+      char operation[96];
+      snprintf(operation,sizeof(operation),"relay-%s",kind);
+      bool verified=!strcmp(dict_get(d,"identity.owner",""),origin) &&
+         !g_ascii_strcasecmp(dict_get(d,"identity.domain",""),cfg_get("domain")) &&
+         !strcmp(dict_get(d,"identity.operation",""),operation) &&
+         !strcmp(dict_get(d,"identity.scheme",""),"ed25519-catalog-v1") &&
+         !strcmp(dict_get(d,"identity.destination",""),dest) &&
+         !strcmp(dict_get(d,"identity.session",""),id) &&
+         !strcmp(dict_get(d,"identity.username",""),dict_get(envelope,"username","")) &&
+         rr_identity_verify_catalog(d);
+#ifdef USE_SQLITE
+      if (verified) verified=rr_identity_known_signer(masterdb,cfg_get("domain"),
+         origin,dict_get(d,"identity.public-key",""));
+#else
+      verified=false;
+#endif
+      if (!verified) {
+         Log(LOG_WARN,"mesh.control","Rejected unsigned/forged %s from %s",kind,origin);
+         goto done;
+      }
+      rr_relay_strip_catalog_identity(d);
+      dict_del(d,"identity.destination");
+      dict_del(d,"identity.username");
+   }
    if (!strcmp(kind, "identity-revocation")) {
 #ifdef USE_SQLITE
       const char *ingress=dict_get(envelope,"_ingress","");
