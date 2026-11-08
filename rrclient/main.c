@@ -2126,9 +2126,11 @@ bool rrclient_cleanup(void) {
 
    // Persist the running config (including window placements learned while
    // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
-   if (cfg && config_file && cfg_get_bool("ui.save-on-exit", false)) {
-      Log(LOG_INFO, "config", "ui.save-on-exit: saving config to %s", config_file);
-      rrclient_database_config_save(config_file);
+   if (cfg && cfg_get_bool("ui.save-on-exit", false)) {
+      Log(LOG_INFO, "config", "ui.save-on-exit: saving config overrides to client.db");
+      if (!rrclient_config_save()) {
+         Log(LOG_WARN, "config", "Unable to save configuration overrides to client.db");
+      }
    }
 
    free((void *)cfg_log_audio);
@@ -2251,6 +2253,9 @@ int main(int argc, char *argv[]) {
             "ssh", no_argument, 0, 'S'
          },
          {
+            "ignore-db-config", no_argument, 0, 1000
+         },
+         {
             "help", no_argument, 0, 'h'
          },
          {
@@ -2265,6 +2270,10 @@ int main(int argc, char *argv[]) {
       }
 
       switch (c) {
+         case 1000: {
+            rrclient_config_set_ignore_db(true);
+            break;
+         }
          case 'f': {
             printf("Using config file: %s\n", optarg);
             config_file = strdup(optarg);
@@ -2337,6 +2346,23 @@ int main(int argc, char *argv[]) {
       Log(LOG_CRIT, "config", "Unable to load client configuration");
       exit(1);
    }
+   /* Load persistent overrides before selecting GTK/TUI, initializing the
+    * logger, or creating frontend modules. --ignore-db-config is a recovery
+    * boot: no DB-managed config, profiles, or themes are overlaid. */
+   if (!rrclient_database_init()) {
+      Log(LOG_CRIT, "db", "Unable to initialize client database");
+
+      return EXIT_FAILURE;
+   }
+   if (!rrclient_config_ignore_db() &&
+      (!rrclient_database_config_overlay() || !rrclient_database_load_profiles() ||
+       !rrclient_database_load_themes())) {
+      Log(LOG_CRIT, "db", "Unable to apply database configuration");
+
+      return EXIT_FAILURE;
+   }
+   rrclient_theme_apply();
+
    /* Choose the execution topology once, after loading configuration and before installing the core event domain, reactor and timer sources. */
    const bool threaded_gtk = !force_tui && cfg_modules_get(0, NULL) != NULL;
 
@@ -2383,14 +2409,6 @@ int main(int argc, char *argv[]) {
    }
    logger_init(log_target, (ui_mode == UI_MODE_TUI));
    g_free(default_logfile);
-
-   if (!rrclient_database_init() || !rrclient_database_load_profiles() || !rrclient_database_load_themes()) {
-      Log(LOG_CRIT, "db", "Unable to initialize client database");
-
-      return EXIT_FAILURE;
-   }
-
-   rrclient_theme_apply();
 
    if (logfile) {
       free(logfile);
