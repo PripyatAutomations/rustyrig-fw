@@ -8,6 +8,7 @@ Build-Depends:
  jq,
  pkg-config,
  libbsd-dev,
+ librustyaxe-dev,
  libcurl4-openssl-dev,
  libssl-dev,
  libwslay-dev,
@@ -32,21 +33,9 @@ Homepage: https://github.com/PripyatAutomations/rustyrig-fw
 Vcs-Git: https://github.com/PripyatAutomations/rustyrig-fw.git
 Vcs-Browser: https://github.com/PripyatAutomations/rustyrig-fw
 
-Package: librustyaxe
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: RustyRig shared core library
- Shared core library used by RustyRig clients, servers, and tools.
-
-Package: librustyaxe-dev
-Architecture: any
-Depends: librustyaxe (= ${binary:Version}), ${misc:Depends}
-Description: Development files for librustyaxe
- Headers and linker files for the RustyRig core library.
-
 Package: librustyirc
 Architecture: any
-Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Description: Reusable IRC protocol library
  IRC parsing, registration, CAP/SASL and DCC offer codecs without socket ownership.
 
@@ -58,7 +47,7 @@ Description: Development files for librustyirc
 
 Package: librrprotocol
 Architecture: any
-Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig protocol shared library
  WebSocket, media, chat, and rig-control protocol implementation.
 
@@ -70,7 +59,7 @@ Description: Development files for librrprotocol
 
 Package: libfwdspmgr
 Architecture: any
-Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig DSP manager shared library
  Shared process and pipeline manager used by RustyRig audio services.
 
@@ -102,7 +91,7 @@ Description: Remote SDR bridge host and KiwiSDR module for RustyRig
 Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-bridge (= ${binary:Version})
 Suggests: rustyrig-server-hamlib
 Description: RustyRig server
@@ -111,7 +100,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), librustyirc (= ${binary:Version}), acl, debconf, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), librustyirc (= ${binary:Version}), acl, debconf, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rrclient-screensaver
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
@@ -136,7 +125,7 @@ Description: Optional fullscreen GTK screensaver for RustyRig
 Package: rustyrig-fwdsp
 Architecture: any
 Pre-Depends: adduser
-Depends: libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}),
+Depends: libfwdspmgr (= ${binary:Version}), librustyaxe0,
  gstreamer1.0-tools, gstreamer1.0-plugins-base,
  gstreamer1.0-plugins-good, gstreamer1.0-pulseaudio,
  gstreamer1.0-plugins-bad,
@@ -146,7 +135,7 @@ Description: RustyRig audio DSP service
 
 Package: rustyrig-callsign-lookup
 Architecture: any
-Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig callsign lookup service
  Callsign lookup helper using local databases and the QRZ XML API.
 
