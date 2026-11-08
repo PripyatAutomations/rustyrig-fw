@@ -1555,10 +1555,15 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!ca || !*ca) {
       ca = cfg_get("tls.ca-file");
    }
+   /* The logical TLS name is independent of the URL's dial address.
+    * Require an explicit per-profile hostname when dialing by IP/alias;
+    * never substitute a claimed peer identity after the TLS handshake. */
+   const char *tls_name = get_server_property(s->name, "server.tls-name");
    rr_wss_client_options_ex_t opts = {
       .user_agent = "RustyRig/1.0",
       .subprotocol = RR_WS_SUBPROTOCOL,
-      .ca_file = ca
+      .ca_file = ca,
+      .tls_server_name = tls_name && *tls_name ? tls_name : NULL
    };
    char connect_url[2048];
    snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s",
