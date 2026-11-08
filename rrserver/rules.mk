@@ -122,6 +122,27 @@ rrserver_objs += unwind.o		# Support for stack unwinding on crashes
 rrserver_objs += waterfall.o		# support for sending a waterfall
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
 
+
+# Application-owned handlers moved out of standalone librrprotocol.
+rrserver_objs += srv.auth.o
+rrserver_objs += srv.auth.passdb.o
+rrserver_objs += srv.chat.error.o
+rrserver_objs += srv.chat.o
+rrserver_objs += srv.chat.whois.o
+rrserver_objs += srv.client.o
+rrserver_objs += srv.http.listeners.o
+rrserver_objs += srv.http.o
+rrserver_objs += srv.ptt.disconnect.o
+rrserver_objs += srv.ping.o
+rrserver_objs += srv.rigctl.o
+rrserver_objs += srv.send.o
+rrserver_objs += srv.session.o
+
+# Protocol-facing application components, not shared library code.
+rrserver_objs += http.api.o
+rrserver_objs += http.bans.o
+rrserver_objs += ws.mediachan.o
+
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
@@ -174,23 +195,3 @@ bin/rr-dds-si5351: ${BUILD_DIR}/rrserver/si5351-tool.o ${BUILD_DIR}/rrserver/si5
 	@${CC} -o $@ $(filter %.o,$^) -lrustyaxe ${LDFLAGS} || exit 1
 extra_clean += ${BUILD_DIR}/rrserver/si5351-tool.o bin/rr-dds-si5351 bin/rr-si5351
 endif
-
-# Application-owned handlers moved out of standalone librrprotocol.
-rrserver_objs += srv.auth.o
-rrserver_objs += srv.auth.passdb.o
-rrserver_objs += srv.chat.error.o
-rrserver_objs += srv.chat.o
-rrserver_objs += srv.chat.whois.o
-rrserver_objs += srv.client.o
-rrserver_objs += srv.http.listeners.o
-rrserver_objs += srv.http.o
-rrserver_objs += srv.ptt.disconnect.o
-rrserver_objs += srv.ping.o
-rrserver_objs += srv.rigctl.o
-rrserver_objs += srv.send.o
-rrserver_objs += srv.session.o
-
-# Protocol-facing application components, not shared library code.
-rrserver_objs += http.api.o
-rrserver_objs += http.bans.o
-rrserver_objs += ws.mediachan.o
