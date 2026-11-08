@@ -233,6 +233,37 @@ bool rr_identity_verify_catalog(dict *d) {
 }
 
 #ifdef USE_SQLITE
+/* Strict read-only authority lookup for relayed commands/replies.
+ * Unlike catalog discovery, this never creates a TOFU pin. */
+bool rr_identity_known_signer(sqlite3 *db, const char *domain,
+      const char *owner, const char *public_key) {
+   if (!db || !domain || !*domain || !g_uuid_string_is_valid(owner) ||
+       !public_key || !*public_key) return false;
+   sqlite3_stmt *stmt=NULL;
+   if (sqlite3_prepare_v2(db,
+      "SELECT 1 FROM mesh_explicit_trust WHERE domain=?1 COLLATE NOCASE "
+      "AND owner_uuid=?2 AND catalog_pubkey=?3 "
+      "UNION SELECT 1 FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE "
+      "AND owner_uuid=?2 AND public_key=?3", -1,&stmt,NULL)!=SQLITE_OK)
+      return false;
+   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,3,public_key,-1,SQLITE_TRANSIENT);
+   bool known=sqlite3_step(stmt)==SQLITE_ROW;
+   sqlite3_finalize(stmt);
+   if (!known) return false;
+   /* Existing denylist is authoritative and must fail closed on SQL errors. */
+   if (sqlite3_prepare_v2(db,
+      "SELECT 1 FROM mesh_revoked_identity_keys WHERE domain=?1 COLLATE NOCASE "
+      "AND owner_uuid=?2 AND public_key=?3", -1,&stmt,NULL)!=SQLITE_OK)
+      return false;
+   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,3,public_key,-1,SQLITE_TRANSIENT);
+   int state=sqlite3_step(stmt);
+   sqlite3_finalize(stmt);
+   return state==SQLITE_DONE;
+}
 bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, const char *pubkey) {
    if (!db || !domain || !*domain || !owner || !*owner || !pubkey || !*pubkey) {
       return false;
