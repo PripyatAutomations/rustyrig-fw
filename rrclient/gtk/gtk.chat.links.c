@@ -1,6 +1,6 @@
 // rrclient/gtk/gtk.chat.links.c: Deferred chat link presentation
 // This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/connman.h>
