@@ -172,6 +172,21 @@ Stop `rrclient` first.
   compromised client/session credentials. Re-authorize user certificates
   and permissions from a known-good inventory. Disconnect old sessions.
 
+## Certificate operation boundary
+
+The GTK Admin > Security & Trust page is for read-only identity inventory
+and **peering configuration removal** (`peer-remove`) only. Removing
+peering does not revoke a signing key, TLS certificate, or catalog, and
+does not authorize the client to rotate keys.
+
+No remote `identity-revoke` command is supported. Server cryptographic
+revocation and rotation are reserved for local, stopped-server maintenance.
+The proposed `rrserver --revoke-certs` and `--rotate-certs` commands must
+not be documented as available until implemented and tested. Cluster-wide
+signed revocation distribution, offline replay, catalog invalidation and
+acknowledgments remain required work before certificate revocation is
+considered operational.
+
 ## 5. Validate and revoke
 
 Verify every server and client against fresh fingerprints/UUIDs and the correct
