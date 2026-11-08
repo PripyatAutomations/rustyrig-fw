@@ -397,6 +397,48 @@ bool rrclient_database_load_profiles(void) {
    return true;
 }
 
+
+/* Small persistent preferences; values are owned by the caller. */
+char *rrclient_database_setting_get(const char *key) {
+   if (!client_db || !key || !*key) {
+      return NULL;
+   }
+   sqlite3_stmt *stmt = NULL;
+   char *value = NULL;
+
+   if (sqlite3_prepare_v2(client_db, "SELECT value FROM client_settings WHERE key=?1", -1, &stmt, NULL) == SQLITE_OK) {
+      sqlite3_bind_text(stmt, 1, key, -1, SQLITE_TRANSIENT);
+
+      if (sqlite3_step(stmt) == SQLITE_ROW) {
+         const char *text = (const char *)sqlite3_column_text(stmt, 0);
+         if (text) {
+            value = g_strdup(text);
+         }
+      }
+   }
+   sqlite3_finalize(stmt);
+
+   return value;
+}
+bool rrclient_database_setting_set(const char *key, const char *value) {
+   if (!client_db || !key || !*key || !value) {
+      return false;
+   }
+   sqlite3_stmt *stmt = NULL;
+   bool ok = false;
+
+   if (sqlite3_prepare_v2(client_db,
+      "INSERT INTO client_settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      -1, &stmt, NULL) == SQLITE_OK) {
+      sqlite3_bind_text(stmt, 1, key, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 2, value, -1, SQLITE_TRANSIENT);
+      ok = sqlite3_step(stmt) == SQLITE_DONE;
+   }
+   sqlite3_finalize(stmt);
+
+   return ok;
+}
+
 /* Never write the DB-backed compatibility view back into rrclient.cfg. */
 bool rrclient_database_config_save(const char *path) {
    if (!cfg || !path) {
