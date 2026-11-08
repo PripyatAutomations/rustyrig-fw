@@ -262,7 +262,9 @@ bool rr_identity_known_signer(sqlite3 *db, const char *domain,
       "SELECT 1 FROM mesh_explicit_trust WHERE domain=?1 COLLATE NOCASE "
       "AND owner_uuid=?2 AND catalog_pubkey=?3 "
       "UNION SELECT 1 FROM mesh_identity_pins WHERE domain=?1 COLLATE NOCASE "
-      "AND owner_uuid=?2 AND public_key=?3", -1,&stmt,NULL)!=SQLITE_OK)
+      "AND owner_uuid=?2 AND public_key=?3 "
+      "AND NOT EXISTS(SELECT 1 FROM mesh_explicit_trust "
+      " WHERE domain=?1 COLLATE NOCASE AND owner_uuid=?2)", -1,&stmt,NULL)!=SQLITE_OK)
       return false;
    sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
