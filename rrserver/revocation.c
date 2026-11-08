@@ -24,7 +24,11 @@ bool rr_revocation_schema(sqlite3 *db) {
       "CREATE TABLE IF NOT EXISTS mesh_revoked_identity_keys("
       "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
       "revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),"
-      "PRIMARY KEY(domain,owner_uuid,public_key));",
+      "PRIMARY KEY(domain,owner_uuid,public_key));"
+      "CREATE TABLE IF NOT EXISTS mesh_revocation_acks("
+      "domain TEXT NOT NULL,owner_uuid TEXT NOT NULL,public_key TEXT NOT NULL,"
+      "peer_uuid TEXT NOT NULL,acknowledged_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid,public_key,peer_uuid));",
       NULL,NULL,NULL)==SQLITE_OK;
 }
 static bool store(sqlite3 *db, dict *d, bool *fresh) {
@@ -145,6 +149,26 @@ bool rr_revocation_receive(sqlite3 *db,dict *d,bool *fresh) {
       size_t purged=rr_relay_catalog_revoke_signer(uuid,key);
       Log(LOG_AUDIT,"mesh.identity","Revoked signer %s; purged %zu signed catalog descriptors",uuid,purged);
    }
+   return ok;
+}
+bool rr_revocation_ack(sqlite3 *db, const char *peer, const char *owner, const char *public_key) {
+   if (!rr_revocation_schema(db) || !g_uuid_string_is_valid(peer) ||
+       !g_uuid_string_is_valid(owner) || !public_key || strlen(public_key)!=44) return false;
+   sqlite3_stmt *stmt=NULL;
+   bool ok=sqlite3_prepare_v2(db,
+      "INSERT OR IGNORE INTO mesh_revocation_acks(domain,owner_uuid,public_key,peer_uuid)"
+      " SELECT domain,owner_uuid,public_key,?4 FROM mesh_revocation_log"
+      " WHERE domain=?1 AND owner_uuid=?2 AND public_key=?3",
+      -1,&stmt,NULL)==SQLITE_OK;
+   if (ok) {
+      sqlite3_bind_text(stmt,1,cfg_get("domain"),-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,3,public_key,-1,SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt,4,peer,-1,SQLITE_TRANSIENT);
+      ok=sqlite3_step(stmt)==SQLITE_DONE && sqlite3_changes(db)>0;
+   }
+   sqlite3_finalize(stmt);
+   if (ok) Log(LOG_INFO,"mesh.identity","Peer %s acknowledged revocation for %s",peer,owner);
    return ok;
 }
 /* Replay on every new authenticated direct link, including after restart.
