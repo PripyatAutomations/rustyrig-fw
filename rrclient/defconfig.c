@@ -34,15 +34,32 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
+/* Prefer fonts native to each desktop. All are optional: Pango falls back to
+ * the generic family, so no proprietary font is redistributed by RustyRig.
+ * Keep text and measurement/readout typography distinct. */
+#if defined(_WIN32)
+#define RR_UI_FONT "\"Segoe UI\", \"Arial\", \"Sans\""
+#define RR_MONO_FONT "\"Consolas\", \"DejaVu Sans Mono\", \"Monospace\""
+#elif defined(__APPLE__)
+#define RR_UI_FONT "\"Helvetica Neue\", \"Arial\", \"Sans\""
+#define RR_MONO_FONT "\"Menlo\", \"DejaVu Sans Mono\", \"Monospace\""
+#else
+#define RR_UI_FONT "\"Cantarell\", \"Noto Sans\", \"DejaVu Sans\", \"Sans\""
+#define RR_MONO_FONT "\"DejaVu Sans Mono\", \"Liberation Mono\", \"Monospace\""
+#endif
+
 #define DEFAULT_CSS \
-        /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
-        "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
-        "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
+        /* Do not override every label/button: let GTK theme fonts handle
+         * application chrome and reserve explicit faces for meaningful roles. */ \
+        "button, entry, combobox, spinbutton { font-family: " RR_UI_FONT "; font-size: 10.5pt; }\n" \
+        "notebook tab label, headerbar label { font-family: " RR_UI_FONT "; font-weight: 600; }\n" \
+        "treeview, treeview.view { font-family: " RR_UI_FONT "; font-size: 10pt; }\n" \
+        "tooltip label { font-family: " RR_UI_FONT "; font-size: 10pt; }\n" \
         "@define-color rr_chat_highlight_nick yellow;\n" \
-        "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-        "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-        "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-        "#room-vfo-frequency { font-family: \"DSEG7 Classic\", \"Digital-7\", \"DejaVu Sans Mono\", \"Monospace\"; font-size: 14pt; font-weight: bold; }\n" \
+        "#chat-view, #chat-view text { font-family: " RR_MONO_FONT "; font-size: 11pt; }\n" \
+        "#log-view, #host-log-view, #log-view text, #host-log-view text { font-family: " RR_MONO_FONT "; font-size: 10pt; }\n" \
+        "#freq-digit, #freq-digit-button { font-family: " RR_MONO_FONT "; font-size: 12pt; }\n" \
+        "#room-vfo-frequency { font-family: " RR_MONO_FONT "; font-size: 15pt; font-weight: bold; }\n" \
         "#room-vfo-row.room-vfo-active { background-color: #092b59; color: #f3faff; border: 1px solid #4d81b3; border-radius: 3px; }\n" \
         ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
         ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
@@ -52,9 +69,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
         ".conn-active { background: #0a7a0a; color: white; font-weight: bold; }\n" \
         ".conn-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
         ".conn-idle { background: #b00000; color: white; font-weight: bold; }\n" \
-        "/* Userlist flag icons (👑⭐👤👀🎤🙊🧙🐣): size the columns/cells here */\n" \
-        "#userlist-tree, #userlist-tree.userlist-icon { font-family: \"Sans\"; font-size: 12pt; }"
-
+        "#userlist-tree, #userlist-tree.userlist-icon { font-family: " RR_UI_FONT "; font-size: 10pt; }"
 
 const char *default_css = DEFAULT_CSS;
 
