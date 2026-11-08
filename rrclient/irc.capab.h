@@ -1,10 +1,7 @@
 //      This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
+// SPDX-License-Identifier: GPL-2.0-only
 extern const irc_cap_t irc_capabilities[];
 extern void irc_capabilities_reset(rrconn_t *);
 extern void irc_capabilities_clear(rrconn_t *);
