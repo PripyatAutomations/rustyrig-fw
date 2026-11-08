@@ -2153,7 +2153,7 @@ void show_arg_help(int argc, char **argv) {
    printf("\t-T\t\tTUI only mode (no X11)\n");
    printf("\t-f config\tChose an alternative configuration file\n");
    printf("\t-s server\tServer profile to autoconnect to on start\n");
-   printf("\t--ignore-db-config\tUse file config only (no DB overrides, profiles or themes)\n");
+   printf("\t--ignore-db-config\tSkip saved configuration overrides (still load profiles and themes)\n");
    printf("\t-h\t\tHelp\n");
 }
 
@@ -2351,18 +2351,19 @@ int main(int argc, char *argv[]) {
     * logger, or creating frontend modules. --ignore-db-config is a recovery
     * boot: no DB-managed config, profiles, or themes are overlaid. */
    if (!rrclient_database_init()) {
-      if (!rrclient_config_ignore_db()) {
-         Log(LOG_CRIT, "db", "Unable to initialize client database");
-         return EXIT_FAILURE;
+      Log(LOG_WARN, "db", "Client database unavailable; using file configuration (saved profiles and themes unavailable)");
+   } else {
+      /* Config overrides are optional; they must not prevent startup.
+       * Profiles and themes remain independent of --ignore-db-config. */
+      if (!rrclient_config_ignore_db() && !rrclient_database_config_overlay()) {
+         Log(LOG_WARN, "db", "Saved config overrides could not be read; using rrclient.cfg defaults. Try --ignore-db-config for recovery");
       }
-      Log(LOG_WARN, "db", "Recovery boot: client database unavailable; continuing from file configuration");
-   }
-   if (!rrclient_config_ignore_db() &&
-      (!rrclient_database_config_overlay() || !rrclient_database_load_profiles() ||
-       !rrclient_database_load_themes())) {
-      Log(LOG_CRIT, "db", "Unable to apply database configuration");
-
-      return EXIT_FAILURE;
+      if (!rrclient_database_load_profiles()) {
+         Log(LOG_WARN, "db", "Unable to load saved server profiles");
+      }
+      if (!rrclient_database_load_themes()) {
+         Log(LOG_WARN, "db", "Unable to load saved themes");
+      }
    }
    rrclient_theme_apply();
 
