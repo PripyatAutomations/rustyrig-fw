@@ -1,5 +1,5 @@
 // GTK screensaver idle state and gmatrix launcher.
-// Part of rustyrig-fw; MIT license without mongoose, GPL with mongoose.
+// Part of rustyrig-fw; GPL-2.0-only.
 #include "gtk.screensaver.h"
 #include "gtk.core.h"
 #include <librustyaxe/core.h>
