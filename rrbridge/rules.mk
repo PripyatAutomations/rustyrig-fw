@@ -1,6 +1,5 @@
-# KiwiSDR bridge uses Mongoose from the Debian mongoose-webserver-source
-# development headers, not RustyRig's retired ext/libmongoose submodule.
-# Keep the legacy transport until its native OpenSSL/wslay conversion.
+# KiwiSDR sound/control and waterfall use RustyAxe's native OpenSSL/wslay
+# rr_transport client. No Mongoose transport exists in this bridge.
 ifneq ($(OS),DARWIN)
 ifeq (${PLATFORM},posix)
 rrbridge_modules := bin/rrbridge-kiwi.so
@@ -35,3 +34,7 @@ bin/rrbridge: ${rrbridge_host_objs} ${librustyaxe} ${librrprotocol} ${librrsdrut
 	@${CC} -o $@ ${rrbridge_host_objs} -lrrprotocol -lrustyaxe ${MEDIA_LDFLAGS}
 endif
 endif
+
+.PHONY: check-rrbridge-native
+check-rrbridge-native:
+	@! grep -En 'mongoose\.h|\bmg_[[:alnum:]_]+\b|\bMG_EV_' rrbridge/main.c rrbridge/module.kiwi.c || { echo 'Unexpected Mongoose dependency in rrbridge' >&2; exit 1; }
