@@ -773,7 +773,9 @@ static void tls_pin_reply_event(const rr_event_message_t *message, void *unused)
    if (!server || !server->pending_tls_pin_confirmation ||
        strcmp(server->pending_tls_pin, request.new_pin)) return;
    const char *current = get_server_property(server->name, "server.tls-spki-sha256");
-   if (!current || strcmp(current, request.old_pin)) return;
+   /* An unseen key has no previously stored pin: an absent property and
+    * an empty string are equivalent for the first-use confirmation. */
+   if (strcmp(current ? current : "", request.old_pin)) return;
    server->pending_tls_pin_confirmation = false;
    server->pending_tls_pin[0] = '\0';
    if (request.decision == 0 || request.decision > 2) {
