@@ -10,6 +10,8 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/crypto.h>
+#include <archive.h>
+#include <archive_entry.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sys/types.h>
@@ -29,19 +31,9 @@
 #define RR_BACKUP_IV 12
 #define RR_BACKUP_TAG 16
 #define RR_BACKUP_MAX_KEYS 128
-static const unsigned char magic[5] = {'R','R','B','K','1'};
-static const unsigned char inner_magic[4] = {'R','R','D','1'};
-static void append32(GByteArray *a, guint32 n) {
-   guint8 b[4] = {(guint8)(n >> 24), (guint8)(n >> 16), (guint8)(n >> 8), (guint8)n};
-   g_byte_array_append(a,b,4);
-}
-static bool read32(const guint8 *data, gsize size, gsize *off, guint32 *out) {
-   if (*off > size || size - *off < 4) return false;
-   const guint8 *p = data + *off;
-   *out = (guint32)p[0]<<24 | (guint32)p[1]<<16 | (guint32)p[2]<<8 | p[3];
-   *off += 4;
-   return true;
-}
+static const unsigned char magic[5] = {'R','R','B','K','2'};
+/* Inside the encrypted RRBK2 envelope is a conventional gzip-compressed
+ * POSIX tar archive. No plaintext tarball is ever written to disk. */
 static void wipe_free(GByteArray *a) {
    if (!a) return;
    if (a->data) OPENSSL_cleanse(a->data,a->len);
@@ -53,65 +45,94 @@ static bool valid_key_name(const char *name) {
       if (!isalnum(*p) && *p!='_' && *p!='-' && *p!='.') return false;
    return name[0]!='.' && !strstr(name,"..");
 }
-static bool append_keys(GByteArray *bundle) {
-   char *dir = g_build_filename(g_get_user_config_dir(),"rustyrig","identity",NULL);
-   struct stat directory_stat;
-   bool exists = lstat(dir,&directory_stat)==0;
-   if ((exists && (!S_ISDIR(directory_stat.st_mode) ||
-       directory_stat.st_uid!=geteuid() || (directory_stat.st_mode & 0077))) ||
-       (!exists && errno!=ENOENT)) {
-      g_free(dir);
-      return false;
-   }
-   GDir *entries = exists ? g_dir_open(dir,0,NULL) : NULL;
-   if (exists && !entries) {g_free(dir);return false;}
-   GByteArray *files = g_byte_array_new();
-   guint32 count=0;
-   bool ok=true;
+static int tar_open(struct archive *a, void *context) {
+   (void)a; (void)context;
+   return ARCHIVE_OK;
+}
+static la_ssize_t tar_write(struct archive *a, void *context, const void *data, size_t len) {
+   (void)a;
+   GByteArray *out=context;
+   if (len>RR_BACKUP_LIMIT-out->len) return -1;
+   g_byte_array_append(out,data,len);
+   return (la_ssize_t)len;
+}
+static int tar_close(struct archive *a, void *context) {
+   (void)a; (void)context;
+   return ARCHIVE_OK;
+}
+static bool tar_entry(struct archive *tar, const char *path, const guint8 *data, size_t size) {
+   if (size>RR_BACKUP_LIMIT) return false;
+   struct archive_entry *e=archive_entry_new();
+   if (!e) return false;
+   archive_entry_set_pathname(e,path);
+   archive_entry_set_filetype(e,AE_IFREG);
+   archive_entry_set_perm(e,0600);
+   archive_entry_set_size(e,(la_int64_t)size);
+   bool ok=archive_write_header(tar,e)==ARCHIVE_OK;
+   if (ok) ok=archive_write_data(tar,data,size)==(la_ssize_t)size;
+   archive_entry_free(e);
+   return ok;
+}
+static bool tar_keys(struct archive *tar) {
+   char *dir=g_build_filename(g_get_user_config_dir(),"rustyrig","identity",NULL);
+   struct stat st;
+   bool exists=lstat(dir,&st)==0, ok=true;
+   if (exists && (!S_ISDIR(st.st_mode) || st.st_uid!=geteuid() ||
+                  (st.st_mode & 0077))) ok=false;
+   if (!exists && errno!=ENOENT) ok=false;
+   GDir *entries=ok && exists ? g_dir_open(dir,0,NULL) : NULL;
+   if (ok && exists && !entries) ok=false;
+   unsigned count=0;
    const char *name;
-   while (entries && (name=g_dir_read_name(entries))) {
+   while (ok && entries && (name=g_dir_read_name(entries))) {
       if (!g_str_has_suffix(name,".pem")) continue;
-      if (!valid_key_name(name) || ++count > RR_BACKUP_MAX_KEYS) {ok=false;break;}
+      if (!valid_key_name(name) || ++count>RR_BACKUP_MAX_KEYS) {ok=false;break;}
       char *path=g_build_filename(dir,name,NULL);
-      struct stat st;
-      ok=lstat(path,&st)==0 && S_ISREG(st.st_mode) && st.st_uid==geteuid() &&
-          !(st.st_mode & 0077) && st.st_size>0 && st.st_size<=1048576;
-      if (ok) {
-         gchar *data=NULL; gsize size=0;
-         ok=g_file_get_contents(path,&data,&size,NULL) && size==(gsize)st.st_size;
-         if (ok) {
-            append32(files,(guint32)strlen(name));
-            g_byte_array_append(files,(const guint8 *)name,strlen(name));
-            append32(files,(guint32)size);
-            g_byte_array_append(files,(const guint8 *)data,size);
-         }
-         if (data) { OPENSSL_cleanse(data,size); g_free(data); }
+      int fd=open(path,O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+      if (fd<0 || fstat(fd,&st)<0 || !S_ISREG(st.st_mode) ||
+          st.st_uid!=geteuid() || (st.st_mode & 0077) ||
+          st.st_size<=0 || st.st_size>1048576) {
+         if (fd>=0) close(fd);
+         g_free(path);
+         ok=false;break;
       }
-      g_free(path);
-      if (!ok) break;
+      gsize size=(gsize)st.st_size;
+      guint8 *bytes=g_malloc(size);
+      gsize off=0;
+      while (off<size) {
+         ssize_t n=read(fd,bytes+off,size-off);
+         if (n<0 && errno==EINTR) continue;
+         if (n<=0) break;
+         off+=(gsize)n;
+      }
+      close(fd);
+      char *entry=g_strconcat("keys/",name,NULL);
+      ok=off==size && tar_entry(tar,entry,bytes,size);
+      OPENSSL_cleanse(bytes,size);
+      g_free(bytes);g_free(entry);g_free(path);
    }
    if (entries) g_dir_close(entries);
    g_free(dir);
-   if (ok) {
-      append32(bundle,count);
-      g_byte_array_append(bundle,files->data,files->len);
-   }
-   wipe_free(files);
    return ok;
 }
 static GByteArray *make_payload(bool include_keys) {
-   size_t length=0;
-   char *sql=rrclient_database_dump_sql(&length);
-   if (!sql || length>RR_BACKUP_LIMIT-65536) {g_free(sql);return NULL;}
-   GByteArray *payload=g_byte_array_new();
-   g_byte_array_append(payload,inner_magic,sizeof(inner_magic));
-   append32(payload,(guint32)length);
-   g_byte_array_append(payload,(guint8 *)sql,length);
-   OPENSSL_cleanse(sql,length);g_free(sql);
-   if (!include_keys) append32(payload,0);
-   else if (!append_keys(payload)) {wipe_free(payload);return NULL;}
-   if (payload->len>RR_BACKUP_LIMIT) {wipe_free(payload);return NULL;}
-   return payload;
+   size_t sql_len=0;
+   char *sql=rrclient_database_dump_sql(&sql_len);
+   if (!sql || sql_len>RR_BACKUP_LIMIT/2) {g_free(sql);return NULL;}
+   struct archive *tar=archive_write_new();
+   GByteArray *out=g_byte_array_new();
+   bool ok=tar && archive_write_set_format_pax_restricted(tar)==ARCHIVE_OK &&
+      archive_write_add_filter_gzip(tar)==ARCHIVE_OK &&
+      archive_write_open(tar,out,tar_open,tar_write,tar_close)==ARCHIVE_OK;
+   if (ok) ok=tar_entry(tar,"database.sql",(const guint8 *)sql,sql_len);
+   OPENSSL_cleanse(sql,sql_len);g_free(sql);
+   if (ok && include_keys) ok=tar_keys(tar);
+   if (tar) {
+      if (ok) ok=archive_write_close(tar)==ARCHIVE_OK;
+      archive_write_free(tar);
+   }
+   if (!ok) {wipe_free(out);return NULL;}
+   return out;
 }
 static GByteArray *crypt(bool encrypt,const guint8 *input,gsize length,const char *password) {
    if (!password || !*password || length>RR_BACKUP_LIMIT+64) return NULL;
@@ -189,40 +210,62 @@ static void free_key(gpointer p) {
    if (k->data) {OPENSSL_cleanse(k->data,k->length);g_free(k->data);}
    g_free(k->name);g_free(k);
 }
+/* Parse archive entries into memory, never extract attacker-supplied paths.
+ * Allow only database.sql and keys/<safe>.pem, with strict size bounds. */
 static bool unpack(GByteArray *payload,char **sql,GPtrArray **keys) {
-   *sql=NULL;*keys=NULL;
-   gsize off=0;
-   if (payload->len<12 || memcmp(payload->data,inner_magic,4)) return false;
-   off=4;
-   guint32 sql_len=0,count=0;
-   if (!read32(payload->data,payload->len,&off,&sql_len) || !sql_len ||
-       sql_len>payload->len-off) return false;
-   if (memchr(payload->data+off,0,sql_len)) return false;
-   *sql=g_strndup((const char *)payload->data+off,sql_len);
-   off+=sql_len;
-   if (!read32(payload->data,payload->len,&off,&count) || count>RR_BACKUP_MAX_KEYS) goto fail;
+   *sql=NULL;
    *keys=g_ptr_array_new_with_free_func(free_key);
-   for (guint i=0;i<count;i++) {
-      guint32 n=0,size=0;
-      if (!read32(payload->data,payload->len,&off,&n) || n==0 || n>128 ||
-          n>payload->len-off) goto fail;
-      char *name=g_strndup((const char *)payload->data+off,n);
-      if (!valid_key_name(name) || strlen(name)!=n) {g_free(name);goto fail;}
-      off+=n;
-      if (!read32(payload->data,payload->len,&off,&size) || !size ||
-          size>1048576 || size>payload->len-off) {g_free(name);goto fail;}
-      restored_key_t *key=g_new0(restored_key_t,1);
-      key->name=name;key->length=size;
-      key->data=g_memdup2(payload->data+off,size);
-      off+=size;
-      g_ptr_array_add(*keys,key);
+   struct archive *tar=archive_read_new();
+   bool ok=tar && archive_read_support_filter_gzip(tar)==ARCHIVE_OK &&
+      archive_read_support_format_tar(tar)==ARCHIVE_OK &&
+      archive_read_open_memory(tar,payload->data,payload->len)==ARCHIVE_OK;
+   unsigned count=0;
+   size_t total=0;
+   struct archive_entry *entry=NULL;
+   while (ok && archive_read_next_header(tar,&entry)==ARCHIVE_OK) {
+      const char *path=archive_entry_pathname(entry);
+      la_int64_t size=archive_entry_size(entry);
+      if (!path || archive_entry_filetype(entry)!=AE_IFREG ||
+          size<=0 || size>RR_BACKUP_LIMIT || (size_t)size>RR_BACKUP_LIMIT-total) {
+         ok=false;break;
+      }
+      total+=(size_t)size;
+      if (strcmp(path,"database.sql")) {
+         if (!g_str_has_prefix(path,"keys/") ||
+             !valid_key_name(path+5) || ++count>RR_BACKUP_MAX_KEYS) {
+            ok=false;break;
+         }
+         for (guint i=0;i<(*keys)->len;i++) {
+            restored_key_t *existing=g_ptr_array_index(*keys,i);
+            if (!strcmp(existing->name,path+5)) {ok=false;break;}
+         }
+         if (!ok || size>1048576) {ok=false;break;}
+         restored_key_t *key=g_new0(restored_key_t,1);
+         key->name=g_strdup(path+5);
+         key->length=(gsize)size;
+         key->data=g_malloc(key->length);
+         if (archive_read_data(tar,key->data,key->length)!=(la_ssize_t)key->length) {
+            free_key(key);ok=false;break;
+         }
+         g_ptr_array_add(*keys,key);
+      } else {
+         if (*sql || size>RR_BACKUP_LIMIT/2) {ok=false;break;}
+         *sql=g_malloc((gsize)size+1);
+         if (archive_read_data(tar,*sql,(size_t)size)!=(la_ssize_t)size ||
+             memchr(*sql,0,(size_t)size)) {ok=false;break;}
+         (*sql)[size]=0;
+      }
    }
-   if (off!=payload->len) goto fail;
-   return true;
-fail:
-   if (*sql) {OPENSSL_cleanse(*sql,strlen(*sql));g_free(*sql);*sql=NULL;}
-   if (*keys) {g_ptr_array_free(*keys,TRUE);*keys=NULL;}
-   return false;
+   if (tar) {
+      if (ok && archive_errno(tar)) ok=false;
+      archive_read_free(tar);
+   }
+   if (!*sql) ok=false;
+   if (!ok) {
+      if (*sql) {OPENSSL_cleanse(*sql,strlen(*sql));g_free(*sql);*sql=NULL;}
+      g_ptr_array_free(*keys,TRUE);*keys=NULL;
+   }
+   return ok;
 }
 static bool restore(GByteArray *payload) {
    char *sql=NULL;
