@@ -577,11 +577,11 @@ SQLite now owns a narrowly scoped identity table:
 
 `db_rig_uuid_get_or_create()` returns the existing UUID for a namespace/alias
 or uses GLib's UUID generator and persists a new one. Startup uses
-`rig.identity-namespace`, falling back to `station.name`, together with the
-implicit alias `rig0`. A build without SQLite can run but receives an ephemeral
-UUID and logs that persistence is unavailable. Changing the namespace is an
-identity change; operators needing identity independent of station renames
-should configure `rig.identity-namespace` explicitly.
+`station.name` as the rig identity namespace, together with the implicit
+alias `rig0`. The node/server UUID is persisted independently under
+`@server/@node` and does not change when the station is renamed. Changing
+`station.name` can change the identity lookup for rigs: preserve their
+persisted namespace during migrations if their UUIDs must remain stable.
 
 ### Hamlib and internal backend instances
 
@@ -752,7 +752,7 @@ is replaced by a deterministic alias list plus scoped sections:
     [general]
     rig.instances=rig0 rig1
     rig.default=rig0
-    rig.identity-namespace=my-stable-node-name
+    station.name=my-stable-node-name
 
     [rig:rig0]
     name=FT-891
