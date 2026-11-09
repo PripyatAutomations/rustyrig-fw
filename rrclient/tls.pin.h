@@ -9,6 +9,12 @@ typedef struct rrclient_tls_pin_request {
    char profile[128];
    char old_pin[65];
    char new_pin[65];
-   bool approved;
+   char cert_sha256[65];
+   char cert_cn[256];
+   char cert_sans[512];
+   char node_name[254];
+   char address[256];
+   /* 0 = Deny, 1 = Accept Once, 2 = Accept Always */
+   unsigned decision;
 } rrclient_tls_pin_request_t;
 #endif
