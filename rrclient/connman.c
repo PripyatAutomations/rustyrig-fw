@@ -54,7 +54,7 @@ extern bool ws_binframe_process_client(rrconn_t *cptr, const char *data, size_t 
 typedef struct client_server {
    char *name, *url;
    char domain[254], server_uuid[37];
-   char pending_tls_pin[65];
+   char pending_tls_pin[65], temporary_tls_pin[65];
    bool pending_tls_pin_confirmation;
 #ifdef USE_MONGOOSE
    rr_socks_t *proxy;
@@ -755,15 +755,20 @@ static void tls_pin_reply_event(const rr_event_message_t *message, void *unused)
    if (!current || strcmp(current, request.old_pin)) return;
    server->pending_tls_pin_confirmation = false;
    server->pending_tls_pin[0] = '\0';
-   if (!request.approved) {
-      Log(LOG_INFO, "connman", "TLS key replacement declined for %s; connection remains blocked", server->name);
+   if (request.decision == 0 || request.decision > 2) {
+      server->temporary_tls_pin[0] = '\0';
+      Log(LOG_INFO, "connman", "TLS trust denied for %s", server->name);
       return;
    }
-   if (!rrclient_database_server_set(server->name, "server.tls-spki-sha256", request.new_pin)) {
-      Log(LOG_WARN, "connman", "Unable to persist replacement TLS public key for %s", server->name);
-      return;
+   if (request.decision == 2) {
+      if (!rrclient_database_server_set(server->name, "server.tls-spki-sha256", request.new_pin))
+         return;
+      server->temporary_tls_pin[0] = '\0';
+      Log(LOG_AUDIT, "connman", "Persistently trusted TLS public key for %s", server->name);
+   } else {
+      g_strlcpy(server->temporary_tls_pin, request.new_pin, sizeof(server->temporary_tls_pin));
+      Log(LOG_AUDIT, "connman", "Trusted TLS public key once for %s", server->name);
    }
-   Log(LOG_WARN, "connman", "Approved changed TLS public key for %s; reconnecting", server->name);
    server->reconnect_enabled = true;
    server->reconnect_pending = true;
    server->reconnect_at = now;
@@ -1006,24 +1011,6 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
    if (s->native != native) {
       return;
    }
-   /* Persist the TOFU key before any capability negotiation, account login,
-    * or other application data is sent. Failure must close the connection. */
-   if (event == RR_TRANSPORT_EVENT_OPEN) {
-      const char *allow = get_server_property(s->name, "server.tls-trust-on-first-use");
-      bool tofu = allow && (!g_ascii_strcasecmp(allow, "true") || !strcmp(allow, "1"));
-      if (tofu) {
-         const char *pin = get_server_property(s->name, "server.tls-spki-sha256");
-         if (!pin || !*pin) {
-            const char *fingerprint = rr_transport_wss_peer_spki_sha256(transport);
-            if (!fingerprint || !rrclient_database_server_set(s->name, "server.tls-spki-sha256", fingerprint)) {
-               Log(LOG_WARN, "connman", "Cannot persist trusted TLS public key for %s; refusing connection", s->name);
-               rr_transport_close(transport);
-               return;
-            }
-            Log(LOG_WARN, "connman", "First-use TLS public key pinned for %s: %s", s->name, fingerprint);
-         }
-      }
-   }
    rrconn_t *cptr = &native->connection;
    client_server_t *previous = context;
    activate(s);
@@ -1056,27 +1043,38 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       rr_traffic_count(cptr, false, true, len);
       ws_binframe_process_client(cptr, (const char *)data, len);
    } else if (event == RR_TRANSPORT_EVENT_ERROR) {
-      const char prefix[] = "TLS_PIN_MISMATCH:";
-      if (data && len == sizeof(prefix) - 1 + 64 &&
-          !memcmp(data, prefix, sizeof(prefix) - 1)) {
+      const char mismatch[] = "TLS_PIN_MISMATCH:";
+      const char unknown[] = "TLS_TRUST_REQUIRED:";
+      bool changed = data && len == sizeof(mismatch)-1+64 &&
+         !memcmp(data, mismatch, sizeof(mismatch)-1);
+      bool first = data && len == sizeof(unknown)-1+64 &&
+         !memcmp(data, unknown, sizeof(unknown)-1);
+      if (changed || first) {
          rrclient_tls_pin_request_t request = {0};
-         const char *previous_pin = get_server_property(s->name, "server.tls-spki-sha256");
+         const char *previous = get_server_property(s->name, "server.tls-spki-sha256");
          const char *enabled = get_server_property(s->name, "server.tls-trust-on-first-use");
          bool tofu = enabled && (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
-         const char *new_pin = (const char *)data + sizeof(prefix) - 1;
-         if (tofu && previous_pin && strlen(previous_pin) == 64 &&
-             strlen(s->name) < sizeof(request.profile) &&
-             strspn(previous_pin, "0123456789abcdef") == 64 &&
-             strspn(new_pin, "0123456789abcdef") == 64 &&
-             !s->pending_tls_pin_confirmation) {
+         const char *presented = (const char *)data +
+            (changed ? sizeof(mismatch)-1 : sizeof(unknown)-1);
+         if (tofu && strlen(s->name) < sizeof(request.profile) &&
+             strspn(presented, "0123456789abcdef") >= 64 && !s->pending_tls_pin_confirmation) {
             g_strlcpy(request.profile, s->name, sizeof(request.profile));
-            g_strlcpy(request.old_pin, previous_pin, sizeof(request.old_pin));
-            memcpy(request.new_pin, new_pin, 64);
+            if (previous) g_strlcpy(request.old_pin, previous, sizeof(request.old_pin));
+            memcpy(request.new_pin, presented, 64);
+            const char *cn = rr_transport_wss_peer_common_name(transport);
+            const char *sans = rr_transport_wss_peer_dns_names(transport);
+            const char *cert = rr_transport_wss_peer_cert_sha256(transport);
+            const char *node = get_server_property(s->name, "server.node-name");
+            if (cn) g_strlcpy(request.cert_cn, cn, sizeof(request.cert_cn));
+            if (sans) g_strlcpy(request.cert_sans, sans, sizeof(request.cert_sans));
+            if (cert) g_strlcpy(request.cert_sha256, cert, sizeof(request.cert_sha256));
+            if (node) g_strlcpy(request.node_name, node, sizeof(request.node_name));
+            if (s->url) g_strlcpy(request.address, s->url, sizeof(request.address));
             g_strlcpy(s->pending_tls_pin, request.new_pin, sizeof(s->pending_tls_pin));
             s->pending_tls_pin_confirmation = true;
             s->reconnect_pending = false;
             s->reconnect_enabled = false;
-            Log(LOG_WARN, "connman", "Server %s changed its TLS public key; approval required before reconnect", s->name);
+            Log(LOG_WARN, "connman", "TLS trust decision required for %s (%s key)", s->name, changed ? "changed" : "unknown");
             event_emit_message(&(rr_event_message_t) {
                .name = RRCLIENT_TLS_PIN_PROMPT_EVENT,
                .payload = &request, .length = sizeof(request)
@@ -1658,10 +1656,12 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    }
    /* The logical TLS name is independent of the URL's dial address. Require an explicit per-profile hostname when dialing by IP/alias;
     * never substitute a claimed peer identity after the TLS handshake. */
-   const char *tls_name = get_server_property(s->name, "server.tls-name");
+   const char *tls_name = get_server_property(s->name, "server.node-name");
+   if (!tls_name || !*tls_name) tls_name = get_server_property(s->name, "server.tls-name");
    const char *tofu_value = get_server_property(s->name, "server.tls-trust-on-first-use");
    bool tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
-   const char *pin = tofu ? get_server_property(s->name, "server.tls-spki-sha256") : NULL;
+   const char *pin = tofu ? (s->temporary_tls_pin[0] ? s->temporary_tls_pin :
+      get_server_property(s->name, "server.tls-spki-sha256")) : NULL;
    rr_wss_client_options_secure_t opts = {
       .user_agent = "RustyRig/1.0",
       .subprotocol = RR_WS_SUBPROTOCOL,
