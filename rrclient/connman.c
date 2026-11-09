@@ -9,6 +9,7 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/transport.mongoose.h>
 #include <librustyaxe/transport.wss.h>
+#include <librustyaxe/transport.tcp.h>
 #include <librustyaxe/transport.h>
 #include <librrprotocol/wire-version.h>
 #include <librrprotocol/traffic.h>
@@ -1220,6 +1221,7 @@ struct rrclient_native_connection {
    rr_transport_t *transport;
    client_server_t *owner;
    bool closed;
+   bool irc;
 };
 
 static void native_event(rr_transport_t *transport, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user)
@@ -1237,7 +1239,14 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
    activate(s);
    dispatch_depth++;
 
-   if (event == RR_TRANSPORT_EVENT_OPEN) {
+   if (event == RR_TRANSPORT_EVENT_OPEN && native->irc) {
+      s->connected = ws_connected = cptr->connected = now;
+      Log(LOG_INFO, "irc", "Native IRC connected to %s", s->name);
+      irc_client_register(cptr);
+   } else if (event == RR_TRANSPORT_EVENT_STREAM_DATA && native->irc) {
+      irc_receive(cptr, data, len);
+      rrclient_connection_count_traffic(cptr, len, 0);
+   } else if (event == RR_TRANSPORT_EVENT_OPEN) {
       s->connected = ws_connected = -1;
       Log(LOG_INFO, "connman", "Native WebSocket connected to %s", s->name);
       dict *info = dict_new();
@@ -1263,6 +1272,8 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
    } else if (event == RR_TRANSPORT_EVENT_BINARY_MESSAGE) {
       rr_traffic_count(cptr, false, true, len);
       ws_binframe_process_client(cptr, (const char *)data, len);
+   } else if (event == RR_TRANSPORT_EVENT_ERROR && native->irc) {
+      Log(LOG_WARN, "irc", "IRC %s: %.*s",s->name,(int)MIN(len,(size_t)240),data?(const char *)data:"");
    } else if (event == RR_TRANSPORT_EVENT_ERROR) {
       const char mismatch[] = "TLS_PIN_MISMATCH:";
       const char unknown[] = "TLS_TRUST_REQUIRED:";
@@ -1319,6 +1330,12 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       if (s->login_challenge_pending && !cptr->authenticated)
          auth_failure_report(s, NULL);
       native->closed = true;
+      if (native->irc) {
+         cptr->connected = 0;
+         cptr->authenticated = cptr->sent_login = false;
+         irc_capabilities_clear(cptr);
+         event_emit("irc.disconnected",cptr,"");
+      }
       s->connected = ws_connected = 0;
       s->domain[0] = s->server_uuid[0] = 0;
       dict *info = dict_new();
@@ -1346,7 +1363,8 @@ void rrclient_poll_events_reconnect(void) {
          rr_transport_poll(native->transport, 0);
 
          if (native->closed || rr_transport_state(native->transport) == RR_TRANSPORT_CLOSED) {
-            rr_transport_wss_release(native->transport);
+            if (native->irc) rr_transport_tcp_release(native->transport);
+            else rr_transport_wss_release(native->transport);
             native->connection.native_transport = NULL;
             native->transport = NULL;
             s->native = NULL;
@@ -1793,27 +1811,20 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    return !c;
 #else
 
-   if (endpoint.irc) {
-      /* This is a configured IRC URL, not a fallback from failed WSS. */
-      Log(LOG_WARN, "connman", "Profile %s is configured for %s://%s:%u, which the native client cannot connect to",
-         profile ? profile : endpoint.host, endpoint.tls ? "ircs" : "irc", endpoint.host, endpoint.port);
-      ui_print(NULL, "Profile %s uses %s://%s:%u; native transport supports RustyRig WSS only. "
-         "For RustyRig, edit URL to wss://host:4420/ws/",
-         profile ? profile : endpoint.host, endpoint.tls ? "ircs" : "irc", endpoint.host, endpoint.port);
-      return true;
+   /* Both IRC and WSS use the fail-closed SOCKS5 dialer. */
+   const char *proxy=profile ? get_server_property(profile,"server.proxy") : NULL;
+   if (!proxy || !*proxy) proxy=cfg_get("server.proxy");
+   if (proxy_override) {
+      if (!*proxy_override) return true;
+      proxy=proxy_override;
    }
-   const char *proxy = profile ? get_server_property(profile, "server.proxy") : NULL;
-
-   if (!proxy || !*proxy) {
-      proxy = cfg_get("server.proxy");
+   const char *proxy_user=profile ? get_server_property(profile,"server.proxy.user") : NULL;
+   const char *proxy_pass=profile ? get_server_property(profile,"server.proxy.pass") : NULL;
+   if (!proxy_user) proxy_user=cfg_get("server.proxy.user");
+   if (!proxy_pass) proxy_pass=cfg_get("server.proxy.pass");
+   if (proxy && *proxy && strncmp(proxy,"socks5://",9) && strncmp(proxy,"socks5h://",10)) {
+      ui_print(NULL,"Invalid SOCKS5 proxy URL");return true;
    }
-
-   if ((proxy_override && *proxy_override) || (proxy && *proxy)) {
-      ui_print(NULL, "SOCKS5 proxy transport requires a Mongoose-enabled build");
-
-      return true;
-   }
-
    if (!profile || !*profile) {
       profile = endpoint.host;
    }
@@ -1859,7 +1870,8 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    }
    native->owner = s;
    native->connection.fd = -1;
-   native->connection.is_ws = true;
+   native->irc = endpoint.irc;
+   native->connection.is_ws = !endpoint.irc;
    native->connection.server = &native->server;
    g_strlcpy(native->server.network, s->name, sizeof(native->server.network));
    g_strlcpy(native->server.host, endpoint.host, sizeof(native->server.host));
@@ -1873,9 +1885,8 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       password = endpoint.pass;
    }
 
-   if (!nick || !*nick) {
-      nick = "guest";
-   }
+   if ((!nick || !*nick) && endpoint.irc) nick=cfg_get("irc.nick");
+   if (!nick || !*nick) nick=endpoint.irc ? "nonick" : "guest";
 
    if (strlen(nick) >= sizeof(native->server.nick) || (password && strlen(password) >= sizeof(native->server.pass))) {
       free(native);
@@ -1912,7 +1923,23 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    char connect_url[2048];
    snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" :
       "", endpoint.port, !strcmp(endpoint.path, "/") ? "/ws" : endpoint.path);
-   native->transport = rr_transport_wss_connect_secure(connect_url, &opts, native_event, native);
+   if (endpoint.irc) {
+      const char *sasl_user=get_server_property(s->name,"server.sasl.user");
+      const char *sasl_pass=get_server_property(s->name,"server.sasl.pass");
+      const char *mechanism=get_server_property(s->name,"server.sasl.mechanism");
+      if (sasl_user) g_strlcpy(native->server.sasl_user,sasl_user,sizeof(native->server.sasl_user));
+      if (sasl_pass) g_strlcpy(native->server.sasl_pass,sasl_pass,sizeof(native->server.sasl_pass));
+      g_strlcpy(native->server.sasl_mechanism,mechanism && *mechanism ? mechanism : "PLAIN",
+                sizeof(native->server.sasl_mechanism));
+      rr_tcp_client_options_t tcp={.host=endpoint.host,.port=endpoint.port,.tls=endpoint.tls,
+         .ca_file=ca,.tls_server_name=tls_name,.proxy_url=proxy,
+         .proxy_user=proxy_user,.proxy_pass=proxy_pass};
+      native->transport=rr_transport_tcp_connect(&tcp,native_event,native);
+   } else {
+      rr_wss_client_options_proxy_t proxied={.secure=opts,.proxy_url=proxy,
+         .proxy_user=proxy_user,.proxy_pass=proxy_pass};
+      native->transport=rr_transport_wss_connect_proxy(connect_url,&proxied,native_event,native);
+   }
    /* A temporary approval authorizes this single connection attempt only. */
    s->temporary_tls_pin[0] = '\0';
 
@@ -1943,8 +1970,9 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       activate(NULL);
    }
    activate(s);
-   rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
-   ui_print(NULL, "%sConnecting to %s via OpenSSL/wslay", get_chat_ts(now), connect_url);
+   if (!endpoint.irc) rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
+   ui_print(NULL,"%sConnecting to %s via native %s%s",get_chat_ts(now),connect_url,
+      endpoint.irc ? "IRC" : "WSS",proxy && *proxy ? " (SOCKS5)" : "");
    event_emit("client.server.selected", s->connection, s->name);
 
    return false;
