@@ -128,14 +128,15 @@ endif
 	install -Dm644 config/ua-bans debian/rustyrig-server/usr/share/doc/rustyrig/config/ua-bans
 	cp -a doc debian/rustyrig-server/usr/share/doc/rustyrig/
 
-# Don't interrupt active radio sessions or fail package upgrades because an
-# existing rrserver instance cannot be stopped. New installs still start the
-# service normally; upgrades leave the daemon running until an explicit restart.
+# Installing RustyRig must never start or enable rrserver without an
+# administrator's explicit choice. Do not interrupt running radio sessions
+# during package upgrades, either. These flags apply to both SysV-style
+# init integration and systemd installations.
 override_dh_installinit:
-	dh_installinit --name=rrserver -p rustyrig-server --no-stop-on-upgrade
+	dh_installinit --name=rrserver -p rustyrig-server --no-enable --no-start --no-stop-on-upgrade
 
 override_dh_installsystemd:
-	dh_installsystemd --no-stop-on-upgrade
+	dh_installsystemd --no-enable --no-start --no-stop-on-upgrade
 
 override_dh_installdeb:
 	dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(FT8_DH_EXCLUDE)
