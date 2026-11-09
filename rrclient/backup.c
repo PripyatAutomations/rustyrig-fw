@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
+#include <limits.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -134,8 +135,7 @@ static GByteArray *crypt(bool encrypt,const guint8 *input,gsize length,const cha
       int step=0,total=0;
       ok=EVP_CipherInit_ex(ctx,EVP_aes_256_gcm(),NULL,NULL,NULL,encrypt)!=0 &&
          EVP_CIPHER_CTX_ctrl(ctx,EVP_CTRL_GCM_SET_IVLEN,sizeof(iv),NULL)!=0 &&
-         EVP_CipherInit_ex(ctx,NULL,NULL,key,iv,encrypt)!=0 &&
-         EVP_CipherUpdate(ctx,NULL,&step,encrypt?magic:input,(int)header)==0; /* replaced below */
+         EVP_CipherInit_ex(ctx,NULL,NULL,key,iv,encrypt)!=0;
       /* Authenticate the complete public header as AAD. */
       if (ok) ok=EVP_CipherUpdate(ctx,NULL,&step,encrypt?out->data:input,(int)header)!=0;
       if (ok) ok=EVP_CipherUpdate(ctx,out->data+off,&step,body,(int)n)!=0;
