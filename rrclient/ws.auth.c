@@ -54,6 +54,17 @@ bool ws_handle_client_auth_msg(rrconn_t *cptr, dict *d) {
       goto cleanup;
    }
 
+   /* Password changes are acknowledged explicitly by the server. Never
+    * store the new password until the success reply is received. */
+   if (cmd && !strcasecmp(cmd, "password-changed")) {
+      event_emit_dict("client.password-change.accepted", cptr, d);
+      goto cleanup;
+   }
+   if (cmd && !strcasecmp(cmd, "password-change-failed")) {
+      event_emit_dict("client.password-change.failed", cptr, d);
+      goto cleanup;
+   }
+
    // Must always send a command and username during auth
    if (!cmd || !user) {
       rv = true;
@@ -86,6 +97,8 @@ bool ws_handle_client_auth_msg(rrconn_t *cptr, dict *d) {
       cptr->authenticated = true;
       snprintf(cptr->chatname, sizeof(cptr->chatname), "%s", user);
       event_emit_dict("authorized", cptr, d);
+      if (dict_get_bool(d, "auth.password-change-required", false))
+         event_emit_dict("client.password-change.required", cptr, d);
    }
 
 cleanup:
