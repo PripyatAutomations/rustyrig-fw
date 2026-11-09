@@ -517,7 +517,7 @@ void gtk_identity_first_run(void) {
 
       return;
    }
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("RustyRig Client Identity", NULL, GTK_DIALOG_MODAL, "Import Existing Key", 1, "Create New Key", 2,
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("RustyRig Client Identity", NULL, GTK_DIALOG_MODAL, "Create New Key", 2, "Import Existing Key", 1,
       "Later (legacy login)", GTK_RESPONSE_CANCEL, NULL);
    GtkWidget *label = gtk_label_new("RustyRig uses a private key to identify this computer.\n\n"
       "Create a new identity or import an existing key.\n" "Your private key stays on this computer; only the public key is shared with servers.");
@@ -528,6 +528,7 @@ void gtk_identity_first_run(void) {
    gtk_window_set_default_size(GTK_WINDOW(dialog), 460, -1);
    gtk_container_set_border_width(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), 14);
    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), label);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), 2);
    gtk_widget_show_all(dialog);
 
    for ( ;; ) {
