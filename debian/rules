@@ -107,10 +107,10 @@ endif
 	else \
 		channels="config/radio.channels.json"; \
 	fi; \
-	if test ! -f "$channels"; then \
-		echo "Missing channel memory configuration: $channels" >&2; exit 1; \
+	if test ! -f "$$channels"; then \
+		echo "Missing channel memory configuration: $$channels" >&2; exit 1; \
 	fi; \
-	install -Dm644 "$channels" debian/rustyrig-server$(CONF_DIR)/channels.json
+	install -Dm644 "$$channels" debian/rustyrig-server$(CONF_DIR)/channels.json
 
 	# Package .cfg and .md plus the selected profile's channels.json above.
 	for cfg in config/*.cfg config/*.md; do \
