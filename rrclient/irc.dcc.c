@@ -181,14 +181,6 @@ bool irc_dcc_advertised_ip(rrconn_t *client, const char *configured, char ip[64]
    if (configured && *configured) {
       snprintf(ip, 64, "%s", configured);
    } else {
-#ifdef USE_MONGOOSE
-
-      if (client->conn) {
-         if (client->conn->loc.is_ip6 || !inet_ntop(AF_INET, &client->conn->loc.addr.ip4, ip, 64)) {
-            return false;
-         }
-      } else
-#endif
       {
          struct sockaddr_in address;
          socklen_t length = sizeof(address);
