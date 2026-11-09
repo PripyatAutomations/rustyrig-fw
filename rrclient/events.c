@@ -1951,7 +1951,10 @@ static void rrclient_handle_domain_identity(const char *event, const char *data,
    if (!identity) {
       return;
    }
-   rrclient_connection_set_identity(connection, dict_get(identity, "domain.name", ""), dict_get(identity, "domain.server", ""));
+   const char *domain = dict_get(identity, "domain.name", "");
+   const char *station = dict_get(identity, "domain.station", "");
+   if (rrclient_connection_expected_node_matches(connection, station, domain))
+      rrclient_connection_set_identity(connection, domain, dict_get(identity, "domain.server", ""));
    dict_free(identity);
 }
 
