@@ -648,6 +648,9 @@ static void schedule_retry(struct bridge_child *b) {
    }
    b->next_retry = mono_us() + (uint64_t) delay * 1000000;
 }
+#ifndef RR_LIBEXECDIR
+#define RR_LIBEXECDIR "/usr/libexec/rustyrig"
+#endif
 static char *bridge_program_path(void) {
    const char *configured = cfg_get("bridge.path");
 
@@ -655,14 +658,18 @@ static char *bridge_program_path(void) {
       return g_find_program_in_path(configured);
    }
 
-   return g_file_test("/usr/libexec/rustyrig/rrbridge", G_FILE_TEST_IS_EXECUTABLE) ?
-      g_strdup("/usr/libexec/rustyrig/rrbridge") : NULL;
+   char *path = g_build_filename(RR_LIBEXECDIR, "rrbridge", NULL);
+   if (!g_file_test(path, G_FILE_TEST_IS_EXECUTABLE)) {
+      g_free(path);
+      return NULL;
+   }
+   return path;
 }
 static bool spawn_child(struct bridge_child *b) {
    char *path = bridge_program_path();
 
    if (!path) {
-      Log(LOG_WARN, "bridge", "[%s] no executable rrbridge found (bridge.path or /usr/libexec/rustyrig/rrbridge)", bridge_public_name(b));
+      Log(LOG_WARN, "bridge", "[%s] no executable rrbridge found (bridge.path or private helper directory)", bridge_public_name(b));
 
       return false;
    }
