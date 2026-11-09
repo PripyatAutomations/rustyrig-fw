@@ -92,7 +92,7 @@ try:
         config.write_text(f"""[general]
 rig.instances=rig0 rig1
 rig.default=rig0
-rig.identity-namespace=live-validation
+station.name=live-validation
 [rig:rig0]
 backend=internal
 vfos=A B
