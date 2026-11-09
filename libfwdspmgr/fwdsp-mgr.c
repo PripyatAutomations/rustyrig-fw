@@ -74,10 +74,6 @@ defconfig_t defcfg_fwdsp[] = {
    {
       "fwdsp:path", "bin/fwdsp.exe", "Path to fwdsp binary"
    },
-#else
-   {
-      "fwdsp:path", "auto", "Path to fwdsp binary (auto: installed private helper)"
-   },
 #endif
    {
       "fwdsp:recording.path", "$HOME/recordings", "Path to audio recordings"
