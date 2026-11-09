@@ -8,6 +8,7 @@
 //
 #define __RRCLI 1
 #include <rrclient/database.h>
+#include <rrclient/backup.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -1397,6 +1398,110 @@ static GtkWidget *cfg_theme_panel(void) {
    return container;
 }
 
+/* Backup requests are handled on the core event domain, never on GTK's
+ * thread. Neither the password nor decrypted database crosses back to GTK. */
+static void gtk_backup_feedback(const rr_event_message_t *message, void *user) {
+   (void)user;
+   if (!message || !message->payload || message->length != sizeof(rrclient_backup_result_t)) return;
+   const rrclient_backup_result_t *result = message->payload;
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL, result->ok ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR,
+      GTK_BUTTONS_CLOSE, "%s", result->message);
+   gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+}
+static void gtk_backup_alert(const char *message) {
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),GTK_DIALOG_MODAL,
+      GTK_MESSAGE_WARNING,GTK_BUTTONS_CLOSE,"%s",message);
+   gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+}
+static void gtk_backup_action(GtkButton *unused, gpointer user_data) {
+   (void)unused;
+   bool importing = GPOINTER_TO_INT(user_data) != 0;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(importing ? "Import Encrypted Backup" : "Backup RustyRig",
+      GTK_WINDOW(main_window),GTK_DIALOG_MODAL,"_Cancel",GTK_RESPONSE_CANCEL,
+      importing ? "_Import" : "_Continue",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *choice = gtk_combo_box_text_new();
+   if (!importing) {
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choice),"Database (SQL) only");
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choice),"Database (SQL) + all private identities");
+      gtk_combo_box_set_active(GTK_COMBO_BOX(choice),1);
+      gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Backup contents:"),FALSE,FALSE,5);
+      gtk_box_pack_start(GTK_BOX(box),choice,FALSE,FALSE,5);
+   } else {
+      GtkWidget *warning=gtk_label_new("Import replaces the client database. Existing private key files will never be overwritten. Restart RustyRig after importing.");
+      gtk_label_set_line_wrap(GTK_LABEL(warning),TRUE);
+      gtk_box_pack_start(GTK_BOX(box),warning,FALSE,FALSE,5);
+   }
+   GtkWidget *password=gtk_entry_new();
+   gtk_entry_set_visibility(GTK_ENTRY(password),FALSE);
+   gtk_entry_set_input_purpose(GTK_ENTRY(password),GTK_INPUT_PURPOSE_PASSWORD);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(password),"Backup password (required)");
+   gtk_box_pack_start(GTK_BOX(box),password,FALSE,FALSE,5);
+   GtkWidget *confirm=NULL;
+   if (!importing) {
+      confirm=gtk_entry_new();
+      gtk_entry_set_visibility(GTK_ENTRY(confirm),FALSE);
+      gtk_entry_set_input_purpose(GTK_ENTRY(confirm),GTK_INPUT_PURPOSE_PASSWORD);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(confirm),"Confirm backup password");
+      gtk_box_pack_start(GTK_BOX(box),confirm,FALSE,FALSE,5);
+   }
+   gtk_widget_show_all(dialog);
+   int response=gtk_dialog_run(GTK_DIALOG(dialog));
+   rrclient_backup_request_t request={0};
+   bool ready=false;
+   if (response==GTK_RESPONSE_ACCEPT) {
+      const char *value=gtk_entry_get_text(GTK_ENTRY(password));
+      const char *again=confirm?gtk_entry_get_text(GTK_ENTRY(confirm)):value;
+      if (!value[0] || strcmp(value,again) || strlen(value)>=sizeof(request.password))
+         gtk_backup_alert("Enter a matching nonempty password.");
+      else {
+         g_strlcpy(request.password,value,sizeof(request.password));
+         request.action=importing?RR_BACKUP_IMPORT:
+            (gtk_combo_box_get_active(GTK_COMBO_BOX(choice))==0?RR_BACKUP_SQL:RR_BACKUP_ALL);
+         ready=true;
+      }
+   }
+   gtk_entry_set_text(GTK_ENTRY(password),"");
+   if (confirm) gtk_entry_set_text(GTK_ENTRY(confirm),"");
+   gtk_widget_destroy(dialog);
+   if (!ready) return;
+   GtkFileChooserAction action=importing?GTK_FILE_CHOOSER_ACTION_OPEN:GTK_FILE_CHOOSER_ACTION_SAVE;
+   GtkWidget *chooser=gtk_file_chooser_dialog_new(importing?"Select Encrypted RustyRig Backup":"Save Encrypted RustyRig Backup",
+      GTK_WINDOW(main_window),action,"_Cancel",GTK_RESPONSE_CANCEL,
+      importing?"_Open":"_Save",GTK_RESPONSE_ACCEPT,NULL);
+   if (!importing) {
+      gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(chooser),"rustyrig-backup.rrbk");
+      /* Existing files are refused by the core; no accidental overwrite. */
+   }
+   if (gtk_dialog_run(GTK_DIALOG(chooser))==GTK_RESPONSE_ACCEPT) {
+      char *filename=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+      if (filename && strlen(filename)<sizeof(request.path)) {
+         g_strlcpy(request.path,filename,sizeof(request.path));
+         bool approved=true;
+         if (importing) {
+            GtkWidget *verify=gtk_message_dialog_new(GTK_WINDOW(main_window),GTK_DIALOG_MODAL,
+               GTK_MESSAGE_WARNING,GTK_BUTTONS_YES_NO,
+               "Replace the current RustyRig client database with this backup? "
+               "Connected sessions may need to be closed; restart immediately afterwards.");
+            approved=gtk_dialog_run(GTK_DIALOG(verify))==GTK_RESPONSE_YES;
+            gtk_widget_destroy(verify);
+         }
+         if (approved) {
+            rr_event_message_t message={.name=RRCLIENT_BACKUP_REQUEST,
+               .payload=&request,.length=sizeof(request)};
+            event_emit_message(&message);
+         }
+      } else gtk_backup_alert("Backup filename is too long.");
+      g_free(filename);
+   }
+   gtk_widget_destroy(chooser);
+   volatile char *wipe=request.password;
+   for (size_t i=0;i<sizeof(request.password);i++) wipe[i]=0;
+}
+
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
@@ -1437,6 +1542,16 @@ GtkWidget *init_config_tab(void) {
       config_action_button("Reload Config", "view-refresh-symbolic", "Choose whether to reload file bootstrap or saved database configuration");
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer) config_file);
    gtk_box_pack_start(GTK_BOX(buttons), btn_reloadcfg, FALSE, FALSE, 0);
+
+   event_on_message_domain_token(RRCLIENT_BACKUP_RESULT,gtk_backup_feedback,NULL,"gtk");
+   GtkWidget *btn_backup=config_action_button("Backup…","document-save-as-symbolic",
+      "Export encrypted SQL or SQL + private identity keys");
+   g_signal_connect(btn_backup,"clicked",G_CALLBACK(gtk_backup_action),GINT_TO_POINTER(0));
+   gtk_box_pack_start(GTK_BOX(buttons),btn_backup,FALSE,FALSE,0);
+   GtkWidget *btn_import=config_action_button("Import Backup…","document-open-symbolic",
+      "Restore a password-protected RustyRig backup; restart afterwards");
+   g_signal_connect(btn_import,"clicked",G_CALLBACK(gtk_backup_action),GINT_TO_POINTER(1));
+   gtk_box_pack_start(GTK_BOX(buttons),btn_import,FALSE,FALSE,0);
 
    GtkWidget *btn_certificates = gtk_certificates_button_new();
    gtk_box_pack_start(GTK_BOX(buttons), btn_certificates, FALSE, FALSE, 0);
