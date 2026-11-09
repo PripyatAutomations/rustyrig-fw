@@ -1,3 +1,16 @@
+rustyrig-fw (1.0.2-11) unstable; urgency=high
+
+  * Make TLS password login and Argon2id storage mandatory; remove legacy
+    SHA-1 challenge-response authentication and migrate legacy verifiers
+    after successful encrypted login.
+  * Add browser-compatible password-change endpoint, private Argon2id
+    credential provisioning helper, and high-entropy temporary passwords.
+  * Stop shipping /etc/rustyrig/callsign-lookup.cfg: that conffile belongs
+    exclusively to rustyrig-callsign-lookup.
+  * Require librrprotocol0 >= 0.1.0-6 and compatible client/WebUI updates.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 18:45:00 -0500
+
 rustyrig-fw (1.0.2-10) unstable; urgency=medium
 
   * Require per-packet mesh TTL; default 10, INFO warnings at 5 remaining.
