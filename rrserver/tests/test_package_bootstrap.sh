@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory() as directory:
     permissions.write_text(pathlib.Path('packaging/admin-permissions.sh').read_text())
     permissions.chmod(0o755)
     hash_helper = root / 'rr-password-hash'
-    hash_helper.write_text("#!/bin/sh\\ncat >/dev/null\\nprintf '%s\\n' '$argon2id$v=19$m=19456,t=2,p=1$test$hash'\\n")
+    hash_helper.write_text("#!/bin/sh\ncat >/dev/null\necho argon2id-fixture\n")
     hash_helper.chmod(0o755)
     script = root / 'postinst'
     script.write_text(pathlib.Path('debian/rustyrig-server.postinst').read_text()
@@ -46,7 +46,7 @@ with tempfile.TemporaryDirectory() as directory:
     database = root / 'var/lib/rustyrig/db/master.db'
     with sqlite3.connect(database) as connection:
         admin = connection.execute("SELECT enabled,password FROM users WHERE name='admin'").fetchone()
-        assert admin[0] == 1 and admin[1].startswith('$argon2id$v=19
+        assert admin == (1, 'argon2id-fixture')
         assert connection.execute("SELECT enabled FROM users WHERE name='guest'").fetchone() == (0,)
         connection.execute("UPDATE users SET enabled=0,password='existing-password' WHERE name='admin'")
     env['RR_TEST_ADMIN_PASSWORD'] = 'different-upgrade-password'
