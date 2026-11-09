@@ -1,3 +1,9 @@
+# Private helper for first-install account hashing (password via stdin, never argv).
+bins += bin/rr-password-hash
+bin/rr-password-hash: rrserver/password.hash.c
+	@mkdir -p bin
+	@$(CC) $(CFLAGS) -o $@ $< -lrrprotocol -lrustyaxe $(LDFLAGS)
+
 CFLAGS_RRSERVER += -pthread
 CFLAGS_RRSERVER += $(shell pkg-config --cflags openssl gio-2.0)
 LDFLAGS_RRSERVER += $(shell pkg-config --libs openssl gio-2.0) -lwslay
