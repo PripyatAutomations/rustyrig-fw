@@ -1,8 +1,9 @@
 # TLS password authentication and Argon2id migration
 
-Status: coordinated development branches, **not production-ready or merged**.
-Repositories: `rustyrig-fw`, `librrprotocol`, and `rustyrig-www`, all on
-`auth-argon2id`.
+Status: **merged to `main` in all three repositories**. This is an intentionally
+breaking authentication protocol update, pending clean-build and integration
+validation before deployment to production stations.
+Repositories: `rustyrig-fw`, `librrprotocol`, and `rustyrig-www`.
 
 ## New protocol
 
@@ -71,4 +72,8 @@ The updated native and browser clients are needed at the same time.
 - Add session revocation/short-lived credentials and certificate-backed client
   login before claiming the entire long-term authentication redesign finished.
 
-Do not merge or deploy the three branches separately.
+Update `librrprotocol0` (at least `0.1.0-6`) first, then server and native
+clients (at least `rustyrig-fw 1.0.2-11`), and deploy the updated
+`rustyrig-www` together. Existing SHA-1 wire clients will be rejected.
+Back up the account database before upgrading and confirm the new client
+works over WSS before disconnecting an existing administrator session.
