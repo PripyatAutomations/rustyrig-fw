@@ -390,7 +390,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    unsigned af_zoom = p->zoom ? p->zoom : 1;
    int trace_height = trace ? (waterfall ? MAX(34, height / 4) : height - 16) : 0;
 
-   if (trace) {
+   if (trace && p->count) {
       cairo_set_line_width(cr, 1.1);
       cairo_set_source_rgb(cr, 0.43, 0.79, 0.99);
 
@@ -475,6 +475,11 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    }
    cairo_set_source_rgb(cr, 0.68, 0.73, 0.79);
    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+   if (!p->count) {
+      cairo_set_font_size(cr, 12);
+      cairo_move_to(cr, 12, height / 2.);
+      cairo_show_text(cr, "Waiting for audio on selected source...");
+   }
    cairo_set_font_size(cr, 10);
    cairo_move_to(cr, 5, height - 3);
    cairo_show_text(cr, "AF 0 Hz");
