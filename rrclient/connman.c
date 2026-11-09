@@ -68,6 +68,7 @@ typedef struct client_server {
    int connected;
    uint64_t traffic_rx, traffic_tx;
    bool reconnect_enabled, reconnect_pending;
+   bool login_challenge_pending; /* handshake reached credential verification */
    unsigned reconnect_tries;
    time_t reconnect_at;
    char nick_base[NICKLEN + 1];
@@ -706,11 +707,20 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
    }
 
    if (!strcmp(event, "auth.error")) {
+      s->login_challenge_pending = false;
       cancel_reconnect(s);
    } else if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected")) {
+      s->login_challenge_pending = false;
       s->reconnect_pending = false;
       s->reconnect_tries = 0;
       ws_connected = 1;
+   } else if (!strcmp(event, "logging-in") && cptr && cptr->is_ws) {
+      s->login_challenge_pending = true;
+   } else if (!strcmp(event, "disconnected") && s->login_challenge_pending && cptr && cptr->is_ws) {
+      s->login_challenge_pending = false;
+      cancel_reconnect(s);
+      Log(LOG_WARN, "auth.ws", "Login rejected or connection closed during authentication for profile %s; reconnect disabled", s->name);
+      ui_print(NULL, "%s\00304Login failed for %s (check username/password or server authentication log). Automatic reconnect stopped.\017", get_chat_ts(now), s->name);
    } else if (s->reconnect_enabled && !s->reconnect_pending && !dying) {
       if (s->reconnect_tries >= RRC_MAX_RECONNECTS) {
          cancel_reconnect(s);
@@ -819,6 +829,7 @@ void connman_register_events(void) {
    event_on("disconnected", connection_event, NULL);
    event_on("http.error", connection_event, NULL);
    event_on("auth.error", connection_event, NULL);
+   event_on("logging-in", connection_event, NULL);
 }
 
 static uint64_t control_rx_bytes, control_tx_bytes, ws_text_rx_bytes;
@@ -1727,6 +1738,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    s->connection = &native->connection;
    s->native = native;
    s->connected = -1;
+   s->login_challenge_pending = false;
    s->reconnect_pending = false;
    s->reconnect_enabled = true;
 
