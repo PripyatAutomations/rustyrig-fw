@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #ifndef RRCLIENT_PASSWORD_CHANGE_H
 #define RRCLIENT_PASSWORD_CHANGE_H
+#include <stdbool.h>
 #define RRCLIENT_PASSWORD_PROMPT_EVENT "client.ui.password-change.prompt"
 #define RRCLIENT_PASSWORD_SUBMIT_EVENT "client.password-change.submit"
 #define RRCLIENT_PASSWORD_RESULT_EVENT "client.ui.password-change.result"
