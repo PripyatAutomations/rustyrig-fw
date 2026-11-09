@@ -23,7 +23,8 @@ install: install-dependency-check
 
 install-bin: ${bins}
 	@set -e; for src in $(filter-out %.so,${bins}); do \
-		install -Dm755 "$$src" "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; \
+		case "${src##*/}" in fwdsp|rrbridge) dst="$(DESTDIR)$(LIBEXECDIR)/${src##*/}" ;; *) dst="$(DESTDIR)$(BINDIR)/${src##*/}" ;; esac; \
+		install -Dm755 "$src" "$dst"; \
 	done
 # Runtime modules are separate from executable binaries; show their destination
 # so source installs are auditable rather than silently copying shared objects.
@@ -100,11 +101,13 @@ install-config:
 # Report the actual effective paths, and reject common shadow-install traps.
 install-check:
 	@echo "Binaries:    $(BINDIR)"
+	@echo "Helpers:     $(LIBEXECDIR)"
 	@echo "Libraries:   $(LIBDIR)"
 	@echo "Modules:     $(MODULEDIR)"
 	@echo "Config:      $(CONF_DIR) (install-config only)"
 	@echo "Web UI:      $(WEB_ROOT)"
 	@test "$(BINDIR)" = /usr/bin || { echo "Not Debian binary directory" >&2; exit 1; }
+	@test "$(LIBEXECDIR)" = /usr/libexec/rustyrig || { echo "Not Debian helper directory" >&2; exit 1; }
 	@test "$(MODULEDIR)" = /usr/lib/rustyrig/modules || { echo "Not Debian module directory" >&2; exit 1; }
 	@test "$(LIBDIR)" = "/usr/lib/$(MULTIARCH)" || { echo "Not Debian multiarch library directory" >&2; exit 1; }
 	@test "$(CONF_DIR)" = /etc/rustyrig || { echo "Not Debian config directory" >&2; exit 1; }
@@ -116,7 +119,8 @@ install-check:
 # Installation of web assets may mingle with user data, so leave them in place.
 uninstall:
 	@set -e; for src in $(filter-out %.so,$(bins)); do \
-		rm -f "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; \
+		case "${src##*/}" in fwdsp|rrbridge) dst="$(DESTDIR)$(LIBEXECDIR)/${src##*/}" ;; *) dst="$(DESTDIR)$(BINDIR)/${src##*/}" ;; esac; \
+		rm -f "$dst"; \
 	done
 	@set -e; for src in $(filter %.so,$(bins)); do \
 		case "$$src" in *rrbridge*.so) family=rrbridge ;; *rrserver*.so) family=rrserver ;; *rrclient*.so) family=rrclient ;; *) continue;; esac; \
