@@ -11,7 +11,8 @@ RustyRig is supported **only when installed**, either with distribution packages
 
 ## Conventional installed paths
 
-- Executables: `/usr/bin` (or PATH lookup for installed executables).
+- User-facing executables: `/usr/bin`.
+- Private subprocess workers (`rrbridge`, `fwdsp`): `/usr/libexec/rustyrig` (not on PATH; never installed into writable runtime state).
 - Server/bridge/client modules: `/usr/lib/rustyrig/modules/<family>`.
 - Configuration: `/etc/rustyrig` (installation never implicitly overwrites local configuration).
 - Shared server state: `/var/lib/rustyrig`, with database, SQL resources, modems, recordings and served web files beneath it.
