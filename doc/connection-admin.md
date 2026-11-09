@@ -110,3 +110,30 @@ origins and unscoped historical rigs display as unknown in GTK. The server's
 existing admin results expose the fields to all clients, including WebUI.
 Config actions occupy one horizontal row, followed by one blank text row
 before the bottom main-tab navigation to reduce accidental clicks.
+
+## Self-signed servers and changed TLS identities
+
+In the GTK **New Server** / **Edit Server** dialog, the **Ignore TLS hostname**
+checkbox is off by default. Enable it only for an explicitly trusted station
+with a self-signed or mismatched-name WSS certificate. It permits first-use
+trust of the server's public key and pins the SHA-256 of its TLS
+SubjectPublicKeyInfo to that server's SQLite profile. Subsequent connections
+must present the same public key; updating a certificate without changing its
+key does not require another confirmation.
+
+If that key changes, the handshake is rejected before application
+authentication. The GTK client shows both old and new fingerprints and
+requires the operator to type exactly `YES` **and click OK** to replace the
+pin and retry. Cancelling keeps the old pin and blocks the connection; a later
+manual retry can prompt again. Verify a replacement key out of band, preferably
+with the station administrator. A new key can also indicate an attack.
+
+This opt-in setting bypasses CA-chain and hostname validation for **that
+profile** and replaces them with public-key pinning, not an unrestricted
+`verify=false` connection. The first connection is vulnerable to interception
+unless the endpoint is independently trusted; use an installed CA or a
+preconfigured `server.tls-name`/CA bundle when available. On headless TUI
+clients a mismatched key is rejected (there is no GTK confirmation dialog).
+The pin and setting are stored under
+`server:<profile>.server.tls-spki-sha256` and
+`server:<profile>.server.tls-trust-on-first-use` in `client.db`.
