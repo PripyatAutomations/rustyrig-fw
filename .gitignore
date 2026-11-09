@@ -30,6 +30,7 @@ inc/autoconf.h
 # Private data
 config/callsign-lookup.*.cfg
 config/*.old
+config/*.channels.json
 config/*.crt
 config/*.cert
 config/*.pem
