@@ -99,7 +99,7 @@ case "$distro" in
    fedora)
       packages=(gcc gcc-c++ make git jq pkgconf-pkg-config libbsd-devel
          ncurses-devel glib2-devel libgpiod-devel libev-devel
-         openssl-devel libwslay-devel libargon2-devel libarchive-devel libcurl-devel
+         openssl-devel wslay-devel libargon2-devel libarchive-devel libcurl-devel
          perl perl-JSON perl-JSON-XS)
       enabled '.backend.hamlib' && packages+=(hamlib-devel)
       enabled '.features.gtk' && packages+=(gtk3-devel vte291-devel)
