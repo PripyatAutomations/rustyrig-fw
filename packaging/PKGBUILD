@@ -54,7 +54,7 @@ package_rustyrig-server() {
    install -Dm644 packaging/rrserver.service "$pkgdir/usr/lib/systemd/system/rustyrig-server.service"
    install -Dm644 packaging/rustyrig.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/rustyrig.conf"
    for cfg in config/*.cfg config/*.md; do
-      [[ -f "$cfg" && "${cfg##*/}" != rrclient* ]] || continue
+      [[ -f "$cfg" && "${cfg##*/}" != rrclient* && "${cfg##*/}" != callsign-lookup.cfg ]] || continue
       install -Dm644 "$cfg" "$pkgdir/etc/rustyrig/${cfg##*/}"
       backup+=("etc/rustyrig/${cfg##*/}")
    done

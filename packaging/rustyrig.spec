@@ -84,6 +84,7 @@ install -Dpm0644 packaging/rustyrig-client.desktop %{buildroot}%{_datadir}/appli
 install -Dpm0644 res/rustyrig.png %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 for f in config/*.cfg config/*.md; do
   [ -f "$f" ] || continue
+  [ "${f##*/}" != callsign-lookup.cfg ] || continue
   install -Dpm0644 "$f" "%{buildroot}%{_sysconfdir}/rustyrig/${f##*/}"
 done
 install -Dpm0644 sql/sqlite.master.sql %{buildroot}%{_sharedstatedir}/rustyrig/sql/sqlite.master.sql
@@ -125,7 +126,6 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %{_tmpfilesdir}/rustyrig.conf
 %config(noreplace) %{_sysconfdir}/init.d/rrserver
 %config(noreplace) %{_sysconfdir}/rustyrig/rrserver*.cfg
-%config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/ua-bans
 %dir %attr(0770,rustyrig,rustyrig) %{_localstatedir}/log/rustyrig
 %{_sharedstatedir}/rustyrig
