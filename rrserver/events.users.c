@@ -198,14 +198,11 @@ bool rrserver_user_target_allowed(const http_user_t *actor, const http_user_t *t
    return true;
 }
 
-/* Generate the existing eight-digit temporary password using arc4random. */
+/* One-time temporary passwords require enough entropy to withstand a stolen
+ * hash database even before the user selects a permanent password. */
 static bool user_temp_password(char *password, size_t length) {
-   if (!password || length < 9) {
-      return false;
-   }
-   unsigned value = arc4random_uniform(100000000U);
-
-   return snprintf(password, length, "%08u", value) > 0;
+   return password && length >= 25 &&
+      auth_generate_nonce(password, length) == (int)(length - 1);
 }
 
 /* Reload user state after a write and report failures to the requester. */
@@ -410,7 +407,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      char password[9];
+      char password[25];
       char *password_hash = NULL;
       bool ok = user_temp_password(password, sizeof(password));
 
@@ -629,7 +626,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      char password[9];
+      char password[25];
 
       if (!user_temp_password(password, sizeof(password))) {
          ws_send_notice(cptr, "USER: unable to generate a temporary password");
