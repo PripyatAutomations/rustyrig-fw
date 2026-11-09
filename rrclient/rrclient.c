@@ -45,10 +45,9 @@ void rrclient_poll_events(void) {
    rrclient_dcc_poll();
 #ifdef  USE_MONGOOSE
    mg_mgr_poll(&mgr, 0);
-   /* WS inventory/catalog dispatch can occupy the main loop for a while. Drain RTP again immediately after it, rather than waiting for the next GLib timer tick
-    * and adding avoidable audio latency. */
-   rrclient_direct_poll();
 #endif // USE_MONGOOSE
+   /* Drain RTP again after transport dispatch, also on native-only builds. */
+   rrclient_direct_poll();
 }
 
 bool rrclient_autoconnect(void) {
