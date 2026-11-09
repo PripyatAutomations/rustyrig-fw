@@ -1,5 +1,7 @@
 rustyrig-fw (1.0.2-14) unstable; urgency=medium
 
+  * Keep rrserver disabled and stopped on fresh package installations;
+    starting the daemon requires an administrator's explicit action.
   * Prompt in GTK for mandatory account password change after authentication.
   * Send password rotation over authenticated TLS using auth.change-password,
     wait for explicit server success before saving the new client profile password.
