@@ -508,6 +508,18 @@ bool cmd_user(int argc, char **args) {
    return false;
 }
 
+/* A notice contains no originating room, so remember the room that sent
+ * each outstanding /link invite. Core command and notice handlers own this
+ * mapping. It is consumed on the matching server's invitation reply. */
+static GHashTable *link_invite_rooms;
+char *rrclient_link_invite_take_room(const char *profile) {
+   if (!link_invite_rooms || !profile) return NULL;
+   const char *room = g_hash_table_lookup(link_invite_rooms, profile);
+   if (!room) return NULL;
+   char *copy = g_strdup(room);
+   g_hash_table_remove(link_invite_rooms, profile);
+   return copy;
+}
 /* PARITY: rustyrig-www/js/webui.chat.js link/admin command tails. */
 static bool send_management_command(const char *command, int argc, char **args, const char *server) {
    rrconn_t *connection = rrclient_active_connection();
@@ -538,6 +550,15 @@ static bool send_management_command(const char *command, int argc, char **args, 
    }
    dict_add(request, "talk.data", tail);
    bool sent = ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
+   if (sent && !strcmp(command, "link") && argc > 1 && !g_ascii_strcasecmp(args[1], "invite")) {
+      const char *profile = rrclient_connection_name(connection);
+      const char *room = ui_active_window_name();
+      if (profile && room && *room) {
+         if (!link_invite_rooms)
+            link_invite_rooms = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+         g_hash_table_replace(link_invite_rooms, g_strdup(profile), g_strdup(room));
+      }
+   }
    dict_free(request);
 
    return !sent;
