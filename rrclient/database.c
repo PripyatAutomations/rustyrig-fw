@@ -427,6 +427,7 @@ void rrclient_database_shutdown(void) {
       sqlite3_close(client_db);
    }
    client_db = NULL;
+   backup_imported = false;
 }
 
 static bool db_exec3(const char *sql, const char *a, const char *b, const char *c) {
