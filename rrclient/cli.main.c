@@ -167,14 +167,8 @@ static bool ws_txtframe_dispatch(rrconn_t *cptr, dict *d) {
       if (!agreed) {
          Log(LOG_WARN, "ws.cap", "Server rejected required v2 capabilities (%s)", cmd);
 
-         if (cptr->native_transport) {
+         if (cptr->native_transport)
             rr_transport_close(cptr->native_transport);
-         }
-#ifdef USE_MONGOOSE
-         else if (cptr->conn) {
-            cptr->conn->is_closing = 1;
-         }
-#endif
 
          return false;
       }
