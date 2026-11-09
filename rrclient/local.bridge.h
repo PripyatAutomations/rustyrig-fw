@@ -56,8 +56,10 @@ typedef struct {
    bool enabled;
    unsigned zoom;
    uint64_t center_hz;
+   char vfo; /* 0 follows the active local receiver */
 } rr_local_bridge_waterfall_request_t;
 bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz);
+bool rrclient_local_bridge_request_waterfall_vfo(char vfo, bool enabled, unsigned zoom, uint64_t center_hz);
 
 #define RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST "client.local-bridge.lifecycle.request"
 typedef struct {
