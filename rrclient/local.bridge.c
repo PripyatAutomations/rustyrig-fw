@@ -1388,11 +1388,8 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    if (port <= 0) {
       port = tls ? 443 : 80;
    }
-   char *program = g_find_program_in_path("rrbridge");
-
-   if (!program && g_file_test("./bin/rrbridge", G_FILE_TEST_IS_EXECUTABLE)) {
-      program = g_strdup("./bin/rrbridge");
-   }
+   char *program = g_file_test("/usr/libexec/rustyrig/rrbridge", G_FILE_TEST_IS_EXECUTABLE) ?
+      g_strdup("/usr/libexec/rustyrig/rrbridge") : NULL;
 
    if (!program) {
       Log(LOG_WARN, "local.bridge", "rrbridge executable unavailable");
