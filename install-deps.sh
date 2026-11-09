@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Print build dependency commands for the selected RustyRig profile.
-# This script does not install packages automatically.
+# Install build dependencies for the selected RustyRig profile.
+# Invokes the distro package manager directly; caller controls privileges.
 set -euo pipefail
 
 PROFILE="${PROFILE:-radio}"
