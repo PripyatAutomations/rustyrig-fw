@@ -99,7 +99,20 @@ endif
 	install -d debian/rustyrig-client-gtk$(MODULEDIR)/rrclient
 	install -d debian/rustyrig-server/etc/rustyrig
 	install -d debian/rustyrig-client/etc/rustyrig
-	# Package only .cfg and .md from config/; JSON is build-only.
+	# Install only the selected server profile's channel memories, using
+	# radio.channels.json as the reference default when no override exists.
+	# Do not manufacture rrserver.channels.json or rrclient.channels.json.
+	@if test -f "config/$(PROFILE).channels.json"; then \
+		channels="config/$(PROFILE).channels.json"; \
+	else \
+		channels="config/radio.channels.json"; \
+	fi; \
+	if test ! -f "$channels"; then \
+		echo "Missing channel memory configuration: $channels" >&2; exit 1; \
+	fi; \
+	install -Dm644 "$channels" debian/rustyrig-server$(CONF_DIR)/channels.json
+
+	# Package .cfg and .md plus the selected profile's channels.json above.
 	for cfg in config/*.cfg config/*.md; do \
 		[ -f "$$cfg" ] || continue; \
 		case "$${cfg##*/}" in callsign-lookup.cfg) continue ;; rrclient*) pkg=rustyrig-client ;; *) pkg=rustyrig-server ;; esac; \
