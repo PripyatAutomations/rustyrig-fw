@@ -1581,6 +1581,21 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
    const char *output = ui_active_window_name();
 
    if (msg) {
+      /* This notice is a bearer credential. Deliver a copy to GTK through
+       * its event domain, but avoid JSON serialization or general logging. */
+      static const char invitation_prefix[] =
+         "One-time enrollment token (base64, confidential): ";
+      if (g_str_has_prefix(msg, invitation_prefix)) {
+         const char *token = msg + sizeof(invitation_prefix) - 1;
+         size_t token_len = strlen(token);
+         if (token_len > 0 && token_len < 8192 &&
+             strspn(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") == token_len) {
+            event_emit_message(&(rr_event_message_t) {
+               .name = "client.ui.mesh.enrollment-token",
+               .sender = "core", .payload = token, .length = token_len + 1
+            });
+         }
+      }
       bool admin_notice = g_str_has_prefix(msg, "USER: temporary password for ") || g_str_has_prefix(msg, "USER: failed to add ") ||
          g_str_has_prefix(msg, "USER: account already exists: ") || g_str_has_prefix(msg, "USER: no user slots are available") ||
          g_str_has_prefix(msg, "USER: administrators cannot create ") ||
