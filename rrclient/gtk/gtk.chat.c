@@ -1546,9 +1546,6 @@ static void room_af_panel_show(void) {
 
 /* Spectrum sources own this panel, independently of chat/VFO tabs. The local bridge is currently the only producer publishing RF rows. */
 static void room_rf_panel_refresh(void) {
-   rr_local_bridge_ui_state_t state = {
-      0
-   };
    gboolean available = FALSE;
    for (char vfo = 'A'; vfo <= 'Z'; vfo++) {
       rr_local_bridge_ui_state_t candidate = { 0 };
