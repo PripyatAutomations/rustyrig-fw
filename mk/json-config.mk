@@ -9,8 +9,6 @@ USE_GTK=true
 
 OBJ_DIR := $(shell pwd)/build
 
-CHANNELS := config/${PROFILE}.channels.json
-
 CFLAGS_WARN += $(strip $(shell cat ${CF} | jq -r '.build.cflags_warn'))
 CFLAGS += $(strip $(shell cat ${CF} | jq -r '.build.cflags'))
 LDFLAGS += $(strip $(shell cat ${CF} | jq -r '.build.ldflags'))
