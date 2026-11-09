@@ -304,7 +304,8 @@ char *rrclient_database_dump_sql(size_t *length) {
       "WHERE name NOT LIKE 'sqlite_%' AND sql IS NOT NULL "
       "ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END,name",
       -1, &schema, NULL) == SQLITE_OK;
-   while (ok && sqlite3_step(schema) == SQLITE_ROW) {
+   int schema_step = SQLITE_DONE;
+   while (ok && (schema_step = sqlite3_step(schema)) == SQLITE_ROW) {
       const char *type = (const char *)sqlite3_column_text(schema, 0);
       const char *name = (const char *)sqlite3_column_text(schema, 1);
       const char *sql = (const char *)sqlite3_column_text(schema, 2);
@@ -325,7 +326,12 @@ char *rrclient_database_dump_sql(size_t *length) {
                switch (sqlite3_column_type(rows, i)) {
                case SQLITE_NULL: g_string_append(out, "NULL"); break;
                case SQLITE_INTEGER: g_string_append_printf(out, "%lld", (long long)sqlite3_column_int64(rows, i)); break;
-               case SQLITE_FLOAT: g_string_append_printf(out, "%.17g", sqlite3_column_double(rows, i)); break;
+               case SQLITE_FLOAT: {
+                  char *number=sqlite3_mprintf("%!.17g",sqlite3_column_double(rows,i));
+                  if (!number) ok=false;
+                  else {g_string_append(out,number);sqlite3_free(number);}
+                  break;
+               }
                case SQLITE_BLOB: {
                   const unsigned char *bytes = sqlite3_column_blob(rows, i);
                   int n = sqlite3_column_bytes(rows, i);
@@ -351,6 +357,7 @@ char *rrclient_database_dump_sql(size_t *length) {
       sqlite3_free(query);
       sqlite3_free(quoted);
    }
+   if (schema_step != SQLITE_DONE) ok = false;
    sqlite3_finalize(schema);
    sqlite3_close(snapshot);
    if (!ok) { g_string_free(out, TRUE); return NULL; }
