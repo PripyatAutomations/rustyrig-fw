@@ -499,6 +499,7 @@ int main(void) {
    assert(!upgraded);
    assert(db_user_password_authenticate(db, "admin", "abc", &upgraded));
    assert(upgraded);
+   assert(http_users[1].password_change_required);
    assert(!db_user_password_authenticate(db, "admin", "wrong", &upgraded));
    hash_query = NULL;
    assert(sqlite3_prepare_v2(db, "SELECT password FROM users WHERE name='admin'", -1, &hash_query, NULL) == SQLITE_OK);
