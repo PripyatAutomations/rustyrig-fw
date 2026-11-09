@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 /* Local SDR host: reuse the rrbridge process and Kiwi driver, no rrserver. All control and resampler callbacks are owned by the client main context. */
+#ifndef RR_LIBEXECDIR
+#define RR_LIBEXECDIR "/usr/libexec/rustyrig"
+#endif
 #include <rrclient/local.bridge.h>
 #include <rrclient/rrclient.h>
 #include <librrprotocol/rig.command.h>
@@ -1388,8 +1391,10 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    if (port <= 0) {
       port = tls ? 443 : 80;
    }
-   char *program = g_file_test("/usr/libexec/rustyrig/rrbridge", G_FILE_TEST_IS_EXECUTABLE) ?
-      g_strdup("/usr/libexec/rustyrig/rrbridge") : NULL;
+   char *program = g_build_filename(RR_LIBEXECDIR, "rrbridge", NULL);
+   if (!g_file_test(program, G_FILE_TEST_IS_EXECUTABLE)) {
+      g_clear_pointer(&program, g_free);
+   }
 
    if (!program) {
       Log(LOG_WARN, "local.bridge", "rrbridge executable unavailable");
