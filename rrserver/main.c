@@ -826,6 +826,7 @@ int main(int argc, char **argv) {
    }
 
    if (!(masterdb = db_open(masterdb_path))) {
+      fprintf(stderr, "rrserver: Cannot open master database at %s (check existence and rustyrig user permissions)\n", masterdb_path);
       Log(LOG_CRIT, "core", "Cant open master db at %s", masterdb_path);
       free((void *)masterdb_path);
       exit(EXIT_FAILURE);
@@ -1051,6 +1052,11 @@ int main(int argc, char **argv) {
 #endif
       rr_reactor_dispatch_ready(NULL);
       rrserver_links_poll();
+      /* Service GLib timers, queued worker logs and registered callbacks.
+       * The reactor dispatch alone does not iterate the default GMainContext. */
+      while (g_main_context_pending(NULL)) {
+         g_main_context_iteration(NULL, FALSE);
+      }
 
       if (dying) {
          break;
