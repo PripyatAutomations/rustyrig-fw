@@ -30,7 +30,7 @@ typedef struct {
    unsigned head, count;
    guint timer;
    bool listening, af_pending;
-   gint64 af_requested_at;
+   gint64 af_requested_at, af_last_ready_at;
    guint64 af_request_id;
    rr_event_token_t af_result_token, streams_token;
    char source_id[64];
@@ -508,9 +508,15 @@ static void af_result_event(const rr_event_message_t *message, void *data) {
    }
    p->af_pending = false;
 
-   if (!p->listening || !result->ready) {
+   if (!p->listening) return;
+   if (!result->ready) {
+      if (p->count && g_get_monotonic_time() - p->af_last_ready_at >= G_USEC_PER_SEC) {
+         p->head = p->count = 0;
+         gtk_widget_queue_draw(p->drawing);
+      }
       return;
    }
+   p->af_last_ready_at = g_get_monotonic_time();
    p->stereo = result->stereo;
    memcpy(p->current, result->bins, sizeof(p->current));
    memcpy(p->current_left, result->left, sizeof(p->current_left));
