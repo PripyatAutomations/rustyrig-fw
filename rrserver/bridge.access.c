@@ -119,7 +119,7 @@ static void codec_privilege(const char *event, const void *data, size_t length, 
    if (!access->channel || access->allowed) {
       return;
    }
-#if defined(USE_SQLITE) && defined(USE_MONGOOSE)
+#ifdef USE_SQLITE
 
    if (!rr_relay_remote_for(client)) {
       return;
