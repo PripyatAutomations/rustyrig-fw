@@ -220,7 +220,9 @@ static void admin_profile_result(const char *event, const char *data, rrconn_t *
       g_strlcpy(admin_selected_profile, profile, sizeof(admin_selected_profile));
       dict_free(reply);
 
-      if (changed && admin_view && admin_tab && gtk_widget_get_visible(admin_tab)) {
+      if (changed && admin_view && admin_tab && main_notebook &&
+         gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
+            gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_tab) {
          gtk_admin_refresh();
       }
    }
