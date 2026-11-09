@@ -55,7 +55,16 @@ static bool valid_key_name(const char *name) {
 }
 static bool append_keys(GByteArray *bundle) {
    char *dir = g_build_filename(g_get_user_config_dir(),"rustyrig","identity",NULL);
-   GDir *entries = g_dir_open(dir,0,NULL);
+   struct stat directory_stat;
+   bool exists = lstat(dir,&directory_stat)==0;
+   if ((exists && (!S_ISDIR(directory_stat.st_mode) ||
+       directory_stat.st_uid!=geteuid() || (directory_stat.st_mode & 0077))) ||
+       (!exists && errno!=ENOENT)) {
+      g_free(dir);
+      return false;
+   }
+   GDir *entries = exists ? g_dir_open(dir,0,NULL) : NULL;
+   if (exists && !entries) {g_free(dir);return false;}
    GByteArray *files = g_byte_array_new();
    guint32 count=0;
    bool ok=true;
