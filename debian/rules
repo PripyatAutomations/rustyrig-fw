@@ -4,6 +4,9 @@ export DH_VERBOSE = 1
 .DEFAULT_GOAL := binary
 PROFILE ?= rrserver
 CLIENT_PROFILE ?= rrclient
+# Debian packages use the native OpenSSL/wslay transport only.
+# Override profile JSON settings without modifying developer configurations.
+DEB_TRANSPORT_FLAGS := USE_MONGOOSE=false
 include mk/optional-modules.mk
 include mk/install-paths.mk
 
@@ -48,10 +51,10 @@ override_dh_auto_build:
 	# when packaging follows a prior developer build of a different profile.
 	rm -f bin/rrserver bin/rrserver-gps-nmea.so bin/rrserver-gpsd.so bin/rrserver-hamlib.so bin/rr-dds-si5351 bin/fwdsp bin/rrbridge bin/rrbridge-kiwi.so libfwdspmgr.so
 	# Compile server-side binaries and shared helpers with their own profile.
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(OPTIONAL_MAKE_FLAGS)
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(DEB_TRANSPORT_FLAGS) $(OPTIONAL_MAKE_FLAGS)
 	# Executables live in bin/, not build/PROFILE: prevent cross-profile reuse.
 	rm -f bin/rrclient bin/rrclient-gtk.so bin/rrpipelines gmatrix/gmatrix
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(CLIENT_PROFILE) WITH_HAMLIB=no
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(CLIENT_PROFILE) $(DEB_TRANSPORT_FLAGS) WITH_HAMLIB=no
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 endif
