@@ -190,3 +190,40 @@ station is expected to show a persistent narrow carrier/sideband structure;
 this local AF analyzer sees only demodulated PCM (0-4 kHz), not the RF tuning
 spectrum. Validate against known silence, injected tones/noise, and independently
 captured PCM before treating colors as calibrated power measurements.
+
+## Client AF output and RF VFO selectors (November 2026)
+
+The GTK AF waterfall is now an independent, resizable floating panel instead
+of being embedded separately in each receiver chat tab. Its source selector
+offers the final local RX mixer **Left**, **Right**, **Mixed**, and a combined
+**Stereo L/R** view by default, plus individual received streams enumerated
+from the Audio Graph snapshot. Selecting an individual stream intentionally
+taps decoded audio *before* mixing, muting and routing; the output modes tap
+the **post-routing, post-ear-gain, interleaved stereo PCM** in
+`rx_sink_output()`, immediately before sending it to the fwdsp speaker
+pipeline. Any additional effects or volume controls inside that downstream
+pipeline, or external system mixer changes, are **not** measured by this tap.
+For the stereo overlay, left energy is cyan and right energy amber, with
+shared bins blending toward pale colors. These hues are independent of the
+single-channel palette.
+
+The tap is allocation-free in the 20 ms mixer callback and submits samples
+through the existing nonblocking AF analyzer queue. FFT processing and drawing
+remain on their own threads. Analyzer results and the graph stream inventory
+are delivered to GTK as copied messages; closing or hiding the view disables
+its listener.
+
+The RF floating panel defaults to **Follow Active** VFO and offers explicit
+VFO A–Z entries only for online local bridges advertising waterfall support.
+Selecting a VFO does **not** change the active CAT/room focus or audio route.
+Local RF events now carry their originating VFO identity, rather than silently
+discarding rows from inactive VFOs. The panel filters rows for its selection,
+and its zoom and tune requests target that same VFO. These capabilities
+currently apply to local bridge RF sources; server-side/remote RF spectrum
+source discovery still requires its own published source descriptors and
+subscription path.
+
+Acceptance: switch between two concurrent local RF-capable receivers, pin one
+while changing the active VFO, verify active-follow recovers on selection,
+and confirm left-only/right-only final output yields the appropriate cyan or
+amber pattern in the combined AF waterfall.
