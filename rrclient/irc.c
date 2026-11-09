@@ -34,6 +34,10 @@ static void irc_close_connection(rrconn_t *cptr) {
    }
 #endif
 
+   if (cptr->native_transport) {
+      rr_transport_close(cptr->native_transport);
+      return;
+   }
    if (cptr->fd < 0) {
       return;
    }
@@ -152,6 +156,16 @@ bool irc_send(rrconn_t *cptr, const char *fmt, ...) {
       return false;
    }
    size_t msglen = (size_t)written;
+   if (cptr->native_transport) {
+      if (rr_transport_state(cptr->native_transport) != RR_TRANSPORT_OPEN ||
+          rr_transport_queued_bytes(cptr->native_transport) + msglen + 2 > SENDQLEN)
+         return false;
+      msg[msglen++] = '\r';
+      msg[msglen++] = '\n';
+      bool sent = rr_transport_send_message(cptr->native_transport, msg, msglen) == RR_TRANSPORT_OK;
+      if (sent) rr_traffic_count(cptr, true, false, msglen);
+      return sent;
+   }
 #if defined(USE_MONGOOSE)
 
    if (cptr->conn) {
