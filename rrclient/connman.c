@@ -2058,7 +2058,10 @@ void rrclient_quit_servers(const char *reason) {
       cancel_reconnect(s);
 
       if (s->native && s->native->transport) {
-         if (s->connection && s->connection->authenticated) {
+         if (s->native->irc) {
+            if (s->connection && s->connection->sent_login)
+               irc_send(s->connection, "QUIT :%s", reason ? reason : "Client exiting");
+         } else if (s->connection && s->connection->authenticated) {
             dict *request = dict_new();
 
             if (request) {
