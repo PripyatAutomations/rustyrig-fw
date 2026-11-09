@@ -14,6 +14,8 @@
 extern dict *cfg;
 
 static sqlite3 *client_db;
+static bool backup_imported;
+bool rrclient_database_restart_required(void) { return backup_imported; }
 
 static bool window_state_schema(void) {
    if (!client_db) {
@@ -412,6 +414,11 @@ bool rrclient_database_restore_sql(const char *sql, size_t length) {
       }
    }
    sqlite3_close(incoming);
+   if (ok) {
+      /* Prevent stale in-memory client state from writing over the imported DB. */
+      ok = sqlite3_exec(client_db, "PRAGMA query_only=ON", NULL, NULL, NULL) == SQLITE_OK;
+      if (ok) backup_imported = true;
+   }
    return ok;
 }
 
