@@ -57,11 +57,6 @@ static bool admin_actor_has_priv(rrconn_t *client, const char *privilege) {
    if (!client || !client->user || !privilege) {
       return false;
    }
-#ifndef USE_MONGOOSE
-
-   return has_priv(client->user->uid, privilege);
-#else
-
    if (!rr_relay_remote_for(client)) {
       return has_priv(client->user->uid, privilege);
    }
@@ -99,7 +94,6 @@ static bool admin_actor_has_priv(rrconn_t *client, const char *privilege) {
 
    return false;
 #endif
-#endif /* USE_MONGOOSE */
 }
 
 #ifdef USE_SQLITE
