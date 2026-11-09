@@ -13,6 +13,10 @@ RustyRig is supported **only when installed**, either with distribution packages
 
 - User-facing executables: `/usr/bin`.
 - Private subprocess workers (`rrbridge`, `fwdsp`): `/usr/libexec/rustyrig` (not on PATH; never installed into writable runtime state).
+  The directory is a package-build setting: `LIBEXECDIR` (default `$(PREFIX)/libexec/rustyrig`).
+  The build embeds the selected directory in the worker-launch defaults; `make install` and Debian staging use the same setting. A distro packager can use e.g. `make LIBEXECDIR=/usr/lib/rustyrig` and pass that value to packaging rules.
+  Set `[fwdsp] path=auto` to use the compiled helper location, or configure an explicit absolute binary path. Set `bridge.path=auto` to use the same compiled helper location for rrbridge.
+  Existing configurations explicitly naming `/usr/bin/fwdsp` need updating on upgrade; do not silently reinterpret an administrator-selected absolute path.
 - Server/bridge/client modules: `/usr/lib/rustyrig/modules/<family>`.
 - Configuration: `/etc/rustyrig` (installation never implicitly overwrites local configuration).
 - Shared server state: `/var/lib/rustyrig`, with database, SQL resources, modems, recordings and served web files beneath it.
