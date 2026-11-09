@@ -45,6 +45,7 @@ package_rustyrig-server() {
    backup=()
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
+   install -Dm755 bin/rr-password-hash "$pkgdir/usr/lib/rustyrig/rr-password-hash"
    install -Dm755 bin/rr-dds-si5351 "$pkgdir/usr/bin/rr-dds-si5351"
    install -Dm755 packaging/admin-permissions.sh "$pkgdir/usr/lib/rustyrig/admin-permissions"
    install -Dm755 bin/rrserver-gps-nmea.so "$pkgdir/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so"
