@@ -237,7 +237,7 @@ defconfig_t defcfg[] = {
       "path.help-dir", "/var/lib/rustyrig/help", "Path to find help-files"
    },
    {
-      "fwdsp:path", "/usr/libexec/rustyrig/fwdsp", "Path to fwdsp binary"
+      "fwdsp:path", "auto", "Path to fwdsp binary"
    },
    {
       "fwdsp:subproc.max", "24", "Maximum client fwdsp processes", DEFCONFIG_UINT, NULL
