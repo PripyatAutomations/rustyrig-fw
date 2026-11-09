@@ -137,3 +137,45 @@ clients a mismatched key is rejected (there is no GTK confirmation dialog).
 The pin and setting are stored under
 `server:<profile>.server.tls-spki-sha256` and
 `server:<profile>.server.tls-trust-on-first-use` in `client.db`.
+
+## TLS server identity and trust prompts
+
+In **New Server** or **Edit Server**, `Node Name` is the expected
+`station.domain` identity, for example `rplywv00.ham.istabpeople.com`.
+The first DNS label is the station name (`rplywv00`), and the remainder
+is its domain (`ham.istabpeople.com`). It need not equal the hostname or
+IP address in the connection URL. The field is optional if the operator
+does not know the expected station/domain.
+
+**Ignore TLS hostname** is enabled for newly created profiles, but may
+be disabled for normal CA/hostname verification. When enabled, RustyRig
+still uses encrypted TLS and checks the server's pinned TLS public key
+(SPKI SHA-256). It does not silently trust an unknown key. A TLS
+certificate can be self-signed or have a hostname different from the URL.
+
+On first contact or whenever the server key changes, the client **stops
+before sending credentials** and displays the connection address,
+configured Node Name, certificate CN and DNS SAN names, certificate
+SHA-256 fingerprint, and observed and previously stored SPKI SHA-256
+fingerprints. Choose:
+
+- **Deny**: refuse the connection, preserve the prior pin, and do not
+  automatically retry.
+- **Accept Once**: trust the observed key for one new connection attempt
+  only. Nothing is stored in the profile.
+- **Accept Always**: enter `YES` and select the button to save the SPKI
+  pin in the profile's SQLite database. Later certificate renewals using
+  the same key work without another prompt.
+
+The displayed certificate name is self-asserted data until the operator
+checks the key fingerprint using an independent trusted channel. A key
+change can be legitimate rotation or a man-in-the-middle attempt.
+After an authenticated login, the client also compares `Node Name`, if
+configured, with the station and domain announced over the accepted TLS
+connection and disconnects on mismatch. That station/domain cannot be
+obtained securely at the initial TLS trust prompt: the dialog shows the
+*expected* Node Name and names presented by the certificate instead.
+
+For existing profiles where hostname checking was explicitly enabled,
+the existing preference is retained. The secure CA-verified option is
+still available by unticking the checkbox.
