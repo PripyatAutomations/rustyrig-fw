@@ -1,3 +1,13 @@
+rustyrig-fw (1.0.2-12) unstable; urgency=medium
+
+  * Add per-server Ignore TLS hostname checkbox with persistent SPKI trust.
+  * Prompt for explicit YES and OK approval when a pinned server key changes;
+    keep reconnection blocked until approved.
+  * Put Create New before Import and Legacy in first-run client identity dialog.
+  * Require librustyaxe0 and librustyaxe-dev >= 0.1.0-6.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 20:30:00 -0500
+
 rustyrig-fw (1.0.2-11) unstable; urgency=high
 
   * Make TLS password login and Argon2id storage mandatory; remove legacy
