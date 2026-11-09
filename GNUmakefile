@@ -35,7 +35,7 @@ RRPROTO_PROBE := $(shell RRPROTO_CC='$(AXE_CC)' RRPROTO_PKG_CONFIG='$(RRPROTO_PK
 IRC_PROBE := $(shell IRC_CC='$(AXE_CC)' IRC_PKG_CONFIG='$(IRC_PKG_CONFIG)' \
     IRC_CPPFLAGS='$(CPPFLAGS)' IRC_CFLAGS='$(CFLAGS) $(shell pkg-config --cflags glib-2.0 2>/dev/null)' \
     IRC_LDFLAGS='$(LDFLAGS)' sh tools/probe-librustyirc.sh)
-ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall gmatrix-clean,$(MAKECMDGOALS)),)
 ifeq ($(AXE_PROBE),none)
 $(error Installed librustyaxe development headers/library required)
 endif
@@ -47,7 +47,7 @@ $(error Installed librustyirc development headers/library required)
 endif
 endif
 # Never link against stale local copies from pre-split checkouts.
-ifeq ($(filter clean distclean uninstall,$(MAKECMDGOALS)),)
+ifeq ($(filter clean distclean uninstall gmatrix-clean,$(MAKECMDGOALS)),)
 ifneq ($(strip $(wildcard librustyaxe.so* librrprotocol.so* librustyirc.so*)),)
 $(error Stale local shared libraries in checkout; run make distclean)
 endif
