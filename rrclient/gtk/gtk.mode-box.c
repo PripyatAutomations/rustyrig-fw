@@ -53,7 +53,6 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
    if (text) {
       // Send width command over websocket: the server accepts both the
       // canned NARR/NORM/WIDE labels and numeric "<hz> Hz" entries.
-#if     defined(USE_MONGOOSE)
       char vfo[2] = {
          vfo_state_get_active(), '\0'
       };
@@ -65,7 +64,6 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       if (sent) {
          widthbox_last_send = now;
       }
-#endif // defined(USE_MONGOOSE)
       g_free((gchar *) text);
    }
 }
@@ -80,12 +78,10 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       if (room && !g_ascii_strcasecmp(room, "&local-sdr")) {
          sent = rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_MODE, 0, 0, text);
       } else {
-#if defined(USE_MONGOOSE)
          char vfo[2] = {
             vfo_state_get_active(), '\0'
          };
          sent = ws_send_mode_cmd_in_room(ws_conn, vfo, text, room);
-#endif
       }
 
       if (sent) {
