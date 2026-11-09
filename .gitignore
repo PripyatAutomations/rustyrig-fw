@@ -30,8 +30,8 @@ inc/autoconf.h
 # Private data
 config/callsign-lookup.*.cfg
 config/*.old
-config/*.channels.json
-!config/radio.channels.json
+# Channel memories are profile data and may be tracked in the repository.
+# Do not create rrclient.channels.json or rrserver.channels.json copies.
 config/*.crt
 config/*.cert
 config/*.pem
