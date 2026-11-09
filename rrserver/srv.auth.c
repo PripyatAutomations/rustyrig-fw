@@ -360,7 +360,7 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
          explicit_bzero(encoded, strlen(encoded));
          free(encoded);
       }
-      if (!changed || !db_refresh_users(masterdb)) {
+      if (!changed || db_get_users(masterdb) < 0) {
          ws_send_error(cptr, "Unable to persist password change");
          return false;
       }
