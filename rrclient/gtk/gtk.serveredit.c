@@ -162,8 +162,8 @@ typedef struct {
    bool creating;
    GtkWidget *fields[5];
    char *initial[5];
-   GtkWidget *error, *direct;
-   bool initial_direct;
+   GtkWidget *error, *direct, *tls_tofu;
+   bool initial_direct, initial_tls_tofu;
 } GtkServerEditor;
 
 static void editor_refresh_certificates(GtkServerEditor *editor) {
@@ -446,6 +446,24 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       rrclient_direct_apply_preferences();
    }
 
+   bool tofu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_tofu));
+   if (editor->creating || tofu != editor->initial_tls_tofu) {
+      if (!rrclient_database_server_set(profile, "server.tls-trust-on-first-use", tofu ? "true" : "false")) {
+         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save TLS trust setting.");
+         return;
+      }
+   }
+   /* Never carry a previously learned server key to a new URL or an
+    * explicitly disabled trust override. */
+   const char *new_url = gtk_entry_get_text(GTK_ENTRY(editor->fields[0]));
+   bool url_changed = !editor->creating && strcmp(new_url, editor->initial[0]) != 0;
+   if (url_changed || (!tofu && editor->initial_tls_tofu)) {
+      if (!rrclient_database_server_set(profile, "server.tls-spki-sha256", "")) {
+         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to clear stale TLS public-key pin.");
+         return;
+      }
+   }
+
    if (rooms_changed && !editor->creating) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.autojoin.rig", profile);
@@ -596,12 +614,20 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_widget_set_tooltip_text(editor->direct,
       "If checked, try direct RTP audio, then RTP to the nearest server (proxy-rtp), before trying proxy-media. Unchecked tries proxy-media first. This is less desirable but can avoid firewall issues.");
    gtk_grid_attach(GTK_GRID(grid), editor->direct, 0, 8, 2, 1);
+   const char *tofu_value = profile ? get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
+   editor->initial_tls_tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   editor->tls_tofu = gtk_check_button_new_with_label("Trust self-signed TLS certificate (pin on first connection)");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu), editor->initial_tls_tofu);
+   gtk_widget_set_tooltip_text(editor->tls_tofu,
+      "Disables CA and hostname checks for this server only, then pins the server's public key after the first successful WSS connection. "
+      "A different key is rejected on reconnect. Use only on networks you trust during the first connection.");
+   gtk_grid_attach(GTK_GRID(grid), editor->tls_tofu, 0, 9, 2, 1);
    editor->error = gtk_label_new("");
-   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 9, 2, 1);
+   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 10, 2, 1);
    GtkWidget *save = gtk_button_new_with_label("Save");
    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
-   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 10, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), save, 1, 10, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 11, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), save, 1, 11, 1, 1);
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(server_editor_close), NULL);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
    rr_floating_panel_show(server_editor_panel);
