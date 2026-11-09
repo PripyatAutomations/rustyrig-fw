@@ -687,6 +687,9 @@ typedef struct {
    GtkWidget *gain;
    GtkWidget *fullscreen, *fullscreen_drawing;
    GtkWidget *hover_widget;
+   GtkWidget *vfo_select;
+   char selected_vfo; /* 0 = Follow Active */
+   bool selector_refreshing;
    double hover_x, hover_y;
    double display_gain_db;
    bool rf_enabled;
@@ -705,6 +708,68 @@ typedef struct {
    guint draw_timer, recovery_timer;
    rr_event_token_t token, caps_token, vfo_token;
 } rf_strip_t;
+/* Keep selection separate from the room's tuning focus. Manual selection
+ * never changes which VFO is active for CAT or audio. */
+static char rf_selected_vfo(const rf_strip_t *p) {
+   if (p->selected_vfo) return p->selected_vfo;
+   rr_local_bridge_ui_state_t active = { 0 };
+   rrclient_local_bridge_ui_state(&active);
+   return active.vfo;
+}
+static gboolean rf_selected_state(const rf_strip_t *p, rr_local_bridge_ui_state_t *state) {
+   char vfo = rf_selected_vfo(p);
+   return vfo >= 'A' && vfo <= 'Z' && rrclient_local_bridge_ui_state_vfo(vfo, state) && state->waterfall;
+}
+static bool rf_request(const rf_strip_t *p, bool enabled, unsigned zoom, uint64_t center) {
+   char vfo = rf_selected_vfo(p);
+   return vfo >= 'A' && vfo <= 'Z' &&
+      rrclient_local_bridge_request_waterfall_vfo(vfo, enabled, zoom, center);
+}
+static void rf_clear_history(rf_strip_t *p) {
+   p->head = p->count = 0;
+   p->received_at = 0;
+   p->last_vfo = 0;
+   p->pan_hz = p->zoom_fraction = 0;
+   p->zoom_initialized = false;
+   gtk_widget_queue_draw(p->drawing);
+}
+static void rf_vfo_changed(GtkComboBox *combo, gpointer data) {
+   rf_strip_t *p = data;
+   if (p->selector_refreshing) return;
+   const char *id = gtk_combo_box_get_active_id(combo);
+   char requested = id && id[0] >= 'A' && id[0] <= 'Z' && !id[1] ? id[0] : 0;
+   if (requested == p->selected_vfo) return;
+   p->selected_vfo = requested;
+   rf_clear_history(p);
+   rr_local_bridge_ui_state_t state = { 0 };
+   if (rf_selected_state(p, &state)) {
+      p->zoom = state.min_zoom + (state.max_zoom - state.min_zoom) / 2;
+      p->zoom_initialized = rf_request(p, p->rf_enabled, p->zoom, 0);
+   }
+}
+static void rf_refresh_selector(rf_strip_t *p) {
+   char was = p->selected_vfo;
+   p->selector_refreshing = true;
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(p->vfo_select));
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), "follow", "Follow Active");
+   bool kept = false;
+   for (char v = 'A'; v <= 'Z'; v++) {
+      rr_local_bridge_ui_state_t state = { 0 };
+      if (!rrclient_local_bridge_ui_state_vfo(v, &state) || !state.waterfall) continue;
+      char id[2] = { v, 0 };
+      char label[24];
+      g_snprintf(label, sizeof(label), "VFO %c", v);
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), id, label);
+      if (was == v) kept = true;
+   }
+   if (was && !kept) {
+      p->selected_vfo = 0;
+      rf_clear_history(p);
+   }
+   char id[2] = { p->selected_vfo, 0 };
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->vfo_select), p->selected_vfo ? id : "follow");
+   p->selector_refreshing = false;
+}
 /* A Kiwi W/F connection may become ready after audio and capability negotiation. Do not leave an enabled viewer blank indefinitely if no RF rows arrive;
  * reassert interest at a bounded rate. */
 static gboolean rf_recover_stream(gpointer user) {
@@ -717,7 +782,7 @@ static gboolean rf_recover_stream(gpointer user) {
       0
    };
 
-   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall) {
+   if (!rf_selected_state(p, &state)) {
       return G_SOURCE_CONTINUE;
    }
    gint64 now = g_get_monotonic_time();
@@ -756,19 +821,15 @@ static void rf_row(const char *event, const void *data, size_t len, rrconn_t *co
    (void)connection;
    rf_strip_t *p = user;
 
-   if (!p->rf_enabled || len != sizeof(rr_bridge_spectrum_row) || !data) {
+   if (!p->rf_enabled || len != sizeof(rr_bridge_spectrum_event) || !data) {
       return;
    }
-   const rr_bridge_spectrum_row *row = data;
-
-   if (!rr_bridge_spectrum_valid(row)) {
+   const rr_bridge_spectrum_event *packet = data;
+   const rr_bridge_spectrum_row *row = &packet->row;
+   char vfo = packet->vfo;
+   if (vfo != rf_selected_vfo(p) || !rr_bridge_spectrum_valid(row)) {
       return;
    }
-   rr_local_bridge_ui_state_t state = {
-      0
-   };
-   rrclient_local_bridge_ui_state(&state);
-   char vfo = state.vfo;
    p->vfo_boundary[p->head] = p->last_vfo && p->last_vfo != vfo;
    p->last_vfo = vfo;
    p->rows[p->head] = *row;
@@ -801,7 +862,7 @@ static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *ro
    rr_local_bridge_ui_state_t bridge_state = {
       0
    };
-   double center = rrclient_local_bridge_ui_state(&bridge_state) ? (double)bridge_state.frequency_hz : (*low + *high) / 2;
+   double center = rf_selected_state(p, &bridge_state) ? (double)bridge_state.frequency_hz : (*low + *high) / 2;
    double start = CLAMP(center - span / 2 + p->pan_hz, *low, *high - span);
    *low = start;
    *high = start + span;
@@ -872,7 +933,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    };
    uint64_t tuned_hz = 0;
 
-   if (rrclient_local_bridge_ui_state(&marker_state)) {
+   if (rf_selected_state(p, &marker_state)) {
       tuned_hz = marker_state.frequency_hz;
    }
 
@@ -973,7 +1034,7 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
             double overflow = wanted - p->pan_hz;
             double new_center = CLAMP((row->low_hz + row->high_hz) / 2. + overflow, full / 2., 30000000. - full / 2.);
 
-            if (rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, (uint64_t) (new_center + .5))) {
+            if (rf_request(p, p->rf_enabled, p->zoom, (uint64_t) (new_center + .5))) {
                p->recenter_at = now;
                p->recenter_low_hz = row->low_hz;
                p->recenter_high_hz = row->high_hz;
@@ -1003,12 +1064,12 @@ static void rf_gain_changed(GtkRange *range, gpointer data) {
 }
 
 /* Only copied, immutable bridge fields may be read by GTK. */
-static gboolean rf_ui_caps(unsigned *min_zoom, unsigned *max_zoom) {
+static gboolean rf_ui_caps(const rf_strip_t *p, unsigned *min_zoom, unsigned *max_zoom) {
    rr_local_bridge_ui_state_t state = {
       0
    };
 
-   if (!rrclient_local_bridge_ui_state(&state) || !state.waterfall) {
+   if (!rf_selected_state(p, &state)) {
       return FALSE;
    }
 
@@ -1028,8 +1089,11 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
    (void)len;
    (void)connection;
    rf_strip_t *p = user;
+   char before = p->last_vfo;
+   rf_refresh_selector(p);
+   if (before && before != rf_selected_vfo(p)) rf_clear_history(p);
    unsigned min_zoom, max_zoom;
-   bool available = rf_ui_caps(&min_zoom, &max_zoom);
+   bool available = rf_ui_caps(p, &min_zoom, &max_zoom);
    gtk_widget_set_visible(p->enabled, available);
    gtk_widget_set_visible(p->gain, available);
 
@@ -1038,7 +1102,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
       p->zoom = min_zoom + (max_zoom - min_zoom) / 2;
       p->zoom_fraction = 0;
       p->pan_hz = 0;
-      p->zoom_initialized = rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, 0);
+      p->zoom_initialized = rf_request(p, p->rf_enabled, p->zoom, 0);
    } else if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) {
       p->zoom = min_zoom;
       p->zoom_fraction = 0;
@@ -1231,7 +1295,7 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       }
       double hz = low + (high - low) * event->x / (width - 1);
 
-      if (rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, 0, (uint64_t) (hz + .5), NULL)) {
+      if (rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, rf_selected_vfo(p), (uint64_t) (hz + .5), NULL)) {
          unsigned min_zoom, max_zoom;
 
          if (rf_ui_caps(&min_zoom, &max_zoom) && p->zoom < max_zoom && rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom + 1, 0)) {
@@ -1314,6 +1378,11 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
    gtk_widget_set_tooltip_text(drawing, "RF waterfall: scroll to zoom around the tuned center");
    gtk_container_add(GTK_CONTAINER(overlay), drawing);
+   p->vfo_select = gtk_combo_box_text_new();
+   gtk_widget_set_tooltip_text(p->vfo_select, "Follow the active receiver or pin an RF-capable VFO");
+   gtk_widget_set_halign(p->vfo_select, GTK_ALIGN_START);
+   gtk_widget_set_valign(p->vfo_select, GTK_ALIGN_START);
+   gtk_overlay_add_overlay(GTK_OVERLAY(overlay), p->vfo_select);
    p->enabled = gtk_check_button_new();
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
    gtk_widget_set_tooltip_text(p->enabled, "Show RF waterfall");
@@ -1336,6 +1405,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
    g_signal_connect(drawing, "motion-notify-event", G_CALLBACK(rf_hover), p);
    g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
+   g_signal_connect(p->vfo_select, "changed", G_CALLBACK(rf_vfo_changed), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(rf_toggle), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(rf_gain_changed), p);
    p->recovery_timer = g_timeout_add_seconds(2, rf_recover_stream, p);
