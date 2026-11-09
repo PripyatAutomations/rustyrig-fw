@@ -21,6 +21,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/tls.pin.h>
+#include <rrclient/password.change.h>
 #include <rrclient/database.h>
 // Native connection manager. IRC wire handlers live in librustyirc.
 #include <librrprotocol/wire.h>
@@ -56,6 +57,8 @@ typedef struct client_server {
    char domain[254], server_uuid[37];
    char pending_tls_pin[65], temporary_tls_pin[65];
    bool pending_tls_pin_confirmation;
+   char *pending_password_change; /* zeroed and released on reply or disconnect */
+   bool password_prompt_open;
 #ifdef USE_MONGOOSE
    rr_socks_t *proxy;
    bool proxy_override;
@@ -839,8 +842,127 @@ static void tls_pin_reply_event(const rr_event_message_t *message, void *unused)
    server->reconnect_at = now;
 #endif
 }
+static void password_secret_clear(client_server_t *s) {
+   if (s && s->pending_password_change) {
+      explicit_bzero(s->pending_password_change, strlen(s->pending_password_change));
+      free(s->pending_password_change);
+      s->pending_password_change = NULL;
+   }
+}
+static void password_change_result(client_server_t *s, bool success, const char *reason) {
+   rrclient_password_change_t reply = {0};
+   g_strlcpy(reply.profile, s->name, sizeof(reply.profile));
+   reply.success = success;
+   g_strlcpy(reply.reason, reason ? reason : "", sizeof(reply.reason));
+   event_emit_message(&(rr_event_message_t) {
+      .name = RRCLIENT_PASSWORD_RESULT_EVENT, .sender = "core",
+      .payload = &reply, .length = sizeof(reply)
+   });
+}
+static void password_change_required(const char *event, const char *data, rrconn_t *conn, void *user) {
+   (void)event; (void)data; (void)user;
+   client_server_t *s = context;
+   if (!s || !conn || s->connection != conn || !conn->authenticated ||
+       !conn->is_ws || s->password_prompt_open) return;
+   rrclient_password_change_t request = {0};
+   g_strlcpy(request.profile, s->name, sizeof(request.profile));
+   g_strlcpy(request.username, conn->server ? conn->server->nick : "", sizeof(request.username));
+   /* The username is the account from the connected server, never an
+    * arbitrary user-controlled target in the password rotation request. */
+   s->password_prompt_open = true;
+   event_emit_message(&(rr_event_message_t) {
+      .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core",
+      .payload = &request, .length = sizeof(request)
+   });
+}
+static void password_change_submit(const rr_event_message_t *msg, void *ignored) {
+   (void)ignored;
+   if (!msg || !msg->payload || msg->length != sizeof(rrclient_password_change_t)) return;
+   rrclient_password_change_t request;
+   memcpy(&request, msg->payload, sizeof(request));
+   if (!memchr(request.profile, 0, sizeof(request.profile)) ||
+       !memchr(request.username, 0, sizeof(request.username)) ||
+       !memchr(request.password, 0, sizeof(request.password))) goto done;
+   client_server_t *s = find_server(request.profile);
+   if (!s || !s->connection || !s->connection->authenticated ||
+       !s->connection->is_ws || !s->password_prompt_open) goto done;
+   if (!request.password[0]) {
+      s->password_prompt_open = false; /* user cancelled; allow later manual retry */
+      goto done;
+   }
+   size_t n = strlen(request.password);
+   if (n < 8 || n > 256 || s->pending_password_change) {
+      password_change_result(s, false, "Password must be 8-256 characters; retry the operation.");
+      goto done;
+   }
+   rrconn_t *conn = s->connection;
+   const char *account = conn->server ? conn->server->nick : "";
+   if (!*account || strcmp(request.username, account) || !conn->token[0] ||
+       !conn->native_transport ||
+       !(rr_transport_capabilities(conn->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
+      password_change_result(s, false, "Authenticated TLS session or account identity unavailable.");
+      goto done;
+   }
+   s->pending_password_change = strdup(request.password);
+   if (!s->pending_password_change) {
+      password_change_result(s, false, "Unable to allocate password change request.");
+      goto done;
+   }
+   dict *out = dict_new();
+   bool sent = false;
+   if (out) {
+      dict_add(out, "msg.type", "auth");
+      dict_add(out, "auth.cmd", "change-password");
+      dict_add(out, "auth.user", account);
+      dict_add(out, "auth.token", conn->token);
+      dict_add(out, "auth.new-password", request.password);
+      sent = ws_send_dict(NULL, conn, out, WEBSOCKET_OP_TEXT);
+      dict_free(out);
+   }
+   if (!sent) {
+      password_secret_clear(s);
+      password_change_result(s, false, "Cannot send password change over the verified TLS connection.");
+   } else {
+      Log(LOG_INFO, "auth.ws", "Password change submitted for %s; waiting for server confirmation", s->name);
+   }
+done:
+   explicit_bzero(&request, sizeof(request));
+}
+static void password_change_response(const char *event, const char *data, rrconn_t *conn, void *user) {
+   (void)user;
+   client_server_t *s = context;
+   if (!s || s->connection != conn || !s->pending_password_change) return;
+   bool success = !strcmp(event, "client.password-change.accepted");
+   dict *response = data ? json2dict(data) : NULL;
+   const char *reason = response ? dict_get(response, "auth.reason", NULL) : NULL;
+   if (success) {
+      if (!rrclient_database_server_set(s->name, "server.pass", s->pending_password_change)) {
+         password_change_result(s, false, "Server changed the password, but saving it locally failed. Update the server profile manually.");
+         password_secret_clear(s);
+         s->password_prompt_open = false;
+         if (response) dict_free(response);
+         return;
+      }
+      Log(LOG_INFO, "auth.ws", "Password changed and saved for %s; reconnecting", s->name);
+      password_change_result(s, true, "");
+      password_secret_clear(s);
+      s->password_prompt_open = false;
+      s->reconnect_enabled = true;
+      s->reconnect_pending = true;
+      s->reconnect_at = now;
+      if (conn->native_transport) rr_transport_close(conn->native_transport);
+   } else {
+      password_secret_clear(s);
+      password_change_result(s, false, reason ? reason : "Server rejected the new password.");
+   }
+   if (response) dict_free(response);
+}
 void connman_register_events(void) {
    event_on_message_domain_token(RRCLIENT_TLS_PIN_REPLY_EVENT, tls_pin_reply_event, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_PASSWORD_SUBMIT_EVENT, password_change_submit, NULL, "core");
+   event_on("client.password-change.required", password_change_required, NULL);
+   event_on("client.password-change.accepted", password_change_response, NULL);
+   event_on("client.password-change.failed", password_change_response, NULL);
    event_on_message_domain_token("client.connecting.cancel", connecting_cancel_event, NULL, "core");
    event_on("connecting", connection_event, NULL);
    event_on("connected", connection_event, NULL);
