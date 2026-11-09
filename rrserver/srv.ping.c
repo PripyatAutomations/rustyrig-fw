@@ -17,6 +17,7 @@
 #include <time.h>
 #include <limits.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern const char *get_server_property(const char *server, const char *prop);
