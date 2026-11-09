@@ -1,3 +1,13 @@
+rustyrig-fw (1.0.2-14) unstable; urgency=medium
+
+  * Prompt in GTK for mandatory account password change after authentication.
+  * Send password rotation over authenticated TLS using auth.change-password,
+    wait for explicit server success before saving the new client profile password.
+  * Reconnect using the stored new password; retain original on failure and
+    permit retry without passing passwords through chat command history.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 09 Nov 2026 08:15:00 -0500
+
 rustyrig-fw (1.0.2-13) unstable; urgency=medium
 
   * Show certificate and public-key fingerprints, CN and SANs when connecting to an unknown/changed TLS key. Support Deny, Accept Once and confirmed Accept Always; validate configured Node Name against the authenticated station/domain announcement.
