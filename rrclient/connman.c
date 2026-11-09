@@ -1921,8 +1921,9 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       .tls_trust_on_first_use = tofu && (!pin || !*pin)
    };
    char connect_url[2048];
-   snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" :
-      "", endpoint.port, !strcmp(endpoint.path, "/") ? "/ws" : endpoint.path);
+   snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.irc ? (endpoint.tls ? "ircs" : "irc") : (endpoint.tls ? "wss" : "ws"),
+      endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port,
+      endpoint.irc ? "" : (!strcmp(endpoint.path, "/") ? "/ws" : endpoint.path));
    if (endpoint.irc) {
       const char *sasl_user=get_server_property(s->name,"server.sasl.user");
       const char *sasl_pass=get_server_property(s->name,"server.sasl.pass");
