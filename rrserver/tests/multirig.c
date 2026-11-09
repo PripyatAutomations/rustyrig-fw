@@ -385,7 +385,6 @@ int main(void) {
    /* Full configuration startup: two instances of one backend receive only their scoped values and an explicit default selection. */
    dict_add(cfg, "station.name", "test-node");
    masterdb = (sqlite3 *) 1;    // Identity helper mock handle, never dereferenced.
-   dict_add(cfg, "rig.identity-namespace", "test-node");
    dict_add(cfg, "rig.instances", "first second");
    dict_add(cfg, "rig.default", "second");
    dict_add(cfg, "rig:first.backend", "fake");
