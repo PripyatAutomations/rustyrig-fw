@@ -21,6 +21,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/tls.pin.h>
+#include <rrclient/database.h>
 // Native connection manager. IRC wire handlers live in librustyirc.
 #include <librrprotocol/wire.h>
 #include <librustyaxe/socks.h>
