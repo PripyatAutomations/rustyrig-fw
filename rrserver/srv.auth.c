@@ -440,21 +440,17 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
          Log(LOG_INFO, "auth", "Upgraded legacy account %s to Argon2id", up->name);
 
       if (password_valid) {
-#ifdef USE_MONGOOSE
+         /* Never grant authenticated access on an unresolved ACL decision.
+          * The listener event is backend-independent. */
+         rr_server_admission_t admission = {
+            auth_tls_connection(cptr) ? "https" : "http", cptr->user_ip, up, false
+         };
+         event_emit_binary(RR_SERVER_ADMISSION_EVENT, cptr, &admission, sizeof(admission));
 
-         if (cptr->conn || cptr->native_transport) {
-            rr_server_admission_t admission = {
-               cptr->native_transport || cptr->conn->is_tls ? "https" : "http", cptr->user_ip, up, true
-            };
-            event_emit_binary(RR_SERVER_ADMISSION_EVENT, cptr, &admission, sizeof(admission));
-
-            if (!admission.allowed) {
-               ws_kick_client(cptr, "Listener access denied");
-
-               return false;
-            }
+         if (!admission.allowed) {
+            ws_kick_client(cptr, "Listener access denied");
+            return false;
          }
-#endif
 
          // special handling for guests; we generate a random suffix
          // force rewriting if they use any nick starting with Guest.
