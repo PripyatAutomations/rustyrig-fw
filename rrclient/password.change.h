@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #define RRCLIENT_PASSWORD_PROMPT_EVENT "client.ui.password-change.prompt"
 #define RRCLIENT_PASSWORD_SUBMIT_EVENT "client.password-change.submit"
+#define RRCLIENT_PASSWORD_RETRY_EVENT "client.password-change.retry"
 #define RRCLIENT_PASSWORD_RESULT_EVENT "client.ui.password-change.result"
 typedef struct rrclient_password_change {
    char profile[128];
