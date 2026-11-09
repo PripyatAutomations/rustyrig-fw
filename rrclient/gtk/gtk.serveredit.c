@@ -428,10 +428,6 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       g_ascii_strcasecmp(node_name, get_server_property(profile, "server.node-name") ?
          get_server_property(profile, "server.node-name") : "") != 0;
    bool tofu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_tofu));
-   if (tofu && !*node_name) {
-      gtk_label_set_text(GTK_LABEL(editor->error), "Node Name is required when ignoring the TLS hostname.");
-      return;
-   }
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
       const char *value = i == 3 ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->proxy)) : gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
