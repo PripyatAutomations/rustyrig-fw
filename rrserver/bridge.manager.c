@@ -655,13 +655,14 @@ static char *bridge_program_path(void) {
       return g_find_program_in_path(configured);
    }
 
-   return g_find_program_in_path("rrbridge");
+   return g_file_test("/usr/libexec/rustyrig/rrbridge", G_FILE_TEST_IS_EXECUTABLE) ?
+      g_strdup("/usr/libexec/rustyrig/rrbridge") : NULL;
 }
 static bool spawn_child(struct bridge_child *b) {
    char *path = bridge_program_path();
 
    if (!path) {
-      Log(LOG_WARN, "bridge", "[%s] no executable rrbridge found (bridge.path or installed PATH)", bridge_public_name(b));
+      Log(LOG_WARN, "bridge", "[%s] no executable rrbridge found (bridge.path or /usr/libexec/rustyrig/rrbridge)", bridge_public_name(b));
 
       return false;
    }
