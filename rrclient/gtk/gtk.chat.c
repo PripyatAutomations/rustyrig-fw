@@ -1525,7 +1525,14 @@ static void room_rf_panel_refresh(void) {
    rr_local_bridge_ui_state_t state = {
       0
    };
-   gboolean available = rrclient_local_bridge_ui_state(&state) && state.connected && state.waterfall;
+   gboolean available = FALSE;
+   for (char vfo = 'A'; vfo <= 'Z'; vfo++) {
+      rr_local_bridge_ui_state_t candidate = { 0 };
+      if (rrclient_local_bridge_ui_state_vfo(vfo, &candidate) && candidate.waterfall) {
+         available = TRUE;
+         break;
+      }
+   }
 
    if (!available) {
       if (room_rf_panel) {
@@ -1556,7 +1563,7 @@ static void room_rf_panel_refresh(void) {
       gtk_widget_set_vexpand(room_rf_strip, TRUE);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_rf_panel)), room_rf_strip, TRUE, TRUE, 0);
    }
-   char *title = g_strdup_printf("RF Spectrum — Local VFO %c", state.vfo >= 'A' && state.vfo <= 'Z' ? state.vfo : 'A');
+   char *title = g_strdup("RF Spectrum — Local Receivers");
    rr_floating_panel_set_title(room_rf_panel, title);
    g_free(title);
 
