@@ -38,9 +38,6 @@ void codec_pickers_refresh(void);
 void codec_picker_set_active(bool is_tx, const char *codec);
 
 typedef struct {
-#if     defined(USE_MONGOOSE)
-   struct mg_connection *conn;
-#endif // defined(USE_MONGOOSE)
    bool is_tx;
 } CodecSelectorCtx;
 
@@ -226,16 +223,6 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
          rr_module_token_add(codecs_token);
       }
    }
-#if     defined(USE_MONGOOSE)
-
-   if (ws_tx_conn) {
-      tx_ctx->conn = ws_tx_conn->conn;
-   }
-
-   if (ws_conn) {
-      rx_ctx->conn = ws_conn->conn;
-   }
-#endif // defined(USE_MONGOOSE)
    rx_ctx->is_tx = false;
 
    gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), FALSE, FALSE, 0);
