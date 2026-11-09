@@ -8,6 +8,8 @@
 #include <glib/gstdio.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <librustyaxe/core.h>
 extern dict *cfg;
 
@@ -62,6 +64,111 @@ static bool window_state_schema(void) {
    }
 
    return true;
+}
+
+/* Standalone maintenance action. Run before rrclient_database_init() and
+ * before opening any frontend. This intentionally does not touch certificates,
+ * user configuration files, receiver caches, or other application state. */
+int rrclient_database_reset(void) {
+   if (client_db) {
+      fprintf(stderr, "--reset-db must run before opening the client database.\n");
+      return EXIT_FAILURE;
+   }
+
+   gchar *dir = g_build_filename(g_get_user_state_dir(), "rustyrig", NULL);
+   gchar *path = g_build_filename(dir, "client.db", NULL);
+   g_free(dir);
+   if (!path) return EXIT_FAILURE;
+
+   struct stat st;
+   if (g_lstat(path, &st) != 0) {
+      int err = errno;
+      if (err == ENOENT) {
+         fprintf(stderr, "Database already absent: %s; nothing to reset.\n", path);
+         g_free(path);
+         return EXIT_SUCCESS;
+      }
+      fprintf(stderr, "Cannot inspect client database %s: %s\n", path, strerror(err));
+      g_free(path);
+      return EXIT_FAILURE;
+   }
+   if (!S_ISREG(st.st_mode)) {
+      fprintf(stderr, "Refusing to reset non-regular client database %s\n", path);
+      g_free(path);
+      return EXIT_FAILURE;
+   }
+
+   FILE *tty = fopen("/dev/tty", "r+");
+   if (!tty) {
+      fprintf(stderr, "--reset-db requires an interactive terminal; no changes made.\n");
+      g_free(path);
+      return EXIT_FAILURE;
+   }
+
+   fprintf(tty, "\nDANGER: --reset-db\nTarget: %s\n"
+      "Stop all rrclient instances and back up your data before continuing.\n"
+      "This removes saved servers, networks, UI settings and configuration overrides.\n"
+      "Enter exactly 'YES --reset-db' to proceed: ", path);
+   fflush(tty);
+   char answer[128];
+   bool confirmed = fgets(answer, sizeof(answer), tty) != NULL;
+   if (confirmed) {
+      size_t len = strlen(answer);
+      confirmed = len && answer[len - 1] == '\n';
+      answer[strcspn(answer, "\r\n")] = '\0';
+      confirmed = confirmed && !strcmp(answer, "YES --reset-db");
+   }
+   fclose(tty);
+   if (!confirmed) {
+      fprintf(stderr, "Cancelled; no changes made.\n");
+      g_free(path);
+      return EXIT_FAILURE;
+   }
+
+   /* Do not create a new database when the original disappeared. Opening
+    * READWRITE also fails closed for nonexistent DBs. */
+   sqlite3 *db = NULL;
+   if (sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) {
+      fprintf(stderr, "Cannot open existing client database %s: %s\n",
+         path, db ? sqlite3_errmsg(db) : "unknown error");
+      if (db) sqlite3_close(db);
+      g_free(path);
+      return EXIT_FAILURE;
+   }
+
+   sqlite3_busy_timeout(db, 1000);
+   bool ok = sqlite3_exec(db, "PRAGMA locking_mode=EXCLUSIVE;", NULL, NULL, NULL) == SQLITE_OK &&
+      sqlite3_exec(db, "BEGIN EXCLUSIVE;", NULL, NULL, NULL) == SQLITE_OK &&
+      sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) == SQLITE_OK &&
+      sqlite3_exec(db, "PRAGMA wal_checkpoint(TRUNCATE);", NULL, NULL, NULL) == SQLITE_OK;
+   if (!ok) fprintf(stderr, "Cannot obtain exclusive client database access: %s\n", sqlite3_errmsg(db));
+   if (sqlite3_close(db) != SQLITE_OK) ok = false;
+   if (ok) {
+      /* Recheck the inode to avoid replacing a path during confirmation. */
+      struct stat current;
+      if (g_lstat(path, &current) != 0 || !S_ISREG(current.st_mode) ||
+          st.st_dev != current.st_dev || st.st_ino != current.st_ino) {
+         fprintf(stderr, "Client database changed during reset; aborting.\n");
+         ok = false;
+      }
+   }
+   if (ok) {
+      gchar *wal = g_strconcat(path, "-wal", NULL);
+      gchar *shm = g_strconcat(path, "-shm", NULL);
+      gchar *journal = g_strconcat(path, "-journal", NULL);
+      if (!wal || !shm || !journal) ok = false;
+      if (ok && g_unlink(wal) != 0 && errno != ENOENT) ok = false;
+      if (ok && g_unlink(shm) != 0 && errno != ENOENT) ok = false;
+      if (ok && g_unlink(journal) != 0 && errno != ENOENT) ok = false;
+      if (ok && g_unlink(path) != 0) ok = false;
+      g_free(wal);
+      g_free(shm);
+      g_free(journal);
+   }
+   if (!ok) fprintf(stderr, "Unable to reset client database %s: %s\n", path, strerror(errno));
+   else fprintf(stderr, "Reset client database: %s\nThe next rrclient startup will create a fresh database.\n", path);
+   g_free(path);
+   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 bool rrclient_database_init(void) {
