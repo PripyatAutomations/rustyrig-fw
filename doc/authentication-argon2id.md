@@ -23,6 +23,8 @@ The server accepts **no** legacy double-SHA1 challenge responses. For an
 existing account with a 40-character SHA-1 hash in SQLite, the user can
 still supply their **original plaintext password over WSS**. Upon successful
 legacy verification, the account is immediately rehashed with Argon2id.
+Normal users must then choose a new permanent password; the explicitly
+shared guest account is exempt from that forced-change requirement.
 If the original password is unavailable, use the explicit admin password
 reset rather than trying to convert the old hash.
 
