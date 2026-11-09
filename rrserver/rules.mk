@@ -9,7 +9,7 @@ CFLAGS_RRSERVER += $(shell pkg-config --cflags openssl gio-2.0)
 LDFLAGS_RRSERVER += $(shell pkg-config --libs openssl gio-2.0) -lwslay
 LDFLAGS_RRSERVER += -pthread $(SERVER_EXPORT_FLAGS) $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrserver/receiver.directory.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags libcurl sqlite3)
-CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
+CFLAGS_RRSERVER += -DRRSERVER
 rrserver := bin/rrserver
 rrserver_objs += cfg.files.o files.o objects.o serial.o gps.o hardware.o hardware.dummy.o cfg.radio.o backend.internal-parts.o cfg.gpio.o si5351.o hardware.si5351.o cfg.si5351.o
 ifeq ($(USE_GPIO),true)
