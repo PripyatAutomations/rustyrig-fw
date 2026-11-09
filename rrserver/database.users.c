@@ -609,7 +609,10 @@ bool db_user_password_authenticate(sqlite3 *db, const char *username,
    sqlite3_finalize(stmt);
    if (legacy) {
       char *encoded = auth_password_hash_argon2id(password);
-      bool saved = encoded && db_user_update_password(db, username, encoded, required, expires);
+      /* Legacy passwords may have been weak. Except for the explicitly
+       * shared guest account, force selection of a new permanent password. */
+      bool force_change = required || strcasecmp(username, "guest") != 0;
+      bool saved = encoded && db_user_update_password(db, username, encoded, force_change, expires);
       if (encoded) {
          explicit_bzero(encoded, strlen(encoded));
          free(encoded);
