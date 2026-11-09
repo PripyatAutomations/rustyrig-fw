@@ -240,9 +240,9 @@ bool rrclient_local_bridge_ui_connected(const char *url) {
 
    return found;
 }
-bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz) {
+bool rrclient_local_bridge_request_waterfall_vfo(char vfo, bool enabled, unsigned zoom, uint64_t center_hz) {
    rr_local_bridge_waterfall_request_t request = {
-      .enabled = enabled, .zoom = zoom, .center_hz = center_hz
+      .enabled = enabled, .zoom = zoom, .center_hz = center_hz, .vfo = vfo
    };
    rr_event_message_t event = {
       .name = RRCLIENT_LOCAL_BRIDGE_WATERFALL_REQUEST,
@@ -252,6 +252,9 @@ bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64
 
    return true;                 /* Queued; the core validates receiver capabilities. */
 }
+bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz) {
+   return rrclient_local_bridge_request_waterfall_vfo(0, enabled, zoom, center_hz);
+}
 static void bridge_waterfall_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -259,7 +262,19 @@ static void bridge_waterfall_request(const rr_event_message_t *message, void *un
       return;
    }
    const rr_local_bridge_waterfall_request_t *req = message->payload;
-   rrclient_local_bridge_waterfall_at(req->enabled, req->zoom, req->center_hz);
+   char vfo = req->vfo ? req->vfo : rrclient_room_active_vfo("&local-sdr");
+   unsigned slot = (unsigned)(vfo - 'A');
+   bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+   if (!b || !b->online || b->control < 0 || !(b->caps.flags & RRP_BRIDGE_WATERFALL) ||
+       req->zoom < b->caps.waterfall_zoom_min || req->zoom > b->caps.waterfall_zoom_max) return;
+   rrp_bridge_ipc_message_t command;
+   rrp_bridge_ipc_init(&command, RRP_BRIDGE_IPC_WATERFALL);
+   g_strlcpy(command.name, "local", sizeof(command.name));
+   g_strlcpy(command.driver, b->driver, sizeof(command.driver));
+   command.available = req->enabled;
+   command.flags = req->zoom;
+   command.frequency_hz = req->center_hz;
+   rrp_bridge_ipc_send(b->control, &command);
 }
 
 
@@ -1331,13 +1346,14 @@ static gboolean poll_local(gpointer unused) {
 
       b->rf_rows_received++;
 
-      if (rrclient_room_active_vfo("&local-sdr") == (char)('A' + b->slot)) {
-         rr_event_message_t message = {
-            .name = RR_BRIDGE_SPECTRUM_EVENT, .payload = &row, .length = sizeof(row)
-         };
-         event_emit_message(&message);
-         b->rf_rows_published++;
-      }
+      rr_bridge_spectrum_event tagged = {
+         .vfo = (char)('A' + b->slot), .row = row
+      };
+      rr_event_message_t message = {
+         .name = RR_BRIDGE_SPECTRUM_EVENT, .payload = &tagged, .length = sizeof(tagged)
+      };
+      event_emit_message(&message);
+      b->rf_rows_published++;
    }
 
    /* A spectrum producer can fail without breaking control or RX audio. Log at most once per 10 seconds and only while an RF-capable local bridge is online;
