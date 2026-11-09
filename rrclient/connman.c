@@ -1076,7 +1076,7 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
          rrclient_tls_pin_request_t request = {0};
          const char *previous = get_server_property(s->name, "server.tls-spki-sha256");
          const char *enabled = get_server_property(s->name, "server.tls-trust-on-first-use");
-         bool tofu = enabled && (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
+         bool tofu = !enabled || (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
          const char *presented = (const char *)data +
             (changed ? sizeof(mismatch)-1 : sizeof(unknown)-1);
          if (tofu && strlen(s->name) < sizeof(request.profile) &&
@@ -1682,7 +1682,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    const char *tls_name = get_server_property(s->name, "server.node-name");
    if (!tls_name || !*tls_name) tls_name = get_server_property(s->name, "server.tls-name");
    const char *tofu_value = get_server_property(s->name, "server.tls-trust-on-first-use");
-   bool tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   bool tofu = !tofu_value || (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
    const char *pin = tofu ? (s->temporary_tls_pin[0] ? s->temporary_tls_pin :
       get_server_property(s->name, "server.tls-spki-sha256")) : NULL;
    rr_wss_client_options_secure_t opts = {
