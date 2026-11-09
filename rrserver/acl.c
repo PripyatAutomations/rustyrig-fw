@@ -73,7 +73,6 @@ acl_result_t rrserver_acl_check(const char *section, const char *ip, const http_
    return ACL_DENY;
 }
 
-#ifdef USE_MONGOOSE
 static void admission(const char *event, const void *data, size_t length, rrconn_t *client, void *context) {
    (void)event;
    (void)client;
@@ -86,15 +85,13 @@ static void admission(const char *event, const void *data, size_t length, rrconn
    char section[64];
    snprintf(section, sizeof(section), "listener:%s", request->listener);
    acl_result_t result = rrserver_acl_check(section, request->ip, request->account, request->account ? request->account->name : NULL);
+   /* DEFER is only provisional while no verified account exists. */
    request->allowed = result == ACL_ALLOW || (!request->account && result == ACL_DEFER);
 
    if (!request->allowed) {
       Log(LOG_INFO, "acl", "Denied %s listener access from %s", request->listener, request->ip);
    }
 }
-#endif
 void rrserver_acl_register_events(void) {
-#ifdef USE_MONGOOSE
    event_on_binary(RR_SERVER_ADMISSION_EVENT, admission, NULL);
-#endif
 }
