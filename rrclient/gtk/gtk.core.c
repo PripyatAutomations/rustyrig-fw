@@ -936,18 +936,29 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
        !memchr(request.old_pin, 0, sizeof(request.old_pin)) ||
        !memchr(request.new_pin, 0, sizeof(request.new_pin))) return;
    GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
+   bool changed = request.old_pin[0] != '\0';
    GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
-      GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE, "TLS server key changed for %s", request.profile);
+      GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
+      "%s TLS identity for %s", changed ? "Changed" : "Unknown", request.profile);
+   const char *node = request.node_name[0] ? request.node_name : "(not configured)";
+   const char *cn = request.cert_cn[0] ? request.cert_cn : "(not present)";
+   const char *sans = request.cert_sans[0] ? request.cert_sans : "(not present)";
+   const char *cert = request.cert_sha256[0] ? request.cert_sha256 : "(unavailable)";
    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-      "The server presented a different TLS public key. This may indicate a "
-      "legitimate key replacement or a connection interception attempt.\n\n"
-      "Previously trusted SHA256:\n%s\n\nPresented SHA256:\n%s\n\n"
-      "Verify the fingerprint with the server administrator before proceeding.",
-      request.old_pin, request.new_pin);
-   gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
-   gtk_dialog_add_button(GTK_DIALOG(dialog), "_OK", GTK_RESPONSE_OK);
+      "Connecting to: %s\nExpected Node Name: %s\nCertificate CN: %s\n"
+      "Certificate DNS SANs: %s\n\n"
+      "Certificate SHA-256: %s\nPublic key SPKI SHA-256: %s\n"
+      "Previously trusted SPKI: %s\n\n"
+      "Station and domain are verified against the server's announcement after connection; "
+      "the certificate details above are presented by the remote endpoint and are not yet trusted. "
+      "Verify the key fingerprint through an independent channel before accepting.",
+      request.address[0] ? request.address : "(unknown)", node, cn, sans, cert,
+      request.new_pin, changed ? request.old_pin : "(none; first connection)");
+   gtk_dialog_add_button(GTK_DIALOG(dialog), "_Deny", 0);
+   gtk_dialog_add_button(GTK_DIALOG(dialog), "Accept _Once", 1);
+   gtk_dialog_add_button(GTK_DIALOG(dialog), "Accept _Always", 2);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *instruction = gtk_label_new("Type YES, then click OK to trust the changed server key:");
+   GtkWidget *instruction = gtk_label_new("For Accept Always, type YES to confirm storing this key:");
    gtk_label_set_xalign(GTK_LABEL(instruction), 0.0f);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "YES");
@@ -955,12 +966,11 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 6);
    gtk_widget_show_all(dialog);
    gtk_widget_grab_focus(entry);
-   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), 0);
    int response = gtk_dialog_run(GTK_DIALOG(dialog));
-   bool approved = response == GTK_RESPONSE_OK &&
-      !strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "YES");
+   request.decision = response == 1 ? 1 : response == 2 &&
+      !strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "YES") ? 2 : 0;
    gtk_widget_destroy(dialog);
-   request.approved = approved;
    event_emit_message(&(rr_event_message_t) {
       .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
       .payload = &request, .length = sizeof(request)
