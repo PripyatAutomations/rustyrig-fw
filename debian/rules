@@ -102,7 +102,7 @@ endif
 	# Package only .cfg and .md from config/; JSON is build-only.
 	for cfg in config/*.cfg config/*.md; do \
 		[ -f "$$cfg" ] || continue; \
-		case "${cfg##*/}" in callsign-lookup.cfg) continue ;; rrclient*) pkg=rustyrig-client ;; *) pkg=rustyrig-server ;; esac; \
+		case "$${cfg##*/}" in callsign-lookup.cfg) continue ;; rrclient*) pkg=rustyrig-client ;; *) pkg=rustyrig-server ;; esac; \
 		install -Dm644 "$$cfg" "debian/$$pkg$(CONF_DIR)/$${cfg##*/}"; \
 	done
 	install -Dm644 config/ua-bans debian/rustyrig-server$(CONF_DIR)/ua-bans
