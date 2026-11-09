@@ -164,7 +164,15 @@ void rr_af_spectrum_listen(bool enabled) {
    if (enabled) {
       g_atomic_int_inc(&af_listeners);
       g_mutex_lock(&af_lock);
-
+      /* Preallocate the three speaker-output analyzers on the GTK/core
+       * control path, never on the 20 ms real-time mixer callback. */
+      if (!af_streams)
+         af_streams = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+      static const char *const outputs[] = { "output:left", "output:right", "output:mixed" };
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(outputs) ; i++) {
+         if (!g_hash_table_contains(af_streams, outputs[i]))
+            g_hash_table_insert(af_streams, g_strdup(outputs[i]), g_new0(af_stream_t, 1));
+      }
       if (!af_worker && !g_atomic_int_get(&af_stopping)) {
          af_worker = g_thread_new("rr-af-spectrum", analyze, NULL);
       }
