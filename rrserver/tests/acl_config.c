@@ -28,6 +28,9 @@ int main(int argc, char **argv) {
    dict_free(cfg);
    cfg = loaded;
    assert(rrserver_acl_validate());
+   /* No listener ACL is an implicit permit, even before authentication. */
+   assert(rrserver_acl_check("listener:unconfigured", "127.0.0.1", NULL, NULL) == ACL_DENY);
+   assert(rrserver_acl_check("listener:unconfigured", "127.0.0.1", &((http_user_t){ .enabled = true }), "admin") == ACL_DENY);
    assert(!cfg_get("peer.username"));
    assert(rrserver_acl_check("peer:branch", "10.1.2.3", NULL, "branch") == ACL_ALLOW);
    assert(rrserver_acl_check("peer:branch", "10.1.2.3", NULL, "other") == ACL_DENY);
