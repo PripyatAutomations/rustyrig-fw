@@ -424,11 +424,13 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          return;
       }
    }
-   if (editor->creating || g_strcmp0(node_name, get_server_property(profile, "server.node-name"))) {
-      if (!rrclient_database_server_set(profile, "server.node-name", node_name)) {
-         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save expected node identity.");
-         return;
-      }
+   bool node_changed = !editor->creating &&
+      g_ascii_strcasecmp(node_name, get_server_property(profile, "server.node-name") ?
+         get_server_property(profile, "server.node-name") : "") != 0;
+   bool tofu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_tofu));
+   if (tofu && !*node_name) {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Node Name is required when ignoring the TLS hostname.");
+      return;
    }
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
@@ -450,6 +452,12 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       }
    }
 
+   if (editor->creating || node_changed) {
+      if (!rrclient_database_server_set(profile, "server.node-name", node_name)) {
+         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save expected node identity.");
+         return;
+      }
+   }
    bool direct = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct));
 
    if (editor->creating ? direct : direct != editor->initial_direct) {
@@ -462,7 +470,6 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       rrclient_direct_apply_preferences();
    }
 
-   bool tofu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_tofu));
    if (editor->creating || tofu != editor->initial_tls_tofu) {
       if (!rrclient_database_server_set(profile, "server.tls-trust-on-first-use", tofu ? "true" : "false")) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save TLS trust setting.");
@@ -473,8 +480,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
     * explicitly disabled trust override. */
    const char *new_url = gtk_entry_get_text(GTK_ENTRY(editor->fields[0]));
    bool url_changed = !editor->creating && strcmp(new_url, editor->initial[0]) != 0;
-   if (url_changed || (!tofu && editor->initial_tls_tofu) ||
-       (node_name && (!editor->creating && g_strcmp0(node_name, get_server_property(profile, "server.node-name"))))) {
+   if (url_changed || node_changed || (!tofu && editor->initial_tls_tofu)) {
       if (!rrclient_database_server_set(profile, "server.tls-spki-sha256", "")) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Unable to clear stale TLS public-key pin.");
          return;
