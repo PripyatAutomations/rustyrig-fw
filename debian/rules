@@ -61,7 +61,7 @@ endif
 
 override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/rustyrig-common/usr/lib/rustyrig/admin-permissions
-	install -Dm755 bin/rrbridge debian/rustyrig-rrbridge$(BINDIR)/rrbridge
+	install -Dm755 bin/rrbridge debian/rustyrig-rrbridge$(LIBEXECDIR)/rrbridge
 	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-rrbridge$(MODULEDIR)/rrbridge/rrbridge-kiwi.so
 	install -Dm755 bin/rrserver debian/rustyrig-server$(BINDIR)/rrserver
 	install -Dm755 bin/rr-password-hash debian/rustyrig-server/usr/lib/rustyrig/rr-password-hash
@@ -77,7 +77,7 @@ endif
 	$(MAKE) -C gmatrix -f debian/package.mk install DEB_DESTDIR=../debian/gmatrix
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
-	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp$(BINDIR)/fwdsp
+	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp$(LIBEXECDIR)/fwdsp
 	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server$(BINDIR)/rr-get-audit-log
 	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server$(BINDIR)/rr-get-chat-log
 	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server$(BINDIR)/rr-get-ptt-log
