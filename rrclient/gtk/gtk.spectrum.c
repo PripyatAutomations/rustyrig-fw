@@ -819,6 +819,7 @@ typedef struct {
    double hover_x, hover_y;
    double display_gain_db;
    bool rf_enabled;
+   unsigned palette_index, style;
    unsigned zoom;
    bool zoom_initialized;
    double zoom_fraction;        /* five wheel steps per native octave */
@@ -1347,7 +1348,9 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    }
    GtkWidget *menu = gtk_menu_new();
    GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
-   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), palette_menu_new());
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item),
+      waterfall_palette_menu(p->palette_index, &p->palette_index,
+         "waterfall.rf.palette", p->drawing));
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), palette_item);
    GtkWidget *zoom_item = gtk_menu_item_new_with_label("Zoom");
    GtkWidget *zoom_menu = gtk_menu_new();
@@ -1495,6 +1498,8 @@ static void rf_destroy(gpointer data) {
 GtkWidget *rr_gtk_rf_spectrum_new(void) {
    rf_strip_t *p = g_new0(rf_strip_t, 1);
    p->rf_enabled = true;
+   p->palette_index = waterfall_pref("waterfall.rf.palette", 0, G_N_ELEMENTS(palettes) - 1);
+   p->style = waterfall_pref("waterfall.rf.style", 0, G_N_ELEMENTS(rf_styles) - 1);
    GtkWidget *overlay = gtk_overlay_new();
    GtkWidget *drawing = gtk_drawing_area_new();
    p->drawing = drawing;
