@@ -60,6 +60,9 @@ typedef struct client_server {
    bool pending_tls_pin_confirmation;
    char *pending_password_change; /* zeroed and released on reply or disconnect */
    bool password_prompt_open;
+#ifndef USE_MONGOOSE
+   char *native_proxy_override;
+#endif
 #ifdef USE_MONGOOSE
    rr_socks_t *proxy;
    bool proxy_override;
@@ -1817,6 +1820,9 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (proxy_override) {
       if (!*proxy_override) return true;
       proxy=proxy_override;
+   } else if (profile) {
+      client_server_t *existing=find_server(profile);
+      if (existing && existing->native_proxy_override) proxy=existing->native_proxy_override;
    }
    const char *proxy_user=profile ? get_server_property(profile,"server.proxy.user") : NULL;
    const char *proxy_pass=profile ? get_server_property(profile,"server.proxy.pass") : NULL;
@@ -1855,6 +1861,12 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
 
    if (!saved_url) {
       return true;
+   }
+   if (proxy_override) {
+      char *saved_proxy=strdup(proxy_override);
+      if (!saved_proxy) {free(saved_url);return true;}
+      free(s->native_proxy_override);
+      s->native_proxy_override=saved_proxy;
    }
    free(s->url);
    s->url = saved_url;
@@ -2176,6 +2188,9 @@ void connman_shutdown(void) {
       free(servers->connection);
       free(servers->name);
       free(servers->url);
+#ifndef USE_MONGOOSE
+      free(servers->native_proxy_override);
+#endif
 #ifdef USE_MONGOOSE
       free(servers->proxy);
 #endif
