@@ -737,7 +737,11 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    p->room = g_strdup(room ? room : "");
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
-   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+   GtkWidget *sources_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   GtkWidget *settings_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   gtk_box_pack_start(GTK_BOX(toolbar), sources_row, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
    p->source_mode = 'A';
    p->source = gtk_combo_box_text_new();
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
@@ -746,12 +750,12 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "right", "Right (heard)");
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), "stereo");
    gtk_widget_set_tooltip_text(p->source, "Select final speaker channels or an individual graph stream (before routing)");
-   gtk_box_pack_start(GTK_BOX(toolbar), p->source, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(sources_row), p->source, FALSE, FALSE, 0);
    p->enabled = gtk_check_button_new_with_label("AF waterfall");
-   /* Start disabled; enable capture and FFT only while requested. */
+   /* Visible floating tool enables demand-driven capture; hidden panels stop it. */
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
    gtk_widget_set_tooltip_text(p->enabled, "Enable AF spectrum and waterfall analysis for received audio");
-   gtk_box_pack_end(GTK_BOX(toolbar), p->enabled, FALSE, FALSE, 3);
+   gtk_box_pack_end(GTK_BOX(settings_row), p->enabled, FALSE, FALSE, 3);
    p->mode = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum + Waterfall");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum");
@@ -759,7 +763,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Bars");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Waterfall + Bars");
    gtk_combo_box_set_active(GTK_COMBO_BOX(p->mode), 0);
-   gtk_box_pack_start(GTK_BOX(toolbar), p->mode, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(sources_row), p->mode, FALSE, FALSE, 0);
    p->palette = gtk_combo_box_text_new();
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(palettes) ; i++) {
@@ -770,18 +774,18 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    palette_selector_register(p->palette);
    g_object_weak_ref(G_OBJECT(p->palette), palette_selector_unregister, NULL);
    gtk_widget_set_tooltip_text(p->palette, "Waterfall color scheme (AF and RF)");
-   gtk_box_pack_start(GTK_BOX(toolbar), p->palette, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(settings_row), p->palette, FALSE, FALSE, 0);
    GtkWidget *gain_label = gtk_label_new("Gain");
-   gtk_box_pack_start(GTK_BOX(toolbar), gain_label, FALSE, FALSE, 4);
+   gtk_box_pack_start(GTK_BOX(settings_row), gain_label, FALSE, FALSE, 4);
    p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 60.0, 1.0);
-   gtk_widget_set_size_request(p->gain, 140, -1);
+   gtk_widget_set_size_request(p->gain, 105, -1);
    gtk_range_set_value(GTK_RANGE(p->gain), 0.0);
    p->display_gain_db = 0.0;
    gtk_scale_set_draw_value(GTK_SCALE(p->gain), TRUE);
    gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
-   gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);
-   gtk_widget_set_sensitive(p->mode, FALSE);
-   gtk_widget_set_sensitive(p->gain, FALSE);
+   gtk_box_pack_start(GTK_BOX(settings_row), p->gain, FALSE, FALSE, 0);
+   gtk_widget_set_sensitive(p->mode, TRUE);
+   gtk_widget_set_sensitive(p->gain, TRUE);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
    gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK);
