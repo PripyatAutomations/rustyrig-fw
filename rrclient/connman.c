@@ -746,7 +746,11 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       s->login_challenge_pending = true;
    } else if (!strcmp(event, "disconnected") && s->login_challenge_pending && cptr && cptr->is_ws) {
       auth_failure_report(s, NULL);
-   } else if (s->reconnect_enabled && !s->reconnect_pending && !dying) {
+   } else if ((!strcmp(event, "disconnected") || !strcmp(event, "http.error")) &&
+              s->reconnect_enabled && !s->reconnect_pending && !dying) {
+      /* A protocol 'error' is not a transport failure. In particular,
+       * password-change-required errors must not tear down an authenticated
+       * session while the user is being prompted to rotate credentials. */
       if (s->reconnect_tries >= RRC_MAX_RECONNECTS) {
          cancel_reconnect(s);
          ui_print(NULL, "Giving up after %u reconnect attempts", RRC_MAX_RECONNECTS);
@@ -1306,6 +1310,7 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       if (s->pending_password_change) {
          password_secret_clear(s);
          s->password_prompt_open = false;
+         cancel_reconnect(s); /* The server may have changed it; don't retry the old password. */
          password_change_result(s, false, "Disconnected before the server confirmed the password change. Your saved password was not modified.");
       }
       /* Do not rely on the deferred disconnected event: it may run after
