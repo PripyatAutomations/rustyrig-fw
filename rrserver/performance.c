@@ -140,11 +140,9 @@ void rrserver_performance_sample(void) {
    }
    performance = current;
    performance_sampled = true;
-#ifdef USE_MONGOOSE
    /* Refresh locally authoritative catalog services. Existing delta comparison disseminates only changed rows to directly connected neighbors. */
    extern bool rr_relay_catalog_dirty;
    rr_relay_catalog_dirty = true;
-#endif
 }
 
 static void emit_performance(rr_performance_emit_fn emit, void *ctx, const char *name, const char *description, bool ready) {
