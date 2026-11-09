@@ -852,6 +852,8 @@ static void password_secret_clear(client_server_t *s) {
 static void password_change_result(client_server_t *s, bool success, const char *reason) {
    rrclient_password_change_t reply = {0};
    g_strlcpy(reply.profile, s->name, sizeof(reply.profile));
+   if (s->connection && s->connection->server)
+      g_strlcpy(reply.username, s->connection->server->nick, sizeof(reply.username));
    reply.success = success;
    g_strlcpy(reply.reason, reason ? reason : "", sizeof(reply.reason));
    event_emit_message(&(rr_event_message_t) {
@@ -897,9 +899,12 @@ static void password_change_submit(const rr_event_message_t *msg, void *ignored)
    }
    rrconn_t *conn = s->connection;
    const char *account = conn->server ? conn->server->nick : "";
-   if (!*account || strcmp(request.username, account) || !conn->token[0] ||
-       !conn->native_transport ||
-       !(rr_transport_capabilities(conn->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
+   bool verified_tls = conn->native_transport &&
+      (rr_transport_capabilities(conn->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED);
+#ifdef USE_MONGOOSE
+   if (conn->conn && conn->conn->is_tls) verified_tls = true;
+#endif
+   if (!*account || strcmp(request.username, account) || !conn->token[0] || !verified_tls) {
       password_change_result(s, false, "Authenticated TLS session or account identity unavailable.");
       goto done;
    }
@@ -951,6 +956,9 @@ static void password_change_response(const char *event, const char *data, rrconn
       s->reconnect_pending = true;
       s->reconnect_at = now;
       if (conn->native_transport) rr_transport_close(conn->native_transport);
+#ifdef USE_MONGOOSE
+      else if (conn->conn) conn->conn->is_closing = 1;
+#endif
    } else {
       password_secret_clear(s);
       password_change_result(s, false, reason ? reason : "Server rejected the new password.");
@@ -1274,6 +1282,11 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       }
       event_emit("http.error", cptr, NULL);
    } else if (event == RR_TRANSPORT_EVENT_CLOSE) {
+      if (s->pending_password_change) {
+         password_secret_clear(s);
+         s->password_prompt_open = false;
+         password_change_result(s, false, "Disconnected before the server confirmed the password change. Your saved password was not modified.");
+      }
       /* Do not rely on the deferred disconnected event: it may run after
        * the connection context has been detached, and auth.error may never
        * arrive if the peer closed immediately after sending it. */
@@ -2083,6 +2096,7 @@ void connman_shutdown(void) {
       if (rrclient_objects_context_free) {
          rrclient_objects_context_free(servers->objects);
       }
+      password_secret_clear(servers);
       free(servers->media);
       free(servers->wire_rooms);
       free((void *)servers->user);
