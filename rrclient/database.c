@@ -277,6 +277,86 @@ fail:
    return false;
 }
 
+/* Export a consistent SQLite snapshot as SQL. Running the serialization against
+ * an in-memory backup keeps concurrent WAL writers out of the dump. */
+char *rrclient_database_dump_sql(size_t *length) {
+   if (length) *length = 0;
+   if (!client_db) return NULL;
+   sqlite3 *snapshot = NULL;
+   if (sqlite3_open(":memory:", &snapshot) != SQLITE_OK) {
+      if (snapshot) sqlite3_close(snapshot);
+      return NULL;
+   }
+   sqlite3_backup *backup = sqlite3_backup_init(snapshot, "main", client_db, "main");
+   if (!backup) { sqlite3_close(snapshot); return NULL; }
+   int rc = sqlite3_backup_step(backup, -1);
+   int finish = sqlite3_backup_finish(backup);
+   if (rc != SQLITE_DONE || finish != SQLITE_OK) {
+      sqlite3_close(snapshot);
+      return NULL;
+   }
+   GString *out = g_string_new("BEGIN TRANSACTION;\n");
+   sqlite3_stmt *schema = NULL;
+   bool ok = sqlite3_prepare_v2(snapshot,
+      "SELECT type,name,sql FROM sqlite_master "
+      "WHERE name NOT LIKE 'sqlite_%' AND sql IS NOT NULL "
+      "ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END,name",
+      -1, &schema, NULL) == SQLITE_OK;
+   while (ok && sqlite3_step(schema) == SQLITE_ROW) {
+      const char *type = (const char *)sqlite3_column_text(schema, 0);
+      const char *name = (const char *)sqlite3_column_text(schema, 1);
+      const char *sql = (const char *)sqlite3_column_text(schema, 2);
+      if (!type || !name || !sql) { ok = false; break; }
+      g_string_append_printf(out, "%s;\n", sql);
+      if (strcmp(type, "table")) continue;
+      char *quoted = sqlite3_mprintf("\"%w\"", name);
+      char *query = quoted ? sqlite3_mprintf("SELECT * FROM %s", quoted) : NULL;
+      sqlite3_stmt *rows = NULL;
+      if (!query || sqlite3_prepare_v2(snapshot, query, -1, &rows, NULL) != SQLITE_OK) ok = false;
+      if (ok) {
+         int step;
+         while ((step = sqlite3_step(rows)) == SQLITE_ROW) {
+            g_string_append_printf(out, "INSERT INTO %s VALUES(", quoted);
+            int count = sqlite3_column_count(rows);
+            for (int i = 0; i < count; i++) {
+               if (i) g_string_append_c(out, ',');
+               switch (sqlite3_column_type(rows, i)) {
+               case SQLITE_NULL: g_string_append(out, "NULL"); break;
+               case SQLITE_INTEGER: g_string_append_printf(out, "%lld", (long long)sqlite3_column_int64(rows, i)); break;
+               case SQLITE_FLOAT: g_string_append_printf(out, "%.17g", sqlite3_column_double(rows, i)); break;
+               case SQLITE_BLOB: {
+                  const unsigned char *bytes = sqlite3_column_blob(rows, i);
+                  int n = sqlite3_column_bytes(rows, i);
+                  g_string_append(out, "X'");
+                  for (int j = 0; j < n; j++) g_string_append_printf(out, "%02X", bytes[j]);
+                  g_string_append_c(out, '\'');
+                  break;
+               }
+               default: {
+                  char *value = sqlite3_mprintf("%Q", sqlite3_column_text(rows, i));
+                  if (!value) ok = false;
+                  else { g_string_append(out, value); sqlite3_free(value); }
+                  break;
+               }
+               }
+            }
+            g_string_append(out, ");\n");
+            if (!ok || out->len > 256u * 1024u * 1024u) { ok = false; break; }
+         }
+         if (step != SQLITE_DONE) ok = false;
+      }
+      sqlite3_finalize(rows);
+      sqlite3_free(query);
+      sqlite3_free(quoted);
+   }
+   sqlite3_finalize(schema);
+   sqlite3_close(snapshot);
+   if (!ok) { g_string_free(out, TRUE); return NULL; }
+   g_string_append(out, "COMMIT;\n");
+   if (length) *length = out->len;
+   return g_string_free(out, FALSE);
+}
+
 void rrclient_database_shutdown(void) {
    if (client_db) {
       sqlite3_close(client_db);
