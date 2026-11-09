@@ -996,8 +996,21 @@ static void frontend_gtk_password_result_event(const rr_event_message_t *message
    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
       "%s", result.success ? "The server confirmed the new password. It was saved in your server profile and RustyRig is reconnecting."
       : (result.reason[0] ? result.reason : "Please try again."));
-   g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
-   gtk_widget_show(dialog);
+   if (!result.success) {
+      gtk_dialog_add_button(GTK_DIALOG(dialog), "_Retry", 1);
+      gtk_widget_show_all(dialog);
+      int choice = gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      if (choice == 1) {
+         event_emit_message(&(rr_event_message_t) {
+            .name = RRCLIENT_PASSWORD_RETRY_EVENT, .sender = "gtk",
+            .payload = &result, .length = sizeof(result)
+         });
+      }
+   } else {
+      g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+      gtk_widget_show(dialog);
+   }
    explicit_bzero(&result, sizeof(result));
 }
 
