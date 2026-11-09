@@ -211,13 +211,8 @@ bool ws_auth_refresh(rrconn_t *client) {
 /* No password credential may travel over an unencrypted WebSocket. */
 static bool auth_tls_connection(const rrconn_t *client) {
    if (!client) return false;
-   if (client->native_transport &&
-       (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_ENCRYPTED))
-      return true;
-#ifdef USE_MONGOOSE
-   if (client->conn && client->conn->is_tls) return true;
-#endif
-   return false;
+   return client->native_transport &&
+      (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_ENCRYPTED);
 }
 
 static void auth_password_change_reply(rrconn_t *client, bool success, const char *reason) {
