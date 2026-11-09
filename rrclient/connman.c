@@ -20,6 +20,7 @@
 #include <rrclient/media.direct.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+#include <rrclient/tls.pin.h>
 // Native connection manager. IRC wire handlers live in librustyirc.
 #include <librrprotocol/wire.h>
 #include <librustyaxe/socks.h>
@@ -52,6 +53,8 @@ extern bool ws_binframe_process_client(rrconn_t *cptr, const char *data, size_t 
 typedef struct client_server {
    char *name, *url;
    char domain[254], server_uuid[37];
+   char pending_tls_pin[65];
+   bool pending_tls_pin_confirmation;
 #ifdef USE_MONGOOSE
    rr_socks_t *proxy;
    bool proxy_override;
@@ -732,7 +735,37 @@ static void connecting_cancel_event(const rr_event_message_t *message, void *unu
    disconnect_server(request.profile);
 }
 
+/* The core validates a locally confirmed, previously observed key before
+ * replacing the profile's saved pin and scheduling another TLS handshake. */
+static void tls_pin_reply_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+#ifndef USE_MONGOOSE
+   if (!message || !message->payload || message->length != sizeof(rrclient_tls_pin_request_t))
+      return;
+   rrclient_tls_pin_request_t request;
+   memcpy(&request, message->payload, sizeof(request));
+   if (!memchr(request.profile, 0, sizeof(request.profile)) ||
+       !memchr(request.old_pin, 0, sizeof(request.old_pin)) ||
+       !memchr(request.new_pin, 0, sizeof(request.new_pin))) return;
+   client_server_t *server = find_server(request.profile);
+   if (!server || !server->pending_tls_pin_confirmation ||
+       strcmp(server->pending_tls_pin, request.new_pin)) return;
+   const char *current = get_server_property(server->name, "server.tls-spki-sha256");
+   if (!current || strcmp(current, request.old_pin)) return;
+   server->pending_tls_pin_confirmation = false;
+   server->pending_tls_pin[0] = '\0';
+   if (!rrclient_database_server_set(server->name, "server.tls-spki-sha256", request.new_pin)) {
+      Log(LOG_WARN, "connman", "Unable to persist replacement TLS public key for %s", server->name);
+      return;
+   }
+   Log(LOG_WARN, "connman", "Approved changed TLS public key for %s; reconnecting", server->name);
+   server->reconnect_enabled = true;
+   server->reconnect_pending = true;
+   server->reconnect_at = now;
+#endif
+}
 void connman_register_events(void) {
+   event_on_message_domain_token(RRCLIENT_TLS_PIN_REPLY_EVENT, tls_pin_reply_event, NULL, "core");
    event_on_message_domain_token("client.connecting.cancel", connecting_cancel_event, NULL, "core");
    event_on("connecting", connection_event, NULL);
    event_on("connected", connection_event, NULL);
@@ -1018,7 +1051,36 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       rr_traffic_count(cptr, false, true, len);
       ws_binframe_process_client(cptr, (const char *)data, len);
    } else if (event == RR_TRANSPORT_EVENT_ERROR) {
-      Log(LOG_WARN, "connman", "Native connection to %s: %.*s", s->name, (int)MIN(len, (size_t)240), data ? (const char *)data : "");
+      const char prefix[] = "TLS_PIN_MISMATCH:";
+      if (data && len == sizeof(prefix) - 1 + 64 &&
+          !memcmp(data, prefix, sizeof(prefix) - 1)) {
+         rrclient_tls_pin_request_t request = {0};
+         const char *previous_pin = get_server_property(s->name, "server.tls-spki-sha256");
+         const char *enabled = get_server_property(s->name, "server.tls-trust-on-first-use");
+         bool tofu = enabled && (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
+         const char *new_pin = (const char *)data + sizeof(prefix) - 1;
+         if (tofu && previous_pin && strlen(previous_pin) == 64 &&
+             strlen(s->name) < sizeof(request.profile) &&
+             strspn(previous_pin, "0123456789abcdef") == 64 &&
+             strspn(new_pin, "0123456789abcdef") == 64 &&
+             !s->pending_tls_pin_confirmation) {
+            g_strlcpy(request.profile, s->name, sizeof(request.profile));
+            g_strlcpy(request.old_pin, previous_pin, sizeof(request.old_pin));
+            memcpy(request.new_pin, new_pin, 64);
+            g_strlcpy(s->pending_tls_pin, request.new_pin, sizeof(s->pending_tls_pin));
+            s->pending_tls_pin_confirmation = true;
+            s->reconnect_pending = false;
+            s->reconnect_enabled = false;
+            Log(LOG_WARN, "connman", "Server %s changed its TLS public key; approval required before reconnect", s->name);
+            event_emit_message(&(rr_event_message_t) {
+               .name = RRCLIENT_TLS_PIN_PROMPT_EVENT,
+               .payload = &request, .length = sizeof(request)
+            });
+         }
+      } else {
+         Log(LOG_WARN, "connman", "Native connection to %s: %.*s", s->name,
+            (int)MIN(len, (size_t)240), data ? (const char *)data : "");
+      }
       event_emit("http.error", cptr, NULL);
    } else if (event == RR_TRANSPORT_EVENT_CLOSE) {
       native->closed = true;
