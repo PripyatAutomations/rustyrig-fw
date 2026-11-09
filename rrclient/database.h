@@ -8,6 +8,8 @@
 #include <librustyaxe/core.h>
 /* Opens and initializes the persistent client settings database. */
 bool rrclient_database_init(void);
+/* Destructive standalone CLI maintenance; returns EXIT_SUCCESS/EXIT_FAILURE. */
+int rrclient_database_reset(void);
 void rrclient_database_shutdown(void);
 bool rrclient_database_load_profiles(void);
 bool rrclient_database_config_save(const char *path);
