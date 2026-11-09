@@ -72,6 +72,8 @@ static void rrserver_send_domain_identity(const char *event, const char *data, r
    dict_add(message, "msg.type", "domain");
    dict_add(message, "domain.name", domain);
    dict_add(message, "domain.server", node);
+   const char *station = cfg_get("station.name");
+   if (station && *station) dict_add(message, "domain.station", station);
    ws_send_dict(NULL, client, message, WEBSOCKET_OP_TEXT);
    dict_free(message);
 }
