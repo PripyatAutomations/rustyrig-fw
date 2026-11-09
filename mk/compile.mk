@@ -49,6 +49,7 @@ CFLAGS += $(AXE_SYSTEM_CFLAGS) $(RRPROTO_SYSTEM_CFLAGS) $(IRC_SYSTEM_CFLAGS) -I$
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
+CFLAGS += -DRR_LIBEXECDIR="\"${LIBEXECDIR}\""
 CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
 # SANITIZE may be supplied on the make command line for interactive QC.
 # Keep build.use_asan compatible with existing config profiles.
