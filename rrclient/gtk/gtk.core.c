@@ -924,6 +924,29 @@ static void frontend_gtk_authoritative_room_event(const rr_event_message_t *mess
    gtk_chat_set_authoritative_room(room);
 }
 
+/* Auth errors belong to the GTK thread; never open a dialog from the
+ * network/core worker.  A plain status line isn't sufficient when the
+ * connection dialog has already gone away. */
+static void frontend_gtk_auth_failure_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message || !message->payload ||
+       message->length != sizeof(rrclient_auth_failure_alert_t)) return;
+   rrclient_auth_failure_alert_t alert;
+   memcpy(&alert, message->payload, sizeof(alert));
+   if (!memchr(alert.profile, 0, sizeof(alert.profile)) ||
+       !memchr(alert.reason, 0, sizeof(alert.reason))) return;
+   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
+   GtkWidget *dialog = gtk_message_dialog_new(parent,
+      GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+      "Authentication failed for %s", alert.profile);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "%s\n\nAutomatic reconnection has been stopped. "
+      "Check the username and password in Edit Server, then connect manually.",
+      alert.reason);
+   g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+   gtk_widget_show(dialog);
+}
+
 /* The TLS handshake has already failed closed. GTK alone owns the
  * confirmation dialog; core persists the pin only after the explicit reply. */
 static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message, void *unused) {
@@ -1143,6 +1166,9 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    } else {
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to authoritative room events");
    }
+   rr_event_token_t auth_failure_event = event_on_message_domain_token(RRCLIENT_AUTH_FAILURE_ALERT_EVENT,
+      frontend_gtk_auth_failure_event, NULL, "gtk");
+   if (auth_failure_event) rr_module_token_add(auth_failure_event);
    rr_event_token_t tls_pin_event = event_on_message_domain_token(RRCLIENT_TLS_PIN_PROMPT_EVENT, frontend_gtk_tls_pin_prompt_event, NULL, "gtk");
    if (tls_pin_event) rr_module_token_add(tls_pin_event);
    rr_event_token_t picker_event = event_on_message_domain_token("client.ui.server-picker.show", frontend_gtk_server_picker_show_event, NULL, "gtk");
