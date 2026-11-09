@@ -8,6 +8,8 @@
 #include <librustyaxe/core.h>
 /* Opens and initializes the persistent client settings database. */
 bool rrclient_database_init(void);
+/* Snapshot as a restorable SQLite SQL script; caller frees with g_free(). */
+char *rrclient_database_dump_sql(size_t *length);
 /* Destructive standalone CLI maintenance; returns EXIT_SUCCESS/EXIT_FAILURE. */
 int rrclient_database_reset(void);
 void rrclient_database_shutdown(void);
