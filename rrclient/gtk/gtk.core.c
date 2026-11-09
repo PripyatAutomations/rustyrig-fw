@@ -23,6 +23,7 @@
 #include <glib/gstdio.h>
 #include <librrprotocol/crypto.h>
 #include <rrclient/identity.store.h>
+#include <rrclient/tls.pin.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -923,6 +924,49 @@ static void frontend_gtk_authoritative_room_event(const rr_event_message_t *mess
    gtk_chat_set_authoritative_room(room);
 }
 
+/* The TLS handshake has already failed closed. GTK alone owns the
+ * confirmation dialog; core persists the pin only after the explicit reply. */
+static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message || !message->payload ||
+       message->length != sizeof(rrclient_tls_pin_request_t)) return;
+   rrclient_tls_pin_request_t request;
+   memcpy(&request, message->payload, sizeof(request));
+   if (!memchr(request.profile, 0, sizeof(request.profile)) ||
+       !memchr(request.old_pin, 0, sizeof(request.old_pin)) ||
+       !memchr(request.new_pin, 0, sizeof(request.new_pin))) return;
+   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
+   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
+      GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE, "TLS server key changed for %s", request.profile);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "The server presented a different TLS public key. This may indicate a "
+      "legitimate key replacement or a connection interception attempt.\n\n"
+      "Previously trusted SHA256:\n%s\n\nPresented SHA256:\n%s\n\n"
+      "Verify the fingerprint with the server administrator before proceeding.",
+      request.old_pin, request.new_pin);
+   gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
+   gtk_dialog_add_button(GTK_DIALOG(dialog), "_OK", GTK_RESPONSE_OK);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *instruction = gtk_label_new("Type YES, then click OK to trust the changed server key:");
+   gtk_label_set_xalign(GTK_LABEL(instruction), 0.0f);
+   GtkWidget *entry = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "YES");
+   gtk_box_pack_start(GTK_BOX(area), instruction, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 6);
+   gtk_widget_show_all(dialog);
+   gtk_widget_grab_focus(entry);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+   int response = gtk_dialog_run(GTK_DIALOG(dialog));
+   bool approved = response == GTK_RESPONSE_OK &&
+      !strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "YES");
+   gtk_widget_destroy(dialog);
+   if (approved) {
+      event_emit_message(&(rr_event_message_t) {
+         .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
+         .payload = &request, .length = sizeof(request)
+      });
+   }
+}
 static void frontend_gtk_server_picker_show_event(const rr_event_message_t *message, void *unused) {
    (void)message;
    (void)unused;
@@ -1090,6 +1134,8 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    } else {
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to authoritative room events");
    }
+   rr_event_token_t tls_pin_event = event_on_message_domain_token(RRCLIENT_TLS_PIN_PROMPT_EVENT, frontend_gtk_tls_pin_prompt_event, NULL, "gtk");
+   if (tls_pin_event) rr_module_token_add(tls_pin_event);
    rr_event_token_t picker_event = event_on_message_domain_token("client.ui.server-picker.show", frontend_gtk_server_picker_show_event, NULL, "gtk");
 
    if (picker_event) {
