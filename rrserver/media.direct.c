@@ -10,7 +10,7 @@
 #include <rrserver/media.direct.h>
 #include <rrserver/acl.h>
 #include <rrserver/relay.h>
-#if defined(HOST_POSIX) && defined(USE_MONGOOSE)
+#ifdef HOST_POSIX
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/ws.mediachan.h>
