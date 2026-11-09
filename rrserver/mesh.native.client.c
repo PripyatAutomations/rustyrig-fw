@@ -67,7 +67,10 @@ static void client_open(struct native_session *s, rr_transport_t *transport) {
       return;
    }
 
-   if (rrserver_acl_check("listener:https", ip, NULL, NULL) != ACL_ALLOW) {
+   /* An identity-dependent rule can defer until password authentication;
+    * absent or unmatched ACLs are still denied. */
+   acl_result_t admission = rrserver_acl_check("listener:https", ip, NULL, NULL);
+   if (admission != ACL_ALLOW && admission != ACL_DEFER) {
       rr_mesh_wss_abort(transport, "Native client listener ACL denied");
 
       return;
