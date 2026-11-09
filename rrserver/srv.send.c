@@ -79,21 +79,10 @@ bool ws_kick_client(rrconn_t *client, const char *reason) {
    }
 
    /* Closing the transport queues its close event; session teardown owns removal from http_client_list and freeing the client. */
-   if (client->native_transport) {
-      rr_transport_close(client->native_transport);
-
-      return true;
-   }
-#ifdef USE_MONGOOSE
-
-   if (client->conn) {
-      client->conn->is_closing = 1;
-
-      return true;
-   }
-#endif
-
-   return false;
+   if (!client->native_transport)
+      return false;
+   rr_transport_close(client->native_transport);
+   return true;
 }
 
 
