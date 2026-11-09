@@ -37,7 +37,6 @@ bool rrclient_direct_set_preference(rrconn_t *client, bool enabled) {
    return true;
 }
 
-#ifdef USE_MONGOOSE
 static bool preferred(rrconn_t *client) {
    return rrclient_direct_preferred(rrclient_connection_name(client));
 }
@@ -115,8 +114,6 @@ static void report_route(struct direct_channel *channel, const char *status, boo
 
    if (rtp) {
       snprintf(endpoint, sizeof(endpoint), "%s", channel->endpoint);
-   } else if (channel->client->conn && channel->client->conn->rem.port) {
-      mg_snprintf(endpoint, sizeof(endpoint), "%M", mg_print_ip_port, &channel->client->conn->rem);
    } else if (channel->client->server) {
       snprintf(endpoint, sizeof(endpoint), "%s:%d", channel->client->server->host, channel->client->server->port);
    }
@@ -683,34 +680,3 @@ void rrclient_direct_register_events(void) {
    event_on("disconnect", closed, NULL);
 }
 
-#else
-bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
-   (void)client;
-
-   if (rx) {
-      *rx = 0;
-   }
-
-   if (tx) {
-      *tx = 0;
-   }
-
-   return false;
-}
-void rrclient_direct_apply_preferences(void) {
-}
-bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_transport_t mode) {
-   (void)client;
-   (void)uuid;
-
-   return mode != RR_MEDIA_DIRECT;
-}
-void rrclient_direct_register_events(void) {
-}
-void rrclient_direct_message(rrconn_t *client, dict *message) {
-   (void)client;
-   (void)message;
-}
-void rrclient_direct_poll(void) {
-}
-#endif
