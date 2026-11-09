@@ -139,9 +139,12 @@ int rrclient_database_reset(void) {
    sqlite3_busy_timeout(db, 1000);
    bool ok = sqlite3_exec(db, "PRAGMA locking_mode=EXCLUSIVE;", NULL, NULL, NULL) == SQLITE_OK &&
       sqlite3_exec(db, "BEGIN EXCLUSIVE;", NULL, NULL, NULL) == SQLITE_OK &&
-      sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) == SQLITE_OK &&
-      sqlite3_exec(db, "PRAGMA wal_checkpoint(TRUNCATE);", NULL, NULL, NULL) == SQLITE_OK;
-   if (!ok) fprintf(stderr, "Cannot obtain exclusive client database access: %s\n", sqlite3_errmsg(db));
+      sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) == SQLITE_OK;
+   /* sqlite3_exec(PRAGMA wal_checkpoint) may return OK even when its result
+    * reports SQLITE_BUSY. Use the checkpoint API and check the return code. */
+   if (ok && sqlite3_wal_checkpoint_v2(db, NULL, SQLITE_CHECKPOINT_TRUNCATE, NULL, NULL) != SQLITE_OK)
+      ok = false;
+   if (!ok) fprintf(stderr, "Cannot obtain exclusive client database access or checkpoint WAL: %s\n", sqlite3_errmsg(db));
    if (sqlite3_close(db) != SQLITE_OK) ok = false;
    if (ok) {
       /* Recheck the inode to avoid replacing a path during confirmation. */
