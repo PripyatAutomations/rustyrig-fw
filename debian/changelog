@@ -1,3 +1,9 @@
+rustyrig-fw (1.0.2-13) unstable; urgency=medium
+
+  * Show certificate and public-key fingerprints, CN and SANs when connecting to an unknown/changed TLS key. Support Deny, Accept Once and confirmed Accept Always; validate configured Node Name against the authenticated station/domain announcement.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 21:00:00 -0500
+
 rustyrig-fw (1.0.2-12) unstable; urgency=medium
 
   * Add per-server Ignore TLS hostname checkbox with persistent SPKI trust.
