@@ -3,7 +3,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 python3 - <<'PY'
-import hashlib
 import os
 import pathlib
 import shutil
@@ -32,18 +31,36 @@ with tempfile.TemporaryDirectory() as directory:
     permissions = root / 'admin-permissions'
     permissions.write_text(pathlib.Path('packaging/admin-permissions.sh').read_text())
     permissions.chmod(0o755)
+    hash_helper = root / 'rr-password-hash'
+    hash_helper.write_text("#!/bin/sh\\ncat >/dev/null\\nprintf '%s\\n' '$argon2id$v=19$m=19456,t=2,p=1$test$hash'\\n")
+    hash_helper.chmod(0o755)
     script = root / 'postinst'
     script.write_text(pathlib.Path('debian/rustyrig-server.postinst').read_text()
                       .replace('/var/', str(root / 'var') + '/')
                       .replace('/usr/share/debconf/confmodule', str(confmodule))
-                      .replace('/usr/lib/rustyrig/admin-permissions', str(permissions) + ' ' + str(root)))
+                      .replace('/usr/lib/rustyrig/admin-permissions', str(permissions) + ' ' + str(root))
+                      .replace('/usr/lib/rustyrig/rr-password-hash', str(hash_helper)))
     env = {**os.environ, 'PATH': str(commands) + ':' + os.environ['PATH'],
            'RR_TEST_ADMIN_PASSWORD': 'disposable-test-password'}
     subprocess.run(['sh', str(script)], env=env, check=True)
     database = root / 'var/lib/rustyrig/db/master.db'
     with sqlite3.connect(database) as connection:
         admin = connection.execute("SELECT enabled,password FROM users WHERE name='admin'").fetchone()
-        assert admin == (1, hashlib.sha1(b'disposable-test-password').hexdigest())
+        assert admin[0] == 1 and admin[1].startswith('$argon2id$v=19
+        assert connection.execute("SELECT enabled FROM users WHERE name='guest'").fetchone() == (0,)
+        connection.execute("UPDATE users SET enabled=0,password='existing-password' WHERE name='admin'")
+    env['RR_TEST_ADMIN_PASSWORD'] = 'different-upgrade-password'
+    subprocess.run(['sh', str(script)], env=env, check=True)
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT enabled,password FROM users WHERE name='admin'").fetchone() == (0, 'existing-password')
+    database.unlink()
+    env['RR_TEST_ADMIN_PASSWORD'] = ''
+    refused = subprocess.run(['sh', str(script)], env=env, capture_output=True, text=True)
+    assert refused.returncode != 0 and 'password is required' in refused.stderr
+    assert not database.exists()
+print('PASS: Debian enables fresh admin, keeps guest disabled, preserves upgrade credentials and rejects empty first-install passwords')
+PY
+)
         assert connection.execute("SELECT enabled FROM users WHERE name='guest'").fetchone() == (0,)
         connection.execute("UPDATE users SET enabled=0,password='existing-password' WHERE name='admin'")
     env['RR_TEST_ADMIN_PASSWORD'] = 'different-upgrade-password'
