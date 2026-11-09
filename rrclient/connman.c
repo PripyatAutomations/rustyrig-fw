@@ -223,6 +223,27 @@ static bool rrclient_server_uuid_valid(const char *uuid) {
 
    return true;
 }
+bool rrclient_connection_expected_node_matches(rrconn_t *connection, const char *station, const char *domain) {
+   if (!connection) return false;
+   for (client_server_t *server = servers; server; server = server->next) {
+      if (server->connection != connection) continue;
+      const char *expected = get_server_property(server->name, "server.node-name");
+      if (!expected || !*expected) return true;
+      const char *dot = strchr(expected, '.');
+      bool matches = dot && station && *station && domain && *domain &&
+         (size_t)(dot - expected) == strlen(station) &&
+         !g_ascii_strncasecmp(expected, station, strlen(station)) &&
+         !g_ascii_strcasecmp(dot + 1, domain);
+      if (!matches) {
+         Log(LOG_WARN, "client.identity", "Node identity mismatch for %s: expected %s, announced station=%s domain=%s",
+            server->name, expected, station ? station : "(missing)", domain ? domain : "(missing)");
+         if (connection->native_transport)
+            rr_transport_close(connection->native_transport);
+      }
+      return matches;
+   }
+   return false;
+}
 void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid) {
    if (!connection || !domain || !*domain || !server_uuid || !rrclient_server_uuid_valid(server_uuid)) {
       return;
