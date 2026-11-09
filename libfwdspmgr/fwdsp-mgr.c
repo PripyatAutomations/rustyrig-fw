@@ -73,7 +73,7 @@ defconfig_t defcfg_fwdsp[] = {
    },
 #else
    {
-      "fwdsp:path", "bin/fwdsp", "Path to fwdsp binary"
+      "fwdsp:path", "/usr/libexec/rustyrig/fwdsp", "Path to fwdsp binary"
    },
 #endif
    {
