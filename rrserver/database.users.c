@@ -528,7 +528,12 @@ int db_get_users(sqlite3 *db) {
       up->password_change_required = password_change_required;
 
       if (pass) {
-         strlcpy(up->pass, pass, sizeof(up->pass));
+         /* Legacy in-memory field is too short for encoded Argon2id;
+          * only SQLite stores the full verifier. */
+         if (auth_password_is_argon2id(pass))
+            strlcpy(up->pass, "!argon2id-in-sqlite!", sizeof(up->pass));
+         else
+            strlcpy(up->pass, pass, sizeof(up->pass));
       }
 
       if (email) {
