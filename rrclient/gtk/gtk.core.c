@@ -1092,6 +1092,43 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
       .payload = &request, .length = sizeof(request)
    });
 }
+/* One-use bearer credential: only expose it through the explicit dialog. */
+static void mesh_token_copy(GtkButton *button, gpointer user) {
+   (void)button;
+   GtkWidget *entry = GTK_WIDGET(user);
+   GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+   gtk_clipboard_set_text(clipboard, gtk_entry_get_text(GTK_ENTRY(entry)), -1);
+}
+static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message || !message->payload || message->length < 2 ||
+       message->length > 8192) return;
+   const char *token = message->payload;
+   if (token[message->length - 1] != 0 ||
+       strlen(token) + 1 != message->length) return;
+   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Mesh enrollment invitation",
+      parent, GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
+   gtk_window_set_default_size(GTK_WINDOW(dialog), 660, -1);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *hint = gtk_label_new(
+      "Confidential one-time enrollment token. Copy the entire token and paste it "
+      "into rrserver --mesh-join on the joining machine. Do not share it publicly.");
+   gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(hint), 0);
+   gtk_box_pack_start(GTK_BOX(area), hint, FALSE, FALSE, 8);
+   GtkWidget *entry = gtk_entry_new();
+   gtk_entry_set_text(GTK_ENTRY(entry), token);
+   gtk_entry_set_editable(GTK_ENTRY(entry), FALSE);
+   gtk_widget_set_hexpand(entry, TRUE);
+   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 6);
+   GtkWidget *copy = gtk_button_new_with_label("Copy invitation");
+   gtk_box_pack_start(GTK_BOX(area), copy, FALSE, FALSE, 6);
+   g_signal_connect(copy, "clicked", G_CALLBACK(mesh_token_copy), entry);
+   g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+   gtk_widget_show_all(dialog);
+   gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+}
 static void frontend_gtk_server_picker_show_event(const rr_event_message_t *message, void *unused) {
    (void)message;
    (void)unused;
@@ -1270,6 +1307,9 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    if (auth_failure_event) rr_module_token_add(auth_failure_event);
    rr_event_token_t tls_pin_event = event_on_message_domain_token(RRCLIENT_TLS_PIN_PROMPT_EVENT, frontend_gtk_tls_pin_prompt_event, NULL, "gtk");
    if (tls_pin_event) rr_module_token_add(tls_pin_event);
+   rr_event_token_t invite_event = event_on_message_domain_token("client.ui.mesh.enrollment-token",
+      frontend_gtk_mesh_enrollment_token, NULL, "gtk");
+   if (invite_event) rr_module_token_add(invite_event);
    rr_event_token_t picker_event = event_on_message_domain_token("client.ui.server-picker.show", frontend_gtk_server_picker_show_event, NULL, "gtk");
 
    if (picker_event) {
