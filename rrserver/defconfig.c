@@ -367,9 +367,6 @@ defconfig_t defcfg[] = {
       DEFCONFIG_UINT, NULL
    },
    {
-      "rig.identity-namespace", NULL, "Stable node/config namespace for persistent rig UUIDs; defaults to station.name"
-   },
-   {
       "domain", NULL, "Required cluster/domain name shared by all linked servers (1-253 ASCII letters, digits, dots, hyphens or underscores)"
    },
    {
