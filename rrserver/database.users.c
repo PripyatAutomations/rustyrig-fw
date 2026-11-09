@@ -609,7 +609,7 @@ bool db_user_password_authenticate(sqlite3 *db, const char *username,
          explicit_bzero(encoded, strlen(encoded));
          free(encoded);
       }
-      if (!saved || !db_refresh_users(db))
+      if (!saved || db_get_users(db) < 0)
          return false;
       if (upgraded) *upgraded = true;
    }
