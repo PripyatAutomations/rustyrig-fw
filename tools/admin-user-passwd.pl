@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use DBI;
-use Digest::SHA qw(sha1_hex);
+use IPC::Open2 qw(open2);
 use Term::ReadKey;
 
 my $db = $ENV{RRSERVER_DB} // '/var/lib/rustyrig/db/master.db';
@@ -32,9 +32,18 @@ ReadMode('restore');
 print "\n";
 
 die "Passwords do not match\n" unless $pass1 eq $pass2;
-die "Password cannot be empty\n" unless length($pass1);
+die "Password must be 8 to 256 characters\n" unless length($pass1) >= 8 && length($pass1) <= 256;
 
-my $hash = sha1_hex($pass1);
+my ($reader, $writer);
+my $pid = open2($reader, $writer, '/usr/lib/rustyrig/rr-password-hash');
+print {$writer} $pass1;
+close $writer;
+my $hash = <$reader>;
+close $reader;
+waitpid($pid, 0);
+die "Argon2id hashing failed\n" unless defined($hash) && $? == 0;
+chomp($hash);
+die "Unexpected password hash format\n" unless index($hash, chr(36) . 'argon2id' . chr(36)) == 0;
 
 $dbh->do(q{
     UPDATE users

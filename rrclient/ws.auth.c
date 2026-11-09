@@ -18,6 +18,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 
 extern dict *cfg;
@@ -73,7 +74,13 @@ bool ws_handle_client_auth_msg(rrconn_t *cptr, dict *d) {
       }
       const char *login_pass = cptr->server ? cptr->server->pass : get_server_property(server_name, "server.pass");
       Log(LOG_AUDIT, "auth.ws", "Got login challenge from server %s", server_name);
-      ws_send_passwd(cptr, user, login_pass, nonce);
+      if (strcmp(dict_get(d, "auth.method", ""), "tls-password-v1") ||
+          !ws_send_passwd(cptr, user, login_pass, nonce)) {
+         Log(LOG_WARN, "auth.ws", "Server authentication method is unsupported or TLS is unverified");
+         event_emit_dict("auth.error", cptr, d);
+         rv = false;
+         goto cleanup;
+      }
       event_emit_dict("logging-in", cptr, d);
    } else if (cmd && strcasecmp(cmd, "authorized") == 0) {
       cptr->authenticated = true;
@@ -108,47 +115,26 @@ bool ws_send_login(rrconn_t *cptr, const char *login_user) {
 }
 
 // Hashes the user stored password with the server nonce and returns it
+/* No reusable password verifier or legacy SHA-1 wire response is sent.
+ * The initial password is delivered once over an authenticated TLS channel.
+ */
 bool ws_send_passwd(rrconn_t *cptr, const char *user, const char *passwd, const char *nonce) {
-   if (!cptr || !user || !passwd || !nonce) {
-      Log(LOG_CRIT, "auth", "ws_send_passwd with invalid parameters, cptr:<%p> user:<%p> passwd:<%p> nonce:<%p>", cptr, user, passwd, nonce);
-
+   if (!cptr || !user || !passwd || !nonce || !*nonce ||
+       strlen(passwd) > 256 || !cptr->native_transport ||
+       !(rr_transport_capabilities(cptr->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
+      Log(LOG_WARN, "auth", "TLS-verified connection and valid password are required");
       return false;
    }
-
-   char *hashed_pw = hash_passwd(passwd);
-   char *temp_pw = NULL;
-
-   if (hashed_pw) {
-      temp_pw = compute_wire_password(hashed_pw, nonce);
-      explicit_bzero(hashed_pw, strlen(hashed_pw));
-      free((void *)hashed_pw);
-      hashed_pw = NULL;
-   }
-
-   if (!temp_pw) {
-      Log(LOG_CRIT, "auth", "Failed to hash session password");
-
-      return false;
-   }
-
-   dict *auth_msg = dict_new();
-
-   if (!auth_msg) {
-      explicit_bzero(temp_pw, strlen(temp_pw));
-      free(temp_pw);
-
-      return false;
-   }
-   dict_add(auth_msg, "msg.type", "auth");
-   dict_add(auth_msg, "auth.cmd", "pass");
-   dict_add(auth_msg, "auth.user", user);
-   dict_add(auth_msg, "auth.pass", temp_pw);
-   dict_add(auth_msg, "auth.token", cptr->token);
-   bool sent = ws_send_dict(NULL, cptr, auth_msg, WEBSOCKET_OP_TEXT);
-   dict_free(auth_msg);
-   explicit_bzero(temp_pw, strlen(temp_pw));
-   free(temp_pw);
-
+   dict *message = dict_new();
+   if (!message) return false;
+   dict_add(message, "msg.type", "auth");
+   dict_add(message, "auth.cmd", "pass");
+   dict_add(message, "auth.method", "tls-password-v1");
+   dict_add(message, "auth.user", user);
+   dict_add(message, "auth.pass", passwd);
+   dict_add(message, "auth.token", cptr->token);
+   bool sent = ws_send_dict(NULL, cptr, message, WEBSOCKET_OP_TEXT);
+   dict_free(message);
    return sent;
 }
 

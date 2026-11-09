@@ -102,7 +102,7 @@ static bool db_provision_admin(sqlite3 *db) {
    }
    char password[25];
    bool ok = auth_generate_nonce(password, sizeof(password)) == sizeof(password) - 1;
-   char *hash = ok ? hash_passwd(password) : NULL;
+   char *hash = ok ? auth_password_hash_argon2id(password) : NULL;
    int fd = hash ? open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600) : -1;
 
    if (fd < 0) {
@@ -152,7 +152,7 @@ bool db_reset_admin_password(sqlite3 *db, const char *password) {
    if (!db || !password || strlen(password) < 8 || strlen(password) > 256) {
       return false;
    }
-   char *hash = hash_passwd(password);
+   char *hash = auth_password_hash_argon2id(password);
 
    if (!hash) {
       return false;

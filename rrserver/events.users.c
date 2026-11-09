@@ -198,14 +198,11 @@ bool rrserver_user_target_allowed(const http_user_t *actor, const http_user_t *t
    return true;
 }
 
-/* Generate the existing eight-digit temporary password using arc4random. */
+/* One-time temporary passwords require enough entropy to withstand a stolen
+ * hash database even before the user selects a permanent password. */
 static bool user_temp_password(char *password, size_t length) {
-   if (!password || length < 9) {
-      return false;
-   }
-   unsigned value = arc4random_uniform(100000000U);
-
-   return snprintf(password, length, "%08u", value) > 0;
+   return password && length >= 25 &&
+      auth_generate_nonce(password, length) == (int)(length - 1);
 }
 
 /* Reload user state after a write and report failures to the requester. */
@@ -410,12 +407,12 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      char password[9];
+      char password[25];
       char *password_hash = NULL;
       bool ok = user_temp_password(password, sizeof(password));
 
       if (ok) {
-         password_hash = hash_passwd(password);
+         password_hash = auth_password_hash_argon2id(password);
       }
       bool profile_ok = strlen(profile_email) < 254 && !strpbrk(profile_email, "\r\n") && !strpbrk(profile_real, "\r\n") && !strpbrk(profile_phone, "\r\n");
 
@@ -629,14 +626,14 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      char password[9];
+      char password[25];
 
       if (!user_temp_password(password, sizeof(password))) {
          ws_send_notice(cptr, "USER: unable to generate a temporary password");
 
          return;
       }
-      char *password_hash = hash_passwd(password);
+      char *password_hash = auth_password_hash_argon2id(password);
       bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, true, now + 7 * 86400);
       free(password_hash);
 
@@ -659,7 +656,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      char *password_hash = hash_passwd(argv[2]);
+      char *password_hash = auth_password_hash_argon2id(argv[2]);
       bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, false, 0);
       free(password_hash);
 

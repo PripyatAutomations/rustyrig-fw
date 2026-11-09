@@ -528,7 +528,12 @@ int db_get_users(sqlite3 *db) {
       up->password_change_required = password_change_required;
 
       if (pass) {
-         strlcpy(up->pass, pass, sizeof(up->pass));
+         /* Legacy in-memory field is too short for encoded Argon2id;
+          * only SQLite stores the full verifier. */
+         if (auth_password_is_argon2id(pass))
+            strlcpy(up->pass, "!argon2id-in-sqlite!", sizeof(up->pass));
+         else
+            strlcpy(up->pass, pass, sizeof(up->pass));
       }
 
       if (email) {
@@ -564,6 +569,59 @@ int db_get_users(sqlite3 *db) {
    Log(LOG_INFO, "db", "Loaded %d users from database", user_count);
 
    return user_count;
+}
+
+/* Verify the full encoded hash in SQLite, never the legacy 40-byte in-memory
+ * account field. For a proven legacy login, atomically replace SHA-1 with a
+ * new salted Argon2id verifier. No SHA-1 wire response is accepted. */
+bool db_user_password_authenticate(sqlite3 *db, const char *username,
+   const char *password, bool *upgraded) {
+   if (upgraded) *upgraded = false;
+   if (!db || !username || !*username || !password || strlen(password) > 256)
+      return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db, "SELECT password, password_change_required, password_expires "
+      "FROM users WHERE name=?1 AND enabled=1", -1, &stmt, NULL) != SQLITE_OK)
+      return false;
+   bool valid = false, legacy = false, required = false;
+   time_t expires = 0;
+   if (sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+       sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *stored = (const char *)sqlite3_column_text(stmt, 0);
+      required = sqlite3_column_int(stmt, 1) != 0;
+      expires = (time_t) sqlite3_column_int64(stmt, 2);
+      if (stored && auth_password_is_argon2id(stored)) {
+         valid = auth_password_verify_argon2id(stored, password);
+      } else if (stored && strlen(stored) == 40 &&
+          strspn(stored, "0123456789abcdefABCDEF") == 40) {
+         char *digest = hash_passwd(password);
+         if (digest) {
+            unsigned delta = 0;
+            for (size_t i = 0; i < 40; ++i)
+               delta |= (unsigned char)digest[i] ^ (unsigned char)stored[i];
+            valid = delta == 0;
+            explicit_bzero(digest, strlen(digest));
+            free(digest);
+            legacy = valid;
+         }
+      }
+   }
+   sqlite3_finalize(stmt);
+   if (legacy) {
+      char *encoded = auth_password_hash_argon2id(password);
+      /* Legacy passwords may have been weak. Except for the explicitly
+       * shared guest account, force selection of a new permanent password. */
+      bool force_change = required || strcasecmp(username, "guest") != 0;
+      bool saved = encoded && db_user_update_password(db, username, encoded, force_change, expires);
+      if (encoded) {
+         explicit_bzero(encoded, strlen(encoded));
+         free(encoded);
+      }
+      if (!saved || db_get_users(db) < 0)
+         return false;
+      if (upgraded) *upgraded = true;
+   }
+   return valid;
 }
 
 #endif /* USE_SQLITE */
