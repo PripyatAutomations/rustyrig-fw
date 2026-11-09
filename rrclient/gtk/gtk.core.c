@@ -960,12 +960,11 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    bool approved = response == GTK_RESPONSE_OK &&
       !strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "YES");
    gtk_widget_destroy(dialog);
-   if (approved) {
-      event_emit_message(&(rr_event_message_t) {
-         .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
-         .payload = &request, .length = sizeof(request)
-      });
-   }
+   request.approved = approved;
+   event_emit_message(&(rr_event_message_t) {
+      .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
+      .payload = &request, .length = sizeof(request)
+   });
 }
 static void frontend_gtk_server_picker_show_event(const rr_event_message_t *message, void *unused) {
    (void)message;
