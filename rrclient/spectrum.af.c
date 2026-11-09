@@ -15,6 +15,7 @@ typedef struct {
    unsigned head, count;
    float spectrum[RR_AF_BINS];
    bool ready;
+   gint64 last_pcm_us;
 } af_stream_t;
 
 static GMutex af_lock;
@@ -206,7 +207,7 @@ void rr_af_spectrum_push(const char *name, const int16_t *pcm, size_t frames) {
          stream->count++;
       }
    }
-
+   stream->last_pcm_us = g_get_monotonic_time();
    g_mutex_unlock(&af_lock);
 }
 
@@ -216,7 +217,8 @@ bool rr_af_spectrum_read(const char *name, float bins[RR_AF_BINS]) {
    }
    g_mutex_lock(&af_lock);
    af_stream_t *stream = af_streams ? g_hash_table_lookup(af_streams, name) : NULL;
-   bool ready = stream && stream->ready;
+   bool ready = stream && stream->ready &&
+      g_get_monotonic_time() - stream->last_pcm_us <= G_USEC_PER_SEC;
 
    if (ready) {
       memcpy(bins, stream->spectrum, sizeof(stream->spectrum));
