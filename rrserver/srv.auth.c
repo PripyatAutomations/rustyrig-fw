@@ -220,6 +220,17 @@ static bool auth_tls_connection(const rrconn_t *client) {
    return false;
 }
 
+static void auth_password_change_reply(rrconn_t *client, bool success, const char *reason) {
+   dict *reply = dict_new();
+   if (!reply) return;
+   dict_add(reply, "msg.type", "auth");
+   dict_add(reply, "auth.cmd", success ? "password-changed" : "password-change-failed");
+   if (client && client->user) dict_add(reply, "auth.user", client->user->name);
+   if (reason) dict_add(reply, "auth.reason", reason);
+   if (client) ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   dict_free(reply);
+}
+
 bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
    bool rv = true;
 
@@ -350,7 +361,7 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
           !token || strcmp(token, cptr->token) || !user ||
           strcasecmp(user, cptr->user->name) || !replacement ||
           strlen(replacement) < 8 || strlen(replacement) > 256) {
-         ws_send_error(cptr, "Password change requires an authenticated TLS session and 8-256 character password");
+         auth_password_change_reply(cptr, false, "A verified TLS session and 8-256 character password are required");
          return false;
       }
       char *encoded = auth_password_hash_argon2id(replacement);
@@ -361,18 +372,10 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
          free(encoded);
       }
       if (!changed || db_get_users(masterdb) < 0) {
-         ws_send_error(cptr, "Unable to persist password change");
+         auth_password_change_reply(cptr, false, "Unable to persist password change");
          return false;
       }
-      dict *reply = dict_new();
-      if (reply) {
-         dict_add(reply, "msg.type", "auth");
-         dict_add(reply, "auth.cmd", "password-changed");
-         dict_add(reply, "auth.user", cptr->user->name);
-         dict_add(reply, "auth.token", cptr->token);
-         ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
-         dict_free(reply);
-      }
+      auth_password_change_reply(cptr, true, NULL);
       Log(LOG_AUDIT, "auth", "Self-service password changed for %s", cptr->user->name);
    } else if (strcasecmp(cmd, "logout") == 0 || strcasecmp(cmd, "quit") == 0) {
       Log(LOG_DEBUG, "auth", "Logout request from %s cptr:<%p>", (cptr && cptr->chatname[0] != '\0' ? cptr->chatname : ""), cptr);
