@@ -357,6 +357,64 @@ char *rrclient_database_dump_sql(size_t *length) {
    return g_string_free(out, FALSE);
 }
 
+/* SQL imports are executed only against a disposable in-memory database.
+ * Deny filesystem access and potentially dangerous SQL extensions. */
+static int backup_sql_authorizer(void *user, int op, const char *a,
+                                const char *b, const char *db, const char *trigger) {
+   (void)user; (void)a; (void)b; (void)db; (void)trigger;
+   switch (op) {
+   case SQLITE_CREATE_TABLE: case SQLITE_CREATE_INDEX:
+   case SQLITE_CREATE_VIEW: case SQLITE_CREATE_TRIGGER:
+   case SQLITE_INSERT: case SQLITE_SELECT: case SQLITE_READ:
+   case SQLITE_TRANSACTION: case SQLITE_FUNCTION:
+      return SQLITE_OK;
+   default:
+      return SQLITE_DENY;
+   }
+}
+bool rrclient_database_restore_sql(const char *sql, size_t length) {
+   if (!client_db || !sql || length > 256u * 1024u * 1024u ||
+       memchr(sql, 0, length) || strlen(sql) != length) return false;
+   sqlite3 *incoming = NULL;
+   if (sqlite3_open(":memory:", &incoming) != SQLITE_OK) {
+      if (incoming) sqlite3_close(incoming);
+      return false;
+   }
+   sqlite3_db_config(incoming, SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION, 0, NULL);
+   sqlite3_set_authorizer(incoming, backup_sql_authorizer, NULL);
+   bool ok = sqlite3_exec(incoming, sql, NULL, NULL, NULL) == SQLITE_OK;
+   sqlite3_set_authorizer(incoming, NULL, NULL);
+   sqlite3_stmt *integrity = NULL;
+   if (ok) {
+      ok = sqlite3_prepare_v2(incoming, "PRAGMA integrity_check", -1, &integrity, NULL) == SQLITE_OK &&
+         sqlite3_step(integrity) == SQLITE_ROW &&
+         !strcmp((const char *)sqlite3_column_text(integrity, 0), "ok");
+   }
+   sqlite3_finalize(integrity);
+   if (ok) {
+      /* A backup must include the recognized client schema. */
+      sqlite3_stmt *check = NULL;
+      ok = sqlite3_prepare_v2(incoming,
+         "SELECT count(*) FROM sqlite_master WHERE type='table' AND "
+         "name IN ('servers','client_settings','config_overrides')",
+         -1, &check, NULL) == SQLITE_OK &&
+         sqlite3_step(check) == SQLITE_ROW &&
+         sqlite3_column_int(check, 0) == 3;
+      sqlite3_finalize(check);
+   }
+   if (ok) {
+      sqlite3_backup *restore = sqlite3_backup_init(client_db, "main", incoming, "main");
+      ok = restore != NULL;
+      if (restore) {
+         int step = sqlite3_backup_step(restore, -1);
+         int done = sqlite3_backup_finish(restore);
+         ok = step == SQLITE_DONE && done == SQLITE_OK;
+      }
+   }
+   sqlite3_close(incoming);
+   return ok;
+}
+
 void rrclient_database_shutdown(void) {
    if (client_db) {
       sqlite3_close(client_db);
