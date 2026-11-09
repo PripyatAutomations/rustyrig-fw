@@ -13,6 +13,8 @@ char *rrclient_database_dump_sql(size_t *length);
 /* Validate SQL in a separate in-memory database, then replace the live DB.
  * Caller must arrange an application restart immediately after success. */
 bool rrclient_database_restore_sql(const char *sql, size_t length);
+/* True after import: current in-memory settings must not write over restored DB. */
+bool rrclient_database_restart_required(void);
 /* Destructive standalone CLI maintenance; returns EXIT_SUCCESS/EXIT_FAILURE. */
 int rrclient_database_reset(void);
 void rrclient_database_shutdown(void);
