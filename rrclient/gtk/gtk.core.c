@@ -1134,7 +1134,7 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
    gtk_box_pack_start(GTK_BOX(area), hint, FALSE, FALSE, 8);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_text(GTK_ENTRY(entry), token);
-   gtk_entry_set_editable(GTK_ENTRY(entry), FALSE);
+   gtk_editable_set_editable(GTK_EDITABLE(entry), FALSE);
    gtk_widget_set_hexpand(entry, TRUE);
    gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 6);
    GtkWidget *copy = gtk_button_new_with_label("Copy invitation");
