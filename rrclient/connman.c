@@ -315,8 +315,13 @@ rrconn_t *rrclient_connection_find(const char *name) {
 
 int rrclient_connection_state(const char *name) {
    client_server_t *s = find_server(name);
+   if (!s) return 0;
 
-   return s ? (s == context ? ws_connected : s->connected) : 0;
+   /* The picker must treat a scheduled retry as an in-progress connection,
+    * even after CLOSE has set connected/ws_connected to zero. A second click
+    * then invokes disconnect_server(), cancelling the backoff timer. */
+   if (s->reconnect_pending && s->reconnect_enabled) return -1;
+   return s == context ? ws_connected : s->connected;
 }
 
 const char *rrclient_connection_iter(unsigned index) {
@@ -1996,12 +2001,13 @@ bool connect_or_disconnect(const char *name) {
    client_server_t *s = find_server(name);
 #ifdef USE_MONGOOSE
 
-   if (s && s->connection && s->connection->conn && !s->connection->conn->is_closing) {
+   if (s && ((s->connection && s->connection->conn && !s->connection->conn->is_closing) ||
+       (s->reconnect_pending && s->reconnect_enabled))) {
       return disconnect_server(name);
    }
 #else
 
-   if (s && s->native) {
+   if (s && (s->native || (s->reconnect_pending && s->reconnect_enabled))) {
       return disconnect_server(name);
    }
 #endif
