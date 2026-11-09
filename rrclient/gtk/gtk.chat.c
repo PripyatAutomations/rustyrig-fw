@@ -158,6 +158,7 @@ static GtkWidget *room_vfo_box;
 static GtkWidget *room_rf_strip;
 static RRFloatPanel *room_vfo_panel;
 static RRFloatPanel *room_rf_panel;
+static RRFloatPanel *room_af_panel;
 static void room_rf_panel_refresh(void);
 /* Default follows rig tabs; an explicit title-menu selection always wins. */
 static gboolean room_vfo_follow_chat = TRUE;
@@ -1520,6 +1521,29 @@ static gboolean room_vfo_title_tick(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
+/* AF is a single, graph-wide floating tool, not one copy per chat tab.
+ * The widget owns its listener and GTK event tokens for its lifetime. */
+static void room_af_panel_show(void) {
+   if (!room_af_panel) {
+      GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
+      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+      room_af_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
+         "af-spectrum", "AF Spectrum");
+      if (!room_af_panel) return;
+      rr_floating_panel_set_closable(room_af_panel, FALSE);
+      rr_floating_panel_set_minimizable(room_af_panel, TRUE);
+      rr_floating_panel_set_resizable(room_af_panel, TRUE);
+      GtkWidget *view = rr_gtk_spectrum_panel_new("", "");
+      gtk_widget_set_size_request(view, 460, 220);
+      gtk_widget_set_hexpand(view, TRUE);
+      gtk_widget_set_vexpand(view, TRUE);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_af_panel)), view, TRUE, TRUE, 0);
+   }
+   if (!rr_floating_panel_is_minimized(room_af_panel) &&
+       !gtk_widget_get_visible(rr_floating_panel_widget(room_af_panel)))
+      rr_floating_panel_show(room_af_panel);
+}
+
 /* Spectrum sources own this panel, independently of chat/VFO tabs. The local bridge is currently the only producer publishing RF rows. */
 static void room_rf_panel_refresh(void) {
    rr_local_bridge_ui_state_t state = {
@@ -1773,9 +1797,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    (void)is_rig;                /* Historical hint is not room-type authority. */
 
    if (!is_query && gtk_chat_room_has_waterfall(room)) {
-      GtkWidget *spectrum = rr_gtk_spectrum_panel_new(!g_ascii_strcasecmp(room, "&local-sdr") ? "Local" : gtk_chat_profile(), room);
-      gtk_box_pack_start(GTK_BOX(chat_box), spectrum, FALSE, TRUE, 2);
-      gtk_widget_show_all(spectrum);
+      room_af_panel_show();
    }
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
