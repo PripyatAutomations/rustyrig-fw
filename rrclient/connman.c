@@ -877,6 +877,25 @@ static void password_change_required(const char *event, const char *data, rrconn
       .payload = &request, .length = sizeof(request)
    });
 }
+static void password_change_retry(const rr_event_message_t *msg, void *ignored) {
+   (void)ignored;
+   if (!msg || !msg->payload || msg->length != sizeof(rrclient_password_change_t)) return;
+   rrclient_password_change_t request;
+   memcpy(&request, msg->payload, sizeof(request));
+   if (!memchr(request.profile, 0, sizeof(request.profile))) return;
+   client_server_t *s = find_server(request.profile);
+   if (!s || !s->connection || !s->connection->authenticated ||
+       !s->connection->is_ws || s->pending_password_change) return;
+   rrclient_password_change_t prompt = {0};
+   g_strlcpy(prompt.profile, s->name, sizeof(prompt.profile));
+   if (s->connection->server)
+      g_strlcpy(prompt.username, s->connection->server->nick, sizeof(prompt.username));
+   s->password_prompt_open = true;
+   event_emit_message(&(rr_event_message_t) {
+      .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core",
+      .payload = &prompt, .length = sizeof(prompt)
+   });
+}
 static void password_change_submit(const rr_event_message_t *msg, void *ignored) {
    (void)ignored;
    if (!msg || !msg->payload || msg->length != sizeof(rrclient_password_change_t)) return;
@@ -961,6 +980,7 @@ static void password_change_response(const char *event, const char *data, rrconn
 #endif
    } else {
       password_secret_clear(s);
+      s->password_prompt_open = false;
       password_change_result(s, false, reason ? reason : "Server rejected the new password.");
    }
    if (response) dict_free(response);
@@ -968,6 +988,7 @@ static void password_change_response(const char *event, const char *data, rrconn
 void connman_register_events(void) {
    event_on_message_domain_token(RRCLIENT_TLS_PIN_REPLY_EVENT, tls_pin_reply_event, NULL, "core");
    event_on_message_domain_token(RRCLIENT_PASSWORD_SUBMIT_EVENT, password_change_submit, NULL, "core");
+   event_on_message_domain_token(RRCLIENT_PASSWORD_RETRY_EVENT, password_change_retry, NULL, "core");
    event_on("client.password-change.required", password_change_required, NULL);
    event_on("client.password-change.accepted", password_change_response, NULL);
    event_on("client.password-change.failed", password_change_response, NULL);
