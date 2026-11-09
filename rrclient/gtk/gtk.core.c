@@ -974,6 +974,9 @@ static void frontend_gtk_password_prompt_event(const rr_event_message_t *message
          break;
       }
    }
+   /* Reduce the lifetime of plaintext in GTK entry buffers. */
+   gtk_entry_set_text(GTK_ENTRY(first), "");
+   gtk_entry_set_text(GTK_ENTRY(second), "");
    gtk_widget_destroy(dialog);
    event_emit_message(&(rr_event_message_t) {
       .name = RRCLIENT_PASSWORD_SUBMIT_EVENT, .sender = "gtk",
