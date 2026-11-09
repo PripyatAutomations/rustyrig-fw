@@ -1478,8 +1478,6 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          dict_free(row);
       }
 
-#ifdef USE_MONGOOSE
-
       for (struct directory *entry = rr_relay_directories ; entry ; entry = entry->next) {
          const char *host = entry->node;
 
@@ -1521,7 +1519,6 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          }
       }
 
-#endif
       /* The directory snapshot also advertises reusable privilege names, never permission decisions. The owning server still authorizes. */
 #ifdef USE_SQLITE
 
