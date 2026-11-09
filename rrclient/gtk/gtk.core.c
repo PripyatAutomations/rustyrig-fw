@@ -24,6 +24,7 @@
 #include <librrprotocol/crypto.h>
 #include <rrclient/identity.store.h>
 #include <rrclient/tls.pin.h>
+#include <rrclient/password.change.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -924,6 +925,82 @@ static void frontend_gtk_authoritative_room_event(const rr_event_message_t *mess
    gtk_chat_set_authoritative_room(room);
 }
 
+/* Password change is requested only after the server authenticates us and
+ * explicitly marks the current credentials as requiring rotation. */
+static void frontend_gtk_password_prompt_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message || !message->payload ||
+       message->length != sizeof(rrclient_password_change_t)) return;
+   rrclient_password_change_t req;
+   memcpy(&req, message->payload, sizeof(req));
+   if (!memchr(req.profile, 0, sizeof(req.profile)) ||
+       !memchr(req.username, 0, sizeof(req.username))) return;
+   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Password change required", parent,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Change Password", GTK_RESPONSE_OK, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *label = gtk_label_new("The server requires a new password before you can use this station.\n"
+      "Enter a new password (8-256 characters) for this account:");
+   gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
+   gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 8);
+   GtkWidget *first = gtk_entry_new();
+   GtkWidget *second = gtk_entry_new();
+   gtk_entry_set_visibility(GTK_ENTRY(first), FALSE);
+   gtk_entry_set_visibility(GTK_ENTRY(second), FALSE);
+   gtk_entry_set_max_length(GTK_ENTRY(first), 256);
+   gtk_entry_set_max_length(GTK_ENTRY(second), 256);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(first), "New password");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(second), "Confirm new password");
+   gtk_box_pack_start(GTK_BOX(area), first, FALSE, FALSE, 4);
+   gtk_box_pack_start(GTK_BOX(area), second, FALSE, FALSE, 4);
+   GtkWidget *error = gtk_label_new("");
+   gtk_box_pack_start(GTK_BOX(area), error, FALSE, FALSE, 4);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+   gtk_widget_show_all(dialog);
+   gtk_widget_grab_focus(first);
+   for (;;) {
+      int response = gtk_dialog_run(GTK_DIALOG(dialog));
+      if (response != GTK_RESPONSE_OK) break;
+      const char *p = gtk_entry_get_text(GTK_ENTRY(first));
+      const char *again = gtk_entry_get_text(GTK_ENTRY(second));
+      size_t length = strlen(p);
+      if (length < 8 || length > 256) {
+         gtk_label_set_text(GTK_LABEL(error), "Password must be 8-256 characters.");
+      } else if (strcmp(p, again)) {
+         gtk_label_set_text(GTK_LABEL(error), "Passwords do not match.");
+      } else {
+         g_strlcpy(req.password, p, sizeof(req.password));
+         break;
+      }
+   }
+   gtk_widget_destroy(dialog);
+   event_emit_message(&(rr_event_message_t) {
+      .name = RRCLIENT_PASSWORD_SUBMIT_EVENT, .sender = "gtk",
+      .payload = &req, .length = sizeof(req)
+   });
+   explicit_bzero(&req, sizeof(req));
+}
+static void frontend_gtk_password_result_event(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (dying || !message || !message->payload ||
+       message->length != sizeof(rrclient_password_change_t)) return;
+   rrclient_password_change_t result;
+   memcpy(&result, message->payload, sizeof(result));
+   if (!memchr(result.profile, 0, sizeof(result.profile)) ||
+       !memchr(result.reason, 0, sizeof(result.reason))) return;
+   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
+   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_DESTROY_WITH_PARENT,
+      result.success ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+      result.success ? "Password updated for %s" : "Password change failed for %s", result.profile);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "%s", result.success ? "The server confirmed the new password. It was saved in your server profile and RustyRig is reconnecting."
+      : (result.reason[0] ? result.reason : "Please try again."));
+   g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+   gtk_widget_show(dialog);
+   explicit_bzero(&result, sizeof(result));
+}
+
 /* Auth errors belong to the GTK thread; never open a dialog from the
  * network/core worker.  A plain status line isn't sufficient when the
  * connection dialog has already gone away. */
@@ -1166,6 +1243,12 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    } else {
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to authoritative room events");
    }
+   rr_event_token_t password_prompt_event = event_on_message_domain_token(RRCLIENT_PASSWORD_PROMPT_EVENT,
+      frontend_gtk_password_prompt_event, NULL, "gtk");
+   if (password_prompt_event) rr_module_token_add(password_prompt_event);
+   rr_event_token_t password_result_event = event_on_message_domain_token(RRCLIENT_PASSWORD_RESULT_EVENT,
+      frontend_gtk_password_result_event, NULL, "gtk");
+   if (password_result_event) rr_module_token_add(password_result_event);
    rr_event_token_t auth_failure_event = event_on_message_domain_token(RRCLIENT_AUTH_FAILURE_ALERT_EVENT,
       frontend_gtk_auth_failure_event, NULL, "gtk");
    if (auth_failure_event) rr_module_token_add(auth_failure_event);
