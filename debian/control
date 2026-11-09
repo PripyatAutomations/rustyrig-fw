@@ -8,7 +8,7 @@ Build-Depends:
  jq,
  pkg-config,
  libbsd-dev,
- librustyaxe-dev (>= 0.1.0-5),
+ librustyaxe-dev (>= 0.1.0-6),
  librrprotocol-dev (>= 0.1.0-6),
  librustyirc-dev,
  libcurl4-openssl-dev,
@@ -47,7 +47,7 @@ Description: Common RustyRig administration helpers
 
 Package: rustyrig-rrbridge
 Architecture: any
-Depends: librustyaxe0 (>= 0.1.0-3), ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyaxe0 (>= 0.1.0-6), ${shlibs:Depends}, ${misc:Depends}
 # Bridge host and Kiwi module previously belonged to rustyrig-server and rustyrig-bridge.
 Breaks: rustyrig-bridge (<< 1.0.3~)
 Replaces: rustyrig-bridge (<< 1.0.3~), rustyrig-server (<< 1.0.3~)
@@ -68,7 +68,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0 (>= 0.1.0-6), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0 (>= 0.1.0-5), ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0 (>= 0.1.0-6), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0 (>= 0.1.0-6), ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3)
 Suggests: rrclient-screensaver
 Description: RustyRig client
