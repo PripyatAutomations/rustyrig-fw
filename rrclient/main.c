@@ -2149,12 +2149,13 @@ bool rrclient_cleanup(void) {
 }
 
 void show_arg_help(int argc, char **argv) {
-   printf("%s [-T] [-f config] [-s server] [-S] [--ignore-db-config] [-h]\n", argv[0]);
+   printf("%s [-T] [-f config] [-s server] [-S] [--ignore-db-config] [--reset-db] [-h]\n", argv[0]);
    printf("\t-S\t\tssh mode (implies -T; throttle screen updates)\n");
    printf("\t-T\t\tTUI only mode (no X11)\n");
    printf("\t-f config\tChose an alternative configuration file\n");
    printf("\t-s server\tServer profile to autoconnect to on start\n");
    printf("\t--ignore-db-config\tSkip saved configuration overrides (still load profiles and themes)\n");
+   printf("\t--reset-db\tReset client SQLite database (interactive confirmation) and exit\n");
    printf("\t-h\t\tHelp\n");
 }
 
@@ -2201,6 +2202,7 @@ static gpointer rr_gtk_frontend_thread(gpointer data) {
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
    char *autoconnect_server = NULL; // -s: server profile to connect to on start
+   bool reset_db = false;
 
    // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
    // from the user's config fall back to them.
@@ -2258,6 +2260,9 @@ int main(int argc, char *argv[]) {
             "ignore-db-config", no_argument, 0, 1000
          },
          {
+            "reset-db", no_argument, 0, 1001
+         },
+         {
             "help", no_argument, 0, 'h'
          },
          {
@@ -2272,6 +2277,10 @@ int main(int argc, char *argv[]) {
       }
 
       switch (c) {
+         case 1001: {
+            reset_db = true;
+            break;
+         }
          case 1000: {
             rrclient_config_set_ignore_db(true);
             break;
@@ -2324,6 +2333,8 @@ int main(int argc, char *argv[]) {
       }
       printf("\n");
    }
+   /* Maintenance exits without config, UI, transport or database startup. */
+   if (reset_db) return rrclient_database_reset();
    event_init();
    host_init();
 
