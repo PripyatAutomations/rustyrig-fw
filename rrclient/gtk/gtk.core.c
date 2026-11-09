@@ -44,6 +44,7 @@
 #include <rrclient/gtk/gtk.connecting.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.connect-button.h>
+#include <rrclient/gtk/gtk.serverpick.h>
 #include <rrclient/gtk/gtk.vol-box.h>
 #include <rrclient/gtk/gtk.audio-routing.h>
 #include <rrclient/gtk/gtk.receiver-directory.h>
@@ -1020,6 +1021,15 @@ static void frontend_gtk_password_result_event(const rr_event_message_t *message
 /* Auth errors belong to the GTK thread; never open a dialog from the
  * network/core worker.  A plain status line isn't sufficient when the
  * connection dialog has already gone away. */
+static void frontend_gtk_auth_failure_response(GtkDialog *dialog, gint response, gpointer unused) {
+   (void)unused;
+   char *profile = g_strdup(g_object_get_data(G_OBJECT(dialog), "rr-auth-failure-profile"));
+   gtk_widget_destroy(GTK_WIDGET(dialog));
+   if (response == 1 && profile && *profile) {
+      gtk_show_server_editor(profile);
+   }
+   g_free(profile);
+}
 static void frontend_gtk_auth_failure_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (dying || !message || !message->payload ||
@@ -1030,13 +1040,18 @@ static void frontend_gtk_auth_failure_event(const rr_event_message_t *message, v
        !memchr(alert.reason, 0, sizeof(alert.reason))) return;
    GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
    GtkWidget *dialog = gtk_message_dialog_new(parent,
-      GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+      GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_NONE,
       "Authentication failed for %s", alert.profile);
+   gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
+   gtk_dialog_add_button(GTK_DIALOG(dialog), "_Edit Server", 1);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+   g_object_set_data_full(G_OBJECT(dialog), "rr-auth-failure-profile",
+      g_strdup(alert.profile), g_free);
    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
       "%s\n\nAutomatic reconnection has been stopped. "
       "Check the username and password in Edit Server, then connect manually.",
       alert.reason);
-   g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+   g_signal_connect(dialog, "response", G_CALLBACK(frontend_gtk_auth_failure_response), NULL);
    gtk_widget_show(dialog);
 }
 
