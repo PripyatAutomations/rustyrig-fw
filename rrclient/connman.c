@@ -1695,6 +1695,8 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" :
       "", endpoint.port, !strcmp(endpoint.path, "/") ? "/ws" : endpoint.path);
    native->transport = rr_transport_wss_connect_secure(connect_url, &opts, native_event, native);
+   /* A temporary approval authorizes this single connection attempt only. */
+   s->temporary_tls_pin[0] = '\0';
 
    if (!native->transport) {
       ui_print(NULL, "Unable to initialize native WebSocket connection for %s", s->name);
