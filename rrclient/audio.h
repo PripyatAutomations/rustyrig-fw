@@ -71,11 +71,16 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity);
 typedef struct {
    guint64 request_id;
    char server[512], room[128];
+   /* M = heard mix, L/R = heard ear, A = combined stereo, S = explicit decoder stream. */
+   char source;
+   char stream[64];
 } rrclient_af_spectrum_request_t;
 typedef struct {
    guint64 request_id;
    bool ready;
-   float bins[RR_AF_BINS];      /* fixed-size event payload */
+   bool stereo;
+   float bins[RR_AF_BINS];
+   float left[RR_AF_BINS], right[RR_AF_BINS]; /* final mixer channels, for stereo overlay */
 } rrclient_af_spectrum_result_t;
 #define RRCLIENT_AUDIO_SNAPSHOT_REQUEST "client.audio.snapshot.request"
 #define RRCLIENT_AUDIO_SNAPSHOT_RESULT "client.audio.snapshot.result"
