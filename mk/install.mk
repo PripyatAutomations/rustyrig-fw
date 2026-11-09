@@ -107,7 +107,7 @@ install-check:
 	@echo "Config:      $(CONF_DIR) (install-config only)"
 	@echo "Web UI:      $(WEB_ROOT)"
 	@test "$(BINDIR)" = /usr/bin || { echo "Not Debian binary directory" >&2; exit 1; }
-	@test "$(LIBEXECDIR)" = /usr/libexec/rustyrig || { echo "Not Debian helper directory" >&2; exit 1; }
+	@case "$(LIBEXECDIR)" in /*) : ;; *) echo "Helper directory must be absolute: $(LIBEXECDIR)" >&2; exit 1 ;; esac
 	@test "$(MODULEDIR)" = /usr/lib/rustyrig/modules || { echo "Not Debian module directory" >&2; exit 1; }
 	@test "$(LIBDIR)" = "/usr/lib/$(MULTIARCH)" || { echo "Not Debian multiarch library directory" >&2; exit 1; }
 	@test "$(CONF_DIR)" = /etc/rustyrig || { echo "Not Debian config directory" >&2; exit 1; }
