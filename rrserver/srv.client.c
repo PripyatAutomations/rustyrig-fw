@@ -149,10 +149,8 @@ void http_dump_clients(void) {
    int i = 0;
 
    while (cptr) {
-#if     defined(USE_MONGOOSE)
-      Log(LOG_DEBUG, "http", " => %d at <%p> %sactive %swebsocket, conn: <%p>, next: <%p> ", i, cptr, (cptr->active ? "" : "in"), (cptr->is_ws ? "" : "NOT "),
-         cptr->conn, cptr->next);
-#endif // defined(USE_MONGOOSE)
+      Log(LOG_DEBUG, "http", " => %d at <%p> %sactive %swebsocket, transport: <%p>, next: <%p>", i, cptr,
+         cptr->active ? "" : "in", cptr->is_ws ? "" : "NOT ", (void *)cptr->native_transport, (void *)cptr->next);
       i++;
       cptr = cptr->next;
    }
