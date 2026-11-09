@@ -18,16 +18,22 @@
 #define HISTORY 48
 typedef struct {
    char *server, *room;
-   GtkWidget *drawing, *mode, *palette, *enabled, *gain;
+   GtkWidget *drawing, *mode, *palette, *enabled, *gain, *source;
    unsigned zoom;
    float rows[HISTORY][RR_AF_BINS];
    float current[RR_AF_BINS];
+   float left[HISTORY][RR_AF_BINS], right[HISTORY][RR_AF_BINS];
+   float current_left[RR_AF_BINS], current_right[RR_AF_BINS];
+   bool stereo;
    unsigned head, count;
    guint timer;
    bool listening, af_pending;
    gint64 af_requested_at;
    guint64 af_request_id;
-   rr_event_token_t af_result_token;
+   rr_event_token_t af_result_token, streams_token;
+   char source_id[64];
+   char source_mode;
+   gint64 streams_requested_at;
    double display_gain_db;
 } spectrum_panel_t;
 static double level(float db, double gain_db) {
@@ -483,8 +489,13 @@ static void af_result_event(const rr_event_message_t *message, void *data) {
    if (!p->listening || !result->ready) {
       return;
    }
+   p->stereo = result->stereo;
    memcpy(p->current, result->bins, sizeof(p->current));
+   memcpy(p->current_left, result->left, sizeof(p->current_left));
+   memcpy(p->current_right, result->right, sizeof(p->current_right));
    memcpy(p->rows[p->head], p->current, sizeof(p->current));
+   memcpy(p->left[p->head], p->current_left, sizeof(p->current_left));
+   memcpy(p->right[p->head], p->current_right, sizeof(p->current_right));
    p->head = (p->head + 1) % HISTORY;
    p->count = MIN(p->count + 1, HISTORY);
    gtk_widget_queue_draw(p->drawing);
@@ -501,13 +512,20 @@ static gboolean update(gpointer data) {
    if (!visible) {
       return G_SOURCE_CONTINUE;
    }
-   /* Only a copied request crosses to the core. Bound outstanding requests if the core stalls so GTK cannot build an unbounded event backlog. */
+   /* Refresh the stream chooser periodically; no GTK access to core routes. */
    gint64 now = g_get_monotonic_time();
+   if (!p->streams_requested_at || now - p->streams_requested_at > 5000000) {
+      rr_event_message_t snapshot = { .name = RRCLIENT_AUDIO_SNAPSHOT_REQUEST };
+      event_emit_message(&snapshot);
+      p->streams_requested_at = now;
+   }
+   /* Only a copied request crosses to the core. Bound outstanding requests if the core stalls so GTK cannot build an unbounded event backlog. */
 
    if (!p->af_pending || now - p->af_requested_at > G_USEC_PER_SEC) {
       rrclient_af_spectrum_request_t req = {
-         .request_id = ++af_next_request_id
+         .request_id = ++af_next_request_id, .source = p->source_mode
       };
+      g_strlcpy(req.stream, p->source_id, sizeof(req.stream));
       g_strlcpy(req.server, p->server, sizeof(req.server));
       g_strlcpy(req.room, p->room, sizeof(req.room));
       p->af_request_id = req.request_id;
@@ -528,6 +546,7 @@ static void destroy_panel(gpointer data) {
    if (p->af_result_token) {
       event_off_token(p->af_result_token);
    }
+   if (p->streams_token) event_off_token(p->streams_token);
 
    if (p->listening) {
       rr_af_spectrum_listen(false);
@@ -599,6 +618,50 @@ static void enable_changed(GtkToggleButton *button, gpointer data) {
    gtk_widget_queue_draw(p->drawing);
 }
 
+static void source_changed(GtkComboBox *combo, gpointer data) {
+   spectrum_panel_t *p = data;
+   const char *id = gtk_combo_box_get_active_id(combo);
+   if (!id) return;
+   p->source_mode = !strcmp(id, "stereo") ? 'A' : !strcmp(id, "mixed") ? 'M' :
+      !strcmp(id, "left") ? 'L' : !strcmp(id, "right") ? 'R' : 'S';
+   p->source_id[0] = 0;
+   if (p->source_mode == 'S') g_strlcpy(p->source_id, id, sizeof(p->source_id));
+   p->head = p->count = 0;
+   p->af_pending = false;
+   gtk_widget_queue_draw(p->drawing);
+}
+/* Source names come from the core-owned audio graph snapshot, never from
+ * GTK walking decoder/route lists. This same snapshot drives Audio Graph. */
+static void source_snapshot(const rr_event_message_t *message, void *user) {
+   spectrum_panel_t *p = user;
+   if (!message || !message->payload || message->length < sizeof(rr_audio_stream_snapshot_t)) return;
+   const rr_audio_stream_snapshot_t *snapshot = message->payload;
+   if (snapshot->count > 128 ||
+       (size_t)snapshot->count > (message->length - sizeof(*snapshot)) / sizeof(snapshot->streams[0])) return;
+   const char *prior = gtk_combo_box_get_active_id(GTK_COMBO_BOX(p->source));
+   char saved[64] = "";
+   if (prior) g_strlcpy(saved, prior, sizeof(saved));
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(p->source));
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "mixed", "Mixed (heard)");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "left", "Left (heard)");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "right", "Right (heard)");
+   bool present = false;
+   for (uint32_t i = 0 ; i < snapshot->count ; i++) {
+      const struct rrclient_rx_stream *stream = &snapshot->streams[i];
+      if (!memchr(stream->id, 0, sizeof(stream->id))) continue;
+      if (!strcmp(stream->id, "left") || !strcmp(stream->id, "right") ||
+          !strcmp(stream->id, "mixed") || !strcmp(stream->id, "stereo")) continue;
+      char label[256];
+      g_snprintf(label, sizeof(label), "%s / %s (%c)", stream->server, stream->room,
+         stream->output ? stream->output : 'S');
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), stream->id, label);
+      if (!strcmp(saved, stream->id)) present = true;
+   }
+   if (!strcmp(saved, "stereo") || !strcmp(saved, "mixed") ||
+       !strcmp(saved, "left") || !strcmp(saved, "right")) present = true;
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), present ? saved : "stereo");
+}
 static void gain_changed(GtkRange *range, gpointer data) {
    spectrum_panel_t *p = data;
    p->display_gain_db = gtk_range_get_value(range);
@@ -627,9 +690,18 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+   p->source_mode = 'A';
+   p->source = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "mixed", "Mixed (heard)");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "left", "Left (heard)");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "right", "Right (heard)");
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), "stereo");
+   gtk_widget_set_tooltip_text(p->source, "Select final speaker channels or an individual graph stream (before routing)");
+   gtk_box_pack_start(GTK_BOX(toolbar), p->source, FALSE, FALSE, 0);
    p->enabled = gtk_check_button_new_with_label("AF waterfall");
    /* Start disabled; enable capture and FFT only while requested. */
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), FALSE);
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
    gtk_widget_set_tooltip_text(p->enabled, "Enable AF spectrum and waterfall analysis for received audio");
    gtk_box_pack_end(GTK_BOX(toolbar), p->enabled, FALSE, FALSE, 3);
    p->mode = gtk_combo_box_text_new();
@@ -670,10 +742,12 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_context_menu), p);
    g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
+   g_signal_connect(p->source, "changed", G_CALLBACK(source_changed), p);
    g_signal_connect(p->palette, "changed", G_CALLBACK(palette_changed), p);
    g_signal_connect(p->enabled, "toggled", G_CALLBACK(enable_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
    p->af_result_token = event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_RESULT, af_result_event, p, "gtk");
+   p->streams_token = event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_RESULT, source_snapshot, p, "gtk");
    p->timer = g_timeout_add(250, update, p);
 
    return box;
