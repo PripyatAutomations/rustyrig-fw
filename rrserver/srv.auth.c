@@ -342,6 +342,38 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
       Log(LOG_CRAZY, "auth", "Sending login challenge to cptr <%p>", cptr);
       ws_send_dict(NULL, cptr, auth_msg, WEBSOCKET_OP_TEXT);
       dict_free(auth_msg);
+   } else if (!strcasecmp(cmd, "change-password")) {
+      /* Self-service password rotation over the existing verified TLS session.
+       * Do not route credentials through chat commands or application logs. */
+      const char *replacement = dict_get(d, "auth.new-password", NULL);
+      if (!cptr->authenticated || !cptr->user || !auth_tls_connection(cptr) ||
+          !token || strcmp(token, cptr->token) || !user ||
+          strcasecmp(user, cptr->user->name) || !replacement ||
+          strlen(replacement) < 8 || strlen(replacement) > 256) {
+         ws_send_error(cptr, "Password change requires an authenticated TLS session and 8-256 character password");
+         return false;
+      }
+      char *encoded = auth_password_hash_argon2id(replacement);
+      bool changed = encoded && masterdb &&
+         db_user_update_password(masterdb, cptr->user->name, encoded, false, 0);
+      if (encoded) {
+         explicit_bzero(encoded, strlen(encoded));
+         free(encoded);
+      }
+      if (!changed || !db_refresh_users(masterdb)) {
+         ws_send_error(cptr, "Unable to persist password change");
+         return false;
+      }
+      dict *reply = dict_new();
+      if (reply) {
+         dict_add(reply, "msg.type", "auth");
+         dict_add(reply, "auth.cmd", "password-changed");
+         dict_add(reply, "auth.user", cptr->user->name);
+         dict_add(reply, "auth.token", cptr->token);
+         ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
+         dict_free(reply);
+      }
+      Log(LOG_AUDIT, "auth", "Self-service password changed for %s", cptr->user->name);
    } else if (strcasecmp(cmd, "logout") == 0 || strcasecmp(cmd, "quit") == 0) {
       Log(LOG_DEBUG, "auth", "Logout request from %s cptr:<%p>", (cptr && cptr->chatname[0] != '\0' ? cptr->chatname : ""), cptr);
       /* PARITY: rrclient/cmd.misc.c cmd_quit and rustyrig-www/js/webui.auth.js logout. */
