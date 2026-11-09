@@ -22,7 +22,7 @@ install-dependency-check:
 # INSTALL_CONFIRM=yes is an explicit opt-in for scripted direct installs.
 install: install-dependency-check
 	@if [ -z "$(strip $(DESTDIR))" ]; then \
-		printf '%s\\n' \
+		printf '%s\n' \
 			'WARNING: make install writes directly into system directories without package ownership tracking.' \
 			'Removing these files later may accidentally delete dpkg-owned files, including /etc/rustyrig conffiles.' \
 			'RECOMMENDED: build/install packages using rrpk or dpkg-buildpackage instead.'; \
