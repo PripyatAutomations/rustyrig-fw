@@ -7,6 +7,7 @@
 #include <math.h>
 #include <string.h>
 #include <rrclient/audio.h>
+#include <rrclient/database.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/rooms.h>
 #include <rrclient/spectrum.af.h>
@@ -18,8 +19,8 @@
 #define HISTORY 48
 typedef struct {
    char *server, *room;
-   GtkWidget *drawing, *mode, *palette, *enabled, *gain, *source;
-   unsigned zoom;
+   GtkWidget *drawing, *mode, *gain, *source, *ear;
+   unsigned zoom, palette_index, style;
    float rows[HISTORY][RR_AF_BINS];
    float current[RR_AF_BINS];
    float left[HISTORY][RR_AF_BINS], right[HISTORY][RR_AF_BINS];
@@ -361,7 +362,7 @@ static GtkWidget *palette_menu_new(void) {
    return menu;
 }
 
-static uint32_t palette_pixel(double v) {
+static uint32_t palette_pixel(double v, unsigned selected_palette) {
    v = CLAMP(v, 0., 1.) * 4.;
    unsigned i = MIN((unsigned)v, 3u);
    double t = v - i;
@@ -382,7 +383,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    }
    cairo_set_source_rgb(cr, 0.05, 0.085, 0.13);
    cairo_paint(cr);
-   int mode = gtk_combo_box_get_active(GTK_COMBO_BOX(p->mode));
+   int mode = (int)p->style;
    bool bars = mode == 3 || mode == 4;
    bool trace = mode == 0 || mode == 1 || bars;
    bool waterfall = mode == 0 || mode == 2 || mode == 4;
@@ -441,7 +442,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
             for (unsigned bin = 0 ; bin < RR_AF_BINS ; bin++) {
                unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + bin / af_zoom;
                double normalized = row ? level(row[MIN(source_bin, RR_AF_BINS - 1)], p->display_gain_db) : 0.0;
-               scanline[bin] = row ? palette_pixel(normalized) : 0xff0d1621u;
+               scanline[bin] = row ? palette_pixel(normalized, p->palette_index) : 0xff0d1621u;
                if (row && p->stereo) {
                   unsigned offset = (p->head + HISTORY - 1 - age) % HISTORY;
                   unsigned idx = MIN(source_bin, RR_AF_BINS - 1);
@@ -535,7 +536,7 @@ static void af_result_event(const rr_event_message_t *message, void *data) {
 }
 static gboolean update(gpointer data) {
    spectrum_panel_t *p = data;
-   bool visible = gtk_widget_get_mapped(p->drawing) && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->enabled));
+   bool visible = gtk_widget_get_mapped(p->drawing);
 
    if (visible != p->listening) {
       rr_af_spectrum_listen(visible);
@@ -611,7 +612,10 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
    spectrum_panel_t *p = data;
    GtkWidget *menu = gtk_menu_new();
    GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
-   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), palette_menu_new());
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), waterfall_palette_menu(p->palette_index, &p->palette_index, "waterfall.af.palette", p->drawing));
+   GtkWidget *style_item = gtk_menu_item_new_with_label("Display style");
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(style_item), waterfall_menu(af_styles, G_N_ELEMENTS(af_styles), p->style, &p->style, "waterfall.af.style", p->drawing));
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), style_item);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), palette_item);
    GtkWidget *zoom_item = gtk_menu_item_new_with_label("Zoom");
    GtkWidget *zoom_menu = gtk_menu_new();
@@ -639,19 +643,6 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
 
    return TRUE;
 }
-static void enable_changed(GtkToggleButton *button, gpointer data) {
-   spectrum_panel_t *p = data;
-   bool should_listen = gtk_toggle_button_get_active(button) && gtk_widget_get_mapped(p->drawing);
-
-   if (should_listen != p->listening) {
-      rr_af_spectrum_listen(should_listen);
-      p->listening = should_listen;
-   }
-   gtk_widget_set_sensitive(p->mode, gtk_toggle_button_get_active(button));
-   gtk_widget_set_sensitive(p->gain, gtk_toggle_button_get_active(button));
-   gtk_widget_queue_draw(p->drawing);
-}
-
 static void source_changed(GtkComboBox *combo, gpointer data) {
    spectrum_panel_t *p = data;
    const char *id = gtk_combo_box_get_active_id(combo);
@@ -716,7 +707,9 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), present ? saved : "stereo");
    p->source_refreshing = false;
    if (!present && p->source_mode == 'S') {
-      p->source_mode = 'A';
+      p->source_mode = 'M';
+   p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
+   p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
       p->source_id[0] = 0;
       p->head = p->count = 0;
    }
@@ -727,19 +720,15 @@ static void gain_changed(GtkRange *range, gpointer data) {
    gtk_widget_queue_draw(p->drawing);
 }
 
-static void palette_changed(GtkComboBox *box, gpointer data) {
+static void ear_changed(GtkRange *range, gpointer data) {
    spectrum_panel_t *p = data;
-   int index = gtk_combo_box_get_active(box);
-
-   if (index < 0 || index >= (int)G_N_ELEMENTS(palettes)) {
-      return;
-   }
-   palette_select((unsigned)index);
-   gtk_widget_queue_draw(p->drawing);
-}
-static void mode_changed(GtkComboBox *box, gpointer data) {
-   (void)box;
-   spectrum_panel_t *p = data;
+   unsigned pos = (unsigned)gtk_range_get_value(range);
+   char next = pos == 0 ? 'L' : pos == 2 ? 'R' : 'M';
+   if (next == p->source_mode) return;
+   p->source_mode = next;
+   p->source_id[0] = 0;
+   p->head = p->count = 0;
+   p->af_pending = false;
    gtk_widget_queue_draw(p->drawing);
 }
 GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
@@ -759,33 +748,11 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "mixed", "Mixed (heard)");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "left", "Left (heard)");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "right", "Right (heard)");
-   gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), "stereo");
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), "mixed");
    gtk_widget_set_tooltip_text(p->source, "Select final speaker channels or an individual graph stream (before routing)");
    gtk_box_pack_start(GTK_BOX(sources_row), p->source, FALSE, FALSE, 0);
-   p->enabled = gtk_check_button_new_with_label("AF waterfall");
-   /* Visible floating tool enables demand-driven capture; hidden panels stop it. */
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
-   gtk_widget_set_tooltip_text(p->enabled, "Enable AF spectrum and waterfall analysis for received audio");
-   gtk_box_pack_end(GTK_BOX(settings_row), p->enabled, FALSE, FALSE, 3);
-   p->mode = gtk_combo_box_text_new();
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum + Waterfall");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Waterfall");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Bars");
-   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Waterfall + Bars");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(p->mode), 0);
-   gtk_box_pack_start(GTK_BOX(sources_row), p->mode, FALSE, FALSE, 0);
-   p->palette = gtk_combo_box_text_new();
-
-   for (unsigned i = 0 ; i < G_N_ELEMENTS(palettes) ; i++) {
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->palette), palettes[i].name);
-   }
-
-   gtk_combo_box_set_active(GTK_COMBO_BOX(p->palette), selected_palette);
-   palette_selector_register(p->palette);
-   g_object_weak_ref(G_OBJECT(p->palette), palette_selector_unregister, NULL);
-   gtk_widget_set_tooltip_text(p->palette, "Waterfall color scheme (AF and RF)");
-   gtk_box_pack_start(GTK_BOX(settings_row), p->palette, FALSE, FALSE, 0);
+   /* Per-window style/palette are selected by right-click, not global
+    * combo boxes; show only stream picker and compact ear/gain controls. */
    GtkWidget *gain_label = gtk_label_new("Gain");
    gtk_box_pack_start(GTK_BOX(settings_row), gain_label, FALSE, FALSE, 4);
    p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 60.0, 1.0);
@@ -795,8 +762,15 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_scale_set_draw_value(GTK_SCALE(p->gain), TRUE);
    gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
    gtk_box_pack_start(GTK_BOX(settings_row), p->gain, FALSE, FALSE, 0);
-   gtk_widget_set_sensitive(p->mode, TRUE);
-   gtk_widget_set_sensitive(p->gain, TRUE);
+   GtkWidget *ear_label = gtk_label_new("Ear");
+   gtk_box_pack_start(GTK_BOX(settings_row), ear_label, FALSE, FALSE, 3);
+   p->ear = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 2, 1);
+   gtk_range_set_value(GTK_RANGE(p->ear), 1);
+   gtk_scale_set_draw_value(GTK_SCALE(p->ear), FALSE);
+   gtk_widget_set_size_request(p->ear, 90, -1);
+   gtk_widget_set_tooltip_text(p->ear, "Ear: Left / Mix / Right");
+   gtk_box_pack_start(GTK_BOX(settings_row), p->ear, FALSE, FALSE, 0);
+
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
    gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK);
@@ -805,10 +779,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(box), p->drawing, TRUE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_context_menu), p);
-   g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
    g_signal_connect(p->source, "changed", G_CALLBACK(source_changed), p);
-   g_signal_connect(p->palette, "changed", G_CALLBACK(palette_changed), p);
-   g_signal_connect(p->enabled, "toggled", G_CALLBACK(enable_changed), p);
+   g_signal_connect(p->ear, "value-changed", G_CALLBACK(ear_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
    p->af_result_token = event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_RESULT, af_result_event, p, "gtk");
    p->streams_token = event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_RESULT, source_snapshot, p, "gtk");
@@ -1047,7 +1019,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
          double span = (double)p->rows[index].high_hz - p->rows[index].low_hz;
          int bin = span > 0 ? (int)((hz - p->rows[index].low_hz) * RR_BRIDGE_SPECTRUM_BINS / span) : -1;
          dest[x] = bin >= 0 && bin < RR_BRIDGE_SPECTRUM_BINS ?
-            palette_pixel(CLAMP(p->rows[index].power[bin] / 255.0 + p->display_gain_db / 80.0, 0.0, 1.0)) : 0xff0d1621u;
+            palette_pixel(CLAMP(p->rows[index].power[bin] / 255.0 + p->display_gain_db / 80.0, 0.0, 1.0), p->palette_index) : 0xff0d1621u;
       }
 
       if (p->vfo_boundary[index]) {
