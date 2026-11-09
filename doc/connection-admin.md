@@ -179,3 +179,21 @@ obtained securely at the initial TLS trust prompt: the dialog shows the
 For existing profiles where hostname checking was explicitly enabled,
 the existing preference is retained. The secure CA-verified option is
 still available by unticking the checkbox.
+
+## Mandatory account password changes
+
+When the server sends `auth.password-change-required=true` on successful
+authentication, the GTK client opens a **Password change required** dialog.
+It requests and confirms an 8–256-character new password. The client sends
+`auth.cmd=change-password` and `auth.new-password` only over an
+authenticated encrypted connection, rather than issuing a chat `/user pass`
+command.
+
+The client does **not** update the saved server profile password when the
+request is sent. It waits for the server's explicit `auth.cmd=password-changed`
+reply. Only after that response does it save `server.pass` to the client
+SQLite database, notify the user, disconnect, and reconnect using the new
+password. A `password-change-failed` response retains the original password
+and offers Retry. Losing the connection before confirmation leaves the saved
+password unchanged and reports uncertainty; the operator may need to update
+the profile manually if the server committed the change but the reply was lost.
