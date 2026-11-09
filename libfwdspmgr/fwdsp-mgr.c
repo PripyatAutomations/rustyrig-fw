@@ -30,6 +30,9 @@
 #include <fwdsp/default-pipelines.h>
 #include <libfwdspmgr/pcm-backlog.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
+#ifndef RR_LIBEXECDIR
+#define RR_LIBEXECDIR "/usr/libexec/rustyrig"
+#endif
 #include <libfwdspmgr/fwdsp-ctl.h>
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -73,7 +76,7 @@ defconfig_t defcfg_fwdsp[] = {
    },
 #else
    {
-      "fwdsp:path", "/usr/libexec/rustyrig/fwdsp", "Path to fwdsp binary"
+      "fwdsp:path", "auto", "Path to fwdsp binary (auto: installed private helper)"
    },
 #endif
    {
@@ -102,6 +105,14 @@ defconfig_t defcfg_fwdsp[] = {
    }
 };
 
+/* The package supplies RR_LIBEXECDIR; explicit custom paths remain supported. */
+static char *fwdsp_configured_path(void) {
+   const char *setting = cfg_get("fwdsp:path");
+   if (!setting || !*setting || !strcmp(setting, "auto")) {
+      return strdup(RR_LIBEXECDIR "/fwdsp");
+   }
+   return cfg_get_path("fwdsp:path");
+}
 const char *fwdsp_path = NULL;
 bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
@@ -836,7 +847,7 @@ bool fwdsp_init(void) {
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    // Find the fwdsp path
-   fwdsp_path = cfg_get_path("fwdsp:path");
+   fwdsp_path = fwdsp_configured_path();
 
    if (!fwdsp_path) {
       Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp binary");
@@ -1369,7 +1380,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       }
    }
 
-   char *fwdsp_path = cfg_get_path("fwdsp:path");
+   char *fwdsp_path = fwdsp_configured_path();
    const char *fwdsp_config = config_file;
    char pipeline_key[128];
 
