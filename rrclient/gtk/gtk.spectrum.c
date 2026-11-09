@@ -440,6 +440,18 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
                unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + bin / af_zoom;
                double normalized = row ? level(row[MIN(source_bin, RR_AF_BINS - 1)], p->display_gain_db) : 0.0;
                scanline[bin] = row ? palette_pixel(normalized) : 0xff0d1621u;
+               if (row && p->stereo) {
+                  unsigned offset = (p->head + HISTORY - 1 - age) % HISTORY;
+                  unsigned idx = MIN(source_bin, RR_AF_BINS - 1);
+                  double l = level(p->left[offset][idx], p->display_gain_db);
+                  double r = level(p->right[offset][idx], p->display_gain_db);
+                  /* Additive cyan (L) / amber (R). Shared bins mix toward
+                   * pale white; isolated signals retain distinct hues. */
+                  unsigned red = (unsigned)(255 * CLAMP(.04 + .12*l + .96*r, 0., 1.));
+                  unsigned green = (unsigned)(255 * CLAMP(.06 + .80*l + .50*r, 0., 1.));
+                  unsigned blue = (unsigned)(255 * CLAMP(.10 + .94*l + .06*r, 0., 1.));
+                  scanline[bin] = 0xff000000u | (red << 16) | (green << 8) | blue;
+               }
 
                if (mode == 4 && normalized >= .94) {
                   scanline[bin] = 0xff8ff7f7u;
@@ -468,6 +480,14 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_show_text(cr, "2 kHz");
    cairo_move_to(cr, width - 43, height - 3);
    cairo_show_text(cr, "4 kHz");
+   if (p->stereo) {
+      cairo_set_source_rgb(cr, .35, .92, 1);
+      cairo_move_to(cr, 8, 13);
+      cairo_show_text(cr, "L");
+      cairo_set_source_rgb(cr, 1, .65, .20);
+      cairo_move_to(cr, 23, 13);
+      cairo_show_text(cr, "R");
+   }
 
    return FALSE;
 }
@@ -622,8 +642,10 @@ static void source_changed(GtkComboBox *combo, gpointer data) {
    spectrum_panel_t *p = data;
    const char *id = gtk_combo_box_get_active_id(combo);
    if (!id) return;
-   p->source_mode = !strcmp(id, "stereo") ? 'A' : !strcmp(id, "mixed") ? 'M' :
+   char next = !strcmp(id, "stereo") ? 'A' : !strcmp(id, "mixed") ? 'M' :
       !strcmp(id, "left") ? 'L' : !strcmp(id, "right") ? 'R' : 'S';
+   if (next == p->source_mode && (next != 'S' || !strcmp(p->source_id, id))) return;
+   p->source_mode = next;
    p->source_id[0] = 0;
    if (p->source_mode == 'S') g_strlcpy(p->source_id, id, sizeof(p->source_id));
    p->head = p->count = 0;
