@@ -19,6 +19,11 @@ typedef struct {
    uint32_t sequence, bins;
    uint8_t power[RR_BRIDGE_SPECTRUM_BINS];
 } rr_bridge_spectrum_row;
+/* Local core-to-GTK event, tagged so multiple receiver VFOs can share a viewer. */
+typedef struct {
+   char vfo;
+   rr_bridge_spectrum_row row;
+} rr_bridge_spectrum_event;
 #define RR_BRIDGE_SPECTRUM_MAGIC UINT32_C(0x52525350)
 static inline bool rr_bridge_spectrum_valid(const rr_bridge_spectrum_row *r) {
    return r && r->magic == RR_BRIDGE_SPECTRUM_MAGIC && r->version == 1 &&
