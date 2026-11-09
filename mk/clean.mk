@@ -9,10 +9,6 @@ clean: ${extra_clean_targets}
 	${RM} ${bins} ${rrserver_objs} ${rrgtk_objs} ${extra_clean} *.log
 	${RM} -fr audits-logs/*
 
-ifneq (y${extra_clean_targets},y)
-	${MAKE} ${extra_clean_targets}
-endif
-
 distclean: clean
 	@echo "[distclean]"
 	${RM} -rf ${OBJ_DIR}
