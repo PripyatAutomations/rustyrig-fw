@@ -616,7 +616,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), editor->direct, 0, 8, 2, 1);
    const char *tofu_value = profile ? get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
    editor->initial_tls_tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
-   editor->tls_tofu = gtk_check_button_new_with_label("Trust self-signed TLS certificate (pin on first connection)");
+   editor->tls_tofu = gtk_check_button_new_with_label("Ignore TLS hostname");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu), editor->initial_tls_tofu);
    gtk_widget_set_tooltip_text(editor->tls_tofu,
       "Disables CA and hostname checks for this server only, then pins the server's public key after the first successful WSS connection. "
