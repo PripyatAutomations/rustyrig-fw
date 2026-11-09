@@ -486,7 +486,7 @@ defconfig_t defcfg[] = {
       NULL
    },
    {
-      "fwdsp:path", "/usr/libexec/rustyrig/fwdsp", "Path to fwdsp binary", DEFCONFIG_PATH, NULL
+      "fwdsp:path", "auto", "Path to fwdsp binary", DEFCONFIG_PATH, NULL
    },
    {
       "fwdsp:subproc.max", "16", "Maximum server fwdsp processes", DEFCONFIG_UINT, NULL
