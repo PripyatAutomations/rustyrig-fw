@@ -315,51 +315,67 @@ static const palette_t palettes[] = {
    }
 };
 
-static unsigned selected_palette;
-static GPtrArray *palette_selectors;
-static void palette_selector_register(GtkWidget *combo) {
-   if (!palette_selectors) {
-      palette_selectors = g_ptr_array_new();
+/* AF and RF windows carry separate settings, saved in client SQLite. */
+static unsigned waterfall_pref(const char *key, unsigned fallback, unsigned max) {
+   char *saved = rrclient_database_setting_get(key);
+   unsigned value = fallback;
+   if (saved && *saved) {
+      char *end = NULL;
+      unsigned long n = strtoul(saved, &end, 10);
+      if (end && !*end && n <= max) value = (unsigned)n;
    }
-   g_ptr_array_add(palette_selectors, combo);
+   g_free(saved);
+   return value;
 }
-static void palette_selector_unregister(gpointer data, GObject *old) {
-   (void)data;
-
-   if (palette_selectors) {
-      g_ptr_array_remove(palette_selectors, old);
-   }
+static void waterfall_save(const char *key, unsigned value) {
+   char buf[24];
+   g_snprintf(buf, sizeof(buf), "%u", value);
+   rrclient_database_setting_set(key, buf);
 }
-static void palette_select(unsigned index) {
-   if (index >= G_N_ELEMENTS(palettes)) {
-      return;
-   }
-   selected_palette = index;
-
-   if (palette_selectors) {
-      for (unsigned i = 0 ; i < palette_selectors->len ; i++) {
-         gtk_combo_box_set_active(GTK_COMBO_BOX(g_ptr_array_index(palette_selectors, i)), index);
-      }
-   }
+typedef struct {
+   unsigned *value;
+   const char *key;
+   GtkWidget *drawing;
+   unsigned index;
+} waterfall_option_t;
+static void waterfall_option_activate(GtkCheckMenuItem *item, gpointer user) {
+   if (!gtk_check_menu_item_get_active(item)) return;
+   waterfall_option_t *opt = user;
+   *opt->value = opt->index;
+   waterfall_save(opt->key, opt->index);
+   gtk_widget_queue_draw(opt->drawing);
 }
-static void palette_menu_activate(GtkCheckMenuItem *item, gpointer data) {
-   if (gtk_check_menu_item_get_active(item)) {
-      palette_select(GPOINTER_TO_UINT(data));
-   }
+static void waterfall_option_free(gpointer data, GClosure *closure) {
+   (void)closure;
+   g_free(data);
 }
-static GtkWidget *palette_menu_new(void) {
+static GtkWidget *waterfall_menu(const char *const *names, unsigned count,
+      unsigned selected, unsigned *value, const char *key, GtkWidget *drawing) {
    GtkWidget *menu = gtk_menu_new();
    GSList *group = NULL;
-
-   for (unsigned i = 0 ; i < G_N_ELEMENTS(palettes) ; i++) {
-      GtkWidget *item = gtk_radio_menu_item_new_with_label(group, palettes[i].name);
+   for (unsigned i = 0; i < count; i++) {
+      GtkWidget *item = gtk_radio_menu_item_new_with_label(group, names[i]);
       group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
-      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), i == selected_palette);
-      g_signal_connect(item, "activate", G_CALLBACK(palette_menu_activate), GUINT_TO_POINTER(i));
+      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), i == selected);
+      waterfall_option_t *opt = g_new0(waterfall_option_t, 1);
+      opt->value = value; opt->key = key; opt->drawing = drawing; opt->index = i;
+      g_signal_connect_data(item, "activate", G_CALLBACK(waterfall_option_activate),
+         opt, waterfall_option_free, 0);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
-
    return menu;
+}
+static const char *const af_styles[] = {
+   "Spectrum + Waterfall", "Spectrum", "Waterfall", "Bars", "Waterfall + Bars"
+};
+static const char *const rf_styles[] = {
+   "Waterfall", "Spectrum", "Spectrum + Waterfall"
+};
+static GtkWidget *waterfall_palette_menu(unsigned selected, unsigned *value,
+      const char *key, GtkWidget *drawing) {
+   const char *names[G_N_ELEMENTS(palettes)];
+   for (unsigned i = 0; i < G_N_ELEMENTS(palettes); i++) names[i] = palettes[i].name;
+   return waterfall_menu(names, G_N_ELEMENTS(palettes), selected, value, key, drawing);
 }
 
 static uint32_t palette_pixel(double v, unsigned selected_palette) {
@@ -708,8 +724,6 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    p->source_refreshing = false;
    if (!present && p->source_mode == 'S') {
       p->source_mode = 'M';
-   p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
-   p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
       p->source_id[0] = 0;
       p->head = p->count = 0;
    }
@@ -742,7 +756,9 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    GtkWidget *settings_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    gtk_box_pack_start(GTK_BOX(toolbar), sources_row, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
-   p->source_mode = 'A';
+   p->source_mode = 'M';
+   p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
+   p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
    p->source = gtk_combo_box_text_new();
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "mixed", "Mixed (heard)");
