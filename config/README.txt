@@ -1,5 +1,4 @@
     callsign-lookup.cfg				Stand-alone callsign-lookup config
-    radio.channels.json				Default channel memories
     radio.config.json				Config for the build
     rrclient.cfg				RustyRig GTK/TUI client
     rrclient.callsign-lookup.cfg		Callsign lookup support for client (QRZ/FCC db)
