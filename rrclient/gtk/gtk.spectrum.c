@@ -793,7 +793,7 @@ static gboolean rf_recover_stream(gpointer user) {
 
    if (!p->last_retry_at || now - p->last_retry_at >= G_GINT64_CONSTANT(10000000)) {
       unsigned zoom = CLAMP(p->zoom, state.min_zoom, state.max_zoom);
-      rrclient_local_bridge_request_waterfall(TRUE, zoom, 0);
+      rf_request(p, TRUE, zoom, 0);
       p->last_retry_at = now;
    }
    gtk_widget_queue_draw(p->drawing);
@@ -1106,7 +1106,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
    } else if (available && (p->zoom < min_zoom || p->zoom > max_zoom)) {
       p->zoom = min_zoom;
       p->zoom_fraction = 0;
-      rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, 0);
+      rf_request(p, p->rf_enabled, p->zoom, 0);
    }
 
    if (!available) {
@@ -1116,7 +1116,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
-   rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom, 0);
+   rf_request(p, p->rf_enabled, p->zoom, 0);
 
    if (!p->rf_enabled) {
       p->count = 0;
@@ -1149,7 +1149,7 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
    }
    unsigned min_zoom, max_zoom;
 
-   if (!rf_ui_caps(&min_zoom, &max_zoom)) {
+   if (!rf_ui_caps(p, &min_zoom, &max_zoom)) {
       return FALSE;
    }
    double requested = CLAMP((double)p->zoom + p->zoom_fraction + delta * .20, (double)min_zoom, (double)max_zoom);
@@ -1158,7 +1158,7 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
    bool native_changed = native != p->zoom;
 
    if (native != p->zoom) {
-      if (!rrclient_local_bridge_request_waterfall(p->rf_enabled, native, 0)) {
+      if (!rf_request(p, p->rf_enabled, native, 0)) {
          return TRUE;
       }
       p->zoom = native;
@@ -1203,7 +1203,7 @@ static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    rf_strip_t *p = g_object_get_data(G_OBJECT(item), "rf-panel");
    unsigned zoom = GPOINTER_TO_UINT(data);
 
-   if (!rrclient_local_bridge_request_waterfall(p->rf_enabled, zoom, 0)) {
+   if (!rf_request(p, p->rf_enabled, zoom, 0)) {
       return;
    }
    p->zoom = zoom;
@@ -1228,7 +1228,7 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    GSList *group = NULL;
    unsigned min_zoom, max_zoom;
 
-   if (rf_ui_caps(&min_zoom, &max_zoom)) {
+   if (rf_ui_caps(p, &min_zoom, &max_zoom)) {
       for (unsigned z = min_zoom ; z <= max_zoom && z - min_zoom < 32 ; z++) {
          char label[32];
          g_snprintf(label, sizeof(label), "Level %u", z);
@@ -1298,7 +1298,7 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       if (rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, rf_selected_vfo(p), (uint64_t) (hz + .5), NULL)) {
          unsigned min_zoom, max_zoom;
 
-         if (rf_ui_caps(&min_zoom, &max_zoom) && p->zoom < max_zoom && rrclient_local_bridge_request_waterfall(p->rf_enabled, p->zoom + 1, 0)) {
+         if (rf_ui_caps(p, &min_zoom, &max_zoom) && p->zoom < max_zoom && rf_request(p, p->rf_enabled, p->zoom + 1, 0)) {
             p->zoom++;
             p->zoom_fraction = 0;
             p->pan_hz = 0;
