@@ -915,7 +915,6 @@ static bool ws_chat_cmd_kick(rrconn_t *cptr, const char *target, const char *rea
             char msgbuf[HTTP_WS_MAX_MSG + 1];
             prepare_msg(msgbuf, sizeof(msgbuf), "kicked by %s (Reason: %s)", cptr->chatname, (reason ? reason : "No reason given"));
             Log(LOG_AUDIT, "admin.kick", "%s %s", acptr->chatname, msgbuf);
-#ifdef  USE_MONGOOSE
             dict *notice = dict_new();
 
             if (notice) {
@@ -926,7 +925,6 @@ static bool ws_chat_cmd_kick(rrconn_t *cptr, const char *target, const char *rea
                dict_free(notice);
             }
             ws_kick_client(acptr, msgbuf);
-#endif // USE_MONGOOSE
             kicked++;
          }
       }
