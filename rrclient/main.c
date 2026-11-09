@@ -2127,7 +2127,7 @@ bool rrclient_cleanup(void) {
 
    // Persist the running config (including window placements learned while
    // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
-   if (cfg && cfg_get_bool("ui.save-on-exit", false)) {
+   if (cfg && cfg_get_bool("ui.save-on-exit", false) && !rrclient_database_restart_required()) {
       Log(LOG_INFO, "config", "ui.save-on-exit: saving config overrides to client.db");
 
       if (!rrclient_config_save()) {
