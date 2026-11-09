@@ -16,6 +16,7 @@
 #include <string.h>
 #include <errno.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/traffic.h>
 #include <rrclient/irc.h>
