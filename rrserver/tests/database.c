@@ -478,8 +478,14 @@ int main(void) {
    password[strcspn(password, "\n")] = '\0';
    assert(strlen(password) == 24);
    assert(db_get_users(db) == 2);
-   char *bootstrap_hash = hash_passwd(password);
-   assert(bootstrap_hash && !strcmp(http_users[1].pass, bootstrap_hash));
+   sqlite3_stmt *hash_query = NULL;
+   assert(sqlite3_prepare_v2(db, "SELECT password FROM users WHERE name='admin'", -1, &hash_query, NULL) == SQLITE_OK);
+   assert(sqlite3_step(hash_query) == SQLITE_ROW);
+   const char *bootstrap_hash = (const char *)sqlite3_column_text(hash_query, 0);
+   assert(bootstrap_hash && auth_password_is_argon2id(bootstrap_hash));
+   assert(auth_password_verify_argon2id(bootstrap_hash, password));
+   assert(!auth_password_verify_argon2id(bootstrap_hash, "wrong-password"));
+   sqlite3_finalize(hash_query);
    assert(http_users[1].enabled && http_users[1].password_change_required);
    assert(db_refresh_users(db));
    sqlite3 *external = NULL;
@@ -504,7 +510,6 @@ int main(void) {
    sqlite3_close(db);
    unlink(fresh_path);
    unlink(credential_path);
-   free(bootstrap_hash);
    dict_free(cfg);
    cfg = NULL;
    dict_free(default_cfg);
