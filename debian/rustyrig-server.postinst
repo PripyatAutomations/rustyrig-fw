@@ -49,12 +49,13 @@ if [ ! -e "$master_db" ]; then
 fi
 
 if [ "$new_database" = true ]; then
-    # hash_passwd() uses SHA-1 for the existing wire-auth database format.
-    admin_hash=$(printf '%s' "$admin_password" | sha1sum | cut -d ' ' -f 1)
+    # Never place the password in argv or command output. The private helper
+    # reads it from stdin and emits an Argon2id encoded verifier only.
+    admin_hash=$(printf '%s' "$admin_password" | /usr/lib/rustyrig/rr-password-hash)
     sqlite3 "$master_db" \
         "UPDATE users SET enabled=1,password='$admin_hash' WHERE name='admin';"
     if [ "$guest_enabled" = true ]; then
-        guest_hash=$(printf '%s' guest | sha1sum | cut -d ' ' -f 1)
+        guest_hash=$(printf '%s' guest | /usr/lib/rustyrig/rr-password-hash)
         sqlite3 "$master_db" \
             "UPDATE users SET enabled=1,password='$guest_hash',permissions='rx,chat' WHERE name='guest';"
     fi
