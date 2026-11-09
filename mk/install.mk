@@ -15,8 +15,27 @@ posix-install: install
 install-dependency-check:
 	@echo 'Using installed librustyaxe, librrprotocol and librustyirc'
 
-# No configuration is touched by the default install target.
+# Direct source installs are not tracked by dpkg. An earlier make install
+# followed by manual cleanup can remove files that dpkg still owns as
+# conffiles, which dpkg will not automatically restore on reinstall.
+# DESTDIR staging is safe and must remain noninteractive for packagers.
+# INSTALL_CONFIRM=yes is an explicit opt-in for scripted direct installs.
 install: install-dependency-check
+	@if [ -z "$(strip $(DESTDIR))" ]; then \
+		printf '%s\\n' \
+			'WARNING: make install writes directly into system directories without package ownership tracking.' \
+			'Removing these files later may accidentally delete dpkg-owned files, including /etc/rustyrig conffiles.' \
+			'RECOMMENDED: build/install packages using rrpk or dpkg-buildpackage instead.'; \
+		if [ "$(INSTALL_CONFIRM)" != yes ]; then \
+			if [ ! -t 0 ]; then \
+				echo 'Noninteractive install refused; use INSTALL_CONFIRM=yes if intentional.' >&2; \
+				exit 1; \
+			fi; \
+			printf 'Continue with untracked source install? [y/N] '; \
+			read answer || answer=n; \
+			case "$answer" in y|Y|yes|YES) ;; *) echo 'Installation cancelled.'; exit 1;; esac; \
+		fi; \
+	fi
 	$(MAKE) install-bin install-modules install-libs install-assets install-tools install-sql
 	@echo "Installed runtime files at Debian package paths. Existing /etc/rustyrig config is untouched."
 	@echo "Run ldconfig after installing libraries on Linux."
