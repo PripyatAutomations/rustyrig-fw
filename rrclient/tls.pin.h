@@ -5,6 +5,11 @@
 #include <stdbool.h>
 #define RRCLIENT_TLS_PIN_PROMPT_EVENT "client.ui.tls-pin.prompt"
 #define RRCLIENT_TLS_PIN_REPLY_EVENT "client.tls-pin.reply"
+#define RRCLIENT_AUTH_FAILURE_ALERT_EVENT "client.ui.auth.failure"
+typedef struct rrclient_auth_failure_alert {
+   char profile[128];
+   char reason[256];
+} rrclient_auth_failure_alert_t;
 typedef struct rrclient_tls_pin_request {
    char profile[128];
    char old_pin[65];
