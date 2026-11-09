@@ -968,6 +968,24 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
    if (s->native != native) {
       return;
    }
+   /* Persist the TOFU key before any capability negotiation, account login,
+    * or other application data is sent. Failure must close the connection. */
+   if (event == RR_TRANSPORT_EVENT_OPEN) {
+      const char *allow = get_server_property(s->name, "server.tls-trust-on-first-use");
+      bool tofu = allow && (!g_ascii_strcasecmp(allow, "true") || !strcmp(allow, "1"));
+      if (tofu) {
+         const char *pin = get_server_property(s->name, "server.tls-spki-sha256");
+         if (!pin || !*pin) {
+            const char *fingerprint = rr_transport_wss_peer_spki_sha256(transport);
+            if (!fingerprint || !rrclient_database_server_set(s->name, "server.tls-spki-sha256", fingerprint)) {
+               Log(LOG_WARN, "connman", "Cannot persist trusted TLS public key for %s; refusing connection", s->name);
+               rr_transport_close(transport);
+               return;
+            }
+            Log(LOG_WARN, "connman", "First-use TLS public key pinned for %s: %s", s->name, fingerprint);
+         }
+      }
+   }
    rrconn_t *cptr = &native->connection;
    client_server_t *previous = context;
    activate(s);
@@ -1574,16 +1592,21 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    /* The logical TLS name is independent of the URL's dial address. Require an explicit per-profile hostname when dialing by IP/alias;
     * never substitute a claimed peer identity after the TLS handshake. */
    const char *tls_name = get_server_property(s->name, "server.tls-name");
-   rr_wss_client_options_ex_t opts = {
+   const char *tofu_value = get_server_property(s->name, "server.tls-trust-on-first-use");
+   bool tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   const char *pin = tofu ? get_server_property(s->name, "server.tls-spki-sha256") : NULL;
+   rr_wss_client_options_secure_t opts = {
       .user_agent = "RustyRig/1.0",
       .subprotocol = RR_WS_SUBPROTOCOL,
       .ca_file = ca,
-      .tls_server_name = tls_name && *tls_name ? tls_name : NULL
+      .tls_server_name = tls_name && *tls_name ? tls_name : NULL,
+      .tls_peer_spki_sha256 = pin && *pin ? pin : NULL,
+      .tls_trust_on_first_use = tofu && (!pin || !*pin)
    };
    char connect_url[2048];
    snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.tls ? "wss" : "ws", endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" :
       "", endpoint.port, !strcmp(endpoint.path, "/") ? "/ws" : endpoint.path);
-   native->transport = rr_transport_wss_connect_ex(connect_url, &opts, native_event, native);
+   native->transport = rr_transport_wss_connect_secure(connect_url, &opts, native_event, native);
 
    if (!native->transport) {
       ui_print(NULL, "Unable to initialize native WebSocket connection for %s", s->name);
