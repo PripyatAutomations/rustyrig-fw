@@ -62,6 +62,20 @@ static GMutex rx_sink_lock;
 static int rx_sink_fd = -1;
 static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
+   /* Capture exactly what the local mixer sends to the speaker pipeline:
+    * routed, summed and adjusted for each ear. The spectrum push is a
+    * try-lock copy; FFT and GTK stay completely off the audio thread. */
+   if (frames && frames <= 1024) {
+      int16_t left[1024], right[1024], mixed[1024];
+      for (size_t i = 0 ; i < frames ; i++) {
+         left[i] = pcm[2 * i];
+         right[i] = pcm[2 * i + 1];
+         mixed[i] = (int16_t)(((int32_t) left[i] + right[i]) / 2);
+      }
+      rr_af_spectrum_push("output:left", left, frames);
+      rr_af_spectrum_push("output:right", right, frames);
+      rr_af_spectrum_push("output:mixed", mixed, frames);
+   }
    g_mutex_lock(&rx_sink_lock);
 
    if (rx_sink_fd >= 0 && !fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t))) {
@@ -912,6 +926,29 @@ static void audio_af_spectrum_request(const rr_event_message_t *message, void *u
    if (!memchr(req.server, 0, sizeof(req.server)) || !memchr(req.room, 0, sizeof(req.room))) {
       return;
    }
+   rrclient_af_spectrum_result_t result = {
+      .request_id = req.request_id
+   };
+   if (req.source == 'L' || req.source == 'R' || req.source == 'M' || req.source == 'A') {
+      if (req.source == 'A') {
+         bool l = rr_af_spectrum_read("output:left", result.left);
+         bool r = rr_af_spectrum_read("output:right", result.right);
+         result.ready = l && r;
+         result.stereo = true;
+         if (result.ready) {
+            for (unsigned i = 0 ; i < RR_AF_BINS ; i++)
+               result.bins[i] = MAX(result.left[i], result.right[i]);
+         }
+      } else {
+         const char *id = req.source == 'L' ? "output:left" :
+            req.source == 'R' ? "output:right" : "output:mixed";
+         result.ready = rr_af_spectrum_read(id, result.bins);
+      }
+   } else if (req.source == 'S' && memchr(req.stream, 0, sizeof(req.stream))) {
+      /* Exact user-selected graph stream, including muted diagnostic inputs. */
+      result.ready = rr_af_spectrum_read(req.stream, result.bins);
+   } else {
+      /* Compatibility with the original per-room spectrum requests. */
    struct rrclient_rx_stream streams[64];
    size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
    size_t selected = count;
@@ -926,12 +963,9 @@ static void audio_af_spectrum_request(const rr_event_message_t *message, void *u
       }
    }
 
-   rrclient_af_spectrum_result_t result = {
-      .request_id = req.request_id
-   };
-
    if (selected != count) {
       result.ready = rr_af_spectrum_read(streams[selected].id, result.bins);
+   }
    }
    rr_event_message_t reply = {
       .name = RRCLIENT_AF_SPECTRUM_RESULT,
