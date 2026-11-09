@@ -162,7 +162,7 @@ typedef struct {
    bool creating;
    GtkWidget *fields[5];
    char *initial[5];
-   GtkWidget *error, *direct, *tls_tofu;
+   GtkWidget *error, *direct, *tls_tofu, *node_name;
    bool initial_direct, initial_tls_tofu;
 } GtkServerEditor;
 
@@ -414,6 +414,22 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    gtk_entry_set_text(GTK_ENTRY(editor->fields[4]), rooms);
    g_free(rooms);
    bool rooms_changed = strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), editor->initial[4]) != 0;
+   const char *node_name = gtk_entry_get_text(GTK_ENTRY(editor->node_name));
+   if (*node_name) {
+      const char *dot = strchr(node_name, '.');
+      if (!dot || dot == node_name || !dot[1] || strlen(node_name) >= 254 ||
+          node_name[strlen(node_name)-1] == '.' ||
+          strspn(node_name, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != strlen(node_name)) {
+         gtk_label_set_text(GTK_LABEL(editor->error), "Node Name must be station.domain (e.g. rplywv00.ham.istabpeople.com).");
+         return;
+      }
+   }
+   if (editor->creating || g_strcmp0(node_name, get_server_property(profile, "server.node-name"))) {
+      if (!rrclient_database_server_set(profile, "server.node-name", node_name)) {
+         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save expected node identity.");
+         return;
+      }
+   }
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
       const char *value = i == 3 ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->proxy)) : gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
@@ -457,7 +473,8 @@ static void server_editor_save(GtkButton *button, gpointer data) {
     * explicitly disabled trust override. */
    const char *new_url = gtk_entry_get_text(GTK_ENTRY(editor->fields[0]));
    bool url_changed = !editor->creating && strcmp(new_url, editor->initial[0]) != 0;
-   if (url_changed || (!tofu && editor->initial_tls_tofu)) {
+   if (url_changed || (!tofu && editor->initial_tls_tofu) ||
+       (node_name && (!editor->creating && g_strcmp0(node_name, get_server_property(profile, "server.node-name"))))) {
       if (!rrclient_database_server_set(profile, "server.tls-spki-sha256", "")) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Unable to clear stale TLS public-key pin.");
          return;
@@ -614,21 +631,30 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_widget_set_tooltip_text(editor->direct,
       "If checked, try direct RTP audio, then RTP to the nearest server (proxy-rtp), before trying proxy-media. Unchecked tries proxy-media first. This is less desirable but can avoid firewall issues.");
    gtk_grid_attach(GTK_GRID(grid), editor->direct, 0, 8, 2, 1);
+   editor->node_name = gtk_entry_new();
+   const char *existing_node = profile ? get_server_property(profile, "server.node-name") : NULL;
+   gtk_entry_set_text(GTK_ENTRY(editor->node_name), existing_node ? existing_node : "");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(editor->node_name), "rplywv00.ham.istabpeople.com");
+   gtk_widget_set_tooltip_text(editor->node_name,
+      "Expected station and domain identity. Used for TLS certificate name matching and verified against the station's announced identity.");
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Node Name"), 0, 9, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), editor->node_name, 1, 9, 1, 1);
    const char *tofu_value = profile ? get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
-   editor->initial_tls_tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   editor->initial_tls_tofu = tofu_value ?
+      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")) : editor->creating;
    editor->tls_tofu = gtk_check_button_new_with_label("Ignore TLS hostname");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu), editor->initial_tls_tofu);
    gtk_widget_set_tooltip_text(editor->tls_tofu,
       "Disables CA and hostname checks for this server only, then pins the server's public key after the first successful WSS connection. "
       "If the key changes later, RustyRig stops the connection and asks you to type YES before accepting a replacement. "
       "Verify the new fingerprint independently before approving; first-use trust is vulnerable to interception.");
-   gtk_grid_attach(GTK_GRID(grid), editor->tls_tofu, 0, 9, 2, 1);
+   gtk_grid_attach(GTK_GRID(grid), editor->tls_tofu, 0, 10, 2, 1);
    editor->error = gtk_label_new("");
-   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 10, 2, 1);
+   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 11, 2, 1);
    GtkWidget *save = gtk_button_new_with_label("Save");
    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
-   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 11, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), save, 1, 11, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 12, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), save, 1, 12, 1, 1);
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(server_editor_close), NULL);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
    rr_floating_panel_show(server_editor_panel);
