@@ -1,3 +1,5 @@
+    radio.channels.json			Reference channel memories; packaged as channels.json by default
+    <profile>.channels.json			Optional build-profile channel memories
     callsign-lookup.cfg				Stand-alone callsign-lookup config
     radio.config.json				Config for the build
     rrclient.cfg				RustyRig GTK/TUI client
