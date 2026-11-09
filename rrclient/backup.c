@@ -134,7 +134,7 @@ static GByteArray *make_payload(bool include_keys) {
    if (!ok) {wipe_free(out);return NULL;}
    return out;
 }
-static GByteArray *crypt(bool encrypt,const guint8 *input,gsize length,const char *password) {
+static GByteArray *backup_crypt(bool encrypt,const guint8 *input,gsize length,const char *password) {
    if (!password || !*password || length>RR_BACKUP_LIMIT+64) return NULL;
    if (!encrypt && (length<5+RR_BACKUP_SALT+RR_BACKUP_IV+RR_BACKUP_TAG ||
                      memcmp(input,magic,5))) return NULL;
@@ -318,7 +318,7 @@ static bool import_archive(const char *path,const char *password) {
        st.st_size>RR_BACKUP_LIMIT+64) return false;
    gchar *raw=NULL;gsize len=0;
    if (!g_file_get_contents(path,&raw,&len,NULL)) return false;
-   GByteArray *plain=crypt(false,(const guint8 *)raw,len,password);
+   GByteArray *plain=backup_crypt(false,(const guint8 *)raw,len,password);
    OPENSSL_cleanse(raw,len);g_free(raw);
    if (!plain) return false;
    bool ok=restore(plain);
@@ -339,7 +339,7 @@ static void backup_request(const rr_event_message_t *message,void *unused) {
       result.ok=import_archive(request.path,request.password);
    } else if (valid && (request.action==RR_BACKUP_SQL || request.action==RR_BACKUP_ALL)) {
       GByteArray *payload=make_payload(request.action==RR_BACKUP_ALL);
-      GByteArray *sealed=payload?crypt(true,payload->data,payload->len,request.password):NULL;
+      GByteArray *sealed=payload?backup_crypt(true,payload->data,payload->len,request.password):NULL;
       if (sealed) result.ok=write_archive(request.path,sealed);
       wipe_free(sealed);
       wipe_free(payload);
