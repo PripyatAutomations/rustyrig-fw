@@ -25,6 +25,8 @@ typedef struct {
    float left[HISTORY][RR_AF_BINS], right[HISTORY][RR_AF_BINS];
    float current_left[RR_AF_BINS], current_right[RR_AF_BINS];
    bool stereo;
+   bool source_refreshing;
+   char *source_inventory;
    unsigned head, count;
    guint timer;
    bool listening, af_pending;
@@ -567,6 +569,7 @@ static void destroy_panel(gpointer data) {
       event_off_token(p->af_result_token);
    }
    if (p->streams_token) event_off_token(p->streams_token);
+   g_free(p->source_inventory);
 
    if (p->listening) {
       rr_af_spectrum_listen(false);
@@ -641,7 +644,7 @@ static void enable_changed(GtkToggleButton *button, gpointer data) {
 static void source_changed(GtkComboBox *combo, gpointer data) {
    spectrum_panel_t *p = data;
    const char *id = gtk_combo_box_get_active_id(combo);
-   if (!id) return;
+   if (!id || p->source_refreshing) return;
    char next = !strcmp(id, "stereo") ? 'A' : !strcmp(id, "mixed") ? 'M' :
       !strcmp(id, "left") ? 'L' : !strcmp(id, "right") ? 'R' : 'S';
    if (next == p->source_mode && (next != 'S' || !strcmp(p->source_id, id))) return;
@@ -660,9 +663,26 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    const rr_audio_stream_snapshot_t *snapshot = message->payload;
    if (snapshot->count > 128 ||
        (size_t)snapshot->count > (message->length - sizeof(*snapshot)) / sizeof(snapshot->streams[0])) return;
+   /* Avoid rebuilding the selector every five seconds when nothing changed.
+    * Rebuilding emits "changed" and would otherwise erase the history. */
+   GString *inventory = g_string_new("");
+   for (uint32_t i = 0 ; i < snapshot->count ; i++) {
+      const struct rrclient_rx_stream *st = &snapshot->streams[i];
+      if (memchr(st->id, 0, sizeof(st->id)) &&
+          memchr(st->server, 0, sizeof(st->server)) &&
+          memchr(st->room, 0, sizeof(st->room)))
+         g_string_append_printf(inventory, "%s/%s/%s/%c;", st->id, st->server, st->room, st->output);
+   }
+   if (!g_strcmp0(p->source_inventory, inventory->str)) {
+      g_string_free(inventory, TRUE);
+      return;
+   }
+   g_free(p->source_inventory);
+   p->source_inventory = g_string_free(inventory, FALSE);
    const char *prior = gtk_combo_box_get_active_id(GTK_COMBO_BOX(p->source));
    char saved[64] = "";
    if (prior) g_strlcpy(saved, prior, sizeof(saved));
+   p->source_refreshing = true;
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(p->source));
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "mixed", "Mixed (heard)");
@@ -683,6 +703,12 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    if (!strcmp(saved, "stereo") || !strcmp(saved, "mixed") ||
        !strcmp(saved, "left") || !strcmp(saved, "right")) present = true;
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), present ? saved : "stereo");
+   p->source_refreshing = false;
+   if (!present && p->source_mode == 'S') {
+      p->source_mode = 'A';
+      p->source_id[0] = 0;
+      p->head = p->count = 0;
+   }
 }
 static void gain_changed(GtkRange *range, gpointer data) {
    spectrum_panel_t *p = data;
@@ -760,7 +786,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    p->drawing = gtk_drawing_area_new();
    gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK);
    gtk_widget_set_size_request(p->drawing, -1, 210);
-   gtk_box_pack_start(GTK_BOX(box), p->drawing, FALSE, TRUE, 0);
+   gtk_widget_set_vexpand(p->drawing, TRUE);
+   gtk_box_pack_start(GTK_BOX(box), p->drawing, TRUE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_context_menu), p);
    g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
@@ -776,7 +803,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
 }
 
 
-/* RF rows arrive on the main event bus, independently of audio and GTK. The bridge host currently publishes the active local VFO only. */
+/* RF rows arrive on the GTK event domain with an explicit local VFO identity. */
 typedef struct {
    GtkWidget *drawing;
    GtkWidget *enabled;
@@ -1117,7 +1144,7 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
          rr_local_bridge_ui_state_t bridge_state = {
             0
          };
-         double center = rrclient_local_bridge_ui_state(&bridge_state) ? (double)bridge_state.frequency_hz : (row->low_hz + row->high_hz) / 2.;
+         double center = rf_selected_state(p, &bridge_state) ? (double)bridge_state.frequency_hz : (row->low_hz + row->high_hz) / 2.;
          double base = center - span / 2.;
          double min_pan = (double)row->low_hz - base;
          double max_pan = (double)row->high_hz - span - base;
