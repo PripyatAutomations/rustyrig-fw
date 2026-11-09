@@ -194,7 +194,7 @@ else
 fi
 
 # Hash password
-PASSHASH=$(printf "%s" "$PASSWORD" | sha1sum | awk '{print $1}')
+PASSHASH=$(printf "%s" "$PASSWORD" | /usr/lib/rustyrig/rr-password-hash) || { echo "Argon2id hashing failed" >&2; exit 1; }
 LINE="$(get_next_uid):$USERNAME:$ENABLED:$PASSHASH:$EMAIL:$MAXCLONES:$PERMS"
 
 # Update or add user
