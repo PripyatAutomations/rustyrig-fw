@@ -5,11 +5,6 @@ Set them in the config json below.
 
 Edit config/$profile.config.json to reflect your target.
 
-Optionally create/edit config/$profile.channels.json to add preset channel memories.
-
 $profile.config.json
 --------------------
-
-$profile.channels.json
-----------------------
 
