@@ -547,6 +547,28 @@ static void cancel_reconnect(client_server_t *s) {
    s->reconnect_enabled = s->reconnect_pending = false;
    s->reconnect_tries = 0;
 }
+/* The native server may close immediately after auth rejection, before its
+ * auth.error frame reaches the client. Report the failed login once, from
+ * either the explicit error or a disconnect while awaiting authorization. */
+static void auth_failure_report(client_server_t *s, const char *reason) {
+   if (!s) return;
+   s->login_challenge_pending = false;
+   cancel_reconnect(s);
+   rrclient_auth_failure_alert_t alert = {0};
+   g_strlcpy(alert.profile, s->name ? s->name : "(unknown)", sizeof(alert.profile));
+   g_strlcpy(alert.reason, reason && *reason ? reason :
+      "Login rejected or connection closed during authentication. Check your username/password.",
+      sizeof(alert.reason));
+   Log(LOG_WARN, "auth.ws", "Authentication failed for profile %s; automatic reconnection disabled: %s",
+      alert.profile, alert.reason);
+   ui_print(NULL, "%sAuthentication failed for %s: %s (automatic reconnect stopped)",
+      get_chat_ts(now), alert.profile, alert.reason);
+   event_emit_message(&(rr_event_message_t) {
+      .name = RRCLIENT_AUTH_FAILURE_ALERT_EVENT, .sender = "core",
+      .payload = &alert, .length = sizeof(alert)
+   });
+}
+
 
 static void nick_prompt_close(client_server_t *s) {
    s->nick_deadline = 0;
@@ -707,8 +729,11 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
    }
 
    if (!strcmp(event, "auth.error")) {
-      s->login_challenge_pending = false;
-      cancel_reconnect(s);
+      const char *reason = NULL;
+      dict *detail = data ? json2dict(data) : NULL;
+      if (detail) reason = dict_get(detail, "auth.error", NULL);
+      auth_failure_report(s, reason && *reason ? reason : "Server rejected authentication. Check username/password.");
+      if (detail) dict_free(detail);
    } else if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected")) {
       s->login_challenge_pending = false;
       s->reconnect_pending = false;
@@ -717,10 +742,7 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
    } else if (!strcmp(event, "logging-in") && cptr && cptr->is_ws) {
       s->login_challenge_pending = true;
    } else if (!strcmp(event, "disconnected") && s->login_challenge_pending && cptr && cptr->is_ws) {
-      s->login_challenge_pending = false;
-      cancel_reconnect(s);
-      Log(LOG_WARN, "auth.ws", "Login rejected or connection closed during authentication for profile %s; reconnect disabled", s->name);
-      ui_print(NULL, "%s\00304Login failed for %s (check username/password or server authentication log). Automatic reconnect stopped.\017", get_chat_ts(now), s->name);
+      auth_failure_report(s, NULL);
    } else if (s->reconnect_enabled && !s->reconnect_pending && !dying) {
       if (s->reconnect_tries >= RRC_MAX_RECONNECTS) {
          cancel_reconnect(s);
@@ -1130,6 +1152,11 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       }
       event_emit("http.error", cptr, NULL);
    } else if (event == RR_TRANSPORT_EVENT_CLOSE) {
+      /* Do not rely on the deferred disconnected event: it may run after
+       * the connection context has been detached, and auth.error may never
+       * arrive if the peer closed immediately after sending it. */
+      if (s->login_challenge_pending && !cptr->authenticated)
+         auth_failure_report(s, NULL);
       native->closed = true;
       s->connected = ws_connected = 0;
       s->domain[0] = s->server_uuid[0] = 0;
