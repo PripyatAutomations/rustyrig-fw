@@ -31,6 +31,7 @@ inc/autoconf.h
 config/callsign-lookup.*.cfg
 config/*.old
 config/*.channels.json
+!config/radio.channels.json
 config/*.crt
 config/*.cert
 config/*.pem
