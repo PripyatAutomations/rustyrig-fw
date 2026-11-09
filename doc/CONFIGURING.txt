@@ -8,3 +8,13 @@ Edit config/$profile.config.json to reflect your target.
 $profile.config.json
 --------------------
 
+
+Channel memories
+----------------
+
+config/radio.channels.json is the reference/default file. For a custom
+server build profile, create config/$profile.channels.json if needed.
+Debian packaging installs the selected PROFILE's channel file as
+/etc/rustyrig/channels.json. If the selected profile has no channel file,
+radio.channels.json is installed instead. The client profile's channel
+file is not installed as server configuration.
