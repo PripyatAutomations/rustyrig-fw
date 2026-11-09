@@ -4,34 +4,50 @@
 set -euo pipefail
 
 PROFILE="${PROFILE:-radio}"
+usage() {
+   echo "Usage: PROFILE=radio $0 [deb|rpm|arch]"
+   echo "       PROFILE=radio $0 [--distro deb|rpm|arch]"
+   echo "Auto-detects from /etc/os-release; defaults to deb if unknown."
+   echo "Runs package manager as the invoking user (use sudo externally if needed)."
+}
 distro=""
-if [[ "${1:-}" == "--distro" && -n "${2:-}" ]]; then
-   distro="$2"
-elif [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-   echo "Usage: PROFILE=radio $0 [--distro debian|arch|fedora]"
-   exit 0
-elif [[ $# -gt 0 ]]; then
-   echo "Unknown option: $1" >&2
-   exit 2
-fi
+case "${1:-}" in
+   -h|--help) usage; exit 0 ;;
+   "")
+      [[ $# -eq 0 ]] || { usage >&2; exit 2; }
+      ;;
+   --distro)
+      [[ $# -eq 2 ]] || { usage >&2; exit 2; }
+      distro="$2"
+      ;;
+   *)
+      [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+      distro="$1"
+      ;;
+esac
 
 if [[ -z "$distro" ]]; then
+   # OS identity takes priority over installed package-manager commands.
    if [[ -r /etc/os-release ]]; then
       . /etc/os-release
-      case " ${ID:-} ${ID_LIKE:-} " in
-         *" arch "*|*" manjaro "*|*" endeavouros "*) distro=arch ;;
-         *" debian "*|*" ubuntu "*) distro=debian ;;
-         *" fedora "*|*" rhel "*|*" centos "*|*" rocky "*|*" almalinux "*) distro=fedora ;;
-      esac
+      for family in "${ID:-}" ${ID_LIKE:-}; do
+         case "$family" in
+            arch|manjaro|endeavouros|artix) distro=arch; break ;;
+            debian|devuan|ubuntu|linuxmint|pop|raspbian|kali) distro=deb; break ;;
+            fedora|rhel|centos|rocky|almalinux|ol) distro=rpm; break ;;
+         esac
+      done
    fi
+   distro="${distro:-deb}"
 fi
-if [[ -z "$distro" ]]; then
-   if command -v pacman >/dev/null 2>&1; then distro=arch
-   elif command -v apt-get >/dev/null 2>&1; then distro=debian
-   elif command -v dnf >/dev/null 2>&1; then distro=fedora
-   else echo "Unsupported distribution; use --distro debian|arch|fedora" >&2; exit 1
-   fi
-fi
+
+# Old --distro values remain accepted for existing wrappers.
+case "$distro" in
+   deb|debian|ubuntu) distro=deb ;;
+   rpm|fedora|redhat|rhel) distro=rpm ;;
+   arch) ;;
+   *) echo "Unknown distro family: $distro (use deb, rpm, arch)" >&2; exit 2 ;;
+esac
 
 config="config/${PROFILE}.config.json"
 if [[ ! -r "$config" ]]; then
@@ -39,17 +55,16 @@ if [[ ! -r "$config" ]]; then
    exit 1
 fi
 
-# jq is a bootstrap dependency, so give a useful install command even without it.
+# Run the package manager directly. The caller decides whether to use sudo.
 case "$distro" in
-   arch) manager="pacman -S --needed"; bootstrap="pacman -S --needed jq" ;;
-   debian) manager="apt install"; bootstrap="apt install jq" ;;
-   fedora|redhat|rhel) distro=fedora; manager="dnf install"; bootstrap="dnf install jq" ;;
-   *) echo "Unsupported distribution: $distro" >&2; exit 1 ;;
+   deb) manager=(apt-get install); bootstrap=(apt-get install jq) ;;
+   rpm) manager=(dnf install); bootstrap=(dnf install jq) ;;
+   arch) manager=(pacman -S --needed); bootstrap=(pacman -S --needed jq) ;;
 esac
 if ! command -v jq >/dev/null 2>&1; then
-   echo "jq is required to read $config; install it first:"
-   echo "${SUDO:-sudo} $bootstrap"
-   exit 1
+   echo "Installing jq to read $config..."
+   "${bootstrap[@]}"
+   command -v jq >/dev/null 2>&1 || { echo "jq installation did not provide jq" >&2; exit 1; }
 fi
 
 enabled() { [[ "$(jq -r "$1 // false | tostring" "$config")" == true ]]; }
@@ -58,7 +73,7 @@ enabled() { [[ "$(jq -r "$1 // false | tostring" "$config")" == true ]]; }
 mongoose_enabled=false
 if enabled '.features.mongoose'; then mongoose_enabled=true; fi
 case "$distro" in
-   debian)
+   deb)
       packages=(build-essential git jq pkg-config make libbsd-dev libncurses-dev
          debhelper libglib2.0-dev libgpiod-dev libev-dev libcrypt-dev
          libssl-dev libwslay-dev libargon2-dev libarchive-dev libcurl4-openssl-dev
@@ -96,7 +111,7 @@ case "$distro" in
       fi
       enabled '.components."callsign-lookup"' && packages+=(curl)
       ;;
-   fedora)
+   rpm)
       packages=(gcc gcc-c++ make git jq pkgconf-pkg-config libbsd-devel
          ncurses-devel glib2-devel libgpiod-devel libev-devel
          openssl-devel wslay-devel libargon2-devel libarchive-devel libcurl-devel
@@ -125,10 +140,10 @@ for package in "${packages[@]}"; do
    unique+=("$package")
 done
 
-echo "Detected distribution: $distro"
+echo "Detected package family: $distro"
 echo "RustyRig build profile: $config"
-echo "Mongoose transport: $([[ "$mongoose_enabled" == true ]] && echo 'enabled (optional backend)' || echo 'disabled (native OpenSSL/wslay)')"
-echo "Install build dependencies with:"
-printf '%s %s' "${SUDO:-sudo}" "$manager"
-printf ' %q' "${unique[@]}"
-printf '\n'
+echo "Mongoose transport: $([[ "$mongoose_enabled" == true ]] && echo enabled || echo disabled)"
+printf "Installing build dependencies with:"
+printf " %q" "${manager[@]}" "${unique[@]}"
+printf "\n"
+"${manager[@]}" "${unique[@]}"
