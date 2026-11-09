@@ -755,6 +755,10 @@ static void tls_pin_reply_event(const rr_event_message_t *message, void *unused)
    if (!current || strcmp(current, request.old_pin)) return;
    server->pending_tls_pin_confirmation = false;
    server->pending_tls_pin[0] = '\0';
+   if (!request.approved) {
+      Log(LOG_INFO, "connman", "TLS key replacement declined for %s; connection remains blocked", server->name);
+      return;
+   }
    if (!rrclient_database_server_set(server->name, "server.tls-spki-sha256", request.new_pin)) {
       Log(LOG_WARN, "connman", "Unable to persist replacement TLS public key for %s", server->name);
       return;
