@@ -784,14 +784,24 @@ static void tls_pin_reply_event(const rr_event_message_t *message, void *unused)
       return;
    }
    if (request.decision == 2) {
-      if (!rrclient_database_server_set(server->name, "server.tls-spki-sha256", request.new_pin))
+      if (!rrclient_database_server_set(server->name, "server.tls-spki-sha256", request.new_pin)) {
+         Log(LOG_WARN, "connman", "Could not persist accepted TLS pin for profile %s; keeping connection blocked", server->name);
          return;
+      }
       server->temporary_tls_pin[0] = '\0';
       Log(LOG_AUDIT, "connman", "Persistently trusted TLS public key for %s", server->name);
    } else {
       g_strlcpy(server->temporary_tls_pin, request.new_pin, sizeof(server->temporary_tls_pin));
       Log(LOG_AUDIT, "connman", "Trusted TLS public key once for %s", server->name);
    }
+   rr_server_url_t approved_endpoint;
+   if (!server->url || !rr_server_url_parse(server->url, &approved_endpoint) || approved_endpoint.irc || !approved_endpoint.tls) {
+      Log(LOG_WARN, "connman", "Trust approved for %s, but the current profile URL is not a RustyRig WSS endpoint; reconnect refused", server->name);
+      server->temporary_tls_pin[0] = '\0';
+      return;
+   }
+   Log(LOG_INFO, "connman", "TLS trust approved for %s; scheduling WSS reconnect to %s:%u",
+      server->name, approved_endpoint.host, approved_endpoint.port);
    server->reconnect_enabled = true;
    server->reconnect_pending = true;
    server->reconnect_at = now;
@@ -1585,8 +1595,12 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
 #else
 
    if (endpoint.irc) {
-      ui_print(NULL, "IRC requires the Mongoose backend; native transport supports RustyRig WebSocket");
-
+      /* This is a configured IRC URL, not a fallback from failed WSS. */
+      Log(LOG_WARN, "connman", "Profile %s is configured for %s://%s:%u, which the native client cannot connect to",
+         profile ? profile : endpoint.host, endpoint.tls ? "ircs" : "irc", endpoint.host, endpoint.port);
+      ui_print(NULL, "Profile %s uses %s://%s:%u; native transport supports RustyRig WSS only. "
+         "For RustyRig, edit URL to wss://host:4420/ws/",
+         profile ? profile : endpoint.host, endpoint.tls ? "ircs" : "irc", endpoint.host, endpoint.port);
       return true;
    }
    const char *proxy = profile ? get_server_property(profile, "server.proxy") : NULL;
@@ -1685,6 +1699,9 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    bool tofu = !tofu_value || (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
    const char *pin = tofu ? (s->temporary_tls_pin[0] ? s->temporary_tls_pin :
       get_server_property(s->name, "server.tls-spki-sha256")) : NULL;
+   Log(LOG_INFO, "connman", "Native WSS profile=%s endpoint=%s:%u trust-mode=%s pin=%s expected-node=%s",
+      s->name, endpoint.host, endpoint.port, !tofu ? "CA/hostname" : "SPKI/approval",
+      pin && *pin ? "present" : "unapproved", tls_name && *tls_name ? tls_name : "(unspecified)");
    rr_wss_client_options_secure_t opts = {
       .user_agent = "RustyRig/1.0",
       .subprotocol = RR_WS_SUBPROTOCOL,
