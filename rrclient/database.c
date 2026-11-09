@@ -354,6 +354,14 @@ char *rrclient_database_dump_sql(size_t *length) {
    sqlite3_finalize(schema);
    sqlite3_close(snapshot);
    if (!ok) { g_string_free(out, TRUE); return NULL; }
+   /* Preserve the schema migration version across SQL restores. */
+   sqlite3_stmt *version_stmt = NULL;
+   int version = 0;
+   if (sqlite3_prepare_v2(client_db,"PRAGMA user_version",-1,&version_stmt,NULL)==SQLITE_OK &&
+       sqlite3_step(version_stmt)==SQLITE_ROW)
+      version=sqlite3_column_int(version_stmt,0);
+   sqlite3_finalize(version_stmt);
+   g_string_append_printf(out,"PRAGMA user_version=%d;\n",version);
    g_string_append(out, "COMMIT;\n");
    if (length) *length = out->len;
    return g_string_free(out, FALSE);
@@ -370,6 +378,8 @@ static int backup_sql_authorizer(void *user, int op, const char *a,
    case SQLITE_INSERT: case SQLITE_SELECT: case SQLITE_READ:
    case SQLITE_TRANSACTION: case SQLITE_FUNCTION:
       return SQLITE_OK;
+   case SQLITE_PRAGMA:
+      return a && !strcmp(a, "user_version") ? SQLITE_OK : SQLITE_DENY;
    default:
       return SQLITE_DENY;
    }
