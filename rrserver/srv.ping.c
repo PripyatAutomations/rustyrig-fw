@@ -32,21 +32,10 @@ bool ws_send_ping(rrconn_t *cptr) {
    if (!cptr || !cptr->is_ws) {
       return false;
    }
-   char resp_buf[HTTP_WS_MAX_MSG + 1];
-
-   if (!cptr) {
-      Log(LOG_DEBUG, "auth", "ws_send_ping for null cptr!");
-
+   if (!cptr->native_transport || rr_transport_state(cptr->native_transport) != RR_TRANSPORT_OPEN) {
+      Log(LOG_DEBUG, "ping", "ws_send_ping for cptr:<%p> without an open transport", cptr);
       return false;
    }
-#ifdef  USE_MONGOOSE
-
-   if (!cptr->conn && !cptr->native_transport) {
-      Log(LOG_DEBUG, "auth", "ws_send_ping for cptr:<%p> has mg_conn:<%p> and is invalid", cptr, (cptr ? cptr->conn : NULL));
-
-      return false;
-   }
-#endif // USE_MONGOOSE
 
    // Make sure that timeout will happen if no response
    cptr->last_ping = now;
