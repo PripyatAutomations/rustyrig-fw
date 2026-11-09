@@ -244,7 +244,26 @@ bool rrclient_native_text_receive(rrconn_t *cptr, const uint8_t *data, size_t le
       ok = ws_txtframe_dispatch(cptr, message);
       dict_free(message);
    } else {
-      Log(LOG_WARN, "ws", "Invalid native WebSocket control frame (%zu bytes)", len);
+      /* Wire-schema rejection is not a malformed WebSocket frame. Only
+       * print JSON key names; values may contain passwords or tokens. */
+      dict *raw = json2dict(buf);
+      char keys[512] = {0};
+      const char *key = NULL;
+      char *value = NULL;
+      int rank = 0;
+      unsigned fields = 0;
+      if (raw) {
+         while ((rank = dict_enumerate(raw, rank, &key, &value)) >= 0) {
+            size_t used = strlen(keys), n = key ? strlen(key) : 0;
+            if (used + n + 3 >= sizeof(keys)) break;
+            if (used) { keys[used++] = ','; keys[used++] = ' '; keys[used] = 0; }
+            if (key) memcpy(keys + used, key, n + 1);
+            fields++;
+         }
+         dict_free(raw);
+      }
+      Log(LOG_WARN, "ws", "Rejected native WebSocket TEXT payload by strict wire decoder (%zu bytes, fields=%u, keys=%s)",
+         len, fields, keys[0] ? keys : "(not a JSON dictionary)");
    }
    free(buf);
 
