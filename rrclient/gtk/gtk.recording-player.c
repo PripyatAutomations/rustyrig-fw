@@ -72,13 +72,14 @@ static gboolean draw_wave(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    gtk_style_context_get_color(ctx, GTK_STATE_FLAG_NORMAL, &ink);
    gtk_style_context_get_background_color(ctx, GTK_STATE_FLAG_SELECTED, &accent);
    if (accent.alpha <= 0.01) accent = ink;
-   const double axis = h * 0.5;
-   cairo_set_source_rgba(cr, ink.red, ink.green, ink.blue, 0.21);
    cairo_set_line_width(cr, 1);
-   cairo_move_to(cr, 0, axis + 0.5);
-   cairo_line_to(cr, w, axis + 0.5);
-   cairo_stroke(cr);
-   if (player.envelope && player.envelope->count) {
+   for (unsigned channel = 0; channel < 2; channel++) {
+      double axis = h * (channel ? 0.75 : 0.25);
+      cairo_set_source_rgba(cr, ink.red, ink.green, ink.blue, 0.21);
+      cairo_move_to(cr, 0, axis + 0.5);
+      cairo_line_to(cr, w, axis + 0.5);
+      cairo_stroke(cr);
+      if (!player.envelope || !player.envelope->count) continue;
       const rr_recording_waveform *wave = player.envelope;
       cairo_set_source_rgba(cr, accent.red, accent.green, accent.blue, 0.95);
       for (gint x = 0; x < (gint)w; x++) {
@@ -89,32 +90,38 @@ static gboolean draw_wave(GtkWidget *widget, cairo_t *cr, gpointer unused) {
          to = MIN(to, wave->count);
          gint16 lo = G_MAXINT16, hi = G_MININT16;
          for (guint i = from; i < to; i++) {
-            lo = MIN(lo, wave->bins[i].low);
-            hi = MAX(hi, wave->bins[i].high);
+            const rr_recording_wave_bin *b = &wave->bins[i];
+            lo = MIN(lo, channel ? b->right_low : b->left_low);
+            hi = MAX(hi, channel ? b->right_high : b->left_high);
          }
-         double top = axis - ((double)hi / 32768.0) * (h * 0.44);
-         double bottom = axis - ((double)lo / 32768.0) * (h * 0.44);
+         double top = axis - ((double)hi / 32768.0) * (h * 0.21);
+         double bottom = axis - ((double)lo / 32768.0) * (h * 0.21);
          cairo_move_to(cr, x + 0.5, top);
          cairo_line_to(cr, x + 0.5, bottom);
       }
       cairo_stroke(cr);
-      if (wave->duration > 0.0) {
-         double cursor_x = CLAMP(player.position / wave->duration, 0.0, 1.0) * w;
-         cairo_set_source_rgba(cr, ink.red, ink.green, ink.blue, 0.10);
-         cairo_rectangle(cr, 0, 0, cursor_x, h);
-         cairo_fill(cr);
-         cairo_set_source_rgba(cr, accent.red, accent.green, accent.blue, 1.0);
-         cairo_set_line_width(cr, 2);
-         cairo_move_to(cr, cursor_x, 0);
-         cairo_line_to(cr, cursor_x, h);
-         cairo_stroke(cr);
-      }
+      cairo_set_source_rgba(cr, ink.red, ink.green, ink.blue, 0.8);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr, 11);
+      cairo_move_to(cr, 8, channel ? h * 0.58 : 15);
+      cairo_show_text(cr, channel ? "R" : "L");
+   }
+   if (player.envelope && player.envelope->duration > 0.0) {
+      double cursor_x = CLAMP(player.position / player.envelope->duration, 0.0, 1.0) * w;
+      cairo_set_source_rgba(cr, ink.red, ink.green, ink.blue, 0.10);
+      cairo_rectangle(cr, 0, 0, cursor_x, h);
+      cairo_fill(cr);
+      cairo_set_source_rgba(cr, accent.red, accent.green, accent.blue, 1.0);
+      cairo_set_line_width(cr, 2);
+      cairo_move_to(cr, cursor_x, 0);
+      cairo_line_to(cr, cursor_x, h);
+      cairo_stroke(cr);
    } else {
       cairo_set_source_rgba(cr, ink.red, ink.green, ink.blue, 0.8);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
       cairo_set_font_size(cr, 12);
-      cairo_move_to(cr, 14, axis);
-      cairo_show_text(cr, "Analyzing recording waveform…");
+      cairo_move_to(cr, 14, h * 0.5);
+      cairo_show_text(cr, "Analyzing stereo waveform…");
    }
    return FALSE;
 }
