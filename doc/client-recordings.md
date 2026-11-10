@@ -1,0 +1,45 @@
+# Client stereo recordings
+
+The GTK client has a **Recordings** toolbar tool. Its floating panel uses the
+shared GTK tree-row striping and lists local Ogg and FLAC files and folders
+under `~/.local/share/rustyrig/recordings`.
+
+Click **RECORD** to capture the output of the client's stereo RX mixer. The
+format chooser supports Ogg/Vorbis (default), FLAC and Both. The Both option
+writes two copies of the same PCM in parallel with a shared
+`RECORDING_ID` Vorbis/FLAC tag. The output is 16 kHz two-channel audio, as
+presented to the client playback DSP before the final speaker sink.
+
+Click **STOP** to close the encoder input. When encoding has finished, a
+name prompt appears; Cancel leaves the automatically generated name. An
+example filename is:
+
+`RX - 14370000USB - rplywv00-rig0.rplywv00-rig0.A - 2026-11-10_00-00-00 - uuid.ogg`
+
+Recordings include available title, user, timestamp, frequency, mode, site,
+rig and VFO tags. Source identity, grid and GPS fields are reserved in the
+recording API and written when supplied. Filenames use a random ID to avoid
+collisions and to associate the matching formats. The GUI does not yet
+capture comprehensive per-stream/GPS metadata; that requires a core-thread
+snapshot rather than direct access to live client state.
+
+The list can play files through the existing RX PCM engine by decoding into
+two separately routed L/R input streams. The Play and Stop Playback buttons
+control this source. Rename/Move stays within the recording tree, Download
+copies to a selected destination, New Folder makes subdirectories, and Delete
+confirms before removing an item. Directories must be empty to delete.
+
+## Dependencies and design notes
+
+`ffmpeg` must be installed and have the Vorbis and FLAC encoders and
+decoders enabled. This is declared as a dependency of rustyrig-client-gtk
+in Debian packages.
+
+Encoding and decoding run in child processes on worker threads. The audio
+callback uses a bounded, four-second ring buffer and a nonblocking mutex
+attempt, preventing slow disks or encoders from blocking the PCM hub. A
+failed/full queue can drop samples; diagnostics and more detailed recording
+status still need integration.
+
+This is a new **client** recording facility, separate from server PTT and RX
+FLAC recording documented in `doc/recordings.md`.
