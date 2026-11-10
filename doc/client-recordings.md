@@ -17,11 +17,11 @@ example filename is:
 `RX - 14370000USB - rplywv00-rig0.rplywv00-rig0.A - 2026-11-10_00-00-00 - uuid.ogg`
 
 Recordings include available title, user, timestamp, frequency, mode, site,
-rig and VFO tags. Source identity, grid and GPS fields are reserved in the
-recording API and written when supplied. Filenames use a random ID to avoid
-collisions and to associate the matching formats. The GUI does not yet
-capture comprehensive per-stream/GPS metadata; that requires a core-thread
-snapshot rather than direct access to live client state.
+rig and VFO tags. The core-thread snapshot supplies the logged-in username, connected server,
+room/rig/VFO, grid and all currently routed RX stream identifiers; GTK does not
+read live connection structures. GPS latitude/longitude tags are reserved but
+currently remain empty when the snapshot has only a grid square. Filenames
+contain a shared UUID and start/end local timestamps.
 
 The list can play files through the existing RX PCM engine by decoding into
 two separately routed L/R input streams. The Play and Stop Playback buttons
