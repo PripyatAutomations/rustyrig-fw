@@ -346,14 +346,22 @@ static bool mesh_join_print_identity(void) {
 
       return false;
    }
+   const char *station = cfg_get("station.name");
+   const char *domain = cfg_get("domain");
    fprintf(stderr, "\nRustyRig mesh enrollment\n"
+      "Server name (station.name): %s\n"
+      "Mesh domain (domain): %s\n"
+      "TLS certificate DNS name: %s\n"
       "Your server UUID: %s\n\n"
       "Send this UUID to an administrator of the existing mesh.\n"
       "On an enrolled server, the administrator should run:\n"
       "  /link invite %s\n\n"
       "Ask them to send you the resulting private invitation token securely.\n"
       "\n\nYou may press ctrl-C to exit if you need to wait for the response token from admin.\n"
-      "Response tokens are good for 72 hours by default\n" "Do not send them your server's private keys.\n\n", uuid, uuid);
+      "Response tokens are good for 72 hours by default\n" "Do not send them your server's private keys.\n\n",
+      station && *station ? station : "(not configured)",
+      domain && *domain ? domain : "(not configured)",
+      station && *station ? station : "(not configured)", uuid, uuid);
    free(uuid);
 
    return true;
