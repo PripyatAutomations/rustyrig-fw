@@ -1055,8 +1055,34 @@ static void frontend_gtk_auth_failure_event(const rr_event_message_t *message, v
    gtk_widget_show(dialog);
 }
 
-/* The TLS handshake has already failed closed. GTK alone owns the
- * confirmation dialog; core persists the pin only after the explicit reply. */
+/* Trust decisions stay in the application overlay. Do not run a nested
+ * gtk_dialog_run(): transport CLOSE events must still flow normally. */
+typedef struct {
+   RRFloatPanel *panel;
+   GtkWidget *confirm;
+   rrclient_tls_pin_request_t request;
+} GtkTlsTrustPrompt;
+
+static void frontend_gtk_tls_pin_finish(GtkTlsTrustPrompt *prompt, gint response) {
+   if (!prompt) return;
+   rrclient_tls_pin_request_t request = prompt->request;
+   request.decision = response == 1 ? 1 : response == 2 &&
+      !strcmp(gtk_entry_get_text(GTK_ENTRY(prompt->confirm)), "YES") ? 2 : 0;
+   RRFloatPanel *panel = prompt->panel;
+   prompt->panel = NULL;
+   rr_floating_panel_destroy(panel);
+   event_emit_message(&(rr_event_message_t) {
+      .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
+      .payload = &request, .length = sizeof(request)
+   });
+}
+static void frontend_gtk_tls_pin_close(gpointer user) {
+   frontend_gtk_tls_pin_finish(user, 0);
+}
+static void frontend_gtk_tls_pin_response(RRFloatPanel *panel, gint response, gpointer user) {
+   (void)panel;
+   frontend_gtk_tls_pin_finish(user, response);
+}
 static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (dying || !message || !message->payload ||
@@ -1066,46 +1092,74 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    if (!memchr(request.profile, 0, sizeof(request.profile)) ||
        !memchr(request.old_pin, 0, sizeof(request.old_pin)) ||
        !memchr(request.new_pin, 0, sizeof(request.new_pin))) return;
-   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
-   bool changed = request.old_pin[0] != '\0';
-   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
-      GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
-      "%s TLS identity for %s", changed ? "Changed" : "Unknown", request.profile);
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      /* Fail closed if the UI cannot present a trust decision. */
+      request.decision = 0;
+      event_emit_message(&(rr_event_message_t) {
+         .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
+         .payload = &request, .length = sizeof(request)
+      });
+      return;
+   }
+   GtkTlsTrustPrompt *prompt = g_new0(GtkTlsTrustPrompt, 1);
+   prompt->request = request;
+   char *id = g_strdup_printf("tls-trust-%s", request.profile);
+   prompt->panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
+      id, request.old_pin[0] ? "Changed TLS identity" : "Unknown TLS identity");
+   g_free(id);
+   if (!prompt->panel) {
+      g_free(prompt);
+      request.decision = 0;
+      event_emit_message(&(rr_event_message_t) {
+         .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
+         .payload = &request, .length = sizeof(request)
+      });
+      return;
+   }
+   rr_floating_panel_set_initial_centered(prompt->panel, TRUE);
+   rr_floating_panel_set_modal(prompt->panel, TRUE);
+   rr_floating_panel_set_minimizable(prompt->panel, FALSE);
+   rr_floating_panel_set_resizable(prompt->panel, FALSE);
+   rr_floating_panel_set_close_callback(prompt->panel, frontend_gtk_tls_pin_close, prompt);
+   rr_floating_panel_set_response_callback(prompt->panel, frontend_gtk_tls_pin_response, prompt);
+   /* The panel owns the prompt state, and its Close callback sends Deny. */
+   g_object_set_data_full(G_OBJECT(rr_floating_panel_widget(prompt->panel)),
+      "rr-tls-trust-prompt", prompt, g_free);
+   GtkWidget *area = rr_floating_panel_body(prompt->panel);
    const char *node = request.node_name[0] ? request.node_name : "(not configured)";
    const char *cn = request.cert_cn[0] ? request.cert_cn : "(not present)";
    const char *sans = request.cert_sans[0] ? request.cert_sans : "(not present)";
    const char *cert = request.cert_sha256[0] ? request.cert_sha256 : "(unavailable)";
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-      "Connecting to: %s\nExpected Node Name: %s\nCertificate CN: %s\n"
-      "Certificate DNS SANs: %s\n\n"
-      "Certificate SHA-256: %s\nPublic key SPKI SHA-256: %s\n"
-      "Previously trusted SPKI: %s\n\n"
-      "Station and domain are verified against the server's announcement after connection; "
-      "the certificate details above are presented by the remote endpoint and are not yet trusted. "
+   char *details = g_strdup_printf(
+      "Connecting to: %s\\nExpected Node Name: %s\\nCertificate CN: %s\\n"
+      "Certificate DNS SANs: %s\\n\\nCertificate SHA-256: %s\\n"
+      "Public key SPKI SHA-256: %s\\nPreviously trusted SPKI: %s\\n\\n"
+      "Station and domain are verified against the server announcement after connecting. "
       "Verify the key fingerprint through an independent channel before accepting.",
       request.address[0] ? request.address : "(unknown)", node, cn, sans, cert,
-      request.new_pin, changed ? request.old_pin : "(none; first connection)");
-   gtk_dialog_add_button(GTK_DIALOG(dialog), "_Deny", 0);
-   gtk_dialog_add_button(GTK_DIALOG(dialog), "Accept _Once", 1);
-   gtk_dialog_add_button(GTK_DIALOG(dialog), "Accept _Always", 2);
-   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *instruction = gtk_label_new("For Accept Always, type YES to confirm storing this key:");
-   gtk_label_set_xalign(GTK_LABEL(instruction), 0.0f);
-   GtkWidget *entry = gtk_entry_new();
-   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "YES");
+      request.new_pin, request.old_pin[0] ? request.old_pin : "(none; first connection)");
+   GtkWidget *label = gtk_label_new(details);
+   g_free(details);
+   gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+   gtk_label_set_selectable(GTK_LABEL(label), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(label), 0);
+   gtk_widget_set_size_request(label, 480, -1);
+   gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 8);
+   GtkWidget *instruction = gtk_label_new("For Accept Always, type YES:");
+   gtk_label_set_xalign(GTK_LABEL(instruction), 0);
    gtk_box_pack_start(GTK_BOX(area), instruction, FALSE, FALSE, 6);
-   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 6);
-   gtk_widget_show_all(dialog);
-   gtk_widget_grab_focus(entry);
-   gtk_dialog_set_default_response(GTK_DIALOG(dialog), 0);
-   int response = gtk_dialog_run(GTK_DIALOG(dialog));
-   request.decision = response == 1 ? 1 : response == 2 &&
-      !strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "YES") ? 2 : 0;
-   gtk_widget_destroy(dialog);
-   event_emit_message(&(rr_event_message_t) {
-      .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
-      .payload = &request, .length = sizeof(request)
-   });
+   prompt->confirm = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(prompt->confirm), "YES");
+   gtk_box_pack_start(GTK_BOX(area), prompt->confirm, FALSE, FALSE, 6);
+   GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(area), buttons, FALSE, FALSE, 6);
+   rr_floating_panel_add_response(prompt->panel, buttons, "Accept Always", 2);
+   rr_floating_panel_add_response(prompt->panel, buttons, "Accept Once", 1);
+   rr_floating_panel_add_response(prompt->panel, buttons, "Deny", 0);
+   gtk_widget_show_all(area);
+   rr_floating_panel_show(prompt->panel);
+   gtk_widget_grab_focus(prompt->confirm);
 }
 /* One-use bearer credential: only expose it through the explicit dialog. */
 static void mesh_token_copy(GtkButton *button, gpointer user) {
