@@ -323,6 +323,7 @@ bool rr_relay_client_key_lookup(const char *home_uuid, const char *principal,
           strcmp(dict_get(snapshot, "identity.operation", ""), "users-snapshot") ||
           g_ascii_strcasecmp(dict_get(snapshot, "identity.domain", ""), domain))
          return false;
+      if (!strcmp(dict_get(snapshot, "userkey.overflow", ""), "true")) return false;
       unsigned count = dict_get_uint(snapshot, "userkey.count", 0);
       if (count > 64) return false;
       for (unsigned i = 0; i < count; ++i) {
@@ -431,6 +432,7 @@ dict *rr_relay_local_users(void) {
       /* Publish only enabled client keys belonging to enabled local accounts,
        * inside the existing signed, revisioned global users-snapshot. */
       unsigned key_count = 0;
+      bool keys_overflow = false;
       stmt = NULL;
       const char *station = cfg_get("station.name");
       const char *domain = cfg_get("domain");
@@ -442,7 +444,10 @@ dict *rr_relay_local_users(void) {
              -1, &stmt, NULL) == SQLITE_OK) {
          while (sqlite3_step(stmt) == SQLITE_ROW) {
             if (key_count == 64) {
-               Log(LOG_WARN, "mesh.identity", "More than 64 active client keys; signed user-directory snapshot cannot carry all keys within mesh frame limit");
+               /* Explicit fail-closed marker: a truncated directory must
+                * never authorize even the first 64 keys. */
+               keys_overflow = true;
+               Log(LOG_WARN, "mesh.identity", "More than 64 active client keys; client-key authorization blocked until key catalog pagination is available");
                break;
             }
             const char *username = (const char *)sqlite3_column_text(stmt, 0);
@@ -466,6 +471,7 @@ dict *rr_relay_local_users(void) {
       }
       sqlite3_finalize(stmt);
       dict_add_uint(d, "userkey.count", key_count);
+      dict_add(d, "userkey.overflow", keys_overflow ? "true" : "false");
    }
 #else
 
