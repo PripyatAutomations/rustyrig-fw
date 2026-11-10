@@ -20,4 +20,5 @@ void rr_recordings_collect(void);
 gboolean rr_recordings_play(const char *path, rr_recording_playback_fn output);
 void rr_recordings_play_stop(void);
 void rr_recordings_play_collect(void);
+void rr_recordings_shutdown(void);
 #endif
