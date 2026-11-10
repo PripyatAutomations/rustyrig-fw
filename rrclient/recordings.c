@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <io.h>
+#include <fcntl.h>
 #define read _read
 #define write _write
 #define close _close
@@ -73,7 +74,7 @@ static char *make_path(const char *base, const char *suffix) {
 static gboolean write_all(int fd, const void *data, size_t length) {
    const char *p = data;
    while (length) {
-      ssize_t n = write(fd, p, length);
+      gssize n = write(fd, p, (unsigned int)MIN(length, (size_t)0x7fffffff));
       if (n < 0 && errno == EINTR) continue;
       if (n <= 0) return FALSE;
       p += n;
@@ -253,6 +254,9 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
    }
    g_mutex_lock(&rec.lock);
    rec.ogg = ogg; rec.flac = flac; rec.id = id;
+#ifdef _WIN32
+   _setmode(child_stdin, _O_BINARY);
+#endif
    rec.child = pid; rec.child_fd = child_stdin;
    rec.head = rec.used = 0; rec.dropped = 0;
    rec.stopping = FALSE; rec.recording = TRUE;
@@ -319,6 +323,9 @@ static gpointer playback_worker(gpointer unused) {
    GError *error = NULL;
    if (g_spawn_async_with_pipes(NULL, argv, NULL, G_SPAWN_SEARCH_PATH |
       G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL, &pid, NULL, &fd, NULL, &error)) {
+#ifdef _WIN32
+      _setmode(fd, _O_BINARY);
+#endif
       int16_t block[320 * 2];
       for (;;) {
          g_mutex_lock(&playback_lock);
@@ -327,7 +334,7 @@ static gpointer playback_worker(gpointer unused) {
          if (stop) break;
          size_t n = 0;
          while (n < sizeof(block)) {
-            ssize_t got = read(fd, ((char *)block) + n, sizeof(block) - n);
+            gssize got = read(fd, ((char *)block) + n, (unsigned int)(sizeof(block) - n));
             if (got < 0 && errno == EINTR) continue;
             if (got <= 0) break;
             n += (size_t)got;
