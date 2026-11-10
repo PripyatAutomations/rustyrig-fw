@@ -33,6 +33,7 @@ gboolean rr_recordings_active(void);
 void rr_recordings_collect(void);
 gboolean rr_recordings_play(const char *path, rr_recording_playback_fn output);
 gboolean rr_recordings_play_at(const char *path, double seconds, gboolean reverse, rr_recording_playback_fn output);
+gboolean rr_recordings_play_busy(void);
 gboolean rr_recordings_play_reposition(const char *path, double seconds, gboolean reverse);
 void rr_recordings_play_pause(gboolean pause);
 void rr_recordings_play_stop(void);
