@@ -15,6 +15,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <rrclient/audio.engine.h>
+#include <rrclient/recordings.h>
 #include <rrclient/audio.graph.h>
 #include <rrclient/rrclient.h>
 #include <glib.h>
@@ -76,6 +77,7 @@ static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
       rr_af_spectrum_push("output:right", right, frames);
       rr_af_spectrum_push("output:mixed", mixed, frames);
    }
+   rr_recordings_push(pcm, frames);
    g_mutex_lock(&rx_sink_lock);
 
    if (rx_sink_fd >= 0 && !fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t))) {
@@ -109,6 +111,42 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
 void audio_local_rx_stop(const char *id) {
    if (rx_engine && id) {
       rr_audio_engine_remove_stream(rx_engine, id);
+   }
+}
+
+/* Recorded files enter the existing PCM hub as individually routed ear streams. */
+static void recording_playback_pcm(const int16_t *pcm, size_t frames) {
+   if (!rx_engine || !pcm || !frames || frames > 1024) return;
+   int16_t left[1024], right[1024];
+   for (size_t i = 0; i < frames; i++) {
+      left[i] = pcm[i * 2];
+      right[i] = pcm[i * 2 + 1];
+   }
+   rr_audio_engine_push(rx_engine, "recording.playback.L", left, frames);
+   rr_audio_engine_push(rx_engine, "recording.playback.R", right, frames);
+}
+bool audio_recording_play(const char *path) {
+   if (!rx_engine || !path) return false;
+   if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.L")) return false;
+   if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.R")) {
+      rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
+      return false;
+   }
+   rr_audio_engine_route(rx_engine, "recording.playback.L", 'L');
+   rr_audio_engine_route(rx_engine, "recording.playback.R", 'R');
+   if (!rr_recordings_play(path, recording_playback_pcm)) {
+      rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
+      rr_audio_engine_remove_stream(rx_engine, "recording.playback.R");
+      return false;
+   }
+   return true;
+}
+void audio_recording_play_stop(void) { rr_recordings_play_stop(); }
+void audio_recording_play_collect(void) {
+   rr_recordings_play_collect();
+   if (rx_engine) {
+      rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
+      rr_audio_engine_remove_stream(rx_engine, "recording.playback.R");
    }
 }
 
