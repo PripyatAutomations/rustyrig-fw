@@ -67,6 +67,22 @@ void rr_relay_users_poll(bool force) {
       changed |= strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
    }
 
+   /* Key enrollment/revocation must publish a new signed directory revision
+    * even when user presence and account metadata are unchanged. */
+   if (!changed && dict_get_uint(entry->users, "userkey.count", 0) != dict_get_uint(local, "userkey.count", 0))
+      changed = true;
+   for (unsigned i = 0; !changed && i < dict_get_uint(local, "userkey.count", 0); ++i) {
+      char key[64];
+      static const char *fields[] = { "principal", "id", "public" };
+      for (unsigned n = 0; n < G_N_ELEMENTS(fields); ++n) {
+         snprintf(key, sizeof(key), "userkey.%u.%s", i, fields[n]);
+         if (g_strcmp0(dict_get(entry->users, key, ""), dict_get(local, key, ""))) {
+            changed = true;
+            break;
+         }
+      }
+   }
+
    if (!changed && dict_get_uint(entry->users, "privilege.count", 0) != dict_get_uint(local, "privilege.count", 0)) {
       changed = true;
    }
