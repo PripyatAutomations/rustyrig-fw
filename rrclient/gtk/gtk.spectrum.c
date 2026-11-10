@@ -747,9 +747,14 @@ static void ear_changed(GtkRange *range, gpointer data) {
 }
 /* Spectrum selectors should not cover the trace when idle. The menu and
  * focused/hovered widget always remain fully opaque and usable. */
+static gboolean spectrum_popup_shown(GtkWidget *widget) {
+   gboolean shown = FALSE;
+   g_object_get(widget, "popup-shown", &shown, NULL);
+   return shown;
+}
 static void spectrum_selector_opacity(GtkWidget *widget) {
    gboolean active = gtk_widget_has_focus(widget) ||
-      gtk_combo_box_get_popup_shown(GTK_COMBO_BOX(widget));
+      spectrum_popup_shown(widget);
    if (gtk_widget_get_state_flags(widget) & GTK_STATE_FLAG_PRELIGHT) active = TRUE;
    gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
 }
@@ -762,7 +767,7 @@ static gboolean spectrum_selector_leave(GtkWidget *widget, GdkEventCrossing *eve
    (void)event; (void)user;
    /* During leave-notify, PRELIGHT may not yet be cleared. */
    gboolean active = gtk_widget_has_focus(widget) ||
-      gtk_combo_box_get_popup_shown(GTK_COMBO_BOX(widget));
+      spectrum_popup_shown(widget);
    gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
    return FALSE;
 }
