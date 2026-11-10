@@ -10,6 +10,8 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <openssl/pem.h>
+#include <openssl/x509v3.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -35,6 +37,51 @@
 #include "link.internal.h"
 #include "mesh.bootstrap.h"
 struct rr_links links;
+
+/* Show public certificate identity when TLS provisioning fails. */
+static void tls_log_existing_certificate(const char *path, const char *expected) {
+   FILE *fp = fopen(path, "rb");
+   if (!fp) {
+      Log(LOG_CRIT, "mesh.identity", "Cannot read TLS certificate %s: %s", path, g_strerror(errno));
+      return;
+   }
+   X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
+   fclose(fp);
+   if (!cert) {
+      Log(LOG_CRIT, "mesh.identity", "Existing TLS certificate is invalid PEM X.509: %s", path);
+      return;
+   }
+   char cn[256] = "(absent)";
+   if (X509_NAME_get_text_by_NID(X509_get_subject_name(cert), NID_commonName, cn, sizeof(cn)) < 0)
+      g_strlcpy(cn, "(absent)", sizeof(cn));
+   GENERAL_NAMES *names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
+   GString *sans = g_string_new(NULL);
+   if (names) {
+      for (int i = 0; i < sk_GENERAL_NAME_num(names); ++i) {
+         const GENERAL_NAME *entry = sk_GENERAL_NAME_value(names, i);
+         if (entry->type != GEN_DNS) continue;
+         const ASN1_STRING *value = entry->d.dNSName;
+         const unsigned char *bytes = ASN1_STRING_get0_data(value);
+         int len = ASN1_STRING_length(value);
+         if (sans->len) g_string_append(sans, ", ");
+         if (len <= 0 || memchr(bytes, 0, (size_t)len)) {
+            g_string_append(sans, "(invalid)");
+            continue;
+         }
+         for (int j = 0; j < len; ++j)
+            g_string_append_c(sans, bytes[j] >= 33 && bytes[j] <= 126 ? (char)bytes[j] : '?');
+      }
+      GENERAL_NAMES_free(names);
+   }
+   bool matches = X509_check_host(cert, expected, 0,
+      X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT, NULL) == 1;
+   Log(LOG_CRIT, "mesh.identity", "Existing certificate CN=%s, DNS SANs=%s; expected DNS SAN=%s (%s)",
+      cn, sans->len ? sans->str : "(none)", expected, matches ? "matches" : "MISMATCH");
+   if (!matches)
+      Log(LOG_CRIT, "mesh.identity", "Reissue the certificate for %s using the existing TLS private key to preserve the SPKI identity", expected);
+   g_string_free(sans, TRUE);
+   X509_free(cert);
+}
 
 static void send_snapshot(struct link_session *session);
 static void broadcast(struct link_session *exclude, dict *d);
@@ -1602,6 +1649,10 @@ bool rrserver_links_init(void) {
          Log(LOG_CRIT, "mesh.identity", "TLS identity provisioning failed: cert=%s (%s), key=%s (%s), SAN=%s; "
             "check directory ownership, existing partial/mismatched pair and key mode 0600", cert, cert_exists ? "exists" : g_strerror(cert_errno), key,
             key_exists ? "exists" : g_strerror(key_errno), name);
+         if (cert_exists && S_ISREG(cert_st.st_mode))
+            tls_log_existing_certificate(cert, name);
+         if (key_exists && S_ISREG(key_st.st_mode) && (key_st.st_mode & 0077))
+            Log(LOG_CRIT, "mesh.identity", "TLS private key mode %04o is too permissive; expected 0600", (unsigned)(key_st.st_mode & 07777));
 
          return false;
       }
