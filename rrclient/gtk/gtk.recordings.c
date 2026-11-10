@@ -200,6 +200,33 @@ static void record_clicked(GtkButton *button, gpointer data) {
    if (pieces) g_strfreev(pieces);
    g_free(start); g_free(mode); g_date_time_unref(now);
 }
+/* Keep the two representations of one capture together when managed in the browser. */
+static gboolean move_recording_pair(const char *source, const char *destination) {
+   const char *extension = strrchr(source, '.');
+   if (!extension || (strcmp(extension, ".ogg") && strcmp(extension, ".flac")))
+      return g_rename(source, destination) == 0;
+   const char *sibling_ext = !strcmp(extension, ".ogg") ? ".flac" : ".ogg";
+   char *stem = g_strndup(source, extension - source);
+   char *sibling = g_strconcat(stem, sibling_ext, NULL);
+   g_free(stem);
+   const char *dest_ext = strrchr(destination, '.');
+   char *dest_stem = dest_ext && (!strcmp(dest_ext, ".ogg") || !strcmp(dest_ext, ".flac")) ?
+      g_strndup(destination, dest_ext - destination) : g_strdup(destination);
+   char *other_dest = g_strconcat(dest_stem, sibling_ext, NULL);
+   g_free(dest_stem);
+   gboolean have_other = g_file_test(sibling, G_FILE_TEST_IS_REGULAR);
+   gboolean valid = !g_file_test(destination, G_FILE_TEST_EXISTS) &&
+      (!have_other || !g_file_test(other_dest, G_FILE_TEST_EXISTS));
+   if (valid && g_rename(source, destination) == 0) {
+      if (have_other && g_rename(sibling, other_dest) != 0) {
+         g_rename(destination, source);  // roll back if partner cannot move
+         valid = FALSE;
+      }
+   } else valid = FALSE;
+   g_free(sibling);
+   g_free(other_dest);
+   return valid;
+}
 static void action(GtkButton *button, gpointer data) {
    const char *op = data;
    gboolean folder = FALSE;
@@ -229,7 +256,8 @@ static void action(GtkButton *button, gpointer data) {
          char *canonical = g_canonicalize_filename(dest, NULL);
          if (!in_root(canonical) || g_file_test(canonical, G_FILE_TEST_EXISTS))
             show_error("Destination must be inside Recordings and not already exist.");
-         else if (g_rename(path, canonical)) show_error("Unable to move recording.");
+         else if (folder ? (g_rename(path, canonical) != 0) : !move_recording_pair(path, canonical))
+            show_error("Unable to move recording (or its paired format).");
          g_free(dest); g_free(canonical); refresh();
       } g_free(name); g_free(base);
    } else if (path && !folder && !strcmp(op, "download")) {
