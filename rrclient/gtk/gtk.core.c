@@ -1206,8 +1206,9 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
       "Confidential one-time enrollment token. Copy the entire token and paste it "
       "into rrserver --mesh-join on the joining machine. Do not share it publicly.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
+   gtk_label_set_line_wrap_mode(GTK_LABEL(hint), PANGO_WRAP_WORD_CHAR);
+   gtk_label_set_max_width_chars(GTK_LABEL(hint), 60);
    gtk_label_set_xalign(GTK_LABEL(hint), 0);
-   gtk_widget_set_size_request(hint, 480, -1);
    gtk_box_pack_start(GTK_BOX(area), hint, FALSE, FALSE, 8);
    GtkWidget *view = gtk_text_view_new();
    gtk_text_view_set_editable(GTK_TEXT_VIEW(view), FALSE);
@@ -1215,12 +1216,16 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_CHAR);
    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(view), 8);
    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(view), 8);
+   /* A long base64 word must not become the child's preferred width. */
+   gtk_widget_set_size_request(view, 1, -1);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
    gtk_text_buffer_set_text(buffer, token, -1);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_widget_set_size_request(scroll, 480, 120);
-   gtk_widget_set_hexpand(scroll, TRUE);
+   gtk_widget_set_hexpand(scroll, FALSE);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    gtk_box_pack_start(GTK_BOX(area), scroll, TRUE, TRUE, 6);
    GtkWidget *copy = gtk_button_new_with_label("Copy invitation");
