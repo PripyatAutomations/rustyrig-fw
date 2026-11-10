@@ -1920,15 +1920,27 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    }
    /* The logical TLS name is independent of the URL's dial address. Require an explicit per-profile hostname when dialing by IP/alias;
     * never substitute a claimed peer identity after the TLS handshake. */
-   const char *tls_name = get_server_property(s->name, "server.node-name");
+   /* IRC is an ordinary public TLS client, not a RustyRig mesh peer:
+    * use CA/hostname validation and never consult node identity or SPKI/TOFU.
+    * An explicit tls-name may override the URL hostname for an IRC server. */
+   const char *tls_name = endpoint.irc ? NULL : get_server_property(s->name, "server.node-name");
    if (!tls_name || !*tls_name) tls_name = get_server_property(s->name, "server.tls-name");
-   const char *tofu_value = get_server_property(s->name, "server.tls-trust-on-first-use");
-   bool tofu = !tofu_value || (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   const char *tofu_value = endpoint.irc ? NULL :
+      get_server_property(s->name, "server.tls-trust-on-first-use");
+   bool tofu = !endpoint.irc &&
+      (!tofu_value || (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")));
    const char *pin = tofu ? (s->temporary_tls_pin[0] ? s->temporary_tls_pin :
       get_server_property(s->name, "server.tls-spki-sha256")) : NULL;
-   Log(LOG_INFO, "connman", "Native WSS profile=%s endpoint=%s:%u trust-mode=%s pin=%s expected-node=%s",
-      s->name, endpoint.host, endpoint.port, !tofu ? "CA/hostname" : "SPKI/approval",
-      pin && *pin ? "present" : "unapproved", tls_name && *tls_name ? tls_name : "(unspecified)");
+   if (endpoint.irc) {
+      Log(LOG_INFO, "connman", "Native IRC profile=%s endpoint=%s:%u tls=%s trust-mode=%s verify-name=%s",
+         s->name, endpoint.host, endpoint.port, endpoint.tls ? "yes" : "no",
+         endpoint.tls ? "CA/hostname" : "none (plaintext)",
+         tls_name && *tls_name ? tls_name : endpoint.host);
+   } else {
+      Log(LOG_INFO, "connman", "Native WSS profile=%s endpoint=%s:%u trust-mode=%s pin=%s expected-node=%s",
+         s->name, endpoint.host, endpoint.port, !tofu ? "CA/hostname" : "SPKI/approval",
+         pin && *pin ? "present" : "unapproved", tls_name && *tls_name ? tls_name : "(unspecified)");
+   }
    rr_wss_client_options_secure_t opts = {
       .user_agent = "RustyRig/1.0",
       .subprotocol = RR_WS_SUBPROTOCOL,
@@ -1962,7 +1974,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    s->temporary_tls_pin[0] = '\0';
 
    if (!native->transport) {
-      ui_print(NULL, "Unable to initialize native WebSocket connection for %s", s->name);
+      ui_print(NULL, "Unable to initialize native %s connection for %s", endpoint.irc ? "IRC" : "WebSocket", s->name);
       free(native);
 
       return true;
