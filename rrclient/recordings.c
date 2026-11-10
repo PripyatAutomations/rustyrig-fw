@@ -44,6 +44,11 @@ static gboolean playback_stop;
 static GThread *playback_thread;
 static char *playback_path;
 static rr_recording_playback_fn playback_output;
+static GMutex wave_lock;
+static GCond wave_finished;
+static guint64 wave_generation;
+static unsigned wave_workers;
+static gboolean wave_shutting_down;
 static gboolean playback_seek, playback_reverse, playback_paused;
 static double playback_target;
 
@@ -54,6 +59,8 @@ static void ensure_init(void) {
       rec.child_fd = -1;
       g_mutex_init(&playback_lock);
       g_cond_init(&playback_ready);
+      g_mutex_init(&wave_lock);
+      g_cond_init(&wave_finished);
       g_once_init_leave(&initialized, 1);
    }
 }
@@ -494,8 +501,15 @@ void rr_recordings_play_collect(void) {
 
 /* A compact, bounded-memory overview of even very long recordings.
  * Mono 800 Hz analysis yields min/max envelopes in up to 4096 time bins. */
+typedef struct {
+   char *path;
+   guint64 generation;
+} waveform_request;
 static gpointer waveform_worker(gpointer data) {
-   char *path = data;
+   waveform_request *request = data;
+   char *path = request->path;
+   guint64 generation = request->generation;
+   gboolean canceled = FALSE;
    rr_recording_waveform *wave = g_new0(rr_recording_waveform, 1);
    g_strlcpy(wave->path, path, sizeof(wave->path));
    gchar *argv[] = {
@@ -519,6 +533,10 @@ static gpointer waveform_worker(gpointer data) {
       guint channel = 0, width = 16, phase = 0;
       guint64 frames = 0;
       for (;;) {
+         g_mutex_lock(&wave_lock);
+         canceled = wave_shutting_down || generation != wave_generation;
+         g_mutex_unlock(&wave_lock);
+         if (canceled) break;
          gssize n = read(fd, raw, sizeof(raw));
          if (n < 0 && errno == EINTR) continue;
          if (n <= 0) break;
@@ -565,28 +583,53 @@ static gpointer waveform_worker(gpointer data) {
             lows[0], highs[0], lows[1], highs[1]
          };
       close(fd);
+      if (canceled) child_stop(pid);
       wave->duration = (double)frames / 800.0;
-      wave->success = child_wait_ok(pid) && frames > 0;
+      wave->success = child_wait_ok(pid) && !canceled && frames > 0;
       g_spawn_close_pid(pid);
    } else {
       g_warning("Unable to analyze recording waveform: %s",
          error ? error->message : "unknown");
       g_clear_error(&error);
    }
-   event_emit_binary(RR_RECORDING_WAVEFORM_READY, NULL, wave, sizeof(*wave));
+   g_mutex_lock(&wave_lock);
+   gboolean current = !wave_shutting_down && generation == wave_generation;
+   g_mutex_unlock(&wave_lock);
+   if (current) event_emit_binary(RR_RECORDING_WAVEFORM_READY, NULL, wave, sizeof(*wave));
+   g_mutex_lock(&wave_lock);
+   wave_workers--;
+   g_cond_broadcast(&wave_finished);
+   g_mutex_unlock(&wave_lock);
    g_free(wave);
    g_free(path);
+   g_free(request);
    return NULL;
 }
 void rr_recordings_waveform_request(const char *path) {
    if (!path || !*path) return;
-   GThread *thread = g_thread_new("rr-record-waveform", waveform_worker, g_strdup(path));
+   ensure_init();
+   g_mutex_lock(&wave_lock);
+   if (wave_shutting_down) {
+      g_mutex_unlock(&wave_lock);
+      return;
+   }
+   waveform_request *request = g_new0(waveform_request, 1);
+   request->path = g_strdup(path);
+   request->generation = ++wave_generation;
+   wave_workers++;
+   g_mutex_unlock(&wave_lock);
+   GThread *thread = g_thread_new("rr-record-waveform", waveform_worker, request);
    g_thread_unref(thread);
 }
 
 /* Flush the encoder and reap all worker processes on client shutdown. */
 void rr_recordings_shutdown(void) {
    ensure_init();
+   g_mutex_lock(&wave_lock);
+   wave_shutting_down = TRUE;
+   wave_generation++;
+   while (wave_workers) g_cond_wait(&wave_finished, &wave_lock);
+   g_mutex_unlock(&wave_lock);
    rr_recordings_stop();
    g_mutex_lock(&rec.lock);
    GThread *thread = rec.worker;
