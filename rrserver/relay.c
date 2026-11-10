@@ -1189,6 +1189,13 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             Log(LOG_WARN, "mesh.identity", "Rejecting unsigned or forged user-directory snapshot for %s", origin);
             goto done;
          }
+         /* Reject a malformed key listing before advancing the durable
+          * signed revision journal or forwarding it to other nodes. */
+         if (!rr_relay_directory_valid(origin, d)) {
+            rr_mesh_verify_record(ingress, RR_MESH_VERIFY_INVALID);
+            Log(LOG_WARN, "mesh.identity", "Rejected invalid client key directory for %s", origin);
+            goto done;
+         }
 #ifdef USE_SQLITE
 
          if (!rr_identity_accept_revision(masterdb, cfg_get("domain"), origin, "users-snapshot", d)) {
