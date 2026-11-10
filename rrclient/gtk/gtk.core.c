@@ -1118,6 +1118,14 @@ static void mesh_token_copy(GtkButton *button, gpointer user) {
    gtk_clipboard_set_text(clipboard, token, -1);
    g_free(token);
 }
+static RRFloatPanel *mesh_invitation_panel;
+
+static void mesh_invitation_close(gpointer unused) {
+   (void)unused;
+   RRFloatPanel *panel = mesh_invitation_panel;
+   mesh_invitation_panel = NULL;
+   if (panel) rr_floating_panel_destroy(panel);
+}
 static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (dying || !message || !message->payload || message->length < 2 ||
@@ -1125,16 +1133,27 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
    const char *token = message->payload;
    if (token[message->length - 1] != 0 ||
        strlen(token) + 1 != message->length) return;
-   GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Mesh enrollment invitation",
-      parent, GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
-   gtk_window_set_default_size(GTK_WINDOW(dialog), 660, -1);
-   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+   /* This is an in-app panel, not a second top-level GTK window. */
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+   mesh_invitation_close(NULL);
+   RRFloatPanel *panel = rr_floating_panel_new(GTK_OVERLAY(root),
+      GTK_NOTEBOOK(main_notebook), "mesh-invitation", "Mesh enrollment invitation");
+   if (!panel) return;
+   mesh_invitation_panel = panel;
+   rr_floating_panel_set_close_callback(panel, mesh_invitation_close, NULL);
+   rr_floating_panel_set_initial_centered(panel, TRUE);
+   rr_floating_panel_set_modal(panel, TRUE);
+   rr_floating_panel_set_minimizable(panel, FALSE);
+   rr_floating_panel_set_resizable(panel, FALSE);
+   GtkWidget *area = rr_floating_panel_body(panel);
    GtkWidget *hint = gtk_label_new(
       "Confidential one-time enrollment token. Copy the entire token and paste it "
       "into rrserver --mesh-join on the joining machine. Do not share it publicly.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
    gtk_label_set_xalign(GTK_LABEL(hint), 0);
+   gtk_widget_set_size_request(hint, 480, -1);
    gtk_box_pack_start(GTK_BOX(area), hint, FALSE, FALSE, 8);
    GtkWidget *view = gtk_text_view_new();
    gtk_text_view_set_editable(GTK_TEXT_VIEW(view), FALSE);
@@ -1146,15 +1165,15 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
    gtk_text_buffer_set_text(buffer, token, -1);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-   gtk_widget_set_size_request(scroll, -1, 120);
+   gtk_widget_set_size_request(scroll, 480, 120);
    gtk_widget_set_hexpand(scroll, TRUE);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    gtk_box_pack_start(GTK_BOX(area), scroll, TRUE, TRUE, 6);
    GtkWidget *copy = gtk_button_new_with_label("Copy invitation");
    gtk_box_pack_start(GTK_BOX(area), copy, FALSE, FALSE, 6);
    g_signal_connect(copy, "clicked", G_CALLBACK(mesh_token_copy), view);
-   g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
-   gtk_widget_show_all(dialog);
+   gtk_widget_show_all(area);
+   rr_floating_panel_show(panel);
    GtkTextIter start, end;
    gtk_text_buffer_get_bounds(buffer, &start, &end);
    gtk_text_buffer_select_range(buffer, &start, &end);
