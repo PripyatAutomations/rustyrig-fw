@@ -28,6 +28,13 @@ void rr_relay_users_reset(void) {
    users_check_at = 0;
 }
 
+/* Every connected neighbor receives an owner-signed directory revision.
+ * Do not depend on the node object catalog already being synchronized. */
+static void publish_user_directory_to_neighbor(const char *neighbor, void *data) {
+   if (neighbor && *neighbor)
+      rr_relay_send_owned(neighbor, rrserver_links_node(), "users", data);
+}
+
 /* Rebuild only on relevant changes, explicit queries, or bounded reconciliation. */
 void rr_relay_users_poll(bool force) {
    long long at = mono_ms();
@@ -126,13 +133,7 @@ void rr_relay_users_poll(bool force) {
       }
       rr_relay_directory_put(rrserver_links_node(), local);
 
-      for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
-         const char *next = rrserver_links_route(c->owner);
-
-         if (next && !strcmp(next, c->owner) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
-            rr_relay_send_owned(next, rrserver_links_node(), "users", local);
-         }
-      }
+      rrserver_links_each_neighbor(publish_user_directory_to_neighbor, local);
    }
    dict_free(local);
 }
