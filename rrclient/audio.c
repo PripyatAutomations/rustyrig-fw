@@ -1295,6 +1295,7 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   rr_recordings_shutdown();
    /* audio_init() can fail before rx_sink_lock is initialized, and cleanup can be called more than once. Never clear an uninitialized mutex. */
    if (!audio_enabled) {
       return;
