@@ -58,7 +58,15 @@ reuses the destination tab on the same server in GTK and TUI. It forgets the
 old channel's reconnect intent; the following self-JOIN confirms destination
 membership. Redirects do not send another JOIN or PART, and chained redirects
 replace each intermediate tab.
-TLS uses the same Mongoose backend and CA settings as secure WebSocket.
+Native IRC over TLS uses OpenSSL's system CA trust and verifies the
+server hostname from the `ircs://` URL (including SNI). An explicit
+per-profile `server.tls-name` can override that name, and `server.tls-ca`
+can add a custom CA file. It **does not** use RustyRig WSS/mesh
+`server.node-name`, `server.tls-spki-sha256`, or
+`server.tls-trust-on-first-use` settings, and it never prompts for a
+mesh identity/SPKI approval. A failed certificate verification remains a
+connection failure; users should select an IRC hostname covered by the
+server's certificate rather than disabling TLS checks.
 
 The roster shows IRC privilege symbols from NAMES and subsequent MODE changes,
 using the server's PREFIX mapping (normally `@` for operators and `+` for voice).
