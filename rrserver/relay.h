@@ -13,6 +13,19 @@ const char *rrserver_relay_client_server(const rrconn_t *client);
 void rrserver_relay_register_events(void);
 void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *data);
 void rrserver_relay_poll(void);
+/* Local security telemetry: never sourced from untrusted peer claims.
+ * Count cryptographic verification independently of application admission. */
+enum rr_mesh_verify_result {
+   RR_MESH_VERIFY_VALID,
+   RR_MESH_VERIFY_UNSIGNED,
+   RR_MESH_VERIFY_INVALID,
+   RR_MESH_VERIFY_UNTRUSTED,
+   RR_MESH_VERIFY_REPLAY,
+   RR_MESH_VERIFY_BAD_ROUTE
+};
+void rr_mesh_verify_record(const char *ingress, enum rr_mesh_verify_result result);
+void rr_mesh_verify_profile_append(GString *report);
+
 /* The last five-minute catalog sample is reused by the log and Explorer. Values are local to this process, never taken from an unauthenticated peer. */
 typedef struct rr_catalog_profile_info {
    uint64_t sample_time, sample_seconds;
