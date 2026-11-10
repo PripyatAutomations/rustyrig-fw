@@ -300,6 +300,55 @@ void rr_relay_directory_put(const char *node, dict *d) {
    entry->users = dict_clone(d);
 }
 
+/* The remote directory is stored ONLY after its home-server signature,
+ * enrolled signer and monotonic revision have passed receive() admission.
+ * Never use a packet-supplied key as an independent trust anchor. */
+bool rr_relay_client_key_lookup(const char *home_uuid, const char *principal,
+      const char *key_id, unsigned char public_key[32]) {
+   if (!home_uuid || !g_uuid_string_is_valid(home_uuid) || !principal ||
+       !*principal || !key_id || !*key_id || !public_key) return false;
+   const char *at = strchr(principal, '@');
+   const char *domain = cfg_get("domain");
+   if (!at || !at[1] || strchr(at + 1, '@') || !domain || !*domain)
+      return false;
+   size_t principal_len = strlen(principal), domain_len = strlen(domain);
+   if (principal_len <= domain_len + 2 ||
+       g_ascii_strcasecmp(principal + principal_len - domain_len, domain) ||
+       principal[principal_len - domain_len - 1] != '.') return false;
+
+   for (struct directory *entry = rr_relay_directories; entry; entry = entry->next) {
+      if (strcmp(entry->node, home_uuid) || !entry->users) continue;
+      const dict *snapshot = entry->users;
+      if (strcmp(dict_get(snapshot, "identity.owner", ""), home_uuid) ||
+          strcmp(dict_get(snapshot, "identity.operation", ""), "users-snapshot") ||
+          g_ascii_strcasecmp(dict_get(snapshot, "identity.domain", ""), domain))
+         return false;
+      unsigned count = dict_get_uint(snapshot, "userkey.count", 0);
+      if (count > 64) return false;
+      for (unsigned i = 0; i < count; ++i) {
+         char field[64];
+         snprintf(field, sizeof(field), "userkey.%u.principal", i);
+         if (strcmp(dict_get(snapshot, field, ""), principal)) continue;
+         snprintf(field, sizeof(field), "userkey.%u.id", i);
+         if (strcmp(dict_get(snapshot, field, ""), key_id)) continue;
+         snprintf(field, sizeof(field), "userkey.%u.public", i);
+         const char *encoded = dict_get(snapshot, field, "");
+         if (strlen(encoded) != 44) return false;
+         gsize decoded_len = 0;
+         guchar *decoded = g_base64_decode(encoded, &decoded_len);
+         bool ok = decoded && decoded_len == 32;
+         char *canonical = ok ? g_base64_encode(decoded, decoded_len) : NULL;
+         ok = ok && canonical && !strcmp(encoded, canonical);
+         if (ok) memcpy(public_key, decoded, 32);
+         g_free(canonical);
+         g_free(decoded);
+         return ok;
+      }
+      return false;
+   }
+   return false;
+}
+
 /* Return an owned directory of authenticated local users and session counts. */
 dict *rr_relay_local_users(void) {
    dict *d = dict_new();
@@ -389,9 +438,13 @@ dict *rr_relay_local_users(void) {
           sqlite3_prepare_v2(masterdb,
              "SELECT u.name,k.key_id,k.public_key FROM user_public_keys k "
              "JOIN users u ON u.uid=k.uid WHERE u.enabled=1 AND k.enabled=1 "
-             "ORDER BY u.name COLLATE NOCASE,k.key_id LIMIT 4096",
+             "ORDER BY u.name COLLATE NOCASE,k.key_id LIMIT 65",
              -1, &stmt, NULL) == SQLITE_OK) {
          while (sqlite3_step(stmt) == SQLITE_ROW) {
+            if (key_count == 64) {
+               Log(LOG_WARN, "mesh.identity", "More than 64 active client keys; signed user-directory snapshot cannot carry all keys within mesh frame limit");
+               break;
+            }
             const char *username = (const char *)sqlite3_column_text(stmt, 0);
             const char *key_id = (const char *)sqlite3_column_text(stmt, 1);
             const char *public_key = (const char *)sqlite3_column_text(stmt, 2);
