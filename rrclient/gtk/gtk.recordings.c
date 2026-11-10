@@ -144,7 +144,10 @@ static void recording_finished(const char *event, const char *payload,
                                rrconn_t *connection, void *user) {
    (void)event; (void)connection; (void)user;
    rr_recordings_collect();
-   if (ui.record_button) gtk_button_set_label(GTK_BUTTON(ui.record_button), "RECORD");
+   if (ui.record_button) {
+      gtk_button_set_label(GTK_BUTTON(ui.record_button), "RECORD");
+      gtk_widget_set_sensitive(ui.record_button, TRUE);
+   }
    if (!payload) return;
    char **fields = g_strsplit(payload, "\n", 4);
    if (g_strcmp0(fields[0], "ok")) show_error("Recording encoder failed. Check ffmpeg and free disk space.");
