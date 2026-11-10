@@ -348,6 +348,12 @@ static bool mesh_join_print_identity(void) {
    }
    const char *station = cfg_get("station.name");
    const char *domain = cfg_get("domain");
+   char tls_name[254] = "(not configured)";
+   if (station && *station && domain && *domain) {
+      int length = snprintf(tls_name, sizeof(tls_name), "%s.%s", station, domain);
+      if (length < 1 || (size_t)length >= sizeof(tls_name))
+         snprintf(tls_name, sizeof(tls_name), "(invalid hostname)");
+   }
    fprintf(stderr, "\nRustyRig mesh enrollment\n"
       "Server name (station.name): %s\n"
       "Mesh domain (domain): %s\n"
@@ -361,7 +367,7 @@ static bool mesh_join_print_identity(void) {
       "Response tokens are good for 72 hours by default\n" "Do not send them your server's private keys.\n\n",
       station && *station ? station : "(not configured)",
       domain && *domain ? domain : "(not configured)",
-      station && *station ? station : "(not configured)", uuid, uuid);
+      tls_name, uuid, uuid);
    free(uuid);
 
    return true;
