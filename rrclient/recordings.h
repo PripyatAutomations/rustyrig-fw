@@ -7,7 +7,7 @@
 typedef enum { RR_RECORD_OGG = 0, RR_RECORD_FLAC = 1, RR_RECORD_BOTH = 2 } rr_recording_format;
 typedef struct {
    const char *title, *user, *start_time, *site, *server, *rig, *vfo;
-   const char *frequency, *mode, *grid, *latitude, *longitude, *sources;
+   const char *frequency, *mode, *grid, *latitude, *longitude, *location_source, *sources;
 } rr_recording_tags;
 typedef void (*rr_recording_playback_fn)(const int16_t *stereo, size_t frames);
 char *rr_recordings_directory(void);
