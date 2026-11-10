@@ -128,6 +128,7 @@ static void recording_playback_pcm(const int16_t *pcm, size_t frames) {
 bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
    if (!rx_engine || !path) return false;
    if (rr_recordings_play_reposition(path, seconds, reverse)) return true;
+   if (rr_recordings_play_busy()) return false;
    if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.L")) return false;
    if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.R")) {
       rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
