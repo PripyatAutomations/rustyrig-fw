@@ -110,6 +110,7 @@ gtk_module_objs += gtk/gtk.clock.o # Amber VFD-style local/UTC floating clock
 gtk_module_objs += gtk/gtk.core.o            # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.files.o
 gtk_module_objs += gtk/gtk.recordings.o # Client recording browser
+gtk_module_objs += gtk/gtk.recording-player.o # Waveform player and transport controls
 gtk_module_objs += gtk/gtk.file-editor.o # configuration tab
 gtk_module_objs += gtk/gtk.floating-panel.o
 gtk_module_objs += gtk/gtk.scale-container.o # Per-panel native widget zoom wrapper
