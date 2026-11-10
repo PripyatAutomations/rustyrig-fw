@@ -168,6 +168,37 @@ static void playback_finished(const char *event, const char *payload,
    audio_recording_play_collect();
    if (ui.status) gtk_label_set_text(GTK_LABEL(ui.status), "Playback complete");
 }
+/* Approximate position only: use the center of the station's Maidenhead square. */
+static gboolean grid_center(const char *grid, double *lat, double *lon) {
+   if (!grid) return FALSE;
+   size_t n = strlen(grid);
+   if (n < 4 || (n & 1)) return FALSE;
+   char a = g_ascii_toupper(grid[0]), b = g_ascii_toupper(grid[1]);
+   if (a < 'A' || a > 'R' || b < 'A' || b > 'R' ||
+      !g_ascii_isdigit(grid[2]) || !g_ascii_isdigit(grid[3])) return FALSE;
+   *lon = -180.0 + (a - 'A') * 20.0 + (grid[2] - '0') * 2.0;
+   *lat = -90.0 + (b - 'A') * 10.0 + (grid[3] - '0');
+   double lon_step = 2.0, lat_step = 1.0;
+   if (n >= 6) {
+      a = g_ascii_toupper(grid[4]);
+      b = g_ascii_toupper(grid[5]);
+      if (a < 'A' || a > 'X' || b < 'A' || b > 'X') return FALSE;
+      lon_step /= 24.0;
+      lat_step /= 24.0;
+      *lon += (a - 'A') * lon_step;
+      *lat += (b - 'A') * lat_step;
+   }
+   if (n >= 8) {
+      if (!g_ascii_isdigit(grid[6]) || !g_ascii_isdigit(grid[7])) return FALSE;
+      lon_step /= 10.0;
+      lat_step /= 10.0;
+      *lon += (grid[6] - '0') * lon_step;
+      *lat += (grid[7] - '0') * lat_step;
+   }
+   *lon += lon_step / 2.0;
+   *lat += lat_step / 2.0;
+   return TRUE;
+}
 static void locator_record_start(const char *event, const void *data, size_t size,
                                  rrconn_t *conn, void *unused) {
    (void)event; (void)conn; (void)unused;
@@ -185,6 +216,8 @@ static void locator_record_start(const char *event, const void *data, size_t siz
    char freq[32] = "unknown", vfo[4] = "A";
    const char *site = "local", *rig = "receiver", *mode = "unknown", *server = "";
    const char *grid = "";
+   char latitude[32] = "", longitude[32] = "";
+   const char *location_source = "";
    char *station = NULL, *rig_name = NULL;
    if (snap && snap->online) {
       g_snprintf(freq, sizeof(freq), "%ld", snap->frequency);
@@ -192,6 +225,12 @@ static void locator_record_start(const char *event, const void *data, size_t siz
       server = snap->profile;
       mode = snap->mode;
       grid = snap->grid;
+      double lat, lon;
+      if (grid_center(grid, &lat, &lon)) {
+         g_ascii_formatd(latitude, sizeof(latitude), "%.7f", lat);
+         g_ascii_formatd(longitude, sizeof(longitude), "%.7f", lon);
+         location_source = "maidenhead-grid-center (approximate)";
+      }
       const char *room = snap->room[0] == '#' ? snap->room + 1 : snap->room;
       const char *marker = strstr(room, "-rig");
       if (marker) {
@@ -211,7 +250,8 @@ static void locator_record_start(const char *event, const void *data, size_t siz
       .user = snap && snap->recording_user[0] ? snap->recording_user : g_get_user_name(),
       .start_time = start, .site = site, .server = server,
       .rig = rig, .vfo = vfo, .frequency = freq, .mode = mode,
-      .grid = grid, .latitude = "", .longitude = "",
+      .grid = grid, .latitude = latitude, .longitude = longitude,
+      .location_source = location_source,
       .sources = snap ? snap->recording_sources : ""
    };
    if (rr_recordings_start(ui.requested_format, &tags)) {
