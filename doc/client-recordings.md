@@ -19,8 +19,9 @@ example filename is:
 Recordings include available title, user, timestamp, frequency, mode, site,
 rig and VFO tags. The core-thread snapshot supplies the logged-in username, connected server,
 room/rig/VFO, grid and all currently routed RX stream identifiers; GTK does not
-read live connection structures. GPS latitude/longitude tags are reserved but
-currently remain empty when the snapshot has only a grid square. Filenames
+read live connection structures. When a Maidenhead grid is available, latitude/longitude tags contain its
+**approximate center**, explicitly marked with LOCATION_SOURCE; these are not
+claimed to be actual GPS measurements. Filenames
 contain a shared UUID and start/end local timestamps.
 
 The list can play files through the existing RX PCM engine by decoding into
