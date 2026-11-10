@@ -28,6 +28,7 @@ typedef struct {
    double seconds;
    char path[2048];
 } rr_audio_recording_control_t;
+void audio_recording_events_init(void);
 void audio_recording_control_core(const char *event, const void *data,
                                   size_t size, rrconn_t *conn, void *user);
 bool audio_recording_play_at(const char *path, double seconds, bool reverse);
