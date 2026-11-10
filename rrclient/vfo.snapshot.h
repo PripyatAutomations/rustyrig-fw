@@ -20,6 +20,7 @@ typedef struct {
 #define RRCLIENT_VFO_SNAPSHOT_EVENT "client.ui.vfo.snapshot"
 typedef struct {
    char profile[512], room[128], grid[32], mode[32], holder[128];
+   char recording_user[128], recording_sources[2048];
    char vfo;
    bool online, transmitting;
    long frequency, width;
