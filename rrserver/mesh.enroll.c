@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <openssl/pem.h>
+#include <openssl/x509v3.h>
 #ifdef USE_SQLITE
 
 struct response {
@@ -196,6 +200,62 @@ static bool committed_status(CURL *curl, const char *url, sqlite3 *db, char *fie
    return ok;
 }
 
+/* Explain the failing local TLS identity without logging secret material. */
+static void explain_tls_identity_failure(const char *cert_path, const char *key_path, const char *station) {
+   struct stat cert_stat, key_stat;
+   bool have_cert = lstat(cert_path, &cert_stat) == 0;
+   int cert_errno = errno;
+   bool have_key = lstat(key_path, &key_stat) == 0;
+   int key_errno = errno;
+   if (!have_cert || !have_key) {
+      fprintf(stderr, "Mesh enrollment: TLS certificate %s; private key %s.\n",
+         have_cert ? "exists" : (cert_errno == ENOENT ? "missing" : strerror(cert_errno)),
+         have_key ? "exists" : (key_errno == ENOENT ? "missing" : strerror(key_errno)));
+      fprintf(stderr, "Mesh enrollment: check configured TLS paths and directory permissions.\n");
+      return;
+   }
+   if (!S_ISREG(cert_stat.st_mode) || !S_ISREG(key_stat.st_mode)) {
+      fprintf(stderr, "Mesh enrollment: TLS certificate/key must be regular files, not symlinks.\n");
+      return;
+   }
+   if (key_stat.st_mode & 0077) {
+      fprintf(stderr, "Mesh enrollment: TLS private key permissions are too open (0600 required).\n");
+      return;
+   }
+   FILE *file = fopen(cert_path, "rb");
+   if (!file) {
+      fprintf(stderr, "Mesh enrollment: cannot read TLS certificate: %s\n", strerror(errno));
+      return;
+   }
+   X509 *cert = PEM_read_X509(file, NULL, NULL, NULL);
+   fclose(file);
+   if (!cert) {
+      fprintf(stderr, "Mesh enrollment: TLS certificate is not valid PEM X.509.\n");
+      return;
+   }
+   if (X509_check_host(cert, station, 0,
+         X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT, NULL) != 1) {
+      fprintf(stderr, "Mesh enrollment: certificate DNS SAN does not match station.name '%s'.\n", station);
+      X509_free(cert);
+      return;
+   }
+   file = fopen(key_path, "rb");
+   if (!file) {
+      fprintf(stderr, "Mesh enrollment: cannot read TLS private key: %s\n", strerror(errno));
+      X509_free(cert);
+      return;
+   }
+   EVP_PKEY *key = PEM_read_PrivateKey(file, NULL, NULL, NULL);
+   fclose(file);
+   if (!key)
+      fprintf(stderr, "Mesh enrollment: TLS private key is not readable or not valid PEM.\n");
+   else if (X509_check_private_key(cert, key) != 1)
+      fprintf(stderr, "Mesh enrollment: TLS certificate and private key do not match.\n");
+   else
+      fprintf(stderr, "Mesh enrollment: TLS identity rejected; check configured paths.\n");
+   EVP_PKEY_free(key);
+   X509_free(cert);
+}
 /* Token fields were split and validated by main.c. This is never called on a plaintext transport or with certificate verification disabled without SPKI
  * pinning: libcurl's public-key pin is mandatory. */
 bool rr_mesh_enroll_run(char *fields[8]) {
@@ -227,6 +287,7 @@ bool rr_mesh_enroll_run(char *fields[8]) {
 
    if (!rr_crypto_tls_identity_ensure(cert, key, site)) {
       fprintf(stderr, "Mesh enrollment: cannot initialize persistent TLS identity.\n");
+      explain_tls_identity_failure(cert, key, site);
       goto done;
    }
    spki = rr_crypto_cert_spki_sha256(cert);
