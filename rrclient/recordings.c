@@ -73,6 +73,24 @@ static gboolean write_all(int fd, const void *data, size_t length) {
    }
    return TRUE;
 }
+/* Append end time after ffmpeg finalizes; keep UUID so both formats remain linked. */
+static char *rename_with_end(const char *oldpath) {
+   if (!oldpath || !*oldpath) return NULL;
+   const char *ext = strrchr(oldpath, '.');
+   if (!ext) return g_strdup(oldpath);
+   GDateTime *end = g_date_time_new_now_local();
+   char *stamp = g_date_time_format(end, "%Y-%m-%d_%H-%M-%S");
+   char *prefix = g_strndup(oldpath, ext - oldpath);
+   char *newpath = g_strdup_printf("%s - %s%s", prefix, stamp, ext);
+   if (g_rename(oldpath, newpath)) {
+      g_free(newpath);
+      newpath = g_strdup(oldpath);
+   }
+   g_free(prefix);
+   g_free(stamp);
+   g_date_time_unref(end);
+   return newpath;
+}
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
    // An encoder exiting early must not deliver SIGPIPE to the entire client.
@@ -105,6 +123,18 @@ static gpointer recorder_worker(gpointer unused) {
    if (waitpid(rec.child, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) ok = FALSE;
    g_spawn_close_pid(rec.child);
    rec.child = 0;
+   if (ok) {
+      if (rec.ogg) {
+         char *renamed = rename_with_end(rec.ogg);
+         g_free(rec.ogg);
+         rec.ogg = renamed;
+      }
+      if (rec.flac) {
+         char *renamed = rename_with_end(rec.flac);
+         g_free(rec.flac);
+         rec.flac = renamed;
+      }
+   }
    g_mutex_lock(&rec.lock);
    rec.recording = FALSE;
    rec.stopping = FALSE;
