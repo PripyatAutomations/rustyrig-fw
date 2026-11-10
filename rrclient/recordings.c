@@ -6,10 +6,18 @@
 #include <glib/gstdio.h>
 #include <stdint.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#define read _read
+#define write _write
+#define close _close
+#else
 #include <unistd.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <pthread.h>
+#endif
 #include <errno.h>
 #include <stdio.h>
 
@@ -87,6 +95,28 @@ static char *rename_with_end(const char *oldpath, const char *stamp) {
    g_free(prefix);
    return newpath;
 }
+static gboolean child_wait_ok(GPid pid) {
+#ifdef _WIN32
+   DWORD code = (DWORD)-1;
+   return WaitForSingleObject((HANDLE)pid, INFINITE) == WAIT_OBJECT_0 &&
+      GetExitCodeProcess((HANDLE)pid, &code) && code == 0;
+#else
+   int status = 0;
+   return waitpid(pid, &status, 0) >= 0 && WIFEXITED(status) && !WEXITSTATUS(status);
+#endif
+}
+static void child_stop(GPid pid) {
+#ifdef _WIN32
+   TerminateProcess((HANDLE)pid, 1);
+#else
+   kill(pid, SIGTERM);
+#endif
+}
+static void block_worker_sigpipe(void) {
+#ifndef _WIN32
+   block_worker_sigpipe();
+#endif
+}
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
    // An encoder exiting early must not deliver SIGPIPE to the entire client.
@@ -115,8 +145,7 @@ static gpointer recorder_worker(gpointer unused) {
    }
    close(rec.child_fd);
    rec.child_fd = -1;
-   int status = 0;
-   if (waitpid(rec.child, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) ok = FALSE;
+   if (!child_wait_ok(rec.child)) ok = FALSE;
    g_spawn_close_pid(rec.child);
    rec.child = 0;
    if (ok) {
@@ -308,9 +337,8 @@ static gpointer playback_worker(gpointer unused) {
          g_usleep((gulong)(1000000 * (n / (2 * sizeof(int16_t))) / RATE));
       }
       close(fd);
-      kill(pid, SIGTERM);
-      int status;
-      waitpid(pid, &status, 0);
+      child_stop(pid);
+      child_wait_ok(pid);
       g_spawn_close_pid(pid);
    } else {
       g_warning("Unable to start recording decoder: %s", error ? error->message : "unknown");
