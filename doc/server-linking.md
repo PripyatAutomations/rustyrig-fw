@@ -40,13 +40,7 @@ not routine rediscovery.
 
 ### Signed catalog enforcement
 
-`cluster.force-signed-catalog=true` (the default in `rrserver/defconfig.c`)
-rejects unsigned incoming descriptor updates and removals, and prevents
-unsigned descriptors from being published through catalog snapshots or deltas.
-The package config `/etc/rustyrig/rrserver.cfg` shows the commented
-`cluster.force-signed-catalog=false` override for temporary compatibility.
-Unsigned entries always generate warnings, even with enforcement disabled.
-Invalid signatures or mismatched owner/domain bindings remain rejected.
+Unsigned catalog descriptors are always rejected, including snapshot and delta\npublication. The legacy option to permit unsigned entries has been removed.\nInvalid signatures or mismatched owner/domain bindings are rejected.
 Servers must be upgraded together to participate in a strictly signed cluster.
 
 Signed records carry `identity.owner`, `identity.domain`,
