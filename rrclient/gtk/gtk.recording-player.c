@@ -13,7 +13,7 @@
 extern GtkWidget *main_window, *main_notebook;
 static struct {
    RRFloatPanel *panel;
-   GtkWidget *wave, *status, *position_label, *reverse, *play, *pause, *stop;
+   GtkWidget *wave, *status, *position_label, *reverse, *play, *pause, *stop, *title;
    char *path;
    rr_recording_waveform *envelope;
    double position;
@@ -21,6 +21,21 @@ static struct {
    rr_event_token_t wave_token, position_token, finished_token, error_token;
 } player;
 
+static gboolean allowed_recording(const char *path) {
+   if (!path || g_file_test(path, G_FILE_TEST_IS_SYMLINK) ||
+       !g_file_test(path, G_FILE_TEST_IS_REGULAR)) return FALSE;
+   if (!g_str_has_suffix(path, ".ogg") && !g_str_has_suffix(path, ".flac")) return FALSE;
+   char *root = rr_recordings_directory();
+   char *canonical_root = g_canonicalize_filename(root, NULL);
+   char *canonical_path = g_canonicalize_filename(path, NULL);
+   size_t length = strlen(canonical_root);
+   gboolean allowed = g_str_has_prefix(canonical_path, canonical_root) &&
+      canonical_path[length] == G_DIR_SEPARATOR;
+   g_free(root);
+   g_free(canonical_root);
+   g_free(canonical_path);
+   return allowed;
+}
 static void playback_request(char operation, double seconds) {
    rr_audio_recording_control_t cmd = {0};
    cmd.operation = operation;
@@ -178,7 +193,7 @@ static void reverse_changed(GtkToggleButton *button, gpointer unused) {
    }
 }
 static void deletion_complete(void) {
-   if (!player.path) return;
+   if (!allowed_recording(player.path)) return;
    if (g_unlink(player.path) != 0) {
       status("Unable to delete recording");
       return;
@@ -262,19 +277,25 @@ static void destroyed(GtkWidget *widget, gpointer unused) {
    (void)widget; (void)unused;
    if (player.playing) playback_request('S', player.position);
    player.panel = NULL;
-   player.wave = player.status = player.position_label = NULL;
+   player.wave = player.status = player.position_label = player.title = NULL;
    player.reverse = player.play = player.pause = player.stop = NULL;
    player.playing = player.paused = player.deleting = FALSE;
    g_clear_pointer(&player.path, g_free);
    g_clear_pointer(&player.envelope, g_free);
 }
 void gtk_recording_player_show(const char *path) {
-   if (!path || !g_file_test(path, G_FILE_TEST_IS_REGULAR)) return;
+   if (!allowed_recording(path)) return;
    if (player.panel) {
       if (g_strcmp0(player.path, path)) {
          if (player.playing) playback_request('S', player.position);
          g_free(player.path);
          player.path = g_strdup(path);
+         if (player.title) {
+            char *base = g_path_get_basename(path);
+            gtk_label_set_text(GTK_LABEL(player.title), base);
+            gtk_widget_set_tooltip_text(player.title, path);
+            g_free(base);
+         }
          g_clear_pointer(&player.envelope, g_free);
          player.position = 0;
          player.playing = player.paused = FALSE;
@@ -297,6 +318,7 @@ void gtk_recording_player_show(const char *path) {
    gtk_widget_set_size_request(body, 820, 360);
    char *basename = g_path_get_basename(path);
    GtkWidget *title = gtk_label_new(basename);
+   player.title = title;
    gtk_label_set_ellipsize(GTK_LABEL(title), PANGO_ELLIPSIZE_MIDDLE);
    gtk_label_set_xalign(GTK_LABEL(title), 0);
    gtk_widget_set_tooltip_text(title, path);
