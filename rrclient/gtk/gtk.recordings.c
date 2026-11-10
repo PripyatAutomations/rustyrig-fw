@@ -10,6 +10,7 @@
 #include <rrclient/gtk/gtk.freqentry.h>
 #include "gtk.tree-style.h"
 #include "gtk.recordings.h"
+#include "gtk.recording-player.h"
 #include <librustyaxe/event-bus.h>
 #include <string.h>
 
@@ -20,7 +21,7 @@ static struct {
    GtkListStore *store;
    char *directory, *root;
    gboolean closing;
-   rr_event_token_t open_token, finished_token, playback_token, locator_token;
+   rr_event_token_t open_token, finished_token, playback_token, locator_token, refresh_token;
    gboolean waiting_locator;
    rr_recording_format requested_format;
 } ui;
@@ -110,9 +111,7 @@ static void do_play(void) {
    gboolean folder = FALSE;
    char *path = selected(&folder);
    if (path && folder) navigate(path);
-   else if (path && !audio_recording_play(path))
-      show_error("Playback is already active or the audio engine is unavailable.");
-   else if (path) gtk_label_set_text(GTK_LABEL(ui.status), "Playing recording...");
+   else if (path) gtk_recording_player_show(path);
    g_free(path);
 }
 static void row_activated(GtkTreeView *view, GtkTreePath *path,
@@ -171,8 +170,12 @@ static void recording_finished(const char *event, const char *payload,
 static void playback_finished(const char *event, const char *payload,
                               rrconn_t *connection, void *user) {
    (void)event; (void)payload; (void)connection; (void)user;
-   audio_recording_play_collect();
-   if (ui.status) gtk_label_set_text(GTK_LABEL(ui.status), "Playback complete");
+   if (ui.status) gtk_label_set_text(GTK_LABEL(ui.status), "Playback finished");
+}
+static void recording_refresh(const char *event, const char *payload,
+                              rrconn_t *connection, void *user) {
+   (void)event; (void)payload; (void)connection; (void)user;
+   if (ui.store) refresh();
 }
 /* Approximate position only: use the center of the station's Maidenhead square. */
 static gboolean grid_center(const char *grid, double *lat, double *lon) {
@@ -455,15 +458,16 @@ void gtk_recordings_init(void) {
    ui.finished_token = event_on_domain_token("client.recordings.finished", recording_finished, NULL, "gtk");
    ui.playback_token = event_on_domain_token("client.recordings.playback-finished", playback_finished, NULL, "gtk");
    ui.locator_token = event_on_binary_domain_token(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, locator_record_start, NULL, "gtk");
+   ui.refresh_token = event_on_domain_token("client.recordings.refresh", recording_refresh, NULL, "gtk");
 }
 void gtk_recordings_shutdown(void) {
    event_off_token(ui.open_token);
    event_off_token(ui.finished_token);
    event_off_token(ui.playback_token);
    event_off_token(ui.locator_token);
+   event_off_token(ui.refresh_token);
    ui.waiting_locator = FALSE;
-   ui.open_token = ui.finished_token = ui.playback_token = ui.locator_token = NULL;
+   ui.open_token = ui.finished_token = ui.playback_token = ui.locator_token = ui.refresh_token = NULL;
    rr_recordings_stop();
-   audio_recording_play_stop();
    if (ui.panel) rr_floating_panel_destroy(ui.panel);
 }

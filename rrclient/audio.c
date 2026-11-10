@@ -125,8 +125,10 @@ static void recording_playback_pcm(const int16_t *pcm, size_t frames) {
    rr_audio_engine_push(rx_engine, "recording.playback.L", left, frames);
    rr_audio_engine_push(rx_engine, "recording.playback.R", right, frames);
 }
-bool audio_recording_play(const char *path) {
+bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
    if (!rx_engine || !path) return false;
+   if (rr_recordings_play_reposition(path, seconds, reverse)) return true;
+   if (rr_recordings_play_busy()) return false;
    if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.L")) return false;
    if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.R")) {
       rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
@@ -134,12 +136,15 @@ bool audio_recording_play(const char *path) {
    }
    rr_audio_engine_route(rx_engine, "recording.playback.L", 'L');
    rr_audio_engine_route(rx_engine, "recording.playback.R", 'R');
-   if (!rr_recordings_play(path, recording_playback_pcm)) {
+   if (!rr_recordings_play_at(path, seconds, reverse, recording_playback_pcm)) {
       rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
       rr_audio_engine_remove_stream(rx_engine, "recording.playback.R");
       return false;
    }
    return true;
+}
+bool audio_recording_play(const char *path) {
+   return audio_recording_play_at(path, 0.0, false);
 }
 void audio_recording_play_stop(void) { rr_recordings_play_stop(); }
 void audio_recording_play_collect(void) {
@@ -148,6 +153,35 @@ void audio_recording_play_collect(void) {
       rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
       rr_audio_engine_remove_stream(rx_engine, "recording.playback.R");
    }
+}
+void audio_recording_control_core(const char *event, const void *data,
+                                  size_t size, rrconn_t *conn, void *user) {
+   (void)event; (void)conn; (void)user;
+   if (!data || size != sizeof(rr_audio_recording_control_t)) return;
+   const rr_audio_recording_control_t *request = data;
+   if (!memchr(request->path, 0, sizeof(request->path))) return;
+   switch (request->operation) {
+      case 'P':
+         if (!audio_recording_play_at(request->path, request->seconds, request->reverse))
+            event_emit("client.recordings.playback-error", NULL,
+                       "Playback is already active or the PCM hub is unavailable.");
+         break;
+      case 'S': audio_recording_play_stop(); break;
+      case 'H': rr_recordings_play_pause(TRUE); break;
+      case 'R': rr_recordings_play_pause(FALSE); break;
+      default: break;
+   }
+}
+static void audio_recording_finished_core(const char *event, const char *data,
+                                          rrconn_t *conn, void *user) {
+   (void)event; (void)data; (void)conn; (void)user;
+   audio_recording_play_collect();
+}
+void audio_recording_events_init(void) {
+   event_on_binary_domain_token(RR_AUDIO_RECORDING_CONTROL_REQUEST,
+      audio_recording_control_core, NULL, "core");
+   event_on_domain_token("client.recordings.playback-finished",
+      audio_recording_finished_core, NULL, "core");
 }
 
 static char local_rx_routes[26]; /* zero means default Stereo */

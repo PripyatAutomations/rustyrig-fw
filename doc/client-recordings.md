@@ -44,3 +44,26 @@ status still need integration.
 
 This is a new **client** recording facility, separate from server PTT and RX
 FLAC recording documented in `doc/recordings.md`.
+
+## Waveform playback (GTK)
+
+Double-click an Ogg/FLAC file or select **Play** in the recordings manager to
+open an independently movable **Recording Playback** floating panel. The
+waveform is rendered as separate left and right peak-envelope tracks. Analysis
+is performed asynchronously with ffmpeg at 800 stereo frames per second and
+bounded to 4096 peak columns; it never decodes an entire file on the GTK
+thread or holds the entire file in memory.
+
+**Click anywhere in the waveform** to start playing from that position; the
+vertical playhead follows playback progress. Controls include Play, Pause, Stop,
+Reverse and Delete. Reverse plays audio backwards using short four-second
+decode windows rather than buffering the entire recording. Selecting Reverse
+before Play starts from the end. A file deletion requires confirmation and
+updates the recording browser. Only files in the local managed recordings
+directory can be opened/deleted via the player.
+
+Playback requests are serialized into the core event domain and feed two
+individually routed L/R PCM hub streams. GTK owns drawing and panels; PCM
+and ffmpeg workers never call GTK. Hovering, focusing, or opening a waterfall
+source/VFO selector makes it fully opaque. While idle, these drop to
+36% opacity so they don't obscure the displayed spectrum.

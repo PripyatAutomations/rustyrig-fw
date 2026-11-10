@@ -745,6 +745,47 @@ static void ear_changed(GtkRange *range, gpointer data) {
    p->af_pending = false;
    gtk_widget_queue_draw(p->drawing);
 }
+/* Spectrum selectors should not cover the trace when idle. The menu and
+ * focused/hovered widget always remain fully opaque and usable. */
+static void spectrum_selector_opacity(GtkWidget *widget) {
+   gboolean active = gtk_widget_has_focus(widget) ||
+      gtk_combo_box_get_popup_shown(GTK_COMBO_BOX(widget));
+   if (gtk_widget_get_state_flags(widget) & GTK_STATE_FLAG_PRELIGHT) active = TRUE;
+   gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
+}
+static gboolean spectrum_selector_enter(GtkWidget *widget, GdkEventCrossing *event, gpointer user) {
+   (void)event; (void)user;
+   gtk_widget_set_opacity(widget, 1.0);
+   return FALSE;
+}
+static gboolean spectrum_selector_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer user) {
+   (void)event; (void)user;
+   /* During leave-notify, PRELIGHT may not yet be cleared. */
+   gboolean active = gtk_widget_has_focus(widget) ||
+      gtk_combo_box_get_popup_shown(GTK_COMBO_BOX(widget));
+   gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
+   return FALSE;
+}
+static gboolean spectrum_selector_focus(GtkWidget *widget, GdkEventFocus *event, gpointer user) {
+   (void)event; (void)user;
+   /* An idle callback observes the updated GTK focus state. */
+   spectrum_selector_opacity(widget);
+   return FALSE;
+}
+static void spectrum_selector_popup(GObject *object, GParamSpec *pspec, gpointer user) {
+   (void)pspec; (void)user;
+   spectrum_selector_opacity(GTK_WIDGET(object));
+}
+static void spectrum_selector_fade(GtkWidget *widget) {
+   gtk_widget_add_events(widget, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
+   g_signal_connect(widget, "enter-notify-event", G_CALLBACK(spectrum_selector_enter), NULL);
+   g_signal_connect(widget, "leave-notify-event", G_CALLBACK(spectrum_selector_leave), NULL);
+   g_signal_connect(widget, "focus-in-event", G_CALLBACK(spectrum_selector_focus), NULL);
+   g_signal_connect(widget, "focus-out-event", G_CALLBACK(spectrum_selector_focus), NULL);
+   g_signal_connect(widget, "notify::popup-shown", G_CALLBACK(spectrum_selector_popup), NULL);
+   g_signal_connect(widget, "notify::has-focus", G_CALLBACK(spectrum_selector_popup), NULL);
+   gtk_widget_set_opacity(widget, 0.36);
+}
 GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    spectrum_panel_t *p = g_new0(spectrum_panel_t, 1);
    p->server = g_strdup(server ? server : "");
@@ -760,6 +801,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
    p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
    p->source = gtk_combo_box_text_new();
+   spectrum_selector_fade(p->source);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "mixed", "Mixed (heard)");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "left", "Left (heard)");
@@ -1510,6 +1552,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    gtk_widget_set_tooltip_text(drawing, "RF waterfall: scroll to zoom around the tuned center");
    gtk_container_add(GTK_CONTAINER(overlay), drawing);
    p->vfo_select = gtk_combo_box_text_new();
+   spectrum_selector_fade(p->vfo_select);
    gtk_widget_set_tooltip_text(p->vfo_select, "Follow the active receiver or pin an RF-capable VFO");
    gtk_widget_set_halign(p->vfo_select, GTK_ALIGN_START);
    gtk_widget_set_valign(p->vfo_select, GTK_ALIGN_START);

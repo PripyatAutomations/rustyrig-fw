@@ -2137,6 +2137,7 @@ void rrclient_register_events(void) {
    event_on("client.server.status.close", ui_server_status_close, NULL);
    rrclient_objects_register_events();
    rrclient_files_register();
+   audio_recording_events_init();
    rrclient_direct_register_events();
    rrclient_dcc_register_events();
    rrclient_media_register_events();
