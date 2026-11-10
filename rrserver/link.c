@@ -449,6 +449,15 @@ static dict *message(const char *op) {
 const char *rrserver_links_node(void) {
    return links.node;
 }
+const char *rrserver_links_site_name(const char *node) {
+   if (!node || !*node) return NULL;
+   if (!strcmp(node, links.node)) return links.site;
+   if (!links.tree) return NULL;
+   rr_link_node_t entry;
+   for (size_t i = 0; rr_link_tree_node(links.tree, i, &entry); ++i)
+      if (!strcmp(entry.server, node)) return entry.site;
+   return NULL;
+}
 const char *rrserver_links_route(const char *node) {
    return rr_link_tree_route(links.tree, node);
 }
