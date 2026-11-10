@@ -318,7 +318,7 @@ bool rr_relay_client_key_lookup(const char *home_uuid, const char *principal,
 
    for (struct directory *entry = rr_relay_directories; entry; entry = entry->next) {
       if (strcmp(entry->node, home_uuid) || !entry->users) continue;
-      const dict *snapshot = entry->users;
+      dict *snapshot = entry->users;
       if (strcmp(dict_get(snapshot, "identity.owner", ""), home_uuid) ||
           strcmp(dict_get(snapshot, "identity.operation", ""), "users-snapshot") ||
           g_ascii_strcasecmp(dict_get(snapshot, "identity.domain", ""), domain))
