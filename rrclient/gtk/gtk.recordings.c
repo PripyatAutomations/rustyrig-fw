@@ -3,6 +3,7 @@
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 #include <rrclient/audio.h>
+#include <rrclient/vfo.snapshot.h>
 #include <rrclient/recordings.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
@@ -19,7 +20,9 @@ static struct {
    GtkListStore *store;
    char *directory, *root;
    gboolean closing;
-   rr_event_token_t open_token, finished_token, playback_token;
+   rr_event_token_t open_token, finished_token, playback_token, locator_token;
+   gboolean waiting_locator;
+   rr_recording_format requested_format;
 } ui;
 enum { COL_NAME, COL_SIZE, COL_DATE, COL_DIR, COL_PATH, N_COLS };
 
@@ -165,6 +168,55 @@ static void playback_finished(const char *event, const char *payload,
    audio_recording_play_collect();
    if (ui.status) gtk_label_set_text(GTK_LABEL(ui.status), "Playback complete");
 }
+static void locator_record_start(const char *event, const void *data, size_t size,
+                                 rrconn_t *conn, void *unused) {
+   (void)event; (void)conn; (void)unused;
+   if (!ui.waiting_locator) return;
+   ui.waiting_locator = FALSE;
+   if (!ui.record_button) return;
+   const rrclient_locator_snapshot_t *snap =
+      data && size == sizeof(rrclient_locator_snapshot_t) ? data : NULL;
+   if (snap && (!memchr(snap->profile, 0, sizeof(snap->profile)) ||
+      !memchr(snap->room, 0, sizeof(snap->room)) ||
+      !memchr(snap->mode, 0, sizeof(snap->mode)) ||
+      !memchr(snap->grid, 0, sizeof(snap->grid)))) snap = NULL;
+   char freq[32] = "unknown", vfo[4] = "A";
+   const char *site = "local", *rig = "receiver", *mode = "unknown", *server = "";
+   const char *grid = "";
+   char *station = NULL, *rig_name = NULL;
+   if (snap && snap->online) {
+      g_snprintf(freq, sizeof(freq), "%ld", snap->frequency);
+      g_snprintf(vfo, sizeof(vfo), "%c", snap->vfo ? snap->vfo : 'A');
+      server = snap->profile;
+      mode = snap->mode;
+      grid = snap->grid;
+      const char *room = snap->room[0] == '#' ? snap->room + 1 : snap->room;
+      const char *marker = strstr(room, "-rig");
+      if (marker) {
+         station = g_strndup(room, marker - room);
+         rig_name = g_strdup(marker + 1);
+         site = station;
+         rig = rig_name;
+      } else site = room;
+   } else {
+      if (freq_entry && GTK_IS_WIDGET(freq_entry))
+         g_snprintf(freq, sizeof(freq), "%lu", gtk_freq_entry_get_frequency(GTK_FREQ_ENTRY(freq_entry)));
+   }
+   GDateTime *now = g_date_time_new_now_utc();
+   char *start = g_date_time_format(now, "%Y-%m-%dT%H:%M:%SZ");
+   rr_recording_tags tags = {
+      .title = "RustyRig stereo RX monitor", .user = g_get_user_name(),
+      .start_time = start, .site = site, .server = server,
+      .rig = rig, .vfo = vfo, .frequency = freq, .mode = mode,
+      .grid = grid, .latitude = "", .longitude = "", .sources = ""
+   };
+   if (rr_recordings_start(ui.requested_format, &tags)) {
+      gtk_button_set_label(GTK_BUTTON(ui.record_button), "STOP");
+      gtk_label_set_text(GTK_LABEL(ui.status), "Recording the stereo monitor...");
+   } else show_error("Unable to start recording. Ensure ffmpeg is installed.");
+   gtk_widget_set_sensitive(ui.record_button, TRUE);
+   g_free(station); g_free(rig_name); g_free(start); g_date_time_unref(now);
+}
 static void record_clicked(GtkButton *button, gpointer data) {
    (void)data;
    if (rr_recordings_active()) {
@@ -173,33 +225,14 @@ static void record_clicked(GtkButton *button, gpointer data) {
       gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
       return;
    }
-   if (gtk_widget_get_sensitive(GTK_WIDGET(button)) == FALSE) return;
-   char freq[32] = "unknown";
-   if (freq_entry && GTK_IS_WIDGET(freq_entry))
-      g_snprintf(freq, sizeof(freq), "%lu", gtk_freq_entry_get_frequency(GTK_FREQ_ENTRY(freq_entry)));
-   gchar *mode = mode_combo && GTK_IS_COMBO_BOX_TEXT(mode_combo) ?
-      gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode_combo)) : NULL;
-   GDateTime *now = g_date_time_new_now_utc();
-   char *start = g_date_time_format(now, "%Y-%m-%dT%H:%M:%SZ");
-   // The displayed VFO is read from the GTK-owned snapshot, not from live core connection structures.
-   const char *shown = freq_entry ? g_object_get_data(G_OBJECT(freq_entry), "rr-displayed-vfo") : NULL;
-   char **pieces = shown ? g_strsplit(shown, "/", 2) : NULL;
-   rr_recording_tags tags = {
-      .title = "RustyRig stereo RX monitor", .user = g_get_user_name(),
-      .start_time = start, .site = pieces && pieces[0] ? pieces[0] : "local",
-      .server = "", .rig = pieces && pieces[0] ? pieces[0] : "receiver",
-      .vfo = pieces && pieces[1] ? pieces[1] : "A",
-      .frequency = freq, .mode = mode ? mode : "unknown",
-      .grid = "", .latitude = "", .longitude = "", .sources = ""
-   };
-   rr_recording_format format = (rr_recording_format)gtk_combo_box_get_active(GTK_COMBO_BOX(ui.format));
-   if (rr_recordings_start(format, &tags)) {
-      gtk_button_set_label(button, "STOP");
-      gtk_label_set_text(GTK_LABEL(ui.status), "Recording the stereo monitor...");
-   } else show_error("Unable to start recording. Ensure ffmpeg is installed.");
-   if (pieces) g_strfreev(pieces);
-   g_free(start); g_free(mode); g_date_time_unref(now);
+   if (ui.waiting_locator || !gtk_widget_get_sensitive(GTK_WIDGET(button))) return;
+   ui.requested_format = (rr_recording_format)gtk_combo_box_get_active(GTK_COMBO_BOX(ui.format));
+   ui.waiting_locator = TRUE;
+   gtk_button_set_label(button, "Preparing...");
+   gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+   event_emit(RRCLIENT_LOCATOR_REQUEST_EVENT, NULL, NULL);
 }
+
 /* Keep the two representations of one capture together when managed in the browser. */
 static gboolean move_recording_pair(const char *source, const char *destination) {
    const char *extension = strrchr(source, '.');
@@ -370,12 +403,15 @@ void gtk_recordings_init(void) {
    ui.open_token = event_on_domain_token("client.recordings.open", open_browser, NULL, "gtk");
    ui.finished_token = event_on_domain_token("client.recordings.finished", recording_finished, NULL, "gtk");
    ui.playback_token = event_on_domain_token("client.recordings.playback-finished", playback_finished, NULL, "gtk");
+   ui.locator_token = event_on_binary_domain_token(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, locator_record_start, NULL, "gtk");
 }
 void gtk_recordings_shutdown(void) {
    event_off_token(ui.open_token);
    event_off_token(ui.finished_token);
    event_off_token(ui.playback_token);
-   ui.open_token = ui.finished_token = ui.playback_token = NULL;
+   event_off_token(ui.locator_token);
+   ui.waiting_locator = FALSE;
+   ui.open_token = ui.finished_token = ui.playback_token = ui.locator_token = NULL;
    rr_recordings_stop();
    audio_recording_play_stop();
    if (ui.panel) rr_floating_panel_destroy(ui.panel);
