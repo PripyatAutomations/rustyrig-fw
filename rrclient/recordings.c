@@ -39,10 +39,13 @@ typedef struct {
 static Recorder rec;
 static gsize initialized;
 static GMutex playback_lock;
+static GCond playback_ready;
 static gboolean playback_stop;
 static GThread *playback_thread;
 static char *playback_path;
 static rr_recording_playback_fn playback_output;
+static gboolean playback_seek, playback_reverse, playback_paused;
+static double playback_target;
 
 static void ensure_init(void) {
    if (g_once_init_enter(&initialized)) {
@@ -50,6 +53,7 @@ static void ensure_init(void) {
       g_cond_init(&rec.ready);
       rec.child_fd = -1;
       g_mutex_init(&playback_lock);
+      g_cond_init(&playback_ready);
       g_once_init_leave(&initialized, 1);
    }
 }
@@ -309,69 +313,166 @@ void rr_recordings_collect(void) {
       g_clear_pointer(&rec.id, g_free);
    }
 }
+/* The playback worker owns decoder processes. Seek/reverse requests only change
+ * shared control fields; neither GTK nor the audio thread waits for ffmpeg. */
+static gboolean playback_control(double *seek_to, gboolean *reverse, gboolean *stop) {
+   g_mutex_lock(&playback_lock);
+   while (playback_paused && !playback_stop && !playback_seek)
+      g_cond_wait(&playback_ready, &playback_lock);
+   *stop = playback_stop;
+   gboolean seek = playback_seek;
+   if (seek) {
+      *seek_to = playback_target;
+      *reverse = playback_reverse;
+      playback_seek = FALSE;
+   }
+   g_mutex_unlock(&playback_lock);
+   return seek;
+}
 static gpointer playback_worker(gpointer unused) {
    (void)unused;
-   char *path = NULL;
-   rr_recording_playback_fn output = NULL;
+   char *path;
+   rr_recording_playback_fn output;
+   double position;
+   gboolean reverse;
    g_mutex_lock(&playback_lock);
    path = g_strdup(playback_path);
    output = playback_output;
+   position = playback_target;
+   reverse = playback_reverse;
+   playback_seek = FALSE;
    g_mutex_unlock(&playback_lock);
-   gchar *argv[] = {"ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-      "-i", path, "-f", "s16le", "-ac", "2", "-ar", "16000", "pipe:1", NULL};
-   GPid pid = 0;
-   gint fd = -1;
-   GError *error = NULL;
-   if (g_spawn_async_with_pipes(NULL, argv, NULL, G_SPAWN_SEARCH_PATH |
-      G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL, &pid, NULL, &fd, NULL, &error)) {
+   gint64 last_update = 0;
+   gboolean stop = FALSE;
+   for (;;) {
+      double requested = position;
+      gboolean next_direction = reverse;
+      if (playback_control(&requested, &next_direction, &stop)) {
+         position = MAX(0.0, requested);
+         reverse = next_direction;
+      }
+      if (stop || (reverse && position <= 0.0)) break;
+      double start = reverse ? MAX(0.0, position - 4.0) : position;
+      double length = reverse ? position - start : 0.0;
+      char seek_value[G_ASCII_DTOSTR_BUF_SIZE], length_value[G_ASCII_DTOSTR_BUF_SIZE];
+      g_ascii_formatd(seek_value, sizeof(seek_value), "%.6f", start);
+      g_ascii_formatd(length_value, sizeof(length_value), "%.6f", length);
+      gchar *args_forward[] = {
+         "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+         "-ss", seek_value, "-i", path, "-vn", "-f", "s16le",
+         "-ac", "2", "-ar", "16000", "pipe:1", NULL
+      };
+      gchar *args_reverse[] = {
+         "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+         "-ss", seek_value, "-i", path, "-t", length_value,
+         "-vn", "-af", "areverse", "-f", "s16le",
+         "-ac", "2", "-ar", "16000", "pipe:1", NULL
+      };
+      GPid pid = 0;
+      gint fd = -1;
+      GError *error = NULL;
+      if (!g_spawn_async_with_pipes(NULL, reverse ? args_reverse : args_forward, NULL,
+         G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL,
+         &pid, NULL, &fd, NULL, &error)) {
+         g_warning("Unable to start recording decoder: %s", error ? error->message : "unknown");
+         g_clear_error(&error);
+         break;
+      }
 #ifdef _WIN32
       _setmode(fd, _O_BINARY);
 #endif
+      gboolean restart = FALSE, ended = FALSE;
       int16_t block[320 * 2];
       for (;;) {
-         g_mutex_lock(&playback_lock);
-         gboolean stop = playback_stop;
-         g_mutex_unlock(&playback_lock);
+         if (playback_control(&requested, &next_direction, &stop)) {
+            position = MAX(0.0, requested);
+            reverse = next_direction;
+            restart = TRUE;
+            break;
+         }
          if (stop) break;
          size_t n = 0;
          while (n < sizeof(block)) {
-            gssize got = read(fd, ((char *)block) + n, (unsigned int)(sizeof(block) - n));
+            gssize got = read(fd, ((char *)block) + n,
+               (unsigned int)(sizeof(block) - n));
             if (got < 0 && errno == EINTR) continue;
             if (got <= 0) break;
             n += (size_t)got;
          }
-         if (!n) break;
-         if (output) output(block, n / (2 * sizeof(int16_t)));
-         g_usleep((gulong)(1000000 * (n / (2 * sizeof(int16_t))) / RATE));
+         if (!n) { ended = TRUE; break; }
+         size_t frames = n / (sizeof(int16_t) * 2);
+         if (!frames) continue;
+         if (output) output(block, frames);
+         double elapsed = (double)frames / RATE;
+         position = reverse ? MAX(0.0, position - elapsed) : position + elapsed;
+         gint64 now = g_get_monotonic_time();
+         if (now - last_update >= 100000) {
+            char value[G_ASCII_DTOSTR_BUF_SIZE];
+            g_ascii_formatd(value, sizeof(value), "%.6f", position);
+            event_emit(RR_RECORDING_PLAYBACK_POSITION, NULL, value);
+            last_update = now;
+         }
+         g_usleep((gulong)(elapsed * 1000000.0));
       }
       close(fd);
-      child_stop(pid);
+      if (stop || restart) child_stop(pid);
       child_wait_ok(pid);
       g_spawn_close_pid(pid);
-   } else {
-      g_warning("Unable to start recording decoder: %s", error ? error->message : "unknown");
-      g_clear_error(&error);
+      if (stop) break;
+      if (restart) continue;
+      if (!reverse || position <= 0.0001 || !ended) break;
+      // Reverse uses four-second segments, keeping areverse's memory bounded.
    }
    g_free(path);
    event_emit("client.recordings.playback-finished", NULL, NULL);
    return NULL;
 }
-gboolean rr_recordings_play(const char *path, rr_recording_playback_fn output) {
+gboolean rr_recordings_play_at(const char *path, double seconds, gboolean reverse,
+                              rr_recording_playback_fn output) {
    ensure_init();
    if (!path || !output) return FALSE;
    g_mutex_lock(&playback_lock);
    if (playback_thread) { g_mutex_unlock(&playback_lock); return FALSE; }
-   playback_stop = FALSE;
+   playback_stop = playback_seek = playback_paused = FALSE;
+   playback_reverse = reverse;
+   playback_target = MAX(seconds, 0.0);
    playback_path = g_strdup(path);
    playback_output = output;
    playback_thread = g_thread_new("rr-record-playback", playback_worker, NULL);
    g_mutex_unlock(&playback_lock);
    return TRUE;
 }
+gboolean rr_recordings_play(const char *path, rr_recording_playback_fn output) {
+   return rr_recordings_play_at(path, 0.0, FALSE, output);
+}
+gboolean rr_recordings_play_reposition(const char *path, double seconds, gboolean reverse) {
+   ensure_init();
+   g_mutex_lock(&playback_lock);
+   gboolean found = playback_thread && !playback_stop && playback_path &&
+      !g_strcmp0(path, playback_path);
+   if (found) {
+      playback_target = MAX(0.0, seconds);
+      playback_reverse = reverse;
+      playback_seek = TRUE;
+      playback_paused = FALSE;
+      g_cond_broadcast(&playback_ready);
+   }
+   g_mutex_unlock(&playback_lock);
+   return found;
+}
+void rr_recordings_play_pause(gboolean pause) {
+   ensure_init();
+   g_mutex_lock(&playback_lock);
+   playback_paused = pause;
+   g_cond_broadcast(&playback_ready);
+   g_mutex_unlock(&playback_lock);
+}
 void rr_recordings_play_stop(void) {
    ensure_init();
    g_mutex_lock(&playback_lock);
    playback_stop = TRUE;
+   playback_paused = FALSE;
+   g_cond_broadcast(&playback_ready);
    g_mutex_unlock(&playback_lock);
 }
 void rr_recordings_play_collect(void) {
