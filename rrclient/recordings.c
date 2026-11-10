@@ -205,6 +205,7 @@ static void append_output(GPtrArray *argv, const char *codec, const char *path,
    append_tag(argv, "GRID_SQUARE", tags->grid);
    append_tag(argv, "GPS_LATITUDE", tags->latitude);
    append_tag(argv, "GPS_LONGITUDE", tags->longitude);
+   append_tag(argv, "LOCATION_SOURCE", tags->location_source);
    append_tag(argv, "SOURCES", tags->sources);
    append_tag(argv, "USER", tags->user);
    g_ptr_array_add(argv, g_strdup("-f"));
