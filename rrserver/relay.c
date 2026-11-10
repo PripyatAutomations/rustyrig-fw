@@ -319,14 +319,9 @@ void rr_relay_send_owned_ttl(const char *dest, const char *owner, const char *ki
    /* All outbound catalog paths, including forwarded deltas and removals, share the same strict enforcement. */
    if (!strcmp(kind, "catalog") || !strcmp(kind, "catalog-remove")) {
       if (!dict_get(payload, "identity.signature", NULL)) {
-         Log(LOG_WARN, "mesh.identity", "Attempted to push unsigned %s from %s toward %s: %s", kind, owner, dest, cfg_get_bool("cluster.force-signed-catalog",
-            true) ? "blocked" : "legacy mode permitted");
-
-         if (cfg_get_bool("cluster.force-signed-catalog", true)) {
-            dict_free(mutation);
-
-            return;
-         }
+         Log(LOG_WARN, "mesh.identity", "Blocked unsigned %s from %s toward %s", kind, owner, dest);
+         dict_free(mutation);
+         return;
       }
    }
    char *json = dict2json(payload);
