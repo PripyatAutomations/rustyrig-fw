@@ -13,7 +13,7 @@ typedef struct {
 #define RR_RECORDING_PLAYBACK_POSITION "client.recordings.playback-position"
 #define RR_RECORDING_WAVE_BINS 4096
 typedef struct {
-   gint16 low, high;
+   gint16 left_low, left_high, right_low, right_high;
 } rr_recording_wave_bin;
 typedef struct {
    char path[2048];
