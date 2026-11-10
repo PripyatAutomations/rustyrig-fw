@@ -76,10 +76,10 @@ static gboolean write_all(int fd, const void *data, size_t length) {
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
    // An encoder exiting early must not deliver SIGPIPE to the entire client.
-   sigset_t blocked, previous;
+   sigset_t blocked;
    sigemptyset(&blocked);
    sigaddset(&blocked, SIGPIPE);
-   pthread_sigmask(SIG_BLOCK, &blocked, &previous);
+   pthread_sigmask(SIG_BLOCK, &blocked, NULL);
    int16_t block[1024 * 2];
    gboolean ok = TRUE;
    for (;;) {
@@ -105,7 +105,6 @@ static gpointer recorder_worker(gpointer unused) {
    if (waitpid(rec.child, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) ok = FALSE;
    g_spawn_close_pid(rec.child);
    rec.child = 0;
-   pthread_sigmask(SIG_SETMASK, &previous, NULL);
    g_mutex_lock(&rec.lock);
    rec.recording = FALSE;
    rec.stopping = FALSE;
