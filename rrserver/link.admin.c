@@ -228,8 +228,11 @@ void link_command(const char *event, const char *data, rrconn_t *client, void *u
          return;
       }
       char *encoded = g_base64_encode((const guchar *)token, strlen(token));
+      ws_send_notice(client, "Local cluster enrollment invitation for joining server UUID: %s", name);
+      /* Keep the token notice prefix unchanged for the GTK invitation popup. */
       ws_send_notice(client, "One-time enrollment token (base64, confidential): %s", encoded);
-      Log(LOG_AUDIT, "mesh.identity", "Administrator %s issued local cluster enrollment invitation", client->user->name);
+      Log(LOG_AUDIT, "mesh.identity", "Administrator %s issued local cluster enrollment invitation for joining server UUID %s",
+         client->user->name, name);
       g_free(encoded);
       memset(token, 0, strlen(token));
       g_free(token);
