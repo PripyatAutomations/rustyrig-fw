@@ -311,10 +311,13 @@ bool rr_relay_client_key_lookup(const char *home_uuid, const char *principal,
    const char *domain = cfg_get("domain");
    if (!at || !at[1] || strchr(at + 1, '@') || !domain || !*domain)
       return false;
-   size_t principal_len = strlen(principal), domain_len = strlen(domain);
-   if (principal_len <= domain_len + 2 ||
-       g_ascii_strcasecmp(principal + principal_len - domain_len, domain) ||
-       principal[principal_len - domain_len - 1] != '.') return false;
+   const char *station = rrserver_links_site_name(home_uuid);
+   if (!station || !*station) return false;
+   char *expected_suffix = g_strdup_printf("@%s.%s", station, domain);
+   bool valid_suffix = expected_suffix && strlen(principal) > strlen(expected_suffix) &&
+      !g_ascii_strcasecmp(at, expected_suffix);
+   g_free(expected_suffix);
+   if (!valid_suffix) return false;
 
    for (struct directory *entry = rr_relay_directories; entry; entry = entry->next) {
       if (strcmp(entry->node, home_uuid) || !entry->users) continue;
