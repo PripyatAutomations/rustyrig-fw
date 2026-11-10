@@ -19,6 +19,7 @@ typedef struct {
    unsigned step, frame;
    guint timer;
    guint dismiss_timer;
+   guint reveal_timer;
    gulong escape_handler;
    bool completed;
 } RRConnect;
@@ -232,6 +233,9 @@ static void state_free(gpointer data) {
    if (s->dismiss_timer) {
       g_source_remove(s->dismiss_timer);
    }
+   if (s->reveal_timer) {
+      g_source_remove(s->reveal_timer);
+   }
 
    if (s->escape_handler && GTK_IS_WINDOW(main_window)) {
       g_signal_handler_disconnect(main_window, s->escape_handler);
@@ -375,6 +379,13 @@ static void destroyed(GtkWidget *canvas, gpointer unused) {
       g_hash_table_remove(dialogs, profile);
    }
 }
+/* A fast TLS rejection should never briefly show a connecting panel. */
+static gboolean connect_panel_reveal(gpointer user) {
+   RRConnect *state = user;
+   state->reveal_timer = 0;
+   if (!state->completed) rr_floating_panel_show(state->panel);
+   return G_SOURCE_REMOVE;
+}
 GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
    (void)parent;
    GtkWidget *root = main_window && GTK_IS_BIN(main_window) ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
@@ -411,7 +422,7 @@ GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
    gtk_container_add(GTK_CONTAINER(actions), state->close_button);
    gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(panel)), actions, FALSE, FALSE, 2);
    state->timer = g_timeout_add(150, tick, state);
-   rr_floating_panel_show(panel);
+   state->reveal_timer = g_timeout_add(450, connect_panel_reveal, state);
 
    return state->canvas;
 }
@@ -519,6 +530,13 @@ static void on_progress(const rr_event_message_t *m, void *unused) {
          return;
       }
       state->completed = true;
+      /* Successful fast connects may show the brief welcome panel, but an
+       * immediate failure must never have revealed a window at all. */
+      if (state->reveal_timer) {
+         g_source_remove(state->reveal_timer);
+         state->reveal_timer = 0;
+         rr_floating_panel_show(state->panel);
+      }
       rr_connect_dialog_set_step(canvas, 3);
       rr_connect_dialog_set_status(canvas, "Catalog synchronized. Welcome to RustyRig!");
       gtk_button_set_label(GTK_BUTTON(state->close_button), "✕ Close");
