@@ -235,7 +235,7 @@ static void explain_tls_identity_failure(const char *cert_path, const char *key_
    }
    if (X509_check_host(cert, station, 0,
          X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT, NULL) != 1) {
-      fprintf(stderr, "Mesh enrollment: certificate DNS SAN does not match station.name '%s'.\n", station);
+      fprintf(stderr, "Mesh enrollment: certificate DNS SAN does not match expected station.domain '%s'.\n", station);
       X509_free(cert);
       return;
    }
@@ -272,6 +272,7 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    const char *key = cfg_get("net.http.tls-key");
    const char *db_path = cfg_get("path.db.master");
    const char *site = cfg_get("station.name");
+   char tls_name[254];
    struct response response;
    unsigned char issuer_public[32], issuer_signature[64], proof[64];
 
@@ -280,14 +281,33 @@ bool rr_mesh_enroll_run(char *fields[8]) {
       goto done;
    }
 
+   /* Match the TLS identity used by normal rrserver startup in link.c.
+    * The station is one DNS label; the certificate SAN is station.domain. */
+   size_t site_len = strlen(site);
+   if (site_len > 63 || site[0] == '-' || site[site_len - 1] == '-') {
+      fprintf(stderr, "Mesh enrollment: station.name must be one DNS label (1-63 characters).\n");
+      goto done;
+   }
+   for (const unsigned char *p = (const unsigned char *)site; *p; ++p) {
+      if (!(g_ascii_isalnum(*p) || *p == '-')) {
+         fprintf(stderr, "Mesh enrollment: station.name contains invalid DNS label characters.\n");
+         goto done;
+      }
+   }
+   int name_len = snprintf(tls_name, sizeof(tls_name), "%s.%s", site, domain);
+   if (name_len < 1 || (size_t)name_len >= sizeof(tls_name)) {
+      fprintf(stderr, "Mesh enrollment: station.name + domain exceeds the TLS DNS name limit.\n");
+      goto done;
+   }
+
    if (!rr_crypto_init() || !rr_identity_init(cfg_get("path.identity") ? cfg_get("path.identity") : "/var/lib/rustyrig/identity")) {
       fprintf(stderr, "Mesh enrollment: cannot initialize permanent signing identity.\n");
       goto done;
    }
 
-   if (!rr_crypto_tls_identity_ensure(cert, key, site)) {
+   if (!rr_crypto_tls_identity_ensure(cert, key, tls_name)) {
       fprintf(stderr, "Mesh enrollment: cannot initialize persistent TLS identity.\n");
-      explain_tls_identity_failure(cert, key, site);
+      explain_tls_identity_failure(cert, key, tls_name);
       goto done;
    }
    spki = rr_crypto_cert_spki_sha256(cert);
