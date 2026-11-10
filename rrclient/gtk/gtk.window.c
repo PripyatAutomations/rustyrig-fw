@@ -311,6 +311,8 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
    } else if (!strcmp(tool, "sdr-directory")) {
       /* Same GTK event-domain action as Alt-Z. */
       event_emit("client.receiver-directory.show", NULL, NULL);
+   } else if (!strcmp(tool, "recordings")) {
+      event_emit("client.recordings.open", NULL, NULL);
    } else if (!strcmp(tool, "audio")) {
       gtk_audio_graph_present();
    } else {
@@ -511,6 +513,7 @@ bool gui_init(void) {
    /* Tool pages are selected from the toolbar, not the tab strip. */
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer", "Explorer: Explore available resources in the cluster");
    main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory", "Remote SDRs: Access remote SDRs such as KiwiSDR");
+   main_toolbar_tool(rr_main_toolbar, "Recordings", "media-record-symbolic", "recordings", "Record and manage client audio recordings");
    main_toolbar_tool(rr_main_toolbar, "Audio Graph", "multimedia-volume-control-symbolic", "audio", "Audio Graph: Edit local audio routing/effects");
    main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-other-symbolic", "admin", "Admin: Administer the server/cluster");
    main_toolbar_tool(rr_main_toolbar, "Config", "preferences-system-symbolic", "config", "Config: Edit client configuration");

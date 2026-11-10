@@ -28,6 +28,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/ui.navigation.h>
 #include <rrclient/vfo.h>
+#include <rrclient/audio.h>
 #include <rrclient/vfo.snapshot.h>
 #include <rrclient/frontend.h>
 #include <rrclient/supervision.h>
@@ -2109,6 +2110,19 @@ static void locator_snapshot_core(const char *event, const char *previous, rrcon
       }
    }
 
+   // Append only copied source inventory; readers on GTK must never access live RX routes.
+   g_strlcpy(snap.recording_user, login_user ? login_user : "", sizeof(snap.recording_user));
+   struct rrclient_rx_stream streams[32] = {{0}};
+   size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
+   size_t used = 0;
+   for (size_t i = 0; i < MIN(count, G_N_ELEMENTS(streams)); i++) {
+      if (streams[i].output == 'M') continue;
+      int written = g_snprintf(snap.recording_sources + used, sizeof(snap.recording_sources) - used,
+         "%s%s|%s|%s|%c", used ? ";" : "",
+         streams[i].server, streams[i].room, streams[i].id, streams[i].output);
+      if (written < 0 || (size_t)written >= sizeof(snap.recording_sources) - used) break;
+      used += (size_t)written;
+   }
    event_emit_binary(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, NULL, &snap, sizeof(snap));
 }
 void rrclient_register_events(void) {

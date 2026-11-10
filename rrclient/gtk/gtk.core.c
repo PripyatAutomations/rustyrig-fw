@@ -50,6 +50,7 @@
 #include <rrclient/gtk/gtk.receiver-directory.h>
 #include <rrclient/gtk/gtk.resources.h>
 #include <rrclient/gtk/gtk.files.h>
+#include <rrclient/gtk/gtk.recordings.h>
 #include <rrclient/gtk/gtk.file-editor.h>
 #include <rrclient/gtk/gtk.tabs.h>
 #include <rrclient/gtk/gtk.help.h>
@@ -1351,6 +1352,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_connecting_init();
    gtk_resources_init();
    gtk_files_init();
+   gtk_recordings_init();
    // Local client log pane (GTK log tab) mirrors client logs.
    frontend_gtk_log_callback = log_add_callback_token(log_print_va, LOG_CALLBACK_FILTERED);
    extern bool rr_module_token_add(rr_event_token_t token);
@@ -1854,6 +1856,7 @@ void gtk_frontend_stop(void) {
    gtk_terminal_shutdown();
    gtk_help_shutdown();
    gtk_resources_shutdown();
+   gtk_recordings_shutdown();
    gtk_files_shutdown();
    gtk_file_editor_shutdown();
    gtk_receiver_directory_shutdown();

@@ -20,6 +20,10 @@
 #include <rrclient/spectrum.af.h>
 
 extern bool audio_enabled;
+/* File playback is routed into the client PCM hub. */
+bool audio_recording_play(const char *path);
+void audio_recording_play_stop(void);
+void audio_recording_play_collect(void);
 extern bool gst_active;
 
 extern bool audio_init(void);

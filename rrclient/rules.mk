@@ -19,6 +19,7 @@ rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
 
 rrclient_objs += audio.o
+rrclient_objs += recordings.o # Local Ogg/FLAC recording and playback
 rrclient_objs += audio.engine.o
 rrclient_objs += audio.graph.o # GTK-free logical routing and bypass policies
 rrclient_objs += cat.o
@@ -108,6 +109,7 @@ gtk_module_objs += gtk/gtk.connecting.o # Retro sign-on dialog
 gtk_module_objs += gtk/gtk.clock.o # Amber VFD-style local/UTC floating clock
 gtk_module_objs += gtk/gtk.core.o            # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.files.o
+gtk_module_objs += gtk/gtk.recordings.o # Client recording browser
 gtk_module_objs += gtk/gtk.file-editor.o # configuration tab
 gtk_module_objs += gtk/gtk.floating-panel.o
 gtk_module_objs += gtk/gtk.scale-container.o # Per-panel native widget zoom wrapper
