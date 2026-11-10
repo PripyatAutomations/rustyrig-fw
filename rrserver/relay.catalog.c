@@ -272,6 +272,53 @@ void rr_relay_directory_put(const char *node, dict *d) {
       }
    }
 
+   unsigned key_count = dict_get_uint(d, "userkey.count", 0);
+   if (key_count > 64) return;
+   if (key_count) {
+      const char *station = rrserver_links_site_name(node);
+      const char *domain = cfg_get("domain");
+      if (!station || !*station || !domain || !*domain) return;
+      char *suffix = g_strdup_printf("@%s.%s", station, domain);
+      if (!suffix) return;
+      bool valid = true;
+      for (unsigned i = 0; i < key_count && valid; ++i) {
+         char key[64];
+         snprintf(key, sizeof(key), "userkey.%u.principal", i);
+         const char *principal = dict_get(d, key, "");
+         snprintf(key, sizeof(key), "userkey.%u.id", i);
+         const char *key_id = dict_get(d, key, "");
+         snprintf(key, sizeof(key), "userkey.%u.public", i);
+         const char *encoded = dict_get(d, key, "");
+         size_t plen = strlen(principal), slen = strlen(suffix);
+         valid = plen > slen && !g_ascii_strcasecmp(principal + plen - slen, suffix) &&
+            !memchr(principal, '@', plen - slen) && *key_id &&
+            strlen(key_id) <= 96 && strlen(encoded) == 44;
+         bool user_exists = false;
+         for (unsigned j = 0; valid && j < count; ++j) {
+            snprintf(key, sizeof(key), "user.%u.name", j);
+            const char *name = dict_get(d, key, "");
+            if (strlen(name) == plen - slen && !strncmp(name, principal, plen - slen)) {
+               user_exists = true;
+               break;
+            }
+         }
+         valid = valid && user_exists;
+         if (valid) {
+            gsize length = 0;
+            guchar *raw = g_base64_decode(encoded, &length);
+            char *canonical = raw && length == 32 ? g_base64_encode(raw, length) : NULL;
+            valid = canonical && !strcmp(encoded, canonical);
+            g_free(canonical);
+            g_free(raw);
+         }
+      }
+      g_free(suffix);
+      if (!valid) {
+         Log(LOG_WARN, "mesh.identity", "Rejected malformed client key directory for node %s", node);
+         return;
+      }
+   }
+
    struct directory *entry = rr_relay_directories;
    unsigned entries = 0;
 
