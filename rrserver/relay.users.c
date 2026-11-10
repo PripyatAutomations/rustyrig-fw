@@ -132,6 +132,11 @@ void rr_relay_users_poll(bool force) {
          return;
       }
       rr_relay_directory_put(rrserver_links_node(), local);
+      Log(LOG_INFO, "mesh.identity",
+         "Published signed user directory: node=%s client-keys=%u overflow=%s revision=%s",
+         rrserver_links_node(), dict_get_uint(local, "userkey.count", 0),
+         dict_get(local, "userkey.overflow", "false"),
+         dict_get(local, "identity.revision", "(missing)"));
 
       rrserver_links_each_neighbor(publish_user_directory_to_neighbor, local);
    }
