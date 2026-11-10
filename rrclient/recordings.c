@@ -485,6 +485,84 @@ void rr_recordings_play_collect(void) {
    g_clear_pointer(&playback_path, g_free);
 }
 
+/* A compact, bounded-memory overview of even very long recordings.
+ * Mono 800 Hz analysis yields min/max envelopes in up to 4096 time bins. */
+static gpointer waveform_worker(gpointer data) {
+   char *path = data;
+   rr_recording_waveform *wave = g_new0(rr_recording_waveform, 1);
+   g_strlcpy(wave->path, path, sizeof(wave->path));
+   gchar *argv[] = {
+      "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+      "-i", path, "-vn", "-ac", "1", "-ar", "800",
+      "-f", "s16le", "pipe:1", NULL
+   };
+   GPid pid = 0;
+   gint fd = -1;
+   GError *error = NULL;
+   if (g_spawn_async_with_pipes(NULL, argv, NULL,
+      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL,
+      &pid, NULL, &fd, NULL, &error)) {
+#ifdef _WIN32
+      _setmode(fd, _O_BINARY);
+#endif
+      guint8 raw[4096], low_byte = 0;
+      gboolean have_low = FALSE;
+      gint16 lo = G_MAXINT16, hi = G_MININT16;
+      guint width = 16, phase = 0;
+      guint64 total = 0;
+      for (;;) {
+         gssize n = read(fd, raw, sizeof(raw));
+         if (n < 0 && errno == EINTR) continue;
+         if (n <= 0) break;
+         for (gssize j = 0; j < n; j++) {
+            if (!have_low) {
+               low_byte = raw[j];
+               have_low = TRUE;
+               continue;
+            }
+            gint16 sample = (gint16)((guint)low_byte | ((guint)raw[j] << 8));
+            have_low = FALSE;
+            total++;
+            lo = MIN(lo, sample);
+            hi = MAX(hi, sample);
+            if (++phase == width) {
+               wave->bins[wave->count++] = (rr_recording_wave_bin){lo, hi};
+               phase = 0;
+               lo = G_MAXINT16;
+               hi = G_MININT16;
+               if (wave->count == RR_RECORDING_WAVE_BINS) {
+                  for (guint k = 0; k < RR_RECORDING_WAVE_BINS / 2; k++) {
+                     rr_recording_wave_bin a = wave->bins[k * 2], b = wave->bins[k * 2 + 1];
+                     wave->bins[k] = (rr_recording_wave_bin){MIN(a.low,b.low), MAX(a.high,b.high)};
+                  }
+                  wave->count /= 2;
+                  width *= 2;
+               }
+            }
+         }
+      }
+      if (phase && wave->count < RR_RECORDING_WAVE_BINS)
+         wave->bins[wave->count++] = (rr_recording_wave_bin){lo, hi};
+      close(fd);
+      wave->duration = (double)total / 800.0;
+      wave->success = child_wait_ok(pid) && total > 0;
+      g_spawn_close_pid(pid);
+   } else {
+      g_warning("Unable to analyze recording waveform: %s",
+         error ? error->message : "unknown");
+      g_clear_error(&error);
+   }
+   event_emit_binary(RR_RECORDING_WAVEFORM_READY, NULL, wave, sizeof(*wave));
+   g_free(wave);
+   g_free(path);
+   return NULL;
+}
+void rr_recordings_waveform_request(const char *path) {
+   if (!path || !*path) return;
+   GThread *thread = g_thread_new("rr-record-waveform", waveform_worker, g_strdup(path));
+   g_thread_unref(thread);
+}
+
 /* Flush the encoder and reap all worker processes on client shutdown. */
 void rr_recordings_shutdown(void) {
    ensure_init();
