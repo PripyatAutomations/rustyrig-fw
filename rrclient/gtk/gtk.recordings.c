@@ -179,7 +179,9 @@ static void locator_record_start(const char *event, const void *data, size_t siz
    if (snap && (!memchr(snap->profile, 0, sizeof(snap->profile)) ||
       !memchr(snap->room, 0, sizeof(snap->room)) ||
       !memchr(snap->mode, 0, sizeof(snap->mode)) ||
-      !memchr(snap->grid, 0, sizeof(snap->grid)))) snap = NULL;
+      !memchr(snap->grid, 0, sizeof(snap->grid)) ||
+      !memchr(snap->recording_user, 0, sizeof(snap->recording_user)) ||
+      !memchr(snap->recording_sources, 0, sizeof(snap->recording_sources)))) snap = NULL;
    char freq[32] = "unknown", vfo[4] = "A";
    const char *site = "local", *rig = "receiver", *mode = "unknown", *server = "";
    const char *grid = "";
@@ -205,10 +207,12 @@ static void locator_record_start(const char *event, const void *data, size_t siz
    GDateTime *now = g_date_time_new_now_utc();
    char *start = g_date_time_format(now, "%Y-%m-%dT%H:%M:%SZ");
    rr_recording_tags tags = {
-      .title = "RustyRig stereo RX monitor", .user = g_get_user_name(),
+      .title = "RustyRig stereo RX monitor",
+      .user = snap && snap->recording_user[0] ? snap->recording_user : g_get_user_name(),
       .start_time = start, .site = site, .server = server,
       .rig = rig, .vfo = vfo, .frequency = freq, .mode = mode,
-      .grid = grid, .latitude = "", .longitude = "", .sources = ""
+      .grid = grid, .latitude = "", .longitude = "",
+      .sources = snap ? snap->recording_sources : ""
    };
    if (rr_recordings_start(ui.requested_format, &tags)) {
       gtk_button_set_label(GTK_BUTTON(ui.record_button), "STOP");
