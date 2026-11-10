@@ -493,7 +493,7 @@ static gpointer waveform_worker(gpointer data) {
    g_strlcpy(wave->path, path, sizeof(wave->path));
    gchar *argv[] = {
       "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-      "-i", path, "-vn", "-ac", "1", "-ar", "800",
+      "-i", path, "-vn", "-ac", "2", "-ar", "800",
       "-f", "s16le", "pipe:1", NULL
    };
    GPid pid = 0;
@@ -507,9 +507,10 @@ static gpointer waveform_worker(gpointer data) {
 #endif
       guint8 raw[4096], low_byte = 0;
       gboolean have_low = FALSE;
-      gint16 lo = G_MAXINT16, hi = G_MININT16;
-      guint width = 16, phase = 0;
-      guint64 total = 0;
+      gint16 left = 0, lows[2] = {G_MAXINT16, G_MAXINT16},
+         highs[2] = {G_MININT16, G_MININT16};
+      guint channel = 0, width = 16, phase = 0;
+      guint64 frames = 0;
       for (;;) {
          gssize n = read(fd, raw, sizeof(raw));
          if (n < 0 && errno == EINTR) continue;
@@ -522,18 +523,29 @@ static gpointer waveform_worker(gpointer data) {
             }
             gint16 sample = (gint16)((guint)low_byte | ((guint)raw[j] << 8));
             have_low = FALSE;
-            total++;
-            lo = MIN(lo, sample);
-            hi = MAX(hi, sample);
+            if (!channel) {
+               left = sample;
+               channel = 1;
+               continue;
+            }
+            channel = 0;
+            frames++;
+            lows[0] = MIN(lows[0], left); highs[0] = MAX(highs[0], left);
+            lows[1] = MIN(lows[1], sample); highs[1] = MAX(highs[1], sample);
             if (++phase == width) {
-               wave->bins[wave->count++] = (rr_recording_wave_bin){lo, hi};
+               wave->bins[wave->count++] = (rr_recording_wave_bin){
+                  lows[0], highs[0], lows[1], highs[1]
+               };
                phase = 0;
-               lo = G_MAXINT16;
-               hi = G_MININT16;
+               lows[0] = lows[1] = G_MAXINT16;
+               highs[0] = highs[1] = G_MININT16;
                if (wave->count == RR_RECORDING_WAVE_BINS) {
                   for (guint k = 0; k < RR_RECORDING_WAVE_BINS / 2; k++) {
-                     rr_recording_wave_bin a = wave->bins[k * 2], b = wave->bins[k * 2 + 1];
-                     wave->bins[k] = (rr_recording_wave_bin){MIN(a.low,b.low), MAX(a.high,b.high)};
+                     rr_recording_wave_bin x = wave->bins[k * 2], y = wave->bins[k * 2 + 1];
+                     wave->bins[k] = (rr_recording_wave_bin){
+                        MIN(x.left_low, y.left_low), MAX(x.left_high, y.left_high),
+                        MIN(x.right_low, y.right_low), MAX(x.right_high, y.right_high)
+                     };
                   }
                   wave->count /= 2;
                   width *= 2;
@@ -542,10 +554,12 @@ static gpointer waveform_worker(gpointer data) {
          }
       }
       if (phase && wave->count < RR_RECORDING_WAVE_BINS)
-         wave->bins[wave->count++] = (rr_recording_wave_bin){lo, hi};
+         wave->bins[wave->count++] = (rr_recording_wave_bin){
+            lows[0], highs[0], lows[1], highs[1]
+         };
       close(fd);
-      wave->duration = (double)total / 800.0;
-      wave->success = child_wait_ok(pid) && total > 0;
+      wave->duration = (double)frames / 800.0;
+      wave->success = child_wait_ok(pid) && frames > 0;
       g_spawn_close_pid(pid);
    } else {
       g_warning("Unable to analyze recording waveform: %s",
