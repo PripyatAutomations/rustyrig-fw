@@ -759,13 +759,14 @@ typedef struct {
    const char *ingress;
    const char *owner;
    dict *snapshot;
+   int ttl;
 } relay_user_fanout_t;
 
 static void relay_forward_users_to_neighbor(const char *neighbor, void *user) {
    relay_user_fanout_t *f = user;
    if (neighbor && strcmp(neighbor, f->ingress) &&
        strcmp(neighbor, f->owner))
-      rr_relay_send_owned(neighbor, f->owner, "users", f->snapshot);
+      rr_relay_send_owned_ttl(neighbor, f->owner, "users", f->snapshot, f->ttl);
 }
 
 /* Validate a received link envelope and dispatch its payload by kind. */
@@ -1204,7 +1205,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          }
 #endif
          rr_relay_directory_put(origin, d);
-         relay_user_fanout_t fanout = { ingress, origin, d };
+         /* The link layer has already consumed one hop from this packet. */
+         relay_user_fanout_t fanout = { ingress, origin, d, atoi(dict_get(envelope, "ttl", "0")) };
          rrserver_links_each_neighbor(relay_forward_users_to_neighbor, &fanout);
       } else {
          /* Removal descriptors are catalog records too. Prevent unsigned or forged removals from bypassing normal catalog admission. */
