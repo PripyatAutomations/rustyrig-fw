@@ -345,7 +345,13 @@ static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *
    if (toolbar_action_count < RR_TOOLBAR_ACTIONS) {
       toolbar_action_labels[toolbar_action_count++] = label;
    }
+   /* The toolbar sits inside a clipped viewport. GTK's tooltip hit testing
+    * can resolve the innermost image/label instead of the enclosing button.
+    * Give every visible hover target the same tooltip. */
    gtk_widget_set_tooltip_text(button, tooltip);
+   gtk_widget_set_tooltip_text(contents, tooltip);
+   gtk_widget_set_tooltip_text(image, tooltip);
+   gtk_widget_set_tooltip_text(label, tooltip);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
    g_signal_connect(button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) tool);
    gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
@@ -408,11 +414,16 @@ bool gui_init(void) {
    GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
+   GtkWidget *minimize_icon = gtk_button_get_image(GTK_BUTTON(minimize));
+   if (minimize_icon)
+      gtk_widget_set_tooltip_text(minimize_icon, "Minimize the main window (VFO locator stays open)");
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
    GtkWidget *quit_button = gtk_button_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_BUTTON);
    gtk_button_set_relief(GTK_BUTTON(quit_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
+   GtkWidget *quit_icon = gtk_button_get_image(GTK_BUTTON(quit_button));
+   if (quit_icon) gtk_widget_set_tooltip_text(quit_icon, "Quit RustyRig");
    g_signal_connect(quit_button, "clicked", G_CALLBACK(main_toolbar_quit), NULL);
    /* Keep Quit outside the clipped notebook/toolbar viewport. Dynamic room content may exceed its horizontal allocation, but the close control must remain
     * anchored to the visible toplevel's right edge. */
