@@ -67,6 +67,8 @@ void rr_relay_users_poll(bool force) {
       changed |= strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
    }
 
+   if (!changed && g_strcmp0(dict_get(entry->users, "userkey.overflow", "false"),
+         dict_get(local, "userkey.overflow", "false"))) changed = true;
    /* Key enrollment/revocation must publish a new signed directory revision
     * even when user presence and account metadata are unchanged. */
    if (!changed && dict_get_uint(entry->users, "userkey.count", 0) != dict_get_uint(local, "userkey.count", 0))
