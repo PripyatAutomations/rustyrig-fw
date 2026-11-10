@@ -1110,9 +1110,13 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
 /* One-use bearer credential: only expose it through the explicit dialog. */
 static void mesh_token_copy(GtkButton *button, gpointer user) {
    (void)button;
-   GtkWidget *entry = GTK_WIDGET(user);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(user));
+   GtkTextIter start, end;
+   gtk_text_buffer_get_bounds(buffer, &start, &end);
+   char *token = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
    GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-   gtk_clipboard_set_text(clipboard, gtk_entry_get_text(GTK_ENTRY(entry)), -1);
+   gtk_clipboard_set_text(clipboard, token, -1);
+   g_free(token);
 }
 static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message, void *unused) {
    (void)unused;
@@ -1132,17 +1136,28 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
    gtk_label_set_xalign(GTK_LABEL(hint), 0);
    gtk_box_pack_start(GTK_BOX(area), hint, FALSE, FALSE, 8);
-   GtkWidget *entry = gtk_entry_new();
-   gtk_entry_set_text(GTK_ENTRY(entry), token);
-   gtk_editable_set_editable(GTK_EDITABLE(entry), FALSE);
-   gtk_widget_set_hexpand(entry, TRUE);
-   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 6);
+   GtkWidget *view = gtk_text_view_new();
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(view), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(view), TRUE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_CHAR);
+   gtk_text_view_set_left_margin(GTK_TEXT_VIEW(view), 8);
+   gtk_text_view_set_right_margin(GTK_TEXT_VIEW(view), 8);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   gtk_text_buffer_set_text(buffer, token, -1);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_size_request(scroll, -1, 120);
+   gtk_widget_set_hexpand(scroll, TRUE);
+   gtk_container_add(GTK_CONTAINER(scroll), view);
+   gtk_box_pack_start(GTK_BOX(area), scroll, TRUE, TRUE, 6);
    GtkWidget *copy = gtk_button_new_with_label("Copy invitation");
    gtk_box_pack_start(GTK_BOX(area), copy, FALSE, FALSE, 6);
-   g_signal_connect(copy, "clicked", G_CALLBACK(mesh_token_copy), entry);
+   g_signal_connect(copy, "clicked", G_CALLBACK(mesh_token_copy), view);
    g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
    gtk_widget_show_all(dialog);
-   gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+   GtkTextIter start, end;
+   gtk_text_buffer_get_bounds(buffer, &start, &end);
+   gtk_text_buffer_select_range(buffer, &start, &end);
 }
 static void frontend_gtk_server_picker_show_event(const rr_event_message_t *message, void *unused) {
    (void)message;
