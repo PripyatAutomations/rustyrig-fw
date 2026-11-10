@@ -801,6 +801,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
       if (verified) {
          verified = rr_identity_accept_control_nonce(masterdb, d);
+         if (!verified) rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
       }
 #else
       verified = false;
@@ -1274,6 +1275,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
       if (valid) {
          valid = rr_identity_accept_control_nonce(masterdb, d);
+         if (!valid) rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
       }
 #else
       valid = false;
@@ -1303,6 +1305,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
             if (valid) {
                valid = rr_identity_accept_control_nonce(masterdb, d);
+               if (!valid) rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
             }
          }
 #endif
