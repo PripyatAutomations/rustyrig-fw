@@ -1,5 +1,7 @@
 // Client-side PCM recording and playback. GPL-2.0-only.
 #include "recordings.h"
+#include <librustyaxe/core.h>
+#include <librustyaxe/event-bus.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <stdint.h>
@@ -7,6 +9,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <pthread.h>
 #include <errno.h>
 #include <stdio.h>
 
@@ -72,6 +75,11 @@ static gboolean write_all(int fd, const void *data, size_t length) {
 }
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
+   // An encoder exiting early must not deliver SIGPIPE to the entire client.
+   sigset_t blocked, previous;
+   sigemptyset(&blocked);
+   sigaddset(&blocked, SIGPIPE);
+   pthread_sigmask(SIG_BLOCK, &blocked, &previous);
    int16_t block[1024 * 2];
    gboolean ok = TRUE;
    for (;;) {
@@ -97,6 +105,7 @@ static gpointer recorder_worker(gpointer unused) {
    if (waitpid(rec.child, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) ok = FALSE;
    g_spawn_close_pid(rec.child);
    rec.child = 0;
+   pthread_sigmask(SIG_SETMASK, &previous, NULL);
    g_mutex_lock(&rec.lock);
    rec.recording = FALSE;
    rec.stopping = FALSE;
@@ -308,4 +317,20 @@ void rr_recordings_play_collect(void) {
    g_mutex_unlock(&playback_lock);
    if (thread) g_thread_join(thread);
    g_clear_pointer(&playback_path, g_free);
+}
+
+/* Flush the encoder and reap all worker processes on client shutdown. */
+void rr_recordings_shutdown(void) {
+   ensure_init();
+   rr_recordings_stop();
+   g_mutex_lock(&rec.lock);
+   GThread *thread = rec.worker;
+   rec.worker = NULL;
+   g_mutex_unlock(&rec.lock);
+   if (thread) g_thread_join(thread);
+   g_clear_pointer(&rec.ogg, g_free);
+   g_clear_pointer(&rec.flac, g_free);
+   g_clear_pointer(&rec.id, g_free);
+   rr_recordings_play_stop();
+   rr_recordings_play_collect();
 }
