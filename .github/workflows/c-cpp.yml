@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# New commits supersede old checks on the same PR or push branch.
+# This prevents bursts of redundant CI jobs and failure notifications.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
