@@ -1372,6 +1372,7 @@ void rr_relay_catalog_profile_dump(void) {
       g_string_append_printf(report, "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)",
          catalog_profile_peer_count - limit, limit);
    }
+   rr_mesh_verify_profile_append(report);
    Log(LOG_INFO, "profile", "%s", report->str);
    g_string_free(report, TRUE);
    /* Update published read-only performance inventory on the next ordinary catalog refresh. Never perform an immediate recursive refresh here. */
