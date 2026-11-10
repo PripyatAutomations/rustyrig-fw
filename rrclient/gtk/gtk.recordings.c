@@ -156,8 +156,14 @@ static void recording_finished(const char *event, const char *payload,
    if (g_strcmp0(fields[0], "ok")) show_error("Recording encoder failed. Check ffmpeg and free disk space.");
    else {
       rename_pair(fields[1], fields[2]);
-      if (ui.status) gtk_label_set_text(GTK_LABEL(ui.status),
-         "Recording saved. Refresh to update the file listing.");
+      guint64 dropped = fields[3] ? g_ascii_strtoull(fields[3], NULL, 10) : 0;
+      if (ui.status) {
+         if (dropped) {
+            char *message = g_strdup_printf("Recording saved with %" G_GUINT64_FORMAT " dropped PCM frames", dropped);
+            gtk_label_set_text(GTK_LABEL(ui.status), message);
+            g_free(message);
+         } else gtk_label_set_text(GTK_LABEL(ui.status), "Recording saved.");
+      }
    }
    g_strfreev(fields);
    refresh();
@@ -305,6 +311,7 @@ static gboolean move_recording_pair(const char *source, const char *destination)
    return valid;
 }
 static void action(GtkButton *button, gpointer data) {
+   (void)button;
    const char *op = data;
    gboolean folder = FALSE;
    char *path = selected(&folder);
