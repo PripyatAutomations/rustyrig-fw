@@ -1132,9 +1132,9 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    const char *sans = request.cert_sans[0] ? request.cert_sans : "(not present)";
    const char *cert = request.cert_sha256[0] ? request.cert_sha256 : "(unavailable)";
    char *details = g_strdup_printf(
-      "Connecting to: %s\\nExpected Node Name: %s\\nCertificate CN: %s\\n"
-      "Certificate DNS SANs: %s\\n\\nCertificate SHA-256: %s\\n"
-      "Public key SPKI SHA-256: %s\\nPreviously trusted SPKI: %s\\n\\n"
+      "Connecting to: %s\nExpected Node Name: %s\nCertificate CN: %s\n"
+      "Certificate DNS SANs: %s\n\nCertificate SHA-256: %s\n"
+      "Public key SPKI SHA-256: %s\nPreviously trusted SPKI: %s\n\n"
       "Station and domain are verified against the server announcement after connecting. "
       "Verify the key fingerprint through an independent channel before accepting.",
       request.address[0] ? request.address : "(unknown)", node, cn, sans, cert,
