@@ -114,16 +114,16 @@ static void child_stop(GPid pid) {
 }
 static void block_worker_sigpipe(void) {
 #ifndef _WIN32
-   block_worker_sigpipe();
+   sigset_t blocked;
+   sigemptyset(&blocked);
+   sigaddset(&blocked, SIGPIPE);
+   pthread_sigmask(SIG_BLOCK, &blocked, NULL);
 #endif
 }
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
    // An encoder exiting early must not deliver SIGPIPE to the entire client.
-   sigset_t blocked;
-   sigemptyset(&blocked);
-   sigaddset(&blocked, SIGPIPE);
-   pthread_sigmask(SIG_BLOCK, &blocked, NULL);
+   block_worker_sigpipe();
    int16_t block[1024 * 2];
    gboolean ok = TRUE;
    for (;;) {
