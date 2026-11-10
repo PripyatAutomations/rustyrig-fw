@@ -445,6 +445,13 @@ gboolean rr_recordings_play_at(const char *path, double seconds, gboolean revers
 gboolean rr_recordings_play(const char *path, rr_recording_playback_fn output) {
    return rr_recordings_play_at(path, 0.0, FALSE, output);
 }
+gboolean rr_recordings_play_busy(void) {
+   ensure_init();
+   g_mutex_lock(&playback_lock);
+   gboolean busy = playback_thread != NULL;
+   g_mutex_unlock(&playback_lock);
+   return busy;
+}
 gboolean rr_recordings_play_reposition(const char *path, double seconds, gboolean reverse) {
    ensure_init();
    g_mutex_lock(&playback_lock);
