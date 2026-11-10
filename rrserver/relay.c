@@ -39,6 +39,76 @@ struct subscription *rr_relay_subscriptions;
 /* A signed operation is distinct from the signed descriptor it changes. Relays forward the origin signature unchanged; only its owner can mint it. */
 static GHashTable *catalog_mutations_seen;
 
+/* Ingress peer is obtained from the authenticated link, never the claimed
+ * origin in a packet. Fixed-size counts and a bounded peer table prevent
+ * malicious traffic from allocating unbounded security telemetry. */
+typedef struct {
+   guint64 totals[6];
+   guint failures_window;
+   gint64 window_started, last_alert;
+} mesh_verify_peer_t;
+static GHashTable *mesh_verify_peers;
+static guint64 mesh_verify_totals[6];
+static const char *const mesh_verify_names[] = {
+   "valid", "unsigned", "invalid", "untrusted", "replay", "bad-route"
+};
+
+void rr_mesh_verify_record(const char *ingress, enum rr_mesh_verify_result result) {
+   if ((unsigned)result >= G_N_ELEMENTS(mesh_verify_totals)) return;
+   mesh_verify_totals[result]++;
+   if (!ingress || !*ingress) return;
+   if (!mesh_verify_peers)
+      mesh_verify_peers = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   mesh_verify_peer_t *peer = g_hash_table_lookup(mesh_verify_peers, ingress);
+   if (!peer) {
+      if (g_hash_table_size(mesh_verify_peers) >= 256) return;
+      peer = g_new0(mesh_verify_peer_t, 1);
+      g_hash_table_insert(mesh_verify_peers, g_strdup(ingress), peer);
+   }
+   peer->totals[result]++;
+   if (result == RR_MESH_VERIFY_VALID) return;
+   gint64 now = g_get_monotonic_time();
+   if (!peer->window_started || now - peer->window_started >= 60 * G_USEC_PER_SEC) {
+      peer->window_started = now;
+      peer->failures_window = 0;
+   }
+   if (peer->failures_window < G_MAXUINT) peer->failures_window++;
+   /* Warn on 10+ rejected packets per minute, once per minute per ingress.
+    * Do not automatically disconnect based on potentially induced failures. */
+   if (peer->failures_window >= 10 &&
+       (!peer->last_alert || now - peer->last_alert >= 60 * G_USEC_PER_SEC)) {
+      peer->last_alert = now;
+      Log(LOG_WARN, "mesh.security",
+         "ALERT: excessive signature/identity failures from authenticated ingress %s: %u in last 60s (last=%s)",
+         ingress, peer->failures_window, mesh_verify_names[result]);
+   }
+}
+void rr_mesh_verify_profile_append(GString *report) {
+   if (!report) return;
+   g_string_append(report, "\n  mesh signature verification (cumulative, local):");
+   for (unsigned i = 0; i < G_N_ELEMENTS(mesh_verify_totals); ++i)
+      g_string_append_printf(report, " %s=%llu", mesh_verify_names[i],
+         (unsigned long long)mesh_verify_totals[i]);
+   if (!mesh_verify_peers) return;
+   GHashTableIter iter;
+   gpointer key, value;
+   g_hash_table_iter_init(&iter, mesh_verify_peers);
+   while (g_hash_table_iter_next(&iter, &key, &value)) {
+      const mesh_verify_peer_t *peer = value;
+      guint64 failed = 0;
+      for (unsigned i = 1; i < G_N_ELEMENTS(peer->totals); ++i)
+         failed += peer->totals[i];
+      if (!failed) continue;
+      g_string_append_printf(report,
+         "\n    ingress=%s valid=%llu unsigned=%llu invalid=%llu untrusted=%llu replay=%llu bad-route=%llu",
+         (const char *)key, (unsigned long long)peer->totals[0],
+         (unsigned long long)peer->totals[1], (unsigned long long)peer->totals[2],
+         (unsigned long long)peer->totals[3], (unsigned long long)peer->totals[4],
+         (unsigned long long)peer->totals[5]);
+   }
+}
+
+
 static bool catalog_mutation_fresh(dict *d, const char *owner) {
    if (strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) {
       return false;
