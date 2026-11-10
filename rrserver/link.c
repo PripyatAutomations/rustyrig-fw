@@ -17,6 +17,7 @@
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
 #include <rrserver/identity.h>
+#include <rrserver/relay.h>
 #include <librrprotocol/crypto.h>
 #include <rrserver/acl.h>
 #ifdef USE_SQLITE
@@ -1144,7 +1145,8 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
       bool sync_marker = !strcmp(kind, "catalog-begin") || !strcmp(kind, "catalog-end") || !strcmp(kind, "catalog-ack");
 
       if (sync_marker && strcmp(origin, session->node)) {
-         Log(LOG_WARN, "mesh.identity", "Discarded unsigned mesh sync control claiming sender %s via %s", origin, session->node);
+         rr_mesh_verify_record(session->node, RR_MESH_VERIFY_BAD_ROUTE);
+         Log(LOG_WARN, "mesh.identity", "Discarded mesh sync control claiming sender %s via %s", origin, session->node);
          dict_free(d);
 
          return;
@@ -1152,12 +1154,34 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
 
       if (!sync_marker) {
          dict *signed_data = json2dict(dict_get(d, "payload", ""));
+         bool has_signature = signed_data && *dict_get(signed_data, "identity.signature", "");
          bool match = signed_data && !strcmp(dict_get(signed_data, "identity.owner", ""), origin) &&
             !g_ascii_strcasecmp(dict_get(signed_data, "identity.domain", ""), links.domain) && rr_identity_verify_catalog(signed_data);
+         /* For live commands, merely verifying a packet-supplied Ed25519 key is
+          * not sufficient: the key must be enrolled/pinned for claimed UUID.
+          * Catalog discovery/revocation have their own admission paths. */
+         bool control = !strcmp(kind, "request") || !strcmp(kind, "reply") ||
+            !strcmp(kind, "subscribe") || !strcmp(kind, "unsubscribe") ||
+            !strcmp(kind, "state") || !strcmp(kind, "close") ||
+            !strcmp(kind, "identity-revocation-ack");
+         bool trusted = true;
+         if (match && control) {
+#ifdef USE_SQLITE
+            trusted = rr_identity_known_signer(masterdb, links.domain, origin,
+               dict_get(signed_data, "identity.public-key", ""));
+#else
+            trusted = false;
+#endif
+         }
          dict_free(signed_data);
 
-         if (!match) {
-            Log(LOG_WARN, "mesh.identity", "Discarded mesh packet: signer does not match claimed sender %s via %s (kind=%s)", origin, session->node, kind);
+         if (!match || !trusted) {
+            rr_mesh_verify_record(session->node, !has_signature ? RR_MESH_VERIFY_UNSIGNED :
+               !match ? RR_MESH_VERIFY_INVALID : RR_MESH_VERIFY_UNTRUSTED);
+            Log(LOG_WARN, "mesh.identity",
+               "Discarded mesh packet: %s for claimed sender %s via %s (kind=%s)",
+               !has_signature ? "unsigned" : !match ? "invalid signature/owner" : "untrusted signer",
+               origin, session->node, kind);
             dict_free(d);
 
             return;
@@ -1177,8 +1201,10 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
          Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s", rrserver_links_format_node(session->node, peer_label, sizeof(
             peer_label)), rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), route ? rrserver_links_format_node(route, route_label, sizeof(
                route_label)) : "(unreachable)");
+         rr_mesh_verify_record(session->node, RR_MESH_VERIFY_BAD_ROUTE);
          fail(session, "Message claims to originate from a server outside this peer's network branch");
       } else {
+         if (!sync_marker) rr_mesh_verify_record(session->node, RR_MESH_VERIFY_VALID);
          dict_add(d, "_ingress", session->node);
          event_emit_dict("server.link.application", NULL, d);
       }
