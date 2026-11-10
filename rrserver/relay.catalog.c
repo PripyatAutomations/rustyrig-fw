@@ -379,6 +379,39 @@ dict *rr_relay_local_users(void) {
       }
       sqlite3_finalize(stmt);
       dict_add_uint(d, "privilege.count", p);
+      /* Publish only enabled client keys belonging to enabled local accounts,
+       * inside the existing signed, revisioned global users-snapshot. */
+      unsigned key_count = 0;
+      const char *station = cfg_get("station.name");
+      const char *domain = cfg_get("domain");
+      if (station && *station && domain && *domain &&
+          sqlite3_prepare_v2(masterdb,
+             "SELECT u.name,k.key_id,k.public_key FROM user_public_keys k "
+             "JOIN users u ON u.uid=k.uid WHERE u.enabled=1 AND k.enabled=1 "
+             "ORDER BY u.name COLLATE NOCASE,k.key_id LIMIT 4096",
+             -1, &stmt, NULL) == SQLITE_OK) {
+         while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char *username = (const char *)sqlite3_column_text(stmt, 0);
+            const char *key_id = (const char *)sqlite3_column_text(stmt, 1);
+            const char *public_key = (const char *)sqlite3_column_text(stmt, 2);
+            if (!username || !*username || !key_id || !*key_id ||
+                !public_key || strlen(public_key) != 44 ||
+                strlen(username) > HTTP_USER_LEN || strlen(key_id) > 96)
+               continue;
+            char field[64];
+            char *principal = g_strdup_printf("%s@%s.%s", username, station, domain);
+            snprintf(field, sizeof(field), "userkey.%u.principal", key_count);
+            dict_add(d, field, principal);
+            g_free(principal);
+            snprintf(field, sizeof(field), "userkey.%u.id", key_count);
+            dict_add(d, field, key_id);
+            snprintf(field, sizeof(field), "userkey.%u.public", key_count);
+            dict_add(d, field, public_key);
+            ++key_count;
+         }
+      }
+      sqlite3_finalize(stmt);
+      dict_add_uint(d, "userkey.count", key_count);
    }
 #else
 
