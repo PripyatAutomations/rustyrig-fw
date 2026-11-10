@@ -382,6 +382,7 @@ dict *rr_relay_local_users(void) {
       /* Publish only enabled client keys belonging to enabled local accounts,
        * inside the existing signed, revisioned global users-snapshot. */
       unsigned key_count = 0;
+      stmt = NULL;
       const char *station = cfg_get("station.name");
       const char *domain = cfg_get("domain");
       if (station && *station && domain && *domain &&
