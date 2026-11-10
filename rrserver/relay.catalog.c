@@ -1929,12 +1929,8 @@ void rr_relay_send_catalogs(const char *dest) {
             }
 
             if (!dict_get(entry->descriptor, "identity.signature", NULL)) {
-               Log(LOG_WARN, "mesh.identity", "Unsigned catalog descriptor queued for %s from %s: %s", dest, entry->owner, cfg_get_bool(
-                  "cluster.force-signed-catalog", true) ? "skipped" : "legacy mode permitted");
-
-               if (cfg_get_bool("cluster.force-signed-catalog", true)) {
-                  continue;
-               }
+               Log(LOG_WARN, "mesh.identity", "Skipped unsigned catalog descriptor from %s toward %s", entry->owner, dest);
+               continue;
             }
             const char *route = rrserver_links_route(entry->owner);
 
