@@ -760,7 +760,10 @@ static gboolean spectrum_selector_enter(GtkWidget *widget, GdkEventCrossing *eve
 }
 static gboolean spectrum_selector_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer user) {
    (void)event; (void)user;
-   spectrum_selector_opacity(widget);
+   /* During leave-notify, PRELIGHT may not yet be cleared. */
+   gboolean active = gtk_widget_has_focus(widget) ||
+      gtk_combo_box_get_popup_shown(GTK_COMBO_BOX(widget));
+   gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
    return FALSE;
 }
 static gboolean spectrum_selector_focus(GtkWidget *widget, GdkEventFocus *event, gpointer user) {
@@ -780,6 +783,7 @@ static void spectrum_selector_fade(GtkWidget *widget) {
    g_signal_connect(widget, "focus-in-event", G_CALLBACK(spectrum_selector_focus), NULL);
    g_signal_connect(widget, "focus-out-event", G_CALLBACK(spectrum_selector_focus), NULL);
    g_signal_connect(widget, "notify::popup-shown", G_CALLBACK(spectrum_selector_popup), NULL);
+   g_signal_connect(widget, "notify::has-focus", G_CALLBACK(spectrum_selector_popup), NULL);
    gtk_widget_set_opacity(widget, 0.36);
 }
 GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
