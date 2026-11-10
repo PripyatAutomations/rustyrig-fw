@@ -255,11 +255,11 @@ static int catalog_profile_peer_compare(const void *left, const void *right) {
 
 
 /* Replace a node user-directory snapshot with an independently owned clone. */
-void rr_relay_directory_put(const char *node, dict *d) {
+bool rr_relay_directory_valid(const char *node, dict *d) {
    unsigned count = dict_get_uint(d, "count", HTTP_MAX_USERS + 1);
 
    if (count > HTTP_MAX_USERS) {
-      return;
+      return false;
    }
 
    for (unsigned i = 0 ; i < count ; i++) {
@@ -268,18 +268,18 @@ void rr_relay_directory_put(const char *node, dict *d) {
       const char *name = dict_get(d, key, NULL);
 
       if (!name || !*name || strlen(name) > HTTP_USER_LEN) {
-         return;
+         return false;
       }
    }
 
    unsigned key_count = dict_get_uint(d, "userkey.count", 0);
-   if (key_count > 64) return;
+   if (key_count > 64) return false;
    if (key_count) {
       const char *station = rrserver_links_site_name(node);
       const char *domain = cfg_get("domain");
-      if (!station || !*station || !domain || !*domain) return;
+      if (!station || !*station || !domain || !*domain) return false;
       char *suffix = g_strdup_printf("@%s.%s", station, domain);
-      if (!suffix) return;
+      if (!suffix) return false;
       bool valid = true;
       for (unsigned i = 0; i < key_count && valid; ++i) {
          char key[64];
@@ -315,9 +315,15 @@ void rr_relay_directory_put(const char *node, dict *d) {
       g_free(suffix);
       if (!valid) {
          Log(LOG_WARN, "mesh.identity", "Rejected malformed client key directory for node %s", node);
-         return;
+         return false;
       }
    }
+
+   return true;
+}
+
+void rr_relay_directory_put(const char *node, dict *d) {
+   if (!rr_relay_directory_valid(node, d)) return;
 
    struct directory *entry = rr_relay_directories;
    unsigned entries = 0;
