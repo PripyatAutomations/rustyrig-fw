@@ -84,6 +84,7 @@ void rr_relay_users_reset(void);
 void rr_relay_users_register(void);
 
 /* Private cross-domain operations; public callers use relay.h. */
+bool rr_relay_directory_valid(const char *node, dict *d);
 void rr_relay_directory_put(const char *node, dict *d);
 dict *rr_relay_local_users(void);
 void rr_relay_send_users(rrconn_t *client, const char *room);
