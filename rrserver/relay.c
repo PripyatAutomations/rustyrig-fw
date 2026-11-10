@@ -752,6 +752,22 @@ static void revocation_forward(const char *from, const char *owner, dict *notice
    rrserver_links_each_neighbor(revocation_send_neighbor, &fanout);
 }
 
+/* Republish an admitted, signed user-directory snapshot unchanged. The
+ * authenticated mesh topology is a tree: exclude the ingress peer to prevent
+ * loops, and preserve the home node's signature and revision for every hop. */
+typedef struct {
+   const char *ingress;
+   const char *owner;
+   dict *snapshot;
+} relay_user_fanout_t;
+
+static void relay_forward_users_to_neighbor(const char *neighbor, void *user) {
+   relay_user_fanout_t *f = user;
+   if (neighbor && strcmp(neighbor, f->ingress) &&
+       strcmp(neighbor, f->owner))
+      rr_relay_send_owned(neighbor, f->owner, "users", f->snapshot);
+}
+
 /* Validate a received link envelope and dispatch its payload by kind. */
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *envelope = json2dict(data);
@@ -1181,6 +1197,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          }
 #endif
          rr_relay_directory_put(origin, d);
+         relay_user_fanout_t fanout = { ingress, origin, d };
+         rrserver_links_each_neighbor(relay_forward_users_to_neighbor, &fanout);
       } else {
          /* Removal descriptors are catalog records too. Prevent unsigned or forged removals from bypassing normal catalog admission. */
          const char *signature = dict_get(d, "identity.signature", NULL);
