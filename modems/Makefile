@@ -17,10 +17,12 @@ all: rrmodem-psk rrmodem-olivia
 
 $(PSK_SRC)/CMakeLists.txt:
 	@if test -e "$(PSK_SRC)"; then echo "Invalid existing libpsk checkout: $(PSK_SRC)" >&2; exit 1; fi
+	@mkdir -p "$(EXT)"
 	$(GIT) clone https://github.com/jfrancis42/libpsk.git "$(PSK_SRC)"
 
 $(OLIVIA_SRC)/CMakeLists.txt:
 	@if test -e "$(OLIVIA_SRC)"; then echo "Invalid existing Olivia checkout: $(OLIVIA_SRC)" >&2; exit 1; fi
+	@mkdir -p "$(EXT)"
 	$(GIT) clone https://github.com/jfrancis42/olivia-modem.git "$(OLIVIA_SRC)"
 
 $(PSK_SRC)/build/libpsk.a: $(PSK_SRC)/CMakeLists.txt
