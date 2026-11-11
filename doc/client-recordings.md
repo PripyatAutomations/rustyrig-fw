@@ -14,20 +14,24 @@ Click **STOP** to close the encoder input. When encoding has finished, a
 name prompt appears; Cancel leaves the automatically generated name. An
 example filename is:
 
-`RX - 14370000USB - rplywv00-rig0.rplywv00-rig0.A - 2026-11-10_00-00-00 - uuid.ogg`
+`RX - 14370000USB - rplywv00-rig0.rplywv00-rig0.A - 2026-11-10_00-00-00 - 2026-11-10_00-12-34.ogg`
 
 Recordings include available title, user, timestamp, frequency, mode, site,
 rig and VFO tags. The core-thread snapshot supplies the logged-in username, connected server,
 room/rig/VFO, grid and all currently routed RX stream identifiers; GTK does not
 read live connection structures. When a Maidenhead grid is available, latitude/longitude tags contain its
 **approximate center**, explicitly marked with LOCATION_SOURCE; these are not
-claimed to be actual GPS measurements. Filenames
-contain a shared UUID and start/end local timestamps.
+claimed to be actual GPS measurements. Filenames use readable start/end
+local timestamps, without UUIDs. The unique recording ID remains in the
+Ogg/FLAC metadata, linking formats from the same recording. If a filename
+already exists, a numeric suffix such as `(2)` is added before recording.
 
 The list can play files through the existing RX PCM engine by decoding into
 two separately routed L/R input streams. The Play and Stop Playback buttons
-control this source. Rename/Move stays within the recording tree, Download
-copies to a selected destination, New Folder makes subdirectories, and Delete
+control this source. Rename/Move offers a new name and a directory chooser
+showing available folders, with moves restricted to the managed recording tree.
+Paired Ogg/FLAC formats move together. Download copies to a selected
+destination, New Folder makes subdirectories, and Delete
 confirms before removing an item. Directories must be empty to delete.
 
 ## Dependencies and design notes
