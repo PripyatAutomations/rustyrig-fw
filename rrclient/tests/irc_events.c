@@ -23,6 +23,12 @@ rrconn_t *ws_conn, *ws_tx_conn;
 static char last_event[64];
 static dict *last, *last_talk;
 static unsigned events, rejoins, status_windows, names_begins, names_ends;
+static unsigned protocol_disconnects;
+static void observe_protocol_disconnect(const char *event, const char *data,
+                                        rrconn_t *cptr, void *user) {
+   (void)event; (void)data; (void)cptr; (void)user;
+   protocol_disconnects++;
+}
 void userlist_names_begin(const char *room) {
    assert(!strcmp(room, "#room"));
    names_begins++;
@@ -218,6 +224,8 @@ int main(void) {
    event_init();
    assert(!irc_init());
    rrclient_irc_register_events();
+   /* IRC lifecycle must not trigger RustyRig's WebSocket protocol teardown. */
+   event_on("disconnected", observe_protocol_disconnect, NULL);
    const char *observed[] = {
       "talk.msg", "join", "part", "userinfo", "room.topic", "auth.error"
    };
@@ -383,6 +391,7 @@ int main(void) {
    assert(!request_whois("overflow"));
    assert(!strcmp(rrclient_irc_whois_window(&other_server, "overflow"), "#other-server"));
    event_emit("irc.disconnected", &other_server, "");
+   assert(!protocol_disconnects && ws_conn == &client && ws_connected == 1);
    assert(!rrclient_irc_whois_window(&other_server, "overflow"));
    assert(rrclient_irc_whois_window(&client, "overflow"));
    expected_connection = &client;
@@ -539,6 +548,9 @@ int main(void) {
    assert(!irc_process_message(&client, ":unknown!u@h QUIT :gone"));
    assert(quit_notices[0] == 1 && quit_notices[2] == 1 && quit_removals == 2);
    puts("PASS: IRC QUIT notifies shared channels and removes memberships on its server only");
+   event_emit("irc.disconnected", &client, "");
+   assert(!protocol_disconnects && ws_conn == &client && ws_connected == 0);
+   puts("PASS: IRC disconnect never emits RustyRig protocol disconnected");
    free((void *)login_user);
    dict_free(last_talk);
    dict_free(last);
