@@ -13,6 +13,9 @@ Build-Depends:
  librrprotocol-dev (>= 0.1.0-7),
  librustyirc-dev,
  libcurl4-openssl-dev,
+ libflac-dev,
+ libogg-dev,
+ libvorbis-dev,
  libssl-dev,
  libarchive-dev,
  libargon2-dev,
@@ -73,7 +76,7 @@ Description: RustyRig client
 
 Package: rustyrig-client-gtk
 Architecture: any
-Depends: rustyrig-client (= ${binary:Version}), extra-xdg-menus, ffmpeg, ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-client (= ${binary:Version}), extra-xdg-menus, ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig GTK client module
  GTK frontend for the RustyRig client and standalone GStreamer pipeline editor.
  The module is loaded from /usr/lib/rustyrig/modules/rrclient by the core
