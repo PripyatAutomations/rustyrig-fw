@@ -29,8 +29,9 @@ command with sudo to install the dependencies. Then build:
     make -j4 PROFILE=radio world
 
 The default profile is radio. Build options live in config/radio.config.json.
-For updates, use git pull followed by git submodule update --init --recursive (only for optional third-party sources),
-then rebuild the matching components.
+For updates, run git pull --ff-only. Mongoose and FT8 third-party sources are
+fetched only when explicitly enabled (see tools/update-optional-sources.sh).
+Standard Linux builds do not require git submodule update or EEPROM generation.
 
 2. Configure a station
 ----------------------
