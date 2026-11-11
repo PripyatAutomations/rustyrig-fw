@@ -342,7 +342,7 @@ static gpointer playback_worker(gpointer unused) {
                g_usleep((gulong)(elapsed * 1000000.0));
             }
          }
-         ended = count == 0;
+         ended = count > 0;
          g_free(segment);
       } else {
          for (;;) {
