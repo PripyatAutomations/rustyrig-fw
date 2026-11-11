@@ -1631,17 +1631,32 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
       return;
    }
    const char *profile = dict_get(d, "profile", "");
-   /* Core knows the profile list; GTK's table may not have a branch yet. Create it here so the first online status can start discovery. */
-   resource_branch *branch = *profile ? resource_branch_get(profile) : NULL;
+   const char *state = dict_get(d, "state", "offline");
+   bool authenticated = dict_get_bool(d, "authenticated", false);
+   bool irc = !strcmp(dict_get(d, "transport", "ws"), "irc");
+   bool connected = authenticated && !strcmp(state, "online");
+   resource_branch *branch = *profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
+
+   /* Never manufacture "Domain (discovering…)" for an IRC profile.
+    * Its category and row exist only for an authenticated IRC connection. */
+   if (branch && branch->irc != irc) {
+      resource_branch_remove(branch);
+      branch = NULL;
+   }
+   if (irc && !connected) {
+      if (branch) resource_branch_remove(branch);
+      dict_free(d);
+      return;
+   }
+   if (!branch && *profile) {
+      branch = irc ? resource_irc_branch_get(profile) : resource_branch_get(profile);
+   }
 
    if (branch) {
-      const char *state = dict_get(d, "state", "offline");
-      bool authenticated = dict_get_bool(d, "authenticated", false);
-      bool irc = !strcmp(dict_get(d, "transport", "ws"), "irc");
       bool was_online = branch->online;
       g_free(branch->subscription);
       branch->subscription = g_strdup(dict_get(d, "subscription", "Not subscribed"));
-      branch->online = authenticated && !irc && !strcmp(state, "online");
+      branch->online = connected;
 
       if (branch->online && !was_online) {
          branch->loaded = false;
@@ -1732,7 +1747,12 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
       branch->loaded = false;
    }
 
-   if (branch && (!strcmp(state, "disconnected") || !strcmp(state, "http.error") || !strcmp(state, "auth.error"))) {
+   if (branch && branch->irc && (!strcmp(state, "irc.disconnected") ||
+                                      !strcmp(state, "disconnected") ||
+                                      !strcmp(state, "http.error"))) {
+      resource_branch_remove(branch);
+      gtk_label_set_text(GTK_LABEL(browser->status), "IRC connection offline");
+   } else if (branch && (!strcmp(state, "disconnected") || !strcmp(state, "http.error") || !strcmp(state, "auth.error"))) {
       /* Remove only this source, preserving resources still available via another connection to the same mesh domain. */
       branch->online = false;
       branch->loading = false;
