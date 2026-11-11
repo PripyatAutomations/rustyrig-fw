@@ -660,7 +660,8 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          }
       }
       cmd_list(0, NULL);
-   } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
+   } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0 ||
+              strcasecmp(event, "irc.disconnected") == 0) {
       ui_print(NULL, "%s*** \00304DISCONNECTED\017 ***", get_chat_ts(now));
       rrclient_supervision_clear(cptr);
       rrclient_set_offline();
@@ -2163,6 +2164,7 @@ void rrclient_register_events(void) {
    event_on("connected", rrclient_handle_connection, NULL);
    event_on("connecting", rrclient_handle_connection, NULL);
    event_on("disconnected", rrclient_handle_connection, NULL);
+   event_on("irc.disconnected", rrclient_handle_connection, NULL);
    event_on("error", rrclient_handle_connection, NULL);
    event_on("http.error", rrclient_handle_connection, NULL);
    event_on("protocol.backpressure", rrclient_backpressure, NULL);
