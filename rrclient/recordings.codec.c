@@ -61,7 +61,6 @@ static gboolean ogg_pages(rr_recording_encoder *e, gboolean flush) {
 }
 
 static gboolean ogg_drain(rr_recording_encoder *e, gboolean flush) {
-   if (vorbis_analysis_wrote(&e->dsp, 0) != 0) { /* no-op: never signal EOF here */ }
    while (vorbis_analysis_blockout(&e->dsp, &e->block) == 1) {
       if (vorbis_analysis(&e->block, NULL) || vorbis_bitrate_addblock(&e->block))
          return FALSE;
@@ -214,7 +213,7 @@ struct rr_recording_decoder {
    guint64 source_pos;
    double fractional;
    gint16 left[2], right[2];
-   gboolean have_left, have_right;
+   gboolean have_left, have_right, exhausted;
 };
 
 static FLAC__StreamDecoderWriteStatus flac_write_cb(const FLAC__StreamDecoder *fd,
@@ -337,7 +336,7 @@ gboolean rr_recording_decoder_seek(rr_recording_decoder *d, double seconds) {
    guint64 frame = sample >= (double)d->total && d->total ? d->total : (guint64)sample;
    d->chunk_len = d->chunk_pos = 0;
    d->error = FALSE;
-   d->have_left = d->have_right = FALSE;
+   d->have_left = d->have_right = d->exhausted = FALSE;
    d->fractional = sample - floor(sample);
    d->source_pos = frame;
    if (d->flac) {
@@ -358,6 +357,8 @@ gssize rr_recording_decoder_read(rr_recording_decoder *d, int16_t *pcm, size_t f
       }
       if (!d->have_right) {
          if (!decoder_next(d, d->right)) {
+            if (d->exhausted) break;
+            d->exhausted = TRUE;
             d->right[0] = d->left[0];
             d->right[1] = d->left[1];
          }
