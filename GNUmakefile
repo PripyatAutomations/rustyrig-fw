@@ -77,7 +77,7 @@ gmatrix-clean:
 
 # All builds need a generated configuration header; only embedded builds
 # need EEPROM layout/types and a firmware image.
-BUILD_HEADERS += ${BUILD_DIR}/build_config.h
+BUILD_HEADERS += ${BUILD_DIR}/build_config.h ${BUILD_DIR}/filter_tables.h ${BUILD_DIR}/atu_tables.h
 ifeq ($(USE_EEPROM),true)
 BUILD_HEADERS += ${BUILD_DIR}/eeprom_types.h ${BUILD_DIR}/eeprom_layout.h
 endif
@@ -168,7 +168,7 @@ after-config: ${BUILD_DIR}/build_config.h ${EEPROM_REQUIRED}
 after-config: ${BUILD_DIR}/.stamp ${extra_build} ${bins}
 after-eeprom: after-config
 # Used by CI and packaging: generate build configuration without compiling.
-buildconf: ${BUILD_DIR}/build_config.h ${EEPROM_REQUIRED}
+buildconf: ${EEPROM_GENERATED}
 
 audit-log:
 	./tools/rr-get-audit-log
