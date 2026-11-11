@@ -1,6 +1,10 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Use readable start/end timestamps rather than UUIDs in client recording
+    filenames; retain the recording ID in audio metadata and add numeric
+    collision suffixes. Let GTK Move/Rename browse recording directories,
+    while keeping destination confinement and paired formats intact.
   * Drop the removed srv.irc.core.c from the standalone IRC test adapter;
     transport URL tests now build against the current rrclient sources.
   * Restore Ctrl-Tab active-server cycling in GTK shared and Admin notebook
