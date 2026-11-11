@@ -34,6 +34,10 @@ WEAK rrconn_t *rrclient_connection_find(const char *profile) {
 
    return ws_conn;
 }
+WEAK const char *rrclient_connection_url(const char *profile) {
+   (void)profile;
+   return NULL;
+}
 WEAK void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
    (void)connection;
    callback(data);
