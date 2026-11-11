@@ -49,6 +49,12 @@ static bool kiwi_noise_blanker(struct kiwi_instance *k);
 static const char *setting(struct kiwi_instance *k, const char *key) {
    return k->host.setting ? k->host.setting(k->host.user, key) : NULL;
 }
+/* SND and W/F must share the same redirect policy. Never send a configured
+ * Kiwi password to a different origin via HTTP 307. */
+static bool kiwi_allow_cross_origin(struct kiwi_instance *k) {
+   const char *password = setting(k, "password");
+   return !password || !*password;
+}
 static void note(struct kiwi_instance *k, const char *text) {
    if (k->host.status) {
       k->host.status(k->host.user, text);
@@ -821,7 +827,7 @@ static void kiwi_poll(void *instance) {
          return;
       }
       rr_wss_client_options_t options = {
-         .user_agent = ua, .allow_cross_origin_redirect = !(setting(k, "password") && *setting(k, "password"))
+         .user_agent = ua, .allow_cross_origin_redirect = kiwi_allow_cross_origin(k)
       };
       k->connection = rr_transport_wss_connect(k->url, &options, websocket, k);
       k->snd_last_rx = k->snd_last_tx = 0;
@@ -855,10 +861,9 @@ static void kiwi_poll(void *instance) {
             /* Kiwi proxies can HTTP 307 the W/F route to a different host,
              * just as they do for SND. Follow redirects only when no Kiwi
              * password could be sent to the redirected receiver. */
-            const char *password = setting(k, "password");
             rr_wss_client_options_t options = {
                .user_agent = ua,
-               .allow_cross_origin_redirect = !password || !*password
+               .allow_cross_origin_redirect = kiwi_allow_cross_origin(k)
             };
             k->waterfall = rr_transport_wss_connect(wf_url, &options, waterfall_ws, k);
             k->wf_last_rx = k->wf_last_tx = 0;
