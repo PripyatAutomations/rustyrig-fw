@@ -314,6 +314,27 @@ static void wire_end(const char *profile, const char *request) {
    free(json);
    dict_free(d);
 }
+static void status_fixture(const char *profile, const char *transport, bool authenticated) {
+   dict *d = dict_new();
+   dict_add(d, "profile", profile);
+   dict_add(d, "transport", transport);
+   dict_add(d, "state", authenticated ? "online" : "offline");
+   dict_add_bool(d, "authenticated", authenticated);
+   char *json = dict2json(d);
+   resource_status("client.resources.status", json, NULL, NULL);
+   free(json);
+   dict_free(d);
+}
+static void irc_fixture(const char *profile, const char *room) {
+   dict *d = dict_new();
+   dict_add(d, "profile", profile);
+   dict_add(d, "room", room);
+   dict_add_bool(d, "joined", true);
+   char *json = dict2json(d);
+   resource_irc_row("client.resources.irc.row", json, NULL, NULL);
+   free(json);
+   dict_free(d);
+}
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    event_init();
@@ -472,6 +493,36 @@ int main(int argc, char **argv) {
    resource_domain_rebuild("mesh.example");
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), mesh) == 2);
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), other) == 1);
+
+   /* IRC profiles must never show provisional domains; show the category
+    * only while at least one IRC server is registered. */
+   status_fixture("efnet", "irc", false);
+   assert(!browser->irc_root_valid);
+   assert(!g_hash_table_lookup(browser->branches, "efnet"));
+   status_fixture("efnet", "irc", true);
+   assert(browser->irc_root_valid);
+   resource_branch *irc = g_hash_table_lookup(browser->branches, "efnet");
+   assert(irc && irc->irc && irc->online && !irc->domain);
+   char *category = NULL;
+   gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &browser->irc_root, NAME, &category, -1);
+   assert(!strcmp(category, "IRC Servers"));
+   g_free(category);
+   irc_fixture("efnet", "#test");
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &irc->root) == 1);
+   status_fixture("libera", "irc", true);
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &browser->irc_root) == 2);
+   status_fixture("efnet", "irc", false);
+   assert(!g_hash_table_lookup(browser->branches, "efnet"));
+   assert(browser->irc_root_valid);
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &browser->irc_root) == 1);
+   /* A late IRC LIST event must not recreate a disconnected profile. */
+   irc_fixture("efnet", "#late");
+   assert(!g_hash_table_lookup(browser->branches, "efnet"));
+   status_fixture("libera", "irc", false);
+   assert(!browser->irc_root_valid);
+   assert(!g_hash_table_lookup(browser->branches, "libera"));
+   assert(g_hash_table_lookup(browser->domains, "mesh.example") == mesh);
+   assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), mesh) == 2);
 
    gtk_resources_shutdown();
    assert(!browser);
