@@ -93,7 +93,7 @@ static gboolean write_all(int fd, const void *data, size_t length) {
    }
    return TRUE;
 }
-/* Append end time after ffmpeg finalizes; keep UUID so both formats remain linked. */
+/* Append the finish timestamp after encoding; both formats share the metadata ID. */
 static char *rename_with_end(const char *oldpath, const char *stamp) {
    if (!oldpath || !*oldpath) return NULL;
    const char *ext = strrchr(oldpath, '.');
@@ -237,9 +237,33 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
    char *vfo = safe(tags->vfo);
    char *freq = safe(tags->frequency);
    char *mode = safe(tags->mode);
+   /* The UUID belongs in the audio metadata, not the visible filename.
+    * Preserve distinct captures made within the same second without ever
+    * overwriting an existing Ogg or FLAC (including the paired format). */
    char *id = g_uuid_string_random();
-   char *base = g_strdup_printf("RX - %s%s - %s.%s.%s - %s - %s",
-      freq, mode, station, rig, vfo, stamp, id);
+   char *stem = g_strdup_printf("RX - %s%s - %s.%s.%s - %s",
+      freq, mode, station, rig, vfo, stamp);
+   char *base = NULL;
+   for (unsigned serial = 1; serial < 1000000; serial++) {
+      g_free(base);
+      base = serial == 1 ? g_strdup(stem) :
+         g_strdup_printf("%s (%u)", stem, serial);
+      char *candidate_ogg = make_path(base, "ogg");
+      char *candidate_flac = make_path(base, "flac");
+      gboolean occupied = g_file_test(candidate_ogg, G_FILE_TEST_EXISTS) ||
+         g_file_test(candidate_flac, G_FILE_TEST_EXISTS);
+      g_free(candidate_ogg);
+      g_free(candidate_flac);
+      if (!occupied) break;
+      if (serial == 999999) {
+         g_warning("Unable to allocate an unused recording filename");
+         g_free(stem); g_free(base); g_free(id);
+         g_free(station); g_free(rig); g_free(vfo); g_free(freq); g_free(mode); g_free(stamp);
+         g_date_time_unref(now);
+         return FALSE;
+      }
+   }
+   g_free(stem);
    char *ogg = format != RR_RECORD_FLAC ? make_path(base, "ogg") : NULL;
    char *flac = format != RR_RECORD_OGG ? make_path(base, "flac") : NULL;
    g_free(base); g_free(station); g_free(rig); g_free(vfo); g_free(freq); g_free(mode); g_free(stamp);
