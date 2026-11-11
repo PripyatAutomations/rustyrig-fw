@@ -37,13 +37,14 @@ confirms before removing an item. Directories must be empty to delete.
 
 ## Dependencies and design notes
 
-`ffmpeg` must be installed and have the Vorbis and FLAC encoders and
-decoders enabled. This is declared as a dependency of rustyrig-client-gtk
-in Debian packages.
+Recording, playback, and waveform analysis use native `libFLAC`,
+`libvorbis`, `libvorbisfile` and `libogg` APIs. FFmpeg is not needed for
+client recordings. Development headers are required at build time; normal
+client packages link the corresponding runtime libraries.
 
-Encoding and decoding run in child processes on worker threads. The audio
+Encoding and decoding run in-process on isolated worker threads. The audio
 callback uses a bounded, four-second ring buffer and a nonblocking mutex
-attempt, preventing slow disks or encoders from blocking the PCM hub. A
+attempt, preventing slow disks or codec processing from blocking the PCM hub. A
 failed/full queue can drop samples; diagnostics and more detailed recording
 status still need integration.
 
@@ -55,9 +56,9 @@ FLAC recording documented in `doc/recordings.md`.
 Double-click an Ogg/FLAC file or select **Play** in the recordings manager to
 open an independently movable **Recording Playback** floating panel. The
 waveform is rendered as separate left and right peak-envelope tracks. Analysis
-is performed asynchronously with ffmpeg at 800 stereo frames per second and
-bounded to 4096 peak columns; it never decodes an entire file on the GTK
-thread or holds the entire file in memory.
+is performed asynchronously through native decoders and normalized to 16 kHz,
+then accumulated into 800 Hz peak-envelope groups and bounded to 4096 peak
+columns. It never decodes on the GTK thread or holds the entire file in memory.
 
 **Click anywhere in the waveform** to start playing from that position; the
 vertical playhead follows playback progress. Controls include Play, Pause, Stop,
@@ -69,6 +70,6 @@ directory can be opened/deleted via the player.
 
 Playback requests are serialized into the core event domain and feed two
 individually routed L/R PCM hub streams. GTK owns drawing and panels; PCM
-and ffmpeg workers never call GTK. Hovering, focusing, or opening a waterfall
+and recording codec workers never call GTK. Hovering, focusing, or opening a waterfall
 source/VFO selector makes it fully opaque. While idle, these drop to
 36% opacity so they don't obscure the displayed spectrum.
