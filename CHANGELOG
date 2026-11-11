@@ -10,7 +10,7 @@ rustyrig-fw (1.0.3) testing; urgency=medium
     installed independently by rrpk; retain only optional third-party
     ext/ submodules in this repository.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 21:46:34 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 22:09:31 -0500
 
 rustyrig-fw (1.0.2) testing; urgency=medium
 
