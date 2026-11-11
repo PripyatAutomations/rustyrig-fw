@@ -873,7 +873,10 @@ sub generate_config_h {
          printf $fh "#define DEBUG_BUILD\n";
       }
 
-      if (defined($config->{features}{'eeprom'}) && match_boolean($config->{features}{'eeprom'})) {
+      my $use_eeprom = defined($ENV{'RUSTYRIG_USE_EEPROM'})
+         ? $ENV{'RUSTYRIG_USE_EEPROM'}
+         : $config->{features}{'eeprom'};
+      if (defined($use_eeprom) && match_boolean($use_eeprom)) {
          printf $fh "#define USE_EEPROM\n";
       }
 
