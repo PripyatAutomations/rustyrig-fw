@@ -132,6 +132,85 @@ static resource_branch *resource_branch_get(const char *profile) {
    return branch;
 }
 
+/* IRC has no mesh identity. Show only registered IRC connections under a
+ * single root, never as an unresolved RustyRig domain. */
+static resource_branch *resource_irc_branch_get(const char *profile) {
+   resource_branch *branch = g_hash_table_lookup(browser->branches, profile);
+   if (branch) return branch;
+
+   if (!browser->irc_root_valid) {
+      gtk_tree_store_insert_before(browser->store, &browser->irc_root, NULL, &browser->local_root);
+      gtk_tree_store_set(browser->store, &browser->irc_root,
+         NAME, "IRC Servers", KIND, "irc-servers", STATE, "Connected IRC networks", -1);
+      browser->irc_root_valid = true;
+   }
+
+   branch = g_new0(resource_branch, 1);
+   branch->profile = g_strdup(profile);
+   branch->irc = true;
+   branch->irc_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
+      (GDestroyNotify) gtk_tree_row_reference_free);
+   branch->domain_root = browser->irc_root;
+   gtk_tree_store_append(browser->store, &branch->root, &browser->irc_root);
+   gtk_tree_store_set(browser->store, &branch->root,
+      NAME, profile, KIND, "server", PROFILE, profile, STATE, "Connected (IRC)", -1);
+   branch->root_valid = true;
+   g_hash_table_insert(browser->branches, branch->profile, branch);
+
+   /* Reveal the category when the first IRC server connects. */
+   GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &browser->irc_root);
+   GtkTreePath *visible = resource_view_path(child_path);
+   if (visible) {
+      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), visible, FALSE);
+      gtk_tree_path_free(visible);
+   }
+   gtk_tree_path_free(child_path);
+   return branch;
+}
+
+/* Remove a connection's presentation without disturbing another profile in
+ * the same RustyRig domain or the other connected IRC servers. */
+static void resource_branch_remove(resource_branch *branch) {
+   if (!branch) return;
+   char *profile = g_strdup(branch->profile);
+   char *domain = g_strdup(branch->domain);
+
+   if (branch->irc) {
+      gtk_tree_store_remove(browser->store, &branch->root);
+      g_hash_table_remove(browser->branches, profile);
+      if (browser->irc_root_valid &&
+          !gtk_tree_model_iter_has_child(GTK_TREE_MODEL(browser->store), &browser->irc_root)) {
+         gtk_tree_store_remove(browser->store, &browser->irc_root);
+         browser->irc_root_valid = false;
+      }
+   } else if (!domain) {
+      gtk_tree_store_remove(browser->store, &branch->domain_root);
+      g_hash_table_remove(browser->branches, profile);
+   } else {
+      gboolean shared = FALSE;
+      GHashTableIter it;
+      gpointer value;
+      g_hash_table_iter_init(&it, browser->branches);
+      while (g_hash_table_iter_next(&it, NULL, &value)) {
+         resource_branch *other = value;
+         if (other != branch && !g_strcmp0(other->domain, domain)) {
+            shared = TRUE;
+            break;
+         }
+      }
+      g_hash_table_remove(browser->branches, profile);
+      if (shared) {
+         resource_domain_rebuild(domain);
+      } else {
+         GtkTreeIter *root = g_hash_table_lookup(browser->domains, domain);
+         if (root) gtk_tree_store_remove(browser->store, root);
+         g_hash_table_remove(browser->domains, domain);
+      }
+   }
+   g_free(domain);
+   g_free(profile);
+}
+
 /* Domain identity comes from the authenticated server's inventory, never the transport address or the route through the mesh. Until known, each profile has a
  * separate provisional domain row. */
 
@@ -530,7 +609,13 @@ static void resource_irc_row(const char *event, const char *payload, rrconn_t *c
 
       return;
    }
-   resource_branch *branch = resource_branch_get(profile);
+   resource_branch *branch = g_hash_table_lookup(browser->branches, profile);
+   /* Status events create the category only for connected IRC profiles.
+    * A queued LIST snapshot after disconnect must not resurrect a ghost row. */
+   if (!branch || !branch->irc || !branch->online) {
+      dict_free(snapshot);
+      return;
+   }
    GtkTreeIter iter;
    GtkTreeRowReference *reference = g_hash_table_lookup(branch->irc_rows, room);
    gboolean row_exists = FALSE;
@@ -601,7 +686,7 @@ static void resource_irc_complete(const char *event, const char *payload, rrconn
    }
    resource_branch *branch = g_hash_table_lookup(browser->branches, dict_get(snapshot, "profile", ""));
 
-   if (branch) {
+   if (branch && branch->irc && branch->online) {
       char *details =
          g_strdup_printf("IRC channels: %u known; %u joined; %u in cached LIST. Counts cover this client session; IRC oper knowledge may be incomplete.",
          dict_get_uint(snapshot, "total", 0), dict_get_uint(snapshot, "joined", 0), dict_get_uint(snapshot, "listed", 0));
@@ -612,7 +697,7 @@ static void resource_irc_complete(const char *event, const char *payload, rrconn
 }
 
 void resource_update_branch(resource_branch *branch) {
-   if (!branch) {
+   if (!branch || branch->irc) {
       return;
    }
    /* The connected node's own status comes from connection events. Update resource children for all peer nodes, without overwriting that status. */
@@ -1076,7 +1161,7 @@ static void resource_clicked(GtkButton *button, gpointer data) {
    }
 }
 static void resource_refresh(resource_branch *branch) {
-   if (!branch || branch->loading) {
+   if (!branch || branch->irc || branch->loading) {
       return;
    }
    /* Core checks connection availability. GTK must not read rrconn_t fields or run the connection command dispatch itself. */
