@@ -1,6 +1,8 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Drop the removed srv.irc.core.c from the standalone IRC test adapter;
+    transport URL tests now build against the current rrclient sources.
   * Restore Ctrl-Tab active-server cycling in GTK shared and Admin notebook
     pages by handling the shortcut before notebook/focus traversal.
   * Group connected IRC profiles and their channels under a top-level
