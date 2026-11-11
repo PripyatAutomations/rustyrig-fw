@@ -1,6 +1,10 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Keep Mongoose and third-party submodule fetches opt-in; native
+    OpenSSL/wslay builds no longer fetch Mongoose during build/update or CI.
+  * Make EEPROM images and layout/type headers opt-in for embedded builds;
+    generate ordinary build_config.h independently for desktop/server use.
   * Remove obsolete librrprotocol, librustyaxe and callsign-lookup Git
     links from the RustyRig source tree. These dependencies are built and
     installed independently by rrpk; retain only optional third-party
