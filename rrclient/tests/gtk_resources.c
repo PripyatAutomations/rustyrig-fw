@@ -511,7 +511,9 @@ int main(int argc, char **argv) {
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &irc->root) == 1);
    status_fixture("libera", "irc", true);
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &browser->irc_root) == 2);
-   status_fixture("efnet", "irc", false);
+   /* An explicit IRC disconnect event should remove only this profile now,
+    * not wait for the periodic status snapshot. */
+   resource_changed("client.resources.connection-state", "efnet|irc.disconnected", NULL, NULL);
    assert(!g_hash_table_lookup(browser->branches, "efnet"));
    assert(browser->irc_root_valid);
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &browser->irc_root) == 1);
