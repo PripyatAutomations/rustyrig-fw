@@ -231,7 +231,7 @@ static void waveform_ready(const char *event, const void *data, size_t size,
    if (!player.envelope) player.envelope = g_new0(rr_recording_waveform, 1);
    memcpy(player.envelope, result, sizeof(*result));
    if (result->success) status("Click anywhere in the waveform to seek and play");
-   else status("Unable to analyze waveform (check ffmpeg and the recording file)");
+   else status("Unable to analyze waveform (unsupported or damaged Ogg/FLAC file)");
    player.position = 0.0;
    if (player.reverse && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(player.reverse)))
       player.position = result->duration;
