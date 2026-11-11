@@ -1,6 +1,10 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Isolate failed IRC/SOCKS5 sessions from RustyRig WebSocket protocol
+    lifecycle; prevent IRC disconnects from clearing authenticated WSS
+    session, resource catalog, or media state. Show native WSS failure
+    reasons in the originating server tab.
   * Keep Mongoose and third-party submodule fetches opt-in; native
     OpenSSL/wslay builds no longer fetch Mongoose during build/update or CI.
   * Make EEPROM images and layout/type headers opt-in for embedded builds;
