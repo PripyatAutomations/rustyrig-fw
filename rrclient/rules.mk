@@ -21,8 +21,17 @@ ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cfla
 rrclient_objs += audio.o
 rrclient_objs += recordings.o # Local Ogg/FLAC recording and playback
 rrclient_objs += recordings.codec.o # Native libFLAC and Ogg/Vorbis codec layer
-recording_codec_cflags := $(shell pkg-config --cflags flac vorbisenc vorbisfile ogg)
-recording_codec_libs := $(shell pkg-config --libs flac vorbisenc vorbisfile ogg)
+# rrclient always includes native recording codecs (even without GTK).
+# Do not silently strip missing libraries from the linker command. Show an
+# actionable error before compiling, but allow dependency-free clean targets.
+recording_codec_pkgs := flac vorbisenc vorbisfile ogg
+ifeq ($(filter clean distclean uninstall gmatrix-clean,$(MAKECMDGOALS)),)
+ifneq ($(shell pkg-config --exists $(recording_codec_pkgs) && echo yes),yes)
+$(error rrclient requires native recording codec development packages: libflac-dev libogg-dev libvorbis-dev (Debian/Devuan). Install them or run ./install-deps.sh deb; missing pkg-config modules: $(shell for p in $(recording_codec_pkgs); do pkg-config --exists $p || printf '%s ' $p; done))
+endif
+endif
+recording_codec_cflags := $(shell pkg-config --cflags $(recording_codec_pkgs) 2>/dev/null)
+recording_codec_libs := $(shell pkg-config --libs $(recording_codec_pkgs) 2>/dev/null)
 ${BUILD_DIR}/rrclient/recordings.codec.o: extra_cflags += ${recording_codec_cflags}
 rrclient_objs += audio.engine.o
 rrclient_objs += audio.graph.o # GTK-free logical routing and bypass policies
