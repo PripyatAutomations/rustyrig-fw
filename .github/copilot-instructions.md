@@ -18,8 +18,7 @@ RustyRig is a remote ham radio station control system. It consists of multiple i
 ```bash
 # First-time setup: install dependencies and submodules
 sudo ./install-deps.sh
-git submodule init
-git submodule update --depth=1
+# Optional: ./tools/update-optional-sources.sh
 
 # Full build (from root)
 ./build.sh
@@ -81,7 +80,7 @@ make -j$(nproc) world
 
 ### Library Dependencies (Submodules)
 
-- **ext/libmongoose**: HTTP server framework (embedded in librrprotocol)
+- **ext/libmongoose**: optional legacy Mongoose source, only initialized when USE_MONGOOSE=true
 - **ext/mbedtls**: TLS/crypto for HTTPS and WebSocket security (nyi)
 - **ext/wslay**: WebSocket protocol layer (nyi)
 - **ext/sqlite**: Database (optional, compile-time flag `USE_SQLITE`)
