@@ -62,10 +62,14 @@ IRC_SYSTEM_LDFLAGS := $(shell $(IRC_PKG_CONFIG) --libs-only-L librustyirc 2>/dev
 include mk/compile.mk
 include mk/database.mk
 include mk/eeprom.mk
+# Only an explicitly enabled legacy backend may build/fetch libmongoose.
+ifeq ($(USE_MONGOOSE),true)
+include mk/libmongoose.mk
+endif
 
 extra_clean += $(wildcard ${BUILD_DIR}/*.h) $(wildcard */compile_commands.json)
 extra_clean += ${EEPROM_FILE} librustyaxe.so librustyaxe.so.0 librrprotocol.so librrprotocol.so.0 librustyirc.so librustyirc.so.0
-extra_clean += firmware.log
+extra_clean += firmware.log libmongoose.so
 extra_clean_targets += gmatrix-clean
 .PHONY: gmatrix-clean
 gmatrix-clean:
