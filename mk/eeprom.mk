@@ -1,10 +1,23 @@
-# pack-eeprom.pl generates build_config.h, eeprom_types.h, eeprom_layout.h
-# and eeprom.bin in one run.  Every generated file is a target so that the
-# build graph always routes through this single recipe before anything that
-# includes build_config.h (directly or via librustyaxe/rrprotocol headers)
-# is compiled, even under a parallel make -j build.
-# Grouped targets (&:) tell GNU make this ONE recipe updates ALL outputs;
-# ordinary multi-target rules can invoke the recipe once per missing target.
-${BUILD_DIR}/eeprom_types.h ${BUILD_DIR}/eeprom_layout.h ${BUILD_DIR}/build_config.h ${EEPROM_FILE} &: tools/pack-eeprom.pl ${CF} ${CHANNELS}
-	@echo "[pack-eeprom]" 
-	set -e; ./tools/pack-eeprom.pl ${PROFILE}
+# Desktop/server builds need a build configuration header, not an EEPROM image.
+# The old pack-eeprom.pl pipeline remains opt-in for embedded firmware builds.
+.PHONY: build-options-check
+${BUILD_DIR}/.build-options: build-options-check
+	@mkdir -p "${BUILD_DIR}"
+	@printf 'eeprom=%s\nmongoose=%s\n' '$(USE_EEPROM)' '$(USE_MONGOOSE)' > "$@.tmp"
+	@cmp -s "$@.tmp" "$@" || mv -f "$@.tmp" "$@"
+	@rm -f "$@.tmp"
+
+ifeq ($(USE_EEPROM),true)
+EEPROM_GENERATED := ${BUILD_DIR}/build_config.h ${BUILD_DIR}/eeprom_types.h ${BUILD_DIR}/eeprom_layout.h ${EEPROM_FILE}
+EEPROM_REQUIRED := ${EEPROM_FILE}
+# Grouped targets: only one packer invocation with parallel make -j.
+${EEPROM_GENERATED} &: tools/pack-eeprom.pl .version ${CF} ${BUILD_DIR}/.build-options $(wildcard res/*.json)
+	@echo "[pack-eeprom] PROFILE=$(PROFILE)"
+	@RUSTYRIG_USE_MONGOOSE='$(USE_MONGOOSE)' ./tools/pack-eeprom.pl '$(PROFILE)'
+else
+EEPROM_GENERATED := ${BUILD_DIR}/build_config.h
+EEPROM_REQUIRED :=
+${BUILD_DIR}/build_config.h: tools/gen-build-config.py .version ${CF} ${BUILD_DIR}/.build-options
+	@echo "[gen-build-config] PROFILE=$(PROFILE), Mongoose=$(USE_MONGOOSE), EEPROM=disabled"
+	@python3 tools/gen-build-config.py '$(PROFILE)' --mongoose '$(USE_MONGOOSE)' --output "$@"
+endif
