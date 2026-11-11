@@ -308,7 +308,7 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
    }
    /* The notice is per profile, but resetting the active catalog is not:
     * never let a failing background IRC connection clear a RustyRig catalog. */
-   if (client && client != ws_conn) return;
+   if (client && (!client->is_ws || client != ws_conn)) return;
    memset(inventory_requests, 0, sizeof(inventory_requests));
    object_subscription = "Disconnected";
    subscription_request[0] = 0;
@@ -779,7 +779,14 @@ static void resource_status_request(const char *event, const char *ignored, rrco
          break;
       }
       dict_add(d, "profile", profile);
-      dict_add(d, "transport", active && !active->is_ws ? "irc" : "ws");
+      /* A native IRC transport can be absent between reconnect attempts.
+       * Identify the profile from its configured URL rather than treating
+       * the disconnected IRC profile as an undiscovered WSS mesh domain. */
+      const char *url = get_server_property(profile, "server.url");
+      bool irc = (active && !active->is_ws) ||
+         (url && (g_ascii_strncasecmp(url, "irc://", 6) == 0 ||
+                  g_ascii_strncasecmp(url, "ircs://", 7) == 0));
+      dict_add(d, "transport", irc ? "irc" : "ws");
       dict_add(d, "state", state == 1 ? "online" : state < 0 ? "connecting" : "offline");
       dict_add(d, "authenticated", active && active->authenticated ? "true" : "false");
       dict_add(d, "subscription", rrclient_objects_subscription());
@@ -841,6 +848,7 @@ void rrclient_objects_register_events(void) {
    event_on(RR_OBJECT_MESSAGE_EVENT, receive, NULL);
    event_on("authorized", connection, NULL);
    event_on("disconnected", connection, NULL);
+   event_on("irc.disconnected", connection, NULL);
    event_on("http.error", connection, NULL);
    event_on("auth.error", connection, NULL);
 }
