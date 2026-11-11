@@ -1,16 +1,13 @@
-update:
+# Optional source fetching uses the selected profile rather than --recursive.
+.PHONY: update git-pull
+update git-pull:
 	git pull --ff-only
-	git submodule sync --recursive
-	git submodule update --init --recursive
+	./tools/update-optional-sources.sh
 
 recent-diff:
 	git diff '@{6 hours ago}'
 
+ifeq ($(USE_MONGOOSE),true)
 ext/libmongoose/mongoose.c:
-	@echo "You forgot to git submodule init; git submodule update. Doing it for you!"
-	git submodule init
-	git submodule update
-
-git-pull:
-	git pull
-	git submodule update --init --recursive
+	./tools/update-optional-sources.sh
+endif
