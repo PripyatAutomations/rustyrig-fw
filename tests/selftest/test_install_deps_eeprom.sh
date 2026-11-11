@@ -21,6 +21,22 @@ test_packages() {
    RR_DEPS_CAPTURE="$tmp/packages" PROFILE=radio \
       USE_EEPROM="$eeprom" USE_MONGOOSE="$mongoose" \
       PATH="$tmp:$PATH" bash ./install-deps.sh "$distro" >"$tmp/output"
+   # rrclient is enabled in the radio profile; native codec headers must
+   # be present for every normal build, independent of EEPROM/Mongoose.
+   case "$distro" in
+      deb)
+         grep -qx 'libflac-dev' "$tmp/packages"
+         grep -qx 'libogg-dev' "$tmp/packages"
+         grep -qx 'libvorbis-dev' "$tmp/packages" ;;
+      arch)
+         grep -qx 'flac' "$tmp/packages"
+         grep -qx 'libogg' "$tmp/packages"
+         grep -qx 'libvorbis' "$tmp/packages" ;;
+      rpm)
+         grep -qx 'flac-devel' "$tmp/packages"
+         grep -qx 'libogg-devel' "$tmp/packages"
+         grep -qx 'libvorbis-devel' "$tmp/packages" ;;
+   esac
    if [[ $eeprom == true ]]; then
       grep -q '^perl$' "$tmp/packages"
       case "$distro" in
