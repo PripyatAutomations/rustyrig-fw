@@ -7,11 +7,12 @@ import re
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("profile", help="config/<profile>.config.json")
+parser.add_argument("--config", help="Optional explicit build config JSON (for tests)")
 parser.add_argument("--mongoose", choices=("true", "false"), required=True)
 parser.add_argument("--output", required=True)
 args = parser.parse_args()
 
-config = json.loads(Path(f"config/{args.profile}.config.json").read_text())
+config = json.loads(Path(args.config or f"config/{args.profile}.config.json").read_text())
 version = Path(".version").read_text().strip()
 match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-rc\d+)?", version)
 if not match:
