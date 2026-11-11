@@ -24,9 +24,10 @@ primary tested platform. No Windows tools or Wine are required.
 
 3. Clone with submodules:
 
-       git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+       git clone https://github.com/PripyatAutomations/rustyrig-fw.git
        cd rustyrig-fw
-       git submodule update --init --recursive
+       # Only fetch a third-party source when enabling its optional feature.
+       # ./tools/update-optional-sources.sh
 
 4. Set up the Homebrew toolchain in the **same shell**:
 
