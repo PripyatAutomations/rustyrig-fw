@@ -899,6 +899,9 @@ void rrclient_media_chan_removed(dict *d) {
 // Event: connection state changes. On (re)connect, reset our local channel
 // table; the server pushes a fresh media.available batch after auth.
 static void rrclient_handle_media_conn(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   /* Ignore lifecycle events emitted by a different profile. The media view
+    * belongs to the current connection context, not the process globally. */
+   if (cptr && cptr != ws_conn) return;
    if (!event) {
       return;
    }
