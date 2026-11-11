@@ -51,6 +51,20 @@ read on the server with `tools/rr-get-audit-log`. Client audit replay and a
 `/audit` command are not implemented. Automatic chat replay is a separate
 feature and does not replay audit events.
 
+## GTK Resource Explorer: IRC networks
+
+Authenticated IRC connections appear under the top-level **IRC Servers**
+category, with each connected profile (such as `efnet`) containing its
+known and joined channels. The category appears with the first connected
+IRC server and disappears when the last one disconnects. Reconnecting
+restores that server's channels from its current session snapshot.
+
+IRC is not part of the RustyRig mesh and never receives a provisional
+`Domain (discovering…)` node. RustyRig WebSocket servers continue to
+group under their authenticated mesh domain (for example
+`ham.mydomain.com`), with their existing linked sites and resources.
+An IRC failure or reconnect does not change any RustyRig domain tree.
+
 ## Human references and completion
 
 Use symbolic stream names for routine operations:
