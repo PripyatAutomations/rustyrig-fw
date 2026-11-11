@@ -1,3 +1,9 @@
+rustyrig-fw (1.0.3-1) unstable; urgency=medium
+
+  * Release upstream version 1.0.3.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 21:43:34 -0500
+
 rustyrig-fw (1.0.2-14) unstable; urgency=medium
 
   * Keep rrserver disabled and stopped on fresh package installations;

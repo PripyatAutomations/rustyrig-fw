@@ -1,3 +1,9 @@
+rustyrig-fw (1.0.3) testing; urgency=medium
+
+  * Prepare rustyrig-fw 1.0.3 release.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 21:43:34 -0500
+
 rustyrig-fw (1.0.2) testing; urgency=medium
 
   * Prepare RustyRig 1.0.2 release.
