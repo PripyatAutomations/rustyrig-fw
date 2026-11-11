@@ -121,7 +121,11 @@ static void status(void *user, const char *text) {
    if (!text || !*text) {
       return;
    }
-   Log(LOG_INFO, "rrbridge", "%s", text);
+   /* High-volume healthy waterfall counters are routine telemetry, not
+    * connection status; retain warnings and no-frame reports at info. */
+   static const char wf_stats[] = "Kiwi RF waterfall/10s received=";
+   Log(strncmp(text, wf_stats, sizeof(wf_stats) - 1) ? LOG_INFO : LOG_DEBUG,
+       "rrbridge", "%s", text);
    /* The logger callback forwards this event with all other diagnostics. */
 }
 static const char *setting(void *user, const char *key) {
