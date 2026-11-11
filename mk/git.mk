@@ -2,7 +2,7 @@
 .PHONY: update git-pull
 update git-pull:
 	git pull --ff-only
-	./tools/update-optional-sources.sh
+	PROFILE='$(PROFILE)' USE_MONGOOSE='$(USE_MONGOOSE)' ./tools/update-optional-sources.sh
 
 recent-diff:
 	git diff '@{6 hours ago}'
