@@ -149,7 +149,7 @@ void resource_row(const char *event, const char *text, rrconn_t *connection, voi
 }
 
 /* Rendering is a pure GTK projection from a retained, complete inventory snapshot. It does not consume the network event stream. */
-static void resource_render_row(resource_branch *branch, const char *text, gboolean direct) {
+void resource_render_row(resource_branch *branch, const char *text, gboolean direct) {
    dict *row = json2dict(text);
 
    if (!row) {
