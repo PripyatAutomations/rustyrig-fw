@@ -24,9 +24,8 @@ import json, pathlib, sys
 p = pathlib.Path(sys.argv[1])
 cfg = json.loads(pathlib.Path("config/radio.config.json").read_text())
 cfg.pop("eeprom", None)
-pathlib.Path("config/zz-build-config-fixture.config.json").write_text(json.dumps(cfg))
+(p / "native.json").write_text(json.dumps(cfg))
 PY
-trap 'rm -rf "$tmp"; rm -f config/zz-build-config-fixture.config.json' EXIT
-python3 tools/gen-build-config.py zz-build-config-fixture --mongoose false --output "$tmp/no-eeprom.h"
+python3 tools/gen-build-config.py radio --config "$tmp/native.json" --mongoose false --output "$tmp/no-eeprom.h"
 ! grep -q '^#define EEPROM_SIZE' "$tmp/no-eeprom.h"
 echo 'PASS: native build headers do not require EEPROM generation'
