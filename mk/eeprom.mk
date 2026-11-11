@@ -13,7 +13,7 @@ EEPROM_REQUIRED := ${EEPROM_FILE}
 # Grouped targets: only one packer invocation with parallel make -j.
 ${EEPROM_GENERATED} &: tools/pack-eeprom.pl .version ${CF} ${BUILD_DIR}/.build-options $(wildcard res/*.json)
 	@echo "[pack-eeprom] PROFILE=$(PROFILE)"
-	@RUSTYRIG_USE_MONGOOSE='$(USE_MONGOOSE)' ./tools/pack-eeprom.pl '$(PROFILE)'
+	@RUSTYRIG_USE_MONGOOSE='$(USE_MONGOOSE)' RUSTYRIG_USE_EEPROM='$(USE_EEPROM)' ./tools/pack-eeprom.pl '$(PROFILE)'
 else
 EEPROM_GENERATED := ${BUILD_DIR}/build_config.h
 EEPROM_REQUIRED :=
