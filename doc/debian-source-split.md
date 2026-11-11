@@ -30,8 +30,12 @@ does not build the separated libraries. Packaging continues to own the
 RustyRig server/client/bridge binaries and `rustyrig-fwdsp`.
 
 Only optional **third-party** repositories (`ext/libmongoose` and
-`ext/ft8_lib`) remain submodules; they are not dependencies of the
-external installed core-library workflow. CI can prepare libraries from
+`ext/ft8_lib`) remain submodules; neither is fetched by normal builds,
+update helpers, or CI checkout. The legacy Mongoose source is initialized
+only when `USE_MONGOOSE=true`, while `ext/ft8_lib` is selected with
+`WITH_FT8=yes`. The regular Linux build generates `build_config.h`
+without producing an EEPROM image; `USE_EEPROM=true` opts in to the
+embedded-oriented packer. CI can prepare libraries from
 their independent upstream repositories, install them into the build
 environment, and then build this checkout against those installed SDKs.
 
