@@ -71,14 +71,27 @@ enabled() { [[ "$(jq -r "$1 // false | tostring" "$config")" == true ]]; }
 # Build features may be JSON booleans or the older "true"/"false" strings.
 # Native TLS, Argon2 and encrypted backups do not depend on Mongoose.
 mongoose_enabled=false
+eeprom_enabled=false
 if enabled '.features.mongoose'; then mongoose_enabled=true; fi
+if enabled '.features.eeprom'; then eeprom_enabled=true; fi
+# Make command-line overrides take precedence over profile defaults.
+if [[ -n ${USE_MONGOOSE:-} ]]; then mongoose_enabled=$USE_MONGOOSE; fi
+if [[ -n ${USE_EEPROM:-} ]]; then eeprom_enabled=$USE_EEPROM; fi
+for option in "$mongoose_enabled" "$eeprom_enabled"; do
+   [[ "$option" == true || "$option" == false ]] || {
+      echo "USE_MONGOOSE and USE_EEPROM must be true or false" >&2
+      exit 2
+   }
+done
 case "$distro" in
    deb)
-      packages=(build-essential git jq pkg-config make libbsd-dev libncurses-dev
+      packages=(build-essential git jq python3 pkg-config make libbsd-dev libncurses-dev
          debhelper libglib2.0-dev libgpiod-dev libev-dev libcrypt-dev
-         libssl-dev libwslay-dev libargon2-dev libarchive-dev libcurl4-openssl-dev
-         libjson-perl libterm-readline-perl-perl libhash-merge-perl
-         libjson-xs-perl libstring-crc32-perl libjson-validator-perl)
+         libssl-dev libwslay-dev libargon2-dev libarchive-dev libcurl4-openssl-dev)
+      # EEPROM packer uses extra Perl modules; native builds do not.
+      if [[ "$eeprom_enabled" == true ]]; then
+         packages+=(libjson-perl libhash-merge-perl libstring-crc32-perl libmojolicious-perl)
+      fi
       enabled '.backend.hamlib' && packages+=(libhamlib-dev)
       enabled '.features.gtk' && packages+=(libgtk-3-dev libvte-2.91-dev)
       enabled '.features.sqlite' && packages+=(sqlite3 libsqlite3-dev libspatialite-dev)
@@ -97,8 +110,8 @@ case "$distro" in
       ;;
    arch)
       packages=(base-devel git jq pkgconf make libbsd ncurses glib2 libgpiod libev
-         openssl wslay argon2 libarchive curl
-         perl perl-json perl-json-xs)
+         openssl wslay argon2 libarchive curl python
+         perl)
       enabled '.backend.hamlib' && packages+=(hamlib)
       enabled '.features.gtk' && packages+=(gtk3 vte3)
       enabled '.features.sqlite' && packages+=(sqlite libspatialite)
@@ -115,7 +128,7 @@ case "$distro" in
       packages=(gcc gcc-c++ make git jq pkgconf-pkg-config libbsd-devel
          ncurses-devel glib2-devel libgpiod-devel libev-devel
          openssl-devel wslay-devel libargon2-devel libarchive-devel libcurl-devel
-         perl perl-JSON perl-JSON-XS)
+         python3 perl)
       enabled '.backend.hamlib' && packages+=(hamlib-devel)
       enabled '.features.gtk' && packages+=(gtk3-devel vte291-devel)
       enabled '.features.sqlite' && packages+=(sqlite sqlite-devel libspatialite-devel)
@@ -143,6 +156,7 @@ done
 echo "Detected package family: $distro"
 echo "RustyRig build profile: $config"
 echo "Mongoose transport: $([[ "$mongoose_enabled" == true ]] && echo enabled || echo disabled)"
+echo "EEPROM generation: $([[ "$eeprom_enabled" == true ]] && echo enabled || echo disabled)"
 printf "Installing build dependencies with:"
 printf " %q" "${manager[@]}" "${unique[@]}"
 printf "\n"
