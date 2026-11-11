@@ -81,6 +81,7 @@ void resource_expansion_restore(resource_branch *branch);
 gboolean resource_restore_scroll(gpointer unused);
 void resource_schedule_restore_scroll(void);
 void resource_update_branch(resource_branch *branch);
+void resource_render_row(resource_branch *branch, const char *text, gboolean direct);
 void resource_row(const char *event, const char *text, rrconn_t *connection, void *user);
 
 void resource_property_result(const char *event, const char *payload, rrconn_t *connection, void *user);
