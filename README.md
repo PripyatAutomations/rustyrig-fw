@@ -57,11 +57,18 @@ development packages first.
 
 
 ```sh
-git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+git clone https://github.com/PripyatAutomations/rustyrig-fw.git
 # Install librustyaxe-dev, librrprotocol-dev and librustyirc-dev separately before building.
 cd rustyrig-fw
 ./install-deps.sh
 ```
+
+The native OpenSSL/wslay build does not fetch Mongoose or generate an EEPROM image.
+Run `make PROFILE=radio buildconf` to generate only the application
+configuration header; the normal `make PROFILE=radio` does that automatically.
+Embedded EEPROM builds can opt in with `make PROFILE=radio USE_EEPROM=true`.
+Mongoose is disabled by default and only fetched with an explicit
+`USE_MONGOOSE=true` build/update through `tools/update-optional-sources.sh`.
 
 The dependency helper prints the installation command for your selected build profile. Follow the instructions it produces, then continue with the **[quickstart](QUICKSTART.txt)** to build, configure a station, and connect your first client.
 
