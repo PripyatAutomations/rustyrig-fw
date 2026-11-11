@@ -735,7 +735,8 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       return;
    }
 
-   if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected") || !strcmp(event, "disconnected")) {
+   if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected") ||
+       !strcmp(event, "disconnected") || !strcmp(event, "irc.disconnected")) {
       nick_prompt_close(s);
       s->nick_recovering = false;
    }
@@ -755,7 +756,8 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       s->login_challenge_pending = true;
    } else if (!strcmp(event, "disconnected") && s->login_challenge_pending && cptr && cptr->is_ws) {
       auth_failure_report(s, NULL);
-   } else if ((!strcmp(event, "disconnected") || !strcmp(event, "http.error")) &&
+   } else if ((!strcmp(event, "disconnected") || !strcmp(event, "irc.disconnected") ||
+               !strcmp(event, "http.error")) &&
               s->reconnect_enabled && !s->reconnect_pending && !dying) {
       /* A protocol 'error' is not a transport failure. In particular,
        * password-change-required errors must not tear down an authenticated
@@ -1012,6 +1014,7 @@ void connman_register_events(void) {
    event_on("irc.nick", nick_accepted, NULL);
    event_on("authorized", connection_event, NULL);
    event_on("irc.connected", connection_event, NULL);
+   event_on("irc.disconnected", connection_event, NULL);
    event_on("disconnected", connection_event, NULL);
    event_on("http.error", connection_event, NULL);
    event_on("auth.error", connection_event, NULL);
@@ -1357,21 +1360,23 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       if (s->login_challenge_pending && !cptr->authenticated)
          auth_failure_report(s, NULL);
       native->closed = true;
+      s->connected = ws_connected = 0;
+      s->domain[0] = s->server_uuid[0] = 0;
       if (native->irc) {
+         /* IRC has its own lifecycle; a generic RustyRig disconnected event
+          * would reset WebSocket catalog, media and protocol session state. */
          cptr->connected = 0;
          cptr->authenticated = cptr->sent_login = false;
          irc_capabilities_clear(cptr);
-         event_emit("irc.disconnected",cptr,"");
-      }
-      s->connected = ws_connected = 0;
-      s->domain[0] = s->server_uuid[0] = 0;
-      dict *info = dict_new();
-
-      if (info) {
-         dict_add(info, "msg.type", "auth");
-         dict_add(info, "auth.server", s->name);
-         event_emit_dict("disconnected", cptr, info);
-         dict_free(info);
+         event_emit("irc.disconnected", cptr, "");
+      } else {
+         dict *info = dict_new();
+         if (info) {
+            dict_add(info, "msg.type", "auth");
+            dict_add(info, "auth.server", s->name);
+            event_emit_dict("disconnected", cptr, info);
+            dict_free(info);
+         }
       }
    }
    s->connected = ws_connected;
