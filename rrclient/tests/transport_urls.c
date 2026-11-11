@@ -46,6 +46,11 @@ void rrclient_media_room_parted(const char *room) {
 }
 
 time_t now = 100, poll_block_expire, poll_block_delay;
+static void timestamp_connection_state(void *unused) {
+   (void)unused;
+   ws_connected = now;
+}
+
 bool dying, restarting;
 const char *server_name, *login_user;
 rrconn_t *ws_conn, *ws_tx_conn;
@@ -305,7 +310,12 @@ int main(void) {
       assert(!strcmp(rrclient_tui_prompt(tui_active_window()), ""));
    }
 
-   assert(rrclient_connection_select("beta"));
+   /* Native IRC stores the online timestamp rather than the literal 1.
+    * Server cycling must accept both representations and skip offline ones. */
+   rrclient_connection_dispatch(a, timestamp_connection_state, NULL);
+   assert(rrclient_connection_cycle() && ws_conn == a);
+   rrclient_connection_dispatch(b, timestamp_connection_state, NULL);
+   assert(rrclient_connection_cycle() && ws_conn == b);
    ui_mode = UI_MODE_GTK;
    tui_only = false;
    assert(!rrclient_room_is_joined("#shared"));
