@@ -312,6 +312,10 @@ rrconn_t *rrclient_connection_find(const char *name) {
 
    return s ? s->connection : NULL;
 }
+const char *rrclient_connection_url(const char *name) {
+   client_server_t *s = find_server(name);
+   return s ? s->url : NULL;
+}
 
 int rrclient_connection_state(const char *name) {
    client_server_t *s = find_server(name);
