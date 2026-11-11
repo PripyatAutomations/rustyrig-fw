@@ -360,6 +360,16 @@ static gboolean playback_control(double *seek_to, gboolean *reverse, gboolean *s
    g_mutex_unlock(&playback_lock);
    return seek;
 }
+/* GLib's spawn API requires mutable argv. Duplicate the selected decoder
+ * arguments rather than discarding const on C23 string literals. */
+static gchar **recording_spawn_argv(const gchar *const *args) {
+   gsize count = 0;
+   while (args[count]) count++;
+   gchar **copy = g_new0(gchar *, count + 1);
+   for (gsize i = 0; i < count; i++) copy[i] = g_strdup(args[i]);
+   return copy;
+}
+
 static gpointer playback_worker(gpointer unused) {
    (void)unused;
    char *path;
@@ -388,12 +398,12 @@ static gpointer playback_worker(gpointer unused) {
       char seek_value[G_ASCII_DTOSTR_BUF_SIZE], length_value[G_ASCII_DTOSTR_BUF_SIZE];
       g_ascii_formatd(seek_value, sizeof(seek_value), "%.6f", start);
       g_ascii_formatd(length_value, sizeof(length_value), "%.6f", length);
-      gchar *args_forward[] = {
+      const gchar *args_forward[] = {
          "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
          "-ss", seek_value, "-i", path, "-vn", "-f", "s16le",
          "-ac", "2", "-ar", "16000", "pipe:1", NULL
       };
-      gchar *args_reverse[] = {
+      const gchar *args_reverse[] = {
          "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
          "-ss", seek_value, "-i", path, "-t", length_value,
          "-vn", "-af", "areverse", "-f", "s16le",
@@ -402,9 +412,12 @@ static gpointer playback_worker(gpointer unused) {
       GPid pid = 0;
       gint fd = -1;
       GError *error = NULL;
-      if (!g_spawn_async_with_pipes(NULL, reverse ? args_reverse : args_forward, NULL,
+      gchar **argv = recording_spawn_argv(reverse ? args_reverse : args_forward);
+      gboolean spawned = g_spawn_async_with_pipes(NULL, argv, NULL,
          G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL,
-         &pid, NULL, &fd, NULL, &error)) {
+         &pid, NULL, &fd, NULL, &error);
+      g_strfreev(argv);
+      if (!spawned) {
          g_warning("Unable to start recording decoder: %s", error ? error->message : "unknown");
          g_clear_error(&error);
          break;
@@ -536,7 +549,7 @@ static gpointer waveform_worker(gpointer data) {
    gboolean canceled = FALSE;
    rr_recording_waveform *wave = g_new0(rr_recording_waveform, 1);
    g_strlcpy(wave->path, path, sizeof(wave->path));
-   gchar *argv[] = {
+   const gchar *argv_literal[] = {
       "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
       "-i", path, "-vn", "-ac", "2", "-ar", "800",
       "-f", "s16le", "pipe:1", NULL
@@ -544,9 +557,12 @@ static gpointer waveform_worker(gpointer data) {
    GPid pid = 0;
    gint fd = -1;
    GError *error = NULL;
-   if (g_spawn_async_with_pipes(NULL, argv, NULL,
+   gchar **argv = recording_spawn_argv(argv_literal);
+   gboolean spawned = g_spawn_async_with_pipes(NULL, argv, NULL,
       G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL,
-      &pid, NULL, &fd, NULL, &error)) {
+      &pid, NULL, &fd, NULL, &error);
+   g_strfreev(argv);
+   if (spawned) {
 #ifdef _WIN32
       _setmode(fd, _O_BINARY);
 #endif
