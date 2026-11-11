@@ -56,6 +56,8 @@ extern const char *rrclient_connection_name(const rrconn_t *connection);
  * Mongoose callbacks. */
 extern void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data);
 extern rrconn_t *rrclient_connection_find(const char *name);
+/* Borrowed profile endpoint URL, retained across transport failures/retries. */
+extern const char *rrclient_connection_url(const char *name);
 extern void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid);
 extern bool rrclient_connection_expected_node_matches(rrconn_t *connection, const char *station, const char *domain);
 extern const char *rrclient_connection_domain(const rrconn_t *connection);
