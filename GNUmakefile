@@ -159,10 +159,12 @@ test tests: ${bins} test-rrsdrutils
 	./tests/run-tests.sh ${TEST_SUITES}
 
 # Keep the historical alias for scripts which invoke "after-eeprom".
-.PHONY: after-config after-eeprom
+.PHONY: after-config after-eeprom buildconf
 after-config: ${BUILD_DIR}/build_config.h ${EEPROM_REQUIRED}
 after-config: ${BUILD_DIR}/.stamp ${extra_build} ${bins}
 after-eeprom: after-config
+# Used by CI and packaging: generate build configuration without compiling.
+buildconf: ${BUILD_DIR}/build_config.h ${EEPROM_REQUIRED}
 
 audit-log:
 	./tools/rr-get-audit-log
