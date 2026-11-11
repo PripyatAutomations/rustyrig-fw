@@ -5,12 +5,15 @@ rustyrig-fw (1.0.3) testing; urgency=medium
     OpenSSL/wslay builds no longer fetch Mongoose during build/update or CI.
   * Make EEPROM images and layout/type headers opt-in for embedded builds;
     generate ordinary build_config.h independently for desktop/server use.
+  * Generate filter_tables.h and atu_tables.h from the build profile even
+    without EEPROM; include them in parallel-safe generated prerequisites.
+    Keep embedded table generation and the current modules.atu layout working.
   * Remove obsolete librrprotocol, librustyaxe and callsign-lookup Git
     links from the RustyRig source tree. These dependencies are built and
     installed independently by rrpk; retain only optional third-party
     ext/ submodules in this repository.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 22:09:31 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 22:37:14 -0500
 
 rustyrig-fw (1.0.2) testing; urgency=medium
 
