@@ -28,8 +28,9 @@ already exists, a numeric suffix such as `(2)` is added before recording.
 
 The list can play files through the existing RX PCM engine by decoding into
 two separately routed L/R input streams. The Play and Stop Playback buttons
-control this source. Rename/Move offers a new name and a directory chooser
-showing available folders, with moves restricted to the managed recording tree.
+control this source. Rename/Move offers a new name and a dropdown listing
+the Recordings root and all existing nested subdirectories. Moves are
+restricted to the managed recording tree.
 Paired Ogg/FLAC formats move together. Download copies to a selected
 destination, New Folder makes subdirectories, and Delete
 confirms before removing an item. Directories must be empty to delete.
