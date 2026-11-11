@@ -97,6 +97,7 @@ case "$distro" in
          packages+=(perl libjson-perl libhash-merge-perl
             libstring-crc32-perl libmojolicious-perl)
       fi
+      enabled '.components.rrclient' && packages+=(libflac-dev libogg-dev libvorbis-dev)
       enabled '.backend.hamlib' && packages+=(libhamlib-dev)
       enabled '.features.gtk' && packages+=(libgtk-3-dev libvte-2.91-dev)
       enabled '.features.sqlite' && packages+=(sqlite3 libsqlite3-dev libspatialite-dev)
@@ -119,6 +120,7 @@ case "$distro" in
       if [[ "$eeprom_enabled" == true ]]; then
          packages+=(perl perl-json perl-hash-merge perl-string-crc32 perl-mojolicious)
       fi
+      enabled '.components.rrclient' && packages+=(flac libogg libvorbis)
       enabled '.backend.hamlib' && packages+=(hamlib)
       enabled '.features.gtk' && packages+=(gtk3 vte3)
       enabled '.features.sqlite' && packages+=(sqlite libspatialite)
@@ -139,6 +141,7 @@ case "$distro" in
       if [[ "$eeprom_enabled" == true ]]; then
          packages+=(perl perl-JSON perl-Hash-Merge perl-String-CRC32 perl-Mojolicious)
       fi
+      enabled '.components.rrclient' && packages+=(flac-devel libogg-devel libvorbis-devel)
       enabled '.backend.hamlib' && packages+=(hamlib-devel)
       enabled '.features.gtk' && packages+=(gtk3-devel vte291-devel)
       enabled '.features.sqlite' && packages+=(sqlite sqlite-devel libspatialite-devel)
