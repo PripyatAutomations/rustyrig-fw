@@ -1,6 +1,8 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Restore Ctrl-Tab active-server cycling in GTK shared and Admin notebook
+    pages by handling the shortcut before notebook/focus traversal.
   * Group connected IRC profiles and their channels under a top-level
     IRC Servers category in GTK Resource Explorer, only while connected;
     retain RustyRig mesh domain grouping without provisional IRC domains.
