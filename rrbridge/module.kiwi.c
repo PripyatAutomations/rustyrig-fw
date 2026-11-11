@@ -852,8 +852,13 @@ static void kiwi_poll(void *instance) {
             char detail[560];
             snprintf(detail, sizeof(detail), "Connecting Kiwi RF waterfall: %s", wf_url);
             note(k, detail);
+            /* Kiwi proxies can HTTP 307 the W/F route to a different host,
+             * just as they do for SND. Follow redirects only when no Kiwi
+             * password could be sent to the redirected receiver. */
+            const char *password = setting(k, "password");
             rr_wss_client_options_t options = {
-               .user_agent = ua, .allow_cross_origin_redirect = false
+               .user_agent = ua,
+               .allow_cross_origin_redirect = !password || !*password
             };
             k->waterfall = rr_transport_wss_connect(wf_url, &options, waterfall_ws, k);
             k->wf_last_rx = k->wf_last_tx = 0;
