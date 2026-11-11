@@ -1,6 +1,8 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Show existing nested recording folders directly in the GTK Move/Rename
+    destination dropdown; moving into subdirectories needs no typed path.
   * Use readable start/end timestamps rather than UUIDs in client recording
     filenames; retain the recording ID in audio metadata and add numeric
     collision suffixes. Let GTK Move/Rename browse recording directories,
