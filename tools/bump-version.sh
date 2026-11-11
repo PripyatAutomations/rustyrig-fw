@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bump this source project's upstream version and release packaging metadata.
 set -euo pipefail
-ROOT=$(cd -- "$(dirname -- "\${BASH_SOURCE[0]}")/.." && pwd)
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 
 usage() {
@@ -34,7 +34,7 @@ while (($#)); do
             echo "Select only one of --patch, --minor, --major or --version" >&2
             exit 2
          fi
-         mode=\${1#--}
+         mode=${1#--}
          seen_mode=true
          shift ;;
       --version)
@@ -42,7 +42,7 @@ while (($#)); do
             echo "--version requires one version and cannot be combined with a bump mode" >&2
             exit 2
          fi
-         requested=\${2#v}
+         requested=${2#v}
          shift 2 ;;
       --dry-run) dry_run=true; shift ;;
       -h|--help) usage; exit 0 ;;
@@ -56,9 +56,9 @@ if [[ ! $old =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-rc[0-9]+)?$ ]]; then
    echo "Expected semantic X.Y.Z in .version, got: $old" >&2
    exit 1
 fi
-major=\${BASH_REMATCH[1]}
-minor=\${BASH_REMATCH[2]}
-patch=\${BASH_REMATCH[3]}
+major=${BASH_REMATCH[1]}
+minor=${BASH_REMATCH[2]}
+patch=${BASH_REMATCH[3]}
 if [[ -n $requested ]]; then
    [[ $requested =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$ ]] || {
       echo "Invalid version: $requested" >&2; exit 2;
