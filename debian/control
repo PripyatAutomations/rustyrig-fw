@@ -6,6 +6,7 @@ Build-Depends:
  debhelper-compat (= 13),
  make,
  jq,
+ python3,
  pkg-config,
  libbsd-dev,
  librustyaxe-dev (>= 0.1.0-7),
@@ -25,13 +26,7 @@ Build-Depends:
  libgstreamer-plugins-base1.0-dev,
  libncurses-dev,
  libsqlite3-dev,
- libsrtp2-dev,
- libjson-perl,
- libterm-readline-perl-perl,
- libhash-merge-perl,
- libjson-xs-perl,
- libstring-crc32-perl,
- libjson-validator-perl
+ libsrtp2-dev
 Standards-Version: 4.7.2
 Homepage: https://github.com/PripyatAutomations/rustyrig-fw
 Vcs-Git: https://github.com/PripyatAutomations/rustyrig-fw.git
