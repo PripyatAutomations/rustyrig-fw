@@ -13,7 +13,7 @@ is planned as part of this work.
    by MSYS2, then open **MSYS2 UCRT64**.
 2. Clone the repository with submodules and enter its root:
 
-       git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+       git clone https://github.com/PripyatAutomations/rustyrig-fw.git
        cd rustyrig-fw
        bash rrclient/win32/install-deps.sh
 
