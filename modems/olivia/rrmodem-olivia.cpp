@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include "../common/pcm16k.h"
 
 static void feed(const float *buf, size_t n, void *context) {
