@@ -32,10 +32,45 @@ typedef struct {
    size_t head, used;
    gboolean recording, stopping;
    GThread *worker;
-   rr_recording_encoder *encoder;
+   rr_recording_tags tags;
    char *ogg, *flac, *id;
    guint64 dropped;
 } Recorder;
+/* Snapshot metadata before handing the request to the encoder thread.
+ * Never retain GTK-owned strings beyond the initiating callback. */
+static void recording_tags_copy(rr_recording_tags *dst, const rr_recording_tags *src) {
+   dst->title = g_strdup(src->title);
+   dst->user = g_strdup(src->user);
+   dst->start_time = g_strdup(src->start_time);
+   dst->site = g_strdup(src->site);
+   dst->server = g_strdup(src->server);
+   dst->rig = g_strdup(src->rig);
+   dst->vfo = g_strdup(src->vfo);
+   dst->frequency = g_strdup(src->frequency);
+   dst->mode = g_strdup(src->mode);
+   dst->grid = g_strdup(src->grid);
+   dst->latitude = g_strdup(src->latitude);
+   dst->longitude = g_strdup(src->longitude);
+   dst->location_source = g_strdup(src->location_source);
+   dst->sources = g_strdup(src->sources);
+}
+static void recording_tags_clear(rr_recording_tags *tags) {
+   g_free((char *)tags->title);
+   g_free((char *)tags->user);
+   g_free((char *)tags->start_time);
+   g_free((char *)tags->site);
+   g_free((char *)tags->server);
+   g_free((char *)tags->rig);
+   g_free((char *)tags->vfo);
+   g_free((char *)tags->frequency);
+   g_free((char *)tags->mode);
+   g_free((char *)tags->grid);
+   g_free((char *)tags->latitude);
+   g_free((char *)tags->longitude);
+   g_free((char *)tags->location_source);
+   g_free((char *)tags->sources);
+   memset(tags, 0, sizeof(*tags));
+}
 static Recorder rec;
 static gsize initialized;
 static GMutex playback_lock;
@@ -98,8 +133,11 @@ static char *rename_with_end(const char *oldpath, const char *stamp) {
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
    int16_t block[1024 * 2];
-   gboolean ok = TRUE;
-   for (;;) {
+   rr_recording_encoder *encoder = rr_recording_encoder_open(rec.ogg, rec.flac, &rec.tags, rec.id);
+   recording_tags_clear(&rec.tags);
+   gboolean ok = encoder != NULL;
+   if (!ok) g_warning("Unable to initialize native Ogg/FLAC recording encoder");
+   while (ok) {
       g_mutex_lock(&rec.lock);
       while (!rec.used && !rec.stopping) g_cond_wait(&rec.ready, &rec.lock);
       size_t n = MIN(rec.used, (size_t)1024);
@@ -111,13 +149,12 @@ static gpointer recorder_worker(gpointer unused) {
       gboolean done = rec.stopping && n == 0;
       g_mutex_unlock(&rec.lock);
       if (done) break;
-      if (n && !rr_recording_encoder_write(rec.encoder, block, n)) {
+      if (n && !rr_recording_encoder_write(encoder, block, n)) {
          ok = FALSE;
          break;
       }
    }
-   if (!rr_recording_encoder_close(rec.encoder)) ok = FALSE;
-   rec.encoder = NULL;
+   if (encoder && !rr_recording_encoder_close(encoder)) ok = FALSE;
    if (ok) {
       GDateTime *end_time = g_date_time_new_now_local();
       char *end_stamp = g_date_time_format(end_time, "%Y-%m-%d_%H-%M-%S");
@@ -190,15 +227,9 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
    char *flac = format != RR_RECORD_OGG ? make_path(base, "flac") : NULL;
    g_free(base); g_free(station); g_free(rig); g_free(vfo); g_free(freq); g_free(mode); g_free(stamp);
    g_date_time_unref(now);
-   rr_recording_encoder *encoder = rr_recording_encoder_open(ogg, flac, tags, id);
-   if (!encoder) {
-      g_warning("Unable to initialize native Ogg/FLAC recording encoder");
-      g_free(ogg); g_free(flac); g_free(id);
-      return FALSE;
-   }
    g_mutex_lock(&rec.lock);
    rec.ogg = ogg; rec.flac = flac; rec.id = id;
-   rec.encoder = encoder;
+   recording_tags_copy(&rec.tags, tags);
    rec.head = rec.used = 0; rec.dropped = 0;
    rec.stopping = FALSE; rec.recording = TRUE;
    rec.worker = g_thread_new("rr-record-encoder", recorder_worker, NULL);
