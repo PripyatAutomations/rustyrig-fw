@@ -20,6 +20,10 @@ ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cfla
 
 rrclient_objs += audio.o
 rrclient_objs += recordings.o # Local Ogg/FLAC recording and playback
+rrclient_objs += recordings.codec.o # Native libFLAC and Ogg/Vorbis codec layer
+recording_codec_cflags := $(shell pkg-config --cflags flac vorbisenc vorbisfile ogg)
+recording_codec_libs := $(shell pkg-config --libs flac vorbisenc vorbisfile ogg)
+${BUILD_DIR}/rrclient/recordings.codec.o: extra_cflags += ${recording_codec_cflags}
 rrclient_objs += audio.engine.o
 rrclient_objs += audio.graph.o # GTK-free logical routing and bypass policies
 rrclient_objs += cat.o
@@ -262,7 +266,7 @@ endif
 
 bin/rrclient: ${BUILD_HEADERS} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) ${LDFLAGS} || exit 2
+	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) ${LDFLAGS} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@
