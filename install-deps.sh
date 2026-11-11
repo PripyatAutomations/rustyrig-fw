@@ -9,6 +9,8 @@ usage() {
    echo "       PROFILE=radio $0 [--distro deb|rpm|arch]"
    echo "Auto-detects from /etc/os-release; defaults to deb if unknown."
    echo "Runs package manager as the invoking user (use sudo externally if needed)."
+   echo "Only USE_EEPROM=true (or profile features.eeprom=true) installs EEPROM Perl modules."
+   echo "Mongoose does not enable the EEPROM/Perl toolchain."
 }
 distro=""
 case "${1:-}" in
@@ -69,6 +71,7 @@ fi
 
 enabled() { [[ "$(jq -r "$1 // false | tostring" "$config")" == true ]]; }
 # Build features may be JSON booleans or the older "true"/"false" strings.
+# EEPROM generation is an embedded-only feature, independent of Mongoose.
 # Native TLS, Argon2 and encrypted backups do not depend on Mongoose.
 mongoose_enabled=false
 eeprom_enabled=false
@@ -88,9 +91,11 @@ case "$distro" in
       packages=(build-essential git jq python3 pkg-config make libbsd-dev libncurses-dev
          debhelper libglib2.0-dev libgpiod-dev libev-dev libcrypt-dev
          libssl-dev libwslay-dev libargon2-dev libarchive-dev libcurl4-openssl-dev)
-      # EEPROM packer uses extra Perl modules; native builds do not.
+      # The embedded EEPROM packer is the only default-build consumer
+      # of these Perl modules; desktop/server builds use Python instead.
       if [[ "$eeprom_enabled" == true ]]; then
-         packages+=(libjson-perl libhash-merge-perl libstring-crc32-perl libmojolicious-perl)
+         packages+=(perl libjson-perl libhash-merge-perl
+            libstring-crc32-perl libmojolicious-perl)
       fi
       enabled '.backend.hamlib' && packages+=(libhamlib-dev)
       enabled '.features.gtk' && packages+=(libgtk-3-dev libvte-2.91-dev)
@@ -110,8 +115,10 @@ case "$distro" in
       ;;
    arch)
       packages=(base-devel git jq pkgconf make libbsd ncurses glib2 libgpiod libev
-         openssl wslay argon2 libarchive curl python
-         perl)
+         openssl wslay argon2 libarchive curl python)
+      if [[ "$eeprom_enabled" == true ]]; then
+         packages+=(perl perl-json perl-hash-merge perl-string-crc32 perl-mojolicious)
+      fi
       enabled '.backend.hamlib' && packages+=(hamlib)
       enabled '.features.gtk' && packages+=(gtk3 vte3)
       enabled '.features.sqlite' && packages+=(sqlite libspatialite)
@@ -128,7 +135,10 @@ case "$distro" in
       packages=(gcc gcc-c++ make git jq pkgconf-pkg-config libbsd-devel
          ncurses-devel glib2-devel libgpiod-devel libev-devel
          openssl-devel wslay-devel libargon2-devel libarchive-devel libcurl-devel
-         python3 perl)
+         python3)
+      if [[ "$eeprom_enabled" == true ]]; then
+         packages+=(perl perl-JSON perl-Hash-Merge perl-String-CRC32 perl-Mojolicious)
+      fi
       enabled '.backend.hamlib' && packages+=(hamlib-devel)
       enabled '.features.gtk' && packages+=(gtk3-devel vte291-devel)
       enabled '.features.sqlite' && packages+=(sqlite sqlite-devel libspatialite-devel)
@@ -157,6 +167,7 @@ echo "Detected package family: $distro"
 echo "RustyRig build profile: $config"
 echo "Mongoose transport: $([[ "$mongoose_enabled" == true ]] && echo enabled || echo disabled)"
 echo "EEPROM generation: $([[ "$eeprom_enabled" == true ]] && echo enabled || echo disabled)"
+echo "EEPROM Perl toolchain: $([[ "$eeprom_enabled" == true ]] && echo enabled || echo not-required)"
 printf "Installing build dependencies with:"
 printf " %q" "${manager[@]}" "${unique[@]}"
 printf "\n"
