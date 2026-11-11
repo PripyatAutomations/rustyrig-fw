@@ -5,7 +5,7 @@ Summary: RustyRig remote radio software
 License: MIT
 URL: https://github.com/PripyatAutomations/rustyrig-fw
 Source0: %{name}-%{version}.tar.gz
-BuildRequires: gcc, make, pkgconfig, jq, perl
+BuildRequires: gcc, make, pkgconfig, jq, python3
 BuildRequires: pkgconfig(librustyaxe), pkgconfig(librustyirc), pkgconfig(librrprotocol), pkgconfig(glib-2.0), pkgconfig(sqlite3), pkgconfig(libcurl)
 BuildRequires: pkgconfig(gtk+-3.0), pkgconfig(gstreamer-1.0), pkgconfig(gstreamer-base-1.0)
 BuildRequires: pkgconfig(libgpiod), pkgconfig(hamlib), ncurses-devel
