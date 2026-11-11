@@ -23,7 +23,7 @@ typedef struct {
    GPtrArray *inventory, *pending_inventory; /* complete and in-flight wire rows */
    GtkTreeIter domain_root, root, parents[5];
    GHashTable *irc_rows, *expanded;
-   bool valid[5], loading, online, loaded, local_site_seen, root_valid;
+   bool valid[5], loading, online, loaded, local_site_seen, root_valid, irc;
    uint64_t requested_at;
    guint generation;
 } resource_branch;
@@ -38,7 +38,8 @@ typedef struct {
    gboolean zebra_dirty, zebra_rebuilding;
    guint zebra_idle, scroll_idle;
    GtkTreeStore *store;
-   GtkTreeIter local_root, serial_root, network_root, health_root;
+   GtkTreeIter local_root, serial_root, network_root, health_root, irc_root;
+   bool irc_root_valid;
    GHashTable *branches, *domains, *local_rows, *health_events, *health_last, *property_snapshots;
    guint timer;
    gulong initial_split_handler;
