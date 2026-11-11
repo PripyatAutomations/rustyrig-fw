@@ -32,6 +32,7 @@ extern GtkComboBoxText *tx_combo;
 extern GtkComboBoxText *rx_combo;
 extern GtkNotebook *main_notebook;
 extern GtkWidget *admin_view;
+extern GtkWidget *host_log_tab;
 extern GtkWidget *freq_entry;
 
 /* GTK reports an Escape-prefix as two ordinary key events, unlike termkey, which presents ESC-number as an Alt modifier.  Keep the prefix briefly in the GTK
