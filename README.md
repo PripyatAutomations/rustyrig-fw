@@ -48,6 +48,14 @@ Additional tools include remote serial/GPS access, audio recording, administrati
 
 RustyRig currently targets Debian-family Linux distributions for building and packaging.
 
+The recommended multi-project build is [rrpk](https://github.com/PripyatAutomations/rrpk),
+which clones, builds and installs `librustyaxe`, `librrprotocol`,
+`callsign-lookup`, and finally `rustyrig-fw` as independent repositories
+in dependency order. **These three projects are not bundled or submodules of
+rustyrig-fw.** For a standalone RustyRig build, install their respective
+development packages first.
+
+
 ```sh
 git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
 # Install librustyaxe-dev, librrprotocol-dev and librustyirc-dev separately before building.

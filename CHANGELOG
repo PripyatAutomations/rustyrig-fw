@@ -1,8 +1,12 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Remove obsolete librrprotocol, librustyaxe and callsign-lookup Git
+    links from the RustyRig source tree. These dependencies are built and
+    installed independently by rrpk; retain only optional third-party
+    ext/ submodules in this repository.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 21:43:34 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 21:46:34 -0500
 
 rustyrig-fw (1.0.2) testing; urgency=medium
 

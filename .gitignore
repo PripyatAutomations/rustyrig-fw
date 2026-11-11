@@ -1,3 +1,8 @@
+# Independently managed rrpk source checkouts must never be vendored here.
+/librustyaxe/
+/librrprotocol/
+/callsign-lookup/
+
 .env
 
 debian/.debhelper/*

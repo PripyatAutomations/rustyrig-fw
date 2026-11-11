@@ -21,9 +21,11 @@ The `librustyaxe` repository owns MIT `librustyaxe` and MIT
 depends on `librustyaxe`; the latter merely recommends the IRC runtime
 in Debian packaging. `librrprotocol` remains a separate GPLv2 upstream.
 
-Installed compiler-usable libraries take precedence; a Git submodule is a
-convenience for running uninstalled source-tree tests, never an implicit
-installer. Build dependency probes must honor CC, CPPFLAGS, CFLAGS,
+The shared libraries and callsign helper are maintained as standalone
+repositories and must not be checked out as Git submodules of rustyrig-fw.
+Use [rrpk](https://github.com/PripyatAutomations/rrpk) to fetch, package and
+install them in dependency order, or install their development packages
+manually. Build dependency probes must honor CC, CPPFLAGS, CFLAGS,
 LDFLAGS, configured sysroots and cross-compilers and must not assume a
 Linux-native execution environment.
 

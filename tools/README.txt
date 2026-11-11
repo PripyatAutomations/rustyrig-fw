@@ -10,7 +10,7 @@ If not listed, look at the top of the script for more info. Names should be clea
                                 except third party (ext/) sources.
     flrig-rigctld.sh		Start rigctld with flrig backend, if not running
     ft891-rigctld.sh		Start rigctld with ft891 backend, if not running
-    git-push-all.sh		Push changes to all of my submodules to github
+    git-push-all.sh		Commit/push tracked changes to rustyrig-fw only. Use rrpk for separate projects
     gst-test.sh			gstreamer test - ignore this
     indent.sh			Format owned C sources with GNU indent, then Uncrustify
     longline.sh			Print a long line (# characters as first arg || 256)

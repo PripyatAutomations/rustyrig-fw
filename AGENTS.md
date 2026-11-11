@@ -10,9 +10,12 @@ repository contains:
 - `rrclient/` - native GTK/TUI client
 - `rrserver/` - backend server
 
-The `librrprotocol` and `librustyaxe` libraries are separate repositories,
-used through their installed development headers and shared objects. Never
-restore in-tree fallback builds or Git submodules for either library.
+The `librrprotocol`, `librustyaxe`, and `callsign-lookup` projects are
+separate repositories. The shared libraries are used through installed
+development headers and shared objects; the helper is installed independently.
+[rrpk](https://github.com/PripyatAutomations/rrpk) fetches/builds/installs
+these projects in dependency order. Never restore any of them as in-tree
+fallback builds or Git submodules of rustyrig-fw.
 
 The browser WebUI source itself lives in the separate
 `PripyatAutomations/rustyrig-www` repository.
