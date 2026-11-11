@@ -460,54 +460,28 @@ static gpointer waveform_worker(gpointer data) {
    gboolean canceled = FALSE;
    rr_recording_waveform *wave = g_new0(rr_recording_waveform, 1);
    g_strlcpy(wave->path, path, sizeof(wave->path));
-   const gchar *argv_literal[] = {
-      "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-      "-i", path, "-vn", "-ac", "2", "-ar", "800",
-      "-f", "s16le", "pipe:1", NULL
-   };
-   GPid pid = 0;
-   gint fd = -1;
-   GError *error = NULL;
-   gchar **argv = recording_spawn_argv(argv_literal);
-   gboolean spawned = g_spawn_async_with_pipes(NULL, argv, NULL,
-      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL,
-      &pid, NULL, &fd, NULL, &error);
-   g_strfreev(argv);
-   if (spawned) {
-#ifdef _WIN32
-      _setmode(fd, _O_BINARY);
-#endif
-      guint8 raw[4096], low_byte = 0;
-      gboolean have_low = FALSE;
-      gint16 left = 0, lows[2] = {G_MAXINT16, G_MAXINT16},
-         highs[2] = {G_MININT16, G_MININT16};
-      guint channel = 0, width = 16, phase = 0;
+   rr_recording_decoder *decoder = rr_recording_decoder_open(path);
+   if (decoder) {
+      gint16 raw[1024 * 2];
+      gint16 lows[2] = {G_MAXINT16, G_MAXINT16};
+      gint16 highs[2] = {G_MININT16, G_MININT16};
+      guint width = 20, phase = 0;
       guint64 frames = 0;
+      gboolean error = FALSE;
       for (;;) {
          g_mutex_lock(&wave_lock);
          canceled = wave_shutting_down || generation != wave_generation;
          g_mutex_unlock(&wave_lock);
          if (canceled) break;
-         gssize n = read(fd, raw, sizeof(raw));
-         if (n < 0 && errno == EINTR) continue;
-         if (n <= 0) break;
-         for (gssize j = 0; j < n; j++) {
-            if (!have_low) {
-               low_byte = raw[j];
-               have_low = TRUE;
-               continue;
-            }
-            gint16 sample = (gint16)((guint)low_byte | ((guint)raw[j] << 8));
-            have_low = FALSE;
-            if (!channel) {
-               left = sample;
-               channel = 1;
-               continue;
-            }
-            channel = 0;
+         gssize n = rr_recording_decoder_read(decoder, raw, 1024);
+         if (n <= 0) { error = n < 0; break; }
+         for (gssize j = 0; j < n; ++j) {
             frames++;
-            lows[0] = MIN(lows[0], left); highs[0] = MAX(highs[0], left);
-            lows[1] = MIN(lows[1], sample); highs[1] = MAX(highs[1], sample);
+            for (unsigned c = 0; c < 2; ++c) {
+               gint16 sample = raw[j * 2 + c];
+               lows[c] = MIN(lows[c], sample);
+               highs[c] = MAX(highs[c], sample);
+            }
             if (++phase == width) {
                wave->bins[wave->count++] = (rr_recording_wave_bin){
                   lows[0], highs[0], lows[1], highs[1]
@@ -533,16 +507,11 @@ static gpointer waveform_worker(gpointer data) {
          wave->bins[wave->count++] = (rr_recording_wave_bin){
             lows[0], highs[0], lows[1], highs[1]
          };
-      close(fd);
-      if (canceled) child_stop(pid);
-      wave->duration = (double)frames / 800.0;
-      wave->success = child_wait_ok(pid) && !canceled && frames > 0;
-      g_spawn_close_pid(pid);
-   } else {
-      g_warning("Unable to analyze recording waveform: %s",
-         error ? error->message : "unknown");
-      g_clear_error(&error);
-   }
+      wave->duration = rr_recording_decoder_duration(decoder);
+      if (wave->duration <= 0) wave->duration = (double)frames / RATE;
+      wave->success = !canceled && !error && frames > 0;
+      rr_recording_decoder_close(decoder);
+   } else g_warning("Unable to analyze recording waveform: %s", path);
    g_mutex_lock(&wave_lock);
    gboolean current = !wave_shutting_down && generation == wave_generation;
    g_mutex_unlock(&wave_lock);
@@ -573,7 +542,7 @@ void rr_recordings_waveform_request(const char *path) {
    g_thread_unref(thread);
 }
 
-/* Flush the encoder and reap all worker processes on client shutdown. */
+/* Flush native codecs and join worker threads on client shutdown. */
 void rr_recordings_shutdown(void) {
    ensure_init();
    g_mutex_lock(&wave_lock);
