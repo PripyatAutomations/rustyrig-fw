@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
+#include <glib/gstdio.h>
 #include <vorbis/vorbisfile.h>
 #include <FLAC/metadata.h>
 #include <rrclient/recordings.codec.h>
