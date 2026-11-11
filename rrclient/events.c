@@ -613,6 +613,14 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 }
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   /* Connection events are per-server. A late callback from a background IRC
+    * profile must not mark the selected RustyRig WebSocket session offline.
+    * Normal connman dispatch activates the event owner before invoking us. */
+   if (cptr && cptr != ws_conn) {
+      Log(LOG_WARN, "connman", "Ignoring %s for foreign session %p (active=%p)",
+         event, (void *)cptr, (void *)ws_conn);
+      return;
+   }
    if (strcasecmp(event, "connecting") == 0) {
       ui_print(NULL, "%s*** \00308Connecting\017 ***", get_chat_ts(now));
       rrclient_update_connection_ui(-1);
