@@ -16,7 +16,7 @@ mkdir -p "$irc_adapter_dir"
 # Shared logger/event headers and adapter symbols now require GLib.
 irc_glib_cflags=$(pkg-config --cflags glib-2.0)
 irc_glib_libs=$(pkg-config --libs glib-2.0)
-for source in irc irc.compat cli.irc irc.dcc irc.audio.session srv.irc.core; do
+for source in irc irc.compat cli.irc irc.dcc irc.audio.session; do
    ${CC:-cc} $axe_cflags $proto_cflags $irc_cflags $irc_glib_cflags -fPIC -ffunction-sections -fdata-sections $test_includes -Ibuild/${PROFILE:-radio} -c "rrclient/$source.c" -o "$irc_adapter_dir/$source.o"
 done
 ${CC:-cc} $proto_cflags $irc_glib_cflags -fPIC $test_includes -Ibuild/${PROFILE:-radio} -c rrclient/tests/irc_adapter_stubs.c -o "$irc_adapter_dir/stubs.o"
