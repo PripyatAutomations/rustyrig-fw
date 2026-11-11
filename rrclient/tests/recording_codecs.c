@@ -22,6 +22,17 @@ static void roundtrip(const char *directory) {
       .frequency = "14074000",
       .start_time = "2026-11-11T12:00:00Z"
    };
+   /* Existing paths are never truncated, and a failed dual-format
+    * start removes only its own newly created partner. */
+   assert(g_file_set_contents(flac, "SENTINEL", -1, NULL));
+   assert(rr_recording_encoder_open(ogg, flac, &tags, "test-id-123") == NULL);
+   char *sentinel = NULL;
+   gsize length = 0;
+   assert(g_file_get_contents(flac, &sentinel, &length, NULL));
+   assert(length == 8 && !memcmp(sentinel, "SENTINEL", 8));
+   g_free(sentinel);
+   assert(!g_file_test(ogg, G_FILE_TEST_EXISTS));
+   assert(g_unlink(flac) == 0);
    rr_recording_encoder *e = rr_recording_encoder_open(ogg, flac, &tags, "test-id-123");
    assert(e);
    int16_t block[320 * 2];
