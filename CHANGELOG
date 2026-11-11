@@ -1,6 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Prepare rustyrig-fw 1.0.3 release.
+  * Group connected IRC profiles and their channels under a top-level
+    IRC Servers category in GTK Resource Explorer, only while connected;
+    retain RustyRig mesh domain grouping without provisional IRC domains.
   * Isolate failed IRC/SOCKS5 sessions from RustyRig WebSocket protocol
     lifecycle; prevent IRC disconnects from clearing authenticated WSS
     session, resource catalog, or media state. Show native WSS failure
