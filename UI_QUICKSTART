@@ -33,7 +33,7 @@ Some quick notes to introduce the features of the user interface:
   - ctrl/alt 0: Reset to 100% zoom/size
   - F11: Toggle full screen
 - Servers:
-  - ctrl-tab switches active server for admin/status/host log tabs
+  - Ctrl-Tab switches active connected servers in Status, Admin, Client/Host Log, Config, and shared tool pages (not room chats)
 - Resource Explorer: ALT-O (or the Explorer button in the upper status toolbar)
 - Upper status toolbar: Explorer, Audio Graph, Admin, Config (each opens a separate tool window; none occupies a main tab slot)
 - Server choser: ALT-X
