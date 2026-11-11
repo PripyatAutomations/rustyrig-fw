@@ -1324,7 +1324,26 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
          Log(LOG_WARN, "connman", "Native connection to %s: %.*s", s->name,
             (int)MIN(len, (size_t)240), data ? (const char *)data : "");
       }
-      event_emit("http.error", cptr, NULL);
+      /* Preserve the actual WSS failure for the affected profile. Dropping
+       * this diagnostic made transport errors look like unrelated IRC failures
+       * and left the user with only "Unable to reach server". */
+      dict *detail = dict_new();
+      if (detail) {
+         char reason[256];
+         if (changed || first) {
+            g_strlcpy(reason, "TLS trust approval required", sizeof(reason));
+         } else {
+            size_t used = data ? MIN(len, sizeof(reason) - 1) : 0;
+            if (used) memcpy(reason, data, used);
+            reason[used] = 0;
+            if (!used) g_strlcpy(reason, "Native WebSocket transport failed", sizeof(reason));
+         }
+         dict_add(detail, "error.msg", reason);
+         event_emit_dict("http.error", cptr, detail);
+         dict_free(detail);
+      } else {
+         event_emit("http.error", cptr, NULL);
+      }
    } else if (event == RR_TRANSPORT_EVENT_CLOSE) {
       if (s->pending_password_change) {
          password_secret_clear(s);
