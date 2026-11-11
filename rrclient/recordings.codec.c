@@ -10,6 +10,19 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+#ifdef _WIN32
+#include <io.h>
+#define rr_fdopen _fdopen
+#define rr_close _close
+#else
+#include <unistd.h>
+#define rr_fdopen fdopen
+#define rr_close close
+#endif
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 #define RECORD_RATE 16000
 #define RECORD_CHANNELS 2
@@ -37,6 +50,19 @@ static const char *tag_value(const rr_recording_tags *tags, size_t offset) {
    return *(const char *const *)((const char *)tags + offset);
 }
 
+/* Match the former ffmpeg -n behavior: never replace an existing
+ * recording, including an independently created paired format. */
+static FILE *exclusive_recording_file(const char *path) {
+   int fd = g_open(path, O_CREAT | O_EXCL | O_RDWR | O_BINARY, 0600);
+   if (fd < 0) return NULL;
+   FILE *file = rr_fdopen(fd, "w+b");
+   if (!file) {
+      rr_close(fd);
+      g_unlink(path);
+   }
+   return file;
+}
+
 struct rr_recording_encoder {
    FLAC__StreamEncoder *flac;
    FLAC__StreamMetadata *flac_comments;
@@ -46,6 +72,7 @@ struct rr_recording_encoder {
    vorbis_dsp_state dsp;
    vorbis_block block;
    gboolean ogg_stream_ok, info_ok, dsp_ok, block_ok, flac_ok, failed;
+   gboolean ogg_created, flac_created;
 };
 
 static gboolean ogg_pages(rr_recording_encoder *e, gboolean flush) {
@@ -74,8 +101,9 @@ static gboolean ogg_drain(rr_recording_encoder *e, gboolean flush) {
 
 static gboolean vorbis_open(rr_recording_encoder *e, const char *path,
                             const rr_recording_tags *tags, const char *id) {
-   e->ogg_file = g_fopen(path, "wb");
+   e->ogg_file = exclusive_recording_file(path);
    if (!e->ogg_file) return FALSE;
+   e->ogg_created = TRUE;
    vorbis_info_init(&e->info); e->info_ok = TRUE;
    if (vorbis_encode_init_vbr(&e->info, 2, RECORD_RATE, 0.4f)) return FALSE;
    if (vorbis_analysis_init(&e->dsp, &e->info)) return FALSE;
@@ -128,7 +156,11 @@ static gboolean flac_open(rr_recording_encoder *e, const char *path,
    }
    FLAC__StreamMetadata *metadata[] = { e->flac_comments };
    if (!FLAC__stream_encoder_set_metadata(e->flac, metadata, 1)) return FALSE;
-   e->flac_ok = FLAC__stream_encoder_init_file(e->flac, path, NULL, NULL) ==
+   FILE *file = exclusive_recording_file(path);
+   if (!file) return FALSE;
+   e->flac_created = TRUE;
+   /* libFLAC takes ownership of the FILE* and closes it at finish. */
+   e->flac_ok = FLAC__stream_encoder_init_FILE(e->flac, file, NULL, NULL) ==
       FLAC__STREAM_ENCODER_INIT_STATUS_OK;
    return e->flac_ok;
 }
@@ -139,9 +171,11 @@ rr_recording_encoder *rr_recording_encoder_open(const char *ogg_path,
    rr_recording_encoder *e = g_new0(rr_recording_encoder, 1);
    if ((ogg_path && !vorbis_open(e, ogg_path, tags, id)) ||
        (flac_path && !flac_open(e, flac_path, tags, id))) {
+      /* Never remove a pre-existing file if exclusive creation failed. */
+      gboolean remove_ogg = e->ogg_created, remove_flac = e->flac_created;
       rr_recording_encoder_close(e);
-      if (ogg_path) g_unlink(ogg_path);
-      if (flac_path) g_unlink(flac_path);
+      if (remove_ogg) g_unlink(ogg_path);
+      if (remove_flac) g_unlink(flac_path);
       return NULL;
    }
    return e;
