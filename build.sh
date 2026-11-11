@@ -1,28 +1,19 @@
 #!/bin/bash
-# A bash wrapper to invoke make with some good defaults for parallel build
+# Parallel native build wrapper. Mongoose and EEPROM are opt-in.
+set -euo pipefail
+cd "$(dirname "$0")"
 : "${NCPU:=$(getconf _NPROCESSORS_ONLN 2>/dev/null \
-          || getconf NPROCESSORS_ONLN 2>/dev/null \
           || nproc 2>/dev/null \
           || sysctl -n hw.ncpu 2>/dev/null \
           || echo 1)}"
 
-# Ensure we stop on errors
-set -euo pipefail
-
-# Try to determine if gstreamer dev package installed, if not install deps
-X=$(pkg-config --cflags gstreamer-1.0)
-if [ $? != 0 ]; then
-   echo "Missing gstreamer - run the apt install line given below to resolve:"
+if ! pkg-config --exists gstreamer-1.0; then
+   echo "Missing GStreamer development files; run ./install-deps.sh" >&2
    ./install-deps.sh
+   exit 1
 fi
 
-# If it looks like submodules are missing, pull them now
-if [ ! -f ext/libmongoose/mongoose.c ]; then
-   git submodule update --init --depth=1 ext/libmongoose
-fi
-
-# Clean up the tree
+# Fetch Mongoose only for a build that explicitly enables it.
+./tools/update-optional-sources.sh
 make distclean
-
-# Build with all cores
-make -j $NCPU world
+make -j "$NCPU" world
