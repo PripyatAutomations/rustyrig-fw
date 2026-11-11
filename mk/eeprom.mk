@@ -21,5 +21,5 @@ EEPROM_REQUIRED :=
 # prevent -j builds from racing the server's generated includes.
 ${EEPROM_GENERATED} &: tools/gen-build-config.py .version ${CF} ${BUILD_DIR}/.build-options
 	@echo "[gen-build-config] PROFILE=$(PROFILE), Mongoose=$(USE_MONGOOSE), EEPROM=disabled"
-	@python3 tools/gen-build-config.py '$(PROFILE)' --mongoose '$(USE_MONGOOSE)' --output "$@"
+	@python3 tools/gen-build-config.py '$(PROFILE)' --mongoose '$(USE_MONGOOSE)' --output "${BUILD_DIR}/build_config.h"
 endif
