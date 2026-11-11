@@ -288,78 +288,95 @@ static gpointer playback_worker(gpointer unused) {
       }
       if (stop || (reverse && position <= 0.0)) break;
       double start = reverse ? MAX(0.0, position - 4.0) : position;
-      double length = reverse ? position - start : 0.0;
-      char seek_value[G_ASCII_DTOSTR_BUF_SIZE], length_value[G_ASCII_DTOSTR_BUF_SIZE];
-      g_ascii_formatd(seek_value, sizeof(seek_value), "%.6f", start);
-      g_ascii_formatd(length_value, sizeof(length_value), "%.6f", length);
-      const gchar *args_forward[] = {
-         "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-         "-ss", seek_value, "-i", path, "-vn", "-f", "s16le",
-         "-ac", "2", "-ar", "16000", "pipe:1", NULL
-      };
-      const gchar *args_reverse[] = {
-         "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-         "-ss", seek_value, "-i", path, "-t", length_value,
-         "-vn", "-af", "areverse", "-f", "s16le",
-         "-ac", "2", "-ar", "16000", "pipe:1", NULL
-      };
-      GPid pid = 0;
-      gint fd = -1;
-      GError *error = NULL;
-      gchar **argv = recording_spawn_argv(reverse ? args_reverse : args_forward);
-      gboolean spawned = g_spawn_async_with_pipes(NULL, argv, NULL,
-         G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL,
-         &pid, NULL, &fd, NULL, &error);
-      g_strfreev(argv);
-      if (!spawned) {
-         g_warning("Unable to start recording decoder: %s", error ? error->message : "unknown");
-         g_clear_error(&error);
+      rr_recording_decoder *decoder = rr_recording_decoder_open(path);
+      if (!decoder || !rr_recording_decoder_seek(decoder, start)) {
+         g_warning("Unable to open or seek recording decoder: %s", path);
+         rr_recording_decoder_close(decoder);
          break;
       }
-#ifdef _WIN32
-      _setmode(fd, _O_BINARY);
-#endif
       gboolean restart = FALSE, ended = FALSE;
       int16_t block[320 * 2];
-      for (;;) {
-         if (playback_control(&requested, &next_direction, &stop)) {
-            position = MAX(0.0, requested);
-            reverse = next_direction;
-            restart = TRUE;
-            break;
-         }
-         if (stop) break;
-         size_t n = 0;
-         while (n < sizeof(block)) {
-            gssize got = read(fd, ((char *)block) + n,
-               (unsigned int)(sizeof(block) - n));
-            if (got < 0 && errno == EINTR) continue;
+      if (reverse) {
+         /* Reverse bounded four-second windows, not entire recordings. */
+         size_t wanted = (size_t)((position - start) * RATE);
+         int16_t *segment = g_new(int16_t, (wanted + 1) * 2);
+         size_t count = 0;
+         while (count < wanted && !stop && !restart) {
+            if (playback_control(&requested, &next_direction, &stop)) {
+               position = MAX(0.0, requested);
+               reverse = next_direction;
+               restart = TRUE;
+               break;
+            }
+            if (stop) break;
+            gssize got = rr_recording_decoder_read(decoder,
+               segment + count * 2, MIN(wanted - count, (size_t)320));
             if (got <= 0) break;
-            n += (size_t)got;
+            count += (size_t)got;
          }
-         if (!n) { ended = TRUE; break; }
-         size_t frames = n / (sizeof(int16_t) * 2);
-         if (!frames) continue;
-         if (output) output(block, frames);
-         double elapsed = (double)frames / RATE;
-         position = reverse ? MAX(0.0, position - elapsed) : position + elapsed;
-         gint64 now = g_get_monotonic_time();
-         if (now - last_update >= 100000) {
-            char value[G_ASCII_DTOSTR_BUF_SIZE];
-            g_ascii_formatd(value, sizeof(value), "%.6f", position);
-            event_emit(RR_RECORDING_PLAYBACK_POSITION, NULL, value);
-            last_update = now;
+         if (!stop && !restart) {
+            for (size_t off = count; off; ) {
+               if (playback_control(&requested, &next_direction, &stop)) {
+                  position = MAX(0.0, requested);
+                  reverse = next_direction;
+                  restart = TRUE;
+                  break;
+               }
+               if (stop) break;
+               size_t frames = MIN(off, (size_t)320);
+               for (size_t i = 0; i < frames; ++i) {
+                  block[i * 2] = segment[(off - 1 - i) * 2];
+                  block[i * 2 + 1] = segment[(off - 1 - i) * 2 + 1];
+               }
+               if (output) output(block, frames);
+               double elapsed = (double)frames / RATE;
+               position = MAX(0.0, position - elapsed);
+               off -= frames;
+               gint64 tick = g_get_monotonic_time();
+               if (tick - last_update >= 100000) {
+                  char value[G_ASCII_DTOSTR_BUF_SIZE];
+                  g_ascii_formatd(value, sizeof(value), "%.6f", position);
+                  event_emit(RR_RECORDING_PLAYBACK_POSITION, NULL, value);
+                  last_update = tick;
+               }
+               g_usleep((gulong)(elapsed * 1000000.0));
+            }
          }
-         g_usleep((gulong)(elapsed * 1000000.0));
+         ended = count == 0;
+         g_free(segment);
+      } else {
+         for (;;) {
+            if (playback_control(&requested, &next_direction, &stop)) {
+               position = MAX(0.0, requested);
+               reverse = next_direction;
+               restart = TRUE;
+               break;
+            }
+            if (stop) break;
+            gssize got = rr_recording_decoder_read(decoder, block, 320);
+            if (got <= 0) {
+               if (got < 0) g_warning("Recording decoder error: %s", path);
+               ended = TRUE;
+               break;
+            }
+            if (output) output(block, (size_t)got);
+            double elapsed = (double)got / RATE;
+            position += elapsed;
+            gint64 tick = g_get_monotonic_time();
+            if (tick - last_update >= 100000) {
+               char value[G_ASCII_DTOSTR_BUF_SIZE];
+               g_ascii_formatd(value, sizeof(value), "%.6f", position);
+               event_emit(RR_RECORDING_PLAYBACK_POSITION, NULL, value);
+               last_update = tick;
+            }
+            g_usleep((gulong)(elapsed * 1000000.0));
+         }
       }
-      close(fd);
-      if (stop || restart) child_stop(pid);
-      child_wait_ok(pid);
-      g_spawn_close_pid(pid);
+      rr_recording_decoder_close(decoder);
       if (stop) break;
       if (restart) continue;
       if (!reverse || position <= 0.0001 || !ended) break;
-      // Reverse uses four-second segments, keeping areverse's memory bounded.
+      // Reverse uses four-second segments, keeping PCM memory bounded.
    }
    g_free(path);
    event_emit("client.recordings.playback-finished", NULL, NULL);
