@@ -782,7 +782,8 @@ static void resource_status_request(const char *event, const char *ignored, rrco
       /* A native IRC transport can be absent between reconnect attempts.
        * Identify the profile from its configured URL rather than treating
        * the disconnected IRC profile as an undiscovered WSS mesh domain. */
-      const char *url = get_server_property(profile, "server.url");
+      const char *url = rrclient_connection_url(profile);
+      if (!url || !*url) url = get_server_property(profile, "server.url");
       bool irc = (active && !active->is_ws) ||
          (url && (g_ascii_strncasecmp(url, "irc://", 6) == 0 ||
                   g_ascii_strncasecmp(url, "ircs://", 7) == 0));
