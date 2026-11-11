@@ -897,7 +897,12 @@ sub generate_config_h {
          printf $fh "#define USE_MQTT\n";
       }
 
-      if (defined($config->{features}{'mongoose'}) && match_boolean($config->{features}{'mongoose'})) {
+      # The effective make setting overrides the build profile when supplied.
+      # Avoid generating legacy Mongoose headers in a native-only build.
+      my $mongoose = defined($ENV{'RUSTYRIG_USE_MONGOOSE'})
+         ? $ENV{'RUSTYRIG_USE_MONGOOSE'}
+         : $config->{features}{'mongoose'};
+      if (defined($mongoose) && match_boolean($mongoose)) {
          printf $fh "#define USE_MONGOOSE\n";
       }
 
