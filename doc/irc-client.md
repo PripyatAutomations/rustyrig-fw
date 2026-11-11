@@ -32,6 +32,13 @@ no nickname. PASS is distinct from IRCv3 SASL authentication; SASL is not
 implemented yet. Autojoin accepts comma/space-separated
 channels and `#channel:key` for channels requiring a key.
 
+IRC connections have a separate lifecycle: `irc.connected` and
+`irc.disconnected` control their UI and reconnect backoff. An IRC failure
+must never emit the RustyRig WebSocket `disconnected` event, which would
+clear an unrelated authenticated protocol session, media, and catalog state.
+In particular, failed IRC TLS/SOCKS5 connections leave `localhost` WSS
+connected and its session intact.
+
 The client starts capability negotiation and registration after TCP connection
 or successful TLS handshake, handles PING/PONG, and displays IRC chat, notices, actions, channel
 membership, topics and NAMES rosters through the shared GTK/TUI handlers.
