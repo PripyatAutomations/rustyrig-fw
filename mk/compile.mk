@@ -120,7 +120,7 @@ endif
 endif
 
 
-# Mongoose TLS is mandatory, independent of build JSON feature switches.
+# TLS support for the optional legacy Mongoose backend only.
 ifeq (${USE_MONGOOSE},true)
 CFLAGS += -DMG_TLS=MG_TLS_MBED
 CFLAGS += $(shell pkg-config --cflags mbedtls)
