@@ -159,7 +159,7 @@ ${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNU
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 1
 
-bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
+bin/rrserver: ${EEPROM_REQUIRED} ${BUILD_HEADERS} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
 	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
 	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 	@ls -a1ls $@
