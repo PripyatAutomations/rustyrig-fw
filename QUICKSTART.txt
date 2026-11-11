@@ -39,8 +39,9 @@ with PROFILE=rrserver and client binaries with PROFILE=rrclient. The packaged
 /etc/rustyrig/rrserver.config.json and rrclient.config.json belong to their
 respective packages. Override PROFILE=radio for a custom server profile or
 CLIENT_PROFILE=another-profile for a custom client build.
-For updates, use git pull followed by git submodule update --init --recursive (only for optional third-party sources),
-then rebuild the matching components.
+For updates, run git pull --ff-only. Mongoose and FT8 third-party sources are
+fetched only when explicitly enabled (see tools/update-optional-sources.sh).
+Standard Linux builds do not require git submodule update or EEPROM generation.
 
 2. Configure a station
 ----------------------
