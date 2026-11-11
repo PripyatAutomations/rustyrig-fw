@@ -11,7 +11,7 @@ pkgdesc='RustyRig remote radio software'
 arch=('x86_64')
 url='https://github.com/PripyatAutomations/rustyrig-fw'
 license=('GPL2')
-makedepends=('git' 'make' 'jq' 'pkgconf' 'python' 'libbsd' 'ncurses' 'sqlite' 'curl' 'hamlib' 'libgpiod' 'glib2' 'librustyaxe' 'librustyirc' 'librrprotocol' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'libev' 'libsrtp')
+makedepends=('git' 'make' 'jq' 'pkgconf' 'python' 'libbsd' 'ncurses' 'sqlite' 'curl' 'hamlib' 'libgpiod' 'glib2' 'librustyaxe' 'librustyirc' 'librrprotocol' 'flac' 'libogg' 'libvorbis' 'gtk3' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'libev' 'libsrtp')
 source=('git+https://github.com/PripyatAutomations/rustyrig-fw.git')
 sha256sums=('SKIP')
 
