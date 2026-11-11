@@ -1,9 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
 git pull --ff-only
-git submodule update --init --recursive
+./tools/update-optional-sources.sh
 
-# Run conffile packaging regression tests
 bash packaging/tests/test_debian_conffiles.sh
-
-# Build packages
 dpkg-buildpackage -us -uc -b
