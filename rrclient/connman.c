@@ -405,8 +405,9 @@ bool rrclient_connection_cycle(void) {
    client_server_t *next = selected && selected->next ? selected->next : servers;
    client_server_t *first = next;
    do {
-      /* 'connected' is the transport-independent online state, updated by both native TLS and legacy transports. */
-      if (next->connected == 1) {
+      /* A positive value is online: native IRC and legacy transports may
+       * retain a connection timestamp (not the literal integer 1). */
+      if (next->connected > 0) {
          return rrclient_connection_select(next->name);
       }
       next = next->next ? next->next : servers;
