@@ -372,12 +372,19 @@ gssize rr_recording_decoder_read(rr_recording_decoder *d, int16_t *pcm, size_t f
       d->fractional += step;
       while (d->fractional >= 1.0) {
          d->fractional -= 1.0;
-         d->left[0] = d->right[0]; d->left[1] = d->right[1];
-         d->have_right = FALSE;
-         if (d->fractional >= 1.0) {
-            d->have_left = FALSE;
+         d->left[0] = d->right[0];
+         d->left[1] = d->right[1];
+         if (d->exhausted) {
+            /* No source frame beyond this one; stop, don't repeat EOF. */
+            d->have_left = d->have_right = FALSE;
             break;
          }
+         if (!decoder_next(d, d->right)) {
+            d->exhausted = TRUE;
+            d->right[0] = d->left[0];
+            d->right[1] = d->left[1];
+         }
+         d->have_right = TRUE;
       }
    }
    return done ? (gssize)done : d->error ? -1 : 0;
