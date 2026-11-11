@@ -1,5 +1,6 @@
 // Client-side PCM recording and playback. GPL-2.0-only.
 #include "recordings.h"
+#include "recordings.codec.h"
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
 #include <glib.h>
@@ -31,8 +32,7 @@ typedef struct {
    size_t head, used;
    gboolean recording, stopping;
    GThread *worker;
-   GPid child;
-   int child_fd;
+   rr_recording_encoder *encoder;
    char *ogg, *flac, *id;
    guint64 dropped;
 } Recorder;
@@ -56,7 +56,6 @@ static void ensure_init(void) {
    if (g_once_init_enter(&initialized)) {
       g_mutex_init(&rec.lock);
       g_cond_init(&rec.ready);
-      rec.child_fd = -1;
       g_mutex_init(&playback_lock);
       g_cond_init(&playback_ready);
       g_mutex_init(&wave_lock);
@@ -82,17 +81,6 @@ static char *make_path(const char *base, const char *suffix) {
    g_free(dir);
    return path;
 }
-static gboolean write_all(int fd, const void *data, size_t length) {
-   const char *p = data;
-   while (length) {
-      gssize n = write(fd, p, (unsigned int)MIN(length, (size_t)0x7fffffff));
-      if (n < 0 && errno == EINTR) continue;
-      if (n <= 0) return FALSE;
-      p += n;
-      length -= (size_t)n;
-   }
-   return TRUE;
-}
 /* Append the finish timestamp after encoding; both formats share the metadata ID. */
 static char *rename_with_end(const char *oldpath, const char *stamp) {
    if (!oldpath || !*oldpath) return NULL;
@@ -107,35 +95,8 @@ static char *rename_with_end(const char *oldpath, const char *stamp) {
    g_free(prefix);
    return newpath;
 }
-static gboolean child_wait_ok(GPid pid) {
-#ifdef _WIN32
-   DWORD code = (DWORD)-1;
-   return WaitForSingleObject((HANDLE)pid, INFINITE) == WAIT_OBJECT_0 &&
-      GetExitCodeProcess((HANDLE)pid, &code) && code == 0;
-#else
-   int status = 0;
-   return waitpid(pid, &status, 0) >= 0 && WIFEXITED(status) && !WEXITSTATUS(status);
-#endif
-}
-static void child_stop(GPid pid) {
-#ifdef _WIN32
-   TerminateProcess((HANDLE)pid, 1);
-#else
-   kill(pid, SIGTERM);
-#endif
-}
-static void block_worker_sigpipe(void) {
-#ifndef _WIN32
-   sigset_t blocked;
-   sigemptyset(&blocked);
-   sigaddset(&blocked, SIGPIPE);
-   pthread_sigmask(SIG_BLOCK, &blocked, NULL);
-#endif
-}
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
-   // An encoder exiting early must not deliver SIGPIPE to the entire client.
-   block_worker_sigpipe();
    int16_t block[1024 * 2];
    gboolean ok = TRUE;
    for (;;) {
@@ -150,16 +111,13 @@ static gpointer recorder_worker(gpointer unused) {
       gboolean done = rec.stopping && n == 0;
       g_mutex_unlock(&rec.lock);
       if (done) break;
-      if (n && !write_all(rec.child_fd, block, n * 2 * sizeof(int16_t))) {
+      if (n && !rr_recording_encoder_write(rec.encoder, block, n)) {
          ok = FALSE;
          break;
       }
    }
-   close(rec.child_fd);
-   rec.child_fd = -1;
-   if (!child_wait_ok(rec.child)) ok = FALSE;
-   g_spawn_close_pid(rec.child);
-   rec.child = 0;
+   if (!rr_recording_encoder_close(rec.encoder)) ok = FALSE;
+   rec.encoder = NULL;
    if (ok) {
       GDateTime *end_time = g_date_time_new_now_local();
       char *end_stamp = g_date_time_format(end_time, "%Y-%m-%d_%H-%M-%S");
@@ -186,42 +144,6 @@ static gpointer recorder_worker(gpointer unused) {
    event_emit("client.recordings.finished", NULL, info);
    g_free(info);
    return NULL;
-}
-static void append_tag(GPtrArray *argv, const char *key, const char *value) {
-   if (!value || !*value) return;
-   g_ptr_array_add(argv, g_strdup("-metadata"));
-   g_ptr_array_add(argv, g_strdup_printf("%s=%s", key, value));
-}
-static void append_output(GPtrArray *argv, const char *codec, const char *path,
-                          const rr_recording_tags *tags, const char *id) {
-   g_ptr_array_add(argv, g_strdup("-map"));
-   g_ptr_array_add(argv, g_strdup("0:a:0"));
-   g_ptr_array_add(argv, g_strdup("-c:a"));
-   g_ptr_array_add(argv, g_strdup(codec));
-   if (!strcmp(codec, "libvorbis")) {
-      g_ptr_array_add(argv, g_strdup("-q:a"));
-      g_ptr_array_add(argv, g_strdup("4"));
-   }
-   append_tag(argv, "TITLE", tags->title);
-   append_tag(argv, "ARTIST", tags->user);
-   append_tag(argv, "COMMENT", "Recorded by RustyRig client from stereo monitor PCM");
-   append_tag(argv, "RECORDING_ID", id);
-   append_tag(argv, "START_TIME", tags->start_time);
-   append_tag(argv, "SITE", tags->site);
-   append_tag(argv, "SERVER", tags->server);
-   append_tag(argv, "RIG", tags->rig);
-   append_tag(argv, "VFO", tags->vfo);
-   append_tag(argv, "FREQUENCY_HZ", tags->frequency);
-   append_tag(argv, "MODE", tags->mode);
-   append_tag(argv, "GRID_SQUARE", tags->grid);
-   append_tag(argv, "GPS_LATITUDE", tags->latitude);
-   append_tag(argv, "GPS_LONGITUDE", tags->longitude);
-   append_tag(argv, "LOCATION_SOURCE", tags->location_source);
-   append_tag(argv, "SOURCES", tags->sources);
-   append_tag(argv, "USER", tags->user);
-   g_ptr_array_add(argv, g_strdup("-f"));
-   g_ptr_array_add(argv, g_strdup(!strcmp(codec, "flac") ? "flac" : "ogg"));
-   g_ptr_array_add(argv, g_strdup(path));
 }
 gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags *tags) {
    ensure_init();
@@ -268,32 +190,15 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
    char *flac = format != RR_RECORD_OGG ? make_path(base, "flac") : NULL;
    g_free(base); g_free(station); g_free(rig); g_free(vfo); g_free(freq); g_free(mode); g_free(stamp);
    g_date_time_unref(now);
-   GPtrArray *args = g_ptr_array_new_with_free_func(g_free);
-   const char *prefix[] = {"ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-n",
-      "-f", "s16le", "-ar", "16000", "-ac", "2", "-i", "pipe:0", NULL};
-   for (unsigned i = 0; prefix[i]; i++) g_ptr_array_add(args, g_strdup(prefix[i]));
-   if (ogg) append_output(args, "libvorbis", ogg, tags, id);
-   if (flac) append_output(args, "flac", flac, tags, id);
-   g_ptr_array_add(args, NULL);
-   GError *error = NULL;
-   gint child_stdin = -1;
-   GPid pid = 0;
-   gboolean started = g_spawn_async_with_pipes(NULL, (gchar **)args->pdata, NULL,
-      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL, &pid,
-      &child_stdin, NULL, NULL, &error);
-   g_ptr_array_free(args, TRUE);
-   if (!started) {
-      g_warning("Unable to start recording encoder: %s", error ? error->message : "unknown error");
-      g_clear_error(&error);
+   rr_recording_encoder *encoder = rr_recording_encoder_open(ogg, flac, tags, id);
+   if (!encoder) {
+      g_warning("Unable to initialize native Ogg/FLAC recording encoder");
       g_free(ogg); g_free(flac); g_free(id);
       return FALSE;
    }
    g_mutex_lock(&rec.lock);
    rec.ogg = ogg; rec.flac = flac; rec.id = id;
-#ifdef _WIN32
-   _setmode(child_stdin, _O_BINARY);
-#endif
-   rec.child = pid; rec.child_fd = child_stdin;
+   rec.encoder = encoder;
    rec.head = rec.used = 0; rec.dropped = 0;
    rec.stopping = FALSE; rec.recording = TRUE;
    rec.worker = g_thread_new("rr-record-encoder", recorder_worker, NULL);
@@ -344,8 +249,7 @@ void rr_recordings_collect(void) {
       g_clear_pointer(&rec.id, g_free);
    }
 }
-/* The playback worker owns decoder processes. Seek/reverse requests only change
- * shared control fields; neither GTK nor the audio thread waits for ffmpeg. */
+/* Native decoder workers own codec state; GTK and the audio callback never decode. */
 static gboolean playback_control(double *seek_to, gboolean *reverse, gboolean *stop) {
    g_mutex_lock(&playback_lock);
    while (playback_paused && !playback_stop && !playback_seek)
@@ -360,16 +264,6 @@ static gboolean playback_control(double *seek_to, gboolean *reverse, gboolean *s
    g_mutex_unlock(&playback_lock);
    return seek;
 }
-/* GLib's spawn API requires mutable argv. Duplicate the selected decoder
- * arguments rather than discarding const on C23 string literals. */
-static gchar **recording_spawn_argv(const gchar *const *args) {
-   gsize count = 0;
-   while (args[count]) count++;
-   gchar **copy = g_new0(gchar *, count + 1);
-   for (gsize i = 0; i < count; i++) copy[i] = g_strdup(args[i]);
-   return copy;
-}
-
 static gpointer playback_worker(gpointer unused) {
    (void)unused;
    char *path;
