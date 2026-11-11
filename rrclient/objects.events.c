@@ -306,6 +306,9 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
       event_emit("client.resources.connection-state", NULL, notice);
       g_free(notice);
    }
+   /* The notice is per profile, but resetting the active catalog is not:
+    * never let a failing background IRC connection clear a RustyRig catalog. */
+   if (client && client != ws_conn) return;
    memset(inventory_requests, 0, sizeof(inventory_requests));
    object_subscription = "Disconnected";
    subscription_request[0] = 0;
