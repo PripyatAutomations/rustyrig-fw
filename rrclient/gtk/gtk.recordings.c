@@ -265,7 +265,7 @@ static void recording_finished(const char *event, const char *payload,
    }
    if (!payload) return;
    char **fields = g_strsplit(payload, "\n", 4);
-   if (g_strcmp0(fields[0], "ok")) show_error("Recording encoder failed. Check ffmpeg and free disk space.");
+   if (g_strcmp0(fields[0], "ok")) show_error("Recording encoder failed. Check the codec logs and free disk space.");
    else {
       rename_pair(fields[1], fields[2]);
       guint64 dropped = fields[3] ? g_ascii_strtoull(fields[3], NULL, 10) : 0;
@@ -379,7 +379,7 @@ static void locator_record_start(const char *event, const void *data, size_t siz
    if (rr_recordings_start(ui.requested_format, &tags)) {
       gtk_button_set_label(GTK_BUTTON(ui.record_button), "STOP");
       gtk_label_set_text(GTK_LABEL(ui.status), "Recording the stereo monitor...");
-   } else show_error("Unable to start recording. Ensure ffmpeg is installed.");
+   } else show_error("Unable to start recording. Check permissions, disk space, and codec logs.");
    gtk_widget_set_sensitive(ui.record_button, TRUE);
    g_free(station); g_free(rig_name); g_free(start); g_date_time_unref(now);
 }
