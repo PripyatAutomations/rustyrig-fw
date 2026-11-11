@@ -312,6 +312,7 @@ int main(void) {
 
    /* Native IRC stores the online timestamp rather than the literal 1.
     * Server cycling must accept both representations and skip offline ones. */
+   assert(rrclient_connection_select("beta"));
    rrclient_connection_dispatch(a, timestamp_connection_state, NULL);
    assert(rrclient_connection_cycle() && ws_conn == a);
    rrclient_connection_dispatch(b, timestamp_connection_state, NULL);
