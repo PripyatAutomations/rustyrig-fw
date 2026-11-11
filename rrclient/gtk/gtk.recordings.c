@@ -90,8 +90,32 @@ static gboolean move_folder_allowed(const char *folder) {
    return allowed;
 }
 
-/* Rename and Move share a dialog; the folder chooser displays all available
- * local directories, while the entry supplies the new basename. */
+/* Enumerate existing recording folders, including nested subdirectories.
+ * Symlinked directories are not followed; only destinations in our root
+ * are offered. The combo stores absolute paths but displays relative names. */
+static void move_folder_collect(GPtrArray *folders, const char *folder, unsigned depth) {
+   if (depth >= 32 || !move_folder_allowed(folder)) return;
+   g_ptr_array_add(folders, g_strdup(folder));
+   GDir *dir = g_dir_open(folder, 0, NULL);
+   if (!dir) return;
+   const char *name;
+   while ((name = g_dir_read_name(dir))) {
+      if (!strcmp(name, ".") || !strcmp(name, "..")) continue;
+      char *child = g_build_filename(folder, name, NULL);
+      if (!g_file_test(child, G_FILE_TEST_IS_SYMLINK) &&
+          g_file_test(child, G_FILE_TEST_IS_DIR))
+         move_folder_collect(folders, child, depth + 1);
+      g_free(child);
+   }
+   g_dir_close(dir);
+}
+static gint move_folder_sort(gconstpointer left, gconstpointer right) {
+   const char *a = *(char *const *)left, *b = *(char *const *)right;
+   return g_utf8_collate(a, b);
+}
+
+/* Both destination folder and optional new filename are explicit.
+ * The root and every available subdirectory appear in the selector. */
 static char *choose_move_destination(const char *source) {
    char *basename = g_path_get_basename(source);
    char *parent = g_path_get_dirname(source);
@@ -103,37 +127,44 @@ static char *choose_move_destination(const char *source) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
    gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
-   GtkWidget *name_label = gtk_label_new("New name:");
-   GtkWidget *folder_label = gtk_label_new("Move to folder:");
    GtkWidget *entry = gtk_entry_new();
-   GtkWidget *chooser = gtk_file_chooser_button_new("Choose Recording Folder",
-      GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+   GtkWidget *folders = gtk_combo_box_text_new();
    gtk_entry_set_text(GTK_ENTRY(entry), basename);
    gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
-   gtk_file_chooser_set_local_only(GTK_FILE_CHOOSER(chooser), TRUE);
-   gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(chooser), parent);
    gtk_widget_set_hexpand(entry, TRUE);
-   gtk_widget_set_hexpand(chooser, TRUE);
-   gtk_grid_attach(GTK_GRID(grid), name_label, 0, 0, 1, 1);
+   gtk_widget_set_hexpand(folders, TRUE);
+
+   GPtrArray *available = g_ptr_array_new_with_free_func(g_free);
+   move_folder_collect(available, ui.root, 0);
+   g_ptr_array_sort(available, move_folder_sort);
+   for (guint i = 0; i < available->len; i++) {
+      const char *dir = g_ptr_array_index(available, i);
+      const char *relative = dir + strlen(ui.root);
+      while (*relative == G_DIR_SEPARATOR) relative++;
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(folders), dir,
+         *relative ? relative : "Recordings (root)");
+   }
+   if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(folders), parent))
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(folders), ui.root);
+   g_ptr_array_free(available, TRUE);
+
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("New name:"), 0, 0, 1, 1);
    gtk_grid_attach(GTK_GRID(grid), entry, 1, 0, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), folder_label, 0, 1, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), chooser, 1, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Destination folder:"), 0, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), folders, 1, 1, 1, 1);
    gtk_box_pack_start(GTK_BOX(area), grid, TRUE, TRUE, 0);
    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
    gtk_widget_show_all(dialog);
    char *destination = NULL;
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *name = gtk_entry_get_text(GTK_ENTRY(entry));
-      char *folder = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-      if (!folder) folder = g_strdup(parent);
+      const char *folder = gtk_combo_box_get_active_id(GTK_COMBO_BOX(folders));
       if (!valid_name(name) || !move_folder_allowed(folder)) {
-         show_error("Select a folder within Recordings and enter a valid filename.");
+         show_error("Select an existing Recordings folder and a valid filename.");
       } else {
          destination = g_build_filename(folder, name, NULL);
-         g_free(folder);
          break;
       }
-      g_free(folder);
    }
    gtk_widget_destroy(dialog);
    g_free(basename);
