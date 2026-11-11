@@ -7,7 +7,7 @@ set -euo pipefail
 }
 prefix=mingw-w64-ucrt-x86_64
 pacman -S --needed -- \
-  base-devel git make jq perl python pkgconf nsis \
+  base-devel git make jq python pkgconf nsis \
   "${prefix}-toolchain" "${prefix}-pkgconf" \
   "${prefix}-gtk3" "${prefix}-gstreamer" \
   "${prefix}-gst-plugins-base" "${prefix}-gst-plugins-good" \
