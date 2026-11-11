@@ -58,6 +58,88 @@ static gboolean in_root(const char *path) {
    return g_str_has_prefix(path, ui.root) &&
       (path[strlen(ui.root)] == '/' || path[strlen(ui.root)] == 0);
 }
+/* A destination is only valid within the managed recordings tree. Avoid
+ * following a symlink to a directory outside the tree while moving files. */
+static gboolean move_folder_allowed(const char *folder) {
+   if (!folder || !ui.root) return FALSE;
+   char *canonical = g_canonicalize_filename(folder, NULL);
+   char *root = g_canonicalize_filename(ui.root, NULL);
+   gboolean allowed = g_str_has_prefix(canonical, root) &&
+      (canonical[strlen(root)] == '/' || canonical[strlen(root)] == 0) &&
+      g_file_test(canonical, G_FILE_TEST_IS_DIR);
+   if (allowed) {
+      char *part = g_strdup(root);
+      const char *remaining = canonical + strlen(root);
+      if (g_file_test(part, G_FILE_TEST_IS_SYMLINK)) allowed = FALSE;
+      while (allowed && *remaining) {
+         while (*remaining == '/') remaining++;
+         if (!*remaining) break;
+         const char *slash = strchr(remaining, '/');
+         char *component = slash ? g_strndup(remaining, slash - remaining) : g_strdup(remaining);
+         char *next = g_build_filename(part, component, NULL);
+         g_free(part);
+         part = next;
+         g_free(component);
+         if (g_file_test(part, G_FILE_TEST_IS_SYMLINK)) allowed = FALSE;
+         remaining = slash ? slash : remaining + strlen(remaining);
+      }
+      g_free(part);
+   }
+   g_free(canonical);
+   g_free(root);
+   return allowed;
+}
+
+/* Rename and Move share a dialog; the folder chooser displays all available
+ * local directories, while the entry supplies the new basename. */
+static char *choose_move_destination(const char *source) {
+   char *basename = g_path_get_basename(source);
+   char *parent = g_path_get_dirname(source);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Move / Rename Recording",
+      GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Move / Rename", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *grid = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   GtkWidget *name_label = gtk_label_new("New name:");
+   GtkWidget *folder_label = gtk_label_new("Move to folder:");
+   GtkWidget *entry = gtk_entry_new();
+   GtkWidget *chooser = gtk_file_chooser_button_new("Choose Recording Folder",
+      GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+   gtk_entry_set_text(GTK_ENTRY(entry), basename);
+   gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+   gtk_file_chooser_set_local_only(GTK_FILE_CHOOSER(chooser), TRUE);
+   gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(chooser), parent);
+   gtk_widget_set_hexpand(entry, TRUE);
+   gtk_widget_set_hexpand(chooser, TRUE);
+   gtk_grid_attach(GTK_GRID(grid), name_label, 0, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), entry, 1, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), folder_label, 0, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), chooser, 1, 1, 1, 1);
+   gtk_box_pack_start(GTK_BOX(area), grid, TRUE, TRUE, 0);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
+   gtk_widget_show_all(dialog);
+   char *destination = NULL;
+   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *name = gtk_entry_get_text(GTK_ENTRY(entry));
+      char *folder = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+      if (!folder) folder = g_strdup(parent);
+      if (!valid_name(name) || !move_folder_allowed(folder)) {
+         show_error("Select a folder within Recordings and enter a valid filename.");
+      } else {
+         destination = g_build_filename(folder, name, NULL);
+         g_free(folder);
+         break;
+      }
+      g_free(folder);
+   }
+   gtk_widget_destroy(dialog);
+   g_free(basename);
+   g_free(parent);
+   return destination;
+}
 static char *selected(gboolean *folder) {
    GtkTreeIter iter; GtkTreeModel *model = NULL;
    if (!ui.tree || !gtk_tree_selection_get_selected(
@@ -336,17 +418,21 @@ static void action(GtkButton *button, gpointer data) {
          g_free(dest); refresh();
       } g_free(name);
    } else if (path && !strcmp(op, "rename")) {
-      char *base = g_path_get_basename(path);
-      char *name = ask_name("Rename / Move (relative to recordings)", base);
-      if (name && *name && !g_path_is_absolute(name)) {
-         char *dest = g_build_filename(ui.directory, name, NULL);
+      char *dest = choose_move_destination(path);
+      if (dest && g_strcmp0(dest, path)) {
          char *canonical = g_canonicalize_filename(dest, NULL);
-         if (!in_root(canonical) || g_file_test(canonical, G_FILE_TEST_EXISTS))
-            show_error("Destination must be inside Recordings and not already exist.");
-         else if (folder ? (g_rename(path, canonical) != 0) : !move_recording_pair(path, canonical))
+         char *parent = g_path_get_dirname(canonical);
+         gboolean nested_folder = folder && g_str_has_prefix(canonical, path) &&
+            canonical[strlen(path)] == '/';
+         if (!move_folder_allowed(parent) || nested_folder ||
+             g_file_test(canonical, G_FILE_TEST_EXISTS))
+            show_error("Destination must be an unused name in a valid Recordings folder.");
+         else if (folder ? (g_rename(path, canonical) != 0) :
+                  !move_recording_pair(path, canonical))
             show_error("Unable to move recording (or its paired format).");
-         g_free(dest); g_free(canonical); refresh();
-      } g_free(name); g_free(base);
+         g_free(parent); g_free(canonical); refresh();
+      }
+      g_free(dest);
    } else if (path && !folder && !strcmp(op, "download")) {
       GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Copy", GTK_WINDOW(main_window),
          GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL,
