@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# New commits supersede old checks on the same PR or push branch.
-# This prevents bursts of redundant CI jobs and failure notifications.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,11 +16,10 @@ permissions:
 jobs:
   build:
     runs-on: debian-latest
-
     steps:
     - uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: false
     - name: configure
       run: make buildconf PROFILE=radio
     - name: make
