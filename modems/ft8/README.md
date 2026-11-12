@@ -10,11 +10,11 @@ git submodule update --init ext/ft8_lib
 make -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 ```
 
-The normal RustyRig build does not build or require ft8_lib.\nOptional Debian build (after initializing the submodule):
-`WITH_FT8=yes dpkg-buildpackage -b -us -uc`.
+The standard modem build includes FT8 together with PSK and Olivia.\nDebian build (with WITH_MODEMS=yes by default):
+`dpkg-buildpackage -b -us -uc`.
 This produces `rustyrig-modems` and installs the worker to
 `/usr/libexec/rustyrig/modems/rrmodem-ft8`. Upstream ft8_lib builds with
-its normal Makefile, not CMake. It creates rustyrig-modems.\n The optional
+its normal Makefile, not CMake. It creates rustyrig-modems.\n The FT8
 worker can be copied to a known absolute path or launched from your build
 tree. Do not launch through an untrusted shell.
 
