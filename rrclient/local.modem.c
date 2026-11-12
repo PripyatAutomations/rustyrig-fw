@@ -14,6 +14,7 @@
 #include <rrclient/audio.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/ui.h>
+#include <rrclient/rrclient.h>
 
 typedef struct {
    rr_dsp_worker_t worker;
@@ -28,6 +29,7 @@ static decoder_t decoders[RR_LOCAL_MODEM_MAX];
 static GMutex decoder_lock;
 static guint poll_id;
 static bool initialized;
+static rr_event_token_t request_token;
 static char last_status[192];
 
 static void append_text(decoder_t *d, const char *bytes, size_t n) {
@@ -241,8 +243,11 @@ void rr_local_modem_init(void) {
    initialized = true;
    for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++)
       rr_dsp_worker_init(&decoders[i].worker);
-   event_on_message_domain_token(RR_LOCAL_MODEM_REQUEST, request_received, NULL, "core");
-   poll_id = g_timeout_add(100, poll_decoders, NULL);
+   request_token = event_on_message_domain_token(RR_LOCAL_MODEM_REQUEST, request_received, NULL, "core");
+   GSource *timer = g_timeout_source_new(100);
+   g_source_set_callback(timer, poll_decoders, NULL, NULL);
+   poll_id = g_source_attach(timer, rrclient_core_context());
+   g_source_unref(timer);
 }
 void rr_local_modem_request(const rr_local_modem_request_t *req) {
    if (!req) return;
@@ -253,8 +258,13 @@ void rr_local_modem_request(const rr_local_modem_request_t *req) {
 }
 void rr_local_modem_shutdown(void) {
    if (!initialized) return;
-   if (poll_id) g_source_remove(poll_id);
+   if (poll_id) {
+      GSource *source = g_main_context_find_source_by_id(rrclient_core_context(), poll_id);
+      if (source) g_source_destroy(source);
+   }
    poll_id = 0;
+   if (request_token) event_off_token(request_token);
+   request_token = 0;
    for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++) stop_one(i);
    initialized = false;
 }
