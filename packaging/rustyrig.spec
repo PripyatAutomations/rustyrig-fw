@@ -2,11 +2,11 @@ Name: rustyrig
 Version: 1.0.3
 Release: 1%{?dist}
 Summary: RustyRig remote radio software
-License: MIT
+License: GPL-2.0-only
 URL: https://github.com/PripyatAutomations/rustyrig-fw
 Source0: %{name}-%{version}.tar.gz
-BuildRequires: gcc, make, pkgconfig, jq, python3
-BuildRequires: pkgconfig(flac), pkgconfig(ogg), pkgconfig(vorbisenc), pkgconfig(vorbisfile)
+BuildRequires: gcc, gcc-c++, git, make, pkgconfig, jq, python3
+BuildRequires: pkgconfig(flac), pkgconfig(ogg), pkgconfig(vorbisenc), pkgconfig(vorbisfile), pkgconfig(vorbis)
 BuildRequires: pkgconfig(librustyaxe), pkgconfig(librustyirc), pkgconfig(librrprotocol), pkgconfig(glib-2.0), pkgconfig(sqlite3), pkgconfig(libcurl)
 BuildRequires: pkgconfig(gtk+-3.0), pkgconfig(gstreamer-1.0), pkgconfig(gstreamer-base-1.0)
 BuildRequires: pkgconfig(libgpiod), pkgconfig(hamlib), ncurses-devel
@@ -25,10 +25,16 @@ Summary: RustyRig SDR bridge and KiwiSDR module
 %description -n rustyrig-rrbridge
 Standalone SDR bridge executable and KiwiSDR driver for clients and servers.
 
+%package -n rustyrig-modems
+Summary: External software modem workers for RustyRig
+%description -n rustyrig-modems
+Receive-only PSK, Olivia and FT8 modem subprocesses for the RustyRig
+server and client, installed outside the user executable PATH.
+
 %package server
 Summary: RustyRig radio server
 Requires: %{name}-libs = %{version}-%{release}, jq, sqlite, systemd
-Recommends: rustyrig-rrbridge, rustyrig-callsign-lookup
+Recommends: rustyrig-rrbridge, rustyrig-callsign-lookup, rustyrig-modems
 %description server
 Backend server for remote radio operation.
 
@@ -63,9 +69,13 @@ GStreamer-based audio codec and pipeline service.
 %autosetup
 
 %build
-%make_build PROFILE=radio
+%make_build PROFILE=radio WITH_MODEMS=yes
+%make_build -C modems all
 
 %install
+install -Dpm0755 modems/rrmodem-psk %{buildroot}%{_prefix}/libexec/rustyrig/modems/rrmodem-psk
+install -Dpm0755 modems/rrmodem-olivia %{buildroot}%{_prefix}/libexec/rustyrig/modems/rrmodem-olivia
+install -Dpm0755 modems/ft8/rrmodem-ft8 %{buildroot}%{_prefix}/libexec/rustyrig/modems/rrmodem-ft8
 install -Dpm0755 bin/rrbridge %{buildroot}%{_bindir}/rrbridge
 install -Dpm0755 bin/rrbridge-kiwi.so %{buildroot}/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
@@ -111,6 +121,11 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %systemd_preun rustyrig-server.service
 %postun server
 %systemd_postun_with_restart rustyrig-server.service
+
+%files -n rustyrig-modems
+%{_prefix}/libexec/rustyrig/modems/rrmodem-psk
+%{_prefix}/libexec/rustyrig/modems/rrmodem-olivia
+%{_prefix}/libexec/rustyrig/modems/rrmodem-ft8
 
 %files -n rustyrig-rrbridge
 %{_bindir}/rrbridge
