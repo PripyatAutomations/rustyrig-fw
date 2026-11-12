@@ -35,6 +35,7 @@
 #include <rrclient/audio.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/spectrum.af.h>
+#include <rrclient/local.modem.h>
 #include <rrclient/media.h>
 #include <rrclient/cmd.h>
 #include <rrclient/connman.h>
@@ -105,6 +106,7 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
    }
    /* Local bridge audio bypasses client_channel_pcm(), where remote AF spectrum is normally fed. Capture here before routing/muting. */
    rr_af_spectrum_push(id, pcm, frames);
+   rr_local_modem_feed(id, pcm, frames);
 
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
@@ -531,6 +533,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    }
    /* AF analysis is independent of speaker muting or ear routing. */
    rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
+   rr_local_modem_feed(route->identity, samples, len / sizeof(int16_t));
 
    if (route->output == 'M') {
       return;
@@ -1335,6 +1338,7 @@ void ws_audio_shutdown(void) {
       return;
    }
    audio_enabled = false;
+   rr_local_modem_shutdown();
    rrclient_local_bridge_disconnect();
    rr_af_spectrum_shutdown();
 
