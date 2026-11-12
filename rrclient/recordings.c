@@ -167,11 +167,17 @@ static char *rename_with_end(const char *oldpath, const char *stamp) {
    const char *ext = strrchr(oldpath, '.');
    if (!ext) return g_strdup(oldpath);
    char *prefix = g_strndup(oldpath, ext - oldpath);
-   /* Start carries the date; show end time without repeating that date. */
+   /* Keep end date on multi-day captures; avoid repeating it otherwise. */
    const char *time = strchr(stamp, '_');
+   char *basename = g_path_get_basename(oldpath);
+   gboolean same_day = strlen(stamp) >= 10 && g_str_has_prefix(basename, stamp)
+      ? TRUE : strlen(stamp) >= 10 && strlen(basename) >= 10 &&
+        !strncmp(basename, stamp, 10);
    char *newpath = g_strdup_printf("%s - end-%s%s", prefix,
-      time ? time + 1 : stamp, ext);
-   if (g_rename(oldpath, newpath)) {
+      same_day && time ? time + 1 : stamp, ext);
+   g_free(basename);
+   /* Never replace an existing recording during finalization. */
+   if (g_file_test(newpath, G_FILE_TEST_EXISTS) || g_rename(oldpath, newpath)) {
       g_free(newpath);
       newpath = g_strdup(oldpath);
    }
