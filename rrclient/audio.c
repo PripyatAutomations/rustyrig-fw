@@ -106,6 +106,9 @@ static void rx_sink_set_fd(int new_fd) {
    g_mutex_unlock(&rx_sink_lock);
 }
 
+/* Used by local SDR setup before its definition below. */
+static void audio_input_gain_load(const char *id);
+
 bool audio_local_rx_start(const char *id) {
    if (!rx_engine || !id || !rr_audio_engine_add_stream(rx_engine, id))
       return false;
