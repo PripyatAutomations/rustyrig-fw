@@ -437,6 +437,12 @@ void resource_health_update(void) {
       while (g_hash_table_iter_next(&branches, NULL, &value)) {
          resource_branch *branch = value;
 
+         /* IRC connections are not RustyRig mesh nodes. They have their own
+          * IRC Servers inventory branch and must never enter cluster health. */
+         if (branch->irc) {
+            continue;
+         }
+
          if ((pass == 0) != branch->online) {
             continue;
          }
