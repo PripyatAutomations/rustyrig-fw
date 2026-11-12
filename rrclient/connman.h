@@ -60,6 +60,8 @@ extern rrconn_t *rrclient_connection_find(const char *name);
 extern const char *rrclient_connection_url(const char *name);
 extern void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid);
 extern bool rrclient_connection_expected_node_matches(rrconn_t *connection, const char *station, const char *domain);
+/* Learn a missing expected node identity only from authenticated, cert-matching server identity. */
+extern void rrclient_connection_learn_expected_node(rrconn_t *connection, const char *station, const char *domain, const char *server_uuid);
 extern const char *rrclient_connection_domain(const rrconn_t *connection);
 extern const char *rrclient_connection_server_uuid(const rrconn_t *connection);
 extern const char *rrclient_connection_iter(unsigned index);
