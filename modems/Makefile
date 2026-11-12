@@ -94,6 +94,7 @@ $(BUILD_DIR)/tests/olivia-snr-sweep: tests/olivia_snr.cpp tests/snr_noise.h $(OL
 test-snr: $(BUILD_DIR)/tests/psk-snr-sweep $(BUILD_DIR)/tests/olivia-snr-sweep
 	./$(BUILD_DIR)/tests/psk-snr-sweep
 	./$(BUILD_DIR)/tests/olivia-snr-sweep
+	$(MAKE) ft8-snr
 
 # Optional FT8 benchmark. ft8_lib is already a git submodule in ext/.
 # The target initializes it if missing; does not reset existing checkouts.
