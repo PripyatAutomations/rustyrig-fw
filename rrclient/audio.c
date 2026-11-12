@@ -129,17 +129,17 @@ void audio_local_rx_stop(const char *id) {
 }
 
 /* Recorded files enter the existing PCM hub as individually routed ear streams. */
-static void recording_playback_apply_route(void) {
+static void recording_playback_apply_route(bool active) {
    if (!rx_engine) return;
    const char left = recording_playback_route == 'S' ? 'L' : recording_playback_route;
    const char right = recording_playback_route == 'S' ? 'R' : recording_playback_route;
-   if (!rr_recordings_play_busy()) {
+   if (!active) {
       rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_L, 'M');
       rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_R, 'M');
       return;
    }
-   rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_L, left);
-   rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_R, right);
+   rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_L, left);
+   rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_R, right);
 }
 static void audio_input_gain_load(const char *id) {
    if (!id || !rx_engine) return;
@@ -177,9 +177,11 @@ bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
     * even when the recorder/player is idle. Do not reset graph routing. */
    rr_audio_engine_reset_stream(rx_engine, RECORDING_PLAYBACK_L);
    rr_audio_engine_reset_stream(rx_engine, RECORDING_PLAYBACK_R);
-   if (!rr_recordings_play_at(path, seconds, reverse, recording_playback_pcm))
+   recording_playback_apply_route(true);
+   if (!rr_recordings_play_at(path, seconds, reverse, recording_playback_pcm)) {
+      recording_playback_apply_route(false);
       return false;
-   recording_playback_apply_route();
+   }
    return true;
 }
 bool audio_recording_play(const char *path) {
@@ -188,7 +190,7 @@ bool audio_recording_play(const char *path) {
 void audio_recording_play_stop(void) { rr_recordings_play_stop(); }
 void audio_recording_play_collect(void) {
    rr_recordings_play_collect();
-   recording_playback_apply_route();
+   recording_playback_apply_route(false);
    /* The permanent mixer inputs remain for the next playback session. */
 }
 void audio_recording_control_core(const char *event, const void *data,
@@ -483,7 +485,7 @@ bool audio_set_rx_stream_route(const char *id, char output) {
    }
    if (!strcmp(id, RECORDING_PLAYBACK_ID)) {
       recording_playback_route = output;
-      recording_playback_apply_route();
+      recording_playback_apply_route(rr_recordings_play_busy());
       rrclient_database_setting_set("audio.graph.playback.route",
                                     output == 'S' ? "S" : output == 'L' ? "L" :
                                     output == 'R' ? "R" : "M");
@@ -1323,9 +1325,14 @@ bool audio_init(void) {
        strchr("LRSM", saved_play_route[0]))
       recording_playback_route = saved_play_route[0];
    g_free(saved_play_route);
-   recording_playback_apply_route();
+   recording_playback_apply_route(false);
    audio_input_gain_load(RECORDING_PLAYBACK_L);
    audio_input_gain_load(RECORDING_PLAYBACK_R);
+   /* Each recorded channel retains its trim even if sent to the other ear. */
+   double left_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_L, 0);
+   double right_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
+   rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_L, 1, left_db);
+   rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_R, 0, right_db);
    rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
    rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
    GSource *maintenance = g_timeout_source_new_seconds(10);
