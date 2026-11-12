@@ -5,6 +5,7 @@
  * registry. */
 #include "audio.engine.h"
 #include <string.h>
+#include <math.h>
 #define AUDIO_RATE 16000u
 #define AUDIO_BLOCK 320u
 #define AUDIO_CAPACITY 4000u
@@ -23,6 +24,8 @@ typedef struct stream {
    size_t head, count;
    bool primed, ever_primed, starved, finishing;
    unsigned fade_in;
+   double input_gain[2];
+   double input_db[2];
 } stream_t;
 struct rr_audio_engine {
    GMutex lock;
@@ -116,11 +119,11 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
          }
 
          if (s->route != 'R') {
-            accum[2 * i] += sample;
+            accum[2 * i] += (int32_t)(sample * s->input_gain[0]);
          }
 
          if (s->route != 'L') {
-            accum[2 * i + 1] += sample;
+            accum[2 * i + 1] += (int32_t)(sample * s->input_gain[1]);
          }
       }
 
@@ -265,6 +268,7 @@ bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
    if (s) {
       s->id = g_strdup(id);
       s->route = 'S';
+      s->input_gain[0] = s->input_gain[1] = 1.0;
       s->next = e->streams;
       e->streams = s;
    }
@@ -371,6 +375,39 @@ size_t rr_audio_engine_pending(rr_audio_engine_t *e, const char *id) {
    size_t queued = s ? s->count : 0;
    g_mutex_unlock(&e->lock);
    return queued;
+}
+bool rr_audio_engine_input_gain(rr_audio_engine_t *e, const char *id,
+                               unsigned channel, double db) {
+   if (!e || !id || channel >= 2 || !isfinite(db) || db < -60 || db > 12)
+      return false;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   if (s) {
+      s->input_db[channel] = db;
+      s->input_gain[channel] = pow(10.0, db / 20.0);
+   }
+   g_mutex_unlock(&e->lock);
+   return s != NULL;
+}
+double rr_audio_engine_input_gain_get(rr_audio_engine_t *e, const char *id,
+                                      unsigned channel) {
+   if (!e || !id || channel >= 2) return 0.0;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   double db = s ? s->input_db[channel] : 0.0;
+   g_mutex_unlock(&e->lock);
+   return db;
+}
+bool rr_audio_engine_reset_stream(rr_audio_engine_t *e, const char *id) {
+   if (!e || !id) return false;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   if (s) {
+      s->finishing = s->primed = s->ever_primed = s->starved = false;
+      s->head = s->count = s->fade_in = 0;
+   }
+   g_mutex_unlock(&e->lock);
+   return s != NULL;
 }
 void rr_audio_engine_gain(rr_audio_engine_t *e, unsigned channel, int percent) {
    if (!e || channel > 1) {
