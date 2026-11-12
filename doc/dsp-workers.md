@@ -252,13 +252,26 @@ by the negotiated band-limited PCM conversion before production use.
 Keep the future workers self-contained and relocate their code and packaging
 to dedicated repositories after the shared IPC contract stabilizes.
 
-## Client-local receive-only modems (experimental)
+## Client-local multi-decoder sessions
 
-The external `rrmodem-psk`, `rrmodem-olivia`, and optional `rrmodem-ft8` executables can run
-under **rrclient**, against PCM decoded from a *remote rig* or a *local/remote
-SDR bridge*, without installing them on rrserver. The selected stream is
-16 kHz mono signed 16-bit audio, written nonblocking to the child's FD 4.
-Decoded application bytes from FD 1 are printed in the client output.
+The GTK Terminal tab now offers **Decoders…**, a standalone window with
+eight independent receive-only decoder slots. Each slot can choose a remote
+rig/SDR or local SDR **PCM stream** by ID, an external PSK/Olivia/FT8
+worker, its modulation options, and numeric tuning parameters. Decoded
+characters appear in that slot's own scrollable text pane. The window
+sends control requests to the client **core** through the event bus;
+GTK never launches workers or touches RX routing data directly.
+
+- PSK: BPSK/QPSK31/63/125; audio carrier 100–3500 Hz.
+- Olivia: selectable tones (4–64) and bandwidth (125/250/500/1000/2000 Hz).
+- FT8: built-in synchronization and passband search; no general-purpose
+  automatic mode classification. Its decoder retains real-time slot timing.
+- “Start / Apply” replaces **only that slot's** worker with the chosen
+  source/settings; “Stop” leaves other decoders untouched.
+- All slots are RX-only; the worker's FD5 transmit PCM is never routed to
+  the rig. Each receives 16 kHz mono PCM on FD4, and text via FD1.
+
+Command-line operation (TUI/GTK):
 
 ```text
 /modem list
@@ -266,27 +279,23 @@ Decoded application bytes from FD 1 are printed in the client output.
 /modem start olivia <stream-id> 8 500
 /modem start ft8 <stream-id>
 /modem status
-/modem stop
+/modem stop 1
 ```
 
-The stream ID is copied exactly from `/modem list` (it identifies a single
-receiver route; it is not a rig/VFO index). The active local session is
-independent of the floating `ttyMODEM` alias, which continues following the
-selected *server-side* modem. Starting another local session replaces the
-previous one. A single process may be attached to a stream at a time in this
-first version.
+Use an optional final slot number (1..8) with `/modem start` to replace
+a specific decoder; otherwise the first free slot is used. The original
+unnumbered `ttyMODEM` remains a **separate**, server-side active-modem
+alias, unrelated to these client-local receive-only sessions.
 
-Build PSK/Olivia workers with `make -C modems`; install them with
-`sudo make -C modems install`. For a source checkout, rrclient also looks for
-`modems/rrmodem-psk` or `modems/rrmodem-olivia` relative to its working
-directory.
+The worker programs are external: `make -C modems` builds PSK/Olivia,
+and `sudo make -C modems install` installs them.
+The optional FT8 worker is separately built under `modems/ft8/`.
+rrclient checks installed worker paths first, then local build paths.
 
-**Safety / limitations:** receive-only. Client-local workers cannot key PTT;
-FD 5 is intentionally never read/routed to the transmitter, and the
-application byte-stream is not used as an RF transmit request. Live decoded
-text is printed to the common client output, not yet a dedicated terminal
-tab. PCM delivery is best-effort with nonblocking writes; overload may drop
-samples. Worker parameters currently take command arguments and are not yet
-synchronized with the AF waterfall's numeric offset controls. Per-stream
-independent sessions, modem discovery/capabilities, and a proper TNC interface
-are subsequent improvements.
+**Current limitations:** at most eight sessions and bounded text buffers;
+an overloaded decoder can lose samples rather than stall PCM callbacks.
+There is no automatic PSK-versus-Olivia classification, AFC for PSK,
+per-decoder AF waterfall crosshairs, or server-backed tuning ACK yet.
+Numeric tuning adjustments restart the selected decoder. FT8 requires
+correct slot timing and has separate resampler limitations. There is no
+client-driven RF TX/PTT path.
