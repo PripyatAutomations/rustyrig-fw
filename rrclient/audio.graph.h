@@ -38,6 +38,7 @@ typedef struct {
    rr_ag_node_type_t type;
    rr_ag_health_t health;
    char route;
+   float input_gain_db[2]; /* L/R mixer input trim, 0 dB = unity */
    char rig[96];                /* Display identity for an RX stream (site.rig), not its routing ID. */
 } rr_ag_view_node_t;
 typedef struct {
