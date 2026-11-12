@@ -1982,6 +1982,7 @@ static void rrclient_handle_domain_identity(const char *event, const char *data,
       const char *uuid = dict_get(identity, "domain.server", "");
       rrclient_connection_set_identity(connection, domain, uuid);
       rrclient_connection_learn_expected_node(connection, station, domain, uuid);
+      rrclient_connection_pin_verified_identity(connection, station, domain, uuid);
    }
    dict_free(identity);
 }
