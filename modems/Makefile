@@ -73,7 +73,7 @@ rrmodem-olivia: olivia/rrmodem-olivia.cpp common/pcm16k.h $(OLIVIA_LIBRARY)
 
 $(BUILD_DIR)/tests/psk-%: $(PSK_SRC)/tests/test_%.c $(PSK_LIBRARY)
 	@mkdir -p "$(@D)"
-	$(CC) $(CPPFLAGS) $(CFLAGS) -std=c99 -I"$(PSK_SRC)/include" $(LDFLAGS) -o "$@" "$<" "$(PSK_LIBRARY)" $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -std=c99 -D_DEFAULT_SOURCE -I"$(PSK_SRC)/include" $(LDFLAGS) -o "$@" "$<" "$(PSK_LIBRARY)" $(LDLIBS)
 
 test: all $(PSK_TESTS)
 	@set -e; for t in $(PSK_TESTS); do echo "[TEST] $$t"; "./$$t"; done
