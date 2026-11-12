@@ -22,9 +22,6 @@ arch archpkg:
 	@echo "Sorry, arch packaging isn't ready yet"
 
 
-#modem-debs:
-#	WITH_FT8=yes dpkg-buildpackage -b -us -uc
-
 install-modems:
-	install -Dm755 modems/ft8/rrmodem-ft8 /var/lib/rustyrig/modems/rrmodem-ft8
+	$(MAKE) -C modems install
 

@@ -10,9 +10,10 @@ DEB_TRANSPORT_FLAGS := USE_MONGOOSE=false
 include mk/optional-modules.mk
 include mk/install-paths.mk
 
-# FT8 is optional: external ft8_lib is only needed for this binary package.
-WITH_FT8 ?= no
-FT8_DH_EXCLUDE := $(if $(filter yes true 1,$(WITH_FT8)),,-Nrustyrig-modem-ft8)
+# Modems are built together by default; disable explicitly for restricted builds.
+WITH_MODEMS ?= yes
+MODEMS_ENABLED := $(filter yes true 1,$(WITH_MODEMS))
+MODEMS_DH_EXCLUDE := $(if $(MODEMS_ENABLED),,-Nrustyrig-modems)
 
 # Optional packages are omitted consistently at every debhelper stage.
 define optional_install_rule
@@ -34,7 +35,7 @@ endif
 endif
 
 %:
-	dh $@ $(OPTIONAL_DH_EXCLUDES) $(FT8_DH_EXCLUDE)
+	dh $@ $(OPTIONAL_DH_EXCLUDES) $(MODEMS_DH_EXCLUDE)
 
 # Keep package builds independent of the optional hardware/integration test suite.
 override_dh_auto_test:
@@ -43,6 +44,7 @@ override_dh_auto_test:
 override_dh_auto_clean:
 	$(MAKE) distclean || true
 	$(MAKE) -C gmatrix clean || true
+	$(MAKE) -C modems clean || true
 	$(MAKE) -C modems/ft8 clean || true
 
 override_dh_auto_build:
@@ -51,23 +53,21 @@ override_dh_auto_build:
 	# when packaging follows a prior developer build of a different profile.
 	rm -f bin/rrserver bin/rrserver-gps-nmea.so bin/rrserver-gpsd.so bin/rrserver-hamlib.so bin/rr-dds-si5351 bin/fwdsp bin/rrbridge bin/rrbridge-kiwi.so libfwdspmgr.so
 	# Compile server-side binaries and shared helpers with their own profile.
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(DEB_TRANSPORT_FLAGS) $(OPTIONAL_MAKE_FLAGS)
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(DEB_TRANSPORT_FLAGS) WITH_MODEMS=$(WITH_MODEMS) $(OPTIONAL_MAKE_FLAGS)
 	# Executables live in bin/, not build/PROFILE: prevent cross-profile reuse.
 	rm -f bin/rrclient bin/rrclient-gtk.so bin/rrpipelines gmatrix/gmatrix
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(CLIENT_PROFILE) $(DEB_TRANSPORT_FLAGS) WITH_HAMLIB=no
-ifneq ($(filter yes true 1,$(WITH_FT8)),)
-	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
-endif
-
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(CLIENT_PROFILE) $(DEB_TRANSPORT_FLAGS) WITH_HAMLIB=no WITH_MODEMS=$(WITH_MODEMS)
 override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/rustyrig-common/usr/lib/rustyrig/admin-permissions
 	install -Dm755 bin/rrbridge debian/rustyrig-rrbridge$(LIBEXECDIR)/rrbridge
 	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-rrbridge$(MODULEDIR)/rrbridge/rrbridge-kiwi.so
+ifneq ($(MODEMS_ENABLED),)
+	install -Dm755 modems/rrmodem-psk debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-psk
+	install -Dm755 modems/rrmodem-olivia debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-olivia
+	install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-ft8
+endif
 	install -Dm755 bin/rrserver debian/rustyrig-server$(BINDIR)/rrserver
 	install -Dm755 bin/rr-password-hash debian/rustyrig-server/usr/lib/rustyrig/rr-password-hash
-ifneq ($(filter yes true 1,$(WITH_FT8)),)
-	install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modem-ft8/var/lib/rustyrig/modems/rrmodem-ft8
-endif
 	install -Dm755 bin/rr-dds-si5351 debian/rustyrig-server$(BINDIR)/rr-dds-si5351
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server$(MODULEDIR)/rrserver/rrserver-gps-nmea.so
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
@@ -155,6 +155,6 @@ override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start --no-stop-on-upgrade
 
 override_dh_installdeb:
-	dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(FT8_DH_EXCLUDE)
+	dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(MODEMS_DH_EXCLUDE)
 	# dh_installdeb combines package preinst scripts with .maintscript migrations.
 	# Do not overwrite its generated preinst: that would disable rm_conffile.

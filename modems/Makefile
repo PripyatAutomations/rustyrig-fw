@@ -8,7 +8,9 @@ CC ?= cc
 CXX ?= c++
 AR ?= ar
 EXT ?= ../ext
-PREFIX ?= /var/lib/rustyrig/modems
+PREFIX ?= /usr
+LIBEXECDIR ?= $(PREFIX)/libexec/rustyrig
+MODEMDIR ?= $(LIBEXECDIR)/modems
 BUILD_DIR ?= build
 PSK_SRC := $(EXT)/libpsk
 OLIVIA_SRC := $(EXT)/olivia-modem
@@ -28,9 +30,16 @@ FT8_LIB ?= ../ext/ft8_lib
 
 PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback snr modes))
 
-.PHONY: all test test-snr ft8-snr install clean fetch
-all: rrmodem-psk rrmodem-olivia
+.PHONY: all test test-snr ft8-snr test-ft8 install clean fetch
+all: rrmodem-psk rrmodem-olivia rrmodem-ft8
 fetch: $(PSK_SRC)/CMakeLists.txt $(OLIVIA_SRC)/CMakeLists.txt
+	@if test ! -f "$(FT8_LIB)/Makefile"; then if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+		$(GIT) -C .. submodule update --init ext/ft8_lib; \
+	elif test ! -e "$(FT8_LIB)"; then \
+		$(GIT) clone https://github.com/kgoba/ft8_lib.git "$(FT8_LIB)"; \
+	else \
+		echo "Incomplete existing FT8 source tree: $(FT8_LIB)" >&2; exit 1; \
+	fi; fi
 
 # CMakeLists.txt is only a pre-existing checkout marker: cmake is NOT invoked.
 $(PSK_SRC)/CMakeLists.txt:
@@ -73,6 +82,21 @@ rrmodem-psk: psk/rrmodem-psk.c common/pcm16k.h $(PSK_LIBRARY)
 rrmodem-olivia: olivia/rrmodem-olivia.cpp common/pcm16k.h $(OLIVIA_LIBRARY)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I"$(OLIVIA_SRC)/include" $(LDFLAGS) -o "$@" olivia/rrmodem-olivia.cpp "$(OLIVIA_LIBRARY)" $(LDLIBS)
 
+rrmodem-ft8:
+	@if test ! -f "$(FT8_LIB)/Makefile"; then \
+		if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+			$(GIT) -C .. submodule update --init ext/ft8_lib; \
+		elif test ! -e "$(FT8_LIB)"; then \
+			$(GIT) clone https://github.com/kgoba/ft8_lib.git "$(FT8_LIB)"; \
+		else \
+			echo "Incomplete existing FT8 source tree: $(FT8_LIB)" >&2; exit 1; \
+		fi; \
+	fi
+	$(MAKE) -C ft8 FT8_LIB="$(abspath $(FT8_LIB))"
+
+test-ft8: rrmodem-ft8
+	@echo "FT8 worker built successfully"
+
 $(BUILD_DIR)/tests/psk-%: $(PSK_SRC)/tests/test_%.c $(PSK_LIBRARY)
 	@mkdir -p "$(@D)"
 	$(CC) $(CPPFLAGS) $(CFLAGS) -std=gnu11 -I"$(PSK_SRC)/include" $(LDFLAGS) -o "$@" "$<" "$(PSK_LIBRARY)" $(LDLIBS)
@@ -104,8 +128,9 @@ ft8-snr:
 	python3 tests/ft8_snr.py --ft8-lib "$(FT8_LIB)"
 
 install: all
-	install -d "$(DESTDIR)$(PREFIX)"
-	install -m 0755 rrmodem-psk rrmodem-olivia "$(DESTDIR)$(PREFIX)/"
+	install -d "$(DESTDIR)$(MODEMDIR)"
+	install -m 0755 rrmodem-psk rrmodem-olivia ft8/rrmodem-ft8 "$(DESTDIR)$(MODEMDIR)/"
 
 clean:
 	rm -rf "$(BUILD_DIR)" rrmodem-psk rrmodem-olivia
+	$(MAKE) -C ft8 clean

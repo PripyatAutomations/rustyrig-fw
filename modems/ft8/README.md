@@ -10,11 +10,11 @@ git submodule update --init ext/ft8_lib
 make -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 ```
 
-The normal RustyRig build does not build or require ft8_lib.\nOptional Debian build (after initializing the submodule):
-`WITH_FT8=yes dpkg-buildpackage -b -us -uc`.
-This produces `rustyrig-modem-ft8` and installs the worker to
-`/var/lib/rustyrig/modems/rrmodem-ft8`. Upstream ft8_lib builds with
-its normal Makefile, not CMake. It creates rustyrig-modem-ft8.\n The optional
+The standard modem build includes FT8 together with PSK and Olivia.\nDebian build (with WITH_MODEMS=yes by default):
+`dpkg-buildpackage -b -us -uc`.
+The `rustyrig-modems` package installs the worker to
+`/usr/libexec/rustyrig/modems/rrmodem-ft8`. Upstream ft8_lib builds with
+its normal Makefile, not CMake. It creates the receive-only FT8 worker executable.\n The FT8
 worker can be copied to a known absolute path or launched from your build
 tree. Do not launch through an untrusted shell.
 
@@ -49,7 +49,7 @@ dictionary has not been implemented.
 
 ```ini
 [serial]
-;ttyMODEM0=modem:/var/lib/rustyrig/modems/rrmodem-ft8
+;ttyMODEM0=modem:/usr/libexec/rustyrig/modems/rrmodem-ft8
 
 [serial:ttyMODEM0]
 rig=rig0
