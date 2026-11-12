@@ -57,10 +57,6 @@ override_dh_auto_build:
 	# Executables live in bin/, not build/PROFILE: prevent cross-profile reuse.
 	rm -f bin/rrclient bin/rrclient-gtk.so bin/rrpipelines gmatrix/gmatrix
 	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(CLIENT_PROFILE) $(DEB_TRANSPORT_FLAGS) WITH_HAMLIB=no WITH_MODEMS=$(WITH_MODEMS)
-ifneq ($(MODEMS_ENABLED),)
-	$(MAKE) -C modems -j$(DEB_BUILD_JOBS) all
-endif
-
 override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/rustyrig-common/usr/lib/rustyrig/admin-permissions
 	install -Dm755 bin/rrbridge debian/rustyrig-rrbridge$(LIBEXECDIR)/rrbridge
