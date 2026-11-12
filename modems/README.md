@@ -1,6 +1,6 @@
 # PSK / Olivia experimental external workers
 
-This is a staging area for independently packaged modem processes. Neither
+This is a staging area for isolated modem processes packaged together as `rustyrig-modems`. Neither
 third-party library is copied or extracted. Build with:
 
 ```sh
@@ -22,8 +22,8 @@ shared negotiated resampler before production RF decoding.
 
 ```ini
 [serial]
-;ttyMODEM0=modem:/var/lib/rustyrig/modems/rrmodem-psk BPSK31 1500
-;ttyMODEM1=modem:/var/lib/rustyrig/modems/rrmodem-olivia 8 500
+;ttyMODEM0=modem:/usr/libexec/rustyrig/modems/rrmodem-psk BPSK31 1500
+;ttyMODEM1=modem:/usr/libexec/rustyrig/modems/rrmodem-olivia 8 500
 ;[serial:ttyMODEM0]
 ;rig=rig0
 ;[serial:ttyMODEM1]
