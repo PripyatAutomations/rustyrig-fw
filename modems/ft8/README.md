@@ -12,9 +12,9 @@ make -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 
 The standard modem build includes FT8 together with PSK and Olivia.\nDebian build (with WITH_MODEMS=yes by default):
 `dpkg-buildpackage -b -us -uc`.
-This produces `rustyrig-modems` and installs the worker to
+The `rustyrig-modems` package installs the worker to
 `/usr/libexec/rustyrig/modems/rrmodem-ft8`. Upstream ft8_lib builds with
-its normal Makefile, not CMake. It creates rustyrig-modems.\n The FT8
+its normal Makefile, not CMake. The build produces the FT8 worker executable.\n The FT8
 worker can be copied to a known absolute path or launched from your build
 tree. Do not launch through an untrusted shell.
 
