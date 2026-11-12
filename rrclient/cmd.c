@@ -259,8 +259,8 @@ client_cmd_t client_cmds[] = {
       .cmd = "txcodec", .help_section = "Media", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]"
    },
    {
-      .cmd = "modem", .help_section = "Media", .cb = cmd_local_modem, .max_args = 5,
-      .desc = "Local RX modem: LIST | STATUS | START <psk|olivia> <stream> [mode|tones] [carrier|bandwidth] | STOP"
+      .cmd = "modem", .help_section = "Media", .cb = cmd_local_modem, .max_args = 6,
+      .desc = "Local RX decoders: LIST | STATUS | START <psk|olivia|ft8> <stream> [mode|tones] [carrier|bandwidth] [slot] | STOP <slot>"
    },
    {
       .cmd = "sercom", .help_section = "Serial", .cb = cmd_sercom, .max_args = 4,
