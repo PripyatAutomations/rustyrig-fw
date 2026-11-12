@@ -88,7 +88,11 @@ static gboolean poll_decoders(gpointer unused) {
          } else if (errno == EINTR) {
             continue;
          } else {
-            if (errno != EAGAIN && errno != EWOULDBLOCK) ended = true;
+            if (errno != EAGAIN
+#if EWOULDBLOCK != EAGAIN
+                && errno != EWOULDBLOCK
+#endif
+               ) ended = true;
             break;
          }
       }
@@ -114,7 +118,7 @@ void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) 
    g_mutex_unlock(&decoder_lock);
 }
 static bool source_present(const char *source) {
-   struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {{0}};
+   struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {0};
    size_t n = audio_rx_streams(streams, G_N_ELEMENTS(streams));
    for (size_t i = 0; i < n && i < G_N_ELEMENTS(streams); i++)
       if (!strcmp(streams[i].id, source)) return true;
@@ -196,7 +200,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
 }
 static void publish_snapshot(void) {
    rr_local_modem_snapshot_t *snapshot = g_new0(rr_local_modem_snapshot_t, 1);
-   struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {{0}};
+   struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {0};
    size_t n = audio_rx_streams(streams, G_N_ELEMENTS(streams));
    snapshot->sources = MIN(n, G_N_ELEMENTS(streams));
    for (unsigned i = 0; i < snapshot->sources; i++)
@@ -281,7 +285,7 @@ bool cmd_local_modem(int argc, char **argv) {
       return false;
    }
    if (argc == 2 && !strcasecmp(argv[1], "list")) {
-      struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {{0}};
+      struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {0};
       size_t n = audio_rx_streams(streams, G_N_ELEMENTS(streams));
       for (size_t i = 0; i < n && i < G_N_ELEMENTS(streams); i++)
          ui_print(NULL, "%s (%s / %s)", streams[i].id,
