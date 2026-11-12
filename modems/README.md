@@ -39,3 +39,28 @@ Olivia is GPL-3.0-or-later. libpsk source headers claim MIT but its README
 license section says GPL-3.0: treat it as GPL-3.0 pending clarification.
 Keep both workers separate from rrserver; later move each worker directory
 and its build/packaging rules into standalone repositories.
+
+## Weak-signal AWGN benchmarks
+
+```sh
+make -C modems test-snr      # PSK31 and Olivia 8/500 (standalone modem APIs)
+make -C modems ft8-snr       # optional FT8, pulls existing ft8_lib submodule
+```
+
+These are *measurement* targets, not pass/fail sensitivity certifications.
+They print full-message recovery counts over deterministic Gaussian noise seeds.
+PSK31 spans +10 through -35 dB (5 trials/point); Olivia 8/500 spans
++10 through -30 dB (3 trials/point); FT8 spans +5 through -30 dB
+(3 trials/point) with a generated 15-second WAV slot. FT8 may take longer.
+
+**SNR definition:** measured clean waveform mean-square divided by injected
+noise variance across the **entire sampled Nyquist bandwidth**. This differs
+from the conventional FT8 SNR referenced to 2500 Hz. Do not compare the
+absolute SNR numbers to WSJT-X reports without reference-bandwidth conversion.
+The tests are idealized waveform→decoder tests, not over-the-air measurements.
+They omit frequency error, fading, interference, clock drift and real audio-path
+resampling. The FT8 runner uses the upstream WAV generator and decoder, not the
+live rrmodem-ft8 worker's wall-clock and 16-to-12 kHz resampler.
+
+For an exact production sensitivity test, add worker-end-to-end test fixtures
+and check both decoding and false positives with noise-only inputs.
