@@ -975,7 +975,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    GtkWidget *rx_label = gtk_label_new("RX");
    GtkWidget *tx_label = gtk_label_new("TX");
    p->modem_rx_spin = gtk_spin_button_new_with_range(0, RR_AF_MAX_HZ, 1);
-   p->modem_tx_spin = gtk_spin_button_new_with_range(0, 4000, 1);
+   p->modem_tx_spin = gtk_spin_button_new_with_range(0, RR_AF_MAX_HZ, 1);
    gtk_entry_set_width_chars(GTK_ENTRY(p->modem_rx_spin), 5);
    gtk_entry_set_width_chars(GTK_ENTRY(p->modem_tx_spin), 5);
    gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(p->modem_rx_spin), TRUE);
