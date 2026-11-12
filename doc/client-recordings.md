@@ -11,10 +11,17 @@ writes two copies of the same PCM in parallel with a shared
 presented to the client playback DSP before the final speaker sink.
 
 Click **STOP** to close the encoder input. When encoding has finished, a
-name prompt appears; Cancel leaves the automatically generated name. An
-example filename is:
+name prompt appears; Cancel leaves the automatically generated name. Example filenames now use a readable frequency and timestamps, without forcing
+unknown CAT modes into the name:
 
-`RX - 14370000USB - rplywv00-rig0.rplywv00-rig0.A - 2026-11-10_00-00-00 - 2026-11-10_00-12-34.ogg`
+`2026-11-12_15-38-00 - 10.004 MHz - Local_monitor - RX - end-15-38-07.ogg`
+
+`2026-11-12_15-38-00 - 14.37 MHz USB - rplywv00.rig0.A - RX - end-15-38-07.flac`
+
+The start date is included only once; the ending clock time follows `end-`.
+The full, unrounded frequency, CAT mode, rig and receiver identities remain
+available in the codec metadata. New filenames are generated for new recordings;
+existing files are not renamed automatically.
 
 Recordings include available title, user, timestamp, frequency, mode, site,
 rig and VFO tags. The core-thread snapshot supplies the logged-in username, connected server,
@@ -26,9 +33,20 @@ local timestamps, without UUIDs. The unique recording ID remains in the
 Ogg/FLAC metadata, linking formats from the same recording. If a filename
 already exists, a numeric suffix such as `(2)` is added before recording.
 
+The recording manager presents a hierarchical, expandable folder/file tree (up to
+24 directory levels and 3000 entries for responsiveness). A `..` parent entry
+appears while browsing a subfolder, but never at the Recordings root.
+Drag a recording onto a folder to move it, including its Ogg/FLAC companion
+when present; invalid moves outside the recordings root and collisions
+are rejected. Symlinked folders are not traversed. The Rename / Move dialog
+remains available for renaming or choosing a destination explicitly.
+
 The list can play files through the existing RX PCM engine by decoding into
 two separately routed L/R input streams. The Play and Stop Playback buttons
-control this source. Rename/Move offers a new name and a dropdown listing
+control this source. At natural EOF the worker now marks its L/R streams as
+finite, allowing the final sub-80 ms PCM block to bypass the normal
+startup prebuffer; the playback-finished event occurs only after the mixer
+queues drain. An explicit Stop still terminates immediately. Rename/Move offers a new name and a dropdown listing
 the Recordings root and all existing nested subdirectories. Moves are
 restricted to the managed recording tree.
 Paired Ogg/FLAC formats move together. Download copies to a selected

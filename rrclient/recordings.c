@@ -110,6 +110,51 @@ static char *safe(const char *text) {
       if (!g_ascii_isalnum(*p) && !strchr("._-", *p)) *p = '_';
    return s;
 }
+/* Human-readable filenames, while keeping exact Hz/mode/site in Ogg/FLAC tags.
+ * Never concatenate an unknown CAT mode onto a naked frequency integer. */
+static char *recording_frequency(const char *hz_text) {
+   if (!hz_text || !*hz_text) return NULL;
+   char *end = NULL;
+   guint64 hz = g_ascii_strtoull(hz_text, &end, 10);
+   if (end == hz_text || *end || !hz) return NULL;
+   double value = hz >= 1000000 ? (double)hz / 1000000.0 :
+                  hz >= 1000 ? (double)hz / 1000.0 : (double)hz;
+   const char *unit = hz >= 1000000 ? "MHz" : hz >= 1000 ? "kHz" : "Hz";
+   char number[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_formatd(number, sizeof(number), "%.6f", value);
+   char *dot = strchr(number, '.');
+   if (dot) {
+      char *p = number + strlen(number) - 1;
+      while (p > dot && *p == '0') *p-- = 0;
+      if (p == dot) *p = 0;
+   }
+   return g_strdup_printf("%s %s", number, unit);
+}
+static char *recording_stem(const rr_recording_tags *tags, const char *stamp) {
+   char *frequency = recording_frequency(tags->frequency);
+   const char *mode = tags->mode && *tags->mode &&
+      g_ascii_strcasecmp(tags->mode, "unknown") ? tags->mode : NULL;
+   const char *site = tags->site && *tags->site ? tags->site : NULL;
+   const char *rig = tags->rig && *tags->rig ? tags->rig : NULL;
+   const char *vfo = tags->vfo && *tags->vfo ? tags->vfo : NULL;
+   gboolean generic = (!site || !strcmp(site, "local")) &&
+      (!rig || !strcmp(rig, "receiver"));
+   /* For client-local SDRs prefer their actual PCM source identifier. */
+   const char *source = tags->sources && *tags->sources ? tags->sources : NULL;
+   char *source_name = source ? g_strndup(source, strcspn(source, ",; \n\t")) : NULL;
+   char *location = generic ? g_strdup(source_name && *source_name ? source_name : "Local monitor") :
+      g_strdup_printf("%s%s%s%s%s", site ? site : "Remote",
+         rig ? "." : "", rig ? rig : "",
+         vfo && *vfo ? "." : "", vfo ? vfo : "");
+   char *safe_location = safe(location);
+   char *safe_mode = mode ? safe(mode) : NULL;
+   char *stem = g_strdup_printf("%s - %s%s%s - %s - RX", stamp,
+      frequency ? frequency : "Audio",
+      safe_mode ? " " : "", safe_mode ? safe_mode : "", safe_location);
+   g_free(frequency); g_free(location); g_free(source_name);
+   g_free(safe_location); g_free(safe_mode);
+   return stem;
+}
 static char *make_path(const char *base, const char *suffix) {
    char *dir = rr_recordings_directory();
    char *path = g_strdup_printf("%s/%s.%s", dir, base, suffix);
@@ -122,8 +167,17 @@ static char *rename_with_end(const char *oldpath, const char *stamp) {
    const char *ext = strrchr(oldpath, '.');
    if (!ext) return g_strdup(oldpath);
    char *prefix = g_strndup(oldpath, ext - oldpath);
-   char *newpath = g_strdup_printf("%s - %s%s", prefix, stamp, ext);
-   if (g_rename(oldpath, newpath)) {
+   /* Keep end date on multi-day captures; avoid repeating it otherwise. */
+   const char *time = strchr(stamp, '_');
+   char *basename = g_path_get_basename(oldpath);
+   gboolean same_day = strlen(stamp) >= 10 && g_str_has_prefix(basename, stamp)
+      ? TRUE : strlen(stamp) >= 10 && strlen(basename) >= 10 &&
+        !strncmp(basename, stamp, 10);
+   char *newpath = g_strdup_printf("%s - end-%s%s", prefix,
+      same_day && time ? time + 1 : stamp, ext);
+   g_free(basename);
+   /* Never replace an existing recording during finalization. */
+   if (g_file_test(newpath, G_FILE_TEST_EXISTS) || g_rename(oldpath, newpath)) {
       g_free(newpath);
       newpath = g_strdup(oldpath);
    }
@@ -191,17 +245,9 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
    if (busy) return FALSE;
    GDateTime *now = g_date_time_new_now_local();
    char *stamp = g_date_time_format(now, "%Y-%m-%d_%H-%M-%S");
-   char *station = safe(tags->site);
-   char *rig = safe(tags->rig);
-   char *vfo = safe(tags->vfo);
-   char *freq = safe(tags->frequency);
-   char *mode = safe(tags->mode);
-   /* The UUID belongs in the audio metadata, not the visible filename.
-    * Preserve distinct captures made within the same second without ever
-    * overwriting an existing Ogg or FLAC (including the paired format). */
+   /* UUID stays in metadata, never in the visible filename. */
    char *id = g_uuid_string_random();
-   char *stem = g_strdup_printf("RX - %s%s - %s.%s.%s - %s",
-      freq, mode, station, rig, vfo, stamp);
+   char *stem = recording_stem(tags, stamp);
    char *base = NULL;
    for (unsigned serial = 1; serial < 1000000; serial++) {
       g_free(base);
@@ -217,7 +263,7 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
       if (serial == 999999) {
          g_warning("Unable to allocate an unused recording filename");
          g_free(stem); g_free(base); g_free(id);
-         g_free(station); g_free(rig); g_free(vfo); g_free(freq); g_free(mode); g_free(stamp);
+         g_free(stamp);
          g_date_time_unref(now);
          return FALSE;
       }
@@ -225,7 +271,7 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
    g_free(stem);
    char *ogg = format != RR_RECORD_FLAC ? make_path(base, "ogg") : NULL;
    char *flac = format != RR_RECORD_OGG ? make_path(base, "flac") : NULL;
-   g_free(base); g_free(station); g_free(rig); g_free(vfo); g_free(freq); g_free(mode); g_free(stamp);
+   g_free(base); g_free(stamp);
    g_date_time_unref(now);
    g_mutex_lock(&rec.lock);
    rec.ogg = ogg; rec.flac = flac; rec.id = id;
@@ -410,7 +456,8 @@ static gpointer playback_worker(gpointer unused) {
       // Reverse uses four-second segments, keeping PCM memory bounded.
    }
    g_free(path);
-   event_emit("client.recordings.playback-finished", NULL, NULL);
+   event_emit("client.recordings.playback-decoded", NULL,
+              stop ? "stopped" : "eof");
    return NULL;
 }
 gboolean rr_recordings_play_at(const char *path, double seconds, gboolean reverse,
