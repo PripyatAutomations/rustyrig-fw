@@ -1,3 +1,13 @@
+rustyrig-fw (1.0.3-2) unstable; urgency=medium
+
+  * Package PSK, Olivia and FT8 workers together as rustyrig-modems.
+  * Build all three by default, allow WITH_MODEMS=no to omit them.
+  * Install worker executables under /usr/libexec/rustyrig/modems,
+    outside the user PATH and writable runtime state.
+  * Align Debian, RPM and Arch package definitions.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 12 Nov 2026 00:00:00 -0500
+
 rustyrig-fw (1.0.3-1) unstable; urgency=medium
 
   * Release upstream version 1.0.3.
