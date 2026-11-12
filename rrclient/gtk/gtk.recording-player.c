@@ -258,8 +258,12 @@ static void playback_finished(const char *event, const char *payload,
       deletion_complete();
       return;
    }
+   /* The completion event now means the PCM mixer has drained the tail. */
+   player.position = (player.reverse && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(player.reverse))) ?
+      (player.envelope ? player.envelope->duration : 0.0) : 0.0;
    status("Playback finished");
    controls_update();
+   update_position();
 }
 static void playback_error(const char *event, const char *message,
                            rrconn_t *conn, void *unused) {
