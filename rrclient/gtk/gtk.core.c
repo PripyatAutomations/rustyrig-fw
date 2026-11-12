@@ -1138,7 +1138,9 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
       "Connecting to: %s\nExpected Node Name: %s\nCertificate CN: %s\n"
       "Certificate DNS SANs: %s\n\nCertificate SHA-256: %s\n"
       "Public key SPKI SHA-256: %s\nPreviously trusted SPKI: %s\n\n"
-      "Station and domain are verified against the server announcement after connecting. "
+      "After approval and successful authentication, RustyRig will save the "
+      "announced station.domain as Expected Node Name if it matches a certificate "
+      "DNS SAN and the profile has no existing node name. "
       "Verify the key fingerprint through an independent channel before accepting.",
       request.address[0] ? request.address : "(unknown)", node, cn, sans, cert,
       request.new_pin, request.old_pin[0] ? request.old_pin : "(none; first connection)");

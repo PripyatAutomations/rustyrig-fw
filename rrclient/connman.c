@@ -289,6 +289,66 @@ void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, 
       return;
    }
 }
+/* The server's authenticated station/domain announcement must be bound to
+ * the certificate's DNS SAN, not merely copied from an unverified CN or URL.
+ * Never replace an explicitly configured expected identity. */
+void rrclient_connection_learn_expected_node(rrconn_t *connection,
+      const char *station, const char *domain, const char *server_uuid) {
+#ifndef USE_MONGOOSE
+   if (!connection || !connection->authenticated || !connection->native_transport ||
+       !station || !*station || !domain || !*domain || !server_uuid ||
+       !rrclient_server_uuid_valid(server_uuid))
+      return;
+   client_server_t *s = NULL;
+   for (client_server_t *it = servers; it; it = it->next)
+      if (it->connection == connection) { s = it; break; }
+   if (!s || s->pending_tls_pin_confirmation || !s->server_uuid[0] ||
+       g_ascii_strcasecmp(s->domain, domain) ||
+       g_ascii_strcasecmp(s->server_uuid, server_uuid))
+      return;
+   const char *existing = get_server_property(s->name, "server.node-name");
+   if (existing && *existing) return;
+
+   char name[254];
+   int len = snprintf(name, sizeof(name), "%s.%s", station, domain);
+   if (len <= 0 || (size_t)len >= sizeof(name) || strlen(station) > 63 ||
+       !g_ascii_isalnum(station[0]) || station[strlen(station)-1] == '-')
+      return;
+   for (const unsigned char *p = (const unsigned char *)name; *p; p++)
+      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-'))
+         return;
+
+   const char *sans = rr_transport_wss_peer_dns_names(connection->native_transport);
+   if (!sans || !*sans) return;
+   /* The transport exposes DNS SANs as a delimited string; require an
+    * exact case-insensitive token, never a substring or wildcard. */
+   gboolean matched = FALSE;
+   gchar **tokens = g_strsplit_set(sans, ",; \t\r\n", -1);
+   for (gsize i = 0; tokens[i] && !matched; i++) {
+      const char *dns = tokens[i];
+      if (!g_ascii_strncasecmp(dns, "DNS:", 4)) dns += 4;
+      matched = *dns && !g_ascii_strcasecmp(dns, name);
+   }
+   g_strfreev(tokens);
+   if (!matched) {
+      Log(LOG_WARN, "client.identity",
+          "Refusing to learn expected node for %s: announced %s is absent from certificate DNS SANs",
+          s->name, name);
+      return;
+   }
+   if (!rrclient_database_server_set(s->name, "server.node-name", name)) {
+      Log(LOG_WARN, "client.identity",
+          "Unable to save learned expected node %s for profile %s", name, s->name);
+      return;
+   }
+   Log(LOG_AUDIT, "client.identity",
+       "Learned expected node %s for profile %s from authenticated station/domain and certificate DNS SAN",
+       name, s->name);
+#else
+   (void)connection; (void)station; (void)domain; (void)server_uuid;
+#endif
+}
+
 const char *rrclient_connection_domain(const rrconn_t *connection) {
    for (client_server_t *s = servers ; s ; s = s->next) {
       if (s->connection == connection) {
