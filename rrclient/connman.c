@@ -1317,7 +1317,7 @@ void rrclient_connection_pin_verified_identity(rrconn_t *connection,
    client_server_t *s = NULL;
    for (client_server_t *it = servers; it; it = it->next)
       if (it->connection == connection) { s = it; break; }
-   if (!s || !s->native || !s->native->learn_verified_spki ||
+   if (!s || !s->native || !s->learn_verified_spki ||
        s->pending_tls_pin_confirmation || !s->server_uuid[0] ||
        g_ascii_strcasecmp(s->domain, domain) ||
        g_ascii_strcasecmp(s->server_uuid, server_uuid))
@@ -1330,7 +1330,7 @@ void rrclient_connection_pin_verified_identity(rrconn_t *connection,
       return;
    const char *pin = get_server_property(s->name, "server.tls-spki-sha256");
    if (pin && *pin) {
-      s->native->learn_verified_spki = false;
+      s->learn_verified_spki = false;
       return; /* Never replace a stored key without explicit approval. */
    }
    const char *observed = rr_transport_wss_peer_spki_sha256(connection->native_transport);
@@ -1342,7 +1342,7 @@ void rrclient_connection_pin_verified_identity(rrconn_t *connection,
           s->name);
       return;
    }
-   s->native->learn_verified_spki = false;
+   s->learn_verified_spki = false;
    Log(LOG_AUDIT, "client.identity",
        "Pinned CA-verified TLS public key for %s (%s) after authenticated node identity",
        s->name, expected);
@@ -2146,7 +2146,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    native->connection.native_transport = native->transport;
    /* Only the no-pin, CA/hostname-verified path may learn its key
     * automatically, and only after the authenticated station identity. */
-   native->learn_verified_spki = !tofu && (!pin || !*pin);
+   s->learn_verified_spki = !tofu && (!pin || !*pin);
    s->connection = &native->connection;
    s->native = native;
    s->connected = -1;
