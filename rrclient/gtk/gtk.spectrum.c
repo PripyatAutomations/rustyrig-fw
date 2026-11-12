@@ -40,6 +40,7 @@ typedef struct {
    gint64 streams_requested_at;
    double display_gain_db;
    unsigned modem_rx_hz, modem_tx_hz;
+   GtkWidget *modem_rx_spin, *modem_tx_spin;
 } spectrum_panel_t;
 static double level(float db, double gain_db) {
    /* The FFT normalization uses 8192, half the signed 16-bit full scale. Correct the reference, then show a fixed -90..-30 dBFS window. */
@@ -412,45 +413,21 @@ static unsigned af_x_to_hz(const spectrum_panel_t *p, double x, int width) {
 }
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz) {
    hz = MIN(hz, 4000u);
-   if (tx) {
-      p->modem_tx_hz = hz;
-      waterfall_save("modem.af.tx-offset-hz", hz);
-   } else {
-      p->modem_rx_hz = hz;
-      waterfall_save("modem.af.rx-offset-hz", hz);
+   GtkWidget *spin = tx ? p->modem_tx_spin : p->modem_rx_spin;
+   unsigned *current = tx ? &p->modem_tx_hz : &p->modem_rx_hz;
+   if (*current != hz) {
+      *current = hz;
+      waterfall_save(tx ? "modem.af.tx-offset-hz" : "modem.af.rx-offset-hz", hz);
    }
-   gtk_widget_queue_draw(p->drawing);
+   if (spin && gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin)) != (int)hz) {
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), hz);
+   }
+   if (p->drawing) gtk_widget_queue_draw(p->drawing);
 }
-static void af_offsets_dialog(GtkButton *button, gpointer data) {
-   (void)button;
+static void af_spin_changed(GtkSpinButton *spin, gpointer data) {
    spectrum_panel_t *p = data;
-   GtkWidget *parent = gtk_widget_get_toplevel(p->drawing);
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Modem AF offsets",
-       GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-       "_Cancel", GTK_RESPONSE_CANCEL, "_Apply", GTK_RESPONSE_ACCEPT, NULL);
-   GtkWidget *grid = gtk_grid_new();
-   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
-   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
-   GtkWidget *rx = gtk_spin_button_new_with_range(0, 4000, 1);
-   GtkWidget *tx = gtk_spin_button_new_with_range(0, 4000, 1);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(rx), p->modem_rx_hz);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(tx), p->modem_tx_hz);
-   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("RX (Hz)"), 0, 0, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), rx, 1, 0, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("TX (Hz)"), 0, 1, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), tx, 1, 1, 1, 1);
-   GtkWidget *note = gtk_label_new("Click = RX; Shift+click = TX. These values are local presets\nuntil the server modem control protocol is available.");
-   gtk_label_set_xalign(GTK_LABEL(note), 0);
-   gtk_grid_attach(GTK_GRID(grid), note, 0, 2, 2, 1);
-   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
-   gtk_widget_show_all(dialog);
-   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-      af_offset_update(p, false, gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(rx)));
-      af_offset_update(p, true, gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(tx)));
-   }
-   gtk_widget_destroy(dialog);
+   af_offset_update(p, GTK_WIDGET(spin) == p->modem_tx_spin,
+                    (unsigned)gtk_spin_button_get_value_as_int(spin));
 }
 static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    spectrum_panel_t *p = data;
@@ -810,8 +787,6 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    p->source_refreshing = false;
    if (!present && p->source_mode == 'S') {
       p->source_mode = 'M';
-   p->modem_rx_hz = waterfall_pref("modem.af.rx-offset-hz", 1500, 4000);
-   p->modem_tx_hz = waterfall_pref("modem.af.tx-offset-hz", 1500, 4000);
       p->source_id[0] = 0;
       p->head = p->count = 0;
    }
@@ -891,6 +866,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(toolbar), sources_row, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
    p->source_mode = 'M';
+   p->modem_rx_hz = waterfall_pref("modem.af.rx-offset-hz", 1500, 4000);
+   p->modem_tx_hz = waterfall_pref("modem.af.tx-offset-hz", 1500, 4000);
    p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
    p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
    p->source = gtk_combo_box_text_new();
@@ -921,10 +898,28 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_widget_set_size_request(p->ear, 90, -1);
    gtk_widget_set_tooltip_text(p->ear, "Ear: Left / Mix / Right");
    gtk_box_pack_start(GTK_BOX(settings_row), p->ear, FALSE, FALSE, 0);
-   GtkWidget *modem_offsets = gtk_button_new_with_label("Modem offsets…");
-   gtk_widget_set_tooltip_text(modem_offsets, "Numeric RX and TX AF offsets; click/Shift+click on waterfall also selects offsets");
-   gtk_box_pack_start(GTK_BOX(settings_row), modem_offsets, FALSE, FALSE, 2);
-   g_signal_connect(modem_offsets, "clicked", G_CALLBACK(af_offsets_dialog), p);
+   /* Editable spin buttons occupy the former dialog button's toolbar space.
+    * Allow a little extra width for 4 digits plus the +/- arrows. */
+   GtkWidget *rx_label = gtk_label_new("RX");
+   GtkWidget *tx_label = gtk_label_new("TX");
+   p->modem_rx_spin = gtk_spin_button_new_with_range(0, 4000, 1);
+   p->modem_tx_spin = gtk_spin_button_new_with_range(0, 4000, 1);
+   gtk_entry_set_width_chars(GTK_ENTRY(p->modem_rx_spin), 5);
+   gtk_entry_set_width_chars(GTK_ENTRY(p->modem_tx_spin), 5);
+   gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(p->modem_rx_spin), TRUE);
+   gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(p->modem_tx_spin), TRUE);
+   gtk_spin_button_set_increments(GTK_SPIN_BUTTON(p->modem_rx_spin), 1, 50);
+   gtk_spin_button_set_increments(GTK_SPIN_BUTTON(p->modem_tx_spin), 1, 50);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(p->modem_rx_spin), p->modem_rx_hz);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(p->modem_tx_spin), p->modem_tx_hz);
+   gtk_widget_set_tooltip_text(p->modem_rx_spin, "RX audio offset (Hz); left-click waterfall to select");
+   gtk_widget_set_tooltip_text(p->modem_tx_spin, "TX audio offset (Hz); Shift+left-click waterfall to select");
+   gtk_box_pack_start(GTK_BOX(settings_row), rx_label, FALSE, FALSE, 2);
+   gtk_box_pack_start(GTK_BOX(settings_row), p->modem_rx_spin, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(settings_row), tx_label, FALSE, FALSE, 2);
+   gtk_box_pack_start(GTK_BOX(settings_row), p->modem_tx_spin, FALSE, FALSE, 0);
+   g_signal_connect(p->modem_rx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
+   g_signal_connect(p->modem_tx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
 
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
