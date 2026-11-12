@@ -14,7 +14,7 @@ Installed workers are part of the `rustyrig-modems` package under
 The top-level build defaults to `WITH_MODEMS=yes`; use `WITH_MODEMS=no`
 to skip worker builds. FT8 is included whenever modems are enabled.
 
-No CMake is required. GNU Make compiles upstream C99/C++20 sources directly\ninto \`modems/build/\` without changing their source directories.\nRequires a C compiler, a C++20 compiler, GNU Make, ar, and git.\n\nThe build clones upstream `jfrancis42/libpsk` and `jfrancis42/olivia-modem`
+No CMake is required. GNU Make compiles upstream C99/C++20 sources directly\ninto \`modems/build/\` without changing their source directories.\nRequires a C compiler, a C++20 compiler, GNU Make, ar, and git.\n\nThe build obtains upstream `jfrancis42/libpsk`, `jfrancis42/olivia-modem` and `kgoba/ft8_lib`
 to `ext/` only when their source directories do not exist; it never modifies
 an existing checkout. For reproducible packages, pin upstream commit SHAs
 before release. Offline builds work with existing checkouts.\n\`make -C modems clean\` deletes only RustyRig's modem build output, not \`ext/\`.\n\`make -C modems test\` runs libpsk's five upstream test binaries and\nsmoke-tests both receiver workers with an empty FD 4 stream.
@@ -69,3 +69,11 @@ live rrmodem-ft8 worker's wall-clock and 16-to-12 kHz resampler.
 
 For an exact production sensitivity test, add worker-end-to-end test fixtures
 and check both decoding and false positives with noise-only inputs.
+
+## Packaging
+
+`rustyrig-modems` is the dedicated Debian, RPM, and Arch split package.
+The normal build uses `WITH_MODEMS=yes` and includes PSK, Olivia, and FT8;
+`WITH_MODEMS=no` disables these workers. Worker executables are packaged at
+`/usr/libexec/rustyrig/modems/` (not `/usr/bin` or mutable `/var/lib`).
+The client and server execute them as subprocesses; they are not shell tools.
