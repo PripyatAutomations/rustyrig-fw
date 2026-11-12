@@ -161,6 +161,7 @@ gtk_module_objs += gtk/gtk.serverpick.o	# server picker window
 gtk_module_objs += gtk/gtk.syslog.o	# syslog tab
 gtk_module_objs += gtk/gtk.tabs.menu.o
 gtk_module_objs += gtk/gtk.tabs.o
+gtk_module_objs += gtk/gtk.decoders.o # independent RX decoder window
 gtk_module_objs += gtk/gtk.terminal.o
 gtk_module_objs += gtk/gtk.txpower.o	# TX power box
 gtk_module_objs += gtk/gtk.userlist.o	# GTK part of the userlist
