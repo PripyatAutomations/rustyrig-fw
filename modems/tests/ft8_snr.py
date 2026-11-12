@@ -8,36 +8,12 @@ Reports exact payload recovery; no assumed RF sensitivity threshold.
 import argparse
 import math
 import random
-import re
 import subprocess
 import sys
 import tempfile
 import wave
 from array import array
 from pathlib import Path
-
-def generate(src, message, frequency):
-    with tempfile.TemporaryDirectory() as temp:
-        original = Path(temp) / "clean.wav"
-        generated = subprocess.run(
-            [str(src / "gen_ft8"), message, str(original), str(frequency)],
-            capture_output=True, text=True)
-        if generated.returncode:
-            raise RuntimeError("gen_ft8 failed: " + generated.stderr + generated.stdout)
-        with wave.open(str(original), "rb") as f:
-            if f.getnchannels() != 1 or f.getsampwidth() != 2 or f.getframerate() != 12000:
-                raise RuntimeError("expected 12 kHz, mono, 16-bit PCM from gen_ft8")
-            samples = array("h")
-            samples.frombytes(f.readframes(f.getnframes()))
-        if sys.byteorder != "little":
-            samples.byteswap()
-        clean = [x / 32768.0 for x in samples]
-        if not clean:
-            raise RuntimeError("empty FT8 fixture")
-        power = sum(x*x for x in clean) / len(clean)
-        if not power:
-            raise RuntimeError("silent FT8 fixture")
-        yield temp, clean, power
 
 def run():
     parser = argparse.ArgumentParser()
