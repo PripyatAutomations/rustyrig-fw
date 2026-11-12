@@ -1,4 +1,4 @@
-# GNU Make builds for external PSK and Olivia workers.
+# GNU Make builds for external PSK, Olivia and FT8 workers.
 # Upstreams live in ../ext and are never modified by this build.
 # Missing sources are cloned once; existing checkouts are preserved.
 .DEFAULT_GOAL := all
@@ -32,6 +32,11 @@ PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback sn
 
 .PHONY: all test test-snr ft8-snr test-ft8 install clean fetch
 all: rrmodem-psk rrmodem-olivia rrmodem-ft8
+
+rrmodem-ft8:
+	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
+	$(MAKE) -C ft8 FT8_LIB=../../ext/ft8_lib
+ rrmodem-ft8
 fetch: $(PSK_SRC)/CMakeLists.txt $(OLIVIA_SRC)/CMakeLists.txt
 	@if test ! -f "$(FT8_LIB)/Makefile"; then if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
 		$(GIT) -C .. submodule update --init ext/ft8_lib; \
@@ -120,7 +125,7 @@ test-snr: $(BUILD_DIR)/tests/psk-snr-sweep $(BUILD_DIR)/tests/olivia-snr-sweep
 	./$(BUILD_DIR)/tests/olivia-snr-sweep
 	$(MAKE) ft8-snr
 
-# Optional FT8 benchmark. ft8_lib is already a git submodule in ext/.
+# FT8 benchmark. ft8_lib is already a git submodule in ext/.
 # The target initializes it if missing; does not reset existing checkouts.
 ft8-snr:
 	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
@@ -133,4 +138,5 @@ install: all
 
 clean:
 	rm -rf "$(BUILD_DIR)" rrmodem-psk rrmodem-olivia
+	$(MAKE) -C ft8 clean
 	$(MAKE) -C ft8 clean
