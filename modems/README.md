@@ -1,13 +1,18 @@
-# PSK / Olivia experimental external workers
+# PSK / Olivia / FT8 external modem workers
 
 This is a staging area for isolated modem processes packaged together as `rustyrig-modems`. Neither
 third-party library is copied or extracted. Build with:
 
 ```sh
-make -C modems -j4
+make -C modems -j4     # builds PSK, Olivia and FT8
 make -C modems test
 sudo make -C modems install
 ```
+
+Installed workers are part of the `rustyrig-modems` package under
+`/usr/libexec/rustyrig/modems/`, outside `/usr/bin` and writable state.
+The top-level build defaults to `WITH_MODEMS=yes`; use `WITH_MODEMS=no`
+to skip worker builds. FT8 is included whenever modems are enabled.
 
 No CMake is required. GNU Make compiles upstream C99/C++20 sources directly\ninto \`modems/build/\` without changing their source directories.\nRequires a C compiler, a C++20 compiler, GNU Make, ar, and git.\n\nThe build clones upstream `jfrancis42/libpsk` and `jfrancis42/olivia-modem`
 to `ext/` only when their source directories do not exist; it never modifies
