@@ -51,12 +51,14 @@ extern bool audio_process_frame(const char *data, size_t len);
 typedef enum {
    RR_AUDIO_CONTROL_MASTER = 1,
    RR_AUDIO_CONTROL_EAR,
-   RR_AUDIO_CONTROL_STREAM
+   RR_AUDIO_CONTROL_STREAM,
+   RR_AUDIO_CONTROL_INPUT_GAIN
 } rr_audio_control_kind_t;
 typedef struct {
    rr_audio_control_kind_t kind;
    unsigned channel;
    int percent;
+   double gain_db;
    char stream[64];
    char output;
 } rr_audio_control_request_t;
@@ -64,6 +66,7 @@ typedef struct {
 void audio_request_rx_volume(int percent);
 void audio_request_rx_channel_volume(unsigned channel, int percent);
 void audio_request_rx_stream_route(const char *id, char output);
+void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db);
 extern bool audio_set_rx_volume(int percent);
 extern bool audio_set_rx_channel_volume(unsigned channel, int percent);
 extern bool audio_set_tx_volume(int percent);
