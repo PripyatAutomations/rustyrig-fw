@@ -33,10 +33,6 @@ PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback sn
 .PHONY: all test test-snr ft8-snr test-ft8 install clean fetch
 all: rrmodem-psk rrmodem-olivia rrmodem-ft8
 
-rrmodem-ft8:
-	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
-	$(MAKE) -C ft8 FT8_LIB=../../ext/ft8_lib
- rrmodem-ft8
 fetch: $(PSK_SRC)/CMakeLists.txt $(OLIVIA_SRC)/CMakeLists.txt
 	@if test ! -f "$(FT8_LIB)/Makefile"; then if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
 		$(GIT) -C .. submodule update --init ext/ft8_lib; \
