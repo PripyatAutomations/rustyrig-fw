@@ -197,3 +197,15 @@ password. A `password-change-failed` response retains the original password
 and offers Retry. Losing the connection before confirmation leaves the saved
 password unchanged and reports uncertainty; the operator may need to update
 the profile manually if the server committed the change but the reply was lost.
+
+### Learning the expected TLS node name
+
+For a RustyRig WSS profile with no configured `server.node-name`, approving
+an unknown TLS identity does **not** immediately assign a name. After the
+server connects and authenticates, the client checks its station/domain
+announcement and server UUID against the connected identity, then requires
+the resulting `station.domain` to appear exactly in the certificate DNS SAN.
+Only then is `server.node-name` saved to the client database. Existing
+expected names are never overwritten. This also works for a profile whose
+URL is an IP address (for example, `wss://127.0.0.1:4420/ws/`), so future
+connections can verify the expected DNS identity explicitly.
