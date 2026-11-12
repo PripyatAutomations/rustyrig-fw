@@ -62,26 +62,29 @@ static GSource *rx_maintenance_source;
 static rr_audio_engine_t *rx_engine;
 static GMutex rx_sink_lock;
 static int rx_sink_fd = -1;
-static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
+/* Pre-fader routed stereo: stable for recording and AF measurements regardless
+ * of user RX gain/volume. Source-specific modem taps run even on muted routes. */
+static void rx_analysis_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
-   /* Capture exactly what the local mixer sends to the speaker pipeline:
-    * routed, summed and adjusted for each ear. The spectrum push is a
-    * try-lock copy; FFT and GTK stay completely off the audio thread. */
    if (frames && frames <= 1024) {
       int16_t left[1024], right[1024], mixed[1024];
       for (size_t i = 0 ; i < frames ; i++) {
          left[i] = pcm[2 * i];
          right[i] = pcm[2 * i + 1];
-         mixed[i] = (int16_t)(((int32_t) left[i] + right[i]) / 2);
+         mixed[i] = (int16_t)(((int32_t)left[i] + right[i]) / 2);
       }
       rr_af_spectrum_push("output:left", left, frames);
       rr_af_spectrum_push("output:right", right, frames);
       rr_af_spectrum_push("output:mixed", mixed, frames);
    }
    rr_recordings_push(pcm, frames);
+}
+/* Post-fader PCM goes exclusively to the speaker's fwdsp sink. */
+static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
+   (void)user;
    g_mutex_lock(&rx_sink_lock);
-
-   if (rx_sink_fd >= 0 && !fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t))) {
+   if (rx_sink_fd >= 0 &&
+       !fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t))) {
       close(rx_sink_fd);
       rx_sink_fd = -1;
    }
@@ -1192,6 +1195,7 @@ bool audio_init(void) {
 
       return true;
    }
+   rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
    rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
    rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
    GSource *maintenance = g_timeout_source_new_seconds(10);
