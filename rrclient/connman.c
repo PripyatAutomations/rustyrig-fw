@@ -2080,13 +2080,28 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!ca || !*ca) {
       ca = cfg_get("tls.ca-file");
    }
-   /* The logical TLS name is independent of the URL's dial address. Require an explicit per-profile hostname when dialing by IP/alias;
-    * never substitute a claimed peer identity after the TLS handshake. */
-   /* IRC is an ordinary public TLS client, not a RustyRig mesh peer:
-    * use CA/hostname validation and never consult node identity or SPKI/TOFU.
-    * An explicit tls-name may override the URL hostname for an IRC server. */
-   const char *tls_name = endpoint.irc ? NULL : get_server_property(s->name, "server.node-name");
-   if (!tls_name || !*tls_name) tls_name = get_server_property(s->name, "server.tls-name");
+   /* IRC retains independent public TLS behavior and uses no station or
+    * RustyRig pinning policy. Its explicit tls-name override is unchanged. */
+   /* Dial address and certificate identity are distinct. The checkbox
+    * selects the trusted station name, not the CA/TOFU/SPKI trust policy.
+    * Without a learned station name yet, TOFU approval plus authenticated
+    * station/SAN matching will establish one. */
+   const char *ignore_value = endpoint.irc ? NULL :
+      get_server_property(s->name, "server.tls-ignore-hostname");
+   bool ignore_hostname = !endpoint.irc && ignore_value &&
+      (!g_ascii_strcasecmp(ignore_value, "true") || !strcmp(ignore_value, "1"));
+   const char *expected_node = endpoint.irc ? NULL :
+      get_server_property(s->name, "server.node-name");
+   const char *tls_name = NULL;
+   if (endpoint.irc) {
+      tls_name = get_server_property(s->name, "server.tls-name");
+   } else if (ignore_hostname) {
+      tls_name = expected_node && *expected_node ? expected_node : NULL;
+   } else {
+      /* Even when SPKI is pinned, the native transport must match the
+       * certificate against the dial host (including an IP SAN). */
+      tls_name = endpoint.host;
+   }
    const char *tofu_value = endpoint.irc ? NULL :
       get_server_property(s->name, "server.tls-trust-on-first-use");
    bool tofu = !endpoint.irc &&
@@ -2101,9 +2116,11 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
          endpoint.tls ? "CA/hostname" : "none (plaintext)",
          tls_name && *tls_name ? tls_name : endpoint.host);
    } else {
-      Log(LOG_INFO, "connman", "Native WSS profile=%s endpoint=%s:%u trust-mode=%s pin=%s expected-node=%s",
+      Log(LOG_INFO, "connman", "Native WSS profile=%s endpoint=%s:%u trust-mode=%s pin=%s cert-name=%s expected-node=%s",
          s->name, endpoint.host, endpoint.port, !tofu ? "CA/hostname" : "SPKI/approval",
-         pin && *pin ? "present" : "unapproved", tls_name && *tls_name ? tls_name : "(unspecified)");
+         pin && *pin ? "present" : "unapproved",
+         tls_name && *tls_name ? tls_name : "(learn on first trust)",
+         expected_node && *expected_node ? expected_node : "(not configured)");
    }
    rr_wss_client_options_secure_t opts = {
       .user_agent = "RustyRig/1.0",
