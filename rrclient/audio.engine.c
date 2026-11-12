@@ -51,9 +51,10 @@ static stream_t *find_stream(rr_audio_engine_t *e, const char *id) {
 
 /* All per-stream state lives under e->lock; the output callback runs only after the lock is released. Never wait on fwdsp or GTK under this lock. */
 static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *active) {
-   int32_t accum[AUDIO_BLOCK * 2] = {
-      0
-   };
+   /* Analysis/recording take raw routed PCM before per-port trims and
+    * master gain. Only the speaker mix consumes input gain adjustments. */
+   int32_t raw_accum[AUDIO_BLOCK * 2] = {0};
+   int32_t accum[AUDIO_BLOCK * 2] = {0};
    *active = false;
    g_mutex_lock(&e->lock);
 
@@ -119,10 +120,12 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
          }
 
          if (s->route != 'R') {
+            raw_accum[2 * i] += sample;
             accum[2 * i] += (int32_t)(sample * s->input_gain[0]);
          }
 
          if (s->route != 'L') {
+            raw_accum[2 * i + 1] += sample;
             accum[2 * i + 1] += (int32_t)(sample * s->input_gain[1]);
          }
       }
@@ -138,12 +141,12 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
    void *tap_user = e->pre_gain_user;
    g_mutex_unlock(&e->lock);
 
-   /* Analysis and recording must never inherit RX listening gain.
-    * Clip the summation to S16 once, then apply user gain only for playback.
+   /* Analysis and recording must never inherit input trims or RX listening gain.
+    * Clip the raw sum for taps, and independently gain the speaker mix.
     * The tap runs outside the engine lock like the speaker callback. */
    int16_t before_gain[AUDIO_BLOCK * 2];
    for (size_t i = 0 ; i < AUDIO_BLOCK * 2 ; i++) {
-      before_gain[i] = (int16_t) CLAMP(accum[i], INT16_MIN, INT16_MAX);
+      before_gain[i] = (int16_t) CLAMP(raw_accum[i], INT16_MIN, INT16_MAX);
    }
    if (*active && tap) {
       tap(before_gain, AUDIO_BLOCK, tap_user);
