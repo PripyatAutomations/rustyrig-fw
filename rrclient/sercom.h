@@ -17,6 +17,17 @@ void rr_sercom_focus_room(const char *profile, const char *room);
  * Updates the floating ttyMODEM PTY without altering numbered bindings.
  */
 bool rr_sercom_select_modem(const char *port);
+/* Core-thread GUI requests; response contains selected remote serial port
+ * and current connection status. The server owns the modem process. */
+#define RR_SERCOM_MODEM_REQUEST "client.modem.remote.request"
+#define RR_SERCOM_MODEM_SNAPSHOT "client.modem.remote.snapshot"
+typedef struct {
+   char target[64]; /* Empty = query; ttyMODEMN = change active modem */
+} rr_sercom_modem_request_t;
+typedef struct {
+   bool attached, success;
+   char profile[128], rig[64], target[64], state[96];
+} rr_sercom_modem_snapshot_t;
 void rr_sercom_shutdown(void);
 bool cmd_sercom(int argc, char **args);
 bool rr_sercom_attach(const char *name, const char *service, const char *device);
