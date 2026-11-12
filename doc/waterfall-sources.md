@@ -227,3 +227,25 @@ Acceptance: switch between two concurrent local RF-capable receivers, pin one
 while changing the active VFO, verify active-follow recovers on selection,
 and confirm left-only/right-only final output yields the appropriate cyan or
 amber pattern in the combined AF waterfall.
+
+## AF modem offset controls (GTK)
+
+When the selected rig reports a RustyRig logical modem/data mode
+(`M-U`, `M-L`, `MFM`, `D-U`, `D-L` or `DFM`), the AF waterfall
+shows distinct RX (cyan) and TX (amber) audio-frequency markers.
+
+- Left-click the AF waterfall to set the **RX** audio offset.
+- **Shift+left-click** to set the **TX** audio offset.
+- Right-click still opens the existing palette/style/zoom menu.
+- The **Modem offsets…** button opens numeric RX/TX Hz spin controls (0–4000 Hz).
+- Zoomed waterfall click coordinates map to the visible frequency range,
+  rather than the whole unzoomed 0–4000 Hz span.
+
+Offsets are currently stored in the client settings database as
+`modem.af.rx-offset-hz` and `modem.af.tx-offset-hz`.
+**These are local UI presets only**, not yet acknowledged server-modem
+settings. They do not retune the radio or enable RF transmission.
+When modem discovery/control is implemented, the active modem resource
+must own authoritative RX/TX offsets and mode-dependent ranges, and
+the GTK panel must reflect acknowledged values. No modem engine is
+embedded in the GTK client.
