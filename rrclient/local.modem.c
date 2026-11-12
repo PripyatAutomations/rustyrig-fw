@@ -99,12 +99,18 @@ static bool select_source(const char *source) {
    return false;
 }
 static const char *modem_path(const char *engine) {
-   const char *exe = !strcmp(engine, "psk") ? "rrmodem-psk" : "rrmodem-olivia";
+   const char *exe = !strcmp(engine, "psk") ? "rrmodem-psk" :
+                     !strcmp(engine, "ft8") ? "rrmodem-ft8" : "rrmodem-olivia";
    static char candidate[256];
    snprintf(candidate, sizeof(candidate), "/var/lib/rustyrig/modems/%s", exe);
    if (access(candidate, X_OK) == 0) return candidate;
    snprintf(candidate, sizeof(candidate), "modems/%s", exe);
-   return access(candidate, X_OK) == 0 ? candidate : NULL;
+   if (access(candidate, X_OK) == 0) return candidate;
+   if (!strcmp(engine, "ft8")) {
+      snprintf(candidate, sizeof(candidate), "modems/ft8/%s", exe);
+      if (access(candidate, X_OK) == 0) return candidate;
+   }
+   return NULL;
 }
 bool cmd_local_modem(int argc, char **argv) {
    if (argc == 2 && !strcasecmp(argv[1], "list")) {
@@ -125,13 +131,16 @@ bool cmd_local_modem(int argc, char **argv) {
       return false;
    }
    if (argc >= 4 && argc <= 6 && !strcasecmp(argv[1], "start") &&
-       (!strcasecmp(argv[2], "psk") || !strcasecmp(argv[2], "olivia"))) {
+       (!strcasecmp(argv[2], "psk") || !strcasecmp(argv[2], "olivia") ||
+        !strcasecmp(argv[2], "ft8"))) {
       const bool psk = !strcasecmp(argv[2], "psk");
+      const bool ft8 = !strcasecmp(argv[2], "ft8");
+      if (ft8 && argc != 4) return true;
       if (!select_source(argv[3])) {
          ui_print(NULL, "Unknown PCM stream '%s'; use /modem list", argv[3]);
          return true;
       }
-      const char *path = modem_path(psk ? "psk" : "olivia");
+      const char *path = modem_path(psk ? "psk" : ft8 ? "ft8" : "olivia");
       if (!path) {
          ui_print(NULL, "Modem executable unavailable; run make -C modems install");
          return true;
@@ -148,14 +157,15 @@ bool cmd_local_modem(int argc, char **argv) {
       for (const char *p = second; *p; p++)
          if (!g_ascii_isdigit(*p)) safe2 = false;
       if (!safe1 || !safe2 || strlen(first) > 24 || strlen(second) > 8) return true;
-      snprintf(command, sizeof(command), "%s %s %s", path, first, second);
+      if (ft8) snprintf(command, sizeof(command), "%s", path);
+      else snprintf(command, sizeof(command), "%s %s %s", path, first, second);
       modem_stop();
       g_mutex_lock(&modem_lock);
       rr_dsp_worker_init(&modem_worker);
       bool ok = rr_dsp_worker_spawn(&modem_worker, command);
       if (ok) {
          snprintf(modem_source, sizeof(modem_source), "%s", argv[3]);
-         snprintf(modem_engine, sizeof(modem_engine), "%s", psk ? "PSK" : "Olivia");
+         snprintf(modem_engine, sizeof(modem_engine), "%s", psk ? "PSK" : ft8 ? "FT8" : "Olivia");
          dropped = 0;
       }
       g_mutex_unlock(&modem_lock);
@@ -168,6 +178,6 @@ bool cmd_local_modem(int argc, char **argv) {
                modem_engine, modem_source);
       return false;
    }
-   ui_print(NULL, "Usage: /modem list | status | stop | start <psk|olivia> <PCM-stream> [mode|tones] [carrier-Hz|bandwidth-Hz]");
+   ui_print(NULL, "Usage: /modem list | status | stop | start <psk|olivia|ft8> <PCM-stream> [mode|tones] [carrier-Hz|bandwidth-Hz]");
    return true;
 }
