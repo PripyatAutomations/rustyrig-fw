@@ -68,7 +68,7 @@ Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
 Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0 (>= 0.1.0-7), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0 (>= 0.1.0-7), ${shlibs:Depends}, ${misc:Depends}
-Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3)
+Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3), rustyrig-modems (= ${binary:Version})
 Suggests: rrclient-screensaver
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
@@ -124,6 +124,6 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Breaks: rustyrig-modem-ft8
 Replaces: rustyrig-modem-ft8
 Description: External receive-only software modem workers for RustyRig
- Isolated PSK and Olivia modem executables, usable by rrserver and rrclient.
+ Isolated PSK, Olivia and FT8 modem executables, usable by rrserver and rrclient.
  Installed under /usr/libexec/rustyrig/modems, not in the user's PATH.
- FT8 is included in builds explicitly configured with WITH_FT8=yes.
+ Includes PSK, Olivia and FT8 together when WITH_MODEMS=yes (default).
