@@ -1325,9 +1325,16 @@ void rrclient_connection_pin_verified_identity(rrconn_t *connection,
    const char *expected = get_server_property(s->name, "server.node-name");
    char name[254];
    int n = snprintf(name, sizeof(name), "%s.%s", station, domain);
-   if (n <= 0 || (size_t)n >= sizeof(name) || !expected ||
-       g_ascii_strcasecmp(name, expected))
+   if (n <= 0 || (size_t)n >= sizeof(name) || !g_ascii_isalnum(station[0]) ||
+       strlen(station) > 63 || station[strlen(station)-1] == '-' ||
+       (expected && *expected && g_ascii_strcasecmp(name, expected)))
       return;
+   for (const unsigned char *p = (const unsigned char *)name; *p; p++)
+      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-'))
+         return;
+   /* An IP-only certificate can be CA/hostname verified by its IP SAN.
+    * The authenticated announced identity is still required for pinning,
+    * but we must not require a DNS SAN or auto-learn a DNS Node Name. */
    const char *pin = get_server_property(s->name, "server.tls-spki-sha256");
    if (pin && *pin) {
       s->learn_verified_spki = false;
@@ -1345,7 +1352,7 @@ void rrclient_connection_pin_verified_identity(rrconn_t *connection,
    s->learn_verified_spki = false;
    Log(LOG_AUDIT, "client.identity",
        "Pinned CA-verified TLS public key for %s (%s) after authenticated node identity",
-       s->name, expected);
+       s->name, name);
 #else
    (void)connection; (void)station; (void)domain; (void)server_uuid;
 #endif
