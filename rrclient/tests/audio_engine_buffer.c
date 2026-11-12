@@ -7,6 +7,15 @@
 #include <stdio.h>
 #include "../audio.engine.c"
 
+static int16_t last_pre_gain;
+static unsigned pre_gain_calls;
+static void verify_pre_gain(const int16_t *pcm, size_t frames, void *unused) {
+   (void)unused;
+   assert(frames == AUDIO_BLOCK);
+   last_pre_gain = pcm[200];
+   ++pre_gain_calls;
+}
+
 int main(void) {
    rr_audio_engine_t *engine = rr_audio_engine_new(NULL, NULL);
    assert(engine && rr_audio_engine_add_stream(engine, "receiver-a"));
@@ -60,6 +69,20 @@ int main(void) {
    assert(stats.overflow_samples == 0);
    assert(stats.max_push_samples == G_N_ELEMENTS(pcm));
    assert(stats.max_queued_samples >= G_N_ELEMENTS(pcm));
+
+   /* RX gain changes must alter speaker PCM but never the analyzer/recorder tap. */
+   rr_audio_engine_set_pre_gain_tap(engine, verify_pre_gain, NULL);
+   rr_audio_engine_gain(engine, 0, 0);
+   rr_audio_engine_gain(engine, 1, 0);
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 1600));
+   unsigned calls_before = pre_gain_calls;
+   tick(engine, stereo, &active);
+   assert(active && pre_gain_calls > calls_before);
+   assert(last_pre_gain > 0 && stereo[200] == 0);
+   rr_audio_engine_gain(engine, 0, 100);
+   rr_audio_engine_gain(engine, 1, 100);
+   tick(engine, stereo, &active);
+   assert(last_pre_gain > 0 && stereo[200] > 0);
 
    assert(rr_audio_engine_route(engine, "receiver-a", 'M'));
    tick(engine, stereo, &active);

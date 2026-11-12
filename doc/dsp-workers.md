@@ -297,3 +297,17 @@ per-decoder AF waterfall crosshairs, or server-backed tuning ACK yet.
 Numeric tuning adjustments restart the selected decoder. FT8 requires
 correct slot timing and has separate resampler limitations. There is no
 client-driven RF TX/PTT path.
+
+## Client PCM tap order
+
+Analysis and recording taps are deliberately **pre-fader**. Remote rig and
+local SDR source PCM feeds the per-source AF waterfall and client-local
+decoder workers before RX ear routing, mute or listening gain. The RX mixer
+also exposes a separate pre-gain stereo tap for `output:left`,
+`output:right`, `output:mixed` AF spectrum and Ogg/FLAC recordings.
+Only the speaker/fwdsp sink receives the post-gain audio.
+
+This ensures that changing the client's RX L/R gain or speaker volume does
+not alter the samples fed to decoders or stored in recordings. This is a
+fixed-level/pre-fader signal, **not** automatic loudness normalization/AGC;
+the source and upstream radio gain may still change the underlying PCM.

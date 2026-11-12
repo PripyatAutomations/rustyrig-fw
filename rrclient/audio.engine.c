@@ -31,6 +31,8 @@ struct rr_audio_engine {
    stream_t *streams;
    rr_audio_output_fn output;
    void *user;
+   rr_audio_output_fn pre_gain_tap;
+   void *pre_gain_user;
    rr_audio_engine_stats_t stats;
    int gain[2];
 };
@@ -125,8 +127,20 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
 
    e->stats.blocks++;
    int left = e->gain[0], right = e->gain[1];
+   rr_audio_output_fn tap = e->pre_gain_tap;
+   void *tap_user = e->pre_gain_user;
    g_mutex_unlock(&e->lock);
 
+   /* Analysis and recording must never inherit RX listening gain.
+    * Clip the summation to S16 once, then apply user gain only for playback.
+    * The tap runs outside the engine lock like the speaker callback. */
+   int16_t before_gain[AUDIO_BLOCK * 2];
+   for (size_t i = 0 ; i < AUDIO_BLOCK * 2 ; i++) {
+      before_gain[i] = (int16_t) CLAMP(accum[i], INT16_MIN, INT16_MAX);
+   }
+   if (*active && tap) {
+      tap(before_gain, AUDIO_BLOCK, tap_user);
+   }
    for (size_t i = 0 ; i < AUDIO_BLOCK * 2 ; i++) {
       int64_t scaled = (int64_t) accum[i] * ((i & 1) ? right : left) / 100;
       stereo[i] = (int16_t) CLAMP(scaled, INT16_MIN, INT16_MAX);
@@ -177,6 +191,13 @@ rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn fn, void *user) {
    e->user = user;
 
    return e;
+}
+void rr_audio_engine_set_pre_gain_tap(rr_audio_engine_t *e, rr_audio_output_fn tap, void *user) {
+   if (!e) return;
+   g_mutex_lock(&e->lock);
+   e->pre_gain_tap = tap;
+   e->pre_gain_user = user;
+   g_mutex_unlock(&e->lock);
 }
 bool rr_audio_engine_start(rr_audio_engine_t *e) {
    if (!e) {
