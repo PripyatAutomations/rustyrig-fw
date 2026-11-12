@@ -237,7 +237,7 @@ shows distinct RX (cyan) and TX (amber) audio-frequency markers.
 - Left-click the AF waterfall to set the **RX** audio offset.
 - **Shift+left-click** to set the **TX** audio offset.
 - Right-click still opens the existing palette/style/zoom menu.
-- The **Modem offsets…** button opens numeric RX/TX Hz spin controls (0–4000 Hz).
+- Inline **RX** and **TX** GtkSpinButton inputs provide numeric 0–4000 Hz offset tuning, with editable values and +/- arrows; no separate offset dialog. The **Modems…** button opens the shared Modem Manager (local decoder slots and server-side active modem selection).
 - Zoomed waterfall click coordinates map to the visible frequency range,
   rather than the whole unzoomed 0–4000 Hz span.
 
