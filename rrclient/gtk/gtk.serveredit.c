@@ -162,8 +162,8 @@ typedef struct {
    bool creating;
    GtkWidget *fields[5];
    char *initial[5];
-   GtkWidget *error, *direct, *tls_tofu, *node_name;
-   bool initial_direct, initial_tls_tofu;
+   GtkWidget *error, *direct, *tls_hostname, *node_name;
+   bool initial_direct, initial_tls_hostname;
 } GtkServerEditor;
 
 static void editor_refresh_certificates(GtkServerEditor *editor) {
@@ -427,7 +427,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    bool node_changed = !editor->creating &&
       g_ascii_strcasecmp(node_name, get_server_property(profile, "server.node-name") ?
          get_server_property(profile, "server.node-name") : "") != 0;
-   bool tofu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_tofu));
+   bool ignore_hostname = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_hostname));
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
       const char *value = i == 3 ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->proxy)) : gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
@@ -466,17 +466,18 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       rrclient_direct_apply_preferences();
    }
 
-   if (editor->creating || tofu != editor->initial_tls_tofu) {
-      if (!rrclient_database_server_set(profile, "server.tls-trust-on-first-use", tofu ? "true" : "false")) {
-         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save TLS trust setting.");
+   if (editor->creating || ignore_hostname != editor->initial_tls_hostname) {
+      if (!rrclient_database_server_set(profile, "server.tls-ignore-hostname",
+                                        ignore_hostname ? "true" : "false")) {
+         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save TLS hostname preference.");
          return;
       }
    }
-   /* Never carry a previously learned server key to a new URL or an
-    * explicitly disabled trust override. */
+   /* The hostname selection never changes the pinned key or CA/TOFU trust
+    * policy. Changes to the URL or expected node are identity changes. */
    const char *new_url = gtk_entry_get_text(GTK_ENTRY(editor->fields[0]));
    bool url_changed = !editor->creating && strcmp(new_url, editor->initial[0]) != 0;
-   if (url_changed || node_changed || (!tofu && editor->initial_tls_tofu)) {
+   if (url_changed || node_changed) {
       if (!rrclient_database_server_set(profile, "server.tls-spki-sha256", "")) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Unable to clear stale TLS public-key pin.");
          return;
@@ -641,17 +642,16 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       "Expected station and domain identity. Used for TLS certificate name matching and verified against the station's announced identity.");
    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Node Name"), 0, 9, 1, 1);
    gtk_grid_attach(GTK_GRID(grid), editor->node_name, 1, 9, 1, 1);
-   const char *tofu_value = profile ? get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
-   editor->initial_tls_tofu = tofu_value ?
-      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")) : false;
-   editor->tls_tofu = gtk_check_button_new_with_label("Allow self-signed TLS (approve public key)");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu), editor->initial_tls_tofu);
-   gtk_widget_set_tooltip_text(editor->tls_tofu,
-      "Allow first-use approval for self-signed certificates instead of requiring a trusted CA. "
-      "Every established RustyRig WSS identity gets a persistent SPKI public-key pin, "
-      "including normal CA-verified servers. A changed key always requires explicit approval. "
-      "Verify fingerprints independently; first-use trust is vulnerable to interception.");
-   gtk_grid_attach(GTK_GRID(grid), editor->tls_tofu, 0, 10, 2, 1);
+   const char *hostname_value = profile ? get_server_property(profile, "server.tls-ignore-hostname") : NULL;
+   editor->initial_tls_hostname = hostname_value &&
+      (!g_ascii_strcasecmp(hostname_value, "true") || !strcmp(hostname_value, "1"));
+   editor->tls_hostname = gtk_check_button_new_with_label("Ignore TLS hostname (verify station name)");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_hostname), editor->initial_tls_hostname);
+   gtk_widget_set_tooltip_text(editor->tls_hostname,
+      "Use the expected Node Name as the certificate DNS name instead of the URL dial hostname/IP. "
+      "Does not disable TLS certificate trust checks or change the saved SPKI public-key pin. "
+      "If Node Name is not configured yet, RustyRig can learn it after approved trust and an authenticated station announcement.");
+   gtk_grid_attach(GTK_GRID(grid), editor->tls_hostname, 0, 10, 2, 1);
    editor->error = gtk_label_new("");
    gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 11, 2, 1);
    GtkWidget *save = gtk_button_new_with_label("Save");
