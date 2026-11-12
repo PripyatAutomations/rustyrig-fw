@@ -4,7 +4,7 @@ This is a staging area for isolated modem processes packaged together as `rustyr
 third-party library is copied or extracted. Build with:
 
 ```sh
-make -C modems -j4     # builds PSK, Olivia and FT8
+make -C modems -j4  # PSK, Olivia and FT8     # builds PSK, Olivia and FT8
 make -C modems test
 sudo make -C modems install
 ```
@@ -19,7 +19,7 @@ to `ext/` only when their source directories do not exist; it never modifies
 an existing checkout. For reproducible packages, pin upstream commit SHAs
 before release. Offline builds work with existing checkouts.\n\`make -C modems clean\` deletes only RustyRig's modem build output, not \`ext/\`.\n\`make -C modems test\` runs libpsk's five upstream test binaries and\nsmoke-tests both receiver workers with an empty FD 4 stream.
 
-The workers currently implement **RX only**. Their fd 4 input uses the
+All three workers currently implement **RX only**. Their fd 4 input uses the
 existing rrserver 16 kHz, mono, S16LE stream and fd 1 outputs decoded bytes.
 The interim 16→8 kHz conversion is a two-sample box average, **not** a proper
 band-limited converter. This can alias high-frequency input: replace with the
