@@ -371,8 +371,8 @@ static void modem_target(const char *radio, char *target, size_t length) {
 /* A changed selection must close the old stream and discard outstanding
  * application bytes before opening the new one; keep the local PTY stable.
  */
-static void modem_switch(serial_binding_t *b, const char *target) {
-   if (!strcmp(b->host_port, target)) {
+static void modem_switch(serial_binding_t *b, const char *target, bool force) {
+   if (!force && !strcmp(b->host_port, target)) {
       return;
    }
    if (b->stream) {
@@ -400,7 +400,7 @@ bool rr_sercom_select_modem(const char *port) {
    char key[128];
    snprintf(key, sizeof(key), "serial.modem.active.%s", b->radio);
    dict_add(cfg, key, port);
-   modem_switch(b, port);
+   modem_switch(b, port, false);
    host_sync(b);
    Log(LOG_INFO, "serial.modem", "ttyMODEM on %s now selects %s", b->radio, port);
    return true;
@@ -467,7 +467,7 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
       }
 
       if (modem) {
-         modem_switch(b, modem_port);
+         modem_switch(b, modem_port, strcmp(b->profile, profile) || strcmp(b->radio, alias));
       }
       /* Never deliver a partial CAT frame to a different rig. */
       b->used = 0;
