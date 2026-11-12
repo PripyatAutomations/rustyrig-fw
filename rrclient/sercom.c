@@ -1562,6 +1562,7 @@ bool rr_sercom_disconnect(const char *name) {
 
    return true;
 }
+static rr_event_token_t remote_modem_token;
 void rr_sercom_shutdown(void) {
    if (remote_modem_token) event_off_token(remote_modem_token);
    remote_modem_token = NULL;
@@ -1632,7 +1633,6 @@ static void serial_attach_event(const char *event, const char *payload, rrconn_t
    dict_free(reply);
    dict_free(request);
 }
-static rr_event_token_t remote_modem_token;
 bool rr_sercom_init(void) {
    if (!remote_modem_token) remote_modem_token = event_on_message_domain_token(
       RR_SERCOM_MODEM_REQUEST, remote_modem_request, NULL, "core");
