@@ -1240,6 +1240,20 @@ struct rrclient_native_connection {
    bool irc;
 };
 
+/* Trust and identity verification cannot recover through backoff retries.
+ * Match only transport-layer TLS diagnostics; network timeouts and ordinary
+ * disconnects must retain automatic reconnect behavior. */
+static bool native_tls_verification_error(const uint8_t *data, size_t len) {
+   if (!data || !len) return false;
+   const char *reason = (const char *)data;
+   return g_strstr_len(reason, len, "TLS verification failed") ||
+          g_strstr_len(reason, len, "certificate verify failed") ||
+          g_strstr_len(reason, len, "certificate verification failed") ||
+          g_strstr_len(reason, len, "hostname mismatch") ||
+          g_strstr_len(reason, len, "TLS_PIN_MISMATCH:") ||
+          g_strstr_len(reason, len, "TLS_TRUST_REQUIRED:");
+}
+
 static void native_event(rr_transport_t *transport, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user)
 {
    (void)channel;
@@ -1297,6 +1311,14 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
          !memcmp(data, mismatch, sizeof(mismatch)-1);
       bool first = data && len == sizeof(unknown)-1+64 &&
          !memcmp(data, unknown, sizeof(unknown)-1);
+      if (native_tls_verification_error(data, len)) {
+         /* Must happen BEFORE emitting http.error: its synchronous handler
+          * schedules reconnect otherwise. A subsequent CLOSE cannot restart
+          * the retry loop once reconnect_enabled is false. A user-initiated
+          * connect (or approved TOFU pin) still works normally. */
+         cancel_reconnect(s);
+         Log(LOG_WARN, "connman", "TLS verification failed for %s; automatic reconnect disabled until manual intervention", s->name);
+      }
       if (changed || first) {
          rrclient_tls_pin_request_t request = {0};
          const char *previous = get_server_property(s->name, "server.tls-spki-sha256");
