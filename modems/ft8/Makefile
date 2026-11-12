@@ -1,4 +1,4 @@
-# Optional receive-only FT8 worker; no ft8_lib dependency for normal builds.
+# Receive-only FT8 worker built with the standard RustyRig modem set.
 # ft8_lib is pinned as a git submodule in ext/ft8_lib. No CMake needed.
 FT8_LIB ?= ../../ext/ft8_lib
 CC ?= cc
