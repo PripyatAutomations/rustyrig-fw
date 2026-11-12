@@ -646,7 +646,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    const char *hostname_value = profile ? get_server_property(profile, "server.tls-ignore-hostname") : NULL;
    editor->initial_tls_hostname = hostname_value &&
       (!g_ascii_strcasecmp(hostname_value, "true") || !strcmp(hostname_value, "1"));
-   editor->tls_hostname = gtk_check_button_new_with_label("Ignore TLS hostname (verify station name)");
+   editor->tls_hostname = gtk_check_button_new_with_label("Ignore TLS hostname");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_hostname), editor->initial_tls_hostname);
    gtk_widget_set_tooltip_text(editor->tls_hostname,
       "Use the expected Node Name as the certificate DNS name instead of the URL dial hostname/IP. "
@@ -657,8 +657,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
    editor->initial_tls_tofu = tofu_value &&
       (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
-   editor->tls_tofu = gtk_check_button_new_with_label(
-      "Allow self-signed certificates (prompt for public key)");
+   editor->tls_tofu = gtk_check_button_new_with_label("Allow self-signed certificates");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu),
                                 editor->initial_tls_tofu);
    gtk_widget_set_tooltip_text(editor->tls_tofu,
