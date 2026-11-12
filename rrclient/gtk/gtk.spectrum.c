@@ -23,6 +23,8 @@ typedef struct {
    char *server, *room;
    GtkWidget *drawing, *mode, *gain, *source, *ear;
    unsigned zoom, palette_index, style;
+   double pan_hz, drag_start_x, drag_start_pan;
+   bool dragging, drag_moved;
    float rows[HISTORY][RR_AF_BINS];
    float current[RR_AF_BINS];
    float left[HISTORY][RR_AF_BINS], right[HISTORY][RR_AF_BINS];
@@ -402,15 +404,66 @@ static bool af_in_modem_mode(void) {
    return mode && (!strncmp(mode, "M-", 2) || !strcmp(mode, "MFM") ||
                    !strncmp(mode, "D-", 2) || !strcmp(mode, "DFM"));
 }
+/* Keep the entire AF display in one clamped 0..4000 Hz viewport.
+ * At 1x the span covers all bins and dragging has no effect. */
+static void af_view_bounds(const spectrum_panel_t *p, double *low, double *high) {
+   unsigned zoom = p->zoom ? p->zoom : 1;
+   double span = 4000. / zoom;
+   *low = CLAMP(2000. - span / 2. + p->pan_hz, 0., 4000. - span);
+   *high = *low + span;
+}
+static unsigned af_source_bin(const spectrum_panel_t *p, unsigned x_bin) {
+   double low, high;
+   af_view_bounds(p, &low, &high);
+   double hz = low + (high - low) * x_bin / (RR_AF_BINS - 1.);
+   return (unsigned)CLAMP(round(hz * (RR_AF_BINS - 1.) / 4000.),
+                          0., RR_AF_BINS - 1.);
+}
 static double af_hz_to_x(const spectrum_panel_t *p, unsigned hz, int width) {
-   double zoom = p->zoom ? p->zoom : 1;
-   return ((double)hz - 2000.) * zoom * (width - 1) / 4000. + (width - 1) / 2.;
+   double low, high;
+   af_view_bounds(p, &low, &high);
+   return width > 1 ? ((double)hz - low) * (width - 1.) / (high - low) : 0.;
 }
 static unsigned af_x_to_hz(const spectrum_panel_t *p, double x, int width) {
    if (width < 2) return 0;
-   double zoom = p->zoom ? p->zoom : 1;
-   double hz = 2000. + (CLAMP(x, 0., width - 1.) / (width - 1.) - 0.5) * 4000. / zoom;
+   double low, high;
+   af_view_bounds(p, &low, &high);
+   double hz = low + CLAMP(x, 0., width - 1.) * (high - low) / (width - 1.);
    return (unsigned)CLAMP(round(hz), 0., 4000.);
+}
+static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz);
+static void af_pan_move(spectrum_panel_t *p, double x, int width) {
+   if (!p->dragging || width < 2) return;
+   double low, high;
+   af_view_bounds(p, &low, &high);
+   double span = high - low;
+   if (span >= 4000.) return;
+   if (fabs(x - p->drag_start_x) > 3.) p->drag_moved = true;
+   if (!p->drag_moved) return;
+   double offset = (p->drag_start_x - x) * span / (width - 1.);
+   double max_pan = (4000. - span) / 2.;
+   double next = CLAMP(p->drag_start_pan + offset, -max_pan, max_pan);
+   if (p->pan_hz != next) {
+      p->pan_hz = next;
+      gtk_widget_queue_draw(p->drawing);
+   }
+}
+static gboolean af_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+   spectrum_panel_t *p = data;
+   if (!p->dragging) return FALSE;
+   af_pan_move(p, event->x, gtk_widget_get_allocated_width(widget));
+   return TRUE;
+}
+static gboolean af_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   spectrum_panel_t *p = data;
+   if (event->button != 1 || !p->dragging) return FALSE;
+   af_pan_move(p, event->x, gtk_widget_get_allocated_width(widget));
+   p->dragging = false;
+   if (!p->drag_moved && af_in_modem_mode()) {
+      unsigned hz = af_x_to_hz(p, event->x, gtk_widget_get_allocated_width(widget));
+      af_offset_update(p, !!(event->state & GDK_SHIFT_MASK), hz);
+   }
+   return TRUE;
 }
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz) {
    hz = MIN(hz, 4000u);
@@ -432,9 +485,11 @@ static void af_spin_changed(GtkSpinButton *spin, gpointer data) {
 }
 static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    spectrum_panel_t *p = data;
-   if (event->type == GDK_BUTTON_PRESS && event->button == 1 && af_in_modem_mode()) {
-      unsigned hz = af_x_to_hz(p, event->x, gtk_widget_get_allocated_width(widget));
-      af_offset_update(p, !!(event->state & GDK_SHIFT_MASK), hz);
+   if (event->type == GDK_BUTTON_PRESS && event->button == 1) {
+      p->dragging = true;
+      p->drag_moved = false;
+      p->drag_start_x = event->x;
+      p->drag_start_pan = p->pan_hz;
       return TRUE;
    }
    return af_context_menu(widget, event, data);
@@ -454,7 +509,6 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    bool trace = mode == 0 || mode == 1 || bars;
    bool waterfall = mode == 0 || mode == 2 || mode == 4;
 
-   unsigned af_zoom = p->zoom ? p->zoom : 1;
    int trace_height = trace ? (waterfall ? MAX(34, height / 4) : height - 16) : 0;
 
    if (trace && p->count) {
@@ -463,8 +517,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
       for (unsigned i = 0 ; i < RR_AF_BINS ; i++) {
          /* Trace and waterfall must sample the same visible zoomed bins. */
-         unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + i / af_zoom;
-         source_bin = MIN(source_bin, RR_AF_BINS - 1);
+         unsigned source_bin = af_source_bin(p, i);
          double x = (double)i * (width - 1) / (RR_AF_BINS - 1);
          double y = trace_height - 3 - level(p->current[source_bin], p->display_gain_db) * (trace_height - 6);
 
@@ -509,7 +562,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
             const float *row = age < p->count ? p->rows[(p->head + HISTORY - 1 - age) % HISTORY] : NULL;
 
             for (unsigned bin = 0 ; bin < RR_AF_BINS ; bin++) {
-               unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + bin / af_zoom;
+               unsigned source_bin = af_source_bin(p, bin);
                double normalized = row ? level(row[MIN(source_bin, RR_AF_BINS - 1)], p->display_gain_db) : 0.0;
                scanline[bin] = row ? palette_pixel(normalized, p->palette_index) : 0xff0d1621u;
                if (row && p->stereo) {
@@ -697,6 +750,7 @@ static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    }
    spectrum_panel_t *p = g_object_get_data(G_OBJECT(item), "spectrum-panel");
    p->zoom = GPOINTER_TO_UINT(data);
+   p->pan_hz = 0.; /* Reset to center when selecting a new zoom step. */
    gtk_widget_queue_draw(p->drawing);
 }
 static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -946,12 +1000,15 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
 
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
-   gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK);
+   gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK |
+      GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
    gtk_widget_set_size_request(p->drawing, -1, 210);
    gtk_widget_set_vexpand(p->drawing, TRUE);
    gtk_box_pack_start(GTK_BOX(box), p->drawing, TRUE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_click), p);
+   g_signal_connect(p->drawing, "motion-notify-event", G_CALLBACK(af_motion), p);
+   g_signal_connect(p->drawing, "button-release-event", G_CALLBACK(af_release), p);
    g_signal_connect(p->source, "changed", G_CALLBACK(source_changed), p);
    g_signal_connect(p->ear, "value-changed", G_CALLBACK(ear_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);

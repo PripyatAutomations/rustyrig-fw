@@ -240,6 +240,12 @@ shows distinct RX (cyan) and TX (amber) audio-frequency markers.
 - Inline **RX** and **TX** GtkSpinButton inputs provide numeric 0–4000 Hz offset tuning, with editable values and +/- arrows; no separate offset dialog. The **Modems…** button opens the shared Modem Manager (local decoder slots and server-side active modem selection).
 - Zoomed waterfall click coordinates map to the visible frequency range,
   rather than the whole unzoomed 0–4000 Hz span.
+- **Drag horizontally** across the zoomed AF spectrum/waterfall to pan the
+  visible range, clamped to 0–4000 Hz. Panning shifts the waterfall, trace,
+  frequency scale and RX/TX offset markers together. A short click still
+  selects the RX offset (Shift+click: TX), rather than initiating a pan.
+- Selecting another zoom factor recenters the AF viewport at 2 kHz.
+  At 1× the full 0–4000 Hz range is already visible and cannot pan.
 
 Offsets are currently stored in the client settings database as
 `modem.af.rx-offset-hz` and `modem.af.tx-offset-hz`.
