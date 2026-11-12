@@ -142,7 +142,7 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       tap(before_gain, AUDIO_BLOCK, tap_user);
    }
    for (size_t i = 0 ; i < AUDIO_BLOCK * 2 ; i++) {
-      int64_t scaled = (int64_t) before_gain[i] * ((i & 1) ? right : left) / 100;
+      int64_t scaled = (int64_t) accum[i] * ((i & 1) ? right : left) / 100;
       stereo[i] = (int16_t) CLAMP(scaled, INT16_MIN, INT16_MAX);
    }
 }
