@@ -58,7 +58,7 @@ static const char *worker_path(const char *engine) {
    const char *exe = !strcmp(engine, "psk") ? "rrmodem-psk" :
                      !strcmp(engine, "olivia") ? "rrmodem-olivia" : "rrmodem-ft8";
    static char candidate[256];
-   snprintf(candidate, sizeof(candidate), "/var/lib/rustyrig/modems/%s", exe);
+   snprintf(candidate, sizeof(candidate), "/usr/libexec/rustyrig/modems/%s", exe);
    if (!access(candidate, X_OK)) return candidate;
    snprintf(candidate, sizeof(candidate), "modems/%s", exe);
    if (!access(candidate, X_OK)) return candidate;
