@@ -34,6 +34,8 @@ bool rr_audio_engine_input_gain(rr_audio_engine_t *engine, const char *id, unsig
 double rr_audio_engine_input_gain_get(rr_audio_engine_t *engine, const char *id, unsigned channel);
 /* Clear EOF state and any old PCM before beginning another finite playback. */
 bool rr_audio_engine_reset_stream(rr_audio_engine_t *engine, const char *id);
+/* Change a live stream's destination without flushing its buffered PCM. */
+bool rr_audio_engine_route_preserve(rr_audio_engine_t *engine, const char *id, char route);
 /* Allow a finite source to finish even with less than the startup prebuffer. */
 void rr_audio_engine_finish_stream(rr_audio_engine_t *engine, const char *id);
 size_t rr_audio_engine_pending(rr_audio_engine_t *engine, const char *id);
