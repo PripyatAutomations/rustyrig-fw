@@ -30,10 +30,16 @@ FT8_LIB ?= ../ext/ft8_lib
 
 PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback snr modes))
 
-.PHONY: all test test-snr ft8-snr install clean fetch
+.PHONY: all test test-snr ft8-snr test-ft8 install clean fetch
 all: rrmodem-psk rrmodem-olivia rrmodem-ft8
 fetch: $(PSK_SRC)/CMakeLists.txt $(OLIVIA_SRC)/CMakeLists.txt
-	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
+	@if test ! -f "$(FT8_LIB)/Makefile"; then if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+		$(GIT) -C .. submodule update --init ext/ft8_lib; \
+	elif test ! -e "$(FT8_LIB)"; then \
+		$(GIT) clone https://github.com/kgoba/ft8_lib.git "$(FT8_LIB)"; \
+	else \
+		echo "Incomplete existing FT8 source tree: $(FT8_LIB)" >&2; exit 1; \
+	fi; fi
 
 # CMakeLists.txt is only a pre-existing checkout marker: cmake is NOT invoked.
 $(PSK_SRC)/CMakeLists.txt:
