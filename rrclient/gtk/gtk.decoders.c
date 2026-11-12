@@ -43,7 +43,7 @@ static void refresh_parameters(decoder_row_t *row) {
       gtk_spin_button_set_range(GTK_SPIN_BUTTON(row->frequency), 125, 2000);
       gtk_spin_button_set_increments(GTK_SPIN_BUTTON(row->frequency), 125, 250);
    } else {
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(row->mode), "", "Automatic (FT8 sync)");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(row->mode), "auto", "Auto sync / passband (FT8)");
       gtk_spin_button_set_range(GTK_SPIN_BUTTON(row->frequency), 0, 0);
    }
    if (!previous || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(row->mode), previous))
