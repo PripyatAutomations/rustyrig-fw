@@ -36,6 +36,7 @@
 #include <rrclient/local.bridge.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.decoders.h>
 #include "gtk.kiwi-panel.h"
 #include "gtk.clock.h"
 #include "gtk.identity.h"
@@ -1855,6 +1856,7 @@ void gtk_frontend_stop(void) {
    frontend_gtk_assert_owner();
    frontend_gtk_stopped = true;
    extern void gtk_terminal_shutdown(void);
+   gtk_decoders_shutdown();
    gtk_terminal_shutdown();
    gtk_help_shutdown();
    gtk_resources_shutdown();
