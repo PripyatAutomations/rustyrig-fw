@@ -139,7 +139,10 @@ static char *recording_stem(const rr_recording_tags *tags, const char *stamp) {
    const char *vfo = tags->vfo && *tags->vfo ? tags->vfo : NULL;
    gboolean generic = (!site || !strcmp(site, "local")) &&
       (!rig || !strcmp(rig, "receiver"));
-   char *location = generic ? g_strdup("Local monitor") :
+   /* For client-local SDRs prefer their actual PCM source identifier. */
+   const char *source = tags->sources && *tags->sources ? tags->sources : NULL;
+   char *source_name = source ? g_strndup(source, strcspn(source, ",; \n\t")) : NULL;
+   char *location = generic ? g_strdup(source_name && *source_name ? source_name : "Local monitor") :
       g_strdup_printf("%s%s%s%s%s", site ? site : "Remote",
          rig ? "." : "", rig ? rig : "",
          vfo && *vfo ? "." : "", vfo ? vfo : "");
@@ -148,7 +151,8 @@ static char *recording_stem(const rr_recording_tags *tags, const char *stamp) {
    char *stem = g_strdup_printf("%s - %s%s%s - %s - RX", stamp,
       frequency ? frequency : "Audio",
       safe_mode ? " " : "", safe_mode ? safe_mode : "", safe_location);
-   g_free(frequency); g_free(location); g_free(safe_location); g_free(safe_mode);
+   g_free(frequency); g_free(location); g_free(source_name);
+   g_free(safe_location); g_free(safe_mode);
    return stem;
 }
 static char *make_path(const char *base, const char *suffix) {
