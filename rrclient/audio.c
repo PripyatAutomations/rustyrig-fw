@@ -17,9 +17,11 @@
 #include <rrclient/audio.engine.h>
 #include <rrclient/recordings.h>
 #include <rrclient/audio.graph.h>
+#include <rrclient/database.h>
 #include <rrclient/rrclient.h>
 #include <glib.h>
 #include <stdint.h>
+#include <math.h>
 #include <stdbool.h>
 #include <string.h>
 #include <librustyaxe/core.h>
@@ -60,6 +62,10 @@ static time_t rx_pcm_warned = 0;
 static guint mixer_source;
 static GSource *rx_maintenance_source;
 static rr_audio_engine_t *rx_engine;
+static char recording_playback_route = 'S';
+#define RECORDING_PLAYBACK_ID "recording.playback"
+#define RECORDING_PLAYBACK_L "recording.playback.L"
+#define RECORDING_PLAYBACK_R "recording.playback.R"
 static GMutex rx_sink_lock;
 static int rx_sink_fd = -1;
 /* Pre-fader routed stereo: stable for recording and AF measurements regardless
@@ -101,7 +107,10 @@ static void rx_sink_set_fd(int new_fd) {
 }
 
 bool audio_local_rx_start(const char *id) {
-   return rx_engine && id && rr_audio_engine_add_stream(rx_engine, id);
+   if (!rx_engine || !id || !rr_audio_engine_add_stream(rx_engine, id))
+      return false;
+   audio_input_gain_load(id);
+   return true;
 }
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
    if (!id || !pcm || !frames) {
@@ -120,6 +129,31 @@ void audio_local_rx_stop(const char *id) {
 }
 
 /* Recorded files enter the existing PCM hub as individually routed ear streams. */
+static void recording_playback_apply_route(void) {
+   if (!rx_engine) return;
+   const char left = recording_playback_route == 'S' ? 'L' : recording_playback_route;
+   const char right = recording_playback_route == 'S' ? 'R' : recording_playback_route;
+   rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_L, left);
+   rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_R, right);
+}
+static void audio_input_gain_load(const char *id) {
+   if (!id || !rx_engine) return;
+   char *key_prefix = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
+   for (unsigned ch = 0; ch < 2; ch++) {
+      char *key = g_strdup_printf("audio.graph.input.%s.%c", key_prefix,
+                                  ch ? 'R' : 'L');
+      char *saved = rrclient_database_setting_get(key);
+      if (saved && *saved) {
+         char *end = NULL;
+         double db = g_ascii_strtod(saved, &end);
+         if (end != saved && !*end)
+            rr_audio_engine_input_gain(rx_engine, id, ch, db);
+      }
+      g_free(saved);
+      g_free(key);
+   }
+   g_free(key_prefix);
+}
 static void recording_playback_pcm(const int16_t *pcm, size_t frames) {
    if (!rx_engine || !pcm || !frames || frames > 1024) return;
    int16_t left[1024], right[1024];
@@ -134,18 +168,12 @@ bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
    if (!rx_engine || !path) return false;
    if (rr_recordings_play_reposition(path, seconds, reverse)) return true;
    if (rr_recordings_play_busy()) return false;
-   if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.L")) return false;
-   if (!rr_audio_engine_add_stream(rx_engine, "recording.playback.R")) {
-      rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
+   /* These source ports exist for the entire lifetime of the audio engine,
+    * even when the recorder/player is idle. Do not reset graph routing. */
+   rr_audio_engine_reset_stream(rx_engine, RECORDING_PLAYBACK_L);
+   rr_audio_engine_reset_stream(rx_engine, RECORDING_PLAYBACK_R);
+   if (!rr_recordings_play_at(path, seconds, reverse, recording_playback_pcm))
       return false;
-   }
-   rr_audio_engine_route(rx_engine, "recording.playback.L", 'L');
-   rr_audio_engine_route(rx_engine, "recording.playback.R", 'R');
-   if (!rr_recordings_play_at(path, seconds, reverse, recording_playback_pcm)) {
-      rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
-      rr_audio_engine_remove_stream(rx_engine, "recording.playback.R");
-      return false;
-   }
    return true;
 }
 bool audio_recording_play(const char *path) {
@@ -154,10 +182,7 @@ bool audio_recording_play(const char *path) {
 void audio_recording_play_stop(void) { rr_recordings_play_stop(); }
 void audio_recording_play_collect(void) {
    rr_recordings_play_collect();
-   if (rx_engine) {
-      rr_audio_engine_remove_stream(rx_engine, "recording.playback.L");
-      rr_audio_engine_remove_stream(rx_engine, "recording.playback.R");
-   }
+   /* The permanent mixer inputs remain for the next playback session. */
 }
 void audio_recording_control_core(const char *event, const void *data,
                                   size_t size, rrconn_t *conn, void *user) {
@@ -449,6 +474,15 @@ bool audio_set_rx_stream_route(const char *id, char output) {
    if (!id || !output || !strchr("LRSM", output)) {
       return false;
    }
+   if (!strcmp(id, RECORDING_PLAYBACK_ID)) {
+      recording_playback_route = output;
+      recording_playback_apply_route();
+      rrclient_database_setting_set("audio.graph.playback.route",
+                                    output == 'S' ? "S" : output == 'L' ? "L" :
+                                    output == 'R' ? "R" : "M");
+      event_emit("client.audio.route.changed", NULL, NULL);
+      return true;
+   }
 
    if (!strncmp(id, "local.sdr.", 10) && id[10] >= 'A' && id[10] <= 'Z' && !id[11]) {
       unsigned slot = (unsigned)(id[10] - 'A');
@@ -725,6 +759,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
 
          if (rx_engine) {
             rr_audio_engine_add_stream(rx_engine, route->identity);
+            audio_input_gain_load(route->identity);
          }
       }
       route->seen = true;
@@ -947,8 +982,22 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_add_link(graph, "rx.mix", "sink.client.dsp0", RR_AG_NORMAL);
+   /* The playback source is always present, including while stopped. */
+   rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
+   rr_audio_graph_set_health(graph, RECORDING_PLAYBACK_ID,
+      rx_engine ? (rr_recordings_play_busy() ? RR_AG_HEALTHY : RR_AG_STOPPED) :
+                  RR_AG_FAILED);
+   rr_audio_graph_set_route(graph, RECORDING_PLAYBACK_ID,
+                            recording_playback_route);
+   unsigned play_channels = recording_playback_route == 'L' ? RR_AG_CHANNEL_LEFT :
+      recording_playback_route == 'R' ? RR_AG_CHANNEL_RIGHT :
+      recording_playback_route == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
+   if (play_channels)
+      rr_audio_graph_add_channel_link(graph, RECORDING_PLAYBACK_ID, "rx.mix",
+                                     RR_AG_NORMAL, play_channels);
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 2 ; i++) {
+
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 3 ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
@@ -970,10 +1019,18 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       for (guint i = 0 ; i < snapshot->node_count ; ++i) {
          rr_ag_view_node_t *node = &snapshot->nodes[i];
 
-         if (node->type != RR_AG_SOURCE) {
+         if (node->type != RR_AG_SOURCE) continue;
+         if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
+            g_strlcpy(node->rig, "Recording Playback", sizeof(node->rig));
+            node->input_gain_db[0] = rr_audio_engine_input_gain_get(
+               rx_engine, RECORDING_PLAYBACK_L, 0);
+            node->input_gain_db[1] = rr_audio_engine_input_gain_get(
+               rx_engine, RECORDING_PLAYBACK_R, 1);
             continue;
          }
-
+         for (unsigned channel = 0; channel < 2; channel++)
+            node->input_gain_db[channel] = rr_audio_engine_input_gain_get(
+               rx_engine, node->id, channel);
          for (size_t j = 0 ; j < count ; ++j) {
             if (!strcmp(node->id, streams[j].id)) {
                audio_graph_rig_label(&streams[j], node->rig, sizeof(node->rig));
@@ -1121,6 +1178,24 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          }
          break;
       }
+      case RR_AUDIO_CONTROL_INPUT_GAIN: {
+         if (!memchr(req->stream, 0, sizeof(req->stream)) ||
+             req->channel > 1 || !isfinite(req->gain_db) ||
+             req->gain_db < -60.0 || req->gain_db > 12.0) break;
+         const char *id = req->stream;
+         if (!strcmp(id, RECORDING_PLAYBACK_ID))
+            id = req->channel ? RECORDING_PLAYBACK_R : RECORDING_PLAYBACK_L;
+         if (rr_audio_engine_input_gain(rx_engine, id, req->channel, req->gain_db)) {
+            char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
+            char *key = g_strdup_printf("audio.graph.input.%s.%c", hash,
+                                        req->channel ? 'R' : 'L');
+            char val[G_ASCII_DTOSTR_BUF_SIZE];
+            g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
+            rrclient_database_setting_set(key, val);
+            g_free(key); g_free(hash);
+         }
+         break;
+      }
       default: {
          break;
       }
@@ -1143,6 +1218,15 @@ void audio_request_rx_channel_volume(unsigned channel, int percent) {
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_EAR, .channel = channel, .percent = percent
    };
+   audio_submit_control(&req);
+}
+void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db) {
+   if (!id || channel > 1 || !isfinite(gain_db)) return;
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_INPUT_GAIN, .channel = channel,
+      .gain_db = gain_db
+   };
+   g_strlcpy(req.stream, id, sizeof(req.stream));
    audio_submit_control(&req);
 }
 void audio_request_rx_stream_route(const char *id, char output) {
@@ -1218,6 +1302,18 @@ bool audio_init(void) {
       return true;
    }
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
+   /* Create the permanent recording playback source before the graph's first
+    * snapshot; preserve user L/R routing across repeated Play actions. */
+   rr_audio_engine_add_stream(rx_engine, RECORDING_PLAYBACK_L);
+   rr_audio_engine_add_stream(rx_engine, RECORDING_PLAYBACK_R);
+   char *saved_play_route = rrclient_database_setting_get("audio.graph.playback.route");
+   if (saved_play_route && strlen(saved_play_route) == 1 &&
+       strchr("LRSM", saved_play_route[0]))
+      recording_playback_route = saved_play_route[0];
+   g_free(saved_play_route);
+   recording_playback_apply_route();
+   audio_input_gain_load(RECORDING_PLAYBACK_L);
+   audio_input_gain_load(RECORDING_PLAYBACK_R);
    rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
    rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
    GSource *maintenance = g_timeout_source_new_seconds(10);
