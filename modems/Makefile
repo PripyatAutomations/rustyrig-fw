@@ -116,7 +116,6 @@ ft8-snr:
 install: all
 	install -d "$(DESTDIR)$(MODEMDIR)"
 	install -m 0755 rrmodem-psk rrmodem-olivia ft8/rrmodem-ft8 "$(DESTDIR)$(MODEMDIR)/"
-	mv "$(DESTDIR)$(MODEMDIR)/rrmodem-ft8" "$(DESTDIR)$(MODEMDIR)/rrmodem-ft8"
 
 clean:
 	rm -rf "$(BUILD_DIR)" rrmodem-psk rrmodem-olivia
