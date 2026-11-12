@@ -27,7 +27,7 @@ int main(void) {
    if (!(power > 0)) return 1;
    printf("BPSK31 AWGN sweep: %d trials/SNR, 8 kHz, total sample-band noise\n", TRIALS);
    puts("SNR(dB)  whole-message/trials   contains TEST/trials");
-   for (int db = 10; db >= -35; db -= 5) {
+   for (int db = 10; db >= -45; db -= 5) {
       int full = 0, partial = 0;
       double sigma = sqrt(power / pow(10.0, db / 10.0));
       for (unsigned t = 0; t < TRIALS; t++) {

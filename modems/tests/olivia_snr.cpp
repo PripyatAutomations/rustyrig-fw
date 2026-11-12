@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
       std::printf("Olivia %d/%d: %zu samples (%.1fs), %d trials/SNR, 8 kHz\n",
                   cfg.tones, cfg.bandwidthHz, clean.size(), clean.size()/8000.0, TRIALS);
       puts("SNR(dB)  full-text/trials  contains TEST/trials");
-      for (int db = 10; db >= -30; db -= 5) {
+      for (int db = 10; db >= -45; db -= 5) {
          int full = 0, partial = 0;
          double sigma = std::sqrt(power / std::pow(10., db / 10.));
          for (unsigned t = 0; t < TRIALS; t++) {

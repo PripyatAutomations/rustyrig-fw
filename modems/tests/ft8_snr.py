@@ -21,7 +21,7 @@ def run():
     parser.add_argument("--message", default="CQ K7IHZ DM43")
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--start", type=int, default=5)
-    parser.add_argument("--stop", type=int, default=-30)
+    parser.add_argument("--stop", type=int, default=-55)
     parser.add_argument("--step", type=int, default=5)
     args = parser.parse_args()
     if args.trials < 1 or args.step < 1 or args.start < args.stop:
