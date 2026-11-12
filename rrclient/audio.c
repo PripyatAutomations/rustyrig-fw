@@ -133,6 +133,11 @@ static void recording_playback_apply_route(void) {
    if (!rx_engine) return;
    const char left = recording_playback_route == 'S' ? 'L' : recording_playback_route;
    const char right = recording_playback_route == 'S' ? 'R' : recording_playback_route;
+   if (!rr_recordings_play_busy()) {
+      rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_L, 'M');
+      rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_R, 'M');
+      return;
+   }
    rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_L, left);
    rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_R, right);
 }
@@ -174,6 +179,7 @@ bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
    rr_audio_engine_reset_stream(rx_engine, RECORDING_PLAYBACK_R);
    if (!rr_recordings_play_at(path, seconds, reverse, recording_playback_pcm))
       return false;
+   recording_playback_apply_route();
    return true;
 }
 bool audio_recording_play(const char *path) {
@@ -182,6 +188,7 @@ bool audio_recording_play(const char *path) {
 void audio_recording_play_stop(void) { rr_recordings_play_stop(); }
 void audio_recording_play_collect(void) {
    rr_recordings_play_collect();
+   recording_playback_apply_route();
    /* The permanent mixer inputs remain for the next playback session. */
 }
 void audio_recording_control_core(const char *event, const void *data,
@@ -1185,7 +1192,12 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          const char *id = req->stream;
          if (!strcmp(id, RECORDING_PLAYBACK_ID))
             id = req->channel ? RECORDING_PLAYBACK_R : RECORDING_PLAYBACK_L;
-         if (rr_audio_engine_input_gain(rx_engine, id, req->channel, req->gain_db)) {
+         bool ok = rr_audio_engine_input_gain(rx_engine, id, req->channel, req->gain_db);
+         if (!strcmp(req->stream, RECORDING_PLAYBACK_ID)) {
+            /* A recording channel's trim follows its content when re-routed. */
+            rr_audio_engine_input_gain(rx_engine, id, 1 - req->channel, req->gain_db);
+         }
+         if (ok) {
             char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
             char *key = g_strdup_printf("audio.graph.input.%s.%c", hash,
                                         req->channel ? 'R' : 'L');
