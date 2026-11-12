@@ -404,19 +404,21 @@ static bool af_in_modem_mode(void) {
    return mode && (!strncmp(mode, "M-", 2) || !strcmp(mode, "MFM") ||
                    !strncmp(mode, "D-", 2) || !strcmp(mode, "DFM"));
 }
-/* Keep the entire AF display in one clamped 0..4000 Hz viewport.
- * At 1x the span covers all bins and dragging has no effect. */
+/* Full 0..8 kHz Nyquist display. Zoom starts centered at 4 kHz;
+ * drag panning is clamped to the actual available PCM bandwidth. */
 static void af_view_bounds(const spectrum_panel_t *p, double *low, double *high) {
    unsigned zoom = p->zoom ? p->zoom : 1;
-   double span = 4000. / zoom;
-   *low = CLAMP(2000. - span / 2. + p->pan_hz, 0., 4000. - span);
+   double span = (double)RR_AF_MAX_HZ / zoom;
+   double center = RR_AF_MAX_HZ / 2.;
+   *low = CLAMP(center - span / 2. + p->pan_hz,
+                0., (double)RR_AF_MAX_HZ - span);
    *high = *low + span;
 }
 static unsigned af_source_bin(const spectrum_panel_t *p, unsigned x_bin) {
    double low, high;
    af_view_bounds(p, &low, &high);
    double hz = low + (high - low) * x_bin / (RR_AF_BINS - 1.);
-   return (unsigned)CLAMP(round(hz * (RR_AF_BINS - 1.) / 4000.),
+   return (unsigned)CLAMP(round(hz * (RR_AF_BINS - 1.) / RR_AF_MAX_HZ),
                           0., RR_AF_BINS - 1.);
 }
 static double af_hz_to_x(const spectrum_panel_t *p, unsigned hz, int width) {
@@ -429,7 +431,7 @@ static unsigned af_x_to_hz(const spectrum_panel_t *p, double x, int width) {
    double low, high;
    af_view_bounds(p, &low, &high);
    double hz = low + CLAMP(x, 0., width - 1.) * (high - low) / (width - 1.);
-   return (unsigned)CLAMP(round(hz), 0., 4000.);
+   return (unsigned)CLAMP(round(hz), 0., (double)RR_AF_MAX_HZ);
 }
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz);
 static void af_pan_move(spectrum_panel_t *p, double x, int width) {
@@ -437,11 +439,11 @@ static void af_pan_move(spectrum_panel_t *p, double x, int width) {
    double low, high;
    af_view_bounds(p, &low, &high);
    double span = high - low;
-   if (span >= 4000.) return;
+   if (span >= RR_AF_MAX_HZ) return;
    if (fabs(x - p->drag_start_x) > 3.) p->drag_moved = true;
    if (!p->drag_moved) return;
    double offset = (p->drag_start_x - x) * span / (width - 1.);
-   double max_pan = (4000. - span) / 2.;
+   double max_pan = (RR_AF_MAX_HZ - span) / 2.;
    double next = CLAMP(p->drag_start_pan + offset, -max_pan, max_pan);
    if (p->pan_hz != next) {
       p->pan_hz = next;
@@ -466,7 +468,7 @@ static gboolean af_release(GtkWidget *widget, GdkEventButton *event, gpointer da
    return TRUE;
 }
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz) {
-   hz = MIN(hz, 4000u);
+   hz = MIN(hz, RR_AF_MAX_HZ);
    GtkWidget *spin = tx ? p->modem_tx_spin : p->modem_rx_spin;
    unsigned *current = tx ? &p->modem_tx_hz : &p->modem_rx_hz;
    if (*current != hz) {
@@ -603,9 +605,8 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_move_to(cr, 12, height / 2.);
       cairo_show_text(cr, "Waiting for audio on selected source...");
    }
-   /* Draw a scale across the actual visible range, centered at 2 kHz.
-    * At 1x: 0..4000; at 2x: 1000..3000; at 4x: 1500..2500;
-    * at 8x: 1750..2250 Hz. These positions also drive AF click tuning. */
+   /* Draw labels for the exact visible 0..8 kHz viewport.
+    * These positions also drive AF offset click tuning. */
    cairo_set_font_size(cr, 10);
    for (unsigned tick = 0; tick <= 4; tick++) {
       double x = (width - 1.) * tick / 4.;
@@ -750,7 +751,7 @@ static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    }
    spectrum_panel_t *p = g_object_get_data(G_OBJECT(item), "spectrum-panel");
    p->zoom = GPOINTER_TO_UINT(data);
-   p->pan_hz = 0.; /* Reset to center when selecting a new zoom step. */
+   p->pan_hz = 0.; /* Center on 4 kHz when selecting a new zoom step. */
    gtk_widget_queue_draw(p->drawing);
 }
 static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -937,8 +938,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(toolbar), sources_row, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
    p->source_mode = 'M';
-   p->modem_rx_hz = waterfall_pref("modem.af.rx-offset-hz", 1500, 4000);
-   p->modem_tx_hz = waterfall_pref("modem.af.tx-offset-hz", 1500, 4000);
+   p->modem_rx_hz = waterfall_pref("modem.af.rx-offset-hz", 1500, RR_AF_MAX_HZ);
+   p->modem_tx_hz = waterfall_pref("modem.af.tx-offset-hz", 1500, RR_AF_MAX_HZ);
    p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
    p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
    p->source = gtk_combo_box_text_new();
@@ -973,8 +974,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
     * Allow a little extra width for 4 digits plus the +/- arrows. */
    GtkWidget *rx_label = gtk_label_new("RX");
    GtkWidget *tx_label = gtk_label_new("TX");
-   p->modem_rx_spin = gtk_spin_button_new_with_range(0, 4000, 1);
-   p->modem_tx_spin = gtk_spin_button_new_with_range(0, 4000, 1);
+   p->modem_rx_spin = gtk_spin_button_new_with_range(0, RR_AF_MAX_HZ, 1);
+   p->modem_tx_spin = gtk_spin_button_new_with_range(0, RR_AF_MAX_HZ, 1);
    gtk_entry_set_width_chars(GTK_ENTRY(p->modem_rx_spin), 5);
    gtk_entry_set_width_chars(GTK_ENTRY(p->modem_tx_spin), 5);
    gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(p->modem_rx_spin), TRUE);

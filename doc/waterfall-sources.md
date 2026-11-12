@@ -228,6 +228,17 @@ while changing the active VFO, verify active-follow recovers on selection,
 and confirm left-only/right-only final output yields the appropriate cyan or
 amber pattern in the combined AF waterfall.
 
+## Wideband AF display
+
+The AF analyzer publishes all 2049 bins from its 4096-point FFT at 16 kHz
+PCM, covering 0–8 kHz (including the Nyquist bin) for wide AM reception.
+The frequency bin resolution remains 3.90625 Hz. The 1× AF waterfall shows
+the full bandwidth; 2×/4×/8× zoom spans are 4/2/1 kHz, initially centered
+at 4 kHz, and horizontal dragging pans within 0–8 kHz. Scale labels,
+RX/TX markers, click-tuning and spectrum/waterfall samples share the same
+viewport. Audio sources remain at their existing PCM rate; a source with
+a narrower receive filter simply shows less high-frequency content.
+
 ## AF modem offset controls (GTK)
 
 When the selected rig reports a RustyRig logical modem/data mode
@@ -237,15 +248,15 @@ shows distinct RX (cyan) and TX (amber) audio-frequency markers.
 - Left-click the AF waterfall to set the **RX** audio offset.
 - **Shift+left-click** to set the **TX** audio offset.
 - Right-click still opens the existing palette/style/zoom menu.
-- Inline **RX** and **TX** GtkSpinButton inputs provide numeric 0–4000 Hz offset tuning, with editable values and +/- arrows; no separate offset dialog. The **Modems…** button opens the shared Modem Manager (local decoder slots and server-side active modem selection).
+- Inline **RX** and **TX** GtkSpinButton inputs provide numeric 0–8000 Hz offset tuning, with editable values and +/- arrows; no separate offset dialog. The **Modems…** button opens the shared Modem Manager (local decoder slots and server-side active modem selection).
 - Zoomed waterfall click coordinates map to the visible frequency range,
-  rather than the whole unzoomed 0–4000 Hz span.
+  rather than the whole unzoomed 0–8000 Hz span.
 - **Drag horizontally** across the zoomed AF spectrum/waterfall to pan the
-  visible range, clamped to 0–4000 Hz. Panning shifts the waterfall, trace,
+  visible range, clamped to 0–8000 Hz. Panning shifts the waterfall, trace,
   frequency scale and RX/TX offset markers together. A short click still
   selects the RX offset (Shift+click: TX), rather than initiating a pan.
 - Selecting another zoom factor recenters the AF viewport at 2 kHz.
-  At 1× the full 0–4000 Hz range is already visible and cannot pan.
+  At 1× the full 0–8000 Hz range is already visible and cannot pan.
 
 Offsets are currently stored in the client settings database as
 `modem.af.rx-offset-hz` and `modem.af.tx-offset-hz`.

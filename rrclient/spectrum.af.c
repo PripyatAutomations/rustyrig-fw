@@ -1,8 +1,8 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-/* Demand-driven AF spectrum analyzer. PCM callbacks never wait for FFT work. Each 4096-point Hann FFT resolves 3.9 Hz bins at the 16 kHz RX PCM rate. Only 0-4
- * kHz is published to the current AF viewer. */
+/* Demand-driven AF spectrum analyzer. PCM callbacks never wait for FFT work. Each 4096-point Hann FFT resolves 3.9 Hz bins at the 16 kHz RX PCM rate. The full 0-8
+ * kHz Nyquist band is published to support wider AM audio. */
 #include <glib.h>
 #include <stdbool.h>
 #include <stdint.h>
