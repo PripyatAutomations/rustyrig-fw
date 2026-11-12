@@ -289,9 +289,10 @@ bool cmd_local_modem(int argc, char **argv) {
       g_strlcpy(req.engine, argv[2], sizeof(req.engine));
       g_strlcpy(req.source, argv[3], sizeof(req.source));
       const bool psk = !strcmp(req.engine, "psk");
-      g_strlcpy(req.option, argc >= 5 ? argv[4] : (psk ? "BPSK31" : "8"),
+      const bool ft8 = !strcmp(req.engine, "ft8");
+      g_strlcpy(req.option, argc >= 5 ? argv[4] : (psk ? "BPSK31" : ft8 ? "" : "8"),
                 sizeof(req.option));
-      req.value = argc >= 6 ? (unsigned)atoi(argv[5]) : (psk ? 1500u : 500u);
+      req.value = argc >= 6 ? (unsigned)atoi(argv[5]) : (psk ? 1500u : ft8 ? 0u : 500u);
       return !start_one(&req);
    }
    ui_print(NULL, "Usage: /modem list | status | stop <slot> | start <psk|olivia|ft8> <stream> [mode|tones] [carrier|bandwidth] [slot]");
