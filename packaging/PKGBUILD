@@ -3,7 +3,7 @@
 # for reproducible release packages, and update pkgrel for package revisions.
 # Arch Linux split packages; use installed core libraries and optional third-party sources.
 pkgbase=rustyrig
-pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-rrbridge)
+pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-rrbridge rustyrig-modems)
 options=('!emptydirs')
 pkgver=1.0.3
 pkgrel=1
@@ -23,7 +23,8 @@ prepare() {
 
 build() {
    cd "$srcdir/rustyrig-fw"
-   make PROFILE=radio
+   make PROFILE=radio WITH_MODEMS=yes
+   make -C modems -j"$(nproc)" all
 }
 
 _install_libs() {
@@ -40,7 +41,7 @@ package_rustyrig-libs() {
 
 package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'libgpiod' 'shadow' 'acl')
-   optdepends=('rustyrig-rrbridge: SDR bridge support' 'rustyrig-callsign-lookup: callsign lookup')
+   optdepends=('rustyrig-rrbridge: SDR bridge support' 'rustyrig-callsign-lookup: callsign lookup' 'rustyrig-modems: software modem decoding')
    install=rustyrig.install
    backup=()
    cd "$srcdir/rustyrig-fw"
@@ -118,4 +119,13 @@ package_rustyrig-rrbridge() {
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrbridge "$pkgdir/usr/bin/rrbridge"
    install -Dm755 bin/rrbridge-kiwi.so "$pkgdir/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so"
+}
+
+package_rustyrig-modems() {
+   pkgdesc='External PSK, Olivia and FT8 software modem workers for RustyRig'
+   depends=('glibc' 'gcc-libs')
+   cd "$srcdir/rustyrig-fw"
+   install -Dm755 modems/rrmodem-psk "$pkgdir/usr/libexec/rustyrig/modems/rrmodem-psk"
+   install -Dm755 modems/rrmodem-olivia "$pkgdir/usr/libexec/rustyrig/modems/rrmodem-olivia"
+   install -Dm755 modems/ft8/rrmodem-ft8 "$pkgdir/usr/libexec/rustyrig/modems/rrmodem-ft8"
 }
