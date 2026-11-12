@@ -24,7 +24,6 @@ prepare() {
 build() {
    cd "$srcdir/rustyrig-fw"
    make PROFILE=radio WITH_MODEMS=yes
-   make -C modems -j"$(nproc)" all
 }
 
 _install_libs() {
