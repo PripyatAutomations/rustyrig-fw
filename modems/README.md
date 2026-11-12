@@ -4,15 +4,15 @@ This is a staging area for independently packaged modem processes. Neither
 third-party library is copied or extracted. Build with:
 
 ```sh
-make -C modems
+make -C modems -j4
 make -C modems test
 sudo make -C modems install
 ```
 
-The build clones upstream `jfrancis42/libpsk` and `jfrancis42/olivia-modem`
+No CMake is required. GNU Make compiles upstream C99/C++20 sources directly\ninto \`modems/build/\` without changing their source directories.\nRequires a C compiler, a C++20 compiler, GNU Make, ar, and git.\n\nThe build clones upstream `jfrancis42/libpsk` and `jfrancis42/olivia-modem`
 to `ext/` only when their source directories do not exist; it never modifies
 an existing checkout. For reproducible packages, pin upstream commit SHAs
-before release. Offline builds work with existing checkouts.
+before release. Offline builds work with existing checkouts.\n\`make -C modems clean\` deletes only RustyRig's modem build output, not \`ext/\`.\n\`make -C modems test\` runs libpsk's five upstream test binaries and\nsmoke-tests both receiver workers with an empty FD 4 stream.
 
 The workers currently implement **RX only**. Their fd 4 input uses the
 existing rrserver 16 kHz, mono, S16LE stream and fd 1 outputs decoded bytes.
