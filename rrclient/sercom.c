@@ -406,6 +406,38 @@ bool rr_sercom_select_modem(const char *port) {
    return true;
 }
 
+/* GUI consumers never touch serial_binding_t or connection state from GTK.
+ * The core handles selection and publishes a value-only snapshot.
+ */
+static void remote_modem_request(const rr_event_message_t *message, void *user) {
+   (void)user;
+   if (!message || !message->payload ||
+       message->length != sizeof(rr_sercom_modem_request_t)) return;
+   const rr_sercom_modem_request_t *request = message->payload;
+   rr_sercom_modem_snapshot_t snapshot = {0};
+   serial_binding_t *b = binding("ttyMODEM");
+   if (b && !strcmp(b->service, "rig.modem")) {
+      snapshot.attached = true;
+      if (memchr(request->target, 0, sizeof(request->target)) && request->target[0]) {
+         snapshot.success = rr_sercom_select_modem(request->target);
+      } else {
+         snapshot.success = true;
+      }
+      b = binding("ttyMODEM");
+      g_strlcpy(snapshot.profile, b->profile, sizeof(snapshot.profile));
+      g_strlcpy(snapshot.rig, b->radio, sizeof(snapshot.rig));
+      g_strlcpy(snapshot.target, b->host_port, sizeof(snapshot.target));
+      rr_sercom_info_t info;
+      if (rr_sercom_info("ttyMODEM", &info))
+         g_strlcpy(snapshot.state, info.state, sizeof(snapshot.state));
+   }
+   rr_event_message_t result = {
+      .name=RR_SERCOM_MODEM_SNAPSHOT,
+      .payload=&snapshot,
+      .length=sizeof(snapshot)
+   };
+   event_emit_message(&result);
+}
 /* The default PTYs follow the rig room selected by the frontend. Dedicated numbered ports retain their configured server and rig. */
 void rr_sercom_focus_room(const char *profile, const char *room) {
    if (!profile || !*profile || !room) {
@@ -1530,6 +1562,8 @@ bool rr_sercom_disconnect(const char *name) {
    return true;
 }
 void rr_sercom_shutdown(void) {
+   if (remote_modem_token) event_off_token(remote_modem_token);
+   remote_modem_token = NULL;
    while (console_observers) {
       rr_sercom_unobserve(console_observers);
    }
@@ -1597,7 +1631,10 @@ static void serial_attach_event(const char *event, const char *payload, rrconn_t
    dict_free(reply);
    dict_free(request);
 }
+static rr_event_token_t remote_modem_token;
 bool rr_sercom_init(void) {
+   if (!remote_modem_token) remote_modem_token = event_on_message_domain_token(
+      RR_SERCOM_MODEM_REQUEST, remote_modem_request, NULL, "core");
    event_on_domain_token("client.serial.attach-request", serial_attach_event, NULL, "core");
 
    /* Must precede opening any PTYs, including configured ones. */
