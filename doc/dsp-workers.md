@@ -254,7 +254,7 @@ to dedicated repositories after the shared IPC contract stabilizes.
 
 ## Client-local receive-only modems (experimental)
 
-The same external `rrmodem-psk` and `rrmodem-olivia` executables can run
+The external `rrmodem-psk`, `rrmodem-olivia`, and optional `rrmodem-ft8` executables can run
 under **rrclient**, against PCM decoded from a *remote rig* or a *local/remote
 SDR bridge*, without installing them on rrserver. The selected stream is
 16 kHz mono signed 16-bit audio, written nonblocking to the child's FD 4.
@@ -264,6 +264,7 @@ Decoded application bytes from FD 1 are printed in the client output.
 /modem list
 /modem start psk <stream-id> BPSK31 1500
 /modem start olivia <stream-id> 8 500
+/modem start ft8 <stream-id>
 /modem status
 /modem stop
 ```
@@ -275,7 +276,7 @@ selected *server-side* modem. Starting another local session replaces the
 previous one. A single process may be attached to a stream at a time in this
 first version.
 
-Build workers with `make -C modems`; install them with
+Build PSK/Olivia workers with `make -C modems`; install them with
 `sudo make -C modems install`. For a source checkout, rrclient also looks for
 `modems/rrmodem-psk` or `modems/rrmodem-olivia` relative to its working
 directory.
