@@ -21,7 +21,7 @@ typedef struct stream {
    char route;
    int16_t samples[AUDIO_CAPACITY];
    size_t head, count;
-   bool primed, ever_primed, starved;
+   bool primed, ever_primed, starved, finishing;
    unsigned fade_in;
 } stream_t;
 struct rr_audio_engine {
@@ -62,6 +62,9 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       }
       *active = true;
 
+      if (!s->primed && s->finishing && s->count) {
+         s->primed = true;  /* EOF must not require another 80 ms of input. */
+      }
       if (!s->primed) {
          /* Require an 80 ms cushion both at start and after starvation. The old 20 ms recovery threshold immediately exhausted on bursty PCM arrivals, causing
           * repeating short silences even with an on-time mixer clock. */
@@ -89,7 +92,7 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
 
       size_t take = MIN(s->count, AUDIO_BLOCK);
 
-      if (take < AUDIO_BLOCK) {
+      if (take < AUDIO_BLOCK && !s->finishing) {
          e->stats.underrun_blocks++;
 
          if (!s->starved) {
@@ -123,6 +126,7 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
 
       s->head = (s->head + take) % AUDIO_CAPACITY;
       s->count -= take;
+      if (!s->count && s->finishing) s->primed = false;
    }
 
    e->stats.blocks++;
@@ -353,6 +357,21 @@ void rr_audio_engine_stats(rr_audio_engine_t *e, rr_audio_engine_stats_t *out, b
    g_mutex_unlock(&e->lock);
 }
 
+void rr_audio_engine_finish_stream(rr_audio_engine_t *e, const char *id) {
+   if (!e || !id) return;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   if (s) s->finishing = true;
+   g_mutex_unlock(&e->lock);
+}
+size_t rr_audio_engine_pending(rr_audio_engine_t *e, const char *id) {
+   if (!e || !id) return 0;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   size_t queued = s ? s->count : 0;
+   g_mutex_unlock(&e->lock);
+   return queued;
+}
 void rr_audio_engine_gain(rr_audio_engine_t *e, unsigned channel, int percent) {
    if (!e || channel > 1) {
       return;
