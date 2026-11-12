@@ -9,6 +9,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
 #include "gtk.serial.h"
+#include "gtk.decoders.h"
 #include <rrclient/gtk/gtk.chat.h>
 #ifdef RR_HAVE_VTE
 #include <vte/vte.h>
@@ -577,9 +578,11 @@ GtkWidget *init_terminal_tab(void) {
    GtkWidget *refresh = gtk_button_new_with_label("Refresh");
    GtkWidget *open = gtk_button_new_with_label("Open Terminal");
    GtkWidget *configure = gtk_button_new_with_label("Configure…");
+   GtkWidget *decoders = gtk_button_new_with_label("Decoders…");
    gtk_box_pack_start(GTK_BOX(toolbar), refresh, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), open, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), configure, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(toolbar), decoders, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(root), toolbar, FALSE, FALSE, 5);
    terminal_notebook = gtk_notebook_new();
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(terminal_notebook), GTK_POS_TOP);
@@ -588,6 +591,7 @@ GtkWidget *init_terminal_tab(void) {
    g_signal_connect(refresh, "clicked", G_CALLBACK(terminal_refresh), NULL);
    g_signal_connect(open, "clicked", G_CALLBACK(terminal_open), NULL);
    g_signal_connect(configure, "clicked", G_CALLBACK(terminal_configure), NULL);
+   g_signal_connect_swapped(decoders, "clicked", G_CALLBACK(gtk_decoders_show), NULL);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), root, gtk_label_new("terminal"));
    terminal_refresh(NULL, NULL);
 
