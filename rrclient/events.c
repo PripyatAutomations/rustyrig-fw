@@ -2121,7 +2121,7 @@ static void locator_snapshot_core(const char *event, const char *previous, rrcon
 
    // Append only copied source inventory; readers on GTK must never access live RX routes.
    g_strlcpy(snap.recording_user, login_user ? login_user : "", sizeof(snap.recording_user));
-   struct rrclient_rx_stream streams[32] = {{0}};
+   struct rrclient_rx_stream streams[32] = {0};
    size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
    size_t used = 0;
    for (size_t i = 0; i < MIN(count, G_N_ELEMENTS(streams)); i++) {
