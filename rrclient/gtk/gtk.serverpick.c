@@ -441,6 +441,57 @@ static void picker_delete_selected(GtkMenuItem *item, gpointer data) {
    g_free(name);
 }
 
+static void picker_delete_group(GtkMenuItem *item, gpointer data) {
+   (void)item;
+   GtkWidget *tree = data;
+   GtkTreeModel *model = NULL;
+   GtkTreeIter iter;
+   if (!gtk_tree_selection_get_selected(
+         gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &model, &iter) ||
+       !picker_is_network(model, &iter))
+      return;
+
+   gboolean ungrouped = FALSE;
+   char *group = NULL;
+   gtk_tree_model_get(model, &iter, 0, &group,
+                      PICKER_UNGROUPED, &ungrouped, -1);
+   if (!group || ungrouped) {
+      g_free(group);
+      return;
+   }
+
+   int online = 0, members = 0;
+   picker_group_counts(model, &iter, &online, &members);
+   GtkWidget *dialog = gtk_message_dialog_new(
+      GTK_WINDOW(gtk_widget_get_toplevel(tree)),
+      GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+      "Delete server group '%s'?", group);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "%d server%s will be moved into Ungrouped. No server profiles, "
+      "saved credentials, or active connections will be deleted.",
+      members, members == 1 ? "" : "s");
+   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL,
+                          "_Delete Group", GTK_RESPONSE_ACCEPT, NULL);
+   gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+
+   if (response == GTK_RESPONSE_ACCEPT) {
+      if (rrclient_database_network_delete(group)) {
+         gtk_server_editor_refresh_networks();
+         picker_close(NULL);
+         gtk_show_server_chooser();
+      } else {
+         GtkWidget *error = gtk_message_dialog_new(
+            main_window ? GTK_WINDOW(main_window) : NULL,
+            GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+            "Unable to delete server group '%s'.", group);
+         gtk_dialog_run(GTK_DIALOG(error));
+         gtk_widget_destroy(error);
+      }
+   }
+   g_free(group);
+}
+
 static void picker_move_selected(GtkMenuItem *item, gpointer data) {
    (void)item;
    GtkWidget *tree = data;
@@ -506,10 +557,16 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
    GtkWidget *edit = gtk_menu_item_new_with_label("Edit");
    GtkWidget *move = gtk_menu_item_new_with_label("Move to...");
    GtkWidget *remove = gtk_menu_item_new_with_label("Delete");
-   GtkTreeModel *selected_model;
+   GtkWidget *remove_group = gtk_menu_item_new_with_label("Delete Group…");
+   GtkTreeModel *selected_model = NULL;
    GtkTreeIter selected_iter;
-   gboolean is_group = gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &selected_model, &selected_iter)
+   gboolean is_group = gtk_tree_selection_get_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &selected_model, &selected_iter)
       && picker_is_network(selected_model, &selected_iter);
+   gboolean ungrouped = FALSE;
+   if (is_group)
+      gtk_tree_model_get(selected_model, &selected_iter,
+                         PICKER_UNGROUPED, &ungrouped, -1);
    gtk_widget_set_sensitive(edit, !is_group);
    gtk_widget_set_sensitive(move, !is_group);
    gtk_widget_set_sensitive(remove, !is_group);
@@ -517,10 +574,13 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), edit);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), move);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), remove);
+   if (is_group && !ungrouped)
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), remove_group);
    g_signal_connect_object(connect, "activate", G_CALLBACK(on_connect_clicked), tree, 0);
    g_signal_connect_object(edit, "activate", G_CALLBACK(on_edit_clicked), tree, 0);
    g_signal_connect_object(move, "activate", G_CALLBACK(picker_move_selected), tree, 0);
    g_signal_connect_object(remove, "activate", G_CALLBACK(picker_delete_selected), tree, 0);
+   g_signal_connect_object(remove_group, "activate", G_CALLBACK(picker_delete_group), tree, 0);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
