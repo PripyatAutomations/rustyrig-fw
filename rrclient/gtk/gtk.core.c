@@ -1800,6 +1800,7 @@ static void frontend_gtk_admin_result_event(const rr_event_message_t *event, voi
 
 
 const rr_frontend_ops_t gtk_frontend_ops = {
+   .show_decoders = gtk_decoders_show,
    .supervision_result = frontend_gtk_supervision_result,
    .admin_result = frontend_gtk_admin_result,
    .irc_nick_prompt = frontend_gtk_irc_nick_prompt,
