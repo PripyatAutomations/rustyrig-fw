@@ -70,7 +70,6 @@ GStreamer-based audio codec and pipeline service.
 
 %build
 %make_build PROFILE=radio WITH_MODEMS=yes
-%make_build -C modems all
 
 %install
 install -Dpm0755 modems/rrmodem-psk %{buildroot}%{_prefix}/libexec/rustyrig/modems/rrmodem-psk
