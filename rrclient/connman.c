@@ -58,6 +58,7 @@ typedef struct client_server {
    char domain[254], server_uuid[37];
    char pending_tls_pin[65], temporary_tls_pin[65];
    bool pending_tls_pin_confirmation;
+   bool learn_verified_spki; /* CA-verified initial connection; persist only after authenticated node identity */
    char *pending_password_change; /* zeroed and released on reply or disconnect */
    bool password_prompt_open;
 #ifndef USE_MONGOOSE
@@ -1303,6 +1304,53 @@ struct rrclient_native_connection {
 /* Trust and identity verification cannot recover through backoff retries.
  * Match only transport-layer TLS diagnostics; network timeouts and ordinary
  * disconnects must retain automatic reconnect behavior. */
+/* Persist the verified TLS key after the authenticated RustyRig identity
+ * announcement has been accepted. CA-only TLS OPEN is insufficient: the
+ * server UUID, station, and domain must already have been validated.
+ * An explicit Accept Once remains ephemeral and never reaches this path. */
+void rrclient_connection_pin_verified_identity(rrconn_t *connection,
+      const char *station, const char *domain, const char *server_uuid) {
+#ifndef USE_MONGOOSE
+   if (!connection || !connection->authenticated || !station || !*station ||
+       !domain || !*domain || !rrclient_server_uuid_valid(server_uuid))
+      return;
+   client_server_t *s = NULL;
+   for (client_server_t *it = servers; it; it = it->next)
+      if (it->connection == connection) { s = it; break; }
+   if (!s || !s->native || !s->native->learn_verified_spki ||
+       s->pending_tls_pin_confirmation || !s->server_uuid[0] ||
+       g_ascii_strcasecmp(s->domain, domain) ||
+       g_ascii_strcasecmp(s->server_uuid, server_uuid))
+      return;
+   const char *expected = get_server_property(s->name, "server.node-name");
+   char name[254];
+   int n = snprintf(name, sizeof(name), "%s.%s", station, domain);
+   if (n <= 0 || (size_t)n >= sizeof(name) || !expected ||
+       g_ascii_strcasecmp(name, expected))
+      return;
+   const char *pin = get_server_property(s->name, "server.tls-spki-sha256");
+   if (pin && *pin) {
+      s->native->learn_verified_spki = false;
+      return; /* Never replace a stored key without explicit approval. */
+   }
+   const char *observed = rr_transport_wss_peer_spki_sha256(connection->native_transport);
+   if (!observed || strlen(observed) != 64 ||
+       strspn(observed, "0123456789abcdef") != 64)
+      return;
+   if (!rrclient_database_server_set(s->name, "server.tls-spki-sha256", observed)) {
+      Log(LOG_WARN, "client.identity", "Could not save verified SPKI pin for %s",
+          s->name);
+      return;
+   }
+   s->native->learn_verified_spki = false;
+   Log(LOG_AUDIT, "client.identity",
+       "Pinned CA-verified TLS public key for %s (%s) after authenticated node identity",
+       s->name, expected);
+#else
+   (void)connection; (void)station; (void)domain; (void)server_uuid;
+#endif
+}
+
 static bool native_tls_verification_error(const uint8_t *data, size_t len) {
    if (!data || !len) return false;
    const char *reason = (const char *)data;
@@ -1386,7 +1434,10 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
          bool tofu = !enabled || (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
          const char *presented = (const char *)data +
             (changed ? sizeof(mismatch)-1 : sizeof(unknown)-1);
-         if (tofu && strlen(s->name) < sizeof(request.profile) &&
+         /* A changed persistent key always requires explicit reapproval,
+          * including profiles initially verified through a public CA. */
+         if ((changed || (first && tofu)) &&
+             strlen(s->name) < sizeof(request.profile) &&
              strspn(presented, "0123456789abcdef") >= 64 && !s->pending_tls_pin_confirmation) {
             g_strlcpy(request.profile, s->name, sizeof(request.profile));
             if (previous) g_strlcpy(request.old_pin, previous, sizeof(request.old_pin));
@@ -2040,8 +2091,10 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       get_server_property(s->name, "server.tls-trust-on-first-use");
    bool tofu = !endpoint.irc &&
       (!tofu_value || (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")));
-   const char *pin = tofu ? (s->temporary_tls_pin[0] ? s->temporary_tls_pin :
-      get_server_property(s->name, "server.tls-spki-sha256")) : NULL;
+   /* A saved SPKI pin is mandatory for every established WSS identity,
+    * regardless of the separate first-use self-signed trust policy. */
+   const char *pin = s->temporary_tls_pin[0] ? s->temporary_tls_pin :
+      get_server_property(s->name, "server.tls-spki-sha256");
    if (endpoint.irc) {
       Log(LOG_INFO, "connman", "Native IRC profile=%s endpoint=%s:%u tls=%s trust-mode=%s verify-name=%s",
          s->name, endpoint.host, endpoint.port, endpoint.tls ? "yes" : "no",
@@ -2091,6 +2144,9 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       return true;
    }
    native->connection.native_transport = native->transport;
+   /* Only the no-pin, CA/hostname-verified path may learn its key
+    * automatically, and only after the authenticated station identity. */
+   native->learn_verified_spki = !tofu && (!pin || !*pin);
    s->connection = &native->connection;
    s->native = native;
    s->connected = -1;
