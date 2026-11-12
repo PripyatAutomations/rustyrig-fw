@@ -18,7 +18,7 @@ extern GtkWidget *main_window, *main_notebook, *freq_entry, *mode_combo;
 static struct {
    RRFloatPanel *panel;
    GtkWidget *tree, *status, *format, *record_button;
-   GtkListStore *store;
+   GtkTreeStore *store;
    char *directory, *root;
    gboolean closing;
    rr_event_token_t open_token, finished_token, playback_token, locator_token, refresh_token;
@@ -179,31 +179,36 @@ static char *selected(gboolean *folder) {
    gtk_tree_model_get(model, &iter, COL_PATH, &path, COL_DIR, folder, -1);
    return path;
 }
-static void refresh(void) {
-   if (!ui.store || !ui.directory) return;
-   gtk_list_store_clear(ui.store);
-   GDir *dir = g_dir_open(ui.directory, 0, NULL);
-   if (!dir) { gtk_label_set_text(GTK_LABEL(ui.status), "Unable to open directory"); return; }
+/* Display the real nested directory hierarchy, without following symlinks.
+ * Bound expansion so a malicious or enormous tree cannot freeze GTK forever. */
+static unsigned refresh_rows;
+static void append_directory(GtkTreeIter *parent, const char *directory, unsigned depth) {
+   if (depth >= 24 || refresh_rows >= 3000 || !move_folder_allowed(directory)) return;
+   GDir *dir = g_dir_open(directory, 0, NULL);
+   if (!dir) return;
    const char *name;
-   while ((name = g_dir_read_name(dir))) {
+   while ((name = g_dir_read_name(dir)) && refresh_rows < 3000) {
       if (name[0] == '.') continue;
-      char *path = g_build_filename(ui.directory, name, NULL);
-      GFileInfo *info = NULL;
+      char *path = g_build_filename(directory, name, NULL);
       GFile *file = g_file_new_for_path(path);
-      info = g_file_query_info(file, "standard::type,standard::size,time::modified,standard::is-symlink",
+      GFileInfo *info = g_file_query_info(file,
+         "standard::type,standard::size,time::modified,standard::is-symlink",
          G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
       gboolean folder = info && g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY;
-      gboolean symlink = info && g_file_info_get_is_symlink(info);
+      gboolean symlink = !info || g_file_info_get_is_symlink(info);
       gboolean audio = g_str_has_suffix(name, ".ogg") || g_str_has_suffix(name, ".flac");
       if (!symlink && (folder || audio)) {
-         guint64 bytes = info ? g_file_info_get_size(info) : 0;
-         char *size = folder ? g_strdup("<DIR>") : g_format_size(bytes);
-         guint64 modified = info ? g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_MODIFIED) : 0;
+         char *size = folder ? g_strdup("<DIR>") :
+             g_format_size(g_file_info_get_size(info));
+         guint64 modified = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
          GDateTime *date = modified ? g_date_time_new_from_unix_local((gint64)modified) : NULL;
          char *stamp = date ? g_date_time_format(date, "%Y-%m-%d %H:%M") : g_strdup("");
-         GtkTreeIter row; gtk_list_store_append(ui.store, &row);
-         gtk_list_store_set(ui.store, &row, COL_NAME, name, COL_SIZE, size,
+         GtkTreeIter row;
+         gtk_tree_store_append(ui.store, &row, parent);
+         gtk_tree_store_set(ui.store, &row, COL_NAME, name, COL_SIZE, size,
             COL_DATE, stamp, COL_DIR, folder, COL_PATH, path, -1);
+         refresh_rows++;
+         if (folder) append_directory(&row, path, depth + 1);
          if (date) g_date_time_unref(date);
          g_free(stamp); g_free(size);
       }
@@ -212,7 +217,27 @@ static void refresh(void) {
       g_free(path);
    }
    g_dir_close(dir);
-   gtk_label_set_text(GTK_LABEL(ui.status), ui.directory);
+}
+static void refresh(void) {
+   if (!ui.store || !ui.directory) return;
+   gtk_tree_store_clear(ui.store);
+   refresh_rows = 0;
+   if (g_strcmp0(ui.directory, ui.root)) {
+      char *parent = g_path_get_dirname(ui.directory);
+      if (in_root(parent)) {
+         GtkTreeIter up;
+         gtk_tree_store_append(ui.store, &up, NULL);
+         gtk_tree_store_set(ui.store, &up, COL_NAME, "..",
+            COL_SIZE, "<UP>", COL_DATE, "", COL_DIR, TRUE,
+            COL_PATH, parent, -1);
+      }
+      g_free(parent);
+   }
+   append_directory(NULL, ui.directory, 0);
+   gtk_label_set_text(GTK_LABEL(ui.status),
+      refresh_rows >= 3000 ? "Showing first 3000 entries (directory tree limit)" :
+      ui.directory);
+   gtk_tree_view_expand_all(GTK_TREE_VIEW(ui.tree));
 }
 static void navigate(const char *path) {
    if (!in_root(path)) return;
@@ -426,11 +451,81 @@ static gboolean move_recording_pair(const char *source, const char *destination)
    g_free(other_dest);
    return valid;
 }
+/* Drag files from this browser onto directory rows. No external URI imports.
+ * Pair-aware move maintains Ogg/FLAC siblings together. */
+static void drag_file_get(GtkWidget *widget, GdkDragContext *context,
+                          GtkSelectionData *selection, guint info, guint time, gpointer unused) {
+   (void)widget; (void)context; (void)info; (void)time; (void)unused;
+   gboolean folder = FALSE;
+   char *path = selected(&folder);
+   if (path && !folder && in_root(path)) {
+      GFile *file = g_file_new_for_path(path);
+      gchar *uri = g_file_get_uri(file);
+      gchar *uris[] = {uri, NULL};
+      gtk_selection_data_set_uris(selection, uris);
+      g_free(uri);
+      g_object_unref(file);
+   }
+   g_free(path);
+}
+static void drag_file_received(GtkWidget *widget, GdkDragContext *context,
+                               gint x, gint y, GtkSelectionData *selection,
+                               guint info, guint time, gpointer unused) {
+   (void)info; (void)unused;
+   gboolean success = FALSE;
+   GtkTreePath *row_path = NULL;
+   GtkTreeViewDropPosition position;
+   if (gtk_tree_view_get_dest_row_at_pos(GTK_TREE_VIEW(widget), x, y,
+                                        &row_path, &position) && row_path) {
+      GtkTreeIter iter;
+      if (gtk_tree_model_get_iter(GTK_TREE_MODEL(ui.store), &iter, row_path)) {
+         gboolean folder = FALSE;
+         char *target = NULL;
+         gtk_tree_model_get(GTK_TREE_MODEL(ui.store), &iter,
+                            COL_DIR, &folder, COL_PATH, &target, -1);
+         gchar **uris = gtk_selection_data_get_uris(selection);
+         if (folder && target && move_folder_allowed(target) &&
+             uris && uris[0] && !uris[1]) {
+            GFile *source_file = g_file_new_for_uri(uris[0]);
+            char *source = g_file_get_path(source_file);
+            if (source && in_root(source) &&
+                g_file_test(source, G_FILE_TEST_IS_REGULAR) &&
+                !g_file_test(source, G_FILE_TEST_IS_SYMLINK)) {
+               char *basename = g_path_get_basename(source);
+               char *destination = g_build_filename(target, basename, NULL);
+               success = g_strcmp0(source, destination) != 0 &&
+                         move_recording_pair(source, destination);
+               g_free(destination);
+               g_free(basename);
+            }
+            g_free(source);
+            g_object_unref(source_file);
+         }
+         g_strfreev(uris);
+         g_free(target);
+      }
+      gtk_tree_path_free(row_path);
+   }
+   gtk_drag_finish(context, success, FALSE, time);
+   if (success) refresh();
+   else show_error("Move failed. Drop an existing recording onto a folder inside Recordings.");
+}
 static void action(GtkButton *button, gpointer data) {
    (void)button;
    const char *op = data;
    gboolean folder = FALSE;
    char *path = selected(&folder);
+   /* '..' is navigational only, never a rename/delete/move target. */
+   GtkTreeIter sel_iter; GtkTreeModel *sel_model = NULL;
+   char *sel_name = NULL;
+   if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(ui.tree)),
+                                        &sel_model, &sel_iter))
+      gtk_tree_model_get(sel_model, &sel_iter, COL_NAME, &sel_name, -1);
+   if (!g_strcmp0(sel_name, "..") && strcmp(op, "play") &&
+       strcmp(op, "up") && strcmp(op, "refresh")) {
+      g_free(path); g_free(sel_name); return;
+   }
+   g_free(sel_name);
    if (!strcmp(op, "play")) do_play();
    else if (!strcmp(op, "stop")) {
       audio_recording_play_stop();
@@ -532,7 +627,7 @@ static void open_browser(const char *event, const char *payload,
    ui.record_button = gtk_button_new_with_label(rr_recordings_active() ? "STOP" : "RECORD");
    g_signal_connect(ui.record_button, "clicked", G_CALLBACK(record_clicked), NULL);
    gtk_box_pack_end(GTK_BOX(top), ui.record_button, FALSE, FALSE, 0);
-   ui.store = gtk_list_store_new(N_COLS, G_TYPE_STRING, G_TYPE_STRING,
+   ui.store = gtk_tree_store_new(N_COLS, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(ui.store), COL_NAME, GTK_SORT_ASCENDING);
    ui.tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(ui.store));
@@ -548,6 +643,12 @@ static void open_browser(const char *event, const char *payload,
       gtk_tree_view_append_column(GTK_TREE_VIEW(ui.tree), col);
    }
    g_signal_connect(ui.tree, "row-activated", G_CALLBACK(row_activated), NULL);
+   GtkTargetEntry drag_targets[] = {{"text/uri-list", 0, 0}};
+   gtk_drag_source_set(ui.tree, GDK_BUTTON1_MASK, drag_targets, 1, GDK_ACTION_MOVE);
+   gtk_drag_dest_set(ui.tree, GTK_DEST_DEFAULT_ALL, drag_targets, 1, GDK_ACTION_MOVE);
+   g_signal_connect(ui.tree, "drag-data-get", G_CALLBACK(drag_file_get), NULL);
+   g_signal_connect(ui.tree, "drag-data-received", G_CALLBACK(drag_file_received), NULL);
+
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), ui.tree);
    gtk_box_pack_start(GTK_BOX(body), scroll, TRUE, TRUE, 0);
