@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <libfwdspmgr/dsp-worker.h>
 #include <rrclient/audio.h>
@@ -31,6 +32,7 @@ static void modem_flush_text(void) {
    ui_print(NULL, "[local %s / %s] %s", modem_engine, modem_source, decoded);
    decoded_used = 0;
 }
+static void modem_stop(void);
 static gboolean modem_poll(gpointer unused) {
    (void)unused;
    char bytes[256];
@@ -43,7 +45,12 @@ static gboolean modem_poll(gpointer unused) {
       ssize_t got = read(fd, bytes, sizeof(bytes));
       if (got < 0 && errno == EINTR) continue;
       if (got < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
-      if (got <= 0) break;
+      if (got == 0 || (got < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+         ui_print(NULL, "Local modem worker closed its output");
+         modem_poll_id = 0;
+         modem_stop();
+         return G_SOURCE_REMOVE;
+      }
       for (ssize_t i = 0; i < got; i++) {
          unsigned char c = (unsigned char)bytes[i];
          if (c == '\r' || c == '\n') {
@@ -65,7 +72,7 @@ void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) 
    if (!source || !pcm || !frames || !g_mutex_trylock(&modem_lock)) return;
    if (modem_worker.rx_pcm_fd >= 0 && !strcmp(source, modem_source)) {
       size_t bytes = frames * sizeof(*pcm);
-      ssize_t n = write(modem_worker.rx_pcm_fd, pcm, bytes);
+      ssize_t n = send(modem_worker.rx_pcm_fd, pcm, bytes, MSG_DONTWAIT | MSG_NOSIGNAL);
       if (n != (ssize_t)bytes) dropped++;
    }
    g_mutex_unlock(&modem_lock);
