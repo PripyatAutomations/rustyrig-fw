@@ -1,4 +1,6 @@
 # Independently managed rrpk source checkouts must never be vendored here.
+# PSK and Olivia sources are fetched here by make -C modems.
+/ext/
 /librustyaxe/
 /librrprotocol/
 /callsign-lookup/
@@ -125,6 +127,8 @@ debian/rustyrig-rrbridge/*
 !debian/rustyrig-server.config
 !debian/rustyrig-server.templates
 modems/*/rrmodem-*
+/modems/rrmodem-psk
+/modems/rrmodem-olivia
 
 # Python integration-test bytecode
 __pycache__/

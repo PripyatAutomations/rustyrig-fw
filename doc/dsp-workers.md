@@ -238,3 +238,16 @@ EOF, mode switch and disconnect. The existing fd 4 receive feed is
 best-effort RX-only; fd 5 to RF audio and its safety controls are still
 unimplemented. Do not key the transmitter or claim on-air modem TX based
 only on the M* mode mapping.
+
+## Staged PSK/Olivia workers (November 2026)
+
+`modems/psk` and `modems/olivia` contain separate-process RX decoder
+adapters around independently cloned upstream sources. `make -C modems`
+fetches missing upstream checkouts; it never changes existing ones. See
+`modems/README.md`. This is not a shipped TX implementation: the staging
+workers currently consume the existing 16 kHz FD 4 S16LE stream and write
+character data to FD 1. The temporary 8 kHz conversion must be replaced
+by the negotiated band-limited PCM conversion before production use.
+
+Keep the future workers self-contained and relocate their code and packaging
+to dedicated repositories after the shared IPC contract stabilizes.
