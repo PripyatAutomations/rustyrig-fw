@@ -254,7 +254,7 @@ to dedicated repositories after the shared IPC contract stabilizes.
 
 ## Client-local multi-decoder sessions
 
-The GTK Terminal tab offers **Decoders…**, and `/modem` or `/modem gui` in the GTK chat input opens the same window, with eight independent receive-only decoder slots. Each slot can choose a remote
+The GTK Terminal tab offers **Modems…**, and `/modem` or `/modem gui` in the GTK chat input opens the same window, with eight independent receive-only decoder slots. Each slot can choose a remote
 rig/SDR or local SDR **PCM stream** by ID, an external PSK/Olivia/FT8
 worker, its modulation options, and numeric tuning parameters. Decoded
 characters appear in that slot's own scrollable text pane. The window
