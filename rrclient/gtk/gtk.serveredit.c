@@ -643,13 +643,14 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), editor->node_name, 1, 9, 1, 1);
    const char *tofu_value = profile ? get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
    editor->initial_tls_tofu = tofu_value ?
-      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")) : true;
-   editor->tls_tofu = gtk_check_button_new_with_label("Ignore TLS hostname");
+      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")) : false;
+   editor->tls_tofu = gtk_check_button_new_with_label("Allow self-signed TLS (approve public key)");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu), editor->initial_tls_tofu);
    gtk_widget_set_tooltip_text(editor->tls_tofu,
-      "Permits self-signed certificates and ignores the dial-address hostname for this server. Requires explicit fingerprint approval before accepting a new public key. "
-      "If the key changes later, RustyRig stops the connection and asks you to type YES before accepting a replacement. "
-      "Verify the new fingerprint independently before approving; first-use trust is vulnerable to interception.");
+      "Allow first-use approval for self-signed certificates instead of requiring a trusted CA. "
+      "Every established RustyRig WSS identity gets a persistent SPKI public-key pin, "
+      "including normal CA-verified servers. A changed key always requires explicit approval. "
+      "Verify fingerprints independently; first-use trust is vulnerable to interception.");
    gtk_grid_attach(GTK_GRID(grid), editor->tls_tofu, 0, 10, 2, 1);
    editor->error = gtk_label_new("");
    gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 11, 2, 1);
