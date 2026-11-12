@@ -49,6 +49,10 @@ int main(void) {
    inject("tone-1006", 1006.25);
    assert(await_spectrum("tone-1000", bins));
    assert(strongest(bins) == 256);
+   /* Wide AM upper-audio spectrum must be calculated rather than discarded. */
+   inject("wide-am-6500", 6500.0);
+   assert(await_spectrum("wide-am-6500", bins));
+   assert(strongest(bins) == 1664);
    assert(await_spectrum("tone-1006", bins));
    assert(strongest(bins) >= 257 && strongest(bins) <= 258);
    rr_af_spectrum_forget("tone-1000");
