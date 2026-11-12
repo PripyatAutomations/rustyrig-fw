@@ -19,7 +19,8 @@ RustyRig is supported **only when installed**, either with distribution packages
   Existing configurations explicitly naming `/usr/bin/fwdsp` need updating on upgrade; do not silently reinterpret an administrator-selected absolute path.
 - Server/bridge/client modules: `/usr/lib/rustyrig/modules/<family>`.
 - Configuration: `/etc/rustyrig` (installation never implicitly overwrites local configuration).
-- Shared server state: `/var/lib/rustyrig`, with database, SQL resources, modems, recordings and served web files beneath it.
+- Shared server state: `/var/lib/rustyrig`, with database, SQL resources, recordings and served web files beneath it.
+- External package-managed modem worker executables: `/usr/libexec/rustyrig/modems` (owned by `rustyrig-modems`, never in `/usr/bin` or writable runtime state).
 - Runtime files: `/var/run/rustyrig` (or distribution-managed equivalent).
 - User-specific writable paths: explicitly configured absolute paths or home-expanded paths.
 

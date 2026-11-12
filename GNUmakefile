@@ -139,6 +139,18 @@ ${BUILD_DIR}/.stamp:
 	mkdir -p "${BUILD_DIR}"
 	touch $@
 
+WITH_MODEMS ?= yes
+.PHONY: modem-workers
+ifeq ($(filter yes true 1,$(WITH_MODEMS)),)
+ifneq ($(filter no false 0,$(WITH_MODEMS)),)
+$(error WITH_MODEMS must be yes or no)
+endif
+else
+modem-workers:
+	$(MAKE) -C modems all
+after-config: modem-workers
+endif
+
 world: after-config
 
 # The codec/GPSP harness also runs automatically in make test through

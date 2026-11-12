@@ -286,9 +286,8 @@ a specific decoder; otherwise the first free slot is used. The original
 unnumbered `ttyMODEM` remains a **separate**, server-side active-modem
 alias, unrelated to these client-local receive-only sessions.
 
-The worker programs are external: `make -C modems` builds PSK/Olivia,
-and `sudo make -C modems install` installs them.
-The optional FT8 worker is separately built under `modems/ft8/`.
+The worker programs are external: `make -C modems` builds PSK, Olivia and FT8 together,
+and `sudo make -C modems install` installs all three under `/usr/libexec/rustyrig/modems/`.
 rrclient checks installed worker paths first, then local build paths.
 
 **Current limitations:** at most eight sessions and bounded text buffers;
