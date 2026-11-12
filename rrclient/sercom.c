@@ -342,6 +342,70 @@ static gboolean gps_invalid_tick(gpointer unused) {
 static void host_command(serial_binding_t *b, const char *command);
 static void host_sync(serial_binding_t *b);
 
+/* ttyMODEM is an alias for the chosen server modem, independent of rig
+ * numbering. Keep existing ttyMODEMN behavior as the default fallback.
+ * The selection is per rig and lives in the ordinary client config.
+ */
+static bool modem_port_valid(const char *name) {
+   if (!name || !g_str_has_prefix(name, "ttyMODEM") || !name[8]) {
+      return false;
+   }
+   for (const char *p = name + 8 ; *p ; p++) {
+      if (!g_ascii_isdigit(*p)) {
+         return false;
+      }
+   }
+   return strlen(name) < 64;
+}
+static void modem_target(const char *radio, char *target, size_t length) {
+   char key[128];
+   snprintf(key, sizeof(key), "serial.modem.active.%s", radio);
+   const char *selected = cfg_get(key);
+
+   if (modem_port_valid(selected)) {
+      snprintf(target, length, "%s", selected);
+   } else {
+      snprintf(target, length, "ttyMODEM%s", radio + 3);
+   }
+}
+/* A changed selection must close the old stream and discard outstanding
+ * application bytes before opening the new one; keep the local PTY stable.
+ */
+static void modem_switch(serial_binding_t *b, const char *target, bool force) {
+   if (!force && !strcmp(b->host_port, target)) {
+      return;
+   }
+   if (b->stream) {
+      host_command(b, "close");
+   }
+   b->stream = 0;
+   b->opening = b->tx_pending = b->rx_pending = b->failed = false;
+   b->retry_seconds = 0;
+   b->next_retry_us = b->open_started_us = 0;
+   if (b->host_pending) {
+      g_byte_array_set_size(b->host_pending, 0);
+   }
+   b->tx_seq = b->rx_seq = 0;
+   b->used = 0;
+   b->dropping = false;
+   snprintf(b->host_port, sizeof(b->host_port), "%s", target);
+   console_connection_status(b, "CONNECTING");
+}
+bool rr_sercom_select_modem(const char *port) {
+   serial_binding_t *b = binding("ttyMODEM");
+   if (!b || strcmp(b->service, "rig.modem") || !modem_port_valid(port) ||
+       !g_str_has_prefix(b->radio, "rig")) {
+      return false;
+   }
+   char key[128];
+   snprintf(key, sizeof(key), "serial.modem.active.%s", b->radio);
+   dict_add(cfg, key, port);
+   modem_switch(b, port, false);
+   host_sync(b);
+   Log(LOG_INFO, "serial.modem", "ttyMODEM on %s now selects %s", b->radio, port);
+   return true;
+}
+
 /* The default PTYs follow the rig room selected by the frontend. Dedicated numbered ports retain their configured server and rig. */
 void rr_sercom_focus_room(const char *profile, const char *room) {
    if (!profile || !*profile || !room) {
@@ -391,26 +455,19 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
          continue;
       }
 
-      if (!strcmp(b->profile, profile) && (gps ? !strcmp(b->focus_room, room) : !strcmp(b->radio, alias) && (!cat || !strcmp(b->focus_room, room)))) {
+      char modem_port[64] = {0};
+      if (modem) {
+         modem_target(alias, modem_port, sizeof(modem_port));
+      }
+      if (!strcmp(b->profile, profile) &&
+          (gps ? !strcmp(b->focus_room, room) :
+             !strcmp(b->radio, alias) && (!cat || !strcmp(b->focus_room, room))) &&
+          (!modem || !strcmp(b->host_port, modem_port))) {
          continue;
       }
 
       if (modem) {
-         /* Discard commands for the previous rig before changing streams. */
-         if (b->stream) {
-            host_command(b, "close");
-         }
-         b->stream = 0;
-         b->opening = b->tx_pending = b->rx_pending = b->failed = false;
-         b->retry_seconds = 0;
-         b->next_retry_us = b->open_started_us = 0;
-
-         if (b->host_pending) {
-            g_byte_array_set_size(b->host_pending, 0);
-         }
-         b->tx_seq = b->rx_seq = 0;
-         snprintf(b->host_port, sizeof(b->host_port), "ttyMODEM%s", alias + 3);
-         console_connection_status(b, "CONNECTING");
+         modem_switch(b, modem_port, strcmp(b->profile, profile) || strcmp(b->radio, alias));
       }
       /* Never deliver a partial CAT frame to a different rig. */
       b->used = 0;
@@ -612,28 +669,11 @@ static void host_command(serial_binding_t *b, const char *command) {
 static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings_t *b) {
    return a->baud != b->baud || a->bits != b->bits || a->parity != b->parity || a->stops != b->stops;
 }
-static bool modem_mode_active(const serial_binding_t *b) {
-   if (strcmp(b->name, "ttyMODEM") || strcmp(b->service, "rig.modem")) {
-      return true;
-   }
-   const char *mode = rr_cat_property(NULL, "mode", NULL);
-
-   return mode && (!strcmp(mode, "D-U") || !strcmp(mode, "D-L"));
-}
+/* RX modem attachment is independent of CAT mode. In particular M-U/M-L,
+ * ordinary USB/LSB and FM must not be blocked by a D-U/D-L-only test.
+ * PTT/TX permission is enforced separately by rrserver.
+ */
 static void host_sync(serial_binding_t *b) {
-   if (!modem_mode_active(b)) {
-      if (b->stream) {
-         host_command(b, "close");
-      }
-      b->stream = 0;
-      b->opening = b->rx_pending = b->tx_pending = false;
-      b->failed = false;
-      b->retry_seconds = 0;
-      b->next_retry_us = 0;
-
-      return;
-   }
-
    if (!host_binding(b)) {
       return;
    }
@@ -1694,6 +1734,12 @@ bool cmd_sercom(int argc, char **args) {
       return !sent;
    }
 
+   if (argc == 3 && !strcasecmp(args[1], "modem")) {
+      bool ok = rr_sercom_select_modem(args[2]);
+      ui_print(NULL, "ttyMODEM: %s", ok ? "selected" : "invalid modem port or no active rig");
+      return !ok;
+   }
+
    if ((argc == 4 || argc == 5) && !strcasecmp(args[1], "attach")) {
       bool ok = rr_sercom_attach(args[2], args[3], argc == 5 ? args[4] : NULL);
       ui_print(NULL, "%s: %s", args[2], ok ? "attached" : "attach failed (disconnect an existing binding first)");
@@ -1707,7 +1753,7 @@ bool cmd_sercom(int argc, char **args) {
 
       return !ok;
    }
-   ui_print(NULL, "Usage: /sercom [list | remote | attach <name> "
+   ui_print(NULL, "Usage: /sercom [list | remote | modem ttyMODEMN | attach <name> "
       "<rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|rig.nmea-out|rigN.nmea-out|station.nmea-out|host:port[@baud,mode]> [device] | disconnect "
       "<name>]");
 

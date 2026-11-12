@@ -11,8 +11,12 @@ typedef struct {
 /* Borrowed strings, valid until the attachment changes or is disconnected. */
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
 bool rr_sercom_init(void);
-/* GTK/TUI may update the default CAT/GPS endpoints when the active rig changes. */
+/* GTK/TUI update CAT/GPS/modem aliases when the active rig changes. */
 void rr_sercom_focus_room(const char *profile, const char *room);
+/* Select an existing server ttyMODEMN as active modem for focused rig.
+ * Updates the floating ttyMODEM PTY without altering numbered bindings.
+ */
+bool rr_sercom_select_modem(const char *port);
 void rr_sercom_shutdown(void);
 bool cmd_sercom(int argc, char **args);
 bool rr_sercom_attach(const char *name, const char *service, const char *device);
