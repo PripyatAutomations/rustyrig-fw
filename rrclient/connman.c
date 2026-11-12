@@ -1358,6 +1358,7 @@ static bool native_tls_verification_error(const uint8_t *data, size_t len) {
           g_strstr_len(reason, len, "certificate verify failed") ||
           g_strstr_len(reason, len, "certificate verification failed") ||
           g_strstr_len(reason, len, "hostname mismatch") ||
+          g_strstr_len(reason, len, "TLS certificate name does not match") ||
           g_strstr_len(reason, len, "TLS_PIN_MISMATCH:") ||
           g_strstr_len(reason, len, "TLS_TRUST_REQUIRED:");
 }
@@ -1431,7 +1432,8 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
          rrclient_tls_pin_request_t request = {0};
          const char *previous = get_server_property(s->name, "server.tls-spki-sha256");
          const char *enabled = get_server_property(s->name, "server.tls-trust-on-first-use");
-         bool tofu = !enabled || (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
+         bool tofu = enabled &&
+            (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
          const char *presented = (const char *)data +
             (changed ? sizeof(mismatch)-1 : sizeof(unknown)-1);
          /* A changed persistent key always requires explicit reapproval,
@@ -2104,8 +2106,10 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    }
    const char *tofu_value = endpoint.irc ? NULL :
       get_server_property(s->name, "server.tls-trust-on-first-use");
-   bool tofu = !endpoint.irc &&
-      (!tofu_value || (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")));
+   /* Self-signed first-use approval is a separate explicit trust policy.
+    * Missing setting means ordinary CA verification, not silent TOFU. */
+   bool tofu = !endpoint.irc && tofu_value &&
+      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
    /* A saved SPKI pin is mandatory for every established WSS identity,
     * regardless of the separate first-use self-signed trust policy. */
    const char *pin = s->temporary_tls_pin[0] ? s->temporary_tls_pin :
