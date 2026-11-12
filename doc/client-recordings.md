@@ -108,5 +108,6 @@ immediately beside its connection, with a **0 dB (unity) default**, range
 the core-owned PCM mixer and persist per source/port, independent of the
 global RX volume. The per-source input trim does not alter the original
 decoded PCM fed to the standalone RX waterfall or local modem decoders.
-The routed stereo mix/monitor recording captures the *post-input-trim,
-pre-master-gain* signal.
+The routed stereo mix/monitor recording captures the *pre-input-trim,
+pre-master-gain* signal. Changes to any listening gain slider never
+change the recorded samples.
