@@ -450,7 +450,8 @@ static gpointer playback_worker(gpointer unused) {
       // Reverse uses four-second segments, keeping PCM memory bounded.
    }
    g_free(path);
-   event_emit("client.recordings.playback-decoded", NULL, NULL);
+   event_emit("client.recordings.playback-decoded", NULL,
+              stop ? "stopped" : "eof");
    return NULL;
 }
 gboolean rr_recordings_play_at(const char *path, double seconds, gboolean reverse,
