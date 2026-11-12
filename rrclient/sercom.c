@@ -382,7 +382,6 @@ static void modem_switch(serial_binding_t *b, const char *target) {
    b->opening = b->tx_pending = b->rx_pending = b->failed = false;
    b->retry_seconds = 0;
    b->next_retry_us = b->open_started_us = 0;
-   b->pending_len = 0;
    if (b->host_pending) {
       g_byte_array_set_size(b->host_pending, 0);
    }
