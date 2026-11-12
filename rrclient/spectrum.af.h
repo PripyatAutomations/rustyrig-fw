@@ -9,8 +9,9 @@
 #include <stdint.h>
 #define RR_AF_SAMPLE_RATE 16000u
 #define RR_AF_FFT_N 4096u
-/* Display 0-4 kHz, 1024 bins at 3.90625 Hz/bin: resolves FT8 tones. */
-#define RR_AF_BINS 1024
+/* Full real FFT 0-8 kHz at 16 kHz PCM, 3.90625 Hz/bin (including Nyquist). */
+#define RR_AF_MAX_HZ (RR_AF_SAMPLE_RATE / 2u)
+#define RR_AF_BINS (RR_AF_FFT_N / 2u + 1u)
 void rr_af_spectrum_listen(bool enabled);
 void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames);
 bool rr_af_spectrum_read(const char *stream, float bins[RR_AF_BINS]);
