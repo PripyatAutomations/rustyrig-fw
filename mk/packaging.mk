@@ -22,9 +22,6 @@ arch archpkg:
 	@echo "Sorry, arch packaging isn't ready yet"
 
 
-#modem-debs:
-#	WITH_FT8=yes dpkg-buildpackage -b -us -uc
-
 install-modems:
 	$(MAKE) -C modems install
 
