@@ -128,7 +128,10 @@ The server editor has two short, independent checkboxes:
 
 On an initially CA-verified WSS connection, RustyRig waits for a validated,
 authenticated station/domain/UUID announcement, then saves the observed
-TLS public-key SPKI SHA-256 fingerprint to the profile database. New
+TLS public-key SPKI SHA-256 fingerprint to the profile database. This also
+works for a certificate with an IP SAN only: the IP SAN validates the
+connection, while the authenticated station/domain establishes the mesh
+identity; a DNS Node Name is only learned when it matches a DNS SAN. New
 connections enforce this fingerprint even when ordinary CA validation
 would succeed. An already pinned key is never silently overwritten.
 An IP address may be used to dial the server while the Node Name selects
