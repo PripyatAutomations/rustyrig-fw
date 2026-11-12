@@ -91,6 +91,17 @@ int main(void) {
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.underrun_blocks == before);
    rr_audio_engine_free(engine);
+   /* EOF with only 10 ms of audio must bypass the usual 80 ms prefill. */
+   engine = rr_audio_engine_new(NULL, NULL);
+   assert(rr_audio_engine_add_stream(engine, "short-recording"));
+   assert(rr_audio_engine_push(engine, "short-recording", pcm, 160));
+   tick(engine, stereo, &active);
+   assert(rr_audio_engine_pending(engine, "short-recording") == 160);
+   rr_audio_engine_finish_stream(engine, "short-recording");
+   tick(engine, stereo, &active);
+   assert(active && stereo[100] == 1000);
+   assert(rr_audio_engine_pending(engine, "short-recording") == 0);
+   rr_audio_engine_free(engine);
    puts("PASS: independent audio startup cushion, recovery, bounded backlog, stereo and mute");
 
    return 0;
