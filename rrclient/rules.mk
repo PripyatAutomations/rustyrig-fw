@@ -277,7 +277,7 @@ endif
 
 bin/rrclient: ${BUILD_HEADERS} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) ${LDFLAGS} || exit 2
+	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) -lm ${LDFLAGS} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@
