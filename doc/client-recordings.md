@@ -16,7 +16,7 @@ unknown CAT modes into the name:
 
 `2026-11-12_15-38-00 - 10.004 MHz - Local_monitor - RX - end-15-38-07.ogg`
 
-`2026-11-12_15-38-00 - 14.370 MHz USB - rplywv00.rig0.A - RX - end-15-38-07.flac`
+`2026-11-12_15-38-00 - 14.37 MHz USB - rplywv00.rig0.A - RX - end-15-38-07.flac`
 
 The start date is included only once; the ending clock time follows `end-`.
 The full, unrounded frequency, CAT mode, rig and receiver identities remain
