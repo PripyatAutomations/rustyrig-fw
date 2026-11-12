@@ -35,7 +35,7 @@ endif
 endif
 
 %:
-	dh $@ $(OPTIONAL_DH_EXCLUDES) $(MODEMS_DH_EXCLUDE) $(MODEMS_DH_EXCLUDE)
+	dh $@ $(OPTIONAL_DH_EXCLUDES) $(MODEMS_DH_EXCLUDE)
 
 # Keep package builds independent of the optional hardware/integration test suite.
 override_dh_auto_test:
@@ -62,11 +62,8 @@ override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODUL
 	install -Dm755 bin/rrbridge debian/rustyrig-rrbridge$(LIBEXECDIR)/rrbridge
 	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-rrbridge$(MODULEDIR)/rrbridge/rrbridge-kiwi.so
 ifneq ($(MODEMS_ENABLED),)
-	@if test -n "$(MODEMS_ENABLED)"; then \
-	  install -Dm755 modems/rrmodem-psk debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-psk; \
-	  install -Dm755 modems/rrmodem-olivia debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-olivia; \
-	  install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-ft8; \
-	fi
+	install -Dm755 modems/rrmodem-psk debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-psk
+	install -Dm755 modems/rrmodem-olivia debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-olivia
 	install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-ft8
 endif
 	install -Dm755 bin/rrserver debian/rustyrig-server$(BINDIR)/rrserver
@@ -158,6 +155,6 @@ override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start --no-stop-on-upgrade
 
 override_dh_installdeb:
-	dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(MODEMS_DH_EXCLUDE) $(MODEMS_DH_EXCLUDE)
+	dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(MODEMS_DH_EXCLUDE)
 	# dh_installdeb combines package preinst scripts with .maintscript migrations.
 	# Do not overwrite its generated preinst: that would disable rm_conffile.
