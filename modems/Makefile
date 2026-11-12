@@ -24,9 +24,11 @@ PSK_OBJECTS := $(addprefix $(BUILD_DIR)/psk/,$(addsuffix .o,$(PSK_SOURCES)))
 OLIVIA_OBJECT := $(BUILD_DIR)/olivia/oliviamodem.o
 PSK_LIBRARY := $(BUILD_DIR)/libpsk.a
 OLIVIA_LIBRARY := $(BUILD_DIR)/liboliviamodem.a
+FT8_LIB ?= ../ext/ft8_lib
+
 PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback snr modes))
 
-.PHONY: all test install clean fetch
+.PHONY: all test test-snr ft8-snr install clean fetch
 all: rrmodem-psk rrmodem-olivia
 fetch: $(PSK_SRC)/CMakeLists.txt $(OLIVIA_SRC)/CMakeLists.txt
 
@@ -79,6 +81,26 @@ test: all $(PSK_TESTS)
 	@set -e; for t in $(PSK_TESTS); do echo "[TEST] $$t"; "./$$t"; done
 	@./rrmodem-psk BPSK31 1500 4</dev/null >/dev/null
 	@./rrmodem-olivia 8 500 4</dev/null >/dev/null
+
+$(BUILD_DIR)/tests/psk-snr-sweep: tests/psk_snr.c tests/snr_noise.h $(PSK_LIBRARY)
+	@mkdir -p "$(@D)"
+	$(CC) $(CPPFLAGS) $(CFLAGS) -std=gnu11 -Itests -I"$(PSK_SRC)/include" $(LDFLAGS) -o "$@" "$<" "$(PSK_LIBRARY)" $(LDLIBS)
+
+$(BUILD_DIR)/tests/olivia-snr-sweep: tests/olivia_snr.cpp tests/snr_noise.h $(OLIVIA_LIBRARY)
+	@mkdir -p "$(@D)"
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Itests -I"$(OLIVIA_SRC)/include" $(LDFLAGS) -o "$@" "$<" "$(OLIVIA_LIBRARY)" $(LDLIBS)
+
+# Benchmarks report decode probability by SNR; no arbitrary pass threshold.
+test-snr: $(BUILD_DIR)/tests/psk-snr-sweep $(BUILD_DIR)/tests/olivia-snr-sweep
+	./$(BUILD_DIR)/tests/psk-snr-sweep
+	./$(BUILD_DIR)/tests/olivia-snr-sweep
+
+# Optional FT8 benchmark. ft8_lib is already a git submodule in ext/.
+# The target initializes it if missing; does not reset existing checkouts.
+ft8-snr:
+	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
+	$(MAKE) -C "$(FT8_LIB)" gen_ft8 decode_ft8
+	python3 tests/ft8_snr.py --ft8-lib "$(FT8_LIB)"
 
 install: all
 	install -d "$(DESTDIR)$(PREFIX)"
