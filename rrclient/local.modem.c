@@ -14,6 +14,7 @@
 #include <rrclient/audio.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/ui.h>
+#include <rrclient/frontend.h>
 #include <rrclient/rrclient.h>
 
 typedef struct {
@@ -269,6 +270,16 @@ void rr_local_modem_shutdown(void) {
    initialized = false;
 }
 bool cmd_local_modem(int argc, char **argv) {
+   if (argc == 1 || (argc == 2 && (!strcasecmp(argv[1], "gui") ||
+                                         !strcasecmp(argv[1], "window")))) {
+      const rr_frontend_ops_t *frontend = frontend_ops();
+      if (frontend && frontend->show_decoders) {
+         frontend->show_decoders();
+         return false;
+      }
+      ui_print(NULL, "Decoder GUI requires GTK; use /modem list, status, start or stop in TUI");
+      return false;
+   }
    if (argc == 2 && !strcasecmp(argv[1], "list")) {
       struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {{0}};
       size_t n = audio_rx_streams(streams, G_N_ELEMENTS(streams));
@@ -305,6 +316,6 @@ bool cmd_local_modem(int argc, char **argv) {
       req.value = argc >= 6 ? (unsigned)atoi(argv[5]) : (psk ? 1500u : ft8 ? 0u : 500u);
       return !start_one(&req);
    }
-   ui_print(NULL, "Usage: /modem list | status | stop <slot> | start <psk|olivia|ft8> <stream> [mode|tones] [carrier|bandwidth] [slot]");
+   ui_print(NULL, "Usage: /modem [gui] | list | status | stop <slot> | start <psk|olivia|ft8> <stream> [mode|tones] [carrier|bandwidth] [slot]");
    return true;
 }

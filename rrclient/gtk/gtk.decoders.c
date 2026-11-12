@@ -78,6 +78,11 @@ static void start_clicked(GtkButton *button, gpointer user) {
    req.value = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(row->frequency));
    rr_local_modem_request(&req);
 }
+static void refresh_clicked(GtkButton *button, gpointer user) {
+   (void)button; (void)user;
+   rr_local_modem_request_t req = {.action=RR_LOCAL_MODEM_SNAPSHOT};
+   rr_local_modem_request(&req);
+}
 static void stop_clicked(GtkButton *button, gpointer user) {
    (void)button;
    decoder_row_t *row = user;
@@ -222,9 +227,14 @@ void gtk_decoders_show(void) {
       g_signal_connect(row->start, "clicked", G_CALLBACK(start_clicked), row);
       g_signal_connect(row->stop, "clicked", G_CALLBACK(stop_clicked), row);
    }
+   GtkWidget *footer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   GtkWidget *refresh = gtk_button_new_with_label("Refresh sources / status");
+   gtk_box_pack_start(GTK_BOX(footer), refresh, FALSE, FALSE, 4);
+   g_signal_connect(refresh, "clicked", G_CALLBACK(refresh_clicked), NULL);
+   gtk_box_pack_start(GTK_BOX(root), footer, FALSE, FALSE, 2);
    panel.status = gtk_label_new("Select a stream and start one or more RX decoders");
    gtk_label_set_xalign(GTK_LABEL(panel.status), 0);
-   gtk_box_pack_end(GTK_BOX(root), panel.status, FALSE, FALSE, 2);
+   gtk_box_pack_start(GTK_BOX(footer), panel.status, TRUE, TRUE, 2);
    g_signal_connect(panel.window, "destroy", G_CALLBACK(window_closed), NULL);
    panel.snapshot_token = event_on_message_domain_token(
        RR_LOCAL_MODEM_RESULT, snapshot_received, NULL, "gtk");

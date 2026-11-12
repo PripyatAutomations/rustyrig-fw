@@ -105,6 +105,9 @@ typedef struct rr_frontend_ops {
    /* Server chooser window (client /server with no args). */
    void (*show_server_chooser)(void);
 
+   /* Client-local decoder manager (client /modem GUI). */
+   void (*show_decoders)(void);
+
    /* Webcam viewer window visibility (client /webcam SHOW|HIDE). */
    void (*webcam_show)(bool show);
 

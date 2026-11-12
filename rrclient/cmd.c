@@ -260,7 +260,7 @@ client_cmd_t client_cmds[] = {
    },
    {
       .cmd = "modem", .help_section = "Media", .cb = cmd_local_modem, .max_args = 6,
-      .desc = "Local RX decoders: LIST | STATUS | START <psk|olivia|ft8> <stream> [mode|tones] [carrier|bandwidth] [slot] | STOP <slot>"
+      .desc = "Local RX decoders: GUI | LIST | STATUS | START <psk|olivia|ft8> <stream> [mode|tones] [carrier|bandwidth] [slot] | STOP <slot>"
    },
    {
       .cmd = "sercom", .help_section = "Serial", .cb = cmd_sercom, .max_args = 4,
