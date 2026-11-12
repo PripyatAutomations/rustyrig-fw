@@ -177,16 +177,33 @@ void audio_recording_control_core(const char *event, const void *data,
       default: break;
    }
 }
-static void audio_recording_finished_core(const char *event, const char *data,
-                                          rrconn_t *conn, void *user) {
-   (void)event; (void)data; (void)conn; (void)user;
+/* The decoder is finished, but up to 240 ms of decoded samples can still
+ * be queued in the RX mixer. Do not remove streams (or tell the player it
+ * is finished) until BOTH channels drain. Finite streams bypass prefill at EOF. */
+static gboolean recording_playback_drain(gpointer unused) {
+   (void)unused;
+   if (rr_audio_engine_pending(rx_engine, "recording.playback.L") ||
+       rr_audio_engine_pending(rx_engine, "recording.playback.R"))
+      return G_SOURCE_CONTINUE;
    audio_recording_play_collect();
+   event_emit("client.recordings.playback-finished", NULL, NULL);
+   return G_SOURCE_REMOVE;
+}
+static void audio_recording_decoded_core(const char *event, const char *data,
+                                        rrconn_t *conn, void *user) {
+   (void)event; (void)data; (void)conn; (void)user;
+   rr_audio_engine_finish_stream(rx_engine, "recording.playback.L");
+   rr_audio_engine_finish_stream(rx_engine, "recording.playback.R");
+   GSource *timer = g_timeout_source_new(20);
+   g_source_set_callback(timer, recording_playback_drain, NULL, NULL);
+   g_source_attach(timer, rrclient_core_context());
+   g_source_unref(timer);
 }
 void audio_recording_events_init(void) {
    event_on_binary_domain_token(RR_AUDIO_RECORDING_CONTROL_REQUEST,
       audio_recording_control_core, NULL, "core");
-   event_on_domain_token("client.recordings.playback-finished",
-      audio_recording_finished_core, NULL, "core");
+   event_on_domain_token("client.recordings.playback-decoded",
+      audio_recording_decoded_core, NULL, "core");
 }
 
 static char local_rx_routes[26]; /* zero means default Stereo */
