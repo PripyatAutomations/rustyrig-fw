@@ -191,7 +191,12 @@ static gboolean recording_playback_drain(gpointer unused) {
 }
 static void audio_recording_decoded_core(const char *event, const char *data,
                                         rrconn_t *conn, void *user) {
-   (void)event; (void)data; (void)conn; (void)user;
+   (void)event; (void)conn; (void)user;
+   if (data && !strcmp(data, "stopped")) {
+      audio_recording_play_collect();
+      event_emit("client.recordings.playback-finished", NULL, NULL);
+      return;
+   }
    rr_audio_engine_finish_stream(rx_engine, "recording.playback.L");
    rr_audio_engine_finish_stream(rx_engine, "recording.playback.R");
    GSource *timer = g_timeout_source_new(20);
