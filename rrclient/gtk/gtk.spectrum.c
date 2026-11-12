@@ -558,7 +558,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       double x = (width - 1.) * tick / 4.;
       unsigned hz = af_x_to_hz(p, x, width);
       char label[24];
-      if (hz % 1000 == 0) {
+      if (hz && hz % 1000 == 0) {
          g_snprintf(label, sizeof(label), "%u kHz", hz / 1000);
       } else {
          g_snprintf(label, sizeof(label), "%u Hz", hz);
