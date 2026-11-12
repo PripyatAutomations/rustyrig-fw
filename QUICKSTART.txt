@@ -5,28 +5,18 @@ Keep the server on your LAN or VPN for this beta. Install matching server,
 native-client and WebUI revisions: the compact rustyrig.v1 protocol has no
 fallback for older releases.
 
+
+Try out rrpk the RustyRig Packaging Toolkit in the rrpk repo, it will help
+install the various parts as native packages for your distro, built locally
+from git -main
+
 1. Install or build
 -------------------
 For Debian packages and service setup, follow doc/INSTALLING. For a source
 build on Debian/Ubuntu, fetch the checkout and install the profile reader:
 
-XXX: This will drag in a fair bit of external sources NOT linked by
-XXX: default-- this is because we need it available for offline builds
-XXX: of rustyrig firmware (from the pi). This might change soon!
-
-    git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
-     # Install librustyaxe-dev, librrprotocol-dev and librustyirc-dev independently.
-    # submodules here are optional third-party dependencies, not RustyAxe/protocol sources
-    ./tools/git-pull-all.sh
-    cd rustyrig-fw
-    sudo apt update
-    sudo apt install jq
-    ./install-deps.sh
-
-install-deps.sh PRINTS the apt command for the selected profile; run that
-command with sudo to install the dependencies. Then build:
-
-    make -j4 PROFILE=radio world
+    git clone --recurse-submodules https://github.com/PripyatAutomations/rrpk.git
+    Run the appropriate build*.sh script for your distro --
 
 The default source profile is radio. Build options live in config/radio.config.json.
 To test applications independently, build with PROFILE=rrclient or PROFILE=rrserver;
