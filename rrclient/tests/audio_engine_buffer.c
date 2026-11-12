@@ -110,8 +110,12 @@ int main(void) {
    assert(rr_audio_engine_input_gain(engine, "graph.receiver", 0, -6.0));
    assert(rr_audio_engine_input_gain(engine, "graph.receiver", 1, 0.0));
    assert(!rr_audio_engine_input_gain(engine, "graph.receiver", 0, 24.0));
+   rr_audio_engine_set_pre_gain_tap(engine, verify_pre_gain, NULL);
    assert(rr_audio_engine_push(engine, "graph.receiver", pcm, 1600));
    tick(engine, stereo, &active);
+   /* Recording and analysis must stay at raw 1000 even when the
+    * speaker's mixer input has a -6 dB trim. */
+   assert(last_pre_gain == 1000);
    assert(active && stereo[200] >= 490 && stereo[200] <= 510);
    assert(stereo[201] == 1000);
    size_t queued = rr_audio_engine_pending(engine, "graph.receiver");
