@@ -31,8 +31,9 @@ FT8_LIB ?= ../ext/ft8_lib
 PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback snr modes))
 
 .PHONY: all test test-snr ft8-snr install clean fetch
-all: rrmodem-psk rrmodem-olivia
+all: rrmodem-psk rrmodem-olivia rrmodem-ft8
 fetch: $(PSK_SRC)/CMakeLists.txt $(OLIVIA_SRC)/CMakeLists.txt
+	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
 
 # CMakeLists.txt is only a pre-existing checkout marker: cmake is NOT invoked.
 $(PSK_SRC)/CMakeLists.txt:
@@ -75,6 +76,13 @@ rrmodem-psk: psk/rrmodem-psk.c common/pcm16k.h $(PSK_LIBRARY)
 rrmodem-olivia: olivia/rrmodem-olivia.cpp common/pcm16k.h $(OLIVIA_LIBRARY)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I"$(OLIVIA_SRC)/include" $(LDFLAGS) -o "$@" olivia/rrmodem-olivia.cpp "$(OLIVIA_LIBRARY)" $(LDLIBS)
 
+rrmodem-ft8:
+	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
+	$(MAKE) -C ft8 FT8_LIB=../../ext/ft8_lib
+
+test-ft8: rrmodem-ft8
+	@echo "FT8 worker built successfully"
+
 $(BUILD_DIR)/tests/psk-%: $(PSK_SRC)/tests/test_%.c $(PSK_LIBRARY)
 	@mkdir -p "$(@D)"
 	$(CC) $(CPPFLAGS) $(CFLAGS) -std=gnu11 -I"$(PSK_SRC)/include" $(LDFLAGS) -o "$@" "$<" "$(PSK_LIBRARY)" $(LDLIBS)
@@ -107,7 +115,9 @@ ft8-snr:
 
 install: all
 	install -d "$(DESTDIR)$(MODEMDIR)"
-	install -m 0755 rrmodem-psk rrmodem-olivia "$(DESTDIR)$(MODEMDIR)/"
+	install -m 0755 rrmodem-psk rrmodem-olivia ft8/rrmodem-ft8 "$(DESTDIR)$(MODEMDIR)/"
+	mv "$(DESTDIR)$(MODEMDIR)/rrmodem-ft8" "$(DESTDIR)$(MODEMDIR)/rrmodem-ft8"
 
 clean:
 	rm -rf "$(BUILD_DIR)" rrmodem-psk rrmodem-olivia
+	$(MAKE) -C ft8 clean
