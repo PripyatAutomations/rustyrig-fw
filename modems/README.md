@@ -69,3 +69,10 @@ live rrmodem-ft8 worker's wall-clock and 16-to-12 kHz resampler.
 
 For an exact production sensitivity test, add worker-end-to-end test fixtures
 and check both decoding and false positives with noise-only inputs.
+
+## Packaging
+
+Debian, RPM and Arch package all three external workers as `rustyrig-modems`.
+Workers install to `/usr/libexec/rustyrig/modems/` rather than `/usr/bin`
+or writable runtime state. Normal builds use `WITH_MODEMS=yes`; set
+`WITH_MODEMS=no` to build RustyRig without these workers.
