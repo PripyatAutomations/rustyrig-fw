@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/event-bus.h>
 #include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>
