@@ -38,6 +38,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/sercom.h>
+#include <rrclient/local.modem.h>
 
 extern bool dying;
 extern time_t now;
@@ -256,6 +257,10 @@ client_cmd_t client_cmds[] = {
    },
    {
       .cmd = "txcodec", .help_section = "Media", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]"
+   },
+   {
+      .cmd = "modem", .help_section = "Media", .cb = cmd_local_modem, .max_args = 5,
+      .desc = "Local RX modem: LIST | STATUS | START <psk|olivia> <stream> [mode|tones] [carrier|bandwidth] | STOP"
    },
    {
       .cmd = "sercom", .help_section = "Serial", .cb = cmd_sercom, .max_args = 4,

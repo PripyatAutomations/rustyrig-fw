@@ -13,6 +13,7 @@ rrclient_objs += receiver.directory.o
 rrclient_objs += receiver.connect.o
 rrclient_objs += receiver.catalog.o
 rrclient_objs += local.bridge.o
+rrclient_objs += local.modem.o # RX-only local worker for remote and local SDR PCM
 rrclient_objs += spectrum.af.o
 rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
 rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
