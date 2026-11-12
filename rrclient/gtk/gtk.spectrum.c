@@ -462,8 +462,11 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_set_source_rgb(cr, 0.43, 0.79, 0.99);
 
       for (unsigned i = 0 ; i < RR_AF_BINS ; i++) {
+         /* Trace and waterfall must sample the same visible zoomed bins. */
+         unsigned source_bin = (RR_AF_BINS - RR_AF_BINS / af_zoom) / 2 + i / af_zoom;
+         source_bin = MIN(source_bin, RR_AF_BINS - 1);
          double x = (double)i * (width - 1) / (RR_AF_BINS - 1);
-         double y = trace_height - 3 - level(p->current[i], p->display_gain_db) * (trace_height - 6);
+         double y = trace_height - 3 - level(p->current[source_bin], p->display_gain_db) * (trace_height - 6);
 
          if (bars) {
             double bar_width = MAX(1.0, width / (double)RR_AF_BINS - 1);
@@ -547,13 +550,26 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_move_to(cr, 12, height / 2.);
       cairo_show_text(cr, "Waiting for audio on selected source...");
    }
+   /* Draw a scale across the actual visible range, centered at 2 kHz.
+    * At 1x: 0..4000; at 2x: 1000..3000; at 4x: 1500..2500;
+    * at 8x: 1750..2250 Hz. These positions also drive AF click tuning. */
    cairo_set_font_size(cr, 10);
-   cairo_move_to(cr, 5, height - 3);
-   cairo_show_text(cr, "AF 0 Hz");
-   cairo_move_to(cr, width / 2 - 19, height - 3);
-   cairo_show_text(cr, "2 kHz");
-   cairo_move_to(cr, width - 43, height - 3);
-   cairo_show_text(cr, "4 kHz");
+   for (unsigned tick = 0; tick <= 4; tick++) {
+      double x = (width - 1.) * tick / 4.;
+      unsigned hz = af_x_to_hz(p, x, width);
+      char label[24];
+      if (hz % 1000 == 0) {
+         g_snprintf(label, sizeof(label), "%u kHz", hz / 1000);
+      } else {
+         g_snprintf(label, sizeof(label), "%u Hz", hz);
+      }
+      cairo_text_extents_t ext;
+      cairo_text_extents(cr, label, &ext);
+      double tx = CLAMP(x - ext.width / 2., 2.,
+                        MAX(2., width - ext.width - 2.));
+      cairo_move_to(cr, tx, height - 3);
+      cairo_show_text(cr, label);
+   }
    if (af_in_modem_mode()) {
       /* RX cyan, TX amber; outside-viewport markers are deliberately clipped. */
       const unsigned offsets[] = {p->modem_rx_hz, p->modem_tx_hz};
