@@ -43,8 +43,8 @@ and its build/packaging rules into standalone repositories.
 ## Weak-signal AWGN benchmarks
 
 ```sh
-make -C modems test-snr      # PSK31 and Olivia 8/500 (standalone modem APIs)
-make -C modems ft8-snr       # optional FT8, pulls existing ft8_lib submodule
+make -C modems test-snr      # PSK31, Olivia 8/500, and FT8
+make -C modems ft8-snr       # FT8 alone (also runs inside test-snr)
 ```
 
 These are *measurement* targets, not pass/fail sensitivity certifications.
