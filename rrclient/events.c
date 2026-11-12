@@ -1978,8 +1978,11 @@ static void rrclient_handle_domain_identity(const char *event, const char *data,
    }
    const char *domain = dict_get(identity, "domain.name", "");
    const char *station = dict_get(identity, "domain.station", "");
-   if (rrclient_connection_expected_node_matches(connection, station, domain))
-      rrclient_connection_set_identity(connection, domain, dict_get(identity, "domain.server", ""));
+   if (rrclient_connection_expected_node_matches(connection, station, domain)) {
+      const char *uuid = dict_get(identity, "domain.server", "");
+      rrclient_connection_set_identity(connection, domain, uuid);
+      rrclient_connection_learn_expected_node(connection, station, domain, uuid);
+   }
    dict_free(identity);
 }
 
