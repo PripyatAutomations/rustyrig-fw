@@ -83,8 +83,16 @@ rrmodem-olivia: olivia/rrmodem-olivia.cpp common/pcm16k.h $(OLIVIA_LIBRARY)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I"$(OLIVIA_SRC)/include" $(LDFLAGS) -o "$@" olivia/rrmodem-olivia.cpp "$(OLIVIA_LIBRARY)" $(LDLIBS)
 
 rrmodem-ft8:
-	@if test ! -f "$(FT8_LIB)/Makefile"; then $(GIT) -C .. submodule update --init ext/ft8_lib; fi
-	$(MAKE) -C ft8 FT8_LIB=../../ext/ft8_lib
+	@if test ! -f "$(FT8_LIB)/Makefile"; then \
+		if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+			$(GIT) -C .. submodule update --init ext/ft8_lib; \
+		elif test ! -e "$(FT8_LIB)"; then \
+			$(GIT) clone https://github.com/kgoba/ft8_lib.git "$(FT8_LIB)"; \
+		else \
+			echo "Incomplete existing FT8 source tree: $(FT8_LIB)" >&2; exit 1; \
+		fi; \
+	fi
+	$(MAKE) -C ft8 FT8_LIB="$(abspath $(FT8_LIB))"
 
 test-ft8: rrmodem-ft8
 	@echo "FT8 worker built successfully"
