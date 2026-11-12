@@ -573,6 +573,25 @@ bool rrclient_database_network_set(const char *name, const char *members) {
    return ok;
 }
 
+/* Ungrouped is represented by absence of memberships; never delete servers.
+ * Perform both deletes atomically, regardless of foreign-key PRAGMA state. */
+bool rrclient_database_network_delete(const char *name) {
+   if (!client_db || !name || !*name || !g_ascii_strcasecmp(name, "Ungrouped"))
+      return false;
+   if (sqlite3_exec(client_db, "SAVEPOINT network_delete", NULL, NULL, NULL) != SQLITE_OK)
+      return false;
+   bool ok = db_exec3("DELETE FROM network_memberships WHERE network_id="
+                      "(SELECT id FROM networks WHERE name=?1)", name, NULL, NULL);
+   if (ok)
+      ok = db_exec3("DELETE FROM networks WHERE name=?1", name, NULL, NULL);
+   if (ok)
+      ok = sqlite3_exec(client_db, "RELEASE network_delete", NULL, NULL, NULL) == SQLITE_OK;
+   else
+      sqlite3_exec(client_db, "ROLLBACK TO network_delete; RELEASE network_delete",
+                   NULL, NULL, NULL);
+   return ok && rrclient_database_load_profiles();
+}
+
 /* Changes are committed before the compatibility config view is rebuilt. */
 bool rrclient_database_server_delete(const char *name) {
    if (!client_db || !name || !*name) {
