@@ -158,9 +158,26 @@ The client always provisions three reserved PTYs, even when no explicit
 They remain nondeletable in the local serial editor; other configured ports
 may be deleted after disconnecting, with confirmation.
 
-The floating `rig.modem` service maps active `rig0` to server export
-`ttyMODEM0`, `rig1` to `ttyMODEM1`, etc., following the selected
-server and rig room. The local PTY remains present when no such server
+The floating `rig.modem` service points to the **selected modem** on the
+active rig. Its physical PTY remains `$HOME/dev/ttyMODEM`, and changing
+the selected modem closes the previous remote serial session, clears
+undelivered data, and reconnects without replacing the local PTY.
+
+The default selection remains `rig0` → `ttyMODEM0`, `rig1` → `ttyMODEM1`,
+etc., for compatibility. However, multiple modem workers may belong to the
+same rig. Use `/sercom modem ttyMODEM2` to change the selection for the
+focused rig, and `/save` to persist it, or configure, for example:
+
+```ini
+[general]
+serial.modem.active.rig0=ttyMODEM2
+serial.modem.active.rig1=ttyMODEM4
+```
+
+Numbered `ttyMODEMN` exports remain explicitly bound, and a selected name
+must be numeric. The server still checks raw serial export privileges.
+The modem endpoint is an application byte stream, not a transmitter:
+modem RF TX requires the separate server-owned PTT lease and audio gate. The local PTY remains present when no such server
 export is available, and the existing host serial retry state machine
 attempts reconnection. Switching rigs discards queued unacknowledged
 modem bytes rather than replaying them to another radio. The server must
