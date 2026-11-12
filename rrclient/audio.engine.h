@@ -18,6 +18,8 @@ typedef struct {
    uint64_t push_calls, pushed_samples, max_push_samples, max_queued_samples;
 } rr_audio_engine_stats_t;
 rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn output, void *user);
+/* Independent pre-gain tap; receives routed/mixed PCM before L/R listening gain. */
+void rr_audio_engine_set_pre_gain_tap(rr_audio_engine_t *engine, rr_audio_output_fn tap, void *user);
 bool rr_audio_engine_start(rr_audio_engine_t *engine);
 void rr_audio_engine_stop(rr_audio_engine_t *engine);
 void rr_audio_engine_free(rr_audio_engine_t *engine);
