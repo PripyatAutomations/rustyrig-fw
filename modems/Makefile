@@ -8,7 +8,9 @@ CC ?= cc
 CXX ?= c++
 AR ?= ar
 EXT ?= ../ext
-PREFIX ?= /var/lib/rustyrig/modems
+PREFIX ?= /usr
+LIBEXECDIR ?= $(PREFIX)/libexec/rustyrig
+MODEMDIR ?= $(LIBEXECDIR)/modems
 BUILD_DIR ?= build
 PSK_SRC := $(EXT)/libpsk
 OLIVIA_SRC := $(EXT)/olivia-modem
@@ -104,8 +106,8 @@ ft8-snr:
 	python3 tests/ft8_snr.py --ft8-lib "$(FT8_LIB)"
 
 install: all
-	install -d "$(DESTDIR)$(PREFIX)"
-	install -m 0755 rrmodem-psk rrmodem-olivia "$(DESTDIR)$(PREFIX)/"
+	install -d "$(DESTDIR)$(MODEMDIR)"
+	install -m 0755 rrmodem-psk rrmodem-olivia "$(DESTDIR)$(MODEMDIR)/"
 
 clean:
 	rm -rf "$(BUILD_DIR)" rrmodem-psk rrmodem-olivia
