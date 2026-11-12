@@ -91,3 +91,23 @@ individually routed L/R PCM hub streams. GTK owns drawing and panels; PCM
 and recording codec workers never call GTK. Hovering, focusing, or opening a waterfall
 source/VFO selector makes it fully opaque. While idle, these drop to
 36% opacity so they don't obscure the displayed spectrum.
+
+## Audio Graph — permanent recording playback source
+
+The client Audio Graph always contains a **Recording Playback** stereo
+source (`recording.playback`), even while no file is playing. Its two
+underlying PCM hub streams are retained and routed independently to the left
+and right speakers. Drag/click its L/R wires to select the playback
+destinations; those routes are remembered in the client settings database.
+Play, stop and natural end-of-file do not remove the node or erase its
+routing. Changing the destination during playback preserves buffered PCM.
+
+Each graph input port (including Recording Playback) has a small gain fader
+immediately beside its connection, with a **0 dB (unity) default**, range
+-60 to +12 dB, and independent left/right settings. Adjustments execute in
+the core-owned PCM mixer and persist per source/port, independent of the
+global RX volume. The per-source input trim does not alter the original
+decoded PCM fed to the standalone RX waterfall or local modem decoders.
+The routed stereo mix/monitor recording captures the *pre-input-trim,
+pre-master-gain* signal. Changes to any listening gain slider never
+change the recorded samples.

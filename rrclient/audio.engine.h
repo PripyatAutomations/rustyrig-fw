@@ -28,6 +28,14 @@ void rr_audio_engine_remove_stream(rr_audio_engine_t *engine, const char *id);
 bool rr_audio_engine_push(rr_audio_engine_t *engine, const char *id, const int16_t *pcm, size_t count);
 bool rr_audio_engine_route(rr_audio_engine_t *engine, const char *id, char route);
 void rr_audio_engine_gain(rr_audio_engine_t *engine, unsigned channel, int percent);
+/* Pre-master-gain mixer input trim, independently for each destination ear.
+ * 0 dB is unity and the initial setting for every new stream. */
+bool rr_audio_engine_input_gain(rr_audio_engine_t *engine, const char *id, unsigned channel, double db);
+double rr_audio_engine_input_gain_get(rr_audio_engine_t *engine, const char *id, unsigned channel);
+/* Clear EOF state and any old PCM before beginning another finite playback. */
+bool rr_audio_engine_reset_stream(rr_audio_engine_t *engine, const char *id);
+/* Change a live stream's destination without flushing its buffered PCM. */
+bool rr_audio_engine_route_preserve(rr_audio_engine_t *engine, const char *id, char route);
 /* Allow a finite source to finish even with less than the startup prebuffer. */
 void rr_audio_engine_finish_stream(rr_audio_engine_t *engine, const char *id);
 size_t rr_audio_engine_pending(rr_audio_engine_t *engine, const char *id);

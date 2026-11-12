@@ -102,7 +102,31 @@ int main(void) {
    assert(active && stereo[100] == 1000);
    assert(rr_audio_engine_pending(engine, "short-recording") == 0);
    rr_audio_engine_free(engine);
-   puts("PASS: independent audio startup cushion, recovery, bounded backlog, stereo and mute");
+   /* A graph input's 0 dB trim is unity; L/R are independent. */
+   engine = rr_audio_engine_new(NULL, NULL);
+   assert(rr_audio_engine_add_stream(engine, "graph.receiver"));
+   assert(rr_audio_engine_input_gain_get(engine, "graph.receiver", 0) == 0.0);
+   assert(rr_audio_engine_input_gain_get(engine, "graph.receiver", 1) == 0.0);
+   assert(rr_audio_engine_input_gain(engine, "graph.receiver", 0, -6.0));
+   assert(rr_audio_engine_input_gain(engine, "graph.receiver", 1, 0.0));
+   assert(!rr_audio_engine_input_gain(engine, "graph.receiver", 0, 24.0));
+   rr_audio_engine_set_pre_gain_tap(engine, verify_pre_gain, NULL);
+   assert(rr_audio_engine_push(engine, "graph.receiver", pcm, 1600));
+   tick(engine, stereo, &active);
+   /* Recording and analysis must stay at raw 1000 even when the
+    * speaker's mixer input has a -6 dB trim. */
+   assert(last_pre_gain == 1000);
+   assert(active && stereo[200] >= 490 && stereo[200] <= 510);
+   assert(stereo[201] == 1000);
+   size_t queued = rr_audio_engine_pending(engine, "graph.receiver");
+   assert(queued > 0);
+   /* Changing a playback destination must not flush the buffered tail. */
+   assert(rr_audio_engine_route_preserve(engine, "graph.receiver", 'R'));
+   assert(rr_audio_engine_pending(engine, "graph.receiver") == queued);
+   tick(engine, stereo, &active);
+   assert(stereo[200] == 0 && stereo[201] == 1000);
+   rr_audio_engine_free(engine);
+   puts("PASS: independent mixer gain, persistent routing, EOF tail and stereo");
 
    return 0;
 }
