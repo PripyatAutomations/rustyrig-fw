@@ -10,6 +10,7 @@
 #include <rrclient/database.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/rooms.h>
+#include <rrclient/sercom.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/gtk/gtk.spectrum.h>
 #include <rrbridge/spectrum.row.h>
@@ -38,6 +39,7 @@ typedef struct {
    char source_mode;
    gint64 streams_requested_at;
    double display_gain_db;
+   unsigned modem_rx_hz, modem_tx_hz;
 } spectrum_panel_t;
 static double level(float db, double gain_db) {
    /* The FFT normalization uses 8192, half the signed 16-bit full scale. Correct the reference, then show a fixed -90..-30 dBFS window. */
@@ -389,6 +391,76 @@ static uint32_t palette_pixel(double v, unsigned selected_palette) {
 
    return 0xff000000u | (r << 16) | (g << 8) | b;
 }
+static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data);
+/* Offset tuning is UI state until the modem catalog/control API exists.
+ * This never keys PTT or changes physical CAT tuning.
+ */
+static bool af_in_modem_mode(void) {
+   const char *mode = rr_cat_property(NULL, "mode", NULL);
+   return mode && (!strncmp(mode, "M-", 2) || !strcmp(mode, "MFM") ||
+                   !strncmp(mode, "D-", 2) || !strcmp(mode, "DFM"));
+}
+static double af_hz_to_x(const spectrum_panel_t *p, unsigned hz, int width) {
+   double zoom = p->zoom ? p->zoom : 1;
+   return ((double)hz - 2000.) * zoom * (width - 1) / 4000. + (width - 1) / 2.;
+}
+static unsigned af_x_to_hz(const spectrum_panel_t *p, double x, int width) {
+   if (width < 2) return 0;
+   double zoom = p->zoom ? p->zoom : 1;
+   double hz = 2000. + (CLAMP(x, 0., width - 1.) / (width - 1.) - 0.5) * 4000. / zoom;
+   return (unsigned)CLAMP(round(hz), 0., 4000.);
+}
+static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz) {
+   hz = MIN(hz, 4000u);
+   if (tx) {
+      p->modem_tx_hz = hz;
+      waterfall_save("modem.af.tx-offset-hz", hz);
+   } else {
+      p->modem_rx_hz = hz;
+      waterfall_save("modem.af.rx-offset-hz", hz);
+   }
+   gtk_widget_queue_draw(p->drawing);
+}
+static void af_offsets_dialog(GtkButton *button, gpointer data) {
+   (void)button;
+   spectrum_panel_t *p = data;
+   GtkWidget *parent = gtk_widget_get_toplevel(p->drawing);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Modem AF offsets",
+       GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+       "_Cancel", GTK_RESPONSE_CANCEL, "_Apply", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   GtkWidget *rx = gtk_spin_button_new_with_range(0, 4000, 1);
+   GtkWidget *tx = gtk_spin_button_new_with_range(0, 4000, 1);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(rx), p->modem_rx_hz);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(tx), p->modem_tx_hz);
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("RX (Hz)"), 0, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), rx, 1, 0, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), gtk_label_new("TX (Hz)"), 0, 1, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), tx, 1, 1, 1, 1);
+   GtkWidget *note = gtk_label_new("Click = RX; Shift+click = TX. These values are local presets\nuntil the server modem control protocol is available.");
+   gtk_label_set_xalign(GTK_LABEL(note), 0);
+   gtk_grid_attach(GTK_GRID(grid), note, 0, 2, 2, 1);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      af_offset_update(p, false, gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(rx)));
+      af_offset_update(p, true, gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(tx)));
+   }
+   gtk_widget_destroy(dialog);
+}
+static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   spectrum_panel_t *p = data;
+   if (event->type == GDK_BUTTON_PRESS && event->button == 1 && af_in_modem_mode()) {
+      unsigned hz = af_x_to_hz(p, event->x, gtk_widget_get_allocated_width(widget));
+      af_offset_update(p, !!(event->state & GDK_SHIFT_MASK), hz);
+      return TRUE;
+   }
+   return af_context_menu(widget, event, data);
+}
 static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    spectrum_panel_t *p = data;
    int width = gtk_widget_get_allocated_width(widget);
@@ -504,6 +576,20 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_show_text(cr, "2 kHz");
    cairo_move_to(cr, width - 43, height - 3);
    cairo_show_text(cr, "4 kHz");
+   if (af_in_modem_mode()) {
+      /* RX cyan, TX amber; outside-viewport markers are deliberately clipped. */
+      const unsigned offsets[] = {p->modem_rx_hz, p->modem_tx_hz};
+      for (unsigned i = 0; i < 2; i++) {
+         double x = af_hz_to_x(p, offsets[i], width);
+         if (x < 0 || x >= width) continue;
+         cairo_set_source_rgba(cr, i ? 1.0 : 0.25, i ? 0.65 : 0.9,
+                               i ? 0.18 : 1.0, 0.85);
+         cairo_set_line_width(cr, 1.2);
+         cairo_move_to(cr, x + 0.5, 0);
+         cairo_line_to(cr, x + 0.5, height - 16);
+         cairo_stroke(cr);
+      }
+   }
    if (p->stereo) {
       cairo_set_source_rgb(cr, .35, .92, 1);
       cairo_move_to(cr, 8, 13);
@@ -724,6 +810,8 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    p->source_refreshing = false;
    if (!present && p->source_mode == 'S') {
       p->source_mode = 'M';
+   p->modem_rx_hz = waterfall_pref("modem.af.rx-offset-hz", 1500, 4000);
+   p->modem_tx_hz = waterfall_pref("modem.af.tx-offset-hz", 1500, 4000);
       p->source_id[0] = 0;
       p->head = p->count = 0;
    }
@@ -833,6 +921,10 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_widget_set_size_request(p->ear, 90, -1);
    gtk_widget_set_tooltip_text(p->ear, "Ear: Left / Mix / Right");
    gtk_box_pack_start(GTK_BOX(settings_row), p->ear, FALSE, FALSE, 0);
+   GtkWidget *modem_offsets = gtk_button_new_with_label("Modem offsets…");
+   gtk_widget_set_tooltip_text(modem_offsets, "Numeric RX and TX AF offsets; click/Shift+click on waterfall also selects offsets");
+   gtk_box_pack_start(GTK_BOX(settings_row), modem_offsets, FALSE, FALSE, 2);
+   g_signal_connect(modem_offsets, "clicked", G_CALLBACK(af_offsets_dialog), p);
 
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
@@ -841,7 +933,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_widget_set_vexpand(p->drawing, TRUE);
    gtk_box_pack_start(GTK_BOX(box), p->drawing, TRUE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
-   g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_context_menu), p);
+   g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_click), p);
    g_signal_connect(p->source, "changed", G_CALLBACK(source_changed), p);
    g_signal_connect(p->ear, "value-changed", G_CALLBACK(ear_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
