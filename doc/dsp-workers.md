@@ -251,3 +251,41 @@ by the negotiated band-limited PCM conversion before production use.
 
 Keep the future workers self-contained and relocate their code and packaging
 to dedicated repositories after the shared IPC contract stabilizes.
+
+## Client-local receive-only modems (experimental)
+
+The same external `rrmodem-psk` and `rrmodem-olivia` executables can run
+under **rrclient**, against PCM decoded from a *remote rig* or a *local/remote
+SDR bridge*, without installing them on rrserver. The selected stream is
+16 kHz mono signed 16-bit audio, written nonblocking to the child's FD 4.
+Decoded application bytes from FD 1 are printed in the client output.
+
+```text
+/modem list
+/modem start psk <stream-id> BPSK31 1500
+/modem start olivia <stream-id> 8 500
+/modem status
+/modem stop
+```
+
+The stream ID is copied exactly from `/modem list` (it identifies a single
+receiver route; it is not a rig/VFO index). The active local session is
+independent of the floating `ttyMODEM` alias, which continues following the
+selected *server-side* modem. Starting another local session replaces the
+previous one. A single process may be attached to a stream at a time in this
+first version.
+
+Build workers with `make -C modems`; install them with
+`sudo make -C modems install`. For a source checkout, rrclient also looks for
+`modems/rrmodem-psk` or `modems/rrmodem-olivia` relative to its working
+directory.
+
+**Safety / limitations:** receive-only. Client-local workers cannot key PTT;
+FD 5 is intentionally never read/routed to the transmitter, and the
+application byte-stream is not used as an RF transmit request. Live decoded
+text is printed to the common client output, not yet a dedicated terminal
+tab. PCM delivery is best-effort with nonblocking writes; overload may drop
+samples. Worker parameters currently take command arguments and are not yet
+synchronized with the AF waterfall's numeric offset controls. Per-stream
+independent sessions, modem discovery/capabilities, and a proper TNC interface
+are subsequent improvements.
