@@ -398,6 +398,14 @@ double rr_audio_engine_input_gain_get(rr_audio_engine_t *e, const char *id,
    g_mutex_unlock(&e->lock);
    return db;
 }
+bool rr_audio_engine_route_preserve(rr_audio_engine_t *e, const char *id, char route) {
+   if (!e || !id || !strchr("LRSM", route)) return false;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   if (s) s->route = route;
+   g_mutex_unlock(&e->lock);
+   return s != NULL;
+}
 bool rr_audio_engine_reset_stream(rr_audio_engine_t *e, const char *id) {
    if (!e || !id) return false;
    g_mutex_lock(&e->lock);
