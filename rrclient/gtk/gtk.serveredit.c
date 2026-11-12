@@ -162,8 +162,8 @@ typedef struct {
    bool creating;
    GtkWidget *fields[5];
    char *initial[5];
-   GtkWidget *error, *direct, *tls_hostname, *node_name;
-   bool initial_direct, initial_tls_hostname;
+   GtkWidget *error, *direct, *tls_hostname, *tls_tofu, *node_name;
+   bool initial_direct, initial_tls_hostname, initial_tls_tofu;
 } GtkServerEditor;
 
 static void editor_refresh_certificates(GtkServerEditor *editor) {
@@ -428,6 +428,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       g_ascii_strcasecmp(node_name, get_server_property(profile, "server.node-name") ?
          get_server_property(profile, "server.node-name") : "") != 0;
    bool ignore_hostname = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_hostname));
+   bool tofu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_tofu));
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; ++i) {
       const char *value = i == 3 ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor->proxy)) : gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
@@ -473,16 +474,16 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          return;
       }
    }
-   /* The hostname selection never changes the pinned key or CA/TOFU trust
-    * policy. Changes to the URL or expected node are identity changes. */
-   const char *new_url = gtk_entry_get_text(GTK_ENTRY(editor->fields[0]));
-   bool url_changed = !editor->creating && strcmp(new_url, editor->initial[0]) != 0;
-   if (url_changed || node_changed) {
-      if (!rrclient_database_server_set(profile, "server.tls-spki-sha256", "")) {
-         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to clear stale TLS public-key pin.");
+   if (editor->creating || tofu != editor->initial_tls_tofu) {
+      if (!rrclient_database_server_set(profile, "server.tls-trust-on-first-use",
+                                        tofu ? "true" : "false")) {
+         gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save self-signed trust policy.");
          return;
       }
    }
+   /* Never erase a pinned identity simply because its IP/URL or hostname
+    * preference changed. An actual key change must go through the explicit
+    * fingerprint approval flow, rather than silently disabling protection. */
 
    if (rooms_changed && !editor->creating) {
       char key[640];
@@ -652,12 +653,25 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       "Does not disable TLS certificate trust checks or change the saved SPKI public-key pin. "
       "If Node Name is not configured yet, RustyRig can learn it after approved trust and an authenticated station announcement.");
    gtk_grid_attach(GTK_GRID(grid), editor->tls_hostname, 0, 10, 2, 1);
+   const char *tofu_value = profile ?
+      get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
+   editor->initial_tls_tofu = tofu_value &&
+      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   editor->tls_tofu = gtk_check_button_new_with_label(
+      "Allow self-signed certificates (prompt for public key)");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu),
+                                editor->initial_tls_tofu);
+   gtk_widget_set_tooltip_text(editor->tls_tofu,
+      "Separately permit trust-on-first-use for self-signed certificates; "
+      "the first public key must be approved before any credentials are sent. "
+      "Normal trusted-CA connections are verified and pinned automatically.");
+   gtk_grid_attach(GTK_GRID(grid), editor->tls_tofu, 0, 11, 2, 1);
    editor->error = gtk_label_new("");
-   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 11, 2, 1);
+   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 12, 2, 1);
    GtkWidget *save = gtk_button_new_with_label("Save");
    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
-   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 12, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), save, 1, 12, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 13, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), save, 1, 13, 1, 1);
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(server_editor_close), NULL);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
    rr_floating_panel_show(server_editor_panel);
