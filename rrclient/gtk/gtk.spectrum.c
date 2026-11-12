@@ -13,6 +13,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/gtk/gtk.spectrum.h>
+#include <rrclient/gtk/gtk.decoders.h>
 #include <rrbridge/spectrum.row.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/event-bus.h>
@@ -920,6 +921,12 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(settings_row), p->modem_tx_spin, FALSE, FALSE, 0);
    g_signal_connect(p->modem_rx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
    g_signal_connect(p->modem_tx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
+   GtkWidget *modem_manager = gtk_button_new_with_label("Modems…");
+   gtk_widget_set_tooltip_text(modem_manager,
+      "Manage local RX decoders and select the active server-side modem");
+   gtk_box_pack_start(GTK_BOX(settings_row), modem_manager, FALSE, FALSE, 3);
+   g_signal_connect_swapped(modem_manager, "clicked",
+                            G_CALLBACK(gtk_decoders_show), NULL);
 
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
