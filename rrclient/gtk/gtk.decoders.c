@@ -6,6 +6,7 @@
 #include <string.h>
 #include <librustyaxe/event-bus.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/sercom.h>
 #include "gtk.decoders.h"
 
 typedef struct {
@@ -16,6 +17,8 @@ typedef struct {
 } decoder_row_t;
 static struct {
    GtkWidget *window, *notebook, *status;
+   GtkWidget *remote_target, *remote_status;
+   rr_event_token_t remote_token;
    decoder_row_t rows[RR_LOCAL_MODEM_MAX];
    rr_event_token_t snapshot_token;
    guint refresh;
@@ -149,10 +152,56 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
       g_free(current);
    }
 }
+static void remote_request(const char *target) {
+   rr_sercom_modem_request_t request = {0};
+   if (target) g_strlcpy(request.target, target, sizeof(request.target));
+   rr_event_message_t message = {
+      .name = RR_SERCOM_MODEM_REQUEST,
+      .payload = &request, .length = sizeof(request)
+   };
+   event_emit_message(&message);
+}
+static void remote_apply(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   if (!panel.remote_target) return;
+   const char *target = gtk_entry_get_text(GTK_ENTRY(panel.remote_target));
+   /* No guessed catalog entries: select an existing server-side numbered
+    * ttyMODEMN, just like the shared /sercom modem command. */
+   if (!g_str_has_prefix(target, "ttyMODEM") || !target[8]) {
+      gtk_label_set_text(GTK_LABEL(panel.remote_status),
+         "Enter a server modem port such as ttyMODEM0");
+      return;
+   }
+   for (const char *p = target + 8; *p; p++) {
+      if (!g_ascii_isdigit(*p)) {
+         gtk_label_set_text(GTK_LABEL(panel.remote_status),
+            "Port must be ttyMODEM followed by a number");
+         return;
+      }
+   }
+   remote_request(target);
+}
+static void remote_snapshot(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!panel.window || !message || !message->payload ||
+       message->length != sizeof(rr_sercom_modem_snapshot_t)) return;
+   const rr_sercom_modem_snapshot_t *snap = message->payload;
+   if (!panel.remote_target || !panel.remote_status) return;
+   char *status = snap->attached ?
+       g_strdup_printf("%s / %s / %s — %s%s", snap->profile, snap->rig,
+          snap->target, snap->state,
+          snap->success ? "" : " (selection rejected)") :
+       g_strdup("No active server-side ttyMODEM binding");
+   gtk_label_set_text(GTK_LABEL(panel.remote_status), status);
+   g_free(status);
+   if (snap->attached && !gtk_widget_has_focus(panel.remote_target))
+      gtk_entry_set_text(GTK_ENTRY(panel.remote_target), snap->target);
+}
 static gboolean poll_snapshot(gpointer unused) {
    (void)unused;
    rr_local_modem_request_t req = {.action=RR_LOCAL_MODEM_SNAPSHOT};
    rr_local_modem_request(&req);
+   remote_request(NULL);
    return G_SOURCE_CONTINUE;
 }
 static void window_closed(GtkWidget *widget, gpointer unused) {
@@ -160,6 +209,9 @@ static void window_closed(GtkWidget *widget, gpointer unused) {
    if (panel.refresh) g_source_remove(panel.refresh);
    panel.refresh = 0;
    if (panel.snapshot_token) event_off_token(panel.snapshot_token);
+   if (panel.remote_token) event_off_token(panel.remote_token);
+   panel.remote_token = 0;
+   panel.remote_target = panel.remote_status = NULL;
    panel.snapshot_token = 0;
    panel.window = NULL;
 }
@@ -172,7 +224,7 @@ void gtk_decoders_show(void) {
       return;
    }
    panel.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(panel.window), "RustyRig — Decoders");
+   gtk_window_set_title(GTK_WINDOW(panel.window), "RustyRig — Modem Manager");
    gtk_window_set_default_size(GTK_WINDOW(panel.window), 760, 480);
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
    gtk_container_add(GTK_CONTAINER(panel.window), root);
@@ -232,6 +284,41 @@ void gtk_decoders_show(void) {
    gtk_box_pack_start(GTK_BOX(footer), refresh, FALSE, FALSE, 4);
    g_signal_connect(refresh, "clicked", G_CALLBACK(refresh_clicked), NULL);
    gtk_box_pack_start(GTK_BOX(root), footer, FALSE, FALSE, 2);
+   /* Remote server-side modem is separate from the client-owned decoder
+    * workers: this pane manages the floating ttyMODEM alias only. */
+   GtkWidget *remote = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+   gtk_container_set_border_width(GTK_CONTAINER(remote), 12);
+   GtkWidget *heading = gtk_label_new("Server-side active modem");
+   gtk_label_set_xalign(GTK_LABEL(heading), 0);
+   gtk_box_pack_start(GTK_BOX(remote), heading, FALSE, FALSE, 0);
+   GtkWidget *description = gtk_label_new(
+      "Select a server-exported ttyMODEMN for the active rig. The server owns "
+      "its process and RF permissions. This is not a local decoder.");
+   gtk_label_set_line_wrap(GTK_LABEL(description), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(description), 0);
+   gtk_box_pack_start(GTK_BOX(remote), description, FALSE, FALSE, 0);
+   GtkWidget *controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   panel.remote_target = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(panel.remote_target), "ttyMODEM0");
+   gtk_entry_set_width_chars(GTK_ENTRY(panel.remote_target), 16);
+   GtkWidget *apply_remote = gtk_button_new_with_label("Select active modem");
+   gtk_box_pack_start(GTK_BOX(controls), panel.remote_target, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(controls), apply_remote, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(remote), controls, FALSE, FALSE, 0);
+   panel.remote_status = gtk_label_new("Checking server-side modem…");
+   gtk_label_set_xalign(GTK_LABEL(panel.remote_status), 0);
+   gtk_box_pack_start(GTK_BOX(remote), panel.remote_status, FALSE, FALSE, 0);
+   GtkWidget *notice = gtk_label_new(
+      "Server worker enumeration and start/stop management need the remote "
+      "modem catalog API. No server processes are launched from this dialog.");
+   gtk_label_set_line_wrap(GTK_LABEL(notice), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(notice), 0);
+   gtk_box_pack_start(GTK_BOX(remote), notice, FALSE, FALSE, 0);
+   gtk_notebook_append_page(GTK_NOTEBOOK(panel.notebook), remote,
+                            gtk_label_new("Server modem"));
+   g_signal_connect(apply_remote, "clicked", G_CALLBACK(remote_apply), NULL);
+   panel.remote_token = event_on_message_domain_token(
+       RR_SERCOM_MODEM_SNAPSHOT, remote_snapshot, NULL, "gtk");
    panel.status = gtk_label_new("Select a stream and start one or more RX decoders");
    gtk_label_set_xalign(GTK_LABEL(panel.status), 0);
    gtk_box_pack_start(GTK_BOX(footer), panel.status, TRUE, TRUE, 2);
