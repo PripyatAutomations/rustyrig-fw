@@ -129,6 +129,7 @@ debian/rustyrig-rrbridge/*
 modems/*/rrmodem-*
 /modems/rrmodem-psk
 /modems/rrmodem-olivia
+/modems/build/
 
 # Python integration-test bytecode
 __pycache__/
