@@ -59,7 +59,7 @@ Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
 Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol0 (>= 0.1.0-7), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
-Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3)
+Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3), rustyrig-modems (= ${binary:Version})
 Suggests: rustyrig-server-hamlib
 Description: RustyRig server
  Backend server for remote radio operation.
@@ -118,11 +118,12 @@ Description: Hamlib backend module for RustyRig server
  Optional Hamlib radio backend, installed in
  /usr/lib/rustyrig/modules/rrserver. Loaded when a rig selects backend=hamlib.
 
-Package: rustyrig-modem-ft8
+Package: rustyrig-modems
 Architecture: any
-Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: Optional receive-only FT8 modem worker for RustyRig
- Runs as an isolated rig-local subprocess. Uses ft8_lib to decode received
- audio and emit line-oriented JSON or text through the serial modem stream.
- Installs the executable into /var/lib/rustyrig/modems.
- Built only when WITH_FT8=yes and an ft8_lib source tree is available.
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Breaks: rustyrig-modem-ft8
+Replaces: rustyrig-modem-ft8
+Description: External receive-only software modem workers for RustyRig
+ Isolated PSK and Olivia modem executables, usable by rrserver and rrclient.
+ Installed under /usr/libexec/rustyrig/modems, not in the user's PATH.
+ FT8 is included in builds explicitly configured with WITH_FT8=yes.
