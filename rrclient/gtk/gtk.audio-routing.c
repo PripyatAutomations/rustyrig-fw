@@ -83,10 +83,10 @@ static bool snapshot_waiting;
 static void routing_queue(void);
 static gint graph_drag_source = -1, graph_drag_channel = -1;
 static gint gain_drag_source = -1, gain_drag_channel = -1;
-/* In each source's row, one horizontal fader sits beside each mixer input
- * port (L/R). 0 dB is unity, range -60 to +12 dB. */
-#define GRAPH_GAIN_X 215.0
-#define GRAPH_GAIN_W 82.0
+static gboolean gain_drag_port;
+/* Compact L/R output trims reside inside each source block by its pins. */
+#define GRAPH_GAIN_X (25.0 + 81.0)
+#define GRAPH_GAIN_W 46.0
 #define GRAPH_GAIN_MIN (-60.0)
 #define GRAPH_GAIN_MAX 12.0
 static void graph_gain_drag(double x);
@@ -118,10 +118,11 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = source
-            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer", .detail =
-            graph_missing_since[i] ? "Disconnected" : source ? route : NULL, .failed = n->health == RR_AG_FAILED, .stale =
+            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer pipeline" : "Core PCM mixer", .detail =
+            graph_missing_since[i] ? "Disconnected" : source ? route :
+            n->type == RR_AG_SINK ? "Inspect pipeline..." : NULL, .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0, .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .fwdsp =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = TRUE, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
@@ -169,8 +170,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    cairo_scale(cr, graph_scale, graph_scale);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
 
-   /* Visible per-input trim faders, directly beside the L/R mixer wires.
-    * Draw atop the wires; the source pin itself remains draggable. */
+   /* Output trims inside each source block; backed by the existing
+    * per-stream L/R gains rather than by speaker/master volume. */
    guint trim_row = 0;
    for (guint i = 0; i < g->node_count; i++) {
       const rr_ag_view_node_t *node = &g->nodes[i];
@@ -182,24 +183,53 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double db = CLAMP(node->input_gain_db[channel],
                            GRAPH_GAIN_MIN, GRAPH_GAIN_MAX);
          double ratio = (db - GRAPH_GAIN_MIN) / (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN);
-         cairo_set_source_rgba(cr, 0.07, 0.10, 0.15, 0.93);
-         cairo_rectangle(cr, GRAPH_GAIN_X - 5, y - 8, 140, 16);
-         cairo_fill(cr);
-         cairo_set_line_width(cr, 2);
-         cairo_set_source_rgba(cr, 0.55, 0.62, 0.67, 0.8);
+         cairo_set_line_width(cr, 1.8);
+         cairo_set_source_rgba(cr, .55, .67, .76, .85);
          cairo_move_to(cr, GRAPH_GAIN_X, y);
          cairo_line_to(cr, GRAPH_GAIN_X + GRAPH_GAIN_W, y);
          cairo_stroke(cr);
-         cairo_set_source_rgb(cr, 0.30, 0.78, 0.96);
-         cairo_arc(cr, GRAPH_GAIN_X + GRAPH_GAIN_W * ratio, y, 4.5, 0, 2 * G_PI);
+         cairo_set_source_rgb(cr, .31, .82, .97);
+         cairo_arc(cr, GRAPH_GAIN_X + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
          cairo_fill(cr);
-         char value[32];
-         g_snprintf(value, sizeof(value), "%+.0f dB", db);
+         char value[16];
+         g_snprintf(value, sizeof(value), "%+.0f", db);
+         cairo_set_source_rgb(cr, .90, .95, .98);
          cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                                 CAIRO_FONT_WEIGHT_NORMAL);
-         cairo_set_font_size(cr, 10);
-         cairo_set_source_rgb(cr, 0.89, 0.92, 0.95);
-         cairo_move_to(cr, GRAPH_GAIN_X + GRAPH_GAIN_W + 8, y + 3);
+         cairo_set_font_size(cr, 8);
+         cairo_move_to(cr, GRAPH_GAIN_X - 24, y + 3);
+         cairo_show_text(cr, value);
+      }
+   }
+
+   /* Two more independent DSP stages: mixer output trims and sink input
+    * trims. Both sit inside their corresponding blocks by the L/R pins. */
+   for (guint i = 0; i < g->node_count; i++) {
+      const rr_ag_view_node_t *node = &g->nodes[i];
+      if (node->type != RR_AG_MIXER && node->type != RR_AG_SINK) continue;
+      double node_x = node->type == RR_AG_MIXER ? 355. : 650.;
+      double x = node->type == RR_AG_MIXER ? node_x + 80. : node_x + 26.;
+      if (graph_missing_since[i]) continue;
+      for (unsigned channel = 0; channel < 2; channel++) {
+         double y = 80 + (channel ? 79 : 60);
+         double db = CLAMP(node->port_gain_db[channel],
+                           GRAPH_GAIN_MIN, GRAPH_GAIN_MAX);
+         double ratio = (db - GRAPH_GAIN_MIN) / (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN);
+         cairo_set_line_width(cr, 1.8);
+         cairo_set_source_rgba(cr, .55, .67, .76, .85);
+         cairo_move_to(cr, x, y);
+         cairo_line_to(cr, x + GRAPH_GAIN_W, y);
+         cairo_stroke(cr);
+         cairo_set_source_rgb(cr, .31, .82, .97);
+         cairo_arc(cr, x + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
+         cairo_fill(cr);
+         char value[16];
+         g_snprintf(value, sizeof(value), "%+.0f", db);
+         cairo_set_source_rgb(cr, .90, .95, .98);
+         cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                                CAIRO_FONT_WEIGHT_NORMAL);
+         cairo_set_font_size(cr, 8);
+         cairo_move_to(cr, x + (node->type == RR_AG_MIXER ? -24. : GRAPH_GAIN_W + 5.), y + 3);
          cairo_show_text(cr, value);
       }
    }
@@ -322,6 +352,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
          graph_drag_mixer = graph_drag_moved = FALSE;
       }
       gain_drag_source = gain_drag_channel = -1;
+      gain_drag_port = FALSE;
    }
    g_free(graph_snapshot);
    graph_snapshot = merged;
@@ -330,7 +361,9 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    graph_profile_update_buttons();
 }
 
-/* The pipeline viewer remains a separate process. A GStreamer crash in the inspector must not affect the client, its radio controls or audio engine. */
+/* The pipeline container launches the existing isolated graphical
+ * inspector. Live mutations require a future authenticated DSP control
+ * protocol and must not be attempted from GTK's draw/event callbacks. */
 static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, gpointer unused) {
    (void)unused;
    GError *error = NULL;
@@ -445,19 +478,28 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 
    return FALSE;
 }
-static gboolean graph_gain_at(double x, double y, gint *source, gint *channel) {
+static gboolean graph_gain_at(double x, double y, gint *source,
+                              gint *channel, gboolean *port) {
    if (!graph_snapshot) return FALSE;
-   if (x < GRAPH_GAIN_X - 6 || x > GRAPH_GAIN_X + GRAPH_GAIN_W + 6)
-      return FALSE;
    guint row = 0;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
-      if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) continue;
-      double y0 = 20 + 140 * row++;
-      if (graph_missing_since[i]) continue;
-      for (unsigned ch = 0; ch < 2; ch++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      double left = 0., y0 = 80.;
+      if (n->type == RR_AG_SOURCE) {
+         left = GRAPH_GAIN_X;
+         y0 = 20 + 140 * row++;
+      } else if (n->type == RR_AG_MIXER) {
+         left = 355 + 80;
+      } else if (n->type == RR_AG_SINK) {
+         left = 650 + 26;
+      } else continue;
+      if (graph_missing_since[i] || x < left - 8 ||
+          x > left + GRAPH_GAIN_W + 8) continue;
+      for (gint ch = 0; ch < 2; ch++) {
          if (fabs(y - y0 - (ch ? 79 : 60)) <= 8) {
             *source = (gint)i;
-            *channel = (gint)ch;
+            *channel = ch;
+            *port = n->type != RR_AG_SOURCE;
             return TRUE;
          }
       }
@@ -468,12 +510,18 @@ static void graph_gain_drag(double x) {
    if (!graph_snapshot || gain_drag_source < 0 || gain_drag_channel < 0)
       return;
    rr_ag_view_node_t *node = &graph_snapshot->nodes[gain_drag_source];
-   double ratio = CLAMP((x - GRAPH_GAIN_X) / GRAPH_GAIN_W, 0., 1.);
-   /* 1 dB resolution; double-clicking the fader center is not a reset. */
+   double left = node->type == RR_AG_SOURCE ? GRAPH_GAIN_X :
+      node->type == RR_AG_MIXER ? 355. + 80. : 650. + 26.;
+   double ratio = CLAMP((x - left) / GRAPH_GAIN_W, 0., 1.);
    double db = round(GRAPH_GAIN_MIN + ratio * (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN));
-   if (node->input_gain_db[gain_drag_channel] == db) return;
-   node->input_gain_db[gain_drag_channel] = db;
-   audio_request_rx_input_gain(node->id, gain_drag_channel, db);
+   float *current = gain_drag_port ? &node->port_gain_db[gain_drag_channel] :
+                                     &node->input_gain_db[gain_drag_channel];
+   if (*current == db) return;
+   *current = db;
+   if (gain_drag_port)
+      audio_request_port_gain(node->id, gain_drag_channel, db);
+   else
+      audio_request_rx_input_gain(node->id, gain_drag_channel, db);
    graph_canvas_update_size();
 }
 static unsigned graph_route_mask(char route) {
@@ -554,7 +602,9 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    gint source = -1, channel = -1;
    gboolean mixer = FALSE;
-   if (graph_gain_at(gx, gy, &source, &channel)) {
+   gboolean port_gain = FALSE;
+   if (graph_gain_at(gx, gy, &source, &channel, &port_gain)) {
+      gain_drag_port = port_gain;
       gain_drag_source = source;
       gain_drag_channel = channel;
       graph_gain_drag(gx);
@@ -866,7 +916,7 @@ void gtk_audio_graph_present(void) {
    }
 
    if (!graph_panel) {
-      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "Audio Graph", "Audio Graph");
+      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "Audio Routing", "Audio Routing");
 
       if (!graph_panel) {
          return;
@@ -900,7 +950,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
-         gtk_label_new("Drag source ports to L/R mixer inputs; drag the +/- dB faders beside each input to adjust gain. 0 dB = unity.");
+         gtk_label_new("Drag ports to route audio. Source L/R trims are inside each block (-60 to +12 dB; 0 dB = unity).");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -909,7 +959,7 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
-      gtk_widget_set_tooltip_text(graph_canvas, "Drag RX ports to mixer inputs, click wires to disconnect, and adjust individual input gain sliders (-60 to +12 dB; 0 dB default).");
+      gtk_widget_set_tooltip_text(graph_canvas, "Drag source ports to mixer inputs; click wires to disconnect. Each source block has L/R output pin trims (-60 to +12 dB).");
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));

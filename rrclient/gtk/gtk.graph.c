@@ -209,12 +209,12 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
             cairo_set_source_rgb(cr, 1, 1, 1);
             cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
-            if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
+            if (n->io != RR_GTK_GRAPH_IO_SOURCE && !n->gain_pins) {
                cairo_move_to(cr, n->x + 12, py + 3.5);
                cairo_show_text(cr, channel ? "R IN" : "L IN");
             }
 
-            if (n->io != RR_GTK_GRAPH_IO_SINK) {
+            if (n->io != RR_GTK_GRAPH_IO_SINK && !n->gain_pins) {
                cairo_move_to(cr, n->x + RR_GTK_GRAPH_NODE_W - 43, py + 3.5);
                cairo_show_text(cr, channel ? "R OUT" : "L OUT");
             }
