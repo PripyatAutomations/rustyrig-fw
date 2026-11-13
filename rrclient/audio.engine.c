@@ -41,6 +41,8 @@ struct rr_audio_engine {
    void *pre_gain_user;
    rr_audio_engine_stats_t stats;
    int gain[2];
+   double mix_gain[2], sink_gain[2];
+   double mix_db[2], sink_db[2];
 };
 static stream_t *find_stream(rr_audio_engine_t *e, const char *id) {
    for (stream_t *s = e->streams ; s ; s = s->next) {
@@ -141,6 +143,8 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
 
    e->stats.blocks++;
    int left = e->gain[0], right = e->gain[1];
+   double mix_gain[2] = {e->mix_gain[0], e->mix_gain[1]};
+   double sink_gain[2] = {e->sink_gain[0], e->sink_gain[1]};
    rr_audio_output_fn tap = e->pre_gain_tap;
    void *tap_user = e->pre_gain_user;
    g_mutex_unlock(&e->lock);
@@ -156,7 +160,10 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
       tap(before_gain, block, tap_user);
    }
    for (size_t i = 0 ; i < block * 2 ; i++) {
-      int64_t scaled = (int64_t) accum[i] * ((i & 1) ? right : left) / 100;
+      /* Mixer output trim and sink input trim are independent and do not
+       * affect the pre-listening-gain recording/analysis tap. */
+      double port_gain = mix_gain[i & 1] * sink_gain[i & 1];
+      double scaled = (double) accum[i] * port_gain * ((i & 1) ? right : left) / 100.;
       stereo[i] = (int16_t) CLAMP(scaled, INT16_MIN, INT16_MAX);
    }
 }
@@ -207,6 +214,8 @@ rr_audio_engine_t *rr_audio_engine_new_rate(uint32_t rate,
    e->sample_rate_hz = rate;
    e->block_frames = rate / 50u; /* 20 ms at either supported clock */
    e->gain[0] = e->gain[1] = 100;
+   e->mix_gain[0] = e->mix_gain[1] = 1.;
+   e->sink_gain[0] = e->sink_gain[1] = 1.;
    e->output = fn;
    e->user = user;
    return e;
@@ -473,4 +482,25 @@ void rr_audio_engine_gain(rr_audio_engine_t *e, unsigned channel, int percent) {
    g_mutex_lock(&e->lock);
    e->gain[channel] = CLAMP(percent, 0, 100);
    g_mutex_unlock(&e->lock);
+}
+
+bool rr_audio_engine_port_gain(rr_audio_engine_t *e, bool sink_input,
+                               unsigned channel, double db) {
+   if (!e || channel > 1 || !isfinite(db) || db < -60 || db > 12)
+      return false;
+   g_mutex_lock(&e->lock);
+   double *values = sink_input ? e->sink_gain : e->mix_gain;
+   double *decibels = sink_input ? e->sink_db : e->mix_db;
+   decibels[channel] = db;
+   values[channel] = pow(10.0, db / 20.0);
+   g_mutex_unlock(&e->lock);
+   return true;
+}
+double rr_audio_engine_port_gain_get(rr_audio_engine_t *e, bool sink_input,
+                                     unsigned channel) {
+   if (!e || channel > 1) return 0.;
+   g_mutex_lock(&e->lock);
+   double db = (sink_input ? e->sink_db : e->mix_db)[channel];
+   g_mutex_unlock(&e->lock);
+   return db;
 }
