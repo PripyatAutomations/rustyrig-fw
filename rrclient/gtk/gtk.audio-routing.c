@@ -118,8 +118,9 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = source
-            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer", .detail =
-            graph_missing_since[i] ? "Disconnected" : source ? route : NULL, .failed = n->health == RR_AG_FAILED, .stale =
+            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer pipeline" : "Core PCM mixer", .detail =
+            graph_missing_since[i] ? "Disconnected" : source ? route :
+            n->type == RR_AG_SINK ? "Inspect pipeline..." : NULL, .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0, .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = TRUE, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
@@ -360,7 +361,9 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    graph_profile_update_buttons();
 }
 
-/* The pipeline viewer remains a separate process. A GStreamer crash in the inspector must not affect the client, its radio controls or audio engine. */
+/* The pipeline container launches the existing isolated graphical
+ * inspector. Live mutations require a future authenticated DSP control
+ * protocol and must not be attempted from GTK's draw/event callbacks. */
 static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, gpointer unused) {
    (void)unused;
    GError *error = NULL;
