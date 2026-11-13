@@ -27,6 +27,78 @@ static double pin_y(const rr_gtk_graph_node_t *n, rr_gtk_graph_pin_t channel, gb
 
    return n->y + 68;
 }
+/* Keep the existing audio-routing canvas unchanged. The pipeline editor
+ * uses these same nodes and line colors with vertical port placement. */
+void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
+                                guint n_nodes, const rr_gtk_graph_edge_t *edges,
+                                guint n_edges) {
+   if ((!nodes && n_nodes) || (!edges && n_edges)) return;
+   /* Draw the vertical edges first, then the same block primitives through
+    * a translated/rotated node drawing pass. */
+   cairo_set_line_width(cr, 2.);
+   for (guint i = 0; i < n_edges; i++) {
+      const rr_gtk_graph_edge_t *e = &edges[i];
+      if (e->from >= n_nodes || e->to >= n_nodes) continue;
+      const rr_gtk_graph_node_t *a = &nodes[e->from], *b = &nodes[e->to];
+      const double sx = a->x + RR_GTK_GRAPH_NODE_W / 2.;
+      const double sy = a->y + RR_GTK_GRAPH_NODE_H;
+      const double dx = b->x + RR_GTK_GRAPH_NODE_W / 2.;
+      const double dy = b->y;
+      if (e->kind == RR_GTK_GRAPH_BYPASS) {
+         cairo_set_source_rgb(cr, .96, .65, .27);
+         const double dash[] = {6, 5};
+         cairo_set_dash(cr, dash, 2, 0);
+      } else {
+         cairo_set_source_rgb(cr, .34, .78, .93);
+         cairo_set_dash(cr, NULL, 0, 0);
+      }
+      cairo_move_to(cr, sx, sy);
+      cairo_curve_to(cr, sx, (sy + dy) / 2., dx, (sy + dy) / 2., dx, dy);
+      cairo_stroke(cr);
+   }
+   cairo_set_dash(cr, NULL, 0, 0);
+   /* Shared block dimensions, palette and type hierarchy with the audio
+    * graph; port dots move to the top and bottom on this canvas. */
+   for (guint i = 0; i < n_nodes; i++) {
+      const rr_gtk_graph_node_t *n = &nodes[i];
+      cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 :
+         n->selected ? .20 : .15,
+         n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25,
+         n->stale ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
+      cairo_rectangle(cr, n->x, n->y, RR_GTK_GRAPH_NODE_W, RR_GTK_GRAPH_NODE_H);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgb(cr, n->selected ? .62 : .53,
+         n->selected ? .81 : .65, n->selected ? 1. : .75);
+      cairo_set_line_width(cr, n->selected ? 2.8 : 1.3);
+      cairo_stroke(cr);
+      cairo_set_source_rgb(cr, 1., 1., 1.);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr, 12);
+      cairo_move_to(cr, n->x + 10, n->y + 28);
+      cairo_show_text(cr, n->title ? n->title : "Node");
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_NORMAL);
+      cairo_set_font_size(cr, 10);
+      cairo_move_to(cr, n->x + 10, n->y + 48);
+      cairo_show_text(cr, n->subtitle ? n->subtitle : "");
+      if (n->detail && *n->detail) {
+         cairo_set_font_size(cr, 9);
+         cairo_move_to(cr, n->x + 10, n->y + 66);
+         cairo_show_text(cr, n->detail);
+      }
+      cairo_set_source_rgb(cr, .30, .77, .92);
+      if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
+         cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W / 2., n->y, 6., 0., 2 * G_PI);
+         cairo_fill(cr);
+      }
+      if (n->io != RR_GTK_GRAPH_IO_SINK) {
+         cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W / 2.,
+                   n->y + RR_GTK_GRAPH_NODE_H, 6., 0., 2 * G_PI);
+         cairo_fill(cr);
+      }
+   }
+}
 void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_nodes, const rr_gtk_graph_edge_t *edges, guint n_edges) {
    if ((!nodes && n_nodes) || (!edges && n_edges)) {
       return;

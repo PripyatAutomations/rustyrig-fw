@@ -132,6 +132,27 @@ transported. Never decimate/quantize and then call the result lossless
 relative to the original input. Media transport and control messages should
 remain separate, independently bounded and authenticated.
 
+## GStreamer pipeline composition and visualization
+
+The existing `rrpipelines` editor shares GTK graph drawing primitives with
+the client audio-routing graph. Its pipeline canvas now uses **top-down
+source-to-sink flow**: GStreamer pad links determine graph layers, branches
+are laid out horizontally, and wires run from each element's bottom output
+pin to the next element's top input pin. Drag an output pin onto an input
+pin to connect elements, or use the existing From/To controls. The
+**Arrange top-down** button recomputes the layout; blocks may still be
+positioned manually and the canvas expands to fit longer graphs.
+
+These are **editor and presentation improvements**, not runtime graph
+reconfiguration yet. `fwdsp` already hosts multiple GStreamer elements in
+one subprocess. The next runtime composer should take typed port/caps
+descriptions, share capture/tee/filter pipelines within one fault-isolation
+domain, and start additional processes only for different hardware,
+permissions, failures, or workload isolation. It must validate caps and
+queue bounds, apply graph updates transactionally on the owner thread, and
+publish actual pad links and runtime status back to the same graph model.
+Do not spawn a separate process for every RF slice or DSP element.
+
 ## Suggested implementation order
 
 1. Define device, frontend, slice, VFO and lease data types, and document capabilities.
