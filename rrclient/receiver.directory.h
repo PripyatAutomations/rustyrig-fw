@@ -42,6 +42,8 @@ const char *receiver_directory_fetch_url(void);
 const char *receiver_directory_last_error(void);
 const char *receiver_directory_source_url(void);
 bool receiver_directory_refresh(void);
+/* No network activity until an upstream mirror is due for revalidation. */
+bool receiver_directory_refresh_due(void);
 /* Explicit user refresh: skip the disk-cache deadline and conditional HTTP validators. */
 bool receiver_directory_refresh_force(bool force);
 bool receiver_directory_import(const char *path);
