@@ -81,29 +81,43 @@ domain. Consumers subscribe to a *format*, negotiating compatible rates
 rather than interpreting bytes at an implicit fixed rate.
 
 The `rr_pcm_stream_format_t` contract validates rates from 8–192 kHz,
-mono/stereo layouts and signed 16-bit/float PCM. The native client
-audio engine now supports an **opt-in 48 kHz clock** through
-`rr_audio_engine_new_rate(48000, ...)` with 960 stereo output frames per
-20 ms; the legacy `rr_audio_engine_new()` still uses 16 kHz and 320
-frames. The engine preserves 80 ms prebuffer and 240 ms queue bounds
-at either rate, with no allocations in its audio clock callback.
+mono/stereo layouts, and signed 16-bit/32-bit-float PCM. The isolated client
+mixer now supports **16, 44.1, and 48 kHz output clocks** through
+`rr_audio_engine_new_rate(...)` (320, 882, or 960 stereo frames per 20 ms).
+The legacy constructor remains 16 kHz, preserving existing ham audio.
 
-Input registration still accepts **S16LE mono at the engine's native
-rate only**. An unsupported input rate/layout fails closed rather than
-misclocking. `fwdsp_audio_resampler_start_to()` now creates a separate
-GStreamer `audioresample` worker with selected input/output rates
-(8–192 kHz, S16LE mono). Its old `fwdsp_audio_resampler_start()` API
-remains a 16 kHz output compatibility wrapper.
+`rr_audio_engine_add_stream_format()` registers the exact input clock,
+mono/stereo layout, and sample representation. `rr_audio_engine_push_pcm()`
+accepts interleaved source frames; a **32-tap, phase-interpolated,
+bandlimited FIR** converts each stream on the producer thread into the
+mixer clock. Native-rate inputs bypass resampling. Stereo channels remain
+independent; mono sources feed both ears. The FIR uses a lower cutoff when
+downsampling to suppress out-of-band aliases, preserves conversion phase
+across differently sized source chunks, and drains the tail on EOF. Input
+format mismatches fail closed. All stream queues retain an 80 ms startup
+buffer and 240 ms maximum at the destination clock. The mixer thread has
+no resampling, memory allocations, GTK, or GStreamer operations.
 
-**The live client, existing codecs, AF FFT, recording codec, and sink
-still use 16 kHz.** The 48 kHz engine is isolated/testable and not yet
-connected to the live playback/recording pipeline. Next integration
-steps: rate negotiation per stream, feed resampled 48 kHz streams to the
-native 48 kHz mixer, switch the sound endpoint/recording encoder/AF FFT
-together, then allow stereo-native sources and explicit format changes.
-Maintain timestamps and sample-clock continuity across conversion. Never
-run resampling or allocate memory on the real-time mixer callback;
-keep bounded worker queues expressed in milliseconds rather than samples.
+`audio_local_rx_start_format()` and `audio_local_rx_push_pcm()` expose this
+path to future **local** stereo FM demodulators and hardware audio sources.
+The original `audio_local_rx_start()/push()` entry points continue to
+expect the legacy native-mixer mono S16 samples. Non-16k/stereo samples
+are **not** fed to the existing 16k mono AF spectrum and modem workers.
+
+**Sample rates are internal PCM stream properties, not listening codecs.**
+They must not appear in the normal user RX/TX codec selectors.
+`fwdsp_audio_resampler_start_to()` still offers GStreamer-based
+resampling for mono workers when a standalone DSP bridge is desired.
+
+**Important current limit:** the production client still constructs
+a **16 kHz** mixer and launches a 16 kHz sink. Thus high-rate local
+sources can be safely mixed/downsampled today, but full-bandwidth 44.1/48
+kHz *audible* stereo broadcast playback is **not yet active**. To finish
+that migration, switch the sound endpoint, recording encoder and pre-gain
+tap, and AF analysis clocks together; then enable the 48 kHz engine in
+the client. Extend remote PCM transport with explicit rate/channel
+metadata without changing existing negotiated ham listening codecs.
+Never silently label 16 kHz audio as 48 kHz or vice versa.
 
 ## IQ transport: compression without changing samples
 

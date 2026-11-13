@@ -26,7 +26,9 @@ int main(void) {
    assert(rr_pcm_stream_format_valid(&wide));
    assert(rr_audio_engine_stream_format(engine, "receiver-a", &reported));
    assert(reported.sample_rate_hz == 16000 && reported.channels == 1);
-   assert(!rr_audio_engine_add_stream_format(engine, "wide-am", &wide));
+   assert(rr_audio_engine_add_stream_format(engine, "wide-am", &wide));
+   assert(rr_audio_engine_route(engine, "wide-am", 'M'));
+   assert(!rr_audio_engine_push(engine, "wide-am", (const int16_t[]){1}, 1));
    assert(!rr_audio_engine_add_stream_format(engine, "receiver-a", &wide));
    assert(rr_audio_engine_add_stream_format(engine, "receiver-a", &native));
    assert(rr_audio_engine_route(engine, "receiver-a", 'S'));
@@ -155,7 +157,7 @@ int main(void) {
    assert(engine && rr_audio_engine_sample_rate(engine) == 48000);
    rr_pcm_stream_format_t wide_native = {48000, 1, RR_PCM_S16LE};
    rr_pcm_stream_format_t old_native = {16000, 1, RR_PCM_S16LE};
-   assert(!rr_audio_engine_add_stream_format(engine, "wide", &old_native));
+   assert(rr_audio_engine_add_stream_format(engine, "legacy-rate", &old_native));
    assert(rr_audio_engine_add_stream_format(engine, "wide", &wide_native));
    assert(!rr_audio_engine_add_stream_format(engine, "wide", &old_native));
    int16_t wide_pcm[4800];
@@ -173,7 +175,71 @@ int main(void) {
    assert(wide_stereo[200] >= 590 && wide_stereo[200] <= 610);
    assert(wide_stereo[201] == 1200);
    rr_audio_engine_free(engine);
-   puts("PASS: independent mixer gain, persistent routing, EOF tail and stereo");
+   /* 44.1 kHz stereo must mix at 48 kHz with its channels intact, even
+    * across packet boundaries that do not align to 20 ms. */
+   engine = rr_audio_engine_new_rate(48000, NULL, NULL);
+   assert(engine);
+   rr_pcm_stream_format_t cd = {44100, 2, RR_PCM_S16LE};
+   rr_pcm_stream_format_t float_48 = {48000, 2, RR_PCM_F32LE};
+   assert(rr_audio_engine_add_stream_format(engine, "broadcast", &cd));
+   assert(rr_audio_engine_add_stream_format(engine, "float-source", &float_48));
+   rr_pcm_stream_format_t actual = {0};
+   assert(rr_audio_engine_stream_format(engine, "broadcast", &actual));
+   assert(actual.sample_rate_hz == 44100 && actual.channels == 2);
+   int16_t cd_frames[4410 * 2];
+   for (size_t i = 0; i < 4410; i++) {
+      cd_frames[i * 2] = 1400;
+      cd_frames[i * 2 + 1] = -700;
+   }
+   assert(!rr_audio_engine_push(engine, "broadcast", cd_frames, 4410));
+   assert(rr_audio_engine_push_pcm(engine, "broadcast", cd_frames, 1211));
+   assert(rr_audio_engine_push_pcm(engine, "broadcast", cd_frames + 1211 * 2, 3199));
+   float float_frames[4800 * 2] = {0};
+   for (size_t i = 0; i < 4800; i++) {
+      float_frames[2 * i] = .125f;
+      float_frames[2 * i + 1] = -.0625f;
+   }
+   /* Keep the other source muted while testing the broadcast stereo path. */
+   assert(rr_audio_engine_route(engine, "float-source", 'M'));
+   assert(rr_audio_engine_push_pcm(engine, "float-source", float_frames, 4800));
+   for (unsigned i = 0; i < 4; i++) {
+      tick(engine, wide_stereo, &active);
+      assert(active);
+   }
+   assert(wide_stereo[200] >= 1300 && wide_stereo[200] <= 1500);
+   assert(wide_stereo[201] <= -640 && wide_stereo[201] >= -760);
+   assert(rr_audio_engine_route_preserve(engine, "broadcast", 'L'));
+   tick(engine, wide_stereo, &active);
+   assert(wide_stereo[201] == 0 && wide_stereo[200] >= 1300);
+   rr_audio_engine_free(engine);
+
+   /* Downsampling to the legacy clock filters high-frequency content
+    * before it can fold into the ham-radio audio band. */
+   engine = rr_audio_engine_new(NULL, NULL);
+   assert(engine && rr_audio_engine_add_stream_format(engine, "downsample", &wide));
+   int16_t hf[4800];
+   for (size_t i = 0; i < G_N_ELEMENTS(hf); i++)
+      hf[i] = (int16_t)(16000. * sin(2. * G_PI * 11000. * i / 48000.));
+   assert(rr_audio_engine_push_pcm(engine, "downsample", hf, G_N_ELEMENTS(hf)));
+   stream_t *d = find_stream(engine, "downsample");
+   assert(d && d->count > 1200);
+   int32_t peak = 0;
+   for (size_t i = 300; i < d->count; i++) {
+      int v = abs(d->samples[2 * ((d->head + i) % AUDIO_CAPACITY)]);
+      if (v > peak) peak = v;
+   }
+   assert(peak < 2200); /* >17 dB attenuation at 11 kHz */
+   rr_audio_engine_free(engine);
+
+   engine = rr_audio_engine_new_rate(44100, NULL, NULL);
+   assert(engine && rr_audio_engine_sample_rate(engine) == 44100);
+   assert(rr_audio_engine_add_stream_format(engine, "cd-float", &float_48));
+   assert(rr_audio_engine_push_pcm(engine, "cd-float", float_frames, 4800));
+   int16_t cd_stereo[882 * 2];
+   tick(engine, cd_stereo, &active);
+   assert(active && cd_stereo[200] > 0 && cd_stereo[201] < 0);
+   rr_audio_engine_free(engine);
+   puts("PASS: native 16k, 44.1/48k stereo, independent gains, bandlimited resampling, EOF");
 
    return 0;
 }

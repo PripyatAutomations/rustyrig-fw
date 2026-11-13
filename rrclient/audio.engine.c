@@ -10,7 +10,10 @@
 #define AUDIO_BLOCK 320u
 #define AUDIO_MAX_RATE 48000u
 #define AUDIO_MAX_BLOCK (AUDIO_MAX_RATE / 50u)
-#define AUDIO_CAPACITY 12000u /* >240 ms at 48 kHz; bounded per stream */
+#define AUDIO_CAPACITY 12000u /* 240ms at 48k, stereo interleaved */
+#define PCM_FIR_TAPS 32u
+#define PCM_FIR_PHASES 256u
+#define PCM_HISTORY 64u
 #define AUDIO_PERIOD_US 20000
 /* Buffer 80 ms before startup/recovery, with a 240 ms queue ceiling. This absorbs bursty decoder output without depending on GTK scheduling. */
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
@@ -21,7 +24,11 @@ typedef struct stream {
    char *id;
    char route;
    rr_pcm_stream_format_t source_format;
-   int16_t samples[AUDIO_CAPACITY];
+   int16_t samples[AUDIO_CAPACITY * 2]; /* interleaved L/R, count is frames */
+   float history[PCM_HISTORY * 2]; /* producer-side resampler source history */
+   float *fir;                      /* 256 phases x 32 taps, allocated on registration */
+   uint64_t received;
+   double source_position;
    size_t head, count;
    bool primed, ever_primed, starved, finishing;
    unsigned fade_in;
@@ -113,26 +120,26 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
       }
 
       for (size_t i = 0 ; i < take ; i++) {
-         int32_t sample = s->samples[(s->head + i) % AUDIO_CAPACITY];
-
+         size_t index = 2 * ((s->head + i) % AUDIO_CAPACITY);
+         int32_t left_sample = s->samples[index];
+         int32_t right_sample = s->samples[index + 1];
+         int32_t fade = AUDIO_FADE_IN;
          if (s->fade_in) {
-            sample = sample * (int32_t) (AUDIO_FADE_IN - s->fade_in) / (int32_t) AUDIO_FADE_IN;
+            fade = AUDIO_FADE_IN - s->fade_in;
             s->fade_in--;
          }
-
-         /* If the last delivered buffer is short, fade its tail to silence instead of abruptly cutting a nonzero PCM sample. */
-         if (take < block && take > 1 && i >= take - MIN(take, AUDIO_FADE_IN)) {
-            sample = sample * (int32_t) (take - i - 1) / (int32_t) MIN(take, AUDIO_FADE_IN);
-         }
+         if (take < block && take > 1 && i >= take - MIN(take, AUDIO_FADE_IN))
+            fade = fade * (int32_t)(take - i - 1) / (int32_t) MIN(take, AUDIO_FADE_IN);
+         left_sample = left_sample * fade / (int32_t) AUDIO_FADE_IN;
+         right_sample = right_sample * fade / (int32_t) AUDIO_FADE_IN;
 
          if (s->route != 'R') {
-            raw_accum[2 * i] += sample;
-            accum[2 * i] += (int32_t)(sample * s->input_gain[0]);
+            raw_accum[2 * i] += left_sample;
+            accum[2 * i] += (int32_t)(left_sample * s->input_gain[0]);
          }
-
          if (s->route != 'L') {
-            raw_accum[2 * i + 1] += sample;
-            accum[2 * i + 1] += (int32_t)(sample * s->input_gain[1]);
+            raw_accum[2 * i + 1] += right_sample;
+            accum[2 * i + 1] += (int32_t)(right_sample * s->input_gain[1]);
          }
       }
 
@@ -208,7 +215,7 @@ rr_audio_engine_t *rr_audio_engine_new_rate(uint32_t rate,
                                                 rr_audio_output_fn fn, void *user) {
    /* This engine's output rate is immutable. Additional source rates must
     * be converted before entering its bounded input queues. */
-   if (rate != 16000u && rate != 48000u) return NULL;
+   if (rate != 16000u && rate != 44100u && rate != 48000u) return NULL;
    rr_audio_engine_t *e = g_new0(rr_audio_engine_t, 1);
    g_mutex_init(&e->lock);
    e->sample_rate_hz = rate;
@@ -278,6 +285,7 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
    while (s) {
       stream_t *next = s->next;
       g_free(s->id);
+      g_free(s->fir);
       g_free(s);
       s = next;
    }
@@ -292,11 +300,7 @@ bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format) {
 }
 bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id,
                                        const rr_pcm_stream_format_t *format) {
-   /* Current output path is 16 kHz mono-per-input. Reject any other
-    * rate/layout rather than silently clocking it incorrectly. */
-   if (!e || !id || !*id || !rr_pcm_stream_format_valid(format) ||
-       format->sample_rate_hz != e->sample_rate_hz || format->channels != 1 ||
-       format->format != RR_PCM_S16LE)
+   if (!e || !id || !*id || !rr_pcm_stream_format_valid(format))
       return false;
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
@@ -312,6 +316,32 @@ bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id,
       s = g_new0(stream_t, 1);
       s->id = g_strdup(id);
       s->source_format = *format;
+      if (format->sample_rate_hz != e->sample_rate_hz) {
+         s->fir = g_new(float, PCM_FIR_PHASES * PCM_FIR_TAPS);
+         /* Hann-windowed 32-tap bandlimited converter; for downsampling
+          * lower the cutoff before decimation to prevent aliases. The
+          * coefficients are calculated ONCE per source, not by the mixer. */
+         const double pi = G_PI;
+         const double ratio = (double)e->sample_rate_hz / format->sample_rate_hz;
+         const double cutoff = 0.47 * MIN(1., ratio);
+         for (unsigned phase = 0; phase < PCM_FIR_PHASES; phase++) {
+            double fraction = (double)phase / PCM_FIR_PHASES;
+            double total = 0.;
+            for (unsigned tap = 0; tap < PCM_FIR_TAPS; tap++) {
+               double x = (double)tap - 15. - fraction;
+               double window = 0.5 + 0.5 * cos(pi * x / 16.);
+               if (fabs(x) > 16.) window = 0.;
+               double sinc = fabs(x) < 1e-10 ? 2. * cutoff :
+                             sin(2. * pi * cutoff * x) / (pi * x);
+               double value = sinc * window;
+               s->fir[phase * PCM_FIR_TAPS + tap] = (float)value;
+               total += value;
+            }
+            if (fabs(total) < 1e-10) total = 1.;
+            for (unsigned tap = 0; tap < PCM_FIR_TAPS; tap++)
+               s->fir[phase * PCM_FIR_TAPS + tap] /= (float)total;
+         }
+      }
       s->route = 'S';
       s->input_gain[0] = s->input_gain[1] = 1.0;
       s->next = e->streams;
@@ -345,6 +375,7 @@ void rr_audio_engine_remove_stream(rr_audio_engine_t *e, const char *id) {
          stream_t *s = *slot;
          *slot = s->next;
          g_free(s->id);
+         g_free(s->fir);
          g_free(s);
          break;
       }
@@ -352,42 +383,115 @@ void rr_audio_engine_remove_stream(rr_audio_engine_t *e, const char *id) {
    }
    g_mutex_unlock(&e->lock);
 }
-bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *pcm, size_t count) {
-   if (!e || !id || !pcm || !count) {
-      return false;
+/* The queue is in the immutable output-clock domain. All work here is
+ * performed by the PRODUCER, never inside tick() or the output callback. */
+static void enqueue_stereo(rr_audio_engine_t *e, stream_t *s, float l, float r) {
+   size_t max = 12u * e->block_frames;
+   if (s->count == max) {
+      s->head = (s->head + 1) % AUDIO_CAPACITY;
+      s->count--;
+      e->stats.overflow_samples++;
    }
+   size_t index = (s->head + s->count) % AUDIO_CAPACITY;
+   s->samples[2 * index] = (int16_t) CLAMP(l, (float)INT16_MIN, (float)INT16_MAX);
+   s->samples[2 * index + 1] = (int16_t) CLAMP(r, (float)INT16_MIN, (float)INT16_MAX);
+   s->count++;
+   e->stats.max_queued_samples = MAX(e->stats.max_queued_samples, s->count);
+}
+
+static void converter_feed(rr_audio_engine_t *e, stream_t *s, float l, float r) {
+   uint64_t n = s->received++;
+   size_t h = 2 * (n % PCM_HISTORY);
+   s->history[h] = l;
+   s->history[h + 1] = r;
+   double step = (double)s->source_format.sample_rate_hz / e->sample_rate_hz;
+   /* 16 source frames of lookahead for the symmetric FIR. */
+   while (s->source_position + 16. <= (double)n + 1e-9) {
+      uint64_t center = (uint64_t)s->source_position;
+      double fraction = s->source_position - (double)center;
+      unsigned phase = MIN(PCM_FIR_PHASES - 1,
+                           (unsigned)(fraction * PCM_FIR_PHASES + .5));
+      const float *weights = s->fir + phase * PCM_FIR_TAPS;
+      double mixed_l = 0., mixed_r = 0.;
+      for (unsigned tap = 0; tap < PCM_FIR_TAPS; tap++) {
+         int64_t at = (int64_t)center + (int64_t)tap - 15;
+         if (at < 0 || (uint64_t)at >= s->received) continue;
+         size_t pos = 2 * ((uint64_t)at % PCM_HISTORY);
+         mixed_l += weights[tap] * s->history[pos];
+         mixed_r += weights[tap] * s->history[pos + 1];
+      }
+      enqueue_stereo(e, s, (float)mixed_l, (float)mixed_r);
+      s->source_position += step;
+   }
+}
+
+static void converter_reset(stream_t *s) {
+   memset(s->history, 0, sizeof(s->history));
+   s->received = 0;
+   s->source_position = 0.;
+}
+
+bool rr_audio_engine_push_pcm(rr_audio_engine_t *e, const char *id,
+                              const void *interleaved, size_t frames) {
+   if (!e || !id || !interleaved || !frames) return false;
+   /* All input pointers are interleaved; reject impossible frame counts
+    * before calculating their channel offsets. */
+   if (frames > SIZE_MAX / 2) return false;
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
-
-   if (s) {
-      e->stats.push_calls++;
-      e->stats.pushed_samples += count;
-      e->stats.max_push_samples = MAX(e->stats.max_push_samples, count);
-
-      if (count >= 12u * e->block_frames) {
-         e->stats.overflow_samples += s->count + count - 12u * e->block_frames;
-         pcm += count - 12u * e->block_frames;
-         count = 12u * e->block_frames;
-         s->head = s->count = 0;
-      } else if (s->count + count > 12u * e->block_frames) {
-         size_t drop = s->count + count - 12u * e->block_frames;
-         e->stats.overflow_samples += drop;
-         s->head = (s->head + drop) % AUDIO_CAPACITY;
-         s->count -= drop;
+   if (!s || s->finishing) {
+      g_mutex_unlock(&e->lock);
+      return false;
+   }
+   rr_pcm_stream_format_t format = s->source_format;
+   e->stats.push_calls++;
+   e->stats.pushed_samples += frames;
+   e->stats.max_push_samples = MAX(e->stats.max_push_samples, frames);
+   for (size_t i = 0; i < frames; i++) {
+      float l, r;
+      if (format.format == RR_PCM_S16LE) {
+         const int16_t *pcm = interleaved;
+         l = pcm[i * format.channels];
+         r = format.channels == 2 ? pcm[i * 2 + 1] : l;
+      } else {
+         const float *pcm = interleaved;
+         l = CLAMP(isfinite(pcm[i * format.channels]) ?
+                     pcm[i * format.channels] * 32768.f : 0.f,
+                   -32768.f, 32767.f);
+         r = format.channels == 2 ?
+              CLAMP(isfinite(pcm[i * 2 + 1]) ? pcm[i * 2 + 1] * 32768.f : 0.f,
+                    -32768.f, 32767.f) : l;
       }
-      size_t tail = (s->head + s->count) % AUDIO_CAPACITY;
-      size_t first = MIN(count, AUDIO_CAPACITY - tail);
-      memcpy(s->samples + tail, pcm, first * sizeof(*pcm));
-
-      if (count > first) {
-         memcpy(s->samples, pcm + first, (count - first) * sizeof(*pcm));
-      }
-      s->count += count;
-      e->stats.max_queued_samples = MAX(e->stats.max_queued_samples, s->count);
+      if (s->fir) converter_feed(e, s, l, r);
+      else enqueue_stereo(e, s, l, r);
    }
    g_mutex_unlock(&e->lock);
-
-   return s != NULL;
+   return true;
+}
+bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id,
+                          const int16_t *pcm, size_t count) {
+   if (!e || !id || !pcm || !count) return false;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   if (!s || s->source_format.format != RR_PCM_S16LE ||
+       s->source_format.channels != 1 || s->fir || s->finishing) {
+      g_mutex_unlock(&e->lock);
+      return false;
+   }
+   e->stats.push_calls++;
+   e->stats.pushed_samples += count;
+   e->stats.max_push_samples = MAX(e->stats.max_push_samples, count);
+   /* Skip the part of a burst that cannot survive the queue ceiling. */
+   size_t max = 12u * e->block_frames;
+   if (count > max) {
+      e->stats.overflow_samples += count - max;
+      pcm += count - max;
+      count = max;
+   }
+   for (size_t i = 0; i < count; i++)
+      enqueue_stereo(e, s, pcm[i], pcm[i]);
+   g_mutex_unlock(&e->lock);
+   return true;
 }
 bool rr_audio_engine_route(rr_audio_engine_t *e, const char *id, char route) {
    if (!e || !id || !strchr("LRSM", route)) {
@@ -401,6 +505,7 @@ bool rr_audio_engine_route(rr_audio_engine_t *e, const char *id, char route) {
       s->count = s->head = 0;
       s->primed = s->ever_primed = s->starved = false;
       s->fade_in = 0;
+      converter_reset(s);
    }
    g_mutex_unlock(&e->lock);
 
@@ -423,7 +528,13 @@ void rr_audio_engine_finish_stream(rr_audio_engine_t *e, const char *id) {
    if (!e || !id) return;
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
-   if (s) s->finishing = true;
+   if (s && !s->finishing) {
+      /* Drain the FIR's 16-frame lookahead with silence. Preserve finite
+       * playback's actual tail instead of losing the final millisecond. */
+      if (s->fir)
+         for (unsigned i = 0; i < 16; i++) converter_feed(e, s, 0.f, 0.f);
+      s->finishing = true;
+   }
    g_mutex_unlock(&e->lock);
 }
 size_t rr_audio_engine_pending(rr_audio_engine_t *e, const char *id) {
@@ -471,6 +582,7 @@ bool rr_audio_engine_reset_stream(rr_audio_engine_t *e, const char *id) {
    if (s) {
       s->finishing = s->primed = s->ever_primed = s->starved = false;
       s->head = s->count = s->fade_in = 0;
+      converter_reset(s);
    }
    g_mutex_unlock(&e->lock);
    return s != NULL;
