@@ -27,6 +27,7 @@ int main(void) {
    assert(rr_audio_engine_stream_format(engine, "receiver-a", &reported));
    assert(reported.sample_rate_hz == 16000 && reported.channels == 1);
    assert(rr_audio_engine_add_stream_format(engine, "wide-am", &wide));
+   assert(rr_audio_engine_route(engine, "wide-am", 'M'));
    assert(!rr_audio_engine_push(engine, "wide-am", (const int16_t[]){1}, 1));
    assert(!rr_audio_engine_add_stream_format(engine, "receiver-a", &wide));
    assert(rr_audio_engine_add_stream_format(engine, "receiver-a", &native));
