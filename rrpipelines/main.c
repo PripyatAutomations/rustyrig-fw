@@ -403,7 +403,7 @@ static gboolean canvas_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       };
    }
 
-   rr_gtk_graph_draw(cr, nodes, count, edges, link_count);
+   rr_gtk_graph_draw_vertical(cr, nodes, count, edges, link_count);
    g_free(edges);
    g_free(nodes);
 
@@ -469,6 +469,15 @@ static gboolean canvas_motion(GtkWidget *widget, GdkEventMotion *event, gpointer
    return TRUE;
 }
 
+static void pipeline_auto_layout(GtkButton *button, gpointer data) {
+   (void)button;
+   editor_t *editor = data;
+   pipeline_entry_t *pipeline = active_pipeline(editor);
+   if (!pipeline || !pipeline->graph) return;
+   rr_pipeline_graph_auto_layout(pipeline->graph);
+   refresh_canvas(editor);
+}
+
 static void refresh_canvas(editor_t *editor) {
    pipeline_entry_t *pipeline = active_pipeline(editor);
 
@@ -481,6 +490,17 @@ static void refresh_canvas(editor_t *editor) {
       } else {
          gtk_widget_hide(editor->pipeline_status);
       }
+   }
+   /* The layout may extend to many branches or processing stages. Allow
+    * scrolling instead of silently clipping nodes outside the default area. */
+   if (pipeline && pipeline->graph) {
+      double right = 1120., bottom = 680.;
+      for (guint i = 0; i < rr_pipeline_graph_node_count(pipeline->graph); i++) {
+         const rr_pipeline_node_t *n = rr_pipeline_graph_node(pipeline->graph, i);
+         right = MAX(right, n->x + RR_GTK_GRAPH_NODE_W + 50.);
+         bottom = MAX(bottom, n->y + RR_GTK_GRAPH_NODE_H + 50.);
+      }
+      gtk_widget_set_size_request(editor->canvas, (gint)right, (gint)bottom);
    }
    gtk_widget_queue_draw(editor->canvas);
 }
@@ -662,6 +682,7 @@ static void add_link_clicked(GtkButton *button, gpointer data) {
 
       return;
    }
+   rr_pipeline_graph_auto_layout(pipeline->graph);
    refresh_canvas(editor);
 }
 
@@ -683,6 +704,7 @@ static void add_tee_clicked(GtkButton *button, gpointer data) {
       return;
    }
    editor->selected_node = (gint) tee;
+   rr_pipeline_graph_auto_layout(pipeline->graph);
    refresh_canvas(editor);
    refresh_properties(editor);
    refresh_link_combos(editor);
@@ -918,6 +940,11 @@ static GtkWidget *build_work_area(editor_t *editor) {
    GtkWidget *branch = gtk_button_new_with_label("Add tee branch…");
    g_signal_connect(branch, "clicked", G_CALLBACK(add_branch_clicked), editor);
    gtk_box_pack_start(GTK_BOX(header), branch, FALSE, FALSE, 0);
+   GtkWidget *arrange = gtk_button_new_with_label("Arrange top-down");
+   gtk_widget_set_tooltip_text(arrange,
+      "Arrange GStreamer blocks by actual pad links: sources above processors and sinks.");
+   g_signal_connect(arrange, "clicked", G_CALLBACK(pipeline_auto_layout), editor);
+   gtk_box_pack_start(GTK_BOX(header), arrange, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(box), header, FALSE, FALSE, 4);
    editor->pipeline_status = gtk_label_new("");
    gtk_label_set_line_wrap(GTK_LABEL(editor->pipeline_status), TRUE);
