@@ -1423,17 +1423,16 @@ static void gtk_backup_action(GtkButton *unused, gpointer user_data) {
     * for secrets or replacing any database state. */
    char *import_path = NULL;
    if (importing) {
-      GtkWidget *pick = gtk_file_chooser_dialog_new(
+      GtkFileChooserNative *pick = gtk_file_chooser_native_new(
          "Select Encrypted RustyRig Backup", GTK_WINDOW(main_window),
-         GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL,
-         "_Open", GTK_RESPONSE_ACCEPT, NULL);
+         GTK_FILE_CHOOSER_ACTION_OPEN, "_Open", "_Cancel");
       GtkFileFilter *filter = gtk_file_filter_new();
       gtk_file_filter_set_name(filter, "RustyRig backup (*.rrbk)");
       gtk_file_filter_add_pattern(filter, "*.rrbk");
       gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(pick), filter);
-      if (gtk_dialog_run(GTK_DIALOG(pick)) == GTK_RESPONSE_ACCEPT)
+      if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(pick)) == GTK_RESPONSE_ACCEPT)
          import_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(pick));
-      gtk_widget_destroy(pick);
+      g_object_unref(pick);
       if (!import_path) return;
    }
    GtkWidget *dialog = gtk_dialog_new_with_buttons(importing ? "Import Encrypted Backup" : "Backup RustyRig",
@@ -1532,6 +1531,7 @@ static void gtk_backup_action(GtkButton *unused, gpointer user_data) {
    }
    gtk_widget_destroy(chooser);
 backup_finished:
+   ;
    g_free(import_path);
    volatile char *wipe=request.password;
    for (size_t i=0;i<sizeof(request.password);i++) wipe[i]=0;
