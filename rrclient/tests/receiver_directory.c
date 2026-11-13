@@ -39,6 +39,18 @@ int main(int argc, char **argv) {
    assert(argc >= 2);
    database = argv[1];
    event_init();
+   assert(DIRECTORY_INTERVAL == 24 * 3600);
+   /* No polling callback may cause a new request before its persisted
+    * deadline; a changed source must be revalidated immediately. */
+   g_setenv("RRCLIENT_RECEIVER_DIRECTORY_URL", "https://cdn.example.invalid/receivers.json", TRUE);
+   g_free(source);
+   source = g_strdup("https://cdn.example.invalid/receivers.json");
+   next_request = time(NULL) + DIRECTORY_INTERVAL;
+   assert(!receiver_directory_refresh_due());
+   next_request = 0;
+   assert(receiver_directory_refresh_due());
+   g_clear_pointer(&source, g_free);
+   g_unsetenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
    assert(!directory_url_allowed("https://kiwisdr.com/public/"));
    assert(!directory_url_allowed("https://files.kiwisdr.com/public/"));
    assert(!directory_url_allowed("http://some-mirror.invalid/list"));
