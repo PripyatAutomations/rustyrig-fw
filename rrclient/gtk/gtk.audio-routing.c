@@ -84,8 +84,10 @@ static void routing_queue(void);
 static gint graph_drag_source = -1, graph_drag_channel = -1;
 static gint gain_drag_source = -1, gain_drag_channel = -1;
 static gboolean gain_drag_port;
+/* Shared source/mixer/sink slider geometry; leave 12px between tracks
+ * and pins, so the port remains separately draggable. */
 /* Compact L/R output trims reside inside each source block by its pins. */
-#define GRAPH_GAIN_X (25.0 + 81.0)
+#define GRAPH_GAIN_X (25.0 + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.0)
 #define GRAPH_GAIN_W 46.0
 #define GRAPH_GAIN_MIN (-60.0)
 #define GRAPH_GAIN_MAX 12.0
@@ -208,7 +210,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       const rr_ag_view_node_t *node = &g->nodes[i];
       if (node->type != RR_AG_MIXER && node->type != RR_AG_SINK) continue;
       double node_x = node->type == RR_AG_MIXER ? 355. : 650.;
-      double x = node->type == RR_AG_MIXER ? node_x + 80. : node_x + 26.;
+      double x = node->type == RR_AG_MIXER ?
+         node_x + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : node_x + 12.;
       if (graph_missing_since[i]) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = 80 + (channel ? 79 : 60);
@@ -489,9 +492,9 @@ static gboolean graph_gain_at(double x, double y, gint *source,
          left = GRAPH_GAIN_X;
          y0 = 20 + 140 * row++;
       } else if (n->type == RR_AG_MIXER) {
-         left = 355 + 80;
+         left = 355 + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else if (n->type == RR_AG_SINK) {
-         left = 650 + 26;
+         left = 650 + 12.;
       } else continue;
       if (graph_missing_since[i] || x < left - 8 ||
           x > left + GRAPH_GAIN_W + 8) continue;
@@ -511,7 +514,8 @@ static void graph_gain_drag(double x) {
       return;
    rr_ag_view_node_t *node = &graph_snapshot->nodes[gain_drag_source];
    double left = node->type == RR_AG_SOURCE ? GRAPH_GAIN_X :
-      node->type == RR_AG_MIXER ? 355. + 80. : 650. + 26.;
+      node->type == RR_AG_MIXER ?
+      355. + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : 650. + 12.;
    double ratio = CLAMP((x - left) / GRAPH_GAIN_W, 0., 1.);
    double db = round(GRAPH_GAIN_MIN + ratio * (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN));
    float *current = gain_drag_port ? &node->port_gain_db[gain_drag_channel] :
@@ -522,6 +526,20 @@ static void graph_gain_drag(double x) {
       audio_request_port_gain(node->id, gain_drag_channel, db);
    else
       audio_request_rx_input_gain(node->id, gain_drag_channel, db);
+   graph_canvas_update_size();
+}
+/* Reset on double-click without changing wiring or dragging a port.
+ * The ordinary drag path still uses the same per-pin core event dispatch. */
+static void graph_gain_reset(gint index, gint channel, gboolean port) {
+   if (!graph_snapshot || index < 0 || channel < 0) return;
+   rr_ag_view_node_t *node = &graph_snapshot->nodes[index];
+   float *current = port ? &node->port_gain_db[channel] :
+                           &node->input_gain_db[channel];
+   *current = 0.f;
+   if (port)
+      audio_request_port_gain(node->id, channel, 0.);
+   else
+      audio_request_rx_input_gain(node->id, channel, 0.);
    graph_canvas_update_size();
 }
 static unsigned graph_route_mask(char route) {
@@ -592,7 +610,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    (void)widget;
    (void)unused;
 
-   if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY || !graph_snapshot) {
+   if ((event->type != GDK_BUTTON_PRESS && event->type != GDK_2BUTTON_PRESS) ||
+       event->button != GDK_BUTTON_PRIMARY || !graph_snapshot) {
       return FALSE;
    }
    double gx, gy;
@@ -604,12 +623,21 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    gboolean mixer = FALSE;
    gboolean port_gain = FALSE;
    if (graph_gain_at(gx, gy, &source, &channel, &port_gain)) {
+      if (event->type == GDK_2BUTTON_PRESS) {
+         gain_drag_source = gain_drag_channel = -1;
+         gain_drag_port = FALSE;
+         graph_gain_reset(source, channel, port_gain);
+         return TRUE;
+      }
       gain_drag_port = port_gain;
       gain_drag_source = source;
       gain_drag_channel = channel;
       graph_gain_drag(gx);
       return TRUE;
    }
+
+   /* Double-clicks outside the trim tracks are not routing gestures. */
+   if (event->type == GDK_2BUTTON_PRESS) return FALSE;
 
    if (graph_port_at(gx, gy, &source, &channel, &mixer)) {
       graph_drag_source = source;
@@ -950,7 +978,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
-         gtk_label_new("Drag ports to route audio. Source L/R trims are inside each block (-60 to +12 dB; 0 dB = unity).");
+         gtk_label_new("Drag ports to route audio. Source L/R trims are beside each pin; double-click a slider for 0 dB (unity).");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -959,7 +987,7 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
-      gtk_widget_set_tooltip_text(graph_canvas, "Drag source ports to mixer inputs; click wires to disconnect. Each source block has L/R output pin trims (-60 to +12 dB).");
+      gtk_widget_set_tooltip_text(graph_canvas, "Drag source ports to mixer inputs; click wires to disconnect. Every source, mixer and sink has per-pin L/R trims (-60 to +12 dB); double-click a slider to reset to 0 dB.");
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));

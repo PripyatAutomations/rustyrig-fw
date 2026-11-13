@@ -514,7 +514,7 @@ bool gui_init(void) {
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer", "Explorer: Explore available resources in the cluster");
    main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory", "Remote SDRs: Access remote SDRs such as KiwiSDR");
    main_toolbar_tool(rr_main_toolbar, "Recordings", "media-record-symbolic", "recordings", "Record and manage client audio recordings");
-   main_toolbar_tool(rr_main_toolbar, "Audio Routing", "network-workgroup-symbolic", "audio", "Audio Routing: Edit signal routing, port trims and DSP pipelines");
+   main_toolbar_tool(rr_main_toolbar, "Audio Routing", "audio-card-symbolic", "audio", "Audio Routing: Edit signal routing, port trims and DSP pipelines");
    main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-other-symbolic", "admin", "Admin: Administer the server/cluster");
    main_toolbar_tool(rr_main_toolbar, "Config", "preferences-system-symbolic", "config", "Config: Edit client configuration");
 
