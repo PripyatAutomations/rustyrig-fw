@@ -9,6 +9,7 @@
 #include <gtk/gtk.h>
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +37,9 @@ typedef struct {
    GPtrArray *pipelines;
    guint selected_pipeline;
    gint selected_node;
-   gboolean dragging;
+   gboolean dragging, wiring;
+   guint wire_source;
+   double wire_x, wire_y;
    double drag_x, drag_y;
    GtkWidget *window;
    GtkWidget *pipeline_combo;
@@ -404,6 +407,19 @@ static gboolean canvas_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    }
 
    rr_gtk_graph_draw_vertical(cr, nodes, count, edges, link_count);
+   if (editor->wiring && editor->wire_source < count) {
+      const rr_pipeline_node_t *from =
+         rr_pipeline_graph_node(pipeline->graph, editor->wire_source);
+      double sx = from->x + RR_GTK_GRAPH_NODE_W / 2.;
+      double sy = from->y + RR_GTK_GRAPH_NODE_H;
+      cairo_set_source_rgb(cr, .34, .78, .93);
+      cairo_set_line_width(cr, 2.);
+      cairo_move_to(cr, sx, sy);
+      cairo_curve_to(cr, sx, (sy + editor->wire_y) / 2.,
+         editor->wire_x, (sy + editor->wire_y) / 2.,
+         editor->wire_x, editor->wire_y);
+      cairo_stroke(cr);
+   }
    g_free(edges);
    g_free(nodes);
 
@@ -429,6 +445,17 @@ static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gp
       for (guint i = 0 ; i < rr_pipeline_graph_node_count(pipeline->graph) ; i++) {
          const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
 
+         double px = node->x + RR_GTK_GRAPH_NODE_W / 2.;
+         double py = node->y + RR_GTK_GRAPH_NODE_H;
+         if (!editor->read_only && fabs(event->x - px) <= 14. &&
+             fabs(event->y - py) <= 14.) {
+            editor->wiring = TRUE;
+            editor->wire_source = i;
+            editor->wire_x = event->x;
+            editor->wire_y = event->y;
+            editor->selected_node = (gint)i;
+            break;
+         }
          if (event->x >= node->x && event->x <= node->x + RR_GTK_GRAPH_NODE_W && event->y >= node->y && event->y <= node->y + RR_GTK_GRAPH_NODE_H) {
             editor->selected_node = (gint) i;
             editor->dragging = !editor->read_only;
@@ -446,12 +473,28 @@ static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gp
 }
 
 static gboolean canvas_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   (void)widget;
-   (void)event;
    editor_t *editor = data;
    editor->dragging = FALSE;
-
-   return FALSE;
+   if (!editor->wiring || event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   editor->wiring = FALSE;
+   pipeline_entry_t *pipeline = active_pipeline(editor);
+   if (pipeline && pipeline->graph) {
+      for (guint i = 0; i < rr_pipeline_graph_node_count(pipeline->graph); i++) {
+         const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
+         double px = node->x + RR_GTK_GRAPH_NODE_W / 2.;
+         if (i == editor->wire_source || fabs(event->x - px) > 18. ||
+             fabs(event->y - node->y) > 18.) continue;
+         GError *error = NULL;
+         if (rr_pipeline_graph_add_link(pipeline->graph, editor->wire_source, i, &error))
+            rr_pipeline_graph_auto_layout(pipeline->graph);
+         else
+            show_error(editor, error ? error->message : "Cannot connect those elements.");
+         g_clear_error(&error);
+         break;
+      }
+   }
+   refresh_canvas(editor);
+   return TRUE;
 }
 
 static gboolean canvas_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
@@ -459,6 +502,12 @@ static gboolean canvas_motion(GtkWidget *widget, GdkEventMotion *event, gpointer
    editor_t *editor = data;
    pipeline_entry_t *pipeline = active_pipeline(editor);
 
+   if (editor->wiring) {
+      editor->wire_x = event->x;
+      editor->wire_y = event->y;
+      gtk_widget_queue_draw(editor->canvas);
+      return TRUE;
+   }
    if (!editor->dragging || !pipeline || editor->selected_node < 0) {
       return FALSE;
    }
