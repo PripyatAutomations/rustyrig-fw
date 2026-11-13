@@ -38,6 +38,8 @@ rr_pipeline_graph_t *rr_pipeline_graph_new(void);
 void rr_pipeline_graph_free(rr_pipeline_graph_t *graph);
 guint rr_pipeline_graph_node_count(const rr_pipeline_graph_t *graph);
 guint rr_pipeline_graph_link_count(const rr_pipeline_graph_t *graph);
+/* Arrange elements by actual pad connectivity, not GStreamer iterator order. */
+void rr_pipeline_graph_auto_layout(rr_pipeline_graph_t *graph);
 const rr_pipeline_node_t *rr_pipeline_graph_node(const rr_pipeline_graph_t *graph, guint index);
 rr_pipeline_node_t *rr_pipeline_graph_node_edit(rr_pipeline_graph_t *graph, guint index);
 const rr_pipeline_link_t *rr_pipeline_graph_link(const rr_pipeline_graph_t *graph, guint index);
