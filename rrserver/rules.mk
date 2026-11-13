@@ -170,7 +170,7 @@ bin/rrserver: ${EEPROM_REQUIRED} ${BUILD_HEADERS} ${libmongoose} ${rrserver_real
 	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
 ifeq ($(USE_GPIO),true)
 ifneq ($(OS),DARWIN)
-	@readelf -d $@ | grep -Eq 'NEEDED.*libgpiod\\.so' || { echo "ERROR: GPIO enabled but $@ is not linked to libgpiod" >&2; exit 2; }
+	@readelf -d $@ | grep -Eq 'NEEDED.*libgpiod[.]so' || { echo "ERROR: GPIO enabled but $@ is not linked to libgpiod" >&2; exit 2; }
 endif
 endif
 	@ls -a1ls $@
