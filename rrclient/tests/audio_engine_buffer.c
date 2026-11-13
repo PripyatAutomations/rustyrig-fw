@@ -136,6 +136,30 @@ int main(void) {
    tick(engine, stereo, &active);
    assert(stereo[200] == 0 && stereo[201] == 1000);
    rr_audio_engine_free(engine);
+   /* Opt-in 48 kHz clock: output is 960 stereo frames per 20 ms,
+    * source queues retain an 80 ms prebuffer and 240 ms maximum. */
+   engine = rr_audio_engine_new_rate(48000, NULL, NULL);
+   assert(engine && rr_audio_engine_sample_rate(engine) == 48000);
+   rr_pcm_stream_format_t wide_native = {48000, 1, RR_PCM_S16LE};
+   rr_pcm_stream_format_t old_native = {16000, 1, RR_PCM_S16LE};
+   assert(!rr_audio_engine_add_stream_format(engine, "wide", &old_native));
+   assert(rr_audio_engine_add_stream_format(engine, "wide", &wide_native));
+   assert(!rr_audio_engine_add_stream_format(engine, "wide", &old_native));
+   int16_t wide_pcm[4800];
+   for (size_t i = 0; i < G_N_ELEMENTS(wide_pcm); ++i) wide_pcm[i] = 1200;
+   int16_t wide_stereo[960 * 2];
+   assert(rr_audio_engine_push(engine, "wide", wide_pcm, 960));
+   tick(engine, wide_stereo, &active);
+   assert(active && wide_stereo[200] == 0);
+   assert(rr_audio_engine_push(engine, "wide", wide_pcm, 2880));
+   tick(engine, wide_stereo, &active);
+   assert(active && wide_stereo[200] == 1200 && wide_stereo[201] == 1200);
+   assert(rr_audio_engine_pending(engine, "wide") == 2880);
+   assert(rr_audio_engine_input_gain(engine, "wide", 0, -6.0));
+   tick(engine, wide_stereo, &active);
+   assert(wide_stereo[200] >= 590 && wide_stereo[200] <= 610);
+   assert(wide_stereo[201] == 1200);
+   rr_audio_engine_free(engine);
    puts("PASS: independent mixer gain, persistent routing, EOF tail and stereo");
 
    return 0;
