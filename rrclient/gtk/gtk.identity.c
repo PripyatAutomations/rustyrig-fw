@@ -154,11 +154,13 @@ static gboolean identity_list_menu(GtkWidget *list, GdkEventButton *event, gpoin
    const char *path = g_object_get_data(G_OBJECT(row), "identity-path");
    GtkWidget *menu = gtk_menu_new();
    const char *labels[] = {
-      rrclient_identity_get(path) ? "🔒 Lock" : "🔓 Unlock",
-      "✏ Rename", NULL, "⬆ Export", NULL, "🗑 Delete"
+      "Info", NULL, "Create New", "Import Private Key",
+      "Export Encrypted Key", NULL,
+      rrclient_identity_get(path) ? "Lock" : "Unlock",
+      "Rename", "Lock All", NULL, "Delete"
    };
    const int responses[] = {
-      4, 7, 0, 3, 0, 5
+      8, 0, 1, 2, 3, 0, 4, 7, 6, 0, 5
    };
 
    for (size_t i = 0 ; i < G_N_ELEMENTS(labels) ; i++) {
@@ -206,7 +208,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    (void)unused;
    (void)unused_data;
    GtkWindow *parent = main_window ? GTK_WINDOW(main_window) : NULL;
-   GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent, GTK_DIALOG_MODAL, "_Close", GTK_RESPONSE_CLOSE, NULL);
+   GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent, GTK_DIALOG_MODAL, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dlg), 510, -1);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
    gtk_container_set_border_width(GTK_CONTAINER(area), 14);
@@ -221,12 +223,15 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    GtkWidget *status = gtk_label_new("");
    gtk_label_set_xalign(GTK_LABEL(status), 0);
    gtk_box_pack_start(GTK_BOX(area), status, FALSE, FALSE, 8);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "➕ Create New", 1);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "⬇ Import", 2);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "⬆ Export", 3);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "🔒 Lock / Unlock", 4);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "🗑 Delete", 5);
+   /* GTK action-area order follows creation order, left to right. */
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Info", 8);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Create New", 1);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Import / Export", 9);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock / Unlock", 4);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Rename", 7);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock All", 6);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Close", GTK_RESPONSE_CLOSE);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Delete", 5);
    char *path = NULL;
    char *selected_path = NULL;
    char *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
@@ -302,10 +307,62 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       }
 
       /* Only the selected row is a target for key operations. */
-      if ((response == 3 || response == 4 || response == 5 || response == 7) && !gtk_list_box_get_selected_row(GTK_LIST_BOX(list))) {
+      if ((response == 3 || response == 4 || response == 5 || response == 7 || response == 8) && !gtk_list_box_get_selected_row(GTK_LIST_BOX(list))) {
          continue;
       }
 
+      if (response == 9) {
+         GtkWidget *choose = gtk_message_dialog_new(GTK_WINDOW(dlg), GTK_DIALOG_MODAL,
+            GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+            "Import a private key or export the selected identity?");
+         gtk_dialog_add_button(GTK_DIALOG(choose), "_Cancel", GTK_RESPONSE_CANCEL);
+         gtk_dialog_add_button(GTK_DIALOG(choose), "_Import", 2);
+         GtkWidget *export_button = gtk_dialog_add_button(GTK_DIALOG(choose), "_Export", 3);
+         gtk_widget_set_sensitive(export_button, safe);
+         gint choice = gtk_dialog_run(GTK_DIALOG(choose));
+         gtk_widget_destroy(choose);
+         if (choice != 2 && choice != 3) continue;
+         response = choice;
+      }
+      if (response == 8 && safe) {
+         rr_crypto_key_t *key = rrclient_identity_get(path);
+         bool owned = false;
+         if (!key) {
+            key = identity_read_key(path, GTK_WINDOW(dlg));
+            owned = true;
+         }
+         if (!key) {
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR,
+                             "Unable to read the selected identity.");
+            continue;
+         }
+         uint8_t raw[32], hash[32];
+         bool ok = rr_crypto_ed25519_public_bytes(key, raw) &&
+                   rr_crypto_sha256(raw, sizeof(raw), hash);
+         if (ok) {
+            char fingerprint[32 * 3];
+            for (size_t i = 0; i < sizeof(hash); i++)
+               g_snprintf(fingerprint + i * 3,
+                          sizeof(fingerprint) - i * 3,
+                          i == sizeof(hash)-1 ? "%02X" : "%02X:", hash[i]);
+            char *name = g_path_get_basename(path);
+            char *details = g_strdup_printf(
+               "Identity: %s\nAlgorithm: Ed25519\nStatus: %s\n"
+               "Public key SHA-256: %s\nFile: %s\n"
+               "This fingerprint identifies the raw Ed25519 public key, "
+               "not a TLS certificate or TLS SPKI fingerprint.",
+               name, rrclient_identity_get(path) ? "Unlocked" : "Locked",
+               fingerprint, path);
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_INFO, details);
+            g_free(details);
+            g_free(name);
+         } else {
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR,
+                             "Unable to compute public-key fingerprint.");
+         }
+         if (owned) rr_crypto_key_free(key);
+         continue;
+      }
       if (response == 6) {
          rrclient_identity_lock_all();
          continue;
