@@ -36,4 +36,6 @@ typedef struct {
 #define RR_GTK_GRAPH_NODE_H 112
 /* Pointer-free view objects make it safe to render snapshots produced by other domains. Call on GTK's owning thread only. */
 void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_nodes, const rr_gtk_graph_edge_t *edges, guint n_edges);
+/* Identical audio-graph blocks with top-input / bottom-output signal flow. */
+void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_nodes, const rr_gtk_graph_edge_t *edges, guint n_edges);
 #endif
