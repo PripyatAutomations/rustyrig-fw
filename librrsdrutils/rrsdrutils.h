@@ -65,6 +65,11 @@ bool rr_iq_chunk_valid(const rr_iq_stream_desc_t *stream,
 
 /* First, conservative validation helpers. DSP execution is not implemented. */
 bool rr_iq_stream_valid(const rr_iq_stream_desc_t *stream);
+/* A slice has a tunable digital center inside a fixed parent capture.
+ * This operation must never retune the physical SDR/LO. */
+bool rr_slice_can_tune(const rr_iq_stream_desc_t *parent_capture,
+                       const rr_slice_request_t *slice,
+                       uint64_t target_center_hz);
 bool rr_slice_fits(const rr_iq_stream_desc_t *source, const rr_slice_request_t *slice);
 
 #endif
