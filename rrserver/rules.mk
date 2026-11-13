@@ -18,8 +18,13 @@ ifeq ($(shell $(PKG_CONFIG) --atleast-version=2.0 libgpiod && echo yes),)
 $(error GPIO support requires libgpiod >= 2.0 development files; install libgpiod-dev or disable features.gpio)
 endif
 endif
-${BUILD_DIR}/rrserver/gpio.o: CFLAGS_RRSERVER += -DUSE_GPIO $(shell $(PKG_CONFIG) --cflags libgpiod)
-LDFLAGS_RRSERVER += $(shell $(PKG_CONFIG) --libs libgpiod)
+# Keep the GPIO SDK flags on the actual server link, not just the GPIO
+# compilation unit. With --as-needed the GPIO object must reference gpiod
+# symbols so libgpiod remains an ELF DT_NEEDED dependency.
+GPIO_CFLAGS := $(shell $(PKG_CONFIG) --cflags libgpiod)
+GPIO_LIBS := $(shell $(PKG_CONFIG) --libs libgpiod)
+${BUILD_DIR}/rrserver/gpio.o: CFLAGS_RRSERVER += -DUSE_GPIO $(GPIO_CFLAGS)
+LDFLAGS_RRSERVER += $(GPIO_LIBS)
 endif
 # Rebuild the adapter and relink when switching the feature without cleaning.
 .PHONY: rrserver-gpio-config-check
@@ -161,7 +166,13 @@ ${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNU
 
 bin/rrserver: ${EEPROM_REQUIRED} ${BUILD_HEADERS} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
 	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
+	@echo "[gpio] rrserver USE_GPIO=$(USE_GPIO) $(if $(filter true,$(USE_GPIO)),link=$(GPIO_LIBS),adapter=disabled)"
 	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
+ifeq ($(USE_GPIO),true)
+ifneq ($(OS),DARWIN)
+	@readelf -d $@ | grep -Eq 'NEEDED.*libgpiod\\.so' || { echo "ERROR: GPIO enabled but $@ is not linked to libgpiod" >&2; exit 2; }
+endif
+endif
 	@ls -a1ls $@
 	@file $@
 	@size $@
