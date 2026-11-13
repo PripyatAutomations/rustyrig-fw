@@ -843,12 +843,12 @@ static bool processor_pcm_caps_rate(GstCaps *caps, bool native_rate, bool stereo
    return gst_structure_has_name(structure, "audio/x-raw") && format &&
           strcmp(format, "S16LE") == 0 &&
           (!layout || strcmp(layout, "interleaved") == 0) &&
-          gst_structure_get_int(structure, "rate", &rate) && (native_rate ? rate >= 8000 && rate <= 48000 : rate == 16000)
+          gst_structure_get_int(structure, "rate", &rate) && (native_rate ? rate >= 8000 && rate <= 192000 : rate == 16000)
           && gst_structure_get_int(structure, "channels", &channels) && (channels == 1 || (stereo && channels == 2));
 }
 
-static bool processor_pcm_caps(GstCaps *caps) {
-   return processor_pcm_caps_rate(caps, false, false);
+static bool processor_pcm_caps(GstCaps *caps, bool resampler_output) {
+   return processor_pcm_caps_rate(caps, resampler_output, false);
 }
 
 static void run_loop(struct audio_config *cfg) {
@@ -1052,8 +1052,8 @@ static void run_loop(struct audio_config *cfg) {
                if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
                   bool output_ok = true;
 
-                  if (processor_mode && (!processor_pcm_caps(gst_sample_get_caps(sample)) || (map.size & 1U) != 0)) {
-                     Log(LOG_CRIT, "fwdsp", "Audio pipeline %s produced non-S16LE/16kHz/mono output", processor_name);
+                  if (processor_mode && (!processor_pcm_caps(gst_sample_get_caps(sample), processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE) || (map.size & 1U) != 0)) {
+                     Log(LOG_CRIT, "fwdsp", "Audio pipeline %s produced unsupported S16LE mono output", processor_name);
                      output_ok = false;
                      dying = true;
                   }
