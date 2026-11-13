@@ -30,7 +30,13 @@ typedef struct {
    uint64_t startup_blocks, rebuffer_blocks, starvation_events;
    uint64_t push_calls, pushed_samples, max_push_samples, max_queued_samples;
 } rr_audio_engine_stats_t;
+/* Native 16 kHz compatibility constructor; future clients may opt into
+ * 48 kHz by selecting the engine's clock before adding streams. */
 rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn output, void *user);
+rr_audio_engine_t *rr_audio_engine_new_rate(uint32_t sample_rate_hz,
+                                           rr_audio_output_fn output, void *user);
+uint32_t rr_audio_engine_sample_rate(const rr_audio_engine_t *engine);
+
 /* Independent pre-gain tap; receives routed/mixed PCM before L/R listening gain. */
 void rr_audio_engine_set_pre_gain_tap(rr_audio_engine_t *engine, rr_audio_output_fn tap, void *user);
 bool rr_audio_engine_start(rr_audio_engine_t *engine);
