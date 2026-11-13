@@ -128,6 +128,19 @@ int main(void) {
    assert(last_pre_gain == 1000);
    assert(active && stereo[200] >= 490 && stereo[200] <= 510);
    assert(stereo[201] == 1000);
+   /* Mixer output and speaker sink input each have real, independently
+    * controlled L/R gain stages. Raw capture/recording remains unchanged. */
+   assert(rr_audio_engine_port_gain_get(engine, false, 0) == 0.);
+   assert(rr_audio_engine_port_gain_get(engine, true, 0) == 0.);
+   assert(rr_audio_engine_port_gain(engine, false, 0, -6.));
+   assert(rr_audio_engine_port_gain(engine, true, 1, -6.));
+   assert(!rr_audio_engine_port_gain(engine, false, 0, 18.));
+   tick(engine, stereo, &active);
+   assert(last_pre_gain == 1000);
+   assert(stereo[200] >= 245 && stereo[200] <= 255);
+   assert(stereo[201] >= 490 && stereo[201] <= 510);
+   assert(rr_audio_engine_port_gain(engine, false, 0, 0.));
+   assert(rr_audio_engine_port_gain(engine, true, 1, 0.));
    size_t queued = rr_audio_engine_pending(engine, "graph.receiver");
    assert(queued > 0);
    /* Changing a playback destination must not flush the buffered tail. */
