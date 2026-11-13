@@ -24,3 +24,37 @@ bool rr_slice_fits(const rr_iq_stream_desc_t *source, const rr_slice_request_t *
 
    return delta <= (source->bandwidth_hz - slice->bandwidth_hz) / 2;
 }
+
+size_t rr_iq_bytes_per_frame(const rr_iq_stream_desc_t *stream) {
+   if (!rr_iq_stream_valid(stream)) return 0;
+   size_t component = stream->format == RR_IQ_CU8 ? 1 :
+                      stream->format == RR_IQ_CS16 ? 2 : 4;
+   /* One complex sample carries both I and Q, per channel. */
+   if (stream->channels > SIZE_MAX / (2 * component)) return 0;
+   return (size_t)stream->channels * 2 * component;
+}
+
+bool rr_iq_chunk_valid(const rr_iq_stream_desc_t *stream,
+                       const rr_iq_chunk_desc_t *chunk) {
+   size_t bpf = rr_iq_bytes_per_frame(stream);
+   if (!bpf || !chunk || !chunk->frames ||
+       !chunk->encoded_bytes || !chunk->raw_bytes ||
+       chunk->encoded_bytes > RR_IQ_MAX_CHUNK_BYTES ||
+       chunk->raw_bytes > RR_IQ_MAX_CHUNK_BYTES ||
+       chunk->frames > RR_IQ_MAX_CHUNK_BYTES / bpf ||
+       chunk->raw_bytes != chunk->frames * bpf ||
+       chunk->first_sample > UINT64_MAX - chunk->frames)
+      return false;
+   switch (chunk->codec) {
+      case RR_IQ_CODEC_RAW:
+         return chunk->encoded_bytes == chunk->raw_bytes;
+      case RR_IQ_CODEC_LZ4:
+      case RR_IQ_CODEC_ZSTD:
+         return true;
+      case RR_IQ_CODEC_DELTA_ZSTD:
+         /* Avoid bit-irreversible float transformations. */
+         return stream->format == RR_IQ_CS16;
+      default:
+         return false;
+   }
+}
