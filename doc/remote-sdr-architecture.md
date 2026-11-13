@@ -80,17 +80,30 @@ must advertise its PCM sample rate, channel layout, sample format, and clock
 domain. Consumers subscribe to a *format*, negotiating compatible rates
 rather than interpreting bytes at an implicit fixed rate.
 
-An initial `rr_pcm_stream_format_t` contract now validates selectable
-rates (8–192 kHz), mono/stereo layouts and signed 16-bit/float PCM.
-The existing client mixer still operates at **16 kHz mono per input**:
-`rr_audio_engine_add_stream_format()` rejects unsupported formats instead
-of silently misclocking. It is **not yet a 48 kHz mixer or resampler**.
-The legacy `rr_audio_engine_add_stream()` remains a 16 kHz shorthand.
-Actual migration should include a 48 kHz stereo mixer clock, nonblocking
-high-quality input resamplers, rate-aware output/recording and FFT pipelines,
-per-stream timestamps and explicit format changes. Avoid doing resampling
-or allocations in the 20 ms audio callback; decode/resample in worker
-threads and bound all queues in milliseconds, not raw sample counts.
+The `rr_pcm_stream_format_t` contract validates rates from 8–192 kHz,
+mono/stereo layouts and signed 16-bit/float PCM. The native client
+audio engine now supports an **opt-in 48 kHz clock** through
+`rr_audio_engine_new_rate(48000, ...)` with 960 stereo output frames per
+20 ms; the legacy `rr_audio_engine_new()` still uses 16 kHz and 320
+frames. The engine preserves 80 ms prebuffer and 240 ms queue bounds
+at either rate, with no allocations in its audio clock callback.
+
+Input registration still accepts **S16LE mono at the engine's native
+rate only**. An unsupported input rate/layout fails closed rather than
+misclocking. `fwdsp_audio_resampler_start_to()` now creates a separate
+GStreamer `audioresample` worker with selected input/output rates
+(8–192 kHz, S16LE mono). Its old `fwdsp_audio_resampler_start()` API
+remains a 16 kHz output compatibility wrapper.
+
+**The live client, existing codecs, AF FFT, recording codec, and sink
+still use 16 kHz.** The 48 kHz engine is isolated/testable and not yet
+connected to the live playback/recording pipeline. Next integration
+steps: rate negotiation per stream, feed resampled 48 kHz streams to the
+native 48 kHz mixer, switch the sound endpoint/recording encoder/AF FFT
+together, then allow stereo-native sources and explicit format changes.
+Maintain timestamps and sample-clock continuity across conversion. Never
+run resampling or allocate memory on the real-time mixer callback;
+keep bounded worker queues expressed in milliseconds rather than samples.
 
 ## IQ transport: compression without changing samples
 
