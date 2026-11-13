@@ -109,11 +109,27 @@ static void rx_sink_set_fd(int new_fd) {
 /* Used by local SDR setup before its definition below. */
 static void audio_input_gain_load(const char *id);
 
-bool audio_local_rx_start(const char *id) {
-   if (!rx_engine || !id || !rr_audio_engine_add_stream(rx_engine, id))
+bool audio_local_rx_start_format(const char *id,
+                                 const rr_pcm_stream_format_t *format) {
+   if (!rx_engine || !id || !format ||
+       !rr_audio_engine_add_stream_format(rx_engine, id, format))
       return false;
    audio_input_gain_load(id);
    return true;
+}
+bool audio_local_rx_start(const char *id) {
+   if (!rx_engine) return false;
+   const rr_pcm_stream_format_t native = {
+      rr_audio_engine_sample_rate(rx_engine), 1, RR_PCM_S16LE
+   };
+   return audio_local_rx_start_format(id, &native);
+}
+bool audio_local_rx_push_pcm(const char *id,
+                             const void *interleaved, size_t frames) {
+   /* Never feed non-16k/stereo PCM to the legacy AF FFT or modem pipeline;
+    * they still expect 16 kHz mono. Rate-aware AF analysis is a separate
+    * integration step from safe local playback. */
+   return rx_engine && rr_audio_engine_push_pcm(rx_engine, id, interleaved, frames);
 }
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
    if (!id || !pcm || !frames) {
