@@ -1025,12 +1025,19 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       }
    }
 
+   /* Snapshot the two real post-mixer pin gain stages. */
    rr_audio_graph_snapshot_t *snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
 
    if (snapshot && rr_audio_graph_snapshot(graph, snapshot)) {
       for (guint i = 0 ; i < snapshot->node_count ; ++i) {
          rr_ag_view_node_t *node = &snapshot->nodes[i];
 
+         if (node->type == RR_AG_MIXER || node->type == RR_AG_SINK) {
+            bool sink = node->type == RR_AG_SINK;
+            for (unsigned ch = 0; ch < 2; ch++)
+               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(rx_engine, sink, ch);
+            continue;
+         }
          if (node->type != RR_AG_SOURCE) continue;
          if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
             g_strlcpy(node->rig, "Recording Playback", sizeof(node->rig));
@@ -1190,6 +1197,23 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          }
          break;
       }
+      case RR_AUDIO_CONTROL_PORT_GAIN: {
+         if (!rx_engine || !memchr(req->stream, 0, sizeof(req->stream)) ||
+             req->channel > 1 || !isfinite(req->gain_db) ||
+             req->gain_db < -60. || req->gain_db > 12.) break;
+         bool sink_input = !strcmp(req->stream, "sink.client.dsp0");
+         if (!sink_input && strcmp(req->stream, "rx.mix")) break;
+         if (rr_audio_engine_port_gain(rx_engine, sink_input,
+                                       req->channel, req->gain_db)) {
+            char *key = g_strdup_printf("audio.graph.port.%s.%c",
+               sink_input ? "sink" : "mix", req->channel ? 'R' : 'L');
+            char val[G_ASCII_DTOSTR_BUF_SIZE];
+            g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
+            rrclient_database_setting_set(key, val);
+            g_free(key);
+         }
+         break;
+      }
       case RR_AUDIO_CONTROL_INPUT_GAIN: {
          if (!memchr(req->stream, 0, sizeof(req->stream)) ||
              req->channel > 1 || !isfinite(req->gain_db) ||
@@ -1242,6 +1266,16 @@ void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_d
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_INPUT_GAIN, .channel = channel,
       .gain_db = gain_db
+   };
+   g_strlcpy(req.stream, id, sizeof(req.stream));
+   audio_submit_control(&req);
+}
+void audio_request_port_gain(const char *id, unsigned channel, double db) {
+   if (!id || channel > 1 || !isfinite(db) ||
+       (strcmp(id, "rx.mix") && strcmp(id, "sink.client.dsp0")))
+      return;
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_PORT_GAIN, .channel = channel, .gain_db = db
    };
    g_strlcpy(req.stream, id, sizeof(req.stream));
    audio_submit_control(&req);
@@ -1336,6 +1370,21 @@ bool audio_init(void) {
    double right_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_L, 1, left_db);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_R, 0, right_db);
+   for (unsigned stage = 0; stage < 2; stage++) {
+      for (unsigned ch = 0; ch < 2; ch++) {
+         char *key = g_strdup_printf("audio.graph.port.%s.%c",
+                                    stage ? "sink" : "mix", ch ? 'R' : 'L');
+         char *saved = rrclient_database_setting_get(key);
+         if (saved && *saved) {
+            char *end = NULL;
+            double db = g_ascii_strtod(saved, &end);
+            if (end != saved && !*end)
+               rr_audio_engine_port_gain(rx_engine, stage != 0, ch, db);
+         }
+         g_free(saved);
+         g_free(key);
+      }
+   }
    rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
    rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
    GSource *maintenance = g_timeout_source_new_seconds(10);
