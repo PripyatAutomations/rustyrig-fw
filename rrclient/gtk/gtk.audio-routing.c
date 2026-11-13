@@ -83,10 +83,9 @@ static bool snapshot_waiting;
 static void routing_queue(void);
 static gint graph_drag_source = -1, graph_drag_channel = -1;
 static gint gain_drag_source = -1, gain_drag_channel = -1;
-/* In each source's row, one horizontal fader sits beside each mixer input
- * port (L/R). 0 dB is unity, range -60 to +12 dB. */
-#define GRAPH_GAIN_X 215.0
-#define GRAPH_GAIN_W 82.0
+/* Compact L/R output trims reside inside each source block by its pins. */
+#define GRAPH_GAIN_X (25.0 + 81.0)
+#define GRAPH_GAIN_W 46.0
 #define GRAPH_GAIN_MIN (-60.0)
 #define GRAPH_GAIN_MAX 12.0
 static void graph_gain_drag(double x);
@@ -169,8 +168,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    cairo_scale(cr, graph_scale, graph_scale);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
 
-   /* Visible per-input trim faders, directly beside the L/R mixer wires.
-    * Draw atop the wires; the source pin itself remains draggable. */
+   /* Output trims inside each source block; backed by the existing
+    * per-stream L/R gains rather than by speaker/master volume. */
    guint trim_row = 0;
    for (guint i = 0; i < g->node_count; i++) {
       const rr_ag_view_node_t *node = &g->nodes[i];
@@ -182,24 +181,21 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double db = CLAMP(node->input_gain_db[channel],
                            GRAPH_GAIN_MIN, GRAPH_GAIN_MAX);
          double ratio = (db - GRAPH_GAIN_MIN) / (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN);
-         cairo_set_source_rgba(cr, 0.07, 0.10, 0.15, 0.93);
-         cairo_rectangle(cr, GRAPH_GAIN_X - 5, y - 8, 140, 16);
-         cairo_fill(cr);
-         cairo_set_line_width(cr, 2);
-         cairo_set_source_rgba(cr, 0.55, 0.62, 0.67, 0.8);
+         cairo_set_line_width(cr, 1.8);
+         cairo_set_source_rgba(cr, .55, .67, .76, .85);
          cairo_move_to(cr, GRAPH_GAIN_X, y);
          cairo_line_to(cr, GRAPH_GAIN_X + GRAPH_GAIN_W, y);
          cairo_stroke(cr);
-         cairo_set_source_rgb(cr, 0.30, 0.78, 0.96);
-         cairo_arc(cr, GRAPH_GAIN_X + GRAPH_GAIN_W * ratio, y, 4.5, 0, 2 * G_PI);
+         cairo_set_source_rgb(cr, .31, .82, .97);
+         cairo_arc(cr, GRAPH_GAIN_X + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
          cairo_fill(cr);
-         char value[32];
-         g_snprintf(value, sizeof(value), "%+.0f dB", db);
+         char value[16];
+         g_snprintf(value, sizeof(value), "%+.0f", db);
+         cairo_set_source_rgb(cr, .90, .95, .98);
          cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                                 CAIRO_FONT_WEIGHT_NORMAL);
-         cairo_set_font_size(cr, 10);
-         cairo_set_source_rgb(cr, 0.89, 0.92, 0.95);
-         cairo_move_to(cr, GRAPH_GAIN_X + GRAPH_GAIN_W + 8, y + 3);
+         cairo_set_font_size(cr, 8);
+         cairo_move_to(cr, GRAPH_GAIN_X - 24, y + 3);
          cairo_show_text(cr, value);
       }
    }
@@ -447,7 +443,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 }
 static gboolean graph_gain_at(double x, double y, gint *source, gint *channel) {
    if (!graph_snapshot) return FALSE;
-   if (x < GRAPH_GAIN_X - 6 || x > GRAPH_GAIN_X + GRAPH_GAIN_W + 6)
+   if (x < GRAPH_GAIN_X - 8 || x > GRAPH_GAIN_X + GRAPH_GAIN_W + 6)
       return FALSE;
    guint row = 0;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
@@ -866,7 +862,7 @@ void gtk_audio_graph_present(void) {
    }
 
    if (!graph_panel) {
-      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "Audio Graph", "Audio Graph");
+      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "Audio Routing", "Audio Routing");
 
       if (!graph_panel) {
          return;
@@ -900,7 +896,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
-         gtk_label_new("Drag source ports to L/R mixer inputs; drag the +/- dB faders beside each input to adjust gain. 0 dB = unity.");
+         gtk_label_new("Drag ports to route audio. Source L/R trims are inside each block (-60 to +12 dB; 0 dB = unity).");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -909,7 +905,7 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
-      gtk_widget_set_tooltip_text(graph_canvas, "Drag RX ports to mixer inputs, click wires to disconnect, and adjust individual input gain sliders (-60 to +12 dB; 0 dB default).");
+      gtk_widget_set_tooltip_text(graph_canvas, "Drag source ports to mixer inputs; click wires to disconnect. Each source block has L/R output pin trims (-60 to +12 dB).");
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
