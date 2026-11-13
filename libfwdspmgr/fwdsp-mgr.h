@@ -176,7 +176,14 @@ extern bool fwdsp_audio_capture_start(const char *name, const char *pipeline, fw
 extern bool fwdsp_audio_playback_start(const char *name, const char *pipeline);
 // Write one even-length PCM frame to a processor or playback endpoint. true
 // means the complete framed sample data was accepted by the child pipe.
-extern bool fwdsp_audio_resampler_start(const char *name, unsigned rate, fwdsp_processor_output_cb output_cb, void *user);
+/* Native GStreamer audioresample worker. Callback PCM is S16LE mono at
+ * output_rate_hz; no conversion occurs on the caller's audio thread. */
+extern bool fwdsp_audio_resampler_start_to(const char *name,
+   unsigned input_rate_hz, unsigned output_rate_hz,
+   fwdsp_processor_output_cb output_cb, void *user);
+/* Backward-compatible 16 kHz output for existing radio/bridge pipelines. */
+extern bool fwdsp_audio_resampler_start(const char *name, unsigned rate,
+   fwdsp_processor_output_cb output_cb, void *user);
 extern bool fwdsp_processor_write(const char *name, const void *samples, size_t len);
 // Set the named processor's processor-vol element to 0..100 percent.
 extern bool fwdsp_processor_setvol(const char *name, int percent);
