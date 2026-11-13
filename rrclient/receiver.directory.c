@@ -45,7 +45,7 @@ struct directory_job {
    char *response_etag, *response_modified;
    long status;
    time_t started;
-   unsigned delay;
+   unsigned delay, retry_after;
    CURLcode result;
    gint done, cancel;
    GThread *thread;
@@ -1291,7 +1291,8 @@ static size_t receive_header(char *data, size_t size, size_t count, void *user) 
          time_t date = curl_getdate(value, NULL);
          seconds = date > j->started ? date - j->started : 0;
       }
-      j->delay = MAX(j->delay, MIN(seconds, 604800));
+      j->retry_after = MIN(seconds, 604800);
+      j->delay = MAX(j->delay, j->retry_after);
    }
    g_free(line);
 
@@ -1429,7 +1430,11 @@ static gboolean finish(gpointer unused) {
       g_snprintf(last_fetch_error, sizeof(last_fetch_error), "%s (HTTP %ld)", reason, job->status);
       g_snprintf(status_text, sizeof(status_text), "Directory refresh failed: %s. Keeping %u cached receivers.", last_fetch_error, receivers->len);
    }
-   next_request = now + job->delay;
+   /* Successful validations are daily. Failed mirror requests retry after
+    * an hour, unless Retry-After asks us to back off longer. */
+   if (!list && !unchanged)
+      job->delay = MAX(3600u, job->retry_after);
+   next_request = time(NULL) + job->delay;
 
    if (unchanged) {
       GPtrArray *fresh = parse(payload, strlen(payload));
