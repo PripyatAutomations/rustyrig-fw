@@ -197,7 +197,9 @@ static void complete_download(void) {
    request.thread = NULL;
    time_t current = time(NULL);
 
-   if (request.result == CURLE_OK && request.http_status == 200 && body_valid(request.data, request.length)) {
+   bool accepted = request.result == CURLE_OK &&
+      request.http_status == 200 && body_valid(request.data, request.length);
+   if (accepted) {
       g_free(snapshot);
       snapshot = g_steal_pointer(&request.data);
       g_free(source_url);
@@ -211,9 +213,8 @@ static void complete_download(void) {
    }
    /* A successful 200 or 304 validation starts a fresh daily window.
     * Failed downloads retain the old snapshot and retry after one hour. */
-   bool verified = request.result == CURLE_OK &&
-      ((request.http_status == 200 && snapshot && fetched_at == current) ||
-       (request.http_status == 304 && snapshot));
+   bool verified = accepted ||
+      (request.result == CURLE_OK && request.http_status == 304 && snapshot);
    next_fetch = current + (verified ? DIR_TTL : DIR_RETRY);
    save_snapshot();
    g_clear_pointer(&request.url, g_free);
