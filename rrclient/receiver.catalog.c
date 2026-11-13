@@ -10,6 +10,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.catalog.h>
+#include <rrclient/rrclient.h>
 #define CATALOG_MAX (8u * 1024u * 1024u)
 #define CATALOG_CHUNK 12000u
 typedef struct {
@@ -130,7 +131,10 @@ static gboolean expire(gpointer unused) {
    if (++transfer.retry <= 5) {
       /* Server may be fetching its initial cache asynchronously. */
       if (send_request(transfer.connection, "list", transfer.requested_page)) {
-         timer_id = g_timeout_add_seconds(3, expire, NULL);
+         GSource *retry = g_timeout_source_new_seconds(3);
+         g_source_set_callback(retry, expire, NULL, NULL);
+         timer_id = g_source_attach(retry, rrclient_core_context());
+         g_source_unref(retry);
 
          return G_SOURCE_REMOVE;
       }
@@ -144,7 +148,10 @@ static void arm(void) {
    if (timer_id) {
       g_source_remove(timer_id);
    }
-   timer_id = g_timeout_add_seconds(3, expire, NULL);
+   GSource *timeout = g_timeout_source_new_seconds(3);
+   g_source_set_callback(timeout, expire, NULL, NULL);
+   timer_id = g_source_attach(timeout, rrclient_core_context());
+   g_source_unref(timeout);
 }
 bool rrclient_receiver_catalog_request(bool force) {
    (void)force;                 /* Server refresh is governed by its shared TTL. */

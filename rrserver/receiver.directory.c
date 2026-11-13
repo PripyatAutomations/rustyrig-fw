@@ -19,7 +19,8 @@
 
 #define DIR_MAX_BODY (8u * 1024u * 1024u)
 #define DIR_CHUNK 12000u
-#define DIR_TTL (4 * 3600)
+#define DIR_TTL (24 * 3600)
+#define DIR_RETRY (3600)
 static sqlite3 *db;
 static char *snapshot, *source_url, *validator, *modified;
 static char digest[65];
@@ -196,7 +197,9 @@ static void complete_download(void) {
    request.thread = NULL;
    time_t current = time(NULL);
 
-   if (request.result == CURLE_OK && request.http_status == 200 && body_valid(request.data, request.length)) {
+   bool accepted = request.result == CURLE_OK &&
+      request.http_status == 200 && body_valid(request.data, request.length);
+   if (accepted) {
       g_free(snapshot);
       snapshot = g_steal_pointer(&request.data);
       g_free(source_url);
@@ -208,7 +211,11 @@ static void complete_download(void) {
    } else if (request.result != CURLE_OK || request.http_status != 304) {
       Log(LOG_WARN, "receiver.directory", "Server directory update failed: curl=%d HTTP=%ld (retaining snapshot)", (int)request.result, request.http_status);
    }
-   next_fetch = current + DIR_TTL;
+   /* A successful 200 or 304 validation starts a fresh daily window.
+    * Failed downloads retain the old snapshot and retry after one hour. */
+   bool verified = accepted ||
+      (request.result == CURLE_OK && request.http_status == 304 && snapshot);
+   next_fetch = current + (verified ? DIR_TTL : DIR_RETRY);
    save_snapshot();
    g_clear_pointer(&request.url, g_free);
    g_clear_pointer(&request.etag, g_free);
@@ -359,6 +366,10 @@ static void poll_dir(const char *event, const char *data, rrconn_t *client, void
    (void)client;
    (void)unused;
    complete_download();
+   /* The server must refresh upstream without requiring a client to open
+    * the directory or press Refresh. This work runs in its existing worker. */
+   if (db && !request.thread && time(NULL) >= next_fetch)
+      start_fetch();
 }
 bool rrserver_receiver_directory_init(void) {
    const char *configured = cfg_get("receiver-directory.cache");

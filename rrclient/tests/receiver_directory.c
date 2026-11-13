@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
    assert(argc >= 2);
    database = argv[1];
    event_init();
+   assert(DIRECTORY_INTERVAL == 24 * 3600);
    assert(!directory_url_allowed("https://kiwisdr.com/public/"));
    assert(!directory_url_allowed("https://files.kiwisdr.com/public/"));
    assert(!directory_url_allowed("http://some-mirror.invalid/list"));
