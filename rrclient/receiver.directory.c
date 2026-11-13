@@ -1434,7 +1434,7 @@ static gboolean finish(gpointer unused) {
     * an hour, unless Retry-After asks us to back off longer. */
    if (!list && !unchanged)
       job->delay = MAX(3600u, job->retry_after);
-   next_request = time(NULL) + job->delay;
+   next_request = now + job->delay;
 
    if (unchanged) {
       GPtrArray *fresh = parse(payload, strlen(payload));
