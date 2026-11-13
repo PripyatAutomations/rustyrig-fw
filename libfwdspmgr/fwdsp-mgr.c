@@ -1194,17 +1194,28 @@ bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
    return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK, NULL, NULL);
 }
 
-bool fwdsp_audio_resampler_start(const char *name, unsigned rate, fwdsp_processor_output_cb output_cb, void *user) {
-   if (rate < 8000 || rate > 48000) {
+bool fwdsp_audio_resampler_start_to(const char *name,
+      unsigned input_rate_hz, unsigned output_rate_hz,
+      fwdsp_processor_output_cb output_cb, void *user) {
+   /* Explicit rates are part of the stream contract. Invalid values must
+    * fail before launching a worker, not produce misclocked PCM. */
+   if (!name || !*name || !output_cb || input_rate_hz < 8000 ||
+       input_rate_hz > 192000 || output_rate_hz < 8000 ||
+       output_rate_hz > 192000)
       return false;
-   }
    char pipeline[512];
-   snprintf(pipeline, sizeof(pipeline), "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+   snprintf(pipeline, sizeof(pipeline),
+      "appsrc name=processor-src is-live=true format=time do-timestamp=true "
       "caps=audio/x-raw,format=S16LE,rate=%u,channels=1,layout=interleaved ! "
-      "audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
-      "appsink name=processor-sink sync=false max-buffers=8 drop=true", rate);
-
-   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user);
+      "audioresample ! audio/x-raw,format=S16LE,rate=%u,channels=1,layout=interleaved ! "
+      "appsink name=processor-sink sync=false max-buffers=8 drop=true",
+      input_rate_hz, output_rate_hz);
+   return fwdsp_audio_endpoint_start(name, pipeline,
+                                     FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user);
+}
+bool fwdsp_audio_resampler_start(const char *name, unsigned rate,
+                                  fwdsp_processor_output_cb output_cb, void *user) {
+   return fwdsp_audio_resampler_start_to(name, rate, 16000, output_cb, user);
 }
 
 bool fwdsp_processor_write(const char *name, const void *samples, size_t len) {
