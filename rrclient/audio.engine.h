@@ -9,6 +9,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+/* Explicit PCM format contract for future negotiated source rates.
+ * Validation accepts common rates; an individual mixer must still resample
+ * upstream or reject a format it cannot consume without misclocking. */
+typedef enum {
+   RR_PCM_S16LE = 1,
+   RR_PCM_F32LE = 2
+} rr_pcm_sample_format_t;
+typedef struct {
+   uint32_t sample_rate_hz;
+   uint8_t channels;
+   rr_pcm_sample_format_t format;
+} rr_pcm_stream_format_t;
+bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format);
 typedef struct rr_audio_engine rr_audio_engine_t;
 typedef void (*rr_audio_output_fn)(const int16_t *stereo, size_t frames, void *user);
 typedef struct {
@@ -24,6 +37,13 @@ bool rr_audio_engine_start(rr_audio_engine_t *engine);
 void rr_audio_engine_stop(rr_audio_engine_t *engine);
 void rr_audio_engine_free(rr_audio_engine_t *engine);
 bool rr_audio_engine_add_stream(rr_audio_engine_t *engine, const char *id);
+/* Fail closed until the source has been converted to this mixer's native
+ * format; never mistake 48 kHz PCM for 16 kHz just because samples are S16. */
+bool rr_audio_engine_add_stream_format(rr_audio_engine_t *engine, const char *id,
+                                        const rr_pcm_stream_format_t *format);
+bool rr_audio_engine_stream_format(rr_audio_engine_t *engine, const char *id,
+                                   rr_pcm_stream_format_t *format);
+
 void rr_audio_engine_remove_stream(rr_audio_engine_t *engine, const char *id);
 bool rr_audio_engine_push(rr_audio_engine_t *engine, const char *id, const int16_t *pcm, size_t count);
 bool rr_audio_engine_route(rr_audio_engine_t *engine, const char *id, char route);

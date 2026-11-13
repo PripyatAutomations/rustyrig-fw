@@ -19,6 +19,16 @@ static void verify_pre_gain(const int16_t *pcm, size_t frames, void *unused) {
 int main(void) {
    rr_audio_engine_t *engine = rr_audio_engine_new(NULL, NULL);
    assert(engine && rr_audio_engine_add_stream(engine, "receiver-a"));
+   rr_pcm_stream_format_t native = { 16000, 1, RR_PCM_S16LE };
+   rr_pcm_stream_format_t wide = { 48000, 1, RR_PCM_S16LE };
+   rr_pcm_stream_format_t reported = {0};
+   assert(rr_pcm_stream_format_valid(&native));
+   assert(rr_pcm_stream_format_valid(&wide));
+   assert(rr_audio_engine_stream_format(engine, "receiver-a", &reported));
+   assert(reported.sample_rate_hz == 16000 && reported.channels == 1);
+   assert(!rr_audio_engine_add_stream_format(engine, "wide-am", &wide));
+   assert(!rr_audio_engine_add_stream_format(engine, "receiver-a", &wide));
+   assert(rr_audio_engine_add_stream_format(engine, "receiver-a", &native));
    assert(rr_audio_engine_route(engine, "receiver-a", 'S'));
    int16_t pcm[3200];
 

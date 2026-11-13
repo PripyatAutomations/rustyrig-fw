@@ -38,8 +38,38 @@ typedef struct rr_slice_request {
    rr_iq_format_t output_format;
 } rr_slice_request_t;
 
+/* Lossless RF/IQ slice transport metadata. All fields are logical values,
+ * NOT a serialized wire struct; encode explicitly with fixed endianness.
+ * If compression is ineffective, send the exact raw bytes instead. */
+typedef enum rr_iq_lossless_codec {
+   RR_IQ_CODEC_RAW = 0,
+   RR_IQ_CODEC_LZ4 = 1,
+   RR_IQ_CODEC_ZSTD = 2,
+   RR_IQ_CODEC_DELTA_ZSTD = 3  /* reversible integer delta + zstd; CS16 only */
+} rr_iq_lossless_codec_t;
+
+typedef struct rr_iq_chunk_desc {
+   uint64_t sequence;
+   uint64_t first_sample;
+   uint32_t frames;
+   uint32_t raw_bytes;
+   uint32_t encoded_bytes;
+   rr_iq_lossless_codec_t codec;
+   bool discontinuity; /* reset predictive state; never silently conceal dropped samples */
+} rr_iq_chunk_desc_t;
+
+#define RR_IQ_MAX_CHUNK_BYTES (4u * 1024u * 1024u)
+size_t rr_iq_bytes_per_frame(const rr_iq_stream_desc_t *stream);
+bool rr_iq_chunk_valid(const rr_iq_stream_desc_t *stream,
+                       const rr_iq_chunk_desc_t *chunk);
+
 /* First, conservative validation helpers. DSP execution is not implemented. */
 bool rr_iq_stream_valid(const rr_iq_stream_desc_t *stream);
+/* A slice has a tunable digital center inside a fixed parent capture.
+ * This operation must never retune the physical SDR/LO. */
+bool rr_slice_can_tune(const rr_iq_stream_desc_t *parent_capture,
+                       const rr_slice_request_t *slice,
+                       uint64_t target_center_hz);
 bool rr_slice_fits(const rr_iq_stream_desc_t *source, const rr_slice_request_t *slice);
 
 #endif

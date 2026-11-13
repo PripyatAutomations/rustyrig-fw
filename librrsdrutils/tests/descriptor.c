@@ -15,11 +15,37 @@ int main(void) {
    };
    assert(rr_iq_stream_valid(&source));
    assert(rr_slice_fits(&source, &slice));
+   /* A derived VFO may tune digitally, never retuning the parent LO. */
+   assert(rr_slice_can_tune(&source, &slice, 144500000));
+   assert(rr_slice_can_tune(&source, &slice, 145998000));
+   assert(!rr_slice_can_tune(&source, &slice, 146100000));
    slice.center_hz = 147000000;
    assert(!rr_slice_fits(&source, &slice));
    slice.center_hz = 145100000;
    slice.output_rate_hz = 2000;
    assert(!rr_slice_fits(&source, &slice));
 
+   rr_iq_chunk_desc_t chunk = {
+      .sequence = 0, .first_sample = 1000, .frames = 320,
+      .raw_bytes = 320 * 4, .encoded_bytes = 320 * 4,
+      .codec = RR_IQ_CODEC_RAW
+   };
+   source.channels = 1;
+   assert(rr_iq_bytes_per_frame(&source) == 4); /* complex int16 I + Q */
+   assert(rr_iq_chunk_valid(&source, &chunk));
+   chunk.codec = RR_IQ_CODEC_DELTA_ZSTD;
+   chunk.encoded_bytes = 460;
+   assert(rr_iq_chunk_valid(&source, &chunk));
+   source.format = RR_IQ_CF32;
+   assert(!rr_iq_chunk_valid(&source, &chunk));
+   source.format = RR_IQ_CS16;
+   chunk.raw_bytes--;
+   assert(!rr_iq_chunk_valid(&source, &chunk));
+   chunk.raw_bytes++;
+   chunk.codec = RR_IQ_CODEC_RAW;
+   assert(!rr_iq_chunk_valid(&source, &chunk)); /* cannot rename compressed as raw */
+   chunk.encoded_bytes = chunk.raw_bytes;
+   chunk.frames = UINT32_MAX;
+   assert(!rr_iq_chunk_valid(&source, &chunk));
    return 0;
 }

@@ -20,6 +20,7 @@ typedef struct stream {
    struct stream *next;
    char *id;
    char route;
+   rr_pcm_stream_format_t source_format;
    int16_t samples[AUDIO_CAPACITY];
    size_t head, count;
    bool primed, ever_primed, starved, finishing;
@@ -260,24 +261,54 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
    g_mutex_clear(&e->lock);
    g_free(e);
 }
-bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
-   if (!e || !id || !*id) {
+bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format) {
+   return format && format->sample_rate_hz >= 8000 &&
+      format->sample_rate_hz <= 192000 &&
+      (format->channels == 1 || format->channels == 2) &&
+      (format->format == RR_PCM_S16LE || format->format == RR_PCM_F32LE);
+}
+bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id,
+                                       const rr_pcm_stream_format_t *format) {
+   /* Current output path is 16 kHz mono-per-input. Reject any other
+    * rate/layout rather than silently clocking it incorrectly. */
+   if (!e || !id || !*id || !rr_pcm_stream_format_valid(format) ||
+       format->sample_rate_hz != AUDIO_RATE || format->channels != 1 ||
+       format->format != RR_PCM_S16LE)
       return false;
-   }
    g_mutex_lock(&e->lock);
-   bool present = find_stream(e, id) != NULL;
-   stream_t *s = present ? NULL : g_new0(stream_t, 1);
-
-   if (s) {
+   stream_t *s = find_stream(e, id);
+   bool present = s != NULL;
+   if (present) {
+      if (s->source_format.sample_rate_hz != format->sample_rate_hz ||
+          s->source_format.channels != format->channels ||
+          s->source_format.format != format->format) {
+         g_mutex_unlock(&e->lock);
+         return false;
+      }
+   } else {
+      s = g_new0(stream_t, 1);
       s->id = g_strdup(id);
+      s->source_format = *format;
       s->route = 'S';
       s->input_gain[0] = s->input_gain[1] = 1.0;
       s->next = e->streams;
       e->streams = s;
    }
    g_mutex_unlock(&e->lock);
-
-   return present || s != NULL;
+   return true;
+}
+bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
+   const rr_pcm_stream_format_t native = { AUDIO_RATE, 1, RR_PCM_S16LE };
+   return rr_audio_engine_add_stream_format(e, id, &native);
+}
+bool rr_audio_engine_stream_format(rr_audio_engine_t *e, const char *id,
+                                   rr_pcm_stream_format_t *format) {
+   if (!e || !id || !format) return false;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   if (s) *format = s->source_format;
+   g_mutex_unlock(&e->lock);
+   return s != NULL;
 }
 void rr_audio_engine_remove_stream(rr_audio_engine_t *e, const char *id) {
    if (!e || !id) {
