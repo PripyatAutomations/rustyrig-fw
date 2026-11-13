@@ -8,13 +8,13 @@
 #include <math.h>
 #define AUDIO_RATE 16000u
 #define AUDIO_BLOCK 320u
-#define AUDIO_CAPACITY 4000u
+#define AUDIO_MAX_RATE 48000u
+#define AUDIO_MAX_BLOCK (AUDIO_MAX_RATE / 50u)
+#define AUDIO_CAPACITY 12000u /* >240 ms at 48 kHz; bounded per stream */
 #define AUDIO_PERIOD_US 20000
 /* Buffer 80 ms before startup/recovery, with a 240 ms queue ceiling. This absorbs bursty decoder output without depending on GTK scheduling. */
-#define AUDIO_PREFILL (4u * AUDIO_BLOCK)
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
  * underflow, forcing unnecessary further rebuffering. */
-#define AUDIO_MAX_QUEUED (12u * AUDIO_BLOCK)
 #define AUDIO_FADE_IN 64u
 typedef struct stream {
    struct stream *next;
@@ -30,6 +30,8 @@ typedef struct stream {
 } stream_t;
 struct rr_audio_engine {
    GMutex lock;
+   uint32_t sample_rate_hz;
+   size_t block_frames;
    GThread *thread;
    bool running;
    stream_t *streams;
@@ -51,11 +53,12 @@ static stream_t *find_stream(rr_audio_engine_t *e, const char *id) {
 }
 
 /* All per-stream state lives under e->lock; the output callback runs only after the lock is released. Never wait on fwdsp or GTK under this lock. */
-static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *active) {
+static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
+   const size_t block = e->block_frames;
    /* Analysis/recording take raw routed PCM before per-port trims and
     * master gain. Only the speaker mix consumes input gain adjustments. */
-   int32_t raw_accum[AUDIO_BLOCK * 2] = {0};
-   int32_t accum[AUDIO_BLOCK * 2] = {0};
+   int32_t raw_accum[AUDIO_MAX_BLOCK * 2] = {0};
+   int32_t accum[AUDIO_MAX_BLOCK * 2] = {0};
    *active = false;
    g_mutex_lock(&e->lock);
 
@@ -73,7 +76,7 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       if (!s->primed) {
          /* Require an 80 ms cushion both at start and after starvation. The old 20 ms recovery threshold immediately exhausted on bursty PCM arrivals, causing
           * repeating short silences even with an on-time mixer clock. */
-         size_t threshold = AUDIO_PREFILL;
+         size_t threshold = 4u * block;
 
          if (s->count < threshold) {
             /* Don't mislabel a receiver's initial startup as a dropout. Count subsequent silence separately from the audio clock. */
@@ -95,9 +98,9 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
          s->fade_in = AUDIO_FADE_IN;
       }
 
-      size_t take = MIN(s->count, AUDIO_BLOCK);
+      size_t take = MIN(s->count, block);
 
-      if (take < AUDIO_BLOCK && !s->finishing) {
+      if (take < block && !s->finishing) {
          e->stats.underrun_blocks++;
 
          if (!s->starved) {
@@ -116,7 +119,7 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
          }
 
          /* If the last delivered buffer is short, fade its tail to silence instead of abruptly cutting a nonzero PCM sample. */
-         if (take < AUDIO_BLOCK && take > 1 && i >= take - MIN(take, AUDIO_FADE_IN)) {
+         if (take < block && take > 1 && i >= take - MIN(take, AUDIO_FADE_IN)) {
             sample = sample * (int32_t) (take - i - 1) / (int32_t) MIN(take, AUDIO_FADE_IN);
          }
 
@@ -145,14 +148,14 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
    /* Analysis and recording must never inherit input trims or RX listening gain.
     * Clip the raw sum for taps, and independently gain the speaker mix.
     * The tap runs outside the engine lock like the speaker callback. */
-   int16_t before_gain[AUDIO_BLOCK * 2];
-   for (size_t i = 0 ; i < AUDIO_BLOCK * 2 ; i++) {
+   int16_t before_gain[AUDIO_MAX_BLOCK * 2];
+   for (size_t i = 0 ; i < block * 2 ; i++) {
       before_gain[i] = (int16_t) CLAMP(raw_accum[i], INT16_MIN, INT16_MAX);
    }
    if (*active && tap) {
-      tap(before_gain, AUDIO_BLOCK, tap_user);
+      tap(before_gain, block, tap_user);
    }
-   for (size_t i = 0 ; i < AUDIO_BLOCK * 2 ; i++) {
+   for (size_t i = 0 ; i < block * 2 ; i++) {
       int64_t scaled = (int64_t) accum[i] * ((i & 1) ? right : left) / 100;
       stereo[i] = (int16_t) CLAMP(scaled, INT16_MIN, INT16_MAX);
    }
@@ -183,25 +186,36 @@ static gpointer audio_thread(gpointer data) {
          break;
       }
       deadline += (elapsed + 1) * AUDIO_PERIOD_US;
-      int16_t pcm[AUDIO_BLOCK * 2];
+      int16_t pcm[AUDIO_MAX_BLOCK * 2];
       bool active;
       tick(e, pcm, &active);
 
       if (active && e->output) {
-         e->output(pcm, AUDIO_BLOCK, e->user);
+         e->output(pcm, e->block_frames, e->user);
       }
    }
 
    return NULL;
 }
-rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn fn, void *user) {
+rr_audio_engine_t *rr_audio_engine_new_rate(uint32_t rate,
+                                                rr_audio_output_fn fn, void *user) {
+   /* This engine's output rate is immutable. Additional source rates must
+    * be converted before entering its bounded input queues. */
+   if (rate != 16000u && rate != 48000u) return NULL;
    rr_audio_engine_t *e = g_new0(rr_audio_engine_t, 1);
    g_mutex_init(&e->lock);
+   e->sample_rate_hz = rate;
+   e->block_frames = rate / 50u; /* 20 ms at either supported clock */
    e->gain[0] = e->gain[1] = 100;
    e->output = fn;
    e->user = user;
-
    return e;
+}
+rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn fn, void *user) {
+   return rr_audio_engine_new_rate(AUDIO_RATE, fn, user);
+}
+uint32_t rr_audio_engine_sample_rate(const rr_audio_engine_t *e) {
+   return e ? e->sample_rate_hz : 0;
 }
 void rr_audio_engine_set_pre_gain_tap(rr_audio_engine_t *e, rr_audio_output_fn tap, void *user) {
    if (!e) return;
@@ -272,7 +286,7 @@ bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id,
    /* Current output path is 16 kHz mono-per-input. Reject any other
     * rate/layout rather than silently clocking it incorrectly. */
    if (!e || !id || !*id || !rr_pcm_stream_format_valid(format) ||
-       format->sample_rate_hz != AUDIO_RATE || format->channels != 1 ||
+       format->sample_rate_hz != e->sample_rate_hz || format->channels != 1 ||
        format->format != RR_PCM_S16LE)
       return false;
    g_mutex_lock(&e->lock);
@@ -298,7 +312,8 @@ bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id,
    return true;
 }
 bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
-   const rr_pcm_stream_format_t native = { AUDIO_RATE, 1, RR_PCM_S16LE };
+   if (!e) return false;
+   const rr_pcm_stream_format_t native = { e->sample_rate_hz, 1, RR_PCM_S16LE };
    return rr_audio_engine_add_stream_format(e, id, &native);
 }
 bool rr_audio_engine_stream_format(rr_audio_engine_t *e, const char *id,
@@ -340,13 +355,13 @@ bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *p
       e->stats.pushed_samples += count;
       e->stats.max_push_samples = MAX(e->stats.max_push_samples, count);
 
-      if (count >= AUDIO_MAX_QUEUED) {
-         e->stats.overflow_samples += s->count + count - AUDIO_MAX_QUEUED;
-         pcm += count - AUDIO_MAX_QUEUED;
-         count = AUDIO_MAX_QUEUED;
+      if (count >= 12u * e->block_frames) {
+         e->stats.overflow_samples += s->count + count - 12u * e->block_frames;
+         pcm += count - 12u * e->block_frames;
+         count = 12u * e->block_frames;
          s->head = s->count = 0;
-      } else if (s->count + count > AUDIO_MAX_QUEUED) {
-         size_t drop = s->count + count - AUDIO_MAX_QUEUED;
+      } else if (s->count + count > 12u * e->block_frames) {
+         size_t drop = s->count + count - 12u * e->block_frames;
          e->stats.overflow_samples += drop;
          s->head = (s->head + drop) % AUDIO_CAPACITY;
          s->count -= drop;
