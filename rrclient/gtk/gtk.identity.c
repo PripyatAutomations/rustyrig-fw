@@ -208,7 +208,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    (void)unused;
    (void)unused_data;
    GtkWindow *parent = main_window ? GTK_WINDOW(main_window) : NULL;
-   GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent, GTK_DIALOG_MODAL, NULL);
+   GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent, GTK_DIALOG_MODAL, NULL, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dlg), 510, -1);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
    gtk_container_set_border_width(GTK_CONTAINER(area), 14);

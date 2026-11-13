@@ -643,7 +643,7 @@ static void open_browser(const char *event, const char *payload,
       gtk_tree_view_append_column(GTK_TREE_VIEW(ui.tree), col);
    }
    g_signal_connect(ui.tree, "row-activated", G_CALLBACK(row_activated), NULL);
-   GtkTargetEntry drag_targets[] = {{"text/uri-list", 0, 0}};
+   GtkTargetEntry drag_targets[] = {{(gchar *)"text/uri-list", 0, 0}};
    gtk_drag_source_set(ui.tree, GDK_BUTTON1_MASK, drag_targets, 1, GDK_ACTION_MOVE);
    gtk_drag_dest_set(ui.tree, GTK_DEST_DEFAULT_ALL, drag_targets, 1, GDK_ACTION_MOVE);
    g_signal_connect(ui.tree, "drag-data-get", G_CALLBACK(drag_file_get), NULL);
