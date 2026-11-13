@@ -18,7 +18,7 @@
 
 #define DIRECTORY_MAX_BODY (8 * 1024 * 1024)
 #define DIRECTORY_MAX_ROWS 10000
-#define DIRECTORY_INTERVAL (3600)   /* Local cache is fresh for one hour. */
+#define DIRECTORY_INTERVAL (24 * 3600) /* One automatic upstream check each day. */
 extern time_t now;
 static GPtrArray *receivers;
 static char *payload, *source, *etag, *modified;
@@ -1480,7 +1480,7 @@ bool receiver_directory_refresh_force(bool force) {
       return false;
    }
 
-   /* Display cached records immediately, regardless of where the last verified snapshot came from. Fetch only when older than one hour. */
+   /* Display cached records immediately. A periodic core timer checks this persisted daily deadline. */
    if (!force && receivers && receivers->len && next_request > now) {
       g_snprintf(status_text, sizeof(status_text), "Using %u cached receivers; refresh in %lld seconds.", receivers->len, (long long)(next_request - now));
       changed();
@@ -1564,6 +1564,18 @@ bool receiver_directory_refresh_force(bool force) {
    changed();
 
    return true;
+}
+/* Called on the client core context by the passive daily scheduler.
+ * Do not emit UI change events or fetch anything while the cache is fresh. */
+bool receiver_directory_refresh_due(void) {
+   ensure();
+   const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
+   if (!url || !*url) url = cfg_get("receiver-directory.url");
+   if (!url || !*url || !directory_url_allowed(url) || job)
+      return false;
+   /* A mirror change is due immediately; the old cached list remains
+    * available until the replacement validates successfully. */
+   return g_strcmp0(source, url) != 0 || time(NULL) >= next_request;
 }
 bool receiver_directory_refresh(void) {
    return receiver_directory_refresh_force(false);
