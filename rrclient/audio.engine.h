@@ -54,6 +54,12 @@ void rr_audio_engine_remove_stream(rr_audio_engine_t *engine, const char *id);
 bool rr_audio_engine_push(rr_audio_engine_t *engine, const char *id, const int16_t *pcm, size_t count);
 bool rr_audio_engine_route(rr_audio_engine_t *engine, const char *id, char route);
 void rr_audio_engine_gain(rr_audio_engine_t *engine, unsigned channel, int percent);
+/* Independent L/R trims at the mixer's output and the playback sink's
+ * input. These apply after source output trims, before listening volume. */
+bool rr_audio_engine_port_gain(rr_audio_engine_t *engine, bool sink_input,
+                               unsigned channel, double db);
+double rr_audio_engine_port_gain_get(rr_audio_engine_t *engine, bool sink_input,
+                                     unsigned channel);
 /* Pre-master-gain mixer input trim, independently for each destination ear.
  * 0 dB is unity and the initial setting for every new stream. */
 bool rr_audio_engine_input_gain(rr_audio_engine_t *engine, const char *id, unsigned channel, double db);
