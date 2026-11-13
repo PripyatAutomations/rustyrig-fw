@@ -121,7 +121,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "fwdsp output" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : source ? route : NULL, .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0, .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .fwdsp =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = TRUE, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
