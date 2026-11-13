@@ -59,8 +59,12 @@ receiver-directory.cache =
 The URL must be a permitted HTTPS JSON mirror. Plain HTTP is accepted only
 for loopback fixtures. Direct requests to `kiwisdr.com` and its subdomains are
 refused; there is no origin fallback, redirect following, browser impersonation,
-CAPTCHA handling, receiver scanning, image loading or background polling.
-Fetching begins only on an explicit browser open or refresh. Importing a JSON
+CAPTCHA handling, receiver scanning or image loading.
+A client-core timer checks the persisted cache deadline every five minutes and
+starts a nonblocking HTTPS revalidation when it is due, even if the SDR
+Directory tab remains closed. The first check occurs after startup without
+blocking GTK. A connected rrserver also maintains its own daily directory
+snapshot and clients periodically request that shared catalog. Importing a JSON
 file is available through the dialog or `/receivers import <file>`; TUI users
 can use `/receivers refresh` and `/receivers` to fetch and list eligible rows.
 
@@ -81,12 +85,20 @@ remain distinct, and neither is offered for API bridge configuration.
 One worker fetches/parses metadata without blocking the GTK/audio loop. Requests
 identify as `RustyRig/<version> ReceiverDirectory`, use certificate verification,
 allow compression, and cap decoded bodies at 8 MiB and lists at 10,000 entries.
-There is one in-flight request and a four-hour minimum cache lifetime for
-normal opens and refreshes, persisted across client restarts. Longer
-Cache-Control/Retry-After delays are honored up to seven days. **Shift+click
-Refresh list** explicitly forces a complete download, bypassing the cached
+There is one in-flight request and a **24-hour normal cache lifetime**
+for successful revalidations, persisted across client restarts. Failed mirror
+requests retain the last verified snapshot and retry after one hour; a longer
+Retry-After delay is honored (up to seven days). Cache-Control max-age
+may also extend the normal refresh deadline. The server's upstream fetch uses
+the same one-day successful interval and one-hour failure retry; it now
+initiates due fetches from its own poll loop, not only when a client asks.
+Client checks of the server cache run every six hours while connected so
+a snapshot fetched just after a client request is picked up later. **Shift+click
+Refresh list** explicitly forces a direct mirror download, bypassing the cached
 deadline and conditional HTTP validators; use it sparingly during development.
-ETag/Last-Modified support conditional GET on ordinary refreshes. Invalid responses,
+When connected to rrserver, ordinary **Refresh list** first requests the
+server-owned catalog; without a usable authenticated server it falls back to
+the local mirror. ETag/Last-Modified support conditional GET on ordinary refreshes. Invalid responses,
 429s, unavailable mirrors and unexpected redirects retain the last good list.
 No request is sent to any receiver by directory browsing or filtering.
 
