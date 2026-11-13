@@ -208,7 +208,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    (void)unused;
    (void)unused_data;
    GtkWindow *parent = main_window ? GTK_WINDOW(main_window) : NULL;
-   GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent, GTK_DIALOG_MODAL, "_Close", GTK_RESPONSE_CLOSE, NULL);
+   GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent, GTK_DIALOG_MODAL, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dlg), 510, -1);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
    gtk_container_set_border_width(GTK_CONTAINER(area), 14);
@@ -230,6 +230,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock / Unlock", 4);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Rename", 7);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock All", 6);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Close", GTK_RESPONSE_CLOSE);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Delete", 5);
    char *path = NULL;
    char *selected_path = NULL;
