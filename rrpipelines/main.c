@@ -994,7 +994,15 @@ static GtkWidget *build_work_area(editor_t *editor) {
       "Arrange GStreamer blocks by actual pad links: sources above processors and sinks.");
    g_signal_connect(arrange, "clicked", G_CALLBACK(pipeline_auto_layout), editor);
    gtk_box_pack_start(GTK_BOX(header), arrange, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(box), header, FALSE, FALSE, 4);
+   /* Long toolbars must not set the window's minimum width. Keep every
+    * action available in a horizontally scrollable toolbar instead. */
+   GtkWidget *header_scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(header_scroll),
+                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(header_scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(header_scroll), 240);
+   gtk_container_add(GTK_CONTAINER(header_scroll), header);
+   gtk_box_pack_start(GTK_BOX(box), header_scroll, FALSE, FALSE, 4);
    editor->pipeline_status = gtk_label_new("");
    gtk_label_set_line_wrap(GTK_LABEL(editor->pipeline_status), TRUE);
    gtk_label_set_xalign(GTK_LABEL(editor->pipeline_status), 0);
@@ -1010,12 +1018,20 @@ static GtkWidget *build_work_area(editor_t *editor) {
    g_signal_connect(editor->canvas, "motion-notify-event", G_CALLBACK(canvas_motion), editor);
    GtkWidget *canvas_scroller = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(canvas_scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   /* The graph may be many screens wide. Its content size must never
+    * propagate into the pipeline editor's minimum window size. */
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(canvas_scroller), FALSE);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(canvas_scroller), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(canvas_scroller), 240);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(canvas_scroller), 180);
    gtk_container_add(GTK_CONTAINER(canvas_scroller), editor->canvas);
    gtk_box_pack_start(GTK_BOX(box), canvas_scroller, TRUE, TRUE, 0);
 
    GtkWidget *properties_scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(properties_scroll, -1, 170);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(properties_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(properties_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(properties_scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(properties_scroll), 240);
    editor->property_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_container_add(GTK_CONTAINER(properties_scroll), editor->property_box);
    gtk_box_pack_start(GTK_BOX(box), properties_scroll, FALSE, TRUE, 0);
@@ -1028,7 +1044,18 @@ static GtkWidget *build_window(editor_t *editor) {
    editor->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(editor->window), editor->read_only ?
       "RustyRig GStreamer Pipeline Viewer (read-only)" : "RustyRig GStreamer Pipeline Editor");
-   gtk_window_set_default_size(GTK_WINDOW(editor->window), 1400, 900);
+   /* Screen size, not graph size, determines the initial editor window.
+    * Keep room for XFCE panels and other desktop work-area reservations. */
+   gint width = 1100, height = 760;
+   GdkDisplay *display = gdk_display_get_default();
+   GdkMonitor *monitor = display ? gdk_display_get_primary_monitor(display) : NULL;
+   if (monitor) {
+      GdkRectangle area;
+      gdk_monitor_get_workarea(monitor, &area);
+      width = MIN(width, MAX(480, area.width - 48));
+      height = MIN(height, MAX(360, area.height - 48));
+   }
+   gtk_window_set_default_size(GTK_WINDOW(editor->window), width, height);
    g_signal_connect(editor->window, "delete-event", G_CALLBACK(window_delete), editor);
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_set_border_width(GTK_CONTAINER(root), 8);
@@ -1040,11 +1067,13 @@ static GtkWidget *build_window(editor_t *editor) {
       gtk_widget_set_sensitive(toolbox, FALSE);
    }
    GtkWidget *work = build_work_area(editor);
-   gtk_paned_pack2(GTK_PANED(paned), work, TRUE, FALSE);
+   gtk_paned_pack2(GTK_PANED(paned), work, TRUE, TRUE);
 
    if (editor->read_only) {
       GList *children = gtk_container_get_children(GTK_CONTAINER(work));
-      GtkWidget *header = children ? GTK_WIDGET(children->data) : NULL;
+      GtkWidget *header_scroll = children ? GTK_WIDGET(children->data) : NULL;
+      GtkWidget *header = GTK_IS_BIN(header_scroll) ?
+         gtk_bin_get_child(GTK_BIN(header_scroll)) : NULL;
 
       if (header && GTK_IS_CONTAINER(header)) {
          GList *controls = gtk_container_get_children(GTK_CONTAINER(header));
