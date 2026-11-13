@@ -797,6 +797,20 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    if (event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
    }
+   /* Title-bar double-click restores a rolled panel and puts it in front.
+    * The same drag_press is used by both the normal title handle and the
+    * optional clickable VFO title, so this works for every floating panel.
+    * Do not start a drag or invoke the title's single-click action. */
+   if (event->type == GDK_2BUTTON_PRESS && p->rolled && !p->modal) {
+      p->dragging = FALSE;
+      panel_drag_cancel_tick(p);
+      panel_roll(NULL, p);
+      panel_raise(p);
+      return TRUE;
+   }
+   if (event->type != GDK_BUTTON_PRESS) {
+      return TRUE;
+   }
    panel_raise(p);
    p->dragging = TRUE;
    p->drag_x = event->x_root;
@@ -1109,6 +1123,10 @@ static gboolean panel_title_press(GtkWidget *widget, GdkEventButton *event, gpoi
    if (event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
    }
+   if (event->type == GDK_2BUTTON_PRESS) {
+      p->title_moved = TRUE; /* suppress VFO single-click callback */
+      return drag_press(widget, event, p);
+   }
    panel_raise(p);
    p->title_press_time = event->time;
    p->title_moved = FALSE;
@@ -1138,7 +1156,10 @@ static gboolean panel_title_move(GtkWidget *widget, GdkEventMotion *event, gpoin
 static gboolean panel_title_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    RRFloatPanel *p = data;
    gboolean click = event->button == GDK_BUTTON_PRIMARY &&
-      !p->title_moved && (guint32) (event->time - p->title_press_time) < 220 && fabs(event->x_root - p->drag_x) < 6.0 && fabs(event->y_root - p->drag_y) < 6.0;
+      !p->title_moved && p->dragging &&
+      (guint32) (event->time - p->title_press_time) < 220 &&
+      fabs(event->x_root - p->drag_x) < 6.0 &&
+      fabs(event->y_root - p->drag_y) < 6.0;
    drag_release(widget, event, p);
 
    if (click && p->title_click_callback) {
