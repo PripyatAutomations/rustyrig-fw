@@ -57,3 +57,25 @@ the host sound interface to the hub; selectable test sources remain available.
 Per-rig/per-VFO effect chains and hardware backend integration remain follow-up
 work. The shared media channel codec negotiation remains in force, so each VFO
 currently has one active encoder format for its listeners.
+
+## Audio Routing graph and per-pin gains
+
+The GTK **Audio Routing** panel uses a distinct network/graph toolbar icon,
+leaving the speaker/volume icon to the Volume widget. Its L/R trims live
+inside each block next to the corresponding audio port, not on the wires.
+The source output trim uses the existing per-source input gain at the PCM
+mixer. The mixer's L/R output trims and the playback sink's L/R input trims
+have separate gain stages in the client PCM engine (all -60 to +12 dB,
+0 dB unity). Each stage persists its values in the client database and
+updates through the existing GTK-to-core audio-control event path. Recording
+and analysis taps remain before listening trims. The sink block is presented
+as a GStreamer pipeline container; clicking it opens the existing isolated
+pipeline inspector.
+
+The eventual integrated pipeline editor should open a separate tab inside
+Audio Routing, using the shared graph renderer and the existing
+`rrpipelines` graph model. It must first obtain a versioned topology
+snapshot from the running fwdsp worker and send validated edit transactions
+through the worker's control channel. Do not pretend the configured launch
+string alone is the live graph, and do not load arbitrary GStreamer plugins
+into rrclient's GTK process just to render that tab.
