@@ -279,7 +279,9 @@ bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id,
    stream_t *s = find_stream(e, id);
    bool present = s != NULL;
    if (present) {
-      if (memcmp(&s->source_format, format, sizeof(*format))) {
+      if (s->source_format.sample_rate_hz != format->sample_rate_hz ||
+          s->source_format.channels != format->channels ||
+          s->source_format.format != format->format) {
          g_mutex_unlock(&e->lock);
          return false;
       }
