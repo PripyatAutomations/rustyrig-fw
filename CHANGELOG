@@ -1,5 +1,7 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Make GTK client Volume controls vertical L/R sliders above RX Gain;
+    center the (Un)Lock toggle and keep playback routed to sink.client.dsp0.
   * Prepare rustyrig-fw 1.0.3 release.
   * Require native FLAC/Ogg/Vorbis development libraries for rrclient builds;
     fail early with actionable package names rather than pkg-config warnings.
@@ -32,7 +34,7 @@ rustyrig-fw (1.0.3) testing; urgency=medium
     installed independently by rrpk; retain only optional third-party
     ext/ submodules in this repository.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 22:37:14 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 13 Nov 2026 18:18:00 -0500
 
 rustyrig-fw (1.0.2) testing; urgency=medium
 
