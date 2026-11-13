@@ -411,7 +411,6 @@ static void converter_feed(rr_audio_engine_t *e, stream_t *s, float l, float r) 
       double fraction = s->source_position - (double)center;
       unsigned phase = MIN(PCM_FIR_PHASES - 1,
                            (unsigned)(fraction * PCM_FIR_PHASES + .5));
-      if (phase == PCM_FIR_PHASES) phase = 0;
       const float *weights = s->fir + phase * PCM_FIR_TAPS;
       double mixed_l = 0., mixed_r = 0.;
       for (unsigned tap = 0; tap < PCM_FIR_TAPS; tap++) {
@@ -435,6 +434,9 @@ static void converter_reset(stream_t *s) {
 bool rr_audio_engine_push_pcm(rr_audio_engine_t *e, const char *id,
                               const void *interleaved, size_t frames) {
    if (!e || !id || !interleaved || !frames) return false;
+   /* All input pointers are interleaved; reject impossible frame counts
+    * before calculating their channel offsets. */
+   if (frames > SIZE_MAX / 2) return false;
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
    if (!s || s->finishing) {
