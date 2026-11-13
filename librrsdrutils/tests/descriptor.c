@@ -15,6 +15,10 @@ int main(void) {
    };
    assert(rr_iq_stream_valid(&source));
    assert(rr_slice_fits(&source, &slice));
+   /* A derived VFO may tune digitally, never retuning the parent LO. */
+   assert(rr_slice_can_tune(&source, &slice, 144500000));
+   assert(rr_slice_can_tune(&source, &slice, 145999000));
+   assert(!rr_slice_can_tune(&source, &slice, 146100000));
    slice.center_hz = 147000000;
    assert(!rr_slice_fits(&source, &slice));
    slice.center_hz = 145100000;
