@@ -655,7 +655,11 @@ static void receiver_refresh_request(const rr_event_message_t *message, void *un
    if (force != 0 && force != 1) {
       return;
    }
-   receiver_directory_refresh_force(force != 0);
+   /* A connected rrserver owns the shared catalog. Ordinary refresh
+    * requests its verified snapshot; Shift+Refresh retains the operator's
+    * explicit, direct HTTPS mirror re-download behavior. */
+   if (force || !rrclient_receiver_catalog_request(false))
+      receiver_directory_refresh_force(force != 0);
    receiver_snapshot_request(NULL, NULL);
 }
 
@@ -737,7 +741,9 @@ static gboolean receiver_directory_maintenance(gpointer unused) {
    }
    if (time(NULL) >= catalog_next_check) {
       if (rrclient_receiver_catalog_request(false)) {
-         catalog_next_check = time(NULL) + 24 * 3600;
+         /* A server can finish updating just after our snapshot request.
+          * Recheck its cache periodically without re-fetching upstream. */
+         catalog_next_check = time(NULL) + 6 * 3600;
       } else {
          /* Offline or an older server: retry gently, not every tick. */
          catalog_next_check = time(NULL) + 3600;
@@ -746,6 +752,7 @@ static gboolean receiver_directory_maintenance(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 void rrclient_receiver_connect_init(void) {
+   rrclient_receiver_catalog_init();
    if (!directory_maintenance_id) {
       /* Keep the network work out of the GTK event loop. The first check
        * runs after startup; no synchronous HTTP fetch blocks the UI. */
