@@ -9,6 +9,7 @@
 #define __rrclient_audio_h
 #include <librustyaxe/core.h>
 #include <stddef.h>
+#include <rrclient/audio.engine.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -39,8 +40,13 @@ void audio_recording_play_collect(void);
 extern bool gst_active;
 
 extern bool audio_init(void);
-/* Local SDR PCM joins the same RX mixer as remote audio; samples must be 16 kHz mono. */
+/* Local SDR PCM joins the same mixer as remote audio. Existing Kiwi and
+ * modem paths remain 16 kHz mono; higher-rate local demodulators can
+ * register explicit PCM sample rates/channel layouts without advertising
+ * them as codecs in the server-side listening codec negotiation. */
 bool audio_local_rx_start(const char *id);
+bool audio_local_rx_start_format(const char *id, const rr_pcm_stream_format_t *format);
+bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t frames);
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames);
 void audio_local_rx_stop(const char *id);
 extern void audio_tx_free_frame(void);
