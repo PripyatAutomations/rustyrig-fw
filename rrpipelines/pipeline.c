@@ -292,8 +292,57 @@ rr_pipeline_graph_t *rr_pipeline_graph_parse(const gchar *launch, GError **error
 
       return NULL;
    }
-
+   rr_pipeline_graph_auto_layout(graph);
    return graph;
+}
+
+/* Layered, top-down layout. Order comes from actual pad links rather
+ * than GST bin iterator order. A bounded relaxation handles branched DAGs;
+ * cyclic/unconnected components get their own column and cannot loop. */
+void rr_pipeline_graph_auto_layout(rr_pipeline_graph_t *graph) {
+   if (!graph || !graph->nodes || !graph->nodes->len) return;
+   guint n = graph->nodes->len;
+   guint *depth = g_new0(guint, n);
+   guint *incoming = g_new0(guint, n);
+   gboolean *visited = g_new0(gboolean, n);
+   guint *queue = g_new(guint, n);
+   guint head = 0, tail = 0;
+   for (guint i = 0; i < graph->links->len; i++) {
+      const rr_pipeline_link_t *link = g_ptr_array_index(graph->links, i);
+      if (link->src < n && link->dst < n && link->src != link->dst)
+         incoming[link->dst]++;
+   }
+   for (guint i = 0; i < n; i++)
+      if (!incoming[i]) { queue[tail++] = i; visited[i] = TRUE; }
+   guint max_depth = 0;
+   while (head < tail) {
+      guint src = queue[head++];
+      for (guint i = 0; i < graph->links->len; i++) {
+         const rr_pipeline_link_t *link = g_ptr_array_index(graph->links, i);
+         if (link->src != src || link->dst >= n || link->dst == src) continue;
+         depth[link->dst] = MAX(depth[link->dst], depth[src] + 1);
+         max_depth = MAX(max_depth, depth[link->dst]);
+         if (incoming[link->dst] && !--incoming[link->dst] && !visited[link->dst]) {
+            visited[link->dst] = TRUE;
+            queue[tail++] = link->dst;
+         }
+      }
+   }
+   /* A loop cannot be topologically sorted: put leftover nodes in
+    * one visually separate lower layer rather than producing bad depths. */
+   for (guint i = 0; i < n; i++)
+      if (!visited[i]) depth[i] = max_depth + 1;
+   guint *columns = g_new0(guint, max_depth + 2);
+   for (guint i = 0; i < n; i++) {
+      rr_pipeline_node_t *node = g_ptr_array_index(graph->nodes, i);
+      node->x = 40. + columns[depth[i]]++ * 220.;
+      node->y = 40. + depth[i] * 170.;
+   }
+   g_free(columns);
+   g_free(queue);
+   g_free(visited);
+   g_free(incoming);
+   g_free(depth);
 }
 
 rr_pipeline_graph_t *rr_pipeline_graph_new(void) {
