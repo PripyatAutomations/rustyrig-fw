@@ -83,6 +83,7 @@ static bool snapshot_waiting;
 static void routing_queue(void);
 static gint graph_drag_source = -1, graph_drag_channel = -1;
 static gint gain_drag_source = -1, gain_drag_channel = -1;
+static gboolean gain_drag_port;
 /* Compact L/R output trims reside inside each source block by its pins. */
 #define GRAPH_GAIN_X (25.0 + 81.0)
 #define GRAPH_GAIN_W 46.0
@@ -196,6 +197,38 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
                                 CAIRO_FONT_WEIGHT_NORMAL);
          cairo_set_font_size(cr, 8);
          cairo_move_to(cr, GRAPH_GAIN_X - 24, y + 3);
+         cairo_show_text(cr, value);
+      }
+   }
+
+   /* Two more independent DSP stages: mixer output trims and sink input
+    * trims. Both sit inside their corresponding blocks by the L/R pins. */
+   for (guint i = 0; i < g->node_count; i++) {
+      const rr_ag_view_node_t *node = &g->nodes[i];
+      if (node->type != RR_AG_MIXER && node->type != RR_AG_SINK) continue;
+      double node_x = node->type == RR_AG_MIXER ? 355. : 650.;
+      double x = node->type == RR_AG_MIXER ? node_x + 80. : node_x + 26.;
+      if (graph_missing_since[i]) continue;
+      for (unsigned channel = 0; channel < 2; channel++) {
+         double y = 80 + (channel ? 79 : 60);
+         double db = CLAMP(node->port_gain_db[channel],
+                           GRAPH_GAIN_MIN, GRAPH_GAIN_MAX);
+         double ratio = (db - GRAPH_GAIN_MIN) / (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN);
+         cairo_set_line_width(cr, 1.8);
+         cairo_set_source_rgba(cr, .55, .67, .76, .85);
+         cairo_move_to(cr, x, y);
+         cairo_line_to(cr, x + GRAPH_GAIN_W, y);
+         cairo_stroke(cr);
+         cairo_set_source_rgb(cr, .31, .82, .97);
+         cairo_arc(cr, x + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
+         cairo_fill(cr);
+         char value[16];
+         g_snprintf(value, sizeof(value), "%+.0f", db);
+         cairo_set_source_rgb(cr, .90, .95, .98);
+         cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                                CAIRO_FONT_WEIGHT_NORMAL);
+         cairo_set_font_size(cr, 8);
+         cairo_move_to(cr, x + (node->type == RR_AG_MIXER ? -24. : GRAPH_GAIN_W + 5.), y + 3);
          cairo_show_text(cr, value);
       }
    }
@@ -318,6 +351,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
          graph_drag_mixer = graph_drag_moved = FALSE;
       }
       gain_drag_source = gain_drag_channel = -1;
+      gain_drag_port = FALSE;
    }
    g_free(graph_snapshot);
    graph_snapshot = merged;
@@ -441,19 +475,28 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 
    return FALSE;
 }
-static gboolean graph_gain_at(double x, double y, gint *source, gint *channel) {
+static gboolean graph_gain_at(double x, double y, gint *source,
+                              gint *channel, gboolean *port) {
    if (!graph_snapshot) return FALSE;
-   if (x < GRAPH_GAIN_X - 8 || x > GRAPH_GAIN_X + GRAPH_GAIN_W + 6)
-      return FALSE;
    guint row = 0;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
-      if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) continue;
-      double y0 = 20 + 140 * row++;
-      if (graph_missing_since[i]) continue;
-      for (unsigned ch = 0; ch < 2; ch++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      double left = 0., y0 = 80.;
+      if (n->type == RR_AG_SOURCE) {
+         left = GRAPH_GAIN_X;
+         y0 = 20 + 140 * row++;
+      } else if (n->type == RR_AG_MIXER) {
+         left = 355 + 80;
+      } else if (n->type == RR_AG_SINK) {
+         left = 650 + 26;
+      } else continue;
+      if (graph_missing_since[i] || x < left - 8 ||
+          x > left + GRAPH_GAIN_W + 8) continue;
+      for (gint ch = 0; ch < 2; ch++) {
          if (fabs(y - y0 - (ch ? 79 : 60)) <= 8) {
             *source = (gint)i;
-            *channel = (gint)ch;
+            *channel = ch;
+            *port = n->type != RR_AG_SOURCE;
             return TRUE;
          }
       }
@@ -464,12 +507,18 @@ static void graph_gain_drag(double x) {
    if (!graph_snapshot || gain_drag_source < 0 || gain_drag_channel < 0)
       return;
    rr_ag_view_node_t *node = &graph_snapshot->nodes[gain_drag_source];
-   double ratio = CLAMP((x - GRAPH_GAIN_X) / GRAPH_GAIN_W, 0., 1.);
-   /* 1 dB resolution; double-clicking the fader center is not a reset. */
+   double left = node->type == RR_AG_SOURCE ? GRAPH_GAIN_X :
+      node->type == RR_AG_MIXER ? 355. + 80. : 650. + 26.;
+   double ratio = CLAMP((x - left) / GRAPH_GAIN_W, 0., 1.);
    double db = round(GRAPH_GAIN_MIN + ratio * (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN));
-   if (node->input_gain_db[gain_drag_channel] == db) return;
-   node->input_gain_db[gain_drag_channel] = db;
-   audio_request_rx_input_gain(node->id, gain_drag_channel, db);
+   float *current = gain_drag_port ? &node->port_gain_db[gain_drag_channel] :
+                                     &node->input_gain_db[gain_drag_channel];
+   if (*current == db) return;
+   *current = db;
+   if (gain_drag_port)
+      audio_request_port_gain(node->id, gain_drag_channel, db);
+   else
+      audio_request_rx_input_gain(node->id, gain_drag_channel, db);
    graph_canvas_update_size();
 }
 static unsigned graph_route_mask(char route) {
@@ -550,7 +599,9 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    gint source = -1, channel = -1;
    gboolean mixer = FALSE;
-   if (graph_gain_at(gx, gy, &source, &channel)) {
+   gboolean port_gain = FALSE;
+   if (graph_gain_at(gx, gy, &source, &channel, &port_gain)) {
+      gain_drag_port = port_gain;
       gain_drag_source = source;
       gain_drag_channel = channel;
       graph_gain_drag(gx);
