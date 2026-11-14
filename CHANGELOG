@@ -1,5 +1,11 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Add independent auto/44.1/48 kHz rrclient microphone and playback device
+    rate requests at the GStreamer PulseAudio/PipeWire boundaries, preserving
+    the existing 16 kHz fwdsp media and codec contracts.
+  * Display the client microphone and requested playback device rate in the
+    Audio Routing inventory. Document present and future per-rate AF buses,
+    including an editable SVG diagram and planned pipeline generation.
   * Make GTK client Volume controls vertical L/R sliders above RX Gain;
     center the (Un)Lock toggle and keep playback routed to sink.client.dsp0.
   * Prepare rustyrig-fw 1.0.3 release.
