@@ -1176,18 +1176,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                             rr_audio_engine_sample_rate(hq_engine) : mix_rate;
             node->channels = 2;
             node->sample_format = RR_PCM_S16LE;
+            /* The upstream converter has its own node and counters.
+             * Do not imply that the HQ mix bus itself resamples audio. */
             node->read_only = !strcmp(node->id, "hq.mix");
-            if (!strcmp(node->id, "hq.mix")) {
-               /* One 16 kHz bus output feeds the HQ bus via producer-side SRC. */
-               rr_audio_stream_status_t legacy = {0};
-               if (rr_audio_engine_stream_status(hq_engine, HQ_BUS_LEGACY_ID, &legacy)) {
-                  node->resampling = legacy.resampling;
-                  node->queued_ms = (guint32)(legacy.queued_frames * 1000u /
-                                             legacy.mixer_rate_hz);
-                  node->dropped_frames = legacy.dropped_frames;
-                  node->starvation_events = legacy.starvation_events;
-               }
-            }
          } else if (node->type == RR_AG_SINK) {
             node->rate_hz = rr_audio_engine_sample_rate(hq_engine);
             node->downstream_rate_hz = audio_device_rate_request(false);
