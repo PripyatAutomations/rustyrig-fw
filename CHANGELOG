@@ -1,5 +1,10 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Let GTK Audio Routing blocks be dragged independently of gain sliders
+    and patch-cord ports; store hand-placed coordinates per stable node ID
+    in the client database, surviving restarts and receiver reconnects.
+    Add an Auto Layout action that arranges signal stages left to right,
+    separates narrow/HQ source lanes, and vertically centers bus nodes.
   * Run stereo client sound-card playback on a 44.1/48 kHz HQ mixer, with
     the legacy 16 kHz radio/AF bus feeding HQ through one producer-side
     band-limited resampler. Admit high-rate local streams to HQ directly.
