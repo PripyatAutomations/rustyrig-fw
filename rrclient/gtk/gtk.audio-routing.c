@@ -320,9 +320,13 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    double available_w = MAX(1, gtk_widget_get_allocated_width(widget));
    double available_h = MAX(1, gtk_widget_get_allocated_height(widget));
    double fit = MIN(available_w / natural_w, available_h / natural_h);
-   graph_scale = MAX(0.01, fit * graph_zoom * graph_wheel_zoom);
-   graph_offset_x = MAX(0.0, (available_w - natural_w * graph_scale) / 2.0);
-   graph_offset_y = MAX(0.0, (available_h - natural_h * graph_scale) / 2.0);
+   /* Keep pointer coordinates stable throughout a block drag; changes to
+    * layout bounds must not rescale the canvas mid-gesture. */
+   if (graph_node_drag < 0) {
+      graph_scale = MAX(0.01, fit * graph_zoom * graph_wheel_zoom);
+      graph_offset_x = MAX(0.0, (available_w - natural_w * graph_scale) / 2.0);
+      graph_offset_y = MAX(0.0, (available_h - natural_h * graph_scale) / 2.0);
+   }
    cairo_save(cr);
    cairo_translate(cr, graph_offset_x, graph_offset_y);
    cairo_scale(cr, graph_scale, graph_scale);
@@ -514,6 +518,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    }
 
    if (topology_changed) {
+      graph_node_drag = -1;
       if (graph_drag_channel >= 0) {
          graph_drag_source = graph_drag_channel = -1;
          graph_drag_mixer = graph_drag_moved = FALSE;
@@ -524,6 +529,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    g_free(graph_snapshot);
    graph_snapshot = merged;
    memcpy(graph_missing_since, missing, sizeof(missing));
+   routing_layout_auto(FALSE);
    graph_canvas_update_size();
    graph_profile_update_buttons();
 }
@@ -884,6 +890,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    /* Route/pipeline cross-navigation is read-only; trim double-click keeps
     * its reset-to-unity behavior above. */
    if (event->type == GDK_2BUTTON_PRESS) {
+      graph_node_drag = -1;
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
          const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
          if (graph_missing_since[i] || !pipeline_for_node(n->id)) continue;
@@ -912,23 +919,45 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 
    if (graph_link_at(gx, gy, &linked_source, &linked_channel)) {
       graph_set_channel(linked_source, linked_channel, FALSE);
-
       return TRUE;
    }
 
+   /* Click and drag a block by its body or title. Port and trim gestures
+    * above take precedence; dragging a block changes the view only. */
+   for (gint i = (gint)graph_snapshot->node_count - 1; i >= 0; i--) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      double nx = routing_node_x(n), ny = routing_node_y(n);
+      if (gx >= nx && gx <= nx + RR_GTK_GRAPH_NODE_W &&
+          gy >= ny && gy <= ny + RR_GTK_GRAPH_NODE_H) {
+         graph_node_drag = i;
+         graph_node_drag_x = gx - nx;
+         graph_node_drag_y = gy - ny;
+         return TRUE;
+      }
+   }
    return FALSE;
 }
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
    (void)widget;
    (void)unused;
 
-   if (graph_drag_channel < 0 && gain_drag_source < 0)
-      return FALSE;
+   if (graph_drag_channel < 0 && gain_drag_source < 0 &&
+       graph_node_drag < 0) return FALSE;
    double gx, gy;
    if (!graph_pointer(event->x, event->y, &gx, &gy))
       return FALSE;
    if (gain_drag_source >= 0) {
       graph_gain_drag(gx);
+      return TRUE;
+   }
+   if (graph_node_drag >= 0 && (guint)graph_node_drag < graph_snapshot->node_count) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
+      routing_position_t *pos = routing_position(n->id);
+      if (pos) {
+         pos->x = CLAMP(gx - graph_node_drag_x, 0., 100000.);
+         pos->y = CLAMP(gy - graph_node_drag_y, 0., 100000.);
+         graph_canvas_update_size();
+      }
       return TRUE;
    }
    graph_drag_moved |= hypot(gx - graph_drag_start_x, gy - graph_drag_start_y) > 4;
@@ -943,6 +972,19 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    (void)unused;
 
    if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   if (graph_node_drag >= 0) {
+      if (graph_snapshot && (guint)graph_node_drag < graph_snapshot->node_count) {
+         const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
+         routing_position_t *pos = routing_position(n->id);
+         if (pos) {
+            pos->pinned = TRUE;
+            routing_position_save(n->id, pos);
+         }
+      }
+      graph_node_drag = -1;
+      graph_canvas_update_size();
+      return TRUE;
+   }
    if (gain_drag_source >= 0) {
       double gx, gy;
       if (graph_pointer(event->x, event->y, &gx, &gy))
@@ -1501,6 +1543,8 @@ void gtk_audio_routing_shutdown(void) {
       routes_token = 0;
    }
    g_clear_pointer(&graph_snapshot, g_free);
+   if (graph_positions) { g_hash_table_destroy(graph_positions); graph_positions = NULL; }
+   graph_node_drag = -1;
    memset(graph_missing_since, 0, sizeof(graph_missing_since));
 
    if (graph_panel) {
