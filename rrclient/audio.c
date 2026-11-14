@@ -327,6 +327,28 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    };
    rr_audio_engine_stats(rx_engine, &stats, true);
 
+   if (hq_engine) {
+      rr_audio_engine_stats_t hq_stats = {0};
+      rr_audio_engine_stats(hq_engine, &hq_stats, true);
+      if (hq_stats.blocks || hq_stats.overflow_samples ||
+          hq_stats.underrun_blocks || hq_stats.late_ticks) {
+         Log(LOG_INFO, "audio.timing",
+            "HQ/10s rate=%u blocks=%llu late-ticks=%llu max-late=%lluus "
+            "skipped=%llu underruns=%llu rebuffer=%llu starvations=%llu "
+            "dropped=%llu max-queue=%llu",
+            rr_audio_engine_sample_rate(hq_engine),
+            (unsigned long long)hq_stats.blocks,
+            (unsigned long long)hq_stats.late_ticks,
+            (unsigned long long)hq_stats.max_late_us,
+            (unsigned long long)hq_stats.skipped_blocks,
+            (unsigned long long)hq_stats.underrun_blocks,
+            (unsigned long long)hq_stats.rebuffer_blocks,
+            (unsigned long long)hq_stats.starvation_events,
+            (unsigned long long)hq_stats.overflow_samples,
+            (unsigned long long)hq_stats.max_queued_samples);
+      }
+   }
+
    if (stats.blocks || stats.overflow_samples || stats.late_ticks) {
       Log(LOG_INFO, "audio.timing",
          "RX worker/10s blocks=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu startup-blocks=%llu rebuffer-blocks=%llu starvation-events=%llu overflow-samples=%llu pcm-pushes=%llu pcm-samples=%llu max-push=%llu max-queue=%llu",
