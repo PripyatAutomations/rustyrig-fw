@@ -1,5 +1,8 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Show per-node audio format, requested-versus-actual rate distinction,
+    and source queue/dropout telemetry in Routing hover properties; retain
+    bounded SRC queues with per-stream drop and starvation regression tests.
   * Expose live per-stream PCM source rates, internal SRC state, mixer
     queue depth, overflow drops, and starvation counts in the Audio Routing
     graph snapshot; label requested device sample rates distinctly from
