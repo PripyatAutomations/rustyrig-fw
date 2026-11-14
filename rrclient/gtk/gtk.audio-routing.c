@@ -19,6 +19,9 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
+static GtkWidget *audio_tabs, *pipeline_list, *pipeline_details;
+static char *pipeline_selected_id;
+static char *graph_focus_id;
 static GtkWidget *graph_profiles;
 static GtkWidget *graph_profile_load_button, *graph_profile_save_button, *graph_profile_remove_button;
 static gboolean graph_profile_updating;
@@ -128,7 +131,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "16 kHz stereo bus", .detail =
             graph_missing_since[i] ? "Disconnected" : capture ? "TX capture (read-only)" : source ? route :
             n->type == RR_AG_SINK ? speaker_rate : NULL, .failed = n->health == RR_AG_FAILED, .stale =
-            graph_missing_since[i] != 0, .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
+            graph_missing_since[i] != 0, .selected = !g_strcmp0(graph_focus_id, n->id), .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = TRUE, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
@@ -437,6 +440,125 @@ static void routing_pipeline_open(const char *id) {
    g_free(json);
 }
 
+
+/* In-process tab shell: the full GStreamer editor remains isolated in
+ * rrpipelines until it can be hosted through an explicit control interface. */
+static const char *pipeline_for_node(const char *id) {
+   if (!g_strcmp0(id, "sink.client.dsp0")) return "sink.client.mix";
+   if (!g_strcmp0(id, "src.client.dsp0")) return "src.client.dsp0";
+   return NULL;
+}
+static const char *node_for_pipeline(const char *id) {
+   if (!g_strcmp0(id, "sink.client.mix")) return "sink.client.dsp0";
+   if (!g_strcmp0(id, "src.client.dsp0")) return "src.client.dsp0";
+   return NULL;
+}
+static void pipeline_details_refresh(void) {
+   if (!pipeline_details) return;
+   char *key = pipeline_selected_id ? g_strdup_printf("pipeline:%s", pipeline_selected_id) : NULL;
+   const char *launch = key ? cfg_get(key) : NULL;
+   gtk_label_set_text(GTK_LABEL(pipeline_details),
+      launch && *launch ? launch : "Select a configured pipeline to inspect its launch definition.");
+   g_free(key);
+}
+static void pipeline_select(const char *id) {
+   if (!id || !pipeline_list) return;
+   GList *children = gtk_container_get_children(GTK_CONTAINER(pipeline_list));
+   guint index = 0;
+   for (GList *item = children; item; item = item->next, index++) {
+      const char *value = g_object_get_data(G_OBJECT(item->data), "pipeline-id");
+      if (!g_strcmp0(value, id)) {
+         gtk_list_box_select_row(GTK_LIST_BOX(pipeline_list), GTK_LIST_BOX_ROW(item->data));
+         break;
+      }
+   }
+   g_list_free(children);
+}
+static void pipeline_row_selected(GtkListBox *list, GtkListBoxRow *row, gpointer unused) {
+   (void)list; (void)unused;
+   g_free(pipeline_selected_id);
+   pipeline_selected_id = row ? g_strdup(g_object_get_data(G_OBJECT(row), "pipeline-id")) : NULL;
+   pipeline_details_refresh();
+}
+static void pipeline_list_refresh(void) {
+   if (!pipeline_list) return;
+   char *previous = g_strdup(pipeline_selected_id);
+   GList *children = gtk_container_get_children(GTK_CONTAINER(pipeline_list));
+   for (GList *item = children; item; item = item->next)
+      gtk_widget_destroy(GTK_WIDGET(item->data));
+   g_list_free(children);
+   const char *key;
+   char *value;
+   int rank = 0;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!g_str_has_prefix(key, "pipeline:")) continue;
+      GtkWidget *row = gtk_list_box_row_new();
+      g_object_set_data_full(G_OBJECT(row), "pipeline-id", g_strdup(key + 9), g_free);
+      GtkWidget *label = gtk_label_new(key + 9);
+      gtk_label_set_xalign(GTK_LABEL(label), 0);
+      gtk_container_add(GTK_CONTAINER(row), label);
+      gtk_list_box_insert(GTK_LIST_BOX(pipeline_list), row, -1);
+   }
+   gtk_widget_show_all(pipeline_list);
+   pipeline_select(previous ? previous : "sink.client.mix");
+   g_free(previous);
+}
+static void pipeline_open_selected(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   if (!pipeline_selected_id) return;
+   const char *node = node_for_pipeline(pipeline_selected_id);
+   if (node) routing_pipeline_open(node);
+}
+static void routing_focus_node(const char *id) {
+   if (!id || !audio_tabs) return;
+   g_free(graph_focus_id);
+   graph_focus_id = g_strdup(id);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 0);
+   graph_canvas_update_size();
+}
+static void pipeline_row_activated(GtkListBox *list, GtkListBoxRow *row, gpointer unused) {
+   (void)list; (void)unused;
+   const char *id = g_object_get_data(G_OBJECT(row), "pipeline-id");
+   const char *node = node_for_pipeline(id);
+   if (node) routing_focus_node(node);
+}
+static void routing_focus_pipeline(const char *id) {
+   const char *pipeline = pipeline_for_node(id);
+   if (!pipeline || !audio_tabs) return;
+   pipeline_list_refresh();
+   pipeline_select(pipeline);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
+}
+static GtkWidget *pipeline_page_new(void) {
+   GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   GtkWidget *help = gtk_label_new("Configured GStreamer pipelines. Double-click a mapped pipeline to focus its Routing block.");
+   gtk_label_set_xalign(GTK_LABEL(help), 0);
+   gtk_label_set_line_wrap(GTK_LABEL(help), TRUE);
+   gtk_box_pack_start(GTK_BOX(root), help, FALSE, FALSE, 0);
+   GtkWidget *list_scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(list_scroll), 100);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(list_scroll), 240);
+   pipeline_list = gtk_list_box_new();
+   gtk_container_add(GTK_CONTAINER(list_scroll), pipeline_list);
+   gtk_box_pack_start(GTK_BOX(root), list_scroll, TRUE, TRUE, 0);
+   GtkWidget *details_scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(details_scroll), 100);
+   pipeline_details = gtk_label_new(NULL);
+   gtk_label_set_selectable(GTK_LABEL(pipeline_details), TRUE);
+   gtk_label_set_line_wrap(GTK_LABEL(pipeline_details), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(pipeline_details), 0);
+   gtk_container_add(GTK_CONTAINER(details_scroll), pipeline_details);
+   gtk_box_pack_start(GTK_BOX(root), details_scroll, TRUE, TRUE, 0);
+   GtkWidget *open = gtk_button_new_with_label("Inspect in isolated pipeline viewer");
+   gtk_widget_set_tooltip_text(open, "Launch rrpipelines; in-process GStreamer editing is planned");
+   g_signal_connect(open, "clicked", G_CALLBACK(pipeline_open_selected), NULL);
+   gtk_box_pack_start(GTK_BOX(root), open, FALSE, FALSE, 0);
+   g_signal_connect(pipeline_list, "row-selected", G_CALLBACK(pipeline_row_selected), NULL);
+   g_signal_connect(pipeline_list, "row-activated", G_CALLBACK(pipeline_row_activated), NULL);
+   pipeline_list_refresh();
+   return root;
+}
+
 static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
    if (!graph_snapshot || graph_scale <= 0) {
       return FALSE;
@@ -643,8 +765,27 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
 
-   /* Double-clicks outside the trim tracks are not routing gestures. */
-   if (event->type == GDK_2BUTTON_PRESS) return FALSE;
+   /* Route/pipeline cross-navigation is read-only; trim double-click keeps
+    * its reset-to-unity behavior above. */
+   if (event->type == GDK_2BUTTON_PRESS) {
+      for (guint i = 0; i < graph_snapshot->node_count; i++) {
+         const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+         if (graph_missing_since[i] || !pipeline_for_node(n->id)) continue;
+         gboolean sink = n->type == RR_AG_SINK;
+         guint row = 0;
+         if (!sink) {
+            for (guint j = 0; j < i; j++)
+               row += graph_snapshot->nodes[j].type == RR_AG_SOURCE;
+         }
+         double x = sink ? 650 : 25, y = sink ? 80 : 20 + 140 * row;
+         if (gx >= x && gx <= x + RR_GTK_GRAPH_NODE_W &&
+             gy >= y && gy <= y + RR_GTK_GRAPH_NODE_H) {
+            routing_focus_pipeline(n->id);
+            return TRUE;
+         }
+      }
+      return FALSE;
+   }
 
    if (graph_port_at(gx, gy, &source, &channel, &mixer)) {
       graph_drag_source = source;
@@ -961,6 +1102,11 @@ void gtk_audio_graph_present(void) {
       rr_floating_panel_set_resizable(graph_panel, TRUE);
       rr_floating_panel_set_zoom_callback(graph_panel, routing_graph_zoom, NULL);
       GtkWidget *box = rr_floating_panel_body(graph_panel);
+      audio_tabs = gtk_notebook_new();
+      gtk_box_pack_start(GTK_BOX(box), audio_tabs, TRUE, TRUE, 0);
+      GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), routing_page, gtk_label_new("Routing"));
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), pipeline_page_new(), gtk_label_new("Pipelines"));
       GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       graph_profiles = gtk_combo_box_text_new_with_entry();
       g_signal_connect(graph_profile_entry(), "changed", G_CALLBACK(graph_profile_entry_changed), NULL);
@@ -982,12 +1128,12 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
          gtk_label_new("Drag ports to route audio. Source L/R trims are beside each pin; double-click a slider for 0 dB (unity).");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
-      gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
+      gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       /* The graph has its own Cairo zoom. Never scale its viewport size request through the generic widget wrapper as well. */
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
@@ -1005,7 +1151,7 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_vexpand(scroller, TRUE);
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
-      gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(routing_page), scroller, TRUE, TRUE, 0);
       gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
       g_signal_connect(graph_canvas, "scroll-event", G_CALLBACK(routing_graph_scroll), NULL);
       g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
