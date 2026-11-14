@@ -1,11 +1,12 @@
 Immediate needs
 ---------------
+rrclient: Fix flicker at start/confirm quit dialog
+
 rrserver: Confirm Enable Password user flag
    - disable passwd login after first auth by default
    - user should be able to re-enable it, but we should enforce password complexity
 
 rrserver: Add support for librnnoise0 to denoise before compressing
-
 rrbridge: Add support for librnnoise0 to denoise remote SDRs
 
 rrclient: Finish moving *all* colors/formatting out into themes
@@ -23,8 +24,6 @@ rrclient: we should offer per-side (L/R) delay to sync different SDRs
   - maybe add some sort of "rtt sync" option to try to keep them synced
     with network/buffer statuses?
 
-rrclient: Need to prompt for saving config after edit servers / on exit
-
 rrclient: Support for multiple theme files in ~/.config/rustyrig/themes/ and /etc/rustyrig/themes/
 
 librustyaxe: Ensure full separation from rrclient/rrserver/*
@@ -33,7 +32,8 @@ rrclient: Make audit/ptt logs available for all connected servers (dropdown inst
 
 rrclient: Make hotkeys configurable
 
-rrserver: Add support for SCRAM gpio
+rrserver: A way to export a GPIO as RELAY | SWITCH | other types to clients
+   - Add support for SCRAM gpio
 
 * Move all socket code out of librrprotocol
   - It needs to go into client and server code
@@ -49,8 +49,6 @@ rrserver: Add support for SCRAM gpio
   - https://developer.mozilla.org/en-US/docs/Web/API/WebTransport#examples
 
 * Deferred WWV/WWVH time-source worker: see doc/wwv-time-decoder-plan.md.
-  Not required for monotonic protocol RTT; implement after beta transport/state work.
 
 rrbridge: More connectors!
 
-rrserver: A way to export a GPIO as RELAY | SWITCH | other types to clients
