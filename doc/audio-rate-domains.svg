@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="590" viewBox="0 0 1120 590" role="img" aria-labelledby="title desc">
+<title id="title">RustyRig audio sample-rate domains</title>
+<desc id="desc">Current 16 kHz audio mix feeding a 44.1 or 48 kHz device, plus proposed future native-rate buses and output rate adapters.</desc>
+<rect width="1120" height="590" rx="20" fill="#f5f7fa"/>
+<style>text{font-family:DejaVu Sans,Arial,sans-serif;fill:#1e293b}.head{font-size:24px;font-weight:700}.section{font-size:18px;font-weight:700}.main{font-size:16px;font-weight:600}.sub{font-size:13px}.box{fill:white;stroke:#94a3b8;stroke-width:2}.accent{fill:#dcfce7;stroke:#0d9488;stroke-width:2}.plan{fill:#e0f2fe;stroke:#0284c7;stroke-width:2}.arrow{stroke:#64748b;stroke-width:2.5;fill:none;marker-end:url(#arr)}</style>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker></defs>
+<text x="40" y="47" class="head">RustyRig AF sample-rate domains</text>
+<text x="40" y="80" class="section">Current — device-rate selection (implemented)</text>
+<rect x="40" y="102" width="222" height="83" rx="10" class="box"/>
+<text x="151" y="131" text-anchor="middle" class="main">Remote RX sources</text><text x="151" y="155" text-anchor="middle" class="sub">Decoded / converted PCM</text>
+<rect x="310" y="102" width="220" height="83" rx="10" class="accent"/>
+<text x="420" y="131" text-anchor="middle" class="main">rx.mix</text><text x="420" y="155" text-anchor="middle" class="sub">16 kHz · S16LE stereo</text>
+<rect x="578" y="102" width="222" height="83" rx="10" class="box"/>
+<text x="689" y="131" text-anchor="middle" class="main">fwdsp audioresample</text><text x="689" y="155" text-anchor="middle" class="sub">Playback boundary</text>
+<rect x="848" y="102" width="232" height="83" rx="10" class="accent"/>
+<text x="964" y="131" text-anchor="middle" class="main">Speaker output</text><text x="964" y="155" text-anchor="middle" class="sub">44.1 / 48 kHz requested</text>
+<path d="M262 144H310M530 144H578M800 144H848" class="arrow"/>
+<rect x="40" y="213" width="315" height="64" rx="9" class="box"/>
+<text x="197" y="238" text-anchor="middle" class="main">Microphone capture</text><text x="197" y="257" text-anchor="middle" class="sub">44.1 / 48 kHz requested</text>
+<rect x="420" y="213" width="304" height="64" rx="9" class="box"/>
+<text x="572" y="238" text-anchor="middle" class="main">fwdsp downsample</text><text x="572" y="257" text-anchor="middle" class="sub">16 kHz · S16LE mono</text>
+<rect x="789" y="213" width="291" height="64" rx="9" class="box"/>
+<text x="935" y="238" text-anchor="middle" class="main">TX codec / radio</text><text x="935" y="257" text-anchor="middle" class="sub">Existing negotiation unchanged</text>
+<path d="M355 246H420M724 246H789" class="arrow"/>
+<text x="40" y="324" class="section">Future — dynamic rate-aware AF buses (design, not yet implemented)</text>
+<rect x="40" y="350" width="230" height="48" rx="8" class="plan"/>
+<text x="155" y="379" text-anchor="middle" class="main">8 / 12 / 16 kHz buses</text>
+<rect x="40" y="412" width="230" height="48" rx="8" class="plan"/>
+<text x="155" y="441" text-anchor="middle" class="main">44.1 kHz bus</text>
+<rect x="40" y="474" width="230" height="48" rx="8" class="plan"/>
+<text x="155" y="503" text-anchor="middle" class="main">48 kHz bus</text>
+<rect x="414" y="403" width="260" height="79" rx="10" class="plan"/>
+<text x="544" y="432" text-anchor="middle" class="main">Rate / clock adapters</text>
+<text x="544" y="454" text-anchor="middle" class="sub">Resample only if needed</text>
+<rect x="820" y="403" width="260" height="79" rx="10" class="accent"/>
+<text x="950" y="432" text-anchor="middle" class="main">AF output mixer</text>
+<text x="950" y="454" text-anchor="middle" class="sub">44.1 / 48 kHz float32</text>
+<path d="M270 374H338V441H414M270 436H414M270 498H338V441M674 441H820" class="arrow"/>
+<text x="40" y="561" class="sub">Future nodes must represent actual running buses and converters, with format, clock, latency and health properties.</text>
+</svg>
