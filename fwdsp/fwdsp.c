@@ -68,6 +68,7 @@ enum pcm_processor_mode {
 
 static bool processor_mode = false;
 static enum pcm_processor_mode processor_io_mode = PCM_PROCESSOR_MODE_AUTO;
+static unsigned processor_device_rate_hz; /* -R, restricted to capture/playback */
 static char processor_name[64]; // qualified pipeline name: proc.*, src.*, sink.*, or
                                 // recode.*
 bool dying = false;
@@ -857,6 +858,41 @@ static bool processor_pcm_caps(GstCaps *caps, bool resampler_output) {
    return processor_pcm_caps_rate(caps, resampler_output, false);
 }
 
+/* Device PCM rates are arguments, not edits to the configured pipeline.
+ * The generator/editor can later emit the same named capsfilter elements. */
+static bool processor_apply_device_rate(GstElement *pipe, GstElement *appsrc) {
+   if (!processor_device_rate_hz) return true;
+   if (!processor_mode ||
+       (processor_io_mode != PCM_PROCESSOR_MODE_CAPTURE &&
+        processor_io_mode != PCM_PROCESSOR_MODE_PLAYBACK))
+      return false;
+   GstElement *filter = gst_bin_get_by_name(GST_BIN(pipe), "processor-device-caps");
+   if (!filter || !GST_IS_ELEMENT(filter) ||
+       !g_object_class_find_property(G_OBJECT_GET_CLASS(filter), "caps")) {
+      if (filter) gst_object_unref(filter);
+      Log(LOG_CRIT, "fwdsp", "-R requires a named processor-device-caps capsfilter");
+      return false;
+   }
+   GstCaps *device = gst_caps_new_simple("audio/x-raw",
+                     "rate", G_TYPE_INT, (int)processor_device_rate_hz, NULL);
+   g_object_set(G_OBJECT(filter), "caps", device, NULL);
+   gst_caps_unref(device);
+   gst_object_unref(filter);
+   if (processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK) {
+      if (!appsrc || !GST_IS_APP_SRC(appsrc)) return false;
+      /* The framed input sample rate must match the appsrc clock exactly,
+       * otherwise PTS/duration computation will silently misclock playback. */
+      GstCaps *input = gst_caps_new_simple("audio/x-raw",
+          "format", G_TYPE_STRING, "S16LE",
+          "rate", G_TYPE_INT, (int)processor_device_rate_hz,
+          "channels", G_TYPE_INT, 2,
+          "layout", G_TYPE_STRING, "interleaved", NULL);
+      gst_app_src_set_caps(GST_APP_SRC(appsrc), input);
+      gst_caps_unref(input);
+   }
+   return true;
+}
+
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       dying = false;
@@ -931,6 +967,16 @@ static void run_loop(struct audio_config *cfg) {
       // exposed rx-vol.
       if (!volume && cfg->tx_mode) {
          volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
+      }
+      if (!processor_apply_device_rate(pipeline, appsrc)) {
+         if (appsrc) gst_object_unref(appsrc);
+         if (appsink) gst_object_unref(appsink);
+         if (volume) gst_object_unref(volume);
+         if (record_sink) gst_object_unref(record_sink);
+         if (record_encoded_sink) gst_object_unref(record_encoded_sink);
+         if (hub_sink) gst_object_unref(hub_sink);
+         cleanup_pipeline(&pipeline);
+         return;
       }
       GstCaps *processor_input_caps = processor_mode && appsrc ? gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
       bool processor_input_ok = !appsrc
@@ -1431,7 +1477,7 @@ int main(int argc, char *argv[]) {
    const char *parent_pipeline = NULL;
    bool codec_arg_set = false;
    int opt;
-   while ((opt = getopt(argc, argv, "C:c:f:HM:p:P:Thtv")) != -1) {
+   while ((opt = getopt(argc, argv, "C:c:f:HM:p:P:R:Thtv")) != -1) {
       switch (opt) {
          case 'C': {
             control_fd = atoi(optarg);
@@ -1485,6 +1531,16 @@ int main(int argc, char *argv[]) {
             parent_pipeline = *optarg ? optarg : NULL;
             break;
          }
+         case 'R': {
+            char *end = NULL;
+            unsigned long rate = strtoul(optarg, &end, 10);
+            if (!*optarg || !end || *end || (rate != 44100 && rate != 48000)) {
+               fprintf(stderr, "Invalid device PCM rate '%s' (-R accepts 44100 or 48000)\n", optarg);
+               return 2;
+            }
+            processor_device_rate_hz = (unsigned)rate;
+            break;
+         }
          case 'P': {
             const char *dot = strchr(optarg, '.');
 
@@ -1525,6 +1581,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "  -H\t\t\tEmit decoded PCM tap frames for the server hub\n");
             fprintf(stderr, "  -M\t\t\tEndpoint shape: auto, process, capture, or playback\n");
             fprintf(stderr, "  -P\t\t\tSelect namespace.name from config (proc, src, sink, recode)\n");
+            fprintf(stderr, "  -R\t\t\tCapture/playback device PCM rate (44100 or 48000)\n");
             fprintf(stderr, "  -t\t\t\tTransmit mode\n");
             fprintf(stderr, "  -v\t\t\tVideo mode\n");
             exit(1);
@@ -1536,6 +1593,13 @@ int main(int argc, char *argv[]) {
       // Retain the original -P behavior for scripts created before -T was
       // added; new callers should select transform mode explicitly.
       processor_mode = true;
+   }
+
+   if (processor_device_rate_hz &&
+       (!processor_mode || (processor_io_mode != PCM_PROCESSOR_MODE_CAPTURE &&
+                            processor_io_mode != PCM_PROCESSOR_MODE_PLAYBACK))) {
+      fprintf(stderr, "fwdsp: -R is only valid with -T -M capture/playback\n");
+      return 2;
    }
 
    if (processor_mode && codec_arg_set) {
