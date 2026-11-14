@@ -28,6 +28,7 @@ typedef struct stream {
    float history[PCM_HISTORY * 2]; /* producer-side resampler source history */
    float *fir;                      /* 256 phases x 32 taps, allocated on registration */
    uint64_t received;
+   uint64_t dropped_frames, starvation_events;
    double source_position;
    size_t head, count;
    bool primed, ever_primed, starved, finishing;
@@ -95,6 +96,7 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
 
                if (!s->starved) {
                   e->stats.starvation_events++;
+                  s->starvation_events++;
                }
                s->starved = true;
             } else {
@@ -114,6 +116,7 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
 
          if (!s->starved) {
             e->stats.starvation_events++;
+            s->starvation_events++;
          }
          s->starved = true;
          s->primed = false;     /* Refill before resuming, rather than sputtering. */
@@ -364,6 +367,24 @@ bool rr_audio_engine_stream_format(rr_audio_engine_t *e, const char *id,
    g_mutex_unlock(&e->lock);
    return s != NULL;
 }
+bool rr_audio_engine_stream_status(rr_audio_engine_t *e, const char *id,
+                                   rr_audio_stream_status_t *status) {
+   if (!e || !id || !status) return false;
+   g_mutex_lock(&e->lock);
+   stream_t *s = find_stream(e, id);
+   if (s) {
+      *status = (rr_audio_stream_status_t) {
+         .source = s->source_format,
+         .mixer_rate_hz = e->sample_rate_hz,
+         .queued_frames = s->count,
+         .dropped_frames = s->dropped_frames,
+         .starvation_events = s->starvation_events,
+         .resampling = s->fir != NULL
+      };
+   }
+   g_mutex_unlock(&e->lock);
+   return s != NULL;
+}
 void rr_audio_engine_remove_stream(rr_audio_engine_t *e, const char *id) {
    if (!e || !id) {
       return;
@@ -391,6 +412,7 @@ static void enqueue_stereo(rr_audio_engine_t *e, stream_t *s, float l, float r) 
       s->head = (s->head + 1) % AUDIO_CAPACITY;
       s->count--;
       e->stats.overflow_samples++;
+      s->dropped_frames++;
    }
    size_t index = (s->head + s->count) % AUDIO_CAPACITY;
    s->samples[2 * index] = (int16_t) CLAMP(l, (float)INT16_MIN, (float)INT16_MAX);
