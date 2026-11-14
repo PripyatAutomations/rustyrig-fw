@@ -34,6 +34,7 @@ static bool valid(const rr_rx_slice_spec_t *s) {
 
    return true;
 }
+
 bool rr_rx_slice_name(const rr_rx_slice_spec_t *spec, char *out, size_t size) {
    if (!out || !size) {
       return false;
@@ -49,6 +50,7 @@ bool rr_rx_slice_name(const rr_rx_slice_spec_t *spec, char *out, size_t size) {
 
    return n > 0 && (size_t)n < size;
 }
+
 bool rr_rx_slice_parse(const char *name, rr_rx_slice_spec_t *out) {
    if (!name || !out || strlen(name) >= RR_RX_SLICE_NAME_MAX || strncmp(name, "rx://", 5)) {
       return false;
@@ -94,9 +96,11 @@ bool rr_rx_slice_parse(const char *name, rr_rx_slice_spec_t *out) {
 
    return true;
 }
+
 rr_rx_slices_t *rr_rx_slices_new(void) {
    return calloc(1, sizeof(rr_rx_slices_t));
 }
+
 void rr_rx_slices_free(rr_rx_slices_t *registry) {
    if (!registry) {
       return;
@@ -108,6 +112,7 @@ void rr_rx_slices_free(rr_rx_slices_t *registry) {
    }
    free(registry);
 }
+
 rr_rx_slice_t *rr_rx_slice_acquire(rr_rx_slices_t *registry, const rr_rx_slice_spec_t *spec) {
    if (!registry) {
       return NULL;
@@ -142,6 +147,7 @@ rr_rx_slice_t *rr_rx_slice_acquire(rr_rx_slices_t *registry, const rr_rx_slice_s
 
    return slice;
 }
+
 void rr_rx_slice_release(rr_rx_slices_t *registry, rr_rx_slice_t *slice) {
    if (!registry || !slice) {
       return;
@@ -162,12 +168,15 @@ void rr_rx_slice_release(rr_rx_slices_t *registry, rr_rx_slice_t *slice) {
    registry->count--;
    free(slice);
 }
+
 const char *rr_rx_slice_id(const rr_rx_slice_t *slice) {
    return slice ? slice->id : NULL;
 }
+
 unsigned rr_rx_slice_subscribers(const rr_rx_slice_t *slice) {
    return slice ? slice->subscribers : 0;
 }
+
 size_t rr_rx_slices_count(const rr_rx_slices_t *registry) {
    return registry ? registry->count : 0;
 }

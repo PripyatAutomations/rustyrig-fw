@@ -1,6 +1,7 @@
 name: C/C++ CI
 
-# Temporarily disabled: no automatic CI on pushes or pull requests.
+# Temporarily disabled: do not run CI automatically on pushes or PRs.
+# Re-enable push/pull_request triggers when the build is repaired.
 on:
   workflow_dispatch:
 

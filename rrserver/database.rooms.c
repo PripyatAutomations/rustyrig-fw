@@ -910,5 +910,4 @@ char *db_room_vfo_map_list(sqlite3 *db) {
 
    return out;
 }
-
 #endif /* USE_SQLITE */

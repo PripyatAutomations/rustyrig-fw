@@ -27,10 +27,8 @@
 
 static void irc_close_connection(rrconn_t *cptr) {
 #if defined(USE_MONGOOSE)
-
    if (cptr->conn) {
       cptr->conn->is_closing = 1;
-
       return;
    }
 #endif
@@ -53,9 +51,6 @@ static void irc_close_connection(rrconn_t *cptr) {
 }
 
 static void send_request(const char *event, const void *payload, size_t size, rrconn_t *c, void *user) {
-   (void)event;
-   (void)user;
-
    if (!c || c->is_ws || !c->server || size != sizeof(rr_server_io_t)) {
       return;
    }
@@ -168,7 +163,6 @@ bool irc_send(rrconn_t *cptr, const char *fmt, ...) {
       return sent;
    }
 #if defined(USE_MONGOOSE)
-
    if (cptr->conn) {
       if (!cptr->connected || cptr->conn->is_closing || cptr->conn->send.len + msglen + 2 > SENDQLEN) {
          return false;

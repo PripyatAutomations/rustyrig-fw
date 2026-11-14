@@ -39,22 +39,17 @@
 #include <rrserver/bridge.manager.h>
 #include <rrserver/receiver.directory.h>
 #include <rrserver/media.direct.h>
+#include <rrserver/events.internal.h>
 #include <rrserver/relay.h>
 #include <rrserver/usage.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
-
-#include <rrserver/events.internal.h>
 
 extern struct GlobalState rig;
 extern void rrserver_media_register_events(void);  // media.c
 
 /* Announce stable network ownership immediately after authentication. */
 static void rrserver_send_domain_identity(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)data;
-   (void)user;
-
    if (!client || !client->authenticated) {
       return;
    }
@@ -104,10 +99,7 @@ static void rrserver_handle_nomatch(const char *event, const char *data, rrconn_
 /* cat.freq is an intentional notification from librrprotocol after a successful frequency change. The CAT broadcast and rigctl event already handle
  * distribution and application; acknowledge this optional event to avoid treating normal tuning as an unhandled protocol warning. */
 static void rrserver_handle_cat_freq(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)data;
-   (void)cptr;
-   (void)user;
+   return;
 }
 
 /* Resolve a replay request and send stored room history. */
@@ -272,10 +264,6 @@ record:
 }
 
 static void rrserver_typing_session_closed(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)data;
-   (void)user;
-
    if (!client) {
       return;
    }
@@ -288,9 +276,6 @@ static void rrserver_typing_session_closed(const char *event, const char *data, 
 }
 
 static void rrserver_handle_typing(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
-
    if (!data || !client || !client->authenticated) {
       return;
    }
@@ -394,8 +379,8 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
 
          return;
       }
-#ifdef USE_SQLITE
 
+#ifdef USE_SQLITE
       if (!db_add_chat_msg(masterdb, now, cptr->chatname, target_name, "privmsg", dict_get(d, "talk.data", ""))) {
          Log(LOG_WARN, "db", "failed to save private message");
       }
@@ -428,7 +413,6 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       const char *talk_msg = dict_get(d, "talk.data", NULL);
 
 #ifdef USE_SQLITE
-
       if (channel) {
          if (!db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, talk_msg)) {
             Log(LOG_WARN, "db", "failed to save chat message");
@@ -521,17 +505,11 @@ static bool rrserver_recording_control(const char *data, bool start) {
 
 /* Handle the recording-start event using shared channel resolution. */
 static void rrserver_handle_recording_start(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
    rrserver_recording_control(data, true);
 }
 
 /* Handle the recording-stop event using shared channel resolution. */
 static void rrserver_handle_recording_stop(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
    rrserver_recording_control(data, false);
 }
 
@@ -548,9 +526,6 @@ static void rrserver_handle_send_cat_state(const char *event, const char *data, 
 // admin noob-halt). NB: nobody registered for this before, so the event fell
 // through to NOMATCH and the rig kept transmitting while the flag was cleared.
 static void rrserver_handle_ptt_off(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)data;
-   (void)cptr;
-   (void)user;
    Log(LOG_AUDIT, "ptt", "Forced TX off (%s event)", (event ? event : "ptt.off"));
    rr_ptt_set_all_off_reason("forced");
 }
@@ -609,11 +584,6 @@ static void rrserver_handle_latency(const char *event, const char *data, rrconn_
  * users table here.
  */
 static void rrserver_handle_authdb_load(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)data;
-   (void)cptr;
-   (void)user;
-
    if (!masterdb) {
       Log(LOG_CRIT, "db", "authdb-dynamic is set but masterdb isn't open!");
 
@@ -628,7 +598,6 @@ static void rrserver_handle_authdb_load(const char *event, const char *data, rrc
 /* Refresh synchronously before login and command authorization. */
 static void rrserver_auth_refresh(const char *event, const void *data, size_t length, rrconn_t *client, void *context) {
 #ifdef USE_SQLITE
-
    if (length == sizeof(rr_server_auth_refresh_t) && cfg_get_bool("net.http.authdb-dynamic", false)) {
       rr_server_auth_refresh_t *refresh = (rr_server_auth_refresh_t *) data;
 
