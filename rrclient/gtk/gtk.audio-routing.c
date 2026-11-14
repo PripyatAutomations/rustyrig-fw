@@ -11,6 +11,9 @@
 #include <rrclient/database.h>
 #include "gtk.audio-routing.h"
 #include "gtk.floating-panel.h"
+#include <rrpipelines/editor.h>
+/* Uses the Config editor's validated cfg merge and dirty-state handling. */
+extern gboolean gtk_pipeline_editor_apply_output(GtkWidget *, const gchar *, gchar **);
 extern GtkWidget *main_notebook;
 
 static GtkWidget *routing_window, *split_rx, *ear_volume[2];
@@ -19,8 +22,7 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
-static GtkWidget *audio_tabs, *pipeline_list, *pipeline_details;
-static char *pipeline_selected_id;
+static GtkWidget *audio_tabs, *pipeline_editor_widget;
 static char *graph_focus_id;
 static GtkWidget *graph_profiles;
 static GtkWidget *graph_profile_load_button, *graph_profile_save_button, *graph_profile_remove_button;
@@ -374,78 +376,8 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    graph_profile_update_buttons();
 }
 
-/* The pipeline container launches the existing isolated graphical
- * inspector. Live mutations require a future authenticated DSP control
- * protocol and must not be attempted from GTK's draw/event callbacks. */
-static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, gpointer unused) {
-   (void)unused;
-   GError *error = NULL;
-   gchar *out = NULL, *err = NULL;
-
-   if (!g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &out, &err, &error)) {
-      g_warning("Read-only pipeline viewer failed: %s", error ? error->message : "unknown error");
-      g_clear_error(&error);
-   }
-   g_free(out);
-   g_free(err);
-   g_object_unref(source);
-}
-static void routing_pipeline_open(const char *id) {
-   const char *pipeline_id = pipeline_for_node(id);
-   if (!pipeline_id) return;
-   char *key = g_strdup_printf("pipeline:%s", pipeline_id);
-   const char *launch = cfg_get(key);
-   g_free(key);
-
-   if (!launch || !*launch) {
-      g_warning("No configured GStreamer pipeline for %s", id);
-
-      return;
-   }
-   dict *document = dict_new();
-
-   if (!document) {
-      return;
-   }
-   gboolean valid = !dict_add_uint(document, "pipelines.count", 1) &&
-      !dict_add(document, "pipelines.0.id", pipeline_id) && !dict_add(document, "pipelines.0.launch", launch);
-   gchar *json = valid ? dict2json(document) : NULL;
-   dict_free(document);
-
-   if (!json) {
-      return;
-   }
-   gchar *program = g_find_program_in_path("rrpipelines");
-
-   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE)) {
-      program = g_strdup("bin/rrpipelines");
-   }
-
-   if (!program) {
-      g_warning("Cannot find rrpipelines to inspect %s", id);
-      g_free(json);
-
-      return;
-   }
-   const gchar *argv[] = {
-      program, "--read-only", NULL
-   };
-   GError *error = NULL;
-   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
-
-   if (process) {
-      g_subprocess_communicate_utf8_async(process, json, NULL, routing_pipeline_viewer_done, NULL);
-   } else {
-      g_warning("Unable to launch pipeline viewer: %s", error ? error->message : "unknown error");
-      g_clear_error(&error);
-   }
-   g_free(program);
-   g_free(json);
-}
-
-
-/* In-process tab shell: the full GStreamer editor remains isolated in
- * rrpipelines until it can be hosted through an explicit control interface. */
+/* The isolated fwdsp worker remains the only executor. GStreamer is used
+ * in rrclient's GTK editor for graph composition and property inspection. */
 static const char *pipeline_for_node(const char *id) {
    if (!g_strcmp0(id, "sink.client.dsp0")) return "sink.client.mix";
    if (!g_strcmp0(id, "src.client.dsp0")) return "src.client.dsp0";
@@ -456,62 +388,6 @@ static const char *node_for_pipeline(const char *id) {
    if (!g_strcmp0(id, "src.client.dsp0")) return "src.client.dsp0";
    return NULL;
 }
-static void pipeline_details_refresh(void) {
-   if (!pipeline_details) return;
-   char *key = pipeline_selected_id ? g_strdup_printf("pipeline:%s", pipeline_selected_id) : NULL;
-   const char *launch = key ? cfg_get(key) : NULL;
-   gtk_label_set_text(GTK_LABEL(pipeline_details),
-      launch && *launch ? launch : "Select a configured pipeline to inspect its launch definition.");
-   g_free(key);
-}
-static void pipeline_select(const char *id) {
-   if (!id || !pipeline_list) return;
-   GList *children = gtk_container_get_children(GTK_CONTAINER(pipeline_list));
-   guint index = 0;
-   for (GList *item = children; item; item = item->next, index++) {
-      const char *value = g_object_get_data(G_OBJECT(item->data), "pipeline-id");
-      if (!g_strcmp0(value, id)) {
-         gtk_list_box_select_row(GTK_LIST_BOX(pipeline_list), GTK_LIST_BOX_ROW(item->data));
-         break;
-      }
-   }
-   g_list_free(children);
-}
-static void pipeline_row_selected(GtkListBox *list, GtkListBoxRow *row, gpointer unused) {
-   (void)list; (void)unused;
-   g_free(pipeline_selected_id);
-   pipeline_selected_id = row ? g_strdup(g_object_get_data(G_OBJECT(row), "pipeline-id")) : NULL;
-   pipeline_details_refresh();
-}
-static void pipeline_list_refresh(void) {
-   if (!pipeline_list) return;
-   char *previous = g_strdup(pipeline_selected_id);
-   GList *children = gtk_container_get_children(GTK_CONTAINER(pipeline_list));
-   for (GList *item = children; item; item = item->next)
-      gtk_widget_destroy(GTK_WIDGET(item->data));
-   g_list_free(children);
-   const char *key;
-   char *value;
-   int rank = 0;
-   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-      if (!g_str_has_prefix(key, "pipeline:")) continue;
-      GtkWidget *row = gtk_list_box_row_new();
-      g_object_set_data_full(G_OBJECT(row), "pipeline-id", g_strdup(key + 9), g_free);
-      GtkWidget *label = gtk_label_new(key + 9);
-      gtk_label_set_xalign(GTK_LABEL(label), 0);
-      gtk_container_add(GTK_CONTAINER(row), label);
-      gtk_list_box_insert(GTK_LIST_BOX(pipeline_list), row, -1);
-   }
-   gtk_widget_show_all(pipeline_list);
-   pipeline_select(previous ? previous : "sink.client.mix");
-   g_free(previous);
-}
-static void pipeline_open_selected(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   if (!pipeline_selected_id) return;
-   const char *node = node_for_pipeline(pipeline_selected_id);
-   if (node) routing_pipeline_open(node);
-}
 static void routing_focus_node(const char *id) {
    if (!id || !audio_tabs) return;
    g_free(graph_focus_id);
@@ -519,47 +395,77 @@ static void routing_focus_node(const char *id) {
    gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 0);
    graph_canvas_update_size();
 }
-static void pipeline_row_activated(GtkListBox *list, GtkListBoxRow *row, gpointer unused) {
-   (void)list; (void)unused;
-   const char *id = g_object_get_data(G_OBJECT(row), "pipeline-id");
-   const char *node = node_for_pipeline(id);
+static void pipeline_element_focused(const gchar *pipeline, gpointer user) {
+   (void)user;
+   const char *node = node_for_pipeline(pipeline);
    if (node) routing_focus_node(node);
+}
+static gboolean pipeline_apply(const gchar *json, gpointer user) {
+   (void)user;
+   GtkWidget *parent = audio_tabs ? gtk_widget_get_toplevel(audio_tabs) : NULL;
+   gchar *error = NULL;
+   gboolean ok = gtk_pipeline_editor_apply_output(parent, json, &error);
+   if (!ok) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+         GTK_BUTTONS_CLOSE, "%s", error ? error : "Cannot apply GStreamer pipeline changes.");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+   }
+   g_free(error);
+   return ok;
+}
+static gchar *pipeline_config_json(void) {
+   dict *document = dict_new();
+   if (!document) return NULL;
+   const char *key;
+   char *value;
+   guint count = 0;
+   int rank = 0;
+   gboolean ok = TRUE;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!g_str_has_prefix(key, "pipeline:")) continue;
+      if (count >= 512) { ok = FALSE; break; }
+      gchar *id_key = g_strdup_printf("pipelines.%u.id", count);
+      gchar *launch_key = g_strdup_printf("pipelines.%u.launch", count);
+      ok = !dict_add(document, id_key, key + 9) &&
+           !dict_add(document, launch_key, value ? value : "");
+      g_free(id_key);
+      g_free(launch_key);
+      if (!ok) break;
+      count++;
+   }
+   if (ok) ok = !dict_add_uint(document, "pipelines.count", count);
+   gchar *json = ok ? dict2json(document) : NULL;
+   dict_free(document);
+   return json;
 }
 static void routing_focus_pipeline(const char *id) {
    const char *pipeline = pipeline_for_node(id);
    if (!pipeline || !audio_tabs) return;
-   pipeline_list_refresh();
-   pipeline_select(pipeline);
+   if (pipeline_editor_widget)
+      rr_pipeline_editor_select(pipeline_editor_widget, pipeline);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
 }
 static GtkWidget *pipeline_page_new(void) {
-   GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   GtkWidget *help = gtk_label_new("Configured GStreamer pipelines. Double-click a mapped pipeline to focus its Routing block.");
-   gtk_label_set_xalign(GTK_LABEL(help), 0);
-   gtk_label_set_line_wrap(GTK_LABEL(help), TRUE);
-   gtk_box_pack_start(GTK_BOX(root), help, FALSE, FALSE, 0);
-   GtkWidget *list_scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(list_scroll), 100);
-   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(list_scroll), 240);
-   pipeline_list = gtk_list_box_new();
-   gtk_container_add(GTK_CONTAINER(list_scroll), pipeline_list);
-   gtk_box_pack_start(GTK_BOX(root), list_scroll, TRUE, TRUE, 0);
-   GtkWidget *details_scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(details_scroll), 100);
-   pipeline_details = gtk_label_new(NULL);
-   gtk_label_set_selectable(GTK_LABEL(pipeline_details), TRUE);
-   gtk_label_set_line_wrap(GTK_LABEL(pipeline_details), TRUE);
-   gtk_label_set_xalign(GTK_LABEL(pipeline_details), 0);
-   gtk_container_add(GTK_CONTAINER(details_scroll), pipeline_details);
-   gtk_box_pack_start(GTK_BOX(root), details_scroll, TRUE, TRUE, 0);
-   GtkWidget *open = gtk_button_new_with_label("Inspect in isolated pipeline viewer");
-   gtk_widget_set_tooltip_text(open, "Launch rrpipelines; in-process GStreamer editing is planned");
-   g_signal_connect(open, "clicked", G_CALLBACK(pipeline_open_selected), NULL);
-   gtk_box_pack_start(GTK_BOX(root), open, FALSE, FALSE, 0);
-   g_signal_connect(pipeline_list, "row-selected", G_CALLBACK(pipeline_row_selected), NULL);
-   g_signal_connect(pipeline_list, "row-activated", G_CALLBACK(pipeline_row_activated), NULL);
-   pipeline_list_refresh();
-   return root;
+   gchar *json = pipeline_config_json();
+   GError *error = NULL;
+   GtkWidget *editor = json ? rr_pipeline_editor_new(json, pipeline_apply, NULL,
+                                                        pipeline_element_focused, NULL, &error) : NULL;
+   g_free(json);
+   if (!editor) {
+      g_warning("Cannot initialize integrated GStreamer editor: %s",
+                error ? error->message : "out of memory");
+      GtkWidget *label = gtk_label_new(error ? error->message :
+         "Unable to initialize the integrated pipeline editor");
+      g_clear_error(&error);
+      return label;
+   }
+   pipeline_editor_widget = editor;
+   gtk_widget_set_hexpand(editor, TRUE);
+   gtk_widget_set_vexpand(editor, TRUE);
+   g_object_set_data(G_OBJECT(editor), "rr-scale-exempt", GINT_TO_POINTER(1));
+   return editor;
 }
 
 static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
@@ -1153,12 +1059,19 @@ void gtk_audio_graph_present(void) {
    }
    rr_floating_panel_restore(graph_panel);
    rr_floating_panel_show(graph_panel);
-   pipeline_list_refresh();
    routing_queue();             /* Request an up-to-date core graph, not a stale UI cache. */
 
    if (graph_canvas) {
       gtk_widget_queue_draw(graph_canvas);
    }
+}
+
+void gtk_audio_graph_present_pipeline(const char *pipeline_id) {
+   gtk_audio_graph_present();
+   if (!audio_tabs) return;
+   if (pipeline_id && pipeline_editor_widget)
+      rr_pipeline_editor_select(pipeline_editor_widget, pipeline_id);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
 }
 
 static void routing_snapshot_event(const rr_event_message_t *message, void *unused) {
@@ -1380,8 +1293,7 @@ void gtk_audio_routing_shutdown(void) {
       rr_floating_panel_destroy(graph_panel);
       graph_panel = NULL;
       graph_canvas = NULL;
-      audio_tabs = pipeline_list = pipeline_details = NULL;
-      g_clear_pointer(&pipeline_selected_id, g_free);
+      audio_tabs = pipeline_editor_widget = NULL;
       g_clear_pointer(&graph_focus_id, g_free);
       graph_profiles = NULL;
       graph_profile_load_button = graph_profile_save_button = graph_profile_remove_button = NULL;
