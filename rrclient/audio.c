@@ -289,6 +289,7 @@ static uint64_t mixer_next_us;
 static uint64_t speaker_retry;
 static bool speaker_failed;
 /* Ten-second RX diagnostics; counters only, no per-frame logging. */
+static bool audio_client_playback_start(void);
 static uint64_t rx_diag_at, rx_late_ticks, rx_late_max_us, rx_skipped_blocks;
 static uint64_t rx_underrun_blocks, rx_underrun_samples, rx_overflow_samples;
 static uint64_t rx_decoder_write_fail, rx_speaker_write_fail, rx_mixed_blocks;
@@ -411,45 +412,86 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
 }
 
 
-/* Keep the existing 16 kHz framed-PCM contract. The selected rate applies
- * only at the physical PulseAudio/PipeWire endpoint, before capture conversion
- * or after playback resampling. Custom pipeline strings are left untouched. */
-static char *audio_device_pipeline(const char *pipeline, bool capture, bool fallback) {
+/* A separate HQ endpoint takes the final 44.1/48 kHz stereo mix.
+ * The original 16 kHz codec bus is converted before reaching that mix.
+ * Capture always converts back to the legacy 16 kHz mono encoder contract. */
+static uint32_t audio_hq_output_rate(void) {
+   const char *rate = cfg_get("audio.playback-rate");
+   if (!rate || !strcmp(rate, "auto") || !strcmp(rate, "48000")) return 48000;
+   if (!strcmp(rate, "44100")) return 44100;
+   Log(LOG_WARN, "audio", "Invalid audio.playback-rate=%s (using 48000)", rate);
+   return 48000;
+}
+static char *audio_device_pipeline(const char *pipeline, bool capture) {
    if (!pipeline) return NULL;
    const char *key = capture ? "audio.capture-rate" : "audio.playback-rate";
    const char *configured = cfg_get(key);
-   if (fallback) return g_strdup(pipeline);
-   const char *rate = !configured || !strcmp(configured, "auto") ? "48000" : configured;
-   if (strcmp(rate, "44100") && strcmp(rate, "48000")) {
-      Log(LOG_WARN, "audio", "Invalid %s=%s; use auto, 44100 or 48000", key, rate);
-      return g_strdup(pipeline);
-   }
-   const char *needle = capture ? " ! audioconvert ! audioresample" : " ! pulsesink";
-   const char *at = strstr(pipeline, needle);
-   if (!at || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ")) {
-      Log(LOG_INFO, "audio", "Custom %s pipeline: device rate selection not applied", capture ? "capture" : "playback");
-      return g_strdup(pipeline);
-   }
-   char *prefix = g_strndup(pipeline, (gsize)(at - pipeline));
-   char *result = g_strdup_printf("%s ! audio/x-raw,rate=%s%s", prefix, rate, at);
-   g_free(prefix);
-   return result;
-}
+   unsigned rate = capture ?
+      (configured && !strcmp(configured, "44100") ? 44100 : 48000) :
+      audio_hq_output_rate();
 
+   if (capture) {
+      if (!strstr(pipeline, "pulsesrc ") ||
+          !strstr(pipeline, " ! audioconvert ! audioresample")) {
+         /* Custom capture graphs must supply 16 kHz mono appsink PCM.
+          * We cannot assume the hardware input clock from their syntax. */
+         return g_strdup(pipeline);
+      }
+      const char *point = strstr(pipeline, " ! audioconvert ! audioresample");
+      char *prefix = g_strndup(pipeline, (gsize)(point - pipeline));
+      char *result = g_strdup_printf("%s ! audio/x-raw,rate=%u%s",
+                                     prefix, rate, point);
+      g_free(prefix);
+      return result;
+   }
+
+   /* Never feed 44.1/48 kHz PCM to an appsrc advertised as 16 kHz.
+    * Only rewrite the known S16LE stereo playback input contract. */
+   if (!g_str_has_prefix(pipeline, "appsrc name=processor-src ") ||
+       !strstr(pipeline, "pulsesink")) {
+      Log(LOG_WARN, "audio", "HQ output requires a stereo processor-src playback pipeline");
+      return NULL;
+   }
+   const char *caps = strstr(pipeline, "caps=audio/x-raw,format=S16LE,rate=");
+   if (!caps) {
+      Log(LOG_WARN, "audio", "HQ playback pipeline lacks explicit S16LE appsrc caps");
+      return NULL;
+   }
+   const char *digits = caps + strlen("caps=audio/x-raw,format=S16LE,rate=");
+   const char *end = digits;
+   while (g_ascii_isdigit(*end)) end++;
+   if (end == digits || strncmp(end, ",channels=2", 11)) {
+      Log(LOG_WARN, "audio", "HQ playback pipeline requires stereo PCM appsrc caps");
+      return NULL;
+   }
+   char *prefix = g_strndup(pipeline, (gsize)(digits - pipeline));
+   char *source = g_strdup_printf("%s%u%s", prefix, rate, end);
+   g_free(prefix);
+
+   /* After the volume and converter, request the matching device clock.
+    * Avoid a second rate conversion inside fwdsp for the stock pipeline. */
+   const char *sink = strstr(source, " ! pulsesink");
+   if (sink) {
+      prefix = g_strndup(source, (gsize)(sink - source));
+      char *result = g_strdup_printf("%s ! audio/x-raw,rate=%u%s",
+                                     prefix, rate, sink);
+      g_free(prefix);
+      g_free(source);
+      return result;
+   }
+   return source;
+}
 static bool audio_client_playback_start(void) {
    const char *base = cfg_get("pipeline:sink.client.mix");
-   char *pipeline = audio_device_pipeline(base, false, false);
+   char *pipeline = audio_device_pipeline(base, false);
+   if (!pipeline) return false; /* Never silently misclock the HQ mixer. */
    bool ok = fwdsp_audio_playback_start("sink.client.dsp0", pipeline);
    g_free(pipeline);
-   if (!ok && base) {
-      Log(LOG_WARN, "audio", "Playback endpoint failed with requested rate; trying configured default");
-      ok = fwdsp_audio_playback_start("sink.client.dsp0", base);
-   }
    return ok;
 }
 static bool audio_client_capture_start(void) {
    const char *base = cfg_get("pipeline:src.client.dsp0");
-   char *pipeline = audio_device_pipeline(base, true, false);
+   char *pipeline = audio_device_pipeline(base, true);
    bool ok = fwdsp_audio_capture_start("src.client.dsp0", pipeline, client_mic_pcm, NULL);
    g_free(pipeline);
    if (!ok && base) {
