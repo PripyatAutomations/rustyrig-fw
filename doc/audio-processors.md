@@ -118,7 +118,11 @@ whether the producer-side FIR is resampling into the mix clock, and
 per-source buffered milliseconds (`Q`), overflow-dropped frames (`D`),
 and starvation/rebuffer events (`U`). Hover a node for these details.
 Device capture/playback rates are configuration *requests*, not actual
-negotiated hardware caps; they are labeled as such. Only the existing
-16 kHz core bus is shown as active until the future per-rate mixing buses
-are implemented.
+negotiated hardware caps; they are labeled as such. The live Routing graph
+now includes the 16 kHz `rx.mix` bus, its real producer-side
+`rx16.resample` converter, and the independent 44.1/48 kHz `hq.mix`
+output bus. HQ-local sources enter `hq.mix` directly. Both mixer workers
+report independent scheduling and buffering diagnostics. Legacy recording
+and AF analysis remain tapped from the 16 kHz bus; full-HQ recording is a
+separate follow-up.
 
