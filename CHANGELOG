@@ -1,5 +1,8 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Give Audio Routing larger patch-cord gaps and avoid shrinking its
+    default view below 80% simply to fit the full graph; pan to reach
+    offscreen nodes or zoom out explicitly when desired.
   * Distinguish hollow thick-ring graph input sockets from solid output
     sockets; add direction arrowheads and snapping live patch-cord previews.
     Present mono receiver routing as separate L/R destination trims with
