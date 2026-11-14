@@ -1414,7 +1414,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
-         gtk_label_new("Drag blocks to move them (positions are saved). Drag ports to route audio. Double-click a trim for 0 dB.");
+         gtk_label_new("Drag nodes to move; drag ports to patch. Middle/Alt-drag pans, wheel zooms, touchpad scrolls. Double-click a trim for 0 dB.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
