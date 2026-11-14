@@ -537,7 +537,9 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    g_free(graph_snapshot);
    graph_snapshot = merged;
    memcpy(graph_missing_since, missing, sizeof(missing));
-   routing_layout_auto(FALSE);
+   /* A periodic topology refresh must never steal a node from the pointer
+    * while the user is dragging it. Reflow after drag release instead. */
+   if (graph_node_drag < 0) routing_layout_auto(FALSE);
    graph_canvas_update_size();
    graph_profile_update_buttons();
 }
@@ -996,6 +998,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
       }
       graph_node_drag = -1;
       graph_node_moved = FALSE;
+      routing_layout_auto(FALSE);
       graph_canvas_update_size();
       return TRUE;
    }
