@@ -135,3 +135,31 @@ runtime graph inspection. Preserve existing manual override pipelines.
 
 For now **do not** introduce this generator and **do not** change the
 16 kHz media protocol, codec negotiation or fwdsp transport.
+
+## Troubleshooting silent RX with a moving waterfall
+
+The source AF waterfall is filled ahead of the listening-gain and physical
+speaker paths. If its trace moves but no sound is audible, check the
+`audio.playback` log entries emitted every 10 seconds when the source or
+the downstream mixer has signal. The counters distinguish incoming decoded
+non-silent PCM, non-silent legacy and HQ mixer blocks, successfully framed
+speaker writes, and failed writes. They also show the current ear volumes,
+fwdsp gain and whether the duplicated speaker descriptor is attached.
+A moving waterfall alone never proves the speaker endpoint is healthy.
+
+The L/R volume-panel sliders are inverted in GTK's visual orientation:
+100% is at the top and 0% at the bottom. Their numeric values and
+persisted settings have not changed.
+
+RX playback starts independently of TX microphone capture. A missing
+capture device or failed capture worker must not prevent listening. If
+the speaker fwdsp worker is unavailable, the client keeps the audio
+mixers running and retries the playback endpoint.
+
+Before explicit `-R` endpoint clocks, some saved GStreamer device
+pipelines did not include `processor-device-caps`. For the standard
+named `processor-speaker` pulsesink or `processor-mic` pulsesrc,
+fwdsp now inserts this capsfilter into the *in-memory GStreamer graph*
+before starting playback/capture. Custom device graphs without known
+device endpoints still require explicit rate caps; no stored pipeline
+strings are rewritten.
