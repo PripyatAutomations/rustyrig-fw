@@ -265,7 +265,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       double node_x = routing_node_x(node);
       double x = node->type == RR_AG_MIXER ?
          node_x + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : node_x + 12.;
-      if (graph_missing_since[i]) continue;
+      if (graph_missing_since[i] || node->read_only) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = 80 + (channel ? 79 : 60);
          double db = CLAMP(node->port_gain_db[channel],
@@ -292,7 +292,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
 
    /* Temporary wire preview while dragging an RX output or mixer input. */
    if (graph_drag_channel >= 0) {
-      double x = graph_drag_mixer ? 355.0 : 25.0 + RR_GTK_GRAPH_NODE_W;
+      double x = 25.0 + RR_GTK_GRAPH_NODE_W;
+      if (graph_drag_mixer && graph_drag_source < 0 &&
+          (guint)(-graph_drag_source - 1) < g->node_count)
+         x = routing_node_x(&g->nodes[-graph_drag_source - 1]);
       double y = 80.0;
 
       if (!graph_drag_mixer && graph_drag_source >= 0) {
@@ -594,13 +597,13 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
    }
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
-      if (graph_missing_since[i] || graph_snapshot->nodes[i].type != RR_AG_MIXER || strcmp(graph_snapshot->nodes[i].id, "rx.mix")) {
+      const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      if (graph_missing_since[i] || node->type != RR_AG_MIXER)
          continue;
-      }
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (hypot(x - 355, y - 80 - (ch ? 79 : 60)) <= radius) {
-            *source = -1;
+         if (hypot(x - routing_node_x(node), y - 80 - (ch ? 79 : 60)) <= radius) {
+            *source = -(gint)i - 1;
             *channel = ch;
             *mixer = TRUE;
 
@@ -851,11 +854,19 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) && graph_port_at(gx, gy, &target, &channel, &mixer);
 
    if (graph_drag_moved && hit && channel == graph_drag_channel) {
-      /* The executable mixer currently accepts matched L/R RX inputs only. */
-      if (graph_drag_mixer && target >= 0) {
-         graph_set_channel((guint) target, channel, TRUE);
-      } else if (!graph_drag_mixer && mixer && graph_drag_source >= 0) {
-         graph_set_channel((guint) graph_drag_source, channel, TRUE);
+      /* Input connections are editable within their current clock domain.
+       * Moving a source to a different bus requires an explicit conversion
+       * node and is not silently emulated by changing its ear route. */
+      gint mixer_index = graph_drag_mixer ? -graph_drag_source - 1 : -target - 1;
+      gint source_index = graph_drag_mixer ? target : graph_drag_source;
+      if (mixer_index >= 0 && source_index >= 0 &&
+          (guint)mixer_index < graph_snapshot->node_count &&
+          (guint)source_index < graph_snapshot->node_count) {
+         const rr_ag_view_node_t *bus = &graph_snapshot->nodes[mixer_index];
+         const rr_ag_view_node_t *input = &graph_snapshot->nodes[source_index];
+         const gboolean hq_source = input->downstream_rate_hz > 16000;
+         if (!strcmp(bus->id, hq_source ? "hq.mix" : "rx.mix"))
+            graph_set_channel((guint)source_index, channel, TRUE);
       }
    } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0) {
       unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
