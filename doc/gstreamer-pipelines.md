@@ -1,7 +1,8 @@
 # GStreamer pipeline editor
 
-The GTK client’s **Config → Edit Pipelines…** button opens `rrpipelines`, a
-standalone GTK3 graph editor. It uses GStreamer’s installed element registry
+The GTK client’s **Config → Edit Pipelines…** button opens the embedded
+**Audio Routing → Pipelines** tab. The editor source is shared with the
+optional standalone `rrpipelines` compatibility executable. It uses GStreamer’s installed element registry
 and GObject property interfaces, so the toolbox and property panel reflect the
 plugins available on that machine.
 
@@ -15,8 +16,12 @@ queue and a chosen sink to a selected tee. The editor validates edited launch
 strings with GStreamer before writing any JSON. The client then updates its
 in-memory configuration; use **Save Config** to persist it.
 
-The executable accepts one JSON object on stdin and writes one JSON object on
-stdout only after **Apply**. Canceling or closing the window writes nothing.
+The embedded editor receives a JSON configuration snapshot in memory and
+calls the existing GTK Config validation and merge path on **Apply**.
+This does not hot-swap active DSP worker pipelines; save settings and
+reopen the relevant endpoint to apply the updated definition.
+For compatibility, the standalone executable still accepts a JSON object
+on stdin and writes one JSON object to stdout after **Apply**.
 The `pipelines` member is an indexed object, not an array, so it round-trips
 through librustyaxe’s dotted-key JSON API without changing identifier strings:
 
@@ -47,12 +52,23 @@ instead of being returned as success.
 
 ## Audio Routing integration
 
-The GTK Audio Routing workspace now provides **Routing** and **Pipelines**
-tabs. The Pipelines tab initially lists configured definitions and lets
-operators inspect a mapped pipeline with the existing isolated read-only
-`rrpipelines` viewer. Double-click a mapped pipeline entry to focus its
-logical endpoint on the Routing tab; double-click the endpoint in Routing
-to select that pipeline. An actual embedded editable pipeline graph, live
-worker topology snapshots, and bidirectional per-element navigation remain
-planned. The standalone Config editor is retained until equivalent editing,
-validation and apply behavior exists in the integrated tab.
+The GTK Audio Routing floating workspace now has **Routing** and
+**Pipelines** tabs. The Pipelines tab contains the actual in-process
+GStreamer graph editor, element registry toolbox, property controls, link
+editor, and Apply action. It no longer spawns `rrpipelines` from rrclient.
+
+Double-click a pipeline-backed node in Routing to switch tabs and select
+that configured pipeline. Double-click a GStreamer element in a mapped
+pipeline to return to the owning Routing block. Not every element has
+a corresponding logical RX block; unrelated elements are left in the
+Pipelines view. The focus mapping currently covers client microphone
+`src.client.dsp0` and stereo speaker `sink.client.mix`.
+
+The editor is *in the GTK process*, but the DSP execution and audio
+streaming remain in external fwdsp workers. Editing a configured launch
+string is not equivalent to modifying a live GStreamer graph. Live
+DSP topology snapshots, transactional hot-edit support, automatic AF
+pipeline generation and stable element-to-logical-route identities
+remain separate follow-up work. GTK builds compiled without GStreamer
+show a clear unavailability message rather than requiring new dependencies
+from the TUI or server.
