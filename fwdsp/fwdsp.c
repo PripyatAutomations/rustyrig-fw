@@ -976,7 +976,9 @@ static void run_loop(struct audio_config *cfg) {
          if (record_encoded_sink) gst_object_unref(record_encoded_sink);
          if (hub_sink) gst_object_unref(hub_sink);
          cleanup_pipeline(&pipeline);
-         return;
+         /* A malformed explicit PCM contract is a configuration error, not
+          * a successful shutdown or a recoverable device underrun. */
+         exit(EXIT_FAILURE);
       }
       GstCaps *processor_input_caps = processor_mode && appsrc ? gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
       bool processor_input_ok = !appsrc
