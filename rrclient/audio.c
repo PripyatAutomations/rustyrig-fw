@@ -1149,6 +1149,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                node->dropped_frames = bridge.dropped_frames;
                node->starvation_events = bridge.starvation_events;
             }
+            for (unsigned ch = 0; ch < 2; ch++)
+               node->input_gain_db[ch] = rr_audio_engine_input_gain_get(
+                  hq_engine, HQ_BUS_LEGACY_ID, ch);
             continue;
          }
          if (node->type == RR_AG_MIXER) {
@@ -1205,6 +1208,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                node->dropped_frames = legacy.dropped_frames;
                node->starvation_events = legacy.starvation_events;
             }
+            for (unsigned ch = 0; ch < 2; ch++)
+               node->input_gain_db[ch] = rr_audio_engine_input_gain_get(
+                  rx_engine, node->id, ch);
             continue;
          }
          if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
@@ -1387,11 +1393,13 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
              req->channel > 1 || !isfinite(req->gain_db) ||
              req->gain_db < -60. || req->gain_db > 12.) break;
          bool sink_input = !strcmp(req->stream, "sink.client.dsp0");
-         if (!sink_input && strcmp(req->stream, "rx.mix")) break;
-         rr_audio_engine_t *owner = sink_input ? hq_engine : rx_engine;
+         bool hq_mix = !strcmp(req->stream, "hq.mix");
+         if (!sink_input && !hq_mix && strcmp(req->stream, "rx.mix")) break;
+         rr_audio_engine_t *owner = sink_input || hq_mix ? hq_engine : rx_engine;
          if (rr_audio_engine_port_gain(owner, sink_input, req->channel, req->gain_db)) {
             char *key = g_strdup_printf("audio.graph.port.%s.%c",
-               sink_input ? "sink" : "mix", req->channel ? 'R' : 'L');
+               sink_input ? "sink" : hq_mix ? "hq" : "mix",
+               req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
             g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
             rrclient_database_setting_set(key, val);
@@ -1404,6 +1412,8 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
              req->channel > 1 || !isfinite(req->gain_db) ||
              req->gain_db < -60.0 || req->gain_db > 12.0) break;
          const char *id = req->stream;
+         if (!strcmp(id, "rx16.resample"))
+            id = HQ_BUS_LEGACY_ID;
          if (!strcmp(id, RECORDING_PLAYBACK_ID))
             id = req->channel ? RECORDING_PLAYBACK_R : RECORDING_PLAYBACK_L;
          rr_audio_engine_t *owner = audio_stream_engine(id);
@@ -1540,6 +1550,8 @@ bool audio_init(void) {
       fwdsp_processor_stop("sink.client.dsp0");
       return true;
    }
+   audio_input_gain_load(hq_engine, HQ_BUS_LEGACY_ID);
+   audio_input_gain_load(rx_engine, "legacy.speaker");
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
    /* Older decoder and PCM-hub paths still supply 16 kHz stereo frames.
     * Keep their speaker feed registered with the low-rate bus. */
@@ -1562,17 +1574,18 @@ bool audio_init(void) {
    double right_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_L, 1, left_db);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_R, 0, right_db);
-   for (unsigned stage = 0; stage < 2; stage++) {
+   for (unsigned stage = 0; stage < 3; stage++) {
       for (unsigned ch = 0; ch < 2; ch++) {
          char *key = g_strdup_printf("audio.graph.port.%s.%c",
-                                    stage ? "sink" : "mix", ch ? 'R' : 'L');
+                                    stage == 2 ? "sink" : stage == 1 ? "hq" : "mix",
+                                    ch ? 'R' : 'L');
          char *saved = rrclient_database_setting_get(key);
          if (saved && *saved) {
             char *end = NULL;
             double db = g_ascii_strtod(saved, &end);
             if (end != saved && !*end)
                rr_audio_engine_port_gain(stage ? hq_engine : rx_engine,
-                                         stage != 0, ch, db);
+                                         stage == 2, ch, db);
          }
          g_free(saved);
          g_free(key);
