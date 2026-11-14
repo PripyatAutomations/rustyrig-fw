@@ -1231,7 +1231,7 @@ bool fwdsp_audio_resampler_start_to(const char *name,
       "appsink name=processor-sink sync=false max-buffers=8 drop=true",
       input_rate_hz, output_rate_hz);
    return fwdsp_audio_endpoint_start(name, pipeline,
-                                     FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user);
+                                     FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user, 0);
 }
 bool fwdsp_audio_resampler_start(const char *name, unsigned rate,
                                   fwdsp_processor_output_cb output_cb, void *user) {
