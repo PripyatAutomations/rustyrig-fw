@@ -164,6 +164,22 @@ with tempfile.TemporaryDirectory() as temp:
             f"HQ device PCM payload was changed by -R {rate}")
         hq_path.unlink()
 
+    # Capture uses the device clock before downsampling to legacy 16 kHz.
+    # The framed appsink must never start emitting 44.1 kHz radio PCM.
+    hq_capture = (
+        "audiotestsrc num-buffers=1 samplesperbuffer=882 do-timestamp=true ! "
+        "audioconvert ! "
+        "capsfilter name=processor-device-caps caps=audio/x-raw,rate=48000 ! "
+        "audioresample ! "
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
+        "appsink name=processor-sink emit-signals=false sync=false "
+        "max-buffers=8 drop=false"
+    )
+    result = run_fwdsp(work, config, hq_capture, mode="capture",
+                       device_rate=44100)
+    assert len(result.stdout) >= 4, "HQ capture produced no legacy PCM"
+    assert int.from_bytes(result.stdout[:4], "big") % 2 == 0
+
     # Device rate arguments are never accepted for ordinary codec/transform
     # workers, or silently ignored when the required capsfilter is missing.
     config_path.write_text(config)
