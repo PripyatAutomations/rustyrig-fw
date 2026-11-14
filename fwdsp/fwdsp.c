@@ -880,10 +880,11 @@ static GstElement *processor_legacy_device_filter(GstElement *pipe) {
    GstPad *peer = device_pad ? gst_pad_get_peer(device_pad) : NULL;
    GstElement *filter = NULL;
    GstPad *in_pad = NULL, *out_pad = NULL;
-   gboolean ok = FALSE;
+   gboolean ok = FALSE, added = FALSE;
    if (peer) {
       filter = gst_element_factory_make("capsfilter", "processor-device-caps");
       if (filter && gst_bin_add(GST_BIN(pipe), filter)) {
+         added = TRUE;
          in_pad = gst_element_get_static_pad(filter, "sink");
          out_pad = gst_element_get_static_pad(filter, "src");
          if (in_pad && out_pad) {
@@ -910,7 +911,8 @@ static GstElement *processor_legacy_device_filter(GstElement *pipe) {
    if (device_pad) gst_object_unref(device_pad);
    gst_object_unref(device);
    if (!ok) {
-      if (filter) gst_object_unref(filter);
+      /* gst_bin_remove() released the bin's ownership if added. */
+      if (filter && !added) gst_object_unref(filter);
       return NULL;
    }
    Log(LOG_INFO, "fwdsp",
