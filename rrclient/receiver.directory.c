@@ -1648,7 +1648,7 @@ void receiver_directory_shutdown(void) {
    rrclient_receiver_catalog_shutdown();
 
    if (learn_source) {
-      g_source_remove(learn_source);
+      rrclient_core_source_cancel(&learn_source);
       learn_source = 0;
    }
 
@@ -1657,7 +1657,7 @@ void receiver_directory_shutdown(void) {
    }
 
    if (completion_source) {
-      g_source_remove(completion_source);
+      rrclient_core_source_cancel(&completion_source);
       completion_source = 0;
    }
 
