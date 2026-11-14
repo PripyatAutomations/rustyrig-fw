@@ -52,6 +52,8 @@ typedef struct { double x, y; gboolean pinned; } routing_position_t;
 static GHashTable *graph_positions;
 static gint graph_node_drag = -1;
 static double graph_node_drag_x, graph_node_drag_y;
+static double graph_node_press_x, graph_node_press_y;
+static gboolean graph_node_moved;
 #define GRAPH_LAYOUT_GAP_X 205.0
 #define GRAPH_LAYOUT_GAP_Y 143.0
 #define GRAPH_LAYOUT_MARGIN 28.0
@@ -920,16 +922,9 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 
       return TRUE;
    }
-   guint linked_source = 0;
-   gint linked_channel = -1;
-
-   if (graph_link_at(gx, gy, &linked_source, &linked_channel)) {
-      graph_set_channel(linked_source, linked_channel, FALSE);
-      return TRUE;
-   }
-
-   /* Click and drag a block by its body or title. Port and trim gestures
-    * above take precedence; dragging a block changes the view only. */
+   /* Node movement wins over links crossing a block's body. Port and
+    * trim gestures still take precedence; link clicks only occur outside
+    * blocks to avoid unexpectedly disconnecting audio. */
    for (gint i = (gint)graph_snapshot->node_count - 1; i >= 0; i--) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       double nx = routing_node_x(n), ny = routing_node_y(n);
@@ -938,9 +933,19 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
          graph_node_drag = i;
          graph_node_drag_x = gx - nx;
          graph_node_drag_y = gy - ny;
+         graph_node_press_x = gx;
+         graph_node_press_y = gy;
+         graph_node_moved = FALSE;
          return TRUE;
       }
    }
+   guint linked_source = 0;
+   gint linked_channel = -1;
+   if (graph_link_at(gx, gy, &linked_source, &linked_channel)) {
+      graph_set_channel(linked_source, linked_channel, FALSE);
+      return TRUE;
+   }
+
    return FALSE;
 }
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
@@ -959,7 +964,9 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
    if (graph_node_drag >= 0 && (guint)graph_node_drag < graph_snapshot->node_count) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
       routing_position_t *pos = routing_position(n->id);
-      if (pos) {
+      if (hypot(gx - graph_node_press_x, gy - graph_node_press_y) > 3.)
+         graph_node_moved = TRUE;
+      if (pos && graph_node_moved) {
          pos->x = CLAMP(gx - graph_node_drag_x, 0., 100000.);
          pos->y = CLAMP(gy - graph_node_drag_y, 0., 100000.);
          graph_canvas_update_size();
@@ -982,12 +989,13 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
       if (graph_snapshot && (guint)graph_node_drag < graph_snapshot->node_count) {
          const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
          routing_position_t *pos = routing_position(n->id);
-         if (pos) {
+         if (pos && graph_node_moved) {
             pos->pinned = TRUE;
             routing_position_save(n->id, pos);
          }
       }
       graph_node_drag = -1;
+      graph_node_moved = FALSE;
       graph_canvas_update_size();
       return TRUE;
    }
