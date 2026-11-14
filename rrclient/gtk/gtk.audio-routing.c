@@ -1054,7 +1054,12 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
 
-   return FALSE;
+   /* Empty-space left drag pans like qpwgraph; occupied controls retain
+    * their own gesture precedence above. */
+   graph_pan_dragging = TRUE;
+   graph_pan_begin_x = event->x; graph_pan_begin_y = event->y;
+   graph_pan_base_x = graph_pan_x; graph_pan_base_y = graph_pan_y;
+   return TRUE;
 }
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
    (void)widget;
@@ -1353,6 +1358,8 @@ static void routing_auto_layout_clicked(GtkButton *button, gpointer unused) {
    /* Clear user pins and re-center every active and transient block using
     * the current clock-domain topology. Does not alter audio routing. */
    graph_node_drag = -1;
+   graph_pan_x = graph_pan_y = 0.;
+   graph_wheel_zoom = 1.;
    routing_layout_auto(TRUE);
    graph_canvas_update_size();
 }
