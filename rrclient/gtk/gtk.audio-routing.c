@@ -537,12 +537,15 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
                          n->type == RR_AG_MIXER ? "Mix bus" : "Processor";
       gchar *details = g_strdup_printf(
          "%s (%s)\nPCM: %s, %u channel(s), %s%s\n"
-         "Output clock: %s\nSample-rate conversion: %s\n"
+         "Output clock: %s%s\nSample-rate conversion: %s\n"
          "Mixer queue: %u ms\nDropped: %" G_GUINT64_FORMAT
          " frames\nStarvation/rebuffers: %" G_GUINT64_FORMAT "%s",
          n->id, type, from, (unsigned)n->channels, format,
-         n->rate_requested ? " (requested, not measured)" : "",
+         n->rate_requested && n->type == RR_AG_SOURCE ?
+            " (requested, not measured)" : "",
          n->downstream_rate_hz ? to : "not specified",
+         n->rate_requested && n->type == RR_AG_SINK ?
+            " (requested, not measured)" : "",
          n->resampling ? "active" : "none or not known",
          n->queued_ms, n->dropped_frames, n->starvation_events,
          n->read_only ? "\nRead-only topology" : "");
