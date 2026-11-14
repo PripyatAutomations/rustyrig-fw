@@ -851,7 +851,7 @@ static bool processor_pcm_caps_rate(GstCaps *caps, bool native_rate, bool stereo
           (channels == 1 || (stereo && channels == 2)) &&
           /* High-quality playback is stereo only; mono codec/rig endpoints
            * retain their original 16 kHz framing contract. */
-          (rate == 16000 || channels == 2);
+          (native_rate || rate == 16000 || channels == 2);
 }
 
 static bool processor_pcm_caps(GstCaps *caps, bool resampler_output) {
