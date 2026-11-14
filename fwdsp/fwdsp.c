@@ -1575,7 +1575,7 @@ int main(int argc, char *argv[]) {
          }
          case 'h':
          default: {
-            fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-T [-M auto|process|capture|playback] [-P namespace.name]] [-H] [-t]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-T [-M auto|process|capture|playback] [-P namespace.name] [-R 44100|48000]] [-H] [-t]\n", argv[0]);
             fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
             fprintf(stderr, "  -p\t\t\tPipeline selected by the parent (overrides config/defaults)\n");
