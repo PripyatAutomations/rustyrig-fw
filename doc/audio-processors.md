@@ -60,6 +60,16 @@ currently has one active encoder format for its listeners.
 
 ## Audio Routing graph and per-pin gains
 
+Audio Routing now opens as a **full-size main-content tool page**, rather
+than a floating window. The top toolbar's Audio Routing button toggles
+that page and returns to the previous content tab. Its page is hidden
+from the main tab strip, as with the Admin and Config tools. The internal
+**Routing** and **Pipelines** tabs remain available. The floating title
+bar, close/minimize/resize buttons, and floating-panel zoom controls are
+not used here; use the existing mouse wheel, touchpad or keyboard zoom
+commands and canvas panning instead.
+
+
 Source output sockets are filled circles; input sockets are hollow,
 heavy outlined rings. Connections terminate in arrows pointing into
 their receiving sockets. A dragged connection follows the pointer until
