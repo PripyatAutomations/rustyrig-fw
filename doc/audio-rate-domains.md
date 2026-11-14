@@ -142,7 +142,8 @@ The source AF waterfall is filled ahead of the listening-gain and physical
 speaker paths. If its trace moves but no sound is audible, check the
 `audio.playback` log entries emitted every 10 seconds when the source or
 the downstream mixer has signal. The counters distinguish incoming decoded
-non-silent PCM, non-silent legacy and HQ mixer blocks, successfully framed
+non-silent PCM, explicitly muted RX stream blocks (whose AF waterfall may
+still be active), non-silent legacy and HQ mixer blocks, successfully framed
 speaker writes, and failed writes. They also show the current ear volumes,
 fwdsp gain and whether the duplicated speaker descriptor is attached.
 A moving waterfall alone never proves the speaker endpoint is healthy.
