@@ -1,5 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Embed the existing rrpipelines GTK graph and property editor directly in
+    Audio Routing → Pipelines; route Config → Edit Pipelines to the new tab.
+    Keep GStreamer execution in fwdsp workers and reuse validated config
+    application. Double-click mapped blocks/elements to cross-focus tabs.
   * Start integrating Audio Routing and GStreamer pipeline management into
     Routing and Pipelines tabs; support logical endpoint cross-focus and a
     read-only configured-pipeline list while retaining isolated rrpipelines.
