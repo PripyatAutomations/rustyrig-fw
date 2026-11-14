@@ -1526,20 +1526,24 @@ bool audio_init(void) {
    speaker_retry = 0;
    g_mutex_init(&rx_sink_lock);
    rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
-   rx_engine = rr_audio_engine_new(rx_sink_output, NULL);
-
-   if (!rx_engine || !rr_audio_engine_start(rx_engine)) {
-      Log(LOG_CRIT, "audio", "Unable to start independent client RX mixer");
-
-      if (rx_engine) {
-         rr_audio_engine_free(rx_engine);
-         rx_engine = NULL;
-      }
+   /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds
+    * a single stereo 16->HQ converter at its input. HQ demodulators are
+    * admitted directly to this bus without first losing bandwidth at 16k. */
+   hq_engine = rr_audio_engine_new_rate(audio_hq_output_rate(), rx_sink_output, NULL);
+   const rr_pcm_stream_format_t low_bus_format = {16000, 2, RR_PCM_S16LE};
+   bool hq_ok = hq_engine &&
+      rr_audio_engine_add_stream_format(hq_engine, HQ_BUS_LEGACY_ID, &low_bus_format) &&
+      rr_audio_engine_start(hq_engine);
+   if (hq_ok)
+      rx_engine = rr_audio_engine_new(rx_low_bus_output, NULL);
+   if (!hq_ok || !rx_engine || !rr_audio_engine_start(rx_engine)) {
+      Log(LOG_CRIT, "audio", "Unable to start 16 kHz and HQ client mixing buses");
+      if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
+      if (hq_engine) { rr_audio_engine_free(hq_engine); hq_engine = NULL; }
       rx_sink_set_fd(-1);
       g_mutex_clear(&rx_sink_lock);
       fwdsp_processor_stop("src.client.dsp0");
       fwdsp_processor_stop("sink.client.dsp0");
-
       return true;
    }
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
@@ -1569,21 +1573,23 @@ bool audio_init(void) {
             char *end = NULL;
             double db = g_ascii_strtod(saved, &end);
             if (end != saved && !*end)
-               rr_audio_engine_port_gain(rx_engine, stage != 0, ch, db);
+               rr_audio_engine_port_gain(stage ? hq_engine : rx_engine,
+                                         false, ch, db);
          }
          g_free(saved);
          g_free(key);
       }
    }
-   rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
-   rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
+   rr_audio_engine_gain(hq_engine, 0, rx_channel_volume[0]);
+   rr_audio_engine_gain(hq_engine, 1, rx_channel_volume[1]);
    GSource *maintenance = g_timeout_source_new_seconds(10);
    g_source_set_callback(maintenance, rx_engine_maintenance, NULL, NULL);
    g_source_attach(maintenance, rrclient_core_context());
    rx_maintenance_source = maintenance;
    audio_enabled = true;
    gst_active = true;
-   Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
+   Log(LOG_INFO, "audio", "Client AF buses ready: RX 16 kHz -> HQ %u Hz -> sink.client.dsp0; mic device -> 16 kHz TX",
+       rr_audio_engine_sample_rate(hq_engine));
 
    return false;
 }
@@ -1659,8 +1665,8 @@ bool audio_set_rx_channel_volume(unsigned channel, int percent) {
    percent = CLAMP(percent, 0, 100);
    rx_channel_volume[channel] = percent;
 
-   if (rx_engine) {
-      rr_audio_engine_gain(rx_engine, channel, percent);
+   if (hq_engine) {
+      rr_audio_engine_gain(hq_engine, channel, percent);
    }
    dict_add_int(cfg, channel ? "audio.volume.rx.right" : "audio.volume.rx.left", percent);
 
@@ -1732,9 +1738,15 @@ void ws_audio_shutdown(void) {
       rx_maintenance_source = NULL;
    }
 
+   /* Stop the producer bus before the HQ consumer to prevent a callback
+    * attempting to enqueue into an already freed output engine. */
    if (rx_engine) {
       rr_audio_engine_free(rx_engine);
       rx_engine = NULL;
+   }
+   if (hq_engine) {
+      rr_audio_engine_free(hq_engine);
+      hq_engine = NULL;
    }
    rx_sink_set_fd(-1);
    g_mutex_clear(&rx_sink_lock);
