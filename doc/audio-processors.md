@@ -79,3 +79,16 @@ snapshot from the running fwdsp worker and send validated edit transactions
 through the worker's control channel. Do not pretend the configured launch
 string alone is the live graph, and do not load arbitrary GStreamer plugins
 into rrclient's GTK process just to render that tab.
+
+## Client sound-device rate selection
+
+The stock rrclient microphone and stereo playback GStreamer pipelines request
+48 kHz in `auto` mode, or the separately configured 44.1/48 kHz device rate.
+This rate is at the physical PulseAudio/PipeWire boundary; the current framed
+PCM hub stays at 16 kHz S16LE. The Audio Routing window shows the requested
+rate and the separate TX microphone endpoint, without suggesting the capture
+endpoint is an RX mixer input. Custom pipelines remain manually configurable.
+
+See [audio sample-rate domains](audio-rate-domains.md) and the
+[editable diagram](audio-rate-domains.svg) for implemented signal paths and
+the future per-rate bus / automatic GStreamer pipeline design.
