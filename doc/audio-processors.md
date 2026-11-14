@@ -92,3 +92,24 @@ endpoint is an RX mixer input. Custom pipelines remain manually configurable.
 See [audio sample-rate domains](audio-rate-domains.md) and the
 [editable diagram](audio-rate-domains.svg) for implemented signal paths and
 the future per-rate bus / automatic GStreamer pipeline design.
+
+## Tabbed Audio Routing workspace (first integration step)
+
+The GTK Audio Routing floating panel has **Routing** and **Pipelines** tabs.
+Routing keeps the existing editable PCM route graph and profiles; Pipelines
+lists configured `pipeline:*` definitions and displays their launch strings.
+Double-click a mapped playback or capture endpoint in Routing to select
+its definition under Pipelines. Double-click the corresponding Pipelines
+list row to return to the highlighted logical endpoint in Routing.
+The *Inspect in isolated pipeline viewer* action launches the existing
+read-only `rrpipelines` tool for mapped endpoints. This first integration
+step does not embed the editor or mutate live fwdsp pipelines.
+
+The next step is to rehost the editor's graph/model behind a controlled
+interface in the Pipelines tab, preserving process isolation and sending
+validated edit transactions through the worker control channel. A pipeline
+view should map runtime element and pad identities back to their owning
+logical Routing node. A double click on an element with a matching logical
+owner should focus that node; unrelated elements must not create fictitious
+RX routes. The Config Edit Pipelines action remains available until the
+integrated editor supports equivalent validation and apply semantics.
