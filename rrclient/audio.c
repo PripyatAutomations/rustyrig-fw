@@ -1166,13 +1166,18 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                rx_engine, RECORDING_PLAYBACK_R, 1);
             continue;
          }
-         rr_pcm_stream_format_t actual = {0};
-         if (rr_audio_engine_stream_format(rx_engine, node->id, &actual)) {
-            node->rate_hz = actual.sample_rate_hz;
-            node->downstream_rate_hz = rr_audio_engine_sample_rate(rx_engine);
-            node->channels = actual.channels;
-            node->sample_format = actual.format;
-            node->resampling = node->rate_hz != node->downstream_rate_hz;
+         rr_audio_stream_status_t status = {0};
+         if (rr_audio_engine_stream_status(rx_engine, node->id, &status)) {
+            node->rate_hz = status.source.sample_rate_hz;
+            node->downstream_rate_hz = status.mixer_rate_hz;
+            node->channels = status.source.channels;
+            node->sample_format = status.source.format;
+            node->resampling = status.resampling;
+            node->queued_ms = status.mixer_rate_hz ?
+                              (guint32)(status.queued_frames * 1000u /
+                                        status.mixer_rate_hz) : 0;
+            node->dropped_frames = status.dropped_frames;
+            node->starvation_events = status.starvation_events;
          }
          for (unsigned channel = 0; channel < 2; channel++)
             node->input_gain_db[channel] = rr_audio_engine_input_gain_get(
