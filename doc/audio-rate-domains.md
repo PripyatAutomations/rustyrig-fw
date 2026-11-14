@@ -1,72 +1,100 @@
 # Client audio sample-rate domains
 
-## Current implementation (November 2026)
+## Current implementation: two client playback buses (November 2026)
 
-The client can request **Auto (48 kHz preferred)**, **44.1 kHz** or **48 kHz**
-separately for its microphone and playback device:
+The sound-card-facing **HQ output mix** runs at either 44.1 or 48 kHz,
+controlled by `audio.playback-rate` (`auto` prefers 48 kHz).
+A second, separate **legacy 16 kHz stereo bus** preserves the existing
+radio decoder, modem, recording and 16 kHz AF-analysis interfaces.
+Its *mixed stereo output* passes through a single producer-side
+band-limited 16-to-HQ sample-rate converter before joining the HQ bus.
+High-rate local SDR/broadcast sources enter the HQ mixer directly rather
+than being reduced to 16 kHz first. This preserves their playback
+bandwidth; it does **not** change the network codec list.
+
+```text
+16 kHz radio / Kiwi / modem / legacy recording playback
+                  |                                 local 44.1/48k sources
+                  v                                         |
+         [rx.mix — 16 kHz stereo]                           |
+                  |                                         |
+        [rx16.resample — 16 to HQ]                          |
+                  |                                         |
+                  +--------------------+--------------------+
+                                       |
+                          [hq.mix — 44.1/48 kHz stereo]
+                                       |
+                          [sink.client.dsp0 fwdsp]
+                                       |
+                         [sound card — 44.1/48 kHz]
+
+[sound card microphone — 44.1/48 kHz]
+                 |
+      [src.client.dsp0 fwdsp]
+       audioresample + downmix
+                 |
+      [16 kHz mono — TX/DCC/codec]
+```
+
+The client uses two independent `rr_audio_engine` mixer clocks, with
+20 ms processing blocks and bounded queues. Neither clock runs in the GTK
+thread. Both use S16LE for their current PCM processing contracts; a
+native floating-point internal mix and clock-drift compensation remain
+future work. Source resampling is band-limited and performed on its
+producer side, not inside the output mixing deadline.
+
+### Device endpoint sample-rate API
 
 ```ini
 audio.capture-rate=auto
 audio.playback-rate=auto
 ```
 
-These settings affect the PulseAudio/PipeWire-facing endpoints in the stock
-`src.client.dsp0` and `sink.client.mix` GStreamer pipelines. Use the Config
-interface or `/set` and save normally. Restart rrclient to reopen both
-endpoints at new rates. Custom pipeline strings stay authoritative; edit
-their caps manually when a different device rate is needed.
+The client passes explicit 44100/48000 rates through
+`fwdsp_audio_capture_start_rate()` and
+`fwdsp_audio_playback_start_rate()`. The manager forwards `-R RATE`
+to the isolated fwdsp worker. Within fwdsp, `-R` sets the named
+`processor-device-caps` GStreamer capsfilter at the device boundary;
+for playback it also sets `processor-src` appsrc PCM caps to the *same
+rate*. Capture's codec-facing `processor-sink` continues returning
+16 kHz mono PCM. **No launch-string manipulation is required by rrclient.**
 
-**Important:** the current RustyRig PCM mixer, network codec endpoints,
-fwdsp framing, legacy AF analysis and recording taps have **not** been
-converted to 48 kHz float PCM. They remain 16 kHz S16LE in the paths documented
-by `doc/audio-processors.md`. The GStreamer boundary converts the audio
-between that contract and the preferred sound-device rate. A 48 kHz output
-does not restore audio frequencies missing from a narrowband source.
+Custom pipelines used with `-R` need an actual named device capsfilter.
+Missing filters are treated as configuration errors rather than silently
+accepting a potentially misclocked stream. The old `fwdsp_audio_*_start()`
+APIs without explicit rates remain available to older callers. The
+`-R` flag is accepted only in capture/playback processor mode, never for
+codec, resampler or general process workers.
 
-The Audio Routing graph shows `rx.mix` as the current 16 kHz bus, the
-`sink.client.dsp0` playback endpoint with the *requested* device rate,
-and the independent `src.client.dsp0` capture endpoint. Microphone capture
-is read-only in the RX routing graph; it is **not** an RX mixer input.
-Requested rate is not a measurement of the sound card's actual negotiated
-rate. The display must not imply otherwise.
+### Audio Routing and diagnostics
 
-### Current signal paths
+The graph shows `rx.mix`, `rx16.resample`, `hq.mix`, the final
+`sink.client.dsp0`, independent `src.client.dsp0` microphone capture,
+and the actual active playback sources. HQ sources link directly into
+`hq.mix`. The rate-converter and HQ mixer are read-only topology
+nodes for now; existing source gains, L/R routes and stereo speaker
+trims remain editable on their owning mixer.
 
-```mermaid
-flowchart LR
-    A[Remote radios / KiwiSDR] --> B[Decode / per-source conversion]
-    B --> C[RX bus: 16 kHz S16LE stereo]
-    C --> D[Playback fwdsp: audioresample]
-    D --> E[PulseAudio / PipeWire: 44.1 or 48 kHz requested]
-    F[PulseAudio / PipeWire microphone: 44.1 or 48 kHz requested] --> G[Capture fwdsp: audioresample]
-    G --> H[16 kHz S16LE microphone PCM]
-    H --> I[Negotiated TX encoder / radio]
-```
+The graph's node details and hover properties show source PCM rate,
+channels, S16LE/F32LE input representation, destination rate, queued
+milliseconds, dropped frames and starvation/rebuffer counts. The HQ
+worker logs its own 10-second health counters independently from the
+16 kHz worker. Sound-card figures are still **requested**, not verified
+hardware negotiation results: a later fwdsp caps snapshot will report
+the actual negotiated rate and clock domain.
 
-See [audio rate domain diagram](audio-rate-domains.svg) for the source graphic.
+### Recording and AF bandwidth
 
-## Running source-format and converter telemetry
+The existing recorder and AF output spectrum taps continue to sample
+`rx.mix` at 16 kHz, preserving the legacy recording format and modem
+behavior. **Direct-to-HQ sources are not yet included in that legacy
+pre-gain tap.** A separate rate-aware capture/recording tap is needed
+before those sources can be recorded along with the entire audible HQ
+mix. Do not relabel current recording as full-HQ stereo capture.
 
-The existing `rr_audio_engine` already accepts S16LE/F32LE mono/stereo
-sources at independently registered rates (8–192 kHz), but its currently
-deployed RX mix clock remains **16 kHz S16LE stereo**. For a mismatched
-source rate, the engine performs band-limited producer-side conversion
-into bounded 16 kHz queues; it does not resample on the mixer thread.
-
-The core now snapshots each registered source's format and conversion
-state under the mixer lock, together with queued frames (reported as
-milliseconds at the mixer clock), cumulative dropped frames and
-starvation/rebuffer events. Audio Routing displays actual registered
-source rates and SRC state, and places `Q`, `D` and `U` readouts under
-source controls. The hardware boundary figures remain explicitly marked
-**requested**: they are configuration values, not probed/negotiated caps.
-Unregistered or unavailable source formats should display *unknown*,
-not an inferred radio codec sample rate.
-
-These are diagnostics for the **existing** per-source conversion and core
-mix bus, not evidence that future native-rate multi-source buses have
-already been created. A bus should only appear in Routing after a real
-corresponding engine exists.
+See [audio rate domain diagram](audio-rate-domains.svg) for a reference
+graphic. The diagram should be revised alongside the finalized
+live-mixer graph in a future design pass.
 
 ## Planned architecture: dynamic per-rate AF buses
 
