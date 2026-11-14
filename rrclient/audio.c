@@ -1048,6 +1048,20 @@ static void audio_graph_rig_label(const struct rrclient_rx_stream *stream, char 
 }
 
 /* Mirror the *existing* mixer topology; the realtime engine remains the executor until graph-driven process supervision is implemented. */
+/* Requested hardware rate is not the negotiated GStreamer caps rate.
+ * Only claim an override for the stock PulseAudio boundary shape. */
+static guint32 audio_device_rate_request(bool capture) {
+   const char *pipeline = cfg_get(capture ? "pipeline:src.client.dsp0" :
+                                             "pipeline:sink.client.mix");
+   if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink "))
+      return 0;
+   const char *rate = cfg_get(capture ? "audio.capture-rate" : "audio.playback-rate");
+   if (!rate || !strcmp(rate, "auto")) return 48000;
+   if (!strcmp(rate, "44100")) return 44100;
+   if (!strcmp(rate, "48000")) return 48000;
+   return 0;
+}
+
 static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t count) {
    rr_audio_graph_t *graph = rr_audio_graph_new();
 
@@ -1103,6 +1117,22 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       for (guint i = 0 ; i < snapshot->node_count ; ++i) {
          rr_ag_view_node_t *node = &snapshot->nodes[i];
 
+         /* Advertise the real core bus and only the requested hardware
+          * boundary rate, never an invented negotiated device rate. */
+         const guint32 mix_rate = rr_audio_engine_sample_rate(rx_engine);
+         if (node->type == RR_AG_MIXER) {
+            node->rate_hz = mix_rate;
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
+         } else if (node->type == RR_AG_SINK) {
+            node->rate_hz = mix_rate;
+            node->downstream_rate_hz = audio_device_rate_request(false);
+            node->rate_requested = node->downstream_rate_hz != 0;
+            node->resampling = node->rate_requested &&
+                               node->downstream_rate_hz != mix_rate;
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
+         }
          if (node->type == RR_AG_MIXER || node->type == RR_AG_SINK) {
             bool sink = node->type == RR_AG_SINK;
             for (unsigned ch = 0; ch < 2; ch++)
@@ -1111,6 +1141,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          }
          if (node->type != RR_AG_SOURCE) continue;
          if (!strcmp(node->id, "src.client.dsp0")) {
+            node->read_only = TRUE;
+            node->rate_hz = audio_device_rate_request(true);
+            node->downstream_rate_hz = 16000;
+            node->rate_requested = node->rate_hz != 0;
+            node->resampling = node->rate_requested && node->rate_hz != 16000;
+            node->channels = 1;
+            node->sample_format = RR_PCM_S16LE;
             const char *rate = cfg_get("audio.capture-rate");
             g_snprintf(node->rig, sizeof(node->rig), "Microphone (%s requested)",
                        !rate || !strcmp(rate, "auto") ? "48 kHz" :
@@ -1119,12 +1156,23 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             continue;
          }
          if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
+            node->rate_hz = rr_audio_engine_sample_rate(rx_engine);
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
             g_strlcpy(node->rig, "Recording Playback", sizeof(node->rig));
             node->input_gain_db[0] = rr_audio_engine_input_gain_get(
                rx_engine, RECORDING_PLAYBACK_L, 0);
             node->input_gain_db[1] = rr_audio_engine_input_gain_get(
                rx_engine, RECORDING_PLAYBACK_R, 1);
             continue;
+         }
+         rr_pcm_stream_format_t actual = {0};
+         if (rr_audio_engine_stream_format(rx_engine, node->id, &actual)) {
+            node->rate_hz = actual.sample_rate_hz;
+            node->downstream_rate_hz = rr_audio_engine_sample_rate(rx_engine);
+            node->channels = actual.channels;
+            node->sample_format = actual.format;
+            node->resampling = node->rate_hz != node->downstream_rate_hz;
          }
          for (unsigned channel = 0; channel < 2; channel++)
             node->input_gain_db[channel] = rr_audio_engine_input_gain_get(
