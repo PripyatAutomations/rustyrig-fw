@@ -20,7 +20,8 @@ static GtkWidget *routing_window, *split_rx, *ear_volume[2];
 static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
-static RRFloatPanel *graph_panel;
+/* Embedded tool page: deliberately omitted from the visible main tab strip. */
+static GtkWidget *graph_page, *graph_return_page;
 static GtkWidget *graph_canvas;
 static GtkWidget *audio_tabs, *pipeline_editor_widget;
 static char *graph_focus_id;
@@ -43,11 +44,6 @@ static void graph_canvas_update_size(void) {
    if (graph_canvas) {
       gtk_widget_queue_draw(graph_canvas);
    }
-}
-static void routing_graph_zoom(double scale, gpointer unused) {
-   (void)unused;
-   graph_zoom = scale;
-   graph_canvas_update_size();
 }
 /* Layout is GTK-owned and is never part of the executable audio graph.
  * Only user-moved positions are stored; default positions follow topology. */
@@ -1266,7 +1262,7 @@ static void graph_profile_modified(void) {
    g_free(name);
 }
 static gboolean graph_profile_confirm_replace(const char *name) {
-   GtkWidget *parent = graph_panel ? gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
+   GtkWidget *parent = graph_page ? gtk_widget_get_toplevel(graph_page) : NULL;
    GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "Replace audio preset \"%s\"?", name);
    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "This will overwrite the saved routes. The preset name remains unique.");
@@ -1343,7 +1339,7 @@ static void graph_profile_remove(GtkButton *button, gpointer unused) {
 
       return;
    }
-   GtkWidget *parent = graph_panel ? gtk_widget_get_toplevel(rr_floating_panel_widget(graph_panel)) : NULL;
+   GtkWidget *parent = graph_page ? gtk_widget_get_toplevel(graph_page) : NULL;
    GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "Remove audio profile \"%s\"?", name);
    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "The saved routing profile will be deleted. Active audio routing will not change.");
@@ -1370,31 +1366,47 @@ static void routing_auto_layout_clicked(GtkButton *button, gpointer unused) {
    routing_layout_auto(TRUE);
    graph_canvas_update_size();
 }
-static void routing_graph_close(gpointer unused) {
-   (void)unused;
-
-   if (graph_panel) {
-      rr_floating_panel_hide(graph_panel);
+/* The toolbar toggles this invisible main-notebook tool page. The page
+ * remembers the previous visible tab, without acquiring floating-panel
+ * chrome or taking a slot in the application's tab strip. */
+void gtk_audio_graph_hide(void) {
+   if (!graph_page || !GTK_IS_NOTEBOOK(main_notebook)) return;
+   GtkNotebook *book = GTK_NOTEBOOK(main_notebook);
+   if (gtk_notebook_get_nth_page(book, gtk_notebook_get_current_page(book)) != graph_page)
+      return;
+   gint index = graph_return_page ? gtk_notebook_page_num(book, graph_return_page) : -1;
+   if (index < 0) {
+      extern GtkWidget *status_tab;
+      index = status_tab ? gtk_notebook_page_num(book, status_tab) : -1;
    }
+   if (index < 0 && gtk_notebook_get_n_pages(book) > 1) index = 0;
+   if (index >= 0 && gtk_notebook_get_nth_page(book, index) != graph_page)
+      gtk_notebook_set_current_page(book, index);
+   graph_return_page = NULL;
 }
-void gtk_audio_graph_present(void) {
-   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook)) {
+void gtk_audio_graph_toggle(void) {
+   if (graph_page && GTK_IS_NOTEBOOK(main_notebook) &&
+       gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
+          gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == graph_page) {
+      gtk_audio_graph_hide();
       return;
    }
-
-   if (!graph_panel) {
-      graph_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "Audio Routing", "Audio Routing");
-
-      if (!graph_panel) {
-         return;
-      }
-      rr_floating_panel_set_close_callback(graph_panel, routing_graph_close, NULL);
-      rr_floating_panel_set_minimizable(graph_panel, FALSE);
-      rr_floating_panel_set_resizable(graph_panel, TRUE);
-      rr_floating_panel_set_zoom_callback(graph_panel, routing_graph_zoom, NULL);
-      GtkWidget *box = rr_floating_panel_body(graph_panel);
+   gtk_audio_graph_present();
+}
+void gtk_audio_graph_present(void) {
+   if (!GTK_IS_NOTEBOOK(main_notebook)) return;
+   GtkNotebook *book = GTK_NOTEBOOK(main_notebook);
+   if (!graph_page) {
+      graph_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+      gtk_widget_set_hexpand(graph_page, TRUE);
+      gtk_widget_set_vexpand(graph_page, TRUE);
+      g_object_set_data(G_OBJECT(graph_page), "rr-tab-hidden", GINT_TO_POINTER(1));
+      GtkWidget *label = gtk_label_new("Audio Routing");
+      gtk_notebook_append_page(book, graph_page, label);
+      gtk_widget_set_no_show_all(label, TRUE);
+      gtk_widget_hide(label);
       audio_tabs = gtk_notebook_new();
-      gtk_box_pack_start(GTK_BOX(box), audio_tabs, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(graph_page), audio_tabs, TRUE, TRUE, 0);
       GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), routing_page, gtk_label_new("Routing"));
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), pipeline_page_new(), gtk_label_new("Pipelines"));
@@ -1457,8 +1469,10 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(graph_canvas, "button-release-event", G_CALLBACK(routing_graph_released), NULL);
       g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
    }
-   rr_floating_panel_restore(graph_panel);
-   rr_floating_panel_show(graph_panel);
+   GtkWidget *current = gtk_notebook_get_nth_page(book, gtk_notebook_get_current_page(book));
+   if (current != graph_page) graph_return_page = current;
+   gtk_widget_show_all(graph_page);
+   gtk_notebook_set_current_page(book, gtk_notebook_page_num(book, graph_page));
    routing_queue();             /* Request an up-to-date core graph, not a stale UI cache. */
 
    if (graph_canvas) {
@@ -1513,7 +1527,7 @@ static gboolean routing_watchdog(gpointer unused) {
 
    /* Refresh topology while visible, even if a stream disappears without producing a route.changed event. The core returns an immutable snapshot;
     * no GTK calls touch the mixer or network thread. */
-   if ((graph_panel && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel))) || snapshot_waiting) {
+   if ((graph_page && gtk_widget_get_mapped(graph_page)) || snapshot_waiting) {
       routing_queue();
    }
 
@@ -1562,7 +1576,7 @@ static void routing_live_changed(const char *event, const char *data, rrconn_t *
    (void)unused;
 
    /* Refresh the graph on external routing edits without changing them. */
-   if (graph_panel && graph_canvas && gtk_widget_get_visible(rr_floating_panel_widget(graph_panel))) {
+   if (graph_page && graph_canvas && gtk_widget_get_mapped(graph_page)) {
       routing_queue();
    }
 }
@@ -1695,9 +1709,12 @@ void gtk_audio_routing_shutdown(void) {
    graph_node_drag = -1;
    memset(graph_missing_since, 0, sizeof(graph_missing_since));
 
-   if (graph_panel) {
-      rr_floating_panel_destroy(graph_panel);
-      graph_panel = NULL;
+   if (graph_page) {
+      if (GTK_IS_NOTEBOOK(main_notebook)) {
+         gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), graph_page);
+         if (page >= 0) gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), page);
+      }
+      graph_page = graph_return_page = NULL;
       graph_canvas = NULL;
       audio_tabs = pipeline_editor_widget = NULL;
       g_clear_pointer(&graph_focus_id, g_free);
