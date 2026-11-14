@@ -240,6 +240,15 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_move_to(cr, GRAPH_GAIN_X - 24, y + 3);
          cairo_show_text(cr, value);
       }
+      /* Source diagnostics are read-only and originate from the running
+       * mixer status; they are not the negotiated sound-device buffer. */
+      char status[80];
+      g_snprintf(status, sizeof(status), "Q:%ums D:%" G_GUINT64_FORMAT " U:%" G_GUINT64_FORMAT,
+                 node->queued_ms, node->dropped_frames, node->starvation_events);
+      cairo_set_source_rgb(cr, .72, .80, .84);
+      cairo_set_font_size(cr, 8);
+      cairo_move_to(cr, 32, y0 + 101);
+      cairo_show_text(cr, status);
    }
 
    /* Two more independent DSP stages: mixer output trims and sink input
