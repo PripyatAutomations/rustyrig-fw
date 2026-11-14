@@ -61,7 +61,9 @@ static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
 static GSource *rx_maintenance_source;
-static rr_audio_engine_t *rx_engine;
+static rr_audio_engine_t *rx_engine; /* 16 kHz legacy radio/AF bus */
+static rr_audio_engine_t *hq_engine; /* 44.1/48 kHz final playback bus */
+#define HQ_BUS_LEGACY_ID "bus.rx16"
 static char recording_playback_route = 'S';
 #define RECORDING_PLAYBACK_ID "recording.playback"
 #define RECORDING_PLAYBACK_L "recording.playback.L"
@@ -85,7 +87,17 @@ static void rx_analysis_output(const int16_t *pcm, size_t frames, void *user) {
    }
    rr_recordings_push(pcm, frames);
 }
-/* Post-fader PCM goes exclusively to the speaker's fwdsp sink. */
+/* The low-rate bus is upsampled once at the boundary of the final HQ bus.
+ * In particular, no network codec, modem or narrowband AF analyzer should
+ * inherit the sound-card playback clock. This is a producer-side push: the
+ * destination's resampler runs here, outside either engine's mixer lock. */
+static void rx_low_bus_output(const int16_t *pcm, size_t frames, void *user) {
+   (void)user;
+   if (hq_engine && frames)
+      rr_audio_engine_push_pcm(hq_engine, HQ_BUS_LEGACY_ID, pcm, frames);
+}
+
+/* Post-fader HQ PCM goes exclusively to the speaker's fwdsp sink. */
 static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
    g_mutex_lock(&rx_sink_lock);
@@ -107,44 +119,48 @@ static void rx_sink_set_fd(int new_fd) {
 }
 
 /* Used by local SDR setup before its definition below. */
-static void audio_input_gain_load(const char *id);
+static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id);
+static rr_audio_engine_t *audio_stream_engine(const char *id) {
+   rr_pcm_stream_format_t format;
+   if (hq_engine && rr_audio_engine_stream_format(hq_engine, id, &format))
+      return hq_engine;
+   if (rx_engine && rr_audio_engine_stream_format(rx_engine, id, &format))
+      return rx_engine;
+   return NULL;
+}
 
 bool audio_local_rx_start_format(const char *id,
                                  const rr_pcm_stream_format_t *format) {
-   if (!rx_engine || !id || !format ||
-       !rr_audio_engine_add_stream_format(rx_engine, id, format))
+   /* 16 kHz and lower sources share one narrowband mixer; wider sources
+    * feed the HQ bus directly, retaining their original bandwidth. */
+   if (!id || !format || !rr_pcm_stream_format_valid(format)) return false;
+   rr_audio_engine_t *target = format->sample_rate_hz <= 16000 ?
+                                  rx_engine : hq_engine;
+   if (!target || audio_stream_engine(id) ||
+       !rr_audio_engine_add_stream_format(target, id, format))
       return false;
-   audio_input_gain_load(id);
+   audio_input_gain_load(target, id);
    return true;
 }
 bool audio_local_rx_start(const char *id) {
-   if (!rx_engine) return false;
-   const rr_pcm_stream_format_t native = {
-      rr_audio_engine_sample_rate(rx_engine), 1, RR_PCM_S16LE
-   };
-   return audio_local_rx_start_format(id, &native);
+   const rr_pcm_stream_format_t legacy = {16000, 1, RR_PCM_S16LE};
+   return audio_local_rx_start_format(id, &legacy);
 }
 bool audio_local_rx_push_pcm(const char *id,
-                             const void *interleaved, size_t frames) {
-   /* Never feed non-16k/stereo PCM to the legacy AF FFT or modem pipeline;
-    * they still expect 16 kHz mono. Rate-aware AF analysis is a separate
-    * integration step from safe local playback. */
-   return rx_engine && rr_audio_engine_push_pcm(rx_engine, id, interleaved, frames);
+                            const void *interleaved, size_t frames) {
+   rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
+   return engine && rr_audio_engine_push_pcm(engine, id, interleaved, frames);
 }
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
-   if (!id || !pcm || !frames) {
-      return false;
-   }
-   /* Local bridge audio bypasses client_channel_pcm(), where remote AF spectrum is normally fed. Capture here before routing/muting. */
+   if (!id || !pcm || !frames) return false;
+   /* Only the old 16 kHz mono API may enter legacy FFT/modem analysis. */
    rr_af_spectrum_push(id, pcm, frames);
    rr_local_modem_feed(id, pcm, frames);
-
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
 void audio_local_rx_stop(const char *id) {
-   if (rx_engine && id) {
-      rr_audio_engine_remove_stream(rx_engine, id);
-   }
+   rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
+   if (engine) rr_audio_engine_remove_stream(engine, id);
 }
 
 /* Recorded files enter the existing PCM hub as individually routed ear streams. */
@@ -160,8 +176,8 @@ static void recording_playback_apply_route(bool active) {
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_L, left);
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_R, right);
 }
-static void audio_input_gain_load(const char *id) {
-   if (!id || !rx_engine) return;
+static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id) {
+   if (!id || !engine) return;
    char *key_prefix = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
    for (unsigned ch = 0; ch < 2; ch++) {
       char *key = g_strdup_printf("audio.graph.input.%s.%c", key_prefix,
@@ -171,7 +187,7 @@ static void audio_input_gain_load(const char *id) {
          char *end = NULL;
          double db = g_ascii_strtod(saved, &end);
          if (end != saved && !*end)
-            rr_audio_engine_input_gain(rx_engine, id, ch, db);
+            rr_audio_engine_input_gain(engine, id, ch, db);
       }
       g_free(saved);
       g_free(key);
