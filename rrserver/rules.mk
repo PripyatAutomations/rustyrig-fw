@@ -84,7 +84,6 @@ rrserver_objs += filters.o		# Support for managing BPF/LPF/HPF
 #rrserver_objs += gui.fb.o		# Virtual framebuffer for GUI (NYI)
 #rrserver_objs += gui.nextion.o		# Nextion display support (NYI)
 ###########################
-
 rrserver_objs += gpio.o			# GPIO controls
 rrserver_objs += hostlog.o		# Stream host Log() lines to FLAG_SYSLOG clients as binframes
 rrserver_objs += help.o			# support for help menus from filesystem, if available
@@ -131,9 +130,9 @@ rrserver_objs += timer.o		# Timers support
 rrserver_objs += timer.clocktick.o	# Our 1hz timer
 rrserver_objs += usage.o
 rrserver_objs += unwind.o		# Support for stack unwinding on crashes
+rrserver_objs += util.vna.o
 rrserver_objs += waterfall.o		# support for sending a waterfall
 rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
-
 
 # Application-owned handlers moved out of standalone librrprotocol.
 rrserver_objs += srv.auth.o

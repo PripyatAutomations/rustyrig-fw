@@ -1,5 +1,9 @@
 Immediate needs
 ---------------
+rrserver: Confirm Enable Password user flag
+   - disable passwd login after first auth by default
+   - user should be able to re-enable it, but we should enforce password complexity
+
 rrserver: Add support for librnnoise0 to denoise before compressing
 
 rrbridge: Add support for librnnoise0 to denoise remote SDRs
