@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" role="img" aria-labelledby="title desc">
+<title id="title">RustyRig live 16 kHz and HQ audio buses</title>
+<desc id="desc">The live 16 kHz radio bus feeds one resampler and the 44.1/48 kHz HQ bus, alongside wideband sources; the HQ bus feeds isolated fwdsp playback and the sound card. Microphone capture enters at high rate and downconverts for radio codecs. Automatic pipeline generation is future work.</desc>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5b728a"/></marker></defs>
+<rect width="1280" height="700" rx="16" fill="#f5f7fa"/>
+<style>
+text{font-family:DejaVu Sans,Arial,sans-serif;fill:#183047}.h{font-size:25px;font-weight:700}.section{font-size:18px;font-weight:700}.main{font-size:15px;font-weight:600}.small{font-size:12px}.box{fill:white;stroke:#94a3b8;stroke-width:2}.bus{fill:#dcfce7;stroke:#0d9488;stroke-width:2}.converter{fill:#e0f2fe;stroke:#0284c7;stroke-width:2}.future{fill:#fff7ed;stroke:#d97706;stroke-width:2;stroke-dasharray:7 5}.arrow{stroke:#5b728a;stroke-width:2.2;fill:none;marker-end:url(#arr)}
+</style>
+<text x="38" y="48" class="h">RustyRig — AF audio-rate domains</text>
+<text x="38" y="81" class="section">Current architecture · two independently clocked mixer buses</text>
+
+<rect class="box" x="35" y="145" width="175" height="80" rx="9"/>
+<text x="123" y="177" text-anchor="middle" class="main">Ham RX / KiwiSDR</text>
+<text x="123" y="199" text-anchor="middle" class="small">16 kHz and lower</text>
+<rect class="bus" x="252" y="145" width="185" height="80" rx="9"/>
+<text x="344" y="175" text-anchor="middle" class="main">rx.mix</text>
+<text x="344" y="195" text-anchor="middle" class="small">16 kHz · stereo S16LE</text>
+<text x="344" y="213" text-anchor="middle" class="small">Legacy recording / AF tap</text>
+<rect class="converter" x="477" y="145" width="182" height="80" rx="9"/>
+<text x="568" y="176" text-anchor="middle" class="main">rx16.resample</text>
+<text x="568" y="196" text-anchor="middle" class="small">16 → 44.1 / 48 kHz</text>
+<text x="568" y="213" text-anchor="middle" class="small">One band-limited SRC</text>
+<rect class="bus" x="698" y="145" width="175" height="80" rx="9"/>
+<text x="785" y="176" text-anchor="middle" class="main">hq.mix</text>
+<text x="785" y="196" text-anchor="middle" class="small">44.1 / 48 kHz · stereo</text>
+<text x="785" y="213" text-anchor="middle" class="small">Final speaker mixer</text>
+<rect class="box" x="908" y="145" width="162" height="80" rx="9"/>
+<text x="989" y="176" text-anchor="middle" class="main">fwdsp playback</text>
+<text x="989" y="196" text-anchor="middle" class="small">-R device clock</text>
+<text x="989" y="213" text-anchor="middle" class="small">Isolated worker</text>
+<rect class="box" x="1101" y="145" width="145" height="80" rx="9"/>
+<text x="1173" y="174" text-anchor="middle" class="main">Sound card</text>
+<text x="1173" y="196" text-anchor="middle" class="small">44.1 / 48 kHz</text>
+<path class="arrow" d="M210 185H252M437 185H477M659 185H698M873 185H908M1070 185H1101"/>
+
+<rect class="box" x="485" y="269" width="275" height="69" rx="9"/>
+<text x="622" y="296" text-anchor="middle" class="main">HQ SDR / FM / music sources</text>
+<text x="622" y="318" text-anchor="middle" class="small">44.1 / 48 kHz PCM · no 16 kHz bottleneck</text>
+<path class="arrow" d="M760 303H785V225"/>
+
+<text x="38" y="390" class="section">Microphone · high-rate device capture, legacy radio transmission</text>
+<rect class="box" x="35" y="409" width="227" height="78" rx="9"/>
+<text x="148" y="437" class="main" text-anchor="middle">Microphone / sound card</text>
+<text x="148" y="459" class="small" text-anchor="middle">44.1 or 48 kHz capture</text>
+<rect class="converter" x="317" y="409" width="305" height="78" rx="9"/>
+<text x="469" y="437" class="main" text-anchor="middle">fwdsp capture -R / audioresample</text>
+<text x="469" y="459" class="small" text-anchor="middle">Downsample and mono conversion</text>
+<rect class="bus" x="677" y="409" width="220" height="78" rx="9"/>
+<text x="787" y="437" class="main" text-anchor="middle">16 kHz mono PCM</text>
+<text x="787" y="459" class="small" text-anchor="middle">Existing codec-facing contract</text>
+<rect class="box" x="953" y="409" width="293" height="78" rx="9"/>
+<text x="1099" y="437" class="main" text-anchor="middle">TX encoder / radio / DCC</text>
+<text x="1099" y="459" class="small" text-anchor="middle">No network codec renegotiation</text>
+<path class="arrow" d="M262 448H317M622 448H677M897 448H953"/>
+
+<text x="38" y="552" class="section">Next: generated pipelines from the embedded editor (not yet implemented)</text>
+<rect class="future" x="35" y="572" width="360" height="75" rx="9"/>
+<text x="215" y="599" class="main" text-anchor="middle">Typed AF graph and pipeline editor</text>
+<text x="215" y="622" class="small" text-anchor="middle">Nodes · pads · formats · connections</text>
+<rect class="future" x="457" y="572" width="345" height="75" rx="9"/>
+<text x="629" y="599" class="main" text-anchor="middle">Validate and generate GStreamer</text>
+<text x="629" y="622" class="small" text-anchor="middle">Caps and clock contracts stay explicit</text>
+<rect class="future" x="865" y="572" width="381" height="75" rx="9"/>
+<text x="1055" y="599" class="main" text-anchor="middle">Supervised isolated fwdsp execution</text>
+<text x="1055" y="622" class="small" text-anchor="middle">Runtime topology / health / negotiation</text>
+<path class="arrow" d="M395 609H457M802 609H865"/>
+<text x="38" y="680" class="small">PCM mixer output remains S16LE today. Requested sound-card rate is not a measured negotiated rate. HQ recording/float32 mixing/clock-drift correction are future work.</text>
+</svg>

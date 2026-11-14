@@ -141,6 +141,12 @@ defconfig_t defcfg[] = {
       "audio.mute-talkback", "true", "Mute RX stream during TX to suppress talkback", DEFCONFIG_BOOL, NULL
    },
    {
+      "audio.capture-rate", "auto", "Mic device rate: auto (prefer 48000), 44100 or 48000; codec PCM remains 16000"
+   },
+   {
+      "audio.playback-rate", "auto", "Speaker device rate: auto (prefer 48000), 44100 or 48000; codec PCM remains 16000"
+   },
+   {
       "audio.volume.rx", "30", "Default RX volume", DEFCONFIG_UINT, NULL
    },
    {

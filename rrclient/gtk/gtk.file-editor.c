@@ -27,6 +27,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
 #include "gtk.floating-panel.h"
+#include "gtk.audio-routing.h"
 extern GtkWidget *main_window;
 
 extern dict *cfg;
@@ -937,21 +938,7 @@ static GtkWidget *config_action_button(const gchar *label, const gchar *icon, co
    return button;
 }
 
-typedef struct {
-   GtkWidget *parent;
-   GSubprocess *process;
-} pipeline_editor_process_t;
-
-static void pipeline_editor_process_free(pipeline_editor_process_t *context) {
-   g_clear_object(&context->process);
-
-   if (context->parent) {
-      g_object_unref(context->parent);
-   }
-   g_free(context);
-}
-
-static gboolean pipeline_editor_apply_output(GtkWidget *parent, const gchar *output, gchar **error_message) {
+gboolean gtk_pipeline_editor_apply_output(GtkWidget *parent, const gchar *output, gchar **error_message) {
    dict *edited = json2dict(output);
 
    if (!edited) {
@@ -1027,139 +1014,10 @@ static gboolean pipeline_editor_apply_output(GtkWidget *parent, const gchar *out
    return ok;
 }
 
-static void pipeline_editor_communicate_done(GObject *source, GAsyncResult *result, gpointer user_data) {
-   pipeline_editor_process_t *context = user_data;
-   GError *error = NULL;
-   gchar *output = NULL, *stderr_text = NULL;
-   gboolean communicated = g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, &stderr_text, &error);
-
-   if (!communicated) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "Pipeline editor communication failed: %s", error ? error->message : "unknown error");
-      gtk_dialog_run(GTK_DIALOG(dialog));
-      gtk_widget_destroy(dialog);
-   } else if (g_subprocess_get_if_exited(context->process) && g_subprocess_get_exit_status(context->process) == 0) {
-      gchar *message = NULL;
-
-      if (!output || !*output || !pipeline_editor_apply_output(context->parent, output, &message)) {
-         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s",
-            message ? message : "Pipeline editor returned no JSON.");
-         gtk_dialog_run(GTK_DIALOG(dialog));
-         gtk_widget_destroy(dialog);
-      }
-      g_free(message);
-   } else if (!(g_subprocess_get_if_exited(context->process) && g_subprocess_get_exit_status(context->process) == 2)) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(context->parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "Pipeline editor failed: %s", stderr_text && *stderr_text ? stderr_text : "the editor exited unsuccessfully");
-      gtk_dialog_run(GTK_DIALOG(dialog));
-      gtk_widget_destroy(dialog);
-   }
-   g_clear_error(&error);
-   g_free(output);
-   g_free(stderr_text);
-   pipeline_editor_process_free(context);
-}
-
 static void on_edit_pipelines_button(GtkButton *button, gpointer user_data) {
+   (void)button;
    (void)user_data;
-   GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
-   dict *request = dict_new();
-
-   if (!request) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "Cannot allocate pipeline editor request.");
-      gtk_dialog_run(GTK_DIALOG(dialog));
-      gtk_widget_destroy(dialog);
-
-      return;
-   }
-   guint count = 0;
-   const char *key;
-   char *value;
-   int rank = 0;
-   gboolean ok = TRUE;
-   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-      if (strncmp(key, "pipeline:", 9)) {
-         continue;
-      }
-
-      if (count == 512) {
-         ok = FALSE;
-         break;
-      }
-      gchar *id_key = g_strdup_printf("pipelines.%u.id", count);
-      gchar *launch_key = g_strdup_printf("pipelines.%u.launch", count);
-      ok = dict_add(request, id_key, key + 9) == 0 && dict_add(request, launch_key, value ? value : "") == 0;
-      g_free(id_key);
-      g_free(launch_key);
-
-      if (!ok) {
-         break;
-      }
-      count++;
-   }
-
-   if (ok) {
-      ok = dict_add_uint(request, "pipelines.count", count) == 0;
-   }
-
-   if (!ok) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "Cannot prepare pipeline editor request.");
-      gtk_dialog_run(GTK_DIALOG(dialog));
-      gtk_widget_destroy(dialog);
-      dict_free(request);
-
-      return;
-   }
-   gchar *json = dict2json(request);
-   dict_free(request);
-
-   if (!json) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "librustyaxe could not serialize the pipeline editor request.");
-      gtk_dialog_run(GTK_DIALOG(dialog));
-      gtk_widget_destroy(dialog);
-
-      return;
-   }
-   gchar *program = g_find_program_in_path("rrpipelines");
-
-   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE)) {
-      program = g_strdup("bin/rrpipelines");
-   }
-
-   if (!program) {
-      g_free(json);
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "Cannot find rrpipelines. Install it alongside rrclient or run from the source tree.");
-      gtk_dialog_run(GTK_DIALOG(dialog));
-      gtk_widget_destroy(dialog);
-
-      return;
-   }
-   const gchar *argv[] = {
-      program, NULL
-   };
-   GError *error = NULL;
-   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
-   g_free(program);
-
-   if (!process) {
-      g_free(json);
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-         "Cannot start pipeline editor: %s", error ? error->message : "unknown error");
-      gtk_dialog_run(GTK_DIALOG(dialog));
-      gtk_widget_destroy(dialog);
-      g_clear_error(&error);
-
-      return;
-   }
-   pipeline_editor_process_t *context = g_new0(pipeline_editor_process_t, 1);
-   context->parent = g_object_ref(parent);
-   context->process = process;
-   g_subprocess_communicate_utf8_async(process, json, NULL, pipeline_editor_communicate_done, context);
-   g_free(json);
+   gtk_audio_graph_present_pipeline(NULL);
 }
 
 static void on_save_config_button(GtkButton *button, gpointer user_data) {

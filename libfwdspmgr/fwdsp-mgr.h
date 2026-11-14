@@ -94,6 +94,7 @@ struct fwdsp_subproc {
    bool destroying;             // teardown is in progress; ignore re-entry
    char channel_uuid[64];
    char pipeline[1024];
+   unsigned device_pcm_rate_hz; /* Explicit -T capture/playback hardware PCM clock, 0=legacy */
    bool is_tx;
    bool video_capture;
    bool is_video;               // video (webcam etc) pipeline? passed
@@ -164,7 +165,7 @@ extern bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx, co
 extern struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx);
 extern int fwdsp_codec_stop_immediate(const char *codec, bool is_tx);
 extern int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, const char *channel_uuid);
-// -T audio pipelines exchange mono S16LE PCM at 16 kHz using the fwdsp framed
+// -T legacy processor/codec pipelines exchange mono S16LE PCM at 16 kHz using the fwdsp framed
 // stdin/stdout protocol. They may expose appsrc name=processor-src, appsink
 // name=processor-sink, or both. If pipeline is NULL, use pipeline:proc.<name>.
 // Capture and playback endpoints resolve to pipeline:src.<name> and
@@ -174,6 +175,15 @@ extern int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, con
 extern bool fwdsp_processor_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_audio_capture_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_audio_playback_start(const char *name, const char *pipeline);
+/* The rate applies to the physical device boundary. Playback's framed
+ * processor-src PCM uses the same rate; capture's framed appsink remains
+ * legacy 16 kHz mono for radio codecs. Explicit rates: 44100 or 48000. */
+extern bool fwdsp_audio_playback_start_rate(const char *name, const char *pipeline,
+                                            unsigned device_rate_hz);
+extern bool fwdsp_audio_capture_start_rate(const char *name, const char *pipeline,
+                                           unsigned device_rate_hz,
+                                           fwdsp_processor_output_cb output_cb,
+                                           void *user_data);
 // Write one even-length PCM frame to a processor or playback endpoint. true
 // means the complete framed sample data was accepted by the child pipe.
 /* Native GStreamer audioresample worker. Callback PCM is S16LE mono at

@@ -1119,7 +1119,11 @@ static struct fwdsp_subproc *fwdsp_find_processor(const char *name, const char *
 }
 
 static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline, enum fwdsp_processor_io processor_io, fwdsp_processor_output_cb output_cb, void *
-   user_data) {
+   user_data, unsigned device_rate_hz) {
+   if ((device_rate_hz && device_rate_hz != 44100 && device_rate_hz != 48000) ||
+       (device_rate_hz && processor_io != FWDSP_PROCESSOR_IO_CAPTURE &&
+        processor_io != FWDSP_PROCESSOR_IO_PLAYBACK))
+      return false;
    if (!fwdsp_mgr_ready || !name || !*name || strlen(name) >= sizeof(((struct fwdsp_subproc *) 0)->processor_name) || (pipeline
       && strlen(pipeline) >= sizeof(((struct fwdsp_subproc *) 0)->pipeline)) || (processor_io != FWDSP_PROCESSOR_IO_PLAYBACK && !output_cb)
       || (processor_io == FWDSP_PROCESSOR_IO_PLAYBACK && output_cb)) {
@@ -1152,6 +1156,7 @@ static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline, e
       memset(sp, 0, sizeof(*sp));
       sp->role = FWDSP_ROLE_PROCESSOR;
       sp->processor_io = processor_io;
+      sp->device_pcm_rate_hz = device_rate_hz;
       snprintf(sp->processor_namespace, sizeof(sp->processor_namespace), "%s", namespace);
       snprintf(sp->processor_name, sizeof(sp->processor_name), "%s", endpoint_name);
 
@@ -1183,15 +1188,30 @@ static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline, e
 }
 
 bool fwdsp_processor_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data) {
-   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_BIDIRECTIONAL, output_cb, user_data);
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_BIDIRECTIONAL, output_cb, user_data, 0);
 }
 
 bool fwdsp_audio_capture_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data) {
-   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_CAPTURE, output_cb, user_data);
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_CAPTURE, output_cb, user_data, 0);
 }
 
 bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
-   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK, NULL, NULL);
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK, NULL, NULL, 0);
+}
+
+bool fwdsp_audio_capture_start_rate(const char *name, const char *pipeline,
+                                           unsigned device_rate_hz,
+                                           fwdsp_processor_output_cb output_cb,
+                                           void *user_data) {
+   if (!device_rate_hz) return false;
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_CAPTURE,
+                                     output_cb, user_data, device_rate_hz);
+}
+bool fwdsp_audio_playback_start_rate(const char *name, const char *pipeline,
+                                            unsigned device_rate_hz) {
+   if (!device_rate_hz) return false;
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK,
+                                     NULL, NULL, device_rate_hz);
 }
 
 bool fwdsp_audio_resampler_start_to(const char *name,
@@ -1211,7 +1231,7 @@ bool fwdsp_audio_resampler_start_to(const char *name,
       "appsink name=processor-sink sync=false max-buffers=8 drop=true",
       input_rate_hz, output_rate_hz);
    return fwdsp_audio_endpoint_start(name, pipeline,
-                                     FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user);
+                                     FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user, 0);
 }
 bool fwdsp_audio_resampler_start(const char *name, unsigned rate,
                                   fwdsp_processor_output_cb output_cb, void *user) {
@@ -1409,6 +1429,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
 
    const char *args[20];
+   char pcm_rate_arg[16] = {0};
    size_t n = 0;
    args[n++] = fwdsp_path;
    args[n++] = "-f";
@@ -1422,6 +1443,12 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          FWDSP_PROCESSOR_IO_RESAMPLE ? "resample" : "process";
       args[n++] = "-P";
       args[n++] = pipeline_key + strlen("pipeline:");
+      if (sp->device_pcm_rate_hz) {
+         snprintf(pcm_rate_arg, sizeof(pcm_rate_arg), "%u",
+                  sp->device_pcm_rate_hz);
+         args[n++] = "-R";
+         args[n++] = pcm_rate_arg;
+      }
    } else {
       args[n++] = "-c";
       args[n++] = sp->pl_id;

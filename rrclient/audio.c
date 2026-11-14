@@ -57,11 +57,12 @@ static char tx_codec[5] = {
 };
 
 static time_t tx_pcm_warned = 0;
-static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
 static GSource *rx_maintenance_source;
-static rr_audio_engine_t *rx_engine;
+static rr_audio_engine_t *rx_engine; /* 16 kHz legacy radio/AF bus */
+static rr_audio_engine_t *hq_engine; /* 44.1/48 kHz final playback bus */
+#define HQ_BUS_LEGACY_ID "bus.rx16"
 static char recording_playback_route = 'S';
 #define RECORDING_PLAYBACK_ID "recording.playback"
 #define RECORDING_PLAYBACK_L "recording.playback.L"
@@ -85,7 +86,17 @@ static void rx_analysis_output(const int16_t *pcm, size_t frames, void *user) {
    }
    rr_recordings_push(pcm, frames);
 }
-/* Post-fader PCM goes exclusively to the speaker's fwdsp sink. */
+/* The low-rate bus is upsampled once at the boundary of the final HQ bus.
+ * In particular, no network codec, modem or narrowband AF analyzer should
+ * inherit the sound-card playback clock. This is a producer-side push: the
+ * destination's resampler runs here, outside either engine's mixer lock. */
+static void rx_low_bus_output(const int16_t *pcm, size_t frames, void *user) {
+   (void)user;
+   if (hq_engine && frames)
+      rr_audio_engine_push_pcm(hq_engine, HQ_BUS_LEGACY_ID, pcm, frames);
+}
+
+/* Post-fader HQ PCM goes exclusively to the speaker's fwdsp sink. */
 static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
    g_mutex_lock(&rx_sink_lock);
@@ -107,44 +118,49 @@ static void rx_sink_set_fd(int new_fd) {
 }
 
 /* Used by local SDR setup before its definition below. */
-static void audio_input_gain_load(const char *id);
+static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id);
+static rr_audio_engine_t *audio_stream_engine(const char *id) {
+   rr_pcm_stream_format_t format;
+   if (hq_engine && rr_audio_engine_stream_format(hq_engine, id, &format))
+      return hq_engine;
+   if (rx_engine && rr_audio_engine_stream_format(rx_engine, id, &format))
+      return rx_engine;
+   return NULL;
+}
 
 bool audio_local_rx_start_format(const char *id,
                                  const rr_pcm_stream_format_t *format) {
-   if (!rx_engine || !id || !format ||
-       !rr_audio_engine_add_stream_format(rx_engine, id, format))
+   /* 16 kHz and lower sources share one narrowband mixer; wider sources
+    * feed the HQ bus directly, retaining their original bandwidth. */
+   if (!id || !format || !rr_pcm_stream_format_valid(format)) return false;
+   rr_audio_engine_t *target = format->sample_rate_hz <= 16000 ?
+                                  rx_engine : hq_engine;
+   rr_audio_engine_t *existing = audio_stream_engine(id);
+   if (!target || (existing && existing != target) ||
+       !rr_audio_engine_add_stream_format(target, id, format))
       return false;
-   audio_input_gain_load(id);
+   audio_input_gain_load(target, id);
    return true;
 }
 bool audio_local_rx_start(const char *id) {
-   if (!rx_engine) return false;
-   const rr_pcm_stream_format_t native = {
-      rr_audio_engine_sample_rate(rx_engine), 1, RR_PCM_S16LE
-   };
-   return audio_local_rx_start_format(id, &native);
+   const rr_pcm_stream_format_t legacy = {16000, 1, RR_PCM_S16LE};
+   return audio_local_rx_start_format(id, &legacy);
 }
 bool audio_local_rx_push_pcm(const char *id,
-                             const void *interleaved, size_t frames) {
-   /* Never feed non-16k/stereo PCM to the legacy AF FFT or modem pipeline;
-    * they still expect 16 kHz mono. Rate-aware AF analysis is a separate
-    * integration step from safe local playback. */
-   return rx_engine && rr_audio_engine_push_pcm(rx_engine, id, interleaved, frames);
+                            const void *interleaved, size_t frames) {
+   rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
+   return engine && rr_audio_engine_push_pcm(engine, id, interleaved, frames);
 }
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
-   if (!id || !pcm || !frames) {
-      return false;
-   }
-   /* Local bridge audio bypasses client_channel_pcm(), where remote AF spectrum is normally fed. Capture here before routing/muting. */
+   if (!id || !pcm || !frames) return false;
+   /* Only the old 16 kHz mono API may enter legacy FFT/modem analysis. */
    rr_af_spectrum_push(id, pcm, frames);
    rr_local_modem_feed(id, pcm, frames);
-
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
 void audio_local_rx_stop(const char *id) {
-   if (rx_engine && id) {
-      rr_audio_engine_remove_stream(rx_engine, id);
-   }
+   rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
+   if (engine) rr_audio_engine_remove_stream(engine, id);
 }
 
 /* Recorded files enter the existing PCM hub as individually routed ear streams. */
@@ -160,8 +176,8 @@ static void recording_playback_apply_route(bool active) {
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_L, left);
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_R, right);
 }
-static void audio_input_gain_load(const char *id) {
-   if (!id || !rx_engine) return;
+static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id) {
+   if (!id || !engine) return;
    char *key_prefix = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
    for (unsigned ch = 0; ch < 2; ch++) {
       char *key = g_strdup_printf("audio.graph.input.%s.%c", key_prefix,
@@ -171,7 +187,7 @@ static void audio_input_gain_load(const char *id) {
          char *end = NULL;
          double db = g_ascii_strtod(saved, &end);
          if (end != saved && !*end)
-            rr_audio_engine_input_gain(rx_engine, id, ch, db);
+            rr_audio_engine_input_gain(engine, id, ch, db);
       }
       g_free(saved);
       g_free(key);
@@ -270,9 +286,8 @@ static int rx_channel_volume[2] = {
 };
 
 static uint64_t mixer_next_us;
-static uint64_t speaker_retry;
-static bool speaker_failed;
 /* Ten-second RX diagnostics; counters only, no per-frame logging. */
+static bool audio_client_playback_start(void);
 static uint64_t rx_diag_at, rx_late_ticks, rx_late_max_us, rx_skipped_blocks;
 static uint64_t rx_underrun_blocks, rx_underrun_samples, rx_overflow_samples;
 static uint64_t rx_decoder_write_fail, rx_speaker_write_fail, rx_mixed_blocks;
@@ -309,6 +324,28 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    };
    rr_audio_engine_stats(rx_engine, &stats, true);
 
+   if (hq_engine) {
+      rr_audio_engine_stats_t hq_stats = {0};
+      rr_audio_engine_stats(hq_engine, &hq_stats, true);
+      if (hq_stats.blocks || hq_stats.overflow_samples ||
+          hq_stats.underrun_blocks || hq_stats.late_ticks) {
+         Log(LOG_INFO, "audio.timing",
+            "HQ/10s rate=%u blocks=%llu late-ticks=%llu max-late=%lluus "
+            "skipped=%llu underruns=%llu rebuffer=%llu starvations=%llu "
+            "dropped=%llu max-queue=%llu",
+            rr_audio_engine_sample_rate(hq_engine),
+            (unsigned long long)hq_stats.blocks,
+            (unsigned long long)hq_stats.late_ticks,
+            (unsigned long long)hq_stats.max_late_us,
+            (unsigned long long)hq_stats.skipped_blocks,
+            (unsigned long long)hq_stats.underrun_blocks,
+            (unsigned long long)hq_stats.rebuffer_blocks,
+            (unsigned long long)hq_stats.starvation_events,
+            (unsigned long long)hq_stats.overflow_samples,
+            (unsigned long long)hq_stats.max_queued_samples);
+      }
+   }
+
    if (stats.blocks || stats.overflow_samples || stats.late_ticks) {
       Log(LOG_INFO, "audio.timing",
          "RX worker/10s blocks=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu startup-blocks=%llu rebuffer-blocks=%llu starvation-events=%llu overflow-samples=%llu pcm-pushes=%llu pcm-samples=%llu max-push=%llu max-queue=%llu",
@@ -324,7 +361,7 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    if (failed) {
       fwdsp_processor_stop("sink.client.dsp0");
 
-      if (fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) {
+      if (audio_client_playback_start()) {
          fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
          rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
          Log(LOG_INFO, "audio", "RX worker reattached to fwdsp playback subprocess");
@@ -333,36 +370,14 @@ static gboolean rx_engine_maintenance(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+/* Legacy decoder/DCC playback remains 16 kHz stereo. It must enter the
+ * narrowband bus instead of writing directly into the HQ fwdsp appsrc:
+ * otherwise the 16 kHz frames would be timestamped as 44.1/48 kHz PCM. */
 static void client_speaker_pcm(const void *samples, size_t len) {
-   uint64_t current = mono_us();
-
-   if (speaker_failed) {
-      if (current < speaker_retry) {
-         return;
-      }
-      speaker_retry = current + 1000000;
-      // A failed write retires the endpoint; an exited child can also leave a
-      // slot awaiting cleanup. Clear it before recreating the persistent sink.
-      fwdsp_processor_stop("sink.client.dsp0");
-
-      if (!fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) {
-         return;
-      }
-      fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
-      speaker_failed = false;
-      Log(LOG_INFO, "audio", "Restarted client RX playback endpoint");
-   }
-
-   if (!fwdsp_processor_write("sink.client.dsp0", samples, len)) {
-      rx_speaker_write_fail++;
-      speaker_failed = true;
-      speaker_retry = current + 1000000;
-
-      if (!rx_pcm_warned || now < rx_pcm_warned || now - rx_pcm_warned >= 5) {
-         rx_pcm_warned = now;
-         Log(LOG_WARN, "audio", "Client RX playback failed; retrying the speaker endpoint");
-      }
-   }
+   if (!samples || !len || (len % (2 * sizeof(int16_t))) || !rx_engine)
+      return;
+   rr_audio_engine_push_pcm(rx_engine, "legacy.speaker", samples,
+                            len / (2 * sizeof(int16_t)));
 }
 
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
@@ -392,6 +407,38 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
       tx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to feed client mic PCM to %s.tx", tx_codec);
    }
+}
+
+
+/* A separate HQ endpoint takes the final 44.1/48 kHz stereo mix.
+ * The original 16 kHz codec bus is converted before reaching that mix.
+ * Capture always converts back to the legacy 16 kHz mono encoder contract. */
+static uint32_t audio_hq_output_rate(void) {
+   const char *rate = cfg_get("audio.playback-rate");
+   if (!rate || !strcmp(rate, "auto") || !strcmp(rate, "48000")) return 48000;
+   if (!strcmp(rate, "44100")) return 44100;
+   Log(LOG_WARN, "audio", "Invalid audio.playback-rate=%s (using 48000)", rate);
+   return 48000;
+}
+static unsigned audio_hq_capture_rate(void) {
+   const char *setting = cfg_get("audio.capture-rate");
+   if (!setting || !strcmp(setting, "auto") || !strcmp(setting, "48000"))
+      return 48000;
+   if (!strcmp(setting, "44100")) return 44100;
+   Log(LOG_WARN, "audio", "Invalid audio.capture-rate=%s (using 48000)", setting);
+   return 48000;
+}
+static bool audio_client_playback_start(void) {
+   /* fwdsp -R owns appsrc/device caps negotiation. Never modify launch
+    * strings in rrclient: the editor and upcoming graph generator own them. */
+   return fwdsp_audio_playback_start_rate("sink.client.dsp0",
+             cfg_get("pipeline:sink.client.mix"), audio_hq_output_rate());
+}
+static bool audio_client_capture_start(void) {
+   /* Sound device is HQ, while the codec-facing appsink remains 16k mono. */
+   return fwdsp_audio_capture_start_rate("src.client.dsp0",
+             cfg_get("pipeline:src.client.dsp0"), audio_hq_capture_rate(),
+             client_mic_pcm, NULL);
 }
 
 typedef struct rx_route {
@@ -518,9 +565,8 @@ bool audio_set_rx_stream_route(const char *id, char output) {
       if (local_rx_routes[slot] != output) {
          local_rx_routes[slot] = output;
 
-         if (rx_engine) {
-            rr_audio_engine_route(rx_engine, id, output);
-         }
+         rr_audio_engine_t *owner = audio_stream_engine(id);
+         if (owner) rr_audio_engine_route(owner, id, output);
          event_emit("client.audio.route.changed", NULL, NULL);
       }
 
@@ -787,7 +833,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
 
          if (rx_engine) {
             rr_audio_engine_add_stream(rx_engine, route->identity);
-            audio_input_gain_load(route->identity);
+            audio_input_gain_load(rx_engine, route->identity);
          }
       }
       route->seen = true;
@@ -999,6 +1045,21 @@ static void audio_graph_rig_label(const struct rrclient_rx_stream *stream, char 
 }
 
 /* Mirror the *existing* mixer topology; the realtime engine remains the executor until graph-driven process supervision is implemented. */
+/* Requested hardware rate is not the negotiated GStreamer caps rate.
+ * Only claim an override for the stock PulseAudio boundary shape. */
+static guint32 audio_device_rate_request(bool capture) {
+   const char *pipeline = cfg_get(capture ? "pipeline:src.client.dsp0" :
+                                             "pipeline:sink.client.mix");
+   if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ") ||
+       !strstr(pipeline, "processor-device-caps"))
+      return 0;
+   const char *rate = cfg_get(capture ? "audio.capture-rate" : "audio.playback-rate");
+   if (!rate || !strcmp(rate, "auto")) return 48000;
+   if (!strcmp(rate, "44100")) return 44100;
+   if (!strcmp(rate, "48000")) return 48000;
+   return 0;
+}
+
 static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t count) {
    rr_audio_graph_t *graph = rr_audio_graph_new();
 
@@ -1006,12 +1067,30 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       return;
    }
    rr_audio_graph_add_node(graph, "rx.mix", RR_AG_MIXER);
+   rr_audio_graph_add_node(graph, "rx16.resample", RR_AG_PROCESSOR);
+   rr_audio_graph_add_node(graph, "hq.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "sink.client.dsp0", RR_AG_SINK);
    rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "rx16.resample",
+      rx_engine && hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "hq.mix", hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
-   rr_audio_graph_add_link(graph, "rx.mix", "sink.client.dsp0", RR_AG_NORMAL);
+   rr_audio_graph_add_link(graph, "rx.mix", "rx16.resample", RR_AG_NORMAL);
+   rr_audio_graph_add_link(graph, "rx16.resample", "hq.mix", RR_AG_NORMAL);
+   rr_audio_graph_add_link(graph, "hq.mix", "sink.client.dsp0", RR_AG_NORMAL);
+   /* The capture endpoint is an independent TX source, not connected to
+    * the RX mixer. Present it read-only in the routing inventory. */
+   rr_audio_graph_add_node(graph, "src.client.dsp0", RR_AG_SOURCE);
+   rr_audio_graph_set_health(graph, "src.client.dsp0",
+                             audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_route(graph, "src.client.dsp0", 'M');
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
+   rr_audio_graph_add_node(graph, "legacy.speaker", RR_AG_SOURCE);
+   rr_audio_graph_set_health(graph, "legacy.speaker",
+      rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_route(graph, "legacy.speaker", 'S');
+   rr_audio_graph_add_link(graph, "legacy.speaker", "rx.mix", RR_AG_NORMAL);
    rr_audio_graph_set_health(graph, RECORDING_PLAYBACK_ID,
       rx_engine ? (rr_recordings_play_busy() ? RR_AG_HEALTHY : RR_AG_STOPPED) :
                   RR_AG_FAILED);
@@ -1025,7 +1104,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                      RR_AG_NORMAL, play_channels);
 
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 3 ; i++) {
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 7 ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
@@ -1037,7 +1116,11 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT : stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
 
       if (channels) {
-         rr_audio_graph_add_channel_link(graph, stream->id, "rx.mix", RR_AG_NORMAL, channels);
+         /* Sources registered with the HQ mixer bypass the 16 kHz bus. */
+         rr_audio_engine_t *owner = audio_stream_engine(stream->id);
+         rr_audio_graph_add_channel_link(graph, stream->id,
+                  owner == hq_engine ? "hq.mix" : "rx.mix",
+                  RR_AG_NORMAL, channels);
       }
    }
 
@@ -1048,14 +1131,86 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       for (guint i = 0 ; i < snapshot->node_count ; ++i) {
          rr_ag_view_node_t *node = &snapshot->nodes[i];
 
+         /* Advertise the real core bus and only the requested hardware
+          * boundary rate, never an invented negotiated device rate. */
+         const guint32 mix_rate = rr_audio_engine_sample_rate(rx_engine);
+         if (node->type == RR_AG_PROCESSOR &&
+             !strcmp(node->id, "rx16.resample")) {
+            node->read_only = true;
+            node->rate_hz = 16000;
+            node->downstream_rate_hz = rr_audio_engine_sample_rate(hq_engine);
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
+            rr_audio_stream_status_t bridge = {0};
+            if (rr_audio_engine_stream_status(hq_engine, HQ_BUS_LEGACY_ID, &bridge)) {
+               node->resampling = bridge.resampling;
+               node->queued_ms = (guint32)(bridge.queued_frames * 1000u /
+                                          bridge.mixer_rate_hz);
+               node->dropped_frames = bridge.dropped_frames;
+               node->starvation_events = bridge.starvation_events;
+            }
+            continue;
+         }
+         if (node->type == RR_AG_MIXER) {
+            node->rate_hz = !strcmp(node->id, "hq.mix") ?
+                            rr_audio_engine_sample_rate(hq_engine) : mix_rate;
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
+            /* The upstream converter has its own node and counters.
+             * Do not imply that the HQ mix bus itself resamples audio. */
+            node->read_only = !strcmp(node->id, "hq.mix");
+         } else if (node->type == RR_AG_SINK) {
+            node->rate_hz = rr_audio_engine_sample_rate(hq_engine);
+            node->downstream_rate_hz = audio_device_rate_request(false);
+            node->rate_requested = node->downstream_rate_hz != 0;
+            node->resampling = node->rate_requested &&
+                               node->downstream_rate_hz != mix_rate;
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
+         }
          if (node->type == RR_AG_MIXER || node->type == RR_AG_SINK) {
-            bool sink = node->type == RR_AG_SINK;
+            rr_audio_engine_t *owner = node->type == RR_AG_MIXER &&
+                  !strcmp(node->id, "rx.mix") ? rx_engine : hq_engine;
             for (unsigned ch = 0; ch < 2; ch++)
-               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(rx_engine, sink, ch);
+               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(
+                  owner, node->type == RR_AG_SINK, ch);
             continue;
          }
          if (node->type != RR_AG_SOURCE) continue;
+         if (!strcmp(node->id, "src.client.dsp0")) {
+            node->read_only = TRUE;
+            node->rate_hz = audio_device_rate_request(true);
+            node->downstream_rate_hz = 16000;
+            node->rate_requested = node->rate_hz != 0;
+            node->resampling = node->rate_requested && node->rate_hz != 16000;
+            node->channels = 1;
+            node->sample_format = RR_PCM_S16LE;
+            const char *rate = cfg_get("audio.capture-rate");
+            g_snprintf(node->rig, sizeof(node->rig), "Microphone (%s requested)",
+                       !rate || !strcmp(rate, "auto") ? "48 kHz" :
+                       !strcmp(rate, "44100") ? "44.1 kHz" :
+                       !strcmp(rate, "48000") ? "48 kHz" : "device default");
+            continue;
+         }
+         if (!strcmp(node->id, "legacy.speaker")) {
+            node->read_only = true;
+            g_strlcpy(node->rig, "Legacy decoded PCM", sizeof(node->rig));
+            rr_audio_stream_status_t legacy = {0};
+            if (rr_audio_engine_stream_status(rx_engine, node->id, &legacy)) {
+               node->rate_hz = legacy.source.sample_rate_hz;
+               node->channels = legacy.source.channels;
+               node->sample_format = legacy.source.format;
+               node->queued_ms = legacy.mixer_rate_hz ?
+                  (guint32)(legacy.queued_frames * 1000u / legacy.mixer_rate_hz) : 0;
+               node->dropped_frames = legacy.dropped_frames;
+               node->starvation_events = legacy.starvation_events;
+            }
+            continue;
+         }
          if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
+            node->rate_hz = rr_audio_engine_sample_rate(rx_engine);
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
             g_strlcpy(node->rig, "Recording Playback", sizeof(node->rig));
             node->input_gain_db[0] = rr_audio_engine_input_gain_get(
                rx_engine, RECORDING_PLAYBACK_L, 0);
@@ -1063,9 +1218,23 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                rx_engine, RECORDING_PLAYBACK_R, 1);
             continue;
          }
+         rr_audio_stream_status_t status = {0};
+         rr_audio_engine_t *owner = audio_stream_engine(node->id);
+         if (rr_audio_engine_stream_status(owner, node->id, &status)) {
+            node->rate_hz = status.source.sample_rate_hz;
+            node->downstream_rate_hz = status.mixer_rate_hz;
+            node->channels = status.source.channels;
+            node->sample_format = status.source.format;
+            node->resampling = status.resampling;
+            node->queued_ms = status.mixer_rate_hz ?
+                              (guint32)(status.queued_frames * 1000u /
+                                        status.mixer_rate_hz) : 0;
+            node->dropped_frames = status.dropped_frames;
+            node->starvation_events = status.starvation_events;
+         }
          for (unsigned channel = 0; channel < 2; channel++)
             node->input_gain_db[channel] = rr_audio_engine_input_gain_get(
-               rx_engine, node->id, channel);
+               owner, node->id, channel);
          for (size_t j = 0 ; j < count ; ++j) {
             if (!strcmp(node->id, streams[j].id)) {
                audio_graph_rig_label(&streams[j], node->rig, sizeof(node->rig));
@@ -1219,8 +1388,8 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
              req->gain_db < -60. || req->gain_db > 12.) break;
          bool sink_input = !strcmp(req->stream, "sink.client.dsp0");
          if (!sink_input && strcmp(req->stream, "rx.mix")) break;
-         if (rr_audio_engine_port_gain(rx_engine, sink_input,
-                                       req->channel, req->gain_db)) {
+         rr_audio_engine_t *owner = sink_input ? hq_engine : rx_engine;
+         if (rr_audio_engine_port_gain(owner, sink_input, req->channel, req->gain_db)) {
             char *key = g_strdup_printf("audio.graph.port.%s.%c",
                sink_input ? "sink" : "mix", req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
@@ -1237,10 +1406,11 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          const char *id = req->stream;
          if (!strcmp(id, RECORDING_PLAYBACK_ID))
             id = req->channel ? RECORDING_PLAYBACK_R : RECORDING_PLAYBACK_L;
-         bool ok = rr_audio_engine_input_gain(rx_engine, id, req->channel, req->gain_db);
+         rr_audio_engine_t *owner = audio_stream_engine(id);
+         bool ok = rr_audio_engine_input_gain(owner, id, req->channel, req->gain_db);
          if (!strcmp(req->stream, RECORDING_PLAYBACK_ID)) {
             /* A recording channel's trim follows its content when re-routed. */
-            rr_audio_engine_input_gain(rx_engine, id, 1 - req->channel, req->gain_db);
+            rr_audio_engine_input_gain(owner, id, 1 - req->channel, req->gain_db);
          }
          if (ok) {
             char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
@@ -1328,8 +1498,8 @@ bool audio_init(void) {
       return true;
    }
 
-   bool mic_ok = fwdsp_audio_capture_start("src.client.dsp0", NULL, client_mic_pcm, NULL);
-   bool speaker_ok = fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"));
+   bool mic_ok = audio_client_capture_start();
+   bool speaker_ok = audio_client_playback_start();
 
    if (!mic_ok || !speaker_ok) {
       Log(LOG_CRIT, "audio", "Unable to start client PCM endpoints (mic=%s, speaker=%s)", mic_ok ? "ready" : "failed", speaker_ok ? "ready" : "failed");
@@ -1348,27 +1518,33 @@ bool audio_init(void) {
    fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
    rx_channel_volume[0] = CLAMP(cfg_get_int("audio.volume.rx.left", 100), 0, 100);
    rx_channel_volume[1] = CLAMP(cfg_get_int("audio.volume.rx.right", 100), 0, 100);
-   speaker_failed = false;
-   speaker_retry = 0;
    g_mutex_init(&rx_sink_lock);
    rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
-   rx_engine = rr_audio_engine_new(rx_sink_output, NULL);
-
-   if (!rx_engine || !rr_audio_engine_start(rx_engine)) {
-      Log(LOG_CRIT, "audio", "Unable to start independent client RX mixer");
-
-      if (rx_engine) {
-         rr_audio_engine_free(rx_engine);
-         rx_engine = NULL;
-      }
+   /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds
+    * a single stereo 16->HQ converter at its input. HQ demodulators are
+    * admitted directly to this bus without first losing bandwidth at 16k. */
+   hq_engine = rr_audio_engine_new_rate(audio_hq_output_rate(), rx_sink_output, NULL);
+   const rr_pcm_stream_format_t low_bus_format = {16000, 2, RR_PCM_S16LE};
+   bool hq_ok = hq_engine &&
+      rr_audio_engine_add_stream_format(hq_engine, HQ_BUS_LEGACY_ID, &low_bus_format) &&
+      rr_audio_engine_start(hq_engine);
+   if (hq_ok)
+      rx_engine = rr_audio_engine_new(rx_low_bus_output, NULL);
+   if (!hq_ok || !rx_engine || !rr_audio_engine_start(rx_engine)) {
+      Log(LOG_CRIT, "audio", "Unable to start 16 kHz and HQ client mixing buses");
+      if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
+      if (hq_engine) { rr_audio_engine_free(hq_engine); hq_engine = NULL; }
       rx_sink_set_fd(-1);
       g_mutex_clear(&rx_sink_lock);
       fwdsp_processor_stop("src.client.dsp0");
       fwdsp_processor_stop("sink.client.dsp0");
-
       return true;
    }
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
+   /* Older decoder and PCM-hub paths still supply 16 kHz stereo frames.
+    * Keep their speaker feed registered with the low-rate bus. */
+   const rr_pcm_stream_format_t legacy_speaker = {16000, 2, RR_PCM_S16LE};
+   rr_audio_engine_add_stream_format(rx_engine, "legacy.speaker", &legacy_speaker);
    /* Create the permanent recording playback source before the graph's first
     * snapshot; preserve user L/R routing across repeated Play actions. */
    rr_audio_engine_add_stream(rx_engine, RECORDING_PLAYBACK_L);
@@ -1379,8 +1555,8 @@ bool audio_init(void) {
       recording_playback_route = saved_play_route[0];
    g_free(saved_play_route);
    recording_playback_apply_route(false);
-   audio_input_gain_load(RECORDING_PLAYBACK_L);
-   audio_input_gain_load(RECORDING_PLAYBACK_R);
+   audio_input_gain_load(rx_engine, RECORDING_PLAYBACK_L);
+   audio_input_gain_load(rx_engine, RECORDING_PLAYBACK_R);
    /* Each recorded channel retains its trim even if sent to the other ear. */
    double left_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_L, 0);
    double right_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
@@ -1395,21 +1571,23 @@ bool audio_init(void) {
             char *end = NULL;
             double db = g_ascii_strtod(saved, &end);
             if (end != saved && !*end)
-               rr_audio_engine_port_gain(rx_engine, stage != 0, ch, db);
+               rr_audio_engine_port_gain(stage ? hq_engine : rx_engine,
+                                         stage != 0, ch, db);
          }
          g_free(saved);
          g_free(key);
       }
    }
-   rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
-   rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
+   rr_audio_engine_gain(hq_engine, 0, rx_channel_volume[0]);
+   rr_audio_engine_gain(hq_engine, 1, rx_channel_volume[1]);
    GSource *maintenance = g_timeout_source_new_seconds(10);
    g_source_set_callback(maintenance, rx_engine_maintenance, NULL, NULL);
    g_source_attach(maintenance, rrclient_core_context());
    rx_maintenance_source = maintenance;
    audio_enabled = true;
    gst_active = true;
-   Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
+   Log(LOG_INFO, "audio", "Client AF buses ready: RX 16 kHz -> HQ %u Hz -> sink.client.dsp0; mic device -> 16 kHz TX",
+       rr_audio_engine_sample_rate(hq_engine));
 
    return false;
 }
@@ -1485,8 +1663,8 @@ bool audio_set_rx_channel_volume(unsigned channel, int percent) {
    percent = CLAMP(percent, 0, 100);
    rx_channel_volume[channel] = percent;
 
-   if (rx_engine) {
-      rr_audio_engine_gain(rx_engine, channel, percent);
+   if (hq_engine) {
+      rr_audio_engine_gain(hq_engine, channel, percent);
    }
    dict_add_int(cfg, channel ? "audio.volume.rx.right" : "audio.volume.rx.left", percent);
 
@@ -1558,9 +1736,15 @@ void ws_audio_shutdown(void) {
       rx_maintenance_source = NULL;
    }
 
+   /* Stop the producer bus before the HQ consumer to prevent a callback
+    * attempting to enqueue into an already freed output engine. */
    if (rx_engine) {
       rr_audio_engine_free(rx_engine);
       rx_engine = NULL;
+   }
+   if (hq_engine) {
+      rr_audio_engine_free(hq_engine);
+      hq_engine = NULL;
    }
    rx_sink_set_fd(-1);
    g_mutex_clear(&rx_sink_lock);

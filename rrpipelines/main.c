@@ -4,6 +4,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 #include "pipeline.h"
+#include "editor.h"
 #include <rrclient/gtk/gtk.graph.h>
 #include <librustyaxe/json.h>
 #include <gtk/gtk.h>
@@ -51,11 +52,15 @@ typedef struct {
    GtkWidget *source_combo;
    GtkWidget *target_combo;
    GPtrArray *property_entries;
-   gboolean applied, read_only;
+   gboolean applied, read_only, embedded;
+   gboolean (*apply_callback)(const gchar *, gpointer);
+   gpointer apply_data;
+   void (*focus_callback)(const gchar *, gpointer);
+   gpointer focus_data;
 } editor_t;
 
 static void show_error(editor_t *editor, const gchar *message) {
-   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(editor->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(gtk_widget_get_toplevel(editor->window)), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
       GTK_BUTTONS_CLOSE, "%s", message ? message : "Pipeline editor error");
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
@@ -136,8 +141,8 @@ static gchar *input_read_all(GError **error) {
    return g_string_free(text, FALSE);
 }
 
-static gboolean document_load(editor_t *editor, GError **error) {
-   gchar *input = input_read_all(error);
+static gboolean document_load(editor_t *editor, const gchar *provided, GError **error) {
+   gchar *input = provided ? g_strdup(provided) : input_read_all(error);
 
    if (!input) {
       return FALSE;
@@ -333,7 +338,7 @@ static void pipeline_new(GtkButton *button, gpointer data) {
    if (!flush_properties_with_dialog(editor)) {
       return;
    }
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("New pipeline", GTK_WINDOW(editor->window), GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL, "_Create",
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("New pipeline", GTK_WINDOW(gtk_widget_get_toplevel(editor->window)), GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL, "_Create",
       GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Pipeline id (for example custom.rx)");
@@ -468,6 +473,9 @@ static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gp
    refresh_properties(editor);
    refresh_link_combos(editor);
    gtk_widget_queue_draw(editor->canvas);
+   if (event->type == GDK_2BUTTON_PRESS && editor->selected_node >= 0 &&
+       editor->embedded && editor->focus_callback && pipeline)
+      editor->focus_callback(pipeline->id, editor->focus_data);
 
    return TRUE;
 }
@@ -785,7 +793,7 @@ static void add_branch_clicked(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
    pipeline_entry_t *pipeline = active_pipeline(editor);
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Add tee branch", GTK_WINDOW(editor->window), GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL,
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Add tee branch", GTK_WINDOW(gtk_widget_get_toplevel(editor->window)), GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL,
       "_Add branch", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_text(GTK_ENTRY(entry), "fakesink");
@@ -905,6 +913,12 @@ static void apply_clicked(GtkButton *button, gpointer data) {
       return;
    }
 
+   if (editor->embedded) {
+      if (editor->apply_callback && editor->apply_callback(json, editor->apply_data))
+         editor->applied = TRUE;
+      g_free(json);
+      return;
+   }
    if (fprintf(stdout, "%s\n", json) < 0 || fflush(stdout) == EOF) {
       show_error(editor, "Cannot write pipeline JSON to stdout.");
       g_free(json);
@@ -1041,9 +1055,11 @@ static GtkWidget *build_work_area(editor_t *editor) {
 }
 
 static GtkWidget *build_window(editor_t *editor) {
-   editor->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(editor->window), editor->read_only ?
-      "RustyRig GStreamer Pipeline Viewer (read-only)" : "RustyRig GStreamer Pipeline Editor");
+   editor->window = editor->embedded ? gtk_box_new(GTK_ORIENTATION_VERTICAL, 6) :
+                                     gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   if (!editor->embedded)
+      gtk_window_set_title(GTK_WINDOW(editor->window), editor->read_only ?
+         "RustyRig GStreamer Pipeline Viewer (read-only)" : "RustyRig GStreamer Pipeline Editor");
    /* Screen size, not graph size, determines the initial editor window.
     * Keep room for XFCE panels and other desktop work-area reservations. */
    gint width = 1100, height = 760;
@@ -1055,8 +1071,10 @@ static GtkWidget *build_window(editor_t *editor) {
       width = MIN(width, MAX(480, area.width - 48));
       height = MIN(height, MAX(360, area.height - 48));
    }
-   gtk_window_set_default_size(GTK_WINDOW(editor->window), width, height);
-   g_signal_connect(editor->window, "delete-event", G_CALLBACK(window_delete), editor);
+   if (!editor->embedded) {
+      gtk_window_set_default_size(GTK_WINDOW(editor->window), width, height);
+      g_signal_connect(editor->window, "delete-event", G_CALLBACK(window_delete), editor);
+   }
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_set_border_width(GTK_CONTAINER(root), 8);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
@@ -1097,12 +1115,17 @@ static GtkWidget *build_window(editor_t *editor) {
    GtkWidget *cancel = gtk_button_new_with_mnemonic("_Cancel");
    GtkWidget *apply = gtk_button_new_with_mnemonic("_Apply");
    gtk_widget_set_can_default(apply, TRUE);
-   gtk_window_set_default(GTK_WINDOW(editor->window), apply);
+   if (!editor->embedded)
+      gtk_window_set_default(GTK_WINDOW(editor->window), apply);
    g_signal_connect(cancel, "clicked", G_CALLBACK(cancel_clicked), editor);
    g_signal_connect(apply, "clicked", G_CALLBACK(apply_clicked), editor);
    gtk_container_add(GTK_CONTAINER(buttons), cancel);
    gtk_container_add(GTK_CONTAINER(buttons), apply);
 
+   if (editor->embedded) {
+      gtk_widget_set_no_show_all(cancel, TRUE);
+      gtk_widget_hide(cancel);
+   }
    if (editor->read_only) {
       gtk_button_set_label(GTK_BUTTON(cancel), "Close");
       gtk_widget_set_no_show_all(apply, TRUE);
@@ -1118,6 +1141,7 @@ static GtkWidget *build_window(editor_t *editor) {
    return editor->window;
 }
 
+#ifndef RR_PIPELINE_EMBEDDED
 int main(int argc, char **argv) {
    gboolean read_only = argc > 1 && !strcmp(argv[1], "--read-only");
 
@@ -1135,7 +1159,7 @@ int main(int argc, char **argv) {
    editor.property_entries = g_ptr_array_new();
    GError *error = NULL;
 
-   if (!editor.pipelines || !editor.property_entries || !document_load(&editor, &error)) {
+   if (!editor.pipelines || !editor.property_entries || !document_load(&editor, NULL, &error)) {
       fprintf(stderr, "rrpipelines: %s\n", error ? error->message : "Cannot initialize pipeline editor");
       g_clear_error(&error);
       dict_free(editor.document);
@@ -1161,3 +1185,50 @@ int main(int argc, char **argv) {
 
    return editor.applied ? 0 : 2;
 }
+
+#else
+static void editor_destroy(gpointer user) {
+   editor_t *editor = user;
+   if (!editor) return;
+   if (editor->property_entries) g_ptr_array_unref(editor->property_entries);
+   if (editor->pipelines) g_ptr_array_unref(editor->pipelines);
+   dict_free(editor->document);
+   g_free(editor);
+}
+GtkWidget *rr_pipeline_editor_new(const gchar *json,
+                                  gboolean (*apply)(const gchar *, gpointer),
+                                  gpointer apply_data,
+                                  void (*focus)(const gchar *, gpointer),
+                                  gpointer focus_data, GError **error) {
+   if (!json) return NULL;
+   if (!gst_is_initialized()) gst_init(NULL, NULL);
+   editor_t *editor = g_new0(editor_t, 1);
+   editor->embedded = TRUE;
+   editor->apply_callback = apply;
+   editor->apply_data = apply_data;
+   editor->focus_callback = focus;
+   editor->focus_data = focus_data;
+   editor->pipelines = g_ptr_array_new_with_free_func(pipeline_entry_free);
+   editor->property_entries = g_ptr_array_new();
+   if (!document_load(editor, json, error)) {
+      editor_destroy(editor);
+      return NULL;
+   }
+   GtkWidget *widget = build_window(editor);
+   g_object_set_data_full(G_OBJECT(widget), "rr-pipeline-editor", editor,
+                          editor_destroy);
+   return widget;
+}
+void rr_pipeline_editor_select(GtkWidget *widget, const gchar *id) {
+   editor_t *editor = widget ? g_object_get_data(G_OBJECT(widget),
+                                                "rr-pipeline-editor") : NULL;
+   if (!editor || !id) return;
+   for (guint i = 0; i < editor->pipelines->len; i++) {
+      pipeline_entry_t *entry = g_ptr_array_index(editor->pipelines, i);
+      if (!g_strcmp0(entry->id, id)) {
+         gtk_combo_box_set_active(GTK_COMBO_BOX(editor->pipeline_combo), (gint)i);
+         return;
+      }
+   }
+}
+#endif

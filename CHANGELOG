@@ -1,5 +1,36 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Run stereo client sound-card playback on a 44.1/48 kHz HQ mixer, with
+    the legacy 16 kHz radio/AF bus feeding HQ through one producer-side
+    band-limited resampler. Admit high-rate local streams to HQ directly.
+  * Pass -R 44100/48000 explicitly to isolated fwdsp capture/playback
+    workers; set named runtime GStreamer device caps and playback appsrc
+    rate instead of rewriting launch strings from rrclient.
+  * Display the real 16 kHz mixer, resampler, HQ mixer and playback sink as
+    independent Routing stages; extend PCM regression tests and worker
+    diagnostics while retaining legacy 16 kHz codec/recording taps.
+  * Show per-node audio format, requested-versus-actual rate distinction,
+    and source queue/dropout telemetry in Routing hover properties; retain
+    bounded SRC queues with per-stream drop and starvation regression tests.
+  * Expose live per-stream PCM source rates, internal SRC state, mixer
+    queue depth, overflow drops, and starvation counts in the Audio Routing
+    graph snapshot; label requested device sample rates distinctly from
+    actual registered source rates and add mixer regression assertions.
+  * Embed the existing rrpipelines GTK graph and property editor directly in
+    Audio Routing → Pipelines; route Config → Edit Pipelines to the new tab.
+    Keep GStreamer execution in fwdsp workers and reuse validated config
+    application. Double-click mapped blocks/elements to cross-focus tabs.
+  * Start integrating Audio Routing and GStreamer pipeline management into
+    Routing and Pipelines tabs; support logical endpoint cross-focus and a
+    read-only configured-pipeline list while retaining isolated rrpipelines.
+  * Add independent auto/44.1/48 kHz rrclient microphone and playback device
+    rate requests at the GStreamer PulseAudio/PipeWire boundaries, preserving
+    the existing 16 kHz fwdsp media and codec contracts.
+  * Display the client microphone and requested playback device rate in the
+    Audio Routing inventory. Document present and future per-rate AF buses,
+    including an editable SVG diagram and planned pipeline generation.
+  * Make GTK client Volume controls vertical L/R sliders above RX Gain;
+    center the (Un)Lock toggle and keep playback routed to sink.client.dsp0.
   * Prepare rustyrig-fw 1.0.3 release.
   * Require native FLAC/Ogg/Vorbis development libraries for rrclient builds;
     fail early with actionable package names rather than pkg-config warnings.
@@ -32,7 +63,7 @@ rustyrig-fw (1.0.3) testing; urgency=medium
     installed independently by rrpk; retain only optional third-party
     ext/ submodules in this repository.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 10 Nov 2026 22:37:14 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 13 Nov 2026 19:24:00 -0500
 
 rustyrig-fw (1.0.2) testing; urgency=medium
 

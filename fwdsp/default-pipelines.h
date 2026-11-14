@@ -21,7 +21,7 @@
 
 #define FWDSP_PCM_HOST_MIC \
         "pulsesrc name=processor-mic client-name=fwdsp-mic do-timestamp=true ! " \
-        "audioconvert ! audioresample ! " \
+        "audioconvert ! capsfilter name=processor-device-caps caps=audio/x-raw ! audioresample ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
         "appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true"
@@ -43,9 +43,9 @@
 // Dedicated stereo mix input; the original mono endpoint remains usable by DCC.
 #define FWDSP_PCM_CLIENT_MIX \
         "appsrc name=processor-src is-live=true format=time do-timestamp=true " \
-        "caps=audio/x-raw,format=S16LE,rate=16000,channels=2,layout=interleaved ! " \
+        "caps=audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
-        "volume name=processor-vol ! audioconvert ! audioresample ! " \
+        "volume name=processor-vol ! audioconvert ! audioresample ! capsfilter name=processor-device-caps caps=audio/x-raw,rate=48000 ! " \
         "pulsesink device=default name=processor-speaker client-name=rrclient-speaker sync=false"
 
 // Temporary PCM hub endpoints used by rrserver while rig audio hardware is

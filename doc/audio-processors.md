@@ -72,10 +72,57 @@ and analysis taps remain before listening trims. The sink block is presented
 as a GStreamer pipeline container; clicking it opens the existing isolated
 pipeline inspector.
 
-The eventual integrated pipeline editor should open a separate tab inside
-Audio Routing, using the shared graph renderer and the existing
-`rrpipelines` graph model. It must first obtain a versioned topology
-snapshot from the running fwdsp worker and send validated edit transactions
-through the worker's control channel. Do not pretend the configured launch
-string alone is the live graph, and do not load arbitrary GStreamer plugins
-into rrclient's GTK process just to render that tab.
+The embedded pipeline editor uses the shared graph renderer and the
+`rrpipelines` model. Its GStreamer plugin registry runs in rrclient's GTK
+process for editing only; fwdsp remains the pipeline execution boundary.
+Live runtime topology inspection and safe hot-editing require a versioned
+fwdsp snapshot and validated worker control transactions. Never confuse
+configured launch strings with the currently executing DSP pipeline.
+
+## Client sound-device rate selection
+
+The stock rrclient microphone and stereo playback GStreamer pipelines request
+48 kHz in `auto` mode, or the separately configured 44.1/48 kHz device rate.
+This rate is at the physical PulseAudio/PipeWire boundary; the current framed
+PCM hub stays at 16 kHz S16LE. The Audio Routing window shows the requested
+rate and the separate TX microphone endpoint, without suggesting the capture
+endpoint is an RX mixer input. Custom pipelines remain manually configurable.
+
+See [audio sample-rate domains](audio-rate-domains.md) and the
+[editable diagram](audio-rate-domains.svg) for implemented signal paths and
+the future per-rate bus / automatic GStreamer pipeline design.
+
+## Embedded Audio Routing / Pipelines workspace
+
+The GTK Audio Routing floating workspace contains **Routing** and
+**Pipelines** tabs. Routing provides the per-ear graph, gain controls and
+presets; Pipelines embeds the existing GStreamer graph editor directly into
+rrclient's GTK module (rather than launching another GUI process). The
+editor's GStreamer element model, property controls, serialized pipeline
+validation, and application through the Config layer are preserved.
+
+Double-click a pipeline-backed Routing block to focus its configured
+GStreamer definition. Double-click a GStreamer element in a mapped pipeline
+to return to its owning Routing block. Unmapped elements do not create
+fictitious audio routes.
+
+The in-client editor is separate from the external **fwdsp worker process**
+which still executes audio pipelines. Config changes do not silently hot
+replace a live pipeline. Later work will add a versioned worker topology
+snapshot and transactional live-edit control protocol. The eventual
+automatic AF pipeline builder must follow the same separation of concerns.
+
+The Routing view now exposes lock-protected source PCM metadata from the
+**actual** running client mixer: source rate, S16LE/F32LE, mono/stereo,
+whether the producer-side FIR is resampling into the mix clock, and
+per-source buffered milliseconds (`Q`), overflow-dropped frames (`D`),
+and starvation/rebuffer events (`U`). Hover a node for these details.
+Device capture/playback rates are configuration *requests*, not actual
+negotiated hardware caps; they are labeled as such. The live Routing graph
+now includes the 16 kHz `rx.mix` bus, its real producer-side
+`rx16.resample` converter, and the independent 44.1/48 kHz `hq.mix`
+output bus. HQ-local sources enter `hq.mix` directly. Both mixer workers
+report independent scheduling and buffering diagnostics. Legacy recording
+and AF analysis remain tapped from the 16 kHz bus; full-HQ recording is a
+separate follow-up.
+

@@ -11,6 +11,9 @@
 #include <rrclient/database.h>
 #include "gtk.audio-routing.h"
 #include "gtk.floating-panel.h"
+#include <rrpipelines/editor.h>
+/* Uses the Config editor's validated cfg merge and dirty-state handling. */
+extern gboolean gtk_pipeline_editor_apply_output(GtkWidget *, const gchar *, gchar **);
 extern GtkWidget *main_notebook;
 
 static GtkWidget *routing_window, *split_rx, *ear_volume[2];
@@ -19,6 +22,8 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static RRFloatPanel *graph_panel;
 static GtkWidget *graph_canvas;
+static GtkWidget *audio_tabs, *pipeline_editor_widget;
+static char *graph_focus_id;
 static GtkWidget *graph_profiles;
 static GtkWidget *graph_profile_load_button, *graph_profile_save_button, *graph_profile_remove_button;
 static gboolean graph_profile_updating;
@@ -41,6 +46,13 @@ static void routing_graph_zoom(double scale, gpointer unused) {
    graph_zoom = scale;
    graph_canvas_update_size();
 }
+static double routing_node_x(const rr_ag_view_node_t *node) {
+   if (node->type == RR_AG_SOURCE) return 25.;
+   if (node->type == RR_AG_SINK) return 845.;
+   if (!strcmp(node->id, "hq.mix")) return 650.;
+   if (!strcmp(node->id, "rx16.resample")) return 455.;
+   return 260.;
+}
 static void routing_graph_bounds(double *width, double *height) {
    guint sources = 0;
 
@@ -49,7 +61,7 @@ static void routing_graph_bounds(double *width, double *height) {
          sources += graph_snapshot->nodes[i].type == RR_AG_SOURCE;
       }
    }
-   *width = 850.0;
+   *width = 1070.0;
    *height = MAX(180.0, 36.0 + 140.0 * sources);
 }
 static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer unused) {
@@ -92,8 +104,23 @@ static gboolean gain_drag_port;
 #define GRAPH_GAIN_MIN (-60.0)
 #define GRAPH_GAIN_MAX 12.0
 static void graph_gain_drag(double x);
+static const char *pipeline_for_node(const char *id);
+static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
+/* UI rate strings describe the real core format or a requested hardware
+ * boundary; never label the latter as negotiated GStreamer caps. */
+static void routing_rate_label(guint32 rate, char *out, size_t size) {
+   if (!rate) {
+      g_strlcpy(out, "unknown", size);
+   } else if (rate % 1000 == 0) {
+      g_snprintf(out, size, "%uk", rate / 1000);
+   } else if (rate % 100 == 0) {
+      g_snprintf(out, size, "%u.%uk", rate / 1000, (rate % 1000) / 100);
+   } else {
+      g_snprintf(out, size, "%u Hz", rate);
+   }
+}
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -113,18 +140,36 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
                                                                   0
                                                                } };
    guint source_index = 0;
+   char format_details[RR_AUDIO_GRAPH_MAX_NODES][96] = {{0}};
 
    for (guint i = 0 ; i < g->node_count ; i++) {
       const rr_ag_view_node_t *n = &g->nodes[i];
       gboolean source = n->type == RR_AG_SOURCE;
-      const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
+      const char *route = n->route == 'L' ? "L" : n->route == 'R' ? "R" : n->route == 'M' ? "Muted" : "Stereo";
+      char input[20], output[20];
+      routing_rate_label(n->rate_hz, input, sizeof(input));
+      routing_rate_label(n->downstream_rate_hz, output, sizeof(output));
+      if (n->rate_hz && n->downstream_rate_hz && n->resampling) {
+         g_snprintf(format_details[i], sizeof(format_details[i]), "%s -> %s%s",
+                    input, output, n->rate_requested ? " requested" : " SRC");
+      } else if (n->rate_hz) {
+         g_snprintf(format_details[i], sizeof(format_details[i]), "%s %s%s",
+                    input, n->channels == 2 ? "stereo" : "mono",
+                    n->rate_requested ? " requested" : "");
+      } else {
+         g_strlcpy(format_details[i], "PCM format unknown", sizeof(format_details[i]));
+      }
+      if (source && !n->read_only) {
+         char *summary = g_strdup_printf("%s | %s", route, format_details[i]);
+         g_strlcpy(format_details[i], summary, sizeof(format_details[i]));
+         g_free(summary);
+      }
       nodes[i] = (rr_gtk_graph_node_t) {
-         .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = source
-            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer pipeline" : "Core PCM mixer", .detail =
-            graph_missing_since[i] ? "Disconnected" : source ? route :
-            n->type == RR_AG_SINK ? "Inspect pipeline..." : NULL, .failed = n->health == RR_AG_FAILED, .stale =
-            graph_missing_since[i] != 0, .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = TRUE, .fwdsp =
+         .x = routing_node_x(n), .y = source ? 20 + 140 * source_index++ : 80, .title = source
+            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
+            graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
+            graph_missing_since[i] != 0, .selected = !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2, .io =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !n->read_only, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
@@ -179,7 +224,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       const rr_ag_view_node_t *node = &g->nodes[i];
       if (node->type != RR_AG_SOURCE) continue;
       double y0 = 20 + 140 * trim_row++;
-      if (graph_missing_since[i]) continue;
+      if (graph_missing_since[i] || node->read_only) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = y0 + (channel ? 79 : 60);
          double db = CLAMP(node->input_gain_db[channel],
@@ -202,6 +247,15 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_move_to(cr, GRAPH_GAIN_X - 24, y + 3);
          cairo_show_text(cr, value);
       }
+      /* Source diagnostics are read-only and originate from the running
+       * mixer status; they are not the negotiated sound-device buffer. */
+      char status[80];
+      g_snprintf(status, sizeof(status), "Q:%ums D:%" G_GUINT64_FORMAT " U:%" G_GUINT64_FORMAT,
+                 node->queued_ms, node->dropped_frames, node->starvation_events);
+      cairo_set_source_rgb(cr, .72, .80, .84);
+      cairo_set_font_size(cr, 8);
+      cairo_move_to(cr, 32, y0 + 101);
+      cairo_show_text(cr, status);
    }
 
    /* Two more independent DSP stages: mixer output trims and sink input
@@ -209,10 +263,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    for (guint i = 0; i < g->node_count; i++) {
       const rr_ag_view_node_t *node = &g->nodes[i];
       if (node->type != RR_AG_MIXER && node->type != RR_AG_SINK) continue;
-      double node_x = node->type == RR_AG_MIXER ? 355. : 650.;
+      double node_x = routing_node_x(node);
       double x = node->type == RR_AG_MIXER ?
          node_x + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : node_x + 12.;
-      if (graph_missing_since[i]) continue;
+      if (graph_missing_since[i] || node->read_only) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = 80 + (channel ? 79 : 60);
          double db = CLAMP(node->port_gain_db[channel],
@@ -239,7 +293,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
 
    /* Temporary wire preview while dragging an RX output or mixer input. */
    if (graph_drag_channel >= 0) {
-      double x = graph_drag_mixer ? 355.0 : 25.0 + RR_GTK_GRAPH_NODE_W;
+      double x = 25.0 + RR_GTK_GRAPH_NODE_W;
+      if (graph_drag_mixer && graph_drag_source < 0 &&
+          (guint)(-graph_drag_source - 1) < g->node_count)
+         x = routing_node_x(&g->nodes[-graph_drag_source - 1]);
       double y = 80.0;
 
       if (!graph_drag_mixer && graph_drag_source >= 0) {
@@ -364,72 +421,148 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    graph_profile_update_buttons();
 }
 
-/* The pipeline container launches the existing isolated graphical
- * inspector. Live mutations require a future authenticated DSP control
- * protocol and must not be attempted from GTK's draw/event callbacks. */
-static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, gpointer unused) {
-   (void)unused;
-   GError *error = NULL;
-   gchar *out = NULL, *err = NULL;
-
-   if (!g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &out, &err, &error)) {
-      g_warning("Read-only pipeline viewer failed: %s", error ? error->message : "unknown error");
-      g_clear_error(&error);
-   }
-   g_free(out);
-   g_free(err);
-   g_object_unref(source);
+/* The isolated fwdsp worker remains the only executor. GStreamer is used
+ * in rrclient's GTK editor for graph composition and property inspection. */
+static const char *pipeline_for_node(const char *id) {
+   if (!g_strcmp0(id, "sink.client.dsp0")) return "sink.client.mix";
+   if (!g_strcmp0(id, "src.client.dsp0")) return "src.client.dsp0";
+   return NULL;
 }
-static void routing_pipeline_open(const char *id) {
-   if (g_strcmp0(id, "sink.client.dsp0")) {
-      return;
+static const char *node_for_pipeline(const char *id) {
+   if (!g_strcmp0(id, "sink.client.mix")) return "sink.client.dsp0";
+   if (!g_strcmp0(id, "src.client.dsp0")) return "src.client.dsp0";
+   return NULL;
+}
+static void routing_focus_node(const char *id) {
+   if (!id || !audio_tabs) return;
+   g_free(graph_focus_id);
+   graph_focus_id = g_strdup(id);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 0);
+   graph_canvas_update_size();
+}
+static void pipeline_element_focused(const gchar *pipeline, gpointer user) {
+   (void)user;
+   const char *node = node_for_pipeline(pipeline);
+   if (node) routing_focus_node(node);
+}
+static gboolean pipeline_apply(const gchar *json, gpointer user) {
+   (void)user;
+   GtkWidget *parent = audio_tabs ? gtk_widget_get_toplevel(audio_tabs) : NULL;
+   gchar *error = NULL;
+   gboolean ok = gtk_pipeline_editor_apply_output(parent, json, &error);
+   if (!ok) {
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+         GTK_BUTTONS_CLOSE, "%s", error ? error : "Cannot apply GStreamer pipeline changes.");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
    }
-   const char *launch = cfg_get("pipeline:sink.client.mix");
-
-   if (!launch || !*launch) {
-      g_warning("No configured GStreamer pipeline for sink.client.dsp0");
-
-      return;
-   }
+   g_free(error);
+   return ok;
+}
+static gchar *pipeline_config_json(void) {
    dict *document = dict_new();
-
-   if (!document) {
-      return;
+   if (!document) return NULL;
+   const char *key;
+   char *value;
+   guint count = 0;
+   int rank = 0;
+   gboolean ok = TRUE;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!g_str_has_prefix(key, "pipeline:")) continue;
+      if (count >= 512) { ok = FALSE; break; }
+      gchar *id_key = g_strdup_printf("pipelines.%u.id", count);
+      gchar *launch_key = g_strdup_printf("pipelines.%u.launch", count);
+      ok = !dict_add(document, id_key, key + 9) &&
+           !dict_add(document, launch_key, value ? value : "");
+      g_free(id_key);
+      g_free(launch_key);
+      if (!ok) break;
+      count++;
    }
-   gboolean valid = !dict_add_uint(document, "pipelines.count", 1) &&
-      !dict_add(document, "pipelines.0.id", "sink.client.mix") && !dict_add(document, "pipelines.0.launch", launch);
-   gchar *json = valid ? dict2json(document) : NULL;
+   if (ok) ok = !dict_add_uint(document, "pipelines.count", count);
+   gchar *json = ok ? dict2json(document) : NULL;
    dict_free(document);
-
-   if (!json) {
-      return;
-   }
-   gchar *program = g_find_program_in_path("rrpipelines");
-
-   if (!program && g_file_test("bin/rrpipelines", G_FILE_TEST_IS_EXECUTABLE)) {
-      program = g_strdup("bin/rrpipelines");
-   }
-
-   if (!program) {
-      g_warning("Cannot find rrpipelines to inspect %s", id);
-      g_free(json);
-
-      return;
-   }
-   const gchar *argv[] = {
-      program, "--read-only", NULL
-   };
+   return json;
+}
+static void routing_focus_pipeline(const char *id) {
+   const char *pipeline = pipeline_for_node(id);
+   if (!pipeline || !audio_tabs) return;
+#ifdef RR_HAVE_GSTREAMER
+   if (pipeline_editor_widget)
+      rr_pipeline_editor_select(pipeline_editor_widget, pipeline);
+#endif
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
+}
+static GtkWidget *pipeline_page_new(void) {
+#ifndef RR_HAVE_GSTREAMER
+   return gtk_label_new("Pipelines require a GStreamer-enabled GTK build.");
+#else
+   gchar *json = pipeline_config_json();
    GError *error = NULL;
-   GSubprocess *process = g_subprocess_newv(argv, G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE, &error);
-
-   if (process) {
-      g_subprocess_communicate_utf8_async(process, json, NULL, routing_pipeline_viewer_done, NULL);
-   } else {
-      g_warning("Unable to launch pipeline viewer: %s", error ? error->message : "unknown error");
-      g_clear_error(&error);
-   }
-   g_free(program);
+   GtkWidget *editor = json ? rr_pipeline_editor_new(json, pipeline_apply, NULL,
+                                                        pipeline_element_focused, NULL, &error) : NULL;
    g_free(json);
+   if (!editor) {
+      g_warning("Cannot initialize integrated GStreamer editor: %s",
+                error ? error->message : "out of memory");
+      GtkWidget *label = gtk_label_new(error ? error->message :
+         "Unable to initialize the integrated pipeline editor");
+      g_clear_error(&error);
+      return label;
+   }
+   pipeline_editor_widget = editor;
+   gtk_widget_set_hexpand(editor, TRUE);
+   gtk_widget_set_vexpand(editor, TRUE);
+   g_object_set_data(G_OBJECT(editor), "rr-scale-exempt", GINT_TO_POINTER(1));
+   return editor;
+#endif
+}
+
+static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
+                                      gboolean keyboard, GtkTooltip *tooltip,
+                                      gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (keyboard || !graph_snapshot || graph_scale <= 0) return FALSE;
+   const double x = (px - graph_offset_x) / graph_scale;
+   const double y = (py - graph_offset_y) / graph_scale;
+   guint source_row = 0;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      const double nx = routing_node_x(n);
+      const double ny = n->type == RR_AG_SOURCE ?
+                        20 + 140 * source_row++ : 80;
+      if (x < nx || x > nx + RR_GTK_GRAPH_NODE_W ||
+          y < ny || y > ny + RR_GTK_GRAPH_NODE_H)
+         continue;
+      char from[24], to[24];
+      routing_rate_label(n->rate_hz, from, sizeof(from));
+      routing_rate_label(n->downstream_rate_hz, to, sizeof(to));
+      const char *format = n->sample_format == RR_PCM_F32LE ? "F32LE" :
+                           n->sample_format == RR_PCM_S16LE ? "S16LE" : "unknown";
+      const char *type = n->type == RR_AG_SOURCE ? "Source" :
+                         n->type == RR_AG_SINK ? "Playback sink" :
+                         n->type == RR_AG_MIXER ? "Mix bus" : "Processor";
+      gchar *details = g_strdup_printf(
+         "%s (%s)\nPCM: %s, %u channel(s), %s%s\n"
+         "Output clock: %s%s\nSample-rate conversion: %s\n"
+         "Mixer queue: %u ms\nDropped: %" G_GUINT64_FORMAT
+         " frames\nStarvation/rebuffers: %" G_GUINT64_FORMAT "%s",
+         n->id, type, from, (unsigned)n->channels, format,
+         n->rate_requested && n->type == RR_AG_SOURCE ?
+            " (requested, not measured)" : "",
+         n->downstream_rate_hz ? to : "not specified",
+         n->rate_requested && n->type == RR_AG_SINK ?
+            " (requested, not measured)" : "",
+         n->resampling ? "active" : "none or not known",
+         n->queued_ms, n->dropped_frames, n->starvation_events,
+         n->read_only ? "\nRead-only topology" : "");
+      gtk_tooltip_set_text(tooltip, details);
+      g_free(details);
+      return TRUE;
+   }
+   return FALSE;
 }
 
 static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
@@ -451,6 +584,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
       }
       gboolean inactive = graph_missing_since[i] != 0;
       double px = 25 + RR_GTK_GRAPH_NODE_W, py = 20 + 140 * row++;
+      if (graph_snapshot->nodes[i].read_only) continue;
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
          if (!inactive && hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
@@ -464,13 +598,13 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
    }
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
-      if (graph_missing_since[i] || graph_snapshot->nodes[i].type != RR_AG_MIXER || strcmp(graph_snapshot->nodes[i].id, "rx.mix")) {
+      const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      if (graph_missing_since[i] || node->type != RR_AG_MIXER)
          continue;
-      }
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (hypot(x - 355, y - 80 - (ch ? 79 : 60)) <= radius) {
-            *source = -1;
+         if (hypot(x - routing_node_x(node), y - 80 - (ch ? 79 : 60)) <= radius) {
+            *source = -(gint)i - 1;
             *channel = ch;
             *mixer = TRUE;
 
@@ -492,12 +626,12 @@ static gboolean graph_gain_at(double x, double y, gint *source,
          left = GRAPH_GAIN_X;
          y0 = 20 + 140 * row++;
       } else if (n->type == RR_AG_MIXER) {
-         left = 355 + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
+         left = routing_node_x(n) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else if (n->type == RR_AG_SINK) {
-         left = 650 + 12.;
+         left = routing_node_x(n) + 12.;
       } else continue;
-      if (graph_missing_since[i] || x < left - 8 ||
-          x > left + GRAPH_GAIN_W + 8) continue;
+      if (n->read_only || graph_missing_since[i] ||
+          x < left - 8 || x > left + GRAPH_GAIN_W + 8) continue;
       for (gint ch = 0; ch < 2; ch++) {
          if (fabs(y - y0 - (ch ? 79 : 60)) <= 8) {
             *source = (gint)i;
@@ -515,7 +649,8 @@ static void graph_gain_drag(double x) {
    rr_ag_view_node_t *node = &graph_snapshot->nodes[gain_drag_source];
    double left = node->type == RR_AG_SOURCE ? GRAPH_GAIN_X :
       node->type == RR_AG_MIXER ?
-      355. + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : 650. + 12.;
+      routing_node_x(node) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. :
+      routing_node_x(node) + 12.;
    double ratio = CLAMP((x - left) / GRAPH_GAIN_W, 0., 1.);
    double db = round(GRAPH_GAIN_MIN + ratio * (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN));
    float *current = gain_drag_port ? &node->port_gain_db[gain_drag_channel] :
@@ -550,6 +685,7 @@ static void graph_set_channel(guint source, gint channel, gboolean connect) {
       return;
    }
    rr_ag_view_node_t *node = &graph_snapshot->nodes[source];
+   if (node->read_only) return;
    unsigned bit = channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
    unsigned mask = graph_route_mask(node->route);
    mask = connect ? mask | bit : mask & ~bit;
@@ -586,7 +722,8 @@ static gboolean graph_link_at(double x, double y, guint *source, gint *channel) 
             continue;
          }
          double ya = y0 + (ch ? 79 : 60), yb = 80 + (ch ? 79 : 60);
-         double x1 = 355, cx = (x0 + x1) / 2;
+         double x1 = n->downstream_rate_hz > 16000 ? 650. : 260.;
+         double cx = (x0 + x1) / 2;
 
          for (unsigned k = 0 ; k <= 48 ; k++) {
             double t = (double)k / 48, u = 1 - t;
@@ -636,8 +773,27 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
 
-   /* Double-clicks outside the trim tracks are not routing gestures. */
-   if (event->type == GDK_2BUTTON_PRESS) return FALSE;
+   /* Route/pipeline cross-navigation is read-only; trim double-click keeps
+    * its reset-to-unity behavior above. */
+   if (event->type == GDK_2BUTTON_PRESS) {
+      for (guint i = 0; i < graph_snapshot->node_count; i++) {
+         const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+         if (graph_missing_since[i] || !pipeline_for_node(n->id)) continue;
+         gboolean sink = n->type == RR_AG_SINK;
+         guint row = 0;
+         if (!sink) {
+            for (guint j = 0; j < i; j++)
+               row += graph_snapshot->nodes[j].type == RR_AG_SOURCE;
+         }
+         double x = routing_node_x(n), y = sink ? 80 : 20 + 140 * row;
+         if (gx >= x && gx <= x + RR_GTK_GRAPH_NODE_W &&
+             gy >= y && gy <= y + RR_GTK_GRAPH_NODE_H) {
+            routing_focus_pipeline(n->id);
+            return TRUE;
+         }
+      }
+      return FALSE;
+   }
 
    if (graph_port_at(gx, gy, &source, &channel, &mixer)) {
       graph_drag_source = source;
@@ -656,17 +812,6 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       graph_set_channel(linked_source, linked_channel, FALSE);
 
       return TRUE;
-   }
-
-   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
-      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-
-      if (!graph_missing_since[i] && n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0") &&
-         gx >= 650 && gx <= 650 + RR_GTK_GRAPH_NODE_W && gy >= 80 && gy <= 80 + RR_GTK_GRAPH_NODE_H) {
-         routing_pipeline_open(n->id);
-
-         return TRUE;
-      }
    }
 
    return FALSE;
@@ -710,11 +855,19 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) && graph_port_at(gx, gy, &target, &channel, &mixer);
 
    if (graph_drag_moved && hit && channel == graph_drag_channel) {
-      /* The executable mixer currently accepts matched L/R RX inputs only. */
-      if (graph_drag_mixer && target >= 0) {
-         graph_set_channel((guint) target, channel, TRUE);
-      } else if (!graph_drag_mixer && mixer && graph_drag_source >= 0) {
-         graph_set_channel((guint) graph_drag_source, channel, TRUE);
+      /* Input connections are editable within their current clock domain.
+       * Moving a source to a different bus requires an explicit conversion
+       * node and is not silently emulated by changing its ear route. */
+      gint mixer_index = graph_drag_mixer ? -graph_drag_source - 1 : -target - 1;
+      gint source_index = graph_drag_mixer ? target : graph_drag_source;
+      if (mixer_index >= 0 && source_index >= 0 &&
+          (guint)mixer_index < graph_snapshot->node_count &&
+          (guint)source_index < graph_snapshot->node_count) {
+         const rr_ag_view_node_t *bus = &graph_snapshot->nodes[mixer_index];
+         const rr_ag_view_node_t *input = &graph_snapshot->nodes[source_index];
+         const gboolean hq_source = input->downstream_rate_hz > 16000;
+         if (!strcmp(bus->id, hq_source ? "hq.mix" : "rx.mix"))
+            graph_set_channel((guint)source_index, channel, TRUE);
       }
    } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0) {
       unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
@@ -954,6 +1107,11 @@ void gtk_audio_graph_present(void) {
       rr_floating_panel_set_resizable(graph_panel, TRUE);
       rr_floating_panel_set_zoom_callback(graph_panel, routing_graph_zoom, NULL);
       GtkWidget *box = rr_floating_panel_body(graph_panel);
+      audio_tabs = gtk_notebook_new();
+      gtk_box_pack_start(GTK_BOX(box), audio_tabs, TRUE, TRUE, 0);
+      GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), routing_page, gtk_label_new("Routing"));
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), pipeline_page_new(), gtk_label_new("Pipelines"));
       GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       graph_profiles = gtk_combo_box_text_new_with_entry();
       g_signal_connect(graph_profile_entry(), "changed", G_CALLBACK(graph_profile_entry_changed), NULL);
@@ -975,19 +1133,20 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(box), profiles, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
          gtk_label_new("Drag ports to route audio. Source L/R trims are beside each pin; double-click a slider for 0 dB (unity).");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
-      gtk_box_pack_start(GTK_BOX(box), info, FALSE, FALSE, 5);
+      gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       /* The graph has its own Cairo zoom. Never scale its viewport size request through the generic widget wrapper as well. */
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
-      gtk_widget_set_tooltip_text(graph_canvas, "Drag source ports to mixer inputs; click wires to disconnect. Every source, mixer and sink has per-pin L/R trims (-60 to +12 dB); double-click a slider to reset to 0 dB.");
+      gtk_widget_set_has_tooltip(graph_canvas, TRUE);
+      g_signal_connect(graph_canvas, "query-tooltip", G_CALLBACK(routing_graph_tooltip), NULL);
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
@@ -998,7 +1157,7 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_vexpand(scroller, TRUE);
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
-      gtk_box_pack_start(GTK_BOX(box), scroller, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(routing_page), scroller, TRUE, TRUE, 0);
       gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
       g_signal_connect(graph_canvas, "scroll-event", G_CALLBACK(routing_graph_scroll), NULL);
       g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
@@ -1013,6 +1172,18 @@ void gtk_audio_graph_present(void) {
    if (graph_canvas) {
       gtk_widget_queue_draw(graph_canvas);
    }
+}
+
+void gtk_audio_graph_present_pipeline(const char *pipeline_id) {
+   gtk_audio_graph_present();
+   if (!audio_tabs) return;
+#ifdef RR_HAVE_GSTREAMER
+   if (pipeline_id && pipeline_editor_widget)
+      rr_pipeline_editor_select(pipeline_editor_widget, pipeline_id);
+#else
+   (void)pipeline_id;
+#endif
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
 }
 
 static void routing_snapshot_event(const rr_event_message_t *message, void *unused) {
@@ -1071,7 +1242,7 @@ static void routing_volume_changed(GtkRange *range, gpointer user) {
    int percent = (int)gtk_range_get_value(range);
    audio_request_rx_channel_volume(ear, percent);
 
-   if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))) {
+   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))) {
       volume_updating = true;
       gtk_range_set_value(GTK_RANGE(ear_volume[1 - ear]), percent);
       audio_request_rx_channel_volume(1 - ear, percent);
@@ -1082,15 +1253,13 @@ static void routing_volume_changed(GtkRange *range, gpointer user) {
 static void routing_changed(GtkWidget *widget, gpointer unused) {
    (void)widget;
    (void)unused;
-   gboolean split = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx));
-   gtk_widget_set_sensitive(ear_volume[1], split);
-
-   if (!split) {
-      volume_updating = TRUE;
+   gboolean locked = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx));
+   if (locked) {
+      volume_updating = true;
       int percent = (int)gtk_range_get_value(GTK_RANGE(ear_volume[0]));
       gtk_range_set_value(GTK_RANGE(ear_volume[1]), percent);
       audio_request_rx_channel_volume(1, percent);
-      volume_updating = FALSE;
+      volume_updating = false;
    }
 }
 
@@ -1162,42 +1331,47 @@ void gtk_audio_routing_init(void) {
    routing_body = rr_floating_panel_body(routing_panel);
    GtkWidget *grid = gtk_grid_new();
    gtk_container_set_border_width(GTK_CONTAINER(grid), 4);
-   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 4);
-   gtk_box_pack_start(GTK_BOX(routing_body), grid, TRUE, TRUE, 0);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+   gtk_widget_set_halign(grid, GTK_ALIGN_CENTER);
+   gtk_box_pack_start(GTK_BOX(routing_body), grid, FALSE, FALSE, 0);
 
-   /* Client-side playback gain is separate from the rig's hardware speaker level. */
+   GtkWidget *volume_label = gtk_label_new("Volume");
+   gtk_widget_set_halign(volume_label, GTK_ALIGN_CENTER);
+   gtk_grid_attach(GTK_GRID(grid), volume_label, 0, 0, 2, 1);
+
+   /* Both ears are the playback mixer output feeding sink.client.dsp0. */
+   for (unsigned ear = 0 ; ear < 2 ; ear++) {
+      ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, 0, 100, 1);
+      gtk_scale_set_draw_value(GTK_SCALE(ear_volume[ear]), FALSE);
+      gtk_widget_set_size_request(ear_volume[ear], 40, 132);
+      gtk_widget_set_tooltip_text(ear_volume[ear], ear ? "Right playback volume" : "Left playback volume");
+      gtk_range_set_value(GTK_RANGE(ear_volume[ear]), CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
+      gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], ear, 1, 1, 1);
+      g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
+   }
+
+   split_rx = gtk_check_button_new_with_label("(Un)Lock");
+   gtk_widget_set_halign(split_rx, GTK_ALIGN_CENTER);
+   gtk_widget_set_tooltip_text(split_rx, "Lock both playback volumes together, or adjust them independently");
+   gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 2, 2, 1);
+   g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
+
+   /* RX Gain controls the fwdsp playback sink, not the rig speaker level. */
    GtkWidget *gain_label = gtk_label_new("RX Gain");
-   gtk_widget_set_halign(gain_label, GTK_ALIGN_START);
-   gtk_widget_set_size_request(gain_label, 72, -1);
+   gtk_widget_set_halign(gain_label, GTK_ALIGN_CENTER);
+   gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 3, 2, 1);
    rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_scale_set_draw_value(GTK_SCALE(rx_vol_slider), FALSE);
-   gtk_widget_set_size_request(rx_vol_slider, 110, -1);
+   gtk_widget_set_size_request(rx_vol_slider, 112, -1);
    gtk_widget_set_hexpand(rx_vol_slider, TRUE);
    gtk_widget_set_tooltip_text(rx_vol_slider, "Client RX playback gain (independent of rig speaker volume)");
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), CLAMP(cfg_get_int("audio.volume.rx", 30), 0, 100));
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(routing_rx_gain_changed), NULL);
-   gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 3, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 1, 3, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 0, 4, 2, 1);
 
-   split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
-   gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
-
-   for (unsigned ear = 0 ; ear < 2 ; ear++) {
-      GtkWidget *label = gtk_label_new(ear ? "Right Vol" : "Left Vol");
-      gtk_widget_set_halign(label, GTK_ALIGN_START);
-      ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-      gtk_scale_set_draw_value(GTK_SCALE(ear_volume[ear]), FALSE);
-      gtk_widget_set_size_request(ear_volume[ear], 110, -1);
-      gtk_widget_set_hexpand(ear_volume[ear], TRUE);
-      gtk_range_set_value(GTK_RANGE(ear_volume[ear]), CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
-      gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 1, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear + 1, 1, 1);
-      g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
-   }
-
-   g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
-   gtk_widget_set_sensitive(ear_volume[1], FALSE);
+   /* Start linked, preserving the previous non-split default. */
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), TRUE);
 
    gtk_widget_show_all(routing_overlay);
    rr_floating_panel_hide(routing_panel);
@@ -1231,6 +1405,8 @@ void gtk_audio_routing_shutdown(void) {
       rr_floating_panel_destroy(graph_panel);
       graph_panel = NULL;
       graph_canvas = NULL;
+      audio_tabs = pipeline_editor_widget = NULL;
+      g_clear_pointer(&graph_focus_id, g_free);
       graph_profiles = NULL;
       graph_profile_load_button = graph_profile_save_button = graph_profile_remove_button = NULL;
    }
