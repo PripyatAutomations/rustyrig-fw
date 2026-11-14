@@ -132,20 +132,27 @@ static void routing_layout_auto(gboolean reset) {
       else legacy++;
    }
    guint legacy_row = 0, high_row = 0, isolated_row = 0;
-   double low_y = GRAPH_LAYOUT_MARGIN + 0.5 * (legacy ? legacy - 1 : 0) * GRAPH_LAYOUT_GAP_Y;
-   double hq_y = low_y;
-   if (!legacy && high)
-      hq_y = GRAPH_LAYOUT_MARGIN + 0.5 * (high - 1) * GRAPH_LAYOUT_GAP_Y;
+   double low_y = GRAPH_LAYOUT_MARGIN +
+      0.5 * (legacy ? legacy - 1 : 0) * GRAPH_LAYOUT_GAP_Y;
+   /* The direct-HQ inputs share the converter's horizontal column, not its
+    * vertical lane. Leave room so they cannot cover rx16.resample. */
+   const double high_start_y = GRAPH_LAYOUT_MARGIN +
+      MAX(legacy, 1) * GRAPH_LAYOUT_GAP_Y + 22.;
+   const double high_center_y = high_start_y +
+      0.5 * (high ? high - 1 : 0) * GRAPH_LAYOUT_GAP_Y;
+   double hq_y = high ? (low_y + high_center_y) / 2. : low_y;
+   if (!legacy && high) hq_y = high_center_y;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       double x, y;
       if (n->type == RR_AG_SOURCE) {
          if (!strcmp(n->id, "src.client.dsp0")) {
             x = GRAPH_LAYOUT_MARGIN;
-            y = GRAPH_LAYOUT_MARGIN + MAX(legacy, high) * GRAPH_LAYOUT_GAP_Y + 48 + isolated_row++ * GRAPH_LAYOUT_GAP_Y;
+            y = high_start_y + high * GRAPH_LAYOUT_GAP_Y + 50. +
+                isolated_row++ * GRAPH_LAYOUT_GAP_Y;
          } else if (n->downstream_rate_hz > 16000) {
             x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X;
-            y = GRAPH_LAYOUT_MARGIN + high_row++ * GRAPH_LAYOUT_GAP_Y;
+            y = high_start_y + high_row++ * GRAPH_LAYOUT_GAP_Y;
          } else {
             x = GRAPH_LAYOUT_MARGIN;
             y = GRAPH_LAYOUT_MARGIN + legacy_row++ * GRAPH_LAYOUT_GAP_Y;
@@ -211,7 +218,6 @@ static gboolean gain_drag_port;
 /* Shared source/mixer/sink slider geometry; leave 12px between tracks
  * and pins, so the port remains separately draggable. */
 /* Compact L/R output trims reside inside each source block by its pins. */
-#define GRAPH_GAIN_X (25.0 + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.0)
 #define GRAPH_GAIN_W 46.0
 #define GRAPH_GAIN_MIN (-60.0)
 #define GRAPH_GAIN_MAX 12.0
@@ -279,7 +285,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          .x = routing_node_x(n), .y = routing_node_y(n), .title = source
             && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
-            graph_missing_since[i] != 0, .selected = !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2, .io =
+            graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2, .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !n->read_only, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
