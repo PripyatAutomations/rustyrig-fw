@@ -290,6 +290,16 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    }
    return found;
 }
+/* Some topology-locked nodes nevertheless have genuine mixer gain stages. */
+static gboolean routing_gain_supported(const rr_ag_view_node_t *n) {
+   if (n->type == RR_AG_SOURCE)
+      return !n->read_only || !strcmp(n->id, "legacy.speaker");
+   if (n->type == RR_AG_MIXER || n->type == RR_AG_SINK) return TRUE;
+   return n->type == RR_AG_PROCESSOR && !strcmp(n->id, "rx16.resample");
+}
+static gboolean routing_gain_input(const rr_ag_view_node_t *n) {
+   return n->type == RR_AG_SOURCE || !strcmp(n->id, "rx16.resample");
+}
 /* UI rate strings describe the real core format or a requested hardware
  * boundary; never label the latter as negotiated GStreamer caps. */
 static void routing_rate_label(guint32 rate, char *out, size_t size) {
@@ -354,7 +364,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !n->read_only, .fwdsp =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = routing_gain_supported(n), .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
@@ -410,9 +420,9 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
     * per-stream L/R gains rather than by speaker/master volume. */
    for (guint i = 0; i < g->node_count; i++) {
       const rr_ag_view_node_t *node = &g->nodes[i];
-      if (node->type != RR_AG_SOURCE) continue;
+      if (!routing_gain_input(node) || !routing_gain_supported(node)) continue;
       double y0 = routing_node_y(node);
-      if (graph_missing_since[i] || node->read_only) continue;
+      if (graph_missing_since[i]) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = y0 + (channel ? 79 : 60);
          double db = CLAMP(node->input_gain_db[channel],
@@ -434,7 +444,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
                                 CAIRO_FONT_WEIGHT_NORMAL);
          cairo_set_font_size(cr, 8.4);
          cairo_move_to(cr, routing_node_x(node) + 7, y + 3);
-         cairo_show_text(cr, channel ? "R OUT" : "L OUT");
+         cairo_show_text(cr, node->type == RR_AG_PROCESSOR ?
+            (channel ? "R IN" : "L IN") : (channel ? "R OUT" : "L OUT"));
          char value[20];
          g_snprintf(value, sizeof(value), "%+.0fdB", db);
          cairo_move_to(cr, routing_node_x(node) + 42, y + 3);
@@ -459,7 +470,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       double node_x = routing_node_x(node);
       double x = node->type == RR_AG_MIXER ?
          node_x + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : node_x + 12.;
-      if (graph_missing_since[i] || node->read_only) continue;
+      if (graph_missing_since[i] || !routing_gain_supported(node)) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = routing_node_y(node) + (channel ? 79 : 60);
          double db = CLAMP(node->port_gain_db[channel],
@@ -842,20 +853,20 @@ static gboolean graph_gain_at(double x, double y, gint *source,
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       double left = 0., y0 = routing_node_y(n);
-      if (n->type == RR_AG_SOURCE) {
+      if (routing_gain_input(n)) {
          left = routing_node_x(n) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else if (n->type == RR_AG_MIXER) {
          left = routing_node_x(n) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else if (n->type == RR_AG_SINK) {
          left = routing_node_x(n) + 12.;
       } else continue;
-      if (n->read_only || graph_missing_since[i] ||
+      if (!routing_gain_supported(n) || graph_missing_since[i] ||
           x < left - 8 || x > left + GRAPH_GAIN_W + 8) continue;
       for (gint ch = 0; ch < 2; ch++) {
          if (fabs(y - y0 - (ch ? 79 : 60)) <= 8) {
             *source = (gint)i;
             *channel = ch;
-            *port = n->type != RR_AG_SOURCE;
+            *port = !routing_gain_input(n);
             return TRUE;
          }
       }
