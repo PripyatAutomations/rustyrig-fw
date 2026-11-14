@@ -1380,6 +1380,9 @@ void gtk_audio_routing_shutdown(void) {
       rr_floating_panel_destroy(graph_panel);
       graph_panel = NULL;
       graph_canvas = NULL;
+      audio_tabs = pipeline_list = pipeline_details = NULL;
+      g_clear_pointer(&pipeline_selected_id, g_free);
+      g_clear_pointer(&graph_focus_id, g_free);
       graph_profiles = NULL;
       graph_profile_load_button = graph_profile_save_button = graph_profile_remove_button = NULL;
    }
