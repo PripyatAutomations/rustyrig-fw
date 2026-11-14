@@ -3,13 +3,30 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include "gtk.graph.h"
 
-static void pin(cairo_t *cr, double x, double y, gboolean bypass) {
-   if (bypass) {
-      cairo_set_source_rgb(cr, .96, .65, .27);
-   } else {
-      cairo_set_source_rgb(cr, .30, .77, .92);
-   }
-   cairo_arc(cr, x, y, 5.2, 0, 2 * G_PI);
+/* A filled circle sends audio; a hollow, heavy ring receives it.
+ * Keep this shared between the horizontal Routing and vertical editor. */
+static void pin(cairo_t *cr, double x, double y, gboolean bypass, gboolean input) {
+   if (bypass) cairo_set_source_rgb(cr, .96, .65, .27);
+   else cairo_set_source_rgb(cr, .30, .77, .92);
+   cairo_new_path(cr);
+   cairo_arc(cr, x, y, input ? 6.0 : 5.2, 0, 2 * G_PI);
+   if (input) {
+      cairo_set_line_width(cr, 3.2);
+      cairo_stroke(cr);
+   } else cairo_fill(cr);
+}
+static void graph_arrow(cairo_t *cr, double x, double y,
+                        double dx, double dy, double size) {
+   double length = hypot(dx, dy);
+   if (length < 0.001) return;
+   dx /= length; dy /= length;
+   cairo_new_path(cr);
+   cairo_move_to(cr, x, y);
+   cairo_line_to(cr, x - size * dx - .52 * size * dy,
+                       y - size * dy + .52 * size * dx);
+   cairo_line_to(cr, x - size * dx + .52 * size * dy,
+                       y - size * dy - .52 * size * dx);
+   cairo_close_path(cr);
    cairo_fill(cr);
 }
 static double pin_y(const rr_gtk_graph_node_t *n, rr_gtk_graph_pin_t channel, gboolean bypass) {
@@ -55,6 +72,8 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
       cairo_move_to(cr, sx, sy);
       cairo_curve_to(cr, sx, (sy + dy) / 2., dx, (sy + dy) / 2., dx, dy);
       cairo_stroke(cr);
+      cairo_set_dash(cr, NULL, 0, 0);
+      graph_arrow(cr, dx, dy - 8, 0, 1, 8);
    }
    cairo_set_dash(cr, NULL, 0, 0);
    /* Shared block dimensions, palette and type hierarchy with the audio
@@ -89,13 +108,11 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
       }
       cairo_set_source_rgb(cr, .30, .77, .92);
       if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
-         cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W / 2., n->y, 6., 0., 2 * G_PI);
-         cairo_fill(cr);
+         pin(cr, n->x + RR_GTK_GRAPH_NODE_W / 2., n->y, FALSE, TRUE);
       }
       if (n->io != RR_GTK_GRAPH_IO_SINK) {
-         cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W / 2.,
-                   n->y + RR_GTK_GRAPH_NODE_H, 6., 0., 2 * G_PI);
-         cairo_fill(cr);
+         pin(cr, n->x + RR_GTK_GRAPH_NODE_W / 2.,
+             n->y + RR_GTK_GRAPH_NODE_H, FALSE, FALSE);
       }
    }
 }
@@ -131,9 +148,17 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          }
          cairo_set_dash(cr, NULL, 0, 0);
       }
-      cairo_move_to(cr, a->x + RR_GTK_GRAPH_NODE_W, from_y);
-      cairo_curve_to(cr, (a->x + b->x + RR_GTK_GRAPH_NODE_W) / 2, from_y, (a->x + b->x + RR_GTK_GRAPH_NODE_W) / 2, to_y, b->x, to_y);
+      const double sx = a->x + RR_GTK_GRAPH_NODE_W;
+      const double ex = b->x - 9.;
+      const double cx = (sx + ex) / 2.;
+      cairo_move_to(cr, sx, from_y);
+      cairo_curve_to(cr, cx, from_y, cx, to_y, ex, to_y);
       cairo_stroke(cr);
+      /* Point into the receiving ring, stopping short of its hollow core. */
+      if (!bypass) {
+         cairo_set_dash(cr, NULL, 0, 0);
+         graph_arrow(cr, b->x - 9., to_y, 1., 0., 8.);
+      }
    }
 
    cairo_set_dash(cr, NULL, 0, 0);
@@ -198,13 +223,11 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
             }
 
             if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
-               cairo_arc(cr, n->x, py, 6.5, 0, 2 * G_PI);
-               cairo_fill(cr);
+               pin(cr, n->x, py, FALSE, TRUE);
             }
 
             if (n->io != RR_GTK_GRAPH_IO_SINK) {
-               cairo_arc(cr, n->x + RR_GTK_GRAPH_NODE_W, py, 6.5, 0, 2 * G_PI);
-               cairo_fill(cr);
+               pin(cr, n->x + RR_GTK_GRAPH_NODE_W, py, FALSE, FALSE);
             }
             cairo_set_source_rgb(cr, 1, 1, 1);
             cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
@@ -221,21 +244,21 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          }
       } else {
          if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
-            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
+            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, TRUE);
          }
 
          if (n->io != RR_GTK_GRAPH_IO_SINK) {
-            pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE);
+            pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, FALSE);
          }
       }
 
       if (n->bypass_pins) {
          if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
-            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE);
+            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE, TRUE);
          }
 
          if (n->io != RR_GTK_GRAPH_IO_SINK) {
-            pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE);
+            pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, TRUE), TRUE, FALSE);
          }
          cairo_set_source_rgb(cr, .96, .65, .27);
          cairo_set_font_size(cr, 8);
