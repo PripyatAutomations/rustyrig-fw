@@ -843,8 +843,14 @@ static bool processor_pcm_caps_rate(GstCaps *caps, bool native_rate, bool stereo
    return gst_structure_has_name(structure, "audio/x-raw") && format &&
           strcmp(format, "S16LE") == 0 &&
           (!layout || strcmp(layout, "interleaved") == 0) &&
-          gst_structure_get_int(structure, "rate", &rate) && (native_rate ? rate >= 8000 && rate <= 192000 : rate == 16000)
-          && gst_structure_get_int(structure, "channels", &channels) && (channels == 1 || (stereo && channels == 2));
+          gst_structure_get_int(structure, "rate", &rate) &&
+          (native_rate ? rate >= 8000 && rate <= 192000 :
+           (rate == 16000 || (stereo && (rate == 44100 || rate == 48000)))) &&
+          gst_structure_get_int(structure, "channels", &channels) &&
+          (channels == 1 || (stereo && channels == 2)) &&
+          /* High-quality playback is stereo only; mono codec/rig endpoints
+           * retain their original 16 kHz framing contract. */
+          (rate == 16000 || channels == 2);
 }
 
 static bool processor_pcm_caps(GstCaps *caps, bool resampler_output) {
