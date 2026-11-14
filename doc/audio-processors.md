@@ -72,13 +72,12 @@ and analysis taps remain before listening trims. The sink block is presented
 as a GStreamer pipeline container; clicking it opens the existing isolated
 pipeline inspector.
 
-The eventual integrated pipeline editor should open a separate tab inside
-Audio Routing, using the shared graph renderer and the existing
-`rrpipelines` graph model. It must first obtain a versioned topology
-snapshot from the running fwdsp worker and send validated edit transactions
-through the worker's control channel. Do not pretend the configured launch
-string alone is the live graph, and do not load arbitrary GStreamer plugins
-into rrclient's GTK process just to render that tab.
+The embedded pipeline editor uses the shared graph renderer and the
+`rrpipelines` model. Its GStreamer plugin registry runs in rrclient's GTK
+process for editing only; fwdsp remains the pipeline execution boundary.
+Live runtime topology inspection and safe hot-editing require a versioned
+fwdsp snapshot and validated worker control transactions. Never confuse
+configured launch strings with the currently executing DSP pipeline.
 
 ## Client sound-device rate selection
 
@@ -93,23 +92,22 @@ See [audio sample-rate domains](audio-rate-domains.md) and the
 [editable diagram](audio-rate-domains.svg) for implemented signal paths and
 the future per-rate bus / automatic GStreamer pipeline design.
 
-## Tabbed Audio Routing workspace (first integration step)
+## Embedded Audio Routing / Pipelines workspace
 
-The GTK Audio Routing floating panel has **Routing** and **Pipelines** tabs.
-Routing keeps the existing editable PCM route graph and profiles; Pipelines
-lists configured `pipeline:*` definitions and displays their launch strings.
-Double-click a mapped playback or capture endpoint in Routing to select
-its definition under Pipelines. Double-click the corresponding Pipelines
-list row to return to the highlighted logical endpoint in Routing.
-The *Inspect in isolated pipeline viewer* action launches the existing
-read-only `rrpipelines` tool for mapped endpoints. This first integration
-step does not embed the editor or mutate live fwdsp pipelines.
+The GTK Audio Routing floating workspace contains **Routing** and
+**Pipelines** tabs. Routing provides the per-ear graph, gain controls and
+presets; Pipelines embeds the existing GStreamer graph editor directly into
+rrclient's GTK module (rather than launching another GUI process). The
+editor's GStreamer element model, property controls, serialized pipeline
+validation, and application through the Config layer are preserved.
 
-The next step is to rehost the editor's graph/model behind a controlled
-interface in the Pipelines tab, preserving process isolation and sending
-validated edit transactions through the worker control channel. A pipeline
-view should map runtime element and pad identities back to their owning
-logical Routing node. A double click on an element with a matching logical
-owner should focus that node; unrelated elements must not create fictitious
-RX routes. The Config Edit Pipelines action remains available until the
-integrated editor supports equivalent validation and apply semantics.
+Double-click a pipeline-backed Routing block to focus its configured
+GStreamer definition. Double-click a GStreamer element in a mapped pipeline
+to return to its owning Routing block. Unmapped elements do not create
+fictitious audio routes.
+
+The in-client editor is separate from the external **fwdsp worker process**
+which still executes audio pipelines. Config changes do not silently hot
+replace a live pipeline. Later work will add a versioned worker topology
+snapshot and transactional live-edit control protocol. The eventual
+automatic AF pipeline builder must follow the same separation of concerns.
