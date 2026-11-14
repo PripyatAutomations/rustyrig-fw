@@ -43,7 +43,7 @@
 // Dedicated stereo mix input; the original mono endpoint remains usable by DCC.
 #define FWDSP_PCM_CLIENT_MIX \
         "appsrc name=processor-src is-live=true format=time do-timestamp=true " \
-        "caps=audio/x-raw,format=S16LE,rate=16000,channels=2,layout=interleaved ! " \
+        "caps=audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
         "volume name=processor-vol ! audioconvert ! audioresample ! " \
         "pulsesink device=default name=processor-speaker client-name=rrclient-speaker sync=false"
