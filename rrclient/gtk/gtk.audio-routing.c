@@ -1642,6 +1642,9 @@ void gtk_audio_routing_init(void) {
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
       ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, 0, 100, 1);
       gtk_scale_set_draw_value(GTK_SCALE(ear_volume[ear]), FALSE);
+      /* Vertical playback faders follow physical mixer convention:
+       * 100% at the top, 0% at the bottom. */
+      gtk_range_set_inverted(GTK_RANGE(ear_volume[ear]), TRUE);
       gtk_widget_set_size_request(ear_volume[ear], 40, 132);
       gtk_widget_set_tooltip_text(ear_volume[ear], ear ? "Right playback volume" : "Left playback volume");
       gtk_range_set_value(GTK_RANGE(ear_volume[ear]), CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
