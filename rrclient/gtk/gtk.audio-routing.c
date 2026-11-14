@@ -33,7 +33,7 @@ static rr_audio_graph_snapshot_t *graph_snapshot;
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
 static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
-/* Fit the topology to the actual viewport. Panel zoom and wheel zoom multiply independently; neither forces a large GTK size requisition. */
+/* Fit when practical, but never shrink the default canvas below 80% just to squeeze a wide patchbay into a small window. Wheel/panel zoom may still zoom further out. */
 static double graph_zoom = 1.0, graph_wheel_zoom = 1.0;
 static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
 static double graph_pan_x, graph_pan_y;
@@ -57,7 +57,7 @@ static gint graph_node_drag = -1;
 static double graph_node_drag_x, graph_node_drag_y;
 static double graph_node_press_x, graph_node_press_y;
 static gboolean graph_node_moved;
-#define GRAPH_LAYOUT_GAP_X 305.0
+#define GRAPH_LAYOUT_GAP_X 355.0
 #define GRAPH_LAYOUT_GAP_Y 200.0
 #define GRAPH_LAYOUT_MARGIN 28.0
 
@@ -225,7 +225,7 @@ static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, g
    double aw = MAX(1, gtk_widget_get_allocated_width(widget));
    double ah = MAX(1, gtk_widget_get_allocated_height(widget));
    double fit = MIN(aw / w, ah / h);
-   double next_scale = MAX(.01, fit * graph_zoom * graph_wheel_zoom);
+   double next_scale = MAX(.01, MAX(.80, fit) * graph_zoom * graph_wheel_zoom);
    graph_pan_x = px - before_x * next_scale -
        MAX(0., (aw - w * next_scale) / 2.);
    graph_pan_y = py - before_y * next_scale -
@@ -397,7 +397,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    /* Keep pointer coordinates stable throughout a block drag; changes to
     * layout bounds must not rescale the canvas mid-gesture. */
    if (graph_node_drag < 0) {
-      graph_scale = MAX(0.01, fit * graph_zoom * graph_wheel_zoom);
+      graph_scale = MAX(0.01, MAX(.80, fit) * graph_zoom * graph_wheel_zoom);
       graph_offset_x = MAX(0.0, (available_w - natural_w * graph_scale) / 2.0) + graph_pan_x;
       graph_offset_y = MAX(0.0, (available_h - natural_h * graph_scale) / 2.0) + graph_pan_y;
    }
