@@ -71,7 +71,8 @@ static GMutex rx_sink_lock;
 static int rx_sink_fd = -1;
 /* Counters incremented on audio threads, inspected/reset on the core timer.
  * No logging or formatting is allowed in a real-time PCM callback. */
-static volatile gint rx_legacy_pcm_blocks, rx_bridge_pcm_blocks, rx_hq_pcm_blocks;
+static volatile gint rx_legacy_pcm_blocks, rx_muted_pcm_blocks;
+static volatile gint rx_bridge_pcm_blocks, rx_hq_pcm_blocks;
 static volatile gint rx_sink_written_blocks, rx_sink_failed_blocks;
 static gboolean rx_pcm_audible(const int16_t *pcm, size_t count) {
    /* A single useful frame suffices for indicating that a bus has signal;
@@ -378,24 +379,26 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    g_mutex_unlock(&rx_sink_lock);
 
    const gint decoded = g_atomic_int_get(&rx_legacy_pcm_blocks);
+   const gint muted = g_atomic_int_get(&rx_muted_pcm_blocks);
    const gint narrow = g_atomic_int_get(&rx_bridge_pcm_blocks);
    const gint hq = g_atomic_int_get(&rx_hq_pcm_blocks);
    const gint written = g_atomic_int_get(&rx_sink_written_blocks);
    const gint errors = g_atomic_int_get(&rx_sink_failed_blocks);
    /* Only emit additional logs when signal actually arrives or the speaker
     * endpoint is disconnected. The existing mixer statistics remain intact. */
-   if (decoded || narrow || hq || errors || failed) {
-      Log(failed || errors || (decoded && !narrow) || (narrow && !hq) ?
+   if (decoded || muted || narrow || hq || errors || failed) {
+      Log(failed || errors || muted || (decoded && !narrow) || (narrow && !hq) ?
           LOG_WARN : LOG_INFO, "audio.playback",
-          "RX/10s decoded=%d non-silent-16k=%d non-silent-HQ=%d "
+          "RX/10s decoded=%d muted=%d non-silent-16k=%d non-silent-HQ=%d "
           "speaker-writes=%d write-failures=%d speaker-fd=%s "
           "ear-volumes=%d/%d fwdsp-gain=%d%%",
-          decoded, narrow, hq, written, errors,
+          decoded, muted, narrow, hq, written, errors,
           failed ? "missing" : "attached",
           rx_channel_volume[0], rx_channel_volume[1],
           cfg_get_int("audio.volume.rx", 30));
    }
    g_atomic_int_set(&rx_legacy_pcm_blocks, 0);
+   g_atomic_int_set(&rx_muted_pcm_blocks, 0);
    g_atomic_int_set(&rx_bridge_pcm_blocks, 0);
    g_atomic_int_set(&rx_hq_pcm_blocks, 0);
    g_atomic_int_set(&rx_sink_written_blocks, 0);
@@ -713,6 +716,8 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    rr_local_modem_feed(route->identity, samples, len / sizeof(int16_t));
 
    if (route->output == 'M') {
+      if (len && rx_pcm_audible(samples, len / sizeof(int16_t)))
+         g_atomic_int_inc(&rx_muted_pcm_blocks);
       return;
    }
 
