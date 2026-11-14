@@ -48,9 +48,10 @@ static void routing_graph_zoom(double scale, gpointer unused) {
 }
 static double routing_node_x(const rr_ag_view_node_t *node) {
    if (node->type == RR_AG_SOURCE) return 25.;
-   if (node->type == RR_AG_SINK) return 835.;
-   if (!strcmp(node->id, "hq.mix")) return 590.;
-   return 355.;
+   if (node->type == RR_AG_SINK) return 845.;
+   if (!strcmp(node->id, "hq.mix")) return 650.;
+   if (!strcmp(node->id, "rx16.resample")) return 455.;
+   return 260.;
 }
 static void routing_graph_bounds(double *width, double *height) {
    guint sources = 0;
@@ -60,7 +61,7 @@ static void routing_graph_bounds(double *width, double *height) {
          sources += graph_snapshot->nodes[i].type == RR_AG_SOURCE;
       }
    }
-   *width = 1040.0;
+   *width = 1070.0;
    *height = MAX(180.0, 36.0 + 140.0 * sources);
 }
 static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer unused) {
@@ -721,7 +722,7 @@ static gboolean graph_link_at(double x, double y, guint *source, gint *channel) 
             continue;
          }
          double ya = y0 + (ch ? 79 : 60), yb = 80 + (ch ? 79 : 60);
-         double x1 = n->downstream_rate_hz > 16000 ? 590. : 355.;
+         double x1 = n->downstream_rate_hz > 16000 ? 650. : 260.;
          double cx = (x0 + x1) / 2;
 
          for (unsigned k = 0 ; k <= 48 ; k++) {
