@@ -1069,10 +1069,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       return;
    }
    rr_audio_graph_add_node(graph, "rx.mix", RR_AG_MIXER);
+   rr_audio_graph_add_node(graph, "hq.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "sink.client.dsp0", RR_AG_SINK);
    rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "hq.mix", hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
-   rr_audio_graph_add_link(graph, "rx.mix", "sink.client.dsp0", RR_AG_NORMAL);
+   rr_audio_graph_add_link(graph, "rx.mix", "hq.mix", RR_AG_NORMAL);
+   rr_audio_graph_add_link(graph, "hq.mix", "sink.client.dsp0", RR_AG_NORMAL);
    /* The capture endpoint is an independent TX source, not connected to
     * the RX mixer. Present it read-only in the routing inventory. */
    rr_audio_graph_add_node(graph, "src.client.dsp0", RR_AG_SOURCE);
@@ -1094,7 +1097,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                      RR_AG_NORMAL, play_channels);
 
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 4 ; i++) {
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 5 ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
@@ -1106,7 +1109,11 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT : stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
 
       if (channels) {
-         rr_audio_graph_add_channel_link(graph, stream->id, "rx.mix", RR_AG_NORMAL, channels);
+         /* Sources registered with the HQ mixer bypass the 16 kHz bus. */
+         rr_audio_engine_t *owner = audio_stream_engine(stream->id);
+         rr_audio_graph_add_channel_link(graph, stream->id,
+                  owner == hq_engine ? "hq.mix" : "rx.mix",
+                  RR_AG_NORMAL, channels);
       }
    }
 
@@ -1121,11 +1128,24 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
           * boundary rate, never an invented negotiated device rate. */
          const guint32 mix_rate = rr_audio_engine_sample_rate(rx_engine);
          if (node->type == RR_AG_MIXER) {
-            node->rate_hz = mix_rate;
+            node->rate_hz = !strcmp(node->id, "hq.mix") ?
+                            rr_audio_engine_sample_rate(hq_engine) : mix_rate;
             node->channels = 2;
             node->sample_format = RR_PCM_S16LE;
+            node->read_only = !strcmp(node->id, "hq.mix");
+            if (!strcmp(node->id, "hq.mix")) {
+               /* One 16 kHz bus output feeds the HQ bus via producer-side SRC. */
+               rr_audio_stream_status_t legacy = {0};
+               if (rr_audio_engine_stream_status(hq_engine, HQ_BUS_LEGACY_ID, &legacy)) {
+                  node->resampling = legacy.resampling;
+                  node->queued_ms = (guint32)(legacy.queued_frames * 1000u /
+                                             legacy.mixer_rate_hz);
+                  node->dropped_frames = legacy.dropped_frames;
+                  node->starvation_events = legacy.starvation_events;
+               }
+            }
          } else if (node->type == RR_AG_SINK) {
-            node->rate_hz = mix_rate;
+            node->rate_hz = rr_audio_engine_sample_rate(hq_engine);
             node->downstream_rate_hz = audio_device_rate_request(false);
             node->rate_requested = node->downstream_rate_hz != 0;
             node->resampling = node->rate_requested &&
@@ -1134,9 +1154,10 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             node->sample_format = RR_PCM_S16LE;
          }
          if (node->type == RR_AG_MIXER || node->type == RR_AG_SINK) {
-            bool sink = node->type == RR_AG_SINK;
+            rr_audio_engine_t *owner = node->type == RR_AG_MIXER &&
+                  !strcmp(node->id, "rx.mix") ? rx_engine : hq_engine;
             for (unsigned ch = 0; ch < 2; ch++)
-               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(rx_engine, sink, ch);
+               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(owner, false, ch);
             continue;
          }
          if (node->type != RR_AG_SOURCE) continue;
@@ -1167,7 +1188,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             continue;
          }
          rr_audio_stream_status_t status = {0};
-         if (rr_audio_engine_stream_status(rx_engine, node->id, &status)) {
+         rr_audio_engine_t *owner = audio_stream_engine(node->id);
+         if (rr_audio_engine_stream_status(owner, node->id, &status)) {
             node->rate_hz = status.source.sample_rate_hz;
             node->downstream_rate_hz = status.mixer_rate_hz;
             node->channels = status.source.channels;
@@ -1181,7 +1203,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          }
          for (unsigned channel = 0; channel < 2; channel++)
             node->input_gain_db[channel] = rr_audio_engine_input_gain_get(
-               rx_engine, node->id, channel);
+               owner, node->id, channel);
          for (size_t j = 0 ; j < count ; ++j) {
             if (!strcmp(node->id, streams[j].id)) {
                audio_graph_rig_label(&streams[j], node->rig, sizeof(node->rig));
