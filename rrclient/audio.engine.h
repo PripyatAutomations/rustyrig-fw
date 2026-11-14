@@ -49,6 +49,18 @@ bool rr_audio_engine_add_stream_format(rr_audio_engine_t *engine, const char *id
                                         const rr_pcm_stream_format_t *format);
 bool rr_audio_engine_stream_format(rr_audio_engine_t *engine, const char *id,
                                    rr_pcm_stream_format_t *format);
+/* Lock-protected producer/mixer diagnostics. Queue counts are in mixer frames,
+ * independent of the source sample rate. No GTK or logging on the audio thread. */
+typedef struct {
+   rr_pcm_stream_format_t source;
+   uint32_t mixer_rate_hz;
+   size_t queued_frames;
+   uint64_t dropped_frames;
+   uint64_t starvation_events;
+   bool resampling;
+} rr_audio_stream_status_t;
+bool rr_audio_engine_stream_status(rr_audio_engine_t *engine, const char *id,
+                                   rr_audio_stream_status_t *status);
 
 void rr_audio_engine_remove_stream(rr_audio_engine_t *engine, const char *id);
 /* Legacy push consumes mono native-clock S16 frames only. */
