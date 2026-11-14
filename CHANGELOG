@@ -1,5 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Replace the floating Audio Routing window with a full-size hidden
+    main-notebook tool page; use the main toolbar to toggle back to the
+    previously selected tab. Remove floating title bar, window actions and
+    redundant panel zoom controls while keeping the Routing/Pipelines tabs.
   * Cancel SDR directory/catalog and maintenance timers in their actual
     client core GMainContext instead of calling g_source_remove() on the
     GTK/default context. Clear expired IDs safely and add a regression
