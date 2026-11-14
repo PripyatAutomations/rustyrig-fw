@@ -197,6 +197,45 @@ int main(void) {
    assert(rr_audio_engine_stream_status(engine, "wide", &wide_status));
    assert(wide_status.dropped_frames > 0 && wide_status.queued_frames <= 11520);
    rr_audio_engine_free(engine);
+   /* Two independent mixer clocks: the legacy 16 kHz radio bus is
+    * resampled once into 48 kHz, alongside a direct 48 kHz HQ source. */
+   rr_audio_engine_t *narrow_bus = rr_audio_engine_new(NULL, NULL);
+   rr_audio_engine_t *hq_bus = rr_audio_engine_new_rate(48000, NULL, NULL);
+   assert(narrow_bus && hq_bus);
+   rr_pcm_stream_format_t narrow_stereo = {16000, 2, RR_PCM_S16LE};
+   rr_pcm_stream_format_t hq_stereo = {48000, 2, RR_PCM_S16LE};
+   assert(rr_audio_engine_add_stream(narrow_bus, "ham.radio"));
+   assert(rr_audio_engine_add_stream_format(hq_bus, "bus.rx16", &narrow_stereo));
+   assert(rr_audio_engine_add_stream_format(hq_bus, "fm.broadcast", &hq_stereo));
+   int16_t hq_direct[4800 * 2], radio_pcm[3200], narrow_out[320 * 2];
+   for (size_t i = 0; i < G_N_ELEMENTS(radio_pcm); i++) radio_pcm[i] = 1000;
+   for (size_t i = 0; i < 4800; i++) {
+      hq_direct[2 * i] = 2000;
+      hq_direct[2 * i + 1] = -500;
+   }
+   assert(rr_audio_engine_push(narrow_bus, "ham.radio", radio_pcm, 3200));
+   assert(rr_audio_engine_push_pcm(hq_bus, "fm.broadcast", hq_direct, 4800));
+   bool heard_both = false;
+   for (unsigned i = 0; i < 10; i++) {
+      bool narrow_active = false, hq_active = false;
+      tick(narrow_bus, narrow_out, &narrow_active);
+      if (narrow_active)
+         assert(rr_audio_engine_push_pcm(hq_bus, "bus.rx16", narrow_out, 320));
+      if (i == 4)
+         assert(rr_audio_engine_push_pcm(hq_bus, "fm.broadcast", hq_direct, 4800));
+      tick(hq_bus, wide_stereo, &hq_active);
+      if (hq_active && wide_stereo[200] > 2400 && wide_stereo[200] < 3200 &&
+          wide_stereo[201] > 300 && wide_stereo[201] < 1300)
+         heard_both = true;
+   }
+   assert(heard_both && "legacy radio and native HQ stereo failed to mix");
+   rr_audio_stream_status_t bridge_state = {0};
+   assert(rr_audio_engine_stream_status(hq_bus, "bus.rx16", &bridge_state));
+   assert(bridge_state.resampling && bridge_state.source.sample_rate_hz == 16000 &&
+          bridge_state.mixer_rate_hz == 48000);
+   rr_audio_engine_free(narrow_bus);
+   rr_audio_engine_free(hq_bus);
+
    /* 44.1 kHz stereo must mix at 48 kHz with its channels intact, even
     * across packet boundaries that do not align to 20 ms. */
    engine = rr_audio_engine_new_rate(48000, NULL, NULL);
