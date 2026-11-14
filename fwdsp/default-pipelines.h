@@ -21,7 +21,7 @@
 
 #define FWDSP_PCM_HOST_MIC \
         "pulsesrc name=processor-mic client-name=fwdsp-mic do-timestamp=true ! " \
-        "audioconvert ! capsfilter name=processor-device-caps caps=audio/x-raw,rate=48000 ! audioresample ! " \
+        "audioconvert ! capsfilter name=processor-device-caps caps=audio/x-raw ! audioresample ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
         "appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true"
