@@ -406,7 +406,8 @@ static gboolean rx_engine_maintenance(gpointer unused) {
 
       if (audio_client_playback_start()) {
          fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
-         rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
+         rx_sink_set_fd(speaker_ok ?
+      fwdsp_processor_dup_input("sink.client.dsp0") : -1);
          Log(LOG_INFO, "audio", "RX worker reattached to fwdsp playback subprocess");
       }
    }
@@ -1556,21 +1557,17 @@ bool audio_init(void) {
    bool mic_ok = audio_client_capture_start();
    bool speaker_ok = audio_client_playback_start();
 
-   if (!mic_ok || !speaker_ok) {
-      Log(LOG_CRIT, "audio", "Unable to start client PCM endpoints (mic=%s, speaker=%s)", mic_ok ? "ready" : "failed", speaker_ok ? "ready" : "failed");
-
-      if (mic_ok) {
-         fwdsp_processor_stop("src.client.dsp0");
-      }
-
-      if (speaker_ok) {
-         fwdsp_processor_stop("sink.client.dsp0");
-      }
-
-      return true;
-   }
-
-   fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
+   /* TX capture and RX playback are independent. Failure to open a
+    * microphone must never disable received audio or its sound card.
+    * A failed speaker endpoint starts with fd=-1 and is retried by the
+    * core maintenance timer while the mixing engines keep running. */
+   if (!mic_ok)
+      Log(LOG_WARN, "audio.tx", "Microphone capture unavailable; RX playback remains enabled");
+   if (!speaker_ok)
+      Log(LOG_WARN, "audio.playback",
+          "Speaker fwdsp endpoint did not start; RX will retry independently");
+   if (speaker_ok)
+      fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
    rx_channel_volume[0] = CLAMP(cfg_get_int("audio.volume.rx.left", 100), 0, 100);
    rx_channel_volume[1] = CLAMP(cfg_get_int("audio.volume.rx.right", 100), 0, 100);
    g_mutex_init(&rx_sink_lock);
