@@ -1070,12 +1070,16 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       return;
    }
    rr_audio_graph_add_node(graph, "rx.mix", RR_AG_MIXER);
+   rr_audio_graph_add_node(graph, "rx16.resample", RR_AG_PROCESSOR);
    rr_audio_graph_add_node(graph, "hq.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "sink.client.dsp0", RR_AG_SINK);
    rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "rx16.resample",
+      rx_engine && hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "hq.mix", hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
-   rr_audio_graph_add_link(graph, "rx.mix", "hq.mix", RR_AG_NORMAL);
+   rr_audio_graph_add_link(graph, "rx.mix", "rx16.resample", RR_AG_NORMAL);
+   rr_audio_graph_add_link(graph, "rx16.resample", "hq.mix", RR_AG_NORMAL);
    rr_audio_graph_add_link(graph, "hq.mix", "sink.client.dsp0", RR_AG_NORMAL);
    /* The capture endpoint is an independent TX source, not connected to
     * the RX mixer. Present it read-only in the routing inventory. */
@@ -1098,7 +1102,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                      RR_AG_NORMAL, play_channels);
 
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 5 ; i++) {
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 6 ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
@@ -1128,6 +1132,23 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          /* Advertise the real core bus and only the requested hardware
           * boundary rate, never an invented negotiated device rate. */
          const guint32 mix_rate = rr_audio_engine_sample_rate(rx_engine);
+         if (node->type == RR_AG_PROCESSOR &&
+             !strcmp(node->id, "rx16.resample")) {
+            node->read_only = true;
+            node->rate_hz = 16000;
+            node->downstream_rate_hz = rr_audio_engine_sample_rate(hq_engine);
+            node->channels = 2;
+            node->sample_format = RR_PCM_S16LE;
+            rr_audio_stream_status_t bridge = {0};
+            if (rr_audio_engine_stream_status(hq_engine, HQ_BUS_LEGACY_ID, &bridge)) {
+               node->resampling = bridge.resampling;
+               node->queued_ms = (guint32)(bridge.queued_frames * 1000u /
+                                          bridge.mixer_rate_hz);
+               node->dropped_frames = bridge.dropped_frames;
+               node->starvation_events = bridge.starvation_events;
+            }
+            continue;
+         }
          if (node->type == RR_AG_MIXER) {
             node->rate_hz = !strcmp(node->id, "hq.mix") ?
                             rr_audio_engine_sample_rate(hq_engine) : mix_rate;
