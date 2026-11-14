@@ -1059,6 +1059,12 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_add_link(graph, "rx.mix", "sink.client.dsp0", RR_AG_NORMAL);
+   /* The capture endpoint is an independent TX source, not connected to
+    * the RX mixer. Present it read-only in the routing inventory. */
+   rr_audio_graph_add_node(graph, "src.client.dsp0", RR_AG_SOURCE);
+   rr_audio_graph_set_health(graph, "src.client.dsp0",
+                             audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_route(graph, "src.client.dsp0", 'M');
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
    rr_audio_graph_set_health(graph, RECORDING_PLAYBACK_ID,
@@ -1074,7 +1080,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                      RR_AG_NORMAL, play_channels);
 
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 3 ; i++) {
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 4 ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
@@ -1104,6 +1110,14 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             continue;
          }
          if (node->type != RR_AG_SOURCE) continue;
+         if (!strcmp(node->id, "src.client.dsp0")) {
+            const char *rate = cfg_get("audio.capture-rate");
+            g_snprintf(node->rig, sizeof(node->rig), "Microphone (%s requested)",
+                       !rate || !strcmp(rate, "auto") ? "48 kHz" :
+                       !strcmp(rate, "44100") ? "44.1 kHz" :
+                       !strcmp(rate, "48000") ? "48 kHz" : "device default");
+            continue;
+         }
          if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
             g_strlcpy(node->rig, "Recording Playback", sizeof(node->rig));
             node->input_gain_db[0] = rr_audio_engine_input_gain_get(
