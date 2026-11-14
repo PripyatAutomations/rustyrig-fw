@@ -1,5 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Expose live per-stream PCM source rates, internal SRC state, mixer
+    queue depth, overflow drops, and starvation counts in the Audio Routing
+    graph snapshot; label requested device sample rates distinctly from
+    actual registered source rates and add mixer regression assertions.
   * Embed the existing rrpipelines GTK graph and property editor directly in
     Audio Routing → Pipelines; route Config → Edit Pipelines to the new tab.
     Keep GStreamer execution in fwdsp workers and reuse validated config
