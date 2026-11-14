@@ -72,3 +72,20 @@ pipeline generation and stable element-to-logical-route identities
 remain separate follow-up work. GTK builds compiled without GStreamer
 show a clear unavailability message rather than requiring new dependencies
 from the TUI or server.
+
+## Endpoint clocks and generated pipeline plans
+
+The client now supplies sound-card endpoint sample rates explicitly via
+`fwdsp_audio_capture_start_rate()` or `fwdsp_audio_playback_start_rate()`.
+The manager passes `-R 44100` or `-R 48000` to the fwdsp child. The child
+sets the named `processor-device-caps` capsfilter and stereo playback appsrc
+caps *at runtime*, rather than rewriting the configured launch description.
+The 16 kHz radio codec and modem contracts remain unchanged.
+
+The upcoming editor-generated pipeline feature should build from a typed
+model (elements, pads, links, sample formats, channel layouts, clock domains
+and transport endpoints), validate it, then serialize a launch definition or
+worker topology transaction. Keep *requested* endpoint rate and *negotiated*
+device caps distinct; runtime fwdsp inspection should eventually publish
+the measured caps. No automatic GStreamer graph generator or hot-edit
+transaction has been implemented yet.
