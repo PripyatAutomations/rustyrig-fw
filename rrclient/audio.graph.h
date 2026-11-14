@@ -41,6 +41,13 @@ typedef struct {
    float input_gain_db[2]; /* Existing per-source L/R output trim */
    float port_gain_db[2]; /* Mixer L/R output or sink L/R input trim */
    char rig[96];                /* Display identity for an RX stream (site.rig), not its routing ID. */
+   guint32 rate_hz;            /* Actual core PCM rate, or requested device rate. */
+   guint32 downstream_rate_hz; /* 0 if no separately specified downstream clock. */
+   guint8 channels;            /* 1 mono, 2 stereo, 0 not known. */
+   guint8 sample_format;       /* rr_pcm_sample_format_t when known, 0 otherwise. */
+   gboolean rate_requested;    /* rate_hz is configured/requested, not measured. */
+   gboolean resampling;        /* A real converter is in this node's signal path. */
+   gboolean read_only;         /* Never offer routing/gain edits for this node. */
 } rr_ag_view_node_t;
 typedef struct {
    guint32 src, dst;
