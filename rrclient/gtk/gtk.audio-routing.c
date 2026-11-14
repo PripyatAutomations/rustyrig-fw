@@ -36,6 +36,9 @@ static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
 /* Fit the topology to the actual viewport. Panel zoom and wheel zoom multiply independently; neither forces a large GTK size requisition. */
 static double graph_zoom = 1.0, graph_wheel_zoom = 1.0;
 static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
+static double graph_pan_x, graph_pan_y;
+static gboolean graph_pan_dragging;
+static double graph_pan_begin_x, graph_pan_begin_y, graph_pan_base_x, graph_pan_base_y;
 static void graph_canvas_update_size(void) {
    if (graph_canvas) {
       gtk_widget_queue_draw(graph_canvas);
@@ -185,25 +188,49 @@ static void routing_graph_bounds(double *width, double *height) {
    *width = max_x;
    *height = max_y;
 }
+/* Mouse wheel retains zoom, smooth touchpad scroll pans. Shift+wheel
+ * pans horizontally and Ctrl+wheel explicitly zooms on either device. */
 static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer unused) {
-   (void)widget;
    (void)unused;
-   double step = 0.0;
-
-   if (event->direction == GDK_SCROLL_UP) {
-      step = 1.0;
-   } else if (event->direction == GDK_SCROLL_DOWN) {
-      step = -1.0;
-   } else if (event->direction == GDK_SCROLL_SMOOTH) {
-      step = -event->delta_y;
+   double dx = 0., dy = 0.;
+   switch (event->direction) {
+      case GDK_SCROLL_UP: dy = -1.; break;
+      case GDK_SCROLL_DOWN: dy = 1.; break;
+      case GDK_SCROLL_LEFT: dx = -1.; break;
+      case GDK_SCROLL_RIGHT: dx = 1.; break;
+      case GDK_SCROLL_SMOOTH: dx = event->delta_x; dy = event->delta_y; break;
+      default: return FALSE;
    }
-
-   if (!step) {
-      return FALSE;
+   if (!(event->state & GDK_CONTROL_MASK) &&
+       (event->direction == GDK_SCROLL_SMOOTH ||
+        (event->state & GDK_SHIFT_MASK) || dx)) {
+      if (event->state & GDK_SHIFT_MASK) graph_pan_x -= (dx + dy) * 48.;
+      else {
+         graph_pan_x -= dx * 48.;
+         graph_pan_y -= dy * 48.;
+      }
+      graph_canvas_update_size();
+      return TRUE;
    }
-   graph_wheel_zoom = CLAMP(graph_wheel_zoom * pow(1.12, step), 0.10, 6.0);
+   double step = -dy;
+   if (!step) step = -dx;
+   if (!step) return FALSE;
+   /* Preserve the graph point below the pointer while changing the zoom. */
+   double px = event->x, py = event->y;
+   double before_x = (px - graph_offset_x) / MAX(.01, graph_scale);
+   double before_y = (py - graph_offset_y) / MAX(.01, graph_scale);
+   graph_wheel_zoom = CLAMP(graph_wheel_zoom * pow(1.12, step), .10, 6.);
+   double w, h;
+   routing_graph_bounds(&w, &h);
+   double aw = MAX(1, gtk_widget_get_allocated_width(widget));
+   double ah = MAX(1, gtk_widget_get_allocated_height(widget));
+   double fit = MIN(aw / w, ah / h);
+   double next_scale = MAX(.01, fit * graph_zoom * graph_wheel_zoom);
+   graph_pan_x = px - before_x * next_scale -
+       MAX(0., (aw - w * next_scale) / 2.);
+   graph_pan_y = py - before_y * next_scale -
+       MAX(0., (ah - h * next_scale) / 2.);
    graph_canvas_update_size();
-
    return TRUE;
 }
 
@@ -336,8 +363,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
     * layout bounds must not rescale the canvas mid-gesture. */
    if (graph_node_drag < 0) {
       graph_scale = MAX(0.01, fit * graph_zoom * graph_wheel_zoom);
-      graph_offset_x = MAX(0.0, (available_w - natural_w * graph_scale) / 2.0);
-      graph_offset_y = MAX(0.0, (available_h - natural_h * graph_scale) / 2.0);
+      graph_offset_x = MAX(0.0, (available_w - natural_w * graph_scale) / 2.0) + graph_pan_x;
+      graph_offset_y = MAX(0.0, (available_h - natural_h * graph_scale) / 2.0) + graph_pan_y;
    }
    cairo_save(cr);
    cairo_translate(cr, graph_offset_x, graph_offset_y);
@@ -888,10 +915,16 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    (void)widget;
    (void)unused;
 
-   if ((event->type != GDK_BUTTON_PRESS && event->type != GDK_2BUTTON_PRESS) ||
-       event->button != GDK_BUTTON_PRIMARY || !graph_snapshot) {
-      return FALSE;
+   if (event->type == GDK_BUTTON_PRESS &&
+       (event->button == GDK_BUTTON_MIDDLE ||
+        (event->button == GDK_BUTTON_PRIMARY && (event->state & GDK_MOD1_MASK)))) {
+      graph_pan_dragging = TRUE;
+      graph_pan_begin_x = event->x; graph_pan_begin_y = event->y;
+      graph_pan_base_x = graph_pan_x; graph_pan_base_y = graph_pan_y;
+      return TRUE;
    }
+   if ((event->type != GDK_BUTTON_PRESS && event->type != GDK_2BUTTON_PRESS) ||
+       event->button != GDK_BUTTON_PRIMARY || !graph_snapshot) return FALSE;
    double gx, gy;
 
    if (!graph_pointer(event->x, event->y, &gx, &gy)) {
@@ -971,6 +1004,12 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
    (void)widget;
    (void)unused;
 
+   if (graph_pan_dragging) {
+      graph_pan_x = graph_pan_base_x + event->x - graph_pan_begin_x;
+      graph_pan_y = graph_pan_base_y + event->y - graph_pan_begin_y;
+      graph_canvas_update_size();
+      return TRUE;
+   }
    if (graph_drag_channel < 0 && gain_drag_source < 0 &&
        graph_node_drag < 0) return FALSE;
    double gx, gy;
@@ -1003,6 +1042,11 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    (void)widget;
    (void)unused;
 
+   if (graph_pan_dragging && (event->button == GDK_BUTTON_MIDDLE ||
+       event->button == GDK_BUTTON_PRIMARY)) {
+      graph_pan_dragging = FALSE;
+      return TRUE;
+   }
    if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
    if (graph_node_drag >= 0) {
       if (graph_snapshot && (guint)graph_node_drag < graph_snapshot->node_count) {
