@@ -111,6 +111,8 @@ gtk_module_objs += gtk/gtk.admin.selection.o # Administrative table selection an
 gtk_module_objs += gtk/gtk.alertdialog.o # alert/error/warning dialogs
 gtk_module_objs += gtk/gtk.graph.o # Shared graph canvas (also used by rrpipelines)
 gtk_module_objs += gtk/gtk.audio-routing.o # RX ear routing window
+gtk_module_objs += gtk/gtk.pipeline-editor.o # Embedded GStreamer pipeline editor
+gtk_module_objs += gtk/gtk.pipeline-model.o # Shared pipeline graph/model
 gtk_module_objs += gtk/gtk.control-panel.o # Draggable in-client control popups
 gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff
 gtk_module_objs += gtk/gtk.chat-context.o
@@ -207,8 +209,8 @@ ifeq ($(vte_gtk3_available),true)
 VTE_CFLAGS := $(shell pkg-config --cflags vte-2.91) -DRR_HAVE_VTE=1
 VTE_LIBS := $(shell pkg-config --libs vte-2.91)
 endif
-GTK_CFLAGS := ${GTK_MODULE_CFLAGS} ${VTE_CFLAGS}
-GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS} -lm
+GTK_CFLAGS := ${GTK_MODULE_CFLAGS} ${VTE_CFLAGS} $(shell pkg-config --cflags gstreamer-1.0)
+GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0 gstreamer-1.0) ${VTE_LIBS} -lm
 
 # Generate a catalog of literal log subsystems for the GTK level composer.
 RR_LOG_SUBSYSTEM_SOURCES := $(shell find rrclient rrserver rrbridge fwdsp libfwdspmgr rrpipelines -type f -name '*.c' 2>/dev/null)
@@ -244,6 +246,16 @@ ${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} $
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
+
+# The integrated pipeline editor is the same source/model as standalone
+# rrpipelines, built for the GTK plugin without a main() or GTK main loop.
+${BUILD_DIR}/rrclient/gtk/gtk.pipeline-editor.o: rrpipelines/main.c rrpipelines/editor.h rrpipelines/pipeline.h rrclient/gtk/gtk.graph.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
+	@mkdir -p $(dir $@)
+	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${GTK_CFLAGS} -DRR_PIPELINE_EMBEDDED -o $@ -c $<
+
+${BUILD_DIR}/rrclient/gtk/gtk.pipeline-model.o: rrpipelines/pipeline.c rrpipelines/pipeline.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
+	@mkdir -p $(dir $@)
+	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${GTK_CFLAGS} -o $@ -c $<
 
 # The GTK frontend module. It resolves the frontend host API (and all core
 # client API it uses) from the rrclient executable itself, which is linked
