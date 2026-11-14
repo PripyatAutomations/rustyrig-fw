@@ -1,5 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Cancel SDR directory/catalog and maintenance timers in their actual
+    client core GMainContext instead of calling g_source_remove() on the
+    GTK/default context. Clear expired IDs safely and add a regression
+    for custom-context timer cancellation.
   * Tighten gain-row alignment: position the dB readout directly beside
     each slider, add clearance around socket labels, and keep sink gain
     hit targets aligned with the displayed sliders.
