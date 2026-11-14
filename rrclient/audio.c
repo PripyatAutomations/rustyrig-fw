@@ -1192,7 +1192,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             rr_audio_engine_t *owner = node->type == RR_AG_MIXER &&
                   !strcmp(node->id, "rx.mix") ? rx_engine : hq_engine;
             for (unsigned ch = 0; ch < 2; ch++)
-               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(owner, false, ch);
+               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(
+                  owner, node->type == RR_AG_SINK, ch);
             continue;
          }
          if (node->type != RR_AG_SOURCE) continue;
@@ -1393,7 +1394,7 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          bool sink_input = !strcmp(req->stream, "sink.client.dsp0");
          if (!sink_input && strcmp(req->stream, "rx.mix")) break;
          rr_audio_engine_t *owner = sink_input ? hq_engine : rx_engine;
-         if (rr_audio_engine_port_gain(owner, false, req->channel, req->gain_db)) {
+         if (rr_audio_engine_port_gain(owner, sink_input, req->channel, req->gain_db)) {
             char *key = g_strdup_printf("audio.graph.port.%s.%c",
                sink_input ? "sink" : "mix", req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
@@ -1574,7 +1575,7 @@ bool audio_init(void) {
             double db = g_ascii_strtod(saved, &end);
             if (end != saved && !*end)
                rr_audio_engine_port_gain(stage ? hq_engine : rx_engine,
-                                         false, ch, db);
+                                         stage != 0, ch, db);
          }
          g_free(saved);
          g_free(key);
