@@ -27,6 +27,14 @@ int main(void) {
    assert(rr_audio_engine_stream_format(engine, "receiver-a", &reported));
    assert(reported.sample_rate_hz == 16000 && reported.channels == 1);
    assert(rr_audio_engine_add_stream_format(engine, "wide-am", &wide));
+   rr_audio_stream_status_t stream_state = {0};
+   assert(rr_audio_engine_stream_status(engine, "wide-am", &stream_state));
+   assert(stream_state.source.sample_rate_hz == 48000);
+   assert(stream_state.mixer_rate_hz == 16000 && stream_state.resampling);
+   assert(stream_state.queued_frames == 0 && stream_state.dropped_frames == 0);
+   assert(!rr_audio_engine_stream_status(engine, "no-such-source", &stream_state));
+   assert(rr_audio_engine_stream_status(engine, "receiver-a", &stream_state));
+   assert(!stream_state.resampling && stream_state.source.channels == 1);
    assert(rr_audio_engine_route(engine, "wide-am", 'M'));
    assert(!rr_audio_engine_push(engine, "wide-am", (const int16_t[]){1}, 1));
    assert(!rr_audio_engine_add_stream_format(engine, "receiver-a", &wide));
@@ -50,6 +58,8 @@ int main(void) {
    };
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.startup_blocks == 1 && stats.underrun_blocks == 0);
+   assert(rr_audio_engine_stream_status(engine, "receiver-a", &stream_state));
+   assert(stream_state.queued_frames == 320 && stream_state.starvation_events == 0);
 
    /* At 80 ms accumulated, play without waiting for the UI loop. */
    assert(rr_audio_engine_push(engine, "receiver-a", pcm, 960));
@@ -61,6 +71,8 @@ int main(void) {
    tick(engine, stereo, &active);   /* First genuine starvation. */
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.starvation_events == 1 && stats.underrun_blocks == 1);
+   assert(rr_audio_engine_stream_status(engine, "receiver-a", &stream_state));
+   assert(stream_state.starvation_events == 1);
 
    /* Recovery also requires 80 ms; a single frame must remain buffered. */
    assert(rr_audio_engine_push(engine, "receiver-a", pcm, 320));
