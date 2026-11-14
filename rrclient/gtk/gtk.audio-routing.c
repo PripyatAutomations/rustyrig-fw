@@ -57,8 +57,8 @@ static gint graph_node_drag = -1;
 static double graph_node_drag_x, graph_node_drag_y;
 static double graph_node_press_x, graph_node_press_y;
 static gboolean graph_node_moved;
-#define GRAPH_LAYOUT_GAP_X 205.0
-#define GRAPH_LAYOUT_GAP_Y 143.0
+#define GRAPH_LAYOUT_GAP_X 305.0
+#define GRAPH_LAYOUT_GAP_Y 200.0
 #define GRAPH_LAYOUT_MARGIN 28.0
 
 static char *routing_position_key(const char *id) {
@@ -124,7 +124,7 @@ static void routing_layout_set(const rr_ag_view_node_t *node, double x, double y
       g_free(key);
    }
 }
-/* Left-to-right columns. Every downstream bus is vertically centered on its
+/* Spacious left-to-right columns. Every downstream bus is vertically centered on its
  * inputs, while isolated capture devices are placed in a separate lane. */
 static void routing_layout_auto(gboolean reset) {
    if (!graph_snapshot) return;
