@@ -443,12 +443,14 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                                 CAIRO_FONT_WEIGHT_NORMAL);
          cairo_set_font_size(cr, 8.4);
-         cairo_move_to(cr, routing_node_x(node) + 7, y + 3);
+         cairo_move_to(cr, routing_node_x(node) + 15, y + 3);
          cairo_show_text(cr, node->type == RR_AG_PROCESSOR ?
             (channel ? "R IN" : "L IN") : (channel ? "R OUT" : "L OUT"));
          char value[20];
          g_snprintf(value, sizeof(value), "%+.0fdB", db);
-         cairo_move_to(cr, routing_node_x(node) + 42, y + 3);
+         cairo_text_extents_t label_size;
+         cairo_text_extents(cr, value, &label_size);
+         cairo_move_to(cr, gain_x - 6. - label_size.width, y + 3);
          cairo_show_text(cr, value);
       }
       /* Source diagnostics are read-only and originate from the running
@@ -468,8 +470,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       const rr_ag_view_node_t *node = &g->nodes[i];
       if (node->type != RR_AG_MIXER && node->type != RR_AG_SINK) continue;
       double node_x = routing_node_x(node);
-      double x = node->type == RR_AG_MIXER ?
-         node_x + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : node_x + 12.;
+      double x = node_x + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       if (graph_missing_since[i] || !routing_gain_supported(node)) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = routing_node_y(node) + (channel ? 79 : 60);
@@ -490,17 +491,13 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_set_font_size(cr, 8.4);
          char value[20];
          g_snprintf(value, sizeof(value), "%+.0fdB", db);
-         if (node->type == RR_AG_SINK) {
-            cairo_move_to(cr, node_x + 72, y + 3);
-            cairo_show_text(cr, value);
-            cairo_move_to(cr, node_x + 115, y + 3);
-            cairo_show_text(cr, channel ? "R IN" : "L IN");
-         } else {
-            cairo_move_to(cr, node_x + 7, y + 3);
-            cairo_show_text(cr, channel ? "R OUT" : "L OUT");
-            cairo_move_to(cr, node_x + 42, y + 3);
-            cairo_show_text(cr, value);
-         }
+         cairo_move_to(cr, node_x + 15, y + 3);
+         cairo_show_text(cr, node->type == RR_AG_SINK ?
+            (channel ? "R IN" : "L IN") : (channel ? "R OUT" : "L OUT"));
+         cairo_text_extents_t label_size;
+         cairo_text_extents(cr, value, &label_size);
+         cairo_move_to(cr, x - 6. - label_size.width, y + 3);
+         cairo_show_text(cr, value);
       }
    }
 
@@ -858,7 +855,7 @@ static gboolean graph_gain_at(double x, double y, gint *source,
       } else if (n->type == RR_AG_MIXER) {
          left = routing_node_x(n) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else if (n->type == RR_AG_SINK) {
-         left = routing_node_x(n) + 12.;
+         left = routing_node_x(n) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else continue;
       if (!routing_gain_supported(n) || graph_missing_since[i] ||
           x < left - 8 || x > left + GRAPH_GAIN_W + 8) continue;
@@ -877,8 +874,7 @@ static void graph_gain_drag(double x) {
    if (!graph_snapshot || gain_drag_source < 0 || gain_drag_channel < 0)
       return;
    rr_ag_view_node_t *node = &graph_snapshot->nodes[gain_drag_source];
-   double left = node->type == RR_AG_SINK ? routing_node_x(node) + 12. :
-      routing_node_x(node) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
+   double left = routing_node_x(node) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
    double ratio = CLAMP((x - left) / GRAPH_GAIN_W, 0., 1.);
    double db = round(GRAPH_GAIN_MIN + ratio * (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN));
    float *current = gain_drag_port ? &node->port_gain_db[gain_drag_channel] :
