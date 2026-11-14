@@ -324,7 +324,7 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    if (failed) {
       fwdsp_processor_stop("sink.client.dsp0");
 
-      if (fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) {
+      if (audio_client_playback_start()) {
          fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
          rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
          Log(LOG_INFO, "audio", "RX worker reattached to fwdsp playback subprocess");
@@ -345,7 +345,7 @@ static void client_speaker_pcm(const void *samples, size_t len) {
       // slot awaiting cleanup. Clear it before recreating the persistent sink.
       fwdsp_processor_stop("sink.client.dsp0");
 
-      if (!fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) {
+      if (!audio_client_playback_start()) {
          return;
       }
       fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
@@ -392,6 +392,55 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
       tx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to feed client mic PCM to %s.tx", tx_codec);
    }
+}
+
+
+/* Keep the existing 16 kHz framed-PCM contract. The selected rate applies
+ * only at the physical PulseAudio/PipeWire endpoint, before capture conversion
+ * or after playback resampling. Custom pipeline strings are left untouched. */
+static char *audio_device_pipeline(const char *pipeline, bool capture, bool fallback) {
+   if (!pipeline) return NULL;
+   const char *key = capture ? "audio.capture-rate" : "audio.playback-rate";
+   const char *configured = cfg_get(key);
+   if (fallback) return g_strdup(pipeline);
+   const char *rate = !configured || !strcmp(configured, "auto") ? "48000" : configured;
+   if (strcmp(rate, "44100") && strcmp(rate, "48000")) {
+      Log(LOG_WARN, "audio", "Invalid %s=%s; use auto, 44100 or 48000", key, rate);
+      return g_strdup(pipeline);
+   }
+   const char *needle = capture ? " ! audioconvert ! audioresample" : " ! pulsesink";
+   const char *at = strstr(pipeline, needle);
+   if (!at || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ")) {
+      Log(LOG_INFO, "audio", "Custom %s pipeline: device rate selection not applied", capture ? "capture" : "playback");
+      return g_strdup(pipeline);
+   }
+   char *prefix = g_strndup(pipeline, (gsize)(at - pipeline));
+   char *result = g_strdup_printf("%s ! audio/x-raw,rate=%s%s", prefix, rate, at);
+   g_free(prefix);
+   return result;
+}
+
+static bool audio_client_playback_start(void) {
+   const char *base = cfg_get("pipeline:sink.client.mix");
+   char *pipeline = audio_device_pipeline(base, false, false);
+   bool ok = fwdsp_audio_playback_start("sink.client.dsp0", pipeline);
+   g_free(pipeline);
+   if (!ok && base) {
+      Log(LOG_WARN, "audio", "Playback endpoint failed with requested rate; trying configured default");
+      ok = fwdsp_audio_playback_start("sink.client.dsp0", base);
+   }
+   return ok;
+}
+static bool audio_client_capture_start(void) {
+   const char *base = cfg_get("pipeline:src.client.dsp0");
+   char *pipeline = audio_device_pipeline(base, true, false);
+   bool ok = fwdsp_audio_capture_start("src.client.dsp0", pipeline, client_mic_pcm, NULL);
+   g_free(pipeline);
+   if (!ok && base) {
+      Log(LOG_WARN, "audio", "Capture endpoint failed with requested rate; trying configured default");
+      ok = fwdsp_audio_capture_start("src.client.dsp0", base, client_mic_pcm, NULL);
+   }
+   return ok;
 }
 
 typedef struct rx_route {
@@ -1328,8 +1377,8 @@ bool audio_init(void) {
       return true;
    }
 
-   bool mic_ok = fwdsp_audio_capture_start("src.client.dsp0", NULL, client_mic_pcm, NULL);
-   bool speaker_ok = fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"));
+   bool mic_ok = audio_client_capture_start();
+   bool speaker_ok = audio_client_playback_start();
 
    if (!mic_ok || !speaker_ok) {
       Log(LOG_CRIT, "audio", "Unable to start client PCM endpoints (mic=%s, speaker=%s)", mic_ok ? "ready" : "failed", speaker_ok ? "ready" : "failed");
