@@ -40,10 +40,9 @@ void audio_recording_play_collect(void);
 extern bool gst_active;
 
 extern bool audio_init(void);
-/* Local SDR PCM joins the same mixer as remote audio. Existing Kiwi and
- * modem paths remain 16 kHz mono; higher-rate local demodulators can
- * register explicit PCM sample rates/channel layouts without advertising
- * them as codecs in the server-side listening codec negotiation. */
+/* Low-rate local SDR PCM joins the 16 kHz radio bus, shared with remote
+ * codecs/modems; higher-rate sources enter the 44.1/48 kHz HQ mixer
+ * directly. PCM formats are internal and never advertised as codecs. */
 bool audio_local_rx_start(const char *id);
 bool audio_local_rx_start_format(const char *id, const rr_pcm_stream_format_t *format);
 bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t frames);
