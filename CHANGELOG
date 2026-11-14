@@ -1,5 +1,14 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Run stereo client sound-card playback on a 44.1/48 kHz HQ mixer, with
+    the legacy 16 kHz radio/AF bus feeding HQ through one producer-side
+    band-limited resampler. Admit high-rate local streams to HQ directly.
+  * Pass -R 44100/48000 explicitly to isolated fwdsp capture/playback
+    workers; set named runtime GStreamer device caps and playback appsrc
+    rate instead of rewriting launch strings from rrclient.
+  * Display the real 16 kHz mixer, resampler, HQ mixer and playback sink as
+    independent Routing stages; extend PCM regression tests and worker
+    diagnostics while retaining legacy 16 kHz codec/recording taps.
   * Show per-node audio format, requested-versus-actual rate distinction,
     and source queue/dropout telemetry in Routing hover properties; retain
     bounded SRC queues with per-stream drop and starvation regression tests.
