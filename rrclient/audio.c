@@ -287,8 +287,6 @@ static int rx_channel_volume[2] = {
 };
 
 static uint64_t mixer_next_us;
-static uint64_t speaker_retry;
-static bool speaker_failed;
 /* Ten-second RX diagnostics; counters only, no per-frame logging. */
 static bool audio_client_playback_start(void);
 static uint64_t rx_diag_at, rx_late_ticks, rx_late_max_us, rx_skipped_blocks;
@@ -373,36 +371,14 @@ static gboolean rx_engine_maintenance(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+/* Legacy decoder/DCC playback remains 16 kHz stereo. It must enter the
+ * narrowband bus instead of writing directly into the HQ fwdsp appsrc:
+ * otherwise the 16 kHz frames would be timestamped as 44.1/48 kHz PCM. */
 static void client_speaker_pcm(const void *samples, size_t len) {
-   uint64_t current = mono_us();
-
-   if (speaker_failed) {
-      if (current < speaker_retry) {
-         return;
-      }
-      speaker_retry = current + 1000000;
-      // A failed write retires the endpoint; an exited child can also leave a
-      // slot awaiting cleanup. Clear it before recreating the persistent sink.
-      fwdsp_processor_stop("sink.client.dsp0");
-
-      if (!audio_client_playback_start()) {
-         return;
-      }
-      fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
-      speaker_failed = false;
-      Log(LOG_INFO, "audio", "Restarted client RX playback endpoint");
-   }
-
-   if (!fwdsp_processor_write("sink.client.dsp0", samples, len)) {
-      rx_speaker_write_fail++;
-      speaker_failed = true;
-      speaker_retry = current + 1000000;
-
-      if (!rx_pcm_warned || now < rx_pcm_warned || now - rx_pcm_warned >= 5) {
-         rx_pcm_warned = now;
-         Log(LOG_WARN, "audio", "Client RX playback failed; retrying the speaker endpoint");
-      }
-   }
+   if (!samples || !len || (len % (2 * sizeof(int16_t))) || !rx_engine)
+      return;
+   rr_audio_engine_push_pcm(rx_engine, "legacy.speaker", samples,
+                            len / (2 * sizeof(int16_t)));
 }
 
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
@@ -1523,8 +1499,6 @@ bool audio_init(void) {
    fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
    rx_channel_volume[0] = CLAMP(cfg_get_int("audio.volume.rx.left", 100), 0, 100);
    rx_channel_volume[1] = CLAMP(cfg_get_int("audio.volume.rx.right", 100), 0, 100);
-   speaker_failed = false;
-   speaker_retry = 0;
    g_mutex_init(&rx_sink_lock);
    rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
    /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds
@@ -1548,6 +1522,10 @@ bool audio_init(void) {
       return true;
    }
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
+   /* Older decoder and PCM-hub paths still supply 16 kHz stereo frames.
+    * Keep their speaker feed registered with the low-rate bus. */
+   const rr_pcm_stream_format_t legacy_speaker = {16000, 2, RR_PCM_S16LE};
+   rr_audio_engine_add_stream_format(rx_engine, "legacy.speaker", &legacy_speaker);
    /* Create the permanent recording playback source before the graph's first
     * snapshot; preserve user L/R routing across repeated Play actions. */
    rr_audio_engine_add_stream(rx_engine, RECORDING_PLAYBACK_L);
