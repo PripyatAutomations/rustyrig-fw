@@ -1,10 +1,8 @@
 name: C/C++ CI
 
+# Temporarily disabled: no automatic CI on pushes or pull requests.
 on:
-  push:
-    branches: [ "main", "mesh-linking" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
