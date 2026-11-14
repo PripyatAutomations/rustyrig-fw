@@ -136,7 +136,8 @@ bool audio_local_rx_start_format(const char *id,
    if (!id || !format || !rr_pcm_stream_format_valid(format)) return false;
    rr_audio_engine_t *target = format->sample_rate_hz <= 16000 ?
                                   rx_engine : hq_engine;
-   if (!target || audio_stream_engine(id) ||
+   rr_audio_engine_t *existing = audio_stream_engine(id);
+   if (!target || (existing && existing != target) ||
        !rr_audio_engine_add_stream_format(target, id, format))
       return false;
    audio_input_gain_load(target, id);
