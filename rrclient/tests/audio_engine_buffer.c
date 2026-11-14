@@ -186,6 +186,16 @@ int main(void) {
    tick(engine, wide_stereo, &active);
    assert(wide_stereo[200] >= 590 && wide_stereo[200] <= 610);
    assert(wide_stereo[201] == 1200);
+   rr_audio_stream_status_t wide_status = {0};
+   assert(rr_audio_engine_stream_status(engine, "legacy-rate", &wide_status));
+   assert(wide_status.resampling && wide_status.mixer_rate_hz == 48000);
+   assert(rr_audio_engine_stream_status(engine, "wide", &wide_status));
+   assert(!wide_status.resampling && wide_status.queued_frames > 0);
+   /* Excess producer PCM is capped at 240 ms, reported per stream. */
+   for (unsigned n = 0; n < 3; n++)
+      assert(rr_audio_engine_push(engine, "wide", wide_pcm, 4800));
+   assert(rr_audio_engine_stream_status(engine, "wide", &wide_status));
+   assert(wide_status.dropped_frames > 0 && wide_status.queued_frames <= 11520);
    rr_audio_engine_free(engine);
    /* 44.1 kHz stereo must mix at 48 kHz with its channels intact, even
     * across packet boundaries that do not align to 20 ms. */
@@ -198,6 +208,10 @@ int main(void) {
    rr_pcm_stream_format_t actual = {0};
    assert(rr_audio_engine_stream_format(engine, "broadcast", &actual));
    assert(actual.sample_rate_hz == 44100 && actual.channels == 2);
+   rr_audio_stream_status_t cd_status = {0};
+   assert(rr_audio_engine_stream_status(engine, "broadcast", &cd_status));
+   assert(cd_status.resampling && cd_status.source.channels == 2 &&
+          cd_status.source.format == RR_PCM_S16LE && cd_status.mixer_rate_hz == 48000);
    int16_t cd_frames[4410 * 2];
    for (size_t i = 0; i < 4410; i++) {
       cd_frames[i * 2] = 1400;
