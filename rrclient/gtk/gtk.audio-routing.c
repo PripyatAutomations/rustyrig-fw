@@ -123,11 +123,11 @@ static void routing_layout_set(const rr_ag_view_node_t *node, double x, double y
  * inputs, while isolated capture devices are placed in a separate lane. */
 static void routing_layout_auto(gboolean reset) {
    if (!graph_snapshot) return;
-   guint legacy = 0, high = 0, isolated = 0;
+   guint legacy = 0, high = 0;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (n->type != RR_AG_SOURCE) continue;
-      if (!strcmp(n->id, "src.client.dsp0")) isolated++;
+      if (!strcmp(n->id, "src.client.dsp0")) continue;
       else if (n->downstream_rate_hz > 16000) high++;
       else legacy++;
    }
@@ -251,7 +251,6 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    rr_gtk_graph_edge_t edges[RR_AUDIO_GRAPH_MAX_LINKS * 2] = { {
                                                                   0
                                                                } };
-   guint source_index = 0;
    char format_details[RR_AUDIO_GRAPH_MAX_NODES][96] = {{0}};
 
    for (guint i = 0 ; i < g->node_count ; i++) {
@@ -277,7 +276,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          g_free(summary);
       }
       nodes[i] = (rr_gtk_graph_node_t) {
-         .x = routing_node_x(n), .y = source ? 20 + 140 * source_index++ : 80, .title = source
+         .x = routing_node_x(n), .y = routing_node_y(n), .title = source
             && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0, .selected = !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2, .io =
@@ -331,11 +330,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
 
    /* Output trims inside each source block; backed by the existing
     * per-stream L/R gains rather than by speaker/master volume. */
-   guint trim_row = 0;
    for (guint i = 0; i < g->node_count; i++) {
       const rr_ag_view_node_t *node = &g->nodes[i];
       if (node->type != RR_AG_SOURCE) continue;
-      double y0 = 20 + 140 * trim_row++;
+      double y0 = routing_node_y(node);
       if (graph_missing_since[i] || node->read_only) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = y0 + (channel ? 79 : 60);
@@ -344,11 +342,12 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double ratio = (db - GRAPH_GAIN_MIN) / (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN);
          cairo_set_line_width(cr, 1.8);
          cairo_set_source_rgba(cr, .55, .67, .76, .85);
-         cairo_move_to(cr, GRAPH_GAIN_X, y);
-         cairo_line_to(cr, GRAPH_GAIN_X + GRAPH_GAIN_W, y);
+         double gain_x = routing_node_x(node) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
+         cairo_move_to(cr, gain_x, y);
+         cairo_line_to(cr, gain_x + GRAPH_GAIN_W, y);
          cairo_stroke(cr);
          cairo_set_source_rgb(cr, .31, .82, .97);
-         cairo_arc(cr, GRAPH_GAIN_X + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
+         cairo_arc(cr, gain_x + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
          cairo_fill(cr);
          char value[16];
          g_snprintf(value, sizeof(value), "%+.0f", db);
@@ -356,7 +355,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                                 CAIRO_FONT_WEIGHT_NORMAL);
          cairo_set_font_size(cr, 8);
-         cairo_move_to(cr, GRAPH_GAIN_X - 24, y + 3);
+         cairo_move_to(cr, gain_x - 24, y + 3);
          cairo_show_text(cr, value);
       }
       /* Source diagnostics are read-only and originate from the running
@@ -366,7 +365,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
                  node->queued_ms, node->dropped_frames, node->starvation_events);
       cairo_set_source_rgb(cr, .72, .80, .84);
       cairo_set_font_size(cr, 8);
-      cairo_move_to(cr, 32, y0 + 101);
+      cairo_move_to(cr, routing_node_x(node) + 7, y0 + 101);
       cairo_show_text(cr, status);
    }
 
@@ -380,7 +379,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          node_x + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. : node_x + 12.;
       if (graph_missing_since[i] || node->read_only) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
-         double y = 80 + (channel ? 79 : 60);
+         double y = routing_node_y(node) + (channel ? 79 : 60);
          double db = CLAMP(node->port_gain_db[channel],
                            GRAPH_GAIN_MIN, GRAPH_GAIN_MAX);
          double ratio = (db - GRAPH_GAIN_MIN) / (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN);
@@ -639,12 +638,10 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
    if (keyboard || !graph_snapshot || graph_scale <= 0) return FALSE;
    const double x = (px - graph_offset_x) / graph_scale;
    const double y = (py - graph_offset_y) / graph_scale;
-   guint source_row = 0;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       const double nx = routing_node_x(n);
-      const double ny = n->type == RR_AG_SOURCE ?
-                        20 + 140 * source_row++ : 80;
+      const double ny = routing_node_y(n);
       if (x < nx || x > nx + RR_GTK_GRAPH_NODE_W ||
           y < ny || y > ny + RR_GTK_GRAPH_NODE_H)
          continue;
