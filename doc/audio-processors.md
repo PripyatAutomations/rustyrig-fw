@@ -60,6 +60,17 @@ currently has one active encoder format for its listeners.
 
 ## Audio Routing graph and per-pin gains
 
+Routing blocks can be dragged by their body or title without touching their
+audio connections. Positions are stored in the rrclient settings database,
+keyed by a SHA-256 of each stable audio node ID; restarting the client or
+disconnecting a receiver does not lose manually placed coordinates.
+Port dragging and L/R trim sliders retain their own gestures. **Auto Layout**
+clears manually saved positions and arranges sources, the 16 kHz radio bus,
+the resampling bridge, HQ bus and sink in centered left-to-right columns.
+Isolated microphone capture occupies a separate lane. Audio route presets
+remain independent of the visual layout.
+
+
 The GTK **Audio Routing** panel uses a distinct network/graph toolbar icon,
 leaving the speaker/volume icon to the Volume widget. Its L/R trims live
 inside each block next to the corresponding audio port, not on the wires.
