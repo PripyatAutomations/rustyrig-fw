@@ -68,7 +68,8 @@ codec, resampler or general process workers.
 
 ### Audio Routing and diagnostics
 
-The graph shows `rx.mix`, `rx16.resample`, `hq.mix`, the final
+The graph shows legacy decoded `legacy.speaker` PCM routed through
+`rx.mix`, `rx16.resample`, `hq.mix`, the final
 `sink.client.dsp0`, independent `src.client.dsp0` microphone capture,
 and the actual active playback sources. HQ sources link directly into
 `hq.mix`. The rate-converter and HQ mixer are read-only topology
@@ -93,8 +94,8 @@ before those sources can be recorded along with the entire audible HQ
 mix. Do not relabel current recording as full-HQ stereo capture.
 
 See [audio rate domain diagram](audio-rate-domains.svg) for a reference
-graphic. The diagram should be revised alongside the finalized
-live-mixer graph in a future design pass.
+graphic. The diagram illustrates the implemented buses and labels the
+future pipeline generator separately.
 
 ## Planned architecture: dynamic per-rate AF buses
 
