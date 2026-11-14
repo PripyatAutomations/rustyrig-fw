@@ -95,6 +95,8 @@ static gboolean gain_drag_port;
 #define GRAPH_GAIN_MIN (-60.0)
 #define GRAPH_GAIN_MAX 12.0
 static void graph_gain_drag(double x);
+static const char *pipeline_for_node(const char *id);
+static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
@@ -389,13 +391,14 @@ static void routing_pipeline_viewer_done(GObject *source, GAsyncResult *result, 
    g_object_unref(source);
 }
 static void routing_pipeline_open(const char *id) {
-   if (g_strcmp0(id, "sink.client.dsp0")) {
-      return;
-   }
-   const char *launch = cfg_get("pipeline:sink.client.mix");
+   const char *pipeline_id = pipeline_for_node(id);
+   if (!pipeline_id) return;
+   char *key = g_strdup_printf("pipeline:%s", pipeline_id);
+   const char *launch = cfg_get(key);
+   g_free(key);
 
    if (!launch || !*launch) {
-      g_warning("No configured GStreamer pipeline for sink.client.dsp0");
+      g_warning("No configured GStreamer pipeline for %s", id);
 
       return;
    }
@@ -405,7 +408,7 @@ static void routing_pipeline_open(const char *id) {
       return;
    }
    gboolean valid = !dict_add_uint(document, "pipelines.count", 1) &&
-      !dict_add(document, "pipelines.0.id", "sink.client.mix") && !dict_add(document, "pipelines.0.launch", launch);
+      !dict_add(document, "pipelines.0.id", pipeline_id) && !dict_add(document, "pipelines.0.launch", launch);
    gchar *json = valid ? dict2json(document) : NULL;
    dict_free(document);
 
@@ -806,17 +809,6 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
 
-   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
-      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-
-      if (!graph_missing_since[i] && n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0") &&
-         gx >= 650 && gx <= 650 + RR_GTK_GRAPH_NODE_W && gy >= 80 && gy <= 80 + RR_GTK_GRAPH_NODE_H) {
-         routing_pipeline_open(n->id);
-
-         return TRUE;
-      }
-   }
-
    return FALSE;
 }
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
@@ -1161,6 +1153,7 @@ void gtk_audio_graph_present(void) {
    }
    rr_floating_panel_restore(graph_panel);
    rr_floating_panel_show(graph_panel);
+   pipeline_list_refresh();
    routing_queue();             /* Request an up-to-date core graph, not a stale UI cache. */
 
    if (graph_canvas) {
