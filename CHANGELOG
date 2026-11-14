@@ -1,5 +1,14 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Distinguish hollow thick-ring graph input sockets from solid output
+    sockets; add direction arrowheads and snapping live patch-cord previews.
+    Present mono receiver routing as separate L/R destination trims with
+    channel-aligned labels, dB values, sliders and output pins.
+  * Add middle/Alt-drag panning and touchpad scrolling to Audio Routing,
+    keeping cursor-centered mouse-wheel zoom and saved node placement.
+  * Provide reference GStreamer pipelines to split one stereo sound card
+    into left/right mono capture and hard-panned playback for two rigs,
+    preserving their independent 16 kHz media endpoints.
   * Let GTK Audio Routing blocks be dragged independently of gain sliders
     and patch-cord ports; store hand-placed coordinates per stable node ID
     in the client database, surviving restarts and receiver reconnects.
