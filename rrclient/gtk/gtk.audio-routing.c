@@ -22,6 +22,15 @@ static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 /* Embedded tool page: deliberately omitted from the visible main tab strip. */
 static GtkWidget *graph_page, *graph_return_page;
+static void graph_return_page_set(GtkWidget *page) {
+   if (graph_return_page)
+      g_object_remove_weak_pointer(G_OBJECT(graph_return_page),
+                                  (gpointer *)&graph_return_page);
+   graph_return_page = page;
+   if (graph_return_page)
+      g_object_add_weak_pointer(G_OBJECT(graph_return_page),
+                               (gpointer *)&graph_return_page);
+}
 static GtkWidget *graph_canvas;
 static GtkWidget *audio_tabs, *pipeline_editor_widget;
 static char *graph_focus_id;
@@ -1382,7 +1391,7 @@ void gtk_audio_graph_hide(void) {
    if (index < 0 && gtk_notebook_get_n_pages(book) > 1) index = 0;
    if (index >= 0 && gtk_notebook_get_nth_page(book, index) != graph_page)
       gtk_notebook_set_current_page(book, index);
-   graph_return_page = NULL;
+   graph_return_page_set(NULL);
 }
 void gtk_audio_graph_toggle(void) {
    if (graph_page && GTK_IS_NOTEBOOK(main_notebook) &&
@@ -1470,7 +1479,7 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(graph_canvas, "draw", G_CALLBACK(routing_graph_draw), NULL);
    }
    GtkWidget *current = gtk_notebook_get_nth_page(book, gtk_notebook_get_current_page(book));
-   if (current != graph_page) graph_return_page = current;
+   if (current != graph_page) graph_return_page_set(current);
    gtk_widget_show_all(graph_page);
    gtk_notebook_set_current_page(book, gtk_notebook_page_num(book, graph_page));
    routing_queue();             /* Request an up-to-date core graph, not a stale UI cache. */
@@ -1714,7 +1723,8 @@ void gtk_audio_routing_shutdown(void) {
          gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), graph_page);
          if (page >= 0) gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), page);
       }
-      graph_page = graph_return_page = NULL;
+      graph_return_page_set(NULL);
+      graph_page = NULL;
       graph_canvas = NULL;
       audio_tabs = pipeline_editor_widget = NULL;
       g_clear_pointer(&graph_focus_id, g_free);
