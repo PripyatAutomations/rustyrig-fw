@@ -45,6 +45,29 @@ flowchart LR
 
 See [audio rate domain diagram](audio-rate-domains.svg) for the source graphic.
 
+## Running source-format and converter telemetry
+
+The existing `rr_audio_engine` already accepts S16LE/F32LE mono/stereo
+sources at independently registered rates (8–192 kHz), but its currently
+deployed RX mix clock remains **16 kHz S16LE stereo**. For a mismatched
+source rate, the engine performs band-limited producer-side conversion
+into bounded 16 kHz queues; it does not resample on the mixer thread.
+
+The core now snapshots each registered source's format and conversion
+state under the mixer lock, together with queued frames (reported as
+milliseconds at the mixer clock), cumulative dropped frames and
+starvation/rebuffer events. Audio Routing displays actual registered
+source rates and SRC state, and places `Q`, `D` and `U` readouts under
+source controls. The hardware boundary figures remain explicitly marked
+**requested**: they are configuration values, not probed/negotiated caps.
+Unregistered or unavailable source formats should display *unknown*,
+not an inferred radio codec sample rate.
+
+These are diagnostics for the **existing** per-source conversion and core
+mix bus, not evidence that future native-rate multi-source buses have
+already been created. A bus should only appear in Routing after a real
+corresponding engine exists.
+
 ## Planned architecture: dynamic per-rate AF buses
 
 The desired long-term mixer uses native-rate buses, created only as required
