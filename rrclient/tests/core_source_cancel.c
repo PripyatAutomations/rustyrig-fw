@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Run: cc -I. rrclient/tests/core_source_cancel.c $(pkg-config --cflags --libs glib-2.0) -o /tmp/core-source-test && /tmp/core-source-test
 #include <assert.h>
+#include <stdio.h>
 #include <rrclient/rrclient.h>
 
 static GMainContext *core;
