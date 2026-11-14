@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include "gtk.graph.h"
+#include <math.h>
 
 /* A filled circle sends audio; a hollow, heavy ring receives it.
  * Keep this shared between the horizontal Routing and vertical editor. */
