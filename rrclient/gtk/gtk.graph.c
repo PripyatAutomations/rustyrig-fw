@@ -8,7 +8,7 @@
  * Keep this shared between the horizontal Routing and vertical editor. */
 static void pin(cairo_t *cr, double x, double y, gboolean bypass, gboolean input) {
    if (bypass) cairo_set_source_rgb(cr, .96, .65, .27);
-   else cairo_set_source_rgb(cr, .30, .77, .92);
+   /* Normal pins inherit the left/right channel color from their caller. */
    cairo_new_path(cr);
    cairo_arc(cr, x, y, input ? 6.0 : 5.2, 0, 2 * G_PI);
    if (input) {
@@ -244,6 +244,7 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
             }
          }
       } else {
+         cairo_set_source_rgb(cr, .30, .77, .92);
          if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
             pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, TRUE);
          }
