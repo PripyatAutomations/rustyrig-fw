@@ -101,6 +101,19 @@ static const char *pipeline_for_node(const char *id);
 static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
+/* UI rate strings describe the real core format or a requested hardware
+ * boundary; never label the latter as negotiated GStreamer caps. */
+static void routing_rate_label(guint32 rate, char *out, size_t size) {
+   if (!rate) {
+      g_strlcpy(out, "unknown", size);
+   } else if (rate % 1000 == 0) {
+      g_snprintf(out, size, "%uk", rate / 1000);
+   } else if (rate % 100 == 0) {
+      g_snprintf(out, size, "%u.%uk", rate / 1000, (rate % 1000) / 100);
+   } else {
+      g_snprintf(out, size, "%u Hz", rate);
+   }
+}
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -120,23 +133,36 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
                                                                   0
                                                                } };
    guint source_index = 0;
+   char format_details[RR_AUDIO_GRAPH_MAX_NODES][96] = {{0}};
 
    for (guint i = 0 ; i < g->node_count ; i++) {
       const rr_ag_view_node_t *n = &g->nodes[i];
       gboolean source = n->type == RR_AG_SOURCE;
-      gboolean capture = !strcmp(n->id, "src.client.dsp0");
-      const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
-      const char *rate = cfg_get("audio.playback-rate");
-      const char *speaker_rate = !rate || !strcmp(rate, "auto") ? "48 kHz requested" :
-                                 !strcmp(rate, "44100") ? "44.1 kHz requested" :
-                                 !strcmp(rate, "48000") ? "48 kHz requested" : "device default";
+      const char *route = n->route == 'L' ? "L" : n->route == 'R' ? "R" : n->route == 'M' ? "Muted" : "Stereo";
+      char input[20], output[20];
+      routing_rate_label(n->rate_hz, input, sizeof(input));
+      routing_rate_label(n->downstream_rate_hz, output, sizeof(output));
+      if (n->rate_hz && n->downstream_rate_hz && n->resampling) {
+         g_snprintf(format_details[i], sizeof(format_details[i]), "%s -> %s%s",
+                    input, output, n->rate_requested ? " requested" : " SRC");
+      } else if (n->rate_hz) {
+         g_snprintf(format_details[i], sizeof(format_details[i]), "%s %s%s",
+                    input, n->channels == 2 ? "stereo" : "mono",
+                    n->rate_requested ? " requested" : "");
+      } else {
+         g_strlcpy(format_details[i], "PCM format unknown", sizeof(format_details[i]));
+      }
+      if (source && !n->read_only) {
+         char *summary = g_strdup_printf("%s | %s", route, format_details[i]);
+         g_strlcpy(format_details[i], summary, sizeof(format_details[i]));
+         g_free(summary);
+      }
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = source
-            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "16 kHz stereo bus", .detail =
-            graph_missing_since[i] ? "Disconnected" : capture ? "TX capture (read-only)" : source ? route :
-            n->type == RR_AG_SINK ? speaker_rate : NULL, .failed = n->health == RR_AG_FAILED, .stale =
-            graph_missing_since[i] != 0, .selected = !g_strcmp0(graph_focus_id, n->id), .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = TRUE, .fwdsp =
+            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
+            graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
+            graph_missing_since[i] != 0, .selected = !g_strcmp0(graph_focus_id, n->id), .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = !n->read_only, .io =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !n->read_only, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
@@ -191,7 +217,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       const rr_ag_view_node_t *node = &g->nodes[i];
       if (node->type != RR_AG_SOURCE) continue;
       double y0 = 20 + 140 * trim_row++;
-      if (graph_missing_since[i]) continue;
+      if (graph_missing_since[i] || node->read_only) continue;
       for (unsigned channel = 0; channel < 2; channel++) {
          double y = y0 + (channel ? 79 : 60);
          double db = CLAMP(node->input_gain_db[channel],
@@ -493,7 +519,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
       }
       gboolean inactive = graph_missing_since[i] != 0;
       double px = 25 + RR_GTK_GRAPH_NODE_W, py = 20 + 140 * row++;
-      if (!strcmp(graph_snapshot->nodes[i].id, "src.client.dsp0")) continue;
+      if (graph_snapshot->nodes[i].read_only) continue;
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
          if (!inactive && hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
@@ -539,7 +565,7 @@ static gboolean graph_gain_at(double x, double y, gint *source,
       } else if (n->type == RR_AG_SINK) {
          left = 650 + 12.;
       } else continue;
-      if (!strcmp(n->id, "src.client.dsp0") || graph_missing_since[i] ||
+      if (n->read_only || graph_missing_since[i] ||
           x < left - 8 || x > left + GRAPH_GAIN_W + 8) continue;
       for (gint ch = 0; ch < 2; ch++) {
          if (fabs(y - y0 - (ch ? 79 : 60)) <= 8) {
@@ -593,7 +619,7 @@ static void graph_set_channel(guint source, gint channel, gboolean connect) {
       return;
    }
    rr_ag_view_node_t *node = &graph_snapshot->nodes[source];
-   if (!strcmp(node->id, "src.client.dsp0")) return;
+   if (node->read_only) return;
    unsigned bit = channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
    unsigned mask = graph_route_mask(node->route);
    mask = connect ? mask | bit : mask & ~bit;
