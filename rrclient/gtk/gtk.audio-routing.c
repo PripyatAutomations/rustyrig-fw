@@ -443,11 +443,16 @@ static gchar *pipeline_config_json(void) {
 static void routing_focus_pipeline(const char *id) {
    const char *pipeline = pipeline_for_node(id);
    if (!pipeline || !audio_tabs) return;
+#ifdef RR_HAVE_GSTREAMER
    if (pipeline_editor_widget)
       rr_pipeline_editor_select(pipeline_editor_widget, pipeline);
+#endif
    gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
 }
 static GtkWidget *pipeline_page_new(void) {
+#ifndef RR_HAVE_GSTREAMER
+   return gtk_label_new("Pipelines require a GStreamer-enabled GTK build.");
+#else
    gchar *json = pipeline_config_json();
    GError *error = NULL;
    GtkWidget *editor = json ? rr_pipeline_editor_new(json, pipeline_apply, NULL,
@@ -466,6 +471,7 @@ static GtkWidget *pipeline_page_new(void) {
    gtk_widget_set_vexpand(editor, TRUE);
    g_object_set_data(G_OBJECT(editor), "rr-scale-exempt", GINT_TO_POINTER(1));
    return editor;
+#endif
 }
 
 static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
@@ -1069,8 +1075,12 @@ void gtk_audio_graph_present(void) {
 void gtk_audio_graph_present_pipeline(const char *pipeline_id) {
    gtk_audio_graph_present();
    if (!audio_tabs) return;
+#ifdef RR_HAVE_GSTREAMER
    if (pipeline_id && pipeline_editor_widget)
       rr_pipeline_editor_select(pipeline_editor_widget, pipeline_id);
+#else
+   (void)pipeline_id;
+#endif
    gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
 }
 
