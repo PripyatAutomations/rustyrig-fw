@@ -46,23 +46,135 @@ static void routing_graph_zoom(double scale, gpointer unused) {
    graph_zoom = scale;
    graph_canvas_update_size();
 }
-static double routing_node_x(const rr_ag_view_node_t *node) {
-   if (node->type == RR_AG_SOURCE) return 25.;
-   if (node->type == RR_AG_SINK) return 845.;
-   if (!strcmp(node->id, "hq.mix")) return 650.;
-   if (!strcmp(node->id, "rx16.resample")) return 455.;
-   return 260.;
-}
-static void routing_graph_bounds(double *width, double *height) {
-   guint sources = 0;
+/* Layout is GTK-owned and is never part of the executable audio graph.
+ * Only user-moved positions are stored; default positions follow topology. */
+typedef struct { double x, y; gboolean pinned; } routing_position_t;
+static GHashTable *graph_positions;
+static gint graph_node_drag = -1;
+static double graph_node_drag_x, graph_node_drag_y;
+#define GRAPH_LAYOUT_GAP_X 205.0
+#define GRAPH_LAYOUT_GAP_Y 143.0
+#define GRAPH_LAYOUT_MARGIN 28.0
 
-   if (graph_snapshot) {
-      for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
-         sources += graph_snapshot->nodes[i].type == RR_AG_SOURCE;
+static char *routing_position_key(const char *id) {
+   char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
+   char *key = g_strdup_printf("audio.graph.layout.%s", hash);
+   g_free(hash);
+   return key;
+}
+static routing_position_t *routing_position(const char *id) {
+   if (!id || !*id) return NULL;
+   if (!graph_positions)
+      graph_positions = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   routing_position_t *pos = g_hash_table_lookup(graph_positions, id);
+   if (pos) return pos;
+   pos = g_new0(routing_position_t, 1);
+   char *key = routing_position_key(id);
+   char *saved = rrclient_database_setting_get(key);
+   if (saved && *saved) {
+      char *end = NULL;
+      double x = g_ascii_strtod(saved, &end);
+      if (end != saved && *end == ',') {
+         char *y_start = end + 1;
+         double y = g_ascii_strtod(y_start, &end);
+         if (end != y_start && !*end && isfinite(x) && isfinite(y) &&
+             x >= 0 && x <= 100000 && y >= 0 && y <= 100000) {
+            pos->x = x; pos->y = y; pos->pinned = TRUE;
+         }
       }
    }
-   *width = 1070.0;
-   *height = MAX(180.0, 36.0 + 140.0 * sources);
+   g_free(saved);
+   g_free(key);
+   g_hash_table_insert(graph_positions, g_strdup(id), pos);
+   return pos;
+}
+static void routing_position_save(const char *id, const routing_position_t *pos) {
+   char *key = routing_position_key(id);
+   char x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_formatd(x, sizeof(x), "%.2f", pos->x);
+   g_ascii_formatd(y, sizeof(y), "%.2f", pos->y);
+   char *value = g_strdup_printf("%s,%s", x, y);
+   rrclient_database_setting_set(key, value);
+   g_free(value);
+   g_free(key);
+}
+static double routing_node_x(const rr_ag_view_node_t *node) {
+   routing_position_t *pos = routing_position(node->id);
+   return pos ? pos->x : GRAPH_LAYOUT_MARGIN;
+}
+static double routing_node_y(const rr_ag_view_node_t *node) {
+   routing_position_t *pos = routing_position(node->id);
+   return pos ? pos->y : GRAPH_LAYOUT_MARGIN;
+}
+static void routing_layout_set(const rr_ag_view_node_t *node, double x, double y,
+                               gboolean reset) {
+   routing_position_t *pos = routing_position(node->id);
+   if (!pos || (pos->pinned && !reset)) return;
+   pos->x = x;
+   pos->y = y;
+   if (reset) {
+      pos->pinned = FALSE;
+      char *key = routing_position_key(node->id);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
+   }
+}
+/* Left-to-right columns. Every downstream bus is vertically centered on its
+ * inputs, while isolated capture devices are placed in a separate lane. */
+static void routing_layout_auto(gboolean reset) {
+   if (!graph_snapshot) return;
+   guint legacy = 0, high = 0, isolated = 0;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      if (n->type != RR_AG_SOURCE) continue;
+      if (!strcmp(n->id, "src.client.dsp0")) isolated++;
+      else if (n->downstream_rate_hz > 16000) high++;
+      else legacy++;
+   }
+   guint legacy_row = 0, high_row = 0, isolated_row = 0;
+   double low_y = GRAPH_LAYOUT_MARGIN + 0.5 * (legacy ? legacy - 1 : 0) * GRAPH_LAYOUT_GAP_Y;
+   double hq_y = low_y;
+   if (!legacy && high)
+      hq_y = GRAPH_LAYOUT_MARGIN + 0.5 * (high - 1) * GRAPH_LAYOUT_GAP_Y;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      double x, y;
+      if (n->type == RR_AG_SOURCE) {
+         if (!strcmp(n->id, "src.client.dsp0")) {
+            x = GRAPH_LAYOUT_MARGIN;
+            y = GRAPH_LAYOUT_MARGIN + MAX(legacy, high) * GRAPH_LAYOUT_GAP_Y + 48 + isolated_row++ * GRAPH_LAYOUT_GAP_Y;
+         } else if (n->downstream_rate_hz > 16000) {
+            x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X;
+            y = GRAPH_LAYOUT_MARGIN + high_row++ * GRAPH_LAYOUT_GAP_Y;
+         } else {
+            x = GRAPH_LAYOUT_MARGIN;
+            y = GRAPH_LAYOUT_MARGIN + legacy_row++ * GRAPH_LAYOUT_GAP_Y;
+         }
+      } else if (!strcmp(n->id, "rx.mix")) {
+         x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X; y = low_y;
+      } else if (!strcmp(n->id, "rx16.resample")) {
+         x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X; y = low_y;
+      } else if (!strcmp(n->id, "hq.mix")) {
+         x = GRAPH_LAYOUT_MARGIN + 3 * GRAPH_LAYOUT_GAP_X; y = hq_y;
+      } else if (n->type == RR_AG_SINK) {
+         x = GRAPH_LAYOUT_MARGIN + 4 * GRAPH_LAYOUT_GAP_X; y = hq_y;
+      } else {
+         x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X; y = hq_y;
+      }
+      routing_layout_set(n, x, y, reset);
+   }
+}
+static void routing_graph_bounds(double *width, double *height) {
+   double max_x = 1080, max_y = 280;
+   if (graph_snapshot) {
+      for (guint i = 0; i < graph_snapshot->node_count; i++) {
+         const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+         max_x = MAX(max_x, routing_node_x(n) + RR_GTK_GRAPH_NODE_W + GRAPH_LAYOUT_MARGIN);
+         max_y = MAX(max_y, routing_node_y(n) + RR_GTK_GRAPH_NODE_H + GRAPH_LAYOUT_MARGIN);
+      }
+   }
+   *width = max_x;
+   *height = max_y;
 }
 static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer unused) {
    (void)widget;
