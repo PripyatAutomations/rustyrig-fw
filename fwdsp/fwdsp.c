@@ -858,6 +858,67 @@ static bool processor_pcm_caps(GstCaps *caps, bool resampler_output) {
    return processor_pcm_caps_rate(caps, resampler_output, false);
 }
 
+/* Upgrade legacy client device pipelines in memory. A previously saved
+ * pipeline can predate the named device capsfilter introduced with -R.
+ * Insert one next to the known PulseAudio endpoint, rather than failing
+ * all playback or editing the saved pipeline string. Arbitrary custom
+ * device graphs still need to declare their own caps boundary explicitly. */
+static GstElement *processor_legacy_device_filter(GstElement *pipe) {
+   const bool playback = processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK;
+   const char *device_name = playback ? "processor-speaker" : "processor-mic";
+   GstElement *device = gst_bin_get_by_name(GST_BIN(pipe), device_name);
+   if (!device) return NULL;
+   GstElementFactory *factory = gst_element_get_factory(device);
+   const char *factory_name = factory ?
+      gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : NULL;
+   if (!factory_name ||
+       strcmp(factory_name, playback ? "pulsesink" : "pulsesrc")) {
+      gst_object_unref(device);
+      return NULL;
+   }
+   GstPad *device_pad = gst_element_get_static_pad(device, playback ? "sink" : "src");
+   GstPad *peer = device_pad ? gst_pad_get_peer(device_pad) : NULL;
+   GstElement *filter = NULL;
+   GstPad *in_pad = NULL, *out_pad = NULL;
+   gboolean ok = FALSE;
+   if (peer) {
+      filter = gst_element_factory_make("capsfilter", "processor-device-caps");
+      if (filter && gst_bin_add(GST_BIN(pipe), filter)) {
+         in_pad = gst_element_get_static_pad(filter, "sink");
+         out_pad = gst_element_get_static_pad(filter, "src");
+         if (in_pad && out_pad) {
+            GstPad *upstream = playback ? peer : device_pad;
+            GstPad *downstream = playback ? device_pad : peer;
+            if (gst_pad_unlink(upstream, downstream)) {
+               gboolean first = gst_pad_link(upstream, in_pad) == GST_PAD_LINK_OK;
+               gboolean second = first &&
+                  gst_pad_link(out_pad, downstream) == GST_PAD_LINK_OK;
+               if (first && second)
+                  ok = TRUE;
+               else {
+                  if (first) gst_pad_unlink(upstream, in_pad);
+                  gst_pad_link(upstream, downstream);
+               }
+            }
+         }
+         if (!ok) gst_bin_remove(GST_BIN(pipe), filter);
+      }
+   }
+   if (in_pad) gst_object_unref(in_pad);
+   if (out_pad) gst_object_unref(out_pad);
+   if (peer) gst_object_unref(peer);
+   if (device_pad) gst_object_unref(device_pad);
+   gst_object_unref(device);
+   if (!ok) {
+      if (filter) gst_object_unref(filter);
+      return NULL;
+   }
+   Log(LOG_INFO, "fwdsp",
+       "Added runtime device capsfilter to legacy %s PulseAudio pipeline",
+       playback ? "playback" : "capture");
+   return gst_object_ref(filter);
+}
+
 /* Device PCM rates are arguments, not edits to the configured pipeline.
  * The generator/editor can later emit the same named capsfilter elements. */
 static bool processor_apply_device_rate(GstElement *pipe, GstElement *appsrc) {
@@ -867,10 +928,13 @@ static bool processor_apply_device_rate(GstElement *pipe, GstElement *appsrc) {
         processor_io_mode != PCM_PROCESSOR_MODE_PLAYBACK))
       return false;
    GstElement *filter = gst_bin_get_by_name(GST_BIN(pipe), "processor-device-caps");
+   if (!filter)
+      filter = processor_legacy_device_filter(pipe);
    if (!filter || !GST_IS_ELEMENT(filter) ||
        !g_object_class_find_property(G_OBJECT_GET_CLASS(filter), "caps")) {
       if (filter) gst_object_unref(filter);
-      Log(LOG_CRIT, "fwdsp", "-R requires a named processor-device-caps capsfilter");
+      Log(LOG_CRIT, "fwdsp",
+          "-R requires a named processor-device-caps capsfilter or the standard named PulseAudio device");
       return false;
    }
    GstCaps *device = gst_caps_new_simple("audio/x-raw",
