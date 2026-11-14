@@ -220,7 +220,7 @@ static gboolean gain_drag_port;
 /* Shared source/mixer/sink slider geometry; leave 12px between tracks
  * and pins, so the port remains separately draggable. */
 /* Compact L/R output trims reside inside each source block by its pins. */
-#define GRAPH_GAIN_W 46.0
+#define GRAPH_GAIN_W 56.0
 #define GRAPH_GAIN_MIN (-60.0)
 #define GRAPH_GAIN_MAX 12.0
 static void graph_gain_drag(double x);
@@ -279,7 +279,11 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          g_strlcpy(format_details[i], "PCM format unknown", sizeof(format_details[i]));
       }
       if (source && !n->read_only) {
-         char *summary = g_strdup_printf("%s | %s", route, format_details[i]);
+         /* A mono RX stream is fanned out to two independently routable
+          * mixer ears. Show two destination pins, not a fake mono socket
+          * next to two unrelated gain controls. */
+         char *summary = g_strdup_printf("%s | %s%s", route,
+            format_details[i], n->channels == 1 ? " -> L/R" : "");
          g_strlcpy(format_details[i], summary, sizeof(format_details[i]));
          g_free(summary);
       }
@@ -287,7 +291,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          .x = routing_node_x(n), .y = routing_node_y(n), .title = source
             && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
-            graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2, .io =
+            graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !n->read_only, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
@@ -361,13 +365,17 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_set_source_rgb(cr, .31, .82, .97);
          cairo_arc(cr, gain_x + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
          cairo_fill(cr);
-         char value[16];
-         g_snprintf(value, sizeof(value), "%+.0f", db);
+         /* Keep the complete label, dB value, slider and output pin in
+          * one compact horizontal row: L OUT +0dB [---*---] #. */
          cairo_set_source_rgb(cr, .90, .95, .98);
          cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                                 CAIRO_FONT_WEIGHT_NORMAL);
-         cairo_set_font_size(cr, 8);
-         cairo_move_to(cr, gain_x - 24, y + 3);
+         cairo_set_font_size(cr, 8.4);
+         cairo_move_to(cr, routing_node_x(node) + 7, y + 3);
+         cairo_show_text(cr, channel ? "R OUT" : "L OUT");
+         char value[20];
+         g_snprintf(value, sizeof(value), "%+.0fdB", db);
+         cairo_move_to(cr, routing_node_x(node) + 42, y + 3);
          cairo_show_text(cr, value);
       }
       /* Source diagnostics are read-only and originate from the running
@@ -403,14 +411,23 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_set_source_rgb(cr, .31, .82, .97);
          cairo_arc(cr, x + GRAPH_GAIN_W * ratio, y, 3.6, 0, 2 * G_PI);
          cairo_fill(cr);
-         char value[16];
-         g_snprintf(value, sizeof(value), "%+.0f", db);
          cairo_set_source_rgb(cr, .90, .95, .98);
          cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                                 CAIRO_FONT_WEIGHT_NORMAL);
-         cairo_set_font_size(cr, 8);
-         cairo_move_to(cr, x + (node->type == RR_AG_MIXER ? -24. : GRAPH_GAIN_W + 5.), y + 3);
-         cairo_show_text(cr, value);
+         cairo_set_font_size(cr, 8.4);
+         char value[20];
+         g_snprintf(value, sizeof(value), "%+.0fdB", db);
+         if (node->type == RR_AG_SINK) {
+            cairo_move_to(cr, node_x + 72, y + 3);
+            cairo_show_text(cr, value);
+            cairo_move_to(cr, node_x + 115, y + 3);
+            cairo_show_text(cr, channel ? "R IN" : "L IN");
+         } else {
+            cairo_move_to(cr, node_x + 7, y + 3);
+            cairo_show_text(cr, channel ? "R OUT" : "L OUT");
+            cairo_move_to(cr, node_x + 42, y + 3);
+            cairo_show_text(cr, value);
+         }
       }
    }
 
