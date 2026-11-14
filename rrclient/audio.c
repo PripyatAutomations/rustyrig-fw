@@ -567,9 +567,8 @@ bool audio_set_rx_stream_route(const char *id, char output) {
       if (local_rx_routes[slot] != output) {
          local_rx_routes[slot] = output;
 
-         if (rx_engine) {
-            rr_audio_engine_route(rx_engine, id, output);
-         }
+         rr_audio_engine_t *owner = audio_stream_engine(id);
+         if (owner) rr_audio_engine_route(owner, id, output);
          event_emit("client.audio.route.changed", NULL, NULL);
       }
 
@@ -1053,7 +1052,8 @@ static void audio_graph_rig_label(const struct rrclient_rx_stream *stream, char 
 static guint32 audio_device_rate_request(bool capture) {
    const char *pipeline = cfg_get(capture ? "pipeline:src.client.dsp0" :
                                              "pipeline:sink.client.mix");
-   if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink "))
+   if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ") ||
+       !strstr(pipeline, "processor-device-caps"))
       return 0;
    const char *rate = cfg_get(capture ? "audio.capture-rate" : "audio.playback-rate");
    if (!rate || !strcmp(rate, "auto")) return 48000;
@@ -1357,8 +1357,8 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
              req->gain_db < -60. || req->gain_db > 12.) break;
          bool sink_input = !strcmp(req->stream, "sink.client.dsp0");
          if (!sink_input && strcmp(req->stream, "rx.mix")) break;
-         if (rr_audio_engine_port_gain(rx_engine, sink_input,
-                                       req->channel, req->gain_db)) {
+         rr_audio_engine_t *owner = sink_input ? hq_engine : rx_engine;
+         if (rr_audio_engine_port_gain(owner, false, req->channel, req->gain_db)) {
             char *key = g_strdup_printf("audio.graph.port.%s.%c",
                sink_input ? "sink" : "mix", req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
@@ -1375,10 +1375,11 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          const char *id = req->stream;
          if (!strcmp(id, RECORDING_PLAYBACK_ID))
             id = req->channel ? RECORDING_PLAYBACK_R : RECORDING_PLAYBACK_L;
-         bool ok = rr_audio_engine_input_gain(rx_engine, id, req->channel, req->gain_db);
+         rr_audio_engine_t *owner = audio_stream_engine(id);
+         bool ok = rr_audio_engine_input_gain(owner, id, req->channel, req->gain_db);
          if (!strcmp(req->stream, RECORDING_PLAYBACK_ID)) {
             /* A recording channel's trim follows its content when re-routed. */
-            rr_audio_engine_input_gain(rx_engine, id, 1 - req->channel, req->gain_db);
+            rr_audio_engine_input_gain(owner, id, 1 - req->channel, req->gain_db);
          }
          if (ok) {
             char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
