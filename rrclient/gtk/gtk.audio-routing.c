@@ -540,7 +540,7 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
          "Output clock: %s\nSample-rate conversion: %s\n"
          "Mixer queue: %u ms\nDropped: %" G_GUINT64_FORMAT
          " frames\nStarvation/rebuffers: %" G_GUINT64_FORMAT "%s",
-         n->id, type, from, n->channels, format,
+         n->id, type, from, (unsigned)n->channels, format,
          n->rate_requested ? " (requested, not measured)" : "",
          n->downstream_rate_hz ? to : "not specified",
          n->resampling ? "active" : "none or not known",
