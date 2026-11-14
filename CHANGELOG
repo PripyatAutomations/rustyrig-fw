@@ -1,5 +1,8 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Tighten gain-row alignment: position the dB readout directly beside
+    each slider, add clearance around socket labels, and keep sink gain
+    hit targets aligned with the displayed sliders.
   * Restore adjustable L/R gain trims on the HQ mixer, legacy decoded
     speaker stream, and the real 16 kHz-to-HQ bridge input. Keep these
     gains distinct from topology editing, persist them in the client DB,
