@@ -509,6 +509,50 @@ static GtkWidget *pipeline_page_new(void) {
 #endif
 }
 
+static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
+                                      gboolean keyboard, GtkTooltip *tooltip,
+                                      gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (keyboard || !graph_snapshot || graph_scale <= 0) return FALSE;
+   const double x = (px - graph_offset_x) / graph_scale;
+   const double y = (py - graph_offset_y) / graph_scale;
+   guint source_row = 0;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      const double nx = n->type == RR_AG_SOURCE ? 25 :
+                        n->type == RR_AG_SINK ? 650 : 355;
+      const double ny = n->type == RR_AG_SOURCE ?
+                        20 + 140 * source_row++ : 80;
+      if (x < nx || x > nx + RR_GTK_GRAPH_NODE_W ||
+          y < ny || y > ny + RR_GTK_GRAPH_NODE_H)
+         continue;
+      char from[24], to[24];
+      routing_rate_label(n->rate_hz, from, sizeof(from));
+      routing_rate_label(n->downstream_rate_hz, to, sizeof(to));
+      const char *format = n->sample_format == RR_PCM_F32LE ? "F32LE" :
+                           n->sample_format == RR_PCM_S16LE ? "S16LE" : "unknown";
+      const char *type = n->type == RR_AG_SOURCE ? "Source" :
+                         n->type == RR_AG_SINK ? "Playback sink" :
+                         n->type == RR_AG_MIXER ? "Mix bus" : "Processor";
+      gchar *details = g_strdup_printf(
+         "%s (%s)\nPCM: %s, %u channel(s), %s%s\n"
+         "Output clock: %s\nSample-rate conversion: %s\n"
+         "Mixer queue: %u ms\nDropped: %" G_GUINT64_FORMAT
+         " frames\nStarvation/rebuffers: %" G_GUINT64_FORMAT "%s",
+         n->id, type, from, n->channels, format,
+         n->rate_requested ? " (requested, not measured)" : "",
+         n->downstream_rate_hz ? to : "not specified",
+         n->resampling ? "active" : "none or not known",
+         n->queued_ms, n->dropped_frames, n->starvation_events,
+         n->read_only ? "\nRead-only topology" : "");
+      gtk_tooltip_set_text(tooltip, details);
+      g_free(details);
+      return TRUE;
+   }
+   return FALSE;
+}
+
 static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
    if (!graph_snapshot || graph_scale <= 0) {
       return FALSE;
@@ -1079,7 +1123,8 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(graph_canvas, 1, 1);
-      gtk_widget_set_tooltip_text(graph_canvas, "Drag source ports to mixer inputs; click wires to disconnect. Every source, mixer and sink has per-pin L/R trims (-60 to +12 dB); double-click a slider to reset to 0 dB.");
+      gtk_widget_set_has_tooltip(graph_canvas, TRUE);
+      g_signal_connect(graph_canvas, "query-tooltip", G_CALLBACK(routing_graph_tooltip), NULL);
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
       g_object_set_data(G_OBJECT(graph_canvas), "rr-scale-exempt", GINT_TO_POINTER(1));
