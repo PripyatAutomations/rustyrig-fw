@@ -57,7 +57,6 @@ static char tx_codec[5] = {
 };
 
 static time_t tx_pcm_warned = 0;
-static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
 static GSource *rx_maintenance_source;
@@ -1087,6 +1086,11 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    rr_audio_graph_set_route(graph, "src.client.dsp0", 'M');
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
+   rr_audio_graph_add_node(graph, "legacy.speaker", RR_AG_SOURCE);
+   rr_audio_graph_set_health(graph, "legacy.speaker",
+      rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_route(graph, "legacy.speaker", 'S');
+   rr_audio_graph_add_link(graph, "legacy.speaker", "rx.mix", RR_AG_NORMAL);
    rr_audio_graph_set_health(graph, RECORDING_PLAYBACK_ID,
       rx_engine ? (rr_recordings_play_busy() ? RR_AG_HEALTHY : RR_AG_STOPPED) :
                   RR_AG_FAILED);
@@ -1100,7 +1104,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                      RR_AG_NORMAL, play_channels);
 
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 6 ; i++) {
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 7 ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
@@ -1186,6 +1190,21 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                        !rate || !strcmp(rate, "auto") ? "48 kHz" :
                        !strcmp(rate, "44100") ? "44.1 kHz" :
                        !strcmp(rate, "48000") ? "48 kHz" : "device default");
+            continue;
+         }
+         if (!strcmp(node->id, "legacy.speaker")) {
+            node->read_only = true;
+            g_strlcpy(node->rig, "Legacy decoded PCM", sizeof(node->rig));
+            rr_audio_stream_status_t legacy = {0};
+            if (rr_audio_engine_stream_status(rx_engine, node->id, &legacy)) {
+               node->rate_hz = legacy.source.sample_rate_hz;
+               node->channels = legacy.source.channels;
+               node->sample_format = legacy.source.format;
+               node->queued_ms = legacy.mixer_rate_hz ?
+                  (guint32)(legacy.queued_frames * 1000u / legacy.mixer_rate_hz) : 0;
+               node->dropped_frames = legacy.dropped_frames;
+               node->starvation_events = legacy.starvation_events;
+            }
             continue;
          }
          if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
