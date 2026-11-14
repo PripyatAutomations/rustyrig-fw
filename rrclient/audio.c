@@ -422,83 +422,25 @@ static uint32_t audio_hq_output_rate(void) {
    Log(LOG_WARN, "audio", "Invalid audio.playback-rate=%s (using 48000)", rate);
    return 48000;
 }
-static char *audio_device_pipeline(const char *pipeline, bool capture) {
-   if (!pipeline) return NULL;
-   const char *key = capture ? "audio.capture-rate" : "audio.playback-rate";
-   const char *configured = cfg_get(key);
-   unsigned rate = capture ?
-      (configured && !strcmp(configured, "44100") ? 44100 : 48000) :
-      audio_hq_output_rate();
-
-   if (capture) {
-      if (!strstr(pipeline, "pulsesrc ") ||
-          !strstr(pipeline, " ! audioconvert ! audioresample")) {
-         /* Custom capture graphs must supply 16 kHz mono appsink PCM.
-          * We cannot assume the hardware input clock from their syntax. */
-         return g_strdup(pipeline);
-      }
-      const char *point = strstr(pipeline, " ! audioconvert ! audioresample");
-      char *prefix = g_strndup(pipeline, (gsize)(point - pipeline));
-      char *result = g_strdup_printf("%s ! audio/x-raw,rate=%u%s",
-                                     prefix, rate, point);
-      g_free(prefix);
-      return result;
-   }
-
-   /* Never feed 44.1/48 kHz PCM to an appsrc advertised as 16 kHz.
-    * Only rewrite the known S16LE stereo playback input contract. */
-   if (!g_str_has_prefix(pipeline, "appsrc name=processor-src ") ||
-       !strstr(pipeline, "pulsesink")) {
-      Log(LOG_WARN, "audio", "HQ output requires a stereo processor-src playback pipeline");
-      return NULL;
-   }
-   const char *caps = strstr(pipeline, "caps=audio/x-raw,format=S16LE,rate=");
-   if (!caps) {
-      Log(LOG_WARN, "audio", "HQ playback pipeline lacks explicit S16LE appsrc caps");
-      return NULL;
-   }
-   const char *digits = caps + strlen("caps=audio/x-raw,format=S16LE,rate=");
-   const char *end = digits;
-   while (g_ascii_isdigit(*end)) end++;
-   if (end == digits || strncmp(end, ",channels=2", 11)) {
-      Log(LOG_WARN, "audio", "HQ playback pipeline requires stereo PCM appsrc caps");
-      return NULL;
-   }
-   char *prefix = g_strndup(pipeline, (gsize)(digits - pipeline));
-   char *source = g_strdup_printf("%s%u%s", prefix, rate, end);
-   g_free(prefix);
-
-   /* After the volume and converter, request the matching device clock.
-    * Avoid a second rate conversion inside fwdsp for the stock pipeline. */
-   const char *sink = strstr(source, " ! pulsesink");
-   if (sink) {
-      prefix = g_strndup(source, (gsize)(sink - source));
-      char *result = g_strdup_printf("%s ! audio/x-raw,rate=%u%s",
-                                     prefix, rate, sink);
-      g_free(prefix);
-      g_free(source);
-      return result;
-   }
-   return source;
+static unsigned audio_hq_capture_rate(void) {
+   const char *setting = cfg_get("audio.capture-rate");
+   if (!setting || !strcmp(setting, "auto") || !strcmp(setting, "48000"))
+      return 48000;
+   if (!strcmp(setting, "44100")) return 44100;
+   Log(LOG_WARN, "audio", "Invalid audio.capture-rate=%s (using 48000)", setting);
+   return 48000;
 }
 static bool audio_client_playback_start(void) {
-   const char *base = cfg_get("pipeline:sink.client.mix");
-   char *pipeline = audio_device_pipeline(base, false);
-   if (!pipeline) return false; /* Never silently misclock the HQ mixer. */
-   bool ok = fwdsp_audio_playback_start("sink.client.dsp0", pipeline);
-   g_free(pipeline);
-   return ok;
+   /* fwdsp -R owns appsrc/device caps negotiation. Never modify launch
+    * strings in rrclient: the editor and upcoming graph generator own them. */
+   return fwdsp_audio_playback_start_rate("sink.client.dsp0",
+             cfg_get("pipeline:sink.client.mix"), audio_hq_output_rate());
 }
 static bool audio_client_capture_start(void) {
-   const char *base = cfg_get("pipeline:src.client.dsp0");
-   char *pipeline = audio_device_pipeline(base, true);
-   bool ok = fwdsp_audio_capture_start("src.client.dsp0", pipeline, client_mic_pcm, NULL);
-   g_free(pipeline);
-   if (!ok && base) {
-      Log(LOG_WARN, "audio", "Capture endpoint failed with requested rate; trying configured default");
-      ok = fwdsp_audio_capture_start("src.client.dsp0", base, client_mic_pcm, NULL);
-   }
-   return ok;
+   /* Sound device is HQ, while the codec-facing appsink remains 16k mono. */
+   return fwdsp_audio_capture_start_rate("src.client.dsp0",
+             cfg_get("pipeline:src.client.dsp0"), audio_hq_capture_rate(),
+             client_mic_pcm, NULL);
 }
 
 typedef struct rx_route {
