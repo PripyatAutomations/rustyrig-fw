@@ -852,7 +852,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
 
          if (rx_engine) {
             rr_audio_engine_add_stream(rx_engine, route->identity);
-            audio_input_gain_load(route->identity);
+            audio_input_gain_load(rx_engine, route->identity);
          }
       }
       route->seen = true;
@@ -1511,8 +1511,8 @@ bool audio_init(void) {
       recording_playback_route = saved_play_route[0];
    g_free(saved_play_route);
    recording_playback_apply_route(false);
-   audio_input_gain_load(RECORDING_PLAYBACK_L);
-   audio_input_gain_load(RECORDING_PLAYBACK_R);
+   audio_input_gain_load(rx_engine, RECORDING_PLAYBACK_L);
+   audio_input_gain_load(rx_engine, RECORDING_PLAYBACK_R);
    /* Each recorded channel retains its trim even if sent to the other ear. */
    double left_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_L, 0);
    double right_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
