@@ -44,3 +44,15 @@ pipelines keep their original launch text. Once a graph is changed, the editor
 serializes the modeled elements, non-default writable properties, and links,
 then reparses the result. Unsupported or invalid graph edits are rejected
 instead of being returned as success.
+
+## Audio Routing integration
+
+The GTK Audio Routing workspace now provides **Routing** and **Pipelines**
+tabs. The Pipelines tab initially lists configured definitions and lets
+operators inspect a mapped pipeline with the existing isolated read-only
+`rrpipelines` viewer. Double-click a mapped pipeline entry to focus its
+logical endpoint on the Routing tab; double-click the endpoint in Routing
+to select that pipeline. An actual embedded editable pipeline graph, live
+worker topology snapshots, and bidirectional per-element navigation remain
+planned. The standalone Config editor is retained until equivalent editing,
+validation and apply behavior exists in the integrated tab.
