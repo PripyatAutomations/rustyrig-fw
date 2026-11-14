@@ -1228,6 +1228,14 @@ static void graph_profile_remove(GtkButton *button, gpointer unused) {
    }
    g_free(name);
 }
+static void routing_auto_layout_clicked(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   /* Clear user pins and re-center every active and transient block using
+    * the current clock-domain topology. Does not alter audio routing. */
+   graph_node_drag = -1;
+   routing_layout_auto(TRUE);
+   graph_canvas_update_size();
+}
 static void routing_graph_close(gpointer unused) {
    (void)unused;
 
@@ -1277,10 +1285,16 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
+      GtkWidget *auto_layout = gtk_button_new_with_label("Auto Layout");
+      gtk_widget_set_tooltip_text(auto_layout,
+         "Arrange audio blocks left to right and center connected stages; reset manually saved positions");
+      g_signal_connect(auto_layout, "clicked",
+                       G_CALLBACK(routing_auto_layout_clicked), NULL);
+      gtk_box_pack_start(GTK_BOX(profiles), auto_layout, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
-         gtk_label_new("Drag ports to route audio. Source L/R trims are beside each pin; double-click a slider for 0 dB (unity).");
+         gtk_label_new("Drag blocks to move them (positions are saved). Drag ports to route audio. Double-click a trim for 0 dB.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
