@@ -408,16 +408,12 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       if (graph_drag_mixer && graph_drag_source < 0 &&
           (guint)(-graph_drag_source - 1) < g->node_count)
          x = routing_node_x(&g->nodes[-graph_drag_source - 1]);
-      double y = 80.0;
-
-      if (!graph_drag_mixer && graph_drag_source >= 0) {
-         guint row = 0;
-
-         for (guint i = 0 ; i < (guint) graph_drag_source && i < g->node_count ; i++) {
-            row += g->nodes[i].type == RR_AG_SOURCE;
-         }
-
-         y = 20.0 + 140.0 * row;
+      double y = 0.0;
+      gint index = graph_drag_mixer ? -graph_drag_source - 1 : graph_drag_source;
+      if (index >= 0 && (guint)index < g->node_count) {
+         const rr_ag_view_node_t *n = &g->nodes[index];
+         y = routing_node_y(n);
+         if (!graph_drag_mixer) x = routing_node_x(n) + RR_GTK_GRAPH_NODE_W;
       }
       y += graph_drag_channel ? 79.0 : 60.0;
       cairo_set_source_rgba(cr, graph_drag_channel ? .73 : .34, graph_drag_channel ? .48 : .78, graph_drag_channel ? 1.0 : .93, .9);
@@ -685,14 +681,14 @@ static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
 }
 static gboolean graph_port_at(double x, double y, gint *source, gint *channel, gboolean *mixer) {
    double radius = CLAMP(10.0 / MAX(.01, graph_scale), 8.0, 20.0);
-   guint row = 0;
-
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) {
          continue;
       }
       gboolean inactive = graph_missing_since[i] != 0;
-      double px = 25 + RR_GTK_GRAPH_NODE_W, py = 20 + 140 * row++;
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      double px = routing_node_x(n) + RR_GTK_GRAPH_NODE_W;
+      double py = routing_node_y(n);
       if (graph_snapshot->nodes[i].read_only) continue;
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
@@ -712,7 +708,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
          continue;
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (hypot(x - routing_node_x(node), y - 80 - (ch ? 79 : 60)) <= radius) {
+         if (hypot(x - routing_node_x(node), y - routing_node_y(node) - (ch ? 79 : 60)) <= radius) {
             *source = -(gint)i - 1;
             *channel = ch;
             *mixer = TRUE;
@@ -727,13 +723,11 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 static gboolean graph_gain_at(double x, double y, gint *source,
                               gint *channel, gboolean *port) {
    if (!graph_snapshot) return FALSE;
-   guint row = 0;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      double left = 0., y0 = 80.;
+      double left = 0., y0 = routing_node_y(n);
       if (n->type == RR_AG_SOURCE) {
-         left = GRAPH_GAIN_X;
-         y0 = 20 + 140 * row++;
+         left = routing_node_x(n) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else if (n->type == RR_AG_MIXER) {
          left = routing_node_x(n) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
       } else if (n->type == RR_AG_SINK) {
@@ -756,10 +750,8 @@ static void graph_gain_drag(double x) {
    if (!graph_snapshot || gain_drag_source < 0 || gain_drag_channel < 0)
       return;
    rr_ag_view_node_t *node = &graph_snapshot->nodes[gain_drag_source];
-   double left = node->type == RR_AG_SOURCE ? GRAPH_GAIN_X :
-      node->type == RR_AG_MIXER ?
-      routing_node_x(node) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12. :
-      routing_node_x(node) + 12.;
+   double left = node->type == RR_AG_SINK ? routing_node_x(node) + 12. :
+      routing_node_x(node) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
    double ratio = CLAMP((x - left) / GRAPH_GAIN_W, 0., 1.);
    double db = round(GRAPH_GAIN_MIN + ratio * (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN));
    float *current = gain_drag_port ? &node->port_gain_db[gain_drag_channel] :
@@ -814,8 +806,6 @@ static gboolean graph_link_at(double x, double y, guint *source, gint *channel) 
    double limit = CLAMP(7.0 / MAX(.01, graph_scale), 5.0, 17.0);
    double best = limit;
    gboolean found = FALSE;
-   guint row = 0;
-
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
 
@@ -823,15 +813,24 @@ static gboolean graph_link_at(double x, double y, guint *source, gint *channel) 
          continue;
       }
       gboolean inactive = graph_missing_since[i] != 0;
-      double x0 = 25 + RR_GTK_GRAPH_NODE_W, y0 = 20 + 140 * row++;
+      double x0 = routing_node_x(n) + RR_GTK_GRAPH_NODE_W;
+      double y0 = routing_node_y(n);
       unsigned mask = graph_route_mask(n->route);
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
          if (inactive || !(mask & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) {
             continue;
          }
-         double ya = y0 + (ch ? 79 : 60), yb = 80 + (ch ? 79 : 60);
-         double x1 = n->downstream_rate_hz > 16000 ? 650. : 260.;
+         const char *dest_id = n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix";
+         const rr_ag_view_node_t *dest = NULL;
+         for (guint j = 0; j < graph_snapshot->node_count; j++)
+            if (!strcmp(graph_snapshot->nodes[j].id, dest_id)) {
+               dest = &graph_snapshot->nodes[j]; break;
+            }
+         if (!dest) continue;
+         double ya = y0 + (ch ? 79 : 60);
+         double yb = routing_node_y(dest) + (ch ? 79 : 60);
+         double x1 = routing_node_x(dest);
          double cx = (x0 + x1) / 2;
 
          for (unsigned k = 0 ; k <= 48 ; k++) {
@@ -888,13 +887,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
          const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
          if (graph_missing_since[i] || !pipeline_for_node(n->id)) continue;
-         gboolean sink = n->type == RR_AG_SINK;
-         guint row = 0;
-         if (!sink) {
-            for (guint j = 0; j < i; j++)
-               row += graph_snapshot->nodes[j].type == RR_AG_SOURCE;
-         }
-         double x = routing_node_x(n), y = sink ? 80 : 20 + 140 * row;
+         double x = routing_node_x(n), y = routing_node_y(n);
          if (gx >= x && gx <= x + RR_GTK_GRAPH_NODE_W &&
              gy >= y && gy <= y + RR_GTK_GRAPH_NODE_H) {
             routing_focus_pipeline(n->id);
