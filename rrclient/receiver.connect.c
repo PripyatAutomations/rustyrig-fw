@@ -788,7 +788,7 @@ void rrclient_receiver_connect_init(void) {
 }
 void rrclient_receiver_connect_shutdown(void) {
    if (directory_maintenance_id) {
-      g_source_remove(directory_maintenance_id);
+      rrclient_core_source_cancel(&directory_maintenance_id);
       directory_maintenance_id = 0;
    }
    catalog_next_check = 0;
