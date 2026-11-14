@@ -30,11 +30,12 @@ playback_pipeline = (
 )
 
 
-def run_fwdsp(work, config, pipeline, input_bytes=b"", mode="auto"):
+def run_fwdsp(work, config, pipeline, input_bytes=b"", mode="auto", device_rate=None):
     config_path = work / "processor.cfg"
     config_path.write_text(config)
     result = subprocess.run(
-        [str(root / "bin/fwdsp"), "-f", str(config_path), "-T", "-M", mode, "-p", pipeline],
+        [str(root / "bin/fwdsp"), "-f", str(config_path), "-T", "-M", mode,
+         *([] if device_rate is None else ["-R", str(device_rate)]), "-p", pipeline],
         input=input_bytes,
         capture_output=True,
         env=env,
@@ -144,6 +145,40 @@ with tempfile.TemporaryDirectory() as temp:
     assert result.stdout == b"", result.stdout
     assert stereo_file.read_bytes() == stereo_pcm, "stereo output changed left/right samples"
 
+    # Runtime -R selection overrides the pipeline's stored appsrc and
+    # device rate caps without editing the pipeline launch string.
+    hq_path = work / "hq-stereo.pcm"
+    hq_pipeline = (
+        "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+        "caps=audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! "
+        "audioconvert ! audioresample ! "
+        "capsfilter name=processor-device-caps caps=audio/x-raw,rate=48000 ! "
+        f"filesink location={hq_path} sync=false"
+    )
+    for rate in (44100, 48000):
+        result = run_fwdsp(work, config, hq_pipeline,
+            struct.pack('!I', len(stereo_pcm)) + stereo_pcm,
+            mode="playback", device_rate=rate)
+        assert result.stdout == b""
+        assert hq_path.read_bytes() == stereo_pcm, (
+            f"HQ device PCM payload was changed by -R {rate}")
+        hq_path.unlink()
+
+    # Device rate arguments are never accepted for ordinary codec/transform
+    # workers, or silently ignored when the required capsfilter is missing.
+    config_path.write_text(config)
+    bad = subprocess.run(
+        [str(root / "bin/fwdsp"), "-f", str(config_path), "-T", "-M", "process",
+         "-R", "48000", "-p", transform_pipeline],
+        capture_output=True, env=env, cwd=work, timeout=10)
+    assert bad.returncode == 2, bad.stderr.decode(errors="replace")
+    bad = subprocess.run(
+        [str(root / "bin/fwdsp"), "-f", str(config_path), "-T", "-M", "playback",
+         "-R", "44100", "-p", stereo_pipeline],
+        input=struct.pack('!I', len(stereo_pcm)) + stereo_pcm,
+        capture_output=True, env=env, cwd=work, timeout=10)
+    assert bad.returncode != 0, "missing device capsfilter silently accepted"
+
     # Named sink endpoint resolves through the sink.* namespace.
     named_sink_config = config + "[pipelines]\nsink.rig0=" + playback_pipeline + "\n"
     config_path.write_text(named_sink_config)
@@ -171,4 +206,4 @@ with tempfile.TemporaryDirectory() as temp:
     assert ogg_path.exists() and ogg_path.stat().st_size > 4, "Ogg file was not finalized"
     assert ogg_path.read_bytes()[:4] == b"OggS", "rig TX endpoint did not write an Ogg stream"
 
-    print("PASS: fwdsp -T proc/src/sink namespaces, PCM routing, and Ogg/Vorbis pipelines")
+    print("PASS: fwdsp -T processor modes, -R 44.1/48k endpoint caps, PCM routing, Ogg/Vorbis")
