@@ -1551,12 +1551,12 @@ bool audio_init(void) {
       return true;
    }
    audio_input_gain_load(hq_engine, HQ_BUS_LEGACY_ID);
-   audio_input_gain_load(rx_engine, "legacy.speaker");
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
    /* Older decoder and PCM-hub paths still supply 16 kHz stereo frames.
     * Keep their speaker feed registered with the low-rate bus. */
    const rr_pcm_stream_format_t legacy_speaker = {16000, 2, RR_PCM_S16LE};
    rr_audio_engine_add_stream_format(rx_engine, "legacy.speaker", &legacy_speaker);
+   audio_input_gain_load(rx_engine, "legacy.speaker");
    /* Create the permanent recording playback source before the graph's first
     * snapshot; preserve user L/R routing across repeated Play actions. */
    rr_audio_engine_add_stream(rx_engine, RECORDING_PLAYBACK_L);
