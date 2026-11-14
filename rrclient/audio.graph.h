@@ -48,6 +48,9 @@ typedef struct {
    gboolean rate_requested;    /* rate_hz is configured/requested, not measured. */
    gboolean resampling;        /* A real converter is in this node's signal path. */
    gboolean read_only;         /* Never offer routing/gain edits for this node. */
+   guint32 queued_ms;           /* Buffered PCM in the mix clock domain. */
+   guint64 dropped_frames;      /* Overruns since source registration. */
+   guint64 starvation_events;   /* Recovery/rebuffer events since registration. */
 } rr_ag_view_node_t;
 typedef struct {
    guint32 src, dst;
