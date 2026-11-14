@@ -314,7 +314,7 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
    } else if (!strcmp(tool, "recordings")) {
       event_emit("client.recordings.open", NULL, NULL);
    } else if (!strcmp(tool, "audio")) {
-      gtk_audio_graph_present();
+      gtk_audio_graph_toggle();
    } else {
       GtkWidget *page = !strcmp(tool, "admin") ? admin_tab : config_tab;
 
