@@ -146,7 +146,7 @@ static gboolean expire(gpointer unused) {
 }
 static void arm(void) {
    if (timer_id) {
-      g_source_remove(timer_id);
+      rrclient_core_source_cancel(&timer_id);
    }
    GSource *timeout = g_timeout_source_new_seconds(3);
    g_source_set_callback(timeout, expire, NULL, NULL);
@@ -162,7 +162,7 @@ bool rrclient_receiver_catalog_request(bool force) {
    }
 
    if (timer_id) {
-      g_source_remove(timer_id);
+      rrclient_core_source_cancel(&timer_id);
       timer_id = 0;
    }
    reset();
@@ -254,7 +254,7 @@ static void received(const char *event, const char *data, rrconn_t *connection, 
       transfer.received++;
 
       if (timer_id) {
-         g_source_remove(timer_id);
+         rrclient_core_source_cancel(&timer_id);
          timer_id = 0;
       }
 
@@ -295,7 +295,7 @@ static void disconnected(const char *event, const char *data, rrconn_t *connecti
 
    if (transfer.connection == connection) {
       if (timer_id) {
-         g_source_remove(timer_id);
+         rrclient_core_source_cancel(&timer_id);
          timer_id = 0;
       }
       reset();
@@ -326,7 +326,7 @@ void rrclient_receiver_catalog_init(void) {
 }
 void rrclient_receiver_catalog_shutdown(void) {
    if (timer_id) {
-      g_source_remove(timer_id);
+      rrclient_core_source_cancel(&timer_id);
       timer_id = 0;
    }
    reset();
