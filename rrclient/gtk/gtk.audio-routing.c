@@ -1131,7 +1131,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gint source_index = -1;
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) &&
        routing_drag_target(gx, gy, &source_index, &snap_x, &snap_y);
-   if (graph_drag_moved && hit && source_index >= 0)
+   if (graph_drag_moved && hit && source_index >= 0) {
       graph_set_channel((guint)source_index, graph_drag_channel, TRUE);
    } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0) {
       unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
