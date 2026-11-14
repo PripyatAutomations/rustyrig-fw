@@ -60,6 +60,26 @@ currently has one active encoder format for its listeners.
 
 ## Audio Routing graph and per-pin gains
 
+Source output sockets are filled circles; input sockets are hollow,
+heavy outlined rings. Connections terminate in arrows pointing into
+their receiving sockets. A dragged connection follows the pointer until
+near a compatible input, where the preview snaps to its center. Dropping
+there connects it. Right/left ear gains are independent of source PCM
+channel count: a 16 kHz mono rig can send the same signal to either or
+both speaker ears, and therefore has two labeled **mixer-destination**
+ports and trims even though it has only one underlying source channel.
+
+For canvas navigation, **mouse wheel zooms under the pointer**, smooth
+touchpad scrolls pan, **Shift+wheel** pans horizontally, and
+**middle-button drag** or **Alt+left drag** pans freely. These operations
+affect only the view and never modify live audio routing.
+
+To share one stereo hardware sound card between two rigs with separate
+left/right physical inputs and outputs, see
+[two rigs on one stereo audio interface](audio-stereo-rig-channels.md)
+and the [reference pipeline config](../config/examples/stereo-two-rigs.cfg).
+
+
 Routing blocks can be dragged by their body or title without touching their
 audio connections. Positions are stored in the rrclient settings database,
 keyed by a SHA-256 of each stable audio node ID; restarting the client or
