@@ -117,12 +117,17 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    for (guint i = 0 ; i < g->node_count ; i++) {
       const rr_ag_view_node_t *n = &g->nodes[i];
       gboolean source = n->type == RR_AG_SOURCE;
+      gboolean capture = !strcmp(n->id, "src.client.dsp0");
       const char *route = n->route == 'L' ? "Left" : n->route == 'R' ? "Right" : n->route == 'M' ? "Muted" : "Stereo";
+      const char *rate = cfg_get("audio.playback-rate");
+      const char *speaker_rate = !rate || !strcmp(rate, "auto") ? "48 kHz requested" :
+                                 !strcmp(rate, "44100") ? "44.1 kHz requested" :
+                                 !strcmp(rate, "48000") ? "48 kHz requested" : "device default";
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = source ? 25 : n->type == RR_AG_SINK ? 650 : 355, .y = source ? 20 + 140 * source_index++ : 80, .title = source
-            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer pipeline" : "Core PCM mixer", .detail =
-            graph_missing_since[i] ? "Disconnected" : source ? route :
-            n->type == RR_AG_SINK ? "Inspect pipeline..." : NULL, .failed = n->health == RR_AG_FAILED, .stale =
+            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "16 kHz stereo bus", .detail =
+            graph_missing_since[i] ? "Disconnected" : capture ? "TX capture (read-only)" : source ? route :
+            n->type == RR_AG_SINK ? speaker_rate : NULL, .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0, .bypass_pins = n->type == RR_AG_PROCESSOR, .stereo_pins = TRUE, .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = TRUE, .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
@@ -451,6 +456,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
       }
       gboolean inactive = graph_missing_since[i] != 0;
       double px = 25 + RR_GTK_GRAPH_NODE_W, py = 20 + 140 * row++;
+      if (!strcmp(graph_snapshot->nodes[i].id, "src.client.dsp0")) continue;
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
          if (!inactive && hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
@@ -496,8 +502,8 @@ static gboolean graph_gain_at(double x, double y, gint *source,
       } else if (n->type == RR_AG_SINK) {
          left = 650 + 12.;
       } else continue;
-      if (graph_missing_since[i] || x < left - 8 ||
-          x > left + GRAPH_GAIN_W + 8) continue;
+      if (!strcmp(n->id, "src.client.dsp0") || graph_missing_since[i] ||
+          x < left - 8 || x > left + GRAPH_GAIN_W + 8) continue;
       for (gint ch = 0; ch < 2; ch++) {
          if (fabs(y - y0 - (ch ? 79 : 60)) <= 8) {
             *source = (gint)i;
@@ -550,6 +556,7 @@ static void graph_set_channel(guint source, gint channel, gboolean connect) {
       return;
    }
    rr_ag_view_node_t *node = &graph_snapshot->nodes[source];
+   if (!strcmp(node->id, "src.client.dsp0")) return;
    unsigned bit = channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
    unsigned mask = graph_route_mask(node->route);
    mask = connect ? mask | bit : mask & ~bit;
