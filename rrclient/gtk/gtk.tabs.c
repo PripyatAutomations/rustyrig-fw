@@ -722,19 +722,22 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
    if (!GTK_IS_FLOW_BOX(flow)) {
       return NULL;
    }
-   /* A tab-shaped container with its own dedicated restore control:
-    * the title is not itself an oversized restore button. */
-   GtkWidget *tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   /* Make the entire minimized tab a single restore button. A decorative
+    * icon stays visible, but the title and the whitespace are equally
+    * clickable and keyboard-activatable. Avoid nested GTK buttons. */
+   GtkWidget *tab = gtk_button_new();
+   GtkWidget *contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    GtkWidget *label = gtk_label_new(title);
-   GtkWidget *restore = gtk_button_new_from_icon_name("view-fullscreen", GTK_ICON_SIZE_MENU);
+   GtkWidget *icon = gtk_image_new_from_icon_name("view-fullscreen", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(tab), GTK_RELIEF_NONE);
    gtk_style_context_add_class(gtk_widget_get_style_context(tab), "tab");
-   gtk_style_context_add_class(gtk_widget_get_style_context(restore), "flat");
-   gtk_widget_set_tooltip_text(restore, "Restore floating panel");
-   gtk_box_pack_start(GTK_BOX(tab), label, FALSE, FALSE, 4);
-   gtk_box_pack_end(GTK_BOX(tab), restore, FALSE, FALSE, 0);
+   gtk_widget_set_tooltip_text(tab, "Restore floating panel");
+   gtk_box_pack_start(GTK_BOX(contents), label, FALSE, FALSE, 4);
+   gtk_box_pack_end(GTK_BOX(contents), icon, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(tab), contents);
    g_object_set_data(G_OBJECT(tab), "rr-panel-restore", GINT_TO_POINTER(1));
    gtk_container_add(GTK_CONTAINER(flow), tab);
-   g_signal_connect(restore, "clicked", callback, user_data);
+   g_signal_connect(tab, "clicked", callback, user_data);
    gtk_widget_show_all(tab);
    gtk_flow_box_invalidate_sort(GTK_FLOW_BOX(flow));
 
