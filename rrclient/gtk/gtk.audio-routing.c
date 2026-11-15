@@ -41,6 +41,7 @@ static gboolean routing_compact_hit(double x, double y, gboolean double_click);
 static gboolean routing_compact_drag_motion(double x, double y);
 static gboolean routing_compact_drag_release(double x, double y);
 static void routing_compact_restore(void);
+static void routing_compact_save(const struct routing_compact_control *control);
 static gboolean routing_controls_visible = TRUE;
 static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused);
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
@@ -1067,7 +1068,7 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
 /* Small reusable parameter widgets use the same core event path as the
  * graph's own trims. The shared floating-panel manager provides docking,
  * roll-up and saved geometry. Stable IDs identify the target, not its row. */
-typedef struct {
+typedef struct routing_compact_control {
    char id[64], uuid[40];
    char label[32], kind[16];
    double x, y;
@@ -1234,13 +1235,14 @@ static void routing_compact_destroy(gpointer pointer) {
    g_free(control);
 }
 static void routing_compact_add(const char *node_id, unsigned channel, gboolean port,
-                                const char *label, const char *kind) {
+                                const char *label, const char *kind,
+                                const char *saved_uuid, double saved_x, double saved_y) {
    if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook) || !node_id) return;
    if (!routing_compact_controls)
       routing_compact_controls = g_ptr_array_new_with_free_func(routing_compact_destroy);
    routing_compact_control_t *control = g_new0(routing_compact_control_t, 1);
-   char *uuid = g_uuid_string_random();
-   g_strlcpy(control->uuid, uuid, sizeof(control->uuid));
+   char *uuid = saved_uuid ? NULL : g_uuid_string_random();
+   g_strlcpy(control->uuid, saved_uuid ? saved_uuid : uuid, sizeof(control->uuid));
    g_free(uuid);
    g_strlcpy(control->id, node_id, sizeof(control->id));
    g_strlcpy(control->label, label && *label ? label : "Gain", sizeof(control->label));
@@ -1255,6 +1257,8 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
       }
    control->channel = channel;
    control->port = port;
+   if (saved_uuid) { control->x = CLAMP(saved_x, 0., 100000.);
+                     control->y = CLAMP(saved_y, 0., 100000.); }
    char *panel_id = g_strdup_printf("audio-compact-%s", control->uuid);
    control->panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
       GTK_NOTEBOOK(main_notebook), panel_id, control->label);
@@ -1304,7 +1308,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
       gtk_box_pack_start(GTK_BOX(body), control->knob, FALSE, FALSE, 0);
    }
    g_ptr_array_add(routing_compact_controls, control);
-   routing_compact_save(control);
+   if (!saved_uuid) routing_compact_save(control);
    graph_canvas_update_size();
    gtk_widget_show_all(body);
    rr_floating_panel_fit_content(control->panel);
@@ -1367,7 +1371,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(widget_kind));
       if (id && *id && channel && kind)
          routing_compact_add(id + 1, (unsigned)g_ascii_strtoull(channel, NULL, 10), *id == 'P',
-             gtk_entry_get_text(GTK_ENTRY(name)), kind);
+             gtk_entry_get_text(GTK_ENTRY(name)), kind, NULL, 0., 0.);
    }
    gtk_widget_destroy(dialog);
 }
