@@ -6,6 +6,8 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 #include <string.h>
+#include <math.h>
+#include <librustyaxe/json.h>
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
 #include <rrclient/local.modem.h>
@@ -32,14 +34,34 @@ static GtkWidget *terminal_ports;
 typedef struct {
    GtkWidget *page, *list, *scroll;
    unsigned rows;
+   gboolean follow;
+   guint follow_idle;
 } decode_tab_t;
 static decode_tab_t decode_tabs[RR_LOCAL_MODEM_MAX];
 static rr_event_token_t decode_token;
 static char decode_highlight_call[32];
 
+static gboolean decode_follow_idle(gpointer data) {
+   decode_tab_t *tab = data;
+   tab->follow_idle = 0;
+   if (!tab->scroll || !tab->follow) return G_SOURCE_REMOVE;
+   GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
+   gtk_adjustment_set_value(adj, MAX(0., gtk_adjustment_get_upper(adj) -
+                                   gtk_adjustment_get_page_size(adj)));
+   return G_SOURCE_REMOVE;
+}
+static void decode_scroll_changed(GtkAdjustment *adj, gpointer data) {
+   decode_tab_t *tab = data;
+   /* Do not interrupt selection/scrollback: resume only when back at bottom. */
+   if (!tab->follow_idle)
+      tab->follow = gtk_adjustment_get_upper(adj) -
+                    gtk_adjustment_get_page_size(adj) -
+                    gtk_adjustment_get_value(adj) < 36.;
+}
 static void decode_tab_closed(GtkWidget *page, gpointer user) {
    decode_tab_t *tab = user;
    (void)page;
+   if (tab->follow_idle) g_source_remove(tab->follow_idle);
    memset(tab, 0, sizeof(*tab));
 }
 static void decode_close_clicked(GtkButton *button, gpointer user) {
@@ -53,11 +75,29 @@ static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
    decode_tab_t *tab = &decode_tabs[d->slot - 1];
    if (tab->page) return tab;
    tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   tab->follow = TRUE;
+   if (!g_ascii_strcasecmp(d->engine, "ft8")) {
+      GtkWidget *header = gtk_label_new("UTC       DT       Audio Hz   Sync   Message");
+      gtk_widget_set_halign(header, GTK_ALIGN_START);
+      gtk_widget_set_margin_start(header, 8);
+      gtk_widget_set_margin_top(header, 3);
+      gtk_widget_set_margin_bottom(header, 3);
+      PangoAttrList *attrs = pango_attr_list_new();
+      PangoAttribute *mono = pango_attr_family_new("monospace");
+      pango_attr_list_insert(attrs, mono);
+      gtk_label_set_attributes(GTK_LABEL(header), attrs);
+      pango_attr_list_unref(attrs);
+      gtk_box_pack_start(GTK_BOX(tab->page), header, FALSE, FALSE, 0);
+   }
    tab->scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab->scroll),
+                                  GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    tab->list = gtk_list_box_new();
    gtk_list_box_set_selection_mode(GTK_LIST_BOX(tab->list), GTK_SELECTION_NONE);
    gtk_container_add(GTK_CONTAINER(tab->scroll), tab->list);
    gtk_box_pack_start(GTK_BOX(tab->page), tab->scroll, TRUE, TRUE, 0);
+   GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
+   g_signal_connect(adj, "value-changed", G_CALLBACK(decode_scroll_changed), tab);
    GtkWidget *title = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    gchar *name = g_strdup_printf("%s %u", d->engine, d->slot);
    gtk_box_pack_start(GTK_BOX(title), gtk_label_new(name), FALSE, FALSE, 0);
@@ -89,6 +129,51 @@ static gboolean decode_has_call(const char *line, const char *call) {
    }
    return FALSE;
 }
+/* Format data using the actual decoder JSON schema; sync_score is not SNR.
+ * Other decoder families keep their own rendering path as they gain metadata. */
+static gchar *decode_format_line(const rr_local_modem_decode_t *d, char **plain) {
+   const char *text = d->line;
+   gchar *prefix = NULL;
+   dict *json = *text == '{' ? json2dict(text) : NULL;
+   if (json && !g_ascii_strcasecmp(d->engine, "ft8") &&
+       !g_strcmp0(dict_get(json, "type", NULL), "ft8.decode")) {
+      const char *msg = dict_get(json, "text", "");
+      const char *slot_text = dict_get(json, "slot", NULL);
+      const char *hz_text = dict_get(json, "audio_hz", NULL);
+      const char *dt_text = dict_get(json, "dt", NULL);
+      const char *score_text = dict_get(json, "sync_score", NULL);
+      gint64 slot = slot_text ? g_ascii_strtoll(slot_text, NULL, 10) : 0;
+      GDateTime *utc = slot > 0 ? g_date_time_new_from_unix_utc(slot) : NULL;
+      gchar *clock = utc ? g_date_time_format(utc, "%H:%M:%S") : g_strdup("--:--:--");
+      if (utc) g_date_time_unref(utc);
+      char hz[24] = "--", dt[24] = "--", sync[24] = "--";
+      if (hz_text) {
+         double value = g_ascii_strtod(hz_text, NULL);
+         if (isfinite(value)) g_snprintf(hz, sizeof(hz), "%.0f", value);
+      }
+      if (dt_text) {
+         double value = g_ascii_strtod(dt_text, NULL);
+         if (isfinite(value)) g_snprintf(dt, sizeof(dt), "%+.2f", value);
+      }
+      if (score_text) g_snprintf(sync, sizeof(sync), "%s", score_text);
+      prefix = g_strdup_printf("%-8s %7s %10s %6s  ", clock, dt, hz, sync);
+      g_free(clock);
+      *plain = g_strdup(msg);
+   } else if (json && dict_get(json, "text", NULL)) {
+      *plain = g_strdup(dict_get(json, "text", ""));
+   } else {
+      *plain = g_strdup(text);
+   }
+   if (json) dict_free(json);
+   if (!prefix) {
+      GDateTime *utc = g_date_time_new_now_utc();
+      gchar *clock = g_date_time_format(utc, "%H:%M:%S");
+      prefix = g_strdup_printf("%-8s  ", clock);
+      g_free(clock);
+      g_date_time_unref(utc);
+   }
+   return prefix;
+}
 static void decode_received(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (!message || !message->payload ||
@@ -96,68 +181,53 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    const rr_local_modem_decode_t *d = message->payload;
    decode_tab_t *tab = decode_tab_for(d);
    if (!tab) return;
-   GtkAdjustment *follow_adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
-   gboolean follow = gtk_adjustment_get_upper(follow_adj) -
-                     gtk_adjustment_get_value(follow_adj) -
-                     gtk_adjustment_get_page_size(follow_adj) < 80;
-   const char *decoded = d->line;
-   /* For FT8, prefer the human-readable text member, preserving the original
-    * JSON in the event for other consumers. */
-   gchar *extracted = NULL;
-   if (g_str_has_prefix(decoded, "{")) {
-      const char *key = strstr(decoded, "\"text\"");
-      if (key) {
-         const char *start = strchr(key + 6, ':');
-         if (start) {
-            start = strchr(start, '"');
-            if (start) {
-               start++;
-               const char *end = start;
-               while (*end && (*end != '"' || (end > start && end[-1] == '\\'))) end++;
-               if (*end == '"') extracted = g_strndup(start, end - start);
-            }
-         }
-      }
-   }
-   const char *body = extracted ? extracted : decoded;
+   char *body = NULL;
+   gchar *prefix = decode_format_line(d, &body);
+   gboolean cq = g_ascii_strncasecmp(body, "CQ ", 3) == 0;
+   gboolean highlight = decode_has_call(body, decode_highlight_call);
    GtkWidget *row = gtk_list_box_row_new();
+   GtkStyleContext *style = gtk_widget_get_style_context(row);
+   /* The row counter continues across pruning; 1000 retained rows means
+    * zebra parity remains stable while the oldest entries are dropped. */
+   if (tab->rows & 1) gtk_style_context_add_class(style, "rr-zebra-odd");
+   if (highlight) gtk_style_context_add_class(style, "rr-modem-highlight");
    GtkWidget *label = gtk_label_new(NULL);
-   gchar *prefix = g_strdup_printf("%u %-6s  ", d->slot, d->engine);
-   gchar *markup_prefix = g_markup_escape_text(prefix, -1);
-   gchar *markup_body = g_markup_escape_text(body, -1);
-   gchar *markup = g_strdup_printf("<span foreground='#7a98bb'>%s</span><span foreground='%s'>%s</span>",
-                                    markup_prefix,
-                                    g_str_has_prefix(body, "CQ ") ? "#54b6a0" : "#d6d8de",
-                                    markup_body);
+   gchar *escaped_prefix = g_markup_escape_text(prefix, -1);
+   gchar *escaped_body = g_markup_escape_text(body, -1);
+   gchar *markup = g_strdup_printf("<span alpha='76%%'>%s</span><span %s>%s</span>",
+                                    escaped_prefix,
+                                    cq ? "weight='bold'" : "", escaped_body);
    gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
+   gtk_label_set_single_line_mode(GTK_LABEL(label), TRUE);
+   gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
+   gtk_widget_set_halign(label, GTK_ALIGN_FILL);
    gtk_widget_set_margin_start(label, 8);
    gtk_widget_set_margin_end(label, 8);
    gtk_widget_set_margin_top(label, 2);
    gtk_widget_set_margin_bottom(label, 2);
+   PangoAttrList *attrs = pango_attr_list_new();
+   pango_attr_list_insert(attrs, pango_attr_family_new("monospace"));
+   gtk_label_set_attributes(GTK_LABEL(label), attrs);
+   pango_attr_list_unref(attrs);
+   gtk_widget_set_tooltip_text(label, body);
    gtk_container_add(GTK_CONTAINER(row), label);
-   if (decode_has_call(body, decode_highlight_call)) {
-      GtkStyleContext *style = gtk_widget_get_style_context(row);
-      gtk_style_context_add_class(style, "rr-modem-highlight");
-   }
    gtk_list_box_insert(GTK_LIST_BOX(tab->list), row, -1);
    gtk_widget_show_all(row);
    if (++tab->rows > 1000) {
       GtkListBoxRow *first = gtk_list_box_get_row_at_index(GTK_LIST_BOX(tab->list), 0);
       if (first) gtk_widget_destroy(GTK_WIDGET(first));
-      tab->rows--;
+      /* Keep total count for stable alternating parity. */
    }
-   /* Auto-follow only when the user was at the bottom before insertion.
-    * Layout completes in GTK's next cycle; bottom adjustment follows then. */
-   if (follow) {
-      GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
-      gtk_adjustment_set_value(adj, gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
-   }
-   g_free(markup); g_free(markup_body); g_free(markup_prefix);
-   g_free(prefix); g_free(extracted);
+   if (tab->follow && !tab->follow_idle)
+      tab->follow_idle = g_idle_add(decode_follow_idle, tab);
+   g_free(markup);
+   g_free(escaped_body);
+   g_free(escaped_prefix);
+   g_free(prefix);
+   g_free(body);
 }
-
 
 static void terminal_copy(GtkMenuItem *item, gpointer data) {
    (void)item;
@@ -727,8 +797,9 @@ GtkWidget *init_terminal_tab(void) {
    decode_token = event_on_message_domain_token(RR_LOCAL_MODEM_DECODE, decode_received, NULL, "gtk");
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
-      ".rr-modem-highlight { background-color: @theme_selected_bg_color; }"
-      ".rr-modem-highlight label { color: @theme_selected_fg_color; }", -1, NULL);
+      "listbox row.rr-zebra-odd { background-color: alpha(currentColor, 0.085); }"
+      "listbox row.rr-modem-highlight { background-color: @theme_selected_bg_color; }"
+      "listbox row.rr-modem-highlight label { color: @theme_selected_fg_color; }", -1, NULL);
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
       GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
