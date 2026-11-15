@@ -1583,6 +1583,10 @@ bool receiver_directory_refresh_due(void) {
       return false;
    /* A mirror change is due immediately; the old cached list remains
     * available until the replacement validates successfully. */
+   /* Server-catalog snapshots are not a mirror URL change. Observe the
+    * persisted daily deadline even when their source is "rrserver". */
+   if (source && !strcmp(source, "rrserver"))
+      return time(NULL) >= next_request;
    return g_strcmp0(source, url) != 0 || time(NULL) >= next_request;
 }
 bool receiver_directory_refresh(void) {
@@ -1607,6 +1611,19 @@ bool receiver_directory_import_snapshot(const char *data, size_t length, const c
 
    if (!list) {
       return false;
+   }
+   /* A server may republish the same generation every few hours.
+    * Do not push the independent HTTPS revalidation deadline forward for
+    * identical data: otherwise the daily check can be deferred forever. */
+   gboolean unchanged = payload && strlen(payload) == length &&
+                        !memcmp(payload, data, length);
+   if (unchanged) {
+      g_ptr_array_free(list, TRUE);
+      g_snprintf(status_text, sizeof(status_text),
+                 "Server catalog unchanged: %u cached receivers. Next mirror check retained.",
+                 receivers->len);
+      changed();
+      return true;
    }
    g_ptr_array_free(receivers, TRUE);
    receivers = list;
