@@ -1127,11 +1127,16 @@ static void audio_graph_rig_label(const struct rrclient_rx_stream *stream, char 
 /* Requested hardware rate is not the negotiated GStreamer caps rate.
  * Only claim an override for the stock PulseAudio boundary shape. */
 static guint32 audio_device_rate_request(bool capture) {
-   const char *pipeline = cfg_get(capture ? "pipeline:src.client.dsp0" :
-                                             "pipeline:sink.client.mix");
-   if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ") ||
-       !strstr(pipeline, "processor-device-caps"))
-      return 0;
+   const char *mode = cfg_get("audio.pipeline-mode");
+   if (!mode || g_ascii_strcasecmp(mode, "generated")) {
+      /* Configured pipelines are arbitrary and may not have a device-rate
+       * capsfilter. Never claim an inferred rate for custom pipelines. */
+      const char *pipeline = cfg_get(capture ? "pipeline:src.client.dsp0" :
+                                                "pipeline:sink.client.mix");
+      if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ") ||
+          !strstr(pipeline, "processor-device-caps"))
+         return 0;
+   }
    const char *rate = cfg_get(capture ? "audio.capture-rate" : "audio.playback-rate");
    if (!rate || !strcmp(rate, "auto")) return 48000;
    if (!strcmp(rate, "44100")) return 44100;
