@@ -1180,6 +1180,8 @@ void rrclient_media_room_removed(const char *room) {
       struct rr_client_media_chan *channel = &known_chans[i];
 
       if (channel->uuid[0] && !strcasecmp(channel->room, room)) {
+         if (channel->subsystem == RR_BINFRAME_SUBSYS_WATERFALL)
+            remote_rf_forget(channel->uuid);
          memset(channel, 0, sizeof(*channel));
          changed = true;
       }
@@ -1206,6 +1208,8 @@ void rrclient_media_room_parted(const char *room) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       if (!strcasecmp(known_chans[i].room, room)) {
          known_chans[i].joined = false;
+         if (known_chans[i].subsystem == RR_BINFRAME_SUBSYS_WATERFALL)
+            remote_rf_publish_source(rrclient_active_connection(), &known_chans[i]);
       }
    }
 
