@@ -585,7 +585,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double ex = graph_drag_mixer ? ox : snap_x;
          double ey = graph_drag_mixer ? oy : snap_y;
          /* Leave the ring empty so an arrow cannot obscure the socket. */
-         if (snap) ex -= graph_drag_rig_target >= 0 && graph_drag_channel ? 9. : 9.;
+         if (snap) ex -= 9.;
          double cx = (sx + ex) / 2.;
          gboolean ptt_preview = !graph_drag_mixer &&
              g_str_has_prefix(n->id, "modem.") &&
