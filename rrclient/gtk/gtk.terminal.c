@@ -818,7 +818,7 @@ GtkWidget *init_terminal_tab(void) {
    GtkWidget *refresh = gtk_button_new_with_label("Refresh");
    GtkWidget *open = gtk_button_new_with_label("Open Terminal");
    GtkWidget *configure = gtk_button_new_with_label("Configure…");
-   GtkWidget *decoders = gtk_button_new_with_label("Modems…");
+   GtkWidget *decoders = gtk_button_new_with_label("Routing…");
    gtk_box_pack_start(GTK_BOX(toolbar), refresh, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), open, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), configure, FALSE, FALSE, 0);
