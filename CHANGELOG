@@ -1,5 +1,10 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Shrink the GTK Volume floating panel: three short horizontal L/R/RX
+    faders, one compact Link L/R checkbox, and tighter grid spacing
+    instead of tall vertical sliders and redundant headings. Retain
+    routing/gain values and migrate oversized legacy panel dimensions
+    without discarding its screen position.
   * Add a Panels toggle to the GTK main toolbar for temporarily hiding
     visible floating panels without closing or minimizing them. Status
     and merged Log automatically enter this distraction-free mode;
