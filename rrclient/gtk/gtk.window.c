@@ -38,6 +38,7 @@ static GtkWidget *toolbar_action_labels[RR_TOOLBAR_ACTIONS];
 static unsigned toolbar_action_count;
 static bool toolbar_titles_visible;
 static GtkWidget *toolbar_action_viewport;
+static GtkWidget *panels_toggle;
 
 static void toolbar_titles_update(int available) {
    if (!GTK_IS_WIDGET(rr_main_toolbar) || available <= 0) {
@@ -302,6 +303,24 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 }
 
 static GtkWidget *rr_client_overlay;
+/* Keep this independent of panel close/minimize state: manual hiding
+ * survives leaving Status/Log until the operator toggles it back. */
+static void main_toolbar_panels_toggled(GtkToggleButton *button, gpointer unused) {
+   (void)unused;
+   gboolean hide = gtk_toggle_button_get_active(button);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_MANUAL, hide);
+   gtk_widget_set_tooltip_text(GTK_WIDGET(button),
+      hide ? "Show previously visible floating panels" :
+      "Temporarily hide floating panels");
+}
+static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page,
+                                     guint number, gpointer unused) {
+   (void)book; (void)number; (void)unused;
+   /* Only Status and the merged Client/Host Log are distraction-free.
+    * Other tool pages and chats retain the user's panel layout. */
+   gboolean hide = page && (page == status_tab || page == log_tab || page == host_log_tab);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, hide);
+}
 static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
    (void)button;
    const char *tool = data;
@@ -397,6 +416,10 @@ bool gui_init(void) {
    memset(toolbar_action_labels, 0, sizeof(toolbar_action_labels));
    toolbar_titles_visible = false;
    toolbar_action_viewport = NULL;
+   panels_toggle = NULL;
+   /* Rebuilt UIs must not inherit a stale previous window's manual mask. */
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_MANUAL, FALSE);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
@@ -515,12 +538,33 @@ bool gui_init(void) {
    main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory", "Remote SDRs: Access remote SDRs such as KiwiSDR");
    main_toolbar_tool(rr_main_toolbar, "Recordings", "media-record-symbolic", "recordings", "Record and manage client audio recordings");
    main_toolbar_tool(rr_main_toolbar, "Audio Routing", "audio-card-symbolic", "audio", "Audio Routing: Edit signal routing, port trims and DSP pipelines");
+   /* Toggle, not a window-manager hide action: it preserves panel placement
+    * and minimized tabs. The pressed state indicates manual suppression. */
+   panels_toggle = gtk_toggle_button_new();
+   GtkWidget *panels_label = gtk_label_new("Panels");
+   GtkWidget *panels_icon = gtk_image_new_from_icon_name("view-grid-symbolic", GTK_ICON_SIZE_MENU);
+   GtkWidget *panels_contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   gtk_box_pack_start(GTK_BOX(panels_contents), panels_icon, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(panels_contents), panels_label, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(panels_toggle), panels_contents);
+   gtk_button_set_relief(GTK_BUTTON(panels_toggle), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(panels_toggle, "Temporarily hide floating panels");
+   gtk_widget_set_tooltip_text(panels_icon, "Temporarily hide floating panels");
+   gtk_widget_set_no_show_all(panels_label, TRUE);
+   gtk_widget_hide(panels_label);
+   g_signal_connect(panels_toggle, "toggled", G_CALLBACK(main_toolbar_panels_toggled), NULL);
+   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), panels_toggle, FALSE, FALSE, 0);
    main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-other-symbolic", "admin", "Admin: Administer the server/cluster");
    main_toolbar_tool(rr_main_toolbar, "Config", "preferences-system-symbolic", "config", "Config: Edit client configuration");
 
    // Shared serial console page, with top-aligned endpoint subtabs.
    extern GtkWidget *init_terminal_tab(void);
    init_terminal_tab();
+
+   /* Attach after pages exist. This also handles Status/Log tab selection
+    * via mouse, keyboard, commands and programmatic navigation. */
+   g_signal_connect(main_notebook, "switch-page",
+                    G_CALLBACK(main_panels_page_switched), NULL);
 
    // GTK Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
@@ -545,6 +589,10 @@ bool gui_init(void) {
 
    // Make the main window on screen
    gtk_widget_show_all(main_window);
+   main_panels_page_switched(GTK_NOTEBOOK(main_notebook),
+      gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
+                                gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))),
+      (guint)gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)), NULL);
    toolbar_titles_update(gtk_widget_get_allocated_width(toolbar_action_viewport));
    gtk_widget_realize(main_window);
    place_window(main_window);
