@@ -1,5 +1,12 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Constrain the AF waterfall's frequency axis, zoom and pan to the
+    selected stream's native Nyquist, rather than always showing
+    0-8 kHz of 16 kHz resampled PCM. Propagate bridge source sample
+    rates through media.available and client stream snapshots; account
+    for narrow mu08 sources. Display each zoom's real visible span.
+  * Retain the full 16 kHz FFT for mixed speaker output and unknown
+    source rates. Add 8/12/16/48 kHz AF Nyquist regression checks.
   * Fix Server Picker not opening from Status/Log after automatic
     floating-panel hiding. An explicit chooser request reveals only the
     requested panel without clearing the manual or automatic hide mask,
