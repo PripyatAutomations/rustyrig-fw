@@ -35,6 +35,7 @@ static gboolean graph_profile_updating;
 static void graph_profile_modified(void);
 static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
+struct routing_compact_control;
 static void routing_compact_sync(void);
 static void routing_compact_draw(cairo_t *cr);
 static gboolean routing_compact_hit(double x, double y, gboolean double_click);
@@ -1538,10 +1539,12 @@ static void routing_compact_draw(cairo_t *cr) {
       cairo_line_to(cr, item->x + ROUTING_CONTROL_WIDTH, cy);
       cairo_line_to(cr, cx, item->y + ROUTING_CONTROL_HEIGHT);
       cairo_close_path(cr);
-      cairo_set_source_rgba(cr, .10, .28, .46, .96);
+      /* Distinct diamond silhouette, neutral body. Blue is reserved
+       * for control sockets/wiring, like the other port colors. */
+      cairo_set_source_rgba(cr, .23, .24, .27, .96);
       cairo_fill_preserve(cr);
-      cairo_set_source_rgb(cr, .23, .69, 1.);
-      cairo_set_line_width(cr, 2.2);
+      cairo_set_source_rgb(cr, .60, .63, .68);
+      cairo_set_line_width(cr, 1.7);
       cairo_stroke(cr);
       cairo_arc(cr, start_x, cy, 5., 0, 2 * G_PI);
       cairo_set_source_rgb(cr, .26, .72, 1.);
@@ -2838,6 +2841,7 @@ void gtk_audio_routing_init(void) {
    routes_token = event_on_domain_token("client.audio.route.changed", routing_live_changed, NULL, "gtk");
    routing_watchdog_source = g_timeout_add(1500, routing_watchdog, NULL);
    routing_queue();
+   routing_compact_restore();
 }
 
 void gtk_audio_routing_shutdown(void) {
@@ -2856,6 +2860,7 @@ void gtk_audio_routing_shutdown(void) {
       routes_token = 0;
    }
    g_clear_pointer(&graph_snapshot, g_free);
+   routing_control_drag_index = -1;
    if (graph_positions) { g_hash_table_destroy(graph_positions); graph_positions = NULL; }
    graph_node_drag = -1;
    memset(graph_missing_since, 0, sizeof(graph_missing_since));
