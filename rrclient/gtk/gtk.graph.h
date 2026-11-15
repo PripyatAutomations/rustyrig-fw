@@ -20,6 +20,7 @@ typedef struct {
    const char *title, *subtitle, *detail;
    gboolean selected, failed, stale, bypass_pins;
    gboolean stereo_pins, fwdsp, gain_pins;
+   gboolean ptt_pin; /* Reserved digital control output; not audio or active PTT. */
    rr_gtk_graph_io_t io;
 } rr_gtk_graph_node_t;
 typedef enum {
