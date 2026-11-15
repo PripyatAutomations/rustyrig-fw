@@ -32,6 +32,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <math.h>
 #include <sys/stat.h>
 #include <pthread.h>
 #if     !defined(__FWDSP)
@@ -959,6 +960,50 @@ static bool processor_apply_device_rate(GstElement *pipe, GstElement *appsrc) {
    return true;
 }
 
+/* Run exclusively on the worker's main control loop, never the audio streaming
+ * callback. Only exposed numeric/boolean properties of named elements may
+ * be changed; never accept object, pointer or arbitrary string properties. */
+static bool processor_set_element_parameter(GstElement *pipe,
+                                           struct fwdsp_control_msg *cmd) {
+   if (!pipe || !GST_IS_BIN(pipe) || !memchr(cmd->element, 0, sizeof(cmd->element)) ||
+       !memchr(cmd->property, 0, sizeof(cmd->property)) ||
+       !*cmd->element || !*cmd->property || !isfinite(cmd->property_value))
+      return false;
+   GstElement *element = gst_bin_get_by_name(GST_BIN(pipe), cmd->element);
+   if (!element) return false;
+   GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
+                                                   cmd->property);
+   bool ok = false;
+   if (spec && (spec->flags & G_PARAM_WRITABLE) &&
+       !(spec->flags & G_PARAM_CONSTRUCT_ONLY)) {
+      double v = cmd->property_value;
+      if (G_IS_PARAM_SPEC_DOUBLE(spec)) {
+         GParamSpecDouble *s = G_PARAM_SPEC_DOUBLE(spec);
+         if (v >= s->minimum && v <= s->maximum) {
+            g_object_set(element, cmd->property, v, NULL); ok = true;
+         }
+      } else if (G_IS_PARAM_SPEC_FLOAT(spec)) {
+         GParamSpecFloat *s = G_PARAM_SPEC_FLOAT(spec);
+         if (v >= s->minimum && v <= s->maximum) {
+            g_object_set(element, cmd->property, (float)v, NULL); ok = true;
+         }
+      } else if (G_IS_PARAM_SPEC_INT(spec)) {
+         GParamSpecInt *s = G_PARAM_SPEC_INT(spec);
+         if (v == trunc(v) && v >= s->minimum && v <= s->maximum) {
+            g_object_set(element, cmd->property, (int)v, NULL); ok = true;
+         }
+      } else if (G_IS_PARAM_SPEC_UINT(spec)) {
+         GParamSpecUInt *s = G_PARAM_SPEC_UINT(spec);
+         if (v == trunc(v) && v >= s->minimum && v <= s->maximum) {
+            g_object_set(element, cmd->property, (unsigned)v, NULL); ok = true;
+         }
+      } else if (G_IS_PARAM_SPEC_BOOLEAN(spec) && (v == 0. || v == 1.)) {
+         g_object_set(element, cmd->property, v != 0., NULL); ok = true;
+      }
+   }
+   gst_object_unref(element);
+   return ok;
+}
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       dying = false;
@@ -1376,6 +1421,14 @@ static void run_loop(struct audio_config *cfg) {
                   case FWDSP_CTRL_SET_VOLUME: {
                      if (volume) {
                         g_object_set(G_OBJECT(volume), "volume", control.value / 100.0, NULL);
+                     }
+                     break;
+                  }
+
+                  case FWDSP_CTRL_SET_PROPERTY: {
+                     if (!processor_set_element_parameter(pipeline, &control)) {
+                        Log(LOG_WARN, "fwdsp.control",
+                            "Rejected parameter update (invalid element/property/value)");
                      }
                      break;
                   }
