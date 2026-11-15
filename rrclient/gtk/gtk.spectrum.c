@@ -15,6 +15,7 @@
 #include <rrclient/gtk/gtk.spectrum.h>
 #include <rrclient/gtk/gtk.decoders.h>
 #include <rrbridge/spectrum.row.h>
+#include <rrclient/remote.spectrum.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/event-bus.h>
 
@@ -1030,6 +1031,8 @@ typedef struct {
    GtkWidget *hover_widget;
    GtkWidget *vfo_select;
    char selected_vfo; /* 0 = Follow Active */
+   char remote_id[256]; /* nonempty = remote server RF source */
+   rr_event_token_t remote_row_token, remote_catalog_token;
    bool selector_refreshing;
    double hover_x, hover_y;
    double display_gain_db;
@@ -1053,6 +1056,7 @@ typedef struct {
 /* Keep selection separate from the room's tuning focus. Manual selection
  * never changes which VFO is active for CAT or audio. */
 static char rf_selected_vfo(const rf_strip_t *p) {
+   if (p->remote_id[0]) return 0;
    if (p->selected_vfo) return p->selected_vfo;
    rr_local_bridge_ui_state_t active = { 0 };
    rrclient_local_bridge_ui_state(&active);
@@ -1080,36 +1084,81 @@ static void rf_vfo_changed(GtkComboBox *combo, gpointer data) {
    if (p->selector_refreshing) return;
    const char *id = gtk_combo_box_get_active_id(combo);
    char requested = id && id[0] >= 'A' && id[0] <= 'Z' && !id[1] ? id[0] : 0;
-   if (requested == p->selected_vfo) return;
+   char remote[256] = {0};
+   if (id && g_str_has_prefix(id, "remote:"))
+      g_strlcpy(remote, id + 7, sizeof(remote));
+   if (requested == p->selected_vfo && !strcmp(remote, p->remote_id)) return;
    p->selected_vfo = requested;
+   g_strlcpy(p->remote_id, remote, sizeof(p->remote_id));
    rf_clear_history(p);
-   rr_local_bridge_ui_state_t state = { 0 };
-   if (rf_selected_state(p, &state)) {
-      p->zoom = state.min_zoom + (state.max_zoom - state.min_zoom) / 2;
-      p->zoom_initialized = rf_request(p, p->rf_enabled, p->zoom, 0);
+   if (p->remote_id[0]) {
+      /* Remote RF acquisition is controlled by the authorized media
+       * subscription. Display zoom is a local crop, never a CAT command. */
+      p->zoom_fraction = 0;
+      p->zoom_initialized = true;
+   } else {
+      rr_local_bridge_ui_state_t state = {0};
+      if (rf_selected_state(p, &state)) {
+         p->zoom = state.min_zoom + (state.max_zoom - state.min_zoom) / 2;
+         p->zoom_initialized = rf_request(p, p->rf_enabled, p->zoom, 0);
+      }
    }
+   gtk_widget_queue_draw(p->drawing);
 }
 static void rf_refresh_selector(rf_strip_t *p) {
    char was = p->selected_vfo;
+   char was_remote[sizeof(p->remote_id)];
+   g_strlcpy(was_remote, p->remote_id, sizeof(was_remote));
    p->selector_refreshing = true;
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(p->vfo_select));
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), "follow", "Follow Active");
-   bool kept = false;
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), "follow", "Follow Active (local)");
+   bool kept_local = false, kept_remote = false;
+   bool any_local = false;
    for (char v = 'A'; v <= 'Z'; v++) {
-      rr_local_bridge_ui_state_t state = { 0 };
+      rr_local_bridge_ui_state_t state = {0};
       if (!rrclient_local_bridge_ui_state_vfo(v, &state) || !state.waterfall) continue;
-      char id[2] = { v, 0 };
+      char id[2] = {v, 0};
       char label[24];
-      g_snprintf(label, sizeof(label), "VFO %c", v);
+      g_snprintf(label, sizeof(label), "Local VFO %c", v);
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), id, label);
-      if (was == v) kept = true;
+      any_local = true;
+      if (was == v) kept_local = true;
    }
-   if (was && !kept) {
+   rr_remote_rf_source_t sources[RR_REMOTE_RF_SOURCES_MAX] = {{0}};
+   size_t count = rrclient_media_remote_rf_snapshot(sources, G_N_ELEMENTS(sources));
+   char first_remote[256] = {0};
+   for (size_t i = 0; i < count && i < G_N_ELEMENTS(sources); i++) {
+      if (!sources[i].joined || !sources[i].id[0]) continue;
+      char id[sizeof(sources[i].id) + 8], label[256];
+      g_snprintf(id, sizeof(id), "remote:%s", sources[i].id);
+      g_snprintf(label, sizeof(label), "Remote %s (%s)",
+                 sources[i].name, sources[i].room);
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), id, label);
+      if (!first_remote[0]) g_strlcpy(first_remote, sources[i].id, sizeof(first_remote));
+      if (!strcmp(was_remote, sources[i].id)) kept_remote = true;
+   }
+   if (was_remote[0] && !kept_remote) {
+      p->remote_id[0] = 0;
+      rf_clear_history(p);
+   }
+   if (was && !kept_local) {
       p->selected_vfo = 0;
       rf_clear_history(p);
    }
-   char id[2] = { p->selected_vfo, 0 };
-   gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->vfo_select), p->selected_vfo ? id : "follow");
+   if (!p->remote_id[0] && !any_local && first_remote[0]) {
+      g_strlcpy(p->remote_id, first_remote, sizeof(p->remote_id));
+      p->selected_vfo = 0;
+      rf_clear_history(p);
+   }
+   if (p->remote_id[0]) {
+      char id[sizeof(p->remote_id)+8];
+      g_snprintf(id, sizeof(id), "remote:%s", p->remote_id);
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->vfo_select), id);
+   } else {
+      char id[2] = {p->selected_vfo, 0};
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->vfo_select),
+                                  p->selected_vfo ? id : "follow");
+   }
    p->selector_refreshing = false;
 }
 /* A Kiwi W/F connection may become ready after audio and capability negotiation. Do not leave an enabled viewer blank indefinitely if no RF rows arrive;
@@ -1117,7 +1166,7 @@ static void rf_refresh_selector(rf_strip_t *p) {
 static gboolean rf_recover_stream(gpointer user) {
    rf_strip_t *p = user;
 
-   if (!p->rf_enabled) {
+   if (!p->rf_enabled || p->remote_id[0]) {
       return G_SOURCE_CONTINUE;
    }
    rr_local_bridge_ui_state_t state = {
@@ -1163,7 +1212,7 @@ static void rf_row(const char *event, const void *data, size_t len, rrconn_t *co
    (void)connection;
    rf_strip_t *p = user;
 
-   if (!p->rf_enabled || len != sizeof(rr_bridge_spectrum_event) || !data) {
+   if (p->remote_id[0] || !p->rf_enabled || len != sizeof(rr_bridge_spectrum_event) || !data) {
       return;
    }
    const rr_bridge_spectrum_event *packet = data;
@@ -1191,6 +1240,32 @@ static void rf_row(const char *event, const void *data, size_t len, rrconn_t *co
    }
 }
 
+/* The client verifies the originating server, subscribed stream, version,
+ * sample bounds and room authorization before emitting this GTK-domain row.
+ * Never confuse another server's rig A with a local bridge's rig A. */
+static void rf_remote_row(const char *event, const void *data, size_t len,
+                          rrconn_t *connection, void *user) {
+   (void)event; (void)connection;
+   rf_strip_t *p = user;
+   if (!p->rf_enabled || !p->remote_id[0] ||
+       !data || len != sizeof(rr_remote_rf_row_t)) return;
+   const rr_remote_rf_row_t *packet = data;
+   if (strcmp(packet->id, p->remote_id) ||
+       !rr_bridge_spectrum_valid(&packet->row)) return;
+   p->vfo_boundary[p->head] = false;
+   p->rows[p->head] = packet->row;
+   p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
+   p->count = MIN(p->count+1, G_N_ELEMENTS(p->rows));
+   p->received_at = g_get_monotonic_time();
+   if (!p->draw_timer) p->draw_timer = g_timeout_add(100, rf_draw_later, p);
+}
+static void rf_remote_catalog(const char *event, const char *data,
+                              rrconn_t *connection, void *user) {
+   (void)event; (void)data; (void)connection;
+   rf_strip_t *p = user;
+   rf_refresh_selector(p);
+   gtk_widget_queue_draw(p->drawing);
+}
 /* Fractional display crop between backend zoom steps. Both pixels and scale/marker must use these same frequency bounds. */
 static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *row, double *low, double *high) {
    *low = row->low_hz;
@@ -1411,6 +1486,11 @@ static gboolean rf_ui_caps(const rf_strip_t *p, unsigned *min_zoom, unsigned *ma
       0
    };
 
+   if (p->remote_id[0]) {
+      if (min_zoom) *min_zoom = 0;
+      if (max_zoom) *max_zoom = 6;
+      return TRUE;
+   }
    if (!rf_selected_state(p, &state)) {
       return FALSE;
    }
@@ -1439,6 +1519,10 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
    gtk_widget_set_visible(p->enabled, available);
    gtk_widget_set_visible(p->gain, available);
 
+   if (p->remote_id[0]) {
+      p->zoom_initialized = true;
+      return;
+   }
    if (available && !p->zoom_initialized) {
       /* The bridge may already be running at its own default zoom (Kiwi: 6). Establish a shared starting point before accepting wheel events. */
       p->zoom = min_zoom + (max_zoom - min_zoom) / 2;
@@ -1458,7 +1542,8 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
-   rf_request(p, p->rf_enabled, p->zoom, 0);
+   if (!p->remote_id[0])
+      rf_request(p, p->rf_enabled, p->zoom, 0);
 
    if (!p->rf_enabled) {
       p->count = 0;
@@ -1486,8 +1571,15 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
       }
    }
 
-   if (!delta) {
-      return FALSE;
+   if (!delta) return FALSE;
+   if (p->remote_id[0]) {
+      /* Crop the received RF bins without changing the server's shared
+       * acquisition window (other subscribers may be listening). */
+      p->zoom_fraction = CLAMP(p->zoom_fraction + delta * .20, 0., 6.);
+      p->pan_hz = 0;
+      gtk_widget_queue_draw(p->drawing);
+      if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+      return TRUE;
    }
    unsigned min_zoom, max_zoom;
 
@@ -1619,6 +1711,9 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       return FALSE;
    }
    p->dragging = false;
+   /* A remote spectrum is a display only; a local bridge CAT request
+    * must never accidentally tune an unrelated remote receiver. */
+   if (p->remote_id[0] && !(event->state & GDK_CONTROL_MASK)) return TRUE;
 
    if (!(event->state & GDK_CONTROL_MASK)) {
       if (!p->rf_enabled || !p->count) {
@@ -1705,9 +1800,9 @@ static void rf_destroy(gpointer data) {
       event_off_token(p->caps_token);
    }
 
-   if (p->vfo_token) {
-      event_off_token(p->vfo_token);
-   }
+   if (p->vfo_token) event_off_token(p->vfo_token);
+   if (p->remote_row_token) event_off_token(p->remote_row_token);
+   if (p->remote_catalog_token) event_off_token(p->remote_catalog_token);
    g_free(p);
 }
 GtkWidget *rr_gtk_rf_spectrum_new(void) {
@@ -1759,6 +1854,10 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    p->token = event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row_message, p, "gtk");
    p->caps_token = event_on_binary_domain_token("client.local-bridge.capabilities", rf_caps_changed, p, "gtk");
    p->vfo_token = event_on_binary_domain_token("client.local-bridge.vfo", rf_caps_changed, p, "gtk");
+   p->remote_row_token = event_on_binary_domain_token(RR_REMOTE_RF_ROW_EVENT,
+                                                       rf_remote_row, p, "gtk");
+   p->remote_catalog_token = event_on_domain_token(RR_REMOTE_RF_SOURCE_CHANGED,
+                                                    rf_remote_catalog, p, "gtk");
    rf_caps_changed(NULL, NULL, 0, NULL, p);
 
    return overlay;
