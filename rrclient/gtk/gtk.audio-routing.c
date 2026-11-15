@@ -1873,6 +1873,8 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_entry_set_max_length(GTK_ENTRY(name), 31);
    gtk_entry_set_placeholder_text(GTK_ENTRY(name), "Auto: use parameter name");
    GtkWidget *target = gtk_combo_box_text_new();
+   GHashTable *effect_ports = g_hash_table_new_full(
+       g_str_hash, g_str_equal, g_free, g_free);
    GtkWidget *ear = gtk_combo_box_text_new();
    GtkWidget *widget_kind = gtk_combo_box_text_new();
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ear), "0", "Left");
@@ -1883,6 +1885,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "knob", "Rotary knob");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect blue pin");
+   routing_effect_choices(GTK_COMBO_BOX_TEXT(target), effect_ports);
    if (graph_snapshot) {
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
          rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
@@ -1910,11 +1913,23 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(target));
       const char *channel = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear));
       const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(widget_kind));
-      if (id && channel && kind)
-         routing_compact_add(*id ? id + 1 : "",
-             (unsigned)g_ascii_strtoull(channel, NULL, 10), *id == 'P',
+      if (id && channel && kind) {
+         gboolean effect = g_str_has_prefix(id, "E|");
+         guint before = routing_compact_controls ? routing_compact_controls->len : 0;
+         routing_compact_add(!effect && *id ? id + 1 : "",
+             (unsigned)g_ascii_strtoull(channel, NULL, 10),
+             !effect && *id == 'P',
              gtk_entry_get_text(GTK_ENTRY(name)), kind, NULL, 0., 0.);
+         if (effect && routing_compact_controls &&
+             routing_compact_controls->len > before) {
+            routing_effect_port_t *meta = g_hash_table_lookup(effect_ports, id);
+            if (meta)
+               routing_compact_set_effect(g_ptr_array_index(routing_compact_controls,
+                    routing_compact_controls->len - 1), meta);
+         }
+      }
    }
+   g_hash_table_unref(effect_ports);
    gtk_widget_destroy(dialog);
 }
 
