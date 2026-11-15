@@ -1064,9 +1064,10 @@ typedef struct {
    char label[32];
    unsigned channel;
    gboolean port;
-   gboolean updating;
+   gboolean updating, knob_dragging;
+   double knob_y, knob_initial;
    RRFloatPanel *panel;
-   GtkWidget *value;
+   GtkWidget *value, *knob;
 } routing_compact_control_t;
 static GPtrArray *routing_compact_controls;
 static void routing_compact_sync(void);
@@ -1095,11 +1096,13 @@ static void routing_compact_sync(void) {
             }
       gtk_widget_set_sensitive(control->value, found);
       /* Never overwrite a knob/fader mid-drag. */
-      if (found && !gtk_widget_has_focus(control->value)) {
+      if (found && !control->knob_dragging &&
+          !gtk_widget_has_focus(control->value)) {
          control->updating = TRUE;
          gtk_range_set_value(GTK_RANGE(control->value),
                              routing_compact_current(control));
          control->updating = FALSE;
+         if (control->knob) gtk_widget_queue_draw(control->knob);
       }
    }
 }
@@ -1120,6 +1123,7 @@ static void routing_compact_changed(GtkRange *range, gpointer user) {
          break;
       }
    }
+   if (control->knob) gtk_widget_queue_draw(control->knob);
    graph_canvas_update_size();
 }
 static gboolean routing_compact_reset(GtkWidget *widget, GdkEventButton *event,
@@ -1128,6 +1132,86 @@ static gboolean routing_compact_reset(GtkWidget *widget, GdkEventButton *event,
    if (event->button != GDK_BUTTON_PRIMARY || event->type != GDK_2BUTTON_PRESS)
       return FALSE;
    gtk_range_set_value(GTK_RANGE(widget), 0.);
+   return TRUE;
+}
+/* Minimal Cairo knob: vertical drag or wheel controls the same GTK
+ * adjustment and thus the exact same asynchronous core request. */
+static gboolean routing_knob_draw(GtkWidget *widget, cairo_t *cr, gpointer user) {
+   routing_compact_control_t *control = user;
+   double width = gtk_widget_get_allocated_width(widget);
+   double height = gtk_widget_get_allocated_height(widget);
+   double cx = width / 2., cy = height / 2.;
+   double radius = MIN(width, height) / 2. - 7.;
+   double value = gtk_range_get_value(GTK_RANGE(control->value));
+   double fraction = CLAMP((value - GRAPH_GAIN_MIN) /
+                            (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN), 0., 1.);
+   double begin = 2.35, end = 2.35 + 4.73;
+   cairo_set_line_width(cr, 5.);
+   cairo_set_source_rgb(cr, .30, .32, .34);
+   cairo_arc(cr, cx, cy, radius, begin, end);
+   cairo_stroke(cr);
+   cairo_set_source_rgb(cr, .23, .72, .92);
+   cairo_arc(cr, cx, cy, radius, begin, begin + 4.73 * fraction);
+   cairo_stroke(cr);
+   double angle = begin + 4.73 * fraction;
+   cairo_set_source_rgb(cr, .94, .94, .94);
+   cairo_set_line_width(cr, 2.5);
+   cairo_move_to(cr, cx, cy);
+   cairo_line_to(cr, cx + (radius - 4.) * cos(angle),
+                    cy + (radius - 4.) * sin(angle));
+   cairo_stroke(cr);
+   char text[16];
+   g_snprintf(text, sizeof(text), "%.0f", value);
+   cairo_set_font_size(cr, 10.);
+   cairo_text_extents_t ext;
+   cairo_text_extents(cr, text, &ext);
+   cairo_move_to(cr, cx - ext.width / 2. - ext.x_bearing, cy + radius + 5.);
+   cairo_show_text(cr, text);
+   return FALSE;
+}
+static gboolean routing_knob_press(GtkWidget *widget, GdkEventButton *event,
+                                   gpointer user) {
+   (void)widget;
+   routing_compact_control_t *control = user;
+   if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   if (event->type == GDK_2BUTTON_PRESS) {
+      gtk_range_set_value(GTK_RANGE(control->value), 0.);
+      return TRUE;
+   }
+   control->knob_dragging = TRUE;
+   control->knob_y = event->y_root;
+   control->knob_initial = gtk_range_get_value(GTK_RANGE(control->value));
+   gtk_widget_grab_focus(widget);
+   return TRUE;
+}
+static gboolean routing_knob_motion(GtkWidget *widget, GdkEventMotion *event,
+                                    gpointer user) {
+   (void)widget;
+   routing_compact_control_t *control = user;
+   if (!control->knob_dragging) return FALSE;
+   gtk_range_set_value(GTK_RANGE(control->value),
+      CLAMP(control->knob_initial + (control->knob_y - event->y_root) * .5,
+            GRAPH_GAIN_MIN, GRAPH_GAIN_MAX));
+   return TRUE;
+}
+static gboolean routing_knob_release(GtkWidget *widget, GdkEventButton *event,
+                                     gpointer user) {
+   (void)widget;
+   routing_compact_control_t *control = user;
+   if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   control->knob_dragging = FALSE;
+   return TRUE;
+}
+static gboolean routing_knob_scroll(GtkWidget *widget, GdkEventScroll *event,
+                                    gpointer user) {
+   (void)widget;
+   routing_compact_control_t *control = user;
+   double delta = event->direction == GDK_SCROLL_UP ? 1. :
+                  event->direction == GDK_SCROLL_DOWN ? -1. : 0.;
+   if (!delta) return FALSE;
+   gtk_range_set_value(GTK_RANGE(control->value),
+       CLAMP(gtk_range_get_value(GTK_RANGE(control->value)) + delta,
+             GRAPH_GAIN_MIN, GRAPH_GAIN_MAX));
    return TRUE;
 }
 static void routing_compact_destroy(gpointer pointer) {
@@ -1169,6 +1253,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    gtk_widget_set_tooltip_text(title, node_id);
    gtk_box_pack_start(GTK_BOX(body), title, FALSE, FALSE, 0);
    gboolean vertical = !g_strcmp0(kind, "vertical");
+   gboolean knob = !g_strcmp0(kind, "knob");
    GtkWidget *scale = gtk_scale_new_with_range(
       vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL,
       GRAPH_GAIN_MIN, GRAPH_GAIN_MAX, 1.);
@@ -1184,6 +1269,25 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    gtk_widget_add_events(scale, GDK_BUTTON_PRESS_MASK);
    g_signal_connect(scale, "button-press-event", G_CALLBACK(routing_compact_reset), NULL);
    gtk_box_pack_start(GTK_BOX(body), scale, FALSE, FALSE, 0);
+   if (knob) {
+      gtk_widget_set_no_show_all(scale, TRUE);
+      gtk_widget_hide(scale);
+      control->knob = gtk_drawing_area_new();
+      gtk_widget_set_size_request(control->knob, 72, 83);
+      gtk_widget_set_can_focus(control->knob, TRUE);
+      gtk_widget_add_events(control->knob, GDK_BUTTON_PRESS_MASK |
+         GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK);
+      g_signal_connect(control->knob, "draw", G_CALLBACK(routing_knob_draw), control);
+      g_signal_connect(control->knob, "button-press-event",
+                       G_CALLBACK(routing_knob_press), control);
+      g_signal_connect(control->knob, "motion-notify-event",
+                       G_CALLBACK(routing_knob_motion), control);
+      g_signal_connect(control->knob, "button-release-event",
+                       G_CALLBACK(routing_knob_release), control);
+      g_signal_connect(control->knob, "scroll-event",
+                       G_CALLBACK(routing_knob_scroll), control);
+      gtk_box_pack_start(GTK_BOX(body), control->knob, FALSE, FALSE, 0);
+   }
    g_ptr_array_add(routing_compact_controls, control);
    gtk_widget_show_all(body);
    rr_floating_panel_fit_content(control->panel);
@@ -1215,6 +1319,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(ear), 0);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "horizontal", "Horizontal slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "vertical", "Vertical slider");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "knob", "Rotary knob");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
    if (graph_snapshot) {
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
