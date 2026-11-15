@@ -649,7 +649,9 @@ static bool ws_media_send_frame_filtered(struct rr_mediachan *cp, rrconn_t *targ
          rr_binframe_pack_hdr(frame, flen, cp->subsystem, codecbuf, cp->direction, cp->vfo, cp->rig, chan_id, sequence, len, parsed.hdr.ts);
          /* Setup frames are reliable control data; live media is realtime. Avoid letting an overloaded subscriber accumulate stale media. */
          size_t queued = rr_transport_queued_bytes(cur->native_transport);
-         size_t limit = setup ? 262144u : (cp->subsystem == RR_BINFRAME_SUBSYS_AUDIO ? 8192u : 262144u);
+         size_t limit = setup ? 262144u :
+            cp->subsystem == RR_BINFRAME_SUBSYS_AUDIO ? 8192u :
+            cp->subsystem == RR_BINFRAME_SUBSYS_WATERFALL ? 16384u : 262144u;
 
          if ((size_t)flen <= limit && queued <= limit - (size_t)flen) {
             if (rr_transport_send_binary_message(cur->native_transport, frame, (size_t)flen) == RR_TRANSPORT_OK) {
