@@ -939,6 +939,7 @@ static void routing_graph_snapshot_event(const rr_event_message_t *message, void
    g_free(graph_snapshot);
    graph_snapshot = merged;
    memcpy(graph_missing_since, missing, sizeof(missing));
+   routing_compact_sync();
    /* A periodic topology refresh must never steal a node from the pointer
     * while the user is dragging it. Reflow after drag release instead. */
    if (graph_node_drag < 0) routing_layout_auto(FALSE);
@@ -1067,6 +1068,7 @@ typedef struct {
    GtkWidget *value;
 } routing_compact_control_t;
 static GPtrArray *routing_compact_controls;
+static void routing_compact_sync(void);
 static double routing_compact_current(const routing_compact_control_t *control) {
    if (!graph_snapshot) return 0.;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
@@ -1076,6 +1078,29 @@ static double routing_compact_current(const routing_compact_control_t *control) 
                              node->input_gain_db[control->channel];
    }
    return 0.;
+}
+static void routing_compact_sync(void) {
+   if (!routing_compact_controls) return;
+   for (guint i = 0; i < routing_compact_controls->len; i++) {
+      routing_compact_control_t *control =
+         g_ptr_array_index(routing_compact_controls, i);
+      gboolean found = FALSE;
+      if (graph_snapshot)
+         for (guint n = 0; n < graph_snapshot->node_count; n++)
+            if (!strcmp(graph_snapshot->nodes[n].id, control->id) &&
+                !graph_missing_since[n]) {
+               found = TRUE;
+               break;
+            }
+      gtk_widget_set_sensitive(control->value, found);
+      /* Never overwrite a knob/fader mid-drag. */
+      if (found && !gtk_widget_has_focus(control->value)) {
+         control->updating = TRUE;
+         gtk_range_set_value(GTK_RANGE(control->value),
+                             routing_compact_current(control));
+         control->updating = FALSE;
+      }
+   }
 }
 static void routing_compact_changed(GtkRange *range, gpointer user) {
    routing_compact_control_t *control = user;
