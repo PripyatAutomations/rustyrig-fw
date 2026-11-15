@@ -134,6 +134,20 @@ int main(int argc, char **argv) {
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
    g_assert_true(gtk_widget_get_visible(rr_floating_panel_widget(new_panel)));
    rr_floating_panel_destroy(new_panel);
+
+   /* New/Edit Server uses an explicit present, even when the picker
+    * remains temporarily masked. Only the requested editor may show. */
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
+   RRFloatPanel *editor_panel = rr_floating_panel_new(GTK_OVERLAY(overlay),
+      GTK_NOTEBOOK(tabs), "serveredit", "New Server");
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(editor_panel)),
+      gtk_label_new("Server editor"), FALSE, FALSE, 0);
+   rr_floating_panel_present(editor_panel);
+   g_assert_true(gtk_widget_get_visible(rr_floating_panel_widget(editor_panel)));
+   g_assert_false(gtk_widget_get_visible(first_frame));
+   g_assert_false(gtk_widget_get_visible(second_frame));
+   rr_floating_panel_destroy(editor_panel);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
    drain_events();
 
    int neighbor_x = 600;
