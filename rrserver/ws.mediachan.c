@@ -34,6 +34,7 @@
 #include <librrprotocol/media.health.h>
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/ws.mediachan.h>
+#include <rrserver/bridge.manager.h>
 
 extern time_t now;
 
@@ -436,6 +437,12 @@ bool media_send_available(rrconn_t *cptr, struct rr_mediachan *cp) {
 
    if (cp->rig_uuid[0]) {
       dict_add(d, "media.rig-uuid", cp->rig_uuid);
+      if (cp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
+          cp->direction == RR_BINFRAME_DIR_RX) {
+         uint32_t source_rate = rrserver_bridge_source_rate(cp->rig_uuid);
+         if (source_rate >= 8000 && source_rate <= 192000)
+            dict_add_ulong(d, "media.source-rate", source_rate);
+      }
    }
 
    if (cp->vfo_uuid[0]) {
