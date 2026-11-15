@@ -1,5 +1,10 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Make the entire minimized floating-panel tab activate Restore, not
+    only its small icon. Keep the icon as a visual cue and allow keyboard
+    button activation.
+  * Hide SDR Directory from the main notebook tab strip and numbered
+    tab cycling; open the same full-size tool page from Remote SDRs.
   * Restore remote Kiwi RF spectrum transport: give server-hosted rrbridge
     its own bounded RF FD, provision joined-room WATERFALL media channels,
     request W/F only for subscribers, serialize 1024 power bins in
