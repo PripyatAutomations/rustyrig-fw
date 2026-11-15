@@ -1061,20 +1061,26 @@ int main(int argc, char **argv) {
       (void)serial_active;
       fwdsp_reap_children();
 #ifdef USE_MONGOOSE
-      /* Keep the main loop from busy-spinning when no socket is ready. */
+      /* The legacy socket manager provides a bounded 10 ms wait. */
       mg_mgr_poll(&mg_mgr, 10);
 #endif
+      /* This dispatch also services GLib timers, queued logs and fd watches,
+       * with a 64-callback cap. Do not drain the same context again in an
+       * unbounded while(pending) loop: a permanently ready fd can starve the
+       * rest of the server. */
       rr_reactor_dispatch_ready(NULL);
       rrserver_links_poll();
-      /* Service GLib timers, queued worker logs and registered callbacks.
-       * The reactor dispatch alone does not iterate the default GMainContext. */
-      while (g_main_context_pending(NULL)) {
-         g_main_context_iteration(NULL, FALSE);
-      }
 
       if (dying) {
          break;
       }
+#ifndef USE_MONGOOSE
+      /* Native TLS/RTP sockets are nonblocking and do not provide the
+       * blocking mg_mgr_poll() wait. Pace the server.poll/media loop rather
+       * than spinning at 100% CPU while idle. A 5 ms cycle keeps receive
+       * servicing responsive and prevents excessive ppoll/recvfrom calls. */
+      g_usleep(5000);
+#endif
    }
    /* Stop accepting clients and gracefully detach peers while the event bus, relay state and module callbacks are still alive. In particular, do not destroy a
     * backend while a remote session can still call into it. */
