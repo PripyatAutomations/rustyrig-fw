@@ -1262,11 +1262,13 @@ static void rf_remote_row(const char *event, const void *data, size_t len,
    p->received_at = g_get_monotonic_time();
    if (!p->draw_timer) p->draw_timer = g_timeout_add(100, rf_draw_later, p);
 }
+static void rf_caps_changed(const char *event, const void *data, size_t len,
+                            rrconn_t *connection, void *user);
 static void rf_remote_catalog(const char *event, const char *data,
                               rrconn_t *connection, void *user) {
    (void)event; (void)data; (void)connection;
    rf_strip_t *p = user;
-   rf_refresh_selector(p);
+   rf_caps_changed(NULL, NULL, 0, NULL, p);
    gtk_widget_queue_draw(p->drawing);
 }
 /* Fractional display crop between backend zoom steps. Both pixels and scale/marker must use these same frequency bounds. */
