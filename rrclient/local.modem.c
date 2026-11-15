@@ -280,6 +280,25 @@ static void request_received(const rr_event_message_t *message, void *unused) {
        message->length != sizeof(rr_local_modem_request_t)) return;
    const rr_local_modem_request_t *req = message->payload;
    if (req->action == RR_LOCAL_MODEM_START) start_one(req);
+   else if (req->action == RR_LOCAL_MODEM_ROUTE) {
+      /* Route changes are core-owned, atomic with the nonblocking audio tap,
+       * and must never restart the decoder or reset its receive state. */
+      if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX &&
+          memchr(req->source, 0, sizeof(req->source)) &&
+          source_present(req->source)) {
+         decoder_t *d = &decoders[req->slot - 1];
+         g_mutex_lock(&decoder_lock);
+         if (d->active) {
+            g_strlcpy(d->source, req->source, sizeof(d->source));
+            g_snprintf(last_status, sizeof(last_status),
+                       "Decoder %u RX routed to %s", req->slot, req->source);
+         }
+         g_mutex_unlock(&decoder_lock);
+      } else {
+         g_strlcpy(last_status, "Modem routing rejected: invalid PCM source or slot",
+                   sizeof(last_status));
+      }
+   }
    else if (req->action == RR_LOCAL_MODEM_STOP &&
             req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX) {
       stop_one(req->slot - 1);
