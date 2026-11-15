@@ -922,6 +922,99 @@ static GtkWidget *build_factory_toolbox(editor_t *editor) {
    return box;
 }
 
+/* LV2 control ports are exposed by GStreamer as GObject properties.
+ * This enumerates metadata only; actual remote control needs fwdsp IPC and
+ * must not be faked by setting GTK's inspection element. */
+static void lv2_control_ports_clicked(GtkButton *button, gpointer data) {
+   (void)button;
+   editor_t *editor = data;
+   pipeline_entry_t *pipeline = active_pipeline(editor);
+   if (!pipeline || !pipeline->graph || editor->selected_node < 0) {
+      show_error(editor, "Select an LV2 effect block to inspect its control ports.");
+      return;
+   }
+   const rr_pipeline_node_t *node =
+      rr_pipeline_graph_node(pipeline->graph, (guint) editor->selected_node);
+   if (!node || !node->element) return;
+   GstElementFactory *factory = gst_element_get_factory(node->element);
+   const char *provider = factory ? gst_plugin_feature_get_plugin_name(
+      GST_PLUGIN_FEATURE(factory)) : NULL;
+   if (g_strcmp0(provider, "lv2")) {
+      show_error(editor, "The selected block is not an LV2 effect.");
+      return;
+   }
+   GtkWidget *parent = gtk_widget_get_toplevel(editor->window);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("LV2 Control Ports",
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Close", GTK_RESPONSE_CLOSE, NULL);
+   gtk_window_set_default_size(GTK_WINDOW(dialog), 590, 380);
+   GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *info = gtk_label_new(
+      "Blue sockets represent control parameters, not audio connections. "
+      "This is the port inventory; routing them to floating widgets requires live fwdsp parameter IPC.");
+   gtk_label_set_line_wrap(GTK_LABEL(info), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(info), 0);
+   gtk_box_pack_start(GTK_BOX(content), info, FALSE, FALSE, 8);
+   GtkListStore *store = gtk_list_store_new(4,
+      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+   guint count = 0;
+   GParamSpec **properties =
+      g_object_class_list_properties(G_OBJECT_GET_CLASS(node->element), &count);
+   for (guint i = 0; i < count; i++) {
+      GParamSpec *spec = properties[i];
+      /* Skip framework properties and entries that cannot be set or read. */
+      if (!strcmp(spec->name, "name") || !strcmp(spec->name, "parent") ||
+          !(spec->flags & G_PARAM_READABLE))
+         continue;
+      const char *type = NULL;
+      double low = 0., high = 0.;
+      if (G_IS_PARAM_SPEC_FLOAT(spec)) {
+         GParamSpecFloat *v = G_PARAM_SPEC_FLOAT(spec);
+         type = "Float"; low = v->minimum; high = v->maximum;
+      } else if (G_IS_PARAM_SPEC_DOUBLE(spec)) {
+         GParamSpecDouble *v = G_PARAM_SPEC_DOUBLE(spec);
+         type = "Double"; low = v->minimum; high = v->maximum;
+      } else if (G_IS_PARAM_SPEC_INT(spec)) {
+         GParamSpecInt *v = G_PARAM_SPEC_INT(spec);
+         type = "Integer"; low = v->minimum; high = v->maximum;
+      } else if (G_IS_PARAM_SPEC_UINT(spec)) {
+         GParamSpecUInt *v = G_PARAM_SPEC_UINT(spec);
+         type = "Integer"; low = v->minimum; high = v->maximum;
+      } else if (G_IS_PARAM_SPEC_BOOLEAN(spec)) {
+         type = "Switch";
+      } else if (G_IS_PARAM_SPEC_ENUM(spec)) {
+         type = "Choice";
+      } else continue;
+      gchar *range = (G_IS_PARAM_SPEC_BOOLEAN(spec) || G_IS_PARAM_SPEC_ENUM(spec)) ?
+         g_strdup("—") : g_strdup_printf("%.4g … %.4g", low, high);
+      const char *direction = (spec->flags & G_PARAM_WRITABLE) ?
+         "● Blue input" : "Output (read-only)";
+      GtkTreeIter row;
+      gtk_list_store_append(store, &row);
+      gtk_list_store_set(store, &row, 0, spec->name, 1, type,
+                         2, range, 3, direction, -1);
+      g_free(range);
+   }
+   g_free(properties);
+   GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+   g_object_unref(store);
+   const char *headings[] = {"Control port", "Type", "Range", "Direction"};
+   for (guint col = 0; col < G_N_ELEMENTS(headings); col++) {
+      GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(
+         headings[col], renderer, "text", col, NULL);
+      gtk_tree_view_append_column(GTK_TREE_VIEW(view), column);
+   }
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_vexpand(scroll, TRUE);
+   gtk_container_add(GTK_CONTAINER(scroll), view);
+   gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 4);
+   gtk_widget_show_all(dialog);
+   gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+}
+
 static GtkWidget *build_work_area(editor_t *editor) {
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_widget_set_hexpand(box, TRUE);
@@ -939,6 +1032,11 @@ static GtkWidget *build_work_area(editor_t *editor) {
    GtkWidget *tee = gtk_button_new_with_label("Insert tee + queues");
    g_signal_connect(tee, "clicked", G_CALLBACK(add_tee_clicked), editor);
    gtk_box_pack_start(GTK_BOX(header), tee, FALSE, FALSE, 0);
+   GtkWidget *ports = gtk_button_new_with_label("LV2 Controls…");
+   gtk_widget_set_tooltip_text(ports,
+      "List control parameters and ranges exposed by the selected LV2 effect");
+   g_signal_connect(ports, "clicked", G_CALLBACK(lv2_control_ports_clicked), editor);
+   gtk_box_pack_start(GTK_BOX(header), ports, FALSE, FALSE, 0);
    GtkWidget *remove_node = gtk_button_new_with_label("Remove block");
    g_signal_connect(remove_node, "clicked", G_CALLBACK(remove_node_clicked), editor);
    gtk_box_pack_start(GTK_BOX(header), remove_node, FALSE, FALSE, 0);
