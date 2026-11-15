@@ -1330,6 +1330,21 @@ static void audio_log_stream_inventory(const struct rrclient_rx_stream *streams,
    }
 }
 
+/* The AF FFT consumes 16 kHz PCM regardless of the source's native
+ * clock. Carry the source Nyquist limit separately so GTK cannot display
+ * frequency ranges manufactured by upsampling. Unknown formats retain
+ * the analyzer's honest 8 kHz ceiling until metadata is available. */
+static uint32_t audio_af_source_max_hz(const struct rrclient_rx_stream *stream) {
+   if (!stream) return RR_AF_MAX_HZ;
+   uint32_t rate = 0;
+   if (!strcmp(stream->server, "Local"))
+      rate = rrclient_local_bridge_stream_sample_rate(stream->id);
+   else if (!strcmp(stream->codec, "mu08"))
+      rate = 8000; /* explicitly 8 kHz mu-law in the codec pipeline */
+   if (!rate) rate = RR_AF_SAMPLE_RATE;
+   return MIN(rate / 2u, RR_AF_MAX_HZ);
+}
+
 /* The core owns rx_routes; never let a GTK redraw enumerate the list. Resolve the audible route here and return only a copy of its FFT bins. */
 static void audio_af_spectrum_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
@@ -1344,8 +1359,22 @@ static void audio_af_spectrum_request(const rr_event_message_t *message, void *u
       return;
    }
    rrclient_af_spectrum_result_t result = {
-      .request_id = req.request_id
+      .request_id = req.request_id,
+      .max_hz = RR_AF_MAX_HZ
    };
+   /* Resolve source capabilities on the core thread (where the RX route
+    * and local SDR native clock are owned), not in the GTK redraw path. */
+   if (req.source == 'S') {
+      struct rrclient_rx_stream sources[128];
+      size_t count = MIN(audio_rx_streams(sources, G_N_ELEMENTS(sources)),
+                         G_N_ELEMENTS(sources));
+      for (size_t i = 0; i < count; i++) {
+         if (!strcmp(sources[i].id, req.stream)) {
+            result.max_hz = audio_af_source_max_hz(&sources[i]);
+            break;
+         }
+      }
+   }
    if (req.source == 'L' || req.source == 'R' || req.source == 'M' || req.source == 'A') {
       if (req.source == 'A') {
          bool l = rr_af_spectrum_read("output:left", result.left);
