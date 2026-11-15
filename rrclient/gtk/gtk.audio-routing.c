@@ -258,6 +258,7 @@ static const char *pipeline_for_node(const char *id);
 static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
 static gint graph_drag_modem_target = -1;
+static gint graph_drag_rig_target = -1;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the
  * same hit/clock-domain rules for live preview and final connection. */
@@ -295,12 +296,16 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    const rr_ag_view_node_t *origin_node = &graph_snapshot->nodes[origin];
    unsigned modem_slot = 0;
    gboolean from_modem = graph_drag_mixer && routing_modem_slot(origin_node, &modem_slot);
+   gboolean from_modem_tx = !graph_drag_mixer &&
+       g_str_has_prefix(origin_node->id, "modem.") &&
+       g_str_has_suffix(origin_node->id, ".tx");
    const char *required_bus = graph_drag_mixer ? origin_node->id :
        (origin_node->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix");
    const double limit = CLAMP(18. / MAX(.01, graph_scale), 14., 34.);
    double best = limit;
    gboolean found = FALSE;
    graph_drag_modem_target = -1;
+   graph_drag_rig_target = -1;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (graph_missing_since[i]) continue;
@@ -309,7 +314,10 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       gboolean modem_connection = from_modem ?
          routing_modem_source(n) :
          (!graph_drag_mixer && routing_modem_source(origin_node) && is_modem);
-      gboolean valid = modem_connection || (graph_drag_mixer ?
+      gboolean rig_target = from_modem_tx && n->type == RR_AG_SINK &&
+          g_str_has_prefix(n->id, "rig.") &&
+          g_str_has_suffix(n->id, graph_drag_channel ? ".ptt" : ".tx");
+      gboolean valid = rig_target || modem_connection || (graph_drag_mixer ?
          (n->type == RR_AG_SOURCE && !n->read_only &&
           !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
                   required_bus)) :
@@ -317,8 +325,9 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       if (!valid) continue;
       double nx = routing_node_x(n) +
           (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
-      double ny = routing_node_y(n) + (modem_connection ?
-           (from_modem ? 60. : 68.) : (graph_drag_channel ? 79. : 60.));
+      double ny = routing_node_y(n) + (rig_target ? 68. :
+         modem_connection ? (from_modem ? 60. : 68.) :
+         (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
       if (dist >= best) continue;
       best = dist;
@@ -327,6 +336,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       *snap_y = ny;
       graph_drag_modem_target = modem_connection ?
          (gint)(from_modem ? modem_slot : target_slot) : -1;
+      graph_drag_rig_target = rig_target ? (gint)i : -1;
       found = TRUE;
    }
    return found;
@@ -404,10 +414,12 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          .x = routing_node_x(n), .y = routing_node_y(n), .title = n->rig[0] ? n->rig : n->id, .subtitle =
             g_str_has_prefix(n->id, "modem.") ?
             (source ? "TX audio / PTT" : "RX audio") :
+            g_str_has_prefix(n->id, "rig.") ? "Rig TX routing target" :
             source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem.") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem.") && g_str_has_suffix(n->id, ".tx"), .fwdsp =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem.") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem.") && g_str_has_suffix(n->id, ".tx"),
+            .ptt_input = g_str_has_prefix(n->id, "rig.") && g_str_has_suffix(n->id, ".ptt"), .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
@@ -420,9 +432,11 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       if (link->src >= g->node_count || link->dst >= g->node_count) {
          continue;
       }
-      rr_gtk_graph_edge_kind_t kind = link->kind == RR_AG_BYPASS ? RR_GTK_GRAPH_BYPASS : RR_GTK_GRAPH_NORMAL;
+      rr_gtk_graph_edge_kind_t kind =
+         link->kind == RR_AG_BYPASS ? RR_GTK_GRAPH_BYPASS :
+         link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_CONTROL : RR_GTK_GRAPH_NORMAL;
 
-      if (kind == RR_GTK_GRAPH_BYPASS) {
+      if (kind == RR_GTK_GRAPH_BYPASS || kind == RR_GTK_GRAPH_CONTROL) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
             .from = link->src, .to = link->dst, .kind = kind
          };
@@ -553,7 +567,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double ox = routing_node_x(n) +
              (graph_drag_mixer ? 0. : RR_GTK_GRAPH_NODE_W);
          double oy = routing_node_y(n) +
-             (graph_drag_mixer && g_str_has_prefix(n->id, "modem.") ? 68. :
+             (!graph_drag_mixer && g_str_has_prefix(n->id, "modem.") &&
+               g_str_has_suffix(n->id, ".tx") ?
+               (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16 : 68.) :
+              graph_drag_mixer && g_str_has_prefix(n->id, "modem.") ? 68. :
               graph_drag_channel ? 79. : 60.);
          gint source_index = -1;
          double snap_x = graph_drag_x, snap_y = graph_drag_y;
@@ -566,9 +583,12 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          /* Leave the ring empty so an arrow cannot obscure the socket. */
          if (snap) ex -= 9.;
          double cx = (sx + ex) / 2.;
-         cairo_set_source_rgba(cr, snap ? .45 : (graph_drag_channel ? .73 : .34),
-                                snap ? .95 : (graph_drag_channel ? .48 : .78),
-                                snap ? .65 : (graph_drag_channel ? 1. : .93), .95);
+         gboolean ptt_preview = !graph_drag_mixer &&
+             g_str_has_prefix(n->id, "modem.") &&
+             g_str_has_suffix(n->id, ".tx") && graph_drag_channel;
+         cairo_set_source_rgba(cr, ptt_preview ? .96 : snap ? .45 : (graph_drag_channel ? .73 : .34),
+                                ptt_preview ? .20 : snap ? .95 : (graph_drag_channel ? .48 : .78),
+                                ptt_preview ? .20 : snap ? .65 : (graph_drag_channel ? 1. : .93), .95);
          const double dash[] = {5, 4};
          cairo_set_dash(cr, dash, 2, 0);
          cairo_set_line_width(cr, 2.5);
@@ -852,6 +872,21 @@ static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
 static gboolean graph_port_at(double x, double y, gint *source, gint *channel, gboolean *mixer) {
    double radius = CLAMP(10.0 / MAX(.01, graph_scale), 8.0, 20.0);
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
+      const rr_ag_view_node_t *modem = &graph_snapshot->nodes[i];
+      if (!graph_missing_since[i] &&
+          g_str_has_prefix(modem->id, "modem.") &&
+          g_str_has_suffix(modem->id, ".tx")) {
+         double px = routing_node_x(modem) + RR_GTK_GRAPH_NODE_W;
+         double py = routing_node_y(modem);
+         if (hypot(x - px, y - py - (RR_GTK_GRAPH_NODE_H - 16)) <= radius ||
+             hypot(x - px, y - py - 68.) <= radius) {
+            *source = (gint)i;
+            *channel = fabs(y - py - 68.) <
+                       fabs(y - py - (RR_GTK_GRAPH_NODE_H - 16)) ? 0 : 1;
+            *mixer = FALSE;
+            return TRUE;
+         }
+      }
       if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) {
          continue;
       }
@@ -1202,18 +1237,48 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) &&
        routing_drag_target(gx, gy, &source_index, &snap_x, &snap_y);
    if (graph_drag_moved && hit && source_index >= 0) {
-      if (graph_drag_modem_target > 0)
+      if (graph_drag_rig_target >= 0 && graph_drag_source >= 0) {
+         const rr_ag_view_node_t *src = &graph_snapshot->nodes[graph_drag_source];
+         const rr_ag_view_node_t *dst = &graph_snapshot->nodes[graph_drag_rig_target];
+         unsigned slot = 0;
+         if (sscanf(src->id, "modem.%u.tx", &slot) == 1 &&
+             slot >= 1 && slot <= RR_LOCAL_MODEM_MAX) {
+            const char *target_id = NULL;
+            for (guint i = 0; i < graph_snapshot->node_count; i++) {
+               const rr_ag_view_node_t *candidate = &graph_snapshot->nodes[i];
+               if (candidate->type != RR_AG_SOURCE ||
+                   g_str_has_prefix(candidate->id, "modem.")) continue;
+               char hash[64];
+               g_snprintf(hash, sizeof(hash), "rig.%08x.", g_str_hash(candidate->id));
+               if (g_str_has_prefix(dst->id, hash)) {
+                  target_id = candidate->id;
+                  break;
+               }
+            }
+            if (target_id) {
+               rr_local_modem_request_t req = {
+                  .action = graph_drag_channel ? RR_LOCAL_MODEM_PTT_ROUTE :
+                                                RR_LOCAL_MODEM_TX_ROUTE,
+                  .slot = slot
+               };
+               g_strlcpy(req.source, target_id, sizeof(req.source));
+               rr_local_modem_request(&req);
+               routing_queue();
+            }
+         }
+      } else if (graph_drag_modem_target > 0)
          routing_modem_connect((unsigned)graph_drag_modem_target,
             graph_snapshot->nodes[source_index].id);
       else
          graph_set_channel((guint)source_index, graph_drag_channel, TRUE);
-   } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0) {
+   } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0 &&
+              !g_str_has_prefix(graph_snapshot->nodes[graph_drag_source].id, "modem.")) {
       unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
       unsigned bit = graph_drag_channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
       graph_set_channel((guint) graph_drag_source, graph_drag_channel, !(mask & bit));
    }
    graph_drag_source = graph_drag_channel = -1;
-   graph_drag_modem_target = -1;
+   graph_drag_modem_target = graph_drag_rig_target = -1;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
