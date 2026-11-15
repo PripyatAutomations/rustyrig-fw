@@ -42,6 +42,13 @@ typedef struct {
    char source_id[RR_LOCAL_MODEM_STREAMS][64];
    char status[192];
 } rr_local_modem_snapshot_t;
+/* One immutable inventory used by the core routing graph. RX is currently
+ * connected to a decoded PCM source; TX/PTT ports are reserved, not armed. */
+typedef struct {
+   unsigned slot;
+   char source[64], engine[16];
+} rr_local_modem_route_t;
+size_t rr_local_modem_routes(rr_local_modem_route_t *routes, size_t capacity);
 void rr_local_modem_init(void);
 void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames);
 void rr_local_modem_shutdown(void);
