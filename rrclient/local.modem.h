@@ -19,7 +19,8 @@ typedef struct {
 typedef enum {
    RR_LOCAL_MODEM_SNAPSHOT = 1,
    RR_LOCAL_MODEM_START,
-   RR_LOCAL_MODEM_STOP
+   RR_LOCAL_MODEM_STOP,
+   RR_LOCAL_MODEM_ROUTE
 } rr_local_modem_action_t;
 typedef struct {
    rr_local_modem_action_t action;
