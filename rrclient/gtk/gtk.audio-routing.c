@@ -244,6 +244,7 @@ static bool snapshot_waiting;
 
 /* Initial integrated audio graph view. It renders GTK-owned inventory snapshots only; fwdsp, mixer and supervisor never run in this window. */
 static void routing_queue(void);
+static gboolean graph_pointer(double x, double y, double *gx, double *gy);
 static gint graph_drag_source = -1, graph_drag_channel = -1;
 static gint gain_drag_source = -1, gain_drag_channel = -1;
 static gboolean gain_drag_port;
@@ -636,6 +637,7 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(engine), "olivia", "Olivia");
    gtk_combo_box_set_active(GTK_COMBO_BOX(engine), 0);
    GtkWidget *source = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source), "", "Disconnected — connect later");
    if (graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (routing_modem_source(n))
