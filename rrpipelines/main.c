@@ -50,8 +50,6 @@ typedef struct {
    GtkWidget *pipeline_status;
    GtkWidget *property_box;
    GtkWidget *property_scroll;
-   GtkWidget *source_combo;
-   GtkWidget *target_combo;
    GPtrArray *property_entries;
    gboolean applied, read_only, embedded;
    gboolean (*apply_callback)(const gchar *, gpointer);
@@ -87,7 +85,6 @@ static pipeline_entry_t *active_pipeline(editor_t *editor) {
 
 static void refresh_canvas(editor_t *editor);
 static void refresh_properties(editor_t *editor);
-static void refresh_link_combos(editor_t *editor);
 static gboolean flush_properties(editor_t *editor, GError **error);
 static gboolean flush_properties_with_dialog(editor_t *editor);
 static gboolean json_key_pipeline_index(const gchar *key, guint *index, const gchar **suffix);
@@ -329,7 +326,6 @@ static void pipeline_selected(GtkComboBox *combo, gpointer data) {
    editor->selected_node = -1;
    refresh_canvas(editor);
    refresh_properties(editor);
-   refresh_link_combos(editor);
 }
 
 static void pipeline_new(GtkButton *button, gpointer data) {
@@ -371,8 +367,7 @@ static void pipeline_new(GtkButton *button, gpointer data) {
             refresh_pipeline_combo(editor);
             refresh_canvas(editor);
             refresh_properties(editor);
-            refresh_link_combos(editor);
-         }
+                  }
       }
    }
    gtk_widget_destroy(dialog);
@@ -472,7 +467,6 @@ static gboolean canvas_button_press(GtkWidget *widget, GdkEventButton *event, gp
       }
    }
    refresh_properties(editor);
-   refresh_link_combos(editor);
    gtk_widget_queue_draw(editor->canvas);
    if (event->type == GDK_2BUTTON_PRESS && editor->selected_node >= 0 &&
        editor->embedded && editor->focus_callback && pipeline)
@@ -665,36 +659,6 @@ static gboolean flush_properties_with_dialog(editor_t *editor) {
    return FALSE;
 }
 
-static void refresh_link_combos(editor_t *editor) {
-   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->source_combo));
-   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->target_combo));
-   pipeline_entry_t *pipeline = active_pipeline(editor);
-
-   if (pipeline && !pipeline->graph) {
-      return;
-   }
-
-   if (!pipeline) {
-      return;
-   }
-
-   for (guint i = 0 ; i < rr_pipeline_graph_node_count(pipeline->graph) ; i++) {
-      const rr_pipeline_node_t *node = rr_pipeline_graph_node(pipeline->graph, i);
-      gchar *label = g_strdup_printf("%u: %s (%s)", i + 1, rr_pipeline_node_factory(node), rr_pipeline_node_name(node));
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(editor->source_combo), label);
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(editor->target_combo), label);
-      g_free(label);
-   }
-
-   if (rr_pipeline_graph_node_count(pipeline->graph) > 1) {
-      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->source_combo), 0);
-      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->target_combo), 1);
-   } else if (rr_pipeline_graph_node_count(pipeline->graph) == 1) {
-      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->source_combo), 0);
-      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->target_combo), 0);
-   }
-}
-
 static void add_element_clicked(GtkButton *button, gpointer data) {
    (void)button;
    editor_t *editor = data;
@@ -722,30 +686,11 @@ static void add_element_clicked(GtkButton *button, gpointer data) {
       editor->selected_node = (gint) index;
       refresh_canvas(editor);
       refresh_properties(editor);
-      refresh_link_combos(editor);
-   } else {
+      } else {
       show_error(editor, error ? error->message : "Cannot add GStreamer element.");
    }
    g_clear_error(&error);
    g_free(factory);
-}
-
-static void add_link_clicked(GtkButton *button, gpointer data) {
-   (void)button;
-   editor_t *editor = data;
-   pipeline_entry_t *pipeline = active_pipeline(editor);
-   gint src = gtk_combo_box_get_active(GTK_COMBO_BOX(editor->source_combo));
-   gint dst = gtk_combo_box_get_active(GTK_COMBO_BOX(editor->target_combo));
-   GError *error = NULL;
-
-   if (!pipeline || src < 0 || dst < 0 || !rr_pipeline_graph_add_link(pipeline ? pipeline->graph : NULL, (guint) src, (guint) dst, &error)) {
-      show_error(editor, error ? error->message : "Choose the two elements to connect.");
-      g_clear_error(&error);
-
-      return;
-   }
-   rr_pipeline_graph_auto_layout(pipeline->graph);
-   refresh_canvas(editor);
 }
 
 static void add_tee_clicked(GtkButton *button, gpointer data) {
@@ -769,7 +714,6 @@ static void add_tee_clicked(GtkButton *button, gpointer data) {
    rr_pipeline_graph_auto_layout(pipeline->graph);
    refresh_canvas(editor);
    refresh_properties(editor);
-   refresh_link_combos(editor);
 }
 
 static void remove_node_clicked(GtkButton *button, gpointer data) {
@@ -791,7 +735,6 @@ static void remove_node_clicked(GtkButton *button, gpointer data) {
    editor->selected_node = -1;
    refresh_canvas(editor);
    refresh_properties(editor);
-   refresh_link_combos(editor);
 }
 
 static void add_branch_clicked(GtkButton *button, gpointer data) {
@@ -818,8 +761,7 @@ static void add_branch_clicked(GtkButton *button, gpointer data) {
       } else {
          refresh_canvas(editor);
          refresh_properties(editor);
-         refresh_link_combos(editor);
-      }
+            }
    }
    gtk_widget_destroy(dialog);
 }
@@ -985,6 +927,8 @@ static GtkWidget *build_work_area(editor_t *editor) {
    gtk_widget_set_hexpand(box, TRUE);
    gtk_widget_set_vexpand(box, TRUE);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   /* Connections are made by dragging from a block's output pin to
+    * another block's input pin. No redundant From/To selectors. */
    gtk_box_pack_start(GTK_BOX(header), gtk_label_new("Pipeline:"), FALSE, FALSE, 0);
    editor->pipeline_combo = gtk_combo_box_text_new();
    gtk_widget_set_size_request(editor->pipeline_combo, 180, -1);
@@ -992,15 +936,6 @@ static GtkWidget *build_work_area(editor_t *editor) {
    GtkWidget *new_pipeline = gtk_button_new_with_label("New pipeline");
    g_signal_connect(new_pipeline, "clicked", G_CALLBACK(pipeline_new), editor);
    gtk_box_pack_start(GTK_BOX(header), new_pipeline, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(header), gtk_label_new("From:"), FALSE, FALSE, 0);
-   editor->source_combo = gtk_combo_box_text_new();
-   gtk_box_pack_start(GTK_BOX(header), editor->source_combo, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(header), gtk_label_new("To:"), FALSE, FALSE, 0);
-   editor->target_combo = gtk_combo_box_text_new();
-   gtk_box_pack_start(GTK_BOX(header), editor->target_combo, FALSE, FALSE, 0);
-   GtkWidget *link = gtk_button_new_with_label("Connect");
-   g_signal_connect(link, "clicked", G_CALLBACK(add_link_clicked), editor);
-   gtk_box_pack_start(GTK_BOX(header), link, FALSE, FALSE, 0);
    GtkWidget *tee = gtk_button_new_with_label("Insert tee + queues");
    g_signal_connect(tee, "clicked", G_CALLBACK(add_tee_clicked), editor);
    gtk_box_pack_start(GTK_BOX(header), tee, FALSE, FALSE, 0);
@@ -1155,7 +1090,6 @@ static GtkWidget *build_window(editor_t *editor) {
    refresh_pipeline_combo(editor);
    refresh_canvas(editor);
    refresh_properties(editor);
-   refresh_link_combos(editor);
 
    return editor->window;
 }
