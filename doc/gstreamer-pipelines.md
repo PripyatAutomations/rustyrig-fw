@@ -89,3 +89,12 @@ worker topology transaction. Keep *requested* endpoint rate and *negotiated*
 device caps distinct; runtime fwdsp inspection should eventually publish
 the measured caps. No automatic GStreamer graph generator or hot-edit
 transaction has been implemented yet.
+
+## Embedded editor layout and connections
+
+Inside Audio Routing → Pipelines, the graph canvas expands to use the available
+content height. The property inspector is hidden until a node is selected,
+then appears below the graph. Connect pipeline elements directly by dragging
+from a source block's bottom output pin to the target block's top input pin.
+The former From/To dropdowns and Connect button are removed. The graph's
+scrollbars remain available for pipelines larger than the visible workspace.
