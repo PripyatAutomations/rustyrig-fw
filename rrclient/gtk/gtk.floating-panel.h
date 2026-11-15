@@ -13,6 +13,10 @@ void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *uppe
 GtkWidget *rr_floating_panel_body(RRFloatPanel *panel);
 GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel);
 void rr_floating_panel_show(RRFloatPanel *panel);
+/* Explicit user-requested opening can reveal one panel even while the
+ * global temporary hide mask is active (e.g. Server Picker on Status).
+ * It does not reveal any other panel or change the hide toggle. */
+void rr_floating_panel_present(RRFloatPanel *panel);
 /* Center the panel in the main overlay on its first show, ignoring saved positions. */
 void rr_floating_panel_set_initial_centered(RRFloatPanel *panel, gboolean centered);
 void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title);
