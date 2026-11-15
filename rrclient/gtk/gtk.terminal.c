@@ -249,9 +249,12 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    gchar *escaped_prefix = g_markup_escape_text(prefix, -1);
    gchar *escaped_body = g_markup_escape_text(body, -1);
    gboolean reply = strstr(body, "RR73") != NULL || strstr(body, " 73") != NULL;
+   gboolean report = !reply && (strstr(body, " -") != NULL ||
+                                   strstr(body, " R-") != NULL);
    gchar *markup = g_strdup_printf(
       "<span foreground='#729abf'>%s</span><span foreground='%s' %s>%s</span>",
-      escaped_prefix, highlight ? "#241e08" : cq ? "#23a87e" : reply ? "#d6a53b" : "#c6ccd3",
+      escaped_prefix, highlight ? "#241e08" : cq ? "#23a87e" :
+          reply ? "#d6a53b" : report ? "#6ba9e5" : "#c6ccd3",
       cq ? "weight='bold'" : "", escaped_body);
    gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_label_set_xalign(GTK_LABEL(label), 0);
@@ -289,7 +292,10 @@ static void decode_snapshot_received(const rr_event_message_t *message, void *un
    const rr_local_modem_snapshot_t *snapshot = message->payload;
    for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++) {
       const rr_local_modem_entry_t *entry = &snapshot->entries[i];
-      if (!entry->running || !entry->engine[0]) continue;
+      if (!entry->running || !entry->engine[0]) {
+         if (decode_tabs[i].page) gtk_widget_destroy(decode_tabs[i].page);
+         continue;
+      }
       rr_local_modem_decode_t sample = {.slot = entry->slot};
       g_strlcpy(sample.engine, entry->engine, sizeof(sample.engine));
       g_strlcpy(sample.source, entry->source, sizeof(sample.source));
