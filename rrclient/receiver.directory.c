@@ -619,7 +619,7 @@ static char *cache_path(void) {
 
    /* Cache paths are user-configurable. Never pass a literal ~/ prefix
     * to mkdir/sqlite: GLib path helpers do not expand shell syntax. */
-   return configured && *configured ? cfg_get_path("receiver-directory.cache")
+   return configured && *configured ? expand_path(configured)
       : g_build_filename(g_get_user_cache_dir(), "rustyrig", "receivers.sqlite3", NULL);
 }
 static void cache_write(void) {
