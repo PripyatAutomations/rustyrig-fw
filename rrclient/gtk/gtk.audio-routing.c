@@ -403,7 +403,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = routing_node_x(n), .y = routing_node_y(n), .title = n->rig[0] ? n->rig : n->id, .subtitle =
             g_str_has_prefix(n->id, "modem.") ?
-            (source ? "TX audio · PTT disabled" : "RX audio · raw pre-effects") :
+            (source ? "TX audio / PTT" : "RX audio") :
             source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
