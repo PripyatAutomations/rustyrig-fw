@@ -175,7 +175,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
    if (!memchr(req->source, 0, sizeof(req->source)) ||
        !memchr(req->engine, 0, sizeof(req->engine)) ||
        !memchr(req->option, 0, sizeof(req->option)) ||
-       !source_present(req->source)) {
+       (req->source[0] && !source_present(req->source))) {
       g_strlcpy(last_status, "Invalid or unavailable PCM source", sizeof(last_status));
       return false;
    }
