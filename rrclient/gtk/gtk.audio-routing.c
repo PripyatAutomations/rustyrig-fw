@@ -1891,6 +1891,223 @@ static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
    (void)choice; (void)ports;
 }
 #endif
+/* A control-only inventory of the LV2 instances embedded in local
+ * GStreamer pipelines. The live DSP remains in fwdsp; these blocks merely
+ * expose its named parameter sockets and never move audio. */
+typedef struct {
+   char *id;
+   char worker[64], element[96];
+   GPtrArray *ports; /* routing_effect_port_t, copied from registry metadata */
+} routing_effect_block_t;
+static GPtrArray *routing_effect_blocks;
+static gint routing_effect_drag_index = -1;
+static double routing_effect_drag_x, routing_effect_drag_y;
+#define ROUTING_EFFECT_W 235.
+#define ROUTING_EFFECT_HEADER 34.
+#define ROUTING_EFFECT_ROW 23.
+static double routing_effect_height(const routing_effect_block_t *block) {
+   return ROUTING_EFFECT_HEADER + block->ports->len * ROUTING_EFFECT_ROW + 8.;
+}
+static void routing_effect_block_free(gpointer ptr) {
+   routing_effect_block_t *b = ptr;
+   g_free(b->id);
+   g_ptr_array_unref(b->ports);
+   g_free(b);
+}
+static gint routing_effect_block_cmp(gconstpointer a, gconstpointer b) {
+   const routing_effect_block_t *x = *(routing_effect_block_t *const *)a;
+   const routing_effect_block_t *y = *(routing_effect_block_t *const *)b;
+   return strcmp(x->id, y->id);
+}
+static gint routing_effect_port_cmp(gconstpointer a, gconstpointer b) {
+   const routing_effect_port_t *x = *(routing_effect_port_t *const *)a;
+   const routing_effect_port_t *y = *(routing_effect_port_t *const *)b;
+   return strcmp(x->property, y->property);
+}
+static void routing_effect_refresh(void) {
+   if (routing_effect_blocks) {
+      g_ptr_array_unref(routing_effect_blocks);
+      routing_effect_blocks = NULL;
+   }
+   routing_effect_drag_index = -1;
+   routing_effect_blocks = g_ptr_array_new_with_free_func(routing_effect_block_free);
+   GHashTable *ports = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   GtkWidget *dummy = gtk_combo_box_text_new();
+   routing_effect_choices(GTK_COMBO_BOX_TEXT(dummy), ports);
+   gtk_widget_destroy(dummy);
+   GHashTableIter it;
+   gpointer value;
+   g_hash_table_iter_init(&it, ports);
+   while (g_hash_table_iter_next(&it, NULL, &value)) {
+      routing_effect_port_t *port = value;
+      routing_effect_block_t *block = NULL;
+      for (guint i = 0; i < routing_effect_blocks->len; i++) {
+         routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
+         if (!strcmp(b->worker, port->worker) &&
+             !strcmp(b->element, port->element)) {
+            block = b; break;
+         }
+      }
+      if (!block) {
+         block = g_new0(routing_effect_block_t, 1);
+         g_strlcpy(block->worker, port->worker, sizeof(block->worker));
+         g_strlcpy(block->element, port->element, sizeof(block->element));
+         block->id = g_strdup_printf("lv2.%s.%s", block->worker, block->element);
+         block->ports = g_ptr_array_new_with_free_func(g_free);
+         g_ptr_array_add(routing_effect_blocks, block);
+      }
+      routing_effect_port_t *copy = g_new(routing_effect_port_t, 1);
+      *copy = *port;
+      g_ptr_array_add(block->ports, copy);
+   }
+   g_hash_table_unref(ports);
+   g_ptr_array_sort(routing_effect_blocks, routing_effect_block_cmp);
+   double y = GRAPH_LAYOUT_MARGIN;
+   for (guint i = 0; i < routing_effect_blocks->len; i++) {
+      routing_effect_block_t *block = g_ptr_array_index(routing_effect_blocks, i);
+      g_ptr_array_sort(block->ports, routing_effect_port_cmp);
+      routing_position_t *pos = routing_position(block->id);
+      if (!pos->pinned && !pos->x && !pos->y) {
+         pos->x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X * 5.;
+         pos->y = y;
+      }
+      y += routing_effect_height(block) + 24.;
+   }
+   graph_canvas_update_size();
+}
+static void routing_effect_bounds(double *width, double *height) {
+   if (!routing_effect_blocks) return;
+   for (guint i = 0; i < routing_effect_blocks->len; i++) {
+      const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
+      const routing_position_t *pos = routing_position(b->id);
+      *width = MAX(*width, pos->x + ROUTING_EFFECT_W + GRAPH_LAYOUT_MARGIN);
+      *height = MAX(*height, pos->y + routing_effect_height(b) + GRAPH_LAYOUT_MARGIN);
+   }
+}
+static gboolean routing_effect_parameter_location(const char *worker,
+   const char *element, const char *property, double *x, double *y) {
+   if (!routing_effect_blocks) return FALSE;
+   for (guint i = 0; i < routing_effect_blocks->len; i++) {
+      const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
+      if (strcmp(worker, b->worker) || strcmp(element, b->element)) continue;
+      routing_position_t *pos = routing_position(b->id);
+      for (guint j = 0; j < b->ports->len; j++) {
+         const routing_effect_port_t *port = g_ptr_array_index(b->ports, j);
+         if (strcmp(port->property, property)) continue;
+         *x = pos->x;
+         *y = pos->y + ROUTING_EFFECT_HEADER + j * ROUTING_EFFECT_ROW + 10.;
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t *out) {
+   if (!routing_controls_visible || !routing_effect_blocks) return FALSE;
+   for (guint i = 0; i < routing_effect_blocks->len; i++) {
+      const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
+      const routing_position_t *pos = routing_position(b->id);
+      if (fabs(x - pos->x) > 12.) continue;
+      for (guint j = 0; j < b->ports->len; j++) {
+         double py = pos->y + ROUTING_EFFECT_HEADER + j * ROUTING_EFFECT_ROW + 10.;
+         if (hypot(x - pos->x, y - py) <= 12.) {
+            *out = *(routing_effect_port_t *)g_ptr_array_index(b->ports, j);
+            return TRUE;
+         }
+      }
+   }
+   return FALSE;
+}
+static void routing_effect_draw(cairo_t *cr) {
+   if (!routing_controls_visible || !routing_effect_blocks) return;
+   for (guint i = 0; i < routing_effect_blocks->len; i++) {
+      const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
+      const routing_position_t *pos = routing_position(b->id);
+      double h = routing_effect_height(b);
+      cairo_rectangle(cr, pos->x, pos->y, ROUTING_EFFECT_W, h);
+      cairo_set_source_rgba(cr, .17, .19, .23, .95);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgb(cr, .50, .53, .60);
+      cairo_set_line_width(cr, 1.5);
+      cairo_stroke(cr);
+      cairo_set_source_rgb(cr, .92, .94, .97);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr, 11.);
+      char title[105];
+      g_snprintf(title, sizeof(title), "LV2  %.84s", b->element);
+      cairo_move_to(cr, pos->x + 13., pos->y + 17.);
+      cairo_show_text(cr, title);
+      cairo_set_font_size(cr, 9.);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_NORMAL);
+      cairo_move_to(cr, pos->x + 13., pos->y + 30.);
+      cairo_show_text(cr, b->worker);
+      for (guint j = 0; j < b->ports->len; j++) {
+         routing_effect_port_t *port = g_ptr_array_index(b->ports, j);
+         double py = pos->y + ROUTING_EFFECT_HEADER + j * ROUTING_EFFECT_ROW + 10.;
+         cairo_set_source_rgb(cr, .25, .69, 1.);
+         cairo_arc(cr, pos->x, py, 5., 0, 2 * G_PI);
+         cairo_fill(cr);
+         cairo_set_source_rgb(cr, .92, .94, .97);
+         cairo_move_to(cr, pos->x + 13., py + 3.);
+         char text[132];
+         g_snprintf(text, sizeof(text), "%.60s  [%.3g..%.3g]",
+                    port->property, port->low, port->high);
+         cairo_show_text(cr, text);
+      }
+   }
+}
+static gboolean routing_effect_press(double x, double y, gboolean dbl) {
+   if (!routing_controls_visible || !routing_effect_blocks) return FALSE;
+   routing_effect_port_t port;
+   if (routing_effect_pin_at(x, y, &port)) return TRUE;
+   for (gint i = (gint)routing_effect_blocks->len - 1; i >= 0; i--) {
+      routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
+      routing_position_t *pos = routing_position(b->id);
+      if (x < pos->x || x > pos->x + ROUTING_EFFECT_W ||
+          y < pos->y || y > pos->y + routing_effect_height(b)) continue;
+      if (dbl) {
+#ifdef RR_HAVE_GSTREAMER
+         if (pipeline_editor_widget)
+            rr_pipeline_editor_select(pipeline_editor_widget,
+              !strcmp(b->worker, "sink.client.dsp0") ?
+                "sink.client.mix" : "src.client.dsp0");
+#endif
+         if (audio_tabs) gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
+      } else {
+         routing_effect_drag_index = i;
+         routing_effect_drag_x = x - pos->x;
+         routing_effect_drag_y = y - pos->y;
+      }
+      return TRUE;
+   }
+   return FALSE;
+}
+static gboolean routing_effect_motion(double x, double y) {
+   if (!routing_effect_blocks || routing_effect_drag_index < 0 ||
+       (guint)routing_effect_drag_index >= routing_effect_blocks->len)
+      return FALSE;
+   routing_effect_block_t *b =
+       g_ptr_array_index(routing_effect_blocks, routing_effect_drag_index);
+   routing_position_t *pos = routing_position(b->id);
+   pos->x = CLAMP(x - routing_effect_drag_x, 0., 100000.);
+   pos->y = CLAMP(y - routing_effect_drag_y, 0., 100000.);
+   graph_canvas_update_size();
+   return TRUE;
+}
+static gboolean routing_effect_release(void) {
+   if (!routing_effect_blocks || routing_effect_drag_index < 0 ||
+       (guint)routing_effect_drag_index >= routing_effect_blocks->len)
+      return FALSE;
+   routing_effect_block_t *b =
+       g_ptr_array_index(routing_effect_blocks, routing_effect_drag_index);
+   routing_position_t *pos = routing_position(b->id);
+   pos->pinned = TRUE;
+   routing_position_save(b->id, pos);
+   routing_effect_drag_index = -1;
+   graph_canvas_update_size();
+   return TRUE;
+}
 static void routing_compact_set_effect(routing_compact_control_t *control,
                                        const routing_effect_port_t *port) {
    g_strlcpy(control->effect_worker, port->worker, sizeof(control->effect_worker));
