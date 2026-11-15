@@ -89,7 +89,7 @@ static bool graph_reaches(const rr_audio_graph_t *g, guint start, guint target) 
 bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels) {
    gint a = lookup(g, src), b = lookup(g, dst);
 
-   if (a < 0 || b < 0 || a == b || type > RR_AG_BYPASS || !channels || (channels & ~RR_AG_CHANNEL_STEREO) || g->edges->len >= 512) {
+   if (a < 0 || b < 0 || a == b || type > RR_AG_CONTROL || !channels || (channels & ~RR_AG_CHANNEL_STEREO) || g->edges->len >= 512) {
       return false;
    }
    const rr_ag_node_t *from = &g_array_index(g->nodes, rr_ag_node_t, (guint) a);
