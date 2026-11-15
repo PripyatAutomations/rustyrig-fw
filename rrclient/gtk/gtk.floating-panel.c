@@ -109,7 +109,8 @@ static void panel_position_save(RRFloatPanel *p, int x, int y) {
 
 /* Persist expanded dimensions, never the collapsed title-bar height. */
 static void panel_state_save(RRFloatPanel *p) {
-   if (!p || p->restoring_state || !p->ever_shown || p->modal) {
+   if (!p || p->restoring_state || !p->ever_shown || p->modal ||
+       p->temporarily_hidden) {
       return;
    }
    gint w = gtk_widget_get_allocated_width(p->frame);
