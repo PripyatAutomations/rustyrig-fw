@@ -171,7 +171,21 @@ server-advertised W/F center, span, start and zoom precisely, move the
 RF frame schema into librrprotocol, implement zoom/frequency-follow,
 and publish versioned network frames from rrserver with demand-based
 fanout. Non-1040-byte/compressed W/F payloads are ignored.
-The existing server bridge remains audio-only for spectrum purposes.
+The server bridge now forwards spectrum for capable receivers: its rrbridge
+child owns a separate bounded FD 5, and the server publishes subscribed
+10 Hz RF rows over a room-authorized WATERFALL media channel. The payload
+uses versioned network-byte-order `rf01` framing; native bridge IPC structs
+are never transmitted over WebSockets or mesh links. When a client joins
+an eligible receiver room, it subscribes to its RF channel and lists it in
+the shared RF Spectrum selector. Remote viewing reuses the local renderer;
+remote zoom crops received bins without changing another user's SDR tuning.
+The local VFO CAT tuning command is intentionally not used for remote rows.
+
+Each RF channel has its own delivery queue limit, and only subscribers
+receive data. The server opens the Kiwi W/F WebSocket only while its RF
+channel has listeners, independently of SND audio. The full data path still
+requires installed matching rrserver/rrclient/rrbridge binaries and
+runtime testing with a real remote Kiwi, including multi-hop mesh relays.
 
 ## AF waterfall display and dBFS scaling
 The AF visualizer provides independent Spectrum, Waterfall, Bars, combined
@@ -218,10 +232,9 @@ VFO A–Z entries only for online local bridges advertising waterfall support.
 Selecting a VFO does **not** change the active CAT/room focus or audio route.
 Local RF events now carry their originating VFO identity, rather than silently
 discarding rows from inactive VFOs. The panel filters rows for its selection,
-and its zoom and tune requests target that same VFO. These capabilities
-currently apply to local bridge RF sources; server-side/remote RF spectrum
-source discovery still requires its own published source descriptors and
-subscription path.
+and its zoom and tune requests target that same VFO. These capabilities work for local bridges; server-hosted remote
+sources are discovered through their receiver-room WATERFALL media channels,
+with their own subscription and network spectrum-row transport.
 
 Acceptance: switch between two concurrent local RF-capable receivers, pin one
 while changing the active VFO, verify active-follow recovers on selection,
