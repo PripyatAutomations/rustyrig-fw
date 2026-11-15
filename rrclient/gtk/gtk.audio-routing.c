@@ -1470,6 +1470,13 @@ static void routing_compact_restore(void) {
       char *maximum = routing_compact_field(parts[i], "max");
       char *step = routing_compact_field(parts[i], "step");
       char *unit = routing_compact_field(parts[i], "unit");
+      char *worker = routing_compact_field(parts[i], "worker");
+      char *element = routing_compact_field(parts[i], "element");
+      char *property = routing_compact_field(parts[i], "property");
+      char *hmin = routing_compact_field(parts[i], "hint-min");
+      char *hmax = routing_compact_field(parts[i], "hint-max");
+      char *hstep = routing_compact_field(parts[i], "hint-step");
+      char *value = routing_compact_field(parts[i], "value");
       double px = 0., py = 0., mn = 0., mx = 0., st = 0.;
       gboolean valid = target && strlen(target) < 64 &&
          kind && (!strcmp(kind, "horizontal") || !strcmp(kind, "vertical") ||
@@ -1498,12 +1505,29 @@ static void routing_compact_restore(void) {
                g_strlcpy(item->unit, unit, sizeof(item->unit));
                item->has_unit = TRUE;
             }
+            if (worker && *worker && element && *element &&
+                property && *property && strlen(worker) < sizeof(item->effect_worker) &&
+                strlen(element) < sizeof(item->effect_element) &&
+                strlen(property) < sizeof(item->effect_property)) {
+               g_strlcpy(item->effect_worker, worker, sizeof(item->effect_worker));
+               g_strlcpy(item->effect_element, element, sizeof(item->effect_element));
+               g_strlcpy(item->effect_property, property, sizeof(item->effect_property));
+               item->hint_min = GRAPH_GAIN_MIN;
+               item->hint_max = GRAPH_GAIN_MAX;
+               item->hint_step = 1.;
+               routing_compact_parse_number(hmin, &item->hint_min);
+               routing_compact_parse_number(hmax, &item->hint_max);
+               routing_compact_parse_number(hstep, &item->hint_step);
+               routing_compact_parse_number(value, &item->effect_value);
+            }
             routing_compact_apply_hints(item);
             routing_compact_apply_widget(item);
          }
       }
       g_free(target); g_free(label); g_free(kind); g_free(port); g_free(channel);
       g_free(x); g_free(y); g_free(minimum); g_free(maximum); g_free(step); g_free(unit);
+      g_free(worker); g_free(element); g_free(property);
+      g_free(hmin); g_free(hmax); g_free(hstep); g_free(value);
    }
    g_strfreev(parts);
    g_free(ids);
