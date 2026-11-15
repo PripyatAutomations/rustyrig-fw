@@ -50,6 +50,7 @@ struct fwdsp_io_conn;
 #define FWDSP_CTRL_FLUSH 6      // Flush the buffer
 #define FWDSP_CTRL_START_RECORD 7   // Start recording the raw audio
 #define FWDSP_CTRL_SET_QUALITY 9 // normalized encoder quality hint, 25..100
+#define FWDSP_CTRL_SET_PROPERTY 10 /* processor element control, finite numeric value */
 #define FWDSP_CTRL_STOP_RECORD 8 // Stop recording the raw audio
 #define FWDSP_RECORD_USER_LEN 64
 #define FWDSP_RECORD_ID_LEN 64
@@ -66,6 +67,11 @@ struct fwdsp_control_msg {
    char record_user[FWDSP_RECORD_USER_LEN];
    char record_id[FWDSP_RECORD_ID_LEN];
    char record_file[FWDSP_RECORD_FILE_LEN];
+   /* SET_PROPERTY only: names are exact, NUL-terminated GStreamer IDs.
+    * Same-size message framing is shared by parent and child binaries. */
+   char element[96];
+   char property[96];
+   double property_value;
 };
 
 /* Child-produced totals, reported no more than once per second. Rates are derived by the host; this is not a GTK/UI API. */
@@ -197,6 +203,10 @@ extern bool fwdsp_audio_resampler_start(const char *name, unsigned rate,
 extern bool fwdsp_processor_write(const char *name, const void *samples, size_t len);
 // Set the named processor's processor-vol element to 0..100 percent.
 extern bool fwdsp_processor_setvol(const char *name, int percent);
+/* Returns false when the named child is unavailable or the command cannot
+ * be queued. The child validates property types and published ranges. */
+extern bool fwdsp_processor_set_property(const char *name, const char *element,
+                                          const char *property, double value);
 // Stop a named endpoint. Pass a qualified name (src.rig0, sink.rig0,
 // proc.effect-name, or recode.codec-name) when names may overlap.
 extern int fwdsp_processor_dup_input(const char *name);
