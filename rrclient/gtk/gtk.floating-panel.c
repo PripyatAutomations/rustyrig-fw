@@ -22,6 +22,7 @@ struct rr_floating_panel {
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
    gboolean temporarily_hidden; /* never persisted, never a minimize */
+   gboolean explicitly_hidden;  /* close/hide must not be undone by show_all */
    gint saved_width, saved_height, opacity;
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
@@ -66,7 +67,7 @@ static void panel_temporary_visibility(RRFloatPanel *p) {
       gtk_widget_set_no_show_all(p->frame, TRUE);
       if (p->temporarily_hidden) gtk_widget_hide(p->frame);
    } else {
-      gtk_widget_set_no_show_all(p->frame, FALSE);
+      gtk_widget_set_no_show_all(p->frame, p->minimized || p->explicitly_hidden);
       if (p->temporarily_hidden) {
          p->temporarily_hidden = FALSE;
          if (!p->minimized) gtk_widget_show(p->frame);
@@ -710,6 +711,8 @@ void rr_floating_panel_restore(RRFloatPanel *p) {
       return;
    }
    p->minimized = FALSE;
+   p->explicitly_hidden = FALSE;
+   gtk_widget_set_no_show_all(p->frame, FALSE);
 
    if (p->restore_tab) {
       gtk_tabs_panel_restore_remove(p->restore_tab);
@@ -742,6 +745,8 @@ static void panel_minimize(GtkButton *button, gpointer data) {
    }
    p->minimized = TRUE;
    p->temporarily_hidden = FALSE;
+   p->explicitly_hidden = FALSE;
+   gtk_widget_set_no_show_all(p->frame, TRUE);
    panel_chrome(p);
    panel_state_save(p);
 }
@@ -779,6 +784,8 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
    }
    /* An explicit close/hide must not be undone by leaving Status/Log. */
    p->temporarily_hidden = FALSE;
+   p->explicitly_hidden = TRUE;
+   gtk_widget_set_no_show_all(p->frame, TRUE);
    panel_drag_cancel_tick(p);
    p->dragging = FALSE;
 
@@ -1253,6 +1260,10 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    if (!p || p->minimized) {
       return;
    }
+   /* Explicit reopening wins over close, but not over active temporary
+    * suppression; panel_temporary_visibility() reapplies it below. */
+   p->explicitly_hidden = FALSE;
+   gtk_widget_set_no_show_all(p->frame, FALSE);
 
    if (!p->ever_shown) {
       p->restoring_state = TRUE;
