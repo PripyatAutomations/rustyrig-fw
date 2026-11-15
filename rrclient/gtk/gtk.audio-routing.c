@@ -652,6 +652,40 @@ static void routing_server_modem(GtkButton *button, gpointer unused) {
    }
    gtk_widget_destroy(dlg);
 }
+static void routing_modem_engine_changed(GtkComboBox *engine, gpointer unused) {
+   (void)unused;
+   GtkWidget *mode = g_object_get_data(G_OBJECT(engine), "rr-mode");
+   GtkWidget *value = g_object_get_data(G_OBJECT(engine), "rr-value");
+   if (!mode || !value) return;
+   const char *selected = gtk_combo_box_get_active_id(engine);
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(mode));
+   if (!g_strcmp0(selected, "ft8")) {
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "auto", "Auto");
+      gtk_spin_button_set_range(GTK_SPIN_BUTTON(value), 0, 0);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(value), 0);
+      gtk_widget_set_sensitive(mode, FALSE);
+      gtk_widget_set_sensitive(value, FALSE);
+   } else if (!g_strcmp0(selected, "olivia")) {
+      const char *tones[] = {"4", "8", "16", "32", "64"};
+      for (unsigned i=0; i<G_N_ELEMENTS(tones); i++)
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), tones[i], tones[i]);
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(mode), "8");
+      gtk_spin_button_set_range(GTK_SPIN_BUTTON(value), 125, 2000);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(value), 500);
+      gtk_widget_set_sensitive(mode, TRUE);
+      gtk_widget_set_sensitive(value, TRUE);
+   } else {
+      const char *modes[] = {"BPSK31", "QPSK31", "BPSK63", "BPSK125", "QPSK63", "QPSK125"};
+      for (unsigned i=0; i<G_N_ELEMENTS(modes); i++)
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), modes[i], modes[i]);
+      gtk_spin_button_set_range(GTK_SPIN_BUTTON(value), 100, 3500);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(value), 1500);
+      gtk_widget_set_sensitive(mode, TRUE);
+      gtk_widget_set_sensitive(value, TRUE);
+   }
+   if (gtk_combo_box_get_active(GTK_COMBO_BOX(mode)) < 0)
+      gtk_combo_box_set_active(GTK_COMBO_BOX(mode), 0);
+}
 static void routing_new_modem(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    GtkWidget *dlg = gtk_dialog_new_with_buttons("New Modem",
@@ -670,7 +704,7 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(engine), "olivia", "Olivia");
    gtk_combo_box_set_active(GTK_COMBO_BOX(engine), 0);
    GtkWidget *source = gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source), "", "Disconnected — connect later");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source), "unconnected", "Disconnected — connect later");
    if (graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (routing_modem_source(n))
@@ -679,21 +713,11 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(source), 0);
    GtkWidget *mode = gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "auto", "Auto (FT8)");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "BPSK31", "BPSK31");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "QPSK31", "QPSK31");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "BPSK63", "BPSK63");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "BPSK125", "BPSK125");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "QPSK63", "QPSK63");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "QPSK125", "QPSK125");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "4", "Olivia 4 tones");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "8", "Olivia 8 tones");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "16", "Olivia 16 tones");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "32", "Olivia 32 tones");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "64", "Olivia 64 tones");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(mode), 0);
    GtkWidget *value = gtk_spin_button_new_with_range(0, 3500, 1);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(value), 1500);
+   g_object_set_data(G_OBJECT(engine), "rr-mode", mode);
+   g_object_set_data(G_OBJECT(engine), "rr-value", value);
+   g_signal_connect(engine, "changed", G_CALLBACK(routing_modem_engine_changed), NULL);
+   routing_modem_engine_changed(GTK_COMBO_BOX(engine), NULL);
    GtkWidget *labels[] = {gtk_label_new("Modem"), gtk_label_new("RX source"),
                           gtk_label_new("Mode / tones"), gtk_label_new("Audio Hz / bandwidth")};
    GtkWidget *fields[] = {engine, source, mode, value};
@@ -710,21 +734,17 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
       if (selected_engine && selected_source && selected_mode) {
          rr_local_modem_request_t req = {.action=RR_LOCAL_MODEM_START};
          g_strlcpy(req.engine, selected_engine, sizeof(req.engine));
-         g_strlcpy(req.source, selected_source, sizeof(req.source));
+         if (strcmp(selected_source, "unconnected"))
+            g_strlcpy(req.source, selected_source, sizeof(req.source));
          g_strlcpy(req.option, selected_mode, sizeof(req.option));
          req.value = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(value));
          if (!strcmp(selected_engine, "ft8")) {
             g_strlcpy(req.option, "auto", sizeof(req.option));
             req.value = 0;
          } else if (!strcmp(selected_engine, "olivia") &&
-                    strcmp(req.option, "4") && strcmp(req.option, "8") &&
-                    strcmp(req.option, "16") && strcmp(req.option, "32") &&
-                    strcmp(req.option, "64")) {
-            g_strlcpy(req.option, "8", sizeof(req.option));
+                    req.value != 125 && req.value != 250 && req.value != 500 &&
+                    req.value != 1000 && req.value != 2000) {
             req.value = 500;
-         } else if (!strcmp(selected_engine, "psk") &&
-                    (!strstr(req.option, "PSK"))) {
-            g_strlcpy(req.option, "BPSK31", sizeof(req.option));
          }
          rr_local_modem_request(&req);
       }
