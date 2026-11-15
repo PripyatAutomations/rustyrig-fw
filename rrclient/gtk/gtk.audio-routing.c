@@ -58,6 +58,7 @@ static double graph_node_press_x, graph_node_press_y;
 static gboolean graph_node_moved;
 /* The snap setting affects only interactive node movement. Stored coordinates
  * remain exact, and Shift temporarily bypasses snapping for fine placement. */
+#define GRAPH_LAYOUT_MARGIN 28.0
 #define GRAPH_SNAP_STEP 20.0
 #define GRAPH_SNAP_KEY "audio.graph.snap-grid"
 static gboolean graph_snap_enabled;
@@ -74,7 +75,6 @@ static double routing_snap_coordinate(double value) {
 }
 #define GRAPH_LAYOUT_GAP_X 355.0
 #define GRAPH_LAYOUT_GAP_Y 200.0
-#define GRAPH_LAYOUT_MARGIN 28.0
 
 static char *routing_position_key(const char *id) {
    char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
