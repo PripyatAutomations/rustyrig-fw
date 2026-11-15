@@ -251,11 +251,13 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    gboolean reply = strstr(body, "RR73") != NULL || strstr(body, " 73") != NULL;
    gboolean report = !reply && (strstr(body, " -") != NULL ||
                                    strstr(body, " R-") != NULL);
+   const char *message_style = highlight ? "foreground='#241e08'" :
+      cq ? "foreground='#159c72' weight='bold'" :
+      reply ? "foreground='#ae8200'" :
+      report ? "foreground='#3686d0'" : "";
    gchar *markup = g_strdup_printf(
-      "<span foreground='#729abf'>%s</span><span foreground='%s' %s>%s</span>",
-      escaped_prefix, highlight ? "#241e08" : cq ? "#23a87e" :
-          reply ? "#d6a53b" : report ? "#6ba9e5" : "#c6ccd3",
-      cq ? "weight='bold'" : "", escaped_body);
+      "<span alpha='75%%'>%s</span><span %s>%s</span>",
+      escaped_prefix, message_style, escaped_body);
    gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
