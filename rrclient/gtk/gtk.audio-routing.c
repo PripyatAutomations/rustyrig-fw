@@ -42,6 +42,7 @@ static gboolean routing_compact_drag_motion(double x, double y);
 static gboolean routing_compact_drag_release(double x, double y);
 static void routing_compact_restore(void);
 static void routing_compact_save(const struct routing_compact_control *control);
+static gboolean graph_gain_at(double x, double y, gint *source, gint *channel, gboolean *port);
 static gboolean routing_controls_visible = TRUE;
 static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused);
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
@@ -1070,8 +1071,10 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
  * roll-up and saved geometry. Stable IDs identify the target, not its row. */
 typedef struct routing_compact_control {
    char id[64], uuid[40];
-   char label[32], kind[16];
+   char label[32], kind[16], unit[16];
    double x, y;
+   double minimum, maximum, step;
+   gboolean has_minimum, has_maximum, has_step, has_unit, has_label;
    gboolean moving, wiring;
    double start_x, start_y, pointer_x, pointer_y;
    gboolean position_dirty;
@@ -1086,6 +1089,41 @@ static GPtrArray *routing_compact_controls;
 static gint routing_control_drag_index = -1;
 static gboolean routing_control_drag_wire;
 static void routing_compact_sync(void);
+static void routing_compact_apply_hints(routing_compact_control_t *control) {
+   /* Explicit overrides are retained; absent values use metadata supplied by
+    * the active binding. Mixer gain ports currently publish dB/-60/+12/1.
+    * Future LV2 bindings can replace this hint provider without changing UI. */
+   if (!control->has_minimum) control->minimum = GRAPH_GAIN_MIN;
+   if (!control->has_maximum) control->maximum = GRAPH_GAIN_MAX;
+   if (!control->has_step) control->step = 1.;
+   if (!control->has_unit) g_strlcpy(control->unit, "dB", sizeof(control->unit));
+   if (!control->has_label)
+      g_snprintf(control->label, sizeof(control->label), "%s %c %s",
+                 control->port ? "Output" : "Input",
+                 control->channel ? 'R' : 'L', "gain");
+   if (!isfinite(control->minimum) || !isfinite(control->maximum) ||
+       control->maximum <= control->minimum) {
+      control->minimum = GRAPH_GAIN_MIN; control->maximum = GRAPH_GAIN_MAX;
+   }
+   if (!isfinite(control->step) || control->step <= 0)
+      control->step = 1.;
+}
+static void routing_compact_apply_widget(routing_compact_control_t *control) {
+   if (!control->value) return;
+   control->updating = TRUE;
+   gtk_range_set_range(GTK_RANGE(control->value),
+                       control->minimum, control->maximum);
+   gtk_range_set_increments(GTK_RANGE(control->value),
+                            control->step, control->step * 5.);
+   gtk_range_set_value(GTK_RANGE(control->value),
+                       CLAMP(routing_compact_current(control),
+                             control->minimum, control->maximum));
+   gtk_scale_set_digits(GTK_SCALE(control->value),
+      control->step < .01 ? 3 : control->step < 1. ? 2 : 0);
+   if (control->panel) rr_floating_panel_set_title(control->panel, control->label);
+   if (control->knob) gtk_widget_queue_draw(control->knob);
+   control->updating = FALSE;
+}
 static double routing_compact_current(const routing_compact_control_t *control) {
    if (!graph_snapshot) return 0.;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
@@ -1158,8 +1196,8 @@ static gboolean routing_knob_draw(GtkWidget *widget, cairo_t *cr, gpointer user)
    double cx = width / 2., cy = height / 2.;
    double radius = MIN(width, height) / 2. - 7.;
    double value = gtk_range_get_value(GTK_RANGE(control->value));
-   double fraction = CLAMP((value - GRAPH_GAIN_MIN) /
-                            (GRAPH_GAIN_MAX - GRAPH_GAIN_MIN), 0., 1.);
+   double fraction = CLAMP((value - control->minimum) /
+                            MAX(.00001, control->maximum - control->minimum), 0., 1.);
    double begin = 2.35, end = 2.35 + 4.73;
    cairo_set_line_width(cr, 5.);
    cairo_set_source_rgb(cr, .30, .32, .34);
@@ -1176,7 +1214,7 @@ static gboolean routing_knob_draw(GtkWidget *widget, cairo_t *cr, gpointer user)
                     cy + (radius - 4.) * sin(angle));
    cairo_stroke(cr);
    char text[16];
-   g_snprintf(text, sizeof(text), "%.0f", value);
+   g_snprintf(text, sizeof(text), "%.1f", value);
    cairo_set_font_size(cr, 10.);
    cairo_text_extents_t ext;
    cairo_text_extents(cr, text, &ext);
@@ -1205,8 +1243,9 @@ static gboolean routing_knob_motion(GtkWidget *widget, GdkEventMotion *event,
    routing_compact_control_t *control = user;
    if (!control->knob_dragging) return FALSE;
    gtk_range_set_value(GTK_RANGE(control->value),
-      CLAMP(control->knob_initial + (control->knob_y - event->y_root) * .5,
-            GRAPH_GAIN_MIN, GRAPH_GAIN_MAX));
+      CLAMP(control->knob_initial + (control->knob_y - event->y_root) *
+              (control->maximum - control->minimum) / 144.,
+            control->minimum, control->maximum));
    return TRUE;
 }
 static gboolean routing_knob_release(GtkWidget *widget, GdkEventButton *event,
@@ -1225,8 +1264,8 @@ static gboolean routing_knob_scroll(GtkWidget *widget, GdkEventScroll *event,
                   event->direction == GDK_SCROLL_DOWN ? -1. : 0.;
    if (!delta) return FALSE;
    gtk_range_set_value(GTK_RANGE(control->value),
-       CLAMP(gtk_range_get_value(GTK_RANGE(control->value)) + delta,
-             GRAPH_GAIN_MIN, GRAPH_GAIN_MAX));
+       CLAMP(gtk_range_get_value(GTK_RANGE(control->value)) +
+             delta * control->step, control->minimum, control->maximum));
    return TRUE;
 }
 static void routing_compact_destroy(gpointer pointer) {
@@ -1245,8 +1284,12 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    g_strlcpy(control->uuid, saved_uuid ? saved_uuid : uuid, sizeof(control->uuid));
    g_free(uuid);
    g_strlcpy(control->id, node_id, sizeof(control->id));
-   g_strlcpy(control->label, label && *label ? label : "Gain", sizeof(control->label));
+   if (label && *label) {
+      g_strlcpy(control->label, label, sizeof(control->label));
+      control->has_label = TRUE;
+   }
    g_strlcpy(control->kind, kind ? kind : "horizontal", sizeof(control->kind));
+   routing_compact_apply_hints(control);
    control->x = GRAPH_LAYOUT_MARGIN + 15.;
    control->y = GRAPH_LAYOUT_MARGIN + 160.;
    if (graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++)
@@ -1275,7 +1318,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    gboolean knob = !g_strcmp0(kind, "knob");
    GtkWidget *scale = gtk_scale_new_with_range(
       vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL,
-      GRAPH_GAIN_MIN, GRAPH_GAIN_MAX, 1.);
+      control->minimum, control->maximum, control->step);
    control->value = scale;
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_scale_set_digits(GTK_SCALE(scale), 0);
@@ -1288,6 +1331,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    gtk_widget_add_events(scale, GDK_BUTTON_PRESS_MASK);
    g_signal_connect(scale, "button-press-event", G_CALLBACK(routing_compact_reset), NULL);
    gtk_box_pack_start(GTK_BOX(body), scale, FALSE, FALSE, 0);
+   routing_compact_apply_widget(control);
    if (knob) {
       gtk_widget_set_no_show_all(scale, TRUE);
       gtk_widget_hide(scale);
