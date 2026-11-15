@@ -1029,8 +1029,7 @@ void gtk_server_picker_reload(void) {
 
 void gtk_show_server_chooser(void) {
    if (picker_panel) {
-      rr_floating_panel_restore(picker_panel);
-      rr_floating_panel_show(picker_panel);
+      rr_floating_panel_present(picker_panel);
 
       if (picker_tree) {
          gtk_widget_grab_focus(picker_tree);
@@ -1225,6 +1224,6 @@ void gtk_show_server_chooser(void) {
    if (gtk_tree_model_get_iter_first(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)), &first)) {
       gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &first);
    }
-   rr_floating_panel_show(picker_panel);
+   rr_floating_panel_present(picker_panel);
    gtk_widget_grab_focus(tree);
 }
