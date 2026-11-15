@@ -982,6 +982,73 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
 }
 
 
+void rrclient_database_watched_calls_foreach(
+   void (*callback)(const rrclient_watched_call_t *, void *), void *user) {
+   if (!client_db || !callback) return;
+   sqlite3_stmt *q = NULL;
+   if (sqlite3_prepare_v2(client_db,
+       "SELECT id,callsign,mode,band,auto_mark_worked,worked FROM watched_calls "
+       "ORDER BY callsign COLLATE NOCASE,mode COLLATE NOCASE,band COLLATE NOCASE",
+       -1, &q, NULL) != SQLITE_OK) {
+      g_warning("Unable to list watched calls: %s", sqlite3_errmsg(client_db));
+      return;
+   }
+   while (sqlite3_step(q) == SQLITE_ROW) {
+      rrclient_watched_call_t entry = {
+         .id = sqlite3_column_int(q, 0),
+         .callsign = (const char *) sqlite3_column_text(q, 1),
+         .mode = (const char *) sqlite3_column_text(q, 2),
+         .band = (const char *) sqlite3_column_text(q, 3),
+         .auto_mark_worked = sqlite3_column_int(q, 4) != 0,
+         .worked = sqlite3_column_int(q, 5) != 0
+      };
+      callback(&entry, user); /* String pointers valid only during callback. */
+   }
+   sqlite3_finalize(q);
+}
+
+bool rrclient_database_watched_call_save(int id, const char *callsign,
+   const char *mode, const char *band, bool auto_mark_worked, bool worked) {
+   if (!client_db || id < 0 || !callsign || !*callsign ||
+       !mode || !*mode || !band || !*band) return false;
+   sqlite3_stmt *q = NULL;
+   const char *sql = id ?
+      "UPDATE watched_calls SET callsign=?1,mode=?2,band=?3,"
+      "auto_mark_worked=?4,worked=?5 WHERE id=?6" :
+      "INSERT INTO watched_calls(callsign,mode,band,auto_mark_worked,worked)"
+      " VALUES(?1,?2,?3,?4,?5)";
+   if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) != SQLITE_OK) {
+      g_warning("Unable to prepare watched call: %s", sqlite3_errmsg(client_db));
+      return false;
+   }
+   sqlite3_bind_text(q, 1, callsign, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(q, 2, mode, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(q, 3, band, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int(q, 4, auto_mark_worked);
+   sqlite3_bind_int(q, 5, worked);
+   if (id) sqlite3_bind_int(q, 6, id);
+   bool ok = sqlite3_step(q) == SQLITE_DONE &&
+             (!id || sqlite3_changes(client_db) == 1);
+   if (!ok) g_warning("Unable to save watched call %s: %s",
+                      callsign, sqlite3_errmsg(client_db));
+   sqlite3_finalize(q);
+   return ok;
+}
+
+bool rrclient_database_watched_call_delete(int id) {
+   if (!client_db || id <= 0) return false;
+   sqlite3_stmt *q = NULL;
+   if (sqlite3_prepare_v2(client_db,
+       "DELETE FROM watched_calls WHERE id=?1", -1, &q, NULL) != SQLITE_OK)
+      return false;
+   sqlite3_bind_int(q, 1, id);
+   bool ok = sqlite3_step(q) == SQLITE_DONE &&
+             sqlite3_changes(client_db) == 1;
+   if (!ok) g_warning("Unable to delete watched call: %s", sqlite3_errmsg(client_db));
+   sqlite3_finalize(q);
+   return ok;
+}
+
 bool rrclient_database_audio_profile_save(const char *name, const char *const *ids, const char *routes, size_t count) {
    /* Keep preset names unique case-insensitively. Explicit Save replacement is confirmed in GTK before calling this transactional upsert. */
    if (!client_db || !name || !*name || !g_ascii_strcasecmp(name, "***AUTO***") || !g_ascii_strcasecmp(name, "New Preset") || !ids || !routes || count > 128) {
