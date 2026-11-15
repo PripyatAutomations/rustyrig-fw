@@ -263,29 +263,31 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
             }
          }
       } else {
+         /* The regular PCM input remains on the block edge at mono pin_y.
+          * PTT is an additional socket, not a replacement for audio. */
          cairo_set_source_rgb(cr, .30, .77, .92);
-         if (n->ptt_input) {
-            /* Dedicated red control socket sits outboard of the left edge.
-             * No audio pin is drawn at the same location. */
-            const double px = n->x - 18.;
-            const double py = n->y + RR_GTK_GRAPH_NODE_H - 16.;
-            cairo_set_source_rgb(cr, .96, .20, .20);
-            cairo_move_to(cr, n->x, py);
-            cairo_line_to(cr, px + 6, py);
-            cairo_stroke(cr);
-            pin(cr, px, py, FALSE, TRUE);
-            cairo_set_source_rgb(cr, 1., 1., 1.);
-            cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-            cairo_set_font_size(cr, 9.);
-            cairo_move_to(cr, n->x + 9., py + 3.);
-            cairo_show_text(cr, "PTT");
-         } else if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
-            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, TRUE);
-         }
+         if (n->io != RR_GTK_GRAPH_IO_SOURCE)
+            pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE),
+                FALSE, TRUE);
+         if (n->io != RR_GTK_GRAPH_IO_SINK)
+            pin(cr, n->x + RR_GTK_GRAPH_NODE_W,
+                pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, FALSE);
+      }
 
-         if (n->io != RR_GTK_GRAPH_IO_SINK) {
-            pin(cr, n->x + RR_GTK_GRAPH_NODE_W, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, FALSE);
-         }
+      if (n->ptt_input) {
+         const double px = n->x - 18.;
+         const double py = n->y + RR_GTK_GRAPH_NODE_H - 16.;
+         cairo_set_source_rgb(cr, .96, .20, .20);
+         cairo_move_to(cr, n->x, py);
+         cairo_line_to(cr, px + 6., py);
+         cairo_stroke(cr);
+         pin(cr, px, py, FALSE, TRUE);
+         cairo_set_source_rgb(cr, 1., 1., 1.);
+         cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                                CAIRO_FONT_WEIGHT_BOLD);
+         cairo_set_font_size(cr, 9.);
+         cairo_move_to(cr, n->x + 9., py + 3.);
+         cairo_show_text(cr, "PTT");
       }
 
       if (n->bypass_pins) {
