@@ -1343,8 +1343,7 @@ static uint32_t audio_af_source_max_hz(const struct rrclient_rx_stream *stream) 
    uint32_t rate = stream->source_rate_hz;
    if (!rate && !strcmp(stream->codec, "mu08"))
       rate = 8000; /* explicitly 8 kHz mu-law in the codec pipeline */
-   if (!rate) rate = RR_AF_SAMPLE_RATE;
-   return MIN(rate / 2u, RR_AF_MAX_HZ);
+   return rr_af_source_nyquist(rate);
 }
 
 /* The core owns rx_routes; never let a GTK redraw enumerate the list. Resolve the audible route here and return only a copy of its FFT bins. */
