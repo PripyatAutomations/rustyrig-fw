@@ -1734,7 +1734,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_box_pack_start(GTK_BOX(content), grid, TRUE, TRUE, 0);
    GtkWidget *name = gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(name), 31);
-   gtk_entry_set_text(GTK_ENTRY(name), "Gain");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(name), "Auto: use parameter name");
    GtkWidget *target = gtk_combo_box_text_new();
    GtkWidget *ear = gtk_combo_box_text_new();
    GtkWidget *widget_kind = gtk_combo_box_text_new();
