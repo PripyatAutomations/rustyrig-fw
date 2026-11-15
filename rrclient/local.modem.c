@@ -289,7 +289,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
        * and must never restart the decoder or reset its receive state. */
       if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX &&
           memchr(req->source, 0, sizeof(req->source)) &&
-          source_present(req->source)) {
+          (req->source[0] == 0 || source_present(req->source))) {
          decoder_t *d = &decoders[req->slot - 1];
          g_mutex_lock(&decoder_lock);
          if (d->active) {
