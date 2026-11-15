@@ -50,6 +50,12 @@ static gboolean graph_gain_at(double x, double y, gint *source, gint *channel, g
 static gboolean routing_controls_visible = TRUE;
 static gint routing_control_drag_index = -1;
 static void routing_compact_bounds(double *width, double *height);
+static void routing_effect_refresh(void);
+static void routing_effect_draw(cairo_t *cr);
+static void routing_effect_bounds(double *width, double *height);
+static gboolean routing_effect_press(double x, double y, gboolean dbl);
+static gboolean routing_effect_motion(double x, double y);
+static gboolean routing_effect_release(void);
 static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused);
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
@@ -230,6 +236,7 @@ static void routing_graph_bounds(double *width, double *height) {
    /* Control nodes occupy the same view coordinates but not the audio graph.
     * Hidden controls must not influence canvas zoom/auto-fit. */
    if (routing_controls_visible) routing_compact_bounds(&max_x, &max_y);
+   if (routing_controls_visible) routing_effect_bounds(&max_x, &max_y);
    *width = max_x;
    *height = max_y;
 }
@@ -610,6 +617,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_show_text(cr, value);
       }
    }
+
+   routing_effect_draw(cr);
 
    /* Control signal pins and wires live in a separate, blue overlay.
     * Draw after mixer trims so the blue connection sockets stay visible. */
@@ -1006,6 +1015,7 @@ static gboolean pipeline_apply(const gchar *json, gpointer user) {
       gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
    }
+   if (ok) routing_effect_refresh();
    g_free(error);
    return ok;
 }
@@ -2237,6 +2247,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    if (routing_compact_hit(gx, gy, event->type == GDK_2BUTTON_PRESS))
       return TRUE;
+   if (routing_effect_press(gx, gy, event->type == GDK_2BUTTON_PRESS))
+      return TRUE;
    gint source = -1, channel = -1;
    gboolean mixer = FALSE;
    gboolean port_gain = FALSE;
@@ -2329,6 +2341,7 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
    if (!graph_pointer(event->x, event->y, &gx, &gy))
       return FALSE;
    if (routing_compact_drag_motion(gx, gy)) return TRUE;
+   if (routing_effect_motion(gx, gy)) return TRUE;
    if (gain_drag_source >= 0) {
       graph_gain_drag(gx);
       return TRUE;
@@ -2372,6 +2385,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    double control_x = 0., control_y = 0.;
    if (graph_pointer(event->x, event->y, &control_x, &control_y) &&
        routing_compact_drag_release(control_x, control_y)) return TRUE;
+   if (routing_effect_release()) return TRUE;
    if (graph_node_drag >= 0) {
       if (graph_snapshot && (guint)graph_node_drag < graph_snapshot->node_count) {
          const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
@@ -3026,6 +3040,7 @@ void gtk_audio_routing_init(void) {
    routing_watchdog_source = g_timeout_add(1500, routing_watchdog, NULL);
    routing_queue();
    routing_compact_restore();
+   routing_effect_refresh();
 }
 
 void gtk_audio_routing_shutdown(void) {
