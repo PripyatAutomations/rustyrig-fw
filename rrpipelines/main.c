@@ -49,6 +49,7 @@ typedef struct {
    GtkWidget *canvas;
    GtkWidget *pipeline_status;
    GtkWidget *property_box;
+   GtkWidget *property_scroll;
    GtkWidget *source_combo;
    GtkWidget *target_combo;
    GPtrArray *property_entries;
@@ -578,11 +579,13 @@ static void refresh_properties(editor_t *editor) {
    pipeline_entry_t *pipeline = active_pipeline(editor);
 
    if (!pipeline || !pipeline->graph || editor->selected_node < 0) {
+      if (editor->property_scroll) gtk_widget_hide(editor->property_scroll);
       return;
    }
    rr_pipeline_node_t *node = rr_pipeline_graph_node_edit(pipeline->graph, (guint) editor->selected_node);
 
    if (!node) {
+      if (editor->property_scroll) gtk_widget_hide(editor->property_scroll);
       return;
    }
    guint count = 0;
@@ -624,6 +627,8 @@ static void refresh_properties(editor_t *editor) {
 
    g_free(properties);
    gtk_widget_show_all(editor->property_box);
+   if (editor->property_scroll)
+      gtk_widget_show(editor->property_scroll);
 }
 
 static gboolean flush_properties(editor_t *editor, GError **error) {
@@ -977,6 +982,8 @@ static GtkWidget *build_factory_toolbox(editor_t *editor) {
 
 static GtkWidget *build_work_area(editor_t *editor) {
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   gtk_widget_set_hexpand(box, TRUE);
+   gtk_widget_set_vexpand(box, TRUE);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(header), gtk_label_new("Pipeline:"), FALSE, FALSE, 0);
    editor->pipeline_combo = gtk_combo_box_text_new();
@@ -1042,7 +1049,12 @@ static GtkWidget *build_work_area(editor_t *editor) {
    gtk_box_pack_start(GTK_BOX(box), canvas_scroller, TRUE, TRUE, 0);
 
    GtkWidget *properties_scroll = gtk_scrolled_window_new(NULL, NULL);
+   editor->property_scroll = properties_scroll;
+   /* Only reserve an inspector when a graph element is selected.
+    * Otherwise the canvas owns the full remaining tab height. */
    gtk_widget_set_size_request(properties_scroll, -1, 170);
+   gtk_widget_set_no_show_all(properties_scroll, TRUE);
+   gtk_widget_hide(properties_scroll);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(properties_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(properties_scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(properties_scroll), 240);
@@ -1076,8 +1088,12 @@ static GtkWidget *build_window(editor_t *editor) {
       g_signal_connect(editor->window, "delete-event", G_CALLBACK(window_delete), editor);
    }
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   gtk_widget_set_hexpand(root, TRUE);
+   gtk_widget_set_vexpand(root, TRUE);
    gtk_container_set_border_width(GTK_CONTAINER(root), 8);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+   gtk_widget_set_hexpand(paned, TRUE);
+   gtk_widget_set_vexpand(paned, TRUE);
    GtkWidget *toolbox = build_factory_toolbox(editor);
    gtk_paned_pack1(GTK_PANED(paned), toolbox, FALSE, FALSE);
 
@@ -1132,7 +1148,10 @@ static GtkWidget *build_window(editor_t *editor) {
       gtk_widget_hide(apply);
    }
    gtk_box_pack_start(GTK_BOX(root), buttons, FALSE, FALSE, 0);
-   gtk_container_add(GTK_CONTAINER(editor->window), root);
+   if (editor->embedded)
+      gtk_box_pack_start(GTK_BOX(editor->window), root, TRUE, TRUE, 0);
+   else
+      gtk_container_add(GTK_CONTAINER(editor->window), root);
    refresh_pipeline_combo(editor);
    refresh_canvas(editor);
    refresh_properties(editor);
