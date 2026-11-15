@@ -26,6 +26,9 @@
 #include <librrprotocol/wire-version.h>
 #include <librrprotocol/latency.h>
 #include <librrprotocol/media.health.h>
+#include <rrclient/remote.spectrum.h>
+#include <rrbridge/spectrum.wire.h>
+
 
 extern const char *get_server_property(const char *server, const char *prop);
 extern time_t now;
@@ -315,6 +318,21 @@ bool ws_binframe_process_client(rrconn_t *client, const char *data, size_t len) 
       }
       event_emit_binary(RR_GPS_FRAME_EVENT, client, data, len);
 
+      return true;
+   }
+
+   /* RF is a fixed-format receiver-only media stream, never raw native
+    * bridge IPC. Check the exact subscribed stream and originating server
+    * before publishing an immutable spectrum row to GTK. */
+   if (f.hdr.subsystem == RR_BINFRAME_SUBSYS_WATERFALL) {
+      rr_remote_rf_row_t row = {0};
+      if (f.hdr.direction != RR_BINFRAME_DIR_RX ||
+          memcmp(f.hdr.codec, RR_RF_WIRE_CODEC, 4) ||
+          !rrclient_media_remote_rf_for_stream(client, f.hdr.stream,
+                                               f.hdr.codec, row.id, sizeof(row.id)) ||
+          !rr_rf_wire_unpack(&row.row, f.data, f.len))
+         return false;
+      event_emit_binary(RR_REMOTE_RF_ROW_EVENT, client, &row, sizeof(row));
       return true;
    }
 
