@@ -961,6 +961,15 @@ bool rrclient_local_bridge_cli(int argc, char **argv) {
 
    return true;
 }
+uint32_t rrclient_local_bridge_stream_sample_rate(const char *stream_id) {
+   if (!stream_id || !*stream_id) return 0;
+   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
+      const bridge_instance *b = bridges[i];
+      if (b && b->online && !strcmp(b->stream, stream_id))
+         return b->rate;
+   }
+   return 0;
+}
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
    size_t count = 0;
 
