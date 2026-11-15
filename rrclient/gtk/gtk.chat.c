@@ -33,6 +33,7 @@
 #include <rrclient/vfo.h>
 #include <rrclient/vfo.snapshot.h>
 #include <rrclient/local.bridge.h>
+#include <rrclient/remote.spectrum.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/objects.h>
 #include <rrclient/gtk/ui.speech.h>
@@ -1544,7 +1545,7 @@ static void room_af_panel_show(void) {
       rr_floating_panel_show(room_af_panel);
 }
 
-/* Spectrum sources own this panel, independently of chat/VFO tabs. The local bridge is currently the only producer publishing RF rows. */
+/* The same RF panel hosts local bridges and subscribed remote RF channels. */
 static void room_rf_panel_refresh(void) {
    gboolean available = FALSE;
    for (char vfo = 'A'; vfo <= 'Z'; vfo++) {
@@ -1555,7 +1556,12 @@ static void room_rf_panel_refresh(void) {
       }
    }
 
-   if (!available) {
+   rr_remote_rf_source_t remote[RR_REMOTE_RF_SOURCES_MAX] = {{0}};
+   size_t remote_count = rrclient_media_remote_rf_snapshot(remote, G_N_ELEMENTS(remote));
+   gboolean remote_available = FALSE;
+   for (size_t i = 0; i < remote_count && i < G_N_ELEMENTS(remote); i++)
+      if (remote[i].joined) { remote_available = TRUE; break; }
+   if (!available && !remote_available) {
       if (room_rf_panel) {
          rr_floating_panel_hide(room_rf_panel);
       }
@@ -1584,7 +1590,9 @@ static void room_rf_panel_refresh(void) {
       gtk_widget_set_vexpand(room_rf_strip, TRUE);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_rf_panel)), room_rf_strip, TRUE, TRUE, 0);
    }
-   char *title = g_strdup("RF Spectrum — Local Receivers");
+   char *title = g_strdup(available && remote_available ?
+      "RF Spectrum — Local and Remote Receivers" :
+      remote_available ? "RF Spectrum — Remote Receivers" : "RF Spectrum — Local Receivers");
    rr_floating_panel_set_title(room_rf_panel, title);
    g_free(title);
 
@@ -2758,6 +2766,8 @@ bool chat_init(void) {
    rr_module_token_add(event_on_domain_token("client.local-bridge.vfo", room_rf_source_changed, NULL, "gtk"));
    /* Capabilities may arrive after the VFO goes online; do not wait for another room/VFO switch before displaying the RF spectrum panel. */
    rr_module_token_add(event_on_domain_token("client.local-bridge.capabilities", room_rf_source_changed, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token(RR_REMOTE_RF_SOURCE_CHANGED,
+                                             room_rf_source_changed, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop", estop_request_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.notice.owned", estop_notice_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.send-status", estop_send_status, NULL, "gtk"));
