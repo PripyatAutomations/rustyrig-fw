@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -1278,6 +1279,31 @@ bool fwdsp_processor_setvol(const char *name, int percent) {
    }
 
    return fwdsp_send_control(sp, FWDSP_CTRL_SET_VOLUME, (uint8_t) percent);
+}
+
+bool fwdsp_processor_set_property(const char *name, const char *element,
+                                  const char *property, double value) {
+   if (!name || !*name || !element || !*element || !property || !*property ||
+       strlen(element) >= sizeof(((struct fwdsp_control_msg *)0)->element) ||
+       strlen(property) >= sizeof(((struct fwdsp_control_msg *)0)->property) ||
+       !isfinite(value)) return false;
+   struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
+   if (!sp) sp = fwdsp_find_processor(name, "src");
+   if (!sp) sp = fwdsp_find_processor(name, "sink");
+   if (!sp || sp->process.pid <= 0 || sp->fw_control < 0 || sp->destroying)
+      return false;
+   struct fwdsp_control_msg msg = {
+      .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_PROPERTY,
+      .property_value = value
+   };
+   snprintf(msg.element, sizeof(msg.element), "%s", element);
+   snprintf(msg.property, sizeof(msg.property), "%s", property);
+#ifndef _WIN32
+   return send(sp->fw_control, &msg, sizeof(msg),
+               MSG_NOSIGNAL | MSG_DONTWAIT) == (ssize_t)sizeof(msg);
+#else
+   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg);
+#endif
 }
 
 /* A real-time client mixer may borrow a duplicate of the playback socket. The manager remains the sole owner of the subprocess and registry. */
