@@ -522,7 +522,6 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    cairo_translate(cr, graph_offset_x, graph_offset_y);
    cairo_scale(cr, graph_scale, graph_scale);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
-   routing_compact_draw(cr);
 
    /* Output trims inside each source block; backed by the existing
     * per-stream L/R gains rather than by speaker/master volume. */
@@ -608,6 +607,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_show_text(cr, value);
       }
    }
+
+   /* Control signal pins and wires live in a separate, blue overlay.
+    * Draw after mixer trims so the blue connection sockets stay visible. */
+   routing_compact_draw(cr);
 
    /* The preview always ends in a filled arrowhead. As it approaches
     * a valid receiving ring the endpoint snaps to that exact pin. */
@@ -1094,6 +1097,7 @@ typedef struct routing_compact_control {
 static GPtrArray *routing_compact_controls;
 static gboolean routing_control_drag_wire;
 static void routing_compact_sync(void);
+static double routing_compact_current(const routing_compact_control_t *control);
 static void routing_compact_apply_hints(routing_compact_control_t *control) {
    /* Explicit overrides are retained; absent values use metadata supplied by
     * the active binding. Mixer gain ports currently publish dB/-60/+12/1.
@@ -2150,6 +2154,7 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
       graph_gain_drag(gx);
       return TRUE;
    }
+   if (graph_drag_channel < 0 && graph_node_drag < 0) return FALSE;
    if (graph_node_drag >= 0 && (guint)graph_node_drag < graph_snapshot->node_count) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
       routing_position_t *pos = routing_position(n->id);
