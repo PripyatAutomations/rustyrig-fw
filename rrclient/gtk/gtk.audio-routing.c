@@ -1171,7 +1171,7 @@ static void routing_compact_sync(void) {
 }
 static void routing_compact_changed(GtkRange *range, gpointer user) {
    routing_compact_control_t *control = user;
-   if (control->updating) return;
+   if (control->updating || !control->id[0]) return;
    double db = gtk_range_get_value(range);
    if (control->port)
       audio_request_port_gain(control->id, control->channel, db);
@@ -1287,14 +1287,14 @@ static void routing_compact_destroy(gpointer pointer) {
 static void routing_compact_add(const char *node_id, unsigned channel, gboolean port,
                                 const char *label, const char *kind,
                                 const char *saved_uuid, double saved_x, double saved_y) {
-   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook) || !node_id) return;
+   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook)) return;
    if (!routing_compact_controls)
       routing_compact_controls = g_ptr_array_new_with_free_func(routing_compact_destroy);
    routing_compact_control_t *control = g_new0(routing_compact_control_t, 1);
    char *uuid = saved_uuid ? NULL : g_uuid_string_random();
    g_strlcpy(control->uuid, saved_uuid ? saved_uuid : uuid, sizeof(control->uuid));
    g_free(uuid);
-   g_strlcpy(control->id, node_id, sizeof(control->id));
+   g_strlcpy(control->id, node_id ? node_id : "", sizeof(control->id));
    if (label && *label) {
       g_strlcpy(control->label, label, sizeof(control->label));
       control->has_label = TRUE;
@@ -1303,7 +1303,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    routing_compact_apply_hints(control);
    control->x = GRAPH_LAYOUT_MARGIN + 15.;
    control->y = GRAPH_LAYOUT_MARGIN + 160.;
-   if (graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++)
+   if (node_id && *node_id && graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++)
       if (!strcmp(graph_snapshot->nodes[i].id, node_id)) {
          control->x = MAX(0., routing_node_x(&graph_snapshot->nodes[i]) - 135.);
          control->y = routing_node_y(&graph_snapshot->nodes[i]) + channel * 36.;
@@ -1324,7 +1324,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    gtk_box_set_spacing(GTK_BOX(body), 2);
    GtkWidget *title = gtk_label_new(control->label);
    control->label_widget = title;
-   gtk_widget_set_tooltip_text(title, node_id);
+   gtk_widget_set_tooltip_text(title, node_id && *node_id ? node_id : "Unbound: drag the blue pin onto a gain control");
    gtk_box_pack_start(GTK_BOX(body), title, FALSE, FALSE, 0);
    gboolean vertical = !g_strcmp0(kind, "vertical");
    gboolean knob = !g_strcmp0(kind, "knob");
@@ -1367,6 +1367,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    if (!saved_uuid) routing_compact_save(control);
    graph_canvas_update_size();
    gtk_widget_show_all(body);
+   gtk_widget_set_sensitive(control->value, !!control->id[0]);
    rr_floating_panel_fit_content(control->panel);
    if (!saved_uuid) rr_floating_panel_present(control->panel);
 }
@@ -1436,7 +1437,7 @@ static void routing_compact_restore(void) {
       char *step = routing_compact_field(parts[i], "step");
       char *unit = routing_compact_field(parts[i], "unit");
       double px = 0., py = 0., mn = 0., mx = 0., st = 0.;
-      gboolean valid = target && *target && strlen(target) < 64 &&
+      gboolean valid = target && strlen(target) < 64 &&
          kind && (!strcmp(kind, "horizontal") || !strcmp(kind, "vertical") ||
                   !strcmp(kind, "knob")) &&
          port && (!strcmp(port, "0") || !strcmp(port, "1")) &&
@@ -1744,6 +1745,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "vertical", "Vertical slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "knob", "Rotary knob");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect blue pin");
    if (graph_snapshot) {
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
          rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
@@ -1771,8 +1773,9 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(target));
       const char *channel = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear));
       const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(widget_kind));
-      if (id && *id && channel && kind)
-         routing_compact_add(id + 1, (unsigned)g_ascii_strtoull(channel, NULL, 10), *id == 'P',
+      if (id && channel && kind)
+         routing_compact_add(*id ? id + 1 : "",
+             (unsigned)g_ascii_strtoull(channel, NULL, 10), *id == 'P',
              gtk_entry_get_text(GTK_ENTRY(name)), kind, NULL, 0., 0.);
    }
    gtk_widget_destroy(dialog);
@@ -2568,9 +2571,9 @@ void gtk_audio_graph_present(void) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(show_controls), routing_controls_visible);
       g_signal_connect(show_controls, "toggled", G_CALLBACK(routing_show_controls_toggled), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), show_controls, FALSE, FALSE, 0);
-      GtkWidget *pin_control = gtk_button_new_with_label("Pin Control…");
+      GtkWidget *pin_control = gtk_button_new_with_label("Add Control…");
       gtk_widget_set_tooltip_text(pin_control,
-         "Create a small dockable gain slider bound to an audio routing pin");
+         "Create an independent control block; bind its blue pin to a parameter");
       g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), pin_control, FALSE, FALSE, 0);
       GtkWidget *add_effect = gtk_button_new_with_label("Add Effect…");
