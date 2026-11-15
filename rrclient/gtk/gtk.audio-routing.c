@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/sercom.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/config.h>
@@ -725,9 +726,29 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source), "unconnected", "Disconnected — connect later");
    if (graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      if (routing_modem_source(n))
+      if (routing_modem_source(n)) {
+         const char *name = n->rig[0] ? n->rig : n->id;
+         char *display = NULL;
+         /* Show the stable local SDR/VFO ID and its catalog identity;
+          * the selected value remains the opaque PCM stream ID. */
+         if (g_str_has_prefix(n->id, "local.sdr.") &&
+             n->id[10] >= 'A' && n->id[10] <= 'Z' && !n->id[11]) {
+            rr_local_bridge_ui_state_t receiver = {0};
+            if (rrclient_local_bridge_ui_state_vfo(n->id[10], &receiver)) {
+               if (receiver.receiver_name[0] && receiver.receiver_location[0])
+                  display = g_strdup_printf("%s — %s (%s)", n->id,
+                              receiver.receiver_name, receiver.receiver_location);
+               else if (receiver.receiver_name[0] || receiver.receiver_location[0])
+                  display = g_strdup_printf("%s — %s", n->id,
+                              receiver.receiver_name[0] ? receiver.receiver_name :
+                              receiver.receiver_location);
+            }
+            if (!display) display = g_strdup(n->id);
+         }
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source), n->id,
-                                   n->rig[0] ? n->rig : n->id);
+                                   display ? display : name);
+         g_free(display);
+      }
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(source), 0);
    GtkWidget *mode = gtk_combo_box_text_new();
