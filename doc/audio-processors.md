@@ -137,6 +137,26 @@ to the configured launch string. This is an initial, opt-in endpoint generator,
 **not** a distributed graph compiler or live LV2 effect host yet. The
 configured pipeline path remains an indefinitely supported advanced option.
 
+## Guided client devices and compact controls
+
+Config → **Audio Devices** provides a separate capture/playback device and rate
+form, an opt-in **Generated** mode, and a preview of what will run inside
+`fwdsp`. Apply Settings stages config changes; use **Save Config** and restart
+the client to start them. The default **Configured pipelines** mode continues
+using the existing `pipeline:src.client.dsp0` and
+`pipeline:sink.client.mix` launch strings.
+
+Routing → **Pin Control…** creates a compact dockable panel bound to an
+existing input/output gain pin. Select its stable audio node, left/right
+channel, short label and presentation: horizontal fader, vertical fader or
+rotary knob. All three send the same asynchronous gain-control command as
+the routing canvas and double-click resets to 0 dB. The floating-panel
+framework preserves window position and supports docking/roll-up.
+Disconnected targets are disabled until their stream returns. Parameter
+bindings currently cover the existing mixer gains; LV2 parameter port
+binding, saving/reloading control definitions, and placement on other
+cluster nodes remain subsequent steps.
+
 ## Client sound-device rate selection
 
 The stock rrclient microphone and stereo playback GStreamer pipelines request
