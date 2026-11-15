@@ -85,6 +85,13 @@ int main(int argc, char **argv) {
    assert(g_file_set_contents(path, fixture, -1, NULL));
    assert(receiver_directory_import(path));
    assert(receiver_directory_count() == 6);
+   /* Repeated identical server catalog snapshots must not move the daily
+    * mirror-check deadline and indefinitely preserve stale metadata. */
+   assert(receiver_directory_import_snapshot(fixture, strlen(fixture), "rrserver"));
+   next_request = now - 1;
+   assert(receiver_directory_import_snapshot(fixture, strlen(fixture), "rrserver"));
+   assert(next_request == now - 1);
+   next_request = now + DIRECTORY_INTERVAL;
    assert(receiver_directory_find_url("http://allowed.invalid:8073/") == receiver_directory_find_url("http://allowed.invalid:8073"));
    assert(receiver_directory_find_url("http://allowed.invalid:8073/") != NULL);
    assert(receiver_directory_set_state("http://allowed.invalid:8073/", "unreachable", "Connection failed (user report)"));
