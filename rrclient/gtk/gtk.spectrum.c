@@ -1131,8 +1131,11 @@ static void rf_refresh_selector(rf_strip_t *p) {
       if (!sources[i].joined || !sources[i].id[0]) continue;
       char id[sizeof(sources[i].id) + 8], label[256];
       g_snprintf(id, sizeof(id), "remote:%s", sources[i].id);
-      g_snprintf(label, sizeof(label), "Remote %s (%s)",
-                 sources[i].name, sources[i].room);
+      const char *separator = strchr(sources[i].id, '|');
+      int profile_length = separator ? (int)(separator - sources[i].id) : 0;
+      g_snprintf(label, sizeof(label), "%.*s: %s (%s)",
+                 profile_length, sources[i].id, sources[i].name,
+                 sources[i].room);
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), id, label);
       if (!first_remote[0]) g_strlcpy(first_remote, sources[i].id, sizeof(first_remote));
       if (!strcmp(was_remote, sources[i].id)) kept_remote = true;
@@ -1637,11 +1640,13 @@ static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    rf_strip_t *p = g_object_get_data(G_OBJECT(item), "rf-panel");
    unsigned zoom = GPOINTER_TO_UINT(data);
 
-   if (!rf_request(p, p->rf_enabled, zoom, 0)) {
-      return;
+   if (p->remote_id[0]) {
+      p->zoom_fraction = CLAMP((double)zoom, 0., 6.);
+   } else {
+      if (!rf_request(p, p->rf_enabled, zoom, 0)) return;
+      p->zoom = zoom;
+      p->zoom_fraction = 0;
    }
-   p->zoom = zoom;
-   p->zoom_fraction = 0;
    p->pan_hz = 0;
    gtk_widget_queue_draw(p->drawing);
 
@@ -1667,11 +1672,13 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    if (rf_ui_caps(p, &min_zoom, &max_zoom)) {
       for (unsigned z = min_zoom ; z <= max_zoom && z - min_zoom < 32 ; z++) {
          char label[32];
-         g_snprintf(label, sizeof(label), "Level %u", z);
+         g_snprintf(label, sizeof(label), p->remote_id[0] ?
+            "Display zoom %u" : "Receiver level %u", z);
          GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
          group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
          g_object_set_data(G_OBJECT(item), "rf-panel", p);
-         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), z == p->zoom);
+         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),
+            p->remote_id[0] ? z == (unsigned)round(p->zoom_fraction) : z == p->zoom);
          g_signal_connect(item, "activate", G_CALLBACK(rf_zoom_activate), GUINT_TO_POINTER(z));
          gtk_menu_shell_append(GTK_MENU_SHELL(zoom_menu), item);
       }
