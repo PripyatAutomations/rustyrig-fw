@@ -147,17 +147,50 @@ static gboolean decode_has_call(const char *line, const char *call) {
 }
 /* Format data using the actual decoder JSON schema; sync_score is not SNR.
  * Other decoder families keep their own rendering path as they gain metadata. */
+/* The FT8 worker emits a fixed flat JSON record. Read it directly instead of
+ * relying on generic dict flattening, which may rename dotted event fields. */
+static gchar *decode_field(const char *json, const char *key) {
+   if (!json || !key) return NULL;
+   gchar *needle = g_strdup_printf("\"%s\"", key);
+   const char *p = strstr(json, needle);
+   size_t len = strlen(needle);
+   g_free(needle);
+   if (!p) return NULL;
+   p += len;
+   while (g_ascii_isspace(*p)) p++;
+   if (*p++ != ':') return NULL;
+   while (g_ascii_isspace(*p)) p++;
+   if (*p == '"') {
+      GString *value = g_string_new(NULL);
+      for (p++; *p && *p != '"'; p++) {
+         if (*p == '\\' && p[1]) {
+            p++;
+            switch (*p) {
+               case 'n': g_string_append_c(value, '\n'); break;
+               case 'r': g_string_append_c(value, '\r'); break;
+               case 't': g_string_append_c(value, '\t'); break;
+               default: g_string_append_c(value, *p); break;
+            }
+         } else g_string_append_c(value, *p);
+      }
+      return g_string_free(value, FALSE);
+   }
+   const char *end = p;
+   while (*end && *end != ',' && *end != '}' && !g_ascii_isspace(*end)) end++;
+   return end > p ? g_strndup(p, end-p) : NULL;
+}
 static gchar *decode_format_line(const rr_local_modem_decode_t *d, char **plain) {
-   const char *text = d->line;
+   const char *raw = d->line;
+   *plain = NULL;
    gchar *prefix = NULL;
-   dict *json = *text == '{' ? json2dict(text) : NULL;
-   if (json && !g_ascii_strcasecmp(d->engine, "ft8") &&
-       !g_strcmp0(dict_get(json, "type", NULL), "ft8.decode")) {
-      const char *msg = dict_get(json, "text", "");
-      const char *slot_text = dict_get(json, "slot", NULL);
-      const char *hz_text = dict_get(json, "audio_hz", NULL);
-      const char *dt_text = dict_get(json, "dt", NULL);
-      const char *score_text = dict_get(json, "sync_score", NULL);
+   gchar *type = decode_field(raw, "type");
+   if (!g_ascii_strcasecmp(d->engine, "ft8") && type &&
+       !strcmp(type, "ft8.decode")) {
+      gchar *message = decode_field(raw, "text");
+      gchar *slot_text = decode_field(raw, "slot");
+      gchar *hz_text = decode_field(raw, "audio_hz");
+      gchar *dt_text = decode_field(raw, "dt");
+      gchar *sync_text = decode_field(raw, "sync_score");
       gint64 slot = slot_text ? g_ascii_strtoll(slot_text, NULL, 10) : 0;
       GDateTime *utc = slot > 0 ? g_date_time_new_from_unix_utc(slot) : NULL;
       gchar *clock = utc ? g_date_time_format(utc, "%H:%M:%S") : g_strdup("--:--:--");
@@ -171,16 +204,19 @@ static gchar *decode_format_line(const rr_local_modem_decode_t *d, char **plain)
          double value = g_ascii_strtod(dt_text, NULL);
          if (isfinite(value)) g_snprintf(dt, sizeof(dt), "%+.2f", value);
       }
-      if (score_text) g_snprintf(sync, sizeof(sync), "%s", score_text);
+      if (sync_text) g_strlcpy(sync, sync_text, sizeof(sync));
       prefix = g_strdup_printf("%-8s %7s %10s %6s  ", clock, dt, hz, sync);
+      *plain = message ? message : g_strdup("");
       g_free(clock);
-      *plain = g_strdup(msg);
-   } else if (json && dict_get(json, "text", NULL)) {
-      *plain = g_strdup(dict_get(json, "text", ""));
+      g_free(slot_text);
+      g_free(hz_text);
+      g_free(dt_text);
+      g_free(sync_text);
    } else {
-      *plain = g_strdup(text);
+      gchar *message = decode_field(raw, "text");
+      *plain = message ? message : g_strdup(raw);
    }
-   if (json) dict_free(json);
+   g_free(type);
    if (!prefix) {
       GDateTime *utc = g_date_time_new_now_utc();
       gchar *clock = g_date_time_format(utc, "%H:%M:%S");
@@ -215,7 +251,7 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    gboolean reply = strstr(body, "RR73") != NULL || strstr(body, " 73") != NULL;
    gchar *markup = g_strdup_printf(
       "<span foreground='#729abf'>%s</span><span foreground='%s' %s>%s</span>",
-      escaped_prefix, cq ? "#23a87e" : reply ? "#d6a53b" : "#c6ccd3",
+      escaped_prefix, highlight ? "#241e08" : cq ? "#23a87e" : reply ? "#d6a53b" : "#c6ccd3",
       cq ? "weight='bold'" : "", escaped_body);
    gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_label_set_xalign(GTK_LABEL(label), 0);
@@ -227,10 +263,7 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    gtk_widget_set_margin_end(label, 8);
    gtk_widget_set_margin_top(label, 2);
    gtk_widget_set_margin_bottom(label, 2);
-   PangoAttrList *attrs = pango_attr_list_new();
-   pango_attr_list_insert(attrs, pango_attr_family_new("monospace"));
-   gtk_label_set_attributes(GTK_LABEL(label), attrs);
-   pango_attr_list_unref(attrs);
+   gtk_style_context_add_class(gtk_widget_get_style_context(label), "rr-modem-decode-label");
    gtk_widget_set_tooltip_text(label, body);
    gtk_container_add(GTK_CONTAINER(row), label);
    gtk_list_box_insert(GTK_LIST_BOX(tab->list), row, -1);
@@ -842,7 +875,8 @@ GtkWidget *init_terminal_tab(void) {
    rr_local_modem_request(&request);
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
-      "row.rr-modem-odd { background-image: none; background-color: alpha(@theme_fg_color, 0.11); }"
+      "row.rr-modem-odd { background-image: none; background-color: alpha(@theme_fg_color, 0.18); }"
+      "label.rr-modem-decode-label { font-family: monospace; }"
       "row.rr-modem-highlight, row.rr-modem-highlight.rr-modem-odd {"
       " background-image: none; background-color: #ffe073; }"
       "row.rr-modem-highlight label { color: #241e08; }", -1, NULL);
