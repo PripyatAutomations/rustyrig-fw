@@ -89,6 +89,7 @@ bool audio_set_room_route(const char *server, const char *room, char output);
 struct rrclient_rx_stream {
    char id[64], server[512], room[128], uuid[64], codec[5];
    char output;
+   uint32_t source_rate_hz;
 };
 size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity);
 /* AF visualization request/reply. Only core reads RX route inventory;
