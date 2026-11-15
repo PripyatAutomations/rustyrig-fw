@@ -10,4 +10,6 @@ GtkWidget *rr_pipeline_editor_new(const gchar *json,
                                   void (*focus)(const gchar *, gpointer),
                                   gpointer focus_data, GError **error);
 void rr_pipeline_editor_select(GtkWidget *widget, const gchar *id);
+/* LV2 GStreamer effects are configured here; execution stays in fwdsp. */
+void rr_pipeline_editor_add_effect(GtkWidget *widget);
 #endif
