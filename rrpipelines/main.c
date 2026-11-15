@@ -990,7 +990,7 @@ static void lv2_control_ports_clicked(GtkButton *button, gpointer data) {
       gchar *range = (G_IS_PARAM_SPEC_BOOLEAN(spec) || G_IS_PARAM_SPEC_ENUM(spec)) ?
          g_strdup("—") : g_strdup_printf("%.4g … %.4g", low, high);
       const char *direction = (spec->flags & G_PARAM_WRITABLE) ?
-         "● Blue input" : "Output (read-only)";
+         "● Parameter input" : "Output (read-only)";
       GtkTreeIter row;
       gtk_list_store_append(store, &row);
       gtk_list_store_set(store, &row, 0, spec->name, 1, type,
@@ -1003,6 +1003,7 @@ static void lv2_control_ports_clicked(GtkButton *button, gpointer data) {
    const char *headings[] = {"Control port", "Type", "Range", "Direction"};
    for (guint col = 0; col < G_N_ELEMENTS(headings); col++) {
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+      if (col == 3) g_object_set(renderer, "foreground", "#319dff", NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(
          headings[col], renderer, "text", col, NULL);
       gtk_tree_view_append_column(GTK_TREE_VIEW(view), column);
