@@ -443,7 +443,7 @@ bool gui_init(void) {
    if (minimize_icon)
       gtk_widget_set_tooltip_text(minimize_icon, "Minimize the main window (VFO locator stays open)");
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
-   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
+   /* Packed into the fixed right status cluster after the Panels toggle. */
    GtkWidget *quit_button = gtk_button_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_BUTTON);
    gtk_button_set_relief(GTK_BUTTON(quit_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
@@ -553,7 +553,10 @@ bool gui_init(void) {
    gtk_widget_set_no_show_all(panels_label, TRUE);
    gtk_widget_hide(panels_label);
    g_signal_connect(panels_toggle, "toggled", G_CALLBACK(main_toolbar_panels_toggled), NULL);
-   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), panels_toggle, FALSE, FALSE, 0);
+   /* Right status controls keep this toggle visible even when the left
+    * toolbar is clipped. Place it directly before Minimize. */
+   gtk_box_pack_start(GTK_BOX(toolbar_right), panels_toggle, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(toolbar_right), minimize, FALSE, FALSE, 0);
    main_toolbar_tool(rr_main_toolbar, "Admin", "preferences-other-symbolic", "admin", "Admin: Administer the server/cluster");
    main_toolbar_tool(rr_main_toolbar, "Config", "preferences-system-symbolic", "config", "Config: Edit client configuration");
 
