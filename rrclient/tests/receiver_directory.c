@@ -38,6 +38,15 @@ static void pump(void) {
 int main(int argc, char **argv) {
    assert(argc >= 2);
    database = argv[1];
+   /* A configured ~/ path must never create a literal "~" directory. */
+   const char *temporary_db = database;
+   database = "~/.cache/rustyrig/test-receivers.sqlite3";
+   char *expanded_db = cache_path();
+   assert(expanded_db && g_path_is_absolute(expanded_db));
+   assert(g_str_has_prefix(expanded_db, g_get_home_dir()));
+   assert(strstr(expanded_db, "/~/") == NULL);
+   g_free(expanded_db);
+   database = temporary_db;
    event_init();
    assert(DIRECTORY_INTERVAL == 24 * 3600);
    assert(!directory_url_allowed("https://kiwisdr.com/public/"));
