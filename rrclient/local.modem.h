@@ -10,6 +10,12 @@
 #define RR_LOCAL_MODEM_TEXT 2048
 #define RR_LOCAL_MODEM_REQUEST "client.modem.decoder.request"
 #define RR_LOCAL_MODEM_RESULT "client.modem.decoder.snapshot"
+#define RR_LOCAL_MODEM_DECODE "client.modem.decoder.decode"
+typedef struct {
+   unsigned slot;
+   char source[64], engine[16];
+   char line[RR_LOCAL_MODEM_TEXT];
+} rr_local_modem_decode_t;
 typedef enum {
    RR_LOCAL_MODEM_SNAPSHOT = 1,
    RR_LOCAL_MODEM_START,
