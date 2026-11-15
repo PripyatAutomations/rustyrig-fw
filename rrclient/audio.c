@@ -409,8 +409,7 @@ static gboolean rx_engine_maintenance(gpointer unused) {
 
       if (audio_client_playback_start()) {
          fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
-         rx_sink_set_fd(speaker_ok ?
-      fwdsp_processor_dup_input("sink.client.dsp0") : -1);
+         rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
          Log(LOG_INFO, "audio", "RX worker reattached to fwdsp playback subprocess");
       }
    }
@@ -1576,7 +1575,8 @@ bool audio_init(void) {
    rx_channel_volume[0] = CLAMP(cfg_get_int("audio.volume.rx.left", 100), 0, 100);
    rx_channel_volume[1] = CLAMP(cfg_get_int("audio.volume.rx.right", 100), 0, 100);
    g_mutex_init(&rx_sink_lock);
-   rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
+   rx_sink_set_fd(speaker_ok ?
+      fwdsp_processor_dup_input("sink.client.dsp0") : -1);
    /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds
     * a single stereo 16->HQ converter at its input. HQ demodulators are
     * admitted directly to this bus without first losing bandwidth at 16k. */
