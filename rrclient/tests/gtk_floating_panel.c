@@ -80,6 +80,49 @@ int main(int argc, char **argv) {
    g_assert_true(first_x + first_width <= second_x ||
       second_x + second_width <= first_x || first_y + first_height <= second_y || second_y + second_height <= first_y);
 
+   /* Transient hiding is not minimizing: preserve the set of panels that
+    * were visible, even when manual and tab reasons overlap. */
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
+   g_assert_false(gtk_widget_get_visible(first_frame));
+   g_assert_false(gtk_widget_get_visible(second_frame));
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_MANUAL, TRUE);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
+   g_assert_false(gtk_widget_get_visible(first_frame));
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_MANUAL, FALSE);
+   g_assert_true(gtk_widget_get_visible(first_frame));
+   g_assert_true(gtk_widget_get_visible(second_frame));
+
+   /* A panel already explicitly hidden before switching to Status/Log
+    * must remain hidden when we leave those pages. */
+   rr_floating_panel_hide(second);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
+   g_assert_true(gtk_widget_get_visible(first_frame));
+   g_assert_false(gtk_widget_get_visible(second_frame));
+   rr_floating_panel_show(second);
+   drain_events();
+
+   /* An explicit close while auto-hidden must cancel restoration. */
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
+   rr_floating_panel_hide(second);
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
+   g_assert_false(gtk_widget_get_visible(second_frame));
+   rr_floating_panel_show(second);
+   drain_events();
+
+   /* Newly opened windows while on Status/Log stay hidden until leaving. */
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
+   RRFloatPanel *new_panel = rr_floating_panel_new(GTK_OVERLAY(overlay),
+      GTK_NOTEBOOK(tabs), "transient-new", "Transient");
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(new_panel)),
+      gtk_label_new("New panel"), FALSE, FALSE, 0);
+   rr_floating_panel_show(new_panel);
+   g_assert_false(gtk_widget_get_visible(rr_floating_panel_widget(new_panel)));
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
+   g_assert_true(gtk_widget_get_visible(rr_floating_panel_widget(new_panel)));
+   rr_floating_panel_destroy(new_panel);
+   drain_events();
+
    int neighbor_x = 600;
    gtk_widget_set_margin_start(second_frame, neighbor_x);
    gtk_widget_set_margin_top(second_frame, first_y);
