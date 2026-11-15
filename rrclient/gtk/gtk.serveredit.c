@@ -525,8 +525,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       GtkServerEditor *current = server_editor_frame ? g_object_get_data(G_OBJECT(server_editor_frame), "rr-server-editor") : NULL;
 
       if (current && g_strcmp0(current->profile, profile) == 0) {
-         rr_floating_panel_restore(server_editor_panel);
-         rr_floating_panel_show(server_editor_panel);
+         rr_floating_panel_present(server_editor_panel);
 
          return server_editor_frame;
       }
@@ -673,7 +672,9 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), save, 1, 13, 1, 1);
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(server_editor_close), NULL);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
-   rr_floating_panel_show(server_editor_panel);
+   /* A direct New/Edit action must be visible even when the Status/Log
+    * page auto-hides other floating panels. Do not clear that mask. */
+   rr_floating_panel_present(server_editor_panel);
 
    return window;
 }
