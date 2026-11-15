@@ -1625,51 +1625,60 @@ void gtk_audio_routing_init(void) {
       return;
    }
    rr_floating_panel_set_closable(routing_panel, FALSE);
+   /* The old vertical faders persisted a much larger floating-window
+    * geometry. Preserve placement/preferences but migrate its size once. */
+   rr_floating_panel_reset_saved_size(routing_panel);
    routing_window = rr_floating_panel_widget(routing_panel);
    routing_body = rr_floating_panel_body(routing_panel);
+   /* Three compact horizontal faders avoid the tall two-column vertical
+    * mixer layout. All existing control callbacks and DB keys stay intact. */
    GtkWidget *grid = gtk_grid_new();
-   gtk_container_set_border_width(GTK_CONTAINER(grid), 4);
-   gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 2);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 1);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 5);
    gtk_widget_set_halign(grid, GTK_ALIGN_CENTER);
    gtk_box_pack_start(GTK_BOX(routing_body), grid, FALSE, FALSE, 0);
 
-   GtkWidget *volume_label = gtk_label_new("Volume");
-   gtk_widget_set_halign(volume_label, GTK_ALIGN_CENTER);
-   gtk_grid_attach(GTK_GRID(grid), volume_label, 0, 0, 2, 1);
-
-   /* Both ears are the playback mixer output feeding sink.client.dsp0. */
-   for (unsigned ear = 0 ; ear < 2 ; ear++) {
-      ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, 0, 100, 1);
+   for (unsigned ear = 0; ear < 2; ear++) {
+      GtkWidget *label = gtk_label_new(ear ? "R" : "L");
+      gtk_widget_set_halign(label, GTK_ALIGN_END);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, ear, 1, 1);
+      ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
       gtk_scale_set_draw_value(GTK_SCALE(ear_volume[ear]), FALSE);
-      /* Vertical playback faders follow physical mixer convention:
-       * 100% at the top, 0% at the bottom. */
-      gtk_range_set_inverted(GTK_RANGE(ear_volume[ear]), TRUE);
-      gtk_widget_set_size_request(ear_volume[ear], 40, 132);
-      gtk_widget_set_tooltip_text(ear_volume[ear], ear ? "Right playback volume" : "Left playback volume");
-      gtk_range_set_value(GTK_RANGE(ear_volume[ear]), CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
-      gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], ear, 1, 1, 1);
-      g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
+      gtk_widget_set_size_request(ear_volume[ear], 112, -1);
+      gtk_widget_set_hexpand(ear_volume[ear], FALSE);
+      gtk_widget_set_tooltip_text(ear_volume[ear], ear ?
+         "Right playback volume" : "Left playback volume");
+      gtk_range_set_value(GTK_RANGE(ear_volume[ear]),
+         CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
+      gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear, 1, 1);
+      g_signal_connect(ear_volume[ear], "value-changed",
+                       G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
    }
 
-   split_rx = gtk_check_button_new_with_label("(Un)Lock");
-   gtk_widget_set_halign(split_rx, GTK_ALIGN_CENTER);
-   gtk_widget_set_tooltip_text(split_rx, "Lock both playback volumes together, or adjust them independently");
-   gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 2, 2, 1);
-   g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
-
    /* RX Gain controls the fwdsp playback sink, not the rig speaker level. */
-   GtkWidget *gain_label = gtk_label_new("RX Gain");
-   gtk_widget_set_halign(gain_label, GTK_ALIGN_CENTER);
-   gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 3, 2, 1);
+   GtkWidget *gain_label = gtk_label_new("RX");
+   gtk_widget_set_halign(gain_label, GTK_ALIGN_END);
+   gtk_widget_set_tooltip_text(gain_label, "RX playback gain (fwdsp)");
+   gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 2, 1, 1);
    rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_scale_set_draw_value(GTK_SCALE(rx_vol_slider), FALSE);
    gtk_widget_set_size_request(rx_vol_slider, 112, -1);
-   gtk_widget_set_hexpand(rx_vol_slider, TRUE);
-   gtk_widget_set_tooltip_text(rx_vol_slider, "Client RX playback gain (independent of rig speaker volume)");
-   gtk_range_set_value(GTK_RANGE(rx_vol_slider), CLAMP(cfg_get_int("audio.volume.rx", 30), 0, 100));
-   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(routing_rx_gain_changed), NULL);
-   gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 0, 4, 2, 1);
+   gtk_widget_set_hexpand(rx_vol_slider, FALSE);
+   gtk_widget_set_tooltip_text(rx_vol_slider,
+      "Client RX playback gain (independent of rig speaker volume)");
+   gtk_range_set_value(GTK_RANGE(rx_vol_slider),
+      CLAMP(cfg_get_int("audio.volume.rx", 30), 0, 100));
+   g_signal_connect(rx_vol_slider, "value-changed",
+                    G_CALLBACK(routing_rx_gain_changed), NULL);
+   gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 1, 2, 1, 1);
+
+   split_rx = gtk_check_button_new_with_label("Link L/R");
+   gtk_widget_set_halign(split_rx, GTK_ALIGN_START);
+   gtk_widget_set_tooltip_text(split_rx,
+      "Lock left and right playback volumes together, or adjust independently");
+   gtk_grid_attach(GTK_GRID(grid), split_rx, 1, 3, 1, 1);
+   g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
 
    /* Start linked, preserving the previous non-split default. */
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(split_rx), TRUE);
