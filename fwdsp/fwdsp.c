@@ -989,12 +989,14 @@ static bool processor_set_element_parameter(GstElement *pipe,
          }
       } else if (G_IS_PARAM_SPEC_INT(spec)) {
          GParamSpecInt *s = G_PARAM_SPEC_INT(spec);
-         if (v == trunc(v) && v >= s->minimum && v <= s->maximum) {
+         if (v >= s->minimum && v <= s->maximum &&
+             v == (double)(int)v) {
             g_object_set(element, cmd->property, (int)v, NULL); ok = true;
          }
       } else if (G_IS_PARAM_SPEC_UINT(spec)) {
          GParamSpecUInt *s = G_PARAM_SPEC_UINT(spec);
-         if (v == trunc(v) && v >= s->minimum && v <= s->maximum) {
+         if (v >= s->minimum && v <= s->maximum &&
+             v == (double)(unsigned)v) {
             g_object_set(element, cmd->property, (unsigned)v, NULL); ok = true;
          }
       } else if (G_IS_PARAM_SPEC_BOOLEAN(spec) && (v == 0. || v == 1.)) {
