@@ -131,10 +131,14 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       }
       const rr_gtk_graph_node_t *a = &nodes[e->from], *b = &nodes[e->to];
       gboolean bypass = e->kind == RR_GTK_GRAPH_BYPASS;
-      double from_y = pin_y(a, e->src_pin, bypass);
-      double to_y = pin_y(b, e->dst_pin, bypass);
+      gboolean control = e->kind == RR_GTK_GRAPH_CONTROL;
+      double from_y = control ? a->y + RR_GTK_GRAPH_NODE_H - 16 :
+                      pin_y(a, e->src_pin, bypass);
+      double to_y = control ? b->y + 68 : pin_y(b, e->dst_pin, bypass);
 
-      if (bypass) {
+      if (control) {
+         cairo_set_source_rgb(cr, .96, .20, .20);
+      } else if (bypass) {
          cairo_set_source_rgb(cr, .96, .65, .27);
          const double dash[] = {
             6, 5
@@ -257,7 +261,10 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
             }
          }
       } else {
-         cairo_set_source_rgb(cr, .30, .77, .92);
+         if (n->ptt_input)
+            cairo_set_source_rgb(cr, .96, .20, .20);
+         else
+            cairo_set_source_rgb(cr, .30, .77, .92);
          if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
             pin(cr, n->x, pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, TRUE);
          }
