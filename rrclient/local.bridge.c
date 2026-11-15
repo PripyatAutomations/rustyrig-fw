@@ -188,8 +188,8 @@ static void bridge_publish_ui(void) {
          view->connected = true;
          view->frequency_hz = b->frequency_hz;
          g_strlcpy(view->mode, b->mode, sizeof(view->mode));
-         /* Resolve metadata in the core context, and publish copies under
-          * the UI mutex. GTK must never touch the directory or bridge owner. */
+         /* Core-thread directory lookup; only copied metadata is exposed
+          * to GTK, never the directory entry or bridge instance pointers. */
          const receiver_directory_entry_t *receiver =
             b->url ? receiver_directory_find_url(b->url) : NULL;
          if (receiver) {
