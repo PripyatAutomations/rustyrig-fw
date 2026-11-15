@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <libfwdspmgr/dsp-worker.h>
 #include <rrclient/audio.h>
+#include <rrclient/objects.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
@@ -72,6 +74,29 @@ static const char *worker_path(const char *engine) {
    }
    return NULL;
 }
+/* Resolve RF tuning in the core event domain, never from GTK.
+ * Stream UUIDs refer to remote VFO resources; local SDRs use the VFO letter. */
+static uint64_t decoder_source_frequency(const char *source) {
+   if (!source || !*source) return 0;
+   if (g_str_has_prefix(source, "local.sdr.") &&
+       source[10] >= 'A' && source[10] <= 'Z' && !source[11]) {
+      uint64_t hz = 0;
+      return rrclient_local_bridge_state_vfo(source[10], &hz, NULL) ? hz : 0;
+   }
+   struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {0};
+   size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
+   for (size_t i = 0; i < MIN(count, G_N_ELEMENTS(streams)); i++) {
+      if (strcmp(streams[i].id, source) || !streams[i].uuid[0])
+         continue;
+      const dict *frequency = rrclient_object_property(streams[i].uuid, "frequency");
+      if (!frequency || !dict_get_bool((dict *)frequency, "property.known", false))
+         return 0;
+      long hz = dict_get_long((dict *)frequency, "property.value", 0);
+      return hz > 0 ? (uint64_t)hz : 0;
+   }
+   return 0;
+}
+
 /* Preserve each complete worker line as a discrete event. The JSON line is
  * carried verbatim so the presentation layer can interpret mode-specific data. */
 static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t n) {
@@ -84,6 +109,8 @@ static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t 
             rr_local_modem_decode_t item = {.slot = slot};
             g_strlcpy(item.source, d->source, sizeof(item.source));
             g_strlcpy(item.engine, d->engine, sizeof(item.engine));
+            g_strlcpy(item.mode, d->option, sizeof(item.mode));
+            item.frequency_hz = decoder_source_frequency(d->source);
             g_strlcpy(item.line, d->line, sizeof(item.line));
             rr_event_message_t msg = {
                .name = RR_LOCAL_MODEM_DECODE, .payload = &item, .length = sizeof(item)
