@@ -1054,6 +1054,176 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
 #endif
 }
 
+/* Small reusable parameter widgets use the same core event path as the
+ * graph's own trims. The shared floating-panel manager provides docking,
+ * roll-up and saved geometry. Stable IDs identify the target, not its row. */
+typedef struct {
+   char id[64];
+   char label[32];
+   unsigned channel;
+   gboolean port;
+   gboolean updating;
+   RRFloatPanel *panel;
+   GtkWidget *value;
+} routing_compact_control_t;
+static GPtrArray *routing_compact_controls;
+static double routing_compact_current(const routing_compact_control_t *control) {
+   if (!graph_snapshot) return 0.;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      if (strcmp(node->id, control->id)) continue;
+      return control->port ? node->port_gain_db[control->channel] :
+                             node->input_gain_db[control->channel];
+   }
+   return 0.;
+}
+static void routing_compact_changed(GtkRange *range, gpointer user) {
+   routing_compact_control_t *control = user;
+   if (control->updating) return;
+   double db = gtk_range_get_value(range);
+   if (control->port)
+      audio_request_port_gain(control->id, control->channel, db);
+   else
+      audio_request_rx_input_gain(control->id, control->channel, db);
+   if (graph_snapshot) {
+      for (guint i = 0; i < graph_snapshot->node_count; i++) {
+         rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+         if (strcmp(node->id, control->id)) continue;
+         if (control->port) node->port_gain_db[control->channel] = db;
+         else node->input_gain_db[control->channel] = db;
+         break;
+      }
+   }
+   graph_canvas_update_size();
+}
+static gboolean routing_compact_reset(GtkWidget *widget, GdkEventButton *event,
+                                       gpointer unused) {
+   (void)unused;
+   if (event->button != GDK_BUTTON_PRIMARY || event->type != GDK_2BUTTON_PRESS)
+      return FALSE;
+   gtk_range_set_value(GTK_RANGE(widget), 0.);
+   return TRUE;
+}
+static void routing_compact_destroy(gpointer pointer) {
+   routing_compact_control_t *control = pointer;
+   if (control->panel) rr_floating_panel_destroy(control->panel);
+   g_free(control);
+}
+static void routing_compact_add(const char *node_id, unsigned channel, gboolean port,
+                                const char *label, const char *kind) {
+   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook) || !node_id) return;
+   if (!routing_compact_controls)
+      routing_compact_controls = g_ptr_array_new_with_free_func(routing_compact_destroy);
+   for (guint i = 0; i < routing_compact_controls->len; i++) {
+      routing_compact_control_t *old = g_ptr_array_index(routing_compact_controls, i);
+      if (!strcmp(old->id, node_id) && old->channel == channel && old->port == port) {
+         rr_floating_panel_present(old->panel);
+         return;
+      }
+   }
+   routing_compact_control_t *control = g_new0(routing_compact_control_t, 1);
+   g_strlcpy(control->id, node_id, sizeof(control->id));
+   g_strlcpy(control->label, label && *label ? label : "Gain", sizeof(control->label));
+   control->channel = channel;
+   control->port = port;
+   char *identity = g_strdup_printf("%s:%u:%u", node_id, channel, port);
+   char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, identity, -1);
+   char *panel_id = g_strdup_printf("audio-compact-%.16s", hash);
+   g_free(hash);
+   g_free(identity);
+   control->panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
+      GTK_NOTEBOOK(main_notebook), panel_id, control->label);
+   g_free(panel_id);
+   if (!control->panel) { g_free(control); return; }
+   rr_floating_panel_set_resizable(control->panel, FALSE);
+   rr_floating_panel_set_minimizable(control->panel, TRUE);
+   GtkWidget *body = rr_floating_panel_body(control->panel);
+   gtk_box_set_spacing(GTK_BOX(body), 2);
+   GtkWidget *title = gtk_label_new(control->label);
+   gtk_widget_set_tooltip_text(title, node_id);
+   gtk_box_pack_start(GTK_BOX(body), title, FALSE, FALSE, 0);
+   gboolean vertical = !g_strcmp0(kind, "vertical");
+   GtkWidget *scale = gtk_scale_new_with_range(
+      vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL,
+      GRAPH_GAIN_MIN, GRAPH_GAIN_MAX, 1.);
+   control->value = scale;
+   gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
+   gtk_scale_set_digits(GTK_SCALE(scale), 0);
+   gtk_widget_set_size_request(scale, vertical ? 40 : 120, vertical ? 100 : 24);
+   gtk_widget_set_tooltip_text(scale, "Double-click to reset to 0 dB");
+   control->updating = TRUE;
+   gtk_range_set_value(GTK_RANGE(scale), routing_compact_current(control));
+   control->updating = FALSE;
+   g_signal_connect(scale, "value-changed", G_CALLBACK(routing_compact_changed), control);
+   gtk_widget_add_events(scale, GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(scale, "button-press-event", G_CALLBACK(routing_compact_reset), NULL);
+   gtk_box_pack_start(GTK_BOX(body), scale, FALSE, FALSE, 0);
+   g_ptr_array_add(routing_compact_controls, control);
+   gtk_widget_show_all(body);
+   rr_floating_panel_fit_content(control->panel);
+   rr_floating_panel_present(control->panel);
+}
+/* The UI deliberately presents only parameters which the core currently
+ * supports; LV2 parameters will join this selector once live port IPC exists. */
+static void routing_compact_create(GtkButton *button, gpointer unused) {
+   (void)unused;
+   GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Pin Audio Control",
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Add", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *grid = gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 8);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 5);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_box_pack_start(GTK_BOX(content), grid, TRUE, TRUE, 0);
+   GtkWidget *name = gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(name), 31);
+   gtk_entry_set_text(GTK_ENTRY(name), "Gain");
+   GtkWidget *target = gtk_combo_box_text_new();
+   GtkWidget *ear = gtk_combo_box_text_new();
+   GtkWidget *widget_kind = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ear), "0", "Left");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ear), "1", "Right");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(ear), 0);
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "horizontal", "Horizontal slider");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "vertical", "Vertical slider");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
+   if (graph_snapshot) {
+      for (guint i = 0; i < graph_snapshot->node_count; i++) {
+         rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+         if (graph_missing_since[i] || !routing_gain_supported(node)) continue;
+         char *id = g_strdup_printf("%c%s", routing_gain_input(node) ? 'I' : 'P',
+                                    node->id);
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), id, node->id);
+         if (graph_focus_id && !strcmp(graph_focus_id, node->id))
+            gtk_combo_box_set_active_id(GTK_COMBO_BOX(target), id);
+         g_free(id);
+      }
+   }
+   if (gtk_combo_box_get_active(GTK_COMBO_BOX(target)) < 0)
+      gtk_combo_box_set_active(GTK_COMBO_BOX(target), 0);
+   GtkWidget *widgets[] = {name, target, ear, widget_kind};
+   const char *names[] = {"Label", "Parameter", "Channel", "Widget"};
+   for (int i = 0; i < 4; i++) {
+      GtkWidget *label = gtk_label_new(names[i]);
+      gtk_widget_set_halign(label, GTK_ALIGN_END);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), widgets[i], 1, i, 1, 1);
+   }
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(target));
+      const char *channel = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear));
+      const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(widget_kind));
+      if (id && *id && channel && kind)
+         routing_compact_add(id + 1, (unsigned)atoi(channel), *id == 'P',
+             gtk_entry_get_text(GTK_ENTRY(name)), kind);
+   }
+   gtk_widget_destroy(dialog);
+}
+
 static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
                                       gboolean keyboard, GtkTooltip *tooltip,
                                       gpointer unused) {
@@ -1830,6 +2000,11 @@ void gtk_audio_graph_present(void) {
          "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
       g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), snap_grid, FALSE, FALSE, 0);
+      GtkWidget *pin_control = gtk_button_new_with_label("Pin Control…");
+      gtk_widget_set_tooltip_text(pin_control,
+         "Create a small dockable gain slider bound to an audio routing pin");
+      g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
+      gtk_box_pack_end(GTK_BOX(profiles), pin_control, FALSE, FALSE, 0);
       GtkWidget *add_effect = gtk_button_new_with_label("Add Effect…");
       gtk_widget_set_tooltip_text(add_effect,
          "Add an installed LV2 effect to a GStreamer pipeline, executed by an isolated fwdsp worker");
@@ -2150,6 +2325,10 @@ void gtk_audio_routing_shutdown(void) {
       show_token = 0;
    }
 
+   if (routing_compact_controls) {
+      g_ptr_array_unref(routing_compact_controls);
+      routing_compact_controls = NULL;
+   }
    rr_floating_panel_destroy(routing_panel);
    routing_panel = NULL;
    rx_vol_slider = NULL;
