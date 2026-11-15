@@ -188,6 +188,18 @@ static void bridge_publish_ui(void) {
          view->connected = true;
          view->frequency_hz = b->frequency_hz;
          g_strlcpy(view->mode, b->mode, sizeof(view->mode));
+         /* Resolve metadata in the core context, and publish copies under
+          * the UI mutex. GTK must never touch the directory or bridge owner. */
+         const receiver_directory_entry_t *receiver =
+            b->url ? receiver_directory_find_url(b->url) : NULL;
+         if (receiver) {
+            g_strlcpy(view->receiver_name,
+                      receiver->name ? receiver->name : "",
+                      sizeof(view->receiver_name));
+            g_strlcpy(view->receiver_location,
+                      receiver->location ? receiver->location : "",
+                      sizeof(view->receiver_location));
+         }
          view->waterfall = (b->caps.flags & RRP_BRIDGE_WATERFALL) != 0;
          view->min_zoom = b->caps.waterfall_zoom_min;
          view->max_zoom = b->caps.waterfall_zoom_max;
