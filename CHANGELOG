@@ -1,5 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Fix New Server and Edit Server actions appearing unresponsive when
+    the Server Picker is opened on Status or Log: explicitly present
+    the editor above auto-hidden floating panels, without revealing
+    unrelated panels or changing the user's manual hide setting.
   * Constrain the AF waterfall's frequency axis, zoom and pan to the
     selected stream's native Nyquist, rather than always showing
     0-8 kHz of 16 kHz resampled PCM. Propagate bridge source sample
