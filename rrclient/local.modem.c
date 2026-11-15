@@ -132,6 +132,21 @@ static gboolean poll_decoders(gpointer unused) {
    }
    return G_SOURCE_CONTINUE;
 }
+size_t rr_local_modem_routes(rr_local_modem_route_t *routes, size_t capacity) {
+   if (!routes || !capacity) return 0;
+   size_t count = 0;
+   g_mutex_lock(&decoder_lock);
+   for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX && count < capacity; i++) {
+      const decoder_t *d = &decoders[i];
+      if (!d->active) continue;
+      routes[count].slot = i + 1;
+      g_strlcpy(routes[count].source, d->source, sizeof(routes[count].source));
+      g_strlcpy(routes[count].engine, d->engine, sizeof(routes[count].engine));
+      count++;
+   }
+   g_mutex_unlock(&decoder_lock);
+   return count;
+}
 void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) {
    if (!source || !pcm || !frames || frames > 2048 ||
        !g_mutex_trylock(&decoder_lock)) return;
