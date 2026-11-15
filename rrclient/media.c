@@ -473,7 +473,8 @@ void rrclient_media_sync_audio(void) {
       if (channel->uuid[0] && channel->subscribed && !channel->disabled && channel->codec[0] &&
          (!channel->room[0] || channel->joined) && channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO && channel->direction == RR_BINFRAME_DIR_RX) {
          channels[count++] = (struct rrclient_rx_audio) {
-            channel->uuid, channel->codec, channel->room
+            channel->uuid, channel->codec, channel->room,
+            channel->source_rate_hz
          };
       }
    }
@@ -891,6 +892,11 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          kp->direction = dir;
          kp->vfo = vfo;
          kp->rig = rig;
+         /* Absent on older servers and non-bridge sources. Never mistake
+          * the decoder's 16 kHz output rate for the original SDR clock. */
+         uint32_t source_rate = dict_get_ulong(d, "media.source-rate", 0);
+         kp->source_rate_hz = source_rate >= 8000 && source_rate <= 192000 ?
+            source_rate : 0;
          snprintf(kp->rig_uuid, sizeof(kp->rig_uuid), "%s", dict_get(d, "media.rig-uuid", ""));
          snprintf(kp->vfo_uuid, sizeof(kp->vfo_uuid), "%s", dict_get(d, "media.vfo-uuid", ""));
          const char *room = dict_get(d, "media.room", "");
