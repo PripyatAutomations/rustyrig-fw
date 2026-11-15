@@ -1172,6 +1172,121 @@ GtkWidget *rr_pipeline_editor_new(const gchar *json,
                           editor_destroy);
    return widget;
 }
+static gboolean lv2_effect_filter(GtkTreeModel *model, GtkTreeIter *iter, gpointer user);
+/* The GTK registry is an editor/catalog only. The instantiated GStreamer
+ * LV2 element is ultimately hosted by the standalone fwdsp child when the
+ * pipeline configuration is applied and that worker is restarted. */
+void rr_pipeline_editor_add_effect(GtkWidget *widget) {
+   editor_t *editor = widget ? g_object_get_data(G_OBJECT(widget),
+                                                "rr-pipeline-editor") : NULL;
+   if (!editor || editor->read_only) return;
+   pipeline_entry_t *pipeline = active_pipeline(editor);
+   if (!pipeline || !pipeline->graph) {
+      show_error(editor, "Select a pipeline before adding an LV2 effect.");
+      return;
+   }
+   if (!flush_properties_with_dialog(editor)) return;
+   GtkWidget *owner = gtk_widget_get_toplevel(editor->window);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(
+      "Add LV2 Effect", GTK_IS_WINDOW(owner) ? GTK_WINDOW(owner) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Add Effect", GTK_RESPONSE_ACCEPT, NULL);
+   gtk_window_set_default_size(GTK_WINDOW(dialog), 540, 370);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *search = gtk_search_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Find LV2 effect…");
+   gtk_box_pack_start(GTK_BOX(area), search, FALSE, FALSE, 6);
+   GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
+   GList *features = gst_registry_get_feature_list(gst_registry_get(),
+                                                    GST_TYPE_ELEMENT_FACTORY);
+   guint available = 0;
+   for (GList *item = features; item; item = item->next) {
+      GstElementFactory *factory = item->data;
+      const char *provider = gst_plugin_feature_get_plugin_name(
+         GST_PLUGIN_FEATURE(factory));
+      if (g_strcmp0(provider, "lv2")) continue;
+      GtkTreeIter row;
+      gtk_list_store_append(store, &row);
+      gtk_list_store_set(store, &row, 0,
+         gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)),
+         1, gst_element_factory_get_description(factory), -1);
+      available++;
+   }
+   gst_plugin_feature_list_free(features);
+   GtkTreeModel *filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(store), NULL);
+   GtkWidget *view = gtk_tree_view_new_with_model(filtered);
+   GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+   gtk_tree_view_append_column(GTK_TREE_VIEW(view),
+      gtk_tree_view_column_new_with_attributes("LV2 Effect", renderer, "text", 0, NULL));
+   renderer = gtk_cell_renderer_text_new();
+   gtk_tree_view_append_column(GTK_TREE_VIEW(view),
+      gtk_tree_view_column_new_with_attributes("Description", renderer, "text", 1, NULL));
+   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(view), TRUE);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_vexpand(scroll, TRUE);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_container_add(GTK_CONTAINER(scroll), view);
+   gtk_box_pack_start(GTK_BOX(area), scroll, TRUE, TRUE, 0);
+   GtkWidget *hint = gtk_label_new(available ?
+      "The new effect starts disconnected. Connect its audio pins, configure its parameters, then Apply the pipeline." :
+      "No GStreamer LV2 effects found. Install the GStreamer LV2 plugin and LV2 bundles on this processing host.");
+   gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
+   gtk_widget_set_halign(hint, GTK_ALIGN_START);
+   gtk_box_pack_start(GTK_BOX(area), hint, FALSE, FALSE, 6);
+   gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT,
+                                     available != 0);
+   /* Refilter while typing without using the general toolbox's search state. */
+   g_object_set_data(G_OBJECT(filtered), "rr-lv2-search", search);
+   gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered),
+      (GtkTreeModelFilterVisibleFunc)lv2_effect_filter, search, NULL);
+   g_signal_connect_swapped(search, "changed",
+      G_CALLBACK(gtk_tree_model_filter_refilter), filtered);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(view));
+      GtkTreeModel *model = NULL;
+      GtkTreeIter selected;
+      if (gtk_tree_selection_get_selected(selection, &model, &selected)) {
+         gchar *factory = NULL;
+         gtk_tree_model_get(model, &selected, 0, &factory, -1);
+         guint index = 0;
+         GError *error = NULL;
+         if (rr_pipeline_graph_add_element(pipeline->graph, factory,
+             40 + rr_pipeline_graph_node_count(pipeline->graph) % 4 * 190,
+             40 + rr_pipeline_graph_node_count(pipeline->graph) / 4 * 110,
+             &index, &error)) {
+            editor->selected_node = (gint)index;
+            refresh_canvas(editor);
+            refresh_properties(editor);
+         } else {
+            show_error(editor, error ? error->message : "Cannot insert LV2 effect.");
+         }
+         g_clear_error(&error);
+         g_free(factory);
+      }
+   }
+   gtk_widget_destroy(dialog);
+   g_object_unref(filtered);
+   g_object_unref(store);
+}
+static gboolean lv2_effect_filter(GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+   GtkWidget *search = user;
+   gchar *name = NULL, *description = NULL;
+   gtk_tree_model_get(model, iter, 0, &name, 1, &description, -1);
+   const gchar *query = gtk_entry_get_text(GTK_ENTRY(search));
+   gchar *folded_query = g_utf8_casefold(query, -1);
+   gchar *folded_name = g_utf8_casefold(name ? name : "", -1);
+   gchar *folded_description = g_utf8_casefold(description ? description : "", -1);
+   gboolean matches = strstr(folded_name, folded_query) ||
+                      strstr(folded_description, folded_query);
+   g_free(name);
+   g_free(description);
+   g_free(folded_query);
+   g_free(folded_name);
+   g_free(folded_description);
+   return matches;
+}
 void rr_pipeline_editor_select(GtkWidget *widget, const gchar *id) {
    editor_t *editor = widget ? g_object_get_data(G_OBJECT(widget),
                                                 "rr-pipeline-editor") : NULL;
