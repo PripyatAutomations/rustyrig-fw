@@ -201,6 +201,17 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_show_text(cr, n->detail);
       }
 
+      if (n->ptt_pin) {
+         /* Modem PTT is a separate digital output, intentionally disabled
+          * until rig selection and transmit permissions are enforced. */
+         const double px = n->x + RR_GTK_GRAPH_NODE_W;
+         const double py = n->y + RR_GTK_GRAPH_NODE_H - 16;
+         cairo_set_source_rgb(cr, .45, .46, .48);
+         pin(cr, px, py, FALSE, FALSE);
+         cairo_set_font_size(cr, 9);
+         cairo_move_to(cr, px - 42, py - 7);
+         cairo_show_text(cr, "PTT");
+      }
       if (n->fwdsp) {
          cairo_set_source_rgb(cr, .98, .77, .43);
          cairo_set_font_size(cr, 9);
