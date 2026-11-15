@@ -21,6 +21,7 @@ struct rr_floating_panel {
    GtkNotebook *tabs;
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
+   gboolean temporarily_hidden; /* never persisted, never a minimize */
    gint saved_width, saved_height, opacity;
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
@@ -51,6 +52,41 @@ typedef struct panel_position {
 #define SNAP_RELEASE 26
 #define PANEL_GAP 12
 static GList *floating_panels;
+static guint panel_hide_reasons;
+
+/* Hide only panels actually visible on entry. The transient bit is kept
+ * separately from persisted minimized/rolled/closed state. Never hide
+ * modal dialogs, and prevent a parent show_all() from exposing a panel
+ * while its hiding reason is still active. */
+static void panel_temporary_visibility(RRFloatPanel *p) {
+   if (!p || !p->frame || p->modal) return;
+   if (panel_hide_reasons) {
+      if (!p->minimized && gtk_widget_get_visible(p->frame))
+         p->temporarily_hidden = TRUE;
+      gtk_widget_set_no_show_all(p->frame, TRUE);
+      if (p->temporarily_hidden) gtk_widget_hide(p->frame);
+   } else {
+      gtk_widget_set_no_show_all(p->frame, FALSE);
+      if (p->temporarily_hidden) {
+         p->temporarily_hidden = FALSE;
+         if (!p->minimized) gtk_widget_show(p->frame);
+      }
+   }
+}
+void rr_floating_panels_set_hidden(guint reason, gboolean hidden) {
+   const guint supported = RR_FLOATING_HIDE_MANUAL | RR_FLOATING_HIDE_TAB;
+   reason &= supported;
+   if (!reason) return;
+   guint next = hidden ? panel_hide_reasons | reason : panel_hide_reasons & ~reason;
+   if (next == panel_hide_reasons) return;
+   panel_hide_reasons = next;
+   for (GList *it = floating_panels; it; it = it->next)
+      panel_temporary_visibility(it->data);
+}
+gboolean rr_floating_panels_hidden(guint reason) {
+   return (panel_hide_reasons & reason) != 0;
+}
+
 
 static GHashTable *panel_positions(GtkOverlay *overlay) {
    GHashTable *positions = g_object_get_data(G_OBJECT(overlay), "rr-panel-positions");
@@ -683,6 +719,7 @@ void rr_floating_panel_restore(RRFloatPanel *p) {
    panel_raise(p);
    panel_chrome(p);
    panel_state_save(p);
+   panel_temporary_visibility(p);
 }
 
 static void panel_restore(GtkButton *button, gpointer data) {
@@ -704,6 +741,7 @@ static void panel_minimize(GtkButton *button, gpointer data) {
       return;
    }
    p->minimized = TRUE;
+   p->temporarily_hidden = FALSE;
    panel_chrome(p);
    panel_state_save(p);
 }
@@ -739,6 +777,8 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
    if (!p) {
       return;
    }
+   /* An explicit close/hide must not be undone by leaving Status/Log. */
+   p->temporarily_hidden = FALSE;
    panel_drag_cancel_tick(p);
    p->dragging = FALSE;
 
@@ -1258,6 +1298,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    if (!p->initial_center_pending) {
       panel_state_save(p);
    }
+   panel_temporary_visibility(p);
 }
 
 void rr_floating_panel_destroy(RRFloatPanel *p) {
