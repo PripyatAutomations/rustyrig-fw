@@ -3,10 +3,14 @@
 
 CFLAGS_LIBFWDSPMGR = ${MEDIA_CFLAGS} -I${BUILD_DIR}
 
-libfwdspmgr_objs := fwdsp-mgr.o fwdsp-ctl.o fwdsp-video.o dsp-worker.o
+libfwdspmgr_objs := fwdsp-mgr.o fwdsp-ctl.o fwdsp-video.o dsp-worker.o pipeline.recipe.o
 
 # Public header consumers (rrserver/rrclient) include <libfwdspmgr/fwdsp-mgr.h>
-BUILD_HEADERS += ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h
+BUILD_HEADERS += ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h ${BUILD_DIR}/libfwdspmgr/pipeline.recipe.h
+
+${BUILD_DIR}/libfwdspmgr/pipeline.recipe.h: libfwdspmgr/pipeline.recipe.h GNUmakefile
+	@mkdir -p $(dir $@)
+	@cp $< $@
 
 ${BUILD_DIR}/libfwdspmgr/dsp-worker.h: libfwdspmgr/dsp-worker.h GNUmakefile
 	@mkdir -p $(dir $@)
