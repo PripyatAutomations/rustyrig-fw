@@ -1478,6 +1478,237 @@ static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unus
     * panels are touched by this toggle. */
    graph_canvas_update_size();
 }
+/* Controls are cyan/blue diamonds, not PCM nodes. Blue sockets and
+ * dashed blue wires identify parameter signals exclusively. */
+#define ROUTING_CONTROL_WIDTH 112.
+#define ROUTING_CONTROL_HEIGHT 58.
+static void routing_compact_bounds(double *width, double *height) {
+   if (!routing_compact_controls) return;
+   for (guint i = 0; i < routing_compact_controls->len; i++) {
+      const routing_compact_control_t *item = g_ptr_array_index(routing_compact_controls, i);
+      *width = MAX(*width, item->x + ROUTING_CONTROL_WIDTH + GRAPH_LAYOUT_MARGIN);
+      *height = MAX(*height, item->y + ROUTING_CONTROL_HEIGHT + GRAPH_LAYOUT_MARGIN);
+   }
+}
+static gboolean routing_compact_target(const routing_compact_control_t *item,
+                                        double *x, double *y) {
+   if (!graph_snapshot) return FALSE;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      if (strcmp(node->id, item->id) || graph_missing_since[i] ||
+          !routing_gain_supported(node)) continue;
+      /* The target socket is painted over the L/R trim's actual slider.
+       * Keep that control pin visually separate from the PCM connector. */
+      *x = routing_node_x(node) + RR_GTK_GRAPH_NODE_W - GRAPH_GAIN_W - 12.;
+      *y = routing_node_y(node) + (item->channel ? 79. : 60.);
+      return TRUE;
+   }
+   return FALSE;
+}
+static void routing_compact_draw(cairo_t *cr) {
+   if (!routing_controls_visible || !routing_compact_controls) return;
+   for (guint i = 0; i < routing_compact_controls->len; i++) {
+      const routing_compact_control_t *item = g_ptr_array_index(routing_compact_controls, i);
+      const double cx = item->x + ROUTING_CONTROL_WIDTH / 2.;
+      const double cy = item->y + ROUTING_CONTROL_HEIGHT / 2.;
+      double tx, ty;
+      gboolean target = routing_compact_target(item, &tx, &ty);
+      double start_x = item->x + ROUTING_CONTROL_WIDTH;
+      if (routing_control_drag_index == (gint)i && routing_control_drag_wire) {
+         tx = item->pointer_x; ty = item->pointer_y;
+         target = TRUE;
+      }
+      if (target) {
+         cairo_set_source_rgba(cr, .17, .62, 1., .90);
+         cairo_set_line_width(cr, 2.2);
+         const double dash[] = {5., 4.};
+         cairo_set_dash(cr, dash, 2, 0.);
+         cairo_move_to(cr, start_x, cy);
+         cairo_curve_to(cr, (start_x + tx) / 2., cy,
+                           (start_x + tx) / 2., ty, tx, ty);
+         cairo_stroke(cr);
+         cairo_set_dash(cr, NULL, 0, 0);
+         cairo_arc(cr, tx, ty, 5.5, 0, 2 * G_PI);
+         cairo_set_line_width(cr, 2.);
+         cairo_stroke(cr);
+      }
+      cairo_new_path(cr);
+      cairo_move_to(cr, item->x, cy);
+      cairo_line_to(cr, cx, item->y);
+      cairo_line_to(cr, item->x + ROUTING_CONTROL_WIDTH, cy);
+      cairo_line_to(cr, cx, item->y + ROUTING_CONTROL_HEIGHT);
+      cairo_close_path(cr);
+      cairo_set_source_rgba(cr, .10, .28, .46, .96);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgb(cr, .23, .69, 1.);
+      cairo_set_line_width(cr, 2.2);
+      cairo_stroke(cr);
+      cairo_arc(cr, start_x, cy, 5., 0, 2 * G_PI);
+      cairo_set_source_rgb(cr, .26, .72, 1.);
+      cairo_fill(cr);
+      cairo_set_source_rgb(cr, .94, .97, 1.);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr, 10.);
+      cairo_text_extents_t ext;
+      cairo_text_extents(cr, item->label, &ext);
+      cairo_move_to(cr, cx - ext.width / 2. - ext.x_bearing, cy - 1.);
+      cairo_show_text(cr, item->label);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_NORMAL);
+      cairo_set_font_size(cr, 8.);
+      const char *subtitle = item->kind[0] ? item->kind : "control";
+      cairo_text_extents(cr, subtitle, &ext);
+      cairo_move_to(cr, cx - ext.width / 2. - ext.x_bearing, cy + 12.);
+      cairo_show_text(cr, subtitle);
+   }
+}
+static void routing_compact_properties(routing_compact_control_t *item) {
+   GtkWidget *owner = gtk_widget_get_toplevel(graph_canvas);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Control Properties",
+      GTK_IS_WINDOW(owner) ? GTK_WINDOW(owner) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 10);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+                      grid, TRUE, TRUE, 0);
+   GtkWidget *fields[5];
+   const char *captions[] = {"Label", "Minimum", "Maximum", "Step", "Unit"};
+   char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE];
+   char step[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_formatd(min, sizeof(min), "%g", item->minimum);
+   g_ascii_formatd(max, sizeof(max), "%g", item->maximum);
+   g_ascii_formatd(step, sizeof(step), "%g", item->step);
+   const char *values[] = {item->has_label ? item->label : "",
+      item->has_minimum ? min : "", item->has_maximum ? max : "",
+      item->has_step ? step : "", item->has_unit ? item->unit : ""};
+   for (unsigned i = 0; i < 5; i++) {
+      GtkWidget *label = gtk_label_new(captions[i]);
+      gtk_widget_set_halign(label, GTK_ALIGN_END);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
+      fields[i] = gtk_entry_new();
+      gtk_entry_set_max_length(GTK_ENTRY(fields[i]), i == 0 ? 31 : i == 4 ? 15 : 24);
+      gtk_entry_set_text(GTK_ENTRY(fields[i]), values[i]);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(fields[i]),
+         i == 0 ? item->label : i == 1 ? min : i == 2 ? max : i == 3 ? step : item->unit);
+      gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
+   }
+   GtkWidget *hint = gtk_label_new(
+      "Leave a property blank to inherit from the bound parameter. "
+      "Gain pins currently support -60…+12 dB; LV2 port metadata will supply its own ranges.");
+   gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
+   gtk_grid_attach(GTK_GRID(grid), hint, 0, 5, 2, 1);
+   gtk_widget_show_all(dialog);
+   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *name = gtk_entry_get_text(GTK_ENTRY(fields[0]));
+      const char *unit = gtk_entry_get_text(GTK_ENTRY(fields[4]));
+      const char *str_min = gtk_entry_get_text(GTK_ENTRY(fields[1]));
+      const char *str_max = gtk_entry_get_text(GTK_ENTRY(fields[2]));
+      const char *str_step = gtk_entry_get_text(GTK_ENTRY(fields[3]));
+      double mn = GRAPH_GAIN_MIN, mx = GRAPH_GAIN_MAX, st = 1.;
+      gboolean hm = routing_compact_parse_number(str_min, &mn);
+      gboolean hx = routing_compact_parse_number(str_max, &mx);
+      gboolean hs = routing_compact_parse_number(str_step, &st);
+      gboolean valid = (!*str_min || hm) && (!*str_max || hx) &&
+                       (!*str_step || hs) && st > 0 && mn < mx &&
+                       mn >= GRAPH_GAIN_MIN && mx <= GRAPH_GAIN_MAX;
+      if (!valid) {
+         GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog),
+            GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+            "Use finite numbers with min < max, a positive step and "
+            "limits within the target's supported range.");
+         gtk_dialog_run(GTK_DIALOG(error));
+         gtk_widget_destroy(error);
+         continue;
+      }
+      item->has_label = *name != 0;
+      if (item->has_label) g_strlcpy(item->label, name, sizeof(item->label));
+      item->has_unit = *unit != 0;
+      if (item->has_unit) g_strlcpy(item->unit, unit, sizeof(item->unit));
+      item->has_minimum = hm;
+      item->has_maximum = hx;
+      item->has_step = hs;
+      item->minimum = mn; item->maximum = mx; item->step = st;
+      routing_compact_apply_hints(item);
+      routing_compact_apply_widget(item);
+      routing_compact_save(item);
+      graph_canvas_update_size();
+      break;
+   }
+   gtk_widget_destroy(dialog);
+}
+static gboolean routing_compact_hit(double x, double y, gboolean dbl) {
+   if (!routing_controls_visible || !routing_compact_controls) return FALSE;
+   for (gint i = (gint)routing_compact_controls->len - 1; i >= 0; i--) {
+      routing_compact_control_t *item = g_ptr_array_index(routing_compact_controls, i);
+      double cy = item->y + ROUTING_CONTROL_HEIGHT / 2.;
+      double cx = item->x + ROUTING_CONTROL_WIDTH / 2.;
+      /* Diamond hit region, including a small radius around the blue pin. */
+      if (fabs(x - cx) / (ROUTING_CONTROL_WIDTH / 2.) +
+          fabs(y - cy) / (ROUTING_CONTROL_HEIGHT / 2.) > 1.15) continue;
+      if (dbl) {
+         routing_compact_properties(item);
+         return TRUE;
+      }
+      routing_control_drag_index = i;
+      routing_control_drag_wire = x >= item->x + ROUTING_CONTROL_WIDTH - 15.;
+      item->start_x = x - item->x;
+      item->start_y = y - item->y;
+      item->pointer_x = x; item->pointer_y = y;
+      item->position_dirty = FALSE;
+      return TRUE;
+   }
+   return FALSE;
+}
+static gboolean routing_compact_drag_motion(double x, double y) {
+   if (!routing_compact_controls || routing_control_drag_index < 0 ||
+       (guint)routing_control_drag_index >= routing_compact_controls->len)
+      return FALSE;
+   routing_compact_control_t *item =
+      g_ptr_array_index(routing_compact_controls, routing_control_drag_index);
+   if (routing_control_drag_wire) {
+      item->pointer_x = x;
+      item->pointer_y = y;
+   } else {
+      double nx = CLAMP(x - item->start_x, 0., 100000.);
+      double ny = CLAMP(y - item->start_y, 0., 100000.);
+      if (fabs(nx - item->x) > .1 || fabs(ny - item->y) > .1)
+         item->position_dirty = TRUE;
+      item->x = nx; item->y = ny;
+   }
+   graph_canvas_update_size();
+   return TRUE;
+}
+static gboolean routing_compact_drag_release(double x, double y) {
+   if (!routing_compact_controls || routing_control_drag_index < 0 ||
+       (guint)routing_control_drag_index >= routing_compact_controls->len)
+      return FALSE;
+   routing_compact_control_t *item =
+      g_ptr_array_index(routing_compact_controls, routing_control_drag_index);
+   if (routing_control_drag_wire) {
+      gint index = -1, channel = -1;
+      gboolean port = FALSE;
+      if (graph_gain_at(x, y, &index, &channel, &port) &&
+          index >= 0 && graph_snapshot && channel >= 0) {
+         const rr_ag_view_node_t *target = &graph_snapshot->nodes[index];
+         g_strlcpy(item->id, target->id, sizeof(item->id));
+         item->channel = (unsigned)channel;
+         item->port = port;
+         routing_compact_apply_hints(item);
+         routing_compact_apply_widget(item);
+         routing_compact_save(item);
+      }
+   } else if (item->position_dirty) {
+      routing_compact_save(item);
+   }
+   routing_control_drag_index = -1;
+   routing_control_drag_wire = FALSE;
+   graph_canvas_update_size();
+   return TRUE;
+}
 /* The UI deliberately presents only parameters which the core currently
  * supports; LV2 parameters will join this selector once live port IPC exists. */
 static void routing_compact_create(GtkButton *button, gpointer unused) {
