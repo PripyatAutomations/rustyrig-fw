@@ -1232,8 +1232,14 @@ char *receiver_directory_info(void) {
    dict_free(published_json);
    GDateTime *date = *published ? g_date_time_new_from_iso8601(published, NULL) : NULL;
    char *age = date ? g_strdup_printf("%lld minutes old", (long long)MAX(0, (now - g_date_time_to_unix(date)) / 60)) : g_strdup("age unknown");
-   char *info = g_strdup_printf("Refresh source: %s\nDirectory published: %s (%s)", source
-      && *source ? source : "Local import / unconfigured", *published ? published : "Not supplied", age);
+   char *info = g_strdup_printf(
+      "Refresh source: %s\nDirectory published: %s (%s)\n"
+      "Next local mirror check: %s%s%s",
+      source && *source ? source : "Local import / unconfigured",
+      *published ? published : "Not supplied", age,
+      next_request > time(NULL) ? "scheduled" : "due",
+      last_fetch_error[0] ? "\nLast mirror error: " : "",
+      last_fetch_error[0] ? last_fetch_error : "");
 
    if (date) {
       g_date_time_unref(date);
