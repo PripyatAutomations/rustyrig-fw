@@ -18,6 +18,7 @@
 #include <glib.h>
 #include <librrprotocol/bridge.ipc.h>
 #include <librrprotocol/bridge.media.h>
+#include <rrbridge/spectrum.row.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/wire.h>
 #include <librustyaxe/transport.h>
@@ -54,7 +55,8 @@ struct bridge_child {
    bool rx_requested;
    rr_backend_t *backend;
    subproc_t process;
-   int fd, media_fd;
+   int fd, media_fd, spectrum_fd;
+   uint64_t spectrum_rows, spectrum_invalid;
    unsigned sample_rate;
    char resampler[64];
    bool hello, ready, online, desired, idling, terminal_failure;
@@ -333,6 +335,8 @@ static void disconnect(struct bridge_child *b) {
    }
    b->fd = -1;
 
+   if (b->spectrum_fd >= 0) close(b->spectrum_fd);
+   b->spectrum_fd = -1;
    if (b->media_fd >= 0) {
       close(b->media_fd);
    }
@@ -441,7 +445,7 @@ static bool create(rr_backend_t *backend) {
    }
    b->backend = backend;
    b->process = (subproc_t) SUBPROC_INIT;
-   b->fd = b->media_fd = -1;
+   b->fd = b->media_fd = b->spectrum_fd = -1;
    static unsigned identity;
    snprintf(b->resampler, sizeof(b->resampler), "proc.bridge-%u", ++identity);
    boolean(backend->owner, "online", false);
@@ -676,49 +680,44 @@ static bool spawn_child(struct bridge_child *b) {
    const char *argv[] = {
       path, "--config", b->runtime_config ? b->runtime_config : config_path, "--bridge", b->name, NULL
    };
-   int sv[2], media[2];
-
-   if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sv)) {
+   int sv[2] = {-1, -1}, media[2] = {-1, -1}, spectrum[2] = {-1, -1};
+   if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sv) ||
+       socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, media) ||
+       socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, spectrum)) {
+      for (unsigned i = 0; i < 2; i++) {
+         if (sv[i] >= 0) close(sv[i]);
+         if (media[i] >= 0) close(media[i]);
+         if (spectrum[i] >= 0) close(spectrum[i]);
+      }
       g_free(path);
-
-      return false;
-   }
-
-   if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, media)) {
-      close(sv[0]);
-      close(sv[1]);
-      g_free(path);
-
       return false;
    }
    int capacity = 16384;
    setsockopt(media[1], SOL_SOCKET, SO_SNDBUF, &capacity, sizeof(capacity));
-   subproc_fd_t map[] = { {
-                             sv[1], RRP_BRIDGE_IPC_FD
-                          }, {
-                             media[1], RRP_BRIDGE_MEDIA_FD
-                          } };
+   /* Waterfall is lossy and completely independent of PCM/control. */
+   setsockopt(spectrum[1], SOL_SOCKET, SO_SNDBUF, &capacity, sizeof(capacity));
+   subproc_fd_t map[] = {
+      { sv[1], RRP_BRIDGE_IPC_FD },
+      { media[1], RRP_BRIDGE_MEDIA_FD },
+      { spectrum[1], RR_BRIDGE_SPECTRUM_FD }
+   };
    int closes[] = {
-      sv[0], sv[1], media[0], media[1]
+      sv[0], sv[1], media[0], media[1], spectrum[0], spectrum[1]
    };
    const char *profile = cfg_get("scheduler.rrbridge.profile");
-
-   if (!profile || !*profile) {
-      profile = "normal";
-   }
-   bool ok = subproc_spawn_fds_profile(&b->process, path, argv, map, 2, closes, 4, profile);
-   close(sv[1]);
-   close(media[1]);
+   if (!profile || !*profile) profile = "normal";
+   bool ok = subproc_spawn_fds_profile(&b->process, path, argv, map, 3, closes, 6, profile);
+   close(sv[1]); close(media[1]); close(spectrum[1]);
    g_free(path);
-
    if (!ok) {
-      close(sv[0]);
-      close(media[0]);
-
+      close(sv[0]); close(media[0]); close(spectrum[0]);
       return false;
    }
+   fcntl(spectrum[0], F_SETFL, fcntl(spectrum[0], F_GETFL) | O_NONBLOCK);
    b->fd = sv[0];
    b->media_fd = media[0];
+   b->spectrum_fd = spectrum[0];
+   b->spectrum_rows = b->spectrum_invalid = 0;
    memset(&b->stats, 0, sizeof(b->stats));
    b->started = b->last_seen = mono_us();
    b->kill_deadline = 0;
@@ -1053,6 +1052,27 @@ static void read_media(struct bridge_child *b) {
       }
    }
 }
+/* Native row IPC is same-host only. Network publishing must use a
+ * versioned endian-defined payload and explicit subscriber authorization.
+ * Consume a bounded number of rows so a busy Kiwi never starves PCM. */
+static void read_spectrum(struct bridge_child *b) {
+   for (unsigned i = 0; i < 4 && b->spectrum_fd >= 0; i++) {
+      rr_bridge_spectrum_row row;
+      int got = rr_bridge_spectrum_recv(b->spectrum_fd, &row);
+      if (!got) break;
+      if (got < 0) {
+         b->spectrum_invalid++;
+         Log(LOG_WARN, "bridge.rf", "[%s] spectrum IPC ended or invalid; audio unaffected",
+             bridge_public_name(b));
+         close(b->spectrum_fd);
+         b->spectrum_fd = -1;
+         break;
+      }
+      if (!b->online || !(b->caps.flags & RRP_BRIDGE_WATERFALL)) continue;
+      b->spectrum_rows++;
+      /* TODO: versioned client publication and authenticated subscription. */
+   }
+}
 void rrserver_bridges_poll(void) {
    if (stopping || !config_path) {
       return;
@@ -1156,9 +1176,8 @@ void rrserver_bridges_poll(void) {
          }
       }
 
-      if (b->ready && b->media_fd >= 0) {
-         read_media(b);
-      }
+      if (b->ready && b->media_fd >= 0) read_media(b);
+      if (b->ready && b->spectrum_fd >= 0) read_spectrum(b);
 
       // Reset backoff only after a stable session, never on a crash loop.
       if (b->ready && current - b->started >= 30000000) {
