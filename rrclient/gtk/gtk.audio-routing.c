@@ -1358,6 +1358,119 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    rr_floating_panel_fit_content(control->panel);
    rr_floating_panel_present(control->panel);
 }
+/* Save explicit overrides separately from inferred binding metadata. The
+ * existing floating-panel manager stores independent panel coordinates. */
+static void routing_compact_save(const routing_compact_control_t *control) {
+   if (!control || !routing_compact_controls) return;
+   GString *ids = g_string_new(NULL);
+   for (guint i = 0; i < routing_compact_controls->len; i++) {
+      const routing_compact_control_t *item = g_ptr_array_index(routing_compact_controls, i);
+      if (i) g_string_append_c(ids, ',');
+      g_string_append(ids, item->uuid);
+   }
+   rrclient_database_setting_set("audio.controls.ids", ids->str);
+   g_string_free(ids, TRUE);
+   const char *fields[] = {"target", "label", "kind", "port", "channel",
+                            "x", "y", "min", "max", "step", "unit"};
+   char port[4], channel[4], x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
+   char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE], step[G_ASCII_DTOSTR_BUF_SIZE];
+   g_snprintf(port, sizeof(port), "%d", control->port ? 1 : 0);
+   g_snprintf(channel, sizeof(channel), "%u", control->channel);
+   g_ascii_formatd(x, sizeof(x), "%.3f", control->x);
+   g_ascii_formatd(y, sizeof(y), "%.3f", control->y);
+   g_ascii_formatd(min, sizeof(min), "%.8g", control->minimum);
+   g_ascii_formatd(max, sizeof(max), "%.8g", control->maximum);
+   g_ascii_formatd(step, sizeof(step), "%.8g", control->step);
+   const char *values[] = {control->id,
+      control->has_label ? control->label : "", control->kind, port, channel,
+      x, y, control->has_minimum ? min : "", control->has_maximum ? max : "",
+      control->has_step ? step : "", control->has_unit ? control->unit : ""};
+   for (guint i = 0; i < G_N_ELEMENTS(fields); i++) {
+      char *key = g_strdup_printf("audio.control.%s.%s", control->uuid, fields[i]);
+      rrclient_database_setting_set(key, values[i]);
+      g_free(key);
+   }
+}
+static char *routing_compact_field(const char *uuid, const char *field) {
+   char *key = g_strdup_printf("audio.control.%s.%s", uuid, field);
+   char *value = rrclient_database_setting_get(key);
+   g_free(key);
+   return value;
+}
+static gboolean routing_compact_parse_number(const char *input, double *result) {
+   if (!input || !*input) return FALSE;
+   char *end = NULL;
+   double v = g_ascii_strtod(input, &end);
+   if (end == input || *end || !isfinite(v)) return FALSE;
+   *result = v;
+   return TRUE;
+}
+static void routing_compact_restore(void) {
+   if (routing_compact_controls) return;
+   char *ids = rrclient_database_setting_get("audio.controls.ids");
+   if (!ids || !*ids) { g_free(ids); return; }
+   gchar **parts = g_strsplit(ids, ",", 128);
+   for (guint i = 0; parts[i]; i++) {
+      if (!g_uuid_string_is_valid(parts[i])) continue;
+      char *target = routing_compact_field(parts[i], "target");
+      char *label = routing_compact_field(parts[i], "label");
+      char *kind = routing_compact_field(parts[i], "kind");
+      char *port = routing_compact_field(parts[i], "port");
+      char *channel = routing_compact_field(parts[i], "channel");
+      char *x = routing_compact_field(parts[i], "x");
+      char *y = routing_compact_field(parts[i], "y");
+      char *minimum = routing_compact_field(parts[i], "min");
+      char *maximum = routing_compact_field(parts[i], "max");
+      char *step = routing_compact_field(parts[i], "step");
+      char *unit = routing_compact_field(parts[i], "unit");
+      double px = 0., py = 0., mn = 0., mx = 0., st = 0.;
+      gboolean valid = target && *target && strlen(target) < 64 &&
+         kind && (!strcmp(kind, "horizontal") || !strcmp(kind, "vertical") ||
+                  !strcmp(kind, "knob")) &&
+         port && (!strcmp(port, "0") || !strcmp(port, "1")) &&
+         channel && (!strcmp(channel, "0") || !strcmp(channel, "1")) &&
+         routing_compact_parse_number(x, &px) &&
+         routing_compact_parse_number(y, &py) &&
+         px >= 0 && py >= 0 && px <= 100000 && py <= 100000;
+      if (valid) {
+         guint before = routing_compact_controls ? routing_compact_controls->len : 0;
+         routing_compact_add(target, channel[0] - '0', port[0] == '1',
+                             label, kind, parts[i], px, py);
+         if (routing_compact_controls && routing_compact_controls->len > before) {
+            routing_compact_control_t *item =
+               g_ptr_array_index(routing_compact_controls, routing_compact_controls->len - 1);
+            gboolean has_mn = routing_compact_parse_number(minimum, &mn);
+            gboolean has_mx = routing_compact_parse_number(maximum, &mx);
+            gboolean has_st = routing_compact_parse_number(step, &st);
+            if (has_mn && has_mx && mx > mn) {
+               item->has_minimum = item->has_maximum = TRUE;
+               item->minimum = mn; item->maximum = mx;
+            }
+            if (has_st && st > 0) { item->has_step = TRUE; item->step = st; }
+            if (unit && *unit) {
+               g_strlcpy(item->unit, unit, sizeof(item->unit));
+               item->has_unit = TRUE;
+            }
+            routing_compact_apply_hints(item);
+            routing_compact_apply_widget(item);
+         }
+      }
+      g_free(target); g_free(label); g_free(kind); g_free(port); g_free(channel);
+      g_free(x); g_free(y); g_free(minimum); g_free(maximum); g_free(step); g_free(unit);
+   }
+   g_strfreev(parts);
+   g_free(ids);
+   routing_compact_sync();
+}
+static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused) {
+   (void)unused;
+   routing_controls_visible = gtk_toggle_button_get_active(toggle);
+   rrclient_database_setting_set("audio.graph.show-controls",
+      routing_controls_visible ? "true" : "false");
+   /* Presentation-only: no control bindings, gain, routes, or floating
+    * panels are touched by this toggle. */
+   graph_canvas_update_size();
+}
 /* The UI deliberately presents only parameters which the core currently
  * supports; LV2 parameters will join this selector once live port IPC exists. */
 static void routing_compact_create(GtkButton *button, gpointer unused) {
