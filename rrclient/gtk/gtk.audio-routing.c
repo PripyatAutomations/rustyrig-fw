@@ -1109,6 +1109,15 @@ typedef struct routing_compact_control {
    RRFloatPanel *panel;
    GtkWidget *value, *knob, *label_widget;
 } routing_compact_control_t;
+typedef struct {
+   char worker[64], element[96], property[96];
+   double low, high, step, initial;
+} routing_effect_port_t;
+static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t *out);
+static gboolean routing_effect_parameter_location(const char *worker,
+   const char *element, const char *property, double *x, double *y);
+static void routing_compact_set_effect(routing_compact_control_t *control,
+                                       const routing_effect_port_t *port);
 static GPtrArray *routing_compact_controls;
 static gboolean routing_control_drag_wire;
 static void routing_compact_sync(void);
@@ -1566,6 +1575,9 @@ static void routing_compact_bounds(double *width, double *height) {
 }
 static gboolean routing_compact_target(const routing_compact_control_t *item,
                                         double *x, double *y) {
+   if (item->effect_worker[0])
+      return routing_effect_parameter_location(item->effect_worker,
+         item->effect_element, item->effect_property, x, y);
    if (!graph_snapshot) return FALSE;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
@@ -1765,12 +1777,21 @@ static gboolean routing_compact_drag_release(double x, double y) {
    routing_compact_control_t *item =
       g_ptr_array_index(routing_compact_controls, routing_control_drag_index);
    if (routing_control_drag_wire) {
+      routing_effect_port_t effect = {0};
+      if (routing_effect_pin_at(x, y, &effect)) {
+         routing_compact_set_effect(item, &effect);
+         routing_control_drag_index = -1;
+         routing_control_drag_wire = FALSE;
+         graph_canvas_update_size();
+         return TRUE;
+      }
       gint index = -1, channel = -1;
       gboolean port = FALSE;
       if (graph_gain_at(x, y, &index, &channel, &port) &&
           index >= 0 && graph_snapshot && channel >= 0) {
          const rr_ag_view_node_t *target = &graph_snapshot->nodes[index];
          g_strlcpy(item->id, target->id, sizeof(item->id));
+         item->effect_worker[0] = item->effect_element[0] = item->effect_property[0] = 0;
          item->channel = (unsigned)channel;
          item->port = port;
          routing_compact_apply_hints(item);
@@ -1788,10 +1809,7 @@ static gboolean routing_compact_drag_release(double x, double y) {
 /* Inspect the exact configured client pipeline, never instantiate effects
  * on the GTK audio path. This object is not PLAYING and is discarded after
  * collecting metadata; the live instance belongs to the fwdsp subprocess. */
-typedef struct {
-   char worker[64], element[96], property[96];
-   double low, high, step, initial;
-} routing_effect_port_t;
+
 #ifdef RR_HAVE_GSTREAMER
 static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
    const struct { const char *config, *worker; } sources[] = {
