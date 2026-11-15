@@ -1189,8 +1189,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       g_snprintf(tx_id, sizeof(tx_id), "modem.%u.tx", modems[i].slot);
       if (rr_audio_graph_add_node(graph, rx_id, RR_AG_SINK)) {
          rr_audio_graph_set_health(graph, rx_id, RR_AG_HEALTHY);
-         rr_audio_graph_add_channel_link(graph, modems[i].source, rx_id,
-                                         RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+         if (modems[i].source[0])
+            rr_audio_graph_add_channel_link(graph, modems[i].source, rx_id,
+                                            RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
       }
       if (rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE))
          rr_audio_graph_set_health(graph, tx_id, RR_AG_STOPPED);
