@@ -8,6 +8,7 @@
 //
 #define __RRCLI 1
 #include <rrclient/database.h>
+#include <libfwdspmgr/pipeline.recipe.h>
 #include <rrclient/backup.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -1610,6 +1611,161 @@ static GtkWidget *watched_calls_panel(void) {
    return panel;
 }
 
+/* Simple client sound device settings; the configured pipeline remains
+ * authoritative until the operator explicitly selects Generated. */
+typedef struct {
+   GtkWidget *mode, *capture, *playback, *capture_rate, *playback_rate;
+} client_audio_setup_t;
+static void client_audio_setup_free(gpointer data) { g_free(data); }
+static const char *client_audio_rate_value(GtkWidget *combo) {
+   const char *rate = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
+   return rate ? rate : "auto";
+}
+static void client_audio_setup_preview(GtkButton *button, gpointer user) {
+   client_audio_setup_t *ui = user;
+   const char *cap = client_audio_rate_value(ui->capture_rate);
+   const char *play = client_audio_rate_value(ui->playback_rate);
+   unsigned capture_hz = !strcmp(cap, "44100") ? 44100 : 48000;
+   unsigned playback_hz = !strcmp(play, "44100") ? 44100 : 48000;
+   rr_pipeline_recipe_t in = {
+      .endpoint = RR_PIPELINE_CAPTURE_MONO, .device_rate_hz = capture_hz,
+      .pcm_rate_hz = 16000,
+      .device = gtk_entry_get_text(GTK_ENTRY(ui->capture))
+   };
+   rr_pipeline_recipe_t out = {
+      .endpoint = RR_PIPELINE_PLAYBACK_STEREO, .device_rate_hz = playback_hz,
+      .pcm_rate_hz = playback_hz,
+      .device = gtk_entry_get_text(GTK_ENTRY(ui->playback))
+   };
+   char *src = rr_pipeline_recipe_compile(&in);
+   char *sink = rr_pipeline_recipe_compile(&out);
+   GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Generated pipeline preview",
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Close", GTK_RESPONSE_CLOSE, NULL);
+   gtk_window_set_default_size(GTK_WINDOW(dialog), 690, 390);
+   GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_vexpand(scroll, TRUE);
+   GtkWidget *view = gtk_text_view_new();
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(view), FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(view), FALSE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_WORD_CHAR);
+   char *preview = src && sink ?
+      g_strdup_printf("Microphone:\n%s\n\nSpeakers:\n%s\n\n"
+          "These pipelines run only inside fwdsp after restarting rrclient.", src, sink) :
+      g_strdup("Invalid audio device name or rate. No changes were applied.");
+   gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), preview, -1);
+   gtk_container_add(GTK_CONTAINER(scroll), view);
+   gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 6);
+   gtk_widget_show_all(dialog);
+   gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+   g_free(src); g_free(sink); g_free(preview);
+}
+static void client_audio_setup_apply(GtkButton *button, gpointer user) {
+   client_audio_setup_t *ui = user;
+   const char *mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ui->mode));
+   const char *cap = gtk_entry_get_text(GTK_ENTRY(ui->capture));
+   const char *play = gtk_entry_get_text(GTK_ENTRY(ui->playback));
+   if (!mode) return;
+   rr_pipeline_recipe_t in = {RR_PIPELINE_CAPTURE_MONO, 48000, 16000, cap};
+   rr_pipeline_recipe_t out = {RR_PIPELINE_PLAYBACK_STEREO, 48000, 48000, play};
+   char *a = rr_pipeline_recipe_compile(&in);
+   char *b = rr_pipeline_recipe_compile(&out);
+   if (!a || !b) {
+      GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
+      GtkWidget *warning = gtk_message_dialog_new(
+         GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Invalid device name.");
+      gtk_dialog_run(GTK_DIALOG(warning));
+      gtk_widget_destroy(warning);
+   } else {
+      cfg_set_value("audio.pipeline-mode", mode);
+      cfg_set_value("audio.capture-device", cap);
+      cfg_set_value("audio.playback-device", play);
+      cfg_set_value("audio.capture-rate", client_audio_rate_value(ui->capture_rate));
+      cfg_set_value("audio.playback-rate", client_audio_rate_value(ui->playback_rate));
+      rrclient_config_mark_dirty();
+      GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
+      GtkWidget *note = gtk_message_dialog_new(
+         GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_INFO,
+         GTK_BUTTONS_CLOSE,
+         "Settings staged. Click Save Config to persist, then restart rrclient. "
+         "Configured pipelines remain supported and are the default.");
+      gtk_dialog_run(GTK_DIALOG(note));
+      gtk_widget_destroy(note);
+   }
+   g_free(a); g_free(b);
+}
+static GtkWidget *client_audio_setup_panel(void) {
+   GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(page), 12);
+   GtkWidget *info = gtk_label_new(
+      "Choose sound devices without writing GStreamer. Configured pipelines "
+      "remain the default; generated endpoints are opt-in. Changes take effect "
+      "after saving configuration and restarting rrclient.");
+   gtk_label_set_xalign(GTK_LABEL(info), 0);
+   gtk_label_set_line_wrap(GTK_LABEL(info), TRUE);
+   gtk_box_pack_start(GTK_BOX(page), info, FALSE, FALSE, 0);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+   gtk_box_pack_start(GTK_BOX(page), grid, FALSE, FALSE, 0);
+   client_audio_setup_t *ui = g_new0(client_audio_setup_t, 1);
+   g_object_set_data_full(G_OBJECT(page), "rr-audio-setup", ui,
+                          client_audio_setup_free);
+   ui->mode = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ui->mode), "configured", "Configured pipelines");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ui->mode), "generated", "Generated device pipelines");
+   const char *mode = cfg_get("audio.pipeline-mode");
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(ui->mode),
+       mode && !strcmp(mode, "generated") ? "generated" : "configured");
+   ui->capture = gtk_entry_new();
+   ui->playback = gtk_entry_new();
+   gtk_entry_set_text(GTK_ENTRY(ui->capture),
+       cfg_get("audio.capture-device") ? cfg_get("audio.capture-device") : "default");
+   gtk_entry_set_text(GTK_ENTRY(ui->playback),
+       cfg_get("audio.playback-device") ? cfg_get("audio.playback-device") : "default");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(ui->capture), "default");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(ui->playback), "default");
+   ui->capture_rate = gtk_combo_box_text_new();
+   ui->playback_rate = gtk_combo_box_text_new();
+   GtkWidget *rates[] = {ui->capture_rate, ui->playback_rate};
+   const char *keys[] = {"audio.capture-rate", "audio.playback-rate"};
+   for (int i = 0; i < 2; i++) {
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rates[i]), "auto", "Auto (48 kHz)");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rates[i]), "44100", "44.1 kHz");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rates[i]), "48000", "48 kHz");
+      const char *value = cfg_get(keys[i]);
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(rates[i]),
+          value && (!strcmp(value, "44100") || !strcmp(value, "48000")) ? value : "auto");
+   }
+   GtkWidget *values[] = {ui->mode, ui->capture, ui->playback,
+                           ui->capture_rate, ui->playback_rate};
+   const char *names[] = {"Pipeline mode", "Microphone device", "Speaker device",
+                           "Microphone rate", "Speaker rate"};
+   for (int i = 0; i < 5; i++) {
+      GtkWidget *label = gtk_label_new(names[i]);
+      gtk_widget_set_halign(label, GTK_ALIGN_END);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
+      gtk_widget_set_hexpand(values[i], TRUE);
+      gtk_grid_attach(GTK_GRID(grid), values[i], 1, i, 1, 1);
+   }
+   GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *preview = gtk_button_new_with_label("Preview generated pipelines");
+   GtkWidget *apply = gtk_button_new_with_label("Apply Settings");
+   gtk_box_pack_start(GTK_BOX(buttons), preview, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), apply, FALSE, FALSE, 0);
+   g_signal_connect(preview, "clicked", G_CALLBACK(client_audio_setup_preview), ui);
+   g_signal_connect(apply, "clicked", G_CALLBACK(client_audio_setup_apply), ui);
+   gtk_box_pack_start(GTK_BOX(page), buttons, FALSE, FALSE, 4);
+   return page;
+}
+
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
@@ -1636,6 +1792,7 @@ GtkWidget *init_config_tab(void) {
    gtk_box_pack_start(GTK_BOX(nw), sections, TRUE, TRUE, 0);
    gtk_notebook_append_page(GTK_NOTEBOOK(sections), cfg_panel, gtk_label_new("Settings"));
    gtk_notebook_append_page(GTK_NOTEBOOK(sections), cfg_theme_panel(), gtk_label_new("Theme"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(sections), client_audio_setup_panel(), gtk_label_new("Audio Devices"));
    gtk_notebook_append_page(GTK_NOTEBOOK(sections), watched_calls_panel(), gtk_label_new("Watched Calls"));
 
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
