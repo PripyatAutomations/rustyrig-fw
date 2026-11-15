@@ -121,11 +121,20 @@ static void status(void *user, const char *text) {
    if (!text || !*text) {
       return;
    }
-   /* High-volume healthy waterfall counters are routine telemetry, not
-    * connection status; retain warnings and no-frame reports at info. */
-   static const char wf_stats[] = "Kiwi RF waterfall/10s received=";
-   Log(strncmp(text, wf_stats, sizeof(wf_stats) - 1) ? LOG_INFO : LOG_DEBUG,
-       "rrbridge", "%s", text);
+   /* Routine waterfall startup chatter and periodic counters don't belong
+    * in the client log. Keep errors, disconnects and no-frame diagnostics. */
+   static const char *const quiet[] = {
+      "Kiwi RF waterfall websocket opened",
+      "Kiwi W/F frame:",
+      "Kiwi W/F setup:",
+      "Kiwi W/F stream ready",
+      "Kiwi RF waterfall/10s received="
+   };
+   for (size_t i = 0; i < sizeof(quiet) / sizeof(quiet[0]); i++) {
+      if (!strncmp(text, quiet[i], strlen(quiet[i])))
+         return;
+   }
+   Log(LOG_INFO, "rrbridge", "%s", text);
    /* The logger callback forwards this event with all other diagnostics. */
 }
 static const char *setting(void *user, const char *key) {
