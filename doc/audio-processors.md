@@ -146,7 +146,17 @@ the client to start them. The default **Configured pipelines** mode continues
 using the existing `pipeline:src.client.dsp0` and
 `pipeline:sink.client.mix` launch strings.
 
-Routing → **Pin Control…** creates a compact dockable panel bound to an
+Routing → **Add Control…** creates a compact dockable panel that may
+start unbound. It can be wired by dragging its blue socket onto an existing
+gain pin. The **Add Effect…** chooser lists GStreamer-discovered LV2 plugins;
+selecting an LV2 block in the Pipelines editor and clicking
+**LV2 Controls…** lists its plugin-owned numeric, boolean and enum control
+properties with names, types and ranges. These are metadata inspection
+pins, **not yet runtime-connectable LV2 ports**: mapping a blue control wire
+to an effect parameter requires a parameter identity and control IPC across
+the fwdsp worker boundary.
+
+The floating controls can also be bound to an
 existing input/output gain pin. Select its stable audio node, left/right
 channel, short label and presentation: horizontal fader, vertical fader or
 rotary knob. All three send the same asynchronous gain-control command as
