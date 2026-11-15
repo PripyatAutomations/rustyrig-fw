@@ -1406,6 +1406,16 @@ void rr_floating_panel_set_min_width_widget(RRFloatPanel *p, GtkWidget *widget) 
    }
 }
 
+void rr_floating_panel_reset_saved_size(RRFloatPanel *p) {
+   if (!p || p->ever_shown) return;
+   /* Old vertical volume panel could occupy 300+ pixels in height.
+    * Leave already compact and user-adjusted geometry alone. */
+   if (p->saved_height <= 220 && p->saved_width <= 290) return;
+   p->saved_width = 0;
+   p->saved_height = 0;
+   p->last_saved_valid = FALSE;
+}
+
 void rr_floating_panel_fit_content(RRFloatPanel *p) {
    if (!p || !p->frame || p->resizing || p->rolled) {
       return;
