@@ -492,6 +492,7 @@ typedef struct rx_route {
    rrconn_t *connection;
    char uuid[64], identity[64], codec[5], room[128];
    char output;
+   uint32_t source_rate_hz;
    bool seen;
    GMutex pcm_lock;
    int16_t pending[4000];       /* 250 ms maximum, no added latency yet */
@@ -567,6 +568,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
          snprintf(stream->uuid, sizeof(stream->uuid), "%s", r->uuid);
          snprintf(stream->codec, sizeof(stream->codec), "%s", r->codec);
          stream->output = r->output;
+         stream->source_rate_hz = r->source_rate_hz;
       }
       count++;
    }
@@ -584,6 +586,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
          snprintf(stream->uuid, sizeof(stream->uuid), "local.sdr.vfo_%c", (char)('a' + vfos[i] - 'A'));
          snprintf(stream->codec, sizeof(stream->codec), "%s", "pc16");
          stream->output = local_rx_routes[vfos[i] - 'A'] ? local_rx_routes[vfos[i] - 'A'] : 'S';
+         stream->source_rate_hz = rrclient_local_bridge_stream_sample_rate(stream->id);
       }
       count++;
    }
@@ -887,6 +890,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          }
       }
       route->seen = true;
+      route->source_rate_hz = channel->source_rate_hz;
       const char *room = channel->room ? channel->room : "";
 
       if (!route->codec[0] || strcmp(route->room, room)) {
@@ -1336,10 +1340,8 @@ static void audio_log_stream_inventory(const struct rrclient_rx_stream *streams,
  * the analyzer's honest 8 kHz ceiling until metadata is available. */
 static uint32_t audio_af_source_max_hz(const struct rrclient_rx_stream *stream) {
    if (!stream) return RR_AF_MAX_HZ;
-   uint32_t rate = 0;
-   if (!strcmp(stream->server, "Local"))
-      rate = rrclient_local_bridge_stream_sample_rate(stream->id);
-   else if (!strcmp(stream->codec, "mu08"))
+   uint32_t rate = stream->source_rate_hz;
+   if (!rate && !strcmp(stream->codec, "mu08"))
       rate = 8000; /* explicitly 8 kHz mu-law in the codec pipeline */
    if (!rate) rate = RR_AF_SAMPLE_RATE;
    return MIN(rate / 2u, RR_AF_MAX_HZ);
