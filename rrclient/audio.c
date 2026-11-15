@@ -1158,7 +1158,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                      RR_AG_NORMAL, play_channels);
 
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 7 ; i++) {
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 7 - 2 * RR_LOCAL_MODEM_MAX ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
