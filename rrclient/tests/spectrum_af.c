@@ -43,6 +43,14 @@ static bool await_spectrum(const char *name, float bins[RR_AF_BINS]) {
 }
 
 int main(void) {
+   /* A resampled 12 kHz Kiwi only contains 0..6 kHz of real audio.
+    * The AF FFT still processes 16 kHz without inventing extra range. */
+   assert(rr_af_source_nyquist(0) == 8000);
+   assert(rr_af_source_nyquist(8000) == 4000);
+   assert(rr_af_source_nyquist(11998) == 5999);
+   assert(rr_af_source_nyquist(12000) == 6000);
+   assert(rr_af_source_nyquist(16000) == 8000);
+   assert(rr_af_source_nyquist(48000) == 8000);
    float bins[RR_AF_BINS];
    rr_af_spectrum_listen(true);
    inject("tone-1000", 1000.0);
