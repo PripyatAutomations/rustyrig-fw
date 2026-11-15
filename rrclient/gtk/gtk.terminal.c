@@ -8,6 +8,7 @@
 #include <string.h>
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
+#include <rrclient/local.modem.h>
 #include "gtk.serial.h"
 #include "gtk.decoders.h"
 #include <rrclient/gtk/gtk.chat.h>
@@ -26,6 +27,91 @@ typedef struct {
 static GtkWidget *terminal_notebook;
 static GtkWidget *terminal_root;
 static GtkWidget *terminal_ports;
+/* Decoded messages are not serial bytes. Keep this event-driven view separate
+ * from VTE so a noisy worker cannot overwrite or reflow an interactive PTY. */
+static GtkWidget *decode_list, *decode_scroll;
+static rr_event_token_t decode_token;
+static unsigned decode_rows;
+static char decode_highlight_call[32];
+
+static void decode_set_call(GtkEditable *edit, gpointer unused) {
+   (void)unused;
+   const char *value = gtk_entry_get_text(GTK_ENTRY(edit));
+   g_strlcpy(decode_highlight_call, value, sizeof(decode_highlight_call));
+}
+static gboolean decode_has_call(const char *line, const char *call) {
+   if (!call || !*call) return FALSE;
+   size_t n = strlen(call);
+   for (const char *p = line; *p; p++) {
+      if (g_ascii_strncasecmp(p, call, n)) continue;
+      if (p != line && (g_ascii_isalnum(p[-1]) || p[-1] == '/')) continue;
+      if (g_ascii_isalnum(p[n]) || p[n] == '/') continue;
+      return TRUE;
+   }
+   return FALSE;
+}
+static void decode_received(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!decode_list || !message || !message->payload ||
+       message->length != sizeof(rr_local_modem_decode_t)) return;
+   const rr_local_modem_decode_t *d = message->payload;
+   const char *decoded = d->line;
+   /* For FT8, prefer the human-readable text member, preserving the original
+    * JSON in the event for other consumers. */
+   gchar *extracted = NULL;
+   if (g_str_has_prefix(decoded, "{")) {
+      const char *key = strstr(decoded, "\"text\"");
+      if (key) {
+         const char *start = strchr(key + 6, ':');
+         if (start) {
+            start = strchr(start, '"');
+            if (start) {
+               start++;
+               const char *end = start;
+               while (*end && (*end != '"' || (end > start && end[-1] == '\\'))) end++;
+               if (*end == '"') extracted = g_strndup(start, end - start);
+            }
+         }
+      }
+   }
+   const char *body = extracted ? extracted : decoded;
+   GtkWidget *row = gtk_list_box_row_new();
+   GtkWidget *label = gtk_label_new(NULL);
+   gchar *prefix = g_strdup_printf("%u %-6s  ", d->slot, d->engine);
+   gchar *markup_prefix = g_markup_escape_text(prefix, -1);
+   gchar *markup_body = g_markup_escape_text(body, -1);
+   gchar *markup = g_strdup_printf("<span foreground='#7a98bb'>%s</span><span foreground='%s'>%s</span>",
+                                    markup_prefix,
+                                    g_str_has_prefix(body, "CQ ") ? "#54b6a0" : "#d6d8de",
+                                    markup_body);
+   gtk_label_set_markup(GTK_LABEL(label), markup);
+   gtk_label_set_xalign(GTK_LABEL(label), 0);
+   gtk_label_set_selectable(GTK_LABEL(label), TRUE);
+   gtk_widget_set_margin_start(label, 8);
+   gtk_widget_set_margin_end(label, 8);
+   gtk_widget_set_margin_top(label, 2);
+   gtk_widget_set_margin_bottom(label, 2);
+   gtk_container_add(GTK_CONTAINER(row), label);
+   if (decode_has_call(body, decode_highlight_call)) {
+      GtkStyleContext *style = gtk_widget_get_style_context(row);
+      gtk_style_context_add_class(style, "rr-modem-highlight");
+   }
+   gtk_list_box_insert(GTK_LIST_BOX(decode_list), row, -1);
+   gtk_widget_show_all(row);
+   if (++decode_rows > 1000) {
+      GtkListBoxRow *first = gtk_list_box_get_row_at_index(GTK_LIST_BOX(decode_list), 0);
+      if (first) gtk_widget_destroy(GTK_WIDGET(first));
+      decode_rows--;
+   }
+   GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(decode_scroll));
+   /* Follow output only if already near the bottom. */
+   if (gtk_adjustment_get_upper(adj) - gtk_adjustment_get_value(adj) -
+       gtk_adjustment_get_page_size(adj) < 80)
+      gtk_adjustment_set_value(adj, gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
+   g_free(markup); g_free(markup_body); g_free(markup_prefix);
+   g_free(prefix); g_free(extracted);
+}
+
 
 static void terminal_copy(GtkMenuItem *item, gpointer data) {
    (void)item;
@@ -372,6 +458,10 @@ void gtk_terminal_shutdown(void) {
    terminal_notebook = NULL;
    terminal_root = NULL;
    terminal_ports = NULL;
+   if (decode_token) event_off_token(decode_token);
+   decode_token = 0;
+   decode_list = decode_scroll = NULL;
+   decode_rows = 0;
 }
 static void terminal_close(GtkButton *button, gpointer data) {
    (void)button;
@@ -588,6 +678,29 @@ GtkWidget *init_terminal_tab(void) {
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(terminal_notebook), GTK_POS_TOP);
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(terminal_notebook), TRUE);
    gtk_box_pack_start(GTK_BOX(root), terminal_notebook, TRUE, TRUE, 0);
+   GtkWidget *decodes = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   GtkWidget *decode_controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *call = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(call), "Your callsign (highlight)");
+   gtk_entry_set_width_chars(GTK_ENTRY(call), 20);
+   g_signal_connect(call, "changed", G_CALLBACK(decode_set_call), NULL);
+   gtk_box_pack_start(GTK_BOX(decode_controls), gtk_label_new("Highlight:"), FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(decode_controls), call, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(decodes), decode_controls, FALSE, FALSE, 0);
+   decode_scroll = gtk_scrolled_window_new(NULL, NULL);
+   decode_list = gtk_list_box_new();
+   gtk_list_box_set_selection_mode(GTK_LIST_BOX(decode_list), GTK_SELECTION_NONE);
+   gtk_container_add(GTK_CONTAINER(decode_scroll), decode_list);
+   gtk_box_pack_start(GTK_BOX(decodes), decode_scroll, TRUE, TRUE, 0);
+   GtkCssProvider *css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(css,
+      ".rr-modem-highlight { background-color: @theme_selected_bg_color; }"
+      ".rr-modem-highlight label { color: @theme_selected_fg_color; }", -1, NULL);
+   gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+      GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(css);
+   gtk_notebook_append_page(GTK_NOTEBOOK(terminal_notebook), decodes, gtk_label_new("Decodes"));
+   decode_token = event_on_message_domain_token(RR_LOCAL_MODEM_DECODE, decode_received, NULL, "gtk");
    g_signal_connect(refresh, "clicked", G_CALLBACK(terminal_refresh), NULL);
    g_signal_connect(open, "clicked", G_CALLBACK(terminal_open), NULL);
    g_signal_connect(configure, "clicked", G_CALLBACK(terminal_configure), NULL);
