@@ -43,6 +43,19 @@ typedef struct {
 } rrclient_window_state_t;
 /* Session-count expiration: untouched records are pruned after five runs. */
 /* Named RX graph route presets; callers retain ownership of their strings. */
+/* Per-client watch list. "Any" matches all modes/bands. Automatic worked
+ * detection is reserved for the future contact-log integration. */
+typedef struct {
+   int id;
+   const char *callsign, *mode, *band;
+   bool auto_mark_worked, worked;
+} rrclient_watched_call_t;
+void rrclient_database_watched_calls_foreach(
+   void (*callback)(const rrclient_watched_call_t *, void *), void *user);
+bool rrclient_database_watched_call_save(int id, const char *callsign,
+   const char *mode, const char *band, bool auto_mark_worked, bool worked);
+bool rrclient_database_watched_call_delete(int id);
+
 bool rrclient_database_audio_profile_save(const char *name, const char *const *ids, const char *routes, size_t count);
 char *rrclient_database_vfo_layout_load(void);
 bool rrclient_database_vfo_layout_save(const char *order);
