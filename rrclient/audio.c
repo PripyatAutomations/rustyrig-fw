@@ -1178,6 +1178,24 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       }
    }
 
+   /* Modem decoder blocks branch directly from the pre-effects decoded PCM.
+    * Each modem also advertises its future TX audio and PTT side explicitly,
+    * but those outputs have no routing links until PTT authorization exists. */
+   rr_local_modem_route_t modems[RR_LOCAL_MODEM_MAX] = {0};
+   size_t modem_count = rr_local_modem_routes(modems, G_N_ELEMENTS(modems));
+   for (size_t i = 0; i < modem_count; i++) {
+      char rx_id[64], tx_id[64];
+      g_snprintf(rx_id, sizeof(rx_id), "modem.%u.rx", modems[i].slot);
+      g_snprintf(tx_id, sizeof(tx_id), "modem.%u.tx", modems[i].slot);
+      if (rr_audio_graph_add_node(graph, rx_id, RR_AG_SINK)) {
+         rr_audio_graph_set_health(graph, rx_id, RR_AG_HEALTHY);
+         rr_audio_graph_add_channel_link(graph, modems[i].source, rx_id,
+                                         RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+      }
+      if (rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE))
+         rr_audio_graph_set_health(graph, tx_id, RR_AG_STOPPED);
+   }
+
    /* Snapshot the two real post-mixer pin gain stages. */
    rr_audio_graph_snapshot_t *snapshot = g_new0(rr_audio_graph_snapshot_t, 1);
 
@@ -1185,6 +1203,24 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       for (guint i = 0 ; i < snapshot->node_count ; ++i) {
          rr_ag_view_node_t *node = &snapshot->nodes[i];
 
+         if (g_str_has_prefix(node->id, "modem.")) {
+            unsigned slot = 0;
+            char direction[8] = {0};
+            if (sscanf(node->id, "modem.%u.%7s", &slot, direction) == 2) {
+               for (size_t m = 0; m < modem_count; m++) {
+                  if (modems[m].slot != slot) continue;
+                  gboolean tx = !strcmp(direction, "tx");
+                  g_snprintf(node->rig, sizeof(node->rig), "%s #%u %s",
+                             modems[m].engine, slot, tx ? "TX / PTT" : "RX");
+                  node->rate_hz = 16000;
+                  node->channels = 1;
+                  node->sample_format = RR_PCM_S16LE;
+                  node->read_only = TRUE;
+                  break;
+               }
+            }
+            continue;
+         }
          /* Advertise the real core bus and only the requested hardware
           * boundary rate, never an invented negotiated device rate. */
          const guint32 mix_rate = rr_audio_engine_sample_rate(rx_engine);
