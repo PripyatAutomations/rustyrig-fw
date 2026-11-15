@@ -326,8 +326,10 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
          (n->type == RR_AG_MIXER && !strcmp(n->id, required_bus)));
       if (!valid) continue;
       double nx = routing_node_x(n) +
-          (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
-      double ny = routing_node_y(n) + (rig_target ? 68. :
+          (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W :
+           rig_target && graph_drag_channel ? -18. : 0.);
+      double ny = routing_node_y(n) + (rig_target ?
+         (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          modem_connection ? (from_modem ? 60. : 68.) :
          (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
@@ -583,7 +585,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double ex = graph_drag_mixer ? ox : snap_x;
          double ey = graph_drag_mixer ? oy : snap_y;
          /* Leave the ring empty so an arrow cannot obscure the socket. */
-         if (snap) ex -= 9.;
+         if (snap) ex -= graph_drag_rig_target >= 0 && graph_drag_channel ? 9. : 9.;
          double cx = (sx + ex) / 2.;
          gboolean ptt_preview = !graph_drag_mixer &&
              g_str_has_prefix(n->id, "modem.") &&
