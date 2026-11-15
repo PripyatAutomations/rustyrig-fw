@@ -764,7 +764,7 @@ static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    }
    spectrum_panel_t *p = g_object_get_data(G_OBJECT(item), "spectrum-panel");
    p->zoom = GPOINTER_TO_UINT(data);
-   p->pan_hz = 0.; /* Center on 4 kHz when selecting a new zoom step. */
+   p->pan_hz = 0.; /* Center on the selected source's actual spectrum. */
    gtk_widget_queue_draw(p->drawing);
 }
 static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -789,8 +789,10 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(factors) ; i++) {
-      char label[16];
-      g_snprintf(label, sizeof(label), "%ux", factors[i]);
+      char label[64];
+      unsigned span_hz = af_limit(p) / factors[i];
+      g_snprintf(label, sizeof(label), "%ux (%.3g kHz visible)",
+                 factors[i], (double)span_hz / 1000.);
       GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
       group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
       g_object_set_data(G_OBJECT(item), "spectrum-panel", p);
