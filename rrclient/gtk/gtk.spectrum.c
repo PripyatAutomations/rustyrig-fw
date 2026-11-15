@@ -24,6 +24,7 @@ typedef struct {
    char *server, *room;
    GtkWidget *drawing, *mode, *gain, *source, *ear;
    unsigned zoom, palette_index, style;
+   uint32_t max_hz; /* source's real Nyquist, independent of the 16 kHz FFT */
    double pan_hz, drag_start_x, drag_start_pan;
    bool dragging, drag_moved;
    float rows[HISTORY][RR_AF_BINS];
@@ -405,14 +406,18 @@ static bool af_in_modem_mode(void) {
    return mode && (!strncmp(mode, "M-", 2) || !strcmp(mode, "MFM") ||
                    !strncmp(mode, "D-", 2) || !strcmp(mode, "DFM"));
 }
-/* Full 0..8 kHz Nyquist display. Zoom starts centered at 4 kHz;
- * drag panning is clamped to the actual available PCM bandwidth. */
+/* The FFT is always 0..8 kHz. The display instead uses the selected
+ * source's true upstream Nyquist, and zoom/panning remain within it. */
+static unsigned af_limit(const spectrum_panel_t *p) {
+   return p->max_hz && p->max_hz <= RR_AF_MAX_HZ ?
+      p->max_hz : RR_AF_MAX_HZ;
+}
 static void af_view_bounds(const spectrum_panel_t *p, double *low, double *high) {
    unsigned zoom = p->zoom ? p->zoom : 1;
-   double span = (double)RR_AF_MAX_HZ / zoom;
-   double center = RR_AF_MAX_HZ / 2.;
-   *low = CLAMP(center - span / 2. + p->pan_hz,
-                0., (double)RR_AF_MAX_HZ - span);
+   double limit = af_limit(p);
+   double span = limit / zoom;
+   double center = limit / 2.;
+   *low = CLAMP(center - span / 2. + p->pan_hz, 0., limit - span);
    *high = *low + span;
 }
 static unsigned af_source_bin(const spectrum_panel_t *p, unsigned x_bin) {
@@ -432,7 +437,7 @@ static unsigned af_x_to_hz(const spectrum_panel_t *p, double x, int width) {
    double low, high;
    af_view_bounds(p, &low, &high);
    double hz = low + CLAMP(x, 0., width - 1.) * (high - low) / (width - 1.);
-   return (unsigned)CLAMP(round(hz), 0., (double)RR_AF_MAX_HZ);
+   return (unsigned)CLAMP(round(hz), 0., (double)af_limit(p));
 }
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz);
 static void af_pan_move(spectrum_panel_t *p, double x, int width) {
@@ -440,11 +445,11 @@ static void af_pan_move(spectrum_panel_t *p, double x, int width) {
    double low, high;
    af_view_bounds(p, &low, &high);
    double span = high - low;
-   if (span >= RR_AF_MAX_HZ) return;
+   if (span >= af_limit(p)) return;
    if (fabs(x - p->drag_start_x) > 3.) p->drag_moved = true;
    if (!p->drag_moved) return;
    double offset = (p->drag_start_x - x) * span / (width - 1.);
-   double max_pan = (RR_AF_MAX_HZ - span) / 2.;
+   double max_pan = (af_limit(p) - span) / 2.;
    double next = CLAMP(p->drag_start_pan + offset, -max_pan, max_pan);
    if (p->pan_hz != next) {
       p->pan_hz = next;
@@ -606,8 +611,8 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_move_to(cr, 12, height / 2.);
       cairo_show_text(cr, "Waiting for audio on selected source...");
    }
-   /* Draw labels for the exact visible 0..8 kHz viewport.
-    * These positions also drive AF offset click tuning. */
+   /* Draw the true, source-constrained viewport frequency scale.
+    * The same bounds drive AF offset click tuning and the FFT bin crop. */
    cairo_set_font_size(cr, 10);
    for (unsigned tick = 0; tick <= 4; tick++) {
       double x = (width - 1.) * tick / 4.;
@@ -674,6 +679,13 @@ static void af_result_event(const rr_event_message_t *message, void *data) {
       return;
    }
    p->af_last_ready_at = g_get_monotonic_time();
+   unsigned max_hz = result->max_hz && result->max_hz <= RR_AF_MAX_HZ ?
+      result->max_hz : RR_AF_MAX_HZ;
+   if (max_hz != af_limit(p)) {
+      p->max_hz = max_hz;
+      p->pan_hz = 0.;
+      p->head = p->count = 0; /* no mixed frequency axes in history */
+   }
    p->stereo = result->stereo;
    memcpy(p->current, result->bins, sizeof(p->current));
    memcpy(p->current_left, result->left, sizeof(p->current_left));
@@ -803,6 +815,8 @@ static void source_changed(GtkComboBox *combo, gpointer data) {
       !strcmp(id, "left") ? 'L' : !strcmp(id, "right") ? 'R' : 'S';
    if (next == p->source_mode && (next != 'S' || !strcmp(p->source_id, id))) return;
    p->source_mode = next;
+   p->max_hz = RR_AF_MAX_HZ; /* replaced by next core spectrum reply */
+   p->pan_hz = 0.;
    p->source_id[0] = 0;
    if (p->source_mode == 'S') g_strlcpy(p->source_id, id, sizeof(p->source_id));
    p->head = p->count = 0;
@@ -876,6 +890,8 @@ static void ear_changed(GtkRange *range, gpointer data) {
    char next = pos == 0 ? 'L' : pos == 2 ? 'R' : 'M';
    if (next == p->source_mode) return;
    p->source_mode = next;
+   p->max_hz = RR_AF_MAX_HZ;
+   p->pan_hz = 0.;
    p->source_id[0] = 0;
    p->head = p->count = 0;
    p->af_pending = false;
@@ -939,6 +955,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(toolbar), sources_row, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
    p->source_mode = 'M';
+   p->max_hz = RR_AF_MAX_HZ;
    p->modem_rx_hz = waterfall_pref("modem.af.rx-offset-hz", 1500, RR_AF_MAX_HZ);
    p->modem_tx_hz = waterfall_pref("modem.af.tx-offset-hz", 1500, RR_AF_MAX_HZ);
    p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
