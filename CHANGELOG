@@ -1,5 +1,13 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Add a Panels toggle to the GTK main toolbar for temporarily hiding
+    visible floating panels without closing or minimizing them. Status
+    and merged Log automatically enter this distraction-free mode;
+    leaving either restores only the panels hidden by that mode, unless
+    the user's manual hide toggle remains active.
+  * Preserve minimized/explicitly hidden panels and panel placement,
+    exclude modal dialogs, and cover overlapping hide reasons plus
+    close/new-panel lifecycle in the GTK floating-panel regression test.
   * Make the entire minimized floating-panel tab activate Restore, not
     only its small icon. Keep the icon as a visual cue and allow keyboard
     button activation.
