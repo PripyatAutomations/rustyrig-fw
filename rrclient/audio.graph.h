@@ -12,7 +12,7 @@ typedef enum {
    RR_AG_SOURCE, RR_AG_PROCESSOR, RR_AG_MIXER, RR_AG_SINK
 } rr_ag_node_type_t;
 typedef enum {
-   RR_AG_NORMAL = 0, RR_AG_BYPASS
+   RR_AG_NORMAL = 0, RR_AG_BYPASS, RR_AG_CONTROL
 } rr_ag_link_type_t;
 #define RR_AG_CHANNEL_LEFT 1u
 #define RR_AG_CHANNEL_RIGHT 2u
