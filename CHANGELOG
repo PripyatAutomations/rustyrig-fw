@@ -1,5 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Make the embedded GStreamer pipeline editor expand across the whole
+    Audio Routing tab. Hide its property inspector until a block is selected,
+    and remove the redundant From/To/Connect dropdown toolbar controls;
+    patch cables are drawn directly between the output and input pins.
   * Correct the Volume panel's vertical L/R fader direction: 100% is at
     the top, 0% at the bottom.
   * Keep receive audio and both mixing buses running independently when
