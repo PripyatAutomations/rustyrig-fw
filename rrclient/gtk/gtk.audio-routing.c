@@ -1044,6 +1044,16 @@ static GtkWidget *pipeline_page_new(void) {
 #endif
 }
 
+static void routing_add_effect(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   if (!audio_tabs) return;
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
+#ifdef RR_HAVE_GSTREAMER
+   if (pipeline_editor_widget)
+      rr_pipeline_editor_add_effect(pipeline_editor_widget);
+#endif
+}
+
 static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
                                       gboolean keyboard, GtkTooltip *tooltip,
                                       gpointer unused) {
@@ -1820,6 +1830,11 @@ void gtk_audio_graph_present(void) {
          "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
       g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), snap_grid, FALSE, FALSE, 0);
+      GtkWidget *add_effect = gtk_button_new_with_label("Add Effect…");
+      gtk_widget_set_tooltip_text(add_effect,
+         "Add an installed LV2 effect to a GStreamer pipeline, executed by an isolated fwdsp worker");
+      g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
+      gtk_box_pack_end(GTK_BOX(profiles), add_effect, FALSE, FALSE, 0);
       GtkWidget *new_modem = gtk_button_new_with_label("New Modem…");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
