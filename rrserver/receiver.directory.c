@@ -373,7 +373,15 @@ static void poll_dir(const char *event, const char *data, rrconn_t *client, void
 }
 bool rrserver_receiver_directory_init(void) {
    const char *configured = cfg_get("receiver-directory.cache");
-   db_path = configured && *configured ? g_strdup(configured) : g_build_filename(g_get_user_cache_dir(), "rustyrig", "server-receivers.sqlite3", NULL);
+   /* Expand configured paths before creating directories or opening SQLite. */
+   db_path = configured && *configured ? cfg_get_path("receiver-directory.cache")
+      : g_build_filename(g_get_user_cache_dir(), "rustyrig", "server-receivers.sqlite3", NULL);
+   if (!db_path || !g_path_is_absolute(db_path)) {
+      g_free(db_path);
+      db_path = NULL;
+      Log(LOG_WARN, "receiver.directory", "Invalid receiver-directory cache path");
+      return false;
+   }
    char *parent = g_path_get_dirname(db_path);
    bool ok = !g_mkdir_with_parents(parent, 0700) && sqlite3_open(db_path, &db) == SQLITE_OK;
    g_free(parent);
