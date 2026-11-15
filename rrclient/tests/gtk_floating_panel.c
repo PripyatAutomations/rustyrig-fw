@@ -102,6 +102,19 @@ int main(int argc, char **argv) {
    rr_floating_panel_show(second);
    drain_events();
 
+   /* Server Picker-style explicit open overrides Status/Log auto-hide
+    * for that panel only, without revealing any others. */
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
+   rr_floating_panel_present(first);
+   g_assert_true(gtk_widget_get_visible(first_frame));
+   g_assert_false(gtk_widget_get_visible(second_frame));
+   rr_floating_panel_hide(first);
+   g_assert_false(gtk_widget_get_visible(first_frame));
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
+   g_assert_false(gtk_widget_get_visible(first_frame));
+   rr_floating_panel_show(first);
+   drain_events();
+
    /* An explicit close while auto-hidden must cancel restoration. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
    rr_floating_panel_hide(second);
