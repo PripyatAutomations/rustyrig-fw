@@ -36,6 +36,12 @@ static void graph_profile_modified(void);
 static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
 static void routing_compact_sync(void);
+static void routing_compact_draw(cairo_t *cr);
+static gboolean routing_compact_hit(double x, double y, gboolean double_click);
+static gboolean routing_compact_drag_motion(double x, double y);
+static gboolean routing_compact_drag_release(double x, double y);
+static void routing_compact_restore(void);
+static gboolean routing_controls_visible = TRUE;
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
 static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
@@ -507,6 +513,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    cairo_translate(cr, graph_offset_x, graph_offset_y);
    cairo_scale(cr, graph_scale, graph_scale);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
+   routing_compact_draw(cr);
 
    /* Output trims inside each source block; backed by the existing
     * per-stream L/R gains rather than by speaker/master volume. */
@@ -1633,6 +1640,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    if (!graph_pointer(event->x, event->y, &gx, &gy)) {
       return FALSE;
    }
+   if (routing_compact_hit(gx, gy, event->type == GDK_2BUTTON_PRESS))
+      return TRUE;
    gint source = -1, channel = -1;
    gboolean mixer = FALSE;
    gboolean port_gain = FALSE;
@@ -1720,10 +1729,11 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
       return TRUE;
    }
    if (graph_drag_channel < 0 && gain_drag_source < 0 &&
-       graph_node_drag < 0) return FALSE;
+       graph_node_drag < 0 && !routing_controls_visible) return FALSE;
    double gx, gy;
    if (!graph_pointer(event->x, event->y, &gx, &gy))
       return FALSE;
+   if (routing_compact_drag_motion(gx, gy)) return TRUE;
    if (gain_drag_source >= 0) {
       graph_gain_drag(gx);
       return TRUE;
@@ -1763,6 +1773,9 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
       return TRUE;
    }
    if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   double control_x = 0., control_y = 0.;
+   if (graph_pointer(event->x, event->y, &control_x, &control_y) &&
+       routing_compact_drag_release(control_x, control_y)) return TRUE;
    if (graph_node_drag >= 0) {
       if (graph_snapshot && (guint)graph_node_drag < graph_snapshot->node_count) {
          const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
@@ -2131,6 +2144,13 @@ void gtk_audio_graph_present(void) {
          "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
       g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), snap_grid, FALSE, FALSE, 0);
+      GtkWidget *show_controls = gtk_check_button_new_with_label("Show Controls?");
+      char *show_setting = rrclient_database_setting_get("audio.graph.show-controls");
+      routing_controls_visible = !show_setting || strcmp(show_setting, "false");
+      g_free(show_setting);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(show_controls), routing_controls_visible);
+      g_signal_connect(show_controls, "toggled", G_CALLBACK(routing_show_controls_toggled), NULL);
+      gtk_box_pack_end(GTK_BOX(profiles), show_controls, FALSE, FALSE, 0);
       GtkWidget *pin_control = gtk_button_new_with_label("Pin Control…");
       gtk_widget_set_tooltip_text(pin_control,
          "Create a small dockable gain slider bound to an audio routing pin");
