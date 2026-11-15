@@ -41,7 +41,12 @@ static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
 /* Fit when practical, but never shrink the default canvas below 80% just to squeeze a wide patchbay into a small window. Wheel/panel zoom may still zoom further out. */
 static double graph_zoom = 1.0, graph_wheel_zoom = 1.0;
 static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
+/* Horizontal panning cannot expose space before the graph's left edge.
+ * Zero is the auto-centered starting position when the graph fits. */
 static double graph_pan_x, graph_pan_y;
+static void routing_pan_clamp_left(void) {
+   graph_pan_x = MIN(0., graph_pan_x);
+}
 static gboolean graph_pan_dragging;
 static double graph_pan_begin_x, graph_pan_begin_y, graph_pan_base_x, graph_pan_base_y;
 static void graph_canvas_update_size(void) {
@@ -230,6 +235,7 @@ static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, g
          graph_pan_x -= dx * 48.;
          graph_pan_y -= dy * 48.;
       }
+      routing_pan_clamp_left();
       graph_canvas_update_size();
       return TRUE;
    }
@@ -251,6 +257,7 @@ static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, g
        MAX(0., (aw - w * next_scale) / 2.);
    graph_pan_y = py - before_y * next_scale -
        MAX(0., (ah - h * next_scale) / 2.);
+   routing_pan_clamp_left();
    graph_canvas_update_size();
    return TRUE;
 }
@@ -1391,6 +1398,7 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
    if (graph_pan_dragging) {
       graph_pan_x = graph_pan_base_x + event->x - graph_pan_begin_x;
       graph_pan_y = graph_pan_base_y + event->y - graph_pan_begin_y;
+      routing_pan_clamp_left();
       graph_canvas_update_size();
       return TRUE;
    }
