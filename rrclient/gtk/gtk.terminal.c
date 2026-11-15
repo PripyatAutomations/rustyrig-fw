@@ -29,10 +29,49 @@ static GtkWidget *terminal_root;
 static GtkWidget *terminal_ports;
 /* Decoded messages are not serial bytes. Keep this event-driven view separate
  * from VTE so a noisy worker cannot overwrite or reflow an interactive PTY. */
-static GtkWidget *decode_list, *decode_scroll;
+typedef struct {
+   GtkWidget *page, *list, *scroll;
+   unsigned rows;
+} decode_tab_t;
+static decode_tab_t decode_tabs[RR_LOCAL_MODEM_MAX];
 static rr_event_token_t decode_token;
-static unsigned decode_rows;
 static char decode_highlight_call[32];
+
+static void decode_tab_closed(GtkWidget *page, gpointer user) {
+   decode_tab_t *tab = user;
+   (void)page;
+   memset(tab, 0, sizeof(*tab));
+}
+static void decode_close_clicked(GtkButton *button, gpointer user) {
+   (void)button;
+   decode_tab_t *tab = user;
+   if (tab->page) gtk_widget_destroy(tab->page);
+}
+static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
+   if (!terminal_notebook || d->slot < 1 || d->slot > RR_LOCAL_MODEM_MAX)
+      return NULL;
+   decode_tab_t *tab = &decode_tabs[d->slot - 1];
+   if (tab->page) return tab;
+   tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   tab->scroll = gtk_scrolled_window_new(NULL, NULL);
+   tab->list = gtk_list_box_new();
+   gtk_list_box_set_selection_mode(GTK_LIST_BOX(tab->list), GTK_SELECTION_NONE);
+   gtk_container_add(GTK_CONTAINER(tab->scroll), tab->list);
+   gtk_box_pack_start(GTK_BOX(tab->page), tab->scroll, TRUE, TRUE, 0);
+   GtkWidget *title = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   gchar *name = g_strdup_printf("%s %u", d->engine, d->slot);
+   gtk_box_pack_start(GTK_BOX(title), gtk_label_new(name), FALSE, FALSE, 0);
+   g_free(name);
+   GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
+   gtk_box_pack_start(GTK_BOX(title), close, FALSE, FALSE, 0);
+   g_signal_connect(close, "clicked", G_CALLBACK(decode_close_clicked), tab);
+   g_signal_connect(tab->page, "destroy", G_CALLBACK(decode_tab_closed), tab);
+   gtk_notebook_append_page(GTK_NOTEBOOK(terminal_notebook), tab->page, title);
+   gtk_widget_show_all(title);
+   gtk_widget_show_all(tab->page);
+   return tab;
+}
 
 static void decode_set_call(GtkEditable *edit, gpointer unused) {
    (void)unused;
@@ -52,9 +91,15 @@ static gboolean decode_has_call(const char *line, const char *call) {
 }
 static void decode_received(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!decode_list || !message || !message->payload ||
+   if (!message || !message->payload ||
        message->length != sizeof(rr_local_modem_decode_t)) return;
    const rr_local_modem_decode_t *d = message->payload;
+   decode_tab_t *tab = decode_tab_for(d);
+   if (!tab) return;
+   GtkAdjustment *follow_adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
+   gboolean follow = gtk_adjustment_get_upper(follow_adj) -
+                     gtk_adjustment_get_value(follow_adj) -
+                     gtk_adjustment_get_page_size(follow_adj) < 80;
    const char *decoded = d->line;
    /* For FT8, prefer the human-readable text member, preserving the original
     * JSON in the event for other consumers. */
@@ -96,18 +141,19 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
       GtkStyleContext *style = gtk_widget_get_style_context(row);
       gtk_style_context_add_class(style, "rr-modem-highlight");
    }
-   gtk_list_box_insert(GTK_LIST_BOX(decode_list), row, -1);
+   gtk_list_box_insert(GTK_LIST_BOX(tab->list), row, -1);
    gtk_widget_show_all(row);
-   if (++decode_rows > 1000) {
-      GtkListBoxRow *first = gtk_list_box_get_row_at_index(GTK_LIST_BOX(decode_list), 0);
+   if (++tab->rows > 1000) {
+      GtkListBoxRow *first = gtk_list_box_get_row_at_index(GTK_LIST_BOX(tab->list), 0);
       if (first) gtk_widget_destroy(GTK_WIDGET(first));
-      decode_rows--;
+      tab->rows--;
    }
-   GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(decode_scroll));
-   /* Follow output only if already near the bottom. */
-   if (gtk_adjustment_get_upper(adj) - gtk_adjustment_get_value(adj) -
-       gtk_adjustment_get_page_size(adj) < 80)
+   /* Auto-follow only when the user was at the bottom before insertion.
+    * Layout completes in GTK's next cycle; bottom adjustment follows then. */
+   if (follow) {
+      GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
       gtk_adjustment_set_value(adj, gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
+   }
    g_free(markup); g_free(markup_body); g_free(markup_prefix);
    g_free(prefix); g_free(extracted);
 }
@@ -460,8 +506,7 @@ void gtk_terminal_shutdown(void) {
    terminal_ports = NULL;
    if (decode_token) event_off_token(decode_token);
    decode_token = 0;
-   decode_list = decode_scroll = NULL;
-   decode_rows = 0;
+   memset(decode_tabs, 0, sizeof(decode_tabs));
 }
 static void terminal_close(GtkButton *button, gpointer data) {
    (void)button;
@@ -678,20 +723,8 @@ GtkWidget *init_terminal_tab(void) {
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(terminal_notebook), GTK_POS_TOP);
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(terminal_notebook), TRUE);
    gtk_box_pack_start(GTK_BOX(root), terminal_notebook, TRUE, TRUE, 0);
-   GtkWidget *decodes = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-   GtkWidget *decode_controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   GtkWidget *call = gtk_entry_new();
-   gtk_entry_set_placeholder_text(GTK_ENTRY(call), "Your callsign (highlight)");
-   gtk_entry_set_width_chars(GTK_ENTRY(call), 20);
-   g_signal_connect(call, "changed", G_CALLBACK(decode_set_call), NULL);
-   gtk_box_pack_start(GTK_BOX(decode_controls), gtk_label_new("Highlight:"), FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(decode_controls), call, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(decodes), decode_controls, FALSE, FALSE, 0);
-   decode_scroll = gtk_scrolled_window_new(NULL, NULL);
-   decode_list = gtk_list_box_new();
-   gtk_list_box_set_selection_mode(GTK_LIST_BOX(decode_list), GTK_SELECTION_NONE);
-   gtk_container_add(GTK_CONTAINER(decode_scroll), decode_list);
-   gtk_box_pack_start(GTK_BOX(decodes), decode_scroll, TRUE, TRUE, 0);
+   /* Each decoder creates its own terminal subtab on its first event. */
+   decode_token = event_on_message_domain_token(RR_LOCAL_MODEM_DECODE, decode_received, NULL, "gtk");
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
       ".rr-modem-highlight { background-color: @theme_selected_bg_color; }"
@@ -699,8 +732,7 @@ GtkWidget *init_terminal_tab(void) {
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
       GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
-   gtk_notebook_append_page(GTK_NOTEBOOK(terminal_notebook), decodes, gtk_label_new("Decodes"));
-   decode_token = event_on_message_domain_token(RR_LOCAL_MODEM_DECODE, decode_received, NULL, "gtk");
+ 
    g_signal_connect(refresh, "clicked", G_CALLBACK(terminal_refresh), NULL);
    g_signal_connect(open, "clicked", G_CALLBACK(terminal_open), NULL);
    g_signal_connect(configure, "clicked", G_CALLBACK(terminal_configure), NULL);
