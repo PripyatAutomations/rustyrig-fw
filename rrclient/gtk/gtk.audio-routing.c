@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/sercom.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/config.h>
 #include <rrclient/audio.h>
@@ -619,6 +620,38 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
 
 /* Modem creation is an ordinary Routing action, not another floating manager.
  * Pick an existing source to establish the initial worker PCM connection. */
+static void routing_server_modem(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   GtkWidget *dlg = gtk_dialog_new_with_buttons("Select Server Modem",
+      GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Select", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+   GtkWidget *entry = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "ttyMODEM0");
+   gtk_widget_set_margin_start(entry, 12);
+   gtk_widget_set_margin_end(entry, 12);
+   gtk_widget_set_margin_top(entry, 10);
+   gtk_widget_set_margin_bottom(entry, 10);
+   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 0);
+   gtk_widget_show_all(dlg);
+   if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
+      const char *port = gtk_entry_get_text(GTK_ENTRY(entry));
+      gboolean valid = g_str_has_prefix(port, "ttyMODEM") && port[8];
+      for (const char *p = valid ? port + 8 : port; valid && *p; p++)
+         valid = g_ascii_isdigit(*p);
+      if (valid) {
+         rr_sercom_modem_request_t req = {0};
+         g_strlcpy(req.target, port, sizeof(req.target));
+         rr_event_message_t event = {
+            .name = RR_SERCOM_MODEM_REQUEST,
+            .payload = &req, .length = sizeof(req)
+         };
+         event_emit_message(&event);
+      }
+   }
+   gtk_widget_destroy(dlg);
+}
 static void routing_new_modem(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    GtkWidget *dlg = gtk_dialog_new_with_buttons("New Modem",
@@ -1698,6 +1731,10 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), new_modem, FALSE, FALSE, 0);
+      GtkWidget *server_modem = gtk_button_new_with_label("Server ttyMODEM…");
+      gtk_widget_set_tooltip_text(server_modem, "Select an existing server-side ttyMODEMN for the focused rig");
+      g_signal_connect(server_modem, "clicked", G_CALLBACK(routing_server_modem), NULL);
+      gtk_box_pack_end(GTK_BOX(profiles), server_modem, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
