@@ -120,6 +120,23 @@ Live runtime topology inspection and safe hot-editing require a versioned
 fwdsp snapshot and validated worker control transactions. Never confuse
 configured launch strings with the currently executing DSP pipeline.
 
+## Opt-in generated client sound-device pipelines
+
+Existing `pipeline:src.client.dsp0` and `pipeline:sink.client.mix` configuration
+values remain the **default** and continue to be supported. To test the
+shared recipe compiler instead, set `audio.pipeline-mode=generated` in
+rrclient's configuration. Set `audio.capture-device` and
+`audio.playback-device` to PipeWire-Pulse/PulseAudio device names, or leave
+both as `default`. The existing `audio.capture-rate` and
+`audio.playback-rate` settings still control the requested hardware rates.
+
+The recipe compiler produces the same canonical fwdsp capture/playback
+endpoints and runs through the existing subprocess manager; the client
+never loads or processes GStreamer audio directly. Invalid recipes fall back
+to the configured launch string. This is an initial, opt-in endpoint generator,
+**not** a distributed graph compiler or live LV2 effect host yet. The
+configured pipeline path remains an indefinitely supported advanced option.
+
 ## Client sound-device rate selection
 
 The stock rrclient microphone and stereo playback GStreamer pipelines request
