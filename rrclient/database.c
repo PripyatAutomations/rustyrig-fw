@@ -986,6 +986,7 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
    }
    sqlite3_stmt *q = NULL;
    bool ok = false;
+   const char *stage = "prepare profile";
 
    if (sqlite3_prepare_v2(client_db, "INSERT INTO audio_profiles(name,updated) VALUES(?1,strftime('%s','now'))"
       " ON CONFLICT(name) DO UPDATE SET updated=excluded.updated", -1, &q, NULL) != SQLITE_OK) {
@@ -996,6 +997,7 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
    sqlite3_finalize(q);
    q = NULL;
 
+   stage = "replace existing routes";
    if (!ok || sqlite3_prepare_v2(client_db, "DELETE FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) {
       goto done;
    }
@@ -1004,12 +1006,15 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
    sqlite3_finalize(q);
    q = NULL;
 
+   stage = "insert routes";
    if (!ok || sqlite3_prepare_v2(client_db, "INSERT INTO audio_profile_routes(profile,stream_id,route) VALUES(?1,?2,?3)", -1, &q, NULL) != SQLITE_OK) {
       goto done;
    }
 
    for (size_t i = 0 ; i < count ; i++) {
       if (!ids[i] || !*ids[i] || routes[i] == '\0' || !strchr("SLRM", routes[i])) {
+         g_warning("Audio preset '%s' contains invalid routing entry %zu (id=%s, route=%u)",
+                   name, i, ids[i] ? ids[i] : "(null)", (unsigned char)routes[i]);
          ok = false;
          break;
       }
@@ -1032,10 +1037,13 @@ done:
    sqlite3_finalize(q);
 
    if (ok) {
+      stage = "commit";
       ok = sqlite3_exec(client_db, "RELEASE audio_profile_save", NULL, NULL, NULL) == SQLITE_OK;
    }
 
    if (!ok) {
+      g_warning("Audio preset '%s' SQLite %s failed: %s (code %d)",
+                name, stage, sqlite3_errmsg(client_db), sqlite3_errcode(client_db));
       sqlite3_exec(client_db, "ROLLBACK TO audio_profile_save; RELEASE audio_profile_save", NULL, NULL, NULL);
    }
 
