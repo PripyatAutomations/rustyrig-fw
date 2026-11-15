@@ -255,38 +255,76 @@ static void graph_gain_drag(double x);
 static const char *pipeline_for_node(const char *id);
 static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
+static gint graph_drag_modem_target = -1;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the
  * same hit/clock-domain rules for live preview and final connection. */
+static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
+   unsigned value = 0;
+   char tail = 0;
+   if (n->type != RR_AG_SINK ||
+       sscanf(n->id, "modem.%u.rx%c", &value, &tail) != 1 ||
+       value < 1 || value > RR_LOCAL_MODEM_MAX)
+      return FALSE;
+   *slot = value;
+   return TRUE;
+}
+static gboolean routing_modem_source(const rr_ag_view_node_t *n) {
+   return n->type == RR_AG_SOURCE && !n->read_only &&
+          n->rate_hz == 16000 && n->channels == 1 &&
+          n->sample_format == RR_PCM_S16LE &&
+          !g_str_has_prefix(n->id, "modem.");
+}
+static void routing_modem_connect(unsigned slot, const char *source) {
+   rr_local_modem_request_t req = {
+      .action = RR_LOCAL_MODEM_ROUTE, .slot = slot
+   };
+   g_strlcpy(req.source, source, sizeof(req.source));
+   rr_local_modem_request(&req);
+   routing_queue();
+}
+/* Audio sources can be dragged to modem RX inputs, and modem inputs can
+ * be dragged back to a source. The modem path ignores speaker L/R routing. */
 static gboolean routing_drag_target(double x, double y, gint *source_index,
                                     double *snap_x, double *snap_y) {
    if (!graph_snapshot || graph_drag_channel < 0) return FALSE;
    const gint origin = graph_drag_mixer ? -graph_drag_source - 1 : graph_drag_source;
    if (origin < 0 || (guint)origin >= graph_snapshot->node_count) return FALSE;
    const rr_ag_view_node_t *origin_node = &graph_snapshot->nodes[origin];
+   unsigned modem_slot = 0;
+   gboolean from_modem = graph_drag_mixer && routing_modem_slot(origin_node, &modem_slot);
    const char *required_bus = graph_drag_mixer ? origin_node->id :
        (origin_node->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix");
    const double limit = CLAMP(18. / MAX(.01, graph_scale), 14., 34.);
    double best = limit;
    gboolean found = FALSE;
+   graph_drag_modem_target = -1;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (graph_missing_since[i]) continue;
-      gboolean valid = graph_drag_mixer ?
+      unsigned target_slot = 0;
+      gboolean is_modem = routing_modem_slot(n, &target_slot);
+      gboolean modem_connection = from_modem ?
+         routing_modem_source(n) :
+         (!graph_drag_mixer && routing_modem_source(origin_node) && is_modem);
+      gboolean valid = modem_connection || (graph_drag_mixer ?
          (n->type == RR_AG_SOURCE && !n->read_only &&
           !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
                   required_bus)) :
-         (n->type == RR_AG_MIXER && !strcmp(n->id, required_bus));
+         (n->type == RR_AG_MIXER && !strcmp(n->id, required_bus)));
       if (!valid) continue;
       double nx = routing_node_x(n) +
           (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
-      double ny = routing_node_y(n) + (graph_drag_channel ? 79. : 60.);
+      double ny = routing_node_y(n) + (modem_connection ?
+           (from_modem ? 60. : 60.) : (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
       if (dist >= best) continue;
       best = dist;
       *source_index = graph_drag_mixer ? (gint)i : origin;
       *snap_x = nx;
       *snap_y = ny;
+      graph_drag_modem_target = modem_connection ?
+         (gint)(from_modem ? modem_slot : target_slot) : -1;
       found = TRUE;
    }
    return found;
@@ -833,8 +871,20 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
-      if (graph_missing_since[i] || node->type != RR_AG_MIXER)
+      unsigned modem_slot = 0;
+      gboolean modem_input = routing_modem_slot(node, &modem_slot);
+      if (graph_missing_since[i] || (node->type != RR_AG_MIXER && !modem_input))
          continue;
+      if (modem_input) {
+         if (hypot(x - routing_node_x(node),
+                   y - routing_node_y(node) - 60.) <= radius) {
+            *source = -(gint)i - 1;
+            *channel = 0;
+            *mixer = TRUE;
+            return TRUE;
+         }
+         continue;
+      }
 
       for (gint ch = 0 ; ch < 2 ; ch++) {
          if (hypot(x - routing_node_x(node), y - routing_node_y(node) - (ch ? 79 : 60)) <= radius) {
@@ -1149,13 +1199,18 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) &&
        routing_drag_target(gx, gy, &source_index, &snap_x, &snap_y);
    if (graph_drag_moved && hit && source_index >= 0) {
-      graph_set_channel((guint)source_index, graph_drag_channel, TRUE);
+      if (graph_drag_modem_target > 0)
+         routing_modem_connect((unsigned)graph_drag_modem_target,
+            graph_snapshot->nodes[source_index].id);
+      else
+         graph_set_channel((guint)source_index, graph_drag_channel, TRUE);
    } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0) {
       unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
       unsigned bit = graph_drag_channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
       graph_set_channel((guint) graph_drag_source, graph_drag_channel, !(mask & bit));
    }
    graph_drag_source = graph_drag_channel = -1;
+   graph_drag_modem_target = -1;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
