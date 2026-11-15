@@ -36,4 +36,11 @@ void rr_floating_panel_set_response_callback(RRFloatPanel *panel, void (*callbac
 void rr_floating_panel_response(RRFloatPanel *panel, gint response);
 GtkWidget *rr_floating_panel_add_response(RRFloatPanel *panel, GtkWidget *button_box, const char *label, gint response);
 gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
+/* Transient, GTK-thread-only visibility masks. These never persist panel
+ * state, change minimization, or restore panels which were already hidden. */
+#define RR_FLOATING_HIDE_MANUAL (1u << 0)
+#define RR_FLOATING_HIDE_TAB    (1u << 1)
+void rr_floating_panels_set_hidden(guint reason, gboolean hidden);
+gboolean rr_floating_panels_hidden(guint reason);
+
 #endif
