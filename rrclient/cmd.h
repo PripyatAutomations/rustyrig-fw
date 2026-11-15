@@ -37,6 +37,7 @@ struct rr_client_media_chan {
    uint8_t rig;
    uint8_t stream;
    bool stream_valid;
+   uint32_t source_rate_hz; /* native receiver clock, if server advertises it */
    char codec[5];               // active (negotiated) codec magic
    char profiles[512];
    char descr[128];
