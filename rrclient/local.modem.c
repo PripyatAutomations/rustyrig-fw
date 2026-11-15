@@ -21,6 +21,7 @@ typedef struct {
    rr_dsp_worker_t worker;
    bool active;
    char source[64], engine[16], option[24];
+   char tx_target[64], ptt_target[64];
    unsigned value;
    guint64 drops, received;
    char text[RR_LOCAL_MODEM_TEXT];
@@ -142,6 +143,8 @@ size_t rr_local_modem_routes(rr_local_modem_route_t *routes, size_t capacity) {
       routes[count].slot = i + 1;
       g_strlcpy(routes[count].source, d->source, sizeof(routes[count].source));
       g_strlcpy(routes[count].engine, d->engine, sizeof(routes[count].engine));
+      g_strlcpy(routes[count].tx_target, d->tx_target, sizeof(routes[count].tx_target));
+      g_strlcpy(routes[count].ptt_target, d->ptt_target, sizeof(routes[count].ptt_target));
       count++;
    }
    g_mutex_unlock(&decoder_lock);
@@ -236,6 +239,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->value = req->value;
    d->text_len = 0;
    d->text[0] = 0;
+   d->tx_target[0] = d->ptt_target[0] = 0;
    d->drops = d->received = 0;
    g_mutex_unlock(&decoder_lock);
    g_snprintf(last_status, sizeof(last_status),
@@ -297,6 +301,27 @@ static void request_received(const rr_event_message_t *message, void *unused) {
       } else {
          g_strlcpy(last_status, "Modem routing rejected: invalid PCM source or slot",
                    sizeof(last_status));
+      }
+   }
+   else if (req->action == RR_LOCAL_MODEM_TX_ROUTE ||
+            req->action == RR_LOCAL_MODEM_PTT_ROUTE) {
+      /* Prepare independent transmit paths without keying RF. A valid rig RX
+       * identity is the catalog-backed target; grants happen at TX time. */
+      if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX &&
+          memchr(req->source, 0, sizeof(req->source)) &&
+          (req->source[0] == 0 || source_present(req->source))) {
+         decoder_t *d = &decoders[req->slot - 1];
+         g_mutex_lock(&decoder_lock);
+         if (d->active) {
+            char *target = req->action == RR_LOCAL_MODEM_TX_ROUTE ?
+                           d->tx_target : d->ptt_target;
+            g_strlcpy(target, req->source, 64);
+            g_snprintf(last_status, sizeof(last_status),
+                       "Modem %u %s route: %s (configuration only)",
+                       req->slot, req->action == RR_LOCAL_MODEM_TX_ROUTE ?
+                       "TX audio" : "PTT", *target ? target : "disconnected");
+         }
+         g_mutex_unlock(&decoder_lock);
       }
    }
    else if (req->action == RR_LOCAL_MODEM_STOP &&
