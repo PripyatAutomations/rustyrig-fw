@@ -20,7 +20,9 @@ typedef enum {
    RR_LOCAL_MODEM_SNAPSHOT = 1,
    RR_LOCAL_MODEM_START,
    RR_LOCAL_MODEM_STOP,
-   RR_LOCAL_MODEM_ROUTE
+   RR_LOCAL_MODEM_ROUTE,
+   RR_LOCAL_MODEM_TX_ROUTE,
+   RR_LOCAL_MODEM_PTT_ROUTE
 } rr_local_modem_action_t;
 typedef struct {
    rr_local_modem_action_t action;
@@ -48,6 +50,7 @@ typedef struct {
 typedef struct {
    unsigned slot;
    char source[64], engine[16];
+   char tx_target[64], ptt_target[64]; /* Planned rig routes, not TX grants. */
 } rr_local_modem_route_t;
 size_t rr_local_modem_routes(rr_local_modem_route_t *routes, size_t capacity);
 void rr_local_modem_init(void);
