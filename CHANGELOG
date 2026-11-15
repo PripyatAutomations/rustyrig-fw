@@ -1,5 +1,9 @@
 rustyrig-fw (1.0.3) testing; urgency=medium
 
+  * Fix Server Picker not opening from Status/Log after automatic
+    floating-panel hiding. An explicit chooser request reveals only the
+    requested panel without clearing the manual or automatic hide mask,
+    and closing it again does not restore other hidden panels.
   * Shrink the GTK Volume floating panel: three short horizontal L/R/RX
     faders, one compact Link L/R checkbox, and tighter grid spacing
     instead of tall vertical sliders and redundant headings. Retain
