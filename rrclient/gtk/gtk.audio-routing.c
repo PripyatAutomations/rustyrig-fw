@@ -615,6 +615,129 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
 
    return FALSE;
 }
+
+/* Modem creation is an ordinary Routing action, not another floating manager.
+ * Pick an existing source to establish the initial worker PCM connection. */
+static void routing_new_modem(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   GtkWidget *dlg = gtk_dialog_new_with_buttons("New Modem",
+      GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Create", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *body = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+   GtkWidget *grid = gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_box_pack_start(GTK_BOX(body), grid, FALSE, FALSE, 0);
+   GtkWidget *engine = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(engine), "ft8", "FT8");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(engine), "psk", "PSK31 / PSK");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(engine), "olivia", "Olivia");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(engine), 0);
+   GtkWidget *source = gtk_combo_box_text_new();
+   if (graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      if (routing_modem_source(n))
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source), n->id,
+                                   n->rig[0] ? n->rig : n->id);
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(source), 0);
+   GtkWidget *mode = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "auto", "Auto (FT8)");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "BPSK31", "BPSK31");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "QPSK31", "QPSK31");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "BPSK63", "BPSK63");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "BPSK125", "BPSK125");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "QPSK63", "QPSK63");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "QPSK125", "QPSK125");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "4", "Olivia 4 tones");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "8", "Olivia 8 tones");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "16", "Olivia 16 tones");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "32", "Olivia 32 tones");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "64", "Olivia 64 tones");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(mode), 0);
+   GtkWidget *value = gtk_spin_button_new_with_range(0, 3500, 1);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(value), 1500);
+   GtkWidget *labels[] = {gtk_label_new("Modem"), gtk_label_new("RX source"),
+                          gtk_label_new("Mode / tones"), gtk_label_new("Audio Hz / bandwidth")};
+   GtkWidget *fields[] = {engine, source, mode, value};
+   for (unsigned i = 0; i < 4; i++) {
+      gtk_widget_set_halign(labels[i], GTK_ALIGN_END);
+      gtk_grid_attach(GTK_GRID(grid), labels[i], 0, i, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
+   }
+   gtk_widget_show_all(dlg);
+   if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
+      const char *selected_engine = gtk_combo_box_get_active_id(GTK_COMBO_BOX(engine));
+      const char *selected_source = gtk_combo_box_get_active_id(GTK_COMBO_BOX(source));
+      const char *selected_mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(mode));
+      if (selected_engine && selected_source && selected_mode) {
+         rr_local_modem_request_t req = {.action=RR_LOCAL_MODEM_START};
+         g_strlcpy(req.engine, selected_engine, sizeof(req.engine));
+         g_strlcpy(req.source, selected_source, sizeof(req.source));
+         g_strlcpy(req.option, selected_mode, sizeof(req.option));
+         req.value = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(value));
+         if (!strcmp(selected_engine, "ft8")) {
+            g_strlcpy(req.option, "auto", sizeof(req.option));
+            req.value = 0;
+         } else if (!strcmp(selected_engine, "olivia") &&
+                    strcmp(req.option, "4") && strcmp(req.option, "8") &&
+                    strcmp(req.option, "16") && strcmp(req.option, "32") &&
+                    strcmp(req.option, "64")) {
+            g_strlcpy(req.option, "8", sizeof(req.option));
+            req.value = 500;
+         } else if (!strcmp(selected_engine, "psk") &&
+                    (!strstr(req.option, "PSK"))) {
+            g_strlcpy(req.option, "BPSK31", sizeof(req.option));
+         }
+         rr_local_modem_request(&req);
+      }
+   }
+   gtk_widget_destroy(dlg);
+}
+static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "modem-slot"));
+   unsigned action = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "modem-action"));
+   if (slot < 1 || slot > RR_LOCAL_MODEM_MAX) return;
+   if (action == 1) {
+      rr_local_modem_request_t req = {.slot=slot};
+      req.action = RR_LOCAL_MODEM_ROUTE; rr_local_modem_request(&req);
+      req.action = RR_LOCAL_MODEM_TX_ROUTE; rr_local_modem_request(&req);
+      req.action = RR_LOCAL_MODEM_PTT_ROUTE; rr_local_modem_request(&req);
+   } else if (action == 2) {
+      rr_local_modem_request_t req = {.action=RR_LOCAL_MODEM_STOP, .slot=slot};
+      rr_local_modem_request(&req);
+   }
+   routing_queue();
+}
+static gboolean routing_modem_context_menu(GdkEventButton *event, double x, double y) {
+   if (!graph_snapshot) return FALSE;
+   for (gint i=(gint)graph_snapshot->node_count - 1; i>=0; i--) {
+      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      if (graph_missing_since[i] || !g_str_has_prefix(n->id, "modem.")) continue;
+      double nx = routing_node_x(n), ny = routing_node_y(n);
+      if (x < nx || x > nx+RR_GTK_GRAPH_NODE_W ||
+          y < ny || y > ny+RR_GTK_GRAPH_NODE_H) continue;
+      unsigned slot=0;
+      if (sscanf(n->id, "modem.%u.", &slot) != 1) continue;
+      GtkWidget *menu = gtk_menu_new();
+      const char *titles[] = {"Disconnect All", "Remove Modem"};
+      for (unsigned j=0; j<2; j++) {
+         GtkWidget *item = gtk_menu_item_new_with_label(titles[j]);
+         g_object_set_data(G_OBJECT(item), "modem-slot", GUINT_TO_POINTER(slot));
+         g_object_set_data(G_OBJECT(item), "modem-action", GUINT_TO_POINTER(j+1));
+         g_signal_connect(item, "activate", G_CALLBACK(routing_modem_menu_action), NULL);
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+      }
+      g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+      gtk_widget_show_all(menu);
+      gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+      return TRUE;
+   }
+   return FALSE;
+}
 static void routing_graph_snapshot_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -1071,6 +1194,12 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    (void)widget;
    (void)unused;
 
+   if (event->type == GDK_BUTTON_PRESS && event->button == GDK_BUTTON_SECONDARY &&
+       graph_snapshot) {
+      double gx, gy;
+      return graph_pointer(event->x, event->y, &gx, &gy) &&
+             routing_modem_context_menu(event, gx, gy);
+   }
    if (event->type == GDK_BUTTON_PRESS &&
        (event->button == GDK_BUTTON_MIDDLE ||
         (event->button == GDK_BUTTON_PRIMARY && (event->state & GDK_MOD1_MASK)))) {
@@ -1563,6 +1692,10 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(auto_layout, "clicked",
                        G_CALLBACK(routing_auto_layout_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), auto_layout, FALSE, FALSE, 0);
+      GtkWidget *new_modem = gtk_button_new_with_label("New Modem…");
+      gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
+      g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
+      gtk_box_pack_end(GTK_BOX(profiles), new_modem, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
