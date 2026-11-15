@@ -1253,7 +1253,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                for (size_t m = 0; m < modem_count; m++) {
                   if (modems[m].slot != slot) continue;
                   gboolean tx = !strcmp(direction, "tx");
-                  g_snprintf(node->rig, sizeof(node->rig), "%s #%u %s",
+                  g_snprintf(node->rig, sizeof(node->rig), "%s-%u %s",
                              modems[m].engine, slot, tx ? "TX / PTT" : "RX");
                   node->rate_hz = 16000;
                   node->channels = 1;
