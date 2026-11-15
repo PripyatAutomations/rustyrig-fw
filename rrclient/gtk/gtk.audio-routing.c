@@ -1666,7 +1666,11 @@ static void graph_profile_save(GtkButton *button, gpointer unused) {
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
 
-      if (graph_missing_since[i] || n->type != RR_AG_SOURCE || !strchr("SLRM", n->route)) {
+      /* strchr() matches the string terminator for route == '\\0'; do
+       * not try to persist synthetic/readonly sources without an actual
+       * routing selection. The DB correctly rejects a zero route. */
+      if (graph_missing_since[i] || n->type != RR_AG_SOURCE ||
+          n->read_only || !n->route || !strchr("SLRM", n->route)) {
          continue;
       }
       ids[count] = n->id;
