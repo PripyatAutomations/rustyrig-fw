@@ -56,6 +56,22 @@ static gint graph_node_drag = -1;
 static double graph_node_drag_x, graph_node_drag_y;
 static double graph_node_press_x, graph_node_press_y;
 static gboolean graph_node_moved;
+/* The snap setting affects only interactive node movement. Stored coordinates
+ * remain exact, and Shift temporarily bypasses snapping for fine placement. */
+#define GRAPH_SNAP_STEP 20.0
+#define GRAPH_SNAP_KEY "audio.graph.snap-grid"
+static gboolean graph_snap_enabled;
+static void routing_snap_toggled(GtkToggleButton *button, gpointer unused) {
+   (void)unused;
+   graph_snap_enabled = gtk_toggle_button_get_active(button);
+   rrclient_database_setting_set(GRAPH_SNAP_KEY,
+                                  graph_snap_enabled ? "true" : "false");
+}
+static double routing_snap_coordinate(double value) {
+   return CLAMP(GRAPH_LAYOUT_MARGIN +
+                round((value - GRAPH_LAYOUT_MARGIN) / GRAPH_SNAP_STEP) *
+                   GRAPH_SNAP_STEP, 0., 100000.);
+}
 #define GRAPH_LAYOUT_GAP_X 355.0
 #define GRAPH_LAYOUT_GAP_Y 200.0
 #define GRAPH_LAYOUT_MARGIN 28.0
@@ -1372,8 +1388,14 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
       if (hypot(gx - graph_node_press_x, gy - graph_node_press_y) > 3.)
          graph_node_moved = TRUE;
       if (pos && graph_node_moved) {
-         pos->x = CLAMP(gx - graph_node_drag_x, 0., 100000.);
-         pos->y = CLAMP(gy - graph_node_drag_y, 0., 100000.);
+         double x = CLAMP(gx - graph_node_drag_x, 0., 100000.);
+         double y = CLAMP(gy - graph_node_drag_y, 0., 100000.);
+         if (graph_snap_enabled && !(event->state & GDK_SHIFT_MASK)) {
+            x = routing_snap_coordinate(x);
+            y = routing_snap_coordinate(y);
+         }
+         pos->x = x;
+         pos->y = y;
          graph_canvas_update_size();
       }
       return TRUE;
@@ -1749,6 +1771,16 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(auto_layout, "clicked",
                        G_CALLBACK(routing_auto_layout_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), auto_layout, FALSE, FALSE, 0);
+      GtkWidget *snap_grid = gtk_check_button_new_with_label("Snap to Grid");
+      char *saved_snap = rrclient_database_setting_get(GRAPH_SNAP_KEY);
+      graph_snap_enabled = saved_snap &&
+         (!g_ascii_strcasecmp(saved_snap, "true") || !strcmp(saved_snap, "1"));
+      g_free(saved_snap);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(snap_grid), graph_snap_enabled);
+      gtk_widget_set_tooltip_text(snap_grid,
+         "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
+      g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
+      gtk_box_pack_start(GTK_BOX(profiles), snap_grid, FALSE, FALSE, 0);
       GtkWidget *new_modem = gtk_button_new_with_label("New Modem…");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
@@ -1760,7 +1792,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
-         gtk_label_new("Drag nodes to move; drag ports to patch. Middle/Alt-drag pans, wheel zooms, touchpad scrolls. Double-click a trim for 0 dB.");
+         gtk_label_new("Drag blocks to move (Shift bypasses grid snap); drag ports to patch. Middle/Alt-drag pans, wheel zooms. Double-click trim for 0 dB.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 5);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
