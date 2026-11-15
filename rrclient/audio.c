@@ -15,6 +15,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <rrclient/audio.engine.h>
+#include <libfwdspmgr/pipeline.recipe.h>
 #include <rrclient/recordings.h>
 #include <rrclient/audio.graph.h>
 #include <rrclient/database.h>
@@ -474,17 +475,40 @@ static unsigned audio_hq_capture_rate(void) {
    Log(LOG_WARN, "audio", "Invalid audio.capture-rate=%s (using 48000)", setting);
    return 48000;
 }
+/* Legacy config-file pipelines stay authoritative unless the operator
+ * explicitly enables recipe generation. Both use identical fwdsp workers. */
+static char *audio_client_pipeline_recipe(bool capture) {
+   const char *mode = cfg_get("audio.pipeline-mode");
+   if (!mode || g_ascii_strcasecmp(mode, "generated"))
+      return NULL;
+   rr_pipeline_recipe_t recipe = {
+      .endpoint = capture ? RR_PIPELINE_CAPTURE_MONO : RR_PIPELINE_PLAYBACK_STEREO,
+      .pcm_rate_hz = capture ? 16000u : audio_hq_output_rate(),
+      .device_rate_hz = capture ? audio_hq_capture_rate() : audio_hq_output_rate(),
+      .device = cfg_get(capture ? "audio.capture-device" : "audio.playback-device")
+   };
+   char *description = rr_pipeline_recipe_compile(&recipe);
+   if (!description)
+      Log(LOG_WARN, "audio.pipeline",
+          "Invalid generated %s recipe; using configured pipeline instead",
+          capture ? "capture" : "playback");
+   return description;
+}
 static bool audio_client_playback_start(void) {
-   /* fwdsp -R owns appsrc/device caps negotiation. Never modify launch
-    * strings in rrclient: the editor and upcoming graph generator own them. */
-   return fwdsp_audio_playback_start_rate("sink.client.dsp0",
-             cfg_get("pipeline:sink.client.mix"), audio_hq_output_rate());
+   char *generated = audio_client_pipeline_recipe(false);
+   const char *pipeline = generated ? generated : cfg_get("pipeline:sink.client.mix");
+   bool ok = fwdsp_audio_playback_start_rate("sink.client.dsp0",
+                                             pipeline, audio_hq_output_rate());
+   g_free(generated);
+   return ok;
 }
 static bool audio_client_capture_start(void) {
-   /* Sound device is HQ, while the codec-facing appsink remains 16k mono. */
-   return fwdsp_audio_capture_start_rate("src.client.dsp0",
-             cfg_get("pipeline:src.client.dsp0"), audio_hq_capture_rate(),
-             client_mic_pcm, NULL);
+   char *generated = audio_client_pipeline_recipe(true);
+   const char *pipeline = generated ? generated : cfg_get("pipeline:src.client.dsp0");
+   bool ok = fwdsp_audio_capture_start_rate("src.client.dsp0",
+                           pipeline, audio_hq_capture_rate(), client_mic_pcm, NULL);
+   g_free(generated);
+   return ok;
 }
 
 typedef struct rx_route {
