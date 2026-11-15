@@ -1012,9 +1012,9 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(settings_row), p->modem_tx_spin, FALSE, FALSE, 0);
    g_signal_connect(p->modem_rx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
    g_signal_connect(p->modem_tx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
-   GtkWidget *modem_manager = gtk_button_new_with_label("Modems…");
+   GtkWidget *modem_manager = gtk_button_new_with_label("Routing…");
    gtk_widget_set_tooltip_text(modem_manager,
-      "Manage local RX decoders and select the active server-side modem");
+      "Manage modem RX/TX and PTT connections in Routing");
    gtk_box_pack_start(GTK_BOX(settings_row), modem_manager, FALSE, FALSE, 3);
    g_signal_connect_swapped(modem_manager, "clicked",
                             G_CALLBACK(gtk_decoders_show), NULL);
