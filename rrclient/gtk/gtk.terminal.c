@@ -113,10 +113,26 @@ static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
    return tab;
 }
 
+static gboolean decode_has_call(const char *line, const char *call);
 static void decode_set_call(GtkEditable *edit, gpointer unused) {
    (void)unused;
    const char *value = gtk_entry_get_text(GTK_ENTRY(edit));
    g_strlcpy(decode_highlight_call, value, sizeof(decode_highlight_call));
+   for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++) {
+      decode_tab_t *tab = &decode_tabs[i];
+      if (!tab->list) continue;
+      GList *rows = gtk_container_get_children(GTK_CONTAINER(tab->list));
+      for (GList *p = rows; p; p = p->next) {
+         GtkWidget *row = p->data;
+         const char *body = g_object_get_data(G_OBJECT(row), "rr-decoded-text");
+         GtkStyleContext *style = gtk_widget_get_style_context(row);
+         if (decode_has_call(body, decode_highlight_call))
+            gtk_style_context_add_class(style, "rr-modem-highlight");
+         else
+            gtk_style_context_remove_class(style, "rr-modem-highlight");
+      }
+      g_list_free(rows);
+   }
 }
 static gboolean decode_has_call(const char *line, const char *call) {
    if (!call || !*call) return FALSE;
@@ -186,11 +202,13 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    gboolean cq = g_ascii_strncasecmp(body, "CQ ", 3) == 0;
    gboolean highlight = decode_has_call(body, decode_highlight_call);
    GtkWidget *row = gtk_list_box_row_new();
+   g_object_set_data_full(G_OBJECT(row), "rr-decoded-text", g_strdup(body), g_free);
    GtkStyleContext *style = gtk_widget_get_style_context(row);
    /* The row counter continues across pruning; 1000 retained rows means
     * zebra parity remains stable while the oldest entries are dropped. */
    if (tab->rows & 1) gtk_style_context_add_class(style, "rr-zebra-odd");
    if (highlight) gtk_style_context_add_class(style, "rr-modem-highlight");
+   if (cq) gtk_style_context_add_class(style, "rr-modem-cq");
    GtkWidget *label = gtk_label_new(NULL);
    gchar *escaped_prefix = g_markup_escape_text(prefix, -1);
    gchar *escaped_body = g_markup_escape_text(body, -1);
@@ -788,6 +806,12 @@ GtkWidget *init_terminal_tab(void) {
    gtk_box_pack_start(GTK_BOX(toolbar), open, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), configure, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), decoders, FALSE, FALSE, 0);
+   GtkWidget *highlight_call = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(highlight_call), "My callsign");
+   gtk_entry_set_width_chars(GTK_ENTRY(highlight_call), 13);
+   gtk_widget_set_tooltip_text(highlight_call, "Highlight decoded rows containing this callsign");
+   g_signal_connect(highlight_call, "changed", G_CALLBACK(decode_set_call), NULL);
+   gtk_box_pack_start(GTK_BOX(toolbar), highlight_call, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(root), toolbar, FALSE, FALSE, 5);
    terminal_notebook = gtk_notebook_new();
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(terminal_notebook), GTK_POS_TOP);
@@ -798,8 +822,11 @@ GtkWidget *init_terminal_tab(void) {
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
       "listbox row.rr-zebra-odd { background-color: alpha(currentColor, 0.085); }"
-      "listbox row.rr-modem-highlight { background-color: @theme_selected_bg_color; }"
-      "listbox row.rr-modem-highlight label { color: @theme_selected_fg_color; }", -1, NULL);
+      "listbox row.rr-modem-cq label { color: #159c72; }"
+      "listbox row.rr-modem-highlight, listbox row.rr-modem-highlight.rr-zebra-odd {"
+      " background-color: #ffe073; }"
+      "listbox row.rr-modem-highlight label, listbox row.rr-modem-highlight.rr-modem-cq label {"
+      " color: #241e08; }", -1, NULL);
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
       GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
