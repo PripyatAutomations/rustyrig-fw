@@ -617,7 +617,10 @@ char *receiver_directory_bridge_config(const receiver_directory_entry_t *r) {
 static char *cache_path(void) {
    const char *configured = cfg_get("receiver-directory.cache");
 
-   return configured && *configured ? g_strdup(configured) : g_build_filename(g_get_user_cache_dir(), "rustyrig", "receivers.sqlite3", NULL);
+   /* Cache paths are user-configurable. Never pass a literal ~/ prefix
+    * to mkdir/sqlite: GLib path helpers do not expand shell syntax. */
+   return configured && *configured ? cfg_get_path("receiver-directory.cache")
+      : g_build_filename(g_get_user_cache_dir(), "rustyrig", "receivers.sqlite3", NULL);
 }
 static void cache_write(void) {
    if (!cache_db) {
