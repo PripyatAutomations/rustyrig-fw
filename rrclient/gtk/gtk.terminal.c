@@ -11,6 +11,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/database.h>
 #include "gtk.serial.h"
 #include "gtk.decoders.h"
 #include <rrclient/gtk/gtk.chat.h>
@@ -145,6 +146,61 @@ static gboolean decode_has_call(const char *line, const char *call) {
    }
    return FALSE;
 }
+/* Match watched calls as complete call tokens, never substrings (K1AB
+ * must not match K1ABC). The RF dial determines band; audio offset is not
+ * part of the amateur band selection. Unknown RF matches only "Any". */
+static const char *decode_rf_band(uint64_t hz) {
+   static const struct { uint64_t low, high; const char *band; } bands[] = {
+      {135700, 137800, "2200m"}, {472000, 479000, "630m"},
+      {1800000, 2000000, "160m"}, {3500000, 4000000, "80m"},
+      {5330000, 5410000, "60m"}, {7000000, 7300000, "40m"},
+      {10100000, 10150000, "30m"}, {14000000, 14350000, "20m"},
+      {18068000, 18168000, "17m"}, {21000000, 21450000, "15m"},
+      {24890000, 24990000, "12m"}, {28000000, 29700000, "10m"},
+      {50000000, 54000000, "6m"}, {144000000, 148000000, "2m"},
+      {222000000, 225000000, "1.25m"}, {420000000, 450000000, "70cm"},
+      {902000000, 928000000, "33cm"}, {1240000000, 1300000000, "23cm"}
+   };
+   for (unsigned i = 0; i < G_N_ELEMENTS(bands); ++i)
+      if (hz >= bands[i].low && hz <= bands[i].high)
+         return bands[i].band;
+   return NULL;
+}
+static const char *decode_mode_name(const rr_local_modem_decode_t *d) {
+   if (!g_ascii_strcasecmp(d->engine, "ft8")) return "FT8";
+   if (!g_ascii_strcasecmp(d->engine, "olivia")) return "Olivia";
+   if (!g_ascii_strcasecmp(d->engine, "psk"))
+      return d->mode[0] ? d->mode : "PSK";
+   return d->mode[0] ? d->mode : d->engine;
+}
+typedef struct {
+   const char *message, *mode, *band;
+   gboolean matched;
+} DecodeWatchMatch;
+static void decode_watch_match_entry(const rrclient_watched_call_t *rule, void *user) {
+   DecodeWatchMatch *match = user;
+   if (match->matched || !decode_has_call(match->message, rule->callsign))
+      return;
+   gboolean mode_ok = !g_ascii_strcasecmp(rule->mode, "Any") ||
+      !g_ascii_strcasecmp(rule->mode, match->mode) ||
+      (!g_ascii_strcasecmp(rule->mode, "PSK31") &&
+       (!g_ascii_strcasecmp(match->mode, "BPSK31") ||
+        !g_ascii_strcasecmp(match->mode, "QPSK31")));
+   gboolean band_ok = !g_ascii_strcasecmp(rule->band, "Any") ||
+      (match->band && !g_ascii_strcasecmp(rule->band, match->band));
+   if (mode_ok && band_ok) match->matched = TRUE;
+}
+static gboolean decode_watch_matches(const rr_local_modem_decode_t *d,
+                                     const char *body) {
+   if (!body || !*body) return FALSE;
+   DecodeWatchMatch match = {
+      .message = body, .mode = decode_mode_name(d),
+      .band = decode_rf_band(d->frequency_hz)
+   };
+   rrclient_database_watched_calls_foreach(decode_watch_match_entry, &match);
+   return match.matched;
+}
+
 /* Format data using the actual decoder JSON schema; sync_score is not SNR.
  * Other decoder families keep their own rendering path as they gain metadata. */
 /* The FT8 worker emits a fixed flat JSON record. Read it directly instead of
@@ -237,6 +293,7 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    gchar *prefix = decode_format_line(d, &body);
    gboolean cq = g_ascii_strncasecmp(body, "CQ ", 3) == 0;
    gboolean highlight = decode_has_call(body, decode_highlight_call);
+   gboolean watched = decode_watch_matches(d, body);
    GtkWidget *row = gtk_list_box_row_new();
    g_object_set_data_full(G_OBJECT(row), "rr-decoded-text", g_strdup(body), g_free);
    GtkStyleContext *style = gtk_widget_get_style_context(row);
@@ -244,6 +301,7 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
     * zebra parity remains stable while the oldest entries are dropped. */
    if (tab->rows & 1) gtk_style_context_add_class(style, "rr-modem-odd");
    if (highlight) gtk_style_context_add_class(style, "rr-modem-highlight");
+   if (watched) gtk_style_context_add_class(style, "rr-modem-watched");
    if (cq) gtk_style_context_add_class(style, "rr-modem-cq");
    GtkWidget *label = gtk_label_new(NULL);
    gchar *escaped_prefix = g_markup_escape_text(prefix, -1);
@@ -251,7 +309,8 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    gboolean reply = strstr(body, "RR73") != NULL || strstr(body, " 73") != NULL;
    gboolean report = !reply && (strstr(body, " -") != NULL ||
                                    strstr(body, " R-") != NULL);
-   const char *message_style = highlight ? "foreground='#241e08'" :
+   const char *message_style = watched ? "foreground='#241e08' weight='bold'" :
+      highlight ? "foreground='#241e08'" :
       cq ? "foreground='#159c72' weight='bold'" :
       reply ? "foreground='#ae8200'" :
       report ? "foreground='#3686d0'" : "";
@@ -887,7 +946,11 @@ GtkWidget *init_terminal_tab(void) {
       "label.rr-modem-decode-label { font-family: monospace; }"
       "row.rr-modem-highlight, row.rr-modem-highlight.rr-modem-odd {"
       " background-image: none; background-color: #ffe073; }"
-      "row.rr-modem-highlight label { color: #241e08; }", -1, NULL);
+      "row.rr-modem-highlight label { color: #241e08; }"
+      "row.rr-modem-watched, row.rr-modem-watched.rr-modem-odd,"
+      "row.rr-modem-watched.rr-modem-highlight {"
+      " background-image: none; background-color: #ffac36; }"
+      "row.rr-modem-watched label { color: #241e08; }", -1, NULL);
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
       GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
