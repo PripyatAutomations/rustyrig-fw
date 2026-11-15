@@ -22,6 +22,7 @@ struct rr_floating_panel {
    char *id;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
    gboolean temporarily_hidden; /* never persisted, never a minimize */
+   gboolean temporary_override; /* explicit user request while panels are masked */
    gboolean explicitly_hidden;  /* close/hide must not be undone by show_all */
    gint saved_width, saved_height, opacity;
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
@@ -61,7 +62,7 @@ static guint panel_hide_reasons;
  * while its hiding reason is still active. */
 static void panel_temporary_visibility(RRFloatPanel *p) {
    if (!p || !p->frame || p->modal) return;
-   if (panel_hide_reasons) {
+   if (panel_hide_reasons && !p->temporary_override) {
       if (!p->minimized && gtk_widget_get_visible(p->frame))
          p->temporarily_hidden = TRUE;
       gtk_widget_set_no_show_all(p->frame, TRUE);
@@ -70,7 +71,7 @@ static void panel_temporary_visibility(RRFloatPanel *p) {
       gtk_widget_set_no_show_all(p->frame, p->minimized || p->explicitly_hidden);
       if (p->temporarily_hidden) {
          p->temporarily_hidden = FALSE;
-         if (!p->minimized) gtk_widget_show(p->frame);
+         if (!p->minimized && !p->explicitly_hidden) gtk_widget_show(p->frame);
       }
    }
 }
@@ -746,6 +747,7 @@ static void panel_minimize(GtkButton *button, gpointer data) {
    }
    p->minimized = TRUE;
    p->temporarily_hidden = FALSE;
+   p->temporary_override = FALSE;
    p->explicitly_hidden = FALSE;
    gtk_widget_set_no_show_all(p->frame, TRUE);
    panel_chrome(p);
@@ -785,6 +787,7 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
    }
    /* An explicit close/hide must not be undone by leaving Status/Log. */
    p->temporarily_hidden = FALSE;
+   p->temporary_override = FALSE;
    p->explicitly_hidden = TRUE;
    gtk_widget_set_no_show_all(p->frame, TRUE);
    panel_drag_cancel_tick(p);
@@ -1311,6 +1314,17 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       panel_state_save(p);
    }
    panel_temporary_visibility(p);
+}
+
+void rr_floating_panel_present(RRFloatPanel *p) {
+   if (!p) return;
+   /* This is a direct UI request, unlike an automatic panel refresh.
+    * Honor it without clearing Status/Log or manual visibility masks
+    * for any unrelated panel. */
+   p->temporary_override = TRUE;
+   p->temporarily_hidden = FALSE;
+   rr_floating_panel_restore(p);
+   rr_floating_panel_show(p);
 }
 
 void rr_floating_panel_destroy(RRFloatPanel *p) {
