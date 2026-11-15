@@ -105,6 +105,9 @@ typedef struct {
    guint64 request_id;
    bool ready;
    bool stereo;
+   /* Highest meaningful AF frequency for the selected source, bounded by
+    * the 16 kHz analyzer Nyquist. Zero means metadata unavailable. */
+   uint32_t max_hz;
    float bins[RR_AF_BINS];
    float left[RR_AF_BINS], right[RR_AF_BINS]; /* final mixer channels, for stereo overlay */
 } rrclient_af_spectrum_result_t;
