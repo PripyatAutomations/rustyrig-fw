@@ -58,7 +58,8 @@ typedef enum {
    RR_AUDIO_CONTROL_EAR,
    RR_AUDIO_CONTROL_STREAM,
    RR_AUDIO_CONTROL_INPUT_GAIN,
-   RR_AUDIO_CONTROL_PORT_GAIN
+   RR_AUDIO_CONTROL_PORT_GAIN,
+   RR_AUDIO_CONTROL_EFFECT_PARAMETER
 } rr_audio_control_kind_t;
 typedef struct {
    rr_audio_control_kind_t kind;
@@ -66,6 +67,7 @@ typedef struct {
    int percent;
    double gain_db;
    char stream[64];
+   char element[96], property[96];
    char output;
 } rr_audio_control_request_t;
 /* Asynchronous GTK -> core dispatch; do not mutate fwdsp or routing state on GTK. */
@@ -74,6 +76,8 @@ void audio_request_rx_channel_volume(unsigned channel, int percent);
 void audio_request_rx_stream_route(const char *id, char output);
 void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db);
 void audio_request_port_gain(const char *id, unsigned channel, double gain_db);
+void audio_request_effect_parameter(const char *processor, const char *element,
+                                    const char *property, double value);
 extern bool audio_set_rx_volume(int percent);
 extern bool audio_set_rx_channel_volume(unsigned channel, int percent);
 extern bool audio_set_tx_volume(int percent);
