@@ -13,7 +13,8 @@
 #define RR_LOCAL_MODEM_DECODE "client.modem.decoder.decode"
 typedef struct {
    unsigned slot;
-   char source[64], engine[16];
+   char source[64], engine[16], mode[24];
+   uint64_t frequency_hz; /* RF dial frequency at decode time; 0 = unavailable. */
    char line[RR_LOCAL_MODEM_TEXT];
 } rr_local_modem_decode_t;
 typedef enum {
