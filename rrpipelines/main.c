@@ -964,7 +964,8 @@ static void lv2_control_ports_clicked(GtkButton *button, gpointer data) {
    for (guint i = 0; i < count; i++) {
       GParamSpec *spec = properties[i];
       /* Skip framework properties and entries that cannot be set or read. */
-      if (!strcmp(spec->name, "name") || !strcmp(spec->name, "parent") ||
+      if (spec->owner_type != G_OBJECT_TYPE(node->element) ||
+          !strcmp(spec->name, "name") || !strcmp(spec->name, "parent") ||
           !(spec->flags & G_PARAM_READABLE))
          continue;
       const char *type = NULL;
