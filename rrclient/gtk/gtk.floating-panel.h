@@ -25,6 +25,9 @@ void rr_floating_panel_set_resizable(RRFloatPanel *panel, gboolean resizable);
 /* Optional content-driven sizing; the minimum tracks this widget at panel zoom. */
 void rr_floating_panel_set_min_width_widget(RRFloatPanel *panel, GtkWidget *widget);
 void rr_floating_panel_fit_content(RRFloatPanel *panel);
+/* Discard legacy oversized saved geometry for panels with redesigned
+ * compact layouts; retains their screen position and other preferences. */
+void rr_floating_panel_reset_saved_size(RRFloatPanel *panel);
 /* Zoom adjustment -100..+200 relative to 100% (0 = normal size). Custom content (e.g. Cairo graphs) handles its own rendering at this scale. */
 void rr_floating_panel_set_zoom_callback(RRFloatPanel *panel, void (*callback) (double scale, gpointer user), gpointer user);
 void rr_floating_panel_set_pinned(RRFloatPanel *panel, gboolean pinned);
