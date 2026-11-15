@@ -144,6 +144,7 @@ bool rrclient_media_remote_rf_for_stream(rrconn_t *connection, uint8_t stream,
    for (unsigned i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
       const rr_remote_rf_source_t *source = &remote_rf_sources[i];
       size_t len = strlen(profile);
+      if (len >= sizeof(source->id)) continue;
       if (source->id[0] && source->subscribed && source->joined &&
           source->stream == stream && !strncmp(source->id, profile, len) &&
           source->id[len] == '|') {
