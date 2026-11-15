@@ -80,6 +80,7 @@ extern bool audio_set_tx_volume(int percent);
 struct rrclient_rx_audio {
    const char *uuid, *codec;
    const char *room;
+   uint32_t source_rate_hz;
 };
 /* Per-server room routing: L/R/S (both ears)/M. Independent of UI selection. */
 char audio_room_route(const char *server, const char *room);
