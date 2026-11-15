@@ -30,6 +30,8 @@
 #include <rrclient/vfo.h>
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
+#include <rrclient/remote.spectrum.h>
+#include <rrbridge/spectrum.wire.h>
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
@@ -116,6 +118,48 @@ bool media_have_priv(const char *priv) {
 #define RR_MEDIA_MAX_CHANS RR_CLIENT_MEDIA_MAX_CHANS
 
 static struct rr_client_media_chan known_chans[RR_MEDIA_MAX_CHANS];
+/* Published as copied, synchronized values: GTK must never dereference the
+ * core thread's per-connection media-channel table. */
+static GMutex remote_rf_mutex;
+static rr_remote_rf_source_t remote_rf_sources[RR_REMOTE_RF_SOURCES_MAX];
+size_t rrclient_media_remote_rf_snapshot(rr_remote_rf_source_t *out, size_t capacity) {
+   size_t total = 0;
+   g_mutex_lock(&remote_rf_mutex);
+   for (unsigned i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
+      if (!remote_rf_sources[i].id[0]) continue;
+      if (out && total < capacity) out[total] = remote_rf_sources[i];
+      total++;
+   }
+   g_mutex_unlock(&remote_rf_mutex);
+   return total;
+}
+bool rrclient_media_remote_rf_for_stream(rrconn_t *connection, uint8_t stream,
+                                         const char codec[4], char *id, size_t capacity) {
+   if (!connection || !id || !capacity || memcmp(codec, RR_RF_WIRE_CODEC, 4))
+      return false;
+   const char *profile = rrclient_connection_name(connection);
+   if (!profile || !*profile) return false;
+   bool ok = false;
+   g_mutex_lock(&remote_rf_mutex);
+   for (unsigned i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
+      const rr_remote_rf_source_t *source = &remote_rf_sources[i];
+      size_t len = strlen(profile);
+      if (source->id[0] && source->subscribed && source->joined &&
+          source->stream == stream && !strncmp(source->id, profile, len) &&
+          source->id[len] == '|') {
+         g_strlcpy(id, source->id, capacity);
+         ok = true;
+         break;
+      }
+   }
+   g_mutex_unlock(&remote_rf_mutex);
+   return ok;
+}
+static void remote_rf_publish_source(rrconn_t *connection,
+                                     const struct rr_client_media_chan *channel);
+static void remote_rf_forget(const char *uuid);
+static void remote_rf_clear(void);
+
 static char media_room[128];
 static char gps_scopes[1024];
 static bool gps_wanted(const struct rr_client_media_chan *channel);
@@ -701,6 +745,50 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
 
    return false;
 }
+static void remote_rf_publish_source(rrconn_t *connection,
+                                     const struct rr_client_media_chan *channel) {
+   if (!channel || channel->subsystem != RR_BINFRAME_SUBSYS_WATERFALL) return;
+   const char *profile = connection ? rrclient_connection_name(connection) : NULL;
+   if (!profile || !*profile) return;
+   char id[256];
+   snprintf(id, sizeof(id), "%s|%s", profile, channel->uuid);
+   g_mutex_lock(&remote_rf_mutex);
+   int slot = -1;
+   for (int i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
+      if (!strcmp(remote_rf_sources[i].id, id)) { slot = i; break; }
+      if (slot < 0 && !remote_rf_sources[i].id[0]) slot = i;
+   }
+   if (slot >= 0) {
+      rr_remote_rf_source_t *source = &remote_rf_sources[slot];
+      snprintf(source->id, sizeof(source->id), "%s", id);
+      snprintf(source->room, sizeof(source->room), "%s", channel->room);
+      snprintf(source->name, sizeof(source->name), "%s",
+               channel->name[0] ? channel->name : "Remote RF");
+      source->stream = channel->stream;
+      source->joined = channel->joined;
+      source->subscribed = channel->subscribed && channel->stream_valid &&
+                           !channel->disabled;
+   }
+   g_mutex_unlock(&remote_rf_mutex);
+   event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
+}
+static void remote_rf_forget(const char *uuid) {
+   if (!uuid || !*uuid) return;
+   g_mutex_lock(&remote_rf_mutex);
+   for (unsigned i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
+      char *sep = strrchr(remote_rf_sources[i].id, '|');
+      if (sep && !strcmp(sep+1, uuid))
+         memset(&remote_rf_sources[i], 0, sizeof(remote_rf_sources[i]));
+   }
+   g_mutex_unlock(&remote_rf_mutex);
+   event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
+}
+static void remote_rf_clear(void) {
+   g_mutex_lock(&remote_rf_mutex);
+   memset(remote_rf_sources, 0, sizeof(remote_rf_sources));
+   g_mutex_unlock(&remote_rf_mutex);
+   event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
+}
 static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan *kp) {
    if (!cptr || !kp || !media_ready || kp->subscribed || kp->disabled || rrclient_room_offline(kp->room)) {
       return;
@@ -712,6 +800,18 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan 
          kp->automatic = true;
       }
 
+      return;
+   }
+   /* Unlike audio codecs, RF bins have one fixed format. Join the same
+    * authorized receiver room before requesting remote W/F fanout. */
+   if (kp->subsystem == RR_BINFRAME_SUBSYS_WATERFALL) {
+      if (kp->direction == RR_BINFRAME_DIR_RX && kp->joined &&
+          kp->codec[0] && !strcmp(kp->codec, RR_RF_WIRE_CODEC) &&
+          media_send_subscribe(cptr, kp->uuid)) {
+         kp->subscribed = true;
+         kp->automatic = true;
+      }
+      remote_rf_publish_source(cptr, kp);
       return;
    }
 
@@ -832,6 +932,7 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
          }
          media_try_autosubscribe(cptr, kp);
+         remote_rf_publish_source(cptr, kp);
          gps_prefer_packed(cptr);
          rrclient_media_sync_audio();
 
@@ -871,6 +972,7 @@ void rrclient_media_subscribed(dict *d, rrconn_t *cptr, bool unsub) {
       if (codec && strlen(codec) == 4) {
          snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
       }
+      remote_rf_publish_source(cptr, kp);
       rrclient_media_sync_audio();
 
       char description[512];
@@ -891,6 +993,7 @@ void rrclient_media_chan_removed(dict *d) {
       char description[512];
       rrclient_media_description(kp->uuid, description, sizeof(description));
       Log(LOG_INFO, "ws.media", "Media channel removed: %s", description);
+      remote_rf_forget(kp->uuid);
       memset(kp, 0, sizeof(*kp));
       rrclient_media_sync_audio();
    }
@@ -909,6 +1012,7 @@ static void rrclient_handle_media_conn(const char *event, const char *data, rrco
    if (strcasecmp(event, "disconnected") == 0) {
       media_room[0] = '\0';
       memset(known_chans, 0, sizeof(known_chans));
+      remote_rf_clear();
       memset(gps_position_cache, 0, sizeof(gps_position_cache));
       media_ready = false;
       memset(direction_disabled, 0, sizeof(direction_disabled));
@@ -988,6 +1092,7 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
       /* Retain subscribed site position feeds across room/tab changes;
        * automatic acquisition still requires a joined rig room. */
       bool active = (gps_metadata && kp->subscribed) || gps_wanted(kp) ||
+         (kp->subsystem == RR_BINFRAME_SUBSYS_WATERFALL && kp->joined) ||
          (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
             (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t) (vfo_state_get_active() - 'A')) &&
             (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room))));
@@ -1035,6 +1140,8 @@ void rrclient_media_room_joined(const char *room) {
          ws_room_same_rig(room, channel->control_room) && rrclient_room_is_joined(room)) {
          snprintf(channel->room, sizeof(channel->room), "%s", room);
          channel->joined = channel->vfo == RR_BINFRAME_VFO_NA ? mask != 0 : (mask & (UINT32_C(1) << channel->vfo)) != 0;
+         if (channel->subsystem == RR_BINFRAME_SUBSYS_WATERFALL)
+            remote_rf_publish_source(rrclient_active_connection(), channel);
       }
    }
 
