@@ -25,6 +25,8 @@ typedef struct {
    guint64 drops, received;
    char text[RR_LOCAL_MODEM_TEXT];
    size_t text_len;
+   char line[RR_LOCAL_MODEM_TEXT];
+   size_t line_len;
 } decoder_t;
 static decoder_t decoders[RR_LOCAL_MODEM_MAX];
 static GMutex decoder_lock;
@@ -48,6 +50,7 @@ static void append_text(decoder_t *d, const char *bytes, size_t n) {
 static void stop_one(unsigned index) {
    decoder_t *d = &decoders[index];
    g_mutex_lock(&decoder_lock);
+   d->line_len = 0;
    if (d->active) {
       rr_dsp_worker_stop(&d->worker);
       d->active = false;
@@ -68,6 +71,31 @@ static const char *worker_path(const char *engine) {
    }
    return NULL;
 }
+/* Preserve each complete worker line as a discrete event. The JSON line is
+ * carried verbatim so the presentation layer can interpret mode-specific data. */
+static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t n) {
+   for (size_t j = 0; j < n; j++) {
+      unsigned char ch = (unsigned char)bytes[j];
+      if (ch == '\r') continue;
+      if (ch == '\n') {
+         if (d->line_len) {
+            d->line[d->line_len] = 0;
+            rr_local_modem_decode_t item = {.slot = slot};
+            g_strlcpy(item.source, d->source, sizeof(item.source));
+            g_strlcpy(item.engine, d->engine, sizeof(item.engine));
+            g_strlcpy(item.line, d->line, sizeof(item.line));
+            rr_event_message_t msg = {
+               .name = RR_LOCAL_MODEM_DECODE, .payload = &item, .length = sizeof(item)
+            };
+            event_emit_message(&msg);
+            d->line_len = 0;
+         }
+      } else if (ch >= 32 || ch == '\t') {
+         if (d->line_len + 1 < sizeof(d->line))
+            d->line[d->line_len++] = (char)ch;
+      }
+   }
+}
 static gboolean poll_decoders(gpointer unused) {
    (void)unused;
    for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++) {
@@ -82,6 +110,7 @@ static gboolean poll_decoders(gpointer unused) {
             append_text(d, bytes, (size_t)n);
             d->received += (unsigned)n;
             g_mutex_unlock(&decoder_lock);
+            decode_bytes(d, i + 1, bytes, (size_t)n);
          } else if (n == 0) {
             ended = true;
             break;
