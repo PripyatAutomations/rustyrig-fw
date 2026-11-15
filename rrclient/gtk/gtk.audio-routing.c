@@ -334,7 +334,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
          (!graph_drag_mixer && routing_modem_source(origin_node) && is_modem);
       gboolean rig_target = from_modem_tx && n->type == RR_AG_SINK &&
           g_str_has_prefix(n->id, "rig.") &&
-          g_str_has_suffix(n->id, graph_drag_channel ? ".ptt" : ".tx");
+          g_str_has_suffix(n->id, ".tx");
       gboolean valid = rig_target || modem_connection || (graph_drag_mixer ?
          (n->type == RR_AG_SOURCE && !n->read_only &&
           !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
@@ -439,7 +439,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem.") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem.") && g_str_has_suffix(n->id, ".tx"),
-            .ptt_input = g_str_has_prefix(n->id, "rig.") && g_str_has_suffix(n->id, ".ptt"), .fwdsp =
+            .ptt_input = g_str_has_prefix(n->id, "rig.") && g_str_has_suffix(n->id, ".tx"), .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
