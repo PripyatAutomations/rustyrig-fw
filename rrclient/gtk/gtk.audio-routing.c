@@ -1751,6 +1751,109 @@ static gboolean routing_compact_drag_release(double x, double y) {
    graph_canvas_update_size();
    return TRUE;
 }
+/* Inspect the exact configured client pipeline, never instantiate effects
+ * on the GTK audio path. This object is not PLAYING and is discarded after
+ * collecting metadata; the live instance belongs to the fwdsp subprocess. */
+typedef struct {
+   char worker[64], element[96], property[96];
+   double low, high, step, initial;
+} routing_effect_port_t;
+#ifdef RR_HAVE_GSTREAMER
+static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
+   const struct { const char *config, *worker; } sources[] = {
+      { "pipeline:sink.client.mix", "sink.client.dsp0" },
+      { "pipeline:src.client.dsp0", "src.client.dsp0" }
+   };
+   if (!gst_is_initialized()) gst_init(NULL, NULL);
+   for (guint s = 0; s < G_N_ELEMENTS(sources); s++) {
+      const char *launch = cfg_get(sources[s].config);
+      if (!launch || !*launch) continue;
+      GError *error = NULL;
+      GstElement *pipe = gst_parse_launch(launch, &error);
+      if (error) { g_clear_error(&error); if (pipe) gst_object_unref(pipe); continue; }
+      if (!pipe) continue;
+      if (!GST_IS_BIN(pipe)) { gst_object_unref(pipe); continue; }
+      GstIterator *it = gst_bin_iterate_recurse(GST_BIN(pipe));
+      GValue value = G_VALUE_INIT;
+      while (gst_iterator_next(it, &value) == GST_ITERATOR_OK) {
+         GstElement *element = g_value_get_object(&value);
+         GstElementFactory *factory = gst_element_get_factory(element);
+         const char *provider = factory ? gst_plugin_feature_get_plugin_name(
+             GST_PLUGIN_FEATURE(factory)) : NULL;
+         if (g_strcmp0(provider, "lv2")) { g_value_reset(&value); continue; }
+         guint count = 0;
+         GParamSpec **specs = g_object_class_list_properties(
+             G_OBJECT_GET_CLASS(element), &count);
+         for (guint j = 0; j < count; j++) {
+            GParamSpec *spec = specs[j];
+            if (!(spec->flags & G_PARAM_WRITABLE) ||
+                (spec->flags & G_PARAM_CONSTRUCT_ONLY)) continue;
+            routing_effect_port_t meta = {0};
+            g_strlcpy(meta.worker, sources[s].worker, sizeof(meta.worker));
+            g_strlcpy(meta.element, GST_OBJECT_NAME(element), sizeof(meta.element));
+            g_strlcpy(meta.property, spec->name, sizeof(meta.property));
+            meta.step = .01;
+            if (G_IS_PARAM_SPEC_DOUBLE(spec)) {
+               GParamSpecDouble *v = G_PARAM_SPEC_DOUBLE(spec);
+               meta.low = v->minimum; meta.high = v->maximum;
+               meta.initial = v->default_value;
+            } else if (G_IS_PARAM_SPEC_FLOAT(spec)) {
+               GParamSpecFloat *v = G_PARAM_SPEC_FLOAT(spec);
+               meta.low = v->minimum; meta.high = v->maximum;
+               meta.initial = v->default_value;
+            } else if (G_IS_PARAM_SPEC_INT(spec)) {
+               GParamSpecInt *v = G_PARAM_SPEC_INT(spec);
+               meta.low = v->minimum; meta.high = v->maximum;
+               meta.initial = v->default_value; meta.step = 1.;
+            } else if (G_IS_PARAM_SPEC_UINT(spec)) {
+               GParamSpecUInt *v = G_PARAM_SPEC_UINT(spec);
+               meta.low = v->minimum; meta.high = v->maximum;
+               meta.initial = v->default_value; meta.step = 1.;
+            } else if (G_IS_PARAM_SPEC_BOOLEAN(spec)) {
+               GParamSpecBoolean *v = G_PARAM_SPEC_BOOLEAN(spec);
+               meta.low = 0.; meta.high = 1.; meta.initial = v->default_value;
+               meta.step = 1.;
+            } else continue;
+            if (!isfinite(meta.low) || !isfinite(meta.high) ||
+                meta.high <= meta.low) continue;
+            gchar *id = g_strdup_printf("E|%s|%s|%s",
+               meta.worker, meta.element, meta.property);
+            gchar *label = g_strdup_printf("%s / %s / %s",
+               meta.worker, meta.element, g_param_spec_get_nick(spec));
+            routing_effect_port_t *saved = g_new(routing_effect_port_t, 1);
+            *saved = meta;
+            g_hash_table_replace(ports, g_strdup(id), saved);
+            gtk_combo_box_text_append(choice, id, label);
+            g_free(label); g_free(id);
+         }
+         g_free(specs);
+         g_value_reset(&value);
+      }
+      g_value_unset(&value);
+      gst_iterator_free(it);
+      gst_object_unref(pipe);
+   }
+}
+#else
+static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
+   (void)choice; (void)ports;
+}
+#endif
+static void routing_compact_set_effect(routing_compact_control_t *control,
+                                       const routing_effect_port_t *port) {
+   g_strlcpy(control->effect_worker, port->worker, sizeof(control->effect_worker));
+   g_strlcpy(control->effect_element, port->element, sizeof(control->effect_element));
+   g_strlcpy(control->effect_property, port->property, sizeof(control->effect_property));
+   control->id[0] = '\0';
+   control->hint_min = port->low;
+   control->hint_max = port->high;
+   control->hint_step = port->step;
+   control->effect_value = port->initial;
+   routing_compact_apply_hints(control);
+   routing_compact_apply_widget(control);
+   gtk_widget_set_sensitive(control->value, TRUE);
+   routing_compact_save(control);
+}
 /* The UI deliberately presents only parameters which the core currently
  * supports; LV2 parameters will join this selector once live port IPC exists. */
 static void routing_compact_create(GtkButton *button, gpointer unused) {
