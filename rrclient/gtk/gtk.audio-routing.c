@@ -16,6 +16,9 @@
 #include "gtk.audio-routing.h"
 #include "gtk.floating-panel.h"
 #include <rrpipelines/editor.h>
+#ifdef RR_HAVE_GSTREAMER
+#include <gst/gst.h>
+#endif
 /* Uses the Config editor's validated cfg merge and dirty-state handling. */
 extern gboolean gtk_pipeline_editor_apply_output(GtkWidget *, const gchar *, gchar **);
 extern GtkWidget *main_notebook;
@@ -1081,6 +1084,8 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
 typedef struct routing_compact_control {
    char id[64], uuid[40];
    char label[32], kind[16], unit[16];
+   char effect_worker[64], effect_element[96], effect_property[96];
+   double effect_value, hint_min, hint_max, hint_step;
    double x, y;
    double minimum, maximum, step;
    gboolean has_minimum, has_maximum, has_step, has_unit, has_label;
@@ -1102,14 +1107,23 @@ static void routing_compact_apply_hints(routing_compact_control_t *control) {
    /* Explicit overrides are retained; absent values use metadata supplied by
     * the active binding. Mixer gain ports currently publish dB/-60/+12/1.
     * Future LV2 bindings can replace this hint provider without changing UI. */
-   if (!control->has_minimum) control->minimum = GRAPH_GAIN_MIN;
-   if (!control->has_maximum) control->maximum = GRAPH_GAIN_MAX;
-   if (!control->has_step) control->step = 1.;
-   if (!control->has_unit) g_strlcpy(control->unit, "dB", sizeof(control->unit));
-   if (!control->has_label)
-      g_snprintf(control->label, sizeof(control->label), "%s %c %s",
-                 control->port ? "Output" : "Input",
-                 control->channel ? 'R' : 'L', "gain");
+   if (!control->has_minimum) control->minimum =
+      control->effect_worker[0] ? control->hint_min : GRAPH_GAIN_MIN;
+   if (!control->has_maximum) control->maximum =
+      control->effect_worker[0] ? control->hint_max : GRAPH_GAIN_MAX;
+   if (!control->has_step) control->step =
+      control->effect_worker[0] ? control->hint_step : 1.;
+   if (!control->has_unit)
+      g_strlcpy(control->unit, control->effect_worker[0] ? "" : "dB",
+                sizeof(control->unit));
+   if (!control->has_label) {
+      if (control->effect_worker[0])
+         g_strlcpy(control->label, control->effect_property, sizeof(control->label));
+      else
+         g_snprintf(control->label, sizeof(control->label), "%s %c gain",
+                    control->port ? "Output" : "Input",
+                    control->channel ? 'R' : 'L');
+   }
    if (!isfinite(control->minimum) || !isfinite(control->maximum) ||
        control->maximum <= control->minimum) {
       control->minimum = GRAPH_GAIN_MIN; control->maximum = GRAPH_GAIN_MAX;
@@ -1135,6 +1149,7 @@ static void routing_compact_apply_widget(routing_compact_control_t *control) {
    control->updating = FALSE;
 }
 static double routing_compact_current(const routing_compact_control_t *control) {
+   if (control->effect_worker[0]) return control->effect_value;
    if (!graph_snapshot) return 0.;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
@@ -1149,8 +1164,8 @@ static void routing_compact_sync(void) {
    for (guint i = 0; i < routing_compact_controls->len; i++) {
       routing_compact_control_t *control =
          g_ptr_array_index(routing_compact_controls, i);
-      gboolean found = FALSE;
-      if (graph_snapshot)
+      gboolean found = control->effect_worker[0] != 0;
+      if (!found && graph_snapshot)
          for (guint n = 0; n < graph_snapshot->node_count; n++)
             if (!strcmp(graph_snapshot->nodes[n].id, control->id) &&
                 !graph_missing_since[n]) {
@@ -1159,7 +1174,7 @@ static void routing_compact_sync(void) {
             }
       gtk_widget_set_sensitive(control->value, found);
       /* Never overwrite a knob/fader mid-drag. */
-      if (found && !control->knob_dragging &&
+      if (found && !control->effect_worker[0] && !control->knob_dragging &&
           !gtk_widget_has_focus(control->value)) {
          control->updating = TRUE;
          gtk_range_set_value(GTK_RANGE(control->value),
@@ -1171,8 +1186,16 @@ static void routing_compact_sync(void) {
 }
 static void routing_compact_changed(GtkRange *range, gpointer user) {
    routing_compact_control_t *control = user;
-   if (control->updating || !control->id[0]) return;
+   if (control->updating || (!control->id[0] && !control->effect_worker[0]))
+      return;
    double db = gtk_range_get_value(range);
+   if (control->effect_worker[0]) {
+      control->effect_value = db;
+      audio_request_effect_parameter(control->effect_worker,
+          control->effect_element, control->effect_property, db);
+      if (control->knob) gtk_widget_queue_draw(control->knob);
+      return;
+   }
    if (control->port)
       audio_request_port_gain(control->id, control->channel, db);
    else
@@ -1367,7 +1390,8 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    if (!saved_uuid) routing_compact_save(control);
    graph_canvas_update_size();
    gtk_widget_show_all(body);
-   gtk_widget_set_sensitive(control->value, !!control->id[0]);
+   gtk_widget_set_sensitive(control->value,
+      !!control->id[0] || !!control->effect_worker[0]);
    rr_floating_panel_fit_content(control->panel);
    if (!saved_uuid) rr_floating_panel_present(control->panel);
 }
@@ -1384,7 +1408,9 @@ static void routing_compact_save(const routing_compact_control_t *control) {
    rrclient_database_setting_set("audio.controls.ids", ids->str);
    g_string_free(ids, TRUE);
    const char *fields[] = {"target", "label", "kind", "port", "channel",
-                            "x", "y", "min", "max", "step", "unit"};
+                            "x", "y", "min", "max", "step", "unit",
+                            "worker", "element", "property", "hint-min",
+                            "hint-max", "hint-step", "value"};
    char port[4], channel[4], x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
    char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE], step[G_ASCII_DTOSTR_BUF_SIZE];
    g_snprintf(port, sizeof(port), "%d", control->port ? 1 : 0);
@@ -1394,10 +1420,18 @@ static void routing_compact_save(const routing_compact_control_t *control) {
    g_ascii_formatd(min, sizeof(min), "%.8g", control->minimum);
    g_ascii_formatd(max, sizeof(max), "%.8g", control->maximum);
    g_ascii_formatd(step, sizeof(step), "%.8g", control->step);
+   char hmin[G_ASCII_DTOSTR_BUF_SIZE], hmax[G_ASCII_DTOSTR_BUF_SIZE],
+        hstep[G_ASCII_DTOSTR_BUF_SIZE], current[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_formatd(hmin, sizeof(hmin), "%.8g", control->hint_min);
+   g_ascii_formatd(hmax, sizeof(hmax), "%.8g", control->hint_max);
+   g_ascii_formatd(hstep, sizeof(hstep), "%.8g", control->hint_step);
+   g_ascii_formatd(current, sizeof(current), "%.8g", control->effect_value);
    const char *values[] = {control->id,
       control->has_label ? control->label : "", control->kind, port, channel,
       x, y, control->has_minimum ? min : "", control->has_maximum ? max : "",
-      control->has_step ? step : "", control->has_unit ? control->unit : ""};
+      control->has_step ? step : "", control->has_unit ? control->unit : "",
+      control->effect_worker, control->effect_element, control->effect_property,
+      hmin, hmax, hstep, current};
    for (guint i = 0; i < G_N_ELEMENTS(fields); i++) {
       char *key = g_strdup_printf("audio.control.%s.%s", control->uuid, fields[i]);
       rrclient_database_setting_set(key, values[i]);
