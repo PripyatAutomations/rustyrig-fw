@@ -44,6 +44,8 @@ static void routing_compact_restore(void);
 static void routing_compact_save(const struct routing_compact_control *control);
 static gboolean graph_gain_at(double x, double y, gint *source, gint *channel, gboolean *port);
 static gboolean routing_controls_visible = TRUE;
+static gint routing_control_drag_index = -1;
+static void routing_compact_bounds(double *width, double *height);
 static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused);
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
@@ -221,6 +223,9 @@ static void routing_graph_bounds(double *width, double *height) {
          max_y = MAX(max_y, routing_node_y(n) + RR_GTK_GRAPH_NODE_H + GRAPH_LAYOUT_MARGIN);
       }
    }
+   /* Control nodes occupy the same view coordinates but not the audio graph.
+    * Hidden controls must not influence canvas zoom/auto-fit. */
+   if (routing_controls_visible) routing_compact_bounds(&max_x, &max_y);
    *width = max_x;
    *height = max_y;
 }
@@ -507,7 +512,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    double fit = MIN(available_w / natural_w, available_h / natural_h);
    /* Keep pointer coordinates stable throughout a block drag; changes to
     * layout bounds must not rescale the canvas mid-gesture. */
-   if (graph_node_drag < 0) {
+   if (graph_node_drag < 0 && routing_control_drag_index < 0) {
       graph_scale = MAX(0.01, MAX(.80, fit) * graph_zoom * graph_wheel_zoom);
       graph_offset_x = MAX(0.0, (available_w - natural_w * graph_scale) / 2.0) + graph_pan_x;
       graph_offset_y = MAX(0.0, (available_h - natural_h * graph_scale) / 2.0) + graph_pan_y;
@@ -1086,7 +1091,6 @@ typedef struct routing_compact_control {
    GtkWidget *value, *knob, *label_widget;
 } routing_compact_control_t;
 static GPtrArray *routing_compact_controls;
-static gint routing_control_drag_index = -1;
 static gboolean routing_control_drag_wire;
 static void routing_compact_sync(void);
 static void routing_compact_apply_hints(routing_compact_control_t *control) {
