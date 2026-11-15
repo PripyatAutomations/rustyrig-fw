@@ -49,6 +49,7 @@ typedef struct {
    bool connected, waterfall;
    uint64_t frequency_hz;
    char mode[16];
+   char receiver_name[96], receiver_location[96];
    unsigned min_zoom, max_zoom;
 } rr_local_bridge_ui_state_t;
 bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out);
