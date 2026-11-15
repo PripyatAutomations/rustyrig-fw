@@ -1293,7 +1293,14 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
       return;
    }
    directory_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), directory_page, gtk_label_new("SDR Directory"));
+   /* This tool is always available from the Remote SDRs top-bar button.
+    * Keep its notebook page for full-size content but omit the tab-strip
+    * entry and regular numbered/Ctrl-Tab navigation. */
+   g_object_set_data(G_OBJECT(directory_page), "rr-tab-hidden", GINT_TO_POINTER(1));
+   GtkWidget *directory_label = gtk_label_new("SDR Directory");
+   gtk_widget_set_no_show_all(directory_label, TRUE);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), directory_page, directory_label);
+   gtk_widget_hide(directory_label);
    gtk_widget_show_all(directory_page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
    GtkWidget *loading = gtk_label_new("Loading SDR Directory…");
