@@ -38,7 +38,7 @@ typedef struct {
    guint follow_idle;
 } decode_tab_t;
 static decode_tab_t decode_tabs[RR_LOCAL_MODEM_MAX];
-static rr_event_token_t decode_token;
+static rr_event_token_t decode_token, decode_snapshot_token;
 static char decode_highlight_call[32];
 
 static gboolean decode_follow_idle(gpointer data) {
@@ -99,7 +99,7 @@ static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
    GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
    g_signal_connect(adj, "value-changed", G_CALLBACK(decode_scroll_changed), tab);
    GtkWidget *title = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   gchar *name = g_strdup_printf("%s %u", d->engine, d->slot);
+   gchar *name = g_strdup_printf("%s-%u", d->engine, d->slot);
    gtk_box_pack_start(GTK_BOX(title), gtk_label_new(name), FALSE, FALSE, 0);
    g_free(name);
    GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -206,15 +206,17 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    GtkStyleContext *style = gtk_widget_get_style_context(row);
    /* The row counter continues across pruning; 1000 retained rows means
     * zebra parity remains stable while the oldest entries are dropped. */
-   if (tab->rows & 1) gtk_style_context_add_class(style, "rr-zebra-odd");
+   if (tab->rows & 1) gtk_style_context_add_class(style, "rr-modem-odd");
    if (highlight) gtk_style_context_add_class(style, "rr-modem-highlight");
    if (cq) gtk_style_context_add_class(style, "rr-modem-cq");
    GtkWidget *label = gtk_label_new(NULL);
    gchar *escaped_prefix = g_markup_escape_text(prefix, -1);
    gchar *escaped_body = g_markup_escape_text(body, -1);
-   gchar *markup = g_strdup_printf("<span alpha='76%%'>%s</span><span %s>%s</span>",
-                                    escaped_prefix,
-                                    cq ? "weight='bold'" : "", escaped_body);
+   gboolean reply = strstr(body, "RR73") != NULL || strstr(body, " 73") != NULL;
+   gchar *markup = g_strdup_printf(
+      "<span foreground='#729abf'>%s</span><span foreground='%s' %s>%s</span>",
+      escaped_prefix, cq ? "#23a87e" : reply ? "#d6a53b" : "#c6ccd3",
+      cq ? "weight='bold'" : "", escaped_body);
    gtk_label_set_markup(GTK_LABEL(label), markup);
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
@@ -247,6 +249,20 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
    g_free(body);
 }
 
+static void decode_snapshot_received(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload ||
+       message->length != sizeof(rr_local_modem_snapshot_t)) return;
+   const rr_local_modem_snapshot_t *snapshot = message->payload;
+   for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++) {
+      const rr_local_modem_entry_t *entry = &snapshot->entries[i];
+      if (!entry->running || !entry->engine[0]) continue;
+      rr_local_modem_decode_t sample = {.slot = entry->slot};
+      g_strlcpy(sample.engine, entry->engine, sizeof(sample.engine));
+      g_strlcpy(sample.source, entry->source, sizeof(sample.source));
+      decode_tab_for(&sample);
+   }
+}
 static void terminal_copy(GtkMenuItem *item, gpointer data) {
    (void)item;
    GtkWidget *view = GTK_WIDGET(data);
@@ -593,7 +609,8 @@ void gtk_terminal_shutdown(void) {
    terminal_root = NULL;
    terminal_ports = NULL;
    if (decode_token) event_off_token(decode_token);
-   decode_token = 0;
+   if (decode_snapshot_token) event_off_token(decode_snapshot_token);
+   decode_token = decode_snapshot_token = 0;
    memset(decode_tabs, 0, sizeof(decode_tabs));
 }
 static void terminal_close(GtkButton *button, gpointer data) {
@@ -819,14 +836,16 @@ GtkWidget *init_terminal_tab(void) {
    gtk_box_pack_start(GTK_BOX(root), terminal_notebook, TRUE, TRUE, 0);
    /* Each decoder creates its own terminal subtab on its first event. */
    decode_token = event_on_message_domain_token(RR_LOCAL_MODEM_DECODE, decode_received, NULL, "gtk");
+   decode_snapshot_token = event_on_message_domain_token(
+      RR_LOCAL_MODEM_RESULT, decode_snapshot_received, NULL, "gtk");
+   rr_local_modem_request_t request = {.action=RR_LOCAL_MODEM_SNAPSHOT};
+   rr_local_modem_request(&request);
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
-      "listbox row.rr-zebra-odd { background-color: alpha(currentColor, 0.085); }"
-      "listbox row.rr-modem-cq label { color: #159c72; }"
-      "listbox row.rr-modem-highlight, listbox row.rr-modem-highlight.rr-zebra-odd {"
-      " background-color: #ffe073; }"
-      "listbox row.rr-modem-highlight label, listbox row.rr-modem-highlight.rr-modem-cq label {"
-      " color: #241e08; }", -1, NULL);
+      "row.rr-modem-odd { background-image: none; background-color: alpha(@theme_fg_color, 0.11); }"
+      "row.rr-modem-highlight, row.rr-modem-highlight.rr-modem-odd {"
+      " background-image: none; background-color: #ffe073; }"
+      "row.rr-modem-highlight label { color: #241e08; }", -1, NULL);
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
       GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
