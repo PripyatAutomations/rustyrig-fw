@@ -279,3 +279,25 @@ When modem discovery/control is implemented, the active modem resource
 must own authoritative RX/TX offsets and mode-dependent ranges, and
 the GTK panel must reflect acknowledged values. No modem engine is
 embedded in the GTK client.
+
+## AF waterfall bandwidth and zoom
+
+AF analysis stays on the 16 kHz PCM bus (0–8 kHz FFT bins), but the AF
+waterfall viewport now uses the **selected source's native sample-rate
+Nyquist**. Local SDR bridges publish the rate received in their PCM IPC;
+server-hosted SDRs publish that upstream rate as `media.source-rate` on
+the existing RX audio channel, so the client can distinguish resampled
+16 kHz playback from a 12 kHz Kiwi source (roughly 0–6 kHz signal).
+The `mu08` codec has a known 8 kHz source ceiling (0–4 kHz), when
+there is no stronger upstream rate announcement.
+
+The source picker changes the visible limit; the right-click zoom menu
+lists each level's actual visible span. The trace, waterfall bins,
+frequency ticks, click-to-offset mapping and drag-pan bounds all use
+the same source-relative viewport. **Mixed/left/right/stereo heard**
+output uses the 16 kHz analyzer's full 0–8 kHz range, because it may
+contain several sources. Older servers or unknown source formats without
+rate metadata fall back to the analyzer's 0–8 kHz ceiling; this is a
+fallback, not a claim that the source necessarily has that bandwidth.
+Rate changes are picked up by periodic AF snapshots, without restarting
+an audio stream or changing decoding or DSP.
