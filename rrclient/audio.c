@@ -1615,6 +1615,17 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          }
          break;
       }
+      case RR_AUDIO_CONTROL_EFFECT_PARAMETER: {
+         if (!memchr(req->stream, 0, sizeof(req->stream)) ||
+             !memchr(req->element, 0, sizeof(req->element)) ||
+             !memchr(req->property, 0, sizeof(req->property)) ||
+             !isfinite(req->gain_db)) break;
+         if (!fwdsp_processor_set_property(req->stream, req->element,
+                                           req->property, req->gain_db))
+            Log(LOG_WARN, "audio.effects", "Effect control failed: %.60s / %.60s / %.60s",
+                req->stream, req->element, req->property);
+         break;
+      }
       default: {
          break;
       }
@@ -1656,6 +1667,22 @@ void audio_request_port_gain(const char *id, unsigned channel, double db) {
       .kind = RR_AUDIO_CONTROL_PORT_GAIN, .channel = channel, .gain_db = db
    };
    g_strlcpy(req.stream, id, sizeof(req.stream));
+   audio_submit_control(&req);
+}
+void audio_request_effect_parameter(const char *processor, const char *element,
+                                    const char *property, double value) {
+   if (!processor || !element || !property || !*processor || !*element ||
+       !*property || !isfinite(value) ||
+       strlen(processor) >= sizeof(((rr_audio_control_request_t *)0)->stream) ||
+       strlen(element) >= sizeof(((rr_audio_control_request_t *)0)->element) ||
+       strlen(property) >= sizeof(((rr_audio_control_request_t *)0)->property))
+      return;
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_EFFECT_PARAMETER, .gain_db = value
+   };
+   g_strlcpy(req.stream, processor, sizeof(req.stream));
+   g_strlcpy(req.element, element, sizeof(req.element));
+   g_strlcpy(req.property, property, sizeof(req.property));
    audio_submit_control(&req);
 }
 void audio_request_rx_stream_route(const char *id, char output) {
