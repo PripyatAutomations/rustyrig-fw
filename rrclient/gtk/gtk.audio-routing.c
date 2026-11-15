@@ -165,7 +165,12 @@ static void routing_layout_auto(gboolean reset) {
       } else if (!strcmp(n->id, "hq.mix")) {
          x = GRAPH_LAYOUT_MARGIN + 3 * GRAPH_LAYOUT_GAP_X; y = hq_y;
       } else if (n->type == RR_AG_SINK) {
-         x = GRAPH_LAYOUT_MARGIN + 4 * GRAPH_LAYOUT_GAP_X; y = hq_y;
+         if (g_str_has_prefix(n->id, "modem.")) {
+            x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X;
+            y = high_start_y + (high + isolated_row++) * GRAPH_LAYOUT_GAP_Y;
+         } else {
+            x = GRAPH_LAYOUT_MARGIN + 4 * GRAPH_LAYOUT_GAP_X; y = hq_y;
+         }
       } else {
          x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X; y = hq_y;
       }
@@ -356,11 +361,13 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          g_free(summary);
       }
       nodes[i] = (rr_gtk_graph_node_t) {
-         .x = routing_node_x(n), .y = routing_node_y(n), .title = source
-            && n->rig[0] ? n->rig : n->id, .subtitle = source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
+         .x = routing_node_x(n), .y = routing_node_y(n), .title = n->rig[0] ? n->rig : n->id, .subtitle =
+            g_str_has_prefix(n->id, "modem.") ?
+            (source ? "TX audio · PTT disabled" : "RX audio · raw pre-effects") :
+            source ? n->id : n->type == RR_AG_SINK ? "GStreamer playback" : "Core PCM mixer", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = routing_gain_supported(n), .fwdsp =
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem.") && routing_gain_supported(n), .fwdsp =
             n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
       };
    }
@@ -766,7 +773,9 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
       routing_rate_label(n->downstream_rate_hz, to, sizeof(to));
       const char *format = n->sample_format == RR_PCM_F32LE ? "F32LE" :
                            n->sample_format == RR_PCM_S16LE ? "S16LE" : "unknown";
-      const char *type = n->type == RR_AG_SOURCE ? "Source" :
+      const char *type = g_str_has_prefix(n->id, "modem.") ?
+                         "Modem port (TX/PTT authorization not implemented)" :
+                         n->type == RR_AG_SOURCE ? "Source" :
                          n->type == RR_AG_SINK ? "Playback sink" :
                          n->type == RR_AG_MIXER ? "Mix bus" : "Processor";
       gchar *details = g_strdup_printf(
