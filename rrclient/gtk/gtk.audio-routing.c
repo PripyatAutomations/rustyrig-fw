@@ -1349,7 +1349,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       const char *channel = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear));
       const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(widget_kind));
       if (id && *id && channel && kind)
-         routing_compact_add(id + 1, (unsigned)atoi(channel), *id == 'P',
+         routing_compact_add(id + 1, (unsigned)g_ascii_strtoull(channel, NULL, 10), *id == 'P',
              gtk_entry_get_text(GTK_ENTRY(name)), kind);
    }
    gtk_widget_destroy(dialog);
