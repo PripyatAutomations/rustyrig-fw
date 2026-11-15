@@ -1197,17 +1197,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          rr_audio_graph_set_health(graph, tx_id, RR_AG_STOPPED);
    }
 
-   /* Offer rig TX audio and PTT destinations for explicit future paths.
-    * Only active, real RX rig identities are eligible as routing targets. */
+   /* One rig TX block owns both the PCM sink and the PTT control input.
+    * They remain independently routable; neither grants transmission. */
    for (size_t i = 0; i < count && i < RR_LOCAL_MODEM_MAX; i++) {
-      char id[64], tx[64], ptt[64];
-      g_snprintf(id, sizeof(id), "%08x", g_str_hash(streams[i].id));
-      g_snprintf(tx, sizeof(tx), "rig.%s.tx", id);
-      g_snprintf(ptt, sizeof(ptt), "rig.%s.ptt", id);
+      char tx[64];
+      g_snprintf(tx, sizeof(tx), "rig.%08x.tx", g_str_hash(streams[i].id));
       rr_audio_graph_add_node(graph, tx, RR_AG_SINK);
-      rr_audio_graph_add_node(graph, ptt, RR_AG_SINK);
       rr_audio_graph_set_health(graph, tx, RR_AG_STOPPED);
-      rr_audio_graph_set_health(graph, ptt, RR_AG_STOPPED);
       for (size_t j = 0; j < modem_count; j++) {
          char from[64];
          g_snprintf(from, sizeof(from), "modem.%u.tx", modems[j].slot);
@@ -1215,7 +1211,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_NORMAL,
                                             RR_AG_CHANNEL_LEFT);
          if (!strcmp(modems[j].ptt_target, streams[i].id))
-            rr_audio_graph_add_channel_link(graph, from, ptt, RR_AG_CONTROL,
+            rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_CONTROL,
                                             RR_AG_CHANNEL_LEFT);
       }
    }
@@ -1228,19 +1224,16 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          rr_ag_view_node_t *node = &snapshot->nodes[i];
 
          if (g_str_has_prefix(node->id, "rig.") &&
-             (g_str_has_suffix(node->id, ".tx") ||
-              g_str_has_suffix(node->id, ".ptt"))) {
+             g_str_has_suffix(node->id, ".tx")) {
             for (size_t k = 0; k < count && k < RR_LOCAL_MODEM_MAX; k++) {
                char id[64];
                g_snprintf(id, sizeof(id), "rig.%08x.", g_str_hash(streams[k].id));
                if (!g_str_has_prefix(node->id, id)) continue;
-               g_snprintf(node->rig, sizeof(node->rig), "%s %s",
-                          streams[k].room,
-                          g_str_has_suffix(node->id, ".ptt") ? "PTT" : "TX audio");
-               node->rate_hz = g_str_has_suffix(node->id, ".ptt") ? 0 : 16000;
-               node->channels = g_str_has_suffix(node->id, ".ptt") ? 0 : 1;
-               node->sample_format = g_str_has_suffix(node->id, ".ptt") ?
-                                     0 : RR_PCM_S16LE;
+               g_snprintf(node->rig, sizeof(node->rig), "%s TX",
+                          streams[k].room);
+               node->rate_hz = 16000;
+               node->channels = 1;
+               node->sample_format = RR_PCM_S16LE;
                node->read_only = TRUE;
                break;
             }
