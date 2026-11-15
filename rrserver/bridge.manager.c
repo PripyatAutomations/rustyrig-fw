@@ -80,6 +80,16 @@ struct bridge_child {
 };
 extern struct GlobalState rig;
 static struct bridge_child *children;
+uint32_t rrserver_bridge_source_rate(const char *rig_uuid) {
+   if (!rig_uuid || !*rig_uuid) return 0;
+   for (struct bridge_child *b = children; b; b = b->next) {
+      if (b->backend && b->backend->owner &&
+          !strcmp(rr_server_rig_id(b->backend->owner), rig_uuid))
+         return b->sample_rate;
+   }
+   return 0;
+}
+
 size_t rrserver_bridges_stats_snapshot(rr_bridge_worker_stats_t *out, size_t capacity) {
    size_t count = 0;
 
@@ -1066,6 +1076,9 @@ static void read_media(struct bridge_child *b) {
             continue;
          }
          b->sample_rate = frame.rate;
+         /* A newly negotiated native clock changes the available AF
+          * bandwidth. Republish channel metadata without reopening audio. */
+         media_send_available_all(NULL);
       }
       uint8_t pcm[2 * RRP_BRIDGE_MEDIA_SAMPLES];
 
