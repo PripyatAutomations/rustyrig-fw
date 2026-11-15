@@ -494,11 +494,49 @@ static char *audio_client_pipeline_recipe(bool capture) {
           capture ? "capture" : "playback");
    return description;
 }
+/* Restored control-widget values belong to the processor that owns the
+ * effect. Replay them whenever an endpoint is spawned, including after
+ * crashes/retries. This does not change the configured launch pipeline. */
+static void audio_restore_effect_parameters(const char *worker) {
+   char *ids = rrclient_database_setting_get("audio.controls.ids");
+   if (!ids || !*ids) { g_free(ids); return; }
+   gchar **list = g_strsplit(ids, ",", 128);
+   for (guint i = 0; list[i]; i++) {
+      if (!g_uuid_string_is_valid(list[i])) continue;
+      char *prefix = g_strdup_printf("audio.control.%s.", list[i]);
+      char *key = g_strconcat(prefix, "worker", NULL);
+      char *target = rrclient_database_setting_get(key);
+      g_free(key);
+      if (g_strcmp0(target, worker)) {
+         g_free(target); g_free(prefix); continue;
+      }
+      key = g_strconcat(prefix, "element", NULL);
+      char *element = rrclient_database_setting_get(key);
+      g_free(key);
+      key = g_strconcat(prefix, "property", NULL);
+      char *property = rrclient_database_setting_get(key);
+      g_free(key);
+      key = g_strconcat(prefix, "value", NULL);
+      char *value = rrclient_database_setting_get(key);
+      g_free(key);
+      if (element && *element && property && *property && value && *value) {
+         char *end = NULL;
+         double setting = g_ascii_strtod(value, &end);
+         if (end != value && !*end && isfinite(setting))
+            fwdsp_processor_set_property(worker, element, property, setting);
+      }
+      g_free(element); g_free(property); g_free(value);
+      g_free(target); g_free(prefix);
+   }
+   g_strfreev(list);
+   g_free(ids);
+}
 static bool audio_client_playback_start(void) {
    char *generated = audio_client_pipeline_recipe(false);
    const char *pipeline = generated ? generated : cfg_get("pipeline:sink.client.mix");
    bool ok = fwdsp_audio_playback_start_rate("sink.client.dsp0",
                                              pipeline, audio_hq_output_rate());
+   if (ok) audio_restore_effect_parameters("sink.client.dsp0");
    g_free(generated);
    return ok;
 }
@@ -507,6 +545,7 @@ static bool audio_client_capture_start(void) {
    const char *pipeline = generated ? generated : cfg_get("pipeline:src.client.dsp0");
    bool ok = fwdsp_audio_capture_start_rate("src.client.dsp0",
                            pipeline, audio_hq_capture_rate(), client_mic_pcm, NULL);
+   if (ok) audio_restore_effect_parameters("src.client.dsp0");
    g_free(generated);
    return ok;
 }
