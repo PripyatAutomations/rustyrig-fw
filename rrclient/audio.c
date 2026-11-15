@@ -1079,7 +1079,8 @@ static void audio_graph_rig_label(const struct rrclient_rx_stream *stream, char 
    const char *room = stream->room;
 
    if (!strcmp(room, "&local-sdr")) {
-      g_strlcpy(label, "local.sdr", size);
+      /* Keep the local VFO letter: each bridge is a distinct modem source. */
+      g_strlcpy(label, stream->id, size);
 
       return;
    }
