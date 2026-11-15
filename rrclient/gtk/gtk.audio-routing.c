@@ -1083,7 +1083,7 @@ typedef struct routing_compact_control {
    gboolean updating, knob_dragging;
    double knob_y, knob_initial;
    RRFloatPanel *panel;
-   GtkWidget *value, *knob;
+   GtkWidget *value, *knob, *label_widget;
 } routing_compact_control_t;
 static GPtrArray *routing_compact_controls;
 static gint routing_control_drag_index = -1;
@@ -1121,6 +1121,7 @@ static void routing_compact_apply_widget(routing_compact_control_t *control) {
    gtk_scale_set_digits(GTK_SCALE(control->value),
       control->step < .01 ? 3 : control->step < 1. ? 2 : 0);
    if (control->panel) rr_floating_panel_set_title(control->panel, control->label);
+   if (control->label_widget) gtk_label_set_text(GTK_LABEL(control->label_widget), control->label);
    if (control->knob) gtk_widget_queue_draw(control->knob);
    control->updating = FALSE;
 }
@@ -1213,8 +1214,9 @@ static gboolean routing_knob_draw(GtkWidget *widget, cairo_t *cr, gpointer user)
    cairo_line_to(cr, cx + (radius - 4.) * cos(angle),
                     cy + (radius - 4.) * sin(angle));
    cairo_stroke(cr);
-   char text[16];
-   g_snprintf(text, sizeof(text), "%.1f", value);
+   char text[32];
+   g_snprintf(text, sizeof(text), "%.*f %s", control->step < 1. ? 2 : 0,
+              value, control->unit);
    cairo_set_font_size(cr, 10.);
    cairo_text_extents_t ext;
    cairo_text_extents(cr, text, &ext);
@@ -1312,6 +1314,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    GtkWidget *body = rr_floating_panel_body(control->panel);
    gtk_box_set_spacing(GTK_BOX(body), 2);
    GtkWidget *title = gtk_label_new(control->label);
+   control->label_widget = title;
    gtk_widget_set_tooltip_text(title, node_id);
    gtk_box_pack_start(GTK_BOX(body), title, FALSE, FALSE, 0);
    gboolean vertical = !g_strcmp0(kind, "vertical");
@@ -1356,7 +1359,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    graph_canvas_update_size();
    gtk_widget_show_all(body);
    rr_floating_panel_fit_content(control->panel);
-   rr_floating_panel_present(control->panel);
+   if (!saved_uuid) rr_floating_panel_present(control->panel);
 }
 /* Save explicit overrides separately from inferred binding metadata. The
  * existing floating-panel manager stores independent panel coordinates. */
