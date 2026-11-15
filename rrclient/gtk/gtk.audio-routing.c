@@ -2,6 +2,8 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 #include <math.h>
+#include <stdio.h>
+#include <rrclient/local.modem.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/config.h>
 #include <rrclient/audio.h>
@@ -316,7 +318,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       double nx = routing_node_x(n) +
           (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (modem_connection ?
-           (from_modem ? 60. : 60.) : (graph_drag_channel ? 79. : 60.));
+           (from_modem ? 60. : 68.) : (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
       if (dist >= best) continue;
       best = dist;
@@ -551,7 +553,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double ox = routing_node_x(n) +
              (graph_drag_mixer ? 0. : RR_GTK_GRAPH_NODE_W);
          double oy = routing_node_y(n) +
-             (graph_drag_channel ? 79. : 60.);
+             (graph_drag_mixer && g_str_has_prefix(n->id, "modem.") ? 68. :
+              graph_drag_channel ? 79. : 60.);
          gint source_index = -1;
          double snap_x = graph_drag_x, snap_y = graph_drag_y;
          gboolean snap = routing_drag_target(graph_drag_x, graph_drag_y,
@@ -877,7 +880,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
          continue;
       if (modem_input) {
          if (hypot(x - routing_node_x(node),
-                   y - routing_node_y(node) - 60.) <= radius) {
+                   y - routing_node_y(node) - 68.) <= radius) {
             *source = -(gint)i - 1;
             *channel = 0;
             *mixer = TRUE;
