@@ -35,6 +35,7 @@ static gboolean graph_profile_updating;
 static void graph_profile_modified(void);
 static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
+static void routing_compact_sync(void);
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
 static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
