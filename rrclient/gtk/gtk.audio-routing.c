@@ -765,6 +765,51 @@ static void routing_zoom_reset_clicked(GtkButton *button, gpointer unused) {
    routing_zoom_set(1.);
    graph_pan_x=graph_pan_y=0.;
 }
+/* Always-available legend: colors identify data types, never signal levels. */
+static void routing_colors_popup(GtkButton *button,gpointer unused) {
+   (void)unused;
+   GtkWidget *popover=g_object_get_data(G_OBJECT(button),"routing-colors-popover");
+   if (popover) gtk_popover_popup(GTK_POPOVER(popover));
+}
+static GtkWidget *routing_colors_legend(void) {
+   GtkWidget *grid=gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid),14);
+   gtk_grid_set_row_spacing(GTK_GRID(grid),9);
+   gtk_grid_set_column_spacing(GTK_GRID(grid),12);
+   const char *colors[]={
+      "#57c7ed","#bb7aff","#f53333","#f5a645",
+      "#3dd661","#101214","#ffdf21"
+   };
+   const char *names[]={
+      "Blue · mono / left-channel PCM",
+      "Purple · right-channel PCM",
+      "Red · PTT control signal",
+      "Orange dashed · bypass / fallback",
+      "Green · effect / parameter control",
+      "Black dashed · local CAT / GPS serial binding",
+      "Yellow · COS (carrier or sync detected)"
+   };
+   for (guint i=0;i<G_N_ELEMENTS(colors);i++) {
+      GtkWidget *sample=gtk_label_new(NULL);
+      gchar *markup=g_strdup_printf(
+         "<span background='#f1f2f3' foreground='%s'> ● </span>",colors[i]);
+      gtk_label_set_markup(GTK_LABEL(sample),markup);
+      g_free(markup);
+      gtk_widget_set_halign(sample,GTK_ALIGN_START);
+      GtkWidget *text=gtk_label_new(names[i]);
+      gtk_label_set_xalign(GTK_LABEL(text),0.);
+      gtk_grid_attach(GTK_GRID(grid),sample,0,i,1,1);
+      gtk_grid_attach(GTK_GRID(grid),text,1,i,1,1);
+   }
+   GtkWidget *hint=gtk_label_new(
+      "Filled circle = output; hollow ring = input.\n"
+      "COS is a logical receive detector, not PTT or TX state.\n"
+      "AM/FM and synchronized modes expose COS only when detection is available.");
+   gtk_label_set_xalign(GTK_LABEL(hint),0.);
+   gtk_label_set_line_wrap(GTK_LABEL(hint),TRUE);
+   gtk_grid_attach(GTK_GRID(grid),hint,0,G_N_ELEMENTS(colors),2,1);
+   return grid;
+}
 static void routing_zoom_popup(GtkButton *button, gpointer unused) {
    (void)unused;
    GtkWidget *popover=g_object_get_data(G_OBJECT(button),"zoom-popover");
@@ -4676,6 +4721,19 @@ void gtk_audio_graph_present(void) {
       /* Bottom-right, immediately above the tab strip; finger-sized targets. */
       GtkWidget *zoom_bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
       gtk_widget_set_halign(zoom_bar,GTK_ALIGN_END);
+      GtkWidget *colors_button=gtk_button_new_with_label("Pin colors");
+      gtk_widget_set_size_request(colors_button,100,48);
+      gtk_widget_set_tooltip_text(colors_button,
+         "Show the routing pin and wire color legend, including COS");
+      GtkWidget *colors_popover=gtk_popover_new(colors_button);
+      GtkWidget *colors_grid=routing_colors_legend();
+      gtk_container_add(GTK_CONTAINER(colors_popover),colors_grid);
+      gtk_widget_show_all(colors_grid);
+      g_object_set_data(G_OBJECT(colors_button),"routing-colors-popover",
+                        colors_popover);
+      g_signal_connect(colors_button,"clicked",
+                       G_CALLBACK(routing_colors_popup),NULL);
+      gtk_box_pack_start(GTK_BOX(zoom_bar),colors_button,FALSE,FALSE,0);
       GtkWidget *zoom_out=gtk_button_new_from_icon_name("zoom-out-symbolic",GTK_ICON_SIZE_BUTTON);
       GtkWidget *zoom_more=gtk_button_new_from_icon_name("zoom-in-symbolic",GTK_ICON_SIZE_BUTTON);
       GtkWidget *zoom_popup_button=gtk_button_new_with_label("Zoom");
