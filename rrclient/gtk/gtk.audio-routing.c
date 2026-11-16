@@ -3770,7 +3770,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
-         gtk_label_new("Drag blocks to move (Shift bypasses grid snap); drag ports to patch. Middle/Alt-drag pans, wheel zooms. Double-click trim for 0 dB.");
+         gtk_label_new("Drag blocks or ports to move/patch. Touch: hold an effect or modem for options. Mouse: right-click; middle/Alt-drag pans, wheel zooms; double-click trim resets to 0 dB.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
       gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 1);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
@@ -3799,6 +3799,8 @@ void gtk_audio_graph_present(void) {
       gtk_gesture_single_set_touch_only(GTK_GESTURE_SINGLE(long_press), TRUE);
       g_signal_connect(long_press, "pressed",
                        G_CALLBACK(routing_touch_long_pressed), NULL);
+      g_object_set_data_full(G_OBJECT(graph_canvas), "rr-touch-long-press",
+                             long_press, g_object_unref);
       g_signal_connect(graph_canvas, "scroll-event", G_CALLBACK(routing_graph_scroll), NULL);
       g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
       g_signal_connect(graph_canvas, "motion-notify-event", G_CALLBACK(routing_graph_motion), NULL);
