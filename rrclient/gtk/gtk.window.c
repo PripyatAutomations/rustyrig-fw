@@ -374,6 +374,10 @@ static GtkWidget *vrig_device_button(const char *name, const char *icon) {
    gtk_box_pack_start(GTK_BOX(content), label, FALSE, FALSE, 0);
    gtk_container_add(GTK_CONTAINER(button), content);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
+   /* Keep the entire device chip a finger-sized hit target. */
+   gtk_widget_set_size_request(button, 112, 44);
+   gtk_widget_set_margin_top(button, 2);
+   gtk_widget_set_margin_bottom(button, 2);
    g_object_set_data_full(G_OBJECT(button), "rr-vrig-port", g_strdup(name), g_free);
    g_signal_connect(button, "clicked", G_CALLBACK(vrig_configure_clicked), NULL);
    char *path = g_build_filename(g_get_home_dir(), "dev", name, NULL);
@@ -389,6 +393,7 @@ static GtkWidget *vrig_field(const char *caption, GtkWidget *entry) {
    gtk_label_set_xalign(GTK_LABEL(label), 0.);
    gtk_style_context_add_class(gtk_widget_get_style_context(label), "dim-label");
    gtk_box_pack_start(GTK_BOX(column), label, FALSE, FALSE, 0);
+   gtk_widget_set_size_request(entry, -1, 44);
    gtk_box_pack_start(GTK_BOX(column), entry, FALSE, FALSE, 0);
    return column;
 }
@@ -427,7 +432,7 @@ static void vrig_manager_open(void) {
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_widget_set_size_request(scroll, 610, 350);
-   GtkWidget *list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   GtkWidget *list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
    gtk_container_set_border_width(GTK_CONTAINER(list), 3);
    gtk_container_add(GTK_CONTAINER(scroll), list);
    gtk_box_pack_start(GTK_BOX(body), scroll, TRUE, TRUE, 2);
@@ -440,8 +445,8 @@ static void vrig_manager_open(void) {
       g_snprintf(gps, sizeof(gps), "ttyGPS%u", slot);
       GtkWidget *frame = gtk_frame_new(NULL);
       gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_ETCHED_IN);
-      GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 7);
-      gtk_container_set_border_width(GTK_CONTAINER(card), 10);
+      GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+      gtk_container_set_border_width(GTK_CONTAINER(card), 12);
       gtk_container_add(GTK_CONTAINER(frame), card);
 
       GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -459,7 +464,7 @@ static void vrig_manager_open(void) {
       gtk_box_pack_end(GTK_BOX(header), ports, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(card), header, FALSE, FALSE, 0);
 
-      GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+      GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
       vrig_profile[slot] = gtk_entry_new();
       vrig_radio[slot] = gtk_entry_new();
       char *key = g_strdup_printf("serial.vrig.%u.profile", slot);
@@ -485,6 +490,7 @@ static void vrig_manager_open(void) {
       gtk_box_pack_start(GTK_BOX(row), vrig_field("Server", vrig_profile[slot]), TRUE, TRUE, 0);
       gtk_box_pack_start(GTK_BOX(row), vrig_field("Remote rig", vrig_radio[slot]), FALSE, FALSE, 0);
       GtkWidget *bind = gtk_button_new_with_label("Bind");
+      gtk_widget_set_size_request(bind, 80, 44);
       gtk_style_context_add_class(gtk_widget_get_style_context(bind), "suggested-action");
       gtk_widget_set_valign(bind, GTK_ALIGN_END);
       gtk_widget_set_tooltip_text(bind, "Create or update pinned serial endpoints");
@@ -502,6 +508,7 @@ static void vrig_manager_open(void) {
    gtk_style_context_add_class(gtk_widget_get_style_context(vrig_status), "dim-label");
    gtk_box_pack_start(GTK_BOX(footer), vrig_status, TRUE, TRUE, 0);
    GtkWidget *routing = gtk_button_new_with_label("Open Routing");
+   gtk_widget_set_size_request(routing, 130, 44);
    g_signal_connect(routing, "clicked", G_CALLBACK(vrig_open_routing), NULL);
    gtk_box_pack_end(GTK_BOX(footer), routing, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(body), footer, FALSE, FALSE, 4);
