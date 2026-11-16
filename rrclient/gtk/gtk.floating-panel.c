@@ -269,7 +269,10 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    int overlay_width = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
    int overlay_height = gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay));
 
-   if (overlay_width <= 0 || overlay_height <= 0) {
+   /* A 1x1/provisional overlay allocation is not a real viewport.
+    * Placing here clamps restored x/y to the origin and persists the
+    * incorrect coordinates, losing the user's prior placement. */
+   if (overlay_width < 320 || overlay_height < 240) {
       return FALSE;
    }
 
@@ -320,8 +323,7 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       /* Legacy compact controls may have all persisted the same startup
        * location. Keep genuine distinct placements, but reflow collisions
        * with other initialized panels and persist the corrected geometry. */
-      gboolean compact = g_str_has_prefix(p->id, "audio-compact-");
-      if ((!compact && p->loaded_state) ||
+      if (p->loaded_state ||
           panel_position_clear(p, x, y, panel_width, panel_height)) {
          gtk_widget_set_margin_start(p->frame, x);
          gtk_widget_set_margin_top(p->frame, y);
@@ -413,7 +415,7 @@ static void panel_overlay_allocation(GtkWidget *widget, GtkAllocation *allocatio
    (void)widget;
    RRFloatPanel *p = data;
    if (!p->ever_shown || p->initial_positioned ||
-       allocation->width <= 1 || allocation->height <= 1) return;
+       allocation->width < 320 || allocation->height < 240) return;
    p->initial_positioned = panel_place_initial(p);
    if (p->initial_positioned && !p->initial_center_pending)
       panel_state_save(p);
