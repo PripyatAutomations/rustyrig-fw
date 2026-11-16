@@ -246,7 +246,8 @@ static gboolean panel_position_clear(RRFloatPanel *p, int x, int y, int width, i
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
 
-      if (q == p || q->overlay != p->overlay || q->minimized || q->modal || !gtk_widget_get_visible(q->frame)) {
+      if (q == p || q->overlay != p->overlay || q->minimized ||
+          q->modal || q->explicitly_hidden || !q->initial_positioned) {
          continue;
       }
       GtkRequisition natural;
@@ -335,7 +336,8 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
 
-      if (q == p || q->overlay != p->overlay || q->minimized || q->modal || !gtk_widget_get_visible(q->frame)) {
+      if (q == p || q->overlay != p->overlay || q->minimized ||
+          q->modal || q->explicitly_hidden || !q->initial_positioned) {
          continue;
       }
       GtkRequisition q_natural;
@@ -350,23 +352,35 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       panel_add_candidate(ys, qy - panel_height - PANEL_GAP, min_y, max_y);
    }
 
+   /* Choose a free placement nearest the desired initial coordinates. */
    gboolean placed = FALSE;
-
-   for (guint yi = 0 ; yi < ys->len && !placed ; yi++) {
+   int best_x = min_x, best_y = min_y;
+   gint64 best_score = G_MAXINT64;
+   int preferred_x = p->initial_position_requested ?
+      CLAMP(p->initial_x, min_x, max_x) : min_x;
+   int preferred_y = p->initial_position_requested ?
+      CLAMP(p->initial_y, min_y, max_y) : min_y;
+   for (guint yi = 0; yi < ys->len; yi++) {
       int y = g_array_index(ys, int, yi);
-
-      for (guint xi = 0 ; xi < xs->len ; xi++) {
+      for (guint xi = 0; xi < xs->len; xi++) {
          int x = g_array_index(xs, int, xi);
-
-         if (!panel_position_clear(p, x, y, panel_width, panel_height)) {
+         if (!panel_position_clear(p, x, y, panel_width, panel_height))
             continue;
+         gint64 dx = (gint64)x - preferred_x;
+         gint64 dy = (gint64)y - preferred_y;
+         gint64 score = dx * dx + dy * dy;
+         if (!placed || score < best_score) {
+            best_score = score;
+            best_x = x;
+            best_y = y;
+            placed = TRUE;
          }
-         gtk_widget_set_margin_start(p->frame, x);
-         gtk_widget_set_margin_top(p->frame, y);
-         panel_position_save(p, x, y);
-         placed = TRUE;
-         break;
       }
+   }
+   if (placed) {
+      gtk_widget_set_margin_start(p->frame, best_x);
+      gtk_widget_set_margin_top(p->frame, best_y);
+      panel_position_save(p, best_x, best_y);
    }
 
    g_array_free(xs, TRUE);
@@ -376,8 +390,8 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
     * rather than leaving every widget at the frame's default (12,12). */
    if (!placed) {
       guint offset = g_list_index(floating_panels, p);
-      int x = CLAMP(min_x + (int)(offset % 5) * 24, min_x, max_x);
-      int y = CLAMP(min_y + (int)(offset % 7) * 24, min_y, max_y);
+      int x = CLAMP(preferred_x + (int)(offset % 5) * 24, min_x, max_x);
+      int y = CLAMP(preferred_y + (int)(offset % 7) * 24, min_y, max_y);
       gtk_widget_set_margin_start(p->frame, x);
       gtk_widget_set_margin_top(p->frame, y);
       panel_position_save(p, x, y);
