@@ -644,11 +644,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       }
    }
 
-   routing_effect_draw(cr);
-
-   /* Control signal pins and wires live in a separate, blue overlay.
-    * Draw after mixer trims so the blue connection sockets stay visible. */
+   /* Draw control wires first, then the LV2 pins and backed labels.
+    * The text must remain readable when a wire crosses behind it. */
    routing_compact_draw(cr);
+   routing_effect_draw(cr);
 
    /* The preview always ends in a filled arrowhead. As it approaches
     * a valid receiving ring the endpoint snaps to that exact pin. */
@@ -2480,18 +2479,27 @@ static void routing_effect_draw(cairo_t *cr) {
                     port->property);
          cairo_text_extents_t ext;
          cairo_text_extents(cr, text, &ext);
-         /* Rotate top-edge labels to prevent overlapping adjacent names.
-          * Audio pins remain on the sides; only blue controls use top/bottom. */
-         if (b->standalone && top) {
+         /* Blue control labels are vertical on both edges of standalone
+          * PCM processors. A local background mask makes the labels readable
+          * above the independently drawn control-wire overlay. */
+         if (b->standalone) {
             cairo_save(cr);
-            cairo_translate(cr, px - 4., py - 14.);
-            cairo_rotate(cr, -G_PI / 2.);
-            cairo_move_to(cr, 0., 0.);
+            cairo_translate(cr, px, py + (top ? -14. : 15.));
+            cairo_rotate(cr, top ? -G_PI / 2. : G_PI / 2.);
+            cairo_set_font_size(cr, 10.);
+            cairo_text_extents(cr, text, &ext);
+            double tx = -ext.x_bearing;
+            double ty = -ext.y_bearing - ext.height / 2.;
+            cairo_set_source_rgba(cr, .12, .13, .16, .96);
+            cairo_rectangle(cr, tx + ext.x_bearing - 3.,
+               ty + ext.y_bearing - 2., ext.width + 6., ext.height + 4.);
+            cairo_fill(cr);
+            cairo_set_source_rgb(cr, .92, .94, .97);
+            cairo_move_to(cr, tx, ty);
             cairo_show_text(cr, text);
             cairo_restore(cr);
          } else {
-            double baseline = b->standalone ? py + 18. :
-               py + (top ? 17. : -10.);
+            double baseline = py + (top ? 17. : -10.);
             cairo_move_to(cr, px - ext.width / 2. - ext.x_bearing, baseline);
             cairo_show_text(cr, text);
          }
