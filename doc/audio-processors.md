@@ -181,10 +181,12 @@ and restarting the associated worker/client. Server/mesh DSP targets, LV2
 readback, enum-style controls and additional pipeline endpoints require later
 work.
 
-After rebuilding **both** `fwdsp` and `libfwdspmgr` (the local IPC struct
-changed), use `bash fwdsp/tests/test_effect_control.sh` to test a named
-parameter against live processed PCM; a separate installed LV2 effect should
-then be verified manually in Routing.
+Rebuild **both** `fwdsp` and `libfwdspmgr` so each understands the new
+parameter command. The original fixed-size control packet remains ABI
+compatible with existing volume/recording commands. Run
+`bash fwdsp/tests/test_effect_control.sh` to verify that a named parameter
+changes processed PCM in a live worker; verify an installed LV2 effect
+separately in Routing.
 
 ## Client sound-device rate selection
 
