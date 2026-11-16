@@ -461,7 +461,9 @@ bool audio_modem_tx_allowed(const char *target) {
    const char *selected=rrclient_media_current_codec(true);
    if (!selected || strncmp(selected,tx_codec,4)) return false;
    char vfo[2]={vfo_state_get_active(),0};
-   if (!(ptt_active || vfo_state_get_bool(vfo,"cat.state.ptt",false)))
+   /* A locally requested key is not enough; wait for the rig echo before
+    * feeding modem PCM to the encoder. */
+   if (!vfo_state_get_bool(vfo,"cat.state.ptt",false))
       return false;
    struct rrclient_rx_stream streams[64]={0};
    size_t count=audio_rx_streams(streams,G_N_ELEMENTS(streams));
