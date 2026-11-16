@@ -70,6 +70,17 @@ static double graph_pan_x, graph_pan_y;
 static void routing_pan_clamp_left(void) {
    graph_pan_x = MIN(0., graph_pan_x);
 }
+/* The visual pins stay compact. Only finger input gets larger hit areas. */
+static gboolean graph_touch_pointer, graph_touch_long_pressed;
+static gboolean routing_is_touch_event(const GdkEvent *event) {
+   GdkDevice *device = gdk_event_get_source_device(event);
+   return device && gdk_device_get_source(device) == GDK_SOURCE_TOUCHSCREEN;
+}
+static double routing_pin_radius(void) {
+   return CLAMP((graph_touch_pointer ? 23. : 10.) /
+                MAX(.01, graph_scale), graph_touch_pointer ? 17. : 8.,
+                graph_touch_pointer ? 36. : 20.);
+}
 static gboolean graph_pan_dragging;
 static double graph_pan_begin_x, graph_pan_begin_y, graph_pan_base_x, graph_pan_base_y;
 static void graph_canvas_update_size(void) {
@@ -381,7 +392,9 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
        g_str_has_suffix(origin_node->id, ".tx");
    const char *required_bus = graph_drag_mixer ? origin_node->id :
        (origin_node->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix");
-   const double limit = CLAMP(18. / MAX(.01, graph_scale), 14., 34.);
+   const double limit = graph_touch_pointer ?
+      CLAMP(30. / MAX(.01, graph_scale), 24., 48.) :
+      CLAMP(18. / MAX(.01, graph_scale), 14., 34.);
    double best = limit;
    gboolean found = FALSE;
    graph_drag_modem_target = -1;
@@ -2881,7 +2894,7 @@ static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
    return TRUE;
 }
 static gboolean graph_port_at(double x, double y, gint *source, gint *channel, gboolean *mixer) {
-   double radius = CLAMP(10.0 / MAX(.01, graph_scale), 8.0, 20.0);
+   double radius = routing_pin_radius();
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *modem = &graph_snapshot->nodes[i];
       if (!graph_missing_since[i] &&
@@ -3105,10 +3118,33 @@ static gboolean graph_link_at(double x, double y, guint *source, gint *channel) 
 
    return found;
 }
+static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
+                                       gdouble x, gdouble y, gpointer unused) {
+   (void)gesture; (void)unused;
+   double gx, gy;
+   if (!graph_snapshot || !graph_pointer(x, y, &gx, &gy)) return;
+   GdkEvent *event = gtk_get_current_event();
+   gboolean handled = routing_lv2_context_menu((GdkEventButton *)event, gx, gy) ||
+                      routing_modem_context_menu((GdkEventButton *)event, gx, gy);
+   if (event) gdk_event_free(event);
+   if (!handled) return;
+   /* Cancel the emulated mouse gesture so lifting the finger cannot
+    * disconnect a cable, reposition a block, or change an audio level. */
+   graph_touch_long_pressed = TRUE;
+   graph_drag_source = graph_drag_channel = -1;
+   graph_drag_modem_target = graph_drag_rig_target = graph_drag_lv2_target = -1;
+   graph_drag_mixer = graph_drag_moved = FALSE;
+   graph_node_drag = gain_drag_source = gain_drag_channel = -1;
+   graph_pan_dragging = FALSE;
+}
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
 
+   if (event->type == GDK_BUTTON_PRESS) {
+      graph_touch_pointer = routing_is_touch_event((GdkEvent *)event);
+      graph_touch_long_pressed = FALSE;
+   }
    if (event->type == GDK_BUTTON_PRESS && event->button == GDK_BUTTON_SECONDARY &&
        graph_snapshot) {
       double gx, gy;
@@ -3265,6 +3301,11 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    (void)widget;
    (void)unused;
 
+   if (graph_touch_long_pressed) {
+      graph_touch_long_pressed = FALSE;
+      graph_touch_pointer = FALSE;
+      return TRUE;
+   }
    if (graph_pan_dragging && (event->button == GDK_BUTTON_MIDDLE ||
        event->button == GDK_BUTTON_PRIMARY)) {
       graph_pan_dragging = FALSE;
@@ -3738,7 +3779,13 @@ void gtk_audio_graph_present(void) {
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(routing_page), scroller, TRUE, TRUE, 0);
-      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+      gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK |
+         GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK |
+         GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK | GDK_TOUCH_MASK);
+      GtkGesture *long_press = gtk_gesture_long_press_new(graph_canvas);
+      gtk_gesture_single_set_touch_only(GTK_GESTURE_SINGLE(long_press), TRUE);
+      g_signal_connect(long_press, "pressed",
+                       G_CALLBACK(routing_touch_long_pressed), NULL);
       g_signal_connect(graph_canvas, "scroll-event", G_CALLBACK(routing_graph_scroll), NULL);
       g_signal_connect(graph_canvas, "button-press-event", G_CALLBACK(routing_graph_clicked), NULL);
       g_signal_connect(graph_canvas, "motion-notify-event", G_CALLBACK(routing_graph_motion), NULL);
