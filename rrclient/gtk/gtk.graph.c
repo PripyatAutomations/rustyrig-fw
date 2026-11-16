@@ -133,13 +133,20 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       const rr_gtk_graph_node_t *a = &nodes[e->from], *b = &nodes[e->to];
       gboolean bypass = e->kind == RR_GTK_GRAPH_BYPASS;
       gboolean control = e->kind == RR_GTK_GRAPH_CONTROL;
-      double from_y = control ? a->y + RR_GTK_GRAPH_NODE_H - 16 :
+      gboolean cos = e->kind == RR_GTK_GRAPH_COS;
+      double from_y = cos ? a->y + 14 :
+                      control ? a->y + RR_GTK_GRAPH_NODE_H - 16 :
                       pin_y(a, e->src_pin, bypass);
-      double to_y = control ? b->y + RR_GTK_GRAPH_NODE_H - 16 :
+      double to_y = cos ? b->y + 14 :
+                    control ? b->y + RR_GTK_GRAPH_NODE_H - 16 :
                     pin_y(b, e->dst_pin, bypass);
 
-      if (control) {
+      if (cos) {
+         cairo_set_source_rgb(cr, 1., .87, .13);
+         cairo_set_dash(cr, NULL, 0, 0);
+      } else if (control) {
          cairo_set_source_rgb(cr, .96, .20, .20);
+         cairo_set_dash(cr, NULL, 0, 0);
       } else if (bypass) {
          cairo_set_source_rgb(cr, .96, .65, .27);
          const double dash[] = {
@@ -208,6 +215,22 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_show_text(cr, n->detail);
       }
 
+      if (n->cos_pin) {
+         /* Carrier/synchronization detector output; never guessed from
+          * the selected AM/FM mode or inferred from the radio's TX flag. */
+         const double px = n->x + RR_GTK_GRAPH_NODE_W;
+         const double py = n->y + 14.;
+         cairo_set_source_rgb(cr, 1., .87, .13);
+         pin(cr, px, py, FALSE, FALSE);
+         cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                                CAIRO_FONT_WEIGHT_BOLD);
+         cairo_set_font_size(cr, 9.);
+         cairo_text_extents_t ext;
+         cairo_text_extents(cr, "COS", &ext);
+         cairo_move_to(cr, px - 11. - ext.width,
+                          py - ext.y_bearing - ext.height / 2.);
+         cairo_show_text(cr, "COS");
+      }
       if (n->ptt_pin) {
          /* Red identifies the dedicated PTT control pin, separate from PCM. */
          const double px = n->x + RR_GTK_GRAPH_NODE_W;
