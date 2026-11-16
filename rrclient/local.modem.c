@@ -39,6 +39,10 @@ static guint poll_id;
 static bool initialized;
 static rr_event_token_t request_token;
 static char last_status[192];
+static volatile gint modem_tx_active;
+bool rr_local_modem_tx_in_progress(void) {
+   return g_atomic_int_get(&modem_tx_active)!=0;
+}
 
 static void append_text(decoder_t *d, const char *bytes, size_t n) {
    for (size_t i = 0; i < n; i++) {
@@ -64,6 +68,7 @@ static void modem_release_ptt(unsigned index) {
    }
    d->ptt_owned=false;
    d->tx_running=false;
+   g_atomic_int_set(&modem_tx_active,0);
    d->pending_text[0]=0;
    d->ptt_deadline_us=d->release_at_us=0;
 }
@@ -204,8 +209,9 @@ static gboolean poll_decoders(gpointer unused) {
                          MSG_DONTWAIT|MSG_NOSIGNAL);
          if(nw==(ssize_t)strlen(command)) {
             d->tx_running=true;
+            g_atomic_int_set(&modem_tx_active,1);
             d->pending_text[0]=0;
-            d->ptt_deadline_us=now_us+30000000;
+            d->ptt_deadline_us=now_us+180000000; /* finite TX, server TOT remains authoritative */
          } else {
             modem_cancel_waveform(d);
             modem_release_ptt(i);
@@ -348,6 +354,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->tx_target[0] = d->ptt_target[0] = 0;
    d->tx_enabled = req->tx_enabled;
    d->ptt_owned=d->tx_running=d->tx_was_allowed=false;
+   g_atomic_int_set(&modem_tx_active,0);
    d->pending_text[0]=0;
    d->ptt_deadline_us=d->release_at_us=0;
    d->drops = d->received = 0;
