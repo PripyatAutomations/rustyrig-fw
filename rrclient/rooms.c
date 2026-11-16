@@ -12,8 +12,6 @@
 #include <rrclient/connman.h>
 #include <rrclient/frontend.h>
 
-extern rrconn_t *ws_conn;
-
 typedef struct client_room {
    char name[128];
    char vfos[512];
@@ -145,7 +143,7 @@ bool rrclient_room_join(const char *room) {
       reconnect_room_count--;
    }
 
-   event_emit("client.room.joined", ws_conn, name);
+   event_emit("client.room.joined", rrclient_connection_context(), name);
 
    return true;
 }
@@ -215,7 +213,7 @@ bool rrclient_room_request_join(const char *room) {
       return false;
    }
 
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       return false;
    }
    dict *d = dict_new();
@@ -226,7 +224,7 @@ bool rrclient_room_request_join(const char *room) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "join");
    dict_add(d, "talk.target", room);
-   bool ok = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   bool ok = ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return ok;
