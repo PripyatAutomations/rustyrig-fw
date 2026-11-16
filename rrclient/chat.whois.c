@@ -31,7 +31,6 @@ extern bool dying;
 extern time_t now;
 extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
-extern rrconn_t *ws_conn;
 
 extern dict *cfg;
 
