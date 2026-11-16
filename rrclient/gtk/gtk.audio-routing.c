@@ -394,12 +394,17 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
                    required_bus)) :
           (n->type == RR_AG_MIXER && !strcmp(n->id, required_bus))));
       if (!valid) continue;
+      gint dest_channel = graph_drag_channel;
+      if (lv2_output) {
+         double ny0 = routing_node_y(n);
+         dest_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
+      }
       double nx = routing_node_x(n) +
           (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W :
            rig_target && graph_drag_channel ? -18. : 0.);
       double ny = routing_node_y(n) + (rig_target ?
          (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
-         lv2_connection ? (lv2_output ? (graph_drag_channel ? 79. : 60.) :
+         lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
             (to_lv2 && n->channels == 2) ||
             (lv2_reverse_input && origin_node->channels == 2) ?
                (graph_drag_channel ? 79. : 60.) : 68.) :
@@ -417,7 +422,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       if (lv2_connection) {
          const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
          graph_drag_lv2_output = lv2_output;
-         graph_drag_lv2_dest_channel = graph_drag_channel;
+         graph_drag_lv2_dest_channel = dest_channel;
          unsigned slot = 0;
          if (sscanf(effect->id, "proc.lv2.%u", &slot) == 1 &&
              slot >= 1 && slot <= RR_AUDIO_EFFECT_MAX)
@@ -672,11 +677,12 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          double ox = routing_node_x(n) +
              (graph_drag_mixer ? 0. : RR_GTK_GRAPH_NODE_W);
          double oy = routing_node_y(n) +
+             (g_str_has_prefix(n->id, "proc.lv2.") && n->channels != 2 ? 68. :
              (!graph_drag_mixer && g_str_has_prefix(n->id, "modem.") &&
                g_str_has_suffix(n->id, ".tx") ?
                (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16 : 68.) :
               graph_drag_mixer && g_str_has_prefix(n->id, "modem.") ? 68. :
-              graph_drag_channel ? 79. : 60.);
+              graph_drag_channel ? 79. : 60.));
          gint source_index = -1;
          double snap_x = graph_drag_x, snap_y = graph_drag_y;
          gboolean snap = routing_drag_target(graph_drag_x, graph_drag_y,
