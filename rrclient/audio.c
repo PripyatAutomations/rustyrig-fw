@@ -1819,7 +1819,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
 
    /* Only real transmit-capable receivers advertise a rig TX sink.
     * RX-only remote SDRs must not gain a phantom TX block. */
-   for (size_t i = 0; i < count && i < RR_LOCAL_MODEM_MAX; i++) {
+   for (size_t i = 0; i < count; i++) {
       if (!rrclient_media_rx_has_tx(streams[i].uuid)) continue;
       char tx[64];
       g_snprintf(tx, sizeof(tx), "rig.%08x.tx", g_str_hash(streams[i].id));
@@ -1869,7 +1869,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          if (g_str_has_prefix(node->id, "rig.") &&
              (g_str_has_suffix(node->id, ".tx") ||
               !strcmp(node->id, "rig.sink"))) {
-            for (size_t k = 0; k < count && k < RR_LOCAL_MODEM_MAX; k++) {
+            for (size_t k = 0; k < count; k++) {
                char id[64];
                g_snprintf(id, sizeof(id), "rig.%08x.", g_str_hash(streams[k].id));
                if (!strcmp(node->id, "rig.sink")) {
