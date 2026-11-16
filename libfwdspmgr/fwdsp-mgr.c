@@ -66,20 +66,6 @@ void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback,
    client_encoded_output=callback;
    client_encoded_user=user_data;
 }
-void fwdsp_replay_client_tx_headers(const char codec[5]) {
-   if(!codec || !client_encoded_output || fwdsp_has_server_media())
-      return;
-   struct fwdsp_subproc *sp=fwdsp_find_instance(codec,true);
-   if(!sp || !sp->stream_headers || !sp->stream_headers_len) return;
-   for(size_t pos=0; pos+FWDSP_FRAME_HEADER_SIZE<=sp->stream_headers_len;) {
-      uint32_t length=frame_length_decode(sp->stream_headers+pos);
-      pos+=FWDSP_FRAME_HEADER_SIZE;
-      if(!length || length>sp->stream_headers_len-pos) break;
-      client_encoded_output(codec,sp->stream_headers+pos,length,
-                            true,client_encoded_user);
-      pos+=length;
-   }
-}
 
 void fwdsp_set_reactor_context(GMainContext *context) {
    if (fwdsp_reactor_context) {
@@ -429,6 +415,21 @@ static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp, struct rr_medi
       }
       ws_media_send_setup_frame(channel, cptr, sp->stream_headers + pos, len, sp->pl_id);
       pos += len;
+   }
+}
+
+void fwdsp_replay_client_tx_headers(const char codec[5]) {
+   if(!codec || !client_encoded_output || fwdsp_has_server_media())
+      return;
+   struct fwdsp_subproc *sp=fwdsp_find_instance(codec,true);
+   if(!sp || !sp->stream_headers || !sp->stream_headers_len) return;
+   for(size_t pos=0; pos+FWDSP_FRAME_HEADER_SIZE<=sp->stream_headers_len;) {
+      uint32_t length=frame_length_decode(sp->stream_headers+pos);
+      pos+=FWDSP_FRAME_HEADER_SIZE;
+      if(!length || length>sp->stream_headers_len-pos) break;
+      client_encoded_output(codec,sp->stream_headers+pos,length,
+                            true,client_encoded_user);
+      pos+=length;
    }
 }
 
