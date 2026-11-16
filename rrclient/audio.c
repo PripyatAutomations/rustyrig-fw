@@ -1814,7 +1814,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                   "rig.src" : modems[i].source, rx_id,
                                             RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
       }
-      if (rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE))
+      if (modems[i].tx_enabled && rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE))
          rr_audio_graph_set_health(graph, tx_id, RR_AG_STOPPED);
    }
 
@@ -1838,10 +1838,10 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       for (size_t j = 0; j < modem_count; j++) {
          char from[64];
          g_snprintf(from, sizeof(from), "modem.%u.tx", modems[j].slot);
-         if (!strcmp(modems[j].tx_target, streams[i].id))
+         if (modems[j].tx_enabled && !strcmp(modems[j].tx_target, streams[i].id))
             rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_NORMAL,
                                             RR_AG_CHANNEL_LEFT);
-         if (!strcmp(modems[j].ptt_target, streams[i].id))
+         if (modems[j].tx_enabled && !strcmp(modems[j].ptt_target, streams[i].id))
             rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_CONTROL,
                                             RR_AG_CHANNEL_LEFT);
       }
