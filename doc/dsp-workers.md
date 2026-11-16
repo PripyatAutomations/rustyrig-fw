@@ -308,7 +308,16 @@ intercept or the native TLS WebSocket binary transport. Setup packets use
 the reliable WebSocket path and are replayed from the encoder header cache
 after channel changes. The remote `rrserver` receives them through its
 ordinary authenticated `media.frame.tx.channel` handler and decoder.
-Thus there is no second modem-specific network codec or TX socket. Worker completion is a `TX_DONE` control message on fd 3;
+Thus there is no second modem-specific network codec or TX socket.
+
+**Microphone TX is preserved.** The local microphone capture
+(`src.client.dsp0`) feeds the very same fwdsp TX encoder and negotiated
+remote media channel. Manual/normal PTT permits microphone PCM; a modem
+PTT session temporarily claims the TX encoder and suppresses mic PCM so
+speech does not mix into modem tones. When the modem session ends,
+normal microphone transmission is available again. The source-to-rig
+routing and server permissions remain the authority for both.
+ Worker completion is a `TX_DONE` control message on fd 3;
 it triggers a PTT release after a short audio drain. Worker exit, link
 change, loss of confirmed PTT, and timeouts also cancel and release.
 The source-qualified `modemN.ptt` signal can illuminate a floating
