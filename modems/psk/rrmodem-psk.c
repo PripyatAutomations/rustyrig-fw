@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /* RustyRig PSK worker: fd 4 RX PCM, fd 1 decoded text, fd 0 TX text
  * commands ("TX message\n"), fd 5 modulated 16 kHz mono S16LE.
  * This worker never requests PTT: the client core gates its PCM on the
@@ -73,7 +74,13 @@ int main(int argc,char **argv) {
          for(ssize_t i=0;i<n;i++) {
             if(buf[i]=='\n') {
                command[used]=0;
-               if(used>3 && !strncmp(command,"TX ",3))
+               if(!strcmp(command,"CANCEL")) {
+                  psk_tx_destroy(tx);
+                  tx=psk_tx_create(8000,carrier,mode);
+                  pending=sent=0;
+                  previous=0.f;
+                  if(!tx) break;
+               } else if(used>3 && !strncmp(command,"TX ",3))
                   psk_tx_write(tx,command+3,used-3);
                used=0;
             } else if(buf[i]!='\r') {
