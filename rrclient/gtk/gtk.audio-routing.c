@@ -590,7 +590,7 @@ static void onair_draw(cairo_t *cr) {
       double dash[]={6.,5.};
       cairo_set_dash(cr,dash,2,0);
       cairo_set_line_width(cr,2.);
-      cairo_set_source_rgb(cr,.91,.75,.32);
+      cairo_set_source_rgb(cr,.96,.20,.20);
       cairo_move_to(cr,sx,sy);
       cairo_curve_to(cr,(sx+dx)/2.,sy,(sx+dx)/2.,dy,dx,dy);
       cairo_stroke(cr); cairo_restore(cr);
@@ -607,7 +607,7 @@ static void onair_draw(cairo_t *cr) {
    cairo_set_font_size(cr,10.);
    cairo_move_to(cr,ptt_x+12.,ptt_y+48.);
    cairo_show_text(cr,"Local command pin");
-   cairo_set_source_rgb(cr,.88,.70,.3);
+   cairo_set_source_rgb(cr,.96,.20,.20);
    cairo_arc(cr,sx,sy,6.,0,2.*G_PI);cairo_fill(cr);
    gboolean lit=onair_connected&&onair_active;
    cairo_save(cr);
@@ -623,7 +623,7 @@ static void onair_draw(cairo_t *cr) {
    cairo_move_to(cr,(175.-ext.width)/2.-ext.x_bearing,48.);
    cairo_show_text(cr,"ON AIR");
    cairo_restore(cr);
-   cairo_set_source_rgb(cr,.88,.70,.3);
+   cairo_set_source_rgb(cr,.96,.20,.20);
    cairo_arc(cr,onair_x,onair_y+ONAIR_H/2.,6.,0,2.*G_PI);cairo_fill(cr);
 }
 static void onair_add(GtkButton *button,gpointer unused) {
