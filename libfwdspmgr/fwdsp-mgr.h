@@ -34,6 +34,13 @@ enum fwdsp_processor_io {
 };
 
 typedef void (*fwdsp_processor_output_cb)(const char *name, const void *samples, size_t len, void *user_data);
+/* Encoded frames from client-local TX encoders. The shared manager knows no
+ * rrclient connection; its owner forwards frames using negotiated media. */
+typedef void (*fwdsp_encoded_output_cb)(const char codec[5], const void *data,
+                                        size_t len, bool setup, void *user_data);
+void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback,
+                                       void *user_data);
+
 
 struct fwdsp_io_conn;
 
