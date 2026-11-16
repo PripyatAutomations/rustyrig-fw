@@ -52,6 +52,18 @@ extern void audio_tx_free_frame(void);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
+/* Every local LV2 block is its own proc.lv2.N fwdsp subprocess.
+ * GTK only submits messages; the core owns worker lifetime and PCM routes. */
+#define RRCLIENT_AUDIO_EFFECT_REQUEST "client.audio.effect.request"
+#define RRCLIENT_AUDIO_EFFECT_CHANGED "client.audio.effect.changed"
+#define RR_AUDIO_EFFECT_MAX 8
+typedef struct {
+   char action; /* A add/start, D delete/stop, R rebind source */
+   unsigned slot; /* 0 = next free for A */
+   char factory[96];
+   char source[64]; /* decoded 16 kHz mono stream ID */
+} rr_audio_effect_request_t;
+void audio_request_effect_block(const rr_audio_effect_request_t *request);
 #define RRCLIENT_AUDIO_CONTROL_REQUEST "client.audio.control.request"
 typedef enum {
    RR_AUDIO_CONTROL_MASTER = 1,
