@@ -1079,12 +1079,89 @@ static GtkWidget *pipeline_page_new(void) {
 }
 
 static void routing_add_effect(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   if (!audio_tabs) return;
-   gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
+   (void)unused;
 #ifdef RR_HAVE_GSTREAMER
-   if (pipeline_editor_widget)
-      rr_pipeline_editor_add_effect(pipeline_editor_widget);
+   if (!gst_is_initialized()) gst_init(NULL, NULL);
+   GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Add LV2 Audio Block",
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Add Effect", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 10);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+                      grid, TRUE, TRUE, 0);
+   GtkWidget *factory_box = gtk_combo_box_text_new();
+   GtkWidget *source_box = gtk_combo_box_text_new();
+   GList *features = gst_registry_get_feature_list(gst_registry_get(),
+                                                    GST_TYPE_ELEMENT_FACTORY);
+   guint found = 0;
+   for (GList *it = features; it; it = it->next) {
+      GstElementFactory *factory = it->data;
+      if (g_strcmp0(gst_plugin_feature_get_plugin_name(GST_PLUGIN_FEATURE(factory)),
+                     "lv2")) continue;
+      const char *name = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory));
+      const char *description = gst_element_factory_get_description(factory);
+      gchar *label = g_strdup_printf("%s — %s", name,
+                                      description ? description : "LV2 effect");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(factory_box), name, label);
+      g_free(label); found++;
+   }
+   gst_plugin_feature_list_free(features);
+   if (found) gtk_combo_box_set_active(GTK_COMBO_BOX(factory_box), 0);
+   guint sources = 0;
+   if (graph_snapshot)
+      for (guint i = 0; i < graph_snapshot->node_count; i++) {
+         const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+         if (node->type != RR_AG_SOURCE || node->read_only ||
+             (node->rate_hz && node->rate_hz != 16000) ||
+             !strcmp(node->id, "recording.playback")) continue;
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source_box),
+                                    node->id, node->id);
+         sources++;
+      }
+   if (sources) gtk_combo_box_set_active(GTK_COMBO_BOX(source_box), 0);
+   GtkWidget *fields[] = {factory_box, source_box};
+   const char *names[] = {"LV2 plugin", "RX source"};
+   for (guint i = 0; i < G_N_ELEMENTS(fields); i++) {
+      GtkWidget *label = gtk_label_new(names[i]);
+      gtk_widget_set_halign(label, GTK_ALIGN_END);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
+      gtk_widget_set_hexpand(fields[i], TRUE);
+      gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
+   }
+   GtkWidget *hint = gtk_label_new(
+      "Creates an independent fwdsp subprocess and a processor block in Routing. "
+      "The selected RX stream feeds its input; its output returns to the mixer. "
+      "Audio is 16 kHz mono at this boundary. Existing pipeline settings are unchanged.");
+   gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
+   gtk_widget_set_halign(hint, GTK_ALIGN_START);
+   gtk_grid_attach(GTK_GRID(grid), hint, 0, 2, 2, 1);
+   gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT,
+                                     found && sources);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      const char *factory = gtk_combo_box_get_active_id(GTK_COMBO_BOX(factory_box));
+      const char *source = gtk_combo_box_get_active_id(GTK_COMBO_BOX(source_box));
+      if (factory && source) {
+         rr_audio_effect_request_t req = {.action = 'A'};
+         g_strlcpy(req.factory, factory, sizeof(req.factory));
+         g_strlcpy(req.source, source, sizeof(req.source));
+         audio_request_effect_block(&req);
+      }
+   }
+   gtk_widget_destroy(dialog);
+#else
+   GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   GtkWidget *dialog = gtk_message_dialog_new(
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_WARNING, GTK_BUTTONS_CLOSE,
+      "LV2 effects require a build with GStreamer support.");
+   gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
 #endif
 }
 
@@ -3201,7 +3278,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_end(GTK_BOX(profiles), pin_control, FALSE, FALSE, 0);
       GtkWidget *add_effect = gtk_button_new_with_label("Add Effect…");
       gtk_widget_set_tooltip_text(add_effect,
-         "Add an installed LV2 effect to a GStreamer pipeline, executed by an isolated fwdsp worker");
+         "Add a standalone LV2 processor to Routing, hosted in its own fwdsp subprocess");
       g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), add_effect, FALSE, FALSE, 0);
       GtkWidget *new_modem = gtk_button_new_with_label("New Modem…");
