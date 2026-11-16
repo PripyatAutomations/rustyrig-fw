@@ -23,3 +23,6 @@ The runtime `ws_conn` variable has been removed. Core handlers read the current 
 ## Future extensions
 
 Individual CAT and GPS pin rebinding, per-virtual-rig PipeWire/PulseAudio input/output devices, independent CAT/VFO arbitration, and multiple simultaneous TX encoders/mixers remain separate follow-on features. A virtual rig should eventually expose `vrigN.rx`, `vrigN.tx`, `ttyCATN`, and `ttyGPSN` together.
+
+For the shared Routing pin/wire legend (including yellow COS and red PTT), see
+[Routing pin colors](routing-pin-colors.md).
