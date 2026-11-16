@@ -109,7 +109,7 @@ static void rrclient_ptt_request_event(const rr_event_message_t *message, void *
       return;
    }
 
-   if (!ws_conn || ws_connected != 1) {
+   if (!rrclient_connection_context() || ws_connected != 1) {
       return;
    }
    char vfo[2] = {
@@ -124,7 +124,7 @@ static void rrclient_ptt_request_event(const rr_event_message_t *message, void *
       return;
    }
    Log(LOG_DEBUG, "ptt", "Core PTT request: %s room=%s vfo=%c", request.on ? "ON" : "OFF", request.room, request.vfo);
-   rrclient_send_ptt_command(ws_conn, vfo, request.on != 0, request.room);
+   rrclient_send_ptt_command(rrclient_connection_context(), vfo, request.on != 0, request.room);
 }
 
 /* Supervision decisions arrive from GTK without an rrconn_t pointer. */
@@ -1887,14 +1887,14 @@ static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifi
       return frontend_ops()->ptt_hotkey_toggle();
    }
 
-   if (!ws_conn || ws_connected != 1) {
+   if (!rrclient_connection_context() || ws_connected != 1) {
       return true;
    }
    char vfo[2] = {
       vfo_state_get_active(), '\0'
    };
    bool active = vfo_state_get_bool(vfo, "cat.state.ptt", false);
-   rrclient_send_ptt_command(ws_conn, vfo, !active, ui_active_window_name());
+   rrclient_send_ptt_command(rrclient_connection_context(), vfo, !active, ui_active_window_name());
 
    return true;
 }
