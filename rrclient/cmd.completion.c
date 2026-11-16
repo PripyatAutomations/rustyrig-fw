@@ -247,7 +247,7 @@ static bool completion_mode_target(char **tokens, unsigned arg, const char **roo
       *room = tokens[1];
    }
 
-   if (!ws_conn || ws_conn->is_ws || arg <= mode_index || !tokens[mode_index]) {
+   if (!rrclient_connection_context() || rrclient_connection_context()->is_ws || arg <= mode_index || !tokens[mode_index]) {
       return false;
    }
    bool adding = true;
@@ -256,7 +256,7 @@ static bool completion_mode_target(char **tokens, unsigned arg, const char **roo
    for (const char *mode = tokens[mode_index] ; *mode ; mode++) {
       if (*mode == '+' || *mode == '-') {
          adding = *mode == '+';
-      } else if (irc_mode_has_argument(ws_conn, *mode, adding)) {
+      } else if (irc_mode_has_argument(rrclient_connection_context(), *mode, adding)) {
          if (parameter++ == arg) {
             return *mode == 'o' || *mode == 'v';
          }
@@ -405,7 +405,7 @@ char **client_cmd_completions(const char *line, const char *word) {
             irc_dcc_session_t session;
 
             for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
-               if (session.control == ws_conn && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
+               if (session.control == rrclient_connection_context() && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
                   char id[16];
                   snprintf(id, sizeof(id), "%s%u", word[0] == '#' ? "#" : "", session.id);
                   completion_add(&matches, &count, id, word);
@@ -425,7 +425,7 @@ char **client_cmd_completions(const char *line, const char *word) {
                irc_dcc_session_t session;
 
                for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
-                  if (session.control != ws_conn || session.type != (!strcasecmp(first, "chat") ? IRC_DCC_CHAT : IRC_DCC_SEND) ||
+                  if (session.control != rrclient_connection_context() || session.type != (!strcasecmp(first, "chat") ? IRC_DCC_CHAT : IRC_DCC_SEND) ||
                      (!strcasecmp(second, "accept") && session.state != IRC_DCC_PENDING)) {
                      continue;
                   }
@@ -592,7 +592,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if (arg == 1 && !strcasecmp(command, "/help")) {
          for (int i = 0 ; client_cmds[i].cmd ; i++) {
-            if (!client_cmds[i].admin || (ws_conn && !ws_conn->is_ws) || media_have_priv("admin|owner")) {
+            if (!client_cmds[i].admin || (rrclient_connection_context() && !rrclient_connection_context()->is_ws) || media_have_priv("admin|owner")) {
                completion_add(&matches, &count, client_cmds[i].cmd, word);
             }
          }
@@ -626,7 +626,7 @@ char **client_cmd_completions(const char *line, const char *word) {
 
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
       // Hide admin-only commands from non-staff users
-      if (client_cmds[i].admin && (!ws_conn || ws_conn->is_ws) && !media_have_priv("admin|owner")) {
+      if (client_cmds[i].admin && (!rrclient_connection_context() || rrclient_connection_context()->is_ws) && !media_have_priv("admin|owner")) {
          continue;
       }
 
@@ -681,8 +681,8 @@ char *client_chat_complete(const char *line, size_t *cursor, void **data) {
    }
    const char *room = ui_active_window_name();
    chat_completion_t *s = *data;
-   extern rrconn_t *ws_conn;
-   bool repeat = s && s->snapshot && room && s->connection == ws_conn && !strcmp(s->room, room) && *cursor == s->end && !strcmp(s->snapshot, line);
+
+   bool repeat = s && s->snapshot && room && s->connection == rrclient_connection_context() && !strcmp(s->room, room) && *cursor == s->end && !strcmp(s->snapshot, line);
 
    if (!repeat) {
       client_chat_completion_free(s);
@@ -717,7 +717,7 @@ char *client_chat_complete(const char *line, size_t *cursor, void **data) {
       }
       s->matches = matches;
       s->room = strdup(room);
-      s->connection = ws_conn;
+      s->connection = rrclient_connection_context();
       s->start = start;
       s->end = *cursor;
       while (matches[s->count]) {
