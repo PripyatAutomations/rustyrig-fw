@@ -1628,6 +1628,35 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
        message->length != sizeof(rr_sercom_vrig_bind_t)) return;
    const rr_sercom_vrig_bind_t *req = message->payload;
    result.slot = req->slot;
+   if (req->slot < RR_SERCOM_VRIG_MAX && !req->profile[0] && !req->rig[0]) {
+      /* Clearing a binding is different from disconnecting a server's raw
+       * serial channel. Only touch PTYs owned by this saved virtual slot. */
+      char *key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
+      char *saved = rrclient_database_setting_get(key);
+      g_free(key);
+      if (saved && *saved) {
+         const char *prefix[] = {"ttyCAT", "ttyGPS"};
+         for (unsigned k = 0; k < 2; k++) {
+            char name[32];
+            g_snprintf(name, sizeof(name), "%s%u", prefix[k], req->slot);
+            if (binding(name)) rr_sercom_disconnect(name);
+            key = g_strdup_printf("serial.%s", name);
+            dict_del(cfg, key);
+            g_free(key);
+         }
+      }
+      g_free(saved);
+      key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
+      key = g_strdup_printf("serial.vrig.%u.rig", req->slot);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
+      result.success = true;
+      g_snprintf(result.detail, sizeof(result.detail),
+                 "vrig%u disconnected", req->slot);
+      goto reply;
+   }
    if (req->slot >= RR_SERCOM_VRIG_MAX ||
        !memchr(req->profile, 0, sizeof(req->profile)) ||
        !memchr(req->rig, 0, sizeof(req->rig)) ||
