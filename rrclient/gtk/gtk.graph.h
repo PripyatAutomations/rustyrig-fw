@@ -9,7 +9,8 @@
 typedef enum {
    RR_GTK_GRAPH_NORMAL,
    RR_GTK_GRAPH_BYPASS,
-   RR_GTK_GRAPH_CONTROL
+   RR_GTK_GRAPH_CONTROL,
+   RR_GTK_GRAPH_COS /* carrier/synchronization indication, not PTT */
 } rr_gtk_graph_edge_kind_t;
 typedef enum {
    RR_GTK_GRAPH_IO_BOTH = 0,
@@ -22,6 +23,7 @@ typedef struct {
    gboolean selected, failed, stale, bypass_pins;
    gboolean stereo_pins, fwdsp, gain_pins;
    gboolean ptt_pin, ptt_input; /* Digital control pins, distinct from PCM. */
+   gboolean cos_pin; /* Yellow COS output only when detector state is authoritative. */
    rr_gtk_graph_io_t io;
 } rr_gtk_graph_node_t;
 typedef enum {
