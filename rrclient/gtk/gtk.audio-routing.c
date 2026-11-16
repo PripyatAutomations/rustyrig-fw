@@ -526,6 +526,8 @@ static double onair_x=670.,onair_y=360.,onair_scale=1.,ptt_x=420.,ptt_y=360.;
 static gint onair_drag; /* sign=1, PTT block=2, control wire=3 */
 static double onair_drag_dx,onair_drag_dy;
 static rr_event_token_t onair_token, onair_disconnect_token;
+static RRFloatPanel *onair_panel;
+static GtkWidget *onair_panel_canvas;
 #define ONAIR_W (175.*onair_scale)
 #define ONAIR_H (76.*onair_scale)
 static void onair_save(void) {
@@ -567,6 +569,7 @@ static void onair_ptt_event(const rr_event_message_t *msg,void *unused) {
        strcmp(signal->source,onair_source)) return;
    onair_active=signal->raised;
    graph_canvas_update_size();
+   if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
 /* A lost connection cannot leave an old asserted PTT line on the lamp. */
 static void onair_connection_lost(const char *event,const char *data,
@@ -574,12 +577,56 @@ static void onair_connection_lost(const char *event,const char *data,
    (void)event;(void)data;(void)connection;(void)unused;
    onair_active=FALSE;
    graph_canvas_update_size();
+   if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
 static gint onair_hit(double x,double y) {
    if (!onair_visible) return 0;
    if(x>=onair_x&&x<=onair_x+ONAIR_W&&y>=onair_y&&y<=onair_y+ONAIR_H) return 1;
    if(x>=ptt_x&&x<=ptt_x+150.&&y>=ptt_y&&y<=ptt_y+70.) return 2;
    return 0;
+}
+/* The visible ON AIR display is a normal floating panel. Its associated
+ * routing block is only a red PTT input socket, not a second transmitter. */
+static gboolean onair_panel_draw(GtkWidget *widget,cairo_t *cr,gpointer unused) {
+   (void)unused;
+   double w=MAX(1.,gtk_widget_get_allocated_width(widget));
+   double h=MAX(1.,gtk_widget_get_allocated_height(widget));
+   gboolean lit=onair_visible && onair_connected && onair_active;
+   cairo_save(cr);
+   cairo_scale(cr,w/175.,h/76.);
+   cairo_set_source_rgb(cr,lit?.55:.14,lit?.06:.17,lit?.04:.20);
+   cairo_rectangle(cr,0,0,175,76);cairo_fill(cr);
+   cairo_set_source_rgb(cr,lit?1.:.50,lit?.29:.48,lit?.22:.50);
+   cairo_set_line_width(cr,3.);
+   cairo_rectangle(cr,1.5,1.5,172,73);cairo_stroke(cr);
+   cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
+   cairo_set_font_size(cr,31.);
+   cairo_text_extents_t ext;
+   cairo_text_extents(cr,"ON AIR",&ext);
+   cairo_move_to(cr,(175.-ext.width)/2.-ext.x_bearing,48.);
+   cairo_show_text(cr,"ON AIR");
+   cairo_restore(cr);
+   return FALSE;
+}
+static void onair_panel_ensure(void) {
+   if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook)) return;
+   if (!onair_panel) {
+      onair_panel=rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
+         GTK_NOTEBOOK(main_notebook),"onair-indicator","ON AIR");
+      if (!onair_panel) return;
+      rr_floating_panel_set_resizable(onair_panel,TRUE);
+      rr_floating_panel_set_minimizable(onair_panel,TRUE);
+      rr_floating_panel_set_closable(onair_panel,TRUE);
+      rr_floating_panel_set_initial_position(onair_panel,360,120);
+      onair_panel_canvas=gtk_drawing_area_new();
+      gtk_widget_set_size_request(onair_panel_canvas,175,76);
+      g_signal_connect(onair_panel_canvas,"draw",
+                       G_CALLBACK(onair_panel_draw),NULL);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(onair_panel)),
+                         onair_panel_canvas,TRUE,TRUE,0);
+   }
+   rr_floating_panel_present(onair_panel);
+   if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
 static void onair_draw(cairo_t *cr) {
    if(!onair_visible) return;
@@ -609,27 +656,35 @@ static void onair_draw(cairo_t *cr) {
    cairo_show_text(cr,"Local command pin");
    cairo_set_source_rgb(cr,.96,.20,.20);
    cairo_arc(cr,sx,sy,6.,0,2.*G_PI);cairo_fill(cr);
-   gboolean lit=onair_connected&&onair_active;
+   /* This is the *input* endpoint. The real illuminated display lives in
+    * a floating panel; there is no second output PTT pin on the sign. */
    cairo_save(cr);
-   cairo_translate(cr,onair_x,onair_y);cairo_scale(cr,onair_scale,onair_scale);
-   cairo_set_source_rgb(cr,lit?.55:.14,lit?.06:.17,lit?.04:.20);
+   cairo_translate(cr,onair_x,onair_y);
+   cairo_scale(cr,onair_scale,onair_scale);
+   cairo_set_source_rgb(cr,.16,.19,.24);
    cairo_rectangle(cr,0,0,175,76);cairo_fill(cr);
-   cairo_set_source_rgb(cr,lit?1.:.50,lit?.29:.48,lit?.22:.50);
-   cairo_set_line_width(cr,3.);
-   cairo_rectangle(cr,1.5,1.5,172,73);cairo_stroke(cr);
-   cairo_set_font_size(cr,31.);
-   cairo_text_extents_t ext;
-   cairo_text_extents(cr,"ON AIR",&ext);
-   cairo_move_to(cr,(175.-ext.width)/2.-ext.x_bearing,48.);
+   cairo_set_source_rgb(cr,.52,.58,.64);
+   cairo_set_line_width(cr,2.);
+   cairo_rectangle(cr,1.,1.,173.,74.);cairo_stroke(cr);
+   cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
+   cairo_set_font_size(cr,19.);
+   cairo_move_to(cr,31.,39.);
+   cairo_set_source_rgb(cr,.84,.87,.91);
    cairo_show_text(cr,"ON AIR");
+   cairo_set_font_size(cr,10.);
+   cairo_move_to(cr,25.,58.);
+   cairo_show_text(cr,"PTT SINK");
    cairo_restore(cr);
    cairo_set_source_rgb(cr,.96,.20,.20);
-   cairo_arc(cr,onair_x,onair_y+ONAIR_H/2.,6.,0,2.*G_PI);cairo_fill(cr);
+   cairo_set_line_width(cr,3.);
+   cairo_arc(cr,onair_x,onair_y+ONAIR_H/2.,7.,0,2.*G_PI);
+   cairo_stroke(cr);
 }
 static void onair_add(GtkButton *button,gpointer unused) {
    (void)button;(void)unused;
    onair_visible=TRUE;
    onair_save();
+   onair_panel_ensure();
    graph_canvas_update_size();
 }
 static void onair_menu_action(GtkMenuItem *item,gpointer unused) {
@@ -645,8 +700,10 @@ static void onair_menu_action(GtkMenuItem *item,gpointer unused) {
    else if(action==4) {
       onair_visible=FALSE;onair_connected=FALSE;
       onair_source[0]=0;onair_active=FALSE;
+      if (onair_panel) rr_floating_panel_hide(onair_panel);
    }
    onair_save();graph_canvas_update_size();
+   if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
 static gboolean onair_context_menu(GdkEventButton *event,double x,double y) {
    if(!onair_hit(x,y)) return FALSE;
@@ -4779,6 +4836,7 @@ void gtk_audio_graph_present(void) {
    gtk_widget_show_all(graph_page);
    gtk_notebook_set_current_page(book, gtk_notebook_page_num(book, graph_page));
    if(!onair_restored){onair_restore();onair_restored=TRUE;}
+   if(onair_visible && !onair_panel) onair_panel_ensure();
    routing_serial_refresh();
    if(!onair_token)
       onair_token=event_on_message_domain_token(
@@ -5114,6 +5172,8 @@ void gtk_audio_routing_shutdown(void) {
       routing_effect_blocks = NULL;
    }
    routing_effect_drag_index = -1;
+   if(onair_panel) rr_floating_panel_destroy(onair_panel);
+   onair_panel=NULL;onair_panel_canvas=NULL;
    rr_floating_panel_destroy(routing_panel);
    routing_panel = NULL;
    rx_vol_slider = NULL;
