@@ -35,8 +35,8 @@
 // The rig-control commands are applied by the SERVER's selected backend
 // (rrserver/backend.internal or backend.hamlib); we send cat.cmd messages
 // over the websocket and the server's rigctl handler does the work.
-// NB: ws_conn is the client's active connection (rrclient/connman.c)
-extern rrconn_t *ws_conn;
+/* Each local CAT PTY dispatches through its bound remote connection.
+ * A disconnected/unknown binding must never fall through to another rig. */
 extern bool ws_send_freq_cmd(rrconn_t *cptr, const char *vfo, long freq);
 extern bool ws_send_mode_cmd(rrconn_t *cptr, const char *vfo, const char *mode);
 extern bool ws_send_width_cmd(rrconn_t *cptr, const char *vfo, const char *width);
@@ -137,7 +137,7 @@ static void cat_mode_set(const char *digit) {
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set MODE to %s", mode);
-   ws_send_mode_cmd_in_room(ws_conn, cat_vfo_str(0), mode, rr_cat_room());
+   ws_send_mode_cmd_in_room(rr_cat_connection(), cat_vfo_str(0), mode, rr_cat_room());
 }
 
 /* Copy a complete known VFO state without selecting either bank. The destination's frequency and mode are applied through the usual room-scoped CAT control
@@ -154,8 +154,8 @@ static void cat_copy_vfo(const char *source, const char *destination) {
    }
    char saved_mode[32];
    snprintf(saved_mode, sizeof(saved_mode), "%s", mode);
-   ws_send_freq_cmd_in_room(ws_conn, destination, frequency, room);
-   ws_send_mode_cmd_in_room(ws_conn, destination, saved_mode, room);
+   ws_send_freq_cmd_in_room(rr_cat_connection(), destination, frequency, room);
+   ws_send_mode_cmd_in_room(rr_cat_connection(), destination, saved_mode, room);
    Log(LOG_INFO, "cat.yaesu", "Copied VFO %s to %s in %s", source, destination, room);
 }
 
@@ -332,7 +332,7 @@ void rr_cat_yaesu_set_vfo_a(const char *args) {
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO A freq to %ld", freq);
-   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('A'), freq, rr_cat_room());
+   ws_send_freq_cmd_in_room(rr_cat_connection(), cat_vfo_str('A'), freq, rr_cat_room());
 }                               // Read/Set VFO A frequency
 
 void rr_cat_yaesu_set_vfo_b(const char *args) {
@@ -359,7 +359,7 @@ void rr_cat_yaesu_set_vfo_b(const char *args) {
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO B freq to %ld", freq);
-   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('B'), freq, rr_cat_room());
+   ws_send_freq_cmd_in_room(rr_cat_connection(), cat_vfo_str('B'), freq, rr_cat_room());
 }                               // Read/Set VFO B frequency
 
 void rr_cat_yaesu_fast_step(const char *args) {
@@ -516,7 +516,7 @@ void rr_cat_yaesu_narrow(const char *args) {
    // Set: args[0] is 0/1. Map onto the width command (narrow/normal) so the
    // server applies a real filter change.
    Log(LOG_CRAZY, "cat.yaesu", "Set NARROW to %c", args[0]);
-   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), (args[0] == '1' ? "narrow" : "normal"), rr_cat_room());
+   ws_send_width_cmd_in_room(rr_cat_connection(), cat_vfo_str(0), (args[0] == '1' ? "narrow" : "normal"), rr_cat_room());
 }                               // Narrow
 
 void rr_cat_yaesu_noise_blanker(const char *args) {
@@ -608,13 +608,13 @@ void rr_cat_yaesu_width(const char *args) {
       }
       // "SH0<nnnn>;" -- set width on the main band
       Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args + 1);
-      ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args + 1, rr_cat_room());
+      ws_send_width_cmd_in_room(rr_cat_connection(), cat_vfo_str(0), args + 1, rr_cat_room());
 
       return;
    }
    // Legacy "SH<nnnn>;" set form
    Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args);
-   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args, rr_cat_room());
+   ws_send_width_cmd_in_room(rr_cat_connection(), cat_vfo_str(0), args, rr_cat_room());
 }                               // Width
 
 void rr_cat_yaesu_s_meter(const char *args) {
@@ -660,7 +660,7 @@ void rr_cat_yaesu_split(const char *args) {
    dict_add(d, "cat.room", room);
    dict_add(d, "cat.vfo", cat_vfo_str(0));
    dict_add_bool(d, "cat.split", args[0] == '1');
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rr_cat_connection(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }                               // Split
 
@@ -690,7 +690,7 @@ void rr_cat_yaesu_swap_vfo(const char *args) {
    dict_add(d, "talk.target", room);
    dict_add(d, "talk.data", command);
 
-   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
+   if (!ws_send_dict(NULL, rr_cat_connection(), d, WEBSOCKET_OP_TEXT)) {
       Log(LOG_WARN, "cat.yaesu", "SV unable to request VFO %c in %s", target, room);
    }
    dict_free(d);
@@ -715,7 +715,7 @@ void rr_cat_yaesu_ptt(const char *args) {
 
    Log(LOG_CRAZY, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF"));
    extern void rrclient_send_ptt_command(rrconn_t *, const char *, bool, const char *);
-   rrclient_send_ptt_command(ws_conn, cat_vfo_str(0), ptt, rr_cat_room());
+   rrclient_send_ptt_command(rr_cat_connection(), cat_vfo_str(0), ptt, rr_cat_room());
 }
 
 void rr_cat_yaesu_unlock(const char *args) {
