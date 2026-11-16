@@ -63,6 +63,10 @@ void audio_local_rx_stop(const char *id);
  * authorized TX media and a confirmed PTT state before forwarding. */
 bool audio_modem_tx_pcm(const char *target, const int16_t *pcm, size_t frames);
 bool audio_modem_tx_allowed(const char *target);
+/* Send a complete encoded audio binframe via the existing WS/direct-RTP
+ * media transport. Core context only. */
+bool rrclient_send_tx_audio_frame(rrconn_t *connection,
+                                  const void *frame,size_t length,bool setup);
 extern void audio_tx_free_frame(void);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
