@@ -692,10 +692,16 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
    return count;
 }
 
+static const char *audio_resolve_rig_source(const char *id) {
+   if (!id || strcmp(id, "rig.src")) return id;
+   for (rx_route_t *r = rx_routes; r; r = r->next)
+      if (rrclient_media_rx_is_active_rx(r->uuid)) return r->identity;
+   return NULL;
+}
 bool audio_set_rx_stream_route(const char *id, char output) {
-   if (!id || !output || !strchr("LRSM", output)) {
-      return false;
-   }
+   if (!id || !output || !strchr("LRSM", output)) return false;
+   id = audio_resolve_rig_source(id);
+   if (!id) return false;
    if (!strcmp(id, RECORDING_PLAYBACK_ID)) {
       recording_playback_route = output;
       recording_playback_apply_route(rr_recordings_play_busy());
@@ -1137,6 +1143,11 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    memcpy(&req, msg->payload, sizeof(req));
    if (!memchr(req.factory, 0, sizeof(req.factory)) ||
        !memchr(req.source, 0, sizeof(req.source))) return;
+   if (!strcmp(req.source, "rig.src")) {
+      const char *actual = audio_resolve_rig_source(req.source);
+      if (!actual) return;
+      g_strlcpy(req.source, actual, sizeof(req.source));
+   }
    if (req.action == 'A') {
       if (!audio_lv2_start(&req))
          Log(LOG_WARN, "audio.lv2", "Cannot start LV2 effect %s on %s",
@@ -1856,11 +1867,14 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             continue;
          }
          if (g_str_has_prefix(node->id, "rig.") &&
-             g_str_has_suffix(node->id, ".tx")) {
+             (g_str_has_suffix(node->id, ".tx") ||
+              !strcmp(node->id, "rig.sink"))) {
             for (size_t k = 0; k < count && k < RR_LOCAL_MODEM_MAX; k++) {
                char id[64];
                g_snprintf(id, sizeof(id), "rig.%08x.", g_str_hash(streams[k].id));
-               if (!g_str_has_prefix(node->id, id)) continue;
+               if (!strcmp(node->id, "rig.sink")) {
+                  if (!(streams[k].active_rx && streams[k].active_tx)) continue;
+               } else if (!g_str_has_prefix(node->id, id)) continue;
                g_snprintf(node->rig, sizeof(node->rig), "%s TX",
                           streams[k].room);
                node->rate_hz = 16000;
@@ -1951,6 +1965,25 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                        !rate || !strcmp(rate, "auto") ? "48 kHz" :
                        !strcmp(rate, "44100") ? "44.1 kHz" :
                        !strcmp(rate, "48000") ? "48 kHz" : "device default");
+            continue;
+         }
+         if (!strcmp(node->id, "rig.src")) {
+            for (size_t k = 0; k < count; k++) {
+               if (!streams[k].active_rx) continue;
+               rr_audio_stream_status_t status = {0};
+               rr_audio_engine_t *owner = audio_stream_engine(streams[k].id);
+               if (rr_audio_engine_stream_status(owner, streams[k].id, &status)) {
+                  node->rate_hz = status.source.sample_rate_hz;
+                  node->downstream_rate_hz = status.mixer_rate_hz;
+                  node->channels = status.source.channels;
+                  node->sample_format = status.source.format;
+               }
+               audio_graph_rig_label(&streams[k], node->rig, sizeof(node->rig));
+               for (unsigned ch = 0; ch < 2; ch++)
+                  node->input_gain_db[ch] =
+                     rr_audio_engine_input_gain_get(owner, streams[k].id, ch);
+               break;
+            }
             continue;
          }
          if (!strcmp(node->id, "legacy.speaker")) {
@@ -2195,7 +2228,8 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          if (!memchr(req->stream, 0, sizeof(req->stream)) ||
              req->channel > 1 || !isfinite(req->gain_db) ||
              req->gain_db < -60.0 || req->gain_db > 12.0) break;
-         const char *id = req->stream;
+         const char *id = audio_resolve_rig_source(req->stream);
+         if (!id) break;
          if (!strcmp(id, "rx16.resample"))
             id = HQ_BUS_LEGACY_ID;
          if (!strcmp(id, RECORDING_PLAYBACK_ID))
