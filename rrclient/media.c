@@ -433,6 +433,33 @@ const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4
    return channel ? channel->uuid : NULL;
 }
 
+/* TX-capability is a property of the advertised media channels, not
+ * of receiving PCM. An RX-only Kiwi/WebSDR must never acquire a pretend
+ * rig TX sink simply because it has a subscribed RX stream. */
+bool rrclient_media_rx_has_tx(const char *rx_uuid) {
+   const struct rr_client_media_chan *rx = media_known_find(rx_uuid);
+   if (!rx || rx->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+       rx->direction != RR_BINFRAME_DIR_RX) return false;
+   const char *rx_control = rx->control_room[0] ? rx->control_room : rx->room;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      const struct rr_client_media_chan *tx = &known_chans[i];
+      if (!tx->uuid[0] || tx->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+          tx->direction != RR_BINFRAME_DIR_TX) continue;
+      if (rx->rig_uuid[0] && tx->rig_uuid[0]) {
+         if (!strcmp(rx->rig_uuid, tx->rig_uuid)) return true;
+         continue;
+      }
+      const char *tx_control = tx->control_room[0] ? tx->control_room : tx->room;
+      if (!rx_control[0] || !tx_control[0] ||
+          !ws_room_same_rig(rx_control, tx_control)) continue;
+      if (rx->vfo != RR_BINFRAME_VFO_NA &&
+          tx->vfo != RR_BINFRAME_VFO_NA && rx->vfo != tx->vfo)
+         continue;
+      return true;
+   }
+   return false;
+}
+
 /* PARITY: rustyrig-www/js/webui.audio.js webui_mute_talkback. */
 bool rrclient_media_local_tx(const char *uuid) {
    extern const char *login_user;
