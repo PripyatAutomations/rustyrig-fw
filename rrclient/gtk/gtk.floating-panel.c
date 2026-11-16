@@ -38,6 +38,7 @@ struct rr_floating_panel {
    gboolean snap_disabled, initial_positioned, initial_centered, initial_center_pending;
     gboolean initial_position_requested;
     gint initial_x, initial_y;
+   gulong overlay_allocate_handler;
    double drag_x, drag_y, drag_pending_x, drag_pending_y, resize_x, resize_y;
    guint drag_tick_id;
    gboolean drag_pending;
@@ -113,7 +114,7 @@ static void panel_position_save(RRFloatPanel *p, int x, int y) {
 /* Persist expanded dimensions, never the collapsed title-bar height. */
 static void panel_state_save(RRFloatPanel *p) {
    if (!p || p->restoring_state || !p->ever_shown || p->modal ||
-       p->temporarily_hidden) {
+       p->temporarily_hidden || !p->initial_positioned) {
       return;
    }
    gint w = gtk_widget_get_allocated_width(p->frame);
@@ -386,6 +387,18 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
 
 /* The preferred size used during show() can differ from the first real GTK allocation (notably for the Server Picker tree). Center once more with the actual
  * allocation, before allowing the user to drag the panel freely. */
+/* New compact panels may be initialized while the Routing tab is hidden.
+ * Finish initial placement on the overlay's first usable allocation. */
+static void panel_overlay_allocation(GtkWidget *widget, GtkAllocation *allocation,
+                                     gpointer data) {
+   (void)widget;
+   RRFloatPanel *p = data;
+   if (!p->ever_shown || p->initial_positioned ||
+       allocation->width <= 1 || allocation->height <= 1) return;
+   p->initial_positioned = panel_place_initial(p);
+   if (p->initial_positioned && !p->initial_center_pending)
+      panel_state_save(p);
+}
 static void panel_initial_allocation(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
@@ -1000,7 +1013,11 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    };
 
    if (rrclient_database_window_load(id, &stored)) {
-      p->loaded_state = TRUE;
+      /* Recover obsolete placeholder geometry saved before the Routing
+       * overlay was allocated. Actual user placements are unaffected. */
+      gboolean placeholder = g_str_has_prefix(id, "audio-compact-") &&
+         stored.x == 12 && stored.y == 12;
+      p->loaded_state = !placeholder;
       p->saved_width = CLAMP(stored.width, 0, 8192);
       p->saved_height = CLAMP(stored.height, 0, 8192);
       p->zoom = CLAMP(stored.zoom, -100, 100);
@@ -1008,7 +1025,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
       p->rolled = stored.rolled;
       p->saved_minimized = stored.minimized;
       p->pinned = stored.pinned;
-      panel_position_save(p, stored.x, stored.y);
+      if (!placeholder) panel_position_save(p, stored.x, stored.y);
    }
    p->scrim = gtk_event_box_new();
    /* The scrim must never be revealed by a parent gtk_widget_show_all(). A non-modal scrim covers the notebook and silently eats tab clicks. */
@@ -1039,6 +1056,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
    gtk_overlay_add_overlay(overlay, p->frame);
+   p->overlay_allocate_handler = g_signal_connect(overlay, "size-allocate",
+      G_CALLBACK(panel_overlay_allocation), p);
    g_signal_connect(p->frame, "size-allocate", G_CALLBACK(panel_initial_allocation), p);
    /* Capture clicks from all descendants, including sliders, buttons, lists and scrolled content. A bubbling frame handler misses consumed events. */
    GtkGesture *raise_gesture = gtk_gesture_multi_press_new(p->frame);
@@ -1371,8 +1390,12 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    p->dragging = FALSE;
 
    floating_panels = g_list_remove(floating_panels, p);
+   if (p->overlay_allocate_handler) {
+      g_signal_handler_disconnect(p->overlay, p->overlay_allocate_handler);
+      p->overlay_allocate_handler = 0;
+   }
 
-   if (p->ever_shown) {
+   if (p->ever_shown && p->initial_positioned) {
       panel_state_save(p);
       panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
    }
