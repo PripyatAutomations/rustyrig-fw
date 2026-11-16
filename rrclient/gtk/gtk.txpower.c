@@ -19,6 +19,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/media.h>
 #include <rrclient/vfo.h>
+#include <rrclient/ui.h>
 
 extern int rrclient_tx_power_percent;
 /* Debounce scale changes so dragging never floods the control channel. */
@@ -27,7 +28,7 @@ static gboolean tx_power_send(gpointer unused) {
    (void)unused;
    tx_power_send_id = 0;
 
-   if (!tx_power_slider || !ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1) {
+   if (!tx_power_slider || !rrclient_active_connection() || rrclient_connection_state(rrclient_selected_server()) != 1) {
       return G_SOURCE_REMOVE;
    }
    const char *room = rrclient_media_active_room();
@@ -67,7 +68,7 @@ static gboolean tx_power_send(gpointer unused) {
 
    Log(LOG_DEBUG, "ui.gtk", "TX power: sending %d%% for room %s VFO %s", percent, room, vfo);
 
-   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
+   if (!ws_send_dict(NULL, rrclient_active_connection(), d, WEBSOCKET_OP_TEXT)) {
       Log(LOG_WARN, "ui.gtk", "TX power: failed to send percent request for room %s VFO %s", room, vfo);
    }
    dict_free(d);
