@@ -31,7 +31,7 @@ extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
 extern const char *login_user;  // connman.c
-extern rrconn_t *ws_conn;
+
 extern time_t poll_block_expire, poll_block_delay;
 extern bool dying;              // main.c
 extern bool rrclient_ptt_allowed(void);
@@ -117,10 +117,10 @@ static void ptt_sync_context(void) {
    const char *room = rrclient_current_room();
    char vfo = vfo_state_get_active();
 
-   if (ptt_display_connection == ws_conn && ptt_display_vfo == vfo && !strcasecmp(ptt_display_room, room)) {
+   if (ptt_display_connection == rrclient_active_connection() && ptt_display_vfo == vfo && !strcasecmp(ptt_display_room, room)) {
       return;
    }
-   ptt_display_connection = ws_conn;
+   ptt_display_connection = rrclient_active_connection();
    snprintf(ptt_display_room, sizeof(ptt_display_room), "%s", room);
    ptt_display_vfo = vfo;
    ptt_button_pending = false;
@@ -206,7 +206,7 @@ static void ptt_button_apply(void) {
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
       label = namebuf;
       cls = "ptt-active";
-   } else if (!own_tx && ws_conn && ws_conn->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(ws_conn, rrclient_current_room())) {
+   } else if (!own_tx && rrclient_active_connection() && rrclient_active_connection()->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(rrclient_active_connection(), rrclient_current_room())) {
       label = "REQUEST";
       cls = "ptt-offline";
    } else if (ptt_button_pending && !ptt_button_pending_quiet) {
@@ -415,8 +415,8 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
    struct rr_user *talker = tx_user();
 
-   if (!ptt_active && !someone_else_transmitting(talker) && ws_conn && ws_conn->is_ws && media_have_priv("noob") &&
-      !rrclient_supervision_granted(ws_conn, rrclient_current_room())) {
+   if (!ptt_active && !someone_else_transmitting(talker) && rrclient_active_connection() && rrclient_active_connection()->is_ws && media_have_priv("noob") &&
+      !rrclient_supervision_granted(rrclient_active_connection(), rrclient_current_room())) {
       char vfo[2] = {
          vfo_state_get_active(), 0
       };
