@@ -344,6 +344,12 @@ static const char *routing_real_source(const char *source) {
          return routing_rx_snapshot->streams[i].id;
    return NULL;
 }
+static gboolean routing_same_source(const char *node_id, const char *real_id) {
+   if (!strcmp(node_id, real_id)) return TRUE;
+   if (strcmp(node_id, "rig.src")) return FALSE;
+   const char *actual = routing_real_source(node_id);
+   return actual && !strcmp(actual, real_id);
+}
 static void routing_modem_connect(unsigned slot, const char *source) {
    const char *actual = routing_real_source(source);
    if (!actual) return;
@@ -1479,7 +1485,7 @@ static double routing_compact_current(const routing_compact_control_t *control) 
    if (!graph_snapshot) return 0.;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
-      if (strcmp(node->id, control->id)) continue;
+      if (!routing_same_source(node->id, control->id)) continue;
       return control->port ? node->port_gain_db[control->channel] :
                              node->input_gain_db[control->channel];
    }
@@ -1542,7 +1548,7 @@ static void routing_compact_changed(GtkRange *range, gpointer user) {
    if (graph_snapshot) {
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
          rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
-         if (strcmp(node->id, control->id)) continue;
+         if (!routing_same_source(node->id, control->id)) continue;
          if (control->port) node->port_gain_db[control->channel] = db;
          else node->input_gain_db[control->channel] = db;
          break;
@@ -2042,7 +2048,7 @@ static gboolean routing_compact_target(const routing_compact_control_t *item,
    if (!graph_snapshot) return FALSE;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
-      if (strcmp(node->id, item->id) || graph_missing_since[i] ||
+      if (!routing_same_source(node->id, item->id) || graph_missing_since[i] ||
           !routing_gain_supported(node)) continue;
       /* The target socket is painted over the L/R trim's actual slider.
        * Keep that control pin visually separate from the PCM connector. */
