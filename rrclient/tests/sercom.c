@@ -155,6 +155,7 @@ int main(int argc, char **argv) {
       test_vfos[i] = dict_new();
       properties[i] = dict_new();
       dict_add(radios[i], "object.uuid", i ? "r1" : "r0");
+      dict_add(radios[i], "object.room", i ? "#site-rig1" : "#site-rig0");
       dict_add(test_vfos[i], "object.uuid", i ? "v1" : "v0");
       dict_add_bool(properties[i], "property.known", true);
       dict_add_long(properties[i], "property.value", i ? 145000000 : 14075000);
@@ -178,9 +179,9 @@ int main(int argc, char **argv) {
    };
    assert(!cmd_sercom(1, list_args));  // Local listings work while offline.
    assert(local_rows == 1 && serial_lists == 0);
-   rrconn_t connection = {
-      0
-   };
+   rrconn_t connection = {0};
+   connection.authenticated = true;
+   connection.is_ws = true;
    ws_conn = &connection;
    assert(!cmd_sercom(1, list_args));
    assert(local_rows == 2 && serial_lists == 1);
@@ -193,6 +194,8 @@ int main(int argc, char **argv) {
    serial_send_ok = true;
    ws_conn = NULL;
    assert(rr_sercom_attach("ttyCAT1", "rig1.cat@38400", NULL));
+   /* PTY creation is local; CAT dispatch requires the bound connection. */
+   ws_conn = &connection;
    assert(!rr_sercom_attach("ttyCAT1", "rig0.cat", NULL));
    assert(!rr_sercom_attach("../bad", "rig0.cat", NULL));
    int fd0 = open(path0, O_RDWR | O_NOCTTY | O_NONBLOCK);
