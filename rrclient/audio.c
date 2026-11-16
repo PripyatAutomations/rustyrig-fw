@@ -1146,58 +1146,59 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
       audio_lv2_stop(req.slot, TRUE);
    } else if (req.action == 'O' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
-      if (g_atomic_int_get(&fx->active) && strchr("MLRS", req.output)) {
-         fx->output = req.output;
-         rr_audio_engine_route(rx_engine, fx->name, req.output);
-         char *key = g_strdup_printf("audio.lv2.%u.output", req.slot);
+      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels &&
+          strchr("MLRS", req.output)) {
+         fx->output[req.channel] = req.output;
+         rr_audio_engine_route(rx_engine, fx->output_stream[req.channel], req.output);
+         char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.output-right" :
+                                                   "audio.lv2.%u.output", req.slot);
          char value[] = {req.output, 0};
-         rrclient_database_setting_set(key, value);
-         g_free(key);
-         Log(LOG_INFO, "audio.lv2", "Output %s -> %s", fx->name,
-             req.output == 'M' ? "disconnected" :
-             req.output == 'L' ? "rx.mix/L" :
-             req.output == 'R' ? "rx.mix/R" : "rx.mix/L+R");
-      } else {
-         Log(LOG_WARN, "audio.lv2", "Cannot set output for LV2 slot %u", req.slot);
-      }
+         rrclient_database_setting_set(key, value); g_free(key);
+         Log(LOG_INFO, "audio.lv2", "Output %s channel %u -> %c",
+             fx->name, req.channel, req.output);
+      } else
+         Log(LOG_WARN, "audio.lv2", "Cannot patch output channel %u on LV2 slot %u",
+             req.channel, req.slot);
    } else if (req.action == 'R' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
-      if (g_atomic_int_get(&fx->active) &&
-          audio_lv2_source_present(req.source)) {
+      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels &&
+          (!req.source[0] || audio_lv2_source_present(req.source))) {
          gboolean unique = TRUE;
          for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
-            if (i != req.slot - 1 && g_atomic_int_get(&lv2_effects[i].active) &&
-                !strcmp(lv2_effects[i].source, req.source))
-               unique = FALSE;
-         if (!unique) {
-            Log(LOG_WARN, "audio.lv2",
-                "Cannot connect %s to %s: another LV2 effect already owns this source",
-                req.source, fx->name);
-         } else {
+            if (g_atomic_int_get(&lv2_effects[i].active))
+               for (guint ch = 0; ch < lv2_effects[i].channels; ch++)
+                  if ((i != req.slot - 1 || ch != req.channel) &&
+                      req.source[0] && !strcmp(lv2_effects[i].source[ch], req.source))
+                     unique = FALSE;
+         if (unique) {
             g_mutex_lock(&lv2_effect_lock);
-            g_strlcpy(fx->source, req.source, sizeof(fx->source));
+            g_strlcpy(fx->source[req.channel], req.source,
+                      sizeof(fx->source[req.channel]));
+            fx->pending_frames[0] = fx->pending_frames[1] = 0;
             g_mutex_unlock(&lv2_effect_lock);
-            struct rrclient_rx_stream streams[128];
-            size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
-                           G_N_ELEMENTS(streams));
-            for (size_t i = 0; i < n; i++)
-               if (!strcmp(streams[i].id, req.source)) {
-                  char *key = g_strdup_printf("audio.lv2.%u.server", req.slot);
-                  rrclient_database_setting_set(key, streams[i].server); g_free(key);
-                  key = g_strdup_printf("audio.lv2.%u.uuid", req.slot);
-                  rrclient_database_setting_set(key, streams[i].uuid); g_free(key);
-                  break;
-               }
-            char *key = g_strdup_printf("audio.lv2.%u.source", req.slot);
+            char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.source-right" :
+                                                      "audio.lv2.%u.source", req.slot);
             rrclient_database_setting_set(key, req.source); g_free(key);
-            Log(LOG_INFO, "audio.lv2", "Connected %s -> %s",
-                req.source, fx->name);
-         }
-      } else {
-         Log(LOG_WARN, "audio.lv2",
-             "Cannot connect %s to proc.lv2.%u: effect inactive or source not available",
-             req.source, req.slot);
-      }
+            if (!req.channel) {
+               struct rrclient_rx_stream streams[128];
+               size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
+                              G_N_ELEMENTS(streams));
+               for (size_t i = 0; i < n; i++)
+                  if (!strcmp(streams[i].id, req.source)) {
+                     key = g_strdup_printf("audio.lv2.%u.server", req.slot);
+                     rrclient_database_setting_set(key, streams[i].server); g_free(key);
+                     key = g_strdup_printf("audio.lv2.%u.uuid", req.slot);
+                     rrclient_database_setting_set(key, streams[i].uuid); g_free(key);
+                     break;
+                  }
+            }
+            Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u",
+                req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
+         } else
+            Log(LOG_WARN, "audio.lv2", "Source %s already used on another LV2 input", req.source);
+      } else
+         Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u",
+             req.channel, req.slot);
    }
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
    event_emit("client.audio.route.changed", NULL, NULL);
@@ -1219,7 +1220,7 @@ static void audio_lv2_restore(void) {
    for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
       rr_lv2_effect_t *fx = &lv2_effects[slot-1];
       if (g_atomic_int_get(&fx->active)) {
-         if ((!fx->source[0] || audio_lv2_source_present(fx->source)) &&
+         if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) &&
              !g_atomic_int_get(&fx->failed)) continue;
          /* Stream UUIDs can survive a reconnect even when the decoder's
           * temporary client-rx-N identity has changed. */
@@ -1737,7 +1738,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       for (guint slot = 0; slot < RR_AUDIO_EFFECT_MAX; slot++)
          if (g_atomic_int_get(&lv2_effects[slot].active) &&
              !g_atomic_int_get(&lv2_effects[slot].failed) &&
-             !strcmp(lv2_effects[slot].source, stream->id))
+             (!strcmp(lv2_effects[slot].source[0], stream->id) ||
+               (lv2_effects[slot].channels == 2 &&
+                !strcmp(lv2_effects[slot].source[1], stream->id))))
             intercepted = TRUE;
       if (channels && !intercepted) {
          /* With an active effect, dry PCM is bypassed in the actual mixer
@@ -1757,19 +1760,20 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (!rr_audio_graph_add_node(graph, fx->name, RR_AG_PROCESSOR)) continue;
       rr_audio_graph_set_health(graph, fx->name,
          g_atomic_int_get(&fx->failed) ? RR_AG_FAILED : RR_AG_HEALTHY);
-      if (!fx->source[0] || g_atomic_int_get(&fx->failed)) continue;
-      for (size_t i = 0; i < count; i++)
-         if (!strcmp(fx->source, streams[i].id)) {
-            rr_audio_graph_add_channel_link(graph, fx->source, fx->name,
-                                           RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
-            unsigned channels = fx->output == 'L' ? RR_AG_CHANNEL_LEFT :
-               fx->output == 'R' ? RR_AG_CHANNEL_RIGHT :
-               fx->output == 'S' ? RR_AG_CHANNEL_STEREO : 0;
-            if (channels)
-               rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix",
-                                               RR_AG_NORMAL, channels);
-            break;
-         }
+      if (g_atomic_int_get(&fx->failed)) continue;
+      for (guint ch = 0; ch < fx->channels; ch++) {
+         if (fx->source[ch][0])
+            rr_audio_graph_add_channel_link(graph, fx->source[ch], fx->name,
+                  RR_AG_NORMAL, fx->channels == 2 ?
+                  (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT) :
+                  RR_AG_CHANNEL_LEFT);
+         unsigned mask = fx->output[ch] == 'L' ? RR_AG_CHANNEL_LEFT :
+                         fx->output[ch] == 'R' ? RR_AG_CHANNEL_RIGHT :
+                         fx->output[ch] == 'S' ? RR_AG_CHANNEL_STEREO : 0;
+         if (mask)
+            rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix",
+                                             RR_AG_NORMAL, mask);
+      }
    }
 
    /* Modem decoder blocks branch directly from the pre-effects decoded PCM.
@@ -1824,7 +1828,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                rr_lv2_effect_t *fx = &lv2_effects[slot-1];
                g_snprintf(node->rig, sizeof(node->rig), "LV2: %.78s", fx->factory);
                node->rate_hz = node->downstream_rate_hz = 16000;
-               node->channels = 1;
+               node->channels = fx->channels;
                node->sample_format = RR_PCM_S16LE;
                node->read_only = TRUE;
             }
