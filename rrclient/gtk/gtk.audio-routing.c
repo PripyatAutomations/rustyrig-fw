@@ -3404,6 +3404,30 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    if (!graph_pointer(event->x, event->y, &gx, &gy)) {
       return FALSE;
    }
+   if (event->type == GDK_BUTTON_PRESS) {
+      gint serial_index = -1;
+      guint serial_kind = 0;
+      gboolean serial_virtual = FALSE;
+      if (routing_serial_pin_hit(gx, gy, &serial_index, &serial_kind,
+                                 &serial_virtual)) {
+         routing_serial_drag = serial_index;
+         routing_serial_kind = serial_kind;
+         routing_serial_end_x = gx;
+         routing_serial_end_y = gy;
+         routing_serial_moved = FALSE;
+         return TRUE;
+      }
+      for (gint i = (gint)routing_serial_count - 1; i >= 0; i--) {
+         const routing_serial_node_t *n = &routing_serial_nodes[i];
+         if (gx < n->x || gx > n->x + ROUTING_SERIAL_W ||
+             gy < n->y || gy > n->y + ROUTING_SERIAL_H) continue;
+         routing_serial_move = i;
+         routing_serial_dx = gx - n->x;
+         routing_serial_dy = gy - n->y;
+         routing_serial_moved = FALSE;
+         return TRUE;
+      }
+   }
    if (routing_compact_hit(gx, gy, event->type == GDK_2BUTTON_PRESS))
       return TRUE;
    /* Compact controls have their own persistent graph state; a missing
@@ -3489,6 +3513,23 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
    (void)widget;
    (void)unused;
+   if (routing_serial_drag >= 0 || routing_serial_move >= 0) {
+      double gx, gy;
+      if (!graph_pointer(event->x, event->y, &gx, &gy)) return TRUE;
+      if (routing_serial_drag >= 0) {
+         routing_serial_moved |= hypot(gx-routing_serial_end_x,
+                                      gy-routing_serial_end_y) > 4.;
+         routing_serial_end_x = gx;
+         routing_serial_end_y = gy;
+      } else if ((guint)routing_serial_move < routing_serial_count) {
+         routing_serial_node_t *n = &routing_serial_nodes[routing_serial_move];
+         n->x = MAX(0., gx - routing_serial_dx);
+         n->y = MAX(0., gy - routing_serial_dy);
+         routing_serial_moved = TRUE;
+      }
+      graph_canvas_update_size();
+      return TRUE;
+   }
 
    if (graph_pan_dragging) {
       graph_pan_x = graph_pan_base_x + event->x - graph_pan_begin_x;
@@ -3537,6 +3578,39 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
 static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
+   if (event->button == GDK_BUTTON_PRIMARY &&
+       (routing_serial_drag >= 0 || routing_serial_move >= 0)) {
+      double gx, gy;
+      gboolean valid = graph_pointer(event->x, event->y, &gx, &gy);
+      if (routing_serial_drag >= 0 && routing_serial_moved && valid) {
+         gint target = -1;
+         guint kind = 0;
+         gboolean is_virtual = FALSE;
+         if (routing_serial_pin_hit(gx, gy, &target, &kind, &is_virtual) &&
+             kind == routing_serial_kind &&
+             target != routing_serial_drag) {
+            const routing_serial_node_t *origin =
+               &routing_serial_nodes[routing_serial_drag];
+            const routing_serial_node_t *dest = &routing_serial_nodes[target];
+            if (origin->virtual && !dest->virtual)
+               routing_serial_bind((guint)routing_serial_drag, (guint)target);
+            else if (!origin->virtual && dest->virtual)
+               routing_serial_bind((guint)target, (guint)routing_serial_drag);
+         }
+      } else if (routing_serial_move >= 0 && routing_serial_moved &&
+                 (guint)routing_serial_move < routing_serial_count) {
+         routing_serial_node_t *n = &routing_serial_nodes[routing_serial_move];
+         routing_position_t *pos = routing_position(n->id);
+         if (pos) {
+            pos->x = n->x; pos->y = n->y; pos->pinned = TRUE;
+            routing_position_save(n->id, pos);
+         }
+      }
+      routing_serial_drag = routing_serial_move = -1;
+      routing_serial_moved = FALSE;
+      graph_canvas_update_size();
+      return TRUE;
+   }
 
    if (graph_touch_long_pressed) {
       graph_touch_long_pressed = FALSE;
@@ -4033,6 +4107,10 @@ void gtk_audio_graph_present(void) {
    }
    gtk_widget_show_all(graph_page);
    gtk_notebook_set_current_page(book, gtk_notebook_page_num(book, graph_page));
+   routing_serial_refresh();
+   if (!routing_serial_result_token)
+      routing_serial_result_token = event_on_message_domain_token(
+         RR_SERCOM_VRIG_BIND_RESULT, routing_serial_result, NULL, "gtk");
    routing_queue();             /* Request an up-to-date core graph, not a stale UI cache. */
 
    if (graph_canvas) {
@@ -4066,6 +4144,8 @@ static void routing_snapshot_event(const rr_event_message_t *message, void *unus
    g_free(routing_rx_snapshot);
    routing_rx_snapshot = g_malloc(message->length);
    memcpy(routing_rx_snapshot, snapshot, message->length);
+   routing_serial_refresh();
+   graph_canvas_update_size();
    snapshot_waiting = false;
    snapshot_sent_at = 0;
 }
@@ -4307,6 +4387,12 @@ void gtk_audio_routing_shutdown(void) {
       snapshot_token = 0;
    }
    g_clear_pointer(&routing_rx_snapshot, g_free);
+   if (routing_serial_result_token) {
+      event_off_token(routing_serial_result_token);
+      routing_serial_result_token = 0;
+   }
+   routing_serial_count = 0;
+   routing_serial_drag = routing_serial_move = -1;
    snapshot_waiting = false;
    snapshot_sent_at = 0;
 
