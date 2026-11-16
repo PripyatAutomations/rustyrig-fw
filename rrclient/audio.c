@@ -899,6 +899,10 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
       rrclient_database_setting_set(key, ""); g_free(key);
       key = g_strdup_printf("audio.lv2.%u.source", slot);
       rrclient_database_setting_set(key, ""); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.server", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.uuid", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
    }
 }
 static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
@@ -958,6 +962,17 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    rrclient_database_setting_set(key, req->factory); g_free(key);
    key = g_strdup_printf("audio.lv2.%u.source", slot);
    rrclient_database_setting_set(key, req->source); g_free(key);
+   /* Decoder stream identities are session-local. Persist server+UUID so
+    * a resumed station can reattach without rewriting its LV2 graph. */
+   for (size_t i = 0; i < n; i++)
+      if (!strcmp(streams[i].id, req->source)) {
+         key = g_strdup_printf("audio.lv2.%u.server", slot);
+         rrclient_database_setting_set(key, streams[i].server); g_free(key);
+         key = g_strdup_printf("audio.lv2.%u.uuid", slot);
+         rrclient_database_setting_set(key, streams[i].uuid); g_free(key);
+         break;
+      }
+   audio_restore_effect_parameters(fx->name);
    Log(LOG_INFO, "audio.lv2", "Started independent effect %u: %s from %s",
        slot, req->factory, req->source);
    return TRUE;
@@ -1012,6 +1027,27 @@ static void audio_lv2_restore(void) {
       key = g_strdup_printf("audio.lv2.%u.source", slot);
       char *source = rrclient_database_setting_get(key); g_free(key);
       if (factory && *factory && source && *source) {
+         /* Prefer the session's current stream ID; otherwise resolve the
+          * persisted peer+resource UUID from the refreshed RX catalog. */
+         if (!audio_lv2_source_present(source)) {
+            key = g_strdup_printf("audio.lv2.%u.server", slot);
+            char *server = rrclient_database_setting_get(key); g_free(key);
+            key = g_strdup_printf("audio.lv2.%u.uuid", slot);
+            char *uuid = rrclient_database_setting_get(key); g_free(key);
+            if (server && *server && uuid && *uuid) {
+               struct rrclient_rx_stream streams[128];
+               size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
+                                  G_N_ELEMENTS(streams));
+               for (size_t i = 0; i < count; i++)
+                  if (!strcmp(streams[i].server, server) &&
+                      !strcmp(streams[i].uuid, uuid)) {
+                     g_free(source);
+                     source = g_strdup(streams[i].id);
+                     break;
+                  }
+            }
+            g_free(server); g_free(uuid);
+         }
          rr_audio_effect_request_t req = {.action = 'A', .slot = slot};
          g_strlcpy(req.factory, factory, sizeof(req.factory));
          g_strlcpy(req.source, source, sizeof(req.source));
