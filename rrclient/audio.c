@@ -479,6 +479,10 @@ static void audio_tx_encoded(const char codec[5],const void *data,
    if(strcmp(tx_frame_channel,channel->uuid)) {
       g_strlcpy(tx_frame_channel,channel->uuid,sizeof(tx_frame_channel));
       tx_frame_sequence=0;
+      /* The encoder may have generated Ogg/Opus setup before the media
+       * subscription received its stream ID. Re-send that bounded header
+       * cache before the first data frame on this channel. */
+      if(!setup) fwdsp_replay_client_tx_headers(codec);
    }
    uint8_t *frame=NULL;
    int n=rr_binframe_frame(&frame,RR_BINFRAME_SUBSYS_AUDIO,codec,
@@ -2595,6 +2599,10 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
 
    memcpy(active, codec, 4);
    active[4] = '\0';
+   if(is_tx) {
+      tx_frame_channel[0]=0;
+      tx_frame_sequence=0;
+   }
 
    if (cfg_get_bool(is_tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx", false)) {
       const char *who = "radio";
