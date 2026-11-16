@@ -1095,7 +1095,7 @@ typedef struct routing_compact_control {
    char id[64], uuid[40];
    char label[32], kind[16], unit[16];
    char effect_worker[64], effect_element[96], effect_property[96];
-   double effect_value, hint_min, hint_max, hint_step;
+   double effect_value, effect_default, hint_min, hint_max, hint_step;
    double x, y;
    double minimum, maximum, step;
    gboolean has_minimum, has_maximum, has_step, has_unit, has_label;
@@ -1246,7 +1246,10 @@ static gboolean routing_compact_reset(GtkWidget *widget, GdkEventButton *event,
    (void)unused;
    if (event->button != GDK_BUTTON_PRIMARY || event->type != GDK_2BUTTON_PRESS)
       return FALSE;
-   gtk_range_set_value(GTK_RANGE(widget), 0.);
+   routing_compact_control_t *control = g_object_get_data(
+      G_OBJECT(widget), "rr-compact-control");
+   gtk_range_set_value(GTK_RANGE(widget),
+      control && control->effect_worker[0] ? control->effect_default : 0.);
    return TRUE;
 }
 /* Minimal Cairo knob: vertical drag or wheel controls the same GTK
@@ -1291,7 +1294,8 @@ static gboolean routing_knob_press(GtkWidget *widget, GdkEventButton *event,
    routing_compact_control_t *control = user;
    if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
    if (event->type == GDK_2BUTTON_PRESS) {
-      gtk_range_set_value(GTK_RANGE(control->value), 0.);
+      gtk_range_set_value(GTK_RANGE(control->value),
+          control->effect_worker[0] ? control->effect_default : 0.);
       return TRUE;
    }
    control->knob_dragging = TRUE;
@@ -1385,10 +1389,12 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
       vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL,
       control->minimum, control->maximum, control->step);
    control->value = scale;
+   g_object_set_data(G_OBJECT(scale), "rr-compact-control", control);
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_scale_set_digits(GTK_SCALE(scale), 0);
    gtk_widget_set_size_request(scale, vertical ? 40 : 120, vertical ? 100 : 24);
-   gtk_widget_set_tooltip_text(scale, "Double-click to reset to 0 dB");
+   gtk_widget_set_tooltip_text(scale,
+      "Double-click to reset to the parameter default (0 dB for gains)");
    control->updating = TRUE;
    gtk_range_set_value(GTK_RANGE(scale), routing_compact_current(control));
    control->updating = FALSE;
@@ -1440,7 +1446,7 @@ static void routing_compact_save(const routing_compact_control_t *control) {
    const char *fields[] = {"target", "label", "kind", "port", "channel",
                             "x", "y", "min", "max", "step", "unit",
                             "worker", "element", "property", "hint-min",
-                            "hint-max", "hint-step", "value"};
+                            "hint-max", "hint-step", "value", "default"};
    char port[4], channel[4], x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
    char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE], step[G_ASCII_DTOSTR_BUF_SIZE];
    g_snprintf(port, sizeof(port), "%d", control->port ? 1 : 0);
@@ -1456,12 +1462,14 @@ static void routing_compact_save(const routing_compact_control_t *control) {
    g_ascii_formatd(hmax, sizeof(hmax), "%.8g", control->hint_max);
    g_ascii_formatd(hstep, sizeof(hstep), "%.8g", control->hint_step);
    g_ascii_formatd(current, sizeof(current), "%.8g", control->effect_value);
+   char default_text[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_formatd(default_text, sizeof(default_text), "%.8g", control->effect_default);
    const char *values[] = {control->id,
       control->has_label ? control->label : "", control->kind, port, channel,
       x, y, control->has_minimum ? min : "", control->has_maximum ? max : "",
       control->has_step ? step : "", control->has_unit ? control->unit : "",
       control->effect_worker, control->effect_element, control->effect_property,
-      hmin, hmax, hstep, current};
+      hmin, hmax, hstep, current, default_text};
    for (guint i = 0; i < G_N_ELEMENTS(fields); i++) {
       char *key = g_strdup_printf("audio.control.%s.%s", control->uuid, fields[i]);
       rrclient_database_setting_set(key, values[i]);
@@ -1507,6 +1515,7 @@ static void routing_compact_restore(void) {
       char *hmax = routing_compact_field(parts[i], "hint-max");
       char *hstep = routing_compact_field(parts[i], "hint-step");
       char *value = routing_compact_field(parts[i], "value");
+      char *default_text = routing_compact_field(parts[i], "default");
       double px = 0., py = 0., mn = 0., mx = 0., st = 0.;
       gboolean valid = target && strlen(target) < 64 &&
          kind && (!strcmp(kind, "horizontal") || !strcmp(kind, "vertical") ||
@@ -1549,6 +1558,8 @@ static void routing_compact_restore(void) {
                routing_compact_parse_number(hmax, &item->hint_max);
                routing_compact_parse_number(hstep, &item->hint_step);
                routing_compact_parse_number(value, &item->effect_value);
+               item->effect_default = item->effect_value;
+               routing_compact_parse_number(default_text, &item->effect_default);
             }
             routing_compact_apply_hints(item);
             routing_compact_apply_widget(item);
@@ -1558,6 +1569,7 @@ static void routing_compact_restore(void) {
       g_free(x); g_free(y); g_free(minimum); g_free(maximum); g_free(step); g_free(unit);
       g_free(worker); g_free(element); g_free(property);
       g_free(hmin); g_free(hmax); g_free(hstep); g_free(value);
+      g_free(default_text);
    }
    g_strfreev(parts);
    g_free(ids);
@@ -1707,13 +1719,15 @@ static void routing_compact_properties(routing_compact_control_t *item) {
       const char *str_min = gtk_entry_get_text(GTK_ENTRY(fields[1]));
       const char *str_max = gtk_entry_get_text(GTK_ENTRY(fields[2]));
       const char *str_step = gtk_entry_get_text(GTK_ENTRY(fields[3]));
-      double mn = GRAPH_GAIN_MIN, mx = GRAPH_GAIN_MAX, st = 1.;
+      double allowed_min = item->effect_worker[0] ? item->hint_min : GRAPH_GAIN_MIN;
+      double allowed_max = item->effect_worker[0] ? item->hint_max : GRAPH_GAIN_MAX;
+      double mn = allowed_min, mx = allowed_max, st = item->step;
       gboolean hm = routing_compact_parse_number(str_min, &mn);
       gboolean hx = routing_compact_parse_number(str_max, &mx);
       gboolean hs = routing_compact_parse_number(str_step, &st);
       gboolean valid = (!*str_min || hm) && (!*str_max || hx) &&
                        (!*str_step || hs) && st > 0 && mn < mx &&
-                       mn >= GRAPH_GAIN_MIN && mx <= GRAPH_GAIN_MAX;
+                       mn >= allowed_min && mx <= allowed_max;
       if (!valid) {
          GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog),
             GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
@@ -2145,6 +2159,7 @@ static void routing_compact_set_effect(routing_compact_control_t *control,
    control->hint_max = port->high;
    control->hint_step = port->step;
    control->effect_value = port->initial;
+   control->effect_default = port->initial;
    routing_compact_apply_hints(control);
    routing_compact_apply_widget(control);
    gtk_widget_set_sensitive(control->value, TRUE);
