@@ -1757,15 +1757,14 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
       GTK_NOTEBOOK(main_notebook), panel_id, control->label);
    g_free(panel_id);
    if (!control->panel) { g_free(control); return; }
-   if (!saved_uuid) {
-      /* Overlay pixel coordinates are separate from graph-world x/y.
-       * The panel manager retains the final dragged geometry in its DB. */
-      gint overlay_width = gtk_widget_get_allocated_width(routing_overlay);
-      gint columns = MAX(1, MIN(4, (overlay_width - 24) / 155));
-      rr_floating_panel_set_initial_position(control->panel,
-         18 + (gint)(ordinal % (guint)columns) * 155,
-         85 + (gint)(ordinal / (guint)columns) * 125);
-   }
+   /* The preferred location is only used for new panels or for repairing
+    * overlapping legacy window_states. A distinct saved position wins. */
+   gint overlay_width = gtk_widget_get_allocated_width(routing_overlay);
+   gint columns = overlay_width > 300 ?
+      MAX(1, MIN(4, (overlay_width - 24) / 155)) : 4;
+   rr_floating_panel_set_initial_position(control->panel,
+      18 + (gint)(ordinal % (guint)columns) * 155,
+      85 + (gint)(ordinal / (guint)columns) * 125);
    rr_floating_panel_set_resizable(control->panel, FALSE);
    rr_floating_panel_set_minimizable(control->panel, FALSE);
    GtkWidget *body = rr_floating_panel_body(control->panel);
