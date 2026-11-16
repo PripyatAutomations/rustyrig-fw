@@ -141,12 +141,6 @@ static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t 
       if (ch == '\n') {
          if (d->line_len) {
             d->line[d->line_len] = 0;
-            if(!strcmp(d->line,"!TX_DONE")) {
-               if(d->ptt_owned && d->tx_running)
-                  d->release_at_us=g_get_monotonic_time()+750000;
-               d->line_len=0;
-               continue;
-            }
             rr_local_modem_decode_t item = {.slot = slot};
             g_strlcpy(item.source, d->source, sizeof(item.source));
             g_strlcpy(item.engine, d->engine, sizeof(item.engine));
@@ -197,6 +191,17 @@ static gboolean poll_decoders(gpointer unused) {
       if (ended) {
          g_snprintf(last_status, sizeof(last_status), "Decoder %u exited", i + 1);
          stop_one(i);
+      }
+      /* TX completion is a control message on fd3, never decoded text on
+       * stdout; no text/data race or accidental fabricated decode record. */
+      if(d->worker.control_fd>=0) for(unsigned k=0;k<8;k++) {
+         char status[32];
+         ssize_t n=recv(d->worker.control_fd,status,sizeof(status),
+                        MSG_DONTWAIT);
+         if(n<=0) break;
+         if(n==7 && !memcmp(status,"TX_DONE",7) &&
+            d->ptt_owned && d->tx_running)
+            d->release_at_us=g_get_monotonic_time()+750000;
       }
       /* Modem-owned keying: generate TX PCM only after the server reports
        * PTT asserted. Never continue a waveform after its route is removed. */
