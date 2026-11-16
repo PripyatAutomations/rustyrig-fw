@@ -965,42 +965,45 @@ static bool processor_apply_device_rate(GstElement *pipe, GstElement *appsrc) {
  * be changed; never accept object, pointer or arbitrary string properties. */
 static bool processor_set_element_parameter(GstElement *pipe,
                                            struct fwdsp_control_msg *cmd) {
-   if (!pipe || !GST_IS_BIN(pipe) || !memchr(cmd->element, 0, sizeof(cmd->element)) ||
-       !memchr(cmd->property, 0, sizeof(cmd->property)) ||
-       !*cmd->element || !*cmd->property || !isfinite(cmd->property_value))
+   double numeric;
+   memcpy(&numeric, cmd->record_file, sizeof(numeric));
+   if (!pipe || !GST_IS_BIN(pipe) ||
+       !memchr(cmd->record_user, 0, sizeof(cmd->record_user)) ||
+       !memchr(cmd->record_id, 0, sizeof(cmd->record_id)) ||
+       !*cmd->record_user || !*cmd->record_id || !isfinite(numeric))
       return false;
-   GstElement *element = gst_bin_get_by_name(GST_BIN(pipe), cmd->element);
+   GstElement *element = gst_bin_get_by_name(GST_BIN(pipe), cmd->record_user);
    if (!element) return false;
    GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
-                                                   cmd->property);
+                                                   cmd->record_id);
    bool ok = false;
    if (spec && (spec->flags & G_PARAM_WRITABLE) &&
        !(spec->flags & G_PARAM_CONSTRUCT_ONLY)) {
-      double v = cmd->property_value;
+      double v = numeric;
       if (G_IS_PARAM_SPEC_DOUBLE(spec)) {
          GParamSpecDouble *s = G_PARAM_SPEC_DOUBLE(spec);
          if (v >= s->minimum && v <= s->maximum) {
-            g_object_set(element, cmd->property, v, NULL); ok = true;
+            g_object_set(element, cmd->record_id, v, NULL); ok = true;
          }
       } else if (G_IS_PARAM_SPEC_FLOAT(spec)) {
          GParamSpecFloat *s = G_PARAM_SPEC_FLOAT(spec);
          if (v >= s->minimum && v <= s->maximum) {
-            g_object_set(element, cmd->property, (float)v, NULL); ok = true;
+            g_object_set(element, cmd->record_id, (float)v, NULL); ok = true;
          }
       } else if (G_IS_PARAM_SPEC_INT(spec)) {
          GParamSpecInt *s = G_PARAM_SPEC_INT(spec);
          if (v >= s->minimum && v <= s->maximum &&
              v == (double)(int)v) {
-            g_object_set(element, cmd->property, (int)v, NULL); ok = true;
+            g_object_set(element, cmd->record_id, (int)v, NULL); ok = true;
          }
       } else if (G_IS_PARAM_SPEC_UINT(spec)) {
          GParamSpecUInt *s = G_PARAM_SPEC_UINT(spec);
          if (v >= s->minimum && v <= s->maximum &&
              v == (double)(unsigned)v) {
-            g_object_set(element, cmd->property, (unsigned)v, NULL); ok = true;
+            g_object_set(element, cmd->record_id, (unsigned)v, NULL); ok = true;
          }
       } else if (G_IS_PARAM_SPEC_BOOLEAN(spec) && (v == 0. || v == 1.)) {
-         g_object_set(element, cmd->property, v != 0., NULL); ok = true;
+         g_object_set(element, cmd->record_id, v != 0., NULL); ok = true;
       }
    }
    gst_object_unref(element);
