@@ -802,7 +802,8 @@ typedef struct {
 } rr_lv2_pcm_packet_t;
 typedef struct {
    char name[32], source[64], factory[96];
-   GAsyncQueue *queue;
+   GAsyncQueue *queue, *available;
+   rr_lv2_pcm_packet_t packets[8], stop_packet;
    GThread *writer;
    int input_fd;
    gint active, failed;
@@ -841,10 +842,10 @@ static gpointer audio_lv2_writer(gpointer user) {
    for (;;) {
       rr_lv2_pcm_packet_t *packet = g_async_queue_pop(fx->queue);
       if (!packet) continue;
-      if (!packet->bytes) { g_free(packet); break; }
+      if (packet == &fx->stop_packet) break;
       if (!fwdsp_pcm_write_fd(fx->input_fd, packet->pcm, packet->bytes))
          g_atomic_int_set(&fx->failed, TRUE);
-      g_free(packet);
+      g_async_queue_push(fx->available, packet);
       if (g_atomic_int_get(&fx->failed)) break;
    }
    return NULL;
@@ -859,12 +860,13 @@ static gboolean audio_lv2_feed(const char *source, const void *samples,
    for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++) {
       rr_lv2_effect_t *fx = &lv2_effects[i];
       if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed) ||
-          !fx->queue || strcmp(fx->source, source)) continue;
-      if (g_async_queue_length(fx->queue) >= 8) {
+          !fx->queue || !fx->available || strcmp(fx->source, source))
+         continue;
+      rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
+      if (!packet) {
          fx->dropped++;
          continue;
       }
-      rr_lv2_pcm_packet_t *packet = g_malloc(sizeof(*packet));
       packet->bytes = (uint16_t)bytes;
       memcpy(packet->pcm, samples, bytes);
       g_async_queue_push(fx->queue, packet);
@@ -879,13 +881,10 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
    rr_lv2_effect_t *fx = &lv2_effects[slot-1];
    g_mutex_lock(&lv2_effect_lock);
    g_atomic_int_set(&fx->active, FALSE);
-   GAsyncQueue *queue = fx->queue;
+   GAsyncQueue *queue = fx->queue, *available = fx->available;
    GThread *writer = fx->writer;
    fx->writer = NULL;
-   if (queue && writer) {
-      rr_lv2_pcm_packet_t *stop = g_malloc0(sizeof(*stop));
-      g_async_queue_push(queue, stop);
-   }
+   if (queue && writer) g_async_queue_push(queue, &fx->stop_packet);
    g_mutex_unlock(&lv2_effect_lock);
    /* The input descriptor belongs to this worker thread, not to the
     * fwdsp registry. Shutdown unblocks any in-flight framed write before
@@ -900,13 +899,10 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
       fwdsp_processor_stop(fx->name);
       if (rx_engine) rr_audio_engine_remove_stream(rx_engine, fx->name);
    }
-   if (queue) {
-      rr_lv2_pcm_packet_t *remaining;
-      while ((remaining = g_async_queue_try_pop(queue))) g_free(remaining);
-      g_async_queue_unref(queue);
-   }
+   if (queue) g_async_queue_unref(queue);
+   if (available) g_async_queue_unref(available);
    g_mutex_lock(&lv2_effect_lock);
-   fx->queue = NULL;
+   fx->queue = fx->available = NULL;
    fx->source[0] = fx->factory[0] = fx->name[0] = 0;
    g_atomic_int_set(&fx->failed, FALSE);
    g_mutex_unlock(&lv2_effect_lock);
@@ -975,6 +971,9 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    int flags = fcntl(fx->input_fd, F_GETFL, 0);
    if (flags >= 0) fcntl(fx->input_fd, F_SETFL, flags | O_NONBLOCK);
    fx->queue = g_async_queue_new();
+   fx->available = g_async_queue_new();
+   for (guint i = 0; i < G_N_ELEMENTS(fx->packets); i++)
+      g_async_queue_push(fx->available, &fx->packets[i]);
    g_atomic_int_set(&fx->failed, FALSE);
    g_atomic_int_set(&fx->active, TRUE);
    struct rrclient_rx_stream streams[128];
