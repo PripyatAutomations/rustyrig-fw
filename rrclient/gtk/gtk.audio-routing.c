@@ -390,6 +390,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
            rig_target && graph_drag_channel ? -18. : 0.);
       double ny = routing_node_y(n) + (rig_target ?
          (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
+         lv2_connection ? (to_lv2 ? 68. : 68.) :
          modem_connection ? (from_modem ? 60. : 68.) :
          (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
@@ -2677,7 +2678,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
          continue;
       if (lv2_input) {
          if (hypot(x - routing_node_x(node),
-                   y - routing_node_y(node) - 60.) <= radius) {
+                   y - routing_node_y(node) - 68.) <= radius) {
             *source = -(gint)i - 1;
             *channel = 0;
             *mixer = TRUE;
