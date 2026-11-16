@@ -1101,7 +1101,7 @@ typedef struct routing_compact_control {
    gboolean has_minimum, has_maximum, has_step, has_unit, has_label;
    gboolean moving, wiring;
    double start_x, start_y, pointer_x, pointer_y;
-   gboolean position_dirty, hidden, move_armed;
+   gboolean position_dirty, hidden;
    guint save_source;
    unsigned channel;
    gboolean port;
@@ -1377,7 +1377,6 @@ static void routing_compact_menu_action(GtkMenuItem *item, gpointer data) {
    else if (!g_strcmp0(action, "delete"))
       g_idle_add(routing_compact_delete_idle, g_strdup(control->uuid));
    else if (!g_strcmp0(action, "move")) {
-      control->move_armed = TRUE;
       gtk_widget_set_tooltip_text(control->move_handle,
          "Drag this label to reposition the control");
       GdkWindow *window = gtk_widget_get_window(control->move_handle);
@@ -1408,14 +1407,6 @@ static gboolean routing_compact_context(GtkWidget *widget,
    gtk_widget_show_all(menu);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
    return TRUE;
-}
-static void routing_compact_move_release(GtkWidget *widget,
-                                        GdkEventButton *event, gpointer data) {
-   routing_compact_control_t *control = data;
-   if (event->button != GDK_BUTTON_PRIMARY || !control->move_armed) return;
-   control->move_armed = FALSE;
-   GdkWindow *window = gtk_widget_get_window(widget);
-   if (window) gdk_window_set_cursor(window, NULL);
 }
 static void routing_compact_restore_one(routing_compact_control_t *control);
 static void routing_compact_hidden_menu(GtkButton *button, gpointer unused) {
@@ -1496,8 +1487,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    rr_floating_panel_set_compact(control->panel, handle);
    g_signal_connect(handle, "button-press-event",
       G_CALLBACK(routing_compact_context), control);
-   g_signal_connect(handle, "button-release-event",
-      G_CALLBACK(routing_compact_move_release), control);
+
    gboolean vertical = !g_strcmp0(kind, "vertical");
    gboolean knob = !g_strcmp0(kind, "knob");
    GtkWidget *scale = gtk_scale_new_with_range(
