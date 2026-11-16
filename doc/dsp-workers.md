@@ -290,6 +290,30 @@ The worker programs are external: `make -C modems` builds PSK, Olivia and FT8 to
 and `sudo make -C modems install` installs all three under `/usr/libexec/rustyrig/modems/`.
 rrclient checks installed worker paths first, then local build paths.
 
+### Experimental client-side PSK/Olivia transmission (November 2026)
+
+Routing has independent `modemN.rx` and `modemN.tx` audio nodes.
+With TX enabled in Modem Properties (default off), the operator must
+**manually connect** both the modem TX audio pin and the red PTT message
+pin to the **same transmit-capable active rig** before sending text.
+`Send Modem Text…` requests PTT via the owning radio's core connection,
+then waits for `cat.state.ptt` confirmation before instructing the
+PSK or Olivia subprocess to generate 16 kHz mono PCM on fd 5. The normal
+client TX codec receives these samples, with microphone TX suppressed for
+the duration. Worker completion is a `TX_DONE` control message on fd 3;
+it triggers a PTT release after a short audio drain. Worker exit, link
+change, loss of confirmed PTT, and timeouts also cancel and release.
+The source-qualified `modemN.ptt` signal can illuminate a floating
+ON AIR indicator via its hollow red graph sink.
+
+This is a **client-local experimental** path, **not** the server-owned
+worker lease implementation described above. The radio server still owns
+PTT authorization and its transmit timeout. The interim workers use
+provisional resampling and have not been locally built, hardware-tested,
+or exercised under RF load in this change. Always test on a dummy load
+and verify automatic PTT release before enabling live RF. FT8 remains
+RX-only until its scheduled TX modulation is implemented.
+
 **Current limitations:** at most eight sessions and bounded text buffers;
 an overloaded decoder can lose samples rather than stall PCM callbacks.
 There is no automatic PSK-versus-Olivia classification, AFC for PSK,
