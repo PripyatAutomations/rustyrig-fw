@@ -42,7 +42,7 @@
 
 extern bool dying;
 extern time_t now;
-extern rrconn_t *ws_conn;
+
 extern dict *cfg;
 
 
@@ -648,7 +648,7 @@ static bool parse_chat_input(const char *msg, bool commands) {
          }
       }
 
-      if (!chat_send_paced(ws_conn, d, false)) {
+      if (!chat_send_paced(rrclient_connection_context(), d, false)) {
          dict_free(d);
       }
    }
