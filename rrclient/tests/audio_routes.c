@@ -188,12 +188,12 @@ int main(void) {
    assert(audio_rx_streams(NULL, 0) == 3);
    assert(audio_rx_streams(streams, 1) == 3);
    assert(audio_rx_streams(streams, 3) == 3);
-   active_rx_uuid = "rig-a";
+   active_rx_uuid = "rig-b";
    audio_rx_streams(streams, 3);
    bool selected_found = false;
    for (size_t i = 0; i < 3; i++)
       if (streams[i].active_rx) {
-         assert(!strcmp(streams[i].uuid, "rig-a"));
+         assert(!strcmp(streams[i].uuid, "rig-b"));
          selected_found = true;
       }
    assert(selected_found);
