@@ -20,7 +20,8 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/vfo.h>
-extern rrconn_t *ws_conn;
+#include <rrclient/ui.h>
+
 extern time_t now;
 extern int cfg_ui_edit_delay;   // main.c
 GtkWidget *mode_combo = NULL;
@@ -59,7 +60,7 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       const char *room = gtk_chat_controls_room();
       bool sent = room && !g_ascii_strcasecmp(room, "&local-sdr")
          ? rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_WIDTH, 0, 0, text)
-         : ws_send_width_cmd_in_room(ws_conn, vfo, text, room);
+         : ws_send_width_cmd_in_room(rrclient_active_connection(), vfo, text, room);
 
       if (sent) {
          widthbox_last_send = now;
@@ -81,7 +82,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
          char vfo[2] = {
             vfo_state_get_active(), '\0'
          };
-         sent = ws_send_mode_cmd_in_room(ws_conn, vfo, text, room);
+         sent = ws_send_mode_cmd_in_room(rrclient_active_connection(), vfo, text, room);
       }
 
       if (sent) {
