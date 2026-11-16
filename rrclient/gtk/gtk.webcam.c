@@ -27,7 +27,6 @@
 #include <librustyaxe/event-bus.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 
-extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
 
 extern GtkWidget *main_window, *main_notebook;
