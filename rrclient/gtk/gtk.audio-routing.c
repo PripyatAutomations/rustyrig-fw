@@ -272,6 +272,14 @@ static gboolean routing_serial_room_rig(const char *room, char out[32]) {
    out[end-p] = 0;
    return TRUE;
 }
+static double routing_serial_base_y(void) {
+   double bottom = 420.;
+   if (graph_snapshot)
+      for (guint i = 0; i < graph_snapshot->node_count; i++)
+         bottom = MAX(bottom, routing_node_y(&graph_snapshot->nodes[i]) +
+                           RR_GTK_GRAPH_NODE_H + 60.);
+   return bottom;
+}
 static void routing_serial_add(const char *id, const char *profile,
                                const char *rig, unsigned slot,
                                gboolean virtual, guint index) {
@@ -285,7 +293,7 @@ static void routing_serial_add(const char *id, const char *profile,
    if (pos && !pos->pinned) {
       /* Serial sits in its own lane, away from the PCM topology. */
       pos->x = virtual ? 45. : 485.;
-      pos->y = 420. + index * 135.;
+      pos->y = routing_serial_base_y() + index * 135.;
    }
    n->x = pos ? pos->x : 45.;
    n->y = pos ? pos->y : 420.;
