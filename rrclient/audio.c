@@ -453,6 +453,31 @@ static void client_speaker_pcm(const void *samples, size_t len) {
                             len / (2 * sizeof(int16_t)));
 }
 
+/* Modems share the existing encoder but not the microphone selection.
+ * TX audio is accepted only for the real selected TX radio while PTT is
+ * already asserted; this function never requests or raises PTT. */
+bool audio_modem_tx_allowed(const char *target) {
+   if (!target || !*target || !tx_codec[0]) return false;
+   const char *selected=rrclient_media_current_codec(true);
+   if (!selected || strncmp(selected,tx_codec,4)) return false;
+   char vfo[2]={vfo_state_get_active(),0};
+   if (!(ptt_active || vfo_state_get_bool(vfo,"cat.state.ptt",false)))
+      return false;
+   struct rrclient_rx_stream streams[64]={0};
+   size_t count=audio_rx_streams(streams,G_N_ELEMENTS(streams));
+   for (size_t i=0;i<count && i<G_N_ELEMENTS(streams);i++) {
+      if (strcmp(streams[i].id,target) || !streams[i].active_tx ||
+          !rrclient_media_rx_is_active_tx(streams[i].uuid)) continue;
+      return true;
+   }
+   return false;
+}
+bool audio_modem_tx_pcm(const char *target,const int16_t *pcm,size_t frames) {
+   if (!pcm || !frames || frames>4096 || !audio_modem_tx_allowed(target))
+      return false;
+   return !fwdsp_write_samples(tx_codec,true,pcm,frames*sizeof(*pcm));
+}
+
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
    (void)name;
    (void)user_data;
