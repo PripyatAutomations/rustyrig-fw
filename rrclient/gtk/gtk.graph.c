@@ -63,7 +63,13 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
       const double sy = a->y + RR_GTK_GRAPH_NODE_H;
       const double dx = b->x + RR_GTK_GRAPH_NODE_W / 2.;
       const double dy = b->y;
-      if (e->kind == RR_GTK_GRAPH_BYPASS) {
+      if (e->kind == RR_GTK_GRAPH_COS) {
+         cairo_set_source_rgb(cr, 1., .87, .13);
+         cairo_set_dash(cr, NULL, 0, 0);
+      } else if (e->kind == RR_GTK_GRAPH_CONTROL) {
+         cairo_set_source_rgb(cr, .96, .20, .20);
+         cairo_set_dash(cr, NULL, 0, 0);
+      } else if (e->kind == RR_GTK_GRAPH_BYPASS) {
          cairo_set_source_rgb(cr, .96, .65, .27);
          const double dash[] = {6, 5};
          cairo_set_dash(cr, dash, 2, 0);
@@ -107,6 +113,11 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
          cairo_set_font_size(cr, 9);
          cairo_move_to(cr, n->x + 10, n->y + 66);
          cairo_show_text(cr, n->detail);
+      }
+      if (n->cos_pin) {
+         cairo_set_source_rgb(cr, 1., .87, .13);
+         pin(cr, n->x + RR_GTK_GRAPH_NODE_W - 12., n->y + RR_GTK_GRAPH_NODE_H,
+             FALSE, FALSE);
       }
       cairo_set_source_rgb(cr, .30, .77, .92);
       if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
