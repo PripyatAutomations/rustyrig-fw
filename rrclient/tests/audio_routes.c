@@ -4,6 +4,15 @@
 // Muted rig streams keep decoding; only selected PCM reaches the speaker.
 #include <assert.h>
 #include <rrclient/audio.c>
+/* This unit test includes audio.c without media.c. Simulate two independently
+ * subscribed radios and exercise the stable selected-radio alias. */
+static const char *active_rx_uuid;
+bool rrclient_media_rx_is_active_rx(const char *uuid) {
+   return active_rx_uuid && !strcmp(active_rx_uuid, uuid);
+}
+bool rrclient_media_rx_is_active_tx(const char *uuid) {
+   return active_rx_uuid && !strcmp(active_rx_uuid, uuid);
+}
 static rrconn_t first, second;
 rrconn_t *ws_conn = &first;
 static const char *selected = "first";
@@ -178,6 +187,15 @@ int main(void) {
    assert(audio_rx_streams(NULL, 0) == 3);
    assert(audio_rx_streams(streams, 1) == 3);
    assert(audio_rx_streams(streams, 3) == 3);
+   active_rx_uuid = "rig-a";
+   audio_rx_streams(streams, 3);
+   bool selected_found = false;
+   for (size_t i = 0; i < 3; i++)
+      if (streams[i].active_rx) {
+         assert(!strcmp(streams[i].uuid, "rig-a"));
+         selected_found = true;
+      }
+   assert(selected_found);
    char stream_id[64] = "";
 
    for (size_t i = 0 ; i < 3 ; i++) {
@@ -196,6 +214,7 @@ int main(void) {
    assert(!audio_set_rx_stream_route("missing", 'L'));
    assert(!audio_set_rx_stream_route(stream_id, 'X'));
    assert(!audio_set_rx_stream_route(stream_id, 0));
+   assert(audio_set_rx_stream_route("rig.src", 'L'));
    assert(audio_set_rx_stream_route(stream_id, 'L'));
    assert(audio_room_route("first", "#a") == 'L');
    ws_conn = &first;
