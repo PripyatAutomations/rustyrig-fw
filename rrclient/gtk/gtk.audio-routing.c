@@ -522,6 +522,8 @@ static void routing_serial_draw(cairo_t *cr) {
  * selected by the stored wire; radio TX status is deliberately ignored. */
 static gboolean onair_visible,onair_connected,onair_active,onair_restored;
 static char onair_source[64]; /* Exact connected PTT control pin ID */
+static char onair_drag_source[64];
+static gboolean onair_drag_reverse;
 static double onair_x=670.,onair_y=360.,onair_scale=1.,ptt_x=420.,ptt_y=360.;
 static gint onair_drag; /* sign=1, PTT block=2, control wire=3 */
 static double onair_drag_dx,onair_drag_dy;
@@ -552,7 +554,10 @@ static void onair_restore(void) {
    }
    g_free(v);
    char *source=rrclient_database_setting_get("audio.graph.onair.source");
-   if(source && !strcmp(source,RRCLIENT_ROUTING_PTT_LOCAL)) {
+   unsigned slot=0;char extra=0;
+   if(source && (!strcmp(source,RRCLIENT_ROUTING_PTT_LOCAL) ||
+       (sscanf(source,"modem%u.ptt%c",&slot,&extra)==1 &&
+        slot>=1 && slot<=RR_LOCAL_MODEM_MAX))) {
       g_strlcpy(onair_source,source,sizeof(onair_source));
       onair_connected=TRUE;
    }
@@ -628,11 +633,36 @@ static void onair_panel_ensure(void) {
    rr_floating_panel_present(onair_panel);
    if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
+static gboolean onair_source_position(const char *source,double *x,double *y) {
+   if(!strcmp(source,RRCLIENT_ROUTING_PTT_LOCAL)) {
+      *x=ptt_x+150.;*y=ptt_y+35.;return TRUE;
+   }
+   unsigned slot=0;char junk=0;
+   if(sscanf(source,"modem%u.ptt%c",&slot,&junk)!=1 ||
+      slot<1 || slot>RR_LOCAL_MODEM_MAX || !graph_snapshot) return FALSE;
+   char id[64];
+   g_snprintf(id,sizeof(id),"modem%u.tx",slot);
+   for(guint i=0;i<graph_snapshot->node_count;i++) {
+      const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+      if(strcmp(id,n->id) || graph_missing_since[i]) continue;
+      *x=routing_node_x(n)+RR_GTK_GRAPH_NODE_W;
+      *y=routing_node_y(n)+RR_GTK_GRAPH_NODE_H-16.;
+      return TRUE;
+   }
+   return FALSE;
+}
 static void onair_draw(cairo_t *cr) {
    if(!onair_visible) return;
-   double sx=ptt_x+150.,sy=ptt_y+35.,dx=onair_x,dy=onair_y+ONAIR_H/2.;
-   if(onair_connected||onair_drag==3) {
-      if(onair_drag==3){dx=onair_drag_dx;dy=onair_drag_dy;}
+   double sx=0.,sy=0.,dx=onair_x,dy=onair_y+ONAIR_H/2.;
+   const char *source=onair_drag==3&&!onair_drag_reverse ?
+      onair_drag_source:onair_source;
+   gboolean source_found=onair_source_position(source,&sx,&sy);
+   if(onair_drag==3&&onair_drag_reverse) {
+      sx=onair_x;sy=onair_y+ONAIR_H/2.;
+      dx=onair_drag_dx;dy=onair_drag_dy;
+      source_found=TRUE;
+   } else if(onair_drag==3) {dx=onair_drag_dx;dy=onair_drag_dy;}
+   if(source_found && (onair_connected||onair_drag==3)) {
       cairo_save(cr);
       double dash[]={6.,5.};
       cairo_set_dash(cr,dash,2,0);
