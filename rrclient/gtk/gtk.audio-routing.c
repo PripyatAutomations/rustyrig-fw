@@ -1984,8 +1984,8 @@ static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unus
     * panels are touched by this toggle. */
    graph_canvas_update_size();
 }
-/* Controls are cyan/blue diamonds, not PCM nodes. Blue sockets and
- * dashed blue wires identify parameter signals exclusively. */
+/* Controls are neutral diamonds, not PCM nodes. Green sockets and
+ * dashed green wires identify parameter signals exclusively. */
 #define ROUTING_CONTROL_WIDTH 112.
 #define ROUTING_CONTROL_HEIGHT 58.
 static void routing_compact_bounds(double *width, double *height) {
@@ -2047,7 +2047,7 @@ static void routing_compact_draw(cairo_t *cr) {
          target ? tx : item->x + ROUTING_CONTROL_WIDTH + 40.,
          target ? ty : cy, &start_x, &start_y);
       if (target) {
-         cairo_set_source_rgba(cr, .17, .62, 1., .90);
+         cairo_set_source_rgba(cr, .24, .84, .38, .90);
          cairo_set_line_width(cr, 2.2);
          const double dash[] = {5., 4.};
          cairo_set_dash(cr, dash, 2, 0.);
@@ -2069,7 +2069,7 @@ static void routing_compact_draw(cairo_t *cr) {
       cairo_line_to(cr, item->x + ROUTING_CONTROL_WIDTH, cy);
       cairo_line_to(cr, cx, item->y + ROUTING_CONTROL_HEIGHT);
       cairo_close_path(cr);
-      /* Distinct diamond silhouette, neutral body. Blue is reserved
+      /* Distinct diamond silhouette, neutral body. Green is reserved
        * for control sockets/wiring, like the other port colors. */
       cairo_set_source_rgba(cr, .23, .24, .27, .96);
       cairo_fill_preserve(cr);
@@ -2077,7 +2077,7 @@ static void routing_compact_draw(cairo_t *cr) {
       cairo_set_line_width(cr, 1.7);
       cairo_stroke(cr);
       cairo_arc(cr, start_x, start_y, 5., 0, 2 * G_PI);
-      cairo_set_source_rgb(cr, .26, .72, 1.);
+      cairo_set_source_rgb(cr, .24, .84, .38);
       cairo_fill(cr);
       cairo_set_source_rgb(cr, .94, .97, 1.);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
@@ -2181,7 +2181,7 @@ static gboolean routing_compact_hit(double x, double y, gboolean dbl) {
       routing_compact_control_t *item = g_ptr_array_index(routing_compact_controls, i);
       double cy = item->y + ROUTING_CONTROL_HEIGHT / 2.;
       double cx = item->x + ROUTING_CONTROL_WIDTH / 2.;
-      /* Diamond hit region, including a small radius around the blue pin. */
+      /* Diamond hit region, including a small radius around the green pin. */
       if (fabs(x - cx) / (ROUTING_CONTROL_WIDTH / 2.) +
           fabs(y - cy) / (ROUTING_CONTROL_HEIGHT / 2.) > 1.15) continue;
       if (dbl) {
@@ -2415,7 +2415,7 @@ static double routing_effect_height(const routing_effect_block_t *block) {
    if (block->standalone) return RR_GTK_GRAPH_NODE_H;
    return block->ports->len > 3 ? 112. : 90.;
 }
-/* Shared by rendering, hit-testing and blue-wire endpoints. */
+/* Shared by rendering, hit-testing and green-wire endpoints. */
 static void routing_effect_socket(const routing_effect_block_t *block,
                                    const routing_position_t *pos, guint index,
                                    double *x, double *y, gboolean *top) {
@@ -2578,7 +2578,7 @@ static void routing_effect_draw(cairo_t *cr) {
          double px, py;
          gboolean top;
          routing_effect_socket(b, pos, j, &px, &py, &top);
-         cairo_set_source_rgb(cr, .25, .69, 1.);
+         cairo_set_source_rgb(cr, .24, .84, .38);
          cairo_arc(cr, px, py, ROUTING_EFFECT_PIN_R, 0, 2 * G_PI);
          cairo_fill(cr);
          cairo_set_source_rgb(cr, .92, .94, .97);
@@ -2587,7 +2587,7 @@ static void routing_effect_draw(cairo_t *cr) {
                     port->property);
          cairo_text_extents_t ext;
          cairo_text_extents(cr, text, &ext);
-         /* Blue control labels are vertical on both edges of standalone
+         /* Green control labels are vertical on both edges of standalone
           * PCM processors. A local background mask makes the labels readable
           * above the independently drawn control-wire overlay. */
          if (b->standalone) {
@@ -2713,7 +2713,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "vertical", "Vertical slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "knob", "Rotary knob");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect blue pin");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect green pin");
    routing_effect_choices(GTK_COMBO_BOX_TEXT(target), effect_ports);
    if (graph_snapshot) {
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
@@ -3617,7 +3617,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_end(GTK_BOX(profiles), hidden_controls, FALSE, FALSE, 0);
       GtkWidget *pin_control = gtk_button_new_with_label("+ Control");
       gtk_widget_set_tooltip_text(pin_control,
-         "Create an independent control block; bind its blue pin to a parameter");
+         "Create an independent control block; bind its green pin to a parameter");
       g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), pin_control, FALSE, FALSE, 0);
       GtkWidget *add_effect = gtk_button_new_with_label("+ Effect");
