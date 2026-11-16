@@ -236,6 +236,224 @@ static void routing_layout_auto(gboolean reset) {
       routing_layout_set(n, x, y, reset);
    }
 }
+
+/* Serial is a separate, non-PCM overlay. Each black dashed connection
+ * represents a local CAT emulator/GPS publisher bound to a real rig,
+ * never a serial byte stream transported to the server. */
+#define ROUTING_SERIAL_MAX_TARGETS 32
+#define ROUTING_SERIAL_W 210.
+#define ROUTING_SERIAL_H 108.
+typedef struct {
+   char id[256], profile[128], rig[32];
+   unsigned slot;
+   gboolean virtual;
+   double x, y;
+} routing_serial_node_t;
+static routing_serial_node_t routing_serial_nodes[RR_SERCOM_VRIG_MAX + ROUTING_SERIAL_MAX_TARGETS];
+static guint routing_serial_count;
+static gint routing_serial_drag = -1, routing_serial_move = -1;
+static guint routing_serial_kind; /* 0=CAT, 1=GPS */
+static double routing_serial_dx, routing_serial_dy, routing_serial_end_x, routing_serial_end_y;
+static gboolean routing_serial_moved;
+static rr_event_token_t routing_serial_result_token;
+static gboolean routing_serial_room_rig(const char *room, char out[32]) {
+   if (!room) return FALSE;
+   const char *p = NULL, *scan = room;
+   while ((scan = strstr(scan, "-rig"))) {
+      if (g_ascii_isdigit(scan[4])) p = scan + 1;
+      scan += 4;
+   }
+   if (!p) return FALSE;
+   const char *end = p + 3;
+   while (g_ascii_isdigit(*end)) end++;
+   if (*end && *end != '.' && *end != '/') return FALSE;
+   if ((size_t)(end - p) >= 32) return FALSE;
+   memcpy(out, p, (size_t)(end - p));
+   out[end-p] = 0;
+   return TRUE;
+}
+static void routing_serial_add(const char *id, const char *profile,
+                               const char *rig, unsigned slot,
+                               gboolean virtual, guint index) {
+   if (routing_serial_count >= G_N_ELEMENTS(routing_serial_nodes)) return;
+   routing_serial_node_t *n = &routing_serial_nodes[routing_serial_count++];
+   *n = (routing_serial_node_t){.slot=slot, .virtual=virtual};
+   g_strlcpy(n->id, id, sizeof(n->id));
+   g_strlcpy(n->profile, profile, sizeof(n->profile));
+   g_strlcpy(n->rig, rig, sizeof(n->rig));
+   routing_position_t *pos = routing_position(n->id);
+   if (pos && !pos->pinned) {
+      /* Serial sits in its own lane, away from the PCM topology. */
+      pos->x = virtual ? 45. : 485.;
+      pos->y = 420. + index * 135.;
+   }
+   n->x = pos ? pos->x : 45.;
+   n->y = pos ? pos->y : 420.;
+}
+static void routing_serial_refresh(void) {
+   routing_serial_count = 0;
+   unsigned vindex = 0, tindex = 0;
+   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      char *key = g_strdup_printf("serial.vrig.%u.profile", i);
+      char *profile = rrclient_database_setting_get(key);
+      g_free(key);
+      key = g_strdup_printf("serial.vrig.%u.rig", i);
+      char *rig = rrclient_database_setting_get(key);
+      g_free(key);
+      if ((profile && *profile && rig && *rig) || i == 0) {
+         char id[64];
+         g_snprintf(id, sizeof(id), "serial.vrig%u", i);
+         routing_serial_add(id, profile ? profile : "", rig ? rig : "",
+                            i, TRUE, vindex++);
+      }
+      g_free(profile); g_free(rig);
+   }
+   if (!routing_rx_snapshot) return;
+   for (guint i = 0; i < routing_rx_snapshot->count &&
+        tindex < ROUTING_SERIAL_MAX_TARGETS; i++) {
+      const struct rrclient_rx_stream *rx = &routing_rx_snapshot->streams[i];
+      char rig[32];
+      if (!rx->server[0] || !routing_serial_room_rig(rx->room, rig))
+         continue;
+      gboolean duplicate = FALSE;
+      for (guint j = 0; j < routing_serial_count; j++) {
+         const routing_serial_node_t *n = &routing_serial_nodes[j];
+         if (!n->virtual && !strcmp(n->profile, rx->server) &&
+             !strcmp(n->rig, rig)) { duplicate = TRUE; break; }
+      }
+      if (duplicate) continue;
+      char *id = g_strdup_printf("serial.remote.%s.%s", rx->server, rig);
+      routing_serial_add(id, rx->server, rig, 0, FALSE, tindex++);
+      g_free(id);
+   }
+}
+static gboolean routing_serial_pin_hit(double x, double y, gint *index,
+                                        guint *kind, gboolean *virtual) {
+   double radius = routing_pin_radius();
+   double closest = radius;
+   gint best = -1;
+   guint selected_kind = 0;
+   for (guint i = 0; i < routing_serial_count; i++) {
+      const routing_serial_node_t *n = &routing_serial_nodes[i];
+      double px = n->x + (n->virtual ? ROUTING_SERIAL_W : 0.);
+      for (guint k = 0; k < 2; k++) {
+         double py = n->y + 62. + k * 26.;
+         double d = hypot(x-px, y-py);
+         if (d <= closest) { closest=d; best=(gint)i; selected_kind=k; }
+      }
+   }
+   if (best < 0) return FALSE;
+   *index = best; *kind = selected_kind;
+   *virtual = routing_serial_nodes[best].virtual;
+   return TRUE;
+}
+static void routing_serial_bind(guint source, guint dest) {
+   const routing_serial_node_t *v = &routing_serial_nodes[source];
+   const routing_serial_node_t *r = &routing_serial_nodes[dest];
+   if (!v->virtual || r->virtual || !r->profile[0] || !r->rig[0]) return;
+   rr_sercom_vrig_bind_t request = {.slot=v->slot};
+   g_strlcpy(request.profile, r->profile, sizeof(request.profile));
+   g_strlcpy(request.rig, r->rig, sizeof(request.rig));
+   rr_event_message_t msg = {
+      .name=RR_SERCOM_VRIG_BIND_REQUEST,
+      .payload=&request, .length=sizeof(request)
+   };
+   event_emit_message(&msg);
+}
+static void routing_serial_result(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload ||
+       message->length != sizeof(rr_sercom_vrig_bind_result_t)) return;
+   const rr_sercom_vrig_bind_result_t *result = message->payload;
+   if (!result->success)
+      Log(LOG_WARN, "gtk.routing", "Serial binding failed: %s", result->detail);
+   routing_serial_refresh();
+   graph_canvas_update_size();
+}
+static void routing_serial_line(cairo_t *cr, double ax, double ay,
+                                 double bx, double by) {
+   /* A subtle light underlay makes black serial lines readable in dark
+    * GTK themes while retaining the requested dashed black semantics. */
+   const double dash[] = {7., 5.};
+   cairo_set_dash(cr, dash, 2, 0);
+   cairo_set_source_rgba(cr, .85, .89, .91, .72);
+   cairo_set_line_width(cr, 4.);
+   double cx = (ax + bx) / 2.;
+   cairo_move_to(cr, ax, ay);
+   cairo_curve_to(cr, cx, ay, cx, by, bx, by);
+   cairo_stroke(cr);
+   cairo_set_source_rgb(cr, .06, .07, .08);
+   cairo_set_line_width(cr, 2.1);
+   cairo_move_to(cr, ax, ay);
+   cairo_curve_to(cr, cx, ay, cx, by, bx, by);
+   cairo_stroke(cr);
+   cairo_set_dash(cr, NULL, 0, 0);
+}
+static void routing_serial_draw(cairo_t *cr) {
+   for (guint i = 0; i < routing_serial_count; i++) {
+      const routing_serial_node_t *n = &routing_serial_nodes[i];
+      if (!n->virtual || !n->profile[0] || !n->rig[0]) continue;
+      for (guint j = 0; j < routing_serial_count; j++) {
+         const routing_serial_node_t *dst = &routing_serial_nodes[j];
+         if (dst->virtual || strcmp(n->profile,dst->profile) ||
+             strcmp(n->rig,dst->rig)) continue;
+         for (guint k = 0; k < 2; k++)
+            routing_serial_line(cr, n->x + ROUTING_SERIAL_W,
+               n->y + 62. + k*26., dst->x, dst->y + 62. + k*26.);
+      }
+   }
+   if (routing_serial_drag >= 0 &&
+       (guint)routing_serial_drag < routing_serial_count) {
+      const routing_serial_node_t *n = &routing_serial_nodes[routing_serial_drag];
+      double sx = n->x + (n->virtual ? ROUTING_SERIAL_W : 0.);
+      routing_serial_line(cr, sx, n->y + 62. + routing_serial_kind*26.,
+                          routing_serial_end_x, routing_serial_end_y);
+   }
+   for (guint i = 0; i < routing_serial_count; i++) {
+      const routing_serial_node_t *n = &routing_serial_nodes[i];
+      cairo_set_source_rgb(cr, .17, .21, .26);
+      cairo_rectangle(cr,n->x,n->y,ROUTING_SERIAL_W,ROUTING_SERIAL_H);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgb(cr, .56, .64, .70);
+      cairo_set_line_width(cr, 1.5);
+      cairo_stroke(cr);
+      char label[160];
+      if (n->virtual) g_snprintf(label,sizeof(label),"vrig%u",n->slot);
+      else g_snprintf(label,sizeof(label),"%s / %s",n->profile,n->rig);
+      cairo_set_source_rgb(cr, .93,.95,.98);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr, 13);
+      cairo_move_to(cr,n->x+12,n->y+23);
+      cairo_show_text(cr,label);
+      cairo_set_font_size(cr, 10);
+      cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+      if (n->virtual) {
+         g_snprintf(label,sizeof(label),"%s / %s",
+                    n->profile[0] ? n->profile : "Unbound",
+                    n->rig[0] ? n->rig : "Drag to a rig");
+      } else g_strlcpy(label,"Remote rig controls",sizeof(label));
+      cairo_move_to(cr,n->x+12,n->y+42);
+      cairo_show_text(cr,label);
+      for (guint k=0;k<2;k++) {
+         char port[64];
+         if (n->virtual)
+            g_snprintf(port,sizeof(port),"tty%s%u",
+                       k ? "GPS" : "CAT", n->slot);
+         else g_snprintf(port,sizeof(port),"%s", k ? "GPS" : "CAT");
+         cairo_set_source_rgb(cr,.88,.91,.94);
+         cairo_move_to(cr,n->x+14,n->y+65.+k*26.);
+         cairo_show_text(cr,port);
+         double px=n->x+(n->virtual?ROUTING_SERIAL_W:0.);
+         double py=n->y+62.+k*26.;
+         cairo_set_source_rgb(cr,.88,.92,.94);
+         cairo_arc(cr,px,py,7.,0,2*G_PI);
+         cairo_fill(cr);
+         cairo_set_source_rgb(cr,.04,.05,.06);
+         cairo_arc(cr,px,py,5.3,0,2*G_PI);
+         cairo_fill(cr);
+      }
+   }
+}
 static void routing_graph_bounds(double *width, double *height) {
    double max_x = 1080, max_y = 280;
    if (graph_snapshot) {
@@ -249,6 +467,11 @@ static void routing_graph_bounds(double *width, double *height) {
     * Hidden controls must not influence canvas zoom/auto-fit. */
    if (routing_controls_visible) routing_compact_bounds(&max_x, &max_y);
    if (routing_controls_visible) routing_effect_bounds(&max_x, &max_y);
+   for (guint i = 0; i < routing_serial_count; i++) {
+      const routing_serial_node_t *n=&routing_serial_nodes[i];
+      max_x=MAX(max_x,n->x+ROUTING_SERIAL_W+GRAPH_LAYOUT_MARGIN);
+      max_y=MAX(max_y,n->y+ROUTING_SERIAL_H+GRAPH_LAYOUT_MARGIN);
+   }
    *width = max_x;
    *height = max_y;
 }
@@ -711,6 +934,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
     * The text must remain readable when a wire crosses behind it. */
    routing_compact_draw(cr);
    routing_effect_draw(cr);
+   routing_serial_draw(cr);
 
    /* The preview always ends in a filled arrowhead. As it approaches
     * a valid receiving ring the endpoint snaps to that exact pin. */
