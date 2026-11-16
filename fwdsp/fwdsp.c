@@ -1098,7 +1098,8 @@ static void run_loop(struct audio_config *cfg) {
       }
       GstCaps *processor_input_caps = processor_mode && appsrc ? gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
       bool processor_input_ok = !appsrc
-         || processor_pcm_caps_rate(processor_input_caps, processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE, processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK);
+         || processor_pcm_caps_rate(processor_input_caps, processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE,
+          processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK || processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL);
 
       if (processor_input_caps) {
          gst_caps_unref(processor_input_caps);
