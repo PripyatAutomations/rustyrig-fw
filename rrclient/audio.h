@@ -114,7 +114,7 @@ struct rrclient_rx_stream {
    char output;
    uint32_t source_rate_hz;
    bool active_rx; /* selected radio's RX alias: rig.src */
-   bool active_tx; /* selected radio's TX endpoint: rig.sink */
+   bool active_tx; /* real TX capability: selected rig exposes rig.sink */
 };
 size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity);
 /* AF visualization request/reply. Only core reads RX route inventory;
