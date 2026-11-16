@@ -460,6 +460,26 @@ bool rrclient_media_rx_has_tx(const char *rx_uuid) {
    return false;
 }
 
+/* A TX patch only represents the active, negotiated microphone encoder
+ * destination. It must not let a graph wire select another server/rig or
+ * bypass the media-room, VFO and PTT rules. */
+bool rrclient_media_rx_is_active_tx(const char *rx_uuid) {
+   const struct rr_client_media_chan *rx = media_known_find(rx_uuid);
+   const struct rr_client_media_chan *tx = media_current_channel(true);
+   if (!rx || !tx || !tx->subscribed || tx->disabled ||
+       rx->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+       rx->direction != RR_BINFRAME_DIR_RX) return false;
+   if (rx->rig_uuid[0] && tx->rig_uuid[0])
+      return !strcmp(rx->rig_uuid, tx->rig_uuid) &&
+         (rx->vfo == RR_BINFRAME_VFO_NA ||
+          tx->vfo == RR_BINFRAME_VFO_NA || rx->vfo == tx->vfo);
+   const char *rc = rx->control_room[0] ? rx->control_room : rx->room;
+   const char *tc = tx->control_room[0] ? tx->control_room : tx->room;
+   return rc[0] && tc[0] && ws_room_same_rig(rc, tc) &&
+      (rx->vfo == RR_BINFRAME_VFO_NA ||
+       tx->vfo == RR_BINFRAME_VFO_NA || rx->vfo == tx->vfo);
+}
+
 /* PARITY: rustyrig-www/js/webui.audio.js webui_mute_talkback. */
 bool rrclient_media_local_tx(const char *uuid) {
    extern const char *login_user;
