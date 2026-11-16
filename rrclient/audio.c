@@ -816,9 +816,10 @@ static gboolean audio_lv2_source_present(const char *id) {
    struct rrclient_rx_stream streams[128] = {0};
    size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
                       G_N_ELEMENTS(streams));
+   /* The server's RF/source rate is metadata, not the PCM rate delivered
+    * by the client decoder. RX callbacks feed LV2 with 16k mono S16 PCM. */
    for (size_t i = 0; i < count; i++)
-      if (!strcmp(streams[i].id, id) &&
-          (!streams[i].source_rate_hz || streams[i].source_rate_hz == 16000))
+      if (!strcmp(streams[i].id, id))
          return TRUE;
    return FALSE;
 }
@@ -1029,7 +1030,11 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
             if (i != req.slot - 1 && g_atomic_int_get(&lv2_effects[i].active) &&
                 !strcmp(lv2_effects[i].source, req.source))
                unique = FALSE;
-         if (unique) {
+         if (!unique) {
+            Log(LOG_WARN, "audio.lv2",
+                "Cannot connect %s to %s: another LV2 effect already owns this source",
+                req.source, fx->name);
+         } else {
             g_mutex_lock(&lv2_effect_lock);
             g_strlcpy(fx->source, req.source, sizeof(fx->source));
             g_mutex_unlock(&lv2_effect_lock);
@@ -1047,7 +1052,13 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
                }
             char *key = g_strdup_printf("audio.lv2.%u.source", req.slot);
             rrclient_database_setting_set(key, req.source); g_free(key);
+            Log(LOG_INFO, "audio.lv2", "Connected %s -> %s",
+                req.source, fx->name);
          }
+      } else {
+         Log(LOG_WARN, "audio.lv2",
+             "Cannot connect %s to proc.lv2.%u: effect inactive or source not available",
+             req.source, req.slot);
       }
    }
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
