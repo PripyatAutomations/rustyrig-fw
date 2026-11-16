@@ -453,6 +453,51 @@ static void client_speaker_pcm(const void *samples, size_t len) {
                             len / (2 * sizeof(int16_t)));
 }
 
+/* fwdsp's encoded TX output is shared by microphone and modem.
+ * Forward it on the *negotiated* media channel, not the input source's
+ * stream identifier. This sends the identical wire frames for both. */
+static uint32_t tx_frame_sequence;
+static char tx_frame_channel[64];
+static void audio_tx_encoded(const char codec[5],const void *data,
+                             size_t len,bool setup,void *unused) {
+   (void)unused;
+   if(!data || !len || len>RR_BINFRAME_MAX_PAYLOAD || !audio_enabled)
+      return;
+   rrconn_t *conn=rrclient_connection_context();
+   const struct rr_client_media_chan *channel=rrclient_media_current_channel(true);
+   if(!conn || !conn->authenticated || !conn->is_ws ||
+      !channel || !channel->stream_valid || !channel->subscribed ||
+      channel->disabled || channel->direction!=RR_BINFRAME_DIR_TX ||
+      channel->subsystem!=RR_BINFRAME_SUBSYS_AUDIO ||
+      strncmp(channel->codec,codec,4) || strncmp(tx_codec,codec,4))
+      return;
+   /* Setup packets must travel even before PTT so the remote decoder
+    * can initialize. Media packets require an asserted radio PTT. */
+   char vfo[2]={vfo_state_get_active(),0};
+   if(!setup && !(ptt_active || vfo_state_get_bool(vfo,"cat.state.ptt",false)))
+      return;
+   if(strcmp(tx_frame_channel,channel->uuid)) {
+      g_strlcpy(tx_frame_channel,channel->uuid,sizeof(tx_frame_channel));
+      tx_frame_sequence=0;
+   }
+   uint8_t *frame=NULL;
+   int n=rr_binframe_frame(&frame,RR_BINFRAME_SUBSYS_AUDIO,codec,
+                           RR_BINFRAME_DIR_TX,channel->vfo,channel->rig,
+                           channel->stream,++tx_frame_sequence,mono_us(),
+                           data,len);
+   if(n<=0) return;
+   bool sent=rrclient_send_tx_audio_frame(conn,frame,(size_t)n,setup);
+   free(frame);
+   if(!sent && !setup) {
+      static gint64 last_warn_us;
+      gint64 ts=g_get_monotonic_time();
+      if(ts-last_warn_us>=5000000 || ts<last_warn_us) {
+         last_warn_us=ts;
+         Log(LOG_WARN,"audio.tx","Dropping outgoing %s TX frame: transport unavailable or congested",codec);
+      }
+   }
+}
+
 /* Modems share the existing encoder but not the microphone selection.
  * TX audio is accepted only for the real selected TX radio while PTT is
  * already asserted; this function never requests or raises PTT. */
@@ -2410,6 +2455,9 @@ bool audio_init(void) {
    event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_REQUEST, audio_af_spectrum_request, NULL, "core");
    rr_local_modem_init();
 
+   /* Register before starting the first encoder so early codec headers are
+    * not discarded by the shared fwdsp manager. */
+   fwdsp_set_encoded_output_callback(audio_tx_encoded,NULL);
    if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
 
@@ -2648,6 +2696,9 @@ void ws_audio_shutdown(void) {
    for (unsigned slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++)
       audio_lv2_stop(slot, FALSE);
    rr_local_modem_shutdown();
+   fwdsp_set_encoded_output_callback(NULL,NULL);
+   tx_frame_sequence=0;
+   tx_frame_channel[0]=0;
    rrclient_local_bridge_disconnect();
    rr_af_spectrum_shutdown();
 
