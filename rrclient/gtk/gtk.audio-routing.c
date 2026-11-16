@@ -1402,8 +1402,17 @@ static void routing_modem_engine_changed(GtkComboBox *engine, gpointer unused) {
    (void)unused;
    GtkWidget *mode = g_object_get_data(G_OBJECT(engine), "rr-mode");
    GtkWidget *value = g_object_get_data(G_OBJECT(engine), "rr-value");
+   GtkWidget *tx = g_object_get_data(G_OBJECT(engine), "rr-tx-enable");
    if (!mode || !value) return;
    const char *selected = gtk_combo_box_get_active_id(engine);
+   if(tx) {
+      gboolean ready=g_strcmp0(selected,"ft8")!=0;
+      gtk_widget_set_sensitive(tx,ready);
+      if(!ready) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tx),FALSE);
+      gtk_widget_set_tooltip_text(tx,ready ?
+         "TX off by default; requires wired TX and PTT pins" :
+         "FT8 currently supports decoding only");
+   }
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(mode));
    if (!g_strcmp0(selected, "ft8")) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(mode), "auto", "Auto");
@@ -1496,6 +1505,8 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
    gtk_widget_set_tooltip_text(tx_enable,
       "Off by default. TX routing does not bypass server transmit permissions.");
    gtk_grid_attach(GTK_GRID(grid),tx_enable,1,4,1,1);
+   g_object_set_data(G_OBJECT(engine),"rr-tx-enable",tx_enable);
+   routing_modem_engine_changed(GTK_COMBO_BOX(engine),NULL);
    gtk_widget_show_all(dlg);
    if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
       const char *selected_engine = gtk_combo_box_get_active_id(GTK_COMBO_BOX(engine));
@@ -1542,10 +1553,16 @@ static void routing_modem_properties(GtkMenuItem *item, gpointer unused) {
    gtk_label_set_xalign(GTK_LABEL(name),0);
    GtkWidget *tx=gtk_check_button_new_with_label("Enable TX routing");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tx),routing_modem_tx_enabled[slot]);
+   gboolean supported=strcmp(routing_modem_engine[slot],"ft8")!=0;
+   gtk_widget_set_sensitive(tx,supported);
+   gtk_widget_set_tooltip_text(tx,supported ?
+      "Requires wired TX audio/PTT and transmit privileges" :
+      "FT8 worker is RX-only");
    gtk_widget_set_size_request(tx,220,44);
    GtkWidget *info=gtk_label_new(
-      "Disabling TX removes TX/PTT routes. Enabling TX does not "
-      "grant privileges or key the radio.");
+      "Disabling TX removes TX/PTT routes. A PSK/Olivia text send "
+      "requests PTT via its red pin, waits for confirmation, "
+      "then transmits encoded audio and releases PTT.");
    gtk_label_set_line_wrap(GTK_LABEL(info),TRUE);
    gtk_label_set_xalign(GTK_LABEL(info),0);
    gtk_box_pack_start(GTK_BOX(box),name,FALSE,FALSE,0);
@@ -1565,24 +1582,26 @@ static void routing_modem_send_text(GtkMenuItem *item,gpointer unused) {
    (void)unused;
    unsigned slot=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"modem-slot"));
    if (slot<1 || slot>RR_LOCAL_MODEM_MAX ||
-       strcmp(routing_modem_engine[slot],"psk") || !routing_modem_tx_enabled[slot])
+       (strcmp(routing_modem_engine[slot],"psk") &&
+        strcmp(routing_modem_engine[slot],"olivia")) ||
+       !routing_modem_tx_enabled[slot])
       return;
    GtkWidget *top=graph_canvas ? gtk_widget_get_toplevel(graph_canvas) : NULL;
-   GtkWidget *dialog=gtk_dialog_new_with_buttons("PSK Transmit Text",
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Modem Transmit Text",
       GTK_IS_WINDOW(top)?GTK_WINDOW(top):NULL,
       GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
       "_Cancel",GTK_RESPONSE_CANCEL,"_Send",GTK_RESPONSE_ACCEPT,NULL);
    GtkWidget *content=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    GtkWidget *label=gtk_label_new(
-      "Requires both TX audio and PTT pins connected to the same active rig, "
-      "and the radio already keyed by its normal PTT control. "
-      "This sends PSK waveform audio; it does not request PTT.");
+      "Wire TX audio and PTT to the same active rig. Sending requests "
+      "PTT from this modem, waits for confirmation, emits encoded audio, "
+      "then releases PTT.");
    gtk_label_set_line_wrap(GTK_LABEL(label),TRUE);
    gtk_widget_set_size_request(label,320,-1);
    gtk_box_pack_start(GTK_BOX(content),label,FALSE,FALSE,8);
    GtkWidget *entry=gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(entry),240);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(entry),"Text to transmit as PSK");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(entry),"Text to modulate and transmit");
    gtk_box_pack_start(GTK_BOX(content),entry,FALSE,FALSE,8);
    gtk_widget_show_all(dialog);
    if(gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_ACCEPT) {
@@ -1765,8 +1784,9 @@ static gboolean routing_modem_context_menu(GdkEventButton *event, double x, doub
       if (sscanf(n->id, "modem%u.", &slot) != 1) continue;
       GtkWidget *menu = gtk_menu_new();
       if (routing_modem_tx_enabled[slot] &&
-          !strcmp(routing_modem_engine[slot],"psk")) {
-         GtkWidget *send=gtk_menu_item_new_with_label("Send PSK Text…");
+          (!strcmp(routing_modem_engine[slot],"psk") ||
+           !strcmp(routing_modem_engine[slot],"olivia"))) {
+         GtkWidget *send=gtk_menu_item_new_with_label("Send Modem Text…");
          gtk_widget_set_size_request(send,-1,44);
          g_object_set_data(G_OBJECT(send),"modem-slot",GUINT_TO_POINTER(slot));
          g_signal_connect(send,"activate",G_CALLBACK(routing_modem_send_text),NULL);
