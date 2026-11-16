@@ -17,6 +17,8 @@ void rrclient_media_sync_audio(void);
 void rrclient_media_refresh(rrconn_t *connection);
 /* Current connection: local confirmed TX feeding this RX resource. */
 bool rrclient_media_local_tx(const char *uuid);
+/* True only when this RX media resource advertises a matching TX audio channel. */
+bool rrclient_media_rx_has_tx(const char *rx_uuid);
 extern void rrclient_media_room_selected(const char *room);
 /* Emit cached transmitter-site NMEA for the newly focused rig. */
 void rrclient_media_emit_gps_for_room(const char *room);
