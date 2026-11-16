@@ -114,6 +114,10 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes,
          cairo_move_to(cr, n->x + 10, n->y + 66);
          cairo_show_text(cr, n->detail);
       }
+      if (n->cos_input) {
+         cairo_set_source_rgb(cr,1.,.87,.13);
+         pin(cr,n->x+RR_GTK_GRAPH_NODE_W-12.,n->y,FALSE,TRUE);
+      }
       if (n->cos_pin) {
          cairo_set_source_rgb(cr, 1., .87, .13);
          pin(cr, n->x + RR_GTK_GRAPH_NODE_W - 12., n->y + RR_GTK_GRAPH_NODE_H,
@@ -226,6 +230,11 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_show_text(cr, n->detail);
       }
 
+      if (n->cos_input) {
+         const double px=n->x, py=n->y+14.;
+         cairo_set_source_rgb(cr,1.,.87,.13);
+         pin(cr,px,py,FALSE,TRUE);
+      }
       if (n->cos_pin) {
          /* Carrier/synchronization detector output; never guessed from
           * the selected AM/FM mode or inferred from the radio's TX flag. */
