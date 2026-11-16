@@ -31,8 +31,6 @@
 
 extern bool dying;
 extern time_t now;
-extern rrconn_t *ws_conn;
-
 
 bool cmd_admin(int argc, char **args) {
    if (argc > 1 || !frontend_present()) {
@@ -121,7 +119,7 @@ bool cmd_win(int argc, char **args) {
          rrclient_room_part(room);
       }
 
-      if ((room[0] == '#' || room[0] == '&') && ws_connected == 1 && ws_conn) {
+      if ((room[0] == '#' || room[0] == '&') && ws_connected == 1 && rrclient_connection_context()) {
          char part_command[] = "part";
          char *part_args[] = {
             part_command, room
