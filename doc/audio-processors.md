@@ -146,6 +146,38 @@ the client to start them. The default **Configured pipelines** mode continues
 using the existing `pipeline:src.client.dsp0` and
 `pipeline:sink.client.mix` launch strings.
 
+### Standalone LV2 blocks in Routing
+
+Routing → **Add Effect…** enumerates installed GStreamer LV2 factories and
+creates a **real PCM processor block** (up to eight local instances). Leave
+the source **Unconnected**, then drag a decoded 16 kHz mono RX source's PCM
+output socket to the new effect's **left audio input**, or select the source
+during creation. The effect's **right audio output** returns its processed
+PCM to the existing RX mixer, following the source's L/R/mute setting.
+The dry signal is replaced when the effect is accepting PCM, not mixed with
+the processed signal. An overloaded or failed effect bypasses to dry audio,
+rather than stalling playback.
+
+Each standalone block is its own `proc.lv2.N` **fwdsp subprocess**, with
+one bounded PCM input queue and a dedicated background writer; neither GTK
+nor the audio callback runs plugin DSP. The pipeline between its fixed S16LE
+16 kHz mono appsrc/appsink endpoints is assembled programmatically; no
+existing `pipeline:...` config entry is changed. The blue parameter
+sockets at the top/bottom of the **same Routing block** bind normal
+compact controls using the existing asynchronous effect-property command.
+Drag another compatible RX source to rebind the input without restarting
+the worker or losing its parameter settings. Right-click the effect block
+and choose **Remove LV2 Effect…** to stop its subprocess and clear the saved
+definition.
+
+Effect factory, source, stable worker slot and parameters are stored in
+`client.db`; source identities are reconciled by server/resource UUID
+across reconnects. The current insert-point contract is **16 kHz mono RX
+only**, with one effect per input stream, and output into the RX mixer.
+Arbitrary chains, high-rate/stereo blocks, server/mesh execution, general
+output rewiring and graph-wide placement are future work. Existing
+**configured** GStreamer pipelines remain fully supported and unchanged.
+
 Routing → **Add Control…** creates a compact dockable panel that may
 start unbound. It can be wired by dragging its blue socket onto an existing
 gain pin. The **Add Effect…** chooser lists GStreamer-discovered LV2 plugins;
@@ -183,14 +215,14 @@ floating-panel geometry, docking, roll-up and minimization remain managed by
 the existing panel manager. On capture/playback endpoint restart the client
 replays saved values to the new worker.
 
-**Limitations:** This first live LV2 path targets the two local client
-pipelines `pipeline:sink.client.mix` and `pipeline:src.client.dsp0`. Installed
+**Limitations:** LV2 support now includes standalone Routing blocks as well
+as effects embedded in existing local capture/playback pipelines. Installed
 GStreamer LV2 bundles must be available to the client for metadata discovery
-and to `fwdsp` for execution. Effect elements must retain their GStreamer
-`name=` identity. Editing a pipeline still requires saving its configuration
-and restarting the associated worker/client. Server/mesh DSP targets, LV2
-readback, enum-style controls and additional pipeline endpoints require later
-work.
+and to `fwdsp` for execution. Effect elements keep stable `name=` identities,
+including `effect` within standalone subprocesses. Changes to old static
+pipeline definitions still require saving and restarting their worker/client.
+Server/mesh DSP targets, live LV2 readback, enum-style controls, arbitrary
+effect chaining and higher-rate standalone effects require later work.
 
 Rebuild **both** `fwdsp` and `libfwdspmgr` so each understands the new
 parameter command. The original fixed-size control packet remains ABI
