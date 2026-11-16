@@ -92,7 +92,7 @@ static void rrclient_irc_connection(const char *event, const char *data, rrconn_
       rrclient_irc_whois_forget(cptr);
    }
 
-   if (!cptr || cptr != ws_conn) {
+   if (!cptr || cptr != rrclient_connection_context()) {
       return;
    }
 
@@ -673,7 +673,7 @@ static void rrclient_irc_ctcp(const char *event, const char *data, rrconn_t *cpt
    (void)event;
    (void)user;
 
-   if (!data || !cptr || cptr->is_ws || cptr != ws_conn) {
+   if (!data || !cptr || cptr->is_ws || cptr != rrclient_connection_context()) {
       return;
    }
    dict *message = json2dict(data);
@@ -849,7 +849,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
    } else if (!strcasecmp(cmd, "QUIT") && *from) {
       userlist_mark_oper(from, false);
 
-      if (cptr != ws_conn) {
+      if (cptr != rrclient_connection_context()) {
          goto done;
       }
 
@@ -1050,7 +1050,7 @@ static void rrclient_irc_redirect(const char *event, const char *data, rrconn_t 
    (void)event;
    (void)user;
 
-   if (!data || !cptr || cptr != ws_conn || cptr->is_ws) {
+   if (!data || !cptr || cptr != rrclient_connection_context() || cptr->is_ws) {
       return;
    }
    dict *message = json2dict(data);
@@ -1089,7 +1089,7 @@ static void rrclient_irc_sasl(const char *event, const char *data, rrconn_t *cli
    (void)event;
    (void)user;
 
-   if (client == ws_conn && data && *data) {
+   if (client == rrclient_connection_context() && data && *data) {
       ui_print(NULL, "%s%s", get_chat_ts(now), data);
    }
 }
