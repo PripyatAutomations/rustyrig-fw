@@ -20,6 +20,15 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/spectrum.af.h>
 
+/* Control pins carry source-qualified logical signals, not rig status.
+ * The initial emitter is the local client's PTT command output. */
+#define RRCLIENT_ROUTING_PTT_SIGNAL "client.routing.ptt.signal"
+#define RRCLIENT_ROUTING_PTT_LOCAL "ptt.local.active-vfo"
+typedef struct {
+   char source[64];
+   bool raised;
+} rrclient_routing_ptt_signal_t;
+
 extern bool audio_enabled;
 /* Playback requests must cross the GTK -> core event boundary. */
 #define RR_AUDIO_RECORDING_CONTROL_REQUEST "client.audio.recording.control"
