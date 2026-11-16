@@ -4033,6 +4033,47 @@ static gboolean routing_disconnect_link(guint index,gint channel) {
    routing_queue();
    return TRUE;
 }
+/* Menus hold stable node IDs, not snapshot indices: a core graph refresh
+ * between opening the menu and selecting Disconnect must not hit a new link. */
+static void routing_wire_remove(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   const char *from=g_object_get_data(G_OBJECT(item),"rr-wire-from");
+   const char *to=g_object_get_data(G_OBJECT(item),"rr-wire-to");
+   gint ch=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item),"rr-wire-channel"));
+   gint kind=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item),"rr-wire-kind"));
+   if(!graph_snapshot || !from || !to) return;
+   for(guint i=0;i<graph_snapshot->link_count;i++){
+      const rr_ag_view_link_t *link=&graph_snapshot->links[i];
+      if(link->src>=graph_snapshot->node_count ||
+         link->dst>=graph_snapshot->node_count || link->kind!=kind ||
+         (link->kind!=RR_AG_CONTROL &&
+          !(link->channels&(ch?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT))) ||
+         strcmp(from,graph_snapshot->nodes[link->src].id) ||
+         strcmp(to,graph_snapshot->nodes[link->dst].id)) continue;
+      routing_disconnect_link(i,ch);
+      return;
+   }
+}
+static gboolean routing_wire_context_menu(GdkEventButton *event,double x,double y) {
+   guint index=0;
+   gint channel=0;
+   if(!graph_link_at(x,y,&index,&channel)) return FALSE;
+   const rr_ag_view_link_t *link=&graph_snapshot->links[index];
+   GtkWidget *menu=gtk_menu_new(),*disconnect=gtk_menu_item_new_with_label("Disconnect wire");
+   gtk_widget_set_size_request(disconnect,-1,48);
+   g_object_set_data_full(G_OBJECT(disconnect),"rr-wire-from",
+      g_strdup(graph_snapshot->nodes[link->src].id),g_free);
+   g_object_set_data_full(G_OBJECT(disconnect),"rr-wire-to",
+      g_strdup(graph_snapshot->nodes[link->dst].id),g_free);
+   g_object_set_data(G_OBJECT(disconnect),"rr-wire-channel",GINT_TO_POINTER(channel));
+   g_object_set_data(G_OBJECT(disconnect),"rr-wire-kind",GINT_TO_POINTER(link->kind));
+   g_signal_connect(disconnect,"activate",G_CALLBACK(routing_wire_remove),NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),disconnect);
+   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   return TRUE;
+}
 static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
                                        gdouble x, gdouble y, gpointer unused) {
    (void)gesture; (void)unused;
@@ -4043,7 +4084,8 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
                        routing_serial_context_menu((GdkEventButton *)event, gx, gy) ||
                       routing_lv2_context_menu((GdkEventButton *)event, gx, gy) ||
                       routing_modem_context_menu((GdkEventButton *)event, gx, gy) ||
-                       routing_common_block_menu((GdkEventButton *)event,gx,gy);
+                       routing_common_block_menu((GdkEventButton *)event,gx,gy) ||
+                       routing_wire_context_menu((GdkEventButton *)event,gx,gy);
    if (event) gdk_event_free(event);
    if (!handled) return;
    /* Cancel the emulated mouse gesture so lifting the finger cannot
@@ -4071,7 +4113,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
                routing_serial_context_menu(event, gx, gy) ||
               routing_lv2_context_menu(event, gx, gy) ||
               routing_modem_context_menu(event, gx, gy) ||
-               routing_common_block_menu(event,gx,gy));
+               routing_common_block_menu(event,gx,gy) ||
+                routing_wire_context_menu(event,gx,gy));
    }
    if (event->type == GDK_BUTTON_PRESS &&
        (event->button == GDK_BUTTON_MIDDLE ||
