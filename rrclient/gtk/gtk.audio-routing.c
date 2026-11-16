@@ -1737,8 +1737,11 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    }
    g_strlcpy(control->kind, kind ? kind : "horizontal", sizeof(control->kind));
    routing_compact_apply_hints(control);
-   control->x = GRAPH_LAYOUT_MARGIN + 15.;
-   control->y = GRAPH_LAYOUT_MARGIN + 160.;
+   /* Distribute newly created graph controls rather than stacking all
+    * unbound/LV2 controls at the same point. Saved positions win below. */
+   guint ordinal = routing_compact_controls->len;
+   control->x = GRAPH_LAYOUT_MARGIN + 15. + (ordinal % 4) * 135.;
+   control->y = GRAPH_LAYOUT_MARGIN + 160. + (ordinal / 4) * 82.;
    if (node_id && *node_id && graph_snapshot) for (guint i = 0; i < graph_snapshot->node_count; i++)
       if (!strcmp(graph_snapshot->nodes[i].id, node_id)) {
          control->x = MAX(0., routing_node_x(&graph_snapshot->nodes[i]) - 135.);
@@ -1754,6 +1757,15 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
       GTK_NOTEBOOK(main_notebook), panel_id, control->label);
    g_free(panel_id);
    if (!control->panel) { g_free(control); return; }
+   if (!saved_uuid) {
+      /* Overlay pixel coordinates are separate from graph-world x/y.
+       * The panel manager retains the final dragged geometry in its DB. */
+      gint overlay_width = gtk_widget_get_allocated_width(routing_overlay);
+      gint columns = MAX(1, MIN(4, (overlay_width - 24) / 155));
+      rr_floating_panel_set_initial_position(control->panel,
+         18 + (gint)(ordinal % (guint)columns) * 155,
+         85 + (gint)(ordinal / (guint)columns) * 125);
+   }
    rr_floating_panel_set_resizable(control->panel, FALSE);
    rr_floating_panel_set_minimizable(control->panel, FALSE);
    GtkWidget *body = rr_floating_panel_body(control->panel);
