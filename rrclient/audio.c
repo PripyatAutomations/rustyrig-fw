@@ -1804,8 +1804,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    size_t modem_count = rr_local_modem_routes(modems, G_N_ELEMENTS(modems));
    for (size_t i = 0; i < modem_count; i++) {
       char rx_id[64], tx_id[64];
-      g_snprintf(rx_id, sizeof(rx_id), "modem.%u.rx", modems[i].slot);
-      g_snprintf(tx_id, sizeof(tx_id), "modem.%u.tx", modems[i].slot);
+      g_snprintf(rx_id, sizeof(rx_id), "modem%u.rx", modems[i].slot);
+      g_snprintf(tx_id, sizeof(tx_id), "modem%u.tx", modems[i].slot);
       if (rr_audio_graph_add_node(graph, rx_id, RR_AG_SINK)) {
          rr_audio_graph_set_health(graph, rx_id, RR_AG_HEALTHY);
          if (modems[i].source[0])
@@ -1837,7 +1837,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                         RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
       for (size_t j = 0; j < modem_count; j++) {
          char from[64];
-         g_snprintf(from, sizeof(from), "modem.%u.tx", modems[j].slot);
+         g_snprintf(from, sizeof(from), "modem%u.tx", modems[j].slot);
          if (modems[j].tx_enabled && !strcmp(modems[j].tx_target, streams[i].id))
             rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_NORMAL,
                                             RR_AG_CHANNEL_LEFT);
@@ -1886,10 +1886,10 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             }
             continue;
          }
-         if (g_str_has_prefix(node->id, "modem.")) {
+         if (g_str_has_prefix(node->id, "modem")) {
             unsigned slot = 0;
             char direction[8] = {0};
-            if (sscanf(node->id, "modem.%u.%7s", &slot, direction) == 2) {
+            if (sscanf(node->id, "modem%u.%7s", &slot, direction) == 2) {
                for (size_t m = 0; m < modem_count; m++) {
                   if (modems[m].slot != slot) continue;
                   gboolean tx = !strcmp(direction, "tx");
