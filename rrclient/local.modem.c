@@ -46,7 +46,7 @@ bool rr_local_modem_tx_in_progress(void) {
 static void modem_refresh_tx_active(void) {
    gboolean any=FALSE;
    for(unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++)
-      if(decoders[i].tx_running){any=TRUE;break;}
+      if(decoders[i].ptt_owned || decoders[i].tx_running){any=TRUE;break;}
    g_atomic_int_set(&modem_tx_active,any);
 }
 
@@ -358,7 +358,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->text_len = 0;
    d->text[0] = 0;
    d->tx_target[0] = d->ptt_target[0] = 0;
-   d->tx_enabled = req->tx_enabled;
+   d->tx_enabled = req->tx_enabled && strcmp(engine,"ft8")!=0;
    d->ptt_owned=d->tx_running=d->tx_was_allowed=false;
    modem_refresh_tx_active();
    d->pending_text[0]=0;
@@ -430,6 +430,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
             if(rrclient_modem_ptt_send(pin,d->ptt_target,true)) {
                g_strlcpy(d->pending_text,req->text,sizeof(d->pending_text));
                d->ptt_owned=true;
+               modem_refresh_tx_active();
                d->ptt_deadline_us=g_get_monotonic_time()+5000000;
                d->release_at_us=0;
                g_snprintf(last_status,sizeof(last_status),
@@ -449,7 +450,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          }
          g_mutex_lock(&decoder_lock);
          if (d->active) {
-            d->tx_enabled=req->tx_enabled;
+            d->tx_enabled=req->tx_enabled && strcmp(d->engine,"ft8")!=0;
             d->tx_was_allowed=false;
             if (!d->tx_enabled)
                d->tx_target[0] = d->ptt_target[0] = 0;
