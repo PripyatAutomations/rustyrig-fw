@@ -3,6 +3,7 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include "gtk.graph.h"
 #include <math.h>
+#include <string.h>
 
 /* A filled circle sends audio; a hollow, heavy ring receives it.
  * Keep this shared between the horizontal Routing and vertical editor. */
@@ -272,6 +273,16 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          if (n->io != RR_GTK_GRAPH_IO_SINK)
             pin(cr, n->x + RR_GTK_GRAPH_NODE_W,
                 pin_y(n, RR_GTK_GRAPH_PIN_DEFAULT, FALSE), FALSE, FALSE);
+         if (n->title && strncmp(n->title, "proc.lv2.", 9) == 0) {
+            cairo_set_source_rgb(cr, .95, .95, .98);
+            cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                                   CAIRO_FONT_WEIGHT_BOLD);
+            cairo_set_font_size(cr, 9);
+            cairo_move_to(cr, n->x + 14, n->y + 71);
+            cairo_show_text(cr, "MONO IN");
+            cairo_move_to(cr, n->x + RR_GTK_GRAPH_NODE_W - 70, n->y + 71);
+            cairo_show_text(cr, "MONO OUT");
+         }
       }
 
       if (n->ptt_input) {
