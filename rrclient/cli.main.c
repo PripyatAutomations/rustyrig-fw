@@ -735,16 +735,6 @@ static bool ws_send_frame(rrconn_t *sender, rrconn_t *cptr, struct mg_str *msg_d
    return true;
 }
 
-/* Audio TX uses the same framed WS/RTP media routing as the established
- * client sender. In particular, ws_send_frame consults the direct-media
- * hook and applies bounded real-time backpressure. */
-bool rrclient_send_tx_audio_frame(rrconn_t *connection,
-                                  const void *frame,size_t length,bool setup) {
-   if(!connection || !connection->is_ws || !connection->authenticated ||
-      !frame || length<RR_BINFRAME_HDR_LEN) return false;
-   struct mg_str msg={.buf=(char *)frame,.len=length};
-   return ws_send_frame(NULL,connection,&msg,WEBSOCKET_OP_BINARY,setup);
-}
 bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *cptr, struct mg_str *data, int opcode) {
    return ws_send_frame(sender, cptr, data, opcode, false);
 }
@@ -771,6 +761,38 @@ void ws_send_to_name(rrconn_t *sender, const char *username, struct mg_str *msg_
    }
 }
 #endif // USE_MONGOOSE
+
+/* Send a complete negotiated audio TX frame via the same direct-media hook
+ * used by normal WS binary frames. Native TLS does not depend on Mongoose. */
+bool rrclient_send_tx_audio_frame(rrconn_t *connection,
+                                  const void *frame,size_t length,bool setup) {
+   if(!connection || !connection->is_ws || !connection->authenticated ||
+      !frame || length<RR_BINFRAME_HDR_LEN) return false;
+#ifdef USE_MONGOOSE
+   struct mg_str msg={.buf=(char *)frame,.len=length};
+   return ws_send_frame(NULL,connection,&msg,WEBSOCKET_OP_BINARY,setup);
+#else
+   rr_media_binary_t io={
+      .frame=frame,.length=length,.setup=setup
+   };
+   event_emit_binary(RR_MEDIA_BINARY_EVENT,connection,&io,sizeof(io));
+   if(io.handled) {
+      if(io.result) rr_traffic_count(connection,true,true,length);
+      return io.result;
+   }
+   if(!connection->native_transport) return false;
+   /* Keep audio latency bounded. Codec setup can use the larger control
+    * budget; live packets must not queue behind stale media. */
+   size_t limit=setup ? 262144u : 8192u;
+   size_t queued=rr_transport_queued_bytes(connection->native_transport);
+   if(length>limit || queued>limit-length) return false;
+   int status=rr_transport_send_binary_message(
+      connection->native_transport,frame,length);
+   if(status!=RR_TRANSPORT_OK) return false;
+   rr_traffic_count(connection,true,true,length);
+   return true;
+#endif
+}
 
 /* Server-side session kick and inbound media processing belong to rrserver. The client only processes incoming server messages through
  * ws_binframe_process_client(). */
