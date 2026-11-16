@@ -400,8 +400,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
          dest_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
       }
       double nx = routing_node_x(n) +
-          (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W :
-           rig_target && graph_drag_channel ? -18. : 0.);
+          (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (rig_target ?
          (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
