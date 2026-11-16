@@ -9,7 +9,7 @@
 #include <rrclient/database.h>
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *header, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top,
+   GtkWidget *frame, *scrim, *body, *header, *compact_drag_handle, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top,
       *menu_minimize, *resize_grip;
    GtkCssProvider *scale_css;
    GtkWidget *min_width_widget;
@@ -904,6 +904,10 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    panel_drag_position(p, event->x_root, event->y_root);
    panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
    panel_state_save(p);
+   if (p->compact_drag_handle) {
+      GdkWindow *window = gtk_widget_get_window(p->compact_drag_handle);
+      if (window) gdk_window_set_cursor(window, NULL);
+   }
 
    return TRUE;
 }
@@ -1413,6 +1417,7 @@ void rr_floating_panel_set_compact(RRFloatPanel *p, GtkWidget *drag_handle) {
    p->last_saved_valid = FALSE;
    gtk_widget_set_size_request(p->frame, -1, -1);
    if (drag_handle) {
+      p->compact_drag_handle = drag_handle;
       gtk_widget_add_events(drag_handle, GDK_BUTTON_PRESS_MASK |
          GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK);
       g_signal_connect(drag_handle, "button-press-event",
