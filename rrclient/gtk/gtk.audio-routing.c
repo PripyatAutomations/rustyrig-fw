@@ -3457,6 +3457,13 @@ static void routing_compact_set_effect(routing_compact_control_t *control,
 /* Compact controls can target existing mixer gains or locally configured
  * LV2 numeric/boolean properties; server-side effect discovery and mesh
  * parameter transport are separate work. */
+static void routing_control_kind_changed(GtkComboBox *selector, gpointer data) {
+   GtkWidget **fields = data;
+   const char *kind=gtk_combo_box_get_active_id(selector);
+   gboolean indicator=kind && !strcmp(kind,"onair");
+   for (unsigned i=0;i<3;i++)
+      gtk_widget_set_sensitive(fields[i],!indicator);
+}
 static void routing_compact_create(GtkButton *button, gpointer unused) {
    (void)unused;
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
@@ -3503,6 +3510,10 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    if (gtk_combo_box_get_active(GTK_COMBO_BOX(target)) < 0)
       gtk_combo_box_set_active(GTK_COMBO_BOX(target), 0);
    GtkWidget *widgets[] = {name, target, ear, widget_kind};
+   GtkWidget *dependent[] = {name, target, ear};
+   g_signal_connect_data(widget_kind,"changed",
+      G_CALLBACK(routing_control_kind_changed),
+      g_memdup2(dependent,sizeof(dependent)),(GClosureNotify)g_free,0);
    const char *names[] = {"Label", "Parameter", "Channel", "Widget"};
    for (int i = 0; i < 4; i++) {
       GtkWidget *label = gtk_label_new(names[i]);
