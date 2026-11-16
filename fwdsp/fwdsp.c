@@ -1223,8 +1223,10 @@ static void run_loop(struct audio_config *cfg) {
                if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
                   bool output_ok = true;
 
-                  if (processor_mode && (!processor_pcm_caps(gst_sample_get_caps(sample), processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE) || (map.size & 1U) != 0)) {
-                     Log(LOG_CRIT, "fwdsp", "Audio pipeline %s produced unsupported S16LE mono output", processor_name);
+                  if (processor_mode && (!processor_pcm_caps_rate(gst_sample_get_caps(sample),
+                     processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE,
+                     processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL) || (map.size & 1U) != 0)) {
+                     Log(LOG_CRIT, "fwdsp", "Audio pipeline %s produced unsupported S16LE output", processor_name);
                      output_ok = false;
                      dying = true;
                   }
