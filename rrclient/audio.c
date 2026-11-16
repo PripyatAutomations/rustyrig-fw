@@ -23,9 +23,6 @@
 #include <rrclient/database.h>
 #include <rrclient/rrclient.h>
 #include <glib.h>
-#ifdef RR_HAVE_GSTREAMER
-#include <gst/gst.h>
-#endif
 #include <stdint.h>
 #include <math.h>
 #include <stdbool.h>
@@ -831,38 +828,6 @@ static gboolean audio_lv2_source_present(const char *id) {
          return TRUE;
    return FALSE;
 }
-/* Determine the native LV2 audio port shape from factory pad templates.
- * A plugin supporting mono and stereo is mono by default. */
-static guint audio_lv2_factory_channels(const char *name) {
-#ifdef RR_HAVE_GSTREAMER
-   if (!gst_is_initialized()) gst_init(NULL, NULL);
-   GstElementFactory *factory = gst_element_factory_find(name);
-   if (!factory) return 1;
-   GstCaps *mono = gst_caps_from_string("audio/x-raw,channels=(int)1");
-   GstCaps *stereo = gst_caps_from_string("audio/x-raw,channels=(int)2");
-   gboolean in_one = FALSE, out_one = FALSE, in_two = FALSE, out_two = FALSE;
-   for (const GList *it = gst_element_factory_get_static_pad_templates(factory);
-        it; it = it->next) {
-      const GstStaticPadTemplate *pt = it->data;
-      GstCaps *caps = gst_static_pad_template_get_caps((GstStaticPadTemplate *)pt);
-      if (!caps) continue;
-      if (pt->direction == GST_PAD_SINK) {
-         in_one |= gst_caps_can_intersect(caps, mono);
-         in_two |= gst_caps_can_intersect(caps, stereo);
-      } else if (pt->direction == GST_PAD_SRC) {
-         out_one |= gst_caps_can_intersect(caps, mono);
-         out_two |= gst_caps_can_intersect(caps, stereo);
-      }
-      gst_caps_unref(caps);
-   }
-   gst_caps_unref(mono); gst_caps_unref(stereo);
-   gst_object_unref(factory);
-   return in_two && out_two && (!in_one || !out_one) ? 2 : 1;
-#else
-   (void)name;
-   return 1;
-#endif
-}
 static gboolean audio_lv2_factory_safe(const char *factory) {
    if (!factory || !*factory || strlen(factory) > 90) return FALSE;
    for (const unsigned char *c = (const unsigned char *)factory; *c; ++c)
@@ -1021,6 +986,8 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
       rrclient_database_setting_set(key, ""); g_free(key);
       key = g_strdup_printf("audio.lv2.%u.output-right", slot);
       rrclient_database_setting_set(key, ""); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.channels", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
    }
 }
 static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
@@ -1045,7 +1012,14 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    rr_lv2_effect_t *fx = &lv2_effects[slot-1];
    fx->input_fd = -1;
    g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
-   fx->channels = audio_lv2_factory_channels(req->factory);
+   char *channels_key = g_strdup_printf("audio.lv2.%u.channels", slot);
+   char *saved_channels = rrclient_database_setting_get(channels_key);
+   fx->channels = req->channels == 2 ? 2 :
+                  req->channels == 1 ? 1 :
+                  saved_channels && !strcmp(saved_channels, "2") ? 2 : 1;
+   g_free(saved_channels);
+   rrclient_database_setting_set(channels_key, fx->channels == 2 ? "2" : "1");
+   g_free(channels_key);
    g_strlcpy(fx->source[0], req->source, sizeof(fx->source[0]));
    g_strlcpy(fx->factory, req->factory, sizeof(fx->factory));
    if (fx->channels == 2) {
@@ -1062,9 +1036,12 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
       fx->output[ch] = saved && strchr("LRS", saved[0]) && !saved[1] ?
          saved[0] : 'M';
       g_free(saved); g_free(key);
-      g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]),
-                 fx->channels == 2 ? "proc.lv2.%u.%c" : "proc.lv2.%u",
-                 slot, ch ? 'R' : 'L');
+      if (fx->channels == 2)
+         g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]),
+                    "proc.lv2.%u.%c", slot, ch ? 'R' : 'L');
+      else
+         g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]),
+                    "proc.lv2.%u", slot);
    }
    /* Actual process IPC uses mono or interleaved stereo S16 frames. */
    char *pipeline = g_strdup_printf(
@@ -1253,6 +1230,10 @@ static void audio_lv2_restore(void) {
             g_free(server); g_free(uuid);
          }
          rr_audio_effect_request_t req = {.action = 'A', .slot = slot};
+         key = g_strdup_printf("audio.lv2.%u.channels", slot);
+         char *channels = rrclient_database_setting_get(key); g_free(key);
+         req.channels = channels && !strcmp(channels, "2") ? 2 : 1;
+         g_free(channels);
          g_strlcpy(req.factory, factory, sizeof(req.factory));
          g_strlcpy(req.source, source ? source : "", sizeof(req.source));
          /* Sources may not have connected yet. The UI retains the slot and
