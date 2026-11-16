@@ -79,7 +79,18 @@ void rrclient_send_ptt_command(rrconn_t *connection, const char *vfo, bool on, c
 
       return;
    }
-   ws_send_ptt_cmd_in_room(connection, vfo, on, room);
+   /* A routing control signal is the outgoing command on this exact pin,
+    * not the radio's reported TX state. Never publish when send fails. */
+   if (ws_send_ptt_cmd_in_room(connection, vfo, on, room)) {
+      rrclient_routing_ptt_signal_t signal = {
+         .source = RRCLIENT_ROUTING_PTT_LOCAL, .raised = on
+      };
+      rr_event_message_t message = {
+         .name = RRCLIENT_ROUTING_PTT_SIGNAL,
+         .sender = "core", .payload = &signal, .length = sizeof(signal)
+      };
+      event_emit_message(&message);
+   }
 }
 
 /* GTK issues requests only; the core domain owns connection and TX state. */
