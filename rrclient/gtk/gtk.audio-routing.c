@@ -352,6 +352,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    gboolean from_modem = graph_drag_mixer && routing_modem_slot(origin_node, &modem_slot);
    gboolean from_lv2 = !graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "proc.lv2.");
+   gboolean from_lv2_input = graph_drag_mixer &&
+       g_str_has_prefix(origin_node->id, "proc.lv2.");
    gboolean from_modem_tx = !graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "modem.") &&
        g_str_has_suffix(origin_node->id, ".tx");
@@ -378,12 +380,13 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
           g_str_has_prefix(n->id, "proc.lv2.");
       gboolean lv2_output = from_lv2 && n->type == RR_AG_MIXER &&
           !strcmp(n->id, "rx.mix");
-      gboolean lv2_connection = to_lv2 || lv2_output;
+      gboolean lv2_reverse_input = from_lv2_input && routing_modem_source(n);
+      gboolean lv2_connection = to_lv2 || lv2_output || lv2_reverse_input;
       gboolean rig_target = from_modem_tx && n->type == RR_AG_SINK &&
           g_str_has_prefix(n->id, "rig.") &&
           g_str_has_suffix(n->id, ".tx");
       gboolean valid = rig_target || modem_connection || lv2_connection ||
-         (!from_lv2 && (graph_drag_mixer ?
+         (!from_lv2 && !from_lv2_input && (graph_drag_mixer ?
           (n->type == RR_AG_SOURCE && !n->read_only &&
            !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
                    required_bus)) :
@@ -394,7 +397,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
            rig_target && graph_drag_channel ? -18. : 0.);
       double ny = routing_node_y(n) + (rig_target ?
          (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
-         lv2_connection ? (lv2_output ? (graph_drag_channel ? 79. : 60.) : 68.) :
+         lv2_connection ? (lv2_output ? (graph_drag_channel ? 79. : 60.) :
+            lv2_reverse_input ? 68. : 68.) :
          modem_connection ? (from_modem ? 60. : 68.) :
          (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
