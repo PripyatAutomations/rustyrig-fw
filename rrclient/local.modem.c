@@ -157,6 +157,23 @@ static gboolean poll_decoders(gpointer unused) {
          g_snprintf(last_status, sizeof(last_status), "Decoder %u exited", i + 1);
          stop_one(i);
       }
+      /* Drain the worker TX socket even when disarmed to avoid backpressure
+       * carrying old PCM into a future PTT session. 16 kHz mono S16LE. */
+      if (d->worker.tx_pcm_fd >= 0) for (unsigned k=0;k<16;k++) {
+         int16_t samples[1024];
+         ssize_t n=recv(d->worker.tx_pcm_fd,samples,sizeof(samples),MSG_DONTWAIT);
+         if (n<=0) break;
+         char target[64],ptt[64];
+         gboolean enabled;
+         g_mutex_lock(&decoder_lock);
+         enabled=d->active && d->tx_enabled;
+         g_strlcpy(target,d->tx_target,sizeof(target));
+         g_strlcpy(ptt,d->ptt_target,sizeof(ptt));
+         g_mutex_unlock(&decoder_lock);
+         if (enabled && *target && !strcmp(target,ptt) &&
+             n%(ssize_t)sizeof(int16_t)==0)
+            audio_modem_tx_pcm(target,samples,(size_t)n/sizeof(int16_t));
+      }
    }
    return G_SOURCE_CONTINUE;
 }
@@ -315,6 +332,33 @@ static void request_received(const rr_event_message_t *message, void *unused) {
        message->length != sizeof(rr_local_modem_request_t)) return;
    const rr_local_modem_request_t *req = message->payload;
    if (req->action == RR_LOCAL_MODEM_START) start_one(req);
+   else if (req->action == RR_LOCAL_MODEM_SEND_TEXT) {
+      if (req->slot < 1 || req->slot > RR_LOCAL_MODEM_MAX ||
+          !memchr(req->text,0,sizeof(req->text)) || !req->text[0]) {
+         g_strlcpy(last_status,"Invalid modem TX text request",sizeof(last_status));
+      } else {
+         decoder_t *d=&decoders[req->slot-1];
+         /* A wired PTT pin must target the same real rig as TX PCM.
+          * This requests modulation only; the radio is already keyed. */
+         if (!d->active || !d->tx_enabled || strcmp(d->engine,"psk") ||
+             !d->tx_target[0] || strcmp(d->tx_target,d->ptt_target) ||
+             !audio_modem_tx_allowed(d->tx_target)) {
+            g_strlcpy(last_status,
+               "Modem TX requires PSK, connected TX/PTT pins and active authorized PTT",
+               sizeof(last_status));
+         } else {
+            gchar *line=g_strdup_printf("TX %s\\n",req->text);
+            ssize_t n=send(d->worker.serial_fd,line,strlen(line),
+                           MSG_DONTWAIT|MSG_NOSIGNAL);
+            if (n!=(ssize_t)strlen(line))
+               g_strlcpy(last_status,"Modem TX command could not be queued",
+                         sizeof(last_status));
+            else g_snprintf(last_status,sizeof(last_status),
+                            "Modem %u PSK TX text queued",req->slot);
+            g_free(line);
+         }
+      }
+   }
    else if (req->action == RR_LOCAL_MODEM_SET_TX_ENABLED) {
       if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX) {
          decoder_t *d = &decoders[req->slot - 1];
@@ -386,7 +430,7 @@ void rr_local_modem_init(void) {
    for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++)
       rr_dsp_worker_init(&decoders[i].worker);
    request_token = event_on_message_domain_token(RR_LOCAL_MODEM_REQUEST, request_received, NULL, "core");
-   GSource *timer = g_timeout_source_new(100);
+   GSource *timer = g_timeout_source_new(20);
    g_source_set_callback(timer, poll_decoders, NULL, NULL);
    poll_id = g_source_attach(timer, rrclient_core_context());
    g_source_unref(timer);
