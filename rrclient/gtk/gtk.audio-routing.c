@@ -334,11 +334,23 @@ static gboolean routing_modem_source(const rr_ag_view_node_t *n) {
           n->sample_format == RR_PCM_S16LE &&
           !g_str_has_prefix(n->id, "modem.");
 }
+/* Convert the active rig graph alias back into a real PCM stream before
+ * passing it to the core modem route API. */
+static const char *routing_real_source(const char *source) {
+   if (strcmp(source, "rig.src")) return source;
+   if (!routing_rx_snapshot) return NULL;
+   for (guint i = 0; i < routing_rx_snapshot->count; i++)
+      if (routing_rx_snapshot->streams[i].active_rx)
+         return routing_rx_snapshot->streams[i].id;
+   return NULL;
+}
 static void routing_modem_connect(unsigned slot, const char *source) {
+   const char *actual = routing_real_source(source);
+   if (!actual) return;
    rr_local_modem_request_t req = {
       .action = RR_LOCAL_MODEM_ROUTE, .slot = slot
    };
-   g_strlcpy(req.source, source, sizeof(req.source));
+   g_strlcpy(req.source, actual, sizeof(req.source));
    rr_local_modem_request(&req);
    routing_queue();
 }
