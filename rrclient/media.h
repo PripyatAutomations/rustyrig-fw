@@ -21,6 +21,8 @@ bool rrclient_media_local_tx(const char *uuid);
 bool rrclient_media_rx_has_tx(const char *rx_uuid);
 /* Is this RX resource the currently selected, negotiated TX destination? */
 bool rrclient_media_rx_is_active_tx(const char *rx_uuid);
+/* Whether this RX media channel represents the selected radio's RX endpoint. */
+bool rrclient_media_rx_is_active_rx(const char *rx_uuid);
 extern void rrclient_media_room_selected(const char *room);
 /* Emit cached transmitter-site NMEA for the newly focused rig. */
 void rrclient_media_emit_gps_for_room(const char *room);
