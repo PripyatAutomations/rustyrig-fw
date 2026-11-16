@@ -3511,9 +3511,11 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(target), 0);
    GtkWidget *widgets[] = {name, target, ear, widget_kind};
    GtkWidget *dependent[] = {name, target, ear};
-   g_signal_connect_data(widget_kind,"changed",
+   g_object_set_data_full(G_OBJECT(widget_kind),"routing-control-fields",
+      g_memdup2(dependent,sizeof(dependent)),g_free);
+   g_signal_connect(widget_kind,"changed",
       G_CALLBACK(routing_control_kind_changed),
-      g_memdup2(dependent,sizeof(dependent)),(GClosureNotify)g_free,0);
+      g_object_get_data(G_OBJECT(widget_kind),"routing-control-fields"));
    const char *names[] = {"Label", "Parameter", "Channel", "Widget"};
    for (int i = 0; i < 4; i++) {
       GtkWidget *label = gtk_label_new(names[i]);
