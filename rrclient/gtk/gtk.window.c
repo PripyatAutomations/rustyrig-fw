@@ -430,6 +430,7 @@ static void vrig_manager_open(void) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_kinetic_scrolling(GTK_SCROLLED_WINDOW(scroll), TRUE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_widget_set_size_request(scroll, 610, 350);
    GtkWidget *list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
