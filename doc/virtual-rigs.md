@@ -18,7 +18,7 @@ A virtual rig's CAT and GPS endpoints currently bind **together** to the same se
 
 A background CAT command is dispatched through the owning PTY's selected server connection and room, not through the foreground GUI's `ws_conn` pointer. A disconnected or unresolved CAT binding must fail closed; it must never fall back to another rig.
 
-The client still contains legacy `ws_conn` dependencies outside serial/CAT. Removing all of them requires a broader migration to explicit connection arguments and connection-scoped state, with tests for each module.
+The runtime `ws_conn` variable has been removed. Core handlers read the current connection through `rrclient_connection_context()`; GUI handlers choose their foreground connection through `rrclient_active_connection()`. Long-lived video capture retains a profile name rather than a borrowed connection pointer. Legacy `ws_conn` symbols in isolated tests are test-only fixtures. Explicit connection arguments and queued core actions are still preferred over cross-thread pointer access.
 
 ## Future extensions
 
