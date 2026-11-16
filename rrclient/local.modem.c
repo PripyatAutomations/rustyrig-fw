@@ -374,6 +374,11 @@ static void request_received(const rr_event_message_t *message, void *unused) {
       g_snprintf(last_status, sizeof(last_status), "Decoder %u stopped", req->slot);
    }
    publish_snapshot();
+   if (req->action == RR_LOCAL_MODEM_START ||
+       req->action == RR_LOCAL_MODEM_STOP ||
+       req->action == RR_LOCAL_MODEM_TX_ROUTE ||
+       req->action == RR_LOCAL_MODEM_PTT_ROUTE)
+      event_emit("client.audio.route.changed", NULL, NULL);
 }
 void rr_local_modem_init(void) {
    if (initialized) return;
