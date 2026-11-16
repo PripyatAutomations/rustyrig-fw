@@ -48,10 +48,11 @@ int main(int argc,char **argv) {
       cfg.bandwidthHz!=500 && cfg.bandwidthHz!=1000 &&
       cfg.bandwidthHz!=2000) return 2;
    try {
-      OliviaLib rx(cfg),tx(cfg);
+      OliviaLib *rx=new OliviaLib(cfg); /* exit-time lifetime: detached RX */
+      OliviaLib tx(cfg);
       std::setvbuf(stdout,nullptr,_IONBF,0);
       pthread_t receiver;
-      if(pthread_create(&receiver,nullptr,receive_thread,&rx)) return 1;
+      if(pthread_create(&receiver,nullptr,receive_thread,rx)) return 1;
       pthread_detach(receiver);
       char command[512];
       size_t used=0,position=0,pending=0,sent=0;
