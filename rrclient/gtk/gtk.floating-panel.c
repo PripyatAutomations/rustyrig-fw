@@ -36,6 +36,8 @@ struct rr_floating_panel {
    guint32 title_press_time;
    gboolean title_moved;
    gboolean snap_disabled, initial_positioned, initial_centered, initial_center_pending;
+    gboolean initial_position_requested;
+    gint initial_x, initial_y;
    double drag_x, drag_y, drag_pending_x, drag_pending_y, resize_x, resize_y;
    guint drag_tick_id;
    gboolean drag_pending;
@@ -293,6 +295,18 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       return TRUE;
    }
 
+   /* New compact controls receive a preferred non-overlapping location,
+    * but their persisted window state always has precedence. */
+   if (p->initial_position_requested && !p->loaded_state) {
+      int x = CLAMP(p->initial_x, min_x, max_x);
+      int y = CLAMP(p->initial_y, min_y, max_y);
+      if (panel_position_clear(p, x, y, panel_width, panel_height)) {
+         gtk_widget_set_margin_start(p->frame, x);
+         gtk_widget_set_margin_top(p->frame, y);
+         panel_position_save(p, x, y);
+         return TRUE;
+      }
+   }
    panel_position_t *saved = g_hash_table_lookup(panel_positions(p->overlay), p->id);
 
    if (saved) {
@@ -357,6 +371,16 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    g_array_free(xs, TRUE);
    g_array_free(ys, TRUE);
 
+   /* If no non-overlapping location fits, use a deterministic fallback
+    * rather than leaving every widget at the frame's default (12,12). */
+   if (!placed) {
+      guint offset = g_list_index(floating_panels, p);
+      int x = CLAMP(min_x + (int)(offset % 5) * 24, min_x, max_x);
+      int y = CLAMP(min_y + (int)(offset % 7) * 24, min_y, max_y);
+      gtk_widget_set_margin_start(p->frame, x);
+      gtk_widget_set_margin_top(p->frame, y);
+      panel_position_save(p, x, y);
+   }
    return TRUE;
 }
 
@@ -1256,6 +1280,13 @@ gboolean rr_floating_panel_is_minimized(const RRFloatPanel *p) {
    return p && p->minimized;
 }
 
+void rr_floating_panel_set_initial_position(RRFloatPanel *p, gint x, gint y) {
+   if (!p || p->loaded_state || p->ever_shown) return;
+   p->initial_position_requested = TRUE;
+   p->initial_x = MAX(0, x);
+   p->initial_y = MAX(0, y);
+   p->initial_centered = FALSE;
+}
 void rr_floating_panel_set_initial_centered(RRFloatPanel *p, gboolean centered) {
    if (!p) {
       return;
