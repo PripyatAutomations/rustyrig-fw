@@ -74,7 +74,8 @@ typedef enum {
    RR_AUDIO_CONTROL_STREAM,
    RR_AUDIO_CONTROL_INPUT_GAIN,
    RR_AUDIO_CONTROL_PORT_GAIN,
-   RR_AUDIO_CONTROL_EFFECT_PARAMETER
+   RR_AUDIO_CONTROL_EFFECT_PARAMETER,
+   RR_AUDIO_CONTROL_MIC_TX_ROUTE
 } rr_audio_control_kind_t;
 typedef struct {
    rr_audio_control_kind_t kind;
@@ -89,6 +90,9 @@ typedef struct {
 void audio_request_rx_volume(int percent);
 void audio_request_rx_channel_volume(unsigned channel, int percent);
 void audio_request_rx_stream_route(const char *id, char output);
+/* Route local microphone into a real rig TX media channel (RX UUID),
+ * "auto" follows the selected TX channel, "none" disconnects. */
+void audio_request_mic_tx_route(const char *rx_uuid);
 void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db);
 void audio_request_port_gain(const char *id, unsigned channel, double gain_db);
 void audio_request_effect_parameter(const char *processor, const char *element,
