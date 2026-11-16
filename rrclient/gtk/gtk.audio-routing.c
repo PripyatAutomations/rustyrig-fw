@@ -1482,13 +1482,22 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    g_free(panel_id);
    if (!control->panel) { g_free(control); return; }
    rr_floating_panel_set_resizable(control->panel, FALSE);
-   rr_floating_panel_set_minimizable(control->panel, TRUE);
+   rr_floating_panel_set_minimizable(control->panel, FALSE);
    GtkWidget *body = rr_floating_panel_body(control->panel);
-   gtk_box_set_spacing(GTK_BOX(body), 2);
+   gtk_box_set_spacing(GTK_BOX(body), 0);
+   GtkWidget *handle = gtk_event_box_new();
+   gtk_event_box_set_visible_window(GTK_EVENT_BOX(handle), FALSE);
    GtkWidget *title = gtk_label_new(control->label);
    control->label_widget = title;
-   gtk_widget_set_tooltip_text(title, node_id && *node_id ? node_id : "Unbound: drag the blue pin onto a gain control");
-   gtk_box_pack_start(GTK_BOX(body), title, FALSE, FALSE, 0);
+   control->move_handle = handle;
+   gtk_widget_set_tooltip_text(handle, "Drag label to move; right-click for menu");
+   gtk_container_add(GTK_CONTAINER(handle), title);
+   gtk_box_pack_start(GTK_BOX(body), handle, FALSE, FALSE, 0);
+   rr_floating_panel_set_compact(control->panel, handle);
+   g_signal_connect(handle, "button-press-event",
+      G_CALLBACK(routing_compact_context), control);
+   g_signal_connect(handle, "button-release-event",
+      G_CALLBACK(routing_compact_move_release), control);
    gboolean vertical = !g_strcmp0(kind, "vertical");
    gboolean knob = !g_strcmp0(kind, "knob");
    GtkWidget *scale = gtk_scale_new_with_range(
@@ -1498,7 +1507,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    g_object_set_data(G_OBJECT(scale), "rr-compact-control", control);
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_scale_set_digits(GTK_SCALE(scale), 0);
-   gtk_widget_set_size_request(scale, vertical ? 40 : 120, vertical ? 100 : 24);
+   gtk_widget_set_size_request(scale, vertical ? 34 : 96, vertical ? 90 : 20);
    gtk_widget_set_tooltip_text(scale,
       "Double-click to reset to the parameter default (0 dB for gains)");
    control->updating = TRUE;
@@ -1507,19 +1516,22 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    g_signal_connect(scale, "value-changed", G_CALLBACK(routing_compact_changed), control);
    gtk_widget_add_events(scale, GDK_BUTTON_PRESS_MASK);
    g_signal_connect(scale, "button-press-event", G_CALLBACK(routing_compact_reset), NULL);
+   g_signal_connect(scale, "button-press-event", G_CALLBACK(routing_compact_context), control);
    gtk_box_pack_start(GTK_BOX(body), scale, FALSE, FALSE, 0);
    routing_compact_apply_widget(control);
    if (knob) {
       gtk_widget_set_no_show_all(scale, TRUE);
       gtk_widget_hide(scale);
       control->knob = gtk_drawing_area_new();
-      gtk_widget_set_size_request(control->knob, 72, 83);
+      gtk_widget_set_size_request(control->knob, 62, 68);
       gtk_widget_set_can_focus(control->knob, TRUE);
       gtk_widget_add_events(control->knob, GDK_BUTTON_PRESS_MASK |
          GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK);
       g_signal_connect(control->knob, "draw", G_CALLBACK(routing_knob_draw), control);
       g_signal_connect(control->knob, "button-press-event",
                        G_CALLBACK(routing_knob_press), control);
+      g_signal_connect(control->knob, "button-press-event",
+                       G_CALLBACK(routing_compact_context), control);
       g_signal_connect(control->knob, "motion-notify-event",
                        G_CALLBACK(routing_knob_motion), control);
       g_signal_connect(control->knob, "button-release-event",
@@ -1555,7 +1567,7 @@ static void routing_compact_save(const routing_compact_control_t *control) {
    const char *fields[] = {"target", "label", "kind", "port", "channel",
                             "x", "y", "min", "max", "step", "unit",
                             "worker", "element", "property", "hint-min",
-                            "hint-max", "hint-step", "value", "default"};
+                            "hint-max", "hint-step", "value", "default", "hidden"};
    char port[4], channel[4], x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
    char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE], step[G_ASCII_DTOSTR_BUF_SIZE];
    g_snprintf(port, sizeof(port), "%d", control->port ? 1 : 0);
@@ -1573,12 +1585,13 @@ static void routing_compact_save(const routing_compact_control_t *control) {
    g_ascii_formatd(current, sizeof(current), "%.8g", control->effect_value);
    char default_text[G_ASCII_DTOSTR_BUF_SIZE];
    g_ascii_formatd(default_text, sizeof(default_text), "%.8g", control->effect_default);
+   const char *hidden = control->hidden ? "true" : "false";
    const char *values[] = {control->id,
       control->has_label ? control->label : "", control->kind, port, channel,
       x, y, control->has_minimum ? min : "", control->has_maximum ? max : "",
       control->has_step ? step : "", control->has_unit ? control->unit : "",
       control->effect_worker, control->effect_element, control->effect_property,
-      hmin, hmax, hstep, current, default_text};
+      hmin, hmax, hstep, current, default_text, hidden};
    for (guint i = 0; i < G_N_ELEMENTS(fields); i++) {
       char *key = g_strdup_printf("audio.control.%s.%s", control->uuid, fields[i]);
       rrclient_database_setting_set(key, values[i]);
@@ -1625,6 +1638,7 @@ static void routing_compact_restore(void) {
       char *hstep = routing_compact_field(parts[i], "hint-step");
       char *value = routing_compact_field(parts[i], "value");
       char *default_text = routing_compact_field(parts[i], "default");
+      char *hidden = routing_compact_field(parts[i], "hidden");
       double px = 0., py = 0., mn = 0., mx = 0., st = 0.;
       gboolean valid = target && strlen(target) < 64 &&
          kind && (!strcmp(kind, "horizontal") || !strcmp(kind, "vertical") ||
@@ -1672,13 +1686,17 @@ static void routing_compact_restore(void) {
             }
             routing_compact_apply_hints(item);
             routing_compact_apply_widget(item);
+            if (!g_strcmp0(hidden, "true")) {
+               item->hidden = TRUE;
+               rr_floating_panel_hide(item->panel);
+            }
          }
       }
       g_free(target); g_free(label); g_free(kind); g_free(port); g_free(channel);
       g_free(x); g_free(y); g_free(minimum); g_free(maximum); g_free(step); g_free(unit);
       g_free(worker); g_free(element); g_free(property);
       g_free(hmin); g_free(hmax); g_free(hstep); g_free(value);
-      g_free(default_text);
+      g_free(default_text); g_free(hidden);
    }
    g_strfreev(parts);
    g_free(ids);
