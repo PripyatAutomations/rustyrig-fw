@@ -6,6 +6,7 @@
 #include <rrclient/local.modem.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/sercom.h>
+#include <rrclient/connman.h>
 #include <librustyaxe/json.h>
 #include <librustyaxe/config.h>
 #include <rrclient/audio.h>
@@ -245,7 +246,7 @@ static void routing_layout_auto(gboolean reset) {
 #define ROUTING_SERIAL_W 210.
 #define ROUTING_SERIAL_H 108.
 typedef struct {
-   char id[256], profile[128], rig[32];
+   char id[256], profile[128], rig[32], display_path[320];
    unsigned slot;
    gboolean virtual;
    double x, y;
@@ -272,6 +273,22 @@ static gboolean routing_serial_room_rig(const char *room, char out[32]) {
    memcpy(out, p, (size_t)(end - p));
    out[end-p] = 0;
    return TRUE;
+}
+/* The profile is a transport alias. Station and domain are the remote
+ * identity; never display the profile as if it were a remote hostname. */
+static void routing_serial_display_path(char out[320], const char *profile,
+                                        const char *room, const char *rig) {
+   out[0] = 0;
+   if (!profile || !*profile || !room || !*room || !rig || !*rig) return;
+   const char *name = room[0] == '#' ? room + 1 : room;
+   const char *suffix = strstr(name, "-rig");
+   if (!suffix || suffix == name) return;
+   size_t station_len = (size_t)(suffix - name);
+   if (station_len > 63) return;
+   rrconn_t *conn = rrclient_connection_find(profile);
+   const char *domain = conn ? rrclient_connection_domain(conn) : NULL;
+   if (!domain || !*domain) return;
+   g_snprintf(out, 320, "%.*s.%s/%s", (int)station_len, name, domain, rig);
 }
 static double routing_serial_base_y(void) {
    double bottom = 420.;
@@ -333,6 +350,9 @@ static void routing_serial_refresh(void) {
       if (duplicate) continue;
       char *id = g_strdup_printf("serial.remote.%s.%s", rx->server, rig);
       routing_serial_add(id, rx->server, rig, 0, FALSE, tindex++);
+      routing_serial_display_path(
+         routing_serial_nodes[routing_serial_count-1].display_path,
+         rx->server, rx->room, rig);
       g_free(id);
    }
 }
@@ -428,7 +448,9 @@ static void routing_serial_draw(cairo_t *cr) {
       cairo_stroke(cr);
       char label[160];
       if (n->virtual) g_snprintf(label,sizeof(label),"vrig%u",n->slot);
-      else g_snprintf(label,sizeof(label),"%s / %s",n->profile,n->rig);
+      else g_strlcpy(label,
+         n->display_path[0] ? n->display_path : "Remote identity unavailable",
+         sizeof(label));
       cairo_set_source_rgb(cr, .93,.95,.98);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr, 13);
@@ -437,9 +459,18 @@ static void routing_serial_draw(cairo_t *cr) {
       cairo_set_font_size(cr, 10);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
       if (n->virtual) {
-         g_snprintf(label,sizeof(label),"%s / %s",
-                    n->profile[0] ? n->profile : "Unbound",
-                    n->rig[0] ? n->rig : "Drag to a rig");
+         const char *path = NULL;
+         for (guint j = 0; j < routing_serial_count; j++) {
+            const routing_serial_node_t *remote = &routing_serial_nodes[j];
+            if (!remote->virtual && !strcmp(remote->profile, n->profile) &&
+                !strcmp(remote->rig, n->rig) && remote->display_path[0]) {
+               path = remote->display_path;
+               break;
+            }
+         }
+         g_strlcpy(label, path ? path :
+                   (n->profile[0] ? "Bound (identity unavailable)" : "Unbound: drag to rig"),
+                   sizeof(label));
       } else g_strlcpy(label,"Remote rig controls",sizeof(label));
       cairo_move_to(cr,n->x+12,n->y+42);
       cairo_show_text(cr,label);
