@@ -2933,15 +2933,21 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
       if (graph_snapshot->nodes[i].read_only &&
           strcmp(n->id, "src.client.dsp0")) continue;
 
-      for (gint ch = 0 ; ch < (!strcmp(n->id, "src.client.dsp0") ? 1 : 2) ; ch++) {
+      gint closest = -1;
+      double best = radius;
+      for (gint ch = 0; ch < (!strcmp(n->id, "src.client.dsp0") ? 1 : 2); ch++) {
          double port_y = !strcmp(n->id, "src.client.dsp0") ? 68. : (ch ? 79. : 60.);
-         if (!inactive && hypot(x - px, y - py - port_y) <= radius) {
-            *source = (gint) i;
-            *channel = ch;
-            *mixer = FALSE;
-
-            return TRUE;
+         double distance = hypot(x - px, y - py - port_y);
+         if (!inactive && distance <= best) {
+            best = distance;
+            closest = ch;
          }
+      }
+      if (closest >= 0) {
+         *source = (gint)i;
+         *channel = closest;
+         *mixer = FALSE;
+         return TRUE;
       }
    }
 
@@ -2975,14 +2981,21 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
          continue;
       }
 
-      for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (hypot(x - routing_node_x(node), y - routing_node_y(node) - (ch ? 79 : 60)) <= radius) {
-            *source = -(gint)i - 1;
-            *channel = ch;
-            *mixer = TRUE;
-
-            return TRUE;
+      gint closest = -1;
+      double best = radius;
+      for (gint ch = 0; ch < 2; ch++) {
+         double distance = hypot(x - routing_node_x(node),
+                                 y - routing_node_y(node) - (ch ? 79. : 60.));
+         if (distance <= best) {
+            best = distance;
+            closest = ch;
          }
+      }
+      if (closest >= 0) {
+         *source = -(gint)i - 1;
+         *channel = closest;
+         *mixer = TRUE;
+         return TRUE;
       }
    }
 
