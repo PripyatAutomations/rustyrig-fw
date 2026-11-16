@@ -1102,6 +1102,19 @@ static void routing_lv2_remove_clicked(GtkMenuItem *item, gpointer unused) {
       audio_request_effect_block(&req);
    }
 }
+static void routing_lv2_disconnect(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   guint slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "lv2-slot"));
+   guint encoded = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "lv2-port"));
+   rr_audio_effect_request_t req = {
+      .action = encoded >= 2 ? 'O' : 'R',
+      .slot = slot,
+      .channel = encoded % 2,
+      .output = 'M'
+   };
+   audio_request_effect_block(&req);
+   routing_queue();
+}
 static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, double gy) {
    if (!graph_snapshot) return FALSE;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
@@ -1114,6 +1127,22 @@ static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, doubl
       if (sscanf(node->id, "proc.lv2.%u", &slot) != 1 ||
           slot < 1 || slot > RR_AUDIO_EFFECT_MAX) return FALSE;
       GtkWidget *menu = gtk_menu_new();
+      for (guint ch = 0; ch < (node->channels == 2 ? 2u : 1u); ch++) {
+         for (guint direction = 0; direction < 2; direction++) {
+            gchar *label = g_strdup_printf("Disconnect %s %s",
+               direction ? "output" : "input",
+               node->channels == 2 ? (ch ? "R" : "L") : "MONO");
+            GtkWidget *disconnect = gtk_menu_item_new_with_label(label);
+            g_free(label);
+            g_object_set_data(G_OBJECT(disconnect), "lv2-slot", GUINT_TO_POINTER(slot));
+            g_object_set_data(G_OBJECT(disconnect), "lv2-port",
+                              GUINT_TO_POINTER(direction * 2 + ch));
+            g_signal_connect(disconnect, "activate",
+                             G_CALLBACK(routing_lv2_disconnect), NULL);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), disconnect);
+         }
+      }
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
       GtkWidget *remove = gtk_menu_item_new_with_label("Remove LV2 Effect…");
       g_object_set_data(G_OBJECT(remove), "lv2-slot", GUINT_TO_POINTER(slot));
       g_signal_connect(remove, "activate",
