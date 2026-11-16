@@ -22,6 +22,7 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #include <rrclient/events.c>
+extern rrconn_t *ws_conn; /* legacy test fixture, not client API */
 #pragma GCC diagnostic pop
 #undef rrclient_update_connection_ui
 #undef tui_refresh_sb_online
