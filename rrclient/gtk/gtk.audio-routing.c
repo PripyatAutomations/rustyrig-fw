@@ -1158,6 +1158,9 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
                       grid, TRUE, TRUE, 0);
    GtkWidget *factory_box = gtk_combo_box_text_new();
    GtkWidget *source_box = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source_box), "",
+                             "Unconnected — wire input in Routing");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(source_box), 0);
    GList *features = gst_registry_get_feature_list(gst_registry_get(),
                                                     GST_TYPE_ELEMENT_FACTORY);
    guint found = 0;
@@ -1174,18 +1177,20 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
    }
    gst_plugin_feature_list_free(features);
    if (found) gtk_combo_box_set_active(GTK_COMBO_BOX(factory_box), 0);
-   guint sources = 0;
    if (graph_snapshot)
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
          const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
          if (node->type != RR_AG_SOURCE || node->read_only ||
              (node->rate_hz && node->rate_hz != 16000) ||
              !strcmp(node->id, "recording.playback")) continue;
+         gchar *label = node->rig[0] ?
+            g_strdup_printf("%.58s (%s)", node->rig, node->id) :
+            g_strdup(node->id);
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source_box),
-                                    node->id, node->id);
-         sources++;
+                                    node->id, label);
+         g_free(label);
       }
-   if (sources) gtk_combo_box_set_active(GTK_COMBO_BOX(source_box), 0);
+   /* Starting unconnected is supported even without a receiver. */
    GtkWidget *fields[] = {factory_box, source_box};
    const char *names[] = {"LV2 plugin", "RX source"};
    for (guint i = 0; i < G_N_ELEMENTS(fields); i++) {
@@ -1197,13 +1202,14 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
    }
    GtkWidget *hint = gtk_label_new(
       "Creates an independent fwdsp subprocess and a processor block in Routing. "
-      "The selected RX stream feeds its input; its output returns to the mixer. "
+      "Leave it unconnected and patch an RX stream onto the cyan input later, "
+      "or choose a source now; its output returns to the mixer. "
       "Audio is 16 kHz mono at this boundary. Existing pipeline settings are unchanged.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
    gtk_widget_set_halign(hint, GTK_ALIGN_START);
    gtk_grid_attach(GTK_GRID(grid), hint, 0, 2, 2, 1);
    gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT,
-                                     found && sources);
+                                     found != 0);
    gtk_widget_show_all(dialog);
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *factory = gtk_combo_box_get_active_id(GTK_COMBO_BOX(factory_box));
