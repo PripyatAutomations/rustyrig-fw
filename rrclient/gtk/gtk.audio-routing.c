@@ -258,6 +258,19 @@ static guint routing_serial_kind; /* 0=CAT, 1=GPS */
 static double routing_serial_dx, routing_serial_dy, routing_serial_end_x, routing_serial_end_y;
 static gboolean routing_serial_moved;
 static rr_event_token_t routing_serial_result_token;
+static rr_event_token_t routing_modem_result_token;
+static gboolean routing_modem_tx_enabled[RR_LOCAL_MODEM_MAX+1];
+static void routing_modem_snapshot_received(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload ||
+       message->length != sizeof(rr_local_modem_snapshot_t)) return;
+   const rr_local_modem_snapshot_t *snapshot=message->payload;
+   for (unsigned i=0;i<snapshot->count && i<RR_LOCAL_MODEM_MAX;i++) {
+      const rr_local_modem_entry_t *entry=&snapshot->entries[i];
+      if (entry->slot>=1 && entry->slot<=RR_LOCAL_MODEM_MAX)
+         routing_modem_tx_enabled[entry->slot]=entry->running && entry->tx_enabled;
+   }
+}
 static gboolean routing_serial_room_rig(const char *room, char out[32]) {
    if (!room) return FALSE;
    const char *p = NULL, *scan = room;
@@ -1129,6 +1142,10 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
       gtk_grid_attach(GTK_GRID(grid), labels[i], 0, i, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
    }
+   GtkWidget *tx_enable=gtk_check_button_new_with_label("Enable TX routing");
+   gtk_widget_set_tooltip_text(tx_enable,
+      "Off by default. TX routing does not bypass server transmit permissions.");
+   gtk_grid_attach(GTK_GRID(grid),tx_enable,1,4,1,1);
    gtk_widget_show_all(dlg);
    if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
       const char *selected_engine = gtk_combo_box_get_active_id(GTK_COMBO_BOX(engine));
@@ -1136,6 +1153,7 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
       const char *selected_mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(mode));
       if (selected_engine && selected_source && selected_mode) {
          rr_local_modem_request_t req = {.action=RR_LOCAL_MODEM_START};
+         req.tx_enabled=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tx_enable));
          g_strlcpy(req.engine, selected_engine, sizeof(req.engine));
          if (strcmp(selected_source, "unconnected")) {
             const char *actual = routing_real_source(selected_source);
@@ -1155,6 +1173,43 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
       }
    }
    gtk_widget_destroy(dlg);
+}
+static void routing_modem_properties(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   unsigned slot=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"modem-slot"));
+   if (slot<1 || slot>RR_LOCAL_MODEM_MAX) return;
+   GtkWidget *top=graph_canvas ? gtk_widget_get_toplevel(graph_canvas) : NULL;
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Modem Properties",
+      GTK_IS_WINDOW(top)?GTK_WINDOW(top):NULL,
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel",GTK_RESPONSE_CANCEL,"_Apply",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *area=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *box=gtk_box_new(GTK_ORIENTATION_VERTICAL,8);
+   gtk_container_set_border_width(GTK_CONTAINER(box),16);
+   gchar *title=g_strdup_printf("Modem %u",slot);
+   GtkWidget *name=gtk_label_new(title);
+   g_free(title);
+   gtk_label_set_xalign(GTK_LABEL(name),0);
+   GtkWidget *tx=gtk_check_button_new_with_label("Enable TX routing");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tx),routing_modem_tx_enabled[slot]);
+   gtk_widget_set_size_request(tx,220,44);
+   GtkWidget *info=gtk_label_new(
+      "Disabling TX removes TX/PTT routes. Enabling TX does not "
+      "grant privileges or key the radio.");
+   gtk_label_set_line_wrap(GTK_LABEL(info),TRUE);
+   gtk_label_set_xalign(GTK_LABEL(info),0);
+   gtk_box_pack_start(GTK_BOX(box),name,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(box),tx,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(box),info,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(area),box,TRUE,TRUE,0);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_ACCEPT) {
+      rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_SET_TX_ENABLED,.slot=slot};
+      req.tx_enabled=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tx));
+      rr_local_modem_request(&req);
+      routing_queue();
+   }
+   gtk_widget_destroy(dialog);
 }
 static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
@@ -1223,6 +1278,10 @@ static gboolean routing_modem_context_menu(GdkEventButton *event, double x, doub
       unsigned slot=0;
       if (sscanf(n->id, "modem.%u.", &slot) != 1) continue;
       GtkWidget *menu = gtk_menu_new();
+      GtkWidget *properties=gtk_menu_item_new_with_label("Properties…");
+      g_object_set_data(G_OBJECT(properties),"modem-slot",GUINT_TO_POINTER(slot));
+      g_signal_connect(properties,"activate",G_CALLBACK(routing_modem_properties),NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),properties);
       const char *titles[] = {"Disconnect All", "Remove Modem"};
       for (unsigned j=0; j<2; j++) {
          GtkWidget *item = gtk_menu_item_new_with_label(titles[j]);
@@ -4190,6 +4249,11 @@ void gtk_audio_graph_present(void) {
    gtk_widget_show_all(graph_page);
    gtk_notebook_set_current_page(book, gtk_notebook_page_num(book, graph_page));
    routing_serial_refresh();
+   if (!routing_modem_result_token)
+      routing_modem_result_token=event_on_message_domain_token(
+         RR_LOCAL_MODEM_RESULT,routing_modem_snapshot_received,NULL,"gtk");
+   rr_local_modem_request_t modem_req={.action=RR_LOCAL_MODEM_SNAPSHOT};
+   rr_local_modem_request(&modem_req);
    if (!routing_serial_result_token)
       routing_serial_result_token = event_on_message_domain_token(
          RR_SERCOM_VRIG_BIND_RESULT, routing_serial_result, NULL, "gtk");
@@ -4469,6 +4533,10 @@ void gtk_audio_routing_shutdown(void) {
       snapshot_token = 0;
    }
    g_clear_pointer(&routing_rx_snapshot, g_free);
+   if (routing_modem_result_token) {
+      event_off_token(routing_modem_result_token);
+      routing_modem_result_token=0;
+   }
    if (routing_serial_result_token) {
       event_off_token(routing_serial_result_token);
       routing_serial_result_token = 0;
