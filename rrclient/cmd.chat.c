@@ -33,7 +33,6 @@
 
 extern bool dying;
 extern time_t now;
-extern rrconn_t *ws_conn;
 
 /* Join the complete IRC text before the protocol layer splits wire lines. */
 static bool cmd_irc_chat(rrconn_t *connection, const char *target, const char *kind, int argc, char **args, int first) {
@@ -97,7 +96,7 @@ static bool cmd_irc_room(rrconn_t *connection, const char *room) {
  * requested operation.
  */
 bool cmd_room(int argc, char **args) {
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       return true;
    }
    char data[512] = "";
@@ -113,7 +112,7 @@ bool cmd_room(int argc, char **args) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "room");
    dict_add(d, "talk.data", data);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
@@ -169,7 +168,7 @@ bool cmd_list(int argc, char **args) {
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "list");
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
@@ -298,8 +297,8 @@ bool cmd_me(int argc, char **args) {
       }
    }
 
-   if (ws_conn) {
-      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   if (rrclient_connection_context()) {
+      ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    }
    dict_free(d);
 
@@ -377,8 +376,8 @@ bool cmd_msg(int argc, char **args) {
    dict_add(d, "talk.target", target);
    dict_add(d, "talk.msg_type", "priv");
 
-   if (ws_conn) {
-      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   if (rrclient_connection_context()) {
+      ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    }
 
    dict_free(d);
@@ -527,7 +526,7 @@ bool cmd_part(int argc, char **args) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "part");
    dict_add(d, "talk.target", target);
-   bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   bool sent = ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    if (!sent) {
@@ -659,8 +658,8 @@ bool cmd_topic(int argc, char **args) {
       dict_add(d, "talk.data", "");
    }
 
-   if (ws_conn) {
-      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   if (rrclient_connection_context()) {
+      ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    }
    dict_free(d);
 
