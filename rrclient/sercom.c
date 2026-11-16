@@ -1628,24 +1628,47 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
        message->length != sizeof(rr_sercom_vrig_bind_t)) return;
    const rr_sercom_vrig_bind_t *req = message->payload;
    result.slot = req->slot;
-   if (req->slot < RR_SERCOM_VRIG_MAX && !req->profile[0] && !req->rig[0]) {
-      /* Clearing a binding is different from disconnecting a server's raw
-       * serial channel. Only touch PTYs owned by this saved virtual slot. */
-      char *key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
-      char *saved = rrclient_database_setting_get(key);
-      g_free(key);
-      if (saved && *saved) {
-         const char *prefix[] = {"ttyCAT", "ttyGPS"};
-         for (unsigned k = 0; k < 2; k++) {
-            char name[32];
-            g_snprintf(name, sizeof(name), "%s%u", prefix[k], req->slot);
-            if (binding(name)) rr_sercom_disconnect(name);
-            key = g_strdup_printf("serial.%s", name);
-            dict_del(cfg, key);
-            g_free(key);
-         }
+   if (req->slot >= RR_SERCOM_VRIG_MAX ||
+       !memchr(req->profile, 0, sizeof(req->profile)) ||
+       !memchr(req->rig, 0, sizeof(req->rig))) {
+      g_strlcpy(result.detail, "Invalid virtual rig request", sizeof(result.detail));
+      goto reply;
+   }
+
+   char *key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
+   char *saved_profile = rrclient_database_setting_get(key);
+   g_free(key);
+   key = g_strdup_printf("serial.vrig.%u.rig", req->slot);
+   char *saved_rig = rrclient_database_setting_get(key);
+   g_free(key);
+
+   char cat[32], gps[32];
+   g_snprintf(cat, sizeof(cat), "ttyCAT%u", req->slot);
+   g_snprintf(gps, sizeof(gps), "ttyGPS%u", req->slot);
+   const char *names[2] = {cat, gps};
+   bool owned = saved_profile && *saved_profile && vrig_valid(saved_rig);
+   /* Numbered ports may also be configured manually. A virtual rig must
+    * never silently steal or disconnect those endpoints. */
+   for (unsigned j = 0; j < 2; j++) {
+      serial_binding_t *b = binding(names[j]);
+      char expected[80];
+      g_snprintf(expected, sizeof(expected), "%s.%s",
+                 owned ? saved_rig : "", j ? "gps-out" : "cat");
+      if (b && (!owned || strcmp(b->service, expected) ||
+                strcmp(b->profile, saved_profile))) {
+         g_snprintf(result.detail, sizeof(result.detail),
+                    "%s is manually configured; detach it first", names[j]);
+         goto done;
       }
-      g_free(saved);
+   }
+
+   if (!req->profile[0] && !req->rig[0]) {
+      for (unsigned j = 0; j < 2; j++) {
+         if (binding(names[j])) rr_sercom_disconnect(names[j]);
+         key = g_strdup_printf("serial.%s", names[j]);
+         dict_del(cfg, key);
+         g_free(key);
+      }
       key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
       rrclient_database_setting_set(key, "");
       g_free(key);
@@ -1655,59 +1678,81 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
       result.success = true;
       g_snprintf(result.detail, sizeof(result.detail),
                  "vrig%u disconnected", req->slot);
-      goto reply;
+      goto done;
    }
-   if (req->slot >= RR_SERCOM_VRIG_MAX ||
-       !memchr(req->profile, 0, sizeof(req->profile)) ||
-       !memchr(req->rig, 0, sizeof(req->rig)) ||
-       !vrig_valid(req->rig) || !req->profile[0] ||
+   if (!req->profile[0] || !vrig_valid(req->rig) ||
        !rrclient_connection_find(req->profile)) {
-      g_strlcpy(result.detail, "Invalid virtual rig or server profile", sizeof(result.detail));
-      goto reply;
+      g_strlcpy(result.detail, "Invalid virtual rig or server profile",
+                sizeof(result.detail));
+      goto done;
    }
-   char cat[32], gps[32], cat_svc[64], gps_svc[64];
-   g_snprintf(cat, sizeof(cat), "ttyCAT%u", req->slot);
-   g_snprintf(gps, sizeof(gps), "ttyGPS%u", req->slot);
-   g_snprintf(cat_svc, sizeof(cat_svc), "%s.cat", req->rig);
-   g_snprintf(gps_svc, sizeof(gps_svc), "%s.gps-out", req->rig);
-   const char *names[] = {cat, gps}, *services[] = {cat_svc, gps_svc};
+
+   char service[2][80];
+   bool changed[2] = {false, false};
    for (unsigned j = 0; j < 2; j++) {
+      g_snprintf(service[j], sizeof(service[j]), "%s.%s",
+                 req->rig, j ? "gps-out" : "cat");
       serial_binding_t *b = binding(names[j]);
-      if (b && (!strcmp(b->service, services[j]) &&
-                !strcmp(b->profile, req->profile)))
-         continue;
+      if (b && !strcmp(b->service, service[j]) &&
+          !strcmp(b->profile, req->profile)) continue;
       if (b) rr_sercom_disconnect(names[j]);
-      char full_service[80];
-      g_snprintf(full_service, sizeof(full_service), "%s@%u",
-         services[j], j ? 4800 : 38400);
-      if (!rr_sercom_attach(names[j], full_service, NULL)) {
+      changed[j] = true;
+      char full[96];
+      g_snprintf(full, sizeof(full), "%s@%u", service[j],
+                 j ? 4800 : 38400);
+      if (!rr_sercom_attach(names[j], full, NULL)) {
          g_snprintf(result.detail, sizeof(result.detail),
-                    "Could not attach %s (check existing PTY/config)", names[j]);
-         goto reply;
+                    "Could not attach %s (PTY/config error)", names[j]);
+         goto rollback;
       }
       b = binding(names[j]);
-      if (b) {
-         g_strlcpy(b->profile, req->profile, sizeof(b->profile));
-         host_sync(b);
-      }
+      if (b) g_strlcpy(b->profile, req->profile, sizeof(b->profile));
    }
+
+   /* Publish the new mapping only once both PTYs are usable. */
    for (unsigned j = 0; j < 2; j++) {
-      char *key = g_strdup_printf("serial.%s", names[j]);
-      char full_service[80];
-      g_snprintf(full_service, sizeof(full_service), "%s@%u",
-         services[j], j ? 4800 : 38400);
-      dict_add(cfg, key, full_service);
+      char full[96];
+      g_snprintf(full, sizeof(full), "%s@%u", service[j],
+                 j ? 4800 : 38400);
+      key = g_strdup_printf("serial.%s", names[j]);
+      dict_add(cfg, key, full);
       g_free(key);
    }
-   char *key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
+   key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
    rrclient_database_setting_set(key, req->profile);
    g_free(key);
    key = g_strdup_printf("serial.vrig.%u.rig", req->slot);
    rrclient_database_setting_set(key, req->rig);
    g_free(key);
    result.success = true;
-   g_snprintf(result.detail, sizeof(result.detail), "vrig%u bound to %s / %s",
+   g_snprintf(result.detail, sizeof(result.detail),
+              "vrig%u bound to %s / %s",
               req->slot, req->profile, req->rig);
+   goto done;
+
+rollback:
+   /* A failed second attachment must not leave the first port retargeted.
+    * Restore the previous saved mapping when possible; otherwise fail closed. */
+   for (unsigned j = 0; j < 2; j++) {
+      if (!changed[j]) continue;
+      if (binding(names[j])) rr_sercom_disconnect(names[j]);
+      if (owned) {
+         char full[96];
+         g_snprintf(full, sizeof(full), "%s.%s@%u", saved_rig,
+                    j ? "gps-out" : "cat", j ? 4800 : 38400);
+         if (rr_sercom_attach(names[j], full, NULL)) {
+            serial_binding_t *b = binding(names[j]);
+            if (b) g_strlcpy(b->profile, saved_profile, sizeof(b->profile));
+         } else {
+            Log(LOG_WARN, "serial",
+                "vrig%u rollback: %s unavailable (fail closed)",
+                req->slot, names[j]);
+         }
+      }
+   }
+done:
+   g_free(saved_profile);
+   g_free(saved_rig);
 reply:
    rr_event_message_t response = {
       .name = RR_SERCOM_VRIG_BIND_RESULT,
