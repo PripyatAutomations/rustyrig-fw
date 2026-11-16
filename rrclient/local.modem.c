@@ -43,6 +43,12 @@ static volatile gint modem_tx_active;
 bool rr_local_modem_tx_in_progress(void) {
    return g_atomic_int_get(&modem_tx_active)!=0;
 }
+static void modem_refresh_tx_active(void) {
+   gboolean any=FALSE;
+   for(unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++)
+      if(decoders[i].tx_running){any=TRUE;break;}
+   g_atomic_int_set(&modem_tx_active,any);
+}
 
 static void append_text(decoder_t *d, const char *bytes, size_t n) {
    for (size_t i = 0; i < n; i++) {
@@ -68,7 +74,7 @@ static void modem_release_ptt(unsigned index) {
    }
    d->ptt_owned=false;
    d->tx_running=false;
-   g_atomic_int_set(&modem_tx_active,0);
+   modem_refresh_tx_active();
    d->pending_text[0]=0;
    d->ptt_deadline_us=d->release_at_us=0;
 }
@@ -209,7 +215,7 @@ static gboolean poll_decoders(gpointer unused) {
                          MSG_DONTWAIT|MSG_NOSIGNAL);
          if(nw==(ssize_t)strlen(command)) {
             d->tx_running=true;
-            g_atomic_int_set(&modem_tx_active,1);
+            modem_refresh_tx_active();
             d->pending_text[0]=0;
             d->ptt_deadline_us=now_us+180000000; /* finite TX, server TOT remains authoritative */
          } else {
@@ -354,7 +360,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->tx_target[0] = d->ptt_target[0] = 0;
    d->tx_enabled = req->tx_enabled;
    d->ptt_owned=d->tx_running=d->tx_was_allowed=false;
-   g_atomic_int_set(&modem_tx_active,0);
+   modem_refresh_tx_active();
    d->pending_text[0]=0;
    d->ptt_deadline_us=d->release_at_us=0;
    d->drops = d->received = 0;
@@ -436,12 +442,12 @@ static void request_received(const rr_event_message_t *message, void *unused) {
    else if (req->action == RR_LOCAL_MODEM_SET_TX_ENABLED) {
       if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX) {
          decoder_t *d = &decoders[req->slot - 1];
+         if(d->active && !req->tx_enabled) {
+            modem_cancel_waveform(d);
+            modem_release_ptt(req->slot-1);
+         }
          g_mutex_lock(&decoder_lock);
          if (d->active) {
-            if(!req->tx_enabled) {
-               modem_cancel_waveform(d);
-               modem_release_ptt(req->slot-1);
-            }
             d->tx_enabled=req->tx_enabled;
             d->tx_was_allowed=false;
             if (!d->tx_enabled)
@@ -478,14 +484,14 @@ static void request_received(const rr_event_message_t *message, void *unused) {
           memchr(req->source, 0, sizeof(req->source)) &&
           (req->source[0] == 0 || source_present(req->source))) {
          decoder_t *d = &decoders[req->slot - 1];
+         char *target = req->action == RR_LOCAL_MODEM_TX_ROUTE ?
+                        d->tx_target : d->ptt_target;
+         if(d->active && d->ptt_owned && strcmp(target,req->source)) {
+            modem_cancel_waveform(d);
+            modem_release_ptt(req->slot-1);
+         }
          g_mutex_lock(&decoder_lock);
          if (d->active && d->tx_enabled) {
-            char *target = req->action == RR_LOCAL_MODEM_TX_ROUTE ?
-                           d->tx_target : d->ptt_target;
-            if(d->ptt_owned && strcmp(target,req->source)) {
-               modem_cancel_waveform(d);
-               modem_release_ptt(req->slot-1);
-            }
             g_strlcpy(target, req->source, 64);
             g_snprintf(last_status, sizeof(last_status),
                        "Modem %u %s route: %s (configuration only)",
