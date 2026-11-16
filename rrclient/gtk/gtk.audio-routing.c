@@ -2168,8 +2168,9 @@ static void routing_compact_set_effect(routing_compact_control_t *control,
    gtk_widget_set_sensitive(control->value, TRUE);
    routing_compact_save(control);
 }
-/* The UI deliberately presents only parameters which the core currently
- * supports; LV2 parameters will join this selector once live port IPC exists. */
+/* Compact controls can target existing mixer gains or locally configured
+ * LV2 numeric/boolean properties; server-side effect discovery and mesh
+ * parameter transport are separate work. */
 static void routing_compact_create(GtkButton *button, gpointer unused) {
    (void)unused;
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
