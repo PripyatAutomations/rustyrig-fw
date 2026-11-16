@@ -1276,7 +1276,7 @@ static void room_vfo_title_select(char vfo) {
       return;
    }
 
-   if (!ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1) {
+   if (!rrclient_active_connection() || rrclient_connection_state(rrclient_selected_server()) != 1) {
       return;
    }
    char command[16];
@@ -1291,7 +1291,7 @@ static void room_vfo_title_select(char vfo) {
    dict_add(request, "talk.msg_type", "pub");
    dict_add(request, "talk.target", room);
    dict_add(request, "talk.data", command);
-   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_active_connection(), request, WEBSOCKET_OP_TEXT);
    dict_free(request);
 }
 
