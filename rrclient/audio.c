@@ -484,6 +484,9 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
    (void)name;
    (void)user_data;
    rrclient_dcc_capture(samples, len);
+   /* A modem owns the encoder while its waveform is being transmitted.
+    * Do not mix live microphone speech into digital-mode samples. */
+   if(rr_local_modem_tx_in_progress()) return;
    char target[64];
    audio_mic_tx_target_copy(target);
    /* An explicit patch cannot bypass active TX media selection or PTT. */
