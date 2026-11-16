@@ -735,6 +735,16 @@ static bool ws_send_frame(rrconn_t *sender, rrconn_t *cptr, struct mg_str *msg_d
    return true;
 }
 
+/* Audio TX uses the same framed WS/RTP media routing as the established
+ * client sender. In particular, ws_send_frame consults the direct-media
+ * hook and applies bounded real-time backpressure. */
+bool rrclient_send_tx_audio_frame(rrconn_t *connection,
+                                  const void *frame,size_t length,bool setup) {
+   if(!connection || !connection->is_ws || !connection->authenticated ||
+      !frame || length<RR_BINFRAME_HDR_LEN) return false;
+   struct mg_str msg={.buf=(char *)frame,.len=length};
+   return ws_send_frame(NULL,connection,&msg,WEBSOCKET_OP_BINARY,setup);
+}
 bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *cptr, struct mg_str *data, int opcode) {
    return ws_send_frame(sender, cptr, data, opcode, false);
 }
