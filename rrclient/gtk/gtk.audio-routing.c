@@ -1323,8 +1323,12 @@ static void routing_compact_sync(void) {
    for (guint i = 0; i < routing_compact_controls->len; i++) {
       routing_compact_control_t *control =
          g_ptr_array_index(routing_compact_controls, i);
-      gboolean found = control->effect_worker[0] != 0;
-      if (!found && graph_snapshot)
+      double pin_x = 0., pin_y = 0.;
+      gboolean found = control->effect_worker[0] &&
+         routing_effect_parameter_location(control->effect_worker,
+            control->effect_element, control->effect_property,
+            &pin_x, &pin_y);
+      if (!found && !control->effect_worker[0] && graph_snapshot)
          for (guint n = 0; n < graph_snapshot->node_count; n++)
             if (!strcmp(graph_snapshot->nodes[n].id, control->id) &&
                 !graph_missing_since[n]) {
@@ -2322,6 +2326,7 @@ static void routing_effect_refresh(void) {
       }
       y += routing_effect_height(block) + 24.;
    }
+   routing_compact_sync();
    graph_canvas_update_size();
 }
 static void routing_effect_bounds(double *width, double *height) {
