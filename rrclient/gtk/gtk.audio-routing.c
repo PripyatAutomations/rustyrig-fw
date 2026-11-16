@@ -38,6 +38,7 @@ static gboolean graph_profile_updating;
 static void graph_profile_modified(void);
 static void graph_profile_update_buttons(void);
 static rr_audio_graph_snapshot_t *graph_snapshot;
+static rr_audio_stream_snapshot_t *routing_rx_snapshot;
 struct routing_compact_control;
 static void routing_compact_sync(void);
 static void routing_compact_draw(cairo_t *cr);
@@ -355,6 +356,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
        g_str_has_prefix(origin_node->id, "proc.lv2.");
    gboolean from_lv2_input = graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "proc.lv2.");
+   gboolean from_mic = !graph_drag_mixer &&
+       !strcmp(origin_node->id, "src.client.dsp0");
    gboolean from_modem_tx = !graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "modem.") &&
        g_str_has_suffix(origin_node->id, ".tx");
@@ -384,7 +387,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
           !strcmp(n->id, "rx.mix");
       gboolean lv2_reverse_input = from_lv2_input && routing_modem_source(n);
       gboolean lv2_connection = to_lv2 || lv2_output || lv2_reverse_input;
-      gboolean rig_target = from_modem_tx && n->type == RR_AG_SINK &&
+      gboolean rig_target = (from_modem_tx || from_mic) &&
+          n->type == RR_AG_SINK &&
           g_str_has_prefix(n->id, "rig.") &&
           g_str_has_suffix(n->id, ".tx");
       gboolean valid = rig_target || modem_connection || lv2_connection ||
@@ -402,7 +406,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       double nx = routing_node_x(n) +
           (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (rig_target ?
-         (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
+         (from_modem_tx && graph_drag_channel ?
+          RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
             (to_lv2 && n->channels == 2) ||
             (lv2_reverse_input && origin_node->channels == 2) ?
@@ -2889,10 +2894,12 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       double px = routing_node_x(n) + RR_GTK_GRAPH_NODE_W;
       double py = routing_node_y(n);
-      if (graph_snapshot->nodes[i].read_only) continue;
+      if (graph_snapshot->nodes[i].read_only &&
+          strcmp(n->id, "src.client.dsp0")) continue;
 
-      for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (!inactive && hypot(x - px, y - py - (ch ? 79 : 60)) <= radius) {
+      for (gint ch = 0 ; ch < (!strcmp(n->id, "src.client.dsp0") ? 1 : 2) ; ch++) {
+         double port_y = !strcmp(n->id, "src.client.dsp0") ? 68. : (ch ? 79. : 60.);
+         if (!inactive && hypot(x - px, y - py - port_y) <= radius) {
             *source = (gint) i;
             *channel = ch;
             *mixer = FALSE;
@@ -3289,6 +3296,19 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
       } else if (graph_drag_rig_target >= 0 && graph_drag_source >= 0) {
          const rr_ag_view_node_t *src = &graph_snapshot->nodes[graph_drag_source];
          const rr_ag_view_node_t *dst = &graph_snapshot->nodes[graph_drag_rig_target];
+         if (!strcmp(src->id, "src.client.dsp0") && routing_rx_snapshot) {
+            /* Resolve the drawn rig sink back to the stable RX media UUID.
+             * The core validates actual TX capability before accepting it. */
+            for (guint j = 0; j < routing_rx_snapshot->count; j++) {
+               const struct rrclient_rx_stream *rx = &routing_rx_snapshot->streams[j];
+               char sink_id[64];
+               g_snprintf(sink_id, sizeof(sink_id), "rig.%08x.tx", g_str_hash(rx->id));
+               if (strcmp(dst->id, sink_id)) continue;
+               audio_request_mic_tx_route(rx->uuid);
+               routing_queue();
+               break;
+            }
+         }
          unsigned slot = 0;
          if (sscanf(src->id, "modem.%u.tx", &slot) == 1 &&
              slot >= 1 && slot <= RR_LOCAL_MODEM_MAX) {
@@ -3721,6 +3741,8 @@ static void routing_snapshot_event(const rr_event_message_t *message, void *unus
    if (snapshot->count > 128 || message->length != sizeof(*snapshot) + (size_t)snapshot->count * sizeof(struct rrclient_rx_stream)) {
       return;
    }
+   g_free(routing_rx_snapshot);
+   routing_rx_snapshot = g_memdup2(snapshot, message->length);
    snapshot_waiting = false;
    snapshot_sent_at = 0;
 }
@@ -3961,6 +3983,7 @@ void gtk_audio_routing_shutdown(void) {
       event_off_token(snapshot_token);
       snapshot_token = 0;
    }
+   g_clear_pointer(&routing_rx_snapshot, g_free);
    snapshot_waiting = false;
    snapshot_sent_at = 0;
 
