@@ -239,7 +239,7 @@ const char *rr_sercom_binding(const char *name) {
 
 /* Bind host tunnels and CAT commands to their originating server. */
 static rrconn_t *binding_connection(const serial_binding_t *b) {
-   return b->profile[0] ? rrclient_connection_find(b->profile) : ws_conn;
+   return b->profile[0] ? rrclient_connection_find(b->profile) : rrclient_active_connection();
 }
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    serial_binding_t *b = binding(name);
@@ -523,7 +523,7 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
    }
 
    /* After redirecting ttyGPS, immediately publish the new rig's last known NMEA so loggers never retain the previous transmitter site. */
-   if (rrclient_connection_find(profile) == ws_conn) {
+   if (rrclient_connection_find(profile) == rrclient_active_connection()) {
       rrclient_media_emit_gps_for_room(room);
    }
 }
@@ -827,7 +827,7 @@ static void host_connection(const char *event, const char *data, rrconn_t *clien
    }
 }
 static void host_message(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (client && client != ws_conn) {
+   if (client && client != rrclient_active_connection()) {
       return;
    }
    dict *d = json2dict(data);
@@ -1392,7 +1392,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    }
 
    if (host_binding(b) || b->radio[0] || !strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out")) {
-      const char *profile = rrclient_connection_name(ws_conn);
+      const char *profile = rrclient_connection_name(rrclient_active_connection());
 
       if (profile) {
          strlcpy(b->profile, profile, sizeof(b->profile));
@@ -1883,7 +1883,8 @@ bool cmd_sercom(int argc, char **args) {
          rr_serial_foreach(list_port, NULL);
       }
 
-      if (!ws_conn) {
+      rrconn_t *selected = rrclient_active_connection();
+      if (!selected) {
          ui_print(NULL, "Not connected; server serial ports unavailable");
 
          return remote;
@@ -1896,7 +1897,7 @@ bool cmd_sercom(int argc, char **args) {
       ui_print(NULL, "Available server serial ports:");
       dict_add(d, "msg.type", "serial");
       dict_add(d, "serial.cmd", "list");
-      bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+      bool sent = ws_send_dict(NULL, selected, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
 
       return !sent;
