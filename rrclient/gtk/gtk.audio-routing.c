@@ -581,6 +581,37 @@ static gboolean routing_graph_scroll(GtkWidget *widget, GdkEventScroll *event, g
    return TRUE;
 }
 
+/* Wheel, touch, and popup share one zoom multiplier. */
+static GtkWidget *routing_zoom_slider;
+static gboolean routing_zoom_sync;
+static void routing_zoom_set(double factor) {
+   graph_wheel_zoom=CLAMP(factor,.10,6.);
+   if (routing_zoom_slider && !routing_zoom_sync) {
+      routing_zoom_sync=TRUE;
+      gtk_range_set_value(GTK_RANGE(routing_zoom_slider),graph_wheel_zoom);
+      routing_zoom_sync=FALSE;
+   }
+   graph_canvas_update_size();
+}
+static void routing_zoom_step(GtkButton *button, gpointer unused) {
+   (void)unused;
+   int dir=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button),"zoom-dir"));
+   routing_zoom_set(graph_wheel_zoom*(dir>0 ? 1.25 : 1./1.25));
+}
+static void routing_zoom_slider_changed(GtkRange *range, gpointer unused) {
+   (void)unused;
+   if (!routing_zoom_sync) routing_zoom_set(gtk_range_get_value(range));
+}
+static void routing_zoom_reset_clicked(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   routing_zoom_set(1.);
+   graph_pan_x=graph_pan_y=0.;
+}
+static void routing_zoom_popup(GtkButton *button, gpointer unused) {
+   (void)unused;
+   GtkWidget *popover=g_object_get_data(G_OBJECT(button),"zoom-popover");
+   if (popover) gtk_popover_popup(GTK_POPOVER(popover));
+}
 static guint routing_watchdog_source;
 static gint64 snapshot_sent_at;
 static rr_event_token_t show_token, snapshot_token, graph_token, routes_token;
@@ -4351,6 +4382,40 @@ void gtk_audio_graph_present(void) {
       graph_canvas_update_size();
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(routing_page), scroller, TRUE, TRUE, 0);
+      /* Bottom-right, immediately above the tab strip; finger-sized targets. */
+      GtkWidget *zoom_bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
+      gtk_widget_set_halign(zoom_bar,GTK_ALIGN_END);
+      GtkWidget *zoom_out=gtk_button_new_from_icon_name("zoom-out-symbolic",GTK_ICON_SIZE_BUTTON);
+      GtkWidget *zoom_more=gtk_button_new_from_icon_name("zoom-in-symbolic",GTK_ICON_SIZE_BUTTON);
+      GtkWidget *zoom_popup_button=gtk_button_new_with_label("Zoom");
+      GtkWidget *zoom_reset=gtk_button_new_with_label("100%");
+      GtkWidget *zoom_buttons[]={zoom_out,zoom_popup_button,zoom_more,zoom_reset};
+      for (guint i=0;i<G_N_ELEMENTS(zoom_buttons);i++) {
+         gtk_widget_set_size_request(zoom_buttons[i],52,48);
+         gtk_box_pack_start(GTK_BOX(zoom_bar),zoom_buttons[i],FALSE,FALSE,0);
+      }
+      g_object_set_data(G_OBJECT(zoom_out),"zoom-dir",GINT_TO_POINTER(-1));
+      g_object_set_data(G_OBJECT(zoom_more),"zoom-dir",GINT_TO_POINTER(1));
+      g_signal_connect(zoom_out,"clicked",G_CALLBACK(routing_zoom_step),NULL);
+      g_signal_connect(zoom_more,"clicked",G_CALLBACK(routing_zoom_step),NULL);
+      g_signal_connect(zoom_reset,"clicked",G_CALLBACK(routing_zoom_reset_clicked),NULL);
+      gtk_widget_set_tooltip_text(zoom_reset,"Reset zoom without moving blocks");
+      GtkWidget *popover=gtk_popover_new(zoom_popup_button);
+      GtkWidget *pop_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,8);
+      gtk_container_set_border_width(GTK_CONTAINER(pop_box),12);
+      routing_zoom_slider=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,.10,6.,.05);
+      gtk_widget_set_size_request(routing_zoom_slider,230,44);
+      gtk_scale_set_draw_value(GTK_SCALE(routing_zoom_slider),TRUE);
+      gtk_range_set_value(GTK_RANGE(routing_zoom_slider),graph_wheel_zoom);
+      gtk_box_pack_start(GTK_BOX(pop_box),routing_zoom_slider,FALSE,FALSE,0);
+      gtk_container_add(GTK_CONTAINER(popover),pop_box);
+      g_signal_connect(routing_zoom_slider,"value-changed",
+                       G_CALLBACK(routing_zoom_slider_changed),NULL);
+      g_object_set_data(G_OBJECT(zoom_popup_button),"zoom-popover",popover);
+      g_signal_connect(zoom_popup_button,"clicked",G_CALLBACK(routing_zoom_popup),NULL);
+      gtk_box_pack_start(GTK_BOX(routing_page),zoom_bar,FALSE,FALSE,2);
+      gtk_widget_show_all(pop_box);
+
       gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK |
          GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK |
          GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK | GDK_TOUCH_MASK);
