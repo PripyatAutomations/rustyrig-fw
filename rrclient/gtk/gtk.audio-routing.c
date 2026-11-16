@@ -2030,6 +2030,73 @@ static gboolean routing_compact_drag_release(double x, double y) {
  * collecting metadata; the live instance belongs to the fwdsp subprocess. */
 
 #ifdef RR_HAVE_GSTREAMER
+/* Discover numeric LV2 control metadata without ever starting the plugin
+ * in GTK. Both embedded and standalone fwdsp workers use this catalog. */
+static void routing_lv2_properties(GtkComboBoxText *choice, GHashTable *ports,
+                                   GstElement *element, const char *worker) {
+   guint count = 0;
+   GParamSpec **specs = g_object_class_list_properties(
+       G_OBJECT_GET_CLASS(element), &count);
+   for (guint j = 0; j < count; j++) {
+      GParamSpec *spec = specs[j];
+      if (!(spec->flags & G_PARAM_WRITABLE) ||
+          (spec->flags & G_PARAM_CONSTRUCT_ONLY)) continue;
+      routing_effect_port_t meta = {0};
+      g_strlcpy(meta.worker, worker, sizeof(meta.worker));
+      g_strlcpy(meta.element, GST_OBJECT_NAME(element), sizeof(meta.element));
+      g_strlcpy(meta.property, spec->name, sizeof(meta.property));
+      meta.step = .01;
+      if (G_IS_PARAM_SPEC_DOUBLE(spec)) {
+         GParamSpecDouble *v = G_PARAM_SPEC_DOUBLE(spec);
+         meta.low = v->minimum; meta.high = v->maximum;
+         meta.initial = v->default_value;
+      } else if (G_IS_PARAM_SPEC_FLOAT(spec)) {
+         GParamSpecFloat *v = G_PARAM_SPEC_FLOAT(spec);
+         meta.low = v->minimum; meta.high = v->maximum;
+         meta.initial = v->default_value;
+      } else if (G_IS_PARAM_SPEC_INT(spec)) {
+         GParamSpecInt *v = G_PARAM_SPEC_INT(spec);
+         meta.low = v->minimum; meta.high = v->maximum;
+         meta.initial = v->default_value; meta.step = 1.;
+      } else if (G_IS_PARAM_SPEC_UINT(spec)) {
+         GParamSpecUInt *v = G_PARAM_SPEC_UINT(spec);
+         meta.low = v->minimum; meta.high = v->maximum;
+         meta.initial = v->default_value; meta.step = 1.;
+      } else if (G_IS_PARAM_SPEC_BOOLEAN(spec)) {
+         GParamSpecBoolean *v = G_PARAM_SPEC_BOOLEAN(spec);
+         meta.low = 0.; meta.high = 1.; meta.initial = v->default_value;
+         meta.step = 1.;
+      } else continue;
+      if (!isfinite(meta.low) || !isfinite(meta.high) ||
+          meta.high <= meta.low) continue;
+      /* The launch description can override the plugin's default.
+       * Read that configured value, not merely GParamSpec's default. */
+      GValue actual = G_VALUE_INIT;
+      g_value_init(&actual, G_PARAM_SPEC_VALUE_TYPE(spec));
+      g_object_get_property(G_OBJECT(element), spec->name, &actual);
+      if (G_VALUE_HOLDS_DOUBLE(&actual))
+         meta.initial = g_value_get_double(&actual);
+      else if (G_VALUE_HOLDS_FLOAT(&actual))
+         meta.initial = g_value_get_float(&actual);
+      else if (G_VALUE_HOLDS_INT(&actual))
+         meta.initial = g_value_get_int(&actual);
+      else if (G_VALUE_HOLDS_UINT(&actual))
+         meta.initial = g_value_get_uint(&actual);
+      else if (G_VALUE_HOLDS_BOOLEAN(&actual))
+         meta.initial = g_value_get_boolean(&actual) ? 1. : 0.;
+      g_value_unset(&actual);
+      gchar *id = g_strdup_printf("E|%s|%s|%s",
+         meta.worker, meta.element, meta.property);
+      gchar *label = g_strdup_printf("%s / %s / %s",
+         meta.worker, meta.element, g_param_spec_get_nick(spec));
+      routing_effect_port_t *saved = g_new(routing_effect_port_t, 1);
+      *saved = meta;
+      g_hash_table_replace(ports, g_strdup(id), saved);
+      gtk_combo_box_text_append(choice, id, label);
+      g_free(label); g_free(id);
+   }
+   g_free(specs);
+}
 static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
    const struct { const char *config, *worker; } sources[] = {
       { "pipeline:sink.client.mix", "sink.client.dsp0" },
@@ -2052,73 +2119,29 @@ static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
          const char *provider = factory ? gst_plugin_feature_get_plugin_name(
              GST_PLUGIN_FEATURE(factory)) : NULL;
          if (g_strcmp0(provider, "lv2")) { g_value_reset(&value); continue; }
-         guint count = 0;
-         GParamSpec **specs = g_object_class_list_properties(
-             G_OBJECT_GET_CLASS(element), &count);
-         for (guint j = 0; j < count; j++) {
-            GParamSpec *spec = specs[j];
-            if (!(spec->flags & G_PARAM_WRITABLE) ||
-                (spec->flags & G_PARAM_CONSTRUCT_ONLY)) continue;
-            routing_effect_port_t meta = {0};
-            g_strlcpy(meta.worker, sources[s].worker, sizeof(meta.worker));
-            g_strlcpy(meta.element, GST_OBJECT_NAME(element), sizeof(meta.element));
-            g_strlcpy(meta.property, spec->name, sizeof(meta.property));
-            meta.step = .01;
-            if (G_IS_PARAM_SPEC_DOUBLE(spec)) {
-               GParamSpecDouble *v = G_PARAM_SPEC_DOUBLE(spec);
-               meta.low = v->minimum; meta.high = v->maximum;
-               meta.initial = v->default_value;
-            } else if (G_IS_PARAM_SPEC_FLOAT(spec)) {
-               GParamSpecFloat *v = G_PARAM_SPEC_FLOAT(spec);
-               meta.low = v->minimum; meta.high = v->maximum;
-               meta.initial = v->default_value;
-            } else if (G_IS_PARAM_SPEC_INT(spec)) {
-               GParamSpecInt *v = G_PARAM_SPEC_INT(spec);
-               meta.low = v->minimum; meta.high = v->maximum;
-               meta.initial = v->default_value; meta.step = 1.;
-            } else if (G_IS_PARAM_SPEC_UINT(spec)) {
-               GParamSpecUInt *v = G_PARAM_SPEC_UINT(spec);
-               meta.low = v->minimum; meta.high = v->maximum;
-               meta.initial = v->default_value; meta.step = 1.;
-            } else if (G_IS_PARAM_SPEC_BOOLEAN(spec)) {
-               GParamSpecBoolean *v = G_PARAM_SPEC_BOOLEAN(spec);
-               meta.low = 0.; meta.high = 1.; meta.initial = v->default_value;
-               meta.step = 1.;
-            } else continue;
-            if (!isfinite(meta.low) || !isfinite(meta.high) ||
-                meta.high <= meta.low) continue;
-            /* The launch description can override the plugin's default.
-             * Read that configured value, not merely GParamSpec's default. */
-            GValue actual = G_VALUE_INIT;
-            g_value_init(&actual, G_PARAM_SPEC_VALUE_TYPE(spec));
-            g_object_get_property(G_OBJECT(element), spec->name, &actual);
-            if (G_VALUE_HOLDS_DOUBLE(&actual))
-               meta.initial = g_value_get_double(&actual);
-            else if (G_VALUE_HOLDS_FLOAT(&actual))
-               meta.initial = g_value_get_float(&actual);
-            else if (G_VALUE_HOLDS_INT(&actual))
-               meta.initial = g_value_get_int(&actual);
-            else if (G_VALUE_HOLDS_UINT(&actual))
-               meta.initial = g_value_get_uint(&actual);
-            else if (G_VALUE_HOLDS_BOOLEAN(&actual))
-               meta.initial = g_value_get_boolean(&actual) ? 1. : 0.;
-            g_value_unset(&actual);
-            gchar *id = g_strdup_printf("E|%s|%s|%s",
-               meta.worker, meta.element, meta.property);
-            gchar *label = g_strdup_printf("%s / %s / %s",
-               meta.worker, meta.element, g_param_spec_get_nick(spec));
-            routing_effect_port_t *saved = g_new(routing_effect_port_t, 1);
-            *saved = meta;
-            g_hash_table_replace(ports, g_strdup(id), saved);
-            gtk_combo_box_text_append(choice, id, label);
-            g_free(label); g_free(id);
-         }
-         g_free(specs);
+         routing_lv2_properties(choice, ports, element, sources[s].worker);
          g_value_reset(&value);
       }
       if (G_VALUE_TYPE(&value)) g_value_unset(&value);
       gst_iterator_free(it);
       gst_object_unref(pipe);
+   }
+   /* Standalone effect instances are owned by Routing, not by a configured
+    * capture/playback pipeline. Inspect their factories using a temporary
+    * stopped element; "effect" is also the name inside their fwdsp child. */
+   for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
+      gchar *key = g_strdup_printf("audio.lv2.%u.factory", slot);
+      gchar *name = rrclient_database_setting_get(key);
+      g_free(key);
+      if (!name || !*name) { g_free(name); continue; }
+      GstElement *element = gst_element_factory_make(name, "effect");
+      if (element) {
+         gchar *worker = g_strdup_printf("proc.lv2.%u", slot);
+         routing_lv2_properties(choice, ports, element, worker);
+         g_free(worker);
+         gst_object_unref(element);
+      }
+      g_free(name);
    }
 }
 #else
