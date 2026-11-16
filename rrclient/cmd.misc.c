@@ -38,7 +38,7 @@ extern bool dying;
 extern time_t now;
 extern bool syslog_clear(void);
 extern const char *server_name; // remove this (connman.c)
-extern rrconn_t *ws_conn;
+
 extern const char *config_file;
 extern dict *cfg;
 extern dict *default_cfg;
@@ -339,7 +339,7 @@ bool cmd_qrz(int argc, char **args) {
    const char *qrz_pass = cfg_get("callsign-lookup:qrz-password");
 
    if (!qrz_user || !*qrz_user || !qrz_pass || !*qrz_pass) {
-      if (!ws_conn) {
+      if (!rrclient_connection_context()) {
          ui_print(ui_active_window_name(), "Callsign lookup is not configured locally and the server is disconnected");
          free(program);
 
@@ -351,7 +351,7 @@ bool cmd_qrz(int argc, char **args) {
       char request_data[256];
       snprintf(request_data, sizeof(request_data), "%s%s", args[1], no_cache ? " NOCACHE" : "");
       dict_add(request, "talk.data", request_data);
-      ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+      ws_send_dict(NULL, rrclient_connection_context(), request, WEBSOCKET_OP_TEXT);
       dict_free(request);
       ui_print(ui_active_window_name(), "Asking the server to look up %s", args[1]);
       free(program);
@@ -396,7 +396,7 @@ bool cmd_grid(int argc, char **args) {
    char *program = cfg_get_path("callsign-lookup:path");
 
    if (!program || !*program || !config_file || !*config_file) {
-      if (!ws_conn) {
+      if (!rrclient_connection_context()) {
          ui_print(ui_active_window_name(), "Callsign lookup is not configured locally and the server is disconnected");
          free(program);
 
@@ -406,7 +406,7 @@ bool cmd_grid(int argc, char **args) {
       dict_add(request, "msg.type", "talk");
       dict_add(request, "talk.cmd", "grid");
       dict_add(request, "talk.data", args[1]);
-      ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+      ws_send_dict(NULL, rrclient_connection_context(), request, WEBSOCKET_OP_TEXT);
       dict_free(request);
       ui_print(ui_active_window_name(), "Asking the server for grid information for %s", args[1]);
       free(program);
