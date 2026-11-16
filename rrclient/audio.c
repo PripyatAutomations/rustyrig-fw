@@ -769,6 +769,226 @@ bool audio_set_room_route(const char *server, const char *room, char output) {
 
    return true;
 }
+/* Standalone Routing LV2 blocks. Each slot owns an independent fwdsp
+ * bidirectional worker; PCM is copied to a bounded queue so neither the
+ * network decode callback nor the mixer thread waits for a child process.
+ * Source isolation is fail-open: when the worker cannot accept PCM, the
+ * original source reaches the mixer unchanged. */
+typedef struct {
+   uint16_t bytes;
+   uint8_t pcm[4096];
+} rr_lv2_pcm_packet_t;
+typedef struct {
+   char name[32], source[64], factory[96];
+   GAsyncQueue *queue;
+   GThread *writer;
+   gint active, failed;
+   guint64 dropped;
+} rr_lv2_effect_t;
+static rr_lv2_effect_t lv2_effects[RR_AUDIO_EFFECT_MAX];
+static GMutex lv2_effect_lock;
+static gboolean lv2_effect_ready;
+static gboolean audio_lv2_source_present(const char *id) {
+   struct rrclient_rx_stream streams[128] = {0};
+   size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
+                      G_N_ELEMENTS(streams));
+   for (size_t i = 0; i < count; i++)
+      if (!strcmp(streams[i].id, id) &&
+          (!streams[i].source_rate_hz || streams[i].source_rate_hz == 16000))
+         return TRUE;
+   return FALSE;
+}
+static gboolean audio_lv2_factory_safe(const char *factory) {
+   if (!factory || !*factory || strlen(factory) > 90) return FALSE;
+   for (const unsigned char *c = (const unsigned char *)factory; *c; ++c)
+      if (!g_ascii_isalnum(*c) && *c != '-' && *c != '_') return FALSE;
+   return TRUE;
+}
+static void audio_lv2_result(const rr_lv2_effect_t *fx, const void *samples,
+                            size_t bytes, void *unused) {
+   (void)unused;
+   if (!fx || !rx_engine || !samples || !bytes || (bytes & 1) ||
+       !g_atomic_int_get((gint *)&fx->active)) return;
+   rr_audio_engine_push(rx_engine, fx->name,
+                        (const int16_t *)samples, bytes / sizeof(int16_t));
+}
+static gpointer audio_lv2_writer(gpointer user) {
+   rr_lv2_effect_t *fx = user;
+   for (;;) {
+      rr_lv2_pcm_packet_t *packet = g_async_queue_pop(fx->queue);
+      if (!packet) continue;
+      if (!packet->bytes) { g_free(packet); break; }
+      if (!fwdsp_processor_write(fx->name, packet->pcm, packet->bytes))
+         g_atomic_int_set(&fx->failed, TRUE);
+      g_free(packet);
+      if (g_atomic_int_get(&fx->failed)) break;
+   }
+   return NULL;
+}
+static gboolean audio_lv2_feed(const char *source, const void *samples,
+                               size_t bytes) {
+   if (!lv2_effect_ready || !source || !samples || !bytes ||
+       bytes > sizeof(((rr_lv2_pcm_packet_t *)0)->pcm) || (bytes & 1))
+      return FALSE;
+   if (!g_mutex_trylock(&lv2_effect_lock)) return FALSE;
+   gboolean accepted = FALSE;
+   for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++) {
+      rr_lv2_effect_t *fx = &lv2_effects[i];
+      if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed) ||
+          !fx->queue || strcmp(fx->source, source)) continue;
+      if (g_async_queue_length(fx->queue) >= 8) {
+         fx->dropped++;
+         continue;
+      }
+      rr_lv2_pcm_packet_t *packet = g_malloc(sizeof(*packet));
+      packet->bytes = (uint16_t)bytes;
+      memcpy(packet->pcm, samples, bytes);
+      g_async_queue_push(fx->queue, packet);
+      accepted = TRUE;
+      break; /* One live insert per source in this first graph version. */
+   }
+   g_mutex_unlock(&lv2_effect_lock);
+   return accepted;
+}
+static void audio_lv2_stop(unsigned slot, gboolean forget) {
+   if (!slot || slot > RR_AUDIO_EFFECT_MAX) return;
+   rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+   g_mutex_lock(&lv2_effect_lock);
+   g_atomic_int_set(&fx->active, FALSE);
+   GAsyncQueue *queue = fx->queue;
+   GThread *writer = fx->writer;
+   fx->writer = NULL;
+   if (queue && writer) {
+      rr_lv2_pcm_packet_t *stop = g_malloc0(sizeof(*stop));
+      g_async_queue_push(queue, stop);
+   }
+   g_mutex_unlock(&lv2_effect_lock);
+   if (writer) g_thread_join(writer);
+   if (fx->name[0]) {
+      fwdsp_processor_stop(fx->name);
+      if (rx_engine) rr_audio_engine_remove_stream(rx_engine, fx->name);
+   }
+   if (queue) {
+      rr_lv2_pcm_packet_t *remaining;
+      while ((remaining = g_async_queue_try_pop(queue))) g_free(remaining);
+      g_async_queue_unref(queue);
+   }
+   g_mutex_lock(&lv2_effect_lock);
+   fx->queue = NULL;
+   fx->source[0] = fx->factory[0] = fx->name[0] = 0;
+   g_atomic_int_set(&fx->failed, FALSE);
+   g_mutex_unlock(&lv2_effect_lock);
+   if (forget) {
+      char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.source", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
+   }
+}
+static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
+   if (!req || !audio_enabled || !rx_engine ||
+       !audio_lv2_factory_safe(req->factory) ||
+       !audio_lv2_source_present(req->source)) return FALSE;
+   guint slot = req->slot;
+   if (!slot) {
+      for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
+         if (!g_atomic_int_get(&lv2_effects[i].active) &&
+             !lv2_effects[i].name[0]) { slot = i + 1; break; }
+   }
+   if (!slot || slot > RR_AUDIO_EFFECT_MAX) return FALSE;
+   for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
+      if (g_atomic_int_get(&lv2_effects[i].active) &&
+          !strcmp(lv2_effects[i].source, req->source))
+         return FALSE; /* Never silently fan out or duplicate a source. */
+   audio_lv2_stop(slot, FALSE);
+   rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+   g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
+   g_strlcpy(fx->source, req->source, sizeof(fx->source));
+   g_strlcpy(fx->factory, req->factory, sizeof(fx->factory));
+   /* S16 16k mono is the current narrowband tap contract. Converters on
+    * each side allow LV2 plugins with internal float/stereo requirements. */
+   char *pipeline = g_strdup_printf(
+      "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+      "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
+      "queue max-size-buffers=8 leaky=downstream ! audioconvert ! audioresample ! "
+      "%s name=effect ! audioconvert ! audioresample ! "
+      "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
+      "appsink name=processor-sink sync=false max-buffers=8 drop=true",
+      req->factory);
+   if (!audio_local_rx_start(fx->name)) {
+      g_free(pipeline); fx->name[0] = 0; return FALSE;
+   }
+   if (!fwdsp_processor_start(fx->name, pipeline,
+                              (fwdsp_processor_output_cb)audio_lv2_result, fx)) {
+      audio_local_rx_stop(fx->name);
+      fx->name[0] = 0;
+      g_free(pipeline);
+      return FALSE;
+   }
+   g_free(pipeline);
+   fx->queue = g_async_queue_new();
+   g_atomic_int_set(&fx->failed, FALSE);
+   g_atomic_int_set(&fx->active, TRUE);
+   fx->writer = g_thread_new("lv2-input", audio_lv2_writer, fx);
+   char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
+   rrclient_database_setting_set(key, req->factory); g_free(key);
+   key = g_strdup_printf("audio.lv2.%u.source", slot);
+   rrclient_database_setting_set(key, req->source); g_free(key);
+   Log(LOG_INFO, "audio.lv2", "Started independent effect %u: %s from %s",
+       slot, req->factory, req->source);
+   return TRUE;
+}
+static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
+   (void)unused;
+   if (!msg || !msg->payload || msg->length != sizeof(rr_audio_effect_request_t))
+      return;
+   rr_audio_effect_request_t req;
+   memcpy(&req, msg->payload, sizeof(req));
+   if (!memchr(req.factory, 0, sizeof(req.factory)) ||
+       !memchr(req.source, 0, sizeof(req.source))) return;
+   if (req.action == 'A') {
+      if (!audio_lv2_start(&req))
+         Log(LOG_WARN, "audio.lv2", "Cannot start LV2 effect %s on %s",
+             req.factory, req.source);
+   } else if (req.action == 'D') {
+      audio_lv2_stop(req.slot, TRUE);
+   } else if (req.action == 'R' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
+      rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
+      if (fx->factory[0] && audio_lv2_source_present(req.source)) {
+         char factory[96];
+         g_strlcpy(factory, fx->factory, sizeof(factory));
+         g_strlcpy(req.factory, factory, sizeof(req.factory));
+         audio_lv2_start(&req);
+      }
+   }
+   event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
+   event_emit("client.audio.route.changed", NULL, NULL);
+}
+void audio_request_effect_block(const rr_audio_effect_request_t *req) {
+   if (!req) return;
+   rr_event_message_t msg = {
+      .name = RRCLIENT_AUDIO_EFFECT_REQUEST,
+      .payload = req, .length = sizeof(*req)
+   };
+   event_emit_message(&msg);
+}
+static void audio_lv2_restore(void) {
+   for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
+      char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
+      char *factory = rrclient_database_setting_get(key); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.source", slot);
+      char *source = rrclient_database_setting_get(key); g_free(key);
+      if (factory && *factory && source && *source) {
+         rr_audio_effect_request_t req = {.action = 'A', .slot = slot};
+         g_strlcpy(req.factory, factory, sizeof(req.factory));
+         g_strlcpy(req.source, source, sizeof(req.source));
+         /* Sources may not have connected yet. The UI retains the slot and
+          * a later inventory update attempts a guarded activation. */
+         audio_lv2_start(&req);
+      }
+      g_free(factory); g_free(source);
+   }
+}
 static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
    (void)name;
    rx_route_t *route = user;
