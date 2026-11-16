@@ -2155,6 +2155,7 @@ static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
 typedef struct {
    char *id;
    char worker[64], element[96];
+   gboolean standalone;
    GPtrArray *ports; /* routing_effect_port_t, copied from registry metadata */
 } routing_effect_block_t;
 static GPtrArray *routing_effect_blocks;
@@ -2171,12 +2172,14 @@ static guint routing_effect_bottom_count(const routing_effect_block_t *block) {
    return MIN(block->ports->len, 3u);
 }
 static double routing_effect_width(const routing_effect_block_t *block) {
+   if (block->standalone) return RR_GTK_GRAPH_NODE_W;
    guint bottom = routing_effect_bottom_count(block);
    guint top = block->ports->len - bottom;
    return MAX(ROUTING_EFFECT_W, 2. * ROUTING_EFFECT_MARGIN +
               MAX(bottom, top) * ROUTING_EFFECT_SLOT);
 }
 static double routing_effect_height(const routing_effect_block_t *block) {
+   if (block->standalone) return RR_GTK_GRAPH_NODE_H;
    return block->ports->len > 3 ? 112. : 90.;
 }
 /* Shared by rendering, hit-testing and blue-wire endpoints. */
@@ -2234,7 +2237,9 @@ static void routing_effect_refresh(void) {
          block = g_new0(routing_effect_block_t, 1);
          g_strlcpy(block->worker, port->worker, sizeof(block->worker));
          g_strlcpy(block->element, port->element, sizeof(block->element));
-         block->id = g_strdup_printf("lv2.%s.%s", block->worker, block->element);
+         block->standalone = g_str_has_prefix(block->worker, "proc.lv2.");
+         block->id = block->standalone ? g_strdup(block->worker) :
+            g_strdup_printf("lv2.%s.%s", block->worker, block->element);
          block->ports = g_ptr_array_new_with_free_func(g_free);
          g_ptr_array_add(routing_effect_blocks, block);
       }
@@ -2249,7 +2254,7 @@ static void routing_effect_refresh(void) {
       routing_effect_block_t *block = g_ptr_array_index(routing_effect_blocks, i);
       g_ptr_array_sort(block->ports, routing_effect_port_cmp);
       routing_position_t *pos = routing_position(block->id);
-      if (!pos->pinned && !pos->x && !pos->y) {
+      if (!block->standalone && !pos->pinned && !pos->x && !pos->y) {
          pos->x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X * 5.;
          pos->y = y;
       }
@@ -2262,6 +2267,7 @@ static void routing_effect_bounds(double *width, double *height) {
    for (guint i = 0; i < routing_effect_blocks->len; i++) {
       const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
       const routing_position_t *pos = routing_position(b->id);
+      if (b->standalone) continue; /* Already measured as a real PCM node. */
       *width = MAX(*width, pos->x + routing_effect_width(b) + GRAPH_LAYOUT_MARGIN);
       *height = MAX(*height, pos->y + routing_effect_height(b) + GRAPH_LAYOUT_MARGIN);
    }
@@ -2306,18 +2312,22 @@ static void routing_effect_draw(cairo_t *cr) {
       const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
       const routing_position_t *pos = routing_position(b->id);
       double h = routing_effect_height(b);
-      cairo_rectangle(cr, pos->x, pos->y, routing_effect_width(b), h);
-      cairo_set_source_rgba(cr, .17, .19, .23, .95);
-      cairo_fill_preserve(cr);
-      cairo_set_source_rgb(cr, .50, .53, .60);
-      cairo_set_line_width(cr, 1.5);
-      cairo_stroke(cr);
+      if (!b->standalone)
+         cairo_rectangle(cr, pos->x, pos->y, routing_effect_width(b), h);
+      if (!b->standalone) {
+         cairo_set_source_rgba(cr, .17, .19, .23, .95);
+         cairo_fill_preserve(cr);
+         cairo_set_source_rgb(cr, .50, .53, .60);
+         cairo_set_line_width(cr, 1.5);
+         cairo_stroke(cr);
+      }
       cairo_set_source_rgb(cr, .92, .94, .97);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                              CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr, 11.);
       char title[105];
       g_snprintf(title, sizeof(title), "LV2  %.84s", b->element);
+      if (!b->standalone) {
       /* Top-edge ports claim the first label row. Keep the effect
        * identity centered between upper and lower control labels. */
       double heading_y = pos->y + (b->ports->len > 3 ? 56. : 22.);
@@ -2328,6 +2338,7 @@ static void routing_effect_draw(cairo_t *cr) {
                              CAIRO_FONT_WEIGHT_NORMAL);
       cairo_move_to(cr, pos->x + 13., heading_y + 14.);
       cairo_show_text(cr, b->worker);
+      }
       for (guint j = 0; j < b->ports->len; j++) {
          const routing_effect_port_t *port = g_ptr_array_index(b->ports, j);
          double px, py;
@@ -2353,6 +2364,7 @@ static gboolean routing_effect_press(double x, double y, gboolean dbl) {
    if (routing_effect_pin_at(x, y, &port)) return TRUE;
    for (gint i = (gint)routing_effect_blocks->len - 1; i >= 0; i--) {
       routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
+      if (b->standalone) continue; /* Main graph owns audio-block dragging. */
       routing_position_t *pos = routing_position(b->id);
       if (x < pos->x || x > pos->x + routing_effect_width(b) ||
           y < pos->y || y > pos->y + routing_effect_height(b)) continue;
