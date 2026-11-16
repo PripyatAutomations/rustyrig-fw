@@ -29,7 +29,6 @@
 
 extern bool dying;
 extern time_t now;
-extern rrconn_t *ws_conn;
 
 // /die <reason>: shutdown the server. Server requires a reason of at least
 // CHAT_MIN_REASON_LEN chars and reads it at talk.args.reason; msg.type must
@@ -46,7 +45,7 @@ bool cmd_die(int argc, char **args) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "die");
    dict_add(d, "talk.args.reason", args[1]);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
@@ -150,7 +149,7 @@ bool cmd_mute(int argc, char **args) {
       return true;
    }
 
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       return true;
    }
    dict *d = dict_new();
@@ -161,7 +160,7 @@ bool cmd_mute(int argc, char **args) {
    if (argc > 2 && args[2]) {
       dict_add(d, "talk.reason", args[2]);
    }
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
@@ -182,14 +181,14 @@ bool cmd_unmute(int argc, char **args) {
       return true;
    }
 
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       return true;
    }
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "unmute");
    dict_add(d, "talk.target", args[1]);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
@@ -370,7 +369,7 @@ bool cmd_syslog(int argc, char **args) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "syslog");
    dict_add(d, "talk.target", args[1]);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    ui_print(ui_active_window_name(), "\00308Host log streaming %s (server permitting)\017", args[1]);
@@ -393,7 +392,7 @@ bool cmd_restart(int argc, char **args) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "restart");
    dict_add(d, "talk.args.reason", args[1]);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
@@ -404,7 +403,7 @@ bool cmd_rehash(int argc, char **args) {
    (void)argc;
    (void)args;
 
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       ui_print(ui_active_window_name(), "\00304Not connected to a server!\017");
 
       return true;
@@ -413,7 +412,7 @@ bool cmd_rehash(int argc, char **args) {
    dict *d = dict_new();
    dict_add_ulong(d, "msg.ts", now);
    dict_add(d, "msg.type", "rehash");
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    ui_print(ui_active_window_name(), "Rehash requested from server");
@@ -465,7 +464,7 @@ bool cmd_quota(int argc, char **args) {
    if (tail[0]) {
       dict_add(d, "talk.data", tail);
    }
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
@@ -502,7 +501,7 @@ bool cmd_user(int argc, char **args) {
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "user");
    dict_add(d, "talk.data", data);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return false;
