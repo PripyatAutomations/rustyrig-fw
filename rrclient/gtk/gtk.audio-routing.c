@@ -3460,7 +3460,7 @@ static void routing_compact_set_effect(routing_compact_control_t *control,
 static void routing_compact_create(GtkButton *button, gpointer unused) {
    (void)unused;
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Pin Audio Control",
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Add Routing Control",
       GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       "_Cancel", GTK_RESPONSE_CANCEL, "_Add", GTK_RESPONSE_ACCEPT, NULL);
@@ -3484,6 +3484,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "horizontal", "Horizontal slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "vertical", "Vertical slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "knob", "Rotary knob");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "onair", "ON AIR indicator");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect green pin");
    routing_effect_choices(GTK_COMBO_BOX_TEXT(target), effect_ports);
@@ -3514,7 +3515,9 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(target));
       const char *channel = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear));
       const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(widget_kind));
-      if (id && channel && kind) {
+      if (kind && !strcmp(kind, "onair")) {
+         onair_add(NULL, NULL);
+      } else if (id && channel && kind) {
          gboolean effect = g_str_has_prefix(id, "E|");
          guint before = routing_compact_controls ? routing_compact_controls->len : 0;
          routing_compact_add(!effect && *id ? id + 1 : "",
@@ -4620,7 +4623,7 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_end(GTK_BOX(profiles), hidden_controls, FALSE, FALSE, 0);
       GtkWidget *pin_control = gtk_button_new_with_label("+ Control");
       gtk_widget_set_tooltip_text(pin_control,
-         "Create an independent control block; bind its green pin to a parameter");
+         "Add a slider, knob, or ON AIR indicator to the routing graph");
       g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), pin_control, FALSE, FALSE, 0);
       GtkWidget *add_effect = gtk_button_new_with_label("+ Effect");
@@ -4628,11 +4631,6 @@ void gtk_audio_graph_present(void) {
          "Add a standalone LV2 processor to Routing, hosted in its own fwdsp subprocess");
       g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), add_effect, FALSE, FALSE, 0);
-      GtkWidget *add_onair=gtk_button_new_with_label("+ ON AIR");
-      gtk_widget_set_tooltip_text(add_onair,
-         "Add a resizable lamp driven by manually connected confirmed local PTT state");
-      g_signal_connect(add_onair,"clicked",G_CALLBACK(onair_add),NULL);
-      gtk_box_pack_end(GTK_BOX(profiles),add_onair,FALSE,FALSE,0);
       GtkWidget *new_modem = gtk_button_new_with_label("+ Modem");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
