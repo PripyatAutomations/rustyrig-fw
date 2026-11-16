@@ -60,6 +60,14 @@ static char tx_codec[5] = {
 };
 
 static time_t tx_pcm_warned = 0;
+/* Capture and core can access the TX patch concurrently. */
+G_LOCK_DEFINE_STATIC(mic_tx_target);
+static char mic_tx_target[64] = "auto";
+static void audio_mic_tx_target_copy(char out[64]) {
+   G_LOCK(mic_tx_target);
+   g_strlcpy(out, mic_tx_target, 64);
+   G_UNLOCK(mic_tx_target);
+}
 
 static guint mixer_source;
 static GSource *rx_maintenance_source;
@@ -450,6 +458,12 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
    (void)name;
    (void)user_data;
    rrclient_dcc_capture(samples, len);
+   char target[64];
+   audio_mic_tx_target_copy(target);
+   /* An explicit patch cannot bypass active TX media selection or PTT. */
+   if (!strcmp(target, "none") ||
+       (strcmp(target, "auto") && !rrclient_media_rx_is_active_tx(target)))
+      return;
    char vfo[2] = {
       vfo_state_get_active(), '\0'
    };
@@ -1790,6 +1804,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       g_snprintf(tx, sizeof(tx), "rig.%08x.tx", g_str_hash(streams[i].id));
       rr_audio_graph_add_node(graph, tx, RR_AG_SINK);
       rr_audio_graph_set_health(graph, tx, RR_AG_STOPPED);
+      char mic_target[64];
+      audio_mic_tx_target_copy(mic_target);
+      if (rrclient_media_rx_is_active_tx(streams[i].uuid) &&
+          (!strcmp(mic_target, "auto") ||
+           !strcmp(mic_target, streams[i].uuid)))
+         rr_audio_graph_add_channel_link(graph, "src.client.dsp0", tx,
+                                        RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
       for (size_t j = 0; j < modem_count; j++) {
          char from[64];
          g_snprintf(from, sizeof(from), "modem.%u.tx", modems[j].slot);
@@ -2184,6 +2205,20 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          }
          break;
       }
+      case RR_AUDIO_CONTROL_MIC_TX_ROUTE: {
+         if (!memchr(req->stream, 0, sizeof(req->stream))) break;
+         if (strcmp(req->stream, "auto") && strcmp(req->stream, "none") &&
+             !rrclient_media_rx_has_tx(req->stream)) {
+            Log(LOG_WARN, "audio.tx", "TX route rejected: no matching transmit media channel");
+            break;
+         }
+         G_LOCK(mic_tx_target);
+         g_strlcpy(mic_tx_target, req->stream, sizeof(mic_tx_target));
+         G_UNLOCK(mic_tx_target);
+         rrclient_database_setting_set("audio.tx.mic.target", req->stream);
+         event_emit("client.audio.route.changed", NULL, NULL);
+         break;
+      }
       case RR_AUDIO_CONTROL_EFFECT_PARAMETER: {
          if (!memchr(req->stream, 0, sizeof(req->stream)) ||
              !memchr(req->element, 0, sizeof(req->element)) ||
@@ -2206,6 +2241,12 @@ static void audio_submit_control(const rr_audio_control_request_t *req) {
       .payload = req, .length = sizeof(*req)
    };
    event_emit_message(&message);
+}
+void audio_request_mic_tx_route(const char *rx_uuid) {
+   if (!rx_uuid || !*rx_uuid || strlen(rx_uuid) >= 64) return;
+   rr_audio_control_request_t req = {.kind = RR_AUDIO_CONTROL_MIC_TX_ROUTE};
+   g_strlcpy(req.stream, rx_uuid, sizeof(req.stream));
+   audio_submit_control(&req);
 }
 void audio_request_rx_volume(int percent) {
    rr_audio_control_request_t req = {
@@ -2266,6 +2307,13 @@ void audio_request_rx_stream_route(const char *id, char output) {
 }
 
 bool audio_init(void) {
+   char *saved_mic = rrclient_database_setting_get("audio.tx.mic.target");
+   if (saved_mic && *saved_mic && strlen(saved_mic) < sizeof(mic_tx_target)) {
+      G_LOCK(mic_tx_target);
+      g_strlcpy(mic_tx_target, saved_mic, sizeof(mic_tx_target));
+      G_UNLOCK(mic_tx_target);
+   }
+   g_free(saved_mic);
    // RX audio is routed by the frame header (stream id + codec) via the
    // full-frame event; see audio_full_frame_cb. The legacy payload-only
    // media.frame.audio event is deliberately not consumed: a frame would
