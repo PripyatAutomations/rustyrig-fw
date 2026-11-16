@@ -1096,6 +1096,50 @@ static GtkWidget *pipeline_page_new(void) {
 #endif
 }
 
+static void routing_lv2_remove_clicked(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "lv2-slot"));
+   if (!slot || slot > RR_AUDIO_EFFECT_MAX) return;
+   GtkWidget *parent = gtk_widget_get_toplevel(graph_canvas);
+   GtkWidget *dialog = gtk_message_dialog_new(
+      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+      "Remove LV2 effect %u and stop its subprocess?", slot);
+   gtk_dialog_add_buttons(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL,
+                          "_Remove", GTK_RESPONSE_ACCEPT, NULL);
+   gboolean remove = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT;
+   gtk_widget_destroy(dialog);
+   if (remove) {
+      rr_audio_effect_request_t req = {.action = 'D', .slot = slot};
+      audio_request_effect_block(&req);
+   }
+}
+static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, double gy) {
+   if (!graph_snapshot) return FALSE;
+   for (guint i = 0; i < graph_snapshot->node_count; i++) {
+      const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      if (!g_str_has_prefix(node->id, "proc.lv2.")) continue;
+      double x = routing_node_x(node), y = routing_node_y(node);
+      if (gx < x || gx > x + RR_GTK_GRAPH_NODE_W ||
+          gy < y || gy > y + RR_GTK_GRAPH_NODE_H) continue;
+      unsigned slot = 0;
+      if (sscanf(node->id, "proc.lv2.%u", &slot) != 1 ||
+          slot < 1 || slot > RR_AUDIO_EFFECT_MAX) return FALSE;
+      GtkWidget *menu = gtk_menu_new();
+      GtkWidget *remove = gtk_menu_item_new_with_label("Remove LV2 Effect…");
+      g_object_set_data(G_OBJECT(remove), "lv2-slot", GUINT_TO_POINTER(slot));
+      g_signal_connect(remove, "activate",
+         G_CALLBACK(routing_lv2_remove_clicked), NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), remove);
+      g_signal_connect_swapped(menu, "selection-done",
+                               G_CALLBACK(gtk_widget_destroy), menu);
+      gtk_widget_show_all(menu);
+      gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+      return TRUE;
+   }
+   return FALSE;
+}
 static void routing_add_effect(GtkButton *button, gpointer unused) {
    (void)unused;
 #ifdef RR_HAVE_GSTREAMER
@@ -2798,7 +2842,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
        graph_snapshot) {
       double gx, gy;
       return graph_pointer(event->x, event->y, &gx, &gy) &&
-             routing_modem_context_menu(event, gx, gy);
+             (routing_lv2_context_menu(event, gx, gy) ||
+              routing_modem_context_menu(event, gx, gy));
    }
    if (event->type == GDK_BUTTON_PRESS &&
        (event->button == GDK_BUTTON_MIDDLE ||
@@ -3500,8 +3545,10 @@ static void routing_live_changed(const char *event, const char *data, rrconn_t *
    (void)connection;
    (void)unused;
 
-   /* Refresh the graph on external routing edits without changing them. */
+   /* Refresh the GUI-owned control-port catalog after a worker is added,
+    * removed or rebound. Only view metadata is inspected on GTK. */
    if (graph_page && graph_canvas && gtk_widget_get_mapped(graph_page)) {
+      routing_effect_refresh();
       routing_queue();
    }
 }
