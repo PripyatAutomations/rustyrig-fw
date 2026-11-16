@@ -317,7 +317,12 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
       int x = CLAMP(saved->x, hard_min_x, hard_max_x);
       int y = CLAMP(saved->y, hard_min_y, hard_max_y);
 
-      if (p->loaded_state || panel_position_clear(p, x, y, panel_width, panel_height)) {
+      /* Legacy compact controls may have all persisted the same startup
+       * location. Keep genuine distinct placements, but reflow collisions
+       * with other initialized panels and persist the corrected geometry. */
+      gboolean compact = g_str_has_prefix(p->id, "audio-compact-");
+      if ((!compact && p->loaded_state) ||
+          panel_position_clear(p, x, y, panel_width, panel_height)) {
          gtk_widget_set_margin_start(p->frame, x);
          gtk_widget_set_margin_top(p->frame, y);
          panel_position_save(p, x, y);
@@ -1314,7 +1319,8 @@ gboolean rr_floating_panel_is_minimized(const RRFloatPanel *p) {
 }
 
 void rr_floating_panel_set_initial_position(RRFloatPanel *p, gint x, gint y) {
-   if (!p || p->loaded_state || p->ever_shown) return;
+   /* Used as a fallback when a legacy saved compact position overlaps. */
+   if (!p || p->ever_shown) return;
    p->initial_position_requested = TRUE;
    p->initial_x = MAX(0, x);
    p->initial_y = MAX(0, y);
