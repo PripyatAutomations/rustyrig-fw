@@ -226,7 +226,7 @@ static void routing_layout_auto(gboolean reset) {
       } else if (!strcmp(n->id, "hq.mix")) {
          x = GRAPH_LAYOUT_MARGIN + 3 * GRAPH_LAYOUT_GAP_X; y = hq_y;
       } else if (n->type == RR_AG_SINK) {
-         if (g_str_has_prefix(n->id, "modem.")) {
+         if (g_str_has_prefix(n->id, "modem")) {
             x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X;
             y = high_start_y + (high + isolated_row++) * GRAPH_LAYOUT_GAP_Y;
          } else {
@@ -614,7 +614,7 @@ static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
    unsigned value = 0;
    char tail = 0;
    if (n->type != RR_AG_SINK ||
-       sscanf(n->id, "modem.%u.rx%c", &value, &tail) != 1 ||
+       sscanf(n->id, "modem%u.rx%c", &value, &tail) != 1 ||
        value < 1 || value > RR_LOCAL_MODEM_MAX)
       return FALSE;
    *slot = value;
@@ -624,7 +624,7 @@ static gboolean routing_modem_source(const rr_ag_view_node_t *n) {
    return n->type == RR_AG_SOURCE && !n->read_only &&
           n->downstream_rate_hz <= 16000 && n->channels == 1 &&
           n->sample_format == RR_PCM_S16LE &&
-          !g_str_has_prefix(n->id, "modem.");
+          !g_str_has_prefix(n->id, "modem");
 }
 /* Convert the active rig graph alias back into a real PCM stream before
  * passing it to the core modem route API. */
@@ -669,7 +669,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    gboolean from_mic = !graph_drag_mixer &&
        !strcmp(origin_node->id, "src.client.dsp0");
    gboolean from_modem_tx = !graph_drag_mixer &&
-       g_str_has_prefix(origin_node->id, "modem.") &&
+       g_str_has_prefix(origin_node->id, "modem") &&
        g_str_has_suffix(origin_node->id, ".tx");
    const char *required_bus = graph_drag_mixer ? origin_node->id :
        (origin_node->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix");
@@ -754,7 +754,7 @@ static gboolean routing_gain_supported(const rr_ag_view_node_t *n) {
    /* Modem RX/TX and rig TX ports do not have controllable mixer
     * faders. In particular, showing +/- dB on a modem sink implies
     * a working gain stage that does not exist. */
-   if (g_str_has_prefix(n->id, "modem.") ||
+   if (g_str_has_prefix(n->id, "modem") ||
        !strcmp(n->id, "rig.sink") ||
        (g_str_has_prefix(n->id, "rig.") &&
         g_str_has_suffix(n->id, ".tx"))) return FALSE;
@@ -838,7 +838,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          .title = n->id, .subtitle =
             lv2_subtitles[i][0] ? lv2_subtitles[i] :
             n->rig[0] ? n->rig :
-            g_str_has_prefix(n->id, "modem.") ?
+            g_str_has_prefix(n->id, "modem") ?
             (source ? "Modem TX audio / PTT" : "Modem RX audio") :
             g_str_has_prefix(n->id, "rig.") ? "Rig TX audio / PTT" :
             n->type == RR_AG_PROCESSOR ? "Audio processor" :
@@ -846,7 +846,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             n->type == RR_AG_MIXER ? "Core PCM mixer" : "Audio source", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
-            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem.") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem.") && g_str_has_suffix(n->id, ".tx"),
+            n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem") && g_str_has_suffix(n->id, ".tx"),
             .ptt_input = g_str_has_prefix(n->id, "rig.") &&
              (g_str_has_suffix(n->id, ".tx") || !strcmp(n->id, "rig.sink")), .fwdsp =
             (n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")) ||
@@ -1004,10 +1004,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
              (graph_drag_mixer ? 0. : RR_GTK_GRAPH_NODE_W);
          double oy = routing_node_y(n) +
              (g_str_has_prefix(n->id, "proc.lv2.") && n->channels != 2 ? 68. :
-             (!graph_drag_mixer && g_str_has_prefix(n->id, "modem.") &&
+             (!graph_drag_mixer && g_str_has_prefix(n->id, "modem") &&
                g_str_has_suffix(n->id, ".tx") ?
                (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16 : 68.) :
-              graph_drag_mixer && g_str_has_prefix(n->id, "modem.") ? 68. :
+              graph_drag_mixer && g_str_has_prefix(n->id, "modem") ? 68. :
               graph_drag_channel ? 79. : 60.));
          gint source_index = -1;
          double snap_x = graph_drag_x, snap_y = graph_drag_y;
@@ -1021,7 +1021,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          if (snap) ex -= 9.;
          double cx = (sx + ex) / 2.;
          gboolean ptt_preview = !graph_drag_mixer &&
-             g_str_has_prefix(n->id, "modem.") &&
+             g_str_has_prefix(n->id, "modem") &&
              g_str_has_suffix(n->id, ".tx") && graph_drag_channel;
          cairo_set_source_rgba(cr, ptt_preview ? .96 : snap ? .45 : (graph_drag_channel ? .73 : .34),
                                 ptt_preview ? .20 : snap ? .95 : (graph_drag_channel ? .48 : .78),
@@ -1299,7 +1299,7 @@ static void routing_block_menu_items(GtkWidget *menu, const char *id,
       "Properties…","Auto Place","Reset Saved Position","Disconnect All"
    };
    for (guint i=0;i<G_N_ELEMENTS(labels);i++) {
-      if ((i==3 && !disconnect) || (i==0 && g_str_has_prefix(id,"modem."))) continue;
+      if ((i==3 && !disconnect) || (i==0 && g_str_has_prefix(id,"modem"))) continue;
       GtkWidget *item=gtk_menu_item_new_with_label(labels[i]);
       gtk_widget_set_size_request(item,-1,44);
       g_object_set_data_full(G_OBJECT(item),"routing-block-id",g_strdup(id),g_free);
@@ -1376,12 +1376,12 @@ static gboolean routing_modem_context_menu(GdkEventButton *event, double x, doub
    if (!graph_snapshot) return FALSE;
    for (gint i=(gint)graph_snapshot->node_count - 1; i>=0; i--) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      if (graph_missing_since[i] || !g_str_has_prefix(n->id, "modem.")) continue;
+      if (graph_missing_since[i] || !g_str_has_prefix(n->id, "modem")) continue;
       double nx = routing_node_x(n), ny = routing_node_y(n);
       if (x < nx || x > nx+RR_GTK_GRAPH_NODE_W ||
           y < ny || y > ny+RR_GTK_GRAPH_NODE_H) continue;
       unsigned slot=0;
-      if (sscanf(n->id, "modem.%u.", &slot) != 1) continue;
+      if (sscanf(n->id, "modem%u.", &slot) != 1) continue;
       GtkWidget *menu = gtk_menu_new();
       GtkWidget *properties=gtk_menu_item_new_with_label("Properties…");
       g_object_set_data(G_OBJECT(properties),"modem-slot",GUINT_TO_POINTER(slot));
@@ -3339,7 +3339,7 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
       routing_rate_label(n->downstream_rate_hz, to, sizeof(to));
       const char *format = n->sample_format == RR_PCM_F32LE ? "F32LE" :
                            n->sample_format == RR_PCM_S16LE ? "S16LE" : "unknown";
-      const char *type = g_str_has_prefix(n->id, "modem.") ?
+      const char *type = g_str_has_prefix(n->id, "modem") ?
                          "Modem port (TX/PTT authorization not implemented)" :
                          n->type == RR_AG_SOURCE ? "Source" :
                          n->type == RR_AG_SINK ? "Playback sink" :
@@ -3379,7 +3379,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *modem = &graph_snapshot->nodes[i];
       if (!graph_missing_since[i] &&
-          g_str_has_prefix(modem->id, "modem.") &&
+          g_str_has_prefix(modem->id, "modem") &&
           g_str_has_suffix(modem->id, ".tx")) {
          double px = routing_node_x(modem) + RR_GTK_GRAPH_NODE_W;
          double py = routing_node_y(modem);
@@ -3949,13 +3949,13 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
             }
          }
          unsigned slot = 0;
-         if (sscanf(src->id, "modem.%u.tx", &slot) == 1 &&
+         if (sscanf(src->id, "modem%u.tx", &slot) == 1 &&
              slot >= 1 && slot <= RR_LOCAL_MODEM_MAX) {
             const char *target_id = NULL;
             for (guint i = 0; i < graph_snapshot->node_count; i++) {
                const rr_ag_view_node_t *candidate = &graph_snapshot->nodes[i];
                if (candidate->type != RR_AG_SOURCE ||
-                   g_str_has_prefix(candidate->id, "modem.")) continue;
+                   g_str_has_prefix(candidate->id, "modem")) continue;
                char hash[64];
                g_snprintf(hash, sizeof(hash), "rig.%08x.", g_str_hash(candidate->id));
                if (g_str_has_prefix(dst->id, hash)) {
@@ -3990,7 +3990,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
       else
          graph_set_channel((guint)source_index, graph_drag_channel, TRUE);
    } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0 &&
-              !g_str_has_prefix(graph_snapshot->nodes[graph_drag_source].id, "modem.")) {
+              !g_str_has_prefix(graph_snapshot->nodes[graph_drag_source].id, "modem")) {
       unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
       unsigned bit = graph_drag_channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
       graph_set_channel((guint) graph_drag_source, graph_drag_channel, !(mask & bit));
