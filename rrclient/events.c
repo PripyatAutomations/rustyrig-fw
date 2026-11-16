@@ -180,7 +180,7 @@ static void rrclient_set_offline(void) {
       }
    }
 
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       return;
    }
 
@@ -616,9 +616,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
    /* Connection events are per-server. A late callback from a background IRC
     * profile must not mark the selected RustyRig WebSocket session offline.
     * Normal connman dispatch activates the event owner before invoking us. */
-   if (cptr && cptr != ws_conn) {
+   if (cptr && cptr != rrclient_connection_context()) {
       Log(LOG_WARN, "connman", "Ignoring %s for foreign session %p (active=%p)",
-         event, (void *)cptr, (void *)ws_conn);
+         event, (void *)cptr, (void *)rrclient_connection_context());
       return;
    }
    if (strcasecmp(event, "connecting") == 0) {
@@ -753,7 +753,7 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
       window = tui_window_create(rrclient_window_name(room));
 
       if (window) {
-         rrclient_irc_query_opened(ws_conn, room);
+         rrclient_irc_query_opened(rrclient_connection_context(), room);
       }
    }
 
@@ -761,7 +761,7 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
       window->cptr = rrclient_connection_for_window(window_name);
 
       if (!window->cptr) {
-         window->cptr = ws_conn;
+         window->cptr = rrclient_connection_context();
       }
    }
 
@@ -2036,7 +2036,7 @@ static void rrclient_estop_core(const char *event, const char *payload, rrconn_t
 static void rrclient_estop_send(void *arg) {
    dict *d = arg;
 
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       return;
    }
    dict *message = dict_new();
@@ -2044,7 +2044,7 @@ static void rrclient_estop_send(void *arg) {
    dict_add(message, "talk.cmd", "admin");
    dict_add(message, "talk.action", dict_get(d, "action", ""));
    dict_add(message, "talk.target", dict_get(d, "room", ""));
-   bool sent = ws_send_dict(NULL, ws_conn, message, WEBSOCKET_OP_TEXT);
+   bool sent = ws_send_dict(NULL, rrclient_connection_context(), message, WEBSOCKET_OP_TEXT);
    dict_add(d, "sent", sent ? "true" : "false");
    dict_free(message);
 }
