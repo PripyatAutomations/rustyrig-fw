@@ -216,7 +216,7 @@ void rr_sercom_unobserve(rr_sercom_observer_t *observer) {
 }
 
 
-extern rrconn_t *ws_conn;
+
 
 static bool host_binding(const serial_binding_t *b) {
    return b->host_port[0];
@@ -239,7 +239,8 @@ const char *rr_sercom_binding(const char *name) {
 
 /* Bind host tunnels and CAT commands to their originating server. */
 static rrconn_t *binding_connection(const serial_binding_t *b) {
-   return b->profile[0] ? rrclient_connection_find(b->profile) : rrclient_active_connection();
+   return b->profile[0] ? rrclient_connection_find(b->profile) :
+      rrclient_connection_context();
 }
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    serial_binding_t *b = binding(name);
@@ -827,7 +828,7 @@ static void host_connection(const char *event, const char *data, rrconn_t *clien
    }
 }
 static void host_message(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (client && client != rrclient_active_connection()) {
+   if (client && client != rrclient_connection_context()) {
       return;
    }
    dict *d = json2dict(data);
@@ -1038,7 +1039,7 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
             const char *uuid = d ? dict_get(d, "gps.channel-uuid", "") : "";
             const char *control_room = d ? dict_get(d, "gps.control-room", "") : "";
 
-            if (*uuid && b->profile[0] && binding_connection(b) != ws_conn) {
+            if (*uuid && b->profile[0] && binding_connection(b) != rrclient_connection_context()) {
                continue;
             }
             bool floating = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
