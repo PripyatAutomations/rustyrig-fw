@@ -521,6 +521,7 @@ static void routing_serial_draw(cairo_t *cr) {
 /* Standalone, scalable PTT status monitor. The only supported source today
  * is the confirmed PTT state of the active local VFO. Binding is explicit. */
 static gboolean onair_visible,onair_connected,onair_active,onair_restored;
+static char onair_source[64]; /* Exact connected PTT control pin ID */
 static double onair_x=670.,onair_y=360.,onair_scale=1.,ptt_x=420.,ptt_y=360.;
 static gint onair_drag; /* sign=1, PTT block=2, control wire=3 */
 static double onair_drag_dx,onair_drag_dy;
@@ -531,6 +532,7 @@ static void onair_save(void) {
    char *v=g_strdup_printf("%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d",
       onair_x,onair_y,ptt_x,ptt_y,onair_scale,onair_visible,onair_connected);
    rrclient_database_setting_set("audio.graph.onair",v);
+   rrclient_database_setting_set("audio.graph.onair.source",onair_connected ? onair_source : "");
    g_free(v);
 }
 static void onair_restore(void) {
@@ -543,16 +545,27 @@ static void onair_restore(void) {
        x>=0&&y>=0&&px>=0&&py>=0&&x<=100000&&y<=100000&&
        px<=100000&&py<=100000&&z>=.5&&z<=4.) {
       onair_x=x;onair_y=y;ptt_x=px;ptt_y=py;onair_scale=z;
-      onair_visible=!!visible;onair_connected=!!bound;
+      onair_visible=!!visible;
+      onair_connected=FALSE; /* Old bindings watched rig TX, not the pin */
    }
    g_free(v);
+   char *source=rrclient_database_setting_get("audio.graph.onair.source");
+   if(source && !strcmp(source,RRCLIENT_ROUTING_PTT_LOCAL)) {
+      g_strlcpy(onair_source,source,sizeof(onair_source));
+      onair_connected=TRUE;
+   }
+   g_free(source);
+   onair_active=FALSE;
 }
 static void onair_ptt_event(const rr_event_message_t *msg,void *unused) {
    (void)unused;
-   if (!msg||!msg->payload||msg->length!=1) return;
-   char c=*(const char *)msg->payload;
-   if(c!='0'&&c!='1') return;
-   onair_active=c=='1';
+   if (!msg||!msg->payload||
+       msg->length!=sizeof(rrclient_routing_ptt_signal_t)) return;
+   const rrclient_routing_ptt_signal_t *signal=msg->payload;
+   if (!memchr(signal->source,0,sizeof(signal->source)) ||
+       !onair_visible || !onair_connected ||
+       strcmp(signal->source,onair_source)) return;
+   onair_active=signal->raised;
    graph_canvas_update_size();
 }
 static gint onair_hit(double x,double y) {
@@ -583,10 +596,10 @@ static void onair_draw(cairo_t *cr) {
    cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
    cairo_set_font_size(cr,14.);
    cairo_move_to(cr,ptt_x+12.,ptt_y+27.);
-   cairo_show_text(cr,"PTT state");
+   cairo_show_text(cr,"PTT output");
    cairo_set_font_size(cr,10.);
    cairo_move_to(cr,ptt_x+12.,ptt_y+48.);
-   cairo_show_text(cr,"Active local VFO");
+   cairo_show_text(cr,"Local command pin");
    cairo_set_source_rgb(cr,.88,.70,.3);
    cairo_arc(cr,sx,sy,6.,0,2.*G_PI);cairo_fill(cr);
    gboolean lit=onair_connected&&onair_active;
@@ -615,17 +628,25 @@ static void onair_add(GtkButton *button,gpointer unused) {
 static void onair_menu_action(GtkMenuItem *item,gpointer unused) {
    (void)unused;
    unsigned action=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"onair-action"));
-   if(action==1) onair_connected=!onair_connected;
+   if(action==1) {
+      onair_connected=FALSE;
+      onair_source[0]=0;
+      onair_active=FALSE;
+   }
    else if(action==2) onair_scale=CLAMP(onair_scale*1.25,.5,4.);
    else if(action==3) onair_scale=CLAMP(onair_scale/1.25,.5,4.);
-   else if(action==4) {onair_visible=FALSE;onair_connected=FALSE;onair_active=FALSE;}
+   else if(action==4) {
+      onair_visible=FALSE;onair_connected=FALSE;
+      onair_source[0]=0;onair_active=FALSE;
+   }
    onair_save();graph_canvas_update_size();
 }
 static gboolean onair_context_menu(GdkEventButton *event,double x,double y) {
    if(!onair_hit(x,y)) return FALSE;
    GtkWidget *menu=gtk_menu_new();
-   const char *labels[]={"Connect / Disconnect PTT","Make larger","Make smaller","Remove ON AIR"};
+   const char *labels[]={"Disconnect PTT wire","Make larger","Make smaller","Remove ON AIR"};
    for(unsigned i=0;i<G_N_ELEMENTS(labels);i++){
+      if(i==0 && !onair_connected) continue;
       GtkWidget *item=gtk_menu_item_new_with_label(labels[i]);
       gtk_widget_set_size_request(item,-1,44);
       g_object_set_data(G_OBJECT(item),"onair-action",GUINT_TO_POINTER(i+1));
@@ -4108,7 +4129,12 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
          double gx,gy;
          if(graph_pointer(event->x,event->y,&gx,&gy)&&
             hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()*2.)
-            onair_connected=TRUE;
+            {
+               g_strlcpy(onair_source,RRCLIENT_ROUTING_PTT_LOCAL,
+                         sizeof(onair_source));
+               onair_connected=TRUE;
+               onair_active=FALSE;
+            }
       }
       onair_drag=0;onair_save();graph_canvas_update_size();return TRUE;
    }
@@ -4684,7 +4710,7 @@ void gtk_audio_graph_present(void) {
    routing_serial_refresh();
    if(!onair_token)
       onair_token=event_on_message_domain_token(
-         "client.ui.ptt.state",onair_ptt_event,NULL,"gtk");
+         RRCLIENT_ROUTING_PTT_SIGNAL,onair_ptt_event,NULL,"gtk");
    if (!routing_modem_result_token)
       routing_modem_result_token=event_on_message_domain_token(
          RR_LOCAL_MODEM_RESULT,routing_modem_snapshot_received,NULL,"gtk");
