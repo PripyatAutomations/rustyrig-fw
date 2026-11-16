@@ -354,6 +354,18 @@ static void vrig_bind_clicked(GtkButton *button, gpointer unused) {
    };
    event_emit_message(&msg);
 }
+static void vrig_unbind_clicked(GtkButton *button, gpointer unused) {
+   (void)unused;
+   unsigned slot = GPOINTER_TO_UINT(
+      g_object_get_data(G_OBJECT(button), "rr-vrig-slot"));
+   if (slot >= RR_SERCOM_VRIG_MAX) return;
+   rr_sercom_vrig_bind_t req = {.slot = slot};
+   rr_event_message_t msg = {
+      .name=RR_SERCOM_VRIG_BIND_REQUEST,
+      .payload=&req, .length=sizeof(req)
+   };
+   event_emit_message(&msg);
+}
 static void vrig_configure_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    const char *name = g_object_get_data(G_OBJECT(button), "rr-vrig-port");
@@ -498,6 +510,16 @@ static void vrig_manager_open(void) {
       g_object_set_data(G_OBJECT(bind), "rr-vrig-slot", GUINT_TO_POINTER(slot));
       g_signal_connect(bind, "clicked", G_CALLBACK(vrig_bind_clicked), NULL);
       gtk_box_pack_end(GTK_BOX(row), bind, FALSE, FALSE, 0);
+      GtkWidget *unbind = gtk_button_new_from_icon_name(
+         "edit-clear-symbolic", GTK_ICON_SIZE_MENU);
+      gtk_widget_set_size_request(unbind, 44, 44);
+      gtk_widget_set_valign(unbind, GTK_ALIGN_END);
+      gtk_widget_set_tooltip_text(unbind,
+         "Disconnect CAT/GPS ports for this virtual rig");
+      g_object_set_data(G_OBJECT(unbind), "rr-vrig-slot",
+                        GUINT_TO_POINTER(slot));
+      g_signal_connect(unbind, "clicked", G_CALLBACK(vrig_unbind_clicked), NULL);
+      gtk_box_pack_end(GTK_BOX(row), unbind, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(card), row, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(list), frame, FALSE, FALSE, 0);
    }
