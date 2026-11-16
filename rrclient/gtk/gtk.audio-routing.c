@@ -1404,7 +1404,7 @@ static void routing_modem_send_text(GtkMenuItem *item,gpointer unused) {
    gtk_widget_show_all(dialog);
    if(gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_ACCEPT) {
       const char *text=gtk_entry_get_text(GTK_ENTRY(entry));
-      if(*text && !strchr(text,'\\n') && !strchr(text,'\\r')) {
+      if(*text && !strchr(text,'\n') && !strchr(text,'\r')) {
          rr_local_modem_request_t req={
             .action=RR_LOCAL_MODEM_SEND_TEXT,.slot=slot
          };
