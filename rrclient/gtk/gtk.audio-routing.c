@@ -327,7 +327,7 @@ static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
 }
 static gboolean routing_modem_source(const rr_ag_view_node_t *n) {
    return n->type == RR_AG_SOURCE && !n->read_only &&
-          n->rate_hz == 16000 && n->channels == 1 &&
+          n->downstream_rate_hz <= 16000 && n->channels == 1 &&
           n->sample_format == RR_PCM_S16LE &&
           !g_str_has_prefix(n->id, "modem.");
 }
@@ -1933,6 +1933,22 @@ static gboolean routing_compact_target(const routing_compact_control_t *item,
    }
    return FALSE;
 }
+static void routing_compact_output_corner(const routing_compact_control_t *item,
+   double tx, double ty, double *out_x, double *out_y) {
+   const double corners[4][2] = {
+      {item->x, item->y + ROUTING_CONTROL_HEIGHT / 2.},
+      {item->x + ROUTING_CONTROL_WIDTH / 2., item->y},
+      {item->x + ROUTING_CONTROL_WIDTH, item->y + ROUTING_CONTROL_HEIGHT / 2.},
+      {item->x + ROUTING_CONTROL_WIDTH / 2., item->y + ROUTING_CONTROL_HEIGHT}
+   };
+   double best = G_MAXDOUBLE; guint nearest = 2;
+   for (guint k = 0; k < G_N_ELEMENTS(corners); k++) {
+      double dx = tx - corners[k][0], dy = ty - corners[k][1];
+      double distance = dx * dx + dy * dy;
+      if (distance < best) { best = distance; nearest = k; }
+   }
+   *out_x = corners[nearest][0]; *out_y = corners[nearest][1];
+}
 static void routing_compact_draw(cairo_t *cr) {
    if (!routing_controls_visible || !routing_compact_controls) return;
    for (guint i = 0; i < routing_compact_controls->len; i++) {
@@ -1941,19 +1957,25 @@ static void routing_compact_draw(cairo_t *cr) {
       const double cy = item->y + ROUTING_CONTROL_HEIGHT / 2.;
       double tx, ty;
       gboolean target = routing_compact_target(item, &tx, &ty);
-      double start_x = item->x + ROUTING_CONTROL_WIDTH;
       if (routing_control_drag_index == (gint)i && routing_control_drag_wire) {
          tx = item->pointer_x; ty = item->pointer_y;
          target = TRUE;
       }
+      double start_x, start_y;
+      routing_compact_output_corner(item,
+         target ? tx : item->x + ROUTING_CONTROL_WIDTH + 40.,
+         target ? ty : cy, &start_x, &start_y);
       if (target) {
          cairo_set_source_rgba(cr, .17, .62, 1., .90);
          cairo_set_line_width(cr, 2.2);
          const double dash[] = {5., 4.};
          cairo_set_dash(cr, dash, 2, 0.);
-         cairo_move_to(cr, start_x, cy);
-         cairo_curve_to(cr, (start_x + tx) / 2., cy,
-                           (start_x + tx) / 2., ty, tx, ty);
+         double mx = (start_x + tx) / 2., my = (start_y + ty) / 2.;
+         cairo_move_to(cr, start_x, start_y);
+         if (fabs(tx - start_x) >= fabs(ty - start_y))
+            cairo_curve_to(cr, mx, start_y, mx, ty, tx, ty);
+         else
+            cairo_curve_to(cr, start_x, my, tx, my, tx, ty);
          cairo_stroke(cr);
          cairo_set_dash(cr, NULL, 0, 0);
          cairo_arc(cr, tx, ty, 5.5, 0, 2 * G_PI);
@@ -1973,7 +1995,7 @@ static void routing_compact_draw(cairo_t *cr) {
       cairo_set_source_rgb(cr, .60, .63, .68);
       cairo_set_line_width(cr, 1.7);
       cairo_stroke(cr);
-      cairo_arc(cr, start_x, cy, 5., 0, 2 * G_PI);
+      cairo_arc(cr, start_x, start_y, 5., 0, 2 * G_PI);
       cairo_set_source_rgb(cr, .26, .72, 1.);
       cairo_fill(cr);
       cairo_set_source_rgb(cr, .94, .97, 1.);
@@ -2086,7 +2108,12 @@ static gboolean routing_compact_hit(double x, double y, gboolean dbl) {
          return TRUE;
       }
       routing_control_drag_index = i;
-      routing_control_drag_wire = x >= item->x + ROUTING_CONTROL_WIDTH - 15.;
+      double tx, ty, px, py;
+      gboolean bound = routing_compact_target(item, &tx, &ty);
+      routing_compact_output_corner(item,
+         bound ? tx : item->x + ROUTING_CONTROL_WIDTH + 40.,
+         bound ? ty : cy, &px, &py);
+      routing_control_drag_wire = hypot(x - px, y - py) <= 16.;
       item->start_x = x - item->x;
       item->start_y = y - item->y;
       item->pointer_x = x; item->pointer_y = y;
@@ -2702,7 +2729,7 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
             " (requested, not measured)" : "",
          n->resampling ? "active" : "none or not known",
          n->queued_ms, n->dropped_frames, n->starvation_events,
-         n->read_only ? "\nRead-only topology" : "");
+         g_str_has_prefix(n->id, "proc.lv2.") ? "\nPatchable input; output returns to RX mixer" : n->read_only ? "\nRead-only topology" : "");
       gtk_tooltip_set_text(tooltip, details);
       g_free(details);
       return TRUE;
