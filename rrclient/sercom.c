@@ -528,28 +528,24 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
    }
 }
 
+rrconn_t *rr_cat_connection(void) {
+   if (!cat_context) return NULL;
+   rrconn_t *connection = binding_connection(cat_context);
+   return connection && connection->authenticated && connection->is_ws ?
+      connection : NULL;
+}
 static const dict *cat_radio(void) {
-   return cat_context ? rrclient_object_find_alias("rig", NULL, cat_context->radio) : NULL;
+   if (!rr_cat_connection() || !cat_context->radio[0]) return NULL;
+   return rrclient_object_find_alias("rig", NULL, cat_context->radio);
 }
 const char *rr_cat_room(void) {
-   static char room[256];
-
-   if (!cat_context) {
-      return NULL;
-   }                            // Older non-serial parser callers retain
-
-   // default-rig routing.
-   /* Floating CAT must target the room selected in the UI, not a lobby inferred from the globally authoritative server room. */
-   if (!strcmp(cat_context->service, "rig.cat") && cat_context->focus_room[0]) {
-      return cat_context->focus_room;
-   }
-   const char *lobby = ws_authoritative_room();
-
-   if (!lobby || snprintf(room, sizeof(room), "%s-%s", lobby, cat_context->radio) >= (int)sizeof(room)) {
-      return NULL;
-   }
-
-   return room;
+   if (!rr_cat_connection()) return NULL;
+   /* A numbered endpoint is resolved using the catalog of its *own*
+    * connection. Never infer its target from the selected global room. */
+   if (cat_context->focus_room[0]) return cat_context->focus_room;
+   const dict *radio = cat_radio();
+   const char *room = radio ? dict_get((dict *)radio, "object.room", NULL) : NULL;
+   return room && *room ? room : NULL;
 }
 static const dict *cat_property(const char *vfo, const char *property) {
    const dict *radio = cat_radio();
@@ -1072,13 +1068,8 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
 /* CAT originates from background software, not an interactive user action. Do not forward writes until the selected rig actually advertises the addressed VFO.
  * Reads remain available for Hamlib initialization. */
 static bool cat_target_ready(serial_binding_t *b, const char *cmd) {
-   if (strcmp(b->service, "rig.cat")) {
-      return true;
-   }
-
-   if (!b->radio[0] || !b->focus_room[0]) {
+   if (!b->radio[0] || !rr_cat_connection() || !rr_cat_room())
       return false;
-   }
    const dict *radio = rrclient_object_find_alias("rig", NULL, b->radio);
 
    if (!radio) {
@@ -1126,6 +1117,13 @@ static void serial_cat_parse(void *data) {
       Log(LOG_DEBUG, "cat", "Ignoring CAT setter until VFO is available: %s", cmd);
       cat_context = previous;
 
+      return;
+   }
+   /* Reject all disconnected CAT commands, including PTT. In particular
+    * a null client must not trigger send helpers' default routing. */
+   if (!rr_cat_connection() || !rr_cat_room()) {
+      Log(LOG_DEBUG, "cat", "%s: CAT target offline/unresolved", cat_context->name);
+      cat_context = previous;
       return;
    }
    rr_cat_parse_line(cat_context->buffer);
