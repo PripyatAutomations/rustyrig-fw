@@ -80,7 +80,7 @@ rrmodem-psk: psk/rrmodem-psk.c common/pcm16k.h $(PSK_LIBRARY)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -pthread -I"$(PSK_SRC)/include" $(LDFLAGS) -o "$@" psk/rrmodem-psk.c "$(PSK_LIBRARY)" $(LDLIBS)
 
 rrmodem-olivia: olivia/rrmodem-olivia.cpp common/pcm16k.h $(OLIVIA_LIBRARY)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I"$(OLIVIA_SRC)/include" $(LDFLAGS) -o "$@" olivia/rrmodem-olivia.cpp "$(OLIVIA_LIBRARY)" $(LDLIBS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -pthread -I"$(OLIVIA_SRC)/include" $(LDFLAGS) -o "$@" olivia/rrmodem-olivia.cpp "$(OLIVIA_LIBRARY)" $(LDLIBS)
 
 rrmodem-ft8:
 	@if test ! -f "$(FT8_LIB)/Makefile"; then \
