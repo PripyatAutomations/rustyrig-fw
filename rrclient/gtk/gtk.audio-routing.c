@@ -2423,11 +2423,16 @@ static void routing_effect_draw(cairo_t *cr) {
          cairo_fill(cr);
          cairo_set_source_rgb(cr, .92, .94, .97);
          char text[100];
-         g_snprintf(text, sizeof(text), "%.17s", port->property);
+         g_snprintf(text, sizeof(text), b->standalone ? "%.9s" : "%.17s",
+                    port->property);
          cairo_text_extents_t ext;
          cairo_text_extents(cr, text, &ext);
-         cairo_move_to(cr, px - ext.width / 2. - ext.x_bearing,
-                        py + (top ? 17. : -10.));
+         /* A standalone processor's control labels belong outside its
+          * PCM body; leave the audio input/output sockets unobstructed. */
+         double baseline = b->standalone ?
+            py + (top ? -10. : 18.) :
+            py + (top ? 17. : -10.);
+         cairo_move_to(cr, px - ext.width / 2. - ext.x_bearing, baseline);
          cairo_show_text(cr, text);
       }
    }
@@ -2588,6 +2593,16 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
    if (keyboard || !graph_snapshot || graph_scale <= 0) return FALSE;
    const double x = (px - graph_offset_x) / graph_scale;
    const double y = (py - graph_offset_y) / graph_scale;
+   routing_effect_port_t control = {0};
+   if (routing_effect_pin_at(x, y, &control)) {
+      gchar *details = g_strdup_printf(
+         "LV2 control: %s / %s\n%s  (%.4g … %.4g)",
+         control.worker, control.element, control.property,
+         control.low, control.high);
+      gtk_tooltip_set_text(tooltip, details);
+      g_free(details);
+      return TRUE;
+   }
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       const double nx = routing_node_x(n);
