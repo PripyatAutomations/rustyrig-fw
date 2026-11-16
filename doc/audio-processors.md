@@ -151,21 +151,40 @@ start unbound. It can be wired by dragging its blue socket onto an existing
 gain pin. The **Add Effect…** chooser lists GStreamer-discovered LV2 plugins;
 selecting an LV2 block in the Pipelines editor and clicking
 **LV2 Controls…** lists its plugin-owned numeric, boolean and enum control
-properties with names, types and ranges. These are metadata inspection
-pins, **not yet runtime-connectable LV2 ports**: mapping a blue control wire
-to an effect parameter requires a parameter identity and control IPC across
-the fwdsp worker boundary.
+properties with names, types and ranges. When such an effect is part of
+a **configured local client capture or playback pipeline**, Routing additionally
+shows a small LV2 parameter block. Each writable numeric/boolean port has a
+**blue circle** that accepts a blue control wire. The control widget can also
+select a parameter directly in **Add Control…**.
 
-The floating controls can also be bound to an
-existing input/output gain pin. Select its stable audio node, left/right
-channel, short label and presentation: horizontal fader, vertical fader or
-rotary knob. All three send the same asynchronous gain-control command as
-the routing canvas and double-click resets to 0 dB. The floating-panel
-framework preserves window position and supports docking/roll-up.
-Disconnected targets are disabled until their stream returns. Parameter
-bindings currently cover the existing mixer gains; LV2 parameter port
-binding, saving/reloading control definitions, and placement on other
-cluster nodes remain subsequent steps.
+The floating controls can be bound to an existing input/output gain pin or
+to a named local LV2 effect parameter. Choose a short label and horizontal
+slider, vertical slider or rotary knob. The blue connection is **control data**,
+not audio or a PCM pad. UI changes are routed asynchronously through rrclient's
+core to its isolated `fwdsp` worker, where GObject type/range checks protect
+the effect. Double-click resets gains to 0 dB and LV2 controls to their
+configured defaults. **Show Controls?** hides the entire control overlay
+without modifying connections or floating panels.
+
+The control's UUID, effect element/property binding, explicit min/max/step/unit
+overrides, last value and Routing position persist in `client.db`; normal
+floating-panel geometry, docking, roll-up and minimization remain managed by
+the existing panel manager. On capture/playback endpoint restart the client
+replays saved values to the new worker.
+
+**Limitations:** This first live LV2 path targets the two local client
+pipelines `pipeline:sink.client.mix` and `pipeline:src.client.dsp0`. Installed
+GStreamer LV2 bundles must be available to the client for metadata discovery
+and to `fwdsp` for execution. Effect elements must retain their GStreamer
+`name=` identity. Editing a pipeline still requires saving its configuration
+and restarting the associated worker/client. Server/mesh DSP targets, LV2
+readback, enum-style controls and additional pipeline endpoints require later
+work.
+
+After rebuilding **both** `fwdsp` and `libfwdspmgr` (the local IPC struct
+changed), use `bash fwdsp/tests/test_effect_control.sh` to test a named
+parameter against live processed PCM; a separate installed LV2 effect should
+then be verified manually in Routing.
 
 ## Client sound-device rate selection
 
