@@ -23,6 +23,9 @@
 #include <rrclient/database.h>
 #include <rrclient/rrclient.h>
 #include <glib.h>
+#ifdef RR_HAVE_GSTREAMER
+#include <gst/gst.h>
+#endif
 #include <stdint.h>
 #include <math.h>
 #include <stdbool.h>
@@ -801,8 +804,12 @@ typedef struct {
    uint8_t pcm[4096];
 } rr_lv2_pcm_packet_t;
 typedef struct {
-   char name[32], source[64], factory[96];
-   char output; /* Explicit output route: M means disconnected */
+   char name[32], source[2][64], factory[96];
+   char output[2]; /* Explicit per-channel mixer routes, M disconnected */
+   char output_stream[2][48];
+   guint channels;
+   int16_t pending[2][2048];
+   guint pending_frames[2];
    GAsyncQueue *queue, *available;
    rr_lv2_pcm_packet_t packets[8], stop_packet;
    GThread *writer;
@@ -824,6 +831,38 @@ static gboolean audio_lv2_source_present(const char *id) {
          return TRUE;
    return FALSE;
 }
+/* Determine the native LV2 audio port shape from factory pad templates.
+ * A plugin supporting mono and stereo is mono by default. */
+static guint audio_lv2_factory_channels(const char *name) {
+#ifdef RR_HAVE_GSTREAMER
+   if (!gst_is_initialized()) gst_init(NULL, NULL);
+   GstElementFactory *factory = gst_element_factory_find(name);
+   if (!factory) return 1;
+   GstCaps *mono = gst_caps_from_string("audio/x-raw,channels=(int)1");
+   GstCaps *stereo = gst_caps_from_string("audio/x-raw,channels=(int)2");
+   gboolean in_one = FALSE, out_one = FALSE, in_two = FALSE, out_two = FALSE;
+   for (const GList *it = gst_element_factory_get_static_pad_templates(factory);
+        it; it = it->next) {
+      const GstStaticPadTemplate *pt = it->data;
+      GstCaps *caps = gst_static_pad_template_get_caps((GstStaticPadTemplate *)pt);
+      if (!caps) continue;
+      if (pt->direction == GST_PAD_SINK) {
+         in_one |= gst_caps_can_intersect(caps, mono);
+         in_two |= gst_caps_can_intersect(caps, stereo);
+      } else if (pt->direction == GST_PAD_SRC) {
+         out_one |= gst_caps_can_intersect(caps, mono);
+         out_two |= gst_caps_can_intersect(caps, stereo);
+      }
+      gst_caps_unref(caps);
+   }
+   gst_caps_unref(mono); gst_caps_unref(stereo);
+   gst_object_unref(factory);
+   return in_two && out_two && (!in_one || !out_one) ? 2 : 1;
+#else
+   (void)name;
+   return 1;
+#endif
+}
 static gboolean audio_lv2_factory_safe(const char *factory) {
    if (!factory || !*factory || strlen(factory) > 90) return FALSE;
    for (const unsigned char *c = (const unsigned char *)factory; *c; ++c)
@@ -835,10 +874,24 @@ static void audio_lv2_result(const char *name, const void *samples,
    (void)name;
    rr_lv2_effect_t *fx = user;
    if (!fx || !rx_engine || !samples || !bytes || (bytes & 1) ||
-       !g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed))
-      return;
-   rr_audio_engine_push(rx_engine, fx->name,
-                        (const int16_t *)samples, bytes / sizeof(int16_t));
+       !g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed)) return;
+   if (fx->channels == 1) {
+      rr_audio_engine_push(rx_engine, fx->output_stream[0],
+                           (const int16_t *)samples, bytes / sizeof(int16_t));
+   } else {
+      const int16_t *pcm = samples;
+      size_t frames = bytes / (2 * sizeof(int16_t));
+      int16_t left[1024], right[1024];
+      for (size_t offset = 0; offset < frames; offset += G_N_ELEMENTS(left)) {
+         size_t n = MIN(frames - offset, G_N_ELEMENTS(left));
+         for (size_t i = 0; i < n; i++) {
+            left[i] = pcm[2 * (offset + i)];
+            right[i] = pcm[2 * (offset + i) + 1];
+         }
+         rr_audio_engine_push(rx_engine, fx->output_stream[0], left, n);
+         rr_audio_engine_push(rx_engine, fx->output_stream[1], right, n);
+      }
+   }
 }
 static gpointer audio_lv2_writer(gpointer user) {
    rr_lv2_effect_t *fx = user;
@@ -863,18 +916,53 @@ static gboolean audio_lv2_feed(const char *source, const void *samples,
    for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++) {
       rr_lv2_effect_t *fx = &lv2_effects[i];
       if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed) ||
-          !fx->queue || !fx->available || strcmp(fx->source, source))
-         continue;
-      rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
-      if (!packet) {
-         fx->dropped++;
-         continue;
+          !fx->queue || !fx->available) continue;
+      guint channel = 0;
+      if (strcmp(fx->source[0], source)) {
+         if (fx->channels != 2 || strcmp(fx->source[1], source)) continue;
+         channel = 1;
       }
-      packet->bytes = (uint16_t)bytes;
-      memcpy(packet->pcm, samples, bytes);
-      g_async_queue_push(fx->queue, packet);
+      if (fx->channels == 1) {
+         rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
+         if (!packet) { fx->dropped++; break; }
+         packet->bytes = (uint16_t)bytes;
+         memcpy(packet->pcm, samples, bytes);
+         g_async_queue_push(fx->queue, packet);
+      } else {
+         guint frames = (guint)(bytes / sizeof(int16_t));
+         /* Do not let a stalled/unconnected channel accumulate unbounded audio. */
+         guint held = fx->pending_frames[channel];
+         if (held + frames > G_N_ELEMENTS(fx->pending[channel])) {
+            guint discard = held + frames - G_N_ELEMENTS(fx->pending[channel]);
+            memmove(fx->pending[channel], fx->pending[channel] + discard,
+                    (held - discard) * sizeof(int16_t));
+            held -= discard;
+            fx->dropped += discard;
+         }
+         memcpy(fx->pending[channel] + held, samples, bytes);
+         fx->pending_frames[channel] = held + frames;
+         guint ready = MIN(fx->pending_frames[0], fx->pending_frames[1]);
+         while (ready) {
+            rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
+            if (!packet) { fx->dropped += ready; break; }
+            guint n = MIN(ready, (guint)(sizeof(packet->pcm) / (2 * sizeof(int16_t))));
+            int16_t *out = (int16_t *)packet->pcm;
+            for (guint j = 0; j < n; j++) {
+               out[2*j] = fx->pending[0][j];
+               out[2*j+1] = fx->pending[1][j];
+            }
+            packet->bytes = (uint16_t)(n * 2 * sizeof(int16_t));
+            g_async_queue_push(fx->queue, packet);
+            for (guint ch = 0; ch < 2; ch++) {
+               fx->pending_frames[ch] -= n;
+               memmove(fx->pending[ch], fx->pending[ch] + n,
+                       fx->pending_frames[ch] * sizeof(int16_t));
+            }
+            ready = MIN(fx->pending_frames[0], fx->pending_frames[1]);
+         }
+      }
       accepted = TRUE;
-      break; /* One live insert per source in this first graph version. */
+      break;
    }
    g_mutex_unlock(&lv2_effect_lock);
    return accepted;
