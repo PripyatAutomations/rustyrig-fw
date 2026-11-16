@@ -1868,6 +1868,22 @@ static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
             } else continue;
             if (!isfinite(meta.low) || !isfinite(meta.high) ||
                 meta.high <= meta.low) continue;
+            /* The launch description can override the plugin's default.
+             * Read that configured value, not merely GParamSpec's default. */
+            GValue actual = G_VALUE_INIT;
+            g_value_init(&actual, G_PARAM_SPEC_VALUE_TYPE(spec));
+            g_object_get_property(G_OBJECT(element), spec->name, &actual);
+            if (G_VALUE_HOLDS_DOUBLE(&actual))
+               meta.initial = g_value_get_double(&actual);
+            else if (G_VALUE_HOLDS_FLOAT(&actual))
+               meta.initial = g_value_get_float(&actual);
+            else if (G_VALUE_HOLDS_INT(&actual))
+               meta.initial = g_value_get_int(&actual);
+            else if (G_VALUE_HOLDS_UINT(&actual))
+               meta.initial = g_value_get_uint(&actual);
+            else if (G_VALUE_HOLDS_BOOLEAN(&actual))
+               meta.initial = g_value_get_boolean(&actual) ? 1. : 0.;
+            g_value_unset(&actual);
             gchar *id = g_strdup_printf("E|%s|%s|%s",
                meta.worker, meta.element, meta.property);
             gchar *label = g_strdup_printf("%s / %s / %s",
@@ -1881,7 +1897,7 @@ static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
          g_free(specs);
          g_value_reset(&value);
       }
-      g_value_unset(&value);
+      if (G_VALUE_TYPE(&value)) g_value_unset(&value);
       gst_iterator_free(it);
       gst_object_unref(pipe);
    }
