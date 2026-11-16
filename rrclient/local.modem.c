@@ -163,7 +163,7 @@ static gboolean poll_decoders(gpointer unused) {
          !strcmp(d->tx_target,d->ptt_target) &&
          audio_modem_tx_allowed(d->tx_target);
       if (d->tx_was_allowed && !allowed) {
-         static const char cancel[]="CANCEL\\n";
+         static const char cancel[]="CANCEL\n";
          send(d->worker.serial_fd,cancel,sizeof(cancel)-1,
               MSG_DONTWAIT|MSG_NOSIGNAL);
       }
@@ -379,7 +379,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          g_mutex_lock(&decoder_lock);
          if (d->active) {
             d->tx_enabled = req->tx_enabled;
-    d->tx_was_allowed = false;
+            d->tx_was_allowed = false;
             if (!d->tx_enabled)
                d->tx_target[0] = d->ptt_target[0] = 0;
          }
