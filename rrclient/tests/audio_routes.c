@@ -15,6 +15,7 @@ bool rrclient_media_rx_is_active_tx(const char *uuid) {
 }
 static rrconn_t first, second;
 rrconn_t *ws_conn = &first;
+rrconn_t *rrclient_active_connection(void) { return ws_conn; }
 static const char *selected = "first";
 time_t now;
 static unsigned starts, stops, played, decoded, speaker_starts, speaker_stops, volume_restores;
