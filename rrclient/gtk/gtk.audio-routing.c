@@ -3195,6 +3195,12 @@ void gtk_audio_graph_present(void) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(show_controls), routing_controls_visible);
       g_signal_connect(show_controls, "toggled", G_CALLBACK(routing_show_controls_toggled), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), show_controls, FALSE, FALSE, 0);
+      GtkWidget *hidden_controls = gtk_button_new_with_label("Hidden Controls…");
+      gtk_widget_set_tooltip_text(hidden_controls,
+         "Restore hidden floating controls without changing their parameter wiring");
+      g_signal_connect(hidden_controls, "clicked",
+         G_CALLBACK(routing_compact_hidden_menu), NULL);
+      gtk_box_pack_end(GTK_BOX(profiles), hidden_controls, FALSE, FALSE, 0);
       GtkWidget *pin_control = gtk_button_new_with_label("Add Control…");
       gtk_widget_set_tooltip_text(pin_control,
          "Create an independent control block; bind its blue pin to a parameter");
