@@ -1073,7 +1073,7 @@ static void audio_lv2_restore(void) {
    for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
       rr_lv2_effect_t *fx = &lv2_effects[slot-1];
       if (g_atomic_int_get(&fx->active)) {
-         if (audio_lv2_source_present(fx->source) &&
+         if ((!fx->source[0] || audio_lv2_source_present(fx->source)) &&
              !g_atomic_int_get(&fx->failed)) continue;
          /* Stream UUIDs can survive a reconnect even when the decoder's
           * temporary client-rx-N identity has changed. */
@@ -1086,7 +1086,7 @@ static void audio_lv2_restore(void) {
       if (factory && *factory) {
          /* Prefer the session's current stream ID; otherwise resolve the
           * persisted peer+resource UUID from the refreshed RX catalog. */
-         if (!audio_lv2_source_present(source)) {
+         if (source && *source && !audio_lv2_source_present(source)) {
             key = g_strdup_printf("audio.lv2.%u.server", slot);
             char *server = rrclient_database_setting_get(key); g_free(key);
             key = g_strdup_printf("audio.lv2.%u.uuid", slot);
@@ -1107,7 +1107,7 @@ static void audio_lv2_restore(void) {
          }
          rr_audio_effect_request_t req = {.action = 'A', .slot = slot};
          g_strlcpy(req.factory, factory, sizeof(req.factory));
-         g_strlcpy(req.source, source, sizeof(req.source));
+         g_strlcpy(req.source, source ? source : "", sizeof(req.source));
          /* Sources may not have connected yet. The UI retains the slot and
           * a later inventory update attempts a guarded activation. */
          audio_lv2_start(&req);
