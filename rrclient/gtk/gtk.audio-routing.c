@@ -455,6 +455,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
                                                                   0
                                                                } };
    char format_details[RR_AUDIO_GRAPH_MAX_NODES][96] = {{0}};
+   char lv2_subtitles[RR_AUDIO_GRAPH_MAX_NODES][52] = {{0}};
 
    for (guint i = 0 ; i < g->node_count ; i++) {
       const rr_ag_view_node_t *n = &g->nodes[i];
@@ -482,11 +483,17 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          g_strlcpy(format_details[i], summary, sizeof(format_details[i]));
          g_free(summary);
       }
+      if (g_str_has_prefix(n->id, "proc.lv2.") && n->rig[0]) {
+         /* The full LV2 factory name often exceeds the 300px PCM node. */
+         g_snprintf(lv2_subtitles[i], sizeof(lv2_subtitles[i]), "%.31s%s",
+                    n->rig, strlen(n->rig) > 31 ? "…" : "");
+      }
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = routing_node_x(n), .y = routing_node_y(n),
          /* The stable routing path is the bold headline. Receiver/device
           * description occupies the regular-weight line beneath it. */
          .title = n->id, .subtitle =
+            lv2_subtitles[i][0] ? lv2_subtitles[i] :
             n->rig[0] ? n->rig :
             g_str_has_prefix(n->id, "modem.") ?
             (source ? "Modem TX audio / PTT" : "Modem RX audio") :
@@ -2473,13 +2480,21 @@ static void routing_effect_draw(cairo_t *cr) {
                     port->property);
          cairo_text_extents_t ext;
          cairo_text_extents(cr, text, &ext);
-         /* A standalone processor's control labels belong outside its
-          * PCM body; leave the audio input/output sockets unobstructed. */
-         double baseline = b->standalone ?
-            py + (top ? -10. : 18.) :
-            py + (top ? 17. : -10.);
-         cairo_move_to(cr, px - ext.width / 2. - ext.x_bearing, baseline);
-         cairo_show_text(cr, text);
+         /* Rotate top-edge labels to prevent overlapping adjacent names.
+          * Audio pins remain on the sides; only blue controls use top/bottom. */
+         if (b->standalone && top) {
+            cairo_save(cr);
+            cairo_translate(cr, px - 4., py - 14.);
+            cairo_rotate(cr, -G_PI / 2.);
+            cairo_move_to(cr, 0., 0.);
+            cairo_show_text(cr, text);
+            cairo_restore(cr);
+         } else {
+            double baseline = b->standalone ? py + 18. :
+               py + (top ? 17. : -10.);
+            cairo_move_to(cr, px - ext.width / 2. - ext.x_bearing, baseline);
+            cairo_show_text(cr, text);
+         }
       }
    }
 }
