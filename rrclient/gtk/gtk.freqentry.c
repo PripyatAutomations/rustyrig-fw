@@ -16,12 +16,13 @@
 #include <rrclient/vfo.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/rooms.h>
+#include <rrclient/ui.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 
 #define MAX_DIGITS 10
 extern dict *cfg;
 extern time_t now;
-extern rrconn_t *ws_conn;
+
 extern bool ws_send_freq_cmd(rrconn_t *cptr, const char *vfo, long freq);
 
 // XXX: This should be made less ugly; we need to block CAT polling momentarily when widget
@@ -433,7 +434,7 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
       if (local_only) {
          sent = rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, 0, freq, NULL);
       } else {
-         sent = ws_send_freq_cmd_in_room(ws_conn, vfo, freq, room);
+         sent = ws_send_freq_cmd_in_room(rrclient_active_connection(), vfo, freq, room);
       }
 
       if (!sent) {
