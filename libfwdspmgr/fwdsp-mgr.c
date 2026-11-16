@@ -59,6 +59,13 @@ static bool fwdsp_has_server_media(void) {
 #define FWDSP_MAX_SUBPROCS 100
 /* Set before starting children: codec/PCM reader callbacks belong to core. */
 static GMainContext *fwdsp_reactor_context;
+static fwdsp_encoded_output_cb client_encoded_output;
+static void *client_encoded_user;
+void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback,
+                                       void *user_data) {
+   client_encoded_output=callback;
+   client_encoded_user=user_data;
+}
 void fwdsp_set_reactor_context(GMainContext *context) {
    if (fwdsp_reactor_context) {
       g_main_context_unref(fwdsp_reactor_context);
@@ -601,6 +608,17 @@ static void fwdsp_parse_read(struct fwdsp_io_conn *ctx) {
           * these functions are absent; never call through a NULL symbol.
           * Client PCM processor callbacks are handled separately above. */
          if (!fwdsp_has_server_media()) {
+            /* Client-local fwdsp TX codec frames belong on its negotiated
+             * media channel. The caller applies PTT, stream and queue gates. */
+            if (client_encoded_output && ctx->sp->role==FWDSP_ROLE_CODEC &&
+                ctx->sp->is_tx && !ctx->sp->is_video &&
+                ctx->sp->refcount>0) {
+               char codec[5]={0};
+               memcpy(codec,ctx->sp->pl_id,4);
+               client_encoded_output(codec,
+                  ctx->recv->data+FWDSP_FRAME_HEADER_SIZE,
+                  frame_len,is_header,client_encoded_user);
+            }
             g_byte_array_remove_range(ctx->recv, 0, total_len);
             continue;
          }
