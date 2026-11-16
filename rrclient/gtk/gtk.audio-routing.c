@@ -1983,36 +1983,6 @@ static void routing_compact_restore(void) {
    }
    g_strfreev(parts);
    g_free(ids);
-   /* Repair legacy controls saved at the same graph coordinates. Do not
-    * rearrange distinct user placements; only displace actual overlaps and
-    * persist the repaired coordinates for the next initialization. */
-   if (routing_compact_controls) {
-      for (guint i = 0; i < routing_compact_controls->len; i++) {
-         routing_compact_control_t *item =
-            g_ptr_array_index(routing_compact_controls, i);
-         gboolean moved = FALSE;
-         for (guint attempt = 0; attempt < 256; attempt++) {
-            gboolean collision = FALSE;
-            for (guint j = 0; j < i; j++) {
-               const routing_compact_control_t *other =
-                  g_ptr_array_index(routing_compact_controls, j);
-               if (fabs(item->x - other->x) < 122. &&
-                   fabs(item->y - other->y) < 68.) {
-                  collision = TRUE;
-                  break;
-               }
-            }
-            if (!collision) break;
-            item->x += 135.;
-            if (item->x > GRAPH_LAYOUT_MARGIN + 675.) {
-               item->x = GRAPH_LAYOUT_MARGIN + 15.;
-               item->y += 82.;
-            }
-            moved = TRUE;
-         }
-         if (moved) routing_compact_save(item);
-      }
-   }
    routing_compact_sync();
 }
 static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused) {
@@ -2586,9 +2556,18 @@ static void routing_effect_draw(cairo_t *cr) {
       const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
       const routing_position_t *pos = routing_position(b->id);
       double h = routing_effect_height(b);
-      if (!b->standalone)
+      /* The PCM graph draws standalone LV2 blocks when their worker is
+       * present in its snapshot. If a worker has not appeared yet, render
+       * a complete placeholder body instead of orphan control sockets. */
+      gboolean graph_has_block = FALSE;
+      if (b->standalone && graph_snapshot)
+         for (guint n = 0; n < graph_snapshot->node_count; n++)
+            if (!strcmp(graph_snapshot->nodes[n].id, b->id)) {
+               graph_has_block = TRUE;
+               break;
+            }
+      if (!graph_has_block) {
          cairo_rectangle(cr, pos->x, pos->y, routing_effect_width(b), h);
-      if (!b->standalone) {
          cairo_set_source_rgba(cr, .17, .19, .23, .95);
          cairo_fill_preserve(cr);
          cairo_set_source_rgb(cr, .50, .53, .60);
@@ -2601,7 +2580,7 @@ static void routing_effect_draw(cairo_t *cr) {
       cairo_set_font_size(cr, 11.);
       char title[105];
       g_snprintf(title, sizeof(title), "LV2  %.84s", b->element);
-      if (!b->standalone) {
+      if (!b->standalone || !graph_has_block) {
       /* Top-edge ports claim the first label row. Keep the effect
        * identity centered between upper and lower control labels. */
       double heading_y = pos->y + (b->ports->len > 3 ? 56. : 22.);
