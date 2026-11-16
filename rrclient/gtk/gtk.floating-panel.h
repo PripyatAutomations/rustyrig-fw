@@ -19,6 +19,8 @@ void rr_floating_panel_show(RRFloatPanel *panel);
 void rr_floating_panel_present(RRFloatPanel *panel);
 /* Center the panel in the main overlay on its first show, ignoring saved positions. */
 void rr_floating_panel_set_initial_centered(RRFloatPanel *panel, gboolean centered);
+/* Preferred location for a new panel only; persisted user geometry wins. */
+void rr_floating_panel_set_initial_position(RRFloatPanel *panel, gint x, gint y);
 void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title);
 void rr_floating_panel_set_title_click(RRFloatPanel *panel, GCallback callback, gpointer data);
 void rr_floating_panel_hide(RRFloatPanel *panel);
