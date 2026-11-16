@@ -14,6 +14,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/connman.h>
 #include <rrclient/irc.whois.h>
+extern rrconn_t *ws_conn; /* legacy test fixture, not client API */
 
 extern void rrclient_irc_register_events(void);
 time_t now = 100;
