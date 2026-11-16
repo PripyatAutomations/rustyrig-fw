@@ -13,6 +13,11 @@
 #include <rrclient/gtk/gtk.file-editor.h>
 #include <rrclient/gtk/gtk.resources.h>
 #include <rrclient/gtk/gtk.audio-routing.h>
+#include <rrclient/gtk/gtk.serial.h>
+#include <rrclient/sercom.h>
+#include <rrclient/database.h>
+#include <rrclient/connman.h>
+#include <librustyaxe/event-bus.h>
 #include <rrclient/gtk/gtk.receiver-directory.h>
 #include <rrclient/ui.h>
 #include <rrclient/gtk/gtk.connect-button.h>
@@ -33,7 +38,7 @@ extern bool chat_init(void);
 extern bool cfg_fullscreen;
 
 /* Labels are separate widgets so the icon and hit target remain intact when the toolbar is compacted. The scroll viewport provides the usable width. */
-#define RR_TOOLBAR_ACTIONS 5
+#define RR_TOOLBAR_ACTIONS 8
 static GtkWidget *toolbar_action_labels[RR_TOOLBAR_ACTIONS];
 static unsigned toolbar_action_count;
 static bool toolbar_titles_visible;
@@ -321,6 +326,133 @@ static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page,
    gboolean hide = page && (page == status_tab || page == log_tab || page == host_log_tab);
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, hide);
 }
+/* Virtual Rigs manager. The stable per-slot name is independent of the
+ * selected chat; all serial changes cross to the core event domain. */
+static RRFloatPanel *vrig_panel;
+static GtkWidget *vrig_status;
+static GtkWidget *vrig_profile[RR_SERCOM_VRIG_MAX], *vrig_radio[RR_SERCOM_VRIG_MAX];
+static rr_event_token_t vrig_result_token;
+static void vrig_bound(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!vrig_status || !message || !message->payload ||
+       message->length != sizeof(rr_sercom_vrig_bind_result_t)) return;
+   const rr_sercom_vrig_bind_result_t *result = message->payload;
+   gtk_label_set_text(GTK_LABEL(vrig_status), result->detail);
+}
+static void vrig_bind_clicked(GtkButton *button, gpointer unused) {
+   (void)unused;
+   unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "rr-vrig-slot"));
+   if (slot >= RR_SERCOM_VRIG_MAX || !vrig_profile[slot] || !vrig_radio[slot]) return;
+   rr_sercom_vrig_bind_t req = {.slot = slot};
+   g_strlcpy(req.profile, gtk_entry_get_text(GTK_ENTRY(vrig_profile[slot])),
+             sizeof(req.profile));
+   g_strlcpy(req.rig, gtk_entry_get_text(GTK_ENTRY(vrig_radio[slot])),
+             sizeof(req.rig));
+   rr_event_message_t msg = {
+      .name = RR_SERCOM_VRIG_BIND_REQUEST,
+      .payload = &req, .length = sizeof(req)
+   };
+   event_emit_message(&msg);
+}
+static void vrig_configure_clicked(GtkButton *button, gpointer unused) {
+   (void)unused;
+   const char *name = g_object_get_data(G_OBJECT(button), "rr-vrig-port");
+   if (name) gtk_serial_configure(GTK_WINDOW(main_window), name);
+}
+static void vrig_open_routing(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   gtk_audio_graph_present();
+}
+static void vrig_manager_open(void) {
+   if (!GTK_IS_OVERLAY(rr_client_overlay) || !GTK_IS_NOTEBOOK(main_notebook))
+      return;
+   if (vrig_panel) {
+      rr_floating_panel_present(vrig_panel);
+      return;
+   }
+   vrig_panel = rr_floating_panel_new(GTK_OVERLAY(rr_client_overlay),
+      GTK_NOTEBOOK(main_notebook), "virtual-rigs", "Virtual Rigs");
+   if (!vrig_panel) return;
+   rr_floating_panel_set_initial_position(vrig_panel, 80, 110);
+   GtkWidget *body = rr_floating_panel_body(vrig_panel);
+   GtkWidget *hint = gtk_label_new(
+      "Each vrigN owns independently pinned CAT/GPS PTYs. Bind a server "
+      "profile and physical rigN; programs use ~/dev/ttyCATN and ~/dev/ttyGPSN.");
+   gtk_label_set_xalign(GTK_LABEL(hint), 0);
+   gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
+   gtk_label_set_max_width_chars(GTK_LABEL(hint), 70);
+   gtk_box_pack_start(GTK_BOX(body), hint, FALSE, FALSE, 5);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_size_request(scroll, 620, 340);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 7);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 7);
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 8);
+   gtk_container_add(GTK_CONTAINER(scroll), grid);
+   gtk_box_pack_start(GTK_BOX(body), scroll, TRUE, TRUE, 0);
+   const char *columns[] = {"Virtual rig", "Server profile", "Radio", "Local serial devices", "Action"};
+   for (unsigned col = 0; col < G_N_ELEMENTS(columns); col++)
+      gtk_grid_attach(GTK_GRID(grid), gtk_label_new(columns[col]), col, 0, 1, 1);
+   const char *current = rrclient_selected_server();
+   for (unsigned slot = 0; slot < RR_SERCOM_VRIG_MAX; slot++) {
+      char name[48], cat[32], gps[32];
+      g_snprintf(name, sizeof(name), "vrig%u", slot);
+      g_snprintf(cat, sizeof(cat), "ttyCAT%u", slot);
+      g_snprintf(gps, sizeof(gps), "ttyGPS%u", slot);
+      GtkWidget *id = gtk_label_new(name);
+      gtk_grid_attach(GTK_GRID(grid), id, 0, slot + 1, 1, 1);
+      vrig_profile[slot] = gtk_entry_new();
+      vrig_radio[slot] = gtk_entry_new();
+      char *key = g_strdup_printf("serial.vrig.%u.profile", slot);
+      char *saved_profile = rrclient_database_setting_get(key);
+      g_free(key);
+      key = g_strdup_printf("serial.vrig.%u.rig", slot);
+      char *saved_rig = rrclient_database_setting_get(key);
+      g_free(key);
+      gtk_entry_set_text(GTK_ENTRY(vrig_profile[slot]),
+                         saved_profile && *saved_profile ? saved_profile :
+                         current ? current : "");
+      if (saved_rig && *saved_rig) gtk_entry_set_text(GTK_ENTRY(vrig_radio[slot]), saved_rig);
+      else {
+         g_snprintf(name, sizeof(name), "rig%u", slot);
+         gtk_entry_set_text(GTK_ENTRY(vrig_radio[slot]), name);
+      }
+      g_free(saved_profile); g_free(saved_rig);
+      gtk_entry_set_width_chars(GTK_ENTRY(vrig_profile[slot]), 14);
+      gtk_entry_set_width_chars(GTK_ENTRY(vrig_radio[slot]), 7);
+      gtk_grid_attach(GTK_GRID(grid), vrig_profile[slot], 1, slot + 1, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), vrig_radio[slot], 2, slot + 1, 1, 1);
+      GtkWidget *ports = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
+      const char *devices[] = {cat, gps};
+      for (unsigned j = 0; j < 2; j++) {
+         GtkWidget *btn = gtk_button_new_with_label(devices[j]);
+         g_object_set_data_full(G_OBJECT(btn), "rr-vrig-port", g_strdup(devices[j]), g_free);
+         g_signal_connect(btn, "clicked", G_CALLBACK(vrig_configure_clicked), NULL);
+         char *path = g_build_filename(g_get_home_dir(), "dev", devices[j], NULL);
+         gtk_widget_set_tooltip_text(btn, path);
+         g_free(path);
+         gtk_box_pack_start(GTK_BOX(ports), btn, FALSE, FALSE, 0);
+      }
+      gtk_grid_attach(GTK_GRID(grid), ports, 3, slot + 1, 1, 1);
+      GtkWidget *bind = gtk_button_new_with_label("Bind");
+      g_object_set_data(G_OBJECT(bind), "rr-vrig-slot", GUINT_TO_POINTER(slot));
+      g_signal_connect(bind, "clicked", G_CALLBACK(vrig_bind_clicked), NULL);
+      gtk_grid_attach(GTK_GRID(grid), bind, 4, slot + 1, 1, 1);
+   }
+   vrig_status = gtk_label_new("Bind a virtual rig to create its numbered PTYs.");
+   gtk_label_set_xalign(GTK_LABEL(vrig_status), 0);
+   gtk_box_pack_start(GTK_BOX(body), vrig_status, FALSE, FALSE, 5);
+   GtkWidget *routing = gtk_button_new_with_label("Show Routing");
+   g_signal_connect(routing, "clicked", G_CALLBACK(vrig_open_routing), NULL);
+   gtk_box_pack_start(GTK_BOX(body), routing, FALSE, FALSE, 4);
+   if (!vrig_result_token)
+      vrig_result_token = event_on_message_domain_token(
+         RR_SERCOM_VRIG_BIND_RESULT, vrig_bound, NULL, "gtk");
+   gtk_widget_show_all(body);
+   rr_floating_panel_present(vrig_panel);
+}
 static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
    (void)button;
    const char *tool = data;
@@ -334,6 +466,8 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
       event_emit("client.recordings.open", NULL, NULL);
    } else if (!strcmp(tool, "audio")) {
       gtk_audio_graph_toggle();
+   } else if (!strcmp(tool, "virtual-rigs")) {
+      vrig_manager_open();
    } else {
       GtkWidget *page = !strcmp(tool, "admin") ? admin_tab : config_tab;
 
@@ -395,6 +529,11 @@ static void main_toolbar_quit(GtkButton *button, gpointer unused) {
 
 
 static void frontend_gtk_main_window_destroy(GtkWidget *widget, gpointer unused) {
+   if (vrig_result_token) { event_off_token(vrig_result_token); vrig_result_token = 0; }
+   if (vrig_panel) { rr_floating_panel_destroy(vrig_panel); vrig_panel = NULL; }
+   vrig_status = NULL;
+   memset(vrig_profile, 0, sizeof(vrig_profile));
+   memset(vrig_radio, 0, sizeof(vrig_radio));
    (void)unused;
 
    if (main_window == widget) {
@@ -538,6 +677,8 @@ bool gui_init(void) {
    main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory", "Remote SDRs: Access remote SDRs such as KiwiSDR");
    main_toolbar_tool(rr_main_toolbar, "Recordings", "media-record-symbolic", "recordings", "Record and manage client audio recordings");
    main_toolbar_tool(rr_main_toolbar, "Routing", "audio-card-symbolic", "audio", "Routing: Audio, modem RX/TX, port trims and DSP pipelines");
+   main_toolbar_tool(rr_main_toolbar, "Virtual Rigs", "network-wired-symbolic", "virtual-rigs",
+      "Virtual Rigs: Independently pin ttyCAT#/ttyGPS# to a remote rig");
    /* Toggle, not a window-manager hide action: it preserves panel placement
     * and minimized tabs. The pressed state indicates manual suppression. */
    panels_toggle = gtk_toggle_button_new();
