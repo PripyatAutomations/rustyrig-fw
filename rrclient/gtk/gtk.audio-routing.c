@@ -1107,6 +1107,55 @@ static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, doubl
    }
    return FALSE;
 }
+#ifdef RR_HAVE_GSTREAMER
+enum { LV2_NAME, LV2_DESC, LV2_LONG, LV2_CLASS, LV2_N };
+typedef struct { GtkWidget *search, *details, *dialog; GtkTreeView *view; GtkTreeModelFilter *filter; } lv2_picker_t;
+static gboolean lv2_visible(GtkTreeModel *m, GtkTreeIter *it, gpointer data) {
+   const char *query = gtk_entry_get_text(GTK_ENTRY(((lv2_picker_t *)data)->search));
+   if (!*query) return TRUE;
+   gchar *name = NULL, *desc = NULL, *longname = NULL, *klass = NULL;
+   gtk_tree_model_get(m, it, LV2_NAME, &name, LV2_DESC, &desc, LV2_LONG, &longname, LV2_CLASS, &klass, -1);
+   gchar *q = g_utf8_casefold(query, -1);
+   gchar *n = g_utf8_casefold(name ? name : "", -1), *d = g_utf8_casefold(desc ? desc : "", -1);
+   gchar *l = g_utf8_casefold(longname ? longname : "", -1), *k = g_utf8_casefold(klass ? klass : "", -1);
+   gboolean match = strstr(n, q) || strstr(d, q) || strstr(l, q) || strstr(k, q);
+   g_free(q); g_free(n); g_free(d); g_free(l); g_free(k);
+   g_free(name); g_free(desc); g_free(longname); g_free(klass);
+   return match;
+}
+static void lv2_selected(GtkTreeSelection *sel, gpointer data) {
+   lv2_picker_t *p = data;
+   GtkTreeModel *m; GtkTreeIter it;
+   if (!gtk_tree_selection_get_selected(sel, &m, &it)) {
+      gtk_label_set_text(GTK_LABEL(p->details), "No matching plugins");
+      gtk_dialog_set_response_sensitive(GTK_DIALOG(p->dialog), GTK_RESPONSE_ACCEPT, FALSE);
+      return;
+   }
+   gchar *name = NULL, *desc = NULL, *longname = NULL, *klass = NULL;
+   gtk_tree_model_get(m, &it, LV2_NAME, &name, LV2_DESC, &desc, LV2_LONG, &longname, LV2_CLASS, &klass, -1);
+   gchar *markup = g_markup_printf_escaped("<b>%s</b>\n%s\n\n<b>Factory:</b> %s\n<b>Type:</b> %s",
+      longname && *longname ? longname : name ? name : "",
+      desc && *desc ? desc : "No description available", name ? name : "",
+      klass && *klass ? klass : "LV2");
+   gtk_label_set_markup(GTK_LABEL(p->details), markup);
+   gtk_dialog_set_response_sensitive(GTK_DIALOG(p->dialog), GTK_RESPONSE_ACCEPT, TRUE);
+   g_free(markup); g_free(name); g_free(desc); g_free(longname); g_free(klass);
+}
+static void lv2_search(GtkEditable *entry, gpointer data) {
+   (void)entry;
+   lv2_picker_t *p = data;
+   gtk_tree_model_filter_refilter(p->filter);
+   GtkTreeIter it; GtkTreeModel *m = GTK_TREE_MODEL(p->filter);
+   GtkTreeSelection *sel = gtk_tree_view_get_selection(p->view);
+   if (gtk_tree_model_get_iter_first(m, &it)) gtk_tree_selection_select_iter(sel, &it);
+   else gtk_tree_selection_unselect_all(sel);
+}
+static void lv2_activate(GtkTreeView *v, GtkTreePath *path, GtkTreeViewColumn *col, gpointer data) {
+   (void)v; (void)path; (void)col;
+   gtk_dialog_response(GTK_DIALOG(((lv2_picker_t *)data)->dialog), GTK_RESPONSE_ACCEPT);
+}
+#endif
+
 static void routing_add_effect(GtkButton *button, gpointer unused) {
    (void)unused;
 #ifdef RR_HAVE_GSTREAMER
@@ -1122,27 +1171,56 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
                       grid, TRUE, TRUE, 0);
-   GtkWidget *factory_box = gtk_combo_box_text_new();
-   GtkWidget *source_box = gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source_box), "",
-                             "Unconnected — wire input in Routing");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(source_box), 0);
-   GList *features = gst_registry_get_feature_list(gst_registry_get(),
-                                                    GST_TYPE_ELEMENT_FACTORY);
+   lv2_picker_t picker = {.dialog = dialog};
+   picker.search = gtk_search_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(picker.search), "Search LV2 plugins");
+   gtk_grid_attach(GTK_GRID(grid), picker.search, 0, 0, 2, 1);
+   GtkListStore *store = gtk_list_store_new(LV2_N, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+   GList *features = gst_registry_get_feature_list(gst_registry_get(), GST_TYPE_ELEMENT_FACTORY);
    guint found = 0;
    for (GList *it = features; it; it = it->next) {
       GstElementFactory *factory = it->data;
-      if (g_strcmp0(gst_plugin_feature_get_plugin_name(GST_PLUGIN_FEATURE(factory)),
-                     "lv2")) continue;
-      const char *name = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory));
-      const char *description = gst_element_factory_get_description(factory);
-      gchar *label = g_strdup_printf("%s — %s", name,
-                                      description ? description : "LV2 effect");
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(factory_box), name, label);
-      g_free(label); found++;
+      if (g_strcmp0(gst_plugin_feature_get_plugin_name(GST_PLUGIN_FEATURE(factory)), "lv2")) continue;
+      GtkTreeIter row;
+      gtk_list_store_append(store, &row);
+      gtk_list_store_set(store, &row,
+         LV2_NAME, gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)),
+         LV2_DESC, gst_element_factory_get_description(factory),
+         LV2_LONG, gst_element_factory_get_longname(factory),
+         LV2_CLASS, gst_element_factory_get_klass(factory), -1);
+      found++;
    }
    gst_plugin_feature_list_free(features);
-   if (found) gtk_combo_box_set_active(GTK_COMBO_BOX(factory_box), 0);
+   GtkTreeModel *sorted = gtk_tree_model_sort_new_with_model(GTK_TREE_MODEL(store));
+   gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), LV2_NAME, GTK_SORT_ASCENDING);
+   picker.filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(sorted, NULL));
+   gtk_tree_model_filter_set_visible_func(picker.filter, lv2_visible, &picker, NULL);
+   picker.view = GTK_TREE_VIEW(gtk_tree_view_new_with_model(GTK_TREE_MODEL(picker.filter)));
+   gtk_tree_view_set_headers_visible(picker.view, FALSE);
+   GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+   g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+   gtk_tree_view_insert_column_with_attributes(picker.view, -1, "Plugin", renderer, "text", LV2_NAME, NULL);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_size_request(scroll, 490, 200);
+   gtk_container_add(GTK_CONTAINER(scroll), GTK_WIDGET(picker.view));
+   gtk_grid_attach(GTK_GRID(grid), scroll, 0, 1, 2, 1);
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(picker.view);
+   g_signal_connect(selection, "changed", G_CALLBACK(lv2_selected), &picker);
+   g_signal_connect(picker.search, "changed", G_CALLBACK(lv2_search), &picker);
+   g_signal_connect(picker.view, "row-activated", G_CALLBACK(lv2_activate), &picker);
+   picker.details = gtk_label_new(NULL);
+   gtk_label_set_xalign(GTK_LABEL(picker.details), 0.);
+   gtk_label_set_yalign(GTK_LABEL(picker.details), 0.);
+   gtk_label_set_line_wrap(GTK_LABEL(picker.details), TRUE);
+   gtk_label_set_line_wrap_mode(GTK_LABEL(picker.details), PANGO_WRAP_WORD_CHAR);
+   gtk_label_set_max_width_chars(GTK_LABEL(picker.details), 60);
+   GtkWidget *frame = gtk_frame_new("Selected plugin");
+   gtk_container_add(GTK_CONTAINER(frame), picker.details);
+   gtk_grid_attach(GTK_GRID(grid), frame, 0, 2, 2, 1);
+   GtkWidget *source_box = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(source_box), "", "Unconnected — wire input in Routing");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(source_box), 0);
    if (graph_snapshot)
       for (guint i = 0; i < graph_snapshot->node_count; i++) {
          const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
@@ -1156,29 +1234,27 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
                                     node->id, label);
          g_free(label);
       }
-   /* Starting unconnected is supported even without a receiver. */
-   GtkWidget *fields[] = {factory_box, source_box};
-   const char *names[] = {"LV2 plugin", "RX source"};
-   for (guint i = 0; i < G_N_ELEMENTS(fields); i++) {
-      GtkWidget *label = gtk_label_new(names[i]);
-      gtk_widget_set_halign(label, GTK_ALIGN_END);
-      gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
-      gtk_widget_set_hexpand(fields[i], TRUE);
-      gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
-   }
+   GtkWidget *source_label = gtk_label_new("RX source");
+   gtk_widget_set_halign(source_label, GTK_ALIGN_END);
+   gtk_grid_attach(GTK_GRID(grid), source_label, 0, 3, 1, 1);
+   gtk_widget_set_hexpand(source_box, TRUE);
+   gtk_grid_attach(GTK_GRID(grid), source_box, 1, 3, 1, 1);
    GtkWidget *hint = gtk_label_new(
-      "Creates an independent fwdsp subprocess and a processor block in Routing. "
-      "Leave it unconnected and patch an RX stream onto the cyan input later, "
-      "or choose a source now; its output returns to the mixer. "
-      "Audio is 16 kHz mono at this boundary. Existing pipeline settings are unchanged.");
+      "Independent fwdsp subprocess, 16 kHz mono. Leave unconnected to patch input later.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
-   gtk_widget_set_halign(hint, GTK_ALIGN_START);
-   gtk_grid_attach(GTK_GRID(grid), hint, 0, 2, 2, 1);
+   gtk_label_set_max_width_chars(GTK_LABEL(hint), 60);
+   gtk_grid_attach(GTK_GRID(grid), hint, 0, 4, 2, 1);
    gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT,
                                      found != 0);
    gtk_widget_show_all(dialog);
+   lv2_search(GTK_EDITABLE(picker.search), &picker);
+   gtk_widget_grab_focus(picker.search);
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-      const char *factory = gtk_combo_box_get_active_id(GTK_COMBO_BOX(factory_box));
+      GtkTreeModel *model = NULL;
+      GtkTreeIter chosen;
+      gchar *factory = NULL;
+      if (gtk_tree_selection_get_selected(selection, &model, &chosen))
+         gtk_tree_model_get(model, &chosen, LV2_NAME, &factory, -1);
       const char *source = gtk_combo_box_get_active_id(GTK_COMBO_BOX(source_box));
       if (factory && source) {
          rr_audio_effect_request_t req = {.action = 'A'};
@@ -1186,7 +1262,11 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
          g_strlcpy(req.source, source, sizeof(req.source));
          audio_request_effect_block(&req);
       }
+      g_free(factory);
    }
+   g_object_unref(picker.filter);
+   g_object_unref(sorted);
+   g_object_unref(store);
    gtk_widget_destroy(dialog);
 #else
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
