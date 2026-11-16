@@ -108,10 +108,9 @@ int main(int argc,char **argv) {
             sent=0;
          }
          if(!pending&&!waveform.empty()&&position==waveform.size()) {
-            flockfile(stdout);
-            std::fputs("\n!TX_DONE\n",stdout);
-            std::fflush(stdout);
-            funlockfile(stdout);
+            /* Separate control socket: never splice status into received text. */
+            static const char done[]="TX_DONE";
+            send(3,done,sizeof(done)-1,MSG_DONTWAIT|MSG_NOSIGNAL);
             waveform.clear();
             position=0;
          }
