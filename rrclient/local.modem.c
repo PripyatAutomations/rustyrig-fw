@@ -21,7 +21,7 @@
 
 typedef struct {
    rr_dsp_worker_t worker;
-   bool active, tx_enabled;
+   bool active, tx_enabled, tx_was_allowed;
    char source[64], engine[16], option[24];
    char tx_target[64], ptt_target[64];
    unsigned value;
@@ -157,6 +157,17 @@ static gboolean poll_decoders(gpointer unused) {
          g_snprintf(last_status, sizeof(last_status), "Decoder %u exited", i + 1);
          stop_one(i);
       }
+      /* A falling authorized PTT must cancel pending PSK text. The worker
+       * is still drained after PTT release to discard queued PCM. */
+      bool allowed=d->tx_enabled && d->tx_target[0] &&
+         !strcmp(d->tx_target,d->ptt_target) &&
+         audio_modem_tx_allowed(d->tx_target);
+      if (d->tx_was_allowed && !allowed) {
+         static const char cancel[]="CANCEL\\n";
+         send(d->worker.serial_fd,cancel,sizeof(cancel)-1,
+              MSG_DONTWAIT|MSG_NOSIGNAL);
+      }
+      d->tx_was_allowed=allowed;
       /* Drain the worker TX socket even when disarmed to avoid backpressure
        * carrying old PCM into a future PTT session. 16 kHz mono S16LE. */
       if (d->worker.tx_pcm_fd >= 0) for (unsigned k=0;k<16;k++) {
@@ -353,8 +364,11 @@ static void request_received(const rr_event_message_t *message, void *unused) {
             if (n!=(ssize_t)strlen(line))
                g_strlcpy(last_status,"Modem TX command could not be queued",
                          sizeof(last_status));
-            else g_snprintf(last_status,sizeof(last_status),
-                            "Modem %u PSK TX text queued",req->slot);
+            else {
+               d->tx_was_allowed=true;
+               g_snprintf(last_status,sizeof(last_status),
+                          "Modem %u PSK TX text queued",req->slot);
+            }
             g_free(line);
          }
       }
@@ -365,6 +379,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          g_mutex_lock(&decoder_lock);
          if (d->active) {
             d->tx_enabled = req->tx_enabled;
+    d->tx_was_allowed = false;
             if (!d->tx_enabled)
                d->tx_target[0] = d->ptt_target[0] = 0;
          }
