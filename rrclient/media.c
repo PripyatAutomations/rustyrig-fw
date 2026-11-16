@@ -460,6 +460,11 @@ bool rrclient_media_rx_has_tx(const char *rx_uuid) {
    return false;
 }
 
+bool rrclient_media_rx_is_active_rx(const char *rx_uuid) {
+   const struct rr_client_media_chan *rx = media_known_find(rx_uuid);
+   return rx && rx == media_current_channel(false);
+}
+
 /* A TX patch only represents the active, negotiated microphone encoder
  * destination. It must not let a graph wire select another server/rig or
  * bypass the media-room, VFO and PTT rules. */
