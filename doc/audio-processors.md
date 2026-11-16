@@ -164,7 +164,18 @@ not audio or a PCM pad. UI changes are routed asynchronously through rrclient's
 core to its isolated `fwdsp` worker, where GObject type/range checks protect
 the effect. Double-click resets gains to 0 dB and LV2 controls to their
 configured defaults. **Show Controls?** hides the entire control overlay
-without modifying connections or floating panels.
+without modifying connections or floating panels. Blue LV2 parameter sockets
+are placed along the **bottom** of each effect block first, then along its
+**top** when more ports are present; short labels sit adjacent to each socket
+and the audio-pad sides stay clear.
+
+Floating control widgets use a minimal, headerless panel sized to their label
+and slider/knob. Drag the label to move one, or right-click the label, slider
+or knob to access **Move**, **Hide**, and **Delete**. Hiding preserves the
+binding, position and graph control; the Routing toolbar's
+**Hidden Controls…** menu restores individually hidden widgets. Deleting
+removes the control from the saved UUID index and the graph, without changing
+the audio pipeline or the target parameter.
 
 The control's UUID, effect element/property binding, explicit min/max/step/unit
 overrides, last value and Routing position persist in `client.db`; normal
