@@ -3742,7 +3742,8 @@ static void routing_snapshot_event(const rr_event_message_t *message, void *unus
       return;
    }
    g_free(routing_rx_snapshot);
-   routing_rx_snapshot = g_memdup2(snapshot, message->length);
+   routing_rx_snapshot = g_malloc(message->length);
+   memcpy(routing_rx_snapshot, snapshot, message->length);
    snapshot_waiting = false;
    snapshot_sent_at = 0;
 }
