@@ -399,6 +399,9 @@ const char *rrclient_connection_iter(unsigned index) {
    return NULL;
 }
 
+rrconn_t *rrclient_connection_context(void) {
+   return context ? context->connection : NULL;
+}
 void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
    if (!callback) {
       return;
