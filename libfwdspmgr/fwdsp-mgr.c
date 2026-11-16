@@ -1308,7 +1308,8 @@ bool fwdsp_processor_set_property(const char *name, const char *element,
 
 /* A real-time client mixer may borrow a duplicate of the playback socket. The manager remains the sole owner of the subprocess and registry. */
 int fwdsp_processor_dup_input(const char *name) {
-   struct fwdsp_subproc *sp = fwdsp_find_processor(name, "sink");
+   struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
+   if (!sp) sp = fwdsp_find_processor(name, "sink");
 
    if (!sp || sp->role != FWDSP_ROLE_PROCESSOR || sp->fw_stdin < 0 || sp->destroying) {
       return -1;
