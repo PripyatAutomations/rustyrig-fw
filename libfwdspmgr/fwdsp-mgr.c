@@ -1284,8 +1284,8 @@ bool fwdsp_processor_setvol(const char *name, int percent) {
 bool fwdsp_processor_set_property(const char *name, const char *element,
                                   const char *property, double value) {
    if (!name || !*name || !element || !*element || !property || !*property ||
-       strlen(element) >= sizeof(((struct fwdsp_control_msg *)0)->element) ||
-       strlen(property) >= sizeof(((struct fwdsp_control_msg *)0)->property) ||
+       strlen(element) >= FWDSP_RECORD_USER_LEN ||
+       strlen(property) >= FWDSP_RECORD_ID_LEN ||
        !isfinite(value)) return false;
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
    if (!sp) sp = fwdsp_find_processor(name, "src");
@@ -1293,11 +1293,11 @@ bool fwdsp_processor_set_property(const char *name, const char *element,
    if (!sp || sp->process.pid <= 0 || sp->fw_control < 0 || sp->destroying)
       return false;
    struct fwdsp_control_msg msg = {
-      .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_PROPERTY,
-      .property_value = value
+      .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_PROPERTY
    };
-   snprintf(msg.element, sizeof(msg.element), "%s", element);
-   snprintf(msg.property, sizeof(msg.property), "%s", property);
+   snprintf(msg.record_user, sizeof(msg.record_user), "%s", element);
+   snprintf(msg.record_id, sizeof(msg.record_id), "%s", property);
+   memcpy(msg.record_file, &value, sizeof(value));
 #ifndef _WIN32
    return send(sp->fw_control, &msg, sizeof(msg),
                MSG_NOSIGNAL | MSG_DONTWAIT) == (ssize_t)sizeof(msg);
