@@ -105,9 +105,11 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const
    for (guint i = 0 ; i < g->edges->len ; i++) {
       rr_ag_edge_t *e = &g_array_index(g->edges, rr_ag_edge_t, i);
       if (e->dst != (guint)b || e->type != type) continue;
-      if (to->type != RR_AG_MIXER && to->type != RR_AG_PROCESSOR)
+      gboolean stereo_processor = to->type == RR_AG_PROCESSOR &&
+          g_str_has_prefix(to->id, "proc.lv2.");
+      if (to->type != RR_AG_MIXER && !stereo_processor)
          return false;
-      if (to->type == RR_AG_PROCESSOR && (e->channels & channels))
+      if (stereo_processor && (e->channels & channels))
          return false;
       if (e->src == (guint)a) {
          if (e->channels & channels) return false;
