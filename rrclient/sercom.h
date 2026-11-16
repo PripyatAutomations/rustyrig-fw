@@ -10,6 +10,21 @@ typedef struct {
 } rr_sercom_info_t;
 /* Borrowed strings, valid until the attachment changes or is disconnected. */
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
+/* A numbered virtual rig groups real PTYs and binds them to a specific
+ * server/rig, independent of the selected GTK tab. Core owns changes. */
+#define RR_SERCOM_VRIG_BIND_REQUEST "client.serial.vrig.bind.request"
+#define RR_SERCOM_VRIG_BIND_RESULT "client.serial.vrig.bind.result"
+#define RR_SERCOM_VRIG_MAX 8
+typedef struct {
+   unsigned slot;
+   char profile[128];
+   char rig[32]; /* rig0, rig1, ... */
+} rr_sercom_vrig_bind_t;
+typedef struct {
+   unsigned slot;
+   bool success;
+   char detail[160];
+} rr_sercom_vrig_bind_result_t;
 bool rr_sercom_init(void);
 /* GTK/TUI update CAT/GPS/modem aliases when the active rig changes. */
 void rr_sercom_focus_room(const char *profile, const char *room);
