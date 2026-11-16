@@ -988,14 +988,22 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
    fx->input_fd = -1;
    if (fx->name[0]) {
       fwdsp_processor_stop(fx->name);
-      if (rx_engine) rr_audio_engine_remove_stream(rx_engine, fx->name);
+      if (rx_engine) {
+         for (guint ch = 0; ch < (fx->channels ? fx->channels : 1); ch++)
+            if (fx->output_stream[ch][0])
+               rr_audio_engine_remove_stream(rx_engine, fx->output_stream[ch]);
+      }
    }
    if (queue) g_async_queue_unref(queue);
    if (available) g_async_queue_unref(available);
    g_mutex_lock(&lv2_effect_lock);
    fx->queue = fx->available = NULL;
-   fx->source[0] = fx->factory[0] = fx->name[0] = 0;
-   fx->output = 'M';
+   memset(fx->source, 0, sizeof(fx->source));
+   memset(fx->output_stream, 0, sizeof(fx->output_stream));
+   fx->factory[0] = fx->name[0] = 0;
+   fx->output[0] = fx->output[1] = 'M';
+   fx->channels = 0;
+   fx->pending_frames[0] = fx->pending_frames[1] = 0;
    g_atomic_int_set(&fx->failed, FALSE);
    g_mutex_unlock(&lv2_effect_lock);
    if (forget) {
@@ -1008,6 +1016,10 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
       key = g_strdup_printf("audio.lv2.%u.uuid", slot);
       rrclient_database_setting_set(key, ""); g_free(key);
       key = g_strdup_printf("audio.lv2.%u.output", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.source-right", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.output-right", slot);
       rrclient_database_setting_set(key, ""); g_free(key);
    }
 }
@@ -1026,36 +1038,52 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
       if (req->source[0] && i + 1 != slot &&
           g_atomic_int_get(&lv2_effects[i].active) &&
-          !strcmp(lv2_effects[i].source, req->source))
-         return FALSE; /* Never silently fan out or duplicate a source. */
+          (!strcmp(lv2_effects[i].source[0], req->source) ||
+           !strcmp(lv2_effects[i].source[1], req->source)))
+         return FALSE;
    audio_lv2_stop(slot, FALSE);
    rr_lv2_effect_t *fx = &lv2_effects[slot-1];
    fx->input_fd = -1;
    g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
-   g_strlcpy(fx->source, req->source, sizeof(fx->source));
+   fx->channels = audio_lv2_factory_channels(req->factory);
+   g_strlcpy(fx->source[0], req->source, sizeof(fx->source[0]));
    g_strlcpy(fx->factory, req->factory, sizeof(fx->factory));
-   char *output_key = g_strdup_printf("audio.lv2.%u.output", slot);
-   char *saved_output = rrclient_database_setting_get(output_key);
-   fx->output = saved_output && strchr("LRS", saved_output[0]) && !saved_output[1] ?
-      saved_output[0] : 'M';
-   g_free(saved_output);
-   g_free(output_key);
-   /* S16 16k mono is the current narrowband tap contract. Converters on
-    * each side allow LV2 plugins with internal float/stereo requirements. */
+   if (fx->channels == 2) {
+      char *key = g_strdup_printf("audio.lv2.%u.source-right", slot);
+      char *saved = rrclient_database_setting_get(key);
+      if (saved && audio_lv2_source_present(saved))
+         g_strlcpy(fx->source[1], saved, sizeof(fx->source[1]));
+      g_free(saved); g_free(key);
+   }
+   for (guint ch = 0; ch < fx->channels; ch++) {
+      char *key = g_strdup_printf(ch ? "audio.lv2.%u.output-right" :
+                                     "audio.lv2.%u.output", slot);
+      char *saved = rrclient_database_setting_get(key);
+      fx->output[ch] = saved && strchr("LRS", saved[0]) && !saved[1] ?
+         saved[0] : 'M';
+      g_free(saved); g_free(key);
+      g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]),
+                 fx->channels == 2 ? "proc.lv2.%u.%c" : "proc.lv2.%u",
+                 slot, ch ? 'R' : 'L');
+   }
+   /* Actual process IPC uses mono or interleaved stereo S16 frames. */
    char *pipeline = g_strdup_printf(
       "appsrc name=processor-src is-live=true format=time do-timestamp=true "
-      "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
+      "caps=audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
       "queue max-size-buffers=8 leaky=downstream ! audioconvert ! audioresample ! "
       "%s name=effect ! audioconvert ! audioresample ! "
-      "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
+      "audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
       "appsink name=processor-sink sync=false max-buffers=8 drop=true",
-      req->factory);
-   if (!audio_local_rx_start(fx->name)) {
-      g_free(pipeline); fx->name[0] = 0; return FALSE;
+      fx->channels, req->factory, fx->channels);
+   for (guint ch = 0; ch < fx->channels; ch++) {
+      if (!audio_local_rx_start(fx->output_stream[ch])) {
+         for (guint j = 0; j < ch; j++) audio_local_rx_stop(fx->output_stream[j]);
+         g_free(pipeline); fx->name[0] = 0; return FALSE;
+      }
    }
-   if (!fwdsp_processor_start(fx->name, pipeline,
-                              audio_lv2_result, fx)) {
-      audio_local_rx_stop(fx->name);
+   if (!fwdsp_processor_start(fx->name, pipeline, audio_lv2_result, fx)) {
+      for (guint ch = 0; ch < fx->channels; ch++)
+         audio_local_rx_stop(fx->output_stream[ch]);
       fx->name[0] = 0;
       g_free(pipeline);
       return FALSE;
@@ -1064,7 +1092,8 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    fx->input_fd = fwdsp_processor_dup_input(fx->name);
    if (fx->input_fd < 0) {
       fwdsp_processor_stop(fx->name);
-      audio_local_rx_stop(fx->name);
+      for (guint ch = 0; ch < fx->channels; ch++)
+         audio_local_rx_stop(fx->output_stream[ch]);
       fx->name[0] = 0;
       return FALSE;
    }
@@ -1076,11 +1105,11 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
       g_async_queue_push(fx->available, &fx->packets[i]);
    g_atomic_int_set(&fx->failed, FALSE);
    g_atomic_int_set(&fx->active, TRUE);
+   for (guint ch = 0; ch < fx->channels; ch++)
+      rr_audio_engine_route(rx_engine, fx->output_stream[ch], fx->output[ch]);
    struct rrclient_rx_stream streams[128];
    size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
                   G_N_ELEMENTS(streams));
-   /* No implicit mixer return: output must be patched independently. */
-   rr_audio_engine_route(rx_engine, fx->name, fx->output);
    fx->writer = g_thread_new("lv2-input", audio_lv2_writer, fx);
    char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
    rrclient_database_setting_set(key, req->factory); g_free(key);
