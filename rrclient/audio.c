@@ -666,7 +666,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
          stream->output = r->output;
          stream->source_rate_hz = r->source_rate_hz;
          stream->active_rx = rrclient_media_rx_is_active_rx(r->uuid);
-         stream->active_tx = rrclient_media_rx_is_active_tx(r->uuid);
+         stream->active_tx = rrclient_media_rx_has_tx(r->uuid);
       }
       count++;
    }
