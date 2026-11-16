@@ -802,6 +802,7 @@ typedef struct {
 } rr_lv2_pcm_packet_t;
 typedef struct {
    char name[32], source[64], factory[96];
+   char output; /* Explicit output route: M means disconnected */
    GAsyncQueue *queue, *available;
    rr_lv2_pcm_packet_t packets[8], stop_packet;
    GThread *writer;
@@ -906,6 +907,7 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
    g_mutex_lock(&lv2_effect_lock);
    fx->queue = fx->available = NULL;
    fx->source[0] = fx->factory[0] = fx->name[0] = 0;
+   fx->output = 'M';
    g_atomic_int_set(&fx->failed, FALSE);
    g_mutex_unlock(&lv2_effect_lock);
    if (forget) {
@@ -916,6 +918,8 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
       key = g_strdup_printf("audio.lv2.%u.server", slot);
       rrclient_database_setting_set(key, ""); g_free(key);
       key = g_strdup_printf("audio.lv2.%u.uuid", slot);
+      rrclient_database_setting_set(key, ""); g_free(key);
+      key = g_strdup_printf("audio.lv2.%u.output", slot);
       rrclient_database_setting_set(key, ""); g_free(key);
    }
 }
@@ -942,6 +946,12 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
    g_strlcpy(fx->source, req->source, sizeof(fx->source));
    g_strlcpy(fx->factory, req->factory, sizeof(fx->factory));
+   char *output_key = g_strdup_printf("audio.lv2.%u.output", slot);
+   char *saved_output = rrclient_database_setting_get(output_key);
+   fx->output = saved_output && strchr("LRS", saved_output[0]) && !saved_output[1] ?
+      saved_output[0] : 'M';
+   g_free(saved_output);
+   g_free(output_key);
    /* S16 16k mono is the current narrowband tap contract. Converters on
     * each side allow LV2 plugins with internal float/stereo requirements. */
    char *pipeline = g_strdup_printf(
@@ -981,12 +991,8 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    struct rrclient_rx_stream streams[128];
    size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
                   G_N_ELEMENTS(streams));
-   rr_audio_engine_route(rx_engine, fx->name, 'M');
-   for (size_t i = 0; i < n; i++)
-      if (req->source[0] && !strcmp(streams[i].id, req->source)) {
-         rr_audio_engine_route(rx_engine, fx->name, streams[i].output);
-         break;
-      }
+   /* No implicit mixer return: output must be patched independently. */
+   rr_audio_engine_route(rx_engine, fx->name, fx->output);
    fx->writer = g_thread_new("lv2-input", audio_lv2_writer, fx);
    char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
    rrclient_database_setting_set(key, req->factory); g_free(key);
@@ -1021,6 +1027,22 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
              req.factory, req.source);
    } else if (req.action == 'D') {
       audio_lv2_stop(req.slot, TRUE);
+   } else if (req.action == 'O' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
+      rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
+      if (g_atomic_int_get(&fx->active) && strchr("MLRS", req.output)) {
+         fx->output = req.output;
+         rr_audio_engine_route(rx_engine, fx->name, req.output);
+         char *key = g_strdup_printf("audio.lv2.%u.output", req.slot);
+         char value[] = {req.output, 0};
+         rrclient_database_setting_set(key, value);
+         g_free(key);
+         Log(LOG_INFO, "audio.lv2", "Output %s -> %s", fx->name,
+             req.output == 'M' ? "disconnected" :
+             req.output == 'L' ? "rx.mix/L" :
+             req.output == 'R' ? "rx.mix/R" : "rx.mix/L+R");
+      } else {
+         Log(LOG_WARN, "audio.lv2", "Cannot set output for LV2 slot %u", req.slot);
+      }
    } else if (req.action == 'R' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
       if (g_atomic_int_get(&fx->active) &&
@@ -1043,7 +1065,6 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
                            G_N_ELEMENTS(streams));
             for (size_t i = 0; i < n; i++)
                if (!strcmp(streams[i].id, req.source)) {
-                  rr_audio_engine_route(rx_engine, fx->name, streams[i].output);
                   char *key = g_strdup_printf("audio.lv2.%u.server", req.slot);
                   rrclient_database_setting_set(key, streams[i].server); g_free(key);
                   key = g_strdup_printf("audio.lv2.%u.uuid", req.slot);
@@ -1072,12 +1093,9 @@ void audio_request_effect_block(const rr_audio_effect_request_t *req) {
    };
    event_emit_message(&msg);
 }
+/* LV2 output is patched separately; source ear changes must not rewire it. */
 static void audio_lv2_route_source(const char *source, char output) {
-   if (!lv2_effect_ready || !rx_engine || !source) return;
-   for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
-      if (g_atomic_int_get(&lv2_effects[i].active) &&
-          !strcmp(lv2_effects[i].source, source))
-         rr_audio_engine_route(rx_engine, lv2_effects[i].name, output);
+   (void)source; (void)output;
 }
 static void audio_lv2_restore(void) {
    if (!lv2_effect_ready || !audio_enabled || !rx_engine) return;
@@ -1627,9 +1645,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          if (!strcmp(fx->source, streams[i].id)) {
             rr_audio_graph_add_channel_link(graph, fx->source, fx->name,
                                            RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
-            unsigned channels = streams[i].output == 'L' ? RR_AG_CHANNEL_LEFT :
-               streams[i].output == 'R' ? RR_AG_CHANNEL_RIGHT :
-               streams[i].output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
+            unsigned channels = fx->output == 'L' ? RR_AG_CHANNEL_LEFT :
+               fx->output == 'R' ? RR_AG_CHANNEL_RIGHT :
+               fx->output == 'S' ? RR_AG_CHANNEL_STEREO : 0;
             if (channels)
                rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix",
                                                RR_AG_NORMAL, channels);
