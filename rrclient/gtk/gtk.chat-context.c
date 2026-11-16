@@ -3,6 +3,7 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 /* RustyRig GTK chat delivery identity. MIT / GPL when built with Mongoose. */
 #include "gtk.chat-context.h"
+#include <rrclient/ui.h>
 
 extern const char *server_name, *login_user;
 extern char session_token[];
@@ -15,7 +16,7 @@ void gtk_chat_context_capture(GtkChatContext *snapshot, const char *room) {
    snapshot->window = g_strdup(rrclient_window_name(room));
    snapshot->nickname = g_strdup(login_user);
    snapshot->session = g_strdup(session_token);
-   snapshot->irc = ws_conn && !ws_conn->is_ws;
+   snapshot->irc = rrclient_active_connection() && !rrclient_active_connection()->is_ws;
    snapshot->selected = rrclient_present_context();
 }
 
@@ -63,5 +64,5 @@ bool gtk_chat_context_selected(void) {
 }
 
 bool gtk_chat_context_irc(void) {
-   return presentation ? presentation->irc : ws_conn && !ws_conn->is_ws;
+   return presentation ? presentation->irc : rrclient_active_connection() && !rrclient_active_connection()->is_ws;
 }
