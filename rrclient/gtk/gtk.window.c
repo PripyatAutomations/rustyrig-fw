@@ -363,6 +363,35 @@ static void vrig_open_routing(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    gtk_audio_graph_present();
 }
+/* Create a small, theme-native endpoint chip. The serial editor is still
+ * the one authoritative configuration UI for a physical/PTY endpoint. */
+static GtkWidget *vrig_device_button(const char *name, const char *icon) {
+   GtkWidget *button = gtk_button_new();
+   GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+   GtkWidget *symbol = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
+   GtkWidget *label = gtk_label_new(name);
+   gtk_box_pack_start(GTK_BOX(content), symbol, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(content), label, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(button), content);
+   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
+   g_object_set_data_full(G_OBJECT(button), "rr-vrig-port", g_strdup(name), g_free);
+   g_signal_connect(button, "clicked", G_CALLBACK(vrig_configure_clicked), NULL);
+   char *path = g_build_filename(g_get_home_dir(), "dev", name, NULL);
+   char *tip = g_strdup_printf("%s — configure serial endpoint", path);
+   gtk_widget_set_tooltip_text(button, tip);
+   g_free(tip);
+   g_free(path);
+   return button;
+}
+static GtkWidget *vrig_field(const char *caption, GtkWidget *entry) {
+   GtkWidget *column = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   GtkWidget *label = gtk_label_new(caption);
+   gtk_label_set_xalign(GTK_LABEL(label), 0.);
+   gtk_style_context_add_class(gtk_widget_get_style_context(label), "dim-label");
+   gtk_box_pack_start(GTK_BOX(column), label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(column), entry, FALSE, FALSE, 0);
+   return column;
+}
 static void vrig_manager_open(void) {
    if (!GTK_IS_OVERLAY(rr_client_overlay) || !GTK_IS_NOTEBOOK(main_notebook))
       return;
@@ -373,36 +402,65 @@ static void vrig_manager_open(void) {
    vrig_panel = rr_floating_panel_new(GTK_OVERLAY(rr_client_overlay),
       GTK_NOTEBOOK(main_notebook), "virtual-rigs", "Virtual Rigs");
    if (!vrig_panel) return;
-   rr_floating_panel_set_initial_position(vrig_panel, 80, 110);
+   rr_floating_panel_set_initial_position(vrig_panel, 90, 105);
    GtkWidget *body = rr_floating_panel_body(vrig_panel);
+   gtk_container_set_border_width(GTK_CONTAINER(body), 10);
+
+   GtkWidget *intro = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   GtkWidget *heading = gtk_label_new("One client, multiple radios");
+   gtk_label_set_xalign(GTK_LABEL(heading), 0.);
+   gtk_style_context_add_class(gtk_widget_get_style_context(heading), "title");
    GtkWidget *hint = gtk_label_new(
-      "Each vrigN owns independently pinned CAT/GPS PTYs. Bind a server "
-      "profile and physical rigN; programs use ~/dev/ttyCATN and ~/dev/ttyGPSN.");
-   gtk_label_set_xalign(GTK_LABEL(hint), 0);
+      "Each virtual rig binds numbered CAT and GPS ports to one remote radio, "
+      "independent of the currently selected tab.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
-   gtk_label_set_max_width_chars(GTK_LABEL(hint), 70);
-   gtk_box_pack_start(GTK_BOX(body), hint, FALSE, FALSE, 5);
+   gtk_label_set_xalign(GTK_LABEL(hint), 0.);
+   gtk_label_set_max_width_chars(GTK_LABEL(hint), 60);
+   gtk_style_context_add_class(gtk_widget_get_style_context(hint), "dim-label");
+   gtk_box_pack_start(GTK_BOX(intro), heading, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(intro), hint, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(body), intro, FALSE, FALSE, 5);
+
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-   gtk_widget_set_size_request(scroll, 620, 340);
-   GtkWidget *grid = gtk_grid_new();
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 7);
-   gtk_grid_set_row_spacing(GTK_GRID(grid), 7);
-   gtk_container_set_border_width(GTK_CONTAINER(grid), 8);
-   gtk_container_add(GTK_CONTAINER(scroll), grid);
-   gtk_box_pack_start(GTK_BOX(body), scroll, TRUE, TRUE, 0);
-   const char *columns[] = {"Virtual rig", "Server profile", "Radio", "Local serial devices", "Action"};
-   for (unsigned col = 0; col < G_N_ELEMENTS(columns); col++)
-      gtk_grid_attach(GTK_GRID(grid), gtk_label_new(columns[col]), col, 0, 1, 1);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
+   gtk_widget_set_size_request(scroll, 610, 350);
+   GtkWidget *list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(list), 3);
+   gtk_container_add(GTK_CONTAINER(scroll), list);
+   gtk_box_pack_start(GTK_BOX(body), scroll, TRUE, TRUE, 2);
    const char *current = rrclient_selected_server();
+
    for (unsigned slot = 0; slot < RR_SERCOM_VRIG_MAX; slot++) {
       char name[48], cat[32], gps[32];
       g_snprintf(name, sizeof(name), "vrig%u", slot);
       g_snprintf(cat, sizeof(cat), "ttyCAT%u", slot);
       g_snprintf(gps, sizeof(gps), "ttyGPS%u", slot);
-      GtkWidget *id = gtk_label_new(name);
-      gtk_grid_attach(GTK_GRID(grid), id, 0, slot + 1, 1, 1);
+      GtkWidget *frame = gtk_frame_new(NULL);
+      gtk_shadow_type_t shadow = GTK_SHADOW_ETCHED_IN;
+      gtk_frame_set_shadow_type(GTK_FRAME(frame), shadow);
+      GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 7);
+      gtk_container_set_border_width(GTK_CONTAINER(card), 10);
+      gtk_container_add(GTK_CONTAINER(frame), card);
+
+      GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+      GtkWidget *rig_label = gtk_label_new(NULL);
+      char *title = g_strdup_printf("<b>%s</b>", name);
+      gtk_label_set_markup(GTK_LABEL(rig_label), title);
+      g_free(title);
+      gtk_label_set_xalign(GTK_LABEL(rig_label), 0.);
+      gtk_box_pack_start(GTK_BOX(header), rig_label, TRUE, TRUE, 0);
+      GtkWidget *ports = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+      gtk_box_pack_start(GTK_BOX(ports),
+         vrig_device_button(cat, "utilities-terminal-symbolic"), FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(ports),
+         vrig_device_button(gps, "mark-location-symbolic"), FALSE, FALSE, 0);
+      gtk_box_pack_end(GTK_BOX(header), ports, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(card), header, FALSE, FALSE, 0);
+
+      GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
       vrig_profile[slot] = gtk_entry_new();
       vrig_radio[slot] = gtk_entry_new();
       char *key = g_strdup_printf("serial.vrig.%u.profile", slot);
@@ -414,39 +472,40 @@ static void vrig_manager_open(void) {
       gtk_entry_set_text(GTK_ENTRY(vrig_profile[slot]),
                          saved_profile && *saved_profile ? saved_profile :
                          current ? current : "");
-      if (saved_rig && *saved_rig) gtk_entry_set_text(GTK_ENTRY(vrig_radio[slot]), saved_rig);
+      if (saved_rig && *saved_rig)
+         gtk_entry_set_text(GTK_ENTRY(vrig_radio[slot]), saved_rig);
       else {
          g_snprintf(name, sizeof(name), "rig%u", slot);
          gtk_entry_set_text(GTK_ENTRY(vrig_radio[slot]), name);
       }
-      g_free(saved_profile); g_free(saved_rig);
-      gtk_entry_set_width_chars(GTK_ENTRY(vrig_profile[slot]), 14);
-      gtk_entry_set_width_chars(GTK_ENTRY(vrig_radio[slot]), 7);
-      gtk_grid_attach(GTK_GRID(grid), vrig_profile[slot], 1, slot + 1, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), vrig_radio[slot], 2, slot + 1, 1, 1);
-      GtkWidget *ports = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
-      const char *devices[] = {cat, gps};
-      for (unsigned j = 0; j < 2; j++) {
-         GtkWidget *btn = gtk_button_new_with_label(devices[j]);
-         g_object_set_data_full(G_OBJECT(btn), "rr-vrig-port", g_strdup(devices[j]), g_free);
-         g_signal_connect(btn, "clicked", G_CALLBACK(vrig_configure_clicked), NULL);
-         char *path = g_build_filename(g_get_home_dir(), "dev", devices[j], NULL);
-         gtk_widget_set_tooltip_text(btn, path);
-         g_free(path);
-         gtk_box_pack_start(GTK_BOX(ports), btn, FALSE, FALSE, 0);
-      }
-      gtk_grid_attach(GTK_GRID(grid), ports, 3, slot + 1, 1, 1);
+      g_free(saved_profile);
+      g_free(saved_rig);
+      gtk_entry_set_width_chars(GTK_ENTRY(vrig_profile[slot]), 18);
+      gtk_entry_set_width_chars(GTK_ENTRY(vrig_radio[slot]), 9);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(vrig_profile[slot]), "Server profile");
+      gtk_box_pack_start(GTK_BOX(row), vrig_field("Server", vrig_profile[slot]), TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(row), vrig_field("Remote rig", vrig_radio[slot]), FALSE, FALSE, 0);
       GtkWidget *bind = gtk_button_new_with_label("Bind");
+      gtk_style_context_add_class(gtk_widget_get_style_context(bind), "suggested-action");
+      gtk_widget_set_valign(bind, GTK_ALIGN_END);
+      gtk_widget_set_tooltip_text(bind, "Create or update pinned serial endpoints");
       g_object_set_data(G_OBJECT(bind), "rr-vrig-slot", GUINT_TO_POINTER(slot));
       g_signal_connect(bind, "clicked", G_CALLBACK(vrig_bind_clicked), NULL);
-      gtk_grid_attach(GTK_GRID(grid), bind, 4, slot + 1, 1, 1);
+      gtk_box_pack_end(GTK_BOX(row), bind, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(card), row, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(list), frame, FALSE, FALSE, 0);
    }
-   vrig_status = gtk_label_new("Bind a virtual rig to create its numbered PTYs.");
-   gtk_label_set_xalign(GTK_LABEL(vrig_status), 0);
-   gtk_box_pack_start(GTK_BOX(body), vrig_status, FALSE, FALSE, 5);
-   GtkWidget *routing = gtk_button_new_with_label("Show Routing");
+   GtkWidget *footer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   vrig_status = gtk_label_new("Select a server and radio, then Bind.");
+   gtk_label_set_line_wrap(GTK_LABEL(vrig_status), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(vrig_status), 0.);
+   gtk_widget_set_hexpand(vrig_status, TRUE);
+   gtk_style_context_add_class(gtk_widget_get_style_context(vrig_status), "dim-label");
+   gtk_box_pack_start(GTK_BOX(footer), vrig_status, TRUE, TRUE, 0);
+   GtkWidget *routing = gtk_button_new_with_label("Open Routing");
    g_signal_connect(routing, "clicked", G_CALLBACK(vrig_open_routing), NULL);
-   gtk_box_pack_start(GTK_BOX(body), routing, FALSE, FALSE, 4);
+   gtk_box_pack_end(GTK_BOX(footer), routing, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(body), footer, FALSE, FALSE, 4);
    if (!vrig_result_token)
       vrig_result_token = event_on_message_domain_token(
          RR_SERCOM_VRIG_BIND_RESULT, vrig_bound, NULL, "gtk");
