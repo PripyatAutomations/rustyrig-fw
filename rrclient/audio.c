@@ -140,6 +140,9 @@ static void rx_sink_set_fd(int new_fd) {
 
 /* Used by local SDR setup before its definition below. */
 static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id);
+static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes);
+static void audio_lv2_stop(unsigned slot, gboolean forget);
+static void audio_lv2_restore(void);
 static rr_audio_engine_t *audio_stream_engine(const char *id) {
    rr_pcm_stream_format_t format;
    if (hq_engine && rr_audio_engine_stream_format(hq_engine, id, &format))
@@ -169,6 +172,14 @@ bool audio_local_rx_start(const char *id) {
 }
 bool audio_local_rx_push_pcm(const char *id,
                             const void *interleaved, size_t frames) {
+   rr_pcm_stream_format_t fmt;
+   if (id && interleaved && frames && frames <= 2048 &&
+       audio_stream_engine(id) &&
+       rr_audio_engine_stream_format(audio_stream_engine(id), id, &fmt) &&
+       fmt.sample_rate_hz == 16000 && fmt.channels == 1 &&
+       fmt.format == RR_PCM_S16LE &&
+       audio_lv2_feed(id, interleaved, frames * sizeof(int16_t)))
+      return true;
    rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
    return engine && rr_audio_engine_push_pcm(engine, id, interleaved, frames);
 }
@@ -177,6 +188,7 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
    /* Only the old 16 kHz mono API may enter legacy FFT/modem analysis. */
    rr_af_spectrum_push(id, pcm, frames);
    rr_local_modem_feed(id, pcm, frames);
+   if (audio_lv2_feed(id, pcm, frames * sizeof(int16_t))) return true;
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
 void audio_local_rx_stop(const char *id) {
@@ -973,7 +985,9 @@ void audio_request_effect_block(const rr_audio_effect_request_t *req) {
    event_emit_message(&msg);
 }
 static void audio_lv2_restore(void) {
+   if (!lv2_effect_ready || !audio_enabled || !rx_engine) return;
    for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
+      if (g_atomic_int_get(&lv2_effects[slot-1].active)) continue;
       char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
       char *factory = rrclient_database_setting_get(key); g_free(key);
       key = g_strdup_printf("audio.lv2.%u.source", slot);
@@ -999,6 +1013,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    /* AF analysis is independent of speaker muting or ear routing. */
    rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
    rr_local_modem_feed(route->identity, samples, len / sizeof(int16_t));
+   if (audio_lv2_feed(route->identity, samples, len)) return;
 
    if (route->output == 'M') {
       if (len && rx_pcm_audible(samples, len / sizeof(int16_t)))
@@ -1235,6 +1250,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
    }
 
    if (changed) {
+      audio_lv2_restore();
       event_emit("client.audio.streams.changed", NULL, NULL);
    }
 }
