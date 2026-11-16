@@ -1333,11 +1333,7 @@ static gboolean routing_knob_scroll(GtkWidget *widget, GdkEventScroll *event,
 }
 static void routing_compact_destroy(gpointer pointer) {
    routing_compact_control_t *control = pointer;
-   if (control->save_source) {
-      g_source_remove(control->save_source);
-      control->save_source = 0;
-      routing_compact_save(control);
-   }
+   if (control->save_source) g_source_remove(control->save_source);
    if (control->panel) rr_floating_panel_destroy(control->panel);
    g_free(control);
 }
@@ -3356,9 +3352,25 @@ void gtk_audio_routing_shutdown(void) {
    }
 
    if (routing_compact_controls) {
+      /* Flush pending slider values while the full array is still alive;
+       * routing_compact_save also serializes the complete UUID index. */
+      for (guint i = 0; i < routing_compact_controls->len; i++) {
+         routing_compact_control_t *control =
+            g_ptr_array_index(routing_compact_controls, i);
+         if (control->save_source) {
+            g_source_remove(control->save_source);
+            control->save_source = 0;
+            routing_compact_save(control);
+         }
+      }
       g_ptr_array_unref(routing_compact_controls);
       routing_compact_controls = NULL;
    }
+   if (routing_effect_blocks) {
+      g_ptr_array_unref(routing_effect_blocks);
+      routing_effect_blocks = NULL;
+   }
+   routing_effect_drag_index = -1;
    rr_floating_panel_destroy(routing_panel);
    routing_panel = NULL;
    rx_vol_slider = NULL;
