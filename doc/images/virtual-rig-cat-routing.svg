@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="340" viewBox="0 0 1040 340" role="img" aria-labelledby="title desc">
+<title id="title">RustyRig virtual-rig CAT and GPS routing</title>
+<desc id="desc">Local applications open ttyCAT0 and ttyGPS0. The local Yaesu CAT emulator converts commands to signed RustyRig protocol messages sent through the virtual rig's bound connection. Black dashed lines are logical serial bindings, not raw serial transported over the socket.</desc>
+<rect width="1040" height="340" rx="18" fill="#15202c"/>
+<text x="32" y="39" fill="#f1f5f9" font-family="sans-serif" font-size="22" font-weight="bold">Virtual rig · local CAT emulation</text>
+<text x="32" y="62" fill="#9fbed0" font-family="sans-serif" font-size="13">Black dashed lines = logical CAT/GPS bindings · Blue = RustyRig control protocol</text>
+<g font-family="sans-serif" text-anchor="middle">
+<rect x="34" y="103" width="190" height="124" rx="12" fill="#253a4c" stroke="#678fa9" stroke-width="2"/>
+<text x="129" y="135" font-size="18" font-weight="bold" fill="#f3f7fc">Local applications</text>
+<text x="129" y="163" font-size="14" fill="#dae8ef">WSJT-X / fldigi / Hamlib</text>
+<text x="129" y="186" font-size="12" fill="#b6d1e1">Serial + virtual audio</text>
+<rect x="276" y="103" width="200" height="124" rx="12" fill="#263945" stroke="#a8bac7" stroke-width="2"/>
+<text x="376" y="130" font-size="18" font-weight="bold" fill="#f3f7fc">vrig0</text>
+<text x="376" y="158" font-size="14" fill="#d8e7ef">~/dev/ttyCAT0</text>
+<text x="376" y="181" font-size="14" fill="#d8e7ef">~/dev/ttyGPS0</text>
+<text x="376" y="205" font-size="12" fill="#afc4d2">Local PTY endpoints</text>
+<rect x="531" y="103" width="214" height="124" rx="12" fill="#263945" stroke="#a8bac7" stroke-width="2"/>
+<text x="638" y="132" font-size="18" font-weight="bold" fill="#f3f7fc">rrclient CAT</text>
+<text x="638" y="156" font-size="14" fill="#d8e7ef">FT-891 / FT-991A</text>
+<text x="638" y="180" font-size="13" fill="#b9d2e1">PTY-local parsing</text>
+<text x="638" y="204" font-size="12" fill="#b9d2e1">Bound server + VFO</text>
+<rect x="800" y="103" width="203" height="124" rx="12" fill="#263945" stroke="#58a7d7" stroke-width="2"/>
+<text x="901" y="133" font-size="18" font-weight="bold" fill="#f3f7fc">Remote rig0</text>
+<text x="901" y="159" font-size="14" fill="#d8e7ef">CAT control / PTT</text>
+<text x="901" y="183" font-size="12" fill="#b9d2e1">Authenticated protocol</text>
+<text x="901" y="203" font-size="12" fill="#b9d2e1">No raw CAT passthrough</text>
+</g>
+<g fill="none" stroke-linecap="round" stroke-width="3">
+<path d="M224 166 H276" stroke="#e7f1f6" stroke-dasharray="8 7"/>
+<path d="M476 166 H531" stroke="#090f14" stroke-dasharray="8 7"/>
+<path d="M476 166 H531" stroke="#a8bac7" stroke-width="1" stroke-dasharray="8 7"/>
+<path d="M745 166 H800" stroke="#58b8ee"/>
+</g>
+<g font-family="sans-serif" font-size="12" fill="#c4d8e3" text-anchor="middle">
+<text x="250" y="151">PTY</text>
+<text x="502" y="150">CAT</text>
+<text x="772" y="150">Control</text>
+<text x="520" y="281" font-size="13">Each vrigN has independent profile / rig binding. ttyCAT (unnumbered) follows the active radio.</text>
+<text x="520" y="306" font-size="12" fill="#8fb2c7">GPS publishes local NMEA for the bound rig; RX/TX audio uses separate PCM connections.</text>
+</g>
+</svg>
