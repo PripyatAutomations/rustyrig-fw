@@ -314,21 +314,24 @@ static gboolean panel_place_initial(RRFloatPanel *p) {
    }
    panel_position_t *saved = g_hash_table_lookup(panel_positions(p->overlay), p->id);
 
+   if (saved && p->loaded_state) {
+      /* A user-positioned panel is restored at its exact saved margins.
+       * Do not clamp using provisional GTK requisitions: compact controls
+       * can report a larger size during startup, shifting them left/up
+       * and immediately persisting that accidental relocation. */
+      gtk_widget_set_margin_start(p->frame, saved->x);
+      gtk_widget_set_margin_top(p->frame, saved->y);
+      return TRUE;
+   }
    if (saved) {
       int hard_min_x, hard_min_y, hard_max_x, hard_max_y;
       panel_hard_bounds(p, panel_width, panel_height, &hard_min_x, &hard_min_y, &hard_max_x, &hard_max_y);
       int x = CLAMP(saved->x, hard_min_x, hard_max_x);
       int y = CLAMP(saved->y, hard_min_y, hard_max_y);
-
-      /* Legacy compact controls may have all persisted the same startup
-       * location. Keep genuine distinct placements, but reflow collisions
-       * with other initialized panels and persist the corrected geometry. */
-      if (p->loaded_state ||
-          panel_position_clear(p, x, y, panel_width, panel_height)) {
+      if (panel_position_clear(p, x, y, panel_width, panel_height)) {
          gtk_widget_set_margin_start(p->frame, x);
          gtk_widget_set_margin_top(p->frame, y);
          panel_position_save(p, x, y);
-
          return TRUE;
       }
    }
