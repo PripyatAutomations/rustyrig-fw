@@ -187,15 +187,35 @@ static gboolean poll_decoders(gpointer unused) {
          g_snprintf(last_status, sizeof(last_status), "Decoder %u exited", i + 1);
          stop_one(i);
       }
-      /* A falling authorized PTT must cancel pending PSK text. The worker
-       * is still drained after PTT release to discard queued PCM. */
+      /* Modem-owned keying: generate TX PCM only after the server reports
+       * PTT asserted. Never continue a waveform after its route is removed. */
+      gint64 now_us=g_get_monotonic_time();
       bool allowed=d->tx_enabled && d->tx_target[0] &&
          !strcmp(d->tx_target,d->ptt_target) &&
          audio_modem_tx_allowed(d->tx_target);
-      if (d->tx_was_allowed && !allowed) {
-         static const char cancel[]="CANCEL\n";
-         send(d->worker.serial_fd,cancel,sizeof(cancel)-1,
-              MSG_DONTWAIT|MSG_NOSIGNAL);
+      if(d->ptt_owned && (!d->tx_enabled || !d->ptt_target[0] ||
+           strcmp(d->tx_target,d->ptt_target) ||
+           (d->tx_running && !allowed))) {
+         modem_cancel_waveform(d);
+         modem_release_ptt(i);
+      } else if(d->ptt_owned && d->pending_text[0] && allowed) {
+         gchar *command=g_strdup_printf("TX %s\n",d->pending_text);
+         ssize_t nw=send(d->worker.serial_fd,command,strlen(command),
+                         MSG_DONTWAIT|MSG_NOSIGNAL);
+         if(nw==(ssize_t)strlen(command)) {
+            d->tx_running=true;
+            d->pending_text[0]=0;
+            d->ptt_deadline_us=now_us+30000000;
+         } else {
+            modem_cancel_waveform(d);
+            modem_release_ptt(i);
+         }
+         g_free(command);
+      } else if(d->ptt_owned &&
+                ((d->release_at_us && now_us>=d->release_at_us) ||
+                 (d->ptt_deadline_us && now_us>=d->ptt_deadline_us))) {
+         modem_cancel_waveform(d);
+         modem_release_ptt(i);
       }
       d->tx_was_allowed=allowed;
       /* Drain the worker TX socket even when disarmed to avoid backpressure
