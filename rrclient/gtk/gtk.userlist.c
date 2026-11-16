@@ -65,7 +65,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 
 extern GtkWidget *main_notebook;
 extern dict *cfg;
-extern rrconn_t *ws_conn;
+
 extern const char *login_user;
 extern struct rr_user *global_userlist;   // userlist.c
 GtkWidget *userlist_window;
@@ -384,12 +384,12 @@ static void userlist_view_set_server(GtkWidget *view, const char *server) {
 
 static const rrconn_t *userlist_view_connection(GtkWidget *view) {
    if (view == cul_view) {
-      return ws_conn;
+      return rrclient_active_connection();
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
    rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
 
-   return connection ? connection : ws_conn;
+   return connection ? connection : rrclient_active_connection();
 }
 
 /* Column identity must survive GTK's user-controlled display order. */
@@ -544,7 +544,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
    const rrconn_t *view_connection = userlist_view_connection(view);
 
-   if (view != cul_view && profile && view_connection && ws_conn && view_connection != ws_conn) {
+   if (view != cul_view && profile && view_connection && rrclient_active_connection() && view_connection != rrclient_active_connection()) {
       return;
    }
    bool changed = userlist_set_columns(view, room);
@@ -943,7 +943,7 @@ static gboolean room_vfo_refresh(gpointer data) {
    /* Object, user and VFO caches belong to the current dispatch connection. */
    rrconn_t *connection = entry->server && *entry->server ? rrclient_connection_find(entry->server) : NULL;
 
-   if (connection && connection != ws_conn) {
+   if (connection && connection != rrclient_active_connection()) {
       return G_SOURCE_CONTINUE;
    }
    GtkWidget *strip = g_object_get_data(G_OBJECT(entry->panel), "rr-room-vfo-strip");
@@ -970,21 +970,21 @@ static void room_vfo_stop_clicked(GtkButton *button, gpointer data) {
    (void)button;
    room_vfo_control_t *control = (room_vfo_control_t *) data;
 
-   if (!control || !ws_conn) {
+   if (!control || !rrclient_active_connection()) {
       return;
    }
    char vfo[2] = {
       control->vfo, 0
    };
    extern void rrclient_send_ptt_command(rrconn_t *, const char *, bool, const char *);
-   rrclient_send_ptt_command(ws_conn, vfo, false, control->room);
+   rrclient_send_ptt_command(rrclient_active_connection(), vfo, false, control->room);
 }
 
 static void room_vfo_tune_clicked(GtkButton *button, gpointer data) {
    (void)button;
    room_vfo_control_t *control = data;
 
-   if (!control || !(rrclient_room_rx_tuning_mask(control->room) & (UINT32_C(1) << (control->vfo - 'A'))) || !ws_conn) {
+   if (!control || !(rrclient_room_rx_tuning_mask(control->room) & (UINT32_C(1) << (control->vfo - 'A'))) || !rrclient_active_connection()) {
       return;
    }
    extern GtkWidget *main_window;
@@ -1007,7 +1007,7 @@ static void room_vfo_tune_clicked(GtkButton *button, gpointer data) {
          char vfo[2] = {
             control->vfo, 0
          };
-         ws_send_freq_cmd_in_room(ws_conn, vfo, hz, control->room);
+         ws_send_freq_cmd_in_room(rrclient_active_connection(), vfo, hz, control->room);
       } else {
          ui_print(control->room, "Invalid RX frequency (enter whole Hz)");
       }
@@ -1019,7 +1019,7 @@ static gboolean room_vfo_swap_pressed(GtkWidget *widget, GdkEventButton *event, 
    (void)widget;
    room_vfo_control_t *control = data;
 
-   if (!control || !event || event->button != 1 || event->type != GDK_2BUTTON_PRESS || !ws_conn) {
+   if (!control || !event || event->button != 1 || event->type != GDK_2BUTTON_PRESS || !rrclient_active_connection()) {
       return FALSE;
    }
 
@@ -1046,7 +1046,7 @@ static gboolean room_vfo_swap_pressed(GtkWidget *widget, GdkEventButton *event, 
    dict_add(request, "cat.cmd", "swap");
    dict_add(request, "cat.room", control->room);
    dict_add(request, "cat.vfo", vfo);
-   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_active_connection(), request, WEBSOCKET_OP_TEXT);
    dict_free(request);
 
    return TRUE;
@@ -1068,7 +1068,7 @@ static gboolean room_vfo_select_delayed(gpointer data) {
    dict_add(request, "talk.msg_type", "pub");
    dict_add(request, "talk.target", control->room);
    dict_add(request, "talk.data", command);
-   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, rrclient_active_connection(), request, WEBSOCKET_OP_TEXT);
    dict_free(request);
 
    return G_SOURCE_REMOVE;
