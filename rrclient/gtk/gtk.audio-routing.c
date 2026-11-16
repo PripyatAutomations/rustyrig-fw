@@ -1393,7 +1393,7 @@ static gboolean routing_compact_context(GtkWidget *widget,
    routing_compact_control_t *control = data;
    if (event->button != GDK_BUTTON_SECONDARY) return FALSE;
    GtkWidget *menu = gtk_menu_new();
-   const char *items[] = {"Move", "Hide", "Delete"};
+   const char *items[] = {"Move (drag label)", "Hide", "Delete"};
    const char *actions[] = {"move", "hide", "delete"};
    for (guint i = 0; i < G_N_ELEMENTS(items); i++) {
       GtkWidget *entry = gtk_menu_item_new_with_label(items[i]);
