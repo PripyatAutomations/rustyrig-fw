@@ -3744,6 +3744,43 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
 
+   /* Double-click a port or its wire to disconnect. Resolve actual port
+    * targets before block-body navigation so connecting remains drag-only. */
+   if (event->type == GDK_2BUTTON_PRESS) {
+      gint hit_source=-1, hit_channel=-1;
+      gboolean hit_mixer=FALSE;
+      if (graph_port_at(gx,gy,&hit_source,&hit_channel,&hit_mixer)) {
+         graph_drag_source=graph_drag_channel=-1;
+         graph_drag_mixer=graph_drag_moved=FALSE;
+         if (hit_source>=0) {
+            const rr_ag_view_node_t *n=&graph_snapshot->nodes[hit_source];
+            if (n->type==RR_AG_SOURCE && !n->read_only &&
+                !g_str_has_prefix(n->id,"modem") &&
+                !g_str_has_prefix(n->id,"proc.lv2.")) {
+               graph_set_channel((guint)hit_source,hit_channel,FALSE);
+               return TRUE;
+            }
+            unsigned slot=0;
+            if (sscanf(n->id,"modem%u.tx",&slot)==1 &&
+                slot>=1 && slot<=RR_LOCAL_MODEM_MAX) {
+               rr_local_modem_request_t req={
+                  .action=hit_channel ? RR_LOCAL_MODEM_PTT_ROUTE :
+                                       RR_LOCAL_MODEM_TX_ROUTE,.slot=slot
+               };
+               rr_local_modem_request(&req);
+               routing_queue();
+               return TRUE;
+            }
+         }
+      }
+      guint linked_source=0;
+      gint linked_channel=-1;
+      if (graph_link_at(gx,gy,&linked_source,&linked_channel)) {
+         graph_set_channel(linked_source,linked_channel,FALSE);
+         return TRUE;
+      }
+   }
+
    /* Route/pipeline cross-navigation is read-only; trim double-click keeps
     * its reset-to-unity behavior above. */
    if (event->type == GDK_2BUTTON_PRESS) {
@@ -3790,10 +3827,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    guint linked_source = 0;
    gint linked_channel = -1;
-   if (graph_link_at(gx, gy, &linked_source, &linked_channel)) {
-      graph_set_channel(linked_source, linked_channel, FALSE);
-      return TRUE;
-   }
+   if (graph_link_at(gx, gy, &linked_source, &linked_channel))
+      return TRUE; /* wire clicks do not disconnect; double-click does */
 
    /* Empty-space left drag pans like qpwgraph; occupied controls retain
     * their own gesture precedence above. */
