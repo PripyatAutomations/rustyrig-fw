@@ -854,8 +854,10 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
       if (selected_engine && selected_source && selected_mode) {
          rr_local_modem_request_t req = {.action=RR_LOCAL_MODEM_START};
          g_strlcpy(req.engine, selected_engine, sizeof(req.engine));
-         if (strcmp(selected_source, "unconnected"))
-            g_strlcpy(req.source, selected_source, sizeof(req.source));
+         if (strcmp(selected_source, "unconnected")) {
+            const char *actual = routing_real_source(selected_source);
+            if (actual) g_strlcpy(req.source, actual, sizeof(req.source));
+         }
          g_strlcpy(req.option, selected_mode, sizeof(req.option));
          req.value = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(value));
          if (!strcmp(selected_engine, "ft8")) {
