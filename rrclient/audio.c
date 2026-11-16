@@ -889,7 +889,13 @@ static gboolean audio_lv2_feed(const char *source, const void *samples,
       }
       if (fx->channels == 1) {
          rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
-         if (!packet) { fx->dropped++; break; }
+         if (!packet) {
+            /* A connected effect owns the input; never leak dry PCM
+             * directly to the mixer when its async queue is full. */
+            fx->dropped++;
+            accepted = TRUE;
+            break;
+         }
          packet->bytes = (uint16_t)bytes;
          memcpy(packet->pcm, samples, bytes);
          g_async_queue_push(fx->queue, packet);
