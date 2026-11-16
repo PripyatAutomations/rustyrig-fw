@@ -637,7 +637,7 @@ static gboolean onair_panel_draw(GtkWidget *widget,cairo_t *cr,gpointer unused) 
    cairo_restore(cr);
    return FALSE;
 }
-static void onair_panel_ensure(void) {
+static void onair_panel_ensure(gboolean explicit_open) {
    if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook)) return;
    if (!onair_panel) {
       onair_panel=rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
@@ -648,13 +648,16 @@ static void onair_panel_ensure(void) {
       rr_floating_panel_set_closable(onair_panel,TRUE);
       rr_floating_panel_set_initial_position(onair_panel,360,120);
       onair_panel_canvas=gtk_drawing_area_new();
-      gtk_widget_set_size_request(onair_panel_canvas,175,76);
+      gtk_widget_set_size_request(onair_panel_canvas,95,42);
+      gtk_widget_set_hexpand(onair_panel_canvas,TRUE);
+      gtk_widget_set_vexpand(onair_panel_canvas,TRUE);
       g_signal_connect(onair_panel_canvas,"draw",
                        G_CALLBACK(onair_panel_draw),NULL);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(onair_panel)),
                          onair_panel_canvas,TRUE,TRUE,0);
    }
-   rr_floating_panel_present(onair_panel);
+   if(explicit_open) rr_floating_panel_present(onair_panel);
+   else rr_floating_panel_show(onair_panel);
    if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
 static gboolean onair_source_position(const char *source,double *x,double *y) {
@@ -738,7 +741,7 @@ static void onair_add(GtkButton *button,gpointer unused) {
    (void)button;(void)unused;
    onair_visible=TRUE;
    onair_save();
-   onair_panel_ensure();
+   onair_panel_ensure(TRUE);
    graph_canvas_update_size();
 }
 static void onair_menu_action(GtkMenuItem *item,gpointer unused) {
@@ -5034,7 +5037,7 @@ void gtk_audio_graph_present(void) {
    gtk_widget_show_all(graph_page);
    gtk_notebook_set_current_page(book, gtk_notebook_page_num(book, graph_page));
    if(!onair_restored){onair_restore();onair_restored=TRUE;}
-   if(onair_visible && !onair_panel) onair_panel_ensure();
+   if(onair_visible && !onair_panel) onair_panel_ensure(FALSE);
    routing_serial_refresh();
    if(!onair_token)
       onair_token=event_on_message_domain_token(
