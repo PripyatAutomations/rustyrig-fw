@@ -4356,12 +4356,8 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
             graph_snapshot->nodes[source_index].id);
       else
          graph_set_channel((guint)source_index, graph_drag_channel, TRUE);
-   } else if (!graph_drag_moved && !graph_drag_mixer && graph_drag_source >= 0 &&
-              !g_str_has_prefix(graph_snapshot->nodes[graph_drag_source].id, "modem")) {
-      unsigned mask = graph_route_mask(graph_snapshot->nodes[graph_drag_source].route);
-      unsigned bit = graph_drag_channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
-      graph_set_channel((guint) graph_drag_source, graph_drag_channel, !(mask & bit));
    }
+   /* Plain taps do not connect/disconnect. Double-click is reserved for removal. */
    graph_drag_source = graph_drag_channel = -1;
    graph_drag_modem_target = graph_drag_rig_target = -1;
    graph_drag_lv2_target = -1;
