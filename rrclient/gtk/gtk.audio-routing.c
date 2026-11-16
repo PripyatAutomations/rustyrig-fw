@@ -518,14 +518,14 @@ static void routing_serial_draw(cairo_t *cr) {
    }
 }
 
-/* Standalone, scalable PTT status monitor. The only supported source today
- * is the confirmed PTT state of the active local VFO. Binding is explicit. */
+/* Scalable logical PTT monitor. It follows only the output control pin
+ * selected by the stored wire; radio TX status is deliberately ignored. */
 static gboolean onair_visible,onair_connected,onair_active,onair_restored;
 static char onair_source[64]; /* Exact connected PTT control pin ID */
 static double onair_x=670.,onair_y=360.,onair_scale=1.,ptt_x=420.,ptt_y=360.;
 static gint onair_drag; /* sign=1, PTT block=2, control wire=3 */
 static double onair_drag_dx,onair_drag_dy;
-static rr_event_token_t onair_token;
+static rr_event_token_t onair_token, onair_disconnect_token;
 #define ONAIR_W (175.*onair_scale)
 #define ONAIR_H (76.*onair_scale)
 static void onair_save(void) {
@@ -566,6 +566,13 @@ static void onair_ptt_event(const rr_event_message_t *msg,void *unused) {
        !onair_visible || !onair_connected ||
        strcmp(signal->source,onair_source)) return;
    onair_active=signal->raised;
+   graph_canvas_update_size();
+}
+/* A lost connection cannot leave an old asserted PTT line on the lamp. */
+static void onair_connection_lost(const char *event,const char *data,
+                                  rrconn_t *connection,void *unused) {
+   (void)event;(void)data;(void)connection;(void)unused;
+   onair_active=FALSE;
    graph_canvas_update_size();
 }
 static gint onair_hit(double x,double y) {
@@ -4711,6 +4718,9 @@ void gtk_audio_graph_present(void) {
    if(!onair_token)
       onair_token=event_on_message_domain_token(
          RRCLIENT_ROUTING_PTT_SIGNAL,onair_ptt_event,NULL,"gtk");
+   if(!onair_disconnect_token)
+      onair_disconnect_token=event_on_domain_token(
+         "disconnected",onair_connection_lost,NULL,"gtk");
    if (!routing_modem_result_token)
       routing_modem_result_token=event_on_message_domain_token(
          RR_LOCAL_MODEM_RESULT,routing_modem_snapshot_received,NULL,"gtk");
@@ -4996,6 +5006,9 @@ void gtk_audio_routing_shutdown(void) {
    }
    g_clear_pointer(&routing_rx_snapshot, g_free);
    if(onair_token){event_off_token(onair_token);onair_token=0;}
+   if(onair_disconnect_token){
+      event_off_token(onair_disconnect_token);onair_disconnect_token=0;
+   }
    onair_active=FALSE;
    routing_zoom_slider=NULL;
    if (routing_modem_result_token) {
