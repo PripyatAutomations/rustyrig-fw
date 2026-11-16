@@ -885,13 +885,12 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
    /* The input descriptor belongs to this worker thread, not to the
     * fwdsp registry. Shutdown unblocks any in-flight framed write before
     * joining, so a wedged LV2 plugin cannot freeze the core on removal. */
-   if (fx->input_fd >= 0 && writer)
+   if (fx->name[0] && fx->input_fd >= 0 && writer)
       shutdown(fx->input_fd, SHUT_WR);
    if (writer) g_thread_join(writer);
-   if (fx->input_fd >= 0) {
+   if (fx->name[0] && fx->input_fd >= 0)
       close(fx->input_fd);
-      fx->input_fd = -1;
-   }
+   fx->input_fd = -1;
    if (fx->name[0]) {
       fwdsp_processor_stop(fx->name);
       if (rx_engine) rr_audio_engine_remove_stream(rx_engine, fx->name);
