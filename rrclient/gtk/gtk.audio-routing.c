@@ -311,6 +311,7 @@ static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
 static gint graph_drag_modem_target = -1;
 static gint graph_drag_rig_target = -1;
+static gint graph_drag_lv2_target = -1;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the
  * same hit/clock-domain rules for live preview and final connection. */
@@ -348,6 +349,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    const rr_ag_view_node_t *origin_node = &graph_snapshot->nodes[origin];
    unsigned modem_slot = 0;
    gboolean from_modem = graph_drag_mixer && routing_modem_slot(origin_node, &modem_slot);
+   gboolean from_lv2 = graph_drag_mixer &&
+       g_str_has_prefix(origin_node->id, "proc.lv2.");
    gboolean from_modem_tx = !graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "modem.") &&
        g_str_has_suffix(origin_node->id, ".tx");
@@ -358,6 +361,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    gboolean found = FALSE;
    graph_drag_modem_target = -1;
    graph_drag_rig_target = -1;
+   graph_drag_lv2_target = -1;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (graph_missing_since[i]) continue;
@@ -366,10 +370,16 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       gboolean modem_connection = from_modem ?
          routing_modem_source(n) :
          (!graph_drag_mixer && routing_modem_source(origin_node) && is_modem);
+      gboolean to_lv2 = !graph_drag_mixer &&
+          routing_modem_source(origin_node) &&
+          n->type == RR_AG_PROCESSOR &&
+          g_str_has_prefix(n->id, "proc.lv2.");
+      gboolean lv2_connection = to_lv2 ||
+          (from_lv2 && routing_modem_source(n));
       gboolean rig_target = from_modem_tx && n->type == RR_AG_SINK &&
           g_str_has_prefix(n->id, "rig.") &&
           g_str_has_suffix(n->id, ".tx");
-      gboolean valid = rig_target || modem_connection || (graph_drag_mixer ?
+      gboolean valid = rig_target || modem_connection || lv2_connection || (graph_drag_mixer ?
          (n->type == RR_AG_SOURCE && !n->read_only &&
           !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
                   required_bus)) :
@@ -391,6 +401,13 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       graph_drag_modem_target = modem_connection ?
          (gint)(from_modem ? modem_slot : target_slot) : -1;
       graph_drag_rig_target = rig_target ? (gint)i : -1;
+      if (lv2_connection) {
+         const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
+         unsigned slot = 0;
+         if (sscanf(effect->id, "proc.lv2.%u", &slot) == 1 &&
+             slot >= 1 && slot <= RR_AUDIO_EFFECT_MAX)
+            graph_drag_lv2_target = (gint)slot;
+      }
       found = TRUE;
    }
    return found;
@@ -480,7 +497,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem.") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem.") && g_str_has_suffix(n->id, ".tx"),
             .ptt_input = g_str_has_prefix(n->id, "rig.") && g_str_has_suffix(n->id, ".tx"), .fwdsp =
-            n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")
+            (n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")) ||
+            g_str_has_prefix(n->id, "proc.lv2.")
       };
    }
 
@@ -2601,10 +2619,23 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      gboolean lv2_input = node->type == RR_AG_PROCESSOR &&
+          g_str_has_prefix(node->id, "proc.lv2.");
       unsigned modem_slot = 0;
       gboolean modem_input = routing_modem_slot(node, &modem_slot);
-      if (graph_missing_since[i] || (node->type != RR_AG_MIXER && !modem_input))
+      if (graph_missing_since[i] ||
+          (node->type != RR_AG_MIXER && !modem_input && !lv2_input))
          continue;
+      if (lv2_input) {
+         if (hypot(x - routing_node_x(node),
+                   y - routing_node_y(node) - 60.) <= radius) {
+            *source = -(gint)i - 1;
+            *channel = 0;
+            *mixer = TRUE;
+            return TRUE;
+         }
+         continue;
+      }
       if (modem_input) {
          if (hypot(x - routing_node_x(node),
                    y - routing_node_y(node) - 68.) <= radius) {
@@ -2953,7 +2984,15 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) &&
        routing_drag_target(gx, gy, &source_index, &snap_x, &snap_y);
    if (graph_drag_moved && hit && source_index >= 0) {
-      if (graph_drag_rig_target >= 0 && graph_drag_source >= 0) {
+      if (graph_drag_lv2_target > 0) {
+         rr_audio_effect_request_t req = {
+            .action = 'R', .slot = (unsigned)graph_drag_lv2_target
+         };
+         g_strlcpy(req.source, graph_snapshot->nodes[source_index].id,
+                   sizeof(req.source));
+         audio_request_effect_block(&req);
+         routing_queue();
+      } else if (graph_drag_rig_target >= 0 && graph_drag_source >= 0) {
          const rr_ag_view_node_t *src = &graph_snapshot->nodes[graph_drag_source];
          const rr_ag_view_node_t *dst = &graph_snapshot->nodes[graph_drag_rig_target];
          unsigned slot = 0;
@@ -2995,6 +3034,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    }
    graph_drag_source = graph_drag_channel = -1;
    graph_drag_modem_target = graph_drag_rig_target = -1;
+   graph_drag_lv2_target = -1;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
