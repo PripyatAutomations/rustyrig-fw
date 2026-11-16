@@ -237,7 +237,7 @@ static void exec_closed(const char *event, const char *data, rrconn_t *connectio
    for (GList *p = exec_jobs ; p ; p = p->next) {
       exec_job_t *job = p->data;
 
-      if (job->mode && job->connection && job->connection == (connection ? connection : ws_conn)) {
+      if (job->mode && job->connection && job->connection == (connection ? connection : rrclient_connection_context())) {
          job->cancelled = true;
       }
    }
