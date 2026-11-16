@@ -63,5 +63,7 @@ void rr_local_modem_init(void);
 void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames);
 void rr_local_modem_shutdown(void);
 void rr_local_modem_request(const rr_local_modem_request_t *request);
+/* Atomic signal: local modem owns the TX encoder, so mic PCM must be muted. */
+bool rr_local_modem_tx_in_progress(void);
 bool cmd_local_modem(int argc, char **argv);
 #endif
