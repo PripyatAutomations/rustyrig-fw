@@ -433,6 +433,12 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
 }
 /* Some topology-locked nodes nevertheless have genuine mixer gain stages. */
 static gboolean routing_gain_supported(const rr_ag_view_node_t *n) {
+   /* Modem RX/TX and rig TX ports do not have controllable mixer
+    * faders. In particular, showing +/- dB on a modem sink implies
+    * a working gain stage that does not exist. */
+   if (g_str_has_prefix(n->id, "modem.") ||
+       (g_str_has_prefix(n->id, "rig.") &&
+        g_str_has_suffix(n->id, ".tx"))) return FALSE;
    if (n->type == RR_AG_SOURCE)
       return !n->read_only || !strcmp(n->id, "legacy.speaker");
    if (n->type == RR_AG_MIXER || n->type == RR_AG_SINK) return TRUE;
