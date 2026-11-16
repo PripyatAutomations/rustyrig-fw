@@ -1586,8 +1586,15 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       unsigned channels = stream->output == 'L' ? RR_AG_CHANNEL_LEFT :
          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT : stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
 
-      if (channels) {
-         /* Sources registered with the HQ mixer bypass the 16 kHz bus. */
+      gboolean intercepted = FALSE;
+      for (guint slot = 0; slot < RR_AUDIO_EFFECT_MAX; slot++)
+         if (g_atomic_int_get(&lv2_effects[slot].active) &&
+             !g_atomic_int_get(&lv2_effects[slot].failed) &&
+             !strcmp(lv2_effects[slot].source, stream->id))
+            intercepted = TRUE;
+      if (channels && !intercepted) {
+         /* With an active effect, dry PCM is bypassed in the actual mixer
+          * path too. Never draw both dry and processed edges at once. */
          rr_audio_engine_t *owner = audio_stream_engine(stream->id);
          rr_audio_graph_add_channel_link(graph, stream->id,
                   owner == hq_engine ? "hq.mix" : "rx.mix",
@@ -1603,10 +1610,19 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (!rr_audio_graph_add_node(graph, fx->name, RR_AG_PROCESSOR)) continue;
       rr_audio_graph_set_health(graph, fx->name,
          g_atomic_int_get(&fx->failed) ? RR_AG_FAILED : RR_AG_HEALTHY);
-      rr_audio_graph_add_channel_link(graph, fx->source, fx->name,
-                                     RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
-      rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix",
-                                     RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+      if (!fx->source[0] || g_atomic_int_get(&fx->failed)) continue;
+      for (size_t i = 0; i < count; i++)
+         if (!strcmp(fx->source, streams[i].id)) {
+            rr_audio_graph_add_channel_link(graph, fx->source, fx->name,
+                                           RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+            unsigned channels = streams[i].output == 'L' ? RR_AG_CHANNEL_LEFT :
+               streams[i].output == 'R' ? RR_AG_CHANNEL_RIGHT :
+               streams[i].output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
+            if (channels)
+               rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix",
+                                               RR_AG_NORMAL, channels);
+            break;
+         }
    }
 
    /* Modem decoder blocks branch directly from the pre-effects decoded PCM.
