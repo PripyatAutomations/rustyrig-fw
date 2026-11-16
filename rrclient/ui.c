@@ -89,7 +89,7 @@ rrconn_t *rrclient_active_connection(void) {
       }
    }
 
-   return ws_conn;
+   return rrclient_connection_context();
 }
 
 const char *rrclient_active_room(void) {
@@ -126,7 +126,7 @@ static void ui_output(const char *window, const char *fmt, ...) {
       }
 
       if (win && name && *name && !rrclient_window_is_shared(name)) {
-         win->cptr = ws_conn;
+         win->cptr = rrclient_connection_context();
       }
       tui_vprint(win, fmt, ap);
    }
