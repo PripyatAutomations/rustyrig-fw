@@ -393,9 +393,9 @@ static void files_sites_request(const char *event, const char *payload, rrconn_t
 }
 bool cmd_files(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
-      event_emit("client.files.open", NULL, ws_conn ? rrclient_connection_name(ws_conn) : NULL);
+      event_emit("client.files.open", NULL, rrclient_connection_context() ? rrclient_connection_name(rrclient_connection_context()) : NULL);
    } else {
-      char *id = rrclient_files_request(ws_conn, "list", argc > 1 ? args[1] : "/", NULL);
+      char *id = rrclient_files_request(rrclient_connection_context(), "list", argc > 1 ? args[1] : "/", NULL);
       g_free(id);
    }
 
