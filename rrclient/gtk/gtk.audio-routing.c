@@ -390,7 +390,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       gboolean rig_target = (from_modem_tx || from_mic) &&
           n->type == RR_AG_SINK &&
           g_str_has_prefix(n->id, "rig.") &&
-          g_str_has_suffix(n->id, ".tx");
+          (g_str_has_suffix(n->id, ".tx") ||
+           !strcmp(n->id, "rig.sink"));
       gboolean valid = rig_target || modem_connection || lv2_connection ||
          (!from_lv2 && !from_lv2_input && (graph_drag_mixer ?
           (n->type == RR_AG_SOURCE && !n->read_only &&
@@ -442,6 +443,7 @@ static gboolean routing_gain_supported(const rr_ag_view_node_t *n) {
     * faders. In particular, showing +/- dB on a modem sink implies
     * a working gain stage that does not exist. */
    if (g_str_has_prefix(n->id, "modem.") ||
+       !strcmp(n->id, "rig.sink") ||
        (g_str_has_prefix(n->id, "rig.") &&
         g_str_has_suffix(n->id, ".tx"))) return FALSE;
    if (n->type == RR_AG_SOURCE)
@@ -533,7 +535,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem.") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem.") && g_str_has_suffix(n->id, ".tx"),
-            .ptt_input = g_str_has_prefix(n->id, "rig.") && g_str_has_suffix(n->id, ".tx"), .fwdsp =
+            .ptt_input = g_str_has_prefix(n->id, "rig.") &&
+             (g_str_has_suffix(n->id, ".tx") || !strcmp(n->id, "rig.sink")), .fwdsp =
             (n->type == RR_AG_SINK && !strcmp(n->id, "sink.client.dsp0")) ||
             g_str_has_prefix(n->id, "proc.lv2.")
       };
@@ -3303,7 +3306,10 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
                const struct rrclient_rx_stream *rx = &routing_rx_snapshot->streams[j];
                char sink_id[64];
                g_snprintf(sink_id, sizeof(sink_id), "rig.%08x.tx", g_str_hash(rx->id));
-               if (strcmp(dst->id, sink_id)) continue;
+               if (strcmp(dst->id, "rig.sink") &&
+                   strcmp(dst->id, sink_id)) continue;
+               if (!strcmp(dst->id, "rig.sink") &&
+                   !(rx->active_rx && rx->active_tx)) continue;
                audio_request_mic_tx_route(rx->uuid);
                routing_queue();
                break;
@@ -3322,6 +3328,16 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
                if (g_str_has_prefix(dst->id, hash)) {
                   target_id = candidate->id;
                   break;
+               }
+               if (!strcmp(dst->id, "rig.sink") &&
+                   !strcmp(candidate->id, "rig.src") && routing_rx_snapshot) {
+                  for (guint k = 0; k < routing_rx_snapshot->count; k++)
+                     if (routing_rx_snapshot->streams[k].active_rx &&
+                         routing_rx_snapshot->streams[k].active_tx) {
+                        target_id = routing_rx_snapshot->streams[k].id;
+                        break;
+                     }
+                  if (target_id) break;
                }
             }
             if (target_id) {
