@@ -1782,9 +1782,10 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          rr_audio_graph_set_health(graph, tx_id, RR_AG_STOPPED);
    }
 
-   /* One rig TX block owns both the PCM sink and the PTT control input.
-    * They remain independently routable; neither grants transmission. */
+   /* Only real transmit-capable receivers advertise a rig TX sink.
+    * RX-only remote SDRs must not gain a phantom TX block. */
    for (size_t i = 0; i < count && i < RR_LOCAL_MODEM_MAX; i++) {
+      if (!rrclient_media_rx_has_tx(streams[i].uuid)) continue;
       char tx[64];
       g_snprintf(tx, sizeof(tx), "rig.%08x.tx", g_str_hash(streams[i].id));
       rr_audio_graph_add_node(graph, tx, RR_AG_SINK);
