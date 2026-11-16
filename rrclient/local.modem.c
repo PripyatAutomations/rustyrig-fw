@@ -417,11 +417,12 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          decoder_t *d=&decoders[req->slot-1];
          /* The PTT socket is a real message output: no wire, no keying.
           * Queue text only after the authoritative radio PTT echo. */
-         if(!d->active || !d->tx_enabled || strcmp(d->engine,"psk") ||
+         if(!d->active || !d->tx_enabled ||
+            (strcmp(d->engine,"psk") && strcmp(d->engine,"olivia")) ||
             !d->tx_target[0] || strcmp(d->tx_target,d->ptt_target) ||
             d->ptt_owned || d->tx_running || d->pending_text[0]) {
             g_strlcpy(last_status,
-               "PSK TX requires idle modem and TX/PTT pins wired to same rig",
+               "Modem TX requires idle PSK/Olivia worker and TX/PTT pins wired to same rig",
                sizeof(last_status));
          } else {
             char pin[64];
