@@ -701,40 +701,6 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    return FALSE;
 }
 
-/* Modem creation is an ordinary Routing action, not another floating manager.
- * Pick an existing source to establish the initial worker PCM connection. */
-static void routing_server_modem(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   GtkWidget *dlg = gtk_dialog_new_with_buttons("Select Server Modem",
-      GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Cancel", GTK_RESPONSE_CANCEL, "_Select", GTK_RESPONSE_ACCEPT, NULL);
-   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
-   GtkWidget *entry = gtk_entry_new();
-   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "ttyMODEM0");
-   gtk_widget_set_margin_start(entry, 12);
-   gtk_widget_set_margin_end(entry, 12);
-   gtk_widget_set_margin_top(entry, 10);
-   gtk_widget_set_margin_bottom(entry, 10);
-   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 0);
-   gtk_widget_show_all(dlg);
-   if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
-      const char *port = gtk_entry_get_text(GTK_ENTRY(entry));
-      gboolean valid = g_str_has_prefix(port, "ttyMODEM") && port[8];
-      for (const char *p = valid ? port + 8 : port; valid && *p; p++)
-         valid = g_ascii_isdigit(*p);
-      if (valid) {
-         rr_sercom_modem_request_t req = {0};
-         g_strlcpy(req.target, port, sizeof(req.target));
-         rr_event_message_t event = {
-            .name = RR_SERCOM_MODEM_REQUEST,
-            .payload = &req, .length = sizeof(req)
-         };
-         event_emit_message(&event);
-      }
-   }
-   gtk_widget_destroy(dlg);
-}
 static void routing_modem_engine_changed(GtkComboBox *engine, gpointer unused) {
    (void)unused;
    GtkWidget *mode = g_object_get_data(G_OBJECT(engine), "rr-mode");
@@ -3368,7 +3334,7 @@ void gtk_audio_graph_present(void) {
       GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), routing_page, gtk_label_new("Routing"));
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), pipeline_page_new(), gtk_label_new("Pipelines"));
-      GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+      GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
       graph_profiles = gtk_combo_box_text_new_with_entry();
       g_signal_connect(graph_profile_entry(), "changed", G_CALLBACK(graph_profile_entry_changed), NULL);
       gtk_widget_set_hexpand(graph_profiles, TRUE);
@@ -3389,13 +3355,13 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
-      GtkWidget *auto_layout = gtk_button_new_with_label("Auto Layout");
+      GtkWidget *auto_layout = gtk_button_new_with_label("Layout");
       gtk_widget_set_tooltip_text(auto_layout,
          "Arrange audio blocks left to right and center connected stages; reset manually saved positions");
       g_signal_connect(auto_layout, "clicked",
                        G_CALLBACK(routing_auto_layout_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), auto_layout, FALSE, FALSE, 0);
-      GtkWidget *snap_grid = gtk_check_button_new_with_label("Snap to Grid");
+      GtkWidget *snap_grid = gtk_check_button_new_with_label("Snap");
       char *saved_snap = rrclient_database_setting_get(GRAPH_SNAP_KEY);
       graph_snap_enabled = saved_snap &&
          (!g_ascii_strcasecmp(saved_snap, "true") || !strcmp(saved_snap, "1"));
@@ -3405,43 +3371,40 @@ void gtk_audio_graph_present(void) {
          "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
       g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), snap_grid, FALSE, FALSE, 0);
-      GtkWidget *show_controls = gtk_check_button_new_with_label("Show Controls?");
+      GtkWidget *show_controls = gtk_check_button_new_with_label("Controls");
       char *show_setting = rrclient_database_setting_get("audio.graph.show-controls");
       routing_controls_visible = !show_setting || strcmp(show_setting, "false");
       g_free(show_setting);
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(show_controls), routing_controls_visible);
+      gtk_widget_set_tooltip_text(show_controls, "Show or hide floating controls in Routing");
       g_signal_connect(show_controls, "toggled", G_CALLBACK(routing_show_controls_toggled), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), show_controls, FALSE, FALSE, 0);
-      GtkWidget *hidden_controls = gtk_button_new_with_label("Hidden Controls…");
+      GtkWidget *hidden_controls = gtk_button_new_with_label("Hidden");
       gtk_widget_set_tooltip_text(hidden_controls,
          "Restore hidden floating controls without changing their parameter wiring");
       g_signal_connect(hidden_controls, "clicked",
          G_CALLBACK(routing_compact_hidden_menu), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), hidden_controls, FALSE, FALSE, 0);
-      GtkWidget *pin_control = gtk_button_new_with_label("Add Control…");
+      GtkWidget *pin_control = gtk_button_new_with_label("+ Control");
       gtk_widget_set_tooltip_text(pin_control,
          "Create an independent control block; bind its blue pin to a parameter");
       g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), pin_control, FALSE, FALSE, 0);
-      GtkWidget *add_effect = gtk_button_new_with_label("Add Effect…");
+      GtkWidget *add_effect = gtk_button_new_with_label("+ Effect");
       gtk_widget_set_tooltip_text(add_effect,
          "Add a standalone LV2 processor to Routing, hosted in its own fwdsp subprocess");
       g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), add_effect, FALSE, FALSE, 0);
-      GtkWidget *new_modem = gtk_button_new_with_label("New Modem…");
+      GtkWidget *new_modem = gtk_button_new_with_label("+ Modem");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
       gtk_box_pack_end(GTK_BOX(profiles), new_modem, FALSE, FALSE, 0);
-      GtkWidget *server_modem = gtk_button_new_with_label("Server ttyMODEM…");
-      gtk_widget_set_tooltip_text(server_modem, "Select an existing server-side ttyMODEMN for the focused rig");
-      g_signal_connect(server_modem, "clicked", G_CALLBACK(routing_server_modem), NULL);
-      gtk_box_pack_end(GTK_BOX(profiles), server_modem, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
          gtk_label_new("Drag blocks to move (Shift bypasses grid snap); drag ports to patch. Middle/Alt-drag pans, wheel zooms. Double-click trim for 0 dB.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
-      gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 5);
+      gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 1);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       /* The graph has its own Cairo zoom. Never scale its viewport size request through the generic widget wrapper as well. */
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
