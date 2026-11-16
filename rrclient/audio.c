@@ -143,6 +143,7 @@ static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id);
 static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes);
 static void audio_lv2_stop(unsigned slot, gboolean forget);
 static void audio_lv2_restore(void);
+static void audio_lv2_route_source(const char *id, char output);
 static rr_audio_engine_t *audio_stream_engine(const char *id) {
    rr_pcm_stream_format_t format;
    if (hq_engine && rr_audio_engine_stream_format(hq_engine, id, &format))
@@ -691,6 +692,7 @@ bool audio_set_rx_stream_route(const char *id, char output) {
 
          rr_audio_engine_t *owner = audio_stream_engine(id);
          if (owner) rr_audio_engine_route(owner, id, output);
+         audio_lv2_route_source(id, output);
          event_emit("client.audio.route.changed", NULL, NULL);
       }
 
@@ -699,6 +701,7 @@ bool audio_set_rx_stream_route(const char *id, char output) {
 
    for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       if (!strcmp(r->identity, id)) {
+         audio_lv2_route_source(id, output);
          if (r->output != output) {
             r->output = output;
             rx_pcm_clear(r);
@@ -992,6 +995,13 @@ void audio_request_effect_block(const rr_audio_effect_request_t *req) {
       .payload = req, .length = sizeof(*req)
    };
    event_emit_message(&msg);
+}
+static void audio_lv2_route_source(const char *source, char output) {
+   if (!lv2_effect_ready || !rx_engine || !source) return;
+   for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
+      if (g_atomic_int_get(&lv2_effects[i].active) &&
+          !strcmp(lv2_effects[i].source, source))
+         rr_audio_engine_route(rx_engine, lv2_effects[i].name, output);
 }
 static void audio_lv2_restore(void) {
    if (!lv2_effect_ready || !audio_enabled || !rx_engine) return;
@@ -1492,6 +1502,20 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       }
    }
 
+   /* Each standalone LV2 instance is a genuine one-in/one-out audio
+    * processor, not a synthetic UI-only control node. */
+   for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
+      rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+      if (!g_atomic_int_get(&fx->active)) continue;
+      if (!rr_audio_graph_add_node(graph, fx->name, RR_AG_PROCESSOR)) continue;
+      rr_audio_graph_set_health(graph, fx->name,
+         g_atomic_int_get(&fx->failed) ? RR_AG_FAILED : RR_AG_HEALTHY);
+      rr_audio_graph_add_channel_link(graph, fx->source, fx->name,
+                                     RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+      rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix",
+                                     RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+   }
+
    /* Modem decoder blocks branch directly from the pre-effects decoded PCM.
     * Each modem also advertises its future TX audio and PTT side explicitly,
     * but those outputs have no routing links until PTT authorization exists. */
@@ -1537,6 +1561,19 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       for (guint i = 0 ; i < snapshot->node_count ; ++i) {
          rr_ag_view_node_t *node = &snapshot->nodes[i];
 
+         if (g_str_has_prefix(node->id, "proc.lv2.")) {
+            unsigned slot = 0;
+            if (sscanf(node->id, "proc.lv2.%u", &slot) == 1 &&
+                slot && slot <= RR_AUDIO_EFFECT_MAX) {
+               rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+               g_snprintf(node->rig, sizeof(node->rig), "LV2: %.78s", fx->factory);
+               node->rate_hz = node->downstream_rate_hz = 16000;
+               node->channels = 1;
+               node->sample_format = RR_PCM_S16LE;
+               node->read_only = TRUE;
+            }
+            continue;
+         }
          if (g_str_has_prefix(node->id, "rig.") &&
              g_str_has_suffix(node->id, ".tx")) {
             for (size_t k = 0; k < count && k < RR_LOCAL_MODEM_MAX; k++) {
