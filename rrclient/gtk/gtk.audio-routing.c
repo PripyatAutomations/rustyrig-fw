@@ -1101,14 +1101,14 @@ typedef struct routing_compact_control {
    gboolean has_minimum, has_maximum, has_step, has_unit, has_label;
    gboolean moving, wiring;
    double start_x, start_y, pointer_x, pointer_y;
-   gboolean position_dirty;
+   gboolean position_dirty, hidden, move_armed;
    guint save_source;
    unsigned channel;
    gboolean port;
    gboolean updating, knob_dragging;
    double knob_y, knob_initial;
    RRFloatPanel *panel;
-   GtkWidget *value, *knob, *label_widget;
+   GtkWidget *value, *knob, *label_widget, *move_handle;
 } routing_compact_control_t;
 typedef struct {
    char worker[64], element[96], property[96];
@@ -1340,6 +1340,112 @@ static void routing_compact_destroy(gpointer pointer) {
    if (control->save_source) g_source_remove(control->save_source);
    if (control->panel) rr_floating_panel_destroy(control->panel);
    g_free(control);
+}
+/* Popup menu actions refer to an immutable UUID; deletion occurs from
+ * an idle callback so no GtkMenu handler destroys its own event source. */
+static void routing_compact_set_hidden(routing_compact_control_t *control, gboolean hide) {
+   if (!control || !control->panel) return;
+   control->hidden = hide;
+   if (hide) rr_floating_panel_hide(control->panel);
+   else rr_floating_panel_present(control->panel);
+   routing_compact_save(control);
+}
+static gboolean routing_compact_delete_idle(gpointer data) {
+   char *uuid = data;
+   if (routing_compact_controls) {
+      for (guint i = 0; i < routing_compact_controls->len; i++) {
+         routing_compact_control_t *control =
+            g_ptr_array_index(routing_compact_controls, i);
+         if (strcmp(control->uuid, uuid)) continue;
+         g_ptr_array_remove_index(routing_compact_controls, i);
+         if (routing_compact_controls->len)
+            routing_compact_save(g_ptr_array_index(routing_compact_controls, 0));
+         else
+            rrclient_database_setting_set("audio.controls.ids", "");
+         graph_canvas_update_size();
+         break;
+      }
+   }
+   g_free(uuid);
+   return G_SOURCE_REMOVE;
+}
+static void routing_compact_menu_action(GtkMenuItem *item, gpointer data) {
+   routing_compact_control_t *control = data;
+   const char *action = g_object_get_data(G_OBJECT(item), "control-action");
+   if (!g_strcmp0(action, "hide"))
+      routing_compact_set_hidden(control, TRUE);
+   else if (!g_strcmp0(action, "delete"))
+      g_idle_add(routing_compact_delete_idle, g_strdup(control->uuid));
+   else if (!g_strcmp0(action, "move")) {
+      control->move_armed = TRUE;
+      gtk_widget_set_tooltip_text(control->move_handle,
+         "Drag this label to reposition the control");
+      GdkWindow *window = gtk_widget_get_window(control->move_handle);
+      if (window) {
+         GdkDisplay *display = gdk_window_get_display(window);
+         GdkCursor *cursor = gdk_cursor_new_from_name(display, "move");
+         if (cursor) { gdk_window_set_cursor(window, cursor); g_object_unref(cursor); }
+      }
+   }
+}
+static gboolean routing_compact_context(GtkWidget *widget,
+                                        GdkEventButton *event, gpointer data) {
+   (void)widget;
+   routing_compact_control_t *control = data;
+   if (event->button != GDK_BUTTON_SECONDARY) return FALSE;
+   GtkWidget *menu = gtk_menu_new();
+   const char *items[] = {"Move", "Hide", "Delete"};
+   const char *actions[] = {"move", "hide", "delete"};
+   for (guint i = 0; i < G_N_ELEMENTS(items); i++) {
+      GtkWidget *entry = gtk_menu_item_new_with_label(items[i]);
+      g_object_set_data(G_OBJECT(entry), "control-action", (gpointer)actions[i]);
+      g_signal_connect(entry, "activate",
+         G_CALLBACK(routing_compact_menu_action), control);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), entry);
+   }
+   g_signal_connect_swapped(menu, "selection-done",
+      G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+   return TRUE;
+}
+static void routing_compact_move_release(GtkWidget *widget,
+                                        GdkEventButton *event, gpointer data) {
+   routing_compact_control_t *control = data;
+   if (event->button != GDK_BUTTON_PRIMARY || !control->move_armed) return;
+   control->move_armed = FALSE;
+   GdkWindow *window = gtk_widget_get_window(widget);
+   if (window) gdk_window_set_cursor(window, NULL);
+}
+static void routing_compact_restore_one(routing_compact_control_t *control);
+static void routing_compact_hidden_menu(GtkButton *button, gpointer unused) {
+   (void)unused;
+   GtkWidget *menu = gtk_menu_new();
+   guint found = 0;
+   if (routing_compact_controls)
+      for (guint i = 0; i < routing_compact_controls->len; i++) {
+         routing_compact_control_t *control =
+            g_ptr_array_index(routing_compact_controls, i);
+         if (!control->hidden) continue;
+         GtkWidget *entry = gtk_menu_item_new_with_label(control->label);
+         g_signal_connect_swapped(entry, "activate",
+            G_CALLBACK(routing_compact_restore_one), control);
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu), entry);
+         found++;
+      }
+   if (!found) {
+      GtkWidget *empty = gtk_menu_item_new_with_label("No hidden controls");
+      gtk_widget_set_sensitive(empty, FALSE);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), empty);
+   }
+   g_signal_connect_swapped(menu, "selection-done",
+      G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_widget(GTK_MENU(menu), GTK_WIDGET(button),
+       GDK_GRAVITY_SOUTH_WEST, GDK_GRAVITY_NORTH_WEST, NULL);
+}
+static void routing_compact_restore_one(routing_compact_control_t *control) {
+   routing_compact_set_hidden(control, FALSE);
 }
 static void routing_compact_add(const char *node_id, unsigned channel, gboolean port,
                                 const char *label, const char *kind,
