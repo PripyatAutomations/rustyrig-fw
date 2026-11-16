@@ -347,7 +347,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
                "Modem TX requires PSK, connected TX/PTT pins and active authorized PTT",
                sizeof(last_status));
          } else {
-            gchar *line=g_strdup_printf("TX %s\\n",req->text);
+            gchar *line=g_strdup_printf("TX %s\n",req->text);
             ssize_t n=send(d->worker.serial_fd,line,strlen(line),
                            MSG_DONTWAIT|MSG_NOSIGNAL);
             if (n!=(ssize_t)strlen(line))
