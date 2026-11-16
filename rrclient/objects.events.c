@@ -75,7 +75,7 @@ static void inventory_find_attachment(rr_serial_t *port, void *data) {
 
 /* Derive Explorer presentation state while core-owned caches are stable. The GTK domain receives only this copied JSON snapshot, never core pointers. */
 static void inventory_emit_graphical(dict *d, bool entry) {
-   const char *profile = ws_conn ? rrclient_connection_name(ws_conn) : "";
+   const char *profile = rrclient_connection_context() ? rrclient_connection_name(rrclient_connection_context()) : "";
    dict_add(d, "client.profile", profile ? profile : "");
 
    if (entry) {
@@ -275,14 +275,14 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          if (!strcmp(cmd, "begin")) {
             object_subscription = "Synchronizing";
 
-            if (ws_conn && ws_conn->is_ws) {
-               rrclient_connect_progress(rrclient_connection_name(ws_conn), RR_CONNECT_PHASE_CATALOG);
+            if (rrclient_connection_context() && rrclient_connection_context()->is_ws) {
+               rrclient_connect_progress(rrclient_connection_name(rrclient_connection_context()), RR_CONNECT_PHASE_CATALOG);
             }
          } else if (!strcmp(cmd, "end")) {
             object_subscription = "Subscribed";
 
-            if (ws_conn && ws_conn->is_ws && rr_object_cache_ready(cache)) {
-               rrclient_connect_progress(rrclient_connection_name(ws_conn), RR_CONNECT_PHASE_COMPLETE);
+            if (rrclient_connection_context() && rrclient_connection_context()->is_ws && rr_object_cache_ready(cache)) {
+               rrclient_connect_progress(rrclient_connection_name(rrclient_connection_context()), RR_CONNECT_PHASE_COMPLETE);
             }
          } else if (!strcmp(cmd, "result") && subscription_request[0] && !strcmp(dict_get(d, "request.id", ""), subscription_request)) {
             object_subscription = !strcmp(dict_get(d, "result.code", ""), "ok")
@@ -293,13 +293,13 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       }
    }
    dict_free(d);
-   event_emit("client.objects.changed", NULL, ws_conn ? rrclient_connection_name(ws_conn) : NULL);
+   event_emit("client.objects.changed", NULL, rrclient_connection_context() ? rrclient_connection_name(rrclient_connection_context()) : NULL);
 }
 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)data;
    (void)user;
-   const char *profile = client ? rrclient_connection_name(client) : ws_conn ? rrclient_connection_name(ws_conn) : NULL;
+   const char *profile = client ? rrclient_connection_name(client) : rrclient_connection_context() ? rrclient_connection_name(rrclient_connection_context()) : NULL;
 
    if (profile) {
       char *notice = g_strdup_printf("%s|%s", profile, event);
@@ -308,14 +308,14 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
    }
    /* The notice is per profile, but resetting the active catalog is not:
     * never let a failing background IRC connection clear a RustyRig catalog. */
-   if (client && (!client->is_ws || client != ws_conn)) return;
+   if (client && (!client->is_ws || client != rrclient_connection_context())) return;
    memset(inventory_requests, 0, sizeof(inventory_requests));
    object_subscription = "Disconnected";
    subscription_request[0] = 0;
    rr_object_cache_free(cache);
    cache = NULL;
 
-   if (strcmp(event, "authorized") || !ws_conn) {
+   if (strcmp(event, "authorized") || !rrclient_connection_context()) {
       return;
    }
    cache = rr_object_cache_new();
@@ -325,7 +325,7 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
    dict_add(d, "object.cmd", "snapshot");
    dict_add(d, "request.id", "initial-objects");
 
-   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
+   if (!ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT)) {
       object_subscription = "Request failed";
    }
    dict_free(d);
@@ -375,7 +375,7 @@ bool cmd_rig(int argc, char **args) {
       return true;
    }
 
-   if (!ws_conn) {
+   if (!rrclient_connection_context()) {
       ui_print(window, "Not connected");
 
       return true;
@@ -412,11 +412,11 @@ bool cmd_rig(int argc, char **args) {
 
       if (pending->graphical) {
          rrclient_resource_view_t view = {
-            .online = ws_conn->authenticated && ws_conn->is_ws
+            .online = rrclient_connection_context()->authenticated && rrclient_connection_context()->is_ws
          };
          snprintf(view.kind, sizeof(view.kind), "%s", pending->kind);
          snprintf(view.request, sizeof(view.request), "%s", id);
-         snprintf(view.profile, sizeof(view.profile), "%s", rrclient_connection_name(ws_conn));
+         snprintf(view.profile, sizeof(view.profile), "%s", rrclient_connection_name(rrclient_connection_context()));
          event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, NULL, &view, sizeof(view));
       }
 
@@ -433,7 +433,7 @@ bool cmd_rig(int argc, char **args) {
       object_subscription = subscription_stopping ? "Unsubscribing" : "Synchronizing";
    }
    dict_add(d, "request.id", id);
-   bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   bool sent = ws_send_dict(NULL, rrclient_connection_context(), d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    if (!sent && pending) {
@@ -681,7 +681,7 @@ static void resource_irc_snapshot_core(void *data) {
    const struct rrclient_irc_channel_stats *stats = NULL;
    while ((stats = rrclient_irc_stats_next(profile, stats))) {
       total++;
-      bool joined = ws_conn && ws_conn->authenticated && stats->joined;
+      bool joined = rrclient_connection_context() && rrclient_connection_context()->authenticated && stats->joined;
       unsigned users = 0, opers = 0, ops = 0, voices = 0, regular = 0;
 
       if (joined) {
