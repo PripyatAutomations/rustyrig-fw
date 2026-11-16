@@ -3111,7 +3111,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
    if ((event->type != GDK_BUTTON_PRESS && event->type != GDK_2BUTTON_PRESS) ||
-       event->button != GDK_BUTTON_PRIMARY || !graph_snapshot) return FALSE;
+       event->button != GDK_BUTTON_PRIMARY) return FALSE;
    double gx, gy;
 
    if (!graph_pointer(event->x, event->y, &gx, &gy)) {
@@ -3119,6 +3119,9 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    if (routing_compact_hit(gx, gy, event->type == GDK_2BUTTON_PRESS))
       return TRUE;
+   /* Compact controls have their own persistent graph state; a missing
+    * live audio snapshot must not prevent moving or editing them. */
+   if (!graph_snapshot) return FALSE;
    if (routing_effect_press(gx, gy, event->type == GDK_2BUTTON_PRESS))
       return TRUE;
    gint source = -1, channel = -1;
