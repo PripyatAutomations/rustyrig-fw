@@ -1102,6 +1102,7 @@ typedef struct routing_compact_control {
    gboolean moving, wiring;
    double start_x, start_y, pointer_x, pointer_y;
    gboolean position_dirty;
+   guint save_source;
    unsigned channel;
    gboolean port;
    gboolean updating, knob_dragging;
@@ -1203,6 +1204,12 @@ static void routing_compact_sync(void) {
       }
    }
 }
+static gboolean routing_compact_flush_value(gpointer user) {
+   routing_compact_control_t *control = user;
+   control->save_source = 0;
+   routing_compact_save(control);
+   return G_SOURCE_REMOVE;
+}
 static void routing_compact_changed(GtkRange *range, gpointer user) {
    routing_compact_control_t *control = user;
    if (control->updating || (!control->id[0] && !control->effect_worker[0]))
@@ -1210,6 +1217,9 @@ static void routing_compact_changed(GtkRange *range, gpointer user) {
    double db = gtk_range_get_value(range);
    if (control->effect_worker[0]) {
       control->effect_value = db;
+      if (control->save_source) g_source_remove(control->save_source);
+      control->save_source = g_timeout_add(400, routing_compact_flush_value,
+                                           control);
       audio_request_effect_parameter(control->effect_worker,
           control->effect_element, control->effect_property, db);
       if (control->knob) gtk_widget_queue_draw(control->knob);
@@ -1323,6 +1333,11 @@ static gboolean routing_knob_scroll(GtkWidget *widget, GdkEventScroll *event,
 }
 static void routing_compact_destroy(gpointer pointer) {
    routing_compact_control_t *control = pointer;
+   if (control->save_source) {
+      g_source_remove(control->save_source);
+      control->save_source = 0;
+      routing_compact_save(control);
+   }
    if (control->panel) rr_floating_panel_destroy(control->panel);
    g_free(control);
 }
