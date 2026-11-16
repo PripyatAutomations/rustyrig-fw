@@ -260,6 +260,7 @@ static gboolean routing_serial_moved;
 static rr_event_token_t routing_serial_result_token;
 static rr_event_token_t routing_modem_result_token;
 static gboolean routing_modem_tx_enabled[RR_LOCAL_MODEM_MAX+1];
+static char routing_modem_engine[RR_LOCAL_MODEM_MAX+1][16];
 static void routing_modem_snapshot_received(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (!message || !message->payload ||
@@ -269,6 +270,10 @@ static void routing_modem_snapshot_received(const rr_event_message_t *message, v
       const rr_local_modem_entry_t *entry=&snapshot->entries[i];
       if (entry->slot>=1 && entry->slot<=RR_LOCAL_MODEM_MAX)
          routing_modem_tx_enabled[entry->slot]=entry->running && entry->tx_enabled;
+      if (entry->slot>=1 && entry->slot<=RR_LOCAL_MODEM_MAX)
+         g_strlcpy(routing_modem_engine[entry->slot],
+                   entry->running ? entry->engine : "",
+                   sizeof(routing_modem_engine[entry->slot]));
    }
 }
 static gboolean routing_serial_room_rig(const char *room, char out[32]) {
@@ -1373,6 +1378,42 @@ static void routing_modem_properties(GtkMenuItem *item, gpointer unused) {
    }
    gtk_widget_destroy(dialog);
 }
+static void routing_modem_send_text(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   unsigned slot=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"modem-slot"));
+   if (slot<1 || slot>RR_LOCAL_MODEM_MAX ||
+       strcmp(routing_modem_engine[slot],"psk") || !routing_modem_tx_enabled[slot])
+      return;
+   GtkWidget *top=graph_canvas ? gtk_widget_get_toplevel(graph_canvas) : NULL;
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("PSK Transmit Text",
+      GTK_IS_WINDOW(top)?GTK_WINDOW(top):NULL,
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel",GTK_RESPONSE_CANCEL,"_Send",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *content=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *label=gtk_label_new(
+      "Requires both TX audio and PTT pins connected to the same active rig, "
+      "and the radio already keyed by its normal PTT control. "
+      "This sends PSK waveform audio; it does not request PTT.");
+   gtk_label_set_line_wrap(GTK_LABEL(label),TRUE);
+   gtk_widget_set_size_request(label,320,-1);
+   gtk_box_pack_start(GTK_BOX(content),label,FALSE,FALSE,8);
+   GtkWidget *entry=gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(entry),240);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(entry),"Text to transmit as PSK");
+   gtk_box_pack_start(GTK_BOX(content),entry,FALSE,FALSE,8);
+   gtk_widget_show_all(dialog);
+   if(gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_ACCEPT) {
+      const char *text=gtk_entry_get_text(GTK_ENTRY(entry));
+      if(*text && !strchr(text,'\\n') && !strchr(text,'\\r')) {
+         rr_local_modem_request_t req={
+            .action=RR_LOCAL_MODEM_SEND_TEXT,.slot=slot
+         };
+         g_strlcpy(req.text,text,sizeof(req.text));
+         rr_local_modem_request(&req);
+      }
+   }
+   gtk_widget_destroy(dialog);
+}
 static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "modem-slot"));
@@ -1540,6 +1581,14 @@ static gboolean routing_modem_context_menu(GdkEventButton *event, double x, doub
       unsigned slot=0;
       if (sscanf(n->id, "modem%u.", &slot) != 1) continue;
       GtkWidget *menu = gtk_menu_new();
+      if (routing_modem_tx_enabled[slot] &&
+          !strcmp(routing_modem_engine[slot],"psk")) {
+         GtkWidget *send=gtk_menu_item_new_with_label("Send PSK Text…");
+         gtk_widget_set_size_request(send,-1,44);
+         g_object_set_data(G_OBJECT(send),"modem-slot",GUINT_TO_POINTER(slot));
+         g_signal_connect(send,"activate",G_CALLBACK(routing_modem_send_text),NULL);
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu),send);
+      }
       GtkWidget *properties=gtk_menu_item_new_with_label("Properties…");
       g_object_set_data(G_OBJECT(properties),"modem-slot",GUINT_TO_POINTER(slot));
       g_signal_connect(properties,"activate",G_CALLBACK(routing_modem_properties),NULL);
