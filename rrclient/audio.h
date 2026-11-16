@@ -58,10 +58,11 @@ extern bool audio_process_frame(const char *data, size_t len);
 #define RRCLIENT_AUDIO_EFFECT_CHANGED "client.audio.effect.changed"
 #define RR_AUDIO_EFFECT_MAX 8
 typedef struct {
-   char action; /* A add/start, D delete/stop, R rebind source */
+   char action; /* A add/start, D delete, R input, O output */
    unsigned slot; /* 0 = next free for A */
    char factory[96];
    char source[64]; /* decoded 16 kHz mono stream ID */
+   char output; /* O: M disconnect, L/R channel, S both */
 } rr_audio_effect_request_t;
 void audio_request_effect_block(const rr_audio_effect_request_t *request);
 #define RRCLIENT_AUDIO_CONTROL_REQUEST "client.audio.control.request"
