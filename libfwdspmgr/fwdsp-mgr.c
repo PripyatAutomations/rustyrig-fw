@@ -597,6 +597,13 @@ static void fwdsp_parse_read(struct fwdsp_io_conn *ctx) {
             }
          }
 
+         /* Server media symbols are optional weak references. In rrclient
+          * these functions are absent; never call through a NULL symbol.
+          * Client PCM processor callbacks are handled separately above. */
+         if (!fwdsp_has_server_media()) {
+            g_byte_array_remove_range(ctx->recv, 0, total_len);
+            continue;
+         }
          struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
             media_chan_find_uuid(ctx->sp->channel_uuid) :
             media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
