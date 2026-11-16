@@ -4170,20 +4170,6 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
                    sizeof(onair_drag_source));
          onair_drag_dx=gx;onair_drag_dy=gy;return TRUE;
       }
-      if(graph_snapshot) for(guint i=0;i<graph_snapshot->node_count;i++) {
-         const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
-         unsigned slot=0;char extra=0;
-         if(graph_missing_since[i] ||
-            sscanf(n->id,"modem%u.tx%c",&slot,&extra)!=1 ||
-            slot<1 || slot>RR_LOCAL_MODEM_MAX) continue;
-         if(hypot(gx-routing_node_x(n)-RR_GTK_GRAPH_NODE_W,
-                  gy-routing_node_y(n)-RR_GTK_GRAPH_NODE_H+16.)>
-            routing_pin_radius()) continue;
-         onair_drag=3;onair_drag_reverse=FALSE;
-         g_snprintf(onair_drag_source,sizeof(onair_drag_source),
-                    "modem%u.ptt",slot);
-         onair_drag_dx=gx;onair_drag_dy=gy;return TRUE;
-      }
       gint which=onair_hit(gx,gy);
       if(which){
          onair_drag=which;
@@ -4521,6 +4507,30 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
          graph_gain_drag(gx);
       gain_drag_source = gain_drag_channel = -1;
       return TRUE;
+   }
+   /* A modem's red PTT output remains a normal draggable port. It can
+    * attach either to the rig PTT input (normal route) or to the ON AIR
+    * indicator's hollow PTT sink without stealing its rig route. */
+   if(onair_visible && graph_drag_channel==1 && graph_drag_source>=0 &&
+      !graph_drag_mixer && graph_snapshot &&
+      (guint)graph_drag_source<graph_snapshot->node_count) {
+      const rr_ag_view_node_t *source=&graph_snapshot->nodes[graph_drag_source];
+      unsigned slot=0;char extra=0;
+      double gx,gy;
+      if(sscanf(source->id,"modem%u.tx%c",&slot,&extra)==1 &&
+         slot>=1 && slot<=RR_LOCAL_MODEM_MAX &&
+         graph_pointer(event->x,event->y,&gx,&gy) &&
+         hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()*2.) {
+         g_snprintf(onair_source,sizeof(onair_source),"modem%u.ptt",slot);
+         onair_connected=TRUE;
+         onair_active=FALSE;
+         onair_save();
+         graph_drag_source=graph_drag_channel=-1;
+         graph_drag_mixer=graph_drag_moved=FALSE;
+         graph_canvas_update_size();
+         if(onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
+         return TRUE;
+      }
    }
    if (graph_drag_channel < 0) return FALSE;
    double gx, gy, snap_x = 0., snap_y = 0.;
