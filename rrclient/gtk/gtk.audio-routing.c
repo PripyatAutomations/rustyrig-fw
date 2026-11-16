@@ -1260,14 +1260,14 @@ static void routing_block_action(GtkMenuItem *item, gpointer unused) {
          const routing_serial_node_t *n=&routing_serial_nodes[i];
          if (strcmp(n->id,id)) continue;
          const char *path=routing_serial_full_path(n);
-         details=g_strdup_printf("Remote resource: %s\\nConnection profile: %s\\nRig: %s",
+         details=g_strdup_printf("Remote resource: %s\nConnection profile: %s\nRig: %s",
                                  *path?path:"Identity unavailable",n->profile,n->rig);
          break;
       }
       if (!details && graph_snapshot) for (guint i=0;i<graph_snapshot->node_count;i++) {
          const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
          if (strcmp(id,n->id)) continue;
-         details=g_strdup_printf("Channels: %u\\nSample rate: %u Hz\\n%s",
+         details=g_strdup_printf("Channels: %u\nSample rate: %u Hz\n%s",
                                  (unsigned)n->channels,(unsigned)n->rate_hz,
                                  n->read_only?"Read-only node":"Editable node");
          break;
@@ -1349,7 +1349,7 @@ static void routing_serial_menu_action(GtkMenuItem *item, gpointer unused) {
 static gboolean routing_serial_context_menu(GdkEventButton *event, double x, double y) {
    for (guint i=0;i<routing_serial_count;i++) {
       const routing_serial_node_t *n=&routing_serial_nodes[i];
-      if (!n->virtual || x<n->x || x>n->x+ROUTING_SERIAL_W ||
+      if (x<n->x || x>n->x+ROUTING_SERIAL_W ||
           y<n->y || y>n->y+ROUTING_SERIAL_H) continue;
       GtkWidget *menu=gtk_menu_new();
       routing_block_menu_items(menu,n->id,FALSE);
