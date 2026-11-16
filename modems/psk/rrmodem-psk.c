@@ -62,6 +62,7 @@ int main(int argc,char **argv) {
    int16_t output[320];float samples[160];
    size_t pending=0,sent=0;
    float previous=0.f;
+   int transmitting=0;
    for(;;) {
       struct pollfd pfd={.fd=0,.events=POLLIN};
       int rc=poll(&pfd,1,20);
@@ -78,10 +79,13 @@ int main(int argc,char **argv) {
                   psk_tx_destroy(tx);
                   tx=psk_tx_create(8000,carrier,mode);
                   pending=sent=0;
+                  transmitting=0;
                   previous=0.f;
                   if(!tx) break;
-               } else if(used>3 && !strncmp(command,"TX ",3))
-                  psk_tx_write(tx,command+3,used-3);
+               } else if(used>3 && !strncmp(command,"TX ",3)) {
+                   if (psk_tx_write(tx,command+3,used-3)>0)
+                      transmitting=1;
+                }
                used=0;
             } else if(buf[i]!='\r') {
                if(used<sizeof(command)-1) command[used++]=buf[i];
@@ -106,6 +110,13 @@ int main(int argc,char **argv) {
          }
          pending=sizeof(output);
          sent=0;
+      }
+      if(transmitting && !pending && psk_tx_idle(tx)) {
+         flockfile(stdout);
+         fputs("\n!TX_DONE\n",stdout);
+         fflush(stdout);
+         funlockfile(stdout);
+         transmitting=0;
       }
    }
    /* Child exit reaps the RX thread; never race its state by freeing rx. */
