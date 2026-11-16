@@ -20,9 +20,6 @@ class Control(ctypes.Structure):
         ("record_user", ctypes.c_char * 64),
         ("record_id", ctypes.c_char * 64),
         ("record_file", ctypes.c_char * 512),
-        ("element", ctypes.c_char * 96),
-        ("property", ctypes.c_char * 96),
-        ("property_value", ctypes.c_double),
     ]
 
 
@@ -50,8 +47,10 @@ def run_level(level):
             # than at a later pipeline restart.
             time.sleep(.25)
             assert proc.poll() is None, "fwdsp terminated before control"
-            msg = Control(magic=0x46574453, type=10, element=b"fx",
-                          property=b"volume", property_value=level)
+            msg = Control(magic=0x46574453, type=10,
+                          record_user=b"fx", record_id=b"volume")
+            ctypes.memmove(ctypes.addressof(msg) + Control.record_file.offset,
+                           struct.pack("@d", level), ctypes.sizeof(ctypes.c_double))
             assert parent.send(bytes(msg)) == ctypes.sizeof(msg)
             time.sleep(.2)
             pcm = struct.pack("<h", 4000) * 3200
