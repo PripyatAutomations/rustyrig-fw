@@ -9,7 +9,7 @@
 #include <rrclient/database.h>
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top,
+   GtkWidget *frame, *scrim, *body, *header, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close, *menu_on_top,
       *menu_minimize, *resize_grip;
    GtkCssProvider *scale_css;
    GtkWidget *min_width_widget;
@@ -1025,6 +1025,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_container_add(GTK_CONTAINER(panel_overlay), panel);
    GtkWidget *handle = gtk_event_box_new();
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   p->header = handle;
    gtk_container_add(GTK_CONTAINER(handle), header);
    gtk_box_pack_start(GTK_BOX(panel), handle, FALSE, FALSE, 0);
    gtk_widget_add_events(handle, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
@@ -1390,6 +1391,37 @@ void rr_floating_panel_set_minimizable(RRFloatPanel *p, gboolean minimizable) {
    if (p->menu_minimize) {
       gtk_widget_set_no_show_all(p->menu_minimize, !p->minimizable);
       gtk_widget_set_visible(p->menu_minimize, p->minimizable);
+   }
+}
+
+void rr_floating_panel_set_compact(RRFloatPanel *p, GtkWidget *drag_handle) {
+   if (!p || !p->header) return;
+   /* no_show_all is essential: other tabs call gtk_widget_show_all() on
+    * their parent overlay and must not resurrect compact chrome. */
+   gtk_widget_set_no_show_all(p->header, TRUE);
+   gtk_widget_hide(p->header);
+   gtk_style_context_add_class(gtk_widget_get_style_context(p->frame),
+                               "rr-compact-panel");
+   GtkCssProvider *css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(css,
+      ".rr-floating-panel.rr-compact-panel { padding: 2px; border-radius: 3px; }",
+      -1, NULL);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(p->frame),
+      GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(css);
+   p->saved_width = p->saved_height = 0;
+   p->last_saved_valid = FALSE;
+   gtk_widget_set_size_request(p->frame, -1, -1);
+   if (drag_handle) {
+      gtk_widget_add_events(drag_handle, GDK_BUTTON_PRESS_MASK |
+         GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK);
+      g_signal_connect(drag_handle, "button-press-event",
+         G_CALLBACK(drag_press), p);
+      g_signal_connect(drag_handle, "motion-notify-event",
+         G_CALLBACK(drag_move), p);
+      g_signal_connect(drag_handle, "button-release-event",
+         G_CALLBACK(drag_release), p);
+      gtk_widget_set_tooltip_text(drag_handle, "Drag this label to move the control");
    }
 }
 
