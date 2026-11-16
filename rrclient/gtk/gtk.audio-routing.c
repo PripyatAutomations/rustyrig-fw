@@ -4089,8 +4089,31 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return FALSE;
    }
    if (event->type==GDK_BUTTON_PRESS && onair_visible) {
+      /* Drag from the hollow ON AIR input to a red PTT source, or from
+       * either local/modem PTT output into that input. */
+      if(hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()){
+         onair_drag=3;onair_drag_reverse=TRUE;
+         onair_drag_dx=gx;onair_drag_dy=gy;return TRUE;
+      }
       if(hypot(gx-ptt_x-150.,gy-ptt_y-35.)<=routing_pin_radius()){
-         onair_drag=3;onair_drag_dx=gx;onair_drag_dy=gy;return TRUE;
+         onair_drag=3;onair_drag_reverse=FALSE;
+         g_strlcpy(onair_drag_source,RRCLIENT_ROUTING_PTT_LOCAL,
+                   sizeof(onair_drag_source));
+         onair_drag_dx=gx;onair_drag_dy=gy;return TRUE;
+      }
+      if(graph_snapshot) for(guint i=0;i<graph_snapshot->node_count;i++) {
+         const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+         unsigned slot=0;char extra=0;
+         if(graph_missing_since[i] ||
+            sscanf(n->id,"modem%u.tx%c",&slot,&extra)!=1 ||
+            slot<1 || slot>RR_LOCAL_MODEM_MAX) continue;
+         if(hypot(gx-routing_node_x(n)-RR_GTK_GRAPH_NODE_W,
+                  gy-routing_node_y(n)-RR_GTK_GRAPH_NODE_H+16.)>
+            routing_pin_radius()) continue;
+         onair_drag=3;onair_drag_reverse=FALSE;
+         g_snprintf(onair_drag_source,sizeof(onair_drag_source),
+                    "modem%u.ptt",slot);
+         onair_drag_dx=gx;onair_drag_dy=gy;return TRUE;
       }
       gint which=onair_hit(gx,gy);
       if(which){
@@ -4318,18 +4341,46 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    (void)widget;
    (void)unused;
    if(event->button==GDK_BUTTON_PRIMARY&&onair_drag){
-      if(onair_drag==3){
+      if(onair_drag==3) {
          double gx,gy;
-         if(graph_pointer(event->x,event->y,&gx,&gy)&&
-            hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()*2.)
-            {
-               g_strlcpy(onair_source,RRCLIENT_ROUTING_PTT_LOCAL,
-                         sizeof(onair_source));
+         if(graph_pointer(event->x,event->y,&gx,&gy)) {
+            const char *candidate=NULL;
+            if(!onair_drag_reverse &&
+               hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()*2.)
+               candidate=onair_drag_source;
+            if(onair_drag_reverse) {
+               if(hypot(gx-ptt_x-150.,gy-ptt_y-35.)<=routing_pin_radius()*2.)
+                  candidate=RRCLIENT_ROUTING_PTT_LOCAL;
+               if(!candidate && graph_snapshot)
+                  for(guint i=0;i<graph_snapshot->node_count;i++) {
+                     const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+                     unsigned slot=0;char extra=0;
+                     if(sscanf(n->id,"modem%u.tx%c",&slot,&extra)!=1 ||
+                        slot<1 || slot>RR_LOCAL_MODEM_MAX) continue;
+                     if(hypot(gx-routing_node_x(n)-RR_GTK_GRAPH_NODE_W,
+                              gy-routing_node_y(n)-RR_GTK_GRAPH_NODE_H+16.)<=
+                        routing_pin_radius()*2.) {
+                        g_snprintf(onair_drag_source,sizeof(onair_drag_source),
+                                   "modem%u.ptt",slot);
+                        candidate=onair_drag_source;
+                        break;
+                     }
+                  }
+            }
+            if(candidate && *candidate) {
+               g_strlcpy(onair_source,candidate,sizeof(onair_source));
                onair_connected=TRUE;
                onair_active=FALSE;
             }
+         }
       }
-      onair_drag=0;onair_save();graph_canvas_update_size();return TRUE;
+      onair_drag=0;
+      onair_drag_reverse=FALSE;
+      onair_drag_source[0]=0;
+      onair_save();
+      graph_canvas_update_size();
+      if(onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
+      return TRUE;
    }
    if (event->button == GDK_BUTTON_PRIMARY &&
        (routing_serial_drag >= 0 || routing_serial_move >= 0)) {
