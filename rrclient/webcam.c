@@ -17,6 +17,7 @@
 //
 // PARITY: librrprotocol/cli.main.c (video source frame routing)
 #include <string.h>
+#include <glib.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
