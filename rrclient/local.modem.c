@@ -402,27 +402,27 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          g_strlcpy(last_status,"Invalid modem TX text request",sizeof(last_status));
       } else {
          decoder_t *d=&decoders[req->slot-1];
-         /* A wired PTT pin must target the same real rig as TX PCM.
-          * This requests modulation only; the radio is already keyed. */
-         if (!d->active || !d->tx_enabled || strcmp(d->engine,"psk") ||
-             !d->tx_target[0] || strcmp(d->tx_target,d->ptt_target) ||
-             !audio_modem_tx_allowed(d->tx_target)) {
+         /* The PTT socket is a real message output: no wire, no keying.
+          * Queue text only after the authoritative radio PTT echo. */
+         if(!d->active || !d->tx_enabled || strcmp(d->engine,"psk") ||
+            !d->tx_target[0] || strcmp(d->tx_target,d->ptt_target) ||
+            d->ptt_owned || d->tx_running || d->pending_text[0]) {
             g_strlcpy(last_status,
-               "Modem TX requires PSK, connected TX/PTT pins and active authorized PTT",
+               "PSK TX requires idle modem and TX/PTT pins wired to same rig",
                sizeof(last_status));
          } else {
-            gchar *line=g_strdup_printf("TX %s\n",req->text);
-            ssize_t n=send(d->worker.serial_fd,line,strlen(line),
-                           MSG_DONTWAIT|MSG_NOSIGNAL);
-            if (n!=(ssize_t)strlen(line))
-               g_strlcpy(last_status,"Modem TX command could not be queued",
-                         sizeof(last_status));
-            else {
-               d->tx_was_allowed=true;
+            char pin[64];
+            modem_ptt_source(req->slot-1,pin);
+            if(rrclient_modem_ptt_send(pin,d->ptt_target,true)) {
+               g_strlcpy(d->pending_text,req->text,sizeof(d->pending_text));
+               d->ptt_owned=true;
+               d->ptt_deadline_us=g_get_monotonic_time()+5000000;
+               d->release_at_us=0;
                g_snprintf(last_status,sizeof(last_status),
-                          "Modem %u PSK TX text queued",req->slot);
-            }
-            g_free(line);
+                  "Modem %u PTT requested; awaiting radio confirmation",req->slot);
+            } else g_strlcpy(last_status,
+                  "Modem PTT request rejected: check TX access and active rig",
+                  sizeof(last_status));
          }
       }
    }
@@ -431,8 +431,12 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          decoder_t *d = &decoders[req->slot - 1];
          g_mutex_lock(&decoder_lock);
          if (d->active) {
-            d->tx_enabled = req->tx_enabled;
-            d->tx_was_allowed = false;
+            if(!req->tx_enabled) {
+               modem_cancel_waveform(d);
+               modem_release_ptt(req->slot-1);
+            }
+            d->tx_enabled=req->tx_enabled;
+            d->tx_was_allowed=false;
             if (!d->tx_enabled)
                d->tx_target[0] = d->ptt_target[0] = 0;
          }
@@ -471,6 +475,10 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          if (d->active && d->tx_enabled) {
             char *target = req->action == RR_LOCAL_MODEM_TX_ROUTE ?
                            d->tx_target : d->ptt_target;
+            if(d->ptt_owned && strcmp(target,req->source)) {
+               modem_cancel_waveform(d);
+               modem_release_ptt(req->slot-1);
+            }
             g_strlcpy(target, req->source, 64);
             g_snprintf(last_status, sizeof(last_status),
                        "Modem %u %s route: %s (configuration only)",
