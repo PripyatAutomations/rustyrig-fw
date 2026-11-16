@@ -1034,11 +1034,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    };
 
    if (rrclient_database_window_load(id, &stored)) {
-      /* Recover obsolete placeholder geometry saved before the Routing
-       * overlay was allocated. Actual user placements are unaffected. */
-      gboolean placeholder = g_str_has_prefix(id, "audio-compact-") &&
-         stored.x == 12 && stored.y == 12;
-      p->loaded_state = !placeholder;
+      /* A saved location is always authoritative, including (12,12).
+       * Automatic non-overlap placement is only for unsaved panels. */
+      p->loaded_state = TRUE;
       p->saved_width = CLAMP(stored.width, 0, 8192);
       p->saved_height = CLAMP(stored.height, 0, 8192);
       p->zoom = CLAMP(stored.zoom, -100, 100);
@@ -1046,7 +1044,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
       p->rolled = stored.rolled;
       p->saved_minimized = stored.minimized;
       p->pinned = stored.pinned;
-      if (!placeholder) panel_position_save(p, stored.x, stored.y);
+      panel_position_save(p, stored.x, stored.y);
    }
    p->scrim = gtk_event_box_new();
    /* The scrim must never be revealed by a parent gtk_widget_show_all(). A non-modal scrim covers the notebook and silently eats tab clicks. */
