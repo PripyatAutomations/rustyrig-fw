@@ -1157,6 +1157,34 @@ static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, doubl
    return FALSE;
 }
 #ifdef RR_HAVE_GSTREAMER
+/* Inspect the installed LV2 factory's real audio pad templates in GTK,
+ * where GStreamer is linked. The core only receives the channel count. */
+static guint routing_lv2_audio_channels(const char *name) {
+   GstElementFactory *factory = gst_element_factory_find(name);
+   if (!factory) return 1;
+   GstCaps *mono = gst_caps_from_string("audio/x-raw,channels=(int)1");
+   GstCaps *stereo = gst_caps_from_string("audio/x-raw,channels=(int)2");
+   gboolean in_mono = FALSE, out_mono = FALSE, in_stereo = FALSE, out_stereo = FALSE;
+   for (const GList *it = gst_element_factory_get_static_pad_templates(factory);
+        it; it = it->next) {
+      const GstStaticPadTemplate *pt = it->data;
+      GstCaps *caps = gst_static_pad_template_get_caps((GstStaticPadTemplate *)pt);
+      if (!caps) continue;
+      if (pt->direction == GST_PAD_SINK) {
+         in_mono |= gst_caps_can_intersect(caps, mono);
+         in_stereo |= gst_caps_can_intersect(caps, stereo);
+      } else if (pt->direction == GST_PAD_SRC) {
+         out_mono |= gst_caps_can_intersect(caps, mono);
+         out_stereo |= gst_caps_can_intersect(caps, stereo);
+      }
+      gst_caps_unref(caps);
+   }
+   gboolean stereo_only = in_stereo && out_stereo &&
+       (!in_mono || !out_mono);
+   gst_caps_unref(mono); gst_caps_unref(stereo);
+   gst_object_unref(factory);
+   return stereo_only ? 2 : 1;
+}
 enum { LV2_NAME, LV2_DESC, LV2_LONG, LV2_CLASS, LV2_N };
 typedef struct { GtkWidget *search, *details, *dialog; GtkTreeView *view; GtkTreeModelFilter *filter; } lv2_picker_t;
 static gboolean lv2_visible(GtkTreeModel *m, GtkTreeIter *it, gpointer data) {
@@ -1182,10 +1210,13 @@ static void lv2_selected(GtkTreeSelection *sel, gpointer data) {
    }
    gchar *name = NULL, *desc = NULL, *longname = NULL, *klass = NULL;
    gtk_tree_model_get(m, &it, LV2_NAME, &name, LV2_DESC, &desc, LV2_LONG, &longname, LV2_CLASS, &klass, -1);
-   gchar *markup = g_markup_printf_escaped("<b>%s</b>\n%s\n\n<b>Factory:</b> %s\n<b>Type:</b> %s",
+   guint channels = routing_lv2_audio_channels(name ? name : "");
+   gchar *markup = g_markup_printf_escaped(
+      "<b>%s</b>\n%s\n\n<b>Factory:</b> %s\n<b>Type:</b> %s\n<b>Audio ports:</b> %s",
       longname && *longname ? longname : name ? name : "",
       desc && *desc ? desc : "No description available", name ? name : "",
-      klass && *klass ? klass : "LV2");
+      klass && *klass ? klass : "LV2",
+      channels == 2 ? "Stereo (L/R input and output)" : "Mono (single input and output)");
    gtk_label_set_markup(GTK_LABEL(p->details), markup);
    gtk_dialog_set_response_sensitive(GTK_DIALOG(p->dialog), GTK_RESPONSE_ACCEPT, TRUE);
    g_free(markup); g_free(name); g_free(desc); g_free(longname); g_free(klass);
@@ -1307,6 +1338,7 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
       const char *source = gtk_combo_box_get_active_id(GTK_COMBO_BOX(source_box));
       if (factory && source) {
          rr_audio_effect_request_t req = {.action = 'A'};
+         req.channels = routing_lv2_audio_channels(factory);
          g_strlcpy(req.factory, factory, sizeof(req.factory));
          g_strlcpy(req.source, source, sizeof(req.source));
          audio_request_effect_block(&req);
