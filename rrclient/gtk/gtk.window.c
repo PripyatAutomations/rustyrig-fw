@@ -573,6 +573,8 @@ static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *
    gtk_widget_set_tooltip_text(image, tooltip);
    gtk_widget_set_tooltip_text(label, tooltip);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
+   /* GTK themes may render a 16px icon, but keep an easy finger target. */
+   gtk_widget_set_size_request(button, 42, 42);
    g_signal_connect(button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) tool);
    gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
 }
