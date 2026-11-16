@@ -312,6 +312,7 @@ static gboolean graph_drag_mixer, graph_drag_moved;
 static gint graph_drag_modem_target = -1;
 static gint graph_drag_rig_target = -1;
 static gint graph_drag_lv2_target = -1;
+static gboolean graph_drag_lv2_output;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the
  * same hit/clock-domain rules for live preview and final connection. */
@@ -349,7 +350,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    const rr_ag_view_node_t *origin_node = &graph_snapshot->nodes[origin];
    unsigned modem_slot = 0;
    gboolean from_modem = graph_drag_mixer && routing_modem_slot(origin_node, &modem_slot);
-   gboolean from_lv2 = graph_drag_mixer &&
+   gboolean from_lv2 = !graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "proc.lv2.");
    gboolean from_modem_tx = !graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "modem.") &&
@@ -362,6 +363,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    graph_drag_modem_target = -1;
    graph_drag_rig_target = -1;
    graph_drag_lv2_target = -1;
+   graph_drag_lv2_output = FALSE;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (graph_missing_since[i]) continue;
@@ -374,23 +376,25 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
           routing_modem_source(origin_node) &&
           n->type == RR_AG_PROCESSOR &&
           g_str_has_prefix(n->id, "proc.lv2.");
-      gboolean lv2_connection = to_lv2 ||
-          (from_lv2 && routing_modem_source(n));
+      gboolean lv2_output = from_lv2 && n->type == RR_AG_MIXER &&
+          !strcmp(n->id, "rx.mix");
+      gboolean lv2_connection = to_lv2 || lv2_output;
       gboolean rig_target = from_modem_tx && n->type == RR_AG_SINK &&
           g_str_has_prefix(n->id, "rig.") &&
           g_str_has_suffix(n->id, ".tx");
-      gboolean valid = rig_target || modem_connection || lv2_connection || (graph_drag_mixer ?
-         (n->type == RR_AG_SOURCE && !n->read_only &&
-          !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
-                  required_bus)) :
-         (n->type == RR_AG_MIXER && !strcmp(n->id, required_bus)));
+      gboolean valid = rig_target || modem_connection || lv2_connection ||
+         (!from_lv2 && (graph_drag_mixer ?
+          (n->type == RR_AG_SOURCE && !n->read_only &&
+           !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
+                   required_bus)) :
+          (n->type == RR_AG_MIXER && !strcmp(n->id, required_bus))));
       if (!valid) continue;
       double nx = routing_node_x(n) +
           (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W :
            rig_target && graph_drag_channel ? -18. : 0.);
       double ny = routing_node_y(n) + (rig_target ?
          (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
-         lv2_connection ? (to_lv2 ? 68. : 68.) :
+         lv2_connection ? (lv2_output ? (graph_drag_channel ? 79. : 60.) : 68.) :
          modem_connection ? (from_modem ? 60. : 68.) :
          (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
@@ -404,6 +408,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       graph_drag_rig_target = rig_target ? (gint)i : -1;
       if (lv2_connection) {
          const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
+         graph_drag_lv2_output = lv2_output;
          unsigned slot = 0;
          if (sscanf(effect->id, "proc.lv2.%u", &slot) == 1 &&
              slot >= 1 && slot <= RR_AUDIO_EFFECT_MAX)
@@ -2729,7 +2734,7 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
             " (requested, not measured)" : "",
          n->resampling ? "active" : "none or not known",
          n->queued_ms, n->dropped_frames, n->starvation_events,
-         g_str_has_prefix(n->id, "proc.lv2.") ? "\nPatchable input; output returns to RX mixer" : n->read_only ? "\nRead-only topology" : "");
+         g_str_has_prefix(n->id, "proc.lv2.") ? "\nInput and output require separate patch connections" : n->read_only ? "\nRead-only topology" : "");
       gtk_tooltip_set_text(tooltip, details);
       g_free(details);
       return TRUE;
@@ -2761,6 +2766,16 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
             *channel = fabs(y - py - 68.) <
                        fabs(y - py - (RR_GTK_GRAPH_NODE_H - 16)) ? 0 : 1;
             *mixer = FALSE;
+            return TRUE;
+         }
+      }
+      if (graph_snapshot->nodes[i].type == RR_AG_PROCESSOR &&
+          g_str_has_prefix(graph_snapshot->nodes[i].id, "proc.lv2.") &&
+          !graph_missing_since[i]) {
+         const rr_ag_view_node_t *fx = &graph_snapshot->nodes[i];
+         if (hypot(x - routing_node_x(fx) - RR_GTK_GRAPH_NODE_W,
+                   y - routing_node_y(fx) - 68.) <= radius) {
+            *source = (gint)i; *channel = 0; *mixer = FALSE;
             return TRUE;
          }
       }
@@ -3154,10 +3169,14 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    if (graph_drag_moved && hit && source_index >= 0) {
       if (graph_drag_lv2_target > 0) {
          rr_audio_effect_request_t req = {
-            .action = 'R', .slot = (unsigned)graph_drag_lv2_target
+            .action = graph_drag_lv2_output ? 'O' : 'R',
+            .slot = (unsigned)graph_drag_lv2_target
          };
-         g_strlcpy(req.source, graph_snapshot->nodes[source_index].id,
-                   sizeof(req.source));
+         if (graph_drag_lv2_output)
+            req.output = graph_drag_channel ? 'R' : 'L';
+         else
+            g_strlcpy(req.source, graph_snapshot->nodes[source_index].id,
+                      sizeof(req.source));
          audio_request_effect_block(&req);
          routing_queue();
       } else if (graph_drag_rig_target >= 0 && graph_drag_source >= 0) {
@@ -3203,6 +3222,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    graph_drag_source = graph_drag_channel = -1;
    graph_drag_modem_target = graph_drag_rig_target = -1;
    graph_drag_lv2_target = -1;
+   graph_drag_lv2_output = FALSE;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
