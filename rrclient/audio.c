@@ -46,7 +46,6 @@
 #include <rrclient/connman.h>
 #include <rrclient/vfo.h>
 
-extern rrconn_t *ws_conn;
 extern bool ptt_active;
 extern time_t now;
 bool audio_enabled = false;
@@ -1430,7 +1429,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
    bool changed = false;
 
    for (rx_route_t *route = rx_routes ; route ; route = route->next) {
-      if (route->connection == ws_conn) {
+      if (route->connection == rrclient_connection_context()) {
          route->seen = false;
       }
    }
@@ -1438,7 +1437,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
    for (size_t i = 0 ; i < count ; i++) {
       const struct rrclient_rx_audio *channel = &channels[i];
       rx_route_t *route = rx_routes;
-      while (route && (route->connection != ws_conn || strcmp(route->uuid, channel->uuid))) {
+      while (route && (route->connection != rrclient_connection_context() || strcmp(route->uuid, channel->uuid))) {
          route = route->next;
       }
 
@@ -1452,7 +1451,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          static unsigned next_identity;
          snprintf(route->identity, sizeof(route->identity), "client-rx-%u", ++next_identity);
          g_mutex_init(&route->pcm_lock);
-         route->connection = ws_conn;
+         route->connection = rrclient_connection_context();
          snprintf(route->uuid, sizeof(route->uuid), "%s", channel->uuid);
          route->next = rx_routes;
          rx_routes = route;
@@ -1468,7 +1467,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
 
       if (!route->codec[0] || strcmp(route->room, room)) {
          /* Unchanged inventories/codec changes must retain per-stream routing. */
-         char output = audio_room_route(rrclient_connection_name(ws_conn), room);
+         char output = audio_room_route(rrclient_connection_name(rrclient_connection_context()), room);
          snprintf(route->room, sizeof(route->room), "%s", room);
          route->output = output;
 
@@ -1509,7 +1508,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
    while (*link) {
       rx_route_t *route = *link;
 
-      if (route->connection == ws_conn && !route->seen) {
+      if (route->connection == rrclient_connection_context() && !route->seen) {
          fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          *link = route->next;
          rr_af_spectrum_forget(route->identity);
@@ -1561,7 +1560,7 @@ static void audio_quality_hint(const char *event, const char *data, rrconn_t *cp
    (void)event;
    (void)user;
 
-   if (cptr != ws_conn || !data || !tx_codec[0]) {
+   if (cptr != rrclient_connection_context() || !data || !tx_codec[0]) {
       return;
    }
    dict *hint = json2dict(data);
@@ -1581,7 +1580,7 @@ static void audio_feedback(const char *event, const char *data, rrconn_t *cptr, 
    (void)event;
    (void)user;
 
-   if (cptr != ws_conn || !data) {
+   if (cptr != rrclient_connection_context() || !data) {
       return;
    }
    dict *message = json2dict(data);
@@ -2705,7 +2704,7 @@ static void audio_full_frame_payload(const void *data, size_t len) {
       return;
    }
    rx_route_t *route = rx_routes;
-   while (route && (route->connection != ws_conn || strcmp(route->uuid, uuid))) {
+   while (route && (route->connection != rrclient_connection_context() || strcmp(route->uuid, uuid))) {
       route = route->next;
    }
 
@@ -2714,7 +2713,7 @@ static void audio_full_frame_payload(const void *data, size_t len) {
       // Rebuild it without altering the subscription or any other channel.
       rrclient_media_sync_audio();
       route = rx_routes;
-      while (route && (route->connection != ws_conn || strcmp(route->uuid, uuid))) {
+      while (route && (route->connection != rrclient_connection_context() || strcmp(route->uuid, uuid))) {
          route = route->next;
       }
 
@@ -2726,12 +2725,12 @@ static void audio_full_frame_payload(const void *data, size_t len) {
    bool discontinuity = false;
    dict *feedback = NULL;
 
-   if (ws_conn && !rr_media_observe(ws_conn, &frame.hdr, mono_us(), &discontinuity, &feedback)) {
+   if (rrclient_connection_context() && !rr_media_observe(rrclient_connection_context(), &frame.hdr, mono_us(), &discontinuity, &feedback)) {
       return;
    }
 
    if (feedback) {
-      ws_send_dict(NULL, ws_conn, feedback, WEBSOCKET_OP_TEXT);
+      ws_send_dict(NULL, rrclient_connection_context(), feedback, WEBSOCKET_OP_TEXT);
       dict_free(feedback);
    }
 
