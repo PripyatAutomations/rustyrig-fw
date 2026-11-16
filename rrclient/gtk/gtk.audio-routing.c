@@ -1232,6 +1232,101 @@ static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
    }
    routing_queue();
 }
+
+static void graph_set_channel(guint source, gint channel, gboolean connect);
+/* Shared actions on routing blocks; callbacks retain the stable ID rather
+ * than pointers into replaceable snapshots. */
+static void routing_block_action(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   const char *id=g_object_get_data(G_OBJECT(item),"routing-block-id");
+   guint action=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"routing-block-action"));
+   if (!id) return;
+   if (action==1 || action==2) {
+      routing_position_t *pos=routing_position(id);
+      if (!pos) return;
+      pos->pinned=FALSE;
+      char *key=routing_position_key(id);
+      rrclient_database_setting_set(key,"");
+      g_free(key);
+      if (g_str_has_prefix(id,"serial.")) routing_serial_refresh();
+      else routing_layout_auto(FALSE);
+      if (action==1) { graph_pan_x=0.; graph_pan_y=0.; }
+      graph_canvas_update_size();
+      return;
+   }
+   if (action==0) {
+      gchar *details=NULL;
+      for (guint i=0;i<routing_serial_count;i++) {
+         const routing_serial_node_t *n=&routing_serial_nodes[i];
+         if (strcmp(n->id,id)) continue;
+         const char *path=routing_serial_full_path(n);
+         details=g_strdup_printf("Remote resource: %s\\nConnection profile: %s\\nRig: %s",
+                                 *path?path:"Identity unavailable",n->profile,n->rig);
+         break;
+      }
+      if (!details && graph_snapshot) for (guint i=0;i<graph_snapshot->node_count;i++) {
+         const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+         if (strcmp(id,n->id)) continue;
+         details=g_strdup_printf("Channels: %u\\nSample rate: %u Hz\\n%s",
+                                 (unsigned)n->channels,(unsigned)n->rate_hz,
+                                 n->read_only?"Read-only node":"Editable node");
+         break;
+      }
+      GtkWidget *top=gtk_widget_get_toplevel(graph_canvas);
+      GtkWidget *dialog=gtk_message_dialog_new(
+         GTK_IS_WINDOW(top)?GTK_WINDOW(top):NULL,
+         GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_INFO,GTK_BUTTONS_CLOSE,"%s",id);
+      gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),"%s",
+         details?details:"No additional properties available");
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      g_free(details);
+      return;
+   }
+   if (action==3 && graph_snapshot) for (guint i=0;i<graph_snapshot->node_count;i++) {
+      const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+      if (strcmp(id,n->id) || n->type!=RR_AG_SOURCE || n->read_only ||
+          graph_missing_since[i]) continue;
+      graph_set_channel(i,0,FALSE);
+      graph_set_channel(i,1,FALSE);
+      return;
+   }
+}
+static void routing_block_menu_items(GtkWidget *menu, const char *id,
+                                     gboolean disconnect) {
+   static const char *labels[]={
+      "Properties…","Auto Place","Reset Saved Position","Disconnect All"
+   };
+   for (guint i=0;i<G_N_ELEMENTS(labels);i++) {
+      if (i==3 && !disconnect) continue;
+      GtkWidget *item=gtk_menu_item_new_with_label(labels[i]);
+      gtk_widget_set_size_request(item,-1,44);
+      g_object_set_data_full(G_OBJECT(item),"routing-block-id",g_strdup(id),g_free);
+      g_object_set_data(G_OBJECT(item),"routing-block-action",GUINT_TO_POINTER(i));
+      g_signal_connect(item,"activate",G_CALLBACK(routing_block_action),NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+   }
+}
+static gboolean routing_common_block_menu(GdkEventButton *event,double x,double y) {
+   if (!graph_snapshot) return FALSE;
+   for (gint i=(gint)graph_snapshot->node_count-1;i>=0;i--) {
+      const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+      if (graph_missing_since[i]) continue;
+      double nx=routing_node_x(n), ny=routing_node_y(n);
+      if (x<nx || x>nx+RR_GTK_GRAPH_NODE_W ||
+          y<ny || y>ny+RR_GTK_GRAPH_NODE_H) continue;
+      GtkWidget *menu=gtk_menu_new();
+      routing_block_menu_items(menu,n->id,
+         n->type==RR_AG_SOURCE && !n->read_only);
+      g_signal_connect_swapped(menu,"selection-done",
+                               G_CALLBACK(gtk_widget_destroy),menu);
+      gtk_widget_show_all(menu);
+      gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+      return TRUE;
+   }
+   return FALSE;
+}
 static void routing_serial_menu_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "slot"));
@@ -1257,6 +1352,8 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
       if (!n->virtual || x<n->x || x>n->x+ROUTING_SERIAL_W ||
           y<n->y || y>n->y+ROUTING_SERIAL_H) continue;
       GtkWidget *menu=gtk_menu_new();
+      routing_block_menu_items(menu,n->id,FALSE);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),gtk_separator_menu_item_new());
       const char *labels[]={"Configure CAT PTY…","Configure GPS PTY…","Disconnect Virtual Rig"};
       for (guint action=0;action<G_N_ELEMENTS(labels);action++) {
          GtkWidget *item=gtk_menu_item_new_with_label(labels[action]);
@@ -1287,6 +1384,8 @@ static gboolean routing_modem_context_menu(GdkEventButton *event, double x, doub
       g_object_set_data(G_OBJECT(properties),"modem-slot",GUINT_TO_POINTER(slot));
       g_signal_connect(properties,"activate",G_CALLBACK(routing_modem_properties),NULL);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu),properties);
+      routing_block_menu_items(menu,n->id,FALSE);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),gtk_separator_menu_item_new());
       const char *titles[] = {"Disconnect All", "Remove Modem"};
       for (unsigned j=0; j<2; j++) {
          GtkWidget *item = gtk_menu_item_new_with_label(titles[j]);
@@ -1547,6 +1646,8 @@ static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, doubl
       if (sscanf(node->id, "proc.lv2.%u", &slot) != 1 ||
           slot < 1 || slot > RR_AUDIO_EFFECT_MAX) return FALSE;
       GtkWidget *menu = gtk_menu_new();
+       routing_block_menu_items(menu,node->id,FALSE);
+       gtk_menu_shell_append(GTK_MENU_SHELL(menu),gtk_separator_menu_item_new());
       for (guint ch = 0; ch < (node->channels == 2 ? 2u : 1u); ch++) {
          for (guint direction = 0; direction < 2; direction++) {
             gchar *label = g_strdup_printf("Disconnect %s %s",
@@ -3516,7 +3617,8 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
    GdkEvent *event = gtk_get_current_event();
    gboolean handled = routing_serial_context_menu((GdkEventButton *)event, gx, gy) ||
                       routing_lv2_context_menu((GdkEventButton *)event, gx, gy) ||
-                      routing_modem_context_menu((GdkEventButton *)event, gx, gy);
+                      routing_modem_context_menu((GdkEventButton *)event, gx, gy) ||
+                       routing_common_block_menu((GdkEventButton *)event,gx,gy);
    if (event) gdk_event_free(event);
    if (!handled) return;
    /* Cancel the emulated mouse gesture so lifting the finger cannot
@@ -3542,7 +3644,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return graph_pointer(event->x, event->y, &gx, &gy) &&
              (routing_serial_context_menu(event, gx, gy) ||
               routing_lv2_context_menu(event, gx, gy) ||
-              routing_modem_context_menu(event, gx, gy));
+              routing_modem_context_menu(event, gx, gy) ||
+               routing_common_block_menu(event,gx,gy));
    }
    if (event->type == GDK_BUTTON_PRESS &&
        (event->button == GDK_BUTTON_MIDDLE ||
