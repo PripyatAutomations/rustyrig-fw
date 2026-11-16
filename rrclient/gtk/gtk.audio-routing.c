@@ -1299,7 +1299,7 @@ static void routing_block_menu_items(GtkWidget *menu, const char *id,
       "Properties…","Auto Place","Reset Saved Position","Disconnect All"
    };
    for (guint i=0;i<G_N_ELEMENTS(labels);i++) {
-      if (i==3 && !disconnect) continue;
+      if ((i==3 && !disconnect) || (i==0 && g_str_has_prefix(id,"modem."))) continue;
       GtkWidget *item=gtk_menu_item_new_with_label(labels[i]);
       gtk_widget_set_size_request(item,-1,44);
       g_object_set_data_full(G_OBJECT(item),"routing-block-id",g_strdup(id),g_free);
