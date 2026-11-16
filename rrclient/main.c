@@ -93,6 +93,36 @@ void rrclient_send_ptt_command(rrconn_t *connection, const char *vfo, bool on, c
    }
 }
 
+/* Unlike a VFO status echo, this is an outgoing signal from one explicitly
+ * wired modem PTT output. The server remains authoritative for TX access.
+ * Never route to the locally selected connection when the target belongs
+ * to another server profile. */
+bool rrclient_modem_ptt_send(const char *source,const char *rx_id,bool on) {
+   if (!source || !*source || !rx_id || !*rx_id ||
+       (on && !rrclient_ptt_allowed())) return false;
+   struct rrclient_rx_stream streams[64]={{0}};
+   size_t count=audio_rx_streams(streams,G_N_ELEMENTS(streams));
+   for(size_t i=0;i<count && i<G_N_ELEMENTS(streams);i++) {
+      const struct rrclient_rx_stream *rx=&streams[i];
+      if(strcmp(rx_id,rx->id) || !rx->active_tx ||
+         !rrclient_media_rx_is_active_tx(rx->uuid)) continue;
+      if(on && !rrclient_room_tx_control(rx->room)) return false;
+      rrconn_t *conn=rrclient_connection_find(rx->server);
+      if(!conn || !conn->is_ws) return false;
+      char vfo[2]={vfo_state_get_active(),0};
+      if(!ws_send_ptt_cmd_in_room(conn,vfo,on,rx->room)) return false;
+      rrclient_routing_ptt_signal_t signal={.raised=on};
+      g_strlcpy(signal.source,source,sizeof(signal.source));
+      rr_event_message_t msg={
+         .name=RRCLIENT_ROUTING_PTT_SIGNAL,.sender="core",
+         .payload=&signal,.length=sizeof(signal)
+      };
+      event_emit_message(&msg);
+      return true;
+   }
+   return false;
+}
+
 /* GTK issues requests only; the core domain owns connection and TX state. */
 typedef struct {
    char room[128];
