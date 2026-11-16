@@ -15,7 +15,7 @@
 #include <rrclient/irc.audio.session.h>
 #include <librrprotocol/rtp.h>
 #include <string.h>
-extern rrconn_t *ws_conn;
+
 /* Only window routing is client state; the library owns every DCC session. */
 static struct {
    rrconn_t *client;
@@ -92,7 +92,7 @@ static bool cmd_audio(int argc, char **args) {
       return true;
    }
 
-   if (!ws_conn || ws_conn->is_ws || !ws_conn->authenticated) {
+   if (!rrclient_connection_context() || rrclient_connection_context()->is_ws || !rrclient_connection_context()->authenticated) {
       ui_print(ui_active_window_name(), "DCC voice requires a connected IRC server");
 
       return true;
@@ -102,9 +102,9 @@ static bool cmd_audio(int argc, char **args) {
    bool result;
 
    if (action && !strcasecmp(args[2], "accept")) {
-      result = irc_audio_accept(ws_conn, nick, directions);
+      result = irc_audio_accept(rrclient_connection_context(), nick, directions);
    } else if (action) {
-      result = irc_audio_close(ws_conn, nick, directions) != 0;
+      result = irc_audio_close(rrclient_connection_context(), nick, directions) != 0;
    } else {
       irc_audio_options_t options = {
          .bind = dict_get(cfg, "dcc.audio.bind", "0.0.0.0"), .host = dict_get(cfg, "dcc.audio.host", ""),
@@ -117,7 +117,7 @@ static bool cmd_audio(int argc, char **args) {
 
          return true;
       }
-      result = irc_audio_offer(ws_conn, nick, directions, &options);
+      result = irc_audio_offer(rrclient_connection_context(), nick, directions, &options);
    }
 
    if (result) {
@@ -209,7 +209,7 @@ static bool matching_session(unsigned id, irc_dcc_type_t type, bool pending) {
    irc_dcc_session_t session;
 
    for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
-      if (session.control == ws_conn && session.id == id && session.type == type && (!pending || session.state == IRC_DCC_PENDING)) {
+      if (session.control == rrclient_connection_context() && session.id == id && session.type == type && (!pending || session.state == IRC_DCC_PENDING)) {
          return true;
       }
    }
@@ -221,7 +221,7 @@ static bool receive_file(unsigned id, int argc, char **args, int first, bool dow
    bool found = false;
 
    for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
-      if (session.control == ws_conn && session.id == id && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
+      if (session.control == rrclient_connection_context() && session.id == id && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
          found = true;
          break;
       }
@@ -294,7 +294,7 @@ static bool receive_file(unsigned id, int argc, char **args, int first, bool dow
    if (fd < 0) {
       ui_print(ui_active_window_name(), "Cannot create %s; choose a new destination file", path);
    } else {
-      result = irc_dcc_accept(ws_conn, id, fd);
+      result = irc_dcc_accept(rrclient_connection_context(), id, fd);
       close(fd);
 
       if (!result) {
@@ -304,7 +304,7 @@ static bool receive_file(unsigned id, int argc, char **args, int first, bool dow
 #endif
 
    if (result) {
-      (void)dcc_window(ws_conn, id, true);
+      (void)dcc_window(rrclient_connection_context(), id, true);
       ui_print(ui_active_window_name(), "DCC #%u receiving into %s", id, path);
    }
    free(path);
@@ -333,7 +333,7 @@ bool cmd_dcc(int argc, char **args) {
       goto usage;
    }
 
-   if (!ws_conn || ws_conn->is_ws || !ws_conn->authenticated) {
+   if (!rrclient_connection_context() || rrclient_connection_context()->is_ws || !rrclient_connection_context()->authenticated) {
       ui_print(ui_active_window_name(), "DCC requires a connected IRC server");
 
       return true;
@@ -368,12 +368,12 @@ bool cmd_dcc(int argc, char **args) {
       bool result = false;
 
       if (closing && argc == 4) {
-         result = irc_dcc_close(ws_conn, id);
+         result = irc_dcc_close(rrclient_connection_context(), id);
       } else if (message && argc >= 5) {
          char *text = command_rest(argc, args, 4);
 
          if (text) {
-            result = irc_dcc_chat_send(ws_conn, id, text);
+            result = irc_dcc_chat_send(rrclient_connection_context(), id, text);
 
             if (result) {
                ui_print(ui_active_window_name(), "DCC #%u <you> %s", id, text);
@@ -381,7 +381,7 @@ bool cmd_dcc(int argc, char **args) {
             free(text);
          }
       } else if (accepting && chat && argc == 4) {
-         result = irc_dcc_accept(ws_conn, id, -1);
+         result = irc_dcc_accept(rrclient_connection_context(), id, -1);
       } else if (accepting && file && argc >= 5) {
          result = receive_file(id, argc, args, 4, false);
       } else {
@@ -389,7 +389,7 @@ bool cmd_dcc(int argc, char **args) {
       }
 
       if (result && accepting) {
-         (void)dcc_window(ws_conn, id, true);
+         (void)dcc_window(rrclient_connection_context(), id, true);
       }
 
       if (!result) {
@@ -405,7 +405,7 @@ bool cmd_dcc(int argc, char **args) {
    unsigned id = 0;
 
    if (chat && argc == 3) {
-      id = irc_dcc_offer_chat(ws_conn, args[2], &options);
+      id = irc_dcc_offer_chat(rrclient_connection_context(), args[2], &options);
    } else if (file && argc >= 4) {
       char *input = command_rest(argc, args, 3), *path = input ? expand_path(input) : NULL;
       free(input);
@@ -418,7 +418,7 @@ bool cmd_dcc(int argc, char **args) {
 
       if (fd >= 0) {
          const char *name = strrchr(path, '/');
-         id = irc_dcc_offer_file(ws_conn, args[2], name ? name + 1 : path, fd, &options);
+         id = irc_dcc_offer_file(rrclient_connection_context(), args[2], name ? name + 1 : path, fd, &options);
          close(fd);
       }
 #endif
