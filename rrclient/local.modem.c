@@ -21,7 +21,7 @@
 
 typedef struct {
    rr_dsp_worker_t worker;
-   bool active;
+   bool active, tx_enabled;
    char source[64], engine[16], option[24];
    char tx_target[64], ptt_target[64];
    unsigned value;
@@ -168,6 +168,7 @@ size_t rr_local_modem_routes(rr_local_modem_route_t *routes, size_t capacity) {
       const decoder_t *d = &decoders[i];
       if (!d->active) continue;
       routes[count].slot = i + 1;
+      routes[count].tx_enabled = d->tx_enabled;
       g_strlcpy(routes[count].source, d->source, sizeof(routes[count].source));
       g_strlcpy(routes[count].engine, d->engine, sizeof(routes[count].engine));
       g_strlcpy(routes[count].tx_target, d->tx_target, sizeof(routes[count].tx_target));
@@ -267,10 +268,12 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->text_len = 0;
    d->text[0] = 0;
    d->tx_target[0] = d->ptt_target[0] = 0;
+   d->tx_enabled = req->tx_enabled;
    d->drops = d->received = 0;
    g_mutex_unlock(&decoder_lock);
    g_snprintf(last_status, sizeof(last_status),
-              "Decoder %u started: %s / %s (RX-only)", index+1, engine, req->source);
+              "Decoder %u started: %s / %s (%s)", index+1, engine, req->source,
+               req->tx_enabled ? "TX routing enabled, PTT still gated" : "RX-only");
    return true;
 }
 static void publish_snapshot(void) {
@@ -288,6 +291,7 @@ static void publish_snapshot(void) {
       rr_local_modem_entry_t *entry = &snapshot->entries[i];
       entry->slot = i+1;
       entry->running = d->active;
+      entry->tx_enabled = d->tx_enabled;
       entry->value = d->value;
       entry->drops = d->drops;
       entry->received = d->received;
@@ -311,6 +315,19 @@ static void request_received(const rr_event_message_t *message, void *unused) {
        message->length != sizeof(rr_local_modem_request_t)) return;
    const rr_local_modem_request_t *req = message->payload;
    if (req->action == RR_LOCAL_MODEM_START) start_one(req);
+   else if (req->action == RR_LOCAL_MODEM_SET_TX_ENABLED) {
+      if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX) {
+         decoder_t *d = &decoders[req->slot - 1];
+         g_mutex_lock(&decoder_lock);
+         if (d->active) {
+            d->tx_enabled = req->tx_enabled;
+            if (!d->tx_enabled)
+               d->tx_target[0] = d->ptt_target[0] = 0;
+         }
+         g_mutex_unlock(&decoder_lock);
+         event_emit("client.audio.route.changed", NULL, NULL);
+      }
+   }
    else if (req->action == RR_LOCAL_MODEM_ROUTE) {
       /* Route changes are core-owned, atomic with the nonblocking audio tap,
        * and must never restart the decoder or reset its receive state. */
@@ -339,7 +356,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
           (req->source[0] == 0 || source_present(req->source))) {
          decoder_t *d = &decoders[req->slot - 1];
          g_mutex_lock(&decoder_lock);
-         if (d->active) {
+         if (d->active && d->tx_enabled) {
             char *target = req->action == RR_LOCAL_MODEM_TX_ROUTE ?
                            d->tx_target : d->ptt_target;
             g_strlcpy(target, req->source, 64);
