@@ -48,6 +48,10 @@ bool audio_local_rx_start_format(const char *id, const rr_pcm_stream_format_t *f
 bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t frames);
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames);
 void audio_local_rx_stop(const char *id);
+/* Core-thread modem PCM TX ingress. Never keys PTT; requires active,
+ * authorized TX media and a confirmed PTT state before forwarding. */
+bool audio_modem_tx_pcm(const char *target, const int16_t *pcm, size_t frames);
+bool audio_modem_tx_allowed(const char *target);
 extern void audio_tx_free_frame(void);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
