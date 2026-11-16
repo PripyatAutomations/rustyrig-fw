@@ -26,7 +26,7 @@ char session_token[HTTP_TOKEN_LEN + 1];
 const char *login_user = NULL;
 
 /* Selected client sessions are transport-independent. */
-rrconn_t *ws_conn = NULL;
+
 rrconn_t *ws_tx_conn = NULL;
 #ifdef USE_MONGOOSE
 extern struct mg_mgr mgr;
