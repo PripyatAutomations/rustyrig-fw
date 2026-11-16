@@ -65,3 +65,37 @@ Note that this is **server-side rig hardware wiring**. The client
 Routing tab's mono source with separate `L OUT`/`R OUT` controls
 instead represents the *listener's ear routing*. They are different
 levels of the audio graph.
+
+## Client Routing aliases (selected rig)
+
+The client's Routing view also exposes the selected radio as two stable
+logical ports:
+
+- `rig.src` — decoded *receive* audio **from** the selected radio.
+  This is an alias of its existing RX stream, not a second decoder or
+  an extra copy in the mixer.
+- `rig.sink` — *transmit* audio **into** the currently selected radio.
+  This only appears when a matching TX media channel is advertised.
+  Its microphone link uses the existing codec/PTT-checked encoder path;
+  a graph cable does **not** grant PTT permission.
+
+Other subscribed rigs keep their independent RX stream IDs and TX sink
+identities. The active aliases change their media backing when the user
+changes the selected rig/VFO, while their graph positions stay anchored
+to `rig.src` and `rig.sink`.
+
+### Multi-application routing direction
+
+A future virtual PulseAudio/PipeWire **sink** accepts playback from a
+local application, then feeds a rig TX mix input. A virtual **source**
+exposes the rig's RX audio for the application's recording input.
+For example, `ttyCAT0`, `app0.playback` and `app0.capture` would
+belong to one independently mapped VFO/radio binding, without making
+that binding follow the GUI's current selected radio.
+
+**Not implemented yet:** independent multi-input TX mixing, per-program
+PulseAudio/PipeWire devices, multiple simultaneous encoded TX media
+destinations, or CAT/PTT arbitration for several clients. Those need
+stable per-rig resource bindings, explicit audio patch tables and a
+PTT-authorized TX mixer. A visual graph edge must not claim PCM delivery
+until its actual DSP/transport route exists.
