@@ -3914,55 +3914,94 @@ static void graph_set_channel(guint source, gint channel, gboolean connect) {
    graph_canvas_update_size();
 }
 
-/* Match the actual cubic Bezier curves rather than merely the bounding box. */
-static gboolean graph_link_at(double x, double y, guint *source, gint *channel) {
-   double limit = CLAMP(7.0 / MAX(.01, graph_scale), 5.0, 17.0);
-   double best = limit;
-   gboolean found = FALSE;
-   for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
-      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-
-      if (n->type != RR_AG_SOURCE) {
+/* Match every patch-cord family actually drawn, not only RX->mixer.
+ * The selected link index is an immutable snapshot reference on GTK. */
+static gboolean routing_link_disconnectable(const rr_ag_view_link_t *link) {
+   if (!graph_snapshot || link->src>=graph_snapshot->node_count ||
+       link->dst>=graph_snapshot->node_count) return FALSE;
+   const char *from=graph_snapshot->nodes[link->src].id;
+   const char *to=graph_snapshot->nodes[link->dst].id;
+   if (g_str_has_prefix(from,"modem") || g_str_has_prefix(to,"modem")) return TRUE;
+   if (g_str_has_prefix(from,"proc.lv2.") || g_str_has_prefix(to,"proc.lv2.")) return TRUE;
+   if (!strcmp(from,"src.client.dsp0") && g_str_has_prefix(to,"rig.")) return TRUE;
+   return graph_snapshot->nodes[link->src].type==RR_AG_SOURCE &&
+      !graph_snapshot->nodes[link->src].read_only &&
+      (!strcmp(to,"rx.mix") || !strcmp(to,"hq.mix"));
+}
+static gboolean graph_link_at(double x,double y,guint *link_index,gint *channel) {
+   if (!graph_snapshot) return FALSE;
+   double best=CLAMP((graph_touch_pointer?21.:12.)/MAX(.01,graph_scale),8.,30.);
+   gboolean found=FALSE;
+   for (guint i=0;i<graph_snapshot->link_count;i++) {
+      const rr_ag_view_link_t *link=&graph_snapshot->links[i];
+      if (!routing_link_disconnectable(link)) continue;
+      const rr_ag_view_node_t *src=&graph_snapshot->nodes[link->src];
+      const rr_ag_view_node_t *dst=&graph_snapshot->nodes[link->dst];
+      if (graph_missing_since[link->src] || graph_missing_since[link->dst])
          continue;
-      }
-      gboolean inactive = graph_missing_since[i] != 0;
-      double x0 = routing_node_x(n) + RR_GTK_GRAPH_NODE_W;
-      double y0 = routing_node_y(n);
-      unsigned mask = graph_route_mask(n->route);
-
-      for (gint ch = 0 ; ch < 2 ; ch++) {
-         if (inactive || !(mask & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) {
-            continue;
-         }
-         const char *dest_id = n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix";
-         const rr_ag_view_node_t *dest = NULL;
-         for (guint j = 0; j < graph_snapshot->node_count; j++)
-            if (!strcmp(graph_snapshot->nodes[j].id, dest_id)) {
-               dest = &graph_snapshot->nodes[j]; break;
-            }
-         if (!dest) continue;
-         double ya = y0 + (ch ? 79 : 60);
-         double yb = routing_node_y(dest) + (ch ? 79 : 60);
-         double x1 = routing_node_x(dest);
-         double cx = (x0 + x1) / 2;
-
-         for (unsigned k = 0 ; k <= 48 ; k++) {
-            double t = (double)k / 48, u = 1 - t;
-            double px = u * u * u * x0 + 3 * u * u * t * cx + 3 * u * t * t * cx + t * t * t * x1;
-            double py = u * u * u * ya + 3 * u * u * t * ya + 3 * u * t * t * yb + t * t * t * yb;
-            double d = hypot(px - x, py - y);
-
-            if (d < best) {
-               best = d;
-               *source = i;
-               *channel = ch;
-               found = TRUE;
-            }
+      for(int ch=0;ch<2;ch++) {
+         if (link->kind!=RR_AG_CONTROL &&
+             !(link->channels & (ch?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT))) continue;
+         if (link->kind==RR_AG_CONTROL && ch) continue;
+         const gboolean mono_src=src->channels==1 &&
+            (g_str_has_prefix(src->id,"modem") ||
+             g_str_has_prefix(src->id,"proc.lv2.") ||
+             !strcmp(src->id,"src.client.dsp0"));
+         const gboolean mono_dst=dst->channels==1 &&
+            (g_str_has_prefix(dst->id,"modem") ||
+             g_str_has_prefix(dst->id,"proc.lv2.") ||
+             g_str_has_prefix(dst->id,"rig."));
+         double x0=routing_node_x(src)+RR_GTK_GRAPH_NODE_W;
+         double x1=routing_node_x(dst)-9.;
+         double y0=routing_node_y(src)+(link->kind==RR_AG_CONTROL ?
+            RR_GTK_GRAPH_NODE_H-16. : mono_src?68. : ch?79.:60.);
+         double y1=routing_node_y(dst)+(link->kind==RR_AG_CONTROL ?
+            RR_GTK_GRAPH_NODE_H-16. : mono_dst?68. : ch?79.:60.);
+         double cx=(x0+x1)/2.;
+         for(int k=0;k<=64;k++) {
+            double t=k/64.,u=1.-t;
+            double px=u*u*u*x0+3*u*u*t*cx+3*u*t*t*cx+t*t*t*x1;
+            double py=u*u*u*y0+3*u*u*t*y0+3*u*t*t*y1+t*t*t*y1;
+            double d=hypot(x-px,y-py);
+            if(d<best){best=d;*link_index=i;*channel=ch;found=TRUE;}
          }
       }
    }
-
    return found;
+}
+static gboolean routing_disconnect_link(guint index,gint channel) {
+   if(!graph_snapshot || index>=graph_snapshot->link_count) return FALSE;
+   const rr_ag_view_link_t *link=&graph_snapshot->links[index];
+   if(!routing_link_disconnectable(link)) return FALSE;
+   const char *src=graph_snapshot->nodes[link->src].id;
+   const char *dst=graph_snapshot->nodes[link->dst].id;
+   unsigned slot=0;
+   rr_local_modem_request_t modem={.slot=0};
+   if (sscanf(dst,"modem%u.rx",&slot)==1 && slot && slot<=RR_LOCAL_MODEM_MAX) {
+      modem.slot=slot;modem.action=RR_LOCAL_MODEM_ROUTE;
+      rr_local_modem_request(&modem);
+   } else if(sscanf(src,"modem%u.tx",&slot)==1 &&
+             slot && slot<=RR_LOCAL_MODEM_MAX) {
+      modem.slot=slot;modem.action=link->kind==RR_AG_CONTROL ?
+         RR_LOCAL_MODEM_PTT_ROUTE:RR_LOCAL_MODEM_TX_ROUTE;
+      rr_local_modem_request(&modem);
+   } else if(!strcmp(src,"src.client.dsp0") && g_str_has_prefix(dst,"rig.")) {
+      audio_request_mic_tx_route("none");
+   } else if(g_str_has_prefix(src,"proc.lv2.")) {
+      unsigned fx=0;
+      if(sscanf(src,"proc.lv2.%u",&fx)!=1 || fx<1 || fx>RR_AUDIO_EFFECT_MAX) return FALSE;
+      rr_audio_effect_request_t req={.action='O',.slot=fx,.channel=(unsigned)channel,.output='M'};
+      audio_request_effect_block(&req);
+   } else if(g_str_has_prefix(dst,"proc.lv2.")) {
+      unsigned fx=0;
+      if(sscanf(dst,"proc.lv2.%u",&fx)!=1 || fx<1 || fx>RR_AUDIO_EFFECT_MAX) return FALSE;
+      rr_audio_effect_request_t req={.action='R',.slot=fx,.channel=(unsigned)channel};
+      audio_request_effect_block(&req);
+   } else if(graph_snapshot->nodes[link->src].type==RR_AG_SOURCE) {
+      graph_set_channel(link->src,channel,FALSE);
+   } else return FALSE;
+   routing_queue();
+   return TRUE;
 }
 static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
                                        gdouble x, gdouble y, gpointer unused) {
@@ -4108,12 +4147,11 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
             }
          }
       }
-      guint linked_source=0;
+      guint link_index=0;
       gint linked_channel=-1;
-      if (graph_link_at(gx,gy,&linked_source,&linked_channel)) {
-         graph_set_channel(linked_source,linked_channel,FALSE);
+      if (graph_link_at(gx,gy,&link_index,&linked_channel) &&
+          routing_disconnect_link(link_index,linked_channel))
          return TRUE;
-      }
    }
 
    /* Route/pipeline cross-navigation is read-only; trim double-click keeps
@@ -4160,10 +4198,10 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
          return TRUE;
       }
    }
-   guint linked_source = 0;
-   gint linked_channel = -1;
-   if (graph_link_at(gx, gy, &linked_source, &linked_channel))
-      return TRUE; /* wire clicks do not disconnect; double-click does */
+   guint linked_index=0;
+   gint linked_channel=-1;
+   if (graph_link_at(gx,gy,&linked_index,&linked_channel))
+      return TRUE; /* Single clicks cannot remove a wire. */
 
    /* Empty-space left drag pans like qpwgraph; occupied controls retain
     * their own gesture precedence above. */
