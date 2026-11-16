@@ -112,10 +112,9 @@ int main(int argc,char **argv) {
          sent=0;
       }
       if(transmitting && !pending && psk_tx_idle(tx)) {
-         flockfile(stdout);
-         fputs("\n!TX_DONE\n",stdout);
-         fflush(stdout);
-         funlockfile(stdout);
+         /* A SEQPACKET control completion cannot interleave with RX text. */
+         static const char done[]="TX_DONE";
+         send(3,done,sizeof(done)-1,MSG_DONTWAIT|MSG_NOSIGNAL);
          transmitting=0;
       }
    }
