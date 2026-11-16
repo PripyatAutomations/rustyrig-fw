@@ -816,11 +816,12 @@ static gboolean audio_lv2_factory_safe(const char *factory) {
       if (!g_ascii_isalnum(*c) && *c != '-' && *c != '_') return FALSE;
    return TRUE;
 }
-static void audio_lv2_result(const rr_lv2_effect_t *fx, const void *samples,
-                            size_t bytes, void *unused) {
-   (void)unused;
+static void audio_lv2_result(const char *name, const void *samples,
+                            size_t bytes, void *user) {
+   (void)name;
+   rr_lv2_effect_t *fx = user;
    if (!fx || !rx_engine || !samples || !bytes || (bytes & 1) ||
-       !g_atomic_int_get((gint *)&fx->active)) return;
+       !g_atomic_int_get(&fx->active)) return;
    rr_audio_engine_push(rx_engine, fx->name,
                         (const int16_t *)samples, bytes / sizeof(int16_t));
 }
@@ -931,7 +932,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
       g_free(pipeline); fx->name[0] = 0; return FALSE;
    }
    if (!fwdsp_processor_start(fx->name, pipeline,
-                              (fwdsp_processor_output_cb)audio_lv2_result, fx)) {
+                              audio_lv2_result, fx)) {
       audio_local_rx_stop(fx->name);
       fx->name[0] = 0;
       g_free(pipeline);
@@ -941,6 +942,14 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    fx->queue = g_async_queue_new();
    g_atomic_int_set(&fx->failed, FALSE);
    g_atomic_int_set(&fx->active, TRUE);
+   struct rrclient_rx_stream streams[128];
+   size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
+                  G_N_ELEMENTS(streams));
+   for (size_t i = 0; i < n; i++)
+      if (!strcmp(streams[i].id, req->source)) {
+         rr_audio_engine_route(rx_engine, fx->name, streams[i].output);
+         break;
+      }
    fx->writer = g_thread_new("lv2-input", audio_lv2_writer, fx);
    char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
    rrclient_database_setting_set(key, req->factory); g_free(key);
@@ -1981,6 +1990,11 @@ bool audio_init(void) {
    event_on(IRC_AUDIO_CLOSED_EVENT, dcc_closed, NULL);
    event_on("media.quality-hint", audio_quality_hint, NULL);
    event_on("ws.msg.media", audio_feedback, NULL);
+   if (!lv2_effect_ready) {
+      g_mutex_init(&lv2_effect_lock);
+      lv2_effect_ready = TRUE;
+   }
+   event_on_message_domain_token(RRCLIENT_AUDIO_EFFECT_REQUEST, audio_lv2_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_CONTROL_REQUEST, audio_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_REQUEST, audio_snapshot_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_REQUEST, audio_af_spectrum_request, NULL, "core");
@@ -2080,6 +2094,7 @@ bool audio_init(void) {
    rx_maintenance_source = maintenance;
    audio_enabled = true;
    gst_active = true;
+   audio_lv2_restore();
    Log(LOG_INFO, "audio", "Client AF buses ready: RX 16 kHz -> HQ %u Hz -> sink.client.dsp0; mic device -> 16 kHz TX",
        rr_audio_engine_sample_rate(hq_engine));
 
@@ -2220,6 +2235,8 @@ void ws_audio_shutdown(void) {
       return;
    }
    audio_enabled = false;
+   for (unsigned slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++)
+      audio_lv2_stop(slot, FALSE);
    rr_local_modem_shutdown();
    rrclient_local_bridge_disconnect();
    rr_af_spectrum_shutdown();
