@@ -14,6 +14,8 @@
 //
 #include <stddef.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/socket.h>
 #include <rrclient/audio.engine.h>
 #include <libfwdspmgr/pipeline.recipe.h>
 #include <rrclient/recordings.h>
@@ -797,6 +799,7 @@ typedef struct {
    char name[32], source[64], factory[96];
    GAsyncQueue *queue;
    GThread *writer;
+   int input_fd;
    gint active, failed;
    guint64 dropped;
 } rr_lv2_effect_t;
@@ -834,7 +837,7 @@ static gpointer audio_lv2_writer(gpointer user) {
       rr_lv2_pcm_packet_t *packet = g_async_queue_pop(fx->queue);
       if (!packet) continue;
       if (!packet->bytes) { g_free(packet); break; }
-      if (!fwdsp_processor_write(fx->name, packet->pcm, packet->bytes))
+      if (!fwdsp_pcm_write_fd(fx->input_fd, packet->pcm, packet->bytes))
          g_atomic_int_set(&fx->failed, TRUE);
       g_free(packet);
       if (g_atomic_int_get(&fx->failed)) break;
@@ -879,7 +882,16 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
       g_async_queue_push(queue, stop);
    }
    g_mutex_unlock(&lv2_effect_lock);
+   /* The input descriptor belongs to this worker thread, not to the
+    * fwdsp registry. Shutdown unblocks any in-flight framed write before
+    * joining, so a wedged LV2 plugin cannot freeze the core on removal. */
+   if (fx->input_fd >= 0 && writer)
+      shutdown(fx->input_fd, SHUT_WR);
    if (writer) g_thread_join(writer);
+   if (fx->input_fd >= 0) {
+      close(fx->input_fd);
+      fx->input_fd = -1;
+   }
    if (fx->name[0]) {
       fwdsp_processor_stop(fx->name);
       if (rx_engine) rr_audio_engine_remove_stream(rx_engine, fx->name);
@@ -922,6 +934,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
          return FALSE; /* Never silently fan out or duplicate a source. */
    audio_lv2_stop(slot, FALSE);
    rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+   fx->input_fd = -1;
    g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
    g_strlcpy(fx->source, req->source, sizeof(fx->source));
    g_strlcpy(fx->factory, req->factory, sizeof(fx->factory));
@@ -946,6 +959,15 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
       return FALSE;
    }
    g_free(pipeline);
+   fx->input_fd = fwdsp_processor_dup_input(fx->name);
+   if (fx->input_fd < 0) {
+      fwdsp_processor_stop(fx->name);
+      audio_local_rx_stop(fx->name);
+      fx->name[0] = 0;
+      return FALSE;
+   }
+   int flags = fcntl(fx->input_fd, F_GETFL, 0);
+   if (flags >= 0) fcntl(fx->input_fd, F_SETFL, flags | O_NONBLOCK);
    fx->queue = g_async_queue_new();
    g_atomic_int_set(&fx->failed, FALSE);
    g_atomic_int_set(&fx->active, TRUE);
