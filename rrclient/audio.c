@@ -665,7 +665,8 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
          snprintf(stream->codec, sizeof(stream->codec), "%s", r->codec);
          stream->output = r->output;
          stream->source_rate_hz = r->source_rate_hz;
-         stream->active_rx = rrclient_media_rx_is_active_rx(r->uuid);
+         stream->active_rx = r->connection == rrclient_active_connection() &&
+            rrclient_media_rx_is_active_rx(r->uuid);
          stream->active_tx = rrclient_media_rx_has_tx(r->uuid);
       }
       count++;
@@ -695,7 +696,8 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
 static const char *audio_resolve_rig_source(const char *id) {
    if (!id || strcmp(id, "rig.src")) return id;
    for (rx_route_t *r = rx_routes; r; r = r->next)
-      if (rrclient_media_rx_is_active_rx(r->uuid)) return r->identity;
+      if (r->connection == rrclient_active_connection() &&
+          rrclient_media_rx_is_active_rx(r->uuid)) return r->identity;
    return NULL;
 }
 bool audio_set_rx_stream_route(const char *id, char output) {
