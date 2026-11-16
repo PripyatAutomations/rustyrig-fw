@@ -439,8 +439,7 @@ static void vrig_manager_open(void) {
       g_snprintf(cat, sizeof(cat), "ttyCAT%u", slot);
       g_snprintf(gps, sizeof(gps), "ttyGPS%u", slot);
       GtkWidget *frame = gtk_frame_new(NULL);
-      gtk_shadow_type_t shadow = GTK_SHADOW_ETCHED_IN;
-      gtk_frame_set_shadow_type(GTK_FRAME(frame), shadow);
+      gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_ETCHED_IN);
       GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 7);
       gtk_container_set_border_width(GTK_CONTAINER(card), 10);
       gtk_container_add(GTK_CONTAINER(frame), card);
