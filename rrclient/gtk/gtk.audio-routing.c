@@ -1429,7 +1429,10 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    gtk_widget_set_sensitive(control->value,
       !!control->id[0] || !!control->effect_worker[0]);
    rr_floating_panel_fit_content(control->panel);
-   if (!saved_uuid) rr_floating_panel_present(control->panel);
+   if (saved_uuid)
+      rr_floating_panel_show(control->panel); /* Restore saved size, location, roll/minimize. */
+   else
+      rr_floating_panel_present(control->panel);
 }
 /* Save explicit overrides separately from inferred binding metadata. The
  * existing floating-panel manager stores independent panel coordinates. */
