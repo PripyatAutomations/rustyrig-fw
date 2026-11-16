@@ -431,6 +431,15 @@ static void routing_serial_line(cairo_t *cr, double ax, double ay,
    cairo_stroke(cr);
    cairo_set_dash(cr, NULL, 0, 0);
 }
+static const char *routing_serial_full_path(const routing_serial_node_t *n) {
+   if (!n->virtual) return n->display_path;
+   for (guint j=0;j<routing_serial_count;j++) {
+      const routing_serial_node_t *r=&routing_serial_nodes[j];
+      if (!r->virtual && !strcmp(r->profile,n->profile) &&
+          !strcmp(r->rig,n->rig) && r->display_path[0]) return r->display_path;
+   }
+   return "";
+}
 static void routing_serial_draw(cairo_t *cr) {
    for (guint i = 0; i < routing_serial_count; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
@@ -461,9 +470,12 @@ static void routing_serial_draw(cairo_t *cr) {
       cairo_stroke(cr);
       char label[160];
       if (n->virtual) g_snprintf(label,sizeof(label),"vrig%u",n->slot);
-      else g_strlcpy(label,
-         n->display_path[0] ? n->display_path : "Remote identity unavailable",
-         sizeof(label));
+      else {
+         const char *path=routing_serial_full_path(n), *slash=strchr(path,'/');
+         g_snprintf(label,sizeof(label),"%.*s",
+                    slash ? (int)(slash-path) : (int)strlen(path),
+                    *path ? path : "Identity unavailable");
+      }
       cairo_set_source_rgb(cr, .93,.95,.98);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr, 13);
@@ -472,18 +484,11 @@ static void routing_serial_draw(cairo_t *cr) {
       cairo_set_font_size(cr, 10);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
       if (n->virtual) {
-         const char *path = NULL;
-         for (guint j = 0; j < routing_serial_count; j++) {
-            const routing_serial_node_t *remote = &routing_serial_nodes[j];
-            if (!remote->virtual && !strcmp(remote->profile, n->profile) &&
-                !strcmp(remote->rig, n->rig) && remote->display_path[0]) {
-               path = remote->display_path;
-               break;
-            }
-         }
-         g_strlcpy(label, path ? path :
-                   (n->profile[0] ? "Bound (identity unavailable)" : "Unbound: drag to rig"),
-                   sizeof(label));
+         const char *path=routing_serial_full_path(n), *slash=strchr(path,'/');
+         if (*path) g_snprintf(label,sizeof(label),"%.*s",
+                              slash ? (int)(slash-path) : (int)strlen(path),path);
+         else g_strlcpy(label,n->profile[0] ?
+                        "Identity unavailable" : "Unbound: drag to rig",sizeof(label));
       } else g_strlcpy(label,"Remote rig controls",sizeof(label));
       cairo_move_to(cr,n->x+12,n->y+42);
       cairo_show_text(cr,label);
@@ -3199,6 +3204,15 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py,
    if (keyboard || !graph_snapshot || graph_scale <= 0) return FALSE;
    const double x = (px - graph_offset_x) / graph_scale;
    const double y = (py - graph_offset_y) / graph_scale;
+   for (guint i=0;i<routing_serial_count;i++) {
+      const routing_serial_node_t *n=&routing_serial_nodes[i];
+      if (x<n->x || x>n->x+ROUTING_SERIAL_W ||
+          y<n->y || y>n->y+ROUTING_SERIAL_H) continue;
+      const char *path=routing_serial_full_path(n);
+      if (!*path) return FALSE;
+      gtk_tooltip_set_text(tooltip,path);
+      return TRUE;
+   }
    routing_effect_port_t control = {0};
    if (routing_effect_pin_at(x, y, &control)) {
       gchar *details = g_strdup_printf(
