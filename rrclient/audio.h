@@ -62,7 +62,8 @@ typedef struct {
    unsigned slot; /* 0 = next free for A */
    char factory[96];
    char source[64]; /* decoded 16 kHz mono stream ID */
-   char output; /* O: M disconnect, L/R channel, S both */
+   char output; /* O: M disconnect, L/R mixer channel, S both */
+   unsigned channel; /* 0 mono/left, 1 right (stereo plugins only) */
 } rr_audio_effect_request_t;
 void audio_request_effect_block(const rr_audio_effect_request_t *request);
 #define RRCLIENT_AUDIO_CONTROL_REQUEST "client.audio.control.request"
