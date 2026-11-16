@@ -39,7 +39,6 @@
 #include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
 
-extern rrconn_t *ws_conn;
 extern time_t now;
 extern const char *login_user;
 extern bool ui_print(const char *window, const char *fmt, ...);
@@ -543,7 +542,7 @@ void rrclient_media_sync_audio(void) {
    } else {
       audio_stop_codec(true);
    }
-   event_emit("client.media.changed", ws_conn, "");
+   event_emit("client.media.changed", rrclient_connection_context(), "");
 }
 
 static const char *media_codec_supported(const char *codec) {
@@ -1063,7 +1062,7 @@ void rrclient_media_chan_removed(dict *d) {
 static void rrclient_handle_media_conn(const char *event, const char *data, rrconn_t *cptr, void *user) {
    /* Ignore lifecycle events emitted by a different profile. The media view
     * belongs to the current connection context, not the process globally. */
-   if (cptr && cptr != ws_conn) return;
+   if (cptr && cptr != rrclient_connection_context()) return;
    if (!event) {
       return;
    }
@@ -1252,7 +1251,7 @@ void rrclient_media_room_removed(const char *room) {
    }
 
    /* Keep routing the remaining channels without re-subscribing a deleted one. The regular VFO handler also performs one audio/UI sync. */
-   if (ws_conn && media_ready) {
+   if (rrclient_connection_context() && media_ready) {
       rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
    } else if (changed) {
       rrclient_media_sync_audio();
@@ -1479,7 +1478,7 @@ static void media_transport_notice(const char *event, const char *data, rrconn_t
 /* Run codec changes on the core owner. The GTK combo signal must never synchronously tear down RX routes while the core/audio scheduler owns them. */
 static void media_codec_select_in_connection(void *data) {
    const rrclient_media_codec_select_request_t *request = data;
-   rrclient_media_select_codec(ws_conn, request->is_tx, request->codec);
+   rrclient_media_select_codec(rrclient_connection_context(), request->is_tx, request->codec);
 }
 static void media_codec_select_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
@@ -1622,7 +1621,7 @@ const struct rr_client_media_chan *rrclient_media_chan_lookup(const char *arg) {
 
 // Subscribe (or unsubscribe) to a channel by uuid. Returns false on OK.
 bool rrclient_media_subscribe(const char *uuid) {
-   rrconn_t *cptr = ws_conn;
+   rrconn_t *cptr = rrclient_connection_context();
 
    if (!cptr || !uuid || uuid[0] == '\0') {
       return true;
@@ -1693,7 +1692,7 @@ bool rrclient_media_subscribe_single_video(void) {
 }
 
 bool rrclient_media_unsubscribe(const char *uuid) {
-   rrconn_t *cptr = ws_conn;
+   rrconn_t *cptr = rrclient_connection_context();
 
    if (!cptr || !uuid || uuid[0] == '\0') {
       return true;
@@ -1748,13 +1747,13 @@ bool cmd_media(int argc, char **args) {
       }
 
       if (argc == 3 && strcasecmp(args[2], "status")) {
-         if (!rrclient_direct_set_preference(ws_conn, !strcasecmp(args[2], "on"))) {
+         if (!rrclient_direct_set_preference(rrclient_connection_context(), !strcasecmp(args[2], "on"))) {
             media_print("Select a configured server before changing its direct-media preference");
 
             return true;
          }
       }
-      const char *profile = rrclient_connection_name(ws_conn);
+      const char *profile = rrclient_connection_name(rrclient_connection_context());
       media_print("Direct-media preference for %s: %s (explicit -direct/-proxy subscriptions retain their mode)", profile ? profile : "global default",
          rrclient_direct_preferred(profile) ? "on" : "off");
 
@@ -1791,7 +1790,7 @@ bool cmd_media(int argc, char **args) {
       if (sub) {
          return false;          // explicit LIST: no refresh
       }
-      rrclient_media_refresh(ws_conn);
+      rrclient_media_refresh(rrclient_connection_context());
 
       return false;
    }
@@ -1835,7 +1834,7 @@ bool cmd_media(int argc, char **args) {
       }
 
       if (explicit_transport && ((transport == RR_MEDIA_DIRECT && kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO) ||
-         !rrclient_direct_set_mode(ws_conn, kp->uuid, transport))) {
+         !rrclient_direct_set_mode(rrclient_connection_context(), kp->uuid, transport))) {
          media_print("The selected direct media transport is unavailable in this client or channel");
 
          return true;
@@ -1909,7 +1908,7 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
       return false;
    }
 
-   if (!ws_conn || !media_ready) {
+   if (!rrclient_connection_context() || !media_ready) {
       media_print("Connect to a server before selecting codecs");
 
       return true;
@@ -1927,7 +1926,7 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
 
       return true;
    }
-   bool failed = media_select_codec(ws_conn, is_tx, args[1], target->uuid);
+   bool failed = media_select_codec(rrclient_connection_context(), is_tx, args[1], target->uuid);
 
    if (!failed) {
       char description[512];
