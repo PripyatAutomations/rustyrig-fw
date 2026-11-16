@@ -300,7 +300,15 @@ pin to the **same transmit-capable active rig** before sending text.
 then waits for `cat.state.ptt` confirmation before instructing the
 PSK or Olivia subprocess to generate 16 kHz mono PCM on fd 5. The normal
 client TX codec receives these samples, with microphone TX suppressed for
-the duration. Worker completion is a `TX_DONE` control message on fd 3;
+the duration. The shared `libfwdspmgr` reader forwards completed encoded
+codec packets via a registered client callback; `rrclient/audio.c` wraps
+them in the negotiated TX audio binframe (selected codec, rig, VFO and stream),
+and `rrclient/cli.main.c` sends through the existing RTP/direct-media
+intercept or the native TLS WebSocket binary transport. Setup packets use
+the reliable WebSocket path and are replayed from the encoder header cache
+after channel changes. The remote `rrserver` receives them through its
+ordinary authenticated `media.frame.tx.channel` handler and decoder.
+Thus there is no second modem-specific network codec or TX socket. Worker completion is a `TX_DONE` control message on fd 3;
 it triggers a PTT release after a short audio drain. Worker exit, link
 change, loss of confirmed PTT, and timeouts also cancel and release.
 The source-qualified `modemN.ptt` signal can illuminate a floating
