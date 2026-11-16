@@ -1353,14 +1353,17 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
           y<n->y || y>n->y+ROUTING_SERIAL_H) continue;
       GtkWidget *menu=gtk_menu_new();
       routing_block_menu_items(menu,n->id,FALSE);
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu),gtk_separator_menu_item_new());
-      const char *labels[]={"Configure CAT PTY…","Configure GPS PTY…","Disconnect Virtual Rig"};
-      for (guint action=0;action<G_N_ELEMENTS(labels);action++) {
-         GtkWidget *item=gtk_menu_item_new_with_label(labels[action]);
-         g_object_set_data(G_OBJECT(item),"slot",GUINT_TO_POINTER(n->slot));
-         g_object_set_data(G_OBJECT(item),"action",GUINT_TO_POINTER(action));
-         g_signal_connect(item,"activate",G_CALLBACK(routing_serial_menu_action),NULL);
-         gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+      if (n->virtual) {
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu),gtk_separator_menu_item_new());
+         const char *labels[]={"Configure CAT PTY…","Configure GPS PTY…","Disconnect Virtual Rig"};
+         for (guint action=0;action<G_N_ELEMENTS(labels);action++) {
+            GtkWidget *item=gtk_menu_item_new_with_label(labels[action]);
+            gtk_widget_set_size_request(item,-1,44);
+            g_object_set_data(G_OBJECT(item),"slot",GUINT_TO_POINTER(n->slot));
+            g_object_set_data(G_OBJECT(item),"action",GUINT_TO_POINTER(action));
+            g_signal_connect(item,"activate",G_CALLBACK(routing_serial_menu_action),NULL);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+         }
       }
       g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
       gtk_widget_show_all(menu);
