@@ -60,6 +60,9 @@ bool rr_sercom_line_settings(const char *name, rr_serial_settings_t *settings);
 bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *settings);
 
 // Synchronous CAT context: no effect on UI selection or global VFO state.
+/* CAT is a local emulator: dispatch through the connection bound to the
+ * PTY currently being parsed, never through the globally selected socket. */
+rrconn_t *rr_cat_connection(void);
 const char *rr_cat_room(void);
 const char *rr_cat_model(void);
 char rr_cat_timeout_get(void);
