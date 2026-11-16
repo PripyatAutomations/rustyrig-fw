@@ -5,6 +5,7 @@
 #define RRCLIENT_SERCOM_H
 #include <stdbool.h>
 #include <rrclient/serial.h>
+#include <librustyaxe/core.h>
 typedef struct {
    const char *name, *service, *profile, *path, *state;
 } rr_sercom_info_t;
