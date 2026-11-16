@@ -1613,7 +1613,7 @@ static void vrig_apply_profiles(void) {
             g_snprintf(port, sizeof(port), "%s%u", prefix[j], i);
             g_snprintf(service, sizeof(service), j ? "%s.gps-out" : "%s.cat", rig);
             serial_binding_t *b = binding(port);
-            if (b && g_str_has_prefix(b->service, service))
+            if (b && !strcmp(b->service, service))
                g_strlcpy(b->profile, profile, sizeof(b->profile));
          }
       }
