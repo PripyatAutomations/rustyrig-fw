@@ -924,7 +924,8 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
 static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    if (!req || !audio_enabled || !rx_engine ||
        !audio_lv2_factory_safe(req->factory) ||
-       !audio_lv2_source_present(req->source)) return FALSE;
+       (req->source[0] && !audio_lv2_source_present(req->source)))
+      return FALSE;
    guint slot = req->slot;
    if (!slot) {
       for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
@@ -933,7 +934,8 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    }
    if (!slot || slot > RR_AUDIO_EFFECT_MAX) return FALSE;
    for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
-      if (i + 1 != slot && g_atomic_int_get(&lv2_effects[i].active) &&
+      if (req->source[0] && i + 1 != slot &&
+          g_atomic_int_get(&lv2_effects[i].active) &&
           !strcmp(lv2_effects[i].source, req->source))
          return FALSE; /* Never silently fan out or duplicate a source. */
    audio_lv2_stop(slot, FALSE);
@@ -978,8 +980,9 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    struct rrclient_rx_stream streams[128];
    size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
                   G_N_ELEMENTS(streams));
+   rr_audio_engine_route(rx_engine, fx->name, 'M');
    for (size_t i = 0; i < n; i++)
-      if (!strcmp(streams[i].id, req->source)) {
+      if (req->source[0] && !strcmp(streams[i].id, req->source)) {
          rr_audio_engine_route(rx_engine, fx->name, streams[i].output);
          break;
       }
@@ -1019,11 +1022,32 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
       audio_lv2_stop(req.slot, TRUE);
    } else if (req.action == 'R' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
-      if (fx->factory[0] && audio_lv2_source_present(req.source)) {
-         char factory[96];
-         g_strlcpy(factory, fx->factory, sizeof(factory));
-         g_strlcpy(req.factory, factory, sizeof(req.factory));
-         audio_lv2_start(&req);
+      if (g_atomic_int_get(&fx->active) &&
+          audio_lv2_source_present(req.source)) {
+         gboolean unique = TRUE;
+         for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
+            if (i != req.slot - 1 && g_atomic_int_get(&lv2_effects[i].active) &&
+                !strcmp(lv2_effects[i].source, req.source))
+               unique = FALSE;
+         if (unique) {
+            g_mutex_lock(&lv2_effect_lock);
+            g_strlcpy(fx->source, req.source, sizeof(fx->source));
+            g_mutex_unlock(&lv2_effect_lock);
+            struct rrclient_rx_stream streams[128];
+            size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
+                           G_N_ELEMENTS(streams));
+            for (size_t i = 0; i < n; i++)
+               if (!strcmp(streams[i].id, req.source)) {
+                  rr_audio_engine_route(rx_engine, fx->name, streams[i].output);
+                  char *key = g_strdup_printf("audio.lv2.%u.server", req.slot);
+                  rrclient_database_setting_set(key, streams[i].server); g_free(key);
+                  key = g_strdup_printf("audio.lv2.%u.uuid", req.slot);
+                  rrclient_database_setting_set(key, streams[i].uuid); g_free(key);
+                  break;
+               }
+            char *key = g_strdup_printf("audio.lv2.%u.source", req.slot);
+            rrclient_database_setting_set(key, req.source); g_free(key);
+         }
       }
    }
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
@@ -1059,7 +1083,7 @@ static void audio_lv2_restore(void) {
       char *factory = rrclient_database_setting_get(key); g_free(key);
       key = g_strdup_printf("audio.lv2.%u.source", slot);
       char *source = rrclient_database_setting_get(key); g_free(key);
-      if (factory && *factory && source && *source) {
+      if (factory && *factory) {
          /* Prefer the session's current stream ID; otherwise resolve the
           * persisted peer+resource UUID from the refreshed RX catalog. */
          if (!audio_lv2_source_present(source)) {
