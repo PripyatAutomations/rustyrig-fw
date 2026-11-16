@@ -55,6 +55,8 @@ extern const char *rrclient_connection_name(const rrconn_t *connection);
 /* Run a synchronous callback in a connection's context without changing the selected server. NULL means no connection. Used by transports polled outside
  * Mongoose callbacks. */
 extern void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data);
+/* Core-thread current server context, distinct from GTK selected input tab. */
+rrconn_t *rrclient_connection_context(void);
 extern rrconn_t *rrclient_connection_find(const char *name);
 /* Borrowed profile endpoint URL, retained across transport failures/retries. */
 extern const char *rrclient_connection_url(const char *name);
