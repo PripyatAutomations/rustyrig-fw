@@ -141,7 +141,7 @@ static void activate(client_server_t *s) {
     * alive until connman_shutdown(), which calls activate(NULL) before releasing them. */
    server_name = s ? s->name : NULL;
    login_user = s ? s->user : NULL;
-   ws_conn = s ? s->connection : NULL;
+
    ws_connected = s ? s->connected : 0;
    memset(session_token, 0, sizeof(session_token));
 
@@ -1933,7 +1933,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       selected = s;
    }
    activate(s);
-   ws_conn = s->connection;
+
    ws_connected = -1;
    char connect_url[2048];
    const char *scheme = endpoint.irc ? (endpoint.tls ? "tls" : "tcp") : (endpoint.tls ? "wss" : "ws");
@@ -1943,7 +1943,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (length < 0 || (size_t)length >= sizeof(connect_url)) {
       free(t);
       s->connection = NULL;
-      ws_conn = NULL;
+
       ws_connected = 0;
       activate(selected);
 
@@ -1982,7 +1982,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       event_emit("http.error", s->connection, NULL);
       free(t);
       s->connection = NULL;
-      ws_conn = NULL;
+
    } else {
       t->connection.conn = c;
    }
@@ -2193,7 +2193,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       selected = s;
    }
 
-   /* A reconnect may replace the transport while the same profile is selected; refresh the borrowed ws_conn/global context pointers. */
+   /* A reconnect may replace the transport while the same profile is selected; refresh the selected server's context pointers. */
    if (context == s) {
       activate(NULL);
    }
