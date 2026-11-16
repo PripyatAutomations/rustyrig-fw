@@ -833,7 +833,8 @@ static void audio_lv2_result(const char *name, const void *samples,
    (void)name;
    rr_lv2_effect_t *fx = user;
    if (!fx || !rx_engine || !samples || !bytes || (bytes & 1) ||
-       !g_atomic_int_get(&fx->active)) return;
+       !g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed))
+      return;
    rr_audio_engine_push(rx_engine, fx->name,
                         (const int16_t *)samples, bytes / sizeof(int16_t));
 }
