@@ -23,7 +23,8 @@ typedef enum {
    RR_LOCAL_MODEM_STOP,
    RR_LOCAL_MODEM_ROUTE,
    RR_LOCAL_MODEM_TX_ROUTE,
-   RR_LOCAL_MODEM_PTT_ROUTE
+   RR_LOCAL_MODEM_PTT_ROUTE,
+   RR_LOCAL_MODEM_SET_TX_ENABLED
 } rr_local_modem_action_t;
 typedef struct {
    rr_local_modem_action_t action;
@@ -32,10 +33,11 @@ typedef struct {
    char engine[16];           /* psk / olivia / ft8 */
    char option[24];           /* BPSK31 or Olivia tones */
    unsigned value;            /* carrier Hz or Olivia bandwidth */
+   bool tx_enabled;           /* Opt-in TX routing; does not authorize PTT */
 } rr_local_modem_request_t;
 typedef struct {
    unsigned slot, value;
-   bool running;
+   bool running, tx_enabled;
    char source[64], engine[16], option[24];
    guint64 drops, received;
    char text[RR_LOCAL_MODEM_TEXT];
@@ -50,6 +52,7 @@ typedef struct {
  * connected to a decoded PCM source; TX/PTT ports are reserved, not armed. */
 typedef struct {
    unsigned slot;
+   bool tx_enabled;
    char source[64], engine[16];
    char tx_target[64], ptt_target[64]; /* Planned rig routes, not TX grants. */
 } rr_local_modem_route_t;
