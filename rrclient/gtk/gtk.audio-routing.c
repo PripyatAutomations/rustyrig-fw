@@ -15,6 +15,7 @@
 #include <rrclient/database.h>
 #include "gtk.audio-routing.h"
 #include "gtk.floating-panel.h"
+#include "gtk.serial.h"
 #include <rrpipelines/editor.h>
 #ifdef RR_HAVE_GSTREAMER
 #include <gst/gst.h>
@@ -1139,6 +1140,46 @@ static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
       rr_local_modem_request(&req);
    }
    routing_queue();
+}
+static void routing_serial_menu_action(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "slot"));
+   unsigned action = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "action"));
+   if (slot >= RR_SERCOM_VRIG_MAX) return;
+   if (action <= 1) {
+      char name[32];
+      g_snprintf(name,sizeof(name),"tty%s%u", action ? "GPS" : "CAT", slot);
+      GtkWidget *window = gtk_widget_get_toplevel(graph_canvas);
+      if (GTK_IS_WINDOW(window)) gtk_serial_configure(GTK_WINDOW(window),name);
+   } else {
+      rr_sercom_vrig_bind_t req = {.slot=slot};
+      rr_event_message_t msg = {
+         .name=RR_SERCOM_VRIG_BIND_REQUEST,
+         .payload=&req, .length=sizeof(req)
+      };
+      event_emit_message(&msg);
+   }
+}
+static gboolean routing_serial_context_menu(GdkEventButton *event, double x, double y) {
+   for (guint i=0;i<routing_serial_count;i++) {
+      const routing_serial_node_t *n=&routing_serial_nodes[i];
+      if (!n->virtual || x<n->x || x>n->x+ROUTING_SERIAL_W ||
+          y<n->y || y>n->y+ROUTING_SERIAL_H) continue;
+      GtkWidget *menu=gtk_menu_new();
+      const char *labels[]={"Configure CAT PTY…","Configure GPS PTY…","Disconnect Virtual Rig"};
+      for (guint action=0;action<G_N_ELEMENTS(labels);action++) {
+         GtkWidget *item=gtk_menu_item_new_with_label(labels[action]);
+         g_object_set_data(G_OBJECT(item),"slot",GUINT_TO_POINTER(n->slot));
+         g_object_set_data(G_OBJECT(item),"action",GUINT_TO_POINTER(action));
+         g_signal_connect(item,"activate",G_CALLBACK(routing_serial_menu_action),NULL);
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+      }
+      g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+      gtk_widget_show_all(menu);
+      gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+      return TRUE;
+   }
+   return FALSE;
 }
 static gboolean routing_modem_context_menu(GdkEventButton *event, double x, double y) {
    if (!graph_snapshot) return FALSE;
@@ -3369,7 +3410,8 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
    double gx, gy;
    if (!graph_snapshot || !graph_pointer(x, y, &gx, &gy)) return;
    GdkEvent *event = gtk_get_current_event();
-   gboolean handled = routing_lv2_context_menu((GdkEventButton *)event, gx, gy) ||
+   gboolean handled = routing_serial_context_menu((GdkEventButton *)event, gx, gy) ||
+                      routing_lv2_context_menu((GdkEventButton *)event, gx, gy) ||
                       routing_modem_context_menu((GdkEventButton *)event, gx, gy);
    if (event) gdk_event_free(event);
    if (!handled) return;
@@ -3394,7 +3436,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
        graph_snapshot) {
       double gx, gy;
       return graph_pointer(event->x, event->y, &gx, &gy) &&
-             (routing_lv2_context_menu(event, gx, gy) ||
+             (routing_serial_context_menu(event, gx, gy) ||
+              routing_lv2_context_menu(event, gx, gy) ||
               routing_modem_context_menu(event, gx, gy));
    }
    if (event->type == GDK_BUTTON_PRESS &&
