@@ -23,7 +23,7 @@ typedef struct {
    gboolean selected, failed, stale, bypass_pins;
    gboolean stereo_pins, fwdsp, gain_pins;
    gboolean ptt_pin, ptt_input; /* Digital control pins, distinct from PCM. */
-   gboolean cos_pin; /* Yellow COS output only when detector state is authoritative. */
+   gboolean cos_pin, cos_input; /* Yellow COS outputs and compatible control inputs. */
    rr_gtk_graph_io_t io;
 } rr_gtk_graph_node_t;
 typedef enum {
