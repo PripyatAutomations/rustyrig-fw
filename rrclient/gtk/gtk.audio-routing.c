@@ -584,10 +584,34 @@ static void onair_connection_lost(const char *event,const char *data,
    graph_canvas_update_size();
    if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
+static gboolean onair_wire_hit(double x,double y) {
+   if(!onair_visible || !onair_connected) return FALSE;
+   double sx,sy;
+   if(!onair_source_position(onair_source,&sx,&sy)) return FALSE;
+   double ex=onair_x,ey=onair_y+ONAIR_H/2.;
+   double cx=(sx+ex)/2.;
+   double radius=CLAMP(12./MAX(.01,graph_scale),9.,26.);
+   for(unsigned i=0;i<=64;i++) {
+      double t=i/64.,u=1.-t;
+      double px=u*u*u*sx+3*u*u*t*cx+3*u*t*t*cx+t*t*t*ex;
+      double py=u*u*u*sy+3*u*u*t*sy+3*u*t*t*ey+t*t*t*ey;
+      if(hypot(x-px,y-py)<=radius) return TRUE;
+   }
+   return FALSE;
+}
+static void onair_disconnect(void) {
+   onair_connected=FALSE;
+   onair_source[0]=0;
+   onair_active=FALSE;
+   onair_save();
+   graph_canvas_update_size();
+   if(onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
+}
 static gint onair_hit(double x,double y) {
    if (!onair_visible) return 0;
    if(x>=onair_x&&x<=onair_x+ONAIR_W&&y>=onair_y&&y<=onair_y+ONAIR_H) return 1;
    if(x>=ptt_x&&x<=ptt_x+150.&&y>=ptt_y&&y<=ptt_y+70.) return 2;
+   if(onair_wire_hit(x,y)) return 3;
    return 0;
 }
 /* The visible ON AIR display is a normal floating panel. Its associated
@@ -720,11 +744,7 @@ static void onair_add(GtkButton *button,gpointer unused) {
 static void onair_menu_action(GtkMenuItem *item,gpointer unused) {
    (void)unused;
    unsigned action=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"onair-action"));
-   if(action==1) {
-      onair_connected=FALSE;
-      onair_source[0]=0;
-      onair_active=FALSE;
-   }
+   if(action==1) onair_disconnect();
    else if(action==2) onair_scale=CLAMP(onair_scale*1.25,.5,4.);
    else if(action==3) onair_scale=CLAMP(onair_scale/1.25,.5,4.);
    else if(action==4) {
@@ -4130,6 +4150,12 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 
    if (!graph_pointer(event->x, event->y, &gx, &gy)) {
       return FALSE;
+   }
+   if(event->type==GDK_2BUTTON_PRESS && onair_connected &&
+      (onair_wire_hit(gx,gy) ||
+       hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()*2.)) {
+      onair_disconnect();
+      return TRUE;
    }
    if (event->type==GDK_BUTTON_PRESS && onair_visible) {
       /* Drag from the hollow ON AIR input to a red PTT source, or from
