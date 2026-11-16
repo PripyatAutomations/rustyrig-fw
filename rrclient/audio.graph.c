@@ -99,16 +99,20 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const
       return false;
    }
 
-   /* Inputs have separate normal and bypass arbitration. No accidental mixing of two feeds into a single-input processor. Mixers are explicit nodes. */
+   /* Stereo processors can take different L/R sources, but never two
+    * feeds to the same channel. Mixers remain the only freely mixed nodes.
+    * Coalesce disjoint channel links from the same source for rendering. */
    for (guint i = 0 ; i < g->edges->len ; i++) {
-      const rr_ag_edge_t *e = &g_array_index(g->edges, rr_ag_edge_t, i);
-
-      if (e->src == (guint) a && e->dst == (guint) b && e->type == type) {
+      rr_ag_edge_t *e = &g_array_index(g->edges, rr_ag_edge_t, i);
+      if (e->dst != (guint)b || e->type != type) continue;
+      if (to->type != RR_AG_MIXER && to->type != RR_AG_PROCESSOR)
          return false;
-      }
-
-      if (to->type != RR_AG_MIXER && e->dst == (guint) b && e->type == type) {
+      if (to->type == RR_AG_PROCESSOR && (e->channels & channels))
          return false;
+      if (e->src == (guint)a) {
+         if (e->channels & channels) return false;
+         e->channels |= (guint8)channels;
+         return true;
       }
    }
 
