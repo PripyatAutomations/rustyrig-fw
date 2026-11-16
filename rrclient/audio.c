@@ -420,6 +420,10 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    g_atomic_int_set(&rx_sink_written_blocks, 0);
    g_atomic_int_set(&rx_sink_failed_blocks, 0);
 
+   /* Recover stalled/died effect children outside the realtime callback;
+    * when unavailable, their source automatically falls back to dry PCM. */
+   audio_lv2_restore();
+
    if (failed) {
       fwdsp_processor_stop("sink.client.dsp0");
 
@@ -779,6 +783,7 @@ bool audio_set_room_route(const char *server, const char *room, char output) {
          if (rx_engine) {
             rr_audio_engine_route(rx_engine, route->identity, output);
          }
+         audio_lv2_route_source(route->identity, output);
       }
    }
 
@@ -1283,6 +1288,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          if (rx_engine) {
             rr_audio_engine_route(rx_engine, route->identity, output);
          }
+         audio_lv2_route_source(route->identity, output);
          changed = true;
       }
 
