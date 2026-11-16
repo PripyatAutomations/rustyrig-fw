@@ -156,8 +156,8 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_set_dash(cr, NULL, 0, 0);
       }
       const double sx = a->x + RR_GTK_GRAPH_NODE_W;
-      /* PTT socket stands out to the left of the block, away from PCM inputs. */
-      const double ex = b->x - (control ? 27. : 9.);
+      /* PCM and PTT receiving sockets are on the block edge. */
+      const double ex = b->x - 9.;
       const double cx = (sx + ex) / 2.;
       cairo_move_to(cr, sx, from_y);
       cairo_curve_to(cr, cx, from_y, cx, to_y, ex, to_y);
@@ -286,12 +286,9 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       }
 
       if (n->ptt_input) {
-         const double px = n->x - 18.;
+         const double px = n->x;
          const double py = n->y + RR_GTK_GRAPH_NODE_H - 16.;
          cairo_set_source_rgb(cr, .96, .20, .20);
-         cairo_move_to(cr, n->x, py);
-         cairo_line_to(cr, px + 6., py);
-         cairo_stroke(cr);
          pin(cr, px, py, FALSE, TRUE);
          cairo_set_source_rgb(cr, 1., 1., 1.);
          cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
