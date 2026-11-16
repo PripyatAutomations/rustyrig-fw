@@ -66,12 +66,11 @@ struct fwdsp_control_msg {
    uint8_t record_direction;
    char record_user[FWDSP_RECORD_USER_LEN];
    char record_id[FWDSP_RECORD_ID_LEN];
+   /* SET_PROPERTY reuses record_user for element, record_id for property,
+    * and the first sizeof(double) bytes of record_file for a finite value.
+    * Do not change the packet size: deployed workers consume this fixed
+    * framing for volume, recording and quality control messages too. */
    char record_file[FWDSP_RECORD_FILE_LEN];
-   /* SET_PROPERTY only: names are exact, NUL-terminated GStreamer IDs.
-    * Same-size message framing is shared by parent and child binaries. */
-   char element[96];
-   char property[96];
-   double property_value;
 };
 
 /* Child-produced totals, reported no more than once per second. Rates are derived by the host; this is not a GTK/UI API. */
