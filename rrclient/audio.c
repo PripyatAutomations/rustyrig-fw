@@ -917,7 +917,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    }
    if (!slot || slot > RR_AUDIO_EFFECT_MAX) return FALSE;
    for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
-      if (g_atomic_int_get(&lv2_effects[i].active) &&
+      if (i + 1 != slot && g_atomic_int_get(&lv2_effects[i].active) &&
           !strcmp(lv2_effects[i].source, req->source))
          return FALSE; /* Never silently fan out or duplicate a source. */
    audio_lv2_stop(slot, FALSE);
@@ -1021,7 +1021,14 @@ static void audio_lv2_route_source(const char *source, char output) {
 static void audio_lv2_restore(void) {
    if (!lv2_effect_ready || !audio_enabled || !rx_engine) return;
    for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
-      if (g_atomic_int_get(&lv2_effects[slot-1].active)) continue;
+      rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+      if (g_atomic_int_get(&fx->active)) {
+         if (audio_lv2_source_present(fx->source) &&
+             !g_atomic_int_get(&fx->failed)) continue;
+         /* Stream UUIDs can survive a reconnect even when the decoder's
+          * temporary client-rx-N identity has changed. */
+         audio_lv2_stop(slot, FALSE);
+      }
       char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
       char *factory = rrclient_database_setting_get(key); g_free(key);
       key = g_strdup_printf("audio.lv2.%u.source", slot);
