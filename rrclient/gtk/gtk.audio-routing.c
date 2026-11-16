@@ -407,6 +407,44 @@ static void routing_serial_bind(guint source, guint dest) {
    };
    event_emit_message(&msg);
 }
+static void routing_serial_unbind(guint slot) {
+   rr_sercom_vrig_bind_t req={.slot=slot};
+   rr_event_message_t msg={
+      .name=RR_SERCOM_VRIG_BIND_REQUEST,
+      .payload=&req,.length=sizeof(req)
+   };
+   event_emit_message(&msg);
+}
+/* CAT and GPS currently form a single binding per virtual rig. Return the
+ * actual slot even when either one of its two dashed curves is selected. */
+static gboolean routing_serial_link_at(double x,double y,guint *slot) {
+   const double limit=CLAMP((graph_touch_pointer?20.:12.)/
+                            MAX(.01,graph_scale),8.,28.);
+   for(guint i=0;i<routing_serial_count;i++){
+      const routing_serial_node_t *n=&routing_serial_nodes[i];
+      if(!n->virtual || !n->profile[0] || !n->rig[0]) continue;
+      for(guint j=0;j<routing_serial_count;j++){
+         const routing_serial_node_t *dst=&routing_serial_nodes[j];
+         if(dst->virtual || strcmp(n->profile,dst->profile) ||
+            strcmp(n->rig,dst->rig)) continue;
+         for(guint k=0;k<2;k++){
+            double x0=n->x+ROUTING_SERIAL_W,x1=dst->x;
+            double y0=n->y+62.+k*26.,y1=dst->y+62.+k*26.;
+            double cx=(x0+x1)/2.;
+            for(guint tstep=0;tstep<=48;tstep++){
+               double t=tstep/48.,u=1.-t;
+               double px=u*u*u*x0+3*u*u*t*cx+3*u*t*t*cx+t*t*t*x1;
+               double py=u*u*u*y0+3*u*u*t*y0+3*u*t*t*y1+t*t*t*y1;
+               if(hypot(px-x,py-y)<limit){
+                  *slot=n->slot;
+                  return TRUE;
+               }
+            }
+         }
+      }
+   }
+   return FALSE;
+}
 static void routing_serial_result(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (!message || !message->payload ||
@@ -1745,6 +1783,25 @@ static void routing_serial_menu_action(GtkMenuItem *item, gpointer unused) {
       };
       event_emit_message(&msg);
    }
+}
+static void routing_serial_wire_remove(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   routing_serial_unbind(GPOINTER_TO_UINT(
+      g_object_get_data(G_OBJECT(item),"rr-serial-slot")));
+}
+static gboolean routing_serial_wire_menu(GdkEventButton *event,double x,double y) {
+   guint slot=0;
+   if(!routing_serial_link_at(x,y,&slot)) return FALSE;
+   GtkWidget *menu=gtk_menu_new();
+   GtkWidget *item=gtk_menu_item_new_with_label("Disconnect CAT / GPS binding");
+   gtk_widget_set_size_request(item,-1,48);
+   g_object_set_data(G_OBJECT(item),"rr-serial-slot",GUINT_TO_POINTER(slot));
+   g_signal_connect(item,"activate",G_CALLBACK(routing_serial_wire_remove),NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   return TRUE;
 }
 static gboolean routing_serial_context_menu(GdkEventButton *event, double x, double y) {
    for (guint i=0;i<routing_serial_count;i++) {
@@ -4128,7 +4185,8 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
                       routing_lv2_context_menu((GdkEventButton *)event, gx, gy) ||
                       routing_modem_context_menu((GdkEventButton *)event, gx, gy) ||
                        routing_common_block_menu((GdkEventButton *)event,gx,gy) ||
-                       routing_wire_context_menu((GdkEventButton *)event,gx,gy);
+                       routing_wire_context_menu((GdkEventButton *)event,gx,gy) ||
+                       routing_serial_wire_menu((GdkEventButton *)event,gx,gy);
    if (event) gdk_event_free(event);
    if (!handled) return;
    /* Cancel the emulated mouse gesture so lifting the finger cannot
@@ -4157,7 +4215,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
               routing_lv2_context_menu(event, gx, gy) ||
               routing_modem_context_menu(event, gx, gy) ||
                routing_common_block_menu(event,gx,gy) ||
-                routing_wire_context_menu(event,gx,gy));
+                routing_wire_context_menu(event,gx,gy) ||
+                routing_serial_wire_menu(event,gx,gy));
    }
    if (event->type == GDK_BUTTON_PRESS &&
        (event->button == GDK_BUTTON_MIDDLE ||
@@ -4173,6 +4232,13 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 
    if (!graph_pointer(event->x, event->y, &gx, &gy)) {
       return FALSE;
+   }
+   if(event->type==GDK_2BUTTON_PRESS) {
+      guint serial_slot=0;
+      if(routing_serial_link_at(gx,gy,&serial_slot)) {
+         routing_serial_unbind(serial_slot);
+         return TRUE;
+      }
    }
    if(event->type==GDK_2BUTTON_PRESS && onair_connected &&
       (onair_wire_hit(gx,gy) ||
