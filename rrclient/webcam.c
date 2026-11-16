@@ -26,8 +26,15 @@
 #include <librrprotocol/ws.mediachan.h>
 
 #include <libfwdspmgr/fwdsp-mgr.h>
+#include <rrclient/connman.h>
 
-extern rrconn_t *ws_conn;
+/* Video belongs to its initiating profile rather than the foreground tab. */
+static char webcam_profile[128];
+static rrconn_t *webcam_target(void) {
+   rrconn_t *c = webcam_profile[0] ?
+      rrclient_connection_find(webcam_profile) : NULL;
+   return c && c->authenticated && c->is_ws ? c : NULL;
+}
 extern time_t now;
 
 // GStreamer never links into rrclient: frame capture runs in a fwdsp
@@ -41,10 +48,11 @@ static bool webcam_active = false;
 // subscribe without a known uuid asks the server to create the channel for
 // the given routing quadruple (PARITY: librrprotocol/ws.mediachan.c)
 static void webcam_register_source(void) {
-   if (!ws_conn) {
+   rrconn_t *client = webcam_target();
+   if (!client) {
       return;
    }
-   media_send_source(ws_conn, NULL);
+   media_send_source(client, NULL);
 
    // Ask the server to create/confirm the video channel we will feed
    dict *d = dict_new();
@@ -59,7 +67,7 @@ static void webcam_register_source(void) {
       dict_add(d, "media.codec", "jpeg");
       dict_add(d, "media.descr", "Webcam video");
       dict_add_ulong(d, "media.ts", now);
-      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+      ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
    }
 }
@@ -68,7 +76,8 @@ static void webcam_register_source(void) {
 // server validates our source flag and fans it out to subscribers (PARITY:
 // librrprotocol/cli.main.c - video source frame routing)
 static void webcam_push_frame(const uint8_t *data, size_t len) {
-   if (!rrclient_connection_can_send_binary(ws_conn) || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
+   rrconn_t *client = webcam_target();
+   if (!rrclient_connection_can_send_binary(client) || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
       return;
    }
    const char codec[4] = {
@@ -83,8 +92,8 @@ static void webcam_push_frame(const uint8_t *data, size_t len) {
       return;
    }
 
-   if (rr_transport_queued_bytes(ws_conn->native_transport) > 262144 ||
-      rr_transport_send_binary_message(ws_conn->native_transport, frame, (size_t)flen) != RR_TRANSPORT_OK) {
+   if (rr_transport_queued_bytes(client->native_transport) > 262144 ||
+      rr_transport_send_binary_message(client->native_transport, frame, (size_t)flen) != RR_TRANSPORT_OK) {
       /* Video is realtime: drop this frame instead of extending latency. */
       Log(LOG_DEBUG, "webcam", "Dropping video frame under transport pressure");
    }
@@ -101,7 +110,13 @@ static void webcam_frame_cb(const char *event, const void *data, size_t len, rrc
 
 // Start grabbing frames (called after auth when we're a video source)
 void webcam_client_start(void) {
-   if (webcam_active || !ws_conn) {
+   if (!webcam_profile[0]) {
+      rrconn_t *current = rrclient_connection_context();
+      const char *name = current ? rrclient_connection_name(current) : NULL;
+      if (name) g_strlcpy(webcam_profile, name, sizeof(webcam_profile));
+   }
+   rrconn_t *client = webcam_target();
+   if (webcam_active || !client) {
       return;
    }
    const char *device = cfg_get("webcam.device");
@@ -129,6 +144,7 @@ void webcam_client_start(void) {
 }
 
 void webcam_client_stop(void) {
+   webcam_profile[0] = 0;
    if (webcam_fwdsp_chan < 0) {
       return;
    }
@@ -147,11 +163,15 @@ static void webcam_conn_event(const char *event, const char *data, rrconn_t *cpt
    if (strcasecmp(event, "authorized") == 0) {
       const char *role = cfg_get("client.role");
 
-      if (role && strcasecmp(role, "video-source") == 0) {
+      if (role && strcasecmp(role, "video-source") == 0 && cptr &&
+          !webcam_active) {
+         const char *name = rrclient_connection_name(cptr);
+         if (name) g_strlcpy(webcam_profile, name, sizeof(webcam_profile));
          webcam_client_start();
       }
    } else if (strcasecmp(event, "disconnected") == 0) {
-      webcam_client_stop();
+      const char *name = cptr ? rrclient_connection_name(cptr) : NULL;
+      if (name && !strcmp(name, webcam_profile)) webcam_client_stop();
    }
 }
 
