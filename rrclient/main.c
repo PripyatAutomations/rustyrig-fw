@@ -93,31 +93,62 @@ void rrclient_send_ptt_command(rrconn_t *connection, const char *vfo, bool on, c
    }
 }
 
-/* Unlike a VFO status echo, this is an outgoing signal from one explicitly
- * wired modem PTT output. The server remains authoritative for TX access.
- * Never route to the locally selected connection when the target belongs
- * to another server profile. */
+/* A modem PTT wire owns its specific keying session. Releasing PTT must
+ * go back to the same server/room/VFO even if the selected VFO changes.
+ * Core context only; no GTK or global ws_conn access. */
+typedef struct {
+   char source[64], rx_id[64], profile[512], room[128], vfo[2];
+} rr_modem_ptt_session_t;
+static rr_modem_ptt_session_t modem_ptt_sessions[8];
+
+static void rrclient_publish_routed_ptt(const char *source,bool raised) {
+   rrclient_routing_ptt_signal_t signal={.raised=raised};
+   g_strlcpy(signal.source,source,sizeof(signal.source));
+   rr_event_message_t msg={
+      .name=RRCLIENT_ROUTING_PTT_SIGNAL,.sender="core",
+      .payload=&signal,.length=sizeof(signal)
+   };
+   event_emit_message(&msg);
+}
 bool rrclient_modem_ptt_send(const char *source,const char *rx_id,bool on) {
-   if (!source || !*source || !rx_id || !*rx_id ||
-       (on && !rrclient_ptt_allowed())) return false;
+   if(!source || !*source || strlen(source)>=64) return false;
+   rr_modem_ptt_session_t *own=NULL,*free_slot=NULL;
+   for(guint i=0;i<G_N_ELEMENTS(modem_ptt_sessions);i++) {
+      rr_modem_ptt_session_t *slot=&modem_ptt_sessions[i];
+      if(!strcmp(slot->source,source)){own=slot;break;}
+      if(!slot->source[0] && !free_slot) free_slot=slot;
+   }
+   if(!on) {
+      if(!own) return false;
+      rrconn_t *conn=rrclient_connection_find(own->profile);
+      gboolean sent=conn && conn->is_ws &&
+         ws_send_ptt_cmd_in_room(conn,own->vfo,false,own->room);
+      rrclient_publish_routed_ptt(source,false);
+      memset(own,0,sizeof(*own));
+      return sent;
+   }
+   if(!free_slot || own || !rx_id || !*rx_id ||
+      !rrclient_ptt_allowed()) return false;
+   char vfo[2]={vfo_state_get_active(),0};
+   /* Never take over a key held by a manual UI PTT or another session. */
+   if(vfo_state_get_bool(vfo,"cat.state.ptt",false)) return false;
    struct rrclient_rx_stream streams[64]={{0}};
    size_t count=audio_rx_streams(streams,G_N_ELEMENTS(streams));
    for(size_t i=0;i<count && i<G_N_ELEMENTS(streams);i++) {
       const struct rrclient_rx_stream *rx=&streams[i];
       if(strcmp(rx_id,rx->id) || !rx->active_tx ||
-         !rrclient_media_rx_is_active_tx(rx->uuid)) continue;
-      if(on && !rrclient_room_tx_control(rx->room)) return false;
+         !rrclient_media_rx_is_active_tx(rx->uuid) ||
+         !rrclient_room_tx_control(rx->room)) continue;
       rrconn_t *conn=rrclient_connection_find(rx->server);
-      if(!conn || !conn->is_ws) return false;
-      char vfo[2]={vfo_state_get_active(),0};
-      if(!ws_send_ptt_cmd_in_room(conn,vfo,on,rx->room)) return false;
-      rrclient_routing_ptt_signal_t signal={.raised=on};
-      g_strlcpy(signal.source,source,sizeof(signal.source));
-      rr_event_message_t msg={
-         .name=RRCLIENT_ROUTING_PTT_SIGNAL,.sender="core",
-         .payload=&signal,.length=sizeof(signal)
-      };
-      event_emit_message(&msg);
+      if(!conn || !conn->is_ws ||
+         !ws_send_ptt_cmd_in_room(conn,vfo,true,rx->room))
+         return false;
+      g_strlcpy(free_slot->source,source,sizeof(free_slot->source));
+      g_strlcpy(free_slot->rx_id,rx_id,sizeof(free_slot->rx_id));
+      g_strlcpy(free_slot->profile,rx->server,sizeof(free_slot->profile));
+      g_strlcpy(free_slot->room,rx->room,sizeof(free_slot->room));
+      g_strlcpy(free_slot->vfo,vfo,sizeof(free_slot->vfo));
+      rrclient_publish_routed_ptt(source,true);
       return true;
    }
    return false;
