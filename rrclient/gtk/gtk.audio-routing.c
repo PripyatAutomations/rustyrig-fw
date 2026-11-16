@@ -1946,11 +1946,35 @@ typedef struct {
 static GPtrArray *routing_effect_blocks;
 static gint routing_effect_drag_index = -1;
 static double routing_effect_drag_x, routing_effect_drag_y;
+/* Parameter sockets live on the audio-free horizontal edges. Reserve up
+ * to three bottom slots initially; remaining controls use the top edge.
+ * Wider effects grow to fit every label without overlapping sockets. */
 #define ROUTING_EFFECT_W 235.
-#define ROUTING_EFFECT_HEADER 34.
-#define ROUTING_EFFECT_ROW 23.
+#define ROUTING_EFFECT_SLOT 106.
+#define ROUTING_EFFECT_MARGIN 20.
+#define ROUTING_EFFECT_PIN_R 5.
+static guint routing_effect_bottom_count(const routing_effect_block_t *block) {
+   return MIN(block->ports->len, 3u);
+}
+static double routing_effect_width(const routing_effect_block_t *block) {
+   guint bottom = routing_effect_bottom_count(block);
+   guint top = block->ports->len - bottom;
+   return MAX(ROUTING_EFFECT_W, 2. * ROUTING_EFFECT_MARGIN +
+              MAX(bottom, top) * ROUTING_EFFECT_SLOT);
+}
 static double routing_effect_height(const routing_effect_block_t *block) {
-   return ROUTING_EFFECT_HEADER + block->ports->len * ROUTING_EFFECT_ROW + 8.;
+   return block->ports->len > 3 ? 112. : 90.;
+}
+/* Shared by rendering, hit-testing and blue-wire endpoints. */
+static void routing_effect_socket(const routing_effect_block_t *block,
+                                   const routing_position_t *pos, guint index,
+                                   double *x, double *y, gboolean *top) {
+   guint bottom = routing_effect_bottom_count(block);
+   *top = index >= bottom;
+   guint count = *top ? block->ports->len - bottom : bottom;
+   guint column = *top ? index - bottom : index;
+   *x = pos->x + (column + 1.) * routing_effect_width(block) / (count + 1.);
+   *y = pos->y + (*top ? 0. : routing_effect_height(block));
 }
 static void routing_effect_block_free(gpointer ptr) {
    routing_effect_block_t *b = ptr;
@@ -2024,7 +2048,7 @@ static void routing_effect_bounds(double *width, double *height) {
    for (guint i = 0; i < routing_effect_blocks->len; i++) {
       const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
       const routing_position_t *pos = routing_position(b->id);
-      *width = MAX(*width, pos->x + ROUTING_EFFECT_W + GRAPH_LAYOUT_MARGIN);
+      *width = MAX(*width, pos->x + routing_effect_width(b) + GRAPH_LAYOUT_MARGIN);
       *height = MAX(*height, pos->y + routing_effect_height(b) + GRAPH_LAYOUT_MARGIN);
    }
 }
@@ -2038,8 +2062,8 @@ static gboolean routing_effect_parameter_location(const char *worker,
       for (guint j = 0; j < b->ports->len; j++) {
          const routing_effect_port_t *port = g_ptr_array_index(b->ports, j);
          if (strcmp(port->property, property)) continue;
-         *x = pos->x;
-         *y = pos->y + ROUTING_EFFECT_HEADER + j * ROUTING_EFFECT_ROW + 10.;
+         gboolean top;
+         routing_effect_socket(b, pos, j, x, y, &top);
          return TRUE;
       }
    }
@@ -2050,10 +2074,11 @@ static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t 
    for (guint i = 0; i < routing_effect_blocks->len; i++) {
       const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
       const routing_position_t *pos = routing_position(b->id);
-      if (fabs(x - pos->x) > 12.) continue;
       for (guint j = 0; j < b->ports->len; j++) {
-         double py = pos->y + ROUTING_EFFECT_HEADER + j * ROUTING_EFFECT_ROW + 10.;
-         if (hypot(x - pos->x, y - py) <= 12.) {
+         double px, py;
+         gboolean top;
+         routing_effect_socket(b, pos, j, &px, &py, &top);
+         if (hypot(x - px, y - py) <= 12.) {
             *out = *(routing_effect_port_t *)g_ptr_array_index(b->ports, j);
             return TRUE;
          }
@@ -2067,7 +2092,7 @@ static void routing_effect_draw(cairo_t *cr) {
       const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
       const routing_position_t *pos = routing_position(b->id);
       double h = routing_effect_height(b);
-      cairo_rectangle(cr, pos->x, pos->y, ROUTING_EFFECT_W, h);
+      cairo_rectangle(cr, pos->x, pos->y, routing_effect_width(b), h);
       cairo_set_source_rgba(cr, .17, .19, .23, .95);
       cairo_fill_preserve(cr);
       cairo_set_source_rgb(cr, .50, .53, .60);
@@ -2087,16 +2112,20 @@ static void routing_effect_draw(cairo_t *cr) {
       cairo_move_to(cr, pos->x + 13., pos->y + 30.);
       cairo_show_text(cr, b->worker);
       for (guint j = 0; j < b->ports->len; j++) {
-         routing_effect_port_t *port = g_ptr_array_index(b->ports, j);
-         double py = pos->y + ROUTING_EFFECT_HEADER + j * ROUTING_EFFECT_ROW + 10.;
+         const routing_effect_port_t *port = g_ptr_array_index(b->ports, j);
+         double px, py;
+         gboolean top;
+         routing_effect_socket(b, pos, j, &px, &py, &top);
          cairo_set_source_rgb(cr, .25, .69, 1.);
-         cairo_arc(cr, pos->x, py, 5., 0, 2 * G_PI);
+         cairo_arc(cr, px, py, ROUTING_EFFECT_PIN_R, 0, 2 * G_PI);
          cairo_fill(cr);
          cairo_set_source_rgb(cr, .92, .94, .97);
-         cairo_move_to(cr, pos->x + 13., py + 3.);
-         char text[132];
-         g_snprintf(text, sizeof(text), "%.60s  [%.3g..%.3g]",
-                    port->property, port->low, port->high);
+         char text[100];
+         g_snprintf(text, sizeof(text), "%.17s", port->property);
+         cairo_text_extents_t ext;
+         cairo_text_extents(cr, text, &ext);
+         cairo_move_to(cr, px - ext.width / 2. - ext.x_bearing,
+                        py + (top ? 17. : -10.));
          cairo_show_text(cr, text);
       }
    }
@@ -2108,7 +2137,7 @@ static gboolean routing_effect_press(double x, double y, gboolean dbl) {
    for (gint i = (gint)routing_effect_blocks->len - 1; i >= 0; i--) {
       routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
       routing_position_t *pos = routing_position(b->id);
-      if (x < pos->x || x > pos->x + ROUTING_EFFECT_W ||
+      if (x < pos->x || x > pos->x + routing_effect_width(b) ||
           y < pos->y || y > pos->y + routing_effect_height(b)) continue;
       if (dbl) {
 #ifdef RR_HAVE_GSTREAMER
