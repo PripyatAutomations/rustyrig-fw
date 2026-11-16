@@ -2228,12 +2228,15 @@ static void routing_effect_draw(cairo_t *cr) {
       cairo_set_font_size(cr, 11.);
       char title[105];
       g_snprintf(title, sizeof(title), "LV2  %.84s", b->element);
-      cairo_move_to(cr, pos->x + 13., pos->y + 17.);
+      /* Top-edge ports claim the first label row. Keep the effect
+       * identity centered between upper and lower control labels. */
+      double heading_y = pos->y + (b->ports->len > 3 ? 56. : 22.);
+      cairo_move_to(cr, pos->x + 13., heading_y);
       cairo_show_text(cr, title);
       cairo_set_font_size(cr, 9.);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
                              CAIRO_FONT_WEIGHT_NORMAL);
-      cairo_move_to(cr, pos->x + 13., pos->y + 30.);
+      cairo_move_to(cr, pos->x + 13., heading_y + 14.);
       cairo_show_text(cr, b->worker);
       for (guint j = 0; j < b->ports->len; j++) {
          const routing_effect_port_t *port = g_ptr_array_index(b->ports, j);
