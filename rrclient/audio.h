@@ -28,6 +28,8 @@ typedef struct {
    char source[64];
    bool raised;
 } rrclient_routing_ptt_signal_t;
+/* Core-only: send source-qualified modem PTT through the rig's server. */
+bool rrclient_modem_ptt_send(const char *source, const char *rx_id, bool on);
 
 extern bool audio_enabled;
 /* Playback requests must cross the GTK -> core event boundary. */
