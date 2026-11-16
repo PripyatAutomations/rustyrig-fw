@@ -22,7 +22,8 @@ before release. Offline builds work with existing checkouts.\n\`make -C modems c
 The **client-local PSK and Olivia workers** now implement RX decoding and
 experimental text-to-waveform TX. Worker fd 0 accepts `TX <text>\\n` and
 `CANCEL\\n`; fd 5 produces 16 kHz mono S16LE samples while fd 1 reports
-`!TX_DONE`. RX arrives on fd 4 as 16 kHz mono S16LE. A text send from the
+`TX_DONE` as a packet on the dedicated fd 3 control socket; decoded
+text stays on fd 1. RX arrives on fd 4 as 16 kHz mono S16LE. A text send from the
 Routing modem menu keys the selected active radio **only when both TX PCM
 and PTT control pins are connected to that same radio**, and the operator
 has TX control. The core waits for a confirmed rig PTT state before sending
