@@ -313,6 +313,7 @@ static gint graph_drag_modem_target = -1;
 static gint graph_drag_rig_target = -1;
 static gint graph_drag_lv2_target = -1;
 static gboolean graph_drag_lv2_output;
+static gint graph_drag_lv2_dest_channel;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the
  * same hit/clock-domain rules for live preview and final connection. */
@@ -366,6 +367,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    graph_drag_rig_target = -1;
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
+   graph_drag_lv2_dest_channel = 0;
    for (guint i = 0; i < graph_snapshot->node_count; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
       if (graph_missing_since[i]) continue;
@@ -398,7 +400,9 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       double ny = routing_node_y(n) + (rig_target ?
          (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          lv2_connection ? (lv2_output ? (graph_drag_channel ? 79. : 60.) :
-            lv2_reverse_input ? 68. : 68.) :
+            (to_lv2 && n->channels == 2) ||
+            (lv2_reverse_input && origin_node->channels == 2) ?
+               (graph_drag_channel ? 79. : 60.) : 68.) :
          modem_connection ? (from_modem ? 60. : 68.) :
          (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
@@ -413,6 +417,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       if (lv2_connection) {
          const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
          graph_drag_lv2_output = lv2_output;
+         graph_drag_lv2_dest_channel = graph_drag_channel;
          unsigned slot = 0;
          if (sscanf(effect->id, "proc.lv2.%u", &slot) == 1 &&
              slot >= 1 && slot <= RR_AUDIO_EFFECT_MAX)
@@ -2777,11 +2782,13 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
           g_str_has_prefix(graph_snapshot->nodes[i].id, "proc.lv2.") &&
           !graph_missing_since[i]) {
          const rr_ag_view_node_t *fx = &graph_snapshot->nodes[i];
-         if (hypot(x - routing_node_x(fx) - RR_GTK_GRAPH_NODE_W,
-                   y - routing_node_y(fx) - 68.) <= radius) {
-            *source = (gint)i; *channel = 0; *mixer = FALSE;
-            return TRUE;
-         }
+         for (gint ch = 0; ch < (fx->channels == 2 ? 2 : 1); ch++)
+            if (hypot(x - routing_node_x(fx) - RR_GTK_GRAPH_NODE_W,
+                      y - routing_node_y(fx) - (fx->channels == 2 ?
+                         (ch ? 79. : 60.) : 68.)) <= radius) {
+               *source = (gint)i; *channel = ch; *mixer = FALSE;
+               return TRUE;
+            }
       }
       if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) {
          continue;
@@ -2813,13 +2820,13 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
           (node->type != RR_AG_MIXER && !modem_input && !lv2_input))
          continue;
       if (lv2_input) {
-         if (hypot(x - routing_node_x(node),
-                   y - routing_node_y(node) - 68.) <= radius) {
-            *source = -(gint)i - 1;
-            *channel = 0;
-            *mixer = TRUE;
-            return TRUE;
-         }
+         for (gint ch = 0; ch < (node->channels == 2 ? 2 : 1); ch++)
+            if (hypot(x - routing_node_x(node),
+                      y - routing_node_y(node) - (node->channels == 2 ?
+                         (ch ? 79. : 60.) : 68.)) <= radius) {
+               *source = -(gint)i - 1; *channel = ch; *mixer = TRUE;
+               return TRUE;
+            }
          continue;
       }
       if (modem_input) {
@@ -3176,8 +3183,9 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
             .action = graph_drag_lv2_output ? 'O' : 'R',
             .slot = (unsigned)graph_drag_lv2_target
          };
+         req.channel = graph_drag_channel;
          if (graph_drag_lv2_output)
-            req.output = graph_drag_channel ? 'R' : 'L';
+            req.output = graph_drag_lv2_dest_channel ? 'R' : 'L';
          else
             g_strlcpy(req.source, graph_snapshot->nodes[source_index].id,
                       sizeof(req.source));
@@ -3227,6 +3235,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    graph_drag_modem_target = graph_drag_rig_target = -1;
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
+   graph_drag_lv2_dest_channel = 0;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
