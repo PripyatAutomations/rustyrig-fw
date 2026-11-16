@@ -26,6 +26,8 @@ void rr_floating_panel_restore(RRFloatPanel *panel);
 void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable);
 void rr_floating_panel_set_minimizable(RRFloatPanel *panel, gboolean minimizable);
 void rr_floating_panel_set_resizable(RRFloatPanel *panel, gboolean resizable);
+/* Hide the floating chrome and optionally make a widget the drag handle. */
+void rr_floating_panel_set_compact(RRFloatPanel *panel, GtkWidget *drag_handle);
 /* Optional content-driven sizing; the minimum tracks this widget at panel zoom. */
 void rr_floating_panel_set_min_width_widget(RRFloatPanel *panel, GtkWidget *widget);
 void rr_floating_panel_fit_content(RRFloatPanel *panel);
