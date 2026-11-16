@@ -21,7 +21,9 @@
 
 typedef struct {
    rr_dsp_worker_t worker;
-   bool active, tx_enabled, tx_was_allowed;
+   bool active, tx_enabled, tx_was_allowed, ptt_owned, tx_running;
+   gint64 ptt_deadline_us, release_at_us;
+   char pending_text[256];
    char source[64], engine[16], option[24];
    char tx_target[64], ptt_target[64];
    unsigned value;
@@ -50,8 +52,30 @@ static void append_text(decoder_t *d, const char *bytes, size_t n) {
       d->text[d->text_len] = 0;
    }
 }
+static void modem_ptt_source(unsigned index,char out[64]) {
+   g_snprintf(out,64,"modem%u.ptt",index+1);
+}
+static void modem_release_ptt(unsigned index) {
+   decoder_t *d=&decoders[index];
+   if (d->ptt_owned) {
+      char source[64];
+      modem_ptt_source(index,source);
+      rrclient_modem_ptt_send(source,d->ptt_target,false);
+   }
+   d->ptt_owned=false;
+   d->tx_running=false;
+   d->pending_text[0]=0;
+   d->ptt_deadline_us=d->release_at_us=0;
+}
+static void modem_cancel_waveform(decoder_t *d) {
+   static const char cancel[]="CANCEL\n";
+   if(d->active && d->worker.serial_fd>=0)
+      send(d->worker.serial_fd,cancel,sizeof(cancel)-1,MSG_DONTWAIT|MSG_NOSIGNAL);
+}
 static void stop_one(unsigned index) {
    decoder_t *d = &decoders[index];
+   modem_cancel_waveform(d);
+   modem_release_ptt(index);
    g_mutex_lock(&decoder_lock);
    d->line_len = 0;
    if (d->active) {
@@ -106,6 +130,12 @@ static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t 
       if (ch == '\n') {
          if (d->line_len) {
             d->line[d->line_len] = 0;
+            if(!strcmp(d->line,"!TX_DONE")) {
+               if(d->ptt_owned && d->tx_running)
+                  d->release_at_us=g_get_monotonic_time()+750000;
+               d->line_len=0;
+               continue;
+            }
             rr_local_modem_decode_t item = {.slot = slot};
             g_strlcpy(item.source, d->source, sizeof(item.source));
             g_strlcpy(item.engine, d->engine, sizeof(item.engine));
@@ -297,6 +327,9 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->text[0] = 0;
    d->tx_target[0] = d->ptt_target[0] = 0;
    d->tx_enabled = req->tx_enabled;
+   d->ptt_owned=d->tx_running=d->tx_was_allowed=false;
+   d->pending_text[0]=0;
+   d->ptt_deadline_us=d->release_at_us=0;
    d->drops = d->received = 0;
    g_mutex_unlock(&decoder_lock);
    g_snprintf(last_status, sizeof(last_status),
