@@ -1726,14 +1726,18 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                                      RR_AG_NORMAL, play_channels);
 
 
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 7 - 4 * RR_LOCAL_MODEM_MAX ; i++) {
+   const char *active_rx_id = NULL;
+   for (size_t i = 0; i < count; i++)
+      if (streams[i].active_rx) { active_rx_id = streams[i].id; break; }
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 9 - 4 * RR_LOCAL_MODEM_MAX ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
-      if (!rr_audio_graph_add_node(graph, stream->id, RR_AG_SOURCE)) {
+      /* rig.src is the stable alias of this decoder, not extra PCM. */
+      const char *source_id = stream->active_rx ? "rig.src" : stream->id;
+      if (!rr_audio_graph_add_node(graph, source_id, RR_AG_SOURCE))
          continue;
-      }
-      rr_audio_graph_set_health(graph, stream->id, RR_AG_HEALTHY);
-      rr_audio_graph_set_route(graph, stream->id, stream->output);
+      rr_audio_graph_set_health(graph, source_id, RR_AG_HEALTHY);
+      rr_audio_graph_set_route(graph, source_id, stream->output);
       unsigned channels = stream->output == 'L' ? RR_AG_CHANNEL_LEFT :
          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT : stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
 
@@ -1749,7 +1753,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          /* With an active effect, dry PCM is bypassed in the actual mixer
           * path too. Never draw both dry and processed edges at once. */
          rr_audio_engine_t *owner = audio_stream_engine(stream->id);
-         rr_audio_graph_add_channel_link(graph, stream->id,
+         rr_audio_graph_add_channel_link(graph, source_id,
                   owner == hq_engine ? "hq.mix" : "rx.mix",
                   RR_AG_NORMAL, channels);
       }
@@ -1766,7 +1770,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (g_atomic_int_get(&fx->failed)) continue;
       for (guint ch = 0; ch < fx->channels; ch++) {
          if (fx->source[ch][0])
-            rr_audio_graph_add_channel_link(graph, fx->source[ch], fx->name,
+            rr_audio_graph_add_channel_link(graph,
+                  active_rx_id && !strcmp(fx->source[ch], active_rx_id) ?
+                  "rig.src" : fx->source[ch], fx->name,
                   RR_AG_NORMAL, fx->channels == 2 ?
                   (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT) :
                   RR_AG_CHANNEL_LEFT);
@@ -1791,7 +1797,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (rr_audio_graph_add_node(graph, rx_id, RR_AG_SINK)) {
          rr_audio_graph_set_health(graph, rx_id, RR_AG_HEALTHY);
          if (modems[i].source[0])
-            rr_audio_graph_add_channel_link(graph, modems[i].source, rx_id,
+            rr_audio_graph_add_channel_link(graph,
+                  active_rx_id && !strcmp(modems[i].source, active_rx_id) ?
+                  "rig.src" : modems[i].source, rx_id,
                                             RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
       }
       if (rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE))
@@ -1804,6 +1812,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (!rrclient_media_rx_has_tx(streams[i].uuid)) continue;
       char tx[64];
       g_snprintf(tx, sizeof(tx), "rig.%08x.tx", g_str_hash(streams[i].id));
+      if (streams[i].active_rx && streams[i].active_tx)
+         g_strlcpy(tx, "rig.sink", sizeof(tx));
       rr_audio_graph_add_node(graph, tx, RR_AG_SINK);
       rr_audio_graph_set_health(graph, tx, RR_AG_STOPPED);
       char mic_target[64];
