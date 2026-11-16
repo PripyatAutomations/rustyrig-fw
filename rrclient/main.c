@@ -129,6 +129,10 @@ bool rrclient_modem_ptt_send(const char *source,const char *rx_id,bool on) {
    }
    if(!free_slot || own || !rx_id || !*rx_id ||
       !rrclient_ptt_allowed()) return false;
+   /* Only one modem may own a selected TX encoder at a time. */
+   for(guint i=0;i<G_N_ELEMENTS(modem_ptt_sessions);i++)
+      if(modem_ptt_sessions[i].source[0]) return false;
+   if(!rrclient_media_current_codec(true)) return false;
    char vfo[2]={vfo_state_get_active(),0};
    /* Never take over a key held by a manual UI PTT or another session. */
    if(vfo_state_get_bool(vfo,"cat.state.ptt",false)) return false;
