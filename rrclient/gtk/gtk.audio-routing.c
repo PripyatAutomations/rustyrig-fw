@@ -1984,6 +1984,36 @@ static void routing_compact_restore(void) {
    }
    g_strfreev(parts);
    g_free(ids);
+   /* Repair legacy controls saved at the same graph coordinates. Do not
+    * rearrange distinct user placements; only displace actual overlaps and
+    * persist the repaired coordinates for the next initialization. */
+   if (routing_compact_controls) {
+      for (guint i = 0; i < routing_compact_controls->len; i++) {
+         routing_compact_control_t *item =
+            g_ptr_array_index(routing_compact_controls, i);
+         gboolean moved = FALSE;
+         for (guint attempt = 0; attempt < 256; attempt++) {
+            gboolean collision = FALSE;
+            for (guint j = 0; j < i; j++) {
+               const routing_compact_control_t *other =
+                  g_ptr_array_index(routing_compact_controls, j);
+               if (fabs(item->x - other->x) < 122. &&
+                   fabs(item->y - other->y) < 68.) {
+                  collision = TRUE;
+                  break;
+               }
+            }
+            if (!collision) break;
+            item->x += 135.;
+            if (item->x > GRAPH_LAYOUT_MARGIN + 675.) {
+               item->x = GRAPH_LAYOUT_MARGIN + 15.;
+               item->y += 82.;
+            }
+            moved = TRUE;
+         }
+         if (moved) routing_compact_save(item);
+      }
+   }
    routing_compact_sync();
 }
 static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused) {
