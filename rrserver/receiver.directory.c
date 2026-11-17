@@ -21,10 +21,13 @@
 #define DIR_CHUNK 12000u
 #define DIR_TTL (24 * 3600)
 #define DIR_RETRY (3600)
+#define DIR_STALE (6 * 3600) /* Upstream publication warning threshold */
 static sqlite3 *db;
 static char *snapshot, *source_url, *validator, *modified;
 static char digest[65];
-static time_t next_fetch, fetched_at;
+static time_t next_fetch, fetched_at, published_at, last_attempt;
+static long last_http_status;
+static CURLcode last_curl_result;
 static guint64 generation;
 static struct {
    GThread *thread;
@@ -62,6 +65,23 @@ static void make_digest(void) {
    char *hex = g_compute_checksum_for_string(G_CHECKSUM_SHA256, snapshot, -1);
    g_strlcpy(digest, hex ? hex : "", sizeof(digest));
    g_free(hex);
+}
+/* Upstream freshness belongs to the publisher's fetched_at field, not
+ * our own HTTP fetch time. Keep those timestamps distinct, especially for
+ * an unchanged but stale mirror response. */
+static time_t publication_time(const char *data) {
+   if (!data) return 0;
+   dict *doc=json2dict(data);
+   if (!doc) return 0;
+   const char *stamp=dict_get(doc,"fetched_at","");
+   GDateTime *date=*stamp ? g_date_time_new_from_iso8601(stamp,NULL) : NULL;
+   time_t value=date ? (time_t)g_date_time_to_unix(date) : 0;
+   if(date) g_date_time_unref(date);
+   dict_free(doc);
+   return value;
+}
+static time_t publication_age(time_t now) {
+   return published_at>0 && published_at<=now ? now-published_at : 0;
 }
 static void save_snapshot(void) {
    if (!db) {
@@ -196,6 +216,9 @@ static void complete_download(void) {
    g_thread_join(request.thread);
    request.thread = NULL;
    time_t current = time(NULL);
+   last_attempt=current;
+   last_http_status=request.http_status;
+   last_curl_result=request.result;
 
    bool accepted = request.result == CURLE_OK &&
       request.http_status == 200 && body_valid(request.data, request.length);
@@ -205,9 +228,18 @@ static void complete_download(void) {
       g_free(source_url);
       source_url = g_strdup(request.url);
       fetched_at = current;
+      published_at=publication_time(snapshot);
       generation++;
       make_digest();
-      Log(LOG_INFO, "receiver.directory", "Server directory generation %llu: %zu bytes cached", (unsigned long long)generation, strlen(snapshot));
+      Log(LOG_INFO, "receiver.directory",
+          "SDR directory generation %llu: %zu bytes, upstream publication %lld seconds old",
+          (unsigned long long)generation,strlen(snapshot),
+          (long long)publication_age(current));
+   } else if(request.result==CURLE_OK && request.http_status==304 && snapshot) {
+      fetched_at=current; /* Revalidated cache, not newly published data. */
+      Log(LOG_INFO,"receiver.directory",
+          "SDR directory HTTP 304: cached generation %llu revalidated, publication age %lld seconds",
+          (unsigned long long)generation,(long long)publication_age(current));
    } else if (request.result != CURLE_OK || request.http_status != 304) {
       Log(LOG_WARN, "receiver.directory", "Server directory update failed: curl=%d HTTP=%ld (retaining snapshot)", (int)request.result, request.http_status);
    }
@@ -215,7 +247,18 @@ static void complete_download(void) {
     * Failed downloads retain the old snapshot and retry after one hour. */
    bool verified = accepted ||
       (request.result == CURLE_OK && request.http_status == 304 && snapshot);
-   next_fetch = current + (verified ? DIR_TTL : DIR_RETRY);
+   /* A successful fetch is not proof of freshly published data.
+    * Keep the old receivers usable but retry hourly while upstream is stale. */
+   bool stale=published_at>0 && publication_age(current)>DIR_STALE;
+   if(verified && stale)
+      Log(LOG_WARN,"receiver.directory",
+          "Upstream Kiwi directory published %lld minutes ago (source %s, HTTP %ld); retrying in one hour",
+          (long long)(publication_age(current)/60),
+          source_url?source_url:"(unknown)",request.http_status);
+   if(verified && !published_at)
+      Log(LOG_WARN,"receiver.directory",
+          "Directory JSON has no parseable fetched_at timestamp; unable to verify upstream freshness");
+   next_fetch = current + (verified && !stale ? DIR_TTL : DIR_RETRY);
    save_snapshot();
    g_clear_pointer(&request.url, g_free);
    g_clear_pointer(&request.etag, g_free);
@@ -277,6 +320,11 @@ static void respond(rrconn_t *client, const char *cmd, const char *nonce) {
    dict_add(d, "directory.source", source_url ? source_url : "");
    dict_add_ullong(d, "directory.generation", generation);
    dict_add_llong(d, "directory.fetched", fetched_at);
+   dict_add_llong(d, "directory.published", published_at);
+   dict_add_llong(d, "directory.published-age", publication_age(time(NULL)));
+   dict_add_llong(d, "directory.last-attempt", last_attempt);
+   dict_add_llong(d, "directory.last-http", last_http_status);
+   dict_add_llong(d, "directory.last-curl", last_curl_result);
    dict_add_llong(d, "directory.next-refresh", next_fetch);
    dict_add_bool(d, "directory.fetching", request.thread != NULL);
    ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
@@ -417,6 +465,10 @@ bool rrserver_receiver_directory_init(void) {
          next_fetch = 0;
       }
       make_digest();
+      published_at=publication_time(snapshot);
+      if(snapshot && published_at && publication_age(time(NULL))>DIR_STALE &&
+         next_fetch>time(NULL)+DIR_RETRY)
+         next_fetch=time(NULL); /* Do not honor a day's-old persisted fresh deadline. */
 
       if (snapshot) {
          Log(LOG_INFO, "receiver.directory", "Loaded server directory generation %llu from SQLite", (unsigned long long)generation);
