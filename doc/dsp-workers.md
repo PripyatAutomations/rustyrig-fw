@@ -298,9 +298,13 @@ With TX enabled in Modem Properties (default off), the operator must
 pin to the **same transmit-capable active rig** before sending text.
 `Send Modem Text…` requests PTT via the owning radio's core connection,
 then waits for `cat.state.ptt` confirmation before instructing the
-PSK or Olivia subprocess to generate 16 kHz mono PCM on fd 5. The normal
-client TX codec receives these samples, with microphone TX suppressed for
-the duration. The shared `libfwdspmgr` reader forwards completed encoded
+PSK or Olivia subprocess to generate 16 kHz mono PCM on fd 5. That
+PCM enters the dedicated `tx.mix` engine only when `modemN.tx` is
+patched to its input. A microphone (`src.client.dsp0`) and any future
+registered TX sources can also feed `tx.mix`. The stereo mixing engine
+outputs a 16 kHz mono TX signal on a bounded queue; the core context
+sends it to the normal network codec. The modem's PTT session temporarily
+suppresses microphone PCM, without bypassing the mixer. The shared `libfwdspmgr` reader forwards completed encoded
 codec packets via a registered client callback; `rrclient/audio.c` wraps
 them in the negotiated TX audio binframe (selected codec, rig, VFO and stream),
 and `rrclient/cli.main.c` sends through the existing RTP/direct-media
@@ -310,12 +314,11 @@ after channel changes. The remote `rrserver` receives them through its
 ordinary authenticated `media.frame.tx.channel` handler and decoder.
 Thus there is no second modem-specific network codec or TX socket.
 
-**Microphone TX is preserved.** The local microphone capture
-(`src.client.dsp0`) feeds the very same fwdsp TX encoder and negotiated
-remote media channel. Manual/normal PTT permits microphone PCM; a modem
-PTT session temporarily claims the TX encoder and suppresses mic PCM so
-speech does not mix into modem tones. When the modem session ends,
-normal microphone transmission is available again. The source-to-rig
+**Microphone TX is preserved.** Its input is patched into `tx.mix`
+by default (unless disconnected with a wire/port action). Manual PTT
+allows its PCM through the common TX encoder/transport. A modem-owned PTT
+session temporarily suppresses the microphone source; when that modem
+session ends, normal microphone TX remains available. The source-to-rig
 routing and server permissions remain the authority for both.
  Worker completion is a `TX_DONE` control message on fd 3;
 it triggers a PTT release after a short audio drain. Worker exit, link
