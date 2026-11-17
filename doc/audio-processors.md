@@ -36,8 +36,17 @@ automatically see a desktop user's audio server. Normal codec IDs always use
 the `src.rig0` host/radio input. With `audio.test-mode=true`, the server also
 advertises RX-only tone (`*T`) and pink-noise (`*P`) codec variants, whose
 fwdsp pipelines generate their own source. Set it to `false` to hide those
-test variants. A radio TX channel always uses a normal codec and the client's
-microphone. The `src.pink` and `src.tone660` endpoints remain available for
+test variants. A radio TX channel always uses a negotiated network codec, but its PCM
+comes from the client's independent `tx.mix` bus. The microphone and
+local modem TX outputs are independently patchable sources; no source
+writes directly to a network encoder. The permanent
+`tx.mix → tx.transport` graph link mixes 16 kHz PCM, hands 20 ms mono
+blocks across a bounded queue to the core-context fwdsp encoder, and
+sends its encoded frames using the selected radio TX media channel.
+PTT is an independent red control route to the radio; audio arriving
+at the mixer does not automatically key the transmitter. New client
+sources can use `audio_tx_source_register/route/push` to join that bus,
+using the engine's registered sample-format conversion. The `src.pink` and `src.tone660` endpoints remain available for
 explicit processor tests.
 The selected rig RX source is framed into each active VFO RX encoder. Incoming
 talker packets are sent to other subscribers on that VFO, excluding the origin,
