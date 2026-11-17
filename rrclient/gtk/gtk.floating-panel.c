@@ -29,6 +29,7 @@ struct rr_floating_panel {
    gint saved_width, saved_height, opacity;
    gint dock_edge; /* -1 floating, 0 left, 1 right, 2 top, 3 bottom */
    gint float_x, float_y, dock_x, dock_y;
+   gint dock_width, dock_height; /* -1 means size to natural contents */
    guint layout_bucket; /* viewport-width class, not exact pixels */
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
@@ -435,6 +436,13 @@ static void dock_reveal_panel(RRFloatPanel *p) {
    dock_edge_set_extent(d,edge,d->extent[edge]);
 }
 
+static void panel_dock_size_save(RRFloatPanel *p) {
+   if(!p || p->dock_edge<0)return;
+   char *key=g_strdup_printf("ui.panel.dock.size.%s",p->id);
+   char *value=g_strdup_printf("%d,%d",p->dock_width,p->dock_height);
+   rrclient_database_setting_set(key,value);
+   g_free(key);g_free(value);
+}
 static void panel_dock_coords_save(RRFloatPanel *p) {
    if (!p || !p->id || p->dock_edge<0) return;
    char *key=g_strdup_printf("ui.panel.dock.position.%s",p->id);
@@ -475,9 +483,12 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    gtk_widget_set_halign(p->frame,GTK_ALIGN_START);
    gtk_widget_set_valign(p->frame,GTK_ALIGN_START);
    /* Keep the same floating chrome and size, not a dock-filling child. */
+   /* A freshly docked control uses the exact natural size of its label and
+    * content. No old floating geometry and no artificial 230x100 padding.
+    * Only a user-driven dock resize installs explicit dimensions. */
    gtk_widget_set_size_request(p->frame,
-      p->saved_width>1?p->saved_width:230,
-      p->saved_height>1?p->saved_height:100);
+      p->dock_width>0?p->dock_width:-1,
+      p->dock_height>0?p->dock_height:-1);
    if(count && !p->dock_x && !p->dock_y){
       if(edge<2)p->dock_y=count*116;
       else p->dock_x=count*246;
@@ -1598,10 +1609,15 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
    if (!p || !p->resizing) {
       return FALSE;
    }
-   gint min_w = panel_minimum_width(p);
-   gint max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_start(p->frame) - 12);
-   gint min_h = p->dock_edge >= 0 ? 72 : 180;
-   gint max_h = MAX(min_h, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_top(p->frame) - 12);
+   gint min_w = p->dock_edge >= 0 ? 90 : panel_minimum_width(p);
+   gint min_h = p->dock_edge >= 0 ? 48 : 180;
+   GtkWidget *area=p->dock_edge>=0?gtk_widget_get_parent(p->frame):GTK_WIDGET(p->overlay);
+   gint usable_w=gtk_widget_get_allocated_width(area);
+   gint usable_h=gtk_widget_get_allocated_height(area);
+   gint offset_x=p->dock_edge>=0?p->dock_x:gtk_widget_get_margin_start(p->frame);
+   gint offset_y=p->dock_edge>=0?p->dock_y:gtk_widget_get_margin_top(p->frame);
+   gint max_w = MAX(min_w, usable_w-offset_x-8);
+   gint max_h = MAX(min_h, usable_h-offset_y-8);
    gint w = CLAMP(p->resize_width + (gint) (x_root - p->resize_x), min_w, max_w);
    gint h = CLAMP(p->resize_height + (gint) (y_root - p->resize_y), min_h, max_h);
    gtk_widget_set_size_request(p->frame, w, h);
@@ -1622,7 +1638,11 @@ static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, g
    }
    panel_resize_to(p, event->x_root, event->y_root);
    p->resizing = FALSE;
-   panel_state_save(p);
+   if(p->dock_edge>=0) {
+      p->dock_width=gtk_widget_get_allocated_width(p->frame);
+      p->dock_height=gtk_widget_get_allocated_height(p->frame);
+      panel_dock_size_save(p);
+   } else panel_state_save(p);
 
    return TRUE;
 }
@@ -1642,6 +1662,12 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    else if(!g_strcmp0(stored_edge,"top"))p->dock_edge=RR_DOCK_TOP;
    else if(!g_strcmp0(stored_edge,"bottom"))p->dock_edge=RR_DOCK_BOTTOM;
    g_free(stored_edge);g_free(dock_key);
+   p->dock_width=p->dock_height=-1;
+   char *size_key=g_strdup_printf("ui.panel.dock.size.%s",id);
+   char *dock_size=rrclient_database_setting_get(size_key);
+   if(dock_size && sscanf(dock_size,"%d,%d",&p->dock_width,&p->dock_height)!=2)
+      p->dock_width=p->dock_height=-1;
+   g_free(dock_size);g_free(size_key);
    char *position_key=g_strdup_printf("ui.panel.dock.position.%s",id);
    char *position=rrclient_database_setting_get(position_key);
    if(position)sscanf(position,"%d,%d",&p->dock_x,&p->dock_y);
@@ -1826,7 +1852,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(panel), p->scale_wrapper, TRUE, TRUE, 0);
    /* Content is populated by the caller after panel construction; apply saved zoom when the panel is actually shown, not to an empty body. */
    p->resize_grip = gtk_event_box_new();
-   GtkWidget *resize_icon = gtk_image_new_from_icon_name("view-restore-symbolic", GTK_ICON_SIZE_MENU);
+   GtkWidget *resize_icon = gtk_label_new("◢");
    gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
    /* The grip itself uses no-show-all so rolled panels stay collapsed. Explicitly show the child: parent show_all() skips this subtree. */
    gtk_widget_show(resize_icon);
@@ -1834,8 +1860,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_valign(p->resize_grip, GTK_ALIGN_END);
    gtk_widget_set_margin_end(p->resize_grip, 2);
    gtk_widget_set_margin_bottom(p->resize_grip, 2);
-   gtk_widget_set_size_request(p->resize_grip, 22, 22);
-   gtk_widget_set_opacity(p->resize_grip, 0.60);
+   gtk_widget_set_size_request(p->resize_grip, 18, 18);
+   gtk_widget_set_opacity(p->resize_grip, 0.42);
    gtk_event_box_set_visible_window(GTK_EVENT_BOX(p->resize_grip), FALSE);
    gtk_widget_set_tooltip_text(p->resize_grip, "Drag to resize panel");
    gtk_widget_add_events(p->resize_grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
