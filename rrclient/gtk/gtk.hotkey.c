@@ -46,8 +46,9 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
 
    if (!gtk_window_is_active(GTK_WINDOW(main_win))) {
       gtk_widget_show_all(main_win);
+      /* Present without reapplying saved geometry. Repositioning after
+       * the WM tiled the window undoes its placement on tab activation. */
       gtk_window_present(GTK_WINDOW(main_win));
-      place_window(main_win);
    }
    /* Number shortcuts follow the *visible* tab strip. Tool windows do not reserve or intercept any notebook numbers. */
    int tab_number = digit == 0 ? 10 : digit;
