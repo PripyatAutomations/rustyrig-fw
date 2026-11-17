@@ -3,6 +3,7 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 /* Shared in-client floating panel chrome; no radio-specific dependencies. */
 #include <math.h>
+#include <stdio.h>
 #include "gtk.floating-panel.h"
 #include "gtk.tabs.h"
 #include "gtk.scale-container.h"
@@ -1088,6 +1089,15 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean hor
 }
 
 static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
+   if(p->dock_edge>=0 && GTK_IS_FIXED(gtk_widget_get_parent(p->frame))) {
+      gint x=MAX(0,p->start_x+(gint)(x_root-p->drag_x));
+      gint y=MAX(0,p->start_y+(gint)(y_root-p->drag_y));
+      if(x!=p->dock_x || y!=p->dock_y) {
+         p->dock_x=x;p->dock_y=y;
+         gtk_fixed_move(GTK_FIXED(gtk_widget_get_parent(p->frame)),p->frame,x,y);
+      }
+      return;
+   }
    int min_x, min_y, max_x, max_y;
    int width = gtk_widget_get_allocated_width(p->frame);
    int height = gtk_widget_get_allocated_height(p->frame);
@@ -1239,7 +1249,8 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
       /* Scale the current user-chosen viewport, not its initial default. Clamp it to the overlay; users can still drag the resize handle. */
       gint min_w = panel_minimum_width(p);
       gint max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_start(p->frame) - 12);
-      gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_top(p->frame) - 12);
+      gint min_h=p->dock_edge>=0?72:180;
+   gint max_h = MAX(min_h, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_top(p->frame) - 12);
       gtk_widget_set_size_request(p->frame, CLAMP((gint) round(old_width * scale / old_scale), min_w, max_w), CLAMP((gint) round(old_height * scale / old_scale)
          , 180, max_h));
    } else if (!p->resizable && !p->rolled) {
@@ -1483,8 +1494,8 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    if (event->type != GDK_BUTTON_PRESS) {
       return TRUE;
    }
-   if (p->dock_edge >= 0)
-      panel_dock_detach(p,(gint)event->x_root,(gint)event->y_root);
+   /* A press on a docked title starts an in-dock move. We undock only
+    * on release outside every eligible dock. */
    panel_raise(p);
    if (active_chat_docks && !p->modal) {
       gtk_style_context_add_class(gtk_widget_get_style_context(p->frame),"rr-dock-drag");
@@ -1493,8 +1504,8 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    p->dragging = TRUE;
    p->drag_x = event->x_root;
    p->drag_y = event->y_root;
-   p->start_x = gtk_widget_get_margin_start(p->frame);
-   p->start_y = gtk_widget_get_margin_top(p->frame);
+   p->start_x = p->dock_edge>=0?p->dock_x:gtk_widget_get_margin_start(p->frame);
+   p->start_y = p->dock_edge>=0?p->dock_y:gtk_widget_get_margin_top(p->frame);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    p->snapped_x = p->snapped_y = FALSE;
    panel_drag_cancel_tick(p);
@@ -1531,11 +1542,32 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    panel_drag_position(p, event->x_root, event->y_root);
    gint edge=active_chat_docks && !p->modal && !(event->state&GDK_SHIFT_MASK)?
       panel_dock_hit(active_chat_docks,(gint)event->x_root,(gint)event->y_root):-1;
+   if(p->dock_edge>=0 && active_chat_docks &&
+      panel_dock_contains(active_chat_docks,p->dock_edge,
+                          (gint)event->x_root,(gint)event->y_root))
+      edge=p->dock_edge;
    if(active_chat_docks)panel_dock_glow(active_chat_docks,FALSE,-1);
    gtk_style_context_remove_class(gtk_widget_get_style_context(p->frame),"rr-dock-drag");
-   if(edge>=0)panel_dock_attach(p,active_chat_docks,edge);
-   else {
-      panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
+   if(p->dock_edge>=0) {
+      if(edge>=0) {
+         if(edge!=p->dock_edge) {
+            p->dock_x=p->dock_y=0;
+            panel_dock_attach(p,active_chat_docks,edge);
+         }
+         panel_dock_coords_save(p);
+      } else {
+         panel_dock_detach(p,(gint)event->x_root,(gint)event->y_root);
+         panel_position_save(p,gtk_widget_get_margin_start(p->frame),
+                              gtk_widget_get_margin_top(p->frame));
+         panel_state_save(p);
+      }
+   } else if(edge>=0) {
+      p->dock_x=p->dock_y=0;
+      panel_dock_attach(p,active_chat_docks,edge);
+      panel_dock_coords_save(p);
+   } else {
+      panel_position_save(p,gtk_widget_get_margin_start(p->frame),
+                           gtk_widget_get_margin_top(p->frame));
       panel_state_save(p);
    }
    if (p->compact_drag_handle) {
@@ -1570,7 +1602,7 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
    gint max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_start(p->frame) - 12);
    gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_top(p->frame) - 12);
    gint w = CLAMP(p->resize_width + (gint) (x_root - p->resize_x), min_w, max_w);
-   gint h = CLAMP(p->resize_height + (gint) (y_root - p->resize_y), 180, max_h);
+   gint h = CLAMP(p->resize_height + (gint) (y_root - p->resize_y), min_h, max_h);
    gtk_widget_set_size_request(p->frame, w, h);
 
    return TRUE;
