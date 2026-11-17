@@ -136,7 +136,7 @@ bool rrclient_modem_ptt_send(const char *source,const char *rx_id,bool on) {
    char vfo[2]={vfo_state_get_active(),0};
    /* Never take over a key held by a manual UI PTT or another session. */
    if(vfo_state_get_bool(vfo,"cat.state.ptt",false)) return false;
-   struct rrclient_rx_stream streams[64]={{0}};
+   struct rrclient_rx_stream streams[64]={0};
    size_t count=audio_rx_streams(streams,G_N_ELEMENTS(streams));
    for(size_t i=0;i<count && i<G_N_ELEMENTS(streams);i++) {
       const struct rrclient_rx_stream *rx=&streams[i];
