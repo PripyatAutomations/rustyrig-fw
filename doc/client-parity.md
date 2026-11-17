@@ -453,6 +453,19 @@ GTK room Username columns expand into remaining roster space and ellipsize
 when narrowed, leaving room for visible status fields. Restoring a saved VFO
 roster enforces enough width for its headers and controls; full usernames still
 determine its natural auto-sized width. Manual divider collapse remains allowed.
+Chat tabs now provide four GTK-managed dock margins (left, right, top, bottom).
+Each edge has a visible touchable line, even when empty; a floating panel
+highlights cyan while dragged and shows the eligible chat edges in cyan. Drop
+near an edge to dock; drag the panel title again to float it. Double-click
+an edge line to collapse/restore its region, and drag the native GTK pane
+divider to resize the reserved area. Docked panes reduce the chat viewport,
+not overlay the text. Their edge and resized extent persist locally. Room
+userlists use a resizable floating panel, docked to the right by default,
+and follow the active server/channel. Inactive room rosters are not shown
+over other rooms, and disconnected rosters are insensitive. The chat docking
+layout is absent from Status, Logs, Routing, Admin, Config, Explorer and
+SDR Directory pages. The routing graph itself is unaffected.
+
 GTK floating-panel positions and expanded dimensions are saved separately for
 compact (under roughly 760px), half-width (roughly 760–1410px), and wide
 windows. Small width changes stay in the same size class. Switching between
