@@ -235,8 +235,14 @@ static void dock_workspace_destroy(GtkWidget *widget,gpointer data) {
    RRChatDocks *d=data;
    for(GList *it=floating_panels;it;it=it->next){
       RRFloatPanel *p=it->data;
-      if(p->frame && p->dock_edge>=0 && gtk_widget_is_ancestor(p->frame,d->root))
+      if(p->frame && p->dock_edge>=0 && gtk_widget_is_ancestor(p->frame,d->root) &&
+         !gtk_widget_in_destruction(GTK_WIDGET(p->overlay))) {
+         /* Closing a chat tab must not erase its saved docking preference. */
+         gint edge=p->dock_edge;
          panel_dock_detach(p,-1,-1);
+         p->dock_edge=edge;
+         panel_dock_save(p);
+      }
    }
    if(active_chat_docks==d) {
       active_chat_docks=NULL;
