@@ -348,7 +348,18 @@ void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    g_signal_connect(zoom_viewport, "size-allocate", G_CALLBACK(zoom_width_diagnostic), NULL);
    gtk_container_add(GTK_CONTAINER(window), zoom_viewport);
 
-
+   /* Initial geometry is separate from zoom. Saved placement overrides
+    * this and xfwm4 remains free to tile or resize the window. */
+   GdkDisplay *display=gtk_widget_get_display(window);
+   GdkMonitor *monitor=gdk_display_get_primary_monitor(display);
+   if (!monitor && gdk_display_get_n_monitors(display)>0)
+      monitor=gdk_display_get_monitor(display,0);
+   if (monitor) {
+      GdkRectangle area;
+      gdk_monitor_get_workarea(monitor,&area);
+      gtk_window_set_default_size(GTK_WINDOW(window),
+         MAX(320,area.width*3/4),MAX(240,area.height*3/4));
+   }
 }
 
 void gtk_ui_zoom_apply(void) {
