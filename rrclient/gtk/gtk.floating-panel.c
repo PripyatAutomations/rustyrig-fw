@@ -107,12 +107,25 @@ static gboolean dock_edge_line_press(GtkWidget *widget, GdkEventButton *event, g
    RRChatDocks *d=g_object_get_data(G_OBJECT(widget),"rr-docks");
    guint edge=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(widget),"rr-dock-edge"))-1;
    if(!d || edge>=RR_DOCK_COUNT)return FALSE;
-   gboolean show=d->collapsed[edge] && gtk_container_get_children(GTK_CONTAINER(d->slot[edge]))!=NULL;
+   GList *children=gtk_container_get_children(GTK_CONTAINER(d->slot[edge]));
+   gboolean show=d->collapsed[edge] && children!=NULL;
+   g_list_free(children);
    d->collapsed[edge]=!show;
    if(show)gtk_widget_show(d->scroll[edge]);
    else gtk_widget_hide(d->scroll[edge]);
    dock_edge_set_extent(d,edge,show?d->extent[edge]:12);
    return TRUE;
+}
+static void dock_pane_initial_allocation(GtkWidget *widget,GtkAllocation *allocation,gpointer unused) {
+   (void)allocation;(void)unused;
+   RRChatDocks *d=g_object_get_data(G_OBJECT(widget),"rr-docks");
+   guint edge=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(widget),"rr-dock-edge"))-1;
+   if(!d || edge>=RR_DOCK_COUNT || d->collapsed[edge] ||
+      g_object_get_data(G_OBJECT(widget),"rr-dock-sized"))return;
+   gint size=edge<2?gtk_widget_get_allocated_width(widget):gtk_widget_get_allocated_height(widget);
+   if(size<80)return;
+   g_object_set_data(G_OBJECT(widget),"rr-dock-sized",GINT_TO_POINTER(1));
+   dock_edge_set_extent(d,edge,d->extent[edge]);
 }
 static gboolean dock_edge_resize_release(GtkWidget *widget,GdkEventButton *event,gpointer unused) {
    (void)unused;
@@ -223,6 +236,7 @@ GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat,GtkWidget *page) {
       gtk_paned_set_wide_handle(GTK_PANED(pane),TRUE);
       gtk_widget_add_events(pane,GDK_BUTTON_RELEASE_MASK);
       g_signal_connect(pane,"button-release-event",G_CALLBACK(dock_edge_resize_release),NULL);
+      g_signal_connect(pane,"size-allocate",G_CALLBACK(dock_pane_initial_allocation),NULL);
    }
    g_object_set_data_full(G_OBJECT(page),"rr-chat-docks",d,g_free);
    g_signal_connect(page,"destroy",G_CALLBACK(dock_workspace_destroy),d);
@@ -333,6 +347,7 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    g_object_unref(p->frame);
    p->dock_edge=edge;
    d->collapsed[edge]=FALSE;
+   g_object_set_data(G_OBJECT(d->pane[edge]),"rr-dock-sized",NULL);
    gtk_widget_show(d->scroll[edge]);
    if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden &&
       !p->room_hidden)gtk_widget_show(p->frame);
@@ -1817,6 +1832,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       panel_state_save(p);
    }
    panel_temporary_visibility(p);
+   panel_room_visibility(p);
 }
 
 void rr_floating_panel_present(RRFloatPanel *p) {
