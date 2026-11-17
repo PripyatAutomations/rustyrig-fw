@@ -70,7 +70,7 @@ typedef struct rr_chat_docks {
    GtkWidget *root, *pane[RR_DOCK_COUNT], *region[RR_DOCK_COUNT];
    GtkWidget *line[RR_DOCK_COUNT], *scroll[RR_DOCK_COUNT], *slot[RR_DOCK_COUNT];
    gint extent[RR_DOCK_COUNT];
-   gboolean collapsed[RR_DOCK_COUNT];
+   gboolean collapsed[RR_DOCK_COUNT], user_collapsed[RR_DOCK_COUNT];
    guint width_bucket;
 } RRChatDocks;
 static RRChatDocks *active_chat_docks;
@@ -104,6 +104,10 @@ static char *dock_extent_key(guint edge,guint bucket) {
    return g_strdup_printf("ui.chat.dock.%s.%s.size",
       dock_edge_name(edge),dock_width_name(bucket));
 }
+static char *dock_collapsed_key(guint edge,guint bucket) {
+   return g_strdup_printf("ui.chat.dock.%s.%s.collapsed",
+      dock_edge_name(edge),dock_width_name(bucket));
+}
 static void dock_edge_set_extent(RRChatDocks *d, guint edge, gint extent) {
    GtkWidget *pane=d->pane[edge];
    gint size=edge<2?gtk_widget_get_allocated_width(pane):
@@ -125,6 +129,10 @@ static gboolean dock_edge_line_press(GtkWidget *widget, GdkEventButton *event, g
    gboolean show=d->collapsed[edge] && children!=NULL;
    g_list_free(children);
    d->collapsed[edge]=!show;
+   d->user_collapsed[edge]=!show;
+   char *key=dock_collapsed_key(edge,d->width_bucket?d->width_bucket:2);
+   rrclient_database_setting_set(key,d->user_collapsed[edge]?"true":"false");
+   g_free(key);
    if(show)gtk_widget_show(d->scroll[edge]);
    else gtk_widget_hide(d->scroll[edge]);
    dock_edge_set_extent(d,edge,show?d->extent[edge]:22);
@@ -153,8 +161,18 @@ static void dock_workspace_allocation(GtkWidget *widget,GtkAllocation *allocatio
       char *saved=rrclient_database_setting_get(key);
       if(saved && *saved)d->extent[edge]=CLAMP(atoi(saved),40,1400);
       g_free(saved);g_free(key);
+      key=dock_collapsed_key(edge,next);
+      saved=rrclient_database_setting_get(key);
+      d->user_collapsed[edge]=saved && !strcmp(saved,"true");
+      g_free(saved);g_free(key);
+      GList *items=gtk_container_get_children(GTK_CONTAINER(d->slot[edge]));
+      gboolean occupied=items!=NULL;
+      g_list_free(items);
+      d->collapsed[edge]=d->user_collapsed[edge] || !occupied;
+      if(d->collapsed[edge])gtk_widget_hide(d->scroll[edge]);
+      else gtk_widget_show(d->scroll[edge]);
       g_object_set_data(G_OBJECT(d->pane[edge]),"rr-dock-sized",NULL);
-      if(!d->collapsed[edge])dock_edge_set_extent(d,edge,d->extent[edge]);
+      dock_edge_set_extent(d,edge,d->collapsed[edge]?22:d->extent[edge]);
    }
 }
 static gboolean dock_edge_resize_release(GtkWidget *widget,GdkEventButton *event,gpointer unused) {
@@ -385,6 +403,10 @@ static void dock_reveal_panel(RRFloatPanel *p) {
    if(!d)return;
    guint edge=p->dock_edge;
    d->collapsed[edge]=FALSE;
+   d->user_collapsed[edge]=FALSE;
+   char *key=dock_collapsed_key(edge,d->width_bucket?d->width_bucket:2);
+   rrclient_database_setting_set(key,"false");
+   g_free(key);
    gtk_widget_show(d->scroll[edge]);
    dock_edge_set_extent(d,edge,d->extent[edge]);
 }
@@ -409,12 +431,13 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    gtk_box_pack_start(GTK_BOX(slot),p->frame,TRUE,TRUE,0);
    g_object_unref(p->frame);
    p->dock_edge=edge;
-   d->collapsed[edge]=FALSE;
+   d->collapsed[edge]=d->user_collapsed[edge];
    g_object_set_data(G_OBJECT(d->pane[edge]),"rr-dock-sized",NULL);
-   gtk_widget_show(d->scroll[edge]);
+   if(d->collapsed[edge])gtk_widget_hide(d->scroll[edge]);
+   else gtk_widget_show(d->scroll[edge]);
    if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden &&
       !p->room_hidden)gtk_widget_show(p->frame);
-   dock_edge_set_extent(d,edge,d->extent[edge]);
+   dock_edge_set_extent(d,edge,d->collapsed[edge]?22:d->extent[edge]);
    panel_dock_save(p);
 }
 static void panel_dock_detach(RRFloatPanel *p,gint root_x,gint root_y) {
