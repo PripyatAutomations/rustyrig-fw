@@ -693,7 +693,9 @@ bool gui_init(void) {
    /* Fixed right status cluster never shares the oversized minimum width of the left toolbar or the notebook. Give each side its own allocation. */
    GtkWidget *toolbar_shell = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    GtkWidget *toolbar_viewport = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   /* With NEVER, the toolbar's full child requisition can set the WM's
+     * minimum window width despite min-content-width=1. */
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(toolbar_viewport), 1);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(toolbar_viewport), FALSE);
    gtk_widget_set_hexpand(toolbar_viewport, TRUE);
