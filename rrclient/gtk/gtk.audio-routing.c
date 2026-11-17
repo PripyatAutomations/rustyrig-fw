@@ -118,22 +118,6 @@ static void routing_graph_select(const char *id,gboolean selected) {
 static void routing_graph_clear_selection(void) {
    if(graph_selection) g_hash_table_remove_all(graph_selection);
 }
-static void routing_graph_begin_group(void) {
-   memset(graph_group_member,0,sizeof(graph_group_member));
-   if(!graph_snapshot || graph_node_drag<0 ||
-      (guint)graph_node_drag>=graph_snapshot->node_count) return;
-   const rr_ag_view_node_t *anchor=&graph_snapshot->nodes[graph_node_drag];
-   graph_drag_start_node_x=routing_node_x(anchor);
-   graph_drag_start_node_y=routing_node_y(anchor);
-   for(guint i=0;i<graph_snapshot->node_count &&
-                  i<G_N_ELEMENTS(graph_group_member);i++) {
-      const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
-      if(!routing_graph_is_selected(n->id) || graph_missing_since[i]) continue;
-      graph_group_member[i]=TRUE;
-      graph_group_origin_x[i]=routing_node_x(n);
-      graph_group_origin_y[i]=routing_node_y(n);
-   }
-}
 
 /* The snap setting affects only interactive node movement. Stored coordinates
  * remain exact, and Shift temporarily bypasses snapping for fine placement. */
@@ -205,6 +189,23 @@ static double routing_node_y(const rr_ag_view_node_t *node) {
    routing_position_t *pos = routing_position(node->id);
    return pos ? pos->y : GRAPH_LAYOUT_MARGIN;
 }
+static void routing_graph_begin_group(void) {
+   memset(graph_group_member,0,sizeof(graph_group_member));
+   if(!graph_snapshot || graph_node_drag<0 ||
+      (guint)graph_node_drag>=graph_snapshot->node_count) return;
+   const rr_ag_view_node_t *anchor=&graph_snapshot->nodes[graph_node_drag];
+   graph_drag_start_node_x=routing_node_x(anchor);
+   graph_drag_start_node_y=routing_node_y(anchor);
+   for(guint i=0;i<graph_snapshot->node_count &&
+                  i<G_N_ELEMENTS(graph_group_member);i++) {
+      const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+      if(!routing_graph_is_selected(n->id) || graph_missing_since[i]) continue;
+      graph_group_member[i]=TRUE;
+      graph_group_origin_x[i]=routing_node_x(n);
+      graph_group_origin_y[i]=routing_node_y(n);
+   }
+}
+
 static void routing_layout_set(const rr_ag_view_node_t *node, double x, double y,
                                gboolean reset) {
    routing_position_t *pos = routing_position(node->id);
