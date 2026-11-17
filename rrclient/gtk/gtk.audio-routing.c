@@ -985,6 +985,7 @@ static const char *pipeline_for_node(const char *id);
 static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
 static gint graph_drag_modem_target = -1;
+static gboolean graph_drag_tx_mix;
 static gint graph_drag_rig_target = -1;
 static gint graph_drag_lv2_target = -1;
 static gboolean graph_drag_lv2_output;
@@ -1053,6 +1054,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    gboolean from_modem_tx = !graph_drag_mixer &&
        g_str_has_prefix(origin_node->id, "modem") &&
        g_str_has_suffix(origin_node->id, ".tx");
+   gboolean from_tx_mix=graph_drag_mixer &&
+       !strcmp(origin_node->id,"tx.mix");
    const char *required_bus = graph_drag_mixer ? origin_node->id :
        (origin_node->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix");
    const double limit = graph_touch_pointer ?
@@ -1061,6 +1064,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
    double best = limit;
    gboolean found = FALSE;
    graph_drag_modem_target = -1;
+   graph_drag_tx_mix=FALSE;
    graph_drag_rig_target = -1;
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
@@ -1081,13 +1085,19 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
           !strcmp(n->id, "rx.mix");
       gboolean lv2_reverse_input = from_lv2_input && routing_modem_source(n);
       gboolean lv2_connection = to_lv2 || lv2_output || lv2_reverse_input;
-      gboolean rig_target = (from_modem_tx || from_mic) &&
+      gboolean tx_input =
+          ((from_mic || (from_modem_tx && !graph_drag_channel)) &&
+           !strcmp(n->id,"tx.mix")) ||
+          (from_tx_mix && (!strcmp(n->id,"src.client.dsp0") ||
+           (g_str_has_prefix(n->id,"modem") && g_str_has_suffix(n->id,".tx"))));
+      gboolean rig_target = from_modem_tx && graph_drag_channel &&
           n->type == RR_AG_SINK &&
           g_str_has_prefix(n->id, "rig.") &&
           (g_str_has_suffix(n->id, ".tx") ||
            !strcmp(n->id, "rig.sink"));
-      gboolean valid = rig_target || modem_connection || lv2_connection ||
-         (!from_lv2 && !from_lv2_input && (graph_drag_mixer ?
+      gboolean valid = tx_input || rig_target || modem_connection || lv2_connection ||
+         (!from_mic && !from_modem_tx && !from_tx_mix &&
+          !from_lv2 && !from_lv2_input && (graph_drag_mixer ?
           (n->type == RR_AG_SOURCE && !n->read_only &&
            !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix",
                    required_bus)) :
@@ -1100,7 +1110,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       }
       double nx = routing_node_x(n) +
           (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
-      double ny = routing_node_y(n) + (rig_target ?
+      double ny = routing_node_y(n) + (tx_input ?
+         (from_tx_mix ? 68. : 60.) : rig_target ?
          (from_modem_tx && graph_drag_channel ?
           RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
@@ -1118,6 +1129,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index,
       graph_drag_modem_target = modem_connection ?
          (gint)(from_modem ? modem_slot : target_slot) : -1;
       graph_drag_rig_target = rig_target ? (gint)i : -1;
+      graph_drag_tx_mix = tx_input;
       if (lv2_connection) {
          const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
          graph_drag_lv2_output = lv2_output;
@@ -4627,7 +4639,23 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) &&
        routing_drag_target(gx, gy, &source_index, &snap_x, &snap_y);
    if (graph_drag_moved && hit && source_index >= 0) {
-      if (graph_drag_lv2_target > 0) {
+      if(graph_drag_tx_mix) {
+         const rr_ag_view_node_t *src=&graph_snapshot->nodes[source_index];
+         if(!strcmp(src->id,"src.client.dsp0"))
+            audio_request_mic_tx_route("auto");
+         else {
+            unsigned slot=0;char tail=0;
+            if(sscanf(src->id,"modem%u.tx%c",&slot,&tail)==1 &&
+               slot && slot<=RR_LOCAL_MODEM_MAX) {
+               rr_local_modem_request_t req={
+                  .action=RR_LOCAL_MODEM_TX_ROUTE,.slot=slot
+               };
+               g_strlcpy(req.source,"tx.mix",sizeof(req.source));
+               rr_local_modem_request(&req);
+            }
+         }
+         routing_queue();
+      } else if (graph_drag_lv2_target > 0) {
          rr_audio_effect_request_t req = {
             .action = graph_drag_lv2_output ? 'O' : 'R',
             .slot = (unsigned)graph_drag_lv2_target
@@ -4704,6 +4732,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    /* Plain taps do not connect/disconnect. Double-click is reserved for removal. */
    graph_drag_source = graph_drag_channel = -1;
    graph_drag_modem_target = graph_drag_rig_target = -1;
+   graph_drag_tx_mix=FALSE;
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
    graph_drag_lv2_dest_channel = 0;
