@@ -238,6 +238,14 @@ static double routing_pin_radius(void) {
                 graph_touch_pointer ? 36. : 20.);
 }
 static gboolean graph_pan_dragging;
+/* Gtk-style Shift-drag marquee; geometry is expressed in graph/world units. */
+static gboolean graph_marquee_active;
+static double graph_marquee_x0,graph_marquee_y0,graph_marquee_x1,graph_marquee_y1;
+static GHashTable *graph_marquee_base, *graph_marquee_marks_base;
+static void routing_marquee_update(void);
+static void routing_marquee_draw(cairo_t *cr);
+static gboolean routing_marquee_begin(double x,double y,guint modifiers);
+static void routing_marquee_end(void);
 static double graph_pan_begin_x, graph_pan_begin_y, graph_pan_base_x, graph_pan_base_y;
 static void graph_canvas_update_size(void) {
    if (graph_canvas) {
@@ -1590,6 +1598,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    routing_effect_draw(cr);
    routing_serial_draw(cr);
    onair_draw(cr);
+   routing_marquee_draw(cr);
 
    /* The preview always ends in a filled arrowhead. As it approaches
     * a valid receiving ring the endpoint snaps to that exact pin. */
@@ -4388,6 +4397,149 @@ static gboolean routing_wire_context_menu(GdkEventButton *event,double x,double 
    gtk_widget_show_all(menu);
    gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
    return TRUE;
+}
+
+/* Select only complete rectangular objects: the inclusive bounds test
+ * deliberately excludes anything intersecting the marquee edge. */
+static gboolean routing_marquee_contains(double x,double y,double w,double h) {
+   const double left=MIN(graph_marquee_x0,graph_marquee_x1);
+   const double right=MAX(graph_marquee_x0,graph_marquee_x1);
+   const double top=MIN(graph_marquee_y0,graph_marquee_y1);
+   const double bottom=MAX(graph_marquee_y0,graph_marquee_y1);
+   return x>=left && y>=top && x+w<=right && y+h<=bottom;
+}
+static void routing_marquee_update(void) {
+   if(!graph_marquee_active)return;
+   routing_graph_clear_selection();
+   if(graph_marquee_base) {
+      GHashTableIter it;gpointer key;
+      g_hash_table_iter_init(&it,graph_marquee_base);
+      while(g_hash_table_iter_next(&it,&key,NULL))
+         routing_graph_select(key,TRUE);
+   }
+   if(graph_snapshot)
+      for(guint i=0;i<graph_snapshot->node_count;i++) {
+         const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+         if(graph_missing_since[i])continue;
+         if(routing_marquee_contains(routing_node_x(n),routing_node_y(n),
+               RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H))
+            routing_graph_select(n->id,TRUE);
+      }
+   for(guint i=0;i<routing_serial_count;i++) {
+      const routing_serial_node_t *n=&routing_serial_nodes[i];
+      if(routing_marquee_contains(n->x,n->y,ROUTING_SERIAL_W,ROUTING_SERIAL_H))
+         routing_graph_select(n->id,TRUE);
+   }
+   if(routing_controls_visible && routing_effect_blocks)
+      for(guint i=0;i<routing_effect_blocks->len;i++) {
+         const routing_effect_block_t *b=g_ptr_array_index(routing_effect_blocks,i);
+         if(b->standalone)continue; /* Also present in PCM node list. */
+         routing_position_t *pos=routing_position(b->id);
+         if(pos && routing_marquee_contains(pos->x,pos->y,
+                routing_effect_width(b),routing_effect_height(b)))
+            routing_graph_select(b->id,TRUE);
+      }
+   if(onair_visible) {
+      if(routing_marquee_contains(onair_x,onair_y,ONAIR_W,ONAIR_H))
+         routing_graph_select("ui.onair",TRUE);
+      if(routing_marquee_contains(ptt_x,ptt_y,150.,70.))
+         routing_graph_select("ui.ptt",TRUE);
+   }
+   if(routing_marks && routing_marks->tool==RR_MARK_SELECT)
+      for(guint i=0;i<routing_marks->items->len;i++) {
+         RRMark *mark=g_ptr_array_index(routing_marks->items,i);
+         double left=G_MAXDOUBLE,right=-G_MAXDOUBLE,top=G_MAXDOUBLE,bottom=-G_MAXDOUBLE;
+         for(guint j=0;j+1<mark->xy->len;j+=2) {
+            double x=g_array_index(mark->xy,double,j);
+            double y=g_array_index(mark->xy,double,j+1);
+            left=MIN(left,x);right=MAX(right,x);
+            top=MIN(top,y);bottom=MAX(bottom,y);
+         }
+         if(left==G_MAXDOUBLE)continue;
+         if(mark->kind==RR_MARK_LABEL || mark->kind==RR_MARK_GROUP) {
+            right=MAX(right,left+MAX(90.,mark->text?strlen(mark->text)*8.:0.));
+            top-=20.;bottom+=12.;
+         }
+         mark->selected=(graph_marquee_marks_base &&
+             g_hash_table_contains(graph_marquee_marks_base,mark->uuid)) ||
+             routing_marquee_contains(left,top,right-left,bottom-top);
+      }
+   graph_canvas_update_size();
+}
+static gboolean routing_marquee_begin(double x,double y,guint modifiers) {
+   graph_marquee_active=TRUE;
+   graph_marquee_x0=graph_marquee_x1=x;
+   graph_marquee_y0=graph_marquee_y1=y;
+   if(graph_marquee_base)g_hash_table_unref(graph_marquee_base);
+   graph_marquee_base=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   if(graph_marquee_marks_base)g_hash_table_unref(graph_marquee_marks_base);
+   graph_marquee_marks_base=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   if(modifiers&GDK_CONTROL_MASK) {
+      if(graph_selection){
+         GHashTableIter it;gpointer key;
+         g_hash_table_iter_init(&it,graph_selection);
+         while(g_hash_table_iter_next(&it,&key,NULL))
+            g_hash_table_add(graph_marquee_base,g_strdup(key));
+      }
+      if(routing_marks)
+         for(guint i=0;i<routing_marks->items->len;i++) {
+            RRMark *mark=g_ptr_array_index(routing_marks->items,i);
+            if(mark->selected)
+               g_hash_table_add(graph_marquee_marks_base,g_strdup(mark->uuid));
+         }
+   }
+   routing_marquee_update();
+   return TRUE;
+}
+static void routing_marquee_end(void) {
+   graph_marquee_active=FALSE;
+   g_clear_pointer(&graph_marquee_base,g_hash_table_unref);
+   g_clear_pointer(&graph_marquee_marks_base,g_hash_table_unref);
+   graph_canvas_update_size();
+}
+static void routing_marquee_draw(cairo_t *cr) {
+   /* Called inside the graph transform, to match the object hit-test space. */
+   if(graph_marquee_active) {
+      double x=MIN(graph_marquee_x0,graph_marquee_x1);
+      double y=MIN(graph_marquee_y0,graph_marquee_y1);
+      double w=fabs(graph_marquee_x1-graph_marquee_x0);
+      double h=fabs(graph_marquee_y1-graph_marquee_y0);
+      cairo_save(cr);
+      cairo_rectangle(cr,x,y,w,h);
+      cairo_set_source_rgba(cr,.20,.66,.96,.18);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgba(cr,.33,.78,1.,.95);
+      cairo_set_line_width(cr,1.4/MAX(.01,graph_scale));
+      const double dashes[]={5./MAX(.01,graph_scale),3./MAX(.01,graph_scale)};
+      cairo_set_dash(cr,dashes,2,0);
+      cairo_stroke(cr);
+      cairo_restore(cr);
+   }
+   /* Other canvas objects use the same cyan selection emphasis as PCM blocks. */
+   cairo_save(cr);
+   cairo_set_source_rgba(cr,.29,.80,1.,.95);
+   cairo_set_line_width(cr,2./MAX(.01,graph_scale));
+   for(guint i=0;i<routing_serial_count;i++) {
+      const routing_serial_node_t *n=&routing_serial_nodes[i];
+      if(routing_graph_is_selected(n->id))
+         cairo_rectangle(cr,n->x-3.,n->y-3.,ROUTING_SERIAL_W+6.,ROUTING_SERIAL_H+6.);
+   }
+   if(routing_controls_visible && routing_effect_blocks)
+      for(guint i=0;i<routing_effect_blocks->len;i++) {
+         const routing_effect_block_t *b=g_ptr_array_index(routing_effect_blocks,i);
+         if(b->standalone || !routing_graph_is_selected(b->id))continue;
+         routing_position_t *p=routing_position(b->id);
+         if(p)cairo_rectangle(cr,p->x-3.,p->y-3.,
+              routing_effect_width(b)+6.,routing_effect_height(b)+6.);
+      }
+   if(onair_visible) {
+      if(routing_graph_is_selected("ui.onair"))
+         cairo_rectangle(cr,onair_x-3.,onair_y-3.,ONAIR_W+6.,ONAIR_H+6.);
+      if(routing_graph_is_selected("ui.ptt"))
+         cairo_rectangle(cr,ptt_x-3.,ptt_y-3.,156.,76.);
+   }
+   cairo_stroke(cr);
+   cairo_restore(cr);
 }
 static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
                                        gdouble x, gdouble y, gpointer unused) {
