@@ -198,10 +198,9 @@ static void routing_marks_width(GtkSpinButton *button,gpointer unused) {
    }
    if(changes){routing_marks_changed(NULL);routing_marks_save();}
 }
-static GtkWidget *routing_marks_toolbar(void) {
+static void routing_marks_toolbar(GtkFlowBox *flow) {
    static const char *names[]={"Select","Pencil","Divider","Box","Note","Section","Eraser"};
    static const char *symbols[]={"↖","✎","─","□","T","▣","⌫"};
-   GtkWidget *bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,2);
    GSList *group=NULL;
    for(int i=0;i<7;i++) {
       GtkWidget *button=gtk_radio_button_new_with_label(group,symbols[i]);
@@ -210,19 +209,18 @@ static GtkWidget *routing_marks_toolbar(void) {
       group=gtk_radio_button_get_group(GTK_RADIO_BUTTON(button));
       g_object_set_data(G_OBJECT(button),"mark-tool",GINT_TO_POINTER(i));
       g_signal_connect(button,"toggled",G_CALLBACK(routing_marks_tool_toggled),NULL);
-      gtk_box_pack_start(GTK_BOX(bar),button,FALSE,FALSE,0);
+      gtk_flow_box_insert(flow,button,-1);
       if(i==0)gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),TRUE);
    }
    GtkWidget *color=gtk_color_button_new_with_rgba(&routing_marks->default_color);
    gtk_widget_set_tooltip_text(color,"Color for new or selected shapes");
    g_signal_connect(color,"color-set",G_CALLBACK(routing_marks_color),NULL);
-   gtk_box_pack_start(GTK_BOX(bar),color,FALSE,FALSE,0);
+   gtk_flow_box_insert(flow,color,-1);
    GtkWidget *width=gtk_spin_button_new_with_range(.5,30.,.5);
    gtk_spin_button_set_value(GTK_SPIN_BUTTON(width),routing_marks->default_width);
    gtk_widget_set_tooltip_text(width,"Stroke width for new or selected shapes");
    g_signal_connect(width,"value-changed",G_CALLBACK(routing_marks_width),NULL);
-   gtk_box_pack_start(GTK_BOX(bar),width,FALSE,FALSE,0);
-   return bar;
+   gtk_flow_box_insert(flow,width,-1);
 }
 
 static void routing_pan_clamp_left(void) {
@@ -5289,6 +5287,7 @@ void gtk_audio_graph_present(void) {
       graph_profiles = gtk_combo_box_text_new_with_entry();
       g_signal_connect(graph_profile_entry(), "changed", G_CALLBACK(graph_profile_entry_changed), NULL);
       gtk_widget_set_hexpand(graph_profiles, TRUE);
+      gtk_widget_set_size_request(graph_profiles,140,-1);
       gtk_widget_set_tooltip_text(graph_profiles, "***AUTO*** is live routing; edit a link to start a New Preset, or choose a saved preset");
       gtk_box_pack_start(GTK_BOX(profiles), graph_profiles, TRUE, TRUE, 0);
       GtkWidget *load = gtk_button_new_with_label("Load");
@@ -5320,7 +5319,7 @@ void gtk_audio_graph_present(void) {
       gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(tools),3);
       gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(tools),4);
       gtk_widget_set_hexpand(tools,TRUE);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),routing_marks_toolbar(),-1);
+      routing_marks_toolbar(GTK_FLOW_BOX(tools));
       GtkWidget *auto_layout = gtk_button_new_with_label("AUTO");
       gtk_widget_set_tooltip_text(auto_layout,
          "Auto-arrange by wire topology in non-overlapping, wrapped columns; reset saved positions");
@@ -5371,6 +5370,8 @@ void gtk_audio_graph_present(void) {
       GtkWidget *info =
          gtk_label_new("Drag blocks or ports to move/patch. Touch: hold an effect or modem for options. Mouse: right-click; middle/Alt-drag pans, wheel zooms; double-click trim resets to 0 dB.");
       gtk_label_set_xalign(GTK_LABEL(info), 0);
+      gtk_label_set_line_wrap(GTK_LABEL(info),TRUE);
+      gtk_label_set_line_wrap_mode(GTK_LABEL(info),PANGO_WRAP_WORD_CHAR);
       gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 1);
       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       /* The graph has its own Cairo zoom. Never scale its viewport size request through the generic widget wrapper as well. */
