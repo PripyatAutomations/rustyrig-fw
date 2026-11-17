@@ -704,7 +704,7 @@ bool gui_init(void) {
    // their own font (chat, frequency entry, etc) keep it; everything else
    // (labels, buttons, tabs, ...) inherits this one.
    // Attach the notebook to the main window for tabs
-   main_notebook = gtk_notebook_new();
+   main_notebook = rr_adaptive_notebook_new();
    /* The shared status/command toolbar belongs above every notebook page. */
    GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    /* GtkScrolledWindow must never give the complete UI a horizontal minimum derived from a wide notebook page or transient toolbar text. */
