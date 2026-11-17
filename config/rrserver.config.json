@@ -1,5 +1,6 @@
 {
    "components": {
+      "modems": "true",
       "fwdsp": "true",
       "rrclient": "false",
       "rrserver": "true"
