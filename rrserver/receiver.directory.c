@@ -267,7 +267,15 @@ static void complete_download(void) {
    request.length = 0;
 }
 static void start_fetch(void) {
-   if (request.thread || !source_allowed(cfg_get("receiver-directory.url"))) {
+   if(request.thread) return;
+   if(!source_allowed(cfg_get("receiver-directory.url"))) {
+      /* Don't spin in server.poll when the operator disables the URL or
+       * supplies an invalid origin; keep existing cached data. */
+      if(next_fetch<=time(NULL)) {
+         Log(LOG_WARN,"receiver.directory",
+             "SDR directory upstream URL disabled/invalid; keeping cached snapshot");
+         next_fetch=time(NULL)+DIR_RETRY;
+      }
       return;
    }
    static gsize curl_ready;
@@ -301,7 +309,11 @@ static void start_fetch(void) {
    request.thread = g_thread_try_new("rr-directory-fetch", downloader, NULL, NULL);
 
    if (!request.thread) {
+      Log(LOG_WARN,"receiver.directory",
+          "Unable to start SDR directory HTTP worker: %s",
+          request.url?request.url:"(none)");
       g_clear_pointer(&request.url, g_free);
+      next_fetch=time(NULL)+DIR_RETRY;
    }
 }
 static void respond(rrconn_t *client, const char *cmd, const char *nonce) {
@@ -466,15 +478,22 @@ bool rrserver_receiver_directory_init(void) {
       }
       make_digest();
       published_at=publication_time(snapshot);
-      if(snapshot && published_at && publication_age(time(NULL))>DIR_STALE &&
-         next_fetch>time(NULL)+DIR_RETRY)
-         next_fetch=time(NULL); /* Do not honor a day's-old persisted fresh deadline. */
+      const char *configured_url=cfg_get("receiver-directory.url");
+      if(snapshot && next_fetch>time(NULL) &&
+         ((!source_url || g_strcmp0(configured_url,source_url)) ||
+          !published_at || publication_age(time(NULL))>DIR_STALE))
+         next_fetch=time(NULL); /* Revalidate stale/unverifiable or changed origins. */
 
       if (snapshot) {
          Log(LOG_INFO, "receiver.directory", "Loaded server directory generation %llu from SQLite", (unsigned long long)generation);
       }
    }
    sqlite3_finalize(stmt);
+   Log(LOG_INFO,"receiver.directory",
+       "SDR directory cache %s: generation=%llu, fetched=%lld, upstream-published=%lld (%lld minutes old), next-check=%lld",
+       db_path,(unsigned long long)generation,(long long)fetched_at,
+       (long long)published_at,(long long)(publication_age(time(NULL))/60),
+       (long long)next_fetch);
    event_on_binary(RR_SERVER_ROUTE_EVENT, request_handler, NULL);
    event_on("server.poll", poll_dir, NULL);
 
