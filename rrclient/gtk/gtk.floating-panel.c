@@ -211,6 +211,7 @@ static void dock_edge_style(void) {
    installed=TRUE;
    GtkCssProvider *css=gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
+      ".rr-chat-dock-paned > separator { min-width: 4px; min-height: 4px; }"
       ".rr-chat-dock-line { background-color: alpha(@theme_fg_color,.10);"
       " border: 1px solid alpha(@theme_fg_color,.25); border-radius: 3px; }"
       ".rr-chat-dock-line.rr-dock-drag { background-color: rgba(0,190,240,.24);"
@@ -228,7 +229,7 @@ static void dock_edge_create(RRChatDocks *d,guint edge) {
    /* A thin inner-edge target, not a full-height header button. */
    GtkWidget *region=gtk_box_new(edge<2?GTK_ORIENTATION_HORIZONTAL:GTK_ORIENTATION_VERTICAL,0);
    GtkWidget *line=gtk_event_box_new();
-   gtk_widget_set_size_request(line,edge<2?10:-1,edge<2?-1:10);
+   gtk_widget_set_size_request(line,edge<2?5:-1,edge<2?-1:5);
    gtk_widget_set_tooltip_text(line,
       "Drop a panel here to dock. Double-click to collapse/restore; drag the divider to resize.");
    gtk_widget_add_events(line,GDK_BUTTON_PRESS_MASK);
@@ -315,7 +316,9 @@ GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat,GtkWidget *page) {
       GtkWidget *pane=d->pane[edge];
       g_object_set_data(G_OBJECT(pane),"rr-docks",d);
       g_object_set_data(G_OBJECT(pane),"rr-dock-edge",GUINT_TO_POINTER(edge+1));
-      gtk_paned_set_wide_handle(GTK_PANED(pane),TRUE);
+      gtk_paned_set_wide_handle(GTK_PANED(pane),FALSE);
+      gtk_style_context_add_class(gtk_widget_get_style_context(pane),
+         "rr-chat-dock-paned");
       gtk_widget_add_events(pane,GDK_BUTTON_RELEASE_MASK);
       g_signal_connect(pane,"button-release-event",G_CALLBACK(dock_edge_resize_release),NULL);
       g_signal_connect(pane,"size-allocate",G_CALLBACK(dock_pane_initial_allocation),NULL);
@@ -1112,8 +1115,16 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean hor
 
 static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
    if(p->dock_edge>=0 && GTK_IS_FIXED(gtk_widget_get_parent(p->frame))) {
-      gint x=MAX(0,p->start_x+(gint)(x_root-p->drag_x));
-      gint y=MAX(0,p->start_y+(gint)(y_root-p->drag_y));
+      GtkWidget *slot=gtk_widget_get_parent(p->frame);
+      RRChatDocks *d=g_object_get_data(G_OBJECT(slot),"rr-docks");
+      gint available_w=d?gtk_widget_get_allocated_width(d->scroll[p->dock_edge]):0;
+      gint available_h=d?gtk_widget_get_allocated_height(d->scroll[p->dock_edge]):0;
+      gint width=gtk_widget_get_allocated_width(p->frame);
+      gint height=gtk_widget_get_allocated_height(p->frame);
+      gint x=CLAMP(p->start_x+(gint)(x_root-p->drag_x),
+         0,MAX(0,available_w>1?available_w-width:0));
+      gint y=CLAMP(p->start_y+(gint)(y_root-p->drag_y),
+         0,MAX(0,available_h>1?available_h-height:0));
       if(x!=p->dock_x || y!=p->dock_y) {
          p->dock_x=x;p->dock_y=y;
          gtk_fixed_move(GTK_FIXED(gtk_widget_get_parent(p->frame)),p->frame,x,y);
