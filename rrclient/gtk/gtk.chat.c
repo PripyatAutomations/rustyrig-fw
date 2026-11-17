@@ -1556,7 +1556,7 @@ static void room_rf_panel_refresh(void) {
       }
    }
 
-   rr_remote_rf_source_t remote[RR_REMOTE_RF_SOURCES_MAX] = {{0}};
+   rr_remote_rf_source_t remote[RR_REMOTE_RF_SOURCES_MAX] = {0};
    size_t remote_count = rrclient_media_remote_rf_snapshot(remote, G_N_ELEMENTS(remote));
    gboolean remote_available = FALSE;
    for (size_t i = 0; i < remote_count && i < G_N_ELEMENTS(remote); i++)
