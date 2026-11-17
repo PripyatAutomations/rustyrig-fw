@@ -626,20 +626,103 @@ static gboolean main_toolbar_drag_press(GtkWidget *widget, GdkEventButton *event
    return FALSE;
 }
 
-/* No server-side borders means the normal GTK frame resize affordance is
- * absent. Provide an explicit bottom-right WM resize grip. */
-static gboolean main_window_resize_press(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+/* Client-side resize edges for the undecorated main window. All dragging is
+ * handed to the WM (xfwm4), so tiling, limits and screen-edge behavior stay
+ * native. Each edge has its own small input-only-looking GtkEventBox. */
+static GtkWidget *main_resize_handles[8];
+static const GdkWindowEdge main_resize_edges[8] = {
+   GDK_WINDOW_EDGE_NORTH, GDK_WINDOW_EDGE_SOUTH,
+   GDK_WINDOW_EDGE_WEST, GDK_WINDOW_EDGE_EAST,
+   GDK_WINDOW_EDGE_NORTH_WEST, GDK_WINDOW_EDGE_NORTH_EAST,
+   GDK_WINDOW_EDGE_SOUTH_WEST, GDK_WINDOW_EDGE_SOUTH_EAST
+};
+static const char *main_resize_cursors[8] = {
+   "n-resize", "s-resize", "w-resize", "e-resize",
+   "nw-resize", "ne-resize", "sw-resize", "se-resize"
+};
+static gboolean main_window_resize_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
-   (void)unused;
-   if (!GTK_IS_WINDOW(main_window) || event->type != GDK_BUTTON_PRESS ||
-       event->button != GDK_BUTTON_PRIMARY || !gtk_window_get_resizable(GTK_WINDOW(main_window)))
+   guint index=GPOINTER_TO_UINT(data)-1;
+   if (index>=G_N_ELEMENTS(main_resize_edges) || !GTK_IS_WINDOW(main_window) ||
+       event->type!=GDK_BUTTON_PRESS || event->button!=GDK_BUTTON_PRIMARY ||
+       !gtk_window_get_resizable(GTK_WINDOW(main_window)))
       return FALSE;
    GdkWindow *gdk=gtk_widget_get_window(main_window);
-   if (gdk && (gdk_window_get_state(gdk) & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN)))
+   if (!gdk || (gdk_window_get_state(gdk) &
+       (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN)))
       return FALSE;
-   gtk_window_begin_resize_drag(GTK_WINDOW(main_window),GDK_WINDOW_EDGE_SOUTH_EAST,
+   gtk_window_begin_resize_drag(GTK_WINDOW(main_window),main_resize_edges[index],
       event->button,(gint)event->x_root,(gint)event->y_root,event->time);
    return TRUE;
+}
+static gboolean main_window_resize_hover(GtkWidget *widget, GdkEventCrossing *event,
+                                          gpointer data) {
+   guint index=GPOINTER_TO_UINT(data)-1;
+   if(index>=G_N_ELEMENTS(main_resize_edges))return FALSE;
+   gboolean enter=event->type==GDK_ENTER_NOTIFY;
+   gtk_widget_set_opacity(widget,enter?.75:.18);
+   GdkWindow *window=gtk_widget_get_window(widget);
+   if(window) {
+      GdkDisplay *display=gdk_window_get_display(window);
+      GdkCursor *cursor=enter?gdk_cursor_new_from_name(display,main_resize_cursors[index]):NULL;
+      gdk_window_set_cursor(window,cursor);
+      if(cursor)g_object_unref(cursor);
+   }
+   return FALSE;
+}
+static gboolean main_window_resize_state(GtkWidget *widget,GdkEventWindowState *event,
+                                          gpointer unused) {
+   (void)widget;(void)unused;
+   gboolean shown=!(event->new_window_state &
+      (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN));
+   for(guint i=0;i<G_N_ELEMENTS(main_resize_handles);i++)
+      if(main_resize_handles[i])gtk_widget_set_visible(main_resize_handles[i],shown);
+   return FALSE;
+}
+static void main_window_resize_handles_add(GtkOverlay *overlay) {
+   static const GtkAlign horizontal[8]={
+      GTK_ALIGN_FILL,GTK_ALIGN_FILL,GTK_ALIGN_START,GTK_ALIGN_END,
+      GTK_ALIGN_START,GTK_ALIGN_END,GTK_ALIGN_START,GTK_ALIGN_END
+   };
+   static const GtkAlign vertical[8]={
+      GTK_ALIGN_START,GTK_ALIGN_END,GTK_ALIGN_FILL,GTK_ALIGN_FILL,
+      GTK_ALIGN_START,GTK_ALIGN_START,GTK_ALIGN_END,GTK_ALIGN_END
+   };
+   GtkCssProvider *css=gtk_css_provider_new();
+   gtk_css_provider_load_from_data(css,
+      ".rr-main-resize-edge { background-color: rgba(35,195,230,.12); }"
+      ".rr-main-resize-edge:hover { background-color: rgba(35,195,230,.45); }",
+      -1,NULL);
+   GdkScreen *screen=gtk_widget_get_screen(GTK_WIDGET(overlay));
+   if(screen)gtk_style_context_add_provider_for_screen(screen,
+      GTK_STYLE_PROVIDER(css),GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(css);
+   for(guint i=0;i<G_N_ELEMENTS(main_resize_handles);i++) {
+      GtkWidget *handle=gtk_event_box_new();
+      gtk_event_box_set_visible_window(GTK_EVENT_BOX(handle),TRUE);
+      gtk_widget_set_halign(handle,horizontal[i]);
+      gtk_widget_set_valign(handle,vertical[i]);
+      gtk_widget_set_size_request(handle,
+         (i<2)?-1:(i<4)?8:18,
+         (i<2)?8:(i<4)?-1:18);
+      gtk_widget_set_opacity(handle,.18);
+      gtk_style_context_add_class(gtk_widget_get_style_context(handle),
+         "rr-main-resize-edge");
+      gtk_widget_add_events(handle,GDK_BUTTON_PRESS_MASK |
+         GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
+      g_signal_connect(handle,"button-press-event",
+         G_CALLBACK(main_window_resize_press),GUINT_TO_POINTER(i+1));
+      g_signal_connect(handle,"enter-notify-event",
+         G_CALLBACK(main_window_resize_hover),GUINT_TO_POINTER(i+1));
+      g_signal_connect(handle,"leave-notify-event",
+         G_CALLBACK(main_window_resize_hover),GUINT_TO_POINTER(i+1));
+      gtk_widget_set_tooltip_text(handle,"Drag to resize window");
+      gtk_overlay_add_overlay(overlay,handle);
+      gtk_widget_show(handle);
+      main_resize_handles[i]=handle;
+   }
+   g_signal_connect(main_window,"window-state-event",
+      G_CALLBACK(main_window_resize_state),NULL);
 }
 
 static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
@@ -798,19 +881,7 @@ bool gui_init(void) {
    gtk_widget_set_hexpand(viewport_host, TRUE);
    gtk_widget_set_vexpand(viewport_host, TRUE);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport_host);
-   /* Borderless top-levels need a visible resize handle. Keep it anchored
-    * inside the actual window allocation, not a scrollable child. */
-   GtkWidget *resize_grip=gtk_event_box_new();
-   GtkWidget *resize_label=gtk_label_new("◢");
-   gtk_container_add(GTK_CONTAINER(resize_grip),resize_label);
-   gtk_widget_set_size_request(resize_grip,26,26);
-   gtk_widget_set_halign(resize_grip,GTK_ALIGN_END);
-   gtk_widget_set_valign(resize_grip,GTK_ALIGN_END);
-   gtk_widget_set_tooltip_text(resize_grip,"Drag to resize RustyRig");
-   gtk_widget_add_events(resize_grip,GDK_BUTTON_PRESS_MASK);
-   g_signal_connect(resize_grip,"button-press-event",
-      G_CALLBACK(main_window_resize_press),NULL);
-   gtk_overlay_add_overlay(GTK_OVERLAY(rr_client_overlay),resize_grip);
+   main_window_resize_handles_add(GTK_OVERLAY(rr_client_overlay));
    /* The entire toolbar must be outside the app-wide scroll viewport. Otherwise the content can exceed the viewport and shift even the fixed right cluster off
     * screen when a rig room is opened. */
    gtk_box_pack_start(GTK_BOX(viewport_host), toolbar_shell, FALSE, FALSE, 0);
