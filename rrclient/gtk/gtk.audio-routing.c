@@ -4345,6 +4345,21 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    /* Compact controls have their own persistent graph state; a missing
     * live audio snapshot must not prevent moving or editing them. */
    if (!graph_snapshot) return FALSE;
+   /* Modifier clicks select a whole block, even over a slider or port:
+    * they must not adjust gain or initiate a patch-cord drag. */
+   if(event->type==GDK_BUTTON_PRESS &&
+      (event->state&(GDK_SHIFT_MASK|GDK_CONTROL_MASK))) {
+      for(gint i=(gint)graph_snapshot->node_count-1;i>=0;i--) {
+         const rr_ag_view_node_t *node=&graph_snapshot->nodes[i];
+         if(graph_missing_since[i]) continue;
+         const double nx=routing_node_x(node),ny=routing_node_y(node);
+         if(gx<nx || gx>nx+RR_GTK_GRAPH_NODE_W ||
+            gy<ny || gy>ny+RR_GTK_GRAPH_NODE_H) continue;
+         routing_graph_select(node->id,!routing_graph_is_selected(node->id));
+         graph_canvas_update_size();
+         return TRUE;
+      }
+   }
    if (routing_effect_press(gx, gy, event->type == GDK_2BUTTON_PRESS))
       return TRUE;
    gint source = -1, channel = -1;
@@ -5052,6 +5067,8 @@ static void routing_auto_layout_clicked(GtkButton *button, gpointer unused) {
    /* Clear user pins and re-center every active and transient block using
     * the current clock-domain topology. Does not alter audio routing. */
    graph_node_drag = -1;
+   memset(graph_group_member,0,sizeof(graph_group_member));
+   routing_graph_clear_selection();
    graph_pan_x = graph_pan_y = 0.;
    graph_wheel_zoom = 1.;
    routing_layout_auto(TRUE);
@@ -5521,6 +5538,8 @@ void gtk_audio_routing_shutdown(void) {
    g_clear_pointer(&graph_snapshot, g_free);
    routing_control_drag_index = -1;
    if (graph_positions) { g_hash_table_destroy(graph_positions); graph_positions = NULL; }
+   if (graph_selection) { g_hash_table_destroy(graph_selection); graph_selection = NULL; }
+   memset(graph_group_member,0,sizeof(graph_group_member));
    graph_node_drag = -1;
    memset(graph_missing_since, 0, sizeof(graph_missing_since));
 
