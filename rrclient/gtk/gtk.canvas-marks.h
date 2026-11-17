@@ -147,8 +147,16 @@ static gboolean rr_mark_hit(const RRMark *s,double x,double y,double tolerance) 
   }
   if(s->kind==RR_MARK_BOX || s->kind==RR_MARK_GROUP) {
     if(s->xy->len<4)return FALSE;
-    return x>=MIN(a[0],a[2])-tolerance && x<=MAX(a[0],a[2])+tolerance &&
-           y>=MIN(a[1],a[3])-tolerance && y<=MAX(a[1],a[3])+tolerance;
+    double left=MIN(a[0],a[2]),right=MAX(a[0],a[2]);
+    double top=MIN(a[1],a[3]),bottom=MAX(a[1],a[3]);
+    if(x<left-tolerance || x>right+tolerance ||
+       y<top-tolerance || y>bottom+tolerance)return FALSE;
+    /* Sections must not hijack clicks on the routing blocks they surround.
+     * Select only the border or section title band, never its interior. */
+    return s->kind==RR_MARK_GROUP
+      ? x<=left+tolerance || x>=right-tolerance ||
+        y<=top+MAX(24.,tolerance) || y>=bottom-tolerance
+      : TRUE;
   }
   for(guint j=2;j<s->xy->len;j+=2) {
     double ax=a[j-2],ay=a[j-1],bx=a[j],by=a[j+1];
