@@ -92,6 +92,20 @@ static void tx_mix_output(const int16_t *stereo,size_t frames,void *unused) {
    g_atomic_int_inc(&tx_pcm_queued);
    g_async_queue_push(tx_pcm_queue,packet);
 }
+bool audio_tx_source_register(const char *id,const rr_pcm_stream_format_t *format) {
+   if(!tx_engine || !id || !*id || !format ||
+      !rr_pcm_stream_format_valid(format)) return false;
+   if(!rr_audio_engine_add_stream_format(tx_engine,id,format)) return false;
+   return rr_audio_engine_route(tx_engine,id,'M');
+}
+bool audio_tx_source_route(const char *id,bool connected) {
+   return tx_engine && id && *id &&
+      rr_audio_engine_route(tx_engine,id,connected?'S':'M');
+}
+bool audio_tx_source_push(const char *id,const void *pcm,size_t frames) {
+   return tx_engine && id && *id && pcm && frames &&
+      rr_audio_engine_push_pcm(tx_engine,id,pcm,frames);
+}
 static gboolean tx_mix_drain(gpointer unused) {
    (void)unused;
    if (!tx_pcm_queue) return G_SOURCE_CONTINUE;
@@ -2497,6 +2511,14 @@ void audio_request_rx_stream_route(const char *id, char output) {
 
 bool audio_init(void) {
    char *saved_mic = rrclient_database_setting_get("audio.tx.mic.target");
+   /* Older versions stored the selected rig UUID in the mic's patch.
+    * With a real TX bus the rig belongs to the transport selection, not
+    * the microphone input. Preserve only connected vs disconnected. */
+   if(saved_mic && strcmp(saved_mic,"none") && strcmp(saved_mic,"auto")) {
+      rrclient_database_setting_set("audio.tx.mic.target","auto");
+      g_free(saved_mic);
+      saved_mic=g_strdup("auto");
+   }
    if (saved_mic && *saved_mic && strlen(saved_mic) < sizeof(mic_tx_target)) {
       G_LOCK(mic_tx_target);
       g_strlcpy(mic_tx_target, saved_mic, sizeof(mic_tx_target));
@@ -2585,7 +2607,7 @@ bool audio_init(void) {
                             !strcmp(mic_tx_target,"none")?'M':'S');
       for(unsigned slot=1;slot<=RR_LOCAL_MODEM_MAX;slot++) {
          char id[32];g_snprintf(id,sizeof(id),"modem%u.tx",slot);
-         rr_audio_engine_route(tx_engine,id,'S');
+         rr_audio_engine_route(tx_engine,id,'M');
       }
       tx_ok=rr_audio_engine_start(tx_engine);
    }
