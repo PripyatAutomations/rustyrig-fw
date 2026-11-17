@@ -468,7 +468,9 @@ static void request_received(const rr_event_message_t *message, void *unused) {
        * and must never restart the decoder or reset its receive state. */
       if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX &&
           memchr(req->source, 0, sizeof(req->source)) &&
-          (req->source[0] == 0 || source_present(req->source))) {
+          (req->source[0] == 0 ||
+           (req->action == RR_LOCAL_MODEM_TX_ROUTE ?
+            !strcmp(req->source,"tx.mix") : source_present(req->source)))) {
          decoder_t *d = &decoders[req->slot - 1];
          g_mutex_lock(&decoder_lock);
          if (d->active) {
@@ -484,8 +486,8 @@ static void request_received(const rr_event_message_t *message, void *unused) {
    }
    else if (req->action == RR_LOCAL_MODEM_TX_ROUTE ||
             req->action == RR_LOCAL_MODEM_PTT_ROUTE) {
-      /* Prepare independent transmit paths without keying RF. A valid rig RX
-       * identity is the catalog-backed target; grants happen at TX time. */
+      /* TX audio is patched into tx.mix; PTT keeps the catalog-backed
+       * radio resource. The server still owns authorization at key-up. */
       if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX &&
           memchr(req->source, 0, sizeof(req->source)) &&
           (req->source[0] == 0 || source_present(req->source))) {
