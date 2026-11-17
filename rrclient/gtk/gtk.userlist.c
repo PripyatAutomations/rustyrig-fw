@@ -547,6 +547,9 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    if (view != cul_view && profile && view_connection && rrclient_active_connection() && view_connection != rrclient_active_connection()) {
       return;
    }
+   /* Keep an inactive/offline channel roster readable, but visibly muted.
+    * It re-enables automatically on the next active-room refresh. */
+   gtk_widget_set_sensitive(view,room && *room && !rrclient_room_offline(room));
    bool changed = userlist_set_columns(view, room);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
 
@@ -1722,6 +1725,11 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
       if (!entry->float_panel) {
          char *id = g_strdup_printf("userlist-%s-%s", entry->server ? entry->server : "", entry->room ? entry->room : "");
          entry->float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), id, entry->room);
+         if(entry->float_panel) {
+            rr_floating_panel_set_resizable(entry->float_panel,TRUE);
+            rr_floating_panel_set_chat_room(entry->float_panel,entry->server,entry->room);
+            rr_floating_panel_default_dock(entry->float_panel,1); /* right */
+         }
          g_free(id);
       }
 
@@ -1863,6 +1871,10 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    g_hash_table_insert(room_userlist_views, g_strdup(gtk_chat_window_name(room)), entry);
    userlist_redraw_view(view, room);
    gtk_widget_show_all(panel);
+   /* Use the shared, size-reserving chat dock rather than forcing every
+    * room's roster into an always-visible GtkPaned beside the chat.
+    * The old Dock command remains available for manual legacy placement. */
+   on_room_userlist_dock_clicked(NULL,entry);
    /* Initial allocation measures visible columns and VFO controls after show. */
 }
 
