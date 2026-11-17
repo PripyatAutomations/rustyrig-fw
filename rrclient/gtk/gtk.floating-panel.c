@@ -167,6 +167,8 @@ static void dock_edge_create(RRChatDocks *d,guint edge) {
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll),1);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll),1);
    gtk_container_add(GTK_CONTAINER(scroll),slot);
+   /* Parent show_all must not reveal an empty dock or its saved contents. */
+   gtk_widget_set_no_show_all(scroll,TRUE);
    gtk_box_pack_start(GTK_BOX(region),line,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(region),scroll,TRUE,TRUE,0);
    gtk_widget_set_hexpand(region,TRUE);
@@ -216,6 +218,7 @@ GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat,GtkWidget *page) {
       GtkWidget *pane=d->pane[edge];
       g_object_set_data(G_OBJECT(pane),"rr-docks",d);
       g_object_set_data(G_OBJECT(pane),"rr-dock-edge",GUINT_TO_POINTER(edge+1));
+      gtk_paned_set_wide_handle(GTK_PANED(pane),TRUE);
       gtk_widget_add_events(pane,GDK_BUTTON_RELEASE_MASK);
       g_signal_connect(pane,"button-release-event",G_CALLBACK(dock_edge_resize_release),NULL);
    }
@@ -263,6 +266,16 @@ static gint panel_dock_hit(RRChatDocks *d,gint x_root,gint y_root) {
    }
    return best;
 }
+static void dock_hide_if_empty(GtkWidget *slot) {
+   if(!GTK_IS_CONTAINER(slot))return;
+   GList *children=gtk_container_get_children(GTK_CONTAINER(slot));
+   gboolean empty=children==NULL;
+   g_list_free(children);
+   if(!empty)return;
+   GtkWidget *outer=gtk_widget_get_parent(slot);
+   if(GTK_IS_VIEWPORT(outer))outer=gtk_widget_get_parent(outer);
+   if(GTK_IS_SCROLLED_WINDOW(outer))gtk_widget_hide(outer);
+}
 static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    if(!p||!d||edge<0||edge>=RR_DOCK_COUNT||p->modal)return;
    GtkWidget *slot=d->slot[edge];
@@ -274,6 +287,7 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    GtkWidget *parent=gtk_widget_get_parent(p->frame);
    g_object_ref(p->frame);
    if(GTK_IS_CONTAINER(parent))gtk_container_remove(GTK_CONTAINER(parent),p->frame);
+   dock_hide_if_empty(parent);
    gtk_widget_set_margin_start(p->frame,0);
    gtk_widget_set_margin_top(p->frame,0);
    gtk_widget_set_halign(p->frame,GTK_ALIGN_FILL);
@@ -284,7 +298,8 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    p->dock_edge=edge;
    d->collapsed[edge]=FALSE;
    gtk_widget_show(d->scroll[edge]);
-   gtk_widget_show(p->frame);
+   if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden)
+      gtk_widget_show(p->frame);
    dock_edge_set_extent(d,edge,d->extent[edge]);
    panel_dock_save(p);
 }
@@ -292,9 +307,9 @@ static void panel_dock_detach(RRFloatPanel *p,gint root_x,gint root_y) {
    if(!p||p->dock_edge<0)return;
    GtkWidget *parent=gtk_widget_get_parent(p->frame);
    if(!GTK_IS_CONTAINER(parent))return;
-   GtkWidget *scroll=gtk_widget_get_parent(parent);
    g_object_ref(p->frame);
    gtk_container_remove(GTK_CONTAINER(parent),p->frame);
+   dock_hide_if_empty(parent);
    gtk_overlay_add_overlay(p->overlay,p->frame);
    gtk_widget_set_halign(p->frame,GTK_ALIGN_START);
    gtk_widget_set_valign(p->frame,GTK_ALIGN_START);
@@ -314,10 +329,8 @@ static void panel_dock_detach(RRFloatPanel *p,gint root_x,gint root_y) {
    g_object_unref(p->frame);
    p->dock_edge=-1;
    panel_dock_save(p);
-   if(GTK_IS_SCROLLED_WINDOW(scroll) &&
-      gtk_container_get_children(GTK_CONTAINER(parent))==NULL)
-      gtk_widget_hide(scroll);
-   gtk_widget_show(p->frame);
+   if(!p->minimized && !p->explicitly_hidden)
+      gtk_widget_show(p->frame);
 }
 
 /* Hide only panels actually visible on entry. The transient bit is kept
@@ -1743,7 +1756,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    }
 
    if (!p->initial_positioned) {
-      p->initial_positioned = panel_place_initial(p);
+      p->initial_positioned = p->dock_edge>=0 ? TRUE : panel_place_initial(p);
 
       if (p->initial_positioned && p->initial_center_pending) {
          gtk_widget_queue_resize(p->frame);
