@@ -500,8 +500,11 @@ void rr_floating_panels_set_hidden(guint reason, gboolean hidden) {
    guint next = hidden ? panel_hide_reasons | reason : panel_hide_reasons & ~reason;
    if (next == panel_hide_reasons) return;
    panel_hide_reasons = next;
-   for (GList *it = floating_panels; it; it = it->next)
-      panel_temporary_visibility(it->data);
+   for (GList *it = floating_panels; it; it = it->next) {
+      RRFloatPanel *p=it->data;
+      panel_temporary_visibility(p);
+      if(p->chat_room && p->room_hidden && p->frame)gtk_widget_hide(p->frame);
+   }
 }
 gboolean rr_floating_panels_hidden(guint reason) {
    return (panel_hide_reasons & reason) != 0;
