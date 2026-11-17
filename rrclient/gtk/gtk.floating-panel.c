@@ -204,7 +204,8 @@ static void dock_edge_style(void) {
       " border: 1px solid #22d6ff; }"
       ".rr-chat-dock-line.rr-dock-target { background-color: rgba(0,190,240,.55);"
       " border: 2px solid #22d6ff; }"
-      ".rr-floating-panel.rr-dock-drag { border: 2px solid #22d6ff; }",
+      ".rr-floating-panel.rr-dock-drag { border: 2px solid #22d6ff; }"
+      ".rr-chat-docking { border: 1px solid rgba(34,214,255,.55); }",
       -1,NULL);
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
       GTK_STYLE_PROVIDER(css),GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -348,6 +349,9 @@ void rr_floating_panel_default_dock(RRFloatPanel *p,guint edge) {
 }
 static void panel_dock_glow(RRChatDocks *d,gboolean dragging,gint target) {
    if(!d)return;
+   GtkStyleContext *workspace=gtk_widget_get_style_context(d->root);
+   if(dragging)gtk_style_context_add_class(workspace,"rr-chat-docking");
+   else gtk_style_context_remove_class(workspace,"rr-chat-docking");
    for(guint i=0;i<RR_DOCK_COUNT;i++){
       GtkStyleContext *ctx=gtk_widget_get_style_context(d->line[i]);
       if(dragging)gtk_style_context_add_class(ctx,"rr-dock-drag");
