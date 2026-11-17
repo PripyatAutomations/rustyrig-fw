@@ -84,8 +84,45 @@ static void routing_marks_changed(gpointer unused) {
    (void)unused;
    graph_canvas_update_size();
 }
+static void routing_marks_edit_text(RRMark *mark) {
+   GtkWidget *top=graph_canvas?gtk_widget_get_toplevel(graph_canvas):NULL;
+   GtkWidget *dialog=gtk_dialog_new_with_buttons(
+      mark->kind==RR_MARK_GROUP?"Section title":"Text note",
+      GTK_IS_WINDOW(top)?GTK_WINDOW(top):NULL,
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel",GTK_RESPONSE_CANCEL,"_Save",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *entry=gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(entry),240);
+   gtk_entry_set_text(GTK_ENTRY(entry),mark->text?mark->text:"");
+   gtk_widget_set_margin_start(entry,16);gtk_widget_set_margin_end(entry,16);
+   gtk_widget_set_margin_top(entry,12);gtk_widget_set_margin_bottom(entry,12);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+      entry,TRUE,TRUE,0);
+   gtk_widget_show_all(dialog);
+   if(gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_ACCEPT) {
+      rr_marks_checkpoint(routing_marks);
+      g_free(mark->text);
+      mark->text=g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
+      routing_marks_changed(NULL);routing_marks_save();
+   }
+   gtk_widget_destroy(dialog);
+}
 static gboolean routing_marks_press_event(GdkEventButton *e) {
-   if(!routing_marks || e->button!=1 || e->type!=GDK_BUTTON_PRESS)return FALSE;
+   if(!routing_marks || e->button!=1)return FALSE;
+   if(e->type==GDK_2BUTTON_PRESS && routing_marks->tool==RR_MARK_SELECT) {
+      double tx=(e->x-graph_offset_x)/MAX(.01,graph_scale);
+      double ty=(e->y-graph_offset_y)/MAX(.01,graph_scale);
+      for(gint i=(gint)routing_marks->items->len-1;i>=0;i--) {
+         RRMark *mark=g_ptr_array_index(routing_marks->items,i);
+         if((mark->kind==RR_MARK_LABEL || mark->kind==RR_MARK_GROUP) &&
+            rr_mark_hit(mark,tx,ty,8.)) {
+            routing_marks->dragging=FALSE;
+            routing_marks_edit_text(mark);
+            return TRUE;
+         }
+      }
+   }
+   if(e->type!=GDK_BUTTON_PRESS)return FALSE;
    double x=(e->x-graph_offset_x)/MAX(.01,graph_scale);
    double y=(e->y-graph_offset_y)/MAX(.01,graph_scale);
    if(routing_marks->tool==RR_MARK_SELECT) {
@@ -130,6 +167,37 @@ static void routing_marks_tool_toggled(GtkToggleButton *b,gpointer unused) {
    routing_marks->tool=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(b),"mark-tool"));
    if(graph_canvas)gtk_widget_grab_focus(graph_canvas);
 }
+static void routing_marks_color(GtkColorButton *button,gpointer unused) {
+   (void)unused;
+   if(!routing_marks)return;
+   GdkRGBA color;
+   gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(button),&color);
+   gboolean changes=FALSE;
+   for(guint i=0;i<routing_marks->items->len;i++)
+      if(((RRMark*)g_ptr_array_index(routing_marks->items,i))->selected)changes=TRUE;
+   if(changes)rr_marks_checkpoint(routing_marks);
+   routing_marks->default_color=color;
+   for(guint i=0;i<routing_marks->items->len;i++) {
+      RRMark *s=g_ptr_array_index(routing_marks->items,i);
+      if(s->selected)s->color=color;
+   }
+   if(changes){routing_marks_changed(NULL);routing_marks_save();}
+}
+static void routing_marks_width(GtkSpinButton *button,gpointer unused) {
+   (void)unused;
+   if(!routing_marks)return;
+   double width=gtk_spin_button_get_value(button);
+   gboolean changes=FALSE;
+   for(guint i=0;i<routing_marks->items->len;i++)
+      if(((RRMark*)g_ptr_array_index(routing_marks->items,i))->selected)changes=TRUE;
+   if(changes)rr_marks_checkpoint(routing_marks);
+   routing_marks->default_width=width;
+   for(guint i=0;i<routing_marks->items->len;i++) {
+      RRMark *s=g_ptr_array_index(routing_marks->items,i);
+      if(s->selected)s->width=width;
+   }
+   if(changes){routing_marks_changed(NULL);routing_marks_save();}
+}
 static GtkWidget *routing_marks_toolbar(void) {
    static const char *names[]={"Select","Pencil","Divider","Box","Note","Section","Eraser"};
    GtkWidget *bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,2);
@@ -142,6 +210,15 @@ static GtkWidget *routing_marks_toolbar(void) {
       gtk_box_pack_start(GTK_BOX(bar),button,FALSE,FALSE,0);
       if(i==0)gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),TRUE);
    }
+   GtkWidget *color=gtk_color_button_new_with_rgba(&routing_marks->default_color);
+   gtk_widget_set_tooltip_text(color,"Color for new or selected shapes");
+   g_signal_connect(color,"color-set",G_CALLBACK(routing_marks_color),NULL);
+   gtk_box_pack_start(GTK_BOX(bar),color,FALSE,FALSE,0);
+   GtkWidget *width=gtk_spin_button_new_with_range(.5,30.,.5);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(width),routing_marks->default_width);
+   gtk_widget_set_tooltip_text(width,"Stroke width for new or selected shapes");
+   g_signal_connect(width,"value-changed",G_CALLBACK(routing_marks_width),NULL);
+   gtk_box_pack_start(GTK_BOX(bar),width,FALSE,FALSE,0);
    return bar;
 }
 
@@ -948,6 +1025,7 @@ static void routing_graph_bounds(double *width, double *height) {
       max_x=MAX(max_x,MAX(onair_x+ONAIR_W,ptt_x+150.)+GRAPH_LAYOUT_MARGIN);
       max_y=MAX(max_y,MAX(onair_y+ONAIR_H,ptt_y+70.)+GRAPH_LAYOUT_MARGIN);
    }
+   rr_marks_bounds(routing_marks,&max_x,&max_y);
    *width = max_x;
    *height = max_y;
 }
