@@ -1143,7 +1143,7 @@ static void rf_refresh_selector(rf_strip_t *p) {
       any_local = true;
       if (was == v) kept_local = true;
    }
-   rr_remote_rf_source_t sources[RR_REMOTE_RF_SOURCES_MAX] = {{0}};
+   rr_remote_rf_source_t sources[RR_REMOTE_RF_SOURCES_MAX] = {0};
    size_t count = rrclient_media_remote_rf_snapshot(sources, G_N_ELEMENTS(sources));
    char first_remote[256] = {0};
    for (size_t i = 0; i < count && i < G_N_ELEMENTS(sources); i++) {
