@@ -453,6 +453,18 @@ GTK room Username columns expand into remaining roster space and ellipsize
 when narrowed, leaving room for visible status fields. Restoring a saved VFO
 roster enforces enough width for its headers and controls; full usernames still
 determine its natural auto-sized width. Manual divider collapse remains allowed.
+GTK floating-panel positions and expanded dimensions are saved separately for
+compact (under roughly 760px), half-width (roughly 760–1410px), and wide
+windows. Small width changes stay in the same size class. Switching between
+half-width and wide restores that class's last panel arrangement; previously
+saved legacy positions serve as the fallback on first use. Hidden, minimized,
+pinned, and zoomed state is shared across widths. The Routing graph itself
+does not reflow or change its saved node coordinates; it uses pan and zoom.
+
+VFO controls flow into one, two, or three columns based on their panel's
+actual width, preserving drag-and-drop order separately for each width class.
+The old global order is used when a class has not been customized.
+
 Docked GTK frequency/mode/codec/PTT controls have their own horizontal scroller.
 Their minimum width must not enlarge the entire notebook in the main zoom
 viewport and place the room roster outside the visible window.
