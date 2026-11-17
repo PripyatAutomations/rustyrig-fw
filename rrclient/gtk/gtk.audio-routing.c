@@ -98,6 +98,43 @@ static gint graph_node_drag = -1;
 static double graph_node_drag_x, graph_node_drag_y;
 static double graph_node_press_x, graph_node_press_y;
 static gboolean graph_node_moved;
+/* Selection is keyed by stable graph node identity so refreshing the
+ * snapshot cannot silently select a different block at the same index.
+ * A group's wires move automatically: they are drawn from node positions. */
+static GHashTable *graph_selection;
+static double graph_drag_start_node_x, graph_drag_start_node_y;
+static double graph_group_origin_x[RR_AUDIO_GRAPH_MAX_NODES];
+static double graph_group_origin_y[RR_AUDIO_GRAPH_MAX_NODES];
+static gboolean graph_group_member[RR_AUDIO_GRAPH_MAX_NODES];
+static gboolean routing_graph_is_selected(const char *id) {
+   return graph_selection && g_hash_table_contains(graph_selection,id);
+}
+static void routing_graph_select(const char *id,gboolean selected) {
+   if(!graph_selection)
+      graph_selection=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   if(selected) g_hash_table_add(graph_selection,g_strdup(id));
+   else g_hash_table_remove(graph_selection,id);
+}
+static void routing_graph_clear_selection(void) {
+   if(graph_selection) g_hash_table_remove_all(graph_selection);
+}
+static void routing_graph_begin_group(void) {
+   memset(graph_group_member,0,sizeof(graph_group_member));
+   if(!graph_snapshot || graph_node_drag<0 ||
+      (guint)graph_node_drag>=graph_snapshot->node_count) return;
+   const rr_ag_view_node_t *anchor=&graph_snapshot->nodes[graph_node_drag];
+   graph_drag_start_node_x=routing_node_x(anchor);
+   graph_drag_start_node_y=routing_node_y(anchor);
+   for(guint i=0;i<graph_snapshot->node_count &&
+                  i<G_N_ELEMENTS(graph_group_member);i++) {
+      const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+      if(!routing_graph_is_selected(n->id) || graph_missing_since[i]) continue;
+      graph_group_member[i]=TRUE;
+      graph_group_origin_x[i]=routing_node_x(n);
+      graph_group_origin_y[i]=routing_node_y(n);
+   }
+}
+
 /* The snap setting affects only interactive node movement. Stored coordinates
  * remain exact, and Shift temporarily bypasses snapping for fine placement. */
 #define GRAPH_LAYOUT_MARGIN 28.0
