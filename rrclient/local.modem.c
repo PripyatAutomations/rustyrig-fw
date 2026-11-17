@@ -206,11 +206,10 @@ static gboolean poll_decoders(gpointer unused) {
       /* Modem-owned keying: generate TX PCM only after the server reports
        * PTT asserted. Never continue a waveform after its route is removed. */
       gint64 now_us=g_get_monotonic_time();
-      bool allowed=d->tx_enabled && d->tx_target[0] &&
-         !strcmp(d->tx_target,d->ptt_target) &&
-         audio_modem_tx_allowed(d->tx_target);
+      bool allowed=d->tx_enabled && !strcmp(d->tx_target,"tx.mix") &&
+         d->ptt_target[0] && audio_modem_tx_allowed(d->ptt_target);
       if(d->ptt_owned && (!d->tx_enabled || !d->ptt_target[0] ||
-           strcmp(d->tx_target,d->ptt_target) ||
+           strcmp(d->tx_target,"tx.mix") ||
            (d->tx_running && !allowed))) {
          modem_cancel_waveform(d);
          modem_release_ptt(i);
@@ -248,9 +247,9 @@ static gboolean poll_decoders(gpointer unused) {
          g_strlcpy(target,d->tx_target,sizeof(target));
          g_strlcpy(ptt,d->ptt_target,sizeof(ptt));
          g_mutex_unlock(&decoder_lock);
-         if (enabled && *target && !strcmp(target,ptt) &&
+         if (enabled && !strcmp(target,"tx.mix") && *ptt &&
              n%(ssize_t)sizeof(int16_t)==0)
-            audio_modem_tx_pcm(target,samples,(size_t)n/sizeof(int16_t));
+            audio_modem_tx_pcm(i+1,ptt,samples,(size_t)n/sizeof(int16_t));
       }
    }
    return G_SOURCE_CONTINUE;
@@ -424,10 +423,10 @@ static void request_received(const rr_event_message_t *message, void *unused) {
           * Queue text only after the authoritative radio PTT echo. */
          if(!d->active || !d->tx_enabled ||
             (strcmp(d->engine,"psk") && strcmp(d->engine,"olivia")) ||
-            !d->tx_target[0] || strcmp(d->tx_target,d->ptt_target) ||
+            strcmp(d->tx_target,"tx.mix") || !d->ptt_target[0] ||
             d->ptt_owned || d->tx_running || d->pending_text[0]) {
             g_strlcpy(last_status,
-               "Modem TX requires idle PSK/Olivia worker and TX/PTT pins wired to same rig",
+               "Modem TX needs audio patched to tx.mix and PTT to an active rig",
                sizeof(last_status));
          } else {
             char pin[64];
