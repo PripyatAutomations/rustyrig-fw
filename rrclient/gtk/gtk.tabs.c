@@ -3,6 +3,42 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 /* GTK-only tab presentation; the notebook remains the page/shortcut owner. */
 #include <rrclient/gtk/gtk.tabs.h>
+/* GtkNotebook takes the maximum minimum-width of every page, including
+ * Explorer/Admin/etc when the user is looking at a narrow chat. That
+ * requisition can prevent the XFCE window manager from half-screen tiling.
+ * Constrain the notebook's own minimum only; keep natural sizing and allow
+ * each page's scrollable contents to negotiate their allocation. */
+typedef struct { GtkNotebook parent; } RRAdaptiveNotebook;
+typedef struct { GtkNotebookClass parent_class; } RRAdaptiveNotebookClass;
+G_DEFINE_TYPE(RRAdaptiveNotebook, rr_adaptive_notebook, GTK_TYPE_NOTEBOOK)
+
+static void rr_adaptive_notebook_width(GtkWidget *widget, gint *minimum, gint *natural) {
+   GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class)->get_preferred_width(
+      widget, minimum, natural);
+   *minimum=MIN(*minimum,320);
+}
+static void rr_adaptive_notebook_width_for_height(GtkWidget *widget,
+                                                  gint height,
+                                                  gint *minimum,gint *natural) {
+   GtkWidgetClass *parent=GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class);
+   if(parent->get_preferred_width_for_height)
+      parent->get_preferred_width_for_height(widget,height,minimum,natural);
+   else
+      parent->get_preferred_width(widget,minimum,natural);
+   *minimum=MIN(*minimum,320);
+}
+static void rr_adaptive_notebook_class_init(RRAdaptiveNotebookClass *klass) {
+   GtkWidgetClass *widget=GTK_WIDGET_CLASS(klass);
+   widget->get_preferred_width=rr_adaptive_notebook_width;
+   widget->get_preferred_width_for_height=rr_adaptive_notebook_width_for_height;
+}
+static void rr_adaptive_notebook_init(RRAdaptiveNotebook *self) {
+   (void)self;
+}
+GtkWidget *rr_adaptive_notebook_new(void) {
+   return g_object_new(rr_adaptive_notebook_get_type(),NULL);
+}
+
 
 /* Native side tabs wrap their label in an event box; wrapped tabs keep it directly. */
 static GtkWidget *tab_source_label(GtkNotebook *notebook, GtkWidget *page) {
