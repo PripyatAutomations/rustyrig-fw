@@ -249,7 +249,7 @@ static void complete_download(void) {
       (request.result == CURLE_OK && request.http_status == 304 && snapshot);
    /* A successful fetch is not proof of freshly published data.
     * Keep the old receivers usable but retry hourly while upstream is stale. */
-   bool stale=published_at>0 && publication_age(current)>DIR_STALE;
+   bool stale=!published_at || publication_age(current)>DIR_STALE;
    if(verified && stale)
       Log(LOG_WARN,"receiver.directory",
           "Upstream Kiwi directory published %lld minutes ago (source %s, HTTP %ld); retrying in one hour",
@@ -300,8 +300,14 @@ static void start_fetch(void) {
       /* Keep the old snapshot as fallback, but never serve it as the new source's current generation. */
    }
    request.url = g_strdup(url);
-   request.etag = source_url && !strcmp(source_url, url) ? g_strdup(validator) : NULL;
-   request.modified = source_url && !strcmp(source_url, url) ? g_strdup(modified) : NULL;
+   /* Do not rely on conditional 304s while the upstream publication is
+    * already stale: request a full payload to distinguish CDN freshness
+    * from an unchanged old body. */
+   bool fresh=published_at>0 && publication_age(time(NULL))<=DIR_STALE;
+   request.etag = fresh && source_url && !strcmp(source_url, url) ?
+                  g_strdup(validator) : NULL;
+   request.modified = fresh && source_url && !strcmp(source_url, url) ?
+                      g_strdup(modified) : NULL;
    request.result = CURLE_FAILED_INIT;
    request.http_status = 0;
    request.overflow = false;
