@@ -181,61 +181,58 @@ static void routing_layout_set(const rr_ag_view_node_t *node, double x, double y
       g_free(key);
    }
 }
-/* Spacious left-to-right columns. Every downstream bus is vertically centered on its
- * inputs, while isolated capture devices are placed in a separate lane. */
+/* AUTO: topological depth chooses the left-to-right flow. Wrap it into
+ * bounded-width bands (rather than one unbounded row), and give each
+ * column its own vertically spaced lane. Neither connected blocks nor
+ * isolated nodes can share the same rectangle. Manually pinned nodes
+ * retain their positions unless AUTO is explicitly requested. */
 static void routing_layout_auto(gboolean reset) {
-   if (!graph_snapshot) return;
-   guint legacy = 0, high = 0;
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
-      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      if (n->type != RR_AG_SOURCE) continue;
-      if (!strcmp(n->id, "src.client.dsp0")) continue;
-      else if (n->downstream_rate_hz > 16000) high++;
-      else legacy++;
-   }
-   guint legacy_row = 0, high_row = 0, isolated_row = 0;
-   double low_y = GRAPH_LAYOUT_MARGIN +
-      0.5 * (legacy ? legacy - 1 : 0) * GRAPH_LAYOUT_GAP_Y;
-   /* The direct-HQ inputs share the converter's horizontal column, not its
-    * vertical lane. Leave room so they cannot cover rx16.resample. */
-   const double high_start_y = GRAPH_LAYOUT_MARGIN +
-      MAX(legacy, 1) * GRAPH_LAYOUT_GAP_Y + 22.;
-   const double high_center_y = high_start_y +
-      0.5 * (high ? high - 1 : 0) * GRAPH_LAYOUT_GAP_Y;
-   double hq_y = high ? (low_y + high_center_y) / 2. : low_y;
-   if (!legacy && high) hq_y = high_center_y;
-   for (guint i = 0; i < graph_snapshot->node_count; i++) {
-      const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
-      double x, y;
-      if (n->type == RR_AG_SOURCE) {
-         if (!strcmp(n->id, "src.client.dsp0")) {
-            x = GRAPH_LAYOUT_MARGIN;
-            y = high_start_y + high * GRAPH_LAYOUT_GAP_Y + 50. +
-                isolated_row++ * GRAPH_LAYOUT_GAP_Y;
-         } else if (n->downstream_rate_hz > 16000) {
-            x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X;
-            y = high_start_y + high_row++ * GRAPH_LAYOUT_GAP_Y;
-         } else {
-            x = GRAPH_LAYOUT_MARGIN;
-            y = GRAPH_LAYOUT_MARGIN + legacy_row++ * GRAPH_LAYOUT_GAP_Y;
+   if (!graph_snapshot || !graph_snapshot->node_count) return;
+   const guint count=MIN(graph_snapshot->node_count,RR_AUDIO_GRAPH_MAX_NODES);
+   /* Three 300px blocks plus room for pin labels and wires on tablets.
+    * A wide desktop can accommodate a fourth column. */
+   const gint width=graph_canvas ?
+      gtk_widget_get_allocated_width(graph_canvas) : 0;
+   const guint columns=width>=1650 ? 4 : 3;
+   guint depth[RR_AUDIO_GRAPH_MAX_NODES]={0};
+   guint rows[RR_AUDIO_GRAPH_MAX_NODES]={0};
+   guint band_height[RR_AUDIO_GRAPH_MAX_NODES]={0};
+   guint row_index[RR_AUDIO_GRAPH_MAX_NODES]={0};
+   double band_y[RR_AUDIO_GRAPH_MAX_NODES]={0};
+   /* graph edges form a DAG; longest-path depth gives a stable forward
+    * hierarchy even when a node has several upstream inputs. */
+   for(guint iteration=0;iteration<count;iteration++) {
+      gboolean changed=FALSE;
+      for(guint j=0;j<graph_snapshot->link_count;j++) {
+         const rr_ag_view_link_t *edge=&graph_snapshot->links[j];
+         if(edge->src>=count || edge->dst>=count) continue;
+         const guint next=MIN(count-1,depth[edge->src]+1);
+         if(next>depth[edge->dst]) {
+            depth[edge->dst]=next;
+            changed=TRUE;
          }
-      } else if (!strcmp(n->id, "rx.mix")) {
-         x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X; y = low_y;
-      } else if (!strcmp(n->id, "rx16.resample")) {
-         x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X; y = low_y;
-      } else if (!strcmp(n->id, "hq.mix")) {
-         x = GRAPH_LAYOUT_MARGIN + 3 * GRAPH_LAYOUT_GAP_X; y = hq_y;
-      } else if (n->type == RR_AG_SINK) {
-         if (g_str_has_prefix(n->id, "modem")) {
-            x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X;
-            y = high_start_y + (high + isolated_row++) * GRAPH_LAYOUT_GAP_Y;
-         } else {
-            x = GRAPH_LAYOUT_MARGIN + 4 * GRAPH_LAYOUT_GAP_X; y = hq_y;
-         }
-      } else {
-         x = GRAPH_LAYOUT_MARGIN + 2 * GRAPH_LAYOUT_GAP_X; y = hq_y;
       }
-      routing_layout_set(n, x, y, reset);
+      if(!changed) break;
+   }
+   guint max_band=0;
+   for(guint i=0;i<count;i++) {
+      guint layer=depth[i], band=layer/columns;
+      rows[layer]++;
+      band_height[band]=MAX(band_height[band],rows[layer]);
+      max_band=MAX(max_band,band);
+   }
+   double offset=GRAPH_LAYOUT_MARGIN;
+   for(guint band=0;band<=max_band;band++) {
+      band_y[band]=offset;
+      offset+=MAX(1u,band_height[band])*GRAPH_LAYOUT_GAP_Y+75.;
+   }
+   for(guint i=0;i<count;i++) {
+      const rr_ag_view_node_t *node=&graph_snapshot->nodes[i];
+      const guint layer=depth[i], band=layer/columns;
+      const guint col=layer%columns;
+      const double x=GRAPH_LAYOUT_MARGIN+col*GRAPH_LAYOUT_GAP_X;
+      const double y=band_y[band]+row_index[layer]++*GRAPH_LAYOUT_GAP_Y;
+      routing_layout_set(node,x,y,reset);
    }
 }
 
@@ -5039,9 +5036,9 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
-      GtkWidget *auto_layout = gtk_button_new_with_label("Layout");
+      GtkWidget *auto_layout = gtk_button_new_with_label("AUTO");
       gtk_widget_set_tooltip_text(auto_layout,
-         "Arrange audio blocks left to right and center connected stages; reset manually saved positions");
+         "Auto-arrange by wire topology in non-overlapping, wrapped columns; reset saved positions");
       g_signal_connect(auto_layout, "clicked",
                        G_CALLBACK(routing_auto_layout_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(profiles), auto_layout, FALSE, FALSE, 0);
