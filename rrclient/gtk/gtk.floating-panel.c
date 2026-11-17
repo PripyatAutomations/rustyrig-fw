@@ -1600,7 +1600,8 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
    }
    gint min_w = panel_minimum_width(p);
    gint max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_start(p->frame) - 12);
-   gint max_h = MAX(180, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_top(p->frame) - 12);
+   gint min_h = p->dock_edge >= 0 ? 72 : 180;
+   gint max_h = MAX(min_h, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_top(p->frame) - 12);
    gint w = CLAMP(p->resize_width + (gint) (x_root - p->resize_x), min_w, max_w);
    gint h = CLAMP(p->resize_height + (gint) (y_root - p->resize_y), min_h, max_h);
    gtk_widget_set_size_request(p->frame, w, h);
