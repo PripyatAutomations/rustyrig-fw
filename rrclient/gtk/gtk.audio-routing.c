@@ -15,6 +15,7 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/database.h>
 #include "gtk.audio-routing.h"
+#include "gtk.canvas-marks.h"
 #include "gtk.floating-panel.h"
 #include "gtk.serial.h"
 #include <rrpipelines/editor.h>
@@ -69,6 +70,80 @@ static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
 /* Horizontal panning cannot expose space before the graph's left edge.
  * Zero is the auto-centered starting position when the graph fits. */
 static double graph_pan_x, graph_pan_y;
+
+/* Reusable annotation layer: viewport transformations stay with the host. */
+static RRMarks *routing_marks;
+static void routing_marks_save(void) {
+   if(!routing_marks)return;
+   char *text=rr_marks_dump(routing_marks);
+   rrclient_database_setting_set("audio.graph.annotations",text);
+   g_free(text);
+}
+static void routing_marks_changed(gpointer unused) {
+   (void)unused;
+   graph_canvas_update_size();
+}
+static gboolean routing_marks_press_event(GdkEventButton *e) {
+   if(!routing_marks || e->button!=1 || e->type!=GDK_BUTTON_PRESS)return FALSE;
+   double x=(e->x-graph_offset_x)/MAX(.01,graph_scale);
+   double y=(e->y-graph_offset_y)/MAX(.01,graph_scale);
+   if(routing_marks->tool==RR_MARK_SELECT) {
+      if(!rr_marks_press(routing_marks,x,y,
+         !!(e->state&(GDK_SHIFT_MASK|GDK_CONTROL_MASK))))return FALSE;
+   } else {
+      rr_marks_press(routing_marks,x,y,FALSE);
+   }
+   if(routing_marks->tool==RR_MARK_ERASER)routing_marks_save();
+   return TRUE;
+}
+static gboolean routing_marks_motion_event(GdkEventMotion *e) {
+   if(!routing_marks || !routing_marks->dragging)return FALSE;
+   return rr_marks_motion(routing_marks,
+      (e->x-graph_offset_x)/MAX(.01,graph_scale),
+      (e->y-graph_offset_y)/MAX(.01,graph_scale),
+      !!(e->state&GDK_SHIFT_MASK));
+}
+static gboolean routing_marks_release_event(GdkEventButton *e) {
+   if(!routing_marks || !routing_marks->dragging || e->button!=1)return FALSE;
+   rr_marks_release(routing_marks);
+   routing_marks_save();return TRUE;
+}
+static gboolean routing_marks_key(GtkWidget *w,GdkEventKey *e,gpointer unused) {
+   (void)w;(void)unused;
+   if(!routing_marks)return FALSE;
+   gboolean ctrl=!!(e->state&GDK_CONTROL_MASK);
+   gboolean handled=FALSE;
+   if(ctrl && (e->keyval==GDK_KEY_z || e->keyval==GDK_KEY_Z))
+      handled=rr_marks_history(routing_marks,!!(e->state&GDK_SHIFT_MASK));
+   else if(ctrl && e->keyval==GDK_KEY_y)
+      handled=rr_marks_history(routing_marks,TRUE);
+   else if((e->keyval==GDK_KEY_Delete || e->keyval==GDK_KEY_BackSpace) &&
+           routing_marks->tool==RR_MARK_SELECT)
+      handled=rr_marks_delete_selected(routing_marks);
+   if(handled)routing_marks_save();
+   return handled;
+}
+static void routing_marks_tool_toggled(GtkToggleButton *b,gpointer unused) {
+   (void)unused;
+   if(!routing_marks || !gtk_toggle_button_get_active(b))return;
+   routing_marks->tool=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(b),"mark-tool"));
+   if(graph_canvas)gtk_widget_grab_focus(graph_canvas);
+}
+static GtkWidget *routing_marks_toolbar(void) {
+   static const char *names[]={"Select","Pencil","Divider","Box","Note","Section","Eraser"};
+   GtkWidget *bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,2);
+   GSList *group=NULL;
+   for(int i=0;i<7;i++) {
+      GtkWidget *button=gtk_radio_button_new_with_label(group,names[i]);
+      group=gtk_radio_button_get_group(GTK_RADIO_BUTTON(button));
+      g_object_set_data(G_OBJECT(button),"mark-tool",GINT_TO_POINTER(i));
+      g_signal_connect(button,"toggled",G_CALLBACK(routing_marks_tool_toggled),NULL);
+      gtk_box_pack_start(GTK_BOX(bar),button,FALSE,FALSE,0);
+      if(i==0)gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),TRUE);
+   }
+   return bar;
+}
+
 static void routing_pan_clamp_left(void) {
    graph_pan_x = MIN(0., graph_pan_x);
 }
@@ -1331,6 +1406,8 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    cairo_save(cr);
    cairo_translate(cr, graph_offset_x, graph_offset_y);
    cairo_scale(cr, graph_scale, graph_scale);
+   /* Section fills are behind signal paths and blocks. */
+   rr_marks_draw(routing_marks,cr);
    rr_gtk_graph_draw(cr, nodes, g->node_count, edges, edge_count);
 
    /* Output trims inside each source block; backed by the existing
@@ -4248,8 +4325,11 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture,
    graph_pan_dragging = FALSE;
 }
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
-   (void)widget;
    (void)unused;
+   if(routing_marks_press_event(event)) {
+      gtk_widget_grab_focus(widget);
+      return TRUE;
+   }
 
    if (event->type == GDK_BUTTON_PRESS) {
       graph_touch_pointer = routing_is_touch_event((GdkEvent *)event);
@@ -4510,6 +4590,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
    (void)widget;
    (void)unused;
+   if(routing_marks_motion_event(event))return TRUE;
    if(onair_drag){
       double gx,gy;
       if(graph_pointer(event->x,event->y,&gx,&gy)){
@@ -4605,6 +4686,7 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
 static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
+   if(routing_marks_release_event(event))return TRUE;
    if(event->button==GDK_BUTTON_PRIMARY&&onair_drag){
       if(onair_drag==3) {
          double gx,gy;
@@ -5133,6 +5215,12 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(profiles), load, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), save, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(profiles), remove, FALSE, FALSE, 0);
+      if(!routing_marks) {
+         routing_marks=rr_marks_new(routing_marks_changed,NULL);
+         char *saved=rrclient_database_setting_get("audio.graph.annotations");
+         if(saved){rr_marks_load(routing_marks,saved);g_free(saved);}
+      }
+      gtk_box_pack_start(GTK_BOX(profiles),routing_marks_toolbar(),FALSE,FALSE,0);
       GtkWidget *auto_layout = gtk_button_new_with_label("AUTO");
       gtk_widget_set_tooltip_text(auto_layout,
          "Auto-arrange by wire topology in non-overlapping, wrapped columns; reset saved positions");
@@ -5188,6 +5276,8 @@ void gtk_audio_graph_present(void) {
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
+      gtk_widget_set_can_focus(graph_canvas,TRUE);
+      g_signal_connect(graph_canvas,"key-press-event",G_CALLBACK(routing_marks_key),NULL);
       gtk_widget_set_size_request(graph_canvas, 1, 1);
       gtk_widget_set_has_tooltip(graph_canvas, TRUE);
       g_signal_connect(graph_canvas, "query-tooltip", G_CALLBACK(routing_graph_tooltip), NULL);
@@ -5537,6 +5627,7 @@ void gtk_audio_routing_shutdown(void) {
    }
    g_clear_pointer(&graph_snapshot, g_free);
    routing_control_drag_index = -1;
+   if(routing_marks) {rr_marks_free(routing_marks);routing_marks=NULL;}
    if (graph_positions) { g_hash_table_destroy(graph_positions); graph_positions = NULL; }
    if (graph_selection) { g_hash_table_destroy(graph_selection); graph_selection = NULL; }
    memset(graph_group_member,0,sizeof(graph_group_member));
