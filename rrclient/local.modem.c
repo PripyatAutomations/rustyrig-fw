@@ -514,6 +514,18 @@ static void request_received(const rr_event_message_t *message, void *unused) {
       stop_one(req->slot - 1);
       g_snprintf(last_status, sizeof(last_status), "Decoder %u stopped", req->slot);
    }
+   /* The graph patch is executable state: an absent TX wire mutes the
+    * source in the actual TX mixer, even if a worker emits samples. */
+   for(unsigned k=0;k<RR_LOCAL_MODEM_MAX;k++) {
+      decoder_t *d=&decoders[k];
+      char id[32];
+      g_snprintf(id,sizeof(id),"modem%u.tx",k+1);
+      g_mutex_lock(&decoder_lock);
+      bool connected=d->active && d->tx_enabled &&
+                     !strcmp(d->tx_target,"tx.mix");
+      g_mutex_unlock(&decoder_lock);
+      audio_tx_source_route(id,connected);
+   }
    publish_snapshot();
    if (req->action == RR_LOCAL_MODEM_START ||
        req->action == RR_LOCAL_MODEM_STOP ||
