@@ -200,10 +200,13 @@ static void routing_marks_width(GtkSpinButton *button,gpointer unused) {
 }
 static GtkWidget *routing_marks_toolbar(void) {
    static const char *names[]={"Select","Pencil","Divider","Box","Note","Section","Eraser"};
+   static const char *symbols[]={"↖","✎","─","□","T","▣","⌫"};
    GtkWidget *bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,2);
    GSList *group=NULL;
    for(int i=0;i<7;i++) {
-      GtkWidget *button=gtk_radio_button_new_with_label(group,names[i]);
+      GtkWidget *button=gtk_radio_button_new_with_label(group,symbols[i]);
+      gtk_widget_set_tooltip_text(button,names[i]);
+      gtk_widget_set_size_request(button,38,40);
       group=gtk_radio_button_get_group(GTK_RADIO_BUTTON(button));
       g_object_set_data(G_OBJECT(button),"mark-tool",GINT_TO_POINTER(i));
       g_signal_connect(button,"toggled",G_CALLBACK(routing_marks_tool_toggled),NULL);
@@ -5308,13 +5311,22 @@ void gtk_audio_graph_present(void) {
          char *saved=rrclient_database_setting_get("audio.graph.annotations");
          if(saved){rr_marks_load(routing_marks,saved);g_free(saved);}
       }
-      gtk_box_pack_start(GTK_BOX(profiles),routing_marks_toolbar(),FALSE,FALSE,0);
+      /* A separate wrapping row keeps the preset selector usable and
+       * prevents a growing toolbar from setting the window's minimum width. */
+      GtkWidget *tools=gtk_flow_box_new();
+      gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(tools),GTK_SELECTION_NONE);
+      gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(tools),1);
+      gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(tools),30);
+      gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(tools),3);
+      gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(tools),4);
+      gtk_widget_set_hexpand(tools,TRUE);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),routing_marks_toolbar(),-1);
       GtkWidget *auto_layout = gtk_button_new_with_label("AUTO");
       gtk_widget_set_tooltip_text(auto_layout,
          "Auto-arrange by wire topology in non-overlapping, wrapped columns; reset saved positions");
       g_signal_connect(auto_layout, "clicked",
                        G_CALLBACK(routing_auto_layout_clicked), NULL);
-      gtk_box_pack_start(GTK_BOX(profiles), auto_layout, FALSE, FALSE, 0);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools), auto_layout, -1);
       GtkWidget *snap_grid = gtk_check_button_new_with_label("Snap");
       char *saved_snap = rrclient_database_setting_get(GRAPH_SNAP_KEY);
       graph_snap_enabled = saved_snap &&
@@ -5324,7 +5336,7 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_tooltip_text(snap_grid,
          "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
       g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
-      gtk_box_pack_start(GTK_BOX(profiles), snap_grid, FALSE, FALSE, 0);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools), snap_grid, -1);
       GtkWidget *show_controls = gtk_check_button_new_with_label("Controls");
       char *show_setting = rrclient_database_setting_get("audio.graph.show-controls");
       routing_controls_visible = !show_setting || strcmp(show_setting, "false");
@@ -5332,28 +5344,29 @@ void gtk_audio_graph_present(void) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(show_controls), routing_controls_visible);
       gtk_widget_set_tooltip_text(show_controls, "Show or hide floating controls in Routing");
       g_signal_connect(show_controls, "toggled", G_CALLBACK(routing_show_controls_toggled), NULL);
-      gtk_box_pack_end(GTK_BOX(profiles), show_controls, FALSE, FALSE, 0);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools), show_controls, -1);
       GtkWidget *hidden_controls = gtk_button_new_with_label("Hidden");
       gtk_widget_set_tooltip_text(hidden_controls,
          "Restore hidden floating controls without changing their parameter wiring");
       g_signal_connect(hidden_controls, "clicked",
          G_CALLBACK(routing_compact_hidden_menu), NULL);
-      gtk_box_pack_end(GTK_BOX(profiles), hidden_controls, FALSE, FALSE, 0);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools), hidden_controls, -1);
       GtkWidget *pin_control = gtk_button_new_with_label("+ Control");
       gtk_widget_set_tooltip_text(pin_control,
          "Add a slider, knob, or ON AIR indicator to the routing graph");
       g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
-      gtk_box_pack_end(GTK_BOX(profiles), pin_control, FALSE, FALSE, 0);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools), pin_control, -1);
       GtkWidget *add_effect = gtk_button_new_with_label("+ Effect");
       gtk_widget_set_tooltip_text(add_effect,
          "Add a standalone LV2 processor to Routing, hosted in its own fwdsp subprocess");
       g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
-      gtk_box_pack_end(GTK_BOX(profiles), add_effect, FALSE, FALSE, 0);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools), add_effect, -1);
       GtkWidget *new_modem = gtk_button_new_with_label("+ Modem");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
-      gtk_box_pack_end(GTK_BOX(profiles), new_modem, FALSE, FALSE, 0);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools), new_modem, -1);
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(routing_page), tools, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
       GtkWidget *info =
          gtk_label_new("Drag blocks or ports to move/patch. Touch: hold an effect or modem for options. Mouse: right-click; middle/Alt-drag pans, wheel zooms; double-click trim resets to 0 dB.");
