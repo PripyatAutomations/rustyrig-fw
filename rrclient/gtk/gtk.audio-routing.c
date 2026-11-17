@@ -622,6 +622,7 @@ static void onair_connection_lost(const char *event,const char *data,
    graph_canvas_update_size();
    if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
+static gboolean onair_source_position(const char *source,double *x,double *y);
 static gboolean onair_wire_hit(double x,double y) {
    if(!onair_visible || !onair_connected) return FALSE;
    double sx,sy;
