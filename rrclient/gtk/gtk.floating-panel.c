@@ -434,27 +434,56 @@ static void dock_reveal_panel(RRFloatPanel *p) {
    dock_edge_set_extent(d,edge,d->extent[edge]);
 }
 
+static void panel_dock_coords_save(RRFloatPanel *p) {
+   if (!p || !p->id || p->dock_edge<0) return;
+   char *key=g_strdup_printf("ui.panel.dock.position.%s",p->id);
+   char *val=g_strdup_printf("%d,%d",p->dock_x,p->dock_y);
+   rrclient_database_setting_set(key,val);
+   g_free(val);g_free(key);
+}
+static gboolean panel_dock_contains(RRChatDocks *d, guint edge, gint x_root, gint y_root) {
+   if(!d || edge>=RR_DOCK_COUNT || !gtk_widget_get_realized(d->root))return FALSE;
+   GtkWidget *top=gtk_widget_get_toplevel(d->root);
+   GdkWindow *win=gtk_widget_get_window(top);
+   if(!win)return FALSE;
+   gint ox=0,oy=0,rx=0,ry=0;
+   gdk_window_get_origin(win,&ox,&oy);
+   if(!gtk_widget_translate_coordinates(d->region[edge],top,0,0,&rx,&ry))
+      return FALSE;
+   gint x=x_root-ox-rx,y=y_root-oy-ry;
+   return x>=0 && y>=0 && x<gtk_widget_get_allocated_width(d->region[edge]) &&
+          y<gtk_widget_get_allocated_height(d->region[edge]);
+}
 static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
-   if(!p||!d||edge<0||edge>=RR_DOCK_COUNT||p->modal)return;
+   if(!p || !p->frame || !d || edge<0 || edge>=RR_DOCK_COUNT || p->modal)return;
    GtkWidget *slot=d->slot[edge];
    if(gtk_widget_get_parent(p->frame)==slot)return;
    if(p->dock_edge<0){
       p->float_x=gtk_widget_get_margin_start(p->frame);
       p->float_y=gtk_widget_get_margin_top(p->frame);
    }
+   GList *existing=gtk_container_get_children(GTK_CONTAINER(slot));
+   gint count=g_list_length(existing);
+   g_list_free(existing);
    GtkWidget *parent=gtk_widget_get_parent(p->frame);
    g_object_ref(p->frame);
    if(GTK_IS_CONTAINER(parent))gtk_container_remove(GTK_CONTAINER(parent),p->frame);
    dock_hide_if_empty(parent);
    gtk_widget_set_margin_start(p->frame,0);
    gtk_widget_set_margin_top(p->frame,0);
-   gtk_widget_set_halign(p->frame,GTK_ALIGN_FILL);
-   gtk_widget_set_valign(p->frame,GTK_ALIGN_FILL);
-   gtk_widget_set_size_request(p->frame,-1,-1);
-   gtk_box_pack_start(GTK_BOX(slot),p->frame,TRUE,TRUE,0);
+   gtk_widget_set_halign(p->frame,GTK_ALIGN_START);
+   gtk_widget_set_valign(p->frame,GTK_ALIGN_START);
+   /* Keep the same floating chrome and size, not a dock-filling child. */
+   gtk_widget_set_size_request(p->frame,
+      p->saved_width>1?p->saved_width:230,
+      p->saved_height>1?p->saved_height:100);
+   if(count && !p->dock_x && !p->dock_y){
+      if(edge<2)p->dock_y=count*116;
+      else p->dock_x=count*246;
+   }
+   gtk_fixed_put(GTK_FIXED(slot),p->frame,p->dock_x,p->dock_y);
    g_object_unref(p->frame);
    p->dock_edge=edge;
-   d->collapsed[edge]=d->user_collapsed[edge];
    g_object_set_data(G_OBJECT(d->pane[edge]),"rr-dock-sized",NULL);
    if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden &&
       !p->room_hidden)gtk_widget_show(p->frame);
@@ -462,7 +491,8 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    panel_dock_save(p);
 }
 static void panel_dock_detach(RRFloatPanel *p,gint root_x,gint root_y) {
-   if(!p||p->dock_edge<0)return;
+   if(!p||!p->frame||p->dock_edge<0)return;
+   panel_dock_coords_save(p);
    GtkWidget *parent=gtk_widget_get_parent(p->frame);
    if(!GTK_IS_CONTAINER(parent))return;
    g_object_ref(p->frame);
@@ -1579,6 +1609,10 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    else if(!g_strcmp0(stored_edge,"top"))p->dock_edge=RR_DOCK_TOP;
    else if(!g_strcmp0(stored_edge,"bottom"))p->dock_edge=RR_DOCK_BOTTOM;
    g_free(stored_edge);g_free(dock_key);
+   char *position_key=g_strdup_printf("ui.panel.dock.position.%s",id);
+   char *position=rrclient_database_setting_get(position_key);
+   if(position)sscanf(position,"%d,%d",&p->dock_x,&p->dock_y);
+   g_free(position);g_free(position_key);
    floating_panels = g_list_prepend(floating_panels, p);
    p->closable = TRUE;
    p->minimizable = TRUE;
