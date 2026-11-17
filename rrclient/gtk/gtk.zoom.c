@@ -341,7 +341,10 @@ void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    /* Scrolling belongs to per-page chat/log views, not the outer notebook. Never pan the entire client in either axis.\n the notebook width; wide children must
     * handle their own reflow. */
    GtkPolicyType vertical = GTK_POLICY_NEVER;
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), GTK_POLICY_NEVER, vertical);
+   /* NEVER propagates wide child requisitions into the top-level minimum.
+    * AUTOMATIC keeps the application window tileable; leaf views should
+    * reflow and any remaining oversized content remains scrollable. */
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), GTK_POLICY_AUTOMATIC, vertical);
    GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(zoom_viewport));
    g_signal_connect(horizontal, "value-changed", G_CALLBACK(zoom_restrict_horizontal), NULL);
    gtk_container_add(GTK_CONTAINER(zoom_viewport), content);
