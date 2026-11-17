@@ -47,3 +47,20 @@ selected radio mode.
 
 The ON AIR indicator is for **PTT messages from its specific wired red pin**;
 it deliberately does not follow COS or the radio's reported TX state.
+
+## Graph editing and layout
+
+**Ctrl+click** or **Shift+click** an audio-routing block to add/remove it
+from the current selection. The selected blocks remain highlighted. Drag
+the body of any selected block to move the whole group as a rigid set;
+existing wires remain connected and redraw at their new endpoints.
+Positions are saved on release. Click an unselected block to select
+only it, or click empty canvas space to clear selection. Ports and trim
+controls retain their own drag/double-click behavior.
+
+The **AUTO** button arranges graph blocks by connection depth in
+spaced columns, wrapping deeper chains into additional vertical bands.
+It resets user-positioned graph blocks without modifying the actual
+audio connections. Regular graph refreshes leave manually pinned
+positions alone. **Snap** applies one displacement to the whole group,
+so selected blocks keep their relative spacing.
