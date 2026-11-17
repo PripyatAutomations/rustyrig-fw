@@ -64,6 +64,12 @@ void audio_local_rx_stop(const char *id);
 bool audio_modem_tx_pcm(unsigned slot, const char *ptt_target,
                         const int16_t *pcm, size_t frames);
 bool audio_modem_tx_allowed(const char *target);
+/* Internal source patch interface. Producers register their PCM format,
+ * route into tx.mix, then push samples; no source touches the encoder. */
+bool audio_tx_source_register(const char *id,const rr_pcm_stream_format_t *format);
+bool audio_tx_source_route(const char *id,bool connected);
+bool audio_tx_source_push(const char *id,const void *pcm,size_t frames);
+
 /* Send a complete encoded audio binframe via the existing WS/direct-RTP
  * media transport. Core context only. */
 bool rrclient_send_tx_audio_frame(rrconn_t *connection,
