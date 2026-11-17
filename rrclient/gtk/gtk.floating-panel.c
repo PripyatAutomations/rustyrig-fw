@@ -25,6 +25,7 @@ struct rr_floating_panel {
    gboolean temporary_override; /* explicit user request while panels are masked */
    gboolean explicitly_hidden;  /* close/hide must not be undone by show_all */
    gint saved_width, saved_height, opacity;
+   guint layout_bucket; /* viewport-width class, not exact pixels */
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
    void (*on_close)(gpointer);
@@ -111,6 +112,69 @@ static void panel_position_save(RRFloatPanel *p, int x, int y) {
    g_hash_table_replace(panel_positions(p->overlay), g_strdup(p->id), position);
 }
 
+/* Width classes are intentionally coarse; small resize changes should not
+ * switch arrangements. Layout data lives in the existing window_states table
+ * under a per-class ID, so no schema migration is needed. */
+static guint panel_width_class(gint width, guint previous) {
+   if (previous == 1 && width < 800) return 1;
+   if (previous == 2 && width >= 720 && width < 1450) return 2;
+   if (previous == 3 && width >= 1370) return 3;
+   return width < 760 ? 1 : width < 1410 ? 2 : 3;
+}
+static char *panel_layout_id(const RRFloatPanel *p, guint bucket) {
+   static const char *names[] = {"", "compact", "half", "wide"};
+   return g_strdup_printf("%s@%s", p->id, names[CLAMP(bucket,1u,3u)]);
+}
+static void panel_layout_apply(RRFloatPanel *p, guint bucket) {
+   rrclient_window_state_t saved = {0};
+   char *key = panel_layout_id(p,bucket);
+   gboolean found = rrclient_database_window_load(key,&saved);
+   g_free(key);
+   if (found) {
+      int max_w=MAX(200,gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay))-24);
+      int max_h=MAX(160,gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay))-24);
+      /* Only geometry is size-specific. The panel's visibility, user zoom,
+       * opacity, and pin status are shared across viewport sizes. */
+      p->saved_width=CLAMP(saved.width,0,max_w);
+      p->saved_height=CLAMP(saved.height,0,max_h);
+      int x0,y0,x1,y1;
+      panel_hard_bounds(p,MAX(1,p->saved_width),MAX(1,p->saved_height),
+                        &x0,&y0,&x1,&y1);
+      int x=CLAMP(saved.x,x0,x1),y=CLAMP(saved.y,y0,y1);
+      gtk_widget_set_margin_start(p->frame,x);
+      gtk_widget_set_margin_top(p->frame,y);
+      panel_position_save(p,x,y);
+   } else if (p->ever_shown) {
+      /* First visit to a size class: keep current arrangement where it
+       * fits and constrain off-screen panels instead of losing them. */
+      int w=MAX(1,gtk_widget_get_allocated_width(p->frame));
+      int h=MAX(1,gtk_widget_get_allocated_height(p->frame));
+      int x0,y0,x1,y1;
+      panel_hard_bounds(p,w,h,&x0,&y0,&x1,&y1);
+      int x=CLAMP(gtk_widget_get_margin_start(p->frame),x0,x1);
+      int y=CLAMP(gtk_widget_get_margin_top(p->frame),y0,y1);
+      gtk_widget_set_margin_start(p->frame,x);
+      gtk_widget_set_margin_top(p->frame,y);
+      panel_position_save(p,x,y);
+   }
+   if (p->ever_shown && !p->rolled && p->resizable)
+      gtk_widget_set_size_request(p->frame,
+         p->saved_width>1 ? p->saved_width : -1,
+         p->saved_height>1 ? p->saved_height : -1);
+   p->last_saved_valid=FALSE;
+}
+static void panel_layout_sync(RRFloatPanel *p) {
+   if (!p || p->modal || !p->frame || p->dragging || p->resizing) return;
+   gint width=gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
+   if (width < 320) return;
+   guint next=panel_width_class(width,p->layout_bucket);
+   if (next==p->layout_bucket) return;
+   if (p->layout_bucket && p->ever_shown) panel_state_save(p);
+   p->layout_bucket=next;
+   p->restoring_state=TRUE;
+   panel_layout_apply(p,next);
+   p->restoring_state=FALSE;
+}
 /* Persist expanded dimensions, never the collapsed title-bar height. */
 static void panel_state_save(RRFloatPanel *p) {
    if (!p || p->restoring_state || !p->ever_shown || p->modal ||
@@ -151,9 +215,15 @@ static void panel_state_save(RRFloatPanel *p) {
       return;
    }
 
-   if (rrclient_database_window_save(p->id, &state)) {
-      p->last_saved = state;
-      p->last_saved_valid = TRUE;
+   gboolean ok=rrclient_database_window_save(p->id,&state);
+   if (p->layout_bucket) {
+      char *key=panel_layout_id(p,p->layout_bucket);
+      ok=rrclient_database_window_save(key,&state) && ok;
+      g_free(key);
+   }
+   if (ok) {
+      p->last_saved=state;
+      p->last_saved_valid=TRUE;
    }
 }
 void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *upper, GtkWidget *upper_extra, GtkWidget *lower, gint right_inset) {
@@ -417,6 +487,8 @@ static void panel_overlay_allocation(GtkWidget *widget, GtkAllocation *allocatio
                                      gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
+   if (allocation->width >= 320 && allocation->height >= 240)
+      panel_layout_sync(p);
    if (!p->ever_shown || p->initial_positioned ||
        allocation->width < 320 || allocation->height < 240) return;
    p->initial_positioned = panel_place_initial(p);
@@ -1348,6 +1420,8 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    gtk_widget_set_no_show_all(p->frame, FALSE);
 
    if (!p->ever_shown) {
+      /* On first show choose the saved layout for this approximate width. */
+      panel_layout_sync(p);
       p->restoring_state = TRUE;
 
       if (p->loaded_state && (p->saved_width > 1 || p->saved_height > 1)) {
