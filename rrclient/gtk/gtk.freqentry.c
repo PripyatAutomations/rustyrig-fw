@@ -320,35 +320,46 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       return FALSE;
    }
 
-   if (event->keyval == GDK_KEY_Delete) {
+   /* Num Lock generates KP_0..KP_9, not the ordinary digit keyvals.
+    * Normalize both so the one-character entries and focus advance behave
+    * identically for the main keyboard and numeric keypad. */
+   int digit = -1;
+   if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9)
+      digit = (int)(event->keyval - GDK_KEY_0);
+   else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9)
+      digit = (int)(event->keyval - GDK_KEY_KP_0);
+
+   if (event->keyval == GDK_KEY_Delete || event->keyval == GDK_KEY_KP_Delete) {
       gtk_entry_set_text(entry, "0");
       poll_block_expire = now + 1;
       freqentry_finalize(fe);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_BackSpace || event->keyval == GDK_KEY_Left) {
+   } else if (event->keyval == GDK_KEY_BackSpace || event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left) {
       int prev = (idx == 0) ? fe->num_digits - 1 : idx - 1;
       gtk_widget_grab_focus(fe->digits[prev]);
       gtk_editable_set_position(GTK_EDITABLE(fe->digits[prev]), -1);
       gtk_editable_select_region(GTK_EDITABLE(fe->digits[prev]), 0, -1);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_Right) {
+   } else if (event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
       int next = (idx == fe->num_digits - 1) ? 0 : idx + 1;
       gtk_widget_grab_focus(fe->digits[next]);
       gtk_editable_set_position(GTK_EDITABLE(fe->digits[next]), -1);
       gtk_editable_select_region(GTK_EDITABLE(fe->digits[next]), 0, -1);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_plus) {
+   } else if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up ||
+             event->keyval == GDK_KEY_plus || event->keyval == GDK_KEY_KP_Add) {
       freqentry_bump_digit(fe, idx, +1);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_minus) {
+   } else if (event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down ||
+             event->keyval == GDK_KEY_minus || event->keyval == GDK_KEY_KP_Subtract) {
       freqentry_bump_digit(fe, idx, -1);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_Return) {
+   } else if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) {
       poll_block_expire = 0;
 
       return TRUE;
@@ -369,8 +380,8 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       }
 
       return TRUE;
-   } else if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
-      char c = '0' + (event->keyval - GDK_KEY_0);
+   } else if (digit >= 0) {
+      char c = (char)('0' + digit);
       char buf[2] = {
          c, 0
       };
