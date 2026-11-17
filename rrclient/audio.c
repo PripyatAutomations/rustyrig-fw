@@ -1887,7 +1887,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    const char *active_rx_id = NULL;
    for (size_t i = 0; i < count; i++)
       if (streams[i].active_rx) { active_rx_id = streams[i].id; break; }
-   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 9 - 4 * RR_LOCAL_MODEM_MAX ; i++) {
+   for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 11 - 4 * RR_LOCAL_MODEM_MAX ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       /* rig.src is the stable alias of this decoder, not extra PCM. */
