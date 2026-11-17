@@ -556,7 +556,7 @@ static gboolean zoom_touch_finish(gpointer data) {
    zoom_touch_clear(touch);
 
    if (zoom_window) {
-      zoom_queue_resize(true);
+      gtk_ui_zoom_recheck();
    }
 
    return G_SOURCE_REMOVE;
@@ -577,7 +577,7 @@ static void zoom_touch_end(GtkGesture *gesture, GdkEventSequence *sequence, gpoi
    zoom_touch_clear(touch);
 
    if (zoom_window) {
-      zoom_queue_resize(false);
+      gtk_ui_zoom_recheck();
    }
 }
 
