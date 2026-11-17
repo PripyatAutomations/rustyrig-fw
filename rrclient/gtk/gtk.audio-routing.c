@@ -4063,6 +4063,7 @@ static gboolean routing_link_disconnectable(const rr_ag_view_link_t *link) {
        link->dst>=graph_snapshot->node_count) return FALSE;
    const char *from=graph_snapshot->nodes[link->src].id;
    const char *to=graph_snapshot->nodes[link->dst].id;
+   if (!strcmp(from,"src.client.dsp0") && !strcmp(to,"tx.mix")) return TRUE;
    if (g_str_has_prefix(from,"modem") || g_str_has_prefix(to,"modem")) return TRUE;
    if (g_str_has_prefix(from,"proc.lv2.") || g_str_has_prefix(to,"proc.lv2.")) return TRUE;
    if (!strcmp(from,"src.client.dsp0") && g_str_has_prefix(to,"rig.")) return TRUE;
@@ -4127,7 +4128,7 @@ static gboolean routing_disconnect_link(guint index,gint channel) {
       modem.slot=slot;modem.action=link->kind==RR_AG_CONTROL ?
          RR_LOCAL_MODEM_PTT_ROUTE:RR_LOCAL_MODEM_TX_ROUTE;
       rr_local_modem_request(&modem);
-   } else if(!strcmp(src,"src.client.dsp0") && g_str_has_prefix(dst,"rig.")) {
+   } else if(!strcmp(src,"src.client.dsp0") && !strcmp(dst,"tx.mix")) {
       audio_request_mic_tx_route("none");
    } else if(g_str_has_prefix(src,"proc.lv2.")) {
       unsigned fx=0;
@@ -4335,8 +4336,27 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       if (graph_port_at(gx,gy,&hit_source,&hit_channel,&hit_mixer)) {
          graph_drag_source=graph_drag_channel=-1;
          graph_drag_mixer=graph_drag_moved=FALSE;
+         if (hit_source<0) {
+            const rr_ag_view_node_t *n=&graph_snapshot->nodes[-hit_source-1];
+            if(!strcmp(n->id,"tx.mix")) {
+               audio_request_mic_tx_route("none");
+               for(unsigned slot=1;slot<=RR_LOCAL_MODEM_MAX;slot++) {
+                  rr_local_modem_request_t req={
+                     .action=RR_LOCAL_MODEM_TX_ROUTE,.slot=slot
+                  };
+                  rr_local_modem_request(&req);
+               }
+               routing_queue();
+               return TRUE;
+            }
+         }
          if (hit_source>=0) {
             const rr_ag_view_node_t *n=&graph_snapshot->nodes[hit_source];
+            if (!strcmp(n->id,"src.client.dsp0")) {
+               audio_request_mic_tx_route("none");
+               routing_queue();
+               return TRUE;
+            }
             if (n->type==RR_AG_SOURCE && !n->read_only &&
                 !g_str_has_prefix(n->id,"modem") &&
                 !g_str_has_prefix(n->id,"proc.lv2.")) {
