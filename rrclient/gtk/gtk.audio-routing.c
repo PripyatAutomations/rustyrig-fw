@@ -4812,6 +4812,10 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
          return TRUE;
       }
    }
+   /* Shift + empty-space drag selects completely enclosed widgets.
+    * Ctrl+Shift adds to the previous selection; plain drags still pan. */
+   if(event->type==GDK_BUTTON_PRESS && (event->state&GDK_SHIFT_MASK))
+      return routing_marquee_begin(gx,gy,event->state);
    if(!(event->state & (GDK_CONTROL_MASK|GDK_SHIFT_MASK))) {
       routing_graph_clear_selection();
       graph_canvas_update_size();
@@ -4831,6 +4835,12 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
    (void)widget;
    (void)unused;
+   if(graph_marquee_active) {
+      graph_marquee_x1=(event->x-graph_offset_x)/MAX(.01,graph_scale);
+      graph_marquee_y1=(event->y-graph_offset_y)/MAX(.01,graph_scale);
+      routing_marquee_update();
+      return TRUE;
+   }
    if(routing_marks_motion_event(event))return TRUE;
    if(onair_drag){
       double gx,gy;
@@ -4927,6 +4937,13 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
 static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
+   if(graph_marquee_active && event->button==GDK_BUTTON_PRIMARY) {
+      graph_marquee_x1=(event->x-graph_offset_x)/MAX(.01,graph_scale);
+      graph_marquee_y1=(event->y-graph_offset_y)/MAX(.01,graph_scale);
+      routing_marquee_update();
+      routing_marquee_end();
+      return TRUE;
+   }
    if(routing_marks_release_event(event))return TRUE;
    if(event->button==GDK_BUTTON_PRIMARY&&onair_drag){
       if(onair_drag==3) {
