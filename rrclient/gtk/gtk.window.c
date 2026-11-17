@@ -321,10 +321,11 @@ static void main_toolbar_panels_toggled(GtkToggleButton *button, gpointer unused
 static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page,
                                      guint number, gpointer unused) {
    (void)book; (void)number; (void)unused;
-   /* Only Status and the merged Client/Host Log are distraction-free.
-    * Other tool pages and chats retain the user's panel layout. */
-   gboolean hide = page && (page == status_tab || page == log_tab || page == host_log_tab);
-   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, hide);
+   /* Only chat-room pages own docking regions. Status, Logs, Routing,
+    * Admin, Config, Explorer and SDR Directory reclaim the whole workspace. */
+   gboolean chat_page=page && g_object_get_data(G_OBJECT(page),"rr-chat-docks");
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB,!chat_page);
+   rr_floating_panel_chat_activate(page);
 }
 /* Virtual Rigs manager. The stable per-slot name is independent of the
  * selected chat; all serial changes cross to the core event domain. */
