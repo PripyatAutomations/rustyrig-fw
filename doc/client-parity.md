@@ -342,20 +342,14 @@ frequency entry and VFO row to shrink, rather than only their text. The scaled
 theme stays below application/user CSS; 100% removes that override. This is a
 GTK presentation detail, with no protocol or browser behavior change.
 
-`ui.gtk.scale-on-resize=true` (default) scales the main window against its
-monitor's usable work area, using the smaller width/height ratio, from 25% to
-100%. Maximized/fullscreen is 100%; secondary windows inherit the scale but do
-not drive it. A scrollable root lets the main window shrink below its contents'
-previous minimum; overflow remains reachable at the 25% floor. Resize updates
-are debounced and never resize the window themselves. Ctrl +/- changes font/UI
-zoom and proportionally resizes the window; Alt +/- changes font/UI zoom only.
-Reset to 100% maximizes the window in automatic mode. Set the option false for
-manual 25–300% zoom. Saved window placement still applies;
-without saved placement, automatic mode opens at 75% of the primary monitor.
+Window dimensions and global zoom are independent. Resizing or XFCE tiling
+never updates `ui.gtk.zoom`; Alt/Ctrl +/- and pinch gestures adjust only
+the interface scale, not the native desktop window geometry. The main window
+remains a normal decorated, resizable window in non-fullscreen mode. Existing
+`ui.gtk.scale-on-resize` settings in older configs are ignored.
 
 GTK multitouch: two-finger pinch changes font/UI zoom only in 5% steps within
-the current zoom limits. Window edge resizing (with automatic scaling enabled)
-continues to update the zoom. A stationary two-finger touchscreen
+the current zoom limits. A stationary two-finger touchscreen
 tap on a userlist row opens its existing right-click menu after both fingers
 lift (400ms tap limit, 10 logical-pixel movement tolerance). Pinches, drags,
 extra fingers and cancelled touches do not open menus. Mouse and touchpad

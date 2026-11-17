@@ -14,13 +14,6 @@ static unsigned zoom_percent = 100;
 static int base_dpi;
 static GtkCssProvider *zoom_theme_provider;
 static GtkWidget *zoom_window, *zoom_viewport;
-static gulong resize_handler, state_handler, focus_handler;
-static guint resize_source;
-static int resize_width, resize_height;
-static bool coupled_resize_keys, coupled_resize_pending;
-/* Reference dimensions for the GTK layout at 100% (logical pixels). */
-#define RR_ZOOM_REFERENCE_WIDTH 1280
-#define RR_ZOOM_REFERENCE_HEIGHT 800
 typedef struct zoom_touch {
    GtkGesture *gesture;
    GtkWidget *target;
@@ -34,7 +27,7 @@ static GList *touch_handlers;
 static unsigned active_touches;
 static void zoom_touch_bind(GtkWidget *window);
 gboolean gtk_ui_zoom_key_release(GtkWidget *widget, GdkEventKey *event, gpointer data);
-static gboolean zoom_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer data);
+
 static guint map_signal;
 static gulong map_hook;
 
@@ -283,106 +276,15 @@ static gboolean zoom_mapped(GSignalInvocationHint *hint, guint n, const GValue *
 }
 
 // Use logical monitor pixels, matching GTK window allocations on HiDPI screens.
-static unsigned zoom_for_size(int width, int height, int screen_width, int screen_height) {
-   if (width <= 0 || height <= 0 || screen_width <= 0 || screen_height <= 0) {
-      return 100;
-   }
-   int horizontal = ((int64_t) width * 100 + screen_width / 2) / screen_width;
-   int vertical = ((int64_t) height * 100 + screen_height / 2) / screen_height;
-
-   return CLAMP(MIN(horizontal, vertical), 25, 300);
-}
-
-static GdkMonitor *zoom_monitor(GtkWidget *widget) {
-   GdkDisplay *display = gtk_widget_get_display(widget);
-   GdkWindow *window = gtk_widget_get_window(widget);
-
-   if (window && gdk_window_get_window_type(window) != GDK_WINDOW_OFFSCREEN) {
-      return gdk_display_get_monitor_at_window(display, window);
-   }
-   GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
-
-   return monitor ? monitor : gdk_display_get_monitor(display, 0);
-}
-
-/* Both fullscreen and maximized windows are controlled by the window manager. Zoom must never alter their geometry or window state. */
-static bool zoom_window_fills_monitor(void) {
-   if (!zoom_window || !gtk_widget_get_realized(zoom_window)) {
-      return false;
-   }
-   GdkWindow *gdk = gtk_widget_get_window(zoom_window);
-
-   return gdk && (gdk_window_get_state(gdk) & (GDK_WINDOW_STATE_FULLSCREEN | GDK_WINDOW_STATE_MAXIMIZED));
-}
-
-static gboolean zoom_after_resize(gpointer data) {
-   (void)data;
-   resize_source = 0;
-
-   if (!zoom_window || active_touches || !cfg_get_bool("ui.gtk.scale-on-resize", true)) {
-      return G_SOURCE_REMOVE;
-   }
-
-   if (coupled_resize_pending) {
-      coupled_resize_pending = false;
-   }
-   unsigned next = zoom_for_size(resize_width, resize_height, RR_ZOOM_REFERENCE_WIDTH, RR_ZOOM_REFERENCE_HEIGHT);
-
-   if (next != zoom_percent) {
-      dict_add_int(cfg, "ui.gtk.zoom", next);
-      gtk_css_apply_cfg();
-   }
-
-   /* A fullscreen-to-windowed transition can leave the notebook measured at its previous width. Invalidate that requisition after scaling settles. */
-   if (zoom_viewport) {
-      GtkWidget *child = gtk_bin_get_child(GTK_BIN(zoom_viewport));
-
-      if (child) {
-         gtk_widget_queue_resize(child);
-      }
-      GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(zoom_viewport));
-      gtk_adjustment_set_value(horizontal, gtk_adjustment_get_lower(horizontal));
-   }
-
-   return G_SOURCE_REMOVE;
-}
-
-static void zoom_queue_resize(bool force) {
-   (void)force;
-
-   if (resize_source) {
-      g_source_remove(resize_source);
-   }
-   resize_source = g_timeout_add(75, zoom_after_resize, NULL);
-}
-
+/* Keep window placement and size under xfwm4 control. Recheck only
+ * invalidates the viewport after fullscreen/zoom transitions. */
 void gtk_ui_zoom_recheck(void) {
-   if (!zoom_window) {
-      return;
-   }
-   gtk_window_get_size(GTK_WINDOW(zoom_window), &resize_width, &resize_height);
-   zoom_queue_resize(true);
-}
-
-static gboolean zoom_configured(GtkWidget *widget, GdkEventConfigure *event, gpointer data) {
-   (void)widget;
-   (void)data;
-   resize_width = event->width;
-   resize_height = event->height;
-
-   zoom_queue_resize(false);
-
-   return FALSE;
-}
-
-static gboolean zoom_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer data) {
-   (void)widget;
-   (void)event;
-   (void)data;
-
-   zoom_queue_resize(false);
-
-   return FALSE;
+   if (!zoom_viewport) return;
+   GtkWidget *child=gtk_bin_get_child(GTK_BIN(zoom_viewport));
+   if (child) gtk_widget_queue_resize(child);
+   GtkAdjustment *horizontal=
+      gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(zoom_viewport));
+   gtk_adjustment_set_value(horizontal,gtk_adjustment_get_lower(horizontal));
 }
 
 /* The outer scroll container holds the *entire* client, including tabs. Horizontal adjustment must never pan that full UI; leaf views that need horizontal
@@ -446,24 +348,18 @@ void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    g_signal_connect(zoom_viewport, "size-allocate", G_CALLBACK(zoom_width_diagnostic), NULL);
    gtk_container_add(GTK_CONTAINER(window), zoom_viewport);
 
-   if (cfg_get_bool("ui.gtk.scale-on-resize", true)) {
-      GdkDisplay *display = gtk_widget_get_display(window);
-      GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
-
-      if (!monitor) {
-         monitor = gdk_display_get_monitor(display, 0);
-      }
-
-      if (monitor) {
-         GdkRectangle area;
-         gdk_monitor_get_workarea(monitor, &area);
-         // Saved placement still overrides this in place_window().
-         gtk_window_set_default_size(GTK_WINDOW(window), area.width * 3 / 4, area.height * 3 / 4);
-      }
+   /* Initial geometry is separate from zoom. Saved placement overrides
+    * this and xfwm4 remains free to tile or resize the window. */
+   GdkDisplay *display=gtk_widget_get_display(window);
+   GdkMonitor *monitor=gdk_display_get_primary_monitor(display);
+   if (!monitor && gdk_display_get_n_monitors(display)>0)
+      monitor=gdk_display_get_monitor(display,0);
+   if (monitor) {
+      GdkRectangle area;
+      gdk_monitor_get_workarea(monitor,&area);
+      gtk_window_set_default_size(GTK_WINDOW(window),
+         MAX(320,area.width*3/4),MAX(240,area.height*3/4));
    }
-   resize_handler = g_signal_connect(window, "configure-event", G_CALLBACK(zoom_configured), NULL);
-   state_handler = g_signal_connect(window, "window-state-event", G_CALLBACK(zoom_window_state), NULL);
-   g_signal_connect(window, "focus-out-event", G_CALLBACK(zoom_focus_out), NULL);
 }
 
 void gtk_ui_zoom_apply(void) {
@@ -508,38 +404,10 @@ void gtk_ui_zoom_apply(void) {
 }
 
 static void zoom_manual_set(unsigned next) {
-   unsigned previous = zoom_percent;
-
-   if (resize_source) {
-      g_source_remove(resize_source);
-      resize_source = 0;
-   }
-   dict_add_int(cfg, "ui.gtk.zoom", next);
+   next=CLAMP(next,25U,300U);
+   if(next==zoom_percent)return;
+   dict_add_int(cfg,"ui.gtk.zoom",next);
    gtk_css_apply_cfg();
-
-   if (zoom_window && gtk_widget_get_realized(zoom_window)) {
-      GdkWindowState state = gdk_window_get_state(gtk_widget_get_window(zoom_window));
-      bool automatic = cfg_get_bool("ui.gtk.scale-on-resize", true);
-      bool resize_for_zoom = automatic && coupled_resize_keys;
-
-      if (resize_for_zoom && (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
-         GdkMonitor *monitor = zoom_monitor(zoom_window);
-
-         if (monitor) {
-            GdkRectangle area;
-            gdk_monitor_get_workarea(monitor, &area);
-            gtk_window_unfullscreen(GTK_WINDOW(zoom_window));
-            gtk_window_unmaximize(GTK_WINDOW(zoom_window));
-            gtk_window_resize(GTK_WINDOW(zoom_window), area.width * next / 100, area.height * next / 100);
-         }
-      } else if (resize_for_zoom && !(state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
-         int width, height;
-         gtk_window_get_size(GTK_WINDOW(zoom_window), &width, &height);
-         // Shrink/grow the normal window along with its controls; auto-resize
-         // never requests a new window size, avoiding a resize/zoom loop.
-         gtk_window_resize(GTK_WINDOW(zoom_window), MAX(1, (int)((int64_t) width * next / previous)), MAX(1, (int)((int64_t) height * next / previous)));
-      }
-   }
 }
 
 static void zoom_touch_clear(zoom_touch_t *touch) {
@@ -748,23 +616,9 @@ static void zoom_touch_bind(GtkWidget *window) {
 static gboolean zoom_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer data);
 
 static void zoom_key_step(int direction, bool resize_window) {
-   /* In fullscreen/maximized mode Ctrl and Alt only change content scaling. */
-   if (zoom_window_fills_monitor()) {
-      resize_window = false;
-   }
-   unsigned maximum = 300;
-   int delta = direction > 0 ? 10 : direction < 0 ? -10 : 0;
-   int next = CLAMP(direction == 0 ? 100 : (int)zoom_percent + delta, 25, (int)maximum);
-
-   if (next == (int)zoom_percent) {
-      return;
-   }
-
-   if (resize_window) {
-      coupled_resize_keys = true;
-      coupled_resize_pending = true;
-   }
-   zoom_manual_set((unsigned)next);
+   (void)resize_window;
+   int next=direction==0?100:(int)zoom_percent+(direction>0?10:-10);
+   zoom_manual_set(CLAMP(next,25,300));
 }
 
 /* Explicit zoom does not resize the toplevel window; it scales CSS, DPI, geometry, margins and icons using the same engine as Ctrl +/- . */
@@ -777,32 +631,7 @@ void gtk_ui_zoom_step(int direction) {
 }
 
 gboolean gtk_ui_zoom_key_release(GtkWidget *widget, GdkEventKey *event, gpointer data) {
-   (void)widget;
-   (void)data;
-
-   if (event && (event->keyval == GDK_KEY_Control_L || event->keyval == GDK_KEY_Control_R)) {
-      coupled_resize_keys = false;
-
-      if (coupled_resize_pending) {
-         gtk_ui_zoom_recheck();
-      }
-      coupled_resize_pending = false;
-   }
-
-   return FALSE;
-}
-
-static gboolean zoom_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer data) {
-   (void)widget;
-   (void)event;
-   (void)data;
-   coupled_resize_keys = false;
-
-   if (coupled_resize_pending) {
-      gtk_ui_zoom_recheck();
-   }
-   coupled_resize_pending = false;
-
+   (void)widget;(void)event;(void)data;
    return FALSE;
 }
 
@@ -813,21 +642,8 @@ void gtk_ui_zoom_shutdown(void) {
       g_object_set_data(G_OBJECT(window), "rr-touch-zoom", NULL);
    }
 
-   if (resize_source) {
-      g_source_remove(resize_source);
-      resize_source = 0;
-   }
-
    if (zoom_window) {
-      g_signal_handler_disconnect(zoom_window, resize_handler);
-      g_signal_handler_disconnect(zoom_window, state_handler);
-
-      if (focus_handler) {
-         g_signal_handler_disconnect(zoom_window, focus_handler);
-      }
-      focus_handler = 0;
-      coupled_resize_keys = coupled_resize_pending = false;
-      g_object_remove_weak_pointer(G_OBJECT(zoom_window), (gpointer *) &zoom_window);
+      g_object_remove_weak_pointer(G_OBJECT(zoom_window), (gpointer *)&zoom_window);
       zoom_window = NULL;
    }
 
