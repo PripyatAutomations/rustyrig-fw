@@ -21,6 +21,8 @@ typedef struct { char *snapshot; gint64 at; } RRMarkHistory;
 typedef struct {
   GPtrArray *items,*undo,*redo;
   RRMarkTool tool;
+  GdkRGBA default_color;
+  double default_width;
   RRMark *active;
   gboolean dragging;
   double px,py;
@@ -40,7 +42,9 @@ static RRMarks *rr_marks_new(void (*notify)(gpointer),gpointer owner) {
   m->items=g_ptr_array_new_with_free_func(rr_mark_free);
   m->undo=g_ptr_array_new_with_free_func(rr_mark_history_free);
   m->redo=g_ptr_array_new_with_free_func(rr_mark_history_free);
-  m->notify=notify;m->owner=owner;return m;
+  m->notify=notify;m->owner=owner;
+  gdk_rgba_parse(&m->default_color,"#56b9e8");m->default_width=2.5;
+  return m;
 }
 static void rr_marks_free(RRMarks *m) {
   if(!m)return;
@@ -187,6 +191,7 @@ static gboolean rr_marks_press(RRMarks *m,double x,double y,gboolean additive) {
     m->tool==RR_MARK_TEXT?RR_MARK_LABEL:RR_MARK_GROUP;
   rr_marks_checkpoint(m);
   RRMark *s=rr_mark_new(kind,x,y);
+  s->color=m->default_color;s->width=m->default_width;
   if(kind==RR_MARK_LABEL)s->text=g_strdup("Note");
   if(kind==RR_MARK_GROUP)s->text=g_strdup("Section");
   g_ptr_array_add(m->items,s);
@@ -227,6 +232,17 @@ static gboolean rr_marks_delete_selected(RRMarks *m) {
     if(((RRMark*)g_ptr_array_index(m->items,i))->selected)
       g_ptr_array_remove_index(m->items,i);
   rr_marks_changed(m);return TRUE;
+}
+static void rr_marks_bounds(RRMarks *m,double *width,double *height) {
+  if(!m)return;
+  for(guint i=0;i<m->items->len;i++) {
+    RRMark *s=g_ptr_array_index(m->items,i);
+    double *a=(double*)s->xy->data;
+    for(guint j=0;j<s->xy->len;j+=2) {
+      *width=MAX(*width,a[j]+40);
+      *height=MAX(*height,a[j+1]+40);
+    }
+  }
 }
 static void rr_marks_draw(RRMarks *m,cairo_t *cr) {
   if(!m)return;
