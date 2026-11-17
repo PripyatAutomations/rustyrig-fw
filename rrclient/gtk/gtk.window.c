@@ -703,8 +703,8 @@ static void main_window_resize_handles_add(GtkOverlay *overlay) {
       gtk_widget_set_halign(handle,horizontal[i]);
       gtk_widget_set_valign(handle,vertical[i]);
       gtk_widget_set_size_request(handle,
-         (i<2)?-1:(i<4)?8:18,
-         (i<2)?8:(i<4)?-1:18);
+         (i<2)?-1:(i<4)?4:10,
+         (i<2)?4:(i<4)?-1:10);
       gtk_widget_set_opacity(handle,.18);
       gtk_style_context_add_class(gtk_widget_get_style_context(handle),
          "rr-main-resize-edge");
