@@ -27,7 +27,7 @@ struct rr_floating_panel {
    gboolean explicitly_hidden;  /* close/hide must not be undone by show_all */
    gint saved_width, saved_height, opacity;
    gint dock_edge; /* -1 floating, 0 left, 1 right, 2 top, 3 bottom */
-   gint float_x, float_y;
+   gint float_x, float_y, dock_x, dock_y;
    guint layout_bucket; /* viewport-width class, not exact pixels */
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
@@ -113,7 +113,7 @@ static void dock_edge_set_extent(RRChatDocks *d, guint edge, gint extent) {
    gint size=edge<2?gtk_widget_get_allocated_width(pane):
                       gtk_widget_get_allocated_height(pane);
    if(size<80) return;
-   extent=CLAMP(extent,22,MAX(22,size-150));
+   extent=CLAMP(extent,12,MAX(12,size-120));
    if(edge==RR_DOCK_LEFT || edge==RR_DOCK_TOP)
       gtk_paned_set_position(GTK_PANED(pane),extent);
    else gtk_paned_set_position(GTK_PANED(pane),size-extent);
@@ -133,7 +133,7 @@ static void dock_edge_refresh(RRChatDocks *d, guint edge) {
    g_list_free(children);
    d->collapsed[edge]=d->user_collapsed[edge] || !occupied;
    gtk_widget_set_visible(d->scroll[edge],!d->collapsed[edge]);
-   dock_edge_set_extent(d,edge,d->collapsed[edge]?22:d->extent[edge]);
+   dock_edge_set_extent(d,edge,d->collapsed[edge]?12:d->extent[edge]);
 }
 static void dock_workspace_refresh(RRChatDocks *d) {
    if(!d)return;
@@ -194,7 +194,7 @@ static gboolean dock_edge_resize_release(GtkWidget *widget,GdkEventButton *event
    gint size=edge<2?gtk_widget_get_allocated_width(widget):gtk_widget_get_allocated_height(widget);
    gint pos=gtk_paned_get_position(GTK_PANED(widget));
    d->extent[edge]=(edge==RR_DOCK_LEFT||edge==RR_DOCK_TOP)?pos:size-pos;
-   if(d->extent[edge]>22){
+   if(d->extent[edge]>12){
       char *key=dock_extent_key(edge,d->width_bucket?d->width_bucket:2);
       char *val=g_strdup_printf("%d",d->extent[edge]);
       rrclient_database_setting_set(key,val);
@@ -222,11 +222,10 @@ static void dock_edge_style(void) {
    g_object_unref(css);
 }
 static void dock_edge_create(RRChatDocks *d,guint edge) {
-   GtkWidget *region=gtk_box_new(GTK_ORIENTATION_VERTICAL,2);
+   /* A thin inner-edge target, not a full-height header button. */
+   GtkWidget *region=gtk_box_new(edge<2?GTK_ORIENTATION_HORIZONTAL:GTK_ORIENTATION_VERTICAL,0);
    GtkWidget *line=gtk_event_box_new();
-   GtkWidget *label=gtk_label_new(edge<2?"⋮":"⋯");
-   gtk_container_add(GTK_CONTAINER(line),label);
-   gtk_widget_set_size_request(line,edge<2?22:-1,edge<2?32:22);
+   gtk_widget_set_size_request(line,edge<2?10:-1,edge<2?-1:10);
    gtk_widget_set_tooltip_text(line,
       "Drop a panel here to dock. Double-click to collapse/restore; drag the divider to resize.");
    gtk_widget_add_events(line,GDK_BUTTON_PRESS_MASK);
@@ -234,7 +233,8 @@ static void dock_edge_create(RRChatDocks *d,guint edge) {
    g_object_set_data(G_OBJECT(line),"rr-dock-edge",GUINT_TO_POINTER(edge+1));
    g_signal_connect(line,"button-press-event",G_CALLBACK(dock_edge_line_press),NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(line),"rr-chat-dock-line");
-   GtkWidget *slot=gtk_box_new(GTK_ORIENTATION_VERTICAL,2);
+   /* Fixed positioning preserves independent panel sizes and chrome. */
+   GtkWidget *slot=gtk_fixed_new();
    GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
       GTK_POLICY_AUTOMATIC,GTK_POLICY_AUTOMATIC);
@@ -249,8 +249,11 @@ static void dock_edge_create(RRChatDocks *d,guint edge) {
    g_object_set_data(G_OBJECT(slot),"rr-dock-edge",GUINT_TO_POINTER(edge+1));
    /* Parent show_all must not reveal an empty dock or its saved contents. */
    gtk_widget_set_no_show_all(scroll,TRUE);
-   gtk_box_pack_start(GTK_BOX(region),line,FALSE,FALSE,0);
+   if (edge==RR_DOCK_RIGHT || edge==RR_DOCK_BOTTOM)
+      gtk_box_pack_start(GTK_BOX(region),line,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(region),scroll,TRUE,TRUE,0);
+   if (edge==RR_DOCK_LEFT || edge==RR_DOCK_TOP)
+      gtk_box_pack_end(GTK_BOX(region),line,FALSE,FALSE,0);
    gtk_widget_set_hexpand(region,TRUE);
    gtk_widget_set_vexpand(region,TRUE);
    gtk_widget_show_all(region);
@@ -260,7 +263,7 @@ static void dock_edge_create(RRChatDocks *d,guint edge) {
    d->collapsed[edge]=TRUE;
    char *key=g_strdup_printf("ui.chat.dock.%s.size",dock_edge_name(edge));
    char *val=rrclient_database_setting_get(key);
-   d->extent[edge]=val&&*val?CLAMP(atoi(val),40,1400):(edge<2?260:170);
+   d->extent[edge]=val&&*val?CLAMP(atoi(val),40,1400):(edge<2?230:108);
    g_free(val);g_free(key);
 }
 static void dock_workspace_destroy(GtkWidget *widget,gpointer data) {
@@ -418,7 +421,7 @@ static void dock_hide_if_empty(GtkWidget *slot) {
 static void dock_reveal_panel(RRFloatPanel *p) {
    if(!p||p->dock_edge<0||!GTK_IS_WIDGET(p->frame))return;
    GtkWidget *slot=gtk_widget_get_parent(p->frame);
-   if(!GTK_IS_BOX(slot))return;
+   if(!GTK_IS_FIXED(slot))return;
    RRChatDocks *d=g_object_get_data(G_OBJECT(slot),"rr-docks");
    if(!d)return;
    guint edge=p->dock_edge;
@@ -1329,7 +1332,7 @@ static void panel_minimize(GtkButton *button, gpointer data) {
    p->explicitly_hidden = FALSE;
    gtk_widget_set_no_show_all(p->frame, TRUE);
    panel_chrome(p);
-   if(p->dock_edge>=0 && GTK_IS_BOX(gtk_widget_get_parent(p->frame)))
+   if(p->dock_edge>=0 && GTK_IS_FIXED(gtk_widget_get_parent(p->frame)))
       dock_hide_if_empty(gtk_widget_get_parent(p->frame));
    panel_state_save(p);
 }
@@ -1381,7 +1384,7 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
    panel_state_save(p);
    gtk_widget_hide(p->frame);
    if(active_chat_docks)dock_workspace_refresh(active_chat_docks);
-   if(p->dock_edge>=0 && GTK_IS_BOX(gtk_widget_get_parent(p->frame)))
+   if(p->dock_edge>=0 && GTK_IS_FIXED(gtk_widget_get_parent(p->frame)))
       dock_hide_if_empty(gtk_widget_get_parent(p->frame));
 }
 
@@ -1994,7 +1997,7 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
 
    if (p->frame) {
       GtkWidget *parent=gtk_widget_get_parent(p->frame);
-      gboolean docked=p->dock_edge>=0 && GTK_IS_BOX(parent);
+      gboolean docked=p->dock_edge>=0 && GTK_IS_FIXED(parent);
       g_object_remove_weak_pointer(G_OBJECT(p->frame),(gpointer *)&p->frame);
       gtk_widget_destroy(p->frame);
       p->frame=NULL;
