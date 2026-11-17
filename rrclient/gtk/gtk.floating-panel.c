@@ -519,6 +519,7 @@ void rr_floating_panels_set_hidden(guint reason, gboolean hidden) {
       panel_temporary_visibility(p);
       if(p->chat_room && p->room_hidden && p->frame)gtk_widget_hide(p->frame);
    }
+   if(active_chat_docks)dock_workspace_refresh(active_chat_docks);
 }
 gboolean rr_floating_panels_hidden(guint reason) {
    return (panel_hide_reasons & reason) != 0;
@@ -1379,6 +1380,7 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
    p->minimized = FALSE;
    panel_state_save(p);
    gtk_widget_hide(p->frame);
+   if(active_chat_docks)dock_workspace_refresh(active_chat_docks);
    if(p->dock_edge>=0 && GTK_IS_BOX(gtk_widget_get_parent(p->frame)))
       dock_hide_if_empty(gtk_widget_get_parent(p->frame));
 }
@@ -1947,6 +1949,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    }
    panel_temporary_visibility(p);
    panel_room_visibility(p);
+   if(active_chat_docks)dock_workspace_refresh(active_chat_docks);
 }
 
 void rr_floating_panel_present(RRFloatPanel *p) {
