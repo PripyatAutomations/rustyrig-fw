@@ -600,7 +600,8 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
     * instead of widening the notebook and pushing chat controls off the right edge. */
    GtkWidget *tab_scroll = gtk_scrolled_window_new(NULL, NULL);
    g_object_set_data(G_OBJECT(notebook), "rr-tab-strip-widget", tab_scroll);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   /* Permit the strip to shrink below the combined minimum of its tabs. */
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(tab_scroll), 1);
    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
@@ -631,7 +632,8 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    /* The tab strip must use the actual window width, never the natural width of a particularly wide notebook page. Only the page area gets a constrained
     * viewport; tab buttons continue to wrap normally. */
    GtkWidget *page_viewport = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   /* The active notebook page must not impose a desktop-window minimum. */
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(page_viewport), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(page_viewport), 1);
    gtk_widget_set_hexpand(page_viewport, TRUE);
