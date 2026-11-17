@@ -31,48 +31,67 @@ FT8_LIB ?= ../ext/ft8_lib
 PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback snr modes))
 
 .PHONY: all test test-snr ft8-snr test-ft8 install clean fetch
-all: rrmodem-psk rrmodem-olivia rrmodem-ft8
-# Fetch and validate the full worker source trees before parallel compilation.
-# A checkout marker alone cannot certify that all upstream .c files exist.
-fetch: $(addprefix $(PSK_SRC)/src/,$(addsuffix .c,$(PSK_SOURCES))) $(OLIVIA_SRC)/src/oliviamodem.cpp
-	@if test ! -f "$(FT8_LIB)/Makefile"; then if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
-		$(GIT) -C .. submodule update --init ext/ft8_lib; \
-	elif test ! -e "$(FT8_LIB)"; then \
-		$(GIT) clone https://github.com/kgoba/ft8_lib.git "$(FT8_LIB)"; \
-	else \
-		echo "Incomplete existing FT8 source tree: $(FT8_LIB)" >&2; exit 1; \
-	fi; fi
+all: fetch rrmodem-psk rrmodem-olivia rrmodem-ft8
+# Fetch once, before any parallel compile. CMake is not used by this build.
+# Preserve existing files and user modifications; restore only *missing*
+# files when the checkout's own HEAD tracks them.
+fetch:
+	@set -eu; \
+	mkdir -p "$(EXT)"; \
+	if test ! -e "$(PSK_SRC)"; then \
+		$(GIT) clone https://github.com/jfrancis42/libpsk.git "$(PSK_SRC)"; \
+	fi; \
+	if test ! -e "$(OLIVIA_SRC)"; then \
+		$(GIT) clone https://github.com/jfrancis42/olivia-modem.git "$(OLIVIA_SRC)"; \
+	fi; \
+	for name in $(PSK_SOURCES); do \
+		file="src/$$name.c"; \
+		if test -f "$(PSK_SRC)/$$file"; then continue; fi; \
+		if $(GIT) -C "$(PSK_SRC)" ls-files --error-unmatch "$$file" >/dev/null 2>&1 && \
+		   $(GIT) -C "$(PSK_SRC)" cat-file -e "HEAD:$$file" 2>/dev/null; then \
+			echo "Restoring missing tracked libpsk file: $$file"; \
+			$(GIT) -C "$(PSK_SRC)" restore --source=HEAD --worktree -- "$$file"; \
+		fi; \
+		if test ! -f "$(PSK_SRC)/$$file"; then \
+			echo "libpsk is incomplete: missing $$file in $(PSK_SRC)" >&2; \
+			echo "Check $(GIT) -C $(PSK_SRC) remote -v and status --short." >&2; \
+			echo "This build does not overwrite or re-clone existing sources." >&2; \
+			exit 1; \
+		fi; \
+	done; \
+	if test ! -f "$(OLIVIA_SRC)/src/oliviamodem.cpp"; then \
+		if $(GIT) -C "$(OLIVIA_SRC)" ls-files --error-unmatch src/oliviamodem.cpp >/dev/null 2>&1 && \
+		   $(GIT) -C "$(OLIVIA_SRC)" cat-file -e HEAD:src/oliviamodem.cpp 2>/dev/null; then \
+			$(GIT) -C "$(OLIVIA_SRC)" restore --source=HEAD --worktree -- src/oliviamodem.cpp; \
+		fi; \
+		test -f "$(OLIVIA_SRC)/src/oliviamodem.cpp" || { \
+			echo "Incomplete Olivia checkout: $(OLIVIA_SRC)/src/oliviamodem.cpp" >&2; exit 1; \
+		}; \
+	fi; \
+	if test ! -f "$(FT8_LIB)/Makefile"; then \
+		if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+			$(GIT) -C .. submodule update --init ext/ft8_lib; \
+		elif test ! -e "$(FT8_LIB)"; then \
+			$(GIT) clone https://github.com/kgoba/ft8_lib.git "$(FT8_LIB)"; \
+		else \
+			echo "Incomplete existing FT8 source tree: $(FT8_LIB)" >&2; exit 1; \
+		fi; \
+	fi
 
-# CMakeLists.txt is only a pre-existing checkout marker: cmake is NOT invoked.
-$(PSK_SRC)/CMakeLists.txt:
-	@if test -e "$(PSK_SRC)"; then echo "Incomplete existing libpsk checkout: $(PSK_SRC)" >&2; exit 1; fi
-	@mkdir -p "$(EXT)"
-	$(GIT) clone https://github.com/jfrancis42/libpsk.git "$(PSK_SRC)"
+# A missing source triggers the same serialized validation/repair, not one
+# parallel recipe per file and not a CMakeLists.txt existence check.
+$(PSK_SRC)/src/%.c: | fetch
+	@test -f "$@" || { echo "Missing libpsk source after fetch: $@" >&2; exit 1; }
+$(OLIVIA_SRC)/src/oliviamodem.cpp: | fetch
+	@test -f "$@" || { echo "Missing Olivia source after fetch: $@" >&2; exit 1; }
+$(PSK_SRC)/tests/test_%.c: | fetch
+	@test -f "$@" || { echo "Missing upstream libpsk test: $@" >&2; exit 1; }
 
-$(OLIVIA_SRC)/CMakeLists.txt:
-	@if test -e "$(OLIVIA_SRC)"; then echo "Incomplete existing Olivia checkout: $(OLIVIA_SRC)" >&2; exit 1; fi
-	@mkdir -p "$(EXT)"
-	$(GIT) clone https://github.com/jfrancis42/olivia-modem.git "$(OLIVIA_SRC)"
-
-# Missing upstream sources first trigger checkout. Never edit upstream files.
-$(PSK_SRC)/src/%.c: $(PSK_SRC)/CMakeLists.txt
-	@test -f "$@" || { \
-		echo "Incomplete libpsk checkout: missing $@" >&2; \
-		echo "The presence of CMakeLists.txt does not guarantee a complete upstream tree." >&2; \
-		echo "Inspect with: $(GIT) -C $(PSK_SRC) status --short" >&2; \
-		echo "Preserve and re-clone: mv $(PSK_SRC) $(PSK_SRC).old && $(GIT) clone https://github.com/jfrancis42/libpsk.git $(PSK_SRC)" >&2; \
-		exit 1; \
-	}
-$(OLIVIA_SRC)/src/oliviamodem.cpp: $(OLIVIA_SRC)/CMakeLists.txt
-	@test -f "$@" || { echo "Missing upstream file: $@" >&2; exit 1; }
-$(PSK_SRC)/tests/test_%.c: $(PSK_SRC)/CMakeLists.txt
-	@test -f "$@" || { echo "Missing upstream test: $@" >&2; exit 1; }
-
-$(BUILD_DIR)/psk/%.o: $(PSK_SRC)/src/%.c | $(PSK_SRC)/CMakeLists.txt
+$(BUILD_DIR)/psk/%.o: $(PSK_SRC)/src/%.c | fetch
 	@mkdir -p "$(@D)"
 	$(CC) $(CPPFLAGS) $(CFLAGS) -std=gnu11 -I"$(PSK_SRC)/include" -I"$(PSK_SRC)/src" -c -o "$@" "$<"
 
-$(BUILD_DIR)/olivia/oliviamodem.o: $(OLIVIA_SRC)/src/oliviamodem.cpp | $(OLIVIA_SRC)/CMakeLists.txt
+$(BUILD_DIR)/olivia/oliviamodem.o: $(OLIVIA_SRC)/src/oliviamodem.cpp | fetch
 	@mkdir -p "$(@D)"
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I"$(OLIVIA_SRC)/include" -c -o "$@" "$<"
 
