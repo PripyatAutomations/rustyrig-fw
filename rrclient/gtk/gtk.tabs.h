@@ -10,6 +10,9 @@ void gtk_tabs_page_set_close_func(GtkWidget *page, GtkTabCloseFunc function);
 void gtk_tabs_page_set_topic(GtkNotebook *notebook, GtkWidget *page, const char *topic);
 void gtk_tabs_page_activity(GtkNotebook *notebook, GtkWidget *page, gboolean mention);
 void gtk_tabs_bind_menu(GtkWidget *widget, GtkNotebook *notebook, GtkWidget *page);
+/* Notebook whose inactive pages cannot impose their minimum width on the
+ * application's top-level window. Content handles its own overflow. */
+GtkWidget *rr_adaptive_notebook_new(void);
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position);
 gboolean gtk_tabs_select(GtkNotebook *notebook, int number);
 gboolean gtk_tabs_step(GtkNotebook *notebook, int direction);
