@@ -742,9 +742,12 @@ bool gui_init(void) {
       -1, NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(toolbar_shell),
       "rr-main-toolbar");
-   gtk_style_context_add_provider(
-      gtk_widget_get_style_context(toolbar_shell),
-      GTK_STYLE_PROVIDER(toolbar_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   /* A provider on only the shell's style context does not cascade all
+    * selector rules to its descendants. Register at screen scope. */
+   GdkScreen *toolbar_screen=gtk_widget_get_screen(main_window);
+   if(toolbar_screen)
+      gtk_style_context_add_provider_for_screen(toolbar_screen,
+         GTK_STYLE_PROVIDER(toolbar_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(toolbar_css);
    /* Small dedicated drag target: other toolbar controls remain clickable. */
    GtkWidget *move_handle=gtk_event_box_new();
