@@ -61,7 +61,8 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames);
 void audio_local_rx_stop(const char *id);
 /* Core-thread modem PCM TX ingress. Never keys PTT; requires active,
  * authorized TX media and a confirmed PTT state before forwarding. */
-bool audio_modem_tx_pcm(const char *target, const int16_t *pcm, size_t frames);
+bool audio_modem_tx_pcm(unsigned slot, const char *ptt_target,
+                        const int16_t *pcm, size_t frames);
 bool audio_modem_tx_allowed(const char *target);
 /* Send a complete encoded audio binframe via the existing WS/direct-RTP
  * media transport. Core context only. */
