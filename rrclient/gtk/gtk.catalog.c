@@ -1248,22 +1248,31 @@ static void resource_create(void) {
    gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
    gtk_box_pack_start(GTK_BOX(browser->page), browser->panel, TRUE, TRUE, 0);
    GtkWidget *box = browser->panel;
-   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   /* Explorer remains in the main notebook while hidden. A fixed horizontal
+    * toolbar here imposes its full width on every other notebook page. */
+   GtkWidget *toolbar = gtk_flow_box_new();
+   gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(toolbar), GTK_SELECTION_NONE);
+   gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(toolbar), 1);
+   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(toolbar), 20);
+   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(toolbar), 6);
+   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(toolbar), 4);
+   gtk_widget_set_halign(toolbar, GTK_ALIGN_FILL);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(toolbar), gtk_label_new("Search:"), FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(toolbar), gtk_label_new("Search:"));
    GtkWidget *search = gtk_search_entry_new();
    browser->search = search;
    g_signal_connect(search, "changed", G_CALLBACK(resource_search_changed), NULL);
    gtk_entry_set_width_chars(GTK_ENTRY(search), 24);
+   gtk_entry_set_max_width_chars(GTK_ENTRY(search), 24);
    gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Find path, name, description…");
-   gtk_box_pack_start(GTK_BOX(toolbar), search, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(toolbar), search);
    const char *tools[] = {
       "Refresh all", "Expand all", "Collapse all"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(tools) ; i++) {
       GtkWidget *button = gtk_button_new_with_label(tools[i]);
-      gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(toolbar), button);
 
       if (!i) {
          g_signal_connect(button, "clicked", G_CALLBACK(resource_refresh_all), NULL);
@@ -1356,17 +1365,18 @@ static void resource_create(void) {
     * gtk_widget_show_all(type_popover) would make it visible immediately. */
    gtk_widget_show_all(type_grid);
    gtk_menu_button_set_popover(GTK_MENU_BUTTON(types), type_popover);
-   gtk_box_pack_start(GTK_BOX(toolbar), types, FALSE, FALSE, 0);
-   /* Search, then the multi-select type dropdown, before toolbar actions. */
-   gtk_box_reorder_child(GTK_BOX(toolbar), types, 2);
+   /* Search, then type filters, before actions, even as the row wraps. */
+   gtk_flow_box_insert(GTK_FLOW_BOX(toolbar), types, 2);
    GtkWidget *ports = gtk_button_new_with_label("Local ports…");
-   gtk_box_pack_start(GTK_BOX(toolbar), ports, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(toolbar), ports);
    g_signal_connect(ports, "clicked", G_CALLBACK(resource_local_configure), NULL);
    GtkWidget *files = gtk_button_new_with_label("Files…");
-   gtk_box_pack_start(GTK_BOX(toolbar), files, FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(toolbar), files);
    g_signal_connect(files, "clicked", G_CALLBACK(resource_files), NULL);
    GtkWidget *hint = gtk_label_new("All resources · select a row to manage your connection");
-   gtk_box_pack_end(GTK_BOX(toolbar), hint, FALSE, FALSE, 6);
+   gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
+   gtk_label_set_max_width_chars(GTK_LABEL(hint), 36);
+   gtk_container_add(GTK_CONTAINER(toolbar), hint);
    browser->store = gtk_tree_store_new(COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_UINT, G_TYPE_STRING);
 
@@ -1457,7 +1467,11 @@ static void resource_create(void) {
    }
    gtk_tree_path_free(local_path);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   /* Fixed-width tree columns scroll inside Explorer, never force unrelated
+    * chat tabs to inherit their combined minimum. */
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_container_add(GTK_CONTAINER(scroll), browser->tree);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 120);
    gtk_paned_pack1(GTK_PANED(paned), scroll, TRUE, TRUE);
@@ -1473,7 +1487,12 @@ static void resource_create(void) {
    gtk_paned_pack2(GTK_PANED(paned), details_scroll, FALSE, TRUE);
    browser->initial_split_handler = g_signal_connect(paned, "size-allocate", G_CALLBACK(resource_initial_split), NULL);
    gtk_box_pack_start(GTK_BOX(box), paned, TRUE, TRUE, 0);
-   GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *actions = gtk_flow_box_new();
+   gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(actions), GTK_SELECTION_NONE);
+   gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(actions), 1);
+   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(actions), 20);
+   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(actions), 6);
+   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(actions), 4);
    const char *labels[] = {
       "Join room", "Subscribe", "Connect serial…", "Connect server", "Open Terminal…"
    };
@@ -1483,7 +1502,7 @@ static void resource_create(void) {
       gtk_widget_set_sensitive(browser->buttons[i], FALSE);
       g_object_set_data(G_OBJECT(browser->buttons[i]), "resource-action", GINT_TO_POINTER(i));
       g_signal_connect(browser->buttons[i], "clicked", G_CALLBACK(resource_clicked), NULL);
-      gtk_box_pack_start(GTK_BOX(actions), browser->buttons[i], FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(actions), browser->buttons[i]);
    }
 
    gtk_box_pack_start(GTK_BOX(box), actions, FALSE, FALSE, 0);
