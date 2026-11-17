@@ -1275,7 +1275,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             n->type == RR_AG_SINK ? "GStreamer playback" :
             n->type == RR_AG_MIXER ? "Core PCM mixer" : "Audio source", .detail =
             graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
-            graph_missing_since[i] != 0,  .selected = graph_node_drag == (gint)i || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
+            graph_missing_since[i] != 0,  .selected = routing_graph_is_selected(n->id) || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source && !n->read_only), .io =
             n->type == RR_AG_SOURCE ? RR_GTK_GRAPH_IO_SOURCE : n->type == RR_AG_SINK ? RR_GTK_GRAPH_IO_SINK : RR_GTK_GRAPH_IO_BOTH, .gain_pins = !g_str_has_prefix(n->id, "modem") && routing_gain_supported(n), .ptt_pin = g_str_has_prefix(n->id, "modem") && g_str_has_suffix(n->id, ".tx"),
             .ptt_input = g_str_has_prefix(n->id, "rig.") &&
              (g_str_has_suffix(n->id, ".tx") || !strcmp(n->id, "rig.sink")), .fwdsp =
@@ -4454,14 +4454,31 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       double nx = routing_node_x(n), ny = routing_node_y(n);
       if (gx >= nx && gx <= nx + RR_GTK_GRAPH_NODE_W &&
           gy >= ny && gy <= ny + RR_GTK_GRAPH_NODE_H) {
+         if(event->state & (GDK_CONTROL_MASK|GDK_SHIFT_MASK)) {
+            routing_graph_select(n->id,!routing_graph_is_selected(n->id));
+            graph_canvas_update_size();
+            return TRUE;
+         }
+         /* An unmodified click on one selected block keeps the entire
+          * existing selection; an outside block becomes a new selection. */
+         if(!routing_graph_is_selected(n->id)) {
+            routing_graph_clear_selection();
+            routing_graph_select(n->id,TRUE);
+         }
          graph_node_drag = i;
          graph_node_drag_x = gx - nx;
          graph_node_drag_y = gy - ny;
          graph_node_press_x = gx;
          graph_node_press_y = gy;
          graph_node_moved = FALSE;
+         routing_graph_begin_group();
+         graph_canvas_update_size();
          return TRUE;
       }
+   }
+   if(!(event->state & (GDK_CONTROL_MASK|GDK_SHIFT_MASK))) {
+      routing_graph_clear_selection();
+      graph_canvas_update_size();
    }
    guint linked_index=0;
    gint linked_channel=-1;
@@ -4530,14 +4547,35 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
       if (hypot(gx - graph_node_press_x, gy - graph_node_press_y) > 3.)
          graph_node_moved = TRUE;
       if (pos && graph_node_moved) {
-         double x = CLAMP(gx - graph_node_drag_x, 0., 100000.);
-         double y = CLAMP(gy - graph_node_drag_y, 0., 100000.);
-         if (graph_snap_enabled && !(event->state & GDK_SHIFT_MASK)) {
-            x = routing_snap_coordinate(x);
-            y = routing_snap_coordinate(y);
+         double x=gx-graph_node_drag_x;
+         double y=gy-graph_node_drag_y;
+         if(graph_snap_enabled && !(event->state & GDK_SHIFT_MASK)) {
+            x=routing_snap_coordinate(x);
+            y=routing_snap_coordinate(y);
          }
-         pos->x = x;
-         pos->y = y;
+         /* Clamp one shared displacement, preserving group geometry. */
+         double dx=x-graph_drag_start_node_x;
+         double dy=y-graph_drag_start_node_y;
+         double min_dx=-G_MAXDOUBLE,min_dy=-G_MAXDOUBLE;
+         double max_dx=G_MAXDOUBLE,max_dy=G_MAXDOUBLE;
+         for(guint i=0;i<graph_snapshot->node_count &&
+                        i<G_N_ELEMENTS(graph_group_member);i++) {
+            if(!graph_group_member[i]) continue;
+            min_dx=MAX(min_dx,-graph_group_origin_x[i]);
+            min_dy=MAX(min_dy,-graph_group_origin_y[i]);
+            max_dx=MIN(max_dx,100000.-graph_group_origin_x[i]);
+            max_dy=MIN(max_dy,100000.-graph_group_origin_y[i]);
+         }
+         dx=CLAMP(dx,min_dx,max_dx);
+         dy=CLAMP(dy,min_dy,max_dy);
+         for(guint i=0;i<graph_snapshot->node_count &&
+                        i<G_N_ELEMENTS(graph_group_member);i++) {
+            if(!graph_group_member[i]) continue;
+            routing_position_t *member=routing_position(graph_snapshot->nodes[i].id);
+            if(!member) continue;
+            member->x=graph_group_origin_x[i]+dx;
+            member->y=graph_group_origin_y[i]+dy;
+         }
          graph_canvas_update_size();
       }
       return TRUE;
@@ -4644,14 +4682,18 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
        routing_compact_drag_release(control_x, control_y)) return TRUE;
    if (routing_effect_release()) return TRUE;
    if (graph_node_drag >= 0) {
-      if (graph_snapshot && (guint)graph_node_drag < graph_snapshot->node_count) {
-         const rr_ag_view_node_t *n = &graph_snapshot->nodes[graph_node_drag];
-         routing_position_t *pos = routing_position(n->id);
-         if (pos && graph_node_moved) {
-            pos->pinned = TRUE;
-            routing_position_save(n->id, pos);
+      if (graph_snapshot && graph_node_moved) {
+         for(guint i=0;i<graph_snapshot->node_count &&
+                        i<G_N_ELEMENTS(graph_group_member);i++) {
+            if(!graph_group_member[i]) continue;
+            const char *id=graph_snapshot->nodes[i].id;
+            routing_position_t *pos=routing_position(id);
+            if(!pos) continue;
+            pos->pinned=TRUE;
+            routing_position_save(id,pos);
          }
       }
+      memset(graph_group_member,0,sizeof(graph_group_member));
       graph_node_drag = -1;
       graph_node_moved = FALSE;
       routing_layout_auto(FALSE);
