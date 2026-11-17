@@ -1821,6 +1821,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    if (!graph) {
       return;
    }
+   rr_audio_graph_add_node(graph, "tx.mix", RR_AG_MIXER);
+   rr_audio_graph_add_node(graph, "tx.transport", RR_AG_PROCESSOR);
+   rr_audio_graph_set_health(graph,"tx.mix",tx_engine?RR_AG_HEALTHY:RR_AG_FAILED);
+   rr_audio_graph_set_health(graph,"tx.transport",
+      tx_codec[0] && rrclient_media_current_channel(true) ?
+      RR_AG_HEALTHY:RR_AG_STOPPED);
+   rr_audio_graph_add_link(graph,"tx.mix","tx.transport",RR_AG_NORMAL);
    rr_audio_graph_add_node(graph, "rx.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "rx16.resample", RR_AG_PROCESSOR);
    rr_audio_graph_add_node(graph, "hq.mix", RR_AG_MIXER);
@@ -1838,7 +1845,11 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    rr_audio_graph_add_node(graph, "src.client.dsp0", RR_AG_SOURCE);
    rr_audio_graph_set_health(graph, "src.client.dsp0",
                              audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
-   rr_audio_graph_set_route(graph, "src.client.dsp0", 'M');
+   rr_audio_graph_set_route(graph,"src.client.dsp0",
+                            !strcmp(mic_tx_target,"none")?'M':'S');
+   if(strcmp(mic_tx_target,"none"))
+      rr_audio_graph_add_channel_link(graph,"src.client.dsp0","tx.mix",
+                                     RR_AG_NORMAL,RR_AG_CHANNEL_LEFT);
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
    rr_audio_graph_add_node(graph, "legacy.speaker", RR_AG_SOURCE);
@@ -1935,8 +1946,12 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                   "rig.src" : modems[i].source, rx_id,
                                             RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
       }
-      if (modems[i].tx_enabled && rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE))
+      if (modems[i].tx_enabled && rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE)) {
          rr_audio_graph_set_health(graph, tx_id, RR_AG_STOPPED);
+         if(!strcmp(modems[i].tx_target,"tx.mix"))
+            rr_audio_graph_add_channel_link(graph,tx_id,"tx.mix",
+                                            RR_AG_NORMAL,RR_AG_CHANNEL_LEFT);
+      }
    }
 
    /* Only real transmit-capable receivers advertise a rig TX sink.
@@ -1949,19 +1964,12 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          g_strlcpy(tx, "rig.sink", sizeof(tx));
       rr_audio_graph_add_node(graph, tx, RR_AG_SINK);
       rr_audio_graph_set_health(graph, tx, RR_AG_STOPPED);
-      char mic_target[64];
-      audio_mic_tx_target_copy(mic_target);
-      if (rrclient_media_rx_is_active_tx(streams[i].uuid) &&
-          (!strcmp(mic_target, "auto") ||
-           !strcmp(mic_target, streams[i].uuid)))
-         rr_audio_graph_add_channel_link(graph, "src.client.dsp0", tx,
-                                        RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+      if(rrclient_media_rx_is_active_tx(streams[i].uuid))
+         rr_audio_graph_add_channel_link(graph,"tx.transport",tx,
+                                         RR_AG_NORMAL,RR_AG_CHANNEL_LEFT);
       for (size_t j = 0; j < modem_count; j++) {
          char from[64];
          g_snprintf(from, sizeof(from), "modem%u.tx", modems[j].slot);
-         if (modems[j].tx_enabled && !strcmp(modems[j].tx_target, streams[i].id))
-            rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_NORMAL,
-                                            RR_AG_CHANNEL_LEFT);
          if (modems[j].tx_enabled && !strcmp(modems[j].ptt_target, streams[i].id))
             rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_CONTROL,
                                             RR_AG_CHANNEL_LEFT);
@@ -1986,6 +1994,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                node->sample_format = RR_PCM_S16LE;
                node->read_only = TRUE;
             }
+            continue;
+         }
+         if(!strcmp(node->id,"tx.transport")) {
+            node->rate_hz=node->downstream_rate_hz=16000;
+            node->channels=1;node->sample_format=RR_PCM_S16LE;
+            node->read_only=TRUE;
+            g_strlcpy(node->rig,"TX codec / media transport",sizeof(node->rig));
             continue;
          }
          if (g_str_has_prefix(node->id, "rig.") &&
@@ -2049,7 +2064,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             continue;
          }
          if (node->type == RR_AG_MIXER) {
-            node->rate_hz = !strcmp(node->id, "hq.mix") ?
+            node->rate_hz = !strcmp(node->id,"tx.mix") ?
+                            rr_audio_engine_sample_rate(tx_engine) :
+                            !strcmp(node->id, "hq.mix") ?
                             rr_audio_engine_sample_rate(hq_engine) : mix_rate;
             node->channels = 2;
             node->sample_format = RR_PCM_S16LE;
@@ -2066,7 +2083,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             node->sample_format = RR_PCM_S16LE;
          }
          if (node->type == RR_AG_MIXER || node->type == RR_AG_SINK) {
-            rr_audio_engine_t *owner = node->type == RR_AG_MIXER &&
+            rr_audio_engine_t *owner = !strcmp(node->id,"tx.mix") ?
+                  tx_engine : node->type == RR_AG_MIXER &&
                   !strcmp(node->id, "rx.mix") ? rx_engine : hq_engine;
             for (unsigned ch = 0; ch < 2; ch++)
                node->port_gain_db[ch] = rr_audio_engine_port_gain_get(
