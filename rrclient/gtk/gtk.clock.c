@@ -26,7 +26,7 @@ static gboolean clock_tick(gpointer unused) {
    char local[16], utc[16];
    strftime(local, sizeof(local), "%H:%M:%S", &local_tm);
    strftime(utc, sizeof(utc), "%H:%M:%S", &utc_tm);
-   char *markup = g_markup_printf_escaped("<span foreground='#C88A39'><b>LOCAL</b> %s   <b>UTC</b> %s</span>", local, utc);
+   char *markup = g_markup_printf_escaped("<span foreground='#C88A39'><b>LOCAL</b> %s\n<b>UTC  </b> %s</span>", local, utc);
    gtk_label_set_markup(GTK_LABEL(status_clock), markup);
    g_free(markup);
 
@@ -50,7 +50,7 @@ GtkWidget *gtk_clock_status_new(void) {
       return status_clock;
    }
    status_clock = gtk_label_new(NULL);
-   gtk_label_set_single_line_mode(GTK_LABEL(status_clock), TRUE);
+   gtk_label_set_single_line_mode(GTK_LABEL(status_clock), FALSE);
    gtk_label_set_xalign(GTK_LABEL(status_clock), 0.5);
    gtk_widget_set_tooltip_text(status_clock, "Local time and UTC (24-hour)");
    GtkStyleContext *style = gtk_widget_get_style_context(status_clock);
