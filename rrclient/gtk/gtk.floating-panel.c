@@ -235,7 +235,7 @@ static void dock_workspace_destroy(GtkWidget *widget,gpointer data) {
    RRChatDocks *d=data;
    for(GList *it=floating_panels;it;it=it->next){
       RRFloatPanel *p=it->data;
-      if(p->dock_edge>=0 && gtk_widget_is_ancestor(p->frame,d->root))
+      if(p->frame && p->dock_edge>=0 && gtk_widget_is_ancestor(p->frame,d->root))
          panel_dock_detach(p,-1,-1);
    }
    if(active_chat_docks==d) {
@@ -566,7 +566,7 @@ static void panel_layout_sync(RRFloatPanel *p) {
 }
 /* Persist expanded dimensions, never the collapsed title-bar height. */
 static void panel_state_save(RRFloatPanel *p) {
-   if (!p || p->dock_edge >= 0 || p->restoring_state || !p->ever_shown || p->modal ||
+   if (!p || !p->frame || p->dock_edge >= 0 || p->restoring_state || !p->ever_shown || p->modal ||
        p->temporarily_hidden || !p->initial_positioned) {
       return;
    }
@@ -1370,7 +1370,7 @@ static gboolean panel_drag_tick(GtkWidget *widget, GdkFrameClock *clock, gpointe
 }
 
 static void panel_drag_cancel_tick(RRFloatPanel *p) {
-   if (p->drag_tick_id) {
+   if (p->drag_tick_id && p->frame) {
       gtk_widget_remove_tick_callback(p->frame, p->drag_tick_id);
       p->drag_tick_id = 0;
    }
@@ -1564,6 +1564,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_overlay_add_overlay(overlay, p->scrim);
    gtk_widget_hide(p->scrim);
    p->frame = gtk_frame_new(NULL);
+   /* Chat tab destruction may destroy a dock child before its panel owner. */
+   g_object_add_weak_pointer(G_OBJECT(p->frame),(gpointer *)&p->frame);
    gtk_widget_set_opacity(p->frame, p->opacity / 100.0);
    gtk_style_context_add_class(gtk_widget_get_style_context(p->frame), "rr-floating-panel");
    GtkCssProvider *css = gtk_css_provider_new();
@@ -1921,7 +1923,7 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
       p->overlay_allocate_handler = 0;
    }
 
-   if (p->ever_shown && p->initial_positioned) {
+   if (p->frame && p->ever_shown && p->initial_positioned) {
       panel_state_save(p);
       if(p->dock_edge<0)
          panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
@@ -1940,7 +1942,9 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    if (p->frame) {
       GtkWidget *parent=gtk_widget_get_parent(p->frame);
       gboolean docked=p->dock_edge>=0 && GTK_IS_BOX(parent);
+      g_object_remove_weak_pointer(G_OBJECT(p->frame),(gpointer *)&p->frame);
       gtk_widget_destroy(p->frame);
+      p->frame=NULL;
       if(docked)dock_hide_if_empty(parent);
    }
    g_clear_object(&p->scale_css);
