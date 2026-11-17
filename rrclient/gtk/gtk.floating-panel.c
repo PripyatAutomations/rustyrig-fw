@@ -1533,6 +1533,18 @@ static gboolean drag_move(GtkWidget *widget, GdkEventMotion *event, gpointer dat
       return FALSE;
    }
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
+   /* Do not wait for button release: GtkFixed/viewport can clip the
+    * title's event window as it leaves the dock, losing the release event.
+    * Reparent immediately when the pointer exits the dock region. */
+   if(p->dock_edge>=0 && active_chat_docks &&
+      !panel_dock_contains(active_chat_docks,p->dock_edge,
+                           (gint)event->x_root,(gint)event->y_root)) {
+      panel_dock_detach(p,(gint)event->x_root,(gint)event->y_root);
+      p->start_x=gtk_widget_get_margin_start(p->frame);
+      p->start_y=gtk_widget_get_margin_top(p->frame);
+      p->drag_x=event->x_root;
+      p->drag_y=event->y_root;
+   }
    p->drag_pending_x = event->x_root;
    p->drag_pending_y = event->y_root;
    p->drag_pending = TRUE;
@@ -2002,7 +2014,8 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       panel_layout_sync(p);
       p->restoring_state = TRUE;
 
-      if (p->loaded_state && (p->saved_width > 1 || p->saved_height > 1)) {
+      if (p->dock_edge<0 && p->loaded_state &&
+          (p->saved_width > 1 || p->saved_height > 1)) {
          int max_w = MAX(200, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - 24);
          int max_h = MAX(120, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - 24);
 
@@ -2029,7 +2042,9 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    panel_chrome(p);
 
    if (p->rolled) {
-      gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? p->saved_width : -1, -1);
+      gtk_widget_set_size_request(p->frame,
+         p->dock_edge>=0 ? (p->dock_width>0?p->dock_width:-1) :
+         (p->saved_width>1?p->saved_width:-1),-1);
    }
    panel_raise(p);
    p->restoring_state = FALSE;
