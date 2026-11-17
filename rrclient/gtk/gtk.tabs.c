@@ -550,19 +550,66 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    }
 }
 
-/* Catch notebook-wide width pressure (often from an inactive page), rather than masking it as a chat scroll or userlist divider problem. */
+/* Log the actual page and widget requisition causing width pressure.
+ * GtkNotebook computes its minimum across *all* pages, including inactive
+ * Admin, Explorer and SDR Directory tabs. A wide child can therefore break
+ * a narrow chat page without ever being visible. Keep diagnostics bounded. */
+static void tabs_width_pressure_chain(GtkWidget *widget, GString *out) {
+   for (guint depth=0;widget && depth<7;depth++) {
+      gint minimum=0,natural=0;
+      gtk_widget_get_preferred_width(widget,&minimum,&natural);
+      const char *name=gtk_widget_get_name(widget);
+      g_string_append_printf(out,"%s%s%s(min=%d,nat=%d)",
+          depth?" > ":"",G_OBJECT_TYPE_NAME(widget),
+          name && *name ? ":" : "",minimum,natural);
+      if (name && *name) g_string_append_printf(out,"[%s]",name);
+      if (!GTK_IS_CONTAINER(widget)) break;
+      GList *children=gtk_container_get_children(GTK_CONTAINER(widget));
+      GtkWidget *widest=NULL;
+      gint largest=0;
+      for(GList *it=children;it;it=it->next) {
+         GtkWidget *child=it->data;
+         if(!gtk_widget_get_visible(child))continue;
+         gint m=0;
+         gtk_widget_get_preferred_width(child,&m,NULL);
+         if(m>largest){largest=m;widest=child;}
+      }
+      g_list_free(children);
+      widget=widest;
+   }
+}
 static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
-   GtkWidget *viewport = GTK_WIDGET(data);
-   int visible = gtk_widget_get_allocated_width(viewport);
-   static int previous_excess = -1;
-   int excess = allocation->width - visible;
-
-   if (visible > 1 && excess > 8 && excess != previous_excess) {
-      g_warning("gtk.tabs: notebook exceeds visible page viewport by %d px (notebook=%d viewport=%d); page minimum width needs correction", excess, allocation->
-         width, visible);
-      previous_excess = excess;
-   } else if (excess <= 8) {
-      previous_excess = -1;
+   GtkWidget *viewport=GTK_WIDGET(data);
+   gint visible=gtk_widget_get_allocated_width(viewport);
+   gint excess=allocation->width-visible;
+   /* Bucket the warnings to avoid logging every animation/resize frame. */
+   static gint last_bucket=-1,last_page=-1,last_excess=-1;
+   if(visible<=1 || excess<=8) {
+      if(excess<=8){last_bucket=-1;last_page=-1;last_excess=-1;}
+      return;
+   }
+   GtkNotebook *book=GTK_NOTEBOOK(widget);
+   gint page_count=gtk_notebook_get_n_pages(book);
+   gint culprit=-1,maximum=0;
+   for(gint i=0;i<page_count;i++) {
+      GtkWidget *page=gtk_notebook_get_nth_page(book,i);
+      if(!gtk_widget_get_visible(page))continue;
+      gint m=0;
+      gtk_widget_get_preferred_width(page,&m,NULL);
+      if(m>maximum){maximum=m;culprit=i;}
+   }
+   gint bucket=visible/100;
+   if(bucket==last_bucket && culprit==last_page && ABS(excess-last_excess)<100)
+      return;
+   last_bucket=bucket;last_page=culprit;last_excess=excess;
+   g_warning("gtk.tabs: notebook=%d viewport=%d excess=%d; widest page=%d/%d min=%d",
+       allocation->width,visible,excess,culprit,page_count,maximum);
+   if(culprit>=0) {
+      GtkWidget *page=gtk_notebook_get_nth_page(book,culprit);
+      GString *chain=g_string_new(NULL);
+      tabs_width_pressure_chain(page,chain);
+      g_warning("gtk.tabs: width culprit: %s",chain->str);
+      g_string_free(chain,TRUE);
    }
 }
 
