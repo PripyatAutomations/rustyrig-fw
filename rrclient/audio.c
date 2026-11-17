@@ -72,6 +72,43 @@ static guint mixer_source;
 static GSource *rx_maintenance_source;
 static rr_audio_engine_t *rx_engine; /* 16 kHz legacy radio/AF bus */
 static rr_audio_engine_t *hq_engine; /* 44.1/48 kHz final playback bus */
+static rr_audio_engine_t *tx_engine; /* Independent 16 kHz TX PCM mixer */
+static GAsyncQueue *tx_pcm_queue;
+static GSource *tx_drain_source;
+static volatile gint tx_pcm_queued;
+#define TX_MIX_FRAME_COUNT 320
+#define TX_MIX_QUEUE_LIMIT 8
+typedef struct { int16_t mono[TX_MIX_FRAME_COUNT]; } tx_mix_packet_t;
+
+/* Called on the dedicated mixer thread. Never write to fwdsp/transport
+ * here; a bounded queue hands the mixed PCM to the core context. */
+static void tx_mix_output(const int16_t *stereo,size_t frames,void *unused) {
+   (void)unused;
+   if (!tx_pcm_queue || frames!=TX_MIX_FRAME_COUNT ||
+       g_atomic_int_get(&tx_pcm_queued)>=TX_MIX_QUEUE_LIMIT) return;
+   tx_mix_packet_t *packet=g_new(tx_mix_packet_t,1);
+   for(size_t i=0;i<frames;i++)
+      packet->mono[i]=(int16_t)(((int32_t)stereo[2*i]+stereo[2*i+1])/2);
+   g_atomic_int_inc(&tx_pcm_queued);
+   g_async_queue_push(tx_pcm_queue,packet);
+}
+static gboolean tx_mix_drain(gpointer unused) {
+   (void)unused;
+   if (!tx_pcm_queue) return G_SOURCE_CONTINUE;
+   for(unsigned i=0;i<TX_MIX_QUEUE_LIMIT;i++) {
+      tx_mix_packet_t *packet=g_async_queue_try_pop(tx_pcm_queue);
+      if(!packet) break;
+      g_atomic_int_add(&tx_pcm_queued,-1);
+      char vfo[2]={vfo_state_get_active(),0};
+      const char *selected=rrclient_media_current_codec(true);
+      if(tx_codec[0] && selected && !strncmp(selected,tx_codec,4) &&
+         (ptt_active || vfo_state_get_bool(vfo,"cat.state.ptt",false)))
+         fwdsp_write_samples(tx_codec,true,packet->mono,sizeof(packet->mono));
+      g_free(packet);
+   }
+   return G_SOURCE_CONTINUE;
+}
+
 #define HQ_BUS_LEGACY_ID "bus.rx16"
 static char recording_playback_route = 'S';
 #define RECORDING_PLAYBACK_ID "recording.playback"
@@ -526,7 +563,7 @@ bool audio_modem_tx_allowed(const char *target) {
 bool audio_modem_tx_pcm(const char *target,const int16_t *pcm,size_t frames) {
    if (!pcm || !frames || frames>4096 || !audio_modem_tx_allowed(target))
       return false;
-   return !fwdsp_write_samples(tx_codec,true,pcm,frames*sizeof(*pcm));
+   return tx_engine && rr_audio_engine_push(tx_engine,target,pcm,frames);
 }
 
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
