@@ -560,10 +560,13 @@ bool audio_modem_tx_allowed(const char *target) {
    }
    return false;
 }
-bool audio_modem_tx_pcm(const char *target,const int16_t *pcm,size_t frames) {
-   if (!pcm || !frames || frames>4096 || !audio_modem_tx_allowed(target))
+bool audio_modem_tx_pcm(unsigned slot,const char *target,
+                        const int16_t *pcm,size_t frames) {
+   if (!slot || slot>RR_LOCAL_MODEM_MAX || !pcm || !frames ||
+       frames>4096 || !audio_modem_tx_allowed(target))
       return false;
-   return tx_engine && rr_audio_engine_push(tx_engine,target,pcm,frames);
+   char id[32];g_snprintf(id,sizeof(id),"modem%u.tx",slot);
+   return tx_engine && rr_audio_engine_push(tx_engine,id,pcm,frames);
 }
 
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
@@ -598,9 +601,11 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
       return;
    }
 
-   if (fwdsp_write_samples(tx_codec, true, samples, len) && (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5)) {
+   if ((!tx_engine || !rr_audio_engine_push(tx_engine,
+                   "src.client.dsp0",samples,len/sizeof(int16_t))) &&
+       (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5)) {
       tx_pcm_warned = now;
-      Log(LOG_WARN, "audio", "Unable to feed client mic PCM to %s.tx", tx_codec);
+      Log(LOG_WARN, "audio", "Unable to feed microphone PCM to tx.mix");
    }
 }
 
@@ -2379,6 +2384,9 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          g_strlcpy(mic_tx_target, req->stream, sizeof(mic_tx_target));
          G_UNLOCK(mic_tx_target);
          rrclient_database_setting_set("audio.tx.mic.target", req->stream);
+         if(tx_engine)
+            rr_audio_engine_route(tx_engine,"src.client.dsp0",
+                                  !strcmp(req->stream,"none")?'M':'S');
          event_emit("client.audio.route.changed", NULL, NULL);
          break;
       }
@@ -2543,6 +2551,35 @@ bool audio_init(void) {
       fwdsp_processor_stop("src.client.dsp0");
       fwdsp_processor_stop("sink.client.dsp0");
       return true;
+   }
+   /* Independent TX mixer, mixed before the negotiated codec/transport.
+    * The PCM worker sends only to a bounded core-context queue. */
+   tx_pcm_queue=g_async_queue_new();
+   tx_engine=rr_audio_engine_new(tx_mix_output,NULL);
+   gboolean tx_ok=tx_engine &&
+      rr_audio_engine_add_stream(tx_engine,"src.client.dsp0");
+   for(unsigned slot=1;tx_ok && slot<=RR_LOCAL_MODEM_MAX;slot++) {
+      char id[32];g_snprintf(id,sizeof(id),"modem%u.tx",slot);
+      tx_ok=rr_audio_engine_add_stream(tx_engine,id);
+   }
+   if(tx_ok) {
+      rr_audio_engine_route(tx_engine,"src.client.dsp0",
+                            !strcmp(mic_tx_target,"none")?'M':'S');
+      for(unsigned slot=1;slot<=RR_LOCAL_MODEM_MAX;slot++) {
+         char id[32];g_snprintf(id,sizeof(id),"modem%u.tx",slot);
+         rr_audio_engine_route(tx_engine,id,'S');
+      }
+      tx_ok=rr_audio_engine_start(tx_engine);
+   }
+   if(tx_ok) {
+      GSource *timer=g_timeout_source_new(10);
+      g_source_set_callback(timer,tx_mix_drain,NULL,NULL);
+      g_source_attach(timer,rrclient_core_context());
+      tx_drain_source=timer;
+   } else {
+      Log(LOG_WARN,"audio.tx","TX mixer unavailable; RX playback remains enabled");
+      if(tx_engine){rr_audio_engine_free(tx_engine);tx_engine=NULL;}
+      if(tx_pcm_queue){g_async_queue_unref(tx_pcm_queue);tx_pcm_queue=NULL;}
    }
    audio_input_gain_load(hq_engine, HQ_BUS_LEGACY_ID);
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
@@ -2741,6 +2778,19 @@ void ws_audio_shutdown(void) {
    for (unsigned slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++)
       audio_lv2_stop(slot, FALSE);
    rr_local_modem_shutdown();
+   if(tx_drain_source) {
+      g_source_destroy(tx_drain_source);
+      g_source_unref(tx_drain_source);
+      tx_drain_source=NULL;
+   }
+   if(tx_engine){rr_audio_engine_free(tx_engine);tx_engine=NULL;}
+   if(tx_pcm_queue) {
+      tx_mix_packet_t *packet;
+      while((packet=g_async_queue_try_pop(tx_pcm_queue))) g_free(packet);
+      g_async_queue_unref(tx_pcm_queue);
+      tx_pcm_queue=NULL;
+      g_atomic_int_set(&tx_pcm_queued,0);
+   }
    fwdsp_set_encoded_output_callback(NULL,NULL);
    tx_frame_sequence=0;
    tx_frame_channel[0]=0;
