@@ -652,6 +652,13 @@ bool gui_init(void) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
+   /* Give xfwm4 a standard top-level, with normal borders and WM tiling.
+    * It must remain resizable even with the routing editor selected. */
+   gtk_window_set_type_hint(GTK_WINDOW(main_window), GDK_WINDOW_TYPE_HINT_NORMAL);
+   gtk_window_set_skip_taskbar_hint(GTK_WINDOW(main_window), FALSE);
+   gtk_window_set_skip_pager_hint(GTK_WINDOW(main_window), FALSE);
+   gtk_window_set_resizable(GTK_WINDOW(main_window), TRUE);
+   gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
 
    // Apply the default UI font to the whole window tree. Widgets which set
    // their own font (chat, frequency entry, etc) keep it; everything else
@@ -820,7 +827,8 @@ bool gui_init(void) {
       g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Startup requests fullscreen (ui.full-screen=true)");
       gtk_window_fullscreen(GTK_WINDOW(main_window));
    } else {
-      g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Startup requests normal window (ui.full-screen=false)");
+      gtk_window_unfullscreen(GTK_WINDOW(main_window));
+      g_log("RustyRig-GTK", G_LOG_LEVEL_MESSAGE, "Startup requests normal, resizable window (ui.full-screen=false)");
    }
 
    // Make the main window on screen
@@ -891,14 +899,21 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
 }
 
 bool gui_fullscreen_toggle(void) {
-   if (cfg_fullscreen) {
+   if (!GTK_IS_WINDOW(main_window)) return false;
+   GdkWindow *gdk = gtk_widget_get_window(main_window);
+   gboolean actual_fullscreen = gdk &&
+      (gdk_window_get_state(gdk) & GDK_WINDOW_STATE_FULLSCREEN);
+   if (actual_fullscreen || cfg_fullscreen) {
       gtk_window_unfullscreen(GTK_WINDOW(main_window));
       gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
+      gtk_window_set_resizable(GTK_WINDOW(main_window), TRUE);
+      cfg_fullscreen = false;
    } else {
+      /* Fullscreen suppresses the decorations itself. Do not disable them
+       * explicitly, or they can remain missing after returning to normal. */
       gtk_window_fullscreen(GTK_WINDOW(main_window));
-      gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
+      cfg_fullscreen = true;
    }
-   cfg_fullscreen = !cfg_fullscreen;
-
+   gtk_ui_zoom_recheck();
    return false;
 }
