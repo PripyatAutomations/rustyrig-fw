@@ -3,7 +3,6 @@
  * PTT lives in rrclient core and requires an explicit routed control pin.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-#define _GNU_SOURCE
 #include <oliviamodem.h>
 #include <algorithm>
 #include <cmath>
