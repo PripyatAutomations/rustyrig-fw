@@ -2365,11 +2365,14 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
              req->gain_db < -60. || req->gain_db > 12.) break;
          bool sink_input = !strcmp(req->stream, "sink.client.dsp0");
          bool hq_mix = !strcmp(req->stream, "hq.mix");
-         if (!sink_input && !hq_mix && strcmp(req->stream, "rx.mix")) break;
-         rr_audio_engine_t *owner = sink_input || hq_mix ? hq_engine : rx_engine;
+         bool tx_mix = !strcmp(req->stream, "tx.mix");
+         if (!sink_input && !hq_mix && !tx_mix &&
+             strcmp(req->stream, "rx.mix")) break;
+         rr_audio_engine_t *owner = tx_mix ? tx_engine :
+                                  sink_input || hq_mix ? hq_engine : rx_engine;
          if (rr_audio_engine_port_gain(owner, sink_input, req->channel, req->gain_db)) {
             char *key = g_strdup_printf("audio.graph.port.%s.%c",
-               sink_input ? "sink" : hq_mix ? "hq" : "mix",
+               sink_input ? "sink" : hq_mix ? "hq" : tx_mix ? "tx" : "mix",
                req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
             g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
@@ -2474,7 +2477,8 @@ void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_d
 }
 void audio_request_port_gain(const char *id, unsigned channel, double db) {
    if (!id || channel > 1 || !isfinite(db) ||
-       (strcmp(id, "rx.mix") && strcmp(id, "sink.client.dsp0")))
+       (strcmp(id, "rx.mix") && strcmp(id, "tx.mix") &&
+        strcmp(id, "sink.client.dsp0")))
       return;
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_PORT_GAIN, .channel = channel, .gain_db = db
@@ -2645,17 +2649,19 @@ bool audio_init(void) {
    double right_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_L, 1, left_db);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_R, 0, right_db);
-   for (unsigned stage = 0; stage < 3; stage++) {
+   for (unsigned stage = 0; stage < 4; stage++) {
       for (unsigned ch = 0; ch < 2; ch++) {
          char *key = g_strdup_printf("audio.graph.port.%s.%c",
-                                    stage == 2 ? "sink" : stage == 1 ? "hq" : "mix",
+                                    stage == 3 ? "tx" : stage == 2 ? "sink" :
+                                    stage == 1 ? "hq" : "mix",
                                     ch ? 'R' : 'L');
          char *saved = rrclient_database_setting_get(key);
          if (saved && *saved) {
             char *end = NULL;
             double db = g_ascii_strtod(saved, &end);
             if (end != saved && !*end)
-               rr_audio_engine_port_gain(stage ? hq_engine : rx_engine,
+               rr_audio_engine_port_gain(stage == 3 ? tx_engine :
+                                         stage ? hq_engine : rx_engine,
                                          stage == 2, ch, db);
          }
          g_free(saved);
