@@ -71,6 +71,7 @@ static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
  * Zero is the auto-centered starting position when the graph fits. */
 static double graph_pan_x, graph_pan_y;
 
+static void graph_canvas_update_size(void);
 /* Reusable annotation layer: viewport transformations stay with the host. */
 static RRMarks *routing_marks;
 static void routing_marks_save(void) {
