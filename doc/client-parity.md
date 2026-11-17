@@ -456,9 +456,11 @@ determine its natural auto-sized width. Manual divider collapse remains allowed.
 Chat tabs now provide four GTK-managed dock margins (left, right, top, bottom).
 Each edge has a visible touchable line, even when empty; a floating panel
 highlights cyan while dragged and shows the eligible chat edges in cyan. Drop
-near an edge to dock; drag the panel title again to float it. Double-click
-an edge line to collapse/restore its region, and drag the native GTK pane
-divider to resize the reserved area. Docked panes reduce the chat viewport,
+near an edge to dock. Panels retain their floating chrome and independent
+size in the dock; drag their title to reposition them within the dock, or
+drop outside the dock to float them again. Double-click the narrow edge
+line to collapse/restore its region, and drag the native GTK pane divider
+to resize the reserved area. Docked panes reduce the chat viewport,
 not overlay the text. Their edge and resized extent persist locally. Room
 userlists use a resizable floating panel, docked to the right by default,
 and follow the active server/channel. Inactive room rosters are not shown
