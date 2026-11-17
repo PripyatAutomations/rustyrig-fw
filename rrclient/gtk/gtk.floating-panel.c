@@ -212,6 +212,8 @@ static void dock_edge_create(RRChatDocks *d,guint edge) {
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll),1);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll),1);
    gtk_container_add(GTK_CONTAINER(scroll),slot);
+   g_object_set_data(G_OBJECT(slot),"rr-docks",d);
+   g_object_set_data(G_OBJECT(slot),"rr-dock-edge",GUINT_TO_POINTER(edge+1));
    /* Parent show_all must not reveal an empty dock or its saved contents. */
    gtk_widget_set_no_show_all(scroll,TRUE);
    gtk_box_pack_start(GTK_BOX(region),line,FALSE,FALSE,0);
@@ -354,13 +356,33 @@ static gint panel_dock_hit(RRChatDocks *d,gint x_root,gint y_root) {
 static void dock_hide_if_empty(GtkWidget *slot) {
    if(!GTK_IS_CONTAINER(slot))return;
    GList *children=gtk_container_get_children(GTK_CONTAINER(slot));
-   gboolean empty=children==NULL;
+   gboolean visible=FALSE;
+   for(GList *it=children;it;it=it->next)
+      if(gtk_widget_get_visible(it->data)){visible=TRUE;break;}
    g_list_free(children);
-   if(!empty)return;
+   if(visible)return;
    GtkWidget *outer=gtk_widget_get_parent(slot);
    if(GTK_IS_VIEWPORT(outer))outer=gtk_widget_get_parent(outer);
    if(GTK_IS_SCROLLED_WINDOW(outer))gtk_widget_hide(outer);
+   RRChatDocks *d=g_object_get_data(G_OBJECT(slot),"rr-docks");
+   guint edge=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(slot),"rr-dock-edge"))-1;
+   if(d && edge<RR_DOCK_COUNT) {
+      d->collapsed[edge]=TRUE;
+      dock_edge_set_extent(d,edge,22);
+   }
 }
+static void dock_reveal_panel(RRFloatPanel *p) {
+   if(!p||p->dock_edge<0||!GTK_IS_WIDGET(p->frame))return;
+   GtkWidget *slot=gtk_widget_get_parent(p->frame);
+   if(!GTK_IS_BOX(slot))return;
+   RRChatDocks *d=g_object_get_data(G_OBJECT(slot),"rr-docks");
+   if(!d)return;
+   guint edge=p->dock_edge;
+   d->collapsed[edge]=FALSE;
+   gtk_widget_show(d->scroll[edge]);
+   dock_edge_set_extent(d,edge,d->extent[edge]);
+}
+
 static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    if(!p||!d||edge<0||edge>=RR_DOCK_COUNT||p->modal)return;
    GtkWidget *slot=d->slot[edge];
@@ -1224,6 +1246,7 @@ void rr_floating_panel_restore(RRFloatPanel *p) {
       p->restore_tab = NULL;
    }
    gtk_widget_show(p->frame);
+   dock_reveal_panel(p);
    panel_raise(p);
    panel_chrome(p);
    panel_state_save(p);
@@ -1255,6 +1278,8 @@ static void panel_minimize(GtkButton *button, gpointer data) {
    p->explicitly_hidden = FALSE;
    gtk_widget_set_no_show_all(p->frame, TRUE);
    panel_chrome(p);
+   if(p->dock_edge>=0 && GTK_IS_BOX(gtk_widget_get_parent(p->frame)))
+      dock_hide_if_empty(gtk_widget_get_parent(p->frame));
    panel_state_save(p);
 }
 
@@ -1304,6 +1329,8 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
    p->minimized = FALSE;
    panel_state_save(p);
    gtk_widget_hide(p->frame);
+   if(p->dock_edge>=0 && GTK_IS_BOX(gtk_widget_get_parent(p->frame)))
+      dock_hide_if_empty(gtk_widget_get_parent(p->frame));
 }
 
 static void panel_close(GtkButton *button, gpointer data) {
