@@ -30,6 +30,7 @@ struct rr_floating_panel {
    gint dock_edge; /* -1 floating, 0 left, 1 right, 2 top, 3 bottom */
    gint float_x, float_y, dock_x, dock_y;
    gint dock_width, dock_height; /* -1 means size to natural contents */
+   gboolean dock_forced_resizable;
    guint layout_bucket; /* viewport-width class, not exact pixels */
    gboolean saved_minimized, loaded_state, ever_shown, restoring_state, last_saved_valid;
    rrclient_window_state_t last_saved;
@@ -496,6 +497,11 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    gtk_fixed_put(GTK_FIXED(slot),p->frame,p->dock_x,p->dock_y);
    g_object_unref(p->frame);
    p->dock_edge=edge;
+   if(!p->resizable) {
+      p->resizable=TRUE;
+      p->dock_forced_resizable=TRUE;
+   }
+   gtk_widget_set_visible(p->resize_grip,!p->rolled && !p->minimized);
    g_object_set_data(G_OBJECT(d->pane[edge]),"rr-dock-sized",NULL);
    if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden &&
       !p->room_hidden)gtk_widget_show(p->frame);
@@ -528,6 +534,11 @@ static void panel_dock_detach(RRFloatPanel *p,gint root_x,gint root_y) {
    gtk_widget_set_margin_top(p->frame,y);
    g_object_unref(p->frame);
    p->dock_edge=-1;
+   if(p->dock_forced_resizable) {
+      p->resizable=FALSE;
+      p->dock_forced_resizable=FALSE;
+      gtk_widget_hide(p->resize_grip);
+   }
    panel_dock_save(p);
    if(!p->minimized && !p->explicitly_hidden && !p->room_hidden)
       gtk_widget_show(p->frame);
@@ -1861,6 +1872,10 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(header), p->title_hit, TRUE, TRUE, 0);
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    p->scale_wrapper = rr_scale_container_new(p->body);
+   /* A manually resized panel gives its content the additional space;
+    * GTK controls capable of expanding or wrapping can reflow naturally. */
+   gtk_widget_set_hexpand(p->scale_wrapper,TRUE);
+   gtk_widget_set_vexpand(p->scale_wrapper,TRUE);
    gtk_box_pack_start(GTK_BOX(panel), p->scale_wrapper, TRUE, TRUE, 0);
    /* Content is populated by the caller after panel construction; apply saved zoom when the panel is actually shown, not to an empty body. */
    p->resize_grip = gtk_event_box_new();
