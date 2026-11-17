@@ -830,10 +830,13 @@ static void panel_hard_bounds(RRFloatPanel *p, int width, int height, int *min_x
    int overlay_w = gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
    int overlay_h = gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay));
    int right_inset = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
-   *min_x = MAX(0, soft_min_x - PANEL_GAP);
-   *min_y = MAX(0, soft_min_y - PANEL_GAP);
-   *max_x = MAX(*min_x, overlay_w - right_inset - width);
-   *max_y = MAX(*min_y, MIN(overlay_h - height, soft_max_y + PANEL_GAP));
+   /* Treat the window's right and bottom boundaries as hard limits.
+    * When compact layouts leave too little room for normal panel insets,
+    * sacrifice the inset before ever placing the frame offscreen. */
+   *max_x = MAX(0, overlay_w - right_inset - width);
+   *max_y = MAX(0, MIN(overlay_h - height, soft_max_y + PANEL_GAP));
+   *min_x = MIN(MAX(0, soft_min_x - PANEL_GAP), *max_x);
+   *min_y = MIN(MAX(0, soft_min_y - PANEL_GAP), *max_y);
 }
 
 static void panel_add_candidate(GArray *positions, int position, int minimum, int limit) {
