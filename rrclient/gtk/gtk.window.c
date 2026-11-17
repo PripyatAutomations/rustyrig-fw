@@ -602,6 +602,45 @@ static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *
    gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
 }
 
+/* The main window uses its own small chrome. Delegate drags to the WM so
+ * xfwm4 edge tiling and keyboard window operations keep working. */
+static gboolean main_toolbar_drag_press(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (!GTK_IS_WINDOW(main_window) || event->button != GDK_BUTTON_PRIMARY)
+      return FALSE;
+   if (event->type == GDK_2BUTTON_PRESS) {
+      GdkWindow *gdk=gtk_widget_get_window(main_window);
+      if (gdk && (gdk_window_get_state(gdk) & GDK_WINDOW_STATE_MAXIMIZED))
+         gtk_window_unmaximize(GTK_WINDOW(main_window));
+      else
+         gtk_window_maximize(GTK_WINDOW(main_window));
+      return TRUE;
+   }
+   if (event->type == GDK_BUTTON_PRESS) {
+      gtk_window_begin_move_drag(GTK_WINDOW(main_window),event->button,
+         (gint)event->x_root,(gint)event->y_root,event->time);
+      return TRUE;
+   }
+   return FALSE;
+}
+
+/* No server-side borders means the normal GTK frame resize affordance is
+ * absent. Provide an explicit bottom-right WM resize grip. */
+static gboolean main_window_resize_press(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (!GTK_IS_WINDOW(main_window) || event->type != GDK_BUTTON_PRESS ||
+       event->button != GDK_BUTTON_PRIMARY || !gtk_window_get_resizable(GTK_WINDOW(main_window)))
+      return FALSE;
+   GdkWindow *gdk=gtk_widget_get_window(main_window);
+   if (gdk && (gdk_window_get_state(gdk) & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN)))
+      return FALSE;
+   gtk_window_begin_resize_drag(GTK_WINDOW(main_window),GDK_WINDOW_EDGE_SOUTH_EAST,
+      event->button,(gint)event->x_root,(gint)event->y_root,event->time);
+   return TRUE;
+}
+
 static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -658,7 +697,7 @@ bool gui_init(void) {
    gtk_window_set_skip_taskbar_hint(GTK_WINDOW(main_window), FALSE);
    gtk_window_set_skip_pager_hint(GTK_WINDOW(main_window), FALSE);
    gtk_window_set_resizable(GTK_WINDOW(main_window), TRUE);
-   gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
+   gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
 
    // Apply the default UI font to the whole window tree. Widgets which set
    // their own font (chat, frequency entry, etc) keep it; everything else
@@ -692,6 +731,17 @@ bool gui_init(void) {
    gtk_widget_set_margin_end(quit_button, 2);
    /* Fixed right status cluster never shares the oversized minimum width of the left toolbar or the notebook. Give each side its own allocation. */
    GtkWidget *toolbar_shell = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   /* Small dedicated drag target: other toolbar controls remain clickable. */
+   GtkWidget *move_handle=gtk_event_box_new();
+   GtkWidget *move_label=gtk_label_new("⠿");
+   gtk_container_add(GTK_CONTAINER(move_handle),move_label);
+   gtk_widget_set_size_request(move_handle,36,42);
+   gtk_widget_set_tooltip_text(move_handle,
+      "Drag to move or tile with XFCE; double-click to maximize/restore");
+   gtk_widget_add_events(move_handle,GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(move_handle,"button-press-event",
+      G_CALLBACK(main_toolbar_drag_press),NULL);
+   gtk_box_pack_start(GTK_BOX(toolbar_shell),move_handle,FALSE,FALSE,0);
    GtkWidget *toolbar_viewport = gtk_scrolled_window_new(NULL, NULL);
    /* With NEVER, the toolbar's full child requisition can set the WM's
      * minimum window width despite min-content-width=1. */
@@ -729,6 +779,19 @@ bool gui_init(void) {
    gtk_widget_set_hexpand(viewport_host, TRUE);
    gtk_widget_set_vexpand(viewport_host, TRUE);
    gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport_host);
+   /* Borderless top-levels need a visible resize handle. Keep it anchored
+    * inside the actual window allocation, not a scrollable child. */
+   GtkWidget *resize_grip=gtk_event_box_new();
+   GtkWidget *resize_label=gtk_label_new("◢");
+   gtk_container_add(GTK_CONTAINER(resize_grip),resize_label);
+   gtk_widget_set_size_request(resize_grip,26,26);
+   gtk_widget_set_halign(resize_grip,GTK_ALIGN_END);
+   gtk_widget_set_valign(resize_grip,GTK_ALIGN_END);
+   gtk_widget_set_tooltip_text(resize_grip,"Drag to resize RustyRig");
+   gtk_widget_add_events(resize_grip,GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(resize_grip,"button-press-event",
+      G_CALLBACK(main_window_resize_press),NULL);
+   gtk_overlay_add_overlay(GTK_OVERLAY(rr_client_overlay),resize_grip);
    /* The entire toolbar must be outside the app-wide scroll viewport. Otherwise the content can exceed the viewport and shift even the fixed right cluster off
     * screen when a rig room is opened. */
    gtk_box_pack_start(GTK_BOX(viewport_host), toolbar_shell, FALSE, FALSE, 1);
@@ -907,7 +970,7 @@ bool gui_fullscreen_toggle(void) {
       (gdk_window_get_state(gdk) & GDK_WINDOW_STATE_FULLSCREEN);
    if (actual_fullscreen || cfg_fullscreen) {
       gtk_window_unfullscreen(GTK_WINDOW(main_window));
-      gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
+      gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
       gtk_window_set_resizable(GTK_WINDOW(main_window), TRUE);
       cfg_fullscreen = false;
    } else {
