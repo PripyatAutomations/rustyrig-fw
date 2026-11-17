@@ -51,6 +51,12 @@ gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
  * state, change minimization, or restore panels which were already hidden. */
 #define RR_FLOATING_HIDE_MANUAL (1u << 0)
 #define RR_FLOATING_HIDE_TAB    (1u << 1)
+/* Wrap the chat content in four collapsible GtkPaned dock regions. The
+ * chat text takes all unreserved space; other notebook pages are unchanged. */
+GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat, GtkWidget *page);
+/* Switch the dock destination to the newly active chat room, or NULL for
+ * tool/status pages. Docked panels retain their edge when changing rooms. */
+void rr_floating_panel_chat_activate(GtkWidget *page);
 void rr_floating_panels_set_hidden(guint reason, gboolean hidden);
 gboolean rr_floating_panels_hidden(guint reason);
 
