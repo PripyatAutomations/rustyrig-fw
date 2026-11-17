@@ -576,7 +576,7 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
 }
 static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *icon, const char *tool, const char *tooltip) {
    GtkWidget *button = gtk_button_new();
-   GtkWidget *contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   GtkWidget *contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
    GtkWidget *image = !strcmp(icon, "📻") ? gtk_label_new(icon) : gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_MENU);
    GtkWidget *label = gtk_label_new(text);
    gtk_box_pack_start(GTK_BOX(contents), image, FALSE, FALSE, 0);
@@ -598,7 +598,7 @@ static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *
    gtk_widget_set_tooltip_text(label, tooltip);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
    /* GTK themes may render a 16px icon, but keep an easy finger target. */
-   gtk_widget_set_size_request(button, 42, 42);
+   gtk_widget_set_size_request(button, 30, 28);
    g_signal_connect(button, "clicked", G_CALLBACK(main_toolbar_tool_clicked), (gpointer) tool);
    gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
 }
@@ -709,7 +709,7 @@ bool gui_init(void) {
    GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    /* GtkScrolledWindow must never give the complete UI a horizontal minimum derived from a wide notebook page or transient toolbar text. */
    gtk_widget_set_size_request(main_content, 1, -1);
-   rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+   rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
    gtk_widget_set_hexpand(rr_main_toolbar, TRUE);
    gtk_widget_set_margin_start(rr_main_toolbar, 4);
    GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize-symbolic", GTK_ICON_SIZE_MENU);
@@ -732,11 +732,25 @@ bool gui_init(void) {
    gtk_widget_set_margin_end(quit_button, 2);
    /* Fixed right status cluster never shares the oversized minimum width of the left toolbar or the notebook. Give each side its own allocation. */
    GtkWidget *toolbar_shell = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   /* A compact app-owned row: icons remain usable, without 42px button
+    * minimums or theme padding doubling the available vertical space. */
+   GtkCssProvider *toolbar_css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(toolbar_css,
+      ".rr-main-toolbar button { min-height: 26px; min-width: 26px;"
+      " padding: 0 3px; margin: 0; border-width: 0; }"
+      ".rr-main-toolbar entry { min-height: 24px; padding: 0 3px; }",
+      -1, NULL);
+   gtk_style_context_add_class(gtk_widget_get_style_context(toolbar_shell),
+      "rr-main-toolbar");
+   gtk_style_context_add_provider(
+      gtk_widget_get_style_context(toolbar_shell),
+      GTK_STYLE_PROVIDER(toolbar_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(toolbar_css);
    /* Small dedicated drag target: other toolbar controls remain clickable. */
    GtkWidget *move_handle=gtk_event_box_new();
    GtkWidget *move_label=gtk_label_new("⠿");
    gtk_container_add(GTK_CONTAINER(move_handle),move_label);
-   gtk_widget_set_size_request(move_handle,36,42);
+   gtk_widget_set_size_request(move_handle,28,28);
    gtk_widget_set_tooltip_text(move_handle,
       "Drag to move or tile with XFCE; double-click to maximize/restore");
    gtk_widget_add_events(move_handle,GDK_BUTTON_PRESS_MASK);
@@ -747,6 +761,7 @@ bool gui_init(void) {
    /* With NEVER, the toolbar's full child requisition can set the WM's
      * minimum window width despite min-content-width=1. */
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+    gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(toolbar_viewport), TRUE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(toolbar_viewport), 1);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(toolbar_viewport), FALSE);
    gtk_widget_set_hexpand(toolbar_viewport, TRUE);
@@ -795,7 +810,7 @@ bool gui_init(void) {
    gtk_overlay_add_overlay(GTK_OVERLAY(rr_client_overlay),resize_grip);
    /* The entire toolbar must be outside the app-wide scroll viewport. Otherwise the content can exceed the viewport and shift even the fixed right cluster off
     * screen when a rig room is opened. */
-   gtk_box_pack_start(GTK_BOX(viewport_host), toolbar_shell, FALSE, FALSE, 1);
+   gtk_box_pack_start(GTK_BOX(viewport_host), toolbar_shell, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(viewport_host), viewport, TRUE, TRUE, 0);
    GtkWidget *tab_strip = g_object_get_data(G_OBJECT(main_notebook), "rr-tab-strip-widget");
    GtkWidget *upper_extra = cfg_ui_gtk_main_tabstrip == GTK_POS_TOP ? tab_strip : NULL;
