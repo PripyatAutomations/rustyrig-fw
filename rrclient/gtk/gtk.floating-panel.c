@@ -19,7 +19,8 @@ struct rr_floating_panel {
    gpointer zoom_data;
    GtkOverlay *overlay;
    GtkNotebook *tabs;
-   char *id;
+   char *id, *chat_room, *chat_server;
+   gboolean room_hidden;
    gboolean rolled, minimized, dragging, resizing, resizable, closable, minimizable, modal, modal_grabbed, pinned;
    gboolean temporarily_hidden; /* never persisted, never a minimize */
    gboolean temporary_override; /* explicit user request while panels are masked */
@@ -72,6 +73,7 @@ typedef struct rr_chat_docks {
    gboolean collapsed[RR_DOCK_COUNT];
 } RRChatDocks;
 static RRChatDocks *active_chat_docks;
+static char *active_chat_room, *active_chat_server;
 static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *dock, gint edge);
 static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y);
 static void panel_dock_glow(RRChatDocks *d, gboolean dragging, gint target);
@@ -226,14 +228,48 @@ GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat,GtkWidget *page) {
    g_signal_connect(page,"destroy",G_CALLBACK(dock_workspace_destroy),d);
    return left;
 }
+static gboolean panel_room_matches(RRFloatPanel *p) {
+   if(!p->chat_room)return TRUE;
+   return active_chat_docks && !g_strcmp0(p->chat_room,active_chat_room) &&
+          !g_strcmp0(p->chat_server,active_chat_server);
+}
+static void panel_room_visibility(RRFloatPanel *p) {
+   if(!p->chat_room || !p->frame)return;
+   p->room_hidden=!panel_room_matches(p);
+   if(p->room_hidden)gtk_widget_hide(p->frame);
+   else if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden &&
+           !(panel_hide_reasons && !p->temporary_override))
+      gtk_widget_show(p->frame);
+}
 void rr_floating_panel_chat_activate(GtkWidget *page) {
    RRChatDocks *d=page?g_object_get_data(G_OBJECT(page),"rr-chat-docks"):NULL;
    active_chat_docks=d;
-   if(!d)return;
+   g_free(active_chat_room);g_free(active_chat_server);
+   active_chat_room=d?g_strdup(g_object_get_data(G_OBJECT(page),"rr-chat-name")):NULL;
+   active_chat_server=d?g_strdup(g_object_get_data(G_OBJECT(page),"rr-chat-server")):NULL;
    for(GList *it=floating_panels;it;it=it->next){
       RRFloatPanel *p=it->data;
-      if(p->dock_edge>=0 && !p->modal)panel_dock_attach(p,d,p->dock_edge);
+      if(p->dock_edge>=0 && d && panel_room_matches(p) && !p->modal)
+         panel_dock_attach(p,d,p->dock_edge);
+      panel_room_visibility(p);
    }
+}
+void rr_floating_panel_set_chat_room(RRFloatPanel *p,const char *server,const char *room) {
+   if(!p)return;
+   g_free(p->chat_room);g_free(p->chat_server);
+   p->chat_room=room&&*room?g_strdup(room):NULL;
+   p->chat_server=p->chat_room?g_strdup(server?server:""):NULL;
+   panel_room_visibility(p);
+}
+void rr_floating_panel_default_dock(RRFloatPanel *p,guint edge) {
+   if(!p || edge>=RR_DOCK_COUNT || p->modal)return;
+   char *key=g_strdup_printf("ui.panel.dock.%s",p->id);
+   char *saved=rrclient_database_setting_get(key);
+   if(!saved) {
+      p->dock_edge=edge;
+      panel_dock_save(p);
+   }
+   g_free(saved);g_free(key);
 }
 static void panel_dock_glow(RRChatDocks *d,gboolean dragging,gint target) {
    if(!d)return;
@@ -298,8 +334,8 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
    p->dock_edge=edge;
    d->collapsed[edge]=FALSE;
    gtk_widget_show(d->scroll[edge]);
-   if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden)
-      gtk_widget_show(p->frame);
+   if(!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden &&
+      !p->room_hidden)gtk_widget_show(p->frame);
    dock_edge_set_extent(d,edge,d->extent[edge]);
    panel_dock_save(p);
 }
@@ -329,7 +365,7 @@ static void panel_dock_detach(RRFloatPanel *p,gint root_x,gint root_y) {
    g_object_unref(p->frame);
    p->dock_edge=-1;
    panel_dock_save(p);
-   if(!p->minimized && !p->explicitly_hidden)
+   if(!p->minimized && !p->explicitly_hidden && !p->room_hidden)
       gtk_widget_show(p->frame);
 }
 
@@ -1142,6 +1178,7 @@ void rr_floating_panel_restore(RRFloatPanel *p) {
    panel_chrome(p);
    panel_state_save(p);
    panel_temporary_visibility(p);
+   panel_room_visibility(p);
 }
 
 static void panel_restore(GtkButton *button, gpointer data) {
@@ -1726,7 +1763,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    if (!p || p->minimized) {
       return;
    }
-   if (p->dock_edge>=0 && active_chat_docks)
+   if (p->dock_edge>=0 && active_chat_docks && panel_room_matches(p))
       panel_dock_attach(p,active_chat_docks,p->dock_edge);
    /* Explicit reopening wins over close, but not over active temporary
     * suppression; panel_temporary_visibility() reapplies it below. */
@@ -1826,6 +1863,7 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
       gtk_widget_destroy(p->frame);
    }
    g_clear_object(&p->scale_css);
+   g_free(p->chat_room);g_free(p->chat_server);
    g_free(p->id);
    g_free(p);
 }
