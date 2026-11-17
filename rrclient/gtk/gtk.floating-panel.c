@@ -432,7 +432,7 @@ static void panel_layout_apply(RRFloatPanel *p, guint bucket) {
    p->last_saved_valid=FALSE;
 }
 static void panel_layout_sync(RRFloatPanel *p) {
-   if (!p || p->modal || !p->frame || p->dragging || p->resizing) return;
+   if (!p || p->dock_edge >= 0 || p->modal || !p->frame || p->dragging || p->resizing) return;
    gint width=gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay));
    if (width < 320) return;
    guint next=panel_width_class(width,p->layout_bucket);
@@ -445,7 +445,7 @@ static void panel_layout_sync(RRFloatPanel *p) {
 }
 /* Persist expanded dimensions, never the collapsed title-bar height. */
 static void panel_state_save(RRFloatPanel *p) {
-   if (!p || p->restoring_state || !p->ever_shown || p->modal ||
+   if (!p || p->dock_edge >= 0 || p->restoring_state || !p->ever_shown || p->modal ||
        p->temporarily_hidden || !p->initial_positioned) {
       return;
    }
@@ -757,7 +757,7 @@ static void panel_overlay_allocation(GtkWidget *widget, GtkAllocation *allocatio
    RRFloatPanel *p = data;
    if (allocation->width >= 320 && allocation->height >= 240)
       panel_layout_sync(p);
-   if (!p->ever_shown || p->initial_positioned ||
+   if (p->dock_edge >= 0 || !p->ever_shown || p->initial_positioned ||
        allocation->width < 320 || allocation->height < 240) return;
    p->initial_positioned = panel_place_initial(p);
    if (p->initial_positioned && !p->initial_center_pending)
@@ -766,6 +766,7 @@ static void panel_overlay_allocation(GtkWidget *widget, GtkAllocation *allocatio
 static void panel_initial_allocation(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
+   if (p->dock_edge >= 0) return;
 
    /* A resized, zoomed or reflowed VFO must not retain a position that leaves its right edge behind the notebook/overlay boundary. */
    if (p->min_width_widget && !p->dragging && !p->resizing && gtk_widget_get_visible(p->frame) && allocation->width > 1) {
@@ -919,14 +920,15 @@ static void panel_raise(RRFloatPanel *p) {
       return;
    }
 
-   if (!p->modal) {
+   if (!p->modal && gtk_widget_get_parent(p->frame)==GTK_WIDGET(p->overlay)) {
       gtk_overlay_reorder_overlay(p->overlay, p->frame, -1);
    }
 
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
 
-      if (q->pinned && !q->minimized && !q->modal && q->overlay == p->overlay && gtk_widget_get_visible(q->frame)) {
+      if (q->pinned && !q->minimized && !q->modal && q->overlay == p->overlay &&
+          gtk_widget_get_parent(q->frame)==GTK_WIDGET(q->overlay) && gtk_widget_get_visible(q->frame)) {
          gtk_overlay_reorder_overlay(q->overlay, q->frame, -1);
       }
    }
@@ -934,7 +936,8 @@ static void panel_raise(RRFloatPanel *p) {
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
 
-      if (q->modal && q->overlay == p->overlay && gtk_widget_get_visible(q->frame)) {
+      if (q->modal && q->overlay == p->overlay &&
+          gtk_widget_get_parent(q->frame)==GTK_WIDGET(q->overlay) && gtk_widget_get_visible(q->frame)) {
          if (q->scrim && gtk_widget_get_visible(q->scrim)) {
             gtk_overlay_reorder_overlay(q->overlay, q->scrim, -1);
          }
@@ -1229,6 +1232,11 @@ static gboolean panel_drag_tick(GtkWidget *widget, GdkFrameClock *clock, gpointe
    if (p->drag_pending) {
       p->drag_pending = FALSE;
       panel_drag_position(p, p->drag_pending_x, p->drag_pending_y);
+      if (active_chat_docks) {
+         gint edge=panel_dock_hit(active_chat_docks,
+            (gint)p->drag_pending_x,(gint)p->drag_pending_y);
+         panel_dock_glow(active_chat_docks,TRUE,edge);
+      }
    }
 
    return G_SOURCE_CONTINUE;
@@ -1263,7 +1271,13 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    if (event->type != GDK_BUTTON_PRESS) {
       return TRUE;
    }
+   if (p->dock_edge >= 0)
+      panel_dock_detach(p,(gint)event->x_root,(gint)event->y_root);
    panel_raise(p);
+   if (active_chat_docks && !p->modal) {
+      gtk_style_context_add_class(gtk_widget_get_style_context(p->frame),"rr-dock-drag");
+      panel_dock_glow(active_chat_docks,TRUE,-1);
+   }
    p->dragging = TRUE;
    p->drag_x = event->x_root;
    p->drag_y = event->y_root;
@@ -1303,8 +1317,15 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    panel_drag_cancel_tick(p);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    panel_drag_position(p, event->x_root, event->y_root);
-   panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
-   panel_state_save(p);
+   gint edge=active_chat_docks && !p->modal && !(event->state&GDK_SHIFT_MASK)?
+      panel_dock_hit(active_chat_docks,(gint)event->x_root,(gint)event->y_root):-1;
+   if(active_chat_docks)panel_dock_glow(active_chat_docks,FALSE,-1);
+   gtk_style_context_remove_class(gtk_widget_get_style_context(p->frame),"rr-dock-drag");
+   if(edge>=0)panel_dock_attach(p,active_chat_docks,edge);
+   else {
+      panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
+      panel_state_save(p);
+   }
    if (p->compact_drag_handle) {
       GdkWindow *window = gtk_widget_get_window(p->compact_drag_handle);
       if (window) gdk_window_set_cursor(window, NULL);
@@ -1368,6 +1389,14 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->overlay = overlay;
    p->tabs = tabs;
    p->id = g_strdup(id);
+   p->dock_edge=-1;
+   char *dock_key=g_strdup_printf("ui.panel.dock.%s",id);
+   char *stored_edge=rrclient_database_setting_get(dock_key);
+   if(!g_strcmp0(stored_edge,"left"))p->dock_edge=RR_DOCK_LEFT;
+   else if(!g_strcmp0(stored_edge,"right"))p->dock_edge=RR_DOCK_RIGHT;
+   else if(!g_strcmp0(stored_edge,"top"))p->dock_edge=RR_DOCK_TOP;
+   else if(!g_strcmp0(stored_edge,"bottom"))p->dock_edge=RR_DOCK_BOTTOM;
+   g_free(stored_edge);g_free(dock_key);
    floating_panels = g_list_prepend(floating_panels, p);
    p->closable = TRUE;
    p->minimizable = TRUE;
@@ -1388,6 +1417,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
       p->saved_minimized = stored.minimized;
       p->pinned = stored.pinned;
       panel_position_save(p, stored.x, stored.y);
+      p->float_x=stored.x;
+      p->float_y=stored.y;
    }
    p->scrim = gtk_event_box_new();
    /* The scrim must never be revealed by a parent gtk_widget_show_all(). A non-modal scrim covers the notebook and silently eats tab clicks. */
@@ -1682,6 +1713,8 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    if (!p || p->minimized) {
       return;
    }
+   if (p->dock_edge>=0 && active_chat_docks)
+      panel_dock_attach(p,active_chat_docks,p->dock_edge);
    /* Explicit reopening wins over close, but not over active temporary
     * suppression; panel_temporary_visibility() reapplies it below. */
    p->explicitly_hidden = FALSE;
@@ -1762,7 +1795,8 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
 
    if (p->ever_shown && p->initial_positioned) {
       panel_state_save(p);
-      panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
+      if(p->dock_edge<0)
+         panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
    }
 
    if (p->restore_tab) {
