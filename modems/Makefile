@@ -54,7 +54,13 @@ $(OLIVIA_SRC)/CMakeLists.txt:
 
 # Missing upstream sources first trigger checkout. Never edit upstream files.
 $(PSK_SRC)/src/%.c: $(PSK_SRC)/CMakeLists.txt
-	@test -f "$@" || { echo "Missing upstream file: $@" >&2; exit 1; }
+	@test -f "$@" || { \
+		echo "Incomplete libpsk checkout: missing $@" >&2; \
+		echo "The presence of CMakeLists.txt does not guarantee a complete upstream tree." >&2; \
+		echo "Inspect with: $(GIT) -C $(PSK_SRC) status --short" >&2; \
+		echo "Preserve and re-clone: mv $(PSK_SRC) $(PSK_SRC).old && $(GIT) clone https://github.com/jfrancis42/libpsk.git $(PSK_SRC)" >&2; \
+		exit 1; \
+	}
 $(OLIVIA_SRC)/src/oliviamodem.cpp: $(OLIVIA_SRC)/CMakeLists.txt
 	@test -f "$@" || { echo "Missing upstream file: $@" >&2; exit 1; }
 $(PSK_SRC)/tests/test_%.c: $(PSK_SRC)/CMakeLists.txt
