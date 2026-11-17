@@ -599,7 +599,7 @@ static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocat
       if(m>maximum){maximum=m;culprit=i;}
    }
    gint bucket=visible/100;
-   if(bucket==last_bucket && culprit==last_page && abs(excess-last_excess)<100)
+   if(bucket==last_bucket && culprit==last_page && ABS(excess-last_excess)<100)
       return;
    last_bucket=bucket;last_page=culprit;last_excess=excess;
    g_warning("gtk.tabs: notebook=%d viewport=%d excess=%d; widest page=%d/%d min=%d",
