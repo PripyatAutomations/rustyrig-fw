@@ -225,6 +225,42 @@ static void dock_edge_style(void) {
       GTK_STYLE_PROVIDER(css),GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
 }
+/* Keep docked widgets inside the actual viewport, not the GtkFixed
+ * content's natural requisition. A narrower window can only shrink inward.
+ * Saved user dimensions remain intact for restoration at larger widths. */
+static void dock_slot_constrain(GtkWidget *scroll,GtkAllocation *allocation,
+                                gpointer unused) {
+   (void)unused;
+   if(allocation->width<20 || allocation->height<20)return;
+   GtkWidget *slot=g_object_get_data(G_OBJECT(scroll),"rr-dock-slot");
+   if(!GTK_IS_FIXED(slot))return;
+   GList *children=gtk_container_get_children(GTK_CONTAINER(slot));
+   for(GList *it=children;it;it=it->next) {
+      GtkWidget *frame=it->data;
+      if(!gtk_widget_get_visible(frame))continue;
+      RRFloatPanel *p=g_object_get_data(G_OBJECT(frame),"rr-float-owner");
+      if(!p || p->dock_edge<0 || p->dragging || p->resizing)continue;
+      const gint max_w=MAX(1,allocation->width-3);
+      const gint max_h=MAX(1,allocation->height-3);
+      const gint desired_w=p->dock_width>0?p->dock_width:-1;
+      const gint desired_h=p->dock_height>0?p->dock_height:-1;
+      gint req_w,req_h;
+      gtk_widget_get_size_request(frame,&req_w,&req_h);
+      gint draw_w=desired_w>0?MIN(desired_w,max_w):req_w;
+      gint draw_h=desired_h>0?MIN(desired_h,max_h):req_h;
+      if(draw_w!=req_w || draw_h!=req_h)
+         gtk_widget_set_size_request(frame,draw_w,draw_h);
+      gint actual_w=gtk_widget_get_allocated_width(frame);
+      gint actual_h=gtk_widget_get_allocated_height(frame);
+      gint nx=CLAMP(p->dock_x,0,MAX(0,max_w-actual_w));
+      gint ny=CLAMP(p->dock_y,0,MAX(0,max_h-actual_h));
+      if(nx!=p->dock_x || ny!=p->dock_y) {
+         p->dock_x=nx;p->dock_y=ny;
+         gtk_fixed_move(GTK_FIXED(slot),frame,nx,ny);
+      }
+   }
+   g_list_free(children);
+}
 static void dock_edge_create(RRChatDocks *d,guint edge) {
    /* A thin inner-edge target, not a full-height header button. */
    GtkWidget *region=gtk_box_new(edge<2?GTK_ORIENTATION_HORIZONTAL:GTK_ORIENTATION_VERTICAL,0);
@@ -250,6 +286,8 @@ static void dock_edge_create(RRChatDocks *d,guint edge) {
     * its GTK viewport and the slot below remain invisible forever. */
    gtk_widget_show_all(scroll);
    g_object_set_data(G_OBJECT(slot),"rr-docks",d);
+   g_object_set_data(G_OBJECT(scroll),"rr-dock-slot",slot);
+   g_signal_connect(scroll,"size-allocate",G_CALLBACK(dock_slot_constrain),NULL);
    g_object_set_data(G_OBJECT(slot),"rr-dock-edge",GUINT_TO_POINTER(edge+1));
    /* Parent show_all must not reveal an empty dock or its saved contents. */
    gtk_widget_set_no_show_all(scroll,TRUE);
@@ -498,6 +536,7 @@ static void panel_dock_attach(RRFloatPanel *p,RRChatDocks *d,gint edge) {
       else p->dock_x=count*246;
    }
    gtk_fixed_put(GTK_FIXED(slot),p->frame,p->dock_x,p->dock_y);
+   g_object_set_data(G_OBJECT(p->frame),"rr-float-owner",p);
    g_object_unref(p->frame);
    p->dock_edge=edge;
    if(!p->resizable) {
