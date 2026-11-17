@@ -10,7 +10,7 @@ git submodule update --init ext/ft8_lib
 make -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 ```
 
-The standard modem build includes FT8 together with PSK and Olivia.\nDebian build (with WITH_MODEMS=yes by default):
+The standard modem build includes FT8 together with PSK and Olivia.\nDebian build (with components.modems=true in the selected profile (or WITH_MODEMS=yes)):
 `dpkg-buildpackage -b -us -uc`.
 The `rustyrig-modems` package installs the worker to
 `/usr/libexec/rustyrig/modems/rrmodem-ft8`. Upstream ft8_lib builds with
