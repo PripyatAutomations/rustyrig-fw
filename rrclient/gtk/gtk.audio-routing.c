@@ -205,7 +205,7 @@ static void routing_marks_toolbar(GtkFlowBox *flow) {
    for(int i=0;i<7;i++) {
       GtkWidget *button=gtk_radio_button_new_with_label(group,symbols[i]);
       gtk_widget_set_tooltip_text(button,names[i]);
-      gtk_widget_set_size_request(button,38,40);
+      gtk_widget_set_size_request(button,28,28);
       group=gtk_radio_button_get_group(GTK_RADIO_BUTTON(button));
       g_object_set_data(G_OBJECT(button),"mark-tool",GINT_TO_POINTER(i));
       g_signal_connect(button,"toggled",G_CALLBACK(routing_marks_tool_toggled),NULL);
@@ -5449,7 +5449,24 @@ void gtk_audio_graph_present(void) {
       gtk_widget_hide(label);
       audio_tabs = gtk_notebook_new();
       gtk_box_pack_start(GTK_BOX(graph_page), audio_tabs, TRUE, TRUE, 0);
-      GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+      GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
+       gtk_style_context_add_class(gtk_widget_get_style_context(routing_page),"rr-routing-page");
+       static gboolean routing_css_installed=FALSE;
+       if(!routing_css_installed) {
+          routing_css_installed=TRUE;
+          GtkCssProvider *css=gtk_css_provider_new();
+          gtk_css_provider_load_from_data(css,
+             ".rr-routing-page button, .rr-routing-page checkbutton,"
+             " .rr-routing-page radiobutton { min-height: 24px;"
+             " min-width: 24px; padding: 1px 4px; margin: 0; }"
+             ".rr-routing-page flowboxchild { padding: 0; margin: 0; }"
+             ".rr-routing-page combobox button { min-height: 24px; padding: 0 3px; }",
+             -1,NULL);
+          GdkScreen *screen=gdk_screen_get_default();
+          if(screen)gtk_style_context_add_provider_for_screen(screen,
+             GTK_STYLE_PROVIDER(css),GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+          g_object_unref(css);
+       }
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), routing_page, gtk_label_new("Routing"));
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), pipeline_page_new(), gtk_label_new("Pipelines"));
       GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
@@ -5485,8 +5502,8 @@ void gtk_audio_graph_present(void) {
       gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(tools),GTK_SELECTION_NONE);
       gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(tools),1);
       gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(tools),30);
-      gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(tools),3);
-      gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(tools),4);
+      gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(tools),1);
+      gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(tools),2);
       gtk_widget_set_hexpand(tools,TRUE);
       routing_marks_toolbar(GTK_FLOW_BOX(tools));
       GtkWidget *auto_layout = gtk_button_new_with_label("AUTO");
@@ -5536,13 +5553,9 @@ void gtk_audio_graph_present(void) {
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(routing_page), tools, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
-      GtkWidget *info =
-         gtk_label_new("Drag blocks or ports to move/patch. Touch: hold an effect or modem for options. Mouse: right-click; middle/Alt-drag pans, wheel zooms; double-click trim resets to 0 dB.");
-      gtk_label_set_xalign(GTK_LABEL(info), 0);
-      gtk_label_set_line_wrap(GTK_LABEL(info),TRUE);
-      gtk_label_set_line_wrap_mode(GTK_LABEL(info),PANGO_WRAP_WORD_CHAR);
-      gtk_box_pack_start(GTK_BOX(routing_page), info, FALSE, FALSE, 1);
-      GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
+      /* Routing gesture help is available on the toolbar tooltip, without
+        * consuming another full-height line above the canvas. */
+       GtkWidget *scroller = gtk_scrolled_window_new(NULL, NULL);
       /* The graph has its own Cairo zoom. Never scale its viewport size request through the generic widget wrapper as well. */
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
@@ -5551,6 +5564,10 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(graph_canvas,"key-press-event",G_CALLBACK(routing_marks_key),NULL);
       gtk_widget_set_size_request(graph_canvas, 1, 1);
       gtk_widget_set_has_tooltip(graph_canvas, TRUE);
+       gtk_widget_set_tooltip_text(tools,
+          "Shift-drag empty canvas to select enclosed blocks; Ctrl+Shift adds. "
+          "Drag selected audio blocks as a group. Middle/Alt-drag pans; wheel zooms. "
+          "Double-click trim resets to 0 dB.");
       g_signal_connect(graph_canvas, "query-tooltip", G_CALLBACK(routing_graph_tooltip), NULL);
       gtk_widget_set_hexpand(graph_canvas, TRUE);
       gtk_widget_set_vexpand(graph_canvas, TRUE);
@@ -5564,10 +5581,10 @@ void gtk_audio_graph_present(void) {
       gtk_container_add(GTK_CONTAINER(scroller), graph_canvas);
       gtk_box_pack_start(GTK_BOX(routing_page), scroller, TRUE, TRUE, 0);
       /* Bottom-right, immediately above the tab strip; finger-sized targets. */
-      GtkWidget *zoom_bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
+      GtkWidget *zoom_bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,3);
       gtk_widget_set_halign(zoom_bar,GTK_ALIGN_END);
       GtkWidget *colors_button=gtk_button_new_with_label("Pin colors");
-      gtk_widget_set_size_request(colors_button,100,48);
+      gtk_widget_set_size_request(colors_button,80,30);
       gtk_widget_set_tooltip_text(colors_button,
          "Show the routing pin and wire color legend, including COS");
       GtkWidget *colors_popover=gtk_popover_new(colors_button);
@@ -5585,7 +5602,7 @@ void gtk_audio_graph_present(void) {
       GtkWidget *zoom_reset=gtk_button_new_with_label("100%");
       GtkWidget *zoom_buttons[]={zoom_out,zoom_popup_button,zoom_more,zoom_reset};
       for (guint i=0;i<G_N_ELEMENTS(zoom_buttons);i++) {
-         gtk_widget_set_size_request(zoom_buttons[i],52,48);
+         gtk_widget_set_size_request(zoom_buttons[i],40,30);
          gtk_box_pack_start(GTK_BOX(zoom_bar),zoom_buttons[i],FALSE,FALSE,0);
       }
       g_object_set_data(G_OBJECT(zoom_out),"zoom-dir",GINT_TO_POINTER(-1));
@@ -5607,7 +5624,7 @@ void gtk_audio_graph_present(void) {
                        G_CALLBACK(routing_zoom_slider_changed),NULL);
       g_object_set_data(G_OBJECT(zoom_popup_button),"zoom-popover",popover);
       g_signal_connect(zoom_popup_button,"clicked",G_CALLBACK(routing_zoom_popup),NULL);
-      gtk_box_pack_start(GTK_BOX(routing_page),zoom_bar,FALSE,FALSE,2);
+      gtk_box_pack_start(GTK_BOX(routing_page),zoom_bar,FALSE,FALSE,0);
       gtk_widget_show_all(pop_box);
 
       gtk_widget_add_events(graph_canvas, GDK_BUTTON_PRESS_MASK |
