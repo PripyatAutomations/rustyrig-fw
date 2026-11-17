@@ -112,6 +112,9 @@ static void panel_position_save(RRFloatPanel *p, int x, int y) {
    g_hash_table_replace(panel_positions(p->overlay), g_strdup(p->id), position);
 }
 
+static void panel_state_save(RRFloatPanel *p);
+static void panel_hard_bounds(RRFloatPanel *p,int width,int height,
+                              int *min_x,int *min_y,int *max_x,int *max_y);
 /* Width classes are intentionally coarse; small resize changes should not
  * switch arrangements. Layout data lives in the existing window_states table
  * under a per-class ID, so no schema migration is needed. */
@@ -145,6 +148,11 @@ static void panel_layout_apply(RRFloatPanel *p, guint bucket) {
       gtk_widget_set_margin_top(p->frame,y);
       panel_position_save(p,x,y);
    } else if (p->ever_shown) {
+      /* A wide saved frame cannot stay 1200px wide in a half-width window. */
+      p->saved_width=MIN(p->saved_width,
+         MAX(200,gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay))-24));
+      p->saved_height=MIN(p->saved_height,
+         MAX(160,gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay))-24));
       /* First visit to a size class: keep current arrangement where it
        * fits and constrain off-screen panels instead of losing them. */
       int w=MAX(1,gtk_widget_get_allocated_width(p->frame));
