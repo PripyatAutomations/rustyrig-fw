@@ -32,7 +32,9 @@ PSK_TESTS := $(addprefix $(BUILD_DIR)/tests/psk-,$(strip varicode tx loopback sn
 
 .PHONY: all test test-snr ft8-snr test-ft8 install clean fetch
 all: rrmodem-psk rrmodem-olivia rrmodem-ft8
-fetch: $(PSK_SRC)/CMakeLists.txt $(OLIVIA_SRC)/CMakeLists.txt
+# Fetch and validate the full worker source trees before parallel compilation.
+# A checkout marker alone cannot certify that all upstream .c files exist.
+fetch: $(addprefix $(PSK_SRC)/src/,$(addsuffix .c,$(PSK_SOURCES))) $(OLIVIA_SRC)/src/oliviamodem.cpp
 	@if test ! -f "$(FT8_LIB)/Makefile"; then if $(GIT) -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
 		$(GIT) -C .. submodule update --init ext/ft8_lib; \
 	elif test ! -e "$(FT8_LIB)"; then \

@@ -126,4 +126,4 @@ Replaces: rustyrig-modem-ft8
 Description: External receive-only software modem workers for RustyRig
  Isolated PSK, Olivia and FT8 modem executables, usable by rrserver and rrclient.
  Installed under /usr/libexec/rustyrig/modems, not in the user's PATH.
- Includes PSK, Olivia and FT8 together when WITH_MODEMS=yes (default).
+ Includes PSK, Olivia and FT8 when enabled by the selected build profile.

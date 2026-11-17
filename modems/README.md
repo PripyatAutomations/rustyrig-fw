@@ -11,8 +11,9 @@ sudo make -C modems install
 
 Installed workers are part of the `rustyrig-modems` package under
 `/usr/libexec/rustyrig/modems/`, outside `/usr/bin` and writable state.
-The top-level build defaults to `WITH_MODEMS=yes`; use `WITH_MODEMS=no`
-to skip worker builds. FT8 is included whenever modems are enabled.
+The top-level build follows `components.modems` in `config/$PROFILE.config.json`
+(`PROFILE=radio` by default). `WITH_MODEMS=yes` and `WITH_MODEMS=no` explicitly
+override the profile; `WITH_MODEMS=auto` follows it. FT8 is included whenever modems are enabled.
 
 No CMake is required. GNU Make compiles upstream C99/C++20 sources directly\ninto \`modems/build/\` without changing their source directories.\nRequires a C compiler, a C++20 compiler, GNU Make, ar, and git.\n\nThe build clones upstream `jfrancis42/libpsk` and `jfrancis42/olivia-modem`
 to `ext/` only when their source directories do not exist; it never modifies

@@ -139,14 +139,21 @@ ${BUILD_DIR}/.stamp:
 	mkdir -p "${BUILD_DIR}"
 	touch $@
 
-WITH_MODEMS ?= yes
-.PHONY: modem-workers
-ifeq ($(filter yes true 1,$(WITH_MODEMS)),)
-ifneq ($(filter no false 0,$(WITH_MODEMS)),)
-$(error WITH_MODEMS must be yes or no)
+# Modem workers are selected by config/$(PROFILE).config.json, just like
+# the other components. A command-line WITH_MODEMS=yes/no overrides the profile.
+WITH_MODEMS ?= auto
+ifneq ($(filter auto yes true 1 no false 0,$(WITH_MODEMS)),$(WITH_MODEMS))
+$(error WITH_MODEMS must be auto, yes or no)
 endif
-else
+PROFILE_MODEMS := $(shell jq -r '(.components.modems // false) | tostring' "$(CF)")
+ifneq ($(filter true false,$(PROFILE_MODEMS)),$(PROFILE_MODEMS))
+$(error .components.modems in $(CF) must be true or false)
+endif
+MODEMS_ENABLED := $(if $(filter auto,$(WITH_MODEMS)),$(PROFILE_MODEMS),$(if $(filter yes true 1,$(WITH_MODEMS)),true,false))
+.PHONY: modem-workers
+ifeq ($(MODEMS_ENABLED),true)
 modem-workers:
+	$(MAKE) -C modems fetch
 	$(MAKE) -C modems all
 after-config: modem-workers
 endif

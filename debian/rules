@@ -10,9 +10,11 @@ DEB_TRANSPORT_FLAGS := USE_MONGOOSE=false
 include mk/optional-modules.mk
 include mk/install-paths.mk
 
-# Modems are built together by default; disable explicitly for restricted builds.
-WITH_MODEMS ?= yes
-MODEMS_ENABLED := $(filter yes true 1,$(WITH_MODEMS))
+# Follow the selected client/server build profiles unless overridden.
+WITH_MODEMS ?= auto
+CLIENT_PROFILE_MODEMS := $(shell jq -r '(.components.modems // false) | tostring' "config/$(CLIENT_PROFILE).config.json")
+SERVER_PROFILE_MODEMS := $(shell jq -r '(.components.modems // false) | tostring' "config/$(PROFILE).config.json")
+MODEMS_ENABLED := $(if $(filter no false 0,$(WITH_MODEMS)),,$(if $(filter yes true 1,$(WITH_MODEMS)),yes,$(if $(filter true,$(CLIENT_PROFILE_MODEMS) $(SERVER_PROFILE_MODEMS)),yes,)))
 MODEMS_DH_EXCLUDE := $(if $(MODEMS_ENABLED),,-Nrustyrig-modems)
 
 # Optional packages are omitted consistently at every debhelper stage.
