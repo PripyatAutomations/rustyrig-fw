@@ -46,7 +46,7 @@ case "$debugger" in
     gdb) exec gdb --ex "handle SIGPIPE nostop noprint pass" --ex run --args "$rr_test_root/bin/rrserver" "${server_args[@]}" ;;
     valgrind)
         exec valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all \
-            --log-file="$rr_test_root/audit-logs/valgrind.rrserver.%p.log" \
+            --log-file="$rr_test_root/security/audit-logs/valgrind.rrserver.%p.log" \
             "$rr_test_root/bin/rrserver" "${server_args[@]}" ;;
     *) exec "$rr_test_root/bin/rrserver" "${server_args[@]}" ;;
 esac

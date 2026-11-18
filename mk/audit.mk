@@ -4,7 +4,7 @@ SCANBUILD ?= scan-build-21
 CLANG_TIDY_RUNNER ?= run-clang-tidy
 AUDIT_TIDY_JOBS ?= 4
 ifndef AUDIT_DIR
-AUDIT_DIR := audit-logs/$(shell date +%Y%m%d.%H%M%S)
+AUDIT_DIR := security/audit-logs/$(shell date +%Y%m%d.%H%M%S)
 endif
 audit_files = $(wildcard rrclient/*.[ch] rrserver/*.[ch] fwdsp/*.[ch])
 # Use only translation units that were actually compiled.  Passing directory
@@ -31,7 +31,7 @@ audit: audit-init
 
 audit-init:
 	@mkdir -p "$(AUDIT_DIR)"
-	@ln -sfn "$(notdir $(AUDIT_DIR))" audit-logs/latest
+	@ln -sfn "$(notdir $(AUDIT_DIR))" security/audit-logs/latest
 	@printf 'RustyRig audit run %s\n' "$(AUDIT_DIR)" > "$(AUDIT_DIR)/README"
 	@printf 'Full analyzer output is stored in this directory.\n' >> "$(AUDIT_DIR)/README"
 

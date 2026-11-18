@@ -79,7 +79,7 @@ case "$debugger" in
         ;;
     valgrind)
         exec valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all \
-            --log-file="$rr_test_root/audit-logs/valgrind.rrclient.%p.log" \
+            --log-file="$rr_test_root/security/audit-logs/valgrind.rrclient.%p.log" \
             "$rr_test_root/bin/rrclient" "${client_args[@]}"
         ;;
     *)

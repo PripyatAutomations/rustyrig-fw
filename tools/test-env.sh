@@ -15,4 +15,4 @@ if command -v ldd >/dev/null 2>&1 && [ -x "$rr_test_root/bin/rrclient" ]; then
     fi
 fi
 export PATH="$rr_test_root/bin:$rr_test_root/tools:$PATH"
-mkdir -p run db audit-logs recordings dev
+mkdir -p security/audit-logs bin

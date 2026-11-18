@@ -39,10 +39,10 @@ rr_test_prepare_build() {
             else
                 echo "Unable to find libasan.so; ASan startup may fail" >&2
             fi
-            export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=1:halt_on_error=1:abort_on_error=1:log_path=$rr_test_root/audit-logs/asan}"
+            export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=1:halt_on_error=1:abort_on_error=1:log_path=$rr_test_root/security/audit-logs/asan}"
         fi
         if [[ "$flags" == *undefined* ]]; then
-            export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=1:log_path=$rr_test_root/audit-logs/ubsan}"
+            export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=1:log_path=$rr_test_root/security/audit-logs/ubsan}"
         fi
     fi
 }

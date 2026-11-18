@@ -11,7 +11,7 @@ LDFLAGS += -lsqlite3
 
 ${MASTER_DB}:
 	mkdir -p $(shell dirname "${MASTER_DB}")
-	mkdir -p audit-logs build db
+	mkdir -p security/audit-logs build db
 	sqlite3 $@ < "${MASTER_TEMPLATE}"
 	@if [ -f "${MASTER_PRELOAD}" ]; then \
 		sqlite3 $@ < "${MASTER_PRELOAD}" ; \

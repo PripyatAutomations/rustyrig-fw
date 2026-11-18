@@ -17,7 +17,7 @@ replacements = {
     "/var/lib/rustyrig/tools": str(root / "tools"),
     "/var/lib/rustyrig/recordings": str(root / "recordings"),
     "/var/log/rustyrig": str(root / "audit-logs"),
-    "/var/log/fwdsp-cli.log": str(root / "audit-logs/fwdsp-cli.log"),
+    "/var/log/fwdsp-cli.log": str(root / "security/audit-logs/fwdsp-cli.log"),
     "/var/run/rustyrig": str(root / "run"),
     "/usr/lib/rustyrig/modules/rrclient": str(root / "bin"),
     "/usr/lib/rustyrig/modules/rrserver": str(root / "bin"),
@@ -38,6 +38,6 @@ for path in sorted((root / "config").glob("*.cfg")):
     if path == source:
         content += f"\n[general]\nfwdsp:path={root}/bin/fwdsp\n"
         if program == "rrclient":
-            content += f"log.file={root}/audit-logs/rrclient.log\ncat.pty.path={root}/dev/ttyCAT0\n"
+            content += f"log.file={root}/security/audit-logs/rrclient.log\ncat.pty.path={root}/dev/ttyCAT0\n"
     (root / "run" / path.name).write_text(content)
 print(root / "run" / (program + ".cfg"))
