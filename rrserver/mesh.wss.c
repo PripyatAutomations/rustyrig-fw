@@ -382,7 +382,9 @@ static bool ready(int fd, GIOCondition events, void *arg) {
       }
       X509 *peer = SSL_get1_peer_certificate(c->ssl);
       bool valid = (!c->client || (peer && c->peer_verified)) &&
-         SSL_get_verify_result(c->ssl) == X509_V_OK && (SSL_version(c->ssl) >= TLS1_3_VERSION || SSL_get_extms_support(c->ssl));
+         SSL_get_verify_result(c->ssl) == X509_V_OK &&
+         SSL_version(c->ssl) == TLS1_3_VERSION;
+
       X509_free(peer);
       const char label[] = "EXPORTER-RustyRig-mesh-v1";
 

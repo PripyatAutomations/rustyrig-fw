@@ -244,6 +244,11 @@ defconfig_t defcfg[] = {
       "log.show-ts", "true", "Show timestamps in log", DEFCONFIG_BOOL, NULL
    },
    {
+      "net.tls.allowed-ciphers",
+      "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256",
+      "Allowed TLS 1.3 cipher suites (colon-separated; TLS 1.3 only)"
+   },
+   {
       "net.http.hex-dump", "false", "Should we hexdump all http traffic?", DEFCONFIG_BOOL, NULL
    },
    {
