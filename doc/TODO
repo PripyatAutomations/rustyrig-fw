@@ -42,6 +42,11 @@ rrclient: Ctrl-0 should reset zoom to 100%
 * Show the green circle on any control that can be connected
 * Allow connections to multiple input pins from one output
   - Allow jumping from one output pin to a
+* Make *all* blocks keep position and restore on restart
+
+[Explorer]
+* Cluster Health
+  - Need to make disabled profiling not show as warning state
 
 [AF Spectrum]
 * Remove RX/TX offset (this shouldnt be here) and routing button
