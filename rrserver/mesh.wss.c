@@ -603,10 +603,51 @@ static gboolean maintenance(void *unused) {
    return G_SOURCE_CONTINUE;
 }
 
+/* Reject invalid or unavailable names rather than letting OpenSSL ignore them. */
+static bool tls_configure_ciphers(SSL_CTX *ctx, const char *list) {
+   static const char *const permitted[] = {
+      "TLS_AES_256_GCM_SHA384",
+      "TLS_CHACHA20_POLY1305_SHA256",
+      "TLS_AES_128_GCM_SHA256"
+   };
+
+   if (!list || !*list) {
+      return false;
+   }
+
+   char **names = g_strsplit(list, ":", -1);
+   bool valid = true;
+
+   for (size_t i = 0; names[i]; ++i) {
+      bool allowed = false;
+
+      for (size_t j = 0; j < G_N_ELEMENTS(permitted); ++j) {
+         if (!strcmp(names[i], permitted[j])) {
+            allowed = true;
+            break;
+         }
+      }
+
+      if (!allowed || SSL_CTX_set_ciphersuites(ctx, names[i]) != 1) {
+         valid = false;
+         break;
+      }
+   }
+
+   if (valid) {
+      valid = SSL_CTX_set_ciphersuites(ctx, list) == 1;
+   }
+
+   g_strfreev(names);
+
+   return valid;
+}
+
 bool rr_mesh_wss_init(const char *cert, const char *key, rr_mesh_pin_fn trust) {
    if (tls) {
       return true;
    }
+
    /* OpenSSL socket BIO writes must report EPIPE instead of terminating the process when a peer resets a connection during a queued write. */
    signal(SIGPIPE, SIG_IGN);
    tls = SSL_CTX_new(TLS_method());
@@ -614,7 +655,20 @@ bool rr_mesh_wss_init(const char *cert, const char *key, rr_mesh_pin_fn trust) {
    if (!tls) {
       return false;
    }
-   SSL_CTX_set_min_proto_version(tls, TLS1_2_VERSION);
+
+   const char *ciphers = cfg_get("net.tls.allowed-ciphers");
+
+   if (SSL_CTX_set_min_proto_version(tls, TLS1_3_VERSION) != 1 ||
+      SSL_CTX_set_max_proto_version(tls, TLS1_3_VERSION) != 1 ||
+      !tls_configure_ciphers(tls, ciphers)) {
+      Log(LOG_ERROR, "mesh.native", "TLS 1.3 unavailable or invalid net.tls.allowed-ciphers: %s",
+         ciphers ? ciphers : "(unset)");
+      SSL_CTX_free(tls);
+      tls = NULL;
+
+      return false;
+   }
+
    SSL_CTX_set_options(tls, SSL_OP_NO_COMPRESSION | SSL_OP_NO_RENEGOTIATION | SSL_OP_NO_TICKET);
    SSL_CTX_set_session_cache_mode(tls, SSL_SESS_CACHE_OFF);
    SSL_CTX_set_num_tickets(tls, 0);
