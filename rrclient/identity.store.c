@@ -1,7 +1,7 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-#include "identity.store.h"
+#include <rrclient/identity.store.h>
 #include <glib.h>
 #include <sys/stat.h>
 #include <unistd.h>

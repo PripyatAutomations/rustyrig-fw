@@ -1,7 +1,7 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-#include "thread.dispatch.h"
+#include <rrclient/thread.dispatch.h>
 
 struct rr_thread_dispatch {
    GMainContext *context;

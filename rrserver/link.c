@@ -34,8 +34,8 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/link.tree.h>
 #include <rrserver/link.mesh.h>
-#include "link.internal.h"
-#include "mesh.bootstrap.h"
+#include <rrserver/link.internal.h>
+#include <rrserver/mesh.bootstrap.h>
 struct rr_links links;
 
 /* Show public certificate identity when TLS provisioning fails. */

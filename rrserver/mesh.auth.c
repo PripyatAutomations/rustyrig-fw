@@ -1,8 +1,8 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-#include "mesh.auth.h"
-#include "identity.h"
+#include <rrserver/mesh.auth.h>
+#include <rrserver/identity.h>
 #include <openssl/rand.h>
 #include <string.h>
 #include <stdlib.h>

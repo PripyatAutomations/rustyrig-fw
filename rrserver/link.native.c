@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 /* Native transport adapter. Admission, routing and ACL policy stay in link.c. */
-#include "link.internal.h"
-#include "link.h"
-#include "identity.h"
-#include "acl.h"
-#include "database.h"
+#include <rrserver/link.internal.h>
+#include <rrserver/link.h>
+#include <rrserver/identity.h>
+#include <rrserver/acl.h>
+#include <rrserver/database.h>
 #include <string.h>
 #include <unistd.h>
 

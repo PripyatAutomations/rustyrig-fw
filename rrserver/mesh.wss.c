@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 /* OpenSSL/wslay mesh driver. All callbacks run on the GLib main context. No protocol policy or platform types escape into rr_transport. */
-#include "mesh.wss.internal.h"
+#include <rrserver/mesh.wss.internal.h>
 #include <librustyaxe/core.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>

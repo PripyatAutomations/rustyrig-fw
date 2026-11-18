@@ -32,7 +32,7 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/link.tree.h>
 #include <rrserver/link.mesh.h>
-#include "link.internal.h"
+#include <rrserver/link.internal.h>
 
 /* Like RTP auto-advertisement, choose the local source address that reaches the administrator, rather than advertising a wildcard listener. The explicit
  * endpoint remains available for NAT/VPN and remote networks. */

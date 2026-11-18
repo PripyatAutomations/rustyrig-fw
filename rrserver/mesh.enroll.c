@@ -1,7 +1,7 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-#include "mesh.bootstrap.h"
+#include <rrserver/mesh.bootstrap.h>
 // One-shot RustyRig mesh enrollment over issuer-pinned HTTPS.
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

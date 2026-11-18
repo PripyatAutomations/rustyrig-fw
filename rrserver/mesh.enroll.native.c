@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 /* Pinned-HTTPS enrollment requests on the native OpenSSL listener. */
-#include "mesh.enroll.native.h"
-#include "link.internal.h"
-#include "identity.h"
-#include "database.h"
+#include <rrserver/mesh.enroll.native.h>
+#include <rrserver/link.internal.h>
+#include <rrserver/identity.h>
+#include <rrserver/database.h>
 #include <librrprotocol/crypto.h>
 #include <glib.h>
 #include <string.h>

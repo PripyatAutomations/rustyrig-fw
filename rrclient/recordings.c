@@ -737,7 +737,7 @@ static gpointer waveform_worker(gpointer data) {
       if (phase && wave->count < RR_RECORDING_WAVE_BINS) {
          wave->bins[wave->count++] = (rr_recording_wave_bin) {
             lows[0], highs[0], lows[1], highs[1]
-         }
+         };
       }
       wave->duration = rr_recording_decoder_duration(decoder);
 

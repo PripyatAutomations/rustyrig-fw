@@ -1,7 +1,7 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-#include "audio.graph.h"
+#include <rrclient/audio.graph.h>
 #include <string.h>
 typedef struct {
    char id[64];

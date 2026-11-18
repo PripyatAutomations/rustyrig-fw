@@ -18,7 +18,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/server.events.h>
 #include <rrserver/discovery.h>
-#include "files.h"
+#include <rrserver/files.h>
 #define FILE_CHUNK 24576
 #define FILE_PATH 4096
 #define FILE_JOBS 128

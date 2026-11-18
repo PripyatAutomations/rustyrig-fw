@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 // Native FLAC and Ogg/Vorbis recording codec workers. GPL-2.0-only.
-#include "recordings.codec.h"
+#include <rrclient/recordings.codec.h>
 #include <FLAC/stream_encoder.h>
 #include <FLAC/stream_decoder.h>
 #include <FLAC/metadata.h>

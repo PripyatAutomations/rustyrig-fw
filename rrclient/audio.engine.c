@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Thread-owned 20 ms PCM mixer; no GTK main-context or GStreamer calls. The sink callback must own its output endpoint independently of GTK and fwdsp's process
  * registry. */
-#include "audio.engine.h"
+#include <rrclient/audio.engine.h>
 #include <string.h>
 #include <math.h>
 #define AUDIO_RATE 16000u

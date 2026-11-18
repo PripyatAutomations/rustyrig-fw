@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 /* Strict, bounded RFC 6455 opening handshake for the mesh-only endpoint. */
-#include "mesh.wss.internal.h"
+#include <rrserver/mesh.wss.internal.h>
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #include <string.h>

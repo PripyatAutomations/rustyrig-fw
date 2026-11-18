@@ -1,7 +1,7 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-#include "mesh.bootstrap.h"
+#include <rrserver/mesh.bootstrap.h>
 #include <glib.h>
 #include <string.h>
 #ifdef USE_SQLITE
