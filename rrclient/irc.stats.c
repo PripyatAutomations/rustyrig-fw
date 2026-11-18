@@ -64,6 +64,7 @@ static struct rrclient_irc_channel_stats *channel_get(rrconn_t *connection, cons
 
    return &row->value;
 }
+
 const struct rrclient_irc_channel_stats *rrclient_irc_stats_next(const char *profile, const struct rrclient_irc_channel_stats *previous) {
    const struct channel_stats *start = previous ?
       ((const struct channel_stats *)((const char *)previous - offsetof(struct channel_stats, value)))->next : channels;
@@ -76,6 +77,7 @@ const struct rrclient_irc_channel_stats *rrclient_irc_stats_next(const char *pro
 
    return NULL;
 }
+
 void rrclient_irc_stats_highlight(rrconn_t *connection, const char *room) {
    if (!connection || connection->is_ws) {
       return;
@@ -86,6 +88,7 @@ void rrclient_irc_stats_highlight(rrconn_t *connection, const char *room) {
       stats->highlights++;
    }
 }
+
 static void stats_event(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)unused;
 
@@ -165,6 +168,7 @@ static void stats_event(const char *event, const char *data, rrconn_t *connectio
    }
    dict_free(message);
 }
+
 void rrclient_irc_stats_register(void) {
    event_on("irc.message", stats_event, NULL);
    event_on("irc.sent", stats_event, NULL);

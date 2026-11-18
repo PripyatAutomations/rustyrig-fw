@@ -400,6 +400,7 @@ static void hl_define_percentage(rr_backend_t *backend, const char *name, bool r
    };
    rr_rig_property_define(backend->owner, &d);
 }
+
 static void hl_poll_rig_controls(rr_backend_t *backend) {
    hamlib_backend_t *data = hl_data(backend);
 
@@ -447,6 +448,7 @@ static void hl_poll_rig_controls(rr_backend_t *backend) {
       }
    }
 }
+
 static bool hl_rig_control_set(rr_backend_t *backend, const char *name, int percent) {
    hamlib_backend_t *data = hl_data(backend);
 
@@ -1216,6 +1218,7 @@ static const char *hl_manufacturer(rr_backend_t *backend) {
 
    return data && data->rig && data->rig->caps ? data->rig->caps->mfg_name : NULL;
 }
+
 static const char *hl_model_name(rr_backend_t *backend) {
    hamlib_backend_t *data = hl_data(backend);
 

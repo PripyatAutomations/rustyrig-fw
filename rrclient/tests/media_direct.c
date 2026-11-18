@@ -30,23 +30,28 @@ static rrconn_t client;
 bool cfg_get_bool(const char *key, bool fallback) {
    return dict_get_bool(cfg, key, fallback);
 }
+
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return connection == &client ? "test" : "other";
 }
+
 void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
    assert(connection == &client);
    callback(data);
 }
+
 void Log(logpriority_t priority, const char *subsystem, const char *format, ...) {
    (void)priority;
    (void)subsystem;
    (void)format;
 }
+
 static bool send_packet(const uint8_t *data, size_t length, void *user) {
    (void)user;
 
    return sendto(fd, data, length, 0, (struct sockaddr *)&return_address, sizeof(return_address)) == (ssize_t) length;
 }
+
 static void audio(const char *event, const void *data, size_t length, rrconn_t *connection, void *user) {
    (void)event;
    (void)user;
@@ -55,6 +60,7 @@ static void audio(const char *event, const void *data, size_t length, rrconn_t *
    assert(frame.hdr.stream == 128 && frame.len == 640 && frame.data[0] == 7);
    received_audio++;
 }
+
 static void error(const char *event, const char *data, rrconn_t *connection, void *user) {
    (void)event;
    (void)user;
@@ -99,6 +105,7 @@ static void request_sent(const char *event, const void *data, size_t length, rrc
    snprintf(transport, sizeof(transport), "%s", dict_get(d, "media.transport", ""));
    snprintf(requested_uuid, sizeof(requested_uuid), "%s", dict_get(d, "media.chan-uuid", ""));
 }
+
 static dict *message(const char *cmd, const char *uuid) {
    dict *d = dict_new();
    dict_add(d, "msg.type", "media");
@@ -107,6 +114,7 @@ static dict *message(const char *cmd, const char *uuid) {
 
    return d;
 }
+
 int main(void) {
    bool encrypted = getenv("RR_RTP_TEST_ENCRYPTED") != NULL;
 

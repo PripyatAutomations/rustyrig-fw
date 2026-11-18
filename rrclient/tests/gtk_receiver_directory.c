@@ -18,14 +18,18 @@ bool rrclient_receiver_connect(const char *url, bool save) {
 
    return true;
 }
+
 const char *cfg_get(const char *key) {
    return !strcmp(key, "receiver-directory.cache") ? test_db : "";
 }
+
 void Log(logpriority_t priority, const char *subsystem, const char *format, ...) {
 }
+
 static int visible_count(void) {
    return gtk_tree_model_iter_n_children(GTK_TREE_MODEL(directory_filter), NULL);
 }
+
 int main(int argc, char **argv) {
    assert(argc == 2);
    test_db = argv[1];

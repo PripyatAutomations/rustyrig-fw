@@ -18,6 +18,7 @@ static bool send_ok = true;
 const char *ui_active_window_name(void) {
    return active;
 }
+
 bool ui_print(const char *window, const char *fmt, ...) {
    snprintf(destination, sizeof(destination), "%s", window ? window : "");
    va_list ap;
@@ -28,14 +29,17 @@ bool ui_print(const char *window, const char *fmt, ...) {
 
    return false;
 }
+
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
    snprintf(sent_id, sizeof(sent_id), "%s", dict_get(d, "request.id", ""));
 
    return send_ok;
 }
+
 const struct rr_client_media_chan *rrclient_media_chan_iter(int index, int *next) {
    return NULL;
 }
+
 bool cmd_media(int argc, char **args) {
    return false;
 }
@@ -52,6 +56,7 @@ static void reply(const char *id, const char *cmd, const char *window) {
    assert(!strcmp(destination, window));
    dict_free(d);
 }
+
 static void tree_row(const char *id, unsigned depth, const char *kind, const char *room, bool visible) {
    dict *d = dict_new();
    dict_add(d, "object.cmd", "inventory-entry");
@@ -67,6 +72,7 @@ static void tree_row(const char *id, unsigned depth, const char *kind, const cha
    assert(printed == before + visible);
    dict_free(d);
 }
+
 int main(void) {
    char *list[] = {
       "rig", "list"

@@ -15,10 +15,12 @@ static gboolean receive(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void release(gpointer data) {
    g_atomic_int_inc(&released);
    g_free(data);
 }
+
 static gpointer producer(gpointer data) {
    rr_thread_dispatch_t *bridge = data;
    int *value = g_new(int, 1);
@@ -27,6 +29,7 @@ static gpointer producer(gpointer data) {
 
    return NULL;
 }
+
 int main(void) {
    owner = g_thread_self();
    GMainContext *ctx = g_main_context_new();

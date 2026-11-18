@@ -23,9 +23,11 @@ bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
 
    return false;
 }
+
 const rr_frontend_ops_t *frontend_ops(void) {
    return NULL;
 }
+
 bool frontend_present(void) {
    return false;
 }
@@ -49,13 +51,17 @@ bool ui_print(const char *window, const char *format, ...) {
 
    return true;
 }
+
 void rrclient_update_connection_ui(int connected) {
    ws_connected = connected;
 }
+
 void tui_refresh_sb_online(void) {
 }
+
 void show_server_chooser(void) {
 }
+
 static void observe(const char *event, const char *data, rrconn_t *c, void *user) {
    (void)data;
    (void)user;
@@ -64,6 +70,7 @@ static void observe(const char *event, const char *data, rrconn_t *c, void *user
       ready++;
    }
 }
+
 int main(int argc, char **argv) {
    assert(argc == 2 || argc == 3);
    bool fail_closed = argc == 3;

@@ -13,6 +13,7 @@ void Log(logpriority_t level, const char *subsystem, const char *format, ...) {
    (void)subsystem;
    (void)format;
 }
+
 bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
    assert(pipeline && !strcmp(pipeline, "configured speaker"));
    snprintf(starts ? second_name : first_name, 32, "%s", name);
@@ -20,6 +21,7 @@ bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
 
    return true;
 }
+
 bool fwdsp_processor_write(const char *name, const void *samples, size_t length) {
    assert(!strcmp(name, first_name) || !strcmp(name, second_name));
    assert(samples && length == 640);
@@ -27,36 +29,43 @@ bool fwdsp_processor_write(const char *name, const void *samples, size_t length)
 
    return true;
 }
+
 bool fwdsp_processor_setvol(const char *name, int percent) {
    (void)name;
    assert(percent == 30);
 
    return false;
 }
+
 bool fwdsp_processor_stop(const char *name) {
    (void)name;
    stops++;
 
    return true;
 }
+
 void rrclient_dcc_capture(const void *pcm, size_t length) {
    assert(pcm && length == 640);
    captured++;
 }
+
 char vfo_state_get_active(void) {
    return 'A';
 }
+
 bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
    (void)vfo;
    (void)key;
 
    return fallback;
 }
+
 const char *rrclient_media_current_codec(bool tx) {
    (void)tx;
 
    return NULL;
 }
+
 bool fwdsp_write_samples(const char *codec, bool tx, const void *data, size_t length) {
    (void)codec;
    (void)tx;
@@ -66,6 +75,7 @@ bool fwdsp_write_samples(const char *codec, bool tx, const void *data, size_t le
 
    return true;
 }
+
 int main(void) {
    cfg = dict_new();
    dict_add(cfg, "pipeline:sink.client.dsp0", "configured speaker");

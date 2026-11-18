@@ -113,6 +113,7 @@ size_t rrserver_bridges_stats_snapshot(rr_bridge_worker_stats_t *out, size_t cap
 
    return count;
 }
+
 static bool bridge_private_stats(struct bridge_child *b, const char *key, const char *value) {
    if (!strcmp(key, "_rr_stats")) {
       unsigned long long in = 0, out = 0, bytes = 0, frames = 0, errors = 0;
@@ -279,14 +280,17 @@ static bool publish_metadata(struct bridge_child *b, const char *key, const char
 
    return true;
 }
+
 static rr_server_vfo_t *receiver(struct bridge_child *b) {
    return rr_server_vfo_find_alias(b->backend->owner, "A");
 }
+
 static void message(struct bridge_child *b, rrp_bridge_ipc_message_t *m, uint32_t type) {
    rrp_bridge_ipc_init(m, type);
    snprintf(m->name, sizeof(m->name), "%s", b->name);
    snprintf(m->driver, sizeof(m->driver), "%s", b->driver);
 }
+
 static void boolean(rr_server_rig_t *rig, const char *name, bool value) {
    rr_property_descriptor_t d = {
       .name = name, .type = VAL_BOOL, .readable = true
@@ -301,6 +305,7 @@ static void boolean(rr_server_rig_t *rig, const char *name, bool value) {
    };
    rr_rig_property_observe(rig, name, VAL_BOOL, &v);
 }
+
 static void finish(struct bridge_child *b, rr_control_result_t result) {
    void (*callback)(rr_control_result_t, void *) = b->complete;
    void *user = b->complete_user;
@@ -312,6 +317,7 @@ static void finish(struct bridge_child *b, rr_control_result_t result) {
       callback(result, user);
    }
 }
+
 static void offline(struct bridge_child *b) {
    if (b->online) {
       capability_source(b, "cached");
@@ -343,6 +349,7 @@ static void offline(struct bridge_child *b) {
       finish(b, RR_CONTROL_BACKEND_FAILED);
    }
 }
+
 static void disconnect(struct bridge_child *b) {
    offline(b);
 
@@ -368,6 +375,7 @@ static void disconnect(struct bridge_child *b) {
       b->kill_deadline = mono_us() + 2000000;
    }
 }
+
 static bool send_setting(struct bridge_child *b, uint64_t hz, const char *mode, void (*callback) (rr_control_result_t, void *), void *user) {
    const char *reason = !b->ready ? "bridge not ready" :
       !b->online ? "receiver offline" :
@@ -404,6 +412,7 @@ static bool send_setting(struct bridge_child *b, uint64_t hz, const char *mode, 
 
    return true;
 }
+
 static rr_control_result_t control(const rr_control_request_t *r, void *user) {
    struct bridge_child *b = user;
 
@@ -441,6 +450,7 @@ static rr_control_result_t control(const rr_control_request_t *r, void *user) {
 
    return send_setting(b, hz, mode, r->complete, r->complete_user) ? RR_CONTROL_PENDING : RR_CONTROL_BACKEND_FAILED;
 }
+
 static bool create(rr_backend_t *backend) {
    const char *name = rr_backend_config_get(backend, "bridge");
    const char *driver = rrp_bridge_config_get(name, "driver");
@@ -497,6 +507,7 @@ static bool create(rr_backend_t *backend) {
 
    return false;
 }
+
 static void destroy(rr_backend_t *backend) {
    struct bridge_child *b = backend->data;
 
@@ -523,9 +534,11 @@ static void destroy(rr_backend_t *backend) {
    free(b);
    backend->data = NULL;
 }
+
 static bool supported(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    return rr_server_vfo_owner(vfo) == backend->owner && !strcmp(rr_server_vfo_alias(vfo), "A");
 }
+
 static bool set_freq(rr_backend_t *backend, rr_server_vfo_t *vfo, int hz) {
    rr_control_request_t r = {
       .rig = backend->owner, .vfo = vfo, .property = RR_PROP_VFO_FREQUENCY, .value_type = VAL_LONG, .value.l = hz
@@ -533,6 +546,7 @@ static bool set_freq(rr_backend_t *backend, rr_server_vfo_t *vfo, int hz) {
 
    return rr_rig_control(&r) != RR_CONTROL_PENDING;
 }
+
 static bool set_mode(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t mode) {
    rr_control_request_t r = {
       .rig = backend->owner, .vfo = vfo, .property = RR_PROP_VFO_MODE, .value_type = VAL_STR, .value.s = vfo_mode_name(mode)
@@ -540,19 +554,23 @@ static bool set_mode(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t mode
 
    return rr_rig_control(&r) != RR_CONTROL_PENDING;
 }
+
 static float get_freq(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    rr_property_snapshot_t s;
 
    return supported(backend, vfo) && rr_vfo_property_read(vfo, RR_PROP_VFO_FREQUENCY, &s) && s.known && s.available ? s.value.l : 0;
 }
+
 static rr_mode_t get_mode(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    rr_property_snapshot_t s;
 
    return supported(backend, vfo) && rr_vfo_property_read(vfo, RR_PROP_VFO_MODE, &s) && s.known && s.available ? vfo_parse_mode(s.value.s) : MODE_NONE;
 }
+
 static const char *get_mode_string(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    return vfo_mode_name(get_mode(backend, vfo));
 }
+
 static rr_vfo_data_t *poll_state(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (!supported(backend, vfo)) {
       return NULL;
@@ -664,6 +682,7 @@ bool rrserver_bridges_prepare(void) {
 
    return ok;
 }
+
 static void schedule_retry(struct bridge_child *b) {
    unsigned delay = 1U << (b->failures < 6 ? b->failures : 6);
 
@@ -693,6 +712,7 @@ static char *bridge_program_path(void) {
 
    return path;
 }
+
 static bool spawn_child(struct bridge_child *b) {
    char *path = bridge_program_path();
 
@@ -785,6 +805,7 @@ static bool spawn_child(struct bridge_child *b) {
 
    return true;
 }
+
 bool rrserver_bridges_start(const char *file) {
    if (config_path) {
       return false;
@@ -818,6 +839,7 @@ bool rrserver_bridges_start(const char *file) {
 
    return true;
 }
+
 static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
    if (!(m->flags & RRP_BRIDGE_RX) || m->rx_max_hz > LONG_MAX) {
       return false;
@@ -891,6 +913,7 @@ static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t 
 
    return true;
 }
+
 static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
    if (strcmp(m->name, b->name) || strcmp(m->driver, b->driver)) {
       return false;
@@ -1078,6 +1101,7 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
 
    return false;
 }
+
 static void decoded_pcm(const char *name, const void *samples, size_t length, void *user) {
    (void)name;
    struct bridge_child *b = user;
@@ -1086,6 +1110,7 @@ static void decoded_pcm(const char *name, const void *samples, size_t length, vo
       rrserver_media_rx_pcm(b->backend->owner, samples, length);
    }
 }
+
 static void read_media(struct bridge_child *b) {
    for (int i = 0 ; i < 8 && b->media_fd >= 0 ; i++) {
       struct rrp_bridge_pcm frame;
@@ -1196,6 +1221,7 @@ static void read_spectrum(struct bridge_child *b) {
       }
    }
 }
+
 void rrserver_bridges_poll(void) {
    if (stopping || !config_path) {
       return;
@@ -1341,6 +1367,7 @@ void rrserver_bridges_poll(void) {
       }
    }
 }
+
 void rrserver_bridges_stop(void) {
    stopping = true;
 
@@ -1438,6 +1465,7 @@ static bool websdr_endpoint(const char *driver, const char *url, char **host, un
 
    return ok;
 }
+
 static struct bridge_child *websdr_find(const char *driver, const char *host, unsigned port) {
    for (struct bridge_child *b = children ; b ; b = b->next) {
       const char *name = rrp_bridge_config_get(b->name, "host"), *number = rrp_bridge_config_get(b->name, "port");
@@ -1458,6 +1486,7 @@ static struct bridge_child *websdr_find(const char *driver, const char *host, un
 
    return NULL;
 }
+
 static void runtime_setting(const char *name, const char *field, const char *value) {
    char key[160];
    snprintf(key, sizeof(key), "bridge:%s.%s", name, field);
@@ -1607,6 +1636,7 @@ static bool websdr_autoroom_name(const char *room) {
 
    return true;
 }
+
 static struct bridge_child *websdr_create(const char *driver, const char *host, unsigned port, const char *room) {
    unsigned temporary = 0;
 
@@ -1670,6 +1700,7 @@ static struct bridge_child *websdr_create(const char *driver, const char *host, 
 
    return b;
 }
+
 static bool websdr_save(struct bridge_child *b) {
    if (!b->temporary) {
       return true;
@@ -1716,6 +1747,7 @@ static bool websdr_save(struct bridge_child *b) {
 
    return ok;
 }
+
 static void websdr_request(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
    (void)event;
    (void)unused;
@@ -2149,6 +2181,7 @@ static void websdr_room_part(const char *event, const char *room, rrconn_t *clie
       }
    }
 }
+
 static void websdr_creator_disconnected(const char *event, const char *data, rrconn_t *client, void *unused) {
    (void)event;
    (void)data;
@@ -2167,6 +2200,7 @@ static void websdr_creator_disconnected(const char *event, const char *data, rrc
       }
    }
 }
+
 void rrserver_websdr_register_events(void) {
    static const char *demand_events[] = {
       "room.join", "room.part", "room.add", "room.delete", "room.vfo",

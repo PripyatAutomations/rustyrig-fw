@@ -523,6 +523,7 @@ static int backup_sql_authorizer(void *user, int op, const char *a, const char *
       }
    }
 }
+
 bool rrclient_database_restore_sql(const char *sql, size_t length) {
    if (!client_db || !sql || length > 256u * 1024u * 1024u || memchr(sql, 0, length) || strlen(sql) != length) {
       return false;
@@ -846,7 +847,6 @@ bool rrclient_database_load_profiles(void) {
    return true;
 }
 
-
 /* Effective configuration is saved as one atomic override snapshot. Server profiles, networks and named themes are already stored in dedicated tables. */
 bool rrclient_database_config_store(void) {
    if (!client_db || !cfg || sqlite3_exec(client_db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
@@ -884,6 +884,7 @@ bool rrclient_database_config_store(void) {
 
    return ok;
 }
+
 bool rrclient_database_config_overlay_into(dict *target) {
    if (!client_db || !target) {
       return false;
@@ -949,6 +950,7 @@ char *rrclient_database_setting_get(const char *key) {
 
    return value;
 }
+
 bool rrclient_database_setting_set(const char *key, const char *value) {
    if (!client_db || !key || !*key || !value) {
       return false;
@@ -1008,6 +1010,7 @@ bool rrclient_database_proxy_set(const char *name, const char *url) {
 
    return db_exec3("INSERT INTO proxies(name,url) VALUES(?1,?2) ON CONFLICT(name) DO UPDATE SET url=excluded.url", name, url, NULL);
 }
+
 bool rrclient_database_proxy_delete(const char *name) {
    if (!client_db || !name) {
       return false;
@@ -1015,6 +1018,7 @@ bool rrclient_database_proxy_delete(const char *name) {
 
    return db_exec3("DELETE FROM proxies WHERE name=?1", name, NULL, NULL);
 }
+
 void rrclient_database_proxy_foreach(void (*cb) (const char *, const char *, void *), void *data) {
    if (!client_db || !cb) {
       return;
@@ -1061,7 +1065,6 @@ bool rrclient_database_theme_set(const char *name, const char *property, const c
    return db_exec3("INSERT INTO themes(name,property,value) VALUES(?1,?2,?3) "
       "ON CONFLICT(name,property) DO UPDATE SET value=excluded.value", name, property, value);
 }
-
 
 bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out) {
    if (!client_db || !id || !*id || !out) {
@@ -1120,7 +1123,6 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
 
    return ok;
 }
-
 
 void rrclient_database_watched_calls_foreach(void (*callback) (const rrclient_watched_call_t *, void *), void *user) {
    if (!client_db || !callback) {
@@ -1275,6 +1277,7 @@ done:
 
    return ok;
 }
+
 char *rrclient_database_vfo_layout_load(void) {
    if (!client_db) {
       return NULL;
@@ -1294,6 +1297,7 @@ char *rrclient_database_vfo_layout_load(void) {
 
    return order;
 }
+
 bool rrclient_database_vfo_layout_save(const char *order) {
    if (!client_db || !order) {
       return false;
@@ -1341,6 +1345,7 @@ void rrclient_database_audio_profile_list(void (*cb) (const char *, void *), voi
    }
    sqlite3_finalize(q);
 }
+
 void rrclient_database_audio_profile_load(const char *name, void (*cb) (const char *, char, void *), void *user) {
    if (!client_db || !name || !cb) {
       return;

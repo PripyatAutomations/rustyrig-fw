@@ -14,6 +14,7 @@ static long long clock_ms;
 long long mono_ms(void) {
    return clock_ms;
 }
+
 static void changed(const char *event, const char *data, rrconn_t *c, void *user) {
    (void)event;
    (void)data;
@@ -21,11 +22,13 @@ static void changed(const char *event, const char *data, rrconn_t *c, void *user
    (void)user;
    changes++;
 }
+
 static void wire(struct mg_connection *c, const char *expected) {
    assert(c->send.len == strlen(expected));
    assert(!memcmp(c->send.buf, expected, c->send.len));
    mg_iobuf_del(&c->send, 0, c->send.len);
 }
+
 int main(void) {
    rrconn_t a = {
       .fd = -1, .connected = now

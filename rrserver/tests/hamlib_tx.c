@@ -11,21 +11,25 @@ static int select_result;
 static vfo_t selected;
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 }
+
 void shutdown_rig(uint32_t code) {
    abort();
 }
+
 int rig_set_vfo(RIG *radio, vfo_t vfo) {
    switches++;
    selected = vfo;
 
    return select_result;
 }
+
 int rig_set_ptt(RIG *radio, vfo_t vfo, ptt_t state) {
    keys++;
    assert(vfo == selected);
 
    return RIG_OK;
 }
+
 int main(void) {
    rr_rig_registry_t *registry = rr_rig_registry_new();
    rr_backend_funcs_t api = {

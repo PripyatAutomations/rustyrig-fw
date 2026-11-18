@@ -9,12 +9,15 @@ static unsigned refreshed;
 char *rrclient_user_config_path(void) {
    return strdup(user_path);
 }
+
 gui_window_t *gui_find_window(GtkWidget *widget, const char *name) {
    return NULL;
 }
+
 gui_window_t *ui_new_window(GtkWidget *widget, const char *name) {
    return NULL;
 }
+
 void gtk_server_picker_refresh_profile(const char *name) {
    assert(!strcmp(name, "site.example"));
    refreshed++;
@@ -27,9 +30,11 @@ bool rrclient_direct_preferred(const char *profile) {
 
    return cfg_get_bool(key, cfg_get_bool("media.direct.prefer", true));
 }
+
 void rrclient_direct_apply_preferences(void) {
    preference_applied++;
 }
+
 int main(void) {
    if (!gtk_init_check(NULL, NULL)) {
       puts("SKIP: GTK display unavailable");

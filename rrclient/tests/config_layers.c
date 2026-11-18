@@ -9,6 +9,7 @@ static char site_path[512];
 bool rrclient_database_load_themes(void) {
    return true;
 }
+
 int main(void) {
    char directory[] = "/tmp/rrclient-config-layers-XXXXXX";
    assert(mkdtemp(directory));

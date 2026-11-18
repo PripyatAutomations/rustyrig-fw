@@ -65,6 +65,7 @@ static void net_print_listeners(const char *listenaddr) {
 
    freeifaddrs(ifaddr);
 }
+
 #endif // HOST_POSIX
 
 // Here we have to provide a common interface with serial

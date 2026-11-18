@@ -21,29 +21,35 @@ bool rrclient_room_tx_control(const char *room) {
 
    return room_tx_control;
 }
+
 uint32_t rrclient_room_vfo_mask(const char *room) {
    (void)room;
 
    return room_vfo_mask;
 }
+
 const char *rrclient_room_vfos(const char *room) {
    assert(!strcmp(room, "#rig"));
 
    return room_vfos;
 }
+
 rrconn_t *rrclient_connection_find(const char *name) {
    (void)name;
 
    return roster_connection;
 }
+
 bool gtk_chat_execute_command(const char *window, const char *command) {
    (void)window;
    (void)command;
 
    return false;
 }
+
 void gtk_chat_query_add(const char *user) {
 }
+
 static void pump_layout(void) {
    for (int i = 0 ; i < 40 ; i++) {
       while (gtk_events_pending()) {
@@ -179,11 +185,13 @@ static void row_event(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter,
    (void)iter;
    (*(unsigned *)data)++;
 }
+
 static void deleted_event(GtkTreeModel *model, GtkTreePath *path, gpointer data) {
    (void)model;
    (void)path;
    (*(unsigned *)data)++;
 }
+
 static void reordered_event(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gint *order, gpointer data) {
    (void)model;
    (void)path;
@@ -191,9 +199,11 @@ static void reordered_event(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter 
    (void)order;
    (*(unsigned *)data)++;
 }
+
 static void reset_events(void) {
    inserted = deleted = updated = reordered = 0;
 }
+
 static void test_incremental_roster(void) {
    room_vfos = "";
    room_tx_control = false;
@@ -275,9 +285,11 @@ static void test_incremental_roster(void) {
 char vfo_state_get_active(void) {
    return 'A';
 }
+
 const char *rrclient_media_active_room(void) {
    return "#rig";
 }
+
 const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    (void)room;
    (void)vfo;
@@ -319,6 +331,7 @@ static void label_notify(GObject *object, GParamSpec *property, gpointer data) {
    (void)data;
    label_changes++;
 }
+
 static void test_vfo_refresh_changes(void) {
    frequency_property = dict_new();
    mode_property = dict_new();

@@ -34,11 +34,13 @@ static gboolean logview_at_end(GtkLogView *v) {
 
    return gtk_adjustment_get_value(v->vadj) >= gtk_adjustment_get_upper(v->vadj) - gtk_adjustment_get_page_size(v->vadj) - 2.0;
 }
+
 static void logview_scrolled(GtkAdjustment *adj, gpointer data) {
    (void)adj;
    GtkLogView *v = data;
    v->follow_end = logview_at_end(v);
 }
+
 static gboolean logview_scroll_end(gpointer data) {
    GtkLogView *v = data;
    v->scroll_idle = 0;
@@ -49,6 +51,7 @@ static gboolean logview_scroll_end(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void logview_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
    GtkLogView *v = data;
@@ -58,6 +61,7 @@ static void logview_destroy(GtkWidget *widget, gpointer data) {
    }
    g_free(v);
 }
+
 static gboolean visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    GtkLogView *v = data;
    gboolean host = FALSE;
@@ -96,6 +100,7 @@ static gboolean visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
 
    return ok;
 }
+
 static void log_source_toggled(GtkToggleButton *button, gpointer data) {
    GtkLogView *v = data;
    const char *key = button == GTK_TOGGLE_BUTTON(v->host) ? "ui.gtk.log.host" : "ui.gtk.log.client";
@@ -112,6 +117,7 @@ static void log_source_toggled(GtkToggleButton *button, gpointer data) {
    }
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
 }
+
 static void refresh(GtkWidget *widget, gpointer data) {
    (void)widget;
    GtkLogView *v = data;
@@ -130,6 +136,7 @@ static void copy_item(GtkMenuItem *item, gpointer data) {
    }
    g_free(text);
 }
+
 static void copy_option(GtkWidget *menu, const char *title, GtkLogView *v, gboolean csv) {
    GtkWidget *item = gtk_menu_item_new_with_label(title);
    g_object_set_data(G_OBJECT(item), "copy-csv", GINT_TO_POINTER(csv));
@@ -145,6 +152,7 @@ static gboolean logview_reopen_menu(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void logview_menu_done(GtkMenuShell *shell, gpointer unused) {
    (void)unused;
 
@@ -152,6 +160,7 @@ static void logview_menu_done(GtkMenuShell *shell, gpointer unused) {
       gtk_widget_destroy(GTK_WIDGET(shell));
    }
 }
+
 static void logview_select_all(GtkMenuItem *item, gpointer data) {
    GtkLogView *v = data;
    GtkWidget *menu = gtk_widget_get_parent(GTK_WIDGET(item));
@@ -159,6 +168,7 @@ static void logview_select_all(GtkMenuItem *item, gpointer data) {
    g_object_set_data(G_OBJECT(menu), "reopen-after-select", GINT_TO_POINTER(1));
    g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, logview_reopen_menu, g_object_ref(menu), g_object_unref);
 }
+
 static void csv_value(GString *out, const char *s) {
    g_string_append_c(out, '"');
 
@@ -171,6 +181,7 @@ static void csv_value(GString *out, const char *s) {
 
    g_string_append_c(out, '"');
 }
+
 static void logview_append_selected(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer user) {
    (void)path;
    struct {
@@ -198,6 +209,7 @@ static void logview_append_selected(GtkTreeModel *model, GtkTreePath *path, GtkT
       g_free(value);
    }
 }
+
 static gchar *logview_selected_text(GtkLogView *v, gboolean csv) {
    struct {
       GString *output;
@@ -209,6 +221,7 @@ static gchar *logview_selected_text(GtkLogView *v, gboolean csv) {
 
    return g_string_free(state.output, FALSE);
 }
+
 static void logview_message_width(GObject *column, GParamSpec *property, gpointer data) {
    (void)property;
    int width = gtk_tree_view_column_get_width(GTK_TREE_VIEW_COLUMN(column));
@@ -217,6 +230,7 @@ static void logview_message_width(GObject *column, GParamSpec *property, gpointe
       g_object_set(G_OBJECT(data), "wrap-width", MAX(40, width - 14), NULL);
    }
 }
+
 static gboolean logview_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget;
 
@@ -235,6 +249,7 @@ static gboolean logview_key(GtkWidget *widget, GdkEventKey *event, gpointer data
 
    return FALSE;
 }
+
 static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
       return FALSE;
@@ -295,10 +310,12 @@ static gboolean composer_subsys_visible(GtkTreeModel *model, GtkTreeIter *iter, 
 
    return match;
 }
+
 static void composer_subsys_search_changed(GtkEditable *entry, gpointer data) {
    (void)entry;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
 }
+
 static void composer_target_changed(GtkComboBox *combo, gpointer data) {
    LogComposer *c = data;
    int target = gtk_combo_box_get_active(combo);
@@ -316,6 +333,7 @@ static void composer_target_changed(GtkComboBox *combo, gpointer data) {
    gtk_widget_set_sensitive(c->apply, !server);
    gtk_widget_set_tooltip_text(c->apply, server ? "Remote log.level cannot be changed over the network; copy it for the server administrator." : NULL);
 }
+
 static void composer_add_rule(GtkButton *button, gpointer data) {
    (void)button;
    LogComposer *c = data;
@@ -335,6 +353,7 @@ static void composer_add_rule(GtkButton *button, gpointer data) {
    g_free(name);
    g_free(level);
 }
+
 static void composer_open(GtkButton *button, gpointer data) {
    (void)button;
    GtkLogView *view = data;
@@ -432,6 +451,7 @@ static void composer_open(GtkButton *button, gpointer data) {
    g_free(c.client_draft);
    g_free(c.server_draft);
 }
+
 GtkLogView *gtk_logview_new(unsigned limit) {
    GtkLogView *v = g_new0(GtkLogView, 1);
    v->limit = limit ? limit : 1000;
@@ -504,15 +524,18 @@ GtkLogView *gtk_logview_new(unsigned limit) {
 
    return v;
 }
+
 GtkWidget *gtk_logview_widget(GtkLogView *view) {
    return view ? view->page : NULL;
 }
+
 void gtk_logview_clear(GtkLogView *view) {
    if (view) {
       gtk_list_store_clear(view->store);
       view->follow_end = TRUE;
    }
 }
+
 void gtk_logview_append(GtkLogView *v, gboolean host, const char *source, logpriority_t level, const char *subsys, const char *message) {
    if (!v) {
       return;

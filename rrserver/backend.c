@@ -204,6 +204,7 @@ static void rr_backend_publish_worker(rr_backend_t *, rr_server_vfo_t *, rr_vfo_
 static bool rr_backend_start_one(rr_server_rig_t *radio, void *unused) {
    return rr_backend_worker_start(rr_server_rig_backend(radio), rr_backend_publish_worker);
 }
+
 static void rr_backend_shutdown_request(const char *event, const char *data, rrconn_t *client, void *unused) {
    dict *d = json2dict(data);
    int code = dict_get_int(d, "backend.shutdown-code", 100);
@@ -638,11 +639,13 @@ static void rr_backend_publish_worker(rr_backend_t *backend, rr_server_vfo_t *vf
       }
    }
 }
+
 static bool rr_backend_drain_one(rr_server_rig_t *radio, void *unused) {
    rr_backend_worker_drain(rr_server_rig_backend(radio));
 
    return false;
 }
+
 void rr_backend_drain_all(void) {
    rr_rig_registry_foreach(rig.rigs, rr_backend_drain_one, NULL);
 }

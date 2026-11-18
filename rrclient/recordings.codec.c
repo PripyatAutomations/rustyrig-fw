@@ -423,6 +423,7 @@ static FLAC__StreamDecoderWriteStatus flac_write_cb(const FLAC__StreamDecoder *f
 
    return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
+
 static void flac_metadata_cb(const FLAC__StreamDecoder *fd, const FLAC__StreamMetadata *metadata, void *userdata) {
    (void)fd;
    rr_recording_decoder *d = userdata;
@@ -433,6 +434,7 @@ static void flac_metadata_cb(const FLAC__StreamDecoder *fd, const FLAC__StreamMe
       d->total = metadata->data.stream_info.total_samples;
    }
 }
+
 static void flac_error_cb(const FLAC__StreamDecoder *fd, FLAC__StreamDecoderErrorStatus status, void *userdata) {
    (void)fd;
    (void)status;
@@ -624,6 +626,7 @@ gssize rr_recording_decoder_read(rr_recording_decoder *d, int16_t *pcm, size_t f
 double rr_recording_decoder_duration(rr_recording_decoder *d) {
    return d && d->sample_rate ? (double)d->total / d->sample_rate : 0.0;
 }
+
 void rr_recording_decoder_close(rr_recording_decoder *d) {
    if (!d) {
       return;

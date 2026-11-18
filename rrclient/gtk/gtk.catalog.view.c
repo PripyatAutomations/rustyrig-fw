@@ -37,6 +37,7 @@ static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *rende
    g_free(safe);
    g_free(value);
 }
+
 static const char *resource_state_color(const char *text) {
    if (!text || !*text) {
       return NULL;
@@ -61,6 +62,7 @@ static const char *resource_state_color(const char *text) {
 
    return NULL;
 }
+
 static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
    char *text = NULL;
@@ -150,6 +152,7 @@ void resource_local_configure(GtkButton *button, gpointer unused) {
    g_free(name);
    g_free(kind);
 }
+
 void resource_files(GtkButton *button, gpointer data) {
    GtkTreeModel *model;
    GtkTreeIter iter;
@@ -204,6 +207,7 @@ static void resource_zebra_invalidate(void) {
       browser->zebra_idle = g_idle_add(resource_zebra_rebuild_idle, NULL);
    }
 }
+
 static void resource_zebra_walk(GtkTreeModel *model, GtkTreeIter *iter, guint *position) {
    do {
       GtkTreePath *path = gtk_tree_model_get_path(model, iter);
@@ -218,6 +222,7 @@ static void resource_zebra_walk(GtkTreeModel *model, GtkTreeIter *iter, guint *p
       }
    } while (gtk_tree_model_iter_next(model, iter));
 }
+
 static void resource_zebra_rebuild(GtkTreeModel *model) {
    if (!browser || !browser->zebra_dirty || browser->zebra_rebuilding) {
       return;
@@ -251,10 +256,12 @@ static gboolean resource_zebra_rebuild_idle(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 void resource_zebra_structure_changed(gpointer unused) {
    (void)unused;
    resource_zebra_invalidate();
 }
+
 void resource_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    int field = GPOINTER_TO_INT(data);
 
@@ -311,6 +318,7 @@ GtkWindow *resource_parent(void) {
 
    return main && main->gtk_win ? GTK_WINDOW(main->gtk_win) : NULL;
 }
+
 void resource_present(void) {
    if (!browser || !browser->page || !GTK_IS_NOTEBOOK(main_notebook)) {
       return;
@@ -406,6 +414,7 @@ static gboolean resource_self_matches(GtkTreeModel *model, GtkTreeIter *iter) {
 
    return match;
 }
+
 static gboolean resource_search_subtree(GtkTreeModel *model, GtkTreeIter *iter) {
    if (resource_self_matches(model, iter)) {
       return TRUE;
@@ -420,6 +429,7 @@ static gboolean resource_search_subtree(GtkTreeModel *model, GtkTreeIter *iter) 
 
    return FALSE;
 }
+
 void resource_search_changed(GtkEditable *entry, gpointer unused) {
    (void)entry;
    (void)unused;
@@ -431,6 +441,7 @@ void resource_search_changed(GtkEditable *entry, gpointer unused) {
    /* Search must not permanently open every settings branch. */
    resource_zebra_invalidate();
 }
+
 static gboolean resource_hidden_source_performance(GtkTreeModel *model, GtkTreeIter *iter) {
    GtkTreeIter current = *iter, parent;
    while (gtk_tree_model_iter_parent(model, &parent, &current)) {
@@ -454,6 +465,7 @@ static gboolean resource_hidden_source_performance(GtkTreeModel *model, GtkTreeI
    }
    return FALSE;
 }
+
 static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
    if (resource_hidden_source_performance(model, iter)) {
       return FALSE;
@@ -521,11 +533,13 @@ static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
 
    return FALSE;
 }
+
 gboolean resource_type_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)unused;
 
    return resource_type_match(model, iter);
 }
+
 void resource_type_sync_all(void) {
    if (!browser || !browser->type_toggle_all || !browser->type_checks) {
       return;
@@ -544,6 +558,7 @@ void resource_type_sync_all(void) {
    gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all), selected > 0 && !all);
    browser->type_bulk_update = FALSE;
 }
+
 void resource_type_toggle_all(GtkToggleButton *item, gpointer unused) {
    (void)item;
    (void)unused;
@@ -575,6 +590,7 @@ void resource_type_toggle_all(GtkToggleButton *item, gpointer unused) {
    resource_zebra_invalidate();
    gtk_widget_queue_draw(browser->tree);
 }
+
 void resource_type_changed(GtkToggleButton *item, gpointer data) {
    if (!browser || !browser->filter) {
       return;

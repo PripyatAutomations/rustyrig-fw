@@ -20,6 +20,7 @@ static bool claim(void *data, const char *owner) {
 
    return true;
 }
+
 static bool release(void *data) {
    assert(data == &claimed);
 
@@ -32,6 +33,7 @@ static bool release(void *data) {
 
    return true;
 }
+
 static void destroy(void *data) {
    assert(data == &claimed);
    destroyed++;

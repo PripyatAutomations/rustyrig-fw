@@ -60,53 +60,63 @@ static admin_table_t tables[] = {
          "name", "enabled", "permissions", "email", "maxsessions", "password_set", "password_expires", "password_change_required", "uid",
          "full_rig_access"
       }
+
    },
    {
       .name = "rooms", .fields = {
          "name", "uuid", "deleted", "topic", "has_vfos", "vfo_mask"
       }
+
    },
    /* PARITY: rustyrig-www/js/webui.admin.js adminTables. Fields come from rrserver/events.c. */
    {
       .name = "quotas", .fields = {
          "name", "tx_remaining", "tx_used", "bandwidth_remaining", "bandwidth_tx_used", "bandwidth_rx_used"
       }
+
    },
    {
       .name = "audit", .fields = {
          "id", "timestamp", "username", "event_type", "details", "session_id"
       }
+
    },
    /* PARITY: rustyrig-www/js/webui.admin.js adminTables.ptt */
    {
       .name = "ptt", .fields = {
          "id", "start_time", "username", "vfo", "frequency", "mode", "duration", "stop_reason", "recording_id", "server"
       }
+
    },
    {
       .name = "sessions", .fields = {
          "id", "username", "ip", "client", "server", "connected", "kickable", "serial_ports"
       }
+
    },
    {
       .name = "privsets", .fields = {
          "name", "description", "created_by", "created_at", "privileges"
       }
+
    },
    {
       .name = "setentries", .fields = {
          "set_name", "privilege", "effect"
       }
+
    },
    {
       .name = "assignments", .fields = {
          "set_name", "subject_user", "subject_host", "resource_kind", "resource_uuid", "expires_at", "remote_allowed"
       }
+
    },
    {
       .name = "grants", .fields = {
          "subject_user", "subject_host", "resource_kind", "resource_uuid", "privilege", "effect", "expires_at", "remote_allowed"
       }
+
    },
 };
 
@@ -127,6 +137,7 @@ static void admin_pending_request_free(gpointer data) {
    g_weak_ref_clear(&pending->status);
    g_free(pending);
 }
+
 static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const char *profile, const char *command, const char *tail, const char *target, dict *
    fields) {
    if (!profile || !*profile) {
@@ -181,15 +192,19 @@ static bool admin_command_queue(admin_table_t *table, GtkWidget *status, const c
 
    return true;
 }
+
 bool gtk_admin_command_event(GtkWidget *status, const char *profile, const char *command, const char *tail, const char *target, dict *fields) {
    return admin_command_queue(NULL, status, profile, command, tail, target, fields);
 }
+
 const char *gtk_admin_selected_profile(void) {
    return admin_selected_profile;
 }
+
 static bool admin_command_profile(admin_table_t *table, const char *profile, const char *command, const char *tail, const char *target, dict *fields) {
    return admin_command_queue(table, table ? table->status : NULL, profile, command, tail, target, fields);
 }
+
 static bool admin_command(admin_table_t *table, const char *command, const char *tail, const char *target) {
    return admin_command_profile(table, table->profile, command, tail, target, NULL);
 }
@@ -226,6 +241,7 @@ static void admin_profile_result(const char *event, const char *data, rrconn_t *
       }
    }
 }
+
 static gboolean admin_command_result_apply(gpointer data) {
    admin_command_rejection_t *result = data;
 
@@ -241,6 +257,7 @@ static gboolean admin_command_result_apply(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void admin_command_result(const char *event, const char *data, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -358,6 +375,7 @@ static void admin_refresh_profile(admin_table_t *table, const char *profile) {
       admin_command(table, "admin", "groups", NULL);
    }
 }
+
 static void admin_refresh(GtkButton *button, gpointer data) {
    (void)button;
    admin_refresh_profile(data, admin_selected_profile);
@@ -471,6 +489,7 @@ static gboolean admin_group_selected(char **group, char **kind, char **name, cha
 
    return TRUE;
 }
+
 static void admin_group_tree_row(const char *group, const char *kind, const char *name, const char *detail) {
    if (!group_store || !group || !*group) {
       return;
@@ -503,6 +522,7 @@ static void admin_group_tree_row(const char *group, const char *kind, const char
    gtk_tree_store_append(group_store, &child, &parent);
    gtk_tree_store_set(group_store, &child, GROUP_TEXT, name, GROUP_DETAIL, detail, GROUP_NAME, group, GROUP_KIND, kind, -1);
 }
+
 static void admin_manage_groups(GtkButton *button, gpointer user) {
    (void)button;
    admin_table_t *table = user;
@@ -734,6 +754,7 @@ static void admin_create_privilege_button(GtkButton *button, gpointer dialog) {
    (void)button;
    gtk_dialog_response(GTK_DIALOG(dialog), 1003);
 }
+
 static void admin_create_user(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
@@ -853,6 +874,7 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    }
    gtk_widget_destroy(dialog);
 }
+
 static void admin_users_menu_action(GtkMenuItem *item, gpointer data) {
    admin_table_t *table = data;
    const char *action = g_object_get_data(G_OBJECT(item), "rr-user-action");

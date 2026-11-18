@@ -53,6 +53,7 @@ static gboolean decode_follow_idle(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void decode_scroll_changed(GtkAdjustment *adj, gpointer data) {
    decode_tab_t *tab = data;
 
@@ -61,6 +62,7 @@ static void decode_scroll_changed(GtkAdjustment *adj, gpointer data) {
       tab->follow = gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj) - gtk_adjustment_get_value(adj) < 36.;
    }
 }
+
 static void decode_tab_closed(GtkWidget *page, gpointer user) {
    decode_tab_t *tab = user;
    (void)page;
@@ -70,6 +72,7 @@ static void decode_tab_closed(GtkWidget *page, gpointer user) {
    }
    memset(tab, 0, sizeof(*tab));
 }
+
 static void decode_close_clicked(GtkButton *button, gpointer user) {
    (void)button;
    decode_tab_t *tab = user;
@@ -78,6 +81,7 @@ static void decode_close_clicked(GtkButton *button, gpointer user) {
       gtk_widget_destroy(tab->page);
    }
 }
+
 static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
    if (!terminal_notebook || d->slot < 1 || d->slot > RR_LOCAL_MODEM_MAX) {
       return NULL;
@@ -156,6 +160,7 @@ static void decode_set_call(GtkEditable *edit, gpointer unused) {
       g_list_free(rows);
    }
 }
+
 static gboolean decode_has_call(const char *line, const char *call) {
    if (!call || !*call) {
       return FALSE;
@@ -243,6 +248,7 @@ static const char *decode_rf_band(uint64_t hz) {
 
    return NULL;
 }
+
 static const char *decode_mode_name(const rr_local_modem_decode_t *d) {
    if (!g_ascii_strcasecmp(d->engine, "ft8")) {
       return "FT8";
@@ -278,6 +284,7 @@ static void decode_watch_match_entry(const rrclient_watched_call_t *rule, void *
       match->matched = TRUE;
    }
 }
+
 static gboolean decode_watch_matches(const rr_local_modem_decode_t *d, const char *body) {
    if (!body || !*body) {
       return FALSE;
@@ -355,6 +362,7 @@ static gchar *decode_field(const char *json, const char *key) {
    }
    return end > p ? g_strndup(p, end - p) : NULL;
 }
+
 static gchar *decode_format_line(const rr_local_modem_decode_t *d, char **plain) {
    const char *raw = d->line;
    *plain = NULL;
@@ -418,6 +426,7 @@ static gchar *decode_format_line(const rr_local_modem_decode_t *d, char **plain)
 
    return prefix;
 }
+
 static void decode_received(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -523,6 +532,7 @@ static void decode_snapshot_received(const rr_event_message_t *message, void *un
       decode_tab_for(&sample);
    }
 }
+
 static void terminal_copy(GtkMenuItem *item, gpointer data) {
    (void)item;
    GtkWidget *view = GTK_WIDGET(data);
@@ -654,6 +664,7 @@ static void terminal_commit(VteTerminal *terminal, gchar *text, guint size, gpoi
       gdk_display_beep(gdk_display_get_default());
    }
 }
+
 #endif
 
 /* Optional command input does not modify the monitored stream. For CAT, send exactly what the operator typed, including its ';' terminator. */
@@ -702,6 +713,7 @@ static void terminal_settings_apply(GtkButton *button, gpointer user) {
       gtk_label_set_text(GTK_LABEL(session->config_status), "Applied locally");
    }
 }
+
 static void terminal_rx_toggle(GtkToggleButton *button, gpointer user) {
    terminal_session_t *session = user;
    rr_serial_t *port = rr_serial_find(session->name);
@@ -713,6 +725,7 @@ static void terminal_rx_toggle(GtkToggleButton *button, gpointer user) {
    rr_serial_read_enabled(port, running);
    gtk_button_set_label(GTK_BUTTON(button), running ? "Stop RX" : "Start RX");
 }
+
 static GtkWidget *terminal_setting_combo(const char *const *values, guint n, unsigned current, bool numeric) {
    GtkWidget *combo = gtk_combo_box_text_new();
 
@@ -726,6 +739,7 @@ static GtkWidget *terminal_setting_combo(const char *const *values, guint n, uns
 
    return combo;
 }
+
 static void terminal_toolbar(terminal_session_t *session) {
    GtkWidget *bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(session->page), bar, FALSE, FALSE, 3);
@@ -798,6 +812,7 @@ static void terminal_toolbar(terminal_session_t *session) {
       }
    }
 }
+
 static void terminal_configuration(const char *event, const char *data, rrconn_t *connection, void *user) {
    (void)event;
    (void)connection;
@@ -815,6 +830,7 @@ static void terminal_configuration(const char *event, const char *data, rrconn_t
    gtk_label_set_text(GTK_LABEL(session->config_status), !strcmp(status, "confirmed") ? "Confirmed by server" :
       !strcmp(status, "pending") ? "Awaiting server…" : !strcmp(status, "rejected") ? "Server rejected settings" : status);
 }
+
 static void terminal_connection(const char *event, const char *data, rrconn_t *connection, void *user) {
    (void)event;
    (void)connection;
@@ -840,6 +856,7 @@ static void terminal_connection(const char *event, const char *data, rrconn_t *c
       gtk_widget_set_sensitive(session->apply_button, ready);
    }
 }
+
 static void terminal_session_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
    terminal_session_t *session = data;
@@ -879,6 +896,7 @@ void gtk_terminal_shutdown(void) {
    decode_token = decode_snapshot_token = 0;
    memset(decode_tabs, 0, sizeof(decode_tabs));
 }
+
 static void terminal_close(GtkButton *button, gpointer data) {
    (void)button;
    GtkWidget *page = data;
@@ -888,6 +906,7 @@ static void terminal_close(GtkButton *button, gpointer data) {
       gtk_notebook_remove_page(GTK_NOTEBOOK(terminal_notebook), n);
    }
 }
+
 void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name) {
    /* Console observers can be created before a port is attached. The old rr_serial_find guard silently discarded Open clicks for configured and permanent
     * endpoints that have not connected yet. */
@@ -992,9 +1011,11 @@ void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_na
    gtk_widget_show_all(session->page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(terminal_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(terminal_notebook), session->page));
 }
+
 void gtk_terminal_open_endpoint(const char *name) {
    gtk_terminal_open_endpoint_labeled(name, NULL);
 }
+
 static void terminal_port_visit(rr_serial_t *port, void *user) {
    GHashTable *seen = user;
    const char *name = rr_serial_name(port);
@@ -1004,6 +1025,7 @@ static void terminal_port_visit(rr_serial_t *port, void *user) {
       g_hash_table_add(seen, g_strdup(name));
    }
 }
+
 static void terminal_refresh(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;
@@ -1057,6 +1079,7 @@ static void terminal_refresh(GtkButton *button, gpointer user) {
    }
    g_free(previous);
 }
+
 static void terminal_configure(GtkButton *button, gpointer user) {
    (void)user;
    gchar *name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(terminal_ports));
@@ -1064,6 +1087,7 @@ static void terminal_configure(GtkButton *button, gpointer user) {
    g_free(name);
    terminal_refresh(NULL, NULL);
 }
+
 static void terminal_open(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;
@@ -1074,6 +1098,7 @@ static void terminal_open(GtkButton *button, gpointer user) {
       g_free(name);
    }
 }
+
 GtkWidget *init_terminal_tab(void) {
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
    terminal_root = root;

@@ -437,4 +437,5 @@ bool rr_cat_kpa500_init(void) {
 
    return false;
 }
+
 #endif // CAT_KPA500

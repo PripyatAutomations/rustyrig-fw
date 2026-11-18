@@ -297,7 +297,6 @@ bool ui_confirm_quit(void) {
    return true;
 }
 
-
 /* Called in the owning server context; the shared status tab has no owner. */
 void ui_server_status_close(const char *event, const char *room, rrconn_t *connection, void *user) {
    (void)event;

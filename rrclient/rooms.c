@@ -35,6 +35,7 @@ static bool local_sdr_present;
 static bool is_local_sdr(const char *name) {
    return name && !strcasecmp(name, "&local-sdr");
 }
+
 static client_room_t *room_chain(const char *name) {
    return is_local_sdr(name) ? (local_sdr_present ? &local_sdr_room : NULL) : rooms;
 }
@@ -162,6 +163,7 @@ bool rrclient_room_offline(const char *room) {
 
    return false;
 }
+
 void rrclient_room_set_offline(const char *room, bool offline) {
    if (!room || !*room) {
       return;
@@ -176,6 +178,7 @@ void rrclient_room_set_offline(const char *room, bool offline) {
       }
    }
 }
+
 bool rrclient_chat_input_blocked(const char *text) {
    const char *room = ui_active_window_name();
 
@@ -204,6 +207,7 @@ static bool remember_join(const char *name) {
 
    return true;
 }
+
 bool rrclient_room_request_join(const char *room) {
    if (!room || !*room || rrclient_room_is_joined(room)) {
       return false;
@@ -500,6 +504,7 @@ void rrclient_room_set_control_flags(const char *room, bool tx, bool rx) {
       }
    }
 }
+
 bool rrclient_room_tx_control(const char *room) {
    const char *name = canonical(room);
 
@@ -511,6 +516,7 @@ bool rrclient_room_tx_control(const char *room) {
 
    return false;
 }
+
 bool rrclient_room_rx_tunable(const char *room) {
    const char *name = canonical(room);
 
@@ -534,6 +540,7 @@ void rrclient_room_set_rx_tuning_mask(const char *room, uint32_t mask) {
       }
    }
 }
+
 uint32_t rrclient_room_rx_tuning_mask(const char *room) {
    const char *name = canonical(room);
 

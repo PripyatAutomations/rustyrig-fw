@@ -355,11 +355,13 @@ static int chat_burst(void) {
 
    return burst < 1 ? 1 : burst > 100 ? 100 : burst;
 }
+
 static int chat_interval(void) {
    int interval = cfg_get_int("chat.send.interval-ms", 2000);
 
    return interval < 100 ? 100 : interval > 60000 ? 60000 : interval;
 }
+
 static int chat_queue_limit(void) {
    int limit = cfg_get_int("chat.send.queue-limit", 64);
 
@@ -404,6 +406,7 @@ static gboolean chat_flush(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc) {
    if (!connection || !message) {
       return false;
@@ -433,6 +436,7 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc) {
 
    return true;
 }
+
 static bool parse_chat_input(const char *msg, bool commands) {
    /* Selecting a TUI conversation selects its server before any command. */
    (void)ui_active_window_name();
@@ -659,6 +663,7 @@ static bool parse_chat_input(const char *msg, bool commands) {
 bool parse_chat_input_real(const char *msg) {
    return parse_chat_input(msg, true);
 }
+
 bool parse_chat_input_text(const char *msg) {
    return parse_chat_input(msg, false);
 }

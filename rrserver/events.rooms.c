@@ -59,6 +59,7 @@ static bool rr_join_refresh_vfo(rr_server_vfo_t *vfo, void *context) {
 
    return false;
 }
+
 static bool rr_join_refresh_rig(rr_server_rig_t *radio, void *context) {
    rr_join_vfo_refresh_t *refresh = context;
    const char *room = rr_rig_registry_room(rig.rigs, radio);
@@ -560,6 +561,7 @@ static void rrserver_room_join_check(const char *event, const void *data, size_t
       check->allowed = false;
    }
 }
+
 #endif
 
 /* Validate session-bound confirmation before removing room metadata/history. */

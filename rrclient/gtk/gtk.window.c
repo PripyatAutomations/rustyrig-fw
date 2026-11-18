@@ -315,6 +315,7 @@ static void main_toolbar_panels_toggled(GtkToggleButton *button, gpointer unused
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_MANUAL, hide);
    gtk_widget_set_tooltip_text(GTK_WIDGET(button), hide ? "Show previously visible floating panels" : "Temporarily hide floating panels");
 }
+
 static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page, guint number, gpointer unused) {
    (void)book;
    (void)number;
@@ -339,6 +340,7 @@ static void vrig_bound(const rr_event_message_t *message, void *unused) {
    const rr_sercom_vrig_bind_result_t *result = message->payload;
    gtk_label_set_text(GTK_LABEL(vrig_status), result->detail);
 }
+
 static void vrig_bind_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "rr-vrig-slot"));
@@ -357,6 +359,7 @@ static void vrig_bind_clicked(GtkButton *button, gpointer unused) {
    };
    event_emit_message(&msg);
 }
+
 static void vrig_unbind_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "rr-vrig-slot"));
@@ -373,6 +376,7 @@ static void vrig_unbind_clicked(GtkButton *button, gpointer unused) {
    };
    event_emit_message(&msg);
 }
+
 static void vrig_configure_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    const char *name = g_object_get_data(G_OBJECT(button), "rr-vrig-port");
@@ -381,6 +385,7 @@ static void vrig_configure_clicked(GtkButton *button, gpointer unused) {
       gtk_serial_configure(GTK_WINDOW(main_window), name);
    }
 }
+
 static void vrig_open_routing(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -411,6 +416,7 @@ static GtkWidget *vrig_device_button(const char *name, const char *icon) {
 
    return button;
 }
+
 static GtkWidget *vrig_field(const char *caption, GtkWidget *entry) {
    GtkWidget *column = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *label = gtk_label_new(caption);
@@ -422,6 +428,7 @@ static GtkWidget *vrig_field(const char *caption, GtkWidget *entry) {
 
    return column;
 }
+
 static void vrig_manager_open(void) {
    if (!GTK_IS_OVERLAY(rr_client_overlay) || !GTK_IS_NOTEBOOK(main_notebook)) {
       return;
@@ -552,6 +559,7 @@ static void vrig_manager_open(void) {
    gtk_widget_show_all(body);
    rr_floating_panel_present(vrig_panel);
 }
+
 static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
    (void)button;
    const char *tool = data;
@@ -584,6 +592,7 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
       }
    }
 }
+
 static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *icon, const char *tool, const char *tooltip) {
    GtkWidget *button = gtk_button_new();
    GtkWidget *contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
@@ -673,6 +682,7 @@ static gboolean main_window_resize_press(GtkWidget *widget, GdkEventButton *even
 
    return TRUE;
 }
+
 static gboolean main_window_resize_hover(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
    guint index = GPOINTER_TO_UINT(data) - 1;
 
@@ -695,6 +705,7 @@ static gboolean main_window_resize_hover(GtkWidget *widget, GdkEventCrossing *ev
 
    return FALSE;
 }
+
 static gboolean main_window_resize_state(GtkWidget *widget, GdkEventWindowState *event, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -708,6 +719,7 @@ static gboolean main_window_resize_state(GtkWidget *widget, GdkEventWindowState 
 
    return FALSE;
 }
+
 static void main_window_resize_handles_add(GtkOverlay *overlay) {
    static const GtkAlign horizontal[8] = {
       GTK_ALIGN_FILL, GTK_ALIGN_FILL, GTK_ALIGN_START, GTK_ALIGN_END,
@@ -762,7 +774,6 @@ static void main_toolbar_quit(GtkButton *button, gpointer unused) {
    (void)unused;
    event_emit("client.quit.request", NULL, NULL);
 }
-
 
 static void frontend_gtk_main_window_destroy(GtkWidget *widget, gpointer unused) {
    if (vrig_result_token) {

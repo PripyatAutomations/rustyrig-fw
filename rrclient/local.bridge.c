@@ -91,6 +91,7 @@ size_t rrclient_local_bridge_stats_snapshot(rr_local_bridge_stats_t *out, size_t
 
    return count;
 }
+
 static void local_bridge_stats_update(bridge_instance *b, const char *value) {
    unsigned long long in = 0, out = 0, bytes = 0, frames = 0, errors = 0;
    int n = 0;
@@ -122,6 +123,7 @@ void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx) {
    }
    g_mutex_unlock(&kiwi_traffic_lock);
 }
+
 static void bridge_traffic_update(bridge_instance *b, const char *key, const char *value) {
    if (!b || g_strcmp0(b->driver, "kiwi") || !value || !*value) {
       return;
@@ -150,7 +152,6 @@ static void bridge_traffic_update(bridge_instance *b, const char *key, const cha
    *last = count;
    g_mutex_unlock(&kiwi_traffic_lock);
 }
-
 
 /* Core publishes a value-only view. GTK never dereferences bridge instances. */
 static GMutex bridge_ui_lock;
@@ -209,6 +210,7 @@ static void bridge_publish_ui(void) {
 
    g_mutex_unlock(&bridge_ui_lock);
 }
+
 bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out) {
    if (!out) {
       return false;
@@ -219,6 +221,7 @@ bool rrclient_local_bridge_ui_state(rr_local_bridge_ui_state_t *out) {
 
    return out->connected;
 }
+
 bool rrclient_local_bridge_ui_state_vfo(char vfo, rr_local_bridge_ui_state_t *out) {
    if (!out || vfo < 'A' || vfo > 'Z') {
       return false;
@@ -229,6 +232,7 @@ bool rrclient_local_bridge_ui_state_vfo(char vfo, rr_local_bridge_ui_state_t *ou
 
    return out->connected;
 }
+
 bool rrclient_local_bridge_ui_connected(const char *url) {
    if (!url) {
       return false;
@@ -247,6 +251,7 @@ bool rrclient_local_bridge_ui_connected(const char *url) {
 
    return found;
 }
+
 bool rrclient_local_bridge_request_waterfall_vfo(char vfo, bool enabled, unsigned zoom, uint64_t center_hz) {
    rr_local_bridge_waterfall_request_t request = {
       .enabled = enabled, .zoom = zoom, .center_hz = center_hz, .vfo = vfo
@@ -259,9 +264,11 @@ bool rrclient_local_bridge_request_waterfall_vfo(char vfo, bool enabled, unsigne
 
    return true;                 /* Queued; the core validates receiver capabilities. */
 }
+
 bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz) {
    return rrclient_local_bridge_request_waterfall_vfo(0, enabled, zoom, center_hz);
 }
+
 static void bridge_waterfall_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -286,7 +293,6 @@ static void bridge_waterfall_request(const rr_event_message_t *message, void *un
    command.frequency_hz = req->center_hz;
    rrp_bridge_ipc_send(b->control, &command);
 }
-
 
 /* The local bridge PCM socket must be drained on the core scheduler, not GTK's global default context: compositor/window activity can stall GTK enough to
  * starve the RX mixer even when the audio worker stays on time. Explicit source attachment also keeps the child lifecycle on that owner. */
@@ -319,7 +325,6 @@ static void bridge_core_remove_source(guint id) {
       g_source_destroy(source);
    }
 }
-
 
 static void local_bridge_active_event(void) {
    bridge_publish_ui();
@@ -410,6 +415,7 @@ static void kiwi_control_status(const rr_event_message_t *unused, void *user) {
    };
    event_emit_message(&msg);
 }
+
 static void kiwi_control_request(const rr_event_message_t *message, void *user) {
    (void)user;
 
@@ -438,6 +444,7 @@ static void kiwi_control_request(const rr_event_message_t *message, void *user) 
       Log(LOG_WARN, "local.bridge", "Kiwi VFO %c: failed to queue control %s", req->vfo, req->control);
    }
 }
+
 bool rrclient_local_bridge_request_tune(rr_local_tune_kind_t kind, char vfo, uint64_t hz, const char *value) {
    if (kind != RR_LOCAL_TUNE_FREQUENCY && kind != RR_LOCAL_TUNE_MODE && kind != RR_LOCAL_TUNE_WIDTH) {
       return false;
@@ -460,6 +467,7 @@ bool rrclient_local_bridge_request_tune(rr_local_tune_kind_t kind, char vfo, uin
 
    return true;
 }
+
 static void local_bridge_tune_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -491,6 +499,7 @@ static void local_bridge_tune_request(const rr_event_message_t *message, void *u
       }
    }
 }
+
 static void local_bridge_lifecycle_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -509,6 +518,7 @@ static void local_bridge_lifecycle_request(const rr_event_message_t *message, vo
       ui_print("&local-sdr", "Unable to start local SDR bridge for %s", req->url);
    }
 }
+
 void rrclient_local_bridge_controls_init(void) {
    event_on_message_domain_token(RRCLIENT_KIWI_CONTROL_EVENT, kiwi_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_KIWI_STATUS_REQUEST, kiwi_control_status, NULL, "core");
@@ -517,6 +527,7 @@ void rrclient_local_bridge_controls_init(void) {
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_TUNE_REQUEST, local_bridge_tune_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_WATERFALL_REQUEST, bridge_waterfall_request, NULL, "core");
 }
+
 bool rrclient_local_bridge_connected(const char *url) {
    if (!url) {
       return false;
@@ -530,6 +541,7 @@ bool rrclient_local_bridge_connected(const char *url) {
 
    return false;
 }
+
 bool rrclient_local_bridge_waterfall_caps(unsigned *min_zoom, unsigned *max_zoom) {
    bridge_instance *b = bridge_active();
 
@@ -547,6 +559,7 @@ bool rrclient_local_bridge_waterfall_caps(unsigned *min_zoom, unsigned *max_zoom
 
    return true;
 }
+
 bool rrclient_local_bridge_waterfall_at(bool enabled, unsigned zoom, uint64_t center_hz) {
    bridge_instance *b = bridge_active();
 
@@ -563,14 +576,17 @@ bool rrclient_local_bridge_waterfall_at(bool enabled, unsigned zoom, uint64_t ce
 
    return rrp_bridge_ipc_send(b->control, &msg);
 }
+
 bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom) {
    return rrclient_local_bridge_waterfall_at(enabled, zoom, 0);
 }
+
 bool rrclient_local_bridge_active(void) {
    bridge_instance *b = bridge_active();
 
    return b && b->pid > 0 && b->online;
 }
+
 bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode) {
    unsigned slot = (unsigned)(vfo - 'A');
 
@@ -593,9 +609,11 @@ bool rrclient_local_bridge_state_vfo(char vfo, uint64_t *hz, const char **mode) 
 
    return true;
 }
+
 bool rrclient_local_bridge_state(uint64_t *hz, const char **mode) {
    return rrclient_local_bridge_state_vfo(rrclient_room_active_vfo("&local-sdr"), hz, mode);
 }
+
 bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
    unsigned slot = (unsigned)(vfo - 'A');
 
@@ -643,6 +661,7 @@ bool rrclient_local_bridge_tune_vfo(char vfo, uint64_t hz, const char *mode) {
 
    return true;
 }
+
 bool rrclient_local_bridge_tune(uint64_t hz, const char *mode) {
    return rrclient_local_bridge_tune_vfo(rrclient_room_active_vfo("&local-sdr"), hz, mode);
 }
@@ -659,6 +678,7 @@ bool rrclient_local_bridge_set_frequency(char vfo, uint64_t hz) {
 
    return rrclient_local_bridge_tune_vfo(vfo, hz, mode);
 }
+
 bool rrclient_local_bridge_set_mode(char vfo, const char *mode) {
    unsigned slot = (unsigned)(vfo - 'A');
 
@@ -670,6 +690,7 @@ bool rrclient_local_bridge_set_mode(char vfo, const char *mode) {
 
    return hz && rrclient_local_bridge_tune_vfo(vfo, hz, mode);
 }
+
 bool rrclient_local_bridge_set_width(char vfo, const char *width) {
    /* The bridge SET IPC currently carries frequency and mode, not passband. Do not silently report success or send a command to a remote rig. */
    Log(LOG_WARN, "local.bridge", "local.sdr.%c cannot set width %s: bridge protocol has no width field", vfo, width ? width : "(null)");
@@ -727,6 +748,7 @@ static bool local_rig_action(const rr_rig_cmd_t *cmd, void *unused) {
 
    return ok;
 }
+
 bool rrclient_local_bridge_command(const char *line) {
    if (!line || *line != '!') {
       return false;
@@ -754,6 +776,7 @@ bool rrclient_local_bridge_command(const char *line) {
 
    return true;
 }
+
 static bool directory_matches(const receiver_directory_entry_t *r, const char *needle) {
    const char *fields[] = {
       r->name, r->url, r->description, r->location,
@@ -857,6 +880,7 @@ static void bridge_directory_list(int argc, char **argv, const char *driver) {
    ui_print(ui_active_window_name(), "%s directory: %zu results, page %zu/%zu. /bridge %s dir next|prev|open <number>", driver, count, bridge_dir_view.page + 1,
       MAX((size_t)1, (count + BRIDGE_DIR_PAGE_SIZE - 1) / BRIDGE_DIR_PAGE_SIZE), driver);
 }
+
 static void bridge_directory_open(int argc, char **argv, const char *driver) {
    if (argc != 5 || !bridge_dir_view.indices || !bridge_dir_view.driver || g_ascii_strcasecmp(driver, bridge_dir_view.driver)) {
       ui_print(ui_active_window_name(), "Run /bridge %s dir list [search], then /bridge %s dir open <number>", driver, driver);
@@ -971,6 +995,7 @@ bool rrclient_local_bridge_cli(int argc, char **argv) {
 
    return true;
 }
+
 uint32_t rrclient_local_bridge_stream_sample_rate(const char *stream_id) {
    if (!stream_id || !*stream_id) {
       return 0;
@@ -986,6 +1011,7 @@ uint32_t rrclient_local_bridge_stream_sample_rate(const char *stream_id) {
 
    return 0;
 }
+
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
    size_t count = 0;
 
@@ -1008,6 +1034,7 @@ size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacit
 
    return count;
 }
+
 static void local_pcm(const char *name, const void *pcm, size_t bytes, void *user) {
    (void)name;
    bridge_instance *b = user;
@@ -1028,6 +1055,7 @@ static gboolean bridge_kill_timeout(gpointer user) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void bridge_stop(bridge_instance *b) {
    if (!b) {
       return;
@@ -1089,6 +1117,7 @@ static void bridge_stop(bridge_instance *b) {
    local_room_refresh();
    bridge_publish_ui();
 }
+
 void rrclient_local_bridge_disconnect_url(const char *url) {
    if (!url) {
       return;
@@ -1104,6 +1133,7 @@ void rrclient_local_bridge_disconnect_url(const char *url) {
       }
    }
 }
+
 void rrclient_local_bridge_disconnect(void) {
    for (unsigned i = 0 ; i < G_N_ELEMENTS(bridges) ; i++) {
       if (bridges[i]) {
@@ -1111,6 +1141,7 @@ void rrclient_local_bridge_disconnect(void) {
       }
    }
 }
+
 static void local_child_exited(GPid pid, gint status, gpointer user) {
    bridge_instance *b = user;
 
@@ -1396,6 +1427,7 @@ static gboolean poll_local(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    if (!driver || !*driver) {
       driver = "kiwi";

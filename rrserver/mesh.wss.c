@@ -227,9 +227,11 @@ static int queue_message(void *arg, const uint8_t *data, size_t len, uint8_t opc
 
    return RR_TRANSPORT_OK;
 }
+
 static int send_message(void *arg, const uint8_t *data, size_t len) {
    return queue_message(arg, data, len, WSLAY_TEXT_FRAME);
 }
+
 static int send_binary(void *arg, const uint8_t *data, size_t len) {
    struct mesh_wss *c = arg;
 
@@ -246,6 +248,7 @@ static bool peer_pin(void *arg, uint8_t out[32]) {
 
    return true;
 }
+
 static void driver_close(void *arg) {
    struct mesh_wss *c = arg;
 
@@ -271,11 +274,13 @@ static void driver_close(void *arg) {
    }
    rr_mesh_wss_arm(c);
 }
+
 static size_t queued_bytes(void *arg) {
    struct mesh_wss *c = arg;
 
    return c->tx_len + (c->ws ? wslay_event_get_queued_msg_length(c->ws) : 0);
 }
+
 static uint32_t connection_capabilities(void *arg) {
    struct mesh_wss *c = arg;
    uint32_t basic = RR_TRANSPORT_RELIABLE_MESSAGES | RR_TRANSPORT_TLS_ENCRYPTED;
@@ -381,9 +386,7 @@ static bool ready(int fd, GIOCondition events, void *arg) {
          goto done;
       }
       X509 *peer = SSL_get1_peer_certificate(c->ssl);
-      bool valid = (!c->client || (peer && c->peer_verified)) &&
-         SSL_get_verify_result(c->ssl) == X509_V_OK &&
-         SSL_version(c->ssl) == TLS1_3_VERSION;
+      bool valid = (!c->client || (peer && c->peer_verified)) && SSL_get_verify_result(c->ssl) == X509_V_OK && SSL_version(c->ssl) == TLS1_3_VERSION;
 
       X509_free(peer);
       const char label[] = "EXPORTER-RustyRig-mesh-v1";
@@ -618,10 +621,10 @@ static bool tls_configure_ciphers(SSL_CTX *ctx, const char *list) {
    char **names = g_strsplit(list, ":", -1);
    bool valid = true;
 
-   for (size_t i = 0; names[i]; ++i) {
+   for (size_t i = 0 ; names[i] ; ++i) {
       bool allowed = false;
 
-      for (size_t j = 0; j < G_N_ELEMENTS(permitted); ++j) {
+      for (size_t j = 0 ; j < G_N_ELEMENTS(permitted) ; ++j) {
          if (!strcmp(names[i], permitted[j])) {
             allowed = true;
             break;
@@ -659,10 +662,8 @@ bool rr_mesh_wss_init(const char *cert, const char *key, rr_mesh_pin_fn trust) {
    const char *ciphers = cfg_get("net.tls.allowed-ciphers");
 
    if (SSL_CTX_set_min_proto_version(tls, TLS1_3_VERSION) != 1 ||
-      SSL_CTX_set_max_proto_version(tls, TLS1_3_VERSION) != 1 ||
-      !tls_configure_ciphers(tls, ciphers)) {
-      Log(LOG_ERROR, "mesh.native", "TLS 1.3 unavailable or invalid net.tls.allowed-ciphers: %s",
-         ciphers ? ciphers : "(unset)");
+      SSL_CTX_set_max_proto_version(tls, TLS1_3_VERSION) != 1 || !tls_configure_ciphers(tls, ciphers)) {
+      Log(LOG_ERROR, "mesh.native", "TLS 1.3 unavailable or invalid net.tls.allowed-ciphers: %s", ciphers ? ciphers : "(unset)");
       SSL_CTX_free(tls);
       tls = NULL;
 
@@ -688,6 +689,7 @@ bool rr_mesh_wss_init(const char *cert, const char *key, rr_mesh_pin_fn trust) {
 
    return true;
 }
+
 void rr_mesh_wss_http_handler(rr_mesh_http_fn handler) {
    http_handler = handler;
 }
@@ -875,6 +877,7 @@ void rr_mesh_wss_abort(rr_transport_t *t, const char *reason) {
       g_cancellable_cancel(c->resolve_cancel);
    }
 }
+
 bool rr_mesh_wss_binding(rr_transport_t *t, uint8_t out[32]) {
    struct mesh_wss *c = rr_transport_driver_context(t);
 
@@ -885,31 +888,37 @@ bool rr_mesh_wss_binding(rr_transport_t *t, uint8_t out[32]) {
 
    return true;
 }
+
 const char *rr_mesh_wss_ip(rr_transport_t *t) {
    struct mesh_wss *c = rr_transport_driver_context(t);
 
    return c ? c->ip : "";
 }
+
 unsigned rr_mesh_wss_peer_port(rr_transport_t *t) {
    struct mesh_wss *c = rr_transport_driver_context(t);
 
    return c ? c->peer_port : 0;
 }
+
 const char *rr_mesh_wss_path(rr_transport_t *t) {
    struct mesh_wss *c = rr_transport_driver_context(t);
 
    return c ? c->path : "";
 }
+
 const char *rr_mesh_wss_user_agent(rr_transport_t *t) {
    struct mesh_wss *c = rr_transport_driver_context(t);
 
    return c ? c->user_agent : "";
 }
+
 size_t rr_mesh_wss_queued(rr_transport_t *t) {
    struct mesh_wss *c = rr_transport_driver_context(t);
 
    return c ? c->tx_len + (c->ws ? wslay_event_get_queued_msg_length(c->ws) : 0) : 0;
 }
+
 void rr_mesh_wss_ping(rr_transport_t *t) {
    struct mesh_wss *c = rr_transport_driver_context(t);
 
@@ -925,6 +934,7 @@ void rr_mesh_wss_ping(rr_transport_t *t) {
    }
    rr_mesh_wss_arm(c);
 }
+
 void rr_mesh_wss_stop(void) {
    stopping = true;
 

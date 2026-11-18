@@ -51,9 +51,11 @@ static atomic_llong worker_clock;
 long long mono_ms(void) {
    return atomic_load(&worker_clock);
 }
+
 static bool backend_busy(rr_server_rig_t *radio, void *user) {
    return rr_backend_worker_busy(rr_server_rig_backend(radio));
 }
+
 static void wait_workers(void) {
    gint64 deadline = g_get_monotonic_time() + 5000000;
    do {
@@ -92,6 +94,7 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int type) {
 
    return false;
 }
+
 #endif
 
 static bool ignore_section(const char *path, int line, const char *section, const char *buf) {
@@ -132,6 +135,7 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
    (void)client;
    (void)request;
 }
+
 #endif
 
 static bool dump_vfo(rr_server_vfo_t *vfo, void *user) {

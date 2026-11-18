@@ -169,6 +169,7 @@ static void gpsd_read_done(GObject *source, GAsyncResult *result, gpointer user)
    receive(receive_buffer, (size_t)count);
    gpsd_start_read();
 }
+
 static void gpsd_start_read(void) {
    if (initialized && connection && input) {
       g_input_stream_read_async(input, receive_buffer, sizeof(receive_buffer), G_PRIORITY_DEFAULT, cancellable, gpsd_read_done, NULL);

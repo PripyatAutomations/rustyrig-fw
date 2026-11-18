@@ -35,6 +35,7 @@ static void message(struct bridge_host *host, rrp_bridge_ipc_message_t *m, uint3
    snprintf(m->name, sizeof(m->name), "%s", host->name);
    snprintf(m->driver, sizeof(m->driver), "%s", host->driver);
 }
+
 static void send_message(struct bridge_host *host, const rrp_bridge_ipc_message_t *m) {
    // No unbounded output queue. A stalled parent forces a clean reconnect.
    if (!rrp_bridge_ipc_send(RRP_BRIDGE_IPC_FD, m)) {
@@ -60,6 +61,7 @@ static void forward_log(const char *text) {
    snprintf(m.metadata_value, sizeof(m.metadata_value), "%s", text);
    send_message(log_host, &m);
 }
+
 static bool bridge_log_cb(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    char message_text[192], text[256];
    vsnprintf(message_text, sizeof(message_text), fmt, ap);
@@ -73,6 +75,7 @@ static bool bridge_log_cb(logpriority_t priority, const char *subsys, const char
 
    return true;
 }
+
 static void bridge_flush_logs(void) {
    log_ready = true;
 
@@ -82,6 +85,7 @@ static void bridge_flush_logs(void) {
 
    early_count = 0;
 }
+
 static void audio(void *user, const int16_t *samples, size_t count, unsigned rate) {
    struct bridge_host *host = user;
 
@@ -93,6 +97,7 @@ static void audio(void *user, const int16_t *samples, size_t count, unsigned rat
       host->stats_pcm_bytes += count * sizeof(*samples);
    }
 }
+
 static void metadata(void *user, const char *key, const char *value) {
    struct bridge_host *host = user;
 
@@ -114,6 +119,7 @@ static void metadata(void *user, const char *key, const char *value) {
    }
    send_message(host, &m);
 }
+
 static void status(void *user, const char *text) {
    struct bridge_host *host = user;
    now = time(NULL);
@@ -130,6 +136,7 @@ static void status(void *user, const char *text) {
    Log(LOG_INFO, "rrbridge", "%s", text);
    /* The logger callback forwards this event with all other diagnostics. */
 }
+
 static const char *setting(void *user, const char *key) {
    struct bridge_host *host = user;
    const char *value = rrp_bridge_config_get(host->name, key);
@@ -142,6 +149,7 @@ static const char *setting(void *user, const char *key) {
 
    return value;
 }
+
 static bool capability_message(struct bridge_host *host, rrp_bridge_ipc_message_t *m) {
    rrp_sdr_capabilities_t caps = {
       0
@@ -169,6 +177,7 @@ static bool capability_message(struct bridge_host *host, rrp_bridge_ipc_message_
 
    return rrp_bridge_ipc_valid(m);
 }
+
 static void state(void *user, bool available, uint64_t hz, const char *mode) {
    struct bridge_host *host = user;
    rrp_bridge_ipc_message_t m;
@@ -201,6 +210,7 @@ static void state(void *user, bool available, uint64_t hz, const char *mode) {
    snprintf(m.mode, sizeof(m.mode), "%s", mode ? mode : "");
    send_message(host, &m);
 }
+
 static void complete(void *user, uint64_t request, bool success) {
    struct bridge_host *host = user;
 
@@ -216,9 +226,11 @@ static void complete(void *user, uint64_t request, bool success) {
    host->pending = 0;
    send_message(host, &m);
 }
+
 static void usage(const char *prog) {
    fprintf(stderr, "Usage: %s --config FILE --bridge NAME [--probe]\n", prog);
 }
+
 int main(int argc, char **argv) {
    const char *file = NULL, *name = NULL;
    bool probe = false;

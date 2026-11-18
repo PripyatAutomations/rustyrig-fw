@@ -46,6 +46,7 @@ static void af_init_tables(void) {
 
    g_once_init_leave(&af_tables_ready, 1);
 }
+
 static void calculate(const int16_t input[RR_AF_FFT_N], float result[RR_AF_BINS]) {
    af_init_tables();
    /* All temporary FFT memory is owned by the analyzer thread. */

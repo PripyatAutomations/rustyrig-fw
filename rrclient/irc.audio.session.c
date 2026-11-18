@@ -35,6 +35,7 @@ static struct peer_audio *free_peer(void) {
 
    return NULL;
 }
+
 static void release(struct peer_audio *peer) {
    rrconn_t *control = peer->control;
    bool notify = peer->attachment && !peer->local_tx;
@@ -48,6 +49,7 @@ static void release(struct peer_audio *peer) {
       event_emit(IRC_AUDIO_CLOSED_EVENT, control, id);
    }
 }
+
 static bool nick_valid(const char *nick) {
    if (!nick || !*nick || strlen(nick) > NICKLEN) {
       return false;
@@ -61,6 +63,7 @@ static bool nick_valid(const char *nick) {
 
    return true;
 }
+
 static rr_rtp_socket_t *listener(const irc_audio_options_t *options, unsigned *port) {
    unsigned first = options->port_min, last = options->port_max;
 
@@ -85,6 +88,7 @@ static rr_rtp_socket_t *listener(const irc_audio_options_t *options, unsigned *p
 
    return NULL;
 }
+
 static bool decode_key(dict *offer, uint8_t key[RR_RTP_KEY_LEN]) {
    const char *text = dict_get(offer, "media.direct-key", "");
 
@@ -103,6 +107,7 @@ static bool decode_key(dict *offer, uint8_t key[RR_RTP_KEY_LEN]) {
 
    return true;
 }
+
 static bool attach(struct peer_audio *peer, const char *endpoint) {
    uint8_t key[RR_RTP_KEY_LEN];
 
@@ -115,6 +120,7 @@ static bool attach(struct peer_audio *peer, const char *endpoint) {
 
    return peer->attachment != NULL;
 }
+
 static bool prepare_offer(rrconn_t *client, const char *nick, bool tx, const irc_audio_options_t *options, struct peer_audio **created) {
    struct peer_audio *peer = free_peer();
    char ip[64];
@@ -182,6 +188,7 @@ static bool prepare_offer(rrconn_t *client, const char *nick, bool tx, const irc
 
    return true;
 }
+
 static void offered(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -245,6 +252,7 @@ static void offered(const char *event, const char *data, rrconn_t *client, void 
       dict_free(notice);
    }
 }
+
 static bool receive(void *context, const uint8_t *data, size_t length) {
    struct peer_audio *peer = context;
 
@@ -265,6 +273,7 @@ static bool receive(void *context, const uint8_t *data, size_t length) {
 
    return true;
 }
+
 void irc_audio_sessions_poll(void) {
    uint64_t now = mono_us();
 
@@ -286,6 +295,7 @@ void irc_audio_sessions_poll(void) {
       }
    }
 }
+
 void irc_audio_send_pcm(rrconn_t *control, const void *pcm, size_t length) {
    if (!pcm || length % 2) {
       return;
@@ -314,6 +324,7 @@ void irc_audio_send_pcm(rrconn_t *control, const void *pcm, size_t length) {
       }
    }
 }
+
 static void closed(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)data;
@@ -329,6 +340,7 @@ static void closed(const char *event, const char *data, rrconn_t *client, void *
 static bool connected(rrconn_t *client) {
    return client && !client->is_ws && client->authenticated;
 }
+
 bool irc_audio_offer(rrconn_t *client, const char *nick, unsigned directions, const irc_audio_options_t *options) {
    if (!connected(client) || !nick_valid(nick) || !options || !directions || (directions & ~IRC_AUDIO_BOTH) || !rr_rtp_supported(options->encrypt)) {
       return false;
@@ -373,6 +385,7 @@ bool irc_audio_offer(rrconn_t *client, const char *nick, unsigned directions, co
 
    return true;
 }
+
 bool irc_audio_accept(rrconn_t *client, const char *nick, unsigned directions) {
    if (!connected(client) || !nick_valid(nick) || !directions || (directions & ~IRC_AUDIO_BOTH)) {
       return false;
@@ -399,6 +412,7 @@ bool irc_audio_accept(rrconn_t *client, const char *nick, unsigned directions) {
 
    return found;
 }
+
 unsigned irc_audio_close(rrconn_t *client, const char *nick, unsigned directions) {
    unsigned count = 0;
 
@@ -415,6 +429,7 @@ unsigned irc_audio_close(rrconn_t *client, const char *nick, unsigned directions
 
    return count;
 }
+
 bool irc_audio_session_get(unsigned index, irc_audio_session_t *session) {
    if (!session) {
       return false;
@@ -444,6 +459,7 @@ bool irc_audio_session_get(unsigned index, irc_audio_session_t *session) {
 
    return false;
 }
+
 void irc_audio_sessions_shutdown(void) {
    event_off("irc.dcc.audio", offered, NULL);
    event_off("irc.disconnected", closed, NULL);
@@ -454,6 +470,7 @@ void irc_audio_sessions_shutdown(void) {
       release(&peers[i]);
    }
 }
+
 void irc_audio_sessions_init(void) {
    event_off("irc.dcc.audio", offered, NULL);
    event_off("irc.disconnected", closed, NULL);
@@ -464,6 +481,7 @@ void irc_audio_sessions_init(void) {
    event_on("disconnected", closed, NULL);
    event_on("disconnect", closed, NULL);
 }
+
 #else
 bool irc_audio_offer(rrconn_t *client, const char *nick, unsigned directions, const irc_audio_options_t *options) {
    (void)client;
@@ -473,6 +491,7 @@ bool irc_audio_offer(rrconn_t *client, const char *nick, unsigned directions, co
 
    return false;
 }
+
 bool irc_audio_accept(rrconn_t *client, const char *nick, unsigned directions) {
    (void)client;
    (void)nick;
@@ -480,6 +499,7 @@ bool irc_audio_accept(rrconn_t *client, const char *nick, unsigned directions) {
 
    return false;
 }
+
 unsigned irc_audio_close(rrconn_t *client, const char *nick, unsigned directions) {
    (void)client;
    (void)nick;
@@ -487,21 +507,27 @@ unsigned irc_audio_close(rrconn_t *client, const char *nick, unsigned directions
 
    return 0;
 }
+
 bool irc_audio_session_get(unsigned index, irc_audio_session_t *session) {
    (void)index;
    (void)session;
 
    return false;
 }
+
 void irc_audio_sessions_shutdown(void) {
 }
+
 void irc_audio_sessions_init(void) {
 }
+
 void irc_audio_sessions_poll(void) {
 }
+
 void irc_audio_send_pcm(rrconn_t *control, const void *pcm, size_t length) {
    (void)control;
    (void)pcm;
    (void)length;
 }
+
 #endif

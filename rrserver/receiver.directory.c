@@ -56,6 +56,7 @@ static bool source_allowed(const char *url) {
 
    return ok;
 }
+
 static void make_digest(void) {
    if (!snapshot) {
       digest[0] = 0;
@@ -89,9 +90,11 @@ static time_t publication_time(const char *data) {
 
    return value;
 }
+
 static time_t publication_age(time_t now) {
    return published_at > 0 && published_at <= now ? now - published_at : 0;
 }
+
 static void save_snapshot(void) {
    if (!db) {
       return;
@@ -116,6 +119,7 @@ static void save_snapshot(void) {
    }
    sqlite3_finalize(stmt);
 }
+
 static bool body_valid(const char *data, size_t len) {
    if (!data || len < 20 || len > DIR_MAX_BODY || memchr(data, 0, len) || !g_utf8_validate(data, len, NULL)) {
       return false;
@@ -155,6 +159,7 @@ static bool body_valid(const char *data, size_t len) {
 
    return valid;
 }
+
 static size_t receive_body(char *ptr, size_t sz, size_t count, void *unused) {
    (void)unused;
 
@@ -176,6 +181,7 @@ static size_t receive_body(char *ptr, size_t sz, size_t count, void *unused) {
 
    return bytes;
 }
+
 static gpointer downloader(gpointer unused) {
    (void)unused;
    CURL *curl = curl_easy_init();
@@ -218,6 +224,7 @@ static gpointer downloader(gpointer unused) {
 
    return NULL;
 }
+
 static void complete_download(void) {
    if (!request.thread || !g_atomic_int_get(&request.done)) {
       return;
@@ -270,6 +277,7 @@ static void complete_download(void) {
    g_clear_pointer(&request.data, g_free);
    request.length = 0;
 }
+
 static void start_fetch(void) {
    if (request.thread) {
       return;
@@ -323,6 +331,7 @@ static void start_fetch(void) {
       next_fetch = time(NULL) + DIR_RETRY;
    }
 }
+
 static void respond(rrconn_t *client, const char *cmd, const char *nonce) {
    dict *d = dict_new();
 
@@ -349,6 +358,7 @@ static void respond(rrconn_t *client, const char *cmd, const char *nonce) {
    ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
+
 static void request_handler(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
    (void)event;
    (void)unused;
@@ -427,6 +437,7 @@ static void request_handler(const char *event, const void *data, size_t length, 
       respond(client, "status", nonce);
    }
 }
+
 static void poll_dir(const char *event, const char *data, rrconn_t *client, void *unused) {
    (void)event;
    (void)data;
@@ -439,6 +450,7 @@ static void poll_dir(const char *event, const char *data, rrconn_t *client, void
       start_fetch();
    }
 }
+
 bool rrserver_receiver_directory_init(void) {
    const char *configured = cfg_get("receiver-directory.cache");
    /* Expand configured paths before creating directories or opening SQLite. */
@@ -509,6 +521,7 @@ bool rrserver_receiver_directory_init(void) {
 
    return true;
 }
+
 void rrserver_receiver_directory_shutdown(void) {
    if (request.thread) {
       g_thread_join(request.thread);

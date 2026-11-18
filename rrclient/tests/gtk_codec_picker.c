@@ -18,9 +18,11 @@ static const char *negotiated_codecs = "pc16 mu08 g722 opus";
 bool rrclient_context_is_selected(void) {
    return selected_context;
 }
+
 const char *media_get_common_codecs(void) {
    return negotiated_codecs;
 }
+
 const char *rrclient_media_current_codec(bool tx) {
    return tx ? confirmed_tx : confirmed_rx;
 }
@@ -29,6 +31,7 @@ static char reply_room[128], reply[1024];
 const struct rr_client_media_chan *rrclient_media_codec_target_channel(bool is_tx) {
    return &channel;
 }
+
 bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char *codec, const char *uuid) {
    assert(uuid && !strcmp(uuid, "stream-rx"));
    assert(cptr == &connection && !is_tx && !strcmp(codec, "pc1P"));
@@ -36,13 +39,16 @@ bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char 
 
    return fail_select;
 }
+
 void rrclient_media_description(const char *uuid, char *out, size_t capacity) {
    assert(!strcmp(uuid, "stream-rx"));
    snprintf(out, capacity, "rplywv00.rig0.rx (codec=pc16; uuid=stream-rx)");
 }
+
 const char *ui_active_window_name(void) {
    return "status";
 }
+
 bool ui_print(const char *room, const char *format, ...) {
    snprintf(reply_room, sizeof(reply_room), "%s", room);
    va_list args;
@@ -52,6 +58,7 @@ bool ui_print(const char *room, const char *format, ...) {
 
    return false;
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    GtkWidget *combo = gtk_combo_box_text_new();

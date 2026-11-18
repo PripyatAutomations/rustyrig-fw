@@ -32,6 +32,7 @@ void rrclient_supervision_clear(rrconn_t *client) {
       frontend_ops()->supervision_result(NULL, client);
    }
 }
+
 bool rrclient_supervision_granted(rrconn_t *client, const char *room) {
    for (struct grant *g = grants ; g ; g = g->next) {
       if (g->client == client && room && !strcmp(g->room, room)) {
@@ -41,6 +42,7 @@ bool rrclient_supervision_granted(rrconn_t *client, const char *room) {
 
    return false;
 }
+
 void rrclient_supervision_result(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;

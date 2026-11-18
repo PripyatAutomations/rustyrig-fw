@@ -28,6 +28,7 @@ static void screensaver_child_exited(GPid pid, gint status, gpointer data) {
 void gtk_screensaver_activity(void) {
    screensaver_last_activity = g_get_monotonic_time();
 }
+
 gboolean gtk_screensaver_activity_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
    (void)widget;
    (void)data;
@@ -78,6 +79,7 @@ static gboolean screensaver_launch(void) {
 
    return TRUE;
 }
+
 gboolean gtk_screensaver_idle_check(gpointer unused) {
    (void)unused;
 

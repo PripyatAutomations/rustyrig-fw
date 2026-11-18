@@ -14,6 +14,7 @@
 static bool permanent_port(const char *name) {
    return name && (!strcmp(name, "ttyCAT") || !strcmp(name, "ttyGPS") || !strcmp(name, "ttyMODEM"));
 }
+
 GList *gtk_serial_configured_names(void) {
    GList *names = NULL;
    const char *key;
@@ -48,6 +49,7 @@ GList *gtk_serial_configured_names(void) {
 
    return g_list_sort(names, (GCompareFunc) g_strcmp0);
 }
+
 static void port_names(GtkComboBoxText *combo) {
    gtk_combo_box_text_remove_all(combo);
    GList *names = gtk_serial_configured_names();
@@ -58,12 +60,14 @@ static void port_names(GtkComboBoxText *combo) {
 
    g_list_free_full(names, g_free);
 }
+
 static void field(GtkGrid *grid, const char *title, GtkWidget *widget, int row) {
    GtkWidget *label = gtk_label_new(title);
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_grid_attach(grid, label, 0, row, 1, 1);
    gtk_grid_attach(grid, widget, 1, row, 1, 1);
 }
+
 static void message(GtkWindow *parent, const char *text) {
    GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", text);
    gtk_dialog_run(GTK_DIALOG(dialog));
@@ -114,6 +118,7 @@ static void load_port(GtkComboBox *combo, gpointer data) {
       !strcmp(name, "ttyCAT") ? "rig.cat" : !strcmp(name, "ttyGPS") ? "rig.gps-out@4800" : "none");
    g_free(key);
 }
+
 static void browse_path(GtkButton *button, gpointer data) {
    struct port_editor *editor = data;
    GtkWindow *parent = GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(button)));
@@ -128,6 +133,7 @@ static void browse_path(GtkButton *button, gpointer data) {
    }
    gtk_widget_destroy(chooser);
 }
+
 static void delete_port(GtkWindow *parent, const char *name, GtkWidget *status) {
    if (permanent_port(name)) {
       gtk_label_set_text(GTK_LABEL(status), "This built-in port cannot be removed.");
@@ -183,6 +189,7 @@ static void delete_port(GtkWindow *parent, const char *name, GtkWidget *status) 
    gtk_label_set_text(GTK_LABEL(status), "Port configuration removed in memory. Use /save to persist.");
    g_free(service_key);
 }
+
 static void port_info(GtkWindow *parent, const char *name) {
    rr_sercom_info_t info;
    bool attached = name && rr_sercom_info(name, &info);
@@ -196,6 +203,7 @@ static void port_info(GtkWindow *parent, const char *name) {
    gtk_widget_destroy(dialog);
    g_free(text);
 }
+
 void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Local serial ports", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel",
       GTK_RESPONSE_CANCEL, "Delete…", 1002, "Port info…", 1003, "Save", GTK_RESPONSE_OK, NULL);
@@ -361,6 +369,7 @@ static void serial_attach_result(const char *event, const char *payload, rrconn_
    }
    dict_free(reply);
 }
+
 char *gtk_serial_attach_named(GtkWindow *parent, const char *profile, const char *service) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Connect serial resource", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel",
       GTK_RESPONSE_CANCEL, "Configure local ports…", 1001, "Connect", GTK_RESPONSE_ACCEPT, NULL);
@@ -450,6 +459,7 @@ char *gtk_serial_attach_named(GtkWindow *parent, const char *profile, const char
 
    return attached_name;
 }
+
 bool gtk_serial_attach(GtkWindow *parent, const char *profile, const char *service) {
    char *name = gtk_serial_attach_named(parent, profile, service);
    bool attached = name != NULL;

@@ -16,25 +16,31 @@ static unsigned parser_lines, chat_lines, dispatches;
 const char *rrclient_active_room(void) {
    return "#original";
 }
+
 const char *ui_active_window_name(void) {
    return "#original";
 }
+
 rrconn_t *rrclient_active_connection(void) {
    return &first;
 }
+
 const char *rrclient_window_name(const char *room) {
    return room;
 }
+
 const char *rrclient_connection_name(const rrconn_t *connection) {
    assert(connection == &first);
 
    return "first";
 }
+
 rrconn_t *rrclient_connection_find(const char *name) {
    assert(!strcmp(name, "first"));
 
    return current;
 }
+
 bool ui_print(const char *room, const char *format, ...) {
    va_list args;
    va_start(args, format);
@@ -44,6 +50,7 @@ bool ui_print(const char *room, const char *format, ...) {
 
    return false;
 }
+
 void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback) (void *), void *data) {
    if (connection) {
       assert(connection == &first && !strcmp(room, "#original"));
@@ -51,18 +58,21 @@ void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*call
    dispatches++;
    callback(data);
 }
+
 bool parse_chat_input_real(const char *text) {
    parser_lines++;
    snprintf(parsed, sizeof(parsed), "%s", text);
 
    return false;
 }
+
 bool parse_chat_input_text(const char *text) {
    chat_lines++;
    snprintf(plain, sizeof(plain), "%s", text);
 
    return false;
 }
+
 static bool run(const char *text) {
    char *args[] = {
       "exec", (char *)text
@@ -70,6 +80,7 @@ static bool run(const char *text) {
 
    return cmd_exec(2, args);
 }
+
 static void finish(void) {
    uint64_t deadline = mono_us() + 5000000;
    while (exec_jobs && mono_us() < deadline) {
@@ -78,6 +89,7 @@ static void finish(void) {
    }
    assert(!exec_jobs && !exec_source);
 }
+
 int main(void) {
    event_init();
    assert(!run("printf '%s\\n' 'a  b' 'c;d'"));

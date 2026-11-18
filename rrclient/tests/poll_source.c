@@ -12,18 +12,23 @@ static gint64 max_ui_gap, last_ui_tick;
 void mg_mgr_poll(struct mg_mgr *manager, int wait_ms) {
    assert(wait_ms == 0);
 }
+
 void rrclient_direct_poll(void) {
 }
+
 void rrclient_dcc_poll(void) {
 }
+
 void rrclient_poll_events(void) {
    network_polls++;
    mg_mgr_poll(&mgr, 0);
    // Independent UI work must also be ready while the network is serviced.
 }
+
 void rrclient_poll_events_reconnect(void) {
    reconnect_polls++;
 }
+
 static gboolean ui_tick(gpointer unused) {
    gint64 current = g_get_monotonic_time();
 
@@ -35,6 +40,7 @@ static gboolean ui_tick(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 int main(void) {
    poll_mongoose_init();
    guint ui_source = g_timeout_add(1, ui_tick, NULL);

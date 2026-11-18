@@ -30,18 +30,22 @@ bool ui_print(const char *window, const char *format, ...) {
 
    return false;
 }
+
 void rrclient_connection_dispatch(rrconn_t *client, void (*callback) (void *), void *data) {
    (void)client;
    callback(data);
 }
+
 const char *ui_active_window_name(void) {
    return active_window;
 }
+
 const char *rrclient_connection_name(const rrconn_t *client) {
    (void)client;
 
    return "test-irc";
 }
+
 static void fresh_port(void) {
    int fd = socket(AF_INET, SOCK_STREAM, 0);
    assert(fd >= 0);
@@ -55,6 +59,7 @@ static void fresh_port(void) {
    dict_add_int(cfg, "dcc.port-min", ntohs(address.sin_port));
    dict_add_int(cfg, "dcc.port-max", ntohs(address.sin_port));
 }
+
 static unsigned offer_to(rrconn_t *client, int fd, irc_dcc_type_t type) {
    char wire[1024], incoming[1200];
    ssize_t n = recv(fd, wire, sizeof(wire) - 1, 0);
@@ -79,6 +84,7 @@ static unsigned offer_to(rrconn_t *client, int fd, irc_dcc_type_t type) {
 
    return 0;
 }
+
 int main(void) {
    cfg = dict_new();
    dict_add(cfg, "dcc.host", "127.0.0.1");

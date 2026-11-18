@@ -49,6 +49,7 @@ static bool custom(irc_conn_t *conn, irc_message_t *message) {
 
    return false;
 }
+
 static void parser_tests(rrconn_t *conn) {
    assert(!irc_parse_message(NULL));
    assert(!irc_parse_message(""));
@@ -80,6 +81,7 @@ static void parser_tests(rrconn_t *conn) {
    assert(irc_remove_callback(&second));
    assert(!strcmp(first.cmd, "CUSTOM"));
 }
+
 static void channel_tests(void) {
    irc_channel_t chan = {
       0
@@ -99,6 +101,7 @@ static void channel_tests(void) {
    assert(chan.users == 1);
    chan_clear_users(&chan);
 }
+
 int main(void) {
    int sockets[2];
    assert(!socketpair(AF_UNIX, SOCK_STREAM, 0, sockets));

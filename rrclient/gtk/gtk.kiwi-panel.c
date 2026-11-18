@@ -164,6 +164,7 @@ static void kiwi_panel_request_status(void) {
    };
    event_emit_message(&msg);
 }
+
 static gboolean kiwi_panel_poll(gpointer unused) {
    (void)unused;
 
@@ -176,6 +177,7 @@ static gboolean kiwi_panel_poll(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void kiwi_panel_close(gpointer unused) {
    (void)unused;
 
@@ -207,6 +209,7 @@ static void kiwi_slider_changed(GtkRange *range, gpointer data) {
    };
    event_emit_message(&msg);
 }
+
 static void kiwi_panel_switch_vfo(char vfo) {
    if (!kiwi_controls.panel || vfo < 'A' || vfo > 'Z') {
       return;
@@ -230,6 +233,7 @@ static void kiwi_panel_switch_vfo(char vfo) {
    kiwi_controls.vfo = vfo;
    kiwi_panel_update_driver();
 }
+
 void gtk_kiwi_panel_status_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -244,6 +248,7 @@ void gtk_kiwi_panel_status_event(const rr_event_message_t *message, void *unused
    kiwi_controls.online = kiwi_controls.local_room && !g_ascii_strcasecmp(kiwi_controls.driver, "kiwi") && status->available;
    kiwi_panel_update_driver();
 }
+
 void gtk_kiwi_panel_vfo_snapshot(const rrclient_vfo_snapshot_t *snapshot) {
    g_strlcpy(kiwi_last_room, snapshot->room, sizeof(kiwi_last_room));
    g_strlcpy(kiwi_last_vfo, snapshot->vfo, sizeof(kiwi_last_vfo));
@@ -262,6 +267,7 @@ void gtk_kiwi_panel_vfo_snapshot(const rrclient_vfo_snapshot_t *snapshot) {
    }
    kiwi_panel_request_status();
 }
+
 static void kiwi_panel_show(void) {
    if (kiwi_controls.panel) {
       rr_floating_panel_show(kiwi_controls.panel);
@@ -311,6 +317,7 @@ static void kiwi_panel_show(void) {
    g_strlcpy(initial.vfo, kiwi_last_vfo, sizeof(initial.vfo));
    gtk_kiwi_panel_vfo_snapshot(&initial);
 }
+
 void gtk_local_sdr_controls_show(void) {
    kiwi_panel_show();
 }

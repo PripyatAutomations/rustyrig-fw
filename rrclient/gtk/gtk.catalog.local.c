@@ -98,6 +98,7 @@ static void resource_local_device(const char *name, const char *path, struct loc
    resource_set_string(&iter, PROFILE, "");
    resource_set_string(&iter, OURS, "Physical serial device");
 }
+
 static bool resource_serial_device_name(const char *name) {
    static const char *prefixes[] = {
       "ttyS", "ttyUSB", "ttyACM", "ttyAMA", "ttyTHS", "ttyXRUSB", "rfcomm"
@@ -158,6 +159,7 @@ static gboolean resource_serial_placeholder(const char *name) {
 
    return unknown;
 }
+
 static void resource_discover_devices(struct local_scan *scan) {
    GDir *dir = g_dir_open("/dev", 0, NULL);
 
@@ -179,6 +181,7 @@ static void resource_discover_devices(struct local_scan *scan) {
    }
    g_dir_close(dir);
 }
+
 static void resource_local_port(rr_serial_t *port, void *data) {
    resource_local_named(rr_serial_name(port), data);
 }
@@ -208,6 +211,7 @@ static GtkTreeIter wsjtx_tree_child(GtkTreeIter *parent, const char *name, const
 
    return child;
 }
+
 static void wsjtx_tree_field(const char *id, const char *group, const char *key, const char *value, void *data) {
    wsjtx_tree_context *ctx = data;
    GtkTreeIter peer = wsjtx_tree_child(&ctx->root, id, "network-service");
@@ -215,6 +219,7 @@ static void wsjtx_tree_field(const char *id, const char *group, const char *key,
    GtkTreeIter field = wsjtx_tree_child(&folder, key, "network-service");
    resource_set_string(&field, STATE, value);
 }
+
 void resource_local_update(void) {
    struct local_scan scan = {
       g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL)

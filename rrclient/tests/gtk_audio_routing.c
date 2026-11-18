@@ -9,15 +9,19 @@ GtkWidget *main_window, *main_notebook, *rx_vol_slider, *rx_rig_vol_slider;
 GtkWidget *create_volbox(void) {
    return gtk_label_new("Volume");
 }
+
 bool audio_set_rx_volume(int percent) {
    return true;
 }
+
 bool audio_set_rx_channel_volume(unsigned channel, int percent) {
    return true;
 }
+
 GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, GCallback callback, gpointer data) {
    return NULL;
 }
+
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
 }
 
@@ -31,6 +35,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
 
    return catalog_count;
 }
+
 bool audio_set_rx_stream_route(const char *id, char output) {
    for (size_t i = 0 ; i < catalog_count ; i++) {
       if (!strcmp(catalog[i].id, id)) {
@@ -46,25 +51,31 @@ bool audio_set_rx_stream_route(const char *id, char output) {
 
    return false;
 }
+
 static void flush(void) {
    while (g_main_context_pending(NULL)) {
       g_main_context_iteration(NULL, false);
    }
 }
+
 static void catalog_changed(void) {
    event_emit("client.audio.streams.changed", NULL, NULL);
    flush();
 }
+
 static void shown(GtkWidget *widget, gpointer unused) {
    shows++;
 }
+
 static void choose(unsigned ear, const char *id) {
    assert(gtk_combo_box_set_active_id(GTK_COMBO_BOX(ear_combo[ear]), id));
    flush();
 }
+
 static const char *choice(unsigned ear) {
    return gtk_combo_box_get_active_id(GTK_COMBO_BOX(ear_combo[ear]));
 }
+
 int main(int argc, char **argv) {
    gtk_test_events_init();
    gtk_init(&argc, &argv);

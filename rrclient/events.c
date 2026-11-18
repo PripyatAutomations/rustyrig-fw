@@ -430,6 +430,7 @@ static void rrclient_handle_catcmd(const char *event, const char *data, rrconn_t
  */
    dict_free(d);
 }
+
 static void rrclient_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -1329,6 +1330,7 @@ static void rrclient_admin_profile_request(const char *event, const char *payloa
       dict_free(reply);
    }
 }
+
 static void rrclient_admin_select_profile(const char *event, const char *profile, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -1338,6 +1340,7 @@ static void rrclient_admin_select_profile(const char *event, const char *profile
       Log(LOG_WARN, "admin", "Cannot select unknown or unavailable server profile %s", profile);
    }
 }
+
 static void rrclient_admin_sites_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -2031,6 +2034,7 @@ static void rrclient_estop_core(const char *event, const char *payload, rrconn_t
    g_free(response);
    dict_free(d);
 }
+
 static void rrclient_estop_send(void *arg) {
    dict *d = arg;
 
@@ -2084,6 +2088,7 @@ static void locator_collect(void *arg) {
 
    snap->online = true;
 }
+
 static void locator_snapshot_core(const char *event, const char *previous, rrconn_t *ignored, void *unused) {
    (void)event;
    (void)ignored;
@@ -2144,6 +2149,7 @@ static void locator_snapshot_core(const char *event, const char *previous, rrcon
 
    event_emit_binary(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, NULL, &snap, sizeof(snap));
 }
+
 void rrclient_register_events(void) {
    event_on_domain_token(RRCLIENT_LOCATOR_REQUEST_EVENT, locator_snapshot_core, NULL, "core");
    event_on_domain_token("client.estop.send-request", rrclient_estop_core, NULL, "core");

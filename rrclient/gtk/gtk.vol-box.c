@@ -49,6 +49,7 @@ static const char *rig_volume_owner(void) {
 
    return rig && !strcmp(dict_get((dict *) rig, "object.type", ""), "rig") ? owner : NULL;
 }
+
 static void on_rig_volume_changed(GtkRange *range, gpointer unused) {
    (void)unused;
    const char *owner = rig_volume_owner();
@@ -81,6 +82,7 @@ static void on_rig_volume_changed(GtkRange *range, gpointer unused) {
    }
    dict_free(request);
 }
+
 static gboolean rig_volume_refresh(gpointer widget) {
    GtkWidget *slider = widget;
 

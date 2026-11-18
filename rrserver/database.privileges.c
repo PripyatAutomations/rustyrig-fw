@@ -104,8 +104,10 @@ rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *subject_u
 
    return allow ? RR_RESOURCE_ALLOW : RR_RESOURCE_UNSET;
 }
+
 rr_resource_access_t db_resource_access(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *resource_uuid,
    const char *privilege, time_t now) {
    return db_resource_access_named(db, subject_user, subject_host, resource_kind, resource_uuid, privilege, now, NULL);
 }
+
 #endif

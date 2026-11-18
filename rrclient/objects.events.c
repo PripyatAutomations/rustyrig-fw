@@ -242,6 +242,7 @@ static void learn_receiver_metadata(dict *message) {
    receiver_directory_queue_learn(endpoint, fields);
    dict_free(fields);
 }
+
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data);
 
@@ -454,6 +455,7 @@ bool cmd_rig(int argc, char **args) {
 const char *rrclient_objects_subscription(void) {
    return object_subscription;
 }
+
 bool rrclient_object_dump_selected(const char *reference, rr_object_cache_dump_fn emit, void *user) {
    return cache && rr_object_cache_dump_selected(cache, reference, emit, user);
 }
@@ -514,6 +516,7 @@ static void resource_refresh_request(const char *event, const char *profile, rrc
    /* Use a local callback to preserve the intended per-connection command context. */
    rrclient_connection_dispatch(conn, resource_refresh_core, (void *)profile);
 }
+
 static void resource_refresh_core(void *data) {
    const char *profile = data;
    char *args[] = {
@@ -542,10 +545,12 @@ typedef struct {
 static void explorer_detail_line(const char *line, void *arg) {
    g_string_append_printf((GString *) arg, "%s\n", line);
 }
+
 static void explorer_detail_run(void *arg) {
    explorer_detail_request *req = arg;
    rrclient_object_dump_selected(req->uuid, explorer_detail_line, req->output);
 }
+
 static void explorer_action_run(void *arg) {
    dict *d = arg;
    const char *action = dict_get(d, "action", "");
@@ -586,6 +591,7 @@ static void explorer_action_run(void *arg) {
    }
    dict_add(d, "failed", failed ? "true" : "false");
 }
+
 static void explorer_core_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
    (void)connection;
    (void)unused;
@@ -644,6 +650,7 @@ static void explorer_property_snapshot_run(void *data) {
       dict_add(snapshot->reply, "version", dict_get((dict *) state, "property.version", ""));
    }
 }
+
 static void explorer_property_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
    (void)event;
    (void)connection;
@@ -679,6 +686,7 @@ static void explorer_property_request(const char *event, const char *payload, rr
    dict_free(reply);
    dict_free(request);
 }
+
 static void resource_irc_snapshot_core(void *data) {
    const char *profile = data;
    unsigned total = 0, joined_count = 0, listed_count = 0;
@@ -808,6 +816,7 @@ static void resource_status_request(const char *event, const char *ignored, rrco
       }
    }
 }
+
 static void explorer_control_set(const char *event, const char *payload, rrconn_t *ignored, void *unused) {
    (void)event;
    (void)ignored;
@@ -843,6 +852,7 @@ static void explorer_control_set(const char *event, const char *payload, rrconn_
    }
    dict_free(request);
 }
+
 void rrclient_objects_register_events(void) {
    event_on_domain_token("client.resources.control-set", explorer_control_set, NULL, "core");
    event_on_domain_token("client.resources.property-request", explorer_property_request, NULL, "core");

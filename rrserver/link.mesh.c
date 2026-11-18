@@ -27,6 +27,7 @@ static int index_of(const rr_mesh_t *m, const char *id) {
 
    return -1;
 }
+
 static bool valid(const char *id) {
    if (!rr_object_uuid_valid(id)) {
       return false;
@@ -41,6 +42,7 @@ static bool valid(const char *id) {
 
    return true;
 }
+
 static int index_add(rr_mesh_t *m, const char *id) {
    int n = index_of(m, id);
 
@@ -56,6 +58,7 @@ static int index_add(rr_mesh_t *m, const char *id) {
 
    return n;
 }
+
 rr_mesh_t *rr_mesh_new(const char *local) {
    if (!valid(local)) {
       return NULL;
@@ -68,9 +71,11 @@ rr_mesh_t *rr_mesh_new(const char *local) {
 
    return m;
 }
+
 void rr_mesh_free(rr_mesh_t *m) {
    free(m);
 }
+
 bool rr_mesh_edge(rr_mesh_t *m, const char *a, const char *b, uint32_t cost) {
    if (!m || !cost || !valid(a) || !valid(b) || !strcmp(a, b)) {
       return false;
@@ -92,6 +97,7 @@ bool rr_mesh_edge(rr_mesh_t *m, const char *a, const char *b, uint32_t cost) {
 
    return true;
 }
+
 bool rr_mesh_remove_edge(rr_mesh_t *m, const char *a, const char *b) {
    int x = m ? index_of(m, a) : -1, y = m ? index_of(m, b) : -1;
 
@@ -102,6 +108,7 @@ bool rr_mesh_remove_edge(rr_mesh_t *m, const char *a, const char *b) {
 
    return true;
 }
+
 static bool dijkstra_excluding(const rr_mesh_t *m, const char *destination, const bool excluded[RR_MESH_MAX_NODES], rr_mesh_route_t *out) {
    if (!m || !out) {
       return false;
@@ -237,17 +244,21 @@ bool rr_mesh_set_router(rr_mesh_t *m, const rr_mesh_router_t *router, void *cont
 
    return true;
 }
+
 size_t rr_mesh_node_count(const rr_mesh_t *m) {
    return m ? m->count : 0;
 }
+
 const char *rr_mesh_node_id(const rr_mesh_t *m, size_t index) {
    return m && index < m->count ? m->id[index] : NULL;
 }
+
 uint32_t rr_mesh_edge_cost(const rr_mesh_t *m, const char *a, const char *b) {
    int x = m ? index_of(m, a) : -1, y = m ? index_of(m, b) : -1;
 
    return x < 0 || y < 0 ? 0 : m->edge[x][y];
 }
+
 bool rr_mesh_route(const rr_mesh_t *m, const char *destination, rr_mesh_route_t *out) {
    if (!m || !out || !destination) {
       return false;

@@ -377,6 +377,7 @@ static const char *ptt_target_room(void) {
 
    return NULL;
 }
+
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    if (!button) {
       return;

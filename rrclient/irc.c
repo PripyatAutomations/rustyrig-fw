@@ -65,9 +65,11 @@ static void send_request(const char *event, const void *payload, size_t size, rr
       request->result = irc_send_dict(c, request->message);
    }
 }
+
 void rrclient_irc_adapter_shutdown(void) {
    event_off_binary(RR_SERVER_SEND_EVENT, send_request, NULL);
 }
+
 bool irc_init(void) {
    irc_dcc_init();
    event_off_binary(RR_SERVER_SEND_EVENT, send_request, NULL);

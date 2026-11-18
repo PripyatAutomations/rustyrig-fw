@@ -51,6 +51,7 @@ bool irc_send(rrconn_t *connection, const char *format, ...) {
 
    return true;
 }
+
 static void observe(const char *event, const char *data, rrconn_t *connection, void *user) {
    (void)event;
    (void)user;
@@ -61,6 +62,7 @@ static void observe(const char *event, const char *data, rrconn_t *connection, v
    echoes++;
    dict_free(d);
 }
+
 static dict *message(const char *text, const char *type) {
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
@@ -71,12 +73,14 @@ static dict *message(const char *text, const char *type) {
 
    return d;
 }
+
 static void reset(const char *type) {
    kind = type;
    sends = echoes = fail_at = 0;
    longest = 0;
    combined[0] = echoed[0] = '\0';
 }
+
 static void check(const char *text, const char *type, unsigned minimum) {
    reset(type);
    dict *d = message(text, type);
@@ -86,6 +90,7 @@ static void check(const char *text, const char *type, unsigned minimum) {
    assert(!strcmp(dict_get(d, "talk.data", ""), text));
    dict_free(d);
 }
+
 int main(void) {
    rrconn_t connection = {
       .fd = -1

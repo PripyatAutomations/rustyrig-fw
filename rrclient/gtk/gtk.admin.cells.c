@@ -25,6 +25,7 @@ static char *admin_short_uuid(const char *uuid) {
 
    return g_strdup_printf("%.8s..%s", uuid, uuid + length - 8);
 }
+
 void admin_uuid_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
    int field = GPOINTER_TO_INT(data);
@@ -35,6 +36,7 @@ void admin_uuid_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTr
    g_free(shortened);
    g_free(raw);
 }
+
 static void admin_copy_uuid_clicked(GtkMenuItem *item, gpointer data) {
    (void)data;
    const char *uuid = g_object_get_data(G_OBJECT(item), "full-uuid");
@@ -45,6 +47,7 @@ static void admin_copy_uuid_clicked(GtkMenuItem *item, gpointer data) {
    GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
    gtk_clipboard_set_text(clipboard, uuid, -1);
 }
+
 gboolean admin_uuid_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    admin_table_t *table = data;
 
@@ -89,6 +92,7 @@ gboolean admin_uuid_menu(GtkWidget *widget, GdkEventButton *event, gpointer data
 
    return TRUE;
 }
+
 void admin_column_wrap_width(GObject *object, GParamSpec *pspec, gpointer data) {
    (void)pspec;
    GtkTreeViewColumn *column = GTK_TREE_VIEW_COLUMN(object);
@@ -105,6 +109,7 @@ void admin_column_wrap_width(GObject *object, GParamSpec *pspec, gpointer data) 
       g_object_set(renderer, "wrap-width", width, NULL);
    }
 }
+
 void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
    int field = GPOINTER_TO_INT(data);
@@ -244,7 +249,6 @@ void admin_numeric_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, Gt
    g_free(raw);
 }
 
-
 static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    (void)column;
    int field = GPOINTER_TO_INT(user);
@@ -253,6 +257,7 @@ static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
    g_object_set(renderer, "active", value && (!strcmp(value, "1") || !g_ascii_strcasecmp(value, "true")), NULL);
    g_free(value);
 }
+
 static void admin_privilege_cell(GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, int field, bool remote) {
    char *value = NULL;
    gtk_tree_model_get(model, iter, field, &value, -1);

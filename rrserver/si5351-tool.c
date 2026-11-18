@@ -14,6 +14,7 @@ static void stop(int signal) {
    (void)signal;
    stopping = 1;
 }
+
 static void usage(FILE *out) {
    fputs("Usage: rr-si5351 [--bus /dev/i2c-N] [--address 0x60]\n"
       "  [--crystal-hz 25000000] [--correction-ppb 0] [--load-pf 10] [--drive-ma 2]\n"
@@ -21,6 +22,7 @@ static void usage(FILE *out) {
       "Preview only by default. 0 disables an output; otherwise 8000..100000000 Hz.\n"
       "--apply claims the entire chip; Enter, EOF, SIGINT or SIGTERM disables it.\n", out);
 }
+
 static bool integer(const char *text, long long low, long long high, long long *value) {
    char *end;
    errno = 0;
@@ -28,6 +30,7 @@ static bool integer(const char *text, long long low, long long high, long long *
 
    return *text && end != text && !*end && !errno && *value >= low && *value <= high;
 }
+
 static void dump(const char *name, const uint8_t *bytes) {
    printf("%s:", name);
 
@@ -37,6 +40,7 @@ static void dump(const char *name, const uint8_t *bytes) {
 
    putchar('\n');
 }
+
 int main(int argc, char **argv) {
    static const struct option options[] = {
       {

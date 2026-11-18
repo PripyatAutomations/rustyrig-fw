@@ -9,6 +9,7 @@ static const char *active_rx_uuid;
 bool rrclient_media_rx_is_active_rx(const char *uuid) {
    return active_rx_uuid && !strcmp(active_rx_uuid, uuid);
 }
+
 bool rrclient_media_rx_is_active_tx(const char *uuid) {
    return active_rx_uuid && !strcmp(active_rx_uuid, uuid);
 }
@@ -33,9 +34,11 @@ static int16_t last_stereo[640];
 long long mono_us(void) {
    return test_clock;
 }
+
 int cfg_get_int(const char *name, int fallback) {
    return 42;
 }
+
 bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
    assert(!strcmp(name, "sink.client.dsp0"));
    speaker_starts++;
@@ -47,12 +50,14 @@ bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
 
    return true;
 }
+
 bool fwdsp_processor_stop(const char *name) {
    assert(!strcmp(name, "sink.client.dsp0"));
    speaker_stops++;
 
    return false;
 }
+
 bool fwdsp_processor_setvol(const char *name, int volume) {
    assert(!strcmp(name, "sink.client.dsp0") && volume == 42);
    volume_restores++;
@@ -65,14 +70,18 @@ static bool used[16];
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return connection == &first ? "first" : "second";
 }
+
 const char *rrclient_selected_server(void) {
    return selected;
 }
+
 bool cfg_get_bool(const char *name, bool fallback) {
    return fallback;
 }
+
 void Log(logpriority_t priority, const char *subsystem, const char *format, ...) {
 }
+
 struct fwdsp_subproc *fwdsp_find_channel_instance(const char *codec, bool tx, const char *identity) {
    for (unsigned i = 0 ; i < 16 ; i++) {
       if (used[i] && !strcmp(identity, instances[i].channel_uuid) && !strcmp(codec, instances[i].pl_id)) {
@@ -82,6 +91,7 @@ struct fwdsp_subproc *fwdsp_find_channel_instance(const char *codec, bool tx, co
 
    return NULL;
 }
+
 int fwdsp_codec_start_local(const char *codec, bool tx, const char *identity) {
    assert(!tx && !fwdsp_find_channel_instance(codec, tx, identity));
 
@@ -99,6 +109,7 @@ int fwdsp_codec_start_local(const char *codec, bool tx, const char *identity) {
 
    abort();
 }
+
 int fwdsp_codec_stop_channel_immediate(const char *codec, bool tx, const char *identity) {
    struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec, tx, identity);
    assert(sp);
@@ -107,6 +118,7 @@ int fwdsp_codec_stop_channel_immediate(const char *codec, bool tx, const char *i
 
    return 0;
 }
+
 bool fwdsp_codec_set_pcm_callback(const char *codec, const char *identity, fwdsp_processor_output_cb callback, void *data) {
    struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec, false, identity);
    assert(sp);
@@ -115,9 +127,11 @@ bool fwdsp_codec_set_pcm_callback(const char *codec, const char *identity, fwdsp
 
    return true;
 }
+
 bool fwdsp_cmd_start_record_named(const char *codec, bool tx, const char *identity, const char *user, bool transmit) {
    return false;
 }
+
 bool fwdsp_processor_write(const char *name, const void *data, size_t length) {
    assert(!strcmp(name, "sink.client.dsp0"));
 
@@ -130,6 +144,7 @@ bool fwdsp_processor_write(const char *name, const void *data, size_t length) {
 
    return true;
 }
+
 static void decode_all(void) {
    int16_t pcm[320] = {
       0
@@ -148,6 +163,7 @@ static void decode_all(void) {
 
    audio_mix_block();
 }
+
 int main(void) {
    event_init();
    event_on("client.audio.streams.changed", inventory_changed, NULL);
@@ -339,7 +355,9 @@ int main(void) {
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
    return 0;
 }
+
 void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames) {
 }
+
 void rr_af_spectrum_forget(const char *stream) {
 }

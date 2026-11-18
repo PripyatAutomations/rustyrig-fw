@@ -87,7 +87,6 @@ bool ws_kick_client(rrconn_t *client, const char *reason) {
    return true;
 }
 
-
 #ifdef  USE_MONGOOSE
 // Broadcast a message to all WebSocket clients (using http_client_list)
 void ws_broadcast(rrconn_t *sender, struct mg_str *msg_data, int data_type) {
@@ -137,6 +136,7 @@ void ws_broadcast_audio(rrconn_t *sender, struct mg_str *msg_data, int data_type
       current = current->next;
    }
 }
+
 #endif // defined(USE_MONGOOSE)
 
 bool send_global_alert(const char *sender, const char *data) {

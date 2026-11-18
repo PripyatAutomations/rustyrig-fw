@@ -70,10 +70,12 @@ void rrserver_inventory_send(rrconn_t *client, dict *d) {
    ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
+
 static void inventory_delivery_free(inventory_delivery_t *delivery) {
    g_ptr_array_free(delivery->frames, TRUE);
    g_free(delivery);
 }
+
 static void inventory_delivery_close(rrconn_t *client) {
    inventory_delivery_t **next = &inventory_deliveries;
    while (*next) {
@@ -277,6 +279,7 @@ static void send_node_control_state_to(rrconn_t *client, const char *request, co
       send_message(client, d);
    }
 }
+
 static void send_node_control_state(rrconn_t *client, const char *request, const rr_platform_control_state_t *state, const char *command) {
    send_node_control_state_to(client, request, state, command, NULL);
 }
@@ -289,6 +292,7 @@ void rrserver_objects_platform_changed(const rr_platform_control_state_t *state)
    sequence++;
    send_node_control_state(NULL, NULL, state, "changed");
 }
+
 static bool send_node_control(const rr_platform_control_state_t *state, void *user) {
    node_control_context_t *ctx = user;
    dict *d = message("property", "descriptor", ctx->request);
@@ -595,6 +599,7 @@ static void inventory_local_performance(dict *sample, void *user) {
    }
    dict_free(sample);
 }
+
 static void inventory_services(object_send_t *ctx, const char *scope, unsigned depth) {
    dict *d = dict_new();
 
@@ -829,6 +834,7 @@ static void inventory_rig_menu_item(const char *id, const char *label, void *use
    dict_add(row, "inventory.description", "CAT menu; double-click to read its current value");
    rr_inventory_send(menu->ctx->client, row);
 }
+
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    object_send_t *ctx = user;
    const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
@@ -919,6 +925,7 @@ static bool inventory_node_control(const rr_platform_control_state_t *state, voi
 
    return false;
 }
+
 static void inventory(rrconn_t *client, const char *id) {
    inventory_delivery_t *delivery = g_new0(inventory_delivery_t, 1);
    delivery->client = client;

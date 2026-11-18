@@ -325,6 +325,7 @@ static void http_release_client(struct mg_connection *c, bool close_socket) {
    }
    Log(LOG_CRAZY, "http", "http_remove_client: no client found for conn:<%p>", c);
 }
+
 #endif // USE_MONGOOSE
 
 // Counts only websocket clients that are logged in
@@ -380,6 +381,7 @@ void http_detach_client(struct mg_connection *c) {
 void http_remove_client(struct mg_connection *c) {
    http_release_client(c, true);
 }
+
 #endif /* USE_MONGOOSE */
 
 /* Applications own consent; missing policy listeners fail closed. */

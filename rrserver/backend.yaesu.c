@@ -51,6 +51,7 @@ typedef struct yaesu_state {
 static yaesu_state_t *ys(rr_backend_t *b) {
    return rr_backend_instance_data(b);
 }
+
 static speed_t speed_for(int baud) {
    switch (baud) {
       case 4800: {
@@ -76,6 +77,7 @@ static speed_t speed_for(int baud) {
       }
    }
 }
+
 static bool serial_open(yaesu_state_t *s) {
    speed_t speed = speed_for(s->baud);
 
@@ -183,6 +185,7 @@ fail:
 
    return false;
 }
+
 static bool decimal(const char *str, int n, int *value) {
    int x = 0;
 
@@ -197,6 +200,7 @@ static bool decimal(const char *str, int n, int *value) {
 
    return true;
 }
+
 static bool get_dimmer(yaesu_state_t *s) {
    char reply[64];
 
@@ -219,6 +223,7 @@ static bool get_dimmer(yaesu_state_t *s) {
 
    return true;
 }
+
 static bool get_af(yaesu_state_t *s) {
    char reply[64];
 
@@ -318,6 +323,7 @@ static const yaesu_control_spec_t *yaesu_control_find(const char *name) {
 
    return NULL;
 }
+
 static bool yaesu_control_read(yaesu_state_t *s, const yaesu_control_spec_t *spec, int *percent) {
    char cmd[16], reply[32];
    snprintf(cmd, sizeof(cmd), "%s;", spec->command);
@@ -339,12 +345,14 @@ static bool yaesu_control_read(yaesu_state_t *s, const yaesu_control_spec_t *spe
 
    return true;
 }
+
 static void observe(rr_backend_t *b, const char *name, int percent) {
    dict_value_t value = {
       .i = percent
    };
    rr_backend_property_observe(b, NULL, name, VAL_INT, &value);
 }
+
 static bool control(rr_backend_t *b, const char *name, int percent) {
    yaesu_state_t *s = ys(b);
 
@@ -405,14 +413,17 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
 
    return true;
 }
+
 static bool index_of(rr_server_vfo_t *vfo, rr_vfo_t *i) {
    return vfo && rr_server_vfo_native_index(vfo, i) && (*i == VFO_A || *i == VFO_B);
 }
+
 static bool supported(rr_backend_t *b, rr_server_vfo_t *v) {
    rr_vfo_t i;
 
    return ys(b) && index_of(v, &i);
 }
+
 static rr_mode_t mode_decode(char value) {
    switch (value) {
       case '1': {
@@ -447,6 +458,7 @@ static rr_mode_t mode_decode(char value) {
       }
    }
 }
+
 static char mode_encode(rr_mode_t mode) {
    switch (mode) {
       case MODE_ML:
@@ -479,6 +491,7 @@ static char mode_encode(rr_mode_t mode) {
       }
    }
 }
+
 static bool mode_set(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t mode) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t index;
@@ -526,6 +539,7 @@ static bool mode_set(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t mode) {
 
    return false;
 }
+
 static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t index;
@@ -683,12 +697,14 @@ static bool sh_table(rr_mode_t mode, bool narrow, const int **values, size_t *co
 
    return true;
 }
+
 static int sh_decode(rr_mode_t mode, bool narrow, int code) {
    const int *values;
    size_t count;
 
    return sh_table(mode, narrow, &values, &count) && code >= 0 && (size_t)code < count ? values[code] : 0;
 }
+
 static int sh_read(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t index;
@@ -728,9 +744,11 @@ static int sh_read(rr_backend_t *b, rr_server_vfo_t *v) {
 
    return hz;
 }
+
 static uint16_t width_get(rr_backend_t *b, rr_server_vfo_t *v) {
    return (uint16_t) sh_read(b, v);
 }
+
 static int widths_get(rr_backend_t *b, rr_server_vfo_t *v, int *widths, int max) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t index;
@@ -769,6 +787,7 @@ static int widths_get(rr_backend_t *b, rr_server_vfo_t *v, int *widths, int max)
 
    return 3;
 }
+
 static bool width_set(rr_backend_t *b, rr_server_vfo_t *v, const char *width) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t index;
@@ -880,6 +899,7 @@ static bool frequency_set(rr_backend_t *b, rr_server_vfo_t *v, int hz) {
 
    return false;
 }
+
 static float frequency_get(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
@@ -915,6 +935,7 @@ static int yaesu_power_slot(rr_mode_t mode) {
       }
    }
 }
+
 static int yaesu_power_band(yaesu_state_t *s, rr_vfo_t i) {
    long hz = s->frequency[i];
 
@@ -940,6 +961,7 @@ static int yaesu_power_band(yaesu_state_t *s, rr_vfo_t i) {
 
    return -1;
 }
+
 static int yaesu_power_target(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
    int slot = yaesu_power_slot(s->mode[i]), band = yaesu_power_band(s, i);
 
@@ -976,6 +998,7 @@ static bool yaesu_power_read(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i, int 
 
    return decimal(reply + 2, 3, watts);
 }
+
 static bool yaesu_power_write(yaesu_state_t *s, rr_vfo_t i, int watts) {
    (void)i;
 
@@ -987,6 +1010,7 @@ static bool yaesu_power_write(yaesu_state_t *s, rr_vfo_t i, int watts) {
 
    return cat(s, command, NULL, NULL, 0);
 }
+
 static int yaesu_power_limit(yaesu_state_t *s, rr_vfo_t i) {
    int band = yaesu_power_band(s, i);
 
@@ -1004,6 +1028,7 @@ static int yaesu_power_limit(yaesu_state_t *s, rr_vfo_t i) {
 
    return 0;
 }
+
 static bool yaesu_power_apply(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
    int target = yaesu_power_target(b, s, i);
 
@@ -1028,6 +1053,7 @@ static bool yaesu_power_apply(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
 
    return true;
 }
+
 static bool power_set(rr_backend_t *b, rr_server_vfo_t *v, float watts) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
@@ -1070,6 +1096,7 @@ static bool power_set(rr_backend_t *b, rr_server_vfo_t *v, float watts) {
 
    return false;
 }
+
 static float power_get(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
@@ -1077,12 +1104,14 @@ static float power_get(rr_backend_t *b, rr_server_vfo_t *v) {
 
    return s && index_of(v, &i) && i == b->active_vfo && yaesu_power_read(b, s, i, &actual) ? (float)actual : 0;
 }
+
 static float power_max(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
 
    return s && index_of(v, &i) ? (float)yaesu_power_limit(s, i) : 0;
 }
+
 static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
@@ -1112,17 +1141,20 @@ static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
 
    return false;
 }
+
 static bool ptt_get(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
 
    return s && s->ptt;
 }
+
 static rr_mode_t mode_get(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
 
    return s && index_of(v, &i) ? s->mode[i] : MODE_NONE;
 }
+
 static const char *mode_get_str(rr_backend_t *b, rr_server_vfo_t *v) {
    return vfo_mode_name(mode_get(b, v));
 }
@@ -1675,6 +1707,7 @@ static const yaesu_model_profile_t *yaesu_model_by_id(int id) {
 
    return NULL;
 }
+
 static void yaesu_menu_foreach(rr_backend_t *b, void (*emit) (const char *id, const char *label, void *user), void *user) {
    yaesu_state_t *s = ys(b);
 
@@ -1722,6 +1755,7 @@ static bool yaesu_menu_read(rr_backend_t *b, const char *id, char *value, size_t
 
    return true;
 }
+
 static bool yaesu_menu_write(rr_backend_t *b, const char *id, const char *value) {
    yaesu_state_t *s = ys(b);
 
@@ -1851,12 +1885,14 @@ static bool ft891_menu_get_raw(yaesu_state_t *s, const char *id, char *result, s
 
    return true;
 }
+
 static bool ft891_menu_set_raw(yaesu_state_t *s, const char *id, const char *value) {
    char command[48];
    snprintf(command, sizeof(command), "EX%s%s;", id, value);
 
    return cat(s, command, NULL, NULL, 0);
 }
+
 static void ft891_audio_start(rr_backend_t *b, yaesu_state_t *s) {
    if ((s->model_id != 650 && s->model_id != 670) || s->fd < 0) {
       return;
@@ -1890,6 +1926,7 @@ static void ft891_audio_start(rr_backend_t *b, yaesu_state_t *s) {
       rr_backend_log(b, LOG_INFO, "backend.yaesu", "%s %s (%s): selected %s", model, menu[i].label, id, menu[i].target);
    }
 }
+
 static void ft891_audio_restore(rr_backend_t *b, yaesu_state_t *s) {
    if ((s->model_id != 650 && s->model_id != 670) || s->fd < 0) {
       return;
@@ -1908,6 +1945,7 @@ static void ft891_audio_restore(rr_backend_t *b, yaesu_state_t *s) {
          "confirmed" : "FAILED");
    }
 }
+
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
 
@@ -2011,6 +2049,7 @@ static bool create(rr_backend_t *b) {
 
    return false;
 }
+
 static void destroy(rr_backend_t *b) {
    yaesu_state_t *s = ys(b);
 
@@ -2026,11 +2065,13 @@ static void destroy(rr_backend_t *b) {
    free(s);
    rr_backend_instance_set_data(b, NULL);
 }
+
 static const char *manufacturer(rr_backend_t *b) {
    (void)b;
 
    return "Yaesu";
 }
+
 static const char *model_name(rr_backend_t *b) {
    (void)b;
 

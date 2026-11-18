@@ -72,7 +72,6 @@ static void picker_row_style(GtkTreeViewColumn *column, GtkCellRenderer *cell, G
    }
 }
 
-
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg;
 extern time_t now;
@@ -103,6 +102,7 @@ static void picker_connect_member(const char *name, void *unused) {
       connect_server(name);
    }
 }
+
 static void picker_disconnect_member(const char *name, void *unused) {
    (void)unused;
 
@@ -168,7 +168,6 @@ static void picker_activate(GtkTreeModel *model, GtkTreeIter *iter) {
    }
    g_free(name);
 }
-
 
 static void picker_close(gpointer unused) {
    (void)unused;
@@ -270,7 +269,6 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
 
    return FALSE;
 }
-
 
 static void on_edit_clicked(GtkButton *button, gpointer data) {
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(data));
@@ -800,10 +798,12 @@ static gboolean picker_member_visible(GtkTreeModel *model, GtkTreeIter *iter, gp
 
    return yes;
 }
+
 static void picker_member_search(GtkEditable *entry, gpointer filter) {
    (void)entry;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(filter));
 }
+
 static void picker_member_toggle(GtkCellRendererToggle *cell, gchar *path, gpointer filter) {
    (void)cell;
    GtkTreeIter visible, source;
@@ -817,6 +817,7 @@ static void picker_member_toggle(GtkCellRendererToggle *cell, gchar *path, gpoin
    gtk_tree_model_get(model, &source, 0, &checked, -1);
    gtk_list_store_set(GTK_LIST_STORE(model), &source, 0, !checked, -1);
 }
+
 static void picker_member_choose_network(GtkComboBox *combo, gpointer data) {
    GtkListStore *store = data;
 

@@ -20,6 +20,7 @@ static double resource_health_number(const char *description, const char *label)
 
    return (tail == p || (!g_ascii_isdigit(*p) && *p != '.')) ? -1 : value;
 }
+
 static void resource_health_raise(unsigned *severity, GString *reasons, unsigned level, const char *reason) {
    if (level > *severity) {
       *severity = level;
@@ -30,6 +31,7 @@ static void resource_health_raise(unsigned *severity, GString *reasons, unsigned
    }
    g_string_append(reasons, reason);
 }
+
 static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, unsigned *total, unsigned *bad, unsigned *severity, GString *reasons) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
@@ -145,6 +147,7 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
 void resource_health_queue_free(gpointer value) {
    g_queue_free_full(value, g_free);
 }
+
 static void resource_health_history(const char *key, const char *status, const char *reason, GtkTreeIter *node) {
    const char *previous = g_hash_table_lookup(browser->health_last, key);
    GQueue *events = g_hash_table_lookup(browser->health_events, key);
@@ -293,6 +296,7 @@ static gboolean resource_health_named_child(GtkTreeIter *parent, const char *nam
 
    return FALSE;
 }
+
 static void resource_health_performance(GtkTreeIter *source, gboolean available, GtkTreeIter *node) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter mirror;
@@ -338,6 +342,7 @@ static void resource_health_performance(GtkTreeIter *source, gboolean available,
       gtk_tree_store_remove(browser->store, &stale);
    }
 }
+
 static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen, unsigned *reporting, unsigned *warnings) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    char *name = NULL, *uuid = NULL;
@@ -421,6 +426,7 @@ health_children:
    g_free(name);
    g_free(uuid);
 }
+
 void resource_health_update(void) {
    if (!browser) {
       return;
@@ -490,6 +496,7 @@ void resource_health_update(void) {
    g_free(summary);
    g_hash_table_destroy(seen);
 }
+
 void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
    char *profile = NULL, *uuid = NULL, *action = NULL;
    gtk_tree_model_get(model, item, PROFILE, &profile, UUID, &uuid, ACTION, &action, -1);

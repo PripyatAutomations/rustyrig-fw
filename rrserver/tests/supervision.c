@@ -11,6 +11,7 @@ static rrconn_t noob, second, elmer, other;
 void rrserver_relay_visit_sessions(void (*visitor) (rrconn_t *, void *), void *data) {
    visitor(&other, data);       /* A remote elmer is equally eligible. */
 }
+
 bool rr_ptt_set_all_off_reason(const char *reason) {
    assert(!strcmp(reason, "supervision-lost"));
    releases++;
@@ -21,6 +22,7 @@ bool rr_ptt_set_all_off_reason(const char *reason) {
 
    return fail_release;
 }
+
 bool ws_send_dict(rrconn_t *source, rrconn_t *client, dict *d, int opcode) {
    const char *action = dict_get(d, "talk.action", "");
 
@@ -39,9 +41,11 @@ bool ws_send_dict(rrconn_t *source, rrconn_t *client, dict *d, int opcode) {
 
    return true;
 }
+
 bool ws_send_error(rrconn_t *client, const char *format, ...) {
    return true;
 }
+
 static void account(rrconn_t *client, int uid, const char *name, const char *privs) {
    client->authenticated = client->is_ws = true;
    client->user = &http_users[uid];
@@ -51,6 +55,7 @@ static void account(rrconn_t *client, int uid, const char *name, const char *pri
    snprintf(client->chatname, sizeof(client->chatname), "%s", name);
    snprintf(client->token, sizeof(client->token), "session-%d", uid);
 }
+
 static void respond(rrconn_t *client, const char *action, const char *id) {
    dict *d = dict_new();
    char tail[96];
@@ -62,6 +67,7 @@ static void respond(rrconn_t *client, const char *action, const char *id) {
    free(json);
    dict_free(d);
 }
+
 static void touch(rrconn_t *client, const char *type, const char *cmd) {
    dict *d = dict_new();
    dict_add(d, "msg.type", type);
@@ -72,6 +78,7 @@ static void touch(rrconn_t *client, const char *type, const char *cmd) {
    activity("", &io, sizeof(io), client, NULL);
    dict_free(d);
 }
+
 int main(void) {
    event_init();
    cfg = dict_new();

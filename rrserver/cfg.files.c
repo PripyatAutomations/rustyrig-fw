@@ -56,6 +56,7 @@ static bool share_config(const char *path, int line, const char *section, const 
 
    return ok;
 }
+
 bool rrserver_files_config_init(void) {
    return cfg_add_callback(NULL, "share", share_config) && cfg_add_callback(NULL, "share:*", share_config);
 }

@@ -12,9 +12,11 @@ const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, cons
 
    return "bridge-test";
 }
+
 int rrserver_bridge_hints_load(const char *name, const char *driver, rrp_bridge_ipc_message_t *out) {
    return 0;
 }
+
 bool rrserver_bridge_hints_save(const char *name, const char *driver, const rrp_bridge_ipc_message_t *caps) {
    return true;
 }
@@ -22,6 +24,7 @@ bool rrserver_bridge_hints_save(const char *name, const char *driver, const rrp_
 char *rrserver_bridge_metadata_get(const char *name, const char *driver, const char *key) {
    return NULL;
 }
+
 bool rrserver_bridge_metadata_set(const char *name, const char *driver, const char *key, const char *value) {
    return true;
 }
@@ -35,6 +38,7 @@ static void done(rr_control_result_t result, void *user) {
    completed = result;
    completions++;
 }
+
 static void program_lookup(void) {
    char work[] = "/tmp/rrbridge-path-XXXXXX";
    assert(mkdtemp(work));
@@ -86,6 +90,7 @@ static void program_lookup(void) {
    g_free(search);
    g_free(cwd);
 }
+
 int main(void) {
    program_lookup();
    rr_server_rig_t *radio = rr_server_rig_new("test-rig", "receiver");

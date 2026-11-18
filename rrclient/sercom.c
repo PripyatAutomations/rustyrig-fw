@@ -139,7 +139,6 @@ static bool serial_pty_startup_cleanup(void) {
    return true;
 }
 
-
 static rr_event_token_t gps_output_token, serial_message_token, serial_binary_token;
 static rr_event_token_t authorized_token, disconnected_token, auth_error_token, http_error_token;
 static GSource *host_timer, *gps_invalid_timer;
@@ -157,6 +156,7 @@ static void console_connection_status(serial_binding_t *b, const char *status) {
    snprintf(message, sizeof(message), "%s:%s", b->name, status);
    event_emit("serial.console.connection", NULL, message);
 }
+
 static void host_retry(serial_binding_t *b, const char *reason) {
    b->stream = 0;
    b->opening = b->tx_pending = b->rx_pending = false;
@@ -174,11 +174,13 @@ static void host_retry(serial_binding_t *b, const char *reason) {
    rr_serial_read_enabled(b->port, false);
    console_connection_status(b, reason);
 }
+
 static void console_configuration_status(serial_binding_t *b, const char *status) {
    char message[128];
    snprintf(message, sizeof(message), "%s:%s", b->name, status);
    event_emit("serial.console.configuration", NULL, message);
 }
+
 static void console_notify(const char *name, const char *bytes, size_t len, bool incoming) {
    for (rr_sercom_observer_t *o = console_observers ; o ; o = o->next) {
       if (!strcmp(o->name, name)) {
@@ -186,6 +188,7 @@ static void console_notify(const char *name, const char *bytes, size_t len, bool
       }
    }
 }
+
 rr_sercom_observer_t *rr_sercom_observe(const char *name, rr_sercom_console_fn callback, void *user) {
    if (!name || !*name || !callback) {
       return NULL;
@@ -203,6 +206,7 @@ rr_sercom_observer_t *rr_sercom_observe(const char *name, rr_sercom_console_fn c
 
    return o;
 }
+
 void rr_sercom_unobserve(rr_sercom_observer_t *observer) {
    rr_sercom_observer_t **p = &console_observers;
    while (*p && *p != observer) {
@@ -214,9 +218,6 @@ void rr_sercom_unobserve(rr_sercom_observer_t *observer) {
       free(observer);
    }
 }
-
-
-
 
 static bool host_binding(const serial_binding_t *b) {
    return b->host_port[0];
@@ -231,6 +232,7 @@ static serial_binding_t *binding(const char *name) {
 
    return NULL;
 }
+
 const char *rr_sercom_binding(const char *name) {
    serial_binding_t *b = binding(name);
 
@@ -241,6 +243,7 @@ const char *rr_sercom_binding(const char *name) {
 static rrconn_t *binding_connection(const serial_binding_t *b) {
    return b->profile[0] ? rrclient_connection_find(b->profile) : rrclient_connection_context();
 }
+
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    serial_binding_t *b = binding(name);
 
@@ -318,6 +321,7 @@ static void gps_send_invalid(serial_binding_t *b) {
       console_notify(b->name, batch, used, true);
    }
 }
+
 static gboolean gps_invalid_tick(gpointer unused) {
    (void)unused;
 
@@ -360,6 +364,7 @@ static bool modem_port_valid(const char *name) {
 
    return strlen(name) < 64;
 }
+
 static void modem_target(const char *radio, char *target, size_t length) {
    char key[128];
    snprintf(key, sizeof(key), "serial.modem.active.%s", radio);
@@ -396,6 +401,7 @@ static void modem_switch(serial_binding_t *b, const char *target, bool force) {
    snprintf(b->host_port, sizeof(b->host_port), "%s", target);
    console_connection_status(b, "CONNECTING");
 }
+
 bool rr_sercom_select_modem(const char *port) {
    serial_binding_t *b = binding("ttyMODEM");
 
@@ -551,6 +557,7 @@ rrconn_t *rr_cat_connection(void) {
 
    return connection && connection->authenticated && connection->is_ws ? connection : NULL;
 }
+
 static const dict *cat_radio(void) {
    if (!rr_cat_connection() || !cat_context->radio[0]) {
       return NULL;
@@ -558,6 +565,7 @@ static const dict *cat_radio(void) {
 
    return rrclient_object_find_alias("rig", NULL, cat_context->radio);
 }
+
 const char *rr_cat_room(void) {
    if (!rr_cat_connection()) {
       return NULL;
@@ -573,6 +581,7 @@ const char *rr_cat_room(void) {
 
    return room && *room ? room : NULL;
 }
+
 static const dict *cat_property(const char *vfo, const char *property) {
    const dict *radio = cat_radio();
 
@@ -596,6 +605,7 @@ static const dict *cat_property(const char *vfo, const char *property) {
 
    return state && dict_get_bool((dict *) state, "property.known", false) ? state : NULL;
 }
+
 const char *rr_cat_property(const char *vfo, const char *property, const char *fallback) {
    if (!cat_context) {
       return vfo_state_get(vfo, "cat.state.mode", fallback);
@@ -604,6 +614,7 @@ const char *rr_cat_property(const char *vfo, const char *property, const char *f
 
    return state ? dict_get((dict *) state, "property.value", fallback) : fallback;
 }
+
 long rr_cat_property_long(const char *vfo, const char *property, long fallback) {
    /* Valid HF dial frequency for Hamlib startup while no rig is attached. This is only a synthetic idle value, never a request to tune a rig. */
    if (cat_context && !strcmp(cat_context->service, "rig.cat") && !cat_context->radio[0] && !strcmp(property, "frequency")) {
@@ -630,6 +641,7 @@ long rr_cat_property_long(const char *vfo, const char *property, long fallback) 
 
    return vfo_state_get_long(vfo, key, fallback);
 }
+
 bool rr_cat_property_bool(const char *property, bool fallback) {
    if (!cat_context) {
       return vfo_state_get_bool("A", "cat.state.ptt", fallback);
@@ -655,22 +667,27 @@ bool rr_cat_property_bool(const char *property, bool fallback) {
 const char *rr_cat_model(void) {
    return cat_context ? cat_context->cat_model : "ft891";
 }
+
 char rr_cat_timeout_get(void) {
    return cat_context ? cat_context->cat_timeout : '0';
 }
+
 void rr_cat_timeout_set(char value) {
    if (cat_context) {
       cat_context->cat_timeout = value;
    }
 }
+
 int rr_cat_tx_vfo_get(void) {
    return cat_context ? cat_context->cat_tx_vfo : 0;
 }
+
 void rr_cat_tx_vfo_set(int value) {
    if (cat_context) {
       cat_context->cat_tx_vfo = value;
    }
 }
+
 char rr_cat_active_vfo(void) {
    if (!cat_context) {
       return vfo_state_get_active();
@@ -678,6 +695,7 @@ char rr_cat_active_vfo(void) {
 
    return cat_context->vfo;
 }
+
 int rr_cat_serial_reply(const char *data, size_t len) {
    // Replies only go to the requesting endpoint, never every attached port.
    if (!cat_context || !rr_serial_write(cat_context->port, data, len)) {
@@ -722,6 +740,7 @@ static void host_command(serial_binding_t *b, const char *command) {
    ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
+
 static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings_t *b) {
    return a->baud != b->baud || a->bits != b->bits || a->parity != b->parity || a->stops != b->stops;
 }
@@ -815,6 +834,7 @@ static void host_sync(serial_binding_t *b) {
    b->tx_pending = true;
    rr_serial_read_enabled(b->port, b->host_pending->len < b->buffer_limit - 512);
 }
+
 static gboolean host_tick(gpointer user) {
    (void)user;
 
@@ -824,6 +844,7 @@ static gboolean host_tick(gpointer user) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void host_connection(const char *event, const char *data, rrconn_t *client, void *user) {
    bool authorized = !strcmp(event, "authorized");
 
@@ -851,6 +872,7 @@ static void host_connection(const char *event, const char *data, rrconn_t *clien
       }
    }
 }
+
 static void host_message(const char *event, const char *data, rrconn_t *client, void *user) {
    if (client && client != rrclient_connection_context()) {
       return;
@@ -965,6 +987,7 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
 done:
    dict_free(d);
 }
+
 static void host_frame(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
    if (!client || !client->authenticated) {
       return;
@@ -998,6 +1021,7 @@ static const char *gps_service(const serial_binding_t *b) {
 
    return dot ? dot + 1 : b->service;
 }
+
 static bool gps_scope(const serial_binding_t *b, char *scope, size_t capacity) {
    const char *dot = strrchr(b->service, '.');
 
@@ -1021,6 +1045,7 @@ static bool gps_scope(const serial_binding_t *b, char *scope, size_t capacity) {
 
    return true;
 }
+
 static void gps_outputs_changed(void) {
    char scopes[1024] = "";
 
@@ -1041,6 +1066,7 @@ static void gps_outputs_changed(void) {
 
    event_emit("serial.gps.outputs.changed", NULL, scopes);
 }
+
 static void gps_output(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = data && data[0] == '{' ? json2dict(data) : NULL;
    const char *sentence = d ? dict_get(d, "gps.nmea", NULL) : data;
@@ -1255,6 +1281,7 @@ bool rr_sercom_line_settings(const char *name, rr_serial_settings_t *settings) {
 
    return rr_serial_get_settings(b->port, settings);
 }
+
 bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *settings) {
    serial_binding_t *b = binding(name);
 
@@ -1333,6 +1360,7 @@ static bool name_valid(const char *name) {
 
    return true;
 }
+
 static bool service_radio(const char *service, char *radio, size_t len) {
    size_t n = service ? strlen(service) : 0;
 
@@ -1358,6 +1386,7 @@ static bool service_radio(const char *service, char *radio, size_t len) {
 
    return true;
 }
+
 bool rr_sercom_attach(const char *name, const char *service, const char *device) {
    if (!name_valid(name) || !service || strlen(service) >= 96 || binding(name)) {
       return false;
@@ -1562,6 +1591,7 @@ failed:
 
    return false;
 }
+
 bool rr_sercom_disconnect(const char *name) {
    serial_binding_t **link = &bindings;
    while (*link && strcmp((*link)->name, name)) {
@@ -1604,6 +1634,7 @@ static bool vrig_valid(const char *rig) {
 
    return true;
 }
+
 static void vrig_restore(void) {
    for (unsigned i = 0 ; i < RR_SERCOM_VRIG_MAX ; i++) {
       char *key = g_strdup_printf("serial.vrig.%u.profile", i);
@@ -1636,6 +1667,7 @@ static void vrig_restore(void) {
       g_free(rig);
    }
 }
+
 static void vrig_apply_profiles(void) {
    for (unsigned i = 0 ; i < RR_SERCOM_VRIG_MAX ; i++) {
       char *key = g_strdup_printf("serial.vrig.%u.profile", i);
@@ -1665,6 +1697,7 @@ static void vrig_apply_profiles(void) {
       g_free(rig);
    }
 }
+
 static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
    rr_sercom_vrig_bind_result_t result = {
@@ -1870,11 +1903,13 @@ void rr_sercom_shutdown(void) {
       pty_directory_lock = -1;
    }
 }
+
 static void serial_attach_in_context(void *arg) {
    dict *request = arg;
    bool ok = rr_sercom_attach(dict_get(request, "name", ""), dict_get(request, "service", ""), NULL);
    dict_add(request, "success", ok ? "true" : "false");
 }
+
 static void serial_attach_event(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -1901,6 +1936,7 @@ static void serial_attach_event(const char *event, const char *payload, rrconn_t
    dict_free(reply);
    dict_free(request);
 }
+
 bool rr_sercom_init(void) {
    if (!remote_modem_token) {
       remote_modem_token = event_on_message_domain_token(RR_SERCOM_MODEM_REQUEST, remote_modem_request, NULL, "core");
@@ -2012,10 +2048,12 @@ bool rr_sercom_init(void) {
 
    return ok;
 }
+
 static void list_port(rr_serial_t *port, void *user) {
    const char *service = rr_sercom_binding(rr_serial_name(port));
    ui_print(NULL, "%s: %s -> %s", rr_serial_name(port), rr_serial_path(port), service ? service : "unbound");
 }
+
 bool cmd_sercom(int argc, char **args) {
    bool list = argc == 1 || (argc == 2 && !strcasecmp(args[1], "list"));
    bool remote = argc == 2 && !strcasecmp(args[1], "remote");

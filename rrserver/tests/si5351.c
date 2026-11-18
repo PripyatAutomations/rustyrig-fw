@@ -28,6 +28,7 @@ static bool read_reg(void *context, uint8_t reg, uint8_t *value) {
 
    return true;
 }
+
 static bool write_reg(void *context, uint8_t reg, const uint8_t *value, size_t count) {
    fake_t *f = context;
    f->writes++;
@@ -50,6 +51,7 @@ static bool write_reg(void *context, uint8_t reg, const uint8_t *value, size_t c
 
    return true;
 }
+
 static double ratio(const uint8_t *r) {
    unsigned p1 = ((r[2] & 3) << 16) | (r[3] << 8) | r[4];
    unsigned p2 = ((r[5] & 15) << 16) | (r[6] << 8) | r[7];
@@ -58,6 +60,7 @@ static double ratio(const uint8_t *r) {
 
    return (p1 + 512 + (double)p2 / p3) / 128;
 }
+
 int main(void) {
    rr_si5351_config_t c = {
       25000000, 0, 10, 2

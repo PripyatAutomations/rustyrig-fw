@@ -78,6 +78,7 @@ static char display[8192];
 static void display_line(const char *line, void *user) {
    snprintf(display + strlen(display), sizeof(display) - strlen(display), "%s\n", line);
 }
+
 int main(void) {
    rr_object_cache_t *c = rr_object_cache_new();
    dict *d = msg("object", "begin", 0);

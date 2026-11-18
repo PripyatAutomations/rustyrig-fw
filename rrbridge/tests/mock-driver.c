@@ -24,9 +24,11 @@ static void *create(const rrp_sdr_host_t *host) {
 
    return r;
 }
+
 static void destroy(void *instance) {
    free(instance);
 }
+
 static bool capabilities(void *instance, rrp_sdr_capabilities_t *caps) {
    (void)instance;
    *caps = (rrp_sdr_capabilities_t) {
@@ -35,6 +37,7 @@ static bool capabilities(void *instance, rrp_sdr_capabilities_t *caps) {
 
    return true;
 }
+
 static bool start(void *instance) {
    struct receiver *r = instance;
    const char *path = r->host.setting(r->host.user, "pid-file");
@@ -49,6 +52,7 @@ static bool start(void *instance) {
 
    return true;
 }
+
 static bool set_receiver(void *instance, uint64_t request, uint64_t hz, const char *mode) {
    struct receiver *r = instance;
 
@@ -62,6 +66,7 @@ static bool set_receiver(void *instance, uint64_t request, uint64_t hz, const ch
 
    return true;
 }
+
 static void poll_receiver(void *instance) {
    struct receiver *r = instance;
 
@@ -88,6 +93,7 @@ rr_module_event_t modexports[] = { {
 bool rr_module_init(void) {
    return rrp_sdr_register(&driver);
 }
+
 void rr_module_shutdown(void) {
    rrp_sdr_unregister(&driver);
 }

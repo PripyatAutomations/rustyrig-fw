@@ -153,6 +153,7 @@ static gboolean frontend_gtk_flush_vfo(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
    if (dying) {
       return;
@@ -379,6 +380,7 @@ static gboolean frontend_gtk_flush_roster(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_userlist_redraw(void) {
    // One network sweep can deliver many observations. Core callers publish a
    // single event; GTK-thread listeners coalesce and schedule the widget paint.
@@ -388,6 +390,7 @@ static void frontend_gtk_userlist_redraw(void) {
       });
    }
 }
+
 static void frontend_gtk_roster_redraw_event(const rr_event_message_t *message, void *unused) {
    (void)message;
    (void)unused;
@@ -483,11 +486,13 @@ static gboolean frontend_gtk_ui_deliver(gpointer opaque) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_ui_delivery_free(gpointer opaque) {
    GtkUiDelivery *d = opaque;
    g_free(d->room);
    g_free(d);
 }
+
 static void frontend_gtk_ui_post(GtkUiAction action, const char *room, int value) {
    GtkUiDelivery *d = g_new0(GtkUiDelivery, 1);
    d->action = action;
@@ -511,21 +516,27 @@ static void frontend_gtk_ui_post(GtkUiAction action, const char *room, int value
    g_source_attach(source, frontend_gtk_event_context);
    g_source_unref(source);
 }
+
 static void frontend_gtk_userlist_set_visible(bool visible) {
    frontend_gtk_ui_post(GTK_UI_VISIBLE, NULL, visible);
 }
+
 static void frontend_gtk_room_state_changed(const char *room) {
    frontend_gtk_ui_post(GTK_UI_ROOM_STATE, room, 0);
 }
+
 static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
    frontend_gtk_ui_post(GTK_UI_ROOM_VFOS, room, 0);
 }
+
 static void frontend_gtk_chat_clear(void) {
    frontend_gtk_ui_post(GTK_UI_CHAT_CLEAR, NULL, 0);
 }
+
 static void frontend_gtk_rx_volume(int value) {
    frontend_gtk_ui_post(GTK_UI_RX_VOLUME, NULL, value);
 }
+
 static void frontend_gtk_freq_set(long freq) {
    GtkUiDelivery *d = g_new0(GtkUiDelivery, 1);
    d->action = GTK_UI_FREQ;
@@ -544,21 +555,27 @@ static void frontend_gtk_freq_set(long freq) {
       frontend_gtk_ui_delivery_free(d);
    }
 }
+
 static void frontend_gtk_mode_set(const char *mode) {
    frontend_gtk_ui_post(GTK_UI_MODE, mode, 0);
 }
+
 static void frontend_gtk_conn_button(int connected) {
    frontend_gtk_ui_post(GTK_UI_CONNECTION, NULL, connected);
 }
+
 static void frontend_gtk_ptt_set_online(bool online) {
    frontend_gtk_ui_post(GTK_UI_PTT_ONLINE, NULL, online);
 }
+
 static void frontend_gtk_ptt_set_state(bool active) {
    frontend_gtk_ui_post(GTK_UI_PTT_STATE, NULL, active);
 }
+
 static void frontend_gtk_ptt_tot_expired(int secs) {
    frontend_gtk_ui_post(GTK_UI_PTT_TOT, NULL, secs);
 }
+
 static void frontend_gtk_ptt_refresh(void) {
    frontend_gtk_ui_post(GTK_UI_PTT_REFRESH, NULL, 0);
 }
@@ -641,6 +658,7 @@ static void frontend_gtk_owner_action_event(const rr_event_message_t *message, v
       }
    }
 }
+
 static void frontend_gtk_owner_post(GtkOwnerAction action, const char *a, const char *b, int value) {
    size_t al = strlen(a ? a : "") + 1, bl = strlen(b ? b : "") + 1;
 
@@ -662,33 +680,43 @@ static void frontend_gtk_owner_post(GtkOwnerAction action, const char *a, const 
    event_emit_message(&message);
    g_free(payload);
 }
+
 static void frontend_gtk_codec_set_active(bool is_tx, const char *codec) {
    frontend_gtk_owner_post(GTK_OP_CODEC, codec, NULL, is_tx);
 }
+
 static void frontend_gtk_syslog_clear(void) {
    frontend_gtk_owner_post(GTK_OP_CLEAR_LOG, NULL, NULL, 0);
 }
+
 static void frontend_gtk_focus_tab(const char *tab) {
    frontend_gtk_owner_post(GTK_OP_FOCUS, tab, NULL, 0);
 }
+
 static void frontend_gtk_switch_window(int id) {
    frontend_gtk_owner_post(GTK_OP_WINDOW, NULL, NULL, id);
 }
+
 static void frontend_gtk_alert(const char *message) {
    frontend_gtk_owner_post(GTK_OP_ALERT, message, NULL, 0);
 }
+
 static void frontend_gtk_edit_config(const char *path) {
    frontend_gtk_owner_post(GTK_OP_EDIT, path, NULL, 0);
 }
+
 static void frontend_gtk_bell(void) {
    frontend_gtk_owner_post(GTK_OP_BELL, NULL, NULL, 0);
 }
+
 static void frontend_gtk_notify(const char *title, const char *message) {
    frontend_gtk_owner_post(GTK_OP_NOTIFY, title, message, 0);
 }
+
 static void frontend_gtk_show_server_chooser(void) {
    frontend_gtk_owner_post(GTK_OP_CHOOSER, NULL, NULL, 0);
 }
+
 static void frontend_gtk_webcam_show(bool show) {
    frontend_gtk_owner_post(GTK_OP_WEBCAM, NULL, NULL, show);
 }
@@ -742,6 +770,7 @@ static gboolean frontend_gtk_chat_command_run(gpointer opaque) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_chat_command_free(gpointer opaque) {
    GtkChatCommand *cmd = opaque;
    gtk_chat_context_clear(&cmd->context);
@@ -749,6 +778,7 @@ static void frontend_gtk_chat_command_free(gpointer opaque) {
    g_free(cmd->b);
    g_free(cmd);
 }
+
 static void frontend_gtk_chat_command(GtkChatAction action, const char *a, const char *b) {
    GtkChatCommand *cmd = g_new0(GtkChatCommand, 1);
    cmd->action = action;
@@ -767,27 +797,35 @@ static void frontend_gtk_chat_command(GtkChatAction action, const char *a, const
    g_source_attach(source, frontend_gtk_event_context);
    g_source_unref(source);
 }
+
 static void frontend_gtk_chat_room_add(const char *room) {
    frontend_gtk_chat_command(GTK_CHAT_ADD, room, NULL);
 }
+
 static void frontend_gtk_chat_room_remove(const char *room) {
    frontend_gtk_chat_command(GTK_CHAT_REMOVE, room, NULL);
 }
+
 static void frontend_gtk_chat_room_topic(const char *room, const char *topic) {
    frontend_gtk_chat_command(GTK_CHAT_TOPIC, room, topic);
 }
+
 static void frontend_gtk_chat_show_status(void) {
    frontend_gtk_chat_command(GTK_CHAT_STATUS, NULL, NULL);
 }
+
 static void frontend_gtk_chat_set_authoritative_room(const char *room) {
    frontend_gtk_chat_command(GTK_CHAT_AUTH, room, NULL);
 }
+
 static void frontend_gtk_chat_query_add(const char *who) {
    frontend_gtk_chat_command(GTK_CHAT_QUERY, who, NULL);
 }
+
 static void frontend_gtk_chat_room_vfos_changed(const char *room) {
    frontend_gtk_chat_command(GTK_CHAT_VFOS, room, NULL);
 }
+
 static const char *frontend_gtk_chat_current_room(void) {
    /* Never return a borrowed GtkWidget-backed string to core. Core callers must use their authoritative selected-room state instead. */
    if (g_thread_self() != frontend_gtk_owner) {
@@ -902,6 +940,7 @@ static gboolean frontend_gtk_deliver_event(gpointer opaque) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_dispatch_event(event_dispatch_fn_t fn, void *arg, void *user) {
    GMainContext *context = user;
    GtkEventDelivery *delivery = g_new(GtkEventDelivery, 1);
@@ -995,6 +1034,7 @@ static void frontend_gtk_password_prompt_event(const rr_event_message_t *message
    });
    explicit_bzero(&req, sizeof(req));
 }
+
 static void frontend_gtk_password_result_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -1044,6 +1084,7 @@ static void frontend_gtk_auth_failure_response(GtkDialog *dialog, gint response,
    }
    g_free(profile);
 }
+
 static void frontend_gtk_auth_failure_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -1089,13 +1130,16 @@ static void frontend_gtk_tls_pin_finish(GtkTlsTrustPrompt *prompt, gint response
       .name = RRCLIENT_TLS_PIN_REPLY_EVENT, .payload = &request, .length = sizeof(request)
    });
 }
+
 static void frontend_gtk_tls_pin_close(gpointer user) {
    frontend_gtk_tls_pin_finish(user, 0);
 }
+
 static void frontend_gtk_tls_pin_response(RRFloatPanel *panel, gint response, gpointer user) {
    (void)panel;
    frontend_gtk_tls_pin_finish(user, response);
 }
+
 static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -1202,6 +1246,7 @@ static void mesh_invitation_close(gpointer unused) {
       rr_floating_panel_destroy(panel);
    }
 }
+
 static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -1267,6 +1312,7 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
    gtk_text_buffer_get_bounds(buffer, &start, &end);
    gtk_text_buffer_select_range(buffer, &start, &end);
 }
+
 static void frontend_gtk_server_picker_show_event(const rr_event_message_t *message, void *unused) {
    (void)message;
    (void)unused;
@@ -1538,6 +1584,7 @@ static gboolean frontend_gtk_grab_watchdog(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void frontend_gtk_run(void) {
    frontend_gtk_assert_owner();
    guint grab_watchdog = g_timeout_add_seconds(2, frontend_gtk_grab_watchdog, NULL);
@@ -1554,6 +1601,7 @@ static gboolean frontend_gtk_quit_on_owner(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_quit(void) {
    if (g_thread_self() == frontend_gtk_owner) {
       frontend_gtk_quit_on_owner(NULL);
@@ -1639,12 +1687,14 @@ static gboolean frontend_gtk_nick_prompt_deliver(gpointer opaque) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_nick_prompt_free(gpointer opaque) {
    GtkNickPrompt *p = opaque;
    g_free(p->profile);
    g_free(p->nickname);
    g_free(p);
 }
+
 static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickname) {
    if (!profile) {
       return;
@@ -1695,6 +1745,7 @@ static void frontend_gtk_chat_incoming_event(const rr_event_message_t *message, 
    }
    gtk_chat_incoming(*room ? room : NULL, header.query != 0, *text ? text : NULL, *nickname ? nickname : NULL);
 }
+
 static void frontend_gtk_chat_incoming(const char *room, bool query, const char *text, const char *nickname) {
    size_t rl = strlen(room ? room : "") + 1, tl = strlen(text ? text : "") + 1;
    size_t nl = strlen(nickname ? nickname : "") + 1;
@@ -1757,6 +1808,7 @@ static void frontend_gtk_supervision_event(const rr_event_message_t *message, vo
    }
    gtk_supervision_result_profile(data, profile);
 }
+
 static void frontend_gtk_supervision_result(const char *data, rrconn_t *connection) {
    const char *profile = rrclient_connection_name(connection);
 
@@ -1814,6 +1866,7 @@ static void frontend_gtk_admin_result(const char *data, rrconn_t *connection) {
    event_emit_message(&event);
    g_free(payload);
 }
+
 static void frontend_gtk_admin_result_event(const rr_event_message_t *event, void *unused) {
    (void)unused;
 
@@ -1835,7 +1888,6 @@ static void frontend_gtk_admin_result_event(const rr_event_message_t *event, voi
    }
    gtk_admin_result_profile(data, profile);
 }
-
 
 const rr_frontend_ops_t gtk_frontend_ops = {
    .show_decoders = gtk_decoders_show,

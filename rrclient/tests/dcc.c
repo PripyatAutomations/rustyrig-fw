@@ -27,6 +27,7 @@ static void state(const char *event, const char *data, rrconn_t *client, void *u
    }
    dict_free(d);
 }
+
 static void chat(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)client;
@@ -37,6 +38,7 @@ static void chat(const char *event, const char *data, rrconn_t *client, void *us
    snprintf(chat_text, sizeof(chat_text), "%s", dict_get(d, "dcc.text", ""));
    dict_free(d);
 }
+
 static unsigned free_port(void) {
    int fd = socket(AF_INET, SOCK_STREAM, 0);
    assert(fd >= 0);
@@ -51,6 +53,7 @@ static unsigned free_port(void) {
 
    return port;
 }
+
 static irc_dcc_options_t options(void) {
    unsigned port = free_port();
 
@@ -58,6 +61,7 @@ static irc_dcc_options_t options(void) {
              .bind = "127.0.0.1", .host = "127.0.0.1", .port_min = port, .port_max = port
    };
 }
+
 static void deliver(int fd) {
    char wire[1024], line[1200];
    ssize_t n = recv(fd, wire, sizeof(wire) - 1, 0);
@@ -72,11 +76,13 @@ static void deliver(int fd) {
    incoming = 0;
    assert(!irc_process_message(&bob, line) && incoming);
 }
+
 static void polls(unsigned count) {
    for (unsigned i = 0 ; i < count ; i++) {
       irc_dcc_poll();
    }
 }
+
 static int temporary(void) {
    char path[] = "/tmp/rr-dcc-test-XXXXXX";
    int fd = mkstemp(path);
@@ -85,6 +91,7 @@ static int temporary(void) {
 
    return fd;
 }
+
 static unsigned session_count(void) {
    unsigned n = 0;
    irc_dcc_session_t info;
@@ -93,6 +100,7 @@ static unsigned session_count(void) {
    }
    return n;
 }
+
 static int raw_connect(unsigned id) {
    struct dcc_session *s = find(&alice, id);
    assert(s);
@@ -110,6 +118,7 @@ static int raw_connect(unsigned id) {
 
    return fd;
 }
+
 int main(void) {
    event_init();
    assert(!irc_init());

@@ -229,6 +229,7 @@ static void ptt_audit_with_session(rrconn_t *talker, const char *details) {
    db_add_audit_event_session(masterdb, talker ? talker->chatname : "unknown", "ptt", details, public_id);
    g_free(digest);
 }
+
 #endif
 
 // Snapshot the VFO state and open a ptt_log row for the talker
@@ -451,6 +452,7 @@ static void ptt_worker_closed(const char *event, const char *data, rrconn_t *cli
       }
    }
 }
+
 static void ptt_worker_completed(rr_backend_t *backend, rr_server_vfo_t *vfo, bool failed, void *user) {
    pending_ptt_t *pending = user;
    pending_ptt_t **link = &pending_ptt;

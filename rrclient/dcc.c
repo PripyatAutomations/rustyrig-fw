@@ -51,6 +51,7 @@ static const char *dcc_window(rrconn_t *client, unsigned id, bool bind_current) 
 
    return dcc_windows[empty].window;
 }
+
 static void offered(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -65,6 +66,7 @@ static void offered(const char *event, const char *data, rrconn_t *client, void 
       nick, profile ? profile : "IRC", nick);
    dict_free(notice);
 }
+
 static unsigned list_audio(void) {
    unsigned count = 0;
    irc_audio_session_t session;
@@ -78,6 +80,7 @@ static unsigned list_audio(void) {
 
    return count;
 }
+
 static bool cmd_audio(int argc, char **args) {
    if (argc < 1 || !args) {
       return true;
@@ -129,6 +132,7 @@ static bool cmd_audio(int argc, char **args) {
 
    return !result;
 }
+
 static unsigned list_sessions(void) {
    unsigned count = list_audio();
    irc_dcc_session_t session;
@@ -154,6 +158,7 @@ static unsigned list_sessions(void) {
 
    return count;
 }
+
 static char *command_rest(int argc, char **args, int first) {
    size_t size = 1;
 
@@ -184,6 +189,7 @@ static char *command_rest(int argc, char **args, int first) {
 
    return result;
 }
+
 static bool session_id(const char *text, unsigned *id) {
    if (!text || !*text) {
       return false;
@@ -205,6 +211,7 @@ static bool session_id(const char *text, unsigned *id) {
 
    return result != 0;
 }
+
 static bool matching_session(unsigned id, irc_dcc_type_t type, bool pending) {
    irc_dcc_session_t session;
 
@@ -216,6 +223,7 @@ static bool matching_session(unsigned id, irc_dcc_type_t type, bool pending) {
 
    return false;
 }
+
 static bool receive_file(unsigned id, int argc, char **args, int first, bool download) {
    irc_dcc_session_t session;
    bool found = false;
@@ -439,6 +447,7 @@ usage:
 
    return true;
 }
+
 static void dcc_notice(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -472,6 +481,7 @@ static void dcc_notice(const char *event, const char *data, rrconn_t *client, vo
    }
    dict_free(d);
 }
+
 static void dcc_chat(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)client;
@@ -511,6 +521,7 @@ static void dcc_output_deliver(void *data) {
    struct dcc_output *output = data;
    output->callback(output->event, output->data, output->client, NULL);
 }
+
 static void dcc_output_event(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)user;
    struct dcc_output output = {
@@ -519,6 +530,7 @@ static void dcc_output_event(const char *event, const char *data, rrconn_t *clie
    };
    rrclient_connection_dispatch(client, dcc_output_deliver, &output);
 }
+
 void rrclient_dcc_register_events(void) {
    irc_audio_sessions_init();
    irc_dcc_init();
@@ -526,10 +538,12 @@ void rrclient_dcc_register_events(void) {
    event_on(IRC_DCC_CHAT_EVENT, dcc_output_event, NULL);
    event_on(IRC_AUDIO_OFFER_EVENT, dcc_output_event, NULL);
 }
+
 void rrclient_dcc_poll(void) {
    irc_audio_sessions_poll();
    irc_dcc_poll();
 }
+
 void rrclient_dcc_capture(const void *pcm, size_t length) {
    if (!cfg_get_bool("dcc.audio.mute", false)) {
       irc_audio_send_pcm(NULL, pcm, length);

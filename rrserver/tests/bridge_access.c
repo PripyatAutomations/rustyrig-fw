@@ -15,16 +15,19 @@ const char *rrserver_relay_client_server(const rrconn_t *client) {
 
    return NULL;
 }
+
 struct remote_session *rr_relay_remote_for(rrconn_t *client) {
    (void)client;
 
    return NULL;
 }
+
 const char *rr_server_rig_id(const rr_server_rig_t *radio) {
    (void)radio;
 
    return "12345678-1234-4234-8234-1234567890ab";
 }
+
 rr_resource_access_t db_resource_access(sqlite3 *db, const char *user, const char *site, const char *kind, const char *uuid, const char *privilege, time_t when)
 {
    (void)db;
@@ -37,6 +40,7 @@ rr_resource_access_t db_resource_access(sqlite3 *db, const char *user, const cha
 
    return RR_RESOURCE_UNSET;
 }
+
 rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *user, const char *site, const char *kind, const char *uuid, const char *privilege, time_t
    when, const char *name) {
    (void)db;
@@ -71,17 +75,21 @@ bool has_priv(int uid, const char *privileges) {
       "websdr.admin")
              && websdr_admin) || (owner || station_admin);
 }
+
 struct rr_backend *rr_server_rig_backend(const rr_server_rig_t *radio) {
    assert(radio == fixture_rig);
 
    return &fixture_backend;
 }
+
 struct rr_server_rig *rrserver_rig_for_room(const char *room) {
    return room && !strcmp(room, "#station-bridge") ? fixture_rig : NULL;
 }
+
 bool ws_send_error(rrconn_t *client, const char *format, ...) {
    return false;
 }
+
 int main(void) {
    http_user_t account = {
       .uid = 1

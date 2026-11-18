@@ -56,12 +56,14 @@ static void clear(rr_object_cache_t *c) {
 rr_object_cache_t *rr_object_cache_new(void) {
    return calloc(1, sizeof(rr_object_cache_t));
 }
+
 void rr_object_cache_free(rr_object_cache_t *c) {
    if (c) {
       clear(c);
       free(c);
    }
 }
+
 bool rr_object_cache_ready(const rr_object_cache_t *c) {
    return c && c->ready;
 }
@@ -504,9 +506,11 @@ bool rr_object_cache_dump_context(rr_object_cache_t *c, const char *reference, c
 
    return true;
 }
+
 bool rr_object_cache_dump_selected(rr_object_cache_t *c, const char *reference, rr_object_cache_dump_fn emit, void *user) {
    return rr_object_cache_dump_context(c, reference, NULL, emit, user);
 }
+
 void rr_object_cache_dump(rr_object_cache_t *c, rr_object_cache_dump_fn emit, void *user) {
    rr_object_cache_dump_selected(c, NULL, emit, user);
 }

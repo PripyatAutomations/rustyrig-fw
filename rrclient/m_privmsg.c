@@ -33,6 +33,7 @@ static char *irc_activity_key(rrconn_t *cptr, const char *room, const char *nick
 
    return key;
 }
+
 static void irc_activity_record(rrconn_t *cptr, const char *room, const char *nick) {
    if (!irc_last_spoke) {
       irc_last_spoke = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
@@ -42,6 +43,7 @@ static void irc_activity_record(rrconn_t *cptr, const char *room, const char *ni
    *when = g_get_monotonic_time();
    g_hash_table_replace(irc_last_spoke, key, when);
 }
+
 static bool irc_activity_recent(rrconn_t *cptr, const char *room, const char *nick) {
    if (!cfg_get_bool("irc.hide-idle-departures", true)) {
       return true;
@@ -60,6 +62,7 @@ static bool irc_activity_recent(rrconn_t *cptr, const char *room, const char *ni
 
    return when && g_get_monotonic_time() - *when <= G_GINT64_CONSTANT(3600) * G_USEC_PER_SEC;
 }
+
 static void irc_activity_forget(rrconn_t *cptr, const char *room, const char *nick) {
    if (!irc_last_spoke) {
       return;

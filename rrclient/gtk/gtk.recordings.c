@@ -37,6 +37,7 @@ static void show_error(const char *message) {
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
 }
+
 static char *ask_name(const char *title, const char *original) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons(title, GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel",
       GTK_RESPONSE_CANCEL, "_OK", GTK_RESPONSE_ACCEPT, NULL);
@@ -51,9 +52,11 @@ static char *ask_name(const char *title, const char *original) {
 
    return answer;
 }
+
 static gboolean valid_name(const char *name) {
    return name && *name && strcmp(name, ".") && strcmp(name, "..") && !strchr(name, '/') && !strchr(name, '\\');
 }
+
 static gboolean in_root(const char *path) {
    if (!path || !ui.root) {
       return FALSE;
@@ -133,6 +136,7 @@ static void move_folder_collect(GPtrArray *folders, const char *folder, unsigned
    }
    g_dir_close(dir);
 }
+
 static gint move_folder_sort(gconstpointer left, gconstpointer right) {
    const char *a = *(char *const *)left, *b = *(char *const *)right;
 
@@ -200,6 +204,7 @@ static char *choose_move_destination(const char *source) {
 
    return destination;
 }
+
 static char *selected(gboolean *folder) {
    GtkTreeIter iter;
    GtkTreeModel *model = NULL;
@@ -266,6 +271,7 @@ static void append_directory(GtkTreeIter *parent, const char *directory, unsigne
    }
    g_dir_close(dir);
 }
+
 static void refresh(void) {
    if (!ui.store || !ui.directory) {
       return;
@@ -287,6 +293,7 @@ static void refresh(void) {
    gtk_label_set_text(GTK_LABEL(ui.status), refresh_rows >= 3000 ? "Showing first 3000 entries (directory tree limit)" : ui.directory);
    gtk_tree_view_expand_all(GTK_TREE_VIEW(ui.tree));
 }
+
 static void navigate(const char *path) {
    if (!in_root(path)) {
       return;
@@ -295,6 +302,7 @@ static void navigate(const char *path) {
    ui.directory = g_strdup(path);
    refresh();
 }
+
 static void do_play(void) {
    gboolean folder = FALSE;
    char *path = selected(&folder);
@@ -306,6 +314,7 @@ static void do_play(void) {
    }
    g_free(path);
 }
+
 static void row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *col, gpointer data) {
    (void)view;
    (void)path;
@@ -313,6 +322,7 @@ static void row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColum
    (void)data;
    do_play();
 }
+
 static void rename_pair(const char *ogg, const char *flac) {
    const char *first = *ogg ? ogg : flac;
 
@@ -352,6 +362,7 @@ static void rename_pair(const char *ogg, const char *flac) {
    g_free(name);
    g_free(basename);
 }
+
 static void recording_finished(const char *event, const char *payload, rrconn_t *connection, void *user) {
    (void)event;
    (void)connection;
@@ -387,6 +398,7 @@ static void recording_finished(const char *event, const char *payload, rrconn_t 
    g_strfreev(fields);
    refresh();
 }
+
 static void playback_finished(const char *event, const char *payload, rrconn_t *connection, void *user) {
    (void)event;
    (void)payload;
@@ -397,6 +409,7 @@ static void playback_finished(const char *event, const char *payload, rrconn_t *
       gtk_label_set_text(GTK_LABEL(ui.status), "Playback finished");
    }
 }
+
 static void recording_refresh(const char *event, const char *payload, rrconn_t *connection, void *user) {
    (void)event;
    (void)payload;
@@ -454,6 +467,7 @@ static gboolean grid_center(const char *grid, double *lat, double *lon) {
 
    return TRUE;
 }
+
 static void locator_record_start(const char *event, const void *data, size_t size, rrconn_t *conn, void *unused) {
    (void)event;
    (void)conn;
@@ -536,6 +550,7 @@ static void locator_record_start(const char *event, const void *data, size_t siz
    g_free(start);
    g_date_time_unref(now);
 }
+
 static void record_clicked(GtkButton *button, gpointer data) {
    (void)data;
 
@@ -612,6 +627,7 @@ static void drag_file_get(GtkWidget *widget, GdkDragContext *context, GtkSelecti
    }
    g_free(path);
 }
+
 static void drag_file_received(GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *selection, guint info, guint time, gpointer unused)
 {
    (void)info;
@@ -656,6 +672,7 @@ static void drag_file_received(GtkWidget *widget, GdkDragContext *context, gint 
       show_error("Move failed. Drop an existing recording onto a folder inside Recordings.");
    }
 }
+
 static void action(GtkButton *button, gpointer data) {
    (void)button;
    const char *op = data;
@@ -760,6 +777,7 @@ static void action(GtkButton *button, gpointer data) {
    }
    g_free(path);
 }
+
 static void closed(gpointer unused) {
    (void)unused;
 
@@ -767,6 +785,7 @@ static void closed(gpointer unused) {
       rr_floating_panel_destroy(ui.panel);
    }
 }
+
 static void destroyed(GtkWidget *widget, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -780,6 +799,7 @@ static void destroyed(GtkWidget *widget, gpointer unused) {
    g_clear_pointer(&ui.directory, g_free);
    g_clear_pointer(&ui.root, g_free);
 }
+
 static void open_browser(const char *event, const char *payload, rrconn_t *connection, void *user) {
    (void)event;
    (void)payload;
@@ -875,6 +895,7 @@ static void open_browser(const char *event, const char *payload, rrconn_t *conne
    gtk_widget_show_all(body);
    rr_floating_panel_show(ui.panel);
 }
+
 void gtk_recordings_init(void) {
    ui.open_token = event_on_domain_token("client.recordings.open", open_browser, NULL, "gtk");
    ui.finished_token = event_on_domain_token("client.recordings.finished", recording_finished, NULL, "gtk");
@@ -882,6 +903,7 @@ void gtk_recordings_init(void) {
    ui.locator_token = event_on_binary_domain_token(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, locator_record_start, NULL, "gtk");
    ui.refresh_token = event_on_domain_token("client.recordings.refresh", recording_refresh, NULL, "gtk");
 }
+
 void gtk_recordings_shutdown(void) {
    event_off_token(ui.open_token);
    event_off_token(ui.finished_token);

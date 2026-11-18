@@ -37,6 +37,7 @@ void rr_internal_parts_close(rr_internal_parts_t *p) {
    g_ptr_array_free(p->claimed, true);
    g_free(p);
 }
+
 bool rr_internal_parts_tune(rr_internal_parts_t *p, unsigned slot, uint32_t hz) {
    if (!p || slot >= MAX_VFOS) {
       errno = EINVAL;
@@ -63,6 +64,7 @@ bool rr_internal_parts_tune(rr_internal_parts_t *p, unsigned slot, uint32_t hz) 
 
    return ok;
 }
+
 bool rr_internal_parts_ptt(rr_internal_parts_t *p, bool active) {
    // Real transmit sequencing is board-specific. Permit simulation only for now.
    if (active && !p->simulated) {
@@ -94,6 +96,7 @@ bool rr_internal_parts_ptt(rr_internal_parts_t *p, bool active) {
 
    return ok;
 }
+
 rr_internal_parts_t *rr_internal_parts_open(rr_backend_t *backend) {
    rr_internal_parts_t *p = g_new0(rr_internal_parts_t, 1);
    p->backend = backend;

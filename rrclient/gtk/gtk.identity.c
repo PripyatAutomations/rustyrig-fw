@@ -35,6 +35,7 @@ GtkWidget *gtk_certificates_button_new(void) {
 static char *gtk_identity_path(void) {
    return g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", "client-ed25519.pem", NULL);
 }
+
 static bool gtk_identity_save_new(rr_crypto_key_t *key, const char *path) {
    char *dir = g_path_get_dirname(path);
    bool ok = g_mkdir_with_parents(dir, 0700) == 0;
@@ -79,6 +80,7 @@ static void identity_message(GtkWindow *parent, GtkMessageType type, const char 
    gtk_dialog_run(GTK_DIALOG(dlg));
    gtk_widget_destroy(dlg);
 }
+
 static char *identity_ask_password(GtkWindow *parent, const char *title, bool confirm) {
    GtkWidget *dlg = gtk_dialog_new_with_buttons(title, parent, GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL, "_OK", GTK_RESPONSE_OK, NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
@@ -106,6 +108,7 @@ static char *identity_ask_password(GtkWindow *parent, const char *title, bool co
 
    return value;
 }
+
 static rr_crypto_key_t *identity_read_key(const char *path, GtkWindow *parent) {
    FILE *f = fopen(path, "rb");
 
@@ -138,9 +141,11 @@ static rr_crypto_key_t *identity_read_key(const char *path, GtkWindow *parent) {
 
    return key;
 }
+
 static void identity_menu_action(GtkMenuItem *item, gpointer dialog) {
    gtk_dialog_response(GTK_DIALOG(dialog), GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "response")));
 }
+
 static gboolean identity_list_menu(GtkWidget *list, GdkEventButton *event, gpointer dialog) {
    if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
       return FALSE;
@@ -180,6 +185,7 @@ static gboolean identity_list_menu(GtkWidget *list, GdkEventButton *event, gpoin
 
    return TRUE;
 }
+
 static char *identity_prompt_name(GtkWindow *parent, const char *title, const char *existing) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons(title, parent, GTK_DIALOG_MODAL, "_Cancel", GTK_RESPONSE_CANCEL, "_OK", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *entry = gtk_entry_new();
@@ -204,6 +210,7 @@ static char *identity_prompt_name(GtkWindow *parent, const char *title, const ch
 
    return name;
 }
+
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    (void)unused;
    (void)unused_data;
@@ -538,6 +545,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    g_free(selected_path);
    g_free(dir);
 }
+
 void gtk_identity_first_run(void) {
    /* Additional identities are first-class; do not show first-run setup solely because the legacy default key is absent. */
    char *keydir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);

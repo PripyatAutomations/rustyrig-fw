@@ -62,7 +62,6 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    }
 }
 
-
 extern GtkWidget *main_notebook;
 extern dict *cfg;
 
@@ -120,7 +119,6 @@ static room_userlist_entry_t *current_room_userlist(void) {
    return room && room_userlist_views ? g_hash_table_lookup(room_userlist_views, gtk_chat_window_name(room)) : NULL;
 }
 
-
 typedef struct room_vfo_control {
    char vfo;
    char room[128];
@@ -151,6 +149,7 @@ static char *userlist_safe_display(const char *text) {
 
    return g_utf8_make_valid(text, -1);
 }
+
 static int userlist_default_width(void) {
    int width = cfg_get_int("ui.userlist-width", 220);
 
@@ -1644,6 +1643,7 @@ static void room_userlist_stop_resize_sources(room_userlist_entry_t *entry) {
       entry->resize_watch_id = 0;
    }
 }
+
 static void room_userlist_paned_destroyed(GtkWidget *widget, gpointer data) {
    room_userlist_entry_t *entry = data;
    room_userlist_stop_resize_sources(entry);
@@ -1653,6 +1653,7 @@ static void room_userlist_paned_destroyed(GtkWidget *widget, gpointer data) {
       entry->paned = NULL;
    }
 }
+
 static gboolean room_userlist_restore_width_idle(gpointer data) {
    room_userlist_entry_t *entry = data;
    entry->resize_idle_id = 0;

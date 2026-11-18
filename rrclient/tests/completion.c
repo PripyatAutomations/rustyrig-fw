@@ -49,9 +49,11 @@ static bool admin;
 bool media_have_priv(const char *p) {
    return admin;
 }
+
 const char *media_get_common_codecs(void) {
    return "pc16 opus g722 oggv opuT";
 }
+
 const char *rrclient_room_iter(unsigned int index) {
    static const char *joined[] = {
       "#station-rig0", "&local-room", "alice"
@@ -59,6 +61,7 @@ const char *rrclient_room_iter(unsigned int index) {
 
    return index < sizeof(joined) / sizeof(joined[0]) ? joined[index] : NULL;
 }
+
 const char *rrclient_room_available_iter(unsigned int index) {
    static const char *available[] = {
       "#discovered-room", "#station-rig0", "not-a-channel"
@@ -91,6 +94,7 @@ const struct rr_client_media_chan *rrclient_media_chan_iter(int i, int *number) 
 
    return i < 5 ? &channels[i] : NULL;
 }
+
 const dict *rrclient_object_ref_iter(int i, char *reference, size_t capacity) {
    static dict *object;
 
@@ -108,6 +112,7 @@ const dict *rrclient_object_ref_iter(int i, char *reference, size_t capacity) {
 
    return object;
 }
+
 static void check(const char *line, const char *word, const char *expected) {
    char **matches = client_cmd_completions(line, word);
    bool found = false;
@@ -132,6 +137,7 @@ static bool completion_handler(tui_window_t *window) {
 
    return true;
 }
+
 int main(void) {
    cfg = dict_new();
    dict_add(cfg, "server:libera.server.url", "irc://irc.libera.chat:6667/");

@@ -47,6 +47,7 @@ static void drag_tab(GtkWidget *source, GtkWidget *target) {
    XFlush(display);
    settle();
 }
+
 #endif
 
 static double channel_luminance(unsigned value) {
@@ -54,6 +55,7 @@ static double channel_luminance(unsigned value) {
 
    return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4);
 }
+
 static void test_colors(GtkNotebook *notebook) {
    const char *names[] = {
       "libera", "localirc", "localhost", "server1", "server2", "server3", "server4"

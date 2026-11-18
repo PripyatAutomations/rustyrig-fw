@@ -17,9 +17,11 @@ static bool legacy_cached_ptt;
 bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
    return legacy_cached_ptt;
 }
+
 const char *rrclient_current_room(void) {
    return current_room;
 }
+
 void vfo_controls_set_ptt_state(bool locked, bool local) {
 }
 
@@ -34,9 +36,11 @@ static bool noob, supervised, room_offline;
 bool rrclient_room_offline(const char *room) {
    return room_offline;
 }
+
 bool media_have_priv(const char *priv) {
    return noob && !strcmp(priv, "noob");
 }
+
 bool rrclient_supervision_granted(rrconn_t *connection, const char *room) {
    return supervised;
 }
@@ -51,25 +55,30 @@ bool ws_send_ptt_cmd_in_room(rrconn_t *connection, const char *vfo, bool state, 
 
    return true;
 }
+
 const char *gtk_chat_current_room(void) {
    return current_room;
 }
+
 const char *rrclient_media_current_codec(bool tx) {
    (void)tx;
 
    return "pc16";
 }
+
 bool audio_switch_codec(const char *codec, bool tx) {
    (void)codec;
    (void)tx;
 
    return false;
 }
+
 struct rr_user *userlist_find(const char *name) {
    (void)name;
 
    return NULL;
 }
+
 bool ui_print(const char *window, const char *format, ...) {
    (void)window;
    (void)format;

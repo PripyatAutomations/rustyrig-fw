@@ -113,7 +113,6 @@ bool cat_register_builtin_array(const CATBuiltin *arr) {
    return true;
 }
 
-
 // Initialize CAT control
 int32_t rr_cat_init(void) {
    Log(LOG_INFO, "cat", "Initializing CAT interfaces");

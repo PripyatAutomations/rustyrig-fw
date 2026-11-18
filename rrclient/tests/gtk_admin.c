@@ -12,6 +12,7 @@ static unsigned admin_site_completions;
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return "alpha";
 }
+
 void ptt_button_refresh(void) {
 }
 
@@ -74,15 +75,19 @@ static gboolean answer_dialog(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 const char *rrclient_selected_server(void) {
    return selected;
 }
+
 rrconn_t *rrclient_connection_find(const char *profile) {
    return !strcmp(profile, "alpha") ? &alpha : NULL;
 }
+
 const char *rrclient_connection_iter(unsigned index) {
    return index == 0 ? "alpha" : NULL;
 }
+
 bool ws_send_dict(rrconn_t *source, rrconn_t *connection, dict *data, int opcode) {
    (void)source;
    (void)opcode;
@@ -99,6 +104,7 @@ bool ws_send_dict(rrconn_t *source, rrconn_t *connection, dict *data, int opcode
 
    return true;
 }
+
 static void capture_admin_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
    (void)event;
    (void)connection;
@@ -113,6 +119,7 @@ static void capture_admin_request(const char *event, const char *payload, rrconn
       free(text);
    }
 }
+
 static void admin_sites_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
    (void)event;
    (void)connection;
@@ -141,6 +148,7 @@ static void admin_sites_request(const char *event, const char *payload, rrconn_t
    }
    g_free(request_id);
 }
+
 static void admin_sites_complete(const char *event, const char *payload, rrconn_t *connection, void *unused) {
    (void)event;
    (void)payload;
@@ -148,6 +156,7 @@ static void admin_sites_complete(const char *event, const char *payload, rrconn_
    (void)unused;
    admin_site_completions++;
 }
+
 static void result(const char *table, const char *action, const char *row) {
    dict *message = dict_new();
    dict_add(message, "talk.target", table);
@@ -158,6 +167,7 @@ static void result(const char *table, const char *action, const char *row) {
    free(text);
    dict_free(message);
 }
+
 static char *cell_text(admin_table_t *table, int col, GtkTreeIter *iter) {
    GtkTreeViewColumn *column = gtk_tree_view_get_column(GTK_TREE_VIEW(table->tree), col);
    gtk_tree_view_column_cell_set_cell_data(column, GTK_TREE_MODEL(table->store), iter, FALSE, FALSE);
@@ -168,6 +178,7 @@ static char *cell_text(admin_table_t *table, int col, GtkTreeIter *iter) {
 
    return text;
 }
+
 static void dispatch_immediately(event_dispatch_fn_t callback, void *arg, void *user) {
    (void)user;
    callback(arg);

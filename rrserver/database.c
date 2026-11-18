@@ -280,6 +280,7 @@ static void db_ensure_rig_power(sqlite3 *db) {
       Log(LOG_WARN, "db", "Unable to create rig power preference table: %s", sqlite3_errmsg(db));
    }
 }
+
 int db_rig_power_get(sqlite3 *db, const char *rig_uuid, int band, int mode) {
    if (!db || !rig_uuid || !*rig_uuid) {
       return 0;
@@ -301,6 +302,7 @@ int db_rig_power_get(sqlite3 *db, const char *rig_uuid, int band, int mode) {
 
    return watts;
 }
+
 bool db_rig_power_set(sqlite3 *db, const char *rig_uuid, int band, int mode, int watts) {
    if (!db || !rig_uuid || !*rig_uuid || watts <= 0 || watts > 200) {
       return false;
@@ -320,6 +322,7 @@ bool db_rig_power_set(sqlite3 *db, const char *rig_uuid, int band, int mode, int
 
    return ok;
 }
+
 static void db_ensure_bridge_hints(sqlite3 *db) {
    if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS bridge_capabilities (identity TEXT PRIMARY KEY, hints TEXT NOT NULL, updated_at INTEGER NOT NULL);", NULL,
       NULL, NULL) != SQLITE_OK) {
@@ -369,6 +372,7 @@ static void db_cluster_health_migrate_cause(sqlite3 *db) {
       Log(LOG_WARN, "db", "Unable to index cluster health causes: %s", sqlite3_errmsg(db));
    }
 }
+
 bool db_cluster_health_record(sqlite3 *db, const char *reporter, const char *subject, const char *category, unsigned severity, double value, const char *cause,
    const char *reason) {
    if (!db || !reporter || !*reporter || !subject || !*subject || !category || !*category ||
@@ -1092,7 +1096,6 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
 
    return uuid;
 }
-
 
 #endif // USE_SQLITE
 

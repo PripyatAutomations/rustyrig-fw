@@ -43,6 +43,7 @@ static void speaker_key(char *key, size_t capacity, const char *room, const char
       *p = tolower((unsigned char)*p);
    }
 }
+
 void userlist_note_spoke(const char *room, const char *name) {
    if (!room || !*room || !name || !*name) {
       return;
@@ -59,6 +60,7 @@ void userlist_note_spoke(const char *room, const char *name) {
    speaker_key(key, sizeof(key), room, name);
    dict_add_ullong(recent_speakers, key, ++speaker_sequence);
 }
+
 uint64_t userlist_spoke_order(const char *room, const char *name) {
    char key[HTTP_USER_LEN + 132];
    speaker_key(key, sizeof(key), room, name);

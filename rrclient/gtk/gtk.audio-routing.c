@@ -82,10 +82,12 @@ static void routing_marks_save(void) {
    rrclient_database_setting_set("audio.graph.annotations", text);
    g_free(text);
 }
+
 static void routing_marks_changed(gpointer unused) {
    (void)unused;
    graph_canvas_update_size();
 }
+
 static void routing_marks_edit_text(RRMark *mark) {
    GtkWidget *top = graph_canvas ? gtk_widget_get_toplevel(graph_canvas) : NULL;
    GtkWidget *dialog = gtk_dialog_new_with_buttons(mark->kind == RR_MARK_GROUP ? "Section title" : "Text note", GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
@@ -109,6 +111,7 @@ static void routing_marks_edit_text(RRMark *mark) {
    }
    gtk_widget_destroy(dialog);
 }
+
 static gboolean routing_marks_press_event(GdkEventButton *e) {
    if (!routing_marks || e->button != 1) {
       return FALSE;
@@ -150,6 +153,7 @@ static gboolean routing_marks_press_event(GdkEventButton *e) {
 
    return TRUE;
 }
+
 static gboolean routing_marks_motion_event(GdkEventMotion *e) {
    if (!routing_marks || !routing_marks->dragging) {
       return FALSE;
@@ -158,6 +162,7 @@ static gboolean routing_marks_motion_event(GdkEventMotion *e) {
    return rr_marks_motion(routing_marks, (e->x - graph_offset_x) / MAX(.01, graph_scale), (e->y - graph_offset_y) / MAX(.01, graph_scale), !!(e->state &
       GDK_SHIFT_MASK));
 }
+
 static gboolean routing_marks_release_event(GdkEventButton *e) {
    if (!routing_marks || !routing_marks->dragging || e->button != 1) {
       return FALSE;
@@ -167,6 +172,7 @@ static gboolean routing_marks_release_event(GdkEventButton *e) {
 
    return TRUE;
 }
+
 static gboolean routing_marks_key(GtkWidget *w, GdkEventKey *e, gpointer unused) {
    (void)w;
    (void)unused;
@@ -191,6 +197,7 @@ static gboolean routing_marks_key(GtkWidget *w, GdkEventKey *e, gpointer unused)
 
    return handled;
 }
+
 static void routing_marks_tool_toggled(GtkToggleButton *b, gpointer unused) {
    (void)unused;
 
@@ -203,6 +210,7 @@ static void routing_marks_tool_toggled(GtkToggleButton *b, gpointer unused) {
       gtk_widget_grab_focus(graph_canvas);
    }
 }
+
 static void routing_marks_color(GtkColorButton *button, gpointer unused) {
    (void)unused;
 
@@ -237,6 +245,7 @@ static void routing_marks_color(GtkColorButton *button, gpointer unused) {
       routing_marks_save();
    }
 }
+
 static void routing_marks_width(GtkSpinButton *button, gpointer unused) {
    (void)unused;
 
@@ -270,6 +279,7 @@ static void routing_marks_width(GtkSpinButton *button, gpointer unused) {
       routing_marks_save();
    }
 }
+
 static void routing_marks_toolbar(GtkFlowBox *flow) {
    static const char *names[] = {
       "Select", "Pencil", "Divider", "Box", "Note", "Section", "Eraser"
@@ -315,6 +325,7 @@ static gboolean routing_is_touch_event(const GdkEvent *event) {
 
    return device && gdk_device_get_source(device) == GDK_SOURCE_TOUCHSCREEN;
 }
+
 static double routing_pin_radius(void) {
    return CLAMP((graph_touch_pointer ? 23. : 10.) / MAX(.01, graph_scale), graph_touch_pointer ? 17. : 8., graph_touch_pointer ? 36. : 20.);
 }
@@ -355,6 +366,7 @@ static gboolean graph_group_member[RR_AUDIO_GRAPH_MAX_NODES];
 static gboolean routing_graph_is_selected(const char *id) {
    return graph_selection && g_hash_table_contains(graph_selection, id);
 }
+
 static void routing_graph_select(const char *id, gboolean selected) {
    if (!graph_selection) {
       graph_selection = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
@@ -366,6 +378,7 @@ static void routing_graph_select(const char *id, gboolean selected) {
       g_hash_table_remove(graph_selection, id);
    }
 }
+
 static void routing_graph_clear_selection(void) {
    if (graph_selection) {
       g_hash_table_remove_all(graph_selection);
@@ -382,6 +395,7 @@ static void routing_snap_toggled(GtkToggleButton *button, gpointer unused) {
    graph_snap_enabled = gtk_toggle_button_get_active(button);
    rrclient_database_setting_set(GRAPH_SNAP_KEY, graph_snap_enabled ? "true" : "false");
 }
+
 static double routing_snap_coordinate(double value) {
    return CLAMP(GRAPH_LAYOUT_MARGIN + round((value - GRAPH_LAYOUT_MARGIN) / GRAPH_SNAP_STEP) * GRAPH_SNAP_STEP, 0., 100000.);
 }
@@ -396,6 +410,7 @@ static char *routing_position_key(const char *id) {
 
    return key;
 }
+
 static routing_position_t *routing_position(const char *id) {
    if (!id || !*id) {
       return NULL;
@@ -434,6 +449,7 @@ static routing_position_t *routing_position(const char *id) {
 
    return pos;
 }
+
 static void routing_position_save(const char *id, const routing_position_t *pos) {
    char *key = routing_position_key(id);
    char x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
@@ -444,16 +460,19 @@ static void routing_position_save(const char *id, const routing_position_t *pos)
    g_free(value);
    g_free(key);
 }
+
 static double routing_node_x(const rr_ag_view_node_t *node) {
    routing_position_t *pos = routing_position(node->id);
 
    return pos ? pos->x : GRAPH_LAYOUT_MARGIN;
 }
+
 static double routing_node_y(const rr_ag_view_node_t *node) {
    routing_position_t *pos = routing_position(node->id);
 
    return pos ? pos->y : GRAPH_LAYOUT_MARGIN;
 }
+
 static void routing_graph_begin_group(void) {
    memset(graph_group_member, 0, sizeof(graph_group_member));
 
@@ -610,6 +629,7 @@ static void routing_modem_snapshot_received(const rr_event_message_t *message, v
       }
    }
 }
+
 static gboolean routing_serial_room_rig(const char *room, char out[32]) {
    if (!room) {
       return FALSE;
@@ -669,6 +689,7 @@ static void routing_serial_display_path(char out[320], const char *profile, cons
    }
    g_snprintf(out, 320, "%.*s.%s/%s", (int)station_len, name, domain, rig);
 }
+
 static double routing_serial_base_y(void) {
    double bottom = 420.;
 
@@ -680,6 +701,7 @@ static double routing_serial_base_y(void) {
 
    return bottom;
 }
+
 static void routing_serial_add(const char *id, const char *profile, const char *rig, unsigned slot, gboolean virtual, guint index) {
    if (routing_serial_count >= G_N_ELEMENTS(routing_serial_nodes)) {
       return;
@@ -701,6 +723,7 @@ static void routing_serial_add(const char *id, const char *profile, const char *
    n->x = pos ? pos->x : 45.;
    n->y = pos ? pos->y : 420.;
 }
+
 static void routing_serial_refresh(void) {
    routing_serial_count = 0;
    unsigned vindex = 0, tindex = 0;
@@ -753,6 +776,7 @@ static void routing_serial_refresh(void) {
       g_free(id);
    }
 }
+
 static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *kind, gboolean *virtual) {
    double radius = routing_pin_radius();
    double closest = radius;
@@ -784,6 +808,7 @@ static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *k
 
    return TRUE;
 }
+
 static void routing_serial_bind(guint source, guint dest) {
    const routing_serial_node_t *v = &routing_serial_nodes[source];
    const routing_serial_node_t *r = &routing_serial_nodes[dest];
@@ -802,6 +827,7 @@ static void routing_serial_bind(guint source, guint dest) {
    };
    event_emit_message(&msg);
 }
+
 static void routing_serial_unbind(guint slot) {
    rr_sercom_vrig_bind_t req = {
       .slot = slot
@@ -853,6 +879,7 @@ static gboolean routing_serial_link_at(double x, double y, guint *slot) {
 
    return FALSE;
 }
+
 static void routing_serial_result(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -867,6 +894,7 @@ static void routing_serial_result(const rr_event_message_t *message, void *unuse
    routing_serial_refresh();
    graph_canvas_update_size();
 }
+
 static void routing_serial_line(cairo_t *cr, double ax, double ay, double bx, double by) {
    /* A subtle light underlay makes black serial lines readable in dark GTK themes while retaining the requested dashed black semantics. */
    const double dash[] = {
@@ -886,6 +914,7 @@ static void routing_serial_line(cairo_t *cr, double ax, double ay, double bx, do
    cairo_stroke(cr);
    cairo_set_dash(cr, NULL, 0, 0);
 }
+
 static const char *routing_serial_full_path(const routing_serial_node_t *n) {
    if (!n->virtual) {
       return n->display_path;
@@ -901,6 +930,7 @@ static const char *routing_serial_full_path(const routing_serial_node_t *n) {
 
    return "";
 }
+
 static void routing_serial_draw(cairo_t *cr) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
@@ -1008,6 +1038,7 @@ static void onair_save(void) {
    rrclient_database_setting_set("audio.graph.onair.source", onair_connected ? onair_source : "");
    g_free(v);
 }
+
 static void onair_restore(void) {
    char *v = rrclient_database_setting_get("audio.graph.onair");
 
@@ -1041,6 +1072,7 @@ static void onair_restore(void) {
    g_free(source);
    onair_active = FALSE;
 }
+
 static void onair_ptt_event(const rr_event_message_t *msg, void *unused) {
    (void)unused;
 
@@ -1100,6 +1132,7 @@ static gboolean onair_wire_hit(double x, double y) {
 
    return FALSE;
 }
+
 static void onair_disconnect(void) {
    onair_connected = FALSE;
    onair_source[0] = 0;
@@ -1111,6 +1144,7 @@ static void onair_disconnect(void) {
       gtk_widget_queue_draw(onair_panel_canvas);
    }
 }
+
 static gint onair_hit(double x, double y) {
    if (!onair_visible) {
       return 0;
@@ -1156,6 +1190,7 @@ static gboolean onair_panel_draw(GtkWidget *widget, cairo_t *cr, gpointer unused
 
    return FALSE;
 }
+
 static void onair_panel_ensure(gboolean explicit_open) {
    if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook)) {
       return;
@@ -1189,6 +1224,7 @@ static void onair_panel_ensure(gboolean explicit_open) {
       gtk_widget_queue_draw(onair_panel_canvas);
    }
 }
+
 static gboolean onair_source_position(const char *source, double *x, double *y) {
    if (!strcmp(source, RRCLIENT_ROUTING_PTT_LOCAL)) {
       *x = ptt_x + 150.;
@@ -1219,6 +1255,7 @@ static gboolean onair_source_position(const char *source, double *x, double *y) 
 
    return FALSE;
 }
+
 static void onair_draw(cairo_t *cr) {
    if (!onair_visible) {
       return;
@@ -1300,6 +1337,7 @@ static void onair_draw(cairo_t *cr) {
    cairo_set_line_width(cr, 1.5);
    cairo_stroke(cr);
 }
+
 static void onair_add(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -1308,6 +1346,7 @@ static void onair_add(GtkButton *button, gpointer unused) {
    onair_panel_ensure(TRUE);
    graph_canvas_update_size();
 }
+
 static void onair_menu_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    unsigned action = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "onair-action"));
@@ -1335,6 +1374,7 @@ static void onair_menu_action(GtkMenuItem *item, gpointer unused) {
       gtk_widget_queue_draw(onair_panel_canvas);
    }
 }
+
 static gboolean onair_context_menu(GdkEventButton *event, double x, double y) {
    if (!onair_hit(x, y)) {
       return FALSE;
@@ -1482,11 +1522,13 @@ static void routing_zoom_set(double factor) {
    }
    graph_canvas_update_size();
 }
+
 static void routing_zoom_step(GtkButton *button, gpointer unused) {
    (void)unused;
    int dir = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "zoom-dir"));
    routing_zoom_set(graph_wheel_zoom * (dir > 0 ? 1.25 : 1. / 1.25));
 }
+
 static void routing_zoom_slider_changed(GtkRange *range, gpointer unused) {
    (void)unused;
 
@@ -1494,6 +1536,7 @@ static void routing_zoom_slider_changed(GtkRange *range, gpointer unused) {
       routing_zoom_set(gtk_range_get_value(range));
    }
 }
+
 static void routing_zoom_reset_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -1510,6 +1553,7 @@ static void routing_colors_popup(GtkButton *button, gpointer unused) {
       gtk_popover_popup(GTK_POPOVER(popover));
    }
 }
+
 static GtkWidget *routing_colors_legend(void) {
    GtkWidget *grid = gtk_grid_new();
    gtk_container_set_border_width(GTK_CONTAINER(grid), 14);
@@ -1549,6 +1593,7 @@ static GtkWidget *routing_colors_legend(void) {
 
    return grid;
 }
+
 static void routing_zoom_popup(GtkButton *button, gpointer unused) {
    (void)unused;
    GtkWidget *popover = g_object_get_data(G_OBJECT(button), "zoom-popover");
@@ -1597,6 +1642,7 @@ static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
 
    return TRUE;
 }
+
 static gboolean routing_modem_source(const rr_ag_view_node_t *n) {
    return n->type == RR_AG_SOURCE && !n->read_only &&
           n->downstream_rate_hz <= 16000 && n->channels == 1 && n->sample_format == RR_PCM_S16LE && !g_str_has_prefix(n->id, "modem");
@@ -1620,6 +1666,7 @@ static const char *routing_real_source(const char *source) {
 
    return NULL;
 }
+
 static gboolean routing_same_source(const char *node_id, const char *real_id) {
    if (!strcmp(node_id, real_id)) {
       return TRUE;
@@ -1632,6 +1679,7 @@ static gboolean routing_same_source(const char *node_id, const char *real_id) {
 
    return actual && !strcmp(actual, real_id);
 }
+
 static void routing_modem_connect(unsigned slot, const char *source) {
    const char *actual = routing_real_source(source);
 
@@ -1765,6 +1813,7 @@ static gboolean routing_gain_supported(const rr_ag_view_node_t *n) {
 
    return n->type == RR_AG_PROCESSOR && !strcmp(n->id, "rx16.resample");
 }
+
 static gboolean routing_gain_input(const rr_ag_view_node_t *n) {
    return n->type == RR_AG_SOURCE || !strcmp(n->id, "rx16.resample");
 }
@@ -1781,6 +1830,7 @@ static void routing_rate_label(guint32 rate, char *out, size_t size) {
       g_snprintf(out, size, "%u Hz", rate);
    }
 }
+
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -2124,6 +2174,7 @@ static void routing_modem_engine_changed(GtkComboBox *engine, gpointer unused) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(mode), 0);
    }
 }
+
 static void routing_new_modem(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -2236,6 +2287,7 @@ static void routing_new_modem(GtkButton *button, gpointer unused) {
    }
    gtk_widget_destroy(dlg);
 }
+
 static void routing_modem_properties(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "modem-slot"));
@@ -2279,6 +2331,7 @@ static void routing_modem_properties(GtkMenuItem *item, gpointer unused) {
    }
    gtk_widget_destroy(dialog);
 }
+
 static void routing_modem_send_text(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "modem-slot"));
@@ -2315,6 +2368,7 @@ static void routing_modem_send_text(GtkMenuItem *item, gpointer unused) {
    }
    gtk_widget_destroy(dialog);
 }
+
 static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "modem-slot"));
@@ -2431,6 +2485,7 @@ static void routing_block_action(GtkMenuItem *item, gpointer unused) {
       }
    }
 }
+
 static void routing_block_menu_items(GtkWidget *menu, const char *id, gboolean disconnect) {
    static const char *labels[] = {
       "Properties…", "Auto Place", "Reset Saved Position", "Disconnect All"
@@ -2448,6 +2503,7 @@ static void routing_block_menu_items(GtkWidget *menu, const char *id, gboolean d
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
 }
+
 static gboolean routing_common_block_menu(GdkEventButton *event, double x, double y) {
    if (!graph_snapshot) {
       return FALSE;
@@ -2475,6 +2531,7 @@ static gboolean routing_common_block_menu(GdkEventButton *event, double x, doubl
 
    return FALSE;
 }
+
 static void routing_serial_menu_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "slot"));
@@ -2503,10 +2560,12 @@ static void routing_serial_menu_action(GtkMenuItem *item, gpointer unused) {
       event_emit_message(&msg);
    }
 }
+
 static void routing_serial_wire_remove(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    routing_serial_unbind(GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "rr-serial-slot")));
 }
+
 static gboolean routing_serial_wire_menu(GdkEventButton *event, double x, double y) {
    guint slot = 0;
 
@@ -2525,6 +2584,7 @@ static gboolean routing_serial_wire_menu(GdkEventButton *event, double x, double
 
    return TRUE;
 }
+
 static gboolean routing_serial_context_menu(GdkEventButton *event, double x, double y) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
@@ -2559,6 +2619,7 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
 
    return FALSE;
 }
+
 static gboolean routing_modem_context_menu(GdkEventButton *event, double x, double y) {
    if (!graph_snapshot) {
       return FALSE;
@@ -2616,6 +2677,7 @@ static gboolean routing_modem_context_menu(GdkEventButton *event, double x, doub
 
    return FALSE;
 }
+
 static void routing_graph_snapshot_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -2733,6 +2795,7 @@ static const char *pipeline_for_node(const char *id) {
 
    return NULL;
 }
+
 static const char *node_for_pipeline(const char *id) {
    if (!g_strcmp0(id, "sink.client.mix")) {
       return "sink.client.dsp0";
@@ -2744,6 +2807,7 @@ static const char *node_for_pipeline(const char *id) {
 
    return NULL;
 }
+
 static void routing_focus_node(const char *id) {
    if (!id || !audio_tabs) {
       return;
@@ -2753,6 +2817,7 @@ static void routing_focus_node(const char *id) {
    gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 0);
    graph_canvas_update_size();
 }
+
 static void pipeline_element_focused(const gchar *pipeline, gpointer user) {
    (void)user;
    const char *node = node_for_pipeline(pipeline);
@@ -2761,6 +2826,7 @@ static void pipeline_element_focused(const gchar *pipeline, gpointer user) {
       routing_focus_node(node);
    }
 }
+
 static gboolean pipeline_apply(const gchar *json, gpointer user) {
    (void)user;
    GtkWidget *parent = audio_tabs ? gtk_widget_get_toplevel(audio_tabs) : NULL;
@@ -2781,6 +2847,7 @@ static gboolean pipeline_apply(const gchar *json, gpointer user) {
 
    return ok;
 }
+
 static gchar *pipeline_config_json(void) {
    dict *document = dict_new();
 
@@ -2821,6 +2888,7 @@ static gchar *pipeline_config_json(void) {
 
    return json;
 }
+
 static void routing_focus_pipeline(const char *id) {
    const char *pipeline = pipeline_for_node(id);
 
@@ -2835,6 +2903,7 @@ static void routing_focus_pipeline(const char *id) {
 #endif
    gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs), 1);
 }
+
 static GtkWidget *pipeline_page_new(void) {
 #ifndef RR_HAVE_GSTREAMER
 
@@ -2882,6 +2951,7 @@ static void routing_lv2_remove_clicked(GtkMenuItem *item, gpointer unused) {
       audio_request_effect_block(&req);
    }
 }
+
 static void routing_lv2_disconnect(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    guint slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "lv2-slot"));
@@ -2895,6 +2965,7 @@ static void routing_lv2_disconnect(GtkMenuItem *item, gpointer unused) {
    audio_request_effect_block(&req);
    routing_queue();
 }
+
 static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, double gy) {
    if (!graph_snapshot) {
       return FALSE;
@@ -3017,6 +3088,7 @@ static gboolean lv2_visible(GtkTreeModel *m, GtkTreeIter *it, gpointer data) {
 
    return match;
 }
+
 static void lv2_selected(GtkTreeSelection *sel, gpointer data) {
    lv2_picker_t *p = data;
    GtkTreeModel *m;
@@ -3042,6 +3114,7 @@ static void lv2_selected(GtkTreeSelection *sel, gpointer data) {
    g_free(longname);
    g_free(klass);
 }
+
 static void lv2_search(GtkEditable *entry, gpointer data) {
    (void)entry;
    lv2_picker_t *p = data;
@@ -3056,12 +3129,14 @@ static void lv2_search(GtkEditable *entry, gpointer data) {
       gtk_tree_selection_unselect_all(sel);
    }
 }
+
 static void lv2_activate(GtkTreeView *v, GtkTreePath *path, GtkTreeViewColumn *col, gpointer data) {
    (void)v;
    (void)path;
    (void)col;
    gtk_dialog_response(GTK_DIALOG(((lv2_picker_t *) data)->dialog), GTK_RESPONSE_ACCEPT);
 }
+
 #endif
 
 static void routing_add_effect(GtkButton *button, gpointer unused) {
@@ -3262,6 +3337,7 @@ static void routing_compact_apply_hints(routing_compact_control_t *control) {
       control->step = 1.;
    }
 }
+
 static void routing_compact_apply_widget(routing_compact_control_t *control) {
    if (!control->value) {
       return;
@@ -3285,6 +3361,7 @@ static void routing_compact_apply_widget(routing_compact_control_t *control) {
    }
    control->updating = FALSE;
 }
+
 static double routing_compact_current(const routing_compact_control_t *control) {
    if (control->effect_worker[0]) {
       return control->effect_value;
@@ -3306,6 +3383,7 @@ static double routing_compact_current(const routing_compact_control_t *control) 
 
    return 0.;
 }
+
 static void routing_compact_sync(void) {
    if (!routing_compact_controls) {
       return;
@@ -3339,6 +3417,7 @@ static void routing_compact_sync(void) {
       }
    }
 }
+
 static gboolean routing_compact_flush_value(gpointer user) {
    routing_compact_control_t *control = user;
    control->save_source = 0;
@@ -3346,6 +3425,7 @@ static gboolean routing_compact_flush_value(gpointer user) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void routing_compact_changed(GtkRange *range, gpointer user) {
    routing_compact_control_t *control = user;
 
@@ -3398,6 +3478,7 @@ static void routing_compact_changed(GtkRange *range, gpointer user) {
    }
    graph_canvas_update_size();
 }
+
 static gboolean routing_compact_reset(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -3443,6 +3524,7 @@ static gboolean routing_knob_draw(GtkWidget *widget, cairo_t *cr, gpointer user)
 
    return FALSE;
 }
+
 static gboolean routing_knob_press(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    (void)widget;
    routing_compact_control_t *control = user;
@@ -3463,6 +3545,7 @@ static gboolean routing_knob_press(GtkWidget *widget, GdkEventButton *event, gpo
 
    return TRUE;
 }
+
 static gboolean routing_knob_motion(GtkWidget *widget, GdkEventMotion *event, gpointer user) {
    (void)widget;
    routing_compact_control_t *control = user;
@@ -3475,6 +3558,7 @@ static gboolean routing_knob_motion(GtkWidget *widget, GdkEventMotion *event, gp
 
    return TRUE;
 }
+
 static gboolean routing_knob_release(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    (void)widget;
    routing_compact_control_t *control = user;
@@ -3486,6 +3570,7 @@ static gboolean routing_knob_release(GtkWidget *widget, GdkEventButton *event, g
 
    return TRUE;
 }
+
 static gboolean routing_knob_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user) {
    (void)widget;
    routing_compact_control_t *control = user;
@@ -3499,6 +3584,7 @@ static gboolean routing_knob_scroll(GtkWidget *widget, GdkEventScroll *event, gp
 
    return TRUE;
 }
+
 static void routing_compact_destroy(gpointer pointer) {
    routing_compact_control_t *control = pointer;
 
@@ -3526,6 +3612,7 @@ static void routing_compact_set_hidden(routing_compact_control_t *control, gbool
    }
    routing_compact_save(control);
 }
+
 static gboolean routing_compact_delete_idle(gpointer data) {
    char *uuid = data;
 
@@ -3551,6 +3638,7 @@ static gboolean routing_compact_delete_idle(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void routing_compact_menu_action(GtkMenuItem *item, gpointer data) {
    routing_compact_control_t *control = data;
    const char *action = g_object_get_data(G_OBJECT(item), "control-action");
@@ -3574,6 +3662,7 @@ static void routing_compact_menu_action(GtkMenuItem *item, gpointer data) {
       }
    }
 }
+
 static gboolean routing_compact_context(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    routing_compact_control_t *control = data;
@@ -3632,9 +3721,11 @@ static void routing_compact_hidden_menu(GtkButton *button, gpointer unused) {
    gtk_widget_show_all(menu);
    gtk_menu_popup_at_widget(GTK_MENU(menu), GTK_WIDGET(button), GDK_GRAVITY_SOUTH_WEST, GDK_GRAVITY_NORTH_WEST, NULL);
 }
+
 static void routing_compact_restore_one(routing_compact_control_t *control) {
    routing_compact_set_hidden(control, FALSE);
 }
+
 static void routing_compact_add(const char *node_id, unsigned channel, gboolean port, const char *label, const char *kind, const char *saved_uuid, double
    saved_x, double saved_y) {
    if (!routing_overlay || !GTK_IS_NOTEBOOK(main_notebook)) {
@@ -3813,6 +3904,7 @@ static void routing_compact_save(const routing_compact_control_t *control) {
       g_free(key);
    }
 }
+
 static char *routing_compact_field(const char *uuid, const char *field) {
    char *key = g_strdup_printf("audio.control.%s.%s", uuid, field);
    char *value = rrclient_database_setting_get(key);
@@ -3820,6 +3912,7 @@ static char *routing_compact_field(const char *uuid, const char *field) {
 
    return value;
 }
+
 static gboolean routing_compact_parse_number(const char *input, double *result) {
    if (!input || !*input) {
       return FALSE;
@@ -3834,6 +3927,7 @@ static gboolean routing_compact_parse_number(const char *input, double *result) 
 
    return TRUE;
 }
+
 static void routing_compact_restore(void) {
    if (routing_compact_controls) {
       return;
@@ -3956,6 +4050,7 @@ static void routing_compact_restore(void) {
    g_free(ids);
    routing_compact_sync();
 }
+
 static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused) {
    (void)unused;
    routing_controls_visible = gtk_toggle_button_get_active(toggle);
@@ -3978,6 +4073,7 @@ static void routing_compact_bounds(double *width, double *height) {
       *height = MAX(*height, item->y + ROUTING_CONTROL_HEIGHT + GRAPH_LAYOUT_MARGIN);
    }
 }
+
 static gboolean routing_compact_target(const routing_compact_control_t *item, double *x, double *y) {
    if (item->effect_worker[0]) {
       return routing_effect_parameter_location(item->effect_worker, item->effect_element, item->effect_property, x, y);
@@ -4002,6 +4098,7 @@ static gboolean routing_compact_target(const routing_compact_control_t *item, do
 
    return FALSE;
 }
+
 static void routing_compact_output_corner(const routing_compact_control_t *item, double tx, double ty, double *out_x, double *out_y) {
    const double corners[4][2] = {
       {
@@ -4033,6 +4130,7 @@ static void routing_compact_output_corner(const routing_compact_control_t *item,
    *out_x = corners[nearest][0];
    *out_y = corners[nearest][1];
 }
+
 static void routing_compact_draw(cairo_t *cr) {
    if (!routing_controls_visible || !routing_compact_controls) {
       return;
@@ -4104,6 +4202,7 @@ static void routing_compact_draw(cairo_t *cr) {
       cairo_show_text(cr, subtitle);
    }
 }
+
 static void routing_compact_properties(routing_compact_control_t *item) {
    GtkWidget *owner = gtk_widget_get_toplevel(graph_canvas);
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Control Properties", GTK_IS_WINDOW(owner) ? GTK_WINDOW(owner) : NULL, GTK_DIALOG_MODAL |
@@ -4189,6 +4288,7 @@ static void routing_compact_properties(routing_compact_control_t *item) {
    }
    gtk_widget_destroy(dialog);
 }
+
 static gboolean routing_compact_hit(double x, double y, gboolean dbl) {
    if (!routing_controls_visible || !routing_compact_controls) {
       return FALSE;
@@ -4225,6 +4325,7 @@ static gboolean routing_compact_hit(double x, double y, gboolean dbl) {
 
    return FALSE;
 }
+
 static gboolean routing_compact_drag_motion(double x, double y) {
    if (!routing_compact_controls || routing_control_drag_index < 0 || (guint) routing_control_drag_index >= routing_compact_controls->len) {
       return FALSE;
@@ -4248,6 +4349,7 @@ static gboolean routing_compact_drag_motion(double x, double y) {
 
    return TRUE;
 }
+
 static gboolean routing_compact_drag_release(double x, double y) {
    if (!routing_compact_controls || routing_control_drag_index < 0 || (guint) routing_control_drag_index >= routing_compact_controls->len) {
       return FALSE;
@@ -4377,6 +4479,7 @@ static void routing_lv2_properties(GtkComboBoxText *choice, GHashTable *ports, G
 
    g_free(specs);
 }
+
 static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
    const struct {
       const char *config, *worker;
@@ -4463,11 +4566,13 @@ static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
       g_free(name);
    }
 }
+
 #else
 static void routing_effect_choices(GtkComboBoxText *choice, GHashTable *ports) {
    (void)choice;
    (void)ports;
 }
+
 #endif
 /* A control-only inventory of the LV2 instances embedded in local GStreamer pipelines. The live DSP remains in fwdsp; these blocks merely expose its named
  * parameter sockets and never move audio. */
@@ -4489,6 +4594,7 @@ static double routing_effect_drag_x, routing_effect_drag_y;
 static guint routing_effect_bottom_count(const routing_effect_block_t *block) {
    return MIN(block->ports->len, 3u);
 }
+
 static double routing_effect_width(const routing_effect_block_t *block) {
    if (block->standalone) {
       return RR_GTK_GRAPH_NODE_W;
@@ -4498,6 +4604,7 @@ static double routing_effect_width(const routing_effect_block_t *block) {
 
    return MAX(ROUTING_EFFECT_W, 2. * ROUTING_EFFECT_MARGIN + MAX(bottom, top) * ROUTING_EFFECT_SLOT);
 }
+
 static double routing_effect_height(const routing_effect_block_t *block) {
    if (block->standalone) {
       return RR_GTK_GRAPH_NODE_H;
@@ -4515,24 +4622,28 @@ static void routing_effect_socket(const routing_effect_block_t *block, const rou
    *x = pos->x + (column + 1.) * routing_effect_width(block) / (count + 1.);
    *y = pos->y + (*top ? 0. : routing_effect_height(block));
 }
+
 static void routing_effect_block_free(gpointer ptr) {
    routing_effect_block_t *b = ptr;
    g_free(b->id);
    g_ptr_array_unref(b->ports);
    g_free(b);
 }
+
 static gint routing_effect_block_cmp(gconstpointer a, gconstpointer b) {
    const routing_effect_block_t *x = *(routing_effect_block_t * const *)a;
    const routing_effect_block_t *y = *(routing_effect_block_t * const *)b;
 
    return strcmp(x->id, y->id);
 }
+
 static gint routing_effect_port_cmp(gconstpointer a, gconstpointer b) {
    const routing_effect_port_t *x = *(routing_effect_port_t * const *)a;
    const routing_effect_port_t *y = *(routing_effect_port_t * const *)b;
 
    return strcmp(x->property, y->property);
 }
+
 static void routing_effect_refresh(void) {
    if (routing_effect_blocks) {
       g_ptr_array_unref(routing_effect_blocks);
@@ -4592,6 +4703,7 @@ static void routing_effect_refresh(void) {
    routing_compact_sync();
    graph_canvas_update_size();
 }
+
 static void routing_effect_bounds(double *width, double *height) {
    if (!routing_effect_blocks) {
       return;
@@ -4608,6 +4720,7 @@ static void routing_effect_bounds(double *width, double *height) {
       *height = MAX(*height, pos->y + routing_effect_height(b) + GRAPH_LAYOUT_MARGIN);
    }
 }
+
 static gboolean routing_effect_parameter_location(const char *worker, const char *element, const char *property, double *x, double *y) {
    if (!routing_effect_blocks) {
       return FALSE;
@@ -4636,6 +4749,7 @@ static gboolean routing_effect_parameter_location(const char *worker, const char
 
    return FALSE;
 }
+
 static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t *out) {
    if (!routing_controls_visible || !routing_effect_blocks) {
       return FALSE;
@@ -4660,6 +4774,7 @@ static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t 
 
    return FALSE;
 }
+
 static void routing_effect_draw(cairo_t *cr) {
    if (!routing_controls_visible || !routing_effect_blocks) {
       return;
@@ -4746,6 +4861,7 @@ static void routing_effect_draw(cairo_t *cr) {
       }
    }
 }
+
 static gboolean routing_effect_press(double x, double y, gboolean dbl) {
    if (!routing_controls_visible || !routing_effect_blocks) {
       return FALSE;
@@ -4790,6 +4906,7 @@ static gboolean routing_effect_press(double x, double y, gboolean dbl) {
 
    return FALSE;
 }
+
 static gboolean routing_effect_motion(double x, double y) {
    if (!routing_effect_blocks || routing_effect_drag_index < 0 || (guint) routing_effect_drag_index >= routing_effect_blocks->len) {
       return FALSE;
@@ -4802,6 +4919,7 @@ static gboolean routing_effect_motion(double x, double y) {
 
    return TRUE;
 }
+
 static gboolean routing_effect_release(void) {
    if (!routing_effect_blocks || routing_effect_drag_index < 0 || (guint) routing_effect_drag_index >= routing_effect_blocks->len) {
       return FALSE;
@@ -4815,6 +4933,7 @@ static gboolean routing_effect_release(void) {
 
    return TRUE;
 }
+
 static void routing_compact_set_effect(routing_compact_control_t *control, const routing_effect_port_t *port) {
    g_strlcpy(control->effect_worker, port->worker, sizeof(control->effect_worker));
    g_strlcpy(control->effect_element, port->element, sizeof(control->effect_element));
@@ -4842,6 +4961,7 @@ static void routing_control_kind_changed(GtkComboBox *selector, gpointer data) {
       gtk_widget_set_sensitive(fields[i], !indicator);
    }
 }
+
 static void routing_compact_create(GtkButton *button, gpointer unused) {
    (void)unused;
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
@@ -5018,6 +5138,7 @@ static gboolean graph_pointer(double x, double y, double *gx, double *gy) {
 
    return TRUE;
 }
+
 static gboolean graph_port_at(double x, double y, gint *source, gint *channel, gboolean *mixer) {
    double radius = routing_pin_radius();
 
@@ -5143,6 +5264,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 
    return FALSE;
 }
+
 static gboolean graph_gain_at(double x, double y, gint *source, gint *channel, gboolean *port) {
    if (!graph_snapshot) {
       return FALSE;
@@ -5179,6 +5301,7 @@ static gboolean graph_gain_at(double x, double y, gint *source, gint *channel, g
 
    return FALSE;
 }
+
 static void graph_gain_drag(double x) {
    if (!graph_snapshot || gain_drag_source < 0 || gain_drag_channel < 0) {
       return;
@@ -5218,9 +5341,11 @@ static void graph_gain_reset(gint index, gint channel, gboolean port) {
    }
    graph_canvas_update_size();
 }
+
 static unsigned graph_route_mask(char route) {
    return route == 'S' ? 3u : route == 'L' ? 1u : route == 'R' ? 2u : 0u;
 }
+
 static void graph_set_channel(guint source, gint channel, gboolean connect) {
    if (!graph_snapshot || source >= graph_snapshot->node_count || graph_missing_since[source] || graph_snapshot->nodes[source].type != RR_AG_SOURCE) {
       return;
@@ -5271,6 +5396,7 @@ static gboolean routing_link_disconnectable(const rr_ag_view_link_t *link) {
    return graph_snapshot->nodes[link->src].type == RR_AG_SOURCE &&
           !graph_snapshot->nodes[link->src].read_only && (!strcmp(to, "rx.mix") || !strcmp(to, "hq.mix"));
 }
+
 static gboolean graph_link_at(double x, double y, guint *link_index, gint *channel) {
    if (!graph_snapshot) {
       return FALSE;
@@ -5327,6 +5453,7 @@ static gboolean graph_link_at(double x, double y, guint *link_index, gint *chann
 
    return found;
 }
+
 static gboolean routing_disconnect_link(guint index, gint channel) {
    if (!graph_snapshot || index >= graph_snapshot->link_count) {
       return FALSE;
@@ -5410,6 +5537,7 @@ static void routing_wire_remove(GtkMenuItem *item, gpointer unused) {
       return;
    }
 }
+
 static gboolean routing_wire_context_menu(GdkEventButton *event, double x, double y) {
    guint index = 0;
    gint channel = 0;
@@ -5442,6 +5570,7 @@ static gboolean routing_marquee_contains(double x, double y, double w, double h)
 
    return x >= left && y >= top && x + w <= right && y + h <= bottom;
 }
+
 static void routing_marquee_update(void) {
    if (!graph_marquee_active) {
       return;
@@ -5533,6 +5662,7 @@ static void routing_marquee_update(void) {
    }
    graph_canvas_update_size();
 }
+
 static gboolean routing_marquee_begin(double x, double y, guint modifiers) {
    graph_marquee_active = TRUE;
    graph_marquee_x0 = graph_marquee_x1 = x;
@@ -5572,12 +5702,14 @@ static gboolean routing_marquee_begin(double x, double y, guint modifiers) {
 
    return TRUE;
 }
+
 static void routing_marquee_end(void) {
    graph_marquee_active = FALSE;
    g_clear_pointer(&graph_marquee_base, g_hash_table_unref);
    g_clear_pointer(&graph_marquee_marks_base, g_hash_table_unref);
    graph_canvas_update_size();
 }
+
 static void routing_marquee_draw(cairo_t *cr) {
    /* Called inside the graph transform, to match the object hit-test space. */
    if (graph_marquee_active) {
@@ -5638,6 +5770,7 @@ static void routing_marquee_draw(cairo_t *cr) {
    cairo_stroke(cr);
    cairo_restore(cr);
 }
+
 static void routing_touch_long_pressed(GtkGestureLongPress *gesture, gdouble x, gdouble y, gpointer unused) {
    (void)gesture;
    (void)unused;
@@ -5669,6 +5802,7 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture, gdouble x, 
    graph_node_drag = gain_drag_source = gain_drag_channel = -1;
    graph_pan_dragging = FALSE;
 }
+
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -5998,6 +6132,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
 
    return TRUE;
 }
+
 static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -6152,6 +6287,7 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
 
    return TRUE;
 }
+
 static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -6483,12 +6619,15 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
 static gboolean graph_profile_is_auto(const char *name) {
    return name && !g_ascii_strcasecmp(name, GRAPH_PROFILE_AUTO);
 }
+
 static gboolean graph_profile_is_placeholder(const char *name) {
    return !name || !*name || !g_ascii_strcasecmp(name, GRAPH_PROFILE_NEW);
 }
+
 static GtkWidget *graph_profile_entry(void) {
    return graph_profiles ? gtk_bin_get_child(GTK_BIN(graph_profiles)) : NULL;
 }
+
 static char *graph_profile_selected(void) {
    GtkWidget *entry = graph_profile_entry();
 
@@ -6518,6 +6657,7 @@ static void graph_profile_lookup_cb(const char *name, void *user) {
       lookup->found = TRUE;
    }
 }
+
 static gboolean graph_profile_exists(const char *name) {
    if (!name || graph_profile_is_auto(name) || graph_profile_is_placeholder(name)) {
       return FALSE;
@@ -6529,6 +6669,7 @@ static gboolean graph_profile_exists(const char *name) {
 
    return lookup.found;
 }
+
 static void graph_profile_update_buttons(void) {
    char *name = graph_profile_selected();
    gboolean editable = !graph_profile_is_auto(name) && !graph_profile_is_placeholder(name);
@@ -6547,6 +6688,7 @@ static void graph_profile_update_buttons(void) {
    }
    g_free(name);
 }
+
 static void graph_profile_entry_changed(GtkEditable *editable, gpointer unused) {
    (void)editable;
    (void)unused;
@@ -6555,12 +6697,14 @@ static void graph_profile_entry_changed(GtkEditable *editable, gpointer unused) 
       graph_profile_update_buttons();
    }
 }
+
 static void graph_profile_name(const char *name, void *user) {
    /* Older versions could have persisted reserved display names. Do not expose those rows as writable presets. */
    if (!graph_profile_is_auto(name) && g_ascii_strcasecmp(name, GRAPH_PROFILE_NEW)) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(user), name);
    }
 }
+
 static void graph_profile_refresh(const char *selected) {
    if (!graph_profiles) {
       return;
@@ -6573,6 +6717,7 @@ static void graph_profile_refresh(const char *selected) {
    graph_profile_updating = FALSE;
    graph_profile_update_buttons();
 }
+
 static void graph_profile_modified(void) {
    char *name = graph_profile_selected();
 
@@ -6584,6 +6729,7 @@ static void graph_profile_modified(void) {
    }
    g_free(name);
 }
+
 static gboolean graph_profile_confirm_replace(const char *name) {
    GtkWidget *parent = graph_page ? gtk_widget_get_toplevel(graph_page) : NULL;
    GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -6595,6 +6741,7 @@ static gboolean graph_profile_confirm_replace(const char *name) {
 
    return response == GTK_RESPONSE_ACCEPT;
 }
+
 static void graph_profile_save(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -6636,10 +6783,12 @@ static void graph_profile_save(GtkButton *button, gpointer unused) {
    }
    g_free(name);
 }
+
 static void graph_profile_apply(const char *id, char route, void *unused) {
    (void)unused;
    audio_request_rx_stream_route(id, route);
 }
+
 static void graph_profile_load(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -6654,6 +6803,7 @@ static void graph_profile_load(GtkButton *button, gpointer unused) {
    routing_queue();
    g_free(name);
 }
+
 static void graph_profile_remove(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -6681,6 +6831,7 @@ static void graph_profile_remove(GtkButton *button, gpointer unused) {
    }
    g_free(name);
 }
+
 static void routing_auto_layout_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -6712,6 +6863,7 @@ void gtk_audio_graph_hide(void) {
       gtk_notebook_set_current_page(book, index);
    }
 }
+
 void gtk_audio_graph_toggle(void) {
    if (graph_page && GTK_IS_NOTEBOOK(main_notebook) &&
       gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == graph_page) {
@@ -6721,6 +6873,7 @@ void gtk_audio_graph_toggle(void) {
    }
    gtk_audio_graph_present();
 }
+
 void gtk_audio_graph_present(void) {
    if (!GTK_IS_NOTEBOOK(main_notebook)) {
       return;

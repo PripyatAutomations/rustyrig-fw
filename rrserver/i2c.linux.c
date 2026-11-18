@@ -52,4 +52,5 @@ void i2c_deinit(void) {
       close(i2c_fd);
    }
 }
+
 #endif // defined(HOST_POSIX)

@@ -46,6 +46,7 @@ static bool client_key_decode(const char *value, unsigned char key[32]) {
 
    return ok;
 }
+
 bool db_user_key_add(sqlite3 *db, const char *username, const char *key_id, const char *public_key_b64, const char *label) {
    unsigned char raw[32];
 
@@ -68,6 +69,7 @@ bool db_user_key_add(sqlite3 *db, const char *username, const char *key_id, cons
 
    return ok;
 }
+
 bool db_user_key_verify(sqlite3 *db, const char *username, const char *key_id, const void *challenge, size_t challenge_len, const unsigned char signature[64]) {
    if (!challenge || challenge_len < 32 || challenge_len > 4096 || !signature) {
       return false;
@@ -83,6 +85,7 @@ bool db_user_key_verify(sqlite3 *db, const char *username, const char *key_id, c
 
    return verified;
 }
+
 bool db_user_key_revoke(sqlite3 *db, const char *username, const char *key_id) {
    if (!db || !username || !*username || !key_id || !*key_id) {
       return false;
@@ -101,6 +104,7 @@ bool db_user_key_revoke(sqlite3 *db, const char *username, const char *key_id) {
 
    return ok;
 }
+
 bool db_user_key_lookup(sqlite3 *db, const char *username, const char *key_id, unsigned char public_key[32]) {
    if (!db || !username || !key_id || !public_key) {
       return false;

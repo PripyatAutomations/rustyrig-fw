@@ -20,16 +20,20 @@ static inline void rr_rf_put32(uint8_t *p, uint32_t v) {
    p[2] = v >> 8;
    p[3] = v;
 }
+
 static inline uint32_t rr_rf_get32(const uint8_t *p) {
    return (uint32_t) p[0] << 24 | (uint32_t) p[1] << 16 | (uint32_t) p[2] << 8 | p[3];
 }
+
 static inline void rr_rf_put64(uint8_t *p, uint64_t v) {
    rr_rf_put32(p, (uint32_t) (v >> 32));
    rr_rf_put32(p + 4, (uint32_t) v);
 }
+
 static inline uint64_t rr_rf_get64(const uint8_t *p) {
    return (uint64_t) rr_rf_get32(p) << 32 | rr_rf_get32(p + 4);
 }
+
 static inline bool rr_rf_wire_pack(uint8_t out[RR_RF_WIRE_LEN], const rr_bridge_spectrum_row *row) {
    if (!out || !rr_bridge_spectrum_valid(row)) {
       return false;
@@ -44,6 +48,7 @@ static inline bool rr_rf_wire_pack(uint8_t out[RR_RF_WIRE_LEN], const rr_bridge_
 
    return true;
 }
+
 static inline bool rr_rf_wire_unpack(rr_bridge_spectrum_row *row, const void *packet, size_t length) {
    if (!row || !packet || length != RR_RF_WIRE_LEN) {
       return false;
@@ -71,4 +76,5 @@ static inline bool rr_rf_wire_unpack(rr_bridge_spectrum_row *row, const void *pa
 
    return true;
 }
+
 #endif

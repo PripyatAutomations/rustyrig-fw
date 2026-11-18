@@ -45,6 +45,7 @@ char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, con
    return strdup(!strcmp(alias, "@node") ? "00000000-0000-4000-8000-000000000001" :
       !strcmp(alias, "first") ? "00000000-0000-4000-8000-000000000002" : "00000000-0000-4000-8000-000000000003");
 }
+
 char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *alias) {
    (void)alias;
 
@@ -54,6 +55,7 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *a
 
    return strdup(!strcmp(rig_uuid, "00000000-0000-4000-8000-000000000002") ? "00000000-0000-4000-8000-000000000004" : "00000000-0000-4000-8000-000000000005");
 }
+
 #endif
 
 typedef struct fake_backend {

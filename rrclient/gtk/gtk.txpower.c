@@ -75,6 +75,7 @@ static gboolean tx_power_send(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void tx_power_changed(GtkRange *range, gpointer unused) {
    (void)range;
    (void)unused;
@@ -121,7 +122,6 @@ static gboolean tx_power_refresh(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
-
 
 GtkWidget *create_txpower_box(void) {
    GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);

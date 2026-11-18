@@ -21,7 +21,6 @@ static long long worker_ms(void) {
    return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-
 typedef struct observation {
    struct observation *next;
    rr_server_vfo_t *vfo;

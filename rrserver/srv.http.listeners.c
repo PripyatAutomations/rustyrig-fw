@@ -122,6 +122,7 @@ void http_tls_init(void) {
       Log(LOG_INFO, "http.tls", "TLS initialized successfully (certificate %zu bytes, key %zu bytes)", tls_cert.len, tls_key.len);
    }
 }
+
 #endif // USE_MONGOOSE
 
 #ifdef USE_MONGOOSE
@@ -241,4 +242,5 @@ bool http_init(struct mg_mgr *mgr) {
 
    return false;
 }
+
 #endif /* USE_MONGOOSE */

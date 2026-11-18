@@ -130,6 +130,7 @@ static void admin_session_menu_info(GtkMenuItem *item, gpointer data) {
    (void)item;
    admin_session_info(data);
 }
+
 static void admin_session_menu_kick(GtkMenuItem *item, gpointer data) {
    admin_table_t *table = data;
    (void)item;
@@ -137,6 +138,7 @@ static void admin_session_menu_kick(GtkMenuItem *item, gpointer data) {
    gtk_admin_session_kick(GTK_BUTTON(button), table);
    gtk_widget_destroy(button);
 }
+
 gboolean gtk_admin_session_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
       return FALSE;

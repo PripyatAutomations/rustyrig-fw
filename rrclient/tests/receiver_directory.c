@@ -11,6 +11,7 @@ GMainContext *rrclient_core_context(void) {
 /* Remote catalog requests are outside this directory parser fixture. */
 void rrclient_receiver_catalog_init(void) {
 }
+
 void rrclient_receiver_catalog_shutdown(void) {
 }
 
@@ -19,6 +20,7 @@ static const char *database;
 const char *cfg_get(const char *key) {
    return !strcmp(key, "receiver-directory.cache") ? database : "";
 }
+
 void Log(logpriority_t priority, const char *subsystem, const char *format, ...) {
 }
 
@@ -35,6 +37,7 @@ static void pump(void) {
       g_main_context_iteration(NULL, TRUE);
    }
 }
+
 int main(int argc, char **argv) {
    assert(argc >= 2);
    database = argv[1];

@@ -12,29 +12,37 @@ static unsigned mode_sends, width_sends;
 char vfo_state_get_active(void) {
    return 'A';
 }
+
 const char *gtk_chat_current_room(void) {
    return "#station-rig0";
 }
+
 bool ws_send_mode_cmd_in_room(rrconn_t *c, const char *vfo, const char *mode, const char *room) {
    mode_sends++;
 
    return true;
 }
+
 bool ws_send_width_cmd_in_room(rrconn_t *c, const char *vfo, const char *width, const char *room) {
    width_sends++;
 
    return true;
 }
+
 void fm_dialog_show(void) {
 }
+
 void fm_dialog_hide(void) {
 }
+
 gui_window_t *gui_find_window(GtkWidget *widget, const char *name) {
    return NULL;
 }
+
 gboolean focus_main_later(gpointer data) {
    return FALSE;
 }
+
 static void selected(GtkWidget *combo, const char *expected) {
    gchar *text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
 
@@ -44,6 +52,7 @@ static void selected(GtkWidget *combo, const char *expected) {
    assert(text && !strcmp(text, expected));
    g_free(text);
 }
+
 static bool key(GtkWidget *combo, guint letter, guint modifiers) {
    GdkEventKey event = {
       .keyval = letter, .state = modifiers
@@ -56,9 +65,11 @@ static unsigned width_model_mutations;
 static void width_row_inserted(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
    width_model_mutations++;
 }
+
 static void width_row_deleted(GtkTreeModel *model, GtkTreePath *path, gpointer data) {
    width_model_mutations++;
 }
+
 int main(int argc, char **argv) {
    if (!gtk_init_check(&argc, &argv)) {
       puts("SKIP: GTK mode widget test needs a display");

@@ -59,6 +59,7 @@ struct rr_server_rig {
 bool rr_rig_halted(const rr_server_rig_t *rig) {
    return rig && atomic_load(&rig->halted);
 }
+
 void rr_rig_set_halted(rr_server_rig_t *rig, bool halted) {
    if (rig) {
       atomic_store(&rig->halted, halted);

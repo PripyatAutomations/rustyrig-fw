@@ -215,4 +215,5 @@ bool http_dispatch_route(struct mg_http_message *msg, rrconn_t *cptr) {
 
    return false;                // No match found, let static handler take over
 }
+
 #endif // USE_MONGOOSE

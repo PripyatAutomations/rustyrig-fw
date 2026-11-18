@@ -19,9 +19,11 @@ static bool ignore_db_config;
 void rrclient_config_set_ignore_db(bool ignore) {
    ignore_db_config = ignore;
 }
+
 bool rrclient_config_ignore_db(void) {
    return ignore_db_config;
 }
+
 bool rrclient_config_save(void) {
    if (!rrclient_database_config_store()) {
       return false;
@@ -34,9 +36,11 @@ bool rrclient_config_save(void) {
 void rrclient_config_mark_dirty(void) {
    config_dirty = true;
 }
+
 bool rrclient_config_is_dirty(void) {
    return config_dirty;
 }
+
 void rrclient_config_clear_dirty(void) {
    config_dirty = false;
 }
@@ -59,6 +63,7 @@ static void log_level_apply_request(const rr_event_message_t *message, void *use
    load_log_filters_from_config();
    Log(LOG_INFO, "client.log", "Applied local client log.level filter (config marked dirty)");
 }
+
 void rrclient_log_level_register(void) {
    event_on_message_domain_token(RRCLIENT_LOG_LEVEL_REQUEST, log_level_apply_request, NULL, "core");
 }
@@ -80,7 +85,6 @@ static dict *with_defaults(dict *loaded) {
 
    return merged;
 }
-
 
 /* Named themes are source records; only theme.* contains active values. */
 void rrclient_theme_apply(void) {
@@ -273,6 +277,7 @@ static void config_reload_request(const rr_event_message_t *message, void *user)
       Log(LOG_WARN, "config", "Unable to reload %s configuration; current settings retained", use_db ? "SQLite" : "file");
    }
 }
+
 void rrclient_config_reload_register(void) {
    event_on_message_domain_token(RRCLIENT_CONFIG_RELOAD_REQUEST, config_reload_request, NULL, "core");
 }

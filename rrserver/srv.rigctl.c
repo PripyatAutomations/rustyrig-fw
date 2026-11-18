@@ -151,6 +151,7 @@ static bool (*rigctl_resource_authorizer)(rrconn_t *, const char *, const char *
 void ws_rigctl_set_resource_authorizer(bool (*authorize) (rrconn_t *, const char *, const char *)) {
    rigctl_resource_authorizer = authorize;
 }
+
 static bool ws_rigctl_has_tx_authority(rrconn_t *client, const char *room, const char *command) {
    return has_priv(client->user->uid, "admin|owner|tx|noob") || (rigctl_resource_authorizer && rigctl_resource_authorizer(client, room, command));
 }

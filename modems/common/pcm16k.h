@@ -50,4 +50,5 @@ static int rr_modem_rx_loop(void (*consume) (const float *, size_t, void *), voi
       }
    }
 }
+
 #endif

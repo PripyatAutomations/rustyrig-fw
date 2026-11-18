@@ -1015,4 +1015,5 @@ bool rr_cat_yaesu_parse(const char *msg) {
 
    return false;
 }
+
 #endif

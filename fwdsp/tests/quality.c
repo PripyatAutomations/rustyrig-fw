@@ -24,6 +24,7 @@ static void hint_set(GObject *object, guint id, const GValue *value, GParamSpec 
       encoder->bitrate = g_value_get_int(value);
    }
 }
+
 static void hint_get(GObject *object, guint id, GValue *value, GParamSpec *spec) {
    (void)spec;
    HintEncoder *encoder = (HintEncoder *) object;
@@ -34,6 +35,7 @@ static void hint_get(GObject *object, guint id, GValue *value, GParamSpec *spec)
       g_value_set_int(value, encoder->bitrate);
    }
 }
+
 static void hint_encoder_class_init(HintEncoderClass *klass) {
    GObjectClass *object = G_OBJECT_CLASS(klass);
    object->set_property = hint_set;
@@ -42,6 +44,7 @@ static void hint_encoder_class_init(HintEncoderClass *klass) {
    g_object_class_install_property(object, 2, g_param_spec_int("bitrate", "bitrate", "bitrate", 1000, 100000, 24000, G_PARAM_READWRITE |
       GST_PARAM_MUTABLE_PLAYING));
 }
+
 static void hint_encoder_init(HintEncoder *encoder) {
    encoder->quality = 0.8;
    encoder->bitrate = 24000;

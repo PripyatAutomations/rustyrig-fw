@@ -17,6 +17,7 @@ static inline bool rrserver_recording_enabled(bool tx) {
 
    return cfg_get_bool(tx ? "record.tx" : "record.rx", tx);
 }
+
 static inline const char *rrserver_recording_codec(rr_mode_t mode) {
    if (mode == MODE_DU || mode == MODE_DL || mode == MODE_FT4 || mode == MODE_FT8) {
       return "flac";
@@ -33,4 +34,5 @@ static inline const char *rrserver_recording_codec(rr_mode_t mode) {
 
    return !strcasecmp(codec, "ogg") ? "ogg" : "flac";
 }
+
 #endif

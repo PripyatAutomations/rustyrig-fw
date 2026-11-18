@@ -125,6 +125,7 @@ const char *rrserver_gps_public_scope(const char *alias) {
 
    return source ? source->alias : alias;
 }
+
 bool rrserver_gps_source_fixed(const char *alias) {
    const struct gps_source *source = find(alias ? alias : "station");
 

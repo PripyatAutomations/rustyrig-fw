@@ -23,21 +23,26 @@ static dict *observed;
 bool ui_print(const char *window, const char *fmt, ...) {
    return true;
 }
+
 bool cmd_list(int argc, char **args) {
    assert(argc == 0 && args == NULL);
    room_list_requests++;
 
    return false;
 }
+
 const char *rrclient_media_active_room(void) {
    return "#site-rig0";
 }
+
 const struct rr_client_media_chan *rrclient_media_current_channel(bool tx) {
    return NULL;
 }
+
 char vfo_state_get_active(void) {
    return 'A';
 }
+
 bool vfo_set_dict(const char *vfo, dict *d) {
    assert(!vfo);
 
@@ -48,41 +53,54 @@ bool vfo_set_dict(const char *vfo, dict *d) {
 
    return false;
 }
+
 bool userlist_add_or_update(dict *d) {
    return true;
 }
+
 void userlist_clear_all(void) {
 }
+
 void rrclient_rooms_clear(void) {
 }
+
 void rrclient_rooms_disconnect(void) {
 }
+
 void rrclient_rooms_set_available(const char *rooms) {
    snprintf(listed_rooms, sizeof(listed_rooms), "%s", rooms ? rooms : "");
 }
+
 const char *rrclient_room_available_iter(unsigned int index) {
    (void)index;
 
    return NULL;
 }
+
 void rrclient_rooms_rejoin_available(void) {
    room_rejoin_calls++;
 }
+
 const char *ui_active_window_name(void) {
    return "status";
 }
+
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 }
+
 static void acknowledge(bool active) {
    confirmations++;
    confirmed = active;
 }
+
 static void connection_update(int state) {
    (void)state;
 }
+
 static void ptt_online(bool online) {
    (void)online;
 }
+
 int main(void) {
    rr_frontend_ops_t ops = {
       .name = "test", .ptt_set_state = acknowledge,

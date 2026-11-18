@@ -139,6 +139,7 @@ void fail_cause(struct link_session *session, const char *cause, const char *rea
    }
 
 }
+
 void fail(struct link_session *session, const char *reason) {
    fail_cause(session, "protocol-or-policy", reason);
 }
@@ -155,6 +156,7 @@ static void health_window(struct link_peer *peer) {
       peer->health_flaps = peer->health_auth_errors = 0;
    }
 }
+
 static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason) {
 #ifdef USE_SQLITE
 
@@ -256,6 +258,7 @@ void rrserver_links_cause_counts(const char *subject, char *out, size_t capacity
    (void)subject;
 #endif
 }
+
 void rrserver_links_recent_events(const char *subject, char *out, size_t capacity) {
    if (!out || !capacity) {
       return;
@@ -293,6 +296,7 @@ static bool site_permitted(const struct link_peer *peer, const char *site) {
    }
    return false;
 }
+
 static void topology_reject(struct link_session *session, const char *why) {
    if (session->peer) {
       session->peer->policy_blocked = true;
@@ -300,6 +304,7 @@ static void topology_reject(struct link_session *session, const char *why) {
    }
    fail(session, why);
 }
+
 static bool snapshot_policy(const struct link_peer *peer, const rr_link_node_t *nodes, size_t count, const char *root) {
    if (peer->leaf_only && count != 1) {
       return false;
@@ -340,6 +345,7 @@ static bool snapshot_policy(const struct link_peer *peer, const rr_link_node_t *
 
    return true;
 }
+
 static bool introduction_policy(const struct link_session *session, const char *site, const char *parent) {
    if (session->peer->leaf_only || !site_permitted(session->peer, site)) {
       return false;
@@ -399,6 +405,7 @@ static bool defer_message(struct link_session *session, char *wire, size_t lengt
 
    return true;
 }
+
 static void drain_deferred(struct link_session *session) {
    if (!session->deferred_messages || session_closing(session) || !session->transport) {
       return;
@@ -430,6 +437,7 @@ static void drain_deferred(struct link_session *session) {
       session->deferred_since = 0;
    }
 }
+
 static bool send_message(struct link_session *session, dict *d) {
    const char *op = dict_get(d, "op", "unknown");
    /* Mutable hop budget belongs only to the outer link envelope. Never alter the origin-signed payload or a packet shared across neighbors. */
@@ -501,6 +509,7 @@ static bool send_message(struct link_session *session, dict *d) {
 
    return result == RR_TRANSPORT_OK;
 }
+
 static dict *message(const char *op) {
    dict *d = dict_new();
 
@@ -514,6 +523,7 @@ static dict *message(const char *op) {
 const char *rrserver_links_node(void) {
    return links.node;
 }
+
 const char *rrserver_links_site_name(const char *node) {
    if (!node || !*node) {
       return NULL;
@@ -536,6 +546,7 @@ const char *rrserver_links_site_name(const char *node) {
 
    return NULL;
 }
+
 const char *rrserver_links_route(const char *node) {
    return rr_link_tree_route(links.tree, node);
 }
@@ -567,6 +578,7 @@ static void remember_topology_sites(void) {
       remember_site(node.server, node.site);
    }
 }
+
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
    if (!buffer || !capacity) {
       return "";
@@ -635,6 +647,7 @@ bool rrserver_links_send(const char *node, dict *d) {
 
    return false;
 }
+
 void rrserver_links_broadcast(dict *d) {
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s->established && !session_closing(s)) {
@@ -654,6 +667,7 @@ void rrserver_links_each_neighbor(rr_link_neighbor_fn cb, void *context) {
       }
    }
 }
+
 void rrserver_links_depart_revoked(const char *uuid, const char *ingress) {
    if (!uuid || !g_uuid_string_is_valid(uuid)) {
       return;

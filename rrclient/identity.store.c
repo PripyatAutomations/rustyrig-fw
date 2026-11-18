@@ -13,9 +13,11 @@ static bool identity_file_safe(const char *path) {
 
    return path && lstat(path, &st) == 0 && S_ISREG(st.st_mode) && st.st_uid == geteuid() && !(st.st_mode & 0077);
 }
+
 rr_crypto_key_t *rrclient_identity_get(const char *path) {
    return unlocked && path ? g_hash_table_lookup(unlocked, path) : NULL;
 }
+
 bool rrclient_identity_unlock(const char *path, const char *password) {
    if (!identity_file_safe(path) || !password) {
       return false;
@@ -51,16 +53,19 @@ bool rrclient_identity_unlock(const char *path, const char *password) {
 
    return true;
 }
+
 void rrclient_identity_lock(const char *path) {
    if (unlocked && path) {
       g_hash_table_remove(unlocked, path);
    }
 }
+
 void rrclient_identity_lock_all(void) {
    if (unlocked) {
       g_hash_table_remove_all(unlocked);
    }
 }
+
 void rrclient_identity_shutdown(void) {
    if (unlocked) {
       g_hash_table_destroy(unlocked);

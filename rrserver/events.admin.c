@@ -359,6 +359,7 @@ static char *admin_session_id(const rrconn_t *session) {
 
    return digest;
 }
+
 static bool admin_can_kick(const rrconn_t *actor, const rrconn_t *target) {
    if (!target || !target->authenticated || !target->is_ws || target == actor) {
       return false;
@@ -375,6 +376,7 @@ static bool admin_can_kick(const rrconn_t *actor, const rrconn_t *target) {
 
    return has_priv(actor->user->uid, "owner") || !has_priv(target->user->uid, "admin");
 }
+
 static void admin_sessions_list(rrconn_t *client) {
    rrserver_admin_send(client, "sessions", "begin", NULL);
 
@@ -409,6 +411,7 @@ static void admin_sessions_list(rrconn_t *client) {
 
    rrserver_admin_send(client, "sessions", "end", NULL);
 }
+
 static void admin_sessions_kick(rrconn_t *client, const char *target, bool all) {
    unsigned kicked = 0;
 
@@ -865,6 +868,7 @@ static void admin_control_reply(rrconn_t *client, const rr_platform_control_stat
    rrserver_admin_send(client, "controls", action, row);
    dict_free(row);
 }
+
 static bool admin_control_visit(const rr_platform_control_state_t *s, void *user) {
    admin_control_reply((rrconn_t *) user, s, "row");
 
@@ -1157,6 +1161,7 @@ static void admin_access_requests(rrconn_t *client, dict *request) {
       }
    }
 }
+
 #endif
 /* Handle account/room actions or paginate an allowlisted database view. */
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {

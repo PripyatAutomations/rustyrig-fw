@@ -19,11 +19,13 @@ bool rrclient_room_tx_control(const char *room) {
 
    return room_tx_control;
 }
+
 uint32_t rrclient_room_vfo_mask(const char *room) {
    (void)room;
 
    return room_vfo_mask;
 }
+
 const char *rrclient_room_vfos(const char *room) {
    (void)room;
 
@@ -41,15 +43,19 @@ bool gtk_chat_execute_command(const char *window, const char *command) {
 static GtkWidget *opened_menu;
 void gtk_chat_query_add(const char *user) {
 }
+
 gui_window_t *ui_new_window(GtkWidget *widget, const char *name) {
    return NULL;
 }
+
 bool gui_hotkey_register(GtkWidget *widget) {
    return true;
 }
+
 bool place_window(GtkWidget *widget) {
    return true;
 }
+
 void gtk_menu_popup(GtkMenu *menu, GtkWidget *parent_menu_shell, GtkWidget *parent_menu_item, GtkMenuPositionFunc position, gpointer data, guint button, guint32
    time) {
    opened_menu = GTK_WIDGET(menu);
@@ -59,12 +65,14 @@ static char selected_room[128], command[32];
 void rrclient_media_room_selected(const char *room) {
    snprintf(selected_room, sizeof(selected_room), "%s", room);
 }
+
 bool ws_send_dict(rrconn_t *source, rrconn_t *client, dict *d, int opcode) {
    assert(!strcmp(dict_get((dict *) d, "talk.target", ""), "#site-rig0"));
    snprintf(command, sizeof(command), "%s", dict_get((dict *) d, "talk.data", ""));
 
    return true;
 }
+
 static gboolean accept_reason(gpointer unused) {
    (void)unused;
    GList *windows = gtk_window_list_toplevels();
@@ -79,6 +87,7 @@ static gboolean accept_reason(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 int main(void) {
    room_userlist_entry_t entry = {
       .docked = false

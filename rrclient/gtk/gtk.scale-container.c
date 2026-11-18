@@ -23,6 +23,7 @@ static gint rr_scale_dim(gint base, double scale) {
 
    return (gint) CLAMP(round(base * scale), 0.0, (double)G_MAXINT);
 }
+
 static void rr_scale_widget(GtkWidget *widget, double scale, GtkCssProvider *css) {
    /* Custom Cairo canvases maintain their own visual and pointer-coordinate transforms; scaling their size request again would apply zoom twice. */
    if (g_object_get_data(G_OBJECT(widget), "rr-scale-exempt")) {
@@ -142,6 +143,7 @@ static void rr_scale_child_added(GtkContainer *container, GtkWidget *child, gpoi
    }
    rr_scale_install(child, wrapper);
 }
+
 static void rr_scale_install(GtkWidget *widget, GtkWidget *wrapper) {
    if (!GTK_IS_CONTAINER(widget)) {
       return;
@@ -160,11 +162,13 @@ static void rr_scale_install(GtkWidget *widget, GtkWidget *wrapper) {
 
    g_list_free(children);
 }
+
 static void rr_scale_dispose(gpointer data) {
    RRScaleContainer *ctx = data;
    g_clear_object(&ctx->css);
    g_free(ctx);
 }
+
 GtkWidget *rr_scale_container_new(GtkWidget *content) {
    g_return_val_if_fail(GTK_IS_WIDGET(content), NULL);
    GtkWidget *wrapper = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -179,6 +183,7 @@ GtkWidget *rr_scale_container_new(GtkWidget *content) {
 
    return wrapper;
 }
+
 void rr_scale_container_set_zoom(GtkWidget *wrapper, double scale) {
    RRScaleContainer *ctx = g_object_get_data(G_OBJECT(wrapper), "rr-scale-context");
 

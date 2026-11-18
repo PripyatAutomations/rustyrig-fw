@@ -15,6 +15,7 @@ static const char *last_vfo;
 static bool last_state;
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 }
+
 static bool ptt(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) {
    assert(rr_server_rig_backend(rr_server_vfo_owner(vfo)) == backend);
    last_vfo = rr_server_vfo_id(vfo);

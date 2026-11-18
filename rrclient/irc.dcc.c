@@ -26,6 +26,7 @@ static bool nick_valid(const char *nick) {
 
    return true;
 }
+
 bool irc_dcc_decode(const char *payload, irc_dcc_session_t *offer) {
    rustyirc_dcc_offer_t wire;
 
@@ -42,6 +43,7 @@ bool irc_dcc_decode(const char *payload, irc_dcc_session_t *offer) {
 
    return true;
 }
+
 char *irc_dcc_encode(const irc_dcc_session_t *offer) {
    if (!offer) {
       return NULL;
@@ -95,6 +97,7 @@ static void notice(const irc_dcc_session_t *info, const char *status, const char
    event_emit_dict(IRC_DCC_EVENT, info->control, d);
    dict_free(d);
 }
+
 static void finish(struct dcc_session *s, const char *status, const char *reason) {
    irc_dcc_session_t info = s->info;
 
@@ -115,6 +118,7 @@ static void finish(struct dcc_session *s, const char *status, const char *reason
       notice(&info, status, reason);
    }
 }
+
 static struct dcc_session *allocate(rrconn_t *client) {
    for (unsigned i = 0 ; i < IRC_DCC_MAX_SESSIONS ; i++) {
       struct dcc_session *s = &sessions[i];
@@ -146,6 +150,7 @@ static struct dcc_session *allocate(rrconn_t *client) {
 
    return NULL;
 }
+
 static struct dcc_session *find(rrconn_t *client, unsigned id) {
    if (!id) {
       return NULL;
@@ -159,9 +164,11 @@ static struct dcc_session *find(rrconn_t *client, unsigned id) {
 
    return NULL;
 }
+
 static bool connected(rrconn_t *client) {
    return client && !client->is_ws && client->authenticated;
 }
+
 static int new_socket(void) {
    int fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -173,6 +180,7 @@ static int new_socket(void) {
 
    return fd;
 }
+
 bool irc_dcc_advertised_ip(rrconn_t *client, const char *configured, char ip[64]) {
    if (!client || !ip) {
       return false;
@@ -195,6 +203,7 @@ bool irc_dcc_advertised_ip(rrconn_t *client, const char *configured, char ip[64]
 
    return inet_pton(AF_INET, ip, &address) == 1 && address.s_addr != INADDR_ANY && address.s_addr != INADDR_BROADCAST;
 }
+
 static bool listen_offer(struct dcc_session *s, const irc_dcc_options_t *options) {
    if (!options || !options->port_min || options->port_max > 65535 || options->port_min > options->port_max ||
       !irc_dcc_advertised_ip(s->info.control, options->host, s->info.ip)) {
@@ -239,6 +248,7 @@ static bool listen_offer(struct dcc_session *s, const irc_dcc_options_t *options
 
    return false;
 }
+
 unsigned irc_dcc_offer_chat(rrconn_t *client, const char *nick, const irc_dcc_options_t *options) {
    if (!connected(client) || !nick_valid(nick)) {
       return 0;
@@ -261,6 +271,7 @@ unsigned irc_dcc_offer_chat(rrconn_t *client, const char *nick, const irc_dcc_op
 
    return id;
 }
+
 unsigned irc_dcc_offer_file(rrconn_t *client, const char *nick, const char *filename, int fd, const irc_dcc_options_t *options) {
    struct stat st;
    int flags = fcntl(fd, F_GETFL);
@@ -291,6 +302,7 @@ unsigned irc_dcc_offer_file(rrconn_t *client, const char *nick, const char *file
 
    return id;
 }
+
 bool irc_dcc_message(rrconn_t *client, const irc_message_t *message) {
    if (!message || message->argc < 3 || !message->argv[2] || strncasecmp(message->argv[2], "\001DCC ", 5)) {
       return false;
@@ -337,6 +349,7 @@ bool irc_dcc_message(rrconn_t *client, const irc_message_t *message) {
 
    return true;
 }
+
 bool irc_dcc_accept(rrconn_t *client, unsigned id, int destination_fd) {
    struct dcc_session *s = find(client, id);
 
@@ -388,6 +401,7 @@ bool irc_dcc_accept(rrconn_t *client, unsigned id, int destination_fd) {
 
    return true;
 }
+
 bool irc_dcc_chat_send(rrconn_t *client, unsigned id, const char *text) {
    struct dcc_session *s = find(client, id);
    size_t length = text ? strlen(text) : 0;
@@ -404,6 +418,7 @@ bool irc_dcc_chat_send(rrconn_t *client, unsigned id, const char *text) {
 
    return true;
 }
+
 bool irc_dcc_close(rrconn_t *client, unsigned id) {
    struct dcc_session *s = find(client, id);
 
@@ -414,6 +429,7 @@ bool irc_dcc_close(rrconn_t *client, unsigned id) {
 
    return true;
 }
+
 bool irc_dcc_session_get(unsigned index, irc_dcc_session_t *session) {
    if (!session) {
       return false;
@@ -434,9 +450,11 @@ bool irc_dcc_session_get(unsigned index, irc_dcc_session_t *session) {
 
    return false;
 }
+
 static bool again(void) {
    return errno == EAGAIN || errno == EINTR;
 }
+
 static bool flush(struct dcc_session *s) {
    while (s->tx_offset < s->tx_size) {
       ssize_t n = send(s->socket, s->tx + s->tx_offset, s->tx_size - s->tx_offset, MSG_NOSIGNAL);
@@ -461,6 +479,7 @@ static bool flush(struct dcc_session *s) {
 
    return true;
 }
+
 static bool write_file(struct dcc_session *s, const uint8_t *data, size_t size) {
    size_t offset = 0;
    while (offset < size) {
@@ -479,6 +498,7 @@ static bool write_file(struct dcc_session *s, const uint8_t *data, size_t size) 
 
    return true;
 }
+
 static void receive_data(struct dcc_session *s) {
    for (unsigned budget = 0 ; budget < 16 && s->info.id ; budget++) {
       if (s->info.type == IRC_DCC_SEND && !s->info.outgoing && s->tx_size) {
@@ -598,6 +618,7 @@ static void receive_data(struct dcc_session *s) {
       }
    }
 }
+
 void irc_dcc_poll(void) {
    for (unsigned i = 0 ; i < IRC_DCC_MAX_SESSIONS ; i++) {
       struct dcc_session *s = &sessions[i];
@@ -697,6 +718,7 @@ void irc_dcc_poll(void) {
       receive_data(s);
    }
 }
+
 static void disconnected(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)data;
@@ -708,6 +730,7 @@ static void disconnected(const char *event, const char *data, rrconn_t *client, 
       }
    }
 }
+
 static void offer_event(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -726,6 +749,7 @@ static void offer_event(const char *event, const char *data, rrconn_t *client, v
    irc_dcc_message(client, &message);
    dict_free(d);
 }
+
 void irc_dcc_init(void) {
    event_off("irc.dcc.offer", offer_event, NULL);
    event_on("irc.dcc.offer", offer_event, NULL);
@@ -736,6 +760,7 @@ void irc_dcc_init(void) {
    event_off("disconnect", disconnected, NULL);
    event_on("disconnect", disconnected, NULL);
 }
+
 void irc_dcc_shutdown(void) {
    event_off("irc.dcc.offer", offer_event, NULL);
    event_off("irc.disconnected", disconnected, NULL);
@@ -748,6 +773,7 @@ void irc_dcc_shutdown(void) {
       }
    }
 }
+
 #else
 bool irc_dcc_advertised_ip(rrconn_t *client, const char *configured, char ip[64]) {
    (void)client;
@@ -756,6 +782,7 @@ bool irc_dcc_advertised_ip(rrconn_t *client, const char *configured, char ip[64]
 
    return false;
 }
+
 unsigned irc_dcc_offer_chat(rrconn_t *client, const char *nick, const irc_dcc_options_t *options) {
    (void)client;
    (void)nick;
@@ -763,6 +790,7 @@ unsigned irc_dcc_offer_chat(rrconn_t *client, const char *nick, const irc_dcc_op
 
    return 0;
 }
+
 unsigned irc_dcc_offer_file(rrconn_t *client, const char *nick, const char *filename, int fd, const irc_dcc_options_t *options) {
    (void)client;
    (void)nick;
@@ -772,12 +800,14 @@ unsigned irc_dcc_offer_file(rrconn_t *client, const char *nick, const char *file
 
    return 0;
 }
+
 bool irc_dcc_message(rrconn_t *client, const irc_message_t *message) {
    (void)client;
    (void)message;
 
    return false;
 }
+
 bool irc_dcc_accept(rrconn_t *client, unsigned id, int destination_fd) {
    (void)client;
    (void)id;
@@ -785,6 +815,7 @@ bool irc_dcc_accept(rrconn_t *client, unsigned id, int destination_fd) {
 
    return false;
 }
+
 bool irc_dcc_chat_send(rrconn_t *client, unsigned id, const char *text) {
    (void)client;
    (void)id;
@@ -792,22 +823,28 @@ bool irc_dcc_chat_send(rrconn_t *client, unsigned id, const char *text) {
 
    return false;
 }
+
 bool irc_dcc_close(rrconn_t *client, unsigned id) {
    (void)client;
    (void)id;
 
    return false;
 }
+
 bool irc_dcc_session_get(unsigned index, irc_dcc_session_t *session) {
    (void)index;
    (void)session;
 
    return false;
 }
+
 void irc_dcc_init(void) {
 }
+
 void irc_dcc_shutdown(void) {
 }
+
 void irc_dcc_poll(void) {
 }
+
 #endif

@@ -19,6 +19,7 @@ long long mono_us(void) {
 bool rrserver_media_uuid_assign(struct rr_mediachan *channel, const char *scope_uuid, const char *role) {
    return channel && scope_uuid && *scope_uuid && role && *role;
 }
+
 bool rrserver_media_uuid_assign_node(struct rr_mediachan *channel, const char *role) {
    return channel && role && *role;
 }
@@ -34,36 +35,44 @@ bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_f
 
    return cb(radios[0], user) || cb(radios[1], user);
 }
+
 const char *rr_rig_registry_alias(const rr_rig_registry_t *r, const rr_server_rig_t *radio) {
    (void)r;
 
    return radio == radios[0] ? "rig0" : "rig1";
 }
+
 const char *rr_rig_registry_public_alias(const rr_rig_registry_t *r, const rr_server_rig_t *radio) {
    return rr_rig_registry_alias(r, radio);
 }
+
 const char *rr_rig_registry_room(const rr_rig_registry_t *r, const rr_server_rig_t *radio) {
    (void)r;
 
    return radio == radios[0] ? "#site-rig0" : "#site-rig1";
 }
+
 uint8_t rr_rig_registry_media_index(const rr_rig_registry_t *r, const rr_server_rig_t *radio) {
    (void)r;
 
    return radio == radios[0] ? 0 : 1;
 }
+
 const char *rr_server_rig_id(const rr_server_rig_t *radio) {
    return radio == radios[0] ? "uuid0" : "uuid1";
 }
+
 const char *rr_rig_config_get(const char *alias, const char *key) {
    char full[128];
    snprintf(full, sizeof(full), "rig:%s.%s", alias, key);
 
    return cfg_get(full);
 }
+
 const char *ws_site_room(void) {
    return "#site";
 }
+
 struct rr_mediachan *media_chan_add(uint8_t subsystem, uint8_t direction, uint8_t vfo, uint8_t radio, const char *codec, const char *descr) {
    unsigned index = (radio == 255 ? 0 : radio + 1) + (!strcmp(codec, RR_NMEA_FRAME_CODEC) ? 3 : 0);
    struct rr_mediachan *c = &channels[index];
@@ -77,6 +86,7 @@ struct rr_mediachan *media_chan_add(uint8_t subsystem, uint8_t direction, uint8_
 
    return c;
 }
+
 bool ws_media_send_frame(struct rr_mediachan *c, rrconn_t *client, const uint8_t *data, size_t len, const char codec[4]) {
    unsigned index = c - channels;
 
@@ -95,9 +105,11 @@ bool ws_media_send_frame(struct rr_mediachan *c, rrconn_t *client, const uint8_t
 
    return false;
 }
+
 void media_send_chan_removed_all(struct rr_mediachan *c) {
    (void)c;
 }
+
 bool media_chan_remove(const char *uuid) {
    (void)uuid;
 
@@ -118,6 +130,7 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *client, dict *row, int type) {
 
    return true;
 }
+
 static void inventory_check(const char *scope, unsigned index, const char *state, const char *coordinates) {
    rrconn_t client = {
       .authenticated = true
@@ -141,6 +154,7 @@ static const char *sentence(unsigned index) {
 
    return text;
 }
+
 static void ingest(const char *source, const char *body) {
    char sentence[512];
    unsigned checksum = 0;
@@ -156,6 +170,7 @@ static void ingest(const char *source, const char *body) {
    event_emit_dict("gps.nmea.input", NULL, d);
    dict_free(d);
 }
+
 int main(void) {
    int32_t lat, lon;
    assert(rrserver_gps_position_parse("38.1234567, -80.7654321", &lat, &lon));

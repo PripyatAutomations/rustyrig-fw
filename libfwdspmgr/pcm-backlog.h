@@ -34,4 +34,5 @@ static inline void fwdsp_pcm_backlog_append(struct fwdsp_pcm_backlog *queue, con
    memcpy(queue->data + queue->len, bytes, len);
    queue->len += len;
 }
+
 #endif

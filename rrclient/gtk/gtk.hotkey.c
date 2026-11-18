@@ -109,6 +109,7 @@ static gboolean commit_pending_tab(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static gboolean accept_tab_digit(int digit, GtkWidget *main_win) {
    if (digit < 0 || digit > 9) {
       return FALSE;

@@ -25,10 +25,13 @@ struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
 void tui_refresh_sb_window(void) {
 }
+
 void tui_refresh_sb_vfo(void) {
 }
+
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 }
+
 const char *rrclient_media_current_codec(bool tx) {
    return tx ? NULL : "opuT";
 }
@@ -37,9 +40,11 @@ const char *rrclient_media_current_codec(bool tx) {
 const char *rrclient_media_active_room(void) {
    return "#rig";
 }
+
 const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    return NULL;
 }
+
 const dict *rrclient_object_property(const char *uuid, const char *name) {
    return NULL;
 }
@@ -59,11 +64,13 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int data_type
 
    return true;
 }
+
 static char *render(tui_window_t *win) {
    redraws++;
 
    return rrclient_tui_topline(win);
 }
+
 static void state(const char *vfo, long frequency, const char *mode) {
    dict *d = dict_new();
    dict_add_long(d, "cat.state.freq", frequency);
@@ -74,6 +81,7 @@ static void state(const char *vfo, long frequency, const char *mode) {
    vfo_set_dict(vfo, d);
    dict_free(d);
 }
+
 static void check(tui_window_t *win, const char *format, const char *expected) {
    dict_add(cfg, "tui.status-line", format);
    char *line = rrclient_tui_topline(win);
@@ -84,11 +92,13 @@ static void check(tui_window_t *win, const char *format, const char *expected) {
    assert(line && !strcmp(line, expected));
    free(line);
 }
+
 static void capture_reset(FILE *file) {
    fflush(stdout);
    assert(!ftruncate(fileno(file), 0));
    rewind(file);
 }
+
 static char *capture_read(FILE *file) {
    fflush(stdout);
    long size = lseek(fileno(file), 0, SEEK_END);

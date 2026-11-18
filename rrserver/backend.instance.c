@@ -90,6 +90,7 @@ static void backend_control_done(rr_backend_t *backend, rr_server_vfo_t *vfo, bo
    }
    free(completion);
 }
+
 static rr_control_result_t backend_queue_control(rr_backend_t *backend, const rr_control_request_t *request, rr_backend_operation_t operation, dict_value_t
    value) {
    backend_control_completion_t *completion = calloc(1, sizeof(*completion));

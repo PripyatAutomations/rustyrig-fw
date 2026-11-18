@@ -404,7 +404,6 @@ bool place_window(GtkWidget *window) {
    return false;
 }
 
-
 bool gui_forget_window(gui_window_t *gw, const char *name) {
    if (!gw && !name) {
       return true;

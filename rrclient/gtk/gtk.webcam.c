@@ -89,6 +89,7 @@ static void webcam_publish_status(bool subscribed) {
    };
    event_emit_message(&event);
 }
+
 static void webcam_core_stop(void) {
    if (*webcam_decoder) {
       fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
@@ -101,10 +102,12 @@ static void webcam_core_stop(void) {
    webcam_core_connection = NULL;
    webcam_core_uuid[0] = 0;
 }
+
 static void webcam_open_on_connection(void *user) {
    bool subscribed = rrclient_media_subscribe_single_video();
    webcam_publish_status(subscribed);
 }
+
 static void webcam_apply_on_connection(void *user) {
    const webcam_command_t *req = user;
 
@@ -123,6 +126,7 @@ static void webcam_apply_on_connection(void *user) {
    ws_send_dict(NULL, webcam_core_connection, message, WEBSOCKET_OP_TEXT);
    dict_free(message);
 }
+
 static void webcam_core_command(const rr_event_message_t *event, void *user) {
    (void)user;
 
@@ -160,6 +164,7 @@ static void webcam_core_command(const rr_event_message_t *event, void *user) {
       rrclient_connection_dispatch(webcam_core_connection, webcam_apply_on_connection, &req);
    }
 }
+
 static void webcam_decoded(const char *name, const void *data, size_t len, void *user) {
    (void)name;
    (void)user;
@@ -182,6 +187,7 @@ static void webcam_decoded(const char *name, const void *data, size_t len, void 
    event_emit_message(&event);
    g_free(image);
 }
+
 static void webcam_frame_handler(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
    (void)event;
    (void)user;
@@ -213,6 +219,7 @@ static void webcam_frame_handler(const char *event, const void *data, size_t len
       webcam_decoder[0] = 0;
    }
 }
+
 static void webcam_send_command(unsigned action, const char *profile) {
    webcam_command_t req = {
       .epoch = webcam_epoch, .action = action
@@ -232,6 +239,7 @@ static void webcam_send_command(unsigned action, const char *profile) {
    };
    event_emit_message(&event);
 }
+
 static gboolean webcam_blit_cb(gpointer user) {
    (void)user;
    webcam_idle = 0;
@@ -261,6 +269,7 @@ static gboolean webcam_blit_cb(gpointer user) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void webcam_image_event(const rr_event_message_t *event, void *user) {
    (void)user;
    g_atomic_int_set(&webcam_frame_inflight, 0);
@@ -287,6 +296,7 @@ static void webcam_image_event(const rr_event_message_t *event, void *user) {
       g_source_unref(source);
    }
 }
+
 static void webcam_status_event(const rr_event_message_t *event, void *user) {
    (void)user;
 
@@ -343,6 +353,7 @@ static void webcam_codec_changed(GtkComboBox *combo, gpointer user) {
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(webcam_rates), 0);
 }
+
 static void webcam_apply(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;
@@ -352,6 +363,7 @@ static void webcam_apply(GtkButton *button, gpointer user) {
       webcam_send_command(WEBCAM_PROFILE, profile);
    }
 }
+
 static void webcam_controls_refresh(void) {
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(webcam_codecs));
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(webcam_codecs), "", "Source codec");
@@ -460,6 +472,7 @@ void gtk_webcam_show(bool show) {
    rr_floating_panel_show(webcam_panel);
    webcam_send_command(WEBCAM_OPEN, NULL);
 }
+
 static void webcam_disconnected(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)data;
@@ -470,6 +483,7 @@ static void webcam_disconnected(const char *event, const char *data, rrconn_t *c
       webcam_publish_status(false);
    }
 }
+
 static void webcam_closed_event(const rr_event_message_t *event, void *unused) {
    (void)unused;
 

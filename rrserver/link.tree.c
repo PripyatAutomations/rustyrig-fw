@@ -28,6 +28,7 @@ static bool valid_id(const char *id) {
 
    return true;
 }
+
 static bool valid_site(const char *site) {
    if (!site || !*site || strlen(site) >= 128) {
       return false;
@@ -50,6 +51,7 @@ bool rr_link_tree_set_local_site(rr_link_tree_t *tree, const char *site) {
 
    return true;
 }
+
 static struct link_node *find(const rr_link_tree_t *tree, const char *id) {
    if (tree && id) {
       for (size_t i = 0 ; i < tree->count ; i++) {
@@ -95,6 +97,7 @@ void rr_link_tree_free(rr_link_tree_t *tree) {
 size_t rr_link_tree_count(const rr_link_tree_t *tree) {
    return tree ? tree->count : 0;
 }
+
 bool rr_link_tree_node(const rr_link_tree_t *tree, size_t index, rr_link_node_t *node) {
    if (!tree || !node || index >= tree->count) {
       return false;
@@ -178,6 +181,7 @@ rr_link_result_t rr_link_tree_attach(rr_link_tree_t *tree, const char *peer, con
 
    return RR_LINK_OK;
 }
+
 rr_link_result_t rr_link_tree_add(rr_link_tree_t *tree, const char *peer, const char *server, const char *parent, const char *site) {
    if (!tree || !valid_id(peer) || !valid_id(server) || !valid_id(parent) || !valid_site(site)) {
       return RR_LINK_INVALID;
@@ -209,6 +213,7 @@ const char *rr_link_tree_route(const rr_link_tree_t *tree, const char *server) {
 
    return node && node->peer[0] ? node->peer : NULL;
 }
+
 bool rr_link_tree_remove(rr_link_tree_t *tree, const char *peer, const char *server) {
    struct link_node *node = find(tree, server);
 

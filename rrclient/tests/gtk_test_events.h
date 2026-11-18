@@ -10,9 +10,11 @@ static void gtk_test_dispatch(event_dispatch_fn_t callback, void *data, void *us
    (void)user;
    callback(data);
 }
+
 static void gtk_test_events_init(void) {
    event_init();
    assert(event_domain_register("gtk", gtk_test_dispatch, NULL));
    assert(event_domain_register("core", gtk_test_dispatch, NULL));
 }
+
 #endif

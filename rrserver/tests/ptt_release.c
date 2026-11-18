@@ -23,18 +23,23 @@ static unsigned applied;
 const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
    return "rig0";
 }
+
 const char *rrserver_relay_client_server(const rrconn_t *client) {
    return "home-server";
 }
+
 rr_server_rig_t *rr_rig_registry_default(const rr_rig_registry_t *registry) {
    return (rr_server_rig_t *) 1;
 }
+
 rr_server_vfo_t *rr_server_vfo_find_alias(const rr_server_rig_t *radio, const char *alias) {
    return *alias == 'A' ? (rr_server_vfo_t *) 1 : NULL;
 }
+
 bool rr_vfo_property_read(const rr_server_vfo_t *vfo, const char *name, rr_property_snapshot_t *state) {
    return false;
 }
+
 bool rr_backend_vfo_supported(rr_server_rig_t *radio, rr_server_vfo_t *object) {
    return true;
 }
@@ -55,6 +60,7 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
 
    return false;
 }
+
 rr_backend_t *rr_backend_for_ptt(void) {
    return use_worker ? &fixture_backend : NULL;
 }
@@ -66,35 +72,45 @@ bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
 
    return fail_release;
 }
+
 float rr_get_power(rr_vfo_t vfo) {
    return 0;
 }
+
 uint16_t rr_get_width(rr_vfo_t vfo) {
    return 0;
 }
+
 rr_mode_t rr_get_mode(rr_vfo_t vfo) {
    return MODE_NONE;
 }
+
 const char *rr_get_mode_str(rr_vfo_t vfo) {
    return NULL;
 }
+
 const char *rr_rig_registry_room(const rr_rig_registry_t *r, const rr_server_rig_t *v) {
    return "#test-rig0";
 }
+
 bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
    return true;
 }
+
 void rrserver_media_record_ptt(rr_vfo_t vfo, bool state, rrconn_t *talker, const char *id) {
 }
+
 bool au_recording_generate_id(char *buffer, size_t len) {
    return false;
 }
+
 int db_ptt_start(sqlite3 *db, const char *user, const char *vfo, double frequency, const char *mode, int width, float power, const char *file, const char *id,
    const char *server) {
    assert(false);
 
    return -1;
 }
+
 void rrserver_supervision_snapshot(rrconn_t *client, const char *room, struct rr_supervision_attribution *out) {
    memset(out, 0, sizeof(*out));
 }
@@ -105,26 +121,31 @@ int db_ptt_start_supervised(sqlite3 *db, const char *user, const char *vfo, doub
 
    return -1;
 }
+
 bool db_ptt_stop(sqlite3 *db, int id, int *duration, const char *reason) {
    assert(false);
 
    return false;
 }
+
 int db_quota_get(sqlite3 *db, const char *user) {
    assert(false);
 
    return 0;
 }
+
 bool db_quota_spend(sqlite3 *db, const char *user, int secs) {
    assert(false);
 
    return false;
 }
+
 bool db_send_notice(rrconn_t *client, const char *type, const char *text) {
    assert(false);
 
    return false;
 }
+
 int main(void) {
    cfg = dict_new();
    rig.tx_blocked = true;

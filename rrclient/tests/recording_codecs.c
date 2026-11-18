@@ -107,6 +107,7 @@ static void roundtrip(const char *directory) {
    g_free(ogg);
    g_free(flac);
 }
+
 int main(int argc, char **argv) {
    assert(argc == 2);
    roundtrip(argv[1]);

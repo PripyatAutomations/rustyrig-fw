@@ -34,12 +34,14 @@ static dict *message(const char *command, const char *path, const char *id) {
 
    return d;
 }
+
 static bool send_request(rrconn_t *c, dict *d) {
    bool ok = c && c->authenticated && c->is_ws && ws_send_dict(NULL, c, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
    return ok;
 }
+
 bool rrclient_files_request_id(rrconn_t *c, const char *command, const char *path, const char *dest, const char *id) {
    if (!id || !*id) {
       return false;
@@ -52,6 +54,7 @@ bool rrclient_files_request_id(rrconn_t *c, const char *command, const char *pat
 
    return send_request(c, d);
 }
+
 char *rrclient_files_request(rrconn_t *c, const char *command, const char *path, const char *dest) {
    char *id = g_uuid_string_random();
 
@@ -63,6 +66,7 @@ char *rrclient_files_request(rrconn_t *c, const char *command, const char *path,
 
    return id;
 }
+
 static void finish(struct transfer *t, const char *error, rrconn_t *connection) {
    struct transfer **p = &transfers;
    while (*p && *p != t) {
@@ -101,6 +105,7 @@ static void finish(struct transfer *t, const char *error, rrconn_t *connection) 
    g_free(t->temp);
    g_free(t);
 }
+
 static bool next(struct transfer *t, rrconn_t *c) {
    t->activity = mono_us();
    dict *d = message(t->upload ? "chunk" : "read", t->remote, t->id);
@@ -136,6 +141,7 @@ static bool next(struct transfer *t, rrconn_t *c) {
 
    return true;
 }
+
 bool rrclient_files_transfer(rrconn_t *c, const char *remote, const char *local, bool upload, bool overwrite) {
    if (!c || !c->authenticated || !c->is_ws) {
       return false;
@@ -217,6 +223,7 @@ bool rrclient_files_transfer(rrconn_t *c, const char *remote, const char *local,
 
    return next(t, c);
 }
+
 static gboolean expired(gpointer unused) {
    struct transfer *t = transfers, *following;
    uint64_t at = mono_us();
@@ -237,6 +244,7 @@ static gboolean expired(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void received(const char *event, const char *data, rrconn_t *c, void *context) {
    dict *d = json2dict(data);
 
@@ -306,6 +314,7 @@ static void received(const char *event, const char *data, rrconn_t *c, void *con
    }
    dict_free(d);
 }
+
 static void disconnected(const char *event, const char *data, rrconn_t *c, void *context) {
    const char *profile = rrclient_connection_name(c);
    struct transfer *t = transfers, *following;
@@ -318,6 +327,7 @@ static void disconnected(const char *event, const char *data, rrconn_t *c, void 
       t = following;
    }
 }
+
 static void files_command_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -364,6 +374,7 @@ static void files_command_request(const char *event, const char *payload, rrconn
    }
    dict_free(request);
 }
+
 static void files_sites_request(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)payload;
@@ -391,6 +402,7 @@ static void files_sites_request(const char *event, const char *payload, rrconn_t
       dict_free(site);
    }
 }
+
 bool cmd_files(int argc, char **args) {
    if (ui_mode == UI_MODE_GTK) {
       event_emit("client.files.open", NULL, rrclient_connection_context() ? rrclient_connection_name(rrclient_connection_context()) : NULL);
@@ -401,6 +413,7 @@ bool cmd_files(int argc, char **args) {
 
    return false;
 }
+
 void rrclient_files_register(void) {
    event_on("ws.msg.file", received, NULL);
    event_on("disconnected", disconnected, NULL);

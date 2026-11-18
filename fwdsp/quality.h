@@ -120,4 +120,5 @@ static inline gboolean fwdsp_quality_apply(GstElement *pipeline, const fwdsp_qua
 
    return applied;
 }
+
 #endif

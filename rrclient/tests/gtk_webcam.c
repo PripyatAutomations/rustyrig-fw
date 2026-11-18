@@ -11,6 +11,7 @@ GtkWidget *main_window, *main_notebook;
 bool rr_module_token_add(rr_event_token_t token) {
    return token != NULL;
 }
+
 GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, GCallback callback, gpointer data) {
    (void)notebook;
    (void)title;
@@ -19,15 +20,19 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
 
    return NULL;
 }
+
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
    (void)tab;
 }
+
 bool ui_print(const char *window, const char *fmt, ...) {
    return false;
 }
+
 bool rrclient_media_subscribe_single_video(void) {
    return true;
 }
+
 bool rrclient_media_video_info(char *uuid, size_t uuid_size, char *profiles, size_t profiles_size) {
    snprintf(uuid, uuid_size, "camera");
    snprintf(profiles, profiles_size, "h264.1 h264.5 h264.10 jpeg.5");
@@ -47,17 +52,20 @@ int fwdsp_video_pipeline_start(const char codec[5], const char *identity, bool c
 
    return 1;
 }
+
 bool fwdsp_write_channel_samples(const char codec[5], bool tx, const char *identity, const void *data, size_t len) {
    assert(((const uint8_t *)data)[0] == 0xff);
    decoded_output(identity, display_frame->str, display_frame->len, decoded_user);
 
    return true;
 }
+
 int fwdsp_codec_stop_channel_immediate(const char *codec, bool tx, const char *identity) {
    stops++;
 
    return 0;
 }
+
 bool media_send_unsubscribe(rrconn_t *client, const char *uuid) {
    unsubscribes++;
 

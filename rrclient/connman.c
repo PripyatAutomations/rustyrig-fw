@@ -199,6 +199,7 @@ bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx) {
 
    return s != NULL;
 }
+
 void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, uint64_t tx) {
    if (!connection) {
       return;
@@ -232,6 +233,7 @@ static bool rrclient_server_uuid_valid(const char *uuid) {
 
    return true;
 }
+
 bool rrclient_connection_expected_node_matches(rrconn_t *connection, const char *station, const char *domain) {
    if (!connection) {
       return false;
@@ -264,6 +266,7 @@ bool rrclient_connection_expected_node_matches(rrconn_t *connection, const char 
 
    return false;
 }
+
 void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid) {
    if (!connection || !domain || !*domain || !server_uuid || !rrclient_server_uuid_valid(server_uuid)) {
       return;
@@ -392,6 +395,7 @@ const char *rrclient_connection_domain(const rrconn_t *connection) {
 
    return NULL;
 }
+
 const char *rrclient_connection_server_uuid(const rrconn_t *connection) {
    for (client_server_t *s = servers ; s ; s = s->next) {
       if (s->connection == connection) {
@@ -401,11 +405,13 @@ const char *rrclient_connection_server_uuid(const rrconn_t *connection) {
 
    return NULL;
 }
+
 rrconn_t *rrclient_connection_find(const char *name) {
    client_server_t *s = find_server(name);
 
    return s ? s->connection : NULL;
 }
+
 const char *rrclient_connection_url(const char *name) {
    client_server_t *s = find_server(name);
 
@@ -441,6 +447,7 @@ const char *rrclient_connection_iter(unsigned index) {
 rrconn_t *rrclient_connection_context(void) {
    return context ? context->connection : NULL;
 }
+
 void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
    if (!callback) {
       return;
@@ -687,7 +694,6 @@ static void auth_failure_report(client_server_t *s, const char *reason) {
       .name = RRCLIENT_AUTH_FAILURE_ALERT_EVENT, .sender = "core", .payload = &alert, .length = sizeof(alert)
    });
 }
-
 
 static void nick_prompt_close(client_server_t *s) {
    s->nick_deadline = 0;
@@ -979,6 +985,7 @@ static void tls_pin_reply_event(const rr_event_message_t *message, void *unused)
    server->reconnect_at = now;
 #endif
 }
+
 static void password_secret_clear(client_server_t *s) {
    if (s && s->pending_password_change) {
       explicit_bzero(s->pending_password_change, strlen(s->pending_password_change));
@@ -986,6 +993,7 @@ static void password_secret_clear(client_server_t *s) {
       s->pending_password_change = NULL;
    }
 }
+
 static void password_change_result(client_server_t *s, bool success, const char *reason) {
    rrclient_password_change_t reply = {
       0
@@ -1001,6 +1009,7 @@ static void password_change_result(client_server_t *s, bool success, const char 
       .name = RRCLIENT_PASSWORD_RESULT_EVENT, .sender = "core", .payload = &reply, .length = sizeof(reply)
    });
 }
+
 static void password_change_required(const char *event, const char *data, rrconn_t *conn, void *user) {
    (void)event;
    (void)data;
@@ -1021,6 +1030,7 @@ static void password_change_required(const char *event, const char *data, rrconn
       .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core", .payload = &request, .length = sizeof(request)
    });
 }
+
 static void password_change_retry(const rr_event_message_t *msg, void *ignored) {
    (void)ignored;
 
@@ -1051,6 +1061,7 @@ static void password_change_retry(const rr_event_message_t *msg, void *ignored) 
       .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core", .payload = &prompt, .length = sizeof(prompt)
    });
 }
+
 static void password_change_submit(const rr_event_message_t *msg, void *ignored) {
    (void)ignored;
 
@@ -1122,6 +1133,7 @@ static void password_change_submit(const rr_event_message_t *msg, void *ignored)
 done:
    explicit_bzero(&request, sizeof(request));
 }
+
 static void password_change_response(const char *event, const char *data, rrconn_t *conn, void *user) {
    (void)user;
    client_server_t *s = context;
@@ -1171,6 +1183,7 @@ static void password_change_response(const char *event, const char *data, rrconn
       dict_free(response);
    }
 }
+
 void connman_register_events(void) {
    event_on_message_domain_token(RRCLIENT_TLS_PIN_REPLY_EVENT, tls_pin_reply_event, NULL, "core");
    event_on_message_domain_token(RRCLIENT_PASSWORD_SUBMIT_EVENT, password_change_submit, NULL, "core");
@@ -1394,6 +1407,7 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    s->connected = ws_connected;
    activate(dispatch_depth ? previous : selected);
 }
+
 #endif
 
 #ifndef USE_MONGOOSE
@@ -1670,6 +1684,7 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
    dispatch_depth--;
    activate(dispatch_depth ? previous : selected);
 }
+
 #endif
 
 void rrclient_poll_events_reconnect(void) {

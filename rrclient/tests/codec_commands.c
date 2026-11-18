@@ -55,8 +55,10 @@ void event_emit_dict(const char *event, rrconn_t *client, dict *data) {
    snprintf(gps_text, sizeof(gps_text), "%s", dict_get(data, "gps.nmea", ""));
    assert(!strcmp(dict_get(data, "gps.source", ""), "rig0"));
 }
+
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
 }
+
 bool ui_print(const char *window, const char *fmt, ...) {
    assert(window && !strcmp(window, expected_window ? expected_window : active_window));
    va_list ap;
@@ -73,6 +75,7 @@ static unsigned codec_widget_updates;
 bool rrclient_context_is_selected(void) {
    return selected_context;
 }
+
 static void codec_widget_updated(bool tx, const char *codec) {
    codec_widget_updates++;
 }
@@ -82,21 +85,27 @@ static bool test_join_sdr;
 bool rrclient_room_is_joined(const char *room) {
    return test_join_sdr && !strcmp(room, "#sdr-12345678");
 }
+
 uint32_t rrclient_room_vfo_mask(const char *room) {
    return strstr(room, "-rig") ? 1 : 0;
 }
+
 void vfo_state_set_active(const char *vfo) {
    test_active_vfo = vfo[0];
 }
+
 char vfo_state_get_active(void) {
    return test_active_vfo;
 }
+
 const char *media_get_common_codecs(void) {
    return "pc16 g722 mu16 mu08 opus opuT";
 }
+
 const char *media_get_preferred_codec(void) {
    return "pc16";
 }
+
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
    local_codec[0][0] = 0;
 
@@ -104,16 +113,20 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
       snprintf(local_codec[0], sizeof(local_codec[0]), "%s", channels[i].codec);
    }
 }
+
 bool audio_switch_codec(const char *codec, bool tx) {
    snprintf(local_codec[tx], sizeof(local_codec[tx]), "%s", codec);
 
    return false;
 }
+
 void audio_stop_codec(bool tx) {
    local_codec[tx][0] = 0;
 }
+
 void event_emit(const char *event, rrconn_t *cptr, const char *data) {
 }
+
 bool media_send_codec_select(rrconn_t *cptr, const char *codec, const char *uuid) {
    assert(strcmp(codec, "none") != 0);
 
@@ -133,12 +146,14 @@ bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_trans
 
    return true;
 }
+
 bool media_send_subscribe(rrconn_t *cptr, const char *uuid) {
    subscribed++;
    snprintf(last_uuid, sizeof(last_uuid), "%s", uuid);
 
    return !fail_send;
 }
+
 bool media_send_unsubscribe(rrconn_t *cptr, const char *uuid) {
    unsubscribed++;
 
@@ -157,12 +172,14 @@ bool rrclient_direct_preferred(const char *profile) {
 
    return direct_preference;
 }
+
 bool rrclient_direct_set_preference(rrconn_t *client, bool enabled) {
    (void)client;
    direct_preference = enabled;
 
    return true;
 }
+
 static void announce(const char *uuid, const char *codec, int vfo) {
    dict *d = dict_new();
    dict_add(d, "media.chan-uuid", uuid);
@@ -178,6 +195,7 @@ static dict *shared_vfo_object;
 const dict *rrclient_object_find_alias(const char *type, const char *owner, const char *alias) {
    return !strcmp(type, "vfo") && !strcmp(owner, "shared-rig") && !strcmp(alias, "B") ? shared_vfo_object : NULL;
 }
+
 int main(void) {
    media_ready = true;
    known_chans[0] = (struct rr_client_media_chan) {

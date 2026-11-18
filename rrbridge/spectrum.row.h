@@ -44,6 +44,7 @@ static inline int rr_bridge_spectrum_send(int fd, const rr_bridge_spectrum_row *
 
    return n == sizeof(*r) ? 1 : -1;
 }
+
 static inline int rr_bridge_spectrum_recv(int fd, rr_bridge_spectrum_row *r) {
    ssize_t n = recv(fd, r, sizeof(*r), MSG_DONTWAIT | MSG_TRUNC);
 
@@ -53,4 +54,5 @@ static inline int rr_bridge_spectrum_recv(int fd, rr_bridge_spectrum_row *r) {
 
    return n == sizeof(*r) && rr_bridge_spectrum_valid(r) ? 1 : -1;
 }
+
 #endif

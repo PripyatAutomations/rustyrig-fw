@@ -26,10 +26,12 @@ static void dispatch_immediately(event_dispatch_fn_t callback, void *arg, void *
    (void)user;
    callback(arg);
 }
+
 void rrserver_relay_file_nodes(rrconn_t *connection, const char *request_id) {
    (void)connection;
    (void)request_id;
 }
+
 RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) {
    (void)tabs;
    (void)id;
@@ -41,22 +43,28 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
 
    return panel;
 }
+
 GtkWidget *rr_floating_panel_body(RRFloatPanel *panel) {
    return panel->body;
 }
+
 GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel) {
    return panel->widget;
 }
+
 void rr_floating_panel_show(RRFloatPanel *panel) {
    gtk_widget_show_all(panel->widget);
 }
+
 void rr_floating_panel_restore(RRFloatPanel *panel) {
    gtk_widget_show_all(panel->widget);
 }
+
 void rr_floating_panel_set_close_callback(RRFloatPanel *panel, void (*callback) (gpointer), gpointer data) {
    panel->on_close = callback;
    panel->close_data = data;
 }
+
 void rr_floating_panel_destroy(RRFloatPanel *panel) {
    gtk_widget_destroy(panel->widget);
    g_free(panel);
@@ -74,12 +82,14 @@ int fsync(int fd) {
 
    return 0;
 }
+
 static void block_flush(void) {
    g_mutex_lock(&flush_lock);
    flush_blocked = true;
    flush_entered = false;
    g_mutex_unlock(&flush_lock);
 }
+
 static void release_flush(void) {
    g_mutex_lock(&flush_lock);
    flush_blocked = false;
@@ -94,18 +104,23 @@ static GDestroyNotify editor_destroy;
 const char *rrclient_connection_name(const rrconn_t *c) {
    return c == &client ? "test" : NULL;
 }
+
 rrconn_t *rrclient_connection_find(const char *name) {
    return !strcmp(name, "test") ? &client : NULL;
 }
+
 const char *rrclient_connection_iter(unsigned i) {
    return i ? NULL : "test";
 }
+
 const char *rrclient_selected_server(void) {
    return "test";
 }
+
 bool ui_print(const char *room, const char *format, ...) {
    return false;
 }
+
 bool gui_file_editor_open_remote(const char *file, const char *title, bool (*save) (const char *, void *), void *data, GDestroyNotify destroy) {
    assert(!editor_file);
    editor_file = g_strdup(file);
@@ -130,6 +145,7 @@ static gboolean deliver(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int type) {
    assert(dest == &client);
    const char *command = dict_get(message, "file.cmd", "");
@@ -146,6 +162,7 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int type) {
 
    return true;
 }
+
 static void completed(const char *event, const char *data, rrconn_t *c, void *context) {
    dict *d = json2dict(data);
 
@@ -155,6 +172,7 @@ static void completed(const char *event, const char *data, rrconn_t *c, void *co
    completions++;
    dict_free(d);
 }
+
 static void drain(void) {
    for (unsigned i = 0 ; i < 5000 ; i++) {
       while (g_main_context_pending(NULL)) {
@@ -168,6 +186,7 @@ static void drain(void) {
       }
    }
 }
+
 static void wait_flush(void) {
    for (unsigned i = 0 ; i < 5000 ; i++) {
       while (g_main_context_pending(NULL)) {
@@ -186,6 +205,7 @@ static void wait_flush(void) {
 
    assert(!"Upload flush worker did not start");
 }
+
 static bool find(GtkTreeIter *parent, const char *path, GtkTreeIter *out) {
    GtkTreeIter iter;
 
@@ -209,6 +229,7 @@ static bool find(GtkTreeIter *parent, const char *path, GtkTreeIter *out) {
 
    return false;
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    event_init();

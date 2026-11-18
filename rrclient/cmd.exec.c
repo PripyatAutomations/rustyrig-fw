@@ -53,6 +53,7 @@ static void exec_deliver(void *data) {
       parse_chat_input_real(delivery->line);
    }
 }
+
 static void exec_line(exec_job_t *job, const char *line, bool local) {
    rrconn_t *connection = job->connection && job->profile && rrclient_connection_find(job->profile) == job->connection ? job->connection : NULL;
 
@@ -76,6 +77,7 @@ static void exec_line(exec_job_t *job, const char *line, bool local) {
    };
    rrclient_input_dispatch(connection, job->room, exec_deliver, &delivery);
 }
+
 static void exec_output(exec_job_t *job, exec_pipe_t *pipe, size_t length, bool error) {
    if (length && pipe->pending->str[length - 1] == '\r') {
       length--;
@@ -99,6 +101,7 @@ static void exec_output(exec_job_t *job, exec_pipe_t *pipe, size_t length, bool 
    }
    g_free(text);
 }
+
 static void exec_drain(exec_job_t *job, exec_pipe_t *pipe, int fd, bool error) {
    unsigned budget = job->mode && !error ? 1 : 16;
    unsigned bytes = 0;
@@ -162,6 +165,7 @@ static void exec_drain(exec_job_t *job, exec_pipe_t *pipe, int fd, bool error) {
       }
    }
 }
+
 static void exec_free(exec_job_t *job) {
    if (job->process.pid > 0) {
       // Retain the leader PID until pipes close, so this group cannot be reused.
@@ -177,6 +181,7 @@ static void exec_free(exec_job_t *job) {
    g_free(job->window);
    g_free(job);
 }
+
 static gboolean exec_poll(gpointer unused) {
    (void)unused;
    uint64_t current = mono_us();
@@ -229,6 +234,7 @@ static gboolean exec_poll(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void exec_closed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)data;
@@ -291,6 +297,7 @@ static bool exec_cat_file(const char *path) {
 
    return failed;
 }
+
 bool cmd_exec(int argc, char **args) {
    if (argc < 2 || !*args[1]) {
       ui_print(ui_active_window_name(), "Usage: /exec [-o|-e] <shell command>; /exec -c <local file>; /exec -stop [id|all]");
@@ -422,6 +429,7 @@ bool cmd_exec(int argc, char **args) {
 
    return false;
 }
+
 void rrclient_exec_shutdown(void) {
    exec_stopping = true;
 

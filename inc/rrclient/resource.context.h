@@ -61,4 +61,5 @@ static inline bool rrclient_resource_matches(const char *context, const char *ro
    }
    return !*suffix || (*suffix == '.' && suffix[1]);
 }
+
 #endif

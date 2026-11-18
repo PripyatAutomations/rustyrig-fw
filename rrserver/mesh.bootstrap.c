@@ -79,4 +79,5 @@ char *rr_mesh_bootstrap_url(sqlite3 *db, const char *domain, const char *node, c
    /* Earlier enrollment records have no separate mesh endpoint at all. */
    return url ? url : endpoint(enrollment, 4420);
 }
+
 #endif

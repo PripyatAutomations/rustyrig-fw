@@ -32,6 +32,7 @@ static gint lookup(const rr_audio_graph_t *g, const char *id) {
 
    return -1;
 }
+
 rr_audio_graph_t *rr_audio_graph_new(void) {
    rr_audio_graph_t *g = g_new0(rr_audio_graph_t, 1);
    g->nodes = g_array_new(FALSE, FALSE, sizeof(rr_ag_node_t));
@@ -39,6 +40,7 @@ rr_audio_graph_t *rr_audio_graph_new(void) {
 
    return g;
 }
+
 void rr_audio_graph_free(rr_audio_graph_t *g) {
    if (!g) {
       return;
@@ -47,6 +49,7 @@ void rr_audio_graph_free(rr_audio_graph_t *g) {
    g_array_unref(g->edges);
    g_free(g);
 }
+
 bool rr_audio_graph_add_node(rr_audio_graph_t *g, const char *id, rr_ag_node_type_t type) {
    if (!g || !id || !*id || strlen(id) >= 64 || type > RR_AG_SINK || lookup(g, id) >= 0 || g->nodes->len >= 256) {
       return false;
@@ -86,6 +89,7 @@ static bool graph_reaches(const rr_audio_graph_t *g, guint start, guint target) 
    }
    return false;
 }
+
 bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels) {
    gint a = lookup(g, src), b = lookup(g, dst);
 
@@ -134,9 +138,11 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const
 
    return true;
 }
+
 bool rr_audio_graph_add_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type) {
    return rr_audio_graph_add_channel_link(g, src, dst, type, RR_AG_CHANNEL_STEREO);
 }
+
 bool rr_audio_graph_set_health(rr_audio_graph_t *g, const char *id, rr_ag_health_t health) {
    gint index = lookup(g, id);
 
@@ -147,6 +153,7 @@ bool rr_audio_graph_set_health(rr_audio_graph_t *g, const char *id, rr_ag_health
 
    return true;
 }
+
 const char *rr_audio_graph_input(const rr_audio_graph_t *g, const char *dst) {
    gint index = lookup(g, dst);
 
@@ -184,9 +191,11 @@ const char *rr_audio_graph_input(const rr_audio_graph_t *g, const char *dst) {
 
    return NULL;
 }
+
 guint rr_audio_graph_node_count(const rr_audio_graph_t *g) {
    return g ? g->nodes->len : 0;
 }
+
 guint rr_audio_graph_link_count(const rr_audio_graph_t *g) {
    return g ? g->edges->len : 0;
 }
@@ -217,6 +226,7 @@ bool rr_audio_graph_snapshot(const rr_audio_graph_t *g, rr_audio_graph_snapshot_
 
    return true;
 }
+
 bool rr_audio_graph_set_route(rr_audio_graph_t *g, const char *id, char route) {
    gint index = lookup(g, id);
 

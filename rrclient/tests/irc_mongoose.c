@@ -16,6 +16,7 @@ void mg_tls_init(struct mg_connection *conn, const struct mg_tls_opts *opts) {
    assert(!mg_strcmp(opts->name, mg_str("chat.example.test")));
    tls_calls++;
 }
+
 static void check_registration(bool tls) {
    server_cfg_t server = {
       0
@@ -72,6 +73,7 @@ static void check_registration(bool tls) {
    mg_iobuf_free(&connection.send);
    mg_iobuf_free(&connection.recv);
 }
+
 int main(void) {
    event_init();
    assert(!irc_init());

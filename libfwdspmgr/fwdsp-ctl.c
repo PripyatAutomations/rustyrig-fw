@@ -53,7 +53,6 @@ bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1) {
    return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t) sizeof(msg) ? false : true;
 }
 
-
 static bool fwdsp_cmd_record(const char codec_id[5], bool is_tx, const char *channel_uuid, bool start) {
    struct fwdsp_subproc *sp = NULL;
 

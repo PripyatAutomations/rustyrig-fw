@@ -43,6 +43,7 @@ static gboolean allowed_recording(const char *path) {
 
    return allowed;
 }
+
 static void playback_request(char operation, double seconds) {
    rr_audio_recording_control_t cmd = {
       0
@@ -56,11 +57,13 @@ static void playback_request(char operation, double seconds) {
    }
    event_emit_binary(RR_AUDIO_RECORDING_CONTROL_REQUEST, NULL, &cmd, sizeof(cmd));
 }
+
 static char *timecode(double seconds) {
    guint total = (guint) MAX(0.0, seconds);
 
    return g_strdup_printf("%02u:%02u:%02u", total / 3600, (total / 60) % 60, total % 60);
 }
+
 static void update_position(void) {
    if (!player.position_label) {
       return;
@@ -77,11 +80,13 @@ static void update_position(void) {
       gtk_widget_queue_draw(player.wave);
    }
 }
+
 static void status(const char *message) {
    if (player.status) {
       gtk_label_set_text(GTK_LABEL(player.status), message);
    }
 }
+
 static void controls_update(void) {
    if (player.play) {
       gtk_widget_set_sensitive(player.play, player.envelope && player.envelope->success);
@@ -95,6 +100,7 @@ static void controls_update(void) {
       gtk_widget_set_sensitive(player.stop, player.playing);
    }
 }
+
 static void start_from(double seconds) {
    if (!player.envelope || !player.envelope->success || !player.path) {
       return;
@@ -107,6 +113,7 @@ static void start_from(double seconds) {
    controls_update();
    update_position();
 }
+
 static gboolean draw_wave(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    (void)unused;
    double w = gtk_widget_get_allocated_width(widget);
@@ -190,6 +197,7 @@ static gboolean draw_wave(GtkWidget *widget, cairo_t *cr, gpointer unused) {
 
    return FALSE;
 }
+
 static gboolean wave_click(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -206,6 +214,7 @@ static gboolean wave_click(GtkWidget *widget, GdkEventButton *event, gpointer un
 
    return TRUE;
 }
+
 static void play_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -232,6 +241,7 @@ static void play_clicked(GtkButton *button, gpointer unused) {
       start_from(at);
    }
 }
+
 static void pause_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -244,6 +254,7 @@ static void pause_clicked(GtkButton *button, gpointer unused) {
    status("Paused");
    controls_update();
 }
+
 static void stop_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -256,6 +267,7 @@ static void stop_clicked(GtkButton *button, gpointer unused) {
    status("Stopping playback…");
    controls_update();
 }
+
 static void reverse_changed(GtkToggleButton *button, gpointer unused) {
    (void)unused;
 
@@ -270,6 +282,7 @@ static void reverse_changed(GtkToggleButton *button, gpointer unused) {
       update_position();
    }
 }
+
 static void deletion_complete(void) {
    if (!allowed_recording(player.path)) {
       return;
@@ -287,6 +300,7 @@ static void deletion_complete(void) {
       rr_floating_panel_destroy(player.panel);
    }
 }
+
 static void delete_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -314,6 +328,7 @@ static void delete_clicked(GtkButton *button, gpointer unused) {
       deletion_complete();
    }
 }
+
 static void waveform_ready(const char *event, const void *data, size_t size, rrconn_t *conn, void *unused) {
    (void)event;
    (void)conn;
@@ -346,6 +361,7 @@ static void waveform_ready(const char *event, const void *data, size_t size, rrc
    controls_update();
    update_position();
 }
+
 static void position_changed(const char *event, const char *value, rrconn_t *conn, void *unused) {
    (void)event;
    (void)conn;
@@ -363,6 +379,7 @@ static void position_changed(const char *event, const char *value, rrconn_t *con
    player.position = CLAMP(seconds, 0.0, player.envelope->duration);
    update_position();
 }
+
 static void playback_finished(const char *event, const char *payload, rrconn_t *conn, void *unused) {
    (void)event;
    (void)payload;
@@ -387,6 +404,7 @@ static void playback_finished(const char *event, const char *payload, rrconn_t *
    controls_update();
    update_position();
 }
+
 static void playback_error(const char *event, const char *message, rrconn_t *conn, void *unused) {
    (void)event;
    (void)conn;
@@ -399,6 +417,7 @@ static void playback_error(const char *event, const char *message, rrconn_t *con
    status(message ? message : "Playback unavailable");
    controls_update();
 }
+
 static void close_panel(gpointer unused) {
    (void)unused;
 
@@ -406,6 +425,7 @@ static void close_panel(gpointer unused) {
       rr_floating_panel_destroy(player.panel);
    }
 }
+
 static void destroyed(GtkWidget *widget, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -420,6 +440,7 @@ static void destroyed(GtkWidget *widget, gpointer unused) {
    g_clear_pointer(&player.path, g_free);
    g_clear_pointer(&player.envelope, g_free);
 }
+
 void gtk_recording_player_show(const char *path) {
    if (!allowed_recording(path)) {
       return;
@@ -512,12 +533,14 @@ void gtk_recording_player_show(const char *path) {
    controls_update();
    rr_recordings_waveform_request(path);
 }
+
 void gtk_recording_player_init(void) {
    player.wave_token = event_on_binary_domain_token(RR_RECORDING_WAVEFORM_READY, waveform_ready, NULL, "gtk");
    player.position_token = event_on_domain_token(RR_RECORDING_PLAYBACK_POSITION, position_changed, NULL, "gtk");
    player.finished_token = event_on_domain_token("client.recordings.playback-finished", playback_finished, NULL, "gtk");
    player.error_token = event_on_domain_token("client.recordings.playback-error", playback_error, NULL, "gtk");
 }
+
 void gtk_recording_player_shutdown(void) {
    event_off_token(player.wave_token);
    event_off_token(player.position_token);

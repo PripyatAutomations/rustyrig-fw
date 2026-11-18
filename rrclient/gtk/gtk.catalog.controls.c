@@ -24,6 +24,7 @@
 static char *resource_property_key(const char *profile, const char *uuid, const char *property) {
    return g_strdup_printf("%s\037%s\037%s", profile ? profile : "", uuid ? uuid : "", property ? property : "");
 }
+
 void resource_property_result(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -47,6 +48,7 @@ void resource_property_result(const char *event, const char *payload, rrconn_t *
       dict_free(snapshot);
    }
 }
+
 const dict *resource_property_cached(const char *profile, const char *uuid, const char *property, const char *request_id) {
    if (!browser) {
       return NULL;
@@ -57,6 +59,7 @@ const dict *resource_property_cached(const char *profile, const char *uuid, cons
 
    return snapshot && !g_strcmp0(dict_get((dict *) snapshot, "request.id", ""), request_id) ? snapshot : NULL;
 }
+
 char *resource_property_request(const char *profile, const char *uuid, const char *property) {
    if (!profile || !*profile || !uuid || !*uuid || !property || !*property) {
       return NULL;
@@ -137,6 +140,7 @@ static void resource_control_edit_free(gpointer data) {
    g_free(edit->request_id);
    g_free(edit);
 }
+
 static gboolean resource_control_snapshot_poll(gpointer data) {
    resource_control_edit_t *edit = data;
 
@@ -171,6 +175,7 @@ static gboolean resource_control_snapshot_poll(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void resource_control_revert(GtkButton *button, gpointer data) {
    (void)button;
    resource_control_edit_t *edit = data;
@@ -183,6 +188,7 @@ static void resource_control_revert(GtkButton *button, gpointer data) {
    edit->suppress = FALSE;
    resource_control_send(edit, edit->original);
 }
+
 void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *name, const char *property) {
    GtkTreeIter iter = *item, parent;
    char *uuid = NULL, *room = NULL, *details = NULL;
@@ -323,6 +329,7 @@ static gboolean resource_menu_value_poll(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void resource_menu_read_free(gpointer data) {
    resource_menu_read_t *read = data;
 
@@ -336,6 +343,7 @@ static void resource_menu_read_free(gpointer data) {
    g_free(read->initial_version);
    g_free(read);
 }
+
 static void resource_menu_apply(GtkButton *button, gpointer data) {
    resource_menu_read_t *read = data;
    GtkWidget *selector = g_object_get_data(G_OBJECT(button), "menu-selector");
@@ -387,6 +395,7 @@ static void resource_menu_apply(GtkButton *button, gpointer data) {
    g_free(write_id);
    dict_free(request);
 }
+
 void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *title, const char *id) {
    if (!profile || !id || strlen(id) != 4) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Cannot open menu: missing server or menu ID.");

@@ -40,6 +40,7 @@ static gboolean admin_access_send(const char *action, const char *id, const char
 
    return ok;
 }
+
 static void admin_access_refresh(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;
@@ -51,6 +52,7 @@ static void admin_access_refresh(GtkButton *button, gpointer user) {
    }
    admin_access_send("access-request-list", NULL, NULL);
 }
+
 static gboolean admin_access_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    (void)user;
    const char *query = access_request_filter ? gtk_entry_get_text(GTK_ENTRY(access_request_filter)) : "";
@@ -77,10 +79,12 @@ static gboolean admin_access_visible(GtkTreeModel *model, GtkTreeIter *iter, gpo
 
    return match;
 }
+
 static void admin_access_filter_changed(GtkEditable *editable, gpointer user) {
    (void)editable;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(user));
 }
+
 static void admin_access_selection_changed(GtkTreeSelection *selection, gpointer user) {
    (void)user;
    GtkTreeModel *model = NULL;
@@ -102,6 +106,7 @@ static void admin_access_selection_changed(GtkTreeSelection *selection, gpointer
       gtk_widget_set_sensitive(access_request_deny, enabled);
    }
 }
+
 static void admin_access_age_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    (void)column;
    (void)user;
@@ -144,6 +149,7 @@ static void admin_access_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *
       gtk_tree_path_free(path);
    }
 }
+
 static void admin_access_review(GtkButton *button, gpointer user) {
    (void)button;
    const char *decision = user;
@@ -255,7 +261,6 @@ done:
    g_free(status);
 }
 
-
 bool gtk_admin_access_result(const char *name, const char *action, dict *row, const char *profile) {
    if (row && !strcmp(name, "access-requests") && access_request_store && !g_strcmp0(access_request_profile, profile)) {
       if (!strcmp(action, "begin")) {
@@ -363,6 +368,7 @@ GtkWidget *gtk_admin_access_page(GtkListStore *groups) {
 
    return page;
 }
+
 GtkWidget *gtk_admin_access_label(void) {
    return access_request_tab_label;
 }

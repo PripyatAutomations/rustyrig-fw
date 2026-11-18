@@ -23,6 +23,7 @@ static void core_refresh_request(const char *event, const char *profile, rrconn_
    };
    cmd_object(1, args);
 }
+
 static void core_action_request(const char *event, const char *payload, rrconn_t *connection, void *user) {
    (void)event;
    (void)connection;
@@ -51,6 +52,7 @@ static void core_action_request(const char *event, const char *payload, rrconn_t
    }
    dict_free(request);
 }
+
 static void core_property_request(const char *event, const char *payload, rrconn_t *connection, void *user) {
    (void)event;
    (void)connection;
@@ -71,6 +73,7 @@ static void core_property_request(const char *event, const char *payload, rrconn
    dict_free(reply);
    dict_free(request);
 }
+
 static void core_serial_attach_request(const char *event, const char *payload, rrconn_t *connection, void *user) {
    (void)event;
    (void)connection;
@@ -85,9 +88,11 @@ static void core_serial_attach_request(const char *event, const char *payload, r
    dict_free(reply);
    dict_free(request);
 }
+
 bool rr_module_token_add(rr_event_token_t token) {
    return token != NULL;
 }
+
 void rrclient_wsjtx_status(char *state, size_t state_len, char *connection, size_t connection_len, char *details, size_t details_len) {
    if (state_len) {
       state[0] = 0;
@@ -101,49 +106,60 @@ void rrclient_wsjtx_status(char *state, size_t state_len, char *connection, size
       details[0] = 0;
    }
 }
+
 void rrclient_wsjtx_foreach_field(rr_wsjtx_field_cb callback, void *data) {
    (void)callback;
    (void)data;
 }
+
 GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
    (void)title;
    (void)panel_out;
 
    return NULL;
 }
+
 void gtk_admin_open_resource(const char *profile, const char *kind, const char *name) {
    (void)profile;
    (void)kind;
    (void)name;
 }
+
 void gtk_admin_open_control_on_server(const char *profile, const char *name) {
    (void)profile;
    (void)name;
 }
+
 void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name) {
    (void)name;
    (void)display_name;
 }
+
 static void dispatch_immediately(event_dispatch_fn_t callback, void *arg, void *user) {
    (void)user;
    callback(arg);
 }
+
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return connection == &alpha ? "alpha" : "beta";
 }
+
 rrconn_t *rrclient_connection_find(const char *profile) {
    return !strcmp(profile, "alpha") ? &alpha : &beta;
 }
+
 void rrclient_connection_dispatch(rrconn_t *connection, void (*cb) (void *), void *data) {
    assert(connection == &alpha || connection == &beta);
    cb(data);
 }
+
 bool cmd_join(int argc, char **args) {
    assert(argc == 2 && !strcmp(args[1], "#station-rig1"));
    joins++;
 
    return false;
 }
+
 bool cmd_media(int argc, char **args) {
    assert(argc == 3 && !strcmp(args[2], "stream-1"));
    subscribes++;
@@ -156,11 +172,14 @@ struct rr_user *global_userlist;
 const char *rr_serial_name(const rr_serial_t *port) {
    return "";
 }
+
 void rr_serial_foreach(rr_serial_visit_fn visit, void *user) {
 }
+
 rr_serial_t *rr_serial_find(const char *name) {
    return NULL;
 }
+
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    return false;
 }
@@ -172,15 +191,19 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
 
    return true;
 }
+
 bool rr_sercom_disconnect(const char *name) {
    return false;
 }
+
 const char *rrclient_selected_server(void) {
    return "alpha";
 }
+
 const char *rrclient_connection_iter(unsigned index) {
    return index == 0 ? "alpha" : index == 1 ? "beta" : NULL;
 }
+
 int rrclient_connection_state(const char *profile) {
    return !strcmp(profile, "alpha") ? 1 : 0;
 }
@@ -195,50 +218,65 @@ const struct rr_client_media_chan *rrclient_media_chan_iter(int idx, int *listno
 
    return idx == 0 ? &channel : NULL;
 }
+
 void rrclient_media_refresh(rrconn_t *connection) {
    (void)connection;
 }
+
 bool rrclient_room_is_joined(const char *room) {
    return false;
 }
+
 bool rrclient_room_offline(const char *room) {
    return false;
 }
+
 const dict *rrclient_object_property(const char *uuid, const char *name) {
    return NULL;
 }
+
 const char *rrclient_objects_subscription(void) {
    return "Subscribed";
 }
+
 bool rrclient_object_dump_selected(const char *name, rr_object_cache_dump_fn emit, void *user) {
    return false;
 }
+
 bool userlist_names_pending(const char *room) {
    return false;
 }
+
 const struct rrclient_irc_channel_stats *rrclient_irc_stats_next(const char *profile, const struct rrclient_irc_channel_stats *previous) {
    return NULL;
 }
+
 bool cmd_part(int argc, char **args) {
    return false;
 }
+
 bool cmd_rig(int argc, char **args) {
    return false;
 }
+
 bool cmd_object(int argc, char **args) {
    inventories++;
 
    return false;
 }
+
 bool disconnect_server(const char *profile) {
    return false;
 }
+
 bool connect_server(const char *profile) {
    return false;
 }
+
 gui_window_t *gui_find_window(GtkWidget *window, const char *name) {
    return NULL;
 }
+
 gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    return NULL;
 }
@@ -286,6 +324,7 @@ static void row(rrconn_t *connection, unsigned depth, const char *kind, const ch
    free(payload);
    dict_free(d);
 }
+
 static void wire_row(const char *profile, const char *request, unsigned depth, const char *kind, const char *name, const char *uuid, const char *domain) {
    dict *d = dict_new();
    dict_add(d, "client.profile", profile);
@@ -304,6 +343,7 @@ static void wire_row(const char *profile, const char *request, unsigned depth, c
    free(json);
    dict_free(d);
 }
+
 static void wire_end(const char *profile, const char *request) {
    dict *d = dict_new();
    dict_add(d, "client.profile", profile);
@@ -314,6 +354,7 @@ static void wire_end(const char *profile, const char *request) {
    free(json);
    dict_free(d);
 }
+
 static void status_fixture(const char *profile, const char *transport, bool authenticated) {
    dict *d = dict_new();
    dict_add(d, "profile", profile);
@@ -325,6 +366,7 @@ static void status_fixture(const char *profile, const char *transport, bool auth
    free(json);
    dict_free(d);
 }
+
 static void irc_fixture(const char *profile, const char *room) {
    dict *d = dict_new();
    dict_add(d, "profile", profile);
@@ -335,6 +377,7 @@ static void irc_fixture(const char *profile, const char *room) {
    free(json);
    dict_free(d);
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    event_init();

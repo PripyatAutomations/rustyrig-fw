@@ -43,12 +43,14 @@ static bool transient_sdr_name(const char *room) {
 
    return true;
 }
+
 static void transient_sdr_free(gpointer data) {
    transient_sdr_room *r = data;
    g_free(r->uuid);
    g_free(r->vfo);
    g_free(r);
 }
+
 static transient_sdr_room *transient_sdr_get(const char *name, bool create) {
    if (!transient_sdr_name(name)) {
       return NULL;
@@ -73,6 +75,7 @@ static transient_sdr_room *transient_sdr_get(const char *name, bool create) {
 
    return r;
 }
+
 static void transient_sdr_remove(const char *name) {
    if (!transient_sdr_rooms || !transient_sdr_name(name)) {
       return;
@@ -613,7 +616,6 @@ char *db_room_list(sqlite3 *db) {
    return out;
 }
 
-
 /* Return an owned joined text listing for room/VFO query rows. */
 static char *db_join_rows(sqlite3 *db, const char *sql, const char *room, bool include_room) {
    sqlite3_stmt *st = NULL;
@@ -910,4 +912,5 @@ char *db_room_vfo_map_list(sqlite3 *db) {
 
    return out;
 }
+
 #endif /* USE_SQLITE */

@@ -45,6 +45,7 @@ gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *fo
 
    return FALSE;
 }
+
 static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, const char *uuid, const char *name, guint generation, GtkTreeIter *found) {
    (void)generation;
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
@@ -68,7 +69,6 @@ static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, c
 
    return FALSE;
 }
-
 
 void resource_row(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event;

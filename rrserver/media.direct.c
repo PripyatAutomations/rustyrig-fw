@@ -150,6 +150,7 @@ static bool endpoint_excluded(const char *ip) {
 
    return excluded;
 }
+
 static void add_candidate(char *out, size_t len, const char *host, unsigned port) {
    if (!host || !*host) {
       return;
@@ -182,6 +183,7 @@ static void add_candidate(char *out, size_t len, const char *host, unsigned port
    }
    strcat(out, candidate);
 }
+
 static void pool_candidates(struct media_pool *pool, rrconn_t *client, char *out, size_t len) {
    *out = 0;
 
@@ -808,6 +810,7 @@ void rrserver_direct_register_events(void) {
    event_on_binary(RR_SERVER_SEND_EVENT, sent, NULL);
    event_on_binary(RR_MEDIA_BINARY_EVENT, binary, NULL);
 }
+
 #else
 bool rrserver_direct_relay_grant(rrconn_t *client, dict *reply, unsigned stream, unsigned direction) {
    return false;
@@ -829,4 +832,5 @@ bool rrserver_direct_tx_ready(rrconn_t *client, const char *room) {
 
    return false;
 }
+
 #endif

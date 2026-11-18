@@ -18,18 +18,23 @@
 static bool privilege(const rrconn_t *client, const char *flags) {
    return client && client->authenticated && client->user && has_priv(client->user->uid, flags);
 }
+
 bool rrserver_bridge_can_use(const rrconn_t *client) {
    return privilege(client, "owner|admin|bridge.use|bridge.admin|websdr.listen|websdr.connect");
 }
+
 bool rrserver_bridge_can_admin(const rrconn_t *client) {
    return privilege(client, "owner|admin|bridge.admin");
 }
+
 bool rrserver_websdr_can_connect(const rrconn_t *client) {
    return privilege(client, "owner|admin|websdr.connect");
 }
+
 bool rrserver_websdr_can_admin(const rrconn_t *client) {
    return privilege(client, "owner|admin|websdr.admin");
 }
+
 static bool rig_access(const rrconn_t *client, const rr_server_rig_t *radio) {
    if (!client || !client->authenticated || !client->user || !radio) {
       return false;
@@ -70,11 +75,13 @@ static bool rig_access(const rrconn_t *client, const rr_server_rig_t *radio) {
 
    return temporary ? rrserver_websdr_can_connect(client) : rrserver_bridge_can_use(client);
 }
+
 bool rrserver_bridge_rig(const rr_server_rig_t *radio) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
 
    return backend && backend->type && !strcmp(backend->type->name, "bridge");
 }
+
 static void room_access(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
    (void)event;
    (void)unused;
@@ -90,6 +97,7 @@ static void room_access(const char *event, const void *data, size_t length, rrco
       ws_send_error(client, "Receiver access requires websdr.listen (configured) or websdr.connect (temporary)");
    }
 }
+
 static void media_access(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
    (void)event;
    (void)unused;
@@ -137,6 +145,7 @@ static void codec_privilege(const char *event, const void *data, size_t length, 
    (void)access;
 #endif
 }
+
 void rrserver_bridge_access_register_events(void) {
    event_on_binary(RR_ROOM_JOIN_CHECK_EVENT, room_access, NULL);
    event_on_binary(RR_MEDIA_ACCESS_EVENT, media_access, NULL);

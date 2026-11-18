@@ -32,10 +32,12 @@ static void observe_protocol_disconnect(const char *event, const char *data, rrc
    (void)user;
    protocol_disconnects++;
 }
+
 void userlist_names_begin(const char *room) {
    assert(!strcmp(room, "#room"));
    names_begins++;
 }
+
 void userlist_names_end(const char *room) {
    assert(!strcmp(room, "#room"));
    names_ends++;
@@ -55,6 +57,7 @@ bool irc_send(rrconn_t *connection, const char *format, ...) {
 
    return irc_send_result;
 }
+
 void rrclient_server_status_window(const char *room) {
    assert(room && *room);
    status_windows++;
@@ -68,14 +71,17 @@ bool ui_close_window(const char *room) {
 
    return false;
 }
+
 bool rrclient_room_part(const char *room) {
    snprintf(forgotten_room, sizeof(forgotten_room), "%s", room);
 
    return true;
 }
+
 void userlist_remove_room(const char *room) {
    snprintf(cleared_room, sizeof(cleared_room), "%s", room);
 }
+
 static void room_add(const char *room) {
    snprintf(added_room, sizeof(added_room), "%s", room);
 }
@@ -105,9 +111,11 @@ static long long clock_ms = 1000;
 long long mono_ms(void) {
    return clock_ms;
 }
+
 rrconn_t *rrclient_active_connection(void) {
    return expected_connection;
 }
+
 bool ws_send_dict(rrconn_t *sender, rrconn_t *destination, dict *message, int opcode) {
    (void)sender;
    (void)opcode;
@@ -124,6 +132,7 @@ static bool request_whois(const char *nick) {
 
    return cmd_whois(2, args);
 }
+
 bool ui_print(const char *window, const char *fmt, ...) {
    if (quit_test && window) {
       for (unsigned i = 0 ; i < 3 ; i++) {
@@ -142,25 +151,32 @@ bool ui_print(const char *window, const char *fmt, ...) {
 
    return false;
 }
+
 const char *ui_active_window_name(void) {
    return active_window;
 }
+
 const rr_frontend_ops_t *frontend_ops(void) {
    return use_frontend ? &redirect_frontend : NULL;
 }
+
 void rrclient_update_connection_ui(int connected) {
    (void)connected;
 }
+
 void tui_refresh_sb_online(void) {
 }
+
 void rrclient_rooms_rejoin_available(void) {
    rejoins++;
 }
+
 bool rrclient_room_request_join(const char *room) {
    (void)room;
 
    return true;
 }
+
 const char *rrclient_room_iter(unsigned index) {
    return quit_test ? (index < 3 ? quit_rooms[index] : NULL) : index == 0 ? "#room" : NULL;
 }
@@ -181,6 +197,7 @@ struct rr_user *userlist_find_in_room(const char *name, const char *room) {
 
    return !strcmp(name, member.name) && !strcmp(room, member.room) ? &member : NULL;
 }
+
 bool userlist_remove_by_name_room(const char *name, const char *room) {
    if (quit_test) {
       for (unsigned i = 0 ; i < 3 ; i++) {
@@ -195,6 +212,7 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
 
    return false;
 }
+
 static void observe(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)user;
    assert(cptr == expected_connection);
@@ -214,6 +232,7 @@ static void observe(const char *event, const char *data, rrconn_t *cptr, void *u
    snprintf(last_event, sizeof(last_event), "%s", event);
    events++;
 }
+
 int main(void) {
    server_cfg_t server = {
       0

@@ -22,6 +22,7 @@ bool rr_slice_fits(const rr_iq_stream_desc_t *source, const rr_slice_request_t *
    /* These are occupied-bandwidth checks, not a substitute for anti-alias filter transition guards, device limits or actual DSP planning. */
    return rr_slice_can_tune(source, slice, slice->center_hz);
 }
+
 bool rr_slice_can_tune(const rr_iq_stream_desc_t *source, const rr_slice_request_t *slice, uint64_t target_hz) {
    if (!rr_iq_stream_valid(source) || !slice || !target_hz ||
       !format_valid(slice->output_format) || !slice->bandwidth_hz ||

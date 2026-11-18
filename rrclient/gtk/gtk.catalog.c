@@ -73,6 +73,7 @@ static void branch_free(gpointer data) {
    g_free(branch->subscription);
    g_free(branch);
 }
+
 char *resource_display_utf8(const char *value) {
    if (!value) {
       return g_strdup("");
@@ -101,6 +102,7 @@ char *resource_location_details(const char *coords, const char *grid, gboolean c
 
    return g_strdup(formatted);
 }
+
 void resource_set_string(GtkTreeIter *iter, int column, const char *value) {
    char *old = NULL;
    gtk_tree_model_get(GTK_TREE_MODEL(browser->store), iter, column, &old, -1);
@@ -112,6 +114,7 @@ void resource_set_string(GtkTreeIter *iter, int column, const char *value) {
    }
    g_free(old);
 }
+
 static resource_branch *resource_branch_get(const char *profile) {
    resource_branch *branch = g_hash_table_lookup(browser->branches, profile);
 
@@ -310,6 +313,7 @@ static char *resource_row_key(GtkTreeModel *model, GtkTreeIter *iter, const char
 
    return key;
 }
+
 static void resource_expansion_walk(GtkTreeIter *parent, const char *prefix, GHashTable *expanded, bool restore) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
@@ -335,6 +339,7 @@ static void resource_expansion_walk(GtkTreeIter *parent, const char *prefix, GHa
       g_free(key);
    }
 }
+
 void resource_expansion_save(resource_branch *branch) {
    if (branch->expanded) {
       g_hash_table_destroy(branch->expanded);
@@ -380,6 +385,7 @@ static void resource_collapse_settings(GtkTreeIter *parent) {
       g_free(name);
    }
 }
+
 void resource_expansion_restore(resource_branch *branch) {
    GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->domain_root);
    GtkTreePath *path = resource_view_path(child_path);
@@ -402,6 +408,7 @@ void resource_expansion_restore(resource_branch *branch) {
    }
    gtk_tree_path_free(path);
 }
+
 gboolean resource_restore_scroll(gpointer unused) {
    resource_browser *view = unused;
 
@@ -420,11 +427,13 @@ gboolean resource_restore_scroll(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 void resource_schedule_restore_scroll(void) {
    if (browser && !browser->scroll_idle) {
       browser->scroll_idle = g_idle_add(resource_restore_scroll, browser);
    }
 }
+
 static void resource_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
    resource_browser *view = data;
@@ -679,6 +688,7 @@ static void resource_irc_row(const char *event, const char *payload, rrconn_t *c
    g_free(details);
    dict_free(snapshot);
 }
+
 static void resource_irc_complete(const char *event, const char *payload, rrconn_t *connection, void *unused) {
    (void)event;
    (void)connection;
@@ -737,6 +747,7 @@ static char *resource_uuid_display(const char *uuid) {
 
    return g_strdup_printf("%.8s..%s", uuid, uuid + len - 8);
 }
+
 static void resource_uuid_copy(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    const char *uuid = g_object_get_data(G_OBJECT(item), "resource-full-uuid");
@@ -767,6 +778,7 @@ static void resource_subtree_action(GtkMenuItem *item, gpointer unused) {
    }
    gtk_tree_path_free(path);
 }
+
 static void resource_subtree_menu_item(GtkWidget *menu, GtkTreeModel *model, GtkTreePath *path, const char *label, gboolean collapse) {
    GtkWidget *item = gtk_menu_item_new_with_label(label);
    GtkTreeRowReference *ref = gtk_tree_row_reference_new(model, path);
@@ -775,6 +787,7 @@ static void resource_subtree_menu_item(GtkWidget *menu, GtkTreeModel *model, Gtk
    g_signal_connect(item, "activate", G_CALLBACK(resource_subtree_action), NULL);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
+
 static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -912,6 +925,7 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTree
    g_free(profile);
    g_free(state);
 }
+
 static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    (void)data;
 
@@ -1168,6 +1182,7 @@ static void resource_clicked(GtkButton *button, gpointer data) {
       resource_tick(browser);
    }
 }
+
 static void resource_refresh(resource_branch *branch) {
    if (!branch || branch->irc || branch->loading) {
       return;
@@ -1175,6 +1190,7 @@ static void resource_refresh(resource_branch *branch) {
    /* Core checks connection availability. GTK must not read rrconn_t fields or run the connection command dispatch itself. */
    event_emit("client.resources.refresh-request", NULL, branch->profile);
 }
+
 static void resource_refresh_all(GtkButton *button, gpointer data) {
    (void)button;
    (void)data;
@@ -1191,6 +1207,7 @@ static void resource_refresh_all(GtkButton *button, gpointer data) {
       resource_refresh(value);
    }
 }
+
 static void resource_expand(GtkButton *button, gpointer data) {
    (void)data;
 
@@ -1200,6 +1217,7 @@ static void resource_expand(GtkButton *button, gpointer data) {
       gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
    }
 }
+
 static gboolean resource_tick(gpointer data) {
    (void)data;
 
@@ -1230,6 +1248,7 @@ static gboolean resource_tick(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void resource_create(void) {
    if (browser) {
       return;
@@ -1594,6 +1613,7 @@ static void resource_open(const char *event, const char *text, rrconn_t *connect
    resource_refresh_all(NULL, NULL);
    resource_tick(browser);
 }
+
 static void resource_reply(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)unused_connection;
    (void)unused;
@@ -1727,6 +1747,7 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
    }
    dict_free(d);
 }
+
 static void resource_changed(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)text;
    (void)unused;
@@ -1800,6 +1821,7 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
    }
    g_free(owned_profile);
 }
+
 void gtk_resources_init(void) {
    resource_create();
    show_token = event_on_binary_domain_token(RRCLIENT_RESOURCE_VIEW_EVENT, resource_show, NULL, "gtk");
@@ -1820,6 +1842,7 @@ void gtk_resources_init(void) {
       changed_tokens[i] = event_on_domain_token(events[i], resource_changed, NULL, "gtk");
    }
 }
+
 void gtk_resources_shutdown(void) {
    if (irc_row_token) {
       event_off_token(irc_row_token);

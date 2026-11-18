@@ -37,6 +37,7 @@ static bool hash_lookup(ftx_callsign_hash_type_t type, uint32_t hash, char *call
 
    return false;
 }
+
 static void hash_save(const char *call, uint32_t hash) {
    (void)call;
    (void)hash;
@@ -63,6 +64,7 @@ static void json_string(const char *value) {
 
    putchar('"');
 }
+
 static void emit_decode(time_t slot, float audio_hz, float dt, int score, const char *message) {
    if (raw_output) {
       puts(message);
@@ -73,6 +75,7 @@ static void emit_decode(time_t slot, float audio_hz, float dt, int score, const 
    }
    fflush(stdout);
 }
+
 static void decode_slot(const monitor_t *monitor, time_t slot) {
    const ftx_waterfall_t *wf = &monitor->wf;
    ftx_candidate_t candidates[MAX_CANDIDATES];
@@ -116,6 +119,7 @@ static void decode_slot(const monitor_t *monitor, time_t slot) {
       emit_decode(slot, hz, dt, candidate->score, decoded);
    }
 }
+
 static void handle_command(const char *line) {
    if (!strcmp(line, "RAW")) {
       raw_output = true;
@@ -125,6 +129,7 @@ static void handle_command(const char *line) {
       fputs("RAW - plain decode lines; JSON - JSON lines (default); HELP\n", stderr);
    }
 }
+
 static void read_commands(void) {
    char input[128];
    ssize_t length = read(STDIN_FILENO, input, sizeof(input));
@@ -145,6 +150,7 @@ static void read_commands(void) {
       }
    }
 }
+
 int main(void) {
    // The server currently feeds raw mono S16LE at 16 kHz to FD 4.
    // The FT8 monitor runs at 12 kHz. Rational 3:4 resampling is kept

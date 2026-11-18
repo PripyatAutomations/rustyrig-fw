@@ -33,6 +33,7 @@ static void collect(rr_serial_t *p, const char *data, size_t len, void *user) {
    memcpy(user, data, len);
    ((char *)user)[len] = '\0';
 }
+
 const dict *rrclient_object_find_alias(const char *type, const char *owner, const char *alias) {
    if (!strcmp(type, "rig")) {
       return !strcmp(alias, "rig0") ? radios[0] : !strcmp(alias, "rig1") ? radios[1] : NULL;
@@ -44,6 +45,7 @@ const dict *rrclient_object_find_alias(const char *type, const char *owner, cons
 
    return NULL;
 }
+
 const dict *rrclient_object_property(const char *uuid, const char *name) {
    if (strcmp(name, "frequency")) {
       return NULL;
@@ -51,27 +53,32 @@ const dict *rrclient_object_property(const char *uuid, const char *name) {
 
    return !strcmp(uuid, "v0") ? properties[0] : !strcmp(uuid, "v1") ? properties[1] : NULL;
 }
+
 const char *vfo_state_get(const char *vfo, const char *key, const char *fallback) {
    (void)vfo;
    (void)key;
 
    return fallback;
 }
+
 long vfo_state_get_long(const char *vfo, const char *key, long fallback) {
    (void)vfo;
    (void)key;
 
    return fallback;
 }
+
 bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
    (void)vfo;
    (void)key;
 
    return fallback;
 }
+
 char vfo_state_get_active(void) {
    return 'Z';
 }                               // Must never affect endpoint CAT.
+
 void ui_print(const char *win, const char *fmt, ...) {
    (void)win;
 
@@ -79,6 +86,7 @@ void ui_print(const char *win, const char *fmt, ...) {
       local_rows++;
    }
 }
+
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
    (void)sender;
    (void)type;
@@ -89,6 +97,7 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
 
    return serial_send_ok;
 }
+
 bool ws_send_freq_cmd_in_room(rrconn_t *c, const char *vfo, long freq, const char *room) {
    (void)c;
    snprintf(sent_room, sizeof(sent_room), "%s", room);
@@ -98,6 +107,7 @@ bool ws_send_freq_cmd_in_room(rrconn_t *c, const char *vfo, long freq, const cha
 
    return true;
 }
+
 bool ws_send_mode_cmd_in_room(rrconn_t *c, const char *v, const char *m, const char *r) {
    (void)c;
    (void)v;
@@ -106,6 +116,7 @@ bool ws_send_mode_cmd_in_room(rrconn_t *c, const char *v, const char *m, const c
 
    return true;
 }
+
 bool ws_send_width_cmd_in_room(rrconn_t *c, const char *v, const char *w, const char *r) {
    (void)c;
    (void)v;
@@ -114,6 +125,7 @@ bool ws_send_width_cmd_in_room(rrconn_t *c, const char *v, const char *w, const 
 
    return true;
 }
+
 bool ws_send_ptt_cmd_in_room(rrconn_t *c, const char *v, bool p, const char *r) {
    (void)c;
    sent_ptt = p;
@@ -122,6 +134,7 @@ bool ws_send_ptt_cmd_in_room(rrconn_t *c, const char *v, bool p, const char *r) 
 
    return true;
 }
+
 static void pump(void) {
    for (int i = 0 ; i < 30 ; i++) {
       while (g_main_context_iteration(NULL, false)) {
@@ -129,6 +142,7 @@ static void pump(void) {
       g_usleep(1000);
    }
 }
+
 static void expect(int fd, const char *text) {
    pump();
    char buffer[512];
@@ -137,6 +151,7 @@ static void expect(int fd, const char *text) {
    buffer[len] = '\0';
    assert(!strcmp(buffer, text));
 }
+
 static void gps_input(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)client;
@@ -144,6 +159,7 @@ static void gps_input(const char *event, const char *data, rrconn_t *client, voi
    assert(!strcmp(data, "$GPGLL*50"));
    gps_inputs++;
 }
+
 int main(int argc, char **argv) {
    assert(argc == 2);
    event_init();

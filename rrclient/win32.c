@@ -130,4 +130,5 @@ void win32_check_darkmode(void) {
       g_object_set(settings, "gtk-theme-name", "Windows10", "gtk-application-prefer-dark-theme", FALSE, NULL);
    }
 }
+
 #endif // _WIN32

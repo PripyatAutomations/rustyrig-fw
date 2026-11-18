@@ -30,16 +30,19 @@ extern bool rr_module_token_add(rr_event_token_t token);
 static void color(cairo_t *c, double r, double g, double b) {
    cairo_set_source_rgb(c, r, g, b);
 }
+
 static void fill(cairo_t *c, double x, double y, double w, double h, double r, double g, double b) {
    color(c, r, g, b);
    cairo_rectangle(c, x, y, w, h);
    cairo_fill(c);
 }
+
 static void line(cairo_t *c, double x, double y, double X, double Y) {
    cairo_move_to(c, x, y);
    cairo_line_to(c, X, Y);
    cairo_stroke(c);
 }
+
 static void label(cairo_t *c, const char *s, double x, double y, double sz, bool bold) {
    cairo_select_font_face(c, "Sans", CAIRO_FONT_SLANT_NORMAL, bold ? CAIRO_FONT_WEIGHT_BOLD : CAIRO_FONT_WEIGHT_NORMAL);
    cairo_set_font_size(c, sz);
@@ -47,6 +50,7 @@ static void label(cairo_t *c, const char *s, double x, double y, double sz, bool
    cairo_move_to(c, x, y);
    cairo_show_text(c, s);
 }
+
 static void tower(cairo_t *c, unsigned tick) {
    cairo_save(c);
    cairo_translate(c, 75, 51);
@@ -72,6 +76,7 @@ static void tower(cairo_t *c, unsigned tick) {
 
    cairo_restore(c);
 }
+
 static void ht(cairo_t *c, double x, double y, double k) {
    cairo_save(c);
    cairo_translate(c, x, y);
@@ -85,6 +90,7 @@ static void ht(cairo_t *c, double x, double y, double k) {
    fill(c, -5, 6, 11, 3, .65, .67, .72);
    cairo_restore(c);
 }
+
 static void rig(cairo_t *c, double x, double y, bool base) {
    cairo_save(c);
    cairo_translate(c, x, y);
@@ -96,6 +102,7 @@ static void rig(cairo_t *c, double x, double y, bool base) {
    cairo_fill(c);
    cairo_restore(c);
 }
+
 static void laptop(cairo_t *c, double x, double y) {
    cairo_save(c);
    cairo_translate(c, x, y);
@@ -112,6 +119,7 @@ static void laptop(cairo_t *c, double x, double y) {
    line(c, -12, 13, 12, 13);
    cairo_restore(c);
 }
+
 static void runner(cairo_t *c, unsigned t) {
    double a = t % 2 ? 1 : -1;
    cairo_save(c);
@@ -129,6 +137,7 @@ static void runner(cairo_t *c, unsigned t) {
    ht(c, 16, -12 - 3 * a, .56);
    cairo_restore(c);
 }
+
 static void cluster(cairo_t *c, unsigned t) {
    /* Keep the lower row inside the third tile's clipped 135x78 viewport. */
    static const double p[][2] = { {
@@ -162,6 +171,7 @@ static void cluster(cairo_t *c, unsigned t) {
       }
    }
 }
+
 static gboolean redraw(GtkWidget *widget, cairo_t *c, gpointer user) {
    RRConnect *s = user;
    GtkAllocation a;
@@ -216,6 +226,7 @@ static gboolean redraw(GtkWidget *widget, cairo_t *c, gpointer user) {
 
    return FALSE;
 }
+
 static gboolean tick(gpointer user) {
    RRConnect *s = user;
    s->frame++;
@@ -223,6 +234,7 @@ static gboolean tick(gpointer user) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void state_free(gpointer data) {
    RRConnect *s = data;
 
@@ -246,6 +258,7 @@ static void state_free(gpointer data) {
    g_free(s->status);
    g_free(s);
 }
+
 static GdkPixbuf *load_logo(void) {
    /* Prefer the exact same icon already loaded for the main window. */
    if (main_window && GTK_IS_WINDOW(main_window)) {
@@ -275,6 +288,7 @@ static GdkPixbuf *load_logo(void) {
 
    return gtk_icon_theme_load_icon(gtk_icon_theme_get_default(), "rustyrig", 64, 0, NULL);
 }
+
 static GdkPixbuf *load_earth(void) {
    const char *encoded =
       "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAwADADASIAAhEBAxEB/8QAGgAAAwEAAwAAAAAAAAAAAAAABAYHBQIDCP/EADIQAAIBAwIEBQIDCQAAAAAAAAECAwQFEQAhEhMxQQYHUWFxgZEUFSIkMkJDkqHB0fD/xAAYAQEBAQEBAAAAAAAAAAAAAAADAgQBAP/EAB4RAAICAwEAAwAAAAAAAAAAAAECAAMREiExBCJB/9oADAMBAAIRAxEAPwDz/rb8PeFLr4lmdaGDEMe8k8h4UT69z7DQ1itL3m6R0qhuADjkK9Qo6/6+urjboDaqWipIVldn4eXDTABYhgnBBB9iSckk76VUGpdvJBbuoi1b/KWy8pGrr60x/mNTvGiofQcWSfTtoeq8tPD1TRTyWu81dPURRiUx1iKyspOAcqBj4023COuutZTQ1FKJF3URqiqF2PbGDt1z6aCvtFc7VJHDZ6mnETqy8FNUK3JAG6+vfrkami1LTgLJs2QyOXiw19klC1UY5bHCSoco/wAH/B31maqNXdI62nNsriJqeKBI5pP32aQZyeL2JGCPTU6udA1trnp2YOuAyOOjqRkHS3U6dHk9XZtw+xq8HW6WSx3G4QTRxvFIitxSBTw4yOEHqc4+2mSr8S3w0yuVEEfLXgkXJk26vnbJO2lHwjH+No6+iiP7SgE8ak7OoBDD56H6a16aorCixxKxhbpGJcjPqATrVUAahM7kiwzW/Mvz9aShq7nNb5I4SgdUJWYk/pJYHYZ/7OgI7PcK2Q00wqoaYyhZXAJiB7tjb2PTTbQ2t6iqjp6yV1kEQ4FIVgMDfZgR9tG3G4W6xRmhnt9W6ugJkiYLk+hPQZ9j01kZx8cfSJoXOWk4p7fxXGOjgT8WysxAiBPMAz01k+LQGit7snBJGrwNnY4U5Gf6iNMkyNLHJVyvJSMpJQxNhsZ2BI676TvEErtNEkjFnwXZick59ftpTct1JacRCjiA2q5TWm5Q1sBPHG2cA4yO4zqopOl/anultaMM6iOqEYCye7cI/i6Zx899SLRlsu1dZ6sVNBUvBKO6nY+xHQ6Gq0pz8jPXtK5Qw1luucYmjlrFBJBeXgcfAOxP10RcL4yQ1FPX2/MPO5dOr8SmVcAjHfOT20kr5nVtRE0dzttJVqxBbhHLLYHsD/bGhq/zAqKqGBILfBGYMcuSZjM6Y6YLaqxksGDOKrL5Nqrukllhq2rQohngMcNO2Cc5+O3XOpzUTvUzvNIcsxydcqqsqK6dp6qZ5ZG6sxzro0bOMaqMCUq46fZ//9k=";
@@ -324,6 +338,7 @@ static GdkPixbuf *load_earth(void) {
 
    return pix;
 }
+
 static void connect_panel_dismiss(GtkWidget *canvas, gboolean cancel) {
    if (!GTK_IS_WIDGET(canvas)) {
       return;
@@ -365,13 +380,16 @@ static gboolean connect_panel_escape(GtkWidget *widget, GdkEventKey *event, gpoi
 
    return TRUE;
 }
+
 static void connect_panel_close(gpointer user) {
    connect_panel_dismiss(GTK_WIDGET(user), TRUE);
 }
+
 static void connect_panel_button(GtkButton *button, gpointer user) {
    (void)button;
    connect_panel_close(user);
 }
+
 static void destroyed(GtkWidget *canvas, gpointer unused) {
    (void)unused;
    const char *profile = g_object_get_data(G_OBJECT(canvas), "rr-profile");
@@ -392,6 +410,7 @@ static gboolean connect_panel_reveal(gpointer user) {
 
    return G_SOURCE_REMOVE;
 }
+
 GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
    (void)parent;
    GtkWidget *root = main_window && GTK_IS_BIN(main_window) ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
@@ -432,6 +451,7 @@ GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
 
    return state->canvas;
 }
+
 void rr_connect_dialog_set_step(GtkWidget *canvas, unsigned step) {
    RRConnect *s = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
 
@@ -440,6 +460,7 @@ void rr_connect_dialog_set_step(GtkWidget *canvas, unsigned step) {
       gtk_widget_queue_draw(s->canvas);
    }
 }
+
 void rr_connect_dialog_set_status(GtkWidget *canvas, const char *message) {
    RRConnect *s = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
 
@@ -449,6 +470,7 @@ void rr_connect_dialog_set_status(GtkWidget *canvas, const char *message) {
       gtk_widget_queue_draw(s->canvas);
    }
 }
+
 static gboolean finished(gpointer data) {
    GtkWidget *canvas = data;
    RRConnect *state = g_object_get_data(G_OBJECT(canvas), "rr-connect-state");
@@ -464,6 +486,7 @@ static gboolean finished(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void on_progress(const rr_event_message_t *m, void *unused) {
    (void)unused;
 
@@ -549,6 +572,7 @@ static void on_progress(const rr_event_message_t *m, void *unused) {
       state->dismiss_timer = g_timeout_add(3500, finished, canvas);
    }
 }
+
 void gtk_connecting_init(void) {
    if (dialogs) {
       return;
@@ -561,6 +585,7 @@ void gtk_connecting_init(void) {
       rr_module_token_add(token);
    }
 }
+
 void gtk_connecting_shutdown(void) {
    if (!dialogs) {
       return;

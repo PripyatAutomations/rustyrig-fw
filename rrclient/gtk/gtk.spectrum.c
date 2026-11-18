@@ -340,6 +340,7 @@ static unsigned waterfall_pref(const char *key, unsigned fallback, unsigned max)
 
    return value;
 }
+
 static void waterfall_save(const char *key, unsigned value) {
    char buf[24];
    g_snprintf(buf, sizeof(buf), "%u", value);
@@ -361,10 +362,12 @@ static void waterfall_option_activate(GtkCheckMenuItem *item, gpointer user) {
    waterfall_save(opt->key, opt->index);
    gtk_widget_queue_draw(opt->drawing);
 }
+
 static void waterfall_option_free(gpointer data, GClosure *closure) {
    (void)closure;
    g_free(data);
 }
+
 static GtkWidget *waterfall_menu(const char *const *names, unsigned count, unsigned selected, unsigned *value, const char *key, GtkWidget *drawing) {
    GtkWidget *menu = gtk_menu_new();
    GSList *group = NULL;
@@ -427,6 +430,7 @@ static bool af_in_modem_mode(void) {
 static unsigned af_limit(const spectrum_panel_t *p) {
    return p->max_hz && p->max_hz <= RR_AF_MAX_HZ ? p->max_hz : RR_AF_MAX_HZ;
 }
+
 static void af_view_bounds(const spectrum_panel_t *p, double *low, double *high) {
    unsigned zoom = p->zoom ? p->zoom : 1;
    double limit = af_limit(p);
@@ -435,6 +439,7 @@ static void af_view_bounds(const spectrum_panel_t *p, double *low, double *high)
    *low = CLAMP(center - span / 2. + p->pan_hz, 0., limit - span);
    *high = *low + span;
 }
+
 static unsigned af_source_bin(const spectrum_panel_t *p, unsigned x_bin) {
    double low, high;
    af_view_bounds(p, &low, &high);
@@ -442,12 +447,14 @@ static unsigned af_source_bin(const spectrum_panel_t *p, unsigned x_bin) {
 
    return (unsigned)CLAMP(round(hz * (RR_AF_BINS - 1.) / RR_AF_MAX_HZ), 0., RR_AF_BINS - 1.);
 }
+
 static double af_hz_to_x(const spectrum_panel_t *p, unsigned hz, int width) {
    double low, high;
    af_view_bounds(p, &low, &high);
 
    return width > 1 ? ((double)hz - low) * (width - 1.) / (high - low) : 0.;
 }
+
 static unsigned af_x_to_hz(const spectrum_panel_t *p, double x, int width) {
    if (width < 2) {
       return 0;
@@ -488,6 +495,7 @@ static void af_pan_move(spectrum_panel_t *p, double x, int width) {
       gtk_widget_queue_draw(p->drawing);
    }
 }
+
 static gboolean af_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    spectrum_panel_t *p = data;
 
@@ -498,6 +506,7 @@ static gboolean af_motion(GtkWidget *widget, GdkEventMotion *event, gpointer dat
 
    return TRUE;
 }
+
 static gboolean af_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    spectrum_panel_t *p = data;
 
@@ -514,6 +523,7 @@ static gboolean af_release(GtkWidget *widget, GdkEventButton *event, gpointer da
 
    return TRUE;
 }
+
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz) {
    hz = MIN(hz, RR_AF_MAX_HZ);
    GtkWidget *spin = tx ? p->modem_tx_spin : p->modem_rx_spin;
@@ -532,10 +542,12 @@ static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz) {
       gtk_widget_queue_draw(p->drawing);
    }
 }
+
 static void af_spin_changed(GtkSpinButton *spin, gpointer data) {
    spectrum_panel_t *p = data;
    af_offset_update(p, GTK_WIDGET(spin) == p->modem_tx_spin, (unsigned)gtk_spin_button_get_value_as_int(spin));
 }
+
 static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    spectrum_panel_t *p = data;
 
@@ -550,6 +562,7 @@ static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data
 
    return af_context_menu(widget, event, data);
 }
+
 static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    spectrum_panel_t *p = data;
    int width = gtk_widget_get_allocated_width(widget);
@@ -757,6 +770,7 @@ static void af_result_event(const rr_event_message_t *message, void *data) {
    p->count = MIN(p->count + 1, HISTORY);
    gtk_widget_queue_draw(p->drawing);
 }
+
 static gboolean update(gpointer data) {
    spectrum_panel_t *p = data;
    bool visible = gtk_widget_get_mapped(p->drawing);
@@ -800,6 +814,7 @@ static gboolean update(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void destroy_panel(gpointer data) {
    spectrum_panel_t *p = data;
 
@@ -824,6 +839,7 @@ static void destroy_panel(gpointer data) {
    g_free(p->room);
    g_free(p);
 }
+
 static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    if (!gtk_check_menu_item_get_active(item)) {
       return;
@@ -833,6 +849,7 @@ static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    p->pan_hz = 0.;              /* Center on the selected source's actual spectrum. */
    gtk_widget_queue_draw(p->drawing);
 }
+
 static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
 
@@ -875,6 +892,7 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
 
    return TRUE;
 }
+
 static void source_changed(GtkComboBox *combo, gpointer data) {
    spectrum_panel_t *p = data;
    const char *id = gtk_combo_box_get_active_id(combo);
@@ -975,6 +993,7 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
       p->head = p->count = 0;
    }
 }
+
 static void gain_changed(GtkRange *range, gpointer data) {
    spectrum_panel_t *p = data;
    p->display_gain_db = gtk_range_get_value(range);
@@ -1005,6 +1024,7 @@ static gboolean spectrum_popup_shown(GtkWidget *widget) {
 
    return shown;
 }
+
 static void spectrum_selector_opacity(GtkWidget *widget) {
    gboolean active = gtk_widget_has_focus(widget) || spectrum_popup_shown(widget);
 
@@ -1013,6 +1033,7 @@ static void spectrum_selector_opacity(GtkWidget *widget) {
    }
    gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
 }
+
 static gboolean spectrum_selector_enter(GtkWidget *widget, GdkEventCrossing *event, gpointer user) {
    (void)event;
    (void)user;
@@ -1020,6 +1041,7 @@ static gboolean spectrum_selector_enter(GtkWidget *widget, GdkEventCrossing *eve
 
    return FALSE;
 }
+
 static gboolean spectrum_selector_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer user) {
    (void)event;
    (void)user;
@@ -1029,6 +1051,7 @@ static gboolean spectrum_selector_leave(GtkWidget *widget, GdkEventCrossing *eve
 
    return FALSE;
 }
+
 static gboolean spectrum_selector_focus(GtkWidget *widget, GdkEventFocus *event, gpointer user) {
    (void)event;
    (void)user;
@@ -1037,11 +1060,13 @@ static gboolean spectrum_selector_focus(GtkWidget *widget, GdkEventFocus *event,
 
    return FALSE;
 }
+
 static void spectrum_selector_popup(GObject *object, GParamSpec *pspec, gpointer user) {
    (void)pspec;
    (void)user;
    spectrum_selector_opacity(GTK_WIDGET(object));
 }
+
 static void spectrum_selector_fade(GtkWidget *widget) {
    gtk_widget_add_events(widget, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
    g_signal_connect(widget, "enter-notify-event", G_CALLBACK(spectrum_selector_enter), NULL);
@@ -1052,6 +1077,7 @@ static void spectrum_selector_fade(GtkWidget *widget) {
    g_signal_connect(widget, "notify::has-focus", G_CALLBACK(spectrum_selector_popup), NULL);
    gtk_widget_set_opacity(widget, 0.36);
 }
+
 GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    spectrum_panel_t *p = g_new0(spectrum_panel_t, 1);
    p->server = g_strdup(server ? server : "");
@@ -1112,7 +1138,6 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    return box;
 }
 
-
 /* RF rows arrive on the GTK event domain with an explicit local VFO identity. */
 typedef struct {
    GtkWidget *drawing;
@@ -1160,16 +1185,19 @@ static char rf_selected_vfo(const rf_strip_t *p) {
 
    return active.vfo;
 }
+
 static gboolean rf_selected_state(const rf_strip_t *p, rr_local_bridge_ui_state_t *state) {
    char vfo = rf_selected_vfo(p);
 
    return vfo >= 'A' && vfo <= 'Z' && rrclient_local_bridge_ui_state_vfo(vfo, state) && state->waterfall;
 }
+
 static bool rf_request(const rf_strip_t *p, bool enabled, unsigned zoom, uint64_t center) {
    char vfo = rf_selected_vfo(p);
 
    return vfo >= 'A' && vfo <= 'Z' && rrclient_local_bridge_request_waterfall_vfo(vfo, enabled, zoom, center);
 }
+
 static void rf_clear_history(rf_strip_t *p) {
    p->head = p->count = 0;
    p->received_at = 0;
@@ -1178,6 +1206,7 @@ static void rf_clear_history(rf_strip_t *p) {
    p->zoom_initialized = false;
    gtk_widget_queue_draw(p->drawing);
 }
+
 static void rf_vfo_changed(GtkComboBox *combo, gpointer data) {
    rf_strip_t *p = data;
 
@@ -1217,6 +1246,7 @@ static void rf_vfo_changed(GtkComboBox *combo, gpointer data) {
    }
    gtk_widget_queue_draw(p->drawing);
 }
+
 static void rf_refresh_selector(rf_strip_t *p) {
    char was = p->selected_vfo;
    char was_remote[sizeof(p->remote_id)];
@@ -1335,6 +1365,7 @@ static gboolean rf_recover_stream(gpointer user) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static gboolean rf_draw_later(gpointer user) {
    rf_strip_t *p = user;
    p->draw_timer = 0;
@@ -1351,6 +1382,7 @@ static void rf_row(const char *, const void *, size_t, rrconn_t *, void *);
 static void rf_row_message(const rr_event_message_t *message, void *user) {
    rf_row(RR_BRIDGE_SPECTRUM_EVENT, message->payload, message->length, NULL, user);
 }
+
 static void rf_row(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
    (void)event;
    (void)connection;
@@ -1439,6 +1471,7 @@ static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *ro
    *low = start;
    *high = start + span;
 }
+
 static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    rf_strip_t *p = data;
    int w = gtk_widget_get_allocated_width(widget);
@@ -1572,6 +1605,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
    return FALSE;
 }
+
 static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    rf_strip_t *p = data;
 
@@ -1618,6 +1652,7 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
 
    return FALSE;
 }
+
 static gboolean rf_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
    rf_strip_t *p = data;
    (void)event;
@@ -1629,6 +1664,7 @@ static gboolean rf_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer da
 
    return FALSE;
 }
+
 static void rf_gain_changed(GtkRange *range, gpointer data) {
    rf_strip_t *p = data;
    p->display_gain_db = gtk_range_get_value(range);
@@ -1667,6 +1703,7 @@ static gboolean rf_ui_caps(const rf_strip_t *p, unsigned *min_zoom, unsigned *ma
 
    return TRUE;
 }
+
 static void rf_caps_changed(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
    (void)event;
    (void)data;
@@ -1706,6 +1743,7 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
       p->zoom_initialized = false;
    }
 }
+
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
@@ -1724,6 +1762,7 @@ static void rf_toggle(GtkToggleButton *button, gpointer data) {
       gtk_widget_queue_draw(p->fullscreen_drawing);
    }
 }
+
 static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
    rf_strip_t *p = data;
    int delta = 0;
@@ -1785,6 +1824,7 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
 
    return TRUE;
 }
+
 static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
    rf_strip_t *p = user;
    (void)widget;
@@ -1795,6 +1835,7 @@ static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
    }
    p->fullscreen_drawing = NULL;
 }
+
 static gboolean rf_release(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
    (void)widget;
@@ -1805,6 +1846,7 @@ static gboolean rf_release(GtkWidget *widget, GdkEventButton *event, gpointer us
 
    return FALSE;
 }
+
 static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    if (!gtk_check_menu_item_get_active(item)) {
       return;
@@ -1828,6 +1870,7 @@ static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
       gtk_widget_queue_draw(p->fullscreen_drawing);
    }
 }
+
 static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
       return FALSE;
@@ -1865,6 +1908,7 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
 
    return TRUE;
 }
+
 static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
 
@@ -1956,6 +2000,7 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
 
    return TRUE;
 }
+
 static void rf_destroy(gpointer data) {
    rf_strip_t *p = data;
 

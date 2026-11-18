@@ -62,4 +62,5 @@ static inline rr_nick_color_t rr_nick_color(const char *nickname) {
 
    return palette[hash % G_N_ELEMENTS(palette)];
 }
+
 #endif

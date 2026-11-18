@@ -34,6 +34,7 @@ static gboolean gtk_queued_log_deliver(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void gtk_queued_log_free(gpointer data) {
    GtkQueuedLog *entry = data;
    g_free(entry->source);
@@ -41,6 +42,7 @@ static void gtk_queued_log_free(gpointer data) {
    g_free(entry->message);
    g_free(entry);
 }
+
 static void gtk_log_submit(gboolean host, const char *source, logpriority_t level, const char *subsys, const char *message) {
    GtkQueuedLog *entry = g_new0(GtkQueuedLog, 1);
    entry->host = host;
@@ -105,6 +107,7 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
 
    return false;
 }
+
 bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...) {
    va_list ap;
    va_start(ap, fmt);
@@ -113,11 +116,13 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
 
    return result;
 }
+
 bool syslog_clear(void) {
    gtk_logview_clear(shared_log);
 
    return false;
 }
+
 GtkWidget *init_log_tab(void) {
    if (shared_log) {
       return gtk_logview_widget(shared_log);

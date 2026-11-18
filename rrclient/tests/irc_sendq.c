@@ -33,6 +33,7 @@ ssize_t rr_test_send(int fd, const void *data, size_t length, int flags) {
 
    return (ssize_t) amount;
 }
+
 int main(void) {
    rrconn_t conn = {
       .fd = 0, .connected = now

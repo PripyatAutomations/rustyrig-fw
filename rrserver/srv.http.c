@@ -676,6 +676,7 @@ bool ws_handle(rrconn_t *cptr, struct mg_ws_message *msg) {
 
    return ws_handle_payload(cptr, msg->data.buf, msg->data.len, opcode == WEBSOCKET_OP_BINARY);
 }
+
 #endif
 
 /*
@@ -928,6 +929,7 @@ void ws_http_cb(struct mg_connection *c, int ev, void *ev_data) {
       }
    }
 }
+
 #endif // USE_MONGOOSE
 
 // Combine some common, safe string handling into one call

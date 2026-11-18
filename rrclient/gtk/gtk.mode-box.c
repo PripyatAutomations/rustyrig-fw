@@ -31,6 +31,7 @@ static gboolean mode_popup_open = FALSE;
 static void on_mode_popup(GtkComboBox *b, gpointer u) {
    mode_popup_open = TRUE;
 }
+
 static void on_mode_popdown(GtkComboBox *b, gpointer u) {
    mode_popup_open = FALSE;
 }

@@ -14,6 +14,7 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
 
    return NULL;
 }
+
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
    (void)tab;
 }
@@ -34,23 +35,27 @@ gui_window_t *gui_find_window(GtkWidget *widget, const char *name) {
 
    return name && !strcmp(name, "serverpick") && picker.gtk_win ? &picker : NULL;
 }
+
 gui_window_t *ui_new_window(GtkWidget *window, const char *name) {
    assert(!strcmp(name, "serverpick"));
    picker.gtk_win = window;
 
    return &picker;
 }
+
 bool connect_server(const char *name) {
    snprintf(connected_profile, sizeof(connected_profile), "%s", name);
 
    return false;
 }
+
 const char *get_server_property(const char *name, const char *property) {
    char key[1024];
    snprintf(key, sizeof(key), "server:%s.%s", name, property);
 
    return cfg_get(key);
 }
+
 static GtkWidget *find_tree(GtkWidget *widget) {
    if (GTK_IS_TREE_VIEW(widget)) {
       return widget;
@@ -74,6 +79,7 @@ static GtkWidget *find_tree(GtkWidget *widget) {
 
    return NULL;
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    main_notebook = gtk_notebook_new();

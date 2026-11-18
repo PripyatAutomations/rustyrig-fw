@@ -56,6 +56,7 @@ static void recording_tags_copy(rr_recording_tags *dst, const rr_recording_tags 
    dst->location_source = g_strdup(src->location_source);
    dst->sources = g_strdup(src->sources);
 }
+
 static void recording_tags_clear(rr_recording_tags *tags) {
    g_free((char *)tags->title);
    g_free((char *)tags->user);
@@ -101,6 +102,7 @@ static void ensure_init(void) {
       g_once_init_leave(&initialized, 1);
    }
 }
+
 char *rr_recordings_directory(void) {
    const char *home = g_get_home_dir();
    char *dir = g_build_filename(home, ".local", "share", "rustyrig", "recordings", NULL);
@@ -108,6 +110,7 @@ char *rr_recordings_directory(void) {
 
    return dir;
 }
+
 static char *safe(const char *text) {
    char *s = g_strdup(text && *text ? text : "unknown");
 
@@ -150,6 +153,7 @@ static char *recording_frequency(const char *hz_text) {
 
    return g_strdup_printf("%s %s", number, unit);
 }
+
 static char *recording_stem(const rr_recording_tags *tags, const char *stamp) {
    char *frequency = recording_frequency(tags->frequency);
    const char *mode = tags->mode && *tags->mode && g_ascii_strcasecmp(tags->mode, "unknown") ? tags->mode : NULL;
@@ -174,6 +178,7 @@ static char *recording_stem(const rr_recording_tags *tags, const char *stamp) {
 
    return stem;
 }
+
 static char *make_path(const char *base, const char *suffix) {
    char *dir = rr_recordings_directory();
    char *path = g_strdup_printf("%s/%s.%s", dir, base, suffix);
@@ -210,6 +215,7 @@ static char *rename_with_end(const char *oldpath, const char *stamp) {
 
    return newpath;
 }
+
 static gpointer recorder_worker(gpointer unused) {
    (void)unused;
    int16_t block[1024 * 2];
@@ -280,6 +286,7 @@ static gpointer recorder_worker(gpointer unused) {
 
    return NULL;
 }
+
 gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags *tags) {
    ensure_init();
 
@@ -345,6 +352,7 @@ gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags
 
    return TRUE;
 }
+
 void rr_recordings_push(const int16_t *pcm, size_t frames) {
    if (!initialized || !pcm || !frames || frames > QUEUE_FRAMES) {
       return;
@@ -371,6 +379,7 @@ void rr_recordings_push(const int16_t *pcm, size_t frames) {
    }
    g_mutex_unlock(&rec.lock);
 }
+
 void rr_recordings_stop(void) {
    ensure_init();
    g_mutex_lock(&rec.lock);
@@ -378,6 +387,7 @@ void rr_recordings_stop(void) {
    g_cond_signal(&rec.ready);
    g_mutex_unlock(&rec.lock);
 }
+
 gboolean rr_recordings_active(void) {
    ensure_init();
    g_mutex_lock(&rec.lock);
@@ -386,6 +396,7 @@ gboolean rr_recordings_active(void) {
 
    return active;
 }
+
 void rr_recordings_collect(void) {
    ensure_init();
    g_mutex_lock(&rec.lock);
@@ -423,6 +434,7 @@ static gboolean playback_control(double *seek_to, gboolean *reverse, gboolean *s
 
    return seek;
 }
+
 static gpointer playback_worker(gpointer unused) {
    (void)unused;
    char *path;
@@ -583,6 +595,7 @@ static gpointer playback_worker(gpointer unused) {
 
    return NULL;
 }
+
 gboolean rr_recordings_play_at(const char *path, double seconds, gboolean reverse, rr_recording_playback_fn output) {
    ensure_init();
 
@@ -606,9 +619,11 @@ gboolean rr_recordings_play_at(const char *path, double seconds, gboolean revers
 
    return TRUE;
 }
+
 gboolean rr_recordings_play(const char *path, rr_recording_playback_fn output) {
    return rr_recordings_play_at(path, 0.0, FALSE, output);
 }
+
 gboolean rr_recordings_play_busy(void) {
    ensure_init();
    g_mutex_lock(&playback_lock);
@@ -617,6 +632,7 @@ gboolean rr_recordings_play_busy(void) {
 
    return busy;
 }
+
 gboolean rr_recordings_play_reposition(const char *path, double seconds, gboolean reverse) {
    ensure_init();
    g_mutex_lock(&playback_lock);
@@ -633,6 +649,7 @@ gboolean rr_recordings_play_reposition(const char *path, double seconds, gboolea
 
    return found;
 }
+
 void rr_recordings_play_pause(gboolean pause) {
    ensure_init();
    g_mutex_lock(&playback_lock);
@@ -640,6 +657,7 @@ void rr_recordings_play_pause(gboolean pause) {
    g_cond_broadcast(&playback_ready);
    g_mutex_unlock(&playback_lock);
 }
+
 void rr_recordings_play_stop(void) {
    ensure_init();
    g_mutex_lock(&playback_lock);
@@ -648,6 +666,7 @@ void rr_recordings_play_stop(void) {
    g_cond_broadcast(&playback_ready);
    g_mutex_unlock(&playback_lock);
 }
+
 void rr_recordings_play_collect(void) {
    ensure_init();
    g_mutex_lock(&playback_lock);
@@ -766,6 +785,7 @@ static gpointer waveform_worker(gpointer data) {
 
    return NULL;
 }
+
 void rr_recordings_waveform_request(const char *path) {
    if (!path || !*path) {
       return;

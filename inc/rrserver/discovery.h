@@ -28,6 +28,7 @@ static inline const char *rr_inventory_media_parent(const struct rr_mediachan *c
 
    return site;
 }
+
 static inline dict *rr_inventory_row(const char *request, unsigned depth, const char *kind, const char *name, const char *uuid) {
    dict *d = dict_new();
 
@@ -53,4 +54,5 @@ void rrserver_inventory_send(rrconn_t *client, dict *d);
 static inline void rr_inventory_send(rrconn_t *client, dict *d) {
    rrserver_inventory_send(client, d);
 }
+
 #endif

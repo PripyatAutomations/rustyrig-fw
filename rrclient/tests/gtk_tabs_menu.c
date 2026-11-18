@@ -14,6 +14,7 @@ static void close_page(GtkWidget *page, gboolean force) {
    closed_page = page;
    was_forced = force;
 }
+
 static GtkWidget *menu_item(GtkWidget *menu, unsigned index) {
    GList *children = gtk_container_get_children(GTK_CONTAINER(menu));
    GtkWidget *item = g_list_nth_data(children, index);
@@ -21,10 +22,12 @@ static GtkWidget *menu_item(GtkWidget *menu, unsigned index) {
 
    return item;
 }
+
 static void dialog_destroyed(GtkWidget *dialog, gboolean *destroyed) {
    (void)dialog;
    *destroyed = TRUE;
 }
+
 static GtkDialog *confirmation(void) {
    GList *windows = gtk_window_list_toplevels();
    GtkDialog *found = NULL;
@@ -40,13 +43,16 @@ static GtkDialog *confirmation(void) {
 
    return found;
 }
+
 static GtkWidget *menu_for(GtkNotebook *notebook, GtkWidget *page) {
    return g_object_ref_sink(tab_close_menu_new(notebook, page));
 }
+
 static void free_menu(GtkWidget *menu) {
    gtk_widget_destroy(menu);
    g_object_unref(menu);
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);

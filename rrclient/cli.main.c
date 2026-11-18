@@ -557,6 +557,7 @@ void http_handler(struct mg_connection *c, int ev, void *ev_data) {
       }
    }
 }
+
 #endif // USE_MONGOOSE
 void ws_client_init(void) {
 #ifdef USE_MONGOOSE
@@ -776,6 +777,7 @@ void ws_send_to_name(rrconn_t *sender, const char *username, struct mg_str *msg_
       current = current->next;
    }
 }
+
 #endif // USE_MONGOOSE
 
 /* Send a complete negotiated audio TX frame via the same direct-media hook used by normal WS binary frames. Native TLS does not depend on Mongoose. */

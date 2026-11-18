@@ -18,44 +18,54 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
 
    return NULL;
 }
+
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
    (void)tab;
 }
+
 static void registry_destroyed(GtkWidget *widget, gpointer data) {
    window_record.gtk_win = NULL;
 }
+
 gui_window_t *gui_find_window(GtkWidget *widget, const char *name) {
    return window_record.gtk_win ? &window_record : NULL;
 }
+
 gui_window_t *ui_new_window(GtkWidget *widget, const char *name) {
    window_record.gtk_win = widget;
    g_signal_connect(widget, "destroy", G_CALLBACK(registry_destroyed), NULL);
 
    return &window_record;
 }
+
 bool gui_forget_window(gui_window_t *window, const char *name) {
    window_record.gtk_win = NULL;
 
    return true;
 }
+
 bool place_window(GtkWidget *window) {
    return true;
 }
+
 bool rrclient_config_reload(const char *path) {
    reloads++;
 
    return true;
 }
+
 static bool remote_save(const char *local, void *data) {
    assert(data == (void *)1);
    saves++;
 
    return true;
 }
+
 static void remote_destroy(void *data) {
    assert(data == (void *)1);
    destroyed++;
 }
+
 static void reply(const char *local, const char *error) {
    dict *d = dict_new();
    dict_add(d, "file.local", local);
@@ -63,6 +73,7 @@ static void reply(const char *local, const char *error) {
    event_emit_dict("client.files.complete", NULL, d);
    dict_free(d);
 }
+
 static GtkWidget *find_label(GtkWidget *widget, const char *text) {
    if (GTK_IS_LABEL(widget) && !strcmp(gtk_label_get_text(GTK_LABEL(widget)), text)) {
       return widget;
@@ -82,6 +93,7 @@ static GtkWidget *find_label(GtkWidget *widget, const char *text) {
 
    return found;
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    gtk_test_events_init();

@@ -27,6 +27,7 @@ static bool received(void *user, const uint8_t *frame, size_t length) {
 
    return true;
 }
+
 int main(int argc, char **argv) {
    if (argc == 2 && !strcmp(argv[1], "--supported")) {
       return rr_rtp_supported(false) ? 0 : 1;

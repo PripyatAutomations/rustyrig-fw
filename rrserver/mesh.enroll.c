@@ -40,6 +40,7 @@ static size_t collect(char *data, size_t size, size_t count, void *context) {
 
    return n;
 }
+
 static bool post(CURL *curl, const char *url, const char *body, struct response *r, bool quiet_not_found) {
    long code = 0;
    memset(r, 0, sizeof(*r));
@@ -67,6 +68,7 @@ static bool post(CURL *curl, const char *url, const char *body, struct response 
 
    return true;
 }
+
 static char *form(CURL *curl, const char *const *names, const char *const *values, size_t n) {
    GString *out = g_string_new(NULL);
 
@@ -98,6 +100,7 @@ static char *form(CURL *curl, const char *const *names, const char *const *value
 
    return g_string_free(out, FALSE);
 }
+
 static bool decode_fixed(const char *text, unsigned char *out, size_t expected) {
    if (!text || strlen(text) != ((expected + 2) / 3) * 4) {
       return false;
@@ -517,10 +520,12 @@ done:
 
    return success;
 }
+
 #else
 bool rr_mesh_enroll_run(char *fields[8]) {
    (void)fields;
 
    return false;
 }
+
 #endif

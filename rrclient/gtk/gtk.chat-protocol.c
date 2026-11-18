@@ -128,6 +128,7 @@ static gboolean frontend_gtk_chat_protocol_run(gpointer opaque) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void frontend_gtk_chat_protocol_free(gpointer opaque) {
    GtkChatProtocol *pending = opaque;
    gtk_chat_context_clear(&pending->context);
@@ -135,6 +136,7 @@ static void frontend_gtk_chat_protocol_free(gpointer opaque) {
    g_free(pending->data);
    g_free(pending);
 }
+
 static void frontend_gtk_chat_protocol_capture(const char *event, const char *data, rrconn_t *connection, void *gtk_context) {
    (void)connection;
 
@@ -178,6 +180,7 @@ void gtk_chat_note_activity(const char *room, bool query) {
    event_emit_dict("client.ui.chat.activity", NULL, d);
    dict_free(d);
 }
+
 static void gtk_chat_activity_core(const char *event, const char *data, rrconn_t *unused, void *user) {
    (void)event;
    (void)unused;

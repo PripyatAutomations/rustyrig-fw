@@ -21,6 +21,7 @@ static void offer(const char *event, const char *data, rrconn_t *client, void *u
    offers++;
    dict_free(d);
 }
+
 int main(void) {
    dict *grant = dict_new();
    assert(grant);

@@ -98,6 +98,7 @@ static void tx_mix_output(const int16_t *stereo, size_t frames, void *unused) {
    g_atomic_int_inc(&tx_pcm_queued);
    g_async_queue_push(tx_pcm_queue, packet);
 }
+
 bool audio_tx_source_register(const char *id, const rr_pcm_stream_format_t *format) {
    if (!tx_engine || !id || !*id || !format || !rr_pcm_stream_format_valid(format)) {
       return false;
@@ -109,12 +110,15 @@ bool audio_tx_source_register(const char *id, const rr_pcm_stream_format_t *form
 
    return rr_audio_engine_route(tx_engine, id, 'M');
 }
+
 bool audio_tx_source_route(const char *id, bool connected) {
    return tx_engine && id && *id && rr_audio_engine_route(tx_engine, id, connected ? 'S' : 'M');
 }
+
 bool audio_tx_source_push(const char *id, const void *pcm, size_t frames) {
    return tx_engine && id && *id && pcm && frames && rr_audio_engine_push_pcm(tx_engine, id, pcm, frames);
 }
+
 static gboolean tx_mix_drain(gpointer unused) {
    (void)unused;
 
@@ -220,6 +224,7 @@ static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
    }
    g_mutex_unlock(&rx_sink_lock);
 }
+
 static void rx_sink_set_fd(int new_fd) {
    g_mutex_lock(&rx_sink_lock);
 
@@ -265,6 +270,7 @@ bool audio_local_rx_start_format(const char *id, const rr_pcm_stream_format_t *f
 
    return true;
 }
+
 bool audio_local_rx_start(const char *id) {
    const rr_pcm_stream_format_t legacy = {
       16000, 1, RR_PCM_S16LE
@@ -272,6 +278,7 @@ bool audio_local_rx_start(const char *id) {
 
    return audio_local_rx_start_format(id, &legacy);
 }
+
 bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t frames) {
    rr_pcm_stream_format_t fmt;
 
@@ -285,6 +292,7 @@ bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t fra
 
    return engine && rr_audio_engine_push_pcm(engine, id, interleaved, frames);
 }
+
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
    if (!id || !pcm || !frames) {
       return false;
@@ -299,6 +307,7 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
 
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
+
 void audio_local_rx_stop(const char *id) {
    rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
 
@@ -324,6 +333,7 @@ static void recording_playback_apply_route(bool active) {
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_L, left);
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_R, right);
 }
+
 static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id) {
    if (!id || !engine) {
       return;
@@ -348,6 +358,7 @@ static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id) {
 
    g_free(key_prefix);
 }
+
 static void recording_playback_pcm(const int16_t *pcm, size_t frames) {
    if (!rx_engine || !pcm || !frames || frames > 1024) {
       return;
@@ -362,6 +373,7 @@ static void recording_playback_pcm(const int16_t *pcm, size_t frames) {
    rr_audio_engine_push(rx_engine, "recording.playback.L", left, frames);
    rr_audio_engine_push(rx_engine, "recording.playback.R", right, frames);
 }
+
 bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
    if (!rx_engine || !path) {
       return false;
@@ -387,17 +399,21 @@ bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
 
    return true;
 }
+
 bool audio_recording_play(const char *path) {
    return audio_recording_play_at(path, 0.0, false);
 }
+
 void audio_recording_play_stop(void) {
    rr_recordings_play_stop();
 }
+
 void audio_recording_play_collect(void) {
    rr_recordings_play_collect();
    recording_playback_apply_route(false);
    /* The permanent mixer inputs remain for the next playback session. */
 }
+
 void audio_recording_control_core(const char *event, const void *data, size_t size, rrconn_t *conn, void *user) {
    (void)event;
    (void)conn;
@@ -450,6 +466,7 @@ static gboolean recording_playback_drain(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void audio_recording_decoded_core(const char *event, const char *data, rrconn_t *conn, void *user) {
    (void)event;
    (void)conn;
@@ -468,6 +485,7 @@ static void audio_recording_decoded_core(const char *event, const char *data, rr
    g_source_attach(timer, rrclient_core_context());
    g_source_unref(timer);
 }
+
 void audio_recording_events_init(void) {
    event_on_binary_domain_token(RR_AUDIO_RECORDING_CONTROL_REQUEST, audio_recording_control_core, NULL, "core");
    event_on_domain_token("client.recordings.playback-decoded", audio_recording_decoded_core, NULL, "core");
@@ -686,6 +704,7 @@ bool audio_modem_tx_allowed(const char *target) {
 
    return false;
 }
+
 bool audio_modem_tx_pcm(unsigned slot, const char *target, const int16_t *pcm, size_t frames) {
    if (!slot || slot > RR_LOCAL_MODEM_MAX || !pcm || !frames || frames > 4096 || !audio_modem_tx_allowed(target)) {
       return false;
@@ -738,7 +757,6 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
    }
 }
 
-
 /* A separate HQ endpoint takes the final 44.1/48 kHz stereo mix. The original 16 kHz codec bus is converted before reaching that mix. Capture always converts
  * back to the legacy 16 kHz mono encoder contract. */
 static uint32_t audio_hq_output_rate(void) {
@@ -755,6 +773,7 @@ static uint32_t audio_hq_output_rate(void) {
 
    return 48000;
 }
+
 static unsigned audio_hq_capture_rate(void) {
    const char *setting = cfg_get("audio.capture-rate");
 
@@ -846,6 +865,7 @@ static void audio_restore_effect_parameters(const char *worker) {
    g_strfreev(list);
    g_free(ids);
 }
+
 static bool audio_client_playback_start(void) {
    char *generated = audio_client_pipeline_recipe(false);
    const char *pipeline = generated ? generated : cfg_get("pipeline:sink.client.mix");
@@ -858,6 +878,7 @@ static bool audio_client_playback_start(void) {
 
    return ok;
 }
+
 static bool audio_client_capture_start(void) {
    char *generated = audio_client_pipeline_recipe(true);
    const char *pipeline = generated ? generated : cfg_get("pipeline:src.client.dsp0");
@@ -889,6 +910,7 @@ static void rx_pcm_clear(rx_route_t *r) {
    r->pending_count = 0;
    g_mutex_unlock(&r->pcm_lock);
 }
+
 static void rx_pcm_push(rx_route_t *r, const int16_t *samples, size_t count) {
    const size_t capacity = G_N_ELEMENTS(r->pending);
    g_mutex_lock(&r->pcm_lock);
@@ -915,6 +937,7 @@ static void rx_pcm_push(rx_route_t *r, const int16_t *samples, size_t count) {
    r->pending_count += count;
    g_mutex_unlock(&r->pcm_lock);
 }
+
 static size_t rx_pcm_take(rx_route_t *r, int16_t *samples, size_t limit) {
    const size_t capacity = G_N_ELEMENTS(r->pending);
    g_mutex_lock(&r->pcm_lock);
@@ -931,7 +954,6 @@ static size_t rx_pcm_take(rx_route_t *r, int16_t *samples, size_t limit) {
 
    return count;
 }
-
 
 struct room_route {
    char *server, *room;
@@ -993,6 +1015,7 @@ static const char *audio_resolve_rig_source(const char *id) {
 
    return NULL;
 }
+
 bool audio_set_rx_stream_route(const char *id, char output) {
    if (!id || !output || !strchr("LRSM", output)) {
       return false;
@@ -1069,6 +1092,7 @@ char audio_room_route(const char *server, const char *room) {
 
    return 'S';
 }
+
 bool audio_set_room_route(const char *server, const char *room, char output) {
    if (!server || !room || !strchr("LRSM", output) || !output) {
       return false;
@@ -1157,6 +1181,7 @@ static gboolean audio_lv2_source_present(const char *id) {
 
    return FALSE;
 }
+
 static gboolean audio_lv2_factory_safe(const char *factory) {
    if (!factory || !*factory || strlen(factory) > 90) {
       return FALSE;
@@ -1170,6 +1195,7 @@ static gboolean audio_lv2_factory_safe(const char *factory) {
 
    return TRUE;
 }
+
 static void audio_lv2_result(const char *name, const void *samples, size_t bytes, void *user) {
    (void)name;
    rr_lv2_effect_t *fx = user;
@@ -1198,6 +1224,7 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
       }
    }
 }
+
 static gpointer audio_lv2_writer(gpointer user) {
    rr_lv2_effect_t *fx = user;
 
@@ -1224,6 +1251,7 @@ static gpointer audio_lv2_writer(gpointer user) {
 
    return NULL;
 }
+
 static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes) {
    if (!lv2_effect_ready || !source || !samples || !bytes || bytes > sizeof(((rr_lv2_pcm_packet_t *) 0)->pcm) || (bytes & 1)) {
       return FALSE;
@@ -1309,6 +1337,7 @@ static gboolean audio_lv2_feed(const char *source, const void *samples, size_t b
 
    return accepted;
 }
+
 static void audio_lv2_stop(unsigned slot, gboolean forget) {
    if (!slot || slot > RR_AUDIO_EFFECT_MAX) {
       return;
@@ -1397,6 +1426,7 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
       g_free(key);
    }
 }
+
 static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    if (!req || !audio_enabled || !rx_engine || !audio_lv2_factory_safe(req->factory) || (req->source[0] && !audio_lv2_source_present(req->source))) {
       return FALSE;
@@ -1553,6 +1583,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
 
    return TRUE;
 }
+
 static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    (void)unused;
 
@@ -1649,6 +1680,7 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
    event_emit("client.audio.route.changed", NULL, NULL);
 }
+
 void audio_request_effect_block(const rr_audio_effect_request_t *req) {
    if (!req) {
       return;
@@ -1665,6 +1697,7 @@ static void audio_lv2_route_source(const char *source, char output) {
    (void)source;
    (void)output;
 }
+
 static void audio_lv2_restore(void) {
    if (!lv2_effect_ready || !audio_enabled || !rx_engine) {
       return;
@@ -1729,6 +1762,7 @@ static void audio_lv2_restore(void) {
       g_free(source);
    }
 }
+
 static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
    (void)name;
    rx_route_t *route = user;
@@ -2093,6 +2127,7 @@ static void dcc_pcm(const char *event, const void *data, size_t len, rrconn_t *c
    fwdsp_processor_setvol(name, cfg_get_int("audio.volume.rx", 30));
    fwdsp_processor_write(name, pcm->samples, pcm->length);
 }
+
 static void dcc_closed(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)client;
@@ -2693,6 +2728,7 @@ static void audio_af_spectrum_request(const rr_event_message_t *message, void *u
    };
    event_emit_message(&reply);
 }
+
 static void audio_snapshot_request(const rr_event_message_t *unused_message, void *unused) {
    (void)unused_message;
    (void)unused;
@@ -2836,6 +2872,7 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
       }
    }
 }
+
 static void audio_submit_control(const rr_audio_control_request_t *req) {
    rr_event_message_t message = {
       .name = RRCLIENT_AUDIO_CONTROL_REQUEST,
@@ -2843,6 +2880,7 @@ static void audio_submit_control(const rr_audio_control_request_t *req) {
    };
    event_emit_message(&message);
 }
+
 void audio_request_mic_tx_route(const char *rx_uuid) {
    if (!rx_uuid || !*rx_uuid || strlen(rx_uuid) >= 64) {
       return;
@@ -2853,18 +2891,21 @@ void audio_request_mic_tx_route(const char *rx_uuid) {
    g_strlcpy(req.stream, rx_uuid, sizeof(req.stream));
    audio_submit_control(&req);
 }
+
 void audio_request_rx_volume(int percent) {
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_MASTER, .percent = percent
    };
    audio_submit_control(&req);
 }
+
 void audio_request_rx_channel_volume(unsigned channel, int percent) {
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_EAR, .channel = channel, .percent = percent
    };
    audio_submit_control(&req);
 }
+
 void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db) {
    if (!id || channel > 1 || !isfinite(gain_db)) {
       return;
@@ -2876,6 +2917,7 @@ void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_d
    g_strlcpy(req.stream, id, sizeof(req.stream));
    audio_submit_control(&req);
 }
+
 void audio_request_port_gain(const char *id, unsigned channel, double db) {
    if (!id || channel > 1 || !isfinite(db) || (strcmp(id, "rx.mix") && strcmp(id, "tx.mix") && strcmp(id, "sink.client.dsp0"))) {
       return;
@@ -2886,6 +2928,7 @@ void audio_request_port_gain(const char *id, unsigned channel, double db) {
    g_strlcpy(req.stream, id, sizeof(req.stream));
    audio_submit_control(&req);
 }
+
 void audio_request_effect_parameter(const char *processor, const char *element, const char *property, double value) {
    if (!processor || !element || !property || !*processor || !*element ||
       !*property || !isfinite(value) ||
@@ -2901,6 +2944,7 @@ void audio_request_effect_parameter(const char *processor, const char *element, 
    g_strlcpy(req.property, property, sizeof(req.property));
    audio_submit_control(&req);
 }
+
 void audio_request_rx_stream_route(const char *id, char output) {
    if (!id || strlen(id) >= sizeof(((rr_audio_control_request_t *) 0)->stream)) {
       return;
@@ -3403,9 +3447,9 @@ static void audio_full_frame_payload(const void *data, size_t len) {
 void try_send_next_frame(rrconn_t *cptr) {
    (void)cptr;
 }
+
 void audio_tx_free_frame(void) {
 }
-
 
 #if     0                       // we need to make audio_settings_t
 bool send_au_control_msg(rrconn_t *cptr, audio_settings_t *au) {
@@ -3425,4 +3469,5 @@ bool send_au_control_msg(rrconn_t *cptr, audio_settings_t *au) {
 
    return true;
 }
+
 #endif

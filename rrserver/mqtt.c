@@ -308,7 +308,6 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
    }
 }
 
-
 bool mqtt_client_init(void) {
    FILE *fp = NULL;
 

@@ -35,9 +35,11 @@ static bool section(const char *path, int line, const char *name, const char *in
 
    return !ok;
 }
+
 bool rr_si5351_config_init(void) {
    return cfg_add_callback(NULL, "si5351:*", section);
 }
+
 static const char *setting(const char *name, const char *key, const char *fallback) {
    char *full = g_strdup_printf("si5351:%s.%s", name, key);
    const char *value = cfg_get(full);
@@ -45,6 +47,7 @@ static const char *setting(const char *name, const char *key, const char *fallba
 
    return value ? value : fallback;
 }
+
 static bool number(const char *s, int64_t low, int64_t high, int base, int64_t *value) {
    char *end;
    errno = 0;
@@ -52,6 +55,7 @@ static bool number(const char *s, int64_t low, int64_t high, int base, int64_t *
 
    return *s && end != s && !*end && !errno && *value >= low && *value <= high;
 }
+
 bool rr_si5351_configure(rr_hardware_t *r) {
    const char *list = cfg_get("hardware.si5351");
    char **names = g_strsplit_set(list ? list : "", " ,\t", -1);

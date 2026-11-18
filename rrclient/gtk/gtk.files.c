@@ -84,11 +84,13 @@ static void size_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeM
    rr_list_zebra_cell(column, cell, model, iter, unused);
    g_free(path);
 }
+
 static void listing_free(gpointer data) {
    struct listing *r = data;
    gtk_tree_row_reference_free(r->row);
    g_free(r);
 }
+
 static gboolean listing_expired(gpointer unused) {
    GHashTableIter iterator;
    gpointer key, value;
@@ -141,6 +143,7 @@ static char *selected_profile(void) {
 
    return sep ? g_strndup(id, (gsize) (sep - id)) : g_strdup(id);
 }
+
 static gboolean command_request(const char *profile, const char *operation, const char *command, const char *path, const char *dest, const char *local, gboolean
    upload, gboolean overwrite, const char *request_id) {
    if (!profile || !*profile || !request_id || !*request_id) {
@@ -183,9 +186,11 @@ static gboolean command_request(const char *profile, const char *operation, cons
 
    return queued;
 }
+
 static char *files_request_id(void) {
    return g_uuid_string_random();
 }
+
 static gboolean request_site_listing(const char *profile) {
    char *id = files_request_id();
    g_hash_table_insert(browser.site_requests, g_strdup(id), g_strdup(profile));
@@ -200,6 +205,7 @@ static gboolean request_site_listing(const char *profile) {
 
    return TRUE;
 }
+
 static gboolean transfer_request(const char *profile, const char *path, const char *local, gboolean upload, gboolean overwrite) {
    char *id = files_request_id();
    gboolean queued = command_request(profile, "transfer", NULL, path, NULL, local, upload, overwrite, id);
@@ -207,6 +213,7 @@ static gboolean transfer_request(const char *profile, const char *path, const ch
 
    return queued;
 }
+
 static gboolean selected_profile_matches(const char *profile) {
    if (!browser.server || !profile || !*profile) {
       return FALSE;
@@ -221,17 +228,20 @@ static gboolean selected_profile_matches(const char *profile) {
 
    return strlen(profile) == n && !strncmp(selected, profile, n);
 }
+
 static const char *site_root(void) {
    const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
    const char *sep = id ? strchr(id, '|') : NULL;
 
    return sep ? sep + 1 : "/";
 }
+
 static void status(const char *text) {
    if (browser.window) {
       gtk_label_set_text(GTK_LABEL(browser.status), text);
    }
 }
+
 static char *selection(gboolean *directory, gboolean *readable, gboolean *writable, guint64 *size) {
    GtkTreeIter iter;
    GtkTreeModel *model;
@@ -243,6 +253,7 @@ static char *selection(gboolean *directory, gboolean *readable, gboolean *writab
 
    return path;
 }
+
 static void placeholder(GtkTreeIter *parent) {
    GtkTreeIter child;
    gtk_tree_store_append(browser.store, &child, parent);
@@ -265,6 +276,7 @@ static void remove_placeholders(GtkTreeIter *parent) {
       g_free(path);
    }
 }
+
 static void load(GtkTreeIter *parent) {
    char *path;
    gtk_tree_model_get(GTK_TREE_MODEL(browser.store), parent, PATH, &path, -1);
@@ -303,6 +315,7 @@ static void load(GtkTreeIter *parent) {
    g_free(path);
    g_free(id);
 }
+
 static void expand(GtkTreeView *tree, GtkTreeIter *iter, GtkTreePath *path, gpointer data) {
    gboolean loaded;
    gtk_tree_model_get(GTK_TREE_MODEL(browser.store), iter, LOADED, &loaded, -1);
@@ -338,6 +351,7 @@ static void folder_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewCo
       gtk_tree_view_collapse_row(tree, path);
    }
 }
+
 static void refresh(void) {
    g_hash_table_remove_all(browser.requests);
    gtk_tree_store_clear(browser.store);
@@ -375,6 +389,7 @@ static void refresh_sites(void) {
    }
    event_emit("client.files.sites-request", NULL, NULL);
 }
+
 static void site(const char *event, const char *text, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -417,12 +432,14 @@ static void site(const char *event, const char *text, rrconn_t *unused_connectio
    }
    dict_free(snapshot);
 }
+
 static void changed(GtkComboBox *box, gpointer data) {
    (void)box;
    (void)data;
    g_clear_pointer(&browser.wanted_site, g_free);
    refresh();
 }
+
 static gboolean browser_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget;
    (void)data;
@@ -442,6 +459,7 @@ static gboolean browser_key_press(GtkWidget *widget, GdkEventKey *event, gpointe
 
    return TRUE;
 }
+
 static char *prompt(const char *title, const char *initial) {
    GtkWidget *dialog =
       gtk_dialog_new_with_buttons(title, GTK_WINDOW(main_window), GTK_DIALOG_MODAL, "Cancel", GTK_RESPONSE_CANCEL, "OK", GTK_RESPONSE_OK, NULL);
@@ -454,6 +472,7 @@ static char *prompt(const char *title, const char *initial) {
 
    return text;
 }
+
 static bool confirm(const char *message) {
    GtkWidget *d = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
    bool yes = gtk_dialog_run(GTK_DIALOG(d)) == GTK_RESPONSE_YES;
@@ -461,6 +480,7 @@ static bool confirm(const char *message) {
 
    return yes;
 }
+
 static bool edit_save(const char *local, void *data) {
    struct remote_edit *e = data;
    bool ok = transfer_request(e->profile, e->path, local, TRUE, TRUE);
@@ -468,6 +488,7 @@ static bool edit_save(const char *local, void *data) {
 
    return ok;
 }
+
 static void complete(const char *event, const char *text, rrconn_t *c, void *data) {
    dict *d = json2dict(text);
 
@@ -498,6 +519,7 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
    }
    dict_free(d);
 }
+
 static void command_result(const char *event, const char *text, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -551,6 +573,7 @@ static gboolean directly_connected_site(const char *alias) {
    }
    return FALSE;
 }
+
 static void row(const char *event, const char *text, rrconn_t *c, void *data) {
    if (!browser.window) {
       return;
@@ -682,6 +705,7 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
    }
    dict_free(d);
 }
+
 static void action(GtkButton *button, gpointer data) {
    const char *op = data;
    char *profile = selected_profile();
@@ -834,6 +858,7 @@ done:
    g_free(path);
    g_free(profile);
 }
+
 static gint sort(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer data) {
    char *an, *bn;
    gboolean ad, bd;
@@ -851,6 +876,7 @@ static gint sort(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer d
 
    return order;
 }
+
 static void destroyed(GtkWidget *window, gpointer data) {
    files_panel = NULL;
 
@@ -864,6 +890,7 @@ static void destroyed(GtkWidget *window, gpointer data) {
    g_object_unref(browser.store);
    memset(&browser, 0, sizeof(browser));
 }
+
 static void files_close(gpointer data) {
    (void)data;
 
@@ -871,6 +898,7 @@ static void files_close(gpointer data) {
       rr_floating_panel_destroy(files_panel);
    }
 }
+
 static void open_browser(const char *event, const char *text, rrconn_t *c, void *data) {
    if (browser.window) {
       rr_floating_panel_restore(files_panel);
@@ -982,6 +1010,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    rr_floating_panel_show(files_panel);
    refresh_sites();
 }
+
 void gtk_files_init(void) {
    open_token = event_on_domain_token("client.files.open", open_browser, NULL, "gtk");
    row_token = event_on_domain_token("client.files.row", row, NULL, "gtk");
@@ -989,6 +1018,7 @@ void gtk_files_init(void) {
    site_token = event_on_domain_token("client.files.site", site, NULL, "gtk");
    command_result_token = event_on_domain_token("client.files.command-result", command_result, NULL, "gtk");
 }
+
 void gtk_files_shutdown(void) {
    event_off_token(open_token);
    event_off_token(row_token);

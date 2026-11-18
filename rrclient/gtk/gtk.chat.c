@@ -1251,7 +1251,6 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
    return TRUE;
 }
 
-
 /* The room VFO title operates only on VFOs mapped to the room displayed by the floating rig controls. The server's selection acknowledgement remains
  * authoritative for the active VFO. */
 static char room_vfo_title_room[128];
@@ -1311,6 +1310,7 @@ static gboolean room_vfo_tab_has_controls(const GtkRoomTab *tab) {
 
    return rrclient_room_tx_control(tab->room) || (((vfos && *vfos) || rrclient_room_vfo_mask(tab->room)) && (rrclient_room_rx_tunable(tab->room) || ephemeral));
 }
+
 static uint32_t room_vfo_available_mask(const char *room) {
    uint32_t mask = rrclient_room_vfo_mask(room);
 
@@ -1345,6 +1345,7 @@ static uint32_t room_vfo_available_mask(const char *room) {
 
    return mask;
 }
+
 static void room_vfo_title_menu_activate(GtkMenuItem *item, gpointer unused) {
    (void)unused;
    VfoMenuTarget *target = g_object_get_data(G_OBJECT(item), "rr-vfo-target");
@@ -1373,6 +1374,7 @@ static void room_vfo_title_menu_activate(GtkMenuItem *item, gpointer unused) {
       return;
    }
 }
+
 static void room_vfo_follow_changed(GtkCheckMenuItem *item, gpointer unused) {
    (void)unused;
    room_vfo_follow_chat = gtk_check_menu_item_get_active(item);
@@ -1388,6 +1390,7 @@ static void room_vfo_follow_changed(GtkCheckMenuItem *item, gpointer unused) {
       gtk_chat_update_vfo_controls(tab);
    }
 }
+
 static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -1729,9 +1732,6 @@ void gtk_chat_room_vfos_changed(const char *room) {
    userlist_room_vfos_changed(room);
    room_vfo_reconcile(room);
 }
-
-
-
 
 /* Chat is a wrapped viewport: no replay line may pan its left edge away. */
 static void chat_horizontal_keep_left(GtkAdjustment *adjustment, gpointer unused) {
@@ -2191,6 +2191,7 @@ static void estop_dispatch(const char *action) {
       gtk_label_set_text(GTK_LABEL(estop_status), "Sending — awaiting transport result");
    }
 }
+
 static void estop_send_status(const char *event, const char *message, rrconn_t *client, void *unused) {
    (void)event;
    (void)client;
@@ -2207,6 +2208,7 @@ static void estop_send_status(const char *event, const char *message, rrconn_t *
    bool sent = !strcmp(separator + 1, "sent");
    gtk_label_set_text(GTK_LABEL(estop_status), sent ? "Request sent — check server acknowledgment" : "OFFLINE — NOT CONFIRMED");
 }
+
 static void estop_notice_event(const char *event, const char *message, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -2381,6 +2383,7 @@ static void vfo_locator_settings_save(void) {
    };
    rrclient_database_window_save("vfo-locator", &state);
 }
+
 static void vfo_locator_opacity_changed(GtkRange *scale, gpointer unused) {
    (void)unused;
    locator_opacity = (gint) gtk_range_get_value(scale);
@@ -2390,6 +2393,7 @@ static void vfo_locator_opacity_changed(GtkRange *scale, gpointer unused) {
    }
    vfo_locator_settings_save();
 }
+
 static void vfo_locator_on_top_changed(GtkToggleButton *button, gpointer unused) {
    (void)unused;
    locator_on_top = gtk_toggle_button_get_active(button);
@@ -2409,6 +2413,7 @@ static gboolean vfo_locator_settings_focus_out(GtkWidget *widget, GdkEventFocus 
 
    return FALSE;
 }
+
 static gboolean vfo_locator_settings_key(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
    (void)unused;
 
@@ -2420,6 +2425,7 @@ static gboolean vfo_locator_settings_key(GtkWidget *widget, GdkEventKey *event, 
 
    return FALSE;
 }
+
 static void vfo_locator_minimize(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -2432,6 +2438,7 @@ static void vfo_locator_minimize(GtkButton *button, gpointer unused) {
       gtk_window_iconify(GTK_WINDOW(vfo_locator_window));
    }
 }
+
 static void vfo_locator_popup(GdkEventButton *event) {
    if (!vfo_locator_window) {
       return;
@@ -2682,6 +2689,7 @@ static void vfo_locator_snapshot_event(const char *event, const void *data, size
    }
    gtk_widget_show_all(vfo_locator_window);
 }
+
 static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
 
@@ -2767,6 +2775,7 @@ static gboolean status_network_tick(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void room_rf_source_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)data;
@@ -2774,6 +2783,7 @@ static void room_rf_source_changed(const char *event, const char *data, rrconn_t
    (void)unused;
    room_rf_panel_refresh();
 }
+
 static void status_volume_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;

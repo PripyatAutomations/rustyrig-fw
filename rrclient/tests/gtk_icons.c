@@ -17,6 +17,7 @@ static guchar *window_icon(GtkWidget *window, gint *length) {
 
    return bytes;
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    gchar *old_directory = g_get_current_dir();

@@ -32,6 +32,7 @@ static gboolean clock_tick(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static void clock_destroyed(GtkWidget *widget, gpointer unused) {
    (void)unused;
 
@@ -45,6 +46,7 @@ static void clock_destroyed(GtkWidget *widget, gpointer unused) {
    }
    status_clock = NULL;
 }
+
 GtkWidget *gtk_clock_status_new(void) {
    if (status_clock) {
       return status_clock;
@@ -66,9 +68,11 @@ GtkWidget *gtk_clock_status_new(void) {
 
    return status_clock;
 }
+
 void gtk_clock_init(void) {
    /* Status clock is constructed after the toolbar transfer counters. */
 }
+
 void gtk_clock_shutdown(void) {
    if (clock_source) {
       g_source_remove(clock_source);

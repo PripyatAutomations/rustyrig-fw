@@ -20,6 +20,7 @@ bool rrclient_direct_preferred(const char *profile) {
 
    return cfg_get_bool(key, fallback);
 }
+
 bool rrclient_direct_set_preference(rrconn_t *client, bool enabled) {
    const char *profile = rrclient_connection_name(client);
 
@@ -89,6 +90,7 @@ static struct direct_channel *find(rrconn_t *client, const char *uuid, bool crea
 
    return empty;
 }
+
 bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_transport_t mode) {
    if (mode == RR_MEDIA_DIRECT && !rr_rtp_supported(false)) {
       return false;
@@ -104,6 +106,7 @@ bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_trans
 
    return true;
 }
+
 static void report_route(struct direct_channel *channel, const char *status, bool rtp) {
    dict *d = dict_new();
 
@@ -135,6 +138,7 @@ static void report_route(struct direct_channel *channel, const char *status, boo
    event_emit_dict("client.media.transport", channel->client, d);
    dict_free(d);
 }
+
 static void direct_failed(struct direct_channel *channel, const char *reason) {
    if (channel->failed) {
       return;
@@ -153,6 +157,7 @@ static void direct_failed(struct direct_channel *channel, const char *reason) {
    event_emit_dict("error", channel->client, d);
    dict_free(d);
 }
+
 static void next_route(struct direct_channel *channel) {
    rr_rtp_socket_detach(channel->attachment);
    channel->attachment = NULL;
@@ -165,6 +170,7 @@ static void next_route(struct direct_channel *channel) {
    }
    media_send_subscribe(channel->client, channel->uuid);
 }
+
 static bool try_candidate(struct direct_channel *channel) {
    while (channel->candidate_index < channel->candidate_count) {
       const char *endpoint = channel->candidates[channel->candidate_index++];
@@ -188,6 +194,7 @@ static bool try_candidate(struct direct_channel *channel) {
    }
    return false;
 }
+
 static void load_candidates(struct direct_channel *channel, const char *list, const char *single) {
    channel->candidate_count = channel->candidate_index = 0;
 
@@ -231,6 +238,7 @@ static uint64_t direct_renew_delay(dict *grant) {
 
    return (uint64_t) (lifetime - margin) * UINT64_C(1000000);
 }
+
 static bool hex_key(const char *text, uint8_t *key) {
    if (strlen(text) != RR_RTP_KEY_LEN * 2) {
       return false;
@@ -250,6 +258,7 @@ static bool hex_key(const char *text, uint8_t *key) {
 
    return true;
 }
+
 void rrclient_direct_message(rrconn_t *client, dict *d) {
    const char *cmd = dict_get(d, "media.cmd", ""), *uuid = dict_get(d, "media.chan-uuid", "");
    struct direct_channel *channel = find(client, uuid, !strcmp(cmd, "available") || !strcmp(cmd, "subscribed"));
@@ -364,6 +373,7 @@ static void dispatch_received(void *user) {
    struct received_frame *frame = user;
    frame->result = ws_binframe_process_client(frame->client, frame->data, frame->length);
 }
+
 static bool received(void *user, const uint8_t *data, size_t length) {
    struct direct_channel *channel = user;
 
@@ -399,6 +409,7 @@ static bool received(void *user, const uint8_t *data, size_t length) {
 
    return received.result;
 }
+
 void rrclient_direct_poll(void) {
    uint64_t now = mono_us();
    /* RTP receive is serviced by the GLib main loop. Long gaps here mean UI/catalog work can starve audio even on localhost. Track the actual poll cadence
@@ -476,6 +487,7 @@ void rrclient_direct_poll(void) {
       }
    }
 }
+
 bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
    uint64_t incoming = 0, outgoing = 0;
    bool active = false;
@@ -504,6 +516,7 @@ bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
 
    return active;
 }
+
 void rrclient_direct_apply_preferences(void) {
    for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
       struct direct_channel *c = &channels[i];
@@ -531,12 +544,14 @@ void rrclient_direct_apply_preferences(void) {
       media_send_subscribe(c->client, c->uuid);
    }
 }
+
 static bool preference_reload(const char *key) {
    (void)key;
    rrclient_direct_apply_preferences();
 
    return true;
 }
+
 static void request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -580,6 +595,7 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
       report_route(c, "requesting", strcmp(transport, "ws") != 0);
    }
 }
+
 static void binary(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -632,6 +648,7 @@ static void binary(const char *event, const void *data, size_t length, rrconn_t 
       return;
    }
 }
+
 static void closed(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)data;
@@ -644,6 +661,7 @@ static void closed(const char *event, const char *data, rrconn_t *client, void *
       }
    }
 }
+
 static void irc_audio(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -671,6 +689,7 @@ static void irc_audio(const char *event, const char *data, rrconn_t *client, voi
    }
    dict_free(d);
 }
+
 void rrclient_direct_register_events(void) {
    reload_event_add(NULL, preference_reload, "apply direct-media preferences to active automatic subscriptions");
    event_on("irc.dcc.audio", irc_audio, NULL);

@@ -19,6 +19,7 @@ static void on_char(char c, void *u) {
       decoded[used++] = c;
    }
 }
+
 int main(void) {
    const char *message = "TESTTESTTEST";
    float *clean = calloc(FRAMES, sizeof(*clean));

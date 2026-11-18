@@ -44,6 +44,7 @@ static void wipe_free(GByteArray *a) {
    }
    g_byte_array_unref(a);
 }
+
 static bool valid_key_name(const char *name) {
    if (!name || !*name || strlen(name) > 128 || !g_str_has_suffix(name, ".pem")) {
       return false;
@@ -57,12 +58,14 @@ static bool valid_key_name(const char *name) {
 
    return name[0] != '.' && !strstr(name, "..");
 }
+
 static int tar_open(struct archive *a, void *context) {
    (void)a;
    (void)context;
 
    return ARCHIVE_OK;
 }
+
 static la_ssize_t tar_write(struct archive *a, void *context, const void *data, size_t len) {
    (void)a;
    GByteArray *out = context;
@@ -74,12 +77,14 @@ static la_ssize_t tar_write(struct archive *a, void *context, const void *data, 
 
    return (la_ssize_t) len;
 }
+
 static int tar_close(struct archive *a, void *context) {
    (void)a;
    (void)context;
 
    return ARCHIVE_OK;
 }
+
 static bool tar_entry(struct archive *tar, const char *path, const guint8 *data, size_t size) {
    if (size > RR_BACKUP_LIMIT) {
       return false;
@@ -102,6 +107,7 @@ static bool tar_entry(struct archive *tar, const char *path, const guint8 *data,
 
    return ok;
 }
+
 static bool tar_keys(struct archive *tar) {
    char *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
    struct stat st;
@@ -172,6 +178,7 @@ static bool tar_keys(struct archive *tar) {
 
    return ok;
 }
+
 static GByteArray *make_payload(bool include_keys) {
    size_t sql_len = 0;
    char *sql = rrclient_database_dump_sql(&sql_len);
@@ -211,6 +218,7 @@ static GByteArray *make_payload(bool include_keys) {
 
    return out;
 }
+
 static GByteArray *backup_crypt(bool encrypt, const guint8 *input, gsize length, const char *password) {
    if (!password || !*password || length > RR_BACKUP_LIMIT + 64) {
       return NULL;
@@ -299,6 +307,7 @@ static GByteArray *backup_crypt(bool encrypt, const guint8 *input, gsize length,
 
    return out;
 }
+
 static bool write_archive(const char *path, GByteArray *bytes) {
    int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
 
@@ -440,6 +449,7 @@ static bool unpack(GByteArray *payload, char **sql, GPtrArray **keys) {
 
    return ok;
 }
+
 static bool restore(GByteArray *payload) {
    char *sql = NULL;
    GPtrArray *keys = NULL;
@@ -519,6 +529,7 @@ static bool restore(GByteArray *payload) {
 
    return ok;
 }
+
 static bool import_archive(const char *path, const char *password) {
    struct stat st;
 
@@ -543,6 +554,7 @@ static bool import_archive(const char *path, const char *password) {
 
    return ok;
 }
+
 static void backup_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -580,6 +592,7 @@ static void backup_request(const rr_event_message_t *message, void *unused) {
    };
    event_emit_message(&reply);
 }
+
 void rrclient_backup_register(void) {
    event_on_message_domain_token(RRCLIENT_BACKUP_REQUEST, backup_request, NULL, "core");
 }

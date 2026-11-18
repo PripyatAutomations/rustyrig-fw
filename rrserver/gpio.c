@@ -221,6 +221,7 @@ int rr_gpio_read(const rr_hardware_device_t *device) {
 
    return line ? gpiod_line_request_get_value(line->request, line->offset) : -1;
 }
+
 bool rr_gpio_write(const rr_hardware_device_t *device, bool active) {
    gpio_line_t *line = claimed_line(device);
 
@@ -236,25 +237,30 @@ bool rr_gpio_write(const rr_hardware_device_t *device, bool active) {
 
    return gpiod_line_request_set_value(line->request, line->offset, active ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE) == 0;
 }
+
 #else
 bool rr_gpio_discover(rr_hardware_t *registry) {
    (void)registry;
 
    return true;
 }
+
 bool rr_gpio_add_line(rr_hardware_t *registry, const char *id, const char *path, unsigned offset, bool output, bool active_low, bool safe) {
    errno = ENOTSUP;
 
    return false;
 }
+
 int rr_gpio_read(const rr_hardware_device_t *device) {
    errno = ENOTSUP;
 
    return -1;
 }
+
 bool rr_gpio_write(const rr_hardware_device_t *device, bool active) {
    errno = ENOTSUP;
 
    return false;
 }
+
 #endif

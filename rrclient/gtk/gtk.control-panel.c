@@ -28,12 +28,14 @@ static gboolean panel_down(GtkWidget *widget, GdkEventButton *event, gpointer da
 
    return TRUE;
 }
+
 static void panel_position(PanelDrag *drag, double x, double y) {
    int xmax = MAX(0, gtk_widget_get_allocated_width(drag->overlay) - gtk_widget_get_allocated_width(drag->frame));
    int ymax = MAX(0, gtk_widget_get_allocated_height(drag->overlay) - gtk_widget_get_allocated_height(drag->frame));
    gtk_widget_set_margin_start(drag->frame, CLAMP(drag->origin_x + (int)(x - drag->pointer_x), 0, xmax));
    gtk_widget_set_margin_top(drag->frame, CLAMP(drag->origin_y + (int)(y - drag->pointer_y), 0, ymax));
 }
+
 static gboolean panel_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    (void)widget;
    PanelDrag *drag = data;
@@ -45,6 +47,7 @@ static gboolean panel_motion(GtkWidget *widget, GdkEventMotion *event, gpointer 
 
    return TRUE;
 }
+
 static gboolean panel_up(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    PanelDrag *drag = data;
@@ -57,11 +60,13 @@ static gboolean panel_up(GtkWidget *widget, GdkEventButton *event, gpointer data
 
    return TRUE;
 }
+
 static void panel_cleared(GtkWidget *frame, gpointer overlay) {
    if (g_object_get_data(G_OBJECT(overlay), "rr-active-control-panel") == frame) {
       g_object_set_data(G_OBJECT(overlay), "rr-active-control-panel", NULL);
    }
 }
+
 static void panel_css(GtkWidget *frame) {
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
@@ -70,6 +75,7 @@ static void panel_css(GtkWidget *frame) {
    gtk_style_context_add_provider(gtk_widget_get_style_context(frame), GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
 }
+
 GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
    if (!main_window || !GTK_IS_BIN(main_window)) {
       return NULL;

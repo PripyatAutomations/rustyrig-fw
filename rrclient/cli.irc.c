@@ -152,6 +152,7 @@ void irc_mongoose_handler(struct mg_connection *c, int ev, void *data) {
       event_emit("irc.disconnected", cptr, "");
    }
 }
+
 #endif
 
 #include <rrclient/irc.h>

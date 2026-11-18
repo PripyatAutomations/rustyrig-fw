@@ -91,6 +91,7 @@ rr_hardware_device_t *rr_hardware_add(rr_hardware_t *r, const rr_hardware_spec_t
 size_t rr_hardware_count(const rr_hardware_t *r) {
    return r ? r->devices->len : 0;
 }
+
 const rr_hardware_device_t *rr_hardware_at(const rr_hardware_t *r, size_t i) {
    return r && i < r->devices->len ? g_ptr_array_index(r->devices, i) : NULL;
 }

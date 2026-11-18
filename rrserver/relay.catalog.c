@@ -246,7 +246,6 @@ static int catalog_profile_peer_compare(const void *left, const void *right) {
    return strcmp(a->node, b->node);
 }
 
-
 #else
 #define CP_INC(field) ((void)0)
 #define CP_ADD(field, amount) ((void)0)
@@ -1241,6 +1240,7 @@ static bool collect_rig_property(const rr_property_descriptor_t *d, void *user) 
 
    return false;
 }
+
 static void collect_rig_menu_item(const char *id, const char *label, void *user) {
    relay_rig_menu_ctx_t *ctx = user;
 
@@ -1258,6 +1258,7 @@ static void collect_rig_menu_item(const char *id, const char *label, void *user)
       collect_service(row, ctx->menu_id);
    }
 }
+
 static void collect_rig_catalog(rr_server_rig_t *radio) {
    const char *id = rr_server_rig_id(radio);
    rr_rig_property_foreach(radio, collect_rig_property, (void *)id);
@@ -1575,6 +1576,7 @@ void rr_relay_catalog_profile_dump(void) {
    /* Update published read-only performance inventory on the next ordinary catalog refresh. Never perform an immediate recursive refresh here. */
    rr_relay_catalog_dirty = true;
 }
+
 #endif
 
 bool rr_relay_catalog_profile_summary(rr_catalog_profile_info_t *info) {
@@ -1661,7 +1663,6 @@ void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint receive
       1000000.0, sync_id, complete ? "" : "; see the receiving server's rejection summary");
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
-
 
 static void snapshot_free(gpointer ptr) {
    relay_catalog_snapshot_t *s = ptr;

@@ -200,6 +200,7 @@ static bool restore_rx_rooms(void) {
 
    return failed;
 }
+
 #endif
 
 /* Caller-selected room for temporary RX-only receivers. This intentionally does not impose the legacy site-rigN namespace on foreign SDR VFOs. */
@@ -294,6 +295,7 @@ static bool prune_unclaimed_rig_rooms(void) {
 
    return ok;
 }
+
 #endif
 
 bool rrserver_rig_rooms_init(void) {

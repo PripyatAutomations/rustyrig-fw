@@ -14,12 +14,15 @@ rrconn_t *ws_conn;
 const char *ui_active_window_name(void) {
    return "#remote";
 }
+
 bool rrclient_present_context(void) {
    return true;
 }
+
 const rr_frontend_ops_t *frontend_ops(void) {
    return NULL;
 }
+
 void tui_update_input_line(void) {
 }
 
@@ -31,6 +34,7 @@ static bool submit(const char *text) {
 
    return false;
 }
+
 int main(void) {
    assert(rrclient_room_join("#remote"));
    rrclient_room_set_control_flags("#remote", true, true);

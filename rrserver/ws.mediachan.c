@@ -586,7 +586,6 @@ void media_part_room(rrconn_t *cptr, const char *room) {
    }
 }
 
-
 // Fan out one media payload to every connection subscribed to channel `cp`.
 // The server owns the wire header values (see doc/media-frames.md).
 bool ws_media_channel_has_subscribers(const struct rr_mediachan *cp) {

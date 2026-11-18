@@ -56,11 +56,13 @@ static bool kiwi_allow_cross_origin(struct kiwi_instance *k) {
 
    return !password || !*password;
 }
+
 static void note(struct kiwi_instance *k, const char *text) {
    if (k->host.status) {
       k->host.status(k->host.user, text);
    }
 }
+
 static void unavailable(struct kiwi_instance *k) {
    if (k->waterfall) {
       rr_transport_close(k->waterfall);
@@ -83,6 +85,7 @@ static void unavailable(struct kiwi_instance *k) {
       snprintf(k->wanted_mode, sizeof(k->wanted_mode), "%s", k->mode);
    }
 }
+
 static void fail(struct kiwi_instance *k, const char *reason) {
    if (k->failed) {
       return;
@@ -95,6 +98,7 @@ static void fail(struct kiwi_instance *k, const char *reason) {
       rr_transport_close(k->connection);
    }
 }
+
 static bool send_command(struct kiwi_instance *k, const char *command) {
    if (!k->connection || rr_transport_state(k->connection) != RR_TRANSPORT_OPEN || rr_transport_queued_bytes(k->connection) > KIWI_QUEUE_MAX) {
       return false;
@@ -102,6 +106,7 @@ static bool send_command(struct kiwi_instance *k, const char *command) {
 
    return rr_transport_send_message(k->connection, command, strlen(command)) == RR_TRANSPORT_OK;
 }
+
 static void *kiwi_create(const rrp_sdr_host_t *host) {
    struct kiwi_instance *k = host ? calloc(1, sizeof(*k)) : NULL;
 
@@ -125,6 +130,7 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
 
    return k;
 }
+
 static void kiwi_destroy(void *instance) {
    struct kiwi_instance *k = instance;
    k->closing = true;
@@ -150,6 +156,7 @@ static void kiwi_destroy(void *instance) {
    }
    free(k);
 }
+
 static bool kiwi_capabilities(void *instance, rrp_sdr_capabilities_t *out) {
    if (!instance || !out) {
       return false;
@@ -161,6 +168,7 @@ static bool kiwi_capabilities(void *instance, rrp_sdr_capabilities_t *out) {
 
    return true;
 }
+
 static bool kiwi_tune(void *instance, uint64_t hz, const char *mode, char *command, size_t capacity) {
    const char *kiwi_mode = NULL;
    int n;
@@ -199,7 +207,6 @@ static bool kiwi_tune(void *instance, uint64_t hz, const char *mode, char *comma
    return n > 0 && (size_t)n < capacity;
 }
 
-
 static bool configure(struct kiwi_instance *k) {
    if (!k->authenticated || !k->rate || k->configured) {
       return true;
@@ -222,6 +229,7 @@ static bool configure(struct kiwi_instance *k) {
 
    return true;
 }
+
 static int kiwi_url_decode(const char *src, size_t n, char *dst, size_t capacity) {
    if (n + 1 > capacity) {
       return -1;
@@ -252,6 +260,7 @@ static int kiwi_url_decode(const char *src, size_t n, char *dst, size_t capacity
 
    return (int)used;
 }
+
 static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
    if (strlen(encoded) > 60000) {
       return;
@@ -302,6 +311,7 @@ static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
    }
    free(text);
 }
+
 static bool parameter(struct kiwi_instance *k, const char *key, const char *value) {
    if (!strcmp(key, "load_cfg")) {
       receiver_metadata(k, value);
@@ -388,6 +398,7 @@ static bool parameter(struct kiwi_instance *k, const char *key, const char *valu
 
    return configure(k);
 }
+
 static bool kiwi_receive(void *instance, const void *frame, size_t length) {
    struct kiwi_instance *k = instance;
    const uint8_t *data = frame;
@@ -526,6 +537,7 @@ static void waterfall_range(const struct kiwi_instance *k, uint64_t *low_hz, uin
    *low_hz = (uint64_t) (low + .5);
    *high_hz = (uint64_t) (low + span + .5);
 }
+
 static void waterfall_center(struct kiwi_instance *k) {
    if (!k->waterfall || !k->max_hz) {
       return;
@@ -669,6 +681,7 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
       k->waterfall_retry = mono_us() + UINT64_C(10000000);
    }
 }
+
 static void websocket(rr_transport_t *t, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user) {
    (void)channel;
    struct kiwi_instance *k = user;
@@ -725,6 +738,7 @@ static void websocket(rr_transport_t *t, enum rr_transport_event event, rr_trans
       }
    }
 }
+
 static bool kiwi_start(void *instance) {
    struct kiwi_instance *k = instance;
    const char *host = setting(k, "host"), *port_text = setting(k, "port");
@@ -785,6 +799,7 @@ static bool kiwi_start(void *instance) {
 
    return true;
 }
+
 static void kiwi_traffic(struct kiwi_instance *k, rr_transport_t *transport, bool waterfall) {
    uint64_t rx = 0, tx = 0;
    rr_transport_wss_traffic(transport, &rx, &tx);
@@ -801,6 +816,7 @@ static void kiwi_traffic(struct kiwi_instance *k, rr_transport_t *transport, boo
    *last_rx = rx;
    *last_tx = tx;
 }
+
 static void kiwi_poll(void *instance) {
    struct kiwi_instance *k = instance;
    uint64_t current = mono_us();
@@ -968,6 +984,7 @@ static void kiwi_poll(void *instance) {
       k->keepalive = current;
    }
 }
+
 static bool kiwi_set_receiver(void *instance, uint64_t request, uint64_t hz, const char *mode) {
    struct kiwi_instance *k = instance;
 
@@ -1025,6 +1042,7 @@ static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint
 
    return true;
 }
+
 static bool kiwi_noise_blanker(struct kiwi_instance *k) {
    char gate[80], threshold[80], enabled[48], click[48];
    snprintf(gate, sizeof(gate), "SET nb type=0 param=0 pval=%d", k->nb_gate);
@@ -1036,6 +1054,7 @@ static bool kiwi_noise_blanker(struct kiwi_instance *k) {
           send_command(k, threshold) && send_command(k, enabled) &&
           send_command(k, "SET nb type=2 param=0 pval=1") && send_command(k, "SET nb type=2 param=1 pval=1") && send_command(k, click);
 }
+
 static bool kiwi_control(void *instance, const char *name, const char *value) {
    struct kiwi_instance *k = instance;
 
@@ -1141,6 +1160,7 @@ rr_module_event_t modexports[] = { {
 bool rr_module_init(void) {
    return rrp_sdr_register(&kiwi_driver);
 }
+
 void rr_module_shutdown(void) {
    rrp_sdr_unregister(&kiwi_driver);
 }

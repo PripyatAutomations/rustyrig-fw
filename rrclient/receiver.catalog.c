@@ -51,6 +51,7 @@ static gboolean catalog_apply(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static gpointer catalog_verify_worker(gpointer data) {
    catalog_job_t *job = data;
    GString *body = g_string_sized_new(MIN(CATALOG_MAX, (size_t)job->total * CATALOG_CHUNK));
@@ -93,12 +94,14 @@ static void free_chunk(gpointer chunk) {
       g_bytes_unref(chunk);
    }
 }
+
 static void reset(void) {
    if (transfer.chunks) {
       g_ptr_array_free(transfer.chunks, TRUE);
    }
    memset(&transfer, 0, sizeof(transfer));
 }
+
 static bool send_request(rrconn_t *connection, const char *command, guint page) {
    if (!connection || !connection->is_ws || !connection->authenticated) {
       return false;
@@ -120,6 +123,7 @@ static bool send_request(rrconn_t *connection, const char *command, guint page) 
 
    return sent;
 }
+
 static gboolean expire(gpointer unused) {
    (void)unused;
    timer_id = 0;
@@ -144,6 +148,7 @@ static gboolean expire(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void arm(void) {
    if (timer_id) {
       rrclient_core_source_cancel(&timer_id);
@@ -153,6 +158,7 @@ static void arm(void) {
    timer_id = g_source_attach(timeout, rrclient_core_context());
    g_source_unref(timeout);
 }
+
 bool rrclient_receiver_catalog_request(bool force) {
    (void)force;                 /* Server refresh is governed by its shared TTL. */
    rrconn_t *connection = rrclient_active_connection();
@@ -178,6 +184,7 @@ bool rrclient_receiver_catalog_request(bool force) {
 
    return true;
 }
+
 static void received(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)unused;
@@ -299,6 +306,7 @@ static void received(const char *event, const char *data, rrconn_t *connection, 
 done:
    dict_free(d);
 }
+
 static void disconnected(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)data;
@@ -328,6 +336,7 @@ static void disconnected(const char *event, const char *data, rrconn_t *connecti
 
    receiver_directory_clear_server_snapshot();
 }
+
 void rrclient_receiver_catalog_init(void) {
    if (catalog_token) {
       return;
@@ -335,6 +344,7 @@ void rrclient_receiver_catalog_init(void) {
    catalog_token = event_on_token("ws.msg.receiver-directory", received, NULL);
    event_on("disconnected", disconnected, NULL);
 }
+
 void rrclient_receiver_catalog_shutdown(void) {
    if (timer_id) {
       rrclient_core_source_cancel(&timer_id);

@@ -47,12 +47,14 @@ static char current_grid[7];
 static uint32_t read32(const uint8_t *p) {
    return ((uint32_t) p[0] << 24) | ((uint32_t) p[1] << 16) | ((uint32_t) p[2] << 8) | p[3];
 }
+
 static void put32(uint8_t *p, uint32_t v) {
    p[0] = v >> 24;
    p[1] = v >> 16;
    p[2] = v >> 8;
    p[3] = v;
 }
+
 static size_t put_string(uint8_t *out, size_t size, const char *s) {
    size_t n = strlen(s);
 
@@ -80,6 +82,7 @@ static bool wsjtx_u32(wsjtx_reader *r, guint32 *v) {
 
    return true;
 }
+
 static bool wsjtx_u64(wsjtx_reader *r, guint64 *v) {
    guint32 hi, lo;
 
@@ -90,6 +93,7 @@ static bool wsjtx_u64(wsjtx_reader *r, guint64 *v) {
 
    return true;
 }
+
 static bool wsjtx_u8(wsjtx_reader *r, guint8 *v) {
    if (!r->remaining) {
       return false;
@@ -99,6 +103,7 @@ static bool wsjtx_u8(wsjtx_reader *r, guint8 *v) {
 
    return true;
 }
+
 static bool wsjtx_string(wsjtx_reader *r, char *dest, size_t size) {
    guint32 len;
 
@@ -122,6 +127,7 @@ static bool wsjtx_string(wsjtx_reader *r, char *dest, size_t size) {
 
    return true;
 }
+
 static void wsjtx_parse_status(wsjtx_peer_t *peer, const uint8_t *buf, size_t len) {
    wsjtx_reader r = {
       buf, len
@@ -218,6 +224,7 @@ static void send_packet(wsjtx_peer_t *peer, uint32_t type, const char *extra) {
    }
    sendto(udp_fd, buf, len, 0, (struct sockaddr *)&peer->address, sizeof(peer->address));
 }
+
 static void send_location(wsjtx_peer_t *peer) {
    if (!*current_grid || !peer || !peer->id[0] || !strcmp(peer->last_grid, current_grid)) {
       return;
@@ -226,6 +233,7 @@ static void send_location(wsjtx_peer_t *peer) {
    g_strlcpy(peer->last_grid, current_grid, sizeof(peer->last_grid));
    Log(LOG_INFO, "wsjtx", "Location %s sent to WSJT-X instance %s", current_grid, peer->id);
 }
+
 static gboolean udp_ready(gint fd, GIOCondition condition, gpointer unused) {
    (void)unused;
 
@@ -332,6 +340,7 @@ static gboolean udp_ready(gint fd, GIOCondition condition, gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static bool maidenhead(double lat, double lon, char out[7]) {
    if (!isfinite(lat) || !isfinite(lon) || lat < -90 || lat >= 90 || lon < -180 || lon >= 180) {
       return false;
@@ -358,6 +367,7 @@ static bool maidenhead(double lat, double lon, char out[7]) {
 
    return true;
 }
+
 static void on_gps(const char *event, const char *json, rrconn_t *client, void *unused) {
    (void)event;
    (void)client;
@@ -427,6 +437,7 @@ static void on_gps(const char *event, const char *json, rrconn_t *client, void *
    g_strfreev(fields);
    dict_free(d);
 }
+
 static void on_selection(const char *event, const char *data, rrconn_t *client, void *unused) {
    (void)event;
    (void)data;
@@ -441,6 +452,7 @@ static void on_selection(const char *event, const char *data, rrconn_t *client, 
 
    rrclient_media_emit_gps_for_room(rrclient_media_active_room());
 }
+
 void rrclient_wsjtx_init(void) {
    if (!cfg_get_bool("wsjtx.enabled", true)) {
       return;
@@ -547,6 +559,7 @@ void rrclient_wsjtx_status(char *state, size_t state_len, char *connection, size
 static void wsjtx_emit(rr_wsjtx_field_cb cb, void *data, const char *id, const char *group, const char *key, const char *value) {
    cb(id, group, key, value, data);
 }
+
 void rrclient_wsjtx_foreach_field(rr_wsjtx_field_cb cb, void *data) {
    if (!cb) {
       return;

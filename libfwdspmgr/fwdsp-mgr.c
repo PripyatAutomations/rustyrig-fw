@@ -73,7 +73,6 @@ void fwdsp_set_reactor_context(GMainContext *context) {
    fwdsp_reactor_context = context ? g_main_context_ref(context) : NULL;
 }
 
-
 defconfig_t defcfg_fwdsp[] = {
    {
       "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codecs"
@@ -238,6 +237,7 @@ size_t fwdsp_stats_snapshot(fwdsp_worker_stats_t *out, size_t capacity) {
 
    return count;
 }
+
 static bool fwdsp_slot_active(const struct fwdsp_subproc *sp) {
    return sp && sp->role != FWDSP_ROLE_NONE;
 }
@@ -704,6 +704,7 @@ static void fwdsp_reader_release(struct fwdsp_io_conn *ctx) {
    }
    free(ctx);
 }
+
 static void fwdsp_reader_detach(struct fwdsp_io_conn *ctx) {
    if (!ctx) {
       return;
@@ -726,6 +727,7 @@ static void fwdsp_reader_detach(struct fwdsp_io_conn *ctx) {
    ctx->sp = NULL;
    fwdsp_reader_release(ctx);
 }
+
 static bool fwdsp_fd_ready(int fd, GIOCondition events, void *arg) {
    struct fwdsp_io_conn *ctx = arg;
    ctx->processing = true;
@@ -774,6 +776,7 @@ static bool fwdsp_fd_ready(int fd, GIOCondition events, void *arg) {
 
    return true;
 }
+
 static struct fwdsp_io_conn *fwdsp_reader_attach(struct fwdsp_subproc *sp, int fd, bool stderr_stream) {
    if (fd < 0) {
       return NULL;
@@ -1254,6 +1257,7 @@ bool fwdsp_audio_capture_start_rate(const char *name, const char *pipeline, unsi
 
    return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_CAPTURE, output_cb, user_data, device_rate_hz);
 }
+
 bool fwdsp_audio_playback_start_rate(const char *name, const char *pipeline, unsigned device_rate_hz) {
    if (!device_rate_hz) {
       return false;
@@ -1275,6 +1279,7 @@ bool fwdsp_audio_resampler_start_to(const char *name, unsigned input_rate_hz, un
 
    return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user, 0);
 }
+
 bool fwdsp_audio_resampler_start(const char *name, unsigned rate, fwdsp_processor_output_cb output_cb, void *user) {
    return fwdsp_audio_resampler_start_to(name, rate, 16000, output_cb, user);
 }
@@ -1972,7 +1977,6 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
 
    return sp->chan_id;
 }
-
 
 // Drop a reference on a codec pipeline. When the last user goes away, either
 // destroy the subproc outright or set the hangtime cleanup deadline.

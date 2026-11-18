@@ -26,9 +26,11 @@ static void remote_demand(const char *event, const void *data, size_t len, rrcon
    assert(query->channel == &media_channels[0]);
    query->interested = remote_subscribed;
 }
+
 static void soak_pcm(const char *name, const void *data, size_t len, void *user) {
    decoded_samples += len / 2;
 }
+
 const char *cfg_get(const char *key) {
    if (!strcmp(key, "fwdsp:subproc.max")) {
       return "16";
@@ -42,6 +44,7 @@ const char *cfg_get(const char *key) {
 
    return !strcmp(key, "pipeline:pc1T.tx") ? parent_pipeline : NULL;
 }
+
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
    if (level > LOG_WARN) {
       return;
@@ -52,6 +55,7 @@ void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
    fputc('\n', stderr);
    va_end(ap);
 }
+
 const char *cfg_get_exp(const char *key) {
    if (!strcmp(key, "fwdsp:subproc.max")) {
       return strdup("16");
@@ -67,12 +71,15 @@ const char *cfg_get_exp(const char *key) {
 
    return NULL;
 }
+
 struct rr_mediachan *media_chan_find_uuid(const char *uuid) {
    return &media_channels[0];
 }
+
 struct rr_mediachan *media_chan_find(uint8_t s, uint8_t d, uint8_t v, uint8_t r) {
    return &media_channels[0];
 }
+
 bool ws_media_broadcast_subscribed(struct rr_mediachan *cp, const uint8_t *data, size_t len, const char codec[4]) {
    assert(!strncmp(codec, cp->codec, 4)); // no packets from retired encoders
 
@@ -101,12 +108,15 @@ bool ws_media_broadcast_subscribed(struct rr_mediachan *cp, const uint8_t *data,
 
    return false;
 }
+
 bool ws_media_send_frame(struct rr_mediachan *cp, rrconn_t *client, const uint8_t *data, size_t len, const char codec[4]) {
    return ws_media_broadcast_subscribed(cp, data, len, codec);
 }
+
 bool ws_media_send_setup_frame(struct rr_mediachan *cp, rrconn_t *client, const uint8_t *data, size_t len, const char codec[4]) {
    return ws_media_send_frame(cp, client, data, len, codec);
 }
+
 static void poll_for(unsigned milliseconds) {
    uint64_t until = mg_millis() + milliseconds;
    while (mg_millis() < until) {
@@ -114,6 +124,7 @@ static void poll_for(unsigned milliseconds) {
       fwdsp_reap_children();
    }
 }
+
 int main(int argc, char **argv) {
    assert(argc == 2);
    config_file = argv[1];

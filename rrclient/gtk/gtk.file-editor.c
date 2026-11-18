@@ -265,6 +265,7 @@ static void cfg_list_stripe(GtkListBox *list) {
 
    g_list_free(rows);
 }
+
 static void cfg_list_apply_stripe(GtkListBox *list) {
    gtk_widget_queue_draw(GTK_WIDGET(list));
    cfg_list_stripe(list);
@@ -287,6 +288,7 @@ static gboolean cfg_list_filter(GtkListBoxRow *row, gpointer data) {
 
    return (key && strstr(key, state->query)) || (state->mode != '=' && help && strstr(help, state->query));
 }
+
 static gint cfg_list_compare(GtkListBoxRow *left, GtkListBoxRow *right, gpointer unused) {
    (void)unused;
    const defconfig_t *a = g_object_get_data(G_OBJECT(left), "rr-cfg-definition");
@@ -305,6 +307,7 @@ static gint cfg_list_compare(GtkListBoxRow *left, GtkListBoxRow *right, gpointer
 
    return cfg_sort_descending ? -cmp : cmp;
 }
+
 static void cfg_list_sort_clicked(GtkButton *button, gpointer list) {
    int column = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "cfg-sort-column"));
 
@@ -317,6 +320,7 @@ static void cfg_list_sort_clicked(GtkButton *button, gpointer list) {
    gtk_list_box_invalidate_sort(GTK_LIST_BOX(list));
    cfg_list_apply_stripe(GTK_LIST_BOX(list));
 }
+
 static gboolean cfg_list_filter_deferred(gpointer data) {
    cfg_list_state_t *state = data;
    state->pending = 0;
@@ -325,6 +329,7 @@ static gboolean cfg_list_filter_deferred(gpointer data) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void cfg_list_state_free(gpointer data) {
    cfg_list_state_t *state = data;
 
@@ -334,6 +339,7 @@ static void cfg_list_state_free(gpointer data) {
    g_free(state->query);
    g_free(state);
 }
+
 static void cfg_editor_filter_changed(GtkEditable *search, gpointer user_data) {
    cfg_list_state_t *state = user_data;
    const char *query = gtk_entry_get_text(GTK_ENTRY(search));
@@ -346,6 +352,7 @@ static void cfg_editor_filter_changed(GtkEditable *search, gpointer user_data) {
    }
    state->pending = g_timeout_add(100, cfg_list_filter_deferred, state);
 }
+
 static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
    GtkWidget *container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
@@ -520,6 +527,7 @@ static void editor_destroyed(GtkWidget *window, gpointer data) {
       destroy_editor(ctx);
    }
 }
+
 void gtk_file_editor_shutdown(void) {
    if (active_editor) {
       destroy_editor(active_editor);
@@ -600,6 +608,7 @@ static void file_confirm_response(RRFloatPanel *panel, gint response, gpointer d
       destroy_editor(ctx);
    }
 }
+
 static void file_editor_confirm(EditorContext *ctx, FileConfirmAction action, const char *message) {
    if (!ctx || ctx->destroying || ctx->confirmation) {
       return;
@@ -1035,7 +1044,6 @@ static void on_save_config_button(GtkButton *button, gpointer user_data) {
    Log(LOG_INFO, "gtk.config", "Configuration saved to client.db");
 }
 
-
 /* Theme controls edit the active configuration, not a second shadow copy. */
 typedef struct theme_field {
    const defconfig_t *definition;
@@ -1115,7 +1123,6 @@ static void theme_selected(GtkComboBox *combo, gpointer data) {
 
    g_list_free(rows);
 }
-
 
 /* Save the visible active colors under an editable named theme. A changed name creates a new named theme rather than silently deleting the previous one. */
 static void theme_save_clicked(GtkButton *button, gpointer user_data) {
@@ -1270,11 +1277,13 @@ static void gtk_backup_feedback(const rr_event_message_t *message, void *user) {
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
 }
+
 static void gtk_backup_alert(const char *message) {
    GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_CLOSE, "%s", message);
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
 }
+
 static void gtk_backup_action(GtkButton *unused, gpointer user_data) {
    (void)unused;
    bool importing = GPOINTER_TO_INT(user_data) != 0;
@@ -1439,22 +1448,26 @@ static void watched_calls_row(const rrclient_watched_call_t *entry, void *user) 
    gtk_list_store_set(store, &row, WATCH_ID, entry->id, WATCH_CALL, entry->callsign, WATCH_MODE, entry->mode, WATCH_BAND, entry->band, WATCH_AUTO, entry->
       auto_mark_worked, WATCH_WORKED, entry->worked, -1);
 }
+
 static void watched_calls_reload(GtkWidget *tree) {
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)));
    gtk_list_store_clear(store);
    rrclient_database_watched_calls_foreach(watched_calls_row, store);
 }
+
 static void watched_calls_error(GtkWidget *parent, const char *message) {
    GtkWidget *dlg = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", message);
    gtk_dialog_run(GTK_DIALOG(dlg));
    gtk_widget_destroy(dlg);
 }
+
 static gboolean watched_calls_selected(GtkWidget *tree, GtkTreeIter *row) {
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
 
    return gtk_tree_selection_get_selected(selection, NULL, row);
 }
+
 static GtkWidget *watched_calls_option(const char *const *items, const char *chosen) {
    GtkWidget *combo = gtk_combo_box_text_new_with_entry();
 
@@ -1470,6 +1483,7 @@ static GtkWidget *watched_calls_option(const char *const *items, const char *cho
 
    return combo;
 }
+
 static void watched_calls_edit(GtkWidget *button, gpointer user) {
    GtkWidget *tree = user;
    gboolean editing = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "watch-edit")) != 0;
@@ -1577,6 +1591,7 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    g_free(old_mode);
    g_free(old_band);
 }
+
 static void watched_calls_remove(GtkButton *button, gpointer user) {
    (void)button;
    GtkWidget *tree = user;
@@ -1604,18 +1619,21 @@ static void watched_calls_remove(GtkButton *button, gpointer user) {
    gtk_widget_destroy(dlg);
    g_free(call);
 }
+
 static void watched_calls_selection_changed(GtkTreeSelection *selection, gpointer user) {
    GtkWidget **buttons = user;
    gboolean chosen = gtk_tree_selection_count_selected_rows(selection) > 0;
    gtk_widget_set_sensitive(buttons[0], chosen);
    gtk_widget_set_sensitive(buttons[1], chosen);
 }
+
 static void watched_calls_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer button) {
    (void)view;
    (void)path;
    (void)column;
    watched_calls_edit(GTK_WIDGET(button), g_object_get_data(G_OBJECT(button), "watch-tree"));
 }
+
 static GtkWidget *watched_calls_panel(void) {
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(panel), 10);
@@ -1676,11 +1694,13 @@ typedef struct {
 static void client_audio_setup_free(gpointer data) {
    g_free(data);
 }
+
 static const char *client_audio_rate_value(GtkWidget *combo) {
    const char *rate = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
 
    return rate ? rate : "auto";
 }
+
 static void client_audio_setup_preview(GtkButton *button, gpointer user) {
    client_audio_setup_t *ui = user;
    const char *cap = client_audio_rate_value(ui->capture_rate);
@@ -1723,6 +1743,7 @@ static void client_audio_setup_preview(GtkButton *button, gpointer user) {
    g_free(sink);
    g_free(preview);
 }
+
 static void client_audio_setup_apply(GtkButton *button, gpointer user) {
    client_audio_setup_t *ui = user;
    const char *mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ui->mode));
@@ -1764,6 +1785,7 @@ static void client_audio_setup_apply(GtkButton *button, gpointer user) {
    g_free(a);
    g_free(b);
 }
+
 static GtkWidget *client_audio_setup_panel(void) {
    GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(page), 12);

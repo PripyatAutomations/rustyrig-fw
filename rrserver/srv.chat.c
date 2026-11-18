@@ -519,6 +519,7 @@ uint32_t ws_room_rx_tuning_mask(const char *room) {
 
    return 0;
 }
+
 bool ws_room_rx_tunable(const char *room) {
    /* SDR rooms expose a single attached RX-only VFO, not a rig TX room. */
    if (room && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5)) {
@@ -527,6 +528,7 @@ bool ws_room_rx_tunable(const char *room) {
 
    return ws_room_rx_tuning_mask(room) != 0;
 }
+
 bool ws_room_set_rx_tuning_mask(const char *room, uint32_t mask) {
    if (!ws_room_tx_control(room) || (mask & ~ws_room_vfo_mask(room))) {
       return false;
@@ -535,6 +537,7 @@ bool ws_room_set_rx_tuning_mask(const char *room, uint32_t mask) {
 
    return true;
 }
+
 bool ws_room_set_rx_tuning(const char *room, bool enabled) {
    return ws_room_set_rx_tuning_mask(room, enabled ? ws_room_vfo_mask(room) : 0);
 }
@@ -652,6 +655,7 @@ static sdr_member_t *sdr_members, **sdr_members_tail = &sdr_members;
 static bool sdr_room(const char *room) {
    return room && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5);
 }
+
 static void sdr_member_remove(rrconn_t *client, const char *room) {
    sdr_member_t **slot = &sdr_members;
    while (*slot) {
@@ -669,6 +673,7 @@ static void sdr_member_remove(rrconn_t *client, const char *room) {
       }
    }
 }
+
 bool ws_room_sdr_tuning_owner(rrconn_t *client, const char *room) {
    if (!client || !sdr_room(room) || !ws_client_in_room(client, room)) {
       return false;
@@ -702,6 +707,7 @@ bool ws_room_sdr_tuning_owner(rrconn_t *client, const char *room) {
    }
    return false;
 }
+
 bool ws_client_join_room(rrconn_t *cptr, const char *room) {
    if (!cptr || !ws_room_name_valid(room)) {
       return false;
@@ -1187,6 +1193,7 @@ static bool (*chat_resource_authorizer)(rrconn_t *, const char *, const char *);
 void ws_chat_set_resource_authorizer(bool (*authorize) (rrconn_t *, const char *, const char *)) {
    chat_resource_authorizer = authorize;
 }
+
 static bool ws_chat_has_authority(rrconn_t *client, const char *room, const char *command) {
    return has_priv(client->user->uid, "admin|owner|chat") || (chat_resource_authorizer && chat_resource_authorizer(client, room, command));
 }

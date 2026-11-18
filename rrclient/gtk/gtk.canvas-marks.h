@@ -42,11 +42,13 @@ static void rr_mark_free(gpointer p) {
    g_array_unref(s->xy);
    g_free(s);
 }
+
 static void rr_mark_history_free(gpointer p) {
    RRMarkHistory *h = p;
    g_free(h->snapshot);
    g_free(h);
 }
+
 static RRMarks *rr_marks_new(void (*notify) (gpointer), gpointer owner) {
    RRMarks *m = g_new0(RRMarks, 1);
    m->items = g_ptr_array_new_with_free_func(rr_mark_free);
@@ -59,6 +61,7 @@ static RRMarks *rr_marks_new(void (*notify) (gpointer), gpointer owner) {
 
    return m;
 }
+
 static void rr_marks_free(RRMarks *m) {
    if (!m) {
       return;
@@ -68,12 +71,14 @@ static void rr_marks_free(RRMarks *m) {
    g_ptr_array_unref(m->redo);
    g_free(m);
 }
+
 static void rr_mark_add_xy(RRMark *s, double x, double y) {
    double xy[] = {
       x, y
    };
    g_array_append_vals(s->xy, xy, 2);
 }
+
 static RRMark *rr_mark_new(RRMarkKind kind, double x, double y) {
    RRMark *s = g_new0(RRMark, 1);
    s->uuid = g_uuid_string_random();
@@ -89,6 +94,7 @@ static RRMark *rr_mark_new(RRMarkKind kind, double x, double y) {
 
    return s;
 }
+
 static char *rr_marks_dump(const RRMarks *m) {
    GKeyFile *k = g_key_file_new();
    g_key_file_set_integer(k, "marks", "version", 1);
@@ -113,6 +119,7 @@ static char *rr_marks_dump(const RRMarks *m) {
 
    return out;
 }
+
 static gboolean rr_marks_load(RRMarks *m, const char *data) {
    if (!data) {
       return FALSE;
@@ -182,11 +189,13 @@ static gboolean rr_marks_load(RRMarks *m, const char *data) {
 
    return TRUE;
 }
+
 static void rr_marks_changed(RRMarks *m) {
    if (m->notify) {
       m->notify(m->owner);
    }
 }
+
 static void rr_marks_checkpoint(RRMarks *m) {
    gint64 now = g_get_monotonic_time();
 
@@ -206,6 +215,7 @@ static void rr_marks_checkpoint(RRMarks *m) {
    }
    g_ptr_array_set_size(m->redo, 0);
 }
+
 static gboolean rr_marks_history(RRMarks *m, gboolean redo) {
    GPtrArray *src = redo ? m->redo : m->undo, *dst = redo ? m->undo : m->redo;
 
@@ -223,6 +233,7 @@ static gboolean rr_marks_history(RRMarks *m, gboolean redo) {
 
    return TRUE;
 }
+
 static gboolean rr_mark_hit(const RRMark *s, double x, double y, double tolerance) {
    const double *a = (double *)s->xy->data;
 
@@ -257,6 +268,7 @@ static gboolean rr_mark_hit(const RRMark *s, double x, double y, double toleranc
 
    return hypot(x - a[0], y - a[1]) <= tolerance + s->width;
 }
+
 static gboolean rr_marks_press(RRMarks *m, double x, double y, gboolean additive) {
    m->px = x;
    m->py = y;
@@ -336,6 +348,7 @@ static gboolean rr_marks_press(RRMarks *m, double x, double y, gboolean additive
 
    return TRUE;
 }
+
 static gboolean rr_marks_motion(RRMarks *m, double x, double y, gboolean constrain) {
    if (!m->dragging || !m->active) {
       return FALSE;
@@ -381,10 +394,12 @@ static gboolean rr_marks_motion(RRMarks *m, double x, double y, gboolean constra
 
    return TRUE;
 }
+
 static void rr_marks_release(RRMarks *m) {
    m->dragging = FALSE;
    m->active = NULL;
 }
+
 static gboolean rr_marks_delete_selected(RRMarks *m) {
    gboolean found = FALSE;
 
@@ -409,6 +424,7 @@ static gboolean rr_marks_delete_selected(RRMarks *m) {
 
    return TRUE;
 }
+
 static void rr_marks_bounds(RRMarks *m, double *width, double *height) {
    if (!m) {
       return;
@@ -424,6 +440,7 @@ static void rr_marks_bounds(RRMarks *m, double *width, double *height) {
       }
    }
 }
+
 static void rr_marks_draw(RRMarks *m, cairo_t *cr) {
    if (!m) {
       return;
@@ -479,4 +496,5 @@ static void rr_marks_draw(RRMarks *m, cairo_t *cr) {
       cairo_restore(cr);
    }
 }
+
 #endif

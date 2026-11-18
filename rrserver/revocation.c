@@ -32,6 +32,7 @@ bool rr_revocation_schema(sqlite3 *db) {
       "peer_uuid TEXT NOT NULL,acknowledged_at INTEGER NOT NULL DEFAULT (unixepoch()),"
       "PRIMARY KEY(domain,owner_uuid,public_key,peer_uuid));", NULL, NULL, NULL) == SQLITE_OK;
 }
+
 static bool store(sqlite3 *db, dict *d, bool *fresh) {
    const char *domain = dict_get(d, "identity.domain", "");
    const char *uuid = dict_get(d, "identity.owner", "");
@@ -73,6 +74,7 @@ static bool store(sqlite3 *db, dict *d, bool *fresh) {
 
    return ok;
 }
+
 static bool record_tls_pin(sqlite3 *db, const char *domain, const char *uuid, const char *spki) {
    sqlite3_stmt *stmt = NULL;
    bool ok = sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO mesh_revoked_tls_spki(domain,spki,owner_uuid)" " VALUES(?1,?2,?3)", -1, &stmt, NULL) == SQLITE_OK;
@@ -87,6 +89,7 @@ static bool record_tls_pin(sqlite3 *db, const char *domain, const char *uuid, co
 
    return ok;
 }
+
 bool rr_revocation_stage(sqlite3 *db, const char *domain, const char *uuid, const char *spki) {
    const char *key = rr_identity_public_base64();
 
@@ -215,6 +218,7 @@ bool rr_revocation_receive(sqlite3 *db, dict *d, bool *fresh) {
 
    return ok;
 }
+
 bool rr_revocation_ack(sqlite3 *db, const char *peer, const char *owner, const char *public_key) {
    if (!rr_revocation_schema(db) || !g_uuid_string_is_valid(peer) || !g_uuid_string_is_valid(owner) || !public_key || strlen(public_key) != 44) {
       return false;
@@ -262,4 +266,5 @@ void rr_revocation_replay(const char *peer) {
    }
    sqlite3_finalize(stmt);
 }
+
 #endif

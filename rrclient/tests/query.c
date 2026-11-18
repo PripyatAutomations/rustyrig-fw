@@ -17,12 +17,15 @@ static unsigned sends;
 const char *rrclient_window_name(const char *name) {
    return name;
 }
+
 rrconn_t *rrclient_active_connection(void) {
    return &connection;
 }
+
 const char *ui_active_window_name(void) {
    return "#origin";
 }
+
 static void query(const char *name) {
    snprintf(query_target, sizeof(query_target), "%s", name);
 }
@@ -33,9 +36,11 @@ static const rr_frontend_ops_t ops = {
 const rr_frontend_ops_t *frontend_ops(void) {
    return &ops;
 }
+
 bool ui_print(const char *window, const char *format, ...) {
    return false;
 }
+
 static bool capture(rrconn_t *dest, dict *message) {
    assert(dest == &connection);
    assert(!strcmp(dict_get(message, "talk.msg_type", ""), "priv"));
@@ -45,12 +50,15 @@ static bool capture(rrconn_t *dest, dict *message) {
 
    return true;
 }
+
 bool irc_send_dict(rrconn_t *dest, dict *message) {
    return capture(dest, message);
 }
+
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int opcode) {
    return capture(dest, message);
 }
+
 int main(void) {
    char *args[] = {
       "query", "alice", "hello with  spaces and /slashes"

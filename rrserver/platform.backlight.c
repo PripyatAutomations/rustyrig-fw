@@ -63,6 +63,7 @@ static bool backlight_device(char *name, size_t cap) {
 
    return count == 1;
 }
+
 static bool read_number(const char *name, const char *attr, int *out) {
    char path[256];
    snprintf(path, sizeof(path), "/sys/class/backlight/%s/%s", name, attr);
@@ -81,6 +82,7 @@ static bool read_number(const char *name, const char *attr, int *out) {
 
    return ok;
 }
+
 #endif
 
 bool rrserver_backlight_writable(void) {
@@ -98,6 +100,7 @@ bool rrserver_backlight_writable(void) {
    return false;
 #endif
 }
+
 bool rrserver_backlight_control(int requested, rr_backlight_state_t *state) {
    if (!state) {
       return false;

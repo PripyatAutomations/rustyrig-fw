@@ -30,9 +30,11 @@ extern rrconn_t *ws_conn;       /* legacy test fixture, not client API */
 void userlist_remove_room(const char *room) {
    (void)room;
 }
+
 bool rrclient_config_is_dirty(void) {
    return false;
 }
+
 bool userlist_remove_by_name_room(const char *name, const char *room) {
    (void)name;
    (void)room;
@@ -71,12 +73,14 @@ static struct mg_connection *fake_connect(const char *url, mg_event_handler_t fn
 
    return c;
 }
+
 struct mg_connection *mg_connect(struct mg_mgr *manager, const char *url, mg_event_handler_t fn, void *data) {
    (void)manager;
    tcp_calls++;
 
    return fake_connect(url, fn, data);
 }
+
 struct mg_connection *mg_ws_connect(struct mg_mgr *manager, const char *url, mg_event_handler_t fn, void *data, const char *fmt, ...) {
    (void)manager;
    (void)fmt;
@@ -95,9 +99,11 @@ static void capture(const char *window, const char *fmt, va_list ap) {
       strlcat(server_listing, "\n", sizeof(server_listing));
    }
 }
+
 static const char *current_room(void) {
    return active_room;
 }
+
 static bool current_status(void) {
    return status_active;
 }
@@ -139,12 +145,15 @@ static const rr_frontend_ops_t ops = {
 const rr_frontend_ops_t *frontend_ops(void) {
    return tui_only ? NULL : &ops;
 }
+
 bool frontend_present(void) {
    return !tui_only;
 }
+
 void rrclient_update_connection_ui(int connected) {
    ws_connected = connected;
 }
+
 void tui_refresh_sb_online(void) {
 }
 
@@ -165,6 +174,7 @@ static void message(const char *event, const char *data, rrconn_t *conn, void *u
       assert(!rrclient_room_is_joined("#shared"));
    }
 }
+
 static void auth(const char *event, const char *data, rrconn_t *conn, void *user) {
    (void)event;
    (void)data;
@@ -174,6 +184,7 @@ static void auth(const char *event, const char *data, rrconn_t *conn, void *user
    login_user = strdup(server_name);
    ws_connected = 1;
 }
+
 static void receive(struct mg_connection *c, const char *json) {
    dict *message = json2dict(json);
    char *wire = rr_wire_encode(message);
@@ -185,11 +196,13 @@ static void receive(struct mg_connection *c, const char *json) {
    free(wire);
    dict_free(message);
 }
+
 static void check_disconnected_scope(void *data) {
    (void)data;
    assert(!ws_conn && !login_user && !ws_connected && !server_name);
    assert(!strcmp(rrclient_selected_server(), "beta"));
 }
+
 static void check_shared_background(void *data) {
    assert(ws_conn == data && !strcmp(server_name, "alpha"));
    tui_window_t *log = tui_window_find("host log");
@@ -199,11 +212,13 @@ static void check_shared_background(void *data) {
    assert(!strcmp(rrclient_window_name("host log"), "host log"));
    assert(!strcmp(rrclient_window_name("client log"), "client log"));
 }
+
 static void check_background_scope(void *data) {
    assert(ws_conn == data && !strcmp(server_name, "alpha"));
    assert(!strcmp(rrclient_selected_server(), "beta"));
    assert(!rrclient_connection_select("alpha"));
 }
+
 int main(void) {
    ui_mode = UI_MODE_GTK;
    event_init();

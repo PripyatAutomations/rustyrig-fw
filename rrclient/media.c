@@ -139,6 +139,7 @@ size_t rrclient_media_remote_rf_snapshot(rr_remote_rf_source_t *out, size_t capa
 
    return total;
 }
+
 bool rrclient_media_remote_rf_for_stream(rrconn_t *connection, uint8_t stream, const char codec[4], char *id, size_t capacity) {
    if (!connection || !id || !capacity || memcmp(codec, RR_RF_WIRE_CODEC, 4)) {
       return false;
@@ -232,6 +233,7 @@ static void gps_nmea_tick_connection(void *unused) {
       dict_free(d);
    }
 }
+
 static gboolean gps_nmea_tick(gpointer unused) {
    (void)unused;
 
@@ -436,11 +438,13 @@ static struct rr_client_media_chan *media_rx_for_stream(uint8_t stream, const ch
 
    return NULL;
 }
+
 const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[4]) {
    struct rr_client_media_chan *channel = media_rx_for_stream(stream, codec);
 
    return channel ? channel->codec : NULL;
 }
+
 const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4]) {
    struct rr_client_media_chan *channel = media_rx_for_stream(stream, codec);
 
@@ -720,6 +724,7 @@ static bool gpsp_counterpart(const struct rr_client_media_chan *nmea) {
 
    return false;
 }
+
 static bool gps_nmea_explicit(const struct rr_client_media_chan *channel) {
    const char *suffix = strstr(channel->name, ".nmea.rx");
 
@@ -746,6 +751,7 @@ static bool gps_nmea_explicit(const struct rr_client_media_chan *channel) {
 
    return false;
 }
+
 static void gps_prefer_packed(rrconn_t *connection) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_client_media_chan *channel = &known_chans[i];
@@ -825,6 +831,7 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
 
    return false;
 }
+
 static void remote_rf_publish_source(rrconn_t *connection, const struct rr_client_media_chan *channel) {
    if (!channel || channel->subsystem != RR_BINFRAME_SUBSYS_WATERFALL) {
       return;
@@ -862,6 +869,7 @@ static void remote_rf_publish_source(rrconn_t *connection, const struct rr_clien
    g_mutex_unlock(&remote_rf_mutex);
    event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
 }
+
 static void remote_rf_forget(const char *uuid) {
    if (!uuid || !*uuid) {
       return;
@@ -879,12 +887,14 @@ static void remote_rf_forget(const char *uuid) {
    g_mutex_unlock(&remote_rf_mutex);
    event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
 }
+
 static void remote_rf_clear(void) {
    g_mutex_lock(&remote_rf_mutex);
    memset(remote_rf_sources, 0, sizeof(remote_rf_sources));
    g_mutex_unlock(&remote_rf_mutex);
    event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
 }
+
 static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan *kp) {
    if (!cptr || !kp || !media_ready || kp->subscribed || kp->disabled || rrclient_room_offline(kp->room)) {
       return;
@@ -1329,6 +1339,7 @@ void rrclient_media_room_parted(const char *room) {
 static bool gps_sentence(int32_t lat, int32_t lon, uint8_t flags, char *sentence, size_t capacity) {
    return rr_gps_nmea_rmc(lat, lon, flags, time(NULL), sentence, capacity) != 0;
 }
+
 static void gps_frame(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
    struct rr_binframe frame;
 
@@ -1510,6 +1521,7 @@ static void media_transport_print(void *data) {
    /* PARITY: rustyrig-www/js/webui.media.js confirmed connection notices. */
    ui_print(*room ? room : NULL, "%sMedia %s: %s via %s%s%s", get_chat_ts(now), description, status, transport, *endpoint ? " at " : "", endpoint);
 }
+
 static void media_transport_notice(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -1527,6 +1539,7 @@ static void media_codec_select_in_connection(void *data) {
    const rrclient_media_codec_select_request_t *request = data;
    rrclient_media_select_codec(rrclient_connection_context(), request->is_tx, request->codec);
 }
+
 static void media_codec_select_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -1547,6 +1560,7 @@ static void media_codec_select_request(const rr_event_message_t *message, void *
       rrclient_connection_dispatch(connection, media_codec_select_in_connection, &request);
    }
 }
+
 void rrclient_media_register_events(void) {
    event_on_message_domain_token(RRCLIENT_MEDIA_CODEC_SELECT_REQUEST, media_codec_select_request, NULL, "core");
 

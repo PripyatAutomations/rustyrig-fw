@@ -11,12 +11,14 @@ const dict *rr_object_cache_property(rr_object_cache_t *unused, const char *uuid
    return !strcmp(name, "receiver.url") ? url_state : !strcmp(name, "receiver.contact") ? contact_state :
           !strcmp(name, "receiver.connected_at") ? connected_state : NULL;
 }
+
 void receiver_directory_queue_learn(const char *url, dict *fields) {
    assert(!strcmp(url, "http://receiver.invalid:8073/"));
    assert(!strcmp(dict_get(fields, "contact", ""), "live@example.invalid"));
    assert(!strcmp(dict_get(fields, "connected_at", ""), "1792080000"));
    learned++;
 }
+
 int main(void) {
    cache = (rr_object_cache_t *) 1;
    url_state = dict_new();

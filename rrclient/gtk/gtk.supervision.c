@@ -47,6 +47,7 @@ static void supervision_response(RRFloatPanel *dialog, gint response, gpointer d
    g_free(prompt->room);
    g_free(prompt);
 }
+
 void gtk_supervision_result_profile(const char *data, const char *profile) {
    dict *d = data ? json2dict(data) : NULL;
    const char *id = d ? dict_get(d, "talk.target", "") : "";

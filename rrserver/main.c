@@ -161,6 +161,7 @@ static gboolean rr_timer_clock_cb(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static gboolean rr_timer_profile_cb(gpointer data) {
    timer_profile_dump_fn(data);
 
@@ -203,11 +204,13 @@ static gboolean rr_timer_faults_cb(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
+
 static gboolean rr_timer_backend_cb(gpointer data) {
    timer_backend_poll_fn(data);
 
    return G_SOURCE_CONTINUE;
 }
+
 static gboolean rr_timer_tick_cb(gpointer data) {
    timer_tick_fn(data);
 

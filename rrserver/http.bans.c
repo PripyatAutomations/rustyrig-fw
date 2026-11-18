@@ -104,6 +104,7 @@ static char *ua_glob_regex(const char *pattern) {
 
    return out;
 }
+
 bool load_http_ua_bans(const char *path) {
    if (!path || !*path) {
       return true;

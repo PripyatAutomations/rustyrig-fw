@@ -10,15 +10,19 @@ static unsigned quit_calls, refresh_calls, roster_paints;
 void userlist_redraw_gtk(void) {
    roster_paints++;
 }
+
 guint gtk_main_level(void) {
    return 1;
 }
+
 void gtk_main_quit(void) {
    quit_calls++;
 }
+
 void ptt_button_refresh(void) {
    refresh_calls++;
 }
+
 void gtk_widget_set_tooltip_text(GtkWidget *widget, const gchar *text) {
    assert(text && *text);
 }
@@ -33,39 +37,50 @@ time_t freqentry_last_send;
 unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *fe) {
    return displayed_frequency;
 }
+
 char vfo_state_get_active(void) {
    return selected_vfo;
 }
+
 const char *rrclient_selected_server(void) {
    return "test";
 }
+
 static void flush_ui(void) {
    while (g_main_context_pending(NULL)) {
       g_main_context_iteration(NULL, false);
    }
 }
+
 const char *rrclient_media_active_room(void) {
    return selected_room;
 }
+
 GType gtk_freq_entry_get_type(void) {
    return G_TYPE_OBJECT;
 }
+
 bool gtk_freq_entry_is_editing(GtkFreqEntry *fe) {
    return editing;
 }
+
 void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long frequency) {
    displayed_frequency = frequency;
    editing = false;
 }
+
 void gtk_freq_entry_set_unavailable(GtkFreqEntry *fe) {
    displayed_frequency = 0;
    editing = false;
 }
+
 long vfo_state_get_long(const char *vfo, const char *key, long fallback) {
    return frequency_available ? 7200000 : fallback;
 }
+
 void modebox_update_state(const char *mode, int width) {
 }
+
 int main(void) {
    test_gtk_owner = g_thread_self();
    frontend_gtk_owner = test_gtk_owner;

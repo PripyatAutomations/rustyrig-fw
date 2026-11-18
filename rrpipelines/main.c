@@ -1302,6 +1302,7 @@ static void editor_destroy(gpointer user) {
    dict_free(editor->document);
    g_free(editor);
 }
+
 GtkWidget *rr_pipeline_editor_new(const gchar *json, gboolean (*apply) (const gchar *, gpointer), gpointer apply_data, void (*focus) (const gchar *, gpointer),
    gpointer focus_data, GError **error) {
    if (!json) {
@@ -1429,6 +1430,7 @@ void rr_pipeline_editor_add_effect(GtkWidget *widget) {
    g_object_unref(filtered);
    g_object_unref(store);
 }
+
 static gboolean lv2_effect_filter(GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    GtkWidget *search = user;
    gchar *name = NULL, *description = NULL;
@@ -1446,6 +1448,7 @@ static gboolean lv2_effect_filter(GtkTreeModel *model, GtkTreeIter *iter, gpoint
 
    return matches;
 }
+
 void rr_pipeline_editor_select(GtkWidget *widget, const gchar *id) {
    editor_t *editor = widget ? g_object_get_data(G_OBJECT(widget), "rr-pipeline-editor") : NULL;
 
@@ -1463,4 +1466,5 @@ void rr_pipeline_editor_select(GtkWidget *widget, const gchar *id) {
       }
    }
 }
+
 #endif

@@ -7,9 +7,11 @@
 bool receiver_directory_busy(void) {
    return false;
 }
+
 const char *receiver_directory_last_error(void) {
    return NULL;
 }
+
 const char *receiver_directory_source_url(void) {
    return "";
 }
@@ -28,40 +30,50 @@ static unsigned joins;
 const receiver_directory_entry_t *receiver_directory_find_url(const char *url) {
    return !strcmp(receiver.url, url) ? &receiver : NULL;
 }
+
 size_t receiver_directory_count(void) {
    return 1;
 }
+
 const receiver_directory_entry_t *receiver_directory_receiver(size_t index) {
    assert(!index);
 
    return &receiver;
 }
+
 bool receiver_directory_entry_accessible(const receiver_directory_entry_t *r) {
    return r && r->ext_api > 0;
 }
+
 const char *rrclient_selected_server(void) {
    return "alpha";
 }
+
 rrconn_t *rrclient_active_connection(void) {
    return &alpha;
 }
+
 const char *rrclient_connection_name(const rrconn_t *connection) {
    assert(connection == &alpha);
 
    return "alpha";
 }
+
 rrconn_t *rrclient_connection_find(const char *profile) {
    assert(!strcmp(profile, "alpha"));
 
    return &alpha;
 }
+
 void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
    assert(connection == &alpha);
    callback(data);
 }
+
 bool ui_print(const char *room, const char *fmt, ...) {
    return true;
 }
+
 bool ws_send_dict(rrconn_t *from, rrconn_t *to, dict *message, int opcode) {
    assert(to == &alpha);
    dict_free(sent);
@@ -70,12 +82,14 @@ bool ws_send_dict(rrconn_t *from, rrconn_t *to, dict *message, int opcode) {
 
    return true;
 }
+
 bool cmd_join(int argc, char **args) {
    assert(argc == 2 && !strcmp(args[1], "#test-rig1"));
    joins++;
 
    return false;
 }
+
 static void reply(rrconn_t *connection, const char *request, const char *error) {
    dict *result = dict_new(), *message = dict_new();
    dict_add(result, "request", request);
@@ -89,6 +103,7 @@ static void reply(rrconn_t *connection, const char *request, const char *error) 
    dict_free(message);
    dict_free(result);
 }
+
 int main(void) {
    event_init();
    rrclient_receiver_connect_init();

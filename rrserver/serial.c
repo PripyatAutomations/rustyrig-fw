@@ -184,6 +184,7 @@ static bool serial_auto_name(const char *name) {
 
    return true;
 }
+
 static void serial_discover_usb(void) {
    if (!cfg_get_bool("serial.auto-export-usb", true)) {
       return;
@@ -321,6 +322,7 @@ static void modem_failed(struct serial_export *p) {
    p->modem_retry_at = g_get_monotonic_time() + (gint64) delay * G_USEC_PER_SEC;
    Log(LOG_WARN, "serial.modem", "%s worker unavailable; retry in %u s", p->name, delay);
 }
+
 static void modem_ensure_running(struct serial_export *p) {
    if (!p->virtual_modem || p->fd >= 0 || g_get_monotonic_time() < p->modem_retry_at) {
       return;
@@ -335,6 +337,7 @@ static void modem_ensure_running(struct serial_export *p) {
       modem_failed(p);
    }
 }
+
 static void close_port(struct serial_export *p) {
    if (p->virtual_modem) {
       /* Persistent worker: clear only the client's stream state. */
@@ -413,6 +416,7 @@ static bool settings_from(dict *d, rr_serial_settings_t *settings) {
 
    return true;
 }
+
 static unsigned allocate_stream(rrconn_t *client) {
    struct serial_session *s = sessions;
    while (s && s->client != client) {
@@ -441,6 +445,7 @@ static unsigned allocate_stream(rrconn_t *client) {
 
    return 0;
 }
+
 static void request(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data);
 

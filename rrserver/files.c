@@ -51,6 +51,7 @@ bool rrserver_files_valid_name(const char *s) {
 
    return true;
 }
+
 static bool permission(rrconn_t *client, const char *share, bool write) {
    char key[320];
    snprintf(key, sizeof(key), "share:%s.enabled", share);
@@ -138,6 +139,7 @@ static int resolve(rrconn_t *client, const char *path, bool write, char name[256
 
    return fd;
 }
+
 static dict *response(const dict *request, const char *command) {
    dict *d = dict_new();
 
@@ -151,12 +153,14 @@ static dict *response(const dict *request, const char *command) {
 
    return d;
 }
+
 static void file_send(rrconn_t *client, dict *d) {
    if (d) {
       ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
    }
 }
+
 static void result(rrconn_t *client, dict *request, int error) {
    dict *d = response(request, "result");
 
@@ -166,6 +170,7 @@ static void result(rrconn_t *client, dict *request, int error) {
    dict_add(d, "file.error", error ? strerror(error) : "");
    file_send(client, d);
 }
+
 static void entry(rrconn_t *client, dict *request, const char *name, const struct stat *st, bool readable, bool writable) {
    dict *d = response(request, "entry");
 
@@ -179,6 +184,7 @@ static void entry(rrconn_t *client, dict *request, const char *name, const struc
    dict_add_bool(d, "file.writable", writable);
    file_send(client, d);
 }
+
 static void list(rrconn_t *client, dict *request) {
    const char *path = dict_get(request, "file.path", "/");
 
@@ -267,6 +273,7 @@ static void list(rrconn_t *client, dict *request) {
    }
    file_send(client, response(request, "end"));
 }
+
 static struct upload *job(rrconn_t *client) {
    for (unsigned i = 0 ; i < FILE_JOBS ; i++) {
       if (uploads[i] && uploads[i]->client == client) {
@@ -276,6 +283,7 @@ static struct upload *job(rrconn_t *client) {
 
    return NULL;
 }
+
 static void discard(struct upload *u) {
    if (!u) {
       return;
@@ -306,6 +314,7 @@ static void flush_upload(gpointer data, gpointer unused) {
    u->sync_error = fsync(u->fd) ? errno : 0;
    g_async_queue_push(flushed, u);
 }
+
 static void complete_uploads(const char *event, const char *data, rrconn_t *client, void *context) {
    if (!flushed) {
       return;
@@ -353,6 +362,7 @@ static void complete_uploads(const char *event, const char *data, rrconn_t *clie
       discard(u);
    }
 }
+
 static bool queue_flush(struct upload *u, dict *request) {
    GError *error = NULL;
 
@@ -395,6 +405,7 @@ static bool queue_flush(struct upload *u, dict *request) {
 
    return true;
 }
+
 void rrserver_files_fini(void) {
    /* Shutdown stops publication, waits for descriptor users, then removes all incomplete uploads before releasing the completion queue. */
    for (unsigned i = 0 ; i < FILE_JOBS ; i++) {
@@ -425,9 +436,11 @@ void rrserver_files_fini(void) {
       flushed = NULL;
    }
 }
+
 static void closed(const char *event, const char *data, rrconn_t *client, void *context) {
    discard(job(client));
 }
+
 static void request(const char *event, const char *data, rrconn_t *client, void *context) {
    if (!client || !client->authenticated || !client->user) {
       return;
@@ -712,6 +725,7 @@ finish:
 done:
    dict_free(d);
 }
+
 static void inventory_rows(dict *request, rrconn_t *client, const rr_inventory_catalog_t *catalog) {
    if (!strcmp(dict_get(request, "inventory.scope", ""), "station")) {
       const char *key;
@@ -764,6 +778,7 @@ static void inventory_rows(dict *request, rrconn_t *client, const rr_inventory_c
       }
    }
 }
+
 static void inventory(const char *event, const char *data, rrconn_t *client, void *context) {
    dict *d = json2dict(data);
 
@@ -772,6 +787,7 @@ static void inventory(const char *event, const char *data, rrconn_t *client, voi
       dict_free(d);
    }
 }
+
 static void catalog_inventory(const char *event, const void *data, size_t length, rrconn_t *client, void *context) {
    if (length != sizeof(rr_inventory_catalog_t)) {
       return;
@@ -782,6 +798,7 @@ static void catalog_inventory(const char *event, const void *data, size_t length
    inventory_rows(d, NULL, catalog);
    dict_free(d);
 }
+
 void rrserver_files_register(void) {
    event_on("file.request", request, NULL);
    event_on("server.poll", complete_uploads, NULL);

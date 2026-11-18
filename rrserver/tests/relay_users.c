@@ -14,17 +14,21 @@ static bool fail_build;
 long long mono_ms(void) {
    return clock_ms;
 }
+
 const char *rrserver_links_node(void) {
    return "11111111-1111-1111-1111-111111111111";
 }
+
 const char *rrserver_links_route(const char *node) {
    return !strcmp(node, "22222222-2222-2222-2222-222222222222") ? node : NULL;
 }
+
 dict *rr_relay_local_users(void) {
    builds++;
 
    return fail_build ? NULL : actual_local_users();
 }
+
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
    assert(!strcmp(dest, "22222222-2222-2222-2222-222222222222"));
    assert(!strcmp(owner, rrserver_links_node()) && !strcmp(kind, "users"));

@@ -55,6 +55,7 @@ static struct directory_job *job;
 static void changed(void) {
    event_emit("client.receiver-directory.changed", NULL, NULL);
 }
+
 static void receiver_free(gpointer value) {
    receiver_directory_entry_t *r = value;
    g_free(r->url);
@@ -88,6 +89,7 @@ static char *field(dict *d, const char *key) {
 
    return valid;
 }
+
 static char *receiver_properties(dict *d, const char *prefix) {
    dict *one = dict_new();
    size_t n = strlen(prefix);
@@ -357,6 +359,7 @@ static char *country_from_text(const char *text) {
 
    return matched;
 }
+
 static void infer_country(receiver_directory_entry_t *r, const char *description) {
    if (!r || (r->country && *r->country)) {
       return;
@@ -376,6 +379,7 @@ static void infer_country(receiver_directory_entry_t *r, const char *description
 static long long integer(dict *d, const char *key, long long fallback) {
    return dict_get_llong(d, key, fallback);
 }
+
 static bool flag(dict *d, const char *key) {
    val_type_t type = dict_get_type(d, key);
 
@@ -390,27 +394,32 @@ static bool flag(dict *d, const char *key) {
 
    return !v || (g_ascii_strcasecmp(v, "false") && g_ascii_strcasecmp(v, "no") && strcmp(v, "0"));
 }
+
 static void entry_key(char out[128], const char *prefix, const char *name) {
    g_snprintf(out, 128, "%s.%s", prefix, name);
 }
+
 static char *entry_field(dict *d, const char *prefix, const char *name) {
    char key[128];
    entry_key(key, prefix, name);
 
    return field(d, key);
 }
+
 static long long entry_integer(dict *d, const char *prefix, const char *name, long long fallback) {
    char key[128];
    entry_key(key, prefix, name);
 
    return integer(d, key, fallback);
 }
+
 static bool entry_flag(dict *d, const char *prefix, const char *name) {
    char key[128];
    entry_key(key, prefix, name);
 
    return flag(d, key);
 }
+
 static GUri *http_uri(const char *url) {
    if (!url || !*url || strlen(url) > 2048) {
       return NULL;
@@ -432,6 +441,7 @@ static GUri *http_uri(const char *url) {
 
    return uri;
 }
+
 static char *canonical_url(const char *url) {
    GUri *uri = http_uri(url);
 
@@ -452,6 +462,7 @@ static char *canonical_url(const char *url) {
 
    return result;
 }
+
 static bool directory_url_allowed(const char *url) {
    GUri *uri = http_uri(url);
 
@@ -571,10 +582,12 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
 static GPtrArray *parse(const char *data, size_t length) {
    return parse_kiwi(data, length);
 }
+
 bool receiver_directory_entry_accessible(const receiver_directory_entry_t *r) {
    return r && r->driver && !strcmp(r->driver, "kiwi") && r->ext_api > 0 && !r->flagged && !r->offline && !r->deleted &&
           (!r->local_state || !strcmp(r->local_state, "unknown") || !strcmp(r->local_state, "good"));
 }
+
 char *receiver_directory_bridge_config(const receiver_directory_entry_t *r) {
    if (!receiver_directory_entry_accessible(r) || strcmp(r->driver, "kiwi")) {
       return NULL;
@@ -621,6 +634,7 @@ static char *cache_path(void) {
    return configured && *configured ? expand_path(configured)
       : g_build_filename(g_get_user_cache_dir(), "rustyrig", "receivers.sqlite3", NULL);
 }
+
 static void cache_write(void) {
    if (!cache_db) {
       return;
@@ -669,6 +683,7 @@ static bool detail_set(const char *url, const char *key, const char *value, bool
 
    return ok;
 }
+
 static void apply_details(receiver_directory_entry_t *r, sqlite3_stmt *statement) {
    if (!statement) {
       return;
@@ -698,6 +713,7 @@ static void apply_details(receiver_directory_entry_t *r, sqlite3_stmt *statement
    sqlite3_reset(statement);
    sqlite3_clear_bindings(statement);
 }
+
 static void reload_records(void) {
    if (!cache_db) {
       return;
@@ -740,6 +756,7 @@ static void reload_records(void) {
    g_ptr_array_free(receivers, TRUE);
    receivers = list;
 }
+
 static void merge_records(void) {
    if (!cache_db) {
       return;
@@ -834,6 +851,7 @@ static void merge_records(void) {
    sqlite3_free(purge);
    reload_records();
 }
+
 static void restore_states(void) {
    if (!cache_db) {
       return;
@@ -878,6 +896,7 @@ static void restore_states(void) {
       sqlite3_finalize(statement);
    }
 }
+
 static bool read_bounded(const char *path, size_t limit, char **data, size_t *length) {
    FILE *file = fopen(path, "rb");
 
@@ -902,6 +921,7 @@ static bool read_bounded(const char *path, size_t limit, char **data, size_t *le
 
    return ok;
 }
+
 static void ensure(void) {
    if (initialized) {
       return;
@@ -978,6 +998,7 @@ static void ensure(void) {
    g_free(path);
    g_free(parent);
 }
+
 bool receiver_directory_learn(const char *endpoint, dict *fields) {
    ensure();
    char *url = canonical_url(endpoint);
@@ -1052,6 +1073,7 @@ bool receiver_directory_learn(const char *endpoint, dict *fields) {
 
    return true;
 }
+
 static gboolean flush_learn(gpointer unused) {
    (void)unused;
    learn_source = 0;
@@ -1067,6 +1089,7 @@ static gboolean flush_learn(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 void receiver_directory_queue_learn(const char *url, dict *fields) {
    if (!url || !*url || !fields) {
       return;
@@ -1089,6 +1112,7 @@ void receiver_directory_queue_learn(const char *url, dict *fields) {
       learn_source = directory_attach_source(source);
    }
 }
+
 bool receiver_directory_record_connection(const char *endpoint) {
    ensure();
    char *url = endpoint ? canonical_url(endpoint) : NULL;
@@ -1125,6 +1149,7 @@ bool receiver_directory_record_connection(const char *endpoint) {
 
    return ok;
 }
+
 bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
    ensure();
    char *url = endpoint ? canonical_url(endpoint) : NULL;
@@ -1159,6 +1184,7 @@ bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
 
    return ok;
 }
+
 bool receiver_directory_set_state(const char *endpoint, const char *state, const char *reason) {
    ensure();
 
@@ -1195,35 +1221,43 @@ bool receiver_directory_set_state(const char *endpoint, const char *state, const
 
    return ok;
 }
+
 size_t receiver_directory_count(void) {
    ensure();
 
    return receivers->len;
 }
+
 const receiver_directory_entry_t *receiver_directory_receiver(size_t index) {
    ensure();
 
    return index < receivers->len ? g_ptr_array_index(receivers, index) : NULL;
 }
+
 const char *receiver_directory_status(void) {
    ensure();
 
    return status_text;
 }
+
 bool receiver_directory_busy(void) {
    return job != NULL;
 }
+
 const char *receiver_directory_fetch_url(void) {
    return job ? job->url : NULL;
 }
+
 const char *receiver_directory_last_error(void) {
    return last_fetch_error;
 }
+
 const char *receiver_directory_source_url(void) {
    const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
 
    return url && *url ? url : cfg_get("receiver-directory.url");
 }
+
 char *receiver_directory_info(void) {
    ensure();
    dict *published_json = payload ? json2dict(payload) : NULL;
@@ -1259,6 +1293,7 @@ static size_t receive_body(char *data, size_t size, size_t count, void *user) {
 
    return bytes;
 }
+
 static size_t receive_header(char *data, size_t size, size_t count, void *user) {
    struct directory_job *j = user;
    size_t bytes = size * count;
@@ -1301,6 +1336,7 @@ static size_t receive_header(char *data, size_t size, size_t count, void *user) 
 
    return bytes;
 }
+
 static int cancel_fetch(void *user, curl_off_t a, curl_off_t b, curl_off_t c, curl_off_t d) {
    (void)a;
    (void)b;
@@ -1309,6 +1345,7 @@ static int cancel_fetch(void *user, curl_off_t a, curl_off_t b, curl_off_t c, cu
 
    return g_atomic_int_get(&((struct directory_job *)user)->cancel);
 }
+
 static bool safe_validator(const char *value) {
    if (!value || strlen(value) > 512) {
       return false;
@@ -1322,6 +1359,7 @@ static bool safe_validator(const char *value) {
 
    return true;
 }
+
 static gpointer fetch(gpointer user) {
    struct directory_job *j = user;
    CURL *curl = curl_easy_init();
@@ -1381,6 +1419,7 @@ static gpointer fetch(gpointer user) {
 
    return NULL;
 }
+
 static void job_free(void) {
    g_thread_join(job->thread);
    g_free(job->url);
@@ -1397,6 +1436,7 @@ static void job_free(void) {
    g_free(job);
    job = NULL;
 }
+
 static gboolean finish(gpointer unused) {
    (void)unused;
 
@@ -1459,6 +1499,7 @@ static gboolean finish(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 bool receiver_directory_refresh_force(bool force) {
    ensure();
 
@@ -1596,9 +1637,11 @@ bool receiver_directory_refresh_due(void) {
 
    return g_strcmp0(source, url) != 0 || time(NULL) >= next_request;
 }
+
 bool receiver_directory_refresh(void) {
    return receiver_directory_refresh_force(false);
 }
+
 void receiver_directory_clear_server_snapshot(void) {
    ensure();
 
@@ -1608,6 +1651,7 @@ void receiver_directory_clear_server_snapshot(void) {
       changed();
    }
 }
+
 bool receiver_directory_import_snapshot(const char *data, size_t length, const char *origin) {
    ensure();
 
@@ -1647,6 +1691,7 @@ bool receiver_directory_import_snapshot(const char *data, size_t length, const c
 
    return true;
 }
+
 bool receiver_directory_import(const char *path) {
    ensure();
 
@@ -1669,6 +1714,7 @@ bool receiver_directory_import(const char *path) {
 
    return imported;
 }
+
 void receiver_directory_shutdown(void) {
    rrclient_receiver_catalog_shutdown();
 

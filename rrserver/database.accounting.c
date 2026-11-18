@@ -612,4 +612,5 @@ bool db_usage_reset_tx(sqlite3 *db, const char *name) {
 
    return ok;
 }
+
 #endif /* USE_SQLITE */

@@ -21,6 +21,7 @@ static void pin(cairo_t *cr, double x, double y, gboolean bypass, gboolean input
       cairo_fill(cr);
    }
 }
+
 static void graph_arrow(cairo_t *cr, double x, double y, double dx, double dy, double size) {
    double length = hypot(dx, dy);
 
@@ -36,6 +37,7 @@ static void graph_arrow(cairo_t *cr, double x, double y, double dx, double dy, d
    cairo_close_path(cr);
    cairo_fill(cr);
 }
+
 static double pin_y(const rr_gtk_graph_node_t *n, rr_gtk_graph_pin_t channel, gboolean bypass) {
    if (bypass) {
       return n->y + 99;
@@ -143,6 +145,7 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, g
       }
    }
 }
+
 void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_nodes, const rr_gtk_graph_edge_t *edges, guint n_edges) {
    if ((!nodes && n_nodes) || (!edges && n_edges)) {
       return;

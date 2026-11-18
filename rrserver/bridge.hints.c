@@ -30,6 +30,7 @@ static const char *setting(const char *name, const char *key) {
 
    return cfg_get(global);
 }
+
 static char *identity(const char *name, const char *driver) {
    const char *host = setting(name, "host"), *port = setting(name, "port");
 
@@ -58,6 +59,7 @@ static char *identity(const char *name, const char *driver) {
 
    return key;
 }
+
 static bool canonical_modes(const char *modes) {
    gchar **tokens = g_strsplit(modes, " ", -1);
    bool ok = true;
@@ -77,6 +79,7 @@ static bool canonical_modes(const char *modes) {
 
    return ok;
 }
+
 static bool decode(dict *data, const char *name, const char *driver, rrp_bridge_ipc_message_t *out) {
    if (!dict_get(data, "rx-min-hz", NULL) || !dict_get(data, "rx-max-hz", NULL) || !dict_get(data, "rx-modes", NULL)) {
       return false;
@@ -134,6 +137,7 @@ static bool decode(dict *data, const char *name, const char *driver, rrp_bridge_
 
    return out->rx_max_hz <= LONG_MAX && canonical_modes(rx) && canonical_modes(tx) && rrp_bridge_ipc_valid(out);
 }
+
 int rrserver_bridge_hints_load(const char *name, const char *driver, rrp_bridge_ipc_message_t *out) {
    if (!name || !driver || !out) {
       return -1;
@@ -191,6 +195,7 @@ int rrserver_bridge_hints_load(const char *name, const char *driver, rrp_bridge_
 
    return valid ? source : -1;
 }
+
 bool rrserver_bridge_hints_save(const char *name, const char *driver, const rrp_bridge_ipc_message_t *caps) {
 #if defined(USE_SQLITE)
 
@@ -263,6 +268,7 @@ char *rrserver_bridge_metadata_get(const char *name, const char *driver, const c
 
    return value;
 }
+
 bool rrserver_bridge_metadata_set(const char *name, const char *driver, const char *field, const char *value) {
    if (!value || !*value || strlen(value) > 511) {
       return false;

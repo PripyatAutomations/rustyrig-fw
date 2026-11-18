@@ -15,6 +15,7 @@ static unsigned redraws;
 static void redraw(void) {
    redraws++;
 }
+
 static void refresh(void) {
 }
 
@@ -24,12 +25,15 @@ static const rr_frontend_ops_t frontend = {
 const rr_frontend_ops_t *frontend_ops(void) {
    return &frontend;
 }
+
 const char *rrclient_current_room(void) {
    return "#site";
 }
+
 const char *ws_authoritative_room(void) {
    return "#site";
 }
+
 bool rrclient_room_is_joined(const char *room) {
    return true;
 }

@@ -25,6 +25,7 @@ static void observe(const char *event, const char *data, rrconn_t *cptr, void *u
    }
    dict_free(d);
 }
+
 int main(int argc, char **argv) {
    assert(argc == 2);
    now = time(NULL);

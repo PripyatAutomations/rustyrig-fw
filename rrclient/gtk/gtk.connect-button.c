@@ -20,6 +20,7 @@ static void button_destroyed(GtkWidget *button, gpointer unused) {
       refresh_source = 0;
    }
 }
+
 static void button_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -46,6 +47,7 @@ static void connection_summary(unsigned *online, bool *trying) {
       }
    }
 }
+
 void rr_connect_button_set_state(GtkWidget *button, int connected) {
    (void)connected;             /* Summarize every connection, not the selected server. */
 
@@ -85,17 +87,20 @@ void rr_connect_button_set_state(GtkWidget *button, int connected) {
       gtk_style_context_add_class(ctx, style);
    }
 }
+
 void rr_connect_button_update_all(int connected) {
    for (GList *it = instances ; it ; it = it->next) {
       rr_connect_button_set_state(GTK_WIDGET(it->data), connected);
    }
 }
+
 static gboolean connection_button_refresh(gpointer unused) {
    (void)unused;
    rr_connect_button_update_all(0);
 
    return G_SOURCE_CONTINUE;
 }
+
 GtkWidget *rr_connect_button_new(void) {
    GtkWidget *button = gtk_button_new_with_label("Offline");
    gtk_widget_set_tooltip_text(button, "Open Server Picker to manage connections");

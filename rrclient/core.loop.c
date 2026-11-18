@@ -23,6 +23,7 @@ static gboolean run_command(gpointer data) {
 
    return cmd->callback(cmd->data);
 }
+
 static void free_command(gpointer data) {
    CoreCommand *cmd = data;
 
@@ -31,6 +32,7 @@ static void free_command(gpointer data) {
    }
    g_free(cmd);
 }
+
 static gpointer core_run(gpointer unused) {
    (void)unused;
    g_main_context_push_thread_default(core_context);
@@ -39,6 +41,7 @@ static gpointer core_run(gpointer unused) {
 
    return NULL;
 }
+
 bool rrclient_core_loop_start(void) {
    if (g_once_init_enter(&core_once)) {
       g_mutex_init(&core_lock);
@@ -66,6 +69,7 @@ bool rrclient_core_loop_start(void) {
 
    return ok;
 }
+
 bool rrclient_core_loop_post(GSourceFunc callback, gpointer payload, GDestroyNotify destroy) {
    if (!callback) {
       if (destroy) {
@@ -94,6 +98,7 @@ bool rrclient_core_loop_post(GSourceFunc callback, gpointer payload, GDestroyNot
 
    return true;
 }
+
 void rrclient_core_loop_stop(void) {
    g_mutex_lock(&core_lock);
    GThread *thread = core_thread;
@@ -116,6 +121,7 @@ void rrclient_core_loop_stop(void) {
    core_context = NULL;
    g_mutex_unlock(&core_lock);
 }
+
 bool rrclient_core_loop_is_owner(void) {
    g_mutex_lock(&core_lock);
    GThread *thread = core_thread;

@@ -15,18 +15,22 @@ void Log(logpriority_t level, const char *subsystem, const char *format, ...) {
    (void)subsystem;
    (void)format;
 }
+
 bool ui_print(const char *window, const char *format, ...) {
    (void)window;
    (void)format;
 
    return false;
 }
+
 void rrclient_connection_dispatch(rrconn_t *client, void (*callback) (void *), void *data) {
    callback(data);
 }
+
 const char *ui_active_window_name(void) {
    return "#voice";
 }
+
 const char *rrclient_connection_name(const rrconn_t *client) {
    return "test";
 }
@@ -38,6 +42,7 @@ static void pcm(const char *event, const void *data, size_t length, rrconn_t *cl
    assert(pcm->attachment && pcm->length == 640 && ((const uint8_t *)pcm->samples)[0] == 7);
    pcm_count++;
 }
+
 static unsigned count_peers(void) {
    unsigned n = 0;
 
@@ -47,6 +52,7 @@ static unsigned count_peers(void) {
 
    return n;
 }
+
 int main(void) {
    bool encrypted = getenv("RR_RTP_TEST_ENCRYPTED") != NULL;
 

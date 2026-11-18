@@ -40,6 +40,7 @@ static void own_thread(fixture_t *io) {
    }
    assert(pthread_equal(io->thread, pthread_self()));
 }
+
 static bool create(rr_backend_t *backend) {
    fixture_t *io = calloc(1, sizeof(*io));
    assert(io);
@@ -50,6 +51,7 @@ static bool create(rr_backend_t *backend) {
 
    return false;
 }
+
 static void destroy(rr_backend_t *backend) {
    fixture_t *io = rr_backend_instance_data(backend);
    own_thread(io);
@@ -60,12 +62,14 @@ static void destroy(rr_backend_t *backend) {
    free(io);
    rr_backend_instance_set_data(backend, NULL);
 }
+
 static bool ptt_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    fixture_t *io = rr_backend_instance_data(backend);
    own_thread(io);
 
    return io->ptt;
 }
+
 static bool ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) {
    fixture_t *io = rr_backend_instance_data(backend);
    own_thread(io);
@@ -82,6 +86,7 @@ static bool ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) {
 
    return false;
 }
+
 static bool freq_set(rr_backend_t *backend, rr_server_vfo_t *vfo, int frequency) {
    fixture_t *io = rr_backend_instance_data(backend);
    own_thread(io);
@@ -94,6 +99,7 @@ static bool freq_set(rr_backend_t *backend, rr_server_vfo_t *vfo, int frequency)
 
    return false;
 }
+
 static rr_vfo_data_t *poll_state(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    fixture_t *io = rr_backend_instance_data(backend);
    own_thread(io);
@@ -117,15 +123,18 @@ static rr_vfo_data_t *poll_state(rr_backend_t *backend, rr_server_vfo_t *vfo) {
 
    return state;
 }
+
 static void published(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_vfo_data_t *state) {
    assert(pthread_equal(main_thread, pthread_self()));
    observations++;
 }
+
 static void completed(rr_backend_t *backend, rr_server_vfo_t *vfo, bool failed, void *user) {
    assert(pthread_equal(main_thread, pthread_self()));
    completions++;
    failures += failed;
 }
+
 static void property_changed(const char *event, const char *data, rrconn_t *client, void *user) {
    assert(pthread_equal(main_thread, pthread_self()));
 }
@@ -142,6 +151,7 @@ static void ping_peer(void) {
    request_at = g_get_monotonic_time();
    mg_ws_send(peer, "worker-test", 11, WEBSOCKET_OP_PING);
 }
+
 static void socket_event(struct mg_connection *connection, int event, void *data) {
    if (event == MG_EV_HTTP_MSG) {
       mg_ws_upgrade(connection, data, NULL);
@@ -168,6 +178,7 @@ static void socket_event(struct mg_connection *connection, int event, void *data
       }
    }
 }
+
 static void drain_until_idle(rr_backend_t *backend) {
    gint64 deadline = g_get_monotonic_time() + 3000000;
    while (rr_backend_worker_busy(backend)) {
@@ -176,6 +187,7 @@ static void drain_until_idle(rr_backend_t *backend) {
       g_usleep(1000);
    }
 }
+
 int main(void) {
    main_thread = pthread_self();
    event_init();

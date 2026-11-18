@@ -27,6 +27,7 @@ static const char *get(const char *section, const char *field) {
 
    return value;
 }
+
 static bool section(const char *path, int line, const char *name, const char *input) {
    char *copy = g_strdup(input), *value = strchr(copy, '=');
    const char *colon = strchr(name, ':');
@@ -63,6 +64,7 @@ static bool section(const char *path, int line, const char *name, const char *in
 
    return !ok;
 }
+
 bool rr_radio_config_init(void) {
    const char *sections[] = {
       "radio", "radio:*", "vfo:*", "filter:*", "tuner:*", "amp:*", "dummy:*"
@@ -76,6 +78,7 @@ bool rr_radio_config_init(void) {
 
    return true;
 }
+
 static void append(dict *target, const char *key, const char *value) {
    const char *old = dict_get(target, key, NULL);
    char **tokens = g_strsplit_set(old ? old : "", " ,\t\r\n", -1);
@@ -95,6 +98,7 @@ static void append(dict *target, const char *key, const char *value) {
       g_free(joined);
    }
 }
+
 static bool reserve(GHashTable *owners, const char *id, const char *radio) {
    const char *old = g_hash_table_lookup(owners, id);
 
@@ -107,6 +111,7 @@ static bool reserve(GHashTable *owners, const char *id, const char *radio) {
 
    return true;
 }
+
 static bool number(const char *s, int64_t low, int64_t high) {
    if (!s || !*s) {
       return false;
@@ -117,6 +122,7 @@ static bool number(const char *s, int64_t low, int64_t high) {
 
    return end != s && !*end && !errno && n >= low && n <= high;
 }
+
 static bool component(dict *out, const char *id, unsigned group, const char *radio, GHashTable *owners) {
    const char *colon = strchr(id, ':');
 
@@ -179,6 +185,7 @@ static bool component(dict *out, const char *id, unsigned group, const char *rad
 
    return ok;
 }
+
 static bool vfos(dict *out, const char *radio, const char *list, GHashTable *owners) {
    char **names = g_strsplit_set(list ? list : "", " ,\t\r\n", -1);
    GString *slots = g_string_new("");

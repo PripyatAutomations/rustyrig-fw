@@ -26,6 +26,7 @@ static bool valid_name(const char *name) {
 
    return true;
 }
+
 bool rrserver_platform_control_register(const rr_platform_control_t *definition) {
    if (!definition || !valid_name(definition->name) || !definition->label ||
       !definition->read || controls_count >= MAX_PLATFORM_CONTROLS ||
@@ -44,6 +45,7 @@ bool rrserver_platform_control_register(const rr_platform_control_t *definition)
 
    return true;
 }
+
 static bool backlight_read(void *context, int *value, int *minimum, int *maximum) {
    (void)context;
    rr_backlight_state_t state;
@@ -57,12 +59,14 @@ static bool backlight_read(void *context, int *value, int *minimum, int *maximum
 
    return true;
 }
+
 static bool backlight_write(void *context, int value) {
    (void)context;
    rr_backlight_state_t state;
 
    return rrserver_backlight_control(value, &state);
 }
+
 static void register_defaults(void) {
    if (defaults_registered) {
       return;
@@ -75,6 +79,7 @@ static void register_defaults(void) {
    };
    rrserver_platform_control_register(&backlight);
 }
+
 static const rr_platform_control_t *find(const char *name) {
    if (!valid_name(name)) {
       return NULL;
@@ -89,6 +94,7 @@ static const rr_platform_control_t *find(const char *name) {
 
    return NULL;
 }
+
 static bool snapshot(const rr_platform_control_t *control, rr_platform_control_state_t *state) {
    if (!control || !state) {
       return false;
@@ -111,9 +117,11 @@ static bool snapshot(const rr_platform_control_t *control, rr_platform_control_s
 
    return true;
 }
+
 bool rrserver_platform_control_get(const char *name, rr_platform_control_state_t *state) {
    return snapshot(find(name), state);
 }
+
 bool rrserver_platform_control_set(const char *name, int value, rr_platform_control_state_t *state) {
    const rr_platform_control_t *control = find(name);
    rr_platform_control_state_t current;
@@ -129,6 +137,7 @@ bool rrserver_platform_control_set(const char *name, int value, rr_platform_cont
 
    return snapshot(control, state);
 }
+
 void rrserver_platform_control_foreach(rr_platform_control_visit_fn visit, void *user) {
    if (!visit) {
       return;

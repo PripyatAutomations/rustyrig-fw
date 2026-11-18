@@ -811,4 +811,5 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
 
    return result;
 }
+
 #endif

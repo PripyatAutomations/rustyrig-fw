@@ -77,6 +77,7 @@ static bool local_backlight_path(char *out, size_t capacity) {
 
    return snprintf(out, capacity, "/sys/class/backlight/%s", device) > 0;
 }
+
 static bool local_backlight_read(int *current, int *maximum) {
    char path[192], attribute[240];
 
@@ -106,6 +107,7 @@ static bool local_backlight_read(int *current, int *maximum) {
 
    return ok;
 }
+
 static bool local_backlight_writable(void) {
    char path[192], attribute[240];
 
@@ -116,6 +118,7 @@ static bool local_backlight_writable(void) {
 
    return access(attribute, W_OK) == 0;
 }
+
 static bool local_backlight_write(int value) {
    int current = 0, maximum = 0;
    char path[192], attribute[240];
@@ -136,6 +139,7 @@ static bool local_backlight_write(int value) {
 
    return ok;
 }
+
 #endif
 static void admin_control_local_discover(void) {
 #ifdef __linux__
@@ -167,6 +171,7 @@ static void admin_control_local_discover(void) {
 #endif
    gtk_label_set_text(GTK_LABEL(control_status), "No local adjustable controls detected");
 }
+
 static void admin_control_stripe_rows(void) {
    if (!control_rows_box) {
       return;
@@ -186,6 +191,7 @@ static void admin_control_stripe_rows(void) {
 
    g_list_free(rows);
 }
+
 static void admin_control_filter_apply(void) {
    if (!control_filter || !control_rows_box) {
       return;
@@ -208,6 +214,7 @@ static void admin_control_filter_apply(void) {
    g_list_free(rows);
    admin_control_stripe_rows();
 }
+
 static void admin_control_site(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -236,6 +243,7 @@ static void admin_control_site(const char *event, const char *payload, rrconn_t 
    }
    dict_free(site);
 }
+
 static void admin_control_sites_complete(const char *event, const char *payload, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -278,6 +286,7 @@ static void admin_control_sites_complete(const char *event, const char *payload,
    }
    dict_free(complete);
 }
+
 static bool admin_control_hosts_refresh(const char *wanted) {
    if (!control_hosts || !control_site_token || !control_sites_complete_token) {
       return false;
@@ -307,6 +316,7 @@ static bool admin_control_hosts_refresh(const char *wanted) {
 
    return true;
 }
+
 static void admin_control_host_changed(GtkComboBox *box, gpointer unused) {
    (void)unused;
    const char *profile = gtk_combo_box_get_active_id(box);
@@ -317,6 +327,7 @@ static void admin_control_host_changed(GtkComboBox *box, gpointer unused) {
    g_clear_pointer(&control_pending_name, g_free);
    admin_control_refresh(NULL, NULL);
 }
+
 static gboolean admin_controls_star(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -342,11 +353,13 @@ static gboolean admin_controls_star(GtkWidget *widget, GdkEventKey *event, gpoin
 
    return TRUE;
 }
+
 static void admin_control_filter_changed(GtkEditable *entry, gpointer unused) {
    (void)entry;
    (void)unused;
    admin_control_filter_apply();
 }
+
 static gboolean admin_control_scroll_to_selected(gpointer unused) {
    (void)unused;
 
@@ -369,6 +382,7 @@ static gboolean admin_control_scroll_to_selected(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 static void admin_control_choose(const char *name) {
    if (!name || !*name || !control_combo) {
       return;
@@ -394,6 +408,7 @@ static void admin_control_choose(const char *name) {
       control_pending_name = g_strdup(name);
    }
 }
+
 void gtk_admin_open_control_on_server(const char *profile, const char *name) {
    if (!profile || !*profile) {
       return;
@@ -436,6 +451,7 @@ void gtk_admin_open_control_on_server(const char *profile, const char *name) {
       admin_control_request(NULL, -1);
    }
 }
+
 void gtk_admin_open_control(const char *name) {
    gtk_admin_open_control_on_server(gtk_admin_selected_profile(), name);
 }
@@ -456,6 +472,7 @@ static gint admin_control_row_compare(gconstpointer left, gconstpointer right) {
 
    return control_sort_descending ? -cmp : cmp;
 }
+
 static void admin_control_sort_rows(void) {
    if (!control_rows_box) {
       return;
@@ -471,6 +488,7 @@ static void admin_control_sort_rows(void) {
    g_list_free(children);
    admin_control_stripe_rows();
 }
+
 static void admin_control_sort_clicked(GtkButton *button, gpointer user) {
    (void)user;
    int field = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "sort-field"));
@@ -483,6 +501,7 @@ static void admin_control_sort_clicked(GtkButton *button, gpointer user) {
    }
    admin_control_sort_rows();
 }
+
 static void admin_control_rows_clear(void) {
    if (!control_rows_box) {
       return;
@@ -523,6 +542,7 @@ static bool admin_control_write(GtkWidget *row, int value) {
 
    return admin_control_request_profile(profile, name, value);
 }
+
 static void admin_control_update_revert(void) {
    gboolean can_revert = FALSE;
 
@@ -543,6 +563,7 @@ static void admin_control_update_revert(void) {
       gtk_widget_set_sensitive(control_apply, can_revert);
    }
 }
+
 static gboolean admin_control_slider_released(GtkWidget *scale, GdkEventButton *event, gpointer data) {
    if (event->button != 1) {
       return FALSE;
@@ -577,6 +598,7 @@ static gboolean admin_control_slider_released(GtkWidget *scale, GdkEventButton *
 
    return FALSE;
 }
+
 static void admin_control_row_state(dict *data, const char *profile) {
    const char *name = dict_get(data, "name", "");
    char *identity = g_strdup_printf("%s/%s", profile, name);
@@ -615,6 +637,7 @@ static void admin_control_row_state(dict *data, const char *profile) {
    gtk_label_set_text(GTK_LABEL(detail), summary);
    g_free(summary);
 }
+
 static void admin_control_row_add(dict *data, const char *profile) {
    const char *name = dict_get(data, "name", "");
    char *identity = g_strdup_printf("%s/%s", profile, name);
@@ -690,9 +713,11 @@ static bool admin_control_request_profile(const char *profile, const char *name,
 
    return gtk_admin_command_event(control_status, profile, "admin", data, NULL, NULL);
 }
+
 static bool admin_control_request(const char *name, int value) {
    return admin_control_request_profile(control_server_profile, name, value);
 }
+
 static void admin_control_refresh_discovered(void) {
    if (control_scale) {
       gtk_widget_set_sensitive(control_scale, FALSE);
@@ -723,6 +748,7 @@ static void admin_control_refresh_discovered(void) {
       }
    }
 }
+
 static void admin_control_refresh(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;
@@ -736,6 +762,7 @@ static void admin_control_refresh(GtkButton *button, gpointer user) {
       }
    }
 }
+
 static void admin_control_selection(GtkComboBox *combo, gpointer user) {
    (void)user;
    const char *name = gtk_combo_box_get_active_id(combo);
@@ -752,6 +779,7 @@ static void admin_control_selection(GtkComboBox *combo, gpointer user) {
       gtk_label_set_text(GTK_LABEL(control_status), "Unable to read selected control");
    }
 }
+
 static void admin_control_apply(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;

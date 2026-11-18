@@ -67,12 +67,15 @@ static bool transfer(oscillator_t *o, uint8_t reg, uint8_t *bytes, size_t count,
    return false;
 #endif
 }
+
 static bool read_register(void *context, uint8_t reg, uint8_t *value) {
    return transfer(context, reg, value, 1, true);
 }
+
 static bool write_register(void *context, uint8_t reg, const uint8_t *value, size_t count) {
    return transfer(context, reg, (uint8_t *) value, count, false);
 }
+
 static void wait_register(void *context) {
    (void)context;
    g_usleep(1000);
@@ -122,6 +125,7 @@ static bool claim(void *data, const char *owner) {
    return false;
 #endif
 }
+
 static bool release(void *data) {
    oscillator_t *o = data;
 
@@ -137,6 +141,7 @@ static bool release(void *data) {
 
    return true;
 }
+
 static void destroy(void *data) {
    oscillator_t *o = data;
 

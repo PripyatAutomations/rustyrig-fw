@@ -17,6 +17,7 @@ bool ws_send_error(rrconn_t *client, const char *fmt, ...) {
 
    return true;
 }
+
 bool ws_send_notice(rrconn_t *client, const char *fmt, ...) {
    (void)client;
    (void)fmt;
@@ -24,6 +25,7 @@ bool ws_send_notice(rrconn_t *client, const char *fmt, ...) {
 
    return true;
 }
+
 bool rrserver_rig_room_configured(const char *room) {
    (void)room;
 

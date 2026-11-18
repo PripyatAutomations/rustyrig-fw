@@ -35,15 +35,19 @@ bool media_have_priv(const char *priv) {
 
    return staff;
 }
+
 const char *ui_active_window_name(void) {
    return "#chat";
 }
+
 void tui_redraw_defer(void) {
    defer_count++;
 }
+
 void tui_redraw_flush(void) {
    flush_count++;
 }
+
 bool ui_print(const char *room, const char *fmt, ...) {
    assert(!strcmp(room, "#chat"));
    va_list args;
@@ -54,6 +58,7 @@ bool ui_print(const char *room, const char *fmt, ...) {
 
    return true;
 }
+
 int main(void) {
    cmd_help(0, NULL);
    assert(strstr(output, "\00304Connection\017"));

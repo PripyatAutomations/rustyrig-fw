@@ -78,6 +78,7 @@ extern struct rr_links links;
 static inline bool session_closing(const struct link_session *s) {
    return s->closing;
 }
+
 static inline bool session_tls(const struct link_session *s) {
    return s->transport && (rr_transport_capabilities(s->transport) & RR_TRANSPORT_TLS_AUTHENTICATED);
 }

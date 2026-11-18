@@ -39,6 +39,7 @@ static bool eligible(rrconn_t *client) {
 static bool needs_supervision(rrconn_t *client) {
    return client && client->user && client->user->uid >= 0 && has_priv(client->user->uid, "noob") && !has_priv(client->user->uid, "admin|owner");
 }
+
 static bool is_elmer(rrconn_t *client) {
    return eligible(client) && has_priv(client->user->uid, "elmer") && !needs_supervision(client);
 }

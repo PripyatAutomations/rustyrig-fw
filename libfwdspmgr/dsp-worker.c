@@ -19,6 +19,7 @@ static bool pcm_valid(rr_dsp_audio_format_t pcm) {
    return (pcm.format == RR_DSP_PCM_S16LE || pcm.format == RR_DSP_PCM_F32LE) &&
           pcm.sample_rate >= 8000 && pcm.sample_rate <= 192000 && pcm.channels >= 1 && pcm.channels <= 2;
 }
+
 bool rr_dsp_worker_ports_valid(const rr_dsp_worker_ports_t *ports) {
    if (!ports || ports->application < RR_DSP_PORT_BYTES || ports->application > RR_DSP_PORT_PCM || ports->radio != RR_DSP_PORT_PCM) {
       return false;
@@ -26,18 +27,22 @@ bool rr_dsp_worker_ports_valid(const rr_dsp_worker_ports_t *ports) {
 
    return pcm_valid(ports->radio_pcm) && (ports->application != RR_DSP_PORT_PCM || pcm_valid(ports->application_pcm));
 }
+
 rr_dsp_worker_ports_t rr_dsp_worker_modem_ports(void) {
    return (rr_dsp_worker_ports_t) {
              .application = RR_DSP_PORT_BYTES, .radio = RR_DSP_PORT_PCM, .radio_pcm = {
                 .format = RR_DSP_PCM_S16LE, .sample_rate = 16000, .channels = 1
              }
+
    };
 }
+
 static void child_reap(GPid pid, gint status, gpointer user) {
    (void)status;
    (void)user;
    g_spawn_close_pid(pid);
 }
+
 void rr_dsp_worker_init(rr_dsp_worker_t *w) {
    if (!w) {
       return;
@@ -46,6 +51,7 @@ void rr_dsp_worker_init(rr_dsp_worker_t *w) {
       .serial_fd = -1, .control_fd = -1, .rx_pcm_fd = -1, .tx_pcm_fd = -1
    };
 }
+
 static void close_pair(int fds[2]) {
    for (int i = 0 ; i < 2 ; i++) {
       if (fds[i] >= 0) {
@@ -54,6 +60,7 @@ static void close_pair(int fds[2]) {
       }
    }
 }
+
 static bool make_pair(int fds[2], int type) {
    if (socketpair(AF_UNIX, type, 0, fds)) {
       return false;
@@ -65,6 +72,7 @@ static bool make_pair(int fds[2], int type) {
 
    return true;
 }
+
 static void nonblock(int fd) {
    int flags = fcntl(fd, F_GETFL);
 
@@ -72,6 +80,7 @@ static void nonblock(int fd) {
       fcntl(fd, F_SETFL, flags | O_NONBLOCK);
    }
 }
+
 bool rr_dsp_worker_spawn_ports(rr_dsp_worker_t *w, const char *command, const rr_dsp_worker_ports_t *ports) {
    if (!rr_dsp_worker_ports_valid(ports)) {
       return false;
@@ -173,6 +182,7 @@ fail:
 
    return false;
 }
+
 void rr_dsp_worker_stop(rr_dsp_worker_t *w) {
    if (!w) {
       return;

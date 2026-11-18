@@ -42,6 +42,7 @@ static volatile gint modem_tx_active;
 bool rr_local_modem_tx_in_progress(void) {
    return g_atomic_int_get(&modem_tx_active) != 0;
 }
+
 static void modem_refresh_tx_active(void) {
    gboolean any = FALSE;
 
@@ -71,9 +72,11 @@ static void append_text(decoder_t *d, const char *bytes, size_t n) {
       d->text[d->text_len] = 0;
    }
 }
+
 static void modem_ptt_source(unsigned index, char out[64]) {
    g_snprintf(out, 64, "modem%u.ptt", index + 1);
 }
+
 static void modem_release_ptt(unsigned index) {
    decoder_t *d = &decoders[index];
 
@@ -88,6 +91,7 @@ static void modem_release_ptt(unsigned index) {
    d->pending_text[0] = 0;
    d->ptt_deadline_us = d->release_at_us = 0;
 }
+
 static void modem_cancel_waveform(decoder_t *d) {
    static const char cancel[] = "CANCEL\n";
 
@@ -95,6 +99,7 @@ static void modem_cancel_waveform(decoder_t *d) {
       send(d->worker.serial_fd, cancel, sizeof(cancel) - 1, MSG_DONTWAIT | MSG_NOSIGNAL);
    }
 }
+
 static void stop_one(unsigned index) {
    decoder_t *d = &decoders[index];
    modem_cancel_waveform(d);
@@ -108,6 +113,7 @@ static void stop_one(unsigned index) {
    }
    g_mutex_unlock(&decoder_lock);
 }
+
 static const char *worker_path(const char *engine) {
    const char *exe = !strcmp(engine, "psk") ? "rrmodem-psk" : !strcmp(engine, "olivia") ? "rrmodem-olivia" : "rrmodem-ft8";
    static char candidate[256];
@@ -199,6 +205,7 @@ static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t 
       }
    }
 }
+
 static gboolean poll_decoders(gpointer unused) {
    (void)unused;
 
@@ -310,6 +317,7 @@ static gboolean poll_decoders(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
+
 size_t rr_local_modem_routes(rr_local_modem_route_t *routes, size_t capacity) {
    if (!routes || !capacity) {
       return 0;
@@ -336,6 +344,7 @@ size_t rr_local_modem_routes(rr_local_modem_route_t *routes, size_t capacity) {
 
    return count;
 }
+
 void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) {
    if (!source || !pcm || !frames || frames > 2048 || !g_mutex_trylock(&decoder_lock)) {
       return;
@@ -357,6 +366,7 @@ void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) 
 
    g_mutex_unlock(&decoder_lock);
 }
+
 static bool source_present(const char *source) {
    struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {
       0
@@ -371,6 +381,7 @@ static bool source_present(const char *source) {
 
    return false;
 }
+
 static bool start_one(const rr_local_modem_request_t *req) {
    if (!memchr(req->source, 0, sizeof(req->source)) ||
       !memchr(req->engine, 0, sizeof(req->engine)) || !memchr(req->option, 0, sizeof(req->option)) || (req->source[0] && !source_present(req->source))) {
@@ -473,6 +484,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
 
    return true;
 }
+
 static void publish_snapshot(void) {
    rr_local_modem_snapshot_t *snapshot = g_new0(rr_local_modem_snapshot_t, 1);
    struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {
@@ -512,6 +524,7 @@ static void publish_snapshot(void) {
    event_emit_message(&response);
    g_free(snapshot);
 }
+
 static void request_received(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -629,6 +642,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
       event_emit("client.audio.route.changed", NULL, NULL);
    }
 }
+
 void rr_local_modem_init(void) {
    if (initialized) {
       return;
@@ -645,6 +659,7 @@ void rr_local_modem_init(void) {
    poll_id = g_source_attach(timer, rrclient_core_context());
    g_source_unref(timer);
 }
+
 void rr_local_modem_request(const rr_local_modem_request_t *req) {
    if (!req) {
       return;
@@ -654,6 +669,7 @@ void rr_local_modem_request(const rr_local_modem_request_t *req) {
    };
    event_emit_message(&message);
 }
+
 void rr_local_modem_shutdown(void) {
    if (!initialized) {
       return;
@@ -679,6 +695,7 @@ void rr_local_modem_shutdown(void) {
 
    initialized = false;
 }
+
 bool cmd_local_modem(int argc, char **argv) {
    if (argc == 1 || (argc == 2 && (!strcasecmp(argv[1], "gui") || !strcasecmp(argv[1], "window")))) {
       const rr_frontend_ops_t *frontend = frontend_ops();

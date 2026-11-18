@@ -203,9 +203,11 @@ static guint vfo_bucket_for_width(gint width, guint previous) {
 
    return width < 730 ? 1 : width < 1250 ? 2 : 3;
 }
+
 static const char *vfo_bucket_key(guint bucket) {
    return bucket == 1 ? "ui.vfo.layout.compact" : bucket == 2 ? "ui.vfo.layout.half" : "ui.vfo.layout.wide";
 }
+
 static gboolean vfo_apply_width(gpointer unused) {
    (void)unused;
    vfo_resize_idle = 0;
@@ -229,6 +231,7 @@ static gboolean vfo_apply_width(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
+
 void vfo_controls_fit_width(int width) {
    if (width < 1 || !GTK_IS_FLOW_BOX(vfo_controls_row)) {
       return;
@@ -244,6 +247,7 @@ void vfo_controls_fit_width(int width) {
       vfo_resize_idle = g_idle_add(vfo_apply_width, NULL);
    }
 }
+
 static void vfo_viewport_allocation(GtkWidget *widget, GtkAllocation *alloc, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -259,6 +263,7 @@ static void local_sdr_driver_event(const rr_event_message_t *message, void *unus
    }
    vfo_controls_set_sdr_driver(message->payload);
 }
+
 static void local_sdr_controls_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -299,6 +304,7 @@ static void local_vfo_refresh(const char *event, const char *data, rrconn_t *con
       gtk_widget_set_sensitive(vfo_mode_box, TRUE);
    }
 }
+
 static void local_vfo_destroy(GtkWidget *widget, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -349,6 +355,7 @@ static void vfo_layout_save(void) {
    g_list_free(children);
    g_string_free(order, TRUE);
 }
+
 static void vfo_layout_restore(void) {
    if (!GTK_IS_FLOW_BOX(vfo_controls_row)) {
       return;
@@ -411,6 +418,7 @@ static void vfo_dock_style(void) {
       ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
       ".rr-vfo-grip { background-color: alpha(currentColor, .09); border-radius: 2px; min-height: 7px; }", -1, NULL);
 }
+
 static void vfo_clear_drop(GtkWidget *child) {
    if (!child) {
       return;
@@ -419,6 +427,7 @@ static void vfo_clear_drop(GtkWidget *child) {
    gtk_style_context_remove_class(ctx, "rr-vfo-before");
    gtk_style_context_remove_class(ctx, "rr-vfo-after");
 }
+
 static void vfo_drag_begin(GtkWidget *handle, GdkDragContext *context, gpointer unused) {
    (void)context;
    (void)unused;
@@ -429,6 +438,7 @@ static void vfo_drag_begin(GtkWidget *handle, GdkDragContext *context, gpointer 
       gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-moving");
    }
 }
+
 static void vfo_drag_end(GtkWidget *handle, GdkDragContext *context, gpointer unused) {
    (void)handle;
    (void)context;
@@ -450,6 +460,7 @@ static void vfo_drag_end(GtkWidget *handle, GdkDragContext *context, gpointer un
 
    g_list_free(children);
 }
+
 static void vfo_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData *selection, guint info, guint time, gpointer unused) {
    (void)widget;
    (void)context;
@@ -459,9 +470,11 @@ static void vfo_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSel
    const char value[] = "vfo";
    gtk_selection_data_set(selection, gdk_atom_intern_static_string(vfo_drag_target[0].target), 8, (const guchar *)value, sizeof(value) - 1);
 }
+
 static gboolean vfo_drop_after(GtkWidget *child, gint x) {
    return x >= gtk_widget_get_allocated_width(child) / 2;
 }
+
 static gboolean vfo_drag_motion(GtkWidget *child, GdkDragContext *context, gint x, gint y, guint time, gpointer unused) {
    (void)y;
    (void)unused;
@@ -479,12 +492,14 @@ static gboolean vfo_drag_motion(GtkWidget *child, GdkDragContext *context, gint 
 
    return TRUE;
 }
+
 static void vfo_drag_leave(GtkWidget *child, GdkDragContext *context, guint time, gpointer unused) {
    (void)context;
    (void)time;
    (void)unused;
    vfo_clear_drop(child);
 }
+
 static void vfo_drag_received(GtkWidget *child, GdkDragContext *context, gint x, gint y, GtkSelectionData *selection, guint info, guint time, gpointer unused) {
    (void)y;
    (void)info;
@@ -519,12 +534,14 @@ static void vfo_drag_received(GtkWidget *child, GdkDragContext *context, gint x,
    vfo_clear_drop(child);
    gtk_drag_finish(context, ok, ok, time);
 }
+
 static gboolean vfo_control_visible(GtkFlowBoxChild *child, gpointer unused) {
    (void)unused;
    GtkWidget *control = g_object_get_data(G_OBJECT(child), "rr-vfo-content");
 
    return control && gtk_widget_get_visible(control);
 }
+
 static void vfo_control_visibility_changed(GtkWidget *widget, GParamSpec *spec, gpointer user) {
    (void)widget;
    (void)spec;
@@ -533,6 +550,7 @@ static void vfo_control_visibility_changed(GtkWidget *widget, GParamSpec *spec, 
       gtk_flow_box_invalidate_filter(GTK_FLOW_BOX(user));
    }
 }
+
 static void vfo_control_add(GtkWidget *control, const char *name) {
    gboolean wanted = gtk_widget_get_visible(control);
    gtk_widget_show_all(control);
@@ -574,6 +592,7 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    /* Revealing the wrapper must never force an RX-only control visible. */
    gtk_widget_set_visible(control, wanted);
 }
+
 GtkWidget *create_vfo_box(void) {
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);

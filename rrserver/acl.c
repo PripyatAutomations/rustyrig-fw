@@ -92,6 +92,7 @@ static void admission(const char *event, const void *data, size_t length, rrconn
       Log(LOG_INFO, "acl", "Denied %s listener access from %s", request->listener, request->ip);
    }
 }
+
 void rrserver_acl_register_events(void) {
    event_on_binary(RR_SERVER_ADMISSION_EVENT, admission, NULL);
 }

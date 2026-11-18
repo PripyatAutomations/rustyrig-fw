@@ -17,23 +17,29 @@ static bool send_ok = true;
 const rr_frontend_ops_t *frontend_ops(void) {
    return NULL;
 }
+
 const char *ui_active_window_name(void) {
    return "status";
 }
+
 const char *rrclient_window_name(const char *room) {
    return room;
 }
+
 const char *rrclient_window_room(const char *window) {
    return window;
 }
+
 rrconn_t *rrclient_connection_for_window(const char *window) {
    (void)window;
 
    return ws_conn;
 }
+
 void ui_message_bell(void) {
    assert(false);
 }
+
 bool ui_print(const char *window, const char *fmt, ...) {
    snprintf(destination, sizeof(destination), "%s", window ? window : "status");
    va_list args;
@@ -44,6 +50,7 @@ bool ui_print(const char *window, const char *fmt, ...) {
 
    return false;
 }
+
 bool irc_send(rrconn_t *connection, const char *fmt, ...) {
    assert(connection == ws_conn);
    va_list args;
@@ -53,6 +60,7 @@ bool irc_send(rrconn_t *connection, const char *fmt, ...) {
 
    return send_ok;
 }
+
 int main(void) {
    rrconn_t connection = {
       .fd = -1

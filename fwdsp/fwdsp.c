@@ -102,7 +102,6 @@ static void metrics_publish(void) {
    }
 }
 
-
 time_t now = -1;                // time() called once a second in main loop to
                                 // update
 
@@ -182,6 +181,7 @@ static const char *recording_file_codec(const char *file) {
 
    return recording_default_codec;
 }
+
 static void recording_select_codec(const char *codec, bool stream_copy) {
    snprintf(recording_codec, sizeof(recording_codec), "%s", codec);
    recording_encoded = stream_copy && !codec_is_modem(config_codec) &&
@@ -1046,6 +1046,7 @@ static bool processor_set_element_parameter(GstElement *pipe, struct fwdsp_contr
 
    return ok;
 }
+
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       dying = false;

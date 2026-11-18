@@ -33,10 +33,12 @@ gboolean gtk_admin_filter_visible(GtkTreeModel *model, GtkTreeIter *iter, gpoint
 
    return match;
 }
+
 void gtk_admin_filter_changed(GtkEditable *editable, gpointer data) {
    (void)editable;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
 }
+
 void gtk_admin_privilege_selection(GtkTreeSelection *selection, gpointer user) {
    GtkWidget *box = GTK_WIDGET(user);
    gboolean selected = gtk_tree_selection_count_selected_rows(selection) > 0;
@@ -51,6 +53,7 @@ void gtk_admin_privilege_selection(GtkTreeSelection *selection, gpointer user) {
       gtk_widget_set_sensitive(edit, selected);
    }
 }
+
 void gtk_admin_action_selection(GtkTreeSelection *selection, gpointer user) {
    admin_table_t *table = user;
    GPtrArray *buttons = g_object_get_data(G_OBJECT(table->tree), "selection-buttons");

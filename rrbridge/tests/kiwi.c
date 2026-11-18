@@ -22,11 +22,13 @@ static void metadata(void *user, const char *key, const char *value) {
       snprintf(receiver_contact, sizeof(receiver_contact), "%s", value);
    }
 }
+
 static void status(void *user, const char *msg) {
    int *calls = user;
    snprintf(last_status, sizeof(last_status), "%s", msg);
    ++*calls;
 }
+
 int main(void) {
    int calls = 0;
    char cmd[128];

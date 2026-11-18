@@ -20,19 +20,23 @@ static void decoded(char c, void *data) {
    fputc((unsigned char)c, stdout);
    fflush(stdout);
 }
+
 static void feed(const float *buf, size_t n, void *context) {
    psk_rx_feed((psk_rx_t *) context, buf, n);
 }
+
 static void *receive_thread(void *data) {
    rr_modem_rx_loop(feed, data);
 
    return NULL;
 }
+
 static int16_t pcm(float x) {
    x = fmaxf(-1.f, fminf(1.f, x * .75f));
 
    return (int16_t) lrintf(x * 32767.f);
 }
+
 int main(int argc, char **argv) {
    psk_mode_t mode = PSK_MODE_BPSK31;
    float carrier = 1500.f;

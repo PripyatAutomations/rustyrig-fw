@@ -344,6 +344,7 @@ bool rr_identity_known_signer(sqlite3 *db, const char *domain, const char *owner
 
    return state == SQLITE_DONE;
 }
+
 bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, const char *pubkey) {
    if (!db || !domain || !*domain || !owner || !*owner || !pubkey || !*pubkey) {
       return false;
@@ -448,6 +449,7 @@ finish:
 
    return ok;
 }
+
 #endif
 
 #ifdef USE_SQLITE
@@ -600,6 +602,7 @@ bool rr_identity_accept_revision(sqlite3 *db, const char *domain, const char *ow
 
    return ok;
 }
+
 #endif
 
 #ifdef USE_SQLITE
@@ -662,6 +665,7 @@ bool rr_identity_tls_pin_revoked(sqlite3 *db, const char *domain, const char *sp
 
    return state != SQLITE_DONE;
 }
+
 bool rr_identity_key_revoked(sqlite3 *db, const char *domain, const char *owner, const char *key) {
    if (!db || !domain || !owner || !key) {
       return true;
@@ -753,6 +757,7 @@ bool rr_identity_trust_verify(sqlite3 *db, const char *domain, const char *owner
 
    return ok;
 }
+
 #endif
 
 #ifdef USE_SQLITE
@@ -771,6 +776,7 @@ static bool invite_target_schema(sqlite3 *db) {
    return db && sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS mesh_join_invitation_targets (" "ticket_id TEXT PRIMARY KEY, joining_uuid TEXT NOT NULL)", NULL,
       NULL, NULL) == SQLITE_OK;
 }
+
 bool rr_identity_invite_create(sqlite3 *db, const char *id, const char *domain, const char *pub, long long expires) {
    /* expires=0 selects the configured default; positive values are absolute UNIX timestamps supplied by an explicit invitation override. */
    if (expires == 0) {
@@ -1094,4 +1100,5 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain, 
 
    return ok;
 }
+
 #endif

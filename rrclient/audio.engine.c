@@ -193,6 +193,7 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
       stereo[i] = (int16_t) CLAMP(scaled, INT16_MIN, INT16_MAX);
    }
 }
+
 static gpointer audio_thread(gpointer data) {
    rr_audio_engine_t *e = data;
    gint64 deadline = g_get_monotonic_time() + AUDIO_PERIOD_US;
@@ -230,6 +231,7 @@ static gpointer audio_thread(gpointer data) {
 
    return NULL;
 }
+
 rr_audio_engine_t *rr_audio_engine_new_rate(uint32_t rate, rr_audio_output_fn fn, void *user) {
    /* This engine's output rate is immutable. Additional source rates must be converted before entering its bounded input queues. */
    if (rate != 16000u && rate != 44100u && rate != 48000u) {
@@ -247,12 +249,15 @@ rr_audio_engine_t *rr_audio_engine_new_rate(uint32_t rate, rr_audio_output_fn fn
 
    return e;
 }
+
 rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn fn, void *user) {
    return rr_audio_engine_new_rate(AUDIO_RATE, fn, user);
 }
+
 uint32_t rr_audio_engine_sample_rate(const rr_audio_engine_t *e) {
    return e ? e->sample_rate_hz : 0;
 }
+
 void rr_audio_engine_set_pre_gain_tap(rr_audio_engine_t *e, rr_audio_output_fn tap, void *user) {
    if (!e) {
       return;
@@ -262,6 +267,7 @@ void rr_audio_engine_set_pre_gain_tap(rr_audio_engine_t *e, rr_audio_output_fn t
    e->pre_gain_user = user;
    g_mutex_unlock(&e->lock);
 }
+
 bool rr_audio_engine_start(rr_audio_engine_t *e) {
    if (!e) {
       return false;
@@ -284,6 +290,7 @@ bool rr_audio_engine_start(rr_audio_engine_t *e) {
 
    return ok;
 }
+
 void rr_audio_engine_stop(rr_audio_engine_t *e) {
    if (!e) {
       return;
@@ -298,6 +305,7 @@ void rr_audio_engine_stop(rr_audio_engine_t *e) {
       g_thread_join(thread);
    }
 }
+
 void rr_audio_engine_free(rr_audio_engine_t *e) {
    if (!e) {
       return;
@@ -314,11 +322,13 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
    g_mutex_clear(&e->lock);
    g_free(e);
 }
+
 bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format) {
    return format && format->sample_rate_hz >= 8000 &&
           format->sample_rate_hz <= 192000 &&
           (format->channels == 1 || format->channels == 2) && (format->format == RR_PCM_S16LE || format->format == RR_PCM_F32LE);
 }
+
 bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id, const rr_pcm_stream_format_t *format) {
    if (!e || !id || !*id || !rr_pcm_stream_format_valid(format)) {
       return false;
@@ -382,6 +392,7 @@ bool rr_audio_engine_add_stream_format(rr_audio_engine_t *e, const char *id, con
 
    return true;
 }
+
 bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
    if (!e) {
       return false;
@@ -392,6 +403,7 @@ bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
 
    return rr_audio_engine_add_stream_format(e, id, &native);
 }
+
 bool rr_audio_engine_stream_format(rr_audio_engine_t *e, const char *id, rr_pcm_stream_format_t *format) {
    if (!e || !id || !format) {
       return false;
@@ -406,6 +418,7 @@ bool rr_audio_engine_stream_format(rr_audio_engine_t *e, const char *id, rr_pcm_
 
    return s != NULL;
 }
+
 bool rr_audio_engine_stream_status(rr_audio_engine_t *e, const char *id, rr_audio_stream_status_t *status) {
    if (!e || !id || !status) {
       return false;
@@ -423,6 +436,7 @@ bool rr_audio_engine_stream_status(rr_audio_engine_t *e, const char *id, rr_audi
 
    return s != NULL;
 }
+
 void rr_audio_engine_remove_stream(rr_audio_engine_t *e, const char *id) {
    if (!e || !id) {
       return;
@@ -542,6 +556,7 @@ bool rr_audio_engine_push_pcm(rr_audio_engine_t *e, const char *id, const void *
 
    return true;
 }
+
 bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *pcm, size_t count) {
    if (!e || !id || !pcm || !count) {
       return false;
@@ -574,6 +589,7 @@ bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *p
 
    return true;
 }
+
 bool rr_audio_engine_route(rr_audio_engine_t *e, const char *id, char route) {
    if (!e || !id || !strchr("LRSM", route)) {
       return false;
@@ -592,6 +608,7 @@ bool rr_audio_engine_route(rr_audio_engine_t *e, const char *id, char route) {
 
    return s != NULL;
 }
+
 void rr_audio_engine_stats(rr_audio_engine_t *e, rr_audio_engine_stats_t *out, bool reset) {
    if (!e || !out) {
       return;
@@ -623,6 +640,7 @@ void rr_audio_engine_finish_stream(rr_audio_engine_t *e, const char *id) {
    }
    g_mutex_unlock(&e->lock);
 }
+
 size_t rr_audio_engine_pending(rr_audio_engine_t *e, const char *id) {
    if (!e || !id) {
       return 0;
@@ -634,6 +652,7 @@ size_t rr_audio_engine_pending(rr_audio_engine_t *e, const char *id) {
 
    return queued;
 }
+
 bool rr_audio_engine_input_gain(rr_audio_engine_t *e, const char *id, unsigned channel, double db) {
    if (!e || !id || channel >= 2 || !isfinite(db) || db < -60 || db > 12) {
       return false;
@@ -649,6 +668,7 @@ bool rr_audio_engine_input_gain(rr_audio_engine_t *e, const char *id, unsigned c
 
    return s != NULL;
 }
+
 double rr_audio_engine_input_gain_get(rr_audio_engine_t *e, const char *id, unsigned channel) {
    if (!e || !id || channel >= 2) {
       return 0.0;
@@ -660,6 +680,7 @@ double rr_audio_engine_input_gain_get(rr_audio_engine_t *e, const char *id, unsi
 
    return db;
 }
+
 bool rr_audio_engine_route_preserve(rr_audio_engine_t *e, const char *id, char route) {
    if (!e || !id || !strchr("LRSM", route)) {
       return false;
@@ -674,6 +695,7 @@ bool rr_audio_engine_route_preserve(rr_audio_engine_t *e, const char *id, char r
 
    return s != NULL;
 }
+
 bool rr_audio_engine_reset_stream(rr_audio_engine_t *e, const char *id) {
    if (!e || !id) {
       return false;
@@ -690,6 +712,7 @@ bool rr_audio_engine_reset_stream(rr_audio_engine_t *e, const char *id) {
 
    return s != NULL;
 }
+
 void rr_audio_engine_gain(rr_audio_engine_t *e, unsigned channel, int percent) {
    if (!e || channel > 1) {
       return;
@@ -712,6 +735,7 @@ bool rr_audio_engine_port_gain(rr_audio_engine_t *e, bool sink_input, unsigned c
 
    return true;
 }
+
 double rr_audio_engine_port_gain_get(rr_audio_engine_t *e, bool sink_input, unsigned channel) {
    if (!e || channel > 1) {
       return 0.;

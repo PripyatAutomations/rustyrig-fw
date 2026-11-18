@@ -105,9 +105,11 @@ bool rrserver_quota_matches(const char *pattern, const char *name) {
 static uint64_t add_saturated(uint64_t a, uint64_t b) {
    return a > INT64_MAX - b ? INT64_MAX : a + b;
 }
+
 static uint64_t total_bytes(const struct rr_traffic *traffic) {
    return add_saturated(add_saturated(traffic->tx_text_bytes, traffic->tx_binary_bytes), add_saturated(traffic->rx_text_bytes, traffic->rx_binary_bytes));
 }
+
 static bool usage_flush(rrconn_t *peer) {
    if (!peer || !peer->user || !peer->authenticated || !masterdb) {
       return false;
@@ -351,6 +353,7 @@ void rrserver_usage_quota(rrconn_t *requester, const char *command, int argc, ch
       usage_show(requester, name);
    }
 }
+
 #else
 static void usage_whois(const char *event, const char *data, rrconn_t *requester, void *user) {
    (void)event;
@@ -362,17 +365,20 @@ static void usage_whois(const char *event, const char *data, rrconn_t *requester
    }
    dict_free(reply);
 }
+
 bool rrserver_usage_flush_user(const char *name) {
    (void)name;
 
    return true;
 }
+
 void rrserver_usage_quota(rrconn_t *requester, const char *command, int argc, char **argv) {
    (void)requester;
    (void)command;
    (void)argc;
    (void)argv;
 }
+
 #endif
 
 void rrserver_usage_register_events(void) {

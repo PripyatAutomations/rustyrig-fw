@@ -49,4 +49,5 @@ static inline void rr_gtk_tree_stripe_cell(GtkTreeViewColumn *column, GtkCellRen
       gtk_tree_path_free(path);
    }
 }
+
 #endif

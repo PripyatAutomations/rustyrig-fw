@@ -26,15 +26,19 @@ struct rr_user *global_userlist;
 const char *rrserver_gps_public_scope(const char *alias) {
    return alias;
 }
+
 bool rrserver_gps_source_fixed(const char *alias) {
    return false;
 }
+
 rrconn_t *rrclient_connection_find(const char *profile) {
    return ws_conn;
 }
+
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return "test";
 }
+
 void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
    callback(data);
 }
@@ -68,6 +72,7 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
 
    return true;
 }
+
 bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, int type) {
    (void)sender;
    assert(type == WEBSOCKET_OP_BINARY);
@@ -85,12 +90,14 @@ bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, i
 
    return true;
 }
+
 int32_t rr_cat_parse_line(char *line) {
    (void)line;
    assert(false);
 
    return 0;
 }
+
 const dict *rrclient_object_find_alias(const char *t, const char *o, const char *a) {
    (void)t;
    (void)o;
@@ -98,33 +105,39 @@ const dict *rrclient_object_find_alias(const char *t, const char *o, const char 
 
    return NULL;
 }
+
 const dict *rrclient_object_property(const char *u, const char *n) {
    (void)u;
    (void)n;
 
    return NULL;
 }
+
 const char *vfo_state_get(const char *v, const char *k, const char *d) {
    (void)v;
    (void)k;
 
    return d;
 }
+
 long vfo_state_get_long(const char *v, const char *k, long d) {
    (void)v;
    (void)k;
 
    return d;
 }
+
 bool vfo_state_get_bool(const char *v, const char *k, bool d) {
    (void)v;
    (void)k;
 
    return d;
 }
+
 char vfo_state_get_active(void) {
    return 'A';
 }
+
 void ui_print(const char *w, const char *f, ...) {
    (void)w;
    (void)f;
@@ -136,6 +149,7 @@ static void pump(void) {
    }
    g_usleep(1000);
 }
+
 static void transfer(int source, int sink, const unsigned char *data, size_t len) {
    unsigned char received[131072];
    assert(len <= sizeof(received));
@@ -171,6 +185,7 @@ static void transfer(int source, int sink, const unsigned char *data, size_t len
       pump();
    }
 }
+
 static void control(rrconn_t *client, const char *cmd, const char *name, const char *path) {
    dict *d = dict_new();
    dict_add(d, "msg.type", "serial");
@@ -183,6 +198,7 @@ static void control(rrconn_t *client, const char *cmd, const char *name, const c
    send_request(client, d);
    dict_free(d);
 }
+
 int main(int argc, char **argv) {
    assert(argc == 2);
    int master, slave;

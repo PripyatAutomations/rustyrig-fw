@@ -19,6 +19,7 @@ bool rrserver_backlight_control(int request, rr_backlight_state_t *state) {
 
    return false;                /* simulate a non-Pi: no bogus display control exported */
 }
+
 static bool read_speaker(void *ctx, int *value, int *lo, int *hi) {
    (void)ctx;
    *value = speaker;
@@ -27,12 +28,14 @@ static bool read_speaker(void *ctx, int *value, int *lo, int *hi) {
 
    return true;
 }
+
 static bool write_speaker(void *ctx, int value) {
    (void)ctx;
    speaker = value;
 
    return true;
 }
+
 static bool visit(const rr_platform_control_state_t *s, void *ctx) {
    (void)ctx;
    assert(!strcmp(s->name, "audio.speaker.volume"));
@@ -41,6 +44,7 @@ static bool visit(const rr_platform_control_state_t *s, void *ctx) {
 
    return false;
 }
+
 int main(void) {
    static const rr_platform_control_t output = {
       .name = "audio.speaker.volume", .label = "Speaker Volume", .unit = "%",

@@ -97,6 +97,7 @@ void rr_mesh_verify_record(const char *ingress, enum rr_mesh_verify_result resul
          failures_window, mesh_verify_names[result]);
    }
 }
+
 void rr_mesh_verify_profile_append(GString *report) {
    if (!report) {
       return;
@@ -129,7 +130,6 @@ void rr_mesh_verify_profile_append(GString *report) {
             unsigned long long)peer->totals[4], (unsigned long long)peer->totals[5]);
    }
 }
-
 
 static bool catalog_mutation_fresh(dict *d, const char *owner) {
    if (strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) {
@@ -375,6 +375,7 @@ void rr_relay_send_owned_ttl(const char *dest, const char *owner, const char *ki
    free(json);
    dict_free(mutation);
 }
+
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
    rr_relay_send_owned_ttl(dest, owner, kind, payload, -1);
 }
@@ -682,6 +683,7 @@ static relay_sync_health_t *relay_sync_peer(const char *node) {
 
    return p;
 }
+
 void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
    relay_sync_health_t *p = relay_sync_peer(node);
 
@@ -768,6 +770,7 @@ static void revocation_send_neighbor(const char *peer, void *arg) {
       rr_relay_send_owned_ttl(peer, v->owner, "identity-revocation", v->notice, v->ttl);
    }
 }
+
 static void revocation_forward(const char *from, const char *owner, dict *notice, int ttl) {
    revocation_fanout_t fanout = {
       from, owner, notice, ttl
@@ -1938,7 +1941,6 @@ void rrserver_relay_fini(void) {
    rr_relay_initialized = false;
    rr_relay_users_reset();
 }
-
 
 /* Visit borrowed remote sessions synchronously on the server thread. */
 void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *data) {

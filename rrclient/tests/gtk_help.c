@@ -16,6 +16,7 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
 
    return NULL;
 }
+
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
    (void)tab;
 }
@@ -35,6 +36,7 @@ client_cmd_t client_cmds[] = {
 bool media_have_priv(const char *priv) {
    return staff;
 }
+
 static char *contents(void) {
    GtkWidget *view = NULL;
    GQueue queue = G_QUEUE_INIT;
@@ -61,6 +63,7 @@ static char *contents(void) {
 
    return gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
 }
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);

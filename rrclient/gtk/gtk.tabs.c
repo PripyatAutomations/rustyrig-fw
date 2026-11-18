@@ -17,6 +17,7 @@ static void rr_adaptive_notebook_width(GtkWidget *widget, gint *minimum, gint *n
    GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class)->get_preferred_width(widget, minimum, natural);
    *minimum = MIN(*minimum, 320);
 }
+
 static void rr_adaptive_notebook_width_for_height(GtkWidget *widget, gint height, gint *minimum, gint *natural) {
    GtkWidgetClass *parent = GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class);
 
@@ -27,18 +28,20 @@ static void rr_adaptive_notebook_width_for_height(GtkWidget *widget, gint height
    }
    *minimum = MIN(*minimum, 320);
 }
+
 static void rr_adaptive_notebook_class_init(RRAdaptiveNotebookClass *klass) {
    GtkWidgetClass *widget = GTK_WIDGET_CLASS(klass);
    widget->get_preferred_width = rr_adaptive_notebook_width;
    widget->get_preferred_width_for_height = rr_adaptive_notebook_width_for_height;
 }
+
 static void rr_adaptive_notebook_init(RRAdaptiveNotebook *self) {
    (void)self;
 }
+
 GtkWidget *rr_adaptive_notebook_new(void) {
    return g_object_new(rr_adaptive_notebook_get_type(), NULL);
 }
-
 
 /* Native side tabs wrap their label in an event box; wrapped tabs keep it directly. */
 static GtkWidget *tab_source_label(GtkNotebook *notebook, GtkWidget *page) {
@@ -625,6 +628,7 @@ static void tabs_width_pressure_chain(GtkWidget *widget, GString *out) {
       widget = widest;
    }
 }
+
 static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    GtkWidget *viewport = GTK_WIDGET(data);
    gint visible = gtk_widget_get_allocated_width(viewport);

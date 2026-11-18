@@ -35,12 +35,15 @@ static rr_serial_t *ports;
 const char *rr_serial_name(const rr_serial_t *p) {
    return p ? p->name : NULL;
 }
+
 const char *rr_serial_path(const rr_serial_t *p) {
    return p ? p->path : NULL;
 }
+
 int rr_serial_fd(const rr_serial_t *p) {
    return p ? p->fd : -1;
 }
+
 rr_serial_t *rr_serial_find(const char *name) {
    for (rr_serial_t *p = ports ; p ; p = p->next) {
       if (name && !strcmp(name, p->name)) {
@@ -50,6 +53,7 @@ rr_serial_t *rr_serial_find(const char *name) {
 
    return NULL;
 }
+
 void rr_serial_foreach(rr_serial_visit_fn visit, void *user) {
    if (visit) {
       for (rr_serial_t *p = ports ; p ; p = p->next) {
@@ -182,6 +186,7 @@ void rr_serial_read_enabled(rr_serial_t *p, bool enabled) {
       p->input = g_io_add_watch(p->channel, G_IO_IN | G_IO_ERR | G_IO_HUP, readable, p);
    }
 }
+
 bool rr_serial_set_buffer_limit(rr_serial_t *p, size_t bytes) {
    if (!p || bytes < 1024 || bytes > 1048576 || p->pending->len > bytes) {
       return false;
@@ -190,6 +195,7 @@ bool rr_serial_set_buffer_limit(rr_serial_t *p, size_t bytes) {
 
    return true;
 }
+
 size_t rr_serial_pending_bytes(const rr_serial_t *p) {
    return p ? p->pending->len : 0;
 }
@@ -203,6 +209,7 @@ bool rr_serial_get_settings(const rr_serial_t *p, rr_serial_settings_t *settings
 
    return p && rr_serial_settings_read(p->keeper >= 0 ? p->keeper : p->fd, settings);
 }
+
 bool rr_serial_set_settings(rr_serial_t *p, const rr_serial_settings_t *settings) {
    if (p && p->file && settings) {
       p->file_settings = *settings;
@@ -272,6 +279,7 @@ void rr_serial_close(rr_serial_t *p) {
    free(p->slave);
    free(p);
 }
+
 void rr_serial_shutdown(void) {
    while (ports) {
       rr_serial_close(ports);
