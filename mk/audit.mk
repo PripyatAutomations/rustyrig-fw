@@ -6,7 +6,15 @@ AUDIT_TIDY_JOBS ?= 4
 ifndef AUDIT_DIR
 AUDIT_DIR := security/audit-logs/$(shell date +%Y%m%d.%H%M%S)
 endif
-audit_files = $(wildcard rrclient/*.[ch] rrserver/*.[ch] fwdsp/*.[ch])
+# All RustyRig-owned source directories, including nested frontend sources.
+AUDIT_SOURCE_DIRS := $(foreach dir,rrclient rrserver fwdsp libfwdspmgr librrsdrutils rrbridge rrsdrbridge rrpipelines,$(if $(wildcard $(dir)),$(dir)))
+audit_files = $(shell find $(AUDIT_SOURCE_DIRS) -type f \( -name '*.c' -o -name '*.h' \) -print)
+AUDIT_TIDY_FILTER := '^(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/.*[.]c$'
+
+# Invalidate objects without make -B, which forces configuration-file recipes.
+define audit-invalidate-objects
+@if test -d build; then find build -type f -name '*.o' -delete; fi
+endef
 # Use only translation units that were actually compiled.  Passing directory
 # globs directly to clang-tidy makes it invent command lines for generated
 # headers and files from the wrong build profile.  The compile database also
@@ -17,7 +25,7 @@ audit_files = $(wildcard rrclient/*.[ch] rrserver/*.[ch] fwdsp/*.[ch])
 # separately in the same audit.
 AUDIT_TIDY_CHECKS ?= clang-analyzer-core-*,clang-analyzer-unix-*,clang-analyzer-deadcode.*,bugprone-*,-bugprone-narrowing-conversions,-bugprone-casting-through-void,-bugprone-easily-swappable-parameters,-bugprone-multi-level-implicit-pointer-conversion,-bugprone-signal-handler,-performance-no-int-to-ptr,-clang-analyzer-security.insecureAPI.*,performance-*,portability-*
 
-.PHONY: audit audit-init audit-scanbuild audit-printf audit-cppcheck audit-flawfinder audit-deps
+.PHONY: audit audit-init audit-scanbuild audit-printf audit-cppcheck audit-flawfinder audit-deps audit-invalidate-objects audit-clang-tidy clang-tidy
 
 audit: audit-init
 	@status=0; \
@@ -30,16 +38,20 @@ audit: audit-init
 	exit $$status
 
 audit-init:
-	@mkdir -p "$(AUDIT_DIR)"
+	@mkdir -p "$(AUDIT_DIR)" security/audit-logs
 	@ln -sfn "$(notdir $(AUDIT_DIR))" security/audit-logs/latest
 	@printf 'RustyRig audit run %s\n' "$(AUDIT_DIR)" > "$(AUDIT_DIR)/README"
 	@printf 'Full analyzer output is stored in this directory.\n' >> "$(AUDIT_DIR)/README"
 
-# audit-scanbuild MUST run first because it starts with a clean build.
+audit-invalidate-objects:
+	$(audit-invalidate-objects)
+
+# scan-build must actually recompile sources, even after a normal build.
 audit-scanbuild: audit-init
 	@echo "*** scan-build audit (full log: $(AUDIT_DIR)/scanbuild.log) ***"
 	@command -v "$(SCANBUILD)" >/dev/null 2>&1 || { echo "$(SCANBUILD) not installed; audit skipped" > "$(AUDIT_DIR)/scanbuild.log"; echo "$(SCANBUILD) not installed (skipped)"; exit 0; }
-	@"$(SCANBUILD)" $(MAKE) -j4 world > "$(AUDIT_DIR)/scanbuild.log" 2>&1; rc=$$?; \
+	@$(MAKE) --no-print-directory audit-invalidate-objects
+	@"$(SCANBUILD)" $(MAKE) -j4 world > "$(AUDIT_DIR)/scanbuild.log" 2>&1; rc=$?; \
 		echo "scan-build exit status: $$rc" >> "$(AUDIT_DIR)/scanbuild.log"; \
 		tail -n 12 "$(AUDIT_DIR)/scanbuild.log"; exit $$rc
 
@@ -76,7 +88,8 @@ audit-flawfinder: audit-init
 compile_commands.json:
 	@command -v bear >/dev/null 2>&1 || { echo 'bear is required to create compile_commands.json' >&2; exit 1; }
 	@rm -f compile_commands.json
-	@bear -- make world || { rc=$$?; rm -f compile_commands.json; exit $$rc; }
+	@$(MAKE) --no-print-directory audit-invalidate-objects
+	@bear -- $(MAKE) -j4 world || { rc=$$?; rm -f compile_commands.json; exit $$rc; }
 	@test -s compile_commands.json || { rm -f compile_commands.json; echo 'bear produced an empty compile database' >&2; exit 1; }
 
 clang-tidy: compile_commands.json audit-init
@@ -87,12 +100,12 @@ clang-tidy: compile_commands.json audit-init
 	if command -v "$(CLANG_TIDY_RUNNER)" >/dev/null 2>&1; then \
 		"$(CLANG_TIDY_RUNNER)" -p . -j "$(AUDIT_TIDY_JOBS)" -quiet -use-color false \
 			-checks '$(AUDIT_TIDY_CHECKS)' \
-			-header-filter '^$(CURDIR)/(rrclient|rrserver|libfwdspmgr|fwdsp)/' \
-			'rrclient/.*|rrserver/.*|libfwdspmgr/.*|fwdsp/.*' > "$$raw" 2>&1; rc=$$?; \
+			-header-filter '^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/' \
+			$(AUDIT_TIDY_FILTER) > "$raw" 2>&1; rc=$$?; \
 	else \
-		files=$$(find rrclient rrserver libfwdspmgr fwdsp -maxdepth 1 -type f -name '*.c' -print); \
+		files=$$(find $(AUDIT_SOURCE_DIRS) -type f -name '*.c' -print); \
 		clang-tidy -p . --quiet --use-color=false -checks='$(AUDIT_TIDY_CHECKS)' \
-			-header-filter='^$(CURDIR)/(rrclient|rrserver|libfwdspmgr|fwdsp)/' \
+			-header-filter='^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/' \
 			$$files > "$$raw" 2>&1; rc=$$?; \
 	fi; \
 	sed -E '/^[[:space:]]*[0-9]+ warnings generated\.$$/d; /^[[:space:]]*\[[[:space:]]*[0-9]+\/[0-9]+\]\[[^]]+\] clang-tidy-/d; /^[[]([0-9]+)\/[0-9]+[]] Processing file /d' "$$raw" > "$(AUDIT_DIR)/clang-tidy.log"; \
