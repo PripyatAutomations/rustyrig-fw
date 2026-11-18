@@ -1,3 +1,7 @@
+rustyrig-fw (1.0.4) testing; urgency=medium
+  * Human audit and review of the project
+  * Improvement to indenting/formatter configurations
+
 rustyrig-fw (1.0.3) testing; urgency=medium
 
   * Fix New Server and Edit Server actions appearing unresponsive when

@@ -95,3 +95,53 @@ rrserver: A way to export a GPIO as RELAY | SWITCH | other types to clients
 
 rrbridge: More connectors!
 
+
+--------
+WISHLIST
+--------
+rrclient: Can we make the tab list wrap to multiple rows?
+
+* Mesh style multi-peer linking
+  - Each server should be able to peer to any number of peers
+  - We should track latency, loss, weight, etc metrics for each hop
+  - Build shortest path and lowest latency route cache
+  - Some algorithm to decide which paths to send messages to
+    such that they'll reach all subscribed nodes without duplication
+    or sending down unrelated tree branches
+  - Attempt re-routing internally as needed due to loss or latency
+
+* GUI pipeline composer/editor for gstreamer
+
+* Object browser / subscription manager UI
+
+* sercom/gps manager UI
+
+* Repeater module for rrserver
+
+* add a default off config option ui.gtk.scale-on-resize
+  - change the scaling as the window resize is attempted, so the window isnt constrained to a minimum size
+  - shrink/grow stuff to fit the window size selected by the user.
+
+--
+If someone else sends TX audio into the VFO, we want to hear it.
+We don't need to hear our talk-back audio.
+--
+Let improve the websdr.listen privs a little to let them join a rig someone
+else connected up, but part them from it when the last person with the
+privileged needed to create it leaves. We should tell them they were removed
+because the admin left the room
+--
+* split librrprotocol to a loadable module
+* move irc to a loadable module that extends librustyaxe
+  - keep it able to link builtin (non-dlmod)
+
+
+* Simple 'scripts' -- more like batch files for stuff that would have been typed into chat box --
+  - see /exec -e which runs a command and interprets as a batch / chat input (parse / and ! commands); 
+    - maybe /exec -e !file | !"file" syntax? or maybe -c for cat?
+  - This would let us setup our quick tasks like:
+    ON CONNECT rplywv00 EXEC -c scripts/rplywv00.connect
+    ON CONNECT rplywv00.rig0 EXEC -c scripts/rplywv00.rig0.connect
+ 
+  Those scripts can contain anything the user could input at the chat input prompt presently
+  The functionality already exists mostly in /exec -e to run another process, we would make -c just read a file

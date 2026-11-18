@@ -1,9 +1,9 @@
 # Independently managed rrpk source checkouts must never be vendored here.
 # PSK and Olivia sources are fetched here by make -C modems.
 /ext/
-/librustyaxe/
-/librrprotocol/
-/callsign-lookup/
+#/librustyaxe/
+#/librrprotocol/
+#/callsign-lookup/
 
 .env
 
