@@ -851,7 +851,9 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    p->source_inventory = g_string_free(inventory, FALSE);
    const char *prior = gtk_combo_box_get_active_id(GTK_COMBO_BOX(p->source));
    char saved[64] = "";
-   if (prior) g_strlcpy(saved, prior, sizeof(saved));
+   if (prior) {
+      g_strlcpy(saved, prior, sizeof(saved));
+   }
    p->source_refreshing = true;
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(p->source));
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
@@ -861,15 +863,21 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    bool present = false;
    for (uint32_t i = 0 ; i < snapshot->count ; i++) {
       const struct rrclient_rx_stream *stream = &snapshot->streams[i];
-      if (!memchr(stream->id, 0, sizeof(stream->id))) continue;
+      if (!memchr(stream->id, 0, sizeof(stream->id))) {
+         continue;
+      }
+
       if (!strcmp(stream->id, "left") || !strcmp(stream->id, "right") ||
           !strcmp(stream->id, "mixed") || !strcmp(stream->id, "stereo")) continue;
       char label[256];
       g_snprintf(label, sizeof(label), "%s / %s (%c)", stream->server, stream->room,
          stream->output ? stream->output : 'S');
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), stream->id, label);
-      if (!strcmp(saved, stream->id)) present = true;
+      if (!strcmp(saved, stream->id)) {
+         present = true;
+      }
    }
+
    if (!strcmp(saved, "stereo") || !strcmp(saved, "mixed") ||
        !strcmp(saved, "left") || !strcmp(saved, "right")) present = true;
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), present ? saved : "stereo");
@@ -952,14 +960,10 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   GtkWidget *sources_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    GtkWidget *settings_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   gtk_box_pack_start(GTK_BOX(toolbar), sources_row, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
    p->source_mode = 'M';
    p->max_hz = RR_AF_MAX_HZ;
-   p->modem_rx_hz = waterfall_pref("modem.af.rx-offset-hz", 1500, RR_AF_MAX_HZ);
-   p->modem_tx_hz = waterfall_pref("modem.af.tx-offset-hz", 1500, RR_AF_MAX_HZ);
    p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
    p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
    p->source = gtk_combo_box_text_new();
@@ -970,7 +974,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "right", "Right (heard)");
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), "mixed");
    gtk_widget_set_tooltip_text(p->source, "Select final speaker channels or an individual graph stream (before routing)");
-   gtk_box_pack_start(GTK_BOX(sources_row), p->source, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(settings_row), p->source, FALSE, FALSE, 0);
    /* Per-window style/palette are selected by right-click, not global
     * combo boxes; show only stream picker and compact ear/gain controls. */
    GtkWidget *gain_label = gtk_label_new("Gain");
@@ -990,35 +994,6 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_widget_set_size_request(p->ear, 90, -1);
    gtk_widget_set_tooltip_text(p->ear, "Ear: Left / Mix / Right");
    gtk_box_pack_start(GTK_BOX(settings_row), p->ear, FALSE, FALSE, 0);
-   /* Editable spin buttons occupy the former dialog button's toolbar space.
-    * Allow a little extra width for 4 digits plus the +/- arrows. */
-   GtkWidget *rx_label = gtk_label_new("RX");
-   GtkWidget *tx_label = gtk_label_new("TX");
-   p->modem_rx_spin = gtk_spin_button_new_with_range(0, RR_AF_MAX_HZ, 1);
-   p->modem_tx_spin = gtk_spin_button_new_with_range(0, RR_AF_MAX_HZ, 1);
-   gtk_entry_set_width_chars(GTK_ENTRY(p->modem_rx_spin), 5);
-   gtk_entry_set_width_chars(GTK_ENTRY(p->modem_tx_spin), 5);
-   gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(p->modem_rx_spin), TRUE);
-   gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(p->modem_tx_spin), TRUE);
-   gtk_spin_button_set_increments(GTK_SPIN_BUTTON(p->modem_rx_spin), 1, 50);
-   gtk_spin_button_set_increments(GTK_SPIN_BUTTON(p->modem_tx_spin), 1, 50);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(p->modem_rx_spin), p->modem_rx_hz);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(p->modem_tx_spin), p->modem_tx_hz);
-   gtk_widget_set_tooltip_text(p->modem_rx_spin, "RX audio offset (Hz); left-click waterfall to select");
-   gtk_widget_set_tooltip_text(p->modem_tx_spin, "TX audio offset (Hz); Shift+left-click waterfall to select");
-   gtk_box_pack_start(GTK_BOX(settings_row), rx_label, FALSE, FALSE, 2);
-   gtk_box_pack_start(GTK_BOX(settings_row), p->modem_rx_spin, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(settings_row), tx_label, FALSE, FALSE, 2);
-   gtk_box_pack_start(GTK_BOX(settings_row), p->modem_tx_spin, FALSE, FALSE, 0);
-   g_signal_connect(p->modem_rx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
-   g_signal_connect(p->modem_tx_spin, "value-changed", G_CALLBACK(af_spin_changed), p);
-   GtkWidget *modem_manager = gtk_button_new_with_label("Routing…");
-   gtk_widget_set_tooltip_text(modem_manager,
-      "Manage modem RX/TX and PTT connections in Routing");
-   gtk_box_pack_start(GTK_BOX(settings_row), modem_manager, FALSE, FALSE, 3);
-   g_signal_connect_swapped(modem_manager, "clicked",
-                            G_CALLBACK(gtk_decoders_show), NULL);
-
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
    gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK |
@@ -1833,6 +1808,7 @@ static void rf_destroy(gpointer data) {
    if (p->remote_catalog_token) event_off_token(p->remote_catalog_token);
    g_free(p);
 }
+
 GtkWidget *rr_gtk_rf_spectrum_new(void) {
    rf_strip_t *p = g_new0(rf_strip_t, 1);
    p->rf_enabled = true;
