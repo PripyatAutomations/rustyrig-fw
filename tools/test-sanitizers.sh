@@ -27,7 +27,7 @@ rr_test_prepare_build() {
         printf '%s\n' "$build_key" > "$stamp"
     fi
     if [[ -n "$flags" ]]; then
-        mkdir -p "$rr_test_root/audit-logs"
+        mkdir -p "$rr_test_root/security/audit-logs"
         if [[ "$flags" == *address* ]]; then
             # A sanitized module can be loaded by an otherwise unsanitized host
             # (or a stale mixed-mode executable). Ensure libasan precedes plugins.
