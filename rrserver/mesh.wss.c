@@ -663,7 +663,7 @@ bool rr_mesh_wss_init(const char *cert, const char *key, rr_mesh_pin_fn trust) {
 
    if (SSL_CTX_set_min_proto_version(tls, TLS1_3_VERSION) != 1 ||
       SSL_CTX_set_max_proto_version(tls, TLS1_3_VERSION) != 1 || !tls_configure_ciphers(tls, ciphers)) {
-      Log(LOG_ERROR, "mesh.native", "TLS 1.3 unavailable or invalid net.tls.allowed-ciphers: %s", ciphers ? ciphers : "(unset)");
+      Log(LOG_CRIT, "mesh.native", "TLS 1.3 unavailable or invalid net.tls.allowed-ciphers: %s", ciphers ? ciphers : "(unset)");
       SSL_CTX_free(tls);
       tls = NULL;
 
