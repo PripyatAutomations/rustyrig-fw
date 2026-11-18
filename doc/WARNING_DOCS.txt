@@ -1,0 +1,8 @@
+This directory may contain out of date information.
+
+I hope to get a chance to review it and condense it into
+a proper user manual soon. Most of it is stuff I asked 
+my assistant to document as we went.
+
+
+V2.0 will bring a documentation overhaul and new webui
