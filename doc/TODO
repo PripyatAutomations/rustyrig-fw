@@ -1,5 +1,7 @@
 Immediate needs
 ---------------
+rrclient: Ctrl-0 should reset zoom to 100%
+
 [Audio rooms]
 * Implement rooms without VFO but mixed audio bus and PTT for audio chats
 
@@ -12,6 +14,11 @@ Immediate needs
 
 [VFO widget]
 * mini view mode; same stuff just much smaller until double clicked
+* get rid of borders around 
+* allow docking controls into the VFO window
+
+[Config tab]
+* bottom buttons & tab strip go missing if we zoom in a bit
 
 [ON AIR / PTT OUTPUT]
 * Stray black line?
