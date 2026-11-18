@@ -239,8 +239,7 @@ const char *rr_sercom_binding(const char *name) {
 
 /* Bind host tunnels and CAT commands to their originating server. */
 static rrconn_t *binding_connection(const serial_binding_t *b) {
-   return b->profile[0] ? rrclient_connection_find(b->profile) :
-      rrclient_connection_context();
+   return b->profile[0] ? rrclient_connection_find(b->profile) : rrclient_connection_context();
 }
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    serial_binding_t *b = binding(name);
@@ -345,19 +344,20 @@ static gboolean gps_invalid_tick(gpointer unused) {
 static void host_command(serial_binding_t *b, const char *command);
 static void host_sync(serial_binding_t *b);
 
-/* ttyMODEM is an alias for the chosen server modem, independent of rig
- * numbering. Keep existing ttyMODEMN behavior as the default fallback.
- * The selection is per rig and lives in the ordinary client config.
+/* ttyMODEM is an alias for the chosen server modem, independent of rig numbering. Keep existing ttyMODEMN behavior as the default fallback. The selection is
+ * per rig and lives in the ordinary client config.
  */
 static bool modem_port_valid(const char *name) {
    if (!name || !g_str_has_prefix(name, "ttyMODEM") || !name[8]) {
       return false;
    }
+
    for (const char *p = name + 8 ; *p ; p++) {
       if (!g_ascii_isdigit(*p)) {
          return false;
       }
    }
+
    return strlen(name) < 64;
 }
 static void modem_target(const char *radio, char *target, size_t length) {
@@ -371,13 +371,14 @@ static void modem_target(const char *radio, char *target, size_t length) {
       snprintf(target, length, "ttyMODEM%s", radio + 3);
    }
 }
-/* A changed selection must close the old stream and discard outstanding
- * application bytes before opening the new one; keep the local PTY stable.
+
+/* A changed selection must close the old stream and discard outstanding application bytes before opening the new one; keep the local PTY stable.
  */
 static void modem_switch(serial_binding_t *b, const char *target, bool force) {
    if (!force && !strcmp(b->host_port, target)) {
       return;
    }
+
    if (b->stream) {
       host_command(b, "close");
    }
@@ -385,6 +386,7 @@ static void modem_switch(serial_binding_t *b, const char *target, bool force) {
    b->opening = b->tx_pending = b->rx_pending = b->failed = false;
    b->retry_seconds = 0;
    b->next_retry_us = b->open_started_us = 0;
+
    if (b->host_pending) {
       g_byte_array_set_size(b->host_pending, 0);
    }
@@ -396,8 +398,8 @@ static void modem_switch(serial_binding_t *b, const char *target, bool force) {
 }
 bool rr_sercom_select_modem(const char *port) {
    serial_binding_t *b = binding("ttyMODEM");
-   if (!b || strcmp(b->service, "rig.modem") || !modem_port_valid(port) ||
-       !g_str_has_prefix(b->radio, "rig")) {
+
+   if (!b || strcmp(b->service, "rig.modem") || !modem_port_valid(port) || !g_str_has_prefix(b->radio, "rig")) {
       return false;
    }
    char key[128];
@@ -406,21 +408,27 @@ bool rr_sercom_select_modem(const char *port) {
    modem_switch(b, port, false);
    host_sync(b);
    Log(LOG_INFO, "serial.modem", "ttyMODEM on %s now selects %s", b->radio, port);
+
    return true;
 }
 
-/* GUI consumers never touch serial_binding_t or connection state from GTK.
- * The core handles selection and publishes a value-only snapshot.
+/* GUI consumers never touch serial_binding_t or connection state from GTK. The core handles selection and publishes a value-only snapshot.
  */
 static void remote_modem_request(const rr_event_message_t *message, void *user) {
    (void)user;
-   if (!message || !message->payload ||
-       message->length != sizeof(rr_sercom_modem_request_t)) return;
+
+   if (!message || !message->payload || message->length != sizeof(rr_sercom_modem_request_t)) {
+      return;
+   }
    const rr_sercom_modem_request_t *request = message->payload;
-   rr_sercom_modem_snapshot_t snapshot = {0};
+   rr_sercom_modem_snapshot_t snapshot = {
+      0
+   };
    serial_binding_t *b = binding("ttyMODEM");
+
    if (b && !strcmp(b->service, "rig.modem")) {
       snapshot.attached = true;
+
       if (memchr(request->target, 0, sizeof(request->target)) && request->target[0]) {
          snapshot.success = rr_sercom_select_modem(request->target);
       } else {
@@ -431,16 +439,19 @@ static void remote_modem_request(const rr_event_message_t *message, void *user) 
       g_strlcpy(snapshot.rig, b->radio, sizeof(snapshot.rig));
       g_strlcpy(snapshot.target, b->host_port, sizeof(snapshot.target));
       rr_sercom_info_t info;
-      if (rr_sercom_info("ttyMODEM", &info))
+
+      if (rr_sercom_info("ttyMODEM", &info)) {
          g_strlcpy(snapshot.state, info.state, sizeof(snapshot.state));
+      }
    }
    rr_event_message_t result = {
-      .name=RR_SERCOM_MODEM_SNAPSHOT,
-      .payload=&snapshot,
-      .length=sizeof(snapshot)
+      .name = RR_SERCOM_MODEM_SNAPSHOT,
+      .payload = &snapshot,
+      .length = sizeof(snapshot)
    };
    event_emit_message(&result);
 }
+
 /* The default PTYs follow the rig room selected by the frontend. Dedicated numbered ports retain their configured server and rig. */
 void rr_sercom_focus_room(const char *profile, const char *room) {
    if (!profile || !*profile || !room) {
@@ -490,14 +501,17 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
          continue;
       }
 
-      char modem_port[64] = {0};
+      char modem_port[64] = {
+         0
+      };
+
       if (modem) {
          modem_target(alias, modem_port, sizeof(modem_port));
       }
+
       if (!strcmp(b->profile, profile) &&
-          (gps ? !strcmp(b->focus_room, room) :
-             !strcmp(b->radio, alias) && (!cat || !strcmp(b->focus_room, room))) &&
-          (!modem || !strcmp(b->host_port, modem_port))) {
+         (gps ? !strcmp(b->focus_room, room) :
+         !strcmp(b->radio, alias) && (!cat || !strcmp(b->focus_room, room))) && (!modem || !strcmp(b->host_port, modem_port))) {
          continue;
       }
 
@@ -530,22 +544,33 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
 }
 
 rrconn_t *rr_cat_connection(void) {
-   if (!cat_context) return NULL;
+   if (!cat_context) {
+      return NULL;
+   }
    rrconn_t *connection = binding_connection(cat_context);
-   return connection && connection->authenticated && connection->is_ws ?
-      connection : NULL;
+
+   return connection && connection->authenticated && connection->is_ws ? connection : NULL;
 }
 static const dict *cat_radio(void) {
-   if (!rr_cat_connection() || !cat_context->radio[0]) return NULL;
+   if (!rr_cat_connection() || !cat_context->radio[0]) {
+      return NULL;
+   }
+
    return rrclient_object_find_alias("rig", NULL, cat_context->radio);
 }
 const char *rr_cat_room(void) {
-   if (!rr_cat_connection()) return NULL;
+   if (!rr_cat_connection()) {
+      return NULL;
+   }
+
    /* A numbered endpoint is resolved using the catalog of its *own*
     * connection. Never infer its target from the selected global room. */
-   if (cat_context->focus_room[0]) return cat_context->focus_room;
+   if (cat_context->focus_room[0]) {
+      return cat_context->focus_room;
+   }
    const dict *radio = cat_radio();
-   const char *room = radio ? dict_get((dict *)radio, "object.room", NULL) : NULL;
+   const char *room = radio ? dict_get((dict *) radio, "object.room", NULL) : NULL;
+
    return room && *room ? room : NULL;
 }
 static const dict *cat_property(const char *vfo, const char *property) {
@@ -700,9 +725,9 @@ static void host_command(serial_binding_t *b, const char *command) {
 static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings_t *b) {
    return a->baud != b->baud || a->bits != b->bits || a->parity != b->parity || a->stops != b->stops;
 }
-/* RX modem attachment is independent of CAT mode. In particular M-U/M-L,
- * ordinary USB/LSB and FM must not be blocked by a D-U/D-L-only test.
- * PTT/TX permission is enforced separately by rrserver.
+
+/* RX modem attachment is independent of CAT mode. In particular M-U/M-L, ordinary USB/LSB and FM must not be blocked by a D-U/D-L-only test. PTT/TX permission
+ * is enforced separately by rrserver.
  */
 static void host_sync(serial_binding_t *b) {
    if (!host_binding(b)) {
@@ -778,8 +803,7 @@ static void host_sync(serial_binding_t *b) {
       return;
    }
    /* Every WebSocket backend exposes rr_transport, including Mongoose. */
-   bool sent = connection->native_transport &&
-      rr_transport_send_binary_message(connection->native_transport, packet, (size_t)len) == RR_TRANSPORT_OK;
+   bool sent = connection->native_transport && rr_transport_send_binary_message(connection->native_transport, packet, (size_t)len) == RR_TRANSPORT_OK;
    free(packet);
 
    if (!sent) {
@@ -1069,8 +1093,9 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
 /* CAT originates from background software, not an interactive user action. Do not forward writes until the selected rig actually advertises the addressed VFO.
  * Reads remain available for Hamlib initialization. */
 static bool cat_target_ready(serial_binding_t *b, const char *cmd) {
-   if (!b->radio[0] || !rr_cat_connection() || !rr_cat_room())
+   if (!b->radio[0] || !rr_cat_connection() || !rr_cat_room()) {
       return false;
+   }
    const dict *radio = rrclient_object_find_alias("rig", NULL, b->radio);
 
    if (!radio) {
@@ -1120,11 +1145,12 @@ static void serial_cat_parse(void *data) {
 
       return;
    }
-   /* Reject all disconnected CAT commands, including PTT. In particular
-    * a null client must not trigger send helpers' default routing. */
+
+   /* Reject all disconnected CAT commands, including PTT. In particular a null client must not trigger send helpers' default routing. */
    if (!rr_cat_connection() || !rr_cat_room()) {
       Log(LOG_DEBUG, "cat", "%s: CAT target offline/unresolved", cat_context->name);
       cat_context = previous;
+
       return;
    }
    rr_cat_parse_line(cat_context->buffer);
@@ -1562,23 +1588,31 @@ bool rr_sercom_disconnect(const char *name) {
 
    return true;
 }
-/* Store numbered, pinned PTYs as real serial attachments. Their profile is
- * independent of the GUI-selected rrclient connection. */
+
+/* Store numbered, pinned PTYs as real serial attachments. Their profile is independent of the GUI-selected rrclient connection. */
 static rr_event_token_t remote_modem_token, vrig_bind_token;
 static bool vrig_valid(const char *rig) {
-   if (!rig || strncmp(rig, "rig", 3) || !rig[3]) return false;
-   for (const char *p = rig + 3; *p; p++)
-      if (!g_ascii_isdigit(*p)) return false;
+   if (!rig || strncmp(rig, "rig", 3) || !rig[3]) {
+      return false;
+   }
+
+   for (const char *p = rig + 3 ; *p ; p++) {
+      if (!g_ascii_isdigit(*p)) {
+         return false;
+      }
+   }
+
    return true;
 }
 static void vrig_restore(void) {
-   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+   for (unsigned i = 0 ; i < RR_SERCOM_VRIG_MAX ; i++) {
       char *key = g_strdup_printf("serial.vrig.%u.profile", i);
       char *profile = rrclient_database_setting_get(key);
       g_free(key);
       key = g_strdup_printf("serial.vrig.%u.rig", i);
       char *rig = rrclient_database_setting_get(key);
       g_free(key);
+
       if (profile && *profile && vrig_valid(rig)) {
          char cat[32], gps[32], cat_svc[64], gps_svc[64];
          g_snprintf(cat, sizeof(cat), "ttyCAT%u", i);
@@ -1586,12 +1620,16 @@ static void vrig_restore(void) {
          g_snprintf(cat_svc, sizeof(cat_svc), "%s.cat@38400", rig);
          g_snprintf(gps_svc, sizeof(gps_svc), "%s.gps-out@4800", rig);
          key = g_strdup_printf("serial.%s", cat);
-         if (!cfg_get(key) || !strcmp(cfg_get(key), cat_svc))
+
+         if (!cfg_get(key) || !strcmp(cfg_get(key), cat_svc)) {
             dict_add(cfg, key, cat_svc);
+         }
          g_free(key);
          key = g_strdup_printf("serial.%s", gps);
-         if (!cfg_get(key) || !strcmp(cfg_get(key), gps_svc))
+
+         if (!cfg_get(key) || !strcmp(cfg_get(key), gps_svc)) {
             dict_add(cfg, key, gps_svc);
+         }
          g_free(key);
       }
       g_free(profile);
@@ -1599,22 +1637,28 @@ static void vrig_restore(void) {
    }
 }
 static void vrig_apply_profiles(void) {
-   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+   for (unsigned i = 0 ; i < RR_SERCOM_VRIG_MAX ; i++) {
       char *key = g_strdup_printf("serial.vrig.%u.profile", i);
       char *profile = rrclient_database_setting_get(key);
       g_free(key);
       key = g_strdup_printf("serial.vrig.%u.rig", i);
       char *rig = rrclient_database_setting_get(key);
       g_free(key);
+
       if (profile && *profile && vrig_valid(rig)) {
-         const char *prefix[] = {"ttyCAT", "ttyGPS"};
-         for (unsigned j = 0; j < 2; j++) {
+         const char *prefix[] = {
+            "ttyCAT", "ttyGPS"
+         };
+
+         for (unsigned j = 0 ; j < 2 ; j++) {
             char port[32], service[64];
             g_snprintf(port, sizeof(port), "%s%u", prefix[j], i);
             g_snprintf(service, sizeof(service), j ? "%s.gps-out" : "%s.cat", rig);
             serial_binding_t *b = binding(port);
-            if (b && !strcmp(b->service, service))
+
+            if (b && !strcmp(b->service, service)) {
                g_strlcpy(b->profile, profile, sizeof(b->profile));
+            }
          }
       }
       g_free(profile);
@@ -1623,14 +1667,17 @@ static void vrig_apply_profiles(void) {
 }
 static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   rr_sercom_vrig_bind_result_t result = {0};
-   if (!message || !message->payload ||
-       message->length != sizeof(rr_sercom_vrig_bind_t)) return;
+   rr_sercom_vrig_bind_result_t result = {
+      0
+   };
+
+   if (!message || !message->payload || message->length != sizeof(rr_sercom_vrig_bind_t)) {
+      return;
+   }
    const rr_sercom_vrig_bind_t *req = message->payload;
    result.slot = req->slot;
-   if (req->slot >= RR_SERCOM_VRIG_MAX ||
-       !memchr(req->profile, 0, sizeof(req->profile)) ||
-       !memchr(req->rig, 0, sizeof(req->rig))) {
+
+   if (req->slot >= RR_SERCOM_VRIG_MAX || !memchr(req->profile, 0, sizeof(req->profile)) || !memchr(req->rig, 0, sizeof(req->rig))) {
       g_strlcpy(result.detail, "Invalid virtual rig request", sizeof(result.detail));
       goto reply;
    }
@@ -1645,30 +1692,33 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
    char cat[32], gps[32];
    g_snprintf(cat, sizeof(cat), "ttyCAT%u", req->slot);
    g_snprintf(gps, sizeof(gps), "ttyGPS%u", req->slot);
-   const char *names[2] = {cat, gps};
+   const char *names[2] = {
+      cat, gps
+   };
    bool owned = saved_profile && *saved_profile && vrig_valid(saved_rig);
-   /* Numbered ports may also be configured manually. A virtual rig must
-    * never silently steal or disconnect those endpoints. */
-   for (unsigned j = 0; j < 2; j++) {
+
+   /* Numbered ports may also be configured manually. A virtual rig must never silently steal or disconnect those endpoints. */
+   for (unsigned j = 0 ; j < 2 ; j++) {
       serial_binding_t *b = binding(names[j]);
       char expected[80];
-      g_snprintf(expected, sizeof(expected), "%s.%s",
-                 owned ? saved_rig : "", j ? "gps-out" : "cat");
-      if (b && (!owned || strcmp(b->service, expected) ||
-                strcmp(b->profile, saved_profile))) {
-         g_snprintf(result.detail, sizeof(result.detail),
-                    "%s is manually configured; detach it first", names[j]);
+      g_snprintf(expected, sizeof(expected), "%s.%s", owned ? saved_rig : "", j ? "gps-out" : "cat");
+
+      if (b && (!owned || strcmp(b->service, expected) || strcmp(b->profile, saved_profile))) {
+         g_snprintf(result.detail, sizeof(result.detail), "%s is manually configured; detach it first", names[j]);
          goto done;
       }
    }
 
    if (!req->profile[0] && !req->rig[0]) {
-      for (unsigned j = 0; j < 2; j++) {
-         if (binding(names[j])) rr_sercom_disconnect(names[j]);
+      for (unsigned j = 0 ; j < 2 ; j++) {
+         if (binding(names[j])) {
+            rr_sercom_disconnect(names[j]);
+         }
          key = g_strdup_printf("serial.%s", names[j]);
          dict_del(cfg, key);
          g_free(key);
       }
+
       key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
       rrclient_database_setting_set(key, "");
       g_free(key);
@@ -1676,48 +1726,55 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
       rrclient_database_setting_set(key, "");
       g_free(key);
       result.success = true;
-      g_snprintf(result.detail, sizeof(result.detail),
-                 "vrig%u disconnected", req->slot);
+      g_snprintf(result.detail, sizeof(result.detail), "vrig%u disconnected", req->slot);
       goto done;
    }
-   if (!req->profile[0] || !vrig_valid(req->rig) ||
-       !rrclient_connection_find(req->profile)) {
-      g_strlcpy(result.detail, "Invalid virtual rig or server profile",
-                sizeof(result.detail));
+
+   if (!req->profile[0] || !vrig_valid(req->rig) || !rrclient_connection_find(req->profile)) {
+      g_strlcpy(result.detail, "Invalid virtual rig or server profile", sizeof(result.detail));
       goto done;
    }
 
    char service[2][80];
-   bool changed[2] = {false, false};
-   for (unsigned j = 0; j < 2; j++) {
-      g_snprintf(service[j], sizeof(service[j]), "%s.%s",
-                 req->rig, j ? "gps-out" : "cat");
+   bool changed[2] = {
+      false, false
+   };
+
+   for (unsigned j = 0 ; j < 2 ; j++) {
+      g_snprintf(service[j], sizeof(service[j]), "%s.%s", req->rig, j ? "gps-out" : "cat");
       serial_binding_t *b = binding(names[j]);
-      if (b && !strcmp(b->service, service[j]) &&
-          !strcmp(b->profile, req->profile)) continue;
-      if (b) rr_sercom_disconnect(names[j]);
+
+      if (b && !strcmp(b->service, service[j]) && !strcmp(b->profile, req->profile)) {
+         continue;
+      }
+
+      if (b) {
+         rr_sercom_disconnect(names[j]);
+      }
       changed[j] = true;
       char full[96];
-      g_snprintf(full, sizeof(full), "%s@%u", service[j],
-                 j ? 4800 : 38400);
+      g_snprintf(full, sizeof(full), "%s@%u", service[j], j ? 4800 : 38400);
+
       if (!rr_sercom_attach(names[j], full, NULL)) {
-         g_snprintf(result.detail, sizeof(result.detail),
-                    "Could not attach %s (PTY/config error)", names[j]);
+         g_snprintf(result.detail, sizeof(result.detail), "Could not attach %s (PTY/config error)", names[j]);
          goto rollback;
       }
       b = binding(names[j]);
-      if (b) g_strlcpy(b->profile, req->profile, sizeof(b->profile));
+
+      if (b) {
+         g_strlcpy(b->profile, req->profile, sizeof(b->profile));
+      }
    }
 
    /* Publish the new mapping only once both PTYs are usable. */
-   for (unsigned j = 0; j < 2; j++) {
+   for (unsigned j = 0 ; j < 2 ; j++) {
       char full[96];
-      g_snprintf(full, sizeof(full), "%s@%u", service[j],
-                 j ? 4800 : 38400);
+      g_snprintf(full, sizeof(full), "%s@%u", service[j], j ? 4800 : 38400);
       key = g_strdup_printf("serial.%s", names[j]);
       dict_add(cfg, key, full);
       g_free(key);
    }
+
    key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
    rrclient_database_setting_set(key, req->profile);
    g_free(key);
@@ -1725,31 +1782,37 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
    rrclient_database_setting_set(key, req->rig);
    g_free(key);
    result.success = true;
-   g_snprintf(result.detail, sizeof(result.detail),
-              "vrig%u bound to %s / %s",
-              req->slot, req->profile, req->rig);
+   g_snprintf(result.detail, sizeof(result.detail), "vrig%u bound to %s / %s", req->slot, req->profile, req->rig);
    goto done;
 
 rollback:
-   /* A failed second attachment must not leave the first port retargeted.
-    * Restore the previous saved mapping when possible; otherwise fail closed. */
-   for (unsigned j = 0; j < 2; j++) {
-      if (!changed[j]) continue;
-      if (binding(names[j])) rr_sercom_disconnect(names[j]);
+
+   /* A failed second attachment must not leave the first port retargeted. Restore the previous saved mapping when possible; otherwise fail closed. */
+   for (unsigned j = 0 ; j < 2 ; j++) {
+      if (!changed[j]) {
+         continue;
+      }
+
+      if (binding(names[j])) {
+         rr_sercom_disconnect(names[j]);
+      }
+
       if (owned) {
          char full[96];
-         g_snprintf(full, sizeof(full), "%s.%s@%u", saved_rig,
-                    j ? "gps-out" : "cat", j ? 4800 : 38400);
+         g_snprintf(full, sizeof(full), "%s.%s@%u", saved_rig, j ? "gps-out" : "cat", j ? 4800 : 38400);
+
          if (rr_sercom_attach(names[j], full, NULL)) {
             serial_binding_t *b = binding(names[j]);
-            if (b) g_strlcpy(b->profile, saved_profile, sizeof(b->profile));
+
+            if (b) {
+               g_strlcpy(b->profile, saved_profile, sizeof(b->profile));
+            }
          } else {
-            Log(LOG_WARN, "serial",
-                "vrig%u rollback: %s unavailable (fail closed)",
-                req->slot, names[j]);
+            Log(LOG_WARN, "serial", "vrig%u rollback: %s unavailable (fail closed)", req->slot, names[j]);
          }
       }
    }
+
 done:
    g_free(saved_profile);
    g_free(saved_rig);
@@ -1762,8 +1825,13 @@ reply:
 }
 
 void rr_sercom_shutdown(void) {
-   if (remote_modem_token) event_off_token(remote_modem_token);
-   if (vrig_bind_token) event_off_token(vrig_bind_token);
+   if (remote_modem_token) {
+      event_off_token(remote_modem_token);
+   }
+
+   if (vrig_bind_token) {
+      event_off_token(vrig_bind_token);
+   }
    vrig_bind_token = NULL;
    remote_modem_token = NULL;
    while (console_observers) {
@@ -1834,14 +1902,18 @@ static void serial_attach_event(const char *event, const char *payload, rrconn_t
    dict_free(request);
 }
 bool rr_sercom_init(void) {
-   if (!remote_modem_token) remote_modem_token = event_on_message_domain_token(
-      RR_SERCOM_MODEM_REQUEST, remote_modem_request, NULL, "core");
+   if (!remote_modem_token) {
+      remote_modem_token = event_on_message_domain_token(RR_SERCOM_MODEM_REQUEST, remote_modem_request, NULL, "core");
+   }
    event_on_domain_token("client.serial.attach-request", serial_attach_event, NULL, "core");
-   if (!vrig_bind_token) vrig_bind_token = event_on_message_domain_token(
-      RR_SERCOM_VRIG_BIND_REQUEST, vrig_bind_request, NULL, "core");
+
+   if (!vrig_bind_token) {
+      vrig_bind_token = event_on_message_domain_token(RR_SERCOM_VRIG_BIND_REQUEST, vrig_bind_request, NULL, "core");
+   }
 
    /* Restore saved per-rig serial mappings before enumerating PTYs. */
    vrig_restore();
+
    /* Must precede opening any PTYs, including configured ones. */
    if (!serial_pty_startup_cleanup()) {
       return false;
@@ -1908,8 +1980,8 @@ bool rr_sercom_init(void) {
          }
       }
    }
-
    vrig_apply_profiles();
+
    /* Built-in floating PTYs are permanent. Explicit service mappings win, but "none" must not remove one of these reserved endpoints. */
    if (!binding("ttyCAT")) {
       if (!rr_sercom_attach("ttyCAT", "rig.cat", NULL)) {
@@ -1959,6 +2031,7 @@ bool cmd_sercom(int argc, char **args) {
       }
 
       rrconn_t *selected = rrclient_active_connection();
+
       if (!selected) {
          ui_print(NULL, "Not connected; server serial ports unavailable");
 
@@ -1981,6 +2054,7 @@ bool cmd_sercom(int argc, char **args) {
    if (argc == 3 && !strcasecmp(args[1], "modem")) {
       bool ok = rr_sercom_select_modem(args[2]);
       ui_print(NULL, "ttyMODEM: %s", ok ? "selected" : "invalid modem port or no active rig");
+
       return !ok;
    }
 

@@ -12,9 +12,9 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/json.h>
 #include <librrprotocol/rrprotocol.h>
-#include "receiver.directory.h"
-#include "receiver.catalog.h"
-#include "rrclient.h"
+#include <rrclient/receiver.directory.h>
+#include <rrclient/receiver.catalog.h>
+#include <rrclient/rrclient.h>
 
 #define DIRECTORY_MAX_BODY (8 * 1024 * 1024)
 #define DIRECTORY_MAX_ROWS 10000
@@ -617,8 +617,7 @@ char *receiver_directory_bridge_config(const receiver_directory_entry_t *r) {
 static char *cache_path(void) {
    const char *configured = cfg_get("receiver-directory.cache");
 
-   /* Cache paths are user-configurable. Never pass a literal ~/ prefix
-    * to mkdir/sqlite: GLib path helpers do not expand shell syntax. */
+   /* Cache paths are user-configurable. Never pass a literal ~/ prefix to mkdir/sqlite: GLib path helpers do not expand shell syntax. */
    return configured && *configured ? expand_path(configured)
       : g_build_filename(g_get_user_cache_dir(), "rustyrig", "receivers.sqlite3", NULL);
 }
@@ -1232,14 +1231,9 @@ char *receiver_directory_info(void) {
    dict_free(published_json);
    GDateTime *date = *published ? g_date_time_new_from_iso8601(published, NULL) : NULL;
    char *age = date ? g_strdup_printf("%lld minutes old", (long long)MAX(0, (now - g_date_time_to_unix(date)) / 60)) : g_strdup("age unknown");
-   char *info = g_strdup_printf(
-      "Refresh source: %s\nDirectory published: %s (%s)\n"
-      "Next local mirror check: %s%s%s",
-      source && *source ? source : "Local import / unconfigured",
-      *published ? published : "Not supplied", age,
-      next_request > time(NULL) ? "scheduled" : "due",
-      last_fetch_error[0] ? "\nLast mirror error: " : "",
-      last_fetch_error[0] ? last_fetch_error : "");
+   char *info = g_strdup_printf("Refresh source: %s\nDirectory published: %s (%s)\n" "Next local mirror check: %s%s%s", source && *source ? source :
+      "Local import / unconfigured", *published ? published : "Not supplied", age, next_request > time(NULL) ? "scheduled" : "due", last_fetch_error[0] ?
+      "\nLast mirror error: " : "", last_fetch_error[0] ? last_fetch_error : "");
 
    if (date) {
       g_date_time_unref(date);
@@ -1439,10 +1433,11 @@ static gboolean finish(gpointer unused) {
       g_snprintf(last_fetch_error, sizeof(last_fetch_error), "%s (HTTP %ld)", reason, job->status);
       g_snprintf(status_text, sizeof(status_text), "Directory refresh failed: %s. Keeping %u cached receivers.", last_fetch_error, receivers->len);
    }
-   /* Successful validations are daily. Failed mirror requests retry after
-    * an hour, unless Retry-After asks us to back off longer. */
-   if (!list && !unchanged)
+
+   /* Successful validations are daily. Failed mirror requests retry after an hour, unless Retry-After asks us to back off longer. */
+   if (!list && !unchanged) {
       job->delay = MAX(3600u, job->retry_after);
+   }
    next_request = now + job->delay;
 
    if (unchanged) {
@@ -1579,20 +1574,26 @@ bool receiver_directory_refresh_force(bool force) {
 
    return true;
 }
-/* Called on the client core context by the passive daily scheduler.
- * Do not emit UI change events or fetch anything while the cache is fresh. */
+
+/* Called on the client core context by the passive daily scheduler. Do not emit UI change events or fetch anything while the cache is fresh. */
 bool receiver_directory_refresh_due(void) {
    ensure();
    const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
-   if (!url || !*url) url = cfg_get("receiver-directory.url");
-   if (!url || !*url || !directory_url_allowed(url) || job)
+
+   if (!url || !*url) {
+      url = cfg_get("receiver-directory.url");
+   }
+
+   if (!url || !*url || !directory_url_allowed(url) || job) {
       return false;
-   /* A mirror change is due immediately; the old cached list remains
-    * available until the replacement validates successfully. */
-   /* Server-catalog snapshots are not a mirror URL change. Observe the
-    * persisted daily deadline even when their source is "rrserver". */
-   if (source && !strcmp(source, "rrserver"))
+   }
+
+   /* A mirror change is due immediately; the old cached list remains available until the replacement validates successfully. */
+   /* Server-catalog snapshots are not a mirror URL change. Observe the persisted daily deadline even when their source is "rrserver". */
+   if (source && !strcmp(source, "rrserver")) {
       return time(NULL) >= next_request;
+   }
+
    return g_strcmp0(source, url) != 0 || time(NULL) >= next_request;
 }
 bool receiver_directory_refresh(void) {
@@ -1618,17 +1619,15 @@ bool receiver_directory_import_snapshot(const char *data, size_t length, const c
    if (!list) {
       return false;
    }
-   /* A server may republish the same generation every few hours.
-    * Do not push the independent HTTPS revalidation deadline forward for
-    * identical data: otherwise the daily check can be deferred forever. */
-   gboolean unchanged = payload && strlen(payload) == length &&
-                        !memcmp(payload, data, length);
+   /* A server may republish the same generation every few hours. Do not push the independent HTTPS revalidation deadline forward for identical data: otherwise
+    * the daily check can be deferred forever. */
+   gboolean unchanged = payload && strlen(payload) == length && !memcmp(payload, data, length);
+
    if (unchanged) {
       g_ptr_array_free(list, TRUE);
-      g_snprintf(status_text, sizeof(status_text),
-                 "Server catalog unchanged: %u cached receivers. Next mirror check retained.",
-                 receivers->len);
+      g_snprintf(status_text, sizeof(status_text), "Server catalog unchanged: %u cached receivers. Next mirror check retained.", receivers->len);
       changed();
+
       return true;
    }
    g_ptr_array_free(receivers, TRUE);

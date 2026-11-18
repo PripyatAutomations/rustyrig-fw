@@ -349,10 +349,13 @@ static bool mesh_join_print_identity(void) {
    const char *station = cfg_get("station.name");
    const char *domain = cfg_get("domain");
    char tls_name[254] = "(not configured)";
+
    if (station && *station && domain && *domain) {
       int length = snprintf(tls_name, sizeof(tls_name), "%s.%s", station, domain);
-      if (length < 1 || (size_t)length >= sizeof(tls_name))
+
+      if (length < 1 || (size_t)length >= sizeof(tls_name)) {
          snprintf(tls_name, sizeof(tls_name), "(invalid hostname)");
+      }
    }
    fprintf(stderr, "\nRustyRig mesh enrollment\n"
       "Server name (station.name): %s\n"
@@ -364,10 +367,8 @@ static bool mesh_join_print_identity(void) {
       "  /link invite %s\n\n"
       "Ask them to send you the resulting private invitation token securely.\n"
       "\n\nYou may press ctrl-C to exit if you need to wait for the response token from admin.\n"
-      "Response tokens are good for 72 hours by default\n" "Do not send them your server's private keys.\n\n",
-      station && *station ? station : "(not configured)",
-      domain && *domain ? domain : "(not configured)",
-      tls_name, uuid, uuid);
+      "Response tokens are good for 72 hours by default\n" "Do not send them your server's private keys.\n\n", station && *station ? station :
+      "(not configured)", domain && *domain ? domain : "(not configured)", tls_name, uuid, uuid);
    free(uuid);
 
    return true;
@@ -1064,10 +1065,8 @@ int main(int argc, char **argv) {
       /* The legacy socket manager provides a bounded 10 ms wait. */
       mg_mgr_poll(&mg_mgr, 10);
 #endif
-      /* This dispatch also services GLib timers, queued logs and fd watches,
-       * with a 64-callback cap. Do not drain the same context again in an
-       * unbounded while(pending) loop: a permanently ready fd can starve the
-       * rest of the server. */
+      /* This dispatch also services GLib timers, queued logs and fd watches, with a 64-callback cap. Do not drain the same context again in an unbounded
+       * while(pending) loop: a permanently ready fd can starve the rest of the server. */
       rr_reactor_dispatch_ready(NULL);
       rrserver_links_poll();
 
@@ -1075,10 +1074,8 @@ int main(int argc, char **argv) {
          break;
       }
 #ifndef USE_MONGOOSE
-      /* Native TLS/RTP sockets are nonblocking and do not provide the
-       * blocking mg_mgr_poll() wait. Pace the server.poll/media loop rather
-       * than spinning at 100% CPU while idle. A 5 ms cycle keeps receive
-       * servicing responsive and prevents excessive ppoll/recvfrom calls. */
+      /* Native TLS/RTP sockets are nonblocking and do not provide the blocking mg_mgr_poll() wait. Pace the server.poll/media loop rather than spinning at 100%
+       * CPU while idle. A 5 ms cycle keeps receive servicing responsive and prevents excessive ppoll/recvfrom calls. */
       g_usleep(5000);
 #endif
    }

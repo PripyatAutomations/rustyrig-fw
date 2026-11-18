@@ -320,14 +320,15 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       return FALSE;
    }
 
-   /* Num Lock generates KP_0..KP_9, not the ordinary digit keyvals.
-    * Normalize both so the one-character entries and focus advance behave
-    * identically for the main keyboard and numeric keypad. */
+   /* Num Lock generates KP_0..KP_9, not the ordinary digit keyvals. Normalize both so the one-character entries and focus advance behave identically for the
+    * main keyboard and numeric keypad. */
    int digit = -1;
-   if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9)
+
+   if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
       digit = (int)(event->keyval - GDK_KEY_0);
-   else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9)
+   } else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9) {
       digit = (int)(event->keyval - GDK_KEY_KP_0);
+   }
 
    if (event->keyval == GDK_KEY_Delete || event->keyval == GDK_KEY_KP_Delete) {
       gtk_entry_set_text(entry, "0");
@@ -349,13 +350,11 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       gtk_editable_select_region(GTK_EDITABLE(fe->digits[next]), 0, -1);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up ||
-             event->keyval == GDK_KEY_plus || event->keyval == GDK_KEY_KP_Add) {
+   } else if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up || event->keyval == GDK_KEY_plus || event->keyval == GDK_KEY_KP_Add) {
       freqentry_bump_digit(fe, idx, +1);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down ||
-             event->keyval == GDK_KEY_minus || event->keyval == GDK_KEY_KP_Subtract) {
+   } else if (event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down || event->keyval == GDK_KEY_minus || event->keyval == GDK_KEY_KP_Subtract) {
       freqentry_bump_digit(fe, idx, -1);
 
       return TRUE;

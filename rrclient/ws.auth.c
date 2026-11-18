@@ -54,12 +54,12 @@ bool ws_handle_client_auth_msg(rrconn_t *cptr, dict *d) {
       goto cleanup;
    }
 
-   /* Password changes are acknowledged explicitly by the server. Never
-    * store the new password until the success reply is received. */
+   /* Password changes are acknowledged explicitly by the server. Never store the new password until the success reply is received. */
    if (cmd && !strcasecmp(cmd, "password-changed")) {
       event_emit_dict("client.password-change.accepted", cptr, d);
       goto cleanup;
    }
+
    if (cmd && !strcasecmp(cmd, "password-change-failed")) {
       event_emit_dict("client.password-change.failed", cptr, d);
       goto cleanup;
@@ -85,8 +85,8 @@ bool ws_handle_client_auth_msg(rrconn_t *cptr, dict *d) {
       }
       const char *login_pass = cptr->server ? cptr->server->pass : get_server_property(server_name, "server.pass");
       Log(LOG_AUDIT, "auth.ws", "Got login challenge from server %s", server_name);
-      if (strcmp(dict_get(d, "auth.method", ""), "tls-password-v1") ||
-          !ws_send_passwd(cptr, user, login_pass, nonce)) {
+
+      if (strcmp(dict_get(d, "auth.method", ""), "tls-password-v1") || !ws_send_passwd(cptr, user, login_pass, nonce)) {
          Log(LOG_WARN, "auth.ws", "Server authentication method is unsupported or TLS is unverified");
          event_emit_dict("auth.error", cptr, d);
          rv = false;
@@ -97,8 +97,10 @@ bool ws_handle_client_auth_msg(rrconn_t *cptr, dict *d) {
       cptr->authenticated = true;
       snprintf(cptr->chatname, sizeof(cptr->chatname), "%s", user);
       event_emit_dict("authorized", cptr, d);
-      if (dict_get_bool(d, "auth.password-change-required", false))
+
+      if (dict_get_bool(d, "auth.password-change-required", false)) {
          event_emit_dict("client.password-change.required", cptr, d);
+      }
    }
 
 cleanup:
@@ -128,18 +130,20 @@ bool ws_send_login(rrconn_t *cptr, const char *login_user) {
 }
 
 // Hashes the user stored password with the server nonce and returns it
-/* No reusable password verifier or legacy SHA-1 wire response is sent.
- * The initial password is delivered once over an authenticated TLS channel.
+/* No reusable password verifier or legacy SHA-1 wire response is sent. The initial password is delivered once over an authenticated TLS channel.
  */
 bool ws_send_passwd(rrconn_t *cptr, const char *user, const char *passwd, const char *nonce) {
    if (!cptr || !user || !passwd || !nonce || !*nonce ||
-       strlen(passwd) > 256 || !cptr->native_transport ||
-       !(rr_transport_capabilities(cptr->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
+      strlen(passwd) > 256 || !cptr->native_transport || !(rr_transport_capabilities(cptr->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED)) {
       Log(LOG_WARN, "auth", "TLS-verified connection and valid password are required");
+
       return false;
    }
    dict *message = dict_new();
-   if (!message) return false;
+
+   if (!message) {
+      return false;
+   }
    dict_add(message, "msg.type", "auth");
    dict_add(message, "auth.cmd", "pass");
    dict_add(message, "auth.method", "tls-password-v1");
@@ -148,6 +152,7 @@ bool ws_send_passwd(rrconn_t *cptr, const char *user, const char *passwd, const 
    dict_add(message, "auth.token", cptr->token);
    bool sent = ws_send_dict(NULL, cptr, message, WEBSOCKET_OP_TEXT);
    dict_free(message);
+
    return sent;
 }
 

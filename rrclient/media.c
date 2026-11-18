@@ -117,46 +117,61 @@ bool media_have_priv(const char *priv) {
 #define RR_MEDIA_MAX_CHANS RR_CLIENT_MEDIA_MAX_CHANS
 
 static struct rr_client_media_chan known_chans[RR_MEDIA_MAX_CHANS];
-/* Published as copied, synchronized values: GTK must never dereference the
- * core thread's per-connection media-channel table. */
+/* Published as copied, synchronized values: GTK must never dereference the core thread's per-connection media-channel table. */
 static GMutex remote_rf_mutex;
 static rr_remote_rf_source_t remote_rf_sources[RR_REMOTE_RF_SOURCES_MAX];
 size_t rrclient_media_remote_rf_snapshot(rr_remote_rf_source_t *out, size_t capacity) {
    size_t total = 0;
    g_mutex_lock(&remote_rf_mutex);
-   for (unsigned i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
-      if (!remote_rf_sources[i].id[0]) continue;
-      if (out && total < capacity) out[total] = remote_rf_sources[i];
+
+   for (unsigned i = 0 ; i < RR_REMOTE_RF_SOURCES_MAX ; i++) {
+      if (!remote_rf_sources[i].id[0]) {
+         continue;
+      }
+
+      if (out && total < capacity) {
+         out[total] = remote_rf_sources[i];
+      }
       total++;
    }
+
    g_mutex_unlock(&remote_rf_mutex);
+
    return total;
 }
-bool rrclient_media_remote_rf_for_stream(rrconn_t *connection, uint8_t stream,
-                                         const char codec[4], char *id, size_t capacity) {
-   if (!connection || !id || !capacity || memcmp(codec, RR_RF_WIRE_CODEC, 4))
+bool rrclient_media_remote_rf_for_stream(rrconn_t *connection, uint8_t stream, const char codec[4], char *id, size_t capacity) {
+   if (!connection || !id || !capacity || memcmp(codec, RR_RF_WIRE_CODEC, 4)) {
       return false;
+   }
    const char *profile = rrclient_connection_name(connection);
-   if (!profile || !*profile) return false;
+
+   if (!profile || !*profile) {
+      return false;
+   }
    bool ok = false;
    g_mutex_lock(&remote_rf_mutex);
-   for (unsigned i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
+
+   for (unsigned i = 0 ; i < RR_REMOTE_RF_SOURCES_MAX ; i++) {
       const rr_remote_rf_source_t *source = &remote_rf_sources[i];
       size_t len = strlen(profile);
-      if (len >= sizeof(source->id)) continue;
-      if (source->id[0] && source->subscribed && source->joined &&
-          source->stream == stream && !strncmp(source->id, profile, len) &&
-          source->id[len] == '|') {
+
+      if (len >= sizeof(source->id)) {
+         continue;
+      }
+
+      if (source->id[0] && source->subscribed && source->joined && source->stream == stream && !strncmp(source->id, profile, len) && source->id[len] == '|') {
          g_strlcpy(id, source->id, capacity);
          ok = true;
          break;
       }
    }
+
    g_mutex_unlock(&remote_rf_mutex);
+
    return ok;
 }
-static void remote_rf_publish_source(rrconn_t *connection,
-                                     const struct rr_client_media_chan *channel);
+
+static void remote_rf_publish_source(rrconn_t *connection, const struct rr_client_media_chan *channel);
 static void remote_rf_forget(const char *uuid);
 static void remote_rf_clear(void);
 
@@ -432,56 +447,68 @@ const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4
    return channel ? channel->uuid : NULL;
 }
 
-/* TX-capability is a property of the advertised media channels, not
- * of receiving PCM. An RX-only Kiwi/WebSDR must never acquire a pretend
- * rig TX sink simply because it has a subscribed RX stream. */
+/* TX-capability is a property of the advertised media channels, not of receiving PCM. An RX-only Kiwi/WebSDR must never acquire a pretend rig TX sink simply
+ * because it has a subscribed RX stream. */
 bool rrclient_media_rx_has_tx(const char *rx_uuid) {
    const struct rr_client_media_chan *rx = media_known_find(rx_uuid);
-   if (!rx || rx->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-       rx->direction != RR_BINFRAME_DIR_RX) return false;
+
+   if (!rx || rx->subsystem != RR_BINFRAME_SUBSYS_AUDIO || rx->direction != RR_BINFRAME_DIR_RX) {
+      return false;
+   }
    const char *rx_control = rx->control_room[0] ? rx->control_room : rx->room;
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       const struct rr_client_media_chan *tx = &known_chans[i];
-      if (!tx->uuid[0] || tx->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-          tx->direction != RR_BINFRAME_DIR_TX) continue;
+
+      if (!tx->uuid[0] || tx->subsystem != RR_BINFRAME_SUBSYS_AUDIO || tx->direction != RR_BINFRAME_DIR_TX) {
+         continue;
+      }
+
       if (rx->rig_uuid[0] && tx->rig_uuid[0]) {
-         if (!strcmp(rx->rig_uuid, tx->rig_uuid)) return true;
+         if (!strcmp(rx->rig_uuid, tx->rig_uuid)) {
+            return true;
+         }
          continue;
       }
       const char *tx_control = tx->control_room[0] ? tx->control_room : tx->room;
-      if (!rx_control[0] || !tx_control[0] ||
-          !ws_room_same_rig(rx_control, tx_control)) continue;
-      if (rx->vfo != RR_BINFRAME_VFO_NA &&
-          tx->vfo != RR_BINFRAME_VFO_NA && rx->vfo != tx->vfo)
+
+      if (!rx_control[0] || !tx_control[0] || !ws_room_same_rig(rx_control, tx_control)) {
          continue;
+      }
+
+      if (rx->vfo != RR_BINFRAME_VFO_NA && tx->vfo != RR_BINFRAME_VFO_NA && rx->vfo != tx->vfo) {
+         continue;
+      }
+
       return true;
    }
+
    return false;
 }
 
 bool rrclient_media_rx_is_active_rx(const char *rx_uuid) {
    const struct rr_client_media_chan *rx = media_known_find(rx_uuid);
+
    return rx && rx == media_current_channel(false);
 }
 
-/* A TX patch only represents the active, negotiated microphone encoder
- * destination. It must not let a graph wire select another server/rig or
- * bypass the media-room, VFO and PTT rules. */
+/* A TX patch only represents the active, negotiated microphone encoder destination. It must not let a graph wire select another server/rig or bypass the
+ * media-room, VFO and PTT rules. */
 bool rrclient_media_rx_is_active_tx(const char *rx_uuid) {
    const struct rr_client_media_chan *rx = media_known_find(rx_uuid);
    const struct rr_client_media_chan *tx = media_current_channel(true);
-   if (!rx || !tx || !tx->subscribed || tx->disabled ||
-       rx->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-       rx->direction != RR_BINFRAME_DIR_RX) return false;
-   if (rx->rig_uuid[0] && tx->rig_uuid[0])
-      return !strcmp(rx->rig_uuid, tx->rig_uuid) &&
-         (rx->vfo == RR_BINFRAME_VFO_NA ||
-          tx->vfo == RR_BINFRAME_VFO_NA || rx->vfo == tx->vfo);
+
+   if (!rx || !tx || !tx->subscribed || tx->disabled || rx->subsystem != RR_BINFRAME_SUBSYS_AUDIO || rx->direction != RR_BINFRAME_DIR_RX) {
+      return false;
+   }
+
+   if (rx->rig_uuid[0] && tx->rig_uuid[0]) {
+      return !strcmp(rx->rig_uuid, tx->rig_uuid) && (rx->vfo == RR_BINFRAME_VFO_NA || tx->vfo == RR_BINFRAME_VFO_NA || rx->vfo == tx->vfo);
+   }
    const char *rc = rx->control_room[0] ? rx->control_room : rx->room;
    const char *tc = tx->control_room[0] ? tx->control_room : tx->room;
-   return rc[0] && tc[0] && ws_room_same_rig(rc, tc) &&
-      (rx->vfo == RR_BINFRAME_VFO_NA ||
-       tx->vfo == RR_BINFRAME_VFO_NA || rx->vfo == tx->vfo);
+
+   return rc[0] && tc[0] && ws_room_same_rig(rc, tc) && (rx->vfo == RR_BINFRAME_VFO_NA || tx->vfo == RR_BINFRAME_VFO_NA || rx->vfo == tx->vfo);
 }
 
 /* PARITY: rustyrig-www/js/webui.audio.js webui_mute_talkback. */
@@ -798,41 +825,57 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
 
    return false;
 }
-static void remote_rf_publish_source(rrconn_t *connection,
-                                     const struct rr_client_media_chan *channel) {
-   if (!channel || channel->subsystem != RR_BINFRAME_SUBSYS_WATERFALL) return;
+static void remote_rf_publish_source(rrconn_t *connection, const struct rr_client_media_chan *channel) {
+   if (!channel || channel->subsystem != RR_BINFRAME_SUBSYS_WATERFALL) {
+      return;
+   }
    const char *profile = connection ? rrclient_connection_name(connection) : NULL;
-   if (!profile || !*profile) return;
+
+   if (!profile || !*profile) {
+      return;
+   }
    char id[256];
    snprintf(id, sizeof(id), "%s|%s", profile, channel->uuid);
    g_mutex_lock(&remote_rf_mutex);
    int slot = -1;
-   for (int i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
-      if (!strcmp(remote_rf_sources[i].id, id)) { slot = i; break; }
-      if (slot < 0 && !remote_rf_sources[i].id[0]) slot = i;
+
+   for (int i = 0 ; i < RR_REMOTE_RF_SOURCES_MAX ; i++) {
+      if (!strcmp(remote_rf_sources[i].id, id)) {
+         slot = i;
+         break;
+      }
+
+      if (slot < 0 && !remote_rf_sources[i].id[0]) {
+         slot = i;
+      }
    }
+
    if (slot >= 0) {
       rr_remote_rf_source_t *source = &remote_rf_sources[slot];
       snprintf(source->id, sizeof(source->id), "%s", id);
       snprintf(source->room, sizeof(source->room), "%s", channel->room);
-      snprintf(source->name, sizeof(source->name), "%s",
-               channel->name[0] ? channel->name : "Remote RF");
+      snprintf(source->name, sizeof(source->name), "%s", channel->name[0] ? channel->name : "Remote RF");
       source->stream = channel->stream;
       source->joined = channel->joined;
-      source->subscribed = channel->subscribed && channel->stream_valid &&
-                           !channel->disabled;
+      source->subscribed = channel->subscribed && channel->stream_valid && !channel->disabled;
    }
    g_mutex_unlock(&remote_rf_mutex);
    event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
 }
 static void remote_rf_forget(const char *uuid) {
-   if (!uuid || !*uuid) return;
-   g_mutex_lock(&remote_rf_mutex);
-   for (unsigned i = 0; i < RR_REMOTE_RF_SOURCES_MAX; i++) {
-      char *sep = strrchr(remote_rf_sources[i].id, '|');
-      if (sep && !strcmp(sep+1, uuid))
-         memset(&remote_rf_sources[i], 0, sizeof(remote_rf_sources[i]));
+   if (!uuid || !*uuid) {
+      return;
    }
+   g_mutex_lock(&remote_rf_mutex);
+
+   for (unsigned i = 0 ; i < RR_REMOTE_RF_SOURCES_MAX ; i++) {
+      char *sep = strrchr(remote_rf_sources[i].id, '|');
+
+      if (sep && !strcmp(sep + 1, uuid)) {
+         memset(&remote_rf_sources[i], 0, sizeof(remote_rf_sources[i]));
+      }
+   }
+
    g_mutex_unlock(&remote_rf_mutex);
    event_emit(RR_REMOTE_RF_SOURCE_CHANGED, NULL, NULL);
 }
@@ -855,16 +898,15 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan 
 
       return;
    }
-   /* Unlike audio codecs, RF bins have one fixed format. Join the same
-    * authorized receiver room before requesting remote W/F fanout. */
+
+   /* Unlike audio codecs, RF bins have one fixed format. Join the same authorized receiver room before requesting remote W/F fanout. */
    if (kp->subsystem == RR_BINFRAME_SUBSYS_WATERFALL) {
-      if (kp->direction == RR_BINFRAME_DIR_RX && kp->joined &&
-          kp->codec[0] && !strcmp(kp->codec, RR_RF_WIRE_CODEC) &&
-          media_send_subscribe(cptr, kp->uuid)) {
+      if (kp->direction == RR_BINFRAME_DIR_RX && kp->joined && kp->codec[0] && !strcmp(kp->codec, RR_RF_WIRE_CODEC) && media_send_subscribe(cptr, kp->uuid)) {
          kp->subscribed = true;
          kp->automatic = true;
       }
       remote_rf_publish_source(cptr, kp);
+
       return;
    }
 
@@ -943,11 +985,9 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          kp->direction = dir;
          kp->vfo = vfo;
          kp->rig = rig;
-         /* Absent on older servers and non-bridge sources. Never mistake
-          * the decoder's 16 kHz output rate for the original SDR clock. */
+         /* Absent on older servers and non-bridge sources. Never mistake the decoder's 16 kHz output rate for the original SDR clock. */
          uint32_t source_rate = dict_get_ulong(d, "media.source-rate", 0);
-         kp->source_rate_hz = source_rate >= 8000 && source_rate <= 192000 ?
-            source_rate : 0;
+         kp->source_rate_hz = source_rate >= 8000 && source_rate <= 192000 ? source_rate : 0;
          snprintf(kp->rig_uuid, sizeof(kp->rig_uuid), "%s", dict_get(d, "media.rig-uuid", ""));
          snprintf(kp->vfo_uuid, sizeof(kp->vfo_uuid), "%s", dict_get(d, "media.vfo-uuid", ""));
          const char *room = dict_get(d, "media.room", "");
@@ -1060,9 +1100,11 @@ void rrclient_media_chan_removed(dict *d) {
 // Event: connection state changes. On (re)connect, reset our local channel
 // table; the server pushes a fresh media.available batch after auth.
 static void rrclient_handle_media_conn(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   /* Ignore lifecycle events emitted by a different profile. The media view
-    * belongs to the current connection context, not the process globally. */
-   if (cptr && cptr != rrclient_connection_context()) return;
+   /* Ignore lifecycle events emitted by a different profile. The media view belongs to the current connection context, not the process globally. */
+   if (cptr && cptr != rrclient_connection_context()) {
+      return;
+   }
+
    if (!event) {
       return;
    }
@@ -1198,8 +1240,10 @@ void rrclient_media_room_joined(const char *room) {
          ws_room_same_rig(room, channel->control_room) && rrclient_room_is_joined(room)) {
          snprintf(channel->room, sizeof(channel->room), "%s", room);
          channel->joined = channel->vfo == RR_BINFRAME_VFO_NA ? mask != 0 : (mask & (UINT32_C(1) << channel->vfo)) != 0;
-         if (channel->subsystem == RR_BINFRAME_SUBSYS_WATERFALL)
+
+         if (channel->subsystem == RR_BINFRAME_SUBSYS_WATERFALL) {
             remote_rf_publish_source(rrclient_active_connection(), channel);
+         }
       }
    }
 
@@ -1238,8 +1282,9 @@ void rrclient_media_room_removed(const char *room) {
       struct rr_client_media_chan *channel = &known_chans[i];
 
       if (channel->uuid[0] && !strcasecmp(channel->room, room)) {
-         if (channel->subsystem == RR_BINFRAME_SUBSYS_WATERFALL)
+         if (channel->subsystem == RR_BINFRAME_SUBSYS_WATERFALL) {
             remote_rf_forget(channel->uuid);
+         }
          memset(channel, 0, sizeof(*channel));
          changed = true;
       }
@@ -1266,8 +1311,10 @@ void rrclient_media_room_parted(const char *room) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       if (!strcasecmp(known_chans[i].room, room)) {
          known_chans[i].joined = false;
-         if (known_chans[i].subsystem == RR_BINFRAME_SUBSYS_WATERFALL)
+
+         if (known_chans[i].subsystem == RR_BINFRAME_SUBSYS_WATERFALL) {
             remote_rf_publish_source(rrclient_active_connection(), &known_chans[i]);
+         }
       }
    }
 

@@ -179,7 +179,9 @@ int main(int argc, char **argv) {
    };
    assert(!cmd_sercom(1, list_args));  // Local listings work while offline.
    assert(local_rows == 1 && serial_lists == 0);
-   rrconn_t connection = {0};
+   rrconn_t connection = {
+      0
+   };
    connection.authenticated = true;
    connection.is_ws = true;
    ws_conn = &connection;

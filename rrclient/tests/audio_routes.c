@@ -4,8 +4,7 @@
 // Muted rig streams keep decoding; only selected PCM reaches the speaker.
 #include <assert.h>
 #include <rrclient/audio.c>
-/* This unit test includes audio.c without media.c. Simulate two independently
- * subscribed radios and exercise the stable selected-radio alias. */
+/* This unit test includes audio.c without media.c. Simulate two independently subscribed radios and exercise the stable selected-radio alias. */
 static const char *active_rx_uuid;
 bool rrclient_media_rx_is_active_rx(const char *uuid) {
    return active_rx_uuid && !strcmp(active_rx_uuid, uuid);
@@ -13,9 +12,13 @@ bool rrclient_media_rx_is_active_rx(const char *uuid) {
 bool rrclient_media_rx_is_active_tx(const char *uuid) {
    return active_rx_uuid && !strcmp(active_rx_uuid, uuid);
 }
+
 static rrconn_t first, second;
 rrconn_t *ws_conn = &first;
-rrconn_t *rrclient_active_connection(void) { return ws_conn; }
+rrconn_t *rrclient_active_connection(void) {
+   return ws_conn;
+}
+
 static const char *selected = "first";
 time_t now;
 static unsigned starts, stops, played, decoded, speaker_starts, speaker_stops, volume_restores;
@@ -191,11 +194,14 @@ int main(void) {
    active_rx_uuid = "rig-b";
    audio_rx_streams(streams, 3);
    bool selected_found = false;
-   for (size_t i = 0; i < 3; i++)
+
+   for (size_t i = 0 ; i < 3 ; i++) {
       if (streams[i].active_rx) {
          assert(!strcmp(streams[i].uuid, "rig-b"));
          selected_found = true;
       }
+   }
+
    assert(selected_found);
    char stream_id[64] = "";
 

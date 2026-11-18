@@ -79,9 +79,11 @@ bool ws_kick_client(rrconn_t *client, const char *reason) {
    }
 
    /* Closing the transport queues its close event; session teardown owns removal from http_client_list and freeing the client. */
-   if (!client->native_transport)
+   if (!client->native_transport) {
       return false;
+   }
    rr_transport_close(client->native_transport);
+
    return true;
 }
 

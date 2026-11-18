@@ -33,11 +33,12 @@ bool ws_send_ping(rrconn_t *cptr) {
    if (!cptr || !cptr->is_ws) {
       return false;
    }
+
    if (!cptr->native_transport || rr_transport_state(cptr->native_transport) != RR_TRANSPORT_OPEN) {
       Log(LOG_DEBUG, "ping", "ws_send_ping for cptr:<%p> without an open transport", cptr);
+
       return false;
    }
-
    // Make sure that timeout will happen if no response
    cptr->last_ping = now;
    cptr->ping_attempts++;

@@ -188,17 +188,12 @@ static void bridge_publish_ui(void) {
          view->connected = true;
          view->frequency_hz = b->frequency_hz;
          g_strlcpy(view->mode, b->mode, sizeof(view->mode));
-         /* Core-thread directory lookup; only copied metadata is exposed
-          * to GTK, never the directory entry or bridge instance pointers. */
-         const receiver_directory_entry_t *receiver =
-            b->url ? receiver_directory_find_url(b->url) : NULL;
+         /* Core-thread directory lookup; only copied metadata is exposed to GTK, never the directory entry or bridge instance pointers. */
+         const receiver_directory_entry_t *receiver = b->url ? receiver_directory_find_url(b->url) : NULL;
+
          if (receiver) {
-            g_strlcpy(view->receiver_name,
-                      receiver->name ? receiver->name : "",
-                      sizeof(view->receiver_name));
-            g_strlcpy(view->receiver_location,
-                      receiver->location ? receiver->location : "",
-                      sizeof(view->receiver_location));
+            g_strlcpy(view->receiver_name, receiver->name ? receiver->name : "", sizeof(view->receiver_name));
+            g_strlcpy(view->receiver_location, receiver->location ? receiver->location : "", sizeof(view->receiver_location));
          }
          view->waterfall = (b->caps.flags & RRP_BRIDGE_WATERFALL) != 0;
          view->min_zoom = b->caps.waterfall_zoom_min;
@@ -277,8 +272,11 @@ static void bridge_waterfall_request(const rr_event_message_t *message, void *un
    char vfo = req->vfo ? req->vfo : rrclient_room_active_vfo("&local-sdr");
    unsigned slot = (unsigned)(vfo - 'A');
    bridge_instance *b = slot < G_N_ELEMENTS(bridges) ? bridges[slot] : NULL;
+
    if (!b || !b->online || b->control < 0 || !(b->caps.flags & RRP_BRIDGE_WATERFALL) ||
-       req->zoom < b->caps.waterfall_zoom_min || req->zoom > b->caps.waterfall_zoom_max) return;
+      req->zoom < b->caps.waterfall_zoom_min || req->zoom > b->caps.waterfall_zoom_max) {
+      return;
+   }
    rrp_bridge_ipc_message_t command;
    rrp_bridge_ipc_init(&command, RRP_BRIDGE_IPC_WATERFALL);
    g_strlcpy(command.name, "local", sizeof(command.name));
@@ -974,12 +972,18 @@ bool rrclient_local_bridge_cli(int argc, char **argv) {
    return true;
 }
 uint32_t rrclient_local_bridge_stream_sample_rate(const char *stream_id) {
-   if (!stream_id || !*stream_id) return 0;
-   for (unsigned i = 0; i < G_N_ELEMENTS(bridges); i++) {
-      const bridge_instance *b = bridges[i];
-      if (b && b->online && !strcmp(b->stream, stream_id))
-         return b->rate;
+   if (!stream_id || !*stream_id) {
+      return 0;
    }
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(bridges) ; i++) {
+      const bridge_instance *b = bridges[i];
+
+      if (b && b->online && !strcmp(b->stream, stream_id)) {
+         return b->rate;
+      }
+   }
+
    return 0;
 }
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity) {
@@ -1429,6 +1433,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       port = tls ? 443 : 80;
    }
    char *program = g_build_filename(RR_LIBEXECDIR, "rrbridge", NULL);
+
    if (!g_file_test(program, G_FILE_TEST_IS_EXECUTABLE)) {
       g_clear_pointer(&program, g_free);
    }

@@ -85,8 +85,7 @@ int main(int argc, char **argv) {
    assert(g_file_set_contents(path, fixture, -1, NULL));
    assert(receiver_directory_import(path));
    assert(receiver_directory_count() == 6);
-   /* Repeated identical server catalog snapshots must not move the daily
-    * mirror-check deadline and indefinitely preserve stale metadata. */
+   /* Repeated identical server catalog snapshots must not move the daily mirror-check deadline and indefinitely preserve stale metadata. */
    assert(receiver_directory_import_snapshot(fixture, strlen(fixture), "rrserver"));
    next_request = now - 1;
    assert(receiver_directory_import_snapshot(fixture, strlen(fixture), "rrserver"));

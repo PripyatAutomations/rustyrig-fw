@@ -46,8 +46,7 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
 
    if (!gtk_window_is_active(GTK_WINDOW(main_win))) {
       gtk_widget_show_all(main_win);
-      /* Present without reapplying saved geometry. Repositioning after
-       * the WM tiled the window undoes its placement on tab activation. */
+      /* Present without reapplying saved geometry. Repositioning after the WM tiled the window undoes its placement on tab activation. */
       gtk_window_present(GTK_WINDOW(main_win));
    }
    /* Number shortcuts follow the *visible* tab strip. Tool windows do not reserve or intercept any notebook numbers. */
@@ -164,41 +163,48 @@ static bool gtk_shortcut_close_window(const char *name, GtkWidget *main_win) {
    return true;
 }
 
-/* Tool pages are GtkNotebook children, not toplevel GtkWindows. Keep
- * server selection available on shared views while retaining Ctrl+Tab for
- * application behavior instead of GTK's notebook/focus traversal. */
+/* Tool pages are GtkNotebook children, not toplevel GtkWindows. Keep server selection available on shared views while retaining Ctrl+Tab for application
+ * behavior instead of GTK's notebook/focus traversal. */
 static gboolean gtk_server_cycle_page_active(void) {
-   if (!GTK_IS_NOTEBOOK(main_notebook)) return FALSE;
-   GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-      gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
-   if (!page) return FALSE;
+   if (!GTK_IS_NOTEBOOK(main_notebook)) {
+      return FALSE;
+   }
+   GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
+
+   if (!page) {
+      return FALSE;
+   }
+
    return gtk_chat_status_active() || page == admin_tab || page == config_tab ||
-      page == log_tab || page == host_log_tab ||
-      g_object_get_data(G_OBJECT(page), "rr-tab-hidden") != NULL;
+          page == log_tab || page == host_log_tab || g_object_get_data(G_OBJECT(page), "rr-tab-hidden") != NULL;
 }
 
 static gboolean gtk_server_cycle_hotkey(void) {
-   if (!gtk_server_cycle_page_active()) return FALSE;
-   gboolean changed = rrclient_connection_cycle();
-   if (changed && GTK_IS_NOTEBOOK(main_notebook)) {
-      GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-         gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
-      if (page == admin_tab) gtk_admin_refresh();
+   if (!gtk_server_cycle_page_active()) {
+      return FALSE;
    }
+   gboolean changed = rrclient_connection_cycle();
+
+   if (changed && GTK_IS_NOTEBOOK(main_notebook)) {
+      GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
+
+      if (page == admin_tab) {
+         gtk_admin_refresh();
+      }
+   }
+
    /* Consume the key in shared views even with just one online server. */
    return TRUE;
 }
 
-/* GtkWindow accelerators precede GtkNotebook's key/focus bindings and work
- * with focus in any Admin tree, status input, or shared tool view. */
-static gboolean gtk_server_cycle_accel(GtkAccelGroup *group, GObject *object,
-                                        guint keyval, GdkModifierType modifiers,
-                                        gpointer unused) {
+/* GtkWindow accelerators precede GtkNotebook's key/focus bindings and work with focus in any Admin tree, status input, or shared tool view. */
+static gboolean gtk_server_cycle_accel(GtkAccelGroup *group, GObject *object, guint keyval, GdkModifierType modifiers, gpointer unused) {
    (void)group;
    (void)object;
    (void)keyval;
    (void)modifiers;
    (void)unused;
+
    return gtk_server_cycle_hotkey();
 }
 
@@ -219,13 +225,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return TRUE;
    }
 
-   bool admin_active = GTK_IS_NOTEBOOK(main_notebook) && admin_tab &&
-      gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-         gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_tab;
+   bool admin_active = GTK_IS_NOTEBOOK(main_notebook) && admin_tab
+      && gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_tab;
 
-   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab &&
-       (event->state & GDK_CONTROL_MASK) &&
-       !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab && (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)))
+   {
       return gtk_server_cycle_hotkey();
    }
    gui_window_t *wp = gui_find_window(NULL, "main");
@@ -523,10 +527,10 @@ bool gui_hotkey_register(GtkWidget *widget) {
       return false;
    }
    g_object_set_data(G_OBJECT(widget), "rr-global-hotkeys", GINT_TO_POINTER(1));
+
    if (GTK_IS_WINDOW(widget) && widget == main_window) {
       GtkAccelGroup *accels = gtk_accel_group_new();
-      gtk_accel_group_connect(accels, GDK_KEY_Tab, GDK_CONTROL_MASK,
-         GTK_ACCEL_LOCKED, g_cclosure_new(G_CALLBACK(gtk_server_cycle_accel), NULL, NULL));
+      gtk_accel_group_connect(accels, GDK_KEY_Tab, GDK_CONTROL_MASK, GTK_ACCEL_LOCKED, g_cclosure_new(G_CALLBACK(gtk_server_cycle_accel), NULL, NULL));
       gtk_window_add_accel_group(GTK_WINDOW(widget), accels);
       g_object_unref(accels);
    }

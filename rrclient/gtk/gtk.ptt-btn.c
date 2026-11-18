@@ -206,7 +206,8 @@ static void ptt_button_apply(void) {
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
       label = namebuf;
       cls = "ptt-active";
-   } else if (!own_tx && rrclient_active_connection() && rrclient_active_connection()->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(rrclient_active_connection(), rrclient_current_room())) {
+   } else if (!own_tx && rrclient_active_connection() && rrclient_active_connection()->is_ws && media_have_priv("noob")
+      && !rrclient_supervision_granted(rrclient_active_connection(), rrclient_current_room())) {
       label = "REQUEST";
       cls = "ptt-offline";
    } else if (ptt_button_pending && !ptt_button_pending_quiet) {

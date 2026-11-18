@@ -312,8 +312,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       }
 
       if (response == 9) {
-         GtkWidget *choose = gtk_message_dialog_new(GTK_WINDOW(dlg), GTK_DIALOG_MODAL,
-            GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+         GtkWidget *choose = gtk_message_dialog_new(GTK_WINDOW(dlg), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
             "Import a private key or export the selected identity?");
          gtk_dialog_add_button(GTK_DIALOG(choose), "_Cancel", GTK_RESPONSE_CANCEL);
          gtk_dialog_add_button(GTK_DIALOG(choose), "_Import", 2);
@@ -321,48 +320,53 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          gtk_widget_set_sensitive(export_button, safe);
          gint choice = gtk_dialog_run(GTK_DIALOG(choose));
          gtk_widget_destroy(choose);
-         if (choice != 2 && choice != 3) continue;
+
+         if (choice != 2 && choice != 3) {
+            continue;
+         }
          response = choice;
       }
+
       if (response == 8 && safe) {
          rr_crypto_key_t *key = rrclient_identity_get(path);
          bool owned = false;
+
          if (!key) {
             key = identity_read_key(path, GTK_WINDOW(dlg));
             owned = true;
          }
+
          if (!key) {
-            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR,
-                             "Unable to read the selected identity.");
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR, "Unable to read the selected identity.");
             continue;
          }
          uint8_t raw[32], hash[32];
-         bool ok = rr_crypto_ed25519_public_bytes(key, raw) &&
-                   rr_crypto_sha256(raw, sizeof(raw), hash);
+         bool ok = rr_crypto_ed25519_public_bytes(key, raw) && rr_crypto_sha256(raw, sizeof(raw), hash);
+
          if (ok) {
             char fingerprint[32 * 3];
-            for (size_t i = 0; i < sizeof(hash); i++)
-               g_snprintf(fingerprint + i * 3,
-                          sizeof(fingerprint) - i * 3,
-                          i == sizeof(hash)-1 ? "%02X" : "%02X:", hash[i]);
+
+            for (size_t i = 0 ; i < sizeof(hash) ; i++) {
+               g_snprintf(fingerprint + i * 3, sizeof(fingerprint) - i * 3, i == sizeof(hash) - 1 ? "%02X" : "%02X:", hash[i]);
+            }
+
             char *name = g_path_get_basename(path);
-            char *details = g_strdup_printf(
-               "Identity: %s\nAlgorithm: Ed25519\nStatus: %s\n"
-               "Public key SHA-256: %s\nFile: %s\n"
-               "This fingerprint identifies the raw Ed25519 public key, "
-               "not a TLS certificate or TLS SPKI fingerprint.",
-               name, rrclient_identity_get(path) ? "Unlocked" : "Locked",
-               fingerprint, path);
+            char *details = g_strdup_printf("Identity: %s\nAlgorithm: Ed25519\nStatus: %s\n"
+               "Public key SHA-256: %s\nFile: %s\n" "This fingerprint identifies the raw Ed25519 public key, " "not a TLS certificate or TLS SPKI fingerprint.",
+               name, rrclient_identity_get(path) ? "Unlocked" : "Locked", fingerprint, path);
             identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_INFO, details);
             g_free(details);
             g_free(name);
          } else {
-            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR,
-                             "Unable to compute public-key fingerprint.");
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR, "Unable to compute public-key fingerprint.");
          }
-         if (owned) rr_crypto_key_free(key);
+
+         if (owned) {
+            rr_crypto_key_free(key);
+         }
          continue;
       }
+
       if (response == 6) {
          rrclient_identity_lock_all();
          continue;

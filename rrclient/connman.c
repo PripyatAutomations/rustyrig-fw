@@ -58,8 +58,8 @@ typedef struct client_server {
    char domain[254], server_uuid[37];
    char pending_tls_pin[65], temporary_tls_pin[65];
    bool pending_tls_pin_confirmation;
-   bool learn_verified_spki; /* CA-verified initial connection; persist only after authenticated node identity */
-   char *pending_password_change; /* zeroed and released on reply or disconnect */
+   bool learn_verified_spki;    /* CA-verified initial connection; persist only after authenticated node identity */
+   char *pending_password_change;   /* zeroed and released on reply or disconnect */
    bool password_prompt_open;
 #ifndef USE_MONGOOSE
    char *native_proxy_override;
@@ -233,24 +233,35 @@ static bool rrclient_server_uuid_valid(const char *uuid) {
    return true;
 }
 bool rrclient_connection_expected_node_matches(rrconn_t *connection, const char *station, const char *domain) {
-   if (!connection) return false;
-   for (client_server_t *server = servers; server; server = server->next) {
-      if (server->connection != connection) continue;
+   if (!connection) {
+      return false;
+   }
+
+   for (client_server_t *server = servers ; server ; server = server->next) {
+      if (server->connection != connection) {
+         continue;
+      }
       const char *expected = get_server_property(server->name, "server.node-name");
-      if (!expected || !*expected) return true;
+
+      if (!expected || !*expected) {
+         return true;
+      }
       const char *dot = strchr(expected, '.');
       bool matches = dot && station && *station && domain && *domain &&
-         (size_t)(dot - expected) == strlen(station) &&
-         !g_ascii_strncasecmp(expected, station, strlen(station)) &&
-         !g_ascii_strcasecmp(dot + 1, domain);
+         (size_t)(dot - expected) == strlen(station) && !g_ascii_strncasecmp(expected, station, strlen(station)) && !g_ascii_strcasecmp(dot + 1, domain);
+
       if (!matches) {
-         Log(LOG_WARN, "client.identity", "Node identity mismatch for %s: expected %s, announced station=%s domain=%s",
-            server->name, expected, station ? station : "(missing)", domain ? domain : "(missing)");
-         if (connection->native_transport)
+         Log(LOG_WARN, "client.identity", "Node identity mismatch for %s: expected %s, announced station=%s domain=%s", server->name, expected, station ?
+            station : "(missing)", domain ? domain : "(missing)");
+
+         if (connection->native_transport) {
             rr_transport_close(connection->native_transport);
+         }
       }
+
       return matches;
    }
+
    return false;
 }
 void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid) {
@@ -290,63 +301,85 @@ void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, 
       return;
    }
 }
-/* The server's authenticated station/domain announcement must be bound to
- * the certificate's DNS SAN, not merely copied from an unverified CN or URL.
- * Never replace an explicitly configured expected identity. */
-void rrclient_connection_learn_expected_node(rrconn_t *connection,
-      const char *station, const char *domain, const char *server_uuid) {
+
+/* The server's authenticated station/domain announcement must be bound to the certificate's DNS SAN, not merely copied from an unverified CN or URL. Never
+ * replace an explicitly configured expected identity. */
+void rrclient_connection_learn_expected_node(rrconn_t *connection, const char *station, const char *domain, const char *server_uuid) {
 #ifndef USE_MONGOOSE
+
    if (!connection || !connection->authenticated || !connection->native_transport ||
-       !station || !*station || !domain || !*domain || !server_uuid ||
-       !rrclient_server_uuid_valid(server_uuid))
+      !station || !*station || !domain || !*domain || !server_uuid || !rrclient_server_uuid_valid(server_uuid)) {
       return;
+   }
    client_server_t *s = NULL;
-   for (client_server_t *it = servers; it; it = it->next)
-      if (it->connection == connection) { s = it; break; }
-   if (!s || s->pending_tls_pin_confirmation || !s->server_uuid[0] ||
-       g_ascii_strcasecmp(s->domain, domain) ||
-       g_ascii_strcasecmp(s->server_uuid, server_uuid))
+
+   for (client_server_t *it = servers ; it ; it = it->next) {
+      if (it->connection == connection) {
+         s = it;
+         break;
+      }
+   }
+
+   if (!s || s->pending_tls_pin_confirmation || !s->server_uuid[0] || g_ascii_strcasecmp(s->domain, domain) || g_ascii_strcasecmp(s->server_uuid, server_uuid))
+   {
       return;
+   }
    const char *existing = get_server_property(s->name, "server.node-name");
-   if (existing && *existing) return;
+
+   if (existing && *existing) {
+      return;
+   }
 
    char name[254];
    int len = snprintf(name, sizeof(name), "%s.%s", station, domain);
-   if (len <= 0 || (size_t)len >= sizeof(name) || strlen(station) > 63 ||
-       !g_ascii_isalnum(station[0]) || station[strlen(station)-1] == '-')
+
+   if (len <= 0 || (size_t)len >= sizeof(name) || strlen(station) > 63 || !g_ascii_isalnum(station[0]) || station[strlen(station) - 1] == '-') {
       return;
-   for (const unsigned char *p = (const unsigned char *)name; *p; p++)
-      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-'))
+   }
+
+   for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) {
+      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-')) {
          return;
+      }
+   }
 
    const char *sans = rr_transport_wss_peer_dns_names(connection->native_transport);
-   if (!sans || !*sans) return;
-   /* The transport exposes DNS SANs as a delimited string; require an
-    * exact case-insensitive token, never a substring or wildcard. */
+
+   if (!sans || !*sans) {
+      return;
+   }
+   /* The transport exposes DNS SANs as a delimited string; require an exact case-insensitive token, never a substring or wildcard. */
    gboolean matched = FALSE;
    gchar **tokens = g_strsplit_set(sans, ",; \t\r\n", -1);
-   for (gsize i = 0; tokens[i] && !matched; i++) {
+
+   for (gsize i = 0 ; tokens[i] && !matched ; i++) {
       const char *dns = tokens[i];
-      if (!g_ascii_strncasecmp(dns, "DNS:", 4)) dns += 4;
+
+      if (!g_ascii_strncasecmp(dns, "DNS:", 4)) {
+         dns += 4;
+      }
       matched = *dns && !g_ascii_strcasecmp(dns, name);
    }
+
    g_strfreev(tokens);
+
    if (!matched) {
-      Log(LOG_WARN, "client.identity",
-          "Refusing to learn expected node for %s: announced %s is absent from certificate DNS SANs",
-          s->name, name);
+      Log(LOG_WARN, "client.identity", "Refusing to learn expected node for %s: announced %s is absent from certificate DNS SANs", s->name, name);
+
       return;
    }
+
    if (!rrclient_database_server_set(s->name, "server.node-name", name)) {
-      Log(LOG_WARN, "client.identity",
-          "Unable to save learned expected node %s for profile %s", name, s->name);
+      Log(LOG_WARN, "client.identity", "Unable to save learned expected node %s for profile %s", name, s->name);
+
       return;
    }
-   Log(LOG_AUDIT, "client.identity",
-       "Learned expected node %s for profile %s from authenticated station/domain and certificate DNS SAN",
-       name, s->name);
+   Log(LOG_AUDIT, "client.identity", "Learned expected node %s for profile %s from authenticated station/domain and certificate DNS SAN", name, s->name);
 #else
-   (void)connection; (void)station; (void)domain; (void)server_uuid;
+   (void)connection;
+   (void)station;
+   (void)domain;
+   (void)server_uuid;
 #endif
 }
 
@@ -375,17 +408,23 @@ rrconn_t *rrclient_connection_find(const char *name) {
 }
 const char *rrclient_connection_url(const char *name) {
    client_server_t *s = find_server(name);
+
    return s ? s->url : NULL;
 }
 
 int rrclient_connection_state(const char *name) {
    client_server_t *s = find_server(name);
-   if (!s) return 0;
 
-   /* The picker must treat a scheduled retry as an in-progress connection,
-    * even after CLOSE has set connected/ws_connected to zero. A second click
-    * then invokes disconnect_server(), cancelling the backoff timer. */
-   if (s->reconnect_pending && s->reconnect_enabled) return -1;
+   if (!s) {
+      return 0;
+   }
+
+   /* The picker must treat a scheduled retry as an in-progress connection, even after CLOSE has set connected/ws_connected to zero. A second click then invokes
+    * disconnect_server(), cancelling the backoff timer. */
+   if (s->reconnect_pending && s->reconnect_enabled) {
+      return -1;
+   }
+
    return s == context ? ws_connected : s->connected;
 }
 
@@ -469,8 +508,7 @@ bool rrclient_connection_cycle(void) {
    client_server_t *next = selected && selected->next ? selected->next : servers;
    client_server_t *first = next;
    do {
-      /* A positive value is online: native IRC and legacy transports may
-       * retain a connection timestamp (not the literal integer 1). */
+      /* A positive value is online: native IRC and legacy transports may retain a connection timestamp (not the literal integer 1). */
       if (next->connected > 0) {
          return rrclient_connection_select(next->name);
       }
@@ -628,25 +666,25 @@ static void cancel_reconnect(client_server_t *s) {
    s->reconnect_enabled = s->reconnect_pending = false;
    s->reconnect_tries = 0;
 }
-/* The native server may close immediately after auth rejection, before its
- * auth.error frame reaches the client. Report the failed login once, from
- * either the explicit error or a disconnect while awaiting authorization. */
+
+/* The native server may close immediately after auth rejection, before its auth.error frame reaches the client. Report the failed login once, from either the
+ * explicit error or a disconnect while awaiting authorization. */
 static void auth_failure_report(client_server_t *s, const char *reason) {
-   if (!s) return;
+   if (!s) {
+      return;
+   }
    s->login_challenge_pending = false;
    cancel_reconnect(s);
-   rrclient_auth_failure_alert_t alert = {0};
+   rrclient_auth_failure_alert_t alert = {
+      0
+   };
    g_strlcpy(alert.profile, s->name ? s->name : "(unknown)", sizeof(alert.profile));
    g_strlcpy(alert.reason, reason && *reason ? reason :
-      "Login rejected or connection closed during authentication. Check your username/password.",
-      sizeof(alert.reason));
-   Log(LOG_WARN, "auth.ws", "Authentication failed for profile %s; automatic reconnection disabled: %s",
-      alert.profile, alert.reason);
-   ui_print(NULL, "%sAuthentication failed for %s: %s (automatic reconnect stopped)",
-      get_chat_ts(now), alert.profile, alert.reason);
+      "Login rejected or connection closed during authentication. Check your username/password.", sizeof(alert.reason));
+   Log(LOG_WARN, "auth.ws", "Authentication failed for profile %s; automatic reconnection disabled: %s", alert.profile, alert.reason);
+   ui_print(NULL, "%sAuthentication failed for %s: %s (automatic reconnect stopped)", get_chat_ts(now), alert.profile, alert.reason);
    event_emit_message(&(rr_event_message_t) {
-      .name = RRCLIENT_AUTH_FAILURE_ALERT_EVENT, .sender = "core",
-      .payload = &alert, .length = sizeof(alert)
+      .name = RRCLIENT_AUTH_FAILURE_ALERT_EVENT, .sender = "core", .payload = &alert, .length = sizeof(alert)
    });
 }
 
@@ -804,8 +842,7 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       return;
    }
 
-   if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected") ||
-       !strcmp(event, "disconnected") || !strcmp(event, "irc.disconnected")) {
+   if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected") || !strcmp(event, "disconnected") || !strcmp(event, "irc.disconnected")) {
       nick_prompt_close(s);
       s->nick_recovering = false;
    }
@@ -813,9 +850,15 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
    if (!strcmp(event, "auth.error")) {
       const char *reason = NULL;
       dict *detail = data ? json2dict(data) : NULL;
-      if (detail) reason = dict_get(detail, "auth.error", NULL);
+
+      if (detail) {
+         reason = dict_get(detail, "auth.error", NULL);
+      }
       auth_failure_report(s, reason && *reason ? reason : "Server rejected authentication. Check username/password.");
-      if (detail) dict_free(detail);
+
+      if (detail) {
+         dict_free(detail);
+      }
    } else if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected")) {
       s->login_challenge_pending = false;
       s->reconnect_pending = false;
@@ -826,11 +869,9 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
    } else if (!strcmp(event, "disconnected") && s->login_challenge_pending && cptr && cptr->is_ws) {
       auth_failure_report(s, NULL);
    } else if ((!strcmp(event, "disconnected") || !strcmp(event, "irc.disconnected") ||
-               !strcmp(event, "http.error")) &&
-              s->reconnect_enabled && !s->reconnect_pending && !dying) {
-      /* A protocol 'error' is not a transport failure. In particular,
-       * password-change-required errors must not tear down an authenticated
-       * session while the user is being prompted to rotate credentials. */
+      !strcmp(event, "http.error")) && s->reconnect_enabled && !s->reconnect_pending && !dying) {
+      /* A protocol 'error' is not a transport failure. In particular, password-change-required errors must not tear down an authenticated session while the
+       * user is being prompted to rotate credentials. */
       if (s->reconnect_tries >= RRC_MAX_RECONNECTS) {
          cancel_reconnect(s);
          ui_print(NULL, "Giving up after %u reconnect attempts", RRC_MAX_RECONNECTS);
@@ -876,35 +917,46 @@ static void connecting_cancel_event(const rr_event_message_t *message, void *unu
    disconnect_server(request.profile);
 }
 
-/* The core validates a locally confirmed, previously observed key before
- * replacing the profile's saved pin and scheduling another TLS handshake. */
+/* The core validates a locally confirmed, previously observed key before replacing the profile's saved pin and scheduling another TLS handshake. */
 static void tls_pin_reply_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
 #ifndef USE_MONGOOSE
-   if (!message || !message->payload || message->length != sizeof(rrclient_tls_pin_request_t))
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_tls_pin_request_t)) {
       return;
+   }
    rrclient_tls_pin_request_t request;
    memcpy(&request, message->payload, sizeof(request));
+
    if (!memchr(request.profile, 0, sizeof(request.profile)) ||
-       !memchr(request.old_pin, 0, sizeof(request.old_pin)) ||
-       !memchr(request.new_pin, 0, sizeof(request.new_pin))) return;
+      !memchr(request.old_pin, 0, sizeof(request.old_pin)) || !memchr(request.new_pin, 0, sizeof(request.new_pin))) {
+      return;
+   }
    client_server_t *server = find_server(request.profile);
-   if (!server || !server->pending_tls_pin_confirmation ||
-       strcmp(server->pending_tls_pin, request.new_pin)) return;
+
+   if (!server || !server->pending_tls_pin_confirmation || strcmp(server->pending_tls_pin, request.new_pin)) {
+      return;
+   }
    const char *current = get_server_property(server->name, "server.tls-spki-sha256");
-   /* An unseen key has no previously stored pin: an absent property and
-    * an empty string are equivalent for the first-use confirmation. */
-   if (strcmp(current ? current : "", request.old_pin)) return;
+
+   /* An unseen key has no previously stored pin: an absent property and an empty string are equivalent for the first-use confirmation. */
+   if (strcmp(current ? current : "", request.old_pin)) {
+      return;
+   }
    server->pending_tls_pin_confirmation = false;
    server->pending_tls_pin[0] = '\0';
+
    if (request.decision == 0 || request.decision > 2) {
       server->temporary_tls_pin[0] = '\0';
       Log(LOG_INFO, "connman", "TLS trust denied for %s", server->name);
+
       return;
    }
+
    if (request.decision == 2) {
       if (!rrclient_database_server_set(server->name, "server.tls-spki-sha256", request.new_pin)) {
          Log(LOG_WARN, "connman", "Could not persist accepted TLS pin for profile %s; keeping connection blocked", server->name);
+
          return;
       }
       server->temporary_tls_pin[0] = '\0';
@@ -914,13 +966,14 @@ static void tls_pin_reply_event(const rr_event_message_t *message, void *unused)
       Log(LOG_AUDIT, "connman", "Trusted TLS public key once for %s", server->name);
    }
    rr_server_url_t approved_endpoint;
+
    if (!server->url || !rr_server_url_parse(server->url, &approved_endpoint) || approved_endpoint.irc || !approved_endpoint.tls) {
       Log(LOG_WARN, "connman", "Trust approved for %s, but the current profile URL is not a RustyRig WSS endpoint; reconnect refused", server->name);
       server->temporary_tls_pin[0] = '\0';
+
       return;
    }
-   Log(LOG_INFO, "connman", "TLS trust approved for %s; scheduling WSS reconnect to %s:%u",
-      server->name, approved_endpoint.host, approved_endpoint.port);
+   Log(LOG_INFO, "connman", "TLS trust approved for %s; scheduling WSS reconnect to %s:%u", server->name, approved_endpoint.host, approved_endpoint.port);
    server->reconnect_enabled = true;
    server->reconnect_pending = true;
    server->reconnect_at = now;
@@ -934,90 +987,122 @@ static void password_secret_clear(client_server_t *s) {
    }
 }
 static void password_change_result(client_server_t *s, bool success, const char *reason) {
-   rrclient_password_change_t reply = {0};
+   rrclient_password_change_t reply = {
+      0
+   };
    g_strlcpy(reply.profile, s->name, sizeof(reply.profile));
-   if (s->connection && s->connection->server)
+
+   if (s->connection && s->connection->server) {
       g_strlcpy(reply.username, s->connection->server->nick, sizeof(reply.username));
+   }
    reply.success = success;
    g_strlcpy(reply.reason, reason ? reason : "", sizeof(reply.reason));
    event_emit_message(&(rr_event_message_t) {
-      .name = RRCLIENT_PASSWORD_RESULT_EVENT, .sender = "core",
-      .payload = &reply, .length = sizeof(reply)
+      .name = RRCLIENT_PASSWORD_RESULT_EVENT, .sender = "core", .payload = &reply, .length = sizeof(reply)
    });
 }
 static void password_change_required(const char *event, const char *data, rrconn_t *conn, void *user) {
-   (void)event; (void)data; (void)user;
+   (void)event;
+   (void)data;
+   (void)user;
    client_server_t *s = context;
-   if (!s || !conn || s->connection != conn || !conn->authenticated ||
-       !conn->is_ws || s->password_prompt_open) return;
-   rrclient_password_change_t request = {0};
+
+   if (!s || !conn || s->connection != conn || !conn->authenticated || !conn->is_ws || s->password_prompt_open) {
+      return;
+   }
+   rrclient_password_change_t request = {
+      0
+   };
    g_strlcpy(request.profile, s->name, sizeof(request.profile));
    g_strlcpy(request.username, conn->server ? conn->server->nick : "", sizeof(request.username));
-   /* The username is the account from the connected server, never an
-    * arbitrary user-controlled target in the password rotation request. */
+   /* The username is the account from the connected server, never an arbitrary user-controlled target in the password rotation request. */
    s->password_prompt_open = true;
    event_emit_message(&(rr_event_message_t) {
-      .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core",
-      .payload = &request, .length = sizeof(request)
+      .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core", .payload = &request, .length = sizeof(request)
    });
 }
 static void password_change_retry(const rr_event_message_t *msg, void *ignored) {
    (void)ignored;
-   if (!msg || !msg->payload || msg->length != sizeof(rrclient_password_change_t)) return;
+
+   if (!msg || !msg->payload || msg->length != sizeof(rrclient_password_change_t)) {
+      return;
+   }
    rrclient_password_change_t request;
    memcpy(&request, msg->payload, sizeof(request));
-   if (!memchr(request.profile, 0, sizeof(request.profile))) return;
+
+   if (!memchr(request.profile, 0, sizeof(request.profile))) {
+      return;
+   }
    client_server_t *s = find_server(request.profile);
-   if (!s || !s->connection || !s->connection->authenticated ||
-       !s->connection->is_ws || s->pending_password_change) return;
-   rrclient_password_change_t prompt = {0};
+
+   if (!s || !s->connection || !s->connection->authenticated || !s->connection->is_ws || s->pending_password_change) {
+      return;
+   }
+   rrclient_password_change_t prompt = {
+      0
+   };
    g_strlcpy(prompt.profile, s->name, sizeof(prompt.profile));
-   if (s->connection->server)
+
+   if (s->connection->server) {
       g_strlcpy(prompt.username, s->connection->server->nick, sizeof(prompt.username));
+   }
    s->password_prompt_open = true;
    event_emit_message(&(rr_event_message_t) {
-      .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core",
-      .payload = &prompt, .length = sizeof(prompt)
+      .name = RRCLIENT_PASSWORD_PROMPT_EVENT, .sender = "core", .payload = &prompt, .length = sizeof(prompt)
    });
 }
 static void password_change_submit(const rr_event_message_t *msg, void *ignored) {
    (void)ignored;
-   if (!msg || !msg->payload || msg->length != sizeof(rrclient_password_change_t)) return;
+
+   if (!msg || !msg->payload || msg->length != sizeof(rrclient_password_change_t)) {
+      return;
+   }
    rrclient_password_change_t request;
    memcpy(&request, msg->payload, sizeof(request));
+
    if (!memchr(request.profile, 0, sizeof(request.profile)) ||
-       !memchr(request.username, 0, sizeof(request.username)) ||
-       !memchr(request.password, 0, sizeof(request.password))) goto done;
+      !memchr(request.username, 0, sizeof(request.username)) || !memchr(request.password, 0, sizeof(request.password))) {
+      goto done;
+   }
    client_server_t *s = find_server(request.profile);
-   if (!s || !s->connection || !s->connection->authenticated ||
-       !s->connection->is_ws || !s->password_prompt_open) goto done;
+
+   if (!s || !s->connection || !s->connection->authenticated || !s->connection->is_ws || !s->password_prompt_open) {
+      goto done;
+   }
+
    if (!request.password[0]) {
       s->password_prompt_open = false; /* user cancelled; allow later manual retry */
       goto done;
    }
    size_t n = strlen(request.password);
+
    if (n < 8 || n > 256 || s->pending_password_change) {
       password_change_result(s, false, "Password must be 8-256 characters; retry the operation.");
       goto done;
    }
    rrconn_t *conn = s->connection;
    const char *account = conn->server ? conn->server->nick : "";
-   bool verified_tls = conn->native_transport &&
-      (rr_transport_capabilities(conn->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED);
+   bool verified_tls = conn->native_transport && (rr_transport_capabilities(conn->native_transport) & RR_TRANSPORT_TLS_AUTHENTICATED);
 #ifdef USE_MONGOOSE
-   if (conn->conn && conn->conn->is_tls) verified_tls = true;
+
+   if (conn->conn && conn->conn->is_tls) {
+      verified_tls = true;
+   }
 #endif
+
    if (!*account || strcmp(request.username, account) || !conn->token[0] || !verified_tls) {
       password_change_result(s, false, "Authenticated TLS session or account identity unavailable.");
       goto done;
    }
    s->pending_password_change = strdup(request.password);
+
    if (!s->pending_password_change) {
       password_change_result(s, false, "Unable to allocate password change request.");
       goto done;
    }
    dict *out = dict_new();
    bool sent = false;
+
    if (out) {
       dict_add(out, "msg.type", "auth");
       dict_add(out, "auth.cmd", "change-password");
@@ -1027,6 +1112,7 @@ static void password_change_submit(const rr_event_message_t *msg, void *ignored)
       sent = ws_send_dict(NULL, conn, out, WEBSOCKET_OP_TEXT);
       dict_free(out);
    }
+
    if (!sent) {
       password_secret_clear(s);
       password_change_result(s, false, "Cannot send password change over the verified TLS connection.");
@@ -1039,16 +1125,24 @@ done:
 static void password_change_response(const char *event, const char *data, rrconn_t *conn, void *user) {
    (void)user;
    client_server_t *s = context;
-   if (!s || s->connection != conn || !s->pending_password_change) return;
+
+   if (!s || s->connection != conn || !s->pending_password_change) {
+      return;
+   }
    bool success = !strcmp(event, "client.password-change.accepted");
    dict *response = data ? json2dict(data) : NULL;
    const char *reason = response ? dict_get(response, "auth.reason", NULL) : NULL;
+
    if (success) {
       if (!rrclient_database_server_set(s->name, "server.pass", s->pending_password_change)) {
          password_change_result(s, false, "Server changed the password, but saving it locally failed. Update the server profile manually.");
          password_secret_clear(s);
          s->password_prompt_open = false;
-         if (response) dict_free(response);
+
+         if (response) {
+            dict_free(response);
+         }
+
          return;
       }
       Log(LOG_INFO, "auth.ws", "Password changed and saved for %s; reconnecting", s->name);
@@ -1058,16 +1152,24 @@ static void password_change_response(const char *event, const char *data, rrconn
       s->reconnect_enabled = true;
       s->reconnect_pending = true;
       s->reconnect_at = now;
-      if (conn->native_transport) rr_transport_close(conn->native_transport);
+
+      if (conn->native_transport) {
+         rr_transport_close(conn->native_transport);
+      }
 #ifdef USE_MONGOOSE
-      else if (conn->conn) conn->conn->is_closing = 1;
+      else if (conn->conn) {
+         conn->conn->is_closing = 1;
+      }
 #endif
    } else {
       password_secret_clear(s);
       s->password_prompt_open = false;
       password_change_result(s, false, reason ? reason : "Server rejected the new password.");
    }
-   if (response) dict_free(response);
+
+   if (response) {
+      dict_free(response);
+   }
 }
 void connman_register_events(void) {
    event_on_message_domain_token(RRCLIENT_TLS_PIN_REPLY_EVENT, tls_pin_reply_event, NULL, "core");
@@ -1304,73 +1406,86 @@ struct rrclient_native_connection {
    bool irc;
 };
 
-/* Trust and identity verification cannot recover through backoff retries.
- * Match only transport-layer TLS diagnostics; network timeouts and ordinary
- * disconnects must retain automatic reconnect behavior. */
-/* Persist the verified TLS key after the authenticated RustyRig identity
- * announcement has been accepted. CA-only TLS OPEN is insufficient: the
- * server UUID, station, and domain must already have been validated.
- * An explicit Accept Once remains ephemeral and never reaches this path. */
-void rrclient_connection_pin_verified_identity(rrconn_t *connection,
-      const char *station, const char *domain, const char *server_uuid) {
+/* Trust and identity verification cannot recover through backoff retries. Match only transport-layer TLS diagnostics; network timeouts and ordinary disconnects
+ * must retain automatic reconnect behavior. */
+/* Persist the verified TLS key after the authenticated RustyRig identity announcement has been accepted. CA-only TLS OPEN is insufficient: the server UUID,
+ * station, and domain must already have been validated. An explicit Accept Once remains ephemeral and never reaches this path. */
+void rrclient_connection_pin_verified_identity(rrconn_t *connection, const char *station, const char *domain, const char *server_uuid) {
 #ifndef USE_MONGOOSE
-   if (!connection || !connection->authenticated || !station || !*station ||
-       !domain || !*domain || !rrclient_server_uuid_valid(server_uuid))
+
+   if (!connection || !connection->authenticated || !station || !*station || !domain || !*domain || !rrclient_server_uuid_valid(server_uuid)) {
       return;
+   }
    client_server_t *s = NULL;
-   for (client_server_t *it = servers; it; it = it->next)
-      if (it->connection == connection) { s = it; break; }
+
+   for (client_server_t *it = servers ; it ; it = it->next) {
+      if (it->connection == connection) {
+         s = it;
+         break;
+      }
+   }
+
    if (!s || !s->native || !s->learn_verified_spki ||
-       s->pending_tls_pin_confirmation || !s->server_uuid[0] ||
-       g_ascii_strcasecmp(s->domain, domain) ||
-       g_ascii_strcasecmp(s->server_uuid, server_uuid))
+      s->pending_tls_pin_confirmation || !s->server_uuid[0] || g_ascii_strcasecmp(s->domain, domain) || g_ascii_strcasecmp(s->server_uuid, server_uuid)) {
       return;
+   }
    const char *expected = get_server_property(s->name, "server.node-name");
    char name[254];
    int n = snprintf(name, sizeof(name), "%s.%s", station, domain);
+
    if (n <= 0 || (size_t)n >= sizeof(name) || !g_ascii_isalnum(station[0]) ||
-       strlen(station) > 63 || station[strlen(station)-1] == '-' ||
-       (expected && *expected && g_ascii_strcasecmp(name, expected)))
+      strlen(station) > 63 || station[strlen(station) - 1] == '-' || (expected && *expected && g_ascii_strcasecmp(name, expected))) {
       return;
-   for (const unsigned char *p = (const unsigned char *)name; *p; p++)
-      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-'))
+   }
+
+   for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) {
+      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-')) {
          return;
-   /* An IP-only certificate can be CA/hostname verified by its IP SAN.
-    * The authenticated announced identity is still required for pinning,
-    * but we must not require a DNS SAN or auto-learn a DNS Node Name. */
+      }
+   }
+
+   /* An IP-only certificate can be CA/hostname verified by its IP SAN. The authenticated announced identity is still required for pinning, but we must not
+    * require a DNS SAN or auto-learn a DNS Node Name. */
    const char *pin = get_server_property(s->name, "server.tls-spki-sha256");
+
    if (pin && *pin) {
       s->learn_verified_spki = false;
-      return; /* Never replace a stored key without explicit approval. */
+
+      return;                   /* Never replace a stored key without explicit approval. */
    }
    const char *observed = rr_transport_wss_peer_spki_sha256(connection->native_transport);
-   if (!observed || strlen(observed) != 64 ||
-       strspn(observed, "0123456789abcdef") != 64)
+
+   if (!observed || strlen(observed) != 64 || strspn(observed, "0123456789abcdef") != 64) {
       return;
+   }
+
    if (!rrclient_database_server_set(s->name, "server.tls-spki-sha256", observed)) {
-      Log(LOG_WARN, "client.identity", "Could not save verified SPKI pin for %s",
-          s->name);
+      Log(LOG_WARN, "client.identity", "Could not save verified SPKI pin for %s", s->name);
+
       return;
    }
    s->learn_verified_spki = false;
-   Log(LOG_AUDIT, "client.identity",
-       "Pinned CA-verified TLS public key for %s (%s) after authenticated node identity",
-       s->name, name);
+   Log(LOG_AUDIT, "client.identity", "Pinned CA-verified TLS public key for %s (%s) after authenticated node identity", s->name, name);
 #else
-   (void)connection; (void)station; (void)domain; (void)server_uuid;
+   (void)connection;
+   (void)station;
+   (void)domain;
+   (void)server_uuid;
 #endif
 }
 
 static bool native_tls_verification_error(const uint8_t *data, size_t len) {
-   if (!data || !len) return false;
+   if (!data || !len) {
+      return false;
+   }
    const char *reason = (const char *)data;
+
    return g_strstr_len(reason, len, "TLS verification failed") ||
           g_strstr_len(reason, len, "certificate verify failed") ||
           g_strstr_len(reason, len, "certificate verification failed") ||
           g_strstr_len(reason, len, "hostname mismatch") ||
           g_strstr_len(reason, len, "TLS certificate name does not match") ||
-          g_strstr_len(reason, len, "TLS_PIN_MISMATCH:") ||
-          g_strstr_len(reason, len, "TLS_TRUST_REQUIRED:");
+          g_strstr_len(reason, len, "TLS_PIN_MISMATCH:") || g_strstr_len(reason, len, "TLS_TRUST_REQUIRED:");
 }
 
 static void native_event(rr_transport_t *transport, enum rr_transport_event event, rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *user)
@@ -1422,74 +1537,94 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       rr_traffic_count(cptr, false, true, len);
       ws_binframe_process_client(cptr, (const char *)data, len);
    } else if (event == RR_TRANSPORT_EVENT_ERROR && native->irc) {
-      Log(LOG_WARN, "irc", "IRC %s: %.*s",s->name,(int)MIN(len,(size_t)240),data?(const char *)data:"");
+      Log(LOG_WARN, "irc", "IRC %s: %.*s", s->name, (int)MIN(len, (size_t)240), data ? (const char *)data : "");
    } else if (event == RR_TRANSPORT_EVENT_ERROR) {
       const char mismatch[] = "TLS_PIN_MISMATCH:";
       const char unknown[] = "TLS_TRUST_REQUIRED:";
-      bool changed = data && len == sizeof(mismatch)-1+64 &&
-         !memcmp(data, mismatch, sizeof(mismatch)-1);
-      bool first = data && len == sizeof(unknown)-1+64 &&
-         !memcmp(data, unknown, sizeof(unknown)-1);
+      bool changed = data && len == sizeof(mismatch) - 1 + 64 && !memcmp(data, mismatch, sizeof(mismatch) - 1);
+      bool first = data && len == sizeof(unknown) - 1 + 64 && !memcmp(data, unknown, sizeof(unknown) - 1);
+
       if (native_tls_verification_error(data, len)) {
-         /* Must happen BEFORE emitting http.error: its synchronous handler
-          * schedules reconnect otherwise. A subsequent CLOSE cannot restart
-          * the retry loop once reconnect_enabled is false. A user-initiated
-          * connect (or approved TOFU pin) still works normally. */
+         /* Must happen BEFORE emitting http.error: its synchronous handler schedules reconnect otherwise. A subsequent CLOSE cannot restart the retry loop once
+          * reconnect_enabled is false. A user-initiated connect (or approved TOFU pin) still works normally. */
          cancel_reconnect(s);
          Log(LOG_WARN, "connman", "TLS verification failed for %s; automatic reconnect disabled until manual intervention", s->name);
       }
+
       if (changed || first) {
-         rrclient_tls_pin_request_t request = {0};
+         rrclient_tls_pin_request_t request = {
+            0
+         };
          const char *previous = get_server_property(s->name, "server.tls-spki-sha256");
          const char *enabled = get_server_property(s->name, "server.tls-trust-on-first-use");
-         bool tofu = enabled &&
-            (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
-         const char *presented = (const char *)data +
-            (changed ? sizeof(mismatch)-1 : sizeof(unknown)-1);
-         /* A changed persistent key always requires explicit reapproval,
-          * including profiles initially verified through a public CA. */
+         bool tofu = enabled && (!g_ascii_strcasecmp(enabled, "true") || !strcmp(enabled, "1"));
+         const char *presented = (const char *)data + (changed ? sizeof(mismatch) - 1 : sizeof(unknown) - 1);
+
+         /* A changed persistent key always requires explicit reapproval, including profiles initially verified through a public CA. */
          if ((changed || (first && tofu)) &&
-             strlen(s->name) < sizeof(request.profile) &&
-             strspn(presented, "0123456789abcdef") >= 64 && !s->pending_tls_pin_confirmation) {
+            strlen(s->name) < sizeof(request.profile) && strspn(presented, "0123456789abcdef") >= 64 && !s->pending_tls_pin_confirmation) {
             g_strlcpy(request.profile, s->name, sizeof(request.profile));
-            if (previous) g_strlcpy(request.old_pin, previous, sizeof(request.old_pin));
+
+            if (previous) {
+               g_strlcpy(request.old_pin, previous, sizeof(request.old_pin));
+            }
             memcpy(request.new_pin, presented, 64);
             const char *cn = rr_transport_wss_peer_common_name(transport);
             const char *sans = rr_transport_wss_peer_dns_names(transport);
             const char *cert = rr_transport_wss_peer_cert_sha256(transport);
             const char *node = get_server_property(s->name, "server.node-name");
-            if (cn) g_strlcpy(request.cert_cn, cn, sizeof(request.cert_cn));
-            if (sans) g_strlcpy(request.cert_sans, sans, sizeof(request.cert_sans));
-            if (cert) g_strlcpy(request.cert_sha256, cert, sizeof(request.cert_sha256));
-            if (node) g_strlcpy(request.node_name, node, sizeof(request.node_name));
-            if (s->url) g_strlcpy(request.address, s->url, sizeof(request.address));
+
+            if (cn) {
+               g_strlcpy(request.cert_cn, cn, sizeof(request.cert_cn));
+            }
+
+            if (sans) {
+               g_strlcpy(request.cert_sans, sans, sizeof(request.cert_sans));
+            }
+
+            if (cert) {
+               g_strlcpy(request.cert_sha256, cert, sizeof(request.cert_sha256));
+            }
+
+            if (node) {
+               g_strlcpy(request.node_name, node, sizeof(request.node_name));
+            }
+
+            if (s->url) {
+               g_strlcpy(request.address, s->url, sizeof(request.address));
+            }
             g_strlcpy(s->pending_tls_pin, request.new_pin, sizeof(s->pending_tls_pin));
             s->pending_tls_pin_confirmation = true;
             s->reconnect_pending = false;
             s->reconnect_enabled = false;
             Log(LOG_WARN, "connman", "TLS trust decision required for %s (%s key)", s->name, changed ? "changed" : "unknown");
             event_emit_message(&(rr_event_message_t) {
-               .name = RRCLIENT_TLS_PIN_PROMPT_EVENT,
-               .payload = &request, .length = sizeof(request)
+               .name = RRCLIENT_TLS_PIN_PROMPT_EVENT, .payload = &request, .length = sizeof(request)
             });
          }
       } else {
-         Log(LOG_WARN, "connman", "Native connection to %s: %.*s", s->name,
-            (int)MIN(len, (size_t)240), data ? (const char *)data : "");
+         Log(LOG_WARN, "connman", "Native connection to %s: %.*s", s->name, (int)MIN(len, (size_t)240), data ? (const char *)data : "");
       }
-      /* Preserve the actual WSS failure for the affected profile. Dropping
-       * this diagnostic made transport errors look like unrelated IRC failures
-       * and left the user with only "Unable to reach server". */
+      /* Preserve the actual WSS failure for the affected profile. Dropping this diagnostic made transport errors look like unrelated IRC failures and left the
+       * user with only "Unable to reach server". */
       dict *detail = dict_new();
+
       if (detail) {
          char reason[256];
+
          if (changed || first) {
             g_strlcpy(reason, "TLS trust approval required", sizeof(reason));
          } else {
             size_t used = data ? MIN(len, sizeof(reason) - 1) : 0;
-            if (used) memcpy(reason, data, used);
+
+            if (used) {
+               memcpy(reason, data, used);
+            }
             reason[used] = 0;
-            if (!used) g_strlcpy(reason, "Native WebSocket transport failed", sizeof(reason));
+
+            if (!used) {
+               g_strlcpy(reason, "Native WebSocket transport failed", sizeof(reason));
+            }
          }
          dict_add(detail, "error.msg", reason);
          event_emit_dict("http.error", cptr, detail);
@@ -1501,26 +1636,28 @@ static void native_event(rr_transport_t *transport, enum rr_transport_event even
       if (s->pending_password_change) {
          password_secret_clear(s);
          s->password_prompt_open = false;
-         cancel_reconnect(s); /* The server may have changed it; don't retry the old password. */
+         cancel_reconnect(s);   /* The server may have changed it; don't retry the old password. */
          password_change_result(s, false, "Disconnected before the server confirmed the password change. Your saved password was not modified.");
       }
-      /* Do not rely on the deferred disconnected event: it may run after
-       * the connection context has been detached, and auth.error may never
-       * arrive if the peer closed immediately after sending it. */
-      if (s->login_challenge_pending && !cptr->authenticated)
+
+      /* Do not rely on the deferred disconnected event: it may run after the connection context has been detached, and auth.error may never arrive if the peer
+       * closed immediately after sending it. */
+      if (s->login_challenge_pending && !cptr->authenticated) {
          auth_failure_report(s, NULL);
+      }
       native->closed = true;
       s->connected = ws_connected = 0;
       s->domain[0] = s->server_uuid[0] = 0;
+
       if (native->irc) {
-         /* IRC has its own lifecycle; a generic RustyRig disconnected event
-          * would reset WebSocket catalog, media and protocol session state. */
+         /* IRC has its own lifecycle; a generic RustyRig disconnected event would reset WebSocket catalog, media and protocol session state. */
          cptr->connected = 0;
          cptr->authenticated = cptr->sent_login = false;
          irc_capabilities_clear(cptr);
          event_emit("irc.disconnected", cptr, "");
       } else {
          dict *info = dict_new();
+
          if (info) {
             dict_add(info, "msg.type", "auth");
             dict_add(info, "auth.server", s->name);
@@ -1545,8 +1682,11 @@ void rrclient_poll_events_reconnect(void) {
          rr_transport_poll(native->transport, 0);
 
          if (native->closed || rr_transport_state(native->transport) == RR_TRANSPORT_CLOSED) {
-            if (native->irc) rr_transport_tcp_release(native->transport);
-            else rr_transport_wss_release(native->transport);
+            if (native->irc) {
+               rr_transport_tcp_release(native->transport);
+            } else {
+               rr_transport_wss_release(native->transport);
+            }
             native->connection.native_transport = NULL;
             native->transport = NULL;
             s->native = NULL;
@@ -1994,22 +2134,41 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
 #else
 
    /* Both IRC and WSS use the fail-closed SOCKS5 dialer. */
-   const char *proxy=profile ? get_server_property(profile,"server.proxy") : NULL;
-   if (!proxy || !*proxy) proxy=cfg_get("server.proxy");
+   const char *proxy = profile ? get_server_property(profile, "server.proxy") : NULL;
+
+   if (!proxy || !*proxy) {
+      proxy = cfg_get("server.proxy");
+   }
+
    if (proxy_override) {
-      if (!*proxy_override) return true;
-      proxy=proxy_override;
+      if (!*proxy_override) {
+         return true;
+      }
+      proxy = proxy_override;
    } else if (profile) {
-      client_server_t *existing=find_server(profile);
-      if (existing && existing->native_proxy_override) proxy=existing->native_proxy_override;
+      client_server_t *existing = find_server(profile);
+
+      if (existing && existing->native_proxy_override) {
+         proxy = existing->native_proxy_override;
+      }
    }
-   const char *proxy_user=profile ? get_server_property(profile,"server.proxy.user") : NULL;
-   const char *proxy_pass=profile ? get_server_property(profile,"server.proxy.pass") : NULL;
-   if (!proxy_user) proxy_user=cfg_get("server.proxy.user");
-   if (!proxy_pass) proxy_pass=cfg_get("server.proxy.pass");
-   if (proxy && *proxy && strncmp(proxy,"socks5://",9) && strncmp(proxy,"socks5h://",10)) {
-      ui_print(NULL,"Invalid SOCKS5 proxy URL");return true;
+   const char *proxy_user = profile ? get_server_property(profile, "server.proxy.user") : NULL;
+   const char *proxy_pass = profile ? get_server_property(profile, "server.proxy.pass") : NULL;
+
+   if (!proxy_user) {
+      proxy_user = cfg_get("server.proxy.user");
    }
+
+   if (!proxy_pass) {
+      proxy_pass = cfg_get("server.proxy.pass");
+   }
+
+   if (proxy && *proxy && strncmp(proxy, "socks5://", 9) && strncmp(proxy, "socks5h://", 10)) {
+      ui_print(NULL, "Invalid SOCKS5 proxy URL");
+
+      return true;
+   }
+
    if (!profile || !*profile) {
       profile = endpoint.host;
    }
@@ -2041,11 +2200,17 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!saved_url) {
       return true;
    }
+
    if (proxy_override) {
-      char *saved_proxy=strdup(proxy_override);
-      if (!saved_proxy) {free(saved_url);return true;}
+      char *saved_proxy = strdup(proxy_override);
+
+      if (!saved_proxy) {
+         free(saved_url);
+
+         return true;
+      }
       free(s->native_proxy_override);
-      s->native_proxy_override=saved_proxy;
+      s->native_proxy_override = saved_proxy;
    }
    free(s->url);
    s->url = saved_url;
@@ -2076,8 +2241,13 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       password = endpoint.pass;
    }
 
-   if ((!nick || !*nick) && endpoint.irc) nick=cfg_get("irc.nick");
-   if (!nick || !*nick) nick=endpoint.irc ? "nonick" : "guest";
+   if ((!nick || !*nick) && endpoint.irc) {
+      nick = cfg_get("irc.nick");
+   }
+
+   if (!nick || !*nick) {
+      nick = endpoint.irc ? "nonick" : "guest";
+   }
 
    if (strlen(nick) >= sizeof(native->server.nick) || (password && strlen(password) >= sizeof(native->server.pass))) {
       free(native);
@@ -2092,48 +2262,34 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    if (!ca || !*ca) {
       ca = cfg_get("tls.ca-file");
    }
-   /* IRC retains independent public TLS behavior and uses no station or
-    * RustyRig pinning policy. Its explicit tls-name override is unchanged. */
-   /* Dial address and certificate identity are distinct. The checkbox
-    * selects the trusted station name, not the CA/TOFU/SPKI trust policy.
-    * Without a learned station name yet, TOFU approval plus authenticated
-    * station/SAN matching will establish one. */
-   const char *ignore_value = endpoint.irc ? NULL :
-      get_server_property(s->name, "server.tls-ignore-hostname");
-   bool ignore_hostname = !endpoint.irc && ignore_value &&
-      (!g_ascii_strcasecmp(ignore_value, "true") || !strcmp(ignore_value, "1"));
-   const char *expected_node = endpoint.irc ? NULL :
-      get_server_property(s->name, "server.node-name");
+   /* IRC retains independent public TLS behavior and uses no station or RustyRig pinning policy. Its explicit tls-name override is unchanged. */
+   /* Dial address and certificate identity are distinct. The checkbox selects the trusted station name, not the CA/TOFU/SPKI trust policy. Without a learned
+    * station name yet, TOFU approval plus authenticated station/SAN matching will establish one. */
+   const char *ignore_value = endpoint.irc ? NULL : get_server_property(s->name, "server.tls-ignore-hostname");
+   bool ignore_hostname = !endpoint.irc && ignore_value && (!g_ascii_strcasecmp(ignore_value, "true") || !strcmp(ignore_value, "1"));
+   const char *expected_node = endpoint.irc ? NULL : get_server_property(s->name, "server.node-name");
    const char *tls_name = NULL;
+
    if (endpoint.irc) {
       tls_name = get_server_property(s->name, "server.tls-name");
    } else if (ignore_hostname) {
       tls_name = expected_node && *expected_node ? expected_node : NULL;
    } else {
-      /* Even when SPKI is pinned, the native transport must match the
-       * certificate against the dial host (including an IP SAN). */
+      /* Even when SPKI is pinned, the native transport must match the certificate against the dial host (including an IP SAN). */
       tls_name = endpoint.host;
    }
-   const char *tofu_value = endpoint.irc ? NULL :
-      get_server_property(s->name, "server.tls-trust-on-first-use");
-   /* Self-signed first-use approval is a separate explicit trust policy.
-    * Missing setting means ordinary CA verification, not silent TOFU. */
-   bool tofu = !endpoint.irc && tofu_value &&
-      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
-   /* A saved SPKI pin is mandatory for every established WSS identity,
-    * regardless of the separate first-use self-signed trust policy. */
-   const char *pin = s->temporary_tls_pin[0] ? s->temporary_tls_pin :
-      get_server_property(s->name, "server.tls-spki-sha256");
+   const char *tofu_value = endpoint.irc ? NULL : get_server_property(s->name, "server.tls-trust-on-first-use");
+   /* Self-signed first-use approval is a separate explicit trust policy. Missing setting means ordinary CA verification, not silent TOFU. */
+   bool tofu = !endpoint.irc && tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   /* A saved SPKI pin is mandatory for every established WSS identity, regardless of the separate first-use self-signed trust policy. */
+   const char *pin = s->temporary_tls_pin[0] ? s->temporary_tls_pin : get_server_property(s->name, "server.tls-spki-sha256");
+
    if (endpoint.irc) {
-      Log(LOG_INFO, "connman", "Native IRC profile=%s endpoint=%s:%u tls=%s trust-mode=%s verify-name=%s",
-         s->name, endpoint.host, endpoint.port, endpoint.tls ? "yes" : "no",
-         endpoint.tls ? "CA/hostname" : "none (plaintext)",
-         tls_name && *tls_name ? tls_name : endpoint.host);
+      Log(LOG_INFO, "connman", "Native IRC profile=%s endpoint=%s:%u tls=%s trust-mode=%s verify-name=%s", s->name, endpoint.host, endpoint.port, endpoint.tls ?
+         "yes" : "no", endpoint.tls ? "CA/hostname" : "none (plaintext)", tls_name && *tls_name ? tls_name : endpoint.host);
    } else {
-      Log(LOG_INFO, "connman", "Native WSS profile=%s endpoint=%s:%u trust-mode=%s pin=%s cert-name=%s expected-node=%s",
-         s->name, endpoint.host, endpoint.port, !tofu ? "CA/hostname" : "SPKI/approval",
-         pin && *pin ? "present" : "unapproved",
-         tls_name && *tls_name ? tls_name : "(learn on first trust)",
+      Log(LOG_INFO, "connman", "Native WSS profile=%s endpoint=%s:%u trust-mode=%s pin=%s cert-name=%s expected-node=%s", s->name, endpoint.host, endpoint.port,
+         !tofu ? "CA/hostname" : "SPKI/approval", pin && *pin ? "present" : "unapproved", tls_name && *tls_name ? tls_name : "(learn on first trust)",
          expected_node && *expected_node ? expected_node : "(not configured)");
    }
    rr_wss_client_options_secure_t opts = {
@@ -2145,25 +2301,34 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       .tls_trust_on_first_use = tofu && (!pin || !*pin)
    };
    char connect_url[2048];
-   snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.irc ? (endpoint.tls ? "ircs" : "irc") : (endpoint.tls ? "wss" : "ws"),
-      endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port,
-      endpoint.irc ? "" : (!strcmp(endpoint.path, "/") ? "/ws" : endpoint.path));
+   snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", endpoint.irc ? (endpoint.tls ? "ircs" : "irc") : (endpoint.tls ? "wss" : "ws"), endpoint.ipv6
+      ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port, endpoint.irc ? "" : (!strcmp(endpoint.path, "/") ? "/ws" : endpoint.path));
+
    if (endpoint.irc) {
-      const char *sasl_user=get_server_property(s->name,"server.sasl.user");
-      const char *sasl_pass=get_server_property(s->name,"server.sasl.pass");
-      const char *mechanism=get_server_property(s->name,"server.sasl.mechanism");
-      if (sasl_user) g_strlcpy(native->server.sasl_user,sasl_user,sizeof(native->server.sasl_user));
-      if (sasl_pass) g_strlcpy(native->server.sasl_pass,sasl_pass,sizeof(native->server.sasl_pass));
-      g_strlcpy(native->server.sasl_mechanism,mechanism && *mechanism ? mechanism : "PLAIN",
-                sizeof(native->server.sasl_mechanism));
-      rr_tcp_client_options_t tcp={.host=endpoint.host,.port=endpoint.port,.tls=endpoint.tls,
-         .ca_file=ca,.tls_server_name=tls_name,.proxy_url=proxy,
-         .proxy_user=proxy_user,.proxy_pass=proxy_pass};
-      native->transport=rr_transport_tcp_connect(&tcp,native_event,native);
+      const char *sasl_user = get_server_property(s->name, "server.sasl.user");
+      const char *sasl_pass = get_server_property(s->name, "server.sasl.pass");
+      const char *mechanism = get_server_property(s->name, "server.sasl.mechanism");
+
+      if (sasl_user) {
+         g_strlcpy(native->server.sasl_user, sasl_user, sizeof(native->server.sasl_user));
+      }
+
+      if (sasl_pass) {
+         g_strlcpy(native->server.sasl_pass, sasl_pass, sizeof(native->server.sasl_pass));
+      }
+      g_strlcpy(native->server.sasl_mechanism, mechanism && *mechanism ? mechanism : "PLAIN", sizeof(native->server.sasl_mechanism));
+      rr_tcp_client_options_t tcp = {
+         .host = endpoint.host, .port = endpoint.port, .tls = endpoint.tls,
+         .ca_file = ca, .tls_server_name = tls_name, .proxy_url = proxy,
+         .proxy_user = proxy_user, .proxy_pass = proxy_pass
+      };
+      native->transport = rr_transport_tcp_connect(&tcp, native_event, native);
    } else {
-      rr_wss_client_options_proxy_t proxied={.secure=opts,.proxy_url=proxy,
-         .proxy_user=proxy_user,.proxy_pass=proxy_pass};
-      native->transport=rr_transport_wss_connect_proxy(connect_url,&proxied,native_event,native);
+      rr_wss_client_options_proxy_t proxied = {
+         .secure = opts, .proxy_url = proxy,
+         .proxy_user = proxy_user, .proxy_pass = proxy_pass
+      };
+      native->transport = rr_transport_wss_connect_proxy(connect_url, &proxied, native_event, native);
    }
    /* A temporary approval authorizes this single connection attempt only. */
    s->temporary_tls_pin[0] = '\0';
@@ -2175,8 +2340,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       return true;
    }
    native->connection.native_transport = native->transport;
-   /* Only the no-pin, CA/hostname-verified path may learn its key
-    * automatically, and only after the authenticated station identity. */
+   /* Only the no-pin, CA/hostname-verified path may learn its key automatically, and only after the authenticated station identity. */
    s->learn_verified_spki = !tofu && (!pin || !*pin);
    s->connection = &native->connection;
    s->native = native;
@@ -2198,9 +2362,11 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       activate(NULL);
    }
    activate(s);
-   if (!endpoint.irc) rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
-   ui_print(NULL,"%sConnecting to %s via native %s%s",get_chat_ts(now),connect_url,
-      endpoint.irc ? "IRC" : "WSS",proxy && *proxy ? " (SOCKS5)" : "");
+
+   if (!endpoint.irc) {
+      rrclient_connect_progress(s->name, RR_CONNECT_PHASE_LOOKUP);
+   }
+   ui_print(NULL, "%sConnecting to %s via native %s%s", get_chat_ts(now), connect_url, endpoint.irc ? "IRC" : "WSS", proxy && *proxy ? " (SOCKS5)" : "");
    event_emit("client.server.selected", s->connection, s->name);
 
    return false;
@@ -2211,8 +2377,7 @@ bool connect_or_disconnect(const char *name) {
    client_server_t *s = find_server(name);
 #ifdef USE_MONGOOSE
 
-   if (s && ((s->connection && s->connection->conn && !s->connection->conn->is_closing) ||
-       (s->reconnect_pending && s->reconnect_enabled))) {
+   if (s && ((s->connection && s->connection->conn && !s->connection->conn->is_closing) || (s->reconnect_pending && s->reconnect_enabled))) {
       return disconnect_server(name);
    }
 #else
@@ -2288,8 +2453,9 @@ void rrclient_quit_servers(const char *reason) {
 
       if (s->native && s->native->transport) {
          if (s->native->irc) {
-            if (s->connection && s->connection->sent_login)
+            if (s->connection && s->connection->sent_login) {
                irc_send(s->connection, "QUIT :%s", reason ? reason : "Client exiting");
+            }
          } else if (s->connection && s->connection->authenticated) {
             dict *request = dict_new();
 

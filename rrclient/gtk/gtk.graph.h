@@ -10,7 +10,7 @@ typedef enum {
    RR_GTK_GRAPH_NORMAL,
    RR_GTK_GRAPH_BYPASS,
    RR_GTK_GRAPH_CONTROL,
-   RR_GTK_GRAPH_COS /* carrier/synchronization indication, not PTT */
+   RR_GTK_GRAPH_COS             /* carrier/synchronization indication, not PTT */
 } rr_gtk_graph_edge_kind_t;
 typedef enum {
    RR_GTK_GRAPH_IO_BOTH = 0,

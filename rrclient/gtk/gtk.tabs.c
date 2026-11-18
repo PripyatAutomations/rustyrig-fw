@@ -3,40 +3,40 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 /* GTK-only tab presentation; the notebook remains the page/shortcut owner. */
 #include <rrclient/gtk/gtk.tabs.h>
-/* GtkNotebook takes the maximum minimum-width of every page, including
- * Explorer/Admin/etc when the user is looking at a narrow chat. That
- * requisition can prevent the XFCE window manager from half-screen tiling.
- * Constrain the notebook's own minimum only; keep natural sizing and allow
- * each page's scrollable contents to negotiate their allocation. */
-typedef struct { GtkNotebook parent; } RRAdaptiveNotebook;
-typedef struct { GtkNotebookClass parent_class; } RRAdaptiveNotebookClass;
+/* GtkNotebook takes the maximum minimum-width of every page, including Explorer/Admin/etc when the user is looking at a narrow chat. That requisition can
+ * prevent the XFCE window manager from half-screen tiling. Constrain the notebook's own minimum only; keep natural sizing and allow each page's scrollable
+ * contents to negotiate their allocation. */
+typedef struct {
+   GtkNotebook parent;
+} RRAdaptiveNotebook;
+typedef struct {
+   GtkNotebookClass parent_class;
+} RRAdaptiveNotebookClass;
 G_DEFINE_TYPE(RRAdaptiveNotebook, rr_adaptive_notebook, GTK_TYPE_NOTEBOOK)
-
 static void rr_adaptive_notebook_width(GtkWidget *widget, gint *minimum, gint *natural) {
-   GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class)->get_preferred_width(
-      widget, minimum, natural);
-   *minimum=MIN(*minimum,320);
+   GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class)->get_preferred_width(widget, minimum, natural);
+   *minimum = MIN(*minimum, 320);
 }
-static void rr_adaptive_notebook_width_for_height(GtkWidget *widget,
-                                                  gint height,
-                                                  gint *minimum,gint *natural) {
-   GtkWidgetClass *parent=GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class);
-   if(parent->get_preferred_width_for_height)
-      parent->get_preferred_width_for_height(widget,height,minimum,natural);
-   else
-      parent->get_preferred_width(widget,minimum,natural);
-   *minimum=MIN(*minimum,320);
+static void rr_adaptive_notebook_width_for_height(GtkWidget *widget, gint height, gint *minimum, gint *natural) {
+   GtkWidgetClass *parent = GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class);
+
+   if (parent->get_preferred_width_for_height) {
+      parent->get_preferred_width_for_height(widget, height, minimum, natural);
+   } else {
+      parent->get_preferred_width(widget, minimum, natural);
+   }
+   *minimum = MIN(*minimum, 320);
 }
 static void rr_adaptive_notebook_class_init(RRAdaptiveNotebookClass *klass) {
-   GtkWidgetClass *widget=GTK_WIDGET_CLASS(klass);
-   widget->get_preferred_width=rr_adaptive_notebook_width;
-   widget->get_preferred_width_for_height=rr_adaptive_notebook_width_for_height;
+   GtkWidgetClass *widget = GTK_WIDGET_CLASS(klass);
+   widget->get_preferred_width = rr_adaptive_notebook_width;
+   widget->get_preferred_width_for_height = rr_adaptive_notebook_width_for_height;
 }
 static void rr_adaptive_notebook_init(RRAdaptiveNotebook *self) {
    (void)self;
 }
 GtkWidget *rr_adaptive_notebook_new(void) {
-   return g_object_new(rr_adaptive_notebook_get_type(),NULL);
+   return g_object_new(rr_adaptive_notebook_get_type(), NULL);
 }
 
 
@@ -586,66 +586,96 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    }
 }
 
-/* Log the actual page and widget requisition causing width pressure.
- * GtkNotebook computes its minimum across *all* pages, including inactive
- * Admin, Explorer and SDR Directory tabs. A wide child can therefore break
- * a narrow chat page without ever being visible. Keep diagnostics bounded. */
+/* Log the actual page and widget requisition causing width pressure. GtkNotebook computes its minimum across *all* pages, including inactive Admin, Explorer
+ * and SDR Directory tabs. A wide child can therefore break a narrow chat page without ever being visible. Keep diagnostics bounded. */
 static void tabs_width_pressure_chain(GtkWidget *widget, GString *out) {
-   for (guint depth=0;widget && depth<7;depth++) {
-      gint minimum=0,natural=0;
-      gtk_widget_get_preferred_width(widget,&minimum,&natural);
-      const char *name=gtk_widget_get_name(widget);
-      g_string_append_printf(out,"%s%s%s(min=%d,nat=%d)",
-          depth?" > ":"",G_OBJECT_TYPE_NAME(widget),
-          name && *name ? ":" : "",minimum,natural);
-      if (name && *name) g_string_append_printf(out,"[%s]",name);
-      if (!GTK_IS_CONTAINER(widget)) break;
-      GList *children=gtk_container_get_children(GTK_CONTAINER(widget));
-      GtkWidget *widest=NULL;
-      gint largest=0;
-      for(GList *it=children;it;it=it->next) {
-         GtkWidget *child=it->data;
-         if(!gtk_widget_get_visible(child))continue;
-         gint m=0;
-         gtk_widget_get_preferred_width(child,&m,NULL);
-         if(m>largest){largest=m;widest=child;}
+   for (guint depth = 0 ; widget && depth < 7 ; depth++) {
+      gint minimum = 0, natural = 0;
+      gtk_widget_get_preferred_width(widget, &minimum, &natural);
+      const char *name = gtk_widget_get_name(widget);
+      g_string_append_printf(out, "%s%s%s(min=%d,nat=%d)", depth ? " > " : "", G_OBJECT_TYPE_NAME(widget), name && *name ? ":" : "", minimum, natural);
+
+      if (name && *name) {
+         g_string_append_printf(out, "[%s]", name);
       }
+
+      if (!GTK_IS_CONTAINER(widget)) {
+         break;
+      }
+      GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
+      GtkWidget *widest = NULL;
+      gint largest = 0;
+
+      for (GList *it = children ; it ; it = it->next) {
+         GtkWidget *child = it->data;
+
+         if (!gtk_widget_get_visible(child)) {
+            continue;
+         }
+         gint m = 0;
+         gtk_widget_get_preferred_width(child, &m, NULL);
+
+         if (m > largest) {
+            largest = m;
+            widest = child;
+         }
+      }
+
       g_list_free(children);
-      widget=widest;
+      widget = widest;
    }
 }
 static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
-   GtkWidget *viewport=GTK_WIDGET(data);
-   gint visible=gtk_widget_get_allocated_width(viewport);
-   gint excess=allocation->width-visible;
+   GtkWidget *viewport = GTK_WIDGET(data);
+   gint visible = gtk_widget_get_allocated_width(viewport);
+   gint excess = allocation->width - visible;
    /* Bucket the warnings to avoid logging every animation/resize frame. */
-   static gint last_bucket=-1,last_page=-1,last_excess=-1;
-   if(visible<=1 || excess<=8) {
-      if(excess<=8){last_bucket=-1;last_page=-1;last_excess=-1;}
+   static gint last_bucket = -1, last_page = -1, last_excess = -1;
+
+   if (visible <= 1 || excess <= 8) {
+      if (excess <= 8) {
+         last_bucket = -1;
+         last_page = -1;
+         last_excess = -1;
+      }
+
       return;
    }
-   GtkNotebook *book=GTK_NOTEBOOK(widget);
-   gint page_count=gtk_notebook_get_n_pages(book);
-   gint culprit=-1,maximum=0;
-   for(gint i=0;i<page_count;i++) {
-      GtkWidget *page=gtk_notebook_get_nth_page(book,i);
-      if(!gtk_widget_get_visible(page))continue;
-      gint m=0;
-      gtk_widget_get_preferred_width(page,&m,NULL);
-      if(m>maximum){maximum=m;culprit=i;}
+   GtkNotebook *book = GTK_NOTEBOOK(widget);
+   gint page_count = gtk_notebook_get_n_pages(book);
+   gint culprit = -1, maximum = 0;
+
+   for (gint i = 0 ; i < page_count ; i++) {
+      GtkWidget *page = gtk_notebook_get_nth_page(book, i);
+
+      if (!gtk_widget_get_visible(page)) {
+         continue;
+      }
+      gint m = 0;
+      gtk_widget_get_preferred_width(page, &m, NULL);
+
+      if (m > maximum) {
+         maximum = m;
+         culprit = i;
+      }
    }
-   gint bucket=visible/100;
-   if(bucket==last_bucket && culprit==last_page && ABS(excess-last_excess)<100)
+
+   gint bucket = visible / 100;
+
+   if (bucket == last_bucket && culprit == last_page && ABS(excess - last_excess) < 100) {
       return;
-   last_bucket=bucket;last_page=culprit;last_excess=excess;
-   g_warning("gtk.tabs: notebook=%d viewport=%d excess=%d; widest page=%d/%d min=%d",
-       allocation->width,visible,excess,culprit,page_count,maximum);
-   if(culprit>=0) {
-      GtkWidget *page=gtk_notebook_get_nth_page(book,culprit);
-      GString *chain=g_string_new(NULL);
-      tabs_width_pressure_chain(page,chain);
-      g_warning("gtk.tabs: width culprit: %s",chain->str);
-      g_string_free(chain,TRUE);
+   }
+   last_bucket = bucket;
+   last_page = culprit;
+   last_excess = excess;
+   g_warning("gtk.tabs: notebook=%d viewport=%d excess=%d; widest page=%d/%d min=%d", allocation->width, visible, excess, culprit, page_count, maximum);
+
+   if (culprit >= 0) {
+      GtkWidget *page = gtk_notebook_get_nth_page(book, culprit);
+      GString *chain = g_string_new(NULL);
+      tabs_width_pressure_chain(page, chain);
+      g_warning("gtk.tabs: width culprit: %s", chain->str);
+      g_string_free(chain, TRUE);
    }
 }
 
@@ -684,7 +714,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    GtkWidget *tab_scroll = gtk_scrolled_window_new(NULL, NULL);
    g_object_set_data(G_OBJECT(notebook), "rr-tab-strip-widget", tab_scroll);
    /* Permit the strip to shrink below the combined minimum of its tabs. */
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(tab_scroll), 1);
    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
@@ -716,7 +746,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
     * viewport; tab buttons continue to wrap normally. */
    GtkWidget *page_viewport = gtk_scrolled_window_new(NULL, NULL);
    /* The active notebook page must not impose a desktop-window minimum. */
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(page_viewport), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(page_viewport), 1);
    gtk_widget_set_hexpand(page_viewport, TRUE);
@@ -807,9 +837,8 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, 
    if (!GTK_IS_FLOW_BOX(flow)) {
       return NULL;
    }
-   /* Make the entire minimized tab a single restore button. A decorative
-    * icon stays visible, but the title and the whitespace are equally
-    * clickable and keyboard-activatable. Avoid nested GTK buttons. */
+   /* Make the entire minimized tab a single restore button. A decorative icon stays visible, but the title and the whitespace are equally clickable and
+    * keyboard-activatable. Avoid nested GTK buttons. */
    GtkWidget *tab = gtk_button_new();
    GtkWidget *contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    GtkWidget *label = gtk_label_new(title);

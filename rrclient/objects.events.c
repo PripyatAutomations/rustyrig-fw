@@ -299,16 +299,20 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)data;
    (void)user;
-   const char *profile = client ? rrclient_connection_name(client) : rrclient_connection_context() ? rrclient_connection_name(rrclient_connection_context()) : NULL;
+   const char *profile =
+      client ? rrclient_connection_name(client) : rrclient_connection_context() ? rrclient_connection_name(rrclient_connection_context()) : NULL;
 
    if (profile) {
       char *notice = g_strdup_printf("%s|%s", profile, event);
       event_emit("client.resources.connection-state", NULL, notice);
       g_free(notice);
    }
+
    /* The notice is per profile, but resetting the active catalog is not:
     * never let a failing background IRC connection clear a RustyRig catalog. */
-   if (client && (!client->is_ws || client != rrclient_connection_context())) return;
+   if (client && (!client->is_ws || client != rrclient_connection_context())) {
+      return;
+   }
    memset(inventory_requests, 0, sizeof(inventory_requests));
    object_subscription = "Disconnected";
    subscription_request[0] = 0;
@@ -779,14 +783,14 @@ static void resource_status_request(const char *event, const char *ignored, rrco
          break;
       }
       dict_add(d, "profile", profile);
-      /* A native IRC transport can be absent between reconnect attempts.
-       * Identify the profile from its configured URL rather than treating
-       * the disconnected IRC profile as an undiscovered WSS mesh domain. */
+      /* A native IRC transport can be absent between reconnect attempts. Identify the profile from its configured URL rather than treating the disconnected IRC
+       * profile as an undiscovered WSS mesh domain. */
       const char *url = rrclient_connection_url(profile);
-      if (!url || !*url) url = get_server_property(profile, "server.url");
-      bool irc = (active && !active->is_ws) ||
-         (url && (g_ascii_strncasecmp(url, "irc://", 6) == 0 ||
-                  g_ascii_strncasecmp(url, "ircs://", 7) == 0));
+
+      if (!url || !*url) {
+         url = get_server_property(profile, "server.url");
+      }
+      bool irc = (active && !active->is_ws) || (url && (g_ascii_strncasecmp(url, "irc://", 6) == 0 || g_ascii_strncasecmp(url, "ircs://", 7) == 0));
       dict_add(d, "transport", irc ? "irc" : "ws");
       dict_add(d, "state", state == 1 ? "online" : state < 0 ? "connecting" : "offline");
       dict_add(d, "authenticated", active && active->authenticated ? "true" : "false");

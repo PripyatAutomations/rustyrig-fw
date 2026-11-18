@@ -5,15 +5,19 @@
 #include <libfwdspmgr/pipeline.recipe.h>
 
 int main(void) {
-   rr_pipeline_recipe_t in = {RR_PIPELINE_CAPTURE_MONO, 48000, 16000, "default"};
+   rr_pipeline_recipe_t in = {
+      RR_PIPELINE_CAPTURE_MONO, 48000, 16000, "default"
+   };
    char *text = rr_pipeline_recipe_compile(&in);
    assert(text && strstr(text, "pulsesrc device=default"));
    assert(strstr(text, "processor-sink"));
    assert(strstr(text, "rate=16000,channels=1"));
    g_free(text);
 
-   rr_pipeline_recipe_t out = {RR_PIPELINE_PLAYBACK_STEREO, 44100, 44100,
-                               "USB Audio DAC"};
+   rr_pipeline_recipe_t out = {
+      RR_PIPELINE_PLAYBACK_STEREO, 44100, 44100,
+      "USB Audio DAC"
+   };
    text = rr_pipeline_recipe_compile(&out);
    assert(text && strstr(text, "appsrc name=processor-src"));
    assert(strstr(text, "rate=44100,channels=2"));
@@ -35,5 +39,6 @@ int main(void) {
    out.device = "foo\nbar";
    assert(!rr_pipeline_recipe_compile(&out));
    g_print("pipeline recipes: PASS\n");
+
    return 0;
 }

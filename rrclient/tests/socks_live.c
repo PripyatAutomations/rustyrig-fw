@@ -9,7 +9,7 @@
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/frontend.h>
-extern rrconn_t *ws_conn; /* legacy test fixture, not client API */
+extern rrconn_t *ws_conn;       /* legacy test fixture, not client API */
 bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
    (void)client;
 

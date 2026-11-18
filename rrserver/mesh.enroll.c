@@ -207,55 +207,70 @@ static void explain_tls_identity_failure(const char *cert_path, const char *key_
    int cert_errno = errno;
    bool have_key = lstat(key_path, &key_stat) == 0;
    int key_errno = errno;
+
    if (!have_cert || !have_key) {
-      fprintf(stderr, "Mesh enrollment: TLS certificate %s; private key %s.\n",
-         have_cert ? "exists" : (cert_errno == ENOENT ? "missing" : strerror(cert_errno)),
-         have_key ? "exists" : (key_errno == ENOENT ? "missing" : strerror(key_errno)));
+      fprintf(stderr, "Mesh enrollment: TLS certificate %s; private key %s.\n", have_cert ? "exists" : (cert_errno == ENOENT ? "missing" : strerror(cert_errno))
+         , have_key ? "exists" : (key_errno == ENOENT ? "missing" : strerror(key_errno)));
       fprintf(stderr, "Mesh enrollment: check configured TLS paths and directory permissions.\n");
+
       return;
    }
+
    if (!S_ISREG(cert_stat.st_mode) || !S_ISREG(key_stat.st_mode)) {
       fprintf(stderr, "Mesh enrollment: TLS certificate/key must be regular files, not symlinks.\n");
+
       return;
    }
+
    if (key_stat.st_mode & 0077) {
       fprintf(stderr, "Mesh enrollment: TLS private key permissions are too open (0600 required).\n");
+
       return;
    }
    FILE *file = fopen(cert_path, "rb");
+
    if (!file) {
       fprintf(stderr, "Mesh enrollment: cannot read TLS certificate: %s\n", strerror(errno));
+
       return;
    }
    X509 *cert = PEM_read_X509(file, NULL, NULL, NULL);
    fclose(file);
+
    if (!cert) {
       fprintf(stderr, "Mesh enrollment: TLS certificate is not valid PEM X.509.\n");
+
       return;
    }
-   if (X509_check_host(cert, station, 0,
-         X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT, NULL) != 1) {
+
+   if (X509_check_host(cert, station, 0, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT, NULL) != 1) {
       fprintf(stderr, "Mesh enrollment: certificate DNS SAN does not match expected station.domain '%s'.\n", station);
       X509_free(cert);
+
       return;
    }
    file = fopen(key_path, "rb");
+
    if (!file) {
       fprintf(stderr, "Mesh enrollment: cannot read TLS private key: %s\n", strerror(errno));
       X509_free(cert);
+
       return;
    }
    EVP_PKEY *key = PEM_read_PrivateKey(file, NULL, NULL, NULL);
    fclose(file);
-   if (!key)
+
+   if (!key) {
       fprintf(stderr, "Mesh enrollment: TLS private key is not readable or not valid PEM.\n");
-   else if (X509_check_private_key(cert, key) != 1)
+   } else if (X509_check_private_key(cert, key) != 1) {
       fprintf(stderr, "Mesh enrollment: TLS certificate and private key do not match.\n");
-   else
+   } else {
       fprintf(stderr, "Mesh enrollment: TLS identity rejected; check configured paths.\n");
+   }
    EVP_PKEY_free(key);
    X509_free(cert);
 }
+
 /* Token fields were split and validated by main.c. This is never called on a plaintext transport or with certificate verification disabled without SPKI
  * pinning: libcurl's public-key pin is mandatory. */
 bool rr_mesh_enroll_run(char *fields[8]) {
@@ -281,20 +296,23 @@ bool rr_mesh_enroll_run(char *fields[8]) {
       goto done;
    }
 
-   /* Match the TLS identity used by normal rrserver startup in link.c.
-    * The station is one DNS label; the certificate SAN is station.domain. */
+   /* Match the TLS identity used by normal rrserver startup in link.c. The station is one DNS label; the certificate SAN is station.domain. */
    size_t site_len = strlen(site);
+
    if (site_len > 63 || site[0] == '-' || site[site_len - 1] == '-') {
       fprintf(stderr, "Mesh enrollment: station.name must be one DNS label (1-63 characters).\n");
       goto done;
    }
-   for (const unsigned char *p = (const unsigned char *)site; *p; ++p) {
+
+   for (const unsigned char *p = (const unsigned char *)site ; *p ; ++p) {
       if (!(g_ascii_isalnum(*p) || *p == '-')) {
          fprintf(stderr, "Mesh enrollment: station.name contains invalid DNS label characters.\n");
          goto done;
       }
    }
+
    int name_len = snprintf(tls_name, sizeof(tls_name), "%s.%s", site, domain);
+
    if (name_len < 1 || (size_t)name_len >= sizeof(tls_name)) {
       fprintf(stderr, "Mesh enrollment: station.name + domain exceeds the TLS DNS name limit.\n");
       goto done;

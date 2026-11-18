@@ -6,11 +6,14 @@
 #include <rrclient/rrclient.h>
 
 static GMainContext *core;
-GMainContext *rrclient_core_context(void) { return core; }
+GMainContext *rrclient_core_context(void) {
+   return core;
+}
 
 static gboolean once(gpointer data) {
    guint *calls = data;
    (*calls)++;
+
    return G_SOURCE_REMOVE;
 }
 
@@ -24,15 +27,13 @@ int main(void) {
    assert(id != 0);
    assert(g_main_context_find_source_by_id(core, id));
 
-   /* A timer attached outside the default context must be removed from its
-    * actual owner, without a spurious GLib critical or invoking its callback. */
+   /* A timer attached outside the default context must be removed from its actual owner, without a spurious GLib critical or invoking its callback. */
    rrclient_core_source_cancel(&id);
    assert(id == 0);
    assert(!g_main_context_pending(core));
    assert(calls == 0);
 
-   /* Callback-completed source IDs may remain in asynchronous state during
-    * shutdown. Cancellation must tolerate their absence. */
+   /* Callback-completed source IDs may remain in asynchronous state during shutdown. Cancellation must tolerate their absence. */
    source = g_idle_source_new();
    g_source_set_callback(source, once, &calls, NULL);
    id = g_source_attach(source, core);
@@ -45,5 +46,6 @@ int main(void) {
 
    g_main_context_unref(core);
    puts("PASS: owner-context timers cancel without stale source IDs");
+
    return 0;
 }

@@ -1522,15 +1522,19 @@ static gboolean room_vfo_title_tick(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
-/* AF is a single, graph-wide floating tool, not one copy per chat tab.
- * The widget owns its listener and GTK event tokens for its lifetime. */
+/* AF is a single, graph-wide floating tool, not one copy per chat tab. The widget owns its listener and GTK event tokens for its lifetime. */
 static void room_af_panel_show(void) {
    if (!room_af_panel) {
       GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
-      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
-      room_af_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-         "af-spectrum", "AF Spectrum");
-      if (!room_af_panel) return;
+
+      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+         return;
+      }
+      room_af_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "af-spectrum", "AF Spectrum");
+
+      if (!room_af_panel) {
+         return;
+      }
       rr_floating_panel_set_closable(room_af_panel, FALSE);
       rr_floating_panel_set_minimizable(room_af_panel, TRUE);
       rr_floating_panel_set_resizable(room_af_panel, TRUE);
@@ -1540,27 +1544,40 @@ static void room_af_panel_show(void) {
       gtk_widget_set_vexpand(view, TRUE);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_af_panel)), view, TRUE, TRUE, 0);
    }
-   if (!rr_floating_panel_is_minimized(room_af_panel) &&
-       !gtk_widget_get_visible(rr_floating_panel_widget(room_af_panel)))
+
+   if (!rr_floating_panel_is_minimized(room_af_panel) && !gtk_widget_get_visible(rr_floating_panel_widget(room_af_panel))) {
       rr_floating_panel_show(room_af_panel);
+   }
 }
 
 /* The same RF panel hosts local bridges and subscribed remote RF channels. */
 static void room_rf_panel_refresh(void) {
    gboolean available = FALSE;
-   for (char vfo = 'A'; vfo <= 'Z'; vfo++) {
-      rr_local_bridge_ui_state_t candidate = { 0 };
+
+   for (char vfo = 'A' ; vfo <= 'Z' ; vfo++) {
+      rr_local_bridge_ui_state_t candidate = {
+         0
+      };
+
       if (rrclient_local_bridge_ui_state_vfo(vfo, &candidate) && candidate.waterfall) {
          available = TRUE;
          break;
       }
    }
 
-   rr_remote_rf_source_t remote[RR_REMOTE_RF_SOURCES_MAX] = {0};
+   rr_remote_rf_source_t remote[RR_REMOTE_RF_SOURCES_MAX] = {
+      0
+   };
    size_t remote_count = rrclient_media_remote_rf_snapshot(remote, G_N_ELEMENTS(remote));
    gboolean remote_available = FALSE;
-   for (size_t i = 0; i < remote_count && i < G_N_ELEMENTS(remote); i++)
-      if (remote[i].joined) { remote_available = TRUE; break; }
+
+   for (size_t i = 0 ; i < remote_count && i < G_N_ELEMENTS(remote) ; i++) {
+      if (remote[i].joined) {
+         remote_available = TRUE;
+         break;
+      }
+   }
+
    if (!available && !remote_available) {
       if (room_rf_panel) {
          rr_floating_panel_hide(room_rf_panel);
@@ -1591,8 +1608,7 @@ static void room_rf_panel_refresh(void) {
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_rf_panel)), room_rf_strip, TRUE, TRUE, 0);
    }
    char *title = g_strdup(available && remote_available ?
-      "RF Spectrum — Local and Remote Receivers" :
-      remote_available ? "RF Spectrum — Remote Receivers" : "RF Spectrum — Local Receivers");
+      "RF Spectrum — Local and Remote Receivers" : remote_available ? "RF Spectrum — Remote Receivers" : "RF Spectrum — Local Receivers");
    rr_floating_panel_set_title(room_rf_panel, title);
    g_free(title);
 
@@ -2002,15 +2018,13 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    tab->view = chat_textview;
    tab->entry = chat_entry;
    g_object_set_data_full(G_OBJECT(tab->entry), "rr-server-name", g_strdup(tab->server), g_free);
-   /* Reserve real GTK space for edge-docked panels around the flexible chat.
-    * The dock region belongs to this room page, not the whole notebook. */
-   GtkWidget *workspace=rr_floating_panel_chat_workspace(box,tab->page);
-   gtk_box_pack_start(GTK_BOX(tab->page),workspace,TRUE,TRUE,0);
+   /* Reserve real GTK space for edge-docked panels around the flexible chat. The dock region belongs to this room page, not the whole notebook. */
+   GtkWidget *workspace = rr_floating_panel_chat_workspace(box, tab->page);
+   gtk_box_pack_start(GTK_BOX(tab->page), workspace, TRUE, TRUE, 0);
    g_object_set_data(G_OBJECT(tab->page), "rr-room-tab", tab);
-   /* The dock manager follows the selected channel and server, not merely
-    * whichever page happened to be active when a panel was created. */
-   g_object_set_data_full(G_OBJECT(tab->page),"rr-chat-name",g_strdup(tab->room),g_free);
-   g_object_set_data_full(G_OBJECT(tab->page),"rr-chat-server",g_strdup(tab->server),g_free);
+   /* The dock manager follows the selected channel and server, not merely whichever page happened to be active when a panel was created. */
+   g_object_set_data_full(G_OBJECT(tab->page), "rr-chat-name", g_strdup(tab->room), g_free);
+   g_object_set_data_full(G_OBJECT(tab->page), "rr-chat-server", g_strdup(tab->server), g_free);
    g_object_set_data_full(G_OBJECT(tab->page), "rr-server-name", g_strdup(tab->server), g_free);
    gtk_tabs_page_set_close_func(tab->page, gtk_chat_tab_close);
    GtkWidget *label = gtk_label_new(room);
@@ -2773,8 +2787,7 @@ bool chat_init(void) {
    rr_module_token_add(event_on_domain_token("client.local-bridge.vfo", room_rf_source_changed, NULL, "gtk"));
    /* Capabilities may arrive after the VFO goes online; do not wait for another room/VFO switch before displaying the RF spectrum panel. */
    rr_module_token_add(event_on_domain_token("client.local-bridge.capabilities", room_rf_source_changed, NULL, "gtk"));
-   rr_module_token_add(event_on_domain_token(RR_REMOTE_RF_SOURCE_CHANGED,
-                                             room_rf_source_changed, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token(RR_REMOTE_RF_SOURCE_CHANGED, room_rf_source_changed, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop", estop_request_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.notice.owned", estop_notice_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.estop.send-status", estop_send_status, NULL, "gtk"));

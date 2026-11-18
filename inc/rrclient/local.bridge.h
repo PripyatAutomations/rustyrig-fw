@@ -11,8 +11,7 @@ bool rrclient_local_bridge_connect(const char *url);
 bool rrclient_local_bridge_gps_active(void);
 bool rrclient_local_bridge_connect_driver(const char *url, const char *driver);
 size_t rrclient_local_bridge_streams(char ids[][64], char vfos[], size_t capacity);
-/* Core-thread query: actual upstream PCM rate before the 16 kHz
- * visualization/mixer resampler, or zero if unavailable. */
+/* Core-thread query: actual upstream PCM rate before the 16 kHz visualization/mixer resampler, or zero if unavailable. */
 uint32_t rrclient_local_bridge_stream_sample_rate(const char *stream_id);
 /* Cumulative bytes on local Kiwi's remote sockets (audio and waterfall). Excludes bridge IPC and any server/relay transport already counted. */
 void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx);
@@ -60,7 +59,7 @@ typedef struct {
    bool enabled;
    unsigned zoom;
    uint64_t center_hz;
-   char vfo; /* 0 follows the active local receiver */
+   char vfo;                    /* 0 follows the active local receiver */
 } rr_local_bridge_waterfall_request_t;
 bool rrclient_local_bridge_request_waterfall(bool enabled, unsigned zoom, uint64_t center_hz);
 bool rrclient_local_bridge_request_waterfall_vfo(char vfo, bool enabled, unsigned zoom, uint64_t center_hz);

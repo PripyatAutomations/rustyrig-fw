@@ -15,7 +15,9 @@ extern dict *cfg;
 
 static sqlite3 *client_db;
 static bool backup_imported;
-bool rrclient_database_restart_required(void) { return backup_imported; }
+bool rrclient_database_restart_required(void) {
+   return backup_imported;
+}
 
 static bool window_state_schema(void) {
    if (!client_db) {
@@ -75,52 +77,63 @@ static bool window_state_schema(void) {
    return true;
 }
 
-/* Standalone maintenance action. Run before rrclient_database_init() and
- * before opening any frontend. This intentionally does not touch certificates,
- * user configuration files, receiver caches, or other application state. */
+/* Standalone maintenance action. Run before rrclient_database_init() and before opening any frontend. This intentionally does not touch certificates, user
+ * configuration files, receiver caches, or other application state. */
 int rrclient_database_reset(void) {
    if (client_db) {
       fprintf(stderr, "--reset-db must run before opening the client database.\n");
+
       return EXIT_FAILURE;
    }
 
    gchar *dir = g_build_filename(g_get_user_state_dir(), "rustyrig", NULL);
    gchar *path = g_build_filename(dir, "client.db", NULL);
    g_free(dir);
-   if (!path) return EXIT_FAILURE;
+
+   if (!path) {
+      return EXIT_FAILURE;
+   }
 
    struct stat st;
+
    if (g_lstat(path, &st) != 0) {
       int err = errno;
+
       if (err == ENOENT) {
          fprintf(stderr, "Database already absent: %s; nothing to reset.\n", path);
          g_free(path);
+
          return EXIT_SUCCESS;
       }
       fprintf(stderr, "Cannot inspect client database %s: %s\n", path, strerror(err));
       g_free(path);
+
       return EXIT_FAILURE;
    }
+
    if (!S_ISREG(st.st_mode)) {
       fprintf(stderr, "Refusing to reset non-regular client database %s\n", path);
       g_free(path);
+
       return EXIT_FAILURE;
    }
 
    FILE *tty = fopen("/dev/tty", "r+");
+
    if (!tty) {
       fprintf(stderr, "--reset-db requires an interactive terminal; no changes made.\n");
       g_free(path);
+
       return EXIT_FAILURE;
    }
 
    fprintf(tty, "\nDANGER: --reset-db\nTarget: %s\n"
       "Stop all rrclient instances and back up your data before continuing.\n"
-      "This removes saved servers, networks, UI settings and configuration overrides.\n"
-      "Enter exactly 'YES --reset-db' to proceed: ", path);
+      "This removes saved servers, networks, UI settings and configuration overrides.\n" "Enter exactly 'YES --reset-db' to proceed: ", path);
    fflush(tty);
    char answer[128];
    bool confirmed = fgets(answer, sizeof(answer), tty) != NULL;
+
    if (confirmed) {
       size_t len = strlen(answer);
       confirmed = len && answer[len - 1] == '\n';
@@ -128,58 +141,91 @@ int rrclient_database_reset(void) {
       confirmed = confirmed && !strcmp(answer, "YES --reset-db");
    }
    fclose(tty);
+
    if (!confirmed) {
       fprintf(stderr, "Cancelled; no changes made.\n");
       g_free(path);
+
       return EXIT_FAILURE;
    }
 
-   /* Do not create a new database when the original disappeared. Opening
-    * READWRITE also fails closed for nonexistent DBs. */
+   /* Do not create a new database when the original disappeared. Opening READWRITE also fails closed for nonexistent DBs. */
    sqlite3 *db = NULL;
+
    if (sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) {
-      fprintf(stderr, "Cannot open existing client database %s: %s\n",
-         path, db ? sqlite3_errmsg(db) : "unknown error");
-      if (db) sqlite3_close(db);
+      fprintf(stderr, "Cannot open existing client database %s: %s\n", path, db ? sqlite3_errmsg(db) : "unknown error");
+
+      if (db) {
+         sqlite3_close(db);
+      }
       g_free(path);
+
       return EXIT_FAILURE;
    }
 
    sqlite3_busy_timeout(db, 1000);
    bool ok = sqlite3_exec(db, "PRAGMA locking_mode=EXCLUSIVE;", NULL, NULL, NULL) == SQLITE_OK &&
-      sqlite3_exec(db, "BEGIN EXCLUSIVE;", NULL, NULL, NULL) == SQLITE_OK &&
-      sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) == SQLITE_OK;
-   /* sqlite3_exec(PRAGMA wal_checkpoint) may return OK even when its result
-    * reports SQLITE_BUSY. Use the checkpoint API and check the return code. */
-   if (ok && sqlite3_wal_checkpoint_v2(db, NULL, SQLITE_CHECKPOINT_TRUNCATE, NULL, NULL) != SQLITE_OK)
+      sqlite3_exec(db, "BEGIN EXCLUSIVE;", NULL, NULL, NULL) == SQLITE_OK && sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) == SQLITE_OK;
+
+   /* sqlite3_exec(PRAGMA wal_checkpoint) may return OK even when its result reports SQLITE_BUSY. Use the checkpoint API and check the return code. */
+   if (ok && sqlite3_wal_checkpoint_v2(db, NULL, SQLITE_CHECKPOINT_TRUNCATE, NULL, NULL) != SQLITE_OK) {
       ok = false;
-   if (!ok) fprintf(stderr, "Cannot obtain exclusive client database access or checkpoint WAL: %s\n", sqlite3_errmsg(db));
-   if (sqlite3_close(db) != SQLITE_OK) ok = false;
+   }
+
+   if (!ok) {
+      fprintf(stderr, "Cannot obtain exclusive client database access or checkpoint WAL: %s\n", sqlite3_errmsg(db));
+   }
+
+   if (sqlite3_close(db) != SQLITE_OK) {
+      ok = false;
+   }
+
    if (ok) {
       /* Recheck the inode to avoid replacing a path during confirmation. */
       struct stat current;
-      if (g_lstat(path, &current) != 0 || !S_ISREG(current.st_mode) ||
-          st.st_dev != current.st_dev || st.st_ino != current.st_ino) {
+
+      if (g_lstat(path, &current) != 0 || !S_ISREG(current.st_mode) || st.st_dev != current.st_dev || st.st_ino != current.st_ino) {
          fprintf(stderr, "Client database changed during reset; aborting.\n");
          ok = false;
       }
    }
+
    if (ok) {
       gchar *wal = g_strconcat(path, "-wal", NULL);
       gchar *shm = g_strconcat(path, "-shm", NULL);
       gchar *journal = g_strconcat(path, "-journal", NULL);
-      if (!wal || !shm || !journal) ok = false;
-      if (ok && g_unlink(wal) != 0 && errno != ENOENT) ok = false;
-      if (ok && g_unlink(shm) != 0 && errno != ENOENT) ok = false;
-      if (ok && g_unlink(journal) != 0 && errno != ENOENT) ok = false;
-      if (ok && g_unlink(path) != 0) ok = false;
+
+      if (!wal || !shm || !journal) {
+         ok = false;
+      }
+
+      if (ok && g_unlink(wal) != 0 && errno != ENOENT) {
+         ok = false;
+      }
+
+      if (ok && g_unlink(shm) != 0 && errno != ENOENT) {
+         ok = false;
+      }
+
+      if (ok && g_unlink(journal) != 0 && errno != ENOENT) {
+         ok = false;
+      }
+
+      if (ok && g_unlink(path) != 0) {
+         ok = false;
+      }
       g_free(wal);
       g_free(shm);
       g_free(journal);
    }
-   if (!ok) fprintf(stderr, "Unable to reset client database %s: %s\n", path, strerror(errno));
-   else fprintf(stderr, "Reset client database: %s\nThe next rrclient startup will create a fresh database.\n", path);
+
+   if (!ok) {
+      fprintf(stderr, "Unable to reset client database %s: %s\n", path, strerror(errno));
+   } else {
+      fprintf(stderr, "Reset client database: %s\nThe next rrclient startup will create a fresh database.\n", path);
+   }
    g_free(path);
+
    return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
@@ -286,124 +332,208 @@ fail:
    return false;
 }
 
-/* Export a consistent SQLite snapshot as SQL. Running the serialization against
- * an in-memory backup keeps concurrent WAL writers out of the dump. */
+/* Export a consistent SQLite snapshot as SQL. Running the serialization against an in-memory backup keeps concurrent WAL writers out of the dump. */
 char *rrclient_database_dump_sql(size_t *length) {
-   if (length) *length = 0;
-   if (!client_db) return NULL;
+   if (length) {
+      *length = 0;
+   }
+
+   if (!client_db) {
+      return NULL;
+   }
    sqlite3 *snapshot = NULL;
+
    if (sqlite3_open(":memory:", &snapshot) != SQLITE_OK) {
-      if (snapshot) sqlite3_close(snapshot);
+      if (snapshot) {
+         sqlite3_close(snapshot);
+      }
+
       return NULL;
    }
    sqlite3_backup *backup = sqlite3_backup_init(snapshot, "main", client_db, "main");
-   if (!backup) { sqlite3_close(snapshot); return NULL; }
+
+   if (!backup) {
+      sqlite3_close(snapshot);
+
+      return NULL;
+   }
    int rc = sqlite3_backup_step(backup, -1);
    int finish = sqlite3_backup_finish(backup);
+
    if (rc != SQLITE_DONE || finish != SQLITE_OK) {
       sqlite3_close(snapshot);
+
       return NULL;
    }
    GString *out = g_string_new("BEGIN TRANSACTION;\n");
    sqlite3_stmt *schema = NULL;
-   bool ok = sqlite3_prepare_v2(snapshot,
-      "SELECT type,name,sql FROM sqlite_master "
-      "WHERE name NOT LIKE 'sqlite_%' AND sql IS NOT NULL "
-      "ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END,name",
-      -1, &schema, NULL) == SQLITE_OK;
+   bool ok = sqlite3_prepare_v2(snapshot, "SELECT type,name,sql FROM sqlite_master " "WHERE name NOT LIKE 'sqlite_%' AND sql IS NOT NULL "
+      "ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END,name", -1, &schema, NULL) == SQLITE_OK;
    int schema_step = SQLITE_DONE;
    while (ok && (schema_step = sqlite3_step(schema)) == SQLITE_ROW) {
       const char *type = (const char *)sqlite3_column_text(schema, 0);
       const char *name = (const char *)sqlite3_column_text(schema, 1);
       const char *sql = (const char *)sqlite3_column_text(schema, 2);
-      if (!type || !name || !sql) { ok = false; break; }
+
+      if (!type || !name || !sql) {
+         ok = false;
+         break;
+      }
       g_string_append_printf(out, "%s;\n", sql);
-      if (strcmp(type, "table")) continue;
+
+      if (strcmp(type, "table")) {
+         continue;
+      }
       char *quoted = sqlite3_mprintf("\"%w\"", name);
       char *query = quoted ? sqlite3_mprintf("SELECT * FROM %s", quoted) : NULL;
       sqlite3_stmt *rows = NULL;
-      if (!query || sqlite3_prepare_v2(snapshot, query, -1, &rows, NULL) != SQLITE_OK) ok = false;
+
+      if (!query || sqlite3_prepare_v2(snapshot, query, -1, &rows, NULL) != SQLITE_OK) {
+         ok = false;
+      }
+
       if (ok) {
          int step;
          while ((step = sqlite3_step(rows)) == SQLITE_ROW) {
             g_string_append_printf(out, "INSERT INTO %s VALUES(", quoted);
             int count = sqlite3_column_count(rows);
-            for (int i = 0; i < count; i++) {
-               if (i) g_string_append_c(out, ',');
+
+            for (int i = 0 ; i < count ; i++) {
+               if (i) {
+                  g_string_append_c(out, ',');
+               }
+
                switch (sqlite3_column_type(rows, i)) {
-               case SQLITE_NULL: g_string_append(out, "NULL"); break;
-               case SQLITE_INTEGER: g_string_append_printf(out, "%lld", (long long)sqlite3_column_int64(rows, i)); break;
-               case SQLITE_FLOAT: {
-                  char *number=sqlite3_mprintf("%!.17g",sqlite3_column_double(rows,i));
-                  if (!number) ok=false;
-                  else {g_string_append(out,number);sqlite3_free(number);}
-                  break;
-               }
-               case SQLITE_BLOB: {
-                  const unsigned char *bytes = sqlite3_column_blob(rows, i);
-                  int n = sqlite3_column_bytes(rows, i);
-                  g_string_append(out, "X'");
-                  for (int j = 0; j < n; j++) g_string_append_printf(out, "%02X", bytes[j]);
-                  g_string_append_c(out, '\'');
-                  break;
-               }
-               default: {
-                  char *value = sqlite3_mprintf("%Q", sqlite3_column_text(rows, i));
-                  if (!value) ok = false;
-                  else { g_string_append(out, value); sqlite3_free(value); }
-                  break;
-               }
+                  case SQLITE_NULL: {
+                     g_string_append(out, "NULL");
+                     break;
+                  }
+                  case SQLITE_INTEGER: {
+                     g_string_append_printf(out, "%lld", (long long)sqlite3_column_int64(rows, i));
+                     break;
+                  }
+                  case SQLITE_FLOAT: {
+                     char *number = sqlite3_mprintf("%!.17g", sqlite3_column_double(rows, i));
+
+                     if (!number) {
+                        ok = false;
+                     } else {
+                        g_string_append(out, number);
+                        sqlite3_free(number);
+                     }
+                     break;
+                  }
+                  case SQLITE_BLOB: {
+                     const unsigned char *bytes = sqlite3_column_blob(rows, i);
+                     int n = sqlite3_column_bytes(rows, i);
+                     g_string_append(out, "X'");
+
+                     for (int j = 0 ; j < n ; j++) {
+                        g_string_append_printf(out, "%02X", bytes[j]);
+                     }
+
+                     g_string_append_c(out, '\'');
+                     break;
+                  }
+                  default: {
+                     char *value = sqlite3_mprintf("%Q", sqlite3_column_text(rows, i));
+
+                     if (!value) {
+                        ok = false;
+                     } else {
+                        g_string_append(out, value);
+                        sqlite3_free(value);
+                     }
+                     break;
+                  }
                }
             }
+
             g_string_append(out, ");\n");
-            if (!ok || out->len > 256u * 1024u * 1024u) { ok = false; break; }
+
+            if (!ok || out->len > 256u * 1024u * 1024u) {
+               ok = false;
+               break;
+            }
          }
-         if (step != SQLITE_DONE) ok = false;
+
+         if (step != SQLITE_DONE) {
+            ok = false;
+         }
       }
       sqlite3_finalize(rows);
       sqlite3_free(query);
       sqlite3_free(quoted);
    }
-   if (schema_step != SQLITE_DONE) ok = false;
+
+   if (schema_step != SQLITE_DONE) {
+      ok = false;
+   }
    sqlite3_finalize(schema);
    sqlite3_close(snapshot);
-   if (!ok) { g_string_free(out, TRUE); return NULL; }
+
+   if (!ok) {
+      g_string_free(out, TRUE);
+
+      return NULL;
+   }
    /* Preserve the schema migration version across SQL restores. */
    sqlite3_stmt *version_stmt = NULL;
    int version = 0;
-   if (sqlite3_prepare_v2(client_db,"PRAGMA user_version",-1,&version_stmt,NULL)==SQLITE_OK &&
-       sqlite3_step(version_stmt)==SQLITE_ROW)
-      version=sqlite3_column_int(version_stmt,0);
+
+   if (sqlite3_prepare_v2(client_db, "PRAGMA user_version", -1, &version_stmt, NULL) == SQLITE_OK && sqlite3_step(version_stmt) == SQLITE_ROW) {
+      version = sqlite3_column_int(version_stmt, 0);
+   }
    sqlite3_finalize(version_stmt);
-   g_string_append_printf(out,"PRAGMA user_version=%d;\n",version);
+   g_string_append_printf(out, "PRAGMA user_version=%d;\n", version);
    g_string_append(out, "COMMIT;\n");
-   if (length) *length = out->len;
+
+   if (length) {
+      *length = out->len;
+   }
+
    return g_string_free(out, FALSE);
 }
 
-/* SQL imports are executed only against a disposable in-memory database.
- * Deny filesystem access and potentially dangerous SQL extensions. */
-static int backup_sql_authorizer(void *user, int op, const char *a,
-                                const char *b, const char *db, const char *trigger) {
-   (void)user; (void)a; (void)b; (void)db; (void)trigger;
+/* SQL imports are executed only against a disposable in-memory database. Deny filesystem access and potentially dangerous SQL extensions. */
+static int backup_sql_authorizer(void *user, int op, const char *a, const char *b, const char *db, const char *trigger) {
+   (void)user;
+   (void)a;
+   (void)b;
+   (void)db;
+   (void)trigger;
+
    switch (op) {
-   case SQLITE_CREATE_TABLE: case SQLITE_CREATE_INDEX:
-   case SQLITE_CREATE_VIEW: case SQLITE_CREATE_TRIGGER:
-   case SQLITE_INSERT: case SQLITE_SELECT: case SQLITE_READ:
-   case SQLITE_TRANSACTION: case SQLITE_FUNCTION:
-      return SQLITE_OK;
-   case SQLITE_PRAGMA:
-      return a && !strcmp(a, "user_version") ? SQLITE_OK : SQLITE_DENY;
-   default:
-      return SQLITE_DENY;
+      case SQLITE_CREATE_TABLE:
+      case SQLITE_CREATE_INDEX:
+      case SQLITE_CREATE_VIEW:
+      case SQLITE_CREATE_TRIGGER:
+      case SQLITE_INSERT:
+      case SQLITE_SELECT:
+      case SQLITE_READ:
+      case SQLITE_TRANSACTION:
+      case SQLITE_FUNCTION: {
+         return SQLITE_OK;
+      }
+      case SQLITE_PRAGMA: {
+         return a && !strcmp(a, "user_version") ? SQLITE_OK : SQLITE_DENY;
+      }
+      default: {
+         return SQLITE_DENY;
+      }
    }
 }
 bool rrclient_database_restore_sql(const char *sql, size_t length) {
-   if (!client_db || !sql || length > 256u * 1024u * 1024u ||
-       memchr(sql, 0, length) || strlen(sql) != length) return false;
+   if (!client_db || !sql || length > 256u * 1024u * 1024u || memchr(sql, 0, length) || strlen(sql) != length) {
+      return false;
+   }
    sqlite3 *incoming = NULL;
+
    if (sqlite3_open(":memory:", &incoming) != SQLITE_OK) {
-      if (incoming) sqlite3_close(incoming);
+      if (incoming) {
+         sqlite3_close(incoming);
+      }
+
       return false;
    }
    sqlite3_db_config(incoming, SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION, 0, NULL);
@@ -411,26 +541,26 @@ bool rrclient_database_restore_sql(const char *sql, size_t length) {
    bool ok = sqlite3_exec(incoming, sql, NULL, NULL, NULL) == SQLITE_OK;
    sqlite3_set_authorizer(incoming, NULL, NULL);
    sqlite3_stmt *integrity = NULL;
+
    if (ok) {
       ok = sqlite3_prepare_v2(incoming, "PRAGMA integrity_check", -1, &integrity, NULL) == SQLITE_OK &&
-         sqlite3_step(integrity) == SQLITE_ROW &&
-         !strcmp((const char *)sqlite3_column_text(integrity, 0), "ok");
+         sqlite3_step(integrity) == SQLITE_ROW && !strcmp((const char *)sqlite3_column_text(integrity, 0), "ok");
    }
    sqlite3_finalize(integrity);
+
    if (ok) {
       /* A backup must include the recognized client schema. */
       sqlite3_stmt *check = NULL;
-      ok = sqlite3_prepare_v2(incoming,
-         "SELECT count(*) FROM sqlite_master WHERE type='table' AND "
-         "name IN ('servers','client_settings','config_overrides')",
-         -1, &check, NULL) == SQLITE_OK &&
-         sqlite3_step(check) == SQLITE_ROW &&
-         sqlite3_column_int(check, 0) == 3;
+      ok = sqlite3_prepare_v2(incoming, "SELECT count(*) FROM sqlite_master WHERE type='table' AND "
+         "name IN ('servers','client_settings','config_overrides')", -1, &check, NULL) == SQLITE_OK && sqlite3_step(check) == SQLITE_ROW
+         && sqlite3_column_int(check, 0) == 3;
       sqlite3_finalize(check);
    }
+
    if (ok) {
       sqlite3_backup *restore = sqlite3_backup_init(client_db, "main", incoming, "main");
       ok = restore != NULL;
+
       if (restore) {
          int step = sqlite3_backup_step(restore, -1);
          int done = sqlite3_backup_finish(restore);
@@ -438,11 +568,16 @@ bool rrclient_database_restore_sql(const char *sql, size_t length) {
       }
    }
    sqlite3_close(incoming);
+
    if (ok) {
       /* Prevent stale in-memory client state from writing over the imported DB. */
       ok = sqlite3_exec(client_db, "PRAGMA query_only=ON", NULL, NULL, NULL) == SQLITE_OK;
-      if (ok) backup_imported = true;
+
+      if (ok) {
+         backup_imported = true;
+      }
    }
+
    return ok;
 }
 
@@ -580,22 +715,27 @@ bool rrclient_database_network_set(const char *name, const char *members) {
    return ok;
 }
 
-/* Ungrouped is represented by absence of memberships; never delete servers.
- * Perform both deletes atomically, regardless of foreign-key PRAGMA state. */
+/* Ungrouped is represented by absence of memberships; never delete servers. Perform both deletes atomically, regardless of foreign-key PRAGMA state. */
 bool rrclient_database_network_delete(const char *name) {
-   if (!client_db || !name || !*name || !g_ascii_strcasecmp(name, "Ungrouped"))
+   if (!client_db || !name || !*name || !g_ascii_strcasecmp(name, "Ungrouped")) {
       return false;
-   if (sqlite3_exec(client_db, "SAVEPOINT network_delete", NULL, NULL, NULL) != SQLITE_OK)
+   }
+
+   if (sqlite3_exec(client_db, "SAVEPOINT network_delete", NULL, NULL, NULL) != SQLITE_OK) {
       return false;
-   bool ok = db_exec3("DELETE FROM network_memberships WHERE network_id="
-                      "(SELECT id FROM networks WHERE name=?1)", name, NULL, NULL);
-   if (ok)
+   }
+   bool ok = db_exec3("DELETE FROM network_memberships WHERE network_id=" "(SELECT id FROM networks WHERE name=?1)", name, NULL, NULL);
+
+   if (ok) {
       ok = db_exec3("DELETE FROM networks WHERE name=?1", name, NULL, NULL);
-   if (ok)
+   }
+
+   if (ok) {
       ok = sqlite3_exec(client_db, "RELEASE network_delete", NULL, NULL, NULL) == SQLITE_OK;
-   else
-      sqlite3_exec(client_db, "ROLLBACK TO network_delete; RELEASE network_delete",
-                   NULL, NULL, NULL);
+   } else {
+      sqlite3_exec(client_db, "ROLLBACK TO network_delete; RELEASE network_delete", NULL, NULL, NULL);
+   }
+
    return ok && rrclient_database_load_profiles();
 }
 
@@ -982,43 +1122,44 @@ bool rrclient_database_window_save(const char *id, const rrclient_window_state_t
 }
 
 
-void rrclient_database_watched_calls_foreach(
-   void (*callback)(const rrclient_watched_call_t *, void *), void *user) {
-   if (!client_db || !callback) return;
+void rrclient_database_watched_calls_foreach(void (*callback) (const rrclient_watched_call_t *, void *), void *user) {
+   if (!client_db || !callback) {
+      return;
+   }
    sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db,
-       "SELECT id,callsign,mode,band,auto_mark_worked,worked FROM watched_calls "
-       "ORDER BY callsign COLLATE NOCASE,mode COLLATE NOCASE,band COLLATE NOCASE",
-       -1, &q, NULL) != SQLITE_OK) {
+
+   if (sqlite3_prepare_v2(client_db, "SELECT id,callsign,mode,band,auto_mark_worked,worked FROM watched_calls "
+      "ORDER BY callsign COLLATE NOCASE,mode COLLATE NOCASE,band COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) {
       g_warning("Unable to list watched calls: %s", sqlite3_errmsg(client_db));
+
       return;
    }
    while (sqlite3_step(q) == SQLITE_ROW) {
       rrclient_watched_call_t entry = {
          .id = sqlite3_column_int(q, 0),
-         .callsign = (const char *) sqlite3_column_text(q, 1),
-         .mode = (const char *) sqlite3_column_text(q, 2),
-         .band = (const char *) sqlite3_column_text(q, 3),
+         .callsign = (const char *)sqlite3_column_text(q, 1),
+         .mode = (const char *)sqlite3_column_text(q, 2),
+         .band = (const char *)sqlite3_column_text(q, 3),
          .auto_mark_worked = sqlite3_column_int(q, 4) != 0,
          .worked = sqlite3_column_int(q, 5) != 0
       };
-      callback(&entry, user); /* String pointers valid only during callback. */
+      callback(&entry, user);   /* String pointers valid only during callback. */
    }
    sqlite3_finalize(q);
 }
 
-bool rrclient_database_watched_call_save(int id, const char *callsign,
-   const char *mode, const char *band, bool auto_mark_worked, bool worked) {
-   if (!client_db || id < 0 || !callsign || !*callsign ||
-       !mode || !*mode || !band || !*band) return false;
+bool rrclient_database_watched_call_save(int id, const char *callsign, const char *mode, const char *band, bool auto_mark_worked, bool worked) {
+   if (!client_db || id < 0 || !callsign || !*callsign || !mode || !*mode || !band || !*band) {
+      return false;
+   }
    sqlite3_stmt *q = NULL;
    const char *sql = id ?
       "UPDATE watched_calls SET callsign=?1,mode=?2,band=?3,"
-      "auto_mark_worked=?4,worked=?5 WHERE id=?6" :
-      "INSERT INTO watched_calls(callsign,mode,band,auto_mark_worked,worked)"
-      " VALUES(?1,?2,?3,?4,?5)";
+      "auto_mark_worked=?4,worked=?5 WHERE id=?6" : "INSERT INTO watched_calls(callsign,mode,band,auto_mark_worked,worked)" " VALUES(?1,?2,?3,?4,?5)";
+
    if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) != SQLITE_OK) {
       g_warning("Unable to prepare watched call: %s", sqlite3_errmsg(client_db));
+
       return false;
    }
    sqlite3_bind_text(q, 1, callsign, -1, SQLITE_TRANSIENT);
@@ -1026,26 +1167,37 @@ bool rrclient_database_watched_call_save(int id, const char *callsign,
    sqlite3_bind_text(q, 3, band, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(q, 4, auto_mark_worked);
    sqlite3_bind_int(q, 5, worked);
-   if (id) sqlite3_bind_int(q, 6, id);
-   bool ok = sqlite3_step(q) == SQLITE_DONE &&
-             (!id || sqlite3_changes(client_db) == 1);
-   if (!ok) g_warning("Unable to save watched call %s: %s",
-                      callsign, sqlite3_errmsg(client_db));
+
+   if (id) {
+      sqlite3_bind_int(q, 6, id);
+   }
+   bool ok = sqlite3_step(q) == SQLITE_DONE && (!id || sqlite3_changes(client_db) == 1);
+
+   if (!ok) {
+      g_warning("Unable to save watched call %s: %s", callsign, sqlite3_errmsg(client_db));
+   }
    sqlite3_finalize(q);
+
    return ok;
 }
 
 bool rrclient_database_watched_call_delete(int id) {
-   if (!client_db || id <= 0) return false;
-   sqlite3_stmt *q = NULL;
-   if (sqlite3_prepare_v2(client_db,
-       "DELETE FROM watched_calls WHERE id=?1", -1, &q, NULL) != SQLITE_OK)
+   if (!client_db || id <= 0) {
       return false;
+   }
+   sqlite3_stmt *q = NULL;
+
+   if (sqlite3_prepare_v2(client_db, "DELETE FROM watched_calls WHERE id=?1", -1, &q, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_int(q, 1, id);
-   bool ok = sqlite3_step(q) == SQLITE_DONE &&
-             sqlite3_changes(client_db) == 1;
-   if (!ok) g_warning("Unable to delete watched call: %s", sqlite3_errmsg(client_db));
+   bool ok = sqlite3_step(q) == SQLITE_DONE && sqlite3_changes(client_db) == 1;
+
+   if (!ok) {
+      g_warning("Unable to delete watched call: %s", sqlite3_errmsg(client_db));
+   }
    sqlite3_finalize(q);
+
    return ok;
 }
 
@@ -1072,6 +1224,7 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
    q = NULL;
 
    stage = "replace existing routes";
+
    if (!ok || sqlite3_prepare_v2(client_db, "DELETE FROM audio_profile_routes WHERE profile=?1 COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) {
       goto done;
    }
@@ -1081,14 +1234,14 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
    q = NULL;
 
    stage = "insert routes";
+
    if (!ok || sqlite3_prepare_v2(client_db, "INSERT INTO audio_profile_routes(profile,stream_id,route) VALUES(?1,?2,?3)", -1, &q, NULL) != SQLITE_OK) {
       goto done;
    }
 
    for (size_t i = 0 ; i < count ; i++) {
       if (!ids[i] || !*ids[i] || routes[i] == '\0' || !strchr("SLRM", routes[i])) {
-         g_warning("Audio preset '%s' contains invalid routing entry %zu (id=%s, route=%u)",
-                   name, i, ids[i] ? ids[i] : "(null)", (unsigned char)routes[i]);
+         g_warning("Audio preset '%s' contains invalid routing entry %zu (id=%s, route=%u)", name, i, ids[i] ? ids[i] : "(null)", (unsigned char)routes[i]);
          ok = false;
          break;
       }
@@ -1116,8 +1269,7 @@ done:
    }
 
    if (!ok) {
-      g_warning("Audio preset '%s' SQLite %s failed: %s (code %d)",
-                name, stage, sqlite3_errmsg(client_db), sqlite3_errcode(client_db));
+      g_warning("Audio preset '%s' SQLite %s failed: %s (code %d)", name, stage, sqlite3_errmsg(client_db), sqlite3_errcode(client_db));
       sqlite3_exec(client_db, "ROLLBACK TO audio_profile_save; RELEASE audio_profile_save", NULL, NULL, NULL);
    }
 

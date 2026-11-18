@@ -210,19 +210,33 @@ bool ws_auth_refresh(rrconn_t *client) {
 
 /* No password credential may travel over an unencrypted WebSocket. */
 static bool auth_tls_connection(const rrconn_t *client) {
-   if (!client) return false;
-   return client->native_transport &&
-      (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_ENCRYPTED);
+   if (!client) {
+      return false;
+   }
+
+   return client->native_transport && (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_TLS_ENCRYPTED);
 }
 
 static void auth_password_change_reply(rrconn_t *client, bool success, const char *reason) {
    dict *reply = dict_new();
-   if (!reply) return;
+
+   if (!reply) {
+      return;
+   }
    dict_add(reply, "msg.type", "auth");
    dict_add(reply, "auth.cmd", success ? "password-changed" : "password-change-failed");
-   if (client && client->user) dict_add(reply, "auth.user", client->user->name);
-   if (reason) dict_add(reply, "auth.reason", reason);
-   if (client) ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+
+   if (client && client->user) {
+      dict_add(reply, "auth.user", client->user->name);
+   }
+
+   if (reason) {
+      dict_add(reply, "auth.reason", reason);
+   }
+
+   if (client) {
+      ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   }
    dict_free(reply);
 }
 
@@ -258,6 +272,7 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
 
    if ((!strcasecmp(cmd, "login") || !strcasecmp(cmd, "pass")) && !auth_tls_connection(cptr)) {
       ws_kick_client(cptr, "Password login requires TLS");
+
       return false;
    }
 
@@ -306,6 +321,7 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
 
       if (!masterdb) {
          ws_kick_client(cptr, "SQLite authentication database unavailable");
+
          return false;
       }
 
@@ -349,25 +365,27 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
       ws_send_dict(NULL, cptr, auth_msg, WEBSOCKET_OP_TEXT);
       dict_free(auth_msg);
    } else if (!strcasecmp(cmd, "change-password")) {
-      /* Self-service password rotation over the existing verified TLS session.
-       * Do not route credentials through chat commands or application logs. */
+      /* Self-service password rotation over the existing verified TLS session. Do not route credentials through chat commands or application logs. */
       const char *replacement = dict_get(d, "auth.new-password", NULL);
+
       if (!cptr->authenticated || !cptr->user || !auth_tls_connection(cptr) ||
-          !token || strcmp(token, cptr->token) || !user ||
-          strcasecmp(user, cptr->user->name) || !replacement ||
-          strlen(replacement) < 8 || strlen(replacement) > 256) {
+         !token || strcmp(token, cptr->token) || !user ||
+         strcasecmp(user, cptr->user->name) || !replacement || strlen(replacement) < 8 || strlen(replacement) > 256) {
          auth_password_change_reply(cptr, false, "A verified TLS session and 8-256 character password are required");
+
          return false;
       }
       char *encoded = auth_password_hash_argon2id(replacement);
-      bool changed = encoded && masterdb &&
-         db_user_update_password(masterdb, cptr->user->name, encoded, false, 0);
+      bool changed = encoded && masterdb && db_user_update_password(masterdb, cptr->user->name, encoded, false, 0);
+
       if (encoded) {
          explicit_bzero(encoded, strlen(encoded));
          free(encoded);
       }
+
       if (!changed || db_get_users(masterdb) < 0) {
          auth_password_change_reply(cptr, false, "Unable to persist password change");
+
          return false;
       }
       auth_password_change_reply(cptr, true, NULL);
@@ -421,22 +439,24 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
       }
 
       const char *method = dict_get(d, "auth.method", "");
-      if (strcmp(method, "tls-password-v1") || strlen(pass) > 256 ||
-          !cptr->nonce[0] || !auth_tls_connection(cptr)) {
+
+      if (strcmp(method, "tls-password-v1") || strlen(pass) > 256 || !cptr->nonce[0] || !auth_tls_connection(cptr)) {
          cptr->nonce[0] = '\0';
          ws_kick_client(cptr, "Unsupported or expired TLS password challenge");
+
          return false;
       }
       /* Consume the nonce before expensive verification. */
       cptr->nonce[0] = '\0';
       bool upgraded = false;
       bool password_valid = db_user_password_authenticate(masterdb, up->name, pass, &upgraded);
-      if (upgraded)
+
+      if (upgraded) {
          Log(LOG_INFO, "auth", "Upgraded legacy account %s to Argon2id", up->name);
+      }
 
       if (password_valid) {
-         /* Never grant authenticated access on an unresolved ACL decision.
-          * The listener event is backend-independent. */
+         /* Never grant authenticated access on an unresolved ACL decision. The listener event is backend-independent. */
          rr_server_admission_t admission = {
             auth_tls_connection(cptr) ? "https" : "http", cptr->user_ip, up, false
          };
@@ -444,6 +464,7 @@ bool ws_handle_auth_msg(rrconn_t *cptr, dict *d) {
 
          if (!admission.allowed) {
             ws_kick_client(cptr, "Listener access denied");
+
             return false;
          }
 

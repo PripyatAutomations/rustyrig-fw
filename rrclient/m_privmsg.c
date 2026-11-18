@@ -101,6 +101,7 @@ static void rrclient_irc_connection(const char *event, const char *data, rrconn_
        * the latter clears WebSocket protocol, resource, and media state.
        * connman and the client UI subscribe to irc.disconnected directly. */
       ws_connected = 0;
+
       return;
    }
    char *name = strdup(cptr->nick);

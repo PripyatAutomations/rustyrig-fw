@@ -13,9 +13,8 @@ void rr_floating_panel_set_reserved_widgets(GtkOverlay *overlay, GtkWidget *uppe
 GtkWidget *rr_floating_panel_body(RRFloatPanel *panel);
 GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel);
 void rr_floating_panel_show(RRFloatPanel *panel);
-/* Explicit user-requested opening can reveal one panel even while the
- * global temporary hide mask is active (e.g. Server Picker on Status).
- * It does not reveal any other panel or change the hide toggle. */
+/* Explicit user-requested opening can reveal one panel even while the global temporary hide mask is active (e.g. Server Picker on Status). It does not reveal
+ * any other panel or change the hide toggle. */
 void rr_floating_panel_present(RRFloatPanel *panel);
 /* Center the panel in the main overlay on its first show, ignoring saved positions. */
 void rr_floating_panel_set_initial_centered(RRFloatPanel *panel, gboolean centered);
@@ -33,8 +32,7 @@ void rr_floating_panel_set_compact(RRFloatPanel *panel, GtkWidget *drag_handle);
 /* Optional content-driven sizing; the minimum tracks this widget at panel zoom. */
 void rr_floating_panel_set_min_width_widget(RRFloatPanel *panel, GtkWidget *widget);
 void rr_floating_panel_fit_content(RRFloatPanel *panel);
-/* Discard legacy oversized saved geometry for panels with redesigned
- * compact layouts; retains their screen position and other preferences. */
+/* Discard legacy oversized saved geometry for panels with redesigned compact layouts; retains their screen position and other preferences. */
 void rr_floating_panel_reset_saved_size(RRFloatPanel *panel);
 /* Zoom adjustment -100..+200 relative to 100% (0 = normal size). Custom content (e.g. Cairo graphs) handles its own rendering at this scale. */
 void rr_floating_panel_set_zoom_callback(RRFloatPanel *panel, void (*callback) (double scale, gpointer user), gpointer user);
@@ -47,15 +45,12 @@ void rr_floating_panel_set_response_callback(RRFloatPanel *panel, void (*callbac
 void rr_floating_panel_response(RRFloatPanel *panel, gint response);
 GtkWidget *rr_floating_panel_add_response(RRFloatPanel *panel, GtkWidget *button_box, const char *label, gint response);
 gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
-/* Transient, GTK-thread-only visibility masks. These never persist panel
- * state, change minimization, or restore panels which were already hidden. */
+/* Transient, GTK-thread-only visibility masks. These never persist panel state, change minimization, or restore panels which were already hidden. */
 #define RR_FLOATING_HIDE_MANUAL (1u << 0)
-#define RR_FLOATING_HIDE_TAB    (1u << 1)
-/* Wrap the chat content in four collapsible GtkPaned dock regions. The
- * chat text takes all unreserved space; other notebook pages are unchanged. */
+#define RR_FLOATING_HIDE_TAB (1u << 1)
+/* Wrap the chat content in four collapsible GtkPaned dock regions. The chat text takes all unreserved space; other notebook pages are unchanged. */
 GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat, GtkWidget *page);
-/* Switch the dock destination to the newly active chat room, or NULL for
- * tool/status pages. Docked panels retain their edge when changing rooms. */
+/* Switch the dock destination to the newly active chat room, or NULL for tool/status pages. Docked panels retain their edge when changing rooms. */
 void rr_floating_panel_chat_activate(GtkWidget *page);
 /* Room-bound panels follow only the matching chat tab; NULL means global. */
 void rr_floating_panel_set_chat_room(RRFloatPanel *panel, const char *server, const char *room);

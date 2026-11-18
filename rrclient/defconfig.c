@@ -141,7 +141,8 @@ defconfig_t defcfg[] = {
       "audio.mute-talkback", "true", "Mute RX stream during TX to suppress talkback", DEFCONFIG_BOOL, NULL
    },
    {
-      "audio.pipeline-mode", "configured", "configured: existing config-file GStreamer pipelines (default); generated: opt into programmatic capture/playback recipes"
+      "audio.pipeline-mode", "configured",
+      "configured: existing config-file GStreamer pipelines (default); generated: opt into programmatic capture/playback recipes"
    },
    {
       "audio.capture-device", "default", "Input device for generated client audio pipelines (PulseAudio / PipeWire-Pulse)"

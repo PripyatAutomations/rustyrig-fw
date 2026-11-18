@@ -24,7 +24,7 @@ typedef struct {
    char *server, *room;
    GtkWidget *drawing, *mode, *gain, *source, *ear;
    unsigned zoom, palette_index, style;
-   uint32_t max_hz; /* source's real Nyquist, independent of the 16 kHz FFT */
+   uint32_t max_hz;             /* source's real Nyquist, independent of the 16 kHz FFT */
    double pan_hz, drag_start_x, drag_start_pan;
    bool dragging, drag_moved;
    float rows[HISTORY][RR_AF_BINS];
@@ -327,12 +327,17 @@ static const palette_t palettes[] = {
 static unsigned waterfall_pref(const char *key, unsigned fallback, unsigned max) {
    char *saved = rrclient_database_setting_get(key);
    unsigned value = fallback;
+
    if (saved && *saved) {
       char *end = NULL;
       unsigned long n = strtoul(saved, &end, 10);
-      if (end && !*end && n <= max) value = (unsigned)n;
+
+      if (end && !*end && n <= max) {
+         value = (unsigned)n;
+      }
    }
    g_free(saved);
+
    return value;
 }
 static void waterfall_save(const char *key, unsigned value) {
@@ -340,6 +345,7 @@ static void waterfall_save(const char *key, unsigned value) {
    g_snprintf(buf, sizeof(buf), "%u", value);
    rrclient_database_setting_set(key, buf);
 }
+
 typedef struct {
    unsigned *value;
    const char *key;
@@ -347,7 +353,9 @@ typedef struct {
    unsigned index;
 } waterfall_option_t;
 static void waterfall_option_activate(GtkCheckMenuItem *item, gpointer user) {
-   if (!gtk_check_menu_item_get_active(item)) return;
+   if (!gtk_check_menu_item_get_active(item)) {
+      return;
+   }
    waterfall_option_t *opt = user;
    *opt->value = opt->index;
    waterfall_save(opt->key, opt->index);
@@ -357,32 +365,40 @@ static void waterfall_option_free(gpointer data, GClosure *closure) {
    (void)closure;
    g_free(data);
 }
-static GtkWidget *waterfall_menu(const char *const *names, unsigned count,
-      unsigned selected, unsigned *value, const char *key, GtkWidget *drawing) {
+static GtkWidget *waterfall_menu(const char *const *names, unsigned count, unsigned selected, unsigned *value, const char *key, GtkWidget *drawing) {
    GtkWidget *menu = gtk_menu_new();
    GSList *group = NULL;
-   for (unsigned i = 0; i < count; i++) {
+
+   for (unsigned i = 0 ; i < count ; i++) {
       GtkWidget *item = gtk_radio_menu_item_new_with_label(group, names[i]);
       group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
       gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), i == selected);
       waterfall_option_t *opt = g_new0(waterfall_option_t, 1);
-      opt->value = value; opt->key = key; opt->drawing = drawing; opt->index = i;
-      g_signal_connect_data(item, "activate", G_CALLBACK(waterfall_option_activate),
-         opt, waterfall_option_free, 0);
+      opt->value = value;
+      opt->key = key;
+      opt->drawing = drawing;
+      opt->index = i;
+      g_signal_connect_data(item, "activate", G_CALLBACK(waterfall_option_activate), opt, waterfall_option_free, 0);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
+
    return menu;
 }
+
 static const char *const af_styles[] = {
    "Spectrum + Waterfall", "Spectrum", "Waterfall", "Bars", "Waterfall + Bars"
 };
+
 static const char *const rf_styles[] = {
    "Waterfall", "Spectrum", "Spectrum + Waterfall"
 };
-static GtkWidget *waterfall_palette_menu(unsigned selected, unsigned *value,
-      const char *key, GtkWidget *drawing) {
+static GtkWidget *waterfall_palette_menu(unsigned selected, unsigned *value, const char *key, GtkWidget *drawing) {
    const char *names[G_N_ELEMENTS(palettes)];
-   for (unsigned i = 0; i < G_N_ELEMENTS(palettes); i++) names[i] = palettes[i].name;
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(palettes) ; i++) {
+      names[i] = palettes[i].name;
+   }
+
    return waterfall_menu(names, G_N_ELEMENTS(palettes), selected, value, key, drawing);
 }
 
@@ -397,20 +413,19 @@ static uint32_t palette_pixel(double v, unsigned selected_palette) {
 
    return 0xff000000u | (r << 16) | (g << 8) | b;
 }
+
 static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data);
-/* Offset tuning is UI state until the modem catalog/control API exists.
- * This never keys PTT or changes physical CAT tuning.
+/* Offset tuning is UI state until the modem catalog/control API exists. This never keys PTT or changes physical CAT tuning.
  */
 static bool af_in_modem_mode(void) {
    const char *mode = rr_cat_property(NULL, "mode", NULL);
-   return mode && (!strncmp(mode, "M-", 2) || !strcmp(mode, "MFM") ||
-                   !strncmp(mode, "D-", 2) || !strcmp(mode, "DFM"));
+
+   return mode && (!strncmp(mode, "M-", 2) || !strcmp(mode, "MFM") || !strncmp(mode, "D-", 2) || !strcmp(mode, "DFM"));
 }
-/* The FFT is always 0..8 kHz. The display instead uses the selected
- * source's true upstream Nyquist, and zoom/panning remain within it. */
+
+/* The FFT is always 0..8 kHz. The display instead uses the selected source's true upstream Nyquist, and zoom/panning remain within it. */
 static unsigned af_limit(const spectrum_panel_t *p) {
-   return p->max_hz && p->max_hz <= RR_AF_MAX_HZ ?
-      p->max_hz : RR_AF_MAX_HZ;
+   return p->max_hz && p->max_hz <= RR_AF_MAX_HZ ? p->max_hz : RR_AF_MAX_HZ;
 }
 static void af_view_bounds(const spectrum_panel_t *p, double *low, double *high) {
    unsigned zoom = p->zoom ? p->zoom : 1;
@@ -424,33 +439,50 @@ static unsigned af_source_bin(const spectrum_panel_t *p, unsigned x_bin) {
    double low, high;
    af_view_bounds(p, &low, &high);
    double hz = low + (high - low) * x_bin / (RR_AF_BINS - 1.);
-   return (unsigned)CLAMP(round(hz * (RR_AF_BINS - 1.) / RR_AF_MAX_HZ),
-                          0., RR_AF_BINS - 1.);
+
+   return (unsigned)CLAMP(round(hz * (RR_AF_BINS - 1.) / RR_AF_MAX_HZ), 0., RR_AF_BINS - 1.);
 }
 static double af_hz_to_x(const spectrum_panel_t *p, unsigned hz, int width) {
    double low, high;
    af_view_bounds(p, &low, &high);
+
    return width > 1 ? ((double)hz - low) * (width - 1.) / (high - low) : 0.;
 }
 static unsigned af_x_to_hz(const spectrum_panel_t *p, double x, int width) {
-   if (width < 2) return 0;
+   if (width < 2) {
+      return 0;
+   }
    double low, high;
    af_view_bounds(p, &low, &high);
    double hz = low + CLAMP(x, 0., width - 1.) * (high - low) / (width - 1.);
+
    return (unsigned)CLAMP(round(hz), 0., (double)af_limit(p));
 }
+
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz);
 static void af_pan_move(spectrum_panel_t *p, double x, int width) {
-   if (!p->dragging || width < 2) return;
+   if (!p->dragging || width < 2) {
+      return;
+   }
    double low, high;
    af_view_bounds(p, &low, &high);
    double span = high - low;
-   if (span >= af_limit(p)) return;
-   if (fabs(x - p->drag_start_x) > 3.) p->drag_moved = true;
-   if (!p->drag_moved) return;
+
+   if (span >= af_limit(p)) {
+      return;
+   }
+
+   if (fabs(x - p->drag_start_x) > 3.) {
+      p->drag_moved = true;
+   }
+
+   if (!p->drag_moved) {
+      return;
+   }
    double offset = (p->drag_start_x - x) * span / (width - 1.);
    double max_pan = (af_limit(p) - span) / 2.;
    double next = CLAMP(p->drag_start_pan + offset, -max_pan, max_pan);
+
    if (p->pan_hz != next) {
       p->pan_hz = next;
       gtk_widget_queue_draw(p->drawing);
@@ -458,48 +490,64 @@ static void af_pan_move(spectrum_panel_t *p, double x, int width) {
 }
 static gboolean af_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    spectrum_panel_t *p = data;
-   if (!p->dragging) return FALSE;
+
+   if (!p->dragging) {
+      return FALSE;
+   }
    af_pan_move(p, event->x, gtk_widget_get_allocated_width(widget));
+
    return TRUE;
 }
 static gboolean af_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    spectrum_panel_t *p = data;
-   if (event->button != 1 || !p->dragging) return FALSE;
+
+   if (event->button != 1 || !p->dragging) {
+      return FALSE;
+   }
    af_pan_move(p, event->x, gtk_widget_get_allocated_width(widget));
    p->dragging = false;
+
    if (!p->drag_moved && af_in_modem_mode()) {
       unsigned hz = af_x_to_hz(p, event->x, gtk_widget_get_allocated_width(widget));
       af_offset_update(p, !!(event->state & GDK_SHIFT_MASK), hz);
    }
+
    return TRUE;
 }
 static void af_offset_update(spectrum_panel_t *p, bool tx, unsigned hz) {
    hz = MIN(hz, RR_AF_MAX_HZ);
    GtkWidget *spin = tx ? p->modem_tx_spin : p->modem_rx_spin;
    unsigned *current = tx ? &p->modem_tx_hz : &p->modem_rx_hz;
+
    if (*current != hz) {
       *current = hz;
       waterfall_save(tx ? "modem.af.tx-offset-hz" : "modem.af.rx-offset-hz", hz);
    }
+
    if (spin && gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin)) != (int)hz) {
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), hz);
    }
-   if (p->drawing) gtk_widget_queue_draw(p->drawing);
+
+   if (p->drawing) {
+      gtk_widget_queue_draw(p->drawing);
+   }
 }
 static void af_spin_changed(GtkSpinButton *spin, gpointer data) {
    spectrum_panel_t *p = data;
-   af_offset_update(p, GTK_WIDGET(spin) == p->modem_tx_spin,
-                    (unsigned)gtk_spin_button_get_value_as_int(spin));
+   af_offset_update(p, GTK_WIDGET(spin) == p->modem_tx_spin, (unsigned)gtk_spin_button_get_value_as_int(spin));
 }
 static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    spectrum_panel_t *p = data;
+
    if (event->type == GDK_BUTTON_PRESS && event->button == 1) {
       p->dragging = true;
       p->drag_moved = false;
       p->drag_start_x = event->x;
       p->drag_start_pan = p->pan_hz;
+
       return TRUE;
    }
+
    return af_context_menu(widget, event, data);
 }
 static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -573,16 +621,16 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
                unsigned source_bin = af_source_bin(p, bin);
                double normalized = row ? level(row[MIN(source_bin, RR_AF_BINS - 1)], p->display_gain_db) : 0.0;
                scanline[bin] = row ? palette_pixel(normalized, p->palette_index) : 0xff0d1621u;
+
                if (row && p->stereo) {
                   unsigned offset = (p->head + HISTORY - 1 - age) % HISTORY;
                   unsigned idx = MIN(source_bin, RR_AF_BINS - 1);
                   double l = level(p->left[offset][idx], p->display_gain_db);
                   double r = level(p->right[offset][idx], p->display_gain_db);
-                  /* Additive cyan (L) / amber (R). Shared bins mix toward
-                   * pale white; isolated signals retain distinct hues. */
-                  unsigned red = (unsigned)(255 * CLAMP(.04 + .12*l + .96*r, 0., 1.));
-                  unsigned green = (unsigned)(255 * CLAMP(.06 + .80*l + .50*r, 0., 1.));
-                  unsigned blue = (unsigned)(255 * CLAMP(.10 + .94*l + .06*r, 0., 1.));
+                  /* Additive cyan (L) / amber (R). Shared bins mix toward pale white; isolated signals retain distinct hues. */
+                  unsigned red = (unsigned)(255 * CLAMP(.04 + .12 * l + .96 * r, 0., 1.));
+                  unsigned green = (unsigned)(255 * CLAMP(.06 + .80 * l + .50 * r, 0., 1.));
+                  unsigned blue = (unsigned)(255 * CLAMP(.10 + .94 * l + .06 * r, 0., 1.));
                   scanline[bin] = 0xff000000u | (red << 16) | (green << 8) | blue;
                }
 
@@ -606,18 +654,20 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    }
    cairo_set_source_rgb(cr, 0.68, 0.73, 0.79);
    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+
    if (!p->count) {
       cairo_set_font_size(cr, 12);
       cairo_move_to(cr, 12, height / 2.);
       cairo_show_text(cr, "Waiting for audio on selected source...");
    }
-   /* Draw the true, source-constrained viewport frequency scale.
-    * The same bounds drive AF offset click tuning and the FFT bin crop. */
+   /* Draw the true, source-constrained viewport frequency scale. The same bounds drive AF offset click tuning and the FFT bin crop. */
    cairo_set_font_size(cr, 10);
-   for (unsigned tick = 0; tick <= 4; tick++) {
+
+   for (unsigned tick = 0 ; tick <= 4 ; tick++) {
       double x = (width - 1.) * tick / 4.;
       unsigned hz = af_x_to_hz(p, x, width);
       char label[24];
+
       if (hz && hz % 1000 == 0) {
          g_snprintf(label, sizeof(label), "%u kHz", hz / 1000);
       } else {
@@ -625,25 +675,31 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       }
       cairo_text_extents_t ext;
       cairo_text_extents(cr, label, &ext);
-      double tx = CLAMP(x - ext.width / 2., 2.,
-                        MAX(2., width - ext.width - 2.));
+      double tx = CLAMP(x - ext.width / 2., 2., MAX(2., width - ext.width - 2.));
       cairo_move_to(cr, tx, height - 3);
       cairo_show_text(cr, label);
    }
+
    if (af_in_modem_mode()) {
       /* RX cyan, TX amber; outside-viewport markers are deliberately clipped. */
-      const unsigned offsets[] = {p->modem_rx_hz, p->modem_tx_hz};
-      for (unsigned i = 0; i < 2; i++) {
+      const unsigned offsets[] = {
+         p->modem_rx_hz, p->modem_tx_hz
+      };
+
+      for (unsigned i = 0 ; i < 2 ; i++) {
          double x = af_hz_to_x(p, offsets[i], width);
-         if (x < 0 || x >= width) continue;
-         cairo_set_source_rgba(cr, i ? 1.0 : 0.25, i ? 0.65 : 0.9,
-                               i ? 0.18 : 1.0, 0.85);
+
+         if (x < 0 || x >= width) {
+            continue;
+         }
+         cairo_set_source_rgba(cr, i ? 1.0 : 0.25, i ? 0.65 : 0.9, i ? 0.18 : 1.0, 0.85);
          cairo_set_line_width(cr, 1.2);
          cairo_move_to(cr, x + 0.5, 0);
          cairo_line_to(cr, x + 0.5, height - 16);
          cairo_stroke(cr);
       }
    }
+
    if (p->stereo) {
       cairo_set_source_rgb(cr, .35, .92, 1);
       cairo_move_to(cr, 8, 13);
@@ -670,21 +726,25 @@ static void af_result_event(const rr_event_message_t *message, void *data) {
    }
    p->af_pending = false;
 
-   if (!p->listening) return;
+   if (!p->listening) {
+      return;
+   }
+
    if (!result->ready) {
       if (p->count && g_get_monotonic_time() - p->af_last_ready_at >= G_USEC_PER_SEC) {
          p->head = p->count = 0;
          gtk_widget_queue_draw(p->drawing);
       }
+
       return;
    }
    p->af_last_ready_at = g_get_monotonic_time();
-   unsigned max_hz = result->max_hz && result->max_hz <= RR_AF_MAX_HZ ?
-      result->max_hz : RR_AF_MAX_HZ;
+   unsigned max_hz = result->max_hz && result->max_hz <= RR_AF_MAX_HZ ? result->max_hz : RR_AF_MAX_HZ;
+
    if (max_hz != af_limit(p)) {
       p->max_hz = max_hz;
       p->pan_hz = 0.;
-      p->head = p->count = 0; /* no mixed frequency axes in history */
+      p->head = p->count = 0;   /* no mixed frequency axes in history */
    }
    p->stereo = result->stereo;
    memcpy(p->current, result->bins, sizeof(p->current));
@@ -711,8 +771,11 @@ static gboolean update(gpointer data) {
    }
    /* Refresh the stream chooser periodically; no GTK access to core routes. */
    gint64 now = g_get_monotonic_time();
+
    if (!p->streams_requested_at || now - p->streams_requested_at > 5000000) {
-      rr_event_message_t snapshot = { .name = RRCLIENT_AUDIO_SNAPSHOT_REQUEST };
+      rr_event_message_t snapshot = {
+         .name = RRCLIENT_AUDIO_SNAPSHOT_REQUEST
+      };
       event_emit_message(&snapshot);
       p->streams_requested_at = now;
    }
@@ -743,7 +806,10 @@ static void destroy_panel(gpointer data) {
    if (p->af_result_token) {
       event_off_token(p->af_result_token);
    }
-   if (p->streams_token) event_off_token(p->streams_token);
+
+   if (p->streams_token) {
+      event_off_token(p->streams_token);
+   }
    g_free(p->source_inventory);
 
    if (p->listening) {
@@ -764,7 +830,7 @@ static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    }
    spectrum_panel_t *p = g_object_get_data(G_OBJECT(item), "spectrum-panel");
    p->zoom = GPOINTER_TO_UINT(data);
-   p->pan_hz = 0.; /* Center on the selected source's actual spectrum. */
+   p->pan_hz = 0.;              /* Center on the selected source's actual spectrum. */
    gtk_widget_queue_draw(p->drawing);
 }
 static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -778,7 +844,8 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
    GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), waterfall_palette_menu(p->palette_index, &p->palette_index, "waterfall.af.palette", p->drawing));
    GtkWidget *style_item = gtk_menu_item_new_with_label("Display style");
-   gtk_menu_item_set_submenu(GTK_MENU_ITEM(style_item), waterfall_menu(af_styles, G_N_ELEMENTS(af_styles), p->style, &p->style, "waterfall.af.style", p->drawing));
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(style_item), waterfall_menu(af_styles, G_N_ELEMENTS(af_styles), p->style, &p->style, "waterfall.af.style", p->drawing
+      ));
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), style_item);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), palette_item);
    GtkWidget *zoom_item = gtk_menu_item_new_with_label("Zoom");
@@ -791,8 +858,7 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
    for (unsigned i = 0 ; i < G_N_ELEMENTS(factors) ; i++) {
       char label[64];
       unsigned span_hz = af_limit(p) / factors[i];
-      g_snprintf(label, sizeof(label), "%ux (%.3g kHz visible)",
-                 factors[i], (double)span_hz / 1000.);
+      g_snprintf(label, sizeof(label), "%ux (%.3g kHz visible)", factors[i], (double)span_hz / 1000.);
       GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
       group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
       g_object_set_data(G_OBJECT(item), "spectrum-panel", p);
@@ -812,45 +878,61 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
 static void source_changed(GtkComboBox *combo, gpointer data) {
    spectrum_panel_t *p = data;
    const char *id = gtk_combo_box_get_active_id(combo);
-   if (!id || p->source_refreshing) return;
-   char next = !strcmp(id, "stereo") ? 'A' : !strcmp(id, "mixed") ? 'M' :
-      !strcmp(id, "left") ? 'L' : !strcmp(id, "right") ? 'R' : 'S';
-   if (next == p->source_mode && (next != 'S' || !strcmp(p->source_id, id))) return;
+
+   if (!id || p->source_refreshing) {
+      return;
+   }
+   char next = !strcmp(id, "stereo") ? 'A' : !strcmp(id, "mixed") ? 'M' : !strcmp(id, "left") ? 'L' : !strcmp(id, "right") ? 'R' : 'S';
+
+   if (next == p->source_mode && (next != 'S' || !strcmp(p->source_id, id))) {
+      return;
+   }
    p->source_mode = next;
-   p->max_hz = RR_AF_MAX_HZ; /* replaced by next core spectrum reply */
+   p->max_hz = RR_AF_MAX_HZ;    /* replaced by next core spectrum reply */
    p->pan_hz = 0.;
    p->source_id[0] = 0;
-   if (p->source_mode == 'S') g_strlcpy(p->source_id, id, sizeof(p->source_id));
+
+   if (p->source_mode == 'S') {
+      g_strlcpy(p->source_id, id, sizeof(p->source_id));
+   }
    p->head = p->count = 0;
    p->af_pending = false;
    gtk_widget_queue_draw(p->drawing);
 }
-/* Source names come from the core-owned audio graph snapshot, never from
- * GTK walking decoder/route lists. This same snapshot drives Audio Graph. */
+
+/* Source names come from the core-owned audio graph snapshot, never from GTK walking decoder/route lists. This same snapshot drives Audio Graph. */
 static void source_snapshot(const rr_event_message_t *message, void *user) {
    spectrum_panel_t *p = user;
-   if (!message || !message->payload || message->length < sizeof(rr_audio_stream_snapshot_t)) return;
+
+   if (!message || !message->payload || message->length < sizeof(rr_audio_stream_snapshot_t)) {
+      return;
+   }
    const rr_audio_stream_snapshot_t *snapshot = message->payload;
-   if (snapshot->count > 128 ||
-       (size_t)snapshot->count > (message->length - sizeof(*snapshot)) / sizeof(snapshot->streams[0])) return;
-   /* Avoid rebuilding the selector every five seconds when nothing changed.
-    * Rebuilding emits "changed" and would otherwise erase the history. */
+
+   if (snapshot->count > 128 || (size_t)snapshot->count > (message->length - sizeof(*snapshot)) / sizeof(snapshot->streams[0])) {
+      return;
+   }
+   /* Avoid rebuilding the selector every five seconds when nothing changed. Rebuilding emits "changed" and would otherwise erase the history. */
    GString *inventory = g_string_new("");
+
    for (uint32_t i = 0 ; i < snapshot->count ; i++) {
       const struct rrclient_rx_stream *st = &snapshot->streams[i];
-      if (memchr(st->id, 0, sizeof(st->id)) &&
-          memchr(st->server, 0, sizeof(st->server)) &&
-          memchr(st->room, 0, sizeof(st->room)))
+
+      if (memchr(st->id, 0, sizeof(st->id)) && memchr(st->server, 0, sizeof(st->server)) && memchr(st->room, 0, sizeof(st->room))) {
          g_string_append_printf(inventory, "%s/%s/%s/%c;", st->id, st->server, st->room, st->output);
+      }
    }
+
    if (!g_strcmp0(p->source_inventory, inventory->str)) {
       g_string_free(inventory, TRUE);
+
       return;
    }
    g_free(p->source_inventory);
    p->source_inventory = g_string_free(inventory, FALSE);
    const char *prior = gtk_combo_box_get_active_id(GTK_COMBO_BOX(p->source));
    char saved[64] = "";
+
    if (prior) {
       g_strlcpy(saved, prior, sizeof(saved));
    }
@@ -861,27 +943,32 @@ static void source_snapshot(const rr_event_message_t *message, void *user) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "left", "Left (heard)");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "right", "Right (heard)");
    bool present = false;
+
    for (uint32_t i = 0 ; i < snapshot->count ; i++) {
       const struct rrclient_rx_stream *stream = &snapshot->streams[i];
+
       if (!memchr(stream->id, 0, sizeof(stream->id))) {
          continue;
       }
 
-      if (!strcmp(stream->id, "left") || !strcmp(stream->id, "right") ||
-          !strcmp(stream->id, "mixed") || !strcmp(stream->id, "stereo")) continue;
+      if (!strcmp(stream->id, "left") || !strcmp(stream->id, "right") || !strcmp(stream->id, "mixed") || !strcmp(stream->id, "stereo")) {
+         continue;
+      }
       char label[256];
-      g_snprintf(label, sizeof(label), "%s / %s (%c)", stream->server, stream->room,
-         stream->output ? stream->output : 'S');
+      g_snprintf(label, sizeof(label), "%s / %s (%c)", stream->server, stream->room, stream->output ? stream->output : 'S');
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), stream->id, label);
+
       if (!strcmp(saved, stream->id)) {
          present = true;
       }
    }
 
-   if (!strcmp(saved, "stereo") || !strcmp(saved, "mixed") ||
-       !strcmp(saved, "left") || !strcmp(saved, "right")) present = true;
+   if (!strcmp(saved, "stereo") || !strcmp(saved, "mixed") || !strcmp(saved, "left") || !strcmp(saved, "right")) {
+      present = true;
+   }
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), present ? saved : "stereo");
    p->source_refreshing = false;
+
    if (!present && p->source_mode == 'S') {
       p->source_mode = 'M';
       p->source_id[0] = 0;
@@ -898,7 +985,10 @@ static void ear_changed(GtkRange *range, gpointer data) {
    spectrum_panel_t *p = data;
    unsigned pos = (unsigned)gtk_range_get_value(range);
    char next = pos == 0 ? 'L' : pos == 2 ? 'R' : 'M';
-   if (next == p->source_mode) return;
+
+   if (next == p->source_mode) {
+      return;
+   }
    p->source_mode = next;
    p->max_hz = RR_AF_MAX_HZ;
    p->pan_hz = 0.;
@@ -907,40 +997,49 @@ static void ear_changed(GtkRange *range, gpointer data) {
    p->af_pending = false;
    gtk_widget_queue_draw(p->drawing);
 }
-/* Spectrum selectors should not cover the trace when idle. The menu and
- * focused/hovered widget always remain fully opaque and usable. */
+
+/* Spectrum selectors should not cover the trace when idle. The menu and focused/hovered widget always remain fully opaque and usable. */
 static gboolean spectrum_popup_shown(GtkWidget *widget) {
    gboolean shown = FALSE;
    g_object_get(widget, "popup-shown", &shown, NULL);
+
    return shown;
 }
 static void spectrum_selector_opacity(GtkWidget *widget) {
-   gboolean active = gtk_widget_has_focus(widget) ||
-      spectrum_popup_shown(widget);
-   if (gtk_widget_get_state_flags(widget) & GTK_STATE_FLAG_PRELIGHT) active = TRUE;
+   gboolean active = gtk_widget_has_focus(widget) || spectrum_popup_shown(widget);
+
+   if (gtk_widget_get_state_flags(widget) & GTK_STATE_FLAG_PRELIGHT) {
+      active = TRUE;
+   }
    gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
 }
 static gboolean spectrum_selector_enter(GtkWidget *widget, GdkEventCrossing *event, gpointer user) {
-   (void)event; (void)user;
+   (void)event;
+   (void)user;
    gtk_widget_set_opacity(widget, 1.0);
+
    return FALSE;
 }
 static gboolean spectrum_selector_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer user) {
-   (void)event; (void)user;
+   (void)event;
+   (void)user;
    /* During leave-notify, PRELIGHT may not yet be cleared. */
-   gboolean active = gtk_widget_has_focus(widget) ||
-      spectrum_popup_shown(widget);
+   gboolean active = gtk_widget_has_focus(widget) || spectrum_popup_shown(widget);
    gtk_widget_set_opacity(widget, active ? 1.0 : 0.36);
+
    return FALSE;
 }
 static gboolean spectrum_selector_focus(GtkWidget *widget, GdkEventFocus *event, gpointer user) {
-   (void)event; (void)user;
+   (void)event;
+   (void)user;
    /* An idle callback observes the updated GTK focus state. */
    spectrum_selector_opacity(widget);
+
    return FALSE;
 }
 static void spectrum_selector_popup(GObject *object, GParamSpec *pspec, gpointer user) {
-   (void)pspec; (void)user;
+   (void)pspec;
+   (void)user;
    spectrum_selector_opacity(GTK_WIDGET(object));
 }
 static void spectrum_selector_fade(GtkWidget *widget) {
@@ -964,8 +1063,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
    p->source_mode = 'M';
    p->max_hz = RR_AF_MAX_HZ;
-   p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles)-1);
-   p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes)-1);
+   p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles) - 1);
+   p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes) - 1);
    p->source = gtk_combo_box_text_new();
    spectrum_selector_fade(p->source);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
@@ -975,8 +1074,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), "mixed");
    gtk_widget_set_tooltip_text(p->source, "Select final speaker channels or an individual graph stream (before routing)");
    gtk_box_pack_start(GTK_BOX(settings_row), p->source, FALSE, FALSE, 0);
-   /* Per-window style/palette are selected by right-click, not global
-    * combo boxes; show only stream picker and compact ear/gain controls. */
+   /* Per-window style/palette are selected by right-click, not global combo boxes; show only stream picker and compact ear/gain controls. */
    GtkWidget *gain_label = gtk_label_new("Gain");
    gtk_box_pack_start(GTK_BOX(settings_row), gain_label, FALSE, FALSE, 4);
    p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 60.0, 1.0);
@@ -996,8 +1094,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(settings_row), p->ear, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
-   gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK |
-      GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+   gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
    gtk_widget_set_size_request(p->drawing, -1, 210);
    gtk_widget_set_vexpand(p->drawing, TRUE);
    gtk_box_pack_start(GTK_BOX(box), p->drawing, TRUE, TRUE, 0);
@@ -1024,8 +1121,8 @@ typedef struct {
    GtkWidget *fullscreen, *fullscreen_drawing;
    GtkWidget *hover_widget;
    GtkWidget *vfo_select;
-   char selected_vfo; /* 0 = Follow Active */
-   char remote_id[256]; /* nonempty = remote server RF source */
+   char selected_vfo;           /* 0 = Follow Active */
+   char remote_id[256];         /* nonempty = remote server RF source */
    rr_event_token_t remote_row_token, remote_catalog_token;
    bool selector_refreshing;
    double hover_x, hover_y;
@@ -1047,23 +1144,31 @@ typedef struct {
    guint draw_timer, recovery_timer;
    rr_event_token_t token, caps_token, vfo_token;
 } rf_strip_t;
-/* Keep selection separate from the room's tuning focus. Manual selection
- * never changes which VFO is active for CAT or audio. */
+/* Keep selection separate from the room's tuning focus. Manual selection never changes which VFO is active for CAT or audio. */
 static char rf_selected_vfo(const rf_strip_t *p) {
-   if (p->remote_id[0]) return 0;
-   if (p->selected_vfo) return p->selected_vfo;
-   rr_local_bridge_ui_state_t active = { 0 };
+   if (p->remote_id[0]) {
+      return 0;
+   }
+
+   if (p->selected_vfo) {
+      return p->selected_vfo;
+   }
+   rr_local_bridge_ui_state_t active = {
+      0
+   };
    rrclient_local_bridge_ui_state(&active);
+
    return active.vfo;
 }
 static gboolean rf_selected_state(const rf_strip_t *p, rr_local_bridge_ui_state_t *state) {
    char vfo = rf_selected_vfo(p);
+
    return vfo >= 'A' && vfo <= 'Z' && rrclient_local_bridge_ui_state_vfo(vfo, state) && state->waterfall;
 }
 static bool rf_request(const rf_strip_t *p, bool enabled, unsigned zoom, uint64_t center) {
    char vfo = rf_selected_vfo(p);
-   return vfo >= 'A' && vfo <= 'Z' &&
-      rrclient_local_bridge_request_waterfall_vfo(vfo, enabled, zoom, center);
+
+   return vfo >= 'A' && vfo <= 'Z' && rrclient_local_bridge_request_waterfall_vfo(vfo, enabled, zoom, center);
 }
 static void rf_clear_history(rf_strip_t *p) {
    p->head = p->count = 0;
@@ -1075,23 +1180,36 @@ static void rf_clear_history(rf_strip_t *p) {
 }
 static void rf_vfo_changed(GtkComboBox *combo, gpointer data) {
    rf_strip_t *p = data;
-   if (p->selector_refreshing) return;
+
+   if (p->selector_refreshing) {
+      return;
+   }
    const char *id = gtk_combo_box_get_active_id(combo);
    char requested = id && id[0] >= 'A' && id[0] <= 'Z' && !id[1] ? id[0] : 0;
-   char remote[256] = {0};
-   if (id && g_str_has_prefix(id, "remote:"))
+   char remote[256] = {
+      0
+   };
+
+   if (id && g_str_has_prefix(id, "remote:")) {
       g_strlcpy(remote, id + 7, sizeof(remote));
-   if (requested == p->selected_vfo && !strcmp(remote, p->remote_id)) return;
+   }
+
+   if (requested == p->selected_vfo && !strcmp(remote, p->remote_id)) {
+      return;
+   }
    p->selected_vfo = requested;
    g_strlcpy(p->remote_id, remote, sizeof(p->remote_id));
    rf_clear_history(p);
+
    if (p->remote_id[0]) {
-      /* Remote RF acquisition is controlled by the authorized media
-       * subscription. Display zoom is a local crop, never a CAT command. */
+      /* Remote RF acquisition is controlled by the authorized media subscription. Display zoom is a local crop, never a CAT command. */
       p->zoom_fraction = 0;
       p->zoom_initialized = true;
    } else {
-      rr_local_bridge_ui_state_t state = {0};
+      rr_local_bridge_ui_state_t state = {
+         0
+      };
+
       if (rf_selected_state(p, &state)) {
          p->zoom = state.min_zoom + (state.max_zoom - state.min_zoom) / 2;
          p->zoom_initialized = rf_request(p, p->rf_enabled, p->zoom, 0);
@@ -1108,56 +1226,85 @@ static void rf_refresh_selector(rf_strip_t *p) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), "follow", "Follow Active (local)");
    bool kept_local = false, kept_remote = false;
    bool any_local = false;
-   for (char v = 'A'; v <= 'Z'; v++) {
-      rr_local_bridge_ui_state_t state = {0};
-      if (!rrclient_local_bridge_ui_state_vfo(v, &state) || !state.waterfall) continue;
-      char id[2] = {v, 0};
+
+   for (char v = 'A' ; v <= 'Z' ; v++) {
+      rr_local_bridge_ui_state_t state = {
+         0
+      };
+
+      if (!rrclient_local_bridge_ui_state_vfo(v, &state) || !state.waterfall) {
+         continue;
+      }
+      char id[2] = {
+         v, 0
+      };
       char label[24];
       g_snprintf(label, sizeof(label), "Local VFO %c", v);
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), id, label);
       any_local = true;
-      if (was == v) kept_local = true;
+
+      if (was == v) {
+         kept_local = true;
+      }
    }
-   rr_remote_rf_source_t sources[RR_REMOTE_RF_SOURCES_MAX] = {0};
+
+   rr_remote_rf_source_t sources[RR_REMOTE_RF_SOURCES_MAX] = {
+      0
+   };
    size_t count = rrclient_media_remote_rf_snapshot(sources, G_N_ELEMENTS(sources));
-   char first_remote[256] = {0};
-   for (size_t i = 0; i < count && i < G_N_ELEMENTS(sources); i++) {
-      if (!sources[i].joined || !sources[i].id[0]) continue;
+   char first_remote[256] = {
+      0
+   };
+
+   for (size_t i = 0 ; i < count && i < G_N_ELEMENTS(sources) ; i++) {
+      if (!sources[i].joined || !sources[i].id[0]) {
+         continue;
+      }
       char id[sizeof(sources[i].id) + 8], label[256];
       g_snprintf(id, sizeof(id), "remote:%s", sources[i].id);
       const char *separator = strchr(sources[i].id, '|');
       int profile_length = separator ? (int)(separator - sources[i].id) : 0;
-      g_snprintf(label, sizeof(label), "%.*s: %s (%s)",
-                 profile_length, sources[i].id, sources[i].name,
-                 sources[i].room);
+      g_snprintf(label, sizeof(label), "%.*s: %s (%s)", profile_length, sources[i].id, sources[i].name, sources[i].room);
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->vfo_select), id, label);
-      if (!first_remote[0]) g_strlcpy(first_remote, sources[i].id, sizeof(first_remote));
-      if (!strcmp(was_remote, sources[i].id)) kept_remote = true;
+
+      if (!first_remote[0]) {
+         g_strlcpy(first_remote, sources[i].id, sizeof(first_remote));
+      }
+
+      if (!strcmp(was_remote, sources[i].id)) {
+         kept_remote = true;
+      }
    }
+
    if (was_remote[0] && !kept_remote) {
       p->remote_id[0] = 0;
       rf_clear_history(p);
    }
+
    if (was && !kept_local) {
       p->selected_vfo = 0;
       rf_clear_history(p);
    }
+
    if (!p->remote_id[0] && !any_local && first_remote[0]) {
       g_strlcpy(p->remote_id, first_remote, sizeof(p->remote_id));
       p->selected_vfo = 0;
       rf_clear_history(p);
    }
+
    if (p->remote_id[0]) {
-      char id[sizeof(p->remote_id)+8];
+      char id[sizeof(p->remote_id) + 8];
       g_snprintf(id, sizeof(id), "remote:%s", p->remote_id);
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->vfo_select), id);
    } else {
-      char id[2] = {p->selected_vfo, 0};
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->vfo_select),
-                                  p->selected_vfo ? id : "follow");
+      char id[2] = {
+         p->selected_vfo, 0
+      };
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->vfo_select), p->selected_vfo ? id : "follow");
    }
    p->selector_refreshing = false;
 }
+
 /* A Kiwi W/F connection may become ready after audio and capability negotiation. Do not leave an enabled viewer blank indefinitely if no RF rows arrive;
  * reassert interest at a bounded rate. */
 static gboolean rf_recover_stream(gpointer user) {
@@ -1215,6 +1362,7 @@ static void rf_row(const char *event, const void *data, size_t len, rrconn_t *co
    const rr_bridge_spectrum_event *packet = data;
    const rr_bridge_spectrum_row *row = &packet->row;
    char vfo = packet->vfo;
+
    if (vfo != rf_selected_vfo(p) || !rr_bridge_spectrum_valid(row)) {
       return;
    }
@@ -1237,34 +1385,42 @@ static void rf_row(const char *event, const void *data, size_t len, rrconn_t *co
    }
 }
 
-/* The client verifies the originating server, subscribed stream, version,
- * sample bounds and room authorization before emitting this GTK-domain row.
- * Never confuse another server's rig A with a local bridge's rig A. */
-static void rf_remote_row(const char *event, const void *data, size_t len,
-                          rrconn_t *connection, void *user) {
-   (void)event; (void)connection;
+/* The client verifies the originating server, subscribed stream, version, sample bounds and room authorization before emitting this GTK-domain row. Never
+ * confuse another server's rig A with a local bridge's rig A. */
+static void rf_remote_row(const char *event, const void *data, size_t len, rrconn_t *connection, void *user) {
+   (void)event;
+   (void)connection;
    rf_strip_t *p = user;
-   if (!p->rf_enabled || !p->remote_id[0] ||
-       !data || len != sizeof(rr_remote_rf_row_t)) return;
+
+   if (!p->rf_enabled || !p->remote_id[0] || !data || len != sizeof(rr_remote_rf_row_t)) {
+      return;
+   }
    const rr_remote_rf_row_t *packet = data;
-   if (strcmp(packet->id, p->remote_id) ||
-       !rr_bridge_spectrum_valid(&packet->row)) return;
+
+   if (strcmp(packet->id, p->remote_id) || !rr_bridge_spectrum_valid(&packet->row)) {
+      return;
+   }
    p->vfo_boundary[p->head] = false;
    p->rows[p->head] = packet->row;
    p->head = (p->head + 1) % G_N_ELEMENTS(p->rows);
-   p->count = MIN(p->count+1, G_N_ELEMENTS(p->rows));
+   p->count = MIN(p->count + 1, G_N_ELEMENTS(p->rows));
    p->received_at = g_get_monotonic_time();
-   if (!p->draw_timer) p->draw_timer = g_timeout_add(100, rf_draw_later, p);
+
+   if (!p->draw_timer) {
+      p->draw_timer = g_timeout_add(100, rf_draw_later, p);
+   }
 }
-static void rf_caps_changed(const char *event, const void *data, size_t len,
-                            rrconn_t *connection, void *user);
-static void rf_remote_catalog(const char *event, const char *data,
-                              rrconn_t *connection, void *user) {
-   (void)event; (void)data; (void)connection;
+
+static void rf_caps_changed(const char *event, const void *data, size_t len, rrconn_t *connection, void *user);
+static void rf_remote_catalog(const char *event, const char *data, rrconn_t *connection, void *user) {
+   (void)event;
+   (void)data;
+   (void)connection;
    rf_strip_t *p = user;
    rf_caps_changed(NULL, NULL, 0, NULL, p);
    gtk_widget_queue_draw(p->drawing);
 }
+
 /* Fractional display crop between backend zoom steps. Both pixels and scale/marker must use these same frequency bounds. */
 static void rf_view_bounds(const rf_strip_t *p, const rr_bridge_spectrum_row *row, double *low, double *high) {
    *low = row->low_hz;
@@ -1486,10 +1642,17 @@ static gboolean rf_ui_caps(const rf_strip_t *p, unsigned *min_zoom, unsigned *ma
    };
 
    if (p->remote_id[0]) {
-      if (min_zoom) *min_zoom = 0;
-      if (max_zoom) *max_zoom = 6;
+      if (min_zoom) {
+         *min_zoom = 0;
+      }
+
+      if (max_zoom) {
+         *max_zoom = 6;
+      }
+
       return TRUE;
    }
+
    if (!rf_selected_state(p, &state)) {
       return FALSE;
    }
@@ -1512,7 +1675,10 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
    rf_strip_t *p = user;
    char before = p->last_vfo;
    rf_refresh_selector(p);
-   if (before && before != rf_selected_vfo(p)) rf_clear_history(p);
+
+   if (before && before != rf_selected_vfo(p)) {
+      rf_clear_history(p);
+   }
    unsigned min_zoom, max_zoom;
    bool available = rf_ui_caps(p, &min_zoom, &max_zoom);
    gtk_widget_set_visible(p->enabled, available);
@@ -1520,8 +1686,10 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
 
    if (p->remote_id[0]) {
       p->zoom_initialized = true;
+
       return;
    }
+
    if (available && !p->zoom_initialized) {
       /* The bridge may already be running at its own default zoom (Kiwi: 6). Establish a shared starting point before accepting wheel events. */
       p->zoom = min_zoom + (max_zoom - min_zoom) / 2;
@@ -1541,8 +1709,10 @@ static void rf_caps_changed(const char *event, const void *data, size_t len, rrc
 static void rf_toggle(GtkToggleButton *button, gpointer data) {
    rf_strip_t *p = data;
    p->rf_enabled = gtk_toggle_button_get_active(button);
-   if (!p->remote_id[0])
+
+   if (!p->remote_id[0]) {
       rf_request(p, p->rf_enabled, p->zoom, 0);
+   }
 
    if (!p->rf_enabled) {
       p->count = 0;
@@ -1570,14 +1740,20 @@ static gboolean rf_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer dat
       }
    }
 
-   if (!delta) return FALSE;
+   if (!delta) {
+      return FALSE;
+   }
+
    if (p->remote_id[0]) {
-      /* Crop the received RF bins without changing the server's shared
-       * acquisition window (other subscribers may be listening). */
+      /* Crop the received RF bins without changing the server's shared acquisition window (other subscribers may be listening). */
       p->zoom_fraction = CLAMP(p->zoom_fraction + delta * .20, 0., 6.);
       p->pan_hz = 0;
       gtk_widget_queue_draw(p->drawing);
-      if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
+
+      if (p->fullscreen_drawing) {
+         gtk_widget_queue_draw(p->fullscreen_drawing);
+      }
+
       return TRUE;
    }
    unsigned min_zoom, max_zoom;
@@ -1639,7 +1815,9 @@ static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    if (p->remote_id[0]) {
       p->zoom_fraction = CLAMP((double)zoom, 0., 6.);
    } else {
-      if (!rf_request(p, p->rf_enabled, zoom, 0)) return;
+      if (!rf_request(p, p->rf_enabled, zoom, 0)) {
+         return;
+      }
       p->zoom = zoom;
       p->zoom_fraction = 0;
    }
@@ -1656,9 +1834,7 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    }
    GtkWidget *menu = gtk_menu_new();
    GtkWidget *palette_item = gtk_menu_item_new_with_label("Color palette");
-   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item),
-      waterfall_palette_menu(p->palette_index, &p->palette_index,
-         "waterfall.rf.palette", p->drawing));
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(palette_item), waterfall_palette_menu(p->palette_index, &p->palette_index, "waterfall.rf.palette", p->drawing));
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), palette_item);
    GtkWidget *zoom_item = gtk_menu_item_new_with_label("Zoom");
    GtkWidget *zoom_menu = gtk_menu_new();
@@ -1668,13 +1844,11 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
    if (rf_ui_caps(p, &min_zoom, &max_zoom)) {
       for (unsigned z = min_zoom ; z <= max_zoom && z - min_zoom < 32 ; z++) {
          char label[32];
-         g_snprintf(label, sizeof(label), p->remote_id[0] ?
-            "Display zoom %u" : "Receiver level %u", z);
+         g_snprintf(label, sizeof(label), p->remote_id[0] ? "Display zoom %u" : "Receiver level %u", z);
          GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
          group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
          g_object_set_data(G_OBJECT(item), "rf-panel", p);
-         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),
-            p->remote_id[0] ? z == (unsigned)round(p->zoom_fraction) : z == p->zoom);
+         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), p->remote_id[0] ? z == (unsigned)round(p->zoom_fraction) : z == p->zoom);
          g_signal_connect(item, "activate", G_CALLBACK(rf_zoom_activate), GUINT_TO_POINTER(z));
          gtk_menu_shell_append(GTK_MENU_SHELL(zoom_menu), item);
       }
@@ -1714,9 +1888,11 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       return FALSE;
    }
    p->dragging = false;
-   /* A remote spectrum is a display only; a local bridge CAT request
-    * must never accidentally tune an unrelated remote receiver. */
-   if (p->remote_id[0] && !(event->state & GDK_CONTROL_MASK)) return TRUE;
+
+   /* A remote spectrum is a display only; a local bridge CAT request must never accidentally tune an unrelated remote receiver. */
+   if (p->remote_id[0] && !(event->state & GDK_CONTROL_MASK)) {
+      return TRUE;
+   }
 
    if (!(event->state & GDK_CONTROL_MASK)) {
       if (!p->rf_enabled || !p->count) {
@@ -1803,9 +1979,17 @@ static void rf_destroy(gpointer data) {
       event_off_token(p->caps_token);
    }
 
-   if (p->vfo_token) event_off_token(p->vfo_token);
-   if (p->remote_row_token) event_off_token(p->remote_row_token);
-   if (p->remote_catalog_token) event_off_token(p->remote_catalog_token);
+   if (p->vfo_token) {
+      event_off_token(p->vfo_token);
+   }
+
+   if (p->remote_row_token) {
+      event_off_token(p->remote_row_token);
+   }
+
+   if (p->remote_catalog_token) {
+      event_off_token(p->remote_catalog_token);
+   }
    g_free(p);
 }
 
@@ -1858,10 +2042,8 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    p->token = event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT, rf_row_message, p, "gtk");
    p->caps_token = event_on_binary_domain_token("client.local-bridge.capabilities", rf_caps_changed, p, "gtk");
    p->vfo_token = event_on_binary_domain_token("client.local-bridge.vfo", rf_caps_changed, p, "gtk");
-   p->remote_row_token = event_on_binary_domain_token(RR_REMOTE_RF_ROW_EVENT,
-                                                       rf_remote_row, p, "gtk");
-   p->remote_catalog_token = event_on_domain_token(RR_REMOTE_RF_SOURCE_CHANGED,
-                                                    rf_remote_catalog, p, "gtk");
+   p->remote_row_token = event_on_binary_domain_token(RR_REMOTE_RF_ROW_EVENT, rf_remote_row, p, "gtk");
+   p->remote_catalog_token = event_on_domain_token(RR_REMOTE_RF_SOURCE_CHANGED, rf_remote_catalog, p, "gtk");
    rf_caps_changed(NULL, NULL, 0, NULL, p);
 
    return overlay;

@@ -61,10 +61,9 @@ static bool fwdsp_has_server_media(void) {
 static GMainContext *fwdsp_reactor_context;
 static fwdsp_encoded_output_cb client_encoded_output;
 static void *client_encoded_user;
-void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback,
-                                       void *user_data) {
-   client_encoded_output=callback;
-   client_encoded_user=user_data;
+void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback, void *user_data) {
+   client_encoded_output = callback;
+   client_encoded_user = user_data;
 }
 
 void fwdsp_set_reactor_context(GMainContext *context) {
@@ -113,11 +112,14 @@ defconfig_t defcfg_fwdsp[] = {
 /* The package supplies RR_LIBEXECDIR; explicit custom paths remain supported. */
 static char *fwdsp_configured_path(void) {
    const char *setting = cfg_get("fwdsp:path");
+
    if (!setting || !*setting || !strcmp(setting, "auto")) {
       return strdup(RR_LIBEXECDIR "/fwdsp");
    }
+
    return cfg_get_path("fwdsp:path");
 }
+
 const char *fwdsp_path = NULL;
 bool fwdsp_mgr_ready = false;
 static int active_slots = 0;
@@ -419,17 +421,24 @@ static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp, struct rr_medi
 }
 
 void fwdsp_replay_client_tx_headers(const char codec[5]) {
-   if(!codec || !client_encoded_output || fwdsp_has_server_media())
+   if (!codec || !client_encoded_output || fwdsp_has_server_media()) {
       return;
-   struct fwdsp_subproc *sp=fwdsp_find_instance(codec,true);
-   if(!sp || !sp->stream_headers || !sp->stream_headers_len) return;
-   for(size_t pos=0; pos+FWDSP_FRAME_HEADER_SIZE<=sp->stream_headers_len;) {
-      uint32_t length=frame_length_decode(sp->stream_headers+pos);
-      pos+=FWDSP_FRAME_HEADER_SIZE;
-      if(!length || length>sp->stream_headers_len-pos) break;
-      client_encoded_output(codec,sp->stream_headers+pos,length,
-                            true,client_encoded_user);
-      pos+=length;
+   }
+   struct fwdsp_subproc *sp = fwdsp_find_instance(codec, true);
+
+   if (!sp || !sp->stream_headers || !sp->stream_headers_len) {
+      return;
+   }
+
+   for (size_t pos = 0 ; pos + FWDSP_FRAME_HEADER_SIZE <= sp->stream_headers_len ; ) {
+      uint32_t length = frame_length_decode(sp->stream_headers + pos);
+      pos += FWDSP_FRAME_HEADER_SIZE;
+
+      if (!length || length > sp->stream_headers_len - pos) {
+         break;
+      }
+      client_encoded_output(codec, sp->stream_headers + pos, length, true, client_encoded_user);
+      pos += length;
    }
 }
 
@@ -620,20 +629,16 @@ static void fwdsp_parse_read(struct fwdsp_io_conn *ctx) {
             }
          }
 
-         /* Server media symbols are optional weak references. In rrclient
-          * these functions are absent; never call through a NULL symbol.
-          * Client PCM processor callbacks are handled separately above. */
+         /* Server media symbols are optional weak references. In rrclient these functions are absent; never call through a NULL symbol. Client PCM processor
+          * callbacks are handled separately above. */
          if (!fwdsp_has_server_media()) {
-            /* Client-local fwdsp TX codec frames belong on its negotiated
-             * media channel. The caller applies PTT, stream and queue gates. */
-            if (client_encoded_output && ctx->sp->role==FWDSP_ROLE_CODEC &&
-                ctx->sp->is_tx && !ctx->sp->is_video &&
-                ctx->sp->refcount>0) {
-               char codec[5]={0};
-               memcpy(codec,ctx->sp->pl_id,4);
-               client_encoded_output(codec,
-                  ctx->recv->data+FWDSP_FRAME_HEADER_SIZE,
-                  frame_len,is_header,client_encoded_user);
+            /* Client-local fwdsp TX codec frames belong on its negotiated media channel. The caller applies PTT, stream and queue gates. */
+            if (client_encoded_output && ctx->sp->role == FWDSP_ROLE_CODEC && ctx->sp->is_tx && !ctx->sp->is_video && ctx->sp->refcount > 0) {
+               char codec[5] = {
+                  0
+               };
+               memcpy(codec, ctx->sp->pl_id, 4);
+               client_encoded_output(codec, ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, is_header, client_encoded_user);
             }
             g_byte_array_remove_range(ctx->recv, 0, total_len);
             continue;
@@ -1162,10 +1167,11 @@ static struct fwdsp_subproc *fwdsp_find_processor(const char *name, const char *
 
 static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline, enum fwdsp_processor_io processor_io, fwdsp_processor_output_cb output_cb, void *
    user_data, unsigned device_rate_hz) {
-   if ((device_rate_hz && device_rate_hz != 44100 && device_rate_hz != 48000) ||
-       (device_rate_hz && processor_io != FWDSP_PROCESSOR_IO_CAPTURE &&
-        processor_io != FWDSP_PROCESSOR_IO_PLAYBACK))
+   if ((device_rate_hz && device_rate_hz != 44100 && device_rate_hz != 48000) || (device_rate_hz && processor_io != FWDSP_PROCESSOR_IO_CAPTURE
+      && processor_io != FWDSP_PROCESSOR_IO_PLAYBACK)) {
       return false;
+   }
+
    if (!fwdsp_mgr_ready || !name || !*name || strlen(name) >= sizeof(((struct fwdsp_subproc *) 0)->processor_name) || (pipeline
       && strlen(pipeline) >= sizeof(((struct fwdsp_subproc *) 0)->pipeline)) || (processor_io != FWDSP_PROCESSOR_IO_PLAYBACK && !output_cb)
       || (processor_io == FWDSP_PROCESSOR_IO_PLAYBACK && output_cb)) {
@@ -1241,42 +1247,35 @@ bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
    return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK, NULL, NULL, 0);
 }
 
-bool fwdsp_audio_capture_start_rate(const char *name, const char *pipeline,
-                                           unsigned device_rate_hz,
-                                           fwdsp_processor_output_cb output_cb,
-                                           void *user_data) {
-   if (!device_rate_hz) return false;
-   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_CAPTURE,
-                                     output_cb, user_data, device_rate_hz);
+bool fwdsp_audio_capture_start_rate(const char *name, const char *pipeline, unsigned device_rate_hz, fwdsp_processor_output_cb output_cb, void *user_data) {
+   if (!device_rate_hz) {
+      return false;
+   }
+
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_CAPTURE, output_cb, user_data, device_rate_hz);
 }
-bool fwdsp_audio_playback_start_rate(const char *name, const char *pipeline,
-                                            unsigned device_rate_hz) {
-   if (!device_rate_hz) return false;
-   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK,
-                                     NULL, NULL, device_rate_hz);
+bool fwdsp_audio_playback_start_rate(const char *name, const char *pipeline, unsigned device_rate_hz) {
+   if (!device_rate_hz) {
+      return false;
+   }
+
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK, NULL, NULL, device_rate_hz);
 }
 
-bool fwdsp_audio_resampler_start_to(const char *name,
-      unsigned input_rate_hz, unsigned output_rate_hz,
-      fwdsp_processor_output_cb output_cb, void *user) {
-   /* Explicit rates are part of the stream contract. Invalid values must
-    * fail before launching a worker, not produce misclocked PCM. */
-   if (!name || !*name || !output_cb || input_rate_hz < 8000 ||
-       input_rate_hz > 192000 || output_rate_hz < 8000 ||
-       output_rate_hz > 192000)
+bool fwdsp_audio_resampler_start_to(const char *name, unsigned input_rate_hz, unsigned output_rate_hz, fwdsp_processor_output_cb output_cb, void *user) {
+   /* Explicit rates are part of the stream contract. Invalid values must fail before launching a worker, not produce misclocked PCM. */
+   if (!name || !*name || !output_cb || input_rate_hz < 8000 || input_rate_hz > 192000 || output_rate_hz < 8000 || output_rate_hz > 192000) {
       return false;
+   }
    char pipeline[512];
-   snprintf(pipeline, sizeof(pipeline),
-      "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+   snprintf(pipeline, sizeof(pipeline), "appsrc name=processor-src is-live=true format=time do-timestamp=true "
       "caps=audio/x-raw,format=S16LE,rate=%u,channels=1,layout=interleaved ! "
       "audioresample ! audio/x-raw,format=S16LE,rate=%u,channels=1,layout=interleaved ! "
-      "appsink name=processor-sink sync=false max-buffers=8 drop=true",
-      input_rate_hz, output_rate_hz);
-   return fwdsp_audio_endpoint_start(name, pipeline,
-                                     FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user, 0);
+      "appsink name=processor-sink sync=false max-buffers=8 drop=true", input_rate_hz, output_rate_hz);
+
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user, 0);
 }
-bool fwdsp_audio_resampler_start(const char *name, unsigned rate,
-                                  fwdsp_processor_output_cb output_cb, void *user) {
+bool fwdsp_audio_resampler_start(const char *name, unsigned rate, fwdsp_processor_output_cb output_cb, void *user) {
    return fwdsp_audio_resampler_start_to(name, rate, 16000, output_cb, user);
 }
 
@@ -1322,17 +1321,24 @@ bool fwdsp_processor_setvol(const char *name, int percent) {
    return fwdsp_send_control(sp, FWDSP_CTRL_SET_VOLUME, (uint8_t) percent);
 }
 
-bool fwdsp_processor_set_property(const char *name, const char *element,
-                                  const char *property, double value) {
+bool fwdsp_processor_set_property(const char *name, const char *element, const char *property, double value) {
    if (!name || !*name || !element || !*element || !property || !*property ||
-       strlen(element) >= FWDSP_RECORD_USER_LEN ||
-       strlen(property) >= FWDSP_RECORD_ID_LEN ||
-       !isfinite(value)) return false;
-   struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
-   if (!sp) sp = fwdsp_find_processor(name, "src");
-   if (!sp) sp = fwdsp_find_processor(name, "sink");
-   if (!sp || sp->process.pid <= 0 || sp->fw_control < 0 || sp->destroying)
+      strlen(element) >= FWDSP_RECORD_USER_LEN || strlen(property) >= FWDSP_RECORD_ID_LEN || !isfinite(value)) {
       return false;
+   }
+   struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "src");
+   }
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "sink");
+   }
+
+   if (!sp || sp->process.pid <= 0 || sp->fw_control < 0 || sp->destroying) {
+      return false;
+   }
    struct fwdsp_control_msg msg = {
       .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_PROPERTY
    };
@@ -1340,17 +1346,21 @@ bool fwdsp_processor_set_property(const char *name, const char *element,
    snprintf(msg.record_id, sizeof(msg.record_id), "%s", property);
    memcpy(msg.record_file, &value, sizeof(value));
 #ifndef _WIN32
-   return send(sp->fw_control, &msg, sizeof(msg),
-               MSG_NOSIGNAL | MSG_DONTWAIT) == (ssize_t)sizeof(msg);
+
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL | MSG_DONTWAIT) == (ssize_t) sizeof(msg);
 #else
-   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg);
+
+   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t) sizeof(msg);
 #endif
 }
 
 /* A real-time client mixer may borrow a duplicate of the playback socket. The manager remains the sole owner of the subprocess and registry. */
 int fwdsp_processor_dup_input(const char *name) {
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
-   if (!sp) sp = fwdsp_find_processor(name, "sink");
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "sink");
+   }
 
    if (!sp || sp->role != FWDSP_ROLE_PROCESSOR || sp->fw_stdin < 0 || sp->destroying) {
       return -1;
@@ -1497,7 +1507,9 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    }
 
    const char *args[20];
-   char pcm_rate_arg[16] = {0};
+   char pcm_rate_arg[16] = {
+      0
+   };
    size_t n = 0;
    args[n++] = fwdsp_path;
    args[n++] = "-f";
@@ -1511,9 +1523,9 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          FWDSP_PROCESSOR_IO_RESAMPLE ? "resample" : "process";
       args[n++] = "-P";
       args[n++] = pipeline_key + strlen("pipeline:");
+
       if (sp->device_pcm_rate_hz) {
-         snprintf(pcm_rate_arg, sizeof(pcm_rate_arg), "%u",
-                  sp->device_pcm_rate_hz);
+         snprintf(pcm_rate_arg, sizeof(pcm_rate_arg), "%u", sp->device_pcm_rate_hz);
          args[n++] = "-R";
          args[n++] = pcm_rate_arg;
       }

@@ -1,3 +1,6 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Client recording codecs: native Ogg/Vorbis and FLAC. GPL-2.0-only.
 #ifndef RRCLIENT_RECORDING_CODEC_H
 #define RRCLIENT_RECORDING_CODEC_H
@@ -10,8 +13,7 @@ typedef struct rr_recording_encoder rr_recording_encoder;
 typedef struct rr_recording_decoder rr_recording_decoder;
 
 /* These objects are owned exclusively by their worker thread. */
-rr_recording_encoder *rr_recording_encoder_open(const char *ogg_path,
-   const char *flac_path, const rr_recording_tags *tags, const char *id);
+rr_recording_encoder *rr_recording_encoder_open(const char *ogg_path, const char *flac_path, const rr_recording_tags *tags, const char *id);
 gboolean rr_recording_encoder_write(rr_recording_encoder *, const int16_t *pcm, size_t frames);
 gboolean rr_recording_encoder_close(rr_recording_encoder *);
 

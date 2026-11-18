@@ -11,15 +11,14 @@ typedef struct {
 } rr_sercom_info_t;
 /* Borrowed strings, valid until the attachment changes or is disconnected. */
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
-/* A numbered virtual rig groups real PTYs and binds them to a specific
- * server/rig, independent of the selected GTK tab. Core owns changes. */
+/* A numbered virtual rig groups real PTYs and binds them to a specific server/rig, independent of the selected GTK tab. Core owns changes. */
 #define RR_SERCOM_VRIG_BIND_REQUEST "client.serial.vrig.bind.request"
 #define RR_SERCOM_VRIG_BIND_RESULT "client.serial.vrig.bind.result"
 #define RR_SERCOM_VRIG_MAX 8
 typedef struct {
    unsigned slot;
    char profile[128];
-   char rig[32]; /* rig0, rig1, ... */
+   char rig[32];                /* rig0, rig1, ... */
 } rr_sercom_vrig_bind_t;
 typedef struct {
    unsigned slot;
@@ -29,16 +28,14 @@ typedef struct {
 bool rr_sercom_init(void);
 /* GTK/TUI update CAT/GPS/modem aliases when the active rig changes. */
 void rr_sercom_focus_room(const char *profile, const char *room);
-/* Select an existing server ttyMODEMN as active modem for focused rig.
- * Updates the floating ttyMODEM PTY without altering numbered bindings.
+/* Select an existing server ttyMODEMN as active modem for focused rig. Updates the floating ttyMODEM PTY without altering numbered bindings.
  */
 bool rr_sercom_select_modem(const char *port);
-/* Core-thread GUI requests; response contains selected remote serial port
- * and current connection status. The server owns the modem process. */
+/* Core-thread GUI requests; response contains selected remote serial port and current connection status. The server owns the modem process. */
 #define RR_SERCOM_MODEM_REQUEST "client.modem.remote.request"
 #define RR_SERCOM_MODEM_SNAPSHOT "client.modem.remote.snapshot"
 typedef struct {
-   char target[64]; /* Empty = query; ttyMODEMN = change active modem */
+   char target[64];             /* Empty = query; ttyMODEMN = change active modem */
 } rr_sercom_modem_request_t;
 typedef struct {
    bool attached, success;
@@ -61,8 +58,7 @@ bool rr_sercom_line_settings(const char *name, rr_serial_settings_t *settings);
 bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *settings);
 
 // Synchronous CAT context: no effect on UI selection or global VFO state.
-/* CAT is a local emulator: dispatch through the connection bound to the
- * PTY currently being parsed, never through the globally selected socket. */
+/* CAT is a local emulator: dispatch through the connection bound to the PTY currently being parsed, never through the globally selected socket. */
 rrconn_t *rr_cat_connection(void);
 const char *rr_cat_room(void);
 const char *rr_cat_model(void);

@@ -1916,7 +1916,6 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
 
             return false;
          }
-
          // Public metadata allowlist: never copy account credentials, tokens or nonces.
          // Flat whois reply, keyed off talk.<field> - shared by webui and
          // rrclient (chat.whois.c). Sessions is just the count (also in userinfo).
@@ -1962,7 +1961,6 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
 
             return false;
          }
-
          // data is the command tail: LIST | SHOW <user>... | ADD <mins> <user>...
          // | RESET <user>... | SET <mins> <user>...; target carries a single
          // user name for the SHOW case (webui passes it via talk.target)

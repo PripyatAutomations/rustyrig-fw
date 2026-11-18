@@ -198,11 +198,9 @@ bool rrserver_user_target_allowed(const http_user_t *actor, const http_user_t *t
    return true;
 }
 
-/* One-time temporary passwords require enough entropy to withstand a stolen
- * hash database even before the user selects a permanent password. */
+/* One-time temporary passwords require enough entropy to withstand a stolen hash database even before the user selects a permanent password. */
 static bool user_temp_password(char *password, size_t length) {
-   return password && length >= 25 &&
-      auth_generate_nonce(password, length) == (int)(length - 1);
+   return password && length >= 25 && auth_generate_nonce(password, length) == (int)(length - 1);
 }
 
 /* Reload user state after a write and report failures to the requester. */

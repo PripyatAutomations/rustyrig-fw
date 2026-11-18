@@ -12,13 +12,12 @@
 /* Full real FFT 0-8 kHz at 16 kHz PCM, 3.90625 Hz/bin (including Nyquist). */
 #define RR_AF_MAX_HZ (RR_AF_SAMPLE_RATE / 2u)
 #define RR_AF_BINS (RR_AF_FFT_N / 2u + 1u)
-/* Source-rate metadata refers to the upstream capture clock, not
- * the resampled 16 kHz analyzer buffer. A missing/unknown rate retains
- * the FFT's full Nyquist; a faster source cannot exceed its resolution. */
+/* Source-rate metadata refers to the upstream capture clock, not the resampled 16 kHz analyzer buffer. A missing/unknown rate retains the FFT's full Nyquist; a
+ * faster source cannot exceed its resolution. */
 static inline uint32_t rr_af_source_nyquist(uint32_t source_rate_hz) {
-   return source_rate_hz ? (source_rate_hz / 2u < RR_AF_MAX_HZ ?
-      source_rate_hz / 2u : RR_AF_MAX_HZ) : RR_AF_MAX_HZ;
+   return source_rate_hz ? (source_rate_hz / 2u < RR_AF_MAX_HZ ? source_rate_hz / 2u : RR_AF_MAX_HZ) : RR_AF_MAX_HZ;
 }
+
 void rr_af_spectrum_listen(bool enabled);
 void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames);
 bool rr_af_spectrum_read(const char *stream, float bins[RR_AF_BINS]);

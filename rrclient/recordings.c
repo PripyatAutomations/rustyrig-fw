@@ -1,8 +1,11 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Client-side PCM recording and playback. GPL-2.0-only.
-#include "recordings.h"
-#include "recordings.codec.h"
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
+#include <rrclient/recordings.h>
+#include <rrclient/recordings.codec.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <stdint.h>
@@ -36,8 +39,7 @@ typedef struct {
    char *ogg, *flac, *id;
    guint64 dropped;
 } Recorder;
-/* Snapshot metadata before handing the request to the encoder thread.
- * Never retain GTK-owned strings beyond the initiating callback. */
+/* Snapshot metadata before handing the request to the encoder thread. Never retain GTK-owned strings beyond the initiating callback. */
 static void recording_tags_copy(rr_recording_tags *dst, const rr_recording_tags *src) {
    dst->title = g_strdup(src->title);
    dst->user = g_strdup(src->user);
@@ -71,6 +73,7 @@ static void recording_tags_clear(rr_recording_tags *tags) {
    g_free((char *)tags->sources);
    memset(tags, 0, sizeof(*tags));
 }
+
 static Recorder rec;
 static gsize initialized;
 static GMutex playback_lock;
@@ -102,86 +105,109 @@ char *rr_recordings_directory(void) {
    const char *home = g_get_home_dir();
    char *dir = g_build_filename(home, ".local", "share", "rustyrig", "recordings", NULL);
    g_mkdir_with_parents(dir, 0700);
+
    return dir;
 }
 static char *safe(const char *text) {
    char *s = g_strdup(text && *text ? text : "unknown");
-   for (char *p = s; *p; p++)
-      if (!g_ascii_isalnum(*p) && !strchr("._-", *p)) *p = '_';
+
+   for (char *p = s ; *p ; p++) {
+      if (!g_ascii_isalnum(*p) && !strchr("._-", *p)) {
+         *p = '_';
+      }
+   }
+
    return s;
 }
-/* Human-readable filenames, while keeping exact Hz/mode/site in Ogg/FLAC tags.
- * Never concatenate an unknown CAT mode onto a naked frequency integer. */
+
+/* Human-readable filenames, while keeping exact Hz/mode/site in Ogg/FLAC tags. Never concatenate an unknown CAT mode onto a naked frequency integer. */
 static char *recording_frequency(const char *hz_text) {
-   if (!hz_text || !*hz_text) return NULL;
+   if (!hz_text || !*hz_text) {
+      return NULL;
+   }
    char *end = NULL;
    guint64 hz = g_ascii_strtoull(hz_text, &end, 10);
-   if (end == hz_text || *end || !hz) return NULL;
-   double value = hz >= 1000000 ? (double)hz / 1000000.0 :
-                  hz >= 1000 ? (double)hz / 1000.0 : (double)hz;
+
+   if (end == hz_text || *end || !hz) {
+      return NULL;
+   }
+   double value = hz >= 1000000 ? (double)hz / 1000000.0 : hz >= 1000 ? (double)hz / 1000.0 : (double)hz;
    const char *unit = hz >= 1000000 ? "MHz" : hz >= 1000 ? "kHz" : "Hz";
    char number[G_ASCII_DTOSTR_BUF_SIZE];
    g_ascii_formatd(number, sizeof(number), "%.6f", value);
    char *dot = strchr(number, '.');
+
    if (dot) {
       char *p = number + strlen(number) - 1;
-      while (p > dot && *p == '0') *p-- = 0;
-      if (p == dot) *p = 0;
+      while (p > dot && *p == '0') {
+         *p-- = 0;
+      }
+
+      if (p == dot) {
+         *p = 0;
+      }
    }
+
    return g_strdup_printf("%s %s", number, unit);
 }
 static char *recording_stem(const rr_recording_tags *tags, const char *stamp) {
    char *frequency = recording_frequency(tags->frequency);
-   const char *mode = tags->mode && *tags->mode &&
-      g_ascii_strcasecmp(tags->mode, "unknown") ? tags->mode : NULL;
+   const char *mode = tags->mode && *tags->mode && g_ascii_strcasecmp(tags->mode, "unknown") ? tags->mode : NULL;
    const char *site = tags->site && *tags->site ? tags->site : NULL;
    const char *rig = tags->rig && *tags->rig ? tags->rig : NULL;
    const char *vfo = tags->vfo && *tags->vfo ? tags->vfo : NULL;
-   gboolean generic = (!site || !strcmp(site, "local")) &&
-      (!rig || !strcmp(rig, "receiver"));
+   gboolean generic = (!site || !strcmp(site, "local")) && (!rig || !strcmp(rig, "receiver"));
    /* For client-local SDRs prefer their actual PCM source identifier. */
    const char *source = tags->sources && *tags->sources ? tags->sources : NULL;
    char *source_name = source ? g_strndup(source, strcspn(source, ",; \n\t")) : NULL;
-   char *location = generic ? g_strdup(source_name && *source_name ? source_name : "Local monitor") :
-      g_strdup_printf("%s%s%s%s%s", site ? site : "Remote",
-         rig ? "." : "", rig ? rig : "",
-         vfo && *vfo ? "." : "", vfo ? vfo : "");
+   char *location = generic ? g_strdup(source_name && *source_name ? source_name : "Local monitor") : g_strdup_printf("%s%s%s%s%s", site ? site : "Remote", rig
+      ? "." : "", rig ? rig : "", vfo && *vfo ? "." : "", vfo ? vfo : "");
    char *safe_location = safe(location);
    char *safe_mode = mode ? safe(mode) : NULL;
-   char *stem = g_strdup_printf("%s - %s%s%s - %s - RX", stamp,
-      frequency ? frequency : "Audio",
-      safe_mode ? " " : "", safe_mode ? safe_mode : "", safe_location);
-   g_free(frequency); g_free(location); g_free(source_name);
-   g_free(safe_location); g_free(safe_mode);
+   char *stem =
+      g_strdup_printf("%s - %s%s%s - %s - RX", stamp, frequency ? frequency : "Audio", safe_mode ? " " : "", safe_mode ? safe_mode : "", safe_location);
+   g_free(frequency);
+   g_free(location);
+   g_free(source_name);
+   g_free(safe_location);
+   g_free(safe_mode);
+
    return stem;
 }
 static char *make_path(const char *base, const char *suffix) {
    char *dir = rr_recordings_directory();
    char *path = g_strdup_printf("%s/%s.%s", dir, base, suffix);
    g_free(dir);
+
    return path;
 }
+
 /* Append the finish timestamp after encoding; both formats share the metadata ID. */
 static char *rename_with_end(const char *oldpath, const char *stamp) {
-   if (!oldpath || !*oldpath) return NULL;
+   if (!oldpath || !*oldpath) {
+      return NULL;
+   }
    const char *ext = strrchr(oldpath, '.');
-   if (!ext) return g_strdup(oldpath);
+
+   if (!ext) {
+      return g_strdup(oldpath);
+   }
    char *prefix = g_strndup(oldpath, ext - oldpath);
    /* Keep end date on multi-day captures; avoid repeating it otherwise. */
    const char *time = strchr(stamp, '_');
    char *basename = g_path_get_basename(oldpath);
    gboolean same_day = strlen(stamp) >= 10 && g_str_has_prefix(basename, stamp)
-      ? TRUE : strlen(stamp) >= 10 && strlen(basename) >= 10 &&
-        !strncmp(basename, stamp, 10);
-   char *newpath = g_strdup_printf("%s - end-%s%s", prefix,
-      same_day && time ? time + 1 : stamp, ext);
+      ? TRUE : strlen(stamp) >= 10 && strlen(basename) >= 10 && !strncmp(basename, stamp, 10);
+   char *newpath = g_strdup_printf("%s - end-%s%s", prefix, same_day && time ? time + 1 : stamp, ext);
    g_free(basename);
+
    /* Never replace an existing recording during finalization. */
    if (g_file_test(newpath, G_FILE_TEST_EXISTS) || g_rename(oldpath, newpath)) {
       g_free(newpath);
       newpath = g_strdup(oldpath);
    }
    g_free(prefix);
+
    return newpath;
 }
 static gpointer recorder_worker(gpointer unused) {
@@ -190,33 +216,51 @@ static gpointer recorder_worker(gpointer unused) {
    rr_recording_encoder *encoder = rr_recording_encoder_open(rec.ogg, rec.flac, &rec.tags, rec.id);
    recording_tags_clear(&rec.tags);
    gboolean ok = encoder != NULL;
-   if (!ok) g_warning("Unable to initialize native Ogg/FLAC recording encoder");
+
+   if (!ok) {
+      g_warning("Unable to initialize native Ogg/FLAC recording encoder");
+   }
    while (ok) {
       g_mutex_lock(&rec.lock);
-      while (!rec.used && !rec.stopping) g_cond_wait(&rec.ready, &rec.lock);
+      while (!rec.used && !rec.stopping) {
+         g_cond_wait(&rec.ready, &rec.lock);
+      }
       size_t n = MIN(rec.used, (size_t)1024);
       size_t first = MIN(n, (size_t)(QUEUE_FRAMES - rec.head));
       memcpy(block, rec.ring + rec.head * 2, first * 2 * sizeof(int16_t));
-      if (n > first) memcpy(block + first * 2, rec.ring, (n - first) * 2 * sizeof(int16_t));
+
+      if (n > first) {
+         memcpy(block + first * 2, rec.ring, (n - first) * 2 * sizeof(int16_t));
+      }
       rec.head = (rec.head + n) % QUEUE_FRAMES;
       rec.used -= n;
       gboolean done = rec.stopping && n == 0;
       g_mutex_unlock(&rec.lock);
-      if (done) break;
+
+      if (done) {
+         break;
+      }
+
       if (n && !rr_recording_encoder_write(encoder, block, n)) {
          ok = FALSE;
          break;
       }
    }
-   if (encoder && !rr_recording_encoder_close(encoder)) ok = FALSE;
+
+   if (encoder && !rr_recording_encoder_close(encoder)) {
+      ok = FALSE;
+   }
+
    if (ok) {
       GDateTime *end_time = g_date_time_new_now_local();
       char *end_stamp = g_date_time_format(end_time, "%Y-%m-%d_%H-%M-%S");
+
       if (rec.ogg) {
          char *renamed = rename_with_end(rec.ogg, end_stamp);
          g_free(rec.ogg);
          rec.ogg = renamed;
       }
+
       if (rec.flac) {
          char *renamed = rename_with_end(rec.flac, end_stamp);
          g_free(rec.flac);
@@ -230,71 +274,100 @@ static gpointer recorder_worker(gpointer unused) {
    rec.stopping = FALSE;
    g_mutex_unlock(&rec.lock);
    // The event includes paths, status and drop count; the GTK subscriber owns its UI changes.
-   char *info = g_strdup_printf("%s\n%s\n%s\n%" G_GUINT64_FORMAT,
-      ok ? "ok" : "error", rec.ogg ? rec.ogg : "", rec.flac ? rec.flac : "", rec.dropped);
+   char *info = g_strdup_printf("%s\n%s\n%s\n%" G_GUINT64_FORMAT, ok ? "ok" : "error", rec.ogg ? rec.ogg : "", rec.flac ? rec.flac : "", rec.dropped);
    event_emit("client.recordings.finished", NULL, info);
    g_free(info);
+
    return NULL;
 }
 gboolean rr_recordings_start(rr_recording_format format, const rr_recording_tags *tags) {
    ensure_init();
-   if (!tags || format < RR_RECORD_OGG || format > RR_RECORD_BOTH) return FALSE;
+
+   if (!tags || format < RR_RECORD_OGG || format > RR_RECORD_BOTH) {
+      return FALSE;
+   }
    g_mutex_lock(&rec.lock);
    gboolean busy = rec.recording || rec.worker != NULL;
    g_mutex_unlock(&rec.lock);
-   if (busy) return FALSE;
+
+   if (busy) {
+      return FALSE;
+   }
    GDateTime *now = g_date_time_new_now_local();
    char *stamp = g_date_time_format(now, "%Y-%m-%d_%H-%M-%S");
    /* UUID stays in metadata, never in the visible filename. */
    char *id = g_uuid_string_random();
    char *stem = recording_stem(tags, stamp);
    char *base = NULL;
-   for (unsigned serial = 1; serial < 1000000; serial++) {
+
+   for (unsigned serial = 1 ; serial < 1000000 ; serial++) {
       g_free(base);
-      base = serial == 1 ? g_strdup(stem) :
-         g_strdup_printf("%s (%u)", stem, serial);
+      base = serial == 1 ? g_strdup(stem) : g_strdup_printf("%s (%u)", stem, serial);
       char *candidate_ogg = make_path(base, "ogg");
       char *candidate_flac = make_path(base, "flac");
-      gboolean occupied = g_file_test(candidate_ogg, G_FILE_TEST_EXISTS) ||
-         g_file_test(candidate_flac, G_FILE_TEST_EXISTS);
+      gboolean occupied = g_file_test(candidate_ogg, G_FILE_TEST_EXISTS) || g_file_test(candidate_flac, G_FILE_TEST_EXISTS);
       g_free(candidate_ogg);
       g_free(candidate_flac);
-      if (!occupied) break;
+
+      if (!occupied) {
+         break;
+      }
+
       if (serial == 999999) {
          g_warning("Unable to allocate an unused recording filename");
-         g_free(stem); g_free(base); g_free(id);
+         g_free(stem);
+         g_free(base);
+         g_free(id);
          g_free(stamp);
          g_date_time_unref(now);
+
          return FALSE;
       }
    }
+
    g_free(stem);
    char *ogg = format != RR_RECORD_FLAC ? make_path(base, "ogg") : NULL;
    char *flac = format != RR_RECORD_OGG ? make_path(base, "flac") : NULL;
-   g_free(base); g_free(stamp);
+   g_free(base);
+   g_free(stamp);
    g_date_time_unref(now);
    g_mutex_lock(&rec.lock);
-   rec.ogg = ogg; rec.flac = flac; rec.id = id;
+   rec.ogg = ogg;
+   rec.flac = flac;
+   rec.id = id;
    recording_tags_copy(&rec.tags, tags);
-   rec.head = rec.used = 0; rec.dropped = 0;
-   rec.stopping = FALSE; rec.recording = TRUE;
+   rec.head = rec.used = 0;
+   rec.dropped = 0;
+   rec.stopping = FALSE;
+   rec.recording = TRUE;
    rec.worker = g_thread_new("rr-record-encoder", recorder_worker, NULL);
    g_mutex_unlock(&rec.lock);
+
    return TRUE;
 }
 void rr_recordings_push(const int16_t *pcm, size_t frames) {
-   if (!initialized || !pcm || !frames || frames > QUEUE_FRAMES) return;
-   if (!g_mutex_trylock(&rec.lock)) return;
+   if (!initialized || !pcm || !frames || frames > QUEUE_FRAMES) {
+      return;
+   }
+
+   if (!g_mutex_trylock(&rec.lock)) {
+      return;
+   }
+
    if (rec.recording && !rec.stopping) {
       if (frames <= QUEUE_FRAMES - rec.used) {
          size_t tail = (rec.head + rec.used) % QUEUE_FRAMES;
          size_t first = MIN(frames, (size_t)(QUEUE_FRAMES - tail));
          memcpy(rec.ring + tail * 2, pcm, first * 2 * sizeof(int16_t));
-         if (frames > first) memcpy(rec.ring, pcm + first * 2,
-            (frames - first) * 2 * sizeof(int16_t));
+
+         if (frames > first) {
+            memcpy(rec.ring, pcm + first * 2, (frames - first) * 2 * sizeof(int16_t));
+         }
          rec.used += frames;
          g_cond_signal(&rec.ready);
-      } else rec.dropped += frames;
+      } else {
+         rec.dropped += frames;
+      }
    }
    g_mutex_unlock(&rec.lock);
 }
@@ -310,6 +383,7 @@ gboolean rr_recordings_active(void) {
    g_mutex_lock(&rec.lock);
    gboolean active = rec.recording && !rec.stopping;
    g_mutex_unlock(&rec.lock);
+
    return active;
 }
 void rr_recordings_collect(void) {
@@ -317,8 +391,12 @@ void rr_recordings_collect(void) {
    g_mutex_lock(&rec.lock);
    GThread *thread = rec.worker;
    gboolean finished = thread && !rec.recording;
-   if (finished) rec.worker = NULL;
+
+   if (finished) {
+      rec.worker = NULL;
+   }
    g_mutex_unlock(&rec.lock);
+
    if (finished) {
       g_thread_join(thread);
       g_clear_pointer(&rec.ogg, g_free);
@@ -326,19 +404,23 @@ void rr_recordings_collect(void) {
       g_clear_pointer(&rec.id, g_free);
    }
 }
+
 /* Native decoder workers own codec state; GTK and the audio callback never decode. */
 static gboolean playback_control(double *seek_to, gboolean *reverse, gboolean *stop) {
    g_mutex_lock(&playback_lock);
-   while (playback_paused && !playback_stop && !playback_seek)
+   while (playback_paused && !playback_stop && !playback_seek) {
       g_cond_wait(&playback_ready, &playback_lock);
+   }
    *stop = playback_stop;
    gboolean seek = playback_seek;
+
    if (seek) {
       *seek_to = playback_target;
       *reverse = playback_reverse;
       playback_seek = FALSE;
    }
    g_mutex_unlock(&playback_lock);
+
    return seek;
 }
 static gpointer playback_worker(gpointer unused) {
@@ -356,16 +438,22 @@ static gpointer playback_worker(gpointer unused) {
    g_mutex_unlock(&playback_lock);
    gint64 last_update = 0;
    gboolean stop = FALSE;
-   for (;;) {
+
+   for ( ;; ) {
       double requested = position;
       gboolean next_direction = reverse;
+
       if (playback_control(&requested, &next_direction, &stop)) {
          position = MAX(0.0, requested);
          reverse = next_direction;
       }
-      if (stop || (reverse && position <= 0.0)) break;
+
+      if (stop || (reverse && position <= 0.0)) {
+         break;
+      }
       double start = reverse ? MAX(0.0, position - 4.0) : position;
       rr_recording_decoder *decoder = rr_recording_decoder_open(path);
+
       if (!decoder || !rr_recording_decoder_seek(decoder, start)) {
          g_warning("Unable to open or seek recording decoder: %s", path);
          rr_recording_decoder_close(decoder);
@@ -373,6 +461,7 @@ static gpointer playback_worker(gpointer unused) {
       }
       gboolean restart = FALSE, ended = FALSE;
       int16_t block[320 * 2];
+
       if (reverse) {
          /* Reverse bounded four-second windows, not entire recordings. */
          size_t wanted = (size_t)((position - start) * RATE);
@@ -385,87 +474,128 @@ static gpointer playback_worker(gpointer unused) {
                restart = TRUE;
                break;
             }
-            if (stop) break;
-            gssize got = rr_recording_decoder_read(decoder,
-               segment + count * 2, MIN(wanted - count, (size_t)320));
-            if (got <= 0) break;
+
+            if (stop) {
+               break;
+            }
+            gssize got = rr_recording_decoder_read(decoder, segment + count * 2, MIN(wanted - count, (size_t)320));
+
+            if (got <= 0) {
+               break;
+            }
             count += (size_t)got;
          }
+
          if (!stop && !restart) {
-            for (size_t off = count; off; ) {
+            for (size_t off = count ; off ; ) {
                if (playback_control(&requested, &next_direction, &stop)) {
                   position = MAX(0.0, requested);
                   reverse = next_direction;
                   restart = TRUE;
                   break;
                }
-               if (stop) break;
+
+               if (stop) {
+                  break;
+               }
                size_t frames = MIN(off, (size_t)320);
-               for (size_t i = 0; i < frames; ++i) {
+
+               for (size_t i = 0 ; i < frames ; ++i) {
                   block[i * 2] = segment[(off - 1 - i) * 2];
                   block[i * 2 + 1] = segment[(off - 1 - i) * 2 + 1];
                }
-               if (output) output(block, frames);
+
+               if (output) {
+                  output(block, frames);
+               }
                double elapsed = (double)frames / RATE;
                position = MAX(0.0, position - elapsed);
                off -= frames;
                gint64 tick = g_get_monotonic_time();
+
                if (tick - last_update >= 100000) {
                   char value[G_ASCII_DTOSTR_BUF_SIZE];
                   g_ascii_formatd(value, sizeof(value), "%.6f", position);
                   event_emit(RR_RECORDING_PLAYBACK_POSITION, NULL, value);
                   last_update = tick;
                }
-               g_usleep((gulong)(elapsed * 1000000.0));
+               g_usleep((gulong) (elapsed * 1000000.0));
             }
          }
          ended = count > 0;
          g_free(segment);
       } else {
-         for (;;) {
+         for ( ;; ) {
             if (playback_control(&requested, &next_direction, &stop)) {
                position = MAX(0.0, requested);
                reverse = next_direction;
                restart = TRUE;
                break;
             }
-            if (stop) break;
+
+            if (stop) {
+               break;
+            }
             gssize got = rr_recording_decoder_read(decoder, block, 320);
+
             if (got <= 0) {
-               if (got < 0) g_warning("Recording decoder error: %s", path);
+               if (got < 0) {
+                  g_warning("Recording decoder error: %s", path);
+               }
                ended = TRUE;
                break;
             }
-            if (output) output(block, (size_t)got);
+
+            if (output) {
+               output(block, (size_t)got);
+            }
             double elapsed = (double)got / RATE;
             position += elapsed;
             gint64 tick = g_get_monotonic_time();
+
             if (tick - last_update >= 100000) {
                char value[G_ASCII_DTOSTR_BUF_SIZE];
                g_ascii_formatd(value, sizeof(value), "%.6f", position);
                event_emit(RR_RECORDING_PLAYBACK_POSITION, NULL, value);
                last_update = tick;
             }
-            g_usleep((gulong)(elapsed * 1000000.0));
+            g_usleep((gulong) (elapsed * 1000000.0));
          }
       }
       rr_recording_decoder_close(decoder);
-      if (stop) break;
-      if (restart) continue;
-      if (!reverse || position <= 0.0001 || !ended) break;
+
+      if (stop) {
+         break;
+      }
+
+      if (restart) {
+         continue;
+      }
+
+      if (!reverse || position <= 0.0001 || !ended) {
+         break;
+      }
       // Reverse uses four-second segments, keeping PCM memory bounded.
    }
+
    g_free(path);
-   event_emit("client.recordings.playback-decoded", NULL,
-              stop ? "stopped" : "eof");
+   event_emit("client.recordings.playback-decoded", NULL, stop ? "stopped" : "eof");
+
    return NULL;
 }
-gboolean rr_recordings_play_at(const char *path, double seconds, gboolean reverse,
-                              rr_recording_playback_fn output) {
+gboolean rr_recordings_play_at(const char *path, double seconds, gboolean reverse, rr_recording_playback_fn output) {
    ensure_init();
-   if (!path || !output) return FALSE;
+
+   if (!path || !output) {
+      return FALSE;
+   }
    g_mutex_lock(&playback_lock);
-   if (playback_thread) { g_mutex_unlock(&playback_lock); return FALSE; }
+
+   if (playback_thread) {
+      g_mutex_unlock(&playback_lock);
+
+      return FALSE;
+   }
    playback_stop = playback_seek = playback_paused = FALSE;
    playback_reverse = reverse;
    playback_target = MAX(seconds, 0.0);
@@ -473,6 +603,7 @@ gboolean rr_recordings_play_at(const char *path, double seconds, gboolean revers
    playback_output = output;
    playback_thread = g_thread_new("rr-record-playback", playback_worker, NULL);
    g_mutex_unlock(&playback_lock);
+
    return TRUE;
 }
 gboolean rr_recordings_play(const char *path, rr_recording_playback_fn output) {
@@ -483,13 +614,14 @@ gboolean rr_recordings_play_busy(void) {
    g_mutex_lock(&playback_lock);
    gboolean busy = playback_thread != NULL;
    g_mutex_unlock(&playback_lock);
+
    return busy;
 }
 gboolean rr_recordings_play_reposition(const char *path, double seconds, gboolean reverse) {
    ensure_init();
    g_mutex_lock(&playback_lock);
-   gboolean found = playback_thread && !playback_stop && playback_path &&
-      !g_strcmp0(path, playback_path);
+   gboolean found = playback_thread && !playback_stop && playback_path && !g_strcmp0(path, playback_path);
+
    if (found) {
       playback_target = MAX(0.0, seconds);
       playback_reverse = reverse;
@@ -498,6 +630,7 @@ gboolean rr_recordings_play_reposition(const char *path, double seconds, gboolea
       g_cond_broadcast(&playback_ready);
    }
    g_mutex_unlock(&playback_lock);
+
    return found;
 }
 void rr_recordings_play_pause(gboolean pause) {
@@ -521,12 +654,14 @@ void rr_recordings_play_collect(void) {
    GThread *thread = playback_thread;
    playback_thread = NULL;
    g_mutex_unlock(&playback_lock);
-   if (thread) g_thread_join(thread);
+
+   if (thread) {
+      g_thread_join(thread);
+   }
    g_clear_pointer(&playback_path, g_free);
 }
 
-/* A compact, bounded-memory overview of even very long recordings.
- * Mono 800 Hz analysis yields min/max envelopes in up to 4096 time bins. */
+/* A compact, bounded-memory overview of even very long recordings. Mono 800 Hz analysis yields min/max envelopes in up to 4096 time bins. */
 typedef struct {
    char *path;
    guint64 generation;
@@ -539,61 +674,88 @@ static gpointer waveform_worker(gpointer data) {
    rr_recording_waveform *wave = g_new0(rr_recording_waveform, 1);
    g_strlcpy(wave->path, path, sizeof(wave->path));
    rr_recording_decoder *decoder = rr_recording_decoder_open(path);
+
    if (decoder) {
       gint16 raw[1024 * 2];
-      gint16 lows[2] = {G_MAXINT16, G_MAXINT16};
-      gint16 highs[2] = {G_MININT16, G_MININT16};
+      gint16 lows[2] = {
+         G_MAXINT16, G_MAXINT16
+      };
+      gint16 highs[2] = {
+         G_MININT16, G_MININT16
+      };
       guint width = 20, phase = 0;
       guint64 frames = 0;
       gboolean error = FALSE;
-      for (;;) {
+
+      for ( ;; ) {
          g_mutex_lock(&wave_lock);
          canceled = wave_shutting_down || generation != wave_generation;
          g_mutex_unlock(&wave_lock);
-         if (canceled) break;
+
+         if (canceled) {
+            break;
+         }
          gssize n = rr_recording_decoder_read(decoder, raw, 1024);
-         if (n <= 0) { error = n < 0; break; }
-         for (gssize j = 0; j < n; ++j) {
+
+         if (n <= 0) {
+            error = n < 0;
+            break;
+         }
+
+         for (gssize j = 0 ; j < n ; ++j) {
             frames++;
-            for (unsigned c = 0; c < 2; ++c) {
+
+            for (unsigned c = 0 ; c < 2 ; ++c) {
                gint16 sample = raw[j * 2 + c];
                lows[c] = MIN(lows[c], sample);
                highs[c] = MAX(highs[c], sample);
             }
+
             if (++phase == width) {
-               wave->bins[wave->count++] = (rr_recording_wave_bin){
+               wave->bins[wave->count++] = (rr_recording_wave_bin) {
                   lows[0], highs[0], lows[1], highs[1]
                };
                phase = 0;
                lows[0] = lows[1] = G_MAXINT16;
                highs[0] = highs[1] = G_MININT16;
+
                if (wave->count == RR_RECORDING_WAVE_BINS) {
-                  for (guint k = 0; k < RR_RECORDING_WAVE_BINS / 2; k++) {
+                  for (guint k = 0 ; k < RR_RECORDING_WAVE_BINS / 2 ; k++) {
                      rr_recording_wave_bin x = wave->bins[k * 2], y = wave->bins[k * 2 + 1];
-                     wave->bins[k] = (rr_recording_wave_bin){
-                        MIN(x.left_low, y.left_low), MAX(x.left_high, y.left_high),
-                        MIN(x.right_low, y.right_low), MAX(x.right_high, y.right_high)
+                     wave->bins[k] = (rr_recording_wave_bin) {
+                        MIN(x.left_low, y.left_low), MAX(x.left_high, y.left_high), MIN(x.right_low, y.right_low), MAX(x.right_high, y.right_high)
                      };
                   }
+
                   wave->count /= 2;
                   width *= 2;
                }
             }
          }
       }
-      if (phase && wave->count < RR_RECORDING_WAVE_BINS)
-         wave->bins[wave->count++] = (rr_recording_wave_bin){
+
+      if (phase && wave->count < RR_RECORDING_WAVE_BINS) {
+         wave->bins[wave->count++] = (rr_recording_wave_bin) {
             lows[0], highs[0], lows[1], highs[1]
-         };
+         }
+      }
       wave->duration = rr_recording_decoder_duration(decoder);
-      if (wave->duration <= 0) wave->duration = (double)frames / RATE;
+
+      if (wave->duration <= 0) {
+         wave->duration = (double)frames / RATE;
+      }
       wave->success = !canceled && !error && frames > 0;
       rr_recording_decoder_close(decoder);
-   } else g_warning("Unable to analyze recording waveform: %s", path);
+   } else {
+      g_warning("Unable to analyze recording waveform: %s", path);
+   }
    g_mutex_lock(&wave_lock);
    gboolean current = !wave_shutting_down && generation == wave_generation;
    g_mutex_unlock(&wave_lock);
-   if (current) event_emit_binary(RR_RECORDING_WAVEFORM_READY, NULL, wave, sizeof(*wave));
+
+   if (current) {
+      event_emit_binary(RR_RECORDING_WAVEFORM_READY, NULL, wave, sizeof(*wave));
+   }
    g_mutex_lock(&wave_lock);
    wave_workers--;
    g_cond_broadcast(&wave_finished);
@@ -601,14 +763,19 @@ static gpointer waveform_worker(gpointer data) {
    g_free(wave);
    g_free(path);
    g_free(request);
+
    return NULL;
 }
 void rr_recordings_waveform_request(const char *path) {
-   if (!path || !*path) return;
+   if (!path || !*path) {
+      return;
+   }
    ensure_init();
    g_mutex_lock(&wave_lock);
+
    if (wave_shutting_down) {
       g_mutex_unlock(&wave_lock);
+
       return;
    }
    waveform_request *request = g_new0(waveform_request, 1);
@@ -626,14 +793,19 @@ void rr_recordings_shutdown(void) {
    g_mutex_lock(&wave_lock);
    wave_shutting_down = TRUE;
    wave_generation++;
-   while (wave_workers) g_cond_wait(&wave_finished, &wave_lock);
+   while (wave_workers) {
+      g_cond_wait(&wave_finished, &wave_lock);
+   }
    g_mutex_unlock(&wave_lock);
    rr_recordings_stop();
    g_mutex_lock(&rec.lock);
    GThread *thread = rec.worker;
    rec.worker = NULL;
    g_mutex_unlock(&rec.lock);
-   if (thread) g_thread_join(thread);
+
+   if (thread) {
+      g_thread_join(thread);
+   }
    g_clear_pointer(&rec.ogg, g_free);
    g_clear_pointer(&rec.flac, g_free);
    g_clear_pointer(&rec.id, g_free);

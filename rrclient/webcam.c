@@ -32,10 +32,11 @@
 /* Video belongs to its initiating profile rather than the foreground tab. */
 static char webcam_profile[128];
 static rrconn_t *webcam_target(void) {
-   rrconn_t *c = webcam_profile[0] ?
-      rrclient_connection_find(webcam_profile) : NULL;
+   rrconn_t *c = webcam_profile[0] ? rrclient_connection_find(webcam_profile) : NULL;
+
    return c && c->authenticated && c->is_ws ? c : NULL;
 }
+
 extern time_t now;
 
 // GStreamer never links into rrclient: frame capture runs in a fwdsp
@@ -50,6 +51,7 @@ static bool webcam_active = false;
 // the given routing quadruple (PARITY: librrprotocol/ws.mediachan.c)
 static void webcam_register_source(void) {
    rrconn_t *client = webcam_target();
+
    if (!client) {
       return;
    }
@@ -78,6 +80,7 @@ static void webcam_register_source(void) {
 // librrprotocol/cli.main.c - video source frame routing)
 static void webcam_push_frame(const uint8_t *data, size_t len) {
    rrconn_t *client = webcam_target();
+
    if (!rrclient_connection_can_send_binary(client) || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
       return;
    }
@@ -114,9 +117,13 @@ void webcam_client_start(void) {
    if (!webcam_profile[0]) {
       rrconn_t *current = rrclient_connection_context();
       const char *name = current ? rrclient_connection_name(current) : NULL;
-      if (name) g_strlcpy(webcam_profile, name, sizeof(webcam_profile));
+
+      if (name) {
+         g_strlcpy(webcam_profile, name, sizeof(webcam_profile));
+      }
    }
    rrconn_t *client = webcam_target();
+
    if (webcam_active || !client) {
       return;
    }
@@ -146,6 +153,7 @@ void webcam_client_start(void) {
 
 void webcam_client_stop(void) {
    webcam_profile[0] = 0;
+
    if (webcam_fwdsp_chan < 0) {
       return;
    }
@@ -164,15 +172,20 @@ static void webcam_conn_event(const char *event, const char *data, rrconn_t *cpt
    if (strcasecmp(event, "authorized") == 0) {
       const char *role = cfg_get("client.role");
 
-      if (role && strcasecmp(role, "video-source") == 0 && cptr &&
-          !webcam_active) {
+      if (role && strcasecmp(role, "video-source") == 0 && cptr && !webcam_active) {
          const char *name = rrclient_connection_name(cptr);
-         if (name) g_strlcpy(webcam_profile, name, sizeof(webcam_profile));
+
+         if (name) {
+            g_strlcpy(webcam_profile, name, sizeof(webcam_profile));
+         }
          webcam_client_start();
       }
    } else if (strcasecmp(event, "disconnected") == 0) {
       const char *name = cptr ? rrclient_connection_name(cptr) : NULL;
-      if (name && !strcmp(name, webcam_profile)) webcam_client_stop();
+
+      if (name && !strcmp(name, webcam_profile)) {
+         webcam_client_stop();
+      }
    }
 }
 

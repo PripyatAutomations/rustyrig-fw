@@ -1,8 +1,8 @@
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // SPDX-License-Identifier: GPL-2.0-only
-/* Demand-driven AF spectrum analyzer. PCM callbacks never wait for FFT work. Each 4096-point Hann FFT resolves 3.9 Hz bins at the 16 kHz RX PCM rate. The full 0-8
- * kHz Nyquist band is published to support wider AM audio. */
+/* Demand-driven AF spectrum analyzer. PCM callbacks never wait for FFT work. Each 4096-point Hann FFT resolves 3.9 Hz bins at the 16 kHz RX PCM rate. The full
+ * 0-8 kHz Nyquist band is published to support wider AM audio. */
 #include <glib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -164,15 +164,21 @@ void rr_af_spectrum_listen(bool enabled) {
    if (enabled) {
       g_atomic_int_inc(&af_listeners);
       g_mutex_lock(&af_lock);
-      /* Preallocate the three speaker-output analyzers on the GTK/core
-       * control path, never on the 20 ms real-time mixer callback. */
-      if (!af_streams)
+
+      /* Preallocate the three speaker-output analyzers on the GTK/core control path, never on the 20 ms real-time mixer callback. */
+      if (!af_streams) {
          af_streams = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-      static const char *const outputs[] = { "output:left", "output:right", "output:mixed" };
-      for (unsigned i = 0 ; i < G_N_ELEMENTS(outputs) ; i++) {
-         if (!g_hash_table_contains(af_streams, outputs[i]))
-            g_hash_table_insert(af_streams, g_strdup(outputs[i]), g_new0(af_stream_t, 1));
       }
+      static const char *const outputs[] = {
+         "output:left", "output:right", "output:mixed"
+      };
+
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(outputs) ; i++) {
+         if (!g_hash_table_contains(af_streams, outputs[i])) {
+            g_hash_table_insert(af_streams, g_strdup(outputs[i]), g_new0(af_stream_t, 1));
+         }
+      }
+
       if (!af_worker && !g_atomic_int_get(&af_stopping)) {
          af_worker = g_thread_new("rr-af-spectrum", analyze, NULL);
       }
@@ -215,6 +221,7 @@ void rr_af_spectrum_push(const char *name, const int16_t *pcm, size_t frames) {
          stream->count++;
       }
    }
+
    stream->last_pcm_us = g_get_monotonic_time();
    g_mutex_unlock(&af_lock);
 }
@@ -225,8 +232,7 @@ bool rr_af_spectrum_read(const char *name, float bins[RR_AF_BINS]) {
    }
    g_mutex_lock(&af_lock);
    af_stream_t *stream = af_streams ? g_hash_table_lookup(af_streams, name) : NULL;
-   bool ready = stream && stream->ready &&
-      g_get_monotonic_time() - stream->last_pcm_us <= G_USEC_PER_SEC;
+   bool ready = stream && stream->ready && g_get_monotonic_time() - stream->last_pcm_us <= G_USEC_PER_SEC;
 
    if (ready) {
       memcpy(bins, stream->spectrum, sizeof(stream->spectrum));

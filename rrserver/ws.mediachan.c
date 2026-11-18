@@ -437,11 +437,13 @@ bool media_send_available(rrconn_t *cptr, struct rr_mediachan *cp) {
 
    if (cp->rig_uuid[0]) {
       dict_add(d, "media.rig-uuid", cp->rig_uuid);
-      if (cp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
-          cp->direction == RR_BINFRAME_DIR_RX) {
+
+      if (cp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && cp->direction == RR_BINFRAME_DIR_RX) {
          uint32_t source_rate = rrserver_bridge_source_rate(cp->rig_uuid);
-         if (source_rate >= 8000 && source_rate <= 192000)
+
+         if (source_rate >= 8000 && source_rate <= 192000) {
             dict_add_ulong(d, "media.source-rate", source_rate);
+         }
       }
    }
 
@@ -656,9 +658,7 @@ static bool ws_media_send_frame_filtered(struct rr_mediachan *cp, rrconn_t *targ
          rr_binframe_pack_hdr(frame, flen, cp->subsystem, codecbuf, cp->direction, cp->vfo, cp->rig, chan_id, sequence, len, parsed.hdr.ts);
          /* Setup frames are reliable control data; live media is realtime. Avoid letting an overloaded subscriber accumulate stale media. */
          size_t queued = rr_transport_queued_bytes(cur->native_transport);
-         size_t limit = setup ? 262144u :
-            cp->subsystem == RR_BINFRAME_SUBSYS_AUDIO ? 8192u :
-            cp->subsystem == RR_BINFRAME_SUBSYS_WATERFALL ? 16384u : 262144u;
+         size_t limit = setup ? 262144u : cp->subsystem == RR_BINFRAME_SUBSYS_AUDIO ? 8192u : cp->subsystem == RR_BINFRAME_SUBSYS_WATERFALL ? 16384u : 262144u;
 
          if ((size_t)flen <= limit && queued <= limit - (size_t)flen) {
             if (rr_transport_send_binary_message(cur->native_transport, frame, (size_t)flen) == RR_TRANSPORT_OK) {

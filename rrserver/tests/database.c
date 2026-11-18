@@ -491,10 +491,8 @@ int main(void) {
    assert(!upgraded);
    assert(!db_user_password_authenticate(db, "admin", "invalid", &upgraded));
    assert(!upgraded);
-   /* Existing legacy SHA-1 records are transparently migrated on a successful
-    * TLS login, and never fall back to SHA-1 after migration. */
-   assert(sqlite3_exec(db, "UPDATE users SET password='a9993e364706816aba3e25717850c26c9cd0d89d' "
-      "WHERE name='admin'", NULL, NULL, NULL) == SQLITE_OK);
+   /* Existing legacy SHA-1 records are transparently migrated on a successful TLS login, and never fall back to SHA-1 after migration. */
+   assert(sqlite3_exec(db, "UPDATE users SET password='a9993e364706816aba3e25717850c26c9cd0d89d' " "WHERE name='admin'", NULL, NULL, NULL) == SQLITE_OK);
    assert(!db_user_password_authenticate(db, "admin", "wrong", &upgraded));
    assert(!upgraded);
    assert(db_user_password_authenticate(db, "admin", "abc", &upgraded));

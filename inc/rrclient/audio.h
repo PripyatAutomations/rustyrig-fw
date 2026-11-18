@@ -20,8 +20,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/spectrum.af.h>
 
-/* Control pins carry source-qualified logical signals, not rig status.
- * The initial emitter is the local client's PTT command output. */
+/* Control pins carry source-qualified logical signals, not rig status. The initial emitter is the local client's PTT command output. */
 #define RRCLIENT_ROUTING_PTT_SIGNAL "client.routing.ptt.signal"
 #define RRCLIENT_ROUTING_PTT_LOCAL "ptt.local.active-vfo"
 typedef struct {
@@ -35,14 +34,13 @@ extern bool audio_enabled;
 /* Playback requests must cross the GTK -> core event boundary. */
 #define RR_AUDIO_RECORDING_CONTROL_REQUEST "client.audio.recording.control"
 typedef struct {
-   char operation; /* P play/seek, S stop, H pause, R resume */
+   char operation;              /* P play/seek, S stop, H pause, R resume */
    gboolean reverse;
    double seconds;
    char path[2048];
 } rr_audio_recording_control_t;
 void audio_recording_events_init(void);
-void audio_recording_control_core(const char *event, const void *data,
-                                  size_t size, rrconn_t *conn, void *user);
+void audio_recording_control_core(const char *event, const void *data, size_t size, rrconn_t *conn, void *user);
 bool audio_recording_play_at(const char *path, double seconds, bool reverse);
 /* File playback is routed into the client PCM hub. */
 bool audio_recording_play(const char *path);
@@ -51,46 +49,39 @@ void audio_recording_play_collect(void);
 extern bool gst_active;
 
 extern bool audio_init(void);
-/* Low-rate local SDR PCM joins the 16 kHz radio bus, shared with remote
- * codecs/modems; higher-rate sources enter the 44.1/48 kHz HQ mixer
- * directly. PCM formats are internal and never advertised as codecs. */
+/* Low-rate local SDR PCM joins the 16 kHz radio bus, shared with remote codecs/modems; higher-rate sources enter the 44.1/48 kHz HQ mixer directly. PCM formats
+ * are internal and never advertised as codecs. */
 bool audio_local_rx_start(const char *id);
 bool audio_local_rx_start_format(const char *id, const rr_pcm_stream_format_t *format);
 bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t frames);
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames);
 void audio_local_rx_stop(const char *id);
-/* Core-thread modem PCM TX ingress. Never keys PTT; requires active,
- * authorized TX media and a confirmed PTT state before forwarding. */
-bool audio_modem_tx_pcm(unsigned slot, const char *ptt_target,
-                        const int16_t *pcm, size_t frames);
+/* Core-thread modem PCM TX ingress. Never keys PTT; requires active, authorized TX media and a confirmed PTT state before forwarding. */
+bool audio_modem_tx_pcm(unsigned slot, const char *ptt_target, const int16_t *pcm, size_t frames);
 bool audio_modem_tx_allowed(const char *target);
-/* Internal source patch interface. Producers register their PCM format,
- * route into tx.mix, then push samples; no source touches the encoder. */
-bool audio_tx_source_register(const char *id,const rr_pcm_stream_format_t *format);
-bool audio_tx_source_route(const char *id,bool connected);
-bool audio_tx_source_push(const char *id,const void *pcm,size_t frames);
+/* Internal source patch interface. Producers register their PCM format, route into tx.mix, then push samples; no source touches the encoder. */
+bool audio_tx_source_register(const char *id, const rr_pcm_stream_format_t *format);
+bool audio_tx_source_route(const char *id, bool connected);
+bool audio_tx_source_push(const char *id, const void *pcm, size_t frames);
 
-/* Send a complete encoded audio binframe via the existing WS/direct-RTP
- * media transport. Core context only. */
-bool rrclient_send_tx_audio_frame(rrconn_t *connection,
-                                  const void *frame,size_t length,bool setup);
+/* Send a complete encoded audio binframe via the existing WS/direct-RTP media transport. Core context only. */
+bool rrclient_send_tx_audio_frame(rrconn_t *connection, const void *frame, size_t length, bool setup);
 extern void audio_tx_free_frame(void);
 extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
-/* Every local LV2 block is its own proc.lv2.N fwdsp subprocess.
- * GTK only submits messages; the core owns worker lifetime and PCM routes. */
+/* Every local LV2 block is its own proc.lv2.N fwdsp subprocess. GTK only submits messages; the core owns worker lifetime and PCM routes. */
 #define RRCLIENT_AUDIO_EFFECT_REQUEST "client.audio.effect.request"
 #define RRCLIENT_AUDIO_EFFECT_CHANGED "client.audio.effect.changed"
 #define RR_AUDIO_EFFECT_MAX 8
 typedef struct {
-   char action; /* A add/start, D delete, R input, O output */
-   unsigned slot; /* 0 = next free for A */
+   char action;                 /* A add/start, D delete, R input, O output */
+   unsigned slot;               /* 0 = next free for A */
    char factory[96];
-   char source[64]; /* decoded 16 kHz mono stream ID */
-   char output; /* O: M disconnect, L/R mixer channel, S both */
-   unsigned channel; /* 0 mono/left, 1 right (stereo plugins only) */
-   unsigned channels; /* A: plugin audio layout 1 mono / 2 stereo (persistent) */
+   char source[64];             /* decoded 16 kHz mono stream ID */
+   char output;                 /* O: M disconnect, L/R mixer channel, S both */
+   unsigned channel;            /* 0 mono/left, 1 right (stereo plugins only) */
+   unsigned channels;           /* A: plugin audio layout 1 mono / 2 stereo (persistent) */
 } rr_audio_effect_request_t;
 void audio_request_effect_block(const rr_audio_effect_request_t *request);
 #define RRCLIENT_AUDIO_CONTROL_REQUEST "client.audio.control.request"
@@ -121,8 +112,7 @@ void audio_request_rx_stream_route(const char *id, char output);
 void audio_request_mic_tx_route(const char *rx_uuid);
 void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db);
 void audio_request_port_gain(const char *id, unsigned channel, double gain_db);
-void audio_request_effect_parameter(const char *processor, const char *element,
-                                    const char *property, double value);
+void audio_request_effect_parameter(const char *processor, const char *element, const char *property, double value);
 extern bool audio_set_rx_volume(int percent);
 extern bool audio_set_rx_channel_volume(unsigned channel, int percent);
 extern bool audio_set_tx_volume(int percent);
@@ -139,8 +129,8 @@ struct rrclient_rx_stream {
    char id[64], server[512], room[128], uuid[64], codec[5];
    char output;
    uint32_t source_rate_hz;
-   bool active_rx; /* selected radio's RX alias: rig.src */
-   bool active_tx; /* real TX capability: selected rig exposes rig.sink */
+   bool active_rx;              /* selected radio's RX alias: rig.src */
+   bool active_tx;              /* real TX capability: selected rig exposes rig.sink */
 };
 size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity);
 /* AF visualization request/reply. Only core reads RX route inventory;
@@ -158,11 +148,10 @@ typedef struct {
    guint64 request_id;
    bool ready;
    bool stereo;
-   /* Highest meaningful AF frequency for the selected source, bounded by
-    * the 16 kHz analyzer Nyquist. Zero means metadata unavailable. */
+   /* Highest meaningful AF frequency for the selected source, bounded by the 16 kHz analyzer Nyquist. Zero means metadata unavailable. */
    uint32_t max_hz;
    float bins[RR_AF_BINS];
-   float left[RR_AF_BINS], right[RR_AF_BINS]; /* final mixer channels, for stereo overlay */
+   float left[RR_AF_BINS], right[RR_AF_BINS];   /* final mixer channels, for stereo overlay */
 } rrclient_af_spectrum_result_t;
 #define RRCLIENT_AUDIO_SNAPSHOT_REQUEST "client.audio.snapshot.request"
 #define RRCLIENT_AUDIO_SNAPSHOT_RESULT "client.audio.snapshot.result"

@@ -1,10 +1,15 @@
+// This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
+// SPDX-License-Identifier: GPL-2.0-only
+// See doc/LICENSE for the full GNU General Public License version 2 text.
 // Client monitor recording API. GPL-2.0-only.
 #ifndef RRCLIENT_RECORDINGS_H
 #define RRCLIENT_RECORDINGS_H
 #include <glib.h>
 #include <stdint.h>
 #include <stddef.h>
-typedef enum { RR_RECORD_OGG = 0, RR_RECORD_FLAC = 1, RR_RECORD_BOTH = 2 } rr_recording_format;
+typedef enum {
+   RR_RECORD_OGG = 0, RR_RECORD_FLAC = 1, RR_RECORD_BOTH = 2
+} rr_recording_format;
 typedef struct {
    const char *title, *user, *start_time, *site, *server, *rig, *vfo;
    const char *frequency, *mode, *grid, *latitude, *longitude, *location_source, *sources;

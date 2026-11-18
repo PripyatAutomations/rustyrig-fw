@@ -68,7 +68,10 @@ static void rrserver_send_domain_identity(const char *event, const char *data, r
    dict_add(message, "domain.name", domain);
    dict_add(message, "domain.server", node);
    const char *station = cfg_get("station.name");
-   if (station && *station) dict_add(message, "domain.station", station);
+
+   if (station && *station) {
+      dict_add(message, "domain.station", station);
+   }
    ws_send_dict(NULL, client, message, WEBSOCKET_OP_TEXT);
    dict_free(message);
 }
@@ -379,8 +382,8 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
 
          return;
       }
-
 #ifdef USE_SQLITE
+
       if (!db_add_chat_msg(masterdb, now, cptr->chatname, target_name, "privmsg", dict_get(d, "talk.data", ""))) {
          Log(LOG_WARN, "db", "failed to save private message");
       }
@@ -413,6 +416,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       const char *talk_msg = dict_get(d, "talk.data", NULL);
 
 #ifdef USE_SQLITE
+
       if (channel) {
          if (!db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, talk_msg)) {
             Log(LOG_WARN, "db", "failed to save chat message");
@@ -598,6 +602,7 @@ static void rrserver_handle_authdb_load(const char *event, const char *data, rrc
 /* Refresh synchronously before login and command authorization. */
 static void rrserver_auth_refresh(const char *event, const void *data, size_t length, rrconn_t *client, void *context) {
 #ifdef USE_SQLITE
+
    if (length == sizeof(rr_server_auth_refresh_t) && cfg_get_bool("net.http.authdb-dynamic", false)) {
       rr_server_auth_refresh_t *refresh = (rr_server_auth_refresh_t *) data;
 

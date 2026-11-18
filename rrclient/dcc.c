@@ -221,7 +221,8 @@ static bool receive_file(unsigned id, int argc, char **args, int first, bool dow
    bool found = false;
 
    for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
-      if (session.control == rrclient_connection_context() && session.id == id && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
+      if (session.control == rrclient_connection_context() && session.id == id && session.type == IRC_DCC_SEND && !session.outgoing
+         && session.state == IRC_DCC_PENDING) {
          found = true;
          break;
       }

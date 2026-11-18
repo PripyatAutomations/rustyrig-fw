@@ -273,15 +273,26 @@ bool rr_relay_directory_valid(const char *node, dict *d) {
    }
 
    unsigned key_count = dict_get_uint(d, "userkey.count", 0);
-   if (key_count > 64) return false;
+
+   if (key_count > 64) {
+      return false;
+   }
+
    if (key_count) {
       const char *station = rrserver_links_site_name(node);
       const char *domain = cfg_get("domain");
-      if (!station || !*station || !domain || !*domain) return false;
+
+      if (!station || !*station || !domain || !*domain) {
+         return false;
+      }
       char *suffix = g_strdup_printf("@%s.%s", station, domain);
-      if (!suffix) return false;
+
+      if (!suffix) {
+         return false;
+      }
       bool valid = true;
-      for (unsigned i = 0; i < key_count && valid; ++i) {
+
+      for (unsigned i = 0 ; i < key_count && valid ; ++i) {
          char key[64];
          snprintf(key, sizeof(key), "userkey.%u.principal", i);
          const char *principal = dict_get(d, key, "");
@@ -291,18 +302,21 @@ bool rr_relay_directory_valid(const char *node, dict *d) {
          const char *encoded = dict_get(d, key, "");
          size_t plen = strlen(principal), slen = strlen(suffix);
          valid = plen > slen && !g_ascii_strcasecmp(principal + plen - slen, suffix) &&
-            !memchr(principal, '@', plen - slen) && *key_id &&
-            strlen(key_id) <= 96 && strlen(encoded) == 44;
+            !memchr(principal, '@', plen - slen) && *key_id && strlen(key_id) <= 96 && strlen(encoded) == 44;
          bool user_exists = false;
-         for (unsigned j = 0; valid && j < count; ++j) {
+
+         for (unsigned j = 0 ; valid && j < count ; ++j) {
             snprintf(key, sizeof(key), "user.%u.name", j);
             const char *name = dict_get(d, key, "");
+
             if (strlen(name) == plen - slen && !strncmp(name, principal, plen - slen)) {
                user_exists = true;
                break;
             }
          }
+
          valid = valid && user_exists;
+
          if (valid) {
             gsize length = 0;
             guchar *raw = g_base64_decode(encoded, &length);
@@ -312,9 +326,12 @@ bool rr_relay_directory_valid(const char *node, dict *d) {
             g_free(raw);
          }
       }
+
       g_free(suffix);
+
       if (!valid) {
          Log(LOG_WARN, "mesh.identity", "Rejected malformed client key directory for node %s", node);
+
          return false;
       }
    }
@@ -323,7 +340,9 @@ bool rr_relay_directory_valid(const char *node, dict *d) {
 }
 
 void rr_relay_directory_put(const char *node, dict *d) {
-   if (!rr_relay_directory_valid(node, d)) return;
+   if (!rr_relay_directory_valid(node, d)) {
+      return;
+   }
 
    struct directory *entry = rr_relay_directories;
    unsigned entries = 0;
@@ -353,56 +372,87 @@ void rr_relay_directory_put(const char *node, dict *d) {
    entry->users = dict_clone(d);
 }
 
-/* The remote directory is stored ONLY after its home-server signature,
- * enrolled signer and monotonic revision have passed receive() admission.
- * Never use a packet-supplied key as an independent trust anchor. */
-bool rr_relay_client_key_lookup(const char *home_uuid, const char *principal,
-      const char *key_id, unsigned char public_key[32]) {
-   if (!home_uuid || !g_uuid_string_is_valid(home_uuid) || !principal ||
-       !*principal || !key_id || !*key_id || !public_key) return false;
+/* The remote directory is stored ONLY after its home-server signature, enrolled signer and monotonic revision have passed receive() admission. Never use a
+ * packet-supplied key as an independent trust anchor. */
+bool rr_relay_client_key_lookup(const char *home_uuid, const char *principal, const char *key_id, unsigned char public_key[32]) {
+   if (!home_uuid || !g_uuid_string_is_valid(home_uuid) || !principal || !*principal || !key_id || !*key_id || !public_key) {
+      return false;
+   }
    const char *at = strchr(principal, '@');
    const char *domain = cfg_get("domain");
-   if (!at || !at[1] || strchr(at + 1, '@') || !domain || !*domain)
-      return false;
-   const char *station = rrserver_links_site_name(home_uuid);
-   if (!station || !*station) return false;
-   char *expected_suffix = g_strdup_printf("@%s.%s", station, domain);
-   bool valid_suffix = expected_suffix && strlen(principal) > strlen(expected_suffix) &&
-      !g_ascii_strcasecmp(at, expected_suffix);
-   g_free(expected_suffix);
-   if (!valid_suffix) return false;
 
-   for (struct directory *entry = rr_relay_directories; entry; entry = entry->next) {
-      if (strcmp(entry->node, home_uuid) || !entry->users) continue;
+   if (!at || !at[1] || strchr(at + 1, '@') || !domain || !*domain) {
+      return false;
+   }
+   const char *station = rrserver_links_site_name(home_uuid);
+
+   if (!station || !*station) {
+      return false;
+   }
+   char *expected_suffix = g_strdup_printf("@%s.%s", station, domain);
+   bool valid_suffix = expected_suffix && strlen(principal) > strlen(expected_suffix) && !g_ascii_strcasecmp(at, expected_suffix);
+   g_free(expected_suffix);
+
+   if (!valid_suffix) {
+      return false;
+   }
+
+   for (struct directory *entry = rr_relay_directories ; entry ; entry = entry->next) {
+      if (strcmp(entry->node, home_uuid) || !entry->users) {
+         continue;
+      }
       dict *snapshot = entry->users;
+
       if (strcmp(dict_get(snapshot, "identity.owner", ""), home_uuid) ||
-          strcmp(dict_get(snapshot, "identity.operation", ""), "users-snapshot") ||
-          g_ascii_strcasecmp(dict_get(snapshot, "identity.domain", ""), domain))
+         strcmp(dict_get(snapshot, "identity.operation", ""), "users-snapshot") || g_ascii_strcasecmp(dict_get(snapshot, "identity.domain", ""), domain)) {
          return false;
-      if (!strcmp(dict_get(snapshot, "userkey.overflow", ""), "true")) return false;
+      }
+
+      if (!strcmp(dict_get(snapshot, "userkey.overflow", ""), "true")) {
+         return false;
+      }
       unsigned count = dict_get_uint(snapshot, "userkey.count", 0);
-      if (count > 64) return false;
-      for (unsigned i = 0; i < count; ++i) {
+
+      if (count > 64) {
+         return false;
+      }
+
+      for (unsigned i = 0 ; i < count ; ++i) {
          char field[64];
          snprintf(field, sizeof(field), "userkey.%u.principal", i);
-         if (strcmp(dict_get(snapshot, field, ""), principal)) continue;
+
+         if (strcmp(dict_get(snapshot, field, ""), principal)) {
+            continue;
+         }
          snprintf(field, sizeof(field), "userkey.%u.id", i);
-         if (strcmp(dict_get(snapshot, field, ""), key_id)) continue;
+
+         if (strcmp(dict_get(snapshot, field, ""), key_id)) {
+            continue;
+         }
          snprintf(field, sizeof(field), "userkey.%u.public", i);
          const char *encoded = dict_get(snapshot, field, "");
-         if (strlen(encoded) != 44) return false;
+
+         if (strlen(encoded) != 44) {
+            return false;
+         }
          gsize decoded_len = 0;
          guchar *decoded = g_base64_decode(encoded, &decoded_len);
          bool ok = decoded && decoded_len == 32;
          char *canonical = ok ? g_base64_encode(decoded, decoded_len) : NULL;
          ok = ok && canonical && !strcmp(encoded, canonical);
-         if (ok) memcpy(public_key, decoded, 32);
+
+         if (ok) {
+            memcpy(public_key, decoded, 32);
+         }
          g_free(canonical);
          g_free(decoded);
+
          return ok;
       }
+
       return false;
    }
+
    return false;
 }
 
@@ -485,23 +535,20 @@ dict *rr_relay_local_users(void) {
       }
       sqlite3_finalize(stmt);
       dict_add_uint(d, "privilege.count", p);
-      /* Publish only enabled client keys belonging to enabled local accounts,
-       * inside the existing signed, revisioned global users-snapshot. */
+      /* Publish only enabled client keys belonging to enabled local accounts, inside the existing signed, revisioned global users-snapshot. */
       unsigned key_count = 0;
       bool keys_overflow = false;
       stmt = NULL;
       const char *station = cfg_get("station.name");
       const char *domain = cfg_get("domain");
+
       if (station && *station && domain && *domain &&
-          sqlite3_prepare_v2(masterdb,
-             "SELECT u.name,k.key_id,k.public_key FROM user_public_keys k "
-             "JOIN users u ON u.uid=k.uid WHERE u.enabled=1 AND k.enabled=1 "
-             "ORDER BY u.name COLLATE NOCASE,k.key_id LIMIT 65",
-             -1, &stmt, NULL) == SQLITE_OK) {
+         sqlite3_prepare_v2(masterdb, "SELECT u.name,k.key_id,k.public_key FROM user_public_keys k "
+         "JOIN users u ON u.uid=k.uid WHERE u.enabled=1 AND k.enabled=1 "
+         "ORDER BY u.name COLLATE NOCASE,k.key_id LIMIT 65", -1, &stmt, NULL) == SQLITE_OK) {
          while (sqlite3_step(stmt) == SQLITE_ROW) {
             if (key_count == 64) {
-               /* Explicit fail-closed marker: a truncated directory must
-                * never authorize even the first 64 keys. */
+               /* Explicit fail-closed marker: a truncated directory must never authorize even the first 64 keys. */
                keys_overflow = true;
                Log(LOG_WARN, "mesh.identity", "More than 64 active client keys; client-key authorization blocked until key catalog pagination is available");
                break;
@@ -509,10 +556,11 @@ dict *rr_relay_local_users(void) {
             const char *username = (const char *)sqlite3_column_text(stmt, 0);
             const char *key_id = (const char *)sqlite3_column_text(stmt, 1);
             const char *public_key = (const char *)sqlite3_column_text(stmt, 2);
+
             if (!username || !*username || !key_id || !*key_id ||
-                !public_key || strlen(public_key) != 44 ||
-                strlen(username) > HTTP_USER_LEN || strlen(key_id) > 96)
+               !public_key || strlen(public_key) != 44 || strlen(username) > HTTP_USER_LEN || strlen(key_id) > 96) {
                continue;
+            }
             char field[64];
             char *principal = g_strdup_printf("%s@%s.%s", username, station, domain);
             snprintf(field, sizeof(field), "userkey.%u.principal", key_count);

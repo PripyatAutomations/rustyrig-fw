@@ -1257,156 +1257,187 @@ static GtkWidget *cfg_theme_panel(void) {
    return container;
 }
 
-/* Backup requests are handled on the core event domain, never on GTK's
- * thread. Neither the password nor decrypted database crosses back to GTK. */
+/* Backup requests are handled on the core event domain, never on GTK's thread. Neither the password nor decrypted database crosses back to GTK. */
 static void gtk_backup_feedback(const rr_event_message_t *message, void *user) {
    (void)user;
-   if (!message || !message->payload || message->length != sizeof(rrclient_backup_result_t)) return;
+
+   if (!message || !message->payload || message->length != sizeof(rrclient_backup_result_t)) {
+      return;
+   }
    const rrclient_backup_result_t *result = message->payload;
-   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL, result->ok ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR,
-      GTK_BUTTONS_CLOSE, "%s", result->message);
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, result->ok ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+      "%s", result->message);
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
 }
 static void gtk_backup_alert(const char *message) {
-   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),GTK_DIALOG_MODAL,
-      GTK_MESSAGE_WARNING,GTK_BUTTONS_CLOSE,"%s",message);
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_CLOSE, "%s", message);
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
 }
 static void gtk_backup_action(GtkButton *unused, gpointer user_data) {
    (void)unused;
    bool importing = GPOINTER_TO_INT(user_data) != 0;
-   /* Import is a file operation first: choose a real OS file before asking
-    * for secrets or replacing any database state. */
+   /* Import is a file operation first: choose a real OS file before asking for secrets or replacing any database state. */
    char *import_path = NULL;
+
    if (importing) {
-      GtkFileChooserNative *pick = gtk_file_chooser_native_new(
-         "Select Encrypted RustyRig Backup", GTK_WINDOW(main_window),
-         GTK_FILE_CHOOSER_ACTION_OPEN, "_Open", "_Cancel");
+      GtkFileChooserNative *pick = gtk_file_chooser_native_new("Select Encrypted RustyRig Backup", GTK_WINDOW(main_window), GTK_FILE_CHOOSER_ACTION_OPEN,
+         "_Open", "_Cancel");
       GtkFileFilter *filter = gtk_file_filter_new();
       gtk_file_filter_set_name(filter, "RustyRig backup (*.rrbk)");
       gtk_file_filter_add_pattern(filter, "*.rrbk");
       gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(pick), filter);
-      if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(pick)) == GTK_RESPONSE_ACCEPT)
+
+      if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(pick)) == GTK_RESPONSE_ACCEPT) {
          import_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(pick));
+      }
       g_object_unref(pick);
-      if (!import_path) return;
-   }
-   GtkWidget *dialog = gtk_dialog_new_with_buttons(importing ? "Import Encrypted Backup" : "Backup RustyRig",
-      GTK_WINDOW(main_window),GTK_DIALOG_MODAL,"_Cancel",GTK_RESPONSE_CANCEL,
-      importing ? "_Import" : "_Continue",GTK_RESPONSE_ACCEPT,NULL);
-   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *choice = gtk_combo_box_text_new();
-   if (!importing) {
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choice),"Database (SQL) only");
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choice),"Database (SQL) + all private identities");
-      gtk_combo_box_set_active(GTK_COMBO_BOX(choice),1);
-      gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Backup contents:"),FALSE,FALSE,5);
-      gtk_box_pack_start(GTK_BOX(box),choice,FALSE,FALSE,5);
-   } else {
-      GtkWidget *warning=gtk_label_new("Import replaces the client database. Existing private key files will never be overwritten. Restart RustyRig after importing.");
-      gtk_label_set_line_wrap(GTK_LABEL(warning),TRUE);
-      gtk_box_pack_start(GTK_BOX(box),warning,FALSE,FALSE,5);
-   }
-   GtkWidget *password=gtk_entry_new();
-   gtk_entry_set_visibility(GTK_ENTRY(password),FALSE);
-   gtk_entry_set_input_purpose(GTK_ENTRY(password),GTK_INPUT_PURPOSE_PASSWORD);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(password),"Backup password (required)");
-   gtk_box_pack_start(GTK_BOX(box),password,FALSE,FALSE,5);
-   GtkWidget *confirm=NULL;
-   if (!importing) {
-      confirm=gtk_entry_new();
-      gtk_entry_set_visibility(GTK_ENTRY(confirm),FALSE);
-      gtk_entry_set_input_purpose(GTK_ENTRY(confirm),GTK_INPUT_PURPOSE_PASSWORD);
-      gtk_entry_set_placeholder_text(GTK_ENTRY(confirm),"Confirm backup password");
-      gtk_box_pack_start(GTK_BOX(box),confirm,FALSE,FALSE,5);
-   }
-   gtk_widget_show_all(dialog);
-   int response=gtk_dialog_run(GTK_DIALOG(dialog));
-   rrclient_backup_request_t request={0};
-   bool ready=false;
-   if (response==GTK_RESPONSE_ACCEPT) {
-      const char *value=gtk_entry_get_text(GTK_ENTRY(password));
-      const char *again=confirm?gtk_entry_get_text(GTK_ENTRY(confirm)):value;
-      if (!value[0] || strcmp(value,again) || strlen(value)>=sizeof(request.password))
-         gtk_backup_alert("Enter a matching nonempty password.");
-      else {
-         g_strlcpy(request.password,value,sizeof(request.password));
-         request.action=importing?RR_BACKUP_IMPORT:
-            (gtk_combo_box_get_active(GTK_COMBO_BOX(choice))==0?RR_BACKUP_SQL:RR_BACKUP_ALL);
-         ready=true;
+
+      if (!import_path) {
+         return;
       }
    }
-   gtk_entry_set_text(GTK_ENTRY(password),"");
-   if (confirm) gtk_entry_set_text(GTK_ENTRY(confirm),"");
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(importing ? "Import Encrypted Backup" : "Backup RustyRig", GTK_WINDOW(main_window), GTK_DIALOG_MODAL,
+      "_Cancel", GTK_RESPONSE_CANCEL, importing ? "_Import" : "_Continue", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *choice = gtk_combo_box_text_new();
+
+   if (!importing) {
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choice), "Database (SQL) only");
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choice), "Database (SQL) + all private identities");
+      gtk_combo_box_set_active(GTK_COMBO_BOX(choice), 1);
+      gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Backup contents:"), FALSE, FALSE, 5);
+      gtk_box_pack_start(GTK_BOX(box), choice, FALSE, FALSE, 5);
+   } else {
+      GtkWidget *warning =
+         gtk_label_new("Import replaces the client database. Existing private key files will never be overwritten. Restart RustyRig after importing.");
+      gtk_label_set_line_wrap(GTK_LABEL(warning), TRUE);
+      gtk_box_pack_start(GTK_BOX(box), warning, FALSE, FALSE, 5);
+   }
+   GtkWidget *password = gtk_entry_new();
+   gtk_entry_set_visibility(GTK_ENTRY(password), FALSE);
+   gtk_entry_set_input_purpose(GTK_ENTRY(password), GTK_INPUT_PURPOSE_PASSWORD);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(password), "Backup password (required)");
+   gtk_box_pack_start(GTK_BOX(box), password, FALSE, FALSE, 5);
+   GtkWidget *confirm = NULL;
+
+   if (!importing) {
+      confirm = gtk_entry_new();
+      gtk_entry_set_visibility(GTK_ENTRY(confirm), FALSE);
+      gtk_entry_set_input_purpose(GTK_ENTRY(confirm), GTK_INPUT_PURPOSE_PASSWORD);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(confirm), "Confirm backup password");
+      gtk_box_pack_start(GTK_BOX(box), confirm, FALSE, FALSE, 5);
+   }
+   gtk_widget_show_all(dialog);
+   int response = gtk_dialog_run(GTK_DIALOG(dialog));
+   rrclient_backup_request_t request = {
+      0
+   };
+   bool ready = false;
+
+   if (response == GTK_RESPONSE_ACCEPT) {
+      const char *value = gtk_entry_get_text(GTK_ENTRY(password));
+      const char *again = confirm ? gtk_entry_get_text(GTK_ENTRY(confirm)) : value;
+
+      if (!value[0] || strcmp(value, again) || strlen(value) >= sizeof(request.password)) {
+         gtk_backup_alert("Enter a matching nonempty password.");
+      } else {
+         g_strlcpy(request.password, value, sizeof(request.password));
+         request.action = importing ? RR_BACKUP_IMPORT : (gtk_combo_box_get_active(GTK_COMBO_BOX(choice)) == 0 ? RR_BACKUP_SQL : RR_BACKUP_ALL);
+         ready = true;
+      }
+   }
+   gtk_entry_set_text(GTK_ENTRY(password), "");
+
+   if (confirm) {
+      gtk_entry_set_text(GTK_ENTRY(confirm), "");
+   }
    gtk_widget_destroy(dialog);
-   if (!ready) { g_free(import_path); return; }
+
+   if (!ready) {
+      g_free(import_path);
+
+      return;
+   }
+
    if (importing && strlen(import_path) < sizeof(request.path)) {
       g_strlcpy(request.path, import_path, sizeof(request.path));
-      GtkWidget *verify = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL,
-         GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
-         "Replace the current RustyRig client database with this backup? "
-         "Existing private keys are not overwritten. Restart afterwards.");
+      GtkWidget *verify = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
+         "Replace the current RustyRig client database with this backup? " "Existing private keys are not overwritten. Restart afterwards.");
       bool approved = gtk_dialog_run(GTK_DIALOG(verify)) == GTK_RESPONSE_YES;
       gtk_widget_destroy(verify);
+
       if (approved) {
-         rr_event_message_t message = {.name=RRCLIENT_BACKUP_REQUEST,
-            .payload=&request, .length=sizeof(request)};
+         rr_event_message_t message = {
+            .name = RRCLIENT_BACKUP_REQUEST,
+            .payload = &request, .length = sizeof(request)
+         };
          event_emit_message(&message);
       }
       goto backup_finished;
    }
-   if (importing) { gtk_backup_alert("Backup filename is too long."); goto backup_finished; }
-   GtkFileChooserAction action=importing?GTK_FILE_CHOOSER_ACTION_OPEN:GTK_FILE_CHOOSER_ACTION_SAVE;
-   GtkWidget *chooser=gtk_file_chooser_dialog_new(importing?"Select Encrypted RustyRig Backup":"Save Encrypted RustyRig Backup",
-      GTK_WINDOW(main_window),action,"_Cancel",GTK_RESPONSE_CANCEL,
-      importing?"_Open":"_Save",GTK_RESPONSE_ACCEPT,NULL);
+
+   if (importing) {
+      gtk_backup_alert("Backup filename is too long.");
+      goto backup_finished;
+   }
+   GtkFileChooserAction action = importing ? GTK_FILE_CHOOSER_ACTION_OPEN : GTK_FILE_CHOOSER_ACTION_SAVE;
+   GtkWidget *chooser = gtk_file_chooser_dialog_new(importing ? "Select Encrypted RustyRig Backup" : "Save Encrypted RustyRig Backup", GTK_WINDOW(main_window),
+      action, "_Cancel", GTK_RESPONSE_CANCEL, importing ? "_Open" : "_Save", GTK_RESPONSE_ACCEPT, NULL);
+
    if (!importing) {
-      gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(chooser),"rustyrig-backup.rrbk");
+      gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(chooser), "rustyrig-backup.rrbk");
       /* Existing files are refused by the core; no accidental overwrite. */
    }
-   if (gtk_dialog_run(GTK_DIALOG(chooser))==GTK_RESPONSE_ACCEPT) {
-      char *filename=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-      if (filename && strlen(filename)<sizeof(request.path)) {
-         g_strlcpy(request.path,filename,sizeof(request.path));
-         bool approved=true;
+
+   if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
+      char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+
+      if (filename && strlen(filename) < sizeof(request.path)) {
+         g_strlcpy(request.path, filename, sizeof(request.path));
+         bool approved = true;
+
          if (importing) {
-            GtkWidget *verify=gtk_message_dialog_new(GTK_WINDOW(main_window),GTK_DIALOG_MODAL,
-               GTK_MESSAGE_WARNING,GTK_BUTTONS_YES_NO,
-               "Replace the current RustyRig client database with this backup? "
-               "Connected sessions may need to be closed; restart immediately afterwards.");
-            approved=gtk_dialog_run(GTK_DIALOG(verify))==GTK_RESPONSE_YES;
+            GtkWidget *verify = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
+               "Replace the current RustyRig client database with this backup? " "Connected sessions may need to be closed; restart immediately afterwards.");
+            approved = gtk_dialog_run(GTK_DIALOG(verify)) == GTK_RESPONSE_YES;
             gtk_widget_destroy(verify);
          }
+
          if (approved) {
-            rr_event_message_t message={.name=RRCLIENT_BACKUP_REQUEST,
-               .payload=&request,.length=sizeof(request)};
+            rr_event_message_t message = {
+               .name = RRCLIENT_BACKUP_REQUEST,
+               .payload = &request, .length = sizeof(request)
+            };
             event_emit_message(&message);
          }
-      } else gtk_backup_alert("Backup filename is too long.");
+      } else {
+         gtk_backup_alert("Backup filename is too long.");
+      }
       g_free(filename);
    }
    gtk_widget_destroy(chooser);
 backup_finished:
    ;
    g_free(import_path);
-   volatile char *wipe=request.password;
-   for (size_t i=0;i<sizeof(request.password);i++) wipe[i]=0;
+   volatile char *wipe = request.password;
+
+   for (size_t i = 0 ; i < sizeof(request.password) ; i++) {
+      wipe[i] = 0;
+   }
 }
 
-/* Client-local callsign watch list; SQLite owns the persisted rules.
- * No decoder or QSO-log matching occurs until contact logging is added. */
-enum { WATCH_ID, WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED, WATCH_COLUMNS };
+/* Client-local callsign watch list; SQLite owns the persisted rules. No decoder or QSO-log matching occurs until contact logging is added. */
+enum {
+   WATCH_ID, WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED, WATCH_COLUMNS
+};
 static void watched_calls_row(const rrclient_watched_call_t *entry, void *user) {
    GtkListStore *store = user;
    GtkTreeIter row;
    gtk_list_store_append(store, &row);
-   gtk_list_store_set(store, &row,
-      WATCH_ID, entry->id, WATCH_CALL, entry->callsign,
-      WATCH_MODE, entry->mode, WATCH_BAND, entry->band,
-      WATCH_AUTO, entry->auto_mark_worked, WATCH_WORKED, entry->worked, -1);
+   gtk_list_store_set(store, &row, WATCH_ID, entry->id, WATCH_CALL, entry->callsign, WATCH_MODE, entry->mode, WATCH_BAND, entry->band, WATCH_AUTO, entry->
+      auto_mark_worked, WATCH_WORKED, entry->worked, -1);
 }
 static void watched_calls_reload(GtkWidget *tree) {
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)));
@@ -1414,24 +1445,29 @@ static void watched_calls_reload(GtkWidget *tree) {
    rrclient_database_watched_calls_foreach(watched_calls_row, store);
 }
 static void watched_calls_error(GtkWidget *parent, const char *message) {
-   GtkWidget *dlg = gtk_message_dialog_new(
-      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+   GtkWidget *dlg = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", message);
    gtk_dialog_run(GTK_DIALOG(dlg));
    gtk_widget_destroy(dlg);
 }
 static gboolean watched_calls_selected(GtkWidget *tree, GtkTreeIter *row) {
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+
    return gtk_tree_selection_get_selected(selection, NULL, row);
 }
 static GtkWidget *watched_calls_option(const char *const *items, const char *chosen) {
    GtkWidget *combo = gtk_combo_box_text_new_with_entry();
-   for (unsigned i = 0; items[i]; i++)
+
+   for (unsigned i = 0 ; items[i] ; i++) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), items[i]);
+   }
+
    gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
-   if (chosen && *chosen)
+
+   if (chosen && *chosen) {
       gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(combo))), chosen);
+   }
+
    return combo;
 }
 static void watched_calls_edit(GtkWidget *button, gpointer user) {
@@ -1439,21 +1475,21 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    gboolean editing = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "watch-edit")) != 0;
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)));
    GtkTreeIter selected;
-   if (editing && !watched_calls_selected(tree, &selected)) return;
+
+   if (editing && !watched_calls_selected(tree, &selected)) {
+      return;
+   }
    gint id = 0;
    gchar *old_call = NULL, *old_mode = NULL, *old_band = NULL;
    gboolean old_auto = FALSE, old_worked = FALSE;
-   if (editing)
-      gtk_tree_model_get(GTK_TREE_MODEL(store), &selected,
-         WATCH_ID, &id, WATCH_CALL, &old_call, WATCH_MODE, &old_mode,
-         WATCH_BAND, &old_band, WATCH_AUTO, &old_auto,
-         WATCH_WORKED, &old_worked, -1);
+
+   if (editing) {
+      gtk_tree_model_get(GTK_TREE_MODEL(store), &selected, WATCH_ID, &id, WATCH_CALL, &old_call, WATCH_MODE, &old_mode, WATCH_BAND, &old_band, WATCH_AUTO, &
+         old_auto, WATCH_WORKED, &old_worked, -1);
+   }
    GtkWidget *parent = gtk_widget_get_toplevel(tree);
-   GtkWidget *dialog = gtk_dialog_new_with_buttons(
-      editing ? "Edit Watched Call" : "Watch Callsign",
-      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(editing ? "Edit Watched Call" : "Watch Callsign", GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    GtkWidget *grid = gtk_grid_new();
    gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
@@ -1463,7 +1499,10 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    GtkWidget *call = gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(call), 24);
    gtk_entry_set_placeholder_text(GTK_ENTRY(call), "e.g. K1ABC");
-   if (old_call) gtk_entry_set_text(GTK_ENTRY(call), old_call);
+
+   if (old_call) {
+      gtk_entry_set_text(GTK_ENTRY(call), old_call);
+   }
    static const char *const modes[] = {
       "Any", "FT8", "FT4", "PSK31", "Olivia", "RTTY",
       "CW", "SSB", "USB", "LSB", "AM", "FM", "JS8", NULL
@@ -1479,15 +1518,21 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    GtkWidget *worked = gtk_check_button_new_with_label("Already worked");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(auto_mark), old_auto);
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(worked), old_worked);
-   GtkWidget *fields[] = { call, mode, band };
-   const char *titles[] = { "Callsign", "Mode", "Band" };
-   for (unsigned i = 0; i < 3; i++) {
+   GtkWidget *fields[] = {
+      call, mode, band
+   };
+   const char *titles[] = {
+      "Callsign", "Mode", "Band"
+   };
+
+   for (unsigned i = 0 ; i < 3 ; i++) {
       GtkWidget *label = gtk_label_new(titles[i]);
       gtk_widget_set_halign(label, GTK_ALIGN_END);
       gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
       gtk_widget_set_hexpand(fields[i], TRUE);
       gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
    }
+
    gtk_grid_attach(GTK_GRID(grid), auto_mark, 1, 3, 1, 1);
    gtk_grid_attach(GTK_GRID(grid), worked, 1, 4, 1, 1);
    gtk_widget_show_all(dialog);
@@ -1500,23 +1545,30 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
       const gchar *b = gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(band))));
       gboolean valid = *normalized && *m && *b && strlen(normalized) <= 24;
       gboolean digit = FALSE;
-      for (const unsigned char *p = (const unsigned char *)normalized; *p; p++) {
-         if (g_ascii_isdigit(*p)) digit = TRUE;
-         if (!g_ascii_isalnum(*p) && *p != '/') valid = FALSE;
+
+      for (const unsigned char *p = (const unsigned char *)normalized ; *p ; p++) {
+         if (g_ascii_isdigit(*p)) {
+            digit = TRUE;
+         }
+
+         if (!g_ascii_isalnum(*p) && *p != '/') {
+            valid = FALSE;
+         }
       }
-      if (!digit) valid = FALSE;
+
+      if (!digit) {
+         valid = FALSE;
+      }
+
       if (!valid) {
-         watched_calls_error(GTK_WIDGET(dialog),
-            "Enter a valid callsign (letters, numbers, /), and a mode and band.");
-      } else if (rrclient_database_watched_call_save(id, normalized, m, b,
-          gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(auto_mark)),
-          gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(worked)))) {
+         watched_calls_error(GTK_WIDGET(dialog), "Enter a valid callsign (letters, numbers, /), and a mode and band.");
+      } else if (rrclient_database_watched_call_save(id, normalized, m, b, gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(auto_mark)),
+         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(worked)))) {
          g_free(normalized);
          watched_calls_reload(tree);
          break;
       } else {
-         watched_calls_error(GTK_WIDGET(dialog),
-            "Unable to save the watch. Check for a duplicate callsign/mode/band combination or an SQLite error.");
+         watched_calls_error(GTK_WIDGET(dialog), "Unable to save the watch. Check for a duplicate callsign/mode/band combination or an SQLite error.");
       }
       g_free(normalized);
    }
@@ -1529,23 +1581,25 @@ static void watched_calls_remove(GtkButton *button, gpointer user) {
    (void)button;
    GtkWidget *tree = user;
    GtkTreeIter row;
-   if (!watched_calls_selected(tree, &row)) return;
+
+   if (!watched_calls_selected(tree, &row)) {
+      return;
+   }
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
    gint id = 0;
    gchar *call = NULL;
    gtk_tree_model_get(model, &row, WATCH_ID, &id, WATCH_CALL, &call, -1);
    GtkWidget *parent = gtk_widget_get_toplevel(tree);
-   GtkWidget *dlg = gtk_message_dialog_new(
-      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+   GtkWidget *dlg = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "Remove watch for %s?", call ? call : "");
-   gtk_dialog_add_buttons(GTK_DIALOG(dlg), "_Cancel", GTK_RESPONSE_CANCEL,
-                          "_Remove", GTK_RESPONSE_ACCEPT, NULL);
+   gtk_dialog_add_buttons(GTK_DIALOG(dlg), "_Cancel", GTK_RESPONSE_CANCEL, "_Remove", GTK_RESPONSE_ACCEPT, NULL);
+
    if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
-      if (rrclient_database_watched_call_delete(id))
+      if (rrclient_database_watched_call_delete(id)) {
          watched_calls_reload(tree);
-      else
+      } else {
          watched_calls_error(parent, "Unable to remove watched call.");
+      }
    }
    gtk_widget_destroy(dlg);
    g_free(call);
@@ -1556,32 +1610,35 @@ static void watched_calls_selection_changed(GtkTreeSelection *selection, gpointe
    gtk_widget_set_sensitive(buttons[0], chosen);
    gtk_widget_set_sensitive(buttons[1], chosen);
 }
-static void watched_calls_row_activated(GtkTreeView *view, GtkTreePath *path,
-                                        GtkTreeViewColumn *column, gpointer button) {
-   (void)view; (void)path; (void)column;
-   watched_calls_edit(GTK_WIDGET(button),
-                       g_object_get_data(G_OBJECT(button), "watch-tree"));
+static void watched_calls_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer button) {
+   (void)view;
+   (void)path;
+   (void)column;
+   watched_calls_edit(GTK_WIDGET(button), g_object_get_data(G_OBJECT(button), "watch-tree"));
 }
 static GtkWidget *watched_calls_panel(void) {
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(panel), 10);
-   GtkWidget *note = gtk_label_new(
-      "Watch callsigns on specific modes/bands or Any. Automatic worked status will be enabled when QSO logging is implemented.");
+   GtkWidget *note = gtk_label_new("Watch callsigns on specific modes/bands or Any. Automatic worked status will be enabled when QSO logging is implemented.");
    gtk_label_set_line_wrap(GTK_LABEL(note), TRUE);
    gtk_widget_set_halign(note, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(panel), note, FALSE, FALSE, 0);
-   GtkListStore *store = gtk_list_store_new(WATCH_COLUMNS,
-      G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
+   GtkListStore *store = gtk_list_store_new(WATCH_COLUMNS, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
-   const char *headers[] = { "Callsign", "Mode", "Band", "Auto-mark worked", "Worked" };
-   const int columns[] = { WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED };
-   for (unsigned i = 0; i < G_N_ELEMENTS(columns); i++) {
+   const char *headers[] = {
+      "Callsign", "Mode", "Band", "Auto-mark worked", "Worked"
+   };
+   const int columns[] = {
+      WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(columns) ; i++) {
       GtkCellRenderer *renderer = i < 3 ? gtk_cell_renderer_text_new() : gtk_cell_renderer_toggle_new();
-      GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes(
-         headers[i], renderer, i < 3 ? "text" : "active", columns[i], NULL);
+      GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes(headers[i], renderer, i < 3 ? "text" : "active", columns[i], NULL);
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col);
    }
+
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
@@ -1608,17 +1665,20 @@ static GtkWidget *watched_calls_panel(void) {
    g_signal_connect(selection, "changed", G_CALLBACK(watched_calls_selection_changed), buttons);
    watched_calls_selection_changed(selection, buttons);
    watched_calls_reload(tree);
+
    return panel;
 }
 
-/* Simple client sound device settings; the configured pipeline remains
- * authoritative until the operator explicitly selects Generated. */
+/* Simple client sound device settings; the configured pipeline remains authoritative until the operator explicitly selects Generated. */
 typedef struct {
    GtkWidget *mode, *capture, *playback, *capture_rate, *playback_rate;
 } client_audio_setup_t;
-static void client_audio_setup_free(gpointer data) { g_free(data); }
+static void client_audio_setup_free(gpointer data) {
+   g_free(data);
+}
 static const char *client_audio_rate_value(GtkWidget *combo) {
    const char *rate = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
+
    return rate ? rate : "auto";
 }
 static void client_audio_setup_preview(GtkButton *button, gpointer user) {
@@ -1640,10 +1700,8 @@ static void client_audio_setup_preview(GtkButton *button, gpointer user) {
    char *src = rr_pipeline_recipe_compile(&in);
    char *sink = rr_pipeline_recipe_compile(&out);
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Generated pipeline preview",
-      GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Close", GTK_RESPONSE_CLOSE, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Generated pipeline preview", GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL |
+      GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dialog), 690, 390);
    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
@@ -1654,31 +1712,38 @@ static void client_audio_setup_preview(GtkButton *button, gpointer user) {
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_WORD_CHAR);
    char *preview = src && sink ?
       g_strdup_printf("Microphone:\n%s\n\nSpeakers:\n%s\n\n"
-          "These pipelines run only inside fwdsp after restarting rrclient.", src, sink) :
-      g_strdup("Invalid audio device name or rate. No changes were applied.");
+      "These pipelines run only inside fwdsp after restarting rrclient.", src, sink) : g_strdup("Invalid audio device name or rate. No changes were applied.");
    gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), preview, -1);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 6);
    gtk_widget_show_all(dialog);
    gtk_dialog_run(GTK_DIALOG(dialog));
    gtk_widget_destroy(dialog);
-   g_free(src); g_free(sink); g_free(preview);
+   g_free(src);
+   g_free(sink);
+   g_free(preview);
 }
 static void client_audio_setup_apply(GtkButton *button, gpointer user) {
    client_audio_setup_t *ui = user;
    const char *mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(ui->mode));
    const char *cap = gtk_entry_get_text(GTK_ENTRY(ui->capture));
    const char *play = gtk_entry_get_text(GTK_ENTRY(ui->playback));
-   if (!mode) return;
-   rr_pipeline_recipe_t in = {RR_PIPELINE_CAPTURE_MONO, 48000, 16000, cap};
-   rr_pipeline_recipe_t out = {RR_PIPELINE_PLAYBACK_STEREO, 48000, 48000, play};
+
+   if (!mode) {
+      return;
+   }
+   rr_pipeline_recipe_t in = {
+      RR_PIPELINE_CAPTURE_MONO, 48000, 16000, cap
+   };
+   rr_pipeline_recipe_t out = {
+      RR_PIPELINE_PLAYBACK_STEREO, 48000, 48000, play
+   };
    char *a = rr_pipeline_recipe_compile(&in);
    char *b = rr_pipeline_recipe_compile(&out);
+
    if (!a || !b) {
       GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
-      GtkWidget *warning = gtk_message_dialog_new(
-         GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GtkWidget *warning = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
          GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Invalid device name.");
       gtk_dialog_run(GTK_DIALOG(warning));
       gtk_widget_destroy(warning);
@@ -1690,24 +1755,20 @@ static void client_audio_setup_apply(GtkButton *button, gpointer user) {
       cfg_set_value("audio.playback-rate", client_audio_rate_value(ui->playback_rate));
       rrclient_config_mark_dirty();
       GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(button));
-      GtkWidget *note = gtk_message_dialog_new(
-         GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_INFO,
-         GTK_BUTTONS_CLOSE,
-         "Settings staged. Click Save Config to persist, then restart rrclient. "
+      GtkWidget *note = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Settings staged. Click Save Config to persist, then restart rrclient. "
          "Configured pipelines remain supported and are the default.");
       gtk_dialog_run(GTK_DIALOG(note));
       gtk_widget_destroy(note);
    }
-   g_free(a); g_free(b);
+   g_free(a);
+   g_free(b);
 }
 static GtkWidget *client_audio_setup_panel(void) {
    GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(page), 12);
-   GtkWidget *info = gtk_label_new(
-      "Choose sound devices without writing GStreamer. Configured pipelines "
-      "remain the default; generated endpoints are opt-in. Changes take effect "
-      "after saving configuration and restarting rrclient.");
+   GtkWidget *info = gtk_label_new("Choose sound devices without writing GStreamer. Configured pipelines "
+      "remain the default; generated endpoints are opt-in. Changes take effect " "after saving configuration and restarting rrclient.");
    gtk_label_set_xalign(GTK_LABEL(info), 0);
    gtk_label_set_line_wrap(GTK_LABEL(info), TRUE);
    gtk_box_pack_start(GTK_BOX(page), info, FALSE, FALSE, 0);
@@ -1716,45 +1777,52 @@ static GtkWidget *client_audio_setup_panel(void) {
    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
    gtk_box_pack_start(GTK_BOX(page), grid, FALSE, FALSE, 0);
    client_audio_setup_t *ui = g_new0(client_audio_setup_t, 1);
-   g_object_set_data_full(G_OBJECT(page), "rr-audio-setup", ui,
-                          client_audio_setup_free);
+   g_object_set_data_full(G_OBJECT(page), "rr-audio-setup", ui, client_audio_setup_free);
    ui->mode = gtk_combo_box_text_new();
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ui->mode), "configured", "Configured pipelines");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ui->mode), "generated", "Generated device pipelines");
    const char *mode = cfg_get("audio.pipeline-mode");
-   gtk_combo_box_set_active_id(GTK_COMBO_BOX(ui->mode),
-       mode && !strcmp(mode, "generated") ? "generated" : "configured");
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(ui->mode), mode && !strcmp(mode, "generated") ? "generated" : "configured");
    ui->capture = gtk_entry_new();
    ui->playback = gtk_entry_new();
-   gtk_entry_set_text(GTK_ENTRY(ui->capture),
-       cfg_get("audio.capture-device") ? cfg_get("audio.capture-device") : "default");
-   gtk_entry_set_text(GTK_ENTRY(ui->playback),
-       cfg_get("audio.playback-device") ? cfg_get("audio.playback-device") : "default");
+   gtk_entry_set_text(GTK_ENTRY(ui->capture), cfg_get("audio.capture-device") ? cfg_get("audio.capture-device") : "default");
+   gtk_entry_set_text(GTK_ENTRY(ui->playback), cfg_get("audio.playback-device") ? cfg_get("audio.playback-device") : "default");
    gtk_entry_set_placeholder_text(GTK_ENTRY(ui->capture), "default");
    gtk_entry_set_placeholder_text(GTK_ENTRY(ui->playback), "default");
    ui->capture_rate = gtk_combo_box_text_new();
    ui->playback_rate = gtk_combo_box_text_new();
-   GtkWidget *rates[] = {ui->capture_rate, ui->playback_rate};
-   const char *keys[] = {"audio.capture-rate", "audio.playback-rate"};
-   for (int i = 0; i < 2; i++) {
+   GtkWidget *rates[] = {
+      ui->capture_rate, ui->playback_rate
+   };
+   const char *keys[] = {
+      "audio.capture-rate", "audio.playback-rate"
+   };
+
+   for (int i = 0 ; i < 2 ; i++) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rates[i]), "auto", "Auto (48 kHz)");
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rates[i]), "44100", "44.1 kHz");
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rates[i]), "48000", "48 kHz");
       const char *value = cfg_get(keys[i]);
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(rates[i]),
-          value && (!strcmp(value, "44100") || !strcmp(value, "48000")) ? value : "auto");
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(rates[i]), value && (!strcmp(value, "44100") || !strcmp(value, "48000")) ? value : "auto");
    }
-   GtkWidget *values[] = {ui->mode, ui->capture, ui->playback,
-                           ui->capture_rate, ui->playback_rate};
-   const char *names[] = {"Pipeline mode", "Microphone device", "Speaker device",
-                           "Microphone rate", "Speaker rate"};
-   for (int i = 0; i < 5; i++) {
+
+   GtkWidget *values[] = {
+      ui->mode, ui->capture, ui->playback,
+      ui->capture_rate, ui->playback_rate
+   };
+   const char *names[] = {
+      "Pipeline mode", "Microphone device", "Speaker device",
+      "Microphone rate", "Speaker rate"
+   };
+
+   for (int i = 0 ; i < 5 ; i++) {
       GtkWidget *label = gtk_label_new(names[i]);
       gtk_widget_set_halign(label, GTK_ALIGN_END);
       gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
       gtk_widget_set_hexpand(values[i], TRUE);
       gtk_grid_attach(GTK_GRID(grid), values[i], 1, i, 1, 1);
    }
+
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    GtkWidget *preview = gtk_button_new_with_label("Preview generated pipelines");
    GtkWidget *apply = gtk_button_new_with_label("Apply Settings");
@@ -1763,6 +1831,7 @@ static GtkWidget *client_audio_setup_panel(void) {
    g_signal_connect(preview, "clicked", G_CALLBACK(client_audio_setup_preview), ui);
    g_signal_connect(apply, "clicked", G_CALLBACK(client_audio_setup_apply), ui);
    gtk_box_pack_start(GTK_BOX(page), buttons, FALSE, FALSE, 4);
+
    return page;
 }
 
@@ -1809,15 +1878,14 @@ GtkWidget *init_config_tab(void) {
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer) config_file);
    gtk_box_pack_start(GTK_BOX(buttons), btn_reloadcfg, FALSE, FALSE, 0);
 
-   event_on_message_domain_token(RRCLIENT_BACKUP_RESULT,gtk_backup_feedback,NULL,"gtk");
-   GtkWidget *btn_backup=config_action_button("Backup…","document-save-as-symbolic",
-      "Export encrypted SQL or SQL + private identity keys");
-   g_signal_connect(btn_backup,"clicked",G_CALLBACK(gtk_backup_action),GINT_TO_POINTER(0));
-   gtk_box_pack_start(GTK_BOX(buttons),btn_backup,FALSE,FALSE,0);
-   GtkWidget *btn_import=config_action_button("Import Backup…","document-open-symbolic",
-      "Restore a password-protected RustyRig backup; restart afterwards");
-   g_signal_connect(btn_import,"clicked",G_CALLBACK(gtk_backup_action),GINT_TO_POINTER(1));
-   gtk_box_pack_start(GTK_BOX(buttons),btn_import,FALSE,FALSE,0);
+   event_on_message_domain_token(RRCLIENT_BACKUP_RESULT, gtk_backup_feedback, NULL, "gtk");
+   GtkWidget *btn_backup = config_action_button("Backup…", "document-save-as-symbolic", "Export encrypted SQL or SQL + private identity keys");
+   g_signal_connect(btn_backup, "clicked", G_CALLBACK(gtk_backup_action), GINT_TO_POINTER(0));
+   gtk_box_pack_start(GTK_BOX(buttons), btn_backup, FALSE, FALSE, 0);
+   GtkWidget *btn_import =
+      config_action_button("Import Backup…", "document-open-symbolic", "Restore a password-protected RustyRig backup; restart afterwards");
+   g_signal_connect(btn_import, "clicked", G_CALLBACK(gtk_backup_action), GINT_TO_POINTER(1));
+   gtk_box_pack_start(GTK_BOX(buttons), btn_import, FALSE, FALSE, 0);
 
    GtkWidget *btn_certificates = gtk_certificates_button_new();
    gtk_box_pack_start(GTK_BOX(buttons), btn_certificates, FALSE, FALSE, 0);

@@ -847,11 +847,9 @@ static bool processor_pcm_caps_rate(GstCaps *caps, bool native_rate, bool stereo
           (!layout || strcmp(layout, "interleaved") == 0) &&
           gst_structure_get_int(structure, "rate", &rate) &&
           (native_rate ? rate >= 8000 && rate <= 192000 :
-           (rate == 16000 || (stereo && (rate == 44100 || rate == 48000)))) &&
-          gst_structure_get_int(structure, "channels", &channels) &&
-          (channels == 1 || (stereo && channels == 2)) &&
-          /* High-quality playback is stereo only; mono codec/rig endpoints
-           * retain their original 16 kHz framing contract. */
+             (rate == 16000 || (stereo && (rate == 44100 || rate == 48000)))) &&
+          gst_structure_get_int(structure, "channels", &channels) && (channels == 1 || (stereo && channels == 2)) &&
+          /* High-quality playback is stereo only; mono codec/rig endpoints retain their original 16 kHz framing contract. */
           (native_rate || rate == 16000 || channels == 2);
 }
 
@@ -859,22 +857,23 @@ static bool processor_pcm_caps(GstCaps *caps, bool resampler_output) {
    return processor_pcm_caps_rate(caps, resampler_output, false);
 }
 
-/* Upgrade legacy client device pipelines in memory. A previously saved
- * pipeline can predate the named device capsfilter introduced with -R.
- * Insert one next to the known PulseAudio endpoint, rather than failing
- * all playback or editing the saved pipeline string. Arbitrary custom
- * device graphs still need to declare their own caps boundary explicitly. */
+/* Upgrade legacy client device pipelines in memory. A previously saved pipeline can predate the named device capsfilter introduced with -R. Insert one next to
+ * the known PulseAudio endpoint, rather than failing all playback or editing the saved pipeline string. Arbitrary custom device graphs still need to declare
+ * their own caps boundary explicitly. */
 static GstElement *processor_legacy_device_filter(GstElement *pipe) {
    const bool playback = processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK;
    const char *device_name = playback ? "processor-speaker" : "processor-mic";
    GstElement *device = gst_bin_get_by_name(GST_BIN(pipe), device_name);
-   if (!device) return NULL;
+
+   if (!device) {
+      return NULL;
+   }
    GstElementFactory *factory = gst_element_get_factory(device);
-   const char *factory_name = factory ?
-      gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : NULL;
-   if (!factory_name ||
-       strcmp(factory_name, playback ? "pulsesink" : "pulsesrc")) {
+   const char *factory_name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : NULL;
+
+   if (!factory_name || strcmp(factory_name, playback ? "pulsesink" : "pulsesrc")) {
       gst_object_unref(device);
+
       return NULL;
    }
    GstPad *device_pad = gst_element_get_static_pad(device, playback ? "sink" : "src");
@@ -882,131 +881,169 @@ static GstElement *processor_legacy_device_filter(GstElement *pipe) {
    GstElement *filter = NULL;
    GstPad *in_pad = NULL, *out_pad = NULL;
    gboolean ok = FALSE, added = FALSE;
+
    if (peer) {
       filter = gst_element_factory_make("capsfilter", "processor-device-caps");
+
       if (filter && gst_bin_add(GST_BIN(pipe), filter)) {
          added = TRUE;
          in_pad = gst_element_get_static_pad(filter, "sink");
          out_pad = gst_element_get_static_pad(filter, "src");
+
          if (in_pad && out_pad) {
             GstPad *upstream = playback ? peer : device_pad;
             GstPad *downstream = playback ? device_pad : peer;
+
             if (gst_pad_unlink(upstream, downstream)) {
                gboolean first = gst_pad_link(upstream, in_pad) == GST_PAD_LINK_OK;
-               gboolean second = first &&
-                  gst_pad_link(out_pad, downstream) == GST_PAD_LINK_OK;
-               if (first && second)
+               gboolean second = first && gst_pad_link(out_pad, downstream) == GST_PAD_LINK_OK;
+
+               if (first && second) {
                   ok = TRUE;
-               else {
-                  if (first) gst_pad_unlink(upstream, in_pad);
+               } else {
+                  if (first) {
+                     gst_pad_unlink(upstream, in_pad);
+                  }
                   gst_pad_link(upstream, downstream);
                }
             }
          }
-         if (!ok) gst_bin_remove(GST_BIN(pipe), filter);
+
+         if (!ok) {
+            gst_bin_remove(GST_BIN(pipe), filter);
+         }
       }
    }
-   if (in_pad) gst_object_unref(in_pad);
-   if (out_pad) gst_object_unref(out_pad);
-   if (peer) gst_object_unref(peer);
-   if (device_pad) gst_object_unref(device_pad);
+
+   if (in_pad) {
+      gst_object_unref(in_pad);
+   }
+
+   if (out_pad) {
+      gst_object_unref(out_pad);
+   }
+
+   if (peer) {
+      gst_object_unref(peer);
+   }
+
+   if (device_pad) {
+      gst_object_unref(device_pad);
+   }
    gst_object_unref(device);
+
    if (!ok) {
       /* gst_bin_remove() released the bin's ownership if added. */
-      if (filter && !added) gst_object_unref(filter);
+      if (filter && !added) {
+         gst_object_unref(filter);
+      }
+
       return NULL;
    }
-   Log(LOG_INFO, "fwdsp",
-       "Added runtime device capsfilter to legacy %s PulseAudio pipeline",
-       playback ? "playback" : "capture");
+   Log(LOG_INFO, "fwdsp", "Added runtime device capsfilter to legacy %s PulseAudio pipeline", playback ? "playback" : "capture");
+
    return gst_object_ref(filter);
 }
 
-/* Device PCM rates are arguments, not edits to the configured pipeline.
- * The generator/editor can later emit the same named capsfilter elements. */
+/* Device PCM rates are arguments, not edits to the configured pipeline. The generator/editor can later emit the same named capsfilter elements. */
 static bool processor_apply_device_rate(GstElement *pipe, GstElement *appsrc) {
-   if (!processor_device_rate_hz) return true;
-   if (!processor_mode ||
-       (processor_io_mode != PCM_PROCESSOR_MODE_CAPTURE &&
-        processor_io_mode != PCM_PROCESSOR_MODE_PLAYBACK))
-      return false;
-   GstElement *filter = gst_bin_get_by_name(GST_BIN(pipe), "processor-device-caps");
-   if (!filter)
-      filter = processor_legacy_device_filter(pipe);
-   if (!filter || !GST_IS_ELEMENT(filter) ||
-       !g_object_class_find_property(G_OBJECT_GET_CLASS(filter), "caps")) {
-      if (filter) gst_object_unref(filter);
-      Log(LOG_CRIT, "fwdsp",
-          "-R requires a named processor-device-caps capsfilter or the standard named PulseAudio device");
+   if (!processor_device_rate_hz) {
+      return true;
+   }
+
+   if (!processor_mode || (processor_io_mode != PCM_PROCESSOR_MODE_CAPTURE && processor_io_mode != PCM_PROCESSOR_MODE_PLAYBACK)) {
       return false;
    }
-   GstCaps *device = gst_caps_new_simple("audio/x-raw",
-                     "rate", G_TYPE_INT, (int)processor_device_rate_hz, NULL);
+   GstElement *filter = gst_bin_get_by_name(GST_BIN(pipe), "processor-device-caps");
+
+   if (!filter) {
+      filter = processor_legacy_device_filter(pipe);
+   }
+
+   if (!filter || !GST_IS_ELEMENT(filter) || !g_object_class_find_property(G_OBJECT_GET_CLASS(filter), "caps")) {
+      if (filter) {
+         gst_object_unref(filter);
+      }
+      Log(LOG_CRIT, "fwdsp", "-R requires a named processor-device-caps capsfilter or the standard named PulseAudio device");
+
+      return false;
+   }
+   GstCaps *device = gst_caps_new_simple("audio/x-raw", "rate", G_TYPE_INT, (int)processor_device_rate_hz, NULL);
    g_object_set(G_OBJECT(filter), "caps", device, NULL);
    gst_caps_unref(device);
    gst_object_unref(filter);
+
    if (processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK) {
-      if (!appsrc || !GST_IS_APP_SRC(appsrc)) return false;
-      /* The framed input sample rate must match the appsrc clock exactly,
-       * otherwise PTS/duration computation will silently misclock playback. */
-      GstCaps *input = gst_caps_new_simple("audio/x-raw",
-          "format", G_TYPE_STRING, "S16LE",
-          "rate", G_TYPE_INT, (int)processor_device_rate_hz,
-          "channels", G_TYPE_INT, 2,
-          "layout", G_TYPE_STRING, "interleaved", NULL);
+      if (!appsrc || !GST_IS_APP_SRC(appsrc)) {
+         return false;
+      }
+      /* The framed input sample rate must match the appsrc clock exactly, otherwise PTS/duration computation will silently misclock playback. */
+      GstCaps *input = gst_caps_new_simple("audio/x-raw", "format", G_TYPE_STRING, "S16LE", "rate", G_TYPE_INT, (int)processor_device_rate_hz, "channels",
+         G_TYPE_INT, 2, "layout", G_TYPE_STRING, "interleaved", NULL);
       gst_app_src_set_caps(GST_APP_SRC(appsrc), input);
       gst_caps_unref(input);
    }
+
    return true;
 }
 
-/* Run exclusively on the worker's main control loop, never the audio streaming
- * callback. Only exposed numeric/boolean properties of named elements may
- * be changed; never accept object, pointer or arbitrary string properties. */
-static bool processor_set_element_parameter(GstElement *pipe,
-                                           struct fwdsp_control_msg *cmd) {
+/* Run exclusively on the worker's main control loop, never the audio streaming callback. Only exposed numeric/boolean properties of named elements may be
+ * changed; never accept object, pointer or arbitrary string properties. */
+static bool processor_set_element_parameter(GstElement *pipe, struct fwdsp_control_msg *cmd) {
    double numeric;
    memcpy(&numeric, cmd->record_file, sizeof(numeric));
+
    if (!pipe || !GST_IS_BIN(pipe) ||
-       !memchr(cmd->record_user, 0, sizeof(cmd->record_user)) ||
-       !memchr(cmd->record_id, 0, sizeof(cmd->record_id)) ||
-       !*cmd->record_user || !*cmd->record_id || !isfinite(numeric))
+      !memchr(cmd->record_user, 0, sizeof(cmd->record_user)) ||
+      !memchr(cmd->record_id, 0, sizeof(cmd->record_id)) || !*cmd->record_user || !*cmd->record_id || !isfinite(numeric)) {
       return false;
+   }
    GstElement *element = gst_bin_get_by_name(GST_BIN(pipe), cmd->record_user);
-   if (!element) return false;
-   GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
-                                                   cmd->record_id);
+
+   if (!element) {
+      return false;
+   }
+   GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(element), cmd->record_id);
    bool ok = false;
-   if (spec && (spec->flags & G_PARAM_WRITABLE) &&
-       !(spec->flags & G_PARAM_CONSTRUCT_ONLY)) {
+
+   if (spec && (spec->flags & G_PARAM_WRITABLE) && !(spec->flags & G_PARAM_CONSTRUCT_ONLY)) {
       double v = numeric;
+
       if (G_IS_PARAM_SPEC_DOUBLE(spec)) {
          GParamSpecDouble *s = G_PARAM_SPEC_DOUBLE(spec);
+
          if (v >= s->minimum && v <= s->maximum) {
-            g_object_set(element, cmd->record_id, v, NULL); ok = true;
+            g_object_set(element, cmd->record_id, v, NULL);
+            ok = true;
          }
       } else if (G_IS_PARAM_SPEC_FLOAT(spec)) {
          GParamSpecFloat *s = G_PARAM_SPEC_FLOAT(spec);
+
          if (v >= s->minimum && v <= s->maximum) {
-            g_object_set(element, cmd->record_id, (float)v, NULL); ok = true;
+            g_object_set(element, cmd->record_id, (float)v, NULL);
+            ok = true;
          }
       } else if (G_IS_PARAM_SPEC_INT(spec)) {
          GParamSpecInt *s = G_PARAM_SPEC_INT(spec);
-         if (v >= s->minimum && v <= s->maximum &&
-             v == (double)(int)v) {
-            g_object_set(element, cmd->record_id, (int)v, NULL); ok = true;
+
+         if (v >= s->minimum && v <= s->maximum && v == (double)(int)v) {
+            g_object_set(element, cmd->record_id, (int)v, NULL);
+            ok = true;
          }
       } else if (G_IS_PARAM_SPEC_UINT(spec)) {
          GParamSpecUInt *s = G_PARAM_SPEC_UINT(spec);
-         if (v >= s->minimum && v <= s->maximum &&
-             v == (double)(unsigned)v) {
-            g_object_set(element, cmd->record_id, (unsigned)v, NULL); ok = true;
+
+         if (v >= s->minimum && v <= s->maximum && v == (double)(unsigned)v) {
+            g_object_set(element, cmd->record_id, (unsigned)v, NULL);
+            ok = true;
          }
       } else if (G_IS_PARAM_SPEC_BOOLEAN(spec) && (v == 0. || v == 1.)) {
-         g_object_set(element, cmd->record_id, v != 0., NULL); ok = true;
+         g_object_set(element, cmd->record_id, v != 0., NULL);
+         ok = true;
       }
    }
    gst_object_unref(element);
+
    return ok;
 }
 static void run_loop(struct audio_config *cfg) {
@@ -1084,22 +1121,38 @@ static void run_loop(struct audio_config *cfg) {
       if (!volume && cfg->tx_mode) {
          volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
       }
+
       if (!processor_apply_device_rate(pipeline, appsrc)) {
-         if (appsrc) gst_object_unref(appsrc);
-         if (appsink) gst_object_unref(appsink);
-         if (volume) gst_object_unref(volume);
-         if (record_sink) gst_object_unref(record_sink);
-         if (record_encoded_sink) gst_object_unref(record_encoded_sink);
-         if (hub_sink) gst_object_unref(hub_sink);
+         if (appsrc) {
+            gst_object_unref(appsrc);
+         }
+
+         if (appsink) {
+            gst_object_unref(appsink);
+         }
+
+         if (volume) {
+            gst_object_unref(volume);
+         }
+
+         if (record_sink) {
+            gst_object_unref(record_sink);
+         }
+
+         if (record_encoded_sink) {
+            gst_object_unref(record_encoded_sink);
+         }
+
+         if (hub_sink) {
+            gst_object_unref(hub_sink);
+         }
          cleanup_pipeline(&pipeline);
-         /* A malformed explicit PCM contract is a configuration error, not
-          * a successful shutdown or a recoverable device underrun. */
+         /* A malformed explicit PCM contract is a configuration error, not a successful shutdown or a recoverable device underrun. */
          exit(EXIT_FAILURE);
       }
       GstCaps *processor_input_caps = processor_mode && appsrc ? gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
-      bool processor_input_ok = !appsrc
-         || processor_pcm_caps_rate(processor_input_caps, processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE,
-          processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK || processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL);
+      bool processor_input_ok = !appsrc || processor_pcm_caps_rate(processor_input_caps, processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE, processor_io_mode ==
+         PCM_PROCESSOR_MODE_PLAYBACK || processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL);
 
       if (processor_input_caps) {
          gst_caps_unref(processor_input_caps);
@@ -1223,8 +1276,7 @@ static void run_loop(struct audio_config *cfg) {
                if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
                   bool output_ok = true;
 
-                  if (processor_mode && (!processor_pcm_caps_rate(gst_sample_get_caps(sample),
-                     processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE,
+                  if (processor_mode && (!processor_pcm_caps_rate(gst_sample_get_caps(sample), processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE,
                      processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL) || (map.size & 1U) != 0)) {
                      Log(LOG_CRIT, "fwdsp", "Audio pipeline %s produced unsupported S16LE output", processor_name);
                      output_ok = false;
@@ -1435,8 +1487,7 @@ static void run_loop(struct audio_config *cfg) {
 
                   case FWDSP_CTRL_SET_PROPERTY: {
                      if (!processor_set_element_parameter(pipeline, &control)) {
-                        Log(LOG_WARN, "fwdsp.control",
-                            "Rejected parameter update (invalid element/property/value)");
+                        Log(LOG_WARN, "fwdsp.control", "Rejected parameter update (invalid element/property/value)");
                      }
                      break;
                   }
@@ -1663,8 +1714,10 @@ int main(int argc, char *argv[]) {
          case 'R': {
             char *end = NULL;
             unsigned long rate = strtoul(optarg, &end, 10);
+
             if (!*optarg || !end || *end || (rate != 44100 && rate != 48000)) {
                fprintf(stderr, "Invalid device PCM rate '%s' (-R accepts 44100 or 48000)\n", optarg);
+
                return 2;
             }
             processor_device_rate_hz = (unsigned)rate;
@@ -1702,7 +1755,9 @@ int main(int argc, char *argv[]) {
          }
          case 'h':
          default: {
-            fprintf(stderr, "Usage: %s [-f config file] [-c codec-string] [-T [-M auto|process|capture|playback] [-P namespace.name] [-R 44100|48000]] [-H] [-t]\n", argv[0]);
+            fprintf(stderr,
+               "Usage: %s [-f config file] [-c codec-string] [-T [-M auto|process|capture|playback] [-P namespace.name] [-R 44100|48000]] [-H] [-t]\n", argv[0])
+            ;
             fprintf(stderr, "  -c\t\t\tIs the codec id such as PCM16 or MU44\n");
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
             fprintf(stderr, "  -p\t\t\tPipeline selected by the parent (overrides config/defaults)\n");
@@ -1724,10 +1779,9 @@ int main(int argc, char *argv[]) {
       processor_mode = true;
    }
 
-   if (processor_device_rate_hz &&
-       (!processor_mode || (processor_io_mode != PCM_PROCESSOR_MODE_CAPTURE &&
-                            processor_io_mode != PCM_PROCESSOR_MODE_PLAYBACK))) {
+   if (processor_device_rate_hz && (!processor_mode || (processor_io_mode != PCM_PROCESSOR_MODE_CAPTURE && processor_io_mode != PCM_PROCESSOR_MODE_PLAYBACK))) {
       fprintf(stderr, "fwdsp: -R is only valid with -T -M capture/playback\n");
+
       return 2;
    }
 

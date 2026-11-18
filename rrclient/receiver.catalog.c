@@ -198,19 +198,17 @@ static void received(const char *event, const char *data, rrconn_t *connection, 
    }
 
    if (!strcmp(command, "status")) {
-      /* Preserve the distinction between the server's revalidation time
-       * and the timestamp published by the upstream directory provider. */
-      time_t age=(time_t)dict_get_llong(d,"directory.published-age",0);
-      time_t checked=(time_t)dict_get_llong(d,"directory.fetched",0);
-      time_t last_attempt=(time_t)dict_get_llong(d,"directory.last-attempt",0);
-      if(age>6*3600)
-         Log(LOG_WARN,"receiver.directory",
-             "Server directory upstream payload is %lld minutes old; server last HTTP check %lld seconds ago, last attempt %lld seconds ago (HTTP %lld, curl %lld)",
-             (long long)(age/60),
-             checked? (long long)MAX(0,time(NULL)-checked):-1LL,
-             last_attempt? (long long)MAX(0,time(NULL)-last_attempt):-1LL,
-             (long long)dict_get_llong(d,"directory.last-http",0),
-             (long long)dict_get_llong(d,"directory.last-curl",0));
+      /* Preserve the distinction between the server's revalidation time and the timestamp published by the upstream directory provider. */
+      time_t age = (time_t) dict_get_llong(d, "directory.published-age", 0);
+      time_t checked = (time_t) dict_get_llong(d, "directory.fetched", 0);
+      time_t last_attempt = (time_t) dict_get_llong(d, "directory.last-attempt", 0);
+
+      if (age > 6 * 3600) {
+         Log(LOG_WARN, "receiver.directory",
+            "Server directory upstream payload is %lld minutes old; server last HTTP check %lld seconds ago, last attempt %lld seconds ago (HTTP %lld, curl %lld)",
+            (long long)(age / 60), checked ? (long long)MAX(0, time(NULL) - checked) : -1LL, last_attempt ? (long long)MAX(0, time(NULL) - last_attempt) : -1LL,
+            (long long)dict_get_llong(d, "directory.last-http", 0), (long long)dict_get_llong(d, "directory.last-curl", 0));
+      }
       const char *digest = dict_get(d, "directory.digest", "");
 
       if (strlen(digest) != 64) {

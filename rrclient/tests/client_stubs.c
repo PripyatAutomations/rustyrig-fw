@@ -16,14 +16,21 @@ WEAK enum GuiMode ui_mode = UI_MODE_TUI;
 WEAK struct rr_user *global_userlist;
 WEAK rrconn_t *ws_conn;
 /* Legacy isolated test binaries do not link the full connection manager. */
-WEAK rrconn_t *rrclient_connection_context(void) { return ws_conn; }
-WEAK rrconn_t *rrclient_active_connection(void) { return ws_conn; }
+WEAK rrconn_t *rrclient_connection_context(void) {
+   return ws_conn;
+}
+WEAK rrconn_t *rrclient_active_connection(void) {
+   return ws_conn;
+}
 WEAK char *rrclient_database_setting_get(const char *key) {
    (void)key;
+
    return NULL;
 }
 WEAK bool rrclient_database_setting_set(const char *key, const char *value) {
-   (void)key; (void)value;
+   (void)key;
+   (void)value;
+
    return true;
 }
 WEAK const char *rrclient_current_room(void) {
@@ -47,6 +54,7 @@ WEAK rrconn_t *rrclient_connection_find(const char *profile) {
 }
 WEAK const char *rrclient_connection_url(const char *profile) {
    (void)profile;
+
    return NULL;
 }
 WEAK void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {

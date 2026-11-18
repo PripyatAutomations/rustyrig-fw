@@ -16,24 +16,30 @@ int main(void) {
       if (length >= sizeof(password) - 1) {
          explicit_bzero(password, sizeof(password));
          fputs("Password too long\n", stderr);
+
          return EXIT_FAILURE;
       }
       password[length++] = (char)ch;
    }
+
    if (ferror(stdin) || !length || memchr(password, '\0', length)) {
       explicit_bzero(password, sizeof(password));
       fputs("Invalid password input\n", stderr);
+
       return EXIT_FAILURE;
    }
    password[length] = '\0';
    char *encoded = auth_password_hash_argon2id(password);
    explicit_bzero(password, sizeof(password));
+
    if (!encoded) {
       fputs("Argon2id password hashing failed\n", stderr);
+
       return EXIT_FAILURE;
    }
    puts(encoded);
    explicit_bzero(encoded, strlen(encoded));
    free(encoded);
+
    return EXIT_SUCCESS;
 }

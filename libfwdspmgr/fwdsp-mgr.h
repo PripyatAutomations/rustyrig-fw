@@ -34,12 +34,9 @@ enum fwdsp_processor_io {
 };
 
 typedef void (*fwdsp_processor_output_cb)(const char *name, const void *samples, size_t len, void *user_data);
-/* Encoded frames from client-local TX encoders. The shared manager knows no
- * rrclient connection; its owner forwards frames using negotiated media. */
-typedef void (*fwdsp_encoded_output_cb)(const char codec[5], const void *data,
-                                        size_t len, bool setup, void *user_data);
-void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback,
-                                       void *user_data);
+/* Encoded frames from client-local TX encoders. The shared manager knows no rrclient connection; its owner forwards frames using negotiated media. */
+typedef void (*fwdsp_encoded_output_cb)(const char codec[5], const void *data, size_t len, bool setup, void *user_data);
+void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback, void *user_data);
 /* Replay cached codec setup packets when a TX media channel becomes ready. */
 void fwdsp_replay_client_tx_headers(const char codec[5]);
 
@@ -59,7 +56,7 @@ struct fwdsp_io_conn;
 #define FWDSP_CTRL_FLUSH 6      // Flush the buffer
 #define FWDSP_CTRL_START_RECORD 7   // Start recording the raw audio
 #define FWDSP_CTRL_SET_QUALITY 9 // normalized encoder quality hint, 25..100
-#define FWDSP_CTRL_SET_PROPERTY 10 /* processor element control, finite numeric value */
+#define FWDSP_CTRL_SET_PROPERTY 10  /* processor element control, finite numeric value */
 #define FWDSP_CTRL_STOP_RECORD 8 // Stop recording the raw audio
 #define FWDSP_RECORD_USER_LEN 64
 #define FWDSP_RECORD_ID_LEN 64
@@ -75,10 +72,8 @@ struct fwdsp_control_msg {
    uint8_t record_direction;
    char record_user[FWDSP_RECORD_USER_LEN];
    char record_id[FWDSP_RECORD_ID_LEN];
-   /* SET_PROPERTY reuses record_user for element, record_id for property,
-    * and the first sizeof(double) bytes of record_file for a finite value.
-    * Do not change the packet size: deployed workers consume this fixed
-    * framing for volume, recording and quality control messages too. */
+   /* SET_PROPERTY reuses record_user for element, record_id for property, and the first sizeof(double) bytes of record_file for a finite value. Do not change
+    * the packet size: deployed workers consume this fixed framing for volume, recording and quality control messages too. */
    char record_file[FWDSP_RECORD_FILE_LEN];
 };
 
@@ -189,32 +184,22 @@ extern int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, con
 extern bool fwdsp_processor_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_audio_capture_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_audio_playback_start(const char *name, const char *pipeline);
-/* The rate applies to the physical device boundary. Playback's framed
- * processor-src PCM uses the same rate; capture's framed appsink remains
- * legacy 16 kHz mono for radio codecs. Explicit rates: 44100 or 48000. */
-extern bool fwdsp_audio_playback_start_rate(const char *name, const char *pipeline,
-                                            unsigned device_rate_hz);
-extern bool fwdsp_audio_capture_start_rate(const char *name, const char *pipeline,
-                                           unsigned device_rate_hz,
-                                           fwdsp_processor_output_cb output_cb,
-                                           void *user_data);
+/* The rate applies to the physical device boundary. Playback's framed processor-src PCM uses the same rate; capture's framed appsink remains legacy 16 kHz mono
+ * for radio codecs. Explicit rates: 44100 or 48000. */
+extern bool fwdsp_audio_playback_start_rate(const char *name, const char *pipeline, unsigned device_rate_hz);
+extern bool fwdsp_audio_capture_start_rate(const char *name, const char *pipeline, unsigned device_rate_hz, fwdsp_processor_output_cb output_cb, void *user_data
+   );
 // Write one even-length PCM frame to a processor or playback endpoint. true
 // means the complete framed sample data was accepted by the child pipe.
-/* Native GStreamer audioresample worker. Callback PCM is S16LE mono at
- * output_rate_hz; no conversion occurs on the caller's audio thread. */
-extern bool fwdsp_audio_resampler_start_to(const char *name,
-   unsigned input_rate_hz, unsigned output_rate_hz,
-   fwdsp_processor_output_cb output_cb, void *user);
+/* Native GStreamer audioresample worker. Callback PCM is S16LE mono at output_rate_hz; no conversion occurs on the caller's audio thread. */
+extern bool fwdsp_audio_resampler_start_to(const char *name, unsigned input_rate_hz, unsigned output_rate_hz, fwdsp_processor_output_cb output_cb, void *user);
 /* Backward-compatible 16 kHz output for existing radio/bridge pipelines. */
-extern bool fwdsp_audio_resampler_start(const char *name, unsigned rate,
-   fwdsp_processor_output_cb output_cb, void *user);
+extern bool fwdsp_audio_resampler_start(const char *name, unsigned rate, fwdsp_processor_output_cb output_cb, void *user);
 extern bool fwdsp_processor_write(const char *name, const void *samples, size_t len);
 // Set the named processor's processor-vol element to 0..100 percent.
 extern bool fwdsp_processor_setvol(const char *name, int percent);
-/* Returns false when the named child is unavailable or the command cannot
- * be queued. The child validates property types and published ranges. */
-extern bool fwdsp_processor_set_property(const char *name, const char *element,
-                                          const char *property, double value);
+/* Returns false when the named child is unavailable or the command cannot be queued. The child validates property types and published ranges. */
+extern bool fwdsp_processor_set_property(const char *name, const char *element, const char *property, double value);
 // Stop a named endpoint. Pass a qualified name (src.rig0, sink.rig0,
 // proc.effect-name, or recode.codec-name) when names may overlap.
 extern int fwdsp_processor_dup_input(const char *name);

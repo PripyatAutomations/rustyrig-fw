@@ -5,7 +5,9 @@
 #include <stdbool.h>
 #define RRCLIENT_BACKUP_REQUEST "client.backup.request"
 #define RRCLIENT_BACKUP_RESULT "client.backup.result"
-enum rrclient_backup_action { RR_BACKUP_SQL = 1, RR_BACKUP_ALL = 2, RR_BACKUP_IMPORT = 3 };
+enum rrclient_backup_action {
+   RR_BACKUP_SQL = 1, RR_BACKUP_ALL = 2, RR_BACKUP_IMPORT = 3
+};
 typedef struct {
    int action;
    char path[1024];

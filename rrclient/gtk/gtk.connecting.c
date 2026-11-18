@@ -233,6 +233,7 @@ static void state_free(gpointer data) {
    if (s->dismiss_timer) {
       g_source_remove(s->dismiss_timer);
    }
+
    if (s->reveal_timer) {
       g_source_remove(s->reveal_timer);
    }
@@ -379,11 +380,16 @@ static void destroyed(GtkWidget *canvas, gpointer unused) {
       g_hash_table_remove(dialogs, profile);
    }
 }
+
 /* A fast TLS rejection should never briefly show a connecting panel. */
 static gboolean connect_panel_reveal(gpointer user) {
    RRConnect *state = user;
    state->reveal_timer = 0;
-   if (!state->completed) rr_floating_panel_show(state->panel);
+
+   if (!state->completed) {
+      rr_floating_panel_show(state->panel);
+   }
+
    return G_SOURCE_REMOVE;
 }
 GtkWidget *rr_connect_dialog_new(GtkWindow *parent) {
@@ -530,8 +536,8 @@ static void on_progress(const rr_event_message_t *m, void *unused) {
          return;
       }
       state->completed = true;
-      /* Successful fast connects may show the brief welcome panel, but an
-       * immediate failure must never have revealed a window at all. */
+
+      /* Successful fast connects may show the brief welcome panel, but an immediate failure must never have revealed a window at all. */
       if (state->reveal_timer) {
          g_source_remove(state->reveal_timer);
          state->reveal_timer = 0;

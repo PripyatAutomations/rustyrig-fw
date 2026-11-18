@@ -14,7 +14,7 @@
 typedef struct {
    unsigned slot;
    char source[64], engine[16], mode[24];
-   uint64_t frequency_hz; /* RF dial frequency at decode time; 0 = unavailable. */
+   uint64_t frequency_hz;       /* RF dial frequency at decode time; 0 = unavailable. */
    char line[RR_LOCAL_MODEM_TEXT];
 } rr_local_modem_decode_t;
 typedef enum {
@@ -29,13 +29,13 @@ typedef enum {
 } rr_local_modem_action_t;
 typedef struct {
    rr_local_modem_action_t action;
-   unsigned slot;             /* 1..8; 0 = first free slot on START */
+   unsigned slot;               /* 1..8; 0 = first free slot on START */
    char source[64];
-   char engine[16];           /* psk / olivia / ft8 */
-   char option[24];           /* BPSK31 or Olivia tones */
-   unsigned value;            /* carrier Hz or Olivia bandwidth */
-   bool tx_enabled;           /* Opt-in TX routing; does not authorize PTT */
-   char text[256];            /* SEND_TEXT: bounded UTF-8 payload */
+   char engine[16];             /* psk / olivia / ft8 */
+   char option[24];             /* BPSK31 or Olivia tones */
+   unsigned value;              /* carrier Hz or Olivia bandwidth */
+   bool tx_enabled;             /* Opt-in TX routing; does not authorize PTT */
+   char text[256];              /* SEND_TEXT: bounded UTF-8 payload */
 } rr_local_modem_request_t;
 typedef struct {
    unsigned slot, value;
@@ -50,8 +50,7 @@ typedef struct {
    char source_id[RR_LOCAL_MODEM_STREAMS][64];
    char status[192];
 } rr_local_modem_snapshot_t;
-/* One immutable inventory used by the core routing graph. RX is currently
- * connected to a decoded PCM source; TX/PTT ports are reserved, not armed. */
+/* One immutable inventory used by the core routing graph. RX is currently connected to a decoded PCM source; TX/PTT ports are reserved, not armed. */
 typedef struct {
    unsigned slot;
    bool tx_enabled;

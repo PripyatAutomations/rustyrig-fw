@@ -22,7 +22,7 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #include <rrclient/events.c>
-extern rrconn_t *ws_conn; /* legacy test fixture, not client API */
+extern rrconn_t *ws_conn;       /* legacy test fixture, not client API */
 #pragma GCC diagnostic pop
 #undef rrclient_update_connection_ui
 #undef tui_refresh_sb_online
@@ -311,8 +311,7 @@ int main(void) {
       assert(!strcmp(rrclient_tui_prompt(tui_active_window()), ""));
    }
 
-   /* Native IRC stores the online timestamp rather than the literal 1.
-    * Server cycling must accept both representations and skip offline ones. */
+   /* Native IRC stores the online timestamp rather than the literal 1. Server cycling must accept both representations and skip offline ones. */
    assert(rrclient_connection_select("beta"));
    rrclient_connection_dispatch(a, timestamp_connection_state, NULL);
    assert(rrclient_connection_cycle() && ws_conn == a);

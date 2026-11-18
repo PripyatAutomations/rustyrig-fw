@@ -308,47 +308,49 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 }
 
 static GtkWidget *rr_client_overlay;
-/* Keep this independent of panel close/minimize state: manual hiding
- * survives leaving Status/Log until the operator toggles it back. */
+/* Keep this independent of panel close/minimize state: manual hiding survives leaving Status/Log until the operator toggles it back. */
 static void main_toolbar_panels_toggled(GtkToggleButton *button, gpointer unused) {
    (void)unused;
    gboolean hide = gtk_toggle_button_get_active(button);
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_MANUAL, hide);
-   gtk_widget_set_tooltip_text(GTK_WIDGET(button),
-      hide ? "Show previously visible floating panels" :
-      "Temporarily hide floating panels");
+   gtk_widget_set_tooltip_text(GTK_WIDGET(button), hide ? "Show previously visible floating panels" : "Temporarily hide floating panels");
 }
-static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page,
-                                     guint number, gpointer unused) {
-   (void)book; (void)number; (void)unused;
-   /* Only chat-room pages own docking regions. Status, Logs, Routing,
-    * Admin, Config, Explorer and SDR Directory reclaim the whole workspace. */
-   gboolean chat_page=page && g_object_get_data(G_OBJECT(page),"rr-chat-docks");
-   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB,!chat_page);
+static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page, guint number, gpointer unused) {
+   (void)book;
+   (void)number;
+   (void)unused;
+   /* Only chat-room pages own docking regions. Status, Logs, Routing, Admin, Config, Explorer and SDR Directory reclaim the whole workspace. */
+   gboolean chat_page = page && g_object_get_data(G_OBJECT(page), "rr-chat-docks");
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, !chat_page);
    rr_floating_panel_chat_activate(page);
 }
-/* Virtual Rigs manager. The stable per-slot name is independent of the
- * selected chat; all serial changes cross to the core event domain. */
+
+/* Virtual Rigs manager. The stable per-slot name is independent of the selected chat; all serial changes cross to the core event domain. */
 static RRFloatPanel *vrig_panel;
 static GtkWidget *vrig_status;
 static GtkWidget *vrig_profile[RR_SERCOM_VRIG_MAX], *vrig_radio[RR_SERCOM_VRIG_MAX];
 static rr_event_token_t vrig_result_token;
 static void vrig_bound(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (!vrig_status || !message || !message->payload ||
-       message->length != sizeof(rr_sercom_vrig_bind_result_t)) return;
+
+   if (!vrig_status || !message || !message->payload || message->length != sizeof(rr_sercom_vrig_bind_result_t)) {
+      return;
+   }
    const rr_sercom_vrig_bind_result_t *result = message->payload;
    gtk_label_set_text(GTK_LABEL(vrig_status), result->detail);
 }
 static void vrig_bind_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "rr-vrig-slot"));
-   if (slot >= RR_SERCOM_VRIG_MAX || !vrig_profile[slot] || !vrig_radio[slot]) return;
-   rr_sercom_vrig_bind_t req = {.slot = slot};
-   g_strlcpy(req.profile, gtk_entry_get_text(GTK_ENTRY(vrig_profile[slot])),
-             sizeof(req.profile));
-   g_strlcpy(req.rig, gtk_entry_get_text(GTK_ENTRY(vrig_radio[slot])),
-             sizeof(req.rig));
+
+   if (slot >= RR_SERCOM_VRIG_MAX || !vrig_profile[slot] || !vrig_radio[slot]) {
+      return;
+   }
+   rr_sercom_vrig_bind_t req = {
+      .slot = slot
+   };
+   g_strlcpy(req.profile, gtk_entry_get_text(GTK_ENTRY(vrig_profile[slot])), sizeof(req.profile));
+   g_strlcpy(req.rig, gtk_entry_get_text(GTK_ENTRY(vrig_radio[slot])), sizeof(req.rig));
    rr_event_message_t msg = {
       .name = RR_SERCOM_VRIG_BIND_REQUEST,
       .payload = &req, .length = sizeof(req)
@@ -357,27 +359,35 @@ static void vrig_bind_clicked(GtkButton *button, gpointer unused) {
 }
 static void vrig_unbind_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
-   unsigned slot = GPOINTER_TO_UINT(
-      g_object_get_data(G_OBJECT(button), "rr-vrig-slot"));
-   if (slot >= RR_SERCOM_VRIG_MAX) return;
-   rr_sercom_vrig_bind_t req = {.slot = slot};
+   unsigned slot = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "rr-vrig-slot"));
+
+   if (slot >= RR_SERCOM_VRIG_MAX) {
+      return;
+   }
+   rr_sercom_vrig_bind_t req = {
+      .slot = slot
+   };
    rr_event_message_t msg = {
-      .name=RR_SERCOM_VRIG_BIND_REQUEST,
-      .payload=&req, .length=sizeof(req)
+      .name = RR_SERCOM_VRIG_BIND_REQUEST,
+      .payload = &req, .length = sizeof(req)
    };
    event_emit_message(&msg);
 }
 static void vrig_configure_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    const char *name = g_object_get_data(G_OBJECT(button), "rr-vrig-port");
-   if (name) gtk_serial_configure(GTK_WINDOW(main_window), name);
+
+   if (name) {
+      gtk_serial_configure(GTK_WINDOW(main_window), name);
+   }
 }
 static void vrig_open_routing(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+   (void)button;
+   (void)unused;
    gtk_audio_graph_present();
 }
-/* Create a small, theme-native endpoint chip. The serial editor is still
- * the one authoritative configuration UI for a physical/PTY endpoint. */
+
+/* Create a small, theme-native endpoint chip. The serial editor is still the one authoritative configuration UI for a physical/PTY endpoint. */
 static GtkWidget *vrig_device_button(const char *name, const char *icon) {
    GtkWidget *button = gtk_button_new();
    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
@@ -398,6 +408,7 @@ static GtkWidget *vrig_device_button(const char *name, const char *icon) {
    gtk_widget_set_tooltip_text(button, tip);
    g_free(tip);
    g_free(path);
+
    return button;
 }
 static GtkWidget *vrig_field(const char *caption, GtkWidget *entry) {
@@ -408,18 +419,24 @@ static GtkWidget *vrig_field(const char *caption, GtkWidget *entry) {
    gtk_box_pack_start(GTK_BOX(column), label, FALSE, FALSE, 0);
    gtk_widget_set_size_request(entry, -1, 44);
    gtk_box_pack_start(GTK_BOX(column), entry, FALSE, FALSE, 0);
+
    return column;
 }
 static void vrig_manager_open(void) {
-   if (!GTK_IS_OVERLAY(rr_client_overlay) || !GTK_IS_NOTEBOOK(main_notebook))
-      return;
-   if (vrig_panel) {
-      rr_floating_panel_present(vrig_panel);
+   if (!GTK_IS_OVERLAY(rr_client_overlay) || !GTK_IS_NOTEBOOK(main_notebook)) {
       return;
    }
-   vrig_panel = rr_floating_panel_new(GTK_OVERLAY(rr_client_overlay),
-      GTK_NOTEBOOK(main_notebook), "virtual-rigs", "Virtual Rigs");
-   if (!vrig_panel) return;
+
+   if (vrig_panel) {
+      rr_floating_panel_present(vrig_panel);
+
+      return;
+   }
+   vrig_panel = rr_floating_panel_new(GTK_OVERLAY(rr_client_overlay), GTK_NOTEBOOK(main_notebook), "virtual-rigs", "Virtual Rigs");
+
+   if (!vrig_panel) {
+      return;
+   }
    rr_floating_panel_set_initial_position(vrig_panel, 90, 105);
    GtkWidget *body = rr_floating_panel_body(vrig_panel);
    gtk_container_set_border_width(GTK_CONTAINER(body), 10);
@@ -428,9 +445,7 @@ static void vrig_manager_open(void) {
    GtkWidget *heading = gtk_label_new("One client, multiple radios");
    gtk_label_set_xalign(GTK_LABEL(heading), 0.);
    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "title");
-   GtkWidget *hint = gtk_label_new(
-      "Each virtual rig binds numbered CAT and GPS ports to one remote radio, "
-      "independent of the currently selected tab.");
+   GtkWidget *hint = gtk_label_new("Each virtual rig binds numbered CAT and GPS ports to one remote radio, " "independent of the currently selected tab.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
    gtk_label_set_xalign(GTK_LABEL(hint), 0.);
    gtk_label_set_max_width_chars(GTK_LABEL(hint), 60);
@@ -440,8 +455,7 @@ static void vrig_manager_open(void) {
    gtk_box_pack_start(GTK_BOX(body), intro, FALSE, FALSE, 5);
 
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
-                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_kinetic_scrolling(GTK_SCROLLED_WINDOW(scroll), TRUE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
@@ -452,7 +466,7 @@ static void vrig_manager_open(void) {
    gtk_box_pack_start(GTK_BOX(body), scroll, TRUE, TRUE, 2);
    const char *current = rrclient_selected_server();
 
-   for (unsigned slot = 0; slot < RR_SERCOM_VRIG_MAX; slot++) {
+   for (unsigned slot = 0 ; slot < RR_SERCOM_VRIG_MAX ; slot++) {
       char name[48], cat[32], gps[32];
       g_snprintf(name, sizeof(name), "vrig%u", slot);
       g_snprintf(cat, sizeof(cat), "ttyCAT%u", slot);
@@ -471,10 +485,8 @@ static void vrig_manager_open(void) {
       gtk_label_set_xalign(GTK_LABEL(rig_label), 0.);
       gtk_box_pack_start(GTK_BOX(header), rig_label, TRUE, TRUE, 0);
       GtkWidget *ports = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-      gtk_box_pack_start(GTK_BOX(ports),
-         vrig_device_button(cat, "utilities-terminal-symbolic"), FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(ports),
-         vrig_device_button(gps, "mark-location-symbolic"), FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(ports), vrig_device_button(cat, "utilities-terminal-symbolic"), FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(ports), vrig_device_button(gps, "mark-location-symbolic"), FALSE, FALSE, 0);
       gtk_box_pack_end(GTK_BOX(header), ports, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(card), header, FALSE, FALSE, 0);
 
@@ -487,12 +499,11 @@ static void vrig_manager_open(void) {
       key = g_strdup_printf("serial.vrig.%u.rig", slot);
       char *saved_rig = rrclient_database_setting_get(key);
       g_free(key);
-      gtk_entry_set_text(GTK_ENTRY(vrig_profile[slot]),
-                         saved_profile && *saved_profile ? saved_profile :
-                         current ? current : "");
-      if (saved_rig && *saved_rig)
+      gtk_entry_set_text(GTK_ENTRY(vrig_profile[slot]), saved_profile && *saved_profile ? saved_profile : current ? current : "");
+
+      if (saved_rig && *saved_rig) {
          gtk_entry_set_text(GTK_ENTRY(vrig_radio[slot]), saved_rig);
-      else {
+      } else {
          g_snprintf(name, sizeof(name), "rig%u", slot);
          gtk_entry_set_text(GTK_ENTRY(vrig_radio[slot]), name);
       }
@@ -511,19 +522,17 @@ static void vrig_manager_open(void) {
       g_object_set_data(G_OBJECT(bind), "rr-vrig-slot", GUINT_TO_POINTER(slot));
       g_signal_connect(bind, "clicked", G_CALLBACK(vrig_bind_clicked), NULL);
       gtk_box_pack_end(GTK_BOX(row), bind, FALSE, FALSE, 0);
-      GtkWidget *unbind = gtk_button_new_from_icon_name(
-         "edit-clear-symbolic", GTK_ICON_SIZE_MENU);
+      GtkWidget *unbind = gtk_button_new_from_icon_name("edit-clear-symbolic", GTK_ICON_SIZE_MENU);
       gtk_widget_set_size_request(unbind, 44, 44);
       gtk_widget_set_valign(unbind, GTK_ALIGN_END);
-      gtk_widget_set_tooltip_text(unbind,
-         "Disconnect CAT/GPS ports for this virtual rig");
-      g_object_set_data(G_OBJECT(unbind), "rr-vrig-slot",
-                        GUINT_TO_POINTER(slot));
+      gtk_widget_set_tooltip_text(unbind, "Disconnect CAT/GPS ports for this virtual rig");
+      g_object_set_data(G_OBJECT(unbind), "rr-vrig-slot", GUINT_TO_POINTER(slot));
       g_signal_connect(unbind, "clicked", G_CALLBACK(vrig_unbind_clicked), NULL);
       gtk_box_pack_end(GTK_BOX(row), unbind, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(card), row, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(list), frame, FALSE, FALSE, 0);
    }
+
    GtkWidget *footer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    vrig_status = gtk_label_new("Select a server and radio, then Bind.");
    gtk_label_set_line_wrap(GTK_LABEL(vrig_status), TRUE);
@@ -536,9 +545,10 @@ static void vrig_manager_open(void) {
    g_signal_connect(routing, "clicked", G_CALLBACK(vrig_open_routing), NULL);
    gtk_box_pack_end(GTK_BOX(footer), routing, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(body), footer, FALSE, FALSE, 4);
-   if (!vrig_result_token)
-      vrig_result_token = event_on_message_domain_token(
-         RR_SERCOM_VRIG_BIND_RESULT, vrig_bound, NULL, "gtk");
+
+   if (!vrig_result_token) {
+      vrig_result_token = event_on_message_domain_token(RR_SERCOM_VRIG_BIND_RESULT, vrig_bound, NULL, "gtk");
+   }
    gtk_widget_show_all(body);
    rr_floating_panel_present(vrig_panel);
 }
@@ -589,9 +599,8 @@ static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *
    if (toolbar_action_count < RR_TOOLBAR_ACTIONS) {
       toolbar_action_labels[toolbar_action_count++] = label;
    }
-   /* The toolbar sits inside a clipped viewport. GTK's tooltip hit testing
-    * can resolve the innermost image/label instead of the enclosing button.
-    * Give every visible hover target the same tooltip. */
+   /* The toolbar sits inside a clipped viewport. GTK's tooltip hit testing can resolve the innermost image/label instead of the enclosing button. Give every
+    * visible hover target the same tooltip. */
    gtk_widget_set_tooltip_text(button, tooltip);
    gtk_widget_set_tooltip_text(contents, tooltip);
    gtk_widget_set_tooltip_text(image, tooltip);
@@ -603,32 +612,38 @@ static void main_toolbar_tool(GtkWidget *toolbar, const char *text, const char *
    gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
 }
 
-/* The main window uses its own small chrome. Delegate drags to the WM so
- * xfwm4 edge tiling and keyboard window operations keep working. */
+/* The main window uses its own small chrome. Delegate drags to the WM so xfwm4 edge tiling and keyboard window operations keep working. */
 static gboolean main_toolbar_drag_press(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
-   if (!GTK_IS_WINDOW(main_window) || event->button != GDK_BUTTON_PRIMARY)
+
+   if (!GTK_IS_WINDOW(main_window) || event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
+   }
+
    if (event->type == GDK_2BUTTON_PRESS) {
-      GdkWindow *gdk=gtk_widget_get_window(main_window);
-      if (gdk && (gdk_window_get_state(gdk) & GDK_WINDOW_STATE_MAXIMIZED))
+      GdkWindow *gdk = gtk_widget_get_window(main_window);
+
+      if (gdk && (gdk_window_get_state(gdk) & GDK_WINDOW_STATE_MAXIMIZED)) {
          gtk_window_unmaximize(GTK_WINDOW(main_window));
-      else
+      } else {
          gtk_window_maximize(GTK_WINDOW(main_window));
+      }
+
       return TRUE;
    }
+
    if (event->type == GDK_BUTTON_PRESS) {
-      gtk_window_begin_move_drag(GTK_WINDOW(main_window),event->button,
-         (gint)event->x_root,(gint)event->y_root,event->time);
+      gtk_window_begin_move_drag(GTK_WINDOW(main_window), event->button, (gint) event->x_root, (gint) event->y_root, event->time);
+
       return TRUE;
    }
+
    return FALSE;
 }
 
-/* Client-side resize edges for the undecorated main window. All dragging is
- * handed to the WM (xfwm4), so tiling, limits and screen-edge behavior stay
- * native. Each edge has its own small input-only-looking GtkEventBox. */
+/* Client-side resize edges for the undecorated main window. All dragging is handed to the WM (xfwm4), so tiling, limits and screen-edge behavior stay native.
+ * Each edge has its own small input-only-looking GtkEventBox. */
 static GtkWidget *main_resize_handles[8];
 static const GdkWindowEdge main_resize_edges[8] = {
    GDK_WINDOW_EDGE_NORTH, GDK_WINDOW_EDGE_SOUTH,
@@ -636,93 +651,101 @@ static const GdkWindowEdge main_resize_edges[8] = {
    GDK_WINDOW_EDGE_NORTH_WEST, GDK_WINDOW_EDGE_NORTH_EAST,
    GDK_WINDOW_EDGE_SOUTH_WEST, GDK_WINDOW_EDGE_SOUTH_EAST
 };
+
 static const char *main_resize_cursors[8] = {
    "n-resize", "s-resize", "w-resize", "e-resize",
    "nw-resize", "ne-resize", "sw-resize", "se-resize"
 };
 static gboolean main_window_resize_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
-   guint index=GPOINTER_TO_UINT(data)-1;
-   if (index>=G_N_ELEMENTS(main_resize_edges) || !GTK_IS_WINDOW(main_window) ||
-       event->type!=GDK_BUTTON_PRESS || event->button!=GDK_BUTTON_PRIMARY ||
-       !gtk_window_get_resizable(GTK_WINDOW(main_window)))
+   guint index = GPOINTER_TO_UINT(data) - 1;
+
+   if (index >= G_N_ELEMENTS(main_resize_edges) || !GTK_IS_WINDOW(main_window) ||
+      event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY || !gtk_window_get_resizable(GTK_WINDOW(main_window))) {
       return FALSE;
-   GdkWindow *gdk=gtk_widget_get_window(main_window);
-   if (!gdk || (gdk_window_get_state(gdk) &
-       (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN)))
+   }
+   GdkWindow *gdk = gtk_widget_get_window(main_window);
+
+   if (!gdk || (gdk_window_get_state(gdk) & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
       return FALSE;
-   gtk_window_begin_resize_drag(GTK_WINDOW(main_window),main_resize_edges[index],
-      event->button,(gint)event->x_root,(gint)event->y_root,event->time);
+   }
+   gtk_window_begin_resize_drag(GTK_WINDOW(main_window), main_resize_edges[index], event->button, (gint) event->x_root, (gint) event->y_root, event->time);
+
    return TRUE;
 }
-static gboolean main_window_resize_hover(GtkWidget *widget, GdkEventCrossing *event,
-                                          gpointer data) {
-   guint index=GPOINTER_TO_UINT(data)-1;
-   if(index>=G_N_ELEMENTS(main_resize_edges))return FALSE;
-   gboolean enter=event->type==GDK_ENTER_NOTIFY;
-   gtk_widget_set_opacity(widget,enter?.75:.18);
-   GdkWindow *window=gtk_widget_get_window(widget);
-   if(window) {
-      GdkDisplay *display=gdk_window_get_display(window);
-      GdkCursor *cursor=enter?gdk_cursor_new_from_name(display,main_resize_cursors[index]):NULL;
-      gdk_window_set_cursor(window,cursor);
-      if(cursor)g_object_unref(cursor);
+static gboolean main_window_resize_hover(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
+   guint index = GPOINTER_TO_UINT(data) - 1;
+
+   if (index >= G_N_ELEMENTS(main_resize_edges)) {
+      return FALSE;
    }
+   gboolean enter = event->type == GDK_ENTER_NOTIFY;
+   gtk_widget_set_opacity(widget, enter ? .75 : .18);
+   GdkWindow *window = gtk_widget_get_window(widget);
+
+   if (window) {
+      GdkDisplay *display = gdk_window_get_display(window);
+      GdkCursor *cursor = enter ? gdk_cursor_new_from_name(display, main_resize_cursors[index]) : NULL;
+      gdk_window_set_cursor(window, cursor);
+
+      if (cursor) {
+         g_object_unref(cursor);
+      }
+   }
+
    return FALSE;
 }
-static gboolean main_window_resize_state(GtkWidget *widget,GdkEventWindowState *event,
-                                          gpointer unused) {
-   (void)widget;(void)unused;
-   gboolean shown=!(event->new_window_state &
-      (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN));
-   for(guint i=0;i<G_N_ELEMENTS(main_resize_handles);i++)
-      if(main_resize_handles[i])gtk_widget_set_visible(main_resize_handles[i],shown);
+static gboolean main_window_resize_state(GtkWidget *widget, GdkEventWindowState *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   gboolean shown = !(event->new_window_state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN));
+
+   for (guint i = 0 ; i < G_N_ELEMENTS(main_resize_handles) ; i++) {
+      if (main_resize_handles[i]) {
+         gtk_widget_set_visible(main_resize_handles[i], shown);
+      }
+   }
+
    return FALSE;
 }
 static void main_window_resize_handles_add(GtkOverlay *overlay) {
-   static const GtkAlign horizontal[8]={
-      GTK_ALIGN_FILL,GTK_ALIGN_FILL,GTK_ALIGN_START,GTK_ALIGN_END,
-      GTK_ALIGN_START,GTK_ALIGN_END,GTK_ALIGN_START,GTK_ALIGN_END
+   static const GtkAlign horizontal[8] = {
+      GTK_ALIGN_FILL, GTK_ALIGN_FILL, GTK_ALIGN_START, GTK_ALIGN_END,
+      GTK_ALIGN_START, GTK_ALIGN_END, GTK_ALIGN_START, GTK_ALIGN_END
    };
-   static const GtkAlign vertical[8]={
-      GTK_ALIGN_START,GTK_ALIGN_END,GTK_ALIGN_FILL,GTK_ALIGN_FILL,
-      GTK_ALIGN_START,GTK_ALIGN_START,GTK_ALIGN_END,GTK_ALIGN_END
+   static const GtkAlign vertical[8] = {
+      GTK_ALIGN_START, GTK_ALIGN_END, GTK_ALIGN_FILL, GTK_ALIGN_FILL,
+      GTK_ALIGN_START, GTK_ALIGN_START, GTK_ALIGN_END, GTK_ALIGN_END
    };
-   GtkCssProvider *css=gtk_css_provider_new();
-   gtk_css_provider_load_from_data(css,
-      ".rr-main-resize-edge { background-color: rgba(35,195,230,.12); }"
-      ".rr-main-resize-edge:hover { background-color: rgba(35,195,230,.45); }",
-      -1,NULL);
-   GdkScreen *screen=gtk_widget_get_screen(GTK_WIDGET(overlay));
-   if(screen)gtk_style_context_add_provider_for_screen(screen,
-      GTK_STYLE_PROVIDER(css),GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-   g_object_unref(css);
-   for(guint i=0;i<G_N_ELEMENTS(main_resize_handles);i++) {
-      GtkWidget *handle=gtk_event_box_new();
-      gtk_event_box_set_visible_window(GTK_EVENT_BOX(handle),TRUE);
-      gtk_widget_set_halign(handle,horizontal[i]);
-      gtk_widget_set_valign(handle,vertical[i]);
-      gtk_widget_set_size_request(handle,
-         (i<2)?-1:(i<4)?4:10,
-         (i<2)?4:(i<4)?-1:10);
-      gtk_widget_set_opacity(handle,.18);
-      gtk_style_context_add_class(gtk_widget_get_style_context(handle),
-         "rr-main-resize-edge");
-      gtk_widget_add_events(handle,GDK_BUTTON_PRESS_MASK |
-         GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
-      g_signal_connect(handle,"button-press-event",
-         G_CALLBACK(main_window_resize_press),GUINT_TO_POINTER(i+1));
-      g_signal_connect(handle,"enter-notify-event",
-         G_CALLBACK(main_window_resize_hover),GUINT_TO_POINTER(i+1));
-      g_signal_connect(handle,"leave-notify-event",
-         G_CALLBACK(main_window_resize_hover),GUINT_TO_POINTER(i+1));
-      gtk_widget_set_tooltip_text(handle,"Drag to resize window");
-      gtk_overlay_add_overlay(overlay,handle);
-      gtk_widget_show(handle);
-      main_resize_handles[i]=handle;
+   GtkCssProvider *css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(css, ".rr-main-resize-edge { background-color: rgba(35,195,230,.12); }"
+      ".rr-main-resize-edge:hover { background-color: rgba(35,195,230,.45); }", -1, NULL);
+   GdkScreen *screen = gtk_widget_get_screen(GTK_WIDGET(overlay));
+
+   if (screen) {
+      gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    }
-   g_signal_connect(main_window,"window-state-event",
-      G_CALLBACK(main_window_resize_state),NULL);
+   g_object_unref(css);
+
+   for (guint i = 0 ; i < G_N_ELEMENTS(main_resize_handles) ; i++) {
+      GtkWidget *handle = gtk_event_box_new();
+      gtk_event_box_set_visible_window(GTK_EVENT_BOX(handle), TRUE);
+      gtk_widget_set_halign(handle, horizontal[i]);
+      gtk_widget_set_valign(handle, vertical[i]);
+      gtk_widget_set_size_request(handle, (i < 2) ? -1 : (i < 4) ? 4 : 10, (i < 2) ? 4 : (i < 4) ? -1 : 10);
+      gtk_widget_set_opacity(handle, .18);
+      gtk_style_context_add_class(gtk_widget_get_style_context(handle), "rr-main-resize-edge");
+      gtk_widget_add_events(handle, GDK_BUTTON_PRESS_MASK | GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
+      g_signal_connect(handle, "button-press-event", G_CALLBACK(main_window_resize_press), GUINT_TO_POINTER(i + 1));
+      g_signal_connect(handle, "enter-notify-event", G_CALLBACK(main_window_resize_hover), GUINT_TO_POINTER(i + 1));
+      g_signal_connect(handle, "leave-notify-event", G_CALLBACK(main_window_resize_hover), GUINT_TO_POINTER(i + 1));
+      gtk_widget_set_tooltip_text(handle, "Drag to resize window");
+      gtk_overlay_add_overlay(overlay, handle);
+      gtk_widget_show(handle);
+      main_resize_handles[i] = handle;
+   }
+
+   g_signal_connect(main_window, "window-state-event", G_CALLBACK(main_window_resize_state), NULL);
 }
 
 static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
@@ -742,8 +765,15 @@ static void main_toolbar_quit(GtkButton *button, gpointer unused) {
 
 
 static void frontend_gtk_main_window_destroy(GtkWidget *widget, gpointer unused) {
-   if (vrig_result_token) { event_off_token(vrig_result_token); vrig_result_token = 0; }
-   if (vrig_panel) { rr_floating_panel_destroy(vrig_panel); vrig_panel = NULL; }
+   if (vrig_result_token) {
+      event_off_token(vrig_result_token);
+      vrig_result_token = 0;
+   }
+
+   if (vrig_panel) {
+      rr_floating_panel_destroy(vrig_panel);
+      vrig_panel = NULL;
+   }
    vrig_status = NULL;
    memset(vrig_profile, 0, sizeof(vrig_profile));
    memset(vrig_radio, 0, sizeof(vrig_radio));
@@ -775,8 +805,7 @@ bool gui_init(void) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gui_window_t *main_window_t = ui_new_window(main_window, "main");
    gtk_window_set_title(GTK_WINDOW(main_window), "rustyrig remote client");
-   /* Give xfwm4 a standard top-level, with normal borders and WM tiling.
-    * It must remain resizable even with the routing editor selected. */
+   /* Give xfwm4 a standard top-level, with normal borders and WM tiling. It must remain resizable even with the routing editor selected. */
    gtk_window_set_type_hint(GTK_WINDOW(main_window), GDK_WINDOW_TYPE_HINT_NORMAL);
    gtk_window_set_skip_taskbar_hint(GTK_WINDOW(main_window), FALSE);
    gtk_window_set_skip_pager_hint(GTK_WINDOW(main_window), FALSE);
@@ -799,15 +828,20 @@ bool gui_init(void) {
    gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
    GtkWidget *minimize_icon = gtk_button_get_image(GTK_BUTTON(minimize));
-   if (minimize_icon)
+
+   if (minimize_icon) {
       gtk_widget_set_tooltip_text(minimize_icon, "Minimize the main window (VFO locator stays open)");
+   }
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    /* The quit control is packed last into the fixed right-hand cluster. */
    GtkWidget *quit_button = gtk_button_new_from_icon_name("window-close-symbolic", GTK_ICON_SIZE_BUTTON);
    gtk_button_set_relief(GTK_BUTTON(quit_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(quit_button, "Quit RustyRig");
    GtkWidget *quit_icon = gtk_button_get_image(GTK_BUTTON(quit_button));
-   if (quit_icon) gtk_widget_set_tooltip_text(quit_icon, "Quit RustyRig");
+
+   if (quit_icon) {
+      gtk_widget_set_tooltip_text(quit_icon, "Quit RustyRig");
+   }
    g_signal_connect(quit_button, "clicked", G_CALLBACK(main_toolbar_quit), NULL);
    /* Keep Quit outside the clipped notebook/toolbar viewport. Dynamic room content may exceed its horizontal allocation, but the close control must remain
     * anchored to the visible toplevel's right edge. */
@@ -815,39 +849,31 @@ bool gui_init(void) {
    gtk_widget_set_margin_end(quit_button, 2);
    /* Fixed right status cluster never shares the oversized minimum width of the left toolbar or the notebook. Give each side its own allocation. */
    GtkWidget *toolbar_shell = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   /* A compact app-owned row: icons remain usable, without 42px button
-    * minimums or theme padding doubling the available vertical space. */
+   /* A compact app-owned row: icons remain usable, without 42px button minimums or theme padding doubling the available vertical space. */
    GtkCssProvider *toolbar_css = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(toolbar_css,
-      ".rr-main-toolbar button { min-height: 26px; min-width: 26px;"
-      " padding: 0 3px; margin: 0; border-width: 0; }"
-      ".rr-main-toolbar entry { min-height: 24px; padding: 0 3px; }",
-      -1, NULL);
-   gtk_style_context_add_class(gtk_widget_get_style_context(toolbar_shell),
-      "rr-main-toolbar");
-   /* A provider on only the shell's style context does not cascade all
-    * selector rules to its descendants. Register at screen scope. */
-   GdkScreen *toolbar_screen=gtk_widget_get_screen(main_window);
-   if(toolbar_screen)
-      gtk_style_context_add_provider_for_screen(toolbar_screen,
-         GTK_STYLE_PROVIDER(toolbar_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_css_provider_load_from_data(toolbar_css, ".rr-main-toolbar button { min-height: 26px; min-width: 26px;"
+      " padding: 0 3px; margin: 0; border-width: 0; }" ".rr-main-toolbar entry { min-height: 24px; padding: 0 3px; }", -1, NULL);
+   gtk_style_context_add_class(gtk_widget_get_style_context(toolbar_shell), "rr-main-toolbar");
+   /* A provider on only the shell's style context does not cascade all selector rules to its descendants. Register at screen scope. */
+   GdkScreen *toolbar_screen = gtk_widget_get_screen(main_window);
+
+   if (toolbar_screen) {
+      gtk_style_context_add_provider_for_screen(toolbar_screen, GTK_STYLE_PROVIDER(toolbar_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   }
    g_object_unref(toolbar_css);
    /* Small dedicated drag target: other toolbar controls remain clickable. */
-   GtkWidget *move_handle=gtk_event_box_new();
-   GtkWidget *move_label=gtk_label_new("⠿");
-   gtk_container_add(GTK_CONTAINER(move_handle),move_label);
-   gtk_widget_set_size_request(move_handle,28,28);
-   gtk_widget_set_tooltip_text(move_handle,
-      "Drag to move or tile with XFCE; double-click to maximize/restore");
-   gtk_widget_add_events(move_handle,GDK_BUTTON_PRESS_MASK);
-   g_signal_connect(move_handle,"button-press-event",
-      G_CALLBACK(main_toolbar_drag_press),NULL);
-   gtk_box_pack_start(GTK_BOX(toolbar_shell),move_handle,FALSE,FALSE,0);
+   GtkWidget *move_handle = gtk_event_box_new();
+   GtkWidget *move_label = gtk_label_new("⠿");
+   gtk_container_add(GTK_CONTAINER(move_handle), move_label);
+   gtk_widget_set_size_request(move_handle, 28, 28);
+   gtk_widget_set_tooltip_text(move_handle, "Drag to move or tile with XFCE; double-click to maximize/restore");
+   gtk_widget_add_events(move_handle, GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(move_handle, "button-press-event", G_CALLBACK(main_toolbar_drag_press), NULL);
+   gtk_box_pack_start(GTK_BOX(toolbar_shell), move_handle, FALSE, FALSE, 0);
    GtkWidget *toolbar_viewport = gtk_scrolled_window_new(NULL, NULL);
-   /* With NEVER, the toolbar's full child requisition can set the WM's
-     * minimum window width despite min-content-width=1. */
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
-    gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(toolbar_viewport), TRUE);
+   /* With NEVER, the toolbar's full child requisition can set the WM's minimum window width despite min-content-width=1. */
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(toolbar_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(toolbar_viewport), TRUE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(toolbar_viewport), 1);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(toolbar_viewport), FALSE);
    gtk_widget_set_hexpand(toolbar_viewport, TRUE);
@@ -931,8 +957,7 @@ bool gui_init(void) {
    main_toolbar_tool(rr_main_toolbar, "Routing", "audio-card-symbolic", "audio", "Routing: Audio, modem RX/TX, port trims and DSP pipelines");
    main_toolbar_tool(rr_main_toolbar, "Virtual Rigs", "network-wired-symbolic", "virtual-rigs",
       "Virtual Rigs: Independently pin ttyCAT#/ttyGPS# to a remote rig");
-   /* Toggle, not a window-manager hide action: it preserves panel placement
-    * and minimized tabs. The pressed state indicates manual suppression. */
+   /* Toggle, not a window-manager hide action: it preserves panel placement and minimized tabs. The pressed state indicates manual suppression. */
    panels_toggle = gtk_toggle_button_new();
    GtkWidget *panels_label = gtk_label_new("Panels");
    GtkWidget *panels_icon = gtk_image_new_from_icon_name("view-grid-symbolic", GTK_ICON_SIZE_MENU);
@@ -946,9 +971,8 @@ bool gui_init(void) {
    gtk_widget_set_no_show_all(panels_label, TRUE);
    gtk_widget_hide(panels_label);
    g_signal_connect(panels_toggle, "toggled", G_CALLBACK(main_toolbar_panels_toggled), NULL);
-   /* Fixed window controls, from left to right: minimize the main window,
-    * temporarily hide floating panels, and quit. Keep all three outside
-    * the clipped/scrollable toolbar so the X stays reachable. */
+   /* Fixed window controls, from left to right: minimize the main window, temporarily hide floating panels, and quit. Keep all three outside the
+    * clipped/scrollable toolbar so the X stays reachable. */
    gtk_box_pack_start(GTK_BOX(toolbar_right), minimize, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar_right), panels_toggle, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar_right), quit_button, FALSE, FALSE, 0);
@@ -959,10 +983,8 @@ bool gui_init(void) {
    extern GtkWidget *init_terminal_tab(void);
    init_terminal_tab();
 
-   /* Attach after pages exist. This also handles Status/Log tab selection
-    * via mouse, keyboard, commands and programmatic navigation. */
-   g_signal_connect(main_notebook, "switch-page",
-                    G_CALLBACK(main_panels_page_switched), NULL);
+   /* Attach after pages exist. This also handles Status/Log tab selection via mouse, keyboard, commands and programmatic navigation. */
+   g_signal_connect(main_notebook, "switch-page", G_CALLBACK(main_panels_page_switched), NULL);
 
    // GTK Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
@@ -988,10 +1010,8 @@ bool gui_init(void) {
 
    // Make the main window on screen
    gtk_widget_show_all(main_window);
-   main_panels_page_switched(GTK_NOTEBOOK(main_notebook),
-      gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-                                gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))),
-      (guint)gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)), NULL);
+   main_panels_page_switched(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(
+      main_notebook))), (guint) gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)), NULL);
    toolbar_titles_update(gtk_widget_get_allocated_width(toolbar_action_viewport));
    gtk_widget_realize(main_window);
    place_window(main_window);
@@ -1054,21 +1074,23 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
 }
 
 bool gui_fullscreen_toggle(void) {
-   if (!GTK_IS_WINDOW(main_window)) return false;
+   if (!GTK_IS_WINDOW(main_window)) {
+      return false;
+   }
    GdkWindow *gdk = gtk_widget_get_window(main_window);
-   gboolean actual_fullscreen = gdk &&
-      (gdk_window_get_state(gdk) & GDK_WINDOW_STATE_FULLSCREEN);
+   gboolean actual_fullscreen = gdk && (gdk_window_get_state(gdk) & GDK_WINDOW_STATE_FULLSCREEN);
+
    if (actual_fullscreen || cfg_fullscreen) {
       gtk_window_unfullscreen(GTK_WINDOW(main_window));
       gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
       gtk_window_set_resizable(GTK_WINDOW(main_window), TRUE);
       cfg_fullscreen = false;
    } else {
-      /* Fullscreen suppresses the decorations itself. Do not disable them
-       * explicitly, or they can remain missing after returning to normal. */
+      /* Fullscreen suppresses the decorations itself. Do not disable them explicitly, or they can remain missing after returning to normal. */
       gtk_window_fullscreen(GTK_WINDOW(main_window));
       cfg_fullscreen = true;
    }
    gtk_ui_zoom_recheck();
+
    return false;
 }

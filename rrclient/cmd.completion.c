@@ -682,7 +682,8 @@ char *client_chat_complete(const char *line, size_t *cursor, void **data) {
    const char *room = ui_active_window_name();
    chat_completion_t *s = *data;
 
-   bool repeat = s && s->snapshot && room && s->connection == rrclient_connection_context() && !strcmp(s->room, room) && *cursor == s->end && !strcmp(s->snapshot, line);
+   bool repeat = s && s->snapshot && room && s->connection == rrclient_connection_context() && !strcmp(s->room, room) && *cursor == s->end
+      && !strcmp(s->snapshot, line);
 
    if (!repeat) {
       client_chat_completion_free(s);

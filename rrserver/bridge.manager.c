@@ -81,12 +81,16 @@ struct bridge_child {
 extern struct GlobalState rig;
 static struct bridge_child *children;
 uint32_t rrserver_bridge_source_rate(const char *rig_uuid) {
-   if (!rig_uuid || !*rig_uuid) return 0;
-   for (struct bridge_child *b = children; b; b = b->next) {
-      if (b->backend && b->backend->owner &&
-          !strcmp(rr_server_rig_id(b->backend->owner), rig_uuid))
-         return b->sample_rate;
+   if (!rig_uuid || !*rig_uuid) {
+      return 0;
    }
+
+   for (struct bridge_child *b = children ; b ; b = b->next) {
+      if (b->backend && b->backend->owner && !strcmp(rr_server_rig_id(b->backend->owner), rig_uuid)) {
+         return b->sample_rate;
+      }
+   }
+
    return 0;
 }
 
@@ -347,9 +351,12 @@ static void disconnect(struct bridge_child *b) {
    }
    b->fd = -1;
 
-   if (b->spectrum_fd >= 0) close(b->spectrum_fd);
+   if (b->spectrum_fd >= 0) {
+      close(b->spectrum_fd);
+   }
    b->spectrum_fd = -1;
    b->waterfall_requested = false;
+
    if (b->media_fd >= 0) {
       close(b->media_fd);
    }
@@ -665,6 +672,7 @@ static void schedule_retry(struct bridge_child *b) {
    }
    b->next_retry = mono_us() + (uint64_t) delay * 1000000;
 }
+
 #ifndef RR_LIBEXECDIR
 #define RR_LIBEXECDIR "/usr/libexec/rustyrig"
 #endif
@@ -676,10 +684,13 @@ static char *bridge_program_path(void) {
    }
 
    char *path = g_build_filename(RR_LIBEXECDIR, "rrbridge", NULL);
+
    if (!g_file_test(path, G_FILE_TEST_IS_EXECUTABLE)) {
       g_free(path);
+
       return NULL;
    }
+
    return path;
 }
 static bool spawn_child(struct bridge_child *b) {
@@ -693,16 +704,32 @@ static bool spawn_child(struct bridge_child *b) {
    const char *argv[] = {
       path, "--config", b->runtime_config ? b->runtime_config : config_path, "--bridge", b->name, NULL
    };
-   int sv[2] = {-1, -1}, media[2] = {-1, -1}, spectrum[2] = {-1, -1};
+   int sv[2] = {
+      -1, -1
+   }, media[2] = {
+      -1, -1
+   }, spectrum[2] = {
+      -1, -1
+   };
+
    if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sv) ||
-       socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, media) ||
-       socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, spectrum)) {
-      for (unsigned i = 0; i < 2; i++) {
-         if (sv[i] >= 0) close(sv[i]);
-         if (media[i] >= 0) close(media[i]);
-         if (spectrum[i] >= 0) close(spectrum[i]);
+      socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, media) || socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, spectrum)) {
+      for (unsigned i = 0 ; i < 2 ; i++) {
+         if (sv[i] >= 0) {
+            close(sv[i]);
+         }
+
+         if (media[i] >= 0) {
+            close(media[i]);
+         }
+
+         if (spectrum[i] >= 0) {
+            close(spectrum[i]);
+         }
       }
+
       g_free(path);
+
       return false;
    }
    int capacity = 16384;
@@ -710,20 +737,35 @@ static bool spawn_child(struct bridge_child *b) {
    /* Waterfall is lossy and completely independent of PCM/control. */
    setsockopt(spectrum[1], SOL_SOCKET, SO_SNDBUF, &capacity, sizeof(capacity));
    subproc_fd_t map[] = {
-      { sv[1], RRP_BRIDGE_IPC_FD },
-      { media[1], RRP_BRIDGE_MEDIA_FD },
-      { spectrum[1], RR_BRIDGE_SPECTRUM_FD }
+      {
+         sv[1], RRP_BRIDGE_IPC_FD
+      },
+      {
+         media[1], RRP_BRIDGE_MEDIA_FD
+      },
+      {
+         spectrum[1], RR_BRIDGE_SPECTRUM_FD
+      }
    };
    int closes[] = {
       sv[0], sv[1], media[0], media[1], spectrum[0], spectrum[1]
    };
    const char *profile = cfg_get("scheduler.rrbridge.profile");
-   if (!profile || !*profile) profile = "normal";
+
+   if (!profile || !*profile) {
+      profile = "normal";
+   }
    bool ok = subproc_spawn_fds_profile(&b->process, path, argv, map, 3, closes, 6, profile);
-   close(sv[1]); close(media[1]); close(spectrum[1]);
+   close(sv[1]);
+   close(media[1]);
+   close(spectrum[1]);
    g_free(path);
+
    if (!ok) {
-      close(sv[0]); close(media[0]); close(spectrum[0]);
+      close(sv[0]);
+      close(media[0]);
+      close(spectrum[0]);
+
       return false;
    }
    fcntl(spectrum[0], F_SETFL, fcntl(spectrum[0], F_GETFL) | O_NONBLOCK);
@@ -825,26 +867,24 @@ static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t 
    boolean(b->backend->owner, "rx.audio.supported", !!(m->flags & RRP_BRIDGE_RX_AUDIO));
    boolean(b->backend->owner, "rx.iq.supported", !!(m->flags & RRP_BRIDGE_RX_IQ));
    boolean(b->backend->owner, "rx.waterfall.supported", !!(m->flags & RRP_BRIDGE_WATERFALL));
-   /* A receive-only RF media channel is owned by the same rig/room as its
-    * audio stream. Existing media subscription admission enforces room
-    * membership, and only subscribed clients receive W/F frames. */
+
+   /* A receive-only RF media channel is owned by the same rig/room as its audio stream. Existing media subscription admission enforces room membership, and
+    * only subscribed clients receive W/F frames. */
    if (m->flags & RRP_BRIDGE_WATERFALL) {
       rr_server_rig_t *radio = b->backend->owner;
       uint8_t rig_index = rr_rig_registry_media_index(rig.rigs, radio);
       const char *room = rr_rig_registry_room(rig.rigs, radio);
       const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
-      struct rr_mediachan *rf = rig_index == RR_BINFRAME_RIG_NA || !room ?
-         NULL : media_chan_add(RR_BINFRAME_SUBSYS_WATERFALL,
-             RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, rig_index,
-             RR_RF_WIRE_CODEC, "RF spectrum (1024-bin receiver waterfall)");
+      struct rr_mediachan *rf = rig_index == RR_BINFRAME_RIG_NA || !room ? NULL : media_chan_add(RR_BINFRAME_SUBSYS_WATERFALL, RR_BINFRAME_DIR_RX,
+         RR_BINFRAME_VFO_NA, rig_index, RR_RF_WIRE_CODEC, "RF spectrum (1024-bin receiver waterfall)");
+
       if (rf) {
          snprintf(rf->room, sizeof(rf->room), "%s", room);
          snprintf(rf->rig_uuid, sizeof(rf->rig_uuid), "%s", rr_server_rig_id(radio));
          snprintf(rf->name, sizeof(rf->name), "%s.rf.rx", alias);
          media_send_available_all(NULL);
       } else {
-         Log(LOG_WARN, "bridge.rf", "[%s] could not provision RF channel",
-             bridge_public_name(b));
+         Log(LOG_WARN, "bridge.rf", "[%s] could not provision RF channel", bridge_public_name(b));
       }
    }
 
@@ -1076,8 +1116,7 @@ static void read_media(struct bridge_child *b) {
             continue;
          }
          b->sample_rate = frame.rate;
-         /* A newly negotiated native clock changes the available AF
-          * bandwidth. Republish channel metadata without reopening audio. */
+         /* A newly negotiated native clock changes the available AF bandwidth. Republish channel metadata without reopening audio. */
          media_send_available_all(NULL);
       }
       uint8_t pcm[2 * RRP_BRIDGE_MEDIA_SAMPLES];
@@ -1092,49 +1131,65 @@ static void read_media(struct bridge_child *b) {
       }
    }
 }
-/* Keep Kiwi W/F socket demand subscriber-driven. This never changes
- * SND audio interest or the receiver's lifecycle. */
+
+/* Keep Kiwi W/F socket demand subscriber-driven. This never changes SND audio interest or the receiver's lifecycle. */
 static void bridge_rf_demand(struct bridge_child *b) {
-   if (!b->online || !b->ready || b->idling || b->fd < 0 ||
-       !(b->caps.flags & RRP_BRIDGE_WATERFALL)) return;
-   struct rr_mediachan *rf = media_chan_find(RR_BINFRAME_SUBSYS_WATERFALL,
-       RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA,
-       rr_rig_registry_media_index(rig.rigs, b->backend->owner));
+   if (!b->online || !b->ready || b->idling || b->fd < 0 || !(b->caps.flags & RRP_BRIDGE_WATERFALL)) {
+      return;
+   }
+   struct rr_mediachan *rf =
+      media_chan_find(RR_BINFRAME_SUBSYS_WATERFALL, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, rr_rig_registry_media_index(rig.rigs, b->backend->owner));
    bool wanted = rf && ws_media_channel_has_subscribers(rf);
-   if (wanted == b->waterfall_requested) return;
+
+   if (wanted == b->waterfall_requested) {
+      return;
+   }
    rrp_bridge_ipc_message_t command;
    message(b, &command, RRP_BRIDGE_IPC_WATERFALL);
    command.available = wanted ? 1 : 0;
    command.flags = b->caps.waterfall_zoom_min;
-   command.frequency_hz = 0; /* follow the receiver's actual W/F range */
-   if (rrp_bridge_ipc_send(b->fd, &command))
+   command.frequency_hz = 0;    /* follow the receiver's actual W/F range */
+
+   if (rrp_bridge_ipc_send(b->fd, &command)) {
       b->waterfall_requested = wanted;
+   }
 }
-/* Native row IPC is same-host only. Encode network rows explicitly and
- * bound fanout to 10 frames/second so slow subscribers cannot stall PCM. */
+
+/* Native row IPC is same-host only. Encode network rows explicitly and bound fanout to 10 frames/second so slow subscribers cannot stall PCM. */
 static void read_spectrum(struct bridge_child *b) {
-   for (unsigned i = 0; i < 4 && b->spectrum_fd >= 0; i++) {
+   for (unsigned i = 0 ; i < 4 && b->spectrum_fd >= 0 ; i++) {
       rr_bridge_spectrum_row row;
       int got = rr_bridge_spectrum_recv(b->spectrum_fd, &row);
-      if (!got) break;
+
+      if (!got) {
+         break;
+      }
+
       if (got < 0) {
          b->spectrum_invalid++;
-         Log(LOG_WARN, "bridge.rf", "[%s] spectrum IPC ended or invalid; audio unaffected",
-             bridge_public_name(b));
+         Log(LOG_WARN, "bridge.rf", "[%s] spectrum IPC ended or invalid; audio unaffected", bridge_public_name(b));
          close(b->spectrum_fd);
          b->spectrum_fd = -1;
          break;
       }
-      if (!b->online || !(b->caps.flags & RRP_BRIDGE_WATERFALL)) continue;
+
+      if (!b->online || !(b->caps.flags & RRP_BRIDGE_WATERFALL)) {
+         continue;
+      }
       b->spectrum_rows++;
       const uint64_t at = mono_us();
-      if (!b->waterfall_requested || at - b->spectrum_last_sent < 100000)
+
+      if (!b->waterfall_requested || at - b->spectrum_last_sent < 100000) {
          continue;
-      struct rr_mediachan *rf = media_chan_find(RR_BINFRAME_SUBSYS_WATERFALL,
-          RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA,
-          rr_rig_registry_media_index(rig.rigs, b->backend->owner));
-      if (!rf || !ws_media_channel_has_subscribers(rf)) continue;
+      }
+      struct rr_mediachan *rf =
+         media_chan_find(RR_BINFRAME_SUBSYS_WATERFALL, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, rr_rig_registry_media_index(rig.rigs, b->backend->owner));
+
+      if (!rf || !ws_media_channel_has_subscribers(rf)) {
+         continue;
+      }
       uint8_t payload[RR_RF_WIRE_LEN];
+
       if (rr_rf_wire_pack(payload, &row)) {
          ws_media_broadcast_subscribed(rf, payload, sizeof(payload), RR_RF_WIRE_CODEC);
          b->spectrum_last_sent = at;
@@ -1244,9 +1299,17 @@ void rrserver_bridges_poll(void) {
          }
       }
 
-      if (b->ready && b->media_fd >= 0) read_media(b);
-      if (b->ready) bridge_rf_demand(b);
-      if (b->ready && b->spectrum_fd >= 0) read_spectrum(b);
+      if (b->ready && b->media_fd >= 0) {
+         read_media(b);
+      }
+
+      if (b->ready) {
+         bridge_rf_demand(b);
+      }
+
+      if (b->ready && b->spectrum_fd >= 0) {
+         read_spectrum(b);
+      }
 
       // Reset backoff only after a stable session, never on a crash loop.
       if (b->ready && current - b->started >= 30000000) {

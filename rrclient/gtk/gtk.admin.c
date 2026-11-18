@@ -221,8 +221,7 @@ static void admin_profile_result(const char *event, const char *data, rrconn_t *
       dict_free(reply);
 
       if (changed && admin_view && admin_tab && main_notebook &&
-         gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-            gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_tab) {
+         gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_tab) {
          gtk_admin_refresh();
       }
    }

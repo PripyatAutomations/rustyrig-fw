@@ -35,8 +35,7 @@
 // The rig-control commands are applied by the SERVER's selected backend
 // (rrserver/backend.internal or backend.hamlib); we send cat.cmd messages
 // over the websocket and the server's rigctl handler does the work.
-/* Each local CAT PTY dispatches through its bound remote connection.
- * A disconnected/unknown binding must never fall through to another rig. */
+/* Each local CAT PTY dispatches through its bound remote connection. A disconnected/unknown binding must never fall through to another rig. */
 extern bool ws_send_freq_cmd(rrconn_t *cptr, const char *vfo, long freq);
 extern bool ws_send_mode_cmd(rrconn_t *cptr, const char *vfo, const char *mode);
 extern bool ws_send_width_cmd(rrconn_t *cptr, const char *vfo, const char *width);

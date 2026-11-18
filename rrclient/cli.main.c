@@ -170,8 +170,9 @@ static bool ws_txtframe_dispatch(rrconn_t *cptr, dict *d) {
       if (!agreed) {
          Log(LOG_WARN, "ws.cap", "Server rejected required v2 capabilities (%s)", cmd);
 
-         if (cptr->native_transport)
+         if (cptr->native_transport) {
             rr_transport_close(cptr->native_transport);
+         }
 
          return false;
       }
@@ -241,26 +242,39 @@ bool rrclient_native_text_receive(rrconn_t *cptr, const uint8_t *data, size_t le
       ok = ws_txtframe_dispatch(cptr, message);
       dict_free(message);
    } else {
-      /* Wire-schema rejection is not a malformed WebSocket frame. Only
-       * print JSON key names; values may contain passwords or tokens. */
+      /* Wire-schema rejection is not a malformed WebSocket frame. Only print JSON key names; values may contain passwords or tokens. */
       dict *raw = json2dict(buf);
-      char keys[512] = {0};
+      char keys[512] = {
+         0
+      };
       const char *key = NULL;
       char *value = NULL;
       int rank = 0;
       unsigned fields = 0;
+
       if (raw) {
          while ((rank = dict_enumerate(raw, rank, &key, &value)) >= 0) {
             size_t used = strlen(keys), n = key ? strlen(key) : 0;
-            if (used + n + 3 >= sizeof(keys)) break;
-            if (used) { keys[used++] = ','; keys[used++] = ' '; keys[used] = 0; }
-            if (key) memcpy(keys + used, key, n + 1);
+
+            if (used + n + 3 >= sizeof(keys)) {
+               break;
+            }
+
+            if (used) {
+               keys[used++] = ',';
+               keys[used++] = ' ';
+               keys[used] = 0;
+            }
+
+            if (key) {
+               memcpy(keys + used, key, n + 1);
+            }
             fields++;
          }
          dict_free(raw);
       }
-      Log(LOG_WARN, "ws", "Rejected native WebSocket TEXT payload by strict wire decoder (%zu bytes, fields=%u, keys=%s)",
-         len, fields, keys[0] ? keys : "(not a JSON dictionary)");
+      Log(LOG_WARN, "ws", "Rejected native WebSocket TEXT payload by strict wire decoder (%zu bytes, fields=%u, keys=%s)", len, fields, keys[0] ? keys :
+         "(not a JSON dictionary)");
    }
    free(buf);
 
@@ -321,18 +335,20 @@ bool ws_binframe_process_client(rrconn_t *client, const char *data, size_t len) 
       return true;
    }
 
-   /* RF is a fixed-format receiver-only media stream, never raw native
-    * bridge IPC. Check the exact subscribed stream and originating server
-    * before publishing an immutable spectrum row to GTK. */
+   /* RF is a fixed-format receiver-only media stream, never raw native bridge IPC. Check the exact subscribed stream and originating server before publishing
+    * an immutable spectrum row to GTK. */
    if (f.hdr.subsystem == RR_BINFRAME_SUBSYS_WATERFALL) {
-      rr_remote_rf_row_t row = {0};
+      rr_remote_rf_row_t row = {
+         0
+      };
+
       if (f.hdr.direction != RR_BINFRAME_DIR_RX ||
-          memcmp(f.hdr.codec, RR_RF_WIRE_CODEC, 4) ||
-          !rrclient_media_remote_rf_for_stream(client, f.hdr.stream,
-                                               f.hdr.codec, row.id, sizeof(row.id)) ||
-          !rr_rf_wire_unpack(&row.row, f.data, f.len))
+         memcmp(f.hdr.codec, RR_RF_WIRE_CODEC, 4) ||
+         !rrclient_media_remote_rf_for_stream(client, f.hdr.stream, f.hdr.codec, row.id, sizeof(row.id)) || !rr_rf_wire_unpack(&row.row, f.data, f.len)) {
          return false;
+      }
       event_emit_binary(RR_REMOTE_RF_ROW_EVENT, client, &row, sizeof(row));
+
       return true;
    }
 
@@ -762,34 +778,48 @@ void ws_send_to_name(rrconn_t *sender, const char *username, struct mg_str *msg_
 }
 #endif // USE_MONGOOSE
 
-/* Send a complete negotiated audio TX frame via the same direct-media hook
- * used by normal WS binary frames. Native TLS does not depend on Mongoose. */
-bool rrclient_send_tx_audio_frame(rrconn_t *connection,
-                                  const void *frame,size_t length,bool setup) {
-   if(!connection || !connection->is_ws || !connection->authenticated ||
-      !frame || length<RR_BINFRAME_HDR_LEN) return false;
+/* Send a complete negotiated audio TX frame via the same direct-media hook used by normal WS binary frames. Native TLS does not depend on Mongoose. */
+bool rrclient_send_tx_audio_frame(rrconn_t *connection, const void *frame, size_t length, bool setup) {
+   if (!connection || !connection->is_ws || !connection->authenticated || !frame || length < RR_BINFRAME_HDR_LEN) {
+      return false;
+   }
 #ifdef USE_MONGOOSE
-   struct mg_str msg={.buf=(char *)frame,.len=length};
-   return ws_send_frame(NULL,connection,&msg,WEBSOCKET_OP_BINARY,setup);
-#else
-   rr_media_binary_t io={
-      .frame=frame,.length=length,.setup=setup
+   struct mg_str msg = {
+      .buf = (char *)frame, .len = length
    };
-   event_emit_binary(RR_MEDIA_BINARY_EVENT,connection,&io,sizeof(io));
-   if(io.handled) {
-      if(io.result) rr_traffic_count(connection,true,true,length);
+
+   return ws_send_frame(NULL, connection, &msg, WEBSOCKET_OP_BINARY, setup);
+#else
+   rr_media_binary_t io = {
+      .frame = frame, .length = length, .setup = setup
+   };
+   event_emit_binary(RR_MEDIA_BINARY_EVENT, connection, &io, sizeof(io));
+
+   if (io.handled) {
+      if (io.result) {
+         rr_traffic_count(connection, true, true, length);
+      }
+
       return io.result;
    }
-   if(!connection->native_transport) return false;
-   /* Keep audio latency bounded. Codec setup can use the larger control
-    * budget; live packets must not queue behind stale media. */
-   size_t limit=setup ? 262144u : 8192u;
-   size_t queued=rr_transport_queued_bytes(connection->native_transport);
-   if(length>limit || queued>limit-length) return false;
-   int status=rr_transport_send_binary_message(
-      connection->native_transport,frame,length);
-   if(status!=RR_TRANSPORT_OK) return false;
-   rr_traffic_count(connection,true,true,length);
+
+   if (!connection->native_transport) {
+      return false;
+   }
+   /* Keep audio latency bounded. Codec setup can use the larger control budget; live packets must not queue behind stale media. */
+   size_t limit = setup ? 262144u : 8192u;
+   size_t queued = rr_transport_queued_bytes(connection->native_transport);
+
+   if (length > limit || queued > limit - length) {
+      return false;
+   }
+   int status = rr_transport_send_binary_message(connection->native_transport, frame, length);
+
+   if (status != RR_TRANSPORT_OK) {
+      return false;
+   }
+   rr_traffic_count(connection, true, true, length);
+
    return true;
 #endif
 }

@@ -16,8 +16,7 @@ typedef struct {
 } rr_bridge_worker_stats_t;
 /* Core-thread snapshot: no pointers to live bridge objects escape. */
 size_t rrserver_bridges_stats_snapshot(rr_bridge_worker_stats_t *out, size_t capacity);
-/* Native RX PCM sample clock for a bridge-hosted rig, before the 16 kHz
- * media resampler. Zero for a non-bridge rig or an unknown source clock. */
+/* Native RX PCM sample clock for a bridge-hosted rig, before the 16 kHz media resampler. Zero for a non-bridge rig or an unknown source clock. */
 uint32_t rrserver_bridge_source_rate(const char *rig_uuid);
 const rr_backend_type_t *rrserver_bridge_backend_type(void);
 bool rrserver_bridges_prepare(void);

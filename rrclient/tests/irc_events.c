@@ -14,7 +14,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/connman.h>
 #include <rrclient/irc.whois.h>
-extern rrconn_t *ws_conn; /* legacy test fixture, not client API */
+extern rrconn_t *ws_conn;       /* legacy test fixture, not client API */
 
 extern void rrclient_irc_register_events(void);
 time_t now = 100;
@@ -25,9 +25,11 @@ static char last_event[64];
 static dict *last, *last_talk;
 static unsigned events, rejoins, status_windows, names_begins, names_ends;
 static unsigned protocol_disconnects;
-static void observe_protocol_disconnect(const char *event, const char *data,
-                                        rrconn_t *cptr, void *user) {
-   (void)event; (void)data; (void)cptr; (void)user;
+static void observe_protocol_disconnect(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
    protocol_disconnects++;
 }
 void userlist_names_begin(const char *room) {

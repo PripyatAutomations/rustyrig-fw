@@ -6,6 +6,8 @@ rrclient: Finish remote controls (brightness etc)
   - ability to add in Add Control
   - pins / blocks to expose remote controls
 
+rrclient/Unknown TLS identity window: Wrap the last line of text, its way too long
+
 [Audio rooms]
 * Implement rooms without VFO but mixed audio bus and PTT for audio chats
 

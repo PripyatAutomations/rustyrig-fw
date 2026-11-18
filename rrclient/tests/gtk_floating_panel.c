@@ -80,8 +80,7 @@ int main(int argc, char **argv) {
    g_assert_true(first_x + first_width <= second_x ||
       second_x + second_width <= first_x || first_y + first_height <= second_y || second_y + second_height <= first_y);
 
-   /* Transient hiding is not minimizing: preserve the set of panels that
-    * were visible, even when manual and tab reasons overlap. */
+   /* Transient hiding is not minimizing: preserve the set of panels that were visible, even when manual and tab reasons overlap. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
    g_assert_false(gtk_widget_get_visible(first_frame));
    g_assert_false(gtk_widget_get_visible(second_frame));
@@ -92,8 +91,7 @@ int main(int argc, char **argv) {
    g_assert_true(gtk_widget_get_visible(first_frame));
    g_assert_true(gtk_widget_get_visible(second_frame));
 
-   /* A panel already explicitly hidden before switching to Status/Log
-    * must remain hidden when we leave those pages. */
+   /* A panel already explicitly hidden before switching to Status/Log must remain hidden when we leave those pages. */
    rr_floating_panel_hide(second);
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
@@ -102,8 +100,7 @@ int main(int argc, char **argv) {
    rr_floating_panel_show(second);
    drain_events();
 
-   /* Server Picker-style explicit open overrides Status/Log auto-hide
-    * for that panel only, without revealing any others. */
+   /* Server Picker-style explicit open overrides Status/Log auto-hide for that panel only, without revealing any others. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
    rr_floating_panel_present(first);
    g_assert_true(gtk_widget_get_visible(first_frame));
@@ -125,23 +122,18 @@ int main(int argc, char **argv) {
 
    /* Newly opened windows while on Status/Log stay hidden until leaving. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
-   RRFloatPanel *new_panel = rr_floating_panel_new(GTK_OVERLAY(overlay),
-      GTK_NOTEBOOK(tabs), "transient-new", "Transient");
-   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(new_panel)),
-      gtk_label_new("New panel"), FALSE, FALSE, 0);
+   RRFloatPanel *new_panel = rr_floating_panel_new(GTK_OVERLAY(overlay), GTK_NOTEBOOK(tabs), "transient-new", "Transient");
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(new_panel)), gtk_label_new("New panel"), FALSE, FALSE, 0);
    rr_floating_panel_show(new_panel);
    g_assert_false(gtk_widget_get_visible(rr_floating_panel_widget(new_panel)));
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, FALSE);
    g_assert_true(gtk_widget_get_visible(rr_floating_panel_widget(new_panel)));
    rr_floating_panel_destroy(new_panel);
 
-   /* New/Edit Server uses an explicit present, even when the picker
-    * remains temporarily masked. Only the requested editor may show. */
+   /* New/Edit Server uses an explicit present, even when the picker remains temporarily masked. Only the requested editor may show. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
-   RRFloatPanel *editor_panel = rr_floating_panel_new(GTK_OVERLAY(overlay),
-      GTK_NOTEBOOK(tabs), "serveredit", "New Server");
-   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(editor_panel)),
-      gtk_label_new("Server editor"), FALSE, FALSE, 0);
+   RRFloatPanel *editor_panel = rr_floating_panel_new(GTK_OVERLAY(overlay), GTK_NOTEBOOK(tabs), "serveredit", "New Server");
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(editor_panel)), gtk_label_new("Server editor"), FALSE, FALSE, 0);
    rr_floating_panel_present(editor_panel);
    g_assert_true(gtk_widget_get_visible(rr_floating_panel_widget(editor_panel)));
    g_assert_false(gtk_widget_get_visible(first_frame));

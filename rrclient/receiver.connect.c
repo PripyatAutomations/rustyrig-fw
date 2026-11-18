@@ -655,11 +655,12 @@ static void receiver_refresh_request(const rr_event_message_t *message, void *un
    if (force != 0 && force != 1) {
       return;
    }
-   /* A connected rrserver owns the shared catalog. Ordinary refresh
-    * requests its verified snapshot; Shift+Refresh retains the operator's
-    * explicit, direct HTTPS mirror re-download behavior. */
-   if (force || !rrclient_receiver_catalog_request(false))
+
+   /* A connected rrserver owns the shared catalog. Ordinary refresh requests its verified snapshot; Shift+Refresh retains the operator's explicit, direct HTTPS
+    * mirror re-download behavior. */
+   if (force || !rrclient_receiver_catalog_request(false)) {
       receiver_directory_refresh_force(force != 0);
+   }
    receiver_snapshot_request(NULL, NULL);
 }
 
@@ -728,34 +729,36 @@ static void receiver_snapshot_request(const rr_event_message_t *message, void *u
    event_emit_message(&event);
    g_free(buffer);
 }
-/* An always-on, core-context maintenance tick refreshes the local mirror
- * when its persisted deadline expires and checks the shared rrserver
- * catalog independently of whether the GTK Directory tab is open. */
+
+/* An always-on, core-context maintenance tick refreshes the local mirror when its persisted deadline expires and checks the shared rrserver catalog
+ * independently of whether the GTK Directory tab is open. */
 static guint directory_maintenance_id;
 static time_t catalog_next_check;
 static gboolean receiver_directory_maintenance(gpointer unused) {
    (void)unused;
+
    if (receiver_directory_refresh_due()) {
       Log(LOG_INFO, "receiver.directory", "Daily upstream SDR directory check is due");
       receiver_directory_refresh();
    }
+
    if (time(NULL) >= catalog_next_check) {
       if (rrclient_receiver_catalog_request(false)) {
-         /* A server can finish updating just after our snapshot request.
-          * Recheck its cache periodically without re-fetching upstream. */
+         /* A server can finish updating just after our snapshot request. Recheck its cache periodically without re-fetching upstream. */
          catalog_next_check = time(NULL) + 6 * 3600;
       } else {
          /* Offline or an older server: retry gently, not every tick. */
          catalog_next_check = time(NULL) + 3600;
       }
    }
+
    return G_SOURCE_CONTINUE;
 }
 void rrclient_receiver_connect_init(void) {
    rrclient_receiver_catalog_init();
+
    if (!directory_maintenance_id) {
-      /* Keep the network work out of the GTK event loop. The first check
-       * runs after startup; no synchronous HTTP fetch blocks the UI. */
+      /* Keep the network work out of the GTK event loop. The first check runs after startup; no synchronous HTTP fetch blocks the UI. */
       GSource *timer = g_timeout_source_new_seconds(300);
       g_source_set_callback(timer, receiver_directory_maintenance, NULL, NULL);
       directory_maintenance_id = g_source_attach(timer, rrclient_core_context());
@@ -792,6 +795,7 @@ void rrclient_receiver_connect_shutdown(void) {
       directory_maintenance_id = 0;
    }
    catalog_next_check = 0;
+
    if (snapshot_token) {
       event_off_token(snapshot_token);
       snapshot_token = 0;

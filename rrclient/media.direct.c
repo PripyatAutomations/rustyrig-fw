@@ -679,4 +679,3 @@ void rrclient_direct_register_events(void) {
    event_on("disconnected", closed, NULL);
    event_on("disconnect", closed, NULL);
 }
-

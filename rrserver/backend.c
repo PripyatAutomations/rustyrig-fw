@@ -226,11 +226,12 @@ bool rr_backend_init(void) {
    if (!rig.rigs) {
       return true;
    }
-   /* Rig UUID namespaces follow the station identity. The server/node UUID
-    * remains independently persisted under @server/@node. */
+   /* Rig UUID namespaces follow the station identity. The server/node UUID remains independently persisted under @server/@node. */
    const char *identity_namespace = cfg_get("station.name");
+
    if (!identity_namespace || !*identity_namespace) {
       Log(LOG_CRIT, "backend", "station.name is required for stable rig identity");
+
       return true;
    }
    /* Node UUID belongs to this database, not the station display name. Renaming a station must not create a new server identity on the wire. */

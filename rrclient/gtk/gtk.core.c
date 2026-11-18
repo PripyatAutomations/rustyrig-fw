@@ -929,20 +929,22 @@ static void frontend_gtk_authoritative_room_event(const rr_event_message_t *mess
    gtk_chat_set_authoritative_room(room);
 }
 
-/* Password change is requested only after the server authenticates us and
- * explicitly marks the current credentials as requiring rotation. */
+/* Password change is requested only after the server authenticates us and explicitly marks the current credentials as requiring rotation. */
 static void frontend_gtk_password_prompt_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (dying || !message || !message->payload ||
-       message->length != sizeof(rrclient_password_change_t)) return;
+
+   if (dying || !message || !message->payload || message->length != sizeof(rrclient_password_change_t)) {
+      return;
+   }
    rrclient_password_change_t req;
    memcpy(&req, message->payload, sizeof(req));
-   if (!memchr(req.profile, 0, sizeof(req.profile)) ||
-       !memchr(req.username, 0, sizeof(req.username))) return;
+
+   if (!memchr(req.profile, 0, sizeof(req.profile)) || !memchr(req.username, 0, sizeof(req.username))) {
+      return;
+   }
    GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Password change required", parent,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Cancel", GTK_RESPONSE_CANCEL, "_Change Password", GTK_RESPONSE_OK, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Password change required", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel",
+      GTK_RESPONSE_CANCEL, "_Change Password", GTK_RESPONSE_OK, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    GtkWidget *label = gtk_label_new("The server requires a new password before you can use this station.\n"
       "Enter a new password (8-256 characters) for this account:");
@@ -963,12 +965,17 @@ static void frontend_gtk_password_prompt_event(const rr_event_message_t *message
    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
    gtk_widget_show_all(dialog);
    gtk_widget_grab_focus(first);
-   for (;;) {
+
+   for ( ;; ) {
       int response = gtk_dialog_run(GTK_DIALOG(dialog));
-      if (response != GTK_RESPONSE_OK) break;
+
+      if (response != GTK_RESPONSE_OK) {
+         break;
+      }
       const char *p = gtk_entry_get_text(GTK_ENTRY(first));
       const char *again = gtk_entry_get_text(GTK_ENTRY(second));
       size_t length = strlen(p);
+
       if (length < 8 || length > 256) {
          gtk_label_set_text(GTK_LABEL(error), "Password must be 8-256 characters.");
       } else if (strcmp(p, again)) {
@@ -978,40 +985,44 @@ static void frontend_gtk_password_prompt_event(const rr_event_message_t *message
          break;
       }
    }
+
    /* Reduce the lifetime of plaintext in GTK entry buffers. */
    gtk_entry_set_text(GTK_ENTRY(first), "");
    gtk_entry_set_text(GTK_ENTRY(second), "");
    gtk_widget_destroy(dialog);
    event_emit_message(&(rr_event_message_t) {
-      .name = RRCLIENT_PASSWORD_SUBMIT_EVENT, .sender = "gtk",
-      .payload = &req, .length = sizeof(req)
+      .name = RRCLIENT_PASSWORD_SUBMIT_EVENT, .sender = "gtk", .payload = &req, .length = sizeof(req)
    });
    explicit_bzero(&req, sizeof(req));
 }
 static void frontend_gtk_password_result_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (dying || !message || !message->payload ||
-       message->length != sizeof(rrclient_password_change_t)) return;
+
+   if (dying || !message || !message->payload || message->length != sizeof(rrclient_password_change_t)) {
+      return;
+   }
    rrclient_password_change_t result;
    memcpy(&result, message->payload, sizeof(result));
-   if (!memchr(result.profile, 0, sizeof(result.profile)) ||
-       !memchr(result.reason, 0, sizeof(result.reason))) return;
+
+   if (!memchr(result.profile, 0, sizeof(result.profile)) || !memchr(result.reason, 0, sizeof(result.reason))) {
+      return;
+   }
    GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
-   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_DESTROY_WITH_PARENT,
-      result.success ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_DESTROY_WITH_PARENT, result.success ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
       result.success ? "Password updated for %s" : "Password change failed for %s", result.profile);
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-      "%s", result.success ? "The server confirmed the new password. It was saved in your server profile and RustyRig is reconnecting."
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", result.success ?
+      "The server confirmed the new password. It was saved in your server profile and RustyRig is reconnecting."
       : (result.reason[0] ? result.reason : "Please try again."));
+
    if (!result.success) {
       gtk_dialog_add_button(GTK_DIALOG(dialog), "_Retry", 1);
       gtk_widget_show_all(dialog);
       int choice = gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
+
       if (choice == 1) {
          event_emit_message(&(rr_event_message_t) {
-            .name = RRCLIENT_PASSWORD_RETRY_EVENT, .sender = "gtk",
-            .payload = &result, .length = sizeof(result)
+            .name = RRCLIENT_PASSWORD_RETRY_EVENT, .sender = "gtk", .payload = &result, .length = sizeof(result)
          });
       }
    } else {
@@ -1021,13 +1032,13 @@ static void frontend_gtk_password_result_event(const rr_event_message_t *message
    explicit_bzero(&result, sizeof(result));
 }
 
-/* Auth errors belong to the GTK thread; never open a dialog from the
- * network/core worker.  A plain status line isn't sufficient when the
- * connection dialog has already gone away. */
+/* Auth errors belong to the GTK thread; never open a dialog from the network/core worker.  A plain status line isn't sufficient when the connection dialog has
+ * already gone away. */
 static void frontend_gtk_auth_failure_response(GtkDialog *dialog, gint response, gpointer unused) {
    (void)unused;
    char *profile = g_strdup(g_object_get_data(G_OBJECT(dialog), "rr-auth-failure-profile"));
    gtk_widget_destroy(GTK_WIDGET(dialog));
+
    if (response == 1 && profile && *profile) {
       gtk_show_server_editor(profile);
    }
@@ -1035,31 +1046,30 @@ static void frontend_gtk_auth_failure_response(GtkDialog *dialog, gint response,
 }
 static void frontend_gtk_auth_failure_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (dying || !message || !message->payload ||
-       message->length != sizeof(rrclient_auth_failure_alert_t)) return;
+
+   if (dying || !message || !message->payload || message->length != sizeof(rrclient_auth_failure_alert_t)) {
+      return;
+   }
    rrclient_auth_failure_alert_t alert;
    memcpy(&alert, message->payload, sizeof(alert));
-   if (!memchr(alert.profile, 0, sizeof(alert.profile)) ||
-       !memchr(alert.reason, 0, sizeof(alert.reason))) return;
+
+   if (!memchr(alert.profile, 0, sizeof(alert.profile)) || !memchr(alert.reason, 0, sizeof(alert.reason))) {
+      return;
+   }
    GtkWindow *parent = main_window && GTK_IS_WINDOW(main_window) ? GTK_WINDOW(main_window) : NULL;
-   GtkWidget *dialog = gtk_message_dialog_new(parent,
-      GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_NONE,
-      "Authentication failed for %s", alert.profile);
+   GtkWidget *dialog =
+      gtk_message_dialog_new(parent, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_NONE, "Authentication failed for %s", alert.profile);
    gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
    gtk_dialog_add_button(GTK_DIALOG(dialog), "_Edit Server", 1);
    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
-   g_object_set_data_full(G_OBJECT(dialog), "rr-auth-failure-profile",
-      g_strdup(alert.profile), g_free);
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-      "%s\n\nAutomatic reconnection has been stopped. "
-      "Check the username and password in Edit Server, then connect manually.",
-      alert.reason);
+   g_object_set_data_full(G_OBJECT(dialog), "rr-auth-failure-profile", g_strdup(alert.profile), g_free);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s\n\nAutomatic reconnection has been stopped. "
+      "Check the username and password in Edit Server, then connect manually.", alert.reason);
    g_signal_connect(dialog, "response", G_CALLBACK(frontend_gtk_auth_failure_response), NULL);
    gtk_widget_show(dialog);
 }
 
-/* Trust decisions stay in the application overlay. Do not run a nested
- * gtk_dialog_run(): transport CLOSE events must still flow normally. */
+/* Trust decisions stay in the application overlay. Do not run a nested gtk_dialog_run(): transport CLOSE events must still flow normally. */
 typedef struct {
    RRFloatPanel *panel;
    GtkWidget *confirm;
@@ -1067,16 +1077,16 @@ typedef struct {
 } GtkTlsTrustPrompt;
 
 static void frontend_gtk_tls_pin_finish(GtkTlsTrustPrompt *prompt, gint response) {
-   if (!prompt) return;
+   if (!prompt) {
+      return;
+   }
    rrclient_tls_pin_request_t request = prompt->request;
-   request.decision = response == 1 ? 1 : response == 2 &&
-      !strcmp(gtk_entry_get_text(GTK_ENTRY(prompt->confirm)), "YES") ? 2 : 0;
+   request.decision = response == 1 ? 1 : response == 2 && !strcmp(gtk_entry_get_text(GTK_ENTRY(prompt->confirm)), "YES") ? 2 : 0;
    RRFloatPanel *panel = prompt->panel;
    prompt->panel = NULL;
    rr_floating_panel_destroy(panel);
    event_emit_message(&(rr_event_message_t) {
-      .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
-      .payload = &request, .length = sizeof(request)
+      .name = RRCLIENT_TLS_PIN_REPLY_EVENT, .payload = &request, .length = sizeof(request)
    });
 }
 static void frontend_gtk_tls_pin_close(gpointer user) {
@@ -1088,36 +1098,42 @@ static void frontend_gtk_tls_pin_response(RRFloatPanel *panel, gint response, gp
 }
 static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (dying || !message || !message->payload ||
-       message->length != sizeof(rrclient_tls_pin_request_t)) return;
+
+   if (dying || !message || !message->payload || message->length != sizeof(rrclient_tls_pin_request_t)) {
+      return;
+   }
    rrclient_tls_pin_request_t request;
    memcpy(&request, message->payload, sizeof(request));
+
    if (!memchr(request.profile, 0, sizeof(request.profile)) ||
-       !memchr(request.old_pin, 0, sizeof(request.old_pin)) ||
-       !memchr(request.new_pin, 0, sizeof(request.new_pin))) return;
+      !memchr(request.old_pin, 0, sizeof(request.old_pin)) || !memchr(request.new_pin, 0, sizeof(request.new_pin))) {
+      return;
+   }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+
    if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
       /* Fail closed if the UI cannot present a trust decision. */
       request.decision = 0;
       event_emit_message(&(rr_event_message_t) {
-         .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
-         .payload = &request, .length = sizeof(request)
+         .name = RRCLIENT_TLS_PIN_REPLY_EVENT, .payload = &request, .length = sizeof(request)
       });
+
       return;
    }
    GtkTlsTrustPrompt *prompt = g_new0(GtkTlsTrustPrompt, 1);
    prompt->request = request;
    char *id = g_strdup_printf("tls-trust-%s", request.profile);
-   prompt->panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-      id, request.old_pin[0] ? "Changed TLS identity" : "Unknown TLS identity");
+   prompt->panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), id, request.old_pin[0] ? "Changed TLS identity" :
+      "Unknown TLS identity");
    g_free(id);
+
    if (!prompt->panel) {
       g_free(prompt);
       request.decision = 0;
       event_emit_message(&(rr_event_message_t) {
-         .name = RRCLIENT_TLS_PIN_REPLY_EVENT,
-         .payload = &request, .length = sizeof(request)
+         .name = RRCLIENT_TLS_PIN_REPLY_EVENT, .payload = &request, .length = sizeof(request)
       });
+
       return;
    }
    rr_floating_panel_set_initial_centered(prompt->panel, TRUE);
@@ -1127,23 +1143,19 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    rr_floating_panel_set_close_callback(prompt->panel, frontend_gtk_tls_pin_close, prompt);
    rr_floating_panel_set_response_callback(prompt->panel, frontend_gtk_tls_pin_response, prompt);
    /* The panel owns the prompt state, and its Close callback sends Deny. */
-   g_object_set_data_full(G_OBJECT(rr_floating_panel_widget(prompt->panel)),
-      "rr-tls-trust-prompt", prompt, g_free);
+   g_object_set_data_full(G_OBJECT(rr_floating_panel_widget(prompt->panel)), "rr-tls-trust-prompt", prompt, g_free);
    GtkWidget *area = rr_floating_panel_body(prompt->panel);
    const char *node = request.node_name[0] ? request.node_name : "(not configured)";
    const char *cn = request.cert_cn[0] ? request.cert_cn : "(not present)";
    const char *sans = request.cert_sans[0] ? request.cert_sans : "(not present)";
    const char *cert = request.cert_sha256[0] ? request.cert_sha256 : "(unavailable)";
-   char *details = g_strdup_printf(
-      "Connecting to: %s\nExpected Node Name: %s\nCertificate CN: %s\n"
+   char *details = g_strdup_printf("Connecting to: %s\nExpected Node Name: %s\nCertificate CN: %s\n"
       "Certificate DNS SANs: %s\n\nCertificate SHA-256: %s\n"
       "Public key SPKI SHA-256: %s\nPreviously trusted SPKI: %s\n\n"
       "After approval and successful authentication, RustyRig will save the "
       "announced station.domain as Expected Node Name if it matches a certificate "
-      "DNS SAN and the profile has no existing node name. "
-      "Verify the key fingerprint through an independent channel before accepting.",
-      request.address[0] ? request.address : "(unknown)", node, cn, sans, cert,
-      request.new_pin, request.old_pin[0] ? request.old_pin : "(none; first connection)");
+      "DNS SAN and the profile has no existing node name. " "Verify the key fingerprint through an independent channel before accepting.", request.address[0] ?
+      request.address : "(unknown)", node, cn, sans, cert, request.new_pin, request.old_pin[0] ? request.old_pin : "(none; first connection)");
    GtkWidget *label = gtk_label_new(details);
    g_free(details);
    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
@@ -1166,6 +1178,7 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    rr_floating_panel_show(prompt->panel);
    gtk_widget_grab_focus(prompt->confirm);
 }
+
 /* One-use bearer credential: only expose it through the explicit dialog. */
 static void mesh_token_copy(GtkButton *button, gpointer user) {
    (void)button;
@@ -1177,29 +1190,42 @@ static void mesh_token_copy(GtkButton *button, gpointer user) {
    gtk_clipboard_set_text(clipboard, token, -1);
    g_free(token);
 }
+
 static RRFloatPanel *mesh_invitation_panel;
 
 static void mesh_invitation_close(gpointer unused) {
    (void)unused;
    RRFloatPanel *panel = mesh_invitation_panel;
    mesh_invitation_panel = NULL;
-   if (panel) rr_floating_panel_destroy(panel);
+
+   if (panel) {
+      rr_floating_panel_destroy(panel);
+   }
 }
 static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   if (dying || !message || !message->payload || message->length < 2 ||
-       message->length > 8192) return;
+
+   if (dying || !message || !message->payload || message->length < 2 || message->length > 8192) {
+      return;
+   }
    const char *token = message->payload;
-   if (token[message->length - 1] != 0 ||
-       strlen(token) + 1 != message->length) return;
+
+   if (token[message->length - 1] != 0 || strlen(token) + 1 != message->length) {
+      return;
+   }
 
    /* This is an in-app panel, not a second top-level GTK window. */
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return;
+   }
    mesh_invitation_close(NULL);
-   RRFloatPanel *panel = rr_floating_panel_new(GTK_OVERLAY(root),
-      GTK_NOTEBOOK(main_notebook), "mesh-invitation", "Mesh enrollment invitation");
-   if (!panel) return;
+   RRFloatPanel *panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "mesh-invitation", "Mesh enrollment invitation");
+
+   if (!panel) {
+      return;
+   }
    mesh_invitation_panel = panel;
    rr_floating_panel_set_close_callback(panel, mesh_invitation_close, NULL);
    rr_floating_panel_set_initial_centered(panel, TRUE);
@@ -1207,8 +1233,7 @@ static void frontend_gtk_mesh_enrollment_token(const rr_event_message_t *message
    rr_floating_panel_set_minimizable(panel, FALSE);
    rr_floating_panel_set_resizable(panel, FALSE);
    GtkWidget *area = rr_floating_panel_body(panel);
-   GtkWidget *hint = gtk_label_new(
-      "Confidential one-time enrollment token. Copy the entire token and paste it "
+   GtkWidget *hint = gtk_label_new("Confidential one-time enrollment token. Copy the entire token and paste it "
       "into rrserver --mesh-join on the joining machine. Do not share it publicly.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
    gtk_label_set_line_wrap_mode(GTK_LABEL(hint), PANGO_WRAP_WORD_CHAR);
@@ -1411,20 +1436,31 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    } else {
       g_log("RustyRig-GTK", G_LOG_LEVEL_WARNING, "Unable to subscribe to authoritative room events");
    }
-   rr_event_token_t password_prompt_event = event_on_message_domain_token(RRCLIENT_PASSWORD_PROMPT_EVENT,
-      frontend_gtk_password_prompt_event, NULL, "gtk");
-   if (password_prompt_event) rr_module_token_add(password_prompt_event);
-   rr_event_token_t password_result_event = event_on_message_domain_token(RRCLIENT_PASSWORD_RESULT_EVENT,
-      frontend_gtk_password_result_event, NULL, "gtk");
-   if (password_result_event) rr_module_token_add(password_result_event);
-   rr_event_token_t auth_failure_event = event_on_message_domain_token(RRCLIENT_AUTH_FAILURE_ALERT_EVENT,
-      frontend_gtk_auth_failure_event, NULL, "gtk");
-   if (auth_failure_event) rr_module_token_add(auth_failure_event);
+   rr_event_token_t password_prompt_event = event_on_message_domain_token(RRCLIENT_PASSWORD_PROMPT_EVENT, frontend_gtk_password_prompt_event, NULL, "gtk");
+
+   if (password_prompt_event) {
+      rr_module_token_add(password_prompt_event);
+   }
+   rr_event_token_t password_result_event = event_on_message_domain_token(RRCLIENT_PASSWORD_RESULT_EVENT, frontend_gtk_password_result_event, NULL, "gtk");
+
+   if (password_result_event) {
+      rr_module_token_add(password_result_event);
+   }
+   rr_event_token_t auth_failure_event = event_on_message_domain_token(RRCLIENT_AUTH_FAILURE_ALERT_EVENT, frontend_gtk_auth_failure_event, NULL, "gtk");
+
+   if (auth_failure_event) {
+      rr_module_token_add(auth_failure_event);
+   }
    rr_event_token_t tls_pin_event = event_on_message_domain_token(RRCLIENT_TLS_PIN_PROMPT_EVENT, frontend_gtk_tls_pin_prompt_event, NULL, "gtk");
-   if (tls_pin_event) rr_module_token_add(tls_pin_event);
-   rr_event_token_t invite_event = event_on_message_domain_token("client.ui.mesh.enrollment-token",
-      frontend_gtk_mesh_enrollment_token, NULL, "gtk");
-   if (invite_event) rr_module_token_add(invite_event);
+
+   if (tls_pin_event) {
+      rr_module_token_add(tls_pin_event);
+   }
+   rr_event_token_t invite_event = event_on_message_domain_token("client.ui.mesh.enrollment-token", frontend_gtk_mesh_enrollment_token, NULL, "gtk");
+
+   if (invite_event) {
+      rr_module_token_add(invite_event);
+   }
    rr_event_token_t picker_event = event_on_message_domain_token("client.ui.server-picker.show", frontend_gtk_server_picker_show_event, NULL, "gtk");
 
    if (picker_event) {

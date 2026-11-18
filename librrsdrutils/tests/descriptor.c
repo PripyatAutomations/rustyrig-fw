@@ -47,5 +47,6 @@ int main(void) {
    chunk.encoded_bytes = chunk.raw_bytes;
    chunk.frames = UINT32_MAX;
    assert(!rr_iq_chunk_valid(&source, &chunk));
+
    return 0;
 }

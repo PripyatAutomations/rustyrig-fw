@@ -21,7 +21,7 @@
 #define DIR_CHUNK 12000u
 #define DIR_TTL (24 * 3600)
 #define DIR_RETRY (3600)
-#define DIR_STALE (6 * 3600) /* Upstream publication warning threshold */
+#define DIR_STALE (6 * 3600)    /* Upstream publication warning threshold */
 static sqlite3 *db;
 static char *snapshot, *source_url, *validator, *modified;
 static char digest[65];
@@ -66,22 +66,31 @@ static void make_digest(void) {
    g_strlcpy(digest, hex ? hex : "", sizeof(digest));
    g_free(hex);
 }
-/* Upstream freshness belongs to the publisher's fetched_at field, not
- * our own HTTP fetch time. Keep those timestamps distinct, especially for
- * an unchanged but stale mirror response. */
+
+/* Upstream freshness belongs to the publisher's fetched_at field, not our own HTTP fetch time. Keep those timestamps distinct, especially for an unchanged but
+ * stale mirror response. */
 static time_t publication_time(const char *data) {
-   if (!data) return 0;
-   dict *doc=json2dict(data);
-   if (!doc) return 0;
-   const char *stamp=dict_get(doc,"fetched_at","");
-   GDateTime *date=*stamp ? g_date_time_new_from_iso8601(stamp,NULL) : NULL;
-   time_t value=date ? (time_t)g_date_time_to_unix(date) : 0;
-   if(date) g_date_time_unref(date);
+   if (!data) {
+      return 0;
+   }
+   dict *doc = json2dict(data);
+
+   if (!doc) {
+      return 0;
+   }
+   const char *stamp = dict_get(doc, "fetched_at", "");
+   GDateTime *date = *stamp ? g_date_time_new_from_iso8601(stamp, NULL) : NULL;
+   time_t value = date ? (time_t) g_date_time_to_unix(date) : 0;
+
+   if (date) {
+      g_date_time_unref(date);
+   }
    dict_free(doc);
+
    return value;
 }
 static time_t publication_age(time_t now) {
-   return published_at>0 && published_at<=now ? now-published_at : 0;
+   return published_at > 0 && published_at <= now ? now - published_at : 0;
 }
 static void save_snapshot(void) {
    if (!db) {
@@ -216,48 +225,43 @@ static void complete_download(void) {
    g_thread_join(request.thread);
    request.thread = NULL;
    time_t current = time(NULL);
-   last_attempt=current;
-   last_http_status=request.http_status;
-   last_curl_result=request.result;
+   last_attempt = current;
+   last_http_status = request.http_status;
+   last_curl_result = request.result;
 
-   bool accepted = request.result == CURLE_OK &&
-      request.http_status == 200 && body_valid(request.data, request.length);
+   bool accepted = request.result == CURLE_OK && request.http_status == 200 && body_valid(request.data, request.length);
+
    if (accepted) {
       g_free(snapshot);
       snapshot = g_steal_pointer(&request.data);
       g_free(source_url);
       source_url = g_strdup(request.url);
       fetched_at = current;
-      published_at=publication_time(snapshot);
+      published_at = publication_time(snapshot);
       generation++;
       make_digest();
-      Log(LOG_INFO, "receiver.directory",
-          "SDR directory generation %llu: %zu bytes, upstream publication %lld seconds old",
-          (unsigned long long)generation,strlen(snapshot),
-          (long long)publication_age(current));
-   } else if(request.result==CURLE_OK && request.http_status==304 && snapshot) {
-      fetched_at=current; /* Revalidated cache, not newly published data. */
-      Log(LOG_INFO,"receiver.directory",
-          "SDR directory HTTP 304: cached generation %llu revalidated, publication age %lld seconds",
-          (unsigned long long)generation,(long long)publication_age(current));
+      Log(LOG_INFO, "receiver.directory", "SDR directory generation %llu: %zu bytes, upstream publication %lld seconds old", (unsigned long long)generation,
+         strlen(snapshot), (long long)publication_age(current));
+   } else if (request.result == CURLE_OK && request.http_status == 304 && snapshot) {
+      fetched_at = current;     /* Revalidated cache, not newly published data. */
+      Log(LOG_INFO, "receiver.directory", "SDR directory HTTP 304: cached generation %llu revalidated, publication age %lld seconds", (unsigned long long)
+         generation, (long long)publication_age(current));
    } else if (request.result != CURLE_OK || request.http_status != 304) {
       Log(LOG_WARN, "receiver.directory", "Server directory update failed: curl=%d HTTP=%ld (retaining snapshot)", (int)request.result, request.http_status);
    }
-   /* A successful 200 or 304 validation starts a fresh daily window.
-    * Failed downloads retain the old snapshot and retry after one hour. */
-   bool verified = accepted ||
-      (request.result == CURLE_OK && request.http_status == 304 && snapshot);
-   /* A successful fetch is not proof of freshly published data.
-    * Keep the old receivers usable but retry hourly while upstream is stale. */
-   bool stale=!published_at || publication_age(current)>DIR_STALE;
-   if(verified && stale)
-      Log(LOG_WARN,"receiver.directory",
-          "Upstream Kiwi directory published %lld minutes ago (source %s, HTTP %ld); retrying in one hour",
-          (long long)(publication_age(current)/60),
-          source_url?source_url:"(unknown)",request.http_status);
-   if(verified && !published_at)
-      Log(LOG_WARN,"receiver.directory",
-          "Directory JSON has no parseable fetched_at timestamp; unable to verify upstream freshness");
+   /* A successful 200 or 304 validation starts a fresh daily window. Failed downloads retain the old snapshot and retry after one hour. */
+   bool verified = accepted || (request.result == CURLE_OK && request.http_status == 304 && snapshot);
+   /* A successful fetch is not proof of freshly published data. Keep the old receivers usable but retry hourly while upstream is stale. */
+   bool stale = !published_at || publication_age(current) > DIR_STALE;
+
+   if (verified && stale) {
+      Log(LOG_WARN, "receiver.directory", "Upstream Kiwi directory published %lld minutes ago (source %s, HTTP %ld); retrying in one hour", (long long)(
+         publication_age(current) / 60), source_url ? source_url : "(unknown)", request.http_status);
+   }
+
+   if (verified && !published_at) {
+      Log(LOG_WARN, "receiver.directory", "Directory JSON has no parseable fetched_at timestamp; unable to verify upstream freshness");
+   }
    next_fetch = current + (verified && !stale ? DIR_TTL : DIR_RETRY);
    save_snapshot();
    g_clear_pointer(&request.url, g_free);
@@ -267,15 +271,17 @@ static void complete_download(void) {
    request.length = 0;
 }
 static void start_fetch(void) {
-   if(request.thread) return;
-   if(!source_allowed(cfg_get("receiver-directory.url"))) {
-      /* Don't spin in server.poll when the operator disables the URL or
-       * supplies an invalid origin; keep existing cached data. */
-      if(next_fetch<=time(NULL)) {
-         Log(LOG_WARN,"receiver.directory",
-             "SDR directory upstream URL disabled/invalid; keeping cached snapshot");
-         next_fetch=time(NULL)+DIR_RETRY;
+   if (request.thread) {
+      return;
+   }
+
+   if (!source_allowed(cfg_get("receiver-directory.url"))) {
+      /* Don't spin in server.poll when the operator disables the URL or supplies an invalid origin; keep existing cached data. */
+      if (next_fetch <= time(NULL)) {
+         Log(LOG_WARN, "receiver.directory", "SDR directory upstream URL disabled/invalid; keeping cached snapshot");
+         next_fetch = time(NULL) + DIR_RETRY;
       }
+
       return;
    }
    static gsize curl_ready;
@@ -300,14 +306,11 @@ static void start_fetch(void) {
       /* Keep the old snapshot as fallback, but never serve it as the new source's current generation. */
    }
    request.url = g_strdup(url);
-   /* Do not rely on conditional 304s while the upstream publication is
-    * already stale: request a full payload to distinguish CDN freshness
-    * from an unchanged old body. */
-   bool fresh=published_at>0 && publication_age(time(NULL))<=DIR_STALE;
-   request.etag = fresh && source_url && !strcmp(source_url, url) ?
-                  g_strdup(validator) : NULL;
-   request.modified = fresh && source_url && !strcmp(source_url, url) ?
-                      g_strdup(modified) : NULL;
+   /* Do not rely on conditional 304s while the upstream publication is already stale: request a full payload to distinguish CDN freshness from an unchanged old
+    * body. */
+   bool fresh = published_at > 0 && publication_age(time(NULL)) <= DIR_STALE;
+   request.etag = fresh && source_url && !strcmp(source_url, url) ? g_strdup(validator) : NULL;
+   request.modified = fresh && source_url && !strcmp(source_url, url) ? g_strdup(modified) : NULL;
    request.result = CURLE_FAILED_INIT;
    request.http_status = 0;
    request.overflow = false;
@@ -315,11 +318,9 @@ static void start_fetch(void) {
    request.thread = g_thread_try_new("rr-directory-fetch", downloader, NULL, NULL);
 
    if (!request.thread) {
-      Log(LOG_WARN,"receiver.directory",
-          "Unable to start SDR directory HTTP worker: %s",
-          request.url?request.url:"(none)");
+      Log(LOG_WARN, "receiver.directory", "Unable to start SDR directory HTTP worker: %s", request.url ? request.url : "(none)");
       g_clear_pointer(&request.url, g_free);
-      next_fetch=time(NULL)+DIR_RETRY;
+      next_fetch = time(NULL) + DIR_RETRY;
    }
 }
 static void respond(rrconn_t *client, const char *cmd, const char *nonce) {
@@ -432,20 +433,23 @@ static void poll_dir(const char *event, const char *data, rrconn_t *client, void
    (void)client;
    (void)unused;
    complete_download();
-   /* The server must refresh upstream without requiring a client to open
-    * the directory or press Refresh. This work runs in its existing worker. */
-   if (db && !request.thread && time(NULL) >= next_fetch)
+
+   /* The server must refresh upstream without requiring a client to open the directory or press Refresh. This work runs in its existing worker. */
+   if (db && !request.thread && time(NULL) >= next_fetch) {
       start_fetch();
+   }
 }
 bool rrserver_receiver_directory_init(void) {
    const char *configured = cfg_get("receiver-directory.cache");
    /* Expand configured paths before creating directories or opening SQLite. */
    db_path = configured && *configured ? expand_path(configured)
       : g_build_filename(g_get_user_cache_dir(), "rustyrig", "server-receivers.sqlite3", NULL);
+
    if (!db_path || !g_path_is_absolute(db_path)) {
       g_free(db_path);
       db_path = NULL;
       Log(LOG_WARN, "receiver.directory", "Invalid receiver-directory cache path");
+
       return false;
    }
    char *parent = g_path_get_dirname(db_path);
@@ -483,23 +487,23 @@ bool rrserver_receiver_directory_init(void) {
          next_fetch = 0;
       }
       make_digest();
-      published_at=publication_time(snapshot);
-      const char *configured_url=cfg_get("receiver-directory.url");
-      if(snapshot && next_fetch>time(NULL) &&
-         ((!source_url || g_strcmp0(configured_url,source_url)) ||
-          !published_at || publication_age(time(NULL))>DIR_STALE))
-         next_fetch=time(NULL); /* Revalidate stale/unverifiable or changed origins. */
+      published_at = publication_time(snapshot);
+      const char *configured_url = cfg_get("receiver-directory.url");
+
+      if (snapshot && next_fetch > time(NULL) &&
+         ((!source_url || g_strcmp0(configured_url, source_url)) || !published_at || publication_age(time(NULL)) > DIR_STALE)) {
+         next_fetch = time(NULL);   /* Revalidate stale/unverifiable or changed origins. */
+
+      }
 
       if (snapshot) {
          Log(LOG_INFO, "receiver.directory", "Loaded server directory generation %llu from SQLite", (unsigned long long)generation);
       }
    }
    sqlite3_finalize(stmt);
-   Log(LOG_INFO,"receiver.directory",
-       "SDR directory cache %s: generation=%llu, fetched=%lld, upstream-published=%lld (%lld minutes old), next-check=%lld",
-       db_path,(unsigned long long)generation,(long long)fetched_at,
-       (long long)published_at,(long long)(publication_age(time(NULL))/60),
-       (long long)next_fetch);
+   Log(LOG_INFO, "receiver.directory", "SDR directory cache %s: generation=%llu, fetched=%lld, upstream-published=%lld (%lld minutes old), next-check=%lld",
+      db_path, (unsigned long long)generation, (long long)fetched_at, (long long)published_at, (long long)(publication_age(time(NULL)) / 60), (long long)
+      next_fetch);
    event_on_binary(RR_SERVER_ROUTE_EVENT, request_handler, NULL);
    event_on("server.poll", poll_dir, NULL);
 

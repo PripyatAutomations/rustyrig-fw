@@ -189,38 +189,64 @@ static void vfo_layout_save(void);
 static void vfo_layout_restore(void);
 static guint vfo_width_bucket, vfo_pending_bucket, vfo_resize_idle;
 static guint vfo_bucket_for_width(gint width, guint previous) {
-   if(previous==1 && width<770) return 1;
-   if(previous==2 && width>=690 && width<1290) return 2;
-   if(previous==3 && width>=1210) return 3;
-   return width<730?1:width<1250?2:3;
+   if (previous == 1 && width < 770) {
+      return 1;
+   }
+
+   if (previous == 2 && width >= 690 && width < 1290) {
+      return 2;
+   }
+
+   if (previous == 3 && width >= 1210) {
+      return 3;
+   }
+
+   return width < 730 ? 1 : width < 1250 ? 2 : 3;
 }
 static const char *vfo_bucket_key(guint bucket) {
-   return bucket==1?"ui.vfo.layout.compact":
-          bucket==2?"ui.vfo.layout.half":"ui.vfo.layout.wide";
+   return bucket == 1 ? "ui.vfo.layout.compact" : bucket == 2 ? "ui.vfo.layout.half" : "ui.vfo.layout.wide";
 }
 static gboolean vfo_apply_width(gpointer unused) {
    (void)unused;
-   vfo_resize_idle=0;
-   if (!GTK_IS_FLOW_BOX(vfo_controls_row)) return G_SOURCE_REMOVE;
-   guint bucket=vfo_pending_bucket;
-   if(bucket==vfo_width_bucket) return G_SOURCE_REMOVE;
-   if(vfo_width_bucket) vfo_layout_save();
-   vfo_width_bucket=bucket;
-   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row),
-      bucket==1?1:bucket==2?2:3);
+   vfo_resize_idle = 0;
+
+   if (!GTK_IS_FLOW_BOX(vfo_controls_row)) {
+      return G_SOURCE_REMOVE;
+   }
+   guint bucket = vfo_pending_bucket;
+
+   if (bucket == vfo_width_bucket) {
+      return G_SOURCE_REMOVE;
+   }
+
+   if (vfo_width_bucket) {
+      vfo_layout_save();
+   }
+   vfo_width_bucket = bucket;
+   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), bucket == 1 ? 1 : bucket == 2 ? 2 : 3);
    vfo_layout_restore();
    gtk_widget_queue_resize(vfo_controls_row);
+
    return G_SOURCE_REMOVE;
 }
 void vfo_controls_fit_width(int width) {
-   if (width<1 || !GTK_IS_FLOW_BOX(vfo_controls_row)) return;
-   guint next=vfo_bucket_for_width(width,vfo_width_bucket);
-   if(next==vfo_width_bucket || next==vfo_pending_bucket) return;
-   vfo_pending_bucket=next;
-   if(!vfo_resize_idle) vfo_resize_idle=g_idle_add(vfo_apply_width,NULL);
+   if (width < 1 || !GTK_IS_FLOW_BOX(vfo_controls_row)) {
+      return;
+   }
+   guint next = vfo_bucket_for_width(width, vfo_width_bucket);
+
+   if (next == vfo_width_bucket || next == vfo_pending_bucket) {
+      return;
+   }
+   vfo_pending_bucket = next;
+
+   if (!vfo_resize_idle) {
+      vfo_resize_idle = g_idle_add(vfo_apply_width, NULL);
+   }
 }
-static void vfo_viewport_allocation(GtkWidget *widget,GtkAllocation *alloc,gpointer unused) {
-   (void)widget; (void)unused;
+static void vfo_viewport_allocation(GtkWidget *widget, GtkAllocation *alloc, gpointer unused) {
+   (void)widget;
+   (void)unused;
    vfo_controls_fit_width(alloc->width);
 }
 
@@ -276,8 +302,12 @@ static void local_vfo_refresh(const char *event, const char *data, rrconn_t *con
 static void local_vfo_destroy(GtkWidget *widget, gpointer unused) {
    (void)widget;
    (void)unused;
-   if(vfo_resize_idle) {g_source_remove(vfo_resize_idle);vfo_resize_idle=0;}
-   vfo_width_bucket=vfo_pending_bucket=0;
+
+   if (vfo_resize_idle) {
+      g_source_remove(vfo_resize_idle);
+      vfo_resize_idle = 0;
+   }
+   vfo_width_bucket = vfo_pending_bucket = 0;
 
    if (local_vfo_token) {
       event_off_token(local_vfo_token);
@@ -312,8 +342,10 @@ static void vfo_layout_save(void) {
    }
 
    rrclient_database_vfo_layout_save(order->str);
-   if(vfo_width_bucket)
-      rrclient_database_setting_set(vfo_bucket_key(vfo_width_bucket),order->str);
+
+   if (vfo_width_bucket) {
+      rrclient_database_setting_set(vfo_bucket_key(vfo_width_bucket), order->str);
+   }
    g_list_free(children);
    g_string_free(order, TRUE);
 }
@@ -321,11 +353,11 @@ static void vfo_layout_restore(void) {
    if (!GTK_IS_FLOW_BOX(vfo_controls_row)) {
       return;
    }
-   char *stored=vfo_width_bucket ?
-      rrclient_database_setting_get(vfo_bucket_key(vfo_width_bucket)):NULL;
-   if(!stored || !*stored) {
+   char *stored = vfo_width_bucket ? rrclient_database_setting_get(vfo_bucket_key(vfo_width_bucket)) : NULL;
+
+   if (!stored || !*stored) {
       g_free(stored);
-      stored=rrclient_database_vfo_layout_load();
+      stored = rrclient_database_vfo_layout_load();
    }
 
    if (!stored) {
@@ -552,8 +584,7 @@ GtkWidget *create_vfo_box(void) {
    vfo_controls_row = gtk_flow_box_new();
    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(vfo_controls_row), GTK_SELECTION_NONE);
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
-   /* Begin compact; the viewport's actual allocated width selects 1, 2,
-    * or 3 columns later, without inflating the panel's minimum width. */
+   /* Begin compact; the viewport's actual allocated width selects 1, 2, or 3 columns later, without inflating the panel's minimum width. */
    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
@@ -570,8 +601,7 @@ GtkWidget *create_vfo_box(void) {
    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(flow_viewport), TRUE);
    gtk_widget_set_hexpand(flow_viewport, TRUE);
    gtk_container_add(GTK_CONTAINER(flow_viewport), vfo_controls_row);
-   g_signal_connect(flow_viewport,"size-allocate",
-      G_CALLBACK(vfo_viewport_allocation),NULL);
+   g_signal_connect(flow_viewport, "size-allocate", G_CALLBACK(vfo_viewport_allocation), NULL);
    gtk_box_pack_start(GTK_BOX(control_box), flow_viewport, FALSE, FALSE, 0);
 
    // FREQ selection

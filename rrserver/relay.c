@@ -39,9 +39,8 @@ struct subscription *rr_relay_subscriptions;
 /* A signed operation is distinct from the signed descriptor it changes. Relays forward the origin signature unchanged; only its owner can mint it. */
 static GHashTable *catalog_mutations_seen;
 
-/* Ingress peer is obtained from the authenticated link, never the claimed
- * origin in a packet. Fixed-size counts and a bounded peer table prevent
- * malicious traffic from allocating unbounded security telemetry. */
+/* Ingress peer is obtained from the authenticated link, never the claimed origin in a packet. Fixed-size counts and a bounded peer table prevent malicious
+ * traffic from allocating unbounded security telemetry. */
 typedef struct {
    guint64 totals[6];
    guint failures_window;
@@ -54,57 +53,80 @@ static const char *const mesh_verify_names[] = {
 };
 
 void rr_mesh_verify_record(const char *ingress, enum rr_mesh_verify_result result) {
-   if ((unsigned)result >= G_N_ELEMENTS(mesh_verify_totals)) return;
+   if ((unsigned)result >= G_N_ELEMENTS(mesh_verify_totals)) {
+      return;
+   }
    mesh_verify_totals[result]++;
-   if (!ingress || !*ingress) return;
-   if (!mesh_verify_peers)
+
+   if (!ingress || !*ingress) {
+      return;
+   }
+
+   if (!mesh_verify_peers) {
       mesh_verify_peers = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   }
    mesh_verify_peer_t *peer = g_hash_table_lookup(mesh_verify_peers, ingress);
+
    if (!peer) {
-      if (g_hash_table_size(mesh_verify_peers) >= 256) return;
+      if (g_hash_table_size(mesh_verify_peers) >= 256) {
+         return;
+      }
       peer = g_new0(mesh_verify_peer_t, 1);
       g_hash_table_insert(mesh_verify_peers, g_strdup(ingress), peer);
    }
    peer->totals[result]++;
-   if (result == RR_MESH_VERIFY_VALID) return;
+
+   if (result == RR_MESH_VERIFY_VALID) {
+      return;
+   }
    gint64 now = g_get_monotonic_time();
+
    if (!peer->window_started || now - peer->window_started >= 60 * G_USEC_PER_SEC) {
       peer->window_started = now;
       peer->failures_window = 0;
    }
-   if (peer->failures_window < G_MAXUINT) peer->failures_window++;
-   /* Warn on 10+ rejected packets per minute, once per minute per ingress.
-    * Do not automatically disconnect based on potentially induced failures. */
-   if (peer->failures_window >= 10 &&
-       (!peer->last_alert || now - peer->last_alert >= 60 * G_USEC_PER_SEC)) {
+
+   if (peer->failures_window < G_MAXUINT) {
+      peer->failures_window++;
+   }
+
+   /* Warn on 10+ rejected packets per minute, once per minute per ingress. Do not automatically disconnect based on potentially induced failures. */
+   if (peer->failures_window >= 10 && (!peer->last_alert || now - peer->last_alert >= 60 * G_USEC_PER_SEC)) {
       peer->last_alert = now;
-      Log(LOG_WARN, "mesh.security",
-         "ALERT: excessive signature/identity failures from authenticated ingress %s: %u in last 60s (last=%s)",
-         ingress, peer->failures_window, mesh_verify_names[result]);
+      Log(LOG_WARN, "mesh.security", "ALERT: excessive signature/identity failures from authenticated ingress %s: %u in last 60s (last=%s)", ingress, peer->
+         failures_window, mesh_verify_names[result]);
    }
 }
 void rr_mesh_verify_profile_append(GString *report) {
-   if (!report) return;
+   if (!report) {
+      return;
+   }
    g_string_append(report, "\n  mesh signature verification (cumulative, local):");
-   for (unsigned i = 0; i < G_N_ELEMENTS(mesh_verify_totals); ++i)
-      g_string_append_printf(report, " %s=%llu", mesh_verify_names[i],
-         (unsigned long long)mesh_verify_totals[i]);
-   if (!mesh_verify_peers) return;
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(mesh_verify_totals) ; ++i) {
+      g_string_append_printf(report, " %s=%llu", mesh_verify_names[i], (unsigned long long)mesh_verify_totals[i]);
+   }
+
+   if (!mesh_verify_peers) {
+      return;
+   }
    GHashTableIter iter;
    gpointer key, value;
    g_hash_table_iter_init(&iter, mesh_verify_peers);
    while (g_hash_table_iter_next(&iter, &key, &value)) {
       const mesh_verify_peer_t *peer = value;
       guint64 failed = 0;
-      for (unsigned i = 1; i < G_N_ELEMENTS(peer->totals); ++i)
+
+      for (unsigned i = 1 ; i < G_N_ELEMENTS(peer->totals) ; ++i) {
          failed += peer->totals[i];
-      if (!failed) continue;
-      g_string_append_printf(report,
-         "\n    ingress=%s valid=%llu unsigned=%llu invalid=%llu untrusted=%llu replay=%llu bad-route=%llu",
-         (const char *)key, (unsigned long long)peer->totals[0],
-         (unsigned long long)peer->totals[1], (unsigned long long)peer->totals[2],
-         (unsigned long long)peer->totals[3], (unsigned long long)peer->totals[4],
-         (unsigned long long)peer->totals[5]);
+      }
+
+      if (!failed) {
+         continue;
+      }
+      g_string_append_printf(report, "\n    ingress=%s valid=%llu unsigned=%llu invalid=%llu untrusted=%llu replay=%llu bad-route=%llu", (const char *)key, (
+         unsigned long long)peer->totals[0], (unsigned long long)peer->totals[1], (unsigned long long)peer->totals[2], (unsigned long long)peer->totals[3], (
+            unsigned long long)peer->totals[4], (unsigned long long)peer->totals[5]);
    }
 }
 
@@ -321,6 +343,7 @@ void rr_relay_send_owned_ttl(const char *dest, const char *owner, const char *ki
       if (!dict_get(payload, "identity.signature", NULL)) {
          Log(LOG_WARN, "mesh.identity", "Blocked unsigned %s from %s toward %s", kind, owner, dest);
          dict_free(mutation);
+
          return;
       }
    }
@@ -752,9 +775,8 @@ static void revocation_forward(const char *from, const char *owner, dict *notice
    rrserver_links_each_neighbor(revocation_send_neighbor, &fanout);
 }
 
-/* Republish an admitted, signed user-directory snapshot unchanged. The
- * authenticated mesh topology is a tree: exclude the ingress peer to prevent
- * loops, and preserve the home node's signature and revision for every hop. */
+/* Republish an admitted, signed user-directory snapshot unchanged. The authenticated mesh topology is a tree: exclude the ingress peer to prevent loops, and
+ * preserve the home node's signature and revision for every hop. */
 typedef struct {
    const char *ingress;
    const char *owner;
@@ -764,9 +786,10 @@ typedef struct {
 
 static void relay_forward_users_to_neighbor(const char *neighbor, void *user) {
    relay_user_fanout_t *f = user;
-   if (neighbor && strcmp(neighbor, f->ingress) &&
-       strcmp(neighbor, f->owner))
+
+   if (neighbor && strcmp(neighbor, f->ingress) && strcmp(neighbor, f->owner)) {
       rr_relay_send_owned_ttl(neighbor, f->owner, "users", f->snapshot, f->ttl);
+   }
 }
 
 /* Validate a received link envelope and dispatch its payload by kind. */
@@ -813,7 +836,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
       if (verified) {
          verified = rr_identity_accept_control_nonce(masterdb, d);
-         if (!verified) rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
+
+         if (!verified) {
+            rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
+         }
       }
 #else
       verified = false;
@@ -1190,8 +1216,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             Log(LOG_WARN, "mesh.identity", "Rejecting unsigned or forged user-directory snapshot for %s", origin);
             goto done;
          }
-         /* Reject a malformed key listing before advancing the durable
-          * signed revision journal or forwarding it to other nodes. */
+
+         /* Reject a malformed key listing before advancing the durable signed revision journal or forwarding it to other nodes. */
          if (!rr_relay_directory_valid(origin, d)) {
             rr_mesh_verify_record(ingress, RR_MESH_VERIFY_INVALID);
             Log(LOG_WARN, "mesh.identity", "Rejected invalid client key directory for %s", origin);
@@ -1206,7 +1232,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 #endif
          rr_relay_directory_put(origin, d);
          /* The link layer has already consumed one hop from this packet. */
-         relay_user_fanout_t fanout = { ingress, origin, d, atoi(dict_get(envelope, "ttl", "0")) };
+         relay_user_fanout_t fanout = {
+            ingress, origin, d, atoi(dict_get(envelope, "ttl", "0"))
+         };
          rrserver_links_each_neighbor(relay_forward_users_to_neighbor, &fanout);
       } else {
          /* Removal descriptors are catalog records too. Prevent unsigned or forged removals from bypassing normal catalog admission. */
@@ -1297,7 +1325,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
       if (valid) {
          valid = rr_identity_accept_control_nonce(masterdb, d);
-         if (!valid) rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
+
+         if (!valid) {
+            rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
+         }
       }
 #else
       valid = false;
@@ -1327,7 +1358,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
             if (valid) {
                valid = rr_identity_accept_control_nonce(masterdb, d);
-               if (!valid) rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
+
+               if (!valid) {
+                  rr_mesh_verify_record(ingress, RR_MESH_VERIFY_REPLAY);
+               }
             }
          }
 #endif

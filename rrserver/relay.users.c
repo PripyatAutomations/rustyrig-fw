@@ -28,11 +28,11 @@ void rr_relay_users_reset(void) {
    users_check_at = 0;
 }
 
-/* Every connected neighbor receives an owner-signed directory revision.
- * Do not depend on the node object catalog already being synchronized. */
+/* Every connected neighbor receives an owner-signed directory revision. Do not depend on the node object catalog already being synchronized. */
 static void publish_user_directory_to_neighbor(const char *neighbor, void *data) {
-   if (neighbor && *neighbor)
+   if (neighbor && *neighbor) {
       rr_relay_send_owned(neighbor, rrserver_links_node(), "users", data);
+   }
 }
 
 /* Rebuild only on relevant changes, explicit queries, or bounded reconciliation. */
@@ -74,17 +74,24 @@ void rr_relay_users_poll(bool force) {
       changed |= strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
    }
 
-   if (!changed && g_strcmp0(dict_get(entry->users, "userkey.overflow", "false"),
-         dict_get(local, "userkey.overflow", "false"))) changed = true;
-   /* Key enrollment/revocation must publish a new signed directory revision
-    * even when user presence and account metadata are unchanged. */
-   if (!changed && dict_get_uint(entry->users, "userkey.count", 0) != dict_get_uint(local, "userkey.count", 0))
+   if (!changed && g_strcmp0(dict_get(entry->users, "userkey.overflow", "false"), dict_get(local, "userkey.overflow", "false"))) {
       changed = true;
-   for (unsigned i = 0; !changed && i < dict_get_uint(local, "userkey.count", 0); ++i) {
+   }
+
+   /* Key enrollment/revocation must publish a new signed directory revision even when user presence and account metadata are unchanged. */
+   if (!changed && dict_get_uint(entry->users, "userkey.count", 0) != dict_get_uint(local, "userkey.count", 0)) {
+      changed = true;
+   }
+
+   for (unsigned i = 0 ; !changed && i < dict_get_uint(local, "userkey.count", 0) ; ++i) {
       char key[64];
-      static const char *fields[] = { "principal", "id", "public" };
-      for (unsigned n = 0; n < G_N_ELEMENTS(fields); ++n) {
+      static const char *fields[] = {
+         "principal", "id", "public"
+      };
+
+      for (unsigned n = 0 ; n < G_N_ELEMENTS(fields) ; ++n) {
          snprintf(key, sizeof(key), "userkey.%u.%s", i, fields[n]);
+
          if (g_strcmp0(dict_get(entry->users, key, ""), dict_get(local, key, ""))) {
             changed = true;
             break;
@@ -132,11 +139,8 @@ void rr_relay_users_poll(bool force) {
          return;
       }
       rr_relay_directory_put(rrserver_links_node(), local);
-      Log(LOG_INFO, "mesh.identity",
-         "Published signed user directory: node=%s client-keys=%u overflow=%s revision=%s",
-         rrserver_links_node(), dict_get_uint(local, "userkey.count", 0),
-         dict_get(local, "userkey.overflow", "false"),
-         dict_get(local, "identity.revision", "(missing)"));
+      Log(LOG_INFO, "mesh.identity", "Published signed user directory: node=%s client-keys=%u overflow=%s revision=%s", rrserver_links_node(), dict_get_uint(
+         local, "userkey.count", 0), dict_get(local, "userkey.overflow", "false"), dict_get(local, "identity.revision", "(missing)"));
 
       rrserver_links_each_neighbor(publish_user_directory_to_neighbor, local);
    }

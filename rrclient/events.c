@@ -613,14 +613,14 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 }
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   /* Connection events are per-server. A late callback from a background IRC
-    * profile must not mark the selected RustyRig WebSocket session offline.
-    * Normal connman dispatch activates the event owner before invoking us. */
+   /* Connection events are per-server. A late callback from a background IRC profile must not mark the selected RustyRig WebSocket session offline. Normal
+    * connman dispatch activates the event owner before invoking us. */
    if (cptr && cptr != rrclient_connection_context()) {
-      Log(LOG_WARN, "connman", "Ignoring %s for foreign session %p (active=%p)",
-         event, (void *)cptr, (void *)rrclient_connection_context());
+      Log(LOG_WARN, "connman", "Ignoring %s for foreign session %p (active=%p)", event, (void *)cptr, (void *)rrclient_connection_context());
+
       return;
    }
+
    if (strcasecmp(event, "connecting") == 0) {
       ui_print(NULL, "%s*** \00308Connecting\017 ***", get_chat_ts(now));
       rrclient_update_connection_ui(-1);
@@ -660,8 +660,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          }
       }
       cmd_list(0, NULL);
-   } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0 ||
-              strcasecmp(event, "irc.disconnected") == 0) {
+   } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0 || strcasecmp(event, "irc.disconnected") == 0) {
       ui_print(NULL, "%s*** \00304DISCONNECTED\017 ***", get_chat_ts(now));
       rrclient_supervision_clear(cptr);
       rrclient_set_offline();
@@ -1591,18 +1590,16 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
    const char *output = ui_active_window_name();
 
    if (msg) {
-      /* This notice is a bearer credential. Deliver a copy to GTK through
-       * its event domain, but avoid JSON serialization or general logging. */
-      static const char invitation_prefix[] =
-         "One-time enrollment token (base64, confidential): ";
+      /* This notice is a bearer credential. Deliver a copy to GTK through its event domain, but avoid JSON serialization or general logging. */
+      static const char invitation_prefix[] = "One-time enrollment token (base64, confidential): ";
+
       if (g_str_has_prefix(msg, invitation_prefix)) {
          const char *token = msg + sizeof(invitation_prefix) - 1;
          size_t token_len = strlen(token);
-         if (token_len > 0 && token_len < 8192 &&
-             strspn(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") == token_len) {
+
+         if (token_len > 0 && token_len < 8192 && strspn(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") == token_len) {
             event_emit_message(&(rr_event_message_t) {
-               .name = "client.ui.mesh.enrollment-token",
-               .sender = "core", .payload = token, .length = token_len + 1
+               .name = "client.ui.mesh.enrollment-token", .sender = "core", .payload = token, .length = token_len + 1
             });
          }
       }
@@ -1978,6 +1975,7 @@ static void rrclient_handle_domain_identity(const char *event, const char *data,
    }
    const char *domain = dict_get(identity, "domain.name", "");
    const char *station = dict_get(identity, "domain.station", "");
+
    if (rrclient_connection_expected_node_matches(connection, station, domain)) {
       const char *uuid = dict_get(identity, "domain.server", "");
       rrclient_connection_set_identity(connection, domain, uuid);
@@ -2125,17 +2123,25 @@ static void locator_snapshot_core(const char *event, const char *previous, rrcon
 
    // Append only copied source inventory; readers on GTK must never access live RX routes.
    g_strlcpy(snap.recording_user, login_user ? login_user : "", sizeof(snap.recording_user));
-   struct rrclient_rx_stream streams[32] = {0};
+   struct rrclient_rx_stream streams[32] = {
+      0
+   };
    size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
    size_t used = 0;
-   for (size_t i = 0; i < MIN(count, G_N_ELEMENTS(streams)); i++) {
-      if (streams[i].output == 'M') continue;
-      int written = g_snprintf(snap.recording_sources + used, sizeof(snap.recording_sources) - used,
-         "%s%s|%s|%s|%c", used ? ";" : "",
-         streams[i].server, streams[i].room, streams[i].id, streams[i].output);
-      if (written < 0 || (size_t)written >= sizeof(snap.recording_sources) - used) break;
+
+   for (size_t i = 0 ; i < MIN(count, G_N_ELEMENTS(streams)) ; i++) {
+      if (streams[i].output == 'M') {
+         continue;
+      }
+      int written = g_snprintf(snap.recording_sources + used, sizeof(snap.recording_sources) - used, "%s%s|%s|%s|%c", used ? ";" : "", streams[i].server,
+         streams[i].room, streams[i].id, streams[i].output);
+
+      if (written < 0 || (size_t)written >= sizeof(snap.recording_sources) - used) {
+         break;
+      }
       used += (size_t)written;
    }
+
    event_emit_binary(RRCLIENT_LOCATOR_SNAPSHOT_EVENT, NULL, &snap, sizeof(snap));
 }
 void rrclient_register_events(void) {

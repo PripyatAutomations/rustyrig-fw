@@ -415,18 +415,20 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    g_free(rooms);
    bool rooms_changed = strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), editor->initial[4]) != 0;
    const char *node_name = gtk_entry_get_text(GTK_ENTRY(editor->node_name));
+
    if (*node_name) {
       const char *dot = strchr(node_name, '.');
+
       if (!dot || dot == node_name || !dot[1] || strlen(node_name) >= 254 ||
-          node_name[strlen(node_name)-1] == '.' ||
-          strspn(node_name, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != strlen(node_name)) {
+         node_name[strlen(node_name) - 1] == '.' ||
+         strspn(node_name, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != strlen(node_name)) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Node Name must be station.domain (e.g. rplywv00.ham.istabpeople.com).");
+
          return;
       }
    }
    bool node_changed = !editor->creating &&
-      g_ascii_strcasecmp(node_name, get_server_property(profile, "server.node-name") ?
-         get_server_property(profile, "server.node-name") : "") != 0;
+      g_ascii_strcasecmp(node_name, get_server_property(profile, "server.node-name") ? get_server_property(profile, "server.node-name") : "") != 0;
    bool ignore_hostname = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_hostname));
    bool tofu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->tls_tofu));
 
@@ -452,6 +454,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    if (editor->creating || node_changed) {
       if (!rrclient_database_server_set(profile, "server.node-name", node_name)) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save expected node identity.");
+
          return;
       }
    }
@@ -468,22 +471,22 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    }
 
    if (editor->creating || ignore_hostname != editor->initial_tls_hostname) {
-      if (!rrclient_database_server_set(profile, "server.tls-ignore-hostname",
-                                        ignore_hostname ? "true" : "false")) {
+      if (!rrclient_database_server_set(profile, "server.tls-ignore-hostname", ignore_hostname ? "true" : "false")) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save TLS hostname preference.");
+
          return;
       }
    }
+
    if (editor->creating || tofu != editor->initial_tls_tofu) {
-      if (!rrclient_database_server_set(profile, "server.tls-trust-on-first-use",
-                                        tofu ? "true" : "false")) {
+      if (!rrclient_database_server_set(profile, "server.tls-trust-on-first-use", tofu ? "true" : "false")) {
          gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save self-signed trust policy.");
+
          return;
       }
    }
-   /* Never erase a pinned identity simply because its IP/URL or hostname
-    * preference changed. An actual key change must go through the explicit
-    * fingerprint approval flow, rather than silently disabling protection. */
+   /* Never erase a pinned identity simply because its IP/URL or hostname preference changed. An actual key change must go through the explicit fingerprint
+    * approval flow, rather than silently disabling protection. */
 
    if (rooms_changed && !editor->creating) {
       char key[640];
@@ -643,26 +646,19 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Node Name"), 0, 9, 1, 1);
    gtk_grid_attach(GTK_GRID(grid), editor->node_name, 1, 9, 1, 1);
    const char *hostname_value = profile ? get_server_property(profile, "server.tls-ignore-hostname") : NULL;
-   editor->initial_tls_hostname = hostname_value &&
-      (!g_ascii_strcasecmp(hostname_value, "true") || !strcmp(hostname_value, "1"));
+   editor->initial_tls_hostname = hostname_value && (!g_ascii_strcasecmp(hostname_value, "true") || !strcmp(hostname_value, "1"));
    editor->tls_hostname = gtk_check_button_new_with_label("Ignore TLS hostname");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_hostname), editor->initial_tls_hostname);
-   gtk_widget_set_tooltip_text(editor->tls_hostname,
-      "Use the expected Node Name as the certificate DNS name instead of the URL dial hostname/IP. "
+   gtk_widget_set_tooltip_text(editor->tls_hostname, "Use the expected Node Name as the certificate DNS name instead of the URL dial hostname/IP. "
       "Does not disable TLS certificate trust checks or change the saved SPKI public-key pin. "
       "If Node Name is not configured yet, RustyRig can learn it after approved trust and an authenticated station announcement.");
    gtk_grid_attach(GTK_GRID(grid), editor->tls_hostname, 0, 10, 2, 1);
-   const char *tofu_value = profile ?
-      get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
-   editor->initial_tls_tofu = tofu_value &&
-      (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   const char *tofu_value = profile ? get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
+   editor->initial_tls_tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
    editor->tls_tofu = gtk_check_button_new_with_label("Allow self-signed certificates");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu),
-                                editor->initial_tls_tofu);
-   gtk_widget_set_tooltip_text(editor->tls_tofu,
-      "Separately permit trust-on-first-use for self-signed certificates; "
-      "the first public key must be approved before any credentials are sent. "
-      "Normal trusted-CA connections are verified and pinned automatically.");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu), editor->initial_tls_tofu);
+   gtk_widget_set_tooltip_text(editor->tls_tofu, "Separately permit trust-on-first-use for self-signed certificates; "
+      "the first public key must be approved before any credentials are sent. " "Normal trusted-CA connections are verified and pinned automatically.");
    gtk_grid_attach(GTK_GRID(grid), editor->tls_tofu, 0, 11, 2, 1);
    editor->error = gtk_label_new("");
    gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 12, 2, 1);
@@ -672,8 +668,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), save, 1, 13, 1, 1);
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(server_editor_close), NULL);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
-   /* A direct New/Edit action must be visible even when the Status/Log
-    * page auto-hides other floating panels. Do not clear that mask. */
+   /* A direct New/Edit action must be visible even when the Status/Log page auto-hides other floating panels. Do not clear that mask. */
    rr_floating_panel_present(server_editor_panel);
 
    return window;

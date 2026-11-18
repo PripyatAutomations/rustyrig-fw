@@ -132,54 +132,56 @@ static resource_branch *resource_branch_get(const char *profile) {
    return branch;
 }
 
-/* IRC has no mesh identity. Show only registered IRC connections under a
- * single root, never as an unresolved RustyRig domain. */
+/* IRC has no mesh identity. Show only registered IRC connections under a single root, never as an unresolved RustyRig domain. */
 static resource_branch *resource_irc_branch_get(const char *profile) {
    resource_branch *branch = g_hash_table_lookup(browser->branches, profile);
-   if (branch) return branch;
+
+   if (branch) {
+      return branch;
+   }
 
    if (!browser->irc_root_valid) {
       gtk_tree_store_insert_before(browser->store, &browser->irc_root, NULL, &browser->local_root);
-      gtk_tree_store_set(browser->store, &browser->irc_root,
-         NAME, "IRC Servers", KIND, "irc-servers", STATE, "Connected IRC networks", -1);
+      gtk_tree_store_set(browser->store, &browser->irc_root, NAME, "IRC Servers", KIND, "irc-servers", STATE, "Connected IRC networks", -1);
       browser->irc_root_valid = true;
    }
 
    branch = g_new0(resource_branch, 1);
    branch->profile = g_strdup(profile);
    branch->irc = true;
-   branch->irc_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
-      (GDestroyNotify) gtk_tree_row_reference_free);
+   branch->irc_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
    branch->domain_root = browser->irc_root;
    gtk_tree_store_append(browser->store, &branch->root, &browser->irc_root);
-   gtk_tree_store_set(browser->store, &branch->root,
-      NAME, profile, KIND, "server", PROFILE, profile, STATE, "Connected (IRC)", -1);
+   gtk_tree_store_set(browser->store, &branch->root, NAME, profile, KIND, "server", PROFILE, profile, STATE, "Connected (IRC)", -1);
    branch->root_valid = true;
    g_hash_table_insert(browser->branches, branch->profile, branch);
 
    /* Reveal the category when the first IRC server connects. */
    GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &browser->irc_root);
    GtkTreePath *visible = resource_view_path(child_path);
+
    if (visible) {
       gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), visible, FALSE);
       gtk_tree_path_free(visible);
    }
    gtk_tree_path_free(child_path);
+
    return branch;
 }
 
-/* Remove a connection's presentation without disturbing another profile in
- * the same RustyRig domain or the other connected IRC servers. */
+/* Remove a connection's presentation without disturbing another profile in the same RustyRig domain or the other connected IRC servers. */
 static void resource_branch_remove(resource_branch *branch) {
-   if (!branch) return;
+   if (!branch) {
+      return;
+   }
    char *profile = g_strdup(branch->profile);
    char *domain = g_strdup(branch->domain);
 
    if (branch->irc) {
       gtk_tree_store_remove(browser->store, &branch->root);
       g_hash_table_remove(browser->branches, profile);
-      if (browser->irc_root_valid &&
-          !gtk_tree_model_iter_has_child(GTK_TREE_MODEL(browser->store), &browser->irc_root)) {
+
+      if (browser->irc_root_valid && !gtk_tree_model_iter_has_child(GTK_TREE_MODEL(browser->store), &browser->irc_root)) {
          gtk_tree_store_remove(browser->store, &browser->irc_root);
          browser->irc_root_valid = false;
       }
@@ -193,17 +195,22 @@ static void resource_branch_remove(resource_branch *branch) {
       g_hash_table_iter_init(&it, browser->branches);
       while (g_hash_table_iter_next(&it, NULL, &value)) {
          resource_branch *other = value;
+
          if (other != branch && !g_strcmp0(other->domain, domain)) {
             shared = TRUE;
             break;
          }
       }
       g_hash_table_remove(browser->branches, profile);
+
       if (shared) {
          resource_domain_rebuild(domain);
       } else {
          GtkTreeIter *root = g_hash_table_lookup(browser->domains, domain);
-         if (root) gtk_tree_store_remove(browser->store, root);
+
+         if (root) {
+            gtk_tree_store_remove(browser->store, root);
+         }
          g_hash_table_remove(browser->domains, domain);
       }
    }
@@ -610,10 +617,11 @@ static void resource_irc_row(const char *event, const char *payload, rrconn_t *c
       return;
    }
    resource_branch *branch = g_hash_table_lookup(browser->branches, profile);
-   /* Status events create the category only for connected IRC profiles.
-    * A queued LIST snapshot after disconnect must not resurrect a ghost row. */
+
+   /* Status events create the category only for connected IRC profiles. A queued LIST snapshot after disconnect must not resurrect a ghost row. */
    if (!branch || !branch->irc || !branch->online) {
       dict_free(snapshot);
+
       return;
    }
    GtkTreeIter iter;
@@ -1248,8 +1256,7 @@ static void resource_create(void) {
    gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
    gtk_box_pack_start(GTK_BOX(browser->page), browser->panel, TRUE, TRUE, 0);
    GtkWidget *box = browser->panel;
-   /* Explorer remains in the main notebook while hidden. A fixed horizontal
-    * toolbar here imposes its full width on every other notebook page. */
+   /* Explorer remains in the main notebook while hidden. A fixed horizontal toolbar here imposes its full width on every other notebook page. */
    GtkWidget *toolbar = gtk_flow_box_new();
    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(toolbar), GTK_SELECTION_NONE);
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(toolbar), 1);
@@ -1467,8 +1474,7 @@ static void resource_create(void) {
    }
    gtk_tree_path_free(local_path);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
-   /* Fixed-width tree columns scroll inside Explorer, never force unrelated
-    * chat tabs to inherit their combined minimum. */
+   /* Fixed-width tree columns scroll inside Explorer, never force unrelated chat tabs to inherit their combined minimum. */
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
@@ -1656,17 +1662,21 @@ static void resource_status(const char *event, const char *payload, rrconn_t *co
    bool connected = authenticated && !strcmp(state, "online");
    resource_branch *branch = *profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
 
-   /* Never manufacture "Domain (discovering…)" for an IRC profile.
-    * Its category and row exist only for an authenticated IRC connection. */
+   /* Never manufacture "Domain (discovering…)" for an IRC profile. Its category and row exist only for an authenticated IRC connection. */
    if (branch && branch->irc != irc) {
       resource_branch_remove(branch);
       branch = NULL;
    }
+
    if (irc && !connected) {
-      if (branch) resource_branch_remove(branch);
+      if (branch) {
+         resource_branch_remove(branch);
+      }
       dict_free(d);
+
       return;
    }
+
    if (!branch && *profile) {
       branch = irc ? resource_irc_branch_get(profile) : resource_branch_get(profile);
    }
@@ -1766,9 +1776,7 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
       branch->loaded = false;
    }
 
-   if (branch && branch->irc && (!strcmp(state, "irc.disconnected") ||
-                                      !strcmp(state, "disconnected") ||
-                                      !strcmp(state, "http.error"))) {
+   if (branch && branch->irc && (!strcmp(state, "irc.disconnected") || !strcmp(state, "disconnected") || !strcmp(state, "http.error"))) {
       resource_branch_remove(branch);
       gtk_label_set_text(GTK_LABEL(browser->status), "IRC connection offline");
    } else if (branch && (!strcmp(state, "disconnected") || !strcmp(state, "http.error") || !strcmp(state, "auth.error"))) {

@@ -461,7 +461,8 @@ static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
    char *kind = NULL;
    gtk_tree_model_get(model, iter, KIND, &kind, -1);
 
-   if (!g_strcmp0(kind, "domain") || !g_strcmp0(kind, "irc-servers") || !g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "health-event")) {
+   if (!g_strcmp0(kind, "domain") || !g_strcmp0(kind, "irc-servers") || !g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node")
+      || !g_strcmp0(kind, "health-event")) {
       g_free(kind);
 
       return resource_search_subtree(model, iter);

@@ -494,8 +494,7 @@ int main(int argc, char **argv) {
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), mesh) == 2);
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), other) == 1);
 
-   /* IRC profiles must never show provisional domains; show the category
-    * only while at least one IRC server is registered. */
+   /* IRC profiles must never show provisional domains; show the category only while at least one IRC server is registered. */
    status_fixture("efnet", "irc", false);
    assert(!browser->irc_root_valid);
    assert(!g_hash_table_lookup(browser->branches, "efnet"));
@@ -511,8 +510,7 @@ int main(int argc, char **argv) {
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &irc->root) == 1);
    status_fixture("libera", "irc", true);
    assert(gtk_tree_model_iter_n_children(GTK_TREE_MODEL(browser->store), &browser->irc_root) == 2);
-   /* An explicit IRC disconnect event should remove only this profile now,
-    * not wait for the periodic status snapshot. */
+   /* An explicit IRC disconnect event should remove only this profile now, not wait for the periodic status snapshot. */
    resource_changed("client.resources.connection-state", "efnet|irc.disconnected", NULL, NULL);
    assert(!g_hash_table_lookup(browser->branches, "efnet"));
    assert(browser->irc_root_valid);

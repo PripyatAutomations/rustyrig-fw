@@ -13,7 +13,7 @@
 #include <librustyaxe/core.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
-#include "files.h"
+#include <rrclient/files.h>
 #define CHUNK 24576
 struct transfer {
    struct transfer *next;

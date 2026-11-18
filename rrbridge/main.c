@@ -121,11 +121,12 @@ static void status(void *user, const char *text) {
    if (!text || !*text) {
       return;
    }
-   /* Keep connection/startup diagnostics visible for troubleshooting.
-    * Only suppress repetitive healthy 10-second waterfall counters. */
+   /* Keep connection/startup diagnostics visible for troubleshooting. Only suppress repetitive healthy 10-second waterfall counters. */
    static const char wf_stats[] = "Kiwi RF waterfall/10s received=";
-   if (!strncmp(text, wf_stats, sizeof(wf_stats) - 1))
+
+   if (!strncmp(text, wf_stats, sizeof(wf_stats) - 1)) {
       return;
+   }
    Log(LOG_INFO, "rrbridge", "%s", text);
    /* The logger callback forwards this event with all other diagnostics. */
 }

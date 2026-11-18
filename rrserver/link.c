@@ -41,44 +41,62 @@ struct rr_links links;
 /* Show public certificate identity when TLS provisioning fails. */
 static void tls_log_existing_certificate(const char *path, const char *expected) {
    FILE *fp = fopen(path, "rb");
+
    if (!fp) {
       Log(LOG_CRIT, "mesh.identity", "Cannot read TLS certificate %s: %s", path, g_strerror(errno));
+
       return;
    }
    X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
    fclose(fp);
+
    if (!cert) {
       Log(LOG_CRIT, "mesh.identity", "Existing TLS certificate is invalid PEM X.509: %s", path);
+
       return;
    }
    char cn[256] = "(absent)";
-   if (X509_NAME_get_text_by_NID(X509_get_subject_name(cert), NID_commonName, cn, sizeof(cn)) < 0)
+
+   if (X509_NAME_get_text_by_NID(X509_get_subject_name(cert), NID_commonName, cn, sizeof(cn)) < 0) {
       g_strlcpy(cn, "(absent)", sizeof(cn));
+   }
    GENERAL_NAMES *names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
    GString *sans = g_string_new(NULL);
+
    if (names) {
-      for (int i = 0; i < sk_GENERAL_NAME_num(names); ++i) {
+      for (int i = 0 ; i < sk_GENERAL_NAME_num(names) ; ++i) {
          const GENERAL_NAME *entry = sk_GENERAL_NAME_value(names, i);
-         if (entry->type != GEN_DNS) continue;
+
+         if (entry->type != GEN_DNS) {
+            continue;
+         }
          const ASN1_STRING *value = entry->d.dNSName;
          const unsigned char *bytes = ASN1_STRING_get0_data(value);
          int len = ASN1_STRING_length(value);
-         if (sans->len) g_string_append(sans, ", ");
+
+         if (sans->len) {
+            g_string_append(sans, ", ");
+         }
+
          if (len <= 0 || memchr(bytes, 0, (size_t)len)) {
             g_string_append(sans, "(invalid)");
             continue;
          }
-         for (int j = 0; j < len; ++j)
+
+         for (int j = 0 ; j < len ; ++j) {
             g_string_append_c(sans, bytes[j] >= 33 && bytes[j] <= 126 ? (char)bytes[j] : '?');
+         }
       }
+
       GENERAL_NAMES_free(names);
    }
-   bool matches = X509_check_host(cert, expected, 0,
-      X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT, NULL) == 1;
-   Log(LOG_CRIT, "mesh.identity", "Existing certificate CN=%s, DNS SANs=%s; expected DNS SAN=%s (%s)",
-      cn, sans->len ? sans->str : "(none)", expected, matches ? "matches" : "MISMATCH");
-   if (!matches)
+   bool matches = X509_check_host(cert, expected, 0, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT, NULL) == 1;
+   Log(LOG_CRIT, "mesh.identity", "Existing certificate CN=%s, DNS SANs=%s; expected DNS SAN=%s (%s)", cn, sans->len ? sans->str : "(none)", expected, matches ?
+      "matches" : "MISMATCH");
+
+   if (!matches) {
       Log(LOG_CRIT, "mesh.identity", "Reissue the certificate for %s using the existing TLS private key to preserve the SPKI identity", expected);
+   }
    g_string_free(sans, TRUE);
    X509_free(cert);
 }
@@ -497,12 +515,25 @@ const char *rrserver_links_node(void) {
    return links.node;
 }
 const char *rrserver_links_site_name(const char *node) {
-   if (!node || !*node) return NULL;
-   if (!strcmp(node, links.node)) return links.site;
-   if (!links.tree) return NULL;
+   if (!node || !*node) {
+      return NULL;
+   }
+
+   if (!strcmp(node, links.node)) {
+      return links.site;
+   }
+
+   if (!links.tree) {
+      return NULL;
+   }
    rr_link_node_t entry;
-   for (size_t i = 0; rr_link_tree_node(links.tree, i, &entry); ++i)
-      if (!strcmp(entry.server, node)) return entry.site;
+
+   for (size_t i = 0 ; rr_link_tree_node(links.tree, i, &entry) ; ++i) {
+      if (!strcmp(entry.server, node)) {
+         return entry.site;
+      }
+   }
+
    return NULL;
 }
 const char *rrserver_links_route(const char *node) {
@@ -1213,18 +1244,16 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
          bool has_signature = signed_data && *dict_get(signed_data, "identity.signature", "");
          bool match = signed_data && !strcmp(dict_get(signed_data, "identity.owner", ""), origin) &&
             !g_ascii_strcasecmp(dict_get(signed_data, "identity.domain", ""), links.domain) && rr_identity_verify_catalog(signed_data);
-         /* For live commands, merely verifying a packet-supplied Ed25519 key is
-          * not sufficient: the key must be enrolled/pinned for claimed UUID.
-          * Catalog discovery/revocation have their own admission paths. */
+         /* For live commands, merely verifying a packet-supplied Ed25519 key is not sufficient: the key must be enrolled/pinned for claimed UUID. Catalog
+          * discovery/revocation have their own admission paths. */
          bool control = !strcmp(kind, "request") || !strcmp(kind, "reply") ||
             !strcmp(kind, "subscribe") || !strcmp(kind, "unsubscribe") ||
-            !strcmp(kind, "state") || !strcmp(kind, "close") ||
-            !strcmp(kind, "identity-revocation-ack");
+            !strcmp(kind, "state") || !strcmp(kind, "close") || !strcmp(kind, "identity-revocation-ack");
          bool trusted = true;
+
          if (match && control) {
 #ifdef USE_SQLITE
-            trusted = rr_identity_known_signer(masterdb, links.domain, origin,
-               dict_get(signed_data, "identity.public-key", ""));
+            trusted = rr_identity_known_signer(masterdb, links.domain, origin, dict_get(signed_data, "identity.public-key", ""));
 #else
             trusted = false;
 #endif
@@ -1232,12 +1261,9 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
          dict_free(signed_data);
 
          if (!match || !trusted) {
-            rr_mesh_verify_record(session->node, !has_signature ? RR_MESH_VERIFY_UNSIGNED :
-               !match ? RR_MESH_VERIFY_INVALID : RR_MESH_VERIFY_UNTRUSTED);
-            Log(LOG_WARN, "mesh.identity",
-               "Discarded mesh packet: %s for claimed sender %s via %s (kind=%s)",
-               !has_signature ? "unsigned" : !match ? "invalid signature/owner" : "untrusted signer",
-               origin, session->node, kind);
+            rr_mesh_verify_record(session->node, !has_signature ? RR_MESH_VERIFY_UNSIGNED : !match ? RR_MESH_VERIFY_INVALID : RR_MESH_VERIFY_UNTRUSTED);
+            Log(LOG_WARN, "mesh.identity", "Discarded mesh packet: %s for claimed sender %s via %s (kind=%s)", !has_signature ? "unsigned" : !match ?
+               "invalid signature/owner" : "untrusted signer", origin, session->node, kind);
             dict_free(d);
 
             return;
@@ -1260,7 +1286,9 @@ void handle_frame(struct link_session *session, const char *data, size_t length)
          rr_mesh_verify_record(session->node, RR_MESH_VERIFY_BAD_ROUTE);
          fail(session, "Message claims to originate from a server outside this peer's network branch");
       } else {
-         if (!sync_marker) rr_mesh_verify_record(session->node, RR_MESH_VERIFY_VALID);
+         if (!sync_marker) {
+            rr_mesh_verify_record(session->node, RR_MESH_VERIFY_VALID);
+         }
          dict_add(d, "_ingress", session->node);
          event_emit_dict("server.link.application", NULL, d);
       }
@@ -1649,10 +1677,14 @@ bool rrserver_links_init(void) {
          Log(LOG_CRIT, "mesh.identity", "TLS identity provisioning failed: cert=%s (%s), key=%s (%s), SAN=%s; "
             "check directory ownership, existing partial/mismatched pair and key mode 0600", cert, cert_exists ? "exists" : g_strerror(cert_errno), key,
             key_exists ? "exists" : g_strerror(key_errno), name);
-         if (cert_exists && S_ISREG(cert_st.st_mode))
+
+         if (cert_exists && S_ISREG(cert_st.st_mode)) {
             tls_log_existing_certificate(cert, name);
-         if (key_exists && S_ISREG(key_st.st_mode) && (key_st.st_mode & 0077))
+         }
+
+         if (key_exists && S_ISREG(key_st.st_mode) && (key_st.st_mode & 0077)) {
             Log(LOG_CRIT, "mesh.identity", "TLS private key mode %04o is too permissive; expected 0600", (unsigned)(key_st.st_mode & 07777));
+         }
 
          return false;
       }

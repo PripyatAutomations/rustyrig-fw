@@ -10,8 +10,7 @@
 bool rrclient_database_init(void);
 /* Snapshot as a restorable SQLite SQL script; caller frees with g_free(). */
 char *rrclient_database_dump_sql(size_t *length);
-/* Validate SQL in a separate in-memory database, then replace the live DB.
- * Caller must arrange an application restart immediately after success. */
+/* Validate SQL in a separate in-memory database, then replace the live DB. Caller must arrange an application restart immediately after success. */
 bool rrclient_database_restore_sql(const char *sql, size_t length);
 /* True after import: current in-memory settings must not write over restored DB. */
 bool rrclient_database_restart_required(void);
@@ -43,17 +42,14 @@ typedef struct {
 } rrclient_window_state_t;
 /* Session-count expiration: untouched records are pruned after five runs. */
 /* Named RX graph route presets; callers retain ownership of their strings. */
-/* Per-client watch list. "Any" matches all modes/bands. Automatic worked
- * detection is reserved for the future contact-log integration. */
+/* Per-client watch list. "Any" matches all modes/bands. Automatic worked detection is reserved for the future contact-log integration. */
 typedef struct {
    int id;
    const char *callsign, *mode, *band;
    bool auto_mark_worked, worked;
 } rrclient_watched_call_t;
-void rrclient_database_watched_calls_foreach(
-   void (*callback)(const rrclient_watched_call_t *, void *), void *user);
-bool rrclient_database_watched_call_save(int id, const char *callsign,
-   const char *mode, const char *band, bool auto_mark_worked, bool worked);
+void rrclient_database_watched_calls_foreach(void (*callback) (const rrclient_watched_call_t *, void *), void *user);
+bool rrclient_database_watched_call_save(int id, const char *callsign, const char *mode, const char *band, bool auto_mark_worked, bool worked);
 bool rrclient_database_watched_call_delete(int id);
 
 bool rrclient_database_audio_profile_save(const char *name, const char *const *ids, const char *routes, size_t count);

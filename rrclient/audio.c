@@ -70,56 +70,76 @@ static void audio_mic_tx_target_copy(char out[64]) {
 
 static guint mixer_source;
 static GSource *rx_maintenance_source;
-static rr_audio_engine_t *rx_engine; /* 16 kHz legacy radio/AF bus */
-static rr_audio_engine_t *hq_engine; /* 44.1/48 kHz final playback bus */
-static rr_audio_engine_t *tx_engine; /* Independent 16 kHz TX PCM mixer */
+static rr_audio_engine_t *rx_engine;   /* 16 kHz legacy radio/AF bus */
+static rr_audio_engine_t *hq_engine;   /* 44.1/48 kHz final playback bus */
+static rr_audio_engine_t *tx_engine;   /* Independent 16 kHz TX PCM mixer */
 static GAsyncQueue *tx_pcm_queue;
 static GSource *tx_drain_source;
 static volatile gint tx_pcm_queued;
 #define TX_MIX_FRAME_COUNT 320
 #define TX_MIX_QUEUE_LIMIT 8
-typedef struct { int16_t mono[TX_MIX_FRAME_COUNT]; } tx_mix_packet_t;
+typedef struct {
+   int16_t mono[TX_MIX_FRAME_COUNT];
+} tx_mix_packet_t;
 
-/* Called on the dedicated mixer thread. Never write to fwdsp/transport
- * here; a bounded queue hands the mixed PCM to the core context. */
-static void tx_mix_output(const int16_t *stereo,size_t frames,void *unused) {
+/* Called on the dedicated mixer thread. Never write to fwdsp/transport here; a bounded queue hands the mixed PCM to the core context. */
+static void tx_mix_output(const int16_t *stereo, size_t frames, void *unused) {
    (void)unused;
-   if (!tx_pcm_queue || frames!=TX_MIX_FRAME_COUNT ||
-       g_atomic_int_get(&tx_pcm_queued)>=TX_MIX_QUEUE_LIMIT) return;
-   tx_mix_packet_t *packet=g_new(tx_mix_packet_t,1);
-   for(size_t i=0;i<frames;i++)
-      packet->mono[i]=(int16_t)(((int32_t)stereo[2*i]+stereo[2*i+1])/2);
+
+   if (!tx_pcm_queue || frames != TX_MIX_FRAME_COUNT || g_atomic_int_get(&tx_pcm_queued) >= TX_MIX_QUEUE_LIMIT) {
+      return;
+   }
+   tx_mix_packet_t *packet = g_new(tx_mix_packet_t, 1);
+
+   for (size_t i = 0 ; i < frames ; i++) {
+      packet->mono[i] = (int16_t) (((int32_t) stereo[2 * i] + stereo[2 * i + 1]) / 2);
+   }
+
    g_atomic_int_inc(&tx_pcm_queued);
-   g_async_queue_push(tx_pcm_queue,packet);
+   g_async_queue_push(tx_pcm_queue, packet);
 }
-bool audio_tx_source_register(const char *id,const rr_pcm_stream_format_t *format) {
-   if(!tx_engine || !id || !*id || !format ||
-      !rr_pcm_stream_format_valid(format)) return false;
-   if(!rr_audio_engine_add_stream_format(tx_engine,id,format)) return false;
-   return rr_audio_engine_route(tx_engine,id,'M');
+bool audio_tx_source_register(const char *id, const rr_pcm_stream_format_t *format) {
+   if (!tx_engine || !id || !*id || !format || !rr_pcm_stream_format_valid(format)) {
+      return false;
+   }
+
+   if (!rr_audio_engine_add_stream_format(tx_engine, id, format)) {
+      return false;
+   }
+
+   return rr_audio_engine_route(tx_engine, id, 'M');
 }
-bool audio_tx_source_route(const char *id,bool connected) {
-   return tx_engine && id && *id &&
-      rr_audio_engine_route(tx_engine,id,connected?'S':'M');
+bool audio_tx_source_route(const char *id, bool connected) {
+   return tx_engine && id && *id && rr_audio_engine_route(tx_engine, id, connected ? 'S' : 'M');
 }
-bool audio_tx_source_push(const char *id,const void *pcm,size_t frames) {
-   return tx_engine && id && *id && pcm && frames &&
-      rr_audio_engine_push_pcm(tx_engine,id,pcm,frames);
+bool audio_tx_source_push(const char *id, const void *pcm, size_t frames) {
+   return tx_engine && id && *id && pcm && frames && rr_audio_engine_push_pcm(tx_engine, id, pcm, frames);
 }
 static gboolean tx_mix_drain(gpointer unused) {
    (void)unused;
-   if (!tx_pcm_queue) return G_SOURCE_CONTINUE;
-   for(unsigned i=0;i<TX_MIX_QUEUE_LIMIT;i++) {
-      tx_mix_packet_t *packet=g_async_queue_try_pop(tx_pcm_queue);
-      if(!packet) break;
-      g_atomic_int_add(&tx_pcm_queued,-1);
-      char vfo[2]={vfo_state_get_active(),0};
-      const char *selected=rrclient_media_current_codec(true);
-      if(tx_codec[0] && selected && !strncmp(selected,tx_codec,4) &&
-         (ptt_active || vfo_state_get_bool(vfo,"cat.state.ptt",false)))
-         fwdsp_write_samples(tx_codec,true,packet->mono,sizeof(packet->mono));
+
+   if (!tx_pcm_queue) {
+      return G_SOURCE_CONTINUE;
+   }
+
+   for (unsigned i = 0 ; i < TX_MIX_QUEUE_LIMIT ; i++) {
+      tx_mix_packet_t *packet = g_async_queue_try_pop(tx_pcm_queue);
+
+      if (!packet) {
+         break;
+      }
+      g_atomic_int_add(&tx_pcm_queued, -1);
+      char vfo[2] = {
+         vfo_state_get_active(), 0
+      };
+      const char *selected = rrclient_media_current_codec(true);
+
+      if (tx_codec[0] && selected && !strncmp(selected, tx_codec, 4) && (ptt_active || vfo_state_get_bool(vfo, "cat.state.ptt", false))) {
+         fwdsp_write_samples(tx_codec, true, packet->mono, sizeof(packet->mono));
+      }
       g_free(packet);
    }
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -130,57 +150,69 @@ static char recording_playback_route = 'S';
 #define RECORDING_PLAYBACK_R "recording.playback.R"
 static GMutex rx_sink_lock;
 static int rx_sink_fd = -1;
-/* Counters incremented on audio threads, inspected/reset on the core timer.
- * No logging or formatting is allowed in a real-time PCM callback. */
+/* Counters incremented on audio threads, inspected/reset on the core timer. No logging or formatting is allowed in a real-time PCM callback. */
 static volatile gint rx_legacy_pcm_blocks, rx_muted_pcm_blocks;
 static volatile gint rx_bridge_pcm_blocks, rx_hq_pcm_blocks;
 static volatile gint rx_sink_written_blocks, rx_sink_failed_blocks;
 static gboolean rx_pcm_audible(const int16_t *pcm, size_t count) {
    /* A single useful frame suffices for indicating that a bus has signal;
     * do not confuse active stream registrations with non-silent PCM. */
-   for (size_t i = 0; i < count; i++)
-      if (pcm[i] >= 32 || pcm[i] <= -32) return TRUE;
+   for (size_t i = 0 ; i < count ; i++) {
+      if (pcm[i] >= 32 || pcm[i] <= -32) {
+         return TRUE;
+      }
+   }
+
    return FALSE;
 }
-/* Pre-fader routed stereo: stable for recording and AF measurements regardless
- * of user RX gain/volume. Source-specific modem taps run even on muted routes. */
+
+/* Pre-fader routed stereo: stable for recording and AF measurements regardless of user RX gain/volume. Source-specific modem taps run even on muted routes. */
 static void rx_analysis_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
+
    if (frames && frames <= 1024) {
       int16_t left[1024], right[1024], mixed[1024];
+
       for (size_t i = 0 ; i < frames ; i++) {
          left[i] = pcm[2 * i];
          right[i] = pcm[2 * i + 1];
-         mixed[i] = (int16_t)(((int32_t)left[i] + right[i]) / 2);
+         mixed[i] = (int16_t) (((int32_t) left[i] + right[i]) / 2);
       }
+
       rr_af_spectrum_push("output:left", left, frames);
       rr_af_spectrum_push("output:right", right, frames);
       rr_af_spectrum_push("output:mixed", mixed, frames);
    }
    rr_recordings_push(pcm, frames);
 }
-/* The low-rate bus is upsampled once at the boundary of the final HQ bus.
- * In particular, no network codec, modem or narrowband AF analyzer should
- * inherit the sound-card playback clock. This is a producer-side push: the
- * destination's resampler runs here, outside either engine's mixer lock. */
+
+/* The low-rate bus is upsampled once at the boundary of the final HQ bus. In particular, no network codec, modem or narrowband AF analyzer should inherit the
+ * sound-card playback clock. This is a producer-side push: the destination's resampler runs here, outside either engine's mixer lock. */
 static void rx_low_bus_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
-   if (frames && rx_pcm_audible(pcm, frames * 2))
+
+   if (frames && rx_pcm_audible(pcm, frames * 2)) {
       g_atomic_int_inc(&rx_bridge_pcm_blocks);
-   if (hq_engine && frames)
+   }
+
+   if (hq_engine && frames) {
       rr_audio_engine_push_pcm(hq_engine, HQ_BUS_LEGACY_ID, pcm, frames);
+   }
 }
 
 /* Post-fader HQ PCM goes exclusively to the speaker's fwdsp sink. */
 static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
    (void)user;
-   if (frames && rx_pcm_audible(pcm, frames * 2))
+
+   if (frames && rx_pcm_audible(pcm, frames * 2)) {
       g_atomic_int_inc(&rx_hq_pcm_blocks);
+   }
    g_mutex_lock(&rx_sink_lock);
+
    if (rx_sink_fd >= 0) {
-      if (fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t)))
+      if (fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t))) {
          g_atomic_int_inc(&rx_sink_written_blocks);
-      else {
+      } else {
          g_atomic_int_inc(&rx_sink_failed_blocks);
          close(rx_sink_fd);
          rx_sink_fd = -1;
@@ -206,158 +238,227 @@ static void audio_lv2_restore(void);
 static void audio_lv2_route_source(const char *id, char output);
 static rr_audio_engine_t *audio_stream_engine(const char *id) {
    rr_pcm_stream_format_t format;
-   if (hq_engine && rr_audio_engine_stream_format(hq_engine, id, &format))
+
+   if (hq_engine && rr_audio_engine_stream_format(hq_engine, id, &format)) {
       return hq_engine;
-   if (rx_engine && rr_audio_engine_stream_format(rx_engine, id, &format))
+   }
+
+   if (rx_engine && rr_audio_engine_stream_format(rx_engine, id, &format)) {
       return rx_engine;
+   }
+
    return NULL;
 }
 
-bool audio_local_rx_start_format(const char *id,
-                                 const rr_pcm_stream_format_t *format) {
-   /* 16 kHz and lower sources share one narrowband mixer; wider sources
-    * feed the HQ bus directly, retaining their original bandwidth. */
-   if (!id || !format || !rr_pcm_stream_format_valid(format)) return false;
-   rr_audio_engine_t *target = format->sample_rate_hz <= 16000 ?
-                                  rx_engine : hq_engine;
-   rr_audio_engine_t *existing = audio_stream_engine(id);
-   if (!target || (existing && existing != target) ||
-       !rr_audio_engine_add_stream_format(target, id, format))
+bool audio_local_rx_start_format(const char *id, const rr_pcm_stream_format_t *format) {
+   /* 16 kHz and lower sources share one narrowband mixer; wider sources feed the HQ bus directly, retaining their original bandwidth. */
+   if (!id || !format || !rr_pcm_stream_format_valid(format)) {
       return false;
+   }
+   rr_audio_engine_t *target = format->sample_rate_hz <= 16000 ? rx_engine : hq_engine;
+   rr_audio_engine_t *existing = audio_stream_engine(id);
+
+   if (!target || (existing && existing != target) || !rr_audio_engine_add_stream_format(target, id, format)) {
+      return false;
+   }
    audio_input_gain_load(target, id);
+
    return true;
 }
 bool audio_local_rx_start(const char *id) {
-   const rr_pcm_stream_format_t legacy = {16000, 1, RR_PCM_S16LE};
+   const rr_pcm_stream_format_t legacy = {
+      16000, 1, RR_PCM_S16LE
+   };
+
    return audio_local_rx_start_format(id, &legacy);
 }
-bool audio_local_rx_push_pcm(const char *id,
-                            const void *interleaved, size_t frames) {
+bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t frames) {
    rr_pcm_stream_format_t fmt;
+
    if (id && interleaved && frames && frames <= 2048 &&
-       audio_stream_engine(id) &&
-       rr_audio_engine_stream_format(audio_stream_engine(id), id, &fmt) &&
-       fmt.sample_rate_hz == 16000 && fmt.channels == 1 &&
-       fmt.format == RR_PCM_S16LE &&
-       audio_lv2_feed(id, interleaved, frames * sizeof(int16_t)))
+      audio_stream_engine(id) &&
+      rr_audio_engine_stream_format(audio_stream_engine(id), id, &fmt) &&
+      fmt.sample_rate_hz == 16000 && fmt.channels == 1 && fmt.format == RR_PCM_S16LE && audio_lv2_feed(id, interleaved, frames * sizeof(int16_t))) {
       return true;
+   }
    rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
+
    return engine && rr_audio_engine_push_pcm(engine, id, interleaved, frames);
 }
 bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
-   if (!id || !pcm || !frames) return false;
+   if (!id || !pcm || !frames) {
+      return false;
+   }
    /* Only the old 16 kHz mono API may enter legacy FFT/modem analysis. */
    rr_af_spectrum_push(id, pcm, frames);
    rr_local_modem_feed(id, pcm, frames);
-   if (audio_lv2_feed(id, pcm, frames * sizeof(int16_t))) return true;
+
+   if (audio_lv2_feed(id, pcm, frames * sizeof(int16_t))) {
+      return true;
+   }
+
    return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
 }
 void audio_local_rx_stop(const char *id) {
    rr_audio_engine_t *engine = id ? audio_stream_engine(id) : NULL;
-   if (engine) rr_audio_engine_remove_stream(engine, id);
+
+   if (engine) {
+      rr_audio_engine_remove_stream(engine, id);
+   }
 }
 
 /* Recorded files enter the existing PCM hub as individually routed ear streams. */
 static void recording_playback_apply_route(bool active) {
-   if (!rx_engine) return;
+   if (!rx_engine) {
+      return;
+   }
    const char left = recording_playback_route == 'S' ? 'L' : recording_playback_route;
    const char right = recording_playback_route == 'S' ? 'R' : recording_playback_route;
+
    if (!active) {
       rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_L, 'M');
       rr_audio_engine_route(rx_engine, RECORDING_PLAYBACK_R, 'M');
+
       return;
    }
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_L, left);
    rr_audio_engine_route_preserve(rx_engine, RECORDING_PLAYBACK_R, right);
 }
 static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id) {
-   if (!id || !engine) return;
+   if (!id || !engine) {
+      return;
+   }
    char *key_prefix = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
-   for (unsigned ch = 0; ch < 2; ch++) {
-      char *key = g_strdup_printf("audio.graph.input.%s.%c", key_prefix,
-                                  ch ? 'R' : 'L');
+
+   for (unsigned ch = 0 ; ch < 2 ; ch++) {
+      char *key = g_strdup_printf("audio.graph.input.%s.%c", key_prefix, ch ? 'R' : 'L');
       char *saved = rrclient_database_setting_get(key);
+
       if (saved && *saved) {
          char *end = NULL;
          double db = g_ascii_strtod(saved, &end);
-         if (end != saved && !*end)
+
+         if (end != saved && !*end) {
             rr_audio_engine_input_gain(engine, id, ch, db);
+         }
       }
       g_free(saved);
       g_free(key);
    }
+
    g_free(key_prefix);
 }
 static void recording_playback_pcm(const int16_t *pcm, size_t frames) {
-   if (!rx_engine || !pcm || !frames || frames > 1024) return;
+   if (!rx_engine || !pcm || !frames || frames > 1024) {
+      return;
+   }
    int16_t left[1024], right[1024];
-   for (size_t i = 0; i < frames; i++) {
+
+   for (size_t i = 0 ; i < frames ; i++) {
       left[i] = pcm[i * 2];
       right[i] = pcm[i * 2 + 1];
    }
+
    rr_audio_engine_push(rx_engine, "recording.playback.L", left, frames);
    rr_audio_engine_push(rx_engine, "recording.playback.R", right, frames);
 }
 bool audio_recording_play_at(const char *path, double seconds, bool reverse) {
-   if (!rx_engine || !path) return false;
-   if (rr_recordings_play_reposition(path, seconds, reverse)) return true;
-   if (rr_recordings_play_busy()) return false;
-   /* These source ports exist for the entire lifetime of the audio engine,
-    * even when the recorder/player is idle. Do not reset graph routing. */
+   if (!rx_engine || !path) {
+      return false;
+   }
+
+   if (rr_recordings_play_reposition(path, seconds, reverse)) {
+      return true;
+   }
+
+   if (rr_recordings_play_busy()) {
+      return false;
+   }
+   /* These source ports exist for the entire lifetime of the audio engine, even when the recorder/player is idle. Do not reset graph routing. */
    rr_audio_engine_reset_stream(rx_engine, RECORDING_PLAYBACK_L);
    rr_audio_engine_reset_stream(rx_engine, RECORDING_PLAYBACK_R);
    recording_playback_apply_route(true);
+
    if (!rr_recordings_play_at(path, seconds, reverse, recording_playback_pcm)) {
       recording_playback_apply_route(false);
+
       return false;
    }
+
    return true;
 }
 bool audio_recording_play(const char *path) {
    return audio_recording_play_at(path, 0.0, false);
 }
-void audio_recording_play_stop(void) { rr_recordings_play_stop(); }
+void audio_recording_play_stop(void) {
+   rr_recordings_play_stop();
+}
 void audio_recording_play_collect(void) {
    rr_recordings_play_collect();
    recording_playback_apply_route(false);
    /* The permanent mixer inputs remain for the next playback session. */
 }
-void audio_recording_control_core(const char *event, const void *data,
-                                  size_t size, rrconn_t *conn, void *user) {
-   (void)event; (void)conn; (void)user;
-   if (!data || size != sizeof(rr_audio_recording_control_t)) return;
+void audio_recording_control_core(const char *event, const void *data, size_t size, rrconn_t *conn, void *user) {
+   (void)event;
+   (void)conn;
+   (void)user;
+
+   if (!data || size != sizeof(rr_audio_recording_control_t)) {
+      return;
+   }
    const rr_audio_recording_control_t *request = data;
-   if (!memchr(request->path, 0, sizeof(request->path))) return;
+
+   if (!memchr(request->path, 0, sizeof(request->path))) {
+      return;
+   }
+
    switch (request->operation) {
-      case 'P':
-         if (!audio_recording_play_at(request->path, request->seconds, request->reverse))
-            event_emit("client.recordings.playback-error", NULL,
-                       "Playback is already active or the PCM hub is unavailable.");
+      case 'P': {
+         if (!audio_recording_play_at(request->path, request->seconds, request->reverse)) {
+            event_emit("client.recordings.playback-error", NULL, "Playback is already active or the PCM hub is unavailable.");
+         }
          break;
-      case 'S': audio_recording_play_stop(); break;
-      case 'H': rr_recordings_play_pause(TRUE); break;
-      case 'R': rr_recordings_play_pause(FALSE); break;
-      default: break;
+      }
+      case 'S': {
+         audio_recording_play_stop();
+         break;
+      }
+      case 'H': {
+         rr_recordings_play_pause(TRUE);
+         break;
+      }
+      case 'R': {
+         rr_recordings_play_pause(FALSE);
+         break;
+      }
+      default: {
+         break;
+      }
    }
 }
-/* The decoder is finished, but up to 240 ms of decoded samples can still
- * be queued in the RX mixer. Do not remove streams (or tell the player it
- * is finished) until BOTH channels drain. Finite streams bypass prefill at EOF. */
+
+/* The decoder is finished, but up to 240 ms of decoded samples can still be queued in the RX mixer. Do not remove streams (or tell the player it is finished)
+ * until BOTH channels drain. Finite streams bypass prefill at EOF. */
 static gboolean recording_playback_drain(gpointer unused) {
    (void)unused;
-   if (rr_audio_engine_pending(rx_engine, "recording.playback.L") ||
-       rr_audio_engine_pending(rx_engine, "recording.playback.R"))
+
+   if (rr_audio_engine_pending(rx_engine, "recording.playback.L") || rr_audio_engine_pending(rx_engine, "recording.playback.R")) {
       return G_SOURCE_CONTINUE;
+   }
    audio_recording_play_collect();
    event_emit("client.recordings.playback-finished", NULL, NULL);
+
    return G_SOURCE_REMOVE;
 }
-static void audio_recording_decoded_core(const char *event, const char *data,
-                                        rrconn_t *conn, void *user) {
-   (void)event; (void)conn; (void)user;
+static void audio_recording_decoded_core(const char *event, const char *data, rrconn_t *conn, void *user) {
+   (void)event;
+   (void)conn;
+   (void)user;
+
    if (data && !strcmp(data, "stopped")) {
       audio_recording_play_collect();
       event_emit("client.recordings.playback-finished", NULL, NULL);
+
       return;
    }
    rr_audio_engine_finish_stream(rx_engine, "recording.playback.L");
@@ -368,10 +469,8 @@ static void audio_recording_decoded_core(const char *event, const char *data,
    g_source_unref(timer);
 }
 void audio_recording_events_init(void) {
-   event_on_binary_domain_token(RR_AUDIO_RECORDING_CONTROL_REQUEST,
-      audio_recording_control_core, NULL, "core");
-   event_on_domain_token("client.recordings.playback-decoded",
-      audio_recording_decoded_core, NULL, "core");
+   event_on_binary_domain_token(RR_AUDIO_RECORDING_CONTROL_REQUEST, audio_recording_control_core, NULL, "core");
+   event_on_domain_token("client.recordings.playback-decoded", audio_recording_decoded_core, NULL, "core");
 }
 
 static char local_rx_routes[26]; /* zero means default Stereo */
@@ -419,24 +518,18 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    rr_audio_engine_stats(rx_engine, &stats, true);
 
    if (hq_engine) {
-      rr_audio_engine_stats_t hq_stats = {0};
+      rr_audio_engine_stats_t hq_stats = {
+         0
+      };
       rr_audio_engine_stats(hq_engine, &hq_stats, true);
-      if (hq_stats.blocks || hq_stats.overflow_samples ||
-          hq_stats.underrun_blocks || hq_stats.late_ticks) {
-         Log(LOG_INFO, "audio.timing",
-            "HQ/10s rate=%u blocks=%llu late-ticks=%llu max-late=%lluus "
+
+      if (hq_stats.blocks || hq_stats.overflow_samples || hq_stats.underrun_blocks || hq_stats.late_ticks) {
+         Log(LOG_INFO, "audio.timing", "HQ/10s rate=%u blocks=%llu late-ticks=%llu max-late=%lluus "
             "skipped=%llu underruns=%llu rebuffer=%llu starvations=%llu "
-            "dropped=%llu max-queue=%llu",
-            rr_audio_engine_sample_rate(hq_engine),
-            (unsigned long long)hq_stats.blocks,
-            (unsigned long long)hq_stats.late_ticks,
-            (unsigned long long)hq_stats.max_late_us,
-            (unsigned long long)hq_stats.skipped_blocks,
-            (unsigned long long)hq_stats.underrun_blocks,
-            (unsigned long long)hq_stats.rebuffer_blocks,
-            (unsigned long long)hq_stats.starvation_events,
-            (unsigned long long)hq_stats.overflow_samples,
-            (unsigned long long)hq_stats.max_queued_samples);
+            "dropped=%llu max-queue=%llu", rr_audio_engine_sample_rate(hq_engine), (unsigned long long)hq_stats.blocks, (unsigned long long)hq_stats.late_ticks,
+            (unsigned long long)hq_stats.max_late_us, (unsigned long long)hq_stats.skipped_blocks, (unsigned long long)hq_stats.underrun_blocks, (unsigned long
+               long)hq_stats.rebuffer_blocks, (unsigned long long)hq_stats.starvation_events, (unsigned long long)hq_stats.overflow_samples, (unsigned long
+               long)hq_stats.max_queued_samples);
       }
    }
 
@@ -458,18 +551,14 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    const gint hq = g_atomic_int_get(&rx_hq_pcm_blocks);
    const gint written = g_atomic_int_get(&rx_sink_written_blocks);
    const gint errors = g_atomic_int_get(&rx_sink_failed_blocks);
-   /* Only emit additional logs when signal actually arrives or the speaker
-    * endpoint is disconnected. The existing mixer statistics remain intact. */
+
+   /* Only emit additional logs when signal actually arrives or the speaker endpoint is disconnected. The existing mixer statistics remain intact. */
    if (decoded || muted || narrow || hq || errors || failed) {
       Log(failed || errors || muted || (decoded && !narrow) || (narrow && !hq) ?
-          LOG_WARN : LOG_INFO, "audio.playback",
-          "RX/10s decoded=%d muted=%d non-silent-16k=%d non-silent-HQ=%d "
-          "speaker-writes=%d write-failures=%d speaker-fd=%s "
-          "ear-volumes=%d/%d fwdsp-gain=%d%%",
-          decoded, muted, narrow, hq, written, errors,
-          failed ? "missing" : "attached",
-          rx_channel_volume[0], rx_channel_volume[1],
-          cfg_get_int("audio.volume.rx", 30));
+         LOG_WARN : LOG_INFO, "audio.playback", "RX/10s decoded=%d muted=%d non-silent-16k=%d non-silent-HQ=%d "
+         "speaker-writes=%d write-failures=%d speaker-fd=%s "
+         "ear-volumes=%d/%d fwdsp-gain=%d%%", decoded, muted, narrow, hq, written, errors, failed ? "missing" : "attached", rx_channel_volume[0],
+         rx_channel_volume[1], cfg_get_int("audio.volume.rx", 30));
    }
    g_atomic_int_set(&rx_legacy_pcm_blocks, 0);
    g_atomic_int_set(&rx_muted_pcm_blocks, 0);
@@ -494,108 +583,135 @@ static gboolean rx_engine_maintenance(gpointer unused) {
 
    return G_SOURCE_CONTINUE;
 }
-/* Legacy decoder/DCC playback remains 16 kHz stereo. It must enter the
- * narrowband bus instead of writing directly into the HQ fwdsp appsrc:
+
+/* Legacy decoder/DCC playback remains 16 kHz stereo. It must enter the narrowband bus instead of writing directly into the HQ fwdsp appsrc:
  * otherwise the 16 kHz frames would be timestamped as 44.1/48 kHz PCM. */
 static void client_speaker_pcm(const void *samples, size_t len) {
-   if (!samples || !len || (len % (2 * sizeof(int16_t))) || !rx_engine)
+   if (!samples || !len || (len % (2 * sizeof(int16_t))) || !rx_engine) {
       return;
-   rr_audio_engine_push_pcm(rx_engine, "legacy.speaker", samples,
-                            len / (2 * sizeof(int16_t)));
+   }
+   rr_audio_engine_push_pcm(rx_engine, "legacy.speaker", samples, len / (2 * sizeof(int16_t)));
 }
 
-/* fwdsp's encoded TX output is shared by microphone and modem.
- * Forward it on the *negotiated* media channel, not the input source's
- * stream identifier. This sends the identical wire frames for both. */
+/* fwdsp's encoded TX output is shared by microphone and modem. Forward it on the *negotiated* media channel, not the input source's stream identifier. This
+ * sends the identical wire frames for both. */
 static uint32_t tx_frame_sequence;
 static char tx_frame_channel[64];
-static void audio_tx_encoded(const char codec[5],const void *data,
-                             size_t len,bool setup,void *unused) {
+static void audio_tx_encoded(const char codec[5], const void *data, size_t len, bool setup, void *unused) {
    (void)unused;
-   if(!data || !len || len>RR_BINFRAME_MAX_PAYLOAD || !audio_enabled)
+
+   if (!data || !len || len > RR_BINFRAME_MAX_PAYLOAD || !audio_enabled) {
       return;
-   rrconn_t *conn=rrclient_connection_context();
-   const struct rr_client_media_chan *channel=rrclient_media_current_channel(true);
-   if(!conn || !conn->authenticated || !conn->is_ws ||
-      !channel || !channel->stream_valid || !channel->subscribed ||
-      channel->disabled || channel->direction!=RR_BINFRAME_DIR_TX ||
-      channel->subsystem!=RR_BINFRAME_SUBSYS_AUDIO ||
-      strncmp(channel->codec,codec,4) || strncmp(tx_codec,codec,4))
-      return;
-   /* Setup packets must travel even before PTT so the remote decoder
-    * can initialize. Media packets require an asserted radio PTT. */
-   char vfo[2]={vfo_state_get_active(),0};
-   if(!setup && !(ptt_active || vfo_state_get_bool(vfo,"cat.state.ptt",false)))
-      return;
-   if(strcmp(tx_frame_channel,channel->uuid)) {
-      g_strlcpy(tx_frame_channel,channel->uuid,sizeof(tx_frame_channel));
-      tx_frame_sequence=0;
-      /* The encoder may have generated Ogg/Opus setup before the media
-       * subscription received its stream ID. Re-send that bounded header
-       * cache before the first data frame on this channel. */
-      if(!setup) fwdsp_replay_client_tx_headers(codec);
    }
-   uint8_t *frame=NULL;
-   int n=rr_binframe_frame(&frame,RR_BINFRAME_SUBSYS_AUDIO,codec,
-                           RR_BINFRAME_DIR_TX,channel->vfo,channel->rig,
-                           channel->stream,++tx_frame_sequence,mono_us(),
-                           data,len);
-   if(n<=0) return;
-   bool sent=rrclient_send_tx_audio_frame(conn,frame,(size_t)n,setup);
+   rrconn_t *conn = rrclient_connection_context();
+   const struct rr_client_media_chan *channel = rrclient_media_current_channel(true);
+
+   if (!conn || !conn->authenticated || !conn->is_ws ||
+      !channel || !channel->stream_valid || !channel->subscribed ||
+      channel->disabled || channel->direction != RR_BINFRAME_DIR_TX ||
+      channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO || strncmp(channel->codec, codec, 4) || strncmp(tx_codec, codec, 4)) {
+      return;
+   }
+   /* Setup packets must travel even before PTT so the remote decoder can initialize. Media packets require an asserted radio PTT. */
+   char vfo[2] = {
+      vfo_state_get_active(), 0
+   };
+
+   if (!setup && !(ptt_active || vfo_state_get_bool(vfo, "cat.state.ptt", false))) {
+      return;
+   }
+
+   if (strcmp(tx_frame_channel, channel->uuid)) {
+      g_strlcpy(tx_frame_channel, channel->uuid, sizeof(tx_frame_channel));
+      tx_frame_sequence = 0;
+
+      /* The encoder may have generated Ogg/Opus setup before the media subscription received its stream ID. Re-send that bounded header cache before the first
+       * data frame on this channel. */
+      if (!setup) {
+         fwdsp_replay_client_tx_headers(codec);
+      }
+   }
+   uint8_t *frame = NULL;
+   int n = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_AUDIO, codec, RR_BINFRAME_DIR_TX, channel->vfo, channel->rig, channel->stream, ++tx_frame_sequence,
+      mono_us(), data, len);
+
+   if (n <= 0) {
+      return;
+   }
+   bool sent = rrclient_send_tx_audio_frame(conn, frame, (size_t)n, setup);
    free(frame);
-   if(!sent && !setup) {
+
+   if (!sent && !setup) {
       static gint64 last_warn_us;
-      gint64 ts=g_get_monotonic_time();
-      if(ts-last_warn_us>=5000000 || ts<last_warn_us) {
-         last_warn_us=ts;
-         Log(LOG_WARN,"audio.tx","Dropping outgoing %s TX frame: transport unavailable or congested",codec);
+      gint64 ts = g_get_monotonic_time();
+
+      if (ts - last_warn_us >= 5000000 || ts < last_warn_us) {
+         last_warn_us = ts;
+         Log(LOG_WARN, "audio.tx", "Dropping outgoing %s TX frame: transport unavailable or congested", codec);
       }
    }
 }
 
-/* Modems share the existing encoder but not the microphone selection.
- * TX audio is accepted only for the real selected TX radio while PTT is
- * already asserted; this function never requests or raises PTT. */
+/* Modems share the existing encoder but not the microphone selection. TX audio is accepted only for the real selected TX radio while PTT is already asserted;
+ * this function never requests or raises PTT. */
 bool audio_modem_tx_allowed(const char *target) {
-   if (!target || !*target || !tx_codec[0]) return false;
-   const char *selected=rrclient_media_current_codec(true);
-   if (!selected || strncmp(selected,tx_codec,4)) return false;
-   char vfo[2]={vfo_state_get_active(),0};
-   /* A locally requested key is not enough; wait for the rig echo before
-    * feeding modem PCM to the encoder. */
-   if (!vfo_state_get_bool(vfo,"cat.state.ptt",false))
+   if (!target || !*target || !tx_codec[0]) {
       return false;
-   struct rrclient_rx_stream streams[64]={0};
-   size_t count=audio_rx_streams(streams,G_N_ELEMENTS(streams));
-   for (size_t i=0;i<count && i<G_N_ELEMENTS(streams);i++) {
-      if (strcmp(streams[i].id,target) || !streams[i].active_tx ||
-          !rrclient_media_rx_is_active_tx(streams[i].uuid)) continue;
+   }
+   const char *selected = rrclient_media_current_codec(true);
+
+   if (!selected || strncmp(selected, tx_codec, 4)) {
+      return false;
+   }
+   char vfo[2] = {
+      vfo_state_get_active(), 0
+   };
+
+   /* A locally requested key is not enough; wait for the rig echo before feeding modem PCM to the encoder. */
+   if (!vfo_state_get_bool(vfo, "cat.state.ptt", false)) {
+      return false;
+   }
+   struct rrclient_rx_stream streams[64] = {
+      0
+   };
+   size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
+
+   for (size_t i = 0 ; i < count && i < G_N_ELEMENTS(streams) ; i++) {
+      if (strcmp(streams[i].id, target) || !streams[i].active_tx || !rrclient_media_rx_is_active_tx(streams[i].uuid)) {
+         continue;
+      }
+
       return true;
    }
+
    return false;
 }
-bool audio_modem_tx_pcm(unsigned slot,const char *target,
-                        const int16_t *pcm,size_t frames) {
-   if (!slot || slot>RR_LOCAL_MODEM_MAX || !pcm || !frames ||
-       frames>4096 || !audio_modem_tx_allowed(target))
+bool audio_modem_tx_pcm(unsigned slot, const char *target, const int16_t *pcm, size_t frames) {
+   if (!slot || slot > RR_LOCAL_MODEM_MAX || !pcm || !frames || frames > 4096 || !audio_modem_tx_allowed(target)) {
       return false;
-   char id[32];g_snprintf(id,sizeof(id),"modem%u.tx",slot);
-   return tx_engine && rr_audio_engine_push(tx_engine,id,pcm,frames);
+   }
+   char id[32];
+   g_snprintf(id, sizeof(id), "modem%u.tx", slot);
+
+   return tx_engine && rr_audio_engine_push(tx_engine, id, pcm, frames);
 }
 
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
    (void)name;
    (void)user_data;
    rrclient_dcc_capture(samples, len);
-   /* A modem owns the encoder while its waveform is being transmitted.
-    * Do not mix live microphone speech into digital-mode samples. */
-   if(rr_local_modem_tx_in_progress()) return;
+
+   /* A modem owns the encoder while its waveform is being transmitted. Do not mix live microphone speech into digital-mode samples. */
+   if (rr_local_modem_tx_in_progress()) {
+      return;
+   }
    char target[64];
    audio_mic_tx_target_copy(target);
+
    /* An explicit patch cannot bypass active TX media selection or PTT. */
-   if (!strcmp(target, "none") ||
-       (strcmp(target, "auto") && !rrclient_media_rx_is_active_tx(target)))
+   if (!strcmp(target, "none") || (strcmp(target, "auto") && !rrclient_media_rx_is_active_tx(target))) {
       return;
+   }
    char vfo[2] = {
       vfo_state_get_active(), '\0'
    };
@@ -615,39 +731,52 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
       return;
    }
 
-   if ((!tx_engine || !rr_audio_engine_push(tx_engine,
-                   "src.client.dsp0",samples,len/sizeof(int16_t))) &&
-       (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5)) {
+   if ((!tx_engine || !rr_audio_engine_push(tx_engine, "src.client.dsp0", samples, len / sizeof(int16_t))) && (tx_pcm_warned == 0 || now < tx_pcm_warned || now
+      - tx_pcm_warned >= 5)) {
       tx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to feed microphone PCM to tx.mix");
    }
 }
 
 
-/* A separate HQ endpoint takes the final 44.1/48 kHz stereo mix.
- * The original 16 kHz codec bus is converted before reaching that mix.
- * Capture always converts back to the legacy 16 kHz mono encoder contract. */
+/* A separate HQ endpoint takes the final 44.1/48 kHz stereo mix. The original 16 kHz codec bus is converted before reaching that mix. Capture always converts
+ * back to the legacy 16 kHz mono encoder contract. */
 static uint32_t audio_hq_output_rate(void) {
    const char *rate = cfg_get("audio.playback-rate");
-   if (!rate || !strcmp(rate, "auto") || !strcmp(rate, "48000")) return 48000;
-   if (!strcmp(rate, "44100")) return 44100;
+
+   if (!rate || !strcmp(rate, "auto") || !strcmp(rate, "48000")) {
+      return 48000;
+   }
+
+   if (!strcmp(rate, "44100")) {
+      return 44100;
+   }
    Log(LOG_WARN, "audio", "Invalid audio.playback-rate=%s (using 48000)", rate);
+
    return 48000;
 }
 static unsigned audio_hq_capture_rate(void) {
    const char *setting = cfg_get("audio.capture-rate");
-   if (!setting || !strcmp(setting, "auto") || !strcmp(setting, "48000"))
+
+   if (!setting || !strcmp(setting, "auto") || !strcmp(setting, "48000")) {
       return 48000;
-   if (!strcmp(setting, "44100")) return 44100;
+   }
+
+   if (!strcmp(setting, "44100")) {
+      return 44100;
+   }
    Log(LOG_WARN, "audio", "Invalid audio.capture-rate=%s (using 48000)", setting);
+
    return 48000;
 }
-/* Legacy config-file pipelines stay authoritative unless the operator
- * explicitly enables recipe generation. Both use identical fwdsp workers. */
+
+/* Legacy config-file pipelines stay authoritative unless the operator explicitly enables recipe generation. Both use identical fwdsp workers. */
 static char *audio_client_pipeline_recipe(bool capture) {
    const char *mode = cfg_get("audio.pipeline-mode");
-   if (!mode || g_ascii_strcasecmp(mode, "generated"))
+
+   if (!mode || g_ascii_strcasecmp(mode, "generated")) {
       return NULL;
+   }
    rr_pipeline_recipe_t recipe = {
       .endpoint = capture ? RR_PIPELINE_CAPTURE_MONO : RR_PIPELINE_PLAYBACK_STEREO,
       .pcm_rate_hz = capture ? 16000u : audio_hq_output_rate(),
@@ -655,27 +784,39 @@ static char *audio_client_pipeline_recipe(bool capture) {
       .device = cfg_get(capture ? "audio.capture-device" : "audio.playback-device")
    };
    char *description = rr_pipeline_recipe_compile(&recipe);
-   if (!description)
-      Log(LOG_WARN, "audio.pipeline",
-          "Invalid generated %s recipe; using configured pipeline instead",
-          capture ? "capture" : "playback");
+
+   if (!description) {
+      Log(LOG_WARN, "audio.pipeline", "Invalid generated %s recipe; using configured pipeline instead", capture ? "capture" : "playback");
+   }
+
    return description;
 }
-/* Restored control-widget values belong to the processor that owns the
- * effect. Replay them whenever an endpoint is spawned, including after
- * crashes/retries. This does not change the configured launch pipeline. */
+
+/* Restored control-widget values belong to the processor that owns the effect. Replay them whenever an endpoint is spawned, including after crashes/retries.
+ * This does not change the configured launch pipeline. */
 static void audio_restore_effect_parameters(const char *worker) {
    char *ids = rrclient_database_setting_get("audio.controls.ids");
-   if (!ids || !*ids) { g_free(ids); return; }
+
+   if (!ids || !*ids) {
+      g_free(ids);
+
+      return;
+   }
    gchar **list = g_strsplit(ids, ",", 128);
-   for (guint i = 0; list[i]; i++) {
-      if (!g_uuid_string_is_valid(list[i])) continue;
+
+   for (guint i = 0 ; list[i] ; i++) {
+      if (!g_uuid_string_is_valid(list[i])) {
+         continue;
+      }
       char *prefix = g_strdup_printf("audio.control.%s.", list[i]);
       char *key = g_strconcat(prefix, "worker", NULL);
       char *target = rrclient_database_setting_get(key);
       g_free(key);
+
       if (g_strcmp0(target, worker)) {
-         g_free(target); g_free(prefix); continue;
+         g_free(target);
+         g_free(prefix);
+         continue;
       }
       key = g_strconcat(prefix, "element", NULL);
       char *element = rrclient_database_setting_get(key);
@@ -686,34 +827,47 @@ static void audio_restore_effect_parameters(const char *worker) {
       key = g_strconcat(prefix, "value", NULL);
       char *value = rrclient_database_setting_get(key);
       g_free(key);
+
       if (element && *element && property && *property && value && *value) {
          char *end = NULL;
          double setting = g_ascii_strtod(value, &end);
-         if (end != value && !*end && isfinite(setting))
+
+         if (end != value && !*end && isfinite(setting)) {
             fwdsp_processor_set_property(worker, element, property, setting);
+         }
       }
-      g_free(element); g_free(property); g_free(value);
-      g_free(target); g_free(prefix);
+      g_free(element);
+      g_free(property);
+      g_free(value);
+      g_free(target);
+      g_free(prefix);
    }
+
    g_strfreev(list);
    g_free(ids);
 }
 static bool audio_client_playback_start(void) {
    char *generated = audio_client_pipeline_recipe(false);
    const char *pipeline = generated ? generated : cfg_get("pipeline:sink.client.mix");
-   bool ok = fwdsp_audio_playback_start_rate("sink.client.dsp0",
-                                             pipeline, audio_hq_output_rate());
-   if (ok) audio_restore_effect_parameters("sink.client.dsp0");
+   bool ok = fwdsp_audio_playback_start_rate("sink.client.dsp0", pipeline, audio_hq_output_rate());
+
+   if (ok) {
+      audio_restore_effect_parameters("sink.client.dsp0");
+   }
    g_free(generated);
+
    return ok;
 }
 static bool audio_client_capture_start(void) {
    char *generated = audio_client_pipeline_recipe(true);
    const char *pipeline = generated ? generated : cfg_get("pipeline:src.client.dsp0");
-   bool ok = fwdsp_audio_capture_start_rate("src.client.dsp0",
-                           pipeline, audio_hq_capture_rate(), client_mic_pcm, NULL);
-   if (ok) audio_restore_effect_parameters("src.client.dsp0");
+   bool ok = fwdsp_audio_capture_start_rate("src.client.dsp0", pipeline, audio_hq_capture_rate(), client_mic_pcm, NULL);
+
+   if (ok) {
+      audio_restore_effect_parameters("src.client.dsp0");
+   }
    g_free(generated);
+
    return ok;
 }
 
@@ -799,8 +953,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
          snprintf(stream->codec, sizeof(stream->codec), "%s", r->codec);
          stream->output = r->output;
          stream->source_rate_hz = r->source_rate_hz;
-         stream->active_rx = r->connection == rrclient_active_connection() &&
-            rrclient_media_rx_is_active_rx(r->uuid);
+         stream->active_rx = r->connection == rrclient_active_connection() && rrclient_media_rx_is_active_rx(r->uuid);
          stream->active_tx = rrclient_media_rx_has_tx(r->uuid);
       }
       count++;
@@ -828,23 +981,34 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
 }
 
 static const char *audio_resolve_rig_source(const char *id) {
-   if (!id || strcmp(id, "rig.src")) return id;
-   for (rx_route_t *r = rx_routes; r; r = r->next)
-      if (r->connection == rrclient_active_connection() &&
-          rrclient_media_rx_is_active_rx(r->uuid)) return r->identity;
+   if (!id || strcmp(id, "rig.src")) {
+      return id;
+   }
+
+   for (rx_route_t *r = rx_routes ; r ; r = r->next) {
+      if (r->connection == rrclient_active_connection() && rrclient_media_rx_is_active_rx(r->uuid)) {
+         return r->identity;
+      }
+   }
+
    return NULL;
 }
 bool audio_set_rx_stream_route(const char *id, char output) {
-   if (!id || !output || !strchr("LRSM", output)) return false;
+   if (!id || !output || !strchr("LRSM", output)) {
+      return false;
+   }
    id = audio_resolve_rig_source(id);
-   if (!id) return false;
+
+   if (!id) {
+      return false;
+   }
+
    if (!strcmp(id, RECORDING_PLAYBACK_ID)) {
       recording_playback_route = output;
       recording_playback_apply_route(rr_recordings_play_busy());
-      rrclient_database_setting_set("audio.graph.playback.route",
-                                    output == 'S' ? "S" : output == 'L' ? "L" :
-                                    output == 'R' ? "R" : "M");
+      rrclient_database_setting_set("audio.graph.playback.route", output == 'S' ? "S" : output == 'L' ? "L" : output == 'R' ? "R" : "M");
       event_emit("client.audio.route.changed", NULL, NULL);
+
       return true;
    }
 
@@ -855,7 +1019,10 @@ bool audio_set_rx_stream_route(const char *id, char output) {
          local_rx_routes[slot] = output;
 
          rr_audio_engine_t *owner = audio_stream_engine(id);
-         if (owner) rr_audio_engine_route(owner, id, output);
+
+         if (owner) {
+            rr_audio_engine_route(owner, id, output);
+         }
          audio_lv2_route_source(id, output);
          event_emit("client.audio.route.changed", NULL, NULL);
       }
@@ -866,6 +1033,7 @@ bool audio_set_rx_stream_route(const char *id, char output) {
    for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       if (!strcmp(r->identity, id)) {
          audio_lv2_route_source(id, output);
+
          if (r->output != output) {
             r->output = output;
             rx_pcm_clear(r);
@@ -949,18 +1117,17 @@ bool audio_set_room_route(const char *server, const char *room, char output) {
 
    return true;
 }
-/* Standalone Routing LV2 blocks. Each slot owns an independent fwdsp
- * bidirectional worker; PCM is copied to a bounded queue so neither the
- * network decode callback nor the mixer thread waits for a child process.
- * Source isolation is fail-open: when the worker cannot accept PCM, the
- * original source reaches the mixer unchanged. */
+
+/* Standalone Routing LV2 blocks. Each slot owns an independent fwdsp bidirectional worker; PCM is copied to a bounded queue so neither the network decode
+ * callback nor the mixer thread waits for a child process. Source isolation is fail-open: when the worker cannot accept PCM, the original source reaches the
+ * mixer unchanged. */
 typedef struct {
    uint16_t bytes;
    uint8_t pcm[4096];
 } rr_lv2_pcm_packet_t;
 typedef struct {
    char name[32], source[2][64], factory[96];
-   char output[2]; /* Explicit per-channel mixer routes, M disconnected */
+   char output[2];              /* Explicit per-channel mixer routes, M disconnected */
    char output_stream[2][48];
    guint channels;
    int16_t pending[2][2048];
@@ -976,41 +1143,56 @@ static rr_lv2_effect_t lv2_effects[RR_AUDIO_EFFECT_MAX];
 static GMutex lv2_effect_lock;
 static gboolean lv2_effect_ready;
 static gboolean audio_lv2_source_present(const char *id) {
-   struct rrclient_rx_stream streams[128] = {0};
-   size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
-                      G_N_ELEMENTS(streams));
-   /* The server's RF/source rate is metadata, not the PCM rate delivered
-    * by the client decoder. RX callbacks feed LV2 with 16k mono S16 PCM. */
-   for (size_t i = 0; i < count; i++)
-      if (!strcmp(streams[i].id, id))
+   struct rrclient_rx_stream streams[128] = {
+      0
+   };
+   size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
+
+   /* The server's RF/source rate is metadata, not the PCM rate delivered by the client decoder. RX callbacks feed LV2 with 16k mono S16 PCM. */
+   for (size_t i = 0 ; i < count ; i++) {
+      if (!strcmp(streams[i].id, id)) {
          return TRUE;
+      }
+   }
+
    return FALSE;
 }
 static gboolean audio_lv2_factory_safe(const char *factory) {
-   if (!factory || !*factory || strlen(factory) > 90) return FALSE;
-   for (const unsigned char *c = (const unsigned char *)factory; *c; ++c)
-      if (!g_ascii_isalnum(*c) && *c != '-' && *c != '_') return FALSE;
+   if (!factory || !*factory || strlen(factory) > 90) {
+      return FALSE;
+   }
+
+   for (const unsigned char *c = (const unsigned char *)factory ; *c ; ++c) {
+      if (!g_ascii_isalnum(*c) && *c != '-' && *c != '_') {
+         return FALSE;
+      }
+   }
+
    return TRUE;
 }
-static void audio_lv2_result(const char *name, const void *samples,
-                            size_t bytes, void *user) {
+static void audio_lv2_result(const char *name, const void *samples, size_t bytes, void *user) {
    (void)name;
    rr_lv2_effect_t *fx = user;
-   if (!fx || !rx_engine || !samples || !bytes || (bytes & 1) ||
-       !g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed)) return;
+
+   if (!fx || !rx_engine || !samples || !bytes || (bytes & 1) || !g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed)) {
+      return;
+   }
+
    if (fx->channels == 1) {
-      rr_audio_engine_push(rx_engine, fx->output_stream[0],
-                           (const int16_t *)samples, bytes / sizeof(int16_t));
+      rr_audio_engine_push(rx_engine, fx->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
    } else {
       const int16_t *pcm = samples;
       size_t frames = bytes / (2 * sizeof(int16_t));
       int16_t left[1024], right[1024];
-      for (size_t offset = 0; offset < frames; offset += G_N_ELEMENTS(left)) {
+
+      for (size_t offset = 0 ; offset < frames ; offset += G_N_ELEMENTS(left)) {
          size_t n = MIN(frames - offset, G_N_ELEMENTS(left));
-         for (size_t i = 0; i < n; i++) {
+
+         for (size_t i = 0 ; i < n ; i++) {
             left[i] = pcm[2 * (offset + i)];
             right[i] = pcm[2 * (offset + i) + 1];
          }
+
          rr_audio_engine_push(rx_engine, fx->output_stream[0], left, n);
          rr_audio_engine_push(rx_engine, fx->output_stream[1], right, n);
       }
@@ -1018,53 +1200,75 @@ static void audio_lv2_result(const char *name, const void *samples,
 }
 static gpointer audio_lv2_writer(gpointer user) {
    rr_lv2_effect_t *fx = user;
-   for (;;) {
+
+   for ( ;; ) {
       rr_lv2_pcm_packet_t *packet = g_async_queue_pop(fx->queue);
-      if (!packet) continue;
-      if (packet == &fx->stop_packet) break;
-      if (!fwdsp_pcm_write_fd(fx->input_fd, packet->pcm, packet->bytes))
+
+      if (!packet) {
+         continue;
+      }
+
+      if (packet == &fx->stop_packet) {
+         break;
+      }
+
+      if (!fwdsp_pcm_write_fd(fx->input_fd, packet->pcm, packet->bytes)) {
          g_atomic_int_set(&fx->failed, TRUE);
+      }
       g_async_queue_push(fx->available, packet);
-      if (g_atomic_int_get(&fx->failed)) break;
+
+      if (g_atomic_int_get(&fx->failed)) {
+         break;
+      }
    }
+
    return NULL;
 }
-static gboolean audio_lv2_feed(const char *source, const void *samples,
-                               size_t bytes) {
-   if (!lv2_effect_ready || !source || !samples || !bytes ||
-       bytes > sizeof(((rr_lv2_pcm_packet_t *)0)->pcm) || (bytes & 1))
+static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes) {
+   if (!lv2_effect_ready || !source || !samples || !bytes || bytes > sizeof(((rr_lv2_pcm_packet_t *) 0)->pcm) || (bytes & 1)) {
       return FALSE;
-   if (!g_mutex_trylock(&lv2_effect_lock)) return FALSE;
+   }
+
+   if (!g_mutex_trylock(&lv2_effect_lock)) {
+      return FALSE;
+   }
    gboolean accepted = FALSE;
-   for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++) {
+
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
       rr_lv2_effect_t *fx = &lv2_effects[i];
-      if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed) ||
-          !fx->queue || !fx->available) continue;
+
+      if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed) || !fx->queue || !fx->available) {
+         continue;
+      }
       guint channel = 0;
+
       if (strcmp(fx->source[0], source)) {
-         if (fx->channels != 2 || strcmp(fx->source[1], source)) continue;
+         if (fx->channels != 2 || strcmp(fx->source[1], source)) {
+            continue;
+         }
          channel = 1;
       }
+
       if (fx->channels == 1) {
          rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
+
          if (!packet) {
-            /* A connected effect owns the input; never leak dry PCM
-             * directly to the mixer when its async queue is full. */
+            /* A connected effect owns the input; never leak dry PCM directly to the mixer when its async queue is full. */
             fx->dropped++;
             accepted = TRUE;
             break;
          }
-         packet->bytes = (uint16_t)bytes;
+         packet->bytes = (uint16_t) bytes;
          memcpy(packet->pcm, samples, bytes);
          g_async_queue_push(fx->queue, packet);
       } else {
-         guint frames = (guint)(bytes / sizeof(int16_t));
+         guint frames = (guint) (bytes / sizeof(int16_t));
          /* Do not let a stalled/unconnected channel accumulate unbounded audio. */
          guint held = fx->pending_frames[channel];
+
          if (held + frames > G_N_ELEMENTS(fx->pending[channel])) {
             guint discard = held + frames - G_N_ELEMENTS(fx->pending[channel]);
-            memmove(fx->pending[channel], fx->pending[channel] + discard,
-                    (held - discard) * sizeof(int16_t));
+            memmove(fx->pending[channel], fx->pending[channel] + discard, (held - discard) * sizeof(int16_t));
             held -= discard;
             fx->dropped += discard;
          }
@@ -1073,58 +1277,88 @@ static gboolean audio_lv2_feed(const char *source, const void *samples,
          guint ready = MIN(fx->pending_frames[0], fx->pending_frames[1]);
          while (ready) {
             rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
-            if (!packet) { fx->dropped += ready; break; }
-            guint n = MIN(ready, (guint)(sizeof(packet->pcm) / (2 * sizeof(int16_t))));
-            int16_t *out = (int16_t *)packet->pcm;
-            for (guint j = 0; j < n; j++) {
-               out[2*j] = fx->pending[0][j];
-               out[2*j+1] = fx->pending[1][j];
+
+            if (!packet) {
+               fx->dropped += ready;
+               break;
             }
-            packet->bytes = (uint16_t)(n * 2 * sizeof(int16_t));
+            guint n = MIN(ready, (guint) (sizeof(packet->pcm) / (2 * sizeof(int16_t))));
+            int16_t *out = (int16_t *) packet->pcm;
+
+            for (guint j = 0 ; j < n ; j++) {
+               out[2 * j] = fx->pending[0][j];
+               out[2 * j + 1] = fx->pending[1][j];
+            }
+
+            packet->bytes = (uint16_t) (n * 2 * sizeof(int16_t));
             g_async_queue_push(fx->queue, packet);
-            for (guint ch = 0; ch < 2; ch++) {
+
+            for (guint ch = 0 ; ch < 2 ; ch++) {
                fx->pending_frames[ch] -= n;
-               memmove(fx->pending[ch], fx->pending[ch] + n,
-                       fx->pending_frames[ch] * sizeof(int16_t));
+               memmove(fx->pending[ch], fx->pending[ch] + n, fx->pending_frames[ch] * sizeof(int16_t));
             }
+
             ready = MIN(fx->pending_frames[0], fx->pending_frames[1]);
          }
       }
       accepted = TRUE;
       break;
    }
+
    g_mutex_unlock(&lv2_effect_lock);
+
    return accepted;
 }
 static void audio_lv2_stop(unsigned slot, gboolean forget) {
-   if (!slot || slot > RR_AUDIO_EFFECT_MAX) return;
-   rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+   if (!slot || slot > RR_AUDIO_EFFECT_MAX) {
+      return;
+   }
+   rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
    g_mutex_lock(&lv2_effect_lock);
    g_atomic_int_set(&fx->active, FALSE);
    GAsyncQueue *queue = fx->queue, *available = fx->available;
    GThread *writer = fx->writer;
    fx->writer = NULL;
-   if (queue && writer) g_async_queue_push(queue, &fx->stop_packet);
+
+   if (queue && writer) {
+      g_async_queue_push(queue, &fx->stop_packet);
+   }
    g_mutex_unlock(&lv2_effect_lock);
-   /* The input descriptor belongs to this worker thread, not to the
-    * fwdsp registry. Shutdown unblocks any in-flight framed write before
-    * joining, so a wedged LV2 plugin cannot freeze the core on removal. */
-   if (fx->name[0] && fx->input_fd >= 0 && writer)
+
+   /* The input descriptor belongs to this worker thread, not to the fwdsp registry. Shutdown unblocks any in-flight framed write before joining, so a wedged
+    * LV2 plugin cannot freeze the core on removal. */
+   if (fx->name[0] && fx->input_fd >= 0 && writer) {
       shutdown(fx->input_fd, SHUT_WR);
-   if (writer) g_thread_join(writer);
-   if (fx->name[0] && fx->input_fd >= 0)
+   }
+
+   if (writer) {
+      g_thread_join(writer);
+   }
+
+   if (fx->name[0] && fx->input_fd >= 0) {
       close(fx->input_fd);
+   }
    fx->input_fd = -1;
+
    if (fx->name[0]) {
       fwdsp_processor_stop(fx->name);
+
       if (rx_engine) {
-         for (guint ch = 0; ch < (fx->channels ? fx->channels : 1); ch++)
-            if (fx->output_stream[ch][0])
+         for (guint ch = 0 ; ch < (fx->channels ? fx->channels : 1) ; ch++) {
+            if (fx->output_stream[ch][0]) {
                rr_audio_engine_remove_stream(rx_engine, fx->output_stream[ch]);
+            }
+         }
       }
    }
-   if (queue) g_async_queue_unref(queue);
-   if (available) g_async_queue_unref(available);
+
+   if (queue) {
+      g_async_queue_unref(queue);
+   }
+
+   if (available) {
+      g_async_queue_unref(available);
+   }
    g_mutex_lock(&lv2_effect_lock);
    fx->queue = fx->available = NULL;
    memset(fx->source, 0, sizeof(fx->source));
@@ -1135,281 +1369,364 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
    fx->pending_frames[0] = fx->pending_frames[1] = 0;
    g_atomic_int_set(&fx->failed, FALSE);
    g_mutex_unlock(&lv2_effect_lock);
+
    if (forget) {
       char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.source", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.server", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.uuid", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.output", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.source-right", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.output-right", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.channels", slot);
-      rrclient_database_setting_set(key, ""); g_free(key);
+      rrclient_database_setting_set(key, "");
+      g_free(key);
    }
 }
 static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
-   if (!req || !audio_enabled || !rx_engine ||
-       !audio_lv2_factory_safe(req->factory) ||
-       (req->source[0] && !audio_lv2_source_present(req->source)))
+   if (!req || !audio_enabled || !rx_engine || !audio_lv2_factory_safe(req->factory) || (req->source[0] && !audio_lv2_source_present(req->source))) {
       return FALSE;
-   guint slot = req->slot;
-   if (!slot) {
-      for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
-         if (!g_atomic_int_get(&lv2_effects[i].active) &&
-             !lv2_effects[i].name[0]) { slot = i + 1; break; }
    }
-   if (!slot || slot > RR_AUDIO_EFFECT_MAX) return FALSE;
-   for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
+   guint slot = req->slot;
+
+   if (!slot) {
+      for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+         if (!g_atomic_int_get(&lv2_effects[i].active) && !lv2_effects[i].name[0]) {
+            slot = i + 1;
+            break;
+         }
+      }
+   }
+
+   if (!slot || slot > RR_AUDIO_EFFECT_MAX) {
+      return FALSE;
+   }
+
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
       if (req->source[0] && i + 1 != slot &&
-          g_atomic_int_get(&lv2_effects[i].active) &&
-          (!strcmp(lv2_effects[i].source[0], req->source) ||
-           !strcmp(lv2_effects[i].source[1], req->source)))
+         g_atomic_int_get(&lv2_effects[i].active) && (!strcmp(lv2_effects[i].source[0], req->source) || !strcmp(lv2_effects[i].source[1], req->source))) {
          return FALSE;
+      }
+   }
+
    audio_lv2_stop(slot, FALSE);
-   rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+   rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
    fx->input_fd = -1;
    g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
    char *channels_key = g_strdup_printf("audio.lv2.%u.channels", slot);
    char *saved_channels = rrclient_database_setting_get(channels_key);
-   fx->channels = req->channels == 2 ? 2 :
-                  req->channels == 1 ? 1 :
-                  saved_channels && !strcmp(saved_channels, "2") ? 2 : 1;
+   fx->channels = req->channels == 2 ? 2 : req->channels == 1 ? 1 : saved_channels && !strcmp(saved_channels, "2") ? 2 : 1;
    g_free(saved_channels);
    rrclient_database_setting_set(channels_key, fx->channels == 2 ? "2" : "1");
    g_free(channels_key);
    g_strlcpy(fx->source[0], req->source, sizeof(fx->source[0]));
    g_strlcpy(fx->factory, req->factory, sizeof(fx->factory));
+
    if (fx->channels == 2) {
       char *key = g_strdup_printf("audio.lv2.%u.source-right", slot);
       char *saved = rrclient_database_setting_get(key);
-      if (saved && audio_lv2_source_present(saved))
+
+      if (saved && audio_lv2_source_present(saved)) {
          g_strlcpy(fx->source[1], saved, sizeof(fx->source[1]));
-      g_free(saved); g_free(key);
+      }
+      g_free(saved);
+      g_free(key);
    }
-   for (guint ch = 0; ch < fx->channels; ch++) {
-      char *key = g_strdup_printf(ch ? "audio.lv2.%u.output-right" :
-                                     "audio.lv2.%u.output", slot);
+
+   for (guint ch = 0 ; ch < fx->channels ; ch++) {
+      char *key = g_strdup_printf(ch ? "audio.lv2.%u.output-right" : "audio.lv2.%u.output", slot);
       char *saved = rrclient_database_setting_get(key);
-      fx->output[ch] = saved && strchr("LRS", saved[0]) && !saved[1] ?
-         saved[0] : 'M';
-      g_free(saved); g_free(key);
-      if (fx->channels == 2)
-         g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]),
-                    "proc.lv2.%u.%c", slot, ch ? 'R' : 'L');
-      else
-         g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]),
-                    "proc.lv2.%u", slot);
+      fx->output[ch] = saved && strchr("LRS", saved[0]) && !saved[1] ? saved[0] : 'M';
+      g_free(saved);
+      g_free(key);
+
+      if (fx->channels == 2) {
+         g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]), "proc.lv2.%u.%c", slot, ch ? 'R' : 'L');
+      } else {
+         g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]), "proc.lv2.%u", slot);
+      }
    }
+
    /* Actual process IPC uses mono or interleaved stereo S16 frames. */
-   char *pipeline = g_strdup_printf(
-      "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+   char *pipeline = g_strdup_printf("appsrc name=processor-src is-live=true format=time do-timestamp=true "
       "caps=audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
       "queue max-size-buffers=8 leaky=downstream ! audioconvert ! audioresample ! "
       "%s name=effect ! audioconvert ! audioresample ! "
-      "audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
-      "appsink name=processor-sink sync=false max-buffers=8 drop=true",
-      fx->channels, req->factory, fx->channels);
-   for (guint ch = 0; ch < fx->channels; ch++) {
+      "audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! " "appsink name=processor-sink sync=false max-buffers=8 drop=true", fx->channels,
+      req->factory, fx->channels);
+
+   for (guint ch = 0 ; ch < fx->channels ; ch++) {
       if (!audio_local_rx_start(fx->output_stream[ch])) {
-         for (guint j = 0; j < ch; j++) audio_local_rx_stop(fx->output_stream[j]);
-         g_free(pipeline); fx->name[0] = 0; return FALSE;
+         for (guint j = 0 ; j < ch ; j++) {
+            audio_local_rx_stop(fx->output_stream[j]);
+         }
+
+         g_free(pipeline);
+         fx->name[0] = 0;
+
+         return FALSE;
       }
    }
+
    if (!fwdsp_processor_start(fx->name, pipeline, audio_lv2_result, fx)) {
-      for (guint ch = 0; ch < fx->channels; ch++)
+      for (guint ch = 0 ; ch < fx->channels ; ch++) {
          audio_local_rx_stop(fx->output_stream[ch]);
+      }
+
       fx->name[0] = 0;
       g_free(pipeline);
+
       return FALSE;
    }
    g_free(pipeline);
    fx->input_fd = fwdsp_processor_dup_input(fx->name);
+
    if (fx->input_fd < 0) {
       fwdsp_processor_stop(fx->name);
-      for (guint ch = 0; ch < fx->channels; ch++)
+
+      for (guint ch = 0 ; ch < fx->channels ; ch++) {
          audio_local_rx_stop(fx->output_stream[ch]);
+      }
+
       fx->name[0] = 0;
+
       return FALSE;
    }
    int flags = fcntl(fx->input_fd, F_GETFL, 0);
-   if (flags >= 0) fcntl(fx->input_fd, F_SETFL, flags | O_NONBLOCK);
+
+   if (flags >= 0) {
+      fcntl(fx->input_fd, F_SETFL, flags | O_NONBLOCK);
+   }
    fx->queue = g_async_queue_new();
    fx->available = g_async_queue_new();
-   for (guint i = 0; i < G_N_ELEMENTS(fx->packets); i++)
+
+   for (guint i = 0 ; i < G_N_ELEMENTS(fx->packets) ; i++) {
       g_async_queue_push(fx->available, &fx->packets[i]);
+   }
+
    g_atomic_int_set(&fx->failed, FALSE);
    g_atomic_int_set(&fx->active, TRUE);
-   for (guint ch = 0; ch < fx->channels; ch++)
+
+   for (guint ch = 0 ; ch < fx->channels ; ch++) {
       rr_audio_engine_route(rx_engine, fx->output_stream[ch], fx->output[ch]);
+   }
+
    struct rrclient_rx_stream streams[128];
-   size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
-                  G_N_ELEMENTS(streams));
+   size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
    fx->writer = g_thread_new("lv2-input", audio_lv2_writer, fx);
    char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
-   rrclient_database_setting_set(key, req->factory); g_free(key);
+   rrclient_database_setting_set(key, req->factory);
+   g_free(key);
    key = g_strdup_printf("audio.lv2.%u.source", slot);
-   rrclient_database_setting_set(key, req->source); g_free(key);
-   /* Decoder stream identities are session-local. Persist server+UUID so
-    * a resumed station can reattach without rewriting its LV2 graph. */
-   for (size_t i = 0; i < n; i++)
+   rrclient_database_setting_set(key, req->source);
+   g_free(key);
+
+   /* Decoder stream identities are session-local. Persist server+UUID so a resumed station can reattach without rewriting its LV2 graph. */
+   for (size_t i = 0 ; i < n ; i++) {
       if (!strcmp(streams[i].id, req->source)) {
          key = g_strdup_printf("audio.lv2.%u.server", slot);
-         rrclient_database_setting_set(key, streams[i].server); g_free(key);
+         rrclient_database_setting_set(key, streams[i].server);
+         g_free(key);
          key = g_strdup_printf("audio.lv2.%u.uuid", slot);
-         rrclient_database_setting_set(key, streams[i].uuid); g_free(key);
+         rrclient_database_setting_set(key, streams[i].uuid);
+         g_free(key);
          break;
       }
+   }
+
    audio_restore_effect_parameters(fx->name);
-   Log(LOG_INFO, "audio.lv2", "Started independent effect %u: %s from %s",
-       slot, req->factory, req->source);
+   Log(LOG_INFO, "audio.lv2", "Started independent effect %u: %s from %s", slot, req->factory, req->source);
+
    return TRUE;
 }
 static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    (void)unused;
-   if (!msg || !msg->payload || msg->length != sizeof(rr_audio_effect_request_t))
+
+   if (!msg || !msg->payload || msg->length != sizeof(rr_audio_effect_request_t)) {
       return;
+   }
    rr_audio_effect_request_t req;
    memcpy(&req, msg->payload, sizeof(req));
-   if (!memchr(req.factory, 0, sizeof(req.factory)) ||
-       !memchr(req.source, 0, sizeof(req.source))) return;
+
+   if (!memchr(req.factory, 0, sizeof(req.factory)) || !memchr(req.source, 0, sizeof(req.source))) {
+      return;
+   }
+
    if (!strcmp(req.source, "rig.src")) {
       const char *actual = audio_resolve_rig_source(req.source);
-      if (!actual) return;
+
+      if (!actual) {
+         return;
+      }
       g_strlcpy(req.source, actual, sizeof(req.source));
    }
+
    if (req.action == 'A') {
-      if (!audio_lv2_start(&req))
-         Log(LOG_WARN, "audio.lv2", "Cannot start LV2 effect %s on %s",
-             req.factory, req.source);
+      if (!audio_lv2_start(&req)) {
+         Log(LOG_WARN, "audio.lv2", "Cannot start LV2 effect %s on %s", req.factory, req.source);
+      }
    } else if (req.action == 'D') {
       audio_lv2_stop(req.slot, TRUE);
    } else if (req.action == 'O' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
-      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels &&
-          strchr("MLRS", req.output)) {
+
+      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels && strchr("MLRS", req.output)) {
          fx->output[req.channel] = req.output;
          rr_audio_engine_route(rx_engine, fx->output_stream[req.channel], req.output);
-         char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.output-right" :
-                                                   "audio.lv2.%u.output", req.slot);
-         char value[] = {req.output, 0};
-         rrclient_database_setting_set(key, value); g_free(key);
-         Log(LOG_INFO, "audio.lv2", "Output %s channel %u -> %c",
-             fx->name, req.channel, req.output);
-      } else
-         Log(LOG_WARN, "audio.lv2", "Cannot patch output channel %u on LV2 slot %u",
-             req.channel, req.slot);
+         char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.output-right" : "audio.lv2.%u.output", req.slot);
+         char value[] = {
+            req.output, 0
+         };
+         rrclient_database_setting_set(key, value);
+         g_free(key);
+         Log(LOG_INFO, "audio.lv2", "Output %s channel %u -> %c", fx->name, req.channel, req.output);
+      } else {
+         Log(LOG_WARN, "audio.lv2", "Cannot patch output channel %u on LV2 slot %u", req.channel, req.slot);
+      }
    } else if (req.action == 'R' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
-      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels &&
-          (!req.source[0] || audio_lv2_source_present(req.source))) {
+
+      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels && (!req.source[0] || audio_lv2_source_present(req.source))) {
          gboolean unique = TRUE;
-         for (guint i = 0; i < RR_AUDIO_EFFECT_MAX; i++)
-            if (g_atomic_int_get(&lv2_effects[i].active))
-               for (guint ch = 0; ch < lv2_effects[i].channels; ch++)
-                  if ((i != req.slot - 1 || ch != req.channel) &&
-                      req.source[0] && !strcmp(lv2_effects[i].source[ch], req.source))
+
+         for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+            if (g_atomic_int_get(&lv2_effects[i].active)) {
+               for (guint ch = 0 ; ch < lv2_effects[i].channels ; ch++) {
+                  if ((i != req.slot - 1 || ch != req.channel) && req.source[0] && !strcmp(lv2_effects[i].source[ch], req.source)) {
                      unique = FALSE;
+                  }
+               }
+            }
+         }
+
          if (unique) {
             g_mutex_lock(&lv2_effect_lock);
-            g_strlcpy(fx->source[req.channel], req.source,
-                      sizeof(fx->source[req.channel]));
+            g_strlcpy(fx->source[req.channel], req.source, sizeof(fx->source[req.channel]));
             fx->pending_frames[0] = fx->pending_frames[1] = 0;
             g_mutex_unlock(&lv2_effect_lock);
-            char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.source-right" :
-                                                      "audio.lv2.%u.source", req.slot);
-            rrclient_database_setting_set(key, req.source); g_free(key);
+            char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.source-right" : "audio.lv2.%u.source", req.slot);
+            rrclient_database_setting_set(key, req.source);
+            g_free(key);
+
             if (!req.channel) {
                struct rrclient_rx_stream streams[128];
-               size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
-                              G_N_ELEMENTS(streams));
-               for (size_t i = 0; i < n; i++)
+               size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
+
+               for (size_t i = 0 ; i < n ; i++) {
                   if (!strcmp(streams[i].id, req.source)) {
                      key = g_strdup_printf("audio.lv2.%u.server", req.slot);
-                     rrclient_database_setting_set(key, streams[i].server); g_free(key);
+                     rrclient_database_setting_set(key, streams[i].server);
+                     g_free(key);
                      key = g_strdup_printf("audio.lv2.%u.uuid", req.slot);
-                     rrclient_database_setting_set(key, streams[i].uuid); g_free(key);
+                     rrclient_database_setting_set(key, streams[i].uuid);
+                     g_free(key);
                      break;
                   }
+               }
             }
-            Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u",
-                req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
-         } else
+            Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u", req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
+         } else {
             Log(LOG_WARN, "audio.lv2", "Source %s already used on another LV2 input", req.source);
-      } else
-         Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u",
-             req.channel, req.slot);
+         }
+      } else {
+         Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u", req.channel, req.slot);
+      }
    }
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
    event_emit("client.audio.route.changed", NULL, NULL);
 }
 void audio_request_effect_block(const rr_audio_effect_request_t *req) {
-   if (!req) return;
+   if (!req) {
+      return;
+   }
    rr_event_message_t msg = {
       .name = RRCLIENT_AUDIO_EFFECT_REQUEST,
       .payload = req, .length = sizeof(*req)
    };
    event_emit_message(&msg);
 }
+
 /* LV2 output is patched separately; source ear changes must not rewire it. */
 static void audio_lv2_route_source(const char *source, char output) {
-   (void)source; (void)output;
+   (void)source;
+   (void)output;
 }
 static void audio_lv2_restore(void) {
-   if (!lv2_effect_ready || !audio_enabled || !rx_engine) return;
-   for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
-      rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+   if (!lv2_effect_ready || !audio_enabled || !rx_engine) {
+      return;
+   }
+
+   for (guint slot = 1 ; slot <= RR_AUDIO_EFFECT_MAX ; slot++) {
+      rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
+
       if (g_atomic_int_get(&fx->active)) {
-         if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) &&
-             !g_atomic_int_get(&fx->failed)) continue;
-         /* Stream UUIDs can survive a reconnect even when the decoder's
-          * temporary client-rx-N identity has changed. */
+         if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) && !g_atomic_int_get(&fx->failed)) {
+            continue;
+         }
+         /* Stream UUIDs can survive a reconnect even when the decoder's temporary client-rx-N identity has changed. */
          audio_lv2_stop(slot, FALSE);
       }
       char *key = g_strdup_printf("audio.lv2.%u.factory", slot);
-      char *factory = rrclient_database_setting_get(key); g_free(key);
+      char *factory = rrclient_database_setting_get(key);
+      g_free(key);
       key = g_strdup_printf("audio.lv2.%u.source", slot);
-      char *source = rrclient_database_setting_get(key); g_free(key);
+      char *source = rrclient_database_setting_get(key);
+      g_free(key);
+
       if (factory && *factory) {
-         /* Prefer the session's current stream ID; otherwise resolve the
-          * persisted peer+resource UUID from the refreshed RX catalog. */
+         /* Prefer the session's current stream ID; otherwise resolve the persisted peer+resource UUID from the refreshed RX catalog. */
          if (source && *source && !audio_lv2_source_present(source)) {
             key = g_strdup_printf("audio.lv2.%u.server", slot);
-            char *server = rrclient_database_setting_get(key); g_free(key);
+            char *server = rrclient_database_setting_get(key);
+            g_free(key);
             key = g_strdup_printf("audio.lv2.%u.uuid", slot);
-            char *uuid = rrclient_database_setting_get(key); g_free(key);
+            char *uuid = rrclient_database_setting_get(key);
+            g_free(key);
+
             if (server && *server && uuid && *uuid) {
                struct rrclient_rx_stream streams[128];
-               size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)),
-                                  G_N_ELEMENTS(streams));
-               for (size_t i = 0; i < count; i++)
-                  if (!strcmp(streams[i].server, server) &&
-                      !strcmp(streams[i].uuid, uuid)) {
+               size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
+
+               for (size_t i = 0 ; i < count ; i++) {
+                  if (!strcmp(streams[i].server, server) && !strcmp(streams[i].uuid, uuid)) {
                      g_free(source);
                      source = g_strdup(streams[i].id);
                      break;
                   }
+               }
             }
-            g_free(server); g_free(uuid);
+            g_free(server);
+            g_free(uuid);
          }
-         rr_audio_effect_request_t req = {.action = 'A', .slot = slot};
+         rr_audio_effect_request_t req = {
+            .action = 'A', .slot = slot
+         };
          key = g_strdup_printf("audio.lv2.%u.channels", slot);
-         char *channels = rrclient_database_setting_get(key); g_free(key);
+         char *channels = rrclient_database_setting_get(key);
+         g_free(key);
          req.channels = channels && !strcmp(channels, "2") ? 2 : 1;
          g_free(channels);
          g_strlcpy(req.factory, factory, sizeof(req.factory));
          g_strlcpy(req.source, source ? source : "", sizeof(req.source));
-         /* Sources may not have connected yet. The UI retains the slot and
-          * a later inventory update attempts a guarded activation. */
+         /* Sources may not have connected yet. The UI retains the slot and a later inventory update attempts a guarded activation. */
          audio_lv2_start(&req);
       }
-      g_free(factory); g_free(source);
+      g_free(factory);
+      g_free(source);
    }
 }
 static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
@@ -1422,17 +1739,23 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    /* AF analysis is independent of speaker muting or ear routing. */
    rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
    rr_local_modem_feed(route->identity, samples, len / sizeof(int16_t));
-   if (audio_lv2_feed(route->identity, samples, len)) return;
+
+   if (audio_lv2_feed(route->identity, samples, len)) {
+      return;
+   }
 
    if (route->output == 'M') {
-      if (len && rx_pcm_audible(samples, len / sizeof(int16_t)))
+      if (len && rx_pcm_audible(samples, len / sizeof(int16_t))) {
          g_atomic_int_inc(&rx_muted_pcm_blocks);
+      }
+
       return;
    }
 
    if (rx_engine) {
-      if (len && rx_pcm_audible(samples, len / sizeof(int16_t)))
+      if (len && rx_pcm_audible(samples, len / sizeof(int16_t))) {
          g_atomic_int_inc(&rx_legacy_pcm_blocks);
+      }
       rr_audio_engine_push(rx_engine, route->identity, samples, len / sizeof(int16_t));
    } else {
       rx_pcm_push(route, samples, len / sizeof(int16_t));
@@ -1809,23 +2132,32 @@ static void audio_graph_rig_label(const struct rrclient_rx_stream *stream, char 
 }
 
 /* Mirror the *existing* mixer topology; the realtime engine remains the executor until graph-driven process supervision is implemented. */
-/* Requested hardware rate is not the negotiated GStreamer caps rate.
- * Only claim an override for the stock PulseAudio boundary shape. */
+/* Requested hardware rate is not the negotiated GStreamer caps rate. Only claim an override for the stock PulseAudio boundary shape. */
 static guint32 audio_device_rate_request(bool capture) {
    const char *mode = cfg_get("audio.pipeline-mode");
+
    if (!mode || g_ascii_strcasecmp(mode, "generated")) {
-      /* Configured pipelines are arbitrary and may not have a device-rate
-       * capsfilter. Never claim an inferred rate for custom pipelines. */
-      const char *pipeline = cfg_get(capture ? "pipeline:src.client.dsp0" :
-                                                "pipeline:sink.client.mix");
-      if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ") ||
-          !strstr(pipeline, "processor-device-caps"))
+      /* Configured pipelines are arbitrary and may not have a device-rate capsfilter. Never claim an inferred rate for custom pipelines. */
+      const char *pipeline = cfg_get(capture ? "pipeline:src.client.dsp0" : "pipeline:sink.client.mix");
+
+      if (!pipeline || !strstr(pipeline, capture ? "pulsesrc " : "pulsesink ") || !strstr(pipeline, "processor-device-caps")) {
          return 0;
+      }
    }
    const char *rate = cfg_get(capture ? "audio.capture-rate" : "audio.playback-rate");
-   if (!rate || !strcmp(rate, "auto")) return 48000;
-   if (!strcmp(rate, "44100")) return 44100;
-   if (!strcmp(rate, "48000")) return 48000;
+
+   if (!rate || !strcmp(rate, "auto")) {
+      return 48000;
+   }
+
+   if (!strcmp(rate, "44100")) {
+      return 44100;
+   }
+
+   if (!strcmp(rate, "48000")) {
+      return 48000;
+   }
+
    return 0;
 }
 
@@ -1837,156 +2169,170 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    }
    rr_audio_graph_add_node(graph, "tx.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "tx.transport", RR_AG_PROCESSOR);
-   rr_audio_graph_set_health(graph,"tx.mix",tx_engine?RR_AG_HEALTHY:RR_AG_FAILED);
-   rr_audio_graph_set_health(graph,"tx.transport",
-      tx_codec[0] && rrclient_media_current_channel(true) ?
-      RR_AG_HEALTHY:RR_AG_STOPPED);
-   rr_audio_graph_add_link(graph,"tx.mix","tx.transport",RR_AG_NORMAL);
+   rr_audio_graph_set_health(graph, "tx.mix", tx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "tx.transport", tx_codec[0] && rrclient_media_current_channel(true) ? RR_AG_HEALTHY : RR_AG_STOPPED);
+   rr_audio_graph_add_link(graph, "tx.mix", "tx.transport", RR_AG_NORMAL);
    rr_audio_graph_add_node(graph, "rx.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "rx16.resample", RR_AG_PROCESSOR);
    rr_audio_graph_add_node(graph, "hq.mix", RR_AG_MIXER);
    rr_audio_graph_add_node(graph, "sink.client.dsp0", RR_AG_SINK);
    rr_audio_graph_set_health(graph, "rx.mix", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
-   rr_audio_graph_set_health(graph, "rx16.resample",
-      rx_engine && hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "rx16.resample", rx_engine && hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "hq.mix", hq_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_health(graph, "sink.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_add_link(graph, "rx.mix", "rx16.resample", RR_AG_NORMAL);
    rr_audio_graph_add_link(graph, "rx16.resample", "hq.mix", RR_AG_NORMAL);
    rr_audio_graph_add_link(graph, "hq.mix", "sink.client.dsp0", RR_AG_NORMAL);
-   /* The capture endpoint is an independent TX source, not connected to
-    * the RX mixer. Present it read-only in the routing inventory. */
+   /* The capture endpoint is an independent TX source, not connected to the RX mixer. Present it read-only in the routing inventory. */
    rr_audio_graph_add_node(graph, "src.client.dsp0", RR_AG_SOURCE);
-   rr_audio_graph_set_health(graph, "src.client.dsp0",
-                             audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
-   rr_audio_graph_set_route(graph,"src.client.dsp0",
-                            !strcmp(mic_tx_target,"none")?'M':'S');
-   if(strcmp(mic_tx_target,"none"))
-      rr_audio_graph_add_channel_link(graph,"src.client.dsp0","tx.mix",
-                                     RR_AG_NORMAL,RR_AG_CHANNEL_LEFT);
+   rr_audio_graph_set_health(graph, "src.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_route(graph, "src.client.dsp0", !strcmp(mic_tx_target, "none") ? 'M' : 'S');
+
+   if (strcmp(mic_tx_target, "none")) {
+      rr_audio_graph_add_channel_link(graph, "src.client.dsp0", "tx.mix", RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+   }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
    rr_audio_graph_add_node(graph, "legacy.speaker", RR_AG_SOURCE);
-   rr_audio_graph_set_health(graph, "legacy.speaker",
-      rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
+   rr_audio_graph_set_health(graph, "legacy.speaker", rx_engine ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_route(graph, "legacy.speaker", 'S');
    rr_audio_graph_add_link(graph, "legacy.speaker", "rx.mix", RR_AG_NORMAL);
-   rr_audio_graph_set_health(graph, RECORDING_PLAYBACK_ID,
-      rx_engine ? (rr_recordings_play_busy() ? RR_AG_HEALTHY : RR_AG_STOPPED) :
-                  RR_AG_FAILED);
-   rr_audio_graph_set_route(graph, RECORDING_PLAYBACK_ID,
-                            recording_playback_route);
+   rr_audio_graph_set_health(graph, RECORDING_PLAYBACK_ID, rx_engine ? (rr_recordings_play_busy() ? RR_AG_HEALTHY : RR_AG_STOPPED) : RR_AG_FAILED);
+   rr_audio_graph_set_route(graph, RECORDING_PLAYBACK_ID, recording_playback_route);
    unsigned play_channels = recording_playback_route == 'L' ? RR_AG_CHANNEL_LEFT :
-      recording_playback_route == 'R' ? RR_AG_CHANNEL_RIGHT :
-      recording_playback_route == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
-   if (play_channels)
-      rr_audio_graph_add_channel_link(graph, RECORDING_PLAYBACK_ID, "rx.mix",
-                                     RR_AG_NORMAL, play_channels);
+      recording_playback_route == 'R' ? RR_AG_CHANNEL_RIGHT : recording_playback_route == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
+
+   if (play_channels) {
+      rr_audio_graph_add_channel_link(graph, RECORDING_PLAYBACK_ID, "rx.mix", RR_AG_NORMAL, play_channels);
+   }
 
 
    const char *active_rx_id = NULL;
-   for (size_t i = 0; i < count; i++)
-      if (streams[i].active_rx) { active_rx_id = streams[i].id; break; }
+
+   for (size_t i = 0 ; i < count ; i++) {
+      if (streams[i].active_rx) {
+         active_rx_id = streams[i].id;
+         break;
+      }
+   }
+
    for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 11 - 4 * RR_LOCAL_MODEM_MAX ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       /* rig.src is the stable alias of this decoder, not extra PCM. */
       const char *source_id = stream->active_rx ? "rig.src" : stream->id;
-      if (!rr_audio_graph_add_node(graph, source_id, RR_AG_SOURCE))
+
+      if (!rr_audio_graph_add_node(graph, source_id, RR_AG_SOURCE)) {
          continue;
+      }
       rr_audio_graph_set_health(graph, source_id, RR_AG_HEALTHY);
       rr_audio_graph_set_route(graph, source_id, stream->output);
       unsigned channels = stream->output == 'L' ? RR_AG_CHANNEL_LEFT :
          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT : stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
 
       gboolean intercepted = FALSE;
-      for (guint slot = 0; slot < RR_AUDIO_EFFECT_MAX; slot++)
+
+      for (guint slot = 0 ; slot < RR_AUDIO_EFFECT_MAX ; slot++) {
          if (g_atomic_int_get(&lv2_effects[slot].active) &&
-             !g_atomic_int_get(&lv2_effects[slot].failed) &&
-             (!strcmp(lv2_effects[slot].source[0], stream->id) ||
-               (lv2_effects[slot].channels == 2 &&
-                !strcmp(lv2_effects[slot].source[1], stream->id))))
+            !g_atomic_int_get(&lv2_effects[slot].failed) &&
+            (!strcmp(lv2_effects[slot].source[0], stream->id) || (lv2_effects[slot].channels == 2 && !strcmp(lv2_effects[slot].source[1], stream->id)))) {
             intercepted = TRUE;
+         }
+      }
+
       if (channels && !intercepted) {
-         /* With an active effect, dry PCM is bypassed in the actual mixer
-          * path too. Never draw both dry and processed edges at once. */
+         /* With an active effect, dry PCM is bypassed in the actual mixer path too. Never draw both dry and processed edges at once. */
          rr_audio_engine_t *owner = audio_stream_engine(stream->id);
-         rr_audio_graph_add_channel_link(graph, source_id,
-                  owner == hq_engine ? "hq.mix" : "rx.mix",
-                  RR_AG_NORMAL, channels);
+         rr_audio_graph_add_channel_link(graph, source_id, owner == hq_engine ? "hq.mix" : "rx.mix", RR_AG_NORMAL, channels);
       }
    }
 
-   /* Each standalone LV2 instance is a genuine one-in/one-out audio
-    * processor, not a synthetic UI-only control node. */
-   for (guint slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++) {
-      rr_lv2_effect_t *fx = &lv2_effects[slot-1];
-      if (!g_atomic_int_get(&fx->active)) continue;
-      if (!rr_audio_graph_add_node(graph, fx->name, RR_AG_PROCESSOR)) continue;
-      rr_audio_graph_set_health(graph, fx->name,
-         g_atomic_int_get(&fx->failed) ? RR_AG_FAILED : RR_AG_HEALTHY);
-      if (g_atomic_int_get(&fx->failed)) continue;
-      for (guint ch = 0; ch < fx->channels; ch++) {
-         if (fx->source[ch][0])
-            rr_audio_graph_add_channel_link(graph,
-                  active_rx_id && !strcmp(fx->source[ch], active_rx_id) ?
-                  "rig.src" : fx->source[ch], fx->name,
-                  RR_AG_NORMAL, fx->channels == 2 ?
-                  (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT) :
-                  RR_AG_CHANNEL_LEFT);
+   /* Each standalone LV2 instance is a genuine one-in/one-out audio processor, not a synthetic UI-only control node. */
+   for (guint slot = 1 ; slot <= RR_AUDIO_EFFECT_MAX ; slot++) {
+      rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
+
+      if (!g_atomic_int_get(&fx->active)) {
+         continue;
+      }
+
+      if (!rr_audio_graph_add_node(graph, fx->name, RR_AG_PROCESSOR)) {
+         continue;
+      }
+      rr_audio_graph_set_health(graph, fx->name, g_atomic_int_get(&fx->failed) ? RR_AG_FAILED : RR_AG_HEALTHY);
+
+      if (g_atomic_int_get(&fx->failed)) {
+         continue;
+      }
+
+      for (guint ch = 0 ; ch < fx->channels ; ch++) {
+         if (fx->source[ch][0]) {
+            rr_audio_graph_add_channel_link(graph, active_rx_id && !strcmp(fx->source[ch], active_rx_id) ?
+               "rig.src" : fx->source[ch], fx->name, RR_AG_NORMAL, fx->channels == 2 ? (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT) : RR_AG_CHANNEL_LEFT);
+         }
          unsigned mask = fx->output[ch] == 'L' ? RR_AG_CHANNEL_LEFT :
-                         fx->output[ch] == 'R' ? RR_AG_CHANNEL_RIGHT :
-                         fx->output[ch] == 'S' ? RR_AG_CHANNEL_STEREO : 0;
-         if (mask)
-            rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix",
-                                             RR_AG_NORMAL, mask);
+            fx->output[ch] == 'R' ? RR_AG_CHANNEL_RIGHT : fx->output[ch] == 'S' ? RR_AG_CHANNEL_STEREO : 0;
+
+         if (mask) {
+            rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix", RR_AG_NORMAL, mask);
+         }
       }
    }
 
-   /* Modem decoder blocks branch directly from the pre-effects decoded PCM.
-    * Each modem also advertises its future TX audio and PTT side explicitly,
-    * but those outputs have no routing links until PTT authorization exists. */
-   rr_local_modem_route_t modems[RR_LOCAL_MODEM_MAX] = {0};
+   /* Modem decoder blocks branch directly from the pre-effects decoded PCM. Each modem also advertises its future TX audio and PTT side explicitly, but those
+    * outputs have no routing links until PTT authorization exists. */
+   rr_local_modem_route_t modems[RR_LOCAL_MODEM_MAX] = {
+      0
+   };
    size_t modem_count = rr_local_modem_routes(modems, G_N_ELEMENTS(modems));
-   for (size_t i = 0; i < modem_count; i++) {
+
+   for (size_t i = 0 ; i < modem_count ; i++) {
       char rx_id[64], tx_id[64];
       g_snprintf(rx_id, sizeof(rx_id), "modem%u.rx", modems[i].slot);
       g_snprintf(tx_id, sizeof(tx_id), "modem%u.tx", modems[i].slot);
+
       if (rr_audio_graph_add_node(graph, rx_id, RR_AG_SINK)) {
          rr_audio_graph_set_health(graph, rx_id, RR_AG_HEALTHY);
-         if (modems[i].source[0])
-            rr_audio_graph_add_channel_link(graph,
-                  active_rx_id && !strcmp(modems[i].source, active_rx_id) ?
-                  "rig.src" : modems[i].source, rx_id,
-                                            RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+
+         if (modems[i].source[0]) {
+            rr_audio_graph_add_channel_link(graph, active_rx_id && !strcmp(modems[i].source, active_rx_id) ? "rig.src" : modems[i].source, rx_id, RR_AG_NORMAL,
+               RR_AG_CHANNEL_LEFT);
+         }
       }
+
       if (modems[i].tx_enabled && rr_audio_graph_add_node(graph, tx_id, RR_AG_SOURCE)) {
          rr_audio_graph_set_health(graph, tx_id, RR_AG_STOPPED);
-         if(!strcmp(modems[i].tx_target,"tx.mix"))
-            rr_audio_graph_add_channel_link(graph,tx_id,"tx.mix",
-                                            RR_AG_NORMAL,RR_AG_CHANNEL_LEFT);
+
+         if (!strcmp(modems[i].tx_target, "tx.mix")) {
+            rr_audio_graph_add_channel_link(graph, tx_id, "tx.mix", RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+         }
       }
    }
 
-   /* Only real transmit-capable receivers advertise a rig TX sink.
-    * RX-only remote SDRs must not gain a phantom TX block. */
-   for (size_t i = 0; i < count; i++) {
-      if (!rrclient_media_rx_has_tx(streams[i].uuid)) continue;
+   /* Only real transmit-capable receivers advertise a rig TX sink. RX-only remote SDRs must not gain a phantom TX block. */
+   for (size_t i = 0 ; i < count ; i++) {
+      if (!rrclient_media_rx_has_tx(streams[i].uuid)) {
+         continue;
+      }
       char tx[64];
       g_snprintf(tx, sizeof(tx), "rig.%08x.tx", g_str_hash(streams[i].id));
-      if (streams[i].active_rx && streams[i].active_tx)
+
+      if (streams[i].active_rx && streams[i].active_tx) {
          g_strlcpy(tx, "rig.sink", sizeof(tx));
+      }
       rr_audio_graph_add_node(graph, tx, RR_AG_SINK);
       rr_audio_graph_set_health(graph, tx, RR_AG_STOPPED);
-      if(rrclient_media_rx_is_active_tx(streams[i].uuid))
-         rr_audio_graph_add_channel_link(graph,"tx.transport",tx,
-                                         RR_AG_NORMAL,RR_AG_CHANNEL_LEFT);
-      for (size_t j = 0; j < modem_count; j++) {
+
+      if (rrclient_media_rx_is_active_tx(streams[i].uuid)) {
+         rr_audio_graph_add_channel_link(graph, "tx.transport", tx, RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+      }
+
+      for (size_t j = 0 ; j < modem_count ; j++) {
          char from[64];
          g_snprintf(from, sizeof(from), "modem%u.tx", modems[j].slot);
-         if (modems[j].tx_enabled && !strcmp(modems[j].ptt_target, streams[i].id))
-            rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_CONTROL,
-                                            RR_AG_CHANNEL_LEFT);
+
+         if (modems[j].tx_enabled && !strcmp(modems[j].ptt_target, streams[i].id)) {
+            rr_audio_graph_add_channel_link(graph, from, tx, RR_AG_CONTROL, RR_AG_CHANNEL_LEFT);
+         }
       }
    }
 
@@ -1999,9 +2345,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
 
          if (g_str_has_prefix(node->id, "proc.lv2.")) {
             unsigned slot = 0;
-            if (sscanf(node->id, "proc.lv2.%u", &slot) == 1 &&
-                slot && slot <= RR_AUDIO_EFFECT_MAX) {
-               rr_lv2_effect_t *fx = &lv2_effects[slot-1];
+
+            if (sscanf(node->id, "proc.lv2.%u", &slot) == 1 && slot && slot <= RR_AUDIO_EFFECT_MAX) {
+               rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
                g_snprintf(node->rig, sizeof(node->rig), "LV2: %.78s", fx->factory);
                node->rate_hz = node->downstream_rate_hz = 16000;
                node->channels = fx->channels;
@@ -2010,41 +2356,52 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             }
             continue;
          }
-         if(!strcmp(node->id,"tx.transport")) {
-            node->rate_hz=node->downstream_rate_hz=16000;
-            node->channels=1;node->sample_format=RR_PCM_S16LE;
-            node->read_only=TRUE;
-            g_strlcpy(node->rig,"TX codec / media transport",sizeof(node->rig));
+
+         if (!strcmp(node->id, "tx.transport")) {
+            node->rate_hz = node->downstream_rate_hz = 16000;
+            node->channels = 1;
+            node->sample_format = RR_PCM_S16LE;
+            node->read_only = TRUE;
+            g_strlcpy(node->rig, "TX codec / media transport", sizeof(node->rig));
             continue;
          }
-         if (g_str_has_prefix(node->id, "rig.") &&
-             (g_str_has_suffix(node->id, ".tx") ||
-              !strcmp(node->id, "rig.sink"))) {
-            for (size_t k = 0; k < count; k++) {
+
+         if (g_str_has_prefix(node->id, "rig.") && (g_str_has_suffix(node->id, ".tx") || !strcmp(node->id, "rig.sink"))) {
+            for (size_t k = 0 ; k < count ; k++) {
                char id[64];
                g_snprintf(id, sizeof(id), "rig.%08x.", g_str_hash(streams[k].id));
+
                if (!strcmp(node->id, "rig.sink")) {
-                  if (!(streams[k].active_rx && streams[k].active_tx)) continue;
-               } else if (!g_str_has_prefix(node->id, id)) continue;
-               g_snprintf(node->rig, sizeof(node->rig), "%s TX",
-                          streams[k].room);
+                  if (!(streams[k].active_rx && streams[k].active_tx)) {
+                     continue;
+                  }
+               } else if (!g_str_has_prefix(node->id, id)) {
+                  continue;
+               }
+               g_snprintf(node->rig, sizeof(node->rig), "%s TX", streams[k].room);
                node->rate_hz = 16000;
                node->channels = 1;
                node->sample_format = RR_PCM_S16LE;
                node->read_only = TRUE;
                break;
             }
+
             continue;
          }
+
          if (g_str_has_prefix(node->id, "modem")) {
             unsigned slot = 0;
-            char direction[8] = {0};
+            char direction[8] = {
+               0
+            };
+
             if (sscanf(node->id, "modem%u.%7s", &slot, direction) == 2) {
-               for (size_t m = 0; m < modem_count; m++) {
-                  if (modems[m].slot != slot) continue;
+               for (size_t m = 0 ; m < modem_count ; m++) {
+                  if (modems[m].slot != slot) {
+                     continue;
+                  }
                   gboolean tx = !strcmp(direction, "tx");
-                  g_snprintf(node->rig, sizeof(node->rig), "%s-%u %s",
-                             modems[m].engine, slot, tx ? "TX / PTT" : "RX");
+                  g_snprintf(node->rig, sizeof(node->rig), "%s-%u %s", modems[m].engine, slot, tx ? "TX / PTT" : "RX");
                   node->rate_hz = 16000;
                   node->channels = 1;
                   node->sample_format = RR_PCM_S16LE;
@@ -2054,58 +2411,64 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             }
             continue;
          }
-         /* Advertise the real core bus and only the requested hardware
-          * boundary rate, never an invented negotiated device rate. */
+         /* Advertise the real core bus and only the requested hardware boundary rate, never an invented negotiated device rate. */
          const guint32 mix_rate = rr_audio_engine_sample_rate(rx_engine);
-         if (node->type == RR_AG_PROCESSOR &&
-             !strcmp(node->id, "rx16.resample")) {
+
+         if (node->type == RR_AG_PROCESSOR && !strcmp(node->id, "rx16.resample")) {
             node->read_only = true;
             node->rate_hz = 16000;
             node->downstream_rate_hz = rr_audio_engine_sample_rate(hq_engine);
             node->channels = 2;
             node->sample_format = RR_PCM_S16LE;
-            rr_audio_stream_status_t bridge = {0};
+            rr_audio_stream_status_t bridge = {
+               0
+            };
+
             if (rr_audio_engine_stream_status(hq_engine, HQ_BUS_LEGACY_ID, &bridge)) {
                node->resampling = bridge.resampling;
-               node->queued_ms = (guint32)(bridge.queued_frames * 1000u /
-                                          bridge.mixer_rate_hz);
+               node->queued_ms = (guint32) (bridge.queued_frames * 1000u / bridge.mixer_rate_hz);
                node->dropped_frames = bridge.dropped_frames;
                node->starvation_events = bridge.starvation_events;
             }
-            for (unsigned ch = 0; ch < 2; ch++)
-               node->input_gain_db[ch] = rr_audio_engine_input_gain_get(
-                  hq_engine, HQ_BUS_LEGACY_ID, ch);
+
+            for (unsigned ch = 0 ; ch < 2 ; ch++) {
+               node->input_gain_db[ch] = rr_audio_engine_input_gain_get(hq_engine, HQ_BUS_LEGACY_ID, ch);
+            }
+
             continue;
          }
+
          if (node->type == RR_AG_MIXER) {
-            node->rate_hz = !strcmp(node->id,"tx.mix") ?
-                            rr_audio_engine_sample_rate(tx_engine) :
-                            !strcmp(node->id, "hq.mix") ?
-                            rr_audio_engine_sample_rate(hq_engine) : mix_rate;
+            node->rate_hz = !strcmp(node->id, "tx.mix") ?
+               rr_audio_engine_sample_rate(tx_engine) : !strcmp(node->id, "hq.mix") ? rr_audio_engine_sample_rate(hq_engine) : mix_rate;
             node->channels = 2;
             node->sample_format = RR_PCM_S16LE;
-            /* The upstream converter has its own node and counters.
-             * Do not imply that the HQ mix bus itself resamples audio. */
+            /* The upstream converter has its own node and counters. Do not imply that the HQ mix bus itself resamples audio. */
             node->read_only = !strcmp(node->id, "hq.mix");
          } else if (node->type == RR_AG_SINK) {
             node->rate_hz = rr_audio_engine_sample_rate(hq_engine);
             node->downstream_rate_hz = audio_device_rate_request(false);
             node->rate_requested = node->downstream_rate_hz != 0;
-            node->resampling = node->rate_requested &&
-                               node->downstream_rate_hz != mix_rate;
+            node->resampling = node->rate_requested && node->downstream_rate_hz != mix_rate;
             node->channels = 2;
             node->sample_format = RR_PCM_S16LE;
          }
+
          if (node->type == RR_AG_MIXER || node->type == RR_AG_SINK) {
-            rr_audio_engine_t *owner = !strcmp(node->id,"tx.mix") ?
-                  tx_engine : node->type == RR_AG_MIXER &&
-                  !strcmp(node->id, "rx.mix") ? rx_engine : hq_engine;
-            for (unsigned ch = 0; ch < 2; ch++)
-               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(
-                  owner, node->type == RR_AG_SINK, ch);
+            rr_audio_engine_t *owner = !strcmp(node->id, "tx.mix") ?
+               tx_engine : node->type == RR_AG_MIXER && !strcmp(node->id, "rx.mix") ? rx_engine : hq_engine;
+
+            for (unsigned ch = 0 ; ch < 2 ; ch++) {
+               node->port_gain_db[ch] = rr_audio_engine_port_gain_get(owner, node->type == RR_AG_SINK, ch);
+            }
+
             continue;
          }
-         if (node->type != RR_AG_SOURCE) continue;
+
+         if (node->type != RR_AG_SOURCE) {
+            continue;
+         }
+
          if (!strcmp(node->id, "src.client.dsp0")) {
             node->read_only = TRUE;
             node->rate_hz = audio_device_rate_request(true);
@@ -2115,17 +2478,21 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             node->channels = 1;
             node->sample_format = RR_PCM_S16LE;
             const char *rate = cfg_get("audio.capture-rate");
-            g_snprintf(node->rig, sizeof(node->rig), "Microphone (%s requested)",
-                       !rate || !strcmp(rate, "auto") ? "48 kHz" :
-                       !strcmp(rate, "44100") ? "44.1 kHz" :
-                       !strcmp(rate, "48000") ? "48 kHz" : "device default");
+            g_snprintf(node->rig, sizeof(node->rig), "Microphone (%s requested)", !rate || !strcmp(rate, "auto") ? "48 kHz" : !strcmp(rate, "44100") ?
+               "44.1 kHz" : !strcmp(rate, "48000") ? "48 kHz" : "device default");
             continue;
          }
+
          if (!strcmp(node->id, "rig.src")) {
-            for (size_t k = 0; k < count; k++) {
-               if (!streams[k].active_rx) continue;
-               rr_audio_stream_status_t status = {0};
+            for (size_t k = 0 ; k < count ; k++) {
+               if (!streams[k].active_rx) {
+                  continue;
+               }
+               rr_audio_stream_status_t status = {
+                  0
+               };
                rr_audio_engine_t *owner = audio_stream_engine(streams[k].id);
+
                if (rr_audio_engine_stream_status(owner, streams[k].id, &status)) {
                   node->rate_hz = status.source.sample_rate_hz;
                   node->downstream_rate_hz = status.mixer_rate_hz;
@@ -2133,59 +2500,69 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                   node->sample_format = status.source.format;
                }
                audio_graph_rig_label(&streams[k], node->rig, sizeof(node->rig));
-               for (unsigned ch = 0; ch < 2; ch++)
-                  node->input_gain_db[ch] =
-                     rr_audio_engine_input_gain_get(owner, streams[k].id, ch);
+
+               for (unsigned ch = 0 ; ch < 2 ; ch++) {
+                  node->input_gain_db[ch] = rr_audio_engine_input_gain_get(owner, streams[k].id, ch);
+               }
+
                break;
             }
+
             continue;
          }
+
          if (!strcmp(node->id, "legacy.speaker")) {
             node->read_only = true;
             g_strlcpy(node->rig, "Legacy decoded PCM", sizeof(node->rig));
-            rr_audio_stream_status_t legacy = {0};
+            rr_audio_stream_status_t legacy = {
+               0
+            };
+
             if (rr_audio_engine_stream_status(rx_engine, node->id, &legacy)) {
                node->rate_hz = legacy.source.sample_rate_hz;
                node->channels = legacy.source.channels;
                node->sample_format = legacy.source.format;
-               node->queued_ms = legacy.mixer_rate_hz ?
-                  (guint32)(legacy.queued_frames * 1000u / legacy.mixer_rate_hz) : 0;
+               node->queued_ms = legacy.mixer_rate_hz ? (guint32) (legacy.queued_frames * 1000u / legacy.mixer_rate_hz) : 0;
                node->dropped_frames = legacy.dropped_frames;
                node->starvation_events = legacy.starvation_events;
             }
-            for (unsigned ch = 0; ch < 2; ch++)
-               node->input_gain_db[ch] = rr_audio_engine_input_gain_get(
-                  rx_engine, node->id, ch);
+
+            for (unsigned ch = 0 ; ch < 2 ; ch++) {
+               node->input_gain_db[ch] = rr_audio_engine_input_gain_get(rx_engine, node->id, ch);
+            }
+
             continue;
          }
+
          if (!strcmp(node->id, RECORDING_PLAYBACK_ID)) {
             node->rate_hz = rr_audio_engine_sample_rate(rx_engine);
             node->channels = 2;
             node->sample_format = RR_PCM_S16LE;
             g_strlcpy(node->rig, "Recording Playback", sizeof(node->rig));
-            node->input_gain_db[0] = rr_audio_engine_input_gain_get(
-               rx_engine, RECORDING_PLAYBACK_L, 0);
-            node->input_gain_db[1] = rr_audio_engine_input_gain_get(
-               rx_engine, RECORDING_PLAYBACK_R, 1);
+            node->input_gain_db[0] = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_L, 0);
+            node->input_gain_db[1] = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
             continue;
          }
-         rr_audio_stream_status_t status = {0};
+         rr_audio_stream_status_t status = {
+            0
+         };
          rr_audio_engine_t *owner = audio_stream_engine(node->id);
+
          if (rr_audio_engine_stream_status(owner, node->id, &status)) {
             node->rate_hz = status.source.sample_rate_hz;
             node->downstream_rate_hz = status.mixer_rate_hz;
             node->channels = status.source.channels;
             node->sample_format = status.source.format;
             node->resampling = status.resampling;
-            node->queued_ms = status.mixer_rate_hz ?
-                              (guint32)(status.queued_frames * 1000u /
-                                        status.mixer_rate_hz) : 0;
+            node->queued_ms = status.mixer_rate_hz ? (guint32) (status.queued_frames * 1000u / status.mixer_rate_hz) : 0;
             node->dropped_frames = status.dropped_frames;
             node->starvation_events = status.starvation_events;
          }
-         for (unsigned channel = 0; channel < 2; channel++)
-            node->input_gain_db[channel] = rr_audio_engine_input_gain_get(
-               owner, node->id, channel);
+
+         for (unsigned channel = 0 ; channel < 2 ; channel++) {
+            node->input_gain_db[channel] = rr_audio_engine_input_gain_get(owner, node->id, channel);
+         }
+
          for (size_t j = 0 ; j < count ; ++j) {
             if (!strcmp(node->id, streams[j].id)) {
                audio_graph_rig_label(&streams[j], node->rig, sizeof(node->rig));
@@ -2225,15 +2602,18 @@ static void audio_log_stream_inventory(const struct rrclient_rx_stream *streams,
    }
 }
 
-/* The AF FFT consumes 16 kHz PCM regardless of the source's native
- * clock. Carry the source Nyquist limit separately so GTK cannot display
- * frequency ranges manufactured by upsampling. Unknown formats retain
- * the analyzer's honest 8 kHz ceiling until metadata is available. */
+/* The AF FFT consumes 16 kHz PCM regardless of the source's native clock. Carry the source Nyquist limit separately so GTK cannot display frequency ranges
+ * manufactured by upsampling. Unknown formats retain the analyzer's honest 8 kHz ceiling until metadata is available. */
 static uint32_t audio_af_source_max_hz(const struct rrclient_rx_stream *stream) {
-   if (!stream) return RR_AF_MAX_HZ;
+   if (!stream) {
+      return RR_AF_MAX_HZ;
+   }
    uint32_t rate = stream->source_rate_hz;
-   if (!rate && !strcmp(stream->codec, "mu08"))
-      rate = 8000; /* explicitly 8 kHz mu-law in the codec pipeline */
+
+   if (!rate && !strcmp(stream->codec, "mu08")) {
+      rate = 8000;              /* explicitly 8 kHz mu-law in the codec pipeline */
+   }
+
    return rr_af_source_nyquist(rate);
 }
 
@@ -2254,32 +2634,34 @@ static void audio_af_spectrum_request(const rr_event_message_t *message, void *u
       .request_id = req.request_id,
       .max_hz = RR_AF_MAX_HZ
    };
-   /* Resolve source capabilities on the core thread (where the RX route
-    * and local SDR native clock are owned), not in the GTK redraw path. */
+
+   /* Resolve source capabilities on the core thread (where the RX route and local SDR native clock are owned), not in the GTK redraw path. */
    if (req.source == 'S') {
       struct rrclient_rx_stream sources[128];
-      size_t count = MIN(audio_rx_streams(sources, G_N_ELEMENTS(sources)),
-                         G_N_ELEMENTS(sources));
-      for (size_t i = 0; i < count; i++) {
+      size_t count = MIN(audio_rx_streams(sources, G_N_ELEMENTS(sources)), G_N_ELEMENTS(sources));
+
+      for (size_t i = 0 ; i < count ; i++) {
          if (!strcmp(sources[i].id, req.stream)) {
             result.max_hz = audio_af_source_max_hz(&sources[i]);
             break;
          }
       }
    }
+
    if (req.source == 'L' || req.source == 'R' || req.source == 'M' || req.source == 'A') {
       if (req.source == 'A') {
          bool l = rr_af_spectrum_read("output:left", result.left);
          bool r = rr_af_spectrum_read("output:right", result.right);
          result.ready = l && r;
          result.stereo = true;
+
          if (result.ready) {
-            for (unsigned i = 0 ; i < RR_AF_BINS ; i++)
+            for (unsigned i = 0 ; i < RR_AF_BINS ; i++) {
                result.bins[i] = MAX(result.left[i], result.right[i]);
+            }
          }
       } else {
-         const char *id = req.source == 'L' ? "output:left" :
-            req.source == 'R' ? "output:right" : "output:mixed";
+         const char *id = req.source == 'L' ? "output:left" : req.source == 'R' ? "output:right" : "output:mixed";
          result.ready = rr_af_spectrum_read(id, result.bins);
       }
    } else if (req.source == 'S' && memchr(req.stream, 0, sizeof(req.stream))) {
@@ -2287,23 +2669,23 @@ static void audio_af_spectrum_request(const rr_event_message_t *message, void *u
       result.ready = rr_af_spectrum_read(req.stream, result.bins);
    } else {
       /* Compatibility with the original per-room spectrum requests. */
-   struct rrclient_rx_stream streams[64];
-   size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
-   size_t selected = count;
+      struct rrclient_rx_stream streams[64];
+      size_t count = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
+      size_t selected = count;
 
-   for (size_t i = 0 ; i < count ; i++) {
-      if (strcmp(streams[i].server, req.server) || g_ascii_strcasecmp(streams[i].room, req.room)) {
-         continue;
+      for (size_t i = 0 ; i < count ; i++) {
+         if (strcmp(streams[i].server, req.server) || g_ascii_strcasecmp(streams[i].room, req.room)) {
+            continue;
+         }
+
+         if (selected == count || (streams[selected].output == 'M' && streams[i].output != 'M')) {
+            selected = i;
+         }
       }
 
-      if (selected == count || (streams[selected].output == 'M' && streams[i].output != 'M')) {
-         selected = i;
+      if (selected != count) {
+         result.ready = rr_af_spectrum_read(streams[selected].id, result.bins);
       }
-   }
-
-   if (selected != count) {
-      result.ready = rr_af_spectrum_read(streams[selected].id, result.bins);
-   }
    }
    rr_event_message_t reply = {
       .name = RRCLIENT_AF_SPECTRUM_RESULT,
@@ -2361,19 +2743,20 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
       }
       case RR_AUDIO_CONTROL_PORT_GAIN: {
          if (!rx_engine || !memchr(req->stream, 0, sizeof(req->stream)) ||
-             req->channel > 1 || !isfinite(req->gain_db) ||
-             req->gain_db < -60. || req->gain_db > 12.) break;
+            req->channel > 1 || !isfinite(req->gain_db) || req->gain_db < -60. || req->gain_db > 12.) {
+            break;
+         }
          bool sink_input = !strcmp(req->stream, "sink.client.dsp0");
          bool hq_mix = !strcmp(req->stream, "hq.mix");
          bool tx_mix = !strcmp(req->stream, "tx.mix");
-         if (!sink_input && !hq_mix && !tx_mix &&
-             strcmp(req->stream, "rx.mix")) break;
-         rr_audio_engine_t *owner = tx_mix ? tx_engine :
-                                  sink_input || hq_mix ? hq_engine : rx_engine;
+
+         if (!sink_input && !hq_mix && !tx_mix && strcmp(req->stream, "rx.mix")) {
+            break;
+         }
+         rr_audio_engine_t *owner = tx_mix ? tx_engine : sink_input || hq_mix ? hq_engine : rx_engine;
+
          if (rr_audio_engine_port_gain(owner, sink_input, req->channel, req->gain_db)) {
-            char *key = g_strdup_printf("audio.graph.port.%s.%c",
-               sink_input ? "sink" : hq_mix ? "hq" : tx_mix ? "tx" : "mix",
-               req->channel ? 'R' : 'L');
+            char *key = g_strdup_printf("audio.graph.port.%s.%c", sink_input ? "sink" : hq_mix ? "hq" : tx_mix ? "tx" : "mix", req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
             g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
             rrclient_database_setting_set(key, val);
@@ -2382,36 +2765,47 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          break;
       }
       case RR_AUDIO_CONTROL_INPUT_GAIN: {
-         if (!memchr(req->stream, 0, sizeof(req->stream)) ||
-             req->channel > 1 || !isfinite(req->gain_db) ||
-             req->gain_db < -60.0 || req->gain_db > 12.0) break;
+         if (!memchr(req->stream, 0, sizeof(req->stream)) || req->channel > 1 || !isfinite(req->gain_db) || req->gain_db < -60.0 || req->gain_db > 12.0) {
+            break;
+         }
          const char *id = audio_resolve_rig_source(req->stream);
-         if (!id) break;
-         if (!strcmp(id, "rx16.resample"))
+
+         if (!id) {
+            break;
+         }
+
+         if (!strcmp(id, "rx16.resample")) {
             id = HQ_BUS_LEGACY_ID;
-         if (!strcmp(id, RECORDING_PLAYBACK_ID))
+         }
+
+         if (!strcmp(id, RECORDING_PLAYBACK_ID)) {
             id = req->channel ? RECORDING_PLAYBACK_R : RECORDING_PLAYBACK_L;
+         }
          rr_audio_engine_t *owner = audio_stream_engine(id);
          bool ok = rr_audio_engine_input_gain(owner, id, req->channel, req->gain_db);
+
          if (!strcmp(req->stream, RECORDING_PLAYBACK_ID)) {
             /* A recording channel's trim follows its content when re-routed. */
             rr_audio_engine_input_gain(owner, id, 1 - req->channel, req->gain_db);
          }
+
          if (ok) {
             char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
-            char *key = g_strdup_printf("audio.graph.input.%s.%c", hash,
-                                        req->channel ? 'R' : 'L');
+            char *key = g_strdup_printf("audio.graph.input.%s.%c", hash, req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
             g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
             rrclient_database_setting_set(key, val);
-            g_free(key); g_free(hash);
+            g_free(key);
+            g_free(hash);
          }
          break;
       }
       case RR_AUDIO_CONTROL_MIC_TX_ROUTE: {
-         if (!memchr(req->stream, 0, sizeof(req->stream))) break;
-         if (strcmp(req->stream, "auto") && strcmp(req->stream, "none") &&
-             !rrclient_media_rx_has_tx(req->stream)) {
+         if (!memchr(req->stream, 0, sizeof(req->stream))) {
+            break;
+         }
+
+         if (strcmp(req->stream, "auto") && strcmp(req->stream, "none") && !rrclient_media_rx_has_tx(req->stream)) {
             Log(LOG_WARN, "audio.tx", "TX route rejected: no matching transmit media channel");
             break;
          }
@@ -2419,21 +2813,22 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          g_strlcpy(mic_tx_target, req->stream, sizeof(mic_tx_target));
          G_UNLOCK(mic_tx_target);
          rrclient_database_setting_set("audio.tx.mic.target", req->stream);
-         if(tx_engine)
-            rr_audio_engine_route(tx_engine,"src.client.dsp0",
-                                  !strcmp(req->stream,"none")?'M':'S');
+
+         if (tx_engine) {
+            rr_audio_engine_route(tx_engine, "src.client.dsp0", !strcmp(req->stream, "none") ? 'M' : 'S');
+         }
          event_emit("client.audio.route.changed", NULL, NULL);
          break;
       }
       case RR_AUDIO_CONTROL_EFFECT_PARAMETER: {
          if (!memchr(req->stream, 0, sizeof(req->stream)) ||
-             !memchr(req->element, 0, sizeof(req->element)) ||
-             !memchr(req->property, 0, sizeof(req->property)) ||
-             !isfinite(req->gain_db)) break;
-         if (!fwdsp_processor_set_property(req->stream, req->element,
-                                           req->property, req->gain_db))
-            Log(LOG_WARN, "audio.effects", "Effect control failed: %.60s / %.60s / %.60s",
-                req->stream, req->element, req->property);
+            !memchr(req->element, 0, sizeof(req->element)) || !memchr(req->property, 0, sizeof(req->property)) || !isfinite(req->gain_db)) {
+            break;
+         }
+
+         if (!fwdsp_processor_set_property(req->stream, req->element, req->property, req->gain_db)) {
+            Log(LOG_WARN, "audio.effects", "Effect control failed: %.60s / %.60s / %.60s", req->stream, req->element, req->property);
+         }
          break;
       }
       default: {
@@ -2449,8 +2844,12 @@ static void audio_submit_control(const rr_audio_control_request_t *req) {
    event_emit_message(&message);
 }
 void audio_request_mic_tx_route(const char *rx_uuid) {
-   if (!rx_uuid || !*rx_uuid || strlen(rx_uuid) >= 64) return;
-   rr_audio_control_request_t req = {.kind = RR_AUDIO_CONTROL_MIC_TX_ROUTE};
+   if (!rx_uuid || !*rx_uuid || strlen(rx_uuid) >= 64) {
+      return;
+   }
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_MIC_TX_ROUTE
+   };
    g_strlcpy(req.stream, rx_uuid, sizeof(req.stream));
    audio_submit_control(&req);
 }
@@ -2467,7 +2866,9 @@ void audio_request_rx_channel_volume(unsigned channel, int percent) {
    audio_submit_control(&req);
 }
 void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db) {
-   if (!id || channel > 1 || !isfinite(gain_db)) return;
+   if (!id || channel > 1 || !isfinite(gain_db)) {
+      return;
+   }
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_INPUT_GAIN, .channel = channel,
       .gain_db = gain_db
@@ -2476,24 +2877,22 @@ void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_d
    audio_submit_control(&req);
 }
 void audio_request_port_gain(const char *id, unsigned channel, double db) {
-   if (!id || channel > 1 || !isfinite(db) ||
-       (strcmp(id, "rx.mix") && strcmp(id, "tx.mix") &&
-        strcmp(id, "sink.client.dsp0")))
+   if (!id || channel > 1 || !isfinite(db) || (strcmp(id, "rx.mix") && strcmp(id, "tx.mix") && strcmp(id, "sink.client.dsp0"))) {
       return;
+   }
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_PORT_GAIN, .channel = channel, .gain_db = db
    };
    g_strlcpy(req.stream, id, sizeof(req.stream));
    audio_submit_control(&req);
 }
-void audio_request_effect_parameter(const char *processor, const char *element,
-                                    const char *property, double value) {
+void audio_request_effect_parameter(const char *processor, const char *element, const char *property, double value) {
    if (!processor || !element || !property || !*processor || !*element ||
-       !*property || !isfinite(value) ||
-       strlen(processor) >= sizeof(((rr_audio_control_request_t *)0)->stream) ||
-       strlen(element) >= sizeof(((rr_audio_control_request_t *)0)->element) ||
-       strlen(property) >= sizeof(((rr_audio_control_request_t *)0)->property))
+      !*property || !isfinite(value) ||
+      strlen(processor) >= sizeof(((rr_audio_control_request_t *) 0)->stream) ||
+      strlen(element) >= sizeof(((rr_audio_control_request_t *) 0)->element) || strlen(property) >= sizeof(((rr_audio_control_request_t *) 0)->property)) {
       return;
+   }
    rr_audio_control_request_t req = {
       .kind = RR_AUDIO_CONTROL_EFFECT_PARAMETER, .gain_db = value
    };
@@ -2515,14 +2914,15 @@ void audio_request_rx_stream_route(const char *id, char output) {
 
 bool audio_init(void) {
    char *saved_mic = rrclient_database_setting_get("audio.tx.mic.target");
-   /* Older versions stored the selected rig UUID in the mic's patch.
-    * With a real TX bus the rig belongs to the transport selection, not
-    * the microphone input. Preserve only connected vs disconnected. */
-   if(saved_mic && strcmp(saved_mic,"none") && strcmp(saved_mic,"auto")) {
-      rrclient_database_setting_set("audio.tx.mic.target","auto");
+
+   /* Older versions stored the selected rig UUID in the mic's patch. With a real TX bus the rig belongs to the transport selection, not the microphone input.
+    * Preserve only connected vs disconnected. */
+   if (saved_mic && strcmp(saved_mic, "none") && strcmp(saved_mic, "auto")) {
+      rrclient_database_setting_set("audio.tx.mic.target", "auto");
       g_free(saved_mic);
-      saved_mic=g_strdup("auto");
+      saved_mic = g_strdup("auto");
    }
+
    if (saved_mic && *saved_mic && strlen(saved_mic) < sizeof(mic_tx_target)) {
       G_LOCK(mic_tx_target);
       g_strlcpy(mic_tx_target, saved_mic, sizeof(mic_tx_target));
@@ -2538,6 +2938,7 @@ bool audio_init(void) {
    event_on(IRC_AUDIO_CLOSED_EVENT, dcc_closed, NULL);
    event_on("media.quality-hint", audio_quality_hint, NULL);
    event_on("ws.msg.media", audio_feedback, NULL);
+
    if (!lv2_effect_ready) {
       g_mutex_init(&lv2_effect_lock);
       lv2_effect_ready = TRUE;
@@ -2548,9 +2949,9 @@ bool audio_init(void) {
    event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_REQUEST, audio_af_spectrum_request, NULL, "core");
    rr_local_modem_init();
 
-   /* Register before starting the first encoder so early codec headers are
-    * not discarded by the shared fwdsp manager. */
-   fwdsp_set_encoded_output_callback(audio_tx_encoded,NULL);
+   /* Register before starting the first encoder so early codec headers are not discarded by the shared fwdsp manager. */
+   fwdsp_set_encoded_output_callback(audio_tx_encoded, NULL);
+
    if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
 
@@ -2560,86 +2961,111 @@ bool audio_init(void) {
    bool mic_ok = audio_client_capture_start();
    bool speaker_ok = audio_client_playback_start();
 
-   /* TX capture and RX playback are independent. Failure to open a
-    * microphone must never disable received audio or its sound card.
-    * A failed speaker endpoint starts with fd=-1 and is retried by the
-    * core maintenance timer while the mixing engines keep running. */
-   if (!mic_ok)
+   /* TX capture and RX playback are independent. Failure to open a microphone must never disable received audio or its sound card. A failed speaker endpoint
+    * starts with fd=-1 and is retried by the core maintenance timer while the mixing engines keep running. */
+   if (!mic_ok) {
       Log(LOG_WARN, "audio.tx", "Microphone capture unavailable; RX playback remains enabled");
-   if (!speaker_ok)
-      Log(LOG_WARN, "audio.playback",
-          "Speaker fwdsp endpoint did not start; RX will retry independently");
-   if (speaker_ok)
+   }
+
+   if (!speaker_ok) {
+      Log(LOG_WARN, "audio.playback", "Speaker fwdsp endpoint did not start; RX will retry independently");
+   }
+
+   if (speaker_ok) {
       fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
+   }
    rx_channel_volume[0] = CLAMP(cfg_get_int("audio.volume.rx.left", 100), 0, 100);
    rx_channel_volume[1] = CLAMP(cfg_get_int("audio.volume.rx.right", 100), 0, 100);
    g_mutex_init(&rx_sink_lock);
-   rx_sink_set_fd(speaker_ok ?
-      fwdsp_processor_dup_input("sink.client.dsp0") : -1);
-   /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds
-    * a single stereo 16->HQ converter at its input. HQ demodulators are
-    * admitted directly to this bus without first losing bandwidth at 16k. */
+   rx_sink_set_fd(speaker_ok ? fwdsp_processor_dup_input("sink.client.dsp0") : -1);
+   /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds a single stereo 16->HQ converter at its input. HQ demodulators are admitted directly
+    * to this bus without first losing bandwidth at 16k. */
    hq_engine = rr_audio_engine_new_rate(audio_hq_output_rate(), rx_sink_output, NULL);
-   const rr_pcm_stream_format_t low_bus_format = {16000, 2, RR_PCM_S16LE};
-   bool hq_ok = hq_engine &&
-      rr_audio_engine_add_stream_format(hq_engine, HQ_BUS_LEGACY_ID, &low_bus_format) &&
-      rr_audio_engine_start(hq_engine);
-   if (hq_ok)
+   const rr_pcm_stream_format_t low_bus_format = {
+      16000, 2, RR_PCM_S16LE
+   };
+   bool hq_ok = hq_engine && rr_audio_engine_add_stream_format(hq_engine, HQ_BUS_LEGACY_ID, &low_bus_format) && rr_audio_engine_start(hq_engine);
+
+   if (hq_ok) {
       rx_engine = rr_audio_engine_new(rx_low_bus_output, NULL);
+   }
+
    if (!hq_ok || !rx_engine || !rr_audio_engine_start(rx_engine)) {
       Log(LOG_CRIT, "audio", "Unable to start 16 kHz and HQ client mixing buses");
-      if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
-      if (hq_engine) { rr_audio_engine_free(hq_engine); hq_engine = NULL; }
+
+      if (rx_engine) {
+         rr_audio_engine_free(rx_engine);
+         rx_engine = NULL;
+      }
+
+      if (hq_engine) {
+         rr_audio_engine_free(hq_engine);
+         hq_engine = NULL;
+      }
       rx_sink_set_fd(-1);
       g_mutex_clear(&rx_sink_lock);
       fwdsp_processor_stop("src.client.dsp0");
       fwdsp_processor_stop("sink.client.dsp0");
+
       return true;
    }
-   /* Independent TX mixer, mixed before the negotiated codec/transport.
-    * The PCM worker sends only to a bounded core-context queue. */
-   tx_pcm_queue=g_async_queue_new();
-   tx_engine=rr_audio_engine_new(tx_mix_output,NULL);
-   gboolean tx_ok=tx_engine &&
-      rr_audio_engine_add_stream(tx_engine,"src.client.dsp0");
-   for(unsigned slot=1;tx_ok && slot<=RR_LOCAL_MODEM_MAX;slot++) {
-      char id[32];g_snprintf(id,sizeof(id),"modem%u.tx",slot);
-      tx_ok=rr_audio_engine_add_stream(tx_engine,id);
+   /* Independent TX mixer, mixed before the negotiated codec/transport. The PCM worker sends only to a bounded core-context queue. */
+   tx_pcm_queue = g_async_queue_new();
+   tx_engine = rr_audio_engine_new(tx_mix_output, NULL);
+   gboolean tx_ok = tx_engine && rr_audio_engine_add_stream(tx_engine, "src.client.dsp0");
+
+   for (unsigned slot = 1 ; tx_ok && slot <= RR_LOCAL_MODEM_MAX ; slot++) {
+      char id[32];
+      g_snprintf(id, sizeof(id), "modem%u.tx", slot);
+      tx_ok = rr_audio_engine_add_stream(tx_engine, id);
    }
-   if(tx_ok) {
-      rr_audio_engine_route(tx_engine,"src.client.dsp0",
-                            !strcmp(mic_tx_target,"none")?'M':'S');
-      for(unsigned slot=1;slot<=RR_LOCAL_MODEM_MAX;slot++) {
-         char id[32];g_snprintf(id,sizeof(id),"modem%u.tx",slot);
-         rr_audio_engine_route(tx_engine,id,'M');
+
+   if (tx_ok) {
+      rr_audio_engine_route(tx_engine, "src.client.dsp0", !strcmp(mic_tx_target, "none") ? 'M' : 'S');
+
+      for (unsigned slot = 1 ; slot <= RR_LOCAL_MODEM_MAX ; slot++) {
+         char id[32];
+         g_snprintf(id, sizeof(id), "modem%u.tx", slot);
+         rr_audio_engine_route(tx_engine, id, 'M');
       }
-      tx_ok=rr_audio_engine_start(tx_engine);
+
+      tx_ok = rr_audio_engine_start(tx_engine);
    }
-   if(tx_ok) {
-      GSource *timer=g_timeout_source_new(10);
-      g_source_set_callback(timer,tx_mix_drain,NULL,NULL);
-      g_source_attach(timer,rrclient_core_context());
-      tx_drain_source=timer;
+
+   if (tx_ok) {
+      GSource *timer = g_timeout_source_new(10);
+      g_source_set_callback(timer, tx_mix_drain, NULL, NULL);
+      g_source_attach(timer, rrclient_core_context());
+      tx_drain_source = timer;
    } else {
-      Log(LOG_WARN,"audio.tx","TX mixer unavailable; RX playback remains enabled");
-      if(tx_engine){rr_audio_engine_free(tx_engine);tx_engine=NULL;}
-      if(tx_pcm_queue){g_async_queue_unref(tx_pcm_queue);tx_pcm_queue=NULL;}
+      Log(LOG_WARN, "audio.tx", "TX mixer unavailable; RX playback remains enabled");
+
+      if (tx_engine) {
+         rr_audio_engine_free(tx_engine);
+         tx_engine = NULL;
+      }
+
+      if (tx_pcm_queue) {
+         g_async_queue_unref(tx_pcm_queue);
+         tx_pcm_queue = NULL;
+      }
    }
    audio_input_gain_load(hq_engine, HQ_BUS_LEGACY_ID);
    rr_audio_engine_set_pre_gain_tap(rx_engine, rx_analysis_output, NULL);
-   /* Older decoder and PCM-hub paths still supply 16 kHz stereo frames.
-    * Keep their speaker feed registered with the low-rate bus. */
-   const rr_pcm_stream_format_t legacy_speaker = {16000, 2, RR_PCM_S16LE};
+   /* Older decoder and PCM-hub paths still supply 16 kHz stereo frames. Keep their speaker feed registered with the low-rate bus. */
+   const rr_pcm_stream_format_t legacy_speaker = {
+      16000, 2, RR_PCM_S16LE
+   };
    rr_audio_engine_add_stream_format(rx_engine, "legacy.speaker", &legacy_speaker);
    audio_input_gain_load(rx_engine, "legacy.speaker");
-   /* Create the permanent recording playback source before the graph's first
-    * snapshot; preserve user L/R routing across repeated Play actions. */
+   /* Create the permanent recording playback source before the graph's first snapshot; preserve user L/R routing across repeated Play actions. */
    rr_audio_engine_add_stream(rx_engine, RECORDING_PLAYBACK_L);
    rr_audio_engine_add_stream(rx_engine, RECORDING_PLAYBACK_R);
    char *saved_play_route = rrclient_database_setting_get("audio.graph.playback.route");
-   if (saved_play_route && strlen(saved_play_route) == 1 &&
-       strchr("LRSM", saved_play_route[0]))
+
+   if (saved_play_route && strlen(saved_play_route) == 1 && strchr("LRSM", saved_play_route[0])) {
       recording_playback_route = saved_play_route[0];
+   }
    g_free(saved_play_route);
    recording_playback_apply_route(false);
    audio_input_gain_load(rx_engine, RECORDING_PLAYBACK_L);
@@ -2649,25 +3075,25 @@ bool audio_init(void) {
    double right_db = rr_audio_engine_input_gain_get(rx_engine, RECORDING_PLAYBACK_R, 1);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_L, 1, left_db);
    rr_audio_engine_input_gain(rx_engine, RECORDING_PLAYBACK_R, 0, right_db);
-   for (unsigned stage = 0; stage < 4; stage++) {
-      for (unsigned ch = 0; ch < 2; ch++) {
-         char *key = g_strdup_printf("audio.graph.port.%s.%c",
-                                    stage == 3 ? "tx" : stage == 2 ? "sink" :
-                                    stage == 1 ? "hq" : "mix",
-                                    ch ? 'R' : 'L');
+
+   for (unsigned stage = 0 ; stage < 4 ; stage++) {
+      for (unsigned ch = 0 ; ch < 2 ; ch++) {
+         char *key = g_strdup_printf("audio.graph.port.%s.%c", stage == 3 ? "tx" : stage == 2 ? "sink" : stage == 1 ? "hq" : "mix", ch ? 'R' : 'L');
          char *saved = rrclient_database_setting_get(key);
+
          if (saved && *saved) {
             char *end = NULL;
             double db = g_ascii_strtod(saved, &end);
-            if (end != saved && !*end)
-               rr_audio_engine_port_gain(stage == 3 ? tx_engine :
-                                         stage ? hq_engine : rx_engine,
-                                         stage == 2, ch, db);
+
+            if (end != saved && !*end) {
+               rr_audio_engine_port_gain(stage == 3 ? tx_engine : stage ? hq_engine : rx_engine, stage == 2, ch, db);
+            }
          }
          g_free(saved);
          g_free(key);
       }
    }
+
    rr_audio_engine_gain(hq_engine, 0, rx_channel_volume[0]);
    rr_audio_engine_gain(hq_engine, 1, rx_channel_volume[1]);
    GSource *maintenance = g_timeout_source_new_seconds(10);
@@ -2677,8 +3103,7 @@ bool audio_init(void) {
    audio_enabled = true;
    gst_active = true;
    audio_lv2_restore();
-   Log(LOG_INFO, "audio", "Client AF buses ready: RX 16 kHz -> HQ %u Hz -> sink.client.dsp0; mic device -> 16 kHz TX",
-       rr_audio_engine_sample_rate(hq_engine));
+   Log(LOG_INFO, "audio", "Client AF buses ready: RX 16 kHz -> HQ %u Hz -> sink.client.dsp0; mic device -> 16 kHz TX", rr_audio_engine_sample_rate(hq_engine));
 
    return false;
 }
@@ -2719,9 +3144,10 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
 
    memcpy(active, codec, 4);
    active[4] = '\0';
-   if(is_tx) {
-      tx_frame_channel[0]=0;
-      tx_frame_sequence=0;
+
+   if (is_tx) {
+      tx_frame_channel[0] = 0;
+      tx_frame_sequence = 0;
    }
 
    if (cfg_get_bool(is_tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx", false)) {
@@ -2816,30 +3242,42 @@ void audio_stop_codec(bool is_tx) {
 
 void ws_audio_shutdown(void) {
    rr_recordings_shutdown();
+
    /* audio_init() can fail before rx_sink_lock is initialized, and cleanup can be called more than once. Never clear an uninitialized mutex. */
    if (!audio_enabled) {
       return;
    }
    audio_enabled = false;
-   for (unsigned slot = 1; slot <= RR_AUDIO_EFFECT_MAX; slot++)
+
+   for (unsigned slot = 1 ; slot <= RR_AUDIO_EFFECT_MAX ; slot++) {
       audio_lv2_stop(slot, FALSE);
+   }
+
    rr_local_modem_shutdown();
-   if(tx_drain_source) {
+
+   if (tx_drain_source) {
       g_source_destroy(tx_drain_source);
       g_source_unref(tx_drain_source);
-      tx_drain_source=NULL;
+      tx_drain_source = NULL;
    }
-   if(tx_engine){rr_audio_engine_free(tx_engine);tx_engine=NULL;}
-   if(tx_pcm_queue) {
+
+   if (tx_engine) {
+      rr_audio_engine_free(tx_engine);
+      tx_engine = NULL;
+   }
+
+   if (tx_pcm_queue) {
       tx_mix_packet_t *packet;
-      while((packet=g_async_queue_try_pop(tx_pcm_queue))) g_free(packet);
+      while ((packet = g_async_queue_try_pop(tx_pcm_queue))) {
+         g_free(packet);
+      }
       g_async_queue_unref(tx_pcm_queue);
-      tx_pcm_queue=NULL;
-      g_atomic_int_set(&tx_pcm_queued,0);
+      tx_pcm_queue = NULL;
+      g_atomic_int_set(&tx_pcm_queued, 0);
    }
-   fwdsp_set_encoded_output_callback(NULL,NULL);
-   tx_frame_sequence=0;
-   tx_frame_channel[0]=0;
+   fwdsp_set_encoded_output_callback(NULL, NULL);
+   tx_frame_sequence = 0;
+   tx_frame_channel[0] = 0;
    rrclient_local_bridge_disconnect();
    rr_af_spectrum_shutdown();
 
@@ -2849,12 +3287,12 @@ void ws_audio_shutdown(void) {
       rx_maintenance_source = NULL;
    }
 
-   /* Stop the producer bus before the HQ consumer to prevent a callback
-    * attempting to enqueue into an already freed output engine. */
+   /* Stop the producer bus before the HQ consumer to prevent a callback attempting to enqueue into an already freed output engine. */
    if (rx_engine) {
       rr_audio_engine_free(rx_engine);
       rx_engine = NULL;
    }
+
    if (hq_engine) {
       rr_audio_engine_free(hq_engine);
       hq_engine = NULL;

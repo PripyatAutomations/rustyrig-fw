@@ -7,7 +7,6 @@
 
 .env
 
-debian/.debhelper/*
 
 # Device files
 dev/*
@@ -82,6 +81,7 @@ core
 # distclean should remove this stuff #
 ######################################
 debian/*.log
+debian/.debhelper/*
 debian/*.debhelper
 debian/.debhelper
 debian/debhelper-build-stamp
@@ -123,6 +123,7 @@ debian/rustyrig-server/*
 debian/rustyrig-server/*/*
 debian/gmatrix/*
 debian/rustyrig-common/*
+debian/rustyrig-modems/*
 debian/rustyrig-rrbridge/*
 !debian/rustyrig-server.config
 !debian/rustyrig-server.templates

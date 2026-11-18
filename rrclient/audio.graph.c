@@ -99,21 +99,30 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const
       return false;
    }
 
-   /* Stereo processors can take different L/R sources, but never two
-    * feeds to the same channel. Mixers remain the only freely mixed nodes.
-    * Coalesce disjoint channel links from the same source for rendering. */
+   /* Stereo processors can take different L/R sources, but never two feeds to the same channel. Mixers remain the only freely mixed nodes. Coalesce disjoint
+    * channel links from the same source for rendering. */
    for (guint i = 0 ; i < g->edges->len ; i++) {
       rr_ag_edge_t *e = &g_array_index(g->edges, rr_ag_edge_t, i);
-      if (e->dst != (guint)b || e->type != type) continue;
-      gboolean stereo_processor = to->type == RR_AG_PROCESSOR &&
-          g_str_has_prefix(to->id, "proc.lv2.");
-      if (to->type != RR_AG_MIXER && !stereo_processor)
+
+      if (e->dst != (guint) b || e->type != type) {
+         continue;
+      }
+      gboolean stereo_processor = to->type == RR_AG_PROCESSOR && g_str_has_prefix(to->id, "proc.lv2.");
+
+      if (to->type != RR_AG_MIXER && !stereo_processor) {
          return false;
-      if (stereo_processor && (e->channels & channels))
+      }
+
+      if (stereo_processor && (e->channels & channels)) {
          return false;
-      if (e->src == (guint)a) {
-         if (e->channels & channels) return false;
-         e->channels |= (guint8)channels;
+      }
+
+      if (e->src == (guint) a) {
+         if (e->channels & channels) {
+            return false;
+         }
+         e->channels |= (guint8) channels;
+
          return true;
       }
    }
