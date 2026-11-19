@@ -58,7 +58,7 @@ Description: Remote SDR bridge host and KiwiSDR module for RustyRig
 Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, librrprotocol0 (>= 0.1.0-7), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, python3, librrprotocol0 (>= 0.1.0-7), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0, ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3), rustyrig-modems (= ${binary:Version})
 Suggests: rustyrig-server-hamlib
 Description: RustyRig server
