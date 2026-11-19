@@ -19,6 +19,8 @@
 #include <librrprotocol/server.events.h>
 #include <rrserver/discovery.h>
 #include <rrserver/files.h>
+#include <rrserver/files.policy.h>
+#include <rrserver/files.limits.h>
 #define FILE_CHUNK 24576
 #define FILE_PATH 4096
 #define FILE_JOBS 128
@@ -52,7 +54,8 @@ bool rrserver_files_valid_name(const char *s) {
    return true;
 }
 
-static bool permission(rrconn_t *client, const char *share, bool write) {
+static bool permission(rrconn_t *client, const char *share, const char *operation) {
+   bool write = rr_files_operation_writes(operation);
    char key[320];
    snprintf(key, sizeof(key), "share:%s.enabled", share);
 
@@ -66,11 +69,15 @@ static bool permission(rrconn_t *client, const char *share, bool write) {
       return false;
    }
 
+   if (rr_relay_remote_for(client)) {
+      return rr_relay_remote_file_allowed(client, share, operation);
+   }
+
    return has_priv(client->user->uid, grant && *grant ? grant : write ? "files.write" : "files.read");
 }
 
 /* Return an owned parent descriptor and final basename. Export roots cannot mutate. */
-static int resolve(rrconn_t *client, const char *path, bool write, char name[256]) {
+static int resolve(rrconn_t *client, const char *path, const char *operation, char name[256]) {
    if (!path || path[0] != '/' || strlen(path) >= FILE_PATH || !path[1]) {
       errno = EINVAL;
 
@@ -84,7 +91,7 @@ static int resolve(rrconn_t *client, const char *path, bool write, char name[256
       *slash++ = 0;
    }
 
-   if (!rrserver_files_valid_name(buffer) || !permission(client, buffer, write)) {
+   if (!rrserver_files_valid_name(buffer) || !permission(client, buffer, operation)) {
       errno = EACCES;
 
       return -1;
@@ -209,7 +216,8 @@ static void list(rrconn_t *client, dict *request) {
          }
          memcpy(share, key + 6, n);
          share[n] = 0;
-         bool read = permission(client, share, false), write = permission(client, share, true);
+         bool read = permission(client, share, "list"), write = permission(client, share, "begin-create") ||
+            permission(client, share, "begin-overwrite");
          struct stat st = {
             .st_mode = S_IFDIR
          };
@@ -221,7 +229,7 @@ static void list(rrconn_t *client, dict *request) {
       rrserver_relay_file_nodes(client, dict_get(request, "request.id", ""));
    } else {
       char name[256];
-      int parent = resolve(client, path, false, name);
+      int parent = resolve(client, path, "list", name);
 
       if (parent < 0) {
          result(client, request, errno);
@@ -245,7 +253,11 @@ static void list(rrconn_t *client, dict *request) {
          return;
       }
       char ignored[256];
-      int check = resolve(client, path, true, ignored);
+      int check = resolve(client, path, "begin-create", ignored);
+
+      if (check < 0) {
+         check = resolve(client, path, "begin-overwrite", ignored);
+      }
       bool writable = check >= 0;
 
       if (check >= 0) {
@@ -332,7 +344,7 @@ static void complete_uploads(const char *event, const char *data, rrconn_t *clie
       }
 
       if (c && !error && u->client == c) {
-         parent = resolve(c, u->path, true, name);
+         parent = resolve(c, u->path, u->overwrite ? "begin-overwrite" : "begin-create", name);
 
          if (parent < 0) {
             error = errno;
@@ -462,9 +474,31 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       list(client, d);
       goto done;
    }
-   bool read = !strcmp(cmd, "read");
+   /* The operation and the original upload intent determine which remote
+    * grant is required. A create-only user must not overwrite existing data. */
+   const char *operation = cmd;
+
+   if (!strcmp(cmd, "begin")) {
+      operation = dict_get_bool(d, "file.overwrite", false) ? "begin-overwrite" : "begin-create";
+   } else if (!strcmp(cmd, "chunk") || !strcmp(cmd, "commit") || !strcmp(cmd, "cancel")) {
+      struct upload *existing = job(client);
+
+      if (!existing || strcmp(existing->path, path)) {
+         result(client, d, EINVAL);
+         goto done;
+      }
+      /* Cancellation only destroys this session's own temporary file. */
+      if (!strcmp(cmd, "cancel")) {
+         discard(existing);
+         result(client, d, 0);
+         goto done;
+      }
+      operation = existing->overwrite ?
+         (!strcmp(cmd, "chunk") ? "chunk-write" : "commit-write") :
+         (!strcmp(cmd, "chunk") ? "chunk-create" : "commit-create");
+   }
    char name[256];
-   int parent = resolve(client, path, !read, name);
+   int parent = resolve(client, path, operation, name);
 
    if (parent < 0) {
       int error = errno;
@@ -627,7 +661,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
 
          /* Subtraction avoids overflow even with an extreme files.max-size
           * and a long-running upload. Never wrap the byte counter. */
-         if (n > FILE_CHUNK || u->size > maximum || n > maximum - u->size) {
+         if (!rr_files_chunk_fits(u->size, n, maximum, FILE_CHUNK)) {
             error = EFBIG;
          } else {
             size_t written = 0;
@@ -699,7 +733,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       }
    } else if (!strcmp(cmd, "rename")) {
       char ignored[256];
-      int readable = resolve(client, path, false, ignored);
+      int readable = resolve(client, path, "read", ignored);
 
       if (readable < 0) {
          error = errno;
@@ -708,7 +742,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       close(readable);
       char dest[256];
       const char *target = dict_get(d, "file.dest", "");
-      int other = resolve(client, target, true, dest);
+      int other = resolve(client, target, "rename", dest);
 
       if (other < 0) {
          error = errno;
