@@ -39,4 +39,25 @@ data = json.load(open(sys.argv[1]))
 assert len(data["resolved"]) == 1, data
 assert data["resolved"][0]["scanner"] == "cppcheck", data
 PY
+# A native ScanView plist must enter the same resolved/new comparison.
+mkdir -p "$tmp/run4/scanview" "$tmp/run5/scanview"
+printf '%s\n' ok > "$tmp/run4/scanbuild.status"
+python3 - "$tmp/run4/scanview/sample.plist" <<'PY'
+import plistlib, sys
+with open(sys.argv[1], 'wb') as out:
+    plistlib.dump({'files': ['rrclient/events.c'], 'diagnostics': [
+        {'category': 'Logic error', 'type': 'Dereference of null pointer',
+         'description': 'Dereference of null pointer',
+         'location': {'file': 0, 'line': 523, 'col': 1}}]}, out)
+PY
+python3 "$root/security/audit-report.py" "$tmp/run4" --state "$tmp/scanstate.json" >/dev/null
+printf '%s\n' ok > "$tmp/run5/scanbuild.status"
+python3 "$root/security/audit-report.py" "$tmp/run5" --state "$tmp/scanstate.json" >/dev/null
+python3 - "$tmp/run5/comparison.json" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1]))
+assert len(data['resolved']) == 1, data
+assert data['resolved'][0]['severity'] == 'severe', data
+assert data['resolved'][0]['scanner'] == 'scanbuild', data
+PY
 echo 'PASS: audit baseline and severe resolved regression checks'
