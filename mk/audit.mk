@@ -130,7 +130,17 @@ clang-tidy: compile_commands.json audit-init
 	sed -E '/^[[:space:]]*[0-9]+ warnings generated\.$$/d; /^[[:space:]]*\[[[:space:]]*[0-9]+\/[0-9]+\]\[[^]]+\] clang-tidy-/d; /^[[]([0-9]+)\/[0-9]+[]] Processing file /d' "$$raw" > "$(AUDIT_DIR)/clang-tidy.log"; \
 	tail -n 20 "$(AUDIT_DIR)/clang-tidy.log"; exit $$rc
 
-audit-clang-tidy: clang-tidy
+# If compile_commands.json generation fails, GNU Make otherwise exits before
+# clang-tidy's recipe can create a log. Capture prerequisite failures too.
+audit-clang-tidy: audit-init
+	@$(MAKE) --no-print-directory AUDIT_DIR="$(AUDIT_DIR)" clang-tidy > "$(AUDIT_DIR)/clang-tidy.setup.log" 2>&1; rc=$?; \
+		if test $rc -ne 0; then \
+			cat "$(AUDIT_DIR)/clang-tidy.setup.log" >> "$(AUDIT_DIR)/clang-tidy.log"; \
+			tail -n 30 "$(AUDIT_DIR)/clang-tidy.log"; \
+		elif test ! -f "$(AUDIT_DIR)/clang-tidy.log"; then \
+			cat "$(AUDIT_DIR)/clang-tidy.setup.log" > "$(AUDIT_DIR)/clang-tidy.log"; \
+		fi; \
+		exit $rc
 
 audit-deps:
 	apt install -y cppcheck pscan flawfinder
