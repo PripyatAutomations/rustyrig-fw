@@ -170,7 +170,7 @@ license-migrate:
 # Build configured programs and run the maintained project test suites.
 TEST_SUITES ?= selftest packaging rrserver rrclient fwdsp libfwdspmgr
 .PHONY: test
-test tests: ${bins} test-rrsdrutils
+test tests: ${bins} bin/rr-password-hash test-rrsdrutils
 	PROFILE='$(PROFILE)' ./tests/run-tests.sh ${TEST_SUITES}
 
 # Keep the historical alias for scripts which invoke "after-eeprom".
