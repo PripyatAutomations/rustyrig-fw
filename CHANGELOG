@@ -12,6 +12,8 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     nullable network messages, and empty-list sorting.
   * Bound host-log formatting allocations before allocation, following
     format-string audit triage of client, server and bridge wrappers.
+  * Track pscan format warnings in audit comparisons and correct Clang-Tidy
+    filter quoting so the combined audit reaches the analyzer.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
