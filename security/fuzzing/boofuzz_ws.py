@@ -7,6 +7,7 @@ login or mesh enrollment and is not a substitute for protocol state fuzzing.
 """
 import argparse
 import base64
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import ssl
@@ -69,9 +70,10 @@ def main():
         send_timeout=2.0, recv_timeout=2.0))
     output = Path("security/fuzzing/results")
     output.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     session = Session(
         target=target, index_end=args.cases,
-        db_filename=str(output / ("boofuzz-" + args.mode + ".db")),
+        db_filename=str(output / ("boofuzz-" + args.mode + "-" + stamp + "-" + str(os.getpid()) + ".db")),
         receive_data_after_each_request=False,
         receive_data_after_fuzz=False,
         web_address="127.0.0.1", web_port=26000,
