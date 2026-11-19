@@ -1,5 +1,5 @@
 //
-// rrpipelines/main.c: Standalone GTK GStreamer pipeline editor.
+// rrpipelines/main.c: In-process GTK GStreamer pipeline editor.
 //    This is part of rustyrig-fw.
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -1239,52 +1239,6 @@ static GtkWidget *build_window(editor_t *editor) {
    return editor->window;
 }
 
-#ifndef RR_PIPELINE_EMBEDDED
-int main(int argc, char **argv) {
-   gboolean read_only = argc > 1 && !strcmp(argv[1], "--read-only");
-
-   if (read_only) {
-      argv++;
-      argc--;
-   }
-   gst_init(&argc, &argv);
-   gtk_init(&argc, &argv);
-   editor_t editor = {
-      0
-   };
-   editor.read_only = read_only;
-   editor.pipelines = g_ptr_array_new_with_free_func(pipeline_entry_free);
-   editor.property_entries = g_ptr_array_new();
-   GError *error = NULL;
-
-   if (!editor.pipelines || !editor.property_entries || !document_load(&editor, NULL, &error)) {
-      fprintf(stderr, "rrpipelines: %s\n", error ? error->message : "Cannot initialize pipeline editor");
-      g_clear_error(&error);
-      dict_free(editor.document);
-
-      if (editor.pipelines) {
-         g_ptr_array_unref(editor.pipelines);
-      }
-
-      if (editor.property_entries) {
-         g_ptr_array_unref(editor.property_entries);
-      }
-
-      return 1;
-   }
-   build_window(&editor);
-   gtk_widget_show_all(editor.window);
-   refresh_canvas(&editor);
-   gtk_main();
-   gtk_widget_destroy(editor.window);
-   g_ptr_array_unref(editor.property_entries);
-   g_ptr_array_unref(editor.pipelines);
-   dict_free(editor.document);
-
-   return editor.applied ? 0 : 2;
-}
-
-#else
 static void editor_destroy(gpointer user) {
    editor_t *editor = user;
 
@@ -1467,4 +1421,3 @@ void rr_pipeline_editor_select(GtkWidget *widget, const gchar *id) {
    }
 }
 
-#endif
