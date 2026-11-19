@@ -615,6 +615,20 @@ bool ws_binframe_process_mg(rrconn_t *client, const char *data, size_t len) {
       return true;
    }
 
+   if (frame.hdr.subsystem == RR_BINFRAME_SUBSYS_FILE) {
+      /* Upload data only: no room-based fanout or synthetic peer routing may
+       * inject FILE frames directly into an owner-side filesystem. */
+      if (!client->authenticated || !client->native_transport ||
+          frame.hdr.direction != RR_BINFRAME_DIR_TX ||
+          frame.hdr.vfo != RR_BINFRAME_VFO_NA || frame.hdr.rig != RR_BINFRAME_RIG_NA ||
+          frame.hdr.stream != RR_BINFRAME_STREAM_NONE ||
+          memcmp(frame.hdr.codec, "fl01", 4)) {
+         return false;
+      }
+      event_emit_binary("media.frame.file.upload", client, frame.data, frame.len);
+      return true;
+   }
+
    if (frame.hdr.subsystem == RR_BINFRAME_SUBSYS_AUDIO && frame.hdr.direction == RR_BINFRAME_DIR_TX) {
       if (!client->authenticated) {
          return false;
