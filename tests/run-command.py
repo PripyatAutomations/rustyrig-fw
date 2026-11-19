@@ -33,7 +33,15 @@ def descendants():
         owned = updated
 
 
-def send_tree(signum):
+def send_tree(signum, session_pid=None):
+    # The direct test was started in its own session, so signal that group
+    # first. A child may have left the group (setsid/double-fork); subreaping
+    # and the /proc walk below cover those processes as well.
+    if session_pid is not None:
+        try:
+            os.killpg(session_pid, signum)
+        except ProcessLookupError:
+            pass
     for pid in descendants():
         try:
             os.kill(pid, signum)
@@ -99,14 +107,14 @@ def main():
     if timed_out:
         print(f'TIMEOUT ({args.timeout:g}s): {" ".join(command)}', file=sys.stderr)
     # Cleanup also runs on success: a passing test must not leak background jobs.
-    send_tree(signal.SIGTERM)
+    send_tree(signal.SIGTERM, child.pid)
     deadline = time.monotonic() + args.grace
     while descendants() and time.monotonic() < deadline:
         child.poll()
         reap(child.pid)
         time.sleep(0.02)
     while descendants():
-        send_tree(signal.SIGKILL)
+        send_tree(signal.SIGKILL, child.pid)
         child.poll()
         reap(child.pid)
         time.sleep(0.02)
