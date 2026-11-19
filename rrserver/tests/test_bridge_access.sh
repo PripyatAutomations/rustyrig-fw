@@ -11,6 +11,6 @@ ${CC:-cc} -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
 
 ${CC:-cc} -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
    -ffunction-sections -fdata-sections $(pkg-config --cflags glib-2.0) \
-   rrserver/tests/bridge_privileges.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
+   rrserver/tests/bridge_privileges.c rrserver/srv.auth.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol $(pkg-config --libs glib-2.0) -o "$work/bridge-privileges"
 "$work/bridge-privileges"
