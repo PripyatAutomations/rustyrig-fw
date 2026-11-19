@@ -514,7 +514,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
    bool audited = false;
    struct stat st;
 
-   if (!read && !strcmp(name, ".")) {
+   if (rr_files_operation_writes(operation) && !strcmp(name, ".")) {
       error = EPERM;
       goto finish;
    }
