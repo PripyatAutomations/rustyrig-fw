@@ -109,7 +109,7 @@ gtk_module_objs += gtk/gtk.admin.sessions.o # Session actions
 gtk_module_objs += gtk/gtk.admin.privgroup.o # Privilege set editing
 gtk_module_objs += gtk/gtk.admin.selection.o # Administrative table selection and filtering
 gtk_module_objs += gtk/gtk.alertdialog.o # alert/error/warning dialogs
-gtk_module_objs += gtk/gtk.graph.o # Shared graph canvas (also used by rrpipelines)
+gtk_module_objs += gtk/gtk.graph.o # Shared graph canvas for routing and pipeline editor
 gtk_module_objs += gtk/gtk.audio-routing.o # RX ear routing window
 ifeq (${USE_GSTREAMER},true)
 gtk_module_objs += gtk/gtk.pipeline-editor.o # Embedded GStreamer pipeline editor
@@ -253,11 +253,10 @@ ${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} $
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-# The integrated pipeline editor is the same source/model as standalone
-# rrpipelines, built for the GTK plugin without a main() or GTK main loop.
+# The pipeline editor and graph model are compiled into the GTK client.
 ${BUILD_DIR}/rrclient/gtk/gtk.pipeline-editor.o: rrpipelines/main.c rrpipelines/editor.h rrpipelines/pipeline.h rrclient/gtk/gtk.graph.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
 	@mkdir -p $(dir $@)
-	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${GTK_CFLAGS} -DRR_PIPELINE_EMBEDDED -o $@ -c $<
+	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${GTK_CFLAGS} -o $@ -c $<
 
 ${BUILD_DIR}/rrclient/gtk/gtk.pipeline-model.o: rrpipelines/pipeline.c rrpipelines/pipeline.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
 	@mkdir -p $(dir $@)
