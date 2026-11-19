@@ -17,7 +17,7 @@ if ! grep -Eq '^[[:space:]]*#define[[:space:]]+USE_SQLITE([[:space:]]|$)' "$conf
 fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-${CC:-cc} -DUSE_SQLITE -I. -Iinc -I"build/$profile" \
+${CC:-cc} -I"build/$profile" -Iinc \
    $(pkg-config --cflags glib-2.0) \
    rrserver/tests/resource_privileges.c rrserver/database.privileges.c \
    -lsqlite3 -o "$work/resource-privileges"
