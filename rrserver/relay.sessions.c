@@ -100,11 +100,17 @@ bool rr_relay_remote_file_allowed(rrconn_t *client, const char *share, const cha
       const char *role = i ? "owner" : "admin";
       rr_resource_access_t access = db_resource_access_named(masterdb, username, host, "file", share, role, at, share);
 
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
       if (access == RR_RESOURCE_ALLOW) {
          allowed = true;
       }
       access = db_resource_access_named(masterdb, username, host, "site", "*", role, at, NULL);
 
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
       if (access == RR_RESOURCE_ALLOW) {
          allowed = true;
       }
