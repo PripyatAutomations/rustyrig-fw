@@ -5,7 +5,7 @@ CFLAGS ?= -g -O0 -std=gnu23 -Wall -Wextra
 GST_CFLAGS := $(shell $(PKG_CONFIG) --cflags gstreamer-1.0)
 GST_LIBS := $(shell $(PKG_CONFIG) --libs gstreamer-1.0)
 
-.PHONY: check clean
+.PHONY: test clean
 check: test_pipeline test_json
 	./test_pipeline
 	./test_json
