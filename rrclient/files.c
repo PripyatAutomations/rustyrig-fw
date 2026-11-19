@@ -14,13 +14,16 @@
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/files.h>
+#include <rustyrig/file.transfer-wire.h>
+#include <librustyaxe/transport.h>
+#include <librrprotocol/ws.binframe.h>
 #define CHUNK 24576
 struct transfer {
    struct transfer *next;
    char *id, *profile, *remote, *local, *temp;
    FILE *file;
    uint64_t offset, activity;
-   bool upload, overwrite, committing;
+   bool upload, overwrite, committing, binary;
 };
 static struct transfer *transfers;
 static guint transfer_timer;
@@ -125,6 +128,32 @@ static bool next(struct transfer *t, rrconn_t *c) {
       if (!n) {
          dict_add(d, "file.cmd", "commit");
          t->committing = true;
+      } else if (t->binary) {
+         uint8_t packet[RR_FILE_FRAME_PREFIX + CHUNK];
+         size_t payload_len = 0;
+         uint8_t *frame = NULL;
+         if (!rr_file_chunk_pack(packet, sizeof(packet), t->id, t->offset,
+                                 buffer, n, false, &payload_len)) {
+            dict_free(d);
+            finish(t, "Invalid binary upload chunk", c);
+            return false;
+         }
+         int size = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_FILE,
+             RR_FILE_FRAME_CODEC, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA,
+             RR_BINFRAME_RIG_NA, RR_BINFRAME_STREAM_NONE, 0, 0,
+             packet, payload_len);
+         dict_free(d);
+         if (size < 0 || !frame ||
+             (size_t)size > 1048576u ||
+             rr_transport_queued_bytes(c->native_transport) > 1048576u - (size_t)size ||
+             rr_transport_send_binary_message(c->native_transport, frame, (size_t)size) != RR_TRANSPORT_OK) {
+            free(frame);
+            finish(t, "Binary upload transport unavailable or congested", c);
+            return false;
+         }
+         free(frame);
+         t->offset += n;
+         return true;
       } else {
          char *encoded = g_base64_encode(buffer, n);
          dict_add(d, "file.data", encoded);
@@ -133,6 +162,9 @@ static bool next(struct transfer *t, rrconn_t *c) {
       }
    }
 
+   if (!t->upload && t->binary) {
+      dict_add_bool(d, "file.binary", true);
+   }
    if (!send_request(c, d)) {
       finish(t, "Disconnected", c);
 
@@ -165,6 +197,9 @@ bool rrclient_files_transfer(rrconn_t *c, const char *remote, const char *local,
    t->local = g_strdup(local);
    t->upload = upload;
    t->overwrite = overwrite;
+   /* Relayed shares retain text/base64 until authenticated mesh binary
+    * routing exists. Direct native TLS connections use binary frames. */
+   t->binary = c->native_transport && strncmp(remote, "/@", 2) != 0;
 
    if (upload) {
       t->file = fopen(local, "rb");
@@ -211,6 +246,7 @@ bool rrclient_files_transfer(rrconn_t *c, const char *remote, const char *local,
    if (upload) {
       dict *d = message("begin", remote, t->id);
       dict_add_bool(d, "file.overwrite", overwrite);
+      if (t->binary) dict_add_bool(d, "file.binary", true);
 
       if (!send_request(c, d)) {
          finish(t, "Disconnected", c);
