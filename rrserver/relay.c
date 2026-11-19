@@ -903,7 +903,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    }
 
    if (!strcmp(kind, "catalog-begin") && rr_relay_local_owner(dest)) {
-      if (*id && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
+      /* Sync markers are authenticated as direct-peer traffic, not signed
+       * catalog objects. Never allow arbitrary session keys or unbounded
+       * parallel receive state from a connected (possibly rogue) peer. */
+      if (g_uuid_string_is_valid(id) && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
          if (!catalog_receives) {
             catalog_receives = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, catalog_receive_free);
          }
@@ -922,6 +925,16 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                g_hash_table_iter_remove(&iter);
             }
          }
+         /* The sender only supports one outbound snapshot per destination.
+          * Replacing old state from this origin is legitimate; retaining it
+          * lets a direct peer exhaust memory with fresh UUIDs. */
+         g_hash_table_iter_init(&iter, catalog_receives);
+         while (g_hash_table_iter_next(&iter, &key, &value)) {
+            catalog_receive_t *old = value;
+            if (!strcmp(old->origin, origin)) {
+               g_hash_table_iter_remove(&iter);
+            }
+         }
          catalog_receive_t *r = g_new0(catalog_receive_t, 1);
          r->started = now;
          r->origin = g_strdup(origin);
@@ -929,12 +942,6 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          r->last_progress = now;
          /* A new inbound snapshot invalidates previous convergence until its end marker confirms all descriptors. */
          rr_relay_sync_status(origin, true, false);
-         catalog_receive_t *previous = g_hash_table_lookup(catalog_receives, id);
-
-         if (previous) {
-            Log(LOG_WARN, "relay.catalog", "RX superseded: sync=%s received=%u/%u elapsed=%.1f s", id, previous->received, previous->expected, (double)(now -
-               previous->started) / G_USEC_PER_SEC);
-         }
          g_hash_table_replace(catalog_receives, g_strdup(id), r);
          char source_label[192];
          Log(LOG_INFO, "relay.catalog", "RX begin: sync=%s source=%s expected=%u", id, rrserver_links_format_node(origin, source_label, sizeof(source_label)), r
