@@ -64,16 +64,17 @@ int main(void) {
                     for codec in CODECS for direction in ('tx', 'rx')}
         assert expected <= set(defaults), (role, 'compiled defaults',
                                            sorted(expected - set(defaults)))
-        # Pink variants intentionally use the shared built-in defaults rather
-        # than duplicating every long pipeline in each example config.
-        configured_expected = {key for key in expected if not key[:4].endswith('P')}
+        # Test every codec using compiled defaults; example configs need the
+        # normal codec pipelines, not every synthetic tone/pink variant.
+        configured_expected = {codec + '.' + direction
+                               for codec in BASE_CODECS for direction in ('tx', 'rx')}
         assert configured_expected <= set(config), (role, 'configuration',
                                                     sorted(configured_expected - set(config)))
         sources.append(('defaults-' + role, defaults))
     for label, pipelines in sources:
         for codec in CODECS:
             if codec + '.tx' not in pipelines:
-                assert codec.endswith('P'), (label, codec)
+                assert codec.endswith(('P', 'T')), (label, codec)
                 continue
             tx = pipelines[codec + '.tx']
             rx = pipelines[codec + '.rx']
