@@ -8,6 +8,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/http.h>
+#include <rrserver/ptt.h>
 
 void ws_release_ptt_on_disconnect(rrconn_t *cptr) {
    if (!cptr || !cptr->is_ptt) {
@@ -17,7 +18,18 @@ void ws_release_ptt_on_disconnect(rrconn_t *cptr) {
    dict *rig_msg = dict_new();
 
    if (!rig_msg) {
-      Log(LOG_CRIT, "http", "Unable to allocate disconnect PTT release for %s", cptr->chatname[0] ? cptr->chatname : "(unknown)");
+      /* Do not strand a keyed transmitter merely because message allocation
+       * failed. This fallback uses the normal safety release interlock and
+       * remains best-effort if the hardware worker itself is unavailable. */
+      Log(LOG_CRIT, "ptt", "Cannot allocate disconnect release for %s; forcing emergency PTT-off", cptr->chatname[0] ? cptr->chatname : "(unknown)");
+      if (rr_ptt_set_all_off_reason("disconnect-oom")) {
+         rr_ptt_set_blocked(true);
+         Log(LOG_CRIT, "ptt", "Emergency PTT release failed: new TX blocked until radio release is confirmed");
+      } else {
+         cptr->is_ptt = false;
+         cptr->ptt_vfo = 0;
+         cptr->ptt_room[0] = '\0';
+      }
 
       return;
    }
