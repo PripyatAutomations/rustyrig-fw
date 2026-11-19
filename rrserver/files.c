@@ -22,6 +22,9 @@
 #include <rrserver/files.h>
 #include <rrserver/files.policy.h>
 #include <rrserver/files.limits.h>
+#include <rustyrig/file.transfer-wire.h>
+#include <librrprotocol/ws.binframe.h>
+#include <librustyaxe/transport.h>
 #define FILE_CHUNK 24576
 #define FILE_PATH 4096
 #define FILE_JOBS 128
@@ -30,7 +33,8 @@ struct upload {
    int parent, fd;
    char path[FILE_PATH], temp[64];
    uint64_t size;
-   bool overwrite, syncing;
+   bool overwrite, syncing, binary;
+   char request_id[37];
    int sync_error;
    dict *commit;
 };
@@ -609,6 +613,16 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       u->parent = fcntl(parent, F_DUPFD_CLOEXEC, 0);
       snprintf(u->path, sizeof(u->path), "%s", path);
       u->overwrite = dict_get_bool(d, "file.overwrite", false);
+      u->binary = dict_get_bool(d, "file.binary", false) && client->native_transport && !rr_relay_remote_for(client);
+      if (u->binary && !rr_file_uuid_valid(id)) {
+         error = EINVAL;
+         close(u->fd);
+         unlinkat(parent, u->temp, 0);
+         close(u->parent);
+         free(u);
+         goto finish;
+      }
+      snprintf(u->request_id, sizeof(u->request_id), "%s", u->binary ? id : "");
 
       if (u->parent < 0) {
          error = errno;
@@ -633,6 +647,10 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          error = EBUSY;
          goto finish;
       } else if (!strcmp(cmd, "chunk")) {
+         if (u->binary) {
+            error = EINVAL; /* Binary upload chunks are handled by the file frame listener. */
+            goto finish;
+         }
          const char *encoded = dict_get(d, "file.data", "");
          gsize n;
 
