@@ -1,0 +1,618 @@
+scan-build: Using '/usr/lib/llvm-21/bin/clang' for static analysis
+make -C modems fetch
+make -C modems all
+make -C ft8 FT8_LIB="/home/orc/rrpk/src/rustyrig-fw/ext/ft8_lib"
+mkdir -p "./build/radio"
+make[4]: Nothing to be done for 'all'.
+touch build/radio/.stamp
+[gen-build-config] PROFILE=radio, Mongoose=false, EEPROM=disabled
+[compile] rrclient/ws.client.shared.c => build/radio/rrclient/ws.client.shared.o
+[compile] rrclient/files.c => build/radio/rrclient/files.o
+rrbridge/main.c:428:4: warning: Address of stack memory associated with local variable 'host' is still referred to by the global variable 'log_host' upon returning to the caller.  This will be a dangling reference [core.StackAddressEscape]
+  297 |    return ok && !host.failed ? EXIT_SUCCESS : EXIT_FAILURE;
+      |    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrclient/objects.c => build/radio/rrclient/objects.o
+[compile] rrclient/objects.events.c => build/radio/rrclient/objects.events.o
+[compile] rrclient/receiver.directory.c => build/radio/rrclient/receiver.directory.o
+[compile] rrclient/receiver.connect.c => build/radio/rrclient/receiver.connect.o
+[compile] rrclient/receiver.catalog.c => build/radio/rrclient/receiver.catalog.o
+[compile] rrclient/local.bridge.c => build/radio/rrclient/local.bridge.o
+[compile] rrclient/local.modem.c => build/radio/rrclient/local.modem.o
+[compile] rrclient/spectrum.af.c => build/radio/rrclient/spectrum.af.o
+[compile] rrclient/audio.c => build/radio/rrclient/audio.o
+rrclient/receiver.directory.c:910:20: warning: File position of the stream might be 'indeterminate' after a failed operation. Can cause undefined behavior [unix.Stream]
+  910 |    while ((bytes = fread(buffer, 1, sizeof(buffer), file))) {
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/receiver.directory.c:910:20: warning: Read function called when stream is in EOF state. Function has no effect [unix.Stream]
+  910 |    while ((bytes = fread(buffer, 1, sizeof(buffer), file))) {
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2 warnings generated.
+[compile] rrclient/recordings.c => build/radio/rrclient/recordings.o
+[compile] rrclient/recordings.codec.c => build/radio/rrclient/recordings.codec.o
+[compile] rrclient/audio.engine.c => build/radio/rrclient/audio.engine.o
+rrclient/recordings.codec.c:477:19: warning: Opened stream never closed. Potential resource leak [unix.Stream]
+  477 |       d->ogg_ok = TRUE;
+      |                   ^~~~
+/usr/include/glib-2.0/glib/gmacros.h:971:16: note: expanded from macro 'TRUE'
+  971 | #define TRUE    (!FALSE)
+      |                   ^~~~~
+/usr/include/glib-2.0/glib/gmacros.h:967:16: note: expanded from macro 'FALSE'
+  967 | #define FALSE   (0)
+      |                  ^
+1 warning generated.
+[compile] rrclient/audio.graph.c => build/radio/rrclient/audio.graph.o
+[compile] rrclient/cat.c => build/radio/rrclient/cat.o
+[compile] rrclient/cat.kpa500.c => build/radio/rrclient/cat.kpa500.o
+[compile] rrclient/cat.pty.c => build/radio/rrclient/cat.pty.o
+[compile] rrclient/cat.yaesu.c => build/radio/rrclient/cat.yaesu.o
+[compile] rrclient/cfg.network.c => build/radio/rrclient/cfg.network.o
+[compile] rrclient/chat.whois.c => build/radio/rrclient/chat.whois.o
+[compile] rrclient/cmd.c => build/radio/rrclient/cmd.o
+[compile] rrclient/cmd.admin.c => build/radio/rrclient/cmd.admin.o
+[compile] rrclient/cmd.chat.c => build/radio/rrclient/cmd.chat.o
+rrclient/cmd.admin.c:540:74: warning: Null pointer passed to 2nd parameter expecting 'nonnull' [core.NonNullParamChecker]
+  540 |       if ((i > 1 && strlcat(tail, " ", sizeof(tail)) >= sizeof(tail)) || strlcat(tail, args[i], sizeof(tail)) >= sizeof(tail)) {
+      |                                                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrclient/cmd.completion.c => build/radio/rrclient/cmd.completion.o
+[compile] rrclient/cmd.exec.c => build/radio/rrclient/cmd.exec.o
+[compile] rrclient/cmd.help.c => build/radio/rrclient/cmd.help.o
+rrclient/cmd.completion.c:600:7: warning: Potential leak of memory pointed to by 'rooms' [unix.Malloc]
+  600 |       free(prefix);
+      |       ^~~~
+1 warning generated.
+[compile] rrclient/cmd.misc.c => build/radio/rrclient/cmd.misc.o
+[compile] rrclient/cmd.tabs.c => build/radio/rrclient/cmd.tabs.o
+[compile] rrclient/database.c => build/radio/rrclient/database.o
+rrclient/audio.c:932:4: warning: Null pointer passed to 2nd parameter expecting 'nonnull' [core.NonNullParamChecker]
+  932 |    memcpy(r->pending + tail, samples, first * sizeof(int16_t));
+      |    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrclient/backup.c => build/radio/rrclient/backup.o
+[compile] rrclient/config.layers.c => build/radio/rrclient/config.layers.o
+[compile] rrclient/identity.store.c => build/radio/rrclient/identity.store.o
+[compile] rrclient/connman.c => build/radio/rrclient/connman.o
+[compile] rrclient/connecting.c => build/radio/rrclient/connecting.o
+[compile] rrclient/defconfig.c => build/radio/rrclient/defconfig.o
+[compile] rrclient/events.c => build/radio/rrclient/events.o
+[compile] rrclient/thread.dispatch.c => build/radio/rrclient/thread.dispatch.o
+[compile] rrclient/frontend.c => build/radio/rrclient/frontend.o
+[compile] rrclient/m_privmsg.c => build/radio/rrclient/m_privmsg.o
+[compile] rrclient/main.c => build/radio/rrclient/main.o
+[compile] rrclient/media.direct.c => build/radio/rrclient/media.direct.o
+rrclient/events.c:200:16: warning: Value stored to 'msg_type' during its initialization is never read [deadcode.DeadStores]
+  200 |    const char *msg_type = dict_get(d, "alert.type", (char *)"warning");
+      |                ^~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/events.c:274:19: warning: Value stored to 'a_token' during its initialization is never read [deadcode.DeadStores]
+  274 |       const char *a_token = dict_get(d, "auth.token", NULL);
+      |                   ^~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/events.c:789:16: warning: Value stored to 's_unknown' during its initialization is never read [deadcode.DeadStores]
+  789 |    const char *s_unknown = "<UNKNOWN>";
+      |                ^~~~~~~~~   ~~~~~~~~~~~
+rrclient/events.c:1689:16: warning: Value stored to 's_unknown' during its initialization is never read [deadcode.DeadStores]
+ 1689 |    const char *s_unknown = "<UNKNOWN>";
+      |                ^~~~~~~~~   ~~~~~~~~~~~
+rrclient/events.c:1894:16: warning: Value stored to 'rig' during its initialization is never read [deadcode.DeadStores]
+ 1894 |       uint32_t rig = dict_get_ulong(d, "media.rig", RR_BINFRAME_RIG_NA);
+      |                ^~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/events.c:1895:19: warning: Value stored to 'descr' during its initialization is never read [deadcode.DeadStores]
+ 1895 |       const char *descr = dict_get(d, "media.descr", NULL);
+      |                   ^~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/events.c:1927:19: warning: Value stored to 'uuid' during its initialization is never read [deadcode.DeadStores]
+ 1927 |       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
+      |                   ^~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+7 warnings generated.
+[compile] rrclient/media.c => build/radio/rrclient/media.o
+[compile] rrclient/rooms.c => build/radio/rrclient/rooms.o
+rrclient/main.c:2360:10: warning: Value stored to 'display' during its initialization is never read [deadcode.DeadStores]
+ 2360 |    char *display = getenv("DISPLAY");
+      |          ^~~~~~~   ~~~~~~~~~~~~~~~~~
+rrclient/main.c:2401:11: warning: Value stored to 'this_option_optind' during its initialization is never read [deadcode.DeadStores]
+ 2401 |       int this_option_optind = optind ? optind : 1;
+      |           ^~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~
+rrclient/main.c:2506:14: warning: Potential leak of memory pointed to by 'autoconnect_server' [unix.Malloc]
+ 2506 |       return EXIT_FAILURE;
+      |              ^~~~~~~~~~~~
+/usr/include/stdlib.h:96:22: note: expanded from macro 'EXIT_FAILURE'
+   96 | #define EXIT_FAILURE    1       /* Failing exit status.  */
+      |                         ^
+3 warnings generated.
+[compile] rrclient/rrclient.c => build/radio/rrclient/rrclient.o
+[compile] rrclient/sercom.c => build/radio/rrclient/sercom.o
+[compile] rrclient/serial.c => build/radio/rrclient/serial.o
+[compile] rrclient/supervision.c => build/radio/rrclient/supervision.o
+[compile] rrclient/ui.c => build/radio/rrclient/ui.o
+[compile] rrclient/ui.bell.c => build/radio/rrclient/ui.bell.o
+[compile] rrclient/ui.statusbar.c => build/radio/rrclient/ui.statusbar.o
+[compile] rrclient/typing.c => build/radio/rrclient/typing.o
+[compile] rrclient/userlist.c => build/radio/rrclient/userlist.o
+[compile] rrclient/vfo.c => build/radio/rrclient/vfo.o
+[compile] rrclient/webcam.c => build/radio/rrclient/webcam.o
+[compile] rrclient/win32.c => build/radio/rrclient/win32.o
+[compile] rrclient/wsjtx.c => build/radio/rrclient/wsjtx.o
+rrclient/vfo.c:172:9: warning: Value stored to 'vfo_str' during its initialization is never read [deadcode.DeadStores]
+  172 |    char vfo_str[2] = {
+      |         ^~~~~~~      ~
+  173 |       vfo_id, 0
+      |       ~~~~~~~~~
+  174 |    };
+      |    ~
+1 warning generated.
+[compile] rrclient/cli.irc.c => build/radio/rrclient/cli.irc.o
+[compile] rrclient/dcc.c => build/radio/rrclient/dcc.o
+rrclient/sercom.c:98:15: warning: The 1st argument to 'fdopendir' is < 0 but should be >= 0 [unix.StdCLibraryFunctions]
+   98 |    DIR *dir = fdopendir(dup(fd));
+      |               ^~~~~~~~~~~~~~~~~~
+rrclient/sercom.c:1431:4: warning: Value stored to 'baud' is never read [deadcode.DeadStores]
+ 1431 |    baud = b->requested.baud;
+      |    ^      ~~~~~~~~~~~~~~~~~
+2 warnings generated.
+[compile] rrclient/irc.c => build/radio/rrclient/irc.o
+[compile] rrclient/irc.audio.session.c => build/radio/rrclient/irc.audio.session.o
+[compile] rrclient/irc.compat.c => build/radio/rrclient/irc.compat.o
+[compile] rrclient/irc.dcc.c => build/radio/rrclient/irc.dcc.o
+[compile] rrclient/irc.stats.c => build/radio/rrclient/irc.stats.o
+[compile] rrclient/cli.alert.c => build/radio/rrclient/cli.alert.o
+rrclient/cli.alert.c:32:10: warning: Value stored to 'ip' during its initialization is never read [deadcode.DeadStores]
+   32 |    char *ip = cptr->user_ip;
+      |          ^~   ~~~~~~~~~~~~~
+rrclient/cli.alert.c:33:8: warning: Value stored to 'port' during its initialization is never read [deadcode.DeadStores]
+   33 |    int port = cptr->user_port;
+      |        ^~~~   ~~~~~~~~~~~~~~~
+2 warnings generated.
+[compile] rrclient/cli.chat.c => build/radio/rrclient/cli.chat.o
+rrclient/cli.chat.c:33:16: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   33 |    const char *ts = dict_get(d, "msg.ts", NULL);
+      |                ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.chat.c:39:7: warning: Value stored to 'rv' is never read [deadcode.DeadStores]
+   39 |       rv = true;
+      |       ^    ~~~~
+rrclient/cli.chat.c:46:10: warning: Value stored to 'rv' is never read [deadcode.DeadStores]
+   46 |          rv = true;
+      |          ^    ~~~~
+rrclient/cli.chat.c:59:19: warning: Value stored to 'data' during its initialization is never read [deadcode.DeadStores]
+   59 |       const char *data = dict_get(d, "talk.data", NULL);
+      |                   ^~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.chat.c:60:19: warning: Value stored to 'msg_type' during its initialization is never read [deadcode.DeadStores]
+   60 |       const char *msg_type = dict_get(d, "talk.msg_type", NULL);
+      |                   ^~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.chat.c:61:19: warning: Value stored to 'target' during its initialization is never read [deadcode.DeadStores]
+   61 |       const char *target = dict_get(d, "talk.target", NULL);
+      |                   ^~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.chat.c:62:14: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   62 |       time_t ts = dict_get_time_t(d, "msg.ts", now);
+      |              ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.chat.c:104:19: warning: Value stored to 'whois_msg' during its initialization is never read [deadcode.DeadStores]
+  104 |       const char *whois_msg = dict_get(d, "talk.data", NULL);
+      |                   ^~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+8 warnings generated.
+[compile] rrclient/cli.error.c => build/radio/rrclient/cli.error.o
+rrclient/cli.error.c:32:10: warning: Value stored to 'ip' during its initialization is never read [deadcode.DeadStores]
+   32 |    char *ip = cptr->user_ip;
+      |          ^~   ~~~~~~~~~~~~~
+rrclient/cli.error.c:33:8: warning: Value stored to 'port' during its initialization is never read [deadcode.DeadStores]
+   33 |    int port = cptr->user_port;
+      |        ^~~~   ~~~~~~~~~~~~~~~
+rrclient/cli.error.c:34:16: warning: Value stored to 'error_msg' during its initialization is never read [deadcode.DeadStores]
+   34 |    const char *error_msg = dict_get(d, "error.msg", NULL);
+      |                ^~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.error.c:36:11: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   36 |    time_t ts = dict_get_time_t(d, "error.ts", now);
+      |           ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4 warnings generated.
+[compile] rrclient/cli.main.c => build/radio/rrclient/cli.main.o
+[compile] rrclient/cli.media.c => build/radio/rrclient/cli.media.o
+[compile] rrclient/cli.notice.c => build/radio/rrclient/cli.notice.o
+[compile] rrclient/cli.ping.c => build/radio/rrclient/cli.ping.o
+[compile] rrclient/cli.rigctl.c => build/radio/rrclient/cli.rigctl.o
+[compile] rrclient/cli.syslog.c => build/radio/rrclient/cli.syslog.o
+rrclient/cli.ping.c:35:10: warning: Value stored to 'ip' during its initialization is never read [deadcode.DeadStores]
+   35 |    char *ip = cptr->user_ip;
+      |          ^~   ~~~~~~~~~~~~~
+rrclient/cli.ping.c:36:8: warning: Value stored to 'port' during its initialization is never read [deadcode.DeadStores]
+   36 |    int port = cptr->user_port;
+      |        ^~~~   ~~~~~~~~~~~~~~~
+2 warnings generated.
+[compile] rrclient/cfg.servers.c => build/radio/rrclient/cfg.servers.o
+rrclient/cli.syslog.c:34:10: warning: Value stored to 'ip' during its initialization is never read [deadcode.DeadStores]
+   34 |    char *ip = cptr->user_ip;
+      |          ^~   ~~~~~~~~~~~~~
+rrclient/cli.syslog.c:35:8: warning: Value stored to 'port' during its initialization is never read [deadcode.DeadStores]
+   35 |    int port = cptr->user_port;
+      |        ^~~~   ~~~~~~~~~~~~~~~
+rrclient/cli.syslog.c:36:16: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   36 |    const char *ts = dict_get(d, "syslog.ts", NULL);
+      |                ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3 warnings generated.
+[compile] rrclient/ws.auth.c => build/radio/rrclient/ws.auth.o
+rrclient/cli.rigctl.c:35:11: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   35 |    time_t ts = dict_get_time_t(d, "msg.ts", now);
+      |           ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.rigctl.c:45:19: warning: Value stored to 'vfo' during its initialization is never read [deadcode.DeadStores]
+   45 |       const char *vfo = dict_get(d, "cat.state.vfo", NULL);
+      |                   ^~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.rigctl.c:47:12: warning: Value stored to 'freq' during its initialization is never read [deadcode.DeadStores]
+   47 |       long freq = dict_get_long(d, "cat.state.freq", 0);
+      |            ^~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.rigctl.c:48:11: warning: Value stored to 'width' during its initialization is never read [deadcode.DeadStores]
+   48 |       int width = dict_get_int(d, "cat.state.width", 0);
+      |           ^~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.rigctl.c:49:11: warning: Value stored to 'power' during its initialization is never read [deadcode.DeadStores]
+   49 |       int power = dict_get_int(d, "cat.state.power", 0);
+      |           ^~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.rigctl.c:50:12: warning: Value stored to 'ptt' during its initialization is never read [deadcode.DeadStores]
+   50 |       bool ptt = dict_get_bool(d, "cat.state.ptt", false);
+      |            ^~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/cli.rigctl.c:51:14: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   51 |       time_t ts = dict_get_ulong(d, "msg.ts", 0);
+      |              ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+7 warnings generated.
+[compile] rrclient/ws.serial.c => build/radio/rrclient/ws.serial.o
+rrclient/ws.auth.c:38:10: warning: Value stored to 'ip' during its initialization is never read [deadcode.DeadStores]
+   38 |    char *ip = cptr->user_ip;
+      |          ^~   ~~~~~~~~~~~~~
+rrclient/ws.auth.c:39:8: warning: Value stored to 'port' during its initialization is never read [deadcode.DeadStores]
+   39 |    int port = cptr->user_port;
+      |        ^~~~   ~~~~~~~~~~~~~~~
+rrclient/ws.auth.c:44:11: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   44 |    time_t ts = dict_get_time_t(d, "auth.ts", now);
+      |           ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/ws.auth.c:76:14: warning: Value stored to 'ts' during its initialization is never read [deadcode.DeadStores]
+   76 |       time_t ts = dict_get_time_t(d, "auth.ts", now);
+      |              ^~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/ws.auth.c:188:16: warning: Value stored to 'codec' during its initialization is never read [deadcode.DeadStores]
+  188 |    const char *codec = "mu08,mu08";
+      |                ^~~~~   ~~~~~~~~~~~
+5 warnings generated.
+[compile] libfwdspmgr/fwdsp-mgr.c => build/radio/libfwdspmgr/fwdsp-mgr.o
+[compile] libfwdspmgr/fwdsp-ctl.c => build/radio/libfwdspmgr/fwdsp-ctl.o
+[compile] libfwdspmgr/fwdsp-video.c => build/radio/libfwdspmgr/fwdsp-video.o
+[compile] libfwdspmgr/dsp-worker.c => build/radio/libfwdspmgr/dsp-worker.o
+[compile] libfwdspmgr/pipeline.recipe.c => build/radio/libfwdspmgr/pipeline.recipe.o
+[compile-gtk] rrclient/gtk/cfg.gtkcss.c => build/radio/rrclient/gtk/cfg.gtkcss.o
+[compile-gtk] rrclient/gtk/gtk.admin.c => build/radio/rrclient/gtk/gtk.admin.o
+[compile-gtk] rrclient/gtk/gtk.admin.controls.c => build/radio/rrclient/gtk/gtk.admin.controls.o
+[compile-gtk] rrclient/gtk/gtk.admin.access.c => build/radio/rrclient/gtk/gtk.admin.access.o
+[compile-gtk] rrclient/gtk/gtk.admin.security.c => build/radio/rrclient/gtk/gtk.admin.security.o
+[compile-gtk] rrclient/gtk/gtk.admin.cells.c => build/radio/rrclient/gtk/gtk.admin.cells.o
+[compile-gtk] rrclient/gtk/gtk.admin.password.c => build/radio/rrclient/gtk/gtk.admin.password.o
+[compile-gtk] rrclient/gtk/gtk.admin.sessions.c => build/radio/rrclient/gtk/gtk.admin.sessions.o
+[compile-gtk] rrclient/gtk/gtk.admin.privgroup.c => build/radio/rrclient/gtk/gtk.admin.privgroup.o
+libfwdspmgr/fwdsp-mgr.c:765:20: warning: Use of memory after it is freed [unix.Malloc]
+  765 |    ctx->processing = false;
+      |    ~~~~~~~~~~~~~~~ ^
+1 warning generated.
+[compile-gtk] rrclient/gtk/gtk.admin.selection.c => build/radio/rrclient/gtk/gtk.admin.selection.o
+rrclient/gtk/gtk.admin.c:1230:91: warning: 1st function call argument is an uninitialized value [core.CallAndMessage]
+ 1230 |             char *privileges = gtk_edit_privileges(GTK_WINDOW(dialog), destination, name, gtk_entry_get_text(GTK_ENTRY(entries[2])));
+      |                                                                                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/gtk/gtk.admin.c:1295:22: warning: 1st function call argument is an uninitialized value [core.CallAndMessage]
+ 1295 |                   ? (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(entries[col])) ? "1" : "0")
+      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/gtk/gtk.admin.c:1296:21: warning: 1st function call argument is an uninitialized value [core.CallAndMessage]
+ 1296 |                   : gtk_entry_get_text(GTK_ENTRY(entries[col]));
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3 warnings generated.
+[compile-gtk] rrclient/gtk/gtk.alertdialog.c => build/radio/rrclient/gtk/gtk.alertdialog.o
+[compile-gtk] rrclient/gtk/gtk.graph.c => build/radio/rrclient/gtk/gtk.graph.o
+[compile-gtk] rrclient/gtk/gtk.audio-routing.c => build/radio/rrclient/gtk/gtk.audio-routing.o
+[compile-gtk] rrclient/gtk/gtk.control-panel.c => build/radio/rrclient/gtk/gtk.control-panel.o
+[compile-gtk] rrclient/gtk/gtk.chat.c => build/radio/rrclient/gtk/gtk.chat.o
+[compile-gtk] rrclient/gtk/gtk.chat-context.c => build/radio/rrclient/gtk/gtk.chat-context.o
+[compile-gtk] rrclient/gtk/gtk.chat-protocol.c => build/radio/rrclient/gtk/gtk.chat-protocol.o
+[compile-gtk] rrclient/gtk/gtk.chat.highlight.c => build/radio/rrclient/gtk/gtk.chat.highlight.o
+rrclient/gtk/gtk.chat-protocol.c:107:93: warning: Null pointer passed to 1st parameter expecting 'nonnull' [core.NonNullParamChecker]
+  107 |       const char *unread = text && kind && strncasecmp(kind, "replay-", 7) && (!nickname || strcasecmp(from, nickname)) ? text : NULL;
+      |                                                                                             ^~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile-gtk] rrclient/gtk/gtk.chat.links.c => build/radio/rrclient/gtk/gtk.chat.links.o
+[compile-gtk] rrclient/gtk/gtk.codecpicker.c => build/radio/rrclient/gtk/gtk.codecpicker.o
+[compile-gtk] rrclient/gtk/gtk.connect-button.c => build/radio/rrclient/gtk/gtk.connect-button.o
+[compile-gtk] rrclient/gtk/gtk.connecting.c => build/radio/rrclient/gtk/gtk.connecting.o
+[compile-gtk] rrclient/gtk/gtk.clock.c => build/radio/rrclient/gtk/gtk.clock.o
+[compile-gtk] rrclient/gtk/gtk.core.c => build/radio/rrclient/gtk/gtk.core.o
+[compile-gtk] rrclient/gtk/gtk.files.c => build/radio/rrclient/gtk/gtk.files.o
+[compile-gtk] rrclient/gtk/gtk.recordings.c => build/radio/rrclient/gtk/gtk.recordings.o
+[compile-gtk] rrclient/gtk/gtk.recording-player.c => build/radio/rrclient/gtk/gtk.recording-player.o
+[compile-gtk] rrclient/gtk/gtk.file-editor.c => build/radio/rrclient/gtk/gtk.file-editor.o
+[compile-gtk] rrclient/gtk/gtk.floating-panel.c => build/radio/rrclient/gtk/gtk.floating-panel.o
+rrclient/gtk/gtk.chat.c:1454:113: warning: Array access (via field 'server') results in a null pointer dereference [core.NullDereference]
+ 1454 |             freq > 0 ? g_strdup_printf("%s%s / %s — VFO %c — %ld.%03ld kHz — %s", selected ? "● " : "", tab->server[0] ? tab->server : "Local", tab->room, vfo,
+      |                                                                                                         ^~~~~~~~~~~~~~
+rrclient/gtk/gtk.chat.c:1456:79: warning: Array access (via field 'server') results in a null pointer dereference [core.NullDereference]
+ 1456 |             : g_strdup_printf("%s%s / %s — VFO %c", selected ? "● " : "", tab->server[0] ? tab->server : "Local", tab->room, vfo);
+      |                                                                           ^~~~~~~~~~~~~~
+2 warnings generated.
+[compile-gtk] rrclient/gtk/gtk.scale-container.c => build/radio/rrclient/gtk/gtk.scale-container.o
+[compile-gtk] rrclient/gtk/gtk.fm-mode.c => build/radio/rrclient/gtk/gtk.fm-mode.o
+[compile-gtk] rrclient/gtk/gtk.freqentry.c => build/radio/rrclient/gtk/gtk.freqentry.o
+rrclient/gtk/gtk.file-editor.c:856:19: warning: Value of 'errno' was not checked and may be overwritten by function 'malloc' [unix.Errno]
+  856 |       char *buf = malloc((size_t)len + 1);
+      |                   ^~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile-gtk] rrclient/gtk/gtk.help.c => build/radio/rrclient/gtk/gtk.help.o
+rrclient/gtk/gtk.freqentry.c:371:24: warning: Value stored to 'direction' during its initialization is never read [deadcode.DeadStores]
+  371 |       GtkDirectionType direction = (event->state & GDK_SHIFT_MASK)
+      |                        ^~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  372 |          ? GTK_DIR_TAB_BACKWARD : GTK_DIR_TAB_FORWARD;
+      |          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrclient/gtk/gtk.freqentry.c:373:18: warning: Value stored to 'parent' during its initialization is never read [deadcode.DeadStores]
+  373 |       GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(fe));
+      |                  ^~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2 warnings generated.
+[compile-gtk] rrclient/gtk/gtk.hotkey.c => build/radio/rrclient/gtk/gtk.hotkey.o
+[compile-gtk] rrclient/gtk/gtk.identity.c => build/radio/rrclient/gtk/gtk.identity.o
+[compile-gtk] rrclient/gtk/gtk.irc-format.c => build/radio/rrclient/gtk/gtk.irc-format.o
+[compile-gtk] rrclient/gtk/gtk.output.c => build/radio/rrclient/gtk/gtk.output.o
+[compile-gtk] rrclient/gtk/gtk.kiwi-panel.c => build/radio/rrclient/gtk/gtk.kiwi-panel.o
+[compile-gtk] rrclient/gtk/gtk.icons.c => build/radio/rrclient/gtk/gtk.icons.o
+[compile-gtk] rrclient/gtk/gtk.mode-box.c => build/radio/rrclient/gtk/gtk.mode-box.o
+[compile-gtk] rrclient/gtk/gtk.privileges.c => build/radio/rrclient/gtk/gtk.privileges.o
+[compile-gtk] rrclient/gtk/gtk.receiver-directory.c => build/radio/rrclient/gtk/gtk.receiver-directory.o
+[compile-gtk] rrclient/gtk/gtk.catalog.c => build/radio/rrclient/gtk/gtk.catalog.o
+[compile-gtk] rrclient/gtk/gtk.catalog.local.c => build/radio/rrclient/gtk/gtk.catalog.local.o
+[compile-gtk] rrclient/gtk/gtk.catalog.health.c => build/radio/rrclient/gtk/gtk.catalog.health.o
+[compile-gtk] rrclient/gtk/gtk.catalog.view.c => build/radio/rrclient/gtk/gtk.catalog.view.o
+[compile-gtk] rrclient/gtk/gtk.catalog.controls.c => build/radio/rrclient/gtk/gtk.catalog.controls.o
+[compile-gtk] rrclient/gtk/gtk.catalog.inventory.c => build/radio/rrclient/gtk/gtk.catalog.inventory.o
+[compile-gtk] rrclient/gtk/gtk.screensaver.c => build/radio/rrclient/gtk/gtk.screensaver.o
+[compile-gtk] rrclient/gtk/gtk.serial.c => build/radio/rrclient/gtk/gtk.serial.o
+[compile-gtk] rrclient/gtk/gtk.spectrum.c => build/radio/rrclient/gtk/gtk.spectrum.o
+[compile-gtk] rrclient/gtk/gtk.supervision.c => build/radio/rrclient/gtk/gtk.supervision.o
+rrclient/gtk/gtk.catalog.c:573:13: warning: Null pointer passed to 1st parameter expecting 'nonnull' [core.NonNullParamChecker]
+  573 |       if ((!strcmp(kind, "gps") && (!uuid || !*uuid)) || (!strcmp(kind, "serial") && state && !strcmp(state, "server-local"))) {
+      |             ^~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile-gtk] rrclient/gtk/gtk.ptt-btn.c => build/radio/rrclient/gtk/gtk.ptt-btn.o
+[compile-gtk] rrclient/gtk/gtk.serveredit.c => build/radio/rrclient/gtk/gtk.serveredit.o
+[compile-gtk] rrclient/gtk/gtk.serverpick.c => build/radio/rrclient/gtk/gtk.serverpick.o
+[compile-gtk] rrclient/gtk/gtk.syslog.c => build/radio/rrclient/gtk/gtk.syslog.o
+[compile-gtk] rrclient/gtk/gtk.tabs.menu.c => build/radio/rrclient/gtk/gtk.tabs.menu.o
+[compile-gtk] rrclient/gtk/gtk.tabs.c => build/radio/rrclient/gtk/gtk.tabs.o
+[compile-gtk] rrclient/gtk/gtk.decoders.c => build/radio/rrclient/gtk/gtk.decoders.o
+[compile-gtk] rrclient/gtk/gtk.terminal.c => build/radio/rrclient/gtk/gtk.terminal.o
+[compile-gtk] rrclient/gtk/gtk.txpower.c => build/radio/rrclient/gtk/gtk.txpower.o
+[compile-gtk] rrclient/gtk/gtk.userlist.c => build/radio/rrclient/gtk/gtk.userlist.o
+[compile-gtk] rrclient/gtk/gtk.vfo-box.c => build/radio/rrclient/gtk/gtk.vfo-box.o
+[compile-gtk] rrclient/gtk/gtk.vol-box.c => build/radio/rrclient/gtk/gtk.vol-box.o
+[compile-gtk] rrclient/gtk/gtk.winmgr.c => build/radio/rrclient/gtk/gtk.winmgr.o
+[compile-gtk] rrclient/gtk/gtk.window.c => build/radio/rrclient/gtk/gtk.window.o
+[compile-gtk] rrclient/gtk/gtk.webcam.c => build/radio/rrclient/gtk/gtk.webcam.o
+[compile-gtk] rrclient/gtk/gtk.zoom.c => build/radio/rrclient/gtk/gtk.zoom.o
+rrclient/gtk/gtk.winmgr.c:135:13: warning: Value stored to 'flen' is never read [deadcode.DeadStores]
+  135 |             flen += snprintf(opts + flen, sizeof(opts) - flen, "%sminimized", (flen ? "|" : ""));
+      |             ^       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile-gtk] rrclient/gtk/module.c => build/radio/rrclient/gtk/module.o
+[compile-gtk] rrclient/gtk/ui.speech.c => build/radio/rrclient/gtk/ui.speech.o
+rrclient/gtk/gtk.window.c:817:18: warning: Value stored to 'main_window_t' during its initialization is never read [deadcode.DeadStores]
+  817 |    gui_window_t *main_window_t = ui_new_window(main_window, "main");
+      |                  ^~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrserver/cfg.files.c => build/radio/rrserver/cfg.files.o
+[compile] rrserver/files.c => build/radio/rrserver/files.o
+[compile] rrserver/objects.c => build/radio/rrserver/objects.o
+[compile] rrserver/serial.c => build/radio/rrserver/serial.o
+[compile] rrserver/gps.c => build/radio/rrserver/gps.o
+[compile] rrserver/hardware.c => build/radio/rrserver/hardware.o
+rrclient/gtk/gtk.userlist.c:870:9: warning: Value stored to 'vfo' during its initialization is never read [deadcode.DeadStores]
+  870 |    char vfo[2] = {
+      |         ^~~      ~
+  871 |       control->vfo, 0
+      |       ~~~~~~~~~~~~~~~
+  872 |    };
+      |    ~
+1 warning generated.
+[compile] rrserver/hardware.dummy.c => build/radio/rrserver/hardware.dummy.o
+[compile] rrserver/cfg.radio.c => build/radio/rrserver/cfg.radio.o
+[compile] rrserver/backend.internal-parts.c => build/radio/rrserver/backend.internal-parts.o
+[compile] rrserver/cfg.gpio.c => build/radio/rrserver/cfg.gpio.o
+[compile] rrserver/si5351.c => build/radio/rrserver/si5351.o
+[compile] rrserver/hardware.si5351.c => build/radio/rrserver/hardware.si5351.o
+[compile] rrserver/cfg.si5351.c => build/radio/rrserver/cfg.si5351.o
+[compile] rrserver/acl.c => build/radio/rrserver/acl.o
+[compile] rrserver/amp.c => build/radio/rrserver/amp.o
+[compile] rrserver/atu.c => build/radio/rrserver/atu.o
+[compile] rrserver/au.recording.c => build/radio/rrserver/au.recording.o
+[compile] rrserver/audit.c => build/radio/rrserver/audit.o
+rrserver/atu.c:86:9: warning: Although the value stored to 'tv' is used in the enclosing expression, the value is never actually read from 'tv' [deadcode.DeadStores]
+   86 |    if ((tv = rr_atu_find_saved_state(uid))) {
+      |         ^    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrserver/backend.c => build/radio/rrserver/backend.o
+[compile] rrserver/backend.instance.c => build/radio/rrserver/backend.instance.o
+[compile] rrserver/backend.internal.c => build/radio/rrserver/backend.internal.o
+[compile] rrserver/backend.register.c => build/radio/rrserver/backend.register.o
+[compile] rrserver/backend.worker.c => build/radio/rrserver/backend.worker.o
+[compile] rrserver/backend.yaesu.c => build/radio/rrserver/backend.yaesu.o
+[compile] rrserver/bridge.access.c => build/radio/rrserver/bridge.access.o
+[compile] rrserver/bridge.hints.c => build/radio/rrserver/bridge.hints.o
+[compile] rrserver/bridge.manager.c => build/radio/rrserver/bridge.manager.o
+[compile] rrserver/cfg.acl.c => build/radio/rrserver/cfg.acl.o
+[compile] rrserver/cfg.peer.c => build/radio/rrserver/cfg.peer.o
+[compile] rrserver/cfg.rig.c => build/radio/rrserver/cfg.rig.o
+[compile] rrserver/cfg.rtp.c => build/radio/rrserver/cfg.rtp.o
+[compile] rrserver/channels.c => build/radio/rrserver/channels.o
+[compile] rrserver/console.c => build/radio/rrserver/console.o
+[compile] rrserver/database.c => build/radio/rrserver/database.o
+[compile] rrserver/database.accounting.c => build/radio/rrserver/database.accounting.o
+rrserver/backend.yaesu.c:800:8: warning: Value stored to 'current' during its initialization is never read [deadcode.DeadStores]
+  800 |    int current = sh_read(b, v);
+      |        ^~~~~~~   ~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrserver/database.privileges.c => build/radio/rrserver/database.privileges.o
+rrserver/database.c:58:16: warning: Value of 'errno' was not checked and may be overwritten by function 'malloc' [unix.Errno]
+   58 |    char *sql = malloc((size_t)length + 1);
+      |                ^~~~~~~~~~~~~~~~~~~~~~~~~~
+rrserver/database.c:474:10: warning: Value stored to 'used' is never read [deadcode.DeadStores]
+  474 |          used = capacity - 1;
+      |          ^      ~~~~~~~~~~~~
+2 warnings generated.
+[compile] rrserver/database.rooms.c => build/radio/rrserver/database.rooms.o
+[compile] rrserver/database.users.c => build/radio/rrserver/database.users.o
+[compile] rrserver/defconfig.c => build/radio/rrserver/defconfig.o
+[compile] rrserver/events.c => build/radio/rrserver/events.o
+[compile] rrserver/events.admin.c => build/radio/rrserver/events.admin.o
+[compile] rrserver/events.quota.c => build/radio/rrserver/events.quota.o
+[compile] rrserver/events.rig.c => build/radio/rrserver/events.rig.o
+rrserver/events.rig.c:111:41: warning: Null pointer passed to 2nd parameter expecting 'nonnull' [core.NonNullParamChecker]
+  111 |          bool controls = controller && !strcasecmp(controller, room);
+      |                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrserver/events.rooms.c => build/radio/rrserver/events.rooms.o
+rrserver/events.quota.c:95:17: warning: Value stored to 'mins' during its initialization is never read [deadcode.DeadStores]
+   95 |             int mins = (before < 0 ? 0 : before) / 60;
+      |                 ^~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrserver/events.users.c => build/radio/rrserver/events.users.o
+[compile] rrserver/faults.c => build/radio/rrserver/faults.o
+[compile] rrserver/filters.c => build/radio/rrserver/filters.o
+[compile] rrserver/gpio.c => build/radio/rrserver/gpio.o
+[compile] rrserver/hostlog.c => build/radio/rrserver/hostlog.o
+[compile] rrserver/help.c => build/radio/rrserver/help.o
+[compile] rrserver/i2c.c => build/radio/rrserver/i2c.o
+[compile] rrserver/identity.c => build/radio/rrserver/identity.o
+[compile] rrserver/revocation.c => build/radio/rrserver/revocation.o
+[compile] rrserver/link.c => build/radio/rrserver/link.o
+[compile] rrserver/link.admin.c => build/radio/rrserver/link.admin.o
+[compile] rrserver/link.mesh.c => build/radio/rrserver/link.mesh.o
+[compile] rrserver/link.native.c => build/radio/rrserver/link.native.o
+[compile] rrserver/link.tree.c => build/radio/rrserver/link.tree.o
+[compile] rrserver/mesh.auth.c => build/radio/rrserver/mesh.auth.o
+[compile] rrserver/mesh.bootstrap.c => build/radio/rrserver/mesh.bootstrap.o
+[compile] rrserver/mesh.enroll.c => build/radio/rrserver/mesh.enroll.o
+[compile] rrserver/mesh.enroll.native.c => build/radio/rrserver/mesh.enroll.native.o
+[compile] rrserver/mesh.native.client.c => build/radio/rrserver/mesh.native.client.o
+[compile] rrserver/mesh.native.listener.c => build/radio/rrserver/mesh.native.listener.o
+[compile] rrserver/mesh.wss.c => build/radio/rrserver/mesh.wss.o
+[compile] rrserver/mesh.wss.http.c => build/radio/rrserver/mesh.wss.http.o
+[compile] rrserver/main.c => build/radio/rrserver/main.o
+[compile] rrserver/media.c => build/radio/rrserver/media.o
+rrserver/main.c:899:7: warning: Value stored to 'serial_tmp' is never read [deadcode.DeadStores]
+  899 |       serial_tmp = atoi(s);
+      |       ^            ~~~~~~~
+1 warning generated.
+[compile] rrserver/media.direct.c => build/radio/rrserver/media.direct.o
+[compile] rrserver/network.c => build/radio/rrserver/network.o
+[compile] rrserver/performance.c => build/radio/rrserver/performance.o
+[compile] rrserver/protection.c => build/radio/rrserver/protection.o
+[compile] rrserver/platform.backlight.c => build/radio/rrserver/platform.backlight.o
+[compile] rrserver/platform.controls.c => build/radio/rrserver/platform.controls.o
+[compile] rrserver/ptt.c => build/radio/rrserver/ptt.o
+[compile] rrserver/receiver.directory.c => build/radio/rrserver/receiver.directory.o
+[compile] rrserver/relay.c => build/radio/rrserver/relay.o
+[compile] rrserver/relay.catalog.c => build/radio/rrserver/relay.catalog.o
+[compile] rrserver/relay.media.c => build/radio/rrserver/relay.media.o
+[compile] rrserver/relay.sessions.c => build/radio/rrserver/relay.sessions.o
+[compile] rrserver/relay.users.c => build/radio/rrserver/relay.users.o
+[compile] rrserver/rig.compat.c => build/radio/rrserver/rig.compat.o
+[compile] rrserver/rig.properties.c => build/radio/rrserver/rig.properties.o
+[compile] rrserver/rig.registry.c => build/radio/rrserver/rig.registry.o
+[compile] rrserver/rig.rooms.c => build/radio/rrserver/rig.rooms.o
+[compile] rrserver/rx.slice.c => build/radio/rrserver/rx.slice.o
+[compile] rrserver/supervision.c => build/radio/rrserver/supervision.o
+[compile] rrserver/thermal.c => build/radio/rrserver/thermal.o
+rrserver/relay.sessions.c:213:15: warning: Null pointer passed to 2nd parameter expecting 'nonnull' [core.NonNullParamChecker]
+  213 |       return !strcasecmp(joined, room);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[compile] rrserver/timer.c => build/radio/rrserver/timer.o
+[compile] rrserver/timer.clocktick.c => build/radio/rrserver/timer.clocktick.o
+[compile] rrserver/usage.c => build/radio/rrserver/usage.o
+[compile] rrserver/unwind.c => build/radio/rrserver/unwind.o
+[compile] rrserver/util.vna.c => build/radio/rrserver/util.vna.o
+[compile] rrserver/waterfall.c => build/radio/rrserver/waterfall.o
+[compile] rrserver/webcam.c => build/radio/rrserver/webcam.o
+[compile] rrserver/srv.auth.c => build/radio/rrserver/srv.auth.o
+[compile] rrserver/srv.auth.passdb.c => build/radio/rrserver/srv.auth.passdb.o
+[compile] rrserver/srv.chat.error.c => build/radio/rrserver/srv.chat.error.o
+[compile] rrserver/srv.chat.c => build/radio/rrserver/srv.chat.o
+[compile] rrserver/srv.chat.whois.c => build/radio/rrserver/srv.chat.whois.o
+[compile] rrserver/srv.client.c => build/radio/rrserver/srv.client.o
+[compile] rrserver/srv.http.listeners.c => build/radio/rrserver/srv.http.listeners.o
+[compile] rrserver/srv.http.c => build/radio/rrserver/srv.http.o
+[compile] rrserver/srv.ptt.disconnect.c => build/radio/rrserver/srv.ptt.disconnect.o
+rrserver/srv.auth.c:106:11: warning: Value stored to 'privlen' during its initialization is never read [deadcode.DeadStores]
+  106 |    size_t privlen = strlen(priv);
+      |           ^~~~~~~   ~~~~~~~~~~~~
+rrserver/srv.auth.c:477:13: warning: Value stored to 'guest' is never read [deadcode.DeadStores]
+  477 |             guest = true;
+      |             ^       ~~~~
+2 warnings generated.
+[compile] rrserver/srv.ping.c => build/radio/rrserver/srv.ping.o
+[compile] rrserver/srv.rigctl.c => build/radio/rrserver/srv.rigctl.o
+rrserver/srv.http.c:464:19: warning: Value stored to 'alert_from' during its initialization is never read [deadcode.DeadStores]
+  464 |       const char *alert_from = dict_get(d, "alert.from", "*** SERVER ***");
+      |                   ^~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrserver/srv.http.c:467:19: warning: Value stored to 'error_msg' during its initialization is never read [deadcode.DeadStores]
+  467 |       const char *error_msg = dict_get(d, "error.msg", NULL);
+      |                   ^~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrserver/srv.http.c:528:19: warning: Value stored to 'ping' during its initialization is never read [deadcode.DeadStores]
+  528 |       const char *ping = dict_get(d, "ping", NULL);
+      |                   ^~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~
+rrserver/srv.http.c:571:19: warning: Value stored to 'talk_reason' during its initialization is never read [deadcode.DeadStores]
+  571 |       const char *talk_reason = dict_get(d, "quit.reason", NULL);
+      |                   ^~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrserver/srv.http.c:572:11: warning: Value stored to 'sessions' during its initialization is never read [deadcode.DeadStores]
+  572 |       int sessions = dict_get_int(d, "quit.sessions", 0);
+      |           ^~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5 warnings generated.
+[compile] rrserver/srv.send.c => build/radio/rrserver/srv.send.o
+[compile] rrserver/srv.session.c => build/radio/rrserver/srv.session.o
+[compile] rrserver/http.api.c => build/radio/rrserver/http.api.o
+[compile] rrserver/http.bans.c => build/radio/rrserver/http.bans.o
+[compile] rrserver/ws.mediachan.c => build/radio/rrserver/ws.mediachan.o
+rrserver/srv.rigctl.c:324:59: warning: Null pointer passed to 2nd parameter expecting 'nonnull' [core.NonNullParamChecker]
+  324 |          if (already_keyed && (cptr->ptt_vfo != vfo[0] || strcasecmp(cptr->ptt_room, control_room))) {
+      |                                                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rrserver/srv.rigctl.c:351:19: warning: Value stored to 'c_vfo' during its initialization is never read [deadcode.DeadStores]
+  351 |          rr_vfo_t c_vfo = vfo_lookup(vfo[0]);
+      |                   ^~~~~   ~~~~~~~~~~~~~~~~~~
+rrserver/srv.rigctl.c:483:10: warning: Value stored to 'c_vfo' is never read [deadcode.DeadStores]
+  483 |          c_vfo = vfo_lookup(vfo[0]);
+      |          ^       ~~~~~~~~~~~~~~~~~~
+rrserver/srv.rigctl.c:588:70: warning: Dereference of null pointer (loaded from variable 'end') [core.NullDereference]
+  588 |             if (errno || end == width || hz <= 0 || hz > INT_MAX || (*end && strcasecmp(end, "Hz"))) {
+      |                                                                      ^~~~
+rrserver/srv.rigctl.c:646:10: warning: Value stored to 'c_vfo' is never read [deadcode.DeadStores]
+  646 |          c_vfo = vfo_lookup(vfo[0]);
+      |          ^       ~~~~~~~~~~~~~~~~~~
+5 warnings generated.
+[compile] rrserver/module.gps-nmea.c => build/radio/rrserver/module.gps-nmea.o
+[compile] rrserver/module.gpsd.c => build/radio/rrserver/module.gpsd.o
+[compile] rrserver/module.hamlib.c => build/radio/rrserver/module.hamlib.o
+[compile] rrserver/backend.hamlib.c => build/radio/rrserver/backend.hamlib.o
+[compile] rrserver/si5351-tool.c => build/radio/rrserver/si5351-tool.o
+[compile] fwdsp/defconfig.c => build/radio/fwdsp/defconfig.o
+[compile] fwdsp/fwdsp.c => build/radio/fwdsp/fwdsp.o
+[compile-rrpipelines] rrpipelines/main.c => build/radio/rrpipelines/main.o
+[compile-rrpipelines] rrpipelines/pipeline.c => build/radio/rrpipelines/pipeline.o
+[link] libfwdspmgr.so from 5 objects
+160 -rwxrwxr-x 1 orc orc 162072 Nov 19 01:20 libfwdspmgr.so
+[compile-gtk] rrclient/gtk/gtk.logview.c => build/radio/rrclient/gtk/gtk.logview.o
+[link] bin/rrserver from 111 objects
+[gpio] rrserver USE_GPIO=false adapter=disabled
+3264 -rwxrwxr-x 1 orc orc 3340392 Nov 19 01:20 bin/rrserver
+bin/rrserver: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=b5b7b4f737679163eefd221fc0ee3abadf2f329c, for GNU/Linux 3.2.0, with debug_info, not stripped
+   text	   data	    bss	    dec	    hex	filename
+1033454	  26033	 834193	1893680	 1ce530	bin/rrserver
+[link] bin/rrclient from 76 objects
+[link] bin/rrclient-gtk.so from 73 objects
+2608 -rwxrwxr-x 1 orc orc 2667128 Nov 19 01:20 bin/rrclient
+bin/rrclient: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=6f2baa0aed6b2cb225f72efee870e37462578808, for GNU/Linux 3.2.0, with debug_info, not stripped
+   text	   data	    bss	    dec	    hex	filename
+ 784118	  26241	1340904	2151263	 20d35f	bin/rrclient
+3884 -rwxrwxr-x 1 orc orc 3977200 Nov 19 01:20 bin/rrclient-gtk.so
+bin/rrclient-gtk.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, BuildID[sha1]=61c1b195b5f7d44cf3c38d492c175a7bc35ad73d, with debug_info, not stripped
+[link] bin/rrpipelines from 2 objects
+236 -rwxrwxr-x 1 orc orc 241544 Nov 19 01:21 bin/rrpipelines
+bin/rrpipelines: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=93ff18c1823cd4b4dfbfe4cd9fe79395480743c6, for GNU/Linux 3.2.0, with debug_info, not stripped
+[link] 2 objects => bin/fwdsp
+196 -rwxrwxr-x 1 orc orc 196632 Nov 19 01:21 bin/fwdsp
+bin/fwdsp: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=4e6c7b4d2435afc93b50721b99158a4af979740e, for GNU/Linux 3.2.0, with debug_info, not stripped
+   text	   data	    bss	    dec	    hex	filename
+  74765	   5224	   5104	  85093	  14c65	bin/fwdsp
+scan-build: Analysis run complete.
+scan-build: Analysis results (plist files) deposited in '/home/orc/rrpk/src/rustyrig-fw/security/audit-logs/20261119.010643/scanview/2026-11-19-010645-7741-1'
+scan-build exit status: audit-init

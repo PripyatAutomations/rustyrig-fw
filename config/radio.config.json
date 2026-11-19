@@ -6,7 +6,6 @@
       "rrserver": "true"
    },
    "features": {
-      "alsa": "false",
       "auto-block-ptt": "false",
       "cat-kpa500": "false",
       "cat-yaesu": "true",
@@ -16,7 +15,7 @@
       "debug-build": "true",
       "eeprom": "false",
       "flac": "true",
-      "gpio": "false",
+      "gpio": "true",
       "gstreamer": "true",
       "gtk": "true",
       "hamlib": "true",
@@ -26,6 +25,7 @@
       "max_bands": 14,
       "mongoose": "false",
       "mqtt": "true",
+      "ogg": "true",
       "opus": "true",
       "profiling": "true",
       "rtp": "true",
@@ -72,7 +72,7 @@
          "prefix": ""
       },
       "ccache": false,
-      "use_asan": "false"
+      "use_asan": "true"
    },
    "cards": {
       "amp": {
@@ -128,37 +128,10 @@
    "i2c": {
    },
    "interface": {
-      "amp": {
-         "port": "pipe:/tmp/rustyrig.amp.socket",
-         "enabled": "true"
-      },
-      "cat": {
-         "port": "pipe:/tmp/rustyrig.cat.socket",
-         "enabled": "true"
-      },
       "console": {
          "enabled": "true",
          "type": "stdio"
-      },
-      "display": [
-         {
-            "enabled": "false",
-            "hmi": "hmi/5in_nextion.hmi",
-            "type": "nextion",
-            "port": "/dev/ttyUSB.nextion"
-         },
-         {
-            "name": "vfb0",
-            "type": "vfb",
-            "height": 480,
-            "width": 640
-         },
-         {
-            "name": "lcd0",
-            "type": "lcd",
-            "framebuffer": "vfb0"
-         }
-      ]
+      }
    },
    "net": {
       "bind": "0.0.0.0",

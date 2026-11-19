@@ -1,0 +1,324 @@
+rrclient/main.c:408:70: warning: There is an unknown macro here somewhere. Configuration is required. If G_GINT64_FORMAT is a macro then please configure it. [unknownMacro]
+      Log(LOG_WARN, "core.scheduler", "Network scheduler poll gap=%" G_GINT64_FORMAT "us tid=%p", tick_us - last_poll_us, (void *)g_thread_self());
+                                                                     ^
+rrclient/tests/gtk_floating_panel.c:63:31: warning: syntax error [syntaxError]
+   g_assert_cmpint(first_width, >, 0);
+                              ^
+rrclient/tests/status_line.c:108:11: warning: Non-pure function: 'fread' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(fread(text, 1, size, file) == (size_t)size);
+          ^
+rrclient/tests/status_line.c:108:17: warning: If memory allocation fails, then there is a possible null pointer dereference: text [nullPointerOutOfMemory]
+   assert(fread(text, 1, size, file) == (size_t)size);
+                ^
+rrclient/tests/status_line.c:106:23: note: Assuming allocation function fails
+   char *text = calloc(1, size + 1);
+                      ^
+rrclient/tests/status_line.c:106:23: note: Assignment 'text=calloc(1,size+1)', assigned value is 0
+   char *text = calloc(1, size + 1);
+                      ^
+rrclient/tests/status_line.c:108:17: note: Null pointer dereference
+   assert(fread(text, 1, size, file) == (size_t)size);
+                ^
+rrclient/tests/sercom.c:318:36: warning: Uninitialized variable: too_big [uninitvar]
+   assert(!rr_serial_write(device, too_big, sizeof(too_big)));
+                                   ^
+rrclient/tests/gtk_files.c:282:11: warning: Non-pure function: 'find' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(find(NULL, "/test", &share));
+          ^
+rrclient/tests/gtk_files.c:288:11: warning: Non-pure function: 'find' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(find(NULL, "/test/station.cfg", &selected));
+          ^
+rrclient/tests/dcc_audio.c:96:14: warning: Non-pure function: 'sscanf' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+      assert(sscanf(dict_get(peers[i].offer, "media.direct", ""), "rtp://%63[^:]:%u", ip, &port) == 2);
+             ^
+rrclient/tests/gtk_remote_editor.c:58:19: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   assert(data == (void *)1);
+                  ^
+rrclient/tests/gtk_remote_editor.c:65:19: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   assert(data == (void *)1);
+                  ^
+rrclient/tests/gtk_remote_editor.c:110:86: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   assert(gui_file_editor_open_remote(path, "server:/configs/test.cfg", remote_save, (void *)1, remote_destroy));
+                                                                                     ^
+rrclient/tests/gtk_remote_editor.c:133:86: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   assert(gui_file_editor_open_remote(path, "server:/configs/test.cfg", remote_save, (void *)1, remote_destroy));
+                                                                                     ^
+rrclient/tests/irc_events.c:268:107: warning: There is an unknown macro here somewhere. Configuration is required. If VERSION is a macro then please configure it. [unknownMacro]
+   assert(irc_sends == ++sends && !strcmp(irc_send_buffer, "NOTICE alice :\001VERSION rustyrig rrclient " VERSION "\001"));
+                                                                                                          ^
+rrclient/tests/gtk_matrix.c:22:29: warning: syntax error [syntaxError]
+   g_assert_cmpuint(m->count, >, 0);
+                            ^
+rrclient/tests/gtk_formatting.c:170:56: warning: syntax error [syntaxError]
+   g_assert_cmpstr(gtk_entry_get_text(GTK_ENTRY(entry)), ==, "C");
+                                                       ^
+rrclient/tests/receiver_metadata.c:23:12: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   cache = (rr_object_cache_t *) 1;
+           ^
+rrclient/tests/audio_engine_buffer.c:47:12: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(!rr_audio_engine_push(engine, "wide-am", (const int16_t[]) { 1 }, 1));
+           ^
+rrclient/tests/audio_engine_buffer.c:61:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 320));
+          ^
+rrclient/tests/audio_engine_buffer.c:73:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 960));
+          ^
+rrclient/tests/audio_engine_buffer.c:86:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 320));
+          ^
+rrclient/tests/audio_engine_buffer.c:89:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 960));
+          ^
+rrclient/tests/audio_engine_buffer.c:97:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, G_N_ELEMENTS(pcm)));
+          ^
+rrclient/tests/audio_engine_buffer.c:109:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 1600));
+          ^
+rrclient/tests/audio_engine_buffer.c:129:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "short-recording", pcm, 160));
+          ^
+rrclient/tests/audio_engine_buffer.c:146:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "graph.receiver", pcm, 1600));
+          ^
+rrclient/tests/audio_engine_buffer.c:191:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "wide", wide_pcm, 960));
+          ^
+rrclient/tests/audio_engine_buffer.c:194:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(engine, "wide", wide_pcm, 2880));
+          ^
+rrclient/tests/audio_engine_buffer.c:212:14: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+      assert(rr_audio_engine_push(engine, "wide", wide_pcm, 4800));
+             ^
+rrclient/tests/audio_engine_buffer.c:242:11: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push(narrow_bus, "ham.radio", radio_pcm, 3200));
+          ^
+rrclient/tests/audio_engine_buffer.c:243:11: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push_pcm(hq_bus, "fm.broadcast", hq_direct, 4800));
+          ^
+rrclient/tests/audio_engine_buffer.c:251:17: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+         assert(rr_audio_engine_push_pcm(hq_bus, "bus.rx16", narrow_out, 320));
+                ^
+rrclient/tests/audio_engine_buffer.c:255:17: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+         assert(rr_audio_engine_push_pcm(hq_bus, "fm.broadcast", hq_direct, 4800));
+                ^
+rrclient/tests/audio_engine_buffer.c:301:12: warning: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(!rr_audio_engine_push(engine, "broadcast", cd_frames, 4410));
+           ^
+rrclient/tests/audio_engine_buffer.c:302:11: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push_pcm(engine, "broadcast", cd_frames, 1211));
+          ^
+rrclient/tests/audio_engine_buffer.c:303:11: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push_pcm(engine, "broadcast", cd_frames + 1211 * 2, 3199));
+          ^
+rrclient/tests/audio_engine_buffer.c:315:11: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push_pcm(engine, "float-source", float_frames, 4800));
+          ^
+rrclient/tests/audio_engine_buffer.c:338:11: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push_pcm(engine, "downsample", hf, G_N_ELEMENTS(hf)));
+          ^
+rrclient/tests/audio_engine_buffer.c:357:11: warning: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(rr_audio_engine_push_pcm(engine, "cd-float", float_frames, 4800));
+          ^
+rrclient/gtk/gtk.userlist.c:353:33: warning: Identical condition '!visible', second condition is always false [identicalConditionAfterEarlyExit]
+   if (!userlist_float_panel && !visible) {
+                                ^
+rrclient/gtk/gtk.userlist.c:323:8: note: If condition '!visible' is true, the function will return/exit
+   if (!visible) {
+       ^
+rrclient/gtk/gtk.userlist.c:353:33: note: Testing identical condition '!visible'
+   if (!userlist_float_panel && !visible) {
+                                ^
+rrclient/gtk/gtk.chat.c:1766:1: warning: There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it. [unknownMacro]
+G_DEFINE_TYPE(RRWrappingChatView, rr_wrapping_chat_view, GTK_TYPE_TEXT_VIEW)
+^
+rrclient/gtk/gtk.tabs.c:15:1: warning: There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it. [unknownMacro]
+G_DEFINE_TYPE(RRAdaptiveNotebook, rr_adaptive_notebook, GTK_TYPE_NOTEBOOK)
+^
+rrclient/gtk/gtk.hotkey.c:232:8: warning: Either the condition '!event' is redundant or there is possible null pointer dereference: event. [nullPointerRedundantCheck]
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab && (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)))
+       ^
+rrclient/gtk/gtk.hotkey.c:239:8: note: Assuming that condition '!event' is not redundant
+   if (!event) {
+       ^
+rrclient/gtk/gtk.hotkey.c:232:8: note: Null pointer dereference
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab && (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)))
+       ^
+rrclient/gtk/gtk.hotkey.c:232:40: warning: Either the condition '!event' is redundant or there is possible null pointer dereference: event. [nullPointerRedundantCheck]
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab && (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)))
+                                       ^
+rrclient/gtk/gtk.hotkey.c:239:8: note: Assuming that condition '!event' is not redundant
+   if (!event) {
+       ^
+rrclient/gtk/gtk.hotkey.c:232:40: note: Null pointer dereference
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab && (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)))
+                                       ^
+rrclient/gtk/gtk.catalog.c:573:20: warning: Either the condition 'kind' is redundant or there is possible null pointer dereference: kind. [nullPointerRedundantCheck]
+      if ((!strcmp(kind, "gps") && (!uuid || !*uuid)) || (!strcmp(kind, "serial") && state && !strcmp(state, "server-local"))) {
+                   ^
+rrclient/gtk/gtk.catalog.c:517:11: note: Assuming that condition 'kind' is not redundant
+      if (kind && (!strcmp(kind, "media") || !strcmp(kind, "gps"))) {
+          ^
+rrclient/gtk/gtk.catalog.c:573:20: note: Null pointer dereference
+      if ((!strcmp(kind, "gps") && (!uuid || !*uuid)) || (!strcmp(kind, "serial") && state && !strcmp(state, "server-local"))) {
+                   ^
+rrclient/gtk/gtk.files.c:80:45: warning: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it. [unknownMacro]
+         g_snprintf(size, sizeof(size), "%" G_GUINT64_FORMAT " B", bytes);
+                                            ^
+rrclient/gtk/gtk.audio-routing.c:2003:55: warning: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it. [unknownMacro]
+      g_snprintf(status, sizeof(status), "Q:%ums D:%" G_GUINT64_FORMAT " U:%" G_GUINT64_FORMAT, node->queued_ms, node->dropped_frames, node->starvation_events);
+                                                      ^
+rrclient/gtk/gtk.receiver-directory.c:458:59: warning: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it. [unknownMacro]
+   char *coverage = r && r->high_hz ? g_strdup_printf("%" G_GUINT64_FORMAT " – %" G_GUINT64_FORMAT " Hz", r->low_hz, r->high_hz) : g_strdup("Not published");
+                                                          ^
+rrclient/gtk/gtk.spectrum.c:405:26: warning: Uninitialized variable: names [uninitvar]
+   return waterfall_menu(names, G_N_ELEMENTS(palettes), selected, value, key, drawing);
+                         ^
+rrclient/gtk/gtk.spectrum.c:401:28: note: Assuming condition is false
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(palettes) ; i++) {
+                           ^
+rrclient/gtk/gtk.spectrum.c:405:26: note: Uninitialized variable: names
+   return waterfall_menu(names, G_N_ELEMENTS(palettes), selected, value, key, drawing);
+                         ^
+rrclient/gtk/gtk.recordings.c:390:70: warning: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it. [unknownMacro]
+            char *message = g_strdup_printf("Recording saved with %" G_GUINT64_FORMAT " dropped PCM frames", dropped);
+                                                                     ^
+rrclient/receiver.directory.c:619:52: warning: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it. [unknownMacro]
+      r->high_hz ? g_strdup_printf("rx-min-hz = %" G_GUINT64_FORMAT "\nrx-max-hz = %" G_GUINT64_FORMAT "\n", r->low_hz, r->high_hz) : g_strdup("");
+                                                   ^
+inc/rrserver/maintenance.h:177:4: warning: Read and write operations without a call to a positioning function (fseek, fsetpos or rewind) or fflush in between result in undefined behaviour. [IOWithoutPositioning]
+   fprintf(tty, "\nConfirm new password: ");
+   ^
+rrserver/http.api.c:102:86: warning: There is an unknown macro here somewhere. Configuration is required. If RR_WS_SUBPROTOCOL is a macro then please configure it. [unknownMacro]
+      mg_http_reply(cptr->conn, 426, "Connection: close\r\nSec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\n", "RustyRig requires WebSocket subprotocol %s\n",
+                                                                                     ^
+rrserver/relay.catalog.c:1139:4: warning: %zu in format string (no. 2) requires 'size_t' but the argument type is 'unsigned long'. [invalidPrintfArgType_uint]
+   snprintf(details, sizeof(details),
+   ^
+rrserver/supervision.c:73:86: warning: Either the condition '!request->invited[i].client' is redundant or there is possible null pointer dereference: client. [nullPointerRedundantCheck]
+      if (request->invited[i].client == client && !strcmp(request->invited[i].token, client->token)) {
+                                                                                     ^
+rrserver/supervision.c:77:11: note: Assuming that condition '!request->invited[i].client' is not redundant
+      if (!request->invited[i].client) {
+          ^
+rrserver/supervision.c:73:38: note: Assuming that condition 'request->invited[i].client==client' is not redundant
+      if (request->invited[i].client == client && !strcmp(request->invited[i].token, client->token)) {
+                                     ^
+rrserver/supervision.c:73:86: note: Null pointer dereference
+      if (request->invited[i].client == client && !strcmp(request->invited[i].token, client->token)) {
+                                                                                     ^
+rrclient/connman.c:2119:97: warning: There is an unknown macro here somewhere. Configuration is required. If RR_WS_SUBPROTOCOL is a macro then please configure it. [unknownMacro]
+      mg_ws_connect(&mgr, socket_url, rrclient_transport_handler, t, "Sec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\n");
+                                                                                                ^
+rrserver/tests/ptt_release.c:32:11: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   return (rr_server_rig_t *) 1;
+          ^
+rrserver/tests/ptt_release.c:36:27: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   return *alias == 'A' ? (rr_server_vfo_t *) 1 : NULL;
+                          ^
+rrserver/tests/ptt_release.c:49:13: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   .owner = (rr_server_rig_t *) 1, .worker = (struct rr_backend_worker *)1
+            ^
+rrserver/tests/ptt_release.c:49:46: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   .owner = (rr_server_rig_t *) 1, .worker = (struct rr_backend_worker *)1
+                                             ^
+rrserver/tests/ptt_release.c:192:40: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   queued_completion(&fixture_backend, (rr_server_vfo_t *) 1, false, queued_user);
+                                       ^
+rrserver/tests/ptt_release.c:196:40: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   queued_completion(&fixture_backend, (rr_server_vfo_t *) 1, true, queued_user);
+                                       ^
+rrserver/tests/ptt_release.c:199:40: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   queued_completion(&fixture_backend, (rr_server_vfo_t *) 1, false, queued_user);
+                                       ^
+rrserver/tests/object_protocol.h:133:102: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   struct mg_connection *listener = mg_http_listen(&object_mgr, "http://127.0.0.1:0", object_socket, (void *)1);
+                                                                                                     ^
+rrserver/tests/backend_workers.c:276:14: warning: Variable 'accepted' is modified inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assignmentInAssert]
+      assert(++accepted < 65);
+             ^
+rrserver/tests/database.c:67:11: warning: Non-pure function: 'fseek' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(fseek(fp, 0, SEEK_END) == 0);
+          ^
+rrserver/tests/database.c:73:11: warning: Non-pure function: 'fread' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(fread(sql, 1, (size_t)size, fp) == (size_t)size);
+          ^
+rrserver/tests/database.c:476:11: warning: Non-pure function: 'fgets' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug. [assertWithSideEffect]
+   assert(fgets(password, sizeof(password), credential));
+          ^
+rrserver/tests/gps.c:31:4: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   (rr_server_rig_t *) 1, (rr_server_rig_t *) 2
+   ^
+rrserver/tests/gps.c:31:27: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   (rr_server_rig_t *) 1, (rr_server_rig_t *) 2
+                          ^
+rrserver/tests/bridge_access.c:58:39: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+static rr_server_rig_t *fixture_rig = (rr_server_rig_t *) 1;
+                                      ^
+rrserver/tests/multirig.c:389:15: warning: Casting non-zero decimal integer literal to pointer. [intToPointerCast]
+   masterdb = (sqlite3 *) 1;    // Identity helper mock handle, never dereferenced.
+              ^
+rrserver/tests/mesh_probe.c:39:4: warning: If memory allocation fails, then there is a possible null pointer dereference: wire [nullPointerOutOfMemory]
+   wire[0] = 0x81;
+   ^
+rrserver/tests/mesh_probe.c:38:26: note: Assuming allocation function fails
+   uint8_t *wire = malloc(h + 4 + len);
+                         ^
+rrserver/tests/mesh_probe.c:38:26: note: Assignment 'wire=malloc(h+4+len)', assigned value is 0
+   uint8_t *wire = malloc(h + 4 + len);
+                         ^
+rrserver/tests/mesh_probe.c:39:4: note: Null pointer dereference
+   wire[0] = 0x81;
+   ^
+rrserver/tests/mesh_probe.c:40:4: warning: If memory allocation fails, then there is a possible null pointer dereference: wire [nullPointerOutOfMemory]
+   wire[1] = 0x80 | (len < 126 ? len : 126);
+   ^
+rrserver/tests/mesh_probe.c:38:26: note: Assuming allocation function fails
+   uint8_t *wire = malloc(h + 4 + len);
+                         ^
+rrserver/tests/mesh_probe.c:38:26: note: Assignment 'wire=malloc(h+4+len)', assigned value is 0
+   uint8_t *wire = malloc(h + 4 + len);
+                         ^
+rrserver/tests/mesh_probe.c:40:4: note: Null pointer dereference
+   wire[1] = 0x80 | (len < 126 ? len : 126);
+   ^
+rrserver/tests/mesh_probe.c:196:7: warning: If memory allocation fails, then there is a possible null pointer dereference: sig [nullPointerOutOfMemory]
+      sig[0] = sig[0] == 'A' ? 'B' : 'A';
+      ^
+rrserver/tests/mesh_probe.c:195:25: note: Assuming allocation function fails
+      char *sig = strdup(dict_get(proof, "identity.signature", ""));
+                        ^
+rrserver/tests/mesh_probe.c:195:25: note: Assignment 'sig=strdup(dict_get(proof,"identity.signature",""))', assigned value is 0
+      char *sig = strdup(dict_get(proof, "identity.signature", ""));
+                        ^
+rrserver/tests/mesh_probe.c:196:7: note: Null pointer dereference
+      sig[0] = sig[0] == 'A' ? 'B' : 'A';
+      ^
+rrserver/tests/mesh_probe.c:196:16: warning: If memory allocation fails, then there is a possible null pointer dereference: sig [nullPointerOutOfMemory]
+      sig[0] = sig[0] == 'A' ? 'B' : 'A';
+               ^
+rrserver/tests/mesh_probe.c:195:25: note: Assuming allocation function fails
+      char *sig = strdup(dict_get(proof, "identity.signature", ""));
+                        ^
+rrserver/tests/mesh_probe.c:195:25: note: Assignment 'sig=strdup(dict_get(proof,"identity.signature",""))', assigned value is 0
+      char *sig = strdup(dict_get(proof, "identity.signature", ""));
+                        ^
+rrserver/tests/mesh_probe.c:196:16: note: Null pointer dereference
+      sig[0] = sig[0] == 'A' ? 'B' : 'A';
+               ^
+rrserver/tests/mesh_probe.c:46:27: warning: If memory allocation fails: pointer addition with NULL pointer. [nullPointerArithmeticOutOfMemory]
+   assert(RAND_bytes(wire + h, 4) == 1);
+                          ^
+rrserver/tests/mesh_probe.c:38:26: note: Assuming allocation function fails
+   uint8_t *wire = malloc(h + 4 + len);
+                         ^
+rrserver/tests/mesh_probe.c:38:26: note: Assignment 'wire=malloc(h+4+len)', assigned value is 0
+   uint8_t *wire = malloc(h + 4 + len);
+                         ^
+rrserver/tests/mesh_probe.c:46:27: note: Null pointer addition
+   assert(RAND_bytes(wire + h, 4) == 1);
+                          ^
+fwdsp/tests/quality.c:16:1: warning: There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it. [unknownMacro]
+G_DEFINE_TYPE(HintEncoder, hint_encoder, GST_TYPE_ELEMENT)
+^

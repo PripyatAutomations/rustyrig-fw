@@ -1,0 +1,197 @@
+Critical errors
+---------------
+There were critical errors (unknownMacro, syntaxError).
+These cause the analysis of the file to end prematurely.
+
+
+Open source checkers
+--------------------
+Yes  Check64BitPortability::pointerassignment
+Yes  CheckAssert::assertWithSideEffects
+Yes  CheckAutoVariables::assignFunctionArg
+Yes  CheckAutoVariables::autoVariables
+Yes  CheckAutoVariables::checkVarLifetime
+No   CheckBool::checkAssignBoolToFloat                         require:style,c++
+Yes  CheckBool::checkAssignBoolToPointer
+No   CheckBool::checkBitwiseOnBoolean                          require:style,inconclusive
+Yes  CheckBool::checkComparisonOfBoolExpressionWithInt
+No   CheckBool::checkComparisonOfBoolWithBool                  require:style,c++
+No   CheckBool::checkComparisonOfBoolWithInt                   require:warning,c++
+No   CheckBool::checkComparisonOfFuncReturningBool             require:style,c++
+No   CheckBool::checkIncrementBoolean                          require:style
+Yes  CheckBool::pointerArithBool
+No   CheckBool::returnValueOfFunctionReturningBool             require:style
+Yes  CheckBufferOverrun::analyseWholeProgram
+Yes  CheckBufferOverrun::argumentSize
+Yes  CheckBufferOverrun::arrayIndex
+No   CheckBufferOverrun::arrayIndexThenCheck                   require:style
+Yes  CheckBufferOverrun::bufferOverflow
+Yes  CheckBufferOverrun::negativeArraySize
+Yes  CheckBufferOverrun::objectIndex
+Yes  CheckBufferOverrun::pointerArithmetic
+No   CheckBufferOverrun::stringNotZeroTerminated               require:warning,inconclusive
+No   CheckClass::checkConst                                    require:style,inconclusive
+No   CheckClass::checkConstructors                             require:style,warning
+No   CheckClass::checkCopyConstructors                         require:warning
+Yes  CheckClass::checkCtuOneDefinitionRule
+No   CheckClass::checkDuplInheritedMembers                     require:warning
+No   CheckClass::checkExplicitConstructors                     require:style
+No   CheckClass::checkMemset
+No   CheckClass::checkMissingOverride                          require:style,c++03
+No   CheckClass::checkReturnByReference                        require:performance
+No   CheckClass::checkSelfInitialization
+No   CheckClass::checkThisUseAfterFree                         require:warning
+No   CheckClass::checkUnsafeClassRefMember                     require:warning,safeChecks
+No   CheckClass::checkUselessOverride                          require:style
+No   CheckClass::checkVirtualFunctionCallInConstructor         require:warning
+No   CheckClass::initializationListUsage                       require:performance
+No   CheckClass::initializerListOrder                          require:style,inconclusive
+No   CheckClass::operatorEqRetRefThis                          require:style
+No   CheckClass::operatorEqToSelf                              require:warning
+No   CheckClass::privateFunctions                              require:style
+No   CheckClass::thisSubtraction                               require:warning
+No   CheckClass::virtualDestructor
+No   CheckCondition::alwaysTrueFalse                           require:style
+No   CheckCondition::assignIf                                  require:style
+No   CheckCondition::checkAssignmentInCondition                require:style
+No   CheckCondition::checkBadBitmaskCheck                      require:style
+No   CheckCondition::checkCompareValueOutOfTypeRange           require:style,platform
+No   CheckCondition::checkDuplicateConditionalAssign           require:style
+Yes  CheckCondition::checkIncorrectLogicOperator
+Yes  CheckCondition::checkInvalidTestForOverflow
+Yes  CheckCondition::checkModuloAlwaysTrueFalse
+Yes  CheckCondition::checkPointerAdditionResultNotNull
+No   CheckCondition::clarifyCondition                          require:style
+No   CheckCondition::comparison                                require:style
+No   CheckCondition::duplicateCondition                        require:style
+No   CheckCondition::multiCondition                            require:style
+Yes  CheckCondition::multiCondition2
+No   CheckExceptionSafety::checkCatchExceptionByValue          require:style
+No   CheckExceptionSafety::checkRethrowCopy                    require:style
+No   CheckExceptionSafety::deallocThrow                        require:warning
+No   CheckExceptionSafety::destructors                         require:warning
+No   CheckExceptionSafety::nothrowThrows
+No   CheckExceptionSafety::rethrowNoCurrentException
+No   CheckExceptionSafety::unhandledExceptionSpecification     require:style,inconclusive
+Yes  CheckFunctions::checkIgnoredReturnValue
+Yes  CheckFunctions::checkMathFunctions
+Yes  CheckFunctions::checkMissingReturn
+Yes  CheckFunctions::checkProhibitedFunctions
+Yes  CheckFunctions::invalidFunctionUsage
+Yes  CheckFunctions::memsetInvalid2ndParam
+Yes  CheckFunctions::memsetZeroBytes
+No   CheckFunctions::returnLocalStdMove                        require:performance,c++11
+No   CheckFunctions::useStandardLibrary                        require:style
+No   CheckIO::checkCoutCerrMisusage                            require:c
+Yes  CheckIO::checkFileUsage
+Yes  CheckIO::checkWrongPrintfScanfArguments
+Yes  CheckIO::checkWrongfeofUsage
+Yes  CheckIO::invalidScanf
+Yes  CheckLeakAutoVar::check
+No   CheckMemoryLeakInClass::check
+Yes  CheckMemoryLeakInFunction::checkReallocUsage
+Yes  CheckMemoryLeakNoVar::check
+No   CheckMemoryLeakNoVar::checkForUnsafeArgAlloc
+Yes  CheckMemoryLeakStructMember::check
+Yes  CheckNullPointer::analyseWholeProgram
+Yes  CheckNullPointer::arithmetic
+Yes  CheckNullPointer::nullConstantDereference
+Yes  CheckNullPointer::nullPointer
+No   CheckOther::checkAccessOfMovedVariable                    require:c++11,warning
+Yes  CheckOther::checkCastIntToCharAndBack
+Yes  CheckOther::checkCharVariable
+Yes  CheckOther::checkComparePointers
+Yes  CheckOther::checkComparisonFunctionIsAlwaysTrueOrFalse
+No   CheckOther::checkConstPointer                             require:style
+No   CheckOther::checkConstVariable                            require:style,c++
+No   CheckOther::checkDuplicateBranch                          require:style,inconclusive
+No   CheckOther::checkDuplicateExpression                      require:style,warning
+Yes  CheckOther::checkEvaluationOrder
+Yes  CheckOther::checkFuncArgNamesDifferent
+No   CheckOther::checkIncompleteArrayFill                      require:warning,portability,inconclusive
+Yes  CheckOther::checkIncompleteStatement
+No   CheckOther::checkInterlockedDecrement                     require:windows-platform
+Yes  CheckOther::checkInvalidFree
+No   CheckOther::checkKnownArgument                            require:style
+No   CheckOther::checkKnownPointerToBool                       require:style
+No   CheckOther::checkMisusedScopedObject                      require:style,c++
+No   CheckOther::checkModuloOfOne                              require:style
+No   CheckOther::checkNanInArithmeticExpression                require:style
+Yes  CheckOther::checkNegativeBitwiseShift
+Yes  CheckOther::checkOverlappingWrite
+No   CheckOther::checkPassByReference                          require:performance,c++
+No   CheckOther::checkRedundantAssignment                      require:style
+No   CheckOther::checkRedundantCopy                            require:c++,performance,inconclusive
+No   CheckOther::checkRedundantPointerOp                       require:style
+No   CheckOther::checkShadowVariables                          require:style
+No   CheckOther::checkSignOfUnsignedVariable                   require:style
+No   CheckOther::checkSuspiciousCaseInSwitch                   require:warning,inconclusive
+No   CheckOther::checkSuspiciousSemicolon                      require:warning,inconclusive
+Yes  CheckOther::checkUnionZeroInit
+No   CheckOther::checkUnreachableCode                          require:style
+No   CheckOther::checkUnreachableSwitchCase                    require:style
+Yes  CheckOther::checkUnusedLabel
+Yes  CheckOther::checkVarFuncNullUB
+No   CheckOther::checkVariableScope                            require:style,notclang
+Yes  CheckOther::checkZeroDivision
+No   CheckOther::clarifyCalculation                            require:style
+Yes  CheckOther::clarifyStatement
+Yes  CheckOther::invalidPointerCast
+Yes  CheckOther::redundantBitwiseOperationInSwitch
+No   CheckOther::suspiciousFloatingPointCast                   require:style
+No   CheckOther::warningDangerousTypeCast                      require:warning,c++
+Yes  CheckOther::warningIntToPointerCast
+No   CheckOther::warningOldStylePointerCast                    require:style,c++
+No   CheckPostfixOperator::postfixOperator                     require:performance
+Yes  CheckSizeof::checkSizeofForArrayParameter
+Yes  CheckSizeof::checkSizeofForNumericParameter
+Yes  CheckSizeof::checkSizeofForPointerSize
+Yes  CheckSizeof::sizeofCalculation
+Yes  CheckSizeof::sizeofFunction
+Yes  CheckSizeof::sizeofVoid
+Yes  CheckSizeof::sizeofsizeof
+No   CheckSizeof::suspiciousSizeofCalculation                  require:warning,inconclusive
+No   CheckStl::algorithmOutOfBounds
+No   CheckStl::checkDereferenceInvalidIterator                 require:warning
+No   CheckStl::checkDereferenceInvalidIterator2
+No   CheckStl::checkFindInsert                                 require:performance
+No   CheckStl::checkMutexes                                    require:warning
+No   CheckStl::erase
+No   CheckStl::eraseIteratorOutOfBounds
+No   CheckStl::if_find                                         require:warning,performance
+No   CheckStl::invalidContainer
+No   CheckStl::iterators
+No   CheckStl::knownEmptyContainer                             require:style
+No   CheckStl::misMatchingContainerIterator
+No   CheckStl::misMatchingContainers
+No   CheckStl::missingComparison                               require:warning
+No   CheckStl::negativeIndex
+No   CheckStl::outOfBounds
+No   CheckStl::outOfBoundsIndexExpression
+No   CheckStl::redundantCondition                              require:style
+No   CheckStl::size                                            require:performance,c++03
+No   CheckStl::stlBoundaries
+No   CheckStl::stlOutOfBounds
+No   CheckStl::string_c_str
+No   CheckStl::useStlAlgorithm                                 require:style
+No   CheckStl::uselessCalls                                    require:performance,warning
+Yes  CheckString::checkAlwaysTrueOrFalseStringCompare
+Yes  CheckString::checkIncorrectStringCompare
+Yes  CheckString::checkSuspiciousStringCompare
+Yes  CheckString::overlappingStrcmp
+Yes  CheckString::sprintfOverlappingData
+Yes  CheckString::strPlusChar
+Yes  CheckString::stringLiteralWrite
+Yes  CheckType::checkFloatToIntegerOverflow
+Yes  CheckType::checkIntegerOverflow
+No   CheckType::checkLongCast                                  require:style
+Yes  CheckType::checkSignConversion
+Yes  CheckType::checkTooBigBitwiseShift
+Yes  CheckUninitVar::analyseWholeProgram
+Yes  CheckUninitVar::check
+Yes  CheckUninitVar::valueFlowUninit
+No   CheckUnusedFunctions::check                               require:unusedFunction
+No   CheckUnusedVar::checkFunctionVariableUsage                require:style
+No   CheckUnusedVar::checkStructMemberUsage                    require:style
+Yes  CheckVaarg::va_list_usage
+Yes  CheckVaarg::va_start_argument
