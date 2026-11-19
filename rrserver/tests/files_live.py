@@ -149,7 +149,7 @@ write=never.granted
         control_result(user,binary_id)
         for offset in range(0,len(binary_data),24576):
             chunk=binary_data[offset:offset+24576]
-            body=binary_id.encode('ascii')+offset.to_bytes(8,'big')+b'\\x00'+chunk
+            body=binary_id.encode('ascii')+offset.to_bytes(8,'big')+b'\x00'+chunk
             header=b'RR'+bytes([2,5])+b'fl01'+bytes([1,255,255,0])+struct.pack('!IIQ',0,len(body),0)
             assert len(header)==28
             user.send_payload(header+body,opcode=2)
@@ -163,7 +163,7 @@ write=never.granted
         reader.send({'msg':{'type':'file'},
                      'file':{'cmd':'read','path':'/public/native.bin','offset':0,'binary':True},
                      'request':{'id':download_id}})
-        opcode,wire=reader.until_frame(lambda op,p:op==2 and len(p)>=73 and p[:4]==b'RR\\x02\\x05'
+        opcode,wire=reader.until_frame(lambda op,p:op==2 and len(p)>=73 and p[:4]==b'RR\x02\x05'
                                       and p[4:8]==b'fl01')
         assert opcode==2 and wire[8:12]==bytes([0,255,255,0])
         assert struct.unpack('!I',wire[16:20])[0]==len(wire)-28
