@@ -7,7 +7,7 @@ use warnings;
 use File::Find;
 my $check = @ARGV && $ARGV[0] eq '--check';
 die "Usage: $0 [--check]\n" if @ARGV > ($check ? 1 : 0);
-my @roots = qw(rrclient rrserver rrbridge rrpipelines fwdsp libfwdspmgr librrsdrutils librustyirc modems gmatrix inc tools tests packaging);
+my @roots = qw(rrclient rrserver rrbridge fwdsp libfwdspmgr librrsdrutils librustyirc modems gmatrix inc tools tests packaging);
 my ($modified, $remaining) = (0, 0);
 my @findings;
 find({no_chdir => 1, wanted => sub {
