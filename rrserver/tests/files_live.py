@@ -5,6 +5,7 @@ import os
 import pathlib
 import socket
 import ssl
+import struct
 import sqlite3
 import subprocess
 import tempfile
@@ -133,6 +134,43 @@ write=never.granted
             reply=request(reader,'read','/public/upload.bin',offset=len(result)); result+=base64.b64decode(reply['data'])
             assert reply['eof']==(len(result)==len(payload))
         assert result==payload
+
+        # Native binary FILE frames: accept only a UUID-bound session,
+        # network-order offset and bounded payload. Control/commit stays on
+        # the strict compact text wire; file bytes never use JSON/base64.
+        binary_id='e2a9bd9a-59f6-4e7b-9f4e-0be9dd0f2e62'
+        binary_data=bytes(range(256))*12
+        def control_result(client, ident):
+            row=client.until(lambda m:m.get('request',{}).get('id')==ident and
+                m.get('file',{}).get('cmd')=='result')
+            assert not row['file'].get('error'),row
+        user.send({'msg':{'type':'file'},'file':{'cmd':'begin','path':'/public/native.bin','binary':True},
+                   'request':{'id':binary_id}})
+        control_result(user,binary_id)
+        for offset in range(0,len(binary_data),24576):
+            chunk=binary_data[offset:offset+24576]
+            body=binary_id.encode('ascii')+offset.to_bytes(8,'big')+b'\\x00'+chunk
+            header=b'RR'+bytes([2,5])+b'fl01'+bytes([1,255,255,0])+struct.pack('!IIQ',0,len(body),0)
+            assert len(header)==28
+            user.send_payload(header+body,opcode=2)
+            control_result(user,binary_id)
+        user.send({'msg':{'type':'file'},'file':{'cmd':'commit','path':'/public/native.bin'},
+                   'request':{'id':binary_id}})
+        control_result(user,binary_id)
+        assert (share/'native.bin').read_bytes()==binary_data
+
+        download_id='588f1908-31c1-4ca3-a7e2-0bf994984ad7'
+        reader.send({'msg':{'type':'file'},
+                     'file':{'cmd':'read','path':'/public/native.bin','offset':0,'binary':True},
+                     'request':{'id':download_id}})
+        opcode,wire=reader.until_frame(lambda op,p:op==2 and len(p)>=73 and p[:4]==b'RR\\x02\\x05'
+                                      and p[4:8]==b'fl01')
+        assert opcode==2 and wire[8:12]==bytes([0,255,255,0])
+        assert struct.unpack('!I',wire[16:20])[0]==len(wire)-28
+        assert wire[28:64]==download_id.encode('ascii')
+        assert int.from_bytes(wire[64:72],'big')==0 and wire[72]==1
+        assert wire[73:]==binary_data
+
         request(user,'begin','/public/existing.cfg',error=True)
         request(user,'begin','/public/existing.cfg',overwrite=True)
         request(user,'chunk','/public/existing.cfg',offset=0,data=base64.b64encode(b'edited\n').decode())
