@@ -131,10 +131,9 @@ enabled=false
         client = WebSocket(self.mesh if native else self.http, self.context)
         client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
         challenge = client.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-        secret = hashlib.sha1(b'test-password').hexdigest()
-        password = hashlib.sha1((secret + '+' + challenge['nonce']).encode()).hexdigest()
+        assert challenge['method'] == 'tls-password-v1', challenge
         client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST',
-            'pass': password, 'token': challenge['token']}})
+            'pass': 'test-password', 'method': challenge['method'], 'token': challenge['token']}})
         client.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
         return client
 
