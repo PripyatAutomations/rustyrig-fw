@@ -1,5 +1,14 @@
 rustyrig-fw (1.0.4) testing; urgency=medium
 
+  * Transfer server-share payloads on native reliable FILE binary frames with
+    UUID/offset binding, bounded chunk sizes, upload authorization and atomic
+    temporary-file publishing. Retain bounded base64 for older/mesh routes.
+  * Apply destination-side fine-grained file browse/read/create/write/rename/
+    delete grants to remote users and preserve explicit deny precedence.
+  * Repair audit scanner exit-code/log reporting and harden adversarial mesh
+    test allocation checks. Add transfer wire/authorization regression tests.
+  * Document (but do not yet enable) 30-second opt-in user/room mesh delivery.
+
   * Move the embedded GStreamer pipeline editor and graph model from the
     retired rrpipelines tree into rrclient/gtk/, with regression tests under
     rrclient/tests; remove old build/test files and source references.
