@@ -545,6 +545,38 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          error = errno;
          goto finish;
       }
+      if (dict_get_bool(d, "file.binary", false) && client->native_transport &&
+          !rr_relay_remote_for(client)) {
+         if (!rr_file_uuid_valid(id)) {
+            error = EINVAL;
+            goto finish;
+         }
+         uint8_t *frame = NULL;
+         int size;
+         uint8_t wire[RR_FILE_FRAME_PREFIX + FILE_CHUNK];
+         size_t wire_len = 0;
+
+         if (!rr_file_chunk_pack(wire, sizeof(wire), id, offset, bytes,
+                 (size_t)n, offset + n >= (uint64_t)st.st_size, &wire_len)) {
+            error = EINVAL;
+            goto finish;
+         }
+         size = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_FILE,
+            RR_FILE_FRAME_CODEC, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA,
+            RR_BINFRAME_RIG_NA, RR_BINFRAME_STREAM_NONE, 0, 0, wire, wire_len);
+
+         if (size < 0 || rr_transport_queued_bytes(client->native_transport) > 1048576u - (size_t)size ||
+             rr_transport_send_binary_message(client->native_transport, frame, (size_t)size) != RR_TRANSPORT_OK) {
+            error = EAGAIN;
+         }
+         free(frame);
+
+         if (error) {
+            goto finish;
+         }
+         close(parent);
+         goto done;
+      }
       dict *out = response(d, "data");
 
       if (!out) {
