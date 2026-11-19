@@ -520,7 +520,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       if (frontend_ops()->chat_incoming) {
          /* GTK subscribes to the original talk.msg on its own event domain. Never enter gtk_chat_incoming() from a network/core callback. */
          if (!frontend_ops()->name || strcmp(frontend_ops()->name, "gtk")) {
-            const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) && (!login_user || strcasecmp(from, login_user)) ? msg_data : NULL;
+            const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) && (from && (!login_user || strcasecmp(from, login_user))) ? msg_data : NULL;
             frontend_ops()->chat_incoming(output_room, private_msg, unread, login_user);
          }
       } else if (strcasecmp(output_room, ws_authoritative_room()) != 0) {
