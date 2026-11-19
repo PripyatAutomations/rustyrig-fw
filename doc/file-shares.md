@@ -41,7 +41,7 @@ These grants are independent of OS permissions, which still apply.
 **Linked-server file access** is authorized at the owning server, against the
 authenticated `user@origin-site` identity. Grant `resource_kind=file` and
 `resource_uuid=<share-name>` (or site-scoped `resource_kind=site`,
-`resource_uuid=*`) with `remote_allowed=1`. Fine-grained privileges are
+`resource_uuid=*`) with `remote_allowed=1`. File grants can also use `resource_uuid=*` to cover all exported shares; an explicit deny for a particular share still overrides that wildcard. Fine-grained privileges are
 `file.browse` (directory listings), `file.read` (downloads), `file.create`
 (new uploads and directories), `file.write` (overwrite existing files),
 `file.rename`, and `file.delete`. Explicit destination-issued file/site
