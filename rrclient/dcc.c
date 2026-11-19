@@ -171,7 +171,7 @@ static char *command_rest(int argc, char **args, int first) {
 
       /* Include one separator per argument, with room for the NUL.
        * Never let untrusted command arguments wrap the allocation size. */
-      if (length > SIZE_MAX - size - 1) {
+      if (size >= SIZE_MAX || length > SIZE_MAX - size - 1) {
          return NULL;
       }
       size += length + 1;
