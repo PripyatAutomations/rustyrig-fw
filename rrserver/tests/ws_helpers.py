@@ -109,23 +109,30 @@ class WebSocket:
 
     def until_frame(self, predicate):
         deadline = time.monotonic() + 8
+        seen = []
         while time.monotonic() < deadline:
             self.socket.settimeout(max(0.1, deadline - time.monotonic()))
-            first, size = self.exact(2)
-            opcode = first & 15
-            size &= 127
-            if size == 126:
-                size = struct.unpack("!H", self.exact(2))[0]
-            elif size == 127:
-                size = struct.unpack("!Q", self.exact(8))[0]
-            payload = self.exact(size)
+            try:
+                first, size = self.exact(2)
+                opcode = first & 15
+                size &= 127
+                if size == 126:
+                    size = struct.unpack("!H", self.exact(2))[0]
+                elif size == 127:
+                    size = struct.unpack("!Q", self.exact(8))[0]
+                payload = self.exact(size)
+            except TimeoutError as exc:
+                raise TimeoutError(f"expected protocol response; last wire operations: {seen[-12:]}") from exc
             if opcode == 8:
                 raise EOFError(payload)
             if opcode == 1:
-                payload = json.dumps(transform(json.loads(payload), False)).encode()
+                raw = json.loads(payload)
+                # Show only operation and request ID; never log authentication secrets.
+                seen.append((raw.get("op"), raw.get("request", {}).get("id")))
+                payload = json.dumps(transform(raw, False)).encode()
             if predicate(opcode, payload):
                 return opcode, json.loads(payload) if opcode == 1 else payload
-        raise TimeoutError("expected protocol response did not arrive")
+        raise TimeoutError(f"expected protocol response; last wire operations: {seen[-12:]}")
 
 
 # Explicit loopback-only policies for disposable server fixtures.
