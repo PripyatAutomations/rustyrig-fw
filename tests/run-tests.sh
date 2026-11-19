@@ -3,6 +3,15 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+# Standalone runner uses the Makefile's default profile; make test passes its
+# selected PROFILE explicitly. Export it through Xvfb and test supervisors.
+PROFILE=${PROFILE:-radio}
+export PROFILE
+if [[ ! -f "config/$PROFILE.config.json" ]]; then
+  echo "FAIL: unknown build profile: $PROFILE" >&2
+  exit 1
+fi
 if [[ ${RR_TEST_XVFB:-} != 1 ]]; then
   exec "$ROOT/tests/with-xvfb.sh" bash "$ROOT/tests/run-tests.sh" "$@"
 fi
@@ -10,7 +19,7 @@ fi
 # The public headers live under inc/rrclient/ and inc/rrserver/.
 # Some standalone test scripts omit -Iinc; propagate it to every test compiler
 # without changing production include directives or creating shadow headers.
-C_INCLUDE_PATH="$ROOT/inc${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
+C_INCLUDE_PATH="$ROOT/build/$PROFILE:$ROOT/inc${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
 export C_INCLUDE_PATH
 
 # Many component tests compile small C harnesses directly and rely on GLib
