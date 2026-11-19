@@ -43,6 +43,10 @@ irc_conn_t *rrclient_irc_state(const rrconn_t *connection) {
          .send = send_wire, .on_event = emit, .context = c
       };
       c->irc_conn = rustyirc_connection_new(c->fd, &cb);
+      if (!c->irc_conn) {
+         Log(LOG_WARN, "irc", "Unable to allocate IRC protocol state");
+         return NULL;
+      }
       rustyirc_connection_set_nick(c->irc_conn, c->nick);
    }
 
