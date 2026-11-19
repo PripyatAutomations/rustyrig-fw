@@ -17,7 +17,7 @@ import tempfile
 import time
 import uuid
 
-from ws_helpers import TEST_ACLS, WebSocket
+from ws_helpers import test_password_hash, TEST_ACLS, WebSocket
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -54,7 +54,7 @@ class Fixture:
             db.execute('INSERT INTO rig_identities(identity_namespace,alias,uuid) VALUES(?,?,?)',
                        ('@server', '@node', self.node))
             db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,'TEST',1,?,20,'owner,admin,view,chat')",
-                       (hashlib.sha1(b'test-password').hexdigest(),))
+                       (test_password_hash(),))
         self.config.write_text(f'''[general]
 domain=mesh.test
 station.name={name}
