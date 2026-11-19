@@ -64,7 +64,7 @@ if ! ${CC:-cc} $irc_cflags "$abi_check" -Wl,--no-as-needed $irc_libs $axe_libs -
     cat "$work/irc-abi.log" >&2
     return 1
 fi
-test_includes="-idirafter . -idirafter inc"
+test_includes="-Iinc -I."
 export LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Caller owns the temporary directory through its existing work-directory trap.
 irc_adapter_dir="$work/irc-adapter"
