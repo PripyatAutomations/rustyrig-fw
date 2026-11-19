@@ -10,6 +10,21 @@ bool rrclient_database_load_themes(void) {
    return true;
 }
 
+/* This fixture tests file-layer precedence, not the SQLite profile store.
+ * Model an empty optional client database so the real layer merge still runs. */
+bool rrclient_database_config_store(void) {
+   return true;
+}
+
+bool rrclient_database_config_overlay_into(dict *target) {
+   (void)target;
+   return true;
+}
+
+bool rrclient_database_load_profiles(void) {
+   return true;
+}
+
 int main(void) {
    char directory[] = "/tmp/rrclient-config-layers-XXXXXX";
    assert(mkdtemp(directory));
