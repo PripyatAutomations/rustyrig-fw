@@ -120,7 +120,7 @@ clang-tidy: compile_commands.json audit-init
 		"$(CLANG_TIDY_RUNNER)" -p . -j "$(AUDIT_TIDY_JOBS)" -quiet -use-color false \
 			-checks '$(AUDIT_TIDY_CHECKS)' \
 			-header-filter '^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/' \
-			$(AUDIT_TIDY_FILTER) > "$raw" 2>&1; rc=$$?; \
+			$(AUDIT_TIDY_FILTER) > "$$raw" 2>&1; rc=$$?; \
 	else \
 		files=$$(find $(AUDIT_SOURCE_DIRS) -type f -name '*.c' -print); \
 		clang-tidy -p . --quiet --use-color=false -checks='$(AUDIT_TIDY_CHECKS)' \
