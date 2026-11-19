@@ -1,5 +1,8 @@
 rustyrig-fw (1.0.4) testing; urgency=medium
 
+  * Move the embedded GStreamer pipeline editor and graph model from the
+    retired rrpipelines tree into rrclient/gtk/, with regression tests under
+    rrclient/tests; remove old build/test files and source references.
   * Retire obsolete standalone rrpipelines executable and packaging entries;
     keep its GStreamer graph editor embedded in the GTK Audio Routing tab,
     retaining the shared model and its regression tests.
