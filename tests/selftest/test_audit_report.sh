@@ -100,6 +100,7 @@ assert len(delta['resolved']) == 2, delta
 assert len(delta['open']) == 1, delta
 PY
 # An older identity schema is a rebaseline, not mass resolved findings.
+: > "$tmp/flawdup3/flawfinder.log"
 printf '%s\n' '{"version": 1, "scanners": {"flawfinder": "ok"}, "findings": [{"id":"obsolete","scanner":"flawfinder","file":"rrserver/a.c","line":12,"severity":"severe","rule":"flawfinder.4","message":"buffer: strcpy:"}]}' > "$tmp/oldstate.json"
 python3 "$root/security/audit-report.py" "$tmp/flawdup3" --state "$tmp/oldstate.json" >/dev/null
 python3 - "$tmp/flawdup3/comparison.json" <<'PY'
