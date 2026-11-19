@@ -352,6 +352,20 @@ bool ws_binframe_process_client(rrconn_t *client, const char *data, size_t len) 
       return true;
    }
 
+   if (f.hdr.subsystem == RR_BINFRAME_SUBSYS_FILE) {
+      /* A file frame may only originate from an authenticated server and
+       * carry a bounded reliable-download payload. Never emit unknown FILE
+       * codecs to application handlers. */
+      if (!client || !client->authenticated ||
+          f.hdr.direction != RR_BINFRAME_DIR_RX ||
+          f.hdr.vfo != RR_BINFRAME_VFO_NA ||
+          f.hdr.rig != RR_BINFRAME_RIG_NA ||
+          f.hdr.stream != RR_BINFRAME_STREAM_NONE ||
+          memcmp(f.hdr.codec, "fl01", 4)) {
+         return false;
+      }
+   }
+
    // RX audio carries its stream id and codec in the header; consumers route
    // by those instead of mutable channel-table state (codec switches would
    // otherwise cross-feed frames into the wrong decoder). Emitted as a full
