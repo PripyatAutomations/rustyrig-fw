@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
 
    /* Two full rounds plus the initial pc16 decoder and late Ogg restart
     * exercise warm switching without exceeding the production 3-start/30s
-    * per-codec crash-loop guard. That guard is tested independently. */
+    * per-codec crash-loop guard, which remains enforced. */
    for (unsigned round = 0 ; round < 2 ; round++) {
       for (unsigned i = 0 ; i < 6 ; i++) {
          const char *codec = codecs[i];
