@@ -7,10 +7,11 @@ import plistlib
 import re
 from pathlib import Path
 
-SCANNERS = ("scanbuild", "clang-tidy", "cppcheck", "flawfinder")
+SCANNERS = ("scanbuild", "clang-tidy", "cppcheck", "flawfinder", "printf")
 DIAGNOSTIC = re.compile(r"^(?P<file>[^:\n]+\.(?:c|h|cc|cpp)):(?P<line>\d+)(?::\d+)?: (?P<severity>warning|error|note): (?P<message>.+?)(?: \[(?P<code>[-\w.]+)\])?$", re.I)
 FLAW = re.compile(r"^(?P<file>.+?):(?P<line>\d+):\s*\[(?P<score>[0-5])\]\s*\((?P<category>[^)]*)\)\s*(?P<message>.+)$")
 CPPCHECK = re.compile(r"^\[(?P<file>.+?):(?P<line>\d+)\]:\s*\((?P<severity>error|warning|style|performance|portability|information)\)\s*(?P<message>.+)$", re.I)
+PSCAN = re.compile(r"^(?P<file>.+?):(?P<line>\\d+) Warning: (?P<message>.+)$")
 OWNED = ("rrclient", "rrserver", "fwdsp", "libfwdspmgr", "librrsdrutils",
          "rrbridge", "rrsdrbridge", "rrpipelines")
 
@@ -37,7 +38,12 @@ def parse(scanner, log):
     result = {}
     for text in log.read_text(errors="replace").splitlines():
         issue = None
-        if scanner == "flawfinder":
+        if scanner == "printf":
+            m = PSCAN.match(text)
+            if m:
+                issue = finding(scanner, m["file"], m["line"], "moderate",
+                                "pscan.variable-format", m["message"])
+        elif scanner == "flawfinder":
             m = FLAW.match(text)
             if m:
                 score = int(m["score"])
