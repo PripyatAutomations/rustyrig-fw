@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 import signal
 import socket
+import ssl
 import sqlite3
 import subprocess
 import sys
@@ -29,6 +30,14 @@ with socket.socket() as reservation:
 identity = work / 'identity'
 identity.mkdir(mode=0o700)
 identity.chmod(0o700)
+cert, key = identity / 'tls-cert.pem', identity / 'tls-key.pem'
+subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+    '-keyout', str(key), '-out', str(cert), '-days', '1', '-sha256',
+    '-subj', '/CN=kiwitest.mesh.test',
+    '-addext', 'subjectAltName=DNS:kiwitest.mesh.test,DNS:localhost,IP:127.0.0.1'],
+    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+key.chmod(0o600)
+tls = ssl.create_default_context(cafile=str(cert))
 config = work / 'server.cfg'
 fixture = KiwiFixture(reject_auth=1) if len(sys.argv) < 3 else None
 kiwi_host = sys.argv[2] if len(sys.argv) >= 3 else "127.0.0.1"
@@ -40,11 +49,14 @@ rig.instances=
 rig.default=receiver
 path.db.master={work}/master.db
 path.identity={identity}
+net.http.tls-cert={cert}
+net.http.tls-key={key}
 log.file={work}/server.log
 log.level=*:info
 net.http.bind=127.0.0.1
-net.http.port={port}
-net.http.tls-enabled=false
+net.http.tls-bind=127.0.0.1
+net.http.tls-port={port}
+net.http.tls-enabled=true
 net.mqtt.enabled=false
 codecs.allowed=pc16
 record.always.vfo_a=true
@@ -109,15 +121,15 @@ def login():
         if process.poll() is not None:
             raise RuntimeError('server exited: ' + (work / 'console.log').read_text())
         try:
-            client = WebSocket(port)
+            client = WebSocket(port, tls)
             break
         except OSError:
             time.sleep(0.025)
     assert client
     client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
     challenge = until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-    password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
-    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST', 'pass': password, 'token': challenge['token']}})
+    assert challenge['method'] == 'tls-password-v1', challenge
+    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST', 'pass': 'test-password', 'method': challenge['method'], 'token': challenge['token']}})
     until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
 
 with (work / 'console.log').open('w') as console:
@@ -138,11 +150,11 @@ with (work / 'console.log').open('w') as console:
         assert properties[a, 'frequency']['maximum'] == 25000000
         if fixture: assert fixture.connections == 0 and not fixture.commands, 'Kiwi contacted during startup or discovery'
         # Ordinary RX privilege alone cannot wake an external receiver.
-        outsider = WebSocket(port)
+        outsider = WebSocket(port, tls)
         outsider.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'VIEWER'}})
         challenge = outsider.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-        password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
-        outsider.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'VIEWER', 'pass': password, 'token': challenge['token']}})
+        assert challenge['method'] == 'tls-password-v1', challenge
+        outsider.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'VIEWER', 'pass': 'test-password', 'method': challenge['method'], 'token': challenge['token']}})
         outsider.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
         outsider.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': objects[radio]['room']}})
         denied = outsider.until(lambda m: 'websdr.listen' in str(m))
