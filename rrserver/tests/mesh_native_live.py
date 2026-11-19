@@ -34,6 +34,8 @@ class Fixture:
         self.work = work / name
         self.work.mkdir()
         (self.work / 'modules').mkdir()
+        (self.work / 'identity').mkdir(mode=0o700)
+        (self.work / 'identity').chmod(0o700)
         self.node = str(uuid.uuid4())
         self.http, self.mesh = port(), port()
         self.db = self.work / 'master.db'
