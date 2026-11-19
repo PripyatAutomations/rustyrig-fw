@@ -9,6 +9,9 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     socket checks and retire obsolete Mongoose/embedded-config fixtures.
   * Update the IRC CTCP VERSION fixture and explicitly isolate DCC playback
     from radio transmit and local modem callbacks.
+  * Replace the removed Mongoose live IRC probe with a native TCP/TLS
+    integration test using certificate verification and real registration,
+    PING/PONG and CAP/SASL wire checks.
   * Human audit and review of the project
   * Improvement to indenting/formatter configurations
   * Expand security audit coverage to nested owned C sources and ensure scan-build
