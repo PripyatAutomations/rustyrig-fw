@@ -57,7 +57,7 @@ override_dh_auto_build:
 	# Compile server-side binaries and shared helpers with their own profile.
 	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(DEB_TRANSPORT_FLAGS) WITH_MODEMS=$(WITH_MODEMS) $(OPTIONAL_MAKE_FLAGS)
 	# Executables live in bin/, not build/PROFILE: prevent cross-profile reuse.
-	rm -f bin/rrclient bin/rrclient-gtk.so bin/rrpipelines gmatrix/gmatrix
+	rm -f bin/rrclient bin/rrclient-gtk.so gmatrix/gmatrix
 	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(CLIENT_PROFILE) $(DEB_TRANSPORT_FLAGS) WITH_HAMLIB=no WITH_MODEMS=$(WITH_MODEMS)
 override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/rustyrig-common/usr/lib/rustyrig/admin-permissions
@@ -76,7 +76,6 @@ endif
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
 	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk$(MODULEDIR)/rrclient/rrclient-gtk.so
-	install -Dm755 bin/rrpipelines debian/rustyrig-client-gtk$(BINDIR)/rrpipelines
 	$(MAKE) -C gmatrix -f debian/package.mk install DEB_DESTDIR=../debian/gmatrix
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
