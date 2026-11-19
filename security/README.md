@@ -33,6 +33,8 @@ you want the same reference on other machines.
 
 The initial severity mapping is deliberately simple:
 
+- Scan-build memory, logic, API, and stream findings: severe; unused code: low; others: moderate
+
 - Clang-Tidy's `clang-analyzer-*` diagnostics: severe; other warnings: moderate
 - Cppcheck errors: severe; warnings: moderate
 - Flawfinder score 4–5: severe; 2–3: moderate; 0–1: low
@@ -43,9 +45,9 @@ moving code does not usually create a false new/resolved pair.
 
 A skipped, failed, or unknown scanner retains its last findings as
 **not checked**, not resolved. Check `*.status` and raw logs when comparing.
-Only Cppcheck, Clang-Tidy and Flawfinder are normalized currently; scan-build
-and pscan continue to run and save their native reports but are not counted
-in the finding-delta summary. An incomplete profile or modified analyzer
+Scan-build, Cppcheck, Clang-Tidy and Flawfinder are normalized. Scan-build
+preserves Clang plist findings under the run directory's `scanview/` directory.
+pscan continues to save its native report, but is not yet normalized. An incomplete profile or modified analyzer
 configuration may also change which code is inspected. Compare like builds.
 
 Run `tests/selftest/test_audit_report.sh` to validate the comparison logic.
