@@ -18,7 +18,7 @@
 #include "gtk.canvas-marks.h"
 #include "gtk.floating-panel.h"
 #include "gtk.serial.h"
-#include <rrpipelines/editor.h>
+#include "gtk.pipeline-editor.h"
 #ifdef RR_HAVE_GSTREAMER
 #include <gst/gst.h>
 #endif
