@@ -131,6 +131,12 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *client, dict *row, int type) {
    return true;
 }
 
+/* Match the native inventory sender's transfer-of-ownership contract. */
+void rrserver_inventory_send(rrconn_t *client, dict *row) {
+   ws_send_dict(NULL, client, row, WEBSOCKET_OP_TEXT);
+   dict_free(row);
+}
+
 static void inventory_check(const char *scope, unsigned index, const char *state, const char *coordinates) {
    rrconn_t client = {
       .authenticated = true
