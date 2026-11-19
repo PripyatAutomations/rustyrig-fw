@@ -347,6 +347,13 @@ void rr_relay_directory_put(const char *node, dict *d) {
    if (!rr_relay_directory_valid(node, d)) {
       return;
    }
+   /* Commit snapshots atomically: allocation failure must not replace an
+    * authenticated directory with NULL (or publish a half-initialized node). */
+   dict *snapshot = dict_clone(d);
+
+   if (!snapshot) {
+      return;
+   }
 
    struct directory *entry = rr_relay_directories;
    unsigned entries = 0;
@@ -361,19 +368,22 @@ void rr_relay_directory_put(const char *node, dict *d) {
 
    if (!entry) {
       if (entries >= 256) {
+         dict_free(snapshot);
          return;
       }
       entry = calloc(1, sizeof(*entry));
 
       if (!entry) {
+         dict_free(snapshot);
          return;
       }
       strcpy(entry->node, node);
       entry->next = rr_relay_directories;
       rr_relay_directories = entry;
    }
-   dict_free(entry->users);
-   entry->users = dict_clone(d);
+   dict *previous = entry->users;
+   entry->users = snapshot;
+   dict_free(previous);
 }
 
 /* The remote directory is stored ONLY after its home-server signature, enrolled signer and monotonic revision have passed receive() admission. Never use a
