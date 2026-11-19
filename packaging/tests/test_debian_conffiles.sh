@@ -56,14 +56,26 @@ stage_config rustyrig-server ua-bans.txt
 test ! -e "$work/source/debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg"
 for package in rustyrig-client rustyrig-server; do
    for config in "$work/source/debian/$package/etc/rustyrig/"*; do
-      grep -Fxq "/etc/rustyrig/$(basename "$config")" \
-         "$work/source/debian/$package/DEBIAN/conffiles"
+      if ! grep -Fxq "/etc/rustyrig/$(basename "$config")" \
+         "$work/source/debian/$package/DEBIAN/conffiles"; then
+         echo "FAIL: missing $config in $package conffiles" >&2
+         cat "$work/source/debian/$package/DEBIAN/conffiles" >&2
+         exit 1
+      fi
    done
 done
 
 # Verify the removed conffile migration is embedded in debhelper scripts.
-grep -Fq "/etc/rustyrig/callsign-lookup.srv.cfg" "$work/source/debian/rustyrig-server/DEBIAN/preinst"
-grep -Fq "/etc/rustyrig/callsign-lookup.srv.cfg" "$work/source/debian/rustyrig-server/DEBIAN/postinst"
+if ! grep -Fq "/etc/rustyrig/callsign-lookup.srv.cfg" "$work/source/debian/rustyrig-server/DEBIAN/preinst"; then
+   echo "FAIL: removed conffile migration absent from generated server preinst" >&2
+   test ! -f "$work/source/debian/rustyrig-server/DEBIAN/preinst" || sed -n '1,100p' "$work/source/debian/rustyrig-server/DEBIAN/preinst" >&2
+   exit 1
+fi
+if ! grep -Fq "/etc/rustyrig/callsign-lookup.srv.cfg" "$work/source/debian/rustyrig-server/DEBIAN/postinst"; then
+   echo "FAIL: removed conffile migration absent from generated server postinst" >&2
+   test ! -f "$work/source/debian/rustyrig-server/DEBIAN/postinst" || sed -n '1,100p' "$work/source/debian/rustyrig-server/DEBIAN/postinst" >&2
+   exit 1
+fi
 # No maintainer scripts run here: dpkg only touches temporary install roots.
 # Use dh_installdeb's actual conffile metadata in the fixture package.
 mkdir -p "$work/package/etc/rustyrig" "$work/package/DEBIAN"
