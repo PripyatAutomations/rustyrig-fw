@@ -28,8 +28,9 @@ with tempfile.TemporaryDirectory(prefix='rr-files-live-') as temporary:
     key = work / 'tls-key.pem'
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
         '-keyout', str(key), '-out', str(cert), '-days', '1', '-sha256',
-        '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1'],
+        '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:filestest.files-test.local,DNS:localhost,IP:127.0.0.1'],
         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    key.chmod(0o600)
     tls = ssl.create_default_context(cafile=str(cert))
     dbpath = work / 'master.db'
     with sqlite3.connect(dbpath) as db:
