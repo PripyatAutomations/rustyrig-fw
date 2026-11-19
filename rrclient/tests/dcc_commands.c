@@ -86,6 +86,22 @@ static unsigned offer_to(rrconn_t *client, int fd, irc_dcc_type_t type) {
 }
 
 int main(void) {
+   /* Joining user-supplied DCC arguments must preserve spaces and quotes,
+    * accept empty fields and reject malformed argument arrays. */
+   char *parts[] = { "dcc", "send", "bob", "file", "with spaces.bin" };
+   char *joined = command_rest(5, parts, 3);
+   assert(joined && !strcmp(joined, "file with spaces.bin"));
+   free(joined);
+   joined = command_rest(4, parts, 4);
+   assert(joined && !strcmp(joined, ""));
+   free(joined);
+   char *quoted[] = { "dcc", "\"quoted", "name\"" };
+   joined = command_rest(3, quoted, 1);
+   assert(joined && !strcmp(joined, "quoted name"));
+   free(joined);
+   char *malformed[] = { "dcc", NULL };
+   assert(!command_rest(2, malformed, 1));
+
    cfg = dict_new();
    dict_add(cfg, "dcc.host", "127.0.0.1");
    event_init();
