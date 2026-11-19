@@ -123,7 +123,7 @@ as a GStreamer pipeline container; clicking it opens the existing isolated
 pipeline inspector.
 
 The embedded pipeline editor uses the shared graph renderer and the
-`rrpipelines` model. Its GStreamer plugin registry runs in rrclient's GTK
+GTK pipeline model. Its GStreamer plugin registry runs in rrclient's GTK
 process for editing only; fwdsp remains the pipeline execution boundary.
 Live runtime topology inspection and safe hot-editing require a versioned
 fwdsp snapshot and validated worker control transactions. Never confuse
