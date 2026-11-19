@@ -360,6 +360,8 @@ static void complete_uploads(const char *event, const char *data, rrconn_t *clie
 
             if (exists && (!u->overwrite || !S_ISREG(target.st_mode))) {
                error = EEXIST;
+            } else if (!exists && u->overwrite && rr_relay_remote_for(c)) {
+               error = EACCES;
             } else if (u->overwrite ? renameat(parent, u->temp, parent, name) : linkat(parent, u->temp, parent, name, 0)) {
                error = errno;
             } else {
@@ -608,6 +610,11 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
 
       if (exists && (!dict_get_bool(d, "file.overwrite", false) || !S_ISREG(st.st_mode))) {
          error = EEXIST;
+         goto finish;
+      }
+      /* A remote file.write grant must not implicitly grant file.create. */
+      if (!exists && dict_get_bool(d, "file.overwrite", false) && rr_relay_remote_for(client)) {
+         error = EACCES;
          goto finish;
       }
       unsigned slot = 0;
