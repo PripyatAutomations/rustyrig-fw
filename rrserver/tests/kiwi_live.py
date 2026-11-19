@@ -26,6 +26,9 @@ with sqlite3.connect(work / 'master.db') as db:
 with socket.socket() as reservation:
     reservation.bind(('127.0.0.1', 0))
     port = reservation.getsockname()[1]
+identity = work / 'identity'
+identity.mkdir(mode=0o700)
+identity.chmod(0o700)
 config = work / 'server.cfg'
 fixture = KiwiFixture(reject_auth=1) if len(sys.argv) < 3 else None
 kiwi_host = sys.argv[2] if len(sys.argv) >= 3 else "127.0.0.1"
@@ -36,6 +39,7 @@ station.name=kiwitest
 rig.instances=
 rig.default=receiver
 path.db.master={work}/master.db
+path.identity={identity}
 log.file={work}/server.log
 log.level=*:info
 net.http.bind=127.0.0.1
