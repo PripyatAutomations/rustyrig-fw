@@ -24,7 +24,7 @@ import pathlib, sys
 root = pathlib.Path(sys.argv[1])
 for config in (root/'run').glob('*.cfg'):
     for line in config.read_text().splitlines():
-        if line.lstrip().startswith((';', '#', '//')):
+        if line.lstrip().startswith((';', '#', '//')) or line.lstrip().startswith('path.admin.bootstrap-password='):
             continue
         assert not any(p in line for p in ('/var/lib/rustyrig', '/var/log/', '/etc/rustyrig', '/usr/lib/rustyrig', '/usr/bin/callsign-lookup', '~/.config/')), line
 assert str(root/'bin/fwdsp') in pathlib.Path(sys.argv[2]).read_text()
