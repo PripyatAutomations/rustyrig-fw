@@ -23,27 +23,29 @@ int main(void) {
    sqlite3 *db = NULL;
    assert(sqlite3_open(":memory:", &db) == SQLITE_OK);
    run(db, "PRAGMA foreign_keys=ON;"
-      "CREATE TABLE resource_privileges(subject_user TEXT,subject_host TEXT,resource_kind TEXT,resource_uuid TEXT,privilege TEXT,effect TEXT,expires_at INTEGER);"
+      "CREATE TABLE resource_privileges(subject_user TEXT,subject_host TEXT,resource_kind TEXT,resource_uuid TEXT,privilege TEXT,effect TEXT,expires_at INTEGER, remote_allowed INTEGER NOT NULL DEFAULT 0);"
       "CREATE TABLE privilege_sets(id INTEGER PRIMARY KEY,name TEXT);"
       "CREATE TABLE privilege_set_entries(set_id INTEGER,privilege TEXT,effect TEXT);"
-      "CREATE TABLE privilege_set_assignments(set_id INTEGER,subject_user TEXT,subject_host TEXT,resource_kind TEXT,resource_uuid TEXT,expires_at INTEGER);");
+      "CREATE TABLE privilege_set_assignments(set_id INTEGER,subject_user TEXT,subject_host TEXT,resource_kind TEXT,resource_uuid TEXT,expires_at INTEGER, remote_allowed INTEGER NOT NULL DEFAULT 0);"
+      "CREATE TABLE user_group_members(group_name TEXT,subject_user TEXT,subject_host TEXT);"
+      "CREATE TABLE user_group_privileges(group_name TEXT,resource_kind TEXT,resource_name TEXT,privilege TEXT,effect TEXT);");
    const char *rig = "12345678-1234-4234-8234-1234567890ab";
    assert(db_resource_access(db, "alice", "camp", "rig", rig, "rig.use", 100) == RR_RESOURCE_UNSET);
    run(db, "INSERT INTO privilege_sets VALUES(1,'hf-listen');"
       "INSERT INTO privilege_set_entries VALUES(1,'rig.use','allow');"
-      "INSERT INTO privilege_set_assignments VALUES(1,'alice','camp','rig','12345678-1234-4234-8234-1234567890ab',NULL);");
+      "INSERT INTO privilege_set_assignments(set_id,subject_user,subject_host,resource_kind,resource_uuid,expires_at,remote_allowed) VALUES(1,'alice','camp','rig','12345678-1234-4234-8234-1234567890ab',NULL,1);");
    CHECK("alice", "camp", "rig.use", 100);
    assert(db_resource_access(db, "alice", "wrong-site", "rig", rig, "rig.use", 100) == RR_RESOURCE_UNSET);
    assert(db_resource_access(db, "mallory", "camp", "rig", rig, "rig.use", 100) == RR_RESOURCE_UNSET);
    assert(db_resource_access(db, "alice", "camp", "rig", rig, "tx", 100) == RR_RESOURCE_UNSET);
-   run(db, "INSERT INTO resource_privileges VALUES('alice','camp','rig','12345678-1234-4234-8234-1234567890ab','rig.use','deny',NULL);");
+   run(db, "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,expires_at,remote_allowed) VALUES('alice','camp','rig','12345678-1234-4234-8234-1234567890ab','rig.use','deny',NULL,1);");
    DENY("alice", "camp", "rig.use", 100);
    run(db, "DELETE FROM resource_privileges;" "UPDATE privilege_set_assignments SET expires_at=100;");
    assert(db_resource_access(db, "alice", "camp", "rig", rig, "rig.use", 100) == RR_RESOURCE_UNSET);
    CHECK("alice", "camp", "rig.use", 99);
    run(db, "UPDATE privilege_set_assignments SET expires_at=NULL;" "INSERT INTO privilege_set_entries VALUES(1,'tx','deny');");
    DENY("alice", "camp", "tx", 99);
-   run(db, "INSERT INTO resource_privileges VALUES('alice','camp','rig','12345678-1234-4234-8234-1234567890ab','tx','allow',NULL);");
+   run(db, "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,expires_at,remote_allowed) VALUES('alice','camp','rig','12345678-1234-4234-8234-1234567890ab','tx','allow',NULL,1);");
    DENY("alice", "camp", "tx", 99);
    assert(db_resource_access(db, NULL, "camp", "rig", rig, "rig.use", 99) == RR_RESOURCE_DENY);
    sqlite3_close(db);
