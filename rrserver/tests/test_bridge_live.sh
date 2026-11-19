@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-${CC:-cc} -std=gnu11 -fPIC -shared -I. -Iinc -Ibuild/${PROFILE:-radio} \
+${CC:-cc} -std=gnu11 -fPIC -shared -I. -Iinc -Ibuild/${PROFILE:-rrserver} \
    rrbridge/tests/mock-driver.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --cflags --libs glib-2.0) \
    -o "$work/rrbridge-mock.so"
 ln -s "$PWD/bin/rrbridge-kiwi.so" "$work/rrbridge-kiwi.so"
