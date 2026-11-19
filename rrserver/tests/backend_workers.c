@@ -240,7 +240,7 @@ int main(void) {
       g_usleep(1000);
    }
    assert(pongs == 4 && worst_rtt < 500000);
-   printf("PASS: blocked backend leaves other rigs and GLib socket traffic responsive (worst ping %.2f ms)\\n", worst_rtt / 1000.0);
+   printf("PASS: blocked backend leaves other rigs and GLib socket traffic responsive (worst ping %.2f ms)\n", worst_rtt / 1000.0);
    g_source_remove(server_watch);
    g_source_remove(client_watch);
    close(socket_pair[0]);
