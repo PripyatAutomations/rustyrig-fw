@@ -60,17 +60,3 @@ with tempfile.TemporaryDirectory() as directory:
     assert not database.exists()
 print('PASS: Debian enables fresh admin, keeps guest disabled, preserves upgrade credentials and rejects empty first-install passwords')
 PY
-)
-        assert connection.execute("SELECT enabled FROM users WHERE name='guest'").fetchone() == (0,)
-        connection.execute("UPDATE users SET enabled=0,password='existing-password' WHERE name='admin'")
-    env['RR_TEST_ADMIN_PASSWORD'] = 'different-upgrade-password'
-    subprocess.run(['sh', str(script)], env=env, check=True)
-    with sqlite3.connect(database) as connection:
-        assert connection.execute("SELECT enabled,password FROM users WHERE name='admin'").fetchone() == (0, 'existing-password')
-    database.unlink()
-    env['RR_TEST_ADMIN_PASSWORD'] = ''
-    refused = subprocess.run(['sh', str(script)], env=env, capture_output=True, text=True)
-    assert refused.returncode != 0 and 'password is required' in refused.stderr
-    assert not database.exists()
-print('PASS: Debian enables fresh admin, keeps guest disabled, preserves upgrade credentials and rejects empty first-install passwords')
-PY
