@@ -5,6 +5,7 @@
 #include <rrserver/supervision.c>
 time_t now;
 bool dying, restarting;
+rrconn_t *http_client_list;
 static unsigned offers, releases, grants, revoked;
 static bool fail_release;
 static rrconn_t noob, second, elmer, other;
