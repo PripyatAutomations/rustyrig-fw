@@ -6,7 +6,7 @@ GST_CFLAGS := $(shell $(PKG_CONFIG) --cflags gstreamer-1.0)
 GST_LIBS := $(shell $(PKG_CONFIG) --libs gstreamer-1.0)
 
 .PHONY: test clean
-check: test_pipeline test_json
+test: test_pipeline test_json
 	./test_pipeline
 	./test_json
 
