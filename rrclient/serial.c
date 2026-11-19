@@ -111,7 +111,7 @@ bool rr_serial_write(rr_serial_t *p, const char *data, size_t len) {
       return false;             /* Drop new update; leave queued bytes untouched. */
    }
 
-   if (!p || !data || len > p->buffer_limit || p->pending->len > p->buffer_limit - len) {
+   if (!p || !data || !p->pending || len > p->buffer_limit || p->pending->len > p->buffer_limit - len) {
       return false;
    }
    g_byte_array_append(p->pending, (const guint8 *)data, len);
