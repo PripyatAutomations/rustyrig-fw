@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import signal
 import socket
+import ssl
 import sqlite3
 import subprocess
 import sys
@@ -28,6 +29,14 @@ with socket.socket() as reservation:
 identity = work / 'identity'
 identity.mkdir(mode=0o700)
 identity.chmod(0o700)
+cert, key = identity / 'tls-cert.pem', identity / 'tls-key.pem'
+subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+    '-keyout', str(key), '-out', str(cert), '-days', '1', '-sha256',
+    '-subj', '/CN=websdrtest.mesh.test',
+    '-addext', 'subjectAltName=DNS:websdrtest.mesh.test,DNS:localhost,IP:127.0.0.1'],
+    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+key.chmod(0o600)
+tls = ssl.create_default_context(cafile=str(cert))
 config = work / 'server.cfg'
 config.write_text(f'''[general]
 domain=mesh.test
@@ -36,11 +45,14 @@ rig.instances=
 rig.default=configured
 path.db.master={work}/master.db
 path.identity={identity}
+net.http.tls-cert={cert}
+net.http.tls-key={key}
 log.file={work}/server.log
 log.level=*:info
 net.http.bind=127.0.0.1
-net.http.port={port}
-net.http.tls-enabled=false
+net.http.tls-bind=127.0.0.1
+net.http.tls-port={port}
+net.http.tls-enabled=true
 net.mqtt.enabled=false
 codecs.allowed=pc16
 websdr.max-temporary=1
@@ -62,11 +74,11 @@ env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))
 clients = []
 
 def login(name):
-    client = WebSocket(port); clients.append(client)
+    client = WebSocket(port, tls); clients.append(client)
     client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': name}})
     challenge = client.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-    password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
-    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': name, 'pass': password, 'token': challenge['token']}})
+    assert challenge['method'] == 'tls-password-v1', challenge
+    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': name, 'pass': 'test-password', 'method': challenge['method'], 'token': challenge['token']}})
     client.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
     client.send({'msg': {'type': 'object'}, 'object': {'cmd': 'snapshot'}, 'request': {'id': 'initial'}})
     client.until(lambda m: m.get('object', {}).get('cmd') == 'end')

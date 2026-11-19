@@ -9,5 +9,5 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -std=gnu11 -ffunction-sections -fdata-sections -I. -Iinc -Ibuild/${PROFILE:-radio} $(pkg-config --cflags gtk+-3.0) \
    rrclient/tests/gtk_remote_editor.c rrclient/gtk/gtk.floating-panel.c \
-   -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --libs gtk+-3.0) -o "$work/editor"
+   -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --libs gtk+-3.0) -lm -o "$work/editor"
 "$work/editor"

@@ -61,6 +61,7 @@ net.http.authdb-dynamic=true
 net.http.ua-bans={work}/missing-bans
 net.mqtt.enabled=false
 net.mqtt-client.enabled=false
+media.direct.enabled=false
 atu.max=0
 chat.replay-lines=0
 webcam.enable=true
@@ -93,8 +94,9 @@ write=never.granted
         clients.append(c)
         c.send({'msg':{'type':'auth'},'auth':{'cmd':'login','user':name}})
         challenge=c.until(lambda m:m.get('auth',{}).get('cmd')=='challenge')['auth']
-        password=hashlib.sha1((hashlib.sha1(b'test-password').hexdigest()+'+'+challenge['nonce']).encode()).hexdigest()
-        c.send({'msg':{'type':'auth'},'auth':{'cmd':'pass','user':name,'pass':password,'token':challenge['token']}})
+        assert challenge['method'] == 'tls-password-v1', challenge
+        c.send({'msg':{'type':'auth'},'auth':{'cmd':'pass','user':name,'pass':'test-password',
+            'method':challenge['method'],'token':challenge['token']}})
         c.until(lambda m:m.get('auth',{}).get('cmd')=='authorized'); return c
     def request(c, command, path='/', error=False, **fields):
         global sequence

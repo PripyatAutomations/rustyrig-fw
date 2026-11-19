@@ -37,7 +37,9 @@ class Fixture:
         (self.work / 'identity').mkdir(mode=0o700)
         (self.work / 'identity').chmod(0o700)
         self.node = str(uuid.uuid4())
-        self.http, self.mesh = port(), port()
+        # Native /ws and /link share the configured TLS listener.
+        self.http = port()
+        self.mesh = self.http
         self.db = self.work / 'master.db'
         self.cert, self.key = self.work / 'cert.pem', self.work / 'key.pem'
         self.config = self.work / 'server.cfg'
@@ -131,10 +133,9 @@ enabled=false
         client = WebSocket(self.mesh if native else self.http, self.context)
         client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
         challenge = client.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-        secret = hashlib.sha1(b'test-password').hexdigest()
-        password = hashlib.sha1((secret + '+' + challenge['nonce']).encode()).hexdigest()
+        assert challenge['method'] == 'tls-password-v1', challenge
         client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST',
-            'pass': password, 'token': challenge['token']}})
+            'pass': 'test-password', 'method': challenge['method'], 'token': challenge['token']}})
         client.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
         return client
 
