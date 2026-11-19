@@ -106,7 +106,12 @@ new_debian = f'{debian_upstream}-1'
 # Keep the actual packager identity from the existing Debian history.
 match = re.search(r'^ -- (.+?)  [^\n]+$', history, flags=re.MULTILINE)
 identity = match[1] if match else 'Pripyat Automations <dangerousdevices@istabpeople.com>'
-stamp = format_datetime(datetime.now(timezone.utc).astimezone())
+# Reproducible build environments may fix the release timestamp explicitly.
+# The default remains the packager's local current time.
+import os
+epoch = os.environ.get('SOURCE_DATE_EPOCH')
+stamp = format_datetime(datetime.fromtimestamp(int(epoch), timezone.utc)
+                        if epoch is not None else datetime.now(timezone.utc).astimezone())
 entry = (f'{package} ({new_debian}) unstable; urgency=medium\n\n'
          f'  * Release upstream version {next_version}.\n\n'
          f' -- {identity}  {stamp}\n\n')
