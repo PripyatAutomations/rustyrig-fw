@@ -170,6 +170,7 @@ CREATE TABLE resource_privileges (
    granted_by TEXT NOT NULL,
    granted_at INTEGER NOT NULL DEFAULT (unixepoch()),
    expires_at INTEGER DEFAULT NULL,
+   remote_allowed INTEGER NOT NULL DEFAULT 0 CHECK(remote_allowed IN (0,1)),
    UNIQUE(subject_user,subject_host,resource_kind,resource_uuid,privilege)
 );
 
@@ -209,6 +210,7 @@ CREATE TABLE privilege_set_assignments (
    assigned_by TEXT NOT NULL,
    assigned_at INTEGER NOT NULL DEFAULT (unixepoch()),
    expires_at INTEGER DEFAULT NULL,
+   remote_allowed INTEGER NOT NULL DEFAULT 0 CHECK(remote_allowed IN (0,1)),
    UNIQUE(set_id,subject_user,subject_host,resource_kind,resource_uuid)
 );
 
