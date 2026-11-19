@@ -1,0 +1,639 @@
+# RustyRig security audit comparison
+
+Compared with: previous audit run
+
+Scanner status: clang-tidy=failed, cppcheck=ok, flawfinder=ok
+
+## New severe (75)
+
+- **severe** flawfinder `fwdsp/tests/switching.c:54` [flawfinder.4]: format: vfprintf:
+- **severe** flawfinder `libfwdspmgr/dsp-worker.c:155` [flawfinder.4]: shell: execvp:
+- **severe** flawfinder `rrbridge/main.c:67` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrbridge/module.kiwi.c:917` [flawfinder.4]: format: snprintf:
+- **severe** flawfinder `rrclient/cat.c:146` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/cat.pty.c:29` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/cli.main.c:890` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/cmd.completion.c:479` [flawfinder.4]: format: snprintf:
+- **severe** flawfinder `rrclient/cmd.completion.c:752` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrclient/cmd.help.c:237` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/cmd.misc.c:274` [flawfinder.4]: shell: execl:
+- **severe** flawfinder `rrclient/cmd.misc.c:280` [flawfinder.4]: shell: execlp:
+- **severe** flawfinder `rrclient/config.layers.c:136` [flawfinder.4]: buffer: sprintf:
+- **severe** flawfinder `rrclient/dcc.c:180` [flawfinder.4]: buffer: strcat:
+- **severe** flawfinder `rrclient/gtk/gtk.admin.controls.c:119` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrclient/gtk/gtk.chat.c:424` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrclient/gtk/gtk.chat.c:1015` [flawfinder.4]: format: snprintf:
+- **severe** flawfinder `rrclient/gtk/gtk.output.c:137` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/gtk/gtk.syslog.c:104` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/irc.c:154` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/local.bridge.c:377` [flawfinder.4]: buffer: strcat:
+- **severe** flawfinder `rrclient/local.modem.c:134` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrclient/main.c:1838` [flawfinder.4]: format: printf:
+- **severe** flawfinder `rrclient/main.c:2025` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrclient/main.c:2191` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/objects.events.c:843` [flawfinder.4]: format: snprintf:
+- **severe** flawfinder `rrclient/sercom.c:1061` [flawfinder.4]: buffer: strcat:
+- **severe** flawfinder `rrclient/serial.c:263` [flawfinder.5]: race: readlink:
+- **severe** flawfinder `rrclient/tests/codec_commands.c:67` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/dcc_commands.c:28` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/dcc_commands.c:170` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrclient/tests/exec.c:48` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/gtk_codec_picker.c:56` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/help.c:56` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/irc_echo.c:58` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/irc_events.c:149` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/irc_split.c:25` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/object_command_windows.c:26` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/raw_irc_command.c:46` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/tests/sercom.c:358` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrclient/tests/socks_live.c:48` [flawfinder.4]: format: vfprintf:
+- **severe** flawfinder `rrclient/tests/transport_urls.c:97` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrclient/ui.c:154` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrsdrbridge/dds.ad9959_stm32.c:385` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrserver/audit.c:41` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrserver/backend.hamlib.c:109` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrserver/bridge.access.c:145` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/bridge.hints.c:120` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/database.c:856` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/files.c:771` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/gps.c:567` [flawfinder.4]: format: snprintf:
+- **severe** flawfinder `rrserver/hostlog.c:68` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrserver/link.c:1761` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/link.mesh.c:176` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/link.tree.c:206` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/main.c:151` [flawfinder.4]: shell: execv:
+- **severe** flawfinder `rrserver/media.direct.c:184` [flawfinder.4]: buffer: strcat:
+- **severe** flawfinder `rrserver/mesh.wss.c:850` [flawfinder.4]: format: snprintf:
+- **severe** flawfinder `rrserver/performance.c:95` [flawfinder.5]: race: readlink:
+- **severe** flawfinder `rrserver/platform.backlight.c:97` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/relay.c:1086` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/relay.catalog.c:366` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/relay.catalog.c:1067` [flawfinder.5]: race: readlink:
+- **severe** flawfinder `rrserver/relay.catalog.c:2342` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/relay.sessions.c:683` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/srv.chat.c:242` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/srv.http.c:943` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrserver/srv.send.c:34` [flawfinder.4]: format: vsnprintf:
+- **severe** flawfinder `rrserver/tests/bridge_access.c:162` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/tests/bridge_validation.c:70` [flawfinder.5]: race: chmod:
+- **severe** flawfinder `rrserver/tests/media_channels.c:356` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/tests/relay_ptt_release.c:85` [flawfinder.4]: buffer: strcpy:
+- **severe** flawfinder `rrserver/tests/serial_tunnel.c:283` [flawfinder.4]: race: access:
+- **severe** flawfinder `rrserver/usage.c:235` [flawfinder.4]: format: snprintf:
+- **severe** flawfinder `rrserver/ws.mediachan.c:180` [flawfinder.4]: race: access:
+
+## Resolved severe (0)
+
+None
+
+## New other (537)
+
+- **moderate** cppcheck `fwdsp/tests/quality.c:16` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it.
+- **moderate** cppcheck `rrclient/connman.c:2116` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If RR_WS_SUBPROTOCOL is a macro then please configure it.
+- **moderate** cppcheck `rrclient/gtk/gtk.audio-routing.c:2003` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it.
+- **low** cppcheck `rrclient/gtk/gtk.catalog.c:517` [cppcheck.generic]: Assuming that condition 'kind' is not redundant
+- **low** cppcheck `rrclient/gtk/gtk.catalog.c:573` [cppcheck.generic]: Null pointer dereference
+- **moderate** cppcheck `rrclient/gtk/gtk.catalog.c:573` [nullPointerRedundantCheck]: Either the condition 'kind' is redundant or there is possible null pointer dereference: kind.
+- **moderate** cppcheck `rrclient/gtk/gtk.chat.c:1755` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it.
+- **moderate** cppcheck `rrclient/gtk/gtk.files.c:80` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it.
+- **moderate** cppcheck `rrclient/gtk/gtk.hotkey.c:232` [nullPointerRedundantCheck]: Either the condition '!event' is redundant or there is possible null pointer dereference: event.
+- **low** cppcheck `rrclient/gtk/gtk.hotkey.c:232` [cppcheck.generic]: Null pointer dereference
+- **low** cppcheck `rrclient/gtk/gtk.hotkey.c:239` [cppcheck.generic]: Assuming that condition '!event' is not redundant
+- **moderate** cppcheck `rrclient/gtk/gtk.receiver-directory.c:458` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it.
+- **moderate** cppcheck `rrclient/gtk/gtk.recordings.c:390` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it.
+- **low** cppcheck `rrclient/gtk/gtk.spectrum.c:401` [cppcheck.generic]: Assuming condition is false
+- **moderate** cppcheck `rrclient/gtk/gtk.spectrum.c:405` [uninitvar]: Uninitialized variable: names
+- **low** cppcheck `rrclient/gtk/gtk.spectrum.c:405` [cppcheck.generic]: Uninitialized variable: names
+- **moderate** cppcheck `rrclient/gtk/gtk.tabs.c:15` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it.
+- **low** cppcheck `rrclient/gtk/gtk.userlist.c:323` [cppcheck.generic]: If condition '!visible' is true, the function will return/exit
+- **moderate** cppcheck `rrclient/gtk/gtk.userlist.c:353` [identicalConditionAfterEarlyExit]: Identical condition '!visible', second condition is always false
+- **low** cppcheck `rrclient/gtk/gtk.userlist.c:353` [cppcheck.generic]: Testing identical condition '!visible'
+- **moderate** cppcheck `rrclient/main.c:408` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_GINT64_FORMAT is a macro then please configure it.
+- **moderate** cppcheck `rrclient/receiver.directory.c:619` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it.
+- **moderate** cppcheck `rrclient/tests/audio_engine_buffer.c:301` [assertWithSideEffect]: Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrclient/tests/audio_engine_buffer.c:357` [assertWithSideEffect]: Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrclient/tests/dcc_audio.c:93` [assertWithSideEffect]: Non-pure function: 'sscanf' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrclient/tests/gtk_files.c:288` [assertWithSideEffect]: Non-pure function: 'find' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrclient/tests/gtk_floating_panel.c:63` [syntaxError]: syntax error
+- **moderate** cppcheck `rrclient/tests/gtk_formatting.c:170` [syntaxError]: syntax error
+- **moderate** cppcheck `rrclient/tests/gtk_matrix.c:22` [syntaxError]: syntax error
+- **moderate** cppcheck `rrclient/tests/gtk_remote_editor.c:133` [intToPointerCast]: Casting non-zero decimal integer literal to pointer.
+- **moderate** cppcheck `rrclient/tests/irc_events.c:268` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If VERSION is a macro then please configure it.
+- **moderate** cppcheck `rrclient/tests/receiver_metadata.c:23` [intToPointerCast]: Casting non-zero decimal integer literal to pointer.
+- **moderate** cppcheck `rrclient/tests/sercom.c:318` [uninitvar]: Uninitialized variable: too_big
+- **low** cppcheck `rrclient/tests/status_line.c:106` [cppcheck.generic]: Assignment 'text=calloc(1,size+1)', assigned value is 0
+- **low** cppcheck `rrclient/tests/status_line.c:106` [cppcheck.generic]: Assuming allocation function fails
+- **low** cppcheck `rrclient/tests/status_line.c:108` [cppcheck.generic]: Null pointer dereference
+- **moderate** cppcheck `rrclient/tests/status_line.c:108` [assertWithSideEffect]: Non-pure function: 'fread' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrclient/tests/status_line.c:108` [nullPointerOutOfMemory]: If memory allocation fails, then there is a possible null pointer dereference: text
+- **moderate** cppcheck `rrserver/http.api.c:102` [unknownMacro]: There is an unknown macro here somewhere. Configuration is required. If RR_WS_SUBPROTOCOL is a macro then please configure it.
+- **moderate** cppcheck `rrserver/maintenance.h:177` [IOWithoutPositioning]: Read and write operations without a call to a positioning function (fseek, fsetpos or rewind) or fflush in between result in undefined behaviour.
+- **moderate** cppcheck `rrserver/relay.catalog.c:1124` [invalidPrintfArgType_uint]: %zu in format string (no. 2) requires 'size_t' but the argument type is 'unsigned long'.
+- **low** cppcheck `rrserver/supervision.c:73` [cppcheck.generic]: Null pointer dereference
+- **moderate** cppcheck `rrserver/supervision.c:73` [nullPointerRedundantCheck]: Either the condition '!request->invited[i].client' is redundant or there is possible null pointer dereference: client.
+- **low** cppcheck `rrserver/supervision.c:73` [cppcheck.generic]: Assuming that condition 'request->invited[i].client==client' is not redundant
+- **low** cppcheck `rrserver/supervision.c:77` [cppcheck.generic]: Assuming that condition '!request->invited[i].client' is not redundant
+- **moderate** cppcheck `rrserver/tests/backend_workers.c:276` [assignmentInAssert]: Variable 'accepted' is modified inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrserver/tests/bridge_access.c:58` [intToPointerCast]: Casting non-zero decimal integer literal to pointer.
+- **moderate** cppcheck `rrserver/tests/database.c:67` [assertWithSideEffect]: Non-pure function: 'fseek' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrserver/tests/database.c:73` [assertWithSideEffect]: Non-pure function: 'fread' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrserver/tests/database.c:476` [assertWithSideEffect]: Non-pure function: 'fgets' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug.
+- **moderate** cppcheck `rrserver/tests/gps.c:31` [intToPointerCast]: Casting non-zero decimal integer literal to pointer.
+- **low** cppcheck `rrserver/tests/mesh_probe.c:38` [cppcheck.generic]: Assignment 'wire=malloc(h+4+len)', assigned value is 0
+- **low** cppcheck `rrserver/tests/mesh_probe.c:38` [cppcheck.generic]: Assuming allocation function fails
+- **moderate** cppcheck `rrserver/tests/mesh_probe.c:40` [nullPointerOutOfMemory]: If memory allocation fails, then there is a possible null pointer dereference: wire
+- **low** cppcheck `rrserver/tests/mesh_probe.c:46` [cppcheck.generic]: Null pointer addition
+- **moderate** cppcheck `rrserver/tests/mesh_probe.c:46` [nullPointerArithmeticOutOfMemory]: If memory allocation fails: pointer addition with NULL pointer.
+- **low** cppcheck `rrserver/tests/mesh_probe.c:195` [cppcheck.generic]: Assignment 'sig=strdup(dict_get(proof,"identity.signature",""))', assigned value is 0
+- **low** cppcheck `rrserver/tests/mesh_probe.c:196` [cppcheck.generic]: Null pointer dereference
+- **moderate** cppcheck `rrserver/tests/mesh_probe.c:196` [nullPointerOutOfMemory]: If memory allocation fails, then there is a possible null pointer dereference: sig
+- **moderate** cppcheck `rrserver/tests/multirig.c:389` [intToPointerCast]: Casting non-zero decimal integer literal to pointer.
+- **moderate** cppcheck `rrserver/tests/object_protocol.h:133` [intToPointerCast]: Casting non-zero decimal integer literal to pointer.
+- **moderate** cppcheck `rrserver/tests/ptt_release.c:199` [intToPointerCast]: Casting non-zero decimal integer literal to pointer.
+- **moderate** flawfinder `fwdsp/fwdsp-record.h:23` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `fwdsp/fwdsp-shared.h:16` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `fwdsp/fwdsp.c:681` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `fwdsp/fwdsp.c:1661` [flawfinder.3]: buffer: getopt:
+- **moderate** flawfinder `fwdsp/fwdsp.c:1664` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `fwdsp/fwdsp.c:1847` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `fwdsp/fwdsp.c:1899` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `fwdsp/fwdsp.c:1923` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `fwdsp/fwdsp.c:1966` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `fwdsp/tests/switching.c:116` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `fwdsp/tests/switching.c:235` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `fwdsp/tests/switching.c:236` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `fwdsp/tests/switching.c:292` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `libfwdspmgr/fwdsp-ctl.c:148` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `libfwdspmgr/fwdsp-ctl.h:20` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `libfwdspmgr/fwdsp-mgr.c:1352` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `libfwdspmgr/fwdsp-mgr.c:1812` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `libfwdspmgr/fwdsp-mgr.c:1942` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `libfwdspmgr/fwdsp-mgr.h:173` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `libfwdspmgr/fwdsp-video.c:28` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `libfwdspmgr/pcm-backlog.h:34` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `libfwdspmgr/tests/dsp_worker.c:40` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrbridge/main.c:408` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrbridge/module.kiwi.c:129` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrbridge/module.kiwi.c:867` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrbridge/module.kiwi.c:1124` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrbridge/spectrum.wire.h:70` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrbridge/tests/kiwi.c:34` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrbridge/tests/mock-driver.c:15` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrbridge/tests/mock-driver.c:44` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/audio.c:3166` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/audio.c:3189` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/audio.graph.c:7` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/backup.c:32` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/backup.c:483` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/cat.c:163` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cat.kpa500.c:331` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/cat.pty.c:26` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cat.yaesu.c:564` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/cat.yaesu.c:678` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cat.yaesu.c:751` [flawfinder.2]: integer: atol:
+- **moderate** flawfinder `rrclient/cfg.network.c:106` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cfg.network.c:129` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/cfg.servers.c:58` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/cfg.servers.c:122` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/cfg.servers.c:141` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/chat.whois.c:42` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cli.irc.c:226` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cli.irc.c:227` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/cli.main.c:716` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/cli.main.c:885` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cli.media.c:41` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cli.media.c:216` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/cli.rigctl.c:57` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cli.syslog.c:40` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cmd.admin.c:700` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cmd.c:506` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cmd.chat.c:67` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/cmd.chat.c:647` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cmd.completion.c:750` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/cmd.completion.c:801` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cmd.exec.c:144` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cmd.exec.c:255` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/cmd.misc.c:525` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/cmd.misc.c:587` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/cmd.tabs.c:159` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/config.layers.c:147` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `rrclient/connman.c:1635` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/connman.c:2318` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/database.c:121` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/database.c:1250` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/dcc.c:23` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/dcc.c:426` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/events.c:2066` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/files.c:115` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/files.c:170` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/gtk/cfg.gtkcss.c:57` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/cfg.gtkcss.c:254` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/gtk/cfg.gtkcss.c:263` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.access.c:25` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.c:1595` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.cells.c:222` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.cells.h:12` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.controls.c:100` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.controls.c:130` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.controls.c:911` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.controls.c:920` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.admin.security.c:15` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.audio-routing.c:6762` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.audio-routing.c:7146` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.catalog.c:504` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.catalog.controls.c:165` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/gtk/gtk.catalog.health.c:82` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.catalog.inventory.c:411` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.catalog.local.c:258` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.chat-protocol.c:16` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.chat.c:418` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.chat.c:2809` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.clock.c:26` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.codecpicker.c:114` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.connect-button.c:62` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.core.c:1660` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.core.c:1862` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.core.h:55` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.file-editor.c:74` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.file-editor.c:831` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/gtk/gtk.file-editor.c:1093` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.files.c:70` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.floating-panel.c:398` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/gtk/gtk.freqentry.c:845` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.identity.c:507` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/gtk/gtk.identity.c:619` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/gtk/gtk.identity.c:641` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.irc-format.c:99` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.irc-format.c:291` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/gtk/gtk.kiwi-panel.c:189` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.logview.c:545` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.mode-box.c:243` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.output.c:142` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.ptt-btn.c:466` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.receiver-directory.c:921` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.recording-player.c:349` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.recordings.c:496` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.scale-container.c:86` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.scale-container.c:194` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.serial.c:383` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.serveredit.c:491` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.serverpick.c:1105` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.spectrum.c:768` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.spectrum.c:1889` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.supervision.c:28` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.syslog.c:75` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.syslog.c:76` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.tabs.c:428` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.terminal.c:385` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.terminal.c:1148` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/gtk/gtk.userlist.c:1478` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.vfo-box.c:44` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.webcam.c:204` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.webcam.c:379` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.webcam.c:495` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/gtk/gtk.window.c:411` [flawfinder.3]: buffer: g_get_home_dir:
+- **moderate** flawfinder `rrclient/gtk/gtk.window.c:664` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.winmgr.c:344` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.winmgr.c:349` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/gtk/gtk.zoom.c:105` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/gtk/gtk.zoom.c:220` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/identity.store.c:29` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/identity.store.c:41` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/irc.audio.session.c:78` [flawfinder.3]: random: random:
+- **moderate** flawfinder `rrclient/irc.audio.session.c:207` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/irc.audio.session.c:215` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/irc.c:206` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/irc.c:259` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/irc.dcc.c:224` [flawfinder.3]: random: random:
+- **moderate** flawfinder `rrclient/irc.dcc.c:611` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/irc.dcc.c:778` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/local.bridge.c:1275` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/local.modem.c:630` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/local.modem.c:759` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrclient/m_privmsg.c:800` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/m_privmsg.c:1018` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/main.c:2215` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/main.c:2360` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `rrclient/main.c:2430` [flawfinder.3]: buffer: getopt_long:
+- **moderate** flawfinder `rrclient/main.c:2584` [flawfinder.3]: buffer: g_get_home_dir:
+- **moderate** flawfinder `rrclient/media.c:2062` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/media.c:2114` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/media.direct.c:152` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/media.direct.c:642` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/objects.c:485` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/objects.events.c:926` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/objects.events.c:949` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/receiver.catalog.c:29` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/receiver.connect.c:620` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/receiver.directory.c:901` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/receiver.directory.c:907` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/recordings.c:107` [flawfinder.3]: buffer: g_get_home_dir:
+- **moderate** flawfinder `rrclient/recordings.c:372` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/recordings.c:569` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/recordings.codec.c:169` [flawfinder.3]: random: g_random_int:
+- **moderate** flawfinder `rrclient/recordings.codec.c:183` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/rooms.c:410` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/rooms.c:639` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/rrclient.c:61` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/sercom.c:83` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/sercom.c:1059` [flawfinder.2]: buffer: strcat:
+- **moderate** flawfinder `rrclient/sercom.c:1370` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/sercom.c:1494` [flawfinder.3]: buffer: g_get_home_dir:
+- **moderate** flawfinder `rrclient/sercom.c:1834` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/serial.c:333` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/serial.c:402` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/spectrum.af.c:230` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/spectrum.af.c:239` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/supervision.c:16` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/audio_routes.c:142` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/tests/audio_routes.c:222` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/codec_commands.c:535` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/codec_commands.c:552` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/completion.c:181` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/config_layers.c:16` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/config_layers.c:23` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/tests/dcc.c:88` [flawfinder.2]: tmpfile: mkstemp:
+- **moderate** flawfinder `rrclient/tests/dcc.c:137` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/dcc.c:278` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/dcc_audio.c:57` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `rrclient/tests/dcc_audio.c:77` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/dcc_audio.c:108` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/dcc_commands.c:102` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/dcc_commands.c:199` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/tests/dcc_commands.c:209` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/dcc_playback.c:10` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/exec.c:146` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/gtk_admin.c:329` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/gtk_audio_routing.c:33` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/tests/gtk_audio_routing.c:132` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/gtk_codec_picker.c:30` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/gtk_files.c:253` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/gtk_files.c:338` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/gtk_formatting.c:755` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/gtk_serveredit.c:28` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/gtk_tabs.c:100` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/gtk_webcam.c:56` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/help.c:31` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_audio.c:47` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/irc_audio.c:53` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_audio.c:87` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/tests/irc_capabilities.c:154` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/irc_config.c:23` [flawfinder.2]: tmpfile: tmpfile:
+- **moderate** flawfinder `rrclient/tests/irc_config.c:26` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_connect.c:44` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_echo.c:15` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_events.c:399` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_protocol.c:128` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_sendq.c:31` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/tests/irc_sendq.c:57` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_split.c:112` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/irc_split.c:115` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/tests/media_direct.c:119` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `rrclient/tests/media_direct.c:150` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/media_direct.c:156` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/object_command_windows.c:93` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/objects.c:131` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/offline_input.c:29` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/offline_input.c:58` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/ptt_ack.c:20` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/query.c:15` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/raw_irc_command.c:20` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/receiver_directory.c:49` [flawfinder.3]: buffer: g_get_home_dir:
+- **moderate** flawfinder `rrclient/tests/recording_codecs.c:75` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrclient/tests/sercom.c:33` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/tests/sercom.c:384` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrclient/tests/sercom.c:392` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/server_picker.c:129` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/socks_live.c:110` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/spectrum_af.c:34` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/status_line.c:142` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/status_line.c:182` [flawfinder.2]: tmpfile: tmpfile:
+- **moderate** flawfinder `rrclient/tests/status_line.c:258` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/transport_urls.c:725` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/transport_urls.c:773` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/tests/userlist_sessions.c:71` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/userlist_vfo.c:64` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/tests/userlist_width.c:256` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrclient/typing.c:23` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/ui.c:187` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/ui.statusbar.c:208` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/ui.statusbar.c:211` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/userlist.c:235` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/userlist.c:591` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/vfo.c:326` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/vfo.c:408` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/webcam.c:138` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/win32.c:76` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/ws.auth.c:187` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/ws.client.shared.c:98` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrclient/ws.client.shared.c:101` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/wsjtx.c:271` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrclient/wsjtx.c:575` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrsdrbridge/dds.ad9959_stm32.c:925` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrsdrbridge/dds.ad9959_stm32.c:993` [flawfinder.3]: buffer: getopt_long:
+- **moderate** flawfinder `rrsdrbridge/dds.ad9959_stm32.c:1001` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrsdrbridge/dds.ad9959_stm32.c:1056` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrsdrbridge/dds.ad9959_stm32.c:1096` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrsdrbridge/tests/mqtt_security.c:46` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/acl.c:85` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/au.pipe.c:33` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/au.pipe.c:143` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `rrserver/au.recording.c:76` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/au.recording.c:153` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/audit.c:39` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/backend.c:179` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/backend.c:546` [flawfinder.2]: integer: atol:
+- **moderate** flawfinder `rrserver/backend.hamlib.c:511` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/backend.hamlib.c:914` [flawfinder.2]: integer: atol:
+- **moderate** flawfinder `rrserver/backend.instance.c:142` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/backend.internal-parts.c:158` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/backend.internal.c:91` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/backend.internal.c:228` [flawfinder.2]: integer: atol:
+- **moderate** flawfinder `rrserver/backend.worker.c:266` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/backend.worker.c:288` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrserver/backend.worker.c:615` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/backend.yaesu.c:87` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/backend.yaesu.c:221` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/backend.yaesu.c:2031` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/bridge.hints.c:224` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/bridge.manager.c:1784` [flawfinder.3]: random: g_random_int:
+- **moderate** flawfinder `rrserver/bridge.manager.c:1915` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/bridge.manager.c:2101` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/cfg.acl.c:101` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/cfg.acl.c:160` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/cfg.files.c:49` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/cfg.gpio.c:86` [flawfinder.3]: buffer: realpath:
+- **moderate** flawfinder `rrserver/cfg.peer.c:69` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/cfg.rig.c:133` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/cfg.rtp.c:88` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/database.accounting.c:83` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/database.c:34` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/database.c:106` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/database.c:717` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/database.rooms.c:673` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/database.rooms.c:832` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/database.users.c:300` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/database.users.c:566` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/events.admin.c:1370` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/events.admin.c:1741` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrserver/events.admin.c:1814` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/events.c:231` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/events.quota.c:240` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/events.rooms.c:427` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/events.rooms.c:516` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/events.users.c:627` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/files.c:101` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/files.c:746` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/files.c:763` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/gps.c:566` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/hardware.si5351.c:48` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/hardware.si5351.c:88` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/hardware.si5351.c:168` [flawfinder.3]: buffer: realpath:
+- **moderate** flawfinder `rrserver/hostlog.c:114` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/http.api.c:51` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/http.bans.c:112` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/http.bans.c:170` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/i2c.linux.c:29` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/identity.c:139` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/identity.c:948` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/link.admin.c:149` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/link.admin.c:163` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/link.admin.c:284` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/link.c:43` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/link.c:1155` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrserver/link.c:1379` [flawfinder.3]: random: g_random_int_range:
+- **moderate** flawfinder `rrserver/link.c:1741` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/link.c:1742` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/link.mesh.c:112` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/link.native.c:149` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/link.tree.c:10` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/main.c:423` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/main.c:514` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/main.c:521` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/main.c:659` [flawfinder.3]: buffer: getopt_long:
+- **moderate** flawfinder `rrserver/main.c:818` [flawfinder.3]: random: srand:
+- **moderate** flawfinder `rrserver/main.c:899` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrserver/media.c:720` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/media.direct.c:277` [flawfinder.3]: random: random:
+- **moderate** flawfinder `rrserver/media.direct.c:327` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/media.direct.c:668` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/mesh.enroll.c:255` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/mesh.enroll.c:363` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/mesh.enroll.c:525` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/mesh.enroll.native.c:69` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/mesh.enroll.native.c:183` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/mesh.wss.c:374` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/mesh.wss.c:887` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/mesh.wss.c:925` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/mesh.wss.http.c:162` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/mesh.wss.http.c:168` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/module.gpsd.c:196` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/module.gpsd.c:214` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/mqtt.c:334` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/mqtt.c:340` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/network.c:95` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrserver/network.c:111` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/objects.c:1099` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/password.hash.c:12` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/performance.c:55` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/performance.c:247` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/platform.backlight.c:70` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/platform.backlight.c:134` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/platform.backlight.c:141` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/protection.c:46` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/ptt.c:775` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/receiver.directory.c:27` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/receiver.directory.c:178` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/relay.c:477` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/relay.c:1513` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrserver/relay.c:1793` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/relay.catalog.c:1026` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/relay.catalog.c:1551` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/relay.catalog.c:2404` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/relay.media.c:387` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/relay.sessions.c:984` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/relay.users.c:107` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/revocation.c:110` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/rig.compat.c:85` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/rig.properties.c:741` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/rig.registry.c:270` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/rig.rooms.c:108` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/rx.slice.c:120` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/serial.c:708` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/serial.c:1048` [flawfinder.3]: buffer: getenv:
+- **moderate** flawfinder `rrserver/serial.c:1058` [flawfinder.3]: buffer: g_get_home_dir:
+- **moderate** flawfinder `rrserver/serial.c:1113` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/serial.c:1121` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/si5351-tool.c:87` [flawfinder.3]: buffer: getopt_long:
+- **moderate** flawfinder `rrserver/srv.auth.c:156` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/srv.auth.c:291` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.auth.passdb.c:136` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/srv.auth.passdb.c:144` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.auth.passdb.c:217` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrserver/srv.chat.c:2120` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.chat.c:2148` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/srv.chat.error.c:56` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.chat.whois.c:40` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.client.c:139` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/srv.client.c:229` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.http.c:179` [flawfinder.3]: buffer: realpath:
+- **moderate** flawfinder `rrserver/srv.http.c:647` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/srv.http.c:864` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.http.listeners.c:229` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.ptt.disconnect.c:34` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.rigctl.c:102` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/srv.rigctl.c:645` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/srv.send.c:33` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/supervision.c:253` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/acl_config.c:51` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrserver/tests/acl_config.c:73` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/tests/backend_workers.c:237` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/bridge_validation.c:51` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/tests/bridge_validation.c:56` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/bridge_validation.c:57` [flawfinder.3]: buffer: realpath:
+- **moderate** flawfinder `rrserver/tests/bridge_validation.c:136` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrserver/tests/database.c:454` [flawfinder.2]: tmpfile: mkstemp:
+- **moderate** flawfinder `rrserver/tests/database.c:459` [flawfinder.3]: buffer: realpath:
+- **moderate** flawfinder `rrserver/tests/database.c:473` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/tests/database.c:475` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/gps.c:98` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/tests/gps.c:159` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/media_channels.c:165` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/media_channels.c:355` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrserver/tests/mesh_probe.c:106` [flawfinder.2]: integer: atoi:
+- **moderate** flawfinder `rrserver/tests/mesh_probe.c:128` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/multirig.c:341` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/multirig_live.c:248` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/object_protocol.h:126` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrserver/tests/object_protocol.h:135` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/relay_ptt_release.c:122` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrserver/tests/relay_users.c:91` [flawfinder.2]: buffer: strcpy:
+- **moderate** flawfinder `rrserver/tests/rig_properties.c:451` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/room_confirmation.c:66` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/rtp_peer.c:76` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/rtp_peer.c:85` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/tests/rx_slice.c:14` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/serial_tunnel.c:348` [flawfinder.2]: misc: open:
+- **moderate** flawfinder `rrserver/tests/serial_tunnel.c:349` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/si5351.c:116` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/tests/si5351_registry.c:23` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/tests/si5351_registry.c:32` [flawfinder.2]: misc: fopen:
+- **moderate** flawfinder `rrserver/tests/supervision.c:99` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/timer.clocktick.c:78` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/unwind.c:27` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/usage.c:232` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/webcam.c:324` [flawfinder.2]: buffer: char:
+- **moderate** flawfinder `rrserver/ws.mediachan.c:1076` [flawfinder.2]: buffer: memcpy:
+- **moderate** flawfinder `rrserver/ws.mediachan.c:1143` [flawfinder.2]: buffer: char:
+
+## Resolved other (0)
+
+None
+
+## Still open (0)
+
+None
+
+## Not checked (0)
+
+None

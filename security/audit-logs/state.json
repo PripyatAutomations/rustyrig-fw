@@ -1,0 +1,5518 @@
+{
+  "version": 1,
+  "scanners": {
+    "clang-tidy": "failed",
+    "cppcheck": "ok",
+    "flawfinder": "ok"
+  },
+  "findings": [
+    {
+      "id": "28ab97f20cc91787edc9",
+      "scanner": "cppcheck",
+      "file": "fwdsp/tests/quality.c",
+      "line": 16,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it."
+    },
+    {
+      "id": "961d8b8da98eef099cdb",
+      "scanner": "cppcheck",
+      "file": "rrclient/connman.c",
+      "line": 2116,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If RR_WS_SUBPROTOCOL is a macro then please configure it."
+    },
+    {
+      "id": "e086e3e11ae57bd8a070",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.audio-routing.c",
+      "line": 2003,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it."
+    },
+    {
+      "id": "845e5d801dbe48ac4524",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.catalog.c",
+      "line": 517,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assuming that condition 'kind' is not redundant"
+    },
+    {
+      "id": "592f7908407534345a92",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.catalog.c",
+      "line": 573,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Null pointer dereference"
+    },
+    {
+      "id": "72ce94389111a8ed30cb",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.catalog.c",
+      "line": 573,
+      "severity": "moderate",
+      "rule": "nullPointerRedundantCheck",
+      "message": "Either the condition 'kind' is redundant or there is possible null pointer dereference: kind."
+    },
+    {
+      "id": "733935d3b0d4a929c658",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.chat.c",
+      "line": 1755,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it."
+    },
+    {
+      "id": "594251c2e72ad99ef15f",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.files.c",
+      "line": 80,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it."
+    },
+    {
+      "id": "a898c76745f8f0e3a1fb",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.hotkey.c",
+      "line": 232,
+      "severity": "moderate",
+      "rule": "nullPointerRedundantCheck",
+      "message": "Either the condition '!event' is redundant or there is possible null pointer dereference: event."
+    },
+    {
+      "id": "adf46d33343c56f8899d",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.hotkey.c",
+      "line": 232,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Null pointer dereference"
+    },
+    {
+      "id": "8c5698bdc5d9807571a3",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.hotkey.c",
+      "line": 239,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assuming that condition '!event' is not redundant"
+    },
+    {
+      "id": "78998a05803212550811",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.receiver-directory.c",
+      "line": 458,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it."
+    },
+    {
+      "id": "ec51c2e2d26e4592469a",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.recordings.c",
+      "line": 390,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it."
+    },
+    {
+      "id": "441625d119533bcfec0f",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.spectrum.c",
+      "line": 401,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assuming condition is false"
+    },
+    {
+      "id": "403c0955e5239d45eb59",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.spectrum.c",
+      "line": 405,
+      "severity": "moderate",
+      "rule": "uninitvar",
+      "message": "Uninitialized variable: names"
+    },
+    {
+      "id": "bd45532702accd1297fc",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.spectrum.c",
+      "line": 405,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Uninitialized variable: names"
+    },
+    {
+      "id": "001737f6b7ff3eb75f0e",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.tabs.c",
+      "line": 15,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_DEFINE_TYPE is a macro then please configure it."
+    },
+    {
+      "id": "7323bba2a6b8bc6926b0",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.userlist.c",
+      "line": 323,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "If condition '!visible' is true, the function will return/exit"
+    },
+    {
+      "id": "a68b50eae299103eff4e",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.userlist.c",
+      "line": 353,
+      "severity": "moderate",
+      "rule": "identicalConditionAfterEarlyExit",
+      "message": "Identical condition '!visible', second condition is always false"
+    },
+    {
+      "id": "f09e64bf5c80a35bb79c",
+      "scanner": "cppcheck",
+      "file": "rrclient/gtk/gtk.userlist.c",
+      "line": 353,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Testing identical condition '!visible'"
+    },
+    {
+      "id": "dbfdeb175bb6a3d7a72c",
+      "scanner": "cppcheck",
+      "file": "rrclient/main.c",
+      "line": 408,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_GINT64_FORMAT is a macro then please configure it."
+    },
+    {
+      "id": "abc2b6139e205d0cd636",
+      "scanner": "cppcheck",
+      "file": "rrclient/receiver.directory.c",
+      "line": 619,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If G_GUINT64_FORMAT is a macro then please configure it."
+    },
+    {
+      "id": "6ba1b2ec6d4ecae8564d",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/audio_engine_buffer.c",
+      "line": 301,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'rr_audio_engine_push' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "32be158ec5b67876cfe6",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/audio_engine_buffer.c",
+      "line": 357,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'rr_audio_engine_push_pcm' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "42e5d68ac54bca5e0543",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/dcc_audio.c",
+      "line": 93,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'sscanf' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "98f0c7a01f43abddecca",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/gtk_files.c",
+      "line": 288,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'find' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "0dd7cb50e05bfe0b5e56",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/gtk_floating_panel.c",
+      "line": 63,
+      "severity": "moderate",
+      "rule": "syntaxError",
+      "message": "syntax error"
+    },
+    {
+      "id": "692c627f0ecd1a2c75f7",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/gtk_formatting.c",
+      "line": 170,
+      "severity": "moderate",
+      "rule": "syntaxError",
+      "message": "syntax error"
+    },
+    {
+      "id": "00467544bd204ca4ef89",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/gtk_matrix.c",
+      "line": 22,
+      "severity": "moderate",
+      "rule": "syntaxError",
+      "message": "syntax error"
+    },
+    {
+      "id": "da0ea18d8fce4e05c090",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/gtk_remote_editor.c",
+      "line": 133,
+      "severity": "moderate",
+      "rule": "intToPointerCast",
+      "message": "Casting non-zero decimal integer literal to pointer."
+    },
+    {
+      "id": "1ef65465ac1fd865d73e",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/irc_events.c",
+      "line": 268,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If VERSION is a macro then please configure it."
+    },
+    {
+      "id": "37ab0fcf6a15ff8aaf50",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/receiver_metadata.c",
+      "line": 23,
+      "severity": "moderate",
+      "rule": "intToPointerCast",
+      "message": "Casting non-zero decimal integer literal to pointer."
+    },
+    {
+      "id": "73e4827c95c057897182",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/sercom.c",
+      "line": 318,
+      "severity": "moderate",
+      "rule": "uninitvar",
+      "message": "Uninitialized variable: too_big"
+    },
+    {
+      "id": "058d8c69dcfbf36e3067",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/status_line.c",
+      "line": 106,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assignment 'text=calloc(1,size+1)', assigned value is 0"
+    },
+    {
+      "id": "b679594bad0324859ecb",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/status_line.c",
+      "line": 106,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assuming allocation function fails"
+    },
+    {
+      "id": "7695d35f458724f39659",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/status_line.c",
+      "line": 108,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Null pointer dereference"
+    },
+    {
+      "id": "bf158dd0a88d03b0c255",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/status_line.c",
+      "line": 108,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'fread' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "d1ad8abaabd70bf55eb0",
+      "scanner": "cppcheck",
+      "file": "rrclient/tests/status_line.c",
+      "line": 108,
+      "severity": "moderate",
+      "rule": "nullPointerOutOfMemory",
+      "message": "If memory allocation fails, then there is a possible null pointer dereference: text"
+    },
+    {
+      "id": "1a100d341887d7860242",
+      "scanner": "cppcheck",
+      "file": "rrserver/http.api.c",
+      "line": 102,
+      "severity": "moderate",
+      "rule": "unknownMacro",
+      "message": "There is an unknown macro here somewhere. Configuration is required. If RR_WS_SUBPROTOCOL is a macro then please configure it."
+    },
+    {
+      "id": "cd6532a806bb8fdb2780",
+      "scanner": "cppcheck",
+      "file": "rrserver/maintenance.h",
+      "line": 177,
+      "severity": "moderate",
+      "rule": "IOWithoutPositioning",
+      "message": "Read and write operations without a call to a positioning function (fseek, fsetpos or rewind) or fflush in between result in undefined behaviour."
+    },
+    {
+      "id": "ff474e11db5b3bde8941",
+      "scanner": "cppcheck",
+      "file": "rrserver/relay.catalog.c",
+      "line": 1124,
+      "severity": "moderate",
+      "rule": "invalidPrintfArgType_uint",
+      "message": "%zu in format string (no. 2) requires 'size_t' but the argument type is 'unsigned long'."
+    },
+    {
+      "id": "4904b232007bd9c7d1cb",
+      "scanner": "cppcheck",
+      "file": "rrserver/supervision.c",
+      "line": 73,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Null pointer dereference"
+    },
+    {
+      "id": "49f225763b9564c9f06c",
+      "scanner": "cppcheck",
+      "file": "rrserver/supervision.c",
+      "line": 73,
+      "severity": "moderate",
+      "rule": "nullPointerRedundantCheck",
+      "message": "Either the condition '!request->invited[i].client' is redundant or there is possible null pointer dereference: client."
+    },
+    {
+      "id": "6c2aa0e3c3bf3842b0fd",
+      "scanner": "cppcheck",
+      "file": "rrserver/supervision.c",
+      "line": 73,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assuming that condition 'request->invited[i].client==client' is not redundant"
+    },
+    {
+      "id": "bf66d08c9241f6b126fe",
+      "scanner": "cppcheck",
+      "file": "rrserver/supervision.c",
+      "line": 77,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assuming that condition '!request->invited[i].client' is not redundant"
+    },
+    {
+      "id": "6f481a53eb0e881dad65",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/backend_workers.c",
+      "line": 276,
+      "severity": "moderate",
+      "rule": "assignmentInAssert",
+      "message": "Variable 'accepted' is modified inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "319847c3fc89000f37a3",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/bridge_access.c",
+      "line": 58,
+      "severity": "moderate",
+      "rule": "intToPointerCast",
+      "message": "Casting non-zero decimal integer literal to pointer."
+    },
+    {
+      "id": "488690d09547b31da45f",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/database.c",
+      "line": 67,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'fseek' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "e270a31e4c18067f5328",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/database.c",
+      "line": 73,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'fread' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "18c9678eb3a08b5883bf",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/database.c",
+      "line": 476,
+      "severity": "moderate",
+      "rule": "assertWithSideEffect",
+      "message": "Non-pure function: 'fgets' is called inside assert statement. Assert statements are removed from release builds so the code inside assert statement is not executed. If the code is needed also in release builds, this is a bug."
+    },
+    {
+      "id": "a727525ecfc9e6e754a8",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/gps.c",
+      "line": 31,
+      "severity": "moderate",
+      "rule": "intToPointerCast",
+      "message": "Casting non-zero decimal integer literal to pointer."
+    },
+    {
+      "id": "7d57ad46eccb1ff4549c",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 38,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assignment 'wire=malloc(h+4+len)', assigned value is 0"
+    },
+    {
+      "id": "da3d3c446c4d20d858e5",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 38,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assuming allocation function fails"
+    },
+    {
+      "id": "42a5e09add0cf5d666e5",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 40,
+      "severity": "moderate",
+      "rule": "nullPointerOutOfMemory",
+      "message": "If memory allocation fails, then there is a possible null pointer dereference: wire"
+    },
+    {
+      "id": "42bee942ccbb7711d700",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 46,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Null pointer addition"
+    },
+    {
+      "id": "6b6f48f3b38885577c55",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 46,
+      "severity": "moderate",
+      "rule": "nullPointerArithmeticOutOfMemory",
+      "message": "If memory allocation fails: pointer addition with NULL pointer."
+    },
+    {
+      "id": "6152d39f5e5a3b03d2f6",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 195,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Assignment 'sig=strdup(dict_get(proof,\"identity.signature\",\"\"))', assigned value is 0"
+    },
+    {
+      "id": "914bce517862507464c4",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 196,
+      "severity": "low",
+      "rule": "cppcheck.generic",
+      "message": "Null pointer dereference"
+    },
+    {
+      "id": "c285ddb963257038701c",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 196,
+      "severity": "moderate",
+      "rule": "nullPointerOutOfMemory",
+      "message": "If memory allocation fails, then there is a possible null pointer dereference: sig"
+    },
+    {
+      "id": "47182427cd328236efa8",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/multirig.c",
+      "line": 389,
+      "severity": "moderate",
+      "rule": "intToPointerCast",
+      "message": "Casting non-zero decimal integer literal to pointer."
+    },
+    {
+      "id": "55d4f9e1569638ec9193",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/object_protocol.h",
+      "line": 133,
+      "severity": "moderate",
+      "rule": "intToPointerCast",
+      "message": "Casting non-zero decimal integer literal to pointer."
+    },
+    {
+      "id": "8cd6e5529b42a856b3dc",
+      "scanner": "cppcheck",
+      "file": "rrserver/tests/ptt_release.c",
+      "line": 199,
+      "severity": "moderate",
+      "rule": "intToPointerCast",
+      "message": "Casting non-zero decimal integer literal to pointer."
+    },
+    {
+      "id": "50816456500c3cf583b5",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp-record.h",
+      "line": 23,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "51c881964c9f471919a7",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp-shared.h",
+      "line": 16,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "315b81b6d8b7806cd374",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp.c",
+      "line": 681,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "bf9502c5965609bde7b8",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp.c",
+      "line": 1661,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getopt:"
+    },
+    {
+      "id": "a4cb763e32270c431407",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp.c",
+      "line": 1664,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "bedc75544adafd50eb23",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp.c",
+      "line": 1847,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "286f58388b555c115e2f",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp.c",
+      "line": 1899,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "5b53c1ade24a480af83d",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp.c",
+      "line": 1923,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "77a4e96a032d41397616",
+      "scanner": "flawfinder",
+      "file": "fwdsp/fwdsp.c",
+      "line": 1966,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "0a5603edec3641a8a29c",
+      "scanner": "flawfinder",
+      "file": "fwdsp/tests/switching.c",
+      "line": 54,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vfprintf:"
+    },
+    {
+      "id": "d98e1d8680df6c47b3b9",
+      "scanner": "flawfinder",
+      "file": "fwdsp/tests/switching.c",
+      "line": 116,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "df92a5b8f3453f44e07a",
+      "scanner": "flawfinder",
+      "file": "fwdsp/tests/switching.c",
+      "line": 235,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "40d482bdfdd226ab485a",
+      "scanner": "flawfinder",
+      "file": "fwdsp/tests/switching.c",
+      "line": 236,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "f54ef3aa63a25d1a7e64",
+      "scanner": "flawfinder",
+      "file": "fwdsp/tests/switching.c",
+      "line": 292,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "9cffcbf79d013a3848b6",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/dsp-worker.c",
+      "line": 155,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "shell: execvp:"
+    },
+    {
+      "id": "2582d021d9ac2fd26940",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/fwdsp-ctl.c",
+      "line": 148,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6bddc20baf0b97c50828",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/fwdsp-ctl.h",
+      "line": 20,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d3657ae615570ae2e06b",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/fwdsp-mgr.c",
+      "line": 1352,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "90a992171fcef2ee16ca",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/fwdsp-mgr.c",
+      "line": 1812,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "1d10ed372a4ba27c6a1c",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/fwdsp-mgr.c",
+      "line": 1942,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "56d344a88db889a267ef",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/fwdsp-mgr.h",
+      "line": 173,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a941220e9f5bf0f766dd",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/fwdsp-video.c",
+      "line": 28,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e4cc6aed4f6ea68ec72a",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/pcm-backlog.h",
+      "line": 34,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "72879878871e223c6578",
+      "scanner": "flawfinder",
+      "file": "libfwdspmgr/tests/dsp_worker.c",
+      "line": 40,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f04c28259e01029815c4",
+      "scanner": "flawfinder",
+      "file": "rrbridge/main.c",
+      "line": 67,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "481bb55483b6822023af",
+      "scanner": "flawfinder",
+      "file": "rrbridge/main.c",
+      "line": 408,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "37edd7126b1288d3661a",
+      "scanner": "flawfinder",
+      "file": "rrbridge/module.kiwi.c",
+      "line": 129,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "fe97a2dfe5870d8f6dee",
+      "scanner": "flawfinder",
+      "file": "rrbridge/module.kiwi.c",
+      "line": 867,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "c224e1e39df4c27cc03e",
+      "scanner": "flawfinder",
+      "file": "rrbridge/module.kiwi.c",
+      "line": 917,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: snprintf:"
+    },
+    {
+      "id": "9528d8aa285ef461c599",
+      "scanner": "flawfinder",
+      "file": "rrbridge/module.kiwi.c",
+      "line": 1124,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "024ffd7fdcab8840e839",
+      "scanner": "flawfinder",
+      "file": "rrbridge/spectrum.wire.h",
+      "line": 70,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "6840b17aa74a2787f309",
+      "scanner": "flawfinder",
+      "file": "rrbridge/tests/kiwi.c",
+      "line": 34,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b71ba2e72c117f79d8c4",
+      "scanner": "flawfinder",
+      "file": "rrbridge/tests/mock-driver.c",
+      "line": 15,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "12702093cf578e3ea5e1",
+      "scanner": "flawfinder",
+      "file": "rrbridge/tests/mock-driver.c",
+      "line": 44,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "0e4a43c85ca08a13e079",
+      "scanner": "flawfinder",
+      "file": "rrclient/audio.c",
+      "line": 3166,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "7b0404cfe19e312f4de1",
+      "scanner": "flawfinder",
+      "file": "rrclient/audio.c",
+      "line": 3189,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "ebc2db657d64bf345bfd",
+      "scanner": "flawfinder",
+      "file": "rrclient/audio.graph.c",
+      "line": 7,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "3ef5ebd77c9e29014660",
+      "scanner": "flawfinder",
+      "file": "rrclient/backup.c",
+      "line": 32,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c8e26ad2056662b3069c",
+      "scanner": "flawfinder",
+      "file": "rrclient/backup.c",
+      "line": 483,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "86616dbd07232e92d381",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.c",
+      "line": 146,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "1e785c98137129308a55",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.c",
+      "line": 163,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ab664a7e47692618cd1f",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.kpa500.c",
+      "line": 331,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "ae88a3978932a634336d",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.pty.c",
+      "line": 26,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9d9dbdc82afa5aa24583",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.pty.c",
+      "line": 29,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "82f4d4dcc592287e086e",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.yaesu.c",
+      "line": 564,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "ccb34f191122f0bddd9c",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.yaesu.c",
+      "line": 678,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "78775a2f03aa93dabfe7",
+      "scanner": "flawfinder",
+      "file": "rrclient/cat.yaesu.c",
+      "line": 751,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atol:"
+    },
+    {
+      "id": "6751855389845014c273",
+      "scanner": "flawfinder",
+      "file": "rrclient/cfg.network.c",
+      "line": 106,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ae14a74cc3a828f25994",
+      "scanner": "flawfinder",
+      "file": "rrclient/cfg.network.c",
+      "line": 129,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "552b757ec8f78e6075a0",
+      "scanner": "flawfinder",
+      "file": "rrclient/cfg.servers.c",
+      "line": 58,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "8146d701803a367b65cc",
+      "scanner": "flawfinder",
+      "file": "rrclient/cfg.servers.c",
+      "line": 122,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "9f707b4608d21e87cae5",
+      "scanner": "flawfinder",
+      "file": "rrclient/cfg.servers.c",
+      "line": 141,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "48f68d47e3e5d2b7724d",
+      "scanner": "flawfinder",
+      "file": "rrclient/chat.whois.c",
+      "line": 42,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4a5b65341e901a99d16a",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.irc.c",
+      "line": 226,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "88941ed478894d78530b",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.irc.c",
+      "line": 227,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "f7fdd15f2b28925f7bc6",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.main.c",
+      "line": 716,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "24c6d2a71250a3a0d83f",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.main.c",
+      "line": 885,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e6f922afe6cbd0735680",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.main.c",
+      "line": 890,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "a15de39f515dd6533283",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.media.c",
+      "line": 41,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "3aaf5e9424b03ee52baa",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.media.c",
+      "line": 216,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "49dea91989b85dce955c",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.rigctl.c",
+      "line": 57,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c7ae55e86fd7c9b119bc",
+      "scanner": "flawfinder",
+      "file": "rrclient/cli.syslog.c",
+      "line": 40,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9c6f22dd4bb9c479d788",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.admin.c",
+      "line": 700,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "50f99d42c77bfbd308aa",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.c",
+      "line": 506,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "abfa92fb953762b59598",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.chat.c",
+      "line": 67,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "617377eb1dba57c48b26",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.chat.c",
+      "line": 647,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9a0677b0e1e8ebaa8b1b",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.completion.c",
+      "line": 479,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: snprintf:"
+    },
+    {
+      "id": "cb2986c00dcb06f2babc",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.completion.c",
+      "line": 750,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "d3694ae4cde5cdafdce9",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.completion.c",
+      "line": 752,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "53278f676510477a72c5",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.completion.c",
+      "line": 801,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "74da5db1c4709154c4ed",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.exec.c",
+      "line": 144,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "06f668af4bc9235bb151",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.exec.c",
+      "line": 255,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "4274d89bc89d5bcafd9d",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.help.c",
+      "line": 237,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "a131ce3ad3df211977d6",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.misc.c",
+      "line": 274,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "shell: execl:"
+    },
+    {
+      "id": "d25bf3b43f8c507128a6",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.misc.c",
+      "line": 280,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "shell: execlp:"
+    },
+    {
+      "id": "890b8ec21d243686bf81",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.misc.c",
+      "line": 525,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0ae777b3a71e45329f9c",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.misc.c",
+      "line": 587,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "1320c393b33996ffd741",
+      "scanner": "flawfinder",
+      "file": "rrclient/cmd.tabs.c",
+      "line": 159,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "bd62752dc554ede65ac0",
+      "scanner": "flawfinder",
+      "file": "rrclient/config.layers.c",
+      "line": 136,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: sprintf:"
+    },
+    {
+      "id": "561fa3e12efd6acec296",
+      "scanner": "flawfinder",
+      "file": "rrclient/config.layers.c",
+      "line": 147,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "4281939431621265e7a7",
+      "scanner": "flawfinder",
+      "file": "rrclient/connman.c",
+      "line": 1635,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "ec1beee2a83cd844845a",
+      "scanner": "flawfinder",
+      "file": "rrclient/connman.c",
+      "line": 2318,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2af2d227616183012e73",
+      "scanner": "flawfinder",
+      "file": "rrclient/database.c",
+      "line": 121,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "54022a99ac929268eb3a",
+      "scanner": "flawfinder",
+      "file": "rrclient/database.c",
+      "line": 1250,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "98e8c9a9469306b929ab",
+      "scanner": "flawfinder",
+      "file": "rrclient/dcc.c",
+      "line": 23,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a37b7dd34ab7fa8303b4",
+      "scanner": "flawfinder",
+      "file": "rrclient/dcc.c",
+      "line": 180,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcat:"
+    },
+    {
+      "id": "898fb8358de293c5ffa9",
+      "scanner": "flawfinder",
+      "file": "rrclient/dcc.c",
+      "line": 426,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "4288be6830fc00d38456",
+      "scanner": "flawfinder",
+      "file": "rrclient/events.c",
+      "line": 2066,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a1e65b0688485118e19f",
+      "scanner": "flawfinder",
+      "file": "rrclient/files.c",
+      "line": 115,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "45fb12f6b2a897797d86",
+      "scanner": "flawfinder",
+      "file": "rrclient/files.c",
+      "line": 170,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "95d1af9d201cd8854942",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/cfg.gtkcss.c",
+      "line": 57,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "5ed556f781e2cdfbd767",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/cfg.gtkcss.c",
+      "line": 254,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "b385280afd801cc56e11",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/cfg.gtkcss.c",
+      "line": 263,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b791492cd4d58d1c866f",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.access.c",
+      "line": 25,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "267574f1eeb78e01fb8e",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.c",
+      "line": 1595,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5974fefe272b817009ba",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.cells.c",
+      "line": 222,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6a32dc61c197edd60357",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.cells.h",
+      "line": 12,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "06a893245a4143d5dbea",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.controls.c",
+      "line": 100,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "f22e2a32864cca3abcfe",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.controls.c",
+      "line": 119,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "83d582ff1b7c2ff30187",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.controls.c",
+      "line": 130,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "1d466265059972e34ccf",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.controls.c",
+      "line": 911,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "17ed58d8599aea2d57f9",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.controls.c",
+      "line": 920,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "54e77d37adf4ba3a6cd5",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.admin.security.c",
+      "line": 15,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "678860ce167acddc8a11",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.audio-routing.c",
+      "line": 6762,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4199eec3f143926d684c",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.audio-routing.c",
+      "line": 7146,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "84de83cf989edce283f4",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.catalog.c",
+      "line": 504,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0d853e0d8f6dc49ef7d6",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.catalog.controls.c",
+      "line": 165,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "0b335cdeff9f015e3ece",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.catalog.health.c",
+      "line": 82,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "63a3e0ba1d00eaed9047",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.catalog.inventory.c",
+      "line": 411,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e9c74efbc08cce803288",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.catalog.local.c",
+      "line": 258,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5d70857e82b4fffed20f",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.chat-protocol.c",
+      "line": 16,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "14a9256c6ef72ee4abcc",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.chat.c",
+      "line": 418,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "86a9eec6da523e41d3f1",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.chat.c",
+      "line": 424,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "24e4d35247b52bfb9353",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.chat.c",
+      "line": 1015,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: snprintf:"
+    },
+    {
+      "id": "93b066e4e604e2c8e60b",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.chat.c",
+      "line": 2809,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "79d0f135cd7cee80829e",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.clock.c",
+      "line": 26,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6ad3d482766bdde98e0f",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.codecpicker.c",
+      "line": 114,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9a6599a5ce311eca7024",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.connect-button.c",
+      "line": 62,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4d6ac59658f1a068f461",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.core.c",
+      "line": 1660,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "450d5cd6b777ce5d4a00",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.core.c",
+      "line": 1862,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "d8cfe10212d5a213099b",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.core.h",
+      "line": 55,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "333b52279a2186b112e1",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.file-editor.c",
+      "line": 74,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "2ac5a75b27cd6c818750",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.file-editor.c",
+      "line": 831,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "ecc14e91d3b7dd4e7626",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.file-editor.c",
+      "line": 1093,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ca149b4ea51e15919d79",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.files.c",
+      "line": 70,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "222ac1291aff13a8fc1f",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.floating-panel.c",
+      "line": 398,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "32823d4234ee000046e3",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.freqentry.c",
+      "line": 845,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "647cd7b8da2c9b506cf7",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.identity.c",
+      "line": 507,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "8ab5eb57f71742ac426b",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.identity.c",
+      "line": 619,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "c98ed53c240397bc98ca",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.identity.c",
+      "line": 641,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f302744994e872496120",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.irc-format.c",
+      "line": 99,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e7b375733b7468612551",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.irc-format.c",
+      "line": 291,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "575bff5d2053f4169f24",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.kiwi-panel.c",
+      "line": 189,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a2e0b3838823ff7b7d92",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.logview.c",
+      "line": 545,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c81bd40b7475948a6591",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.mode-box.c",
+      "line": 243,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "324dcdff7156cd8e1a97",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.output.c",
+      "line": 137,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "ea0f7439d6a6fe5010e5",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.output.c",
+      "line": 142,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "3067f6f1a433066b08ec",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.ptt-btn.c",
+      "line": 466,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "44bd3bf16fe556a9a7f9",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.receiver-directory.c",
+      "line": 921,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "be104164d1d3164a6ed2",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.recording-player.c",
+      "line": 349,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "ea071564fac91092c6f7",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.recordings.c",
+      "line": 496,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "fcc568ce8086ec3fe639",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.scale-container.c",
+      "line": 86,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "1fbcc82ccaf27d8e4049",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.scale-container.c",
+      "line": 194,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "89c523b1004b2b5e479e",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.serial.c",
+      "line": 383,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "1c9cb4ecb83e84e893da",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.serveredit.c",
+      "line": 491,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9d2478997331ba474e6b",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.serverpick.c",
+      "line": 1105,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c19cdb3bc82f5dcfdcb9",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.spectrum.c",
+      "line": 768,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "8c23b55aea084b844ade",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.spectrum.c",
+      "line": 1889,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d9c902e5ddc689743dea",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.supervision.c",
+      "line": 28,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c744285de8da95c3c26b",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.syslog.c",
+      "line": 75,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "7470bd322384ccabeee6",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.syslog.c",
+      "line": 76,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "3ae0500498121b97ff66",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.syslog.c",
+      "line": 104,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "4f9a388577e1b534f993",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.tabs.c",
+      "line": 428,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "073f88b6393e7eac209b",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.terminal.c",
+      "line": 385,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "601f18656ffc38f9ac8a",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.terminal.c",
+      "line": 1148,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "f881dbf31288bfc85939",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.userlist.c",
+      "line": 1478,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9acb5cf1ebfcaf533178",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.vfo-box.c",
+      "line": 44,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0a819de85f1c03f8aa03",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.webcam.c",
+      "line": 204,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "7ed1c73091b9dea3e3fc",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.webcam.c",
+      "line": 379,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "30e5d13762058ba4fd28",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.webcam.c",
+      "line": 495,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "1a6175b46a6a2e5e2a5d",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.window.c",
+      "line": 411,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: g_get_home_dir:"
+    },
+    {
+      "id": "3e1a8cacd54d74b86c2b",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.window.c",
+      "line": 664,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "45c04394f0168054e774",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.winmgr.c",
+      "line": 344,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4bc41bbb96cc01ff2bc0",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.winmgr.c",
+      "line": 349,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "6add34fa76b199609c46",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.zoom.c",
+      "line": 105,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4c6e98fbbbce6d1401ba",
+      "scanner": "flawfinder",
+      "file": "rrclient/gtk/gtk.zoom.c",
+      "line": 220,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "3346ad677073e557dc3d",
+      "scanner": "flawfinder",
+      "file": "rrclient/identity.store.c",
+      "line": 29,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "c50342e8020fc1e0cce5",
+      "scanner": "flawfinder",
+      "file": "rrclient/identity.store.c",
+      "line": 41,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "26368cccd07c24d82406",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.audio.session.c",
+      "line": 78,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "random: random:"
+    },
+    {
+      "id": "2ed4eb380431ed75bc33",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.audio.session.c",
+      "line": 207,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0a217b4d4c764dd90d6d",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.audio.session.c",
+      "line": 215,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "3f66a9b02cfab8360443",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.c",
+      "line": 154,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "81d78386ffb1315f6727",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.c",
+      "line": 206,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "a8964df6376cb5c62445",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.c",
+      "line": 259,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ef3b5a0e4b8aea4222b7",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.dcc.c",
+      "line": 224,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "random: random:"
+    },
+    {
+      "id": "e309e235d72798682910",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.dcc.c",
+      "line": 611,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "5eaaecf888f6bfd5ab97",
+      "scanner": "flawfinder",
+      "file": "rrclient/irc.dcc.c",
+      "line": 778,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "966cac7a50d6e9f06b4e",
+      "scanner": "flawfinder",
+      "file": "rrclient/local.bridge.c",
+      "line": 377,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcat:"
+    },
+    {
+      "id": "5db51d206a863b124077",
+      "scanner": "flawfinder",
+      "file": "rrclient/local.bridge.c",
+      "line": 1275,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "20390d03f2421a24e7ea",
+      "scanner": "flawfinder",
+      "file": "rrclient/local.modem.c",
+      "line": 134,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "c8edf6ded79878ba201d",
+      "scanner": "flawfinder",
+      "file": "rrclient/local.modem.c",
+      "line": 630,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d10348d830e139da679b",
+      "scanner": "flawfinder",
+      "file": "rrclient/local.modem.c",
+      "line": 759,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "2b8b319f56e02479d016",
+      "scanner": "flawfinder",
+      "file": "rrclient/m_privmsg.c",
+      "line": 800,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "e9f58bf383f5db99a7ed",
+      "scanner": "flawfinder",
+      "file": "rrclient/m_privmsg.c",
+      "line": 1018,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "64e34e94cf2e0df63fea",
+      "scanner": "flawfinder",
+      "file": "rrclient/main.c",
+      "line": 1838,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: printf:"
+    },
+    {
+      "id": "5ae9663e7950d4e514b8",
+      "scanner": "flawfinder",
+      "file": "rrclient/main.c",
+      "line": 2025,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "3221a385cb011b70bc80",
+      "scanner": "flawfinder",
+      "file": "rrclient/main.c",
+      "line": 2191,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "54b9b80effcaf1a57a05",
+      "scanner": "flawfinder",
+      "file": "rrclient/main.c",
+      "line": 2215,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ffbb52afdf3960a79e5a",
+      "scanner": "flawfinder",
+      "file": "rrclient/main.c",
+      "line": 2360,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "3b63829fc6c1e5bffc3d",
+      "scanner": "flawfinder",
+      "file": "rrclient/main.c",
+      "line": 2430,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getopt_long:"
+    },
+    {
+      "id": "17a38f236d2e1fd84e93",
+      "scanner": "flawfinder",
+      "file": "rrclient/main.c",
+      "line": 2584,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: g_get_home_dir:"
+    },
+    {
+      "id": "32a43844bb5ed24e4281",
+      "scanner": "flawfinder",
+      "file": "rrclient/media.c",
+      "line": 2062,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e4a6eba44280d08eaeeb",
+      "scanner": "flawfinder",
+      "file": "rrclient/media.c",
+      "line": 2114,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "35d4a0820d885d08c67c",
+      "scanner": "flawfinder",
+      "file": "rrclient/media.direct.c",
+      "line": 152,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b6a9a9853c9bc9148a13",
+      "scanner": "flawfinder",
+      "file": "rrclient/media.direct.c",
+      "line": 642,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "4971a66382cb48ae3f37",
+      "scanner": "flawfinder",
+      "file": "rrclient/objects.c",
+      "line": 485,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ce132b28cd7f98f3cb28",
+      "scanner": "flawfinder",
+      "file": "rrclient/objects.events.c",
+      "line": 843,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: snprintf:"
+    },
+    {
+      "id": "9e8d17de51f879bc1f54",
+      "scanner": "flawfinder",
+      "file": "rrclient/objects.events.c",
+      "line": 926,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "8d9fc646bcfc7d0d56ea",
+      "scanner": "flawfinder",
+      "file": "rrclient/objects.events.c",
+      "line": 949,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "ae838a451c708c25bb2a",
+      "scanner": "flawfinder",
+      "file": "rrclient/receiver.catalog.c",
+      "line": 29,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "40677a6f7a0ea7d0222e",
+      "scanner": "flawfinder",
+      "file": "rrclient/receiver.connect.c",
+      "line": 620,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "505c4897f1e6c13397aa",
+      "scanner": "flawfinder",
+      "file": "rrclient/receiver.directory.c",
+      "line": 901,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "5625113c80f70a3ab1cc",
+      "scanner": "flawfinder",
+      "file": "rrclient/receiver.directory.c",
+      "line": 907,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ed4588d1cb6406a3aaa7",
+      "scanner": "flawfinder",
+      "file": "rrclient/recordings.c",
+      "line": 107,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: g_get_home_dir:"
+    },
+    {
+      "id": "c215ea1f9acdf8975f06",
+      "scanner": "flawfinder",
+      "file": "rrclient/recordings.c",
+      "line": 372,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "4e395cf593f2ef152a92",
+      "scanner": "flawfinder",
+      "file": "rrclient/recordings.c",
+      "line": 569,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "988367af73180cedb9b1",
+      "scanner": "flawfinder",
+      "file": "rrclient/recordings.codec.c",
+      "line": 169,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "random: g_random_int:"
+    },
+    {
+      "id": "cfd686f8115a1cba30ba",
+      "scanner": "flawfinder",
+      "file": "rrclient/recordings.codec.c",
+      "line": 183,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "1b9105306128affd5050",
+      "scanner": "flawfinder",
+      "file": "rrclient/rooms.c",
+      "line": 410,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "83968ba1b392abce7411",
+      "scanner": "flawfinder",
+      "file": "rrclient/rooms.c",
+      "line": 639,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "da1b60de0af549f094fa",
+      "scanner": "flawfinder",
+      "file": "rrclient/rrclient.c",
+      "line": 61,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "8c04b5c317b2905e87d8",
+      "scanner": "flawfinder",
+      "file": "rrclient/sercom.c",
+      "line": 83,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "0fb1ea25653f14476272",
+      "scanner": "flawfinder",
+      "file": "rrclient/sercom.c",
+      "line": 1059,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcat:"
+    },
+    {
+      "id": "87a0873464ed091db4d2",
+      "scanner": "flawfinder",
+      "file": "rrclient/sercom.c",
+      "line": 1061,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcat:"
+    },
+    {
+      "id": "ba92955b7db68a95f318",
+      "scanner": "flawfinder",
+      "file": "rrclient/sercom.c",
+      "line": 1370,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "e7380d26aa72f4c21b88",
+      "scanner": "flawfinder",
+      "file": "rrclient/sercom.c",
+      "line": 1494,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: g_get_home_dir:"
+    },
+    {
+      "id": "028ac8a4b65d670f1b56",
+      "scanner": "flawfinder",
+      "file": "rrclient/sercom.c",
+      "line": 1834,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f34eb9c1517316c6ee6b",
+      "scanner": "flawfinder",
+      "file": "rrclient/serial.c",
+      "line": 263,
+      "severity": "severe",
+      "rule": "flawfinder.5",
+      "message": "race: readlink:"
+    },
+    {
+      "id": "7a32a615473b016b4968",
+      "scanner": "flawfinder",
+      "file": "rrclient/serial.c",
+      "line": 333,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d7025fb013f0b5e3f44b",
+      "scanner": "flawfinder",
+      "file": "rrclient/serial.c",
+      "line": 402,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "5bbd9f282e60e0460b7e",
+      "scanner": "flawfinder",
+      "file": "rrclient/spectrum.af.c",
+      "line": 230,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "dafe346fbe4b71abbcb4",
+      "scanner": "flawfinder",
+      "file": "rrclient/spectrum.af.c",
+      "line": 239,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "de6235cbbe79317bcefa",
+      "scanner": "flawfinder",
+      "file": "rrclient/supervision.c",
+      "line": 16,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d8ef3d2f78cf9de1d16d",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/audio_routes.c",
+      "line": 142,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "d69cc1aafc25058412f7",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/audio_routes.c",
+      "line": 222,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5a0fcb39a33e57bdd3ae",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/codec_commands.c",
+      "line": 67,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "d43f7b41422cd8e22f93",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/codec_commands.c",
+      "line": 535,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "20a25d2a68e2d2c29878",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/codec_commands.c",
+      "line": 552,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e2e9670a35d08e8b18ae",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/completion.c",
+      "line": 181,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e639c5a618b8a305b528",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/config_layers.c",
+      "line": 16,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "113060bd7bed96a40ca4",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/config_layers.c",
+      "line": 23,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "db8926805b868bc03e6a",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc.c",
+      "line": 88,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "tmpfile: mkstemp:"
+    },
+    {
+      "id": "7834178f900ceb69a0fc",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc.c",
+      "line": 137,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "8d56f9b5edd829389422",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc.c",
+      "line": 278,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6710c5b7fc188948aab6",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_audio.c",
+      "line": 57,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "ee5295fa91bbe1f3e199",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_audio.c",
+      "line": 77,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "953f4da2429e5f6779c4",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_audio.c",
+      "line": 108,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e8fc7507b384e1bdece6",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_commands.c",
+      "line": 28,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "fa37f9de985c781812b8",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_commands.c",
+      "line": 102,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "f2aabca3316d8a397fad",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_commands.c",
+      "line": 170,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "65548ec89a65d4771286",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_commands.c",
+      "line": 199,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "c57a4e03700dd93dce29",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_commands.c",
+      "line": 209,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "979a7a7c19eb0455971e",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/dcc_playback.c",
+      "line": 10,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d88170e03b9d66425954",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/exec.c",
+      "line": 48,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "14f9518e16d6dea40003",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/exec.c",
+      "line": 146,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "212df911f3c90d742208",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_admin.c",
+      "line": 329,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0aa222652289bc8437b7",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_audio_routing.c",
+      "line": 33,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "892163b211b04aae6d22",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_audio_routing.c",
+      "line": 132,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "22fbbfdcfd7e93a7dfc9",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_codec_picker.c",
+      "line": 30,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "42ad8d44e3f050e41cca",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_codec_picker.c",
+      "line": 56,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "1085c377ebeeec39f797",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_files.c",
+      "line": 253,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "91cd8fd66990794b86fa",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_files.c",
+      "line": 338,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "6f52a44b8823f2e21165",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_formatting.c",
+      "line": 755,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f17ec40c15cd2bbd4b06",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_serveredit.c",
+      "line": 28,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9ea53b7f812c961ec9e3",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_tabs.c",
+      "line": 100,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "16817116269ebad4fa94",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/gtk_webcam.c",
+      "line": 56,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6d9de281c4c1845d7b76",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/help.c",
+      "line": 31,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "7fab42783287e65a1642",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/help.c",
+      "line": 56,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "4ff6ac2507b7158a3815",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_audio.c",
+      "line": 47,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "a85869dc848dcb9063ca",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_audio.c",
+      "line": 53,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2140068754060f037bdd",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_audio.c",
+      "line": 87,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "06652f8d161667d7be50",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_capabilities.c",
+      "line": 154,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "9274337bbb63b099270a",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_config.c",
+      "line": 23,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "tmpfile: tmpfile:"
+    },
+    {
+      "id": "cbd6f81e715239e57f13",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_config.c",
+      "line": 26,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "41765aa089f39c2c3ddf",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_connect.c",
+      "line": 44,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "deaaae058ffdd133838c",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_echo.c",
+      "line": 15,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "39a0192f60dbffe43179",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_echo.c",
+      "line": 58,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "a9cddffbc994a02cc4c2",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_events.c",
+      "line": 149,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "77636fe93b41aaf4383e",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_events.c",
+      "line": 399,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ac9fb45c00583d796b1a",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_protocol.c",
+      "line": 128,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "fffe51f1767488252aae",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_sendq.c",
+      "line": 31,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "607e1a86c1d06150d310",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_sendq.c",
+      "line": 57,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "55846377372e8231db01",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_split.c",
+      "line": 25,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "8e3bec7cb8594ff5bdb7",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_split.c",
+      "line": 112,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "3c6e6a9d56668bf53e83",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/irc_split.c",
+      "line": 115,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "6c5aade7255afe94f274",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/media_direct.c",
+      "line": 119,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "88129d2e7cfee22532a6",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/media_direct.c",
+      "line": 150,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "26869ef7abb000ecf2aa",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/media_direct.c",
+      "line": 156,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "a3239f79633b78236931",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/object_command_windows.c",
+      "line": 26,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "15ec33df09d892a49684",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/object_command_windows.c",
+      "line": 93,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "740d559de56b2273413e",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/objects.c",
+      "line": 131,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "3d124ab12b55ce153382",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/offline_input.c",
+      "line": 29,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "aa8371104984e87f904c",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/offline_input.c",
+      "line": 58,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "8a4fcfd44d2171b2fb4b",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/ptt_ack.c",
+      "line": 20,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4b776f8868141c096ae8",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/query.c",
+      "line": 15,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "619382a1a8505f789df7",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/raw_irc_command.c",
+      "line": 20,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "87140073c0d4a4d94851",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/raw_irc_command.c",
+      "line": 46,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "03519ad92addf915a9d1",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/receiver_directory.c",
+      "line": 49,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: g_get_home_dir:"
+    },
+    {
+      "id": "80d6aeb481a03cd56163",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/recording_codecs.c",
+      "line": 75,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "07a23d24159416c8d00e",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/sercom.c",
+      "line": 33,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "0c5a608fa081f4d6b24a",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/sercom.c",
+      "line": 358,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "590cdc91a1b7845aee41",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/sercom.c",
+      "line": 384,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "3266f5a9b7b559ede1cf",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/sercom.c",
+      "line": 392,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b3aba4bb42d588c2cee1",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/server_picker.c",
+      "line": 129,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "67b7e5fe3abe041ce44f",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/socks_live.c",
+      "line": 48,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vfprintf:"
+    },
+    {
+      "id": "048e4929aba48a3f37ef",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/socks_live.c",
+      "line": 110,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "19c536c175c6e0158ef8",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/spectrum_af.c",
+      "line": 34,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ddae5471bed19fbefae4",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/status_line.c",
+      "line": 142,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "feaf93d3c43d0b0e0251",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/status_line.c",
+      "line": 182,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "tmpfile: tmpfile:"
+    },
+    {
+      "id": "6c2155815f40bb9f1bb2",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/status_line.c",
+      "line": 258,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b0d44b80561ddccfc2da",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/transport_urls.c",
+      "line": 97,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "4ad943e21ff77cdd6fa4",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/transport_urls.c",
+      "line": 725,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "987b417a1c4a3d01ca4b",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/transport_urls.c",
+      "line": 773,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "2e7d021bd2b51fbe315c",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/userlist_sessions.c",
+      "line": 71,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "870202a678f2bff8055c",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/userlist_vfo.c",
+      "line": 64,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6be2a3ef30bea68f16dd",
+      "scanner": "flawfinder",
+      "file": "rrclient/tests/userlist_width.c",
+      "line": 256,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "45223e0c3f7c2feb0092",
+      "scanner": "flawfinder",
+      "file": "rrclient/typing.c",
+      "line": 23,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "44cd084f93482ace9717",
+      "scanner": "flawfinder",
+      "file": "rrclient/ui.c",
+      "line": 154,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "8f3d277e67d40831f2b9",
+      "scanner": "flawfinder",
+      "file": "rrclient/ui.c",
+      "line": 187,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "139d4dce188ac8a2bdf2",
+      "scanner": "flawfinder",
+      "file": "rrclient/ui.statusbar.c",
+      "line": 208,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "01d09ace48167e416706",
+      "scanner": "flawfinder",
+      "file": "rrclient/ui.statusbar.c",
+      "line": 211,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "f94b4e3c465b080c711e",
+      "scanner": "flawfinder",
+      "file": "rrclient/userlist.c",
+      "line": 235,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "cf9448563a3c0f8a982e",
+      "scanner": "flawfinder",
+      "file": "rrclient/userlist.c",
+      "line": 591,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "81ee5f488b845ac229bc",
+      "scanner": "flawfinder",
+      "file": "rrclient/vfo.c",
+      "line": 326,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b4a2b6a92639c8bc25f4",
+      "scanner": "flawfinder",
+      "file": "rrclient/vfo.c",
+      "line": 408,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "059bb113961d74e126e1",
+      "scanner": "flawfinder",
+      "file": "rrclient/webcam.c",
+      "line": 138,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a6be8529544281bb4890",
+      "scanner": "flawfinder",
+      "file": "rrclient/win32.c",
+      "line": 76,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "01acf431c87b96ef0906",
+      "scanner": "flawfinder",
+      "file": "rrclient/ws.auth.c",
+      "line": 187,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e068a73b278df3543b30",
+      "scanner": "flawfinder",
+      "file": "rrclient/ws.client.shared.c",
+      "line": 98,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f488561f7de77a5f68f1",
+      "scanner": "flawfinder",
+      "file": "rrclient/ws.client.shared.c",
+      "line": 101,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "c93edeebe7fac8f4b3fa",
+      "scanner": "flawfinder",
+      "file": "rrclient/wsjtx.c",
+      "line": 271,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "0ef714565356335f2575",
+      "scanner": "flawfinder",
+      "file": "rrclient/wsjtx.c",
+      "line": 575,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "41d6610ea0c39c2a1d5c",
+      "scanner": "flawfinder",
+      "file": "rrsdrbridge/dds.ad9959_stm32.c",
+      "line": 385,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "d03714fddae2debac30c",
+      "scanner": "flawfinder",
+      "file": "rrsdrbridge/dds.ad9959_stm32.c",
+      "line": 925,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "0bf6b838f76dcfd58e83",
+      "scanner": "flawfinder",
+      "file": "rrsdrbridge/dds.ad9959_stm32.c",
+      "line": 993,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getopt_long:"
+    },
+    {
+      "id": "02b01fcb4fba4f341453",
+      "scanner": "flawfinder",
+      "file": "rrsdrbridge/dds.ad9959_stm32.c",
+      "line": 1001,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "9cbbdb21a43d1107db79",
+      "scanner": "flawfinder",
+      "file": "rrsdrbridge/dds.ad9959_stm32.c",
+      "line": 1056,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "a43dc687d4b2473476ec",
+      "scanner": "flawfinder",
+      "file": "rrsdrbridge/dds.ad9959_stm32.c",
+      "line": 1096,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c9923854c8d989d59a47",
+      "scanner": "flawfinder",
+      "file": "rrsdrbridge/tests/mqtt_security.c",
+      "line": 46,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "87000e4d3e595e793f2f",
+      "scanner": "flawfinder",
+      "file": "rrserver/acl.c",
+      "line": 85,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b297e9a5770091bf0b60",
+      "scanner": "flawfinder",
+      "file": "rrserver/au.pipe.c",
+      "line": 33,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "1be69c7405d7d2a9c450",
+      "scanner": "flawfinder",
+      "file": "rrserver/au.pipe.c",
+      "line": 143,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "5c9f68673ce7006ee3f7",
+      "scanner": "flawfinder",
+      "file": "rrserver/au.recording.c",
+      "line": 76,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d1f68d46af4762aab632",
+      "scanner": "flawfinder",
+      "file": "rrserver/au.recording.c",
+      "line": 153,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "45c851cb494d2c725434",
+      "scanner": "flawfinder",
+      "file": "rrserver/audit.c",
+      "line": 39,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "23b03584594420aae294",
+      "scanner": "flawfinder",
+      "file": "rrserver/audit.c",
+      "line": 41,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "5bc7f2d72498f5a99156",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.c",
+      "line": 179,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "bfb1137c1f63d7c1531d",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.c",
+      "line": 546,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atol:"
+    },
+    {
+      "id": "d7771ba9b7ce5a7a771a",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.hamlib.c",
+      "line": 109,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "ed9fc747f57d88ba5841",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.hamlib.c",
+      "line": 511,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0ea2a0446d33c7a02d3a",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.hamlib.c",
+      "line": 914,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atol:"
+    },
+    {
+      "id": "74dcb41b8272a08f138c",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.instance.c",
+      "line": 142,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5af080974a14676622cc",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.internal-parts.c",
+      "line": 158,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "543c921f01a096eb7cc2",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.internal.c",
+      "line": 91,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "63b3a068462fa9f17152",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.internal.c",
+      "line": 228,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atol:"
+    },
+    {
+      "id": "28fa41bdf01f938555db",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.worker.c",
+      "line": 266,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ad6922a3dbe49d48d100",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.worker.c",
+      "line": 288,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "4b69fba8d31b91a6c8dc",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.worker.c",
+      "line": 615,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "12258a76676e799ea961",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.yaesu.c",
+      "line": 87,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "dbeaa7c2325b0f3a5198",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.yaesu.c",
+      "line": 221,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "641946802cc3786519a2",
+      "scanner": "flawfinder",
+      "file": "rrserver/backend.yaesu.c",
+      "line": 2031,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d3b86ff1623ca94cb051",
+      "scanner": "flawfinder",
+      "file": "rrserver/bridge.access.c",
+      "line": 145,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "0829d7299ce000f4a387",
+      "scanner": "flawfinder",
+      "file": "rrserver/bridge.hints.c",
+      "line": 120,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "4d0f4b7cdefd96b946b4",
+      "scanner": "flawfinder",
+      "file": "rrserver/bridge.hints.c",
+      "line": 224,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2cee27035176b6ff881a",
+      "scanner": "flawfinder",
+      "file": "rrserver/bridge.manager.c",
+      "line": 1784,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "random: g_random_int:"
+    },
+    {
+      "id": "19664d5da4747ac00cfc",
+      "scanner": "flawfinder",
+      "file": "rrserver/bridge.manager.c",
+      "line": 1915,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "65bff0958433cd900512",
+      "scanner": "flawfinder",
+      "file": "rrserver/bridge.manager.c",
+      "line": 2101,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "dc574647cc07aea868cd",
+      "scanner": "flawfinder",
+      "file": "rrserver/cfg.acl.c",
+      "line": 101,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "e1586160cf9aba2cf62d",
+      "scanner": "flawfinder",
+      "file": "rrserver/cfg.acl.c",
+      "line": 160,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "1b5f25aa6160647a9f0c",
+      "scanner": "flawfinder",
+      "file": "rrserver/cfg.files.c",
+      "line": 49,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a55d430353b569d7cfd3",
+      "scanner": "flawfinder",
+      "file": "rrserver/cfg.gpio.c",
+      "line": 86,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: realpath:"
+    },
+    {
+      "id": "28ecd3b9479405b942a2",
+      "scanner": "flawfinder",
+      "file": "rrserver/cfg.peer.c",
+      "line": 69,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9ca09700c490ba1eadf4",
+      "scanner": "flawfinder",
+      "file": "rrserver/cfg.rig.c",
+      "line": 133,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "60f6b66ce1268292a67c",
+      "scanner": "flawfinder",
+      "file": "rrserver/cfg.rtp.c",
+      "line": 88,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2e100bf8c4d84587ef2a",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.accounting.c",
+      "line": 83,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2ea7856ea3a6c4d8d2cc",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.c",
+      "line": 34,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "e475cbdc4faef8d86278",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.c",
+      "line": 106,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "63f768cbf0fd122f97b0",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.c",
+      "line": 717,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2c1fad6c3f6be0c856f9",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.c",
+      "line": 856,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "718e5f8febedd1184ed2",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.rooms.c",
+      "line": 673,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "6e85ed462ceb2917ceb1",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.rooms.c",
+      "line": 832,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "44822c063a1ae909985d",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.users.c",
+      "line": 300,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "7bec6f83a1d611db7445",
+      "scanner": "flawfinder",
+      "file": "rrserver/database.users.c",
+      "line": 566,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "562ee3532e75ce47017b",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.admin.c",
+      "line": 1370,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "f0fa5ddbb8aa71811136",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.admin.c",
+      "line": 1741,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "3232a870a1d20f5fcbdb",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.admin.c",
+      "line": 1814,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "33e4b06cdcb957035ca9",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.c",
+      "line": 231,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c465684110434dca89f1",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.quota.c",
+      "line": 240,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "7e809dbdb7750e8268d8",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.rooms.c",
+      "line": 427,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "37439a4c03702c08d057",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.rooms.c",
+      "line": 516,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5f3a70f2af2352f50273",
+      "scanner": "flawfinder",
+      "file": "rrserver/events.users.c",
+      "line": 627,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "1db338557cd0d0dc40c7",
+      "scanner": "flawfinder",
+      "file": "rrserver/files.c",
+      "line": 101,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "72c7e0dcfc124f1742bf",
+      "scanner": "flawfinder",
+      "file": "rrserver/files.c",
+      "line": 746,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "0365937d61083aa1e0f4",
+      "scanner": "flawfinder",
+      "file": "rrserver/files.c",
+      "line": 763,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "44d05317d744ada512ef",
+      "scanner": "flawfinder",
+      "file": "rrserver/files.c",
+      "line": 771,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "bfe7496954ed62dbaee6",
+      "scanner": "flawfinder",
+      "file": "rrserver/gps.c",
+      "line": 566,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "3dd3cc7e68023478bd61",
+      "scanner": "flawfinder",
+      "file": "rrserver/gps.c",
+      "line": 567,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: snprintf:"
+    },
+    {
+      "id": "b45cceb2bb7f6ef08b0a",
+      "scanner": "flawfinder",
+      "file": "rrserver/hardware.si5351.c",
+      "line": 48,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "8ddeb2f8371d6ff56443",
+      "scanner": "flawfinder",
+      "file": "rrserver/hardware.si5351.c",
+      "line": 88,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "40dc5bb0e39974532792",
+      "scanner": "flawfinder",
+      "file": "rrserver/hardware.si5351.c",
+      "line": 168,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: realpath:"
+    },
+    {
+      "id": "28211a696506c2aee84f",
+      "scanner": "flawfinder",
+      "file": "rrserver/hostlog.c",
+      "line": 68,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "7a5902f51a0fab254857",
+      "scanner": "flawfinder",
+      "file": "rrserver/hostlog.c",
+      "line": 114,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "cb46de2efefad8c05993",
+      "scanner": "flawfinder",
+      "file": "rrserver/http.api.c",
+      "line": 51,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "19df17a00012947655a9",
+      "scanner": "flawfinder",
+      "file": "rrserver/http.bans.c",
+      "line": 112,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "6345c9585d8310ba7081",
+      "scanner": "flawfinder",
+      "file": "rrserver/http.bans.c",
+      "line": 170,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "eabee150fdd57589f26d",
+      "scanner": "flawfinder",
+      "file": "rrserver/i2c.linux.c",
+      "line": 29,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "7503f89c9140ae90fd41",
+      "scanner": "flawfinder",
+      "file": "rrserver/identity.c",
+      "line": 139,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "ff218e4b4e643c58d4e0",
+      "scanner": "flawfinder",
+      "file": "rrserver/identity.c",
+      "line": 948,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "37bb5722ee1b439ca462",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.admin.c",
+      "line": 149,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "541f12cdecc57b4a673c",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.admin.c",
+      "line": 163,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6cd156ac9efd2022fea4",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.admin.c",
+      "line": 284,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "6608c2c5b80638522bc9",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.c",
+      "line": 43,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "2625903b46f31513af2c",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.c",
+      "line": 1155,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "103f8b292b3dbafb95f8",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.c",
+      "line": 1379,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "random: g_random_int_range:"
+    },
+    {
+      "id": "37485e0397a8d4f26a90",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.c",
+      "line": 1741,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "9b55745404042a232acd",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.c",
+      "line": 1742,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "fa7a5b2f501317670e69",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.c",
+      "line": 1761,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "398e57d3ef70b4fb3aa7",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.mesh.c",
+      "line": 112,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a4a87aeb643ddee22bdd",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.mesh.c",
+      "line": 176,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "bedbdfc203c05dfec749",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.native.c",
+      "line": 149,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d0013ae4f4ede9ec2fa9",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.tree.c",
+      "line": 10,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f8143354b4a0c126d8b1",
+      "scanner": "flawfinder",
+      "file": "rrserver/link.tree.c",
+      "line": 206,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "d1e013682e2bfc54dfbe",
+      "scanner": "flawfinder",
+      "file": "rrserver/main.c",
+      "line": 151,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "shell: execv:"
+    },
+    {
+      "id": "cdef6e148bb9aa3cc4a7",
+      "scanner": "flawfinder",
+      "file": "rrserver/main.c",
+      "line": 423,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "efcb4886838b9b0d0937",
+      "scanner": "flawfinder",
+      "file": "rrserver/main.c",
+      "line": 514,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "968d81bbd4d709c3a60e",
+      "scanner": "flawfinder",
+      "file": "rrserver/main.c",
+      "line": 521,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "803c2f7988b020227fb5",
+      "scanner": "flawfinder",
+      "file": "rrserver/main.c",
+      "line": 659,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getopt_long:"
+    },
+    {
+      "id": "62e72b53a4c3630b2195",
+      "scanner": "flawfinder",
+      "file": "rrserver/main.c",
+      "line": 818,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "random: srand:"
+    },
+    {
+      "id": "c7f80ef47b7598ac10d2",
+      "scanner": "flawfinder",
+      "file": "rrserver/main.c",
+      "line": 899,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "50e3eff66a57a25c25ab",
+      "scanner": "flawfinder",
+      "file": "rrserver/media.c",
+      "line": 720,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "497eaec34adf0a136d86",
+      "scanner": "flawfinder",
+      "file": "rrserver/media.direct.c",
+      "line": 184,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcat:"
+    },
+    {
+      "id": "5c93fbb1d67fe67d96d7",
+      "scanner": "flawfinder",
+      "file": "rrserver/media.direct.c",
+      "line": 277,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "random: random:"
+    },
+    {
+      "id": "c0dd07571696ca887dc6",
+      "scanner": "flawfinder",
+      "file": "rrserver/media.direct.c",
+      "line": 327,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "0fbc8f8ff0a7d37075ee",
+      "scanner": "flawfinder",
+      "file": "rrserver/media.direct.c",
+      "line": 668,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c1b4f571db37d4818e0a",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.enroll.c",
+      "line": 255,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "e1c011cfa10010e3c4f5",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.enroll.c",
+      "line": 363,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "7116010c1d05ccd82a50",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.enroll.c",
+      "line": 525,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "3747b65ac5094a76667f",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.enroll.native.c",
+      "line": 69,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "278eea26611926863fdb",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.enroll.native.c",
+      "line": 183,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "33d39e10045f76a398a2",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.wss.c",
+      "line": 374,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e47eea2790a8ca28debb",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.wss.c",
+      "line": 850,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: snprintf:"
+    },
+    {
+      "id": "2a16a655846afaa3ca55",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.wss.c",
+      "line": 887,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "fc974eb14e973960da6a",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.wss.c",
+      "line": 925,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "aa41bfd66351136b77da",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.wss.http.c",
+      "line": 162,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "340335fce9c0531e8847",
+      "scanner": "flawfinder",
+      "file": "rrserver/mesh.wss.http.c",
+      "line": 168,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c6ba5227d3036962ccba",
+      "scanner": "flawfinder",
+      "file": "rrserver/module.gpsd.c",
+      "line": 196,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "4e4c8b5af24d31c4f1de",
+      "scanner": "flawfinder",
+      "file": "rrserver/module.gpsd.c",
+      "line": 214,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5524b57ef549430e55a4",
+      "scanner": "flawfinder",
+      "file": "rrserver/mqtt.c",
+      "line": 334,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "2bac21b9e95a5ac6a6f1",
+      "scanner": "flawfinder",
+      "file": "rrserver/mqtt.c",
+      "line": 340,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4620ceaff1805e13ac2b",
+      "scanner": "flawfinder",
+      "file": "rrserver/network.c",
+      "line": 95,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "ac37003f87e90c75a0ef",
+      "scanner": "flawfinder",
+      "file": "rrserver/network.c",
+      "line": 111,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ccf985f65fcf57277d37",
+      "scanner": "flawfinder",
+      "file": "rrserver/objects.c",
+      "line": 1099,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0faf39ef3322679f6b0e",
+      "scanner": "flawfinder",
+      "file": "rrserver/password.hash.c",
+      "line": 12,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b184e69d9c1b9083a1fb",
+      "scanner": "flawfinder",
+      "file": "rrserver/performance.c",
+      "line": 55,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "a62074de0cac2f1d793b",
+      "scanner": "flawfinder",
+      "file": "rrserver/performance.c",
+      "line": 95,
+      "severity": "severe",
+      "rule": "flawfinder.5",
+      "message": "race: readlink:"
+    },
+    {
+      "id": "6fa318cb5989576cad6a",
+      "scanner": "flawfinder",
+      "file": "rrserver/performance.c",
+      "line": 247,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0befc0d9036237a09e2a",
+      "scanner": "flawfinder",
+      "file": "rrserver/platform.backlight.c",
+      "line": 70,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "60c76a906887cd67efe9",
+      "scanner": "flawfinder",
+      "file": "rrserver/platform.backlight.c",
+      "line": 97,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "ec70ad5d44c52b8cab48",
+      "scanner": "flawfinder",
+      "file": "rrserver/platform.backlight.c",
+      "line": 134,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "44b5ecd776d5222749f0",
+      "scanner": "flawfinder",
+      "file": "rrserver/platform.backlight.c",
+      "line": 141,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "867b6ef2cb99d8f51d81",
+      "scanner": "flawfinder",
+      "file": "rrserver/protection.c",
+      "line": 46,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6abb8d3b58120881a576",
+      "scanner": "flawfinder",
+      "file": "rrserver/ptt.c",
+      "line": 775,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e92fb3417e8aa37b01a2",
+      "scanner": "flawfinder",
+      "file": "rrserver/receiver.directory.c",
+      "line": 27,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2803e6a2d06e419f7bc8",
+      "scanner": "flawfinder",
+      "file": "rrserver/receiver.directory.c",
+      "line": 178,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "930fecc005f5c49af0b3",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.c",
+      "line": 477,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "18365b4561519b9580b5",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.c",
+      "line": 1086,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "1e75b557dfd8415274dd",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.c",
+      "line": 1513,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "3d65f4118c919df8c49d",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.c",
+      "line": 1793,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "fd95239ea7d8bc48b1ef",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.catalog.c",
+      "line": 366,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "735dfdbf777ae3db4938",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.catalog.c",
+      "line": 1026,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "81a72912c816c973fd54",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.catalog.c",
+      "line": 1067,
+      "severity": "severe",
+      "rule": "flawfinder.5",
+      "message": "race: readlink:"
+    },
+    {
+      "id": "522a6726a9603aee223c",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.catalog.c",
+      "line": 1551,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "991adee36ac8ca2b1c6e",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.catalog.c",
+      "line": 2342,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "53889892970006e2f03a",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.catalog.c",
+      "line": 2404,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "89cbdb8a526aca90758b",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.media.c",
+      "line": 387,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "6a04b4bf9429e89a33a3",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.sessions.c",
+      "line": 683,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "637d4cd6e8554a96b273",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.sessions.c",
+      "line": 984,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "1ec740e4f840c2e0a47e",
+      "scanner": "flawfinder",
+      "file": "rrserver/relay.users.c",
+      "line": 107,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "8faa9d0ed505962d0ccb",
+      "scanner": "flawfinder",
+      "file": "rrserver/revocation.c",
+      "line": 110,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "436f784287c5c6b3f20a",
+      "scanner": "flawfinder",
+      "file": "rrserver/rig.compat.c",
+      "line": 85,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "05e82bc60d9cbaab490a",
+      "scanner": "flawfinder",
+      "file": "rrserver/rig.properties.c",
+      "line": 741,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d6d6b8f0252a45de86d0",
+      "scanner": "flawfinder",
+      "file": "rrserver/rig.registry.c",
+      "line": 270,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "dbf1e520688962496691",
+      "scanner": "flawfinder",
+      "file": "rrserver/rig.rooms.c",
+      "line": 108,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ad654d856b5b71bc79e5",
+      "scanner": "flawfinder",
+      "file": "rrserver/rx.slice.c",
+      "line": 120,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "02bf74c5a7216b37c67d",
+      "scanner": "flawfinder",
+      "file": "rrserver/serial.c",
+      "line": 708,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "eb44532b88caf57c9d61",
+      "scanner": "flawfinder",
+      "file": "rrserver/serial.c",
+      "line": 1048,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getenv:"
+    },
+    {
+      "id": "7e76f690fd81cbdcb574",
+      "scanner": "flawfinder",
+      "file": "rrserver/serial.c",
+      "line": 1058,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: g_get_home_dir:"
+    },
+    {
+      "id": "5094dc9ea39b52a4302f",
+      "scanner": "flawfinder",
+      "file": "rrserver/serial.c",
+      "line": 1113,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "c4bde64b7d3b0512fe28",
+      "scanner": "flawfinder",
+      "file": "rrserver/serial.c",
+      "line": 1121,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "699a50cac481f720522b",
+      "scanner": "flawfinder",
+      "file": "rrserver/si5351-tool.c",
+      "line": 87,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: getopt_long:"
+    },
+    {
+      "id": "9133525ad368a6b1d7e4",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.auth.c",
+      "line": 156,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "ab05b6b2d18ccdf5a8ae",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.auth.c",
+      "line": 291,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6bad87dad33b9e2f67ef",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.auth.passdb.c",
+      "line": 136,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "3bf76f72dc50baa6d90e",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.auth.passdb.c",
+      "line": 144,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4686fb83f7e00e18d917",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.auth.passdb.c",
+      "line": 217,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "0b9d4c71c3dcf2160dee",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.chat.c",
+      "line": 242,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "f2c2f1b8e7c2918917d3",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.chat.c",
+      "line": 2120,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b4e744cea0a9f6229abd",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.chat.c",
+      "line": 2148,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "854d6e56420802779856",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.chat.error.c",
+      "line": 56,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a0adf220b30ab2a16e48",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.chat.whois.c",
+      "line": 40,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "1911907f451378bfcd5a",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.client.c",
+      "line": 139,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "f849363bfc4bac28cb4d",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.client.c",
+      "line": 229,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "ad6dfc7d460d16d246aa",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.http.c",
+      "line": 179,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: realpath:"
+    },
+    {
+      "id": "2a3e5641f17733d2d3fe",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.http.c",
+      "line": 647,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "aff4d7168fd7381dc81e",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.http.c",
+      "line": 864,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "47b7fe9618b24899a3a9",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.http.c",
+      "line": 943,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "ae859e10dc5be8204d9a",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.http.listeners.c",
+      "line": 229,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "925e4ac6b9d3c5386992",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.ptt.disconnect.c",
+      "line": 34,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "6a6bff021f7b51acf316",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.rigctl.c",
+      "line": 102,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "501bd368b2bbf4221154",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.rigctl.c",
+      "line": 645,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "68431fe987ed8dfdb4a9",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.send.c",
+      "line": 33,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "31f347d3a2941f3c53a6",
+      "scanner": "flawfinder",
+      "file": "rrserver/srv.send.c",
+      "line": 34,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: vsnprintf:"
+    },
+    {
+      "id": "203d90a9a2d0be1a0ade",
+      "scanner": "flawfinder",
+      "file": "rrserver/supervision.c",
+      "line": 253,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "48094172ef3a5d7cd6d0",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/acl_config.c",
+      "line": 51,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "301403da46fbd660d61d",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/acl_config.c",
+      "line": 73,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "f42867c77541b42d3146",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/backend_workers.c",
+      "line": 237,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5d35c3f98c31b5a2e8bf",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/bridge_access.c",
+      "line": 162,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "4c9a8bee44e7ff530f7d",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/bridge_validation.c",
+      "line": 51,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "2651081752fb7c22c0e6",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/bridge_validation.c",
+      "line": 56,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f4b6d899ba50b03a821b",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/bridge_validation.c",
+      "line": 57,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: realpath:"
+    },
+    {
+      "id": "ac77f75243c69d1a7d0a",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/bridge_validation.c",
+      "line": 70,
+      "severity": "severe",
+      "rule": "flawfinder.5",
+      "message": "race: chmod:"
+    },
+    {
+      "id": "da154e1b174e2d30ad49",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/bridge_validation.c",
+      "line": 136,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "4cb2ac87358213129f9f",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/database.c",
+      "line": 454,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "tmpfile: mkstemp:"
+    },
+    {
+      "id": "a64b6b98fcd81ea4366b",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/database.c",
+      "line": 459,
+      "severity": "moderate",
+      "rule": "flawfinder.3",
+      "message": "buffer: realpath:"
+    },
+    {
+      "id": "062bfd7d55d1084ddd7d",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/database.c",
+      "line": 473,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "bff371976fecc27b26d5",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/database.c",
+      "line": 475,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "bc68815f1b2f533d4c69",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/gps.c",
+      "line": 98,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "df5424c0d304081f4dce",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/gps.c",
+      "line": 159,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "65815fe95e65d8ad1d97",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/media_channels.c",
+      "line": 165,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "2f899274a66087d5ad20",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/media_channels.c",
+      "line": 355,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "85aab9bae6581c0ede06",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/media_channels.c",
+      "line": 356,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "c0369c02d1c56ea0f74a",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 106,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "integer: atoi:"
+    },
+    {
+      "id": "1177bda7203344acf61b",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/mesh_probe.c",
+      "line": 128,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "5ef7d639adebb764de6f",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/multirig.c",
+      "line": 341,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "b8f081389a7701e31eb9",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/multirig_live.c",
+      "line": 248,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d03540d91ef7f2046de9",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/object_protocol.h",
+      "line": 126,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "78f20304e59ab784dbdb",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/object_protocol.h",
+      "line": 135,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "d03f80cba63f8706783a",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/relay_ptt_release.c",
+      "line": 85,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "fe3e1025484e3d4fc410",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/relay_ptt_release.c",
+      "line": 122,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "f5fb7a54923981a07f8a",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/relay_users.c",
+      "line": 91,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: strcpy:"
+    },
+    {
+      "id": "f0925f509de05629cada",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/rig_properties.c",
+      "line": 451,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "761261fb688c7eedb80f",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/room_confirmation.c",
+      "line": 66,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "a8f46ece85cc4bcd07c6",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/rtp_peer.c",
+      "line": 76,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "0fca3f27fd7705b74e65",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/rtp_peer.c",
+      "line": 85,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "75cd92f220f43eb1521e",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/rx_slice.c",
+      "line": 14,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "8d2068dc4bc70921b827",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/serial_tunnel.c",
+      "line": 283,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "56b74e57ded1f7daba03",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/serial_tunnel.c",
+      "line": 348,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: open:"
+    },
+    {
+      "id": "e455bcb24014b9330351",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/serial_tunnel.c",
+      "line": 349,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "e501dd1b6f5ce6458719",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/si5351.c",
+      "line": 116,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "ddbbd05c0d1bab72c83f",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/si5351_registry.c",
+      "line": 23,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "f28e435c6fbe60554f1b",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/si5351_registry.c",
+      "line": 32,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "misc: fopen:"
+    },
+    {
+      "id": "a8b6a01e4b16409751ef",
+      "scanner": "flawfinder",
+      "file": "rrserver/tests/supervision.c",
+      "line": 99,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "7711bd54c97c45fe8ec5",
+      "scanner": "flawfinder",
+      "file": "rrserver/timer.clocktick.c",
+      "line": 78,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "4bd260b21021f2f43c88",
+      "scanner": "flawfinder",
+      "file": "rrserver/unwind.c",
+      "line": 27,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "7485d31536dff064a530",
+      "scanner": "flawfinder",
+      "file": "rrserver/usage.c",
+      "line": 232,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "13d87a9e76959d6aef9f",
+      "scanner": "flawfinder",
+      "file": "rrserver/usage.c",
+      "line": 235,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "format: snprintf:"
+    },
+    {
+      "id": "64750aa151d52b5d5413",
+      "scanner": "flawfinder",
+      "file": "rrserver/webcam.c",
+      "line": 324,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    },
+    {
+      "id": "32117f30a4115c01e171",
+      "scanner": "flawfinder",
+      "file": "rrserver/ws.mediachan.c",
+      "line": 180,
+      "severity": "severe",
+      "rule": "flawfinder.4",
+      "message": "race: access:"
+    },
+    {
+      "id": "206c80f16a1feef7e6d7",
+      "scanner": "flawfinder",
+      "file": "rrserver/ws.mediachan.c",
+      "line": 1076,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: memcpy:"
+    },
+    {
+      "id": "59f227917e30293dfc0b",
+      "scanner": "flawfinder",
+      "file": "rrserver/ws.mediachan.c",
+      "line": 1143,
+      "severity": "moderate",
+      "rule": "flawfinder.2",
+      "message": "buffer: char:"
+    }
+  ]
+}
