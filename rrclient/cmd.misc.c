@@ -170,7 +170,9 @@ static bool cmd_set_list(const char *pattern) {
       keys[count++] = (char *)defkey;
    }
 
-   qsort(keys, count, sizeof(*keys), cmd_set_key_cmp);
+   if (count > 1) {
+      qsort(keys, count, sizeof(*keys), cmd_set_key_cmp);
+   }
 
    for (size_t i = 0 ; i < count ; i++) {
       cmd_set_print_key(keys[i]);
