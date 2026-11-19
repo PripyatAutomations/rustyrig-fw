@@ -7,6 +7,12 @@ if [[ ${RR_TEST_XVFB:-} != 1 ]]; then
   exec "$ROOT/tests/with-xvfb.sh" bash "$ROOT/tests/run-tests.sh" "$@"
 fi
 
+# The public headers live under inc/rrclient/ and inc/rrserver/.
+# Some standalone test scripts omit -Iinc; propagate it to every test compiler
+# without changing production include directives or creating shadow headers.
+C_INCLUDE_PATH="$ROOT/inc${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
+export C_INCLUDE_PATH
+
 # Many component tests compile small C harnesses directly and rely on GLib
 # headers without going through the project makefiles. Keep their compiler
 # search path consistent with the normal build's pkg-config flags.
