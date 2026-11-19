@@ -62,17 +62,22 @@ def seed(database, subjects):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("database", help="new master.db path")
+    parser.add_argument("--check", action="store_true", help="validate the subject list without writing")
+    parser.add_argument("database", nargs="?", help="new master.db path")
     args = parser.parse_args()
     raw = sys.stdin.read(MAX_INPUT + 1)
     try:
         subjects = parse_subjects(raw)
-        seed(args.database, subjects)
+        if not args.check:
+            if not args.database:
+                parser.error("database path required unless --check is used")
+            seed(args.database, subjects)
     except (ValueError, sqlite3.Error) as error:
         print("rustyrig remote access: " + str(error), file=sys.stderr)
         return 1
-    print("RustyRig: created remote-admin policies for "
-          + str(len(subjects)) + " subject(s); mesh identities still require verification.")
+    if not args.check:
+        print("RustyRig: created remote-admin policies for "
+              + str(len(subjects)) + " subject(s); mesh identities still require verification.")
     return 0
 
 
