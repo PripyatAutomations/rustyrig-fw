@@ -33,7 +33,7 @@ jq '.backend.hamlib = false' config/radio.config.json > "$work/source/config/rad
 cp debian/control debian/rules debian/rustyrig-server.maintscript "$work/source/debian/"
 cp -L debian/changelog "$work/source/debian/changelog"
 for package in rustyrig-server rustyrig-client rustyrig-fwdsp; do
-   printf '#!/bin/sh\nexit 0\n' > "$work/source/debian/$package.preinst"
+   printf '#!/bin/sh\nset -e\n#DEBHELPER#\nexit 0\n' > "$work/source/debian/$package.preinst"
 done
 stage_config() {
    local package=$1 name=$2
