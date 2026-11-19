@@ -351,6 +351,53 @@ static void received(const char *event, const char *data, rrconn_t *c, void *con
    dict_free(d);
 }
 
+/* The transport's FILE dispatcher hands over only the borrowed payload.
+ * A response is bound to the exact authenticated connection and transfer
+ * UUID. Never interpret received filenames or filesystem destinations. */
+static void binary_received(const char *event, const void *data, size_t length,
+                            rrconn_t *c, void *context) {
+   (void)event;
+   (void)context;
+   if (!c || !c->authenticated || !c->native_transport) return;
+   rr_file_chunk_t chunk;
+
+   if (!rr_file_chunk_unpack(&chunk, data, length)) return;
+   const char *profile = rrclient_connection_name(c);
+   struct transfer *t = transfers;
+
+   while (t && (strcmp(t->id, chunk.id) || !profile || strcmp(t->profile, profile))) {
+      t = t->next;
+   }
+   if (!t || t->upload || !t->binary || !t->file) return;
+   if (chunk.offset != t->offset ||
+       (chunk.length && fwrite(chunk.bytes, 1, chunk.length, t->file) != chunk.length)) {
+      finish(t, "Binary download offset or local write failed", c);
+      return;
+   }
+   t->offset += chunk.length;
+   t->activity = mono_us();
+   dict *progress = message("data", t->remote, t->id);
+
+   if (progress) {
+      dict_add_ullong(progress, "file.offset", t->offset);
+      event_emit_dict("client.files.progress", c, progress);
+      dict_free(progress);
+   }
+   if (chunk.fin) {
+      int rc = fclose(t->file);
+      t->file = NULL;
+      if (rc || rename(t->temp, t->local)) {
+         finish(t, "Cannot publish local binary download", c);
+      } else {
+         finish(t, NULL, c);
+      }
+   } else if (!chunk.length) {
+      finish(t, "Empty binary download chunk", c);
+   } else {
+      next(t, c);
+   }
+}
+
 static void disconnected(const char *event, const char *data, rrconn_t *c, void *context) {
    const char *profile = rrclient_connection_name(c);
    struct transfer *t = transfers, *following;
@@ -452,6 +499,7 @@ bool cmd_files(int argc, char **args) {
 
 void rrclient_files_register(void) {
    event_on("ws.msg.file", received, NULL);
+   event_on_binary("media.frame.file", binary_received, NULL);
    event_on("disconnected", disconnected, NULL);
    event_on_domain_token("client.files.command-request", files_command_request, NULL, "core");
    event_on_domain_token("client.files.sites-request", files_sites_request, NULL, "core");
