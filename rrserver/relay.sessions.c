@@ -71,28 +71,34 @@ bool rr_relay_remote_file_allowed(rrconn_t *client, const char *share, const cha
    }
    const char *username = remote->remote_account.name;
    time_t at = time(NULL);
-   rr_resource_access_t access = db_resource_access_named(masterdb, username, host, "file", share, privilege, at, share);
-
-   if (access == RR_RESOURCE_DENY) {
-      return false;
-   }
-   bool allowed = access == RR_RESOURCE_ALLOW;
-   /* Preserve older share-wide grants while allowing fine-grained grants.
-    * Explicit denies on either requested or legacy permissions win. */
+   bool allowed = false;
+   /* A specific file grant or a site-wide grant can authorize the operation.
+    * Explicit denies override any broader grant, including admin/owner.
+    * Legacy files.read/write grants remain usable in remote ACLs. */
    const char *legacy = rr_files_operation_writes(operation) ? "files.write" : "files.read";
-   access = db_resource_access_named(masterdb, username, host, "file", share, legacy, at, share);
+   const char *operations[] = { privilege, legacy };
 
-   if (access == RR_RESOURCE_DENY) {
-      return false;
+   for (unsigned i = 0; i < 2; ++i) {
+      rr_resource_access_t access = db_resource_access_named(masterdb, username, host, "file", share, operations[i], at, share);
+
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
+      allowed |= access == RR_RESOURCE_ALLOW;
+      access = db_resource_access_named(masterdb, username, host, "site", "*", operations[i], at, NULL);
+
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
+      allowed |= access == RR_RESOURCE_ALLOW;
    }
-   allowed |= access == RR_RESOURCE_ALLOW;
 
    /* A destination-issued file-scoped or site-scoped admin/owner grant may
     * access exported shares; these are not imported from source-site roles.
     * Share read=none / write=none and OS permissions are still enforced. */
    for (unsigned i = 0; i < 2; ++i) {
       const char *role = i ? "owner" : "admin";
-      access = db_resource_access_named(masterdb, username, host, "file", share, role, at, share);
+      rr_resource_access_t access = db_resource_access_named(masterdb, username, host, "file", share, role, at, share);
 
       if (access == RR_RESOURCE_ALLOW) {
          allowed = true;
