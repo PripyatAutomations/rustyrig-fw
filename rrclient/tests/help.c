@@ -67,7 +67,11 @@ int main(void) {
    assert(strstr(output, "Connection") < strstr(output, "/help"));
    assert(strstr(output, "Media") < strstr(output, "/media"));
    assert(!strstr(strstr(output, "Media") + 5, "Media"));
-   assert(!strstr(output, "Administration") && !strstr(output, "/syslog"));
+   /* Help intentionally documents restricted commands for discoverability.
+    * It must label their privilege requirement, not imply permission. */
+   assert(strstr(output, "Administration"));
+   assert(strstr(output, "/syslog"));
+   assert(strstr(output, "(admin/owner)"));
    output[0] = 0;
    staff = true;
    ui_mode = UI_MODE_TUI;
