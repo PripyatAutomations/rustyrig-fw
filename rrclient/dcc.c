@@ -163,7 +163,17 @@ static char *command_rest(int argc, char **args, int first) {
    size_t size = 1;
 
    for (int i = first ; i < argc ; i++) {
-      size += strlen(args[i]) + 1;
+      if (!args[i]) {
+         return NULL;
+      }
+      size_t length = strlen(args[i]);
+
+      /* Include one separator per argument, with room for the NUL.
+       * Never let untrusted command arguments wrap the allocation size. */
+      if (length > SIZE_MAX - size - 1) {
+         return NULL;
+      }
+      size += length + 1;
    }
 
    char *result = malloc(size);
@@ -171,16 +181,17 @@ static char *command_rest(int argc, char **args, int first) {
    if (!result) {
       return NULL;
    }
-   result[0] = 0;
+   size_t length = 0;
 
    for (int i = first ; i < argc ; i++) {
       if (i != first) {
-         strcat(result, " ");
+         result[length++] = ' ';
       }
-      strcat(result, args[i]);
+      size_t n = strlen(args[i]);
+      memcpy(result + length, args[i], n);
+      length += n;
    }
-
-   size_t length = strlen(result);
+   result[length] = '\0';
 
    if (length >= 2 && result[0] == '"' && result[length - 1] == '"') {
       memmove(result, result + 1, length - 2);
