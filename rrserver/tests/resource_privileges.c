@@ -66,6 +66,15 @@ int main(void) {
    assert(db_resource_access(db, "alice", "camp", "file", share, "file.read", 99) == RR_RESOURCE_ALLOW);
    run(db, "UPDATE resource_privileges SET effect='deny' WHERE resource_kind='file' AND privilege='file.read';");
    assert(db_resource_access(db, "alice", "camp", "file", share, "file.read", 99) == RR_RESOURCE_DENY);
+   run(db, "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,expires_at,remote_allowed) "
+      "VALUES('alice','camp','file','*','file.create','allow',NULL,1);");
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.create", 99) == RR_RESOURCE_ALLOW);
+   assert(db_resource_access(db, "alice", "camp", "file", "private", "file.create", 99) == RR_RESOURCE_ALLOW);
+   assert(db_resource_access(db, "alice", "other", "file", "private", "file.create", 99) == RR_RESOURCE_UNSET);
+   run(db, "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,expires_at,remote_allowed) "
+      "VALUES('alice','camp','file','private','file.create','deny',NULL,1);");
+   assert(db_resource_access(db, "alice", "camp", "file", "private", "file.create", 99) == RR_RESOURCE_DENY);
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.create", 99) == RR_RESOURCE_ALLOW);
    sqlite3_close(db);
    puts("resource privilege grants and deny precedence: OK");
 
