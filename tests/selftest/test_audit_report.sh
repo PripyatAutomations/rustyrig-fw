@@ -79,9 +79,9 @@ PY
 # Distinct same-rule Flawfinder sites must not collapse into one finding.
 mkdir -p "$tmp/flawdup1" "$tmp/flawdup2" "$tmp/flawdup3"
 for n in 1 2 3; do
-  printf '%s\\n' ok > "$tmp/flawdup$n/flawfinder.status"
+  printf '%s\n' ok > "$tmp/flawdup$n/flawfinder.status"
 done
-printf '%s\\n' \
+printf '%s\n' \
   'rrserver/link.tree.c:176:  [4] (buffer) strcpy:' \
   'rrserver/link.tree.c:177:  [4] (buffer) strcpy:' \
   'rrserver/link.tree.c:178:  [4] (buffer) strcpy:' > "$tmp/flawdup1/flawfinder.log"
@@ -91,7 +91,7 @@ import json, sys
 rows = [f for f in json.load(open(sys.argv[1]))['findings'] if f['scanner'] == 'flawfinder']
 assert len(rows) == 3, rows
 PY
-printf '%s\\n' 'rrserver/link.tree.c:176:  [4] (buffer) strcpy:' > "$tmp/flawdup2/flawfinder.log"
+printf '%s\n' 'rrserver/link.tree.c:176:  [4] (buffer) strcpy:' > "$tmp/flawdup2/flawfinder.log"
 python3 "$root/security/audit-report.py" "$tmp/flawdup2" --state "$tmp/dups.json" >/dev/null
 python3 - "$tmp/flawdup2/comparison.json" <<'PY'
 import json, sys
@@ -100,7 +100,7 @@ assert len(delta['resolved']) == 2, delta
 assert len(delta['open']) == 1, delta
 PY
 # An older identity schema is a rebaseline, not mass resolved findings.
-printf '%s\\n' '{"version": 1, "scanners": {"flawfinder": "ok"}, "findings": [{"id":"obsolete","scanner":"flawfinder","file":"rrserver/a.c","line":12,"severity":"severe","rule":"flawfinder.4","message":"buffer: strcpy:"}]}' > "$tmp/oldstate.json"
+printf '%s\n' '{"version": 1, "scanners": {"flawfinder": "ok"}, "findings": [{"id":"obsolete","scanner":"flawfinder","file":"rrserver/a.c","line":12,"severity":"severe","rule":"flawfinder.4","message":"buffer: strcpy:"}]}' > "$tmp/oldstate.json"
 python3 "$root/security/audit-report.py" "$tmp/flawdup3" --state "$tmp/oldstate.json" >/dev/null
 python3 - "$tmp/flawdup3/comparison.json" <<'PY'
 import json, sys
