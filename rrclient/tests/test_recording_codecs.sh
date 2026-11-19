@@ -2,7 +2,7 @@
 # Compile the codec layer independently of the GTK/frontend application.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-deps=(glib-2.0 flac vorbisenc vorbisfile ogg)
+deps=(glib-2.0 flac vorbis vorbisenc vorbisfile ogg)
 if ! pkg-config --exists "${deps[@]}"; then
    echo "Missing native codec development dependencies: ${deps[*]}" >&2
    exit 1
