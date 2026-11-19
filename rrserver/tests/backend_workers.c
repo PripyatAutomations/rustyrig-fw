@@ -8,7 +8,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <glib.h>
+#include <glib-unix.h>
 #include <rrserver/backend.worker.h>
 #include <rrserver/rig.registry.h>
 
@@ -19,8 +22,7 @@ static atomic_uint destroyed, hardware_stops, hardware_starts;
 static unsigned completions, failures, observations;
 static unsigned pongs;
 static gint64 request_at, worst_rtt;
-static struct mg_mgr manager;
-static struct mg_connection *peer;
+static int socket_pair[2] = { -1, -1 };
 
 typedef struct fixture {
    pthread_mutex_t mutex;
@@ -147,36 +149,31 @@ static const rr_backend_funcs_t api = {
 static const rr_backend_type_t type = {
    .name = "worker-fixture", .api = &api
 };
+/* Exercise GLib socket readiness while one hardware worker is stalled. */
 static void ping_peer(void) {
    request_at = g_get_monotonic_time();
-   mg_ws_send(peer, "worker-test", 11, WEBSOCKET_OP_PING);
+   assert(write(socket_pair[0], "?", 1) == 1);
 }
 
-static void socket_event(struct mg_connection *connection, int event, void *data) {
-   if (event == MG_EV_HTTP_MSG) {
-      mg_ws_upgrade(connection, data, NULL);
+static gboolean socket_event(gint fd, GIOCondition condition, gpointer user) {
+   (void)user;
+   if (!(condition & G_IO_IN)) {
+      return G_SOURCE_REMOVE;
    }
-
-   if (event == MG_EV_WS_OPEN && connection->is_client) {
-      peer = connection;
-      ping_peer();
-   }
-
-   if (event == MG_EV_WS_CTL && connection->is_client) {
-      struct mg_ws_message *message = data;
-
-      if ((message->flags & 15) == WEBSOCKET_OP_PONG) {
-         gint64 elapsed = g_get_monotonic_time() - request_at;
-
-         if (elapsed > worst_rtt) {
-            worst_rtt = elapsed;
-         }
-
-         if (++pongs < 4) {
-            ping_peer();
-         }
+   char byte;
+   assert(read(fd, &byte, 1) == 1);
+   if (fd == socket_pair[1]) {
+      assert(write(fd, &byte, 1) == 1);
+   } else {
+      gint64 elapsed = g_get_monotonic_time() - request_at;
+      if (elapsed > worst_rtt) {
+         worst_rtt = elapsed;
+      }
+      if (++pongs < 4) {
+         ping_peer();
       }
    }
+   return G_SOURCE_CONTINUE;
 }
 
 static void drain_until_idle(rr_backend_t *backend) {
@@ -229,22 +226,25 @@ int main(void) {
    rr_property_snapshot_t snapshot;
    assert(rr_vfo_property_read(b, RR_PROP_VFO_FREQUENCY, &snapshot) && snapshot.known && snapshot.value.l == 7100000);
    assert(rr_vfo_property_read(a, RR_PROP_VFO_FREQUENCY, &snapshot) && !snapshot.known);
-   // Exercise real WebSocket sockets while the other rig's poll stays blocked.
-   mg_mgr_init(&manager);
-   mg_log_set(MG_LL_ERROR);
-   struct mg_connection *listener = mg_http_listen(&manager, "http://127.0.0.1:0", socket_event, NULL);
-   assert(listener);
-   char url[96];
-   snprintf(url, sizeof(url), "ws://127.0.0.1:%u/ws", mg_ntohs(listener->loc.port));
-   assert(mg_ws_connect(&manager, url, socket_event, NULL, NULL));
+   // A stuck backend must not block the server's GLib socket callbacks.
+   assert(socketpair(AF_UNIX, SOCK_STREAM, 0, socket_pair) == 0);
+   guint server_watch = g_unix_fd_add(socket_pair[1], G_IO_IN, socket_event, NULL);
+   guint client_watch = g_unix_fd_add(socket_pair[0], G_IO_IN, socket_event, NULL);
+   assert(server_watch && client_watch);
+   ping_peer();
    gint64 deadline = g_get_monotonic_time() + 2000000;
    while (pongs < 4 && g_get_monotonic_time() < deadline) {
-      mg_mgr_poll(&manager, 0);
+      while (g_main_context_pending(NULL)) {
+         g_main_context_iteration(NULL, FALSE);
+      }
       g_usleep(1000);
    }
    assert(pongs == 4 && worst_rtt < 500000);
-   printf("PASS: blocked backend leaves other rigs and WebSocket traffic responsive (worst ping %.2f ms)\n", worst_rtt / 1000.0);
-   mg_mgr_free(&manager);
+   printf("PASS: blocked backend leaves other rigs and GLib socket traffic responsive (worst ping %.2f ms)\\n", worst_rtt / 1000.0);
+   g_source_remove(server_watch);
+   g_source_remove(client_watch);
+   close(socket_pair[0]);
+   close(socket_pair[1]);
    assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) {
       .i = true
    }
