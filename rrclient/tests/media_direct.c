@@ -106,6 +106,11 @@ static void request_sent(const char *event, const void *data, size_t length, rrc
    snprintf(requested_uuid, sizeof(requested_uuid), "%s", dict_get(d, "media.chan-uuid", ""));
 }
 
+/* A direct RTP subscription is still announced through the core media API. */
+bool media_send_subscribe(rrconn_t *connection, const char *uuid) {
+   return connection == &client && uuid && *uuid;
+}
+
 static dict *message(const char *cmd, const char *uuid) {
    dict *d = dict_new();
    dict_add(d, "msg.type", "media");
