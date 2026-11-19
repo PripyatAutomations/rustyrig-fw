@@ -56,10 +56,13 @@ ln -s ../CHANGELOG "$work/debian/changelog"
 mkdir "$work/bin"
 cat > "$work/bin/date" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' 'Sat, 10 Oct 2026 15:16:17 -0400'
+printf '%s\n' 'Sat, 10 Oct 2026 19:16:17 +0000'
 EOF
 chmod +x "$work/bin/date"
 export PATH="$work/bin:$PATH"
+# bump-version uses Python's clock, not the shell date command.
+# SOURCE_DATE_EPOCH provides a deterministic RFC 2822 UTC date for this test.
+export SOURCE_DATE_EPOCH=1791645377
 bash "$work/tools/bump-version.sh" --version 1.2.3 --dry-run >/dev/null
 cmp CHANGELOG "$work/CHANGELOG"
 [[ "$(cat "$work/.version")" == '1.0.3' ]]
@@ -72,7 +75,7 @@ if [[ ! -L "$work/debian/changelog" ]] ||
 fi
 
 check_changelog "$work/debian/changelog"
-grep -q '^ -- .*  Sat, 10 Oct 2026 15:16:17 -0400$' "$work/CHANGELOG"
+grep -q '^ -- .*  Sat, 10 Oct 2026 19:16:17 +0000$' "$work/CHANGELOG"
 # Preserve the first bumped document for the historical-entry comparison;
 # a later bump intentionally adds another release entry.
 cp "$work/CHANGELOG" "$work/CHANGELOG.after-first-bump"
@@ -112,7 +115,7 @@ cp "$work/CHANGELOG.after-first-bump" "$work/CHANGELOG"
 bash "$work/tools/bump-version.sh" --version 1.2.4 >/dev/null
 check_changelog "$work/CHANGELOG"
 # A standalone first entry must also retain its trailer without an older entry.
-printf 'rustyrig-fw (1.2.4) testing; urgency=medium\n\n  * Test.\n\n -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 15:16:17 -0400\n' > "$work/CHANGELOG"
+printf 'rustyrig-fw (1.2.4) testing; urgency=medium\n\n  * Test.\n\n -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 19:16:17 +0000\n' > "$work/CHANGELOG"
 bash "$work/tools/bump-version.sh" --version 1.2.5 >/dev/null
 check_changelog "$work/CHANGELOG"
 
