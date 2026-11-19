@@ -20,10 +20,10 @@ certificate verification is **enabled by default**.
         --port 4420 --ca-file /path/to/test-ca.pem --server-name localhost
 
 For an ephemeral self-signed local test certificate, explicitly add
-\`--insecure-loopback-tls\` rather than disabling verification by default.
+`--insecure-loopback-tls` rather than disabling verification by default.
 The scripts use boofuzz's TLS socket transport, run at most 150 cases by
-default (\`--cases N\` to adjust), and write results to
-\`security/fuzzing/results/\`. Use separate, disposable servers and unique
+default (`--cases N` to adjust), and write results to
+`security/fuzzing/results/`. Use separate, disposable servers and unique
 result filenames if keeping more than one run; a run can interrupt service.
 
 - **upgrade** mutates path, Upgrade/Connection/version/key/subprotocol
