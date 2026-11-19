@@ -255,6 +255,11 @@ static int catalog_profile_peer_compare(const void *left, const void *right) {
 
 /* Replace a node user-directory snapshot with an independently owned clone. */
 bool rr_relay_directory_valid(const char *node, dict *d) {
+   /* Directory nodes come from mesh packets: never trust their length merely
+    * because a message was signed or routed through an enrolled peer. */
+   if (!node || !d || !rr_object_uuid_valid(node)) {
+      return false;
+   }
    unsigned count = dict_get_uint(d, "count", HTTP_MAX_USERS + 1);
 
    if (count > HTTP_MAX_USERS) {
