@@ -42,6 +42,12 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     serial transport and supervision globals, and optional config database.
   * Supply valid mesh domain and DNS SAN in disposable live test servers;
     expose the exact failing changelog fixture assertion for follow-up.
+  * Preserve debhelper maintainer-script markers in upgrade fixtures and use
+    reproducible Python changelog timestamps with SOURCE_DATE_EPOCH.
+  * Isolate private mesh identity directories in loopback server tests and
+    observe Ogg decoding through the current PCM hub callback.
+  * Update launcher and command-help fixtures for explicit bootstrap paths
+    and documented, privilege-labelled administration commands.
   * Require an explicit guest password during Debian provisioning, instead of
     enabling an account with a predictable shared default credential.
 
