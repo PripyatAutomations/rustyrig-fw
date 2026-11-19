@@ -5,6 +5,7 @@
 // Exported shares and bounded file operations. Part of RustyRig; MIT/GPL.
 // All paths are relative to directory descriptors; symlinks are never followed.
 #include <rrserver/relay.h>
+#include <rrserver/relay.internal.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -19,6 +20,11 @@
 #include <librrprotocol/server.events.h>
 #include <rrserver/discovery.h>
 #include <rrserver/files.h>
+#include <rrserver/files.policy.h>
+#include <rrserver/files.limits.h>
+#include <rustyrig/file.transfer-wire.h>
+#include <librrprotocol/ws.binframe.h>
+#include <librustyaxe/transport.h>
 #define FILE_CHUNK 24576
 #define FILE_PATH 4096
 #define FILE_JOBS 128
@@ -27,7 +33,8 @@ struct upload {
    int parent, fd;
    char path[FILE_PATH], temp[64];
    uint64_t size;
-   bool overwrite, syncing;
+   bool overwrite, syncing, binary;
+   char request_id[37];
    int sync_error;
    dict *commit;
 };
@@ -52,7 +59,8 @@ bool rrserver_files_valid_name(const char *s) {
    return true;
 }
 
-static bool permission(rrconn_t *client, const char *share, bool write) {
+static bool permission(rrconn_t *client, const char *share, const char *operation) {
+   bool write = rr_files_operation_writes(operation);
    char key[320];
    snprintf(key, sizeof(key), "share:%s.enabled", share);
 
@@ -66,11 +74,15 @@ static bool permission(rrconn_t *client, const char *share, bool write) {
       return false;
    }
 
+   if (rr_relay_remote_for(client)) {
+      return rr_relay_remote_file_allowed(client, share, operation);
+   }
+
    return has_priv(client->user->uid, grant && *grant ? grant : write ? "files.write" : "files.read");
 }
 
 /* Return an owned parent descriptor and final basename. Export roots cannot mutate. */
-static int resolve(rrconn_t *client, const char *path, bool write, char name[256]) {
+static int resolve(rrconn_t *client, const char *path, const char *operation, char name[256]) {
    if (!path || path[0] != '/' || strlen(path) >= FILE_PATH || !path[1]) {
       errno = EINVAL;
 
@@ -84,7 +96,7 @@ static int resolve(rrconn_t *client, const char *path, bool write, char name[256
       *slash++ = 0;
    }
 
-   if (!rrserver_files_valid_name(buffer) || !permission(client, buffer, write)) {
+   if (!rrserver_files_valid_name(buffer) || !permission(client, buffer, operation)) {
       errno = EACCES;
 
       return -1;
@@ -209,7 +221,8 @@ static void list(rrconn_t *client, dict *request) {
          }
          memcpy(share, key + 6, n);
          share[n] = 0;
-         bool read = permission(client, share, false), write = permission(client, share, true);
+         bool read = permission(client, share, "list"), write = permission(client, share, "begin-create") ||
+            permission(client, share, "begin-overwrite");
          struct stat st = {
             .st_mode = S_IFDIR
          };
@@ -221,7 +234,7 @@ static void list(rrconn_t *client, dict *request) {
       rrserver_relay_file_nodes(client, dict_get(request, "request.id", ""));
    } else {
       char name[256];
-      int parent = resolve(client, path, false, name);
+      int parent = resolve(client, path, "list", name);
 
       if (parent < 0) {
          result(client, request, errno);
@@ -245,7 +258,11 @@ static void list(rrconn_t *client, dict *request) {
          return;
       }
       char ignored[256];
-      int check = resolve(client, path, true, ignored);
+      int check = resolve(client, path, "begin-create", ignored);
+
+      if (check < 0) {
+         check = resolve(client, path, "begin-overwrite", ignored);
+      }
       bool writable = check >= 0;
 
       if (check >= 0) {
@@ -332,7 +349,7 @@ static void complete_uploads(const char *event, const char *data, rrconn_t *clie
       }
 
       if (c && !error && u->client == c) {
-         parent = resolve(c, u->path, true, name);
+         parent = resolve(c, u->path, u->overwrite ? "begin-overwrite" : "begin-create", name);
 
          if (parent < 0) {
             error = errno;
@@ -343,6 +360,8 @@ static void complete_uploads(const char *event, const char *data, rrconn_t *clie
 
             if (exists && (!u->overwrite || !S_ISREG(target.st_mode))) {
                error = EEXIST;
+            } else if (!exists && u->overwrite && rr_relay_remote_for(c)) {
+               error = EACCES;
             } else if (u->overwrite ? renameat(parent, u->temp, parent, name) : linkat(parent, u->temp, parent, name, 0)) {
                error = errno;
             } else {
@@ -462,9 +481,31 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       list(client, d);
       goto done;
    }
-   bool read = !strcmp(cmd, "read");
+   /* The operation and the original upload intent determine which remote
+    * grant is required. A create-only user must not overwrite existing data. */
+   const char *operation = cmd;
+
+   if (!strcmp(cmd, "begin")) {
+      operation = dict_get_bool(d, "file.overwrite", false) ? "begin-overwrite" : "begin-create";
+   } else if (!strcmp(cmd, "chunk") || !strcmp(cmd, "commit") || !strcmp(cmd, "cancel")) {
+      struct upload *existing = job(client);
+
+      if (!existing || strcmp(existing->path, path)) {
+         result(client, d, EINVAL);
+         goto done;
+      }
+      /* Cancellation only destroys this session's own temporary file. */
+      if (!strcmp(cmd, "cancel")) {
+         discard(existing);
+         result(client, d, 0);
+         goto done;
+      }
+      operation = existing->overwrite ?
+         (!strcmp(cmd, "chunk") ? "chunk-write" : "commit-write") :
+         (!strcmp(cmd, "chunk") ? "chunk-create" : "commit-create");
+   }
    char name[256];
-   int parent = resolve(client, path, !read, name);
+   int parent = resolve(client, path, operation, name);
 
    if (parent < 0) {
       int error = errno;
@@ -479,7 +520,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
    bool audited = false;
    struct stat st;
 
-   if (!read && !strcmp(name, ".")) {
+   if (rr_files_operation_writes(operation) && !strcmp(name, ".")) {
       error = EPERM;
       goto finish;
    }
@@ -506,8 +547,52 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          error = errno;
          goto finish;
       }
+      if (dict_get_bool(d, "file.binary", false) && client->native_transport &&
+          (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_BINARY_MESSAGES) &&
+          !rr_relay_remote_for(client)) {
+         if (!rr_file_uuid_valid(id)) {
+            error = EINVAL;
+            goto finish;
+         }
+         uint8_t *frame = NULL;
+         int size;
+         uint8_t wire[RR_FILE_FRAME_PREFIX + FILE_CHUNK];
+         size_t wire_len = 0;
+
+         if (!rr_file_chunk_pack(wire, sizeof(wire), id, offset, bytes,
+                 (size_t)n, offset + n >= (uint64_t)st.st_size, &wire_len)) {
+            error = EINVAL;
+            goto finish;
+         }
+         size = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_FILE,
+            RR_FILE_FRAME_CODEC, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA,
+            RR_BINFRAME_RIG_NA, RR_BINFRAME_STREAM_NONE, 0, 0, wire, wire_len);
+
+         if (size < 0 || rr_transport_queued_bytes(client->native_transport) > 1048576u - (size_t)size ||
+             rr_transport_send_binary_message(client->native_transport, frame, (size_t)size) != RR_TRANSPORT_OK) {
+            error = EAGAIN;
+         }
+         free(frame);
+
+         if (error) {
+            goto finish;
+         }
+         close(parent);
+         goto done;
+      }
       dict *out = response(d, "data");
+
+      if (!out) {
+         error = ENOMEM;
+         goto finish;
+      }
       char *base64 = g_base64_encode(bytes, n);
+
+      if (!base64) {
+         dict_free(out);
+         error = ENOMEM;
+         goto finish;
+      }
       dict_add(out, "file.data", base64);
       dict_add_ullong(out, "file.offset", offset);
       dict_add_ullong(out, "file.size", st.st_size);
@@ -527,6 +612,11 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          error = EEXIST;
          goto finish;
       }
+      /* A remote file.write grant must not implicitly grant file.create. */
+      if (!exists && dict_get_bool(d, "file.overwrite", false) && rr_relay_remote_for(client)) {
+         error = EACCES;
+         goto finish;
+      }
       unsigned slot = 0;
       while (slot < FILE_JOBS && uploads[slot]) {
          slot++;
@@ -543,6 +633,12 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          goto finish;
       }
       char *uuid = g_uuid_string_random();
+
+      if (!uuid) {
+         free(u);
+         error = ENOMEM;
+         goto finish;
+      }
       snprintf(u->temp, sizeof(u->temp), ".rr-upload-%s", uuid);
       g_free(uuid);
       int fd = openat(parent, u->temp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
@@ -557,6 +653,18 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       u->parent = fcntl(parent, F_DUPFD_CLOEXEC, 0);
       snprintf(u->path, sizeof(u->path), "%s", path);
       u->overwrite = dict_get_bool(d, "file.overwrite", false);
+      u->binary = dict_get_bool(d, "file.binary", false) && client->native_transport &&
+         (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_BINARY_MESSAGES) &&
+         !rr_relay_remote_for(client);
+      if (u->binary && !rr_file_uuid_valid(id)) {
+         error = EINVAL;
+         close(u->fd);
+         unlinkat(parent, u->temp, 0);
+         close(u->parent);
+         free(u);
+         goto finish;
+      }
+      snprintf(u->request_id, sizeof(u->request_id), "%s", u->binary ? id : "");
 
       if (u->parent < 0) {
          error = errno;
@@ -581,6 +689,10 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          error = EBUSY;
          goto finish;
       } else if (!strcmp(cmd, "chunk")) {
+         if (u->binary) {
+            error = EINVAL; /* Binary upload chunks are handled by the file frame listener. */
+            goto finish;
+         }
          const char *encoded = dict_get(d, "file.data", "");
          gsize n;
 
@@ -608,7 +720,9 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
             maximum = 0;
          }
 
-         if (n > FILE_CHUNK || u->size + n > maximum) {
+         /* Subtraction avoids overflow even with an extreme files.max-size
+          * and a long-running upload. Never wrap the byte counter. */
+         if (!rr_files_chunk_fits(u->size, n, maximum, FILE_CHUNK)) {
             error = EFBIG;
          } else {
             size_t written = 0;
@@ -680,7 +794,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       }
    } else if (!strcmp(cmd, "rename")) {
       char ignored[256];
-      int readable = resolve(client, path, false, ignored);
+      int readable = resolve(client, path, "rename", ignored);
 
       if (readable < 0) {
          error = errno;
@@ -689,7 +803,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       close(readable);
       char dest[256];
       const char *target = dict_get(d, "file.dest", "");
-      int other = resolve(client, target, true, dest);
+      int other = resolve(client, target, "rename", dest);
 
       if (other < 0) {
          error = errno;
@@ -726,6 +840,90 @@ done:
    dict_free(d);
 }
 
+/* Native upload payloads are delivered only by the authenticated binary
+ * transport. Text requests retain ownership, authorization and commit. */
+static void binary_upload(const char *event, const void *data, size_t length,
+                          rrconn_t *client, void *context) {
+   (void)event;
+   (void)context;
+   if (!client || !client->authenticated || !client->native_transport ||
+       rr_relay_remote_for(client)) {
+      return;
+   }
+   rr_file_chunk_t chunk;
+
+   if (!rr_file_chunk_unpack(&chunk, data, length) || chunk.fin) {
+      return;
+   }
+   struct upload *u = job(client);
+
+   if (!u || !u->binary || u->syncing || strcmp(u->request_id, chunk.id)) {
+      return;
+   }
+   dict *request = dict_new();
+
+   if (!request) {
+      discard(u);
+      return;
+   }
+   dict_add(request, "request.id", u->request_id);
+   dict_add(request, "file.path", u->path);
+   int error = 0;
+   char name[256];
+   const char *op = u->overwrite ? "chunk-write" : "chunk-create";
+   int parent = resolve(client, u->path, op, name);
+
+   if (parent < 0) {
+      error = errno;
+   } else {
+      struct stat a, b;
+
+      if (fstat(parent, &a) || fstat(u->parent, &b) ||
+          a.st_dev != b.st_dev || a.st_ino != b.st_ino ||
+          chunk.offset != u->size) {
+         error = EACCES;
+      }
+      close(parent);
+   }
+   if (!error) {
+      const char *configured = cfg_get("files.max-size");
+      char *end = NULL;
+      errno = 0;
+      uint64_t maximum = configured ? strtoull(configured, &end, 10) : UINT64_C(1073741824);
+
+      if (configured && (*configured == '-' || !*configured || errno || !end || *end)) {
+         maximum = 0;
+      }
+      if (!rr_files_chunk_fits(u->size, chunk.length, maximum, FILE_CHUNK)) {
+         error = EFBIG;
+      }
+   }
+   if (!error) {
+      size_t written = 0;
+
+      while (written < chunk.length) {
+         ssize_t n = write(u->fd, chunk.bytes + written, chunk.length - written);
+
+         if (n < 0 && errno == EINTR) {
+            continue;
+         }
+         if (n <= 0) {
+            error = n < 0 ? errno : EIO;
+            break;
+         }
+         written += (size_t)n;
+      }
+      if (!error) {
+         u->size += chunk.length;
+      }
+   }
+   if (error) {
+      discard(u);
+   }
+   result(client, request, error);
+   dict_free(request);
+}
+
 static void inventory_rows(dict *request, rrconn_t *client, const rr_inventory_catalog_t *catalog) {
    if (!strcmp(dict_get(request, "inventory.scope", ""), "station")) {
       const char *key;
@@ -751,7 +949,8 @@ static void inventory_rows(dict *request, rrconn_t *client, const rr_inventory_c
          if (!cfg_get_bool(enabled, true)) {
             continue;
          }
-         bool read = permission(client, name, false), write = permission(client, name, true);
+         bool read = permission(client, name, "list"), write = permission(client, name, "begin-create") ||
+            permission(client, name, "begin-overwrite");
 
          if (!catalog && !read && !write) {
             continue;
@@ -801,6 +1000,7 @@ static void catalog_inventory(const char *event, const void *data, size_t length
 
 void rrserver_files_register(void) {
    event_on("file.request", request, NULL);
+   event_on_binary("media.frame.file.upload", binary_upload, NULL);
    event_on("server.poll", complete_uploads, NULL);
    event_on("protocol.session.closed", closed, NULL);
    event_on("serial.session.closed", closed, NULL);

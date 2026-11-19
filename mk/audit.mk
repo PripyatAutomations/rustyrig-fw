@@ -70,7 +70,7 @@ audit-scanbuild: audit-init
 	@echo "*** scan-build audit (full log: $(AUDIT_DIR)/scanbuild.log) ***"
 	@command -v "$(SCANBUILD)" >/dev/null 2>&1 || { echo "$(SCANBUILD) not installed; audit skipped" > "$(AUDIT_DIR)/scanbuild.log"; echo "$(SCANBUILD) not installed (skipped)"; exit 0; }
 	@$(MAKE) --no-print-directory audit-invalidate-objects
-	@"$(SCANBUILD)" -plist -o "$(AUDIT_DIR)/scanview" $(MAKE) -j4 world > "$(AUDIT_DIR)/scanbuild.log" 2>&1; rc=$?; \
+	@"$(SCANBUILD)" -plist -o "$(AUDIT_DIR)/scanview" $(MAKE) -j4 world > "$(AUDIT_DIR)/scanbuild.log" 2>&1; rc=$$?; \
 		echo "scan-build exit status: $$rc" >> "$(AUDIT_DIR)/scanbuild.log"; \
 		tail -n 12 "$(AUDIT_DIR)/scanbuild.log"; exit $$rc
 
@@ -130,7 +130,21 @@ clang-tidy: compile_commands.json audit-init
 	sed -E '/^[[:space:]]*[0-9]+ warnings generated\.$$/d; /^[[:space:]]*\[[[:space:]]*[0-9]+\/[0-9]+\]\[[^]]+\] clang-tidy-/d; /^[[]([0-9]+)\/[0-9]+[]] Processing file /d' "$$raw" > "$(AUDIT_DIR)/clang-tidy.log"; \
 	tail -n 20 "$(AUDIT_DIR)/clang-tidy.log"; exit $$rc
 
-audit-clang-tidy: clang-tidy
+# Always capture clang-tidy output, even when generation of the compilation
+# database fails before clang-tidy's recipe runs.
+audit-clang-tidy: audit-init
+	@$(MAKE) --no-print-directory AUDIT_DIR="$(AUDIT_DIR)" clang-tidy > "$(AUDIT_DIR)/clang-tidy.setup.log" 2>&1; rc=$$?; \
+		if test $$rc -ne 0; then \
+			if test -f "$(AUDIT_DIR)/clang-tidy.log"; then \
+				cat "$(AUDIT_DIR)/clang-tidy.setup.log" >> "$(AUDIT_DIR)/clang-tidy.log"; \
+			else \
+				cp "$(AUDIT_DIR)/clang-tidy.setup.log" "$(AUDIT_DIR)/clang-tidy.log"; \
+			fi; \
+			tail -n 30 "$(AUDIT_DIR)/clang-tidy.log"; \
+		elif test ! -f "$(AUDIT_DIR)/clang-tidy.log"; then \
+			cp "$(AUDIT_DIR)/clang-tidy.setup.log" "$(AUDIT_DIR)/clang-tidy.log"; \
+		fi; \
+		exit $$rc
 
 audit-deps:
 	apt install -y cppcheck pscan flawfinder

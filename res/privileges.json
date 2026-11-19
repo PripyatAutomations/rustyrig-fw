@@ -4,11 +4,6 @@
     "description": "Manage users and server configuration",
     "scope": "system"
   },
-  "remote-admin": {
-    "label": "Remote administration gate",
-    "description": "Allow exercising separately granted admin operations from an authenticated linked site; does not grant those operations",
-    "scope": "system"
-  },
   "bridge.admin": {
     "label": "Manage bridges",
     "description": "Configure and administer bridge connections",
@@ -29,6 +24,36 @@
     "description": "Help and supervise new operators",
     "scope": "system"
   },
+  "file.browse": {
+    "label": "Browse shared files",
+    "description": "List directories and available shared filenames",
+    "scope": "resource"
+  },
+  "file.create": {
+    "label": "Create shared files",
+    "description": "Upload new files and create directories in permitted shares",
+    "scope": "resource"
+  },
+  "file.delete": {
+    "label": "Delete shared files",
+    "description": "Delete files or empty directories in permitted shares",
+    "scope": "resource"
+  },
+  "file.read": {
+    "label": "Download shared files",
+    "description": "Read file content from permitted shares",
+    "scope": "resource"
+  },
+  "file.rename": {
+    "label": "Move or rename shared files",
+    "description": "Rename or move files within configured shares",
+    "scope": "resource"
+  },
+  "file.write": {
+    "label": "Overwrite shared files",
+    "description": "Replace existing files in permitted shares",
+    "scope": "resource"
+  },
   "files.read": {
     "label": "Read files",
     "description": "Download files from permitted shares",
@@ -37,6 +62,11 @@
   "files.write": {
     "label": "Write files",
     "description": "Upload or modify files in permitted shares",
+    "scope": "resource"
+  },
+  "frequency.read": {
+    "label": "Read frequency",
+    "description": "Read the tuned frequency",
     "scope": "resource"
   },
   "media.source": {
@@ -54,6 +84,31 @@
     "description": "Full local server ownership role",
     "scope": "system"
   },
+  "remote-admin": {
+    "label": "Remote administration gate",
+    "description": "Allow exercising separately granted admin operations from an authenticated linked site; does not grant those operations",
+    "scope": "system"
+  },
+  "rig.full": {
+    "label": "Full rig access",
+    "description": "Grant all supported rig operations; safety limits still apply",
+    "scope": "resource"
+  },
+  "rig.tune": {
+    "label": "Tune rig",
+    "description": "Change a rig's frequency or tuning",
+    "scope": "resource"
+  },
+  "rig.use": {
+    "label": "Use rig",
+    "description": "Access and operate a rig",
+    "scope": "resource"
+  },
+  "room.join": {
+    "label": "Join rooms",
+    "description": "Join a room and participate where permitted",
+    "scope": "resource"
+  },
   "rx": {
     "label": "Receive",
     "description": "Listen to radio audio",
@@ -67,6 +122,11 @@
   "serial.*": {
     "label": "All serial devices",
     "description": "Use any configured serial device",
+    "scope": "resource"
+  },
+  "spectrum.read": {
+    "label": "View spectrum",
+    "description": "Read receiver spectrum data",
     "scope": "resource"
   },
   "tx": {
@@ -92,36 +152,6 @@
   "websdr.listen": {
     "label": "Listen WebSDR",
     "description": "Listen to WebSDR audio",
-    "scope": "resource"
-  },
-  "rig.use": {
-    "label": "Use rig",
-    "description": "Access and operate a rig",
-    "scope": "resource"
-  },
-  "rig.tune": {
-    "label": "Tune rig",
-    "description": "Change a rig's frequency or tuning",
-    "scope": "resource"
-  },
-  "rig.full": {
-    "label": "Full rig access",
-    "description": "Grant all supported rig operations; safety limits still apply",
-    "scope": "resource"
-  },
-  "room.join": {
-    "label": "Join rooms",
-    "description": "Join a room and participate where permitted",
-    "scope": "resource"
-  },
-  "frequency.read": {
-    "label": "Read frequency",
-    "description": "Read the tuned frequency",
-    "scope": "resource"
-  },
-  "spectrum.read": {
-    "label": "View spectrum",
-    "description": "Read receiver spectrum data",
     "scope": "resource"
   }
 }

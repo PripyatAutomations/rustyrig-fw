@@ -48,6 +48,24 @@ int main(void) {
    run(db, "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,expires_at,remote_allowed) VALUES('alice','camp','rig','12345678-1234-4234-8234-1234567890ab','tx','allow',NULL,1);");
    DENY("alice", "camp", "tx", 99);
    assert(db_resource_access(db, NULL, "camp", "rig", rig, "rig.use", 99) == RR_RESOURCE_DENY);
+
+   /* Explicit owner-side file grants are not imported from source-site roles.
+    * Grant the exact share and operation, with remote_allowed=1. */
+   const char *share = "recordings";
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.read", 99) == RR_RESOURCE_UNSET);
+   run(db, "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,expires_at,remote_allowed) "
+      "VALUES('alice','camp','file','recordings','file.browse','allow',NULL,0);");
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.browse", 99) == RR_RESOURCE_UNSET);
+   run(db, "UPDATE resource_privileges SET remote_allowed=1 WHERE resource_kind='file';");
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.browse", 99) == RR_RESOURCE_ALLOW);
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.read", 99) == RR_RESOURCE_UNSET);
+   assert(db_resource_access(db, "alice", "other", "file", share, "file.browse", 99) == RR_RESOURCE_UNSET);
+   assert(db_resource_access(db, "alice", "camp", "file", "secret", "file.browse", 99) == RR_RESOURCE_UNSET);
+   run(db, "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,expires_at,remote_allowed) "
+      "VALUES('alice','camp','file','recordings','file.read','allow',NULL,1);");
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.read", 99) == RR_RESOURCE_ALLOW);
+   run(db, "UPDATE resource_privileges SET effect='deny' WHERE resource_kind='file' AND privilege='file.read';");
+   assert(db_resource_access(db, "alice", "camp", "file", share, "file.read", 99) == RR_RESOURCE_DENY);
    sqlite3_close(db);
    puts("resource privilege grants and deny precedence: OK");
 

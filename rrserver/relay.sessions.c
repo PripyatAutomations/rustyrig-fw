@@ -31,6 +31,7 @@
 #include <rrserver/database.h>
 #include <rrserver/discovery.h>
 #include <rrserver/relay.internal.h>
+#include <rrserver/files.policy.h>
 
 extern struct GlobalState rig;
 size_t rr_relay_wanted_count;
@@ -48,6 +49,80 @@ struct remote_session *rr_relay_remote_for(rrconn_t *client) {
    }
 
    return NULL;
+}
+
+/* File grants are always resolved by the owning server against the
+ * authenticated remote principal, never against a local uid or an origin-site
+ * admin role. The share name is the file resource key. */
+bool rr_relay_remote_file_allowed(rrconn_t *client, const char *share, const char *operation) {
+#ifdef USE_SQLITE
+   struct remote_session *remote = rr_relay_remote_for(client);
+   const char *privilege = rr_files_remote_privilege(operation);
+
+   if (!remote || !client->authenticated || !client->user || !client->user->enabled ||
+       !share || !*share || !privilege || !masterdb) {
+      return false;
+   }
+   const char *host = rrserver_relay_client_server(client);
+   const char *local_site = cfg_get("station.name");
+
+   if (!host || !*host || !local_site || !*local_site || !strcmp(host, local_site)) {
+      return false;
+   }
+   const char *username = remote->remote_account.name;
+   time_t at = time(NULL);
+   bool allowed = false;
+   /* A specific file grant or a site-wide grant can authorize the operation.
+    * Explicit denies override any broader grant, including admin/owner.
+    * Legacy files.read/write grants remain usable in remote ACLs. */
+   const char *legacy = rr_files_operation_writes(operation) ? "files.write" : "files.read";
+   const char *operations[] = { privilege, legacy };
+
+   for (unsigned i = 0; i < 2; ++i) {
+      rr_resource_access_t access = db_resource_access_named(masterdb, username, host, "file", share, operations[i], at, share);
+
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
+      allowed |= access == RR_RESOURCE_ALLOW;
+      access = db_resource_access_named(masterdb, username, host, "site", "*", operations[i], at, NULL);
+
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
+      allowed |= access == RR_RESOURCE_ALLOW;
+   }
+
+   /* A destination-issued file-scoped or site-scoped admin/owner grant may
+    * access exported shares; these are not imported from source-site roles.
+    * Share read=none / write=none and OS permissions are still enforced. */
+   for (unsigned i = 0; i < 2; ++i) {
+      const char *role = i ? "owner" : "admin";
+      rr_resource_access_t access = db_resource_access_named(masterdb, username, host, "file", share, role, at, share);
+
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
+      if (access == RR_RESOURCE_ALLOW) {
+         allowed = true;
+      }
+      access = db_resource_access_named(masterdb, username, host, "site", "*", role, at, NULL);
+
+      if (access == RR_RESOURCE_DENY) {
+         return false;
+      }
+      if (access == RR_RESOURCE_ALLOW) {
+         allowed = true;
+      }
+   }
+
+   return allowed;
+#else
+   (void)client;
+   (void)share;
+   (void)operation;
+   return false;
+#endif
 }
 
 /* Find or allocate local session relay state within the session limit. */
@@ -720,7 +795,11 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
             (db_resource_access_named(masterdb, username, host, "site", "*", "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
                db_resource_access_named(masterdb, username, host, "site", "*", "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW);
       }
-   } else if (r && !files && room && *room) {
+   } else if (r && files) {
+      /* File paths are roomless. The file handler enforces per-share and
+       * per-operation destination grants, including root-list filtering. */
+      scoped = true;
+   } else if (r && room && *room) {
       const char *host = rrserver_relay_client_server(&r->client);
       rr_server_rig_t *radio = rrserver_rig_for_room(room);
       const char *kind = radio ? "rig" : "room";
@@ -872,7 +951,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
 
       return;
    }
-   /* File requests are roomless. The owner-side file handler authenticates this remote session and checks the local account's share privileges. */
+   /* File requests are roomless. The owner-side handler applies remote share grants, never a synthetic local uid. */
    char *wire = rr_wire_encode(d);
 
    if (!wire) {

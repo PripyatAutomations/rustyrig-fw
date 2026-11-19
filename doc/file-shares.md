@@ -32,13 +32,28 @@ component without dots. A share may set `enabled=false` to withdraw it.
 The configured physical directory must already exist and be accessible to the
 server's OS account. Configured paths are never sent to clients.
 
-Grant `files.read` and/or `files.write` in the user privilege editor. Admin and
-owner flags do not implicitly grant file access. Each share may instead name
-its own privilege expression, such as `read=recordings.listen|files.read`;
-`write=none` always denies writes. These grants are independent of OS
-permissions, which still apply. The root lists only shares for which the
-account has read or write access. Every operation rechecks current permissions;
-external SQLite revocations apply before the next command.
+Grant `files.read` and/or `files.write` in the local user privilege editor.
+Local admin/owner flags do not automatically grant file access. Each share
+may instead name its own privilege expression, such as
+`read=recordings.listen|files.read`; `write=none` always denies writes.
+These grants are independent of OS permissions, which still apply.
+
+**Linked-server file access** is authorized at the owning server, against the
+authenticated `user@origin-site` identity. Grant `resource_kind=file` and
+`resource_uuid=<share-name>` (or site-scoped `resource_kind=site`,
+`resource_uuid=*`) with `remote_allowed=1`. Fine-grained privileges are
+`file.browse` (directory listings), `file.read` (downloads), `file.create`
+(new uploads and directories), `file.write` (overwrite existing files),
+`file.rename`, and `file.delete`. Explicit destination-issued file/site
+`admin` or `owner` grants may authorize the same operations. An origin
+server's local admin/owner roles are **never** inherited. A matching deny
+overrides all allows; `read=none`/`write=none` on a share remain absolute
+limits. Older destination grants for `files.read`/`files.write` remain
+accepted as broad compatibility permissions.
+
+The root lists only shares for which the account has authorized access.
+Every operation rechecks permissions; external SQLite revocations apply
+before the next command.
 
 Expand directories to fetch their contents. Siblings sort naturally, with
 folders first. Read/write indicators describe your access. Upload and New
@@ -48,6 +63,13 @@ namespace, for example `/recordings/archive/session.ogg`. Delete removes a file
 or empty directory, with confirmation. Export roots cannot be renamed or
 deleted. Rename and Move never replace an existing destination. Moves use an
 atomic filesystem rename and report an error across different filesystems.
+
+Direct native-TLS clients negotiate `file.binary` and exchange reliable
+`RR_BINFRAME_SUBSYS_FILE` chunks (codec `fl01`), bound to the request UUID
+and a strictly increasing byte offset. Remote shares relayed through the
+mesh and older clients temporarily retain the existing bounded base64/text
+path. That compatibility code is intentionally retained for future text-based
+modem use; it is not the preferred file payload format.
 
 Uploads use 24 KiB chunks and hidden temporary files in the destination
 directory. Two bounded workers flush completed uploads without blocking the radio loop.

@@ -24,7 +24,31 @@ static const rr_privilege_info_t rrclient_privilege_registry[] = {
       "elmer", "Mentor", "Help and supervise new operators", "system"
    },
    {
-      "files.read", "Read files", "Download files from permitted shares", "resource"
+      "file.browse", "Browse shared files", "List directories and available shared filenames", "resource"
+   },
+   {
+      "file.create", "Create shared files", "Upload new files and create directories in permitted shares", "resource"
+   },
+   {
+      "file.delete", "Delete shared files", "Delete files or empty directories in permitted shares", "resource"
+   },
+   {
+      "file.read", "Download shared files", "Read file content from permitted shares", "resource"
+   },
+   {
+      "file.rename", "Move or rename shared files", "Rename or move files within configured shares", "resource"
+   },
+   {
+      "file.write", "Overwrite shared files", "Replace existing files in permitted shares", "resource"
+   },
+   {
+      "file.browse",
+   "file.create",
+   "file.delete",
+   "file.read",
+   "file.rename",
+   "file.write",
+   "files.read", "Read files", "Download files from permitted shares", "resource"
    },
    {
       "files.write", "Write files", "Upload or modify files in permitted shares", "resource"
