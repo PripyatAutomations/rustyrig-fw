@@ -219,7 +219,7 @@ GTK_LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)
 endif
 
 # Generate a catalog of literal log subsystems for the GTK level composer.
-RR_LOG_SUBSYSTEM_SOURCES := $(shell find rrclient rrserver rrbridge fwdsp libfwdspmgr rrpipelines -type f -name '*.c' 2>/dev/null)
+RR_LOG_SUBSYSTEM_SOURCES := $(shell find rrclient rrserver rrbridge fwdsp libfwdspmgr -type f -name '*.c' 2>/dev/null)
 RR_LOG_SUBSYSTEM_HEADER := ${BUILD_DIR}/rrclient/log-subsystems.h
 ${RR_LOG_SUBSYSTEM_HEADER}: tools/releng-log-subsystems.pl ${RR_LOG_SUBSYSTEM_SOURCES}
 	@mkdir -p $(dir $@)
@@ -253,12 +253,12 @@ ${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} $
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-# The pipeline editor and graph model are compiled into the GTK client.
-${BUILD_DIR}/rrclient/gtk/gtk.pipeline-editor.o: rrpipelines/main.c rrpipelines/editor.h rrpipelines/pipeline.h rrclient/gtk/gtk.graph.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
+# The pipeline editor and graph model belong to the GTK client.
+${BUILD_DIR}/rrclient/gtk/gtk.pipeline-editor.o: rrclient/gtk/gtk.pipeline-editor.c rrclient/gtk/gtk.pipeline-editor.h rrclient/gtk/gtk.pipeline-model.h rrclient/gtk/gtk.graph.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
 	@mkdir -p $(dir $@)
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${GTK_CFLAGS} -o $@ -c $<
 
-${BUILD_DIR}/rrclient/gtk/gtk.pipeline-model.o: rrpipelines/pipeline.c rrpipelines/pipeline.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrclient/gtk/gtk.pipeline-model.o: rrclient/gtk/gtk.pipeline-model.c rrclient/gtk/gtk.pipeline-model.h ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${OBJECT_ORDER_ONLY}
 	@mkdir -p $(dir $@)
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${GTK_CFLAGS} -o $@ -c $<
 
