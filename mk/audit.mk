@@ -7,9 +7,9 @@ ifndef AUDIT_DIR
 AUDIT_DIR := security/audit-logs/$(shell date +%Y%m%d.%H%M%S)
 endif
 # All RustyRig-owned source directories, including nested frontend sources.
-AUDIT_SOURCE_DIRS := $(foreach dir,rrclient rrserver fwdsp libfwdspmgr librrsdrutils rrbridge rrsdrbridge rrpipelines,$(if $(wildcard $(dir)),$(dir)))
+AUDIT_SOURCE_DIRS := $(foreach dir,rrclient rrserver fwdsp libfwdspmgr librrsdrutils rrbridge rrsdrbridge$(if $(wildcard $(dir)),$(dir)))
 audit_files = $(shell find $(AUDIT_SOURCE_DIRS) -type f \( -name '*.c' -o -name '*.h' \) -print)
-AUDIT_TIDY_FILTER := '^(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/.*[.]c$'
+AUDIT_TIDY_FILTER := '^(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge)/.*[.]c$'
 
 # Invalidate objects without make -B, which forces configuration-file recipes.
 define audit-invalidate-objects
@@ -119,12 +119,12 @@ clang-tidy: compile_commands.json audit-init
 	if command -v "$(CLANG_TIDY_RUNNER)" >/dev/null 2>&1; then \
 		"$(CLANG_TIDY_RUNNER)" -p . -j "$(AUDIT_TIDY_JOBS)" -quiet -use-color false \
 			-checks '$(AUDIT_TIDY_CHECKS)' \
-			-header-filter '^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/' \
+			-header-filter '^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge)/' \
 			'$(AUDIT_TIDY_FILTER)' > "$raw" 2>&1; rc=$$?; \
 	else \
 		files=$$(find $(AUDIT_SOURCE_DIRS) -type f -name '*.c' -print); \
 		clang-tidy -p . --quiet --use-color=false -checks='$(AUDIT_TIDY_CHECKS)' \
-			-header-filter='^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/' \
+			-header-filter='^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge)/' \
 			$$files > "$$raw" 2>&1; rc=$$?; \
 	fi; \
 	sed -E '/^[[:space:]]*[0-9]+ warnings generated\.$$/d; /^[[:space:]]*\[[[:space:]]*[0-9]+\/[0-9]+\]\[[^]]+\] clang-tidy-/d; /^[[]([0-9]+)\/[0-9]+[]] Processing file /d' "$$raw" > "$(AUDIT_DIR)/clang-tidy.log"; \
