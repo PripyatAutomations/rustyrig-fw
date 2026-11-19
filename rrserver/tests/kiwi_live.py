@@ -31,6 +31,7 @@ fixture = KiwiFixture(reject_auth=1) if len(sys.argv) < 3 else None
 kiwi_host = sys.argv[2] if len(sys.argv) >= 3 else "127.0.0.1"
 kiwi_port = int(sys.argv[3]) if len(sys.argv) >= 4 else (fixture.port if fixture else 8073)
 config.write_text(f"""[general]
+domain=mesh.test
 station.name=kiwitest
 rig.instances=
 rig.default=receiver
