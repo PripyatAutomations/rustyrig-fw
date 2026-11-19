@@ -64,6 +64,12 @@ if ! ${CC:-cc} $irc_cflags "$abi_check" -Wl,--no-as-needed $irc_libs $axe_libs -
     cat "$work/irc-abi.log" >&2
     return 1
 fi
+if ! "$work/irc-abi-check" >/dev/null 2>"$work/irc-abi-runtime.log"; then
+    echo "ERROR: librustyirc links but the runtime loader cannot resolve the same ABI." >&2
+    echo "Check that an older librustyirc.so.0 is not earlier in LD_LIBRARY_PATH." >&2
+    cat "$work/irc-abi-runtime.log" >&2
+    return 1
+fi
 test_includes="-Iinc -I."
 export LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Caller owns the temporary directory through its existing work-directory trap.
