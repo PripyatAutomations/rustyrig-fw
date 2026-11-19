@@ -507,7 +507,18 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          goto finish;
       }
       dict *out = response(d, "data");
+
+      if (!out) {
+         error = ENOMEM;
+         goto finish;
+      }
       char *base64 = g_base64_encode(bytes, n);
+
+      if (!base64) {
+         dict_free(out);
+         error = ENOMEM;
+         goto finish;
+      }
       dict_add(out, "file.data", base64);
       dict_add_ullong(out, "file.offset", offset);
       dict_add_ullong(out, "file.size", st.st_size);
@@ -543,6 +554,12 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          goto finish;
       }
       char *uuid = g_uuid_string_random();
+
+      if (!uuid) {
+         free(u);
+         error = ENOMEM;
+         goto finish;
+      }
       snprintf(u->temp, sizeof(u->temp), ".rr-upload-%s", uuid);
       g_free(uuid);
       int fd = openat(parent, u->temp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
@@ -608,7 +625,9 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
             maximum = 0;
          }
 
-         if (n > FILE_CHUNK || u->size + n > maximum) {
+         /* Subtraction avoids overflow even with an extreme files.max-size
+          * and a long-running upload. Never wrap the byte counter. */
+         if (n > FILE_CHUNK || u->size > maximum || n > maximum - u->size) {
             error = EFBIG;
          } else {
             size_t written = 0;
