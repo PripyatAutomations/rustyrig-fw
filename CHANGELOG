@@ -18,6 +18,9 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     node IDs before fixed-size storage and cover malformed IDs in relay tests.
   * Track distinct Flawfinder call sites and safely migrate older audit states
     rather than misreporting thousands of spurious fixed/new vulnerabilities.
+  * Preserve accepted mesh user-directory snapshots on allocation failure,
+    bound DCC command reconstruction and GTK nickname completion allocations.
+  * Add DCC command-joining regression cases for quotes, empty and invalid input.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
