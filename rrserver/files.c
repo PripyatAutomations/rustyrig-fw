@@ -646,7 +646,9 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       u->parent = fcntl(parent, F_DUPFD_CLOEXEC, 0);
       snprintf(u->path, sizeof(u->path), "%s", path);
       u->overwrite = dict_get_bool(d, "file.overwrite", false);
-      u->binary = dict_get_bool(d, "file.binary", false) && client->native_transport && !rr_relay_remote_for(client);
+      u->binary = dict_get_bool(d, "file.binary", false) && client->native_transport &&
+         (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_BINARY_MESSAGES) &&
+         !rr_relay_remote_for(client);
       if (u->binary && !rr_file_uuid_valid(id)) {
          error = EINVAL;
          close(u->fd);
