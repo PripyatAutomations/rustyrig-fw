@@ -20,5 +20,6 @@ for source in irc irc.compat cli.irc irc.dcc irc.audio.session; do
    ${CC:-cc} $axe_cflags $proto_cflags $irc_cflags $irc_glib_cflags -fPIC -ffunction-sections -fdata-sections $test_includes -Ibuild/${PROFILE:-radio} -c "rrclient/$source.c" -o "$irc_adapter_dir/$source.o"
 done
 ${CC:-cc} $proto_cflags $irc_glib_cflags -fPIC $test_includes -Ibuild/${PROFILE:-radio} -c rrclient/tests/irc_adapter_stubs.c -o "$irc_adapter_dir/stubs.o"
-${CC:-cc} -shared -o "$irc_adapter_dir/librrirc-test.so" "$irc_adapter_dir"/*.o $irc_libs $proto_libs $axe_libs
-export LDFLAGS="-L$irc_adapter_dir -Wl,-rpath,$irc_adapter_dir -lrrirc-test $irc_libs $proto_libs $axe_libs ${LDFLAGS:-} $irc_glib_libs"
+${CC:-cc} -shared -o "$irc_adapter_dir/librrirc-test.so" "$irc_adapter_dir"/*.o \
+  -Wl,--no-as-needed $irc_libs $proto_libs $axe_libs -Wl,--as-needed $irc_glib_libs
+export LDFLAGS="-L$irc_adapter_dir -Wl,-rpath,$irc_adapter_dir -Wl,--no-as-needed -lrrirc-test $irc_libs $proto_libs $axe_libs -Wl,--as-needed ${LDFLAGS:-} $irc_glib_libs"
