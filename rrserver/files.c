@@ -5,6 +5,7 @@
 // Exported shares and bounded file operations. Part of RustyRig; MIT/GPL.
 // All paths are relative to directory descriptors; symlinks are never followed.
 #include <rrserver/relay.h>
+#include <rrserver/relay.internal.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -733,7 +734,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       }
    } else if (!strcmp(cmd, "rename")) {
       char ignored[256];
-      int readable = resolve(client, path, "read", ignored);
+      int readable = resolve(client, path, "rename", ignored);
 
       if (readable < 0) {
          error = errno;
@@ -804,7 +805,8 @@ static void inventory_rows(dict *request, rrconn_t *client, const rr_inventory_c
          if (!cfg_get_bool(enabled, true)) {
             continue;
          }
-         bool read = permission(client, name, false), write = permission(client, name, true);
+         bool read = permission(client, name, "list"), write = permission(client, name, "begin-create") ||
+            permission(client, name, "begin-overwrite");
 
          if (!catalog && !read && !write) {
             continue;
