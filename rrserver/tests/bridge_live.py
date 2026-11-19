@@ -9,7 +9,7 @@ import sqlite3
 import subprocess
 import sys
 import time
-from ws_helpers import TEST_ACLS, WebSocket
+from ws_helpers import test_password_hash, TEST_ACLS, WebSocket
 
 ROOT = Path(__file__).resolve().parents[2]
 work = Path(sys.argv[1])
@@ -17,7 +17,7 @@ env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))
 with sqlite3.connect(work / 'master.db') as db:
     db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
     db.execute('INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)',
-        ('TEST', 1, hashlib.sha1(b'test-password').hexdigest(), 3, 'admin,view,radio,edit,chat,rx'))
+        ('TEST', 1, test_password_hash(), 3, 'admin,view,radio,edit,chat,rx'))
 with socket.socket() as reservation:
     reservation.bind(('127.0.0.1', 0))
     port = reservation.getsockname()[1]
