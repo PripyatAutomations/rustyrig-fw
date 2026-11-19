@@ -3,7 +3,7 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <assert.h>
 #include <stdio.h>
-#include "../audio.graph.h"
+#include <rrclient/audio.graph.h>
 
 int main(void) {
    rr_audio_graph_t *g = rr_audio_graph_new();

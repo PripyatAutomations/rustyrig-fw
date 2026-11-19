@@ -79,6 +79,30 @@ struct rr_mediachan *media_chan_find(uint8_t s, uint8_t d, uint8_t v, uint8_t r)
    return &media_channels[0];
 }
 
+/* The DSP manager requires both installed channel membership hooks before
+ * enabling server-side delivery. These are part of the native media API. */
+bool chan_id_in_array(u_int32_t *channels, int capacity, u_int32_t id) {
+   for (int i = 0 ; channels && i < capacity ; ++i) {
+      if (channels[i] == id) {
+         return true;
+      }
+   }
+   return false;
+}
+
+bool ws_media_channel_has_subscribers(const struct rr_mediachan *channel) {
+   if (channel != &media_channels[0] || !channel->uuid[0]) {
+      return false;
+   }
+   for (rrconn_t *client = http_client_list ; client ; client = client->next) {
+      if (client->is_ws && client->authenticated &&
+          chan_id_in_array(client->rx_channels, MAX_RX_CHANNELS, 1)) {
+         return true;
+      }
+   }
+   return false;
+}
+
 bool ws_media_broadcast_subscribed(struct rr_mediachan *cp, const uint8_t *data, size_t len, const char codec[4]) {
    assert(!strncmp(codec, cp->codec, 4)); // no packets from retired encoders
 

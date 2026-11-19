@@ -28,6 +28,17 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     installed RustyIRC link dependencies, and per-profile Debian fixture config.
   * Restore debian/changelog as a symlink to the canonical CHANGELOG and update
     codec/playback DSP test expectations to follow actual compiled defaults.
+  * Repair split librrprotocol wire-schema lookup and relocated audio graph
+    fixture header, correct test fixture version and missing link libraries.
+  * Restore DSP switching's native media subscriber fixtures, link the real
+    privilege matcher and diagnose exact Debian conffile assertion failures.
+  * Add bounded loopback boofuzz probes, Semgrep checks, and secure-default
+    regression tests under security/fuzzing.
+  * Remove development-wide remote administrator grants on fresh installs;
+    provide an explicit opt-in user@site Debian configuration with validation.
+  * Restrict remote administration to direct mesh peers by default.
+  * Require an explicit guest password during Debian provisioning, instead of
+    enabling an account with a predictable shared default credential.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 

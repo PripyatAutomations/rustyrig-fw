@@ -24,6 +24,31 @@ origin server are implicitly trusted by a destination. Until the routing
 and enforcement are implemented together, remote mesh serial access must
 remain unavailable.
 
+## Debian first-install remote administrator policy
+
+The `rustyrig-server` Debian package asks whether to grant remote
+administration (default **no**) when creating a new database. If opted in,
+the installer accepts space-separated `user@site` identities, including
+`user@*` for a username on any authenticated remote site. These are
+**authorization policies**, not proof that the named account exists, or
+instructions to trust a certificate. They install two explicit site-level
+grants (`remote-admin` and `admin`) for each entry; no rig, room or PTT
+authorization is granted. Default policy continues to deny all other remote
+administrators.
+
+The owning server must authenticate the linked peer using its existing
+enrolled, pinned certificate and signed identity, identify the asserted
+origin site through the verified mesh tree, and bind the remote user to that
+site's authenticated session before a grant can become effective. Unknown
+sites, expired/changed peer identities and unauthenticated subjects fail
+closed. `user@*` intentionally permits the same username across multiple
+authenticated origins; prefer a specific site.
+
+The installer never enrolls a mesh peer or signs a remote certificate based
+on a name entered during package configuration. Existing databases are not
+modified by these Debconf choices; explicitly revoke obsolete development
+grants when preparing a public preview.
+
 ## Subject identity
 
 Input syntax is `user@host` (for example `alice@camp`). Here `host` is an

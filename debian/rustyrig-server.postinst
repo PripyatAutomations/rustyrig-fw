@@ -25,11 +25,23 @@ fi
 
 admin_password=
 guest_enabled=false
+guest_password=
+remote_admin_enabled=false
+remote_admin_subjects=
 if command -v db_get >/dev/null 2>&1; then
     db_get rustyrig-server/admin-password || true
     admin_password=${RET:-}
     if db_get rustyrig-server/enable-guest; then
         guest_enabled=${RET:-false}
+    fi
+    if [ "$guest_enabled" = true ] && db_get rustyrig-server/guest-password; then
+        guest_password=${RET:-}
+    fi
+    if db_get rustyrig-server/allow-remote-admin; then
+        remote_admin_enabled=${RET:-false}
+    fi
+    if [ "$remote_admin_enabled" = true ] && db_get rustyrig-server/remote-admin-subjects; then
+        remote_admin_subjects=${RET:-}
     fi
 fi
 
@@ -43,9 +55,24 @@ if [ ! -e "$master_db" ]; then
         echo "rustyrig-server: an admin password is required for a new installation" >&2
         exit 1
     fi
+    if [ "$guest_enabled" = true ] && [ -z "$guest_password" ]; then
+        echo "rustyrig-server: guest account requires an explicit password" >&2
+        exit 1
+    fi
+    if [ "$remote_admin_enabled" = true ]; then
+        printf '%s' "$remote_admin_subjects" |
+            /usr/lib/rustyrig/seed-remote-admin --check
+    fi
     sqlite3 "$master_db" < "$master_sql"
     sqlite3 "$master_db" < "$preload_sql"
     new_database=true
+fi
+
+# A grant names a future authenticated user@origin-site. It does not create
+# that account or enroll, pin, or trust a remote server certificate.
+if [ "$new_database" = true ] && [ "$remote_admin_enabled" = true ]; then
+    printf '%s' "$remote_admin_subjects" |
+        /usr/lib/rustyrig/seed-remote-admin "$master_db"
 fi
 
 if [ "$new_database" = true ]; then
@@ -55,7 +82,7 @@ if [ "$new_database" = true ]; then
     sqlite3 "$master_db" \
         "UPDATE users SET enabled=1,password='$admin_hash' WHERE name='admin';"
     if [ "$guest_enabled" = true ]; then
-        guest_hash=$(printf '%s' guest | /usr/lib/rustyrig/rr-password-hash)
+        guest_hash=$(printf '%s' "$guest_password" | /usr/lib/rustyrig/rr-password-hash)
         sqlite3 "$master_db" \
             "UPDATE users SET enabled=1,password='$guest_hash',permissions='rx,chat' WHERE name='guest';"
     fi
@@ -66,6 +93,7 @@ fi
 if command -v db_set >/dev/null 2>&1 && [ "$new_database" = true ]; then
     # Do not retain the cleartext password in the debconf database.
     db_set rustyrig-server/admin-password "" || true
+    db_set rustyrig-server/guest-password "" || true
 fi
 
 # Grant administrative access without changing service ownership.

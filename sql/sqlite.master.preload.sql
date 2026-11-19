@@ -7,11 +7,9 @@
 -- Guest remains disabled by default.
 -- Everything else (schema, indexes) belongs in sql/sqlite.master.sql.
 
--- DEVELOPMENT-ONLY v1.0 BLOCKER: remove remote-admin from bootstrap admin
--- permissions before release; see doc/release-checklist.md.
 -- Users (mirror of config/http.users)
 INSERT INTO users (uid, name, enabled, password, email, maxsessions, permissions) VALUES
-   (1, 'admin', 0, '', 'no@example.com',   3, 'admin,remote-admin,bridge.admin,bridge.use,chat,elmer,files.read,files.write,media.source,owner,rx,serial,serial.*,tx,video-src,websdr.admin,websdr.connect,websdr.listen'),
+   (1, 'admin', 0, '', 'no@example.com',   3, 'admin,bridge.admin,bridge.use,chat,elmer,files.read,files.write,media.source,owner,rx,serial,serial.*,tx,video-src,websdr.admin,websdr.connect,websdr.listen'),
    (2, 'guest', 0, '-', 'no@example.com', 3, 'rx,chat');
 
 -- TX credits for testing (seconds of TX; with quota.enforce=true users
@@ -46,28 +44,6 @@ JOIN (
    SELECT 'supervised','noob'
 ) AS e ON e.name=s.name;
 
--- DEVELOPMENT ONLY: permit authenticated admin@* to control all rigs on
--- this server using @full. Delete this assignment and revoke existing
--- test grants before a production release. RF/PTT safety remains enforced.
-INSERT OR IGNORE INTO privilege_set_assignments
-   (set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by)
-SELECT id,'admin','*','rig','*','seed'
-FROM privilege_sets WHERE name='full';
-
--- @full is rig-scoped. A separate room grant is still needed for normal
--- remote room joins (including site lobby rooms with no rig).
-INSERT INTO resource_privileges
-   (subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by)
-VALUES ('admin','*','room','*','room.join','allow','seed');
-
--- DEVELOPMENT ONLY: remote server administration for admin@*.
--- The destination independently checks site/* remote-admin plus admin/owner.
--- Add owner for full administrative parity during single-operator cluster tests.
--- These do not replace linked-node authentication or other safety controls.
--- REMOVE before production and revoke the already seeded rows.
-INSERT INTO resource_privileges
-   (subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by)
-VALUES
-   ('admin','*','site','*','remote-admin','allow','seed'),
-   ('admin','*','site','*','admin','allow','seed'),
-   ('admin','*','site','*','owner','allow','seed');
+-- Cross-site rig access, room entry, and remote administration are not
+-- granted by default. Every remote privilege must be explicitly approved by
+-- the receiving site's administrator; local account roles are not remote grants.

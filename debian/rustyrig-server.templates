@@ -10,8 +10,8 @@ Template: rustyrig-server/enable-guest
 Type: boolean
 Default: false
 Description: Enable the shared guest account?
- Guests log in with username "guest" and password "guest". The shipped guest
- permissions allow receive audio and chat only. Enable this if you want
+ The shipped guest permissions allow receive audio and chat only. You must
+ choose a separate guest password if enabling this account. Enable this if you want
  shared guest access to your LAN/VPN station.
  .
  The account is disabled by default. This choice applies only when creating
@@ -35,3 +35,31 @@ Description: Local users to add to the rruser device-access group:
  This is separate from rradmin and does not grant administrative permissions.
  Leave empty to add nobody. Existing memberships are preserved.
  Members must log out and back in for new group access.
+
+Template: rustyrig-server/allow-remote-admin
+Type: boolean
+Default: false
+Description: Allow selected users from linked RustyRig servers to administer this server?
+ Default is no. This grants privileged remote administration only to
+ explicitly listed authenticated user@site identities after their origin
+ server has been securely enrolled and verified. It does not enroll or trust
+ a server certificate. This applies only to a new database.
+
+Template: rustyrig-server/remote-admin-subjects
+Type: string
+Default:
+Description: Remote administrator identities (user@site, space separated):
+ Enter one or more usernames qualified by the authoritative RustyRig site
+ name, such as alice@camp. A user need not exist yet: access is effective
+ only after authentication through a trusted, pinned mesh identity.
+ .
+ user@* grants that username access from ANY authenticated remote site and
+ is substantially broader. Prefer explicit user@site identities. No other
+ users receive remote privileges by default.
+
+Template: rustyrig-server/guest-password
+Type: password
+Default:
+Description: Password for the optional RustyRig guest account:
+ Required when the guest account is enabled. Never use a shared default
+ password; choose a distinct secret and distribute it only to intended users.

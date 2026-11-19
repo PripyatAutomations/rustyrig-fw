@@ -49,7 +49,7 @@ check_changelog debian/changelog
 mkdir -p "$work/tools" "$work/debian"
 cp tools/bump-version.sh "$work/tools/"
 cp CHANGELOG "$work/"
-printf '%s\n' '20261003.01' > "$work/.version"
+printf '%s\n' '1.0.3' > "$work/.version"
 ln -s ../CHANGELOG "$work/debian/changelog"
 # Use a fixed RFC 2822 timestamp to verify the bump actually refreshes it.
 mkdir "$work/bin"
@@ -61,7 +61,7 @@ chmod +x "$work/bin/date"
 export PATH="$work/bin:$PATH"
 bash "$work/tools/bump-version.sh" --version 1.2.3 --dry-run >/dev/null
 cmp CHANGELOG "$work/CHANGELOG"
-[[ "$(cat "$work/.version")" == '20261003.01' ]]
+[[ "$(cat "$work/.version")" == '1.0.3' ]]
 bash "$work/tools/bump-version.sh" --version 1.2.3 >/dev/null
 
 if [[ ! -L "$work/debian/changelog" ]] ||

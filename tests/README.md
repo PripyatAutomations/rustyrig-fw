@@ -36,6 +36,13 @@ TEST_SUITES="fwdsp rrclient" make test # select suites for make test
 ./tests/run-tests.sh rrclient   # run one suite
 ```
 
+The native mesh/WebSocket integration tests read the authoritative
+`wire-schema.json` from the sibling `librrprotocol` source checkout. When
+running against installed packages instead, set `RR_WIRE_SCHEMA` to the
+corresponding schema file (or install it at
+`/usr/share/librrprotocol/wire-schema.json`). Missing schemas produce a
+clear error rather than silently weakening wire-message validation.
+
 ## Writing a new suite
 
 Create `<component>/tests/` and either:

@@ -6,7 +6,20 @@ import struct
 import time
 
 from pathlib import Path
-SCHEMA = json.loads((Path(__file__).resolve().parents[2] / 'librrprotocol/wire-schema.json').read_text())
+
+# librrprotocol is now built in its own sibling source tree, not in rustyrig-fw.
+# An explicit override also supports distributions with an installed test schema.
+_ROOT = Path(__file__).resolve().parents[2]
+_CANDIDATES = [
+    Path(os.environ["RR_WIRE_SCHEMA"]) if os.environ.get("RR_WIRE_SCHEMA") else None,
+    _ROOT.parent / "librrprotocol" / "wire-schema.json",
+    _ROOT / "librrprotocol" / "wire-schema.json",
+    Path("/usr/share/librrprotocol/wire-schema.json"),
+]
+_SCHEMA_PATH = next((p for p in _CANDIDATES if p is not None and p.is_file()), None)
+if _SCHEMA_PATH is None:
+    raise RuntimeError("librrprotocol wire-schema.json not found; set RR_WIRE_SCHEMA to the installed or source-tree schema")
+SCHEMA = json.loads(_SCHEMA_PATH.read_text())
 
 def flatten(value, prefix=''):
     result = {}
