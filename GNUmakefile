@@ -171,7 +171,7 @@ license-migrate:
 TEST_SUITES ?= selftest packaging rrserver rrclient fwdsp libfwdspmgr
 .PHONY: test
 test tests: ${bins} test-rrsdrutils
-	./tests/run-tests.sh ${TEST_SUITES}
+	PROFILE='$(PROFILE)' ./tests/run-tests.sh ${TEST_SUITES}
 
 # Keep the historical alias for scripts which invoke "after-eeprom".
 .PHONY: after-config after-eeprom buildconf
