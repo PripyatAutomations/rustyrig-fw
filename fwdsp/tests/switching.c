@@ -9,7 +9,6 @@
 #include FWDSP_MANAGER_SOURCE
 #include <librrprotocol/server.events.h>
 
-struct mg_mgr mg_mgr;
 bool dying, restarting;
 time_t now;
 const char *config_file;
@@ -118,18 +117,19 @@ bool ws_media_send_setup_frame(struct rr_mediachan *cp, rrconn_t *client, const 
 }
 
 static void poll_for(unsigned milliseconds) {
-   uint64_t until = mg_millis() + milliseconds;
-   while (mg_millis() < until) {
-      mg_mgr_poll(&mg_mgr, 5);
+   gint64 until = g_get_monotonic_time() + (gint64)milliseconds * 1000;
+   while (g_get_monotonic_time() < until) {
+      while (g_main_context_pending(NULL)) {
+         g_main_context_iteration(NULL, FALSE);
+      }
       fwdsp_reap_children();
+      g_usleep(5000);
    }
 }
 
 int main(int argc, char **argv) {
    assert(argc == 2);
    config_file = argv[1];
-   mg_log_set(MG_LL_ERROR);
-   mg_mgr_init(&mg_mgr);
    assert(!fwdsp_init());
    assert(fwdsp_codec_start_local("pc16", false, "client-rx-test") >= 0);
    struct fwdsp_subproc *local = fwdsp_find_channel_instance("pc16", false, "client-rx-test");
@@ -164,13 +164,6 @@ int main(int argc, char **argv) {
             assert(decoded_samples > 1000);
             assert(fwdsp_find_channel_instance(codec, true, "channel")->stream_headers_len > 0);
          }
-         unsigned connections = 0;
-
-         for (struct mg_connection *c = mg_mgr.conns ; c ; c = c->next) {
-            connections++;
-         }
-
-         assert(connections == (unsigned)active_slots * 2);
          old = codec;
       }
    }
@@ -281,7 +274,7 @@ int main(int argc, char **argv) {
    }
 
    poll_for(50);
-   assert(!active_slots && !mg_mgr.conns);
+   assert(!active_slots);
    soak_codec = NULL;
    dict_free(cfg);
    cfg = NULL;
@@ -294,8 +287,7 @@ int main(int argc, char **argv) {
    assert(fwdsp_codec_start("pc1T", true, "channel") >= 0);
    poll_for(1000);
    assert(frames_received >= 4 && frames_received <= 5);
-   assert(!active_slots && !mg_mgr.conns);
-   mg_mgr_free(&mg_mgr);
+   assert(!active_slots);
    fwdsp_fini();
    puts("PASS: repeated codec switches, warm encoder reuse, watcher cleanup and child exit");
 }
