@@ -11,6 +11,18 @@ irc_libs="$(pkg-config --libs librustyirc 2>/dev/null || printf '%s' '-lrustyirc
 axe_libs="$(pkg-config --libs librustyaxe 2>/dev/null || printf '%s' '-lrustyaxe')"
 proto_libs="$(pkg-config --libs librrprotocol 2>/dev/null || printf '%s' '-lrrprotocol')"
 
+# A previous librustyirc GNUmakefile emitted bare '-L -lrustyirc' because
+# make expanded pkg-config's ${libdir} too early. GCC then treats -lrustyirc
+# as the -L directory argument, leaving no IRC library on the link line.
+if [[ $irc_libs =~ (^|[[:space:]])-L[[:space:]] ]] ||
+   [[ $irc_cflags =~ (^|[[:space:]])-I[[:space:]] ]]; then
+    echo "ERROR: malformed installed librustyirc.pc (bare -L or -I flag)." >&2
+    echo "pkg-config --libs librustyirc: $irc_libs" >&2
+    echo "pkg-config --cflags librustyirc: $irc_cflags" >&2
+    echo "Regenerate and reinstall librustyirc.pc from the fixed librustyaxe/librustyirc/GNUmakefile." >&2
+    return 1
+fi
+
 # The public headers can be newer than the installed DSO. Verify symbols
 # referenced by irc.compat.c before spawning dozens of noisy failing tests.
 abi_check="$work/irc-abi-check.c"
@@ -58,8 +70,8 @@ int main(void) {
 }
 IRC_ABI
 if ! ${CC:-cc} $irc_cflags "$abi_check" -Wl,--no-as-needed $irc_libs $axe_libs -Wl,--as-needed -o "$work/irc-abi-check" >/dev/null 2>"$work/irc-abi.log"; then
-    echo "ERROR: installed librustyirc lacks the API used by rustyrig-fw." >&2
-    echo "Build/install librustyirc from the librustyaxe/librustyirc source tree," >&2
+    echo "ERROR: IRC ABI link probe failed (wrong linker flags, library location, or ABI)." >&2
+    echo "Inspect pkg-config --libs librustyirc and verify the installed librustyirc DSO," >&2
     echo "then rerun these tests (linker details follow):" >&2
     cat "$work/irc-abi.log" >&2
     return 1
