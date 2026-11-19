@@ -10,7 +10,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
-from ws_helpers import WebSocket, TEST_ACLS
+from ws_helpers import test_password_hash, WebSocket, TEST_ACLS
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix='rr-files-live-') as temporary:
     work = pathlib.Path(temporary)
@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='rr-files-live-') as temporary:
         db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
         for uid, name, permissions in [(1,'TEST','files.read,files.write,view,webcam'),(2,'READER','files.read'),(3,'DENIED','admin,owner')]:
             db.execute('INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(?,?,1,?,3,?)',
-                       (uid,name,hashlib.sha1(b'test-password').hexdigest(),permissions))
+                       (uid,name,test_password_hash(),permissions))
     with socket.socket() as reservation:
         reservation.bind(('127.0.0.1',0)); port = reservation.getsockname()[1]
     config = work / 'server.cfg'
