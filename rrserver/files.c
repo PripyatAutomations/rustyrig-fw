@@ -830,6 +830,90 @@ done:
    dict_free(d);
 }
 
+/* Native upload payloads are delivered only by the authenticated binary
+ * transport. Text requests retain ownership, authorization and commit. */
+static void binary_upload(const char *event, const void *data, size_t length,
+                          rrconn_t *client, void *context) {
+   (void)event;
+   (void)context;
+   if (!client || !client->authenticated || !client->native_transport ||
+       rr_relay_remote_for(client)) {
+      return;
+   }
+   rr_file_chunk_t chunk;
+
+   if (!rr_file_chunk_unpack(&chunk, data, length) || chunk.fin) {
+      return;
+   }
+   struct upload *u = job(client);
+
+   if (!u || !u->binary || u->syncing || strcmp(u->request_id, chunk.id)) {
+      return;
+   }
+   dict *request = dict_new();
+
+   if (!request) {
+      discard(u);
+      return;
+   }
+   dict_add(request, "request.id", u->request_id);
+   dict_add(request, "file.path", u->path);
+   int error = 0;
+   char name[256];
+   const char *op = u->overwrite ? "chunk-write" : "chunk-create";
+   int parent = resolve(client, u->path, op, name);
+
+   if (parent < 0) {
+      error = errno;
+   } else {
+      struct stat a, b;
+
+      if (fstat(parent, &a) || fstat(u->parent, &b) ||
+          a.st_dev != b.st_dev || a.st_ino != b.st_ino ||
+          chunk.offset != u->size) {
+         error = EACCES;
+      }
+      close(parent);
+   }
+   if (!error) {
+      const char *configured = cfg_get("files.max-size");
+      char *end = NULL;
+      errno = 0;
+      uint64_t maximum = configured ? strtoull(configured, &end, 10) : UINT64_C(1073741824);
+
+      if (configured && (*configured == '-' || !*configured || errno || !end || *end)) {
+         maximum = 0;
+      }
+      if (!rr_files_chunk_fits(u->size, chunk.length, maximum, FILE_CHUNK)) {
+         error = EFBIG;
+      }
+   }
+   if (!error) {
+      size_t written = 0;
+
+      while (written < chunk.length) {
+         ssize_t n = write(u->fd, chunk.bytes + written, chunk.length - written);
+
+         if (n < 0 && errno == EINTR) {
+            continue;
+         }
+         if (n <= 0) {
+            error = n < 0 ? errno : EIO;
+            break;
+         }
+         written += (size_t)n;
+      }
+      if (!error) {
+         u->size += chunk.length;
+      }
+   }
+   if (error) {
+      discard(u);
+   }
+   result(client, request, error);
+   dict_free(request);
+}
+
 static void inventory_rows(dict *request, rrconn_t *client, const rr_inventory_catalog_t *catalog) {
    if (!strcmp(dict_get(request, "inventory.scope", ""), "station")) {
       const char *key;
@@ -906,6 +990,7 @@ static void catalog_inventory(const char *event, const void *data, size_t length
 
 void rrserver_files_register(void) {
    event_on("file.request", request, NULL);
+   event_on_binary("media.frame.file.upload", binary_upload, NULL);
    event_on("server.poll", complete_uploads, NULL);
    event_on("protocol.session.closed", closed, NULL);
    event_on("serial.session.closed", closed, NULL);
