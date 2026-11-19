@@ -1821,6 +1821,7 @@ bool connect_server(const char *name) {
    return rrclient_connect_url(name, get_server_property(name, "server.url"));
 }
 
+#ifdef USE_MONGOOSE
 static bool same_url(const char *a, const char *b) {
    rr_server_url_t left, right;
 
@@ -1829,6 +1830,8 @@ static bool same_url(const char *a, const char *b) {
           left.credentials == right.credentials && !strcmp(left.user, right.user) && !strcmp(left.pass, right.pass) &&
           !strcasecmp(left.host, right.host) && (left.irc || !strcmp(left.path, right.path));
 }
+
+#endif
 
 bool rrclient_connect_url(const char *profile, const char *url) {
    return rrclient_connect_url_proxy(profile, url, NULL);
