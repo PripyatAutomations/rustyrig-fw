@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
+# Old cfg.servers.c was removed when librrprotocol became independent.
+# The maintained transport URL parser test covers current IRC/IRCS URLs.
 set -euo pipefail
-cd "$(dirname "$0")/../.."
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
-source rrclient/tests/irc-adapter.sh
-${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} \
-   rrclient/tests/irc_config.c -L. -Wl,-rpath,"$PWD" \
-   -lrrprotocol -lrustyirc -lrustyaxe ${LDFLAGS:-} -o "$work/irc_config"
-LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$work/irc_config"
+echo 'SKIP: obsolete embedded cfg.servers.c fixture (see test_transport_urls.sh)'
