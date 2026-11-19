@@ -7,9 +7,11 @@ import sys
 root = pathlib.Path(sys.argv[1]).resolve()
 program = sys.argv[2]
 assert program in ("rrclient", "rrserver")
-for directory in ("run", "db", "audit-logs", "recordings", "dev"):
+for directory in ("run", "db", "audit-logs", "recordings", "dev", "identity"):
     (root / directory).mkdir(exist_ok=True)
+(root / "identity").chmod(0o700)
 replacements = {
+    "/var/lib/rustyrig/identity": str(root / "identity"),
     "/var/lib/rustyrig/db": str(root / "db"),
     "/var/lib/rustyrig/sql": str(root / "sql"),
     "/var/lib/rustyrig/www": str(root / "www"),
