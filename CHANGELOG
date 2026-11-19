@@ -1,5 +1,8 @@
 rustyrig-fw (1.0.4) testing; urgency=medium
 
+  * Force emergency PTT release if disconnect event allocation fails;
+    block new TX on unsuccessful release and test both outcomes with OOM injection.
+
   * Transfer server-share payloads on native reliable FILE binary frames with
     UUID/offset binding, bounded chunk sizes, upload authorization and atomic
     temporary-file publishing. Retain bounded base64 for older/mesh routes.
