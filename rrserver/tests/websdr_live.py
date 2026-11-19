@@ -27,6 +27,7 @@ with socket.socket() as reservation:
     reservation.bind(('127.0.0.1', 0)); port = reservation.getsockname()[1]
 config = work / 'server.cfg'
 config.write_text(f'''[general]
+domain=mesh.test
 station.name=websdrtest
 rig.instances=
 rig.default=configured
