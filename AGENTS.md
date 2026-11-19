@@ -175,3 +175,9 @@ Project-owned RustyRig source uses `SPDX-License-Identifier: GPL-2.0-only`.
 The authoritative GPLv2 text is `doc/LICENSE`. Do not rewrite license headers
 in submodules, third-party libraries or bundled Windows themes.
 `librrprotocol` is GPLv2, while `librustyaxe` remains MIT.
+
+## Commit rules
+We should always create a new branch for the *session*.
+That branch should follow a few quality control rules:
+- Generate a diff and create an entry in the detailed changelog
+- Run make audit and compare result and triage any new vulnerabilities
