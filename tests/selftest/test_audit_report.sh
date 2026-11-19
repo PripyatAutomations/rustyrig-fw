@@ -42,6 +42,7 @@ PY
 # A native ScanView plist must enter the same resolved/new comparison.
 mkdir -p "$tmp/run4/scanview" "$tmp/run5/scanview"
 printf '%s\n' ok > "$tmp/run4/scanbuild.status"
+: > "$tmp/run4/scanbuild.log"
 python3 - "$tmp/run4/scanview/sample.plist" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], 'wb') as out:
@@ -52,6 +53,7 @@ with open(sys.argv[1], 'wb') as out:
 PY
 python3 "$root/security/audit-report.py" "$tmp/run4" --state "$tmp/scanstate.json" >/dev/null
 printf '%s\n' ok > "$tmp/run5/scanbuild.status"
+: > "$tmp/run5/scanbuild.log"
 python3 "$root/security/audit-report.py" "$tmp/run5" --state "$tmp/scanstate.json" >/dev/null
 python3 - "$tmp/run5/comparison.json" <<'PY'
 import json, sys
