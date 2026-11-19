@@ -53,7 +53,11 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    int length = vsnprintf(NULL, 0, fmt, sizing);
    va_end(sizing);
 
-   if (length < 0) {
+   /* Never allocate from an unbounded diagnostic length. The callback
+    * receives structured, potentially remote-influenced log messages. */
+   const size_t max_message = 64u * 1024u * 1024u;
+
+   if (length < 0 || (size_t)length > max_message) {
       streaming = false;
 
       return false;
@@ -69,14 +73,6 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    /* Small lines preserve the original binary format. Large lines use sequenced lgch frames, reassembled in librrprotocol before UI delivery. */
    const size_t normal_limit = RR_BINFRAME_MAX_PAYLOAD - RR_LOGFRAME_HDR_LEN - 1;
    const size_t chunk_size = 16384;
-   const size_t max_message = 64u * 1024u * 1024u;
-
-   if ((size_t)length > max_message) {
-      free(msgbuf);
-      streaming = false;
-
-      return false;
-   }
    uint32_t message_id = ++logframe_seq;
    size_t total = (size_t)length;
    size_t offset = 0;
