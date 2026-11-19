@@ -4,6 +4,7 @@ import hashlib
 import os
 import pathlib
 import socket
+import ssl
 import sqlite3
 import subprocess
 import tempfile
@@ -19,6 +20,13 @@ with tempfile.TemporaryDirectory(prefix='rr-files-live-') as temporary:
     (work / 'private').write_text('secret')
     (share / 'escape').symlink_to(work)
     (share / 'private-link').symlink_to(work / 'private')
+    cert = work / 'tls-cert.pem'
+    key = work / 'tls-key.pem'
+    subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+        '-keyout', str(key), '-out', str(cert), '-days', '1', '-sha256',
+        '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1'],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    tls = ssl.create_default_context(cafile=str(cert))
     dbpath = work / 'master.db'
     with sqlite3.connect(dbpath) as db:
         db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
@@ -37,8 +45,11 @@ path.modules={work}/modules
 log.file=-
 log.level=*:info
 net.http.bind=127.0.0.1
-net.http.port={port}
-net.http.tls-enabled=false
+net.http.tls-bind=127.0.0.1
+net.http.tls-port={port}
+net.http.tls-enabled=true
+net.http.tls-cert={cert}
+net.http.tls-key={key}
 net.http.authdb-dynamic=true
 net.http.ua-bans={work}/missing-bans
 net.mqtt.enabled=false
@@ -68,7 +79,7 @@ write=never.granted
     def connect(name):
         deadline = time.monotonic()+10
         while True:
-            try: c=WebSocket(port); break
+            try: c=WebSocket(port, tls); break
             except ConnectionRefusedError:
                 if process.poll() is not None or time.monotonic()>deadline: raise RuntimeError((work/'console.log').read_text())
                 time.sleep(.05)
