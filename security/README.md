@@ -21,11 +21,12 @@ After a representative full audit, run:
 ```sh
 make audit-baseline
 AUDIT_BASELINE=security/baseline.json make audit
+AUDIT_BASELINE=security/baseline.json AUDIT_FAIL_NEW_SEVERE=1 make audit
 ```
 
 The first command snapshots the latest result into `security/baseline.json`.
 Use a pinned baseline for longer-term comparisons; omit `AUDIT_BASELINE`
-to compare against the previous run. Keep the baseline in version control if
+to compare against the previous run. The optional severity gate returns failure\nwhen new severe findings appear, without discarding reports. Keep the baseline in version control if
 you want the same reference on other machines.
 
 ## Severity and completeness
