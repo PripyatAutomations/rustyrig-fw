@@ -19,7 +19,7 @@ cat > "$abi_check" <<'IRC_ABI'
 #include <librustyirc/protocol.h>
 #include <librustyirc/connection.h>
 int main(void) {
-    volatile const void *symbols[] = {
+    const void *volatile symbols[] = {
         (const void *)&irc_parse_message,
         (const void *)&irc_message_free,
         (const void *)&rustyirc_capabilities_message,
