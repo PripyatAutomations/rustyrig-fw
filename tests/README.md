@@ -43,6 +43,26 @@ corresponding schema file (or install it at
 `/usr/share/librrprotocol/wire-schema.json`). Missing schemas produce a
 clear error rather than silently weakening wire-message validation.
 
+## IRC and DCC tests
+
+The IRC implementation lives in the sibling `librustyaxe/librustyirc/`
+source directory. It builds as a **separate** `librustyirc.so.0` shared
+library; it is not linked into `librustyaxe.so`.
+
+IRC tests build a temporary RustyRig transport adapter, then link against
+the installed `librustyirc` and its declared dependencies. The adapter
+first links a small ABI probe covering its required protocol entry points.
+If that probe fails, rebuild/install the matching `librustyirc` library and
+development package from the sibling `librustyaxe` checkout (and refresh
+the dynamic linker cache if required). Do **not** replace missing protocol
+functions with no-op test stubs: parsing, registration, DCC offers and
+authentication must execute the actual library code.
+
+Use `bash rrclient/tests/test_irc_protocol.sh` and
+`bash rrclient/tests/test_dcc_commands.sh` for focused reruns. A successful
+RustyRig application build does not demonstrate that an old installed
+`librustyirc.so.0` exports the current API.
+
 ## Writing a new suite
 
 Create `<component>/tests/` and either:
