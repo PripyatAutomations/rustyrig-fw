@@ -5,8 +5,10 @@ rustyrig-fw (1.0.4) testing; urgency=medium
   * Expand security audit coverage to nested owned C sources and ensure scan-build
     and Bear observe a rebuilt object set rather than a no-op incremental build.
   * Keep sanitizer reports in security/audit-logs and ignore generated reports.
+  * Add normalized static-audit history, severe new/resolved finding comparison,
+    scanner completeness tracking, pinned baselines, and regression tests.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 18:59:06 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
 rustyrig-fw (1.0.3) testing; urgency=medium
 
