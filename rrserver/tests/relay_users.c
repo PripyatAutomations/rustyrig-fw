@@ -56,6 +56,18 @@ int main(void) {
    peer.descriptor = dict_new();
    dict_add(peer.descriptor, "object.type", "node");
    rr_relay_catalogs = &peer;
+   /* Signed empty-key directories still need a bounded canonical node ID:
+    * otherwise rr_relay_directory_put() could overrun directory.node[37]. */
+   dict *invalid_directory = dict_new();
+   assert(invalid_directory);
+   dict_add_uint(invalid_directory, "count", 0);
+   assert(!rr_relay_directory_valid(NULL, invalid_directory));
+   assert(!rr_relay_directory_valid("malformed-node", invalid_directory));
+   assert(!rr_relay_directory_valid("22222222-2222-2222-2222-222222222222-extra", invalid_directory));
+   assert(rr_relay_directory_valid("22222222-2222-2222-2222-222222222222", invalid_directory));
+   rr_relay_directory_put("22222222-2222-2222-2222-222222222222-extra", invalid_directory);
+   assert(rr_relay_directories == NULL);
+   dict_free(invalid_directory);
    rr_relay_users_poll(false);
    assert(builds == 1 && sends == 1);
    assert(dict_get_uint(rr_relay_directories->users, "user.0.sessions", 0) == 1);
