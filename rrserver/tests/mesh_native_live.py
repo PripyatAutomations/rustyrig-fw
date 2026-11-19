@@ -42,7 +42,7 @@ class Fixture:
         self.console = self.work / 'console.log'
         self.proc = None
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
-            '-subj', f'/CN={name}', '-keyout', str(self.key), '-out', str(self.cert)],
+            '-subj', f'/CN={name}.mesh.test', '-addext', f'subjectAltName=DNS:{name}.mesh.test', '-keyout', str(self.key), '-out', str(self.cert)],
             check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.key.chmod(0o600)
         with sqlite3.connect(self.db) as db:
