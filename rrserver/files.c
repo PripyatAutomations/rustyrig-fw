@@ -546,6 +546,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          goto finish;
       }
       if (dict_get_bool(d, "file.binary", false) && client->native_transport &&
+          (rr_transport_capabilities(client->native_transport) & RR_TRANSPORT_BINARY_MESSAGES) &&
           !rr_relay_remote_for(client)) {
          if (!rr_file_uuid_valid(id)) {
             error = EINVAL;
