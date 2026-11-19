@@ -47,7 +47,7 @@ A skipped, failed, or unknown scanner retains its last findings as
 **not checked**, not resolved. Check `*.status` and raw logs when comparing.
 Scan-build, Cppcheck, Clang-Tidy and Flawfinder are normalized. Scan-build
 preserves Clang plist findings under the run directory's `scanview/` directory.
-pscan continues to save its native report, but is not yet normalized. An incomplete profile or modified analyzer
+pscan variable-format warnings are also normalized as moderate-severity review items. Variable-format wrappers are not by themselves proven security defects; inspect callers for user-controlled format strings. An incomplete profile or modified analyzer
 configuration may also change which code is inspected. Compare like builds.
 
 Run `tests/selftest/test_audit_report.sh` to validate the comparison logic.
