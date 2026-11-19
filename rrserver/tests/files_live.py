@@ -15,6 +15,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix='rr-files-live-') as temporary:
     work = pathlib.Path(temporary)
     (work / 'modules').mkdir()
+    identity = work / 'identity'
+    identity.mkdir(mode=0o700)
+    identity.chmod(0o700)
     share = work / 'export'; share.mkdir()
     (share / 'existing.cfg').write_text('original\n')
     (share / 'nested').mkdir()
@@ -43,6 +46,7 @@ station.name=filestest
 rig.instances=rig0
 rig.default=rig0
 path.db.master={dbpath}
+path.identity={identity}
 path.modules={work}/modules
 log.file=-
 log.level=*:info
