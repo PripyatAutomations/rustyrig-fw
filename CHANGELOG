@@ -1,5 +1,10 @@
 rustyrig-fw (1.0.4) testing; urgency=medium
 
+  * Verify the installed RustyIRC shared-library ABI before client IRC
+    integration tests, use complete pkg-config link dependencies and current
+    namespaced adapter headers instead of stale development headers.
+  * Repair POSIX DCC fixture setup, active connection contexts, and IRC TLS
+    fixture SANs; guard protocol-state allocation failure in the client.
   * Human audit and review of the project
   * Improvement to indenting/formatter configurations
   * Expand security audit coverage to nested owned C sources and ensure scan-build
