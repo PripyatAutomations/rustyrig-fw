@@ -14,6 +14,10 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     format-string audit triage of client, server and bridge wrappers.
   * Track pscan format warnings in audit comparisons and correct Clang-Tidy
     filter quoting so the combined audit reaches the analyzer.
+  * Review Flawfinder's level-4/5 findings, validate signed mesh directory
+    node IDs before fixed-size storage and cover malformed IDs in relay tests.
+  * Track distinct Flawfinder call sites and safely migrate older audit states
+    rather than misreporting thousands of spurious fixed/new vulnerabilities.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
