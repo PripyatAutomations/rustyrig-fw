@@ -21,6 +21,9 @@ rustyrig-fw (1.0.4) testing; urgency=medium
   * Preserve accepted mesh user-directory snapshots on allocation failure,
     bound DCC command reconstruction and GTK nickname completion allocations.
   * Add DCC command-joining regression cases for quotes, empty and invalid input.
+  * Propagate interrupted test runs to their complete process group, including
+    Xvfb wrappers, while retaining descendant/subreaper cleanup; test terminal
+    Ctrl-C behavior in the process-cleanup regression suite.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
