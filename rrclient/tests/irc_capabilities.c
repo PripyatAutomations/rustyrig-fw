@@ -4,6 +4,9 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/irc.h>
@@ -23,22 +26,39 @@ static void changed(const char *event, const char *data, rrconn_t *c, void *user
    changes++;
 }
 
-static void wire(struct mg_connection *c, const char *expected) {
-   assert(c->send.len == strlen(expected));
-   assert(!memcmp(c->send.buf, expected, c->send.len));
-   mg_iobuf_del(&c->send, 0, c->send.len);
+/* Assert the exact CAP/SASL wire bytes through the native socket transport. */
+static int tap_fd;
+static void wire(const char *expected) {
+   char bytes[2048];
+   size_t wanted = strlen(expected), got = 0;
+   assert(wanted <= sizeof(bytes));
+   for (unsigned attempt = 0 ; got < wanted && attempt < 200 ; attempt++) {
+      ssize_t n = recv(tap_fd, bytes + got, wanted - got, MSG_DONTWAIT);
+      if (n > 0) {
+         got += (size_t)n;
+      } else {
+         assert(n < 0 && (errno == EAGAIN || errno == EINTR));
+         usleep(1000);
+      }
+   }
+   assert(got == wanted && !memcmp(bytes, expected, wanted));
+}
+
+static void no_wire(void) {
+   char byte;
+   assert(recv(tap_fd, &byte, 1, MSG_DONTWAIT) < 0 &&
+          (errno == EAGAIN || errno == EINTR));
 }
 
 int main(void) {
+   int sockets[2];
+   assert(!socketpair(AF_UNIX, SOCK_STREAM, 0, sockets));
+   tap_fd = sockets[1];
    rrconn_t a = {
-      .fd = -1, .connected = now
+      .fd = sockets[0], .connected = now
    }, b = {
       .fd = -1
    };
-   struct mg_connection c = {
-      0
-   };
-   a.conn = &c;
    event_init();
    assert(!irc_init());
    event_on("irc.capabilities", changed, NULL);
@@ -62,13 +82,14 @@ int main(void) {
    irc_process_message(&a, ":server CAP * LS * :multi-prefix RUSTYRIG-other custom=value sasl=PLAIN,EXTERNAL");
    assert(!strcmp(irc_server_capability(&a, "sasl"), "PLAIN,EXTERNAL"));
    assert(!irc_capability_enabled(&a, "sasl") && !irc_server_capability(&b, "sasl"));
-   assert(!c.send.len && !irc_supports_rustyrig(&a));
+   no_wire();
+   assert(!irc_supports_rustyrig(&a));
    irc_process_message(&a, ":server CAP * LS :RUSTYRIG sasl");
-   wire(&c, "CAP REQ :multi-prefix RUSTYRIG\r\n");
+   wire("CAP REQ :multi-prefix RUSTYRIG\r\n");
    assert(!irc_supports_rustyrig(&a));
    assert(!strcmp(irc_server_capability(&a, "custom"), "value"));
    irc_process_message(&a, ":server CAP * ACK :multi-prefix RUSTYRIG");
-   wire(&c, "CAP END\r\n");
+   wire("CAP END\r\n");
    assert(irc_supports_rustyrig(&a) && !irc_supports_rustyrig(&b) && changes == 1);
    assert(irc_capability_enabled(&a, "multi-prefix"));
    irc_process_message(&a, ":server CAP * NEW :custom=updated new-cap");
@@ -97,12 +118,12 @@ int main(void) {
    assert(!irc_supports_rustyrig(&a) && !strcmp(irc_modes_symbol(&a, "o"), "!"));
    irc_capabilities_reset(&a);
    irc_process_message(&a, ":server CAP * LS :sasl echo-message");
-   wire(&c, "CAP END\r\n");
+   wire("CAP END\r\n");
    irc_capabilities_reset(&a);
    irc_process_message(&a, ":server CAP * LS :RUSTYRIG");
-   wire(&c, "CAP REQ :RUSTYRIG\r\n");
+   wire("CAP REQ :RUSTYRIG\r\n");
    irc_process_message(&a, ":server CAP * NAK :RUSTYRIG");
-   wire(&c, "CAP END\r\n");
+   wire("CAP END\r\n");
    assert(!irc_supports_rustyrig(&a));
    irc_process_message(&a, ":server CAP * NEW :example=value other");
    irc_process_message(&a, ":server CAP * ACK :example other");
@@ -124,32 +145,32 @@ int main(void) {
    a.server = &sasl;
    irc_capabilities_reset(&a);
    irc_process_message(&a, ":server CAP * LS :multi-prefix sasl=PLAIN,EXTERNAL");
-   wire(&c, "CAP REQ :multi-prefix sasl\r\n");
+   wire("CAP REQ :multi-prefix sasl\r\n");
    irc_process_message(&a, ":server CAP * ACK :multi-prefix");
-   assert(!c.send.len);         // Split ACK must not end CAP before SASL starts.
+   no_wire();         // Split ACK must not end CAP before SASL starts.
    irc_process_message(&a, ":server CAP * ACK :sasl");
-   wire(&c, "AUTHENTICATE PLAIN\r\n");
+   wire("AUTHENTICATE PLAIN\r\n");
    irc_process_message(&a, "AUTHENTICATE +");
-   wire(&c, "AUTHENTICATE AGFjY291bnQAcGFzc3dvcmQ=\r\n");
+   wire("AUTHENTICATE AGFjY291bnQAcGFzc3dvcmQ=\r\n");
    irc_process_message(&a, ":server 903 nick :SASL successful");
-   wire(&c, "CAP END\r\n");
+   wire("CAP END\r\n");
    irc_capabilities_reset(&a);
    irc_process_message(&a, ":server CAP * LS :sasl");
-   wire(&c, "CAP REQ :sasl\r\n");
+   wire("CAP REQ :sasl\r\n");
    irc_process_message(&a, ":server CAP * ACK :sasl");
-   wire(&c, "AUTHENTICATE PLAIN\r\n");
+   wire("AUTHENTICATE PLAIN\r\n");
    irc_process_message(&a, ":server 904 nick :SASL failed");
-   wire(&c, "CAP END\r\n");
+   wire("CAP END\r\n");
    strcpy(sasl.sasl_mechanism, "EXTERNAL");
    irc_capabilities_reset(&a);
    irc_process_message(&a, ":server CAP * LS :sasl=EXTERNAL");
-   wire(&c, "CAP REQ :sasl\r\n");
+   wire("CAP REQ :sasl\r\n");
    irc_process_message(&a, ":server CAP * ACK :sasl");
-   wire(&c, "AUTHENTICATE EXTERNAL\r\n");
+   wire("AUTHENTICATE EXTERNAL\r\n");
    irc_process_message(&a, "AUTHENTICATE +");
-   wire(&c, "AUTHENTICATE +\r\n");
+   wire("AUTHENTICATE +\r\n");
    irc_process_message(&a, ":server 903 nick :SASL successful");
-   wire(&c, "CAP END\r\n");
+   wire("CAP END\r\n");
    // Exact 400-byte responses require the final '+' delimiter.
    strcpy(sasl.sasl_mechanism, "PLAIN");
    memset(sasl.sasl_user, 'a', 170);
@@ -158,28 +179,39 @@ int main(void) {
    sasl.sasl_pass[128] = 0;
    irc_capabilities_reset(&a);
    irc_process_message(&a, ":server CAP * LS :sasl");
-   wire(&c, "CAP REQ :sasl\r\n");
+   wire("CAP REQ :sasl\r\n");
    irc_process_message(&a, ":server CAP * ACK :sasl");
-   wire(&c, "AUTHENTICATE PLAIN\r\n");
+   wire("AUTHENTICATE PLAIN\r\n");
    irc_process_message(&a, "AUTHENTICATE +");
-   assert(c.send.len == 431 && !memcmp(c.send.buf, "AUTHENTICATE ", 13));
-   assert(!memcmp(c.send.buf + 413, "\r\nAUTHENTICATE +\r\n", 18));
-   mg_iobuf_del(&c.send, 0, c.send.len);
+   char large[431];
+   size_t used = 0;
+   while (used < sizeof(large)) {
+      ssize_t n = recv(tap_fd, large + used, sizeof(large) - used, MSG_DONTWAIT);
+      if (n > 0) {
+         used += (size_t)n;
+      } else {
+         assert(n < 0 && (errno == EAGAIN || errno == EINTR));
+         usleep(1000);
+      }
+   }
+   assert(!memcmp(large, "AUTHENTICATE ", 13));
+   assert(!memcmp(large + 413, "\r\nAUTHENTICATE +\r\n", 18));
    irc_process_message(&a, ":server 906 nick :aborted");
-   wire(&c, "CAP END\r\n");
+   wire("CAP END\r\n");
    irc_capabilities_reset(&a);
    irc_process_message(&a, ":server CAP * LS :sasl");
-   wire(&c, "CAP REQ :sasl\r\n");
+   wire("CAP REQ :sasl\r\n");
    irc_process_message(&a, ":server CAP * ACK :sasl");
-   wire(&c, "AUTHENTICATE PLAIN\r\n");
+   wire("AUTHENTICATE PLAIN\r\n");
    clock_ms = 30001;
    irc_capabilities_poll(&a);
-   wire(&c, "AUTHENTICATE *\r\nCAP END\r\n");
+   wire("AUTHENTICATE *\r\nCAP END\r\n");
    irc_capabilities_poll(&a);
-   assert(!c.send.len);
+   no_wire();
    puts("PASS: IRC SASL PLAIN/EXTERNAL, split ACK, success/failure and 400-byte framing");
    irc_shutdown();
    event_shutdown();
-   mg_iobuf_free(&c.send);
+   close(sockets[0]);
+   close(sockets[1]);
    puts("PASS: isolated IRC capabilities, multiline CAP negotiation, rejection, removal, PREFIX and mode arguments");
 }
