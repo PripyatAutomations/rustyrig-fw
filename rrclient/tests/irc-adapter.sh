@@ -21,10 +21,38 @@ cat > "$abi_check" <<'IRC_ABI'
 int main(void) {
     volatile const void *symbols[] = {
         (const void *)&irc_parse_message,
+        (const void *)&irc_message_free,
+        (const void *)&rustyirc_capabilities_message,
+        (const void *)&rustyirc_capabilities_poll,
+        (const void *)&rustyirc_capabilities_reset,
+        (const void *)&rustyirc_capabilities_shutdown,
+        (const void *)&rustyirc_capability_enabled,
+        (const void *)&rustyirc_connection_free,
         (const void *)&rustyirc_connection_new,
-        (const void *)&rustyirc_server_capab,
+        (const void *)&rustyirc_connection_nick,
+        (const void *)&rustyirc_connection_registered,
+        (const void *)&rustyirc_connection_set_fd,
+        (const void *)&rustyirc_connection_set_nick,
+        (const void *)&rustyirc_connection_set_sasl,
+        (const void *)&rustyirc_dcc_audio_decode,
         (const void *)&rustyirc_dcc_audio_encode,
-        (const void *)&rustyirc_register_default_numeric_callbacks
+        (const void *)&rustyirc_dcc_audio_message,
+        (const void *)&rustyirc_dispatch_message,
+        (const void *)&rustyirc_emit_message,
+        (const void *)&rustyirc_line_limit,
+        (const void *)&rustyirc_mode_has_argument,
+        (const void *)&rustyirc_modes_symbol,
+        (const void *)&rustyirc_prefix_mode,
+        (const void *)&rustyirc_register_callback,
+        (const void *)&rustyirc_register_default_callbacks,
+        (const void *)&rustyirc_register_default_numeric_callbacks,
+        (const void *)&rustyirc_remove_callback,
+        (const void *)&rustyirc_send_dcc_audio,
+        (const void *)&rustyirc_server_capab,
+        (const void *)&rustyirc_server_capability,
+        (const void *)&rustyirc_server_property,
+        (const void *)&rustyirc_shutdown,
+        (const void *)&rustyirc_supports_rustyrig
     };
     return symbols[0] == NULL;
 }
