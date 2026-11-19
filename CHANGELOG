@@ -37,6 +37,8 @@ rustyrig-fw (1.0.4) testing; urgency=medium
   * Remove development-wide remote administrator grants on fresh installs;
     provide an explicit opt-in user@site Debian configuration with validation.
   * Restrict remote administration to direct mesh peers by default.
+  * Require an explicit guest password during Debian provisioning, instead of
+    enabling an account with a predictable shared default credential.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
