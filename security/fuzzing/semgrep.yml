@@ -1,0 +1,51 @@
+# Review-focused Semgrep rules for RustyRig-owned code. No autofixes.
+# Run: semgrep scan --config security/fuzzing/semgrep.yml --error rrserver rrclient libfwdspmgr
+rules:
+  - id: rustyrig-disabled-tls-verification
+    languages: [c]
+    severity: ERROR
+    message: "TLS peer verification disabled: require explicit trust and identity pinning."
+    patterns:
+      - pattern-either:
+          - pattern: curl_easy_setopt($C, CURLOPT_SSL_VERIFYPEER, 0);
+          - pattern: curl_easy_setopt($C, CURLOPT_SSL_VERIFYPEER, 0L);
+          - pattern: curl_easy_setopt($C, CURLOPT_SSL_VERIFYHOST, 0L);
+          - pattern: SSL_CTX_set_verify($CTX, SSL_VERIFY_NONE, ...);
+
+  - id: rustyrig-shell-command-execution
+    languages: [c]
+    severity: WARNING
+    message: "Shell execution in C: review all inputs and prefer argv-based exec without a shell."
+    pattern-either:
+      - pattern: system($COMMAND);
+      - pattern: popen($COMMAND, $MODE);
+      - pattern: execl("/bin/sh", ..., "-c", ...);
+
+  - id: rustyrig-unbounded-printf
+    languages: [c]
+    severity: ERROR
+    message: "Unbounded formatting: use snprintf/vsnprintf with the destination capacity."
+    pattern-either:
+      - pattern: sprintf($BUFFER, $FORMAT, ...);
+      - pattern: vsprintf($BUFFER, $FORMAT, $ARGS);
+
+  - id: rustyrig-mesh-unbounded-string-copy-review
+    languages: [c]
+    severity: WARNING
+    message: "Mesh/catalog string copy: verify source length or canonical UUID validation dominates this call."
+    paths:
+      include:
+        - rrserver/link*.c
+        - rrserver/relay*.c
+    pattern-either:
+      - pattern: strcpy($DST, $SRC);
+      - pattern: strcat($DST, $SRC);
+
+  - id: rustyrig-insecure-remote-admin-default
+    languages: [generic]
+    severity: ERROR
+    message: "Multi-hop remote administration must not be enabled in distributed configurations."
+    paths:
+      include:
+        - config/rrserver.peers.cfg
+    pattern-regex: '(?m)^[ \t]*remote-admin\.next-hop-only[ \t]*=[ \t]*false(?:[ \t]*(?:;[^\r\n]*)?)?$'
