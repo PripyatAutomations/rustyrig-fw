@@ -18,10 +18,35 @@ _CANDIDATES = [
     _ROOT / "librrprotocol" / "wire-schema.json",
     Path("/usr/share/librrprotocol/wire-schema.json"),
 ]
-_SCHEMA_PATH = next((p for p in _CANDIDATES if p is not None and p.is_file()), None)
-if _SCHEMA_PATH is None:
-    raise RuntimeError("librrprotocol wire-schema.json not found; set RR_WIRE_SCHEMA to the installed or source-tree schema")
-SCHEMA = json.loads(_SCHEMA_PATH.read_text())
+def schema_supports_live_files(schema):
+    """Binary FILE controls are required by the live integration suite."""
+    for group in schema.get("groups", []):
+        if group.get("type") == "file":
+            return (group.get("fields", {}).get("file.binary") == "binary"
+                    and "file.begin" in group.get("operations", {}))
+    return False
+
+
+# Multiple installed/source copies are common after splitting librrprotocol.
+# Prefer a compatible schema rather than silently using the first stale copy.
+SCHEMA = None
+_SCHEMA_PATH = None
+_checked = []
+for candidate in _CANDIDATES:
+    if candidate is None or not candidate.is_file():
+        continue
+    schema = json.loads(candidate.read_text())
+    _checked.append(str(candidate))
+    if schema_supports_live_files(schema):
+        SCHEMA, _SCHEMA_PATH = schema, candidate
+        break
+
+if SCHEMA is None:
+    raise RuntimeError(
+        "No compatible librrprotocol wire-schema.json found (requires file.binary). "
+        f"Checked: {_checked or 'none'}. Update/reinstall the standalone librrprotocol "
+        "source and development files, or set RR_WIRE_SCHEMA to its current wire-schema.json."
+    )
 
 @lru_cache(maxsize=1)
 def test_password_hash():
