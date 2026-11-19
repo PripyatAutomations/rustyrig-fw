@@ -1,5 +1,7 @@
 rustyrig-fw (1.0.4) testing; urgency=medium
 
+  * Diagnose malformed librustyirc.pc flags explicitly rather than falsely
+    identifying missing IRC ABI symbols when pkg-config emits bare -L/-I.
   * Verify the installed RustyIRC shared-library ABI before client IRC
     integration tests, use complete pkg-config link dependencies and current
     namespaced adapter headers instead of stale development headers.
