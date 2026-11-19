@@ -25,33 +25,33 @@
     "scope": "system"
   },
   "file.browse": {
-    "label": "Browse shared files",
-    "description": "List directories and available shared filenames",
+    "label": "Browse files",
+    "description": "List directories and available shares on a linked server",
     "scope": "resource"
   },
   "file.create": {
-    "label": "Create shared files",
-    "description": "Upload new files and create directories in permitted shares",
+    "label": "Create remote files",
+    "description": "Upload new files or create directories on a linked share",
     "scope": "resource"
   },
   "file.delete": {
-    "label": "Delete shared files",
-    "description": "Delete files or empty directories in permitted shares",
+    "label": "Delete remote files",
+    "description": "Delete files or empty directories on linked shares",
     "scope": "resource"
   },
   "file.read": {
-    "label": "Download shared files",
-    "description": "Read file content from permitted shares",
+    "label": "Read remote files",
+    "description": "Download files from a linked share",
     "scope": "resource"
   },
   "file.rename": {
-    "label": "Move or rename shared files",
-    "description": "Rename or move files within configured shares",
+    "label": "Move remote files",
+    "description": "Rename or move files within linked shares",
     "scope": "resource"
   },
   "file.write": {
-    "label": "Overwrite shared files",
-    "description": "Replace existing files in permitted shares",
+    "label": "Overwrite remote files",
+    "description": "Replace existing files on a linked share",
     "scope": "resource"
   },
   "files.read": {
