@@ -17,8 +17,9 @@ int main(void) {
    };
    for (size_t i = 0; i < sizeof(cases)/sizeof(cases[0]); ++i) {
       assert(!strcmp(rr_files_remote_privilege(cases[i].operation), cases[i].permission));
-      assert(rr_files_operation_writes(cases[i].operation) == strcmp(cases[i].operation, "list") &&
-             strcmp(cases[i].operation, "read"));
+      assert(rr_files_operation_writes(cases[i].operation) ==
+             (strcmp(cases[i].operation, "list") != 0 &&
+              strcmp(cases[i].operation, "read") != 0));
    }
    assert(!rr_files_remote_privilege(NULL));
    assert(!rr_files_remote_privilege("unknown"));
