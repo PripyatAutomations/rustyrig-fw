@@ -17,6 +17,9 @@ static char *test_expand_path(const char *path) {
 }
 
 rrconn_t *ws_conn;
+rrconn_t *rrclient_connection_context(void) {
+   return ws_conn;
+}
 static char output[32768], last_window[512];
 static const char *active_window = "commands";
 bool ui_print(const char *window, const char *format, ...) {
