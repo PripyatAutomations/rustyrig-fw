@@ -7,7 +7,7 @@ ifndef AUDIT_DIR
 AUDIT_DIR := security/audit-logs/$(shell date +%Y%m%d.%H%M%S)
 endif
 # All RustyRig-owned source directories, including nested frontend sources.
-AUDIT_SOURCE_DIRS := $(foreach dir,rrclient rrserver fwdsp libfwdspmgr librrsdrutils rrbridge rrsdrbridge$(if $(wildcard $(dir)),$(dir)))
+AUDIT_SOURCE_DIRS := $(foreach dir,rrclient rrserver fwdsp libfwdspmgr librrsdrutils rrbridge rrsdrbridge,$(if $(wildcard $(dir)),$(dir)))
 audit_files = $(shell find $(AUDIT_SOURCE_DIRS) -type f \( -name '*.c' -o -name '*.h' \) -print)
 AUDIT_TIDY_FILTER := '^(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge)/.*[.]c$'
 
