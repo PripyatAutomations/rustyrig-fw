@@ -10,8 +10,8 @@ Template: rustyrig-server/enable-guest
 Type: boolean
 Default: false
 Description: Enable the shared guest account?
- Guests log in with username "guest" and password "guest". The shipped guest
- permissions allow receive audio and chat only. Enable this if you want
+ The shipped guest permissions allow receive audio and chat only. You must
+ choose a separate guest password if enabling this account. Enable this if you want
  shared guest access to your LAN/VPN station.
  .
  The account is disabled by default. This choice applies only when creating
@@ -56,3 +56,10 @@ Description: Remote administrator identities (user@site, space separated):
  user@* grants that username access from ANY authenticated remote site and
  is substantially broader. Prefer explicit user@site identities. No other
  users receive remote privileges by default.
+
+Template: rustyrig-server/guest-password
+Type: password
+Default:
+Description: Password for the optional RustyRig guest account:
+ Required when the guest account is enabled. Never use a shared default
+ password; choose a distinct secret and distribute it only to intended users.
