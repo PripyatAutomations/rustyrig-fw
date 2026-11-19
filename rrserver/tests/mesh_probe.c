@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
       char *sig = strdup(dict_get(proof, "identity.signature", ""));
       if (!sig || !*sig) {
          free(sig);
-         fputs("Unable to prepare tampered mesh signature\\n", stderr);
+         fputs("Unable to prepare tampered mesh signature\n", stderr);
          abort();
       }
       sig[0] = sig[0] == 'A' ? 'B' : 'A';
