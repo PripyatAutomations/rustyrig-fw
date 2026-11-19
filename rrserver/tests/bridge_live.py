@@ -20,6 +20,9 @@ with sqlite3.connect(work / 'master.db') as db:
 with socket.socket() as reservation:
     reservation.bind(('127.0.0.1', 0))
     port = reservation.getsockname()[1]
+identity = work / 'identity'
+identity.mkdir(mode=0o700)
+identity.chmod(0o700)
 config = work / 'server.cfg'
 config.write_text(f'''[general]
 domain=mesh.test
@@ -27,6 +30,7 @@ station.name=bridgetest
 rig.instances=rig0 rig3
 rig.default=rig0
 path.db.master={work}/master.db
+path.identity={identity}
 log.file={work}/server.log
 log.level=*:info
 net.http.bind=127.0.0.1
