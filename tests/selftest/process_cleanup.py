@@ -29,7 +29,8 @@ while True: time.sleep(.05)
         args = [sys.executable, str(SUPERVISOR), '--grace', '.1']
         if mode == 'timeout':
             args += ['--timeout', '.5']
-        process = subprocess.Popen(args + ['--', sys.executable, str(helper), str(marker), mode],\n                                   start_new_session=terminal_group)
+        process = subprocess.Popen(args + ['--', sys.executable, str(helper), str(marker), mode],
+                                   start_new_session=terminal_group)
         try:
             deadline = time.monotonic() + 5
             while not marker.exists():
