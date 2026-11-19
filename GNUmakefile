@@ -70,6 +70,8 @@ endif
 extra_clean += $(wildcard ${BUILD_DIR}/*.h) $(wildcard */compile_commands.json)
 extra_clean += ${EEPROM_FILE} librustyaxe.so librustyaxe.so.0 librrprotocol.so librrprotocol.so.0 librustyirc.so librustyirc.so.0
 extra_clean += firmware.log libmongoose.so
+# Remove stale pre-integration standalone editor binaries on make clean.
+extra_clean += bin/rrpipelines
 extra_clean_targets += gmatrix-clean
 .PHONY: gmatrix-clean
 gmatrix-clean:
