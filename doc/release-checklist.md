@@ -11,6 +11,7 @@ This is a **human-run checklist**, not an automated claim that a release has pas
 - [ ] **CHECK GUEST PASSWORD:** Guest remains disabled by default; enabling it must require a separately chosen nonempty password, never `guest` by default.
 - [ ] **CHECK MESH CATALOG DOS LIMITS:** Run `bash rrserver/tests/test_catalog_policy.sh`; verify two successive sync IDs from one peer replace rather than accumulate receive state, and exercise a real mesh resync after reconnection. The unit test does not substitute for a live hostile-peer test.
 
+- [ ] **CHECK DISCONNECT PTT OOM:** Run `bash rrserver/tests/test_ptt_disconnect_oom.sh` and `bash rrserver/tests/test_ptt_release.sh`; verify hardware key-up failure blocks new TX rather than falsely clearing the active PTT state.
 - [ ] **CHECK FILE TRANSFERS:** Run `bash rrserver/tests/test_file_transfer_wire.sh`, `bash rrserver/tests/test_resource_privileges.sh`, and `bash rrserver/tests/test_files_live.sh` against native TLS. Verify binary and base64 transfers, ACL revocation, symlink rejection, size limits, atomic publishing and disconnect cleanup. A skipped live test is **not** a security pass.
 - [ ] **CHECK PEER/ROOM DELIVERY:** Do not advertise user-to-user or room file sends until the separate 30-second acceptance broker, recipient prompts, authenticated mesh fanout and adversarial tests in `doc/peer-file-transfers.md` are implemented.
 
