@@ -29,13 +29,32 @@ AUDIT_TIDY_CHECKS ?= clang-analyzer-core-*,clang-analyzer-unix-*,clang-analyzer-
 
 audit: audit-init
 	@status=0; \
-	$(MAKE) --no-print-directory AUDIT_DIR=$(AUDIT_DIR) audit-scanbuild || status=$$?; \
-	$(MAKE) --no-print-directory AUDIT_DIR=$(AUDIT_DIR) audit-printf || status=$$?; \
-	$(MAKE) --no-print-directory AUDIT_DIR=$(AUDIT_DIR) audit-cppcheck || status=$$?; \
-	$(MAKE) --no-print-directory AUDIT_DIR=$(AUDIT_DIR) audit-flawfinder || status=$$?; \
-	$(MAKE) --no-print-directory AUDIT_DIR=$(AUDIT_DIR) audit-clang-tidy || status=$$?; \
+	for tool in scanbuild printf cppcheck flawfinder clang-tidy; do \
+		case "$tool" in scanbuild) target=audit-scanbuild; log=scanbuild;; \
+			printf) target=audit-printf; log=printf;; \
+			cppcheck) target=audit-cppcheck; log=cppcheck;; \
+			flawfinder) target=audit-flawfinder; log=flawfinder;; \
+			clang-tidy) target=audit-clang-tidy; log=clang-tidy;; esac; \
+		if $(MAKE) --no-print-directory AUDIT_DIR="$(AUDIT_DIR)" "$target"; then rc=0; else rc=$?; status=1; fi; \
+		if grep -Eiq '(not installed|audit skipped).*skipped|not installed' "$(AUDIT_DIR)/$log.log" 2>/dev/null; then \
+			echo skipped > "$(AUDIT_DIR)/$tool.status"; \
+		elif test "$rc" -eq 0; then echo ok > "$(AUDIT_DIR)/$tool.status"; \
+		else echo failed > "$(AUDIT_DIR)/$tool.status"; fi; \
+	done; \
+	$(MAKE) --no-print-directory AUDIT_DIR="$(AUDIT_DIR)" audit-report || status=1; \
 	echo "Audit logs: $(AUDIT_DIR)"; \
-	exit $$status
+	exit $status
+
+# A pinned baseline is optional; default comparison is to the previous run.
+# Promotion never claims a fresh scan: it copies the most recent saved report.
+.PHONY: audit-report audit-baseline
+audit-report:
+	@python3 security/audit-report.py "$(AUDIT_DIR)" $(if $(AUDIT_BASELINE),--baseline "$(AUDIT_BASELINE)",)
+
+audit-baseline:
+	@test -s security/audit-logs/state.json || { echo 'Run make audit first' >&2; exit 1; }
+	@cp security/audit-logs/state.json security/baseline.json
+	@echo 'Saved pinned baseline: security/baseline.json'
 
 audit-init:
 	@mkdir -p "$(AUDIT_DIR)" security/audit-logs
@@ -67,7 +86,7 @@ audit-printf: audit-init
 audit-cppcheck: audit-init
 	@echo "*** cppcheck audit (full log: $(AUDIT_DIR)/cppcheck.log) ***"
 	@if command -v cppcheck >/dev/null 2>&1; then \
-		cppcheck -j8 --std=c11 -q -v --check-level=exhaustive --force \
+		cppcheck -j8 --std=c11 --template=gcc -q -v --check-level=exhaustive --force \
 			-I./inc/ --enable=warning,performance,portability --inline-suppr \
 			--checkers-report="$(AUDIT_DIR)/cppcheck.report.txt" --language=c \
 			$(audit_files) > "$(AUDIT_DIR)/cppcheck.log" 2>&1; rc=$$?; \
