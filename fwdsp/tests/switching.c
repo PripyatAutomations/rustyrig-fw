@@ -258,7 +258,8 @@ int main(int argc, char **argv) {
    soak_codec = getenv("FWDSP_SOAK_CODEC");
 
    if (soak_seconds && soak_codec) {
-      cfg = dict_new();
+      /* PCM hub is enabled for the entire test; preserve the config used by
+       * existing decoder workers rather than replacing it mid-run. */
       dict_add(cfg, "fwdsp:pcm-hub", "true");
       assert(fwdsp_codec_switch(old, soak_codec, true, "channel") >= 0);
       assert(fwdsp_codec_switch(old, soak_codec, false, NULL) >= 0);
