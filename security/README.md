@@ -1,5 +1,9 @@
 # Security audit and historical comparison
 
+Optional loopback boofuzz probes and Semgrep trust-boundary checks live in
+[security/fuzzing/](fuzzing/README.md). Run them only on disposable servers
+and review results alongside regular audits.
+
 Run `make audit` to execute the existing Clang Static Analyzer,
 Clang-Tidy, Cppcheck, Flawfinder, and pscan checks. Audit output is written
 to `security/audit-logs/<timestamp>/`; `latest` points to the newest run.
