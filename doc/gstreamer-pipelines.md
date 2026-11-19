@@ -1,6 +1,6 @@
 # GStreamer pipeline editor
 
-The GTK client’s **Config → Edit Pipelines…** button opens the embedded
+The GTK client's **Config → Edit Pipelines…** button opens the embedded
 **Audio Routing → Pipelines** tab. The editor is compiled directly into the GTK client and uses GStreamer’s installed element registry
 and GObject property interfaces, so the toolbox and property panel reflect the
 plugins available on that machine.
@@ -19,8 +19,6 @@ The embedded editor receives a JSON configuration snapshot in memory and
 calls the existing GTK Config validation and merge path on **Apply**.
 This does not hot-swap active DSP worker pipelines; save settings and
 reopen the relevant endpoint to apply the updated definition.
-For compatibility, the standalone executable still accepts a JSON object
-on stdin and writes one JSON object to stdout after **Apply**.
 The `pipelines` member is an indexed object, not an array, so it round-trips
 through librustyaxe’s dotted-key JSON API without changing identifier strings:
 
