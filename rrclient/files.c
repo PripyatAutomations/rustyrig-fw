@@ -199,7 +199,8 @@ bool rrclient_files_transfer(rrconn_t *c, const char *remote, const char *local,
    t->overwrite = overwrite;
    /* Relayed shares retain text/base64 until authenticated mesh binary
     * routing exists. Direct native TLS connections use binary frames. */
-   t->binary = c->native_transport && strncmp(remote, "/@", 2) != 0;
+   t->binary = c->native_transport && (rr_transport_capabilities(c->native_transport) & RR_TRANSPORT_BINARY_MESSAGES) &&
+      strncmp(remote, "/@", 2) != 0;
 
    if (upload) {
       t->file = fopen(local, "rb");
