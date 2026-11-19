@@ -116,9 +116,12 @@ def main():
     parser.add_argument("run", type=Path)
     parser.add_argument("--state", type=Path, default=Path("security/audit-logs/state.json"))
     parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--fail-on-new-severe", action="store_true")
     opts = parser.parse_args()
     old = load(opts.state)
     current = collect(opts.run, old)
+    if opts.baseline and not opts.baseline.is_file():
+        parser.error("baseline does not exist: " + str(opts.baseline))
     reference = load(opts.baseline) if opts.baseline else old
     delta = compare(reference, current)
     opts.run.mkdir(parents=True, exist_ok=True)
@@ -132,6 +135,8 @@ def main():
         if line.startswith("## ") or line.startswith("Scanner status:"):
             print(line)
     print("Full report: " + str(opts.run / "comparison.md"))
+    if opts.fail_on_new_severe and any(f["severity"] == "severe" for f in delta["new"]):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
