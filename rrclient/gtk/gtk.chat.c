@@ -406,7 +406,18 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
          replace_len++;
       }
 
-      char *new_line = malloc(strlen(line) + replace_len - word_len + 1);
+      /* Compute the output from its actual components, avoiding subtraction
+       * from the input length and preserving space for the trailing NUL. */
+      size_t prefix_len = (size_t) start;
+      size_t suffix_len = strlen(line + tui_cursor_pos);
+
+      if (prefix_len > SIZE_MAX - replace_len - 1 ||
+         suffix_len > SIZE_MAX - prefix_len - replace_len - 1) {
+         completion_free(matches);
+
+         return false;
+      }
+      char *new_line = malloc(prefix_len + replace_len + suffix_len + 1);
 
       if (!new_line) {
          completion_free(matches);
@@ -414,14 +425,14 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
          return false;
       }
 
-      memcpy(new_line, line, start);
-      memcpy(new_line + start, matches[0], plen);
+      memcpy(new_line, line, prefix_len);
+      memcpy(new_line + prefix_len, matches[0], plen);
 
       if (add_space) {
-         new_line[start + plen] = ' ';
+         new_line[prefix_len + plen] = ' ';
       }
 
-      strcpy(new_line + start + replace_len, line + tui_cursor_pos);
+      memcpy(new_line + prefix_len + replace_len, line + tui_cursor_pos, suffix_len + 1);
 
       gtk_entry_set_text(entry, new_line);
       gtk_editable_set_position(GTK_EDITABLE(entry), g_utf8_pointer_to_offset(new_line, new_line + start + replace_len));
