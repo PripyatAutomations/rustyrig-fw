@@ -85,7 +85,6 @@ install -Dpm0755 tools/rr-get-chat-log %{buildroot}%{_bindir}/rr-get-chat-log
 install -Dpm0755 tools/rr-get-ptt-log %{buildroot}%{_bindir}/rr-get-ptt-log
 install -Dpm0755 bin/rrclient %{buildroot}%{_bindir}/rrclient
 install -Dpm0755 bin/rrclient-gtk.so %{buildroot}/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
-install -Dpm0755 bin/rrpipelines %{buildroot}%{_bindir}/rrpipelines
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
 install -Dpm0755 libfwdspmgr.so %{buildroot}%{_libdir}/libfwdspmgr.so.0
 install -Dpm0644 packaging/rrserver.service %{buildroot}%{_unitdir}/rustyrig-server.service
@@ -156,7 +155,6 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %dir /usr/lib/rustyrig/modules/rrclient
 %files client-gtk
 /usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
-%{_bindir}/rrpipelines
 %{_datadir}/applications/rustyrig-client.desktop
 %{_datadir}/icons/hicolor/48x48/apps/rustyrig.png
 %files fwdsp
