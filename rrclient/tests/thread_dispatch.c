@@ -3,7 +3,7 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <glib.h>
 #include <assert.h>
-#include "../thread.dispatch.h"
+#include <rrclient/thread.dispatch.h>
 
 static gint delivered, released;
 static GThread *owner;
