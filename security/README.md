@@ -40,8 +40,12 @@ The initial severity mapping is deliberately simple:
 - Flawfinder score 4–5: severe; 2–3: moderate; 0–1: low
 
 These are triage labels, **not CVSS scores** or proof of exploitability.
-Finding IDs include scanner, source path, rule and message, but not line number;
-moving code does not usually create a false new/resolved pair.
+Finding IDs include scanner, source path, rule and message. Flawfinder also
+includes the source line because repeated call sites would otherwise collapse.
+Line shifts can cause new/resolved pairs; check the source diff when triaging.
+The state schema is now version 2. Version-1 state automatically starts a
+fresh comparison without fabricating closures; pinned version-1 baselines
+must be regenerated with `make audit-baseline` after a fresh scan.
 
 A skipped, failed, or unknown scanner retains its last findings as
 **not checked**, not resolved. Check `*.status` and raw logs when comparing.
