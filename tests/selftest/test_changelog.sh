@@ -61,7 +61,7 @@ chmod +x "$work/bin/date"
 export PATH="$work/bin:$PATH"
 bash "$work/tools/bump-version.sh" --version 1.2.3 --dry-run >/dev/null
 cmp CHANGELOG "$work/CHANGELOG"
-[[ "$(cat "$work/.version")" == '20261003.01' ]]
+[[ "$(cat "$work/.version")" == '1.0.3' ]]
 bash "$work/tools/bump-version.sh" --version 1.2.3 >/dev/null
 
 if [[ ! -L "$work/debian/changelog" ]] ||
