@@ -4,6 +4,8 @@ import os
 import socket
 import struct
 import time
+import subprocess
+from functools import lru_cache
 
 from pathlib import Path
 
@@ -20,6 +22,17 @@ _SCHEMA_PATH = next((p for p in _CANDIDATES if p is not None and p.is_file()), N
 if _SCHEMA_PATH is None:
     raise RuntimeError("librrprotocol wire-schema.json not found; set RR_WIRE_SCHEMA to the installed or source-tree schema")
 SCHEMA = json.loads(_SCHEMA_PATH.read_text())
+
+@lru_cache(maxsize=1)
+def test_password_hash():
+    """Provision test users with current Argon2id credentials, not legacy SHA-1."""
+    helper = _ROOT / "bin/rr-password-hash"
+    if not helper.is_file():
+        raise RuntimeError("Missing bin/rr-password-hash; build it with make bin/rr-password-hash")
+    result = subprocess.run([str(helper)], input=b"test-password",
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    return result.stdout.decode().strip()
+
 
 def flatten(value, prefix=''):
     result = {}
@@ -96,23 +109,30 @@ class WebSocket:
 
     def until_frame(self, predicate):
         deadline = time.monotonic() + 8
+        seen = []
         while time.monotonic() < deadline:
             self.socket.settimeout(max(0.1, deadline - time.monotonic()))
-            first, size = self.exact(2)
-            opcode = first & 15
-            size &= 127
-            if size == 126:
-                size = struct.unpack("!H", self.exact(2))[0]
-            elif size == 127:
-                size = struct.unpack("!Q", self.exact(8))[0]
-            payload = self.exact(size)
+            try:
+                first, size = self.exact(2)
+                opcode = first & 15
+                size &= 127
+                if size == 126:
+                    size = struct.unpack("!H", self.exact(2))[0]
+                elif size == 127:
+                    size = struct.unpack("!Q", self.exact(8))[0]
+                payload = self.exact(size)
+            except TimeoutError as exc:
+                raise TimeoutError(f"expected protocol response; last wire operations: {seen[-12:]}") from exc
             if opcode == 8:
                 raise EOFError(payload)
             if opcode == 1:
-                payload = json.dumps(transform(json.loads(payload), False)).encode()
+                raw = json.loads(payload)
+                # Show only operation and request ID; never log authentication secrets.
+                seen.append((raw.get("op"), raw.get("request", {}).get("id")))
+                payload = json.dumps(transform(raw, False)).encode()
             if predicate(opcode, payload):
                 return opcode, json.loads(payload) if opcode == 1 else payload
-        raise TimeoutError("expected protocol response did not arrive")
+        raise TimeoutError(f"expected protocol response; last wire operations: {seen[-12:]}")
 
 
 # Explicit loopback-only policies for disposable server fixtures.

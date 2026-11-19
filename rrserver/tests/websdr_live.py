@@ -10,7 +10,7 @@ import sqlite3
 import subprocess
 import sys
 import time
-from ws_helpers import TEST_ACLS, WebSocket
+from ws_helpers import test_password_hash, TEST_ACLS, WebSocket
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'rrbridge/tests'))
 from kiwi_fixture import KiwiFixture
@@ -23,7 +23,7 @@ with sqlite3.connect(work / 'master.db') as db:
                               (2, 'CONNECTOR', 'rx,chat,view,websdr.connect'),
                               (3, 'MANAGER', 'rx,chat,view,websdr.admin')]:
         db.execute('INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(?,?,?,?,?,?)',
-                   (uid, name, 1, hashlib.sha1(b'test-password').hexdigest(), 3, privs))
+                   (uid, name, 1, test_password_hash(), 3, privs))
 with socket.socket() as reservation:
     reservation.bind(('127.0.0.1', 0)); port = reservation.getsockname()[1]
 identity = work / 'identity'
