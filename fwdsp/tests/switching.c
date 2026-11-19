@@ -154,6 +154,10 @@ static void poll_for(unsigned milliseconds) {
 int main(int argc, char **argv) {
    assert(argc == 2);
    config_file = argv[1];
+   /* Decoder PCM must be emitted on the native hub tap, not a soundcard. */
+   cfg = dict_new();
+   assert(cfg);
+   dict_add_bool(cfg, "fwdsp:pcm-hub", true);
    assert(!fwdsp_init());
    assert(fwdsp_codec_start_local("pc16", false, "client-rx-test") >= 0);
    struct fwdsp_subproc *local = fwdsp_find_channel_instance("pc16", false, "client-rx-test");
@@ -181,6 +185,7 @@ int main(int argc, char **argv) {
          assert(frames_received >= 5);
 
          if (!strcmp(codec, "oggv")) {
+            assert(fwdsp_codec_set_pcm_callback("oggv", NULL, soak_pcm, NULL));
             for (unsigned attempt = 0 ; attempt < 10 && decoded_samples <= 1000 ; attempt++) {
                poll_for(250);
             }
