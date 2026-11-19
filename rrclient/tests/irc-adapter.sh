@@ -5,9 +5,37 @@ test "$(sh tools/probe-librrprotocol.sh)" != none
 axe_cflags=$(pkg-config --cflags librustyaxe 2>/dev/null || :)
 proto_cflags=$(pkg-config --cflags librrprotocol 2>/dev/null || :)
 irc_cflags=$(pkg-config --cflags librustyirc 2>/dev/null || :)
-irc_libs="$(pkg-config --libs-only-L librustyirc 2>/dev/null || :) -lrustyirc"
-axe_libs="$(pkg-config --libs-only-L librustyaxe 2>/dev/null || :) -lrustyaxe"
-proto_libs="$(pkg-config --libs-only-L librrprotocol 2>/dev/null || :) -lrrprotocol"
+# Use full dependency metadata and keep the actual IRC library after the
+# test adapter on the link line. --libs-only-L drops essential dependencies.
+irc_libs="$(pkg-config --libs librustyirc 2>/dev/null || printf '%s' '-lrustyirc')"
+axe_libs="$(pkg-config --libs librustyaxe 2>/dev/null || printf '%s' '-lrustyaxe')"
+proto_libs="$(pkg-config --libs librrprotocol 2>/dev/null || printf '%s' '-lrrprotocol')"
+
+# The public headers can be newer than the installed DSO. Verify symbols
+# referenced by irc.compat.c before spawning dozens of noisy failing tests.
+abi_check="$work/irc-abi-check.c"
+cat > "$abi_check" <<'IRC_ABI'
+#include <librustyirc/irc.h>
+#include <librustyirc/protocol.h>
+#include <librustyirc/connection.h>
+int main(void) {
+    volatile const void *symbols[] = {
+        (const void *)&irc_parse_message,
+        (const void *)&rustyirc_connection_new,
+        (const void *)&rustyirc_server_capab,
+        (const void *)&rustyirc_dcc_audio_encode,
+        (const void *)&rustyirc_register_default_numeric_callbacks
+    };
+    return symbols[0] == NULL;
+}
+IRC_ABI
+if ! ${CC:-cc} $irc_cflags "$abi_check" -Wl,--no-as-needed $irc_libs $axe_libs -Wl,--as-needed -o "$work/irc-abi-check" >/dev/null 2>"$work/irc-abi.log"; then
+    echo "ERROR: installed librustyirc lacks the API used by rustyrig-fw." >&2
+    echo "Build/install librustyirc from the librustyaxe/librustyirc source tree," >&2
+    echo "then rerun these tests (linker details follow):" >&2
+    cat "$work/irc-abi.log" >&2
+    return 1
+fi
 test_includes="-idirafter . -idirafter inc"
 export LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Caller owns the temporary directory through its existing work-directory trap.
