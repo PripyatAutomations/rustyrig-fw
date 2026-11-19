@@ -22,6 +22,7 @@ with socket.socket() as reservation:
     port = reservation.getsockname()[1]
 config = work / 'server.cfg'
 config.write_text(f'''[general]
+domain=mesh.test
 station.name=bridgetest
 rig.instances=rig0 rig3
 rig.default=rig0
