@@ -8,6 +8,26 @@ time_t now;
 rrconn_t *ws_conn;
 static unsigned starts, writes, stops, captured;
 static char first_name[32], second_name[32];
+
+/* DCC voice playback must remain independent of modem TX and radio PTT.
+ * These callbacks model an idle, unkeyed test station. */
+bool rr_local_modem_tx_in_progress(void) {
+   return false;
+}
+
+bool rrclient_media_rx_is_active_tx(const char *uuid) {
+   (void)uuid;
+   return false;
+}
+
+bool rr_audio_engine_push(rr_audio_engine_t *engine, const char *id, const int16_t *pcm, size_t frames) {
+   (void)engine;
+   (void)id;
+   (void)pcm;
+   (void)frames;
+   assert(!"DCC-only playback must not feed a radio TX engine");
+   return false;
+}
 void Log(logpriority_t level, const char *subsystem, const char *format, ...) {
    (void)level;
    (void)subsystem;
