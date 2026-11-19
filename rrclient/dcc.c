@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 /* Native commands/devices consume the reusable IRC DCC session API. */
 #include <rrclient/dcc.h>
