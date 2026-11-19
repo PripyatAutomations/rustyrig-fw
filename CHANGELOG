@@ -7,6 +7,8 @@ rustyrig-fw (1.0.4) testing; urgency=medium
   * Keep sanitizer reports in security/audit-logs and ignore generated reports.
   * Add normalized static-audit history, severe new/resolved finding comparison,
     scanner completeness tracking, pinned baselines, and regression tests.
+  * Normalize ScanView plist diagnostics for historical comparisons; fix UUID
+    context-menu lifetime, empty WebSocket payload, and serial buffer guards.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
