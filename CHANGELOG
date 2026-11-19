@@ -24,6 +24,10 @@ rustyrig-fw (1.0.4) testing; urgency=medium
   * Propagate interrupted test runs to their complete process group, including
     Xvfb wrappers, while retaining descendant/subreaper cleanup; test terminal
     Ctrl-C behavior in the process-cleanup regression suite.
+  * Repair test harnesses for namespaced inc/ headers, native GLib event loops,
+    installed RustyIRC link dependencies, and per-profile Debian fixture config.
+  * Restore debian/changelog as a symlink to the canonical CHANGELOG and update
+    codec/playback DSP test expectations to follow actual compiled defaults.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
