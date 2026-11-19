@@ -62,4 +62,18 @@ assert len(data['resolved']) == 1, data
 assert data['resolved'][0]['severity'] == 'severe', data
 assert data['resolved'][0]['scanner'] == 'scanbuild', data
 PY
+mkdir -p "$tmp/pscan1" "$tmp/pscan2"
+printf '%s\n' ok > "$tmp/pscan1/printf.status"
+printf '%s\n' 'rrserver/srv.send.c:34 Warning: vsnprintf uses non-constant string for format argument 2.' > "$tmp/pscan1/printf.log"
+python3 "$root/security/audit-report.py" "$tmp/pscan1" --state "$tmp/pscanstate.json" >/dev/null
+printf '%s\n' ok > "$tmp/pscan2/printf.status"
+: > "$tmp/pscan2/printf.log"
+python3 "$root/security/audit-report.py" "$tmp/pscan2" --state "$tmp/pscanstate.json" >/dev/null
+python3 - "$tmp/pscan2/comparison.json" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1]))
+assert len(data['resolved']) == 1, data
+assert data['resolved'][0]['scanner'] == 'printf', data
+assert data['resolved'][0]['severity'] == 'moderate', data
+PY
 echo 'PASS: audit baseline and severe resolved regression checks'
