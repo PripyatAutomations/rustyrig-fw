@@ -102,16 +102,6 @@ ifeq (${BUILD_FWDSP},true)
 include fwdsp/rules.mk
 endif
 
-# The standalone pipeline editor is available with the GTK/GStreamer desktop
-# dependencies and is built alongside the GTK client.
-ifeq (${USE_GTK},true)
-ifeq (${USE_GSTREAMER},true)
-ifneq ($(OS),DARWIN)
-include rrpipelines/rules.mk
-endif
-endif
-endif
-
 # Optional standalone GTK screensaver. Part of the ordinary build and
 # install-bin artifact list, so 'make install' and Debian packaging agree.
 ifneq ($(filter true,$(USE_GTK)),)
