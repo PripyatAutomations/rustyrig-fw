@@ -45,7 +45,7 @@ for secure in (False, True):
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
     url = ('tls' if secure else 'tcp') + f'://127.0.0.1:{port}'
-    result = subprocess.run([probe, url], timeout=12)
+    result = subprocess.run([probe, url, certificate], timeout=12)
     thread.join(timeout=9)
     assert not thread.is_alive(), 'loopback IRC fixture did not finish'
     assert not errors, errors
