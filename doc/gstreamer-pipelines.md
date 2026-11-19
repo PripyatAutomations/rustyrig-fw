@@ -1,8 +1,7 @@
 # GStreamer pipeline editor
 
 The GTK client’s **Config → Edit Pipelines…** button opens the embedded
-**Audio Routing → Pipelines** tab. The editor source is shared with the
-optional standalone `rrpipelines` compatibility executable. It uses GStreamer’s installed element registry
+**Audio Routing → Pipelines** tab. The editor is compiled directly into the GTK client and uses GStreamer’s installed element registry
 and GObject property interfaces, so the toolbox and property panel reflect the
 plugins available on that machine.
 
@@ -55,7 +54,7 @@ instead of being returned as success.
 The GTK Audio Routing floating workspace now has **Routing** and
 **Pipelines** tabs. The Pipelines tab contains the actual in-process
 GStreamer graph editor, element registry toolbox, property controls, link
-editor, and Apply action. It no longer spawns `rrpipelines` from rrclient.
+editor, and Apply action. It does not spawn an external editor process.
 
 Double-click a pipeline-backed node in Routing to switch tabs and select
 that configured pipeline. Double-click a GStreamer element in a mapped
