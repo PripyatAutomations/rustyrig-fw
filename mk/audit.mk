@@ -49,7 +49,7 @@ audit: audit-init
 # Promotion never claims a fresh scan: it copies the most recent saved report.
 .PHONY: audit-report audit-baseline
 audit-report:
-	@python3 security/audit-report.py "$(AUDIT_DIR)" $(if $(AUDIT_BASELINE),--baseline "$(AUDIT_BASELINE)",)
+	@python3 security/audit-report.py "$(AUDIT_DIR)" $(if $(AUDIT_BASELINE),--baseline "$(AUDIT_BASELINE)",) $(if $(filter 1 true yes,$(AUDIT_FAIL_NEW_SEVERE)),--fail-on-new-severe,)
 
 audit-baseline:
 	@test -s security/audit-logs/state.json || { echo 'Run make audit first' >&2; exit 1; }
