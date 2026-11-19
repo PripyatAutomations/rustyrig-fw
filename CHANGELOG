@@ -1,5 +1,8 @@
 rustyrig-fw (1.0.4) testing; urgency=medium
 
+  * Retire obsolete standalone rrpipelines executable and packaging entries;
+    keep its GStreamer graph editor embedded in the GTK Audio Routing tab,
+    retaining the shared model and its regression tests.
   * Bound authenticated peer catalog synchronization to one in-progress
     snapshot per source, validate UUID session keys and exercise supersession
     and cleanup in a standalone GLib regression test.
