@@ -629,7 +629,7 @@ bool ws_binframe_process_mg(rrconn_t *client, const char *data, size_t len) {
 
 /* Backend-independent entry point for complete WebSocket messages. */
 bool ws_handle_payload(rrconn_t *cptr, const void *data, size_t len, bool binary) {
-   if (!cptr || (!data && len)) {
+   if (!cptr || !data || !len) {
       return false;
    }
    rr_traffic_count(cptr, false, binary, len);
