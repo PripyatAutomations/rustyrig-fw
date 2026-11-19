@@ -34,8 +34,13 @@ static bool exact(SSL *ssl, void *buf, size_t len) {
 
 static bool send_text(SSL *ssl, const char *text) {
    size_t len = strlen(text), h = len < 126 ? 2 : 4;
-   assert(len < 65536);
+   if (len >= 65536) {
+      return false;
+   }
    uint8_t *wire = malloc(h + 4 + len);
+   if (!wire) {
+      return false;
+   }
    wire[0] = 0x81;
    wire[1] = 0x80 | (len < 126 ? len : 126);
 
@@ -193,6 +198,11 @@ int main(int argc, char **argv) {
 
    if (!strcmp(mode, "signature")) {
       char *sig = strdup(dict_get(proof, "identity.signature", ""));
+      if (!sig || !*sig) {
+         free(sig);
+         fputs("Unable to prepare tampered mesh signature\\n", stderr);
+         abort();
+      }
       sig[0] = sig[0] == 'A' ? 'B' : 'A';
       dict_add(proof, "identity.signature", sig);
       free(sig);
