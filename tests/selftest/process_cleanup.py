@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SUPERVISOR = ROOT / 'tests/run-command.py'
 
 
-def run_case(mode, signum=None):
+def run_case(mode, signum=None, terminal_group=False):
     with tempfile.TemporaryDirectory() as work:
         marker = Path(work) / 'pids'
         helper = Path(work) / 'helper.py'
@@ -29,7 +29,7 @@ while True: time.sleep(.05)
         args = [sys.executable, str(SUPERVISOR), '--grace', '.1']
         if mode == 'timeout':
             args += ['--timeout', '.5']
-        process = subprocess.Popen(args + ['--', sys.executable, str(helper), str(marker), mode])
+        process = subprocess.Popen(args + ['--', sys.executable, str(helper), str(marker), mode],\n                                   start_new_session=terminal_group)
         try:
             deadline = time.monotonic() + 5
             while not marker.exists():
@@ -37,7 +37,12 @@ while True: time.sleep(.05)
                 time.sleep(.01)
             pids = [int(pid) for pid in marker.read_text().split()]
             if signum:
-                process.send_signal(signum)
+                if terminal_group:
+                    # Simulate Ctrl-C from a real terminal to the make/runner group.
+                    # The supervised test has its own process group.
+                    os.killpg(process.pid, signum)
+                else:
+                    process.send_signal(signum)
             expected = 128 + signum if signum else 124 if mode == 'timeout' else 7
             assert process.wait(timeout=5) == expected
             for pid in pids:
@@ -50,8 +55,9 @@ while True: time.sleep(.05)
 
 for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
     run_case('wait', signum)
+run_case('wait', signal.SIGINT, terminal_group=True)
 run_case('timeout')
 run_case('exit')
 assert subprocess.call([sys.executable, str(SUPERVISOR), '--', 'true']) == 0
 assert subprocess.call([sys.executable, str(SUPERVISOR), '--', 'sh', '-c', 'exit 23']) == 23
-print('PASS: cancellation, timeout and exit reap grandchildren, including detached TERM-resistant helpers')
+print('PASS: direct/terminal Ctrl-C, timeout and exit reap grandchildren, including detached TERM-resistant helpers')
