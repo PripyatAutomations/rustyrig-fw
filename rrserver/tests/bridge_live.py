@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import signal
 import socket
+import ssl
 import sqlite3
 import subprocess
 import sys
@@ -23,6 +24,14 @@ with socket.socket() as reservation:
 identity = work / 'identity'
 identity.mkdir(mode=0o700)
 identity.chmod(0o700)
+cert, key = identity / 'tls-cert.pem', identity / 'tls-key.pem'
+subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+    '-keyout', str(key), '-out', str(cert), '-days', '1', '-sha256',
+    '-subj', '/CN=bridgetest.mesh.test',
+    '-addext', 'subjectAltName=DNS:bridgetest.mesh.test,DNS:localhost,IP:127.0.0.1'],
+    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+key.chmod(0o600)
+tls = ssl.create_default_context(cafile=str(cert))
 config = work / 'server.cfg'
 config.write_text(f'''[general]
 domain=mesh.test
@@ -36,9 +45,11 @@ net.http.tls-key={identity}/tls-key.pem
 log.file={work}/server.log
 log.level=*:info
 net.http.bind=127.0.0.1
-net.http.port={port}
-net.http.tls-enabled=false
+net.http.tls-bind=127.0.0.1
+net.http.tls-port={port}
+net.http.tls-enabled=true
 net.mqtt.enabled=false
+media.direct.enabled=false
 [rig:rig0]
 backend=internal
 vfos=A
@@ -112,15 +123,16 @@ with (work / 'console.log').open('w') as console:
             if process.poll() is not None:
                 raise RuntimeError('server exited: ' + (work / 'console.log').read_text())
             try:
-                client = WebSocket(port)
+                client = WebSocket(port, tls)
                 break
             except OSError:
                 time.sleep(0.025)
         assert client
         client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
         challenge = until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-        password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
-        client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST', 'pass': password, 'token': challenge['token']}})
+        assert challenge['method'] == 'tls-password-v1', challenge
+        client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST',
+            'pass': 'test-password', 'method': challenge['method'], 'token': challenge['token']}})
         until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
         # Let the local handshake finish, then use the ordinary client inventory.
         time.sleep(0.15)
