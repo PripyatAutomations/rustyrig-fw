@@ -32,6 +32,11 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     fixture header, correct test fixture version and missing link libraries.
   * Restore DSP switching's native media subscriber fixtures, link the real
     privilege matcher and diagnose exact Debian conffile assertion failures.
+  * Add bounded loopback boofuzz probes, Semgrep checks, and secure-default
+    regression tests under security/fuzzing.
+  * Remove development-wide remote administrator grants on fresh installs;
+    provide an explicit opt-in user@site Debian configuration with validation.
+  * Restrict remote administration to direct mesh peers by default.
 
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 18 Nov 2026 19:33:44 -0500
 
