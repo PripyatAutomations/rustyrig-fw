@@ -38,6 +38,7 @@ with tempfile.TemporaryDirectory(prefix='rr-files-live-') as temporary:
         reservation.bind(('127.0.0.1',0)); port = reservation.getsockname()[1]
     config = work / 'server.cfg'
     config.write_text(f'''[general]
+domain=files-test.local
 station.name=filestest
 rig.instances=rig0
 rig.default=rig0
