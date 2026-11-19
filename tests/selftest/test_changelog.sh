@@ -62,7 +62,7 @@ chmod +x "$work/bin/date"
 export PATH="$work/bin:$PATH"
 # bump-version uses Python's clock, not the shell date command.
 # SOURCE_DATE_EPOCH provides a deterministic RFC 2822 UTC date for this test.
-export SOURCE_DATE_EPOCH=1791645377
+export SOURCE_DATE_EPOCH=1791659777
 bash "$work/tools/bump-version.sh" --version 1.2.3 --dry-run >/dev/null
 cmp CHANGELOG "$work/CHANGELOG"
 [[ "$(cat "$work/.version")" == '1.0.3' ]]
