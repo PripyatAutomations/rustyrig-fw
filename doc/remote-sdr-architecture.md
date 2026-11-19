@@ -148,7 +148,7 @@ remain separate, independently bounded and authenticated.
 
 ## GStreamer pipeline composition and visualization
 
-The existing `rrpipelines` editor shares GTK graph drawing primitives with
+The embedded GTK pipeline editor shares graph drawing primitives with
 the client audio-routing graph. Its pipeline canvas now uses **top-down
 source-to-sink flow**: GStreamer pad links determine graph layers, branches
 are laid out horizontally, and wires run from each element's bottom output
