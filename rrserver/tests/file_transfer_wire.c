@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <rrserver/files.transfer-wire.h>
+#include <rustyrig/file.transfer-wire.h>
 int main(void) {
    static const char id[] = "d7f34fc9-6372-45fa-8f34-020f1d64ea31";
    uint8_t bytes[RR_FILE_FRAME_PREFIX + RR_FILE_FRAME_MAX_CHUNK], source[RR_FILE_FRAME_MAX_CHUNK];
