@@ -55,6 +55,8 @@ static void irc_close_connection(rrconn_t *cptr) {
 }
 
 static void send_request(const char *event, const void *payload, size_t size, rrconn_t *c, void *user) {
+   (void)event;
+   (void)user;
    if (!c || c->is_ws || !c->server || size != sizeof(rr_server_io_t)) {
       return;
    }
