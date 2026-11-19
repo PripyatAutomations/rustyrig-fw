@@ -42,7 +42,7 @@ Flawfinder expands some findings multiple times at the same source line.
 ## Next review
 
 Prioritize actual file-opening/permission checks in `rrserver/srv.chat.c`,
-`rrserver/bridge.access.c`, and any share or serial paths whose parent
+`rrserver/relay.catalog.c` and any share or serial paths whose parent
 directories could be modified by an untrusted local account. Trace the
 format warnings to their call sites; variadic wrappers do not imply
 attacker-controlled format strings. Keep C23, optional build profiles,
