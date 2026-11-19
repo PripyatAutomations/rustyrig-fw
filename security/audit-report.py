@@ -3,11 +3,11 @@
 import argparse
 import hashlib
 import json
+import plistlib
 import re
-import shutil
 from pathlib import Path
 
-SCANNERS = ("clang-tidy", "cppcheck", "flawfinder")
+SCANNERS = ("scanbuild", "clang-tidy", "cppcheck", "flawfinder")
 DIAGNOSTIC = re.compile(r"^(?P<file>[^:\n]+\.(?:c|h|cc|cpp)):(?P<line>\d+)(?::\d+)?: (?P<severity>warning|error|note): (?P<message>.+?)(?: \[(?P<code>[-\w.]+)\])?$", re.I)
 FLAW = re.compile(r"^(?P<file>.+?):(?P<line>\d+):\s*\[(?P<score>[0-5])\]\s*\((?P<category>[^)]*)\)\s*(?P<message>.+)$")
 CPPCHECK = re.compile(r"^\[(?P<file>.+?):(?P<line>\d+)\]:\s*\((?P<severity>error|warning|style|performance|portability|information)\)\s*(?P<message>.+)$", re.I)
@@ -57,6 +57,31 @@ def parse(scanner, log):
     return result
 
 
+def parse_scanbuild(directory):
+    """Read Clang's native plist diagnostics rather than scraping HTML."""
+    result = {}
+    for path in (directory / "scanview").rglob("*.plist") if (directory / "scanview").exists() else []:
+        try:
+            with path.open("rb") as stream:
+                report = plistlib.load(stream)
+        except (OSError, ValueError, plistlib.InvalidFileException):
+            continue
+        files = report.get("files", [])
+        for item in report.get("diagnostics", []):
+            loc = item.get("location", {})
+            index = loc.get("file", -1)
+            if not isinstance(index, int) or index < 0 or index >= len(files):
+                continue
+            category = item.get("category", "Clang analyzer")
+            rule = item.get("type", "unknown")
+            message = item.get("description", rule)
+            severity = "low" if category == "Unused code" else "severe" if category in (
+                "Memory error", "Logic error", "API", "Stream handling error") else "moderate"
+            issue = finding("scanbuild", files[index], loc.get("line", 0), severity, rule, message)
+            result[issue["id"]] = issue
+    return result
+
+
 def load(path):
     return json.loads(path.read_text()) if path.is_file() else {"findings": [], "scanners": {}}
 
@@ -72,7 +97,7 @@ def collect(directory, prior):
             status = "unknown"
         statuses[scanner] = status
         if status == "ok":
-            items.update(parse(scanner, log))
+            items.update(parse_scanbuild(directory) if scanner == "scanbuild" else parse(scanner, log))
         else:
             # Missing/failed scan cannot resolve previously known vulnerabilities.
             items.update({k: v for k, v in before.items() if v["scanner"] == scanner})
