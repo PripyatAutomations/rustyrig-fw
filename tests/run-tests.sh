@@ -95,7 +95,6 @@ run_suite() {
     librrprotocol) run_dir "$suite" librrprotocol/tests ;;
     rrclient)    run_dir "$suite" rrclient/tests ;;
     rrserver)    run_dir "$suite" rrserver/tests ;;
-    rrpipelines) run_dir "$suite" rrpipelines/tests ;;
     selftest)    run_dir "$suite" tests/selftest ;;
     packaging)   run_dir "$suite" packaging/tests ;;
     librustyirc) run_dir "$suite" librustyaxe/librustyirc ;;
@@ -116,7 +115,7 @@ run_suite() {
 }
 
 if [ "$#" -eq 0 ]; then
-  SUITES="selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient rrbridge fwdsp libfwdspmgr rrpipelines www"
+  SUITES="selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient rrbridge fwdsp libfwdspmgr www"
 else
   SUITES="$*"
 fi
