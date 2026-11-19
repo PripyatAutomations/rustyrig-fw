@@ -818,7 +818,9 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
    }
    gtk_tree_path_free(path);
 
-   if (uuid && *uuid) {
+   const gboolean has_uuid = uuid && *uuid;
+
+   if (has_uuid) {
       if (has_children) {
          gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
       }
@@ -830,7 +832,7 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
       g_free(uuid);
    }
 
-   if (!has_children && (!uuid || !*uuid)) {
+   if (!has_children && !has_uuid) {
       gtk_widget_destroy(menu);
 
       return FALSE;
