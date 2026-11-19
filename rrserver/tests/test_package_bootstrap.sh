@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory() as directory:
     path.write_text('#!/usr/bin/env python3\nimport subprocess, sys\nargs = iter(sys.argv[1:])\nfiltered = []\nfor arg in args:\n    if arg in ["-o", "-g"]: next(args)\n    else: filtered.append(arg)\nsubprocess.run([' + repr(install) + '] + filtered, check=True)\n')
     path.chmod(0o755)
     confmodule = root / 'confmodule'
-    confmodule.write_text('db_get() { RET=; case $1 in rustyrig-server/admin-password) RET=${RR_TEST_ADMIN_PASSWORD:-};; rustyrig-server/enable-guest) RET=false;; rustyrig-server/allow-remote-admin) RET=${RR_TEST_REMOTE_ADMIN:-false};; rustyrig-server/remote-admin-subjects) RET=${RR_TEST_REMOTE_SUBJECTS:-};; esac; }\ndb_purge() { :; }\n')
+    confmodule.write_text('db_get() { RET=; case $1 in rustyrig-server/admin-password) RET=${RR_TEST_ADMIN_PASSWORD:-};; rustyrig-server/enable-guest) RET=${RR_TEST_GUEST_ENABLED:-false};; rustyrig-server/guest-password) RET=${RR_TEST_GUEST_PASSWORD:-};; rustyrig-server/allow-remote-admin) RET=${RR_TEST_REMOTE_ADMIN:-false};; rustyrig-server/remote-admin-subjects) RET=${RR_TEST_REMOTE_SUBJECTS:-};; esac; }\ndb_purge() { :; }\n')
     sql = root / 'var/lib/rustyrig/sql'
     sql.mkdir(parents=True)
     for name in ['sqlite.master.sql', 'sqlite.master.preload.sql']:
@@ -72,5 +72,17 @@ with tempfile.TemporaryDirectory() as directory:
     refused = subprocess.run(['sh', str(script)], env=env, capture_output=True, text=True)
     assert refused.returncode != 0 and 'password is required' in refused.stderr
     assert not database.exists()
-print('PASS: Debian grants only opted-in verified-origin remote identities and preserves upgrade credentials')
+    # An enabled guest never receives a predictable built-in credential.
+    env['RR_TEST_ADMIN_PASSWORD'] = 'new-admin-password'
+    env['RR_TEST_GUEST_ENABLED'] = 'true'
+    env['RR_TEST_GUEST_PASSWORD'] = ''
+    refused = subprocess.run(['sh', str(script)], env=env, capture_output=True, text=True)
+    assert refused.returncode != 0 and 'guest account requires an explicit password' in refused.stderr
+    assert not database.exists()
+    env['RR_TEST_GUEST_PASSWORD'] = 'dedicated-guest-secret'
+    subprocess.run(['sh', str(script)], env=env, check=True)
+    with sqlite3.connect(database) as connection:
+        guest = connection.execute("SELECT enabled,password FROM users WHERE name='guest'").fetchone()
+        assert guest == (1, 'argon2id-fixture'), guest
+print('PASS: Debian only grants opted-in remote identities, requires guest secret and preserves upgrades')
 PY
