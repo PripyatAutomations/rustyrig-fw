@@ -31,6 +31,7 @@
 #include <rrserver/discovery.h>
 extern struct GlobalState rig;
 #include <rrserver/relay.internal.h>
+#include <rrserver/relay.catalog.policy.h>
 bool rr_relay_applying;
 static bool rr_relay_initialized;
 size_t rr_relay_subscription_count;
@@ -750,6 +751,10 @@ typedef struct {
    gint64 started, last_progress;
 } catalog_receive_t;
 static GHashTable *catalog_receives;
+static const char *catalog_receive_owner(gconstpointer ptr) {
+   const catalog_receive_t *receive = ptr;
+   return receive->origin;
+}
 static void catalog_receive_free(gpointer ptr) {
    catalog_receive_t *r = ptr;
    g_free(r->origin);
@@ -906,7 +911,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       /* Sync markers are authenticated as direct-peer traffic, not signed
        * catalog objects. Never allow arbitrary session keys or unbounded
        * parallel receive state from a connected (possibly rogue) peer. */
-      if (g_uuid_string_is_valid(id) && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
+      if (rr_catalog_sync_id_valid(id) && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
          if (!catalog_receives) {
             catalog_receives = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, catalog_receive_free);
          }
@@ -928,13 +933,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          /* The sender only supports one outbound snapshot per destination.
           * Replacing old state from this origin is legitimate; retaining it
           * lets a direct peer exhaust memory with fresh UUIDs. */
-         g_hash_table_iter_init(&iter, catalog_receives);
-         while (g_hash_table_iter_next(&iter, &key, &value)) {
-            catalog_receive_t *old = value;
-            if (!strcmp(old->origin, origin)) {
-               g_hash_table_iter_remove(&iter);
-            }
-         }
+         rr_catalog_drop_origin(catalog_receives, origin, catalog_receive_owner);
          catalog_receive_t *r = g_new0(catalog_receive_t, 1);
          r->started = now;
          r->origin = g_strdup(origin);
