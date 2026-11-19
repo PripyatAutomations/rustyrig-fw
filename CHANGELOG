@@ -5,6 +5,10 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     namespaced adapter headers instead of stale development headers.
   * Repair POSIX DCC fixture setup, active connection contexts, and IRC TLS
     fixture SANs; guard protocol-state allocation failure in the client.
+  * Replace Mongoose-only IRC CAP/SASL test wire buffers with native UNIX
+    socket checks and retire obsolete Mongoose/embedded-config fixtures.
+  * Update the IRC CTCP VERSION fixture and explicitly isolate DCC playback
+    from radio transmit and local modem callbacks.
   * Human audit and review of the project
   * Improvement to indenting/formatter configurations
   * Expand security audit coverage to nested owned C sources and ensure scan-build
