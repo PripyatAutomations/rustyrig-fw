@@ -28,8 +28,13 @@ def source_path(path):
 def finding(scanner, file, line, severity, code, message):
     file = source_path(file)
     message = " ".join(message.split())
-    # Stable when a line moves; scanner, file, rule and message identify an issue.
-    fingerprint = hashlib.sha256(json.dumps([scanner, file, code, message]).encode()).hexdigest()[:20]
+    # Flawfinder reports the same rule/message at many distinct calls in one
+    # file. Include its source line or those hits incorrectly collapse. Other
+    # analyzers retain line-independent identities where diagnostics permit it.
+    identity = [scanner, file, code, message]
+    if scanner == "flawfinder":
+        identity.append(int(line))
+    fingerprint = hashlib.sha256(json.dumps(identity).encode()).hexdigest()[:20]
     return {"id": fingerprint, "scanner": scanner, "file": file, "line": int(line),
             "severity": severity, "rule": code, "message": message}
 
@@ -107,7 +112,7 @@ def collect(directory, prior):
         else:
             # Missing/failed scan cannot resolve previously known vulnerabilities.
             items.update({k: v for k, v in before.items() if v["scanner"] == scanner})
-    return {"version": 1, "scanners": statuses,
+    return {"version": 2, "scanners": statuses,
             "findings": sorted(items.values(), key=lambda f: (f["scanner"], f["file"], f["line"], f["id"]))}
 
 
@@ -150,11 +155,22 @@ def main():
     parser.add_argument("--fail-on-new-severe", action="store_true")
     opts = parser.parse_args()
     old = load(opts.state)
-    current = collect(opts.run, old)
     if opts.baseline and not opts.baseline.is_file():
         parser.error("baseline does not exist: " + str(opts.baseline))
+    if opts.baseline and load(opts.baseline).get("version") != 2:
+        parser.error("pinned baseline uses an older finding identity; run make audit-baseline after a fresh audit")
+    # A format change cannot be treated as vulnerabilities closing/opening.
+    legacy = old.get("version") not in (None, 2)
+    if legacy:
+        print("Finding identity schema changed; starting a fresh comparison baseline (no resolved/new claims).")
+        old = {"version": 2, "findings": [], "scanners": {}}
+    current = collect(opts.run, old)
     reference = load(opts.baseline) if opts.baseline else old
     delta = compare(reference, current)
+    if legacy and not opts.baseline:
+        delta["open"] = []
+        delta["new"] = []
+        delta["resolved"] = []
     opts.run.mkdir(parents=True, exist_ok=True)
     (opts.run / "findings.json").write_text(json.dumps(current, indent=2) + "\n")
     (opts.run / "comparison.json").write_text(json.dumps(delta, indent=2) + "\n")
