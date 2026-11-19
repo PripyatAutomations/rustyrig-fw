@@ -10,6 +10,9 @@
 #include <rrclient/dcc.c>
 #undef offered
 rrconn_t * ws_conn;
+rrconn_t *rrclient_connection_context(void) {
+   return ws_conn;
+}
 void Log(logpriority_t level, const char *subsystem, const char *format, ...) {
    (void)level;
    (void)subsystem;
