@@ -13,7 +13,7 @@ FLAW = re.compile(r"^(?P<file>.+?):(?P<line>\d+):\s*\[(?P<score>[0-5])\]\s*\((?P
 CPPCHECK = re.compile(r"^\[(?P<file>.+?):(?P<line>\d+)\]:\s*\((?P<severity>error|warning|style|performance|portability|information)\)\s*(?P<message>.+)$", re.I)
 PSCAN = re.compile(r"^(?P<file>.+?):(?P<line>\d+) Warning: (?P<message>.+)$")
 OWNED = ("rrclient", "rrserver", "fwdsp", "libfwdspmgr", "librrsdrutils",
-         "rrbridge", "rrsdrbridge", "rrpipelines")
+         "rrbridge", "rrsdrbridge")
 
 
 def source_path(path):
