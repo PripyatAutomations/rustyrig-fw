@@ -51,7 +51,7 @@ audit-scanbuild: audit-init
 	@echo "*** scan-build audit (full log: $(AUDIT_DIR)/scanbuild.log) ***"
 	@command -v "$(SCANBUILD)" >/dev/null 2>&1 || { echo "$(SCANBUILD) not installed; audit skipped" > "$(AUDIT_DIR)/scanbuild.log"; echo "$(SCANBUILD) not installed (skipped)"; exit 0; }
 	@$(MAKE) --no-print-directory audit-invalidate-objects
-	@"$(SCANBUILD)" $(MAKE) -j4 world > "$(AUDIT_DIR)/scanbuild.log" 2>&1; rc=$?; \
+	@"$(SCANBUILD)" $(MAKE) -j4 world > "$(AUDIT_DIR)/scanbuild.log" 2>&1; rc=$$?; \
 		echo "scan-build exit status: $$rc" >> "$(AUDIT_DIR)/scanbuild.log"; \
 		tail -n 12 "$(AUDIT_DIR)/scanbuild.log"; exit $$rc
 
