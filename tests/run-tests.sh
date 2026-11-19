@@ -70,7 +70,7 @@ run_dir() {
   local label="$1" dir="$2" total=0 t
   echo "=== suite: $label ($dir) ==="
   if [ -f "$dir/GNUmakefile" ] || [ -f "$dir/Makefile" ]; then
-    run_test make -C "$dir" check || total=$((total+1))
+    run_test make -C "$dir" test || total=$((total+1))
   fi
   for t in "$dir"/test_*.sh; do
     [ -e "$t" ] || continue
