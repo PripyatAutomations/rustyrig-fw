@@ -120,7 +120,7 @@ clang-tidy: compile_commands.json audit-init
 		"$(CLANG_TIDY_RUNNER)" -p . -j "$(AUDIT_TIDY_JOBS)" -quiet -use-color false \
 			-checks '$(AUDIT_TIDY_CHECKS)' \
 			-header-filter '^$(CURDIR)/(rrclient|rrserver|fwdsp|libfwdspmgr|librrsdrutils|rrbridge|rrsdrbridge|rrpipelines)/' \
-			$(AUDIT_TIDY_FILTER) > "$$raw" 2>&1; rc=$$?; \
+			'$(AUDIT_TIDY_FILTER)' > "$raw" 2>&1; rc=$$?; \
 	else \
 		files=$$(find $(AUDIT_SOURCE_DIRS) -type f -name '*.c' -print); \
 		clang-tidy -p . --quiet --use-color=false -checks='$(AUDIT_TIDY_CHECKS)' \
@@ -128,8 +128,6 @@ clang-tidy: compile_commands.json audit-init
 			$$files > "$$raw" 2>&1; rc=$$?; \
 	fi; \
 	sed -E '/^[[:space:]]*[0-9]+ warnings generated\.$$/d; /^[[:space:]]*\[[[:space:]]*[0-9]+\/[0-9]+\]\[[^]]+\] clang-tidy-/d; /^[[]([0-9]+)\/[0-9]+[]] Processing file /d' "$$raw" > "$(AUDIT_DIR)/clang-tidy.log"; \
-	# Keep the unfiltered runner output for troubleshooting; the main log is
-	# cleaned of progress and compiler-summary noise for routine review.
 	tail -n 20 "$(AUDIT_DIR)/clang-tidy.log"; exit $$rc
 
 audit-clang-tidy: clang-tidy
