@@ -37,7 +37,9 @@ class Fixture:
         (self.work / 'identity').mkdir(mode=0o700)
         (self.work / 'identity').chmod(0o700)
         self.node = str(uuid.uuid4())
-        self.http, self.mesh = port(), port()
+        # Native /ws and /link share the configured TLS listener.
+        self.http = port()
+        self.mesh = self.http
         self.db = self.work / 'master.db'
         self.cert, self.key = self.work / 'cert.pem', self.work / 'key.pem'
         self.config = self.work / 'server.cfg'
