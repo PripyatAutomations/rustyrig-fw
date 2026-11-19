@@ -25,6 +25,10 @@ trap cleanup EXIT
 mkdir -p "$work/source/debian" "$work/source/mk" "$work/source/packaging" "$work/source/config"
 cp mk/optional-modules.mk mk/install-paths.mk "$work/source/mk/"
 cp packaging/optional-modules.mk "$work/source/packaging/"
+# debian/rules reads both package profiles at makefile parse time.
+for profile in rrserver rrclient; do
+   jq '.backend.hamlib = false' "config/$profile.config.json" > "$work/source/config/$profile.config.json"
+done
 jq '.backend.hamlib = false' config/radio.config.json > "$work/source/config/radio.config.json"
 cp debian/control debian/rules debian/rustyrig-server.maintscript "$work/source/debian/"
 cp -L debian/changelog "$work/source/debian/changelog"
