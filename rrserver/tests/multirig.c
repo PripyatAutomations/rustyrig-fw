@@ -27,6 +27,9 @@ bool dying;
 bool restarting;
 struct GlobalState rig;
 
+/* A registry-only fixture has no active PTT session. */
+rrconn_t *whos_talking(void) { return NULL; }
+
 void rr_backend_register_builtin_types(void) {
 }
 
