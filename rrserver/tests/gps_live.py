@@ -42,7 +42,7 @@ def snapshot(client, channel):
         elif opcode == 2:
             if len(received["binary"]) < 12:
                 received["binary"].append((len(payload), payload[:12].hex()))
-            if payload[:8] == b"RR\x01\x04gpsp":
+            if payload[:8] == b"RR\x02\x04gpsp":
                 received["frame"] = payload
         return received["ack"] and received["frame"] is not None
     client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": channel}})
@@ -213,7 +213,7 @@ path={work}/disabled-fixed-input
             client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": raw_channel}})
             client.until(lambda m: m.get('media', {}).get('cmd') == 'subscribed' and m['media']['chan-uuid'] == raw_channel)
             peer.sendall(satellites)
-            _, raw_frame = client.until_frame(lambda op, data: op == 2 and data[:8] == b"RR\x01\x04nmea")
+            _, raw_frame = client.until_frame(lambda op, data: op == 2 and data[:8] == b"RR\x02\x04nmea")
             assert raw_frame[28:] == satellites.rstrip(b'\r\n')
             client.send({"msg": {"type": "media"}, "media": {"cmd": "unsubscribe", "chan-uuid": raw_channel}})
             client.until(lambda m: m.get('media', {}).get('cmd') == 'unsubscribed')
