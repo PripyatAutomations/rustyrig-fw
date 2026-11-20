@@ -163,3 +163,16 @@ WEAK rr_typing_state_t rrclient_typing_get(const rrconn_t *connection, const cha
 WEAK bool rrclient_typing_prune(void) { return false; }
 WEAK bool rrclient_room_offline(const char *room) { (void)room; return false; }
 WEAK const char *ws_authoritative_room(void) { return "#test"; }
+
+/* Native room comparison retained by client-only tests without ws.client.
+ * Exact rig room or a dot-delimited subroom, never a prefix sibling. */
+WEAK bool ws_room_same_rig(const char *room, const char *base) {
+   if (!room || !base) return false;
+   const char *rig = strrchr(base, '-');
+   if (!rig || strncasecmp(rig, "-rig", 4) || rig[4] < '0' || rig[4] > '9') return false;
+   for (const char *p = rig + 4; *p; ++p) {
+      if (*p < '0' || *p > '9') return false;
+   }
+   size_t n = strlen(base);
+   return !strncasecmp(room, base, n) && (!room[n] || (room[n] == '.' && room[n + 1]));
+}

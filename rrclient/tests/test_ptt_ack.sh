@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
-   rrclient/tests/ptt_ack.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
+   rrclient/tests/ptt_ack.c rrclient/tests/client_stubs.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol $(pkg-config --libs glib-2.0) -o "$work/ptt_ack"
 "$work/ptt_ack"
 if pkg-config --exists gtk+-3.0; then

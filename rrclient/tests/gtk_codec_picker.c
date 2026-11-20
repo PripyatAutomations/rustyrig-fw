@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include "rrclient/gtk/gtk.codecpicker.c"
 static rrconn_t connection;
+const char *rrclient_selected_server(void) { return "test"; }
 rrconn_t *ws_conn = &connection, *ws_tx_conn;
 static struct rr_client_media_chan channel = {
    .uuid = "stream-rx", .room = "#rplywv00-rig0"
