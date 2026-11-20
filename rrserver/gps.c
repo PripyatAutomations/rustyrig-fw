@@ -160,7 +160,14 @@ static void send_position(struct gps_source *source, rrconn_t *client) {
       (uint8_t) (lon >> 24), (uint8_t) (lon >> 16), (uint8_t) (lon >> 8), (uint8_t) lon,
       (uint8_t) ((position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) | (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0))
    };
-   ws_media_send_frame(source->channel, client, payload, sizeof(payload), RR_GPS_FRAME_CODEC);
+   /* The first GPS position is a subscription snapshot, not lossy
+    * realtime audio. Deliver it with the reliable setup-frame allowance;
+    * subsequent periodic position changes remain ordinary media frames. */
+   if (client) {
+      ws_media_send_setup_frame(source->channel, client, payload, sizeof(payload), RR_GPS_FRAME_CODEC);
+   } else {
+      ws_media_send_frame(source->channel, NULL, payload, sizeof(payload), RR_GPS_FRAME_CODEC);
+   }
 
    if (position->fixed && source->nmea_channel) {
       char sentence[128];
