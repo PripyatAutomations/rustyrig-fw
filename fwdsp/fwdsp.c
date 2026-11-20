@@ -1971,7 +1971,7 @@ int main(int argc, char *argv[]) {
    }
    /* Release the extra debug callback and GStreamer-wide allocations on
     * normal one-shot subprocess exit. LSan must remain enabled in tests. */
-   gst_debug_remove_log_function(gst_log_handler);
+   /* Like the add wrapper, this GStreamer macro compares function pointers\n    * through void*, which triggers -Wpedantic with valid C callbacks. */\n#ifdef gst_debug_remove_log_function\n#undef gst_debug_remove_log_function\n#endif\n   gst_debug_remove_log_function(gst_log_handler);
    gst_deinit();
    g_free(default_socket);
    host_cleanup();

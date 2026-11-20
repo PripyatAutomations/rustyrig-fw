@@ -91,6 +91,8 @@ static void program_lookup(void) {
    char system_path[PATH_MAX];
    assert(realpath("system", system_path));
    assert(cfg && !setenv("PATH", system_path, 1));
+   /* The production auto path now uses RR_LIBEXECDIR, not PATH. */
+   assert(!dict_add(cfg, "bridge.path", "rrbridge"));
    char *path = bridge_program_path();
    assert(path && g_str_has_suffix(path, "/system/rrbridge"));
    g_free(path);

@@ -16,7 +16,10 @@ int main(void) {
    assert(!strcmp(name, "rx://rig0/slice/14074000Hz/bw3000Hz/rate12000/s16le/mono"));
    rr_rx_slice_spec_t decoded;
    assert(rr_rx_slice_parse(name, &decoded));
-   assert(!memcmp(&spec, &decoded, sizeof(spec)));
+   /* Structure padding is unspecified; compare the serialized fields. */
+   assert(!strcmp(spec.source, decoded.source));
+   assert(spec.center_hz == decoded.center_hz && spec.bandwidth_hz == decoded.bandwidth_hz);
+   assert(spec.rate == decoded.rate && spec.format == decoded.format && spec.channels == decoded.channels);
    assert(!rr_rx_slice_parse("rx://rig0/slice/014074000Hz/bw3000Hz/rate12000/s16le/mono", &decoded));
    assert(!rr_rx_slice_parse("rx://rig0/slice/14074000Hz/bw3000Hz/rate12000/s16le/mono/extra", &decoded));
    rr_rx_slices_t *registry = rr_rx_slices_new();

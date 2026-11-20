@@ -31,6 +31,8 @@ static void soak_pcm(const char *name, const void *data, size_t len, void *user)
 }
 
 const char *cfg_get(const char *key) {
+   /* The manager now resolves fwdsp:path via cfg_get(), not cfg_get_exp(). */
+   if (!strcmp(key, "fwdsp:path")) return "./bin/fwdsp";
    if (!strcmp(key, "fwdsp:subproc.max")) {
       return "16";
    }
