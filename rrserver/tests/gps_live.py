@@ -1,16 +1,16 @@
 """Production gpsd + NMEA modules, scoped PTYs and rig GPS WebSocket snapshots."""
-import hashlib
 import json
 import os
 import pathlib
 import select
 import socket
+import ssl
 import sqlite3
 import subprocess
 import struct
 import tempfile
 import time
-from ws_helpers import TEST_ACLS, WebSocket
+from ws_helpers import TEST_ACLS, WebSocket, test_password_hash
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 def nmea(body):
@@ -21,8 +21,8 @@ def nmea(body):
 def login(client):
     client.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": "TEST"}})
     challenge = client.until(lambda m: m.get("auth", {}).get("cmd") == "challenge")["auth"]
-    password = hashlib.sha1((hashlib.sha1(b"test-password").hexdigest() + "+" + challenge["nonce"]).encode()).hexdigest()
-    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "pass", "user": "TEST", "pass": password, "token": challenge["token"]}})
+    assert challenge["method"] == "tls-password-v1", challenge
+    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "pass", "user": "TEST", "pass": "test-password", "method": challenge["method"], "token": challenge["token"]}})
     client.until(lambda m: m.get("auth", {}).get("cmd") == "authorized")
 def join(client, room):
     client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": room}})
@@ -46,11 +46,21 @@ def inventory(client):
 
 with tempfile.TemporaryDirectory(prefix="rr-gps-live-") as temporary:
     work = pathlib.Path(temporary)
+    identity = work / "identity"
+    identity.mkdir(mode=0o700)
+    cert, key = identity / "tls-cert.pem", identity / "tls-key.pem"
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+        "-keyout", str(key), "-out", str(cert), "-days", "1", "-sha256",
+        "-subj", "/CN=gpstest.mesh.test",
+        "-addext", "subjectAltName=DNS:gpstest.mesh.test,DNS:localhost,IP:127.0.0.1"],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    key.chmod(0o600)
+    tls = ssl.create_default_context(cafile=str(cert))
     database = work / "master.db"
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)",
-                   ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,serial,view,radio,edit,chat"))
+                   ("TEST", 1, test_password_hash(), 3, "admin,serial,view,radio,edit,chat"))
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]
@@ -61,6 +71,10 @@ with tempfile.TemporaryDirectory(prefix="rr-gps-live-") as temporary:
     config = work / "rrserver.cfg"
     config.write_text(f"""[general]
 station.name=gpstest
+domain=mesh.test
+path.identity={identity}
+net.http.tls-cert={cert}
+net.http.tls-key={key}
 rig.instances=rig0 rig1 rig2
 rig.default=rig0
 path.db.master={database}
@@ -68,8 +82,9 @@ path.modules={ROOT}/bin
 log.file=-
 log.level=*:info
 net.http.bind=127.0.0.1
-net.http.port={port}
-net.http.tls-enabled=false
+net.http.tls-port={port}
+net.http.tls-enabled=true
+links.native.bind=127.0.0.1
 net.mqtt.enabled=false
 gpsd.url=tcp://127.0.0.1:{daemon.getsockname()[1]}
 gpsd.target=station
@@ -142,7 +157,7 @@ path={work}/disabled-fixed-input
             assert satellites in os.read(gps_raw, 1024)
             time.sleep(0.1)
             assert not select.select([gps_out], [], [], 0.1)[0], 'GPS must not stream continuously'
-            client = WebSocket(port)
+            client = WebSocket(port, tls)
             login(client)
             client.send({"msg": {"type": "media"}, "media": {"cmd": "list"}})
             channels = {}
@@ -208,7 +223,7 @@ path={work}/disabled-fixed-input
                 if process.poll() is not None or time.monotonic() > deadline:
                     raise RuntimeError('fixed-position server failed to start')
                 try:
-                    client = WebSocket(port)
+                    client = WebSocket(port, tls)
                     break
                 except ConnectionRefusedError:
                     time.sleep(0.05)
