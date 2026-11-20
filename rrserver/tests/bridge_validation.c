@@ -6,6 +6,41 @@
 #include <sys/stat.h>
 #include <rrserver/bridge.manager.c>
 struct GlobalState rig;
+
+/* This handshake/control harness has no network clients or media graph.
+ * Assert rather than silently accepting unexpected RF/media operations. */
+rrconn_t *http_client_list;
+uint8_t rr_rig_registry_media_index(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
+   (void)registry; (void)radio;
+   return 0;
+}
+const char *rr_rig_registry_room(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
+   (void)registry; (void)radio;
+   return "#bridge-test";
+}
+struct rr_mediachan *media_chan_add(uint8_t subsystem, uint8_t direction, uint8_t vfo, uint8_t rig, const char *codec, const char *descr) {
+   (void)subsystem; (void)direction; (void)vfo; (void)rig; (void)codec; (void)descr;
+   assert(!"unexpected media channel allocation");
+   return NULL;
+}
+bool media_send_available_all(rrconn_t *client) {
+   (void)client;
+   assert(!"unexpected media announcement");
+   return false;
+}
+bool ws_client_in_room(const rrconn_t *client, const char *room) {
+   (void)client; (void)room;
+   return false;
+}
+bool ws_send_error(rrconn_t *client, const char *fmt, ...) {
+   (void)client; (void)fmt;
+   assert(!"unexpected WebSocket error");
+   return false;
+}
+void ws_broadcast_room_dict(rrconn_t *sender, dict *message, const char *room) {
+   (void)sender; (void)message; (void)room;
+   assert(!"unexpected room broadcast");
+}
 const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
    (void)registry;
    (void)radio;
