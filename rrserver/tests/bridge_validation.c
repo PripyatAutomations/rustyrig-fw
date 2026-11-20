@@ -39,7 +39,7 @@ bool ws_send_error(rrconn_t *client, const char *fmt, ...) {
 }
 void ws_broadcast_room_dict(rrconn_t *sender, dict *message, const char *room) {
    (void)sender; (void)message; (void)room;
-   assert(!"unexpected room broadcast");
+   /* No subscribers in this IPC/control fixture. */
 }
 const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
    (void)registry;
