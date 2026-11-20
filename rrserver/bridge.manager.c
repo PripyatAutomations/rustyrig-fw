@@ -1830,6 +1830,17 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          error = "Unable to save server configuration";
       }
    }
+   /* An auto-room is an allocation request, not an instruction to move a
+    * previously attached receiver. Reuse the operator's existing temporary
+    * room, and never transfer that attachment to another account. */
+   if (b && !save && !release && auto_room && b->temporary && b->attached_room[0]) {
+      if (g_ascii_strcasecmp(b->initiated_by, client->chatname)) {
+         error = "Temporary receiver belongs to another operator";
+         b = NULL;
+      } else {
+         requested_room = b->attached_room;
+      }
+   }
    const char *selected_room = requested_room;
    const char *target_room = b ? rr_rig_registry_room(rig.rigs, b->backend->owner) : "";
 #ifdef USE_SQLITE
