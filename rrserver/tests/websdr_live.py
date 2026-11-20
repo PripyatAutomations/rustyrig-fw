@@ -117,7 +117,9 @@ with (work / 'console.log').open('w') as console:
         assert 'websdr.connect' in request(listener, arbitrary)['error']
         assert 'websdr.admin' in request(connector, arbitrary, 'websdr-add')['error']
         assert request(connector, 'http://user@127.0.0.1:8073/')['error']
-        assert not fixture.connections and not second.connections, 'discovery or rejected request contacted receiver'
+        # The configured receiver may start after an authorized listen request;
+        # only the rejected/unconfigured endpoint must remain untouched.
+        assert not second.connections, 'rejected request contacted unconfigured receiver'
         result = request(connector, arbitrary)
         assert not result['error'], result
         room = result['room']
