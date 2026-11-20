@@ -82,7 +82,8 @@ write=never.granted
 ''' + TEST_ACLS)
     clients = []
     output = (work / 'console.log').open('w')
-    process = subprocess.Popen([str(ROOT/'bin/rrserver'),'-f',str(config)],cwd=ROOT,stdout=output,stderr=subprocess.STDOUT)
+    env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT) + (':' + os.environ['LD_LIBRARY_PATH'] if os.environ.get('LD_LIBRARY_PATH') else ''))
+    process = subprocess.Popen([str(ROOT/'bin/rrserver'),'-f',str(config)],cwd=ROOT,env=env,stdout=output,stderr=subprocess.STDOUT)
     sequence = 0
     def connect(name):
         deadline = time.monotonic()+10
