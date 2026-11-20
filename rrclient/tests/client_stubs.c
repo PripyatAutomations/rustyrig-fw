@@ -155,7 +155,7 @@ WEAK const char *rrclient_window_find_for_connection(const rrconn_t *connection,
 
 /* Shared defaults for UI fixtures that do not exercise typing leases or
  * server-owned room state. Strong test definitions override these. */
-WEAK const char *server_name;
+WEAK const char *server_name = "test";
 WEAK rr_typing_state_t rrclient_typing_get(const rrconn_t *connection, const char *room, const char *name) {
    (void)connection; (void)room; (void)name;
    return RR_TYPING_IDLE;
