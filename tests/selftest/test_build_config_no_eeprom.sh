@@ -7,7 +7,8 @@ trap 'rm -rf "$tmp"' EXIT
 
 python3 tools/gen-build-config.py radio --mongoose false --output "$tmp/build_config.h"
 grep -q '^#define USE_RUSTYIRC 1$' "$tmp/build_config.h"
-grep -q '^#define HOST_POSIX 1
+grep -q '^#define HOST_POSIX 1$' "$tmp/build_config.h"
+grep -q '^#ifndef HOST_POSIX$' "$tmp/build_config.h"
 ! grep -q '^#define USE_MONGOOSE' "$tmp/build_config.h"
 ! grep -q '^#define USE_EEPROM' "$tmp/build_config.h"
 
