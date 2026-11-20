@@ -19,6 +19,30 @@ rrconn_t *rrclient_connection_context(void) {
    return &connection;
 }
 
+/* The native room helper recognizes a rig base and any named subroom,
+ * but never a sibling rig or a similarly prefixed unrelated room. */
+bool ws_room_same_rig(const char *room, const char *base) {
+   if (!room || !base) return false;
+   const char *rig = strrchr(base, '-');
+   if (!rig || strncasecmp(rig, "-rig", 4) || rig[4] < '0' || rig[4] > '9')
+      return false;
+   for (const char *p = rig + 4; *p; ++p)
+      if (*p < '0' || *p > '9') return false;
+   size_t n = strlen(base);
+   return !strncasecmp(room, base, n) && (!room[n] || (room[n] == '.' && room[n + 1]));
+}
+
+size_t rr_gps_nmea_rmc(int32_t latitude, int32_t longitude, uint8_t flags,
+                       time_t utc, char *out, size_t capacity) {
+   return rr_nmea_rmc(latitude, longitude, flags, utc, out, capacity);
+}
+
+/* No network transport in this headless command/codec fixture. */
+bool media_send_list(rrconn_t *cptr) {
+   (void)cptr;
+   return false;
+}
+
 bool dying, restarting;
 enum GuiMode ui_mode = UI_MODE_NONE;
 time_t now;
