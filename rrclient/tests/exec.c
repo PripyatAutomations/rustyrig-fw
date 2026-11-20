@@ -25,6 +25,11 @@ rrconn_t *rrclient_active_connection(void) {
    return &first;
 }
 
+/* The command harness has one selected connection and no separate transport. */
+rrconn_t *rrclient_connection_context(void) {
+   return &first;
+}
+
 const char *rrclient_window_name(const char *room) {
    return room;
 }
