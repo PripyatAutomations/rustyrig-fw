@@ -36,7 +36,7 @@ def snapshot(client, channel):
             media = json.loads(payload).get("media", {})
             if media.get("cmd") == "subscribed" and media.get("chan-uuid") == channel:
                 received["ack"] = True
-        elif opcode == 2 and payload[:8] == b"RR\\x01\\x04gpsp":
+        elif opcode == 2 and payload[:8] == b"RR\x01\x04gpsp":
             received["frame"] = payload
         return received["ack"] and received["frame"] is not None
     client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": channel}})
