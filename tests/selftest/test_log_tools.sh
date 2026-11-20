@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# This fixture verifies the default radio profile independently of its caller.
+unset PROFILE
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 work="$(mktemp -d)"
