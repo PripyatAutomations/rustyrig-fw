@@ -1,5 +1,4 @@
 """Exercise listener ACLs before and after real WebSocket authentication."""
-import hashlib
 import os
 import pathlib
 import socket
@@ -69,6 +68,7 @@ net.http.bind=127.0.0.1
 net.http.tls-port={tcp}
 net.http.tls-enabled=true
 links.native.bind=127.0.0.1
+media.direct.enabled=false
 net.http.authdb-dynamic=true
 net.http.www-root={ROOT}/www
 net.http.ua-bans={work}/absent
