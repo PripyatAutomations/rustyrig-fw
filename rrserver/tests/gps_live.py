@@ -217,7 +217,7 @@ path={work}/disabled-fixed-input
             peer = None
             config.write_text(config.read_text().replace('station.name=gpstest',
                 'station.name=gpstest\nsite:coordinates=42,-71'))
-            process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=ROOT,
+            process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=ROOT, env=env,
                 stdout=output, stderr=subprocess.STDOUT)
             deadline = time.monotonic() + 8
             while True:
