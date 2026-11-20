@@ -8,6 +8,7 @@
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
+#include <rrclient/typing.h>
 #include <rrclient/userlist.h>
 #include <rrclient/irc.whois.h>
 #include <rrclient/irc.stats.h>
@@ -151,3 +152,14 @@ WEAK const char *rrclient_window_find_for_connection(const rrconn_t *connection,
 
    return NULL;
 }
+
+/* Shared defaults for UI fixtures that do not exercise typing leases or
+ * server-owned room state. Strong test definitions override these. */
+WEAK const char *server_name;
+WEAK rr_typing_state_t rrclient_typing_get(const rrconn_t *connection, const char *room, const char *name) {
+   (void)connection; (void)room; (void)name;
+   return RR_TYPING_IDLE;
+}
+WEAK bool rrclient_typing_prune(void) { return false; }
+WEAK bool rrclient_room_offline(const char *room) { (void)room; return false; }
+WEAK const char *ws_authoritative_room(void) { return "#test"; }
