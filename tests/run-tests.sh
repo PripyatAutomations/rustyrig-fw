@@ -8,6 +8,10 @@ cd "$ROOT"
 # selected PROFILE explicitly. Export it through Xvfb and test supervisors.
 PROFILE=${PROFILE:-radio}
 export PROFILE
+# libfwdspmgr is still built in the source-tree root, unlike the split
+# librrprotocol/librustyaxe packages. Child processes inherit this path.
+LD_LIBRARY_PATH="$ROOT${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH
 if [[ ! -f "config/$PROFILE.config.json" ]]; then
   echo "FAIL: unknown build profile: $PROFILE" >&2
   exit 1
