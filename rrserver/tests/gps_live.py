@@ -28,19 +28,32 @@ def join(client, room):
     client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": room}})
     client.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == room)
 def snapshot(client, channel):
-    # The GPS snapshot may arrive before the subscribe ACK. Track both
-    # events without discarding the earlier frame.
-    received = {"ack": False, "frame": None}
+    # A subscription ACK and its initial GPSP binary frame can arrive in either
+    # order. Keep both observations, and report the actual wire evidence on
+    # timeout without dumping credentials or application payloads.
+    received = {"ack": False, "frame": None, "binary": [], "subscribed": []}
     def complete(opcode, payload):
         if opcode == 1:
             media = json.loads(payload).get("media", {})
-            if media.get("cmd") == "subscribed" and media.get("chan-uuid") == channel:
-                received["ack"] = True
-        elif opcode == 2 and payload[:8] == b"RR\x01\x04gpsp":
-            received["frame"] = payload
+            if media.get("cmd") == "subscribed":
+                received["subscribed"].append(media.get("chan-uuid"))
+                if media.get("chan-uuid") == channel:
+                    received["ack"] = True
+        elif opcode == 2:
+            if len(received["binary"]) < 12:
+                received["binary"].append((len(payload), payload[:12].hex()))
+            if payload[:8] == b"RR\x01\x04gpsp":
+                received["frame"] = payload
         return received["ack"] and received["frame"] is not None
     client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": channel}})
-    client.until_frame(complete)
+    try:
+        client.until_frame(complete)
+    except TimeoutError as exc:
+        raise TimeoutError(
+            f"GPSP snapshot channel={channel} ack={received['ack']} "
+            f"subscribed={received['subscribed']} binary_headers={received['binary']} "
+            f"gpsp_frame={received['frame'] is not None}"
+        ) from exc
     frame = received["frame"]
     return frame[10], struct.unpack("!iiB", frame[28:])
 
