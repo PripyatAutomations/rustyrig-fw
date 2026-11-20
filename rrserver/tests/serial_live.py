@@ -1,6 +1,6 @@
 """Exercise serial commands and MODEM/seri payloads through real WebSockets."""
 import json
-import hashlib
+import ssl
 import os
 import pathlib
 import pty
@@ -12,15 +12,15 @@ import subprocess
 import tempfile
 import time
 import tty
-from ws_helpers import TEST_ACLS, WebSocket
+from ws_helpers import TEST_ACLS, WebSocket, test_password_hash
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 def login(client, username="TEST"):
     client.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": username}})
     challenge = client.until(lambda m: m.get("auth", {}).get("cmd") == "challenge")["auth"]
-    password = hashlib.sha1((hashlib.sha1(b"test-password").hexdigest() + "+" + challenge["nonce"]).encode()).hexdigest()
-    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "pass", "user": username, "pass": password, "token": challenge["token"]}})
+    assert challenge["method"] == "tls-password-v1", challenge
+    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "pass", "user": username, "pass": "test-password", "method": challenge["method"], "token": challenge["token"]}})
     client.until(lambda m: m.get("auth", {}).get("cmd") == "authorized")
 
 def command(client, cmd, **fields):
@@ -55,17 +55,26 @@ def inventory(client):
 
 with tempfile.TemporaryDirectory(prefix="rr-serial-live-") as temporary:
     work = pathlib.Path(temporary)
-    (work / 'modules').mkdir()
+    identity = work / "identity"
+    identity.mkdir(mode=0o700)
+    cert, key = identity / "tls-cert.pem", identity / "tls-key.pem"
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+        "-keyout", str(key), "-out", str(cert), "-days", "1", "-sha256",
+        "-subj", "/CN=serialtest.mesh.test",
+        "-addext", "subjectAltName=DNS:serialtest.mesh.test,DNS:localhost,IP:127.0.0.1"],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    key.chmod(0o600)
+    tls = ssl.create_default_context(cafile=str(cert))
     database = work / "master.db"
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)",
-                   ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "serial,view,radio,edit,chat"))
+                   ("TEST", 1, test_password_hash(), 3, "serial,view,radio,edit,chat"))
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,?,?,?,?,?)",
-                   ("RESTRICTED", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,owner,view,radio,chat"))
+                   ("RESTRICTED", 1, test_password_hash(), 3, "admin,owner,view,radio,chat"))
         for uid, name, flags in [(3, "EXACT", "serial.ttyHOST0"), (4, "PREFIX", "serial.ttyHOST*"), (5, "WRONG", "serial.ttyGPS*")]:
             db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(?,?,1,?,3,?)",
-                (uid, name, hashlib.sha1(b"test-password").hexdigest(), flags))
+                (uid, name, test_password_hash(), flags))
     master, slave = pty.openpty()
     tty.setraw(slave)
     device = os.ttyname(slave)
@@ -75,16 +84,20 @@ with tempfile.TemporaryDirectory(prefix="rr-serial-live-") as temporary:
     config = work / "rrserver.cfg"
     config.write_text(f"""[general]
 station.name=serialtest
+domain=mesh.test
+path.identity={identity}
+net.http.tls-cert={cert}
+net.http.tls-key={key}
 rig.instances=rig0
 rig.default=rig0
 path.db.master={database}
-path.modules={work}/modules
+path.modules={ROOT}/bin
 log.file=-
 log.level=*:info
 net.http.bind=127.0.0.1
-net.http.port={port}
-net.http.tls-enabled=false
-net.http.authdb-dynamic=true
+net.http.tls-port={port}
+net.http.tls-enabled=true
+links.native.bind=127.0.0.1
 net.http.www-root={ROOT}/www
 net.http.ua-bans={work}/absent-ua-bans
 net.mqtt.enabled=false
@@ -94,9 +107,8 @@ chat.replay-lines=0
 [rig:rig0]
 backend=internal
 vfos=A
-[fwdsp]
-path={work}/absent-fwdsp
-pcm-hub=false
+audio.source=none
+audio.sink=none
 [callsign-lookup]
 enabled=false
 [serial]
@@ -105,16 +117,17 @@ ttyHOST0=serial:{device}@115200,8n1
 buffer-bytes=0
 """)
     clients = []
+    env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT) + (":" + os.environ["LD_LIBRARY_PATH"] if os.environ.get("LD_LIBRARY_PATH") else ""))
     with (work / "console.log").open("w") as output:
         config.write_text(config.read_text() + TEST_ACLS)
-        process = subprocess.Popen([str(ROOT / "bin/rrserver"), "-f", str(config)], cwd=ROOT, stdout=output, stderr=subprocess.STDOUT)
+        process = subprocess.Popen([str(ROOT / "bin/rrserver"), "-f", str(config)], cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 10
             while True:
                 if process.poll() is not None or time.monotonic() > deadline:
                     raise RuntimeError((work / "console.log").read_text())
                 try:
-                    first = WebSocket(port)
+                    first = WebSocket(port, tls)
                     clients.append(first)
                     break
                 except ConnectionRefusedError:
@@ -139,7 +152,7 @@ buffer-bytes=0
             stream = opened["stream"]
             assert 0 < stream < 256 and opened["mode"] == "8n1"
             payload = bytes(range(256))
-            header = struct.pack("!2sBB4sBBBBIIQ", b"RR", 1, 4, b"seri", 1, 255, 255, stream, 1, len(payload), 0)
+            header = struct.pack("!2sBB4sBBBBIIQ", b"RR", 2, 4, b"seri", 1, 255, 255, stream, 1, len(payload), 0)
             first.send_payload(header + payload)
             assert serial(first, "written")["seq"] == 1
             assert device_read(master, len(payload)) == payload
@@ -165,7 +178,7 @@ buffer-bytes=0
             serial(first, "list-end")
             assert not select.select([master], [], [], 0.1)[0], "stale bytes reached reopened device"
             stream = reopened["stream"]
-            header = struct.pack("!2sBB4sBBBBIIQ", b"RR", 1, 4, b"seri", 1, 255, 255, stream, 1, len(payload), 0)
+            header = struct.pack("!2sBB4sBBBBIIQ", b"RR", 2, 4, b"seri", 1, 255, 255, stream, 1, len(payload), 0)
             first.send_payload(header + payload)
             assert serial(first, "written")["seq"] == 1
             assert device_read(master, len(payload)) == payload
@@ -174,7 +187,7 @@ buffer-bytes=0
                 assert serial(first, "error")["error"] == "invalid-request"
             first.send_payload(json.dumps({"op": "serial.configure", "name": "ttyHOST0", "baud": 18446744073709551615, "stream": stream}).encode(), 1)
             first.until(lambda m: m.get("msg", {}).get("type") == "error")
-            second = WebSocket(port)
+            second = WebSocket(port, tls)
             clients.append(second)
             login(second)
             command(second, "open", port="ttyHOST0")
@@ -202,7 +215,7 @@ buffer-bytes=0
             # Users are loaded at startup (or explicit rehash), so seed the
             # restricted account before launching instead of editing SQLite
             # behind the running server's cached authentication table.
-            restricted = WebSocket(port)
+            restricted = WebSocket(port, tls)
             clients.append(restricted)
             login(restricted, "RESTRICTED")
             rows = inventory(restricted)
@@ -211,7 +224,7 @@ buffer-bytes=0
             command(restricted, "open", port="ttyHOST0")
             assert serial(restricted, "error")['error'] == 'forbidden-device'
             for name, permitted in [("EXACT", True), ("PREFIX", True), ("WRONG", False)]:
-                account = WebSocket(port)
+                account = WebSocket(port, tls)
                 clients.append(account)
                 login(account, name)
                 rows = inventory(account)
