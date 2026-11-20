@@ -51,6 +51,23 @@ struct GlobalState rig;
 /* Control/identity fixture has no PTT client or built-in Yaesu device. */
 rrconn_t *whos_talking(void) { return NULL; }
 void rr_backend_yaesu_register(void) { }
+
+/* Standalone Hamlib rig/identity diagnostic: register only the backend under
+ * test and the built-in reference rig. Bridge, Yaesu and WebSDR have their
+ * own suites and must not pull network/ACL/media services into this binary. */
+void rr_backend_register_builtin_types(void) {
+   rr_backend_internal_register();
+}
+
+/* The database helper carries optional session/chat functionality, but this
+ * rig registry fixture has no authenticated users, rooms or transports. */
+http_user_t http_users[HTTP_MAX_USERS];
+void http_reconcile_users(const http_user_t *previous) { (void)previous; }
+const char *ws_authoritative_room(void) { return "#live-validation"; }
+bool ws_client_in_room(const rrconn_t *client, const char *room) {
+   (void)client; (void)room;
+   return false;
+}
 static atomic_llong worker_clock;
 long long mono_ms(void) {
    return atomic_load(&worker_clock);
