@@ -270,7 +270,7 @@ int main(void) {
    // or codec/tab change. Failed restarts are bounded, and volume is restored.
    speaker_broken = true;
    decode_all();
-   assert(speaker_failed && played == 5 && !speaker_starts);
+   assert(speaker_broken && played == 5 && !speaker_starts);
    test_clock = 999999;
    decode_all();
    assert(!speaker_starts && played == 5);
@@ -285,7 +285,7 @@ int main(void) {
    test_clock = 2000000;
    decode_all();
    assert(speaker_starts == 2 && speaker_stops == 2 && volume_restores == 1);
-   assert(!speaker_failed && played == 6);
+   assert(!speaker_broken && played == 6);
    decode_all();
    assert(played == 7 && speaker_starts == 2 && starts == 4 && stops == 3);
    // Overlapping streams saturate rather than wrapping, and backlog stays bounded.
