@@ -1,35 +1,50 @@
 """Exercise production camera subprocess framing and subscribed WebSocket video."""
-import hashlib
+import os
+import ssl
 import pathlib
 import socket
 import sqlite3
 import subprocess
 import tempfile
 import time
-from ws_helpers import TEST_ACLS, WebSocket
+from ws_helpers import TEST_ACLS, WebSocket, test_password_hash
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 def login(client):
     client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
     challenge = client.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-    password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
-    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST', 'pass': password, 'token': challenge['token']}})
+    assert challenge['method'] == 'tls-password-v1', challenge
+    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST', 'pass': 'test-password', 'method': challenge['method'], 'token': challenge['token']}})
     client.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
 
 with tempfile.TemporaryDirectory(prefix='rr-webcam-') as temporary:
     work = pathlib.Path(temporary)
+    identity = work / 'identity'
+    identity.mkdir(mode=0o700)
+    cert, key = identity / 'tls-cert.pem', identity / 'tls-key.pem'
+    subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+        '-keyout', str(key), '-out', str(cert), '-days', '1', '-sha256',
+        '-subj', '/CN=webcamtest.mesh.test',
+        '-addext', 'subjectAltName=DNS:webcamtest.mesh.test,DNS:localhost,IP:127.0.0.1'],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    key.chmod(0o600)
+    tls = ssl.create_default_context(cafile=str(cert))
     database = work / 'master.db'
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
         db.execute('INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)',
-                   ('TEST', 1, hashlib.sha1(b'test-password').hexdigest(), 3, 'admin,view,radio,chat'))
+                   ('TEST', 1, test_password_hash(), 3, 'admin,view,radio,chat'))
     with socket.socket() as reservation:
         reservation.bind(('127.0.0.1', 0))
         port = reservation.getsockname()[1]
     config = work / 'server.cfg'
     config.write_text(f'''[general]
 station.name=webcamtest
+domain=mesh.test
+path.identity={identity}
+net.http.tls-cert={cert}
+net.http.tls-key={key}
 rig.instances=rig0
 rig.default=rig0
 path.db.master={database}
@@ -37,14 +52,17 @@ path.modules={ROOT}/bin
 log.file={work}/server.log
 log.level=*:debug
 net.http.bind=127.0.0.1
-net.http.port={port}
-net.http.tls-enabled=false
+net.http.tls-port={port}
+net.http.tls-enabled=true
+links.native.bind=127.0.0.1
 net.mqtt.enabled=false
 webcam.enable=true
 webcam.codec=h264
 [rig:rig0]
 backend=internal
 vfos=A
+audio.source=none
+audio.sink=none
 [fwdsp]
 path={ROOT}/bin/fwdsp
 pcm-hub=false
@@ -55,13 +73,14 @@ enabled=false
 h264.tx=videotestsrc is-live=true pattern=ball ! video/x-raw,width=160,height=120,framerate=24/1 ! videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast bitrate=128 key-int-max=24 byte-stream=true ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! appsink name=tx-sink sync=false max-buffers=1 drop=true
 ''' + TEST_ACLS)
     client = second = None
+    env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT) + (':' + os.environ['LD_LIBRARY_PATH'] if os.environ.get('LD_LIBRARY_PATH') else ''))
     with (work / 'console.log').open('w') as output:
-        process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=work, stdout=output, stderr=subprocess.STDOUT)
+        process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 try:
-                    client = WebSocket(port)
+                    client = WebSocket(port, tls)
                     break
                 except OSError:
                     time.sleep(0.05)
@@ -82,7 +101,7 @@ h264.tx=videotestsrc is-live=true pattern=ball ! video/x-raw,width=160,height=12
                 frames.append(frame)
             assert frames[0] != frames[2], 'video must update'
             assert 'h264.5' in channel['profiles'] and 'jpeg.5' in channel['profiles']
-            second = WebSocket(port)
+            second = WebSocket(port, tls)
             login(second)
             second.send({'msg': {'type': 'media'}, 'media': {'cmd': 'subscribe', 'chan-uuid': channel['chan-uuid']}})
             second.until(lambda m: m.get('media', {}).get('cmd') == 'subscribed')
