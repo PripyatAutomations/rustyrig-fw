@@ -110,7 +110,8 @@ case "$distro" in
       if enabled '.components.fwdsp'; then
          packages+=(libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
             gstreamer1.0-pulseaudio gstreamer1.0-plugins-good
-            gstreamer1.0-plugins-bad gstreamer1.0-tools)
+            gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+            gstreamer1.0-libav gstreamer1.0-tools)
       fi
       enabled '.components."callsign-lookup"' && packages+=(libcurl4-openssl-dev)
       ;;
@@ -129,7 +130,7 @@ case "$distro" in
       enabled '.features.rtp' && packages+=(libsrtp)
       if enabled '.components.fwdsp'; then
          packages+=(gstreamer gst-plugins-base-libs gst-plugins-base
-            gst-plugins-good gst-plugins-bad)
+            gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav)
       fi
       enabled '.components."callsign-lookup"' && packages+=(curl)
       ;;
