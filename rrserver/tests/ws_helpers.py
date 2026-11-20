@@ -103,7 +103,10 @@ class WebSocket:
             f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
             "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: rustyrig.v2\r\n\r\n").encode())
         while b"\r\n\r\n" not in self.buffer:
-            self.buffer += self.socket.recv(4096)
+            chunk = self.socket.recv(4096)
+            if not chunk:
+                raise EOFError("server rejected or closed WebSocket upgrade")
+            self.buffer += chunk
         headers, self.buffer = self.buffer.split(b"\r\n\r\n", 1)
         assert b"101" in headers.split(b"\r\n", 1)[0], headers
         protocols = [line.split(b":", 1)[1].strip() for line in headers.split(b"\r\n")[1:]

@@ -8,6 +8,32 @@ bool dying, restarting;
 time_t now;
 rrconn_t *ws_conn;
 int cfg_ui_edit_delay;
+
+/* No connected server or local SDR in this widget-only fixture. */
+rrconn_t *rrclient_active_connection(void) { return ws_conn; }
+const char *gtk_chat_controls_room(void) { return gtk_chat_current_room(); }
+bool rrclient_local_bridge_request_tune(rr_local_tune_kind_t kind, char vfo, uint64_t hz, const char *value) {
+   (void)kind; (void)vfo; (void)hz; (void)value;
+   assert(!"unexpected local SDR tuning in mode widget test");
+   return false;
+}
+void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *text) {
+   GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo));
+   GtkTreeIter iter;
+   if (!gtk_tree_model_get_iter_first(model, &iter)) return;
+   int index = 0;
+   do {
+      char *label = NULL;
+      gtk_tree_model_get(model, &iter, 0, &label, -1);
+      bool match = label && !strcmp(label, text);
+      g_free(label);
+      if (match) {
+         gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
+         return;
+      }
+      index++;
+   } while (gtk_tree_model_iter_next(model, &iter));
+}
 static unsigned mode_sends, width_sends;
 char vfo_state_get_active(void) {
    return 'A';

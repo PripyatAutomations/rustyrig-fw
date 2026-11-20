@@ -1,13 +1,13 @@
 """Exercise listener ACLs before and after real WebSocket authentication."""
-import hashlib
 import os
 import pathlib
 import socket
+import ssl
 import sqlite3
 import subprocess
 import tempfile
 import time
-from ws_helpers import WebSocket
+from ws_helpers import WebSocket, test_password_hash
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 def port():
@@ -18,19 +18,29 @@ def port():
 def login(c, name):
     c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': name}})
     a = c.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-    password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + a['nonce']).encode()).hexdigest()
-    c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': name, 'pass': password, 'token': a['token']}})
+    assert a['method'] == 'tls-password-v1', a
+    c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': name, 'pass': 'test-password', 'method': a['method'], 'token': a['token']}})
     return c.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
 
 with tempfile.TemporaryDirectory(prefix='rr-acl-live-') as temporary:
     work = pathlib.Path(temporary)
     (work / 'modules').mkdir()
+    identity = work / 'identity'
+    identity.mkdir(mode=0o700)
+    cert, key = identity / 'tls-cert.pem', identity / 'tls-key.pem'
+    subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+        '-keyout', str(key), '-out', str(cert), '-days', '1', '-sha256',
+        '-subj', '/CN=acltest.mesh.test',
+        '-addext', 'subjectAltName=DNS:acltest.mesh.test,DNS:localhost,IP:127.0.0.1'],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    key.chmod(0o600)
+    tls = ssl.create_default_context(cafile=str(cert))
     database = work / 'users.db'
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
         for uid, name, privileges in [(1, 'TEST', 'admin,view,chat'), (2, 'READER', 'view,chat')]:
             db.execute('INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(?,?,1,?,3,?)',
-                (uid, name, hashlib.sha1(b'test-password').hexdigest(), privileges))
+                (uid, name, test_password_hash(), privileges))
     for label, rules, permitted, denied in [
         ('empty', None, [], []),
         ('deny-all', 'deny=all', [], []),
@@ -44,6 +54,10 @@ with tempfile.TemporaryDirectory(prefix='rr-acl-live-') as temporary:
         config = work / (label + '.cfg')
         text = f'''[general]
 station.name=acltest
+domain=mesh.test
+path.identity={identity}
+net.http.tls-cert={cert}
+net.http.tls-key={key}
 rig.instances=rig0
 rig.default=rig0
 path.db.master={database}
@@ -51,8 +65,10 @@ path.modules={work}/modules
 log.file=-
 log.level=*:info
 net.http.bind=127.0.0.1
-net.http.port={tcp}
-net.http.tls-enabled=false
+net.http.tls-port={tcp}
+net.http.tls-enabled=true
+links.native.bind=127.0.0.1
+media.direct.enabled=false
 net.http.authdb-dynamic=true
 net.http.www-root={ROOT}/www
 net.http.ua-bans={work}/absent
@@ -68,7 +84,7 @@ vfos=A
 enabled=false
 '''
         if rules:
-            text += f'[acl:policy]\n{rules}\n[listener:http]\nacl=policy\n'
+            text += f'[acl:policy]\n{rules}\n[listener:https]\nacl=policy\n'
         config.write_text(text)
         with (work / 'console').open('w') as output:
             process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=ROOT,
@@ -84,23 +100,37 @@ enabled=false
                         assert time.monotonic() < until
                         time.sleep(.05)
                 if not permitted and not denied:
-                    with socket.create_connection(('127.0.0.1', tcp), timeout=3) as probe:
-                        probe.sendall(b'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
-                        try: assert probe.recv(4096) == b''
-                        except ConnectionResetError: pass
+                    # TLS may complete before the native admission ACL closes
+                    # the connection. No WebSocket upgrade may be accepted.
+                    try:
+                        with socket.create_connection(('127.0.0.1', tcp), timeout=3) as raw:
+                            raw.settimeout(3)
+                            with tls.wrap_socket(raw, server_hostname='localhost') as probe:
+                                probe.sendall(b'GET /ws HTTP/1.1\r\nHost: localhost\r\n'
+                                    b'Upgrade: websocket\r\nConnection: Upgrade\r\n'
+                                    b'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n'
+                                    b'Sec-WebSocket-Version: 13\r\n'
+                                    b'Sec-WebSocket-Protocol: rustyrig.v2\r\n\r\n')
+                                assert b'101 Switching Protocols' not in probe.recv(4096)
+                    except (ConnectionResetError, BrokenPipeError, ssl.SSLError, EOFError):
+                        pass
                 for name in permitted:
-                    c = WebSocket(tcp)
+                    c = WebSocket(tcp, tls)
                     try: assert login(c, name)['auth']['cmd'] == 'authorized'
                     finally: c.socket.close()
                 for name in denied:
-                    c = WebSocket(tcp)
+                    c = None
                     try:
+                        c = WebSocket(tcp, tls)
                         try:
                             login(c, name)
+                        except (EOFError, ConnectionResetError, ssl.SSLError, OSError):
+                            pass
+                        else:
                             raise AssertionError('ACL denied account was authorized')
-                        except (EOFError, ConnectionResetError): pass
-                    finally: c.socket.close()
-                print(f'PASS: real HTTP/WS listener ACL {label}', flush=True)
+                    finally:
+                        if c: c.socket.close()
+                print(f'PASS: native TLS/WS listener ACL {label}', flush=True)
             finally:
                 process.terminate()
                 try: process.wait(timeout=5)

@@ -23,6 +23,22 @@ time_t now;
 bool dying;
 bool restarting;
 
+/* SQLite-only harness: no live HTTP sessions. */
+http_user_t http_users[HTTP_MAX_USERS];
+int http_getuid(const char *user) {
+   if (!user) return -1;
+   for (int i = 0; i < HTTP_MAX_USERS; ++i) {
+      if (http_users[i].name[0] && http_users[i].pass[0] &&
+          strcasecmp(http_users[i].name, user) == 0) return i;
+   }
+   return -1;
+}
+void http_reconcile_users(const http_user_t *previous) { (void)previous; }
+const char *ws_authoritative_room(void) { return "#test"; }
+bool ws_client_in_room(const rrconn_t *client, const char *room) {
+   return client && room && strcmp(client->rooms, room) == 0;
+}
+
 #define MAX_REPLAY_FRAMES 64
 struct replay_frame {
    char cmd[32];

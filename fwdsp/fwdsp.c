@@ -1969,6 +1969,11 @@ int main(int argc, char *argv[]) {
       dup2(null_stdout, STDOUT_FD);
       close(null_stdout);
    }
+   /* Release the extra debug callback and GStreamer-wide allocations on
+    * normal one-shot subprocess exit. LSan must remain enabled in tests. */
+   gst_debug_remove_log_function(gst_log_handler);
+   gst_deinit();
+   g_free(default_socket);
    host_cleanup();
 
    free(recording_dir);
