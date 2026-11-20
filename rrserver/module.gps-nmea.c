@@ -7,7 +7,8 @@
 #include <librustyaxe/io.serial.h>
 
 static rr_event_token_t input_token;
-/* Independently loaded modules intentionally share the dlsym ABI name. */\n__attribute__((no_sanitize_address)) rr_module_event_t modexports[] = { {
+/* Independently loaded modules intentionally share the dlsym ABI name. */
+__attribute__((no_sanitize_address)) rr_module_event_t modexports[] = { {
                                       0
                                    } };
 
