@@ -76,7 +76,7 @@ h264.tx=videotestsrc is-live=true pattern=ball ! video/x-raw,width=160,height=12
             ack = client.until(lambda m: m.get('media', {}).get('cmd') == 'subscribed' and m['media'].get('chan-uuid') == channel['chan-uuid'])['media']
             frames = []
             for _ in range(3):
-                _, frame = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x01\x02h264')
+                _, frame = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x02\x02h264')
                 assert frame[8] == 0 and frame[11] == ack['stream']
                 assert b'\x00\x00\x01' in frame[28:]
                 frames.append(frame)
@@ -90,21 +90,21 @@ h264.tx=videotestsrc is-live=true pattern=ball ! video/x-raw,width=160,height=12
             client.until(lambda m: m.get('media', {}).get('cmd') == 'profile' and m['media'].get('profile') == 'jpeg.5')
             times = []
             for _ in range(5):
-                _, jpeg = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x01\x02jpeg')
+                _, jpeg = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x02\x02jpeg')
                 assert jpeg[11] == ack['stream'] and jpeg[28:31] == b'\xff\xd8\xff'
                 times.append(int.from_bytes(jpeg[20:28], 'big'))
             assert times[-1] - times[0] >= 600000, times
-            _, untouched = second.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x01\x02h264')
+            _, untouched = second.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x02\x02h264')
             assert untouched[8] == 0
             children = set(pathlib.Path(f'/proc/{process.pid}/task/{process.pid}/children').read_text().split())
             second.send({'msg': {'type': 'media'}, 'media': {'cmd': 'profile', 'chan-uuid': channel['chan-uuid'], 'profile': 'jpeg.5'}})
             second.until(lambda m: m.get('media', {}).get('cmd') == 'profile' and m['media'].get('profile') == 'jpeg.5')
-            _, shared = second.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x01\x02jpeg')
+            _, shared = second.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x02\x02jpeg')
             assert set(pathlib.Path(f'/proc/{process.pid}/task/{process.pid}/children').read_text().split()) == children, 'matching profiles must share one encoder'
             second.socket.close()
             client.send({'msg': {'type': 'media'}, 'media': {'cmd': 'profile', 'chan-uuid': channel['chan-uuid'], 'profile': 'h264.10'}})
             client.until(lambda m: m.get('media', {}).get('cmd') == 'profile' and m['media'].get('profile') == 'h264.10')
-            _, h264 = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x01\x02h264')
+            _, h264 = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x02\x02h264')
             assert b'\x00\x00\x01' in h264[28:]
             client.send({'msg': {'type': 'media'}, 'media': {'cmd': 'unsubscribe', 'chan-uuid': channel['chan-uuid']}})
             client.until(lambda m: m.get('media', {}).get('cmd') == 'unsubscribed')
