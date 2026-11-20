@@ -15,6 +15,10 @@ rrconn_t *rrclient_active_connection(void) {
    return &connection;
 }
 
+rrconn_t *rrclient_connection_context(void) {
+   return &connection;
+}
+
 bool dying, restarting;
 enum GuiMode ui_mode = UI_MODE_NONE;
 time_t now;
