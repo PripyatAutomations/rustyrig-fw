@@ -184,7 +184,7 @@ with (work / 'console.log').open('w') as console:
         channel = until(lambda m: m.get('media', {}).get('cmd') == 'available' and m['media'].get('dir') == 0 and m['media'].get('subsys') == 1)['media']
         client.send({'msg': {'type': 'media'}, 'media': {'cmd': 'subscribe', 'chan-uuid': channel['chan-uuid'], 'codecs': 'pc16'}})
         until(lambda m: m.get('media', {}).get('cmd') == 'subscribed')
-        _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
+        _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x02\x01pc16')
         assert len(frame) > 28 and any(frame[28:]), 'no resampled Kiwi audio reached client'
         if fixture:
             fixture.confirm_delay = .7
@@ -193,7 +193,7 @@ with (work / 'console.log').open('w') as console:
                 'request': {'id': 'delayed-tune'}})
             audio_times = []
             def pending_result(opcode, payload):
-                if opcode == 2 and payload[:8] == b'RR\x01\x01pc16':
+                if opcode == 2 and payload[:8] == b'RR\x02\x01pc16':
                     audio_times.append(time.monotonic())
                 if opcode != 1: return False
                 message = track(json.loads(payload))
@@ -207,7 +207,7 @@ with (work / 'console.log').open('w') as console:
         for i in range(12):
             control(a, 'frequency', 7100000 + (i % 3) * 1000, f'kiwi-retune-{i}')
             control(a, 'mode', ('USB', 'LSB', 'CW', 'AM')[i % 4], f'kiwi-remode-{i}')
-            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
+            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x02\x01pc16')
             assert any(frame[28:]), f'audio stopped after tuning cycle {i}'
         # Native clients can still send legacy CAT commands for bridge rooms.
         for i in range(4):
@@ -219,7 +219,7 @@ with (work / 'console.log').open('w') as console:
             client.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'mode', 'room': objects[radio]['room'],
                 'vfo': 'A', 'mode': mode}})
             state(a, 'mode', mode)
-            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
+            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x02\x01pc16')
             assert any(frame[28:]), f'audio stopped after CAT cycle {i}'
         control(a, 'frequency', 7100000, 'kiwi-restore-frequency')
         control(a, 'mode', 'AM', 'kiwi-restore-mode')
@@ -233,7 +233,7 @@ with (work / 'console.log').open('w') as console:
             state(radio, 'online', True)
             assert states[a, 'frequency']['value'] == 7100000
             assert states[a, 'mode']['value'] == 'AM'
-            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
+            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x02\x01pc16')
             assert any(frame[28:])
         if fixture:
             client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'part', 'target': objects[radio]['room']}})
