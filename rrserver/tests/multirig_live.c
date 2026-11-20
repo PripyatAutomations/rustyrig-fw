@@ -47,6 +47,10 @@ time_t now;
 bool dying;
 bool restarting;
 struct GlobalState rig;
+
+/* Control/identity fixture has no PTT client or built-in Yaesu device. */
+rrconn_t *whos_talking(void) { return NULL; }
+void rr_backend_yaesu_register(void) { }
 static atomic_llong worker_clock;
 long long mono_ms(void) {
    return atomic_load(&worker_clock);
