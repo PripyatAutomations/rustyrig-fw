@@ -28,11 +28,21 @@ def join(client, room):
     client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": room}})
     client.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == room)
 def snapshot(client, channel):
+    # The GPS snapshot may arrive before the subscribe ACK. Track both
+    # events without discarding the earlier frame.
+    received = {"ack": False, "frame": None}
+    def complete(opcode, payload):
+        if opcode == 1:
+            media = json.loads(payload).get("media", {})
+            if media.get("cmd") == "subscribed" and media.get("chan-uuid") == channel:
+                received["ack"] = True
+        elif opcode == 2 and payload[:8] == b"RR\x01\x04gpsp":
+            received["frame"] = payload
+        return received["ack"] and received["frame"] is not None
     client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": channel}})
-    client.until(lambda m: m.get("media", {}).get("cmd") == "subscribed" and m["media"]["chan-uuid"] == channel)
-    _, frame = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b"RR\x01\x04gpsp")
+    client.until_frame(complete)
+    frame = received["frame"]
     return frame[10], struct.unpack("!iiB", frame[28:])
-
 
 def inventory(client):
     client.send({"msg": {"type": "object"}, "object": {"cmd": "inventory"}, "request": {"id": "test-inventory"}})
@@ -91,16 +101,19 @@ gpsd.target=station
 [rig:rig0]
 backend=internal
 vfos=A
+audio.source=none
+audio.sink=none
 gps.position=38.1234567,-80.7654321
 [rig:rig1]
 backend=internal
 vfos=A
+audio.source=none
+audio.sink=none
 [rig:rig2]
 backend=internal
 vfos=A
-[fwdsp]
-path={work}/absent-fwdsp
-pcm-hub=false
+audio.source=none
+audio.sink=none
 [callsign-lookup]
 enabled=false
 [modules]
