@@ -441,9 +441,14 @@ static rr_control_result_t control(const rr_control_request_t *r, void *user) {
     * never silently discard another caller's completion notification. */
    if (b->pending && !b->complete && !r->complete && b->ready && b->online &&
       hz >= b->caps.rx_min_hz && hz <= b->caps.rx_max_hz && rrp_bridge_mode_valid(b->caps.rx_modes, mode)) {
+      /* mode may already point at b->queued_mode. snprintf() with
+       * overlapping source and destination is undefined and can erase the
+       * mode on the third rapid frequency change. */
+      if (mode != b->queued_mode) {
+         snprintf(b->queued_mode, sizeof(b->queued_mode), "%s", mode);
+      }
       b->queued_tune = true;
       b->queued_hz = hz;
-      snprintf(b->queued_mode, sizeof(b->queued_mode), "%s", mode);
 
       return RR_CONTROL_PENDING;
    }
