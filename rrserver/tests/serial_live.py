@@ -145,7 +145,7 @@ buffer-bytes=0
             assert device_read(master, len(payload)) == payload
             reply = payload[::-1]
             assert os.write(master, reply) == len(reply)
-            _, frame = first.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b"RR\x01\x04seri")
+            _, frame = first.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b"RR\x02\x04seri")
             assert frame[8:12] == bytes([0, 255, 255, stream]) and frame[28:] == reply
             command(first, "read", seq=1, stream=stream)
             command(first, "configure", baud=19200, mode="8n2", stream=stream)
