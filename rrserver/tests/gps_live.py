@@ -124,9 +124,10 @@ path={work}/disabled-fixed-input
     client = None
     peer = None
     gps_in = gps_out = gps_raw = None
+    env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT) + (':' + os.environ['LD_LIBRARY_PATH'] if os.environ.get('LD_LIBRARY_PATH') else ''))
     with (work / "console.log").open("w") as output:
         config.write_text(config.read_text() + TEST_ACLS)
-        process = subprocess.Popen([str(ROOT / "bin/rrserver"), "-f", str(config)], cwd=ROOT, stdout=output, stderr=subprocess.STDOUT)
+        process = subprocess.Popen([str(ROOT / "bin/rrserver"), "-f", str(config)], cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT)
         try:
             peer, _ = daemon.accept()
             peer.settimeout(5)
