@@ -678,7 +678,7 @@ static bool ws_media_send_frame_filtered(struct rr_mediachan *cp, rrconn_t *targ
       /* A targeted GPSP snapshot is a control-state delivery, not audio. This
        * single diagnostic distinguishes missing subscription, room access,
        * transport failure and a successfully queued frame. */
-      Log(snapshot_sent ? LOG_DEBUG : LOG_WARN, "ws.media",
+      Log(snapshot_sent ? LOG_INFO : LOG_WARN, "ws.media",
          "GPSP snapshot dispatch: channel=%s subscribed=%s room-access=%s transport=%s queued=%zu sent=%u",
          cp->name, chan_id_in_array(target->rx_channels, MAX_RX_CHANNELS, chan_id) ? "yes" : "no",
          media_client_in_channel_room(target, cp) ? "yes" : "no",
