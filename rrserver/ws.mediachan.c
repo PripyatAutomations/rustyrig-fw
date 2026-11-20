@@ -644,6 +644,8 @@ static bool ws_media_send_frame_filtered(struct rr_mediachan *cp, rrconn_t *targ
    };
    event_emit_binary(RR_MEDIA_FANOUT_EVENT, NULL, &fanout, sizeof(fanout));
    rrconn_t *cur = target ? target : http_client_list;
+   const bool gps_snapshot = target && cp->subsystem == RR_BINFRAME_SUBSYS_MODEM && !memcmp(codecbuf, "gpsp", 4);
+   unsigned snapshot_sent = 0;
    while (cur) {
       if ((!target || cur == target) && cur != exclude && cur->is_ws &&
          cur->authenticated && cur->native_transport &&
@@ -662,12 +664,26 @@ static bool ws_media_send_frame_filtered(struct rr_mediachan *cp, rrconn_t *targ
          if ((size_t)flen <= limit && queued <= limit - (size_t)flen) {
             if (rr_transport_send_binary_message(cur->native_transport, frame, (size_t)flen) == RR_TRANSPORT_OK) {
                rr_traffic_count(cur, true, true, (size_t)flen);
+               if (gps_snapshot) {
+                  snapshot_sent++;
+               }
             }
          } else if (setup) {
             event_emit("protocol.backpressure", cur, "Media setup queue full");
          }
       }
       cur = target ? NULL : cur->next;
+   }
+   if (gps_snapshot) {
+      /* A targeted GPSP snapshot is a control-state delivery, not audio. This
+       * single diagnostic distinguishes missing subscription, room access,
+       * transport failure and a successfully queued frame. */
+      Log(snapshot_sent ? LOG_INFO : LOG_WARN, "ws.media",
+         "GPSP snapshot dispatch: channel=%s subscribed=%s room-access=%s transport=%s queued=%zu sent=%u",
+         cp->name, chan_id_in_array(target->rx_channels, MAX_RX_CHANNELS, chan_id) ? "yes" : "no",
+         media_client_in_channel_room(target, cp) ? "yes" : "no",
+         target->native_transport && rr_transport_state(target->native_transport) == RR_TRANSPORT_OPEN ? "open" : "closed",
+         target->native_transport ? rr_transport_queued_bytes(target->native_transport) : 0, snapshot_sent);
    }
    free(frame);
 
