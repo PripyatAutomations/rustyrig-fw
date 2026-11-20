@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <rrclient/ui.c>
 rrconn_t *ws_conn;
+rrconn_t *rrclient_connection_context(void) { return ws_conn; }
 static rrconn_t first, second;
 const rr_frontend_ops_t *frontend_ops(void) {
    return NULL;
