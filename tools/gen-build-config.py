@@ -118,7 +118,8 @@ if "size" in eeprom:
 define("MAX_BANDS", int(features.get("max-bands", features.get("max_bands", 10))))
 if config.get("build", {}).get("platform") == "posix":
     define("HOST_CAT_PIPE", '"cat.fifo"')
-    define("HOST_POSIX")
+    # librrprotocol's public header may already define HOST_POSIX as 1.
+    header.extend(["#ifndef HOST_POSIX", "#define HOST_POSIX 1", "#endif"])
     define("HOST_LINUX")
     define("HTTP_USE_TLS", 1)
     define("HTTP_TLS_KEY", '"./config/key.pem"')

@@ -196,8 +196,19 @@ int main(int argc, char **argv) {
    assert(loaded);
    dict_free(cfg);
    cfg = loaded;
-   dict_add(cfg, "path.db.master.template", "sql/sqlite.master.sql");
-   dict_add(cfg, "path.db.master.preload", "sql/sqlite.master.preload.sql");
+   /* cfg_get_path() expands relative names under HOME. The SQL fixtures
+    * belong to the source tree; resolve them before opening a fresh DB. */
+   char *template = realpath("sql/sqlite.master.sql", NULL);
+   char *preload = realpath("sql/sqlite.master.preload.sql", NULL);
+   assert(template && preload);
+   dict_add(cfg, "path.db.master.template", template);
+   dict_add(cfg, "path.db.master.preload", preload);
+   free(template);
+   free(preload);
+   char *bootstrap = g_strdup_printf("%s.bootstrap-password", argv[2]);
+   assert(bootstrap);
+   dict_add(cfg, "path.admin.bootstrap-password", bootstrap);
+   g_free(bootstrap);
    masterdb = db_open(argv[2]);
    assert(masterdb);
    event_init();
