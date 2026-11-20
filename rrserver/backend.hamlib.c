@@ -1021,7 +1021,12 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
          rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot select VFO %s: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(
             result));
 
-         // Selecting a VFO failing does not prove the CAT connection is lost.
+         /* Unsupported VFO selection is handled above. A transport I/O
+          * failure is different: the peer is gone, so invalidate ALL VFO
+          * observations and schedule reconnection. */
+         if (result == -RIG_EIO) {
+            hl_schedule_retry(backend, "rig_set_vfo I/O failure");
+         }
          return NULL;
       }
    }
