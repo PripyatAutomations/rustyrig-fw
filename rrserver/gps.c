@@ -361,6 +361,9 @@ static void subscribed(const char *event, const char *data, rrconn_t *client, vo
 
    for (unsigned i = 0 ; i < count ; i++) {
       if (sources[i].channel && (!strcmp(sources[i].channel->uuid, uuid) || (sources[i].nmea_channel && !strcmp(sources[i].nmea_channel->uuid, uuid)))) {
+         const struct gps_source *position = effective(&sources[i]);
+         Log(LOG_INFO, "gps", "GPS subscription snapshot: source=%s available=%s channel=%s", sources[i].alias,
+            available(position) ? "yes" : "no", uuid);
          publish(&sources[i], client);
       }
    }
