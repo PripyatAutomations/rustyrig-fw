@@ -25,9 +25,9 @@ static uint64_t reconnect_at;
 static char line[512];
 static size_t used;
 static bool dropping;
-/* Each loadable module exports this ABI name; ASan must not treat distinct
- * module descriptors as a duplicate global definition across DSOs. */
-__attribute__((no_sanitize_address)) rr_module_event_t modexports[] = { {
+/* Optional empty module export table; weak symbols do not assert a
+ * process-wide unique definition across independent dlopen() modules. */
+__attribute__((weak)) rr_module_event_t modexports[] = { {
                                       0
                                    } };
 
