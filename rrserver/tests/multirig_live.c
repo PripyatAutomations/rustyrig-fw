@@ -214,7 +214,11 @@ int main(int argc, char **argv) {
    event_init();
    event_on(RR_PROPERTY_CHANGED_EVENT, property_event, NULL);
 #ifdef RR_TEST_HAMLIB_MODULE
-   dict_add(cfg, "path.modules", "./bin");
+   /* Module paths are expanded relative to HOME by cfg_get_path(). */
+   char *modules = realpath("bin", NULL);
+   assert(modules);
+   dict_add(cfg, "path.modules", modules);
+   free(modules);
 #else
    rr_backend_hamlib_register(); // This fixture links the implementation directly.
 #endif
