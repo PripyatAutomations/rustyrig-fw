@@ -96,11 +96,16 @@ static void program_lookup(void) {
    char *path = bridge_program_path();
    assert(path && g_str_has_suffix(path, "/system/rrbridge"));
    g_free(path);
+   /* An explicit relative path contains '/', so GLib resolves it against
+    * the current directory rather than searching PATH. */
    assert(!dict_add(cfg, "bridge.path", "bin/rrbridge"));
    path = bridge_program_path();
-   assert(path && g_str_has_suffix(path, "/system/rrbridge"));
+   assert(path && g_str_has_suffix(path, "/bin/rrbridge"));
    g_free(path);
    assert(!chmod("system/rrbridge", 0600));
+   assert(!dict_add(cfg, "bridge.path", "rrbridge"));
+   assert(!bridge_program_path());
+   assert(!dict_add(cfg, "bridge.path", "bin/rrbridge"));
    path = bridge_program_path();
    assert(path && g_str_has_suffix(path, "/bin/rrbridge"));
    g_free(path);
