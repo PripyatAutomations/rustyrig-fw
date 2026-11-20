@@ -100,23 +100,37 @@ enabled=false
                         assert time.monotonic() < until
                         time.sleep(.05)
                 if not permitted and not denied:
-                    with socket.create_connection(('127.0.0.1', tcp), timeout=3) as probe:
-                        probe.sendall(b'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
-                        try: assert probe.recv(4096) == b''
-                        except ConnectionResetError: pass
+                    # TLS may complete before the native admission ACL closes
+                    # the connection. No WebSocket upgrade may be accepted.
+                    try:
+                        with socket.create_connection(('127.0.0.1', tcp), timeout=3) as raw:
+                            raw.settimeout(3)
+                            with tls.wrap_socket(raw, server_hostname='localhost') as probe:
+                                probe.sendall(b'GET /ws HTTP/1.1\r\nHost: localhost\r\n'
+                                    b'Upgrade: websocket\r\nConnection: Upgrade\r\n'
+                                    b'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n'
+                                    b'Sec-WebSocket-Version: 13\r\n'
+                                    b'Sec-WebSocket-Protocol: rustyrig.v2\r\n\r\n')
+                                assert b'101 Switching Protocols' not in probe.recv(4096)
+                    except (ConnectionResetError, BrokenPipeError, ssl.SSLError, EOFError):
+                        pass
                 for name in permitted:
                     c = WebSocket(tcp, tls)
                     try: assert login(c, name)['auth']['cmd'] == 'authorized'
                     finally: c.socket.close()
                 for name in denied:
-                    c = WebSocket(tcp, tls)
+                    c = None
                     try:
+                        c = WebSocket(tcp, tls)
                         try:
                             login(c, name)
+                        except (EOFError, ConnectionResetError, ssl.SSLError, OSError):
+                            pass
+                        else:
                             raise AssertionError('ACL denied account was authorized')
-                        except (EOFError, ConnectionResetError): pass
-                    finally: c.socket.close()
-                print(f'PASS: real HTTP/WS listener ACL {label}', flush=True)
+                    finally:
+                        if c: c.socket.close()
+                print(f'PASS: native TLS/WS listener ACL {label}', flush=True)
             finally:
                 process.terminate()
                 try: process.wait(timeout=5)
