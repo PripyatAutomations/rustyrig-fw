@@ -13,6 +13,6 @@ trap 'rm -rf "$work"' EXIT
 source rrclient/tests/irc-adapter.sh
 ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrclient/gtk/gtk.chat-context.c -ffunction-sections -fdata-sections $(pkg-config --cflags gtk+-3.0) \
-   rrclient/tests/userlist_width.c rrclient/tests/client_stubs.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
+   rrclient/tests/userlist_width.c rrclient/tests/client_stubs.c rrclient/tests/gtk_roster_stubs.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol -lrustyirc $(pkg-config --libs gtk+-3.0) ${LDFLAGS:-} -o "$work/userlist_width"
 "$work/userlist_width"
