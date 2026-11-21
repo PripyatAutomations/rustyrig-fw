@@ -114,6 +114,7 @@ try:
         config = work / "multirig.cfg"
         worker_path = (pathlib.Path("bin/rrhamlib").resolve()
                        if subprocess_worker else None)
+        worker_setting = (f"hamlib.worker-path={worker_path}\n" if worker_path else "")
         config.write_text(f"""[general]
 rig.instances=rig0 rig1
 rig.default=rig0
@@ -126,8 +127,7 @@ hamlib.baud=4800
 [rig:rig1]
 backend={"hamlib" if subprocess_worker else "hamlib-legacy"}
 vfos=A B
-hamlib.worker-path={worker_path if worker_path else ""}
-hamlib.reconnect-ms=1000
+{worker_setting}hamlib.reconnect-ms=1000
 hamlib.model=2
 hamlib.device=127.0.0.1:{port}
 hamlib.baud=19200
@@ -161,27 +161,23 @@ reconnect-interval=1
             # After backoff, the backend should create a fresh child and
             # recover its observations without changing persistent VFO IDs.
             kill_subprocess_worker()
-            time.sleep(1.3)
-            command("online")
+            command("recover")
         if not external and run == 0:
             stop(daemon)
             daemon = None
             command("offline")
             daemon = start_daemon(port)
-            if subprocess_worker:
-                time.sleep(1.3)
-            command("online")
+            command("recover" if subprocess_worker else "online")
         if not external and run == 2:
             stop(daemon)
             daemon = None
             command("offline")
             command("offline")
         if subprocess_worker:
-            # A backend with no initial CAT service must stay registered and
-            # reconnect when the daemon becomes available later.
+            # Late CAT availability must revive a backend which could not
+            # connect during startup, without recreating the rig identity.
             daemon = start_daemon(port)
-            time.sleep(1.3)
-            command("online")
+            command("recover")
         client.stdin.write("quit\n")
         client.stdin.flush()
         assert client.wait(timeout=15) == 0
