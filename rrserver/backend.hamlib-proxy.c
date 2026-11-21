@@ -20,6 +20,7 @@ typedef struct {
    rr_vfo_data_t state[MAX_VFOS];
    bool known[MAX_VFOS];
    bool transmitting[MAX_VFOS];
+   bool ptt_known[MAX_VFOS];
 } hamlib_proxy_t;
 
 static hamlib_proxy_t *proxy(rr_backend_t *b) {
@@ -118,6 +119,7 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
    if (!p || !index_of(v, &index) || !request(b, v, RR_HAMLIB_OP_POLL, 0, result)) {
       if (p && index_of(v, &index)) {
          p->known[index] = false;
+         p->ptt_known[index] = false;
          rr_backend_property_unavailable(b, v, RR_PROP_VFO_FREQUENCY);
          rr_backend_property_unavailable(b, v, RR_PROP_VFO_MODE);
          rr_backend_property_unavailable(b, v, RR_PROP_VFO_WIDTH);
@@ -133,6 +135,7 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
    p->state[index] = *state;
    p->known[index] = true;
    p->transmitting[index] = result[1] != 0;
+   p->ptt_known[index] = true;
    dict_value_t observed = { .l = (long)state->freq };
    rr_backend_property_observe(b, v, RR_PROP_VFO_FREQUENCY, VAL_LONG, &observed);
    dict_value_t mode = { .s = (char *)vfo_mode_name(state->mode) };
@@ -160,6 +163,7 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
       return true;
    }
    p->transmitting[index] = false;
+   p->ptt_known[index] = true;
    return false;
 }
 static bool hp_ptt_get(rr_backend_t *b, rr_server_vfo_t *v) {
@@ -169,7 +173,7 @@ static bool hp_ptt_get(rr_backend_t *b, rr_server_vfo_t *v) {
     * a dead child or lost PTT observation into a confirmed OFF.
     */
    return !p || !index_of(v, &index) ||
-      !rr_hamlib_transport_ready(&p->transport) || !p->known[index] ||
+      !rr_hamlib_transport_ready(&p->transport) || !p->ptt_known[index] ||
       p->transmitting[index];
 }
 static bool hp_freq_set(rr_backend_t *b, rr_server_vfo_t *v, int freq) {
