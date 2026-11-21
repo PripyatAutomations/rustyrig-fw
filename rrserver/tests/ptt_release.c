@@ -26,6 +26,47 @@ bool ws_send_userinfo(rrconn_t *client, rrconn_t *subject) {
    return true;
 }
 
+/* The lockout fixture has no external audience or persistent audit DB. */
+rrconn_t *http_client_list;
+
+bool ws_send_error(rrconn_t *client, const char *fmt, ...) {
+   (void)client;
+   (void)fmt;
+   return true;
+}
+
+void ws_broadcast_dict(rrconn_t *sender, dict *message, int opcode) {
+   (void)sender;
+   (void)message;
+   (void)opcode;
+}
+
+bool db_add_audit_event_session(sqlite3 *db, const char *username, const char *event_type,
+                                const char *details, const char *session_id) {
+   (void)db;
+   (void)username;
+   (void)event_type;
+   (void)details;
+   (void)session_id;
+   return true;
+}
+
+bool rr_rig_halted(const rr_server_rig_t *radio) {
+   (void)radio;
+   return false;
+}
+
+const char *rr_server_rig_id(const rr_server_rig_t *radio) {
+   (void)radio;
+   return "fixture-rig0";
+}
+
+const char *rr_rig_registry_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
+   (void)registry;
+   (void)radio;
+   return "rig0";
+}
+
 struct GlobalState rig;
 time_t now, ptt_tot_time;
 bool dying, restarting;
