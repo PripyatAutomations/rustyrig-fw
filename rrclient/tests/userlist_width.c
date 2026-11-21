@@ -471,7 +471,7 @@ int main(void) {
    gtk_window_set_default_size(GTK_WINDOW(window), 800, 240);
    GtkTreeIter iter;
    gtk_list_store_append(store, &iter);
-   gtk_list_store_set(store, &iter, COL_USERNAME, "SHORT", -1);
+   gtk_list_store_set(store, &iter, COL_USERNAME, "SHORT", COL_DISPLAY_NAME, "SHORT", -1);
    gtk_widget_show_all(window);
    while (gtk_events_pending()) {
       gtk_main_iteration();
@@ -484,7 +484,7 @@ int main(void) {
     * and the Username column is intentionally fixed/ellipsized. Measure
     * the full model content using the same helper as roster auto-fit. */
    gint narrow_width = userlist_content_width(view), wide_width = 0;
-   gtk_list_store_set(store, &iter, COL_USERNAME, "A_MUCH_LONGER_USERNAME", -1);
+   gtk_list_store_set(store, &iter, COL_USERNAME, "A_MUCH_LONGER_USERNAME", COL_DISPLAY_NAME, "A_MUCH_LONGER_USERNAME", -1);
    while (gtk_events_pending()) {
       gtk_main_iteration();
    }
@@ -500,7 +500,7 @@ int main(void) {
 
    // Controls can grow after the initial allocation (CAT mode/frequency updates).
    gtk_label_set_text(GTK_LABEL(frequency), "145.123000 MHz (independent receiver)");
-   gtk_list_store_set(store, &iter, COL_USERNAME, "A_USERNAME_LONG_ENOUGH_TO_REQUIRE_MORE_WIDTH_THAN_THE_VFO_AND_PTT_CONTROL_ROW", -1);
+   gtk_list_store_set(store, &iter, COL_USERNAME, "A_USERNAME_LONG_ENOUGH_TO_REQUIRE_MORE_WIDTH_THAN_THE_VFO_AND_PTT_CONTROL_ROW", COL_DISPLAY_NAME, "A_USERNAME_LONG_ENOUGH_TO_REQUIRE_MORE_WIDTH_THAN_THE_VFO_AND_PTT_CONTROL_ROW", -1);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
    userlist_fit_width_idle(view);
    while (gtk_events_pending()) {
