@@ -173,11 +173,6 @@ reconnect-interval=1
             daemon = None
             command("offline")
             command("offline")
-        if subprocess_worker:
-            # Late CAT availability must revive a backend which could not
-            # connect during startup, without recreating the rig identity.
-            daemon = start_daemon(port)
-            command("recover")
         client.stdin.write("quit\n")
         client.stdin.flush()
         assert client.wait(timeout=15) == 0
@@ -191,6 +186,11 @@ reconnect-interval=1
         )
         assert read_until("READY") == previous
         command("offline")
+        if subprocess_worker:
+            # Rig was disconnected before fixture startup; revive the
+            # same backend/identities by making rigctld available later.
+            daemon = start_daemon(port)
+            command("recover")
         client.stdin.write("quit\n")
         client.stdin.flush()
         assert client.wait(timeout=15) == 0
