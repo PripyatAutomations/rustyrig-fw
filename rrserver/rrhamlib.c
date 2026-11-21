@@ -70,7 +70,20 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
    struct sigaction sa = { .sa_handler = stop_signal };
    sigemptyset(&sa.sa_mask);
    if (sigaction(SIGTERM, &sa, NULL) || sigaction(SIGINT, &sa, NULL)) return 3;
-   if (fcntl(fd, F_GETFD) < 0) return 3;
+   /* Refuse unrelated callers or wrong transport; no public socket listener. */
+   int kind = 0;
+   socklen_t length = sizeof(kind);
+   if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &kind, &length) ||
+       length != sizeof(kind) || kind != SOCK_SEQPACKET) return 3;
+#ifdef SO_PEERCRED
+   struct ucred peer;
+   length = sizeof(peer);
+   if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &peer, &length) ||
+       length != sizeof(peer) || peer.pid != parent || peer.uid != getuid())
+      return 3;
+#endif
+   int flags = fcntl(fd, F_GETFL);
+   if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK)) return 3;
    RIG *rig = rig_init(model);
    if (!rig) return 4;
    char speed[32], timeout_string[32];
