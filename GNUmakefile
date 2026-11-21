@@ -180,6 +180,12 @@ test-hamlib-transport:
 	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-transport tests/rrserver/test_hamlib_transport.c rrserver/hamlib.transport.c
 	$(BUILD_DIR)/tests/test-hamlib-transport
 
+.PHONY: test-hamlib-dummy
+test-hamlib-dummy: bin/rrhamlib
+	@mkdir -p $(BUILD_DIR)/tests
+	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-dummy tests/rrserver/test_hamlib_dummy.c rrserver/hamlib.transport.c
+	python3 tests/rrserver/run_hamlib_dummy.py $(PROFILE)
+
 TEST_SUITES ?= selftest packaging rrserver rrclient fwdsp libfwdspmgr
 .PHONY: test
 test tests: ${bins} bin/rr-password-hash test-rrsdrutils
