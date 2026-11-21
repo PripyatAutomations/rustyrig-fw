@@ -92,6 +92,14 @@ static void execute_command(RIG *rig, const uint8_t *command, uint8_t *reply) {
    if (vfo == RIG_VFO_NONE || command[2] || command[3] ||
        rr_hamlib_ipc_get32(command + 8) != 0) return;
    int rc = -RIG_EINVAL;
+   /* Physical CAT state is authoritative. Never change a VFO or controls
+    * while transmitting, including external/manual PTT not initiated here.
+    */
+   if (operation != RR_HAMLIB_OP_POLL) {
+      ptt_t keyed = RIG_PTT_ON;
+      if (rig_get_ptt(rig, RIG_VFO_CURR, &keyed) != RIG_OK ||
+          keyed != RIG_PTT_OFF) return;
+   }
    switch (operation) {
       case RR_HAMLIB_OP_POLL: {
          freq_t freq = 0;
@@ -248,10 +256,11 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
    rig_cleanup(rig);
    return status;
 disconnected:
-   if (ptt_release_verified(rig)) fprintf(stderr, "rrhamlib: disconnect PTT release unconfirmed\n");
+   int confirmed = ptt_release_verified(rig) == 0;
+   if (!confirmed) fprintf(stderr, "rrhamlib: disconnect PTT release unconfirmed; radio state UNKNOWN\n");
    rig_close(rig);
    rig_cleanup(rig);
-   return 6;
+   return confirmed ? 6 : 7;
 }
 int main(int argc, char **argv) {
    int model = 0, baud = 38400, timeout = 250, parent = 0;
