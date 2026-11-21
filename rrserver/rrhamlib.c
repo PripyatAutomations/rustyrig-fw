@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * rrhamlib: private per-radio Hamlib process.
- * Phase 1 runtime: read-only protocol and verified startup key-up.
- * TX is deliberately unsupported until independent lease enforcement and
- * failure injection are complete. Never run alongside another CAT owner.
+ * Experimental TX requires an explicitly renewed worker-owned lease.
+ * Do not run alongside another CAT owner. A physical safety interlock is
+ * necessary for a guaranteed release if Hamlib or the radio becomes stuck.
  */
 #define _GNU_SOURCE
 #include <errno.h>
