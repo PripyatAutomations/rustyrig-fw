@@ -80,21 +80,9 @@ static void *heartbeat_main(void *user) {
       struct timespec pause = { .tv_sec = 0, .tv_nsec = 250000000L };
       nanosleep(&pause, NULL);
       if (!atomic_load(&t->running)) break;
-      /* When an exchange is waiting for its reply, that same reader
-       * handles any intervening child PING frames. Otherwise the heartbeat
-       * thread serves PINGs, even if the backend worker is idle.
+      /* Heartbeats are transport-only; they never prove that the CAT
+       * backend's control worker is responsive or authorize a TX lease.
        */
-      if (pthread_mutex_trylock(&t->recv_mutex) == 0) {
-         uint8_t packet[PACKET];
-         rr_hamlib_ipc_header_t h;
-         int rc = recv_one(t, &h, packet, 0);
-         bool ok = rc >= 0 && (rc == 0 || serve_ping(t, &h));
-         pthread_mutex_unlock(&t->recv_mutex);
-         if (!ok) {
-            atomic_store(&t->connected, false);
-            break;
-         }
-      }
       if (!send_frame(t, RR_HAMLIB_IPC_HEARTBEAT, 0, NULL, 0)) {
          atomic_store(&t->connected, false);
          break;
@@ -201,6 +189,20 @@ fail:
    if (sockets[1] >= 0) close(sockets[1]);
    rr_hamlib_transport_close(t);
    return false;
+}
+/* Called by the same backend.worker thread that performs CAT exchanges.
+ * The heartbeat sender must NOT answer the child's watchdog challenges.
+ */
+bool rr_hamlib_transport_service(rr_hamlib_transport_t *t) {
+   if (!rr_hamlib_transport_ready(t)) return false;
+   pthread_mutex_lock(&t->recv_mutex);
+   uint8_t packet[PACKET];
+   rr_hamlib_ipc_header_t h;
+   int rc = recv_one(t, &h, packet, 0);
+   bool ok = rc >= 0 && (rc == 0 || serve_ping(t, &h));
+   pthread_mutex_unlock(&t->recv_mutex);
+   if (!ok) atomic_store(&t->connected, false);
+   return ok;
 }
 bool rr_hamlib_transport_ready(const rr_hamlib_transport_t *t) {
    return t && atomic_load(&t->running) && atomic_load(&t->connected);
