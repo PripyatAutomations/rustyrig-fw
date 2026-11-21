@@ -17,6 +17,7 @@ rrconn_t *http_client_list;
 static unsigned frames_received, decoded_samples;
 static bool feed_decoder = true;
 static const char *parent_pipeline;
+static char fwdsp_test_binary[4096];
 static const char *soak_codec;
 static bool remote_subscribed;
 static void remote_demand(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
@@ -32,7 +33,7 @@ static void soak_pcm(const char *name, const void *data, size_t len, void *user)
 
 const char *cfg_get(const char *key) {
    /* The manager now resolves fwdsp:path via cfg_get(), not cfg_get_exp(). */
-   if (!strcmp(key, "fwdsp:path")) return "./bin/fwdsp";
+   if (!strcmp(key, "fwdsp:path")) return fwdsp_test_binary;
    if (!strcmp(key, "fwdsp:subproc.max")) {
       return "16";
    }
@@ -70,7 +71,7 @@ const char *cfg_get_exp(const char *key) {
    }
 
    if (!strcmp(key, "fwdsp:path")) {
-      return strdup("./bin/fwdsp");
+      return strdup(fwdsp_test_binary);
    }
 
    return NULL;
@@ -159,6 +160,9 @@ static void poll_for(unsigned milliseconds) {
 int main(int argc, char **argv) {
    assert(argc == 2);
    config_file = argv[1];
+   /* cfg_get_path expands relative paths using the user home directory;
+    * use the repository binary absolute path in this subprocess fixture. */
+   assert(realpath("./bin/fwdsp", fwdsp_test_binary));
    /* Decoder PCM must be emitted on the native hub tap, not a soundcard. */
    cfg = dict_new();
    assert(cfg);
