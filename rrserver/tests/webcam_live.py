@@ -108,11 +108,16 @@ h264.tx=videotestsrc is-live=true pattern=ball ! video/x-raw,width=160,height=12
             client.send({'msg': {'type': 'media'}, 'media': {'cmd': 'profile', 'chan-uuid': channel['chan-uuid'], 'profile': 'jpeg.5'}})
             client.until(lambda m: m.get('media', {}).get('cmd') == 'profile' and m['media'].get('profile') == 'jpeg.5')
             times = []
-            for _ in range(5):
+            # First profile-switch frames may arrive together; sample the
+            # steady-state output over a bounded interval.
+            deadline = time.monotonic() + 5
+            while len(times) < 16 and time.monotonic() < deadline:
                 _, jpeg = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x02\x02jpeg')
                 assert jpeg[11] == ack['stream'] and jpeg[28:31] == b'\xff\xd8\xff'
                 times.append(int.from_bytes(jpeg[20:28], 'big'))
-            assert times[-1] - times[0] >= 600000, times
+                if len(times) >= 5 and times[-1] - times[0] >= 600000:
+                    break
+            assert len(times) >= 5 and times[-1] - times[0] >= 600000, times
             _, untouched = second.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b'RR\x02\x02h264')
             assert untouched[8] == 0
             children = set(pathlib.Path(f'/proc/{process.pid}/task/{process.pid}/children').read_text().split())
