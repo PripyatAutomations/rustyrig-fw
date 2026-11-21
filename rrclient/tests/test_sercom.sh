@@ -9,4 +9,4 @@ ${CC:-cc} ${CFLAGS:-} -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrclient/cat.c rrclient/cat.yaesu.c rrclient/cat.pty.c \
    $(pkg-config --cflags --libs glib-2.0) -L. -Wl,-rpath,"$PWD" \
    -lrrprotocol -lrustyaxe ${LDFLAGS:-} -o "$work/sercom"
-"$work/sercom" "$work"
+# rr_sercom_init() cleans stale tty* links in $HOME/dev. Never touch a developer\'s live virtual serial ports.\nHOME="$work" "$work/sercom" "$work"
