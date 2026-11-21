@@ -85,6 +85,10 @@ rr_backend_t *rr_backend_worker_current(void) {
    return current_worker_backend;
 }
 
+long long rr_backend_worker_job_queued_ms(void) {
+   return running_job ? running_job->queued_ms : -1;
+}
+
 static bool vfo_index(rr_server_vfo_t *vfo, rr_vfo_t *index) {
    return rr_server_vfo_native_index(vfo, index) && *index >= VFO_A && *index < MAX_VFOS;
 }
