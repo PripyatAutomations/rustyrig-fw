@@ -10,6 +10,6 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
-   $(pkg-config --cflags gtk+-3.0) rrclient/tests/gtk_floating_panel.c \
+   $(pkg-config --cflags gtk+-3.0) rrclient/tests/gtk_floating_panel.c rrclient/tests/gtk_panel_state_stubs.c rrclient/gtk/gtk.scale-container.c \
    -Wl,--gc-sections $(pkg-config --libs gtk+-3.0) -lm -o "$work/floating-panel"
 G_DEBUG=fatal-warnings xvfb-run -a "$work/floating-panel"
