@@ -102,13 +102,13 @@ static void *tx_watchdog_main(void *arg) {
       if (deadline > 0 && monotonic_ms() >= deadline) {
          atomic_store(&watch->fault, true);
          atomic_store(&watch->expires_ms, 0);
-         fprintf(stderr, "rrhamlib: TX lease expired; forcing PTT OFF\\n");
+         fprintf(stderr, "rrhamlib: TX lease expired; forcing PTT OFF\n");
       }
       /* After any expiry, continue attempting release until shutdown.
        * Never permit new TX in the same child after its lease expires.
        */
       if (atomic_load(&watch->fault) && ptt_release_verified(watch->rig))
-         fprintf(stderr, "rrhamlib: lease-expiry PTT release UNCONFIRMED\\n");
+         fprintf(stderr, "rrhamlib: lease-expiry PTT release UNCONFIRMED\n");
       struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
       nanosleep(&pause, NULL);
    }
