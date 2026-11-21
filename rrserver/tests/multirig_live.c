@@ -325,6 +325,17 @@ int main(int argc, char **argv) {
 #endif
    rr_backend_fini();
 #ifdef RR_TEST_HAMLIB_MODULE
+   /* LeakSanitizer normally reports allocations after dlclose(), leaving
+    * plugin frames as <unknown module>. Allow an opt-in intermediate check
+    * with the plugin mapped to identify the actual allocation sites.
+    * The final process-exit leak check remains enabled and authoritative. */
+   if (getenv("RR_TEST_LSAN_DIAG")) {
+      extern int __lsan_do_recoverable_leak_check(void) __attribute__((weak));
+      if (__lsan_do_recoverable_leak_check) {
+         fprintf(stderr, "Hamlib module leak diagnostic before unload:\n");
+         __lsan_do_recoverable_leak_check();
+      }
+   }
    assert(rr_unload_module("rrserver-hamlib"));
    assert(!rr_backend_type_find("hamlib"));
    assert(rr_load_module("rrserver-hamlib"));
