@@ -155,11 +155,22 @@ static void pump(void) {
 }
 
 static void expect(int fd, const char *text) {
-   pump();
    char buffer[512];
-   ssize_t len = read(fd, buffer, sizeof(buffer) - 1);
+   ssize_t len = -1;
+   /* PTY readiness depends on GLib dispatch and the host kernel. EAGAIN on
+    * a nonblocking slave means no reply yet, not a protocol failure. */
+   for (unsigned attempt = 0; attempt < 100 && len < 0; ++attempt) {
+      pump();
+      len = read(fd, buffer, sizeof(buffer) - 1);
+      if (len < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+         perror("serial CAT test read");
+         break;
+      }
+   }
+   if (len < 0) fprintf(stderr, "No serial reply (fd=%d, expected=%s, errno=%d)\\n", fd, text, errno);
    assert(len >= 0);
    buffer[len] = '\0';
+   if (strcmp(buffer, text)) fprintf(stderr, "Serial response mismatch: got <%s>, expected <%s>\\n", buffer, text);
    assert(!strcmp(buffer, text));
 }
 
