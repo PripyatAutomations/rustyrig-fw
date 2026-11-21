@@ -97,12 +97,31 @@ int main(int argc, char **argv) {
        * No parent heartbeat may prolong transmission. Expiry must dekey
        * even while the client stays connected and idle.
        */
+      /* No PTT_ON is accepted without first acquiring an explicit lease. */
+      uint8_t key_without_lease[RR_HAMLIB_IPC_COMMAND_SIZE] = {0};
+      key_without_lease[0] = RR_HAMLIB_OP_PTT_ON;
+      uint32_t denied_length = 0;
+      assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_REQUEST,
+         key_without_lease, sizeof(key_without_lease), RR_HAMLIB_IPC_REPLY,
+         result, &denied_length, sizeof(result), 2000));
+      assert(denied_length == sizeof(result) && result[0] != 0);
       uint8_t approved = 1;
       uint32_t size = 0;
       assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_LEASE_RENEW,
          NULL, 0, RR_HAMLIB_IPC_REPLY, &approved, &size, 1, 2000));
       assert(size == 1 && approved == 0);
       command(&t, RR_HAMLIB_OP_PTT_ON, 0, 0, result);
+      command(&t, RR_HAMLIB_OP_POLL, 0, 0, result);
+      assert(result[1] == 1);
+      /* Active backend renewal can hold PTT longer than one lease window. */
+      for (unsigned tick = 0; tick < 4; ++tick) {
+         usleep(400000);
+         approved = 1;
+         size = 0;
+         assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_LEASE_RENEW,
+            NULL, 0, RR_HAMLIB_IPC_REPLY, &approved, &size, 1, 2000));
+         assert(size == 1 && approved == 0);
+      }
       command(&t, RR_HAMLIB_OP_POLL, 0, 0, result);
       assert(result[1] == 1);
       /* Heartbeat sender continues every 250ms, but TX lease is 1500ms. */
@@ -114,6 +133,11 @@ int main(int argc, char **argv) {
       assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_LEASE_RENEW,
          NULL, 0, RR_HAMLIB_IPC_REPLY, &approved, &size, 1, 2000));
       assert(size == 1 && approved != 0);
+      denied_length = 0;
+      assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_REQUEST,
+         key_without_lease, sizeof(key_without_lease), RR_HAMLIB_IPC_REPLY,
+         result, &denied_length, sizeof(result), 2000));
+      assert(denied_length == sizeof(result) && result[0] != 0);
       release(&t);
       rr_hamlib_transport_close(&t);
       puts("PASS: dummy PTT ON expires and is released despite live IPC heartbeat");
