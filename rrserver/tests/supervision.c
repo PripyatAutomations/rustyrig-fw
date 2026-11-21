@@ -47,6 +47,16 @@ bool ws_send_error(rrconn_t *client, const char *format, ...) {
    return true;
 }
 
+/* The old ws_supervision_allowed(room, request) helper was removed when
+ * supervision migrated to typed events. Exercise the production check
+ * handler with the actual request payload instead.
+ */
+static bool ws_supervision_allowed(rrconn_t *client, const char *room, bool request) {
+   rr_server_supervision_t query = { .room = room, .request = request };
+   check("supervision.check", &query, sizeof(query), client, NULL);
+   return query.allowed;
+}
+
 static void account(rrconn_t *client, int uid, const char *name, const char *privs) {
    client->authenticated = client->is_ws = true;
    client->user = &http_users[uid];
