@@ -62,8 +62,11 @@ or unknown; it confirms targeted VFO selection before mutations.
 implemented with bounded `hamlib.reconnect-ms` backoff (default 5000,
 allowed 1000–60000). Recovery discards stale PTT and property state and starts
 with no TX lease; the new worker must verify PTT OFF before accepting work.
-A lost or ambiguous PTT acknowledgment inhibits TX until a verified worker
-restart. Power calibration, full rig controls, and hardware-specific parity
+After recovery, TX remains inhibited until an explicit new PTT OFF
+request is verified; commands queued before recovery cannot rearm the new
+worker. A lost or ambiguous PTT acknowledgment also inhibits TX until that
+fault is cleared through verified recovery or explicit release. Power
+calibration, full rig controls, and hardware-specific parity
 with `hamlib-legacy` are not yet implemented. Hardware TX testing remains
 outstanding.
 
@@ -166,6 +169,7 @@ or leave TX disabled initially. Verify:
    change mode/frequency and confirm on the radio display.
 3. With RX idle, terminate `rrhamlib` and confirm the rig is marked
    unavailable, a new worker eventually appears, and VFO values refresh.
+   Verify PTT cannot key again until a new explicit PTT OFF has completed.
 4. Unplug CAT at RX idle; verify state becomes unavailable and reconnect
    works on replug. Startup with CAT disconnected should also recover.
 5. Only with a dummy load and explicitly enabled experimental TX:
