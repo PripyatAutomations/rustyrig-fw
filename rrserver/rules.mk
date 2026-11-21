@@ -52,7 +52,6 @@ rrserver_objs += backend.instance.o	# Allocated backend instance lifecycle
 rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig-fw)
 rrserver_objs += backend.register.o	# Build-selected backend type registration
 rrserver_objs += backend.worker.o       # Per-instance hardware workers and main-thread completions
-rrserver_objs += hamlib.transport.o     # Private per-rig subprocess launch, IPC and heartbeat (no Hamlib linkage)
 rrserver_objs += backend.yaesu.o	# Native FT-891 Yaesu CAT (no Hamlib dependency)
 rrserver_objs += bridge.access.o
 rrserver_objs += bridge.hints.o
@@ -158,6 +157,7 @@ rrserver_objs += ws.mediachan.o
 # A Hamlib-selected build links only the IPC proxy, never libhamlib.
 ifeq ($(USE_HAMLIB),true)
 rrserver_objs += backend.hamlib-proxy.o
+rrserver_objs += hamlib.transport.o     # Per-rig socketpair and process supervision
 endif
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
