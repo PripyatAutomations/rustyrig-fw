@@ -312,7 +312,7 @@ defconfig_t defcfg[] = {
       "rig.default", "rig0", "Default rig alias for CAT/media clients; required with multiple rigs"
    },
    {
-      "rig:rig0.backend", "internal", "Backend for the default rig", DEFCONFIG_ENUM, "internal|hamlib"
+      "rig:rig0.backend", "internal", "Backend for the default rig", DEFCONFIG_ENUM, "internal|hamlib|hamlib-legacy"
    },
    {
       "rig:rig0.room", NULL, "Server-owned TX room; must be #<station.name>-<rig alias>"
