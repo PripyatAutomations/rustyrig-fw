@@ -59,7 +59,7 @@ def main():
         return 1
     proc, device = serve_dummy()
     try:
-        for scenario in ("normal", "kill", "restart"):
+        for scenario in ("normal", "kill", "restart", "lease"):
             subprocess.run(
                 [str(HARNESS), str(WORKER), device, scenario],
                 check=True, cwd=ROOT, timeout=30,

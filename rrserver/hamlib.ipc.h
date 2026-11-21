@@ -7,9 +7,9 @@
  * A socketpair must be created by rrserver before spawning rrhamlib; neither
  * side may accept connections from unrelated processes.
  *
- * Stage 1: framing and validation only. This file does NOT authorize TX.
- * The supervisor must not send KEY_ON until a separate worker-enforced
- * expiring TX lease and fail-closed lifecycle have been implemented/tested.
+ * This wire protocol does not grant permission to TX by itself.
+ * An explicit server opt-in, normal authorization/interlocks and a live
+ * independently expiring worker lease are required for PTT_ON.
  */
 #include <stdbool.h>
 #include <stdint.h>
@@ -40,8 +40,8 @@ typedef enum {
 /* Fixed-length command payload (12 bytes) and response (16 bytes). VFO
  * indices 0/1 address A/B. All integers are big-endian; no ABI structs on
  * wire. Status 0=success; any other value=error/unknown.
- * TX_ON is deliberately absent until the independently enforced TX lease
- * state machine is implemented and fault-tested.
+ * TX_ON requires an independently expiring worker-owned lease. The
+ * release path is always available, including when TX is disabled.
  */
 enum rr_hamlib_ipc_operation {
    RR_HAMLIB_OP_POLL = 1,
@@ -50,7 +50,8 @@ enum rr_hamlib_ipc_operation {
    RR_HAMLIB_OP_WIDTH_SET,
    RR_HAMLIB_OP_POWER_SET,
    RR_HAMLIB_OP_SPLIT_SET,
-   RR_HAMLIB_OP_SWAP
+   RR_HAMLIB_OP_SWAP,
+   RR_HAMLIB_OP_PTT_ON
 };
 enum rr_hamlib_ipc_mode {
    RR_HAMLIB_MODE_NONE,

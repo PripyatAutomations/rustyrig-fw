@@ -209,7 +209,7 @@ hamlib_module := bin/rrserver-hamlib.so
 bins += bin/rrhamlib
 bin/rrhamlib: rrserver/rrhamlib.c rrserver/hamlib.ipc.h
 	@mkdir -p bin
-	@$(CC) $(CFLAGS) $(shell pkg-config --cflags hamlib) -o $@ rrserver/rrhamlib.c $(shell pkg-config --libs hamlib) $(LDFLAGS)
+	@$(CC) $(CFLAGS) -pthread $(shell pkg-config --cflags hamlib) -o $@ rrserver/rrhamlib.c $(shell pkg-config --libs hamlib) $(LDFLAGS) -pthread
 extra_clean += bin/rrhamlib
 bins += ${hamlib_module}
 ${BUILD_DIR}/rrserver/backend.hamlib.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags hamlib)
