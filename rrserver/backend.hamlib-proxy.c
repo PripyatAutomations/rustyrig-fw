@@ -115,7 +115,9 @@ static void hp_invalidate(hamlib_proxy_t *p) {
    /* Retain unknown prior key-down; do not advertise it as dekeyed. */
 }
 static int hp_retry_ms(rr_backend_t *b) {
-   int interval = hp_retry_ms(b);
+   int interval = rr_backend_config_get_int(b, "hamlib.reconnect-ms", 5000);
+   if (interval < 1000) interval = 1000;
+   if (interval > 60000) interval = 60000;
    return interval;
 }
 static bool hp_reconnect(rr_backend_t *b, hamlib_proxy_t *p) {
@@ -123,9 +125,7 @@ static bool hp_reconnect(rr_backend_t *b, hamlib_proxy_t *p) {
    if (p->transport_active && rr_hamlib_transport_ready(&p->transport)) return true;
    int64_t now = hp_now_ms();
    if (now < 0 || now < p->next_reconnect_ms || p->reconnecting) return false;
-   int interval = rr_backend_config_get_int(b, "hamlib.reconnect-ms", 5000);
-   if (interval < 1000) interval = 1000;
-   if (interval > 60000) interval = 60000;
+   int interval = hp_retry_ms(b);
    /* Backoff BEFORE blocking close/spawn so a faulty endpoint cannot
     * produce a tight loop of child processes on every poll.
     */
