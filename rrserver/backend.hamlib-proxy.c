@@ -25,7 +25,7 @@ typedef struct {
    int64_t next_reconnect_ms;
    bool reconnecting;
    bool transport_active;
-   bool tx_inhibit; /* latched after ambiguous PTT; clear only on new verified worker */
+   bool tx_inhibit; /* latched on ambiguity or recovery; explicit verified PTT OFF clears */
 } hamlib_proxy_t;
 
 static hamlib_proxy_t *proxy(rr_backend_t *b) {
@@ -143,7 +143,10 @@ static bool hp_reconnect(rr_backend_t *b, hamlib_proxy_t *p) {
    bool opened = hp_connect(b, p);
    p->reconnecting = false;
    if (opened) {
-      p->tx_inhibit = false; /* new child proved physical PTT OFF at startup */
+      /* Require an explicit verified key-up before rearming TX after
+       * recovery. Queued/stale key-down jobs must never cross sessions.
+       */
+      p->tx_inhibit = true;
       rr_backend_log(b, LOG_INFO, "backend.hamlib",
          "%s: rrhamlib restarted; physical startup PTT OFF confirmed, TX lease reset",
          rr_backend_instance_alias(b));
@@ -236,6 +239,7 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
       (void)hp_reconnect(b, p);
    if (!p || !index_of(v, &index) || !request(b, v, RR_HAMLIB_OP_POLL, 0, result)) {
       if (p && index_of(v, &index)) {
+         if (p->transmitting[index]) p->tx_inhibit = true;
          p->known[index] = false;
          p->ptt_known[index] = false;
          p->transmitting[index] = false;
@@ -307,6 +311,7 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
    }
    p->transmitting[index] = false;
    p->ptt_known[index] = true;
+   p->tx_inhibit = false; /* an explicit server key-up re-arms TX */
    return false;
 }
 static bool hp_ptt_get(rr_backend_t *b, rr_server_vfo_t *v) {
