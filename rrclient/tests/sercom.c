@@ -146,6 +146,17 @@ bool ws_send_ptt_cmd_in_room(rrconn_t *c, const char *v, bool p, const char *r) 
    return true;
 }
 
+/* The standalone CAT suite uses a fixed room VFO and routes PTT to its
+ * existing command probe, without linking the full rrclient main loop. */
+char rrclient_room_active_vfo(const char *room) {
+   (void)room;
+   return 'A';
+}
+void rrclient_send_ptt_command(rrconn_t *connection, const char *vfo, bool on, const char *room) {
+   assert(connection == ws_conn);
+   assert(ws_send_ptt_cmd_in_room(connection, vfo, on, room));
+}
+
 static void pump(void) {
    for (int i = 0 ; i < 30 ; i++) {
       while (g_main_context_iteration(NULL, false)) {
