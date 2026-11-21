@@ -102,8 +102,11 @@ int main(int argc, char **argv) {
    assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_RELEASE, NULL, 0,
       RR_HAMLIB_IPC_RELEASE_RESULT, &result, &size, sizeof(result), 2000));
    assert(size == 1 && result == 0);
-   /* Idle in-band PING must be served without a pending CAT exchange. */
-   usleep(550000);
+   /* Drive the exact same idle-service callback as backend.worker. */
+   for (int i = 0; i < 6; ++i) {
+      usleep(100000);
+      assert(rr_hamlib_transport_service(&t));
+   }
    assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_RELEASE, NULL, 0,
       RR_HAMLIB_IPC_RELEASE_RESULT, &result, &size, sizeof(result), 2000));
    assert(size == 1 && result == 0);
