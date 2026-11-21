@@ -13,6 +13,40 @@ enum GuiMode ui_mode = UI_MODE_GTK;
 rrconn_t *ws_conn;
 GtkWidget *main_window, *main_notebook;
 static rrconn_t client;
+/* This suite models a directly authenticated local account, never a relayed
+ * principal. Keep file permission checks active using the fixture's grants. */
+http_user_t http_users[HTTP_MAX_USERS];
+rrconn_t *rrclient_connection_context(void) { return &client; }
+struct remote_session *rr_relay_remote_for(rrconn_t *connection) {
+   (void)connection;
+   return NULL;
+}
+bool rr_relay_remote_file_allowed(rrconn_t *connection, const char *share, const char *operation) {
+   (void)connection; (void)share; (void)operation;
+   return false;
+}
+bool has_priv(int uid, const char *requested) {
+   if (uid < 0 || uid >= HTTP_MAX_USERS || !requested) return false;
+   const char *grants = http_users[uid].privs;
+   const char *p = grants;
+   while (*p) {
+      while (*p == ' ' || *p == ',') ++p;
+      const char *end = strchr(p, ',');
+      size_t len = end ? (size_t)(end - p) : strlen(p);
+      if (len == strlen(requested) && !strncmp(p, requested, len)) return true;
+      if (!end) break;
+      p = end + 1;
+   }
+   return false;
+}
+bool ws_auth_refresh(rrconn_t *connection) {
+   return connection && connection->authenticated && connection->user && connection->user->enabled;
+}
+void rrserver_inventory_send(rrconn_t *connection, dict *row) {
+   ws_send_dict(NULL, connection, row, WEBSOCKET_OP_TEXT);
+   dict_free(row);
+}
+
 static unsigned completions, pending_commits, failures;
 static GMutex flush_lock;
 static GCond flush_condition;
@@ -242,6 +276,7 @@ int main(int argc, char **argv) {
    client.authenticated = client.is_ws = true;
    client.user = &http_users[1];
    client.user->uid = 1;
+   client.user->enabled = true;
    strcpy(client.user->privs, "files.read,files.write");
    ws_conn = &client;
    rrserver_files_register();
