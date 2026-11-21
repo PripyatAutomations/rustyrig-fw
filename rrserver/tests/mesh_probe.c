@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
    g_free(channel);
 
    if (!strcmp(mode, "record") || !strcmp(mode, "hello")) {
-      hello = g_strdup_printf("{\"op\":\"link.hello\",\"node\":\"%s\",\"site\":\"%s\",\"password\":\"\",\"domain\":\"mesh.test\",\"ttl\":10}", argv[6], !strcmp(mode,
+      hello = g_strdup_printf("{\"op\":\"link.hello\",\"node\":\"%s\",\"site\":\"%s\",\"password\":\"\",\"domain\":\"mesh.test\",\"ttl\":\"10\"}", argv[6], !strcmp(mode,
          "hello") ? "forged-site" : argv[7]);
       assert(send_text(ssl, hello));
       g_free(hello);
