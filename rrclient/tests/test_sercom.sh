@@ -8,7 +8,7 @@ else
    trap 'rm -rf "$work"' EXIT
 fi
 source rrclient/tests/irc-adapter.sh
-${CC:-cc} -g -fno-omit-frame-pointer ${CFLAGS:-} -I. -Iinc -Ibuild/${PROFILE:-radio} \
+${CC:-cc} -g -fno-omit-frame-pointer -DCAT_YAESU=1 ${CFLAGS:-} -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrclient/tests/sercom.c rrclient/tests/client_stubs.c rrclient/serial.c rrclient/ws.serial.c rrclient/sercom.c \
    rrclient/cat.c rrclient/cat.yaesu.c rrclient/cat.pty.c \
    $(pkg-config --cflags --libs glib-2.0) -L. -Wl,-rpath,"$PWD" \
