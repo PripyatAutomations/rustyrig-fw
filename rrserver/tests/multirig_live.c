@@ -57,6 +57,9 @@ void rr_backend_yaesu_register(void) { }
  * own suites and must not pull network/ACL/media services into this binary. */
 void rr_backend_register_builtin_types(void) {
    rr_backend_internal_register();
+#ifdef RR_TEST_HAMLIB_SUBPROCESS
+   rr_backend_hamlib_subprocess_register();
+#endif
 }
 
 /* The database helper carries optional session/chat functionality, but this
@@ -219,7 +222,7 @@ int main(int argc, char **argv) {
    assert(modules);
    dict_add(cfg, "path.modules", modules);
    free(modules);
-#else
+#elif !defined(RR_TEST_HAMLIB_SUBPROCESS)
    rr_backend_hamlib_register(); // This fixture links the implementation directly.
 #endif
    assert(!rr_backend_init());
@@ -231,7 +234,9 @@ int main(int argc, char **argv) {
    assert(rr_rig_registry_default(rig.rigs) == r0);
    assert(rr_server_rig_backend(r0)->type == &rr_backend_internal);
    rr_backend_t *hamlib = rr_server_rig_backend(r1);
-#ifdef RR_TEST_HAMLIB_MODULE
+#ifdef RR_TEST_HAMLIB_SUBPROCESS
+   assert(!strcmp(hamlib->type->name, "hamlib"));
+#elif defined(RR_TEST_HAMLIB_MODULE)
    assert(!strcmp(hamlib->type->name, "hamlib-legacy"));
    assert(rr_find_loaded_module("rrserver-hamlib"));
    assert(!rr_unload_module("rrserver-hamlib"));   // Active backend callbacks pin the module.
