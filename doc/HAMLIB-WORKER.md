@@ -85,3 +85,45 @@ Neither test proves real Hamlib CAT behavior or safe transmitter shutdown.
 
 On a development checkout, `hamlib.worker-path` must point to an absolute
 path for the compiled `bin/rrhamlib`; installed packages use libexec.
+
+## Experimental TX: opt-in and limitations
+
+The subprocess-backed `hamlib` backend permits key-down **only** if the
+rig's configuration explicitly contains:
+
+```ini
+[rig:rig0]
+backend=hamlib
+hamlib.tx-enabled=true
+```
+
+The default remains `false`. The regular `rrserver` TX authorization,
+interlocks, and control-room permissions still apply before invoking the
+backend. The worker requires a fresh **1,500ms TX lease**, verifies
+physical PTT-off before key-down, and verifies PTT-on after it keys.
+A separate watchdog thread observes the deadline and keeps attempting
+PTT-off if it expires; lease expiry latches the worker into refusing further
+TX until that subprocess is replaced.
+
+**Heartbeats do not renew TX.** Only an active backend polling cycle while
+the proxy believes the rig keyed explicitly renews the lease. An unexpected
+slow CAT transaction, stalled poll queue, or overloaded scheduler may thus
+cause a legitimate transmission to cut off: this is intentional.
+
+**Not a guaranteed hardware interlock:** Hamlib drivers can block on serial
+operations, the radio can ignore CAT PTT-off, USB can disconnect, or the
+host can lose power. Even a dedicated watchdog thread can be blocked by
+Hamlib's internal lock. A physical TX-disable/PTT interlock is required
+when a strict guarantee is needed.
+
+The dummy rig test drives real key-down and validates:
+
+- PTT-on rejected without a lease.
+- Key-down with a valid lease, with readback confirmation.
+- Periodic explicit renewals keep TX keyed while server activity continues.
+- Stopping renewals causes PTT-off despite a live IPC heartbeat.
+- Expired lease refuses new key-down and new lease requests.
+
+Use `make PROFILE=radio test-hamlib-dummy` on a Hamlib-enabled host. This
+is not proof of physical transmitter safety. Test with a dummy receiver
+before explicitly opting a real transceiver into experimental TX.
