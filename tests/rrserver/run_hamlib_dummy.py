@@ -75,7 +75,7 @@ def main():
             if marker != "READY_FOR_DROP":
                 raise AssertionError(f"unexpected drop-test readiness: {marker!r}")
             stop(proc)
-            dropped.stdin.write("\\n")
+            dropped.stdin.write("\n")
             dropped.stdin.flush()
             dropped.communicate(timeout=20)
             if dropped.returncode:
