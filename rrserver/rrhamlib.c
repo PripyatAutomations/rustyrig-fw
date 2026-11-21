@@ -99,6 +99,18 @@ static void execute_command(RIG *rig, const uint8_t *command, uint8_t *reply) {
       ptt_t keyed = RIG_PTT_ON;
       if (rig_get_ptt(rig, RIG_VFO_CURR, &keyed) != RIG_OK ||
           keyed != RIG_PTT_OFF) return;
+      /* Prevent a misdirected write if Hamlib cannot actually address the
+       * selected logical VFO. Never reinterpret ENAVAIL as permission to
+       * write to the currently active bank.
+       */
+      if (operation != RR_HAMLIB_OP_SWAP) {
+         int selected = rig_set_vfo(rig, vfo);
+         if (selected != RIG_OK) {
+            vfo_t active = RIG_VFO_NONE;
+            if (rig_get_vfo(rig, &active) != RIG_OK || active != vfo)
+               return;
+         }
+      }
    }
    switch (operation) {
       case RR_HAMLIB_OP_POLL: {
