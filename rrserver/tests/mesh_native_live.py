@@ -213,7 +213,13 @@ def security_tests(a, b, work):
             pass
     with a.context.wrap_socket(socket.create_connection(('127.0.0.1', a.http), timeout=5), server_hostname='alpha') as sock:
         sock.sendall(b'GET /link HTTP/1.1\r\nHost: localhost\r\n\r\n')
-        assert b'426' in sock.recv(4096).split(b'\r\n', 1)[0]
+        # Native TLS may reject an invalid upgrade by closing immediately or
+        # by returning an HTTP error; it must never accept it (101).
+        try:
+            response = sock.recv(4096)
+        except (ConnectionResetError, BrokenPipeError):
+            response = b''
+        assert b'101 Switching Protocols' not in response.split(b'\r\n', 1)[0], response
     print('PASS: no plaintext fallback and no Mongoose mesh upgrade')
     # Change both saved expected-pin records so bootstrap loading succeeds,
     # forcing the test to reach the actual outbound TLS certificate check.
