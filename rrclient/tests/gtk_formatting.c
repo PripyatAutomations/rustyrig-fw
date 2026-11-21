@@ -779,6 +779,39 @@ void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title) {
 void rr_floating_panel_set_title_click(RRFloatPanel *panel, GCallback callback, gpointer data) {
 }
 
+/* Floating panels are not under test here; these lightweight fixtures
+ * preserve the chat layout without pulling in the production dock manager. */
+void rr_floating_panel_set_minimizable(RRFloatPanel *panel, gboolean minimizable) {
+   (void)panel; (void)minimizable;
+}
+
+void rr_floating_panel_set_resizable(RRFloatPanel *panel, gboolean resizable) {
+   (void)panel; (void)resizable;
+}
+
+gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel) {
+   (void)panel;
+   return FALSE;
+}
+
+GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel) {
+   (void)panel;
+   return NULL;
+}
+
+void rr_floating_panel_set_min_width_widget(RRFloatPanel *panel, GtkWidget *widget) {
+   (void)panel; (void)widget;
+}
+
+void rr_floating_panel_fit_content(RRFloatPanel *panel) {
+   (void)panel;
+}
+
+GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat, GtkWidget *page) {
+   (void)page;
+   return chat;
+}
+
 static unsigned roster_docks;
 static char roster_profile[128];
 void userlist_dock_room_into(GtkPaned *paned, const char *room) {
