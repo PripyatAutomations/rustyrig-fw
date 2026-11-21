@@ -99,7 +99,7 @@ vfos=A B
 hamlib.device=invalid-rig0-endpoint
 hamlib.baud=4800
 [rig:rig1]
-backend=hamlib
+backend=hamlib-legacy
 vfos=A B
 hamlib.model=2
 hamlib.device=127.0.0.1:{port}
