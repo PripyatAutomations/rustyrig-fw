@@ -106,6 +106,12 @@ bool ws_media_send_frame(struct rr_mediachan *c, rrconn_t *client, const uint8_t
    return false;
 }
 
+/* Initial GPS snapshots now use the reliable setup-frame API; the fixture
+ * retains the same payload checks for both targeted and periodic frames. */
+bool ws_media_send_setup_frame(struct rr_mediachan *c, rrconn_t *client, const uint8_t *data, size_t len, const char codec[4]) {
+   return ws_media_send_frame(c, client, data, len, codec);
+}
+
 void media_send_chan_removed_all(struct rr_mediachan *c) {
    (void)c;
 }
