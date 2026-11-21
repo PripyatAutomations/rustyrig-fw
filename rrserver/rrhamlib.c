@@ -56,6 +56,92 @@ static int ptt_release_verified(RIG *rig) {
       return -1;
    return 0;
 }
+static vfo_t physical_vfo(uint8_t index) {
+   return index == 0 ? RIG_VFO_A : index == 1 ? RIG_VFO_B : RIG_VFO_NONE;
+}
+static rmode_t physical_mode(uint32_t mode) {
+   switch (mode) {
+      case RR_HAMLIB_MODE_CW: return RIG_MODE_CW;
+      case RR_HAMLIB_MODE_AM: return RIG_MODE_AM;
+      case RR_HAMLIB_MODE_LSB: return RIG_MODE_LSB;
+      case RR_HAMLIB_MODE_USB: return RIG_MODE_USB;
+      case RR_HAMLIB_MODE_FM: return RIG_MODE_FM;
+      case RR_HAMLIB_MODE_PKTUSB: return RIG_MODE_PKTUSB;
+      case RR_HAMLIB_MODE_PKTLSB: return RIG_MODE_PKTLSB;
+      default: return RIG_MODE_NONE;
+   }
+}
+static uint32_t wire_mode(rmode_t mode) {
+   if (mode == RIG_MODE_CW) return RR_HAMLIB_MODE_CW;
+   if (mode == RIG_MODE_AM) return RR_HAMLIB_MODE_AM;
+   if (mode == RIG_MODE_LSB) return RR_HAMLIB_MODE_LSB;
+   if (mode == RIG_MODE_USB) return RR_HAMLIB_MODE_USB;
+   if (mode == RIG_MODE_FM) return RR_HAMLIB_MODE_FM;
+   if (mode == RIG_MODE_PKTUSB) return RR_HAMLIB_MODE_PKTUSB;
+   if (mode == RIG_MODE_PKTLSB) return RR_HAMLIB_MODE_PKTLSB;
+   return RR_HAMLIB_MODE_NONE;
+}
+/* All Hamlib operations execute in this child. A nonzero status means the
+ * server must not infer any success or confirmed RX/TX hardware state. */
+static void execute_command(RIG *rig, const uint8_t *command, uint8_t *reply) {
+   memset(reply, 0, RR_HAMLIB_IPC_RESULT_SIZE);
+   reply[0] = 1;
+   uint8_t operation = command[0], index = command[1];
+   vfo_t vfo = physical_vfo(index);
+   uint32_t requested = rr_hamlib_ipc_get32(command + 4);
+   if (vfo == RIG_VFO_NONE || command[2] || command[3] ||
+       rr_hamlib_ipc_get32(command + 8) != 0) return;
+   int rc = -RIG_EINVAL;
+   switch (operation) {
+      case RR_HAMLIB_OP_POLL: {
+         freq_t freq = 0;
+         rmode_t mode = RIG_MODE_NONE;
+         pbwidth_t width = 0;
+         rc = rig_get_freq(rig, vfo, &freq);
+         if (rc != RIG_OK || freq < 0 || freq > UINT32_MAX) return;
+         rc = rig_get_mode(rig, vfo, &mode, &width);
+         if (rc != RIG_OK) return;
+         ptt_t ptt = RIG_PTT_ON;
+         rc = rig_get_ptt(rig, vfo, &ptt);
+         if (rc != RIG_OK) return;
+         rr_hamlib_ipc_put32(reply + 4, (uint32_t)freq);
+         rr_hamlib_ipc_put32(reply + 8, wire_mode(mode));
+         rr_hamlib_ipc_put32(reply + 12, width > 0 && (uint64_t)width <= UINT32_MAX ?
+            (uint32_t)width : 0);
+         reply[1] = ptt == RIG_PTT_OFF ? 0 : 1;
+         break;
+      }
+      case RR_HAMLIB_OP_FREQ_SET:
+         rc = rig_set_freq(rig, vfo, (freq_t)requested);
+         break;
+      case RR_HAMLIB_OP_MODE_SET: {
+         rmode_t mode = physical_mode(requested);
+         if (mode == RIG_MODE_NONE) return;
+         rc = rig_set_mode(rig, vfo, mode, RIG_PASSBAND_NOCHANGE);
+         break;
+      }
+      case RR_HAMLIB_OP_WIDTH_SET: {
+         rmode_t mode = RIG_MODE_NONE;
+         pbwidth_t old_width = 0;
+         if (!requested || rig_get_mode(rig, vfo, &mode, &old_width) != RIG_OK) return;
+         rc = rig_set_mode(rig, vfo, mode, requested);
+         break;
+      }
+      case RR_HAMLIB_OP_SWAP:
+         rc = rig_vfo_op(rig, RIG_VFO_A, RIG_OP_XCHG);
+         break;
+      case RR_HAMLIB_OP_SPLIT_SET:
+         if (requested > 1) return;
+         rc = rig_set_split_vfo(rig, vfo, requested ? RIG_SPLIT_ON : RIG_SPLIT_OFF,
+            index == 0 ? RIG_VFO_B : RIG_VFO_A);
+         break;
+      /* POWER_SET requires capability calibration and cannot safely use a
+       * generic uncalibrated value. Refuse until that mapping is migrated. */
+      default:
+         return;
+   }
+   reply[0] = rc == RIG_OK ? 0 : 1;
+}
 static int parse_int(const char *value, int low, int high, int *out) {
    if (!value || !*value) return -1;
    char *end = NULL;
@@ -133,8 +219,19 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
          if (send_packet(fd, RR_HAMLIB_IPC_RELEASE_RESULT, h.sequence, &result, 1)) { status = 6; break; }
          continue;
       }
-      /* No key-down, control writes or leases accepted in this stage. */
-      if (h.type == RR_HAMLIB_IPC_REQUEST || h.type == RR_HAMLIB_IPC_LEASE_RENEW) {
+      /* Key-down remains impossible. Only enumerated rig operations are
+       * accepted, and every request gets an explicit result.
+       */
+      if (h.type == RR_HAMLIB_IPC_REQUEST) {
+         if (h.payload_size != RR_HAMLIB_IPC_COMMAND_SIZE) { status = 6; break; }
+         uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
+         execute_command(rig, payload, result);
+         if (send_packet(fd, RR_HAMLIB_IPC_REPLY, h.sequence,
+                         result, sizeof(result))) { status = 6; break; }
+         continue;
+      }
+      if (h.type == RR_HAMLIB_IPC_LEASE_RENEW) {
+         /* Lease support must be implemented before accepting any TX_ON. */
          uint8_t failure = 1;
          if (send_packet(fd, RR_HAMLIB_IPC_REPLY, h.sequence, &failure, 1)) { status = 6; break; }
          continue;
