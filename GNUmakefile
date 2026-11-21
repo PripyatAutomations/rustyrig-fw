@@ -168,6 +168,12 @@ license-migrate:
 	perl tools/releng-gplv2-headers.pl
 
 # Build configured programs and run the maintained project test suites.
+.PHONY: test-hamlib-ipc
+test-hamlib-ipc:
+	@mkdir -p $(BUILD_DIR)/tests
+	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -o $(BUILD_DIR)/tests/test-hamlib-ipc tests/rrserver/test_hamlib_ipc.c
+	$(BUILD_DIR)/tests/test-hamlib-ipc
+
 TEST_SUITES ?= selftest packaging rrserver rrclient fwdsp libfwdspmgr
 .PHONY: test
 test tests: ${bins} bin/rr-password-hash test-rrsdrutils
