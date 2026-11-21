@@ -13,7 +13,8 @@ ${CC:-cc} -g -fno-omit-frame-pointer ${CFLAGS:-} -I. -Iinc -Ibuild/${PROFILE:-ra
    rrclient/cat.c rrclient/cat.yaesu.c rrclient/cat.pty.c \
    $(pkg-config --cflags --libs glib-2.0) -L. -Wl,-rpath,"$PWD" \
    -lrrprotocol -lrustyaxe ${LDFLAGS:-} -o "$work/sercom"
-# rr_sercom_init() cleans stale tty* links in $HOME/dev. Never touch a developer\'s live virtual serial ports.\nif [[ ${RR_TEST_GDB:-0} == 1 ]]; then
+# rr_sercom_init() cleans stale tty* links in $HOME/dev. Keep them isolated.
+if [[ ${RR_TEST_GDB:-0} == 1 ]]; then
    HOME="$work" gdb -q -batch -ex run -ex 'thread apply all bt full' --args "$work/sercom" "$work"
 else
    HOME="$work" "$work/sercom" "$work"
