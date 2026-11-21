@@ -208,7 +208,9 @@ int main(int argc, char **argv) {
       "sercom", "remote"
    };
    assert(!cmd_sercom(1, list_args));  // Local listings work while offline.
-   assert(local_rows == 1 && serial_lists == 0);
+   const unsigned rows_per_list = local_rows;
+   /* Numbered test CAT0 plus three always-present floating endpoints. */
+   assert(rows_per_list >= 4 && serial_lists == 0);
    rrconn_t connection = {
       0
    };
@@ -216,11 +218,11 @@ int main(int argc, char **argv) {
    connection.is_ws = true;
    ws_conn = &connection;
    assert(!cmd_sercom(1, list_args));
-   assert(local_rows == 2 && serial_lists == 1);
+   assert(local_rows == 2 * rows_per_list && serial_lists == 1);
    assert(!cmd_sercom(2, list_args));
-   assert(local_rows == 3 && serial_lists == 2);
+   assert(local_rows == 3 * rows_per_list && serial_lists == 2);
    assert(!cmd_sercom(2, remote_args));
-   assert(local_rows == 3 && serial_lists == 3);
+   assert(local_rows == 3 * rows_per_list && serial_lists == 3);
    serial_send_ok = false;
    assert(cmd_sercom(2, remote_args));
    serial_send_ok = true;
