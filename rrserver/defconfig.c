@@ -353,6 +353,9 @@ defconfig_t defcfg[] = {
       "rig:rig0.hamlib.model", "2", "Hamlib model for the default rig", DEFCONFIG_UINT, NULL
    },
    {
+      "rig:rig0.hamlib.tx-enabled", "false", "EXPERIMENTAL: permit TX through the external Hamlib worker; requires independent 1500ms PTT lease", DEFCONFIG_BOOL, NULL
+   },
+   {
       "rig:rig0.hamlib.baud", "38400", "Serial baud rate for the default rig", DEFCONFIG_UINT, NULL
    },
    {
