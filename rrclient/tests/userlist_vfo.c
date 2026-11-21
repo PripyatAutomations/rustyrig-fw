@@ -89,6 +89,7 @@ static gboolean accept_reason(gpointer unused) {
 }
 
 int main(void) {
+   assert(gtk_init_check(NULL, NULL));
    room_userlist_entry_t entry = {
       .docked = false
    };
@@ -106,6 +107,14 @@ int main(void) {
    assert(!command[0]);
    click.button = 1;
    assert(room_vfo_select_clicked(NULL, &click, &control));
+   /* Single-click selection is delayed to distinguish a double-click.
+    * Drive the GTK context until the timer emits the real room command. */
+   gint64 deadline = g_get_monotonic_time() + 2 * G_USEC_PER_SEC;
+   while (!command[0] && g_get_monotonic_time() < deadline) {
+      while (g_main_context_pending(NULL))
+         g_main_context_iteration(NULL, FALSE);
+      g_usleep(1000);
+   }
    assert(!strcmp(command, "!vfo B"));
    assert(!strcmp(selected_room, "#site-rig0"));
 
