@@ -92,8 +92,8 @@ static void bounded_reap(pid_t pid) {
    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
 }
 bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
-   int model, const char *device, int baud) {
-   if (!t || !path || path[0] != '/' || !device || !*device || model < 1 || baud < 1)
+   int model, const char *device, int baud, int timeout_ms) {
+   if (!t || !path || path[0] != '/' || !device || !*device || model < 1 || baud < 1 || timeout_ms < 1 || timeout_ms > 5000)
       return false;
    memset(t, 0, sizeof(*t));
    t->fd = -1;
@@ -114,13 +114,13 @@ bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
       posix_spawn_file_actions_destroy(&actions);
       goto fail;
    }
-   char parent_arg[32], model_arg[32], baud_arg[32];
+   char parent_arg[32], model_arg[32], baud_arg[32], timeout_arg[32];
    snprintf(parent_arg, sizeof(parent_arg), "%ld", (long)getpid());
    snprintf(model_arg, sizeof(model_arg), "%d", model);
-   snprintf(baud_arg, sizeof(baud_arg), "%d", baud);
+   snprintf(baud_arg, sizeof(baud_arg), "%d", baud);\n   snprintf(timeout_arg, sizeof(timeout_arg), "%d", timeout_ms);
    char *const argv[] = {
       (char *)path, "--parent", parent_arg, "--model", model_arg,
-      "--device", (char *)device, "--baud", baud_arg, NULL
+      "--device", (char *)device, "--baud", baud_arg,\n      "--timeout-ms", timeout_arg, NULL
    };
    int spawned = posix_spawn(&t->pid, path, &actions, NULL, argv, environ);
    posix_spawn_file_actions_destroy(&actions);
@@ -170,7 +170,7 @@ bool rr_hamlib_transport_exchange(rr_hamlib_transport_t *t, uint16_t type,
       atomic_store(&t->connected, false);
       return false;
    }
-   memcpy(reply, packet + HEADER, h.payload_size);
+   if (h.payload_size) memcpy(reply, packet + HEADER, h.payload_size);
    *reply_length = h.payload_size;
    return true;
 }
