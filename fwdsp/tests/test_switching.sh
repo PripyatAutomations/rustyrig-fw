@@ -18,7 +18,7 @@ text = re.sub(r'(?m)^([A-Za-z0-9]{4}\.tx=)appsrc[^!]*!',
 Path(sys.argv[2]).write_text(text)
 PYTHON
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
-   ${SWITCHING_CFLAGS:-} fwdsp/tests/switching.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
+   ${SWITCHING_CFLAGS:-} $(pkg-config --cflags glib-2.0) fwdsp/tests/switching.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol $(pkg-config --libs glib-2.0) -o "$work/switching"
 export LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 python3 - "$work/switching" "$work/test.cfg" <<'PYTHON'
