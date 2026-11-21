@@ -55,7 +55,7 @@ install-modules: $(filter %.so,${bins})
 		*rrclient*.so) family=rrclient ;; \
 		*) echo "Unknown runtime module: $$src" >&2; exit 1 ;; \
 		esac; \
-		dst="$(DESTDIR)$(MODULEDIR)/$$family/$$${src##*/}"; \
+		dst="$(DESTDIR)$(MODULEDIR)/$$family/$${src##*/}"; \
 		install -Dm755 "$$src" "$$dst"; \
 		echo "[install-module] $$src => $$dst"; \
 	done
@@ -143,7 +143,7 @@ uninstall:
 	done
 	@set -e; for src in $(filter %.so,$(bins)); do \
 		case "$$src" in *rrbridge*.so) family=rrbridge ;; *rrserver*.so) family=rrserver ;; *rrclient*.so) family=rrclient ;; *) continue;; esac; \
-		rm -f "$(DESTDIR)$(MODULEDIR)/$$family/$$${src##*/}"; \
+		rm -f "$(DESTDIR)$(MODULEDIR)/$$family/$${src##*/}"; \
 	done
 	@set -e; for src in $(RUSTYRIG_OWNED_LIBS); do \
 		rm -f "$(DESTDIR)$(LIBDIR)/$$(basename "$$src")" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src").0"; \
