@@ -396,7 +396,13 @@ int main(void) {
    ws_conn = &selected_websocket;   /* The active server differs from this room roster. */
    GtkWidget *view = userlist_view_create();
    userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_PRIV_ICON)));
+   /* Privilege glyphs are rendered inline before usernames; the old
+    * standalone Privs column remains only for saved column layouts. */
+   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_PRIV_ICON)));
+   GtkTreeViewColumn *user_col = gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_USERNAME);
+   GList *user_cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(user_col));
+   assert(g_list_length(user_cells) >= 2);
+   g_list_free(user_cells);
 
    for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
       assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
