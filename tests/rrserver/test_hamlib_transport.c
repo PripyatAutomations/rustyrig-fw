@@ -36,6 +36,8 @@ static int fake_worker(int argc, char **argv) {
    uint8_t packet[RR_HAMLIB_IPC_HEADER_SIZE + RR_HAMLIB_IPC_MAX_PAYLOAD];
    rr_hamlib_ipc_header_t h;
    bool accepted = false;
+   bool idle_ping_answered = false;
+   unsigned releases = 0;
    for (;;) {
       struct pollfd pfd = { .fd = fd, .events = POLLIN };
       if (poll(&pfd, 1, 4000) <= 0) return 5;
@@ -50,10 +52,39 @@ static int fake_worker(int argc, char **argv) {
          continue;
       }
       if (h.type == RR_HAMLIB_IPC_HEARTBEAT) continue;
+      if (h.type == RR_HAMLIB_IPC_PONG && h.sequence == 444 &&
+          h.payload_size == 0) {
+         idle_ping_answered = true;
+         continue;
+      }
       if (h.type == RR_HAMLIB_IPC_RELEASE && h.payload_size == 0) {
+         if (++releases == 1) {
+            /* Demand a PONG in the middle of a synchronous exchange.
+             * A server that blindly waits for RELEASE_RESULT will deadlock.
+             */
+            if (send_test(fd, RR_HAMLIB_IPC_PING, 333, NULL, 0)) return 10;
+            bool matched = false;
+            for (int tries = 0; tries < 30 && !matched; ++tries) {
+               struct pollfd wait = { .fd = fd, .events = POLLIN };
+               if (poll(&wait, 1, 100) <= 0) continue;
+               ssize_t n = recv(fd, packet, sizeof(packet), 0);
+               rr_hamlib_ipc_header_t response;
+               if (n <= 0 || !rr_hamlib_ipc_decode(&response, packet, (size_t)n))
+                  return 11;
+               if (response.type == RR_HAMLIB_IPC_HEARTBEAT) continue;
+               matched = response.type == RR_HAMLIB_IPC_PONG &&
+                  response.sequence == 333 && response.payload_size == 0;
+               if (!matched) return 12;
+            }
+            if (!matched) return 13;
+         } else if (!idle_ping_answered) {
+            return 14;
+         }
          uint8_t released = 0;
          if (send_test(fd, RR_HAMLIB_IPC_RELEASE_RESULT, h.sequence,
                &released, sizeof(released))) return 8;
+         if (releases == 1 && send_test(fd, RR_HAMLIB_IPC_PING, 444, NULL, 0))
+            return 15;
          continue;
       }
       return 9;
@@ -71,7 +102,7 @@ int main(int argc, char **argv) {
    assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_RELEASE, NULL, 0,
       RR_HAMLIB_IPC_RELEASE_RESULT, &result, &size, sizeof(result), 2000));
    assert(size == 1 && result == 0);
-   /* The heartbeat sender must not corrupt reply ordering after running. */
+   /* Idle in-band PING must be served without a pending CAT exchange. */
    usleep(550000);
    assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_RELEASE, NULL, 0,
       RR_HAMLIB_IPC_RELEASE_RESULT, &result, &size, sizeof(result), 2000));
