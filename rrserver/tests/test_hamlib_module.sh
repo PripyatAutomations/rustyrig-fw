@@ -31,8 +31,12 @@ ${CC:-cc} ${CFLAGS:-} -pthread -DRR_TEST_HAMLIB_MODULE -Wl,--export-dynamic -ffu
    rrserver/rig.properties.c rrserver/rig.compat.c rrserver/rig.registry.c \
    rrserver/cfg.rig.c rrserver/database.c rrserver/database.rooms.c rrserver/database.users.c rrserver/database.accounting.c rrserver/defconfig.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lfwdspmgr \
-   $(pkg-config --libs glib-2.0 sqlite3) "${sanitizer_ldflags[@]}" ${LDFLAGS:-} \
+   $(pkg-config --libs glib-2.0 sqlite3) "${sanitizer_ldflags[@]}" \
+   -Wl,--no-as-needed $(pkg-config --libs hamlib) -Wl,--as-needed ${LDFLAGS:-} \
    -o "$work/multirig-live"
+# Also keep libhamlib itself mapped by linking it as a non-as-needed
+# executable dependency above. Otherwise dlclose makes *its* allocation
+# sites <unknown module> at process-exit leak checking.
 # Keep the backend module mapped during LeakSanitizer's intermediate scan,
 # otherwise post-dlclose stack frames appear as <unknown module>.
 if [[ ${#sanitizer_ldflags[@]} -ne 0 ]]; then
