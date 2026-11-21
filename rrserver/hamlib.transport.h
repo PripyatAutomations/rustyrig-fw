@@ -31,6 +31,8 @@ bool rr_hamlib_transport_exchange(rr_hamlib_transport_t *t, uint16_t type,
    void *reply, uint32_t *reply_length, uint32_t reply_capacity,
    int timeout_ms);
 bool rr_hamlib_transport_ready(const rr_hamlib_transport_t *t);
+/* Only the backend control worker calls this to service child pings while idle. */
+bool rr_hamlib_transport_service(rr_hamlib_transport_t *t);
 void rr_hamlib_transport_close(rr_hamlib_transport_t *t);
 
 #endif
