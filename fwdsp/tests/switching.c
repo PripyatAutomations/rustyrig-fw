@@ -106,7 +106,11 @@ bool ws_media_channel_has_subscribers(const struct rr_mediachan *channel) {
          return true;
       }
    }
-   return false;
+   /* Mirror the production subscriber query: relayed listeners have no
+    * entry in http_client_list, so ask the mesh demand event subscribers. */
+   rr_media_demand_t query = { .channel = channel };
+   event_emit_binary(RR_MEDIA_DEMAND_EVENT, NULL, &query, sizeof(query));
+   return query.interested;
 }
 
 bool ws_media_broadcast_subscribed(struct rr_mediachan *cp, const uint8_t *data, size_t len, const char codec[4]) {
