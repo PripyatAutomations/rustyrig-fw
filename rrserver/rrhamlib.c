@@ -312,7 +312,7 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
    int status = 0;
    while (!quitting && getppid() == parent) {
       int64_t now = monotonic_ms();
-      if (now < 0 || now - last_heartbeat > 1500) { status = 6; break; }
+      if (now < 0 || now - last_heartbeat > 3000) { status = 6; break; }
       struct pollfd p = { .fd = fd, .events = POLLIN };
       int ready = poll(&p, 1, 100);
       if (ready < 0 && errno == EINTR) continue;
