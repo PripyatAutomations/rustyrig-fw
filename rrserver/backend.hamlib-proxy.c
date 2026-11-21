@@ -25,6 +25,7 @@ typedef struct {
    int64_t next_reconnect_ms;
    bool reconnecting;
    bool transport_active;
+   bool tx_inhibit; /* latched after ambiguous PTT; clear only on new verified worker */
 } hamlib_proxy_t;
 
 static hamlib_proxy_t *proxy(rr_backend_t *b) {
@@ -142,6 +143,7 @@ static bool hp_reconnect(rr_backend_t *b, hamlib_proxy_t *p) {
    bool opened = hp_connect(b, p);
    p->reconnecting = false;
    if (opened) {
+      p->tx_inhibit = false; /* new child proved physical PTT OFF at startup */
       rr_backend_log(b, LOG_INFO, "backend.hamlib",
          "%s: rrhamlib restarted; physical startup PTT OFF confirmed, TX lease reset",
          rr_backend_instance_alias(b));
@@ -207,6 +209,7 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
       p->known[index] = false;
       p->ptt_known[index] = false;
       p->transmitting[index] = false; /* never renew an old session again */
+      p->tx_inhibit = true;
       rr_backend_property_unavailable(b, v, RR_PROP_VFO_FREQUENCY);
       rr_backend_property_unavailable(b, v, RR_PROP_VFO_MODE);
       rr_backend_property_unavailable(b, v, RR_PROP_VFO_WIDTH);
@@ -267,7 +270,9 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
        * interlocks run before this callback; the child adds a second,
        * independent hard-expiring lease and physical PTT verification.
        */
-      if (!rr_backend_config_get_bool(b, "hamlib.tx-enabled", false))
+      if (!rr_backend_config_get_bool(b, "hamlib.tx-enabled", false) ||
+          !p || p->tx_inhibit || !p->transport_active ||
+          !rr_hamlib_transport_ready(&p->transport))
          return true;
       rr_vfo_t tx_index;
       uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
@@ -276,6 +281,7 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
       if (!renew_tx_lease(b) || !request(b, v, RR_HAMLIB_OP_PTT_ON, 0, result)) {
          /* A lost ACK might follow real key-down. Never reuse cached OFF. */
          p->ptt_known[tx_index] = false;
+         p->tx_inhibit = true;
          return true;
       }
       p->transmitting[tx_index] = true;
@@ -290,7 +296,10 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
        !rr_hamlib_transport_exchange(&p->transport, RR_HAMLIB_IPC_RELEASE,
          NULL, 0, RR_HAMLIB_IPC_RELEASE_RESULT, &result, &length, 1, 4000) ||
        length != 1 || result != 0) {
-      if (p && index_of(v, &index)) p->ptt_known[index] = false;
+      if (p && index_of(v, &index)) {
+         p->ptt_known[index] = false;
+         p->tx_inhibit = true;
+      }
       rr_backend_log(b, LOG_CRIT, "backend.hamlib",
          "%s: PTT release unconfirmed; transmitter state UNKNOWN",
          rr_backend_instance_alias(b));
