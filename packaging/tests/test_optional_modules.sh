@@ -24,6 +24,7 @@ plan=$(make --no-print-directory -sf debian/rules -n binary CF="$work/disabled.j
 [[ $plan == *'dh binary -Nrustyrig-server-hamlib'* ]]
 plan=$(make --no-print-directory -sf debian/rules -n override_dh_auto_install CF="$work/disabled.json" PKG_CONFIG="$work/pkg-config")
 [[ $plan != *'install -Dm755 bin/rrserver-hamlib.so'* ]]
+[[ $plan != *'install -Dm755 bin/rrhamlib '* ]]
 # An enabled module missing its SDK must stop before either build starts.
 if make -s CF="$work/enabled.json" PKG_CONFIG="$work/pkg-config" --eval "$status_rule" optional-status >"$work/native.log" 2>&1; then
    echo 'FAIL: native build silently omitted a configured module'; exit 1
