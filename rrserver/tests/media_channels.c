@@ -27,6 +27,33 @@ void rrserver_serial_rx_pcm(struct rr_server_rig *radio, const void *samples, si
 }
 
 struct GlobalState rig;
+/* Standalone server transport and authentication boundary. The real channel
+ * registry and room operations remain linked and exercised below. */
+rrconn_t *http_client_list;
+int http_count_clients(void) {
+   int n = 0;
+   for (rrconn_t *client = http_client_list; client; client = client->next)
+      if (client->authenticated) ++n;
+   return n;
+}
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int type) {
+   (void)sender; (void)message;
+   return dest && type == WEBSOCKET_OP_TEXT;
+}
+bool ws_send_error(rrconn_t *client, const char *format, ...) {
+   (void)client; (void)format;
+   return true;
+}
+bool has_priv(int uid, const char *roles) {
+   (void)uid; (void)roles;
+   /* No account grants are provisioned in this channel isolation fixture. */
+   return false;
+}
+uint32_t rrserver_bridge_source_rate(const char *rig_uuid) {
+   (void)rig_uuid;
+   return 0;
+}
+
 
 
 time_t now;
