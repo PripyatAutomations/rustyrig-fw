@@ -54,12 +54,12 @@ static const char *test_prompt(tui_window_t *window) {
 }
 
 static unsigned redraws;
-static char rejoin_targets[4][128];
+static char rejoin_targets[8][128];
 static unsigned rejoin_count;
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int data_type) {
    assert(!sender && dest == ws_conn && data_type == WEBSOCKET_OP_TEXT);
    assert(!strcmp(dict_get(message, "talk.cmd", ""), "join"));
-   assert(rejoin_count < 4);
+   assert(rejoin_count < G_N_ELEMENTS(rejoin_targets));
    snprintf(rejoin_targets[rejoin_count++], sizeof(rejoin_targets[0]), "%s", dict_get(message, "talk.target", ""));
 
    return true;
@@ -299,11 +299,20 @@ int main(void) {
    assert(!rrclient_room_iter(0));
    rrclient_rooms_set_available("#rig #tab-room");
    rrclient_rooms_rejoin_available();
-   assert(rejoin_count == 2);
-   assert((!strcmp(rejoin_targets[0], "#tab-room") && !strcmp(rejoin_targets[1], "#rig")) ||
-      (!strcmp(rejoin_targets[1], "#tab-room") && !strcmp(rejoin_targets[0], "#rig")));
+   /* Private/unlisted rooms remain valid reconnect intents. A sent JOIN
+    * does not clear intent until the server confirms membership. */
+   assert(rejoin_count == 3);
+   bool tab = false, rig_room = false, unlisted = false;
+   for (unsigned i = 0; i < rejoin_count; ++i) {
+      tab |= !strcmp(rejoin_targets[i], "#tab-room");
+      rig_room |= !strcmp(rejoin_targets[i], "#rig");
+      unlisted |= !strcmp(rejoin_targets[i], "#removed-room");
+   }
+   assert(tab && rig_room && unlisted);
    rrclient_rooms_rejoin_available();
-   assert(rejoin_count == 2);
+   assert(rejoin_count == 6);
+   for (unsigned i = 0; i < 3; ++i)
+      assert(!strcmp(rejoin_targets[i], rejoin_targets[i + 3]));
    rrclient_rooms_clear();
    extern void rrclient_rooms_context_swap(void **saved);
    void *first = NULL, *second = NULL;
