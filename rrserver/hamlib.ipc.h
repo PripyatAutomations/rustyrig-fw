@@ -7,9 +7,9 @@
  * A socketpair must be created by rrserver before spawning rrhamlib; neither
  * side may accept connections from unrelated processes.
  *
- * Stage 1: framing and validation only. This file does NOT authorize TX.
- * The supervisor must not send KEY_ON until a separate worker-enforced
- * expiring TX lease and fail-closed lifecycle have been implemented/tested.
+ * This wire protocol does not grant permission to TX by itself.
+ * An explicit server opt-in, normal authorization/interlocks and a live
+ * independently expiring worker lease are required for PTT_ON.
  */
 #include <stdbool.h>
 #include <stdint.h>
