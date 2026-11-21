@@ -130,10 +130,26 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
    if (p && index_of(v, &index) && p->transmitting[index] &&
        (!rr_backend_config_get_bool(b, "hamlib.tx-enabled", false) ||
         !renew_tx_lease(b))) {
+      p->known[index] = false;
       p->ptt_known[index] = false;
+      rr_backend_property_unavailable(b, v, RR_PROP_VFO_FREQUENCY);
+      rr_backend_property_unavailable(b, v, RR_PROP_VFO_MODE);
+      rr_backend_property_unavailable(b, v, RR_PROP_VFO_WIDTH);
       rr_backend_log(b, LOG_CRIT, "backend.hamlib",
-         "%s: TX lease renewal failed; worker will attempt automatic PTT OFF",
+         "%s: TX lease renewal failed; PTT state UNKNOWN until verified",
          rr_backend_instance_alias(b));
+      /* A failed renewal cannot be treated as confirmation that the child
+       * dekeyed. Independently request key-up and trust only its readback.
+       */
+      uint8_t released = 1;
+      uint32_t release_len = 0;
+      if (rr_hamlib_transport_ready(&p->transport) &&
+          rr_hamlib_transport_exchange(&p->transport, RR_HAMLIB_IPC_RELEASE,
+             NULL, 0, RR_HAMLIB_IPC_RELEASE_RESULT, &released,
+             &release_len, 1, 2000) && release_len == 1 && released == 0) {
+         p->transmitting[index] = false;
+         p->ptt_known[index] = true;
+      }
       return NULL;
    }
    if (!p || !index_of(v, &index) || !request(b, v, RR_HAMLIB_OP_POLL, 0, result)) {
