@@ -36,23 +36,42 @@ static bool send_frame(rr_hamlib_transport_t *t, uint16_t type, uint32_t seq,
    pthread_mutex_unlock(&t->send_mutex);
    return sent == (ssize_t)(HEADER + length);
 }
+/* Both the idle heartbeat thread and a synchronous exchange use the
+ * same control socket. recv_mutex prevents either from consuming the
+ * other's frames, while every received ping is acknowledged in-band.
+ */
+static int recv_one(rr_hamlib_transport_t *t, rr_hamlib_ipc_header_t *h,
+   uint8_t *buffer, int timeout_ms) {
+   struct pollfd pfd = { .fd = t->fd, .events = POLLIN };
+   int rc;
+   do { rc = poll(&pfd, 1, timeout_ms); } while (rc < 0 && errno == EINTR);
+   if (rc == 0) return 0;
+   if (rc < 0 || (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) ||
+       !(pfd.revents & POLLIN)) return -1;
+   struct iovec iov = { .iov_base = buffer, .iov_len = PACKET };
+   struct msghdr msg = { .msg_iov = &iov, .msg_iovlen = 1 };
+   ssize_t got = recvmsg(t->fd, &msg, MSG_DONTWAIT);
+   if (got < 0 && (errno == EAGAIN || errno == EINTR)) return 0;
+   if (got <= 0 || (msg.msg_flags & (MSG_TRUNC | MSG_CTRUNC)) ||
+       !rr_hamlib_ipc_decode(h, buffer, (size_t)got)) return -1;
+   return 1;
+}
+static bool serve_ping(rr_hamlib_transport_t *t, const rr_hamlib_ipc_header_t *h) {
+   return h->type == RR_HAMLIB_IPC_PING && h->sequence != 0 &&
+      h->payload_size == 0 &&
+      send_frame(t, RR_HAMLIB_IPC_PONG, h->sequence, NULL, 0);
+}
 static bool recv_frame(rr_hamlib_transport_t *t, rr_hamlib_ipc_header_t *h,
    uint8_t *buffer, int timeout_ms) {
    if (timeout_ms < 0 || timeout_ms > 30000) return false;
-   struct pollfd pfd = { .fd = t->fd, .events = POLLIN };
    const int64_t until = now_ms() + timeout_ms;
    for (;;) {
       int64_t remaining = until - now_ms();
       if (remaining < 0) return false;
-      int rc = poll(&pfd, 1, (int)remaining);
-      if (rc < 0 && errno == EINTR) continue;
-      if (rc <= 0 || (pfd.revents & (POLLHUP | POLLERR | POLLNVAL))) return false;
-      struct iovec iov = { .iov_base = buffer, .iov_len = PACKET };
-      struct msghdr msg = { .msg_iov = &iov, .msg_iovlen = 1 };
-      ssize_t got = recvmsg(t->fd, &msg, MSG_DONTWAIT);
-      if (got < 0 && (errno == EINTR || errno == EAGAIN)) continue;
-      if (got <= 0 || (msg.msg_flags & (MSG_TRUNC | MSG_CTRUNC))) return false;
-      return rr_hamlib_ipc_decode(h, buffer, (size_t)got);
+      int rc = recv_one(t, h, buffer, (int)remaining);
+      if (rc <= 0) return false;
+      if (h->type != RR_HAMLIB_IPC_PING) return true;
+      if (!serve_ping(t, h)) return false;
    }
 }
 static void *heartbeat_main(void *user) {
@@ -61,6 +80,21 @@ static void *heartbeat_main(void *user) {
       struct timespec pause = { .tv_sec = 0, .tv_nsec = 250000000L };
       nanosleep(&pause, NULL);
       if (!atomic_load(&t->running)) break;
+      /* When an exchange is waiting for its reply, that same reader
+       * handles any intervening child PING frames. Otherwise the heartbeat
+       * thread serves PINGs, even if the backend worker is idle.
+       */
+      if (pthread_mutex_trylock(&t->recv_mutex) == 0) {
+         uint8_t packet[PACKET];
+         rr_hamlib_ipc_header_t h;
+         int rc = recv_one(t, &h, packet, 0);
+         bool ok = rc >= 0 && (rc == 0 || serve_ping(t, &h));
+         pthread_mutex_unlock(&t->recv_mutex);
+         if (!ok) {
+            atomic_store(&t->connected, false);
+            break;
+         }
+      }
       if (!send_frame(t, RR_HAMLIB_IPC_HEARTBEAT, 0, NULL, 0)) {
          atomic_store(&t->connected, false);
          break;
@@ -98,6 +132,10 @@ bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
    memset(t, 0, sizeof(*t));
    t->fd = -1;
    if (pthread_mutex_init(&t->send_mutex, NULL)) return false;
+   if (pthread_mutex_init(&t->recv_mutex, NULL)) {
+      pthread_mutex_destroy(&t->send_mutex);
+      return false;
+   }
    atomic_init(&t->running, false);
    atomic_init(&t->connected, false);
    int sockets[2] = { -1, -1 };
@@ -173,24 +211,24 @@ bool rr_hamlib_transport_exchange(rr_hamlib_transport_t *t, uint16_t type,
    int timeout_ms) {
    if (!rr_hamlib_transport_ready(t) || !reply_length || capacity > RR_HAMLIB_IPC_MAX_PAYLOAD ||
        (capacity && !reply)) return false;
-   /* Server-side backend.worker serializes these requests per rig. */
+   /* Server-side backend.worker serializes ordinary requests per rig;
+    * recv_mutex additionally keeps the heartbeat responder off this reader.
+    */
+   pthread_mutex_lock(&t->recv_mutex);
    if (++t->sequence == 0) ++t->sequence;
    uint32_t seq = t->sequence;
-   if (!send_frame(t, type, seq, payload, length)) {
-      atomic_store(&t->connected, false);
-      return false;
-   }
+   bool ok = send_frame(t, type, seq, payload, length);
    uint8_t packet[PACKET];
    rr_hamlib_ipc_header_t h;
-   if (!recv_frame(t, &h, packet, timeout_ms) ||
-       h.type != reply_type || h.sequence != seq ||
-       h.payload_size > capacity) {
-      atomic_store(&t->connected, false);
-      return false;
+   if (ok) ok = recv_frame(t, &h, packet, timeout_ms) &&
+      h.type == reply_type && h.sequence == seq && h.payload_size <= capacity;
+   if (ok) {
+      if (h.payload_size) memcpy(reply, packet + HEADER, h.payload_size);
+      *reply_length = h.payload_size;
    }
-   if (h.payload_size) memcpy(reply, packet + HEADER, h.payload_size);
-   *reply_length = h.payload_size;
-   return true;
+   pthread_mutex_unlock(&t->recv_mutex);
+   if (!ok) atomic_store(&t->connected, false);
+   return ok;
 }
 void rr_hamlib_transport_close(rr_hamlib_transport_t *t) {
    if (!t) return;
@@ -208,5 +246,6 @@ void rr_hamlib_transport_close(rr_hamlib_transport_t *t) {
       t->pid = 0;
    }
    atomic_store(&t->connected, false);
+   pthread_mutex_destroy(&t->recv_mutex);
    pthread_mutex_destroy(&t->send_mutex);
 }
