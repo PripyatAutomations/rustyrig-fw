@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Spawn Hamlib's model-1 dummy as rigctld; test the real model-2 worker."""
+import os
 import pathlib
 import select
+import signal
 import shutil
 import socket
 import subprocess
@@ -64,6 +66,35 @@ def main():
                 [str(HARNESS), str(WORKER), device, scenario],
                 check=True, cwd=ROOT, timeout=30,
             )
+        # Freeze the rrserver stand-in with SIGSTOP while leaving rrhamlib
+        # and the actual dummy rig running. An open socket is not liveness.
+        frozen = subprocess.Popen(
+            [str(HARNESS), str(WORKER), device, "parent-stop"],
+            cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            text=True, bufsize=1,
+        )
+        try:
+            readable, _, _ = select.select([frozen.stdout], [], [], 15)
+            if not readable:
+                raise TimeoutError("PTT test did not reach parent-stop checkpoint")
+            marker = frozen.stdout.readline().strip()
+            if marker != "READY_FOR_PARENT_STOP":
+                raise AssertionError(f"unexpected PTT checkpoint: {marker!r}")
+            os.kill(frozen.pid, signal.SIGSTOP)
+            try:
+                time.sleep(1.3)  # child ping expiry 1s; TX lease 1.5s
+            finally:
+                os.kill(frozen.pid, signal.SIGCONT)
+            frozen.stdin.write("\n")
+            frozen.stdin.flush()
+            frozen.communicate(timeout=15)
+            if frozen.returncode:
+                raise RuntimeError(f"unresponsive parent PTT test failed: {frozen.returncode}")
+        finally:
+            if frozen.poll() is None:
+                os.kill(frozen.pid, signal.SIGCONT)
+                stop(frozen)
+
         # Drop the CAT server while the actual rrhamlib worker is still
         # connected. This tests a different failure from killing rrhamlib.
         dropped = subprocess.Popen(
