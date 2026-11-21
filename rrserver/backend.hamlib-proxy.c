@@ -115,6 +115,11 @@ static void hp_destroy(rr_backend_t *b) {
    free(p);
    rr_backend_instance_set_data(b, NULL);
 }
+static void hp_idle(rr_backend_t *b) {
+   hamlib_proxy_t *p = proxy(b);
+   if (p && rr_hamlib_transport_ready(&p->transport))
+      (void)rr_hamlib_transport_service(&p->transport);
+}
 static bool hp_supported(rr_backend_t *b, rr_server_vfo_t *v) {
    (void)b;
    rr_vfo_t index;
@@ -269,7 +274,7 @@ static uint16_t hp_width_get(rr_backend_t *b, rr_server_vfo_t *v) {
    return p && index_of(v, &index) && p->known[index] ? p->state[index].width : 0;
 }
 static const rr_backend_funcs_t api = {
-   .create = hp_create, .destroy = hp_destroy,
+   .create = hp_create, .destroy = hp_destroy, .idle = hp_idle,
    .vfo_supported = hp_supported, .poll_state = hp_poll,
    .ptt_set = hp_ptt, .ptt_get = hp_ptt_get,
    .freq_set = hp_freq_set, .freq_get = hp_freq_get,

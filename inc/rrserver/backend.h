@@ -24,6 +24,10 @@ typedef struct rr_backend_type rr_backend_type_t;
 typedef struct rr_backend_funcs {
    bool (*create)(rr_backend_t *backend);
    void (*destroy)(rr_backend_t *backend);
+   /* Periodic service while per-rig control worker is idle. No CAT I/O on
+    * rrserver's main loop; control liveness is answered by this worker.
+    */
+   void (*idle)(rr_backend_t *backend);
    rr_vfo_data_t *(*poll_state)(rr_backend_t *backend, rr_server_vfo_t *vfo);
    bool (*vfo_supported)(rr_backend_t *backend, rr_server_vfo_t *vfo);
 

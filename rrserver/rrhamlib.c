@@ -88,27 +88,50 @@ static uint32_t wire_mode(rmode_t mode) {
  * serializes access to its RIG handle, so a blocked driver may also delay
  * the release attempt. A hardware interlock is needed for a hard guarantee.
  */
-enum { TX_LEASE_MS = 1500 };
+enum { TX_LEASE_MS = 1500, PING_INTERVAL_MS = 250, PING_TIMEOUT_MS = 1000 };
 typedef struct {
    RIG *rig;
+   int fd;
    atomic_llong expires_ms;
+   atomic_llong last_pong_ms;
+   atomic_uint awaiting_ping;
+   atomic_bool control_active;
    atomic_bool fault;
    atomic_bool stopping;
 } tx_watchdog_t;
 static void *tx_watchdog_main(void *arg) {
    tx_watchdog_t *watch = arg;
+   int64_t last_ping_ms = 0;
+   uint32_t sequence = 0;
    while (!atomic_load(&watch->stopping)) {
-      int64_t deadline = atomic_load(&watch->expires_ms);
-      if (deadline > 0 && monotonic_ms() >= deadline) {
-         atomic_store(&watch->fault, true);
-         atomic_store(&watch->expires_ms, 0);
-         fprintf(stderr, "rrhamlib: TX lease expired; forcing PTT OFF\n");
+      int64_t now = monotonic_ms();
+      if (atomic_load(&watch->control_active)) {
+         /* A PONG must come from the normal rrserver control reader. */
+         if (now < 0 || now - atomic_load(&watch->last_pong_ms) > PING_TIMEOUT_MS) {
+            if (!atomic_exchange(&watch->fault, true))
+               fprintf(stderr, "rrhamlib: rrserver control ping timed out; PTT OFF requested\n");
+            atomic_store(&watch->expires_ms, 0);
+         } else if (!atomic_load(&watch->awaiting_ping) &&
+                    now - last_ping_ms >= PING_INTERVAL_MS) {
+            if (++sequence == 0) ++sequence;
+            atomic_store(&watch->awaiting_ping, sequence);
+            last_ping_ms = now;
+            if (send_packet(watch->fd, RR_HAMLIB_IPC_PING, sequence, NULL, 0)) {
+               atomic_store(&watch->fault, true);
+               atomic_store(&watch->expires_ms, 0);
+               fprintf(stderr, "rrhamlib: cannot ping rrserver; PTT OFF requested\n");
+            }
+         }
       }
-      /* After any expiry, continue attempting release until shutdown.
-       * Never permit new TX in the same child after its lease expires.
-       */
+      int64_t deadline = atomic_load(&watch->expires_ms);
+      if (deadline > 0 && now >= deadline) {
+         if (!atomic_exchange(&watch->fault, true))
+            fprintf(stderr, "rrhamlib: TX lease expired; forcing PTT OFF\n");
+         atomic_store(&watch->expires_ms, 0);
+      }
+      /* A CAT failure can prevent physical dekey even if watchdog runs. */
       if (atomic_load(&watch->fault) && ptt_release_verified(watch->rig))
-         fprintf(stderr, "rrhamlib: lease-expiry PTT release UNCONFIRMED\n");
+         fprintf(stderr, "rrhamlib: watchdog PTT release UNCONFIRMED\n");
       struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
       nanosleep(&pause, NULL);
    }
@@ -170,6 +193,8 @@ static void execute_command(RIG *rig, tx_watchdog_t *watch, const uint8_t *comma
           */
          int64_t expiry = atomic_load(&watch->expires_ms);
          if (requested != 0 || atomic_load(&watch->fault) ||
+             !atomic_load(&watch->control_active) ||
+             monotonic_ms() - atomic_load(&watch->last_pong_ms) > PING_TIMEOUT_MS ||
              expiry <= monotonic_ms()) return;
          ptt_t state = RIG_PTT_ON;
          if (rig_get_ptt(rig, vfo, &state) != RIG_OK || state != RIG_PTT_OFF)
@@ -268,8 +293,11 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
       fprintf(stderr, "rrhamlib: startup PTT OFF not confirmed; refusing service\n");
       rig_close(rig); rig_cleanup(rig); return 5;
    }
-   tx_watchdog_t watch = { .rig = rig };
+   tx_watchdog_t watch = { .rig = rig, .fd = fd };
    atomic_init(&watch.expires_ms, 0);
+   atomic_init(&watch.last_pong_ms, 0);
+   atomic_init(&watch.awaiting_ping, 0);
+   atomic_init(&watch.control_active, false);
    atomic_init(&watch.fault, false);
    atomic_init(&watch.stopping, false);
    pthread_t watch_thread;
@@ -284,7 +312,7 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
    int status = 0;
    while (!quitting && getppid() == parent) {
       int64_t now = monotonic_ms();
-      if (now < 0 || now - last_heartbeat > 1500) { status = 6; break; }
+      if (now < 0 || now - last_heartbeat > 3000) { status = 6; break; }
       struct pollfd p = { .fd = fd, .events = POLLIN };
       int ready = poll(&p, 1, 100);
       if (ready < 0 && errno == EINTR) continue;
@@ -296,6 +324,19 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
          if (h.type != RR_HAMLIB_IPC_HELLO_ACK || h.payload_size != 0) { status = 6; break; }
          accepted = true;
          last_heartbeat = now;
+         atomic_store(&watch.last_pong_ms, now);
+         atomic_store(&watch.control_active, true);
+         continue;
+      }
+      if (h.type == RR_HAMLIB_IPC_PONG) {
+         /* Stale or duplicate responses never refresh liveness. */
+         if (h.payload_size || h.sequence == 0 ||
+             h.sequence != atomic_load(&watch.awaiting_ping)) {
+            status = 6;
+            break;
+         }
+         atomic_store(&watch.last_pong_ms, monotonic_ms());
+         atomic_store(&watch.awaiting_ping, 0);
          continue;
       }
       if (h.type == RR_HAMLIB_IPC_HEARTBEAT && h.payload_size == 0) {

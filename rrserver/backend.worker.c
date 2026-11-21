@@ -4,6 +4,7 @@
 // Hardware callbacks execute on one worker per instance. Model, wire and lifecycle
 // notifications are replayed exclusively by drain() on the owning server thread.
 #include <pthread.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -371,10 +372,30 @@ static void *worker_main(void *arg) {
    struct rr_backend_worker *worker = arg;
    current_worker_backend = &worker->io;
 
+   const rr_backend_funcs_t *idle_api = worker->io.type->api;
    for ( ;; ) {
       pthread_mutex_lock(&worker->mutex);
       while (!worker->head && !worker->stopping) {
-         pthread_cond_wait(&worker->condition, &worker->mutex);
+         if (!idle_api->idle) {
+            pthread_cond_wait(&worker->condition, &worker->mutex);
+            continue;
+         }
+         /* Only the normal per-rig hardware worker answers watchdog pings.
+          * A stalled worker must not be declared healthy by another thread.
+          */
+         struct timespec until;
+         clock_gettime(CLOCK_REALTIME, &until);
+         until.tv_nsec += 100000000L;
+         if (until.tv_nsec >= 1000000000L) {
+            until.tv_sec++;
+            until.tv_nsec -= 1000000000L;
+         }
+         int rc = pthread_cond_timedwait(&worker->condition, &worker->mutex, &until);
+         if (rc == ETIMEDOUT && !worker->head && !worker->stopping) {
+            pthread_mutex_unlock(&worker->mutex);
+            idle_api->idle(&worker->io);
+            pthread_mutex_lock(&worker->mutex);
+         }
       }
 
       if (worker->stopping && !worker->head) {

@@ -57,7 +57,7 @@ static void verify_poll(rr_hamlib_transport_t *t, uint32_t desired_freq,
 }
 int main(int argc, char **argv) {
    if (argc != 4) {
-      fprintf(stderr, "usage: %s /absolute/path/rrhamlib host:port [normal|kill|restart|drop|lease]\n", argv[0]);
+      fprintf(stderr, "usage: %s /absolute/path/rrhamlib host:port [normal|kill|restart|drop|lease|parent-stop]\n", argv[0]);
       return 2;
    }
    const char *worker = argv[1], *device = argv[2], *scenario = argv[3];
@@ -90,6 +90,37 @@ int main(int argc, char **argv) {
       assert(!rr_hamlib_transport_ready(&t));
       rr_hamlib_transport_close(&t);
       puts("PASS: killed real rrhamlib causes fail-closed IPC");
+      return 0;
+   }
+   if (!strcmp(scenario, "parent-stop")) {
+      /* Orchestrator SIGSTOPs this test process, not rrhamlib or rigctld.
+       * The IPC stays connected and the child must stop transmitting
+       * because control pings receive no response.
+       */
+      uint8_t approved = 1;
+      uint32_t size = 0;
+      assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_LEASE_RENEW,
+         NULL, 0, RR_HAMLIB_IPC_REPLY, &approved, &size, 1, 2000));
+      assert(size == 1 && approved == 0);
+      command(&t, RR_HAMLIB_OP_PTT_ON, 0, 0, result);
+      command(&t, RR_HAMLIB_OP_POLL, 0, 0, result);
+      assert(result[1] == 1);
+      puts("READY_FOR_PARENT_STOP");
+      fflush(stdout);
+      if (getchar() == EOF) {
+         rr_hamlib_transport_close(&t);
+         return 3;
+      }
+      command(&t, RR_HAMLIB_OP_POLL, 0, 0, result);
+      assert(result[1] == 0);
+      approved = 0;
+      size = 0;
+      assert(rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_LEASE_RENEW,
+         NULL, 0, RR_HAMLIB_IPC_REPLY, &approved, &size, 1, 2000));
+      assert(size == 1 && approved != 0);
+      release(&t);
+      rr_hamlib_transport_close(&t);
+      puts("PASS: suspended parent causes in-band ping timeout and PTT OFF");
       return 0;
    }
    if (!strcmp(scenario, "lease")) {
