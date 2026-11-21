@@ -7,6 +7,9 @@
 time_t now;
 const char *config_file;
 GtkWidget *main_notebook;
+/* Explorer shares the production toolbar, which this isolated fixture omits. */
+GtkWidget *rr_main_toolbar;
+
 static rrconn_t alpha = {
    .authenticated = true, .is_ws = true
 }, beta;

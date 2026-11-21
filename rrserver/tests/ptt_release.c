@@ -15,6 +15,17 @@
 #include <rrserver/au.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/rig.properties.h>
+/* The release-only fixture has no authenticated PTT session to notify. */
+rrconn_t *whos_talking(void) {
+   return NULL;
+}
+
+bool ws_send_userinfo(rrconn_t *client, rrconn_t *subject) {
+   (void)client;
+   (void)subject;
+   return true;
+}
+
 struct GlobalState rig;
 time_t now, ptt_tot_time;
 bool dying, restarting;
