@@ -69,3 +69,19 @@ per-rig `hamlib.worker-path` setting (default
 A successful protocol framing test does not demonstrate hardware PTT safety.
 Use a dummy rigctld first and do not connect a transmitter for initial
 integration testing.
+
+## Development test targets
+
+```sh
+make PROFILE=radio test-hamlib-ipc
+make PROFILE=radio test-hamlib-transport
+```
+
+The second target builds a **fake worker** (not linked against Hamlib) and
+tests actual `posix_spawn`, inherited descriptor 3, hello/ack, heartbeat
+multiplexing, sequence-matched release acknowledgments, and worker teardown.
+It requires Linux/glibc 2.34 or later for the close-from spawn file action.
+Neither test proves real Hamlib CAT behavior or safe transmitter shutdown.
+
+On a development checkout, `hamlib.worker-path` must point to an absolute
+path for the compiled `bin/rrhamlib`; installed packages use libexec.
