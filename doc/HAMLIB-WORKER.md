@@ -49,10 +49,23 @@ Target topology:
   exclusively owns the physical Hamlib device.
 - Never open the same radio through both backends at once.
 
-**Migration status:** The executable currently performs a conservative
-startup release, verifies PTT OFF by readback, exchanges a private hello
-packet and handles heartbeat/release. It does **not** implement the backend
-operation proxy or TX leases yet. As a result this development branch is **not
-ready to deploy**: `backend=hamlib` must not be switched over until the proxy,
-worker operations, and fault-injection suite are complete. No live TX testing
-on this partial implementation.
+**Migration status:** The server now registers a subprocess-backed `hamlib`
+type when Hamlib support is selected at build time; the original module
+registers only `hamlib-legacy`. The IPC proxy implements strict request/response
+for polling, frequency, mode, numeric width, split, VFO swap, and verified
+PTT release. The worker rejects TX_ON and refuses CAT mutations if PTT is on
+or unknown; it confirms targeted VFO selection before mutations.
+
+**This is not feature-parity complete or ready for deployment**: TX leases,
+PTT key-down, stable reconnect behavior, full rig controls and power
+calibration, Hamlib-specific VFO exchange fallback, and fault-injection remain
+unfinished. Generic `backend=hamlib` on this branch can run RX-only commands
+but **must not** be selected for a live TX installation.
+
+For development builds only, the worker path may be set as the absolute
+per-rig `hamlib.worker-path` setting (default
+`/usr/libexec/rustyrig/rrhamlib`). Package installations use the default.
+
+A successful protocol framing test does not demonstrate hardware PTT safety.
+Use a dummy rigctld first and do not connect a transmitter for initial
+integration testing.
