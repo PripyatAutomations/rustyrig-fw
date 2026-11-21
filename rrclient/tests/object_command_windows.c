@@ -18,6 +18,17 @@ const char *rrclient_connection_name(const rrconn_t *connection) {
    return "test";
 }
 const rr_frontend_ops_t *frontend_ops(void) { return NULL; }
+/* This test exercises remote object inventory, with no local serial endpoints. */
+const char *rr_serial_name(const rr_serial_t *port) { (void)port; return NULL; }
+bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
+   (void)name; (void)info; return false;
+}
+void rr_serial_foreach(rr_serial_visit_fn visit, void *user) {
+   (void)visit; (void)user;
+}
+const char *rrclient_selected_server(void) { return "test"; }
+bool rrclient_room_is_joined(const char *room) { (void)room; return false; }
+
 static const char *active = "#first";
 static char destination[128], sent_id[48];
 static unsigned printed;
