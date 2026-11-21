@@ -53,11 +53,11 @@ Target topology:
 type when Hamlib support is selected at build time; the original module
 registers only `hamlib-legacy`. The IPC proxy implements strict request/response
 for polling, frequency, mode, numeric width, split, VFO swap, and verified
-PTT release. The worker rejects TX_ON and refuses CAT mutations if PTT is on
+PTT release. The worker rejects unleased TX_ON and refuses CAT mutations if PTT is on
 or unknown; it confirms targeted VFO selection before mutations.
 
-**This is not feature-parity complete or ready for deployment**: TX leases,
-PTT key-down, stable reconnect behavior, full rig controls and power
+**This is not feature-parity complete or validated for production**: stable
+reconnect behavior, full rig controls and power
 calibration, Hamlib-specific VFO exchange fallback, and fault-injection remain
 unfinished. Generic `backend=hamlib` on this branch can run RX-only commands
 but **must not** be selected for a live TX installation.
