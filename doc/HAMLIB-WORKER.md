@@ -1,8 +1,9 @@
-# Hamlib worker migration — IPC foundation
+# Isolated Hamlib worker — experimental integration
 
-This stage adds an **inactive** versioned message format for a future per-rig
-`rrhamlib` process. The production `backend.hamlib` module remains unchanged;
-**no current PTT operation uses this protocol**.
+`backend=hamlib` now runs a private `rrhamlib` process per rig using a
+versioned local IPC protocol. Experimental PTT is supported **only** with
+`hamlib.tx-enabled=true` and existing server transmit authorization.
+The legacy in-process implementation remains available as `hamlib-legacy`.
 
 The transport is a private `socketpair(AF_UNIX, SOCK_SEQPACKET, ...)` created
 before spawning one worker per physical rig. There is no public listener. Each
@@ -12,7 +13,7 @@ must reject truncated, oversized, unknown-version, unknown-type, and
 nonzero-flags messages. Both peers must enforce bounded command queues and
 deadlines; the framing limit alone does not prevent blocked Hamlib calls.
 
-## TX safety gates before enablement
+## TX safety rules and remaining hardware limitations
 
 - Server authenticates and authorizes TX, enforces existing interlocks and
   accounting, and gives RELEASE priority over ordinary work.
@@ -27,8 +28,9 @@ deadlines; the framing limit alone does not prevent blocked Hamlib calls.
 - `SIGKILL`, host power loss, a hung kernel driver, or a radio retaining PTT
   cannot be fixed by process-local cleanup. An independent hardware TX-enable
   watchdog is required to make a stronger RF-off guarantee.
-- Do not automatically enable the subprocess backend until fault injection
-  covers worker/parent death, blocked CAT, renewal loss, and reconnect during TX.
+- The subprocess backend is experimental. Dummy-rig tests cover worker/parent
+  failure, lease expiry and control heartbeat loss; blocked hardware CAT and
+  physical PTT behavior remain for real-rig validation.
 
 Protocol unit test (no hardware): `make test-hamlib-ipc`.
 
@@ -56,11 +58,14 @@ for polling, frequency, mode, numeric width, split, VFO swap, and verified
 PTT release. The worker rejects unleased TX_ON and refuses CAT mutations if PTT is on
 or unknown; it confirms targeted VFO selection before mutations.
 
-**This is not feature-parity complete or validated for production**: stable
-reconnect behavior, full rig controls and power
-calibration, Hamlib-specific VFO exchange fallback, and fault-injection remain
-unfinished. Generic `backend=hamlib` on this branch can run RX-only commands
-but **must not** be selected for a live TX installation.
+**Experimental status:** Worker restart and offline-startup recovery are now
+implemented with bounded `hamlib.reconnect-ms` backoff (default 5000,
+allowed 1000–60000). Recovery discards stale PTT and property state and starts
+with no TX lease; the new worker must verify PTT OFF before accepting work.
+A lost or ambiguous PTT acknowledgment inhibits TX until a verified worker
+restart. Power calibration, full rig controls, and hardware-specific parity
+with `hamlib-legacy` are not yet implemented. Hardware TX testing remains
+outstanding.
 
 For development builds only, the worker path may be set as the absolute
 per-rig `hamlib.worker-path` setting (default
@@ -75,13 +80,17 @@ integration testing.
 ```sh
 make PROFILE=radio test-hamlib-ipc
 make PROFILE=radio test-hamlib-transport
+make PROFILE=radio test-hamlib-dummy
+make PROFILE=radio test-hamlib-subprocess
 ```
 
 The second target builds a **fake worker** (not linked against Hamlib) and
 tests actual `posix_spawn`, inherited descriptor 3, hello/ack, heartbeat
 multiplexing, sequence-matched release acknowledgments, and worker teardown.
 It requires Linux/glibc 2.34 or later for the close-from spawn file action.
-Neither test proves real Hamlib CAT behavior or safe transmitter shutdown.
+The dummy-rig tests additionally exercise actual Hamlib CAT polling, tuning,
+lease expiry, child death, parent suspension, and reconnect through the
+server's real backend/registry. They cannot prove physical RF shutdown.
 
 On a development checkout, `hamlib.worker-path` must point to an absolute
 path for the compiled `bin/rrhamlib`; installed packages use libexec.
@@ -145,3 +154,29 @@ The dummy integration suite SIGSTOPs the control parent for 1.3s **without
 closing the socket** while the dummy rig is keyed; the child must dekey and
 refuse further TX even when the control parent resumes. As with the lease
 watchdog, physical dekey cannot be guaranteed when CAT is blocked or ignored.
+
+## Real-rig acceptance checklist
+
+Do not start tonight's test with RF output into an antenna. Use a dummy load
+or leave TX disabled initially. Verify:
+
+1. Installed helper exists and is executable at
+   `/usr/libexec/rustyrig/rrhamlib` (`rustyrig-server-hamlib` package).
+2. RX-only: `hamlib.tx-enabled=false`. Start server, read both VFOs,
+   change mode/frequency and confirm on the radio display.
+3. With RX idle, terminate `rrhamlib` and confirm the rig is marked
+   unavailable, a new worker eventually appears, and VFO values refresh.
+4. Unplug CAT at RX idle; verify state becomes unavailable and reconnect
+   works on replug. Startup with CAT disconnected should also recover.
+5. Only with a dummy load and explicitly enabled experimental TX:
+   verify normal key-down and verified PTT release, the existing TX
+   authorization/interlocks, and watchdog lease expiry. Stop immediately
+   if the radio fails to dekey.
+6. Check that restarting `rrserver` never causes old TX state or an
+   old lease to be replayed. Inspect the log for unknown/unconfirmed PTT.
+7. Verify no duplicate CAT owner (for example `rigctld` or WSJT-X)
+   is opening the same serial device concurrently.
+
+The 250ms child PING / 1000ms PONG timeout and 1500ms TX lease are
+software safety mechanisms. CAT calls can block and radios can ignore
+commands. A physical TX-disable interlock is required for guaranteed dekey.
