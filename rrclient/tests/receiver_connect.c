@@ -52,6 +52,10 @@ static receiver_directory_entry_t receiver = {
 
 static dict *sent;
 static unsigned joins;
+static void dispatch_immediately(event_dispatch_fn_t callback, void *arg, void *user) {
+   (void)user;
+   callback(arg);
+}
 const receiver_directory_entry_t *receiver_directory_find_url(const char *url) {
    return !strcmp(receiver.url, url) ? &receiver : NULL;
 }
@@ -101,6 +105,11 @@ bool ui_print(const char *room, const char *fmt, ...) {
 
 bool ws_send_dict(rrconn_t *from, rrconn_t *to, dict *message, int opcode) {
    assert(to == &alpha);
+   if (!strcmp(dict_get(message, "talk.cmd", ""), "join")) {
+      assert(!strcmp(dict_get(message, "talk.target", ""), "#test-rig1"));
+      joins++;
+      return true;
+   }
    dict_free(sent);
    sent = dict_new();
    dict_merge(sent, message);
@@ -131,9 +140,10 @@ static void reply(rrconn_t *connection, const char *request, const char *error) 
 
 int main(void) {
    event_init();
+   assert(event_domain_register("core", dispatch_immediately, NULL));
    rrclient_receiver_connect_init();
-   assert(rrclient_receiver_connect(receiver.url, false));
-   assert(!rrclient_receiver_connect(receiver.url, false));
+   assert(rrclient_receiver_connect_room_ex(receiver.url, false, NULL, true));
+   assert(!rrclient_receiver_connect_room_ex(receiver.url, false, NULL, true));
    char *request = g_strdup(pending.request);
    reply(&beta, request, "");
    reply(&alpha, "stale", "");
@@ -144,20 +154,20 @@ int main(void) {
    assert(rrclient_receiver_connect(receiver.url, true));
    reply(&alpha, pending.request, "");
    assert(joins == 1 && !pending.request);
-   assert(rrclient_receiver_connect(receiver.url, false));
+   assert(rrclient_receiver_connect_room_ex(receiver.url, false, NULL, true));
    request = g_strdup(pending.request);
    event_emit("disconnected", &alpha, NULL);
    reply(&alpha, request, "");
    assert(joins == 1);
    g_free(request);
-   assert(rrclient_receiver_connect(receiver.url, false));
+   assert(rrclient_receiver_connect_room_ex(receiver.url, false, NULL, true));
    reply(&alpha, pending.request, "websdr.connect required");
    assert(joins == 1);
-   assert(rrclient_receiver_connect("http://manual.invalid:8073/", false));
+   assert(rrclient_receiver_connect_room_ex("http://manual.invalid:8073/", false, NULL, true));
    reply(&alpha, pending.request, "");
    assert(joins == 2);
    receiver.ext_api = 0;
-   assert(!rrclient_receiver_connect(receiver.url, false));
+   assert(!rrclient_receiver_connect_room_ex(receiver.url, false, NULL, true));
    rrclient_receiver_connect_shutdown();
    event_shutdown();
    dict_free(sent);
