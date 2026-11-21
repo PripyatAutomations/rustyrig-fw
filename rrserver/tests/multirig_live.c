@@ -271,6 +271,30 @@ int main(int argc, char **argv) {
       assert(!rr_freq_set(VFO_B, (int)internal_frequency));
       rr_backend_poll_all();
       wait_workers();
+      /* Reconnect is intentionally delayed after a failed CAT connection.
+       * Do not assert immediately after restarting rigctld: wait until
+       * the actual backend publishes fresh VFO observations instead.
+       */
+      if (!strncmp(command, "recover", 7)) {
+         gint64 deadline = g_get_monotonic_time() + 10000000;
+         bool recovered = false;
+         do {
+            rr_property_snapshot_t freq = snapshot(a1, RR_PROP_VFO_FREQUENCY);
+            rr_property_snapshot_t mode = snapshot(a1, RR_PROP_VFO_MODE);
+            if (freq.known && freq.available && freq.value.l > 0 &&
+                mode.known && mode.available) {
+               recovered = true;
+               break;
+            }
+            g_usleep(100000);
+            rr_backend_poll_all();
+            wait_workers();
+         } while (g_get_monotonic_time() < deadline);
+         if (!recovered) {
+            fprintf(stderr, "FAIL: Hamlib worker did not reconnect and refresh VFO within 10s\n");
+            abort();
+         }
+      }
       assert(!dying);
       rr_property_snapshot_t f0 = snapshot(a0, RR_PROP_VFO_FREQUENCY);
       rr_property_snapshot_t f1 = snapshot(a1, RR_PROP_VFO_FREQUENCY);
