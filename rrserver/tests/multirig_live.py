@@ -76,6 +76,25 @@ def read_until(marker):
             return identities
 
 
+def kill_subprocess_worker():
+    # Linux procfs exposes direct children without an external ps/pgrep
+    # dependency. Only kill children of this disposable test fixture.
+    task = pathlib.Path(f"/proc/{client.pid}/task/{client.pid}/children")
+    if not task.is_file():
+        raise RuntimeError("subprocess worker crash test requires Linux procfs")
+    child_pids = [int(pid) for pid in task.read_text().split()]
+    workers = []
+    for pid in child_pids:
+        try:
+            if pathlib.Path(f"/proc/{pid}/comm").read_text().strip() == "rrhamlib":
+                workers.append(pid)
+        except FileNotFoundError:
+            pass
+    assert len(workers) == 1, f"expected one rrhamlib test child, got {workers!r}"
+    import os
+    os.kill(workers[0], signal.SIGKILL)
+
+
 def command(value):
     client.stdin.write(value + "\n")
     client.stdin.flush()
@@ -137,6 +156,13 @@ reconnect-interval=1
             for alias, native, uuid in rows:
                 assert identities[(alias, native)] == uuid
         command("observe" if external else "online")
+        if subprocess_worker and run == 0:
+            # Kill the real rrhamlib child attached to this server fixture.
+            # After backoff, the backend should create a fresh child and
+            # recover its observations without changing persistent VFO IDs.
+            kill_subprocess_worker()
+            time.sleep(1.3)
+            command("online")
         if not external and run == 0:
             stop(daemon)
             daemon = None
