@@ -127,3 +127,21 @@ The dummy rig test drives real key-down and validates:
 Use `make PROFILE=radio test-hamlib-dummy` on a Hamlib-enabled host. This
 is not proof of physical transmitter safety. Test with a dummy receiver
 before explicitly opting a real transceiver into experimental TX.
+
+## Child-initiated control-plane liveness
+
+Each `rrhamlib` child now sends a sequenced `PING` every 250ms **through
+the existing per-rig SOCK_SEQPACKET control channel** (no additional socket).
+The normal rrserver control transport answers with a matching `PONG`,
+whether the backend is idle or waiting for an ordinary CAT reply.
+
+Only a matched, fresh `PONG` refreshes the child's liveness clock.
+An unresponsive control path for over 1,000ms latches the worker's fault
+state, cancels its transmit lease, and causes repeated verified PTT-off
+attempts. The independent 1,500ms TX lease still applies. Parent-to-child
+heartbeats do not count as replies to the child's challenges.
+
+The dummy integration suite SIGSTOPs the control parent for 1.3s **without
+closing the socket** while the dummy rig is keyed; the child must dekey and
+refuse further TX even when the control parent resumes. As with the lease
+watchdog, physical dekey cannot be guaranteed when CAT is blocked or ignored.
