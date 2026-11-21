@@ -12,6 +12,27 @@ GMainContext *rrclient_core_context(void) {
 time_t now = 1792080000;
 static const char *test_db;
 static unsigned connects;
+/* Browser-only fixture: remote connections and local bridge operations are
+ * absent; the directory parser, filtering and persistence remain real. */
+GtkWidget *main_window, *main_notebook;
+void rrclient_receiver_catalog_init(void) {}
+void rrclient_receiver_catalog_shutdown(void) {}
+bool rrclient_local_bridge_ui_connected(const char *url) { (void)url; return false; }
+bool rrclient_receiver_is_connected(const char *url) { (void)url; return false; }
+bool rrclient_receiver_is_connected_any(const char *url) { (void)url; return false; }
+bool rrclient_receiver_disconnect(const char *url) { (void)url; return false; }
+rrconn_t *rrclient_active_connection(void) { return NULL; }
+const char *rrclient_connection_name(const rrconn_t *connection) { (void)connection; return NULL; }
+int rrclient_connection_state(const char *profile) { (void)profile; return 0; }
+void gtk_chat_room_add(const char *room) { (void)room; }
+void gtk_chat_room_vfos_changed(const char *room) { (void)room; }
+const char *rrclient_room_iter(unsigned int index) { (void)index; return NULL; }
+bool rrclient_room_is_joined(const char *room) { (void)room; return false; }
+bool ws_room_name_valid(const char *room) {
+   return room && (room[0] == '#' || room[0] == '&') && room[1] && strlen(room) < 128;
+}
+bool rr_module_token_add(rr_event_token_t token) { return token != NULL; }
+
 bool rrclient_receiver_connect(const char *url, bool save) {
    assert(!strcmp(url, "http://a.invalid:8073") && !save);
    connects++;
