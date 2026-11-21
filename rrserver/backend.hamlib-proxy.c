@@ -3,6 +3,7 @@
  * Its callbacks retain the established rr_backend_t interface.
  */
 #include <stdint.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -21,6 +22,8 @@ typedef struct {
    bool known[MAX_VFOS];
    bool transmitting[MAX_VFOS];
    bool ptt_known[MAX_VFOS];
+   int64_t next_reconnect_ms;
+   bool reconnecting;
 } hamlib_proxy_t;
 
 static hamlib_proxy_t *proxy(rr_backend_t *b) {
@@ -81,9 +84,16 @@ static bool renew_tx_lease(rr_backend_t *b) {
       RR_HAMLIB_IPC_LEASE_RENEW, NULL, 0, RR_HAMLIB_IPC_REPLY,
       &result, &length, 1, 2000) && length == 1 && result == 0;
 }
-static bool hp_create(rr_backend_t *b) {
-   hamlib_proxy_t *p = calloc(1, sizeof(*p));
-   if (!p) return true;
+static int64_t hp_now_ms(void) {
+   struct timespec ts;
+   if (clock_gettime(CLOCK_MONOTONIC, &ts)) return -1;
+   return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+/* A failed channel is never silently reused; the old worker is reaped
+ * before starting a new one. Fresh child startup verifies PTT OFF.
+ * Every new child starts without a lease or inherited TX authorization.
+ */
+static bool hp_connect(rr_backend_t *b, hamlib_proxy_t *p) {
    int model = rr_backend_config_get_int(b, "hamlib.model", 2);
    int baud = rr_backend_config_get_int(b, "hamlib.baud", 38400);
    int timeout = rr_backend_config_get_int(b, "hamlib.timeout-ms", 250);
@@ -93,18 +103,59 @@ static bool hp_create(rr_backend_t *b) {
    const char *target = device && *device ? device : "127.0.0.1:4532";
    bool opened = rr_hamlib_transport_open(&p->transport, worker, model, target,
       baud, timeout);
-   if (!opened) {
-      rr_backend_log(b, LOG_CRIT, "backend.hamlib", "%s: cannot start isolated rrhamlib (path=%s, model=%d); no fallback to in-process Hamlib",
-         rr_backend_instance_alias(b), worker, model);
-      free(path);
-      free(device);
+   free(path);
+   free(device);
+   return opened;
+}
+static void hp_invalidate(hamlib_proxy_t *p) {
+   memset(p->known, 0, sizeof(p->known));
+   memset(p->ptt_known, 0, sizeof(p->ptt_known));
+   /* Retain unknown prior key-down; do not advertise it as dekeyed. */
+}
+static bool hp_reconnect(rr_backend_t *b, hamlib_proxy_t *p) {
+   if (!p) return false;
+   if (rr_hamlib_transport_ready(&p->transport)) return true;
+   int64_t now = hp_now_ms();
+   if (now < 0 || now < p->next_reconnect_ms || p->reconnecting) return false;
+   int interval = rr_backend_config_get_int(b, "hamlib.reconnect-ms", 5000);
+   if (interval < 1000) interval = 1000;
+   if (interval > 60000) interval = 60000;
+   /* Backoff BEFORE blocking close/spawn so a faulty endpoint cannot
+    * produce a tight loop of child processes on every poll.
+    */
+   p->next_reconnect_ms = now + interval;
+   p->reconnecting = true;
+   hp_invalidate(p);
+   rr_hamlib_transport_close(&p->transport);
+   bool opened = hp_connect(b, p);
+   p->reconnecting = false;
+   if (opened) {
+      rr_backend_log(b, LOG_INFO, "backend.hamlib",
+         "%s: rrhamlib restarted; physical startup PTT OFF confirmed, TX lease reset",
+         rr_backend_instance_alias(b));
+   } else {
+      rr_backend_log(b, LOG_WARN, "backend.hamlib",
+         "%s: isolated worker unavailable; retry after %dms (PTT state UNKNOWN)",
+         rr_backend_instance_alias(b), interval);
+   }
+   return opened;
+}
+static bool hp_create(rr_backend_t *b) {
+   hamlib_proxy_t *p = calloc(1, sizeof(*p));
+   if (!p) return true;
+   if (!hp_connect(b, p)) {
+      /* Initial connection errors are visible to existing rig startup
+       * diagnostics. Runtime disconnects are handled by hp_reconnect().
+       */
+      rr_backend_log(b, LOG_CRIT, "backend.hamlib",
+         "%s: cannot start isolated rrhamlib; no fallback to in-process Hamlib",
+         rr_backend_instance_alias(b));
       free(p);
       return true;
    }
-   free(path);
-   free(device);
    rr_backend_instance_set_data(b, p);
-   rr_backend_log(b, LOG_INFO, "backend.hamlib", "%s: isolated Hamlib worker connected (TX requires per-rig hamlib.tx-enabled=true; watchdog lease 1500ms)",
+   rr_backend_log(b, LOG_INFO, "backend.hamlib",
+      "%s: isolated Hamlib worker connected (TX opt-in; 1500ms lease, in-band control watchdog)",
       rr_backend_instance_alias(b));
    return false;
 }
@@ -117,8 +168,11 @@ static void hp_destroy(rr_backend_t *b) {
 }
 static void hp_idle(rr_backend_t *b) {
    hamlib_proxy_t *p = proxy(b);
-   if (p && rr_hamlib_transport_ready(&p->transport))
+   if (!p) return;
+   if (rr_hamlib_transport_ready(&p->transport))
       (void)rr_hamlib_transport_service(&p->transport);
+   if (!rr_hamlib_transport_ready(&p->transport))
+      (void)hp_reconnect(b, p);
 }
 static bool hp_supported(rr_backend_t *b, rr_server_vfo_t *v) {
    (void)b;
@@ -157,6 +211,8 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
       }
       return NULL;
    }
+   if (p && !rr_hamlib_transport_ready(&p->transport))
+      (void)hp_reconnect(b, p);
    if (!p || !index_of(v, &index) || !request(b, v, RR_HAMLIB_OP_POLL, 0, result)) {
       if (p && index_of(v, &index)) {
          p->known[index] = false;
@@ -196,9 +252,13 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
          return true;
       rr_vfo_t tx_index;
       uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
-      if (!p || !index_of(v, &tx_index) || !renew_tx_lease(b) ||
-          !request(b, v, RR_HAMLIB_OP_PTT_ON, 0, result))
+      if (!p || !index_of(v, &tx_index))
          return true;
+      if (!renew_tx_lease(b) || !request(b, v, RR_HAMLIB_OP_PTT_ON, 0, result)) {
+         /* A lost ACK might follow real key-down. Never reuse cached OFF. */
+         p->ptt_known[tx_index] = false;
+         return true;
+      }
       p->transmitting[tx_index] = true;
       p->ptt_known[tx_index] = true;
       return false;
@@ -210,6 +270,7 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
        !rr_hamlib_transport_exchange(&p->transport, RR_HAMLIB_IPC_RELEASE,
          NULL, 0, RR_HAMLIB_IPC_RELEASE_RESULT, &result, &length, 1, 4000) ||
        length != 1 || result != 0) {
+      if (p && index_of(v, &index)) p->ptt_known[index] = false;
       rr_backend_log(b, LOG_CRIT, "backend.hamlib",
          "%s: PTT release unconfirmed; transmitter state UNKNOWN",
          rr_backend_instance_alias(b));
