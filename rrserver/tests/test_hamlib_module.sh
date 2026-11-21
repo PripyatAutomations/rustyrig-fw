@@ -33,4 +33,9 @@ ${CC:-cc} ${CFLAGS:-} -pthread -DRR_TEST_HAMLIB_MODULE -Wl,--export-dynamic -ffu
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lfwdspmgr \
    $(pkg-config --libs glib-2.0 sqlite3) "${sanitizer_ldflags[@]}" ${LDFLAGS:-} \
    -o "$work/multirig-live"
+# Keep the backend module mapped during LeakSanitizer's intermediate scan,
+# otherwise post-dlclose stack frames appear as <unknown module>.
+if [[ ${#sanitizer_ldflags[@]} -ne 0 ]]; then
+   export RR_TEST_LSAN_DIAG=1
+fi
 python3 rrserver/tests/multirig_live.py "$work/multirig-live" "$work" "$@"
