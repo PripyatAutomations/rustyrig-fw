@@ -9,7 +9,12 @@ server_cfg=${RRSERVER_CONFIG:-config/rrserver.cfg}
 python3 - "$server_cfg" "$work/test.cfg" <<'PYTHON'
 import re, sys
 from pathlib import Path
+# Use the same real pipeline definitions as the server. The copied
+# top-level config's relative includes otherwise resolve inside /tmp,
+# leaving only the compiled-in PulseAudio fallback recipes.
 text = Path(sys.argv[1]).read_text()
+text = re.sub(r'(?m)^!include\s+[^\n]+$', '', text)
+text += '\n' + Path('config/rrserver.pipelines.cfg').read_text()
 text = re.sub(r'\\\n\s*', ' ', text)
 text = text.replace('pulsesink device=default name=rx-sink client-name=fwdsp-rx sync=false',
                     'appsink name=rx-sink sync=false')
