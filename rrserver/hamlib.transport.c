@@ -136,9 +136,9 @@ bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
    snprintf(baud_arg, sizeof(baud_arg), "%d", baud);
    snprintf(timeout_arg, sizeof(timeout_arg), "%d", timeout_ms);
    char *const argv[] = {
-      (char *)path, "--parent", parent_arg, "--model", model_arg,
-      "--device", (char *)device, "--baud", baud_arg,
-      "--timeout-ms", timeout_arg, NULL
+      (char *)path, (char *)"--parent", parent_arg, (char *)"--model", model_arg,
+      (char *)"--device", (char *)device, (char *)"--baud", baud_arg,
+      (char *)"--timeout-ms", timeout_arg, NULL
    };
    int spawned = posix_spawn(&t->pid, path, &actions, NULL, argv, environ);
    posix_spawn_file_actions_destroy(&actions);
