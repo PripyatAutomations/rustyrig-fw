@@ -155,6 +155,11 @@ rrserver_objs += http.api.o
 rrserver_objs += http.bans.o
 rrserver_objs += ws.mediachan.o
 
+# A Hamlib-selected build links only the IPC proxy, never libhamlib.
+ifeq ($(USE_HAMLIB),true)
+rrserver_objs += backend.hamlib-proxy.o
+endif
+
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
