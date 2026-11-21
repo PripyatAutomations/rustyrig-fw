@@ -193,6 +193,9 @@ int main(int argc, char **argv) {
    snprintf(path1, sizeof(path1), "%s/ttyCAT1", argv[1]);
    snprintf(input, sizeof(input), "%s/ttyGPS0", argv[1]);
    snprintf(output, sizeof(output), "%s/ttyGPS1", argv[1]);
+   /* Numbered PTYs are explicit bindings; the production defaults only
+    * create the unnumbered floating ttyCAT/ttyGPS/ttyMODEM endpoints. */
+   dict_add(cfg, "serial.ttyCAT0", "rig0.cat");
    dict_add(cfg, "serial:ttyCAT0.path", path0);
    dict_add(cfg, "serial:ttyCAT1.path", path1);
    dict_add(cfg, "serial:ttyGPS0.path", input);
