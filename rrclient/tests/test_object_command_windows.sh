@@ -4,6 +4,6 @@ cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
-   rrclient/tests/object_command_windows.c rrclient/objects.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
+   rrclient/tests/object_command_windows.c rrclient/tests/client_stubs.c rrclient/objects.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -lrrprotocol -o "$work/object_command_windows"
 "$work/object_command_windows"
