@@ -124,8 +124,20 @@ static gboolean select_receiver_row(GtkTreeModel *model, GtkTreePath *path, GtkT
    return TRUE;
 }
 
+/* Count visible receiver leaves, not country/connected group headings. */
+static gboolean count_receiver_leaf(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
+   (void)path;
+   guint index = G_MAXUINT;
+   gtk_tree_model_get(model, iter, COL_INDEX, &index, -1);
+   if (index != G_MAXUINT)
+      ++*(unsigned *)data;
+   return FALSE;
+}
+
 static int visible_count(void) {
-   return gtk_tree_model_iter_n_children(GTK_TREE_MODEL(directory_filter), NULL);
+   unsigned count = 0;
+   gtk_tree_model_foreach(GTK_TREE_MODEL(directory_filter), count_receiver_leaf, &count);
+   return (int)count;
 }
 
 int main(int argc, char **argv) {
