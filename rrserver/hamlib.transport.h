@@ -17,6 +17,7 @@ typedef struct rr_hamlib_transport {
    pid_t pid;
    pthread_t heartbeat;
    pthread_mutex_t send_mutex;
+   pthread_mutex_t recv_mutex; /* one in-band reader: exchange or idle responder */
    atomic_bool running;
    atomic_bool connected;
    bool heartbeat_started;
