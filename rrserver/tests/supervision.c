@@ -47,11 +47,11 @@ bool ws_send_error(rrconn_t *client, const char *format, ...) {
    return true;
 }
 
-/* The old ws_supervision_allowed(room, request) helper was removed when
+/* The old test_supervision_allowed(room, request) helper was removed when
  * supervision migrated to typed events. Exercise the production check
  * handler with the actual request payload instead.
  */
-static bool ws_supervision_allowed(rrconn_t *client, const char *room, bool request) {
+static bool test_supervision_allowed(rrconn_t *client, const char *room, bool request) {
    rr_server_supervision_t query = { .room = room, .request = request };
    check("supervision.check", &query, sizeof(query), client, NULL);
    return query.allowed;
@@ -104,44 +104,44 @@ int main(void) {
    noob.next = &elmer;
    elmer.next = &second;
    rrserver_supervision_register();
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", false) && offers == 0);
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", true) && offers == 2);
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", true) && offers == 2);
+   assert(!test_supervision_allowed(&noob, "#test-rig0", false) && offers == 0);
+   assert(!test_supervision_allowed(&noob, "#test-rig0", true) && offers == 2);
+   assert(!test_supervision_allowed(&noob, "#test-rig0", true) && offers == 2);
    char id[33];
    snprintf(id, sizeof(id), "%s", requests[0].id);
    respond(&noob, "accept", id);
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", false));
+   assert(!test_supervision_allowed(&noob, "#test-rig0", false));
    respond(&elmer, "accept", id);
-   assert(grants == 1 && ws_supervision_allowed(&noob, "#test-rig0", false));
-   assert(!ws_supervision_allowed(&second, "#test-rig0", false));
-   assert(!ws_supervision_allowed(&noob, "#test-rig1", false));
+   assert(grants == 1 && test_supervision_allowed(&noob, "#test-rig0", false));
+   assert(!test_supervision_allowed(&second, "#test-rig0", false));
+   assert(!test_supervision_allowed(&noob, "#test-rig1", false));
    respond(&other, "accept", id);
    closed("", "", &elmer, NULL);
-   assert(ws_supervision_allowed(&noob, "#test-rig0", false));
+   assert(test_supervision_allowed(&noob, "#test-rig0", false));
    noob.is_ptt = true;
    snprintf(noob.ptt_room, sizeof(noob.ptt_room), "#test-rig0");
    now += 9;
    touch(&other, "pong", "");
-   assert(ws_supervision_allowed(&noob, "#test-rig0", false));
+   assert(test_supervision_allowed(&noob, "#test-rig0", false));
    fail_release = true;
    now++;
    rrserver_supervision_tick();
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", false) && revoked == 1 && releases >= 1 && noob.is_ptt);
+   assert(!test_supervision_allowed(&noob, "#test-rig0", false) && revoked == 1 && releases >= 1 && noob.is_ptt);
    fail_release = false;
    rrserver_supervision_tick();
    assert(!noob.is_ptt);
    respond(&other, "accept", id);   /* Expired invitation cannot restore consent. */
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", false));
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", true));
+   assert(!test_supervision_allowed(&noob, "#test-rig0", false));
+   assert(!test_supervision_allowed(&noob, "#test-rig0", true));
    assert(strcmp(id, requests[0].id));
    respond(&other, "accept", requests[0].id);
    now += 9;
    touch(&other, "talk", "msg");
    now += 9;
-   assert(ws_supervision_allowed(&noob, "#test-rig0", false));
+   assert(test_supervision_allowed(&noob, "#test-rig0", false));
    other.user->enabled = false;
    rrserver_supervision_tick();
-   assert(!ws_supervision_allowed(&noob, "#test-rig0", false));
+   assert(!test_supervision_allowed(&noob, "#test-rig0", false));
    closed("", "", &noob, NULL);
    assert(!requests[0].client);
    dict_free(cfg);
