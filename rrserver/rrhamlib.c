@@ -160,12 +160,12 @@ int main(int argc, char **argv) {
    int model = 0, baud = 38400, timeout = 250, parent = 0;
    const char *device = NULL;
    /* Private command line. Parent supplies socketpair on fd 3. */
-   if (argc != 9 || strcmp(argv[1], "--parent") ||
+   if (argc != 11 || strcmp(argv[1], "--parent") ||
        parse_int(argv[2], 1, INT_MAX, &parent) ||
        strcmp(argv[3], "--model") || parse_int(argv[4], 1, INT_MAX, &model) ||
        strcmp(argv[5], "--device") || !(device = argv[6]) || !*device ||
-       strcmp(argv[7], "--baud") || parse_int(argv[8], 1, 4000000, &baud)) {
-      fprintf(stderr, "usage: rrhamlib --parent PID --model ID --device PATH --baud RATE\n");
+       strcmp(argv[7], "--baud") || parse_int(argv[8], 1, 4000000, &baud) ||\n       strcmp(argv[9], "--timeout-ms") || parse_int(argv[10], 1, 5000, &timeout)) {
+      fprintf(stderr, "usage: rrhamlib --parent PID --model ID --device PATH --baud RATE --timeout-ms MS\n");
       return 2;
    }
    return run(WORKER_FD, (pid_t)parent, model, device, baud, timeout);
