@@ -20,6 +20,31 @@ time_t now;
 static rrconn_t alpha = {
    .is_ws = true, .authenticated = true
 }, beta;
+/* Standalone core/test environment: all the receiver lifecycle and
+ * request assertions below still run against receiver.connect.c itself. */
+GMainContext *rrclient_core_context(void) { return g_main_context_default(); }
+int rrclient_connection_state(const char *profile) {
+   return profile && !strcmp(profile, "alpha") && alpha.authenticated ? 1 : 0;
+}
+const char *rrclient_connection_iter(unsigned index) { return index ? NULL : "alpha"; }
+bool rrclient_room_is_joined(const char *room) { (void)room; return false; }
+bool ws_room_name_valid(const char *room) {
+   return room && room[0] == '#' && room[1] != '\0';
+}
+bool receiver_directory_record_connection(const char *url) { (void)url; return true; }
+bool receiver_directory_import(const char *path) { (void)path; return false; }
+bool receiver_directory_set_favorite(const char *url, bool favorite) { (void)url; (void)favorite; return false; }
+bool receiver_directory_set_state(const char *url, const char *state, const char *reason) {
+   (void)url; (void)state; (void)reason; return false;
+}
+bool rrclient_receiver_catalog_request(bool force) { (void)force; return false; }
+bool receiver_directory_refresh_force(bool force) { (void)force; return false; }
+const char *receiver_directory_status(void) { return ""; }
+char *receiver_directory_info(void) { return g_strdup(""); }
+bool receiver_directory_refresh_due(void) { return false; }
+bool receiver_directory_refresh(void) { return false; }
+void rrclient_receiver_catalog_init(void) {}
+
 
 static receiver_directory_entry_t receiver = {
    .driver = "kiwi", .url = "http://receiver.invalid:8073/", .ext_api = 2
