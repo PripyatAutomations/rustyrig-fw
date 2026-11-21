@@ -10,6 +10,14 @@ bool dying, restarting;
 time_t now;
 static rrconn_t session;
 rrconn_t *ws_conn = &session;
+/* Standalone fixture deliberately selects the text frontend and current
+ * connection; inventory replies must retain the issuing window. */
+rrconn_t *rrclient_connection_context(void) { return ws_conn; }
+const char *rrclient_connection_name(const rrconn_t *connection) {
+   (void)connection;
+   return "test";
+}
+const rr_frontend_ops_t *frontend_ops(void) { return NULL; }
 static const char *active = "#first";
 static char destination[128], sent_id[48];
 static unsigned printed;
