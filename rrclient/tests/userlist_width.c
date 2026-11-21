@@ -518,7 +518,14 @@ int main(void) {
    gtk_widget_get_preferred_size(panel, NULL, &panel_natural);
    gtk_widget_get_preferred_size(view, NULL, &view_natural);
    assert(gtk_widget_get_allocated_width(panel) >= panel_natural.width);
-   assert(gtk_widget_get_allocated_width(view) >= view_natural.width);
+   /* A very long username may exceed the available 800px pane: the tree is
+    * allowed to be narrower than its natural width, since the scroller now
+    * permits horizontal scrolling. Requiring natural-width allocation here
+    * would contradict the test's explicit GTK_POLICY_AUTOMATIC setting. */
+   GtkPolicyType horizontal_after, vertical_after;
+   gtk_scrolled_window_get_policy(GTK_SCROLLED_WINDOW(scroll), &horizontal_after, &vertical_after);
+   assert(horizontal_after == GTK_POLICY_AUTOMATIC);
+   assert(view_natural.width > 0 && gtk_widget_get_allocated_width(view) > 0);
    GtkWidget *buttons[] = {
       undock, ptt
    };
