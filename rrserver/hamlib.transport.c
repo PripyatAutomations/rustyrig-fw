@@ -110,6 +110,17 @@ bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
       error = posix_spawn_file_actions_adddup2(&actions, sockets[1], 3);
    if (!error && sockets[1] != 3)
       error = posix_spawn_file_actions_addclose(&actions, sockets[1]);
+   /* The child must not inherit server TLS sockets, databases, or radio FDs.
+    * Actions run in order: first dup the private socket to fd 3, then close
+    * every other inherited descriptor. Never silently drop this isolation.
+    */
+#if defined(__GLIBC__) && __GLIBC_PREREQ(2, 34)
+   if (!error)
+      error = posix_spawn_file_actions_addclosefrom_np(&actions, 4);
+#else
+   if (!error)
+      error = ENOTSUP;
+#endif
    if (error) {
       posix_spawn_file_actions_destroy(&actions);
       goto fail;
