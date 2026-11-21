@@ -134,7 +134,10 @@ int main(int argc, char **argv) {
    drain_directory();
    assert(directory_page && visible_count() == 2 && !receiver_directory_busy());
    GtkTreeIter iter;
-   assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(directory_filter), &iter));
+   /* The tree view owns a sorted wrapper, not directory_filter itself.
+    * A GtkTreeIter from a different model has an invalid stamp. */
+   GtkTreeModel *view_model = gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
+   assert(gtk_tree_model_get_iter_first(view_model, &iter));
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
    assert(gtk_widget_get_sensitive(favorite_button) && gtk_widget_get_sensitive(connect_button));
    connect_clicked(NULL, NULL);
