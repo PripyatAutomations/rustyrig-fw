@@ -9,6 +9,34 @@ time_t now;
 bool dying, restarting;
 struct GlobalState rig;
 static int errors, notices;
+/* Isolated server session boundary. Room deletion stays on the real
+ * events.rooms + SQLite path; no network peers are attached. */
+http_user_t http_users[HTTP_MAX_USERS];
+rrconn_t *http_client_list;
+const char *ws_site_room(void) { return "#testsite"; }
+bool has_priv(int uid, const char *privilege) {
+   return uid == 1 && privilege && strstr(privilege, "admin") &&
+      strstr(http_users[1].privs, "admin");
+}
+bool ws_room_rig_namespace(const char *room) {
+   return room && g_str_has_prefix(room, "#testsite-rig");
+}
+bool ws_room_set_vfo_mask(const char *room, uint32_t mask) {
+   (void)room; (void)mask;
+   return true;
+}
+void ws_broadcast_room_dict(rrconn_t *sender, dict *message, const char *room) {
+   (void)sender; (void)message; (void)room;
+}
+bool ws_client_part_room(rrconn_t *client, const char *room) {
+   (void)client; (void)room;
+   return false;
+}
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int opcode) {
+   (void)sender; (void)message;
+   return dest && opcode == WEBSOCKET_OP_TEXT;
+}
+
 
 bool ws_send_error(rrconn_t *client, const char *fmt, ...) {
    (void)client;
