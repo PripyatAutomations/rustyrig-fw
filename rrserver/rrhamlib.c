@@ -359,6 +359,18 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
          execute_command(rig, &watch, payload, result);
          if (send_packet(fd, RR_HAMLIB_IPC_REPLY, h.sequence,
                          result, sizeof(result))) { status = 6; break; }
+         /* An unsuccessful observation may mean the CAT link has died,
+          * even while this IPC socket and its heartbeat remain healthy.
+          * Never keep polling a dead Hamlib handle indefinitely. Exit so
+          * the parent discards this session and reconnects with a fresh
+          * RIG handle, re-verifying physical PTT OFF before service.
+          * Ordinary rejected control commands do not restart the worker.
+          */
+         if (payload[0] == RR_HAMLIB_OP_POLL && result[0] != 0) {
+            fprintf(stderr, "rrhamlib: CAT observation failed; retiring worker (PTT state UNKNOWN)\n");
+            status = 7;
+            break;
+         }
          continue;
       }
       if (h.type == RR_HAMLIB_IPC_LEASE_RENEW) {
