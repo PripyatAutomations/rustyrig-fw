@@ -84,14 +84,16 @@ static bool hp_create(rr_backend_t *b) {
    const char *target = device && *device ? device : "127.0.0.1:4532";
    bool opened = rr_hamlib_transport_open(&p->transport, worker, model, target,
       baud, timeout);
-   free(device);
-   free(path);
    if (!opened) {
       rr_backend_log(b, LOG_CRIT, "backend.hamlib", "%s: cannot start isolated rrhamlib (path=%s, model=%d); no fallback to in-process Hamlib",
-         rr_backend_instance_alias(b), "/usr/libexec/rustyrig/rrhamlib", model);
+         rr_backend_instance_alias(b), worker, model);
+      free(path);
+      free(device);
       free(p);
       return true;
    }
+   free(path);
+   free(device);
    rr_backend_instance_set_data(b, p);
    rr_backend_log(b, LOG_INFO, "backend.hamlib", "%s: isolated Hamlib worker connected (TX disabled until lease watchdog enabled)",
       rr_backend_instance_alias(b));
