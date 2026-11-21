@@ -4,6 +4,7 @@
 #include "hamlib.ipc.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
@@ -68,6 +69,27 @@ static void *heartbeat_main(void *user) {
    }
    return NULL;
 }
+/* Independent from the ordinary backend request channel. The child sends
+ * a fresh 32-bit challenge; only a live rrserver responder may echo it.
+ * This never extends the TX lease and cannot be mistaken for CAT progress.
+ */
+static void *watchdog_responder_main(void *user) {
+   rr_hamlib_transport_t *t = user;
+   uint8_t challenge[4];
+   while (atomic_load(&t->running)) {
+      struct pollfd pfd = { .fd = t->watchdog_fd, .events = POLLIN };
+      int rc = poll(&pfd, 1, 100);
+      if (rc < 0 && errno == EINTR) continue;
+      if (rc < 0 || (pfd.revents & (POLLHUP | POLLERR | POLLNVAL))) break;
+      if (rc == 0 || !(pfd.revents & POLLIN)) continue;
+      ssize_t n = recv(t->watchdog_fd, challenge, sizeof(challenge), MSG_DONTWAIT);
+      if (n != sizeof(challenge) ||
+          send(t->watchdog_fd, challenge, sizeof(challenge), MSG_NOSIGNAL | MSG_DONTWAIT) != sizeof(challenge))
+         break;
+   }
+   atomic_store(&t->connected, false);
+   return NULL;
+}
 static void bounded_reap(pid_t pid) {
    if (pid <= 0) return;
    int status;
@@ -97,37 +119,44 @@ bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
       return false;
    memset(t, 0, sizeof(*t));
    t->fd = -1;
+   t->watchdog_fd = -1;
    if (pthread_mutex_init(&t->send_mutex, NULL)) return false;
    atomic_init(&t->running, false);
    atomic_init(&t->connected, false);
-   int sockets[2] = { -1, -1 };
+   int sockets[2] = { -1, -1 }, watchdog[2] = { -1, -1 };
    posix_spawn_file_actions_t actions;
-   if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sockets)) goto fail;
-   if (posix_spawn_file_actions_init(&actions)) goto fail;
-   /* Close the parent's end first: it can itself occupy fd 3. */
-   int error = posix_spawn_file_actions_addclose(&actions, sockets[0]);
-   if (!error && sockets[1] != 3)
-      error = posix_spawn_file_actions_adddup2(&actions, sockets[1], 3);
-   if (!error && sockets[1] != 3)
-      error = posix_spawn_file_actions_addclose(&actions, sockets[1]);
-   /* The child must not inherit server TLS sockets, databases, or radio FDs.
-    * Actions run in order: first dup the private socket to fd 3, then close
-    * every other inherited descriptor. Never silently drop this isolation.
+   bool actions_ready = false;
+   if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sockets) ||
+       socketpair(AF_UNIX, SOCK_SEQPACKET, 0, watchdog)) goto fail;
+   /* Reserve high-numbered descriptors to ensure the two dup2 actions to
+    * fixed child fd 3/4 never clobber either source descriptor.
     */
+   for (int i = 0; i < 2; ++i) {
+      int moved = fcntl(sockets[i], F_DUPFD_CLOEXEC, 10);
+      if (moved < 0) goto fail;
+      close(sockets[i]);
+      sockets[i] = moved;
+      moved = fcntl(watchdog[i], F_DUPFD_CLOEXEC, 10);
+      if (moved < 0) goto fail;
+      close(watchdog[i]);
+      watchdog[i] = moved;
+   }
+   if (posix_spawn_file_actions_init(&actions)) goto fail;
+   actions_ready = true;
+   int error = posix_spawn_file_actions_adddup2(&actions, sockets[1], 3);
+   if (!error) error = posix_spawn_file_actions_adddup2(&actions, watchdog[1], 4);
 #if defined(__GLIBC__)
 #if __GLIBC_PREREQ(2, 34)
-   if (!error)
-      error = posix_spawn_file_actions_addclosefrom_np(&actions, 4);
+   if (!error) error = posix_spawn_file_actions_addclosefrom_np(&actions, 5);
 #else
-   if (!error)
-      error = ENOTSUP;
+   if (!error) error = ENOTSUP;
 #endif
 #else
-   if (!error)
-      error = ENOTSUP;
+   if (!error) error = ENOTSUP;
 #endif
    if (error) {
       posix_spawn_file_actions_destroy(&actions);
+      actions_ready = false;
       goto fail;
    }
    char parent_arg[32], model_arg[32], baud_arg[32], timeout_arg[32];
@@ -142,11 +171,16 @@ bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
    };
    int spawned = posix_spawn(&t->pid, path, &actions, NULL, argv, environ);
    posix_spawn_file_actions_destroy(&actions);
+   actions_ready = false;
    close(sockets[1]);
    sockets[1] = -1;
+   close(watchdog[1]);
+   watchdog[1] = -1;
    if (spawned) goto fail;
    t->fd = sockets[0];
    sockets[0] = -1;
+   t->watchdog_fd = watchdog[0];
+   watchdog[0] = -1;
    uint8_t packet[PACKET];
    rr_hamlib_ipc_header_t hello;
    if (!recv_frame(t, &hello, packet, 7000) ||
@@ -155,12 +189,17 @@ bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
        !send_frame(t, RR_HAMLIB_IPC_HELLO_ACK, 0, NULL, 0)) goto fail;
    atomic_store(&t->running, true);
    atomic_store(&t->connected, true);
+   if (pthread_create(&t->watchdog, NULL, watchdog_responder_main, t)) goto fail;
+   t->watchdog_started = true;
    if (pthread_create(&t->heartbeat, NULL, heartbeat_main, t)) goto fail;
    t->heartbeat_started = true;
    return true;
 fail:
+   if (actions_ready) posix_spawn_file_actions_destroy(&actions);
    if (sockets[0] >= 0) close(sockets[0]);
    if (sockets[1] >= 0) close(sockets[1]);
+   if (watchdog[0] >= 0) close(watchdog[0]);
+   if (watchdog[1] >= 0) close(watchdog[1]);
    rr_hamlib_transport_close(t);
    return false;
 }
@@ -198,6 +237,14 @@ void rr_hamlib_transport_close(rr_hamlib_transport_t *t) {
    if (t->heartbeat_started) {
       pthread_join(t->heartbeat, NULL);
       t->heartbeat_started = false;
+   }
+   if (t->watchdog_started) {
+      pthread_join(t->watchdog, NULL);
+      t->watchdog_started = false;
+   }
+   if (t->watchdog_fd >= 0) {
+      close(t->watchdog_fd);
+      t->watchdog_fd = -1;
    }
    if (t->fd >= 0) {
       close(t->fd);
