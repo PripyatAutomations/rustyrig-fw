@@ -7,6 +7,34 @@
 #include "rrclient/gtk/gtk.chat.c"
 #include "rrclient/gtk/gtk.chat.links.c"
 #include "rrclient/gtk/gtk.chat.highlight.c"
+/* Standalone chat/formatting fixture: no real WS, local SDR, or RF stream. */
+char session_token[HTTP_TOKEN_LEN + 1] = "test-session";
+
+bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
+   (void)window; (void)fmt; (void)ap;
+   return false;
+}
+
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int opcode) {
+   (void)sender; (void)dest; (void)message; (void)opcode;
+   return true;
+}
+
+bool rrclient_local_bridge_ui_state_vfo(char vfo, rr_local_bridge_ui_state_t *out) {
+   (void)vfo; (void)out;
+   return false;
+}
+
+size_t rrclient_media_remote_rf_snapshot(rr_remote_rf_source_t *out, size_t count) {
+   (void)out; (void)count;
+   return 0;
+}
+
+void rrclient_local_bridge_traffic(uint64_t *rx, uint64_t *tx) {
+   if (rx) *rx = 0;
+   if (tx) *tx = 0;
+}
+
 bool ui_print(const char *room, const char *format, ...) {
    return false;
 }
