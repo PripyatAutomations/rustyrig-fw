@@ -117,7 +117,7 @@ static void execute_command(RIG *rig, const uint8_t *command, uint8_t *reply) {
       case RR_HAMLIB_OP_MODE_SET: {
          rmode_t mode = physical_mode(requested);
          if (mode == RIG_MODE_NONE) return;
-         rc = rig_set_mode(rig, vfo, mode, RIG_PASSBAND_NOCHANGE);
+         rc = rig_set_mode(rig, vfo, mode, RIG_PASSBAND_NORMAL);
          break;
       }
       case RR_HAMLIB_OP_WIDTH_SET: {
