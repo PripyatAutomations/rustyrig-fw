@@ -344,7 +344,8 @@ int main(int argc, char **argv) {
    assert(rr_unload_module("rrserver-hamlib"));
    assert(!rr_backend_type_find("hamlib-legacy"));
    assert(rr_load_module("rrserver-hamlib"));
-   assert(rr_backend_type_find("hamlib"));
+   assert(rr_backend_type_find("hamlib-legacy"));
+   assert(!rr_backend_type_find("hamlib")); /* proxy is registered by rrserver, not the legacy module */
    assert(rr_unload_module("rrserver-hamlib"));
 #endif
    assert(!rig.rigs && !rig.default_cat);
