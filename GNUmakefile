@@ -180,6 +180,10 @@ test-hamlib-transport:
 	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-transport tests/rrserver/test_hamlib_transport.c rrserver/hamlib.transport.c
 	$(BUILD_DIR)/tests/test-hamlib-transport
 
+.PHONY: test-hamlib-leak-probe
+test-hamlib-leak-probe:
+	python3 tests/rrserver/run_hamlib_leak_probe.py
+
 .PHONY: test-hamlib-subprocess
 test-hamlib-subprocess: bin/rrhamlib
 	PROFILE='$(PROFILE)' bash rrserver/tests/test_hamlib_subprocess.sh
