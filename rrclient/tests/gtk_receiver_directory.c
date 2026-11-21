@@ -47,6 +47,63 @@ const char *cfg_get(const char *key) {
 void Log(logpriority_t priority, const char *subsystem, const char *format, ...) {
 }
 
+/* Deliver a real value-only directory snapshot through the two event domains,
+ * as the production core does. No live HTTP/receiver transport is started. */
+static void dispatch_immediately(event_dispatch_fn_t callback, void *arg, void *user) {
+   (void)user;
+   callback(arg);
+}
+
+static void directory_snapshot_reply(const rr_event_message_t *request, void *unused) {
+   (void)request; (void)unused;
+   size_t count = receiver_directory_count();
+   size_t length = sizeof(rr_receiver_directory_snapshot_header_t) +
+      count * sizeof(rr_receiver_directory_snapshot_row_t);
+   guint8 *payload = g_malloc0(length);
+   rr_receiver_directory_snapshot_header_t *header = (void *)payload;
+   header->count = (uint32_t)count;
+   rr_receiver_directory_snapshot_row_t *rows = (void *)(payload + sizeof(*header));
+   for (size_t i = 0; i < count; ++i) {
+      const receiver_directory_entry_t *src = receiver_directory_receiver(i);
+      rr_receiver_directory_snapshot_row_t *dst = &rows[i];
+#define COPY(name) g_strlcpy(dst->name, src->name ? src->name : "", sizeof(dst->name))
+      COPY(driver); COPY(url); COPY(name); COPY(description);
+      COPY(location); COPY(country); COPY(contact); COPY(antenna);
+      COPY(hardware); COPY(grid); COPY(properties);
+      COPY(local_state); COPY(local_reason);
+#undef COPY
+      dst->users = src->users;
+      dst->users_max = src->users_max;
+      dst->ext_api = src->ext_api;
+      dst->offline = src->offline;
+      dst->flagged = src->flagged;
+      dst->deleted = src->deleted;
+      dst->favorite = src->favorite;
+      dst->last_seen = src->last_seen;
+      dst->learned_at = src->learned_at;
+      dst->state_updated = src->state_updated;
+      dst->last_connected = src->last_connected;
+      dst->low_hz = src->low_hz;
+      dst->high_hz = src->high_hz;
+   }
+   rr_event_message_t response = {
+      .name = "client.ui.receiver.snapshot", .payload = payload, .length = length
+   };
+   event_emit_message(&response);
+   g_free(payload);
+}
+
+static void drain_directory(void) {
+   for (unsigned tries = 0; tries < 1000; ++tries) {
+      while (g_main_context_pending(NULL))
+         g_main_context_iteration(NULL, FALSE);
+      if (directory_filter && !snapshot_pending && snapshot_count == receiver_directory_count())
+         return;
+      g_usleep(1000);
+   }
+   assert(!"GTK receiver directory snapshot did not arrive");
+}
+
 static int visible_count(void) {
    return gtk_tree_model_iter_n_children(GTK_TREE_MODEL(directory_filter), NULL);
 }
@@ -55,7 +112,14 @@ int main(int argc, char **argv) {
    assert(argc == 2);
    test_db = argv[1];
    event_init();
+   assert(event_domain_register("core", dispatch_immediately, NULL));
+   assert(event_domain_register("gtk", dispatch_immediately, NULL));
+   assert(event_on_message_domain_token("client.receiver.snapshot.request", directory_snapshot_reply, NULL, "core"));
    gtk_init(&argc, &argv);
+   main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   main_notebook = gtk_notebook_new();
+   gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
+   gtk_widget_show_all(main_window);
    g_unsetenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
    const char *data = "{\"schema\":1,\"receivers\":["
       "{\"url\":\"http://a.invalid:8073/\",\"name\":\"<b>Receiver A</b>\",\"loc\":\"North\",\"contact\":\"sysop@example.invalid\",\"ext_api\":2,\"bands\":[10000,30000000]},"
@@ -67,6 +131,7 @@ int main(int argc, char **argv) {
    assert(receiver_directory_import(path));
    gtk_receiver_directory_init();
    event_emit("client.receiver-directory.show", NULL, NULL);
+   drain_directory();
    assert(directory_page && visible_count() == 2 && !receiver_directory_busy());
    GtkTreeIter iter;
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(directory_filter), &iter));
