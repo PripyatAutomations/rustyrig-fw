@@ -480,8 +480,10 @@ int main(void) {
    while (gtk_events_pending()) {
       gtk_main_iteration();
    }
-   gint narrow_width = 0, wide_width = 0;
-   gtk_widget_get_preferred_width(scroll, &narrow_width, NULL);
+   /* The scrolled window's preferred width is constrained by its pane,
+    * and the Username column is intentionally fixed/ellipsized. Measure
+    * the full model content using the same helper as roster auto-fit. */
+   gint narrow_width = userlist_content_width(view), wide_width = 0;
    gtk_list_store_set(store, &iter, COL_USERNAME, "A_MUCH_LONGER_USERNAME", -1);
    while (gtk_events_pending()) {
       gtk_main_iteration();
@@ -490,7 +492,7 @@ int main(void) {
    while (gtk_events_pending()) {
       gtk_main_iteration();
    }
-   gtk_widget_get_preferred_width(scroll, &wide_width, NULL);
+   wide_width = userlist_content_width(view);
    assert(narrow_width > 0 && wide_width > narrow_width);
    GtkPolicyType horizontal_policy, vertical_policy;
    gtk_scrolled_window_get_policy(GTK_SCROLLED_WINDOW(scroll), &horizontal_policy, &vertical_policy);
