@@ -33,6 +33,22 @@ int main(void) {
    received[15] = 3;
    received[7] = 0xff;
    assert(!rr_hamlib_ipc_decode(&got, received, sizeof(received)));
+   /* Required in-band control liveness messages are version 2 frames. */
+   uint8_t probe[RR_HAMLIB_IPC_HEADER_SIZE] = {0};
+   rr_hamlib_ipc_header_t ping = {
+      .magic = RR_HAMLIB_IPC_MAGIC, .version = RR_HAMLIB_IPC_VERSION,
+      .type = RR_HAMLIB_IPC_PING, .sequence = 42, .payload_size = 0
+   };
+   assert(rr_hamlib_ipc_encode(probe, sizeof(probe), &ping));
+   assert(rr_hamlib_ipc_decode(&got, probe, sizeof(probe)));
+   assert(got.type == RR_HAMLIB_IPC_PING && got.sequence == 42);
+   ping.type = RR_HAMLIB_IPC_PONG;
+   assert(rr_hamlib_ipc_encode(probe, sizeof(probe), &ping));
+   assert(rr_hamlib_ipc_decode(&got, probe, sizeof(probe)));
+   assert(got.type == RR_HAMLIB_IPC_PONG && got.sequence == 42);
+   probe[5] = 1; /* obsolete version 1 must be refused */
+   assert(!rr_hamlib_ipc_decode(&got, probe, sizeof(probe)));
+
    /* Application request encoding has no native C struct ABI dependency. */
    uint8_t command[RR_HAMLIB_IPC_COMMAND_SIZE] = {0};
    command[0] = RR_HAMLIB_OP_FREQ_SET;
