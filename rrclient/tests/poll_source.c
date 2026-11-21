@@ -9,10 +9,6 @@
 
 static unsigned network_polls, reconnect_polls, ui_ticks;
 static gint64 max_ui_gap, last_ui_tick;
-void mg_mgr_poll(struct mg_mgr *manager, int wait_ms) {
-   assert(wait_ms == 0);
-}
-
 void rrclient_direct_poll(void) {
 }
 
@@ -21,7 +17,6 @@ void rrclient_dcc_poll(void) {
 
 void rrclient_poll_events(void) {
    network_polls++;
-   mg_mgr_poll(&mgr, 0);
    // Independent UI work must also be ready while the network is serviced.
 }
 
@@ -42,7 +37,8 @@ static gboolean ui_tick(gpointer unused) {
 }
 
 int main(void) {
-   poll_mongoose_init();
+   /* Native transport uses the same nonblocking GLib callback, without Mongoose. */
+   guint poll_source = g_timeout_add_full(G_PRIORITY_HIGH, 10, ws_poll_cb, NULL, NULL);
    guint ui_source = g_timeout_add(1, ui_tick, NULL);
    gint64 start = g_get_monotonic_time();
    // Measure dispatch cost directly too: the transport callback must not wait.
@@ -56,6 +52,7 @@ int main(void) {
    assert(ui_ticks > network_polls * 3);
    assert(max_ui_gap < 30000);
    g_source_remove(ui_source);
+   g_source_remove(poll_source);
    unsigned before_shutdown = network_polls;
    dying = true;
    assert(ws_poll_cb(NULL) == G_SOURCE_REMOVE && network_polls == before_shutdown);
