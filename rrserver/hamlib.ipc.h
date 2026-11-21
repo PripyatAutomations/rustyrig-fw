@@ -30,7 +30,9 @@ typedef enum {
    RR_HAMLIB_IPC_RELEASE_RESULT,
    RR_HAMLIB_IPC_HEARTBEAT,
    RR_HAMLIB_IPC_LEASE_RENEW,
-   RR_HAMLIB_IPC_LEASE_EXPIRED
+   RR_HAMLIB_IPC_LEASE_EXPIRED,
+   RR_HAMLIB_IPC_PING,
+   RR_HAMLIB_IPC_PONG
 } rr_hamlib_ipc_type_t;
 
 /* Not an on-wire C struct. Encode every field explicitly in network byte
@@ -79,7 +81,7 @@ typedef struct {
 static inline bool rr_hamlib_ipc_valid(const rr_hamlib_ipc_header_t *h) {
    return h && h->magic == RR_HAMLIB_IPC_MAGIC &&
       h->version == RR_HAMLIB_IPC_VERSION &&
-      h->type >= RR_HAMLIB_IPC_HELLO && h->type <= RR_HAMLIB_IPC_LEASE_EXPIRED &&
+      h->type >= RR_HAMLIB_IPC_HELLO && h->type <= RR_HAMLIB_IPC_PONG &&
       h->payload_size <= RR_HAMLIB_IPC_MAX_PAYLOAD && h->flags == 0;
 }
 
