@@ -164,7 +164,8 @@ int main(int argc, char **argv) {
        parse_int(argv[2], 1, INT_MAX, &parent) ||
        strcmp(argv[3], "--model") || parse_int(argv[4], 1, INT_MAX, &model) ||
        strcmp(argv[5], "--device") || !(device = argv[6]) || !*device ||
-       strcmp(argv[7], "--baud") || parse_int(argv[8], 1, 4000000, &baud) ||\n       strcmp(argv[9], "--timeout-ms") || parse_int(argv[10], 1, 5000, &timeout)) {
+       strcmp(argv[7], "--baud") || parse_int(argv[8], 1, 4000000, &baud) ||
+       strcmp(argv[9], "--timeout-ms") || parse_int(argv[10], 1, 5000, &timeout)) {
       fprintf(stderr, "usage: rrhamlib --parent PID --model ID --device PATH --baud RATE --timeout-ms MS\n");
       return 2;
    }
