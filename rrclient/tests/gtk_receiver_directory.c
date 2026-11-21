@@ -17,7 +17,7 @@ static void local_bridge_request(const rr_event_message_t *message, void *unused
    (void)unused;
    assert(message && message->payload && message->length == sizeof(rrclient_local_bridge_lifecycle_request_t));
    const rrclient_local_bridge_lifecycle_request_t *req = message->payload;
-   assert(!strcmp(req->url, "http://a.invalid:8073/"));
+   assert(!strcmp(req->url, "http://a.invalid:8073"));
    assert(!strcmp(req->driver, "kiwi") && !req->disconnect);
    ++local_connects;
 }
