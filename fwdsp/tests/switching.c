@@ -213,6 +213,9 @@ int main(int argc, char **argv) {
    // cached setup packets, followed by live pages, without restarting TX.
    fwdsp_codec_stop("oggv", false);
    assert(fwdsp_codec_start("oggv", false, NULL) >= 0);
+   /* Stop destroys the old decoder and its PCM callback. Register the
+    * new instance's tap before replaying encoder setup to a late joiner. */
+   assert(fwdsp_codec_set_pcm_callback("oggv", NULL, soak_pcm, NULL));
    decoded_samples = 0;
    rrconn_t late_listener = {
       0
