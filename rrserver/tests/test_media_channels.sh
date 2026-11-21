@@ -6,7 +6,7 @@ trap 'rm -rf "$work"' EXIT
 
 ${CC:-cc} -pthread -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
    -ffunction-sections -fdata-sections rrserver/tests/media_channels.c \
-   rrserver/media.c rrserver/rig.registry.c rrserver/backend.instance.c rrserver/backend.worker.c \
+   rrserver/media.c rrserver/ws.mediachan.c rrserver/srv.chat.c rrserver/rig.registry.c rrserver/backend.instance.c rrserver/backend.worker.c \
    rrserver/rig.properties.c rrserver/cfg.rig.c rrserver/rig.rooms.c \
    rrserver/database.c rrserver/database.rooms.c rrserver/database.users.c rrserver/database.accounting.c $(pkg-config --cflags --libs sqlite3 glib-2.0) -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrrprotocol -lfwdspmgr -lrustyaxe $(pkg-config --cflags --libs glib-2.0) ${LDFLAGS:-} -o "$work/media_channels"
