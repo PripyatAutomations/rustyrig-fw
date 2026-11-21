@@ -174,6 +174,12 @@ test-hamlib-ipc:
 	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -o $(BUILD_DIR)/tests/test-hamlib-ipc tests/rrserver/test_hamlib_ipc.c
 	$(BUILD_DIR)/tests/test-hamlib-ipc
 
+.PHONY: test-hamlib-transport
+test-hamlib-transport:
+	@mkdir -p $(BUILD_DIR)/tests
+	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-transport tests/rrserver/test_hamlib_transport.c rrserver/hamlib.transport.c
+	$(BUILD_DIR)/tests/test-hamlib-transport
+
 TEST_SUITES ?= selftest packaging rrserver rrclient fwdsp libfwdspmgr
 .PHONY: test
 test tests: ${bins} bin/rr-password-hash test-rrsdrutils
