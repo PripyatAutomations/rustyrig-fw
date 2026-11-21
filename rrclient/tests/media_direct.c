@@ -15,6 +15,20 @@
 #include <librrprotocol/rtp.h>
 #include <rrclient/irc.h>
 #include <rrclient/media.direct.h>
+/* UDP attachment ingress uses the same validated AUDIO event contract as
+ * the full client websocket dispatcher; unrelated GUI/network dispatch is
+ * intentionally absent from this isolated transport policy test. */
+bool ws_binframe_process_client(rrconn_t *connection, const char *data, size_t length) {
+   struct rr_binframe frame;
+   if (!data || rr_binframe_parse((const uint8_t *)data, length, &frame) ||
+       length != RR_BINFRAME_HDR_LEN + frame.len)
+      return false;
+   if (frame.hdr.subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
+       frame.hdr.direction == RR_BINFRAME_DIR_RX)
+      event_emit_binary(RR_AUDIO_FRAME_EVENT, connection, data, length);
+   return rr_binframe_dispatch(&frame, connection);
+}
+
 static uint64_t time_offset;
 long long mono_us(void) {
    struct timespec t;
