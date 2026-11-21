@@ -201,9 +201,16 @@ extra_clean += ${BUILD_DIR}/rrserver/module.gps-nmea.o ${BUILD_DIR}/rrserver/mod
 
 endif
 
-# Hamlib compatibility module is opt-in at runtime; rrhamlib is a private executable.\n# Never link libhamlib into rrserver.
+# Hamlib compatibility module is opt-in at runtime; rrhamlib is a private executable.
+# Never link libhamlib into rrserver.
 ifeq (${USE_HAMLIB},true)
-hamlib_module := bin/rrserver-hamlib.so\n# A distinct CAT owner process; built alongside the optional legacy module.\nbins += bin/rrhamlib\nbin/rrhamlib: rrserver/rrhamlib.c rrserver/hamlib.ipc.h\n\t@mkdir -p bin\n\t@$(CC) $(CFLAGS) $(shell pkg-config --cflags hamlib) -o $@ rrserver/rrhamlib.c $(shell pkg-config --libs hamlib) $(LDFLAGS)\nextra_clean += bin/rrhamlib
+hamlib_module := bin/rrserver-hamlib.so
+# A distinct CAT owner process; built alongside the optional legacy module.
+bins += bin/rrhamlib
+bin/rrhamlib: rrserver/rrhamlib.c rrserver/hamlib.ipc.h
+	@mkdir -p bin
+	@$(CC) $(CFLAGS) $(shell pkg-config --cflags hamlib) -o $@ rrserver/rrhamlib.c $(shell pkg-config --libs hamlib) $(LDFLAGS)
+extra_clean += bin/rrhamlib
 bins += ${hamlib_module}
 ${BUILD_DIR}/rrserver/backend.hamlib.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags hamlib)
 bin/rrserver-hamlib.so: ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o
