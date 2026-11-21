@@ -170,8 +170,10 @@ int main(int argc, char **argv) {
    assert(strstr(text, "<b>Receiver A</b>") && strstr(text, "sysop@example.invalid") && strstr(text, "30000000"));
    g_free(text);
    assert(receiver_directory_set_state("http://a.invalid:8073/", "unreachable", "Test failure"));
+   drain_directory();
    assert(visible_count() == 1);
    assert(receiver_directory_set_state("http://a.invalid:8073/", "unknown", "Cleared"));
+   drain_directory();
    assert(visible_count() == 2);
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(accessible_only), FALSE);
    assert(visible_count() == 5);
