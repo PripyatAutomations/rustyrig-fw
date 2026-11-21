@@ -3,6 +3,36 @@
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <assert.h>
 #include <rrserver/supervision.c>
+/* Minimal authentication fixture: exercise the actual supervision policy,
+ * including OR-separated role queries, without linking the full auth server. */
+http_user_t http_users[HTTP_MAX_USERS];
+
+bool has_priv(int uid, const char *roles) {
+   if (uid < 0 || uid >= HTTP_MAX_USERS || !roles) return false;
+   const char *granted = http_users[uid].privs;
+   for (const char *r = roles; *r;) {
+      const char *end = strchr(r, '|');
+      size_t len = end ? (size_t)(end - r) : strlen(r);
+      const char *p = granted;
+      while (*p) {
+         while (*p == ',' || *p == ' ') ++p;
+         const char *next = strchr(p, ',');
+         size_t n = next ? (size_t)(next - p) : strlen(p);
+         while (n && p[n - 1] == ' ') --n;
+         if (len == n && !strncmp(p, r, len)) return true;
+         if (!next) break;
+         p = next + 1;
+      }
+      if (!end) break;
+      r = end + 1;
+   }
+   return false;
+}
+
+const char *ws_authoritative_room(void) {
+   return "#test-rig0";
+}
+
 time_t now;
 bool dying, restarting;
 rrconn_t *http_client_list;
