@@ -114,6 +114,16 @@ static void drain_directory(void) {
    assert(!"GTK receiver directory snapshot did not arrive");
 }
 
+static gboolean select_receiver_row(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer user) {
+   (void)user;
+   guint index = G_MAXUINT;
+   gtk_tree_model_get(model, iter, COL_INDEX, &index, -1);
+   if (index != 0) return FALSE;
+   gtk_tree_view_expand_to_path(GTK_TREE_VIEW(directory_tree), path);
+   gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), path);
+   return TRUE;
+}
+
 static int visible_count(void) {
    return gtk_tree_model_iter_n_children(GTK_TREE_MODEL(directory_filter), NULL);
 }
@@ -144,24 +154,12 @@ int main(int argc, char **argv) {
    event_emit("client.receiver-directory.show", NULL, NULL);
    drain_directory();
    assert(directory_page && visible_count() == 2 && !receiver_directory_busy());
-   /* Select a receiver leaf, not the "Connected SDRs"/country group
-    * headers (which have COL_INDEX=G_MAXUINT and disable both actions). */
+   /* Walk all levels of the sorted/filtered model and select receiver #0.
+    * Group headings have COL_INDEX=G_MAXUINT; URLs are canonicalized. */
    GtkTreeModel *view_model = gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
-   GtkTreeIter group, iter;
-   gboolean found = FALSE;
-   for (gboolean valid = gtk_tree_model_get_iter_first(view_model, &group);
-        valid && !found; valid = gtk_tree_model_iter_next(view_model, &group)) {
-      for (gboolean child = gtk_tree_model_iter_children(view_model, &iter, &group);
-           child; child = gtk_tree_model_iter_next(view_model, &iter)) {
-         char *url = NULL;
-         gtk_tree_model_get(view_model, &iter, COL_URL, &url, -1);
-         found = url && !strcmp(url, "http://a.invalid:8073/");
-         g_free(url);
-         if (found) break;
-      }
-   }
-   assert(found);
-   gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
+   gtk_tree_model_foreach(view_model, select_receiver_row, NULL);
+   const receiver_directory_entry_t *chosen = selected_receiver();
+   assert(chosen && !strcmp(chosen->name, "<b>Receiver A</b>"));
    assert(gtk_widget_get_sensitive(favorite_button) && gtk_widget_get_sensitive(connect_button));
    connect_clicked(NULL, NULL);
    assert(local_connects == 1 && connects == 0);
