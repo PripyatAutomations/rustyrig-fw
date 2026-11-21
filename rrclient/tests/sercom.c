@@ -15,6 +15,17 @@
 #include <rrclient/objects.h>
 #include <rrclient/vfo.h>
 
+/* Isolated serial endpoint test; server room and GPS inputs are fixtures. */
+static char test_site_room[128] = "#site";
+void ws_set_authoritative_room(const char *room) {
+   g_strlcpy(test_site_room, room, sizeof(test_site_room));
+}
+const char *ws_authoritative_room(void) { return test_site_room; }
+bool rrclient_local_bridge_gps_active(void) { return false; }
+void rrclient_media_emit_gps_for_room(const char *room) { (void)room; }
+GMainContext *rrclient_core_context(void) { return g_main_context_default(); }
+const char *rrclient_selected_server(void) { return "test"; }
+const char *rrclient_media_active_room(void) { return "#site-rig0"; }
 time_t now;
 bool dying, restarting;
 rrconn_t *ws_conn;
