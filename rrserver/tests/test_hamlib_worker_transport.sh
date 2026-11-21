@@ -9,6 +9,6 @@ if ! grep -q '^#define USE_HAMLIB' "build/$profile/build_config.h" 2>/dev/null; 
 elif ! command -v rigctld >/dev/null; then
    echo 'SKIP: real Hamlib dummy rig requires rigctld'
 else
-   make --no-print-directory PROFILE="$profile" test-hamlib-dummy
+   make --no-print-directory PROFILE="$profile" test-hamlib-dummy test-hamlib-subprocess
 fi
 echo 'PASS: Hamlib IPC framing and worker transport suite'
