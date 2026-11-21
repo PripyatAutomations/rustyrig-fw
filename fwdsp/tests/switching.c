@@ -47,7 +47,10 @@ const char *cfg_get(const char *key) {
 }
 
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
-   if (level > LOG_WARN) {
+   /* Keep subprocess stderr visible in this isolated fixture: exec failure
+    * details are emitted at DEBUG by the manager, and otherwise a status
+    * 127 offers no indication which executable/path failed. */
+   if (level > LOG_WARN && (!subsys || strcmp(subsys, "fwdsp") || !strstr(fmt, "stderr"))) {
       return;
    }
    va_list ap;
