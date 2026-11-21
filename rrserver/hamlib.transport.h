@@ -14,7 +14,10 @@
  */
 typedef struct rr_hamlib_transport {
    int fd;
+   int watchdog_fd; /* separate child-initiated liveness challenge channel */
    pid_t pid;
+   pthread_t watchdog;
+   bool watchdog_started;
    pthread_t heartbeat;
    pthread_mutex_t send_mutex;
    atomic_bool running;
