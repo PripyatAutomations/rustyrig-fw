@@ -26,6 +26,7 @@ typedef struct {
    bool reconnecting;
    bool transport_active;
    bool tx_inhibit; /* latched on ambiguity or recovery; explicit verified PTT OFF clears */
+   int64_t recovered_ms; /* old queued control jobs cannot rearm new worker */
 } hamlib_proxy_t;
 
 static hamlib_proxy_t *proxy(rr_backend_t *b) {
@@ -147,6 +148,7 @@ static bool hp_reconnect(rr_backend_t *b, hamlib_proxy_t *p) {
        * recovery. Queued/stale key-down jobs must never cross sessions.
        */
       p->tx_inhibit = true;
+      p->recovered_ms = hp_now_ms();
       rr_backend_log(b, LOG_INFO, "backend.hamlib",
          "%s: rrhamlib restarted; physical startup PTT OFF confirmed, TX lease reset",
          rr_backend_instance_alias(b));
@@ -276,7 +278,9 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
        */
       if (!rr_backend_config_get_bool(b, "hamlib.tx-enabled", false) ||
           !p || p->tx_inhibit || !p->transport_active ||
-          !rr_hamlib_transport_ready(&p->transport))
+          !rr_hamlib_transport_ready(&p->transport) ||
+          (p->recovered_ms > 0 &&
+           rr_backend_worker_job_queued_ms() <= p->recovered_ms))
          return true;
       rr_vfo_t tx_index;
       uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
@@ -311,7 +315,12 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
    }
    p->transmitting[index] = false;
    p->ptt_known[index] = true;
-   p->tx_inhibit = false; /* an explicit server key-up re-arms TX */
+   /* A pre-crash queued key-up is not permission to rearm a replacement
+    * worker; the server must submit a fresh verified key-up after recovery.
+    */
+   if (p->recovered_ms == 0 ||
+       rr_backend_worker_job_queued_ms() > p->recovered_ms)
+      p->tx_inhibit = false;
    return false;
 }
 static bool hp_ptt_get(rr_backend_t *b, rr_server_vfo_t *v) {
