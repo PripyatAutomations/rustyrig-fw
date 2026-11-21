@@ -70,6 +70,14 @@ ifneq ($(MODEMS_ENABLED),)
 	install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modems$(LIBEXECDIR)/modems/rrmodem-ft8
 endif
 	install -Dm755 bin/rrserver debian/rustyrig-server$(BINDIR)/rrserver
+	# The default hamlib backend executes this private child; the legacy
+	# in-process module is included for explicit emergency rollback only.
+	@if test -x bin/rrhamlib; then \
+		install -Dm755 bin/rrhamlib debian/rustyrig-server-hamlib$(LIBEXECDIR)/rrhamlib; \
+	else echo 'No Hamlib worker built for selected server profile'; fi
+	@if test -f bin/rrserver-hamlib.so; then \
+		install -Dm755 bin/rrserver-hamlib.so debian/rustyrig-server-hamlib$(MODULEDIR)/rrserver/rrserver-hamlib.so; \
+	fi
 	install -Dm755 bin/rr-password-hash debian/rustyrig-server/usr/lib/rustyrig/rr-password-hash
 	install -Dm755 bin/rr-dds-si5351 debian/rustyrig-server$(BINDIR)/rr-dds-si5351
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server$(MODULEDIR)/rrserver/rrserver-gps-nmea.so
