@@ -116,7 +116,12 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
    rr_vfo_t index;
    uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
    if (!p || !index_of(v, &index) || !request(b, v, RR_HAMLIB_OP_POLL, 0, result)) {
-      if (p && index_of(v, &index)) p->known[index] = false;
+      if (p && index_of(v, &index)) {
+         p->known[index] = false;
+         rr_backend_property_unavailable(b, v, RR_PROP_VFO_FREQUENCY);
+         rr_backend_property_unavailable(b, v, RR_PROP_VFO_MODE);
+         rr_backend_property_unavailable(b, v, RR_PROP_VFO_WIDTH);
+      }
       return NULL;
    }
    rr_vfo_data_t *state = calloc(1, sizeof(*state));
@@ -160,7 +165,12 @@ static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
 static bool hp_ptt_get(rr_backend_t *b, rr_server_vfo_t *v) {
    hamlib_proxy_t *p = proxy(b);
    rr_vfo_t index;
-   return p && index_of(v, &index) && p->transmitting[index];
+   /* Unknown is treated as potentially keyed for safety: never collapse
+    * a dead child or lost PTT observation into a confirmed OFF.
+    */
+   return !p || !index_of(v, &index) ||
+      !rr_hamlib_transport_ready(&p->transport) || !p->known[index] ||
+      p->transmitting[index];
 }
 static bool hp_freq_set(rr_backend_t *b, rr_server_vfo_t *v, int freq) {
    uint8_t reply[RR_HAMLIB_IPC_RESULT_SIZE];
