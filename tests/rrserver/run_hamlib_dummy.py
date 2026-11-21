@@ -58,11 +58,31 @@ def main():
         return 1
     proc, device = serve_dummy()
     try:
-        for scenario in ("normal", "kill"):
+        for scenario in ("normal", "kill", "restart"):
             subprocess.run(
                 [str(HARNESS), str(WORKER), device, scenario],
                 check=True, cwd=ROOT, timeout=30,
             )
+        # Drop the CAT server while the actual rrhamlib worker is still
+        # connected. This tests a different failure from killing rrhamlib.
+        dropped = subprocess.Popen(
+            [str(HARNESS), str(WORKER), device, "drop"],
+            cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            text=True, bufsize=1,
+        )
+        try:
+            marker = dropped.stdout.readline().strip()
+            if marker != "READY_FOR_DROP":
+                raise AssertionError(f"unexpected drop-test readiness: {marker!r}")
+            stop(proc)
+            dropped.stdin.write("\\n")
+            dropped.stdin.flush()
+            dropped.communicate(timeout=20)
+            if dropped.returncode:
+                raise RuntimeError(f"live CAT disconnect test failed: {dropped.returncode}")
+        finally:
+            if dropped.poll() is None:
+                stop(dropped)
         # A dead rigctld endpoint must never be reported as a successful
         # worker startup. Do not reuse the port or start another listener.
         stop(proc)
