@@ -133,11 +133,23 @@ int main(int argc, char **argv) {
    event_emit("client.receiver-directory.show", NULL, NULL);
    drain_directory();
    assert(directory_page && visible_count() == 2 && !receiver_directory_busy());
-   GtkTreeIter iter;
-   /* The tree view owns a sorted wrapper, not directory_filter itself.
-    * A GtkTreeIter from a different model has an invalid stamp. */
+   /* Select a receiver leaf, not the "Connected SDRs"/country group
+    * headers (which have COL_INDEX=G_MAXUINT and disable both actions). */
    GtkTreeModel *view_model = gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
-   assert(gtk_tree_model_get_iter_first(view_model, &iter));
+   GtkTreeIter group, iter;
+   gboolean found = FALSE;
+   for (gboolean valid = gtk_tree_model_get_iter_first(view_model, &group);
+        valid && !found; valid = gtk_tree_model_iter_next(view_model, &group)) {
+      for (gboolean child = gtk_tree_model_iter_children(view_model, &iter, &group);
+           child; child = gtk_tree_model_iter_next(view_model, &iter)) {
+         char *url = NULL;
+         gtk_tree_model_get(view_model, &iter, COL_URL, &url, -1);
+         found = url && !strcmp(url, "http://a.invalid:8073/");
+         g_free(url);
+         if (found) break;
+      }
+   }
+   assert(found);
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
    assert(gtk_widget_get_sensitive(favorite_button) && gtk_widget_get_sensitive(connect_button));
    connect_clicked(NULL, NULL);
