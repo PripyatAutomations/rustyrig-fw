@@ -5,6 +5,27 @@
 #include <assert.h>
 #include <rrclient/audio.c>
 /* This unit test includes audio.c without media.c. Simulate two independently subscribed radios and exercise the stable selected-radio alias. */
+/* Only client audio routing is under test; external features are inactive. */
+bool rrclient_media_rx_has_tx(const char *uuid) {
+   (void)uuid;
+   return false;
+}
+
+uint32_t rrclient_local_bridge_stream_sample_rate(const char *id) {
+   (void)id;
+   return 0;
+}
+
+gboolean rr_recordings_play_busy(void) {
+   return FALSE;
+}
+
+void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) {
+   (void)source;
+   (void)pcm;
+   (void)frames;
+}
+
 static const char *active_rx_uuid;
 bool rrclient_media_rx_is_active_rx(const char *uuid) {
    return active_rx_uuid && !strcmp(active_rx_uuid, uuid);
