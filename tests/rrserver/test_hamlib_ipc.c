@@ -33,6 +33,22 @@ int main(void) {
    received[15] = 3;
    received[7] = 0xff;
    assert(!rr_hamlib_ipc_decode(&got, received, sizeof(received)));
+   /* Application request encoding has no native C struct ABI dependency. */
+   uint8_t command[RR_HAMLIB_IPC_COMMAND_SIZE] = {0};
+   command[0] = RR_HAMLIB_OP_FREQ_SET;
+   command[1] = 1;
+   rr_hamlib_ipc_put32(command + 4, 14074000);
+   assert(rr_hamlib_ipc_get32(command + 4) == 14074000);
+   assert(rr_hamlib_ipc_get32(command + 8) == 0);
+
+   uint8_t response[RR_HAMLIB_IPC_RESULT_SIZE] = {0};
+   rr_hamlib_ipc_put32(response + 4, 7074000);
+   rr_hamlib_ipc_put32(response + 8, RR_HAMLIB_MODE_LSB);
+   rr_hamlib_ipc_put32(response + 12, 2400);
+   assert(rr_hamlib_ipc_get32(response + 4) == 7074000);
+   assert(rr_hamlib_ipc_get32(response + 8) == RR_HAMLIB_MODE_LSB);
+   assert(rr_hamlib_ipc_get32(response + 12) == 2400);
+
    close(fd[0]);
    close(fd[1]);
    return 0;
