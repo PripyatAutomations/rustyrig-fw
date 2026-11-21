@@ -23,7 +23,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(buffer, &end);
    gtk_text_buffer_insert(buffer, &end, line, -1);
-   gtk_text_buffer_insert(buffer, &end, "\\n", 1);
+   gtk_text_buffer_insert(buffer, &end, "\n", 1);
    g_free(line);
    return true;
 }
