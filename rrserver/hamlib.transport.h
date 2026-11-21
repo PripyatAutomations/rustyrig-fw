@@ -24,7 +24,7 @@ typedef struct rr_hamlib_transport {
 } rr_hamlib_transport_t;
 
 bool rr_hamlib_transport_open(rr_hamlib_transport_t *t, const char *path,
-   int model, const char *device, int baud);
+   int model, const char *device, int baud, int timeout_ms);
 bool rr_hamlib_transport_exchange(rr_hamlib_transport_t *t, uint16_t type,
    const void *payload, uint32_t length, uint16_t reply_type,
    void *reply, uint32_t *reply_length, uint32_t reply_capacity,
