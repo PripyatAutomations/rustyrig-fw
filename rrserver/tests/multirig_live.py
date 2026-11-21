@@ -9,7 +9,11 @@ import time
 
 binary, work = sys.argv[1:3]
 work = pathlib.Path(work)
-external = sys.argv[3] if len(sys.argv) > 3 else None
+mode = sys.argv[3] if len(sys.argv) > 3 else None
+subprocess_worker = mode == "--subprocess-worker"
+external = mode if mode == "--configured-endpoint" else None
+if mode and not subprocess_worker and not external:
+    raise ValueError(f"unknown fixture mode: {mode}")
 daemon = None
 client = None
 
@@ -89,6 +93,8 @@ try:
             port = reservation.getsockname()[1]
         daemon = start_daemon(port)
         config = work / "multirig.cfg"
+        worker_path = (pathlib.Path("bin/rrhamlib").resolve()
+                       if subprocess_worker else None)
         config.write_text(f"""[general]
 rig.instances=rig0 rig1
 rig.default=rig0
@@ -99,8 +105,10 @@ vfos=A B
 hamlib.device=invalid-rig0-endpoint
 hamlib.baud=4800
 [rig:rig1]
-backend=hamlib-legacy
+backend={"hamlib" if subprocess_worker else "hamlib-legacy"}
 vfos=A B
+hamlib.worker-path={worker_path if worker_path else ""}
+hamlib.reconnect-ms=1000
 hamlib.model=2
 hamlib.device=127.0.0.1:{port}
 hamlib.baud=19200
@@ -134,12 +142,20 @@ reconnect-interval=1
             daemon = None
             command("offline")
             daemon = start_daemon(port)
+            if subprocess_worker:
+                time.sleep(1.3)
             command("online")
         if not external and run == 2:
             stop(daemon)
             daemon = None
             command("offline")
             command("offline")
+        if subprocess_worker:
+            # A backend with no initial CAT service must stay registered and
+            # reconnect when the daemon becomes available later.
+            daemon = start_daemon(port)
+            time.sleep(1.3)
+            command("online")
         client.stdin.write("quit\n")
         client.stdin.flush()
         assert client.wait(timeout=15) == 0
@@ -160,7 +176,8 @@ reconnect-interval=1
     if external:
         print("PASS: configured registry, default isolation, persistent restart; see VFO snapshots for endpoint observations")
     else:
-        print("PASS: real backends, scoped config, canonical observations, default isolation, persistent restart")
+        print("PASS: real backends, scoped config, canonical observations, default isolation, persistent restart" +
+              (", subprocess recovery including offline startup" if subprocess_worker else ""))
 finally:
     stop(client)
     stop(daemon)
