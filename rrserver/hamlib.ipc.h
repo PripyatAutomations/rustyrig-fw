@@ -16,7 +16,7 @@
 #include <stddef.h>
 
 #define RR_HAMLIB_IPC_MAGIC UINT32_C(0x5252484c) /* RRHL */
-#define RR_HAMLIB_IPC_VERSION UINT16_C(1)
+#define RR_HAMLIB_IPC_VERSION UINT16_C(2)
 #define RR_HAMLIB_IPC_MAX_PAYLOAD 4096u
 
 typedef enum {
