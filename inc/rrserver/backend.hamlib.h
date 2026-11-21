@@ -6,7 +6,8 @@
 #if !defined(__rrserver_backend_hamlib_h)
 #define __rrserver_backend_hamlib_h
 
-/* Legacy module only. The default hamlib backend is the external worker. */\nextern const rr_backend_type_t rr_backend_hamlib;
+/* Legacy module only. The default hamlib backend is the external worker. */
+extern const rr_backend_type_t rr_backend_hamlib;
 extern void rr_backend_hamlib_register(void);
 /* Normal hamlib backend: compiled into server as an IPC proxy. */
 extern const rr_backend_type_t rr_backend_hamlib_subprocess;
