@@ -5,7 +5,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # Silent [[ ... ]] failures obscured the failing packaging expectation in
 # make test. Report the failing shell command and line with generated plans.
-trap 'status=$?; printf "FAIL: optional modules check at line %s (exit %s): %s\\n" "$LINENO" "$status" "$BASH_COMMAND" >&2; for log in "$work/native.log" "$work/debian.log"; do if [[ -f $log ]]; then printf "---- %s ----\\n" "$log" >&2; cat "$log" >&2; fi; done' ERR
+trap 'status=$?; printf "FAIL: optional modules check at line %s (exit %s): %s\\n" "$LINENO" "$status" "$BASH_COMMAND" >&2; for log in "$work/native.log" "$work/debian.log"; do if [[ -f $log ]]; then printf "%s\\n" "---- $log ----" >&2; cat "$log" >&2; fi; done' ERR
 command -v jq >/dev/null || { echo 'SKIP: optional module checks need jq'; exit 0; }
 real_pkg_config=$(command -v pkg-config)
 cat > "$work/pkg-config" <<EOF_PROXY
