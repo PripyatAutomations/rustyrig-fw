@@ -73,6 +73,14 @@ static bool request(rr_backend_t *b, rr_server_vfo_t *v, uint8_t op,
    }
    return true;
 }
+static bool renew_tx_lease(rr_backend_t *b) {
+   hamlib_proxy_t *p = proxy(b);
+   uint8_t result = 1;
+   uint32_t length = 0;
+   return p && rr_hamlib_transport_exchange(&p->transport,
+      RR_HAMLIB_IPC_LEASE_RENEW, NULL, 0, RR_HAMLIB_IPC_REPLY,
+      &result, &length, 1, 2000) && length == 1 && result == 0;
+}
 static bool hp_create(rr_backend_t *b) {
    hamlib_proxy_t *p = calloc(1, sizeof(*p));
    if (!p) return true;
@@ -96,7 +104,7 @@ static bool hp_create(rr_backend_t *b) {
    free(path);
    free(device);
    rr_backend_instance_set_data(b, p);
-   rr_backend_log(b, LOG_INFO, "backend.hamlib", "%s: isolated Hamlib worker connected (TX disabled until lease watchdog enabled)",
+   rr_backend_log(b, LOG_INFO, "backend.hamlib", "%s: isolated Hamlib worker connected (TX requires per-rig hamlib.tx-enabled=true; watchdog lease 1500ms)",
       rr_backend_instance_alias(b));
    return false;
 }
@@ -116,6 +124,18 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
    hamlib_proxy_t *p = proxy(b);
    rr_vfo_t index;
    uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
+   /* Only real backend activity renews TX; the transport heartbeat is
+    * deliberately independent and never extends the key-down lease.
+    */
+   if (p && index_of(v, &index) && p->transmitting[index] &&
+       (!rr_backend_config_get_bool(b, "hamlib.tx-enabled", false) ||
+        !renew_tx_lease(b))) {
+      p->ptt_known[index] = false;
+      rr_backend_log(b, LOG_CRIT, "backend.hamlib",
+         "%s: TX lease renewal failed; worker will attempt automatic PTT OFF",
+         rr_backend_instance_alias(b));
+      return NULL;
+   }
    if (!p || !index_of(v, &index) || !request(b, v, RR_HAMLIB_OP_POLL, 0, result)) {
       if (p && index_of(v, &index)) {
          p->known[index] = false;
@@ -145,11 +165,23 @@ static rr_vfo_data_t *hp_poll(rr_backend_t *b, rr_server_vfo_t *v) {
    return state;
 }
 static bool hp_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool keydown) {
-   /* TX_ON is not permitted on this migration branch. Do not mistake
-    * an accepted key-up packet for confirmation: inspect worker readback.
-    */
-   if (keydown) return true;
    hamlib_proxy_t *p = proxy(b);
+   if (keydown) {
+      /* Experimental TX stays opt-in. Server authorization and TX
+       * interlocks run before this callback; the child adds a second,
+       * independent hard-expiring lease and physical PTT verification.
+       */
+      if (!rr_backend_config_get_bool(b, "hamlib.tx-enabled", false))
+         return true;
+      rr_vfo_t tx_index;
+      uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
+      if (!p || !index_of(v, &tx_index) || !renew_tx_lease(b) ||
+          !request(b, v, RR_HAMLIB_OP_PTT_ON, 0, result))
+         return true;
+      p->transmitting[tx_index] = true;
+      p->ptt_known[tx_index] = true;
+      return false;
+   }
    rr_vfo_t index;
    uint8_t result = 1;
    uint32_t length = 0;
