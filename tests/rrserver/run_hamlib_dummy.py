@@ -63,7 +63,17 @@ def main():
                 [str(HARNESS), str(WORKER), device, scenario],
                 check=True, cwd=ROOT, timeout=30,
             )
-        print("PASS: rrhamlib real CAT via Hamlib dummy and worker death")
+        # A dead rigctld endpoint must never be reported as a successful
+        # worker startup. Do not reuse the port or start another listener.
+        stop(proc)
+        failed = subprocess.run(
+            [str(HARNESS), str(WORKER), device, "normal"],
+            cwd=ROOT, timeout=15, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if failed.returncode == 0:
+            raise AssertionError("rrhamlib unexpectedly connected after rigctld stopped")
+        print("PASS: rrhamlib real CAT, worker death, and disconnected endpoint")
         return 0
     finally:
         stop(proc)
