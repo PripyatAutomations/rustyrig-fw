@@ -31,3 +31,28 @@ deadlines; the framing limit alone does not prevent blocked Hamlib calls.
   covers worker/parent death, blocked CAT, renewal loss, and reconnect during TX.
 
 Protocol unit test (no hardware): `make test-hamlib-ipc`.
+
+
+## Backend naming and packaging migration
+
+Target topology:
+
+- `backend=hamlib` selects the **new external-process IPC proxy**. It must
+  never load or link against `libhamlib` in the server process.
+- `backend=hamlib-legacy` explicitly selects the old in-process module.
+  The compatibility module keeps the filename `rrserver-hamlib.so` for package
+  continuity but registers **only** the type `hamlib-legacy`.
+- `rrhamlib` belongs in `/usr/libexec/rustyrig/rrhamlib`, alongside other
+  private subprocesses (modems are under its `modems/` subdirectory).
+- The existing `rr_backend_t` API, typed properties and server-owned worker
+  queue must remain stable. The proxy transforms operations to IPC; the child
+  exclusively owns the physical Hamlib device.
+- Never open the same radio through both backends at once.
+
+**Migration status:** The executable currently performs a conservative
+startup release, verifies PTT OFF by readback, exchanges a private hello
+packet and handles heartbeat/release. It does **not** implement the backend
+operation proxy or TX leases yet. As a result this development branch is **not
+ready to deploy**: `backend=hamlib` must not be switched over until the proxy,
+worker operations, and fault-injection suite are complete. No live TX testing
+on this partial implementation.
