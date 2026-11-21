@@ -10,3 +10,6 @@ OPTIONAL_hamlib_SWITCH := WITH_HAMLIB
 OPTIONAL_hamlib_PACKAGE := rustyrig-server-hamlib
 OPTIONAL_hamlib_ARTIFACT := bin/rrserver-hamlib.so
 OPTIONAL_hamlib_DEST := usr/lib/rustyrig/modules/rrserver/rrserver-hamlib.so
+
+OPTIONAL_hamlib_EXTRA_ARTIFACT := bin/rrhamlib
+OPTIONAL_hamlib_EXTRA_DEST := usr/libexec/rustyrig/rrhamlib
