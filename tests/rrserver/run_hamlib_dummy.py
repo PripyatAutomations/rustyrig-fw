@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Spawn Hamlib's model-1 dummy as rigctld; test the real model-2 worker."""
 import pathlib
+import select
 import shutil
 import socket
 import subprocess
@@ -71,6 +72,9 @@ def main():
             text=True, bufsize=1,
         )
         try:
+            readable, _, _ = select.select([dropped.stdout], [], [], 15)
+            if not readable:
+                raise TimeoutError("real rrhamlib did not reach CAT-drop checkpoint")
             marker = dropped.stdout.readline().strip()
             if marker != "READY_FOR_DROP":
                 raise AssertionError(f"unexpected drop-test readiness: {marker!r}")
