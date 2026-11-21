@@ -26,5 +26,9 @@ rr_property_update_t rr_backend_property_unavailable(rr_backend_t *, rr_server_v
 bool rr_backend_worker_shutdown(rr_backend_t *, int code);
 /* Backend associated with the current worker thread, NULL elsewhere. */
 rr_backend_t *rr_backend_worker_current(void);
+/* CLOCK_MONOTONIC ms when the currently executing command was queued;
+ * -1 outside a backend job. Used to invalidate commands predating recovery.
+ */
+long long rr_backend_worker_job_queued_ms(void);
 void rr_backend_log(rr_backend_t *, logpriority_t, const char *, const char *, ...) __attribute__((format(printf, 4, 5)));
 #endif
