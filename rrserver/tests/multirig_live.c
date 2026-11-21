@@ -279,19 +279,28 @@ int main(int argc, char **argv) {
          gint64 deadline = g_get_monotonic_time() + 10000000;
          bool recovered = false;
          do {
-            rr_property_snapshot_t freq = snapshot(a1, RR_PROP_VFO_FREQUENCY);
-            rr_property_snapshot_t mode = snapshot(a1, RR_PROP_VFO_MODE);
-            if (freq.known && freq.available && freq.value.l > 0 &&
-                mode.known && mode.available) {
-               recovered = true;
-               break;
+            recovered = true;
+            for (const char *alias = "AB"; *alias; ++alias) {
+               char name[] = { *alias, 0 };
+               rr_server_vfo_t *vfo = rr_server_vfo_find_alias(r1, name);
+               if (!vfo) { recovered = false; break; }
+               rr_property_snapshot_t freq = snapshot(vfo, RR_PROP_VFO_FREQUENCY);
+               rr_property_snapshot_t mode = snapshot(vfo, RR_PROP_VFO_MODE);
+               rr_property_snapshot_t width = snapshot(vfo, RR_PROP_VFO_WIDTH);
+               if (!freq.known || !freq.available || freq.value.l <= 0 ||
+                   !mode.known || !mode.available ||
+                   !width.known || !width.available) {
+                  recovered = false;
+                  break;
+               }
             }
+            if (recovered) break;
             g_usleep(100000);
             rr_backend_poll_all();
             wait_workers();
          } while (g_get_monotonic_time() < deadline);
          if (!recovered) {
-            fprintf(stderr, "FAIL: Hamlib worker did not reconnect and refresh VFO within 10s\n");
+            fprintf(stderr, "FAIL: Hamlib worker did not refresh BOTH VFOs within 10s\n");
             abort();
          }
       }
