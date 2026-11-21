@@ -11,8 +11,21 @@
 char session_token[HTTP_TOKEN_LEN + 1] = "test-session";
 
 bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
-   (void)window; (void)fmt; (void)ap;
-   return false;
+   /* Preserve the captured profile when draining queued core-thread text.
+    * The real GTK output module has unrelated UI dependencies; this fixture
+    * writes to the same room/status text buffers to test routing identity. */
+   GtkRoomTab *tab = window && *window && room_tabs
+      ? g_hash_table_lookup(room_tabs, gtk_chat_window_name(window))
+      : status_room_tab;
+   if (!tab || !GTK_IS_TEXT_VIEW(tab->view)) return false;
+   char *line = g_strdup_vprintf(fmt, ap);
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tab->view));
+   GtkTextIter end;
+   gtk_text_buffer_get_end_iter(buffer, &end);
+   gtk_text_buffer_insert(buffer, &end, line, -1);
+   gtk_text_buffer_insert(buffer, &end, "\\n", 1);
+   g_free(line);
+   return true;
 }
 
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int opcode) {
