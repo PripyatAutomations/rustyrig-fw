@@ -12,6 +12,8 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdatomic.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,9 +83,40 @@ static uint32_t wire_mode(rmode_t mode) {
    if (mode == RIG_MODE_PKTLSB) return RR_HAMLIB_MODE_PKTLSB;
    return RR_HAMLIB_MODE_NONE;
 }
+/* A CAT call may block the IPC loop. A separate thread owns lease expiry;
+ * ordinary heartbeats NEVER renew transmit authorization. Hamlib itself
+ * serializes access to its RIG handle, so a blocked driver may also delay
+ * the release attempt. A hardware interlock is needed for a hard guarantee.
+ */
+enum { TX_LEASE_MS = 1500 };
+typedef struct {
+   RIG *rig;
+   atomic_llong expires_ms;
+   atomic_bool fault;
+   atomic_bool stopping;
+} tx_watchdog_t;
+static void *tx_watchdog_main(void *arg) {
+   tx_watchdog_t *watch = arg;
+   while (!atomic_load(&watch->stopping)) {
+      int64_t deadline = atomic_load(&watch->expires_ms);
+      if (deadline > 0 && monotonic_ms() >= deadline) {
+         atomic_store(&watch->fault, true);
+         atomic_store(&watch->expires_ms, 0);
+         fprintf(stderr, "rrhamlib: TX lease expired; forcing PTT OFF\\n");
+      }
+      /* After any expiry, continue attempting release until shutdown.
+       * Never permit new TX in the same child after its lease expires.
+       */
+      if (atomic_load(&watch->fault) && ptt_release_verified(watch->rig))
+         fprintf(stderr, "rrhamlib: lease-expiry PTT release UNCONFIRMED\\n");
+      struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
+      nanosleep(&pause, NULL);
+   }
+   return NULL;
+}
 /* All Hamlib operations execute in this child. A nonzero status means the
  * server must not infer any success or confirmed RX/TX hardware state. */
-static void execute_command(RIG *rig, const uint8_t *command, uint8_t *reply) {
+static void execute_command(RIG *rig, tx_watchdog_t *watch, const uint8_t *command, uint8_t *reply) {
    memset(reply, 0, RR_HAMLIB_IPC_RESULT_SIZE);
    reply[0] = 1;
    uint8_t operation = command[0], index = command[1];
@@ -129,6 +162,33 @@ static void execute_command(RIG *rig, const uint8_t *command, uint8_t *reply) {
          rr_hamlib_ipc_put32(reply + 12, width > 0 && (uint64_t)width <= UINT32_MAX ?
             (uint32_t)width : 0);
          reply[1] = ptt == RIG_PTT_OFF ? 0 : 1;
+         break;
+      }
+      case RR_HAMLIB_OP_PTT_ON: {
+         /* The command is valid only while its independent lease is live.
+          * The parent must obtain a fresh lease before issuing PTT_ON.
+          */
+         int64_t expiry = atomic_load(&watch->expires_ms);
+         if (requested != 0 || atomic_load(&watch->fault) ||
+             expiry <= monotonic_ms()) return;
+         ptt_t state = RIG_PTT_ON;
+         if (rig_get_ptt(rig, vfo, &state) != RIG_OK || state != RIG_PTT_OFF)
+            return;
+         rc = rig_set_ptt(rig, vfo, RIG_PTT_ON);
+         if (rc != RIG_OK) return;
+         state = RIG_PTT_OFF;
+         rc = rig_get_ptt(rig, vfo, &state);
+         if (rc != RIG_OK || state != RIG_PTT_ON) {
+            (void)rig_set_ptt(rig, vfo, RIG_PTT_OFF);
+            atomic_store(&watch->fault, true);
+            return;
+         }
+         if (atomic_load(&watch->fault) ||
+             atomic_load(&watch->expires_ms) <= monotonic_ms()) {
+            atomic_store(&watch->fault, true);
+            (void)ptt_release_verified(rig);
+            return;
+         }
          break;
       }
       case RR_HAMLIB_OP_FREQ_SET:
@@ -208,6 +268,14 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
       fprintf(stderr, "rrhamlib: startup PTT OFF not confirmed; refusing service\n");
       rig_close(rig); rig_cleanup(rig); return 5;
    }
+   tx_watchdog_t watch = { .rig = rig };
+   atomic_init(&watch.expires_ms, 0);
+   atomic_init(&watch.fault, false);
+   atomic_init(&watch.stopping, false);
+   pthread_t watch_thread;
+   if (pthread_create(&watch_thread, NULL, tx_watchdog_main, &watch)) {
+      rig_close(rig); rig_cleanup(rig); return 5;
+   }
    uint8_t packet[MAX_PACKET];
    rr_hamlib_ipc_header_t h;
    if (send_packet(fd, RR_HAMLIB_IPC_HELLO, 0, NULL, 0)) goto disconnected;
@@ -235,7 +303,9 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
          continue;
       }
       if (h.type == RR_HAMLIB_IPC_RELEASE && h.payload_size == 0) {
+         atomic_store(&watch.expires_ms, 0);
          uint8_t result = ptt_release_verified(rig) ? 1 : 0;
+         if (result) atomic_store(&watch.fault, true);
          if (send_packet(fd, RR_HAMLIB_IPC_RELEASE_RESULT, h.sequence, &result, 1)) { status = 6; break; }
          continue;
       }
@@ -245,14 +315,25 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
       if (h.type == RR_HAMLIB_IPC_REQUEST) {
          if (h.payload_size != RR_HAMLIB_IPC_COMMAND_SIZE) { status = 6; break; }
          uint8_t result[RR_HAMLIB_IPC_RESULT_SIZE];
-         execute_command(rig, payload, result);
+         execute_command(rig, &watch, payload, result);
          if (send_packet(fd, RR_HAMLIB_IPC_REPLY, h.sequence,
                          result, sizeof(result))) { status = 6; break; }
          continue;
       }
       if (h.type == RR_HAMLIB_IPC_LEASE_RENEW) {
-         /* Lease support must be implemented before accepting any TX_ON. */
+         /* No implicit renewals from heartbeat. Expired/faulted children
+          * must be discarded and replaced before a new TX is possible.
+          */
          uint8_t failure = 1;
+         if (h.payload_size == 0 && !atomic_load(&watch.fault)) {
+            int64_t deadline = atomic_load(&watch.expires_ms);
+            if (deadline == 0 || deadline > monotonic_ms()) {
+               atomic_store(&watch.expires_ms, monotonic_ms() + TX_LEASE_MS);
+               failure = 0;
+            } else {
+               atomic_store(&watch.fault, true);
+            }
+         }
          if (send_packet(fd, RR_HAMLIB_IPC_REPLY, h.sequence, &failure, 1)) { status = 6; break; }
          continue;
       }
@@ -260,6 +341,8 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
       status = 6;
       break;
    }
+   atomic_store(&watch.stopping, true);
+   pthread_join(watch_thread, NULL);
    if (ptt_release_verified(rig)) {
       fprintf(stderr, "rrhamlib: shutdown PTT OFF not confirmed; radio state UNKNOWN\n");
       status = 7;
@@ -268,6 +351,8 @@ static int run(int fd, pid_t parent, int model, const char *device, int baud, in
    rig_cleanup(rig);
    return status;
 disconnected:
+   atomic_store(&watch.stopping, true);
+   pthread_join(watch_thread, NULL);
    int confirmed = ptt_release_verified(rig) == 0;
    if (!confirmed) fprintf(stderr, "rrhamlib: disconnect PTT release unconfirmed; radio state UNKNOWN\n");
    rig_close(rig);
