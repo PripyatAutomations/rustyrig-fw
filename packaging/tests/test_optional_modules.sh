@@ -38,7 +38,8 @@ if pkg-config --exists hamlib; then
    result=$(make --no-print-directory -s CF="$work/enabled.json" --eval "$status_rule" optional-status)
    [[ $result == *USE_HAMLIB=true* && $result != *-Nrustyrig-server-hamlib* ]]
    plan=$(make --no-print-directory -sf debian/rules -n override_dh_auto_install CF="$work/enabled.json")
-   [[ $plan == *'install -Dm755 bin/rrserver-hamlib.so debian/rustyrig-server-hamlib/'* ]]
+   # The optional module and worker are staged in their runtime paths.
+   [[ $plan == *'install -Dm755 bin/rrserver-hamlib.so debian/rustyrig-server-hamlib/usr/lib/rustyrig/modules/rrserver/rrserver-hamlib.so'* ]]
    [[ $plan == *'install -Dm755 bin/rrhamlib debian/rustyrig-server-hamlib/usr/libexec/rustyrig/rrhamlib'* ]]
 fi
 echo 'PASS: profile-selected module packages, missing-SDK preflight hints and disabled/stale-artifact exclusions'
