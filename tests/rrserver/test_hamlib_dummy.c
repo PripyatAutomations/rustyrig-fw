@@ -57,7 +57,7 @@ static void verify_poll(rr_hamlib_transport_t *t, uint32_t desired_freq,
 }
 int main(int argc, char **argv) {
    if (argc != 4) {
-      fprintf(stderr, "usage: %s /absolute/path/rrhamlib host:port [normal|kill]\n", argv[0]);
+      fprintf(stderr, "usage: %s /absolute/path/rrhamlib host:port [normal|kill|restart|drop]\n", argv[0]);
       return 2;
    }
    const char *worker = argv[1], *device = argv[2], *scenario = argv[3];
@@ -90,6 +90,59 @@ int main(int argc, char **argv) {
       assert(!rr_hamlib_transport_ready(&t));
       rr_hamlib_transport_close(&t);
       puts("PASS: killed real rrhamlib causes fail-closed IPC");
+      return 0;
+   }
+   if (!strcmp(scenario, "restart")) {
+      pid_t first_pid = t.pid;
+      assert(first_pid > 0 && kill(first_pid, SIGKILL) == 0);
+      uint8_t payload[RR_HAMLIB_IPC_COMMAND_SIZE] = { 0 };
+      payload[0] = RR_HAMLIB_OP_POLL;
+      uint32_t size = 0;
+      assert(!rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_REQUEST,
+         payload, sizeof(payload), RR_HAMLIB_IPC_REPLY,
+         result, &size, sizeof(result), 3000));
+      assert(!rr_hamlib_transport_ready(&t));
+      rr_hamlib_transport_close(&t);
+      /* Explicit recovery creates a clean process/session and requires a
+       * new startup PTT OFF confirmation. Not automatic supervisor restart.
+       */
+      assert(rr_hamlib_transport_open(&t, worker, 2, device, 38400, 250));
+      assert(rr_hamlib_transport_ready(&t));
+      verify_poll(&t, 14074000, RR_HAMLIB_MODE_USB);
+      command(&t, RR_HAMLIB_OP_FREQ_SET, 0, 7074000, result);
+      verify_poll(&t, 7074000, RR_HAMLIB_MODE_USB);
+      release(&t);
+      rr_hamlib_transport_close(&t);
+      puts("PASS: explicit worker recovery re-handshakes and restores CAT control");
+      return 0;
+   }
+   if (!strcmp(scenario, "drop")) {
+      /* Parent Python process terminates rigctld only after this marker. */
+      puts("READY_FOR_DROP");
+      fflush(stdout);
+      if (getchar() == EOF) {
+         rr_hamlib_transport_close(&t);
+         return 3;
+      }
+      uint8_t payload[RR_HAMLIB_IPC_COMMAND_SIZE] = { 0 };
+      payload[0] = RR_HAMLIB_OP_POLL;
+      uint32_t size = 0;
+      bool ok = rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_REQUEST,
+         payload, sizeof(payload), RR_HAMLIB_IPC_REPLY,
+         result, &size, sizeof(result), 5000);
+      /* CAT can return a protocol-level error while IPC itself remains
+       * connected. Either is acceptable; a valid poll is not.
+       */
+      assert(!ok || size != sizeof(result) || result[0] != 0);
+      /* The child cannot truthfully confirm a PTT release after CAT loss. */
+      uint8_t ptt_result = 255;
+      size = 0;
+      ok = rr_hamlib_transport_exchange(&t, RR_HAMLIB_IPC_RELEASE,
+         NULL, 0, RR_HAMLIB_IPC_RELEASE_RESULT,
+         &ptt_result, &size, 1, 5000);
+      assert(!ok || size != 1 || ptt_result != 0);
+      rr_hamlib_transport_close(&t);
+      puts("PASS: CAT endpoint disappearance never yields confirmed poll/PTT release");
       return 0;
    }
    if (strcmp(scenario, "normal")) {

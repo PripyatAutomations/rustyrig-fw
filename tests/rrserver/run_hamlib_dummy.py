@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Spawn Hamlib's model-1 dummy as rigctld; test the real model-2 worker."""
 import pathlib
+import select
 import shutil
 import socket
 import subprocess
@@ -58,11 +59,34 @@ def main():
         return 1
     proc, device = serve_dummy()
     try:
-        for scenario in ("normal", "kill"):
+        for scenario in ("normal", "kill", "restart"):
             subprocess.run(
                 [str(HARNESS), str(WORKER), device, scenario],
                 check=True, cwd=ROOT, timeout=30,
             )
+        # Drop the CAT server while the actual rrhamlib worker is still
+        # connected. This tests a different failure from killing rrhamlib.
+        dropped = subprocess.Popen(
+            [str(HARNESS), str(WORKER), device, "drop"],
+            cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            text=True, bufsize=1,
+        )
+        try:
+            readable, _, _ = select.select([dropped.stdout], [], [], 15)
+            if not readable:
+                raise TimeoutError("real rrhamlib did not reach CAT-drop checkpoint")
+            marker = dropped.stdout.readline().strip()
+            if marker != "READY_FOR_DROP":
+                raise AssertionError(f"unexpected drop-test readiness: {marker!r}")
+            stop(proc)
+            dropped.stdin.write("\n")
+            dropped.stdin.flush()
+            dropped.communicate(timeout=20)
+            if dropped.returncode:
+                raise RuntimeError(f"live CAT disconnect test failed: {dropped.returncode}")
+        finally:
+            if dropped.poll() is None:
+                stop(dropped)
         # A dead rigctld endpoint must never be reported as a successful
         # worker startup. Do not reuse the port or start another listener.
         stop(proc)
