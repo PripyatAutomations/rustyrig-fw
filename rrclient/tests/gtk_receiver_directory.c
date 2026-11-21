@@ -12,6 +12,16 @@ GMainContext *rrclient_core_context(void) {
 time_t now = 1792080000;
 static const char *test_db;
 static unsigned connects;
+static unsigned local_connects;
+static void local_bridge_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   assert(message && message->payload && message->length == sizeof(rrclient_local_bridge_lifecycle_request_t));
+   const rrclient_local_bridge_lifecycle_request_t *req = message->payload;
+   assert(!strcmp(req->url, "http://a.invalid:8073/"));
+   assert(!strcmp(req->driver, "kiwi") && !req->disconnect);
+   ++local_connects;
+}
+
 /* Browser-only fixture: remote connections and local bridge operations are
  * absent; the directory parser, filtering and persistence remain real. */
 GtkWidget *main_window, *main_notebook;
@@ -115,6 +125,7 @@ int main(int argc, char **argv) {
    assert(event_domain_register("core", dispatch_immediately, NULL));
    assert(event_domain_register("gtk", dispatch_immediately, NULL));
    assert(event_on_message_domain_token("client.receiver.snapshot.request", directory_snapshot_reply, NULL, "core"));
+   assert(event_on_message_domain_token(RRCLIENT_LOCAL_BRIDGE_LIFECYCLE_REQUEST, local_bridge_request, NULL, "core"));
    gtk_init(&argc, &argv);
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    main_notebook = gtk_notebook_new();
@@ -153,7 +164,7 @@ int main(int argc, char **argv) {
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
    assert(gtk_widget_get_sensitive(favorite_button) && gtk_widget_get_sensitive(connect_button));
    connect_clicked(NULL, NULL);
-   assert(connects == 1);
+   assert(local_connects == 1 && connects == 0);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(directory_details));
    GtkTextIter first, last;
    gtk_text_buffer_get_bounds(buffer, &first, &last);
