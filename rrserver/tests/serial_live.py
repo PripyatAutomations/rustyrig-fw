@@ -192,8 +192,11 @@ buffer-bytes=0
             login(second)
             command(second, "open", port="ttyHOST0")
             assert serial(second, "error")["error"] == "device-busy"
+            # A user with the serial privilege can request an export by name.
+            # An unknown name is not-found; an existing but unauthorized
+            # export must still return forbidden-device (covered below).
             command(second, "open", port="not-exported")
-            assert serial(second, "error")["error"] == "forbidden-device"
+            assert serial(second, "error")["error"] == "not-found"
             # All 255 nonzero IDs are usable once, never recycled.
             for expected_stream in range(stream + 1, 256):
                 command(first, "close")
