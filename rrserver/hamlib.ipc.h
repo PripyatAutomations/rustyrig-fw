@@ -37,6 +37,34 @@ typedef enum {
  * order, with no padding; subsequent payload bytes are length bounded.
  * The sequence number correlates responses and prevents stale completions.
  */
+/* Fixed-length command payload (12 bytes) and response (16 bytes). VFO
+ * indices 0/1 address A/B. All integers are big-endian; no ABI structs on
+ * wire. Status 0=success; any other value=error/unknown.
+ * TX_ON is deliberately absent until the independently enforced TX lease
+ * state machine is implemented and fault-tested.
+ */
+enum rr_hamlib_ipc_operation {
+   RR_HAMLIB_OP_POLL = 1,
+   RR_HAMLIB_OP_FREQ_SET,
+   RR_HAMLIB_OP_MODE_SET,
+   RR_HAMLIB_OP_WIDTH_SET,
+   RR_HAMLIB_OP_POWER_SET,
+   RR_HAMLIB_OP_SPLIT_SET,
+   RR_HAMLIB_OP_SWAP
+};
+enum rr_hamlib_ipc_mode {
+   RR_HAMLIB_MODE_NONE,
+   RR_HAMLIB_MODE_CW,
+   RR_HAMLIB_MODE_AM,
+   RR_HAMLIB_MODE_LSB,
+   RR_HAMLIB_MODE_USB,
+   RR_HAMLIB_MODE_FM,
+   RR_HAMLIB_MODE_PKTUSB,
+   RR_HAMLIB_MODE_PKTLSB
+};
+#define RR_HAMLIB_IPC_COMMAND_SIZE 12u
+#define RR_HAMLIB_IPC_RESULT_SIZE 16u
+
 #define RR_HAMLIB_IPC_HEADER_SIZE 20u
 typedef struct {
    uint32_t magic;

@@ -31,3 +31,57 @@ deadlines; the framing limit alone does not prevent blocked Hamlib calls.
   covers worker/parent death, blocked CAT, renewal loss, and reconnect during TX.
 
 Protocol unit test (no hardware): `make test-hamlib-ipc`.
+
+
+## Backend naming and packaging migration
+
+Target topology:
+
+- `backend=hamlib` selects the **new external-process IPC proxy**. It must
+  never load or link against `libhamlib` in the server process.
+- `backend=hamlib-legacy` explicitly selects the old in-process module.
+  The compatibility module keeps the filename `rrserver-hamlib.so` for package
+  continuity but registers **only** the type `hamlib-legacy`.
+- `rrhamlib` belongs in `/usr/libexec/rustyrig/rrhamlib`, alongside other
+  private subprocesses (modems are under its `modems/` subdirectory).
+- The existing `rr_backend_t` API, typed properties and server-owned worker
+  queue must remain stable. The proxy transforms operations to IPC; the child
+  exclusively owns the physical Hamlib device.
+- Never open the same radio through both backends at once.
+
+**Migration status:** The server now registers a subprocess-backed `hamlib`
+type when Hamlib support is selected at build time; the original module
+registers only `hamlib-legacy`. The IPC proxy implements strict request/response
+for polling, frequency, mode, numeric width, split, VFO swap, and verified
+PTT release. The worker rejects TX_ON and refuses CAT mutations if PTT is on
+or unknown; it confirms targeted VFO selection before mutations.
+
+**This is not feature-parity complete or ready for deployment**: TX leases,
+PTT key-down, stable reconnect behavior, full rig controls and power
+calibration, Hamlib-specific VFO exchange fallback, and fault-injection remain
+unfinished. Generic `backend=hamlib` on this branch can run RX-only commands
+but **must not** be selected for a live TX installation.
+
+For development builds only, the worker path may be set as the absolute
+per-rig `hamlib.worker-path` setting (default
+`/usr/libexec/rustyrig/rrhamlib`). Package installations use the default.
+
+A successful protocol framing test does not demonstrate hardware PTT safety.
+Use a dummy rigctld first and do not connect a transmitter for initial
+integration testing.
+
+## Development test targets
+
+```sh
+make PROFILE=radio test-hamlib-ipc
+make PROFILE=radio test-hamlib-transport
+```
+
+The second target builds a **fake worker** (not linked against Hamlib) and
+tests actual `posix_spawn`, inherited descriptor 3, hello/ack, heartbeat
+multiplexing, sequence-matched release acknowledgments, and worker teardown.
+It requires Linux/glibc 2.34 or later for the close-from spawn file action.
+Neither test proves real Hamlib CAT behavior or safe transmitter shutdown.
+
+On a development checkout, `hamlib.worker-path` must point to an absolute
+path for the compiled `bin/rrhamlib`; installed packages use libexec.

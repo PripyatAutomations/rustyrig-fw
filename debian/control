@@ -114,9 +114,11 @@ Description: GPSD receiver module for RustyRig server
 Package: rustyrig-server-hamlib
 Architecture: any
 Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: Hamlib backend module for RustyRig server
- Optional Hamlib radio backend, installed in
- /usr/lib/rustyrig/modules/rrserver. Loaded when a rig selects backend=hamlib.
+Description: Isolated Hamlib worker and legacy backend for RustyRig
+ Optional legacy in-process Hamlib radio backend and isolated worker.
+ The rrhamlib executable is installed under /usr/libexec/rustyrig.
+ The legacy module is installed in
+ /usr/lib/rustyrig/modules/rrserver. Loaded only when a rig selects backend=hamlib-legacy.
 
 Package: rustyrig-modems
 Architecture: any

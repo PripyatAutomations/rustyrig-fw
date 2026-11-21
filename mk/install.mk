@@ -42,7 +42,7 @@ install: install-dependency-check
 
 install-bin: ${bins}
 	@set -e; for src in $(filter-out %.so,${bins}); do \
-		case "${src##*/}" in fwdsp|rrbridge) dst="$(DESTDIR)$(LIBEXECDIR)/${src##*/}" ;; *) dst="$(DESTDIR)$(BINDIR)/${src##*/}" ;; esac; \
+		case "$${src##*/}" in fwdsp|rrbridge|rrhamlib) dst="$(DESTDIR)$(LIBEXECDIR)/$${src##*/}" ;; *) dst="$(DESTDIR)$(BINDIR)/$${src##*/}" ;; esac; \
 		install -Dm755 "$src" "$dst"; \
 	done
 # Runtime modules are separate from executable binaries; show their destination
@@ -138,7 +138,7 @@ install-check:
 # Installation of web assets may mingle with user data, so leave them in place.
 uninstall:
 	@set -e; for src in $(filter-out %.so,$(bins)); do \
-		case "${src##*/}" in fwdsp|rrbridge) dst="$(DESTDIR)$(LIBEXECDIR)/${src##*/}" ;; *) dst="$(DESTDIR)$(BINDIR)/${src##*/}" ;; esac; \
+		case "$${src##*/}" in fwdsp|rrbridge|rrhamlib) dst="$(DESTDIR)$(LIBEXECDIR)/$${src##*/}" ;; *) dst="$(DESTDIR)$(BINDIR)/$${src##*/}" ;; esac; \
 		rm -f "$dst"; \
 	done
 	@set -e; for src in $(filter %.so,$(bins)); do \

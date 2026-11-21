@@ -1256,8 +1256,8 @@ static const rr_backend_funcs_t rr_backend_hamlib_api = {
 };
 
 const rr_backend_type_t rr_backend_hamlib = {
-   .name = "hamlib",
-   .description = "Hamlib support",
+   .name = "hamlib-legacy",
+   .description = "Legacy in-process Hamlib backend (explicit opt-in)",
    .uses_property_state = true,
    .api = &rr_backend_hamlib_api,
 };

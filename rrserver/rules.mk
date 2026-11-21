@@ -154,6 +154,12 @@ rrserver_objs += http.api.o
 rrserver_objs += http.bans.o
 rrserver_objs += ws.mediachan.o
 
+# A Hamlib-selected build links only the IPC proxy, never libhamlib.
+ifeq ($(USE_HAMLIB),true)
+rrserver_objs += backend.hamlib-proxy.o
+rrserver_objs += hamlib.transport.o     # Per-rig socketpair and process supervision
+endif
+
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
@@ -195,9 +201,16 @@ extra_clean += ${BUILD_DIR}/rrserver/module.gps-nmea.o ${BUILD_DIR}/rrserver/mod
 
 endif
 
-# Hamlib is an optional backend module; never link it into the server/core libs.
+# Hamlib compatibility module is opt-in at runtime; rrhamlib is a private executable.
+# Never link libhamlib into rrserver.
 ifeq (${USE_HAMLIB},true)
 hamlib_module := bin/rrserver-hamlib.so
+# A distinct CAT owner process; built alongside the optional legacy module.
+bins += bin/rrhamlib
+bin/rrhamlib: rrserver/rrhamlib.c rrserver/hamlib.ipc.h
+	@mkdir -p bin
+	@$(CC) $(CFLAGS) $(shell pkg-config --cflags hamlib) -o $@ rrserver/rrhamlib.c $(shell pkg-config --libs hamlib) $(LDFLAGS)
+extra_clean += bin/rrhamlib
 bins += ${hamlib_module}
 ${BUILD_DIR}/rrserver/backend.hamlib.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags hamlib)
 bin/rrserver-hamlib.so: ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o

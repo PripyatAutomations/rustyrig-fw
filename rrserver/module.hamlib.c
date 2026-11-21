@@ -1,8 +1,8 @@
 // This is part of RustyRig: https://github.com/PripyatAutomations/rustyrig-fw
 // SPDX-License-Identifier: GPL-2.0-only
 // See doc/LICENSE for the full GNU General Public License version 2 text.
-// Optional Hamlib backend module. Backend instances and workers stay server-owned.
-// Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
+// Legacy in-process Hamlib backend module. Never loaded by default.
+// GPL-2.0-only. Loaded only when backend=hamlib-legacy is explicitly configured.
 #include <librustyaxe/core.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.registry.h>
