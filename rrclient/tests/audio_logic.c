@@ -48,6 +48,10 @@ int main(void) {
    assert(rr_threshold_evaluate(&t,&out) && out); /* outside range */
    t.invert_high=rr_logic_constant(false);
    assert(rr_threshold_evaluate(&t,&out) && !out);
+   t.invert=true;
+   t.invert_high=true;
+   assert(rr_threshold_evaluate(&t,&out) && !out); /* property XOR pin */
+   t.invert=false;
    t.invert_high=true;
    t.invert_valid=false;
    assert(!rr_threshold_evaluate(&t,&out) && !out); /* stale invert fails low */
