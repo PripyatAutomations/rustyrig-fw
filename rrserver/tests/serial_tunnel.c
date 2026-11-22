@@ -45,6 +45,33 @@ void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *
    callback(data);
 }
 
+/* Standalone fixtures for application services outside the serial path. */
+http_user_t http_users[HTTP_MAX_USERS];
+bool has_priv(int uid, const char *priv) {
+   (void)uid;
+   return priv && (!strcmp(priv, "serial.ttyHOST0") || !strcmp(priv, "serial.*") ||
+                   !strcmp(priv, "admin|owner"));
+}
+void rrserver_inventory_send(rrconn_t *client, dict *row) {
+   (void)client;
+   dict_free(row);
+}
+GMainContext *rrclient_core_context(void) { return g_main_context_default(); }
+rrconn_t *rrclient_connection_context(void) { return ws_conn; }
+rrconn_t *rrclient_active_connection(void) { return ws_conn; }
+int rrclient_connection_state(const char *name) { (void)name; return 1; }
+bool rrclient_local_bridge_gps_active(void) { return false; }
+void rrclient_media_emit_gps_for_room(const char *room) { (void)room; }
+const char *rrclient_selected_server(void) { return "test"; }
+const char *rrclient_media_active_room(void) { return "#site-rig0"; }
+char *rrclient_database_setting_get(const char *key) { (void)key; return NULL; }
+bool rrclient_database_setting_set(const char *key, const char *value) {
+   (void)key; (void)value; return true;
+}
+bool ws_room_same_rig(const char *room, const char *base) {
+   return room && base && !strcmp(room, base);
+}
+
 static char last_error[64];
 static unsigned tx_frames, rx_frames, configured;
 static bool send_request(rrconn_t *client, dict *d) {
