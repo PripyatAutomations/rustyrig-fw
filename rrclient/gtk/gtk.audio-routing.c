@@ -3355,8 +3355,9 @@ static void routing_compact_selector_sync(routing_compact_control_t *control) {
    double step = MAX(1., round(control->step));
    double first = ceil(control->minimum);
    if (control->choices[0]) {
-      gchar **names = g_strsplit(control->choices, "\n", 128);
+      gchar **names = g_strsplit(control->choices, ",", 128);
       for (guint i = 0 ; names[i] ; i++) {
+         g_strstrip(names[i]);
          if (!*names[i]) continue;
          double choice = first + i * step;
          if (choice > control->maximum) break;
@@ -3426,8 +3427,8 @@ static double routing_compact_current(const routing_compact_control_t *control) 
       return control->effect_value;
    }
 
-   if (!graph_snapshot) {
-      return 0.;
+   if (!graph_snapshot || !control->id[0]) {
+      return control->effect_value; /* Unbound numeric selector state. */
    }
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
@@ -3462,8 +3463,9 @@ static void routing_compact_sync(void) {
             }
          }
       }
-      gtk_widget_set_sensitive(control->value, found);
-      if (control->selector) gtk_widget_set_sensitive(control->selector, found);
+      gboolean enabled = found || (control->selector && !control->id[0] && !control->effect_worker[0]);
+      gtk_widget_set_sensitive(control->value, enabled);
+      if (control->selector) gtk_widget_set_sensitive(control->selector, enabled);
 
       /* Never overwrite a knob/fader mid-drag. */
       if (found && !control->effect_worker[0] && !control->knob_dragging && !gtk_widget_has_focus(control->value)) {
@@ -3490,11 +3492,19 @@ static gboolean routing_compact_flush_value(gpointer user) {
 static void routing_compact_changed(GtkRange *range, gpointer user) {
    routing_compact_control_t *control = user;
 
-   if (control->updating || (!control->id[0] && !control->effect_worker[0])) {
+   if (control->updating) {
       return;
    }
    double db = gtk_range_get_value(range);
    if (control->selector) routing_compact_selector_sync(control);
+   if (!control->id[0] && !control->effect_worker[0]) {
+      /* An unbound selector still owns a stable numeric state. The future
+       * SWITCH/control input can consume the same stored value by UUID. */
+      control->effect_value = db;
+      routing_compact_save(control);
+      graph_canvas_update_size();
+      return;
+   }
 
    if (control->effect_worker[0]) {
       control->effect_value = db;
@@ -3911,8 +3921,9 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    }
    graph_canvas_update_size();
    gtk_widget_show_all(body);
-   gtk_widget_set_sensitive(control->value, !!control->id[0] || !!control->effect_worker[0]);
-   if (control->selector) gtk_widget_set_sensitive(control->selector, !!control->id[0] || !!control->effect_worker[0]);
+   gboolean bound = !!control->id[0] || !!control->effect_worker[0];
+   gtk_widget_set_sensitive(control->value, bound || selector);
+   if (control->selector) gtk_widget_set_sensitive(control->selector, bound || selector);
    rr_floating_panel_fit_content(control->panel);
 
    if (saved_uuid) {
@@ -4089,6 +4100,8 @@ static void routing_compact_restore(void) {
                routing_compact_parse_number(value, &item->effect_value);
                item->effect_default = item->effect_value;
                routing_compact_parse_number(default_text, &item->effect_default);
+            } else if (!item->id[0] && !strcmp(item->kind, "selector")) {
+               routing_compact_parse_number(value, &item->effect_value);
             }
             if (choices && strlen(choices) < sizeof(item->choices)) {
                g_strlcpy(item->choices, choices, sizeof(item->choices));
@@ -4367,7 +4380,6 @@ static void routing_compact_properties(routing_compact_control_t *item) {
        * numeric value transmitted to the effect parameter. */
       const char *labels = gtk_entry_get_text(GTK_ENTRY(fields[5]));
       g_strlcpy(item->choices, labels, sizeof(item->choices));
-      for (char *p = item->choices ; *p ; p++) if (*p == ',') *p = '\n';
       routing_compact_apply_hints(item);
       routing_compact_apply_widget(item);
       routing_compact_save(item);
