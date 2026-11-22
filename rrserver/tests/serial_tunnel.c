@@ -19,6 +19,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/objects.h>
 #include <rrserver/serial.h>
+#include <rrserver/connection.state.h>
 
 time_t now;
 bool dying, restarting;
@@ -97,6 +98,21 @@ static void wire_fini(void) {
    rr_transport_close(wire_transport);
    rr_transport_free(wire_transport);
    wire_transport = NULL;
+}
+
+/* Deliver serial control messages through the real in-process event
+ * subscribers, keeping binary streams separate from text commands. */
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
+   (void)sender;
+   assert(type == WEBSOCKET_OP_TEXT);
+   const char *cmd = dict_get(d, "serial.cmd", "");
+   if (!strcmp(cmd, "open") || !strcmp(cmd, "configure") ||
+       !strcmp(cmd, "close") || !strcmp(cmd, "read") || !strcmp(cmd, "list"))
+      return send_request(dest, d);
+   if (!strcmp(cmd, "configured")) configured++;
+   snprintf(last_error, sizeof(last_error), "%s", dict_get(d, "serial.error", ""));
+   event_emit_dict("ws.msg.serial", dest, d);
+   return true;
 }
 int32_t rr_cat_parse_line(char *line) {
    (void)line;
