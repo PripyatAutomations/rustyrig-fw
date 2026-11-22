@@ -339,8 +339,19 @@ static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, 
          gtk_widget_get_preferred_size(frame, NULL, &natural);
          natural_w = natural.width;
       }
-      gint desired_w = p->content_sized ? natural_w : (p->dock_width > 0 ? p->dock_width : MAX(100, MIN(natural_w, max_w)));
-      gint desired_h = p->content_sized ? -1 : (p->dock_height > 0 ? p->dock_height : -1);
+      /* Content-sized controls must never get a requested width from the
+       * dock.  GtkFixed gives them their natural requisition, recalculated
+       * when their zoom changes.  Clamping their size request to the viewport
+       * made the Volume panel snap to its dock width at every allocation. */
+      if (p->content_sized) {
+         gint req_w = -1, req_h = -1;
+         gtk_widget_get_size_request(frame, &req_w, &req_h);
+         if (req_w != -1 || req_h != -1)
+            gtk_widget_set_size_request(frame, -1, -1);
+         continue;
+      }
+      gint desired_w = p->dock_width > 0 ? p->dock_width : MAX(100, MIN(natural_w, max_w));
+      gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
       gint width = CLAMP(desired_w, 90, max_w);
       gint height = desired_h > 0 ? CLAMP(desired_h, 48, max_h) : -1;
       gint req_w = -1, req_h = -1;
@@ -3064,6 +3075,15 @@ void rr_floating_panel_set_content_sized(RRFloatPanel *p) {
       return;
    p->content_sized = TRUE;
    p->resizable = FALSE;
+   /* Do not let the zoom wrapper/body absorb spare dock width: the
+    * contents' natural requisition determines the whole panel size. */
+   gtk_widget_set_hexpand(p->scale_wrapper, FALSE);
+   gtk_widget_set_vexpand(p->scale_wrapper, FALSE);
+   gtk_widget_set_halign(p->scale_wrapper, GTK_ALIGN_START);
+   gtk_widget_set_valign(p->scale_wrapper, GTK_ALIGN_START);
+   gtk_widget_set_hexpand(p->body, FALSE);
+   gtk_widget_set_vexpand(p->body, FALSE);
+   gtk_widget_set_halign(p->body, GTK_ALIGN_START);
    p->saved_width = p->saved_height = 0;
    p->dock_width = p->dock_height = -1;
    p->last_saved_valid = FALSE;
