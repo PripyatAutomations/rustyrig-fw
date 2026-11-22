@@ -135,6 +135,93 @@ the planned language and require additional parser/runtime/host work. Do not
 assume unsupported code was validated at load time; errors may be deferred
 until invocation.
 
+## Scriptable GTK panels and docking
+
+The initial window/panel API is available in **rrclient with GTK**. It
+operates on RustyRig's `RRFloatPanel` windows (including the same instances
+used when dragging windows into the chat's four docks). It does not yet
+move arbitrary operating-system toplevel windows, GTK notebook pages, or
+separate native dialogs. No GTK widget pointers are exposed to scripts.
+
+Both `window` and `panel` are aliases for this first API:
+
+| Function | Operation |
+|---|---|
+| `window.find(pattern)` | Find the first title matching a case-insensitive GLib regular expression; exact panel ID also accepted |
+| `window.find(pattern, location)` | Restrict discovery to one location |
+| `window.move(id, location, x, y)` | Move an existing panel to a dock or the main overlay |
+| `window.zoom(id, percent)` | Set local panel zoom, 10–200 percent |
+| `window.opacity(id, percent)` | Set panel opacity, 30–100 percent |
+
+`panel.find`, `panel.move`, `panel.zoom`, and `panel.opacity` have
+identical behavior.
+
+Locations are **N** (north/top), **E** (east/right), **W** (west/left),
+**S** (south/bottom), **M** (main floating workspace); `*` means any
+location **for discovery only**. All coordinates are nonnegative integers
+in pixels relative to the destination dock's slot, or relative to the main
+overlay for `M`. Coordinates must be supplied explicitly, currently
+between 0 and 8192.
+
+`find` returns either `null` or a **dictionary** containing `id`,
+`title`, and `location`. Store the returned stable ID instead of
+relying on a mutable visible title. Search returns the first match; a
+`find_all` or typed `window[]` API will follow after arrays and handles
+are implemented by the language runtime.
+
+Example — move the first RF spectrum panel into the east dock:
+
+```c
+script("/spectrum-east", {
+    dict w = window.find("RF Spectrum|Waterfall", "*")
+    if (w != null) {
+        window.move(w.id, "E", 20, 40)
+        window.zoom(w.id, 125)
+        window.opacity(w.id, 85)
+    }
+});
+```
+
+Example — return an existing panel to the main area:
+
+```c
+script("/spectrum-main", {
+    dict w = window.find("RF Spectrum|Waterfall")
+    if (w != null) {
+        window.move(w.id, "M", 50, 40)
+    }
+});
+```
+
+Example — find a panel currently in the west dock by a substring:
+
+```c
+script("/west-east", {
+    dict w = panel.find("VFO", "W")
+    if (w != null) {
+        panel.move(w.id, "E", 10, 10)
+    }
+});
+```
+
+**Behavior:** Movement reparents the existing GTK panel chrome and contents
+through the docking manager, not by destroying and recreating it. It
+preserves the panel's content, zoom, opacity and saved identity. Dock and
+floating locations are saved through the normal client layout storage.
+The zoom and opacity functions adjust the existing UI sliders to keep
+the settings popover synchronized.
+
+**Current limits:** Docking requires an active chat workspace whose docks
+exist; inactive-room panels are not moved into the active room. Nonexistent
+IDs, unavailable docks, invalid percentages and coordinates raise script
+errors. Non-GTK client frontends and rrserver have no panel API. For now,
+window functions must run on the GTK main thread (as they do for UI
+slash-command and hotkey handlers). Calling them from an event delivered on
+another thread raises an error rather than accessing GTK unsafely. A future
+asynchronous UI-dispatch bridge can lift this restriction. Arbitrary OS
+windows, modal dialogs, cross-room docking, multi-match selection and
+moving entire groups are not yet supported.
+
 ## External program execution policy
 
 Both client and server default to:
