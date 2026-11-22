@@ -1306,15 +1306,14 @@ static void onair_draw(cairo_t *cr) {
    cairo_set_font_size(cr, 10.);
    cairo_move_to(cr, ptt_x + 12., ptt_y + 48.);
    cairo_show_text(cr, "Local command pin");
-   /* Always paint the local command output socket, even when the monitor listens to a modem PTT source or no source is attached. */
-   cairo_set_source_rgb(cr, .96, .20, .20);
-   /* cairo_arc connects to the prior text path unless the path is reset. */
+   /* Filled RED circle = boolean output. Isolate the path completely:
+    * cairo_show_text leaves a current point, which cairo_arc would join to. */
+   cairo_save(cr);
    cairo_new_path(cr);
+   cairo_set_source_rgb(cr, .96, .20, .20);
    cairo_arc(cr, ptt_x + 150., ptt_y + 35., 6., 0, 2. * G_PI);
-   cairo_fill_preserve(cr);
-   cairo_set_source_rgb(cr, .12, .14, .18);
-   cairo_set_line_width(cr, 1.5);
-   cairo_stroke(cr);
+   cairo_fill(cr);
+   cairo_restore(cr);
    /* This is the *input* endpoint. The real illuminated display lives in a floating panel; there is no second output PTT pin on the sign. */
    cairo_save(cr);
    cairo_translate(cr, onair_x, onair_y);
@@ -1335,15 +1334,15 @@ static void onair_draw(cairo_t *cr) {
    cairo_move_to(cr, 31., 58.);
    cairo_show_text(cr, "PTT INPUT");
    cairo_restore(cr);
+   /* Hollow RED ring = boolean input. Never fill its center, and never
+    * stroke any path inherited from the ON AIR label. */
+   cairo_save(cr);
+   cairo_new_path(cr);
    cairo_set_source_rgb(cr, .96, .20, .20);
    cairo_set_line_width(cr, 3.);
-   /* The ON AIR input is a distinct socket, not part of the text path. */
-   cairo_new_path(cr);
    cairo_arc(cr, onair_x, onair_y + ONAIR_H / 2., 7., 0, 2. * G_PI);
-   cairo_fill_preserve(cr);
-   cairo_set_source_rgb(cr, .12, .14, .18);
-   cairo_set_line_width(cr, 1.5);
    cairo_stroke(cr);
+   cairo_restore(cr);
 }
 
 static void onair_add(GtkButton *button, gpointer unused) {
