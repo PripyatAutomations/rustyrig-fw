@@ -219,6 +219,20 @@ static void widget_close(script_widget_t *entry) {
       gtk_widget_destroy(entry->widget);
    }
 }
+/* Closing a script panel is a logical UI event, so user scripts may stop
+ * timed work and release resources before the frame disappears. */
+static void script_panel_closed(gpointer data) {
+   script_widget_t *entry=data;
+   if(!entry)return;
+   dict *d=dict_new();
+   if(d) {
+      event_fields(d,entry);
+      event_emit_dict("ui.close",NULL,d);
+      dict_free(d);
+   }
+   widget_close(entry);
+}
+
 static void script_gui_remove_owner(const char *owner) {
    if(!script_widgets)return;
    GHashTableIter iter;
@@ -494,7 +508,9 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
          g_free(unique);
          if(!panel)return;
          GtkWidget *widget=rr_floating_panel_widget(panel);
-         widget_track(cmd.owner,cmd.id,"panel",widget,panel);
+         script_widget_t *record=widget_track(cmd.owner,cmd.id,"panel",widget,panel);
+         if(!record){rr_floating_panel_destroy(panel);return;}
+         rr_floating_panel_set_close_callback(panel,script_panel_closed,record);
          if(cmd.action==RR_GUI_UTILITY)rr_floating_panel_set_floating_only(panel);
          rr_floating_panel_set_resizable(panel,TRUE);
          rr_floating_panel_show(panel);
