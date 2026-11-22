@@ -88,6 +88,7 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *dock, gint edge);
 static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y);
 static void panel_dock_glow(RRChatDocks *d, gboolean dragging, gint target);
 static gint panel_dock_hit(RRChatDocks *d, gint x_root, gint y_root);
+static void panel_resize_targets_visibility(RRFloatPanel *p);
 static void panel_dock_save(RRFloatPanel *p) {
    if (!p || p->modal) {
       return;
@@ -1756,6 +1757,22 @@ static void panel_menu_action(GtkButton *button, gpointer data) {
       panel_minimize(NULL, p);
    } else if (!g_strcmp0(action, "roll")) {
       panel_roll(NULL, p);
+   } else if (!g_strcmp0(action, "reset-size")) {
+      /* Recover from stale/corrupt oversized layouts without manual DB
+       * edits.  Explicit dimensions override a previously saved width and
+       * are persisted immediately for both floating and docked panels. */
+      const gint width = 240, height = 200;
+      p->saved_width = width;
+      p->saved_height = height;
+      gtk_widget_set_size_request(p->frame, width, height);
+      if (p->dock_edge >= 0) {
+         p->dock_width = width;
+         p->dock_height = height;
+         panel_dock_size_save(p);
+      } else {
+         p->last_saved_valid = FALSE;
+         panel_state_save(p);
+      }
    } else if (!g_strcmp0(action, "close")) {
       panel_close(NULL, p);
    }
@@ -2524,6 +2541,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(p->menu_on_top, "toggled", G_CALLBACK(panel_on_top_changed), p);
    gtk_box_pack_start(GTK_BOX(settings), p->menu_on_top, FALSE, FALSE, 0);
    panel_menu_add_action(p, settings, "Roll up / expand", "roll");
+   panel_menu_add_action(p, settings, "Reset panel size", "reset-size");
    p->menu_minimize = gtk_button_new_with_label("Minimize to tabs");
    gtk_button_set_relief(GTK_BUTTON(p->menu_minimize), GTK_RELIEF_NONE);
    g_object_set_data(G_OBJECT(p->menu_minimize), "rr-action", (gpointer) "minimize");
