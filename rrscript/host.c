@@ -165,6 +165,11 @@ static void load_script(rrscript_host_t *host,const char *directory,const char *
    g_ptr_array_add(host->scripts,script);
    Log(LOG_INFO,"scripting","Loaded %s (%zu bindings)",filename,rrs_vm_binding_count(script->vm));
 }
+static gint script_name_compare(gconstpointer a,gconstpointer b) {
+   const char *const *left=a;
+   const char *const *right=b;
+   return g_strcmp0(*left,*right);
+}
 rrscript_host_t *rrscript_host_open(const char *directory,bool client) {
    rrscript_host_t *host=g_new0(rrscript_host_t,1);
    host->client=client;
@@ -185,7 +190,7 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client) {
          g_ptr_array_add(names,g_strdup(entry));
    }
    g_dir_close(dir);
-   g_ptr_array_sort(names,(GCompareFunc)g_strcmp0);
+   g_ptr_array_sort(names,script_name_compare);
    for(guint i=0;i<names->len;i++)
       load_script(host,directory,g_ptr_array_index(names,i));
    g_ptr_array_unref(names);
