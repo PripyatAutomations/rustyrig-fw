@@ -40,7 +40,8 @@ event watch.callsign {
     char[] message = "Spotted " + event.callsign + " on " + band +
                      " " + mode + " at " + frequency + ", using " + location
 
-    // Cooldown is per callsign, not per modem or decoder slot.
+    // Notify only after this callsign has been ABSENT for 30 minutes.
+    // The timer resets with every decode (not just every notification).
     char[] key = "watch.spotted." + string.hash(event.callsign)
     int now = time.now()
     int previous = state.get(key)
@@ -51,8 +52,9 @@ event watch.callsign {
         }
     }
 
+    state.set(key, now)
+
     if (notify) {
-        state.set(key, now)
         log.info(message)
         if (show_popup) {
             ui.message("watch-" + string.hash(event.callsign),
