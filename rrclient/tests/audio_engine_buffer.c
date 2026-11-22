@@ -222,7 +222,7 @@ int main(void) {
    engine=rr_audio_engine_new_rate(48000,NULL,NULL);
    assert(engine && rr_audio_engine_add_stream_format(engine,"modem1.tx",&old_native));
    assert(rr_audio_engine_route(engine,"modem1.tx",'M'));
-   assert(rr_audio_engine_push(engine,"modem1.tx",pcm,1600));
+   assert(!rr_audio_engine_push(engine,"modem1.tx",pcm,1600));
    rr_audio_stream_status_t modem_status={0};
    assert(rr_audio_engine_stream_status(engine,"modem1.tx",&modem_status));
    assert(modem_status.resampling && modem_status.source.sample_rate_hz==16000 &&
