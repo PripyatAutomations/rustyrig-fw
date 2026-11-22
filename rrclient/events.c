@@ -1216,6 +1216,35 @@ static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_admin_result(const char *event, const char *data, rrconn_t *connection, void *user) {
+   /* The admin GTK table consumes ordinary admin results; script management
+    * is a text command and must report in the active chat/status UI. */
+   dict *script_reply=data?json2dict(data):NULL;
+   if(script_reply && !strcmp(dict_get(script_reply,"talk.target",""),"scripts")) {
+      const char *action=dict_get(script_reply,"talk.action","");
+      const char *payload=dict_get(script_reply,"talk.data","{}");
+      dict *row=json2dict(payload);
+      if(!strcmp(action,"row")) {
+         ui_print(NULL,"[server scripts] %s  %s",
+                  row?dict_get(row,"name",""):"",
+                  row&&dict_get_bool(row,"loaded",false)?"loaded":"available");
+      } else if(!strcmp(action,"success")) {
+         ui_print(NULL,"[server scripts] %s: %s",
+                  row?dict_get(row,"name",""):"",
+                  row?dict_get(row,"message","completed"):"completed");
+      } else if(!strcmp(action,"error")) {
+         ui_print(NULL,"[server scripts] %s: %s",
+                  row?dict_get(row,"name",""):"",
+                  row?dict_get(row,"message","failed"):"failed");
+      } else if(!strcmp(action,"begin")) {
+         ui_print(NULL,"[server scripts] available scripts:");
+      } else if(!strcmp(action,"end")) {
+         ui_print(NULL,"[server scripts] end of list");
+      }
+      if(row)dict_free(row);
+      dict_free(script_reply);
+      return;
+   }
+   if(script_reply)dict_free(script_reply);
    (void)event;
    (void)user;
 
