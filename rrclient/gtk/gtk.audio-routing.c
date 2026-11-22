@@ -6092,7 +6092,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       double gx, gy;
 
       return graph_pointer(event->x, event->y, &gx, &gy) &&
-             (onair_context_menu(event, gx, gy) ||
+             (rr_logic_canvas_press(gx,gy,event) ||
+              onair_context_menu(event, gx, gy) ||
                 routing_serial_context_menu(event, gx, gy) ||
                 routing_lv2_context_menu(event, gx, gy) ||
                 routing_modem_context_menu(event, gx, gy) ||
@@ -6199,6 +6200,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    if (routing_compact_hit(gx, gy, event->type == GDK_2BUTTON_PRESS)) {
       return TRUE;
    }
+   /* The logic canvas owns its own typed ports and block movement. */
+   if (rr_logic_canvas_press(gx,gy,event)) return TRUE;
 
    /* Compact controls have their own persistent graph state; a missing live audio snapshot must not prevent moving or editing them. */
    if (!graph_snapshot) {
@@ -6435,6 +6438,14 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
       return TRUE;
    }
 
+   {
+      double gx, gy;
+      if (graph_pointer(event->x,event->y,&gx,&gy) &&
+          rr_logic_canvas_motion(gx,gy,event->state)) {
+         graph_canvas_update_size();
+         return TRUE;
+      }
+   }
    if (routing_serial_drag >= 0 || routing_serial_move >= 0) {
       double gx, gy;
 
@@ -6606,6 +6617,9 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
                }
             }
 
+            if (!candidate && !onair_drag_reverse &&
+                rr_logic_canvas_connect_source(onair_drag_source,gx,gy))
+               graph_canvas_update_size();
             if (candidate && *candidate) {
                g_strlcpy(onair_source, candidate, sizeof(onair_source));
                onair_connected = TRUE;
@@ -6626,6 +6640,16 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
       return TRUE;
    }
 
+   if (event->button == GDK_BUTTON_PRIMARY) {
+      double gx,gy;
+      if (graph_pointer(event->x,event->y,&gx,&gy) &&
+          rr_logic_canvas_release(gx,gy,
+              onair_visible && hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()*2.)) {
+         graph_canvas_update_size();
+         if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
+         return TRUE;
+      }
+   }
    if (event->button == GDK_BUTTON_PRIMARY && (routing_serial_drag >= 0 || routing_serial_move >= 0)) {
       double gx, gy;
       gboolean valid = graph_pointer(event->x, event->y, &gx, &gy);
@@ -6755,6 +6779,26 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
 
    if (graph_drag_channel < 0) {
       return FALSE;
+   }
+   /* A modem's red PTT output may fan out to any number of gate inputs
+    * without changing its existing hardware PTT destination. */
+   if (graph_drag_moved && !graph_drag_mixer && graph_drag_channel==1 &&
+       graph_snapshot && graph_drag_source>=0 &&
+       (guint)graph_drag_source<graph_snapshot->node_count) {
+      const rr_ag_view_node_t *n=&graph_snapshot->nodes[graph_drag_source];
+      unsigned slot=0;char extra=0;
+      double gx,gy;
+      if (sscanf(n->id,"modem%u.tx%c",&slot,&extra)==1 &&
+          slot>0 && slot<=RR_LOCAL_MODEM_MAX &&
+          graph_pointer(event->x,event->y,&gx,&gy)) {
+         char id[64];g_snprintf(id,sizeof(id),"modem%u.ptt",slot);
+         if (rr_logic_canvas_connect_source(id,gx,gy)) {
+            graph_drag_source=graph_drag_channel=-1;
+            graph_drag_mixer=graph_drag_moved=FALSE;
+            graph_canvas_update_size();
+            return TRUE;
+         }
+      }
    }
    double gx, gy, snap_x = 0., snap_y = 0.;
    gint source_index = -1;
