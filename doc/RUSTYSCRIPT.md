@@ -317,6 +317,51 @@ an independent VM and can join namespaces with `state.use(name)`. Thus
 `debug.state` is read-only. String lists are newline-separated, rather
 than arrays (array support is not implemented yet).
 
+## Callsign decode events
+
+When a client-local modem decoder (FT8, Olivia, PSK, etc.) decodes a message
+containing the operator's callsign or a configured watched callsign, RustyRig
+publishes **`event modem.callsign`** to RustyScript. Matching happens in
+the client core regardless of whether the GTK Terminal tab is visible.
+The existing watched-calls database filters by mode and RF band, including
+the `Any` wildcard. Callsigns are matched case-insensitively as complete
+tokens, not substrings. The My callsign field in the Terminal toolbar is now
+stored as `modem.my_callsign` in client settings and reused after restart.
+
+```c
+event modem.callsign {
+    if (event.kind == "own") {
+        log.info("My callsign heard: " + event.callsign + " " + event.text)
+    } else {
+        log.info("Watchlist hit: " + event.callsign + " " + event.text)
+    }
+}
+```
+
+Each matching watchlist entry produces a notification with `kind="watchlist"`;
+matching the user's callsign produces `kind="own"`. A single decode may
+produce both if the callsign is also on the watchlist.
+
+| Event field | Description |
+|---|---|
+| `event.callsign` | Matched callsign, retaining the configured case |
+| `event.kind` | `"own"` or `"watchlist"` |
+| `event.text` | Decoded text, without FT8 JSON envelope |
+| `event.engine` | Decoder engine (`ft8`, `olivia`, `psk`) |
+| `event.mode` | Normalized mode used for watchlist matching (e.g. `FT8`) |
+| `event.band` | RF amateur band name, or empty if unavailable |
+| `event.frequency_hz` | RF dial frequency (integer Hz; 0 if unavailable) |
+| `event.source` | Source audio stream identifier |
+| `event.slot` | Local decoder slot, starting at 1 |
+| `event.watch_id` | Watched-call database row ID; 0 for own-callsign matches |
+
+Only decoded text messages generate this notification; worker status JSON,
+configuration messages, and unrelated lines are ignored. The signal is
+**notification-only** and never keys a transmitter or modifies modem
+routing. This event currently covers client-local decoder workers; it
+does not imply that remote server-side serial modem output is subscribed
+or analyzed on the client.
+
 ## IRC artwork archiver example
 
 The example `doc/examples/scripts/ascii-art.rrs` demonstrates ordinary user
