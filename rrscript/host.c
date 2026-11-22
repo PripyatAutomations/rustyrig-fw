@@ -178,7 +178,7 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
 
 /* Reusable script utilities: neither their state nor timers know about .mac files. */
 enum { UTIL_REGEX=1,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
-       UTIL_STAMP,UTIL_DATA,UTIL_STR,UTIL_HASH,UTIL_GET,UTIL_SET,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
+       UTIL_STAMP,UTIL_DATA,UTIL_STR,UTIL_HASH,UTIL_SLICE,UTIL_GET,UTIL_SET,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
 static script_file_t *script_vm_lookup(rrs_vm_t *vm) {
    g_mutex_lock(&script_vm_owners_mutex);
    script_file_t *script=script_vm_owners?g_hash_table_lookup(script_vm_owners,vm):NULL;
@@ -256,6 +256,20 @@ static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
       short_hash[32]=0;
       g_free(full);
       return rrs_string(short_hash);
+   }
+   if(op==UTIL_SLICE) {
+      if((argc!=2&&argc!=3)||rrs_value_type(argv[1])!=RRS_INT||
+         (argc==3&&rrs_value_type(argv[2])!=RRS_INT)) {
+         rrs_vm_raise(vm,"string.slice(text,start[,length])");return NULL;
+      }
+      gint64 start=rrs_value_int(argv[1]);
+      gint64 count=argc==3?rrs_value_int(argv[2]):G_MAXINT;
+      size_t length=strlen(value);
+      if(start<0||count<0||(guint64)start>length)return rrs_string("");
+      char *part=g_strndup(value+start,MIN((gsize)count,length-(gsize)start));
+      rrs_value_t *result=rrs_string(part);
+      g_free(part);
+      return result;
    }
    if(op==UTIL_SLUG) {
       if(argc!=1){rrs_vm_raise(vm,"string.slug(text)");return NULL;}
@@ -353,6 +367,7 @@ static bool register_util_api(rrs_vm_t *vm) {
       REG("string.chr",native_script_util,UTIL_CHR) &&
       REG("string.slug",native_script_util,UTIL_SLUG) &&
       REG("string.hash",native_script_util,UTIL_HASH) &&
+      REG("string.slice",native_script_util,UTIL_SLICE) &&
       REG("string.str",native_script_util,UTIL_STR) &&
       REG("string.line",native_script_util,UTIL_LINE) &&
       REG("string.lines",native_script_util,UTIL_LINES) &&
