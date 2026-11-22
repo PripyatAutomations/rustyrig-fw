@@ -1203,6 +1203,8 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    GtkWidget *label = gtk_label_new(details);
    g_free(details);
    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+   gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
+   gtk_label_set_max_width_chars(GTK_LABEL(label), 64);
    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_widget_set_size_request(label, 480, -1);
