@@ -822,6 +822,7 @@ static void open_browser(const char *event, const char *payload, rrconn_t *conne
    if (!ui.panel) {
       return;
    }
+   rr_floating_panel_set_floating_only(ui.panel);
    rr_floating_panel_set_close_callback(ui.panel, closed, NULL);
    GtkWidget *body = rr_floating_panel_body(ui.panel);
    gtk_widget_set_size_request(body, 850, 520);
