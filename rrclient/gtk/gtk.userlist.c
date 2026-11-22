@@ -1815,7 +1815,9 @@ static GtkWidget *userlist_panel_create(void) {
     * call sign can grow the containing floating panel indefinitely. */
    userlist_fit_columns(cul_view);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   /* EXTERNAL keeps horizontal scrolling disabled without allowing the
+    * tree view's requested width to enlarge the parent panel. */
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_EXTERNAL, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_container_add(GTK_CONTAINER(scroll), cul_view);
@@ -1880,7 +1882,9 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    userlist_view_set_server(view, entry->server);
    userlist_set_columns(view, room);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   /* EXTERNAL keeps horizontal scrolling disabled without allowing the
+    * tree view's requested width to enlarge the parent panel. */
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_EXTERNAL, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_container_add(GTK_CONTAINER(scroll), view);
