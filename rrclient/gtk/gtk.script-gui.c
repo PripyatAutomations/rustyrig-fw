@@ -264,10 +264,13 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
        * exposed to scripts. The same request can be handled by a TUI. */
       if(strcmp(cmd.kind,"ok") && strcmp(cmd.kind,"yesno"))return;
       if(entry) {
-         if(!strcmp(entry->kind,"message") && entry->widget) {
-            gtk_window_present(GTK_WINDOW(entry->widget));
-         }
-         return;
+         if(strcmp(entry->kind,"message"))return;
+         /* Recreate when called again with the same ID, so both updated
+          * text and a different button set are reflected immediately. */
+         char *key=widget_key(cmd.owner,cmd.id);
+         widget_close(entry);
+         g_hash_table_remove(script_widgets,key);
+         g_free(key);
       }
       if(!main_window || !GTK_IS_WINDOW(main_window))return;
       GtkWidget *dialog=gtk_message_dialog_new(GTK_WINDOW(main_window),
