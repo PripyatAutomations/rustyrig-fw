@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <glib/gstdio.h>
 #include <sys/stat.h>
+#include <math.h>
 
 typedef struct script_file script_file_t;
 typedef struct event_subscription {
@@ -177,7 +178,7 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
 
 /* Reusable script utilities: neither their state nor timers know about .mac files. */
 enum { UTIL_REGEX=1,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
-       UTIL_STAMP,UTIL_DATA,UTIL_GET,UTIL_SET,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
+       UTIL_STAMP,UTIL_DATA,UTIL_STR,UTIL_GET,UTIL_SET,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
 static script_file_t *script_vm_lookup(rrs_vm_t *vm) {
    g_mutex_lock(&script_vm_owners_mutex);
    script_file_t *script=script_vm_owners?g_hash_table_lookup(script_vm_owners,vm):NULL;
@@ -191,15 +192,20 @@ static void timer_free(gpointer data) {
 }
 static gboolean timer_fire(gpointer data) {
    script_timer_t *t=data;
-   if(!t->repeat && t->script->timers)g_hash_table_remove(t->script->timers,t->id);
+   /* A handler can cancel its own timer. Capture everything needed first. */
+   char *id=g_strdup(t->id);
+   char *owner=g_strdup(t->script->gui_owner);
+   gboolean repeat=t->repeat;
+   if(!repeat && t->script->timers)g_hash_table_remove(t->script->timers,id);
    dict *d=dict_new();
    if(d) {
-      dict_add(d,"owner",t->script->gui_owner);
-      dict_add(d,"id",t->id);
+      dict_add(d,"owner",owner);
+      dict_add(d,"id",id);
       event_emit_dict("ui.timer",NULL,d);
       dict_free(d);
    }
-   return t->repeat ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
+   g_free(owner);g_free(id);
+   return repeat ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
 }
 static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
@@ -213,6 +219,22 @@ static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
       rrs_value_t *result=rrs_string(stamp);
       g_free(stamp);g_date_time_unref(d);
       return result;
+   }
+   if(op==UTIL_STR) {
+      if(argc!=1){rrs_vm_raise(vm,"string.str(value)");return NULL;}
+      char number[G_ASCII_DTOSTR_BUF_SIZE];
+      switch(rrs_value_type(argv[0])){
+         case RRS_STRING:return rrs_string(rrs_value_string(argv[0]));
+         case RRS_INT: {
+            char *digits=g_strdup_printf("%" G_GINT64_FORMAT,(gint64)rrs_value_int(argv[0]));
+            rrs_value_t *v=rrs_string(digits);g_free(digits);return v;
+         }
+         case RRS_FLOAT:
+            g_ascii_dtostr(number,sizeof(number),rrs_value_float(argv[0]));
+            return rrs_string(number);
+         case RRS_BOOL:return rrs_string(rrs_value_bool(argv[0])?"true":"false");
+         default:return rrs_string("");
+      }
    }
    if(op==UTIL_CHR) {
       if(argc!=1||rrs_value_type(argv[0])!=RRS_INT||
@@ -295,7 +317,7 @@ static rrs_value_t *native_script_timer(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    int op=GPOINTER_TO_INT(user);
    if(argc!=(op==UTIL_CANCEL?1:2)||rrs_value_type(argv[0])!=RRS_STRING||
-      (op!=UTIL_CANCEL&&rrs_value_type(argv[1])!=RRS_INT)) {
+      (op!=UTIL_CANCEL&&rrs_value_type(argv[1])!=RRS_INT&&rrs_value_type(argv[1])!=RRS_FLOAT)) {
       rrs_vm_raise(vm,"timer.every/after(id,milliseconds) / timer.cancel(id)");
       return NULL;
    }
@@ -307,8 +329,9 @@ static rrs_value_t *native_script_timer(rrs_vm_t *vm,int argc,
    gpointer previous=g_hash_table_lookup(script->timers,id);
    if(previous){g_source_remove(GPOINTER_TO_UINT(previous));g_hash_table_remove(script->timers,id);}
    if(op==UTIL_CANCEL)return rrs_boolean(true);
-   gint64 ms=rrs_value_int(argv[1]);
-   if(ms<100||ms>86400000){rrs_vm_raise(vm,"Timer requires 100..86400000 milliseconds");return NULL;}
+   double ms=rrs_value_type(argv[1])==RRS_INT?
+      (double)rrs_value_int(argv[1]):rrs_value_float(argv[1]);
+   if(!isfinite(ms)||ms<100||ms>86400000){rrs_vm_raise(vm,"Timer requires 100..86400000 milliseconds");return NULL;}
    script_timer_t *timer=g_new0(script_timer_t,1);
    timer->script=script;timer->id=g_strdup(id);timer->repeat=op==UTIL_EVERY;
    guint source=g_timeout_add_full(G_PRIORITY_DEFAULT,(guint)ms,timer_fire,timer,timer_free);
@@ -320,6 +343,7 @@ static bool register_util_api(rrs_vm_t *vm) {
    bool ok=REG("string.regex",native_script_util,UTIL_REGEX) &&
       REG("string.chr",native_script_util,UTIL_CHR) &&
       REG("string.slug",native_script_util,UTIL_SLUG) &&
+      REG("string.str",native_script_util,UTIL_STR) &&
       REG("string.line",native_script_util,UTIL_LINE) &&
       REG("string.lines",native_script_util,UTIL_LINES) &&
       REG("time.now",native_script_util,UTIL_NOW) &&
