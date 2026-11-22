@@ -16,7 +16,7 @@ struct rr_floating_panel {
    GtkCssProvider *scale_css;
    GtkWidget *min_width_widget;
    GtkWidget *script_zoom_scale, *script_opacity_scale;
-   gboolean fit_content;
+   gboolean fit_content, content_sized;
    gint zoom;
    void (*zoom_callback)(double, gpointer);
    gpointer zoom_data;
@@ -339,8 +339,8 @@ static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, 
          gtk_widget_get_preferred_size(frame, NULL, &natural);
          natural_w = natural.width;
       }
-      gint desired_w = p->dock_width > 0 ? p->dock_width : MAX(100, MIN(natural_w, max_w));
-      gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
+      gint desired_w = p->content_sized ? natural_w : (p->dock_width > 0 ? p->dock_width : MAX(100, MIN(natural_w, max_w)));
+      gint desired_h = p->content_sized ? -1 : (p->dock_height > 0 ? p->dock_height : -1);
       gint width = CLAMP(desired_w, 90, max_w);
       gint height = desired_h > 0 ? CLAMP(desired_h, 48, max_h) : -1;
       gint req_w = -1, req_h = -1;
@@ -778,7 +778,8 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
    /* Keep the same floating chrome and size, not a dock-filling child. */
    /* A freshly docked control uses the exact natural size of its label and content. No old floating geometry and no artificial 230x100 padding. Only a
     * user-driven dock resize installs explicit dimensions. */
-   gtk_widget_set_size_request(p->frame, p->dock_width > 0 ? p->dock_width : -1, p->dock_height > 0 ? p->dock_height : -1);
+   gtk_widget_set_size_request(p->frame, p->content_sized ? -1 : (p->dock_width > 0 ? p->dock_width : -1),
+                               p->content_sized ? -1 : (p->dock_height > 0 ? p->dock_height : -1));
 
    if (count && !p->dock_drop_positioned && !p->dock_x && !p->dock_y) {
       if (edge < 2) {
@@ -976,8 +977,8 @@ static void panel_layout_apply(RRFloatPanel *p, guint bucket) {
       int max_w = MAX(200, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - 24);
       int max_h = MAX(160, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - 24);
       /* Only geometry is size-specific. The panel's visibility, user zoom, opacity, and pin status are shared across viewport sizes. */
-      p->saved_width = CLAMP(saved.width, 0, max_w);
-      p->saved_height = CLAMP(saved.height, 0, max_h);
+      p->saved_width = p->content_sized ? 0 : CLAMP(saved.width, 0, max_w);
+      p->saved_height = p->content_sized ? 0 : CLAMP(saved.height, 0, max_h);
       int x0, y0, x1, y1;
       panel_hard_bounds(p, MAX(1, p->saved_width), MAX(1, p->saved_height), &x0, &y0, &x1, &y1);
       int x = CLAMP(saved.x, x0, x1), y = CLAMP(saved.y, y0, y1);
@@ -1053,6 +1054,8 @@ static void panel_state_save(RRFloatPanel *p) {
          p->saved_height = h;
       }
    }
+   if (p->content_sized)
+      p->saved_width = p->saved_height = 0;
    rrclient_window_state_t state = {
       .x = gtk_widget_get_margin_start(p->frame),
       .y = gtk_widget_get_margin_top(p->frame),
@@ -3054,11 +3057,25 @@ void rr_floating_panel_set_compact(RRFloatPanel *p, GtkWidget *drag_handle) {
    }
 }
 
+/* Controls own both dimensions; never restore stale manually sized geometry.
+ * Zoom still scales the child hierarchy and its natural request. */
+void rr_floating_panel_set_content_sized(RRFloatPanel *p) {
+   if (!p || !p->frame)
+      return;
+   p->content_sized = TRUE;
+   p->resizable = FALSE;
+   p->saved_width = p->saved_height = 0;
+   p->dock_width = p->dock_height = -1;
+   p->last_saved_valid = FALSE;
+   gtk_widget_set_size_request(p->frame, -1, -1);
+   panel_resize_targets_visibility(p);
+}
+
 void rr_floating_panel_set_resizable(RRFloatPanel *p, gboolean resizable) {
    if (!p) {
       return;
    }
-   p->resizable = !!resizable;
+   p->resizable = p->content_sized ? FALSE : !!resizable;
 
    panel_resize_targets_visibility(p);
 }
