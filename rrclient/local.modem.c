@@ -227,6 +227,9 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict_add(fields,"callsign",call);
    dict_add(fields,"kind",kind);
    dict_add(fields,"text",body);
+   dict_add(fields,"raw",d->line);
+   dict_add_long(fields,"time_ms",(long)(g_get_real_time()/1000));
+   dict_add_bool(fields,"own",!strcmp(kind,"own"));
    dict_add(fields,"engine",d->engine);
    dict_add(fields,"mode",decode_mode(d));
    dict_add(fields,"source",d->source);
