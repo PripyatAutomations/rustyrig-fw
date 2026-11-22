@@ -39,12 +39,12 @@ int main(int argc,char **argv) {
    field(event,"band","20m");
    field(event,"mode","FT8");
    field(event,"text","CQ K1ABC FN31");
-   assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"modem.callsign",event));
+   assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"watch.callsign",event));
    field(event,"kind","own");
-   assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"modem.callsign",event));
+   assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"watch.callsign",event));
    assert(notifications==2);
    rrs_value_free(event);
    rrs_vm_free(vm);
-   puts("RustyScript modem.callsign handler tests passed");
+   puts("RustyScript watch.callsign handler tests passed");
    return 0;
 }
