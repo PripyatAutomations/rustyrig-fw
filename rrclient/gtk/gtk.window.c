@@ -320,10 +320,14 @@ static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page, guint 
    (void)book;
    (void)number;
    (void)unused;
-   /* Only chat-room pages own docking regions. Status, Logs, Routing, Admin, Config, Explorer and SDR Directory reclaim the whole workspace. */
+   /* Terminal is a working page: keep floating side panels visible there.
+    * The tab mask is reserved for full-workspace utility pages.  Preserve
+    * the active room's panel context on Terminal, since it has no docks. */
    gboolean chat_page = page && g_object_get_data(G_OBJECT(page), "rr-chat-docks");
-   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, !chat_page);
-   rr_floating_panel_chat_activate(page);
+   gboolean terminal_page = page && g_object_get_data(G_OBJECT(page), "rr-terminal-page");
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, !chat_page && !terminal_page);
+   if (!terminal_page)
+      rr_floating_panel_chat_activate(page);
 }
 
 /* Virtual Rigs manager. The stable per-slot name is independent of the selected chat; all serial changes cross to the core event domain. */
