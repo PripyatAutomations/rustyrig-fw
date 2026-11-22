@@ -68,6 +68,10 @@ extern bool parse_chat_input_gtk(GtkButton *button, gpointer entry);
 
 extern bool parse_chat_input_real(const char *msg);
 extern bool parse_chat_input_text(const char *msg);
+/* Script-agnostic, tagged chat-send API using the normal IRC/WS flood queue. */
+bool rrclient_script_chat_send(const char *profile,const char *target,
+                               const char *text,const char *tag);
+void rrclient_script_chat_cancel(const char *tag);
 bool cmd_exec(int argc, char **args);
 void rrclient_exec_shutdown(void);
 extern bool tui_register_completion_provider(char **(*fn) (const char *line, const char *word));
