@@ -1044,6 +1044,7 @@ void gtk_show_server_chooser(void) {
    if (!picker_panel) {
       return;
    }
+   rr_floating_panel_set_floating_only(picker_panel);
    rr_floating_panel_set_initial_centered(picker_panel, TRUE);
    rr_floating_panel_set_close_callback(picker_panel, picker_close, NULL);
    GtkWidget *window = rr_floating_panel_widget(picker_panel);
