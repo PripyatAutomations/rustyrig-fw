@@ -8,6 +8,19 @@ time. Without the development package, they build without script support.
 Install the current librustyaxe source tree with `make install`, or build
 the `librustyscript0` and `librustyscript-dev` Debian packages first.
 
+## Source and build separation
+
+RustyScript has separate application host implementations:
+
+- `rrclient/script.c` → `build/rrclient/script.o`: client lifecycle, UI panel bindings, and client-specific script natives.
+- `rrserver/script.c` → `build/rrserver/script.o`: server lifecycle and server-owned script bindings.
+- `rrscript/host.c` → `build/{rrclient,rrserver}/rrscript/host.o`: shared, frontend-independent script loading, event subscriptions, and VM lifecycle.
+
+The client and server **do not compile the same file as their respective
+host implementation**. They each register their own capabilities into the
+shared script loader, which contains no GTK/frontend dependencies.
+The RustyScript interpreter itself remains in `librustyaxe/rustyscript/`.
+
 ## Script directories and autoload
 
 `security.scripting.path` configures a **script root**, not the autoload
