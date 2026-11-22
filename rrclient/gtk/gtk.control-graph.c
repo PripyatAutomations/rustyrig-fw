@@ -5,6 +5,7 @@
 #include "gtk.control-graph.h"
 #include <rrclient/control.graph.h>
 #include <rrclient/audio.h>
+#include <rrclient/local.modem.h>
 #include <rrclient/database.h>
 #include <rrclient/gtk/gtk.graph.h>
 #include <math.h>
@@ -159,9 +160,9 @@ static void restore_model(void) {
       double x=xs?g_ascii_strtod(xs,NULL):-1.,y=ys?g_ascii_strtod(ys,NULL):-1.;
       if (name && g_str_has_prefix(name,"gate.") && kind &&
           rr_gate_kind_parse(kind,&type) &&
-          rr_control_graph_gate_add(model,name,type,(unsigned)inputs) &&
           isfinite(x) && isfinite(y) && x>=0 && x<=100000 &&
-          y>=0 && y<=100000) {
+          y>=0 && y<=100000 &&
+          rr_control_graph_gate_add(model,name,type,(unsigned)inputs)) {
          gate_view_t *b=&blocks[block_count++];
          g_strlcpy(b->id,name,sizeof(b->id));
          b->kind=type;b->inputs=(unsigned)inputs;b->x=x;b->y=y;
@@ -384,7 +385,8 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
          GtkWidget *menu=gtk_menu_new(),*edit=gtk_menu_item_new_with_label("Properties…");
          g_object_set_data_full(G_OBJECT(edit),"id",g_strdup(b->id),g_free);
          g_signal_connect(edit,"activate",G_CALLBACK(properties_menu_activate),
-                          g_object_get_data(G_OBJECT(event->window),"rr-logic-parent"));
+                          GTK_IS_WIDGET(callback_user) ?
+                             gtk_widget_get_toplevel(GTK_WIDGET(callback_user)) : NULL);
          gtk_menu_shell_append(GTK_MENU_SHELL(menu),edit);
          for(unsigned w=0;w<wire_count;w++)
             if (!strcmp(wires[w].to,b->id) || !strcmp(wires[w].from,b->id))
