@@ -204,6 +204,10 @@ script("/west-east", {
 });
 ```
 
+A ready-to-load demonstration is included at `doc/examples/scripts/panel-layout.rrs`.
+Copy it to your client scripts root or `autoload/` and invoke
+`/spectrum-east`, `/spectrum-main`, or `/vfo-west` after loading it.
+
 **Behavior:** Movement reparents the existing GTK panel chrome and contents
 through the docking manager, not by destroying and recreating it. It
 preserves the panel's content, zoom, opacity and saved identity. Dock and
