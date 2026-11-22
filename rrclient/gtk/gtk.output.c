@@ -84,8 +84,7 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
       return;
    }
 
-   GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(view));
-   bool follow = gtk_adjustment_get_value(adjustment) + gtk_adjustment_get_page_size(adjustment) >= gtk_adjustment_get_upper(adjustment) - 1;
+   bool follow=gtk_chat_view_should_follow(view);
    char *line;
 
    while ((line = g_queue_pop_head(chat_backlog))) {
@@ -107,7 +106,7 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
    gtk_trim_scrollback(buffer, "ui.gtk.scrollback.chat", 200);
 
    if (follow) {
-      g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(view), g_object_unref);
+      gtk_chat_view_schedule_follow(view);
    }
 }
 
@@ -188,8 +187,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    }
 
    /* PARITY: rustyrig-www/js/webui.chat.js Append, preserve a reader's viewport. */
-   GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(target_view));
-   bool follow = gtk_adjustment_get_value(adjustment) + gtk_adjustment_get_page_size(adjustment) >= gtk_adjustment_get_upper(adjustment) - 1;
+   bool follow=gtk_chat_view_should_follow(target_view);
    bool colorize_failed = false;
    char *colorized = gtk_colorize_string(msgbuf);
 
@@ -217,7 +215,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    }
 
    if (follow) {
-      g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(target_view), g_object_unref);
+      gtk_chat_view_schedule_follow(target_view);
    }
 
    return false;
