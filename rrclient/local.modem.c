@@ -555,7 +555,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          if (!d->active || !d->tx_enabled ||
             (strcmp(d->engine, "psk") && strcmp(d->engine, "olivia")) ||
             !modem_tx_wired(d) || !d->ptt_target[0] || d->ptt_owned || d->tx_running || d->pending_text[0]) {
-            g_strlcpy(last_status, "Modem TX needs audio patched to tx.mix and PTT to an active rig", sizeof(last_status));
+            g_strlcpy(last_status, "Modem TX needs audio patched to tx.mix or rig.sink and PTT to an active rig", sizeof(last_status));
          } else {
             char pin[64];
             modem_ptt_source(req->slot - 1, pin);
