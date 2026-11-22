@@ -46,7 +46,7 @@ event ui.timer {
                 char[] name = state.get(event.id + ".filename")
                 char[] dest = dir + "/" + name
                 if (file.exists(dest)) {
-                    dest = dir + "/" + string.slice(name, 0, -4)
+                    dest = dir + "/" + string.slice(name, 0, string.length(name) - 4) + "-2.mac"
                 }
                 // Never overwrite an existing artwork.
                 if (file.exists(dest) == false) {
