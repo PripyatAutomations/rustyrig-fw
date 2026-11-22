@@ -157,6 +157,19 @@ static void script_runtime_action(GtkWidget *browser, const char *name, gpointer
 #endif
 }
 
+static void script_load(GtkWidget *browser, const char *name, gpointer unused) {
+   (void)unused;
+   script_runtime_action(browser, name, "load");
+}
+static void script_unload(GtkWidget *browser, const char *name, gpointer unused) {
+   (void)unused;
+   script_runtime_action(browser, name, "unload");
+}
+static void script_reload(GtkWidget *browser, const char *name, gpointer unused) {
+   (void)unused;
+   script_runtime_action(browser, name, "reload");
+}
+
 static void script_refresh(GtkWidget *browser, const char *name, gpointer unused) {
    (void)name; (void)unused;
    rr_local_browser_refresh(browser);
@@ -289,15 +302,13 @@ void gtk_scripts_open(void) {
    rr_floating_panel_set_close_callback(script_panel, script_close, NULL);
    static const rr_local_browser_action_t actions[] = {
       {"Refresh", "view-refresh", always_enabled, script_refresh},
-      {"Load", "media-playback-start", selected_load, script_runtime_action},
-      {"Unload", "media-playback-stop", selected_loaded, script_runtime_action},
-      {"Reload", "view-refresh", selected_loaded, script_runtime_action},
+      {"Load", "media-playback-start", selected_load, script_load},
+      {"Unload", "media-playback-stop", selected_loaded, script_unload},
+      {"Reload", "view-refresh", selected_loaded, script_reload},
       {"Edit", "document-edit", selected_any, script_edit},
       {"Move / Rename", "document-save-as", selected_any, script_move},
       {"Delete", "edit-delete", selected_any, script_delete}
    };
-   /* Load/unload/reload share the same callback but need distinct verbs.
-    * The browser supplies action data (not the label) to the handler. */
    GtkWidget *body = rr_floating_panel_body(script_panel);
    gtk_widget_set_size_request(body, 640, 370);
    script_browser = rr_local_browser_new(script_root, ".rrs", actions,
