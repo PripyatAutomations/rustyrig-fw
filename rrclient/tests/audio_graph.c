@@ -76,6 +76,22 @@ int main(void) {
    assert(!rr_audio_graph_add_channel_link(g,"tx.transport","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
    assert(rr_audio_graph_link_count(g)==3);
    rr_audio_graph_free(g);
+   /* A single mono source can fan out to *both* independent mixer ears;
+    * adding the second channel coalesces the same logical source edge. */
+   g=rr_audio_graph_new();
+   assert(g);
+   assert(rr_audio_graph_add_node(g,"src.client.dsp0",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"tx.mix",RR_AG_MIXER));
+   assert(rr_audio_graph_add_channel_link(g,"src.client.dsp0","tx.mix",
+           RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_add_channel_link(g,"src.client.dsp0","tx.mix",
+           RR_AG_NORMAL,RR_AG_CHANNEL_RIGHT));
+   assert(rr_audio_graph_link_count(g)==1);
+   rr_audio_graph_snapshot_t *fanout=g_new0(rr_audio_graph_snapshot_t,1);
+   assert(rr_audio_graph_snapshot(g,fanout));
+   assert(fanout->links[0].channels==RR_AG_CHANNEL_STEREO);
+   g_free(fanout);
+   rr_audio_graph_free(g);
    /* LV2 slot IDs are not an execution order. The graph must accept
     * an effect output feeding a lower-numbered slot, provided all nodes
     * have been registered before connecting their edges. */
