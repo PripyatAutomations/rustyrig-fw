@@ -887,13 +887,6 @@ static void handle_script_admin(rrconn_t *client, dict *request, const char *act
 /* Bound SQL parameters only: free-form request messages never become SQL. */
 static void admin_access_requests(rrconn_t *client, dict *request) {
    const char *action = dict_get(request, "talk.action", "");
-#if defined(RR_HAVE_RUSTYSCRIPT) && defined(USE_SQLITE)
-   if(!strncmp(action,"script-",7)) {
-      handle_script_admin(client,request,action);
-      dict_free(request);
-      return;
-   }
-#endif
 
    if (!masterdb) {
       ws_send_error(client, "Access request database unavailable");
@@ -1256,6 +1249,13 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
+#ifdef RR_HAVE_RUSTYSCRIPT
+   if (!strncmp(action, "script-", 7)) {
+      handle_script_admin(client, request, action);
+      dict_free(request);
+      return;
+   }
+#endif
 
    if (!strcmp(action, "identity-list") || !strcmp(action, "peer-remove")) {
       if (!admin_actor_has_priv(client, "admin|owner")) {
