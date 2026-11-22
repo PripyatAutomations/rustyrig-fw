@@ -38,6 +38,10 @@
 #include <rrserver/thermal.h>
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
+#ifdef RR_HAVE_RUSTYSCRIPT
+#include <rrscript/host.h>
+static rrscript_host_t *rrserver_script_host;
+#endif
 #include <rrserver/files.h>
 #include <rrserver/backend.h>
 #include <rrserver/cfg.rig.h>
@@ -775,6 +779,13 @@ int main(int argc, char **argv) {
       return mesh_join_prepare(mesh_join_path);
    }
 
+#ifdef RR_HAVE_RUSTYSCRIPT
+   {
+      const char *script_path = cfg_get("security.scripting.path");
+      rrserver_script_host = rrscript_host_open(
+         script_path && *script_path ? script_path : "/etc/rustyrig/scripts", false);
+   }
+#endif
    const char *module_dir = cfg_get("path.modules");
    struct stat module_stat;
 
@@ -1144,6 +1155,10 @@ int main(int argc, char **argv) {
    rrserver_links_fini();
    rrserver_relay_fini();
 
+#ifdef RR_HAVE_RUSTYSCRIPT
+   rrscript_host_close(rrserver_script_host);
+   rrserver_script_host = NULL;
+#endif
    event_shutdown();
    cfg_fini();
 
