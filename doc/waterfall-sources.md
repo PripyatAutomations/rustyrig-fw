@@ -291,7 +291,11 @@ the existing RX audio channel, so the client can distinguish resampled
 The `mu08` codec has a known 8 kHz source ceiling (0–4 kHz), when
 there is no stronger upstream rate announcement.
 
-The source picker changes the visible limit; the right-click zoom menu
+The source picker changes the available limit. By default the AF waterfall
+shows the lower half of that limit: approximately 0–3 kHz for a 12 kHz
+Kiwi stream and 0–4 kHz for 16 kHz speaker audio. The right-click 1×
+zoom restores the full native/available band; 4×/8× zoom and horizontal
+pan allow closer inspection of either end. The right-click zoom menu
 lists each level's actual visible span. The trace, waterfall bins,
 frequency ticks, click-to-offset mapping and drag-pan bounds all use
 the same source-relative viewport. **Mixed/left/right/stereo heard**
