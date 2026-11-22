@@ -75,6 +75,7 @@ The client provides these local commands, even when disconnected:
 /script unload helper.rrs
 /script reload helper.rrs
 /script reload autoload/10-hello.rrs
+/script debug
 ```
 
 A simple name searches the script root first, then `autoload/`.
@@ -262,6 +263,24 @@ These primitives are reusable for other station automations:
 
 No C API named `art.capture` or `art.play` is needed. The example is
 intentionally readable and modifiable by people who aren't C developers.
+
+## Script Debugger
+
+Use `/script debug` to open the floating **Script Console**, modeled on a
+browser's JavaScript console. It records script load/runtime errors and
+`log.info`/`log.warn` messages. Entries include timestamp, severity,
+script filename, handler name, line/column, and diagnostic text. Repeated
+identical messages are grouped by an occurrence count; the console retains
+up to 1,000 entries, even while its panel is closed.
+
+Filter by all messages, warnings/errors, or errors only. Select a row to
+**Copy** the diagnostic or **Open Script** at its source location; double-click
+a row to open it directly. **Clear** empties the current console history.
+The ordinary client log remains available independently.
+
+New runtime diagnostics include positions like `line 17:24: unknown variable`.
+Because the interpreter lives in **librustyaxe**, rebuild/install that library
+before rebuilding the client to get the new line/column reporting.
 
 ## Scriptable GTK panels and docking
 
