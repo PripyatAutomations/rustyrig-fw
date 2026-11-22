@@ -250,8 +250,11 @@ These primitives are reusable for other station automations:
 
 - `timer.after(id, ms)`, `timer.every(id, ms)`, `timer.cancel(id)`
   deliver `event ui.timer` with `event.id`; timers stop on script unload
-- `state.get(key)` and `state.set(key, value)` retain script values
-  across event invocations; setting a value to `null` removes it
+- `state.get(key)` and `state.set(key, value)` access **shared**
+  state by default. `state.use(namespace)` selects a named shared table;
+  `state.use("")` switches back to private state. `state.namespace()`,
+  `state.namespaces()` and `state.keys()` inspect the available scopes
+  and keys; setting a value to `null` deletes it
 - `string.regex`, `string.chr`, `string.slug`, `string.hash`,
   `string.slice`, `string.length`, `string.line`, `string.lines`,
   and `string.str` provide basic text operations
@@ -263,6 +266,43 @@ These primitives are reusable for other station automations:
 
 No C API named `art.capture` or `art.play` is needed. The example is
 intentionally readable and modifiable by people who aren't C developers.
+
+## Shared namespaces and naming
+
+Each loaded script has its **own interpreter VM, handlers, timer IDs and local
+variables**. Scripts share a `global` **state namespace by default**, so two
+scripts can communicate by reading and writing the same `state.*` keys.
+Namespaces belong to the client or server script host; they are not network
+synchronized or persisted across application restarts. Use `setting.get/set`
+for client settings that must survive a restart.
+
+```text
+// Script A — shared global state
+state.set("station.audio.gain", 12)
+
+// Script B — reads the same value
+state.get("station.audio.gain")
+
+// Use a named shared namespace for a particular station subsystem
+state.use("station.audio")
+state.set("gain", 12)
+
+// Another script joining the same namespace sees it
+state.use("station.audio")
+state.get("gain")
+
+// For scratch data that must not be shared
+state.use("")
+state.set("temporary.value", 42)
+```
+
+**Naming convention:** namespaces and state keys use lowercase
+dot-separated components, for example `station.audio.gain` or
+`artwork.capture-1234.body`. Each component begins with `a`–`z`
+and may contain lowercase letters, digits, underscores and hyphens.
+Empty components, spaces, uppercase letters and trailing dots are rejected.
+Namespace names are limited to 64 bytes; state keys to 256 bytes.
+The reserved default scope is `global`.
 
 ## Script Debugger
 
@@ -277,6 +317,18 @@ Filter by all messages, warnings/errors, or errors only. Select a row to
 **Copy** the diagnostic or **Open Script** at its source location; double-click
 a row to open it directly. **Clear** empties the current console history.
 The ordinary client log remains available independently.
+
+The console also includes a **multiline RustyScript input**. Paste expressions
+or snippets and click **Evaluate** (or Ctrl+Enter). Console variables persist
+between evaluations and do not enter another loaded script's interpreter scope.
+Examples: `debug.scripts()` lists loaded scripts;
+`debug.namespaces()` lists shared state scopes;
+`debug.keys("@global")` lists shared keys; and
+`debug.state("@global", "station.audio.gain")` prints a value.
+Use `debug.keys("autoload/ascii-art.rrs")` and
+`debug.state("autoload/ascii-art.rrs", "artwork.play.rate")` to inspect
+the namespace used by a particular loaded script. Values, including
+nested dictionaries, are formatted for inspection.
 
 New runtime diagnostics include positions like `line 17:24: unknown variable`.
 Because the interpreter lives in **librustyaxe**, rebuild/install that library
