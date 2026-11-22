@@ -327,8 +327,12 @@ static void dock_slot_constrain(GtkWidget *scroll, GtkAllocation *allocation, gp
       const gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
       gint req_w, req_h;
       gtk_widget_get_size_request(frame, &req_w, &req_h);
-      gint draw_w = desired_w > 0 ? MIN(desired_w, max_w) : req_w;
-      gint draw_h = desired_h > 0 ? MIN(desired_h, max_h) : req_h;
+      /* A saved user resize is authoritative. GtkFixed lives inside a
+       * scrolled viewport, so shrinking the dock must not overwrite that
+       * dimension with the current viewport size. Only natural-size panels
+       * are limited here to avoid an oversized default allocation. */
+      gint draw_w = desired_w > 0 ? desired_w : req_w;
+      gint draw_h = desired_h > 0 ? desired_h : req_h;
 
       if (draw_w != req_w || draw_h != req_h) {
          gtk_widget_set_size_request(frame, draw_w, draw_h);
