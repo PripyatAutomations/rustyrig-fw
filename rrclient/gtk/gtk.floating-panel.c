@@ -2320,7 +2320,7 @@ static gint panel_resize_snap(RRFloatPanel *p, GtkWidget *area, gint raw,
    return raw;
 }
 
-static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
+static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root, gboolean disable_snap) {
    if (!p || !p->resizing || !p->frame)
       return FALSE;
    GtkWidget *area = p->dock_edge >= 0 ? gtk_widget_get_parent(p->frame) : GTK_WIDGET(p->overlay);
@@ -2342,7 +2342,7 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
    gint w = p->resize_width, h = p->resize_height;
    gint dx = (gint)(x_root - p->resize_x), dy = (gint)(y_root - p->resize_y);
    /* Shift bypasses magnetic alignment without affecting the size limits. */
-   p->snap_disabled = FALSE;
+   p->snap_disabled = disable_snap;
    if (p->resize_edges & PANEL_RESIZE_LEFT) {
       w = CLAMP(p->resize_width - dx, min_w,
                 MAX(min_w, p->resize_width + p->resize_start_x));
@@ -2396,7 +2396,8 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
 
 static gboolean panel_resize_move(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    (void)widget;
-   return panel_resize_to(data, event->x_root, event->y_root);
+   return panel_resize_to(data, event->x_root, event->y_root,
+      (event->state & GDK_SHIFT_MASK) != 0);
 }
 
 static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -2404,7 +2405,8 @@ static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, g
    RRFloatPanel *p = data;
    if (!p->resizing || event->button != GDK_BUTTON_PRIMARY)
       return FALSE;
-   panel_resize_to(p, event->x_root, event->y_root);
+   panel_resize_to(p, event->x_root, event->y_root,
+      (event->state & GDK_SHIFT_MASK) != 0);
    p->resizing = FALSE;
    gint w = -1, h = -1;
    gtk_widget_get_size_request(p->frame, &w, &h);
