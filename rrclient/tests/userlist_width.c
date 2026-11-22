@@ -276,11 +276,12 @@ static void test_floating_userlist_no_autogrow(void) {
    gtk_window_set_default_size(GTK_WINDOW(window), 220, 240);
    gtk_widget_show_all(window);
    pump_layout();
+   gint initial_width = gtk_widget_get_allocated_width(panel);
    for (int i = 0; i < 5; i++) {
       userlist_fit_width_idle(view);
       pump_layout();
       assert(gtk_scrolled_window_get_min_content_width(GTK_SCROLLED_WINDOW(scroll)) == 80);
-      assert(gtk_widget_get_allocated_width(panel) <= 220);
+      assert(gtk_widget_get_allocated_width(panel) <= initial_width + 1);
    }
    g_object_set_data(G_OBJECT(view), "rr-room-roster", NULL);
    gtk_widget_destroy(window);
