@@ -1123,7 +1123,8 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
    gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-   gtk_widget_set_size_request(p->drawing, -1, 210);
+   /* Allow the panel height to shrink; 210px here was a hard GTK minimum. */
+   gtk_widget_set_size_request(p->drawing, -1, 64);
    gtk_widget_set_vexpand(p->drawing, TRUE);
    gtk_box_pack_start(GTK_BOX(box), p->drawing, TRUE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
