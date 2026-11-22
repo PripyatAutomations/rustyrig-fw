@@ -424,12 +424,34 @@ static rrs_value_t *from_dict(dict *d) {
    }
    return result;
 }
+/* Forward structured diagnostics to any frontend without coupling the VM
+ * to GTK.  Existing logfile reporting remains in place. */
+static void script_diagnostic(const char *path,const char *handler,
+                              const char *message,unsigned severity) {
+   rr_script_diagnostic_t diagnostic={.version=RR_SCRIPT_DIAGNOSTIC_VERSION,
+      .severity=severity};
+   g_strlcpy(diagnostic.path,path?path:"",sizeof(diagnostic.path));
+   g_strlcpy(diagnostic.handler,handler?handler:"",sizeof(diagnostic.handler));
+   g_strlcpy(diagnostic.message,message?message:"",sizeof(diagnostic.message));
+   if(message) {
+      unsigned line=0,column=0;
+      if(sscanf(message,"line %u:%u:",&line,&column)==2) {
+         diagnostic.line=line;
+         diagnostic.column=column;
+      }
+   }
+   rr_event_message_t event={.name=RR_SCRIPT_DIAGNOSTIC_EVENT,
+      .payload=&diagnostic,.length=sizeof(diagnostic)};
+   event_emit_message(&event);
+}
 static void run(script_file_t *script,rrscript_binding_kind_t kind,
                 const char *name,const rrs_value_t *event) {
    g_rec_mutex_lock(&script->mutex);
-   if(!rrs_vm_invoke(script->vm,kind,name,event))
-      Log(LOG_CRIT,"scripting","%s: %s: %s",script->filename,name,
-          rrs_vm_error(script->vm));
+   if(!rrs_vm_invoke(script->vm,kind,name,event)) {
+      const char *message=rrs_vm_error(script->vm);
+      script_diagnostic(script->filename,name,message,3);
+      Log(LOG_CRIT,"scripting","%s: %s: %s",script->filename,name,message);
+   }
    g_rec_mutex_unlock(&script->mutex);
 }
 static void event_received(const char *name,const char *payload,
@@ -593,7 +615,9 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
    g_rec_mutex_init(&script->mutex);
    script->vm=rrs_vm_new();
    if(!script->vm||!rrs_vm_load(script->vm,source)) {
-      report_error(error,script->vm?rrs_vm_error(script->vm):"Out of memory");
+      const char *reason=script->vm?rrs_vm_error(script->vm):"Out of memory";
+      script_diagnostic(path,"load",reason,3);
+      report_error(error,reason);
       g_free(source);release_script(script);return false;
    }
    g_free(source);
