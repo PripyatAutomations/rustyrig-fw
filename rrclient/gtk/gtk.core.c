@@ -1892,6 +1892,10 @@ static void frontend_gtk_admin_result_event(const rr_event_message_t *event, voi
 }
 
 const rr_frontend_ops_t gtk_frontend_ops = {
+   .panel_find = rr_floating_panel_find_match,
+   .panel_move = rr_floating_panel_move_named,
+   .panel_zoom = rr_floating_panel_zoom_named,
+   .panel_opacity = rr_floating_panel_opacity_named,
    .show_decoders = gtk_decoders_show,
    .supervision_result = frontend_gtk_supervision_result,
    .admin_result = frontend_gtk_admin_result,
