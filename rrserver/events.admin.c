@@ -50,6 +50,10 @@
 extern struct GlobalState rig;
 
 #include <rrserver/events.internal.h>
+#ifdef RR_HAVE_RUSTYSCRIPT
+#include <rrscript/host.h>
+extern rrscript_host_t *rrserver_script_host;
+#endif
 
 /* PARITY: rrclient/gtk/gtk.admin.c and www/js/webui.admin.js admin results. SQLite and access control stay in the server; no credential fields leave it. */
 /* A relayed operator has no local UID. All remote administrative authority is granted by this server to its authenticated user@site identity. */
@@ -879,6 +883,13 @@ static bool admin_control_visit(const rr_platform_control_state_t *s, void *user
 /* Bound SQL parameters only: free-form request messages never become SQL. */
 static void admin_access_requests(rrconn_t *client, dict *request) {
    const char *action = dict_get(request, "talk.action", "");
+#ifdef RR_HAVE_RUSTYSCRIPT
+   if(!strncmp(action,"script-",7)) {
+      handle_script_admin(client,request,action);
+      dict_free(request);
+      return;
+   }
+#endif
 
    if (!masterdb) {
       ws_send_error(client, "Access request database unavailable");
@@ -1164,6 +1175,69 @@ static void admin_access_requests(rrconn_t *client, dict *request) {
 
 #endif
 /* Handle account/room actions or paginate an allowlisted database view. */
+#ifdef RR_HAVE_RUSTYSCRIPT
+typedef struct {
+   rrconn_t *client;
+   unsigned count;
+} rrserver_script_listing_t;
+static void script_admin_row(const char *name,bool loaded,void *user) {
+   rrserver_script_listing_t *listing=user;
+   dict *row=dict_new();
+   if(!row)return;
+   dict_add(row,"name",name);
+   dict_add_bool(row,"loaded",loaded);
+   rrserver_admin_send(listing->client,"scripts","row",row);
+   dict_free(row);
+   listing->count++;
+}
+static void handle_script_admin(rrconn_t *client,dict *request,const char *action) {
+   if(!admin_actor_has_priv(client,"admin|owner")) {
+      ws_send_error(client,"Admin privilege required for script management");
+      return;
+   }
+   if(!rrserver_script_host) {
+      ws_send_error(client,"RustyScript is not enabled on this server");
+      return;
+   }
+   const char *name=dict_get(request,"talk.target","");
+   const char *op=action+7; /* strip script- prefix */
+   if(!strcmp(op,"list")) {
+      rrserver_script_listing_t listing={.client=client};
+      rrserver_admin_send(client,"scripts","begin",NULL);
+      rrscript_host_list(rrserver_script_host,script_admin_row,&listing);
+      dict *row=dict_new();
+      if(row) {
+         dict_add_uint(row,"count",listing.count);
+         rrserver_admin_send(client,"scripts","end",row);
+         dict_free(row);
+      }
+      return;
+   }
+   if(!*name) {
+      ws_send_error(client,"Script filename required");
+      return;
+   }
+   char *error=NULL;
+   bool ok=false;
+   if(!strcmp(op,"load"))ok=rrscript_host_load(rrserver_script_host,name,&error);
+   else if(!strcmp(op,"unload"))ok=rrscript_host_unload(rrserver_script_host,name,&error);
+   else if(!strcmp(op,"reload"))ok=rrscript_host_reload(rrserver_script_host,name,&error);
+   else {
+      ws_send_error(client,"Unknown script management action");
+      return;
+   }
+   dict *row=dict_new();
+   if(row) {
+      dict_add(row,"name",name);
+      dict_add(row,"message",ok?op:(error?error:"Script operation failed"));
+      rrserver_admin_send(client,"scripts",ok?"success":"error",row);
+      dict_free(row);
+   }
+   if(!ok)ws_send_error(client,"Script %s failed: %s",op,error?error:"unknown error");
+   g_free(error);
+}
+#endif
+
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
