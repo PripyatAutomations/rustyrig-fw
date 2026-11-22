@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
       return 1;
    }
    rrs_value_free(event);
-   assert(rrs_value_field(test_state,"capture-capturetest.body"));
+   assert(rrs_value_field(test_state,"artwork.capture-capturetest.body"));
    rrs_value_free(test_state);
    rrs_vm_free(vm);
    puts("RustyScript artwork example smoke tests passed");
