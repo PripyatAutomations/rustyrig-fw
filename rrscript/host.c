@@ -44,6 +44,13 @@ static rrs_value_t *native_log(rrs_vm_t *vm, int argc,
 #ifdef RRSCRIPT_CLIENT_HOST
 /* Scripts only see immutable IDs and properties; no GTK pointers escape.
  * These operations use the same GTK floating panel manager as drag/drop. */
+static bool script_frontend_context(rrs_vm_t *vm) {
+   if(!g_main_context_is_owner(g_main_context_default())) {
+      rrs_vm_raise(vm,"Window operations require the GTK main thread");
+      return false;
+   }
+   return true;
+}
 static rrs_value_t *native_window_find(rrs_vm_t *vm,int argc,
                                         const rrs_value_t *const argv[],void *user) {
    (void)user;
@@ -52,6 +59,7 @@ static rrs_value_t *native_window_find(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"window.find(pattern[, location]) expects strings");
       return NULL;
    }
+   if(!script_frontend_context(vm))return NULL;
    const rr_frontend_ops_t *ops=frontend_ops();
    if(!ops||!ops->panel_find) {
       rrs_vm_raise(vm,"Panel search requires GTK frontend");
@@ -89,6 +97,7 @@ static rrs_value_t *native_window_move(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"window.move(id, location, x, y) expects strings and integers");
       return NULL;
    }
+   if(!script_frontend_context(vm))return NULL;
    const rr_frontend_ops_t *ops=frontend_ops();
    if(!ops||!ops->panel_move) {
       rrs_vm_raise(vm,"Panel movement requires GTK frontend");
@@ -112,6 +121,7 @@ static rrs_value_t *native_window_percent(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"window.zoom/opacity(id, percent) requires ID and integer");
       return NULL;
    }
+   if(!script_frontend_context(vm))return NULL;
    const rr_frontend_ops_t *ops=frontend_ops();
    if(!ops){rrs_vm_raise(vm,"Panel controls require GTK frontend");return NULL;}
    int64_t value=rrs_value_int(argv[1]);
