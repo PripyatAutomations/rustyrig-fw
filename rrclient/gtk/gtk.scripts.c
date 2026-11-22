@@ -6,6 +6,7 @@
 #include <librustyaxe/event-bus.h>
 #include <rrclient/script.gui.h>
 #include <string.h>
+#include <stdio.h>
 #include <librustyaxe/config.h>
 #include "gtk.local-browser.h"
 #include "gtk.floating-panel.h"
