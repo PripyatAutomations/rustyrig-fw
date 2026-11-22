@@ -368,11 +368,10 @@ produce both if the callsign is also on the watchlist.
 The [callsign-alert example](examples/scripts/callsign-alert.rrs) begins with
 an easy configuration block: a `char[][] rooms` array of `#room@network`
 destinations (default `#hamradio-test@efnet`), a popup toggle, a room
-announcement toggle, and a 30-minute per-callsign cooldown. It assembles a
+announcement toggle, and a 30-minute per-callsign *absence* window (reset by every matching decode). It assembles a
 single message like `Spotted K1ABC on 20m FT8 at 14.074 MHz, using
 rplywv00-rig0 (FT-891)`, logs it, optionally shows a dialog, and queues
-it into all configured, joined IRC/RustyRig rooms. The cooldown lives in
-shared in-memory state and resets on client restart. A per-watch-entry
+it into all configured, joined IRC/RustyRig rooms. The last-seen timestamps live in shared in-memory state and reset on client restart. A callsign detected continuously will not repeat announcements until it disappears for the configured duration and reappears. A per-watch-entry
 notification checkbox in the C watchlist editor is not implemented yet.
 
 Only decoded text messages generate this notification; worker status JSON,
