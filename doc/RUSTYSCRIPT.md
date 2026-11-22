@@ -260,13 +260,13 @@ host exits; it is not persistent storage.
 |---|---|
 | `setting.get(key)` | String from client settings database, or `null` |
 | `setting.set(key, value)` | Persist string, numeric, or boolean value; values are read back as strings |
-| `chat.send("profile|target", text, tag[, interval_ms])` | Boolean indicating enqueue success, not remote delivery |
+| `chat.send("#room@network", text[, tag[, interval_ms]])` or `chat.send(rooms[], text[, tag[, interval_ms]])` | Queue into one or more joined rooms through any connected IRC/RustyRig profile; returns whether all destinations enqueued |
 | `chat.cancel(tag)` | Remove this script's unsent queued messages with the supplied tag |
 | `window.find(pattern[, location])` / `panel.find(...)` | Look up existing panel (GTK only) |
 | `window.move(id, location[, x, y])`, `window.zoom(id, percent)`, `window.opacity(id, percent)` | Change panel placement/display (GTK only); `panel.*` aliases available |
 | `ui.*`, `gui.*`, `control.val/set` | Build and control logical UI widgets; see [RustyScript UI model](RUSTYSCRIPT-UI.md) |
 
-The default chat interval is **1,000 ms** and explicitly supplied intervals
+Destination strings use **`#room@network`** (or `&room@network`) where `network` is the configured client connection/profile name, whether IRC or RustyRig WS. The legacy `profile|room` form still works. You may pass an array literal such as `["#hamradio-test@efnet", "#test@rig-profile"]` or a `char[][]` variable. The optional tag defaults to `"message"`; the array limit is 32 rooms and sends are queued independently to each already-joined room. A failure may mean earlier destinations were queued; check the boolean result. The default chat interval is **1,000 ms** and explicitly supplied intervals
 must be **100–10,000 ms**. A tag is 1–40 bytes and belongs to the script's
 generation, preventing another script from cancelling its queued lines.
 The target must already be an open chat or query. `setting.*` keys are
@@ -283,7 +283,7 @@ the process's OS privileges, including when evaluated in the debugger.
 ### Execution and language limits
 
 The current interpreter supports `int`, `float`, `bool`, `char`,
-`char[]` strings, and `dict` values; local declarations/assignments,
+`char[]` strings, `char[][]` array variables, array literals (`["a", "b"]`), and `dict` values; local declarations/assignments,
 arithmetic, comparisons, property access (`event.room`), synchronous
 native calls, and `if/else` blocks. Curly braces are mandatory for
 conditionals; semicolons are optional separators. Line comments may use
@@ -352,7 +352,10 @@ produce both if the callsign is also on the watchlist.
 | `event.origin` | Producing subsystem, currently `"modem"` |
 | `event.modem` | Local modem identifier, e.g. `modem1` |
 | `event.audio_source` | Exact receiver/audio stream feeding the decoder |
-| `event.vfo_uuid` | Source VFO resource UUID, if known (otherwise omitted) |
+| `event.vfo_uuid` | Source VFO resource UUID, if known; empty otherwise |
+| `event.rig` | Rig room name such as `rplywv00-rig0`, if established by the RX stream |
+| `event.model` | Rig model such as `FT-891`, resolved from its catalog owner where available |
+| `event.server` | Connection/profile providing the source stream, if known |
 | `event.engine` | Decoder engine (`ft8`, `olivia`, `psk`) |
 | `event.mode` | Normalized mode used for watchlist matching (e.g. `FT8`) |
 | `event.band` | RF amateur band name, or empty if unavailable |
@@ -361,6 +364,16 @@ produce both if the callsign is also on the watchlist.
 | `event.slot` | Local decoder slot, starting at 1 |
 | `event.watch_id` | Watched-call database row ID; 0 for own-callsign matches |
 | `event.audio_hz`, `event.dt`, `event.sync_score`, `event.snr` | Optional decoder-provided metrics, included when present; numeric worker values remain numeric, string worker values remain strings |
+
+The [callsign-alert example](examples/scripts/callsign-alert.rrs) begins with
+an easy configuration block: a `char[][] rooms` array of `#room@network`
+destinations (default `#hamradio-test@efnet`), a popup toggle, a room
+announcement toggle, and a 30-minute per-callsign cooldown. It assembles a
+single message like `Spotted K1ABC on 20m FT8 at 14.074 MHz, using
+rplywv00-rig0 (FT-891)`, logs it, optionally shows a dialog, and queues
+it into all configured, joined IRC/RustyRig rooms. The cooldown lives in
+shared in-memory state and resets on client restart. A per-watch-entry
+notification checkbox in the C watchlist editor is not implemented yet.
 
 Only decoded text messages generate this notification; worker status JSON,
 configuration messages, and unrelated lines are ignored. A rig identifier is not inferred when the audio source cannot reliably be mapped; scripts can use `event.vfo_uuid` and `event.source` for further lookup. The signal is **notification-only** and never keys a transmitter or modifies modem
