@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/transport.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>
 #include <librrprotocol/server.events.h>
@@ -51,46 +52,52 @@ static bool send_request(rrconn_t *client, dict *d) {
    return true;
 }
 
-extern bool ws_binframe_process_mg(rrconn_t *, const char *, size_t);
-extern bool ws_binframe_process(const char *, size_t);
-
-// Exercise production protocol dispatch with an in-process WebSocket transport.
-bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
-   (void)sender;
-   (void)type;
-   const char *cmd = dict_get(d, "serial.cmd", "");
-
-   if (!strcmp(cmd, "open") || !strcmp(cmd, "configure") || !strcmp(cmd, "close") || !strcmp(cmd, "read") || !strcmp(cmd, "list")) {
-      return send_request(dest, d);
-   }
-
-   if (!strcmp(cmd, "configured")) {
-      configured++;
-   }
-   snprintf(last_error, sizeof(last_error), "%s", dict_get(d, "serial.error", ""));
-   event_emit_dict("ws.msg.serial", dest, d);
-
-   return true;
+/* In-process binary transport implements the same rr_transport ABI as
+ * OpenSSL/wslay and Mongoose; frame routing still uses the real server and
+ * client serial event handlers, not old Mongoose callbacks. */
+static rrconn_t *wire_client;
+static rr_transport_t *wire_transport;
+static void wire_event(rr_transport_t *t, enum rr_transport_event event,
+   rr_transport_channel_t *channel, const uint8_t *data, size_t len, void *arg) {
+   (void)t; (void)event; (void)channel; (void)data; (void)len; (void)arg;
 }
-
-bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, int type) {
-   (void)sender;
-   assert(type == WEBSOCKET_OP_BINARY);
+static int wire_send_binary(void *driver, const uint8_t *data, size_t length) {
+   (void)driver;
    struct rr_binframe f;
-   assert(!rr_binframe_parse((const uint8_t *)payload->buf, payload->len, &f));
+   assert(!rr_binframe_parse(data, length, &f));
    assert(rr_serial_frame_valid(&f));
-
-   if (f.hdr.direction == RR_BINFRAME_DIR_TX) {
-      tx_frames++;
-      assert(ws_binframe_process_mg(dest, payload->buf, payload->len));
-   } else {
-      rx_frames++;
-      assert(ws_binframe_process_client(dest, payload->buf, payload->len));
-   }
-
-   return true;
+   if (f.hdr.direction == RR_BINFRAME_DIR_TX) tx_frames++;
+   else rx_frames++;
+   event_emit_binary(RR_SERIAL_FRAME_EVENT, wire_client, data, length);
+   return RR_TRANSPORT_OK;
 }
-
+static size_t wire_queued_bytes(void *driver) {
+   (void)driver;
+   return 0;
+}
+static void wire_close(void *driver) {
+   (void)driver;
+   rr_transport_emit(wire_transport, RR_TRANSPORT_EVENT_CLOSE, NULL, NULL, 0);
+}
+static const rr_transport_driver_t wire_driver = {
+   .abi_version = RR_TRANSPORT_ABI_VERSION,
+   .capabilities = RR_TRANSPORT_RELIABLE_MESSAGES | RR_TRANSPORT_BINARY_MESSAGES,
+   .send_binary_message = wire_send_binary,
+   .queued_bytes = wire_queued_bytes,
+   .close = wire_close
+};
+static void wire_init(rrconn_t *client) {
+   wire_client = client;
+   wire_transport = rr_transport_new(&wire_driver, NULL, wire_event, NULL);
+   assert(wire_transport);
+   client->native_transport = wire_transport;
+   rr_transport_emit(wire_transport, RR_TRANSPORT_EVENT_OPEN, NULL, NULL, 0);
+}
+static void wire_fini(void) {
+   rr_transport_close(wire_transport);
+   rr_transport_free(wire_transport);
+   wire_transport = NULL;
+}
 int32_t rr_cat_parse_line(char *line) {
    (void)line;
    assert(false);
@@ -230,6 +237,7 @@ int main(int argc, char **argv) {
    client.authenticated = other.authenticated = true;
    client.is_ws = other.is_ws = true;
    ws_conn = &client;
+   wire_init(&client);
    rrserver_serial_init();
    dict_add(cfg, "serial.ttyHOST0", "host:ttyHOST0");
    assert(rr_sercom_init());
@@ -287,7 +295,7 @@ int main(int argc, char **argv) {
    uint8_t *packet = NULL;
    int length = rr_binframe_frame(&packet, RR_BINFRAME_SUBSYS_MODEM, "seri", RR_BINFRAME_DIR_TX, 255, 255, 1, 1, 0, data, 1);
    assert(length > 0);
-   assert(ws_binframe_process_mg(&client, (const char *)packet, length));
+   event_emit_binary(RR_SERIAL_FRAME_EVENT, &client, packet, (size_t)length);
 
    for (unsigned i = 0 ; i < 30 ; i++) {
       pump();
@@ -296,7 +304,8 @@ int main(int argc, char **argv) {
    unsigned char byte;
    assert(read(master, &byte, 1) < 0 && errno == EAGAIN);
    client.authenticated = false;
-   assert(!ws_binframe_process_mg(&client, (const char *)packet, length));
+   /* Authentication is enforced before native ingress dispatch. */
+   assert(!rrserver_client_can_send_binary(&client));
    client.authenticated = true;
    free(packet);
    // Session close releases the export before client memory is freed.
@@ -350,6 +359,7 @@ int main(int argc, char **argv) {
    event_emit("disconnected", NULL, NULL);
    rr_sercom_shutdown();
    rrserver_serial_fini();
+   wire_fini();
    close(fd);
    close(master);
    close(slave);
