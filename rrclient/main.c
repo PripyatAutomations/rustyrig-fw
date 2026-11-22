@@ -63,6 +63,10 @@ extern defconfig_t defcfg[];
 #include <rrclient/userlist.h>
 #include <rrclient/vfo.h>
 #include <rrclient/ui.statusbar.h>
+#ifdef RR_HAVE_RUSTYSCRIPT
+#include <rrscript/host.h>
+rrscript_host_t *rrclient_script_host;
+#endif
 
 #ifdef USE_MONGOOSE
 extern struct mg_mgr mgr;
@@ -2279,6 +2283,10 @@ bool rrclient_cleanup(void) {
 
    connman_shutdown();
    cat_pty_shutdown();
+#ifdef RR_HAVE_RUSTYSCRIPT
+   rrscript_host_close(rrclient_script_host);
+   rrclient_script_host = NULL;
+#endif
    event_shutdown();
 
    // Persist the running config (including window placements learned while
@@ -2722,6 +2730,18 @@ int main(int argc, char *argv[]) {
 
    // Register all of our core event handlers
    rrclient_register_events();
+#ifdef RR_HAVE_RUSTYSCRIPT
+   {
+      const char *path = cfg_get("security.scripting.path");
+      char *default_path = NULL;
+      if (!path || !*path) {
+         default_path = g_build_filename(g_get_user_config_dir(), "rustyrig", "scripts", NULL);
+         path = default_path;
+      }
+      rrclient_script_host = rrscript_host_open(path, true);
+      g_free(default_path);
+   }
+#endif
 
    if (!event_on_message_domain_token("client.supervision.reply", rrclient_supervision_reply_event, NULL, "core")) {
       Log(LOG_WARN, "supervision", "Unable to register supervision reply event");
