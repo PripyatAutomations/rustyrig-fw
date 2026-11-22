@@ -290,40 +290,76 @@ static void append_registry_factories(GtkListStore *store) {
    gst_plugin_feature_list_free(features);
 }
 
-static void refresh_pipeline_combo(editor_t *editor) {
-   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(editor->pipeline_combo));
+/* Sort the visible dropdown without changing the pipeline array's order.
+ * original_index remains authoritative for writing the config document. */
+static gint pipeline_list_compare(gconstpointer a, gconstpointer b, gpointer user_data) {
+   const editor_t *editor = user_data;
+   guint ai = *(const guint *)a, bi = *(const guint *)b;
+   const pipeline_entry_t *left = g_ptr_array_index(editor->pipelines, ai);
+   const pipeline_entry_t *right = g_ptr_array_index(editor->pipelines, bi);
+   gint cmp = g_ascii_strcasecmp(left->id, right->id);
+   return cmp ? cmp : g_strcmp0(left->id, right->id);
+}
 
+static void pipeline_selected(GtkComboBox *combo, gpointer data);
+
+static void pipeline_combo_select(editor_t *editor, guint index) {
+   char id[32];
+   g_snprintf(id, sizeof(id), "%u", index);
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(editor->pipeline_combo), id);
+}
+
+static void refresh_pipeline_combo(editor_t *editor) {
+   GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(editor->pipeline_combo);
+   /* A rebuild must not be interpreted as selecting another pipeline or
+    * trigger property flushes against the wrong entry. */
+   g_signal_handlers_block_by_func(combo, G_CALLBACK(pipeline_selected), editor);
+   gtk_combo_box_text_remove_all(combo);
+
+   GArray *order = g_array_sized_new(FALSE, FALSE, sizeof(guint), editor->pipelines->len);
    for (guint i = 0 ; i < editor->pipelines->len ; i++) {
-      pipeline_entry_t *entry = g_ptr_array_index(editor->pipelines, i);
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(editor->pipeline_combo), entry->id);
+      g_array_append_val(order, i);
    }
+   g_array_sort_with_data(order, pipeline_list_compare, editor);
+   for (guint n = 0 ; n < order->len ; n++) {
+      guint i = g_array_index(order, guint, n);
+      const pipeline_entry_t *entry = g_ptr_array_index(editor->pipelines, i);
+      char id[32];
+      g_snprintf(id, sizeof(id), "%u", i);
+      gtk_combo_box_text_append(combo, id, entry->id);
+   }
+   g_array_free(order, TRUE);
 
    if (editor->pipelines->len) {
       if (editor->selected_pipeline >= editor->pipelines->len) {
          editor->selected_pipeline = editor->pipelines->len - 1;
       }
-      gtk_combo_box_set_active(GTK_COMBO_BOX(editor->pipeline_combo), (gint) editor->selected_pipeline);
+      pipeline_combo_select(editor, editor->selected_pipeline);
    }
+   g_signal_handlers_unblock_by_func(combo, G_CALLBACK(pipeline_selected), editor);
 }
 
 static void pipeline_selected(GtkComboBox *combo, gpointer data) {
    editor_t *editor = data;
-   gint selected = gtk_combo_box_get_active(combo);
-
-   if (selected < 0 || (guint) selected >= editor->pipelines->len) {
+   const gchar *active_id = gtk_combo_box_get_active_id(combo);
+   if (!active_id) {
       return;
    }
-
-   if ((guint) selected == editor->selected_pipeline) {
+   gchar *end = NULL;
+   guint64 index = g_ascii_strtoull(active_id, &end, 10);
+   if (!end || *end || index >= editor->pipelines->len) {
+      return;
+   }
+   guint selected = (guint)index;
+   if (selected == editor->selected_pipeline) {
       return;
    }
 
    if (!flush_properties_with_dialog(editor)) {
-      gtk_combo_box_set_active(combo, (gint) editor->selected_pipeline);
-
+      pipeline_combo_select(editor, editor->selected_pipeline);
       return;
    }
-   editor->selected_pipeline = (guint) selected;
+   editor->selected_pipeline = selected;
    editor->selected_node = -1;
    refresh_canvas(editor);
    refresh_properties(editor);
@@ -1414,7 +1450,7 @@ void rr_pipeline_editor_select(GtkWidget *widget, const gchar *id) {
       pipeline_entry_t *entry = g_ptr_array_index(editor->pipelines, i);
 
       if (!g_strcmp0(entry->id, id)) {
-         gtk_combo_box_set_active(GTK_COMBO_BOX(editor->pipeline_combo), (gint) i);
+         pipeline_combo_select(editor, i);
 
          return;
       }
