@@ -2461,6 +2461,129 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    return p;
 }
 
+/* Stable-ID panel lookup; no GtkWidget or RRFloatPanel pointer crosses the
+ * scripting boundary. All calls happen on the GTK owner thread. */
+static RRFloatPanel *script_panel_by_id(const char *id) {
+   if(!id||!*id)return NULL;
+   for(GList *it=floating_panels;it;it=it->next) {
+      RRFloatPanel *p=it->data;
+      if(p && p->id && !strcmp(id,p->id))return p;
+   }
+   return NULL;
+}
+static const char *script_location(const RRFloatPanel *p) {
+   switch(p->dock_edge) {
+      case RR_DOCK_LEFT:return "W";
+      case RR_DOCK_RIGHT:return "E";
+      case RR_DOCK_TOP:return "N";
+      case RR_DOCK_BOTTOM:return "S";
+      default:return "M";
+   }
+}
+static gint script_edge(const char *location) {
+   if(!location||strlen(location)!=1)return -2;
+   switch(g_ascii_toupper(*location)) {
+      case 'W':return RR_DOCK_LEFT;
+      case 'E':return RR_DOCK_RIGHT;
+      case 'N':return RR_DOCK_TOP;
+      case 'S':return RR_DOCK_BOTTOM;
+      case 'M':return -1;
+      default:return -2;
+   }
+}
+gboolean rr_floating_panel_find_match(const char *pattern,const char *location,
+                                      char **id,char **title,char **where) {
+   if(id)*id=NULL;
+   if(title)*title=NULL;
+   if(where)*where=NULL;
+   if(!pattern||!*pattern)return FALSE;
+   gint edge=-3;
+   if(location && *location && strcmp(location,"*")) {
+      edge=script_edge(location);
+      if(edge==-2)return FALSE;
+   }
+   /* Exact ID lookup takes priority over title-regexp search. */
+   RRFloatPanel *exact=script_panel_by_id(pattern);
+   GRegex *regex=NULL;
+   if(!exact) {
+      GError *error=NULL;
+      regex=g_regex_new(pattern,G_REGEX_CASELESS|G_REGEX_OPTIMIZE,0,&error);
+      if(!regex) {
+         Log(LOG_WARN,"scripting","Invalid panel title regex '%s': %s",
+             pattern,error?error->message:"unknown regex error");
+         g_clear_error(&error);
+         return FALSE;
+      }
+   }
+   RRFloatPanel *found=NULL;
+   for(GList *it=floating_panels;it;it=it->next) {
+      RRFloatPanel *p=it->data;
+      if(!p || p->modal || !p->frame)continue;
+      if(edge!=-3 && p->dock_edge!=edge)continue;
+      const char *text=p->title && GTK_IS_LABEL(p->title) ?
+         gtk_label_get_text(GTK_LABEL(p->title)) : p->id;
+      if(exact ? (exact==p) : g_regex_match(regex,text?text:"",0,NULL)) {
+         found=p;break;
+      }
+   }
+   if(regex)g_regex_unref(regex);
+   if(!found)return FALSE;
+   if(id)*id=g_strdup(found->id);
+   if(title)*title=g_strdup(found->title ?
+      gtk_label_get_text(GTK_LABEL(found->title)) : found->id);
+   if(where)*where=g_strdup(script_location(found));
+   return TRUE;
+}
+gboolean rr_floating_panel_move_named(const char *id,const char *location,gint x,gint y) {
+   RRFloatPanel *p=script_panel_by_id(id);
+   gint edge=script_edge(location);
+   if(!p||p->modal||edge==-2||x<0||y<0)return FALSE;
+   if(edge>=0 && (!active_chat_docks || p->room_hidden))return FALSE;
+   if(edge==-1) {
+      if(p->dock_edge>=0)panel_dock_detach(p,-1,-1);
+      p->float_x=x;p->float_y=y;
+      gtk_widget_set_margin_start(p->frame,x);
+      gtk_widget_set_margin_top(p->frame,y);
+      panel_position_save(p,x,y);
+      p->initial_positioned=TRUE;
+      panel_state_save(p);
+   } else {
+      p->dock_x=x;p->dock_y=y;
+      p->dock_drop_positioned=TRUE;
+      if(p->dock_edge>=0 && p->dock_edge!=edge)
+         panel_dock_detach(p,-1,-1);
+      panel_dock_attach(p,active_chat_docks,edge);
+      GtkWidget *slot=active_chat_docks->slot[edge];
+      if(gtk_widget_get_parent(p->frame)==slot) {
+         gtk_fixed_move(GTK_FIXED(slot),p->frame,x,y);
+         p->dock_edge=edge;
+         panel_dock_coords_save(p);
+         panel_dock_save(p);
+         dock_workspace_refresh(active_chat_docks);
+      } else return FALSE;
+      p->dock_drop_positioned=FALSE;
+   }
+   return TRUE;
+}
+gboolean rr_floating_panel_zoom_named(const char *id,gint percent) {
+   RRFloatPanel *p=script_panel_by_id(id);
+   if(!p||p->modal||percent<10||percent>200)return FALSE;
+   gint previous=p->zoom;
+   gint width=gtk_widget_get_allocated_width(p->frame);
+   gint height=gtk_widget_get_allocated_height(p->frame);
+   p->zoom=percent-100;
+   panel_zoom_apply(p,previous,width,height);
+   return TRUE;
+}
+gboolean rr_floating_panel_opacity_named(const char *id,gint percent) {
+   RRFloatPanel *p=script_panel_by_id(id);
+   if(!p||p->modal||percent<30||percent>100)return FALSE;
+   p->opacity=percent;
+   gtk_widget_set_opacity(p->frame,percent/100.0);
+   panel_state_save(p);
+   return TRUE;
+}
+
 void rr_floating_panel_set_title(RRFloatPanel *p, const char *title) {
    if (p && p->title) {
       gtk_label_set_text(GTK_LABEL(p->title), title ? title : p->id);
