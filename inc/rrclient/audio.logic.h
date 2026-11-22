@@ -35,5 +35,6 @@ typedef struct {
    bool signal_connected, signal_valid, signal_high;
    bool invert;                /* Optional outside-range comparator mode. */
 } rr_threshold_state_t;
+rr_threshold_state_t rr_threshold_default(void);
 bool rr_threshold_evaluate(const rr_threshold_state_t *state, bool *output);
 #endif
