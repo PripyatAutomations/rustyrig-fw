@@ -81,7 +81,12 @@ static gboolean selected_any(const char *name, gpointer unused) {
    return valid_script_name(name);
 }
 static gboolean selected_load(const char *name, gpointer unused) {
-   return selected_any(name, unused) && !script_is_loaded(name);
+#ifdef RR_HAVE_RUSTYSCRIPT
+   return rrclient_script_host && selected_any(name, unused) && !script_is_loaded(name);
+#else
+   (void)name; (void)unused;
+   return FALSE;
+#endif
 }
 static gboolean selected_loaded(const char *name, gpointer unused) {
    return selected_any(name, unused) && script_is_loaded(name);
@@ -295,6 +300,12 @@ void gtk_scripts_open(void) {
       g_clear_pointer(&script_root, g_free);
       return;
    }
+   /* The manager can be built even without the optional RustyScript runtime. */
+   char *autoload = g_build_filename(script_root, "autoload", NULL);
+   if (g_mkdir_with_parents(autoload, 0700) != 0)
+      g_warning("Unable to create script autoload directory %s: %s",
+                autoload, g_strerror(errno));
+   g_free(autoload);
    script_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
                                        "scripts-manager", "Scripts");
    if (!script_panel) { g_clear_pointer(&script_root, g_free); return; }
