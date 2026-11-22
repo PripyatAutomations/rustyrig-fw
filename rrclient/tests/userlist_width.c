@@ -212,6 +212,43 @@ static void reset_events(void) {
    inserted = deleted = updated = reordered = 0;
 }
 
+static void test_side_panel_roster_fits(void) {
+   GtkWidget *window = gtk_offscreen_window_new();
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   GtkWidget *view = userlist_view_create();
+   userlist_fit_columns(view);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+                                  GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
+   gtk_container_add(GTK_CONTAINER(scroll), view);
+   g_signal_connect(scroll, "size-allocate",
+                    G_CALLBACK(userlist_scroll_allocate), view);
+   gtk_container_add(GTK_CONTAINER(window), scroll);
+   gtk_window_set_default_size(GTK_WINDOW(window), 240, 250);
+   GtkTreeIter iter;
+   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
+   gtk_list_store_append(store, &iter);
+   gtk_list_store_set(store, &iter, COL_USERNAME, "AN_EXTREMELY_LONG_CALLSIGN_OR_DISPLAY_NAME",
+                      COL_DISPLAY_NAME, "AN_EXTREMELY_LONG_CALLSIGN_OR_DISPLAY_NAME", -1);
+   gtk_widget_show_all(window);
+   pump_layout();
+   GtkPolicyType horizontal, vertical;
+   gtk_scrolled_window_get_policy(GTK_SCROLLED_WINDOW(scroll), &horizontal, &vertical);
+   assert(horizontal == GTK_POLICY_NEVER);
+   GtkTreeViewColumn *username = userlist_column(view, COL_USERNAME);
+   int first = gtk_tree_view_column_get_fixed_width(username);
+   GtkAllocation narrow = {.width = 170, .height = 200};
+   userlist_scroll_allocate(scroll, &narrow, view);
+   int smaller = gtk_tree_view_column_get_fixed_width(username);
+   GtkAllocation wide = {.width = 500, .height = 200};
+   userlist_scroll_allocate(scroll, &wide, view);
+   int bigger = gtk_tree_view_column_get_fixed_width(username);
+   assert(smaller < bigger);
+   assert(smaller <= first || first < bigger);
+   gtk_widget_destroy(window);
+   puts("PASS: docked userlist tracks available side-panel width without horizontal scrollbar");
+}
+
 static void test_incremental_roster(void) {
    room_vfos = "";
    room_tx_control = false;
@@ -569,6 +606,7 @@ int main(void) {
    assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_ELMERNOOB_ICON));
    gtk_widget_destroy(window);
    test_late_roster_autosize();
+   test_side_panel_roster_fits();
    test_incremental_roster();
    test_vfo_refresh_changes();
    test_offline_roster();
