@@ -19,12 +19,14 @@ typedef struct event_subscription {
 struct script_file {
    rrs_vm_t *vm;
    char *filename;
+   char *name;
    GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
 };
 struct rrscript_host {
    GPtrArray *scripts;
    bool client;
+   char *root;
 };
 static rrs_value_t *native_log(rrs_vm_t *vm, int argc,
                                const rrs_value_t *const argv[], void *user) {
@@ -116,6 +118,7 @@ static void release_script(gpointer data) {
    rrs_vm_free(script->vm);
    g_rec_mutex_clear(&script->mutex);
    g_free(script->filename);
+   g_free(script->name);
    g_free(script);
 }
 static bool install_event(script_file_t *script,const rrscript_binding_t *b) {
@@ -133,80 +136,196 @@ static bool install_event(script_file_t *script,const rrscript_binding_t *b) {
    script->subscriptions=sub;
    return true;
 }
-static void load_script(rrscript_host_t *host,const char *directory,const char *filename) {
-   char *path=g_build_filename(directory,filename,NULL);
-   char *source=NULL;
-   gsize length=0;
-   GError *error=NULL;
-   if(!g_file_get_contents(path,&source,&length,&error)) {
-      Log(LOG_WARN,"scripting","%s: %s",path,error?error->message:"read failed");
-      g_clear_error(&error);g_free(path);return;
-   }
-   if(length>1024*1024) {
-      Log(LOG_WARN,"scripting","%s: script exceeds 1MiB",path);
-      g_free(source);g_free(path);return;
-   }
-   script_file_t *script=g_new0(script_file_t,1);
-   script->filename=path;
-   g_rec_mutex_init(&script->mutex);
-   script->vm=rrs_vm_new();
-   if(!script->vm || !rrs_vm_load(script->vm,source)) {
-      Log(LOG_WARN,"scripting","%s: %s",path,
-          script->vm?rrs_vm_error(script->vm):"out of memory");
-      g_free(source);release_script(script);return;
-   }
-   g_free(source);
-   rrs_vm_register_native(script->vm,"log.info",native_log,"info");
-   rrs_vm_register_native(script->vm,"log.warn",native_log,"warn");
-   for(size_t i=0;i<rrs_vm_binding_count(script->vm);i++) {
-      const rrscript_binding_t *b=rrs_vm_binding(script->vm,i);
-      if(b->kind==RRSCRIPT_EVENT && !install_event(script,b))
-         Log(LOG_WARN,"scripting","%s: cannot subscribe %.*s",
-             path,(int)b->name_length,b->name);
-      if(b->kind==RRSCRIPT_HOTKEY && !host->client)
-         Log(LOG_INFO,"scripting","%s: hotkey %.*s unavailable in server",
-             path,(int)b->name_length,b->name);
-   }
-   g_ptr_array_add(host->scripts,script);
-   Log(LOG_INFO,"scripting","Loaded %s (%zu bindings)",filename,rrs_vm_binding_count(script->vm));
-}
+
 static gint script_name_compare(gconstpointer a,gconstpointer b) {
    const char *const *left=a;
    const char *const *right=b;
    return g_strcmp0(*left,*right);
 }
-/* The parent directory holds scripts for future manual loading.
- * Only .rrs files immediately inside autoload/ run at startup.
- * Never recurse into other directories. */
+static bool valid_name(const char *name) {
+   if(!name||!*name||strstr(name,"..")||name[0]=='/' || strchr(name,'\\'))
+      return false;
+   const char *p=name;
+   if(g_str_has_prefix(p,"autoload/"))p+=strlen("autoload/");
+   if(!*p||strchr(p,'/')||!g_str_has_suffix(p,".rrs")||strlen(p)<=4)
+      return false;
+   for(const char *q=p;*q;q++) {
+      if(!g_ascii_isalnum(*q)&&*q!='_'&&*q!='-'&&*q!='.')return false;
+   }
+   return true;
+}
+static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *index) {
+   for(guint i=0;i<host->scripts->len;i++) {
+      script_file_t *script=g_ptr_array_index(host->scripts,i);
+      if(!strcmp(script->name,name)) {
+         if(index)*index=i;
+         return script;
+      }
+   }
+   return NULL;
+}
+static char *resolve_name(rrscript_host_t *host,const char *requested) {
+   if(!valid_name(requested))return NULL;
+   if(g_str_has_prefix(requested,"autoload/"))return g_strdup(requested);
+   /* A bare script name prefers the root; otherwise use autoload. */
+   char *path=g_build_filename(host->root,requested,NULL);
+   bool at_root=g_file_test(path,G_FILE_TEST_IS_REGULAR);
+   g_free(path);
+   return at_root?g_strdup(requested):g_strconcat("autoload/",requested,NULL);
+}
+static char *script_path(rrscript_host_t *host,const char *name) {
+   return g_build_filename(host->root,name,NULL);
+}
+static void report_error(char **error,const char *message) {
+   if(error)*error=g_strdup(message);
+}
+static bool activate_script(rrscript_host_t *host,const char *name,bool replacing,
+                            char **error) {
+   if(error)*error=NULL;
+   if(!host||!host->root){report_error(error,"Script host unavailable");return false;}
+   char *relative=resolve_name(host,name);
+   if(!relative){report_error(error,"Expected name.rrs or autoload/name.rrs");return false;}
+   guint old_index=0;
+   script_file_t *old=find_script(host,relative,&old_index);
+   if(replacing&&!old) {
+      report_error(error,"Script is not loaded");g_free(relative);return false;
+   }
+   if(!replacing&&old) {
+      report_error(error,"Script already loaded");g_free(relative);return false;
+   }
+   char *path=script_path(host,relative);
+   GError *ioerr=NULL;
+   char *source=NULL;
+   gsize length=0;
+   if(!g_file_get_contents(path,&source,&length,&ioerr)) {
+      report_error(error,ioerr?ioerr->message:"Unable to read script");
+      g_clear_error(&ioerr);g_free(path);g_free(relative);return false;
+   }
+   if(length>1024*1024) {
+      report_error(error,"Script exceeds 1 MiB");
+      g_free(source);g_free(path);g_free(relative);return false;
+   }
+   script_file_t *script=g_new0(script_file_t,1);
+   script->filename=path;script->name=relative;
+   g_rec_mutex_init(&script->mutex);
+   script->vm=rrs_vm_new();
+   if(!script->vm||!rrs_vm_load(script->vm,source)) {
+      report_error(error,script->vm?rrs_vm_error(script->vm):"Out of memory");
+      g_free(source);release_script(script);return false;
+   }
+   g_free(source);
+   if(!rrs_vm_register_native(script->vm,"log.info",native_log,"info") ||
+      !rrs_vm_register_native(script->vm,"log.warn",native_log,"warn")) {
+      report_error(error,"Unable to register script log bindings");
+      release_script(script);return false;
+   }
+   /* Validate and compile the replacement BEFORE detaching the old script. */
+   if(old)g_ptr_array_remove_index(host->scripts,old_index);
+   for(size_t i=0;i<rrs_vm_binding_count(script->vm);i++) {
+      const rrscript_binding_t *b=rrs_vm_binding(script->vm,i);
+      if(b->kind==RRSCRIPT_EVENT&&!install_event(script,b))
+         Log(LOG_WARN,"scripting","%s: cannot subscribe %.*s",
+             path,(int)b->name_length,b->name);
+      if(b->kind==RRSCRIPT_HOTKEY&&!host->client)
+         Log(LOG_INFO,"scripting","%s: hotkey %.*s unavailable on server",
+             path,(int)b->name_length,b->name);
+   }
+   g_ptr_array_add(host->scripts,script);
+   Log(LOG_INFO,"scripting","%s %s (%zu bindings)",replacing?"Reloaded":"Loaded",
+       relative,rrs_vm_binding_count(script->vm));
+   return true;
+}
+bool rrscript_host_load(rrscript_host_t *host,const char *name,char **error) {
+   return activate_script(host,name,false,error);
+}
+bool rrscript_host_reload(rrscript_host_t *host,const char *name,char **error) {
+   /* Use the loaded script's actual identity rather than shadowed paths. */
+   if(!host||!name){report_error(error,"Script host unavailable");return false;}
+   guint i=0;
+   script_file_t *script=find_script(host,name,&i);
+   if(!script) {
+      char *resolved=resolve_name(host,name);
+      if(resolved){script=find_script(host,resolved,&i);g_free(resolved);}
+   }
+   if(!script){report_error(error,"Script is not loaded");return false;}
+   char *copy=g_strdup(script->name);
+   bool result=activate_script(host,copy,true,error);
+   g_free(copy);
+   return result;
+}
+bool rrscript_host_unload(rrscript_host_t *host,const char *name,char **error) {
+   if(error)*error=NULL;
+   if(!host||!name){report_error(error,"Script host unavailable");return false;}
+   guint index=0;
+   script_file_t *script=find_script(host,name,&index);
+   if(!script) {
+      char *resolved=resolve_name(host,name);
+      if(resolved){script=find_script(host,resolved,&index);g_free(resolved);}
+   }
+   if(!script){report_error(error,"Script is not loaded");return false;}
+   Log(LOG_INFO,"scripting","Unloaded %s",script->name);
+   g_ptr_array_remove_index(host->scripts,index);
+   return true;
+}
+static void list_dir(rrscript_host_t *host,const char *directory,const char *prefix,
+                     void (*visit)(const char *,bool,void *),void *user) {
+   GDir *dir=g_dir_open(directory,0,NULL);
+   if(!dir)return;
+   GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
+   const char *entry;
+   while((entry=g_dir_read_name(dir))) {
+      if(!g_str_has_suffix(entry,".rrs"))continue;
+      char *name=g_strconcat(prefix,entry,NULL);
+      char *path=script_path(host,name);
+      if(valid_name(name)&&g_file_test(path,G_FILE_TEST_IS_REGULAR))
+         g_ptr_array_add(names,name);
+      else g_free(name);
+      g_free(path);
+   }
+   g_dir_close(dir);
+   g_ptr_array_sort(names,script_name_compare);
+   for(guint i=0;i<names->len;i++) {
+      const char *name=g_ptr_array_index(names,i);
+      visit(name,find_script(host,name,NULL)!=NULL,user);
+   }
+   g_ptr_array_unref(names);
+}
+void rrscript_host_list(rrscript_host_t *host,
+                        void (*visit)(const char *,bool,void *),void *user) {
+   if(!host||!host->root||!visit)return;
+   list_dir(host,host->root,"",visit,user);
+   char *autoload=g_build_filename(host->root,"autoload",NULL);
+   list_dir(host,autoload,"autoload/",visit,user);
+   g_free(autoload);
+}
 rrscript_host_t *rrscript_host_open(const char *directory,bool client) {
    rrscript_host_t *host=g_new0(rrscript_host_t,1);
    host->client=client;
+   host->root=g_strdup(directory?directory:"");
    host->scripts=g_ptr_array_new_with_free_func(release_script);
    if(!directory||!*directory)return host;
    char *autoload=g_build_filename(directory,"autoload",NULL);
-   GError *err=NULL;
-   GDir *dir=g_dir_open(autoload,0,&err);
-   if(!dir) {
-      if(!g_error_matches(err,G_FILE_ERROR,G_FILE_ERROR_NOENT))
-         Log(LOG_WARN,"scripting","Cannot read %s: %s",autoload,
-             err?err->message:"unknown error");
-      g_clear_error(&err);
-      g_free(autoload);
-      return host;
-   }
+   GDir *dir=g_dir_open(autoload,0,NULL);
+   if(!dir){g_free(autoload);return host;}
    GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
    const char *entry;
    while((entry=g_dir_read_name(dir))) {
       if(!g_str_has_suffix(entry,".rrs"))continue;
       char *full=g_build_filename(autoload,entry,NULL);
-      if(g_file_test(full,G_FILE_TEST_IS_REGULAR))
+      if(g_file_test(full,G_FILE_TEST_IS_REGULAR)&&valid_name(entry))
          g_ptr_array_add(names,g_strdup(entry));
       g_free(full);
    }
    g_dir_close(dir);
    g_ptr_array_sort(names,script_name_compare);
-   for(guint i=0;i<names->len;i++)
-      load_script(host,autoload,g_ptr_array_index(names,i));
+   for(guint i=0;i<names->len;i++) {
+      const char *entry=g_ptr_array_index(names,i);
+      char *name=g_strconcat("autoload/",entry,NULL);
+      char *error=NULL;
+      if(!rrscript_host_load(host,name,&error))
+         Log(LOG_WARN,"scripting","%s: %s",name,error?error:"load failed");
+      g_free(error);g_free(name);
+   }
    g_ptr_array_unref(names);
    g_free(autoload);
    return host;
@@ -214,6 +333,7 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client) {
 void rrscript_host_close(rrscript_host_t *host) {
    if(!host)return;
    g_ptr_array_unref(host->scripts);
+   g_free(host->root);
    g_free(host);
 }
 static bool invoke_named(rrscript_host_t *host,rrscript_binding_kind_t kind,
