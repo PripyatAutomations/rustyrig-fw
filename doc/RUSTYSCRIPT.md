@@ -204,6 +204,8 @@ script("/west-east", {
 });
 ```
 
+Local RustyScript slash commands can run while the client is offline; normal built-in command precedence and restrictions still apply.
+
 A ready-to-load demonstration is included at `doc/examples/scripts/panel-layout.rrs`.
 Copy it to your client scripts root or `autoload/` and invoke
 `/spectrum-east`, `/spectrum-main`, or `/vfo-west` after loading it.
