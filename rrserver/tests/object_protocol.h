@@ -53,6 +53,9 @@ static void object_pump(void) {
    for (int i = 0; i < 20; ++i) {
       rrserver_objects_poll();
       rr_backend_drain_all();
+      while (g_main_context_pending(NULL))
+         g_main_context_iteration(NULL, FALSE);
+      g_usleep(1000);
    }
 }
 
