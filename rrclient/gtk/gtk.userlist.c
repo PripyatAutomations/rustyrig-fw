@@ -166,6 +166,42 @@ static void userlist_fit_columns(GtkWidget *view) {
    g_object_set_data(G_OBJECT(view), "rr-fit-columns", GINT_TO_POINTER(1));
 }
 
+/* Keep docked rosters within the side-panel allocation.  Only Username
+ * flexes; small status columns retain their usable widths.  Never let a
+ * long nickname force a horizontal scrollbar. */
+static void userlist_scroll_allocate(GtkWidget *scroll, GtkAllocation *allocation,
+                                     gpointer data) {
+   GtkWidget *view = GTK_WIDGET(data);
+   if (!GTK_IS_TREE_VIEW(view) || !allocation || allocation->width <= 0 ||
+       !g_object_get_data(G_OBJECT(view), "rr-fit-columns"))
+      return;
+   GtkTreeViewColumn *username = userlist_column(view, COL_USERNAME);
+   if (!username || !gtk_tree_view_column_get_visible(username))
+      return;
+   gint used = 0;
+   gint count = gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view));
+   for (gint i = 0; i < count; i++) {
+      GtkTreeViewColumn *column = gtk_tree_view_get_column(GTK_TREE_VIEW(view), i);
+      if (column == username || !gtk_tree_view_column_get_visible(column))
+         continue;
+      /* Other columns auto-size from their short icon/header content. */
+      gint width = gtk_tree_view_column_get_width(column);
+      if (width <= 0)
+         width = gtk_tree_view_column_get_fixed_width(column);
+      used += MAX(0, width);
+   }
+   /* A little room for the tree border and vertical scrollbar. */
+   gint scrollbar = 0;
+   if (GTK_IS_SCROLLED_WINDOW(scroll)) {
+      GtkWidget *vbar = gtk_scrolled_window_get_vscrollbar(GTK_SCROLLED_WINDOW(scroll));
+      if (vbar && gtk_widget_get_visible(vbar))
+         scrollbar = gtk_widget_get_allocated_width(vbar);
+   }
+   gint width = MAX(32, allocation->width - used - scrollbar - 8);
+   if (gtk_tree_view_column_get_fixed_width(username) != width)
+      gtk_tree_view_column_set_fixed_width(username, width);
+}
+
 static int userlist_content_width(GtkWidget *view) {
    GtkRequisition natural;
    gtk_widget_get_preferred_size(view, NULL, &natural);
@@ -1776,10 +1812,11 @@ static GtkWidget *userlist_panel_create(void) {
 
    cul_view = userlist_view_create();
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_container_add(GTK_CONTAINER(scroll), cul_view);
+   g_signal_connect(scroll, "size-allocate", G_CALLBACK(userlist_scroll_allocate), cul_view);
    gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
    g_signal_connect(userlist_dock_button, "clicked", G_CALLBACK(on_userlist_dock_clicked), NULL);
 
@@ -1840,10 +1877,11 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    userlist_view_set_server(view, entry->server);
    userlist_set_columns(view, room);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_container_add(GTK_CONTAINER(scroll), view);
+   g_signal_connect(scroll, "size-allocate", G_CALLBACK(userlist_scroll_allocate), view);
    gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
    entry->panel = panel;
    entry->view = view;
