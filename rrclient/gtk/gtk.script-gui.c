@@ -280,7 +280,7 @@ static void script_roomlist_fill(GtkComboBoxText *combo) {
       GtkWidget *page=gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),i);
       const char *server=g_object_get_data(G_OBJECT(page),"rr-chat-server");
       const char *room=g_object_get_data(G_OBJECT(page),"rr-chat-name");
-      if(!server||!*server||!room||(room[0]!='#' && room[0]!='&'))continue;
+      if(!server||!*server||!room||!g_ascii_strcasecmp(room,"status"))continue;
       char *id=g_strdup_printf("%s|%s",server,room);
       char *caption=g_strdup_printf("%s / %s",server,room);
       gtk_combo_box_text_append(combo,id,caption);
