@@ -2,7 +2,6 @@
  * SPDX-License-Identifier: GPL-2.0-only */
 #include <gtk/gtk.h>
 #include <rrclient/script.gui.h>
-#include <rrclient/artwork.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
 #include "gtk.floating-panel.h"
@@ -24,7 +23,6 @@ typedef struct {
 } script_widget_t;
 static GHashTable *script_widgets;
 static rr_event_token_t script_gui_token;
-static rr_event_token_t artwork_editor_token;
 
 static char *widget_key(const char *owner,const char *id) {
    return g_strdup_printf("%s:%s",owner,id);
@@ -262,10 +260,9 @@ static void script_files_selected(GtkWidget *browser,const char *relative,gpoint
 static void script_preview_file(GtkWidget *scroller,const char *filename) {
    GtkWidget *label=g_object_get_data(G_OBJECT(scroller),"rr-preview-label");
    if(!GTK_IS_LABEL(label))return;
-   char *root=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
-   char *path=filename && *filename && filename[0]!='/' &&
-      !strchr(filename,'\\') && !strstr(filename,"..") &&
-      g_str_has_suffix(filename,".mac")?g_build_filename(root,filename,NULL):NULL;
+   /* Renderer accepts any user-selected local file, not a particular format
+    * or archive directory; scripts decide what files are artwork. */
+   char *path=filename && *filename ? g_strdup(filename) : NULL;
    char *contents=NULL;
    gsize length=0;
    GStatBuf file_stat;
@@ -273,7 +270,7 @@ static void script_preview_file(GtkWidget *scroller,const char *filename) {
       file_stat.st_size>128*1024 || !g_file_get_contents(path,&contents,&length,NULL) ||
       !g_utf8_validate(contents,length,NULL)) {
       gtk_label_set_text(GTK_LABEL(label),"Select a .mac file to preview");
-      g_free(contents);g_free(path);g_free(root);return;
+      g_free(contents);g_free(path);return;
    }
    char **lines=g_strsplit(contents,"\n",-1);
    GString *markup=g_string_new("<span font_family=\"monospace\">");
@@ -286,7 +283,7 @@ static void script_preview_file(GtkWidget *scroller,const char *filename) {
    g_string_append(markup,"</span>");
    gtk_label_set_markup(GTK_LABEL(label),markup->str);
    g_string_free(markup,TRUE);g_strfreev(lines);
-   g_free(contents);g_free(path);g_free(root);
+   g_free(contents);g_free(path);
 }
 static void script_roomlist_fill(GtkComboBoxText *combo) {
    if(!GTK_IS_NOTEBOOK(main_notebook))return;
@@ -471,6 +468,11 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       !memchr(cmd.text,0,sizeof(cmd.text))||!memchr(cmd.value,0,sizeof(cmd.value)))return;
    if(cmd.action==RR_GUI_RELEASE){script_gui_remove_owner(cmd.owner);return;}
    script_widget_t *entry=widget_find(cmd.owner,cmd.id);
+   if(cmd.action==RR_GUI_EDIT) {
+      if(cmd.value[0] && g_file_test(cmd.value,G_FILE_TEST_IS_REGULAR))
+         gui_file_editor_open(cmd.value);
+      return;
+   }
    if(cmd.action==RR_GUI_MESSAGE) {
       /* A standard message is a logical dialog, not a GTK-specific widget
        * exposed to scripts. The same request can be handled by a TUI. */
@@ -587,30 +589,13 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       }
    }
 }
-static void artwork_editor_open(const rr_event_message_t *message,void *unused) {
-   (void)unused;
-   if(!message || !message->payload || message->length!=sizeof(rr_artwork_edit_t))return;
-   rr_artwork_edit_t edit;
-   memcpy(&edit,message->payload,sizeof(edit));
-   edit.basename[sizeof(edit.basename)-1]=0;
-   if(!edit.basename[0] || edit.basename[0]=='/' ||
-      strchr(edit.basename,'\\') || strstr(edit.basename,"..") ||
-      !g_str_has_suffix(edit.basename,".mac"))return;
-   char *path=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",edit.basename,NULL);
-   if(g_file_test(path,G_FILE_TEST_IS_REGULAR) && !g_file_test(path,G_FILE_TEST_IS_SYMLINK))
-      gui_file_editor_open(path);
-   g_free(path);
-}
 void gtk_script_gui_init(void) {
    if(script_gui_token)return;
-   artwork_editor_token=event_on_message_domain_token(
-      RR_ARTWORK_EDIT_EVENT,artwork_editor_open,NULL,"gtk");
    script_gui_token=event_on_message_domain_token(RR_SCRIPT_GUI_COMMAND,
       script_gui_command,NULL,"gtk");
 }
 void gtk_script_gui_shutdown(void) {
    if(script_gui_token){event_off_token(script_gui_token);script_gui_token=0;}
-   if(artwork_editor_token){event_off_token(artwork_editor_token);artwork_editor_token=0;}
    if(script_widgets) {
       GHashTableIter iter;
       gpointer key,value;
