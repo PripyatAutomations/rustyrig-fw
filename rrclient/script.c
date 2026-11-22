@@ -139,7 +139,7 @@ typedef struct {
    guint64 id;
    guint cursor;
    char **lines;
-   char profile[128], room[128];
+   char profile[128], room[128], owner[32];
 } rr_art_playback_t;
 static rr_art_playback_t art_playback;
 static guint64 art_serial;
@@ -173,6 +173,7 @@ static void art_playback_stop(void) {
    g_strfreev(art_playback.lines);
    art_playback.lines=NULL;
    art_playback.cursor=0;
+   art_playback.owner[0]=0;
 }
 static gboolean art_playback_tick(gpointer unused) {
    (void)unused;
@@ -295,6 +296,12 @@ static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
       }
       art_playback_stop();
       art_playback.id=++art_serial;
+      if(!rrscript_host_vm_owner(vm,art_playback.owner)) {
+         art_playback_stop();
+         g_strfreev(parts);g_strfreev(lines);
+         rrs_vm_raise(vm,"Unable to determine artwork script owner");
+         return NULL;
+      }
       art_playback.interval_ms=(guint)(1000/rate);
       art_playback.lines=lines;
       g_strlcpy(art_playback.profile,parts[0],sizeof(art_playback.profile));
@@ -434,12 +441,16 @@ static void script_gui_save(const char *owner,const char *id,const char *kind,co
 }
 static void script_gui_core_command(const rr_event_message_t *message,void *unused) {
    (void)unused;
-   if(!script_gui_values || !message || !message->payload ||
+   if(!message || !message->payload ||
       message->length!=sizeof(rr_script_gui_command_t))return;
    rr_script_gui_command_t cmd;
    memcpy(&cmd,message->payload,sizeof(cmd));
    if(cmd.version!=RR_SCRIPT_GUI_PROTOCOL_VERSION || !memchr(cmd.owner,0,sizeof(cmd.owner)) ||
       !memchr(cmd.id,0,sizeof(cmd.id)))return;
+   if(cmd.action==RR_GUI_RELEASE && art_playback.id &&
+      !strcmp(cmd.owner,art_playback.owner))
+      art_playback_stop();
+   if(!script_gui_values)return;
    if(cmd.action==RR_GUI_DESTROY) {
       char *key=script_gui_key(cmd.owner,cmd.id);
       g_hash_table_remove(script_gui_values,key);
