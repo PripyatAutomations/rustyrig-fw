@@ -74,8 +74,12 @@ event ui.click {
         ui.set("artwork_status", "Playback stopped")
     }
     if (event.id == "artwork_save_rate") {
-        art.rate_set(ui.val("artwork_target"), ui.val("artwork_rate"))
-        ui.set("artwork_status", "Saved room playback speed")
+        if (ui.val("artwork_target") == "") {
+            ui.message("artwork_no_target", "Choose target", "Select an open conversation tab")
+        } else {
+            art.rate_set(ui.val("artwork_target"), ui.val("artwork_rate"))
+            ui.set("artwork_status", "Saved room playback speed")
+        }
     }
     if (event.id == "artwork_edit") {
         if (ui.val("artwork_files") == "") {
@@ -98,9 +102,13 @@ event ui.click {
         }
     }
     if (event.id == "artwork_mkdir") {
-        file.mkdir(art.dir() + "/" + ui.val("artwork_folder"))
-        ui.set("artwork_files", "refresh")
-        ui.set("artwork_status", "Artwork folder created")
+        if (ui.val("artwork_folder") == "") {
+            ui.message("artwork_folder_missing", "New folder", "Enter a folder name first")
+        } else {
+            file.mkdir(art.dir() + "/" + ui.val("artwork_folder"))
+            ui.set("artwork_files", "refresh")
+            ui.set("artwork_status", "Artwork folder created")
+        }
     }
     if (event.id == "artwork_delete") {
         if (ui.val("artwork_files") == "") {
