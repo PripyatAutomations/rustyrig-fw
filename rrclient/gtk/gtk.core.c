@@ -1891,11 +1891,26 @@ static void frontend_gtk_admin_result_event(const rr_event_message_t *event, voi
    gtk_admin_result_profile(data, profile);
 }
 
+/* Adapt GTK gboolean APIs to the core frontend's ISO C bool contract. */
+static bool gtk_script_panel_find(const char *pattern,const char *location,
+                                  char **id,char **title,char **where) {
+   return rr_floating_panel_find_match(pattern,location,id,title,where) != FALSE;
+}
+static bool gtk_script_panel_move(const char *id,const char *location,int x,int y) {
+   return rr_floating_panel_move_named(id,location,x,y) != FALSE;
+}
+static bool gtk_script_panel_zoom(const char *id,int percent) {
+   return rr_floating_panel_zoom_named(id,percent) != FALSE;
+}
+static bool gtk_script_panel_opacity(const char *id,int percent) {
+   return rr_floating_panel_opacity_named(id,percent) != FALSE;
+}
+
 const rr_frontend_ops_t gtk_frontend_ops = {
-   .panel_find = rr_floating_panel_find_match,
-   .panel_move = rr_floating_panel_move_named,
-   .panel_zoom = rr_floating_panel_zoom_named,
-   .panel_opacity = rr_floating_panel_opacity_named,
+   .panel_find = gtk_script_panel_find,
+   .panel_move = gtk_script_panel_move,
+   .panel_zoom = gtk_script_panel_zoom,
+   .panel_opacity = gtk_script_panel_opacity,
    .show_decoders = gtk_decoders_show,
    .supervision_result = frontend_gtk_supervision_result,
    .admin_result = frontend_gtk_admin_result,
