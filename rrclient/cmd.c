@@ -141,46 +141,8 @@ static void script_list_line(const char *name, bool loaded, void *unused) {
    (void)unused;
    ui_print(ui_active_window_name(), "  %-38s %s", name, loaded ? "[loaded]" : "[available]");
 }
-static bool cmd_script_server(int argc,char **args) {
-   if(argc<3 || argc>4) {
-      ui_print(ui_active_window_name(),
-               "Usage: /script server list | load|unload|reload <name.rrs>");
-      return true;
-   }
-   const char *action=args[2];
-   bool list=!g_ascii_strcasecmp(action,"list");
-   if((list&&argc!=3)||(!list&&argc!=4) ||
-      (!list&&g_ascii_strcasecmp(action,"load") &&
-        g_ascii_strcasecmp(action,"unload") &&
-        g_ascii_strcasecmp(action,"reload"))) {
-      ui_print(ui_active_window_name(),
-               "Usage: /script server list | load|unload|reload <name.rrs>");
-      return true;
-   }
-   rrconn_t *connection=rrclient_active_connection();
-   if(!connection || !connection->is_ws || !connection->authenticated) {
-      ui_print(ui_active_window_name(), "Server script management requires an authenticated RustyRig connection");
-      return true;
-   }
-   dict *request=dict_new();
-   if(!request)return true;
-   char action_name[40];
-   snprintf(action_name,sizeof(action_name),"script-%s",action);
-   dict_add(request,"msg.type","talk");
-   dict_add(request,"talk.cmd","admin");
-   dict_add(request,"talk.action",action_name);
-   if(!list)dict_add(request,"talk.target",args[3]);
-   bool sent=ws_send_dict(NULL,connection,request,WEBSOCKET_OP_TEXT);
-   dict_free(request);
-   if(!sent) {
-      ui_print(ui_active_window_name(),"Unable to request server script %s",action);
-      return true;
-   }
-   return false;
-}
 static bool cmd_script(int argc, char **args) {
    const char *action=argc>1?args[1]:"list";
-   if(!g_ascii_strcasecmp(action,"server"))return cmd_script_server(argc,args);
    if (!rrclient_script_host) {
       ui_print(ui_active_window_name(), "RustyScript is not initialized");
       return true;
