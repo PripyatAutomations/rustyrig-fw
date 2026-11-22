@@ -2044,6 +2044,26 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
                   }
                }
             }
+            /* A processor connected directly to another processor should
+             * not also leak the same audio to the RX mixer. Muting the
+             * intermediate output is what enables single-process chaining.
+             * It does not alter the downstream plugin's own mixer route. */
+            gint upstream = audio_lv2_output_owner(req.source);
+            if (upstream >= 0 && (guint)upstream != req.slot - 1) {
+               rr_lv2_effect_t *parent = &lv2_effects[upstream];
+               for (guint out = 0; out < parent->channels; out++) {
+                  if (strcmp(parent->output_stream[out], req.source))
+                     continue;
+                  if (parent->output[out] != 'M') {
+                     parent->output[out] = 'M';
+                     rr_audio_engine_route(rx_engine, parent->output_stream[out], 'M');
+                     char *outkey = g_strdup_printf(out ?
+                        "audio.lv2.%u.output-right" : "audio.lv2.%u.output", upstream + 1);
+                     rrclient_database_setting_set(outkey, "M");
+                     g_free(outkey);
+                  }
+               }
+            }
             Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u", req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
          } else {
             Log(LOG_WARN, "audio.lv2", "Source %s already used on another LV2 input", req.source);
@@ -2686,6 +2706,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
 
       for (guint ch = 0 ; ch < fx->channels ; ch++) {
          if (fx->source[ch][0]) {
+            /* All effect nodes must exist before rendering edges (including
+             * links from a later-created slot into an earlier slot). */
             rr_audio_graph_add_channel_link(graph, active_rx_id && !strcmp(fx->source[ch], active_rx_id) ?
                "rig.src" : fx->source[ch], fx->name, RR_AG_NORMAL, fx->channels == 2 ? (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT) : RR_AG_CHANNEL_LEFT);
          }
