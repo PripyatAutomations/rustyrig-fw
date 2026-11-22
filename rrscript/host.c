@@ -90,11 +90,11 @@ static rrs_value_t *native_window_find(rrs_vm_t *vm,int argc,
 static rrs_value_t *native_window_move(rrs_vm_t *vm,int argc,
                                         const rrs_value_t *const argv[],void *user) {
    (void)user;
-   if(argc!=4 || rrs_value_type(argv[0])!=RRS_STRING ||
+   if((argc!=2 && argc!=4) || rrs_value_type(argv[0])!=RRS_STRING ||
       rrs_value_type(argv[1])!=RRS_STRING ||
-      rrs_value_type(argv[2])!=RRS_INT ||
-      rrs_value_type(argv[3])!=RRS_INT) {
-      rrs_vm_raise(vm,"window.move(id, location, x, y) expects strings and integers");
+      (argc==4 && (rrs_value_type(argv[2])!=RRS_INT ||
+                   rrs_value_type(argv[3])!=RRS_INT))) {
+      rrs_vm_raise(vm,"window.move(id, location[, x, y]) expects strings and optional coordinates");
       return NULL;
    }
    if(!script_frontend_context(vm))return NULL;
@@ -103,8 +103,9 @@ static rrs_value_t *native_window_move(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"Panel movement requires GTK frontend");
       return NULL;
    }
-   int64_t x=rrs_value_int(argv[2]),y=rrs_value_int(argv[3]);
-   if(x<0||y<0||x>8192||y>8192) {
+   int64_t x=argc==4?rrs_value_int(argv[2]):-1;
+   int64_t y=argc==4?rrs_value_int(argv[3]):-1;
+   if(x>8192||y>8192||(argc==4 && (x<0||y<0))) {
       rrs_vm_raise(vm,"Panel coordinates must be 0..8192");
       return NULL;
    }
