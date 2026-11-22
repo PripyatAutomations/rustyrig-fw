@@ -2752,6 +2752,17 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
 
       if (rrclient_media_rx_is_active_tx(streams[i].uuid)) {
          rr_audio_graph_add_channel_link(graph, "tx.transport", tx, RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+         /* Direct modem→rig.sink represents the same authorized 16k TX
+          * encoder path, not a bypass of the mixer or PTT gating. */
+         if (!strcmp(tx,"rig.sink")) {
+            for (size_t j=0;j<modem_count;j++) {
+               if (modems[j].tx_enabled && !strcmp(modems[j].tx_target,"rig.sink")) {
+                  char from[64];
+                  g_snprintf(from,sizeof(from),"modem%u.tx",modems[j].slot);
+                  rr_audio_graph_add_channel_link(graph,from,tx,RR_AG_NORMAL,RR_AG_CHANNEL_LEFT);
+               }
+            }
+         }
       }
 
       for (size_t j = 0 ; j < modem_count ; j++) {
@@ -3478,11 +3489,13 @@ bool audio_init(void) {
    tx_pcm_queue = g_async_queue_new();
    tx_engine = rr_audio_engine_new(tx_mix_output, NULL);
    gboolean tx_ok = tx_engine && rr_audio_engine_add_stream(tx_engine, "src.client.dsp0");
-
+   /* Modem workers produce 16 kHz mono S16LE; the mixer resamples when
+    * its output clock differs instead of requiring a manual converter. */
+   const rr_pcm_stream_format_t modem_format = {16000,1,RR_PCM_S16LE};
    for (unsigned slot = 1 ; tx_ok && slot <= RR_LOCAL_MODEM_MAX ; slot++) {
       char id[32];
       g_snprintf(id, sizeof(id), "modem%u.tx", slot);
-      tx_ok = rr_audio_engine_add_stream(tx_engine, id);
+      tx_ok = rr_audio_engine_add_stream_format(tx_engine,id,&modem_format);
    }
 
    if (tx_ok) {

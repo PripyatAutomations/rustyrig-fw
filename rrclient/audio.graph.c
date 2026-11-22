@@ -112,8 +112,13 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const
          continue;
       }
       gboolean stereo_processor = to->type == RR_AG_PROCESSOR && g_str_has_prefix(to->id, "proc.lv2.");
+      /* rig.sink exposes a logical modem audio patch alongside its real TX
+       * transport feed. Both ultimately use the same encoder bus, so this
+       * metadata edge is not a second physical audio input to the rig. */
+      gboolean direct_modem_tx = type == RR_AG_NORMAL && !strcmp(to->id,"rig.sink") &&
+         g_str_has_prefix(from->id,"modem") && g_str_has_suffix(from->id,".tx");
 
-      if (to->type != RR_AG_MIXER && !stereo_processor) {
+      if (to->type != RR_AG_MIXER && !stereo_processor && !direct_modem_tx) {
          return false;
       }
 

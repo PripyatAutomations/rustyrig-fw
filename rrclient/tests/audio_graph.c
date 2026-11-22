@@ -41,7 +41,28 @@ int main(void) {
    assert(view->links[1].channels == RR_AG_CHANNEL_STEREO);
    g_free(view);
    rr_audio_graph_free(g);
-   puts("audio graph bypass selection passed");
+   /* Direct modem audio is a logical TX patch alongside the single real
+    * transport input, but this special case must not weaken ordinary sink
+    * single-input checks or merge independent PTT/control links. */
+   g=rr_audio_graph_new();
+   assert(g);
+   assert(rr_audio_graph_add_node(g,"tx.transport",RR_AG_PROCESSOR));
+   assert(rr_audio_graph_add_node(g,"modem1.tx",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"modem2.tx",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"other",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"rig.sink",RR_AG_SINK));
+   assert(rr_audio_graph_add_node(g,"ordinary.sink",RR_AG_SINK));
+   assert(rr_audio_graph_add_link(g,"tx.transport","rig.sink",RR_AG_NORMAL));
+   assert(rr_audio_graph_add_channel_link(g,"modem1.tx","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_add_channel_link(g,"modem2.tx","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(!rr_audio_graph_add_channel_link(g,"modem1.tx","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(!rr_audio_graph_add_channel_link(g,"other","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_add_channel_link(g,"modem1.tx","rig.sink",RR_AG_CONTROL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_add_link(g,"tx.transport","ordinary.sink",RR_AG_NORMAL));
+   assert(!rr_audio_graph_add_channel_link(g,"modem1.tx","ordinary.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_link_count(g)==5);
+   rr_audio_graph_free(g);
+   puts("audio graph bypass and direct modem TX routing passed");
 
    return 0;
 }

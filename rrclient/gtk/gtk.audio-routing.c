@@ -1721,6 +1721,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    gboolean from_mic = !graph_drag_mixer && !strcmp(origin_node->id, "src.client.dsp0");
    gboolean from_modem_tx = !graph_drag_mixer && g_str_has_prefix(origin_node->id, "modem") && g_str_has_suffix(origin_node->id, ".tx");
    gboolean from_tx_mix = graph_drag_mixer && !strcmp(origin_node->id, "tx.mix");
+   gboolean from_rig_sink = graph_drag_mixer && !strcmp(origin_node->id, "rig.sink");
    const char *required_bus = graph_drag_mixer ? origin_node->id : (origin_node->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix");
    const double limit = graph_touch_pointer ? CLAMP(30. / MAX(.01, graph_scale), 24., 48.) : CLAMP(18. / MAX(.01, graph_scale), 14., 34.);
    double best = limit;
@@ -1754,9 +1755,16 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
          ((from_mic || (from_modem_tx && !graph_drag_channel)) &&
             !strcmp(n->id, "tx.mix")) ||
          (from_tx_mix && (!strcmp(n->id, "src.client.dsp0") || (g_str_has_prefix(n->id, "modem") && g_str_has_suffix(n->id, ".tx"))));
-      gboolean rig_target = from_modem_tx && graph_drag_channel &&
-         n->type == RR_AG_SINK && g_str_has_prefix(n->id, "rig.") && (g_str_has_suffix(n->id, ".tx") || !strcmp(n->id, "rig.sink"));
-      gboolean valid = tx_input || rig_target || modem_connection || lv2_connection ||
+      /* Audio and PTT are separate modem pins. Direct audio targets only
+       * the active rig sink; PTT may target any real TX rig resource. */
+      gboolean rig_target = from_modem_tx &&
+         n->type == RR_AG_SINK &&
+         (graph_drag_channel ? (g_str_has_prefix(n->id, "rig.") &&
+            (g_str_has_suffix(n->id, ".tx") || !strcmp(n->id, "rig.sink"))) :
+            !strcmp(n->id, "rig.sink"));
+      gboolean rig_reverse = from_rig_sink && n->type == RR_AG_SOURCE &&
+         g_str_has_prefix(n->id,"modem") && g_str_has_suffix(n->id,".tx");
+      gboolean valid = tx_input || rig_target || rig_reverse || modem_connection || lv2_connection ||
          (!from_mic && !from_modem_tx && !from_tx_mix &&
             !from_lv2 && !from_lv2_input && (graph_drag_mixer ?
                (n->type == RR_AG_SOURCE && !n->read_only && !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix", required_bus)) : (n->type ==
@@ -1780,9 +1788,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       }
       double nx = routing_node_x(n) + (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (tx_input ?
-         (from_tx_mix ? 68. : 60.) : rig_target ?
-         (from_modem_tx && graph_drag_channel ?
-            RR_GTK_GRAPH_NODE_H - 16. : 68.) :
+         (from_tx_mix ? 68. : 60.) : (rig_target || rig_reverse) ?
+         (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
             (to_lv2 && n->channels == 2) ?
             (dest_channel ? 79. : 60.) :
@@ -1798,7 +1805,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       *snap_x = nx;
       *snap_y = ny;
       graph_drag_modem_target = modem_connection ? (gint) (from_modem ? modem_slot : target_slot) : -1;
-      graph_drag_rig_target = rig_target ? (gint) i : -1;
+      graph_drag_rig_target = rig_target ? (gint) i : rig_reverse ? origin : -1;
       graph_drag_tx_mix = tx_input;
 
       if (lv2_connection) {
@@ -5396,6 +5403,18 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
+      /* Reverse dragging from rig.sink: audio and PTT sockets are distinct. */
+      if (!graph_missing_since[i] && node->type == RR_AG_SINK &&
+          !strcmp(node->id,"rig.sink")) {
+         double px=routing_node_x(node), py=routing_node_y(node);
+         if (hypot(x-px,y-py-68.) <= radius ||
+             hypot(x-px,y-py-(RR_GTK_GRAPH_NODE_H-16)) <= radius) {
+            *source=-(gint)i-1;
+            *channel=fabs(y-py-68.) < fabs(y-py-(RR_GTK_GRAPH_NODE_H-16)) ? 0 : 1;
+            *mixer=TRUE;
+            return TRUE;
+         }
+      }
       gboolean lv2_input = node->type == RR_AG_PROCESSOR && g_str_has_prefix(node->id, "proc.lv2.");
       unsigned modem_slot = 0;
       gboolean modem_input = routing_modem_slot(node, &modem_slot);
@@ -6720,8 +6739,10 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
          }
          audio_request_effect_block(&req);
          routing_queue();
-      } else if (graph_drag_rig_target >= 0 && graph_drag_source >= 0) {
-         const rr_ag_view_node_t *src = &graph_snapshot->nodes[graph_drag_source];
+      } else if (graph_drag_rig_target >= 0) {
+         /* Reverse drags originate at a sink (negative graph_drag_source).
+          * source_index always identifies the resolved output node. */
+         const rr_ag_view_node_t *src = &graph_snapshot->nodes[source_index];
          const rr_ag_view_node_t *dst = &graph_snapshot->nodes[graph_drag_rig_target];
 
          if (!strcmp(src->id, "src.client.dsp0") && routing_rx_snapshot) {
@@ -6776,12 +6797,18 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
                }
             }
 
+            /* The audio sink ID is self-contained; only PTT requires a
+             * stable underlying rig stream ID. */
+            if (!graph_drag_channel && !strcmp(dst->id,"rig.sink"))
+               target_id="rig.sink";
             if (target_id) {
                rr_local_modem_request_t req = {
                   .action = graph_drag_channel ? RR_LOCAL_MODEM_PTT_ROUTE : RR_LOCAL_MODEM_TX_ROUTE,
                   .slot = slot
                };
-               g_strlcpy(req.source, target_id, sizeof(req.source));
+               g_strlcpy(req.source,
+                  graph_drag_channel ? target_id : "rig.sink",
+                  sizeof(req.source));
                rr_local_modem_request(&req);
                routing_queue();
             }
