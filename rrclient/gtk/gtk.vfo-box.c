@@ -414,7 +414,7 @@ static void vfo_dock_style(void) {
    vfo_dock_css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(vfo_dock_css, ".rr-vfo-group { border: 1px solid alpha(currentColor, .26); border-radius: 3px; padding: 2px; }"
       ".rr-vfo-group.rr-vfo-compact-group { border: 0; border-radius: 0; padding: 0; }"
-      ".rr-vfo-controls flowboxchild { padding: 0; margin: 0; border: 0; }"
+      ".rr-vfo-control-child { padding: 0; margin: 0; border: 0; }"
       ".rr-vfo-group.rr-vfo-moving { border-color: #66caff; background-color: rgba(80,180,255,.17); }"
       ".rr-vfo-group.rr-vfo-before { border-left: 4px solid #48c5ff; }"
       ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
@@ -576,6 +576,7 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    g_object_set_data(G_OBJECT(child), "rr-vfo-id", (gpointer) id);
    g_object_set_data(G_OBJECT(handle), "rr-vfo-child", child);
    gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-group");
+   gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-control-child");
    if (strcmp(name, "⋮⋮ Frequency")) {
       gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-compact-group");
    }
