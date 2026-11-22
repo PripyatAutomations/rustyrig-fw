@@ -1,0 +1,26 @@
+// RustyScript example: find existing GTK floating panels by title regex.
+// Copy to ~/.config/rustyrig/scripts/autoload/panel-layout.rrs or load
+// using /script load panel-layout.rrs if placed in the scripts root.
+
+script("/spectrum-east", {
+    dict w = window.find("Spectrum|Waterfall", "*")
+    if (w != null) {
+        window.move(w.id, "E", 20, 40)
+        window.zoom(w.id, 125)
+        window.opacity(w.id, 85)
+    }
+});
+
+script("/spectrum-main", {
+    dict w = window.find("Spectrum|Waterfall")
+    if (w != null) {
+        window.move(w.id, "M", 60, 40)
+    }
+});
+
+script("/vfo-west", {
+    dict w = panel.find("VFO", "*")
+    if (w != null) {
+        panel.move(w.id, "W", 10, 10)
+    }
+});
