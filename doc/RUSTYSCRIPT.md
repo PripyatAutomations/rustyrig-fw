@@ -8,18 +8,59 @@ time. Without the development package, they build without script support.
 Install the current librustyaxe source tree with `make install`, or build
 the `librustyscript0` and `librustyscript-dev` Debian packages first.
 
-## Script locations
+## Script directories and autoload
 
-The config key `security.scripting.path` selects the directory containing
-`*.rrs` files. Script filenames are enumerated in alphabetical order.
+`security.scripting.path` configures a **script root**, not the autoload
+directory itself.
 
-- Client default: `$XDG_CONFIG_HOME/rustyrig/scripts` (or equivalent user
-  configuration directory)
-- Server default: `/etc/rustyrig/scripts` (admin-installed files)
+- Client: `$XDG_CONFIG_HOME/rustyrig/scripts` (usually
+  `~/.config/rustyrig/scripts`)
+- Server: `/etc/rustyrig/scripts` (local administrator-managed scripts)
 
-The directories are not created automatically. The server does not expose a
-remote script-upload or script-management endpoint; installation is a local
-administrator action. Scripts are trusted code running in the host process.
+Place scripts in an `autoload/` subdirectory to load them when the process
+starts. Only immediate `*.rrs` files are loaded, in lexical filename order;
+the parent directory and any other subdirectories are **not** executed.
+
+```text
+scripts/
+    helper.rrs
+    autoload/
+        10-hello.rrs
+        20-watcher.rrs
+```
+
+`helper.rrs` is retained but is not loaded. The host does not create any
+directory automatically. Create the directory yourself, then restart
+`rrclient` or `rrserver` to load newly added scripts.
+
+There is **no** interactive `/script load`, `/script unload`, or
+`/script reload` command yet. After startup, handlers run when their
+registered slash command, hotkey or event fires. They do not execute at
+load time. In particular, an event handler for `irc.privmsg` runs only
+when a matching event arrives.
+
+For example, in the client:
+
+```sh
+mkdir -p ~/.config/rustyrig/scripts/autoload
+cat > ~/.config/rustyrig/scripts/autoload/hello.rrs <<'EOF'
+script("/hello", {
+    log.info("Hello from RustyScript")
+});
+EOF
+```
+
+Restart `rrclient` and type `/hello` into any appropriate chat/status
+input. Check the client logs under the `scripting` subsystem.
+
+For the server, install the same script syntax in
+`/etc/rustyrig/scripts/autoload/`, owned/managed by an administrator,
+then restart `rrserver`. Server scripts currently support event
+subscriptions; their slash command bindings cannot yet be invoked by
+remote users. The server does not expose a script upload or management
+endpoint.
+
+Scripts are trusted code running in the host process.
 
 ## Initial registration syntax
 
