@@ -2867,7 +2867,7 @@ bool chat_init(void) {
    g_signal_connect(volume_button, "clicked", G_CALLBACK(status_volume_clicked), NULL);
    gtk_widget_set_margin_start(volume_button, 0);
    gtk_widget_set_margin_end(volume_button, 0);
-   /* Keep the volume button in the fixed right cluster with the clock and close button, rather than separated by the clipped toolbar viewport. */
+   /* Volume and clock join the fixed right cluster; gui_init() adds Quit once after chat_init(). */
    /* RX/TX text expands after connection (especially with RTP rates). Keep it inside the left toolbar's horizontal clipping viewport: it must never increase
     * the width of the fixed clock/Quit cluster. */
    gtk_widget_set_valign(network_row, GTK_ALIGN_CENTER);
@@ -2875,7 +2875,6 @@ bool chat_init(void) {
 
    GtkWidget *toolbar_right = g_object_get_data(G_OBJECT(main_window), "rr-main-toolbar-right");
    GtkWidget *status_clock = gtk_clock_status_new();
-   GtkWidget *quit = g_object_get_data(G_OBJECT(main_window), "rr-main-quit-button");
 
    if (GTK_IS_BOX(toolbar_right)) {
       /* Compact right status cluster remains visible regardless of the clipped, variable-width room toolbar. */
@@ -2886,10 +2885,6 @@ bool chat_init(void) {
          gtk_box_pack_start(GTK_BOX(toolbar_right), status_clock, FALSE, FALSE, 0);
       }
 
-      if (quit) {
-         gtk_widget_set_valign(quit, GTK_ALIGN_CENTER);
-         gtk_box_pack_start(GTK_BOX(toolbar_right), quit, FALSE, FALSE, 0);
-      }
       gtk_widget_show_all(toolbar_right);
    } else {
       /* Fallback for alternative frontends without the split toolbar. */
@@ -2899,9 +2894,6 @@ bool chat_init(void) {
          gtk_box_pack_end(GTK_BOX(rr_main_toolbar), status_clock, FALSE, FALSE, 0);
       }
 
-      if (quit) {
-         gtk_box_pack_end(GTK_BOX(rr_main_toolbar), quit, FALSE, FALSE, 0);
-      }
    }
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(1, status_network_tick, NULL);
