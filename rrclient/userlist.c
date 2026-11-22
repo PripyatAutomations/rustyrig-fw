@@ -29,6 +29,7 @@ struct rr_user *global_userlist = NULL;
 /* IRC NAMES may span multiple replies and rooms on each connection. */
 typedef struct userlist_batch {
    char *room;
+   dict *seen;
    struct userlist_batch *next;
 } userlist_batch;
 static userlist_batch *names_batches;
@@ -87,8 +88,21 @@ void userlist_names_begin(const char *room) {
    if (!batch || !(batch->room = strdup(room))) {
       abort();
    }
+   batch->seen = dict_new();
+   if(!batch->seen)abort();
    batch->next = names_batches;
    names_batches = batch;
+}
+
+static void userlist_names_mark(const char *room,const char *nick) {
+   if(!room||!nick||!*nick)return;
+   for(userlist_batch *batch=names_batches;batch;batch=batch->next) {
+      if(strcasecmp(batch->room,room))continue;
+      char *fold=g_ascii_strdown(nick,-1);
+      dict_add_bool(batch->seen,fold,true);
+      g_free(fold);
+      return;
+   }
 }
 
 static void userlist_refresh_ptt_status(void);
@@ -99,6 +113,25 @@ void userlist_names_end(const char *room) {
 
       if (room && !strcasecmp(batch->room, room)) {
          *link = batch->next;
+         /* The 353 batch is a snapshot. Keep the old GTK roster until 366,
+          * then prune only users absent from this room's completed reply. */
+         struct rr_user **entry=&global_userlist;
+         while(*entry) {
+            struct rr_user *member=*entry;
+            if(strcasecmp(member->room,room)) {
+               entry=&member->next;
+               continue;
+            }
+            char *fold=g_ascii_strdown(member->name,-1);
+            bool seen=dict_get_bool(batch->seen,fold,false);
+            g_free(fold);
+            if(seen)entry=&member->next;
+            else {
+               *entry=member->next;
+               free(member);
+            }
+         }
+         dict_free(batch->seen);
          free(batch->room);
          free(batch);
 
@@ -311,6 +344,7 @@ bool userlist_add_or_update(dict *d) {
       return false;
    }
 
+   userlist_names_mark(t_room,t_user);
    struct rr_user *c = userlist_find_in_room(t_user, t_room);
 
    if (c) {
@@ -505,7 +539,8 @@ void userlist_clear_all(void) {
    while (names_batches) {
       userlist_batch *batch = names_batches;
       names_batches = batch->next;
-      free(batch->room);
+      dict_free(batch->seen);
+       free(batch->room);
       free(batch);
    }
    struct rr_user *c = global_userlist, *next;
