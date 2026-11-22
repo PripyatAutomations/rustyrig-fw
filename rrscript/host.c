@@ -31,6 +31,9 @@ struct rrscript_host {
    char *root;
    rrscript_host_register_fn register_host;
 };
+/* Runtime callback userdata is void*, so use writable-lifetime labels. */
+static char script_log_info[] = "info";
+static char script_log_warn[] = "warn";
 static rrs_value_t *native_log(rrs_vm_t *vm, int argc,
                                const rrs_value_t *const argv[], void *user) {
    const char *label=user;
@@ -218,8 +221,8 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
       g_free(source);release_script(script);return false;
    }
    g_free(source);
-   if(!rrs_vm_register_native(script->vm,"log.info",native_log,"info") ||
-      !rrs_vm_register_native(script->vm,"log.warn",native_log,"warn") ||
+   if(!rrs_vm_register_native(script->vm,"log.info",native_log,script_log_info) ||
+      !rrs_vm_register_native(script->vm,"log.warn",native_log,script_log_warn) ||
       (host->register_host && !host->register_host(script->vm))) {
       report_error(error,"Unable to register script log bindings");
       release_script(script);return false;
