@@ -72,7 +72,7 @@ static size_t snapshot_count;
  * roster/group ownership and connected-row duplication are unchanged. */
 static guint8 *directory_connection_layout;
 static size_t directory_connection_layout_count;
-static gboolean directory_update_rows_in_place(gboolean refilter);
+static gboolean directory_update_rows_in_place(gboolean refilter, gboolean selected_changed);
 static char snapshot_status[512], snapshot_info[1024];
 static char snapshot_error[512], snapshot_source[1024];
 static gboolean snapshot_busy;
@@ -253,6 +253,7 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
    }
 
    gboolean needs_refilter = FALSE;
+   gboolean selected_changed = FALSE;
    gboolean same_layout = directory_store && directory_page &&
       directory_connection_layout_count == header.count &&
       snapshot_count == header.count && directory_connection_layout;
@@ -270,6 +271,19 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
          guint8 connected = (directory_connected_local(rows[i].url) ? 1 : 0) |
             (directory_connected_remote(rows[i].url) ? 2 : 0);
          if (directory_connection_layout[i] != connected) same_layout = FALSE;
+      }
+   }
+   if (same_layout) {
+      GtkTreeModel *selected_model=NULL;
+      GtkTreeIter selected_iter;
+      if (gtk_tree_selection_get_selected(
+            gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)),
+            &selected_model,&selected_iter)) {
+         guint selected_index=G_MAXUINT;
+         gtk_tree_model_get(selected_model,&selected_iter,COL_INDEX,&selected_index,-1);
+         if (selected_index < header.count)
+            selected_changed=memcmp(&snapshot_rows[selected_index],
+               &rows[selected_index],sizeof(*rows)) != 0;
       }
    }
    g_free(snapshot_entries);
@@ -290,7 +304,7 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
    }
 
    if (directory_page && directory_store) {
-      if (!same_layout || !directory_update_rows_in_place(needs_refilter)) populate();
+      if (!same_layout || !directory_update_rows_in_place(needs_refilter, selected_changed)) populate();
       else {
          char *summary=g_strdup_printf("%s\n%s",snapshot_status,snapshot_info);
          gtk_label_set_text(GTK_LABEL(directory_status),receiver_failure ? receiver_failure : summary);
@@ -571,7 +585,7 @@ static void filter_changed(GtkWidget *widget, gpointer unused) {
 /* Changes to favorites/marks do not change the tree's identity or its
  * cursor. Update only changed cells; do not clear the store, collapse groups,
  * reset selection, scroll the view, or re-emit selection-changed. */
-static gboolean directory_update_rows_in_place(gboolean refilter) {
+static gboolean directory_update_rows_in_place(gboolean refilter, gboolean selected_changed) {
    if (!directory_store || !directory_connection_layout ||
        directory_connection_layout_count != snapshot_count) return FALSE;
    GtkTreeModel *model=GTK_TREE_MODEL(directory_store);
@@ -618,7 +632,8 @@ static gboolean directory_update_rows_in_place(gboolean refilter) {
     * even filtering would disturb the current selection unnecessarily. */
    if (refilter)
       gtk_tree_model_filter_refilter(directory_filter);
-   selection_changed(NULL,NULL); /* Labels/details update; selection stays put. */
+   if (selected_changed || refilter)
+      selection_changed(NULL,NULL); /* Only the affected details/selection change. */
    return TRUE;
 }
 static void populate(void) {
