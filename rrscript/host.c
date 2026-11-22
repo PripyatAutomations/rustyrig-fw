@@ -33,7 +33,7 @@ static rrs_value_t *native_log(rrs_vm_t *vm, int argc,
       rrs_vm_raise(vm,"log expects one char[] argument");
       return NULL;
    }
-   Log(LOG_INFO,"scripting","%s: %s",label,rrs_value_string(argv[0]));
+   Log(!strcmp(label,"warn") ? LOG_WARN : LOG_INFO,"scripting","%s: %s",label,rrs_value_string(argv[0]));
    return rrs_null();
 }
 static rrs_value_t *from_scalar(val_type_t type,dict_value_t value) {
