@@ -25,6 +25,42 @@ int main(void) {
    rr_gate_state_t invalid={RR_GATE_AND,0,0,0};
    bool out=true;
    assert(!rr_gate_evaluate(&invalid,&out) && !out);
+   /* Multiple wires on one pin reduce by OR, then the configured gate
+    * combines the pin states. PTT and other booleans use identical rules. */
+   rr_gate_wire_t wires[] = {
+      {.pin=0, .valid=true, .high=false},
+      {.pin=0, .valid=true, .high=true},
+      {.pin=1, .valid=true, .high=true}
+   };
+   assert(rr_gate_evaluate_wires(RR_GATE_AND,2,wires,3,&out) && out);
+   assert(rr_gate_evaluate_wires(RR_GATE_OR,2,wires,3,&out) && out);
+   assert(rr_gate_evaluate_wires(RR_GATE_XOR,2,wires,3,&out) && !out);
+   assert(rr_gate_evaluate_wires(RR_GATE_NAND,2,wires,3,&out) && !out);
+   assert(rr_gate_evaluate_wires(RR_GATE_NOR,2,wires,3,&out) && !out);
+   wires[2].high=false;
+   assert(rr_gate_evaluate_wires(RR_GATE_AND,2,wires,3,&out) && !out);
+   assert(rr_gate_evaluate_wires(RR_GATE_OR,2,wires,3,&out) && out);
+   assert(rr_gate_evaluate_wires(RR_GATE_XOR,2,wires,3,&out) && out);
+   assert(rr_gate_evaluate_wires(RR_GATE_NAND,2,wires,3,&out) && out);
+   assert(rr_gate_evaluate_wires(RR_GATE_NOR,2,wires,3,&out) && !out);
+   /* Multiple wires to NOT also form one logical input. */
+   assert(rr_gate_evaluate_wires(RR_GATE_NOT,1,wires,2,&out) && !out);
+   wires[1].high=false;
+   assert(rr_gate_evaluate_wires(RR_GATE_NOT,1,wires,2,&out) && out);
+   /* No connected wire is not a logical FALSE. */
+   assert(!rr_gate_evaluate_wires(RR_GATE_NOT,1,NULL,0,&out) && !out);
+   assert(!rr_gate_evaluate_wires(RR_GATE_AND,2,wires,2,&out) && !out);
+   wires[2].valid=false;
+   assert(!rr_gate_evaluate_wires(RR_GATE_NAND,2,wires,3,&out) && !out);
+   wires[2].valid=true;
+   wires[2].pin=3;
+   assert(!rr_gate_evaluate_wires(RR_GATE_AND,2,wires,3,&out) && !out);
+   wires[2].pin=1;
+   wires[0].valid=false;
+   wires[1].high=true;
+   assert(!rr_gate_evaluate_wires(RR_GATE_OR,2,wires,3,&out) && !out);
+   assert(!rr_gate_evaluate_wires(RR_GATE_AND,2,NULL,3,&out) && !out);
+   assert(!rr_gate_evaluate_wires(RR_GATE_AND,33,wires,3,&out) && !out);
    rr_threshold_state_t t = rr_threshold_default();
    t.value=5.; t.value_valid=true;
    assert(rr_threshold_evaluate(&t,&out) && out); /* default 0..+inf */
