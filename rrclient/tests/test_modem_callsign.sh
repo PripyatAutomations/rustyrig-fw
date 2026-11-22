@@ -13,3 +13,12 @@ ${CC:-cc} -std=gnu23 -Wall -Wextra -Werror -Iinc \
   $(pkg-config --libs glib-2.0)
 "$tmp/modem_callsign"
 echo "Modem callsign token tests passed"
+if pkg-config --exists librustyscript; then
+  ${CC:-cc} -std=gnu23 -Wall -Wextra -Werror -Iinc \
+    $(pkg-config --cflags librustyscript) \
+    rrclient/tests/modem_callsign_script.c -o "$tmp/modem_callsign_script" \
+    $(pkg-config --libs librustyscript)
+  "$tmp/modem_callsign_script" doc/examples/scripts/callsign-alert.rrs
+else
+  echo "SKIP: RustyScript development package unavailable"
+fi
