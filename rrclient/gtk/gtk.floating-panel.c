@@ -321,8 +321,6 @@ static void dock_slot_constrain(GtkWidget *scroll, GtkAllocation *allocation, gp
       if (!p || p->dock_edge < 0 || p->dragging || p->resizing) {
          continue;
       }
-      const gint max_w = MAX(1, allocation->width - 3);
-      const gint max_h = MAX(1, allocation->height - 3);
       const gint desired_w = p->dock_width > 0 ? p->dock_width : -1;
       const gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
       gint req_w, req_h;
