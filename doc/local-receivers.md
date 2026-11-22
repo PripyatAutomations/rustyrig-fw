@@ -10,7 +10,13 @@ Local PCM travels over a UNIX `SOCK_SEQPACKET` socket, is resampled through fwds
 recent frequency successfully tuned through the Kiwi plugin, regardless of
 which Kiwi receiver was used. This single plugin preference is persisted in
 `client.db` as `sdr.plugin.kiwi.last_frequency_hz`. No per-receiver tuning
-history is maintained. Until a successful tune is recorded, the initial
+history is written to disk. Reconnecting a receiver *during the same client
+session* restores that receiver's last observed frequency and mode and any Kiwi
+control adjustments sent by the client (AGC, gain, squelch, noise blanker,
+etc.). This reconnection state is ephemeral: it is not a receiver-by-receiver
+configuration database. An rrbridge network retry preserves the child driver's
+current settings independently. A genuinely new receiver uses the shared
+plugin-wide last-tuned frequency. Until a successful tune is recorded, the initial
 frequency is 7.100 MHz instead of the former 14.074 MHz default. A rejected
 tune does not overwrite the preference. This affects client-hosted Kiwi
 bridges, not hardware rig VFOs.

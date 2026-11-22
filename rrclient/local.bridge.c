@@ -71,6 +71,62 @@ typedef struct bridge_instance {
 } bridge_instance;
 
 static bridge_instance *bridges[26];
+/* Retain a Kiwi receiver's live settings for reconnection within this client
+ * session. This is deliberately NOT a per-receiver persistent database:
+ * new receivers still use the single plugin-wide last-frequency preference. */
+typedef struct {
+   uint64_t hz;
+   char mode[16];
+   GHashTable *controls; /* name -> value; replayed after new child is online */
+} kiwi_session_settings_t;
+static GHashTable *kiwi_session_settings;
+static void kiwi_settings_free(gpointer data) {
+   kiwi_session_settings_t *settings=data;
+   if (settings->controls) g_hash_table_destroy(settings->controls);
+   g_free(settings);
+}
+static kiwi_session_settings_t *kiwi_settings_for(const char *url, gboolean create) {
+   if (!url || !*url) return NULL;
+   if (!kiwi_session_settings) {
+      if (!create) return NULL;
+      kiwi_session_settings=g_hash_table_new_full(g_str_hash,g_str_equal,
+         g_free,kiwi_settings_free);
+   }
+   kiwi_session_settings_t *settings=g_hash_table_lookup(kiwi_session_settings,url);
+   if (!settings && create) {
+      settings=g_new0(kiwi_session_settings_t,1);
+      settings->controls=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,g_free);
+      g_hash_table_insert(kiwi_session_settings,g_strdup(url),settings);
+   }
+   return settings;
+}
+static void kiwi_settings_capture(const bridge_instance *b) {
+   if (!b || !b->url || strcmp(b->driver,"kiwi") ||
+       !b->frequency_hz || !*b->mode) return;
+   kiwi_session_settings_t *settings=kiwi_settings_for(b->url,TRUE);
+   settings->hz=b->frequency_hz;
+   g_strlcpy(settings->mode,b->mode,sizeof(settings->mode));
+}
+static void kiwi_settings_restore_controls(bridge_instance *b) {
+   if (!b || !b->url || strcmp(b->driver,"kiwi") || b->control<0) return;
+   kiwi_session_settings_t *settings=kiwi_settings_for(b->url,FALSE);
+   if (!settings || !settings->controls) return;
+   GHashTableIter iter;
+   gpointer key,value;
+   g_hash_table_iter_init(&iter,settings->controls);
+   while (g_hash_table_iter_next(&iter,&key,&value)) {
+      rrp_bridge_ipc_message_t cmd;
+      rrp_bridge_ipc_init(&cmd,RRP_BRIDGE_IPC_CONTROL);
+      g_strlcpy(cmd.name,"local",sizeof(cmd.name));
+      g_strlcpy(cmd.driver,b->driver,sizeof(cmd.driver));
+      g_strlcpy(cmd.metadata_key,key,sizeof(cmd.metadata_key));
+      g_strlcpy(cmd.metadata_value,value,sizeof(cmd.metadata_value));
+      if (!rrp_bridge_ipc_send(b->control,&cmd))
+         Log(LOG_WARN,"local.bridge","%s: failed restoring Kiwi control %s",
+             b->stream,(const char *)key);
+   }
+}
+
 /* One persistent frequency per plugin, never per receiver URL or slot. */
 #define KIWI_LAST_FREQUENCY_KEY "sdr.plugin.kiwi.last_frequency_hz"
 #define KIWI_FIRST_FREQUENCY_HZ UINT64_C(7100000)
@@ -460,6 +516,9 @@ static void kiwi_control_request(const rr_event_message_t *message, void *user) 
 
    if (!rrp_bridge_ipc_send(b->control, &cmd)) {
       Log(LOG_WARN, "local.bridge", "Kiwi VFO %c: failed to queue control %s", req->vfo, req->control);
+   } else if (b->url) {
+      kiwi_session_settings_t *settings=kiwi_settings_for(b->url,TRUE);
+      g_hash_table_replace(settings->controls,g_strdup(req->control),g_strdup(req->value));
    }
 }
 
@@ -1078,6 +1137,8 @@ static void bridge_stop(bridge_instance *b) {
    if (!b) {
       return;
    }
+   /* Preserve the outgoing receiver's last observed settings for this session. */
+   kiwi_settings_capture(b);
 
    if (b->timer) {
       bridge_core_remove_source(b->timer);
@@ -1308,6 +1369,8 @@ static gboolean poll_local(gpointer unused) {
          if (b->online) {
             b->frequency_hz = m.frequency_hz;
             g_strlcpy(b->mode, m.mode, sizeof(b->mode));
+            kiwi_settings_capture(b);
+            if (!was_online) kiwi_settings_restore_controls(b);
          }
          bridge_publish_ui();
 
@@ -1530,10 +1593,14 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       return false;
    }
    close(tmp);
-   uint64_t start_hz=bridge_plugin_initial_frequency(driver);
+   kiwi_session_settings_t *prior=!strcmp(driver,"kiwi")?
+      kiwi_settings_for(url,FALSE):NULL;
+   uint64_t start_hz=prior && prior->hz ? prior->hz:
+      bridge_plugin_initial_frequency(driver);
+   const char *start_mode=prior && *prior->mode?prior->mode:"USB";
    char *text =
-      g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=%" G_GUINT64_FORMAT "\nmode=USB\n", driver
-      , host, port, tls ? "true" : "false", start_hz);
+      g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=%" G_GUINT64_FORMAT "\nmode=%s\n", driver
+      , host, port, tls ? "true" : "false", start_hz,start_mode);
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
