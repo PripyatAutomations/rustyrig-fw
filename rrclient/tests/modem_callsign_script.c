@@ -4,15 +4,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static int notifications;
+static int notifications, modem_notifications;
 static rrs_value_t *log_message(rrs_vm_t *vm,int argc,
     const rrs_value_t *const args[],void *unused) {
    (void)vm;(void)unused;
    assert(argc==1 && rrs_value_type(args[0])==RRS_STRING);
    const char *msg=rrs_value_string(args[0]);
-   assert(msg && strstr(msg,"K1ABC") && strstr(msg,"FT8"));
-   notifications++;
+   assert(msg);
+   if(strstr(msg,"modem2")) {
+      assert(strstr(msg,"rx.audio2") && strstr(msg,"14074000") &&
+             strstr(msg,"FT8"));
+      modem_notifications++;
+   } else {
+      assert(strstr(msg,"K1ABC") && strstr(msg,"CQ K1ABC"));
+      notifications++;
+   }
    return rrs_null();
+}
+static rrs_value_t *string_str(rrs_vm_t *vm,int argc,
+    const rrs_value_t *const args[],void *unused) {
+   (void)vm;(void)unused;
+   assert(argc==1);
+   return rrs_string(rrs_value_string(args[0]));
 }
 static void field(rrs_value_t *event,const char *key,const char *value) {
    rrs_value_t *v=rrs_string(value);
@@ -33,7 +46,12 @@ int main(int argc,char **argv) {
    assert(vm && rrs_vm_load(vm,source));
    free(source);
    assert(rrs_vm_register_native(vm,"log.info",log_message,NULL));
+   assert(rrs_vm_register_native(vm,"string.str",string_str,NULL));
    rrs_value_t *event=rrs_dictionary();
+   field(event,"origin","modem");
+   field(event,"modem","modem2");
+   field(event,"audio_source","rx.audio2");
+   field(event,"frequency_hz","14074000");
    field(event,"kind","watchlist");
    field(event,"callsign","K1ABC");
    field(event,"band","20m");
@@ -42,7 +60,7 @@ int main(int argc,char **argv) {
    assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"watch.callsign",event));
    field(event,"kind","own");
    assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"watch.callsign",event));
-   assert(notifications==2);
+   assert(notifications==2 && modem_notifications==2);
    rrs_value_free(event);
    rrs_vm_free(vm);
    puts("RustyScript watch.callsign handler tests passed");
