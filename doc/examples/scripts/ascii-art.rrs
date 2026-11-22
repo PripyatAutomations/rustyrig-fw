@@ -12,7 +12,7 @@ script("/artwork", {
     ui.utility("artwork", "IRC Artwork / Macros")
     ui.add("artwork", "column", "artwork_layout", "")
     ui.add("artwork_layout", "row", "artwork_content", "")
-    ui.add("artwork_content", "filelist", "artwork_files", "Select a .mac artwork", art.dir())
+    ui.add("artwork_content", "filelist", "artwork_files", "Select a .mac artwork", art.dir() + "|.mac")
     ui.add("artwork_content", "irc-preview", "artwork_preview", "Color preview")
     ui.add("artwork_layout", "row", "artwork_rate_row", "")
     ui.add("artwork_rate_row", "label", "artwork_rate_label", "Lines/sec (1-10):")
