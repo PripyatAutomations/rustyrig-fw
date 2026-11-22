@@ -249,6 +249,44 @@ static void test_side_panel_roster_fits(void) {
    puts("PASS: docked userlist tracks available side-panel width without horizontal scrollbar");
 }
 
+static void test_floating_userlist_no_autogrow(void) {
+   GtkWidget *window = gtk_offscreen_window_new();
+   GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   GtkWidget *view = userlist_view_create();
+   userlist_fit_columns(view);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+                                  GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_container_add(GTK_CONTAINER(scroll), view);
+   g_signal_connect(scroll, "size-allocate", G_CALLBACK(userlist_scroll_allocate), view);
+   gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
+   gtk_container_add(GTK_CONTAINER(window), panel);
+   room_userlist_entry_t entry = {
+      .panel = panel, .view = view, .auto_window_width = true
+   };
+   /* Mark it as a floating panel without dereferencing the owner. */
+   entry.float_panel = (RRFloatPanel *)&entry;
+   g_object_set_data(G_OBJECT(view), "rr-room-roster", &entry);
+   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
+   GtkTreeIter row;
+   gtk_list_store_append(store, &row);
+   gtk_list_store_set(store, &row, COL_USERNAME, "LONG_CALLSIGN_THAT_SHOULD_ELLIPSIZE",
+                      COL_DISPLAY_NAME, "LONG_CALLSIGN_THAT_SHOULD_ELLIPSIZE", -1);
+   gtk_window_set_default_size(GTK_WINDOW(window), 220, 240);
+   gtk_widget_show_all(window);
+   pump_layout();
+   for (int i = 0; i < 5; i++) {
+      userlist_fit_width_idle(view);
+      pump_layout();
+      assert(gtk_scrolled_window_get_min_content_width(GTK_SCROLLED_WINDOW(scroll)) == 80);
+      assert(gtk_widget_get_allocated_width(panel) <= 220);
+   }
+   g_object_set_data(G_OBJECT(view), "rr-room-roster", NULL);
+   gtk_widget_destroy(window);
+   puts("PASS: repeated roster refresh never grows a floating side panel");
+}
+
 static void test_incremental_roster(void) {
    room_vfos = "";
    room_tx_control = false;
@@ -607,6 +645,7 @@ int main(void) {
    gtk_widget_destroy(window);
    test_late_roster_autosize();
    test_side_panel_roster_fits();
+   test_floating_userlist_no_autogrow();
    test_incremental_roster();
    test_vfo_refresh_changes();
    test_offline_roster();
