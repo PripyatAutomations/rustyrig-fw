@@ -57,9 +57,17 @@ event ui.click {
         ui.set("artwork_files", "refresh")
     }
     if (event.id == "artwork_send") {
-        art.rate_set(ui.val("artwork_target"), ui.val("artwork_rate"))
-        art.play(ui.val("artwork_files"), ui.val("artwork_target"), ui.val("artwork_rate"))
-        ui.set("artwork_status", "Sending selected macro to selected room")
+        if (ui.val("artwork_files") == "") {
+            ui.message("artwork_missing", "Choose artwork", "Select a .mac file first")
+        } else {
+            if (ui.val("artwork_target") == "") {
+                ui.message("artwork_no_target", "Choose target", "Select an open conversation tab")
+            } else {
+                art.rate_set(ui.val("artwork_target"), ui.val("artwork_rate"))
+                art.play(ui.val("artwork_files"), ui.val("artwork_target"), ui.val("artwork_rate"))
+                ui.set("artwork_status", "Sending selected macro to selected room")
+            }
+        }
     }
     if (event.id == "artwork_stop") {
         art.stop()
@@ -70,7 +78,11 @@ event ui.click {
         ui.set("artwork_status", "Saved room playback speed")
     }
     if (event.id == "artwork_edit") {
-        art.edit(ui.val("artwork_files"))
+        if (ui.val("artwork_files") == "") {
+            ui.message("artwork_missing", "Choose artwork", "Select a .mac file first")
+        } else {
+            art.edit(ui.val("artwork_files"))
+        }
     }
     if (event.id == "artwork_rename") {
         if (file.exists(art.path(ui.val("artwork_newname")))) {
@@ -87,13 +99,17 @@ event ui.click {
         ui.set("artwork_status", "Artwork folder created")
     }
     if (event.id == "artwork_delete") {
-        if (ui.val("artwork_confirm_delete")) {
+        if (ui.val("artwork_files") == "") {
+            ui.message("artwork_missing", "Choose artwork", "Select a .mac file first")
+        } else {
+            if (ui.val("artwork_confirm_delete")) {
             ui.message("artwork_delete_confirm", "Delete artwork?", "Delete the selected .mac file permanently?", "yesno")
         } else {
             file.remove(art.path(ui.val("artwork_files")))
             ui.set("artwork_files", "refresh")
             ui.set("artwork_preview", "")
             ui.set("artwork_status", "Macro deleted")
+            }
         }
     }
 }
