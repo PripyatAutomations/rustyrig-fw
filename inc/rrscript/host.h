@@ -6,7 +6,11 @@
 typedef struct rrscript_host rrscript_host_t;
 /* Loads local .rrs scripts. Scripts do not run merely by being loaded.
  * The caller owns the returned host and closes it before event_shutdown(). */
-rrscript_host_t *rrscript_host_open(const char *directory, bool client);
+#include <librustyscript/runtime.h>
+/* Called for each VM before activation to register host-specific natives. */
+typedef bool (*rrscript_host_register_fn)(rrs_vm_t *vm);
+rrscript_host_t *rrscript_host_open(const char *directory, bool client,
+                                   rrscript_host_register_fn register_host);
 void rrscript_host_close(rrscript_host_t *host);
 /* Names are .rrs filenames at the script root, or autoload/name.rrs.
  * No absolute paths or traversal. These functions must run in the host's
