@@ -71,6 +71,22 @@ int main(int argc, char **argv) {
       return 1;
    }
    rrs_value_free(event);
+   /* Exercise the handler the client previously called without event.room:
+    * its failure was incorrectly reported as "expected )". */
+   event=rrs_dictionary();
+   rrs_value_t *room=rrs_string("#hamradio");
+   rrs_value_t *nick=rrs_string("artist");
+   rrs_value_t *body=rrs_string("plain text");
+   assert(event&&room&&nick&&body);
+   assert(rrs_dict_put(event,"room",room));
+   assert(rrs_dict_put(event,"nick",nick));
+   assert(rrs_dict_put(event,"text",body));
+   rrs_value_free(room);rrs_value_free(nick);rrs_value_free(body);
+   if(!rrs_vm_invoke(vm,RRSCRIPT_EVENT,"irc.privmsg",event)) {
+      fprintf(stderr,"artwork IRC handler: %s\n",rrs_vm_error(vm));
+      return 1;
+   }
+   rrs_value_free(event);
    rrs_vm_free(vm);
    puts("RustyScript artwork example smoke tests passed");
    return 0;
