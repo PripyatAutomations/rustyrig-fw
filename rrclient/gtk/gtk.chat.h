@@ -30,6 +30,10 @@ extern const char *gtk_chat_controls_room(void);
 extern bool gtk_chat_status_active(void);
 extern void gtk_chat_room_set_topic(const char *room, const char *topic);
 
+/* Per-view follow state survives hidden tabs and GTK reallocation. */
+bool gtk_chat_view_should_follow(GtkWidget *view);
+void gtk_chat_view_schedule_follow(GtkWidget *view);
+
 extern void gtk_chat_room_vfos_changed(const char *room);
 
 #endif // !defined(__gtk_chat_h)
