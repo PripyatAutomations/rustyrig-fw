@@ -6,7 +6,7 @@
 
 event watch.callsign {
     // ===== BEGIN EASY CONFIGURATION =====
-    char[][] rooms = [
+    const char rooms[][] = [
         "#hamradio-test@efnet"
         // Add more comma-separated destinations, e.g.:
         // , "#radio@another-irc-profile"
@@ -17,10 +17,10 @@ event watch.callsign {
     int cooldown_minutes = 30
     // ===== END CONFIGURATION =====
 
-    char[] location = event.origin
-    char[] band = ""
-    char[] mode = ""
-    char[] frequency = "unknown frequency"
+    char location = event.origin
+    char band = ""
+    char mode = ""
+    char frequency = "unknown frequency"
 
     if (event.origin == "modem") {
         location = event.audio_source
@@ -37,12 +37,12 @@ event watch.callsign {
         }
     }
 
-    char[] message = "Spotted " + event.callsign + " on " + band +
+    char message = "Spotted " + event.callsign + " on " + band +
                      " " + mode + " at " + frequency + ", using " + location
 
     // Notify only after this callsign has been ABSENT for 30 minutes.
     // The timer resets with every decode (not just every notification).
-    char[] key = "watch.spotted.call-" + string.hash(event.callsign)
+    char key = "watch.spotted.call-" + string.hash(event.callsign)
     int now = time.now()
     int previous = state.get(key)
     bool notify = true
