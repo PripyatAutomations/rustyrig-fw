@@ -77,10 +77,10 @@ server's certificate rather than disabling TLS checks.
 
 The roster shows IRC privilege symbols from NAMES and subsequent MODE changes,
 using the server's PREFIX mapping (normally `@` for operators and `+` for voice).
-The TX and Mute columns appear only in rooms with advertised VFO mappings,
-independent of transport. Role columns require WebSocket or the IRC RUSTYRIG
-capability/ISUPPORT token; capability removal hides the IRC Role column. The client
-requests `multi-prefix` when offered so combined op/voice modes remain available.
+The compact roster uses only **Flags** and **Username** columns. Flags
+combines privilege, TX microphone, mute-monkey, and any advertised role glyphs
+without consuming separate status columns. The client requests `multi-prefix`
+when offered so combined op/voice modes remain available.
 Other advertised capabilities, including SASL, are not requested.
 
 In a room, plain text followed by Tab cycles through matching room members.
