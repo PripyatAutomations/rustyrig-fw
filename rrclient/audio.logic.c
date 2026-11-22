@@ -2,6 +2,7 @@
 #include <rrclient/audio.logic.h>
 #include <string.h>
 #include <strings.h>
+#include <math.h>
 static const char *const names[] = {"AND","OR","XOR","NOT","NAND","NOR"};
 const char *rr_gate_kind_name(rr_gate_kind_t kind) {
    return kind <= RR_GATE_NOR ? names[kind] : NULL;
@@ -34,5 +35,28 @@ bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
       default: return false;
    }
    *output=result;
+   return true;
+}
+
+bool rr_threshold_evaluate(const rr_threshold_state_t *state, bool *output) {
+   if (!output) return false;
+   *output=false;
+   if (!state || !state->value_valid || !isfinite(state->value) ||
+       (state->signal_connected && !state->signal_valid) ||
+       (state->min_connected && !state->min_valid) ||
+       (state->max_connected && !state->max_valid))
+      return false;
+
+   /* Connected bounds are required to be finite. Unconnected max may be
+    * infinity so the default gate is simply value >= 0. */
+   if (!isfinite(state->min) || isnan(state->max) ||
+       (state->max_connected && !isfinite(state->max)) ||
+       state->min > state->max)
+      return false;
+   /* A disabled valid signal produces a valid FALSE result. */
+   if (state->signal_connected && !state->signal_high)
+      return true;
+   bool inside=state->value >= state->min && state->value <= state->max;
+   *output=state->invert ? !inside : inside;
    return true;
 }
