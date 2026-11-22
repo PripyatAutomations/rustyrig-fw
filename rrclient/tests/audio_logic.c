@@ -37,7 +37,6 @@ int main(void) {
    assert(rr_gate_evaluate_wires(RR_GATE_XOR,2,wires,3,&out) && !out);
    assert(rr_gate_evaluate_wires(RR_GATE_NAND,2,wires,3,&out) && !out);
    assert(rr_gate_evaluate_wires(RR_GATE_NOR,2,wires,3,&out) && !out);
-   assert(rr_gate_evaluate_wires(RR_GATE_XNOR,2,wires,3,&out) && !out);
    assert(rr_gate_evaluate_wires(RR_GATE_XNOR,2,wires,3,&out) && out);
    wires[2].high=false;
    assert(rr_gate_evaluate_wires(RR_GATE_AND,2,wires,3,&out) && !out);
@@ -45,6 +44,7 @@ int main(void) {
    assert(rr_gate_evaluate_wires(RR_GATE_XOR,2,wires,3,&out) && out);
    assert(rr_gate_evaluate_wires(RR_GATE_NAND,2,wires,3,&out) && out);
    assert(rr_gate_evaluate_wires(RR_GATE_NOR,2,wires,3,&out) && !out);
+   assert(rr_gate_evaluate_wires(RR_GATE_XNOR,2,wires,3,&out) && !out);
    /* Multiple wires to NOT also form one logical input. */
    assert(rr_gate_evaluate_wires(RR_GATE_NOT,1,wires,2,&out) && !out);
    wires[1].high=false;
