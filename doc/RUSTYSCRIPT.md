@@ -321,8 +321,7 @@ than arrays (array support is not implemented yet).
 
 When a client-local modem decoder (FT8, Olivia, PSK, etc.) decodes a message
 containing the operator's callsign or a configured watched callsign, RustyRig
-publishes **`event watch.callsign`** to RustyScript. This source-neutral name also allows other future callsign monitors to publish the same event. For modem decodes, matching happens in
-the client core regardless of whether the GTK Terminal tab is visible.
+publishes **`event watch.callsign`** to RustyScript. This source-neutral name also allows other future callsign monitors to publish the same event. For modem decodes, matching happens in the client core regardless of whether the GTK Terminal tab is visible.
 The existing watched-calls database filters by mode and RF band, including
 the `Any` wildcard. Callsigns are matched case-insensitively as complete
 tokens, not substrings. The My callsign field in the Terminal toolbar is now
@@ -361,11 +360,10 @@ produce both if the callsign is also on the watchlist.
 | `event.source` | Source audio stream identifier |
 | `event.slot` | Local decoder slot, starting at 1 |
 | `event.watch_id` | Watched-call database row ID; 0 for own-callsign matches |
-| `event.audio_hz`, `event.dt`, `event.sync_score`, `event.snr` | Optional decoder-provided metrics, included when present; string-valued from worker JSON |
+| `event.audio_hz`, `event.dt`, `event.sync_score`, `event.snr` | Optional decoder-provided metrics, included when present; numeric worker values remain numeric, string worker values remain strings |
 
 Only decoded text messages generate this notification; worker status JSON,
-configuration messages, and unrelated lines are ignored. A rig identifier is not inferred when the audio source cannot reliably be mapped; scripts can use `event.vfo_uuid` and `event.source` for further lookup. The signal is
-**notification-only** and never keys a transmitter or modifies modem
+configuration messages, and unrelated lines are ignored. A rig identifier is not inferred when the audio source cannot reliably be mapped; scripts can use `event.vfo_uuid` and `event.source` for further lookup. The signal is **notification-only** and never keys a transmitter or modifies modem
 routing. This event currently covers client-local decoder workers; it
 does not imply that remote server-side serial modem output is subscribed
 or analyzed on the client.
