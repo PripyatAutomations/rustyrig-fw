@@ -1808,6 +1808,10 @@ static GtkWidget *userlist_panel_create(void) {
    gtk_box_pack_start(GTK_BOX(panel), header, FALSE, FALSE, 0);
 
    cul_view = userlist_view_create();
+   /* The authoritative userlist uses the same width-constrained renderer
+    * as room rosters. Without this, Username remains AUTOSIZE and a long
+    * call sign can grow the containing floating panel indefinitely. */
+   userlist_fit_columns(cul_view);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
