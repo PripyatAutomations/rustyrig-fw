@@ -376,7 +376,10 @@ static void dock_edge_create(RRChatDocks *d, guint edge) {
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    /* The dock does not scroll: overflowing children must resize to fit
     * its allocation, never enlarge its scrolling canvas. */
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   /* EXTERNAL allocates a viewport without creating scrollbars and, unlike
+    * NEVER, does not demand the child's entire natural width.  The dock
+    * therefore remains shrinkable even when GtkFixed holds wide children. */
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_EXTERNAL, GTK_POLICY_EXTERNAL);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
@@ -1779,8 +1782,14 @@ static void panel_menu_action(GtkButton *button, gpointer data) {
       p->saved_height = height;
       gtk_widget_set_size_request(p->frame, width, height);
       if (p->dock_edge >= 0) {
+         /* A stale dock offset can leave the reset panel partially offscreen. */
+         p->dock_x = p->dock_y = 0;
+         GtkWidget *slot = gtk_widget_get_parent(p->frame);
+         if (GTK_IS_FIXED(slot))
+            gtk_fixed_move(GTK_FIXED(slot), p->frame, 0, 0);
          p->dock_width = width;
          p->dock_height = height;
+         panel_dock_coords_save(p);
          panel_dock_size_save(p);
       } else {
          p->last_saved_valid = FALSE;
