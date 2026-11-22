@@ -879,6 +879,10 @@ static bool admin_control_visit(const rr_platform_control_state_t *s, void *user
    return false;
 }
 
+#if defined(RR_HAVE_RUSTYSCRIPT) && defined(USE_SQLITE)
+static void handle_script_admin(rrconn_t *client, dict *request, const char *action);
+#endif
+
 #ifdef USE_SQLITE
 /* Bound SQL parameters only: free-form request messages never become SQL. */
 static void admin_access_requests(rrconn_t *client, dict *request) {
