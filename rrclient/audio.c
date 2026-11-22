@@ -62,6 +62,18 @@ static time_t tx_pcm_warned = 0;
 /* Capture and core can access the TX patch concurrently. */
 G_LOCK_DEFINE_STATIC(mic_tx_target);
 static char mic_tx_target[64] = "auto";
+/* Mono mic may independently feed either or both legs of tx.mix. The final
+ * negotiated TX encoder remains mono and downsamples only at its boundary.
+ * This route is core-domain owned, not accessed by the microphone callback. */
+static char mic_tx_channels = 'S';
+static unsigned mic_route_mask(char route) {
+   return route == 'S' ? 3u : route == 'L' ? 1u : route == 'R' ? 2u : 0u;
+}
+static char mic_route_from_mask(unsigned mask) {
+   return (mask & 3u) == 3u ? 'S' : (mask & 3u) == 1u ? 'L' :
+      (mask & 3u) == 2u ? 'R' : 'M';
+}
+
 static void audio_mic_tx_target_copy(char out[64]) {
    G_LOCK(mic_tx_target);
    g_strlcpy(out, mic_tx_target, 64);
@@ -2626,10 +2638,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
     * connections; its TX path is unaffected until a processed TX route exists. */
    rr_audio_graph_add_node(graph, "src.client.dsp0", RR_AG_SOURCE);
    rr_audio_graph_set_health(graph, "src.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
-   rr_audio_graph_set_route(graph, "src.client.dsp0", !strcmp(mic_tx_target, "none") ? 'M' : 'S');
+   unsigned mic_channels = !strcmp(mic_tx_target, "none") ? 0u : mic_route_mask(mic_tx_channels);
+   rr_audio_graph_set_route(graph, "src.client.dsp0", mic_route_from_mask(mic_channels));
 
-   if (strcmp(mic_tx_target, "none")) {
-      rr_audio_graph_add_channel_link(graph, "src.client.dsp0", "tx.mix", RR_AG_NORMAL, RR_AG_CHANNEL_LEFT);
+   if (mic_channels) {
+      /* One physical mono output fans out to either or both TX mixer legs. */
+      rr_audio_graph_add_channel_link(graph, "src.client.dsp0", "tx.mix",
+                                     RR_AG_NORMAL, mic_channels);
    }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
@@ -3284,9 +3299,38 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          G_UNLOCK(mic_tx_target);
          rrclient_database_setting_set("audio.tx.mic.target", req->stream);
 
+         mic_tx_channels = !strcmp(req->stream, "none") ? 'M' : 'S';
+         rrclient_database_setting_set("audio.tx.mic.channels",
+                                       mic_tx_channels == 'M' ? "M" : "S");
          if (tx_engine) {
-            rr_audio_engine_route(tx_engine, "src.client.dsp0", !strcmp(req->stream, "none") ? 'M' : 'S');
+            rr_audio_engine_route(tx_engine, "src.client.dsp0", mic_tx_channels);
          }
+         event_emit("client.audio.route.changed", NULL, NULL);
+         break;
+      }
+      case RR_AUDIO_CONTROL_MIC_TX_CHANNEL: {
+         if (req->channel > 1 || (req->percent != 0 && req->percent != 1))
+            break;
+         unsigned bit = 1u << req->channel;
+         unsigned mask = mic_route_mask(mic_tx_channels);
+         mask = req->percent ? (mask | bit) : (mask & ~bit);
+         char route = mic_route_from_mask(mask);
+         if (route == mic_tx_channels &&
+             (!!mask == !!strcmp(mic_tx_target, "none")))
+            break;
+         mic_tx_channels = route;
+         /* Routing to a mixer leg re-enables the already selected TX media
+          * path, but does not assert PTT or change the selected rig. */
+         if (mask && !strcmp(mic_tx_target, "none"))
+            g_strlcpy(mic_tx_target, "auto", sizeof(mic_tx_target));
+         if (!mask)
+            g_strlcpy(mic_tx_target, "none", sizeof(mic_tx_target));
+         rrclient_database_setting_set("audio.tx.mic.channels",
+                                       route == 'S' ? "S" : route == 'L' ? "L" :
+                                       route == 'R' ? "R" : "M");
+         rrclient_database_setting_set("audio.tx.mic.target", mic_tx_target);
+         if (tx_engine)
+            rr_audio_engine_route(tx_engine, "src.client.dsp0", route);
          event_emit("client.audio.route.changed", NULL, NULL);
          break;
       }
@@ -3327,6 +3371,15 @@ static void audio_submit_control(const rr_audio_control_request_t *req) {
       .payload = req, .length = sizeof(*req)
    };
    event_emit_message(&message);
+}
+
+void audio_request_mic_tx_channel(unsigned channel, bool connect) {
+   if (channel > 1) return;
+   rr_audio_control_request_t req = {
+      .kind = RR_AUDIO_CONTROL_MIC_TX_CHANNEL,
+      .channel = channel, .percent = connect ? 1 : 0
+   };
+   audio_submit_control(&req);
 }
 
 void audio_request_mic_tx_route(const char *rx_uuid) {
@@ -3435,6 +3488,17 @@ bool audio_init(void) {
       G_UNLOCK(mic_tx_target);
    }
    g_free(saved_mic);
+   char *saved_channels = rrclient_database_setting_get("audio.tx.mic.channels");
+   if (saved_channels && saved_channels[0] && !saved_channels[1] &&
+       strchr("MLRS", saved_channels[0])) {
+      mic_tx_channels = saved_channels[0];
+   } else {
+      mic_tx_channels = !strcmp(mic_tx_target, "none") ? 'M' : 'S';
+   }
+   /* Reconcile configurations saved before per-channel TX routing. */
+   if (!strcmp(mic_tx_target, "none")) mic_tx_channels = 'M';
+   if (mic_tx_channels == 'M') g_strlcpy(mic_tx_target, "none", sizeof(mic_tx_target));
+   g_free(saved_channels);
    // RX audio is routed by the frame header (stream id + codec) via the
    // full-frame event; see audio_full_frame_cb. The legacy payload-only
    // media.frame.audio event is deliberately not consumed: a frame would
@@ -3529,7 +3593,7 @@ bool audio_init(void) {
    }
 
    if (tx_ok) {
-      rr_audio_engine_route(tx_engine, "src.client.dsp0", !strcmp(mic_tx_target, "none") ? 'M' : 'S');
+      rr_audio_engine_route(tx_engine, "src.client.dsp0", mic_tx_channels);
 
       for (unsigned slot = 1 ; slot <= RR_LOCAL_MODEM_MAX ; slot++) {
          char id[32];
