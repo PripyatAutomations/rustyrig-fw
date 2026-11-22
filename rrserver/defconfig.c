@@ -34,7 +34,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
    {
       "security.scripting.path", "/etc/rustyrig/scripts",
-      "Admin-installed local RustyScript directory (server never accepts script uploads)"
+      "Admin-managed script root; startup loads only autoload/*.rrs (no remote uploads)"
    },
    {
       "security.scripting.allow-unsafe-exec", "false",
