@@ -144,6 +144,44 @@ Future control graph implementation:
 - [ ] Test every truth table, disconnect/late updates, cycles, loss of
       source, and disconnect-on-shutdown with PTT asserted.
 
+### Numeric threshold / comparator block
+
+A generic **THRESHOLD** control block compares numeric values and emits one
+boolean signal on the red control layer, suitable for keying any boolean
+consumer (subject to final sink authorization), triggering a gate, alarm, COS,
+squelch or other signal logic.
+
+```text
+         +-----------------------+
+ value --| INPUT           OUT o |--- boolean (red)
+ min ----| MIN   default 0       |
+ max ----| MAX   default +inf    |
+ enable -| SIGNAL optional       |
+         +-----------------------+
+```
+
+- Output is **true** only when the enable signal is high (or unconnected)
+  and `min <= input <= max`. Comparisons are inclusive.
+- `MIN` and `MAX` are optional numeric pins. When unwired, they use
+  editable property values initially **0** and **unbounded**, respectively.
+  Wired numeric inputs override the properties; values must be finite.
+- The optional boolean `SIGNAL` input enables the comparator. Unwired
+  means enabled; connected and low means disabled.
+- Properties can select `Inside` versus `Outside` (invert comparator).
+  **Missing, stale or invalid connected inputs always force a low output**
+  even when inverted; NaN and invalid ranges are rejected.
+- Future properties: numeric unit/label (Hz, dB, V, %, arbitrary), threshold
+  direction, optional hysteresis/debounce to avoid chatter, display precision,
+  min/max clamps and comparator state indicator. Unit compatibility must be
+  enforced when wiring numeric pins (or through explicit converters).
+- Include optional tests for threshold crossing, invalid inputs, noisy values,
+  reconnect, gate chains, and signal-type mismatch.
+
+Core foundation implemented in `inc/rrclient/audio.logic.h` and
+`rrclient/audio.logic.c` through `rr_threshold_default()` and
+`rr_threshold_evaluate()`. The actual Routing canvas node/pins, signal
+scheduler, property editor, persistent state and live propagation remain TODO.
+
 ## Audio rate and block properties
 
 Current fwdsp already supports explicit 44.1/48 kHz capture/playback devices,
