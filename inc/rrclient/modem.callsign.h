@@ -4,6 +4,7 @@
 #define RRCLIENT_MODEM_CALLSIGN_H
 #include <glib.h>
 #include <string.h>
+#include <stdint.h>
 static inline gboolean rr_modem_callsign_in_text(const char *text,const char *call) {
    if(!text||!call||!*call)return FALSE;
    size_t n=strlen(call);
