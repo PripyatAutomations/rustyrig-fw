@@ -147,15 +147,14 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
    b->user = user;
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
    g_object_set_data_full(G_OBJECT(box), "rr-local-browser", b, browser_free);
-   /* A wrapped action strip keeps long custom toolbars from establishing
-    * an oversized minimum width for floating managers. */
-   GtkWidget *toolbar = gtk_flow_box_new();
-   gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(toolbar), GTK_SELECTION_NONE);
-   gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(toolbar), 1);
-   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(toolbar), 4);
-   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(toolbar), 3);
-   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(toolbar), 3);
-   gtk_widget_set_halign(toolbar, GTK_ALIGN_START);
+   /* Actions belong in a compact left column. The file list uses the rest
+    * of the manager's width and its full height, rather than appearing
+    * below a toolbar with empty space on the right. */
+   GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(box), content, TRUE, TRUE, 0);
+   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   gtk_widget_set_valign(toolbar, GTK_ALIGN_START);
+   gtk_widget_set_hexpand(toolbar, FALSE);
    for (guint i = 0; i < count; i++) {
       GtkWidget *button = gtk_button_new_with_label(actions[i].label);
       if (actions[i].icon && *actions[i].icon) {
@@ -166,10 +165,10 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
       gtk_widget_set_tooltip_text(button, actions[i].label);
       g_object_set_data(G_OBJECT(button), "rr-action-index", GUINT_TO_POINTER(i));
       g_signal_connect(button, "clicked", G_CALLBACK(action_clicked), box);
-      gtk_container_add(GTK_CONTAINER(toolbar), button);
+      gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
       g_ptr_array_add(b->buttons, button);
    }
-   gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(content), toolbar, FALSE, FALSE, 0);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                   GTK_POLICY_EXTERNAL, GTK_POLICY_AUTOMATIC);
@@ -187,7 +186,7 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
                                                 cell, "text", COL_STATE, NULL);
    gtk_tree_view_column_set_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(b->view), 0), TRUE);
    gtk_container_add(GTK_CONTAINER(scroll), b->view);
-   gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 0);
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(b->view));
    gtk_tree_selection_set_mode(selection, GTK_SELECTION_SINGLE);
    g_signal_connect(selection, "changed", G_CALLBACK(selection_changed), box);
