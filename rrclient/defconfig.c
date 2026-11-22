@@ -70,6 +70,13 @@ const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
    {
+      "security.scripting.path", "", "Script directory; empty uses the user's XDG config rustyrig/scripts directory"
+   },
+   {
+      "security.scripting.allow-unsafe-exec", "false",
+      "Permit user scripts to spawn arbitrary binaries via exec or subproc (default off)", DEFCONFIG_BOOL, NULL
+   },
+   {
       "ui.status.collapse-buttons", "true",
       "GTK upper toolbar: true uses icon-only tool buttons; false shows labels when space allows",
       DEFCONFIG_BOOL, NULL
