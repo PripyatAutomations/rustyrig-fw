@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# This fixture drives Mongoose callback internals directly. Native transport
+# gets its own regression coverage; do not compile Mongoose-only test types
+# against an OpenSSL/wslay profile.
+if ! grep -q '^#define USE_MONGOOSE' "build/${PROFILE:-radio}/build_config.h"; then
+   echo 'SKIP (Mongoose-only): callback/URL transport tests require a Mongoose build'
+   exit 0
+fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 source rrclient/tests/irc-adapter.sh
