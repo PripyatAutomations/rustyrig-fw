@@ -210,13 +210,13 @@ The initial interpreter supports scalar/dictionary values, local declarations,
 arithmetic, `if`/`else` with mandatory braces, equality comparisons and
 registered native calls. `log.info()` and `log.warn()` are initially exposed.
 
-**Not implemented yet:** user function declarations, arrays, strict return
-typing, automatically persisted script variables (distinct from explicit client settings), `async`/`await`,
+**Not implemented yet:** strict typing for all variable assignments/returns,
+automatically persisted script variables (distinct from explicit client settings), `async`/`await`,
 `try`/`except`/`success`/`finally`, built-in `exec()` or `subproc`,
-the routing/pipeline/control APIs, workspace restoration, and server invocation of slash-command bindings. These are part of
-the planned language and require additional parser/runtime/host work. Do not
-assume unsupported code was validated at load time; errors may be deferred
-until invocation.
+the full routing/pipeline/control APIs, workspace restoration, and server invocation
+of slash-command bindings. Some UI primitives are already implemented.
+Function declarations and arrays are supported; source registration checks
+braces but many handler/function body errors are still deferred until invocation.
 
 ## Core API reference (November 22, 2026)
 
@@ -305,7 +305,12 @@ view = 50;      // Error: const binding
 
 `const` is read-only **through the binding**, not a global freeze of the underlying value. A mutable reference cannot bind to a const variable; a const reference may bind to a mutable variable. Const references cannot be rebound. Const declarations require an initializer. Reference binding to expressions or temporary values is rejected.
 
-**Current implementation boundary:** this release implements variable bindings with managed, reference-counted storage; it does *not* yet implement user-defined function declarations, by-reference function parameters, cyclic garbage collection, per-script GC statistics, or recursive const enforcement on nested member mutations. Those features are part of the planned full language and must not be assumed to work now. Calls to host-native functions currently evaluate and pass value copies.
+**Current implementation:** managed, reference-counted variable storage and
+user-defined typed functions with variable parameters passed by reference.
+Expressions/literals become temporary parameter values. Const arguments cannot
+be passed to mutable parameters. Host-native functions retain their existing
+value-copy API. Nested member mutation and recursively enforced const are not
+yet supported, nor is a cyclic tracing GC. See below for available statistics.
 
 ## Execution and language limits
 
@@ -326,6 +331,54 @@ or statements/declarations to modify console-local variables. It is
 stepping, async execution, or direct reads of another VM's local stack
 variables. Use the read-only `debug.*` helpers to inspect another script's
 published `state.*` values.
+
+### Functions and runtime memory
+
+Define functions at the top level of a `.rrs` file, alongside command/event
+registrations. Parameters are managed references to the caller's variables
+by default, with no `ref` annotation needed. Arguments that are expressions
+or literals become temporary values. `const` parameters prevent writes and
+cannot be bypassed by passing a const variable to a mutable parameter. Calls
+are limited to 64 nested frames.
+
+```c
+void increment(int value) {
+    value++;
+}
+
+int square(const int value) {
+    return value * value;
+}
+
+script("/counter", {
+    int n = 4;
+    increment(n);  // n is 5
+    log.info(string.str(square(n)));
+});
+```
+
+Top-level functions are available to all handlers in the same script VM.
+Assignments with `=` copy values; `:=` binds an alias; writing `=` through
+a reference updates its shared target. Function return values are copied,
+not returned as references. Native host functions currently accept value
+copies, so they do not mutate script arguments.
+
+`runtime.memory()` returns a dictionary with `used`, `peak` (managed
+bytes), `objects`, `allocations`, `releases`, `references`, and a
+`gc` dictionary containing `collections`, `requests`, and `reclaimed`.
+`runtime.gc.collect()` requests collection and returns zero with the
+current acyclic reference-counted storage model. Currently `gc.collections`
+is zero, `gc.requests` counts explicit requests, and `gc.reclaimed`
+counts cells released when their last reference disappears. Values include
+copied strings, arrays, and dictionaries; byte accounting does not include
+host-native allocations. A tracing cycle collector is not implemented
+because managed references cannot currently form reference cycles.
+
+```c
+dict memory = runtime.memory();
+log.info("Managed bytes: " + string.str(memory.used));
+log.info("Managed peak: " + string.str(memory.peak));
+```
 
 ### Debugger inspection API
 
