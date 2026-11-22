@@ -112,6 +112,7 @@ static rrs_value_t *native_window_percent(rrs_vm_t *vm,int argc,
  * dereferences a GtkWidget or waits for GTK while processing a script. */
 static GHashTable *script_gui_values;
 static rr_event_token_t script_gui_value_token;
+static rr_event_token_t script_gui_command_token;
 typedef struct {
    char kind[24], text[256];
 } script_gui_cached_t;
@@ -135,6 +136,27 @@ static void script_gui_save(const char *owner,const char *id,const char *kind,co
    g_strlcpy(entry->text,value?value:"",sizeof(entry->text));
    g_hash_table_replace(script_gui_values,key,entry);
 }
+static void script_gui_core_command(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if(!script_gui_values || !message || !message->payload ||
+      message->length!=sizeof(rr_script_gui_command_t))return;
+   rr_script_gui_command_t cmd;
+   memcpy(&cmd,message->payload,sizeof(cmd));
+   if(!memchr(cmd.owner,0,sizeof(cmd.owner))||!memchr(cmd.id,0,sizeof(cmd.id)))return;
+   if(cmd.action==RR_GUI_DESTROY) {
+      char *key=script_gui_key(cmd.owner,cmd.id);
+      g_hash_table_remove(script_gui_values,key);
+      g_free(key);
+   } else if(cmd.action==RR_GUI_RELEASE) {
+      char *prefix=g_strdup_printf("%s:",cmd.owner);
+      GHashTableIter iter;
+      gpointer key,value;
+      g_hash_table_iter_init(&iter,script_gui_values);
+      while(g_hash_table_iter_next(&iter,&key,&value))
+         if(g_str_has_prefix(key,prefix))g_hash_table_iter_remove(&iter);
+      g_free(prefix);
+   }
+}
 static void script_gui_changed(const rr_event_message_t *message,void *unused) {
    (void)unused;
    if(!message || !message->payload || message->length!=sizeof(rr_script_gui_change_t))return;
@@ -150,9 +172,9 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
                                      const rrs_value_t *const argv[],void *user) {
    int action=GPOINTER_TO_INT(user);
    int wanted=(action==RR_GUI_PANEL||action==RR_GUI_DIALOG)?2:
-              action==RR_GUI_ADD?5:action==RR_GUI_SET?2:1;
-   if(argc!=wanted) {
-      rrs_vm_raise(vm,"GUI arguments: panel/dialog(id,title), add(parent,type,id,label,value), set(id,value), show/hide/destroy(id)");
+              action==RR_GUI_ADD?4:action==RR_GUI_SET?2:1;
+   if(argc!=wanted && !(action==RR_GUI_ADD && argc==5)) {
+      rrs_vm_raise(vm,"GUI arguments: panel/dialog(id,title), add(parent,type,id,label[,value]), set(id,value), show/hide/destroy(id)");
       return NULL;
    }
    for(int i=0;i<argc;i++) {
@@ -160,6 +182,10 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
          rrs_vm_raise(vm,"GUI arguments must be strings (set also accepts numbers and booleans)");
          return NULL;
       }
+   }
+   const rr_frontend_ops_t *frontend=frontend_ops();
+   if(!frontend || !frontend->name || strcmp(frontend->name,"gtk")) {
+      rrs_vm_raise(vm,"GUI widgets require the GTK frontend");return NULL;
    }
    rr_script_gui_command_t command={.action=(uint32_t)action};
    script_gui_owner(command.owner,vm);
@@ -175,11 +201,17 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
       g_strlcpy(command.parent,rrs_value_string(argv[0]),sizeof(command.parent));
       g_strlcpy(command.kind,rrs_value_string(argv[1]),sizeof(command.kind));
       g_strlcpy(command.text,rrs_value_string(argv[3]),sizeof(command.text));
-      g_strlcpy(command.value,rrs_value_string(argv[4]),sizeof(command.value));
+      if(argc==5)g_strlcpy(command.value,rrs_value_string(argv[4]),sizeof(command.value));
       if(!g_strcmp0(command.kind,"check")||!g_strcmp0(command.kind,"entry")||
          !g_strcmp0(command.kind,"slider")||!g_strcmp0(command.kind,"spin")||
-         !g_strcmp0(command.kind,"combo"))
-         script_gui_save(command.owner,command.id,command.kind,command.value);
+         !g_strcmp0(command.kind,"combo")) {
+         if(!strcmp(command.kind,"combo")) {
+            char *comma=strchr(command.value,',');
+            char *choice=comma?g_strndup(command.value,comma-command.value):g_strdup(command.value);
+            script_gui_save(command.owner,command.id,command.kind,choice);
+            g_free(choice);
+         } else script_gui_save(command.owner,command.id,command.kind,command.value);
+      }
    } else if(action==RR_GUI_SET) {
       switch(rrs_value_type(argv[1])) {
          case RRS_STRING:
@@ -257,6 +289,7 @@ void rrclient_script_init(void) {
       path=default_path;
    }
    script_gui_value_token=event_on_message_domain_token(RR_SCRIPT_GUI_CHANGE,script_gui_changed,NULL,"core");
+   script_gui_command_token=event_on_message_domain_token(RR_SCRIPT_GUI_COMMAND,script_gui_core_command,NULL,"core");
    rrclient_script_host=rrscript_host_open(path,true,register_window_api);
    g_free(default_path);
 }
@@ -264,6 +297,7 @@ void rrclient_script_shutdown(void) {
    rrscript_host_close(rrclient_script_host);
    rrclient_script_host=NULL;
    if(script_gui_value_token){event_off_token(script_gui_value_token);script_gui_value_token=0;}
+   if(script_gui_command_token){event_off_token(script_gui_command_token);script_gui_command_token=0;}
    g_clear_pointer(&script_gui_values,g_hash_table_destroy);
 }
 bool rrclient_script_hotkey(const char *sequence) {
