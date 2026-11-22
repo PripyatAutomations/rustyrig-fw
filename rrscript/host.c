@@ -668,6 +668,7 @@ static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *
    }
    return NULL;
 }
+static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *index);
 /* Read-only debugger helpers. They inspect another script's state without
  * executing its handlers or changing its interpreter variables. */
 static char *script_value_format(const rrs_value_t *v) {
@@ -686,6 +687,13 @@ static char *script_value_format(const rrs_value_t *v) {
       case RRS_DICT:return g_strdup("{dictionary}");
       default:return g_strdup("<unknown>");
    }
+}
+static rrs_value_t *native_debug_namespaces(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *userdata) {
+   (void)argv;
+   rrscript_host_t *host=userdata;
+   if(argc){rrs_vm_raise(vm,"debug.namespaces() takes no arguments");return NULL;}
+   return namespace_keys(host->namespaces);
 }
 static rrs_value_t *native_debug_inspect(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *userdata) {
@@ -1060,7 +1068,7 @@ bool rrscript_host_console_eval(rrscript_host_t *host,const char *source,
          rrs_vm_register_native(script->vm,"debug.scripts",native_debug_inspect,host) &&
          rrs_vm_register_native(script->vm,"debug.keys",native_debug_inspect,host) &&
          rrs_vm_register_native(script->vm,"debug.state",native_debug_inspect,host) &&
-         rrs_vm_register_native(script->vm,"debug.namespaces",native_debug_inspect,host) &&
+         rrs_vm_register_native(script->vm,"debug.namespaces",native_debug_namespaces,host) &&
          (!host->register_host||host->register_host(script->vm));
       if(!ok) {
          release_script(script);
