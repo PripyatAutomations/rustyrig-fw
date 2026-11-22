@@ -296,8 +296,7 @@ static void script_close(gpointer unused) {
 void gtk_scripts_open(void) {
    if (script_panel) {
       rr_local_browser_refresh(script_browser);
-      rr_floating_panel_restore(script_panel);
-      rr_floating_panel_show(script_panel);
+      rr_floating_panel_present(script_panel);
       return;
    }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
@@ -334,7 +333,7 @@ void gtk_scripts_open(void) {
                                         G_N_ELEMENTS(actions), script_status, NULL);
    gtk_box_pack_start(GTK_BOX(body), script_browser, TRUE, TRUE, 0);
    gtk_widget_show_all(script_browser);
-   rr_floating_panel_show(script_panel);
+   rr_floating_panel_present(script_panel);
 }
 
 /* The core finishes the entire autoload scan before emitting this report.
