@@ -1,6 +1,7 @@
 #include <sys/stat.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/database.h>
+#include <rrclient/identity.store.h>
 #include <rrclient/media.direct.h>
 #include <rrclient/gtk/gtk.serverpick.h>
 //
