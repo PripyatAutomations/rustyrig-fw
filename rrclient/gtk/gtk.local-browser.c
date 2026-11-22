@@ -150,6 +150,11 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
    for (guint i = 0; i < count; i++) {
       GtkWidget *button = gtk_button_new_with_label(actions[i].label);
+      if (actions[i].icon && *actions[i].icon) {
+         GtkWidget *icon = gtk_image_new_from_icon_name(actions[i].icon, GTK_ICON_SIZE_BUTTON);
+         gtk_button_set_image(GTK_BUTTON(button), icon);
+         gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
+      }
       gtk_widget_set_tooltip_text(button, actions[i].label);
       g_object_set_data(G_OBJECT(button), "rr-action-index", GUINT_TO_POINTER(i));
       g_signal_connect(button, "clicked", G_CALLBACK(action_clicked), box);
