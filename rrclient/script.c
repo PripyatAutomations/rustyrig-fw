@@ -48,21 +48,58 @@ static rrs_value_t *native_script_settings(rrs_vm_t *vm,int argc,
    g_free(value);g_free(key);
    return rrs_boolean(ok);
 }
+/* Destination names are #room@profile for either IRC or RustyRig WS.
+ * Legacy profile|room is accepted for existing scripts. */
+static gboolean script_chat_destination(const char *address,char **profile,char **room) {
+   *profile=NULL;*room=NULL;
+   if(!address||!*address||strlen(address)>256)return FALSE;
+   const char *sep=strrchr(address,'@');
+   if(sep && (address[0]=='#'||address[0]=='&')) {
+      if(sep==address+1||!sep[1])return FALSE;
+      *room=g_strndup(address,(gsize)(sep-address));
+      *profile=g_strdup(sep+1);
+   } else {
+      const char *bar=strchr(address,'|');
+      if(!bar||bar==address||!bar[1]||strchr(bar+1,'|'))return FALSE;
+      *profile=g_strndup(address,(gsize)(bar-address));
+      *room=g_strdup(bar+1);
+   }
+   if(!*profile||!*room||strpbrk(*profile," \t\r\n|@")||
+      strpbrk(*room," \t\r\n,|")) {
+      g_free(*profile);g_free(*room);*profile=NULL;*room=NULL;
+      return FALSE;
+   }
+   return TRUE;
+}
 static rrs_value_t *native_script_chat(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    bool cancel=GPOINTER_TO_INT(user)!=0;
-   if((cancel&&argc!=1)||(!cancel&&argc!=3&&argc!=4)) {
-      rrs_vm_raise(vm,"chat.send(profile|target,text,tag[,interval_ms]) / chat.cancel(tag)");return NULL;
+   if((cancel&&argc!=1)||(!cancel&&(argc<2||argc>4))) {
+      rrs_vm_raise(vm,"chat.send(room@profile | rooms[],text[,tag[,interval_ms]]) / chat.cancel(tag)");
+      return NULL;
    }
-   for(int i=0;i<(cancel?1:3);i++)if(rrs_value_type(argv[i])!=RRS_STRING) {
-      rrs_vm_raise(vm,"Chat arguments must be strings");return NULL;
+   if(cancel) {
+      if(rrs_value_type(argv[0])!=RRS_STRING) {
+         rrs_vm_raise(vm,"chat.cancel requires a string tag");return NULL;
+      }
+   } else if((rrs_value_type(argv[0])!=RRS_STRING &&
+              rrs_value_type(argv[0])!=RRS_ARRAY) ||
+              rrs_value_type(argv[1])!=RRS_STRING ||
+              (argc>=3&&rrs_value_type(argv[2])!=RRS_STRING)) {
+      rrs_vm_raise(vm,"chat.send requires string/array destinations and text");
+      return NULL;
    }
    char owner[32];
-   if(!rrscript_host_vm_owner(vm,owner)){rrs_vm_raise(vm,"Script unavailable");return NULL;}
-   const char *tag=rrs_value_string(argv[cancel?0:2]);
-   if(!*tag||strlen(tag)>40){rrs_vm_raise(vm,"Invalid send tag");return NULL;}
+   if(!rrscript_host_vm_owner(vm,owner)) {
+      rrs_vm_raise(vm,"Script unavailable");return NULL;
+   }
+   const char *tag=cancel?rrs_value_string(argv[0]):
+      argc>=3?rrs_value_string(argv[2]):"message";
+   if(!*tag||strlen(tag)>40) {
+      rrs_vm_raise(vm,"Invalid send tag");return NULL;
+   }
    char *full_tag=g_strdup_printf("%s:%s",owner,tag);
-   if(cancel){
+   if(cancel) {
       rrclient_script_chat_cancel(full_tag);
       g_free(full_tag);return rrs_boolean(true);
    }
@@ -80,11 +117,32 @@ static rrs_value_t *native_script_chat(rrs_vm_t *vm,int argc,
       }
       interval_ms=(guint)ms;
    }
-   char **parts=g_strsplit(rrs_value_string(argv[0]),"|",3);
-   bool ok=parts[0]&&*parts[0]&&parts[1]&&*parts[1]&&!parts[2]&&
-      rrclient_script_chat_send(parts[0],parts[1],rrs_value_string(argv[1]),full_tag,interval_ms);
-   g_strfreev(parts);g_free(full_tag);
-   return rrs_boolean(ok);
+   size_t count=rrs_value_type(argv[0])==RRS_ARRAY?
+      rrs_array_length(argv[0]):1;
+   if(!count||count>32) {
+      rrs_vm_raise(vm,"Chat destination array must have 1..32 rooms");
+      g_free(full_tag);return NULL;
+   }
+   gboolean all=TRUE;
+   for(size_t i=0;i<count;i++) {
+      const rrs_value_t *dest=rrs_value_type(argv[0])==RRS_ARRAY?
+         rrs_array_get(argv[0],i):argv[0];
+      if(rrs_value_type(dest)!=RRS_STRING) {
+         rrs_vm_raise(vm,"All chat destinations must be strings");
+         all=FALSE;break;
+      }
+      char *profile=NULL,*room=NULL;
+      if(!script_chat_destination(rrs_value_string(dest),&profile,&room)) {
+         rrs_vm_raise(vm,"Expected #room@profile or profile|room");
+         all=FALSE;break;
+      }
+      bool ok=rrclient_script_chat_send(profile,room,rrs_value_string(argv[1]),
+                                       full_tag,interval_ms);
+      g_free(profile);g_free(room);
+      if(!ok)all=FALSE;
+   }
+   g_free(full_tag);
+   return rrs_boolean(all);
 }
 
 /* Scripts only see immutable IDs and properties; no GTK pointers escape.
