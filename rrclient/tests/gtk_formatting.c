@@ -882,6 +882,51 @@ static gpointer produce_irc_chat(gpointer unused) {
    return NULL;
 }
 
+static void test_chat_follow_intent(void) {
+   if(!gtk_init_check(NULL,NULL))return;
+   GtkWidget *window=gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *notebook=gtk_notebook_new();
+   gtk_window_set_default_size(GTK_WINDOW(window),420,260);
+   gtk_container_add(GTK_CONTAINER(window),notebook);
+   GtkWidget *views[2];
+   for(int i=0;i<2;i++) {
+      GtkWidget *scroller=gtk_scrolled_window_new(NULL,NULL);
+      views[i]=gtk_text_view_new();
+      gtk_container_add(GTK_CONTAINER(scroller),views[i]);
+      gtk_notebook_append_page(GTK_NOTEBOOK(notebook),scroller,gtk_label_new("Chat"));
+      GString *lines=g_string_new("");
+      for(int j=0;j<100;j++)g_string_append_printf(lines,"Line %d\n",j);
+      gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(views[i])),
+         lines->str,-1);
+      g_string_free(lines,TRUE);
+      g_object_set_data(G_OBJECT(views[i]),"rr-follow-bottom",GINT_TO_POINTER(1));
+   }
+   gtk_widget_show_all(window);
+   drain_gtk_events();
+   assert(gtk_chat_view_should_follow(views[0]));
+   GtkAdjustment *adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(views[0]));
+   gtk_adjustment_set_value(adj,gtk_adjustment_get_lower(adj));
+   /* GTK layout adjustments by themselves are not user scroll intent. */
+   assert(gtk_chat_view_should_follow(views[0]));
+   gtk_chat_follow_user_update(views[0]);
+   drain_gtk_events();
+   assert(!gtk_chat_view_should_follow(views[0]));
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook),1);
+   drain_gtk_events();
+   GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(views[0]));
+   GtkTextIter end;
+   gtk_text_buffer_get_end_iter(buffer,&end);
+   gtk_text_buffer_insert(buffer,&end,"new background message\n",-1);
+   assert(!gtk_chat_view_should_follow(views[0]));
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook),0);
+   drain_gtk_events();
+   assert(!gtk_chat_view_should_follow(views[0]));
+   gtk_chat_view_schedule_follow(views[0]);
+   drain_gtk_events();
+   assert(gtk_chat_view_should_follow(views[0]));
+   gtk_widget_destroy(window);
+}
+
 static void test_queued_irc_identity(void) {
    assert(gtk_init_check(NULL, NULL));
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -961,7 +1006,8 @@ int main(int argc, char **argv) {
    event_on_message_token(RRCLIENT_UI_CHAT_LINK_EVENT, capture_room_link, NULL, NULL, NULL);
 
    if (argc == 2 && !strcmp(argv[1], "--irc-routing")) {
-      test_queued_irc_identity();
+      test_chat_follow_intent();
+   test_queued_irc_identity();
 
       return 0;
    }
