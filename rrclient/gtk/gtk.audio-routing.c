@@ -3309,11 +3309,13 @@ static void routing_compact_apply_hints(routing_compact_control_t *control) {
    /* Explicit overrides are retained; absent values use metadata supplied by the active binding. Mixer gain ports currently publish dB/-60/+12/1. Future LV2
     * bindings can replace this hint provider without changing UI. */
    if (!control->has_minimum) {
-      control->minimum = control->effect_worker[0] ? control->hint_min : GRAPH_GAIN_MIN;
+      control->minimum = control->effect_worker[0] ? control->hint_min :
+         !strcmp(control->kind, "selector") && !control->id[0] ? 0. : GRAPH_GAIN_MIN;
    }
 
    if (!control->has_maximum) {
-      control->maximum = control->effect_worker[0] ? control->hint_max : GRAPH_GAIN_MAX;
+      control->maximum = control->effect_worker[0] ? control->hint_max :
+         !strcmp(control->kind, "selector") && !control->id[0] ? 7. : GRAPH_GAIN_MAX;
    }
 
    if (!control->has_step) {
@@ -4344,13 +4346,17 @@ static void routing_compact_properties(routing_compact_control_t *item) {
       const char *str_min = gtk_entry_get_text(GTK_ENTRY(fields[1]));
       const char *str_max = gtk_entry_get_text(GTK_ENTRY(fields[2]));
       const char *str_step = gtk_entry_get_text(GTK_ENTRY(fields[3]));
-      double allowed_min = item->effect_worker[0] ? item->hint_min : GRAPH_GAIN_MIN;
-      double allowed_max = item->effect_worker[0] ? item->hint_max : GRAPH_GAIN_MAX;
+      double allowed_min = item->effect_worker[0] ? item->hint_min :
+         !strcmp(item->kind, "selector") && !item->id[0] ? 0. : GRAPH_GAIN_MIN;
+      double allowed_max = item->effect_worker[0] ? item->hint_max :
+         !strcmp(item->kind, "selector") && !item->id[0] ? 255. : GRAPH_GAIN_MAX;
       double mn = allowed_min, mx = allowed_max, st = item->step;
       gboolean hm = routing_compact_parse_number(str_min, &mn);
       gboolean hx = routing_compact_parse_number(str_max, &mx);
       gboolean hs = routing_compact_parse_number(str_step, &st);
-      gboolean valid = (!*str_min || hm) && (!*str_max || hx) && (!*str_step || hs) && st > 0 && mn < mx && mn >= allowed_min && mx <= allowed_max;
+      gboolean valid = (!*str_min || hm) && (!*str_max || hx) && (!*str_step || hs) &&
+         st > 0 && mn < mx && mn >= allowed_min && mx <= allowed_max &&
+         (strcmp(item->kind, "selector") || (floor(mn) == mn && floor(mx) == mx && floor(st) == st));
 
       if (!valid) {
          GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
