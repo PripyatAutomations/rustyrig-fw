@@ -1238,6 +1238,12 @@ static bool rf_request(const rf_strip_t *p, bool enabled, unsigned zoom, uint64_
 }
 
 static void rf_clear_history(rf_strip_t *p) {
+   /* A queued tune must not fire after changing the displayed VFO/source. */
+   if (p->click_timer) {
+      g_source_remove(p->click_timer);
+      p->click_timer = 0;
+   }
+   p->dragging = p->drag_moved = false;
    p->head = p->count = 0;
    p->received_at = 0;
    p->last_vfo = 0;
