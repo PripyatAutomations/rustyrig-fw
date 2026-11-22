@@ -37,10 +37,14 @@ struct rrscript_host {
 /* Script identities are generation-scoped, opaque and independent of memory
  * addresses. No native frontend receives a VM or a GTK pointer. */
 static GHashTable *script_vm_owners;
+static GMutex script_vm_owners_mutex;
 static guint64 next_gui_owner;
-const char *rrscript_host_vm_owner(rrs_vm_t *vm) {
+bool rrscript_host_vm_owner(rrs_vm_t *vm, char owner[32]) {
+   g_mutex_lock(&script_vm_owners_mutex);
    script_file_t *script=script_vm_owners ? g_hash_table_lookup(script_vm_owners,vm) : NULL;
-   return script ? script->gui_owner : NULL;
+   if(script)g_strlcpy(owner,script->gui_owner,32);
+   g_mutex_unlock(&script_vm_owners_mutex);
+   return script!=NULL;
 }
 /* Runtime callback userdata is void*, so use writable-lifetime labels. */
 static char script_log_info[] = "info";
@@ -153,10 +157,12 @@ static void release_script(gpointer data) {
       g_free(sub);
       sub=next;
    }
+   g_mutex_lock(&script_vm_owners_mutex);
    if(script_vm_owners && script->vm) {
       g_hash_table_remove(script_vm_owners,script->vm);
       if(!g_hash_table_size(script_vm_owners))g_clear_pointer(&script_vm_owners,g_hash_table_destroy);
    }
+   g_mutex_unlock(&script_vm_owners_mutex);
    rrs_vm_free(script->vm);
    g_rec_mutex_clear(&script->mutex);
    g_free(script->filename);
@@ -256,9 +262,11 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
       g_free(source);release_script(script);return false;
    }
    g_free(source);
+   g_mutex_lock(&script_vm_owners_mutex);
    if(!script_vm_owners)script_vm_owners=g_hash_table_new(g_direct_hash,g_direct_equal);
    g_snprintf(script->gui_owner,sizeof(script->gui_owner),"s%016llx",(unsigned long long)++next_gui_owner);
    g_hash_table_insert(script_vm_owners,script->vm,script);
+   g_mutex_unlock(&script_vm_owners_mutex);
    if(!rrs_vm_register_native(script->vm,"log.info",native_log,script_log_info) ||
       !rrs_vm_register_native(script->vm,"log.warn",native_log,script_log_warn) ||
       (host->register_host && !host->register_host(script->vm))) {
