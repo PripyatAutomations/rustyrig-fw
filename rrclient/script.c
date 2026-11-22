@@ -268,13 +268,14 @@ static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
       char **parts=g_strsplit(target,"|",3);
       bool valid=parts[0]&&parts[1]&&!parts[2]&&strlen(parts[0])<sizeof(art_playback.profile)&&
          strlen(parts[1])<sizeof(art_playback.room)&&
-         (parts[1][0]=='#'||parts[1][0]=='&');
+         parts[1][0] && g_ascii_strcasecmp(parts[1],"status") &&
+         !strpbrk(parts[1],"\r\n ,");
       int rate=rrs_value_type(argv[2])==RRS_INT?
          (int)rrs_value_int(argv[2]):(int)rrs_value_float(argv[2]);
       char *path=art_safe_path(name);
       if(!valid||!path||rate<1||rate>10) {
          g_strfreev(parts);g_free(path);
-         rrs_vm_raise(vm,"art.play expects .mac, profile|#room, and 1..10 lines/sec");
+         rrs_vm_raise(vm,"art.play expects .mac, profile|target, and 1..10 lines/sec");
          return NULL;
       }
       char *content=NULL;gsize length=0;
