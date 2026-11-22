@@ -238,6 +238,8 @@ static void rx_sink_set_fd(int new_fd) {
 /* Used by local SDR setup before its definition below. */
 static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id);
 static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes);
+static gboolean audio_lv2_property_target(const char *worker, const char *element, char *host, size_t host_size, char *stage, size_t stage_size);
+static void audio_lv2_reconcile_chains(void);
 static void audio_lv2_stop(unsigned slot, gboolean forget);
 static void audio_lv2_restore(void);
 static void audio_lv2_route_source(const char *id, char output);
@@ -1171,6 +1173,7 @@ typedef struct {
    GThread *writer;
    int input_fd;
    gint active, failed;
+   guint chain_host, chain_tail; /* 1-based worker owner / final stage, zero for legacy solo */
    guint64 dropped;
 } rr_lv2_effect_t;
 static rr_lv2_effect_t lv2_effects[RR_AUDIO_EFFECT_MAX];
@@ -1256,8 +1259,11 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
    }
 
    if (fx->channels == 1) {
-      if (!audio_lv2_feed(fx->output_stream[0], samples, bytes)) {
-         rr_audio_engine_push(rx_engine, fx->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
+      /* A consolidated subprocess produces only the final stage's PCM. */
+      rr_lv2_effect_t *last = fx->chain_tail && fx->chain_tail <= RR_AUDIO_EFFECT_MAX ?
+         &lv2_effects[fx->chain_tail - 1] : fx;
+      if (!audio_lv2_feed(last->output_stream[0], samples, bytes)) {
+         rr_audio_engine_push(rx_engine, last->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
       }
    } else {
       const int16_t *pcm = samples;
@@ -1452,6 +1458,7 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
    fx->factory[0] = fx->name[0] = 0;
    fx->output[0] = fx->output[1] = 'M';
    fx->channels = 0;
+   fx->chain_host = fx->chain_tail = 0;
    fx->pending_frames[0] = fx->pending_frames[1] = 0;
    g_atomic_int_set(&fx->failed, FALSE);
    g_mutex_unlock(&lv2_effect_lock);
@@ -1517,6 +1524,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    audio_lv2_stop(slot, FALSE);
    rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
    fx->input_fd = -1;
+   fx->chain_host = fx->chain_tail = slot;
    g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
    char *channels_key = g_strdup_printf("audio.lv2.%u.channels", slot);
    char *saved_channels = rrclient_database_setting_get(channels_key);
