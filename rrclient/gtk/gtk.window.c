@@ -972,7 +972,7 @@ bool gui_init(void) {
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer", "Explorer: Explore available resources in the cluster");
    main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory", "Remote SDRs: Access remote SDRs such as KiwiSDR");
    main_toolbar_tool(rr_main_toolbar, "Recordings", "media-record-symbolic", "recordings", "Record and manage client audio recordings");
-   main_toolbar_tool(rr_main_toolbar, "Scripts", "utilities-terminal-symbolic", "scripts", "Manage RustyScript files, loading and editing");
+   main_toolbar_tool(rr_main_toolbar, "Scripts", "text-x-script", "scripts", "Manage RustyScript files, loading and editing");
    main_toolbar_tool(rr_main_toolbar, "Routing", "audio-card-symbolic", "audio", "Routing: Audio, modem RX/TX, port trims and DSP pipelines");
    main_toolbar_tool(rr_main_toolbar, "Virtual Rigs", "network-wired-symbolic", "virtual-rigs",
       "Virtual Rigs: Independently pin ttyCAT#/ttyGPS# to a remote rig");
