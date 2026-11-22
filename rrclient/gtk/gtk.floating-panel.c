@@ -11,7 +11,7 @@
 
 struct rr_floating_panel {
    GtkWidget *frame, *scrim, *body, *header, *compact_drag_handle, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button,
-      *menu_close, *menu_on_top, *menu_minimize, *resize_grip;
+      *menu_close, *menu_on_top, *menu_minimize, *menu_button, *resize_grip;
    GtkCssProvider *scale_css;
    GtkWidget *min_width_widget;
    GtkWidget *script_zoom_scale, *script_opacity_scale;
@@ -1964,9 +1964,31 @@ static void panel_drag_cancel_tick(RRFloatPanel *p) {
    p->drag_pending = FALSE;
 }
 
+/* The header event box is also an ancestor of the chrome buttons.
+ * Those controls own their button events, not the panel drag controller. */
+static gboolean panel_header_control_hit(RRFloatPanel *p, GtkWidget *handle,
+                                         const GdkEventButton *event) {
+   GtkWidget *controls[] = {p->close_button, p->minimize, p->roll, p->menu_button};
+   for (guint i = 0; i < G_N_ELEMENTS(controls); i++) {
+      GtkWidget *control = controls[i];
+      gint x = 0, y = 0;
+      if (!control || !gtk_widget_get_visible(control) ||
+          !gtk_widget_translate_coordinates(handle, control,
+                (gint) event->x, (gint) event->y, &x, &y))
+         continue;
+      if (x >= 0 && y >= 0 && x < gtk_widget_get_allocated_width(control) &&
+          y < gtk_widget_get_allocated_height(control))
+         return TRUE;
+   }
+   return FALSE;
+}
+
 static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
+
+   if (widget == p->header && panel_header_control_hit(p, widget, event))
+      return FALSE; /* Let GTK's actual button handle the press. */
 
    if (event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
@@ -2341,6 +2363,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    /* GtkMenuButton owns the popover toggle. Reparenting a GtkPopover
     * during a GtkButton::clicked handler made this menu fail to open. */
    GtkWidget *menu_button = gtk_menu_button_new();
+   p->menu_button = menu_button;
    gtk_button_set_image(GTK_BUTTON(menu_button),
                         gtk_image_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU));
    gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
