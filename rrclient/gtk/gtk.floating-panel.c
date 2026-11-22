@@ -44,7 +44,7 @@ struct rr_floating_panel {
    gpointer title_click_data;
    guint32 title_press_time;
    gboolean title_moved;
-   gboolean snap_disabled, initial_positioned, initial_centered, initial_center_pending;
+   gboolean snap_disabled, dock_disabled, initial_positioned, initial_centered, initial_center_pending;
    gboolean initial_position_requested;
    gint initial_x, initial_y;
    gint grab_x, grab_y; /* Pointer position relative to panel during a drag. */
@@ -2023,8 +2023,9 @@ static gboolean panel_drag_tick(GtkWidget *widget, GdkFrameClock *clock, gpointe
       p->drag_pending = FALSE;
       panel_drag_position(p, p->drag_pending_x, p->drag_pending_y);
 
-      if (active_chat_docks) {
-         gint edge = panel_dock_hit(active_chat_docks, (gint) p->drag_pending_x, (gint) p->drag_pending_y);
+      if (active_chat_docks && !p->modal && !p->floating_only) {
+         gint edge = p->dock_disabled ? -1 :
+            panel_dock_hit(active_chat_docks, (gint) p->drag_pending_x, (gint) p->drag_pending_y);
          panel_dock_glow(active_chat_docks, TRUE, edge);
       }
    }
@@ -2100,6 +2101,7 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    p->start_x = p->dock_edge >= 0 ? p->dock_x : gtk_widget_get_margin_start(p->frame);
    p->start_y = p->dock_edge >= 0 ? p->dock_y : gtk_widget_get_margin_top(p->frame);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
+   p->dock_disabled = (event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) != 0;
    p->snapped_x = p->snapped_y = FALSE;
    panel_drag_cancel_tick(p);
    p->drag_tick_id = gtk_widget_add_tick_callback(p->frame, panel_drag_tick, p, NULL);
@@ -2115,6 +2117,8 @@ static gboolean drag_move(GtkWidget *widget, GdkEventMotion *event, gpointer dat
       return FALSE;
    }
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
+   /* Alt prevents docking but keeps the normal snap guides. */
+   p->dock_disabled = (event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) != 0;
 
    /* Do not undock for incidental motion across a dock's narrow viewport.
     * Require an intentional excursion beyond its edge before reparenting.
@@ -2199,11 +2203,13 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    p->dragging = FALSE;
    panel_drag_cancel_tick(p);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
+   p->dock_disabled = (event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) != 0;
    panel_drag_position(p, event->x_root, event->y_root);
-   gint edge = active_chat_docks && !p->modal && !p->floating_only && !(event->state & GDK_SHIFT_MASK) ?
+   gint edge = active_chat_docks && !p->modal && !p->floating_only && !p->dock_disabled ?
       panel_dock_hit(active_chat_docks, (gint) event->x_root, (gint) event->y_root) : -1;
 
-   if (p->dock_edge >= 0 && active_chat_docks && panel_dock_contains(active_chat_docks, p->dock_edge, (gint) event->x_root, (gint) event->y_root)) {
+   if (!p->dock_disabled && p->dock_edge >= 0 && active_chat_docks &&
+       panel_dock_contains(active_chat_docks, p->dock_edge, (gint) event->x_root, (gint) event->y_root)) {
       edge = p->dock_edge;
    }
 
