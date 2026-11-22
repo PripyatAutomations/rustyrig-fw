@@ -210,6 +210,33 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    g_snprintf(modem,sizeof(modem),"modem%u",d->slot);
    dict_add(fields,"modem",modem);
    dict_add(fields,"audio_source",d->source);
+   /* Enrich source metadata from the exact RX stream, not the selected GTK rig. */
+   struct rrclient_rx_stream matched[RR_LOCAL_MODEM_STREAMS]={0};
+   size_t nmatched=audio_rx_streams(matched,G_N_ELEMENTS(matched));
+   const char *rig="",*model="",*server="",*vfo_uuid="";
+   for(size_t i=0;i<MIN(nmatched,G_N_ELEMENTS(matched));i++) {
+      const struct rrclient_rx_stream *rx=&matched[i];
+      if(strcmp(rx->id,d->source))continue;
+      server=rx->server;
+      vfo_uuid=rx->uuid;
+      if(rx->room[0]=='#' && strstr(rx->room,"-rig"))
+         rig=rx->room+1;
+      if(rx->uuid[0]) {
+         const dict *vfo=rrclient_object_descriptor(rx->uuid);
+         const char *owner=vfo?dict_get((dict *)vfo,"object.owner",NULL):NULL;
+         const dict *parent=owner?rrclient_object_descriptor(owner):NULL;
+         if(parent && !strcmp(dict_get((dict *)parent,"object.type",""),"rig")) {
+            model=dict_get((dict *)parent,"object.model","");
+            const char *room=dict_get((dict *)parent,"object.room","");
+            if(room[0]=='#')rig=room+1;
+         }
+      }
+      break;
+   }
+   dict_add(fields,"rig",rig);
+   dict_add(fields,"model",model);
+   dict_add(fields,"server",server);
+   dict_add(fields,"vfo_uuid",vfo_uuid);
    dict_add(fields,"text",body);
    dict_add(fields,"raw",d->line);
    dict_add_long(fields,"time_ms",(long)(g_get_real_time()/1000));
@@ -222,16 +249,6 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict_add_int(fields,"slot",(int)d->slot);
    dict_add_long(fields,"frequency_hz",(long)d->frequency_hz);
    dict_add_int(fields,"watch_id",watch_id);
-   /* A remote RX stream is identified by its source ID and VFO resource UUID,
-    * when known. We never guess a rig name from that stream ID. */
-   struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS]={0};
-   size_t n=audio_rx_streams(streams,G_N_ELEMENTS(streams));
-   for(size_t i=0;i<MIN(n,G_N_ELEMENTS(streams));i++) {
-      if(!strcmp(streams[i].id,d->source) && streams[i].uuid[0]) {
-         dict_add(fields,"vfo_uuid",streams[i].uuid);
-         break;
-      }
-   }
    if(d->line[0]=='{') {
       dict *raw=json2dict(d->line);
       if(raw) {
