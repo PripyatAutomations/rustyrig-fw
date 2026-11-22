@@ -1212,6 +1212,9 @@ static void onair_panel_ensure(gboolean explicit_open) {
       gtk_widget_set_vexpand(onair_panel_canvas, TRUE);
       g_signal_connect(onair_panel_canvas, "draw", G_CALLBACK(onair_panel_draw), NULL);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(onair_panel)), onair_panel_canvas, TRUE, TRUE, 0);
+      /* The ON AIR sign is its own chrome and drag handle. Do not display a
+       * redundant header/titlebar, but retain the panel's resizing behavior. */
+      rr_floating_panel_set_compact(onair_panel, onair_panel_canvas);
    }
 
    if (explicit_open) {
