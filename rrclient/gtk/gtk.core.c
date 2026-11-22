@@ -1974,6 +1974,8 @@ void gtk_frontend_stop(void) {
    gtk_resources_shutdown();
    gtk_recording_player_shutdown();
    gtk_recordings_shutdown();
+   extern void gtk_scripts_shutdown(void);
+   gtk_scripts_shutdown();
    gtk_files_shutdown();
    gtk_file_editor_shutdown();
    gtk_receiver_directory_shutdown();
