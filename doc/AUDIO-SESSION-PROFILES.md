@@ -127,6 +127,44 @@ Inputs have separate `present` and `high` masks; disconnected/stale inputs
 force the output **low** and report no valid result. This avoids accidentally
 treating an unknown input as false and asserting NAND/NOR/NOT into a transmitter.
 
+### Multiple boolean wires on one input pin
+
+A red boolean input pin accepts **multiple wires**, with a wired-OR
+reduction of those sources: if *any* valid attached signal is TRUE, that
+pin's value is TRUE. The gate type is then evaluated across its distinct
+logical input pins. This applies equally to PTT, COS-like booleans, alarms,
+and other boolean sources; the wire type is not specialized for PTT.
+
+For example, an AND gate with `A <- [PTT1, PTT2]` and
+`B <- [interlock_condition]` evaluates
+`(PTT1 OR PTT2) AND interlock_condition`. Two wires on A are not
+implicitly turned into two separate AND pins. A single NOT input with
+multiple wires likewise negates the OR-reduced pin value. NAND/NOR/XOR
+follow the same reduction rule.
+
+The core utility `rr_gate_evaluate_wires()` now implements this policy
+and then delegates to the existing `rr_gate_evaluate()` truth table.
+It rejects out-of-range pin indexes, absent required pins, invalid or
+stale inputs and invalid gate configurations; in each case it reports
+evaluation unavailable and forces the output FALSE. It **does not**
+create or save live canvas connections. All source updates must be
+evaluated as a coherent snapshot; until then an invalid attached wire
+must not be silently treated as false (not even if another source on
+the same pin is high).
+
+- [x] Wired-OR aggregation of unlimited wire records onto 1–32 logical
+      gate inputs in the GTK-independent control evaluator.
+- [x] Truth-table/regression coverage for multiwire AND/OR/XOR/NOT/NAND/NOR,
+      missing pins, stale wires, and invalid pin indexes.
+- [ ] Expose multiple attached red wires per pin in the canvas connection
+      model and ensure per-edge deletion does not remove sibling wires.
+- [ ] Drive the evaluator from actual core-owned input snapshots with
+      validity, cycle checking, topological evaluation and event sequencing.
+- [ ] Let each individual source output fan out to any number of boolean
+      consumer pins (subject to bounded resource limits).
+- [ ] Bind physical transmitter sinks with existing PTT permissions, TX
+      interlocks, and watchdogs; red-wire truth never bypasses these checks.
+
 Future control graph implementation:
 
 - [ ] Add generic red boolean SOURCE/GATE/SINK nodes and typed input/output
