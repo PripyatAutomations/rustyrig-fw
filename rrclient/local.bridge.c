@@ -7,6 +7,7 @@
 #endif
 #include <rrclient/local.bridge.h>
 #include <rrclient/rrclient.h>
+#include <rrclient/database.h>
 #include <librrprotocol/rig.command.h>
 #include <rrclient/rooms.h>
 #include <librrprotocol/rrprotocol.h>
@@ -70,6 +71,23 @@ typedef struct bridge_instance {
 } bridge_instance;
 
 static bridge_instance *bridges[26];
+/* One persistent frequency per plugin, never per receiver URL or slot. */
+#define KIWI_LAST_FREQUENCY_KEY "sdr.plugin.kiwi.last_frequency_hz"
+#define KIWI_FIRST_FREQUENCY_HZ UINT64_C(7100000)
+static uint64_t bridge_plugin_initial_frequency(const char *driver) {
+   if (g_strcmp0(driver,"kiwi")) return KIWI_FIRST_FREQUENCY_HZ;
+   char *saved=rrclient_database_setting_get(KIWI_LAST_FREQUENCY_KEY);
+   uint64_t hz=KIWI_FIRST_FREQUENCY_HZ;
+   if (saved && *saved) {
+      char *end=NULL;
+      errno=0;
+      guint64 parsed=g_ascii_strtoull(saved,&end,10);
+      if (!errno && end!=saved && !*end && parsed>=1000 && parsed<=30000000)
+         hz=parsed;
+   }
+   g_free(saved);
+   return hz;
+}
 size_t rrclient_local_bridge_stats_snapshot(rr_local_bridge_stats_t *out, size_t capacity) {
    size_t count = 0;
 
@@ -1268,6 +1286,11 @@ static gboolean poll_local(gpointer unused) {
             if (!m.success) {
                Log(LOG_WARN, "local.bridge", "%s tuning request rejected", b->stream);
                ui_print("&local-sdr", "%s: tuning rejected by receiver", b->stream);
+            } else if (!strcmp(b->driver,"kiwi") &&
+                       b->pending_hz>=1000 && b->pending_hz<=30000000) {
+               char value[32];
+               g_snprintf(value,sizeof(value),"%" G_GUINT64_FORMAT,b->pending_hz);
+               rrclient_database_setting_set(KIWI_LAST_FREQUENCY_KEY,value);
             }
 
             if (b->queued_tune) {
@@ -1507,9 +1530,10 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       return false;
    }
    close(tmp);
+   uint64_t start_hz=bridge_plugin_initial_frequency(driver);
    char *text =
-      g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=14074000\nmode=USB\n", driver
-      , host, port, tls ? "true" : "false");
+      g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=%" G_GUINT64_FORMAT "\nmode=USB\n", driver
+      , host, port, tls ? "true" : "false", start_hz);
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
