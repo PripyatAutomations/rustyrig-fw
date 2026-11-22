@@ -268,9 +268,9 @@ static void script_preview_file(GtkWidget *scroller,const char *filename) {
       g_str_has_suffix(filename,".mac")?g_build_filename(root,filename,NULL):NULL;
    char *contents=NULL;
    gsize length=0;
-   GStatBuf stat;
-   if(!path || g_file_test(path,G_FILE_TEST_IS_SYMLINK) || g_stat(path,&stat)!=0 || stat.st_size<0 ||
-      stat.st_size>128*1024 || !g_file_get_contents(path,&contents,&length,NULL) ||
+   GStatBuf file_stat;
+   if(!path || g_file_test(path,G_FILE_TEST_IS_SYMLINK) || g_stat(path,&file_stat)!=0 || file_stat.st_size<0 ||
+      file_stat.st_size>128*1024 || !g_file_get_contents(path,&contents,&length,NULL) ||
       !g_utf8_validate(contents,length,NULL)) {
       gtk_label_set_text(GTK_LABEL(label),"Select a .mac file to preview");
       g_free(contents);g_free(path);g_free(root);return;
