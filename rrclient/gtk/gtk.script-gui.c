@@ -5,6 +5,10 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
 #include "gtk.floating-panel.h"
+#include "gtk.local-browser.h"
+#include "gtk.file-editor.h"
+#include <glib/gstdio.h>
+#include <rrclient/gtk/gtk.core.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -61,6 +65,32 @@ static void event_fields(dict *d,const script_widget_t *entry) {
 static const char *widget_value(script_widget_t *entry,char *buffer,size_t size) {
    GtkWidget *w=entry->widget;
    if(!w)return "";
+   if(!strcmp(entry->kind,"filelist")) {
+      char *selected=rr_local_browser_selected(w);
+      g_strlcpy(buffer,selected?selected:"",size);
+      g_free(selected);
+      return buffer;
+   }
+   if(!strcmp(entry->kind,"roomlist")) {
+      const char *id=gtk_combo_box_get_active_id(GTK_COMBO_BOX(w));
+      g_strlcpy(buffer,id?id:"",size);
+      return buffer;
+   }
+   if(GTK_IS_TEXT_VIEW(w)) {
+      GtkTextBuffer *text=gtk_text_view_get_buffer(GTK_TEXT_VIEW(w));
+      GtkTextIter start,end;
+      gtk_text_buffer_get_bounds(text,&start,&end);
+      char *value=gtk_text_buffer_get_text(text,&start,&end,FALSE);
+      g_strlcpy(buffer,value?value:"",size);
+      g_free(value);
+      return buffer;
+   }
+   if(GTK_IS_FILE_CHOOSER(w)) {
+      char *selected=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(w));
+      g_strlcpy(buffer,selected?selected:"",size);
+      g_free(selected);
+      return buffer;
+   }
    if(GTK_IS_TOGGLE_BUTTON(w))return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w))?"true":"false";
    if(GTK_IS_SPIN_BUTTON(w)) {
       g_ascii_dtostr(buffer,size,gtk_spin_button_get_value(GTK_SPIN_BUTTON(w)));
