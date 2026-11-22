@@ -93,9 +93,30 @@ int main(void) {
    assert(!userlist_names_pending("#other"));
    userlist_names_end("#site");
    assert(redraws == 1);
+   /* Existing members absent from the 353 snapshot disappear only after
+    * 366, without touching the pending roster of another room. */
+   assert(userlist_find_in_room("user0001","#site")==NULL);
    assert(userlist_names_pending("#second"));
    userlist_names_end("#site");
    assert(redraws == 1);
+   d=userinfo("alice",1);
+   assert(userlist_add_or_update(d));
+   dict_free(d);
+   d=dict_new();
+   dict_add(d,"talk.user","outsider");
+   dict_add(d,"talk.room","#second");
+   assert(userlist_add_or_update(d));
+   dict_free(d);
+   userlist_names_begin("#site");
+   d=userinfo("alice",1);
+   assert(userlist_add_or_update(d));
+   dict_free(d);
+   assert(userlist_find_in_room("alice","#site"));
+   assert(userlist_find_in_room("outsider","#second"));
+   userlist_names_end("#site");
+   assert(userlist_find_in_room("alice","#site"));
+   assert(userlist_find_in_room("outsider","#second"));
+   userlist_names_end("#second");
    userlist_clear_all();
    rrclient_userlist_context_free(other);
    assert(!userlist_names_pending("#other"));
