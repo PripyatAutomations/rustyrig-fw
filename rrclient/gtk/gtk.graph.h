@@ -55,6 +55,8 @@ typedef struct {
    gboolean cos_pin, cos_input; /* Yellow COS outputs and compatible control inputs. */
    rr_gtk_graph_io_t io;
    rr_gtk_graph_shape_t shape; /* Optional: zero preserves old rectangle. */
+   const rr_gtk_graph_port_t *ports; /* Optional borrowed port array. */
+   guint port_count;
 } rr_gtk_graph_node_t;
 typedef enum {
    RR_GTK_GRAPH_PIN_DEFAULT,
@@ -74,6 +76,9 @@ void rr_gtk_graph_shape_path(cairo_t *cr, rr_gtk_graph_shape_t shape,
                              double x, double y, double width, double height);
 gboolean rr_gtk_graph_shape_contains(rr_gtk_graph_shape_t shape,
                                       double local_x, double local_y);
+/* Return standard geometry for a comparator (five input, two output pins).
+ * Caller owns the returned pointer only as a borrowed, static reference. */
+const rr_gtk_graph_port_t *rr_gtk_graph_threshold_ports(guint *count);
 void rr_gtk_graph_typed_port_draw(cairo_t *cr, double x, double y,
                                   rr_gtk_graph_signal_t signal, gboolean output);
 
