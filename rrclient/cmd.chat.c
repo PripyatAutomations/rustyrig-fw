@@ -547,9 +547,26 @@ bool cmd_names(int argc, char **args) {
    }
 
    if (!connection->is_ws) {
-      bool sent = room && *room ? irc_send(connection, "NAMES %s", room) : irc_send(connection, "NAMES");
+      /* A bare NAMES on IRC requests rosters for every visible channel and
+       * can interleave replies. Keep explicit requests scoped to one room,
+       * using the currently displayed chat tab instead of stale context. */
+      if (argc >= 2 && args[1] && *args[1]) {
+         room = args[1];
+      } else if (ui_mode == UI_MODE_TUI) {
+         tui_window_t *window = tui_active_window();
+         room = window && window->title[0] ?
+            rrclient_window_room(window->title) : NULL;
+      } else if (frontend_ops() && frontend_ops()->chat_current_room) {
+         room = frontend_ops()->chat_current_room();
+      }
 
-      return !sent;
+      if (!room || (room[0] != '#' && room[0] != '&') ||
+          strpbrk(room, " ,\\t\\r\\n")) {
+         ui_print(ui_active_window_name(),
+            "\\00308Select a channel tab or use /names #channel\\017");
+         return true;
+      }
+      return !irc_send(connection, "NAMES %s", room);
    }
 
    if (!global_userlist) {
