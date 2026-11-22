@@ -1682,6 +1682,195 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    return TRUE;
 }
 
+/* Only linear, mono, unbranched links can be collapsed without inventing a
+ * mixer or silently dropping an independently routable effect output. Other
+ * topologies retain the existing one-worker-per-effect implementation. */
+typedef struct {
+   gboolean present;
+   char factory[96], source[2][64], output[2];
+   guint channels;
+} rr_lv2_chain_config_t;
+
+static gint audio_lv2_chain_next(const rr_lv2_chain_config_t *cfg, guint parent) {
+   if (!cfg[parent].present || cfg[parent].channels != 1 || cfg[parent].output[0] != 'M')
+      return -1;
+   char output[48];
+   g_snprintf(output, sizeof(output), "proc.lv2.%u", parent + 1);
+   gint consumer = -1;
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present || i == parent) continue;
+      for (guint ch = 0 ; ch < cfg[i].channels ; ch++) {
+         if (strcmp(cfg[i].source[ch], output)) continue;
+         if (consumer >= 0 || cfg[i].channels != 1) return -1;
+         consumer = (gint)i;
+      }
+   }
+   return consumer;
+}
+
+/* One appsrc/appsink boundary for a complete chain. Each stage keeps a
+ * slot-qualified GStreamer element name for independent parameter control. */
+static gboolean audio_lv2_launch_chain(const rr_lv2_chain_config_t *cfg, const guint *slots, guint count) {
+   if (count < 2 || count > RR_AUDIO_EFFECT_MAX || !rx_engine) return FALSE;
+   guint root_slot = slots[0], last_slot = slots[count - 1];
+   GString *pipeline = g_string_new("appsrc name=processor-src is-live=true format=time do-timestamp=true "
+      "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
+      "queue max-size-buffers=8 leaky=downstream ! audioconvert ! audioresample ! ");
+   for (guint j = 0 ; j < count ; j++) {
+      guint slot = slots[j];
+      if (!slot || slot > RR_AUDIO_EFFECT_MAX || !cfg[slot - 1].present ||
+          cfg[slot - 1].channels != 1 || !audio_lv2_factory_safe(cfg[slot - 1].factory)) {
+         g_string_free(pipeline, TRUE);
+         return FALSE;
+      }
+      g_string_append_printf(pipeline, "%s name=effect_%u ! audioconvert ! audioresample ! ",
+         cfg[slot - 1].factory, slot);
+   }
+   g_string_append(pipeline, "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
+      "appsink name=processor-sink sync=false max-buffers=8 drop=true");
+
+   guint registered = 0;
+   for (guint j = 0 ; j < count ; j++) {
+      guint slot = slots[j];
+      rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
+      fx->input_fd = -1;
+      fx->channels = 1;
+      fx->chain_host = root_slot;
+      fx->chain_tail = last_slot;
+      g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
+      g_snprintf(fx->output_stream[0], sizeof(fx->output_stream[0]), "proc.lv2.%u", slot);
+      g_strlcpy(fx->factory, cfg[slot - 1].factory, sizeof(fx->factory));
+      g_strlcpy(fx->source[0], cfg[slot - 1].source[0], sizeof(fx->source[0]));
+      fx->output[0] = cfg[slot - 1].output[0];
+      if (!audio_local_rx_start(fx->output_stream[0])) goto failed;
+      registered++;
+      rr_audio_engine_route(rx_engine, fx->output_stream[0], fx->output[0]);
+   }
+
+   rr_lv2_effect_t *root = &lv2_effects[root_slot - 1];
+   if (!fwdsp_processor_start(root->name, pipeline->str, audio_lv2_result, root))
+      goto failed;
+   root->input_fd = fwdsp_processor_dup_input(root->name);
+   if (root->input_fd < 0) goto failed;
+   int flags = fcntl(root->input_fd, F_GETFL, 0);
+   if (flags >= 0) fcntl(root->input_fd, F_SETFL, flags | O_NONBLOCK);
+   root->queue = g_async_queue_new();
+   root->available = g_async_queue_new();
+   for (guint j = 0 ; j < G_N_ELEMENTS(root->packets) ; j++)
+      g_async_queue_push(root->available, &root->packets[j]);
+   for (guint j = 0 ; j < count ; j++)
+      g_atomic_int_set(&lv2_effects[slots[j] - 1].active, TRUE);
+   root->writer = g_thread_new("lv2-chain-input", audio_lv2_writer, root);
+   audio_restore_effect_parameters(root->name);
+   Log(LOG_INFO, "audio.lv2", "Consolidated %u directly connected LV2 stages into %s", count, root->name);
+   g_string_free(pipeline, TRUE);
+   return TRUE;
+
+failed:
+   /* Stop the partial worker before releasing its stream aliases. */
+   if (lv2_effects[root_slot - 1].name[0])
+      fwdsp_processor_stop(lv2_effects[root_slot - 1].name);
+   if (lv2_effects[root_slot - 1].input_fd >= 0)
+      close(lv2_effects[root_slot - 1].input_fd);
+   for (guint j = 0 ; j < registered ; j++)
+      audio_local_rx_stop(lv2_effects[slots[j] - 1].output_stream[0]);
+   for (guint j = 0 ; j < count ; j++) {
+      rr_lv2_effect_t *fx = &lv2_effects[slots[j] - 1];
+      memset(fx->source, 0, sizeof(fx->source));
+      memset(fx->output_stream, 0, sizeof(fx->output_stream));
+      fx->name[0] = fx->factory[0] = 0;
+      fx->chain_host = fx->chain_tail = fx->channels = 0;
+      fx->input_fd = -1;
+   }
+   g_string_free(pipeline, TRUE);
+   return FALSE;
+}
+
+/* Rebuild only when the set of worker owners changes. Slot IDs, saved control
+ * bindings and output routes survive consolidation and subsequent splitting. */
+static void audio_lv2_reconcile_chains(void) {
+   if (!lv2_effect_ready || !audio_enabled || !rx_engine) return;
+   rr_lv2_chain_config_t cfg[RR_AUDIO_EFFECT_MAX] = {0};
+   gint successor[RR_AUDIO_EFFECT_MAX], predecessor[RR_AUDIO_EFFECT_MAX];
+   guint desired[RR_AUDIO_EFFECT_MAX] = {0};
+   gboolean used[RR_AUDIO_EFFECT_MAX] = {FALSE};
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      rr_lv2_effect_t *fx = &lv2_effects[i];
+      cfg[i].present = g_atomic_int_get(&fx->active) && !g_atomic_int_get(&fx->failed);
+      cfg[i].channels = fx->channels;
+      g_strlcpy(cfg[i].factory, fx->factory, sizeof(cfg[i].factory));
+      memcpy(cfg[i].source, fx->source, sizeof(cfg[i].source));
+      memcpy(cfg[i].output, fx->output, sizeof(cfg[i].output));
+      successor[i] = predecessor[i] = -1;
+   }
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+      successor[i] = audio_lv2_chain_next(cfg, i);
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      gint next = successor[i];
+      if (next < 0) continue;
+      if (predecessor[next] >= 0) {
+         successor[i] = -1;
+         successor[predecessor[next]] = -1;
+         predecessor[next] = -1;
+      } else predecessor[next] = (gint)i;
+   }
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present || predecessor[i] >= 0) continue;
+      gboolean seen[RR_AUDIO_EFFECT_MAX] = {FALSE};
+      gint n = (gint)i;
+      while (n >= 0 && !seen[n]) {
+         seen[n] = TRUE;
+         desired[n] = i + 1;
+         n = successor[n];
+      }
+   }
+   gboolean changed = FALSE;
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present) continue;
+      if (!desired[i]) desired[i] = i + 1;
+      guint actual = lv2_effects[i].chain_host ? lv2_effects[i].chain_host : i + 1;
+      if (actual != desired[i]) changed = TRUE;
+   }
+   if (!changed) return;
+
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+      if (cfg[i].present) audio_lv2_stop(i + 1, FALSE);
+
+   /* Roots whose inputs are unavailable stay configured in the database and
+    * are retried by audio_lv2_restore when their streams arrive. */
+   for (guint pass = 0 ; pass < RR_AUDIO_EFFECT_MAX ; pass++) {
+      gboolean progressed = FALSE;
+      for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+         if (!cfg[i].present || used[i] || desired[i] != i + 1) continue;
+         if (cfg[i].source[0][0] && !audio_lv2_source_present(cfg[i].source[0]))
+            continue;
+         guint slots[RR_AUDIO_EFFECT_MAX], count = 0;
+         gboolean seen[RR_AUDIO_EFFECT_MAX] = {FALSE};
+         gint n = (gint)i;
+         while (n >= 0 && !seen[n]) {
+            seen[n] = TRUE;
+            used[n] = TRUE;
+            slots[count++] = n + 1;
+            n = successor[n];
+         }
+         gboolean ok = FALSE;
+         if (count > 1) ok = audio_lv2_launch_chain(cfg, slots, count);
+         if (!ok) {
+            /* Safe fallback: preserve existing independent-worker behavior. */
+            for (guint j = 0 ; j < count ; j++) {
+               guint slot = slots[j];
+               rr_audio_effect_request_t req = {.action = 'A', .slot = slot, .channels = cfg[slot - 1].channels};
+               g_strlcpy(req.factory, cfg[slot - 1].factory, sizeof(req.factory));
+               g_strlcpy(req.source, cfg[slot - 1].source[0], sizeof(req.source));
+               audio_lv2_start(&req);
+            }
+         }
+         progressed = TRUE;
+      }
+      if (!progressed) break;
+   }
+}
+
 static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    (void)unused;
 
