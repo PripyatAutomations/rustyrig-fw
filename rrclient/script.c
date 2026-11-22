@@ -117,10 +117,7 @@ typedef struct {
    char kind[24], text[256];
 } script_gui_cached_t;
 static bool script_gui_owner(char owner[32], rrs_vm_t *vm) {
-   const char *token=rrscript_host_vm_owner(vm);
-   if(!token)return false;
-   g_strlcpy(owner,token,32);
-   return true;
+   return rrscript_host_vm_owner(vm,owner);
 }
 static char *script_gui_key(const char *owner,const char *id) {
    return g_strdup_printf("%s:%s",owner,id);
