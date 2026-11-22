@@ -98,7 +98,9 @@ static void test_late_roster_autosize(void) {
    GtkTreeIter row;
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
    gtk_list_store_append(store, &row);
-   gtk_list_store_set(store, &row, COL_USERNAME, "LONG_OPERATOR_CALLSIGN", -1);
+   /* Match production roster updates: the visible renderer reads
+    * COL_DISPLAY_NAME, while COL_USERNAME is the identity field. */
+   gtk_list_store_set(store, &row, COL_USERNAME, "LONG_OPERATOR_CALLSIGN", COL_DISPLAY_NAME, "LONG_OPERATOR_CALLSIGN", -1);
    pump_layout();
    userlist_fit_width(view);
    pump_layout();
@@ -125,13 +127,13 @@ static void test_late_roster_autosize(void) {
    room_userlist_position(GTK_PANED(paned), NULL, &entry);
    pump_layout();
    int saved = cfg_get_int("ui.userlist.vfo.dock-width", 0);
-   gtk_list_store_set(store, &row, COL_USERNAME, "AN_EVEN_LONGER_OPERATOR_CALLSIGN", -1);
+   gtk_list_store_set(store, &row, COL_USERNAME, "AN_EVEN_LONGER_OPERATOR_CALLSIGN", COL_DISPLAY_NAME, "AN_EVEN_LONGER_OPERATOR_CALLSIGN", -1);
    pump_layout();
    userlist_fit_width(view);
    pump_layout();
    assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) == saved);
    /* Saved/manual panes must reveal every status field when widened, even if the complete username would require much more space. */
-   gtk_list_store_set(store, &row, COL_USERNAME, "A_VERY_LONG_USERNAME_THAT_MUST_NOT_PUSH_RADIO_STATUS_OFF_THE_RIGHT_EDGE", -1);
+   gtk_list_store_set(store, &row, COL_USERNAME, "A_VERY_LONG_USERNAME_THAT_MUST_NOT_PUSH_RADIO_STATUS_OFF_THE_RIGHT_EDGE", COL_DISPLAY_NAME, "A_VERY_LONG_USERNAME_THAT_MUST_NOT_PUSH_RADIO_STATUS_OFF_THE_RIGHT_EDGE", -1);
    room_userlist_set_width(&entry, 400);
    pump_layout();
    userlist_fit_width(view);
