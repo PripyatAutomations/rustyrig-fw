@@ -33,6 +33,14 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
    {
+      "security.scripting.path", "/etc/rustyrig/scripts",
+      "Admin-installed local RustyScript directory (server never accepts script uploads)"
+   },
+   {
+      "security.scripting.allow-unsafe-exec", "false",
+      "Permit server scripts to spawn arbitrary binaries via exec or subproc (default off)", DEFCONFIG_BOOL, NULL
+   },
+   {
       "mesh.default-ttl", "10", "Default mesh packet hop limit (1..255); decremented once per authenticated hop", DEFCONFIG_UINT, NULL
    },
    {
