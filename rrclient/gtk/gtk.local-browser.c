@@ -14,6 +14,8 @@ typedef struct {
    guint count;
    const char *(*state)(const char *, gpointer);
    gpointer user;
+   void (*selection_callback)(GtkWidget *, const char *, gpointer);
+   gpointer selection_user;
 } local_browser_t;
 
 static local_browser_t *browser_data(GtkWidget *widget) {
@@ -45,7 +47,14 @@ static void refresh_buttons(GtkWidget *widget) {
 
 static void selection_changed(GtkTreeSelection *selection, gpointer user) {
    (void)selection;
-   refresh_buttons(GTK_WIDGET(user));
+   GtkWidget *browser=GTK_WIDGET(user);
+   refresh_buttons(browser);
+   local_browser_t *b=browser_data(browser);
+   if(b && b->selection_callback) {
+      char *relative=rr_local_browser_selected(browser);
+      b->selection_callback(browser,relative,b->selection_user);
+      g_free(relative);
+   }
 }
 
 static void action_clicked(GtkButton *button, gpointer user) {
@@ -114,6 +123,19 @@ void rr_local_browser_refresh(GtkWidget *widget) {
    g_ptr_array_unref(files);
    g_free(selected);
    refresh_buttons(widget);
+}
+
+void rr_local_browser_on_selection(GtkWidget *widget,
+   void (*callback)(GtkWidget *, const char *, gpointer), gpointer user) {
+   local_browser_t *b=browser_data(widget);
+   if(!b)return;
+   b->selection_callback=callback;
+   b->selection_user=user;
+   if(callback) {
+      char *selected=rr_local_browser_selected(widget);
+      callback(widget,selected,user);
+      g_free(selected);
+   }
 }
 
 void rr_local_browser_message(GtkWidget *widget, const char *message) {
