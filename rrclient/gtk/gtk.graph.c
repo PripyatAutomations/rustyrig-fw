@@ -5,6 +5,115 @@
 #include <math.h>
 #include <string.h>
 
+/* Forward declaration: the shared filled/hollow pin primitive is below. */
+static void pin(cairo_t *cr, double x, double y, gboolean bypass, gboolean input);
+
+/* All silhouettes occupy the same 160x112 layout cell. Using a Cairo path
+ * keeps rendering and pointer hit tests identical under any canvas zoom. */
+void rr_gtk_graph_shape_path(cairo_t *cr, rr_gtk_graph_shape_t shape,
+                             double x, double y, double width, double height) {
+   if (!cr || width <= 0 || height <= 0) return;
+   cairo_new_path(cr);
+   const double l=x+width*.09, r=x+width*.91;
+   const double t=y+height*.10, b=y+height*.90, m=y+height*.50;
+   switch (shape) {
+      case RR_GTK_GRAPH_SHAPE_THRESHOLD:
+         cairo_move_to(cr, x+width*.23,t);
+         cairo_line_to(cr,x+width*.77,t);
+         cairo_line_to(cr,r,m);
+         cairo_line_to(cr,x+width*.77,b);
+         cairo_line_to(cr,x+width*.23,b);
+         cairo_line_to(cr,l,m);
+         cairo_close_path(cr);
+         break;
+      case RR_GTK_GRAPH_SHAPE_UTILITY:
+         cairo_move_to(cr,x+width*.20,t);
+         cairo_line_to(cr,x+width*.80,t);
+         cairo_line_to(cr,r,y+height*.23);
+         cairo_line_to(cr,r,y+height*.77);
+         cairo_line_to(cr,x+width*.80,b);
+         cairo_line_to(cr,x+width*.20,b);
+         cairo_line_to(cr,l,y+height*.77);
+         cairo_line_to(cr,l,y+height*.23);
+         cairo_close_path(cr);
+         break;
+      case RR_GTK_GRAPH_SHAPE_AND:
+      case RR_GTK_GRAPH_SHAPE_NAND:
+         cairo_move_to(cr,x+width*.22,t);
+         cairo_line_to(cr,x+width*.48,t);
+         cairo_arc(cr,x+width*.48,m,height*.40,-G_PI/2,G_PI/2);
+         cairo_line_to(cr,x+width*.22,b);
+         cairo_close_path(cr);
+         break;
+      case RR_GTK_GRAPH_SHAPE_OR:
+      case RR_GTK_GRAPH_SHAPE_NOR:
+      case RR_GTK_GRAPH_SHAPE_XOR:
+         cairo_move_to(cr,x+width*.23,t);
+         cairo_curve_to(cr,x+width*.55,t,x+width*.74,y+height*.22,x+width*.86,m);
+         cairo_curve_to(cr,x+width*.74,y+height*.78,x+width*.55,b,x+width*.23,b);
+         cairo_curve_to(cr,x+width*.43,m,x+width*.43,m,x+width*.23,t);
+         cairo_close_path(cr);
+         break;
+      case RR_GTK_GRAPH_SHAPE_NOT:
+         cairo_move_to(cr,x+width*.24,t);
+         cairo_line_to(cr,x+width*.80,m);
+         cairo_line_to(cr,x+width*.24,b);
+         cairo_close_path(cr);
+         break;
+      case RR_GTK_GRAPH_SHAPE_RECT:
+      default:
+         cairo_rectangle(cr,x,y,width,height);
+         break;
+   }
+}
+
+/* Bubble and double-curve are visual adornments, not separate signal types.
+ * Keep them inside the normal cell for clipping and selection. */
+static void graph_shape_decoration(cairo_t *cr, rr_gtk_graph_shape_t shape,
+                                   double x, double y, double w, double h) {
+   if (shape == RR_GTK_GRAPH_SHAPE_XOR) {
+      cairo_new_path(cr);
+      cairo_move_to(cr,x+w*.17,y+h*.10);
+      cairo_curve_to(cr,x+w*.37,y+h*.50,x+w*.37,y+h*.50,x+w*.17,y+h*.90);
+      cairo_stroke(cr);
+   }
+   if (shape == RR_GTK_GRAPH_SHAPE_NAND || shape == RR_GTK_GRAPH_SHAPE_NOR ||
+       shape == RR_GTK_GRAPH_SHAPE_NOT) {
+      double bx = shape == RR_GTK_GRAPH_SHAPE_NOT ? x+w*.84 :
+                  shape == RR_GTK_GRAPH_SHAPE_NAND ? x+w*.78 : x+w*.90;
+      cairo_new_path(cr);
+      cairo_arc(cr,bx,y+h*.50,5.8,0,2*G_PI);
+      cairo_stroke(cr);
+   }
+}
+
+gboolean rr_gtk_graph_shape_contains(rr_gtk_graph_shape_t shape,
+                                      double local_x, double local_y) {
+   if (local_x < 0 || local_y < 0 ||
+       local_x > RR_GTK_GRAPH_NODE_W || local_y > RR_GTK_GRAPH_NODE_H)
+      return FALSE;
+   cairo_surface_t *surface=cairo_image_surface_create(CAIRO_FORMAT_A8,1,1);
+   cairo_t *cr=cairo_create(surface);
+   rr_gtk_graph_shape_path(cr,shape,0,0,RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H);
+   gboolean hit=cairo_in_fill(cr,local_x,local_y);
+   cairo_destroy(cr);
+   cairo_surface_destroy(surface);
+   return hit;
+}
+
+void rr_gtk_graph_typed_port_draw(cairo_t *cr, double x, double y,
+                                  rr_gtk_graph_signal_t signal, gboolean output) {
+   if (!cr) return;
+   cairo_save(cr);
+   switch (signal) {
+      case RR_GTK_GRAPH_SIGNAL_BOOLEAN: cairo_set_source_rgb(cr,.96,.20,.20); break;
+      case RR_GTK_GRAPH_SIGNAL_NUMBER: cairo_set_source_rgb(cr,.34,.78,.93); break;
+      default: cairo_set_source_rgb(cr,.34,.78,.93); break;
+   }
+   pin(cr,x,y,FALSE,!output);
+   cairo_restore(cr);
+}
+
 /* A filled circle sends audio; a hollow, heavy ring receives it. Keep this shared between the horizontal Routing and vertical editor. */
 static void pin(cairo_t *cr, double x, double y, gboolean bypass, gboolean input) {
    if (bypass) {
@@ -104,11 +213,17 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, g
       const rr_gtk_graph_node_t *n = &nodes[i];
       cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 :
          n->selected ? .20 : .15, n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25, n->stale ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
-      cairo_rectangle(cr, n->x, n->y, RR_GTK_GRAPH_NODE_W, RR_GTK_GRAPH_NODE_H);
+      rr_gtk_graph_shape_path(cr, n->shape, n->x, n->y,
+                              RR_GTK_GRAPH_NODE_W, RR_GTK_GRAPH_NODE_H);
       cairo_fill_preserve(cr);
       cairo_set_source_rgb(cr, n->selected ? .62 : .53, n->selected ? .81 : .65, n->selected ? 1. : .75);
       cairo_set_line_width(cr, n->selected ? 2.8 : 1.3);
       cairo_stroke(cr);
+      if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
+         cairo_set_source_rgb(cr, .53, .65, .75);
+         graph_shape_decoration(cr,n->shape,n->x,n->y,
+                                RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H);
+      }
       cairo_set_source_rgb(cr, 1., 1., 1.);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr, 12);
@@ -208,7 +323,10 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 : n->selected ? .20 : .15, n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25, n->stale
          ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
 
-      if (n->fwdsp) {
+      if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
+         rr_gtk_graph_shape_path(cr,n->shape,n->x,n->y,
+                                 RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H);
+      } else if (n->fwdsp) {
          /* Capsule silhouette distinguishes an external fwdsp/GStreamer process from the in-process mixer and source nodes. */
          double r = 18, x = n->x, y = n->y;
          cairo_new_sub_path(cr);
@@ -224,6 +342,10 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       cairo_set_source_rgb(cr, n->stale ? .42 : n->failed ? .95 : .53, n->stale ? .43 : n->failed ? .32 : .65, n->stale ? .46 : n->failed ? .28 : .75);
       cairo_set_line_width(cr, n->selected ? 2.8 : 1.3);
       cairo_stroke(cr);
+      if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
+         graph_shape_decoration(cr,n->shape,n->x,n->y,
+                                RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H);
+      }
       cairo_set_source_rgb(cr, n->stale ? .66 : 1, n->stale ? .68 : 1, n->stale ? .70 : 1);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr, 12);
