@@ -24,6 +24,7 @@ rrconn_t *ws_conn, *ws_tx_conn;
 static char last_event[64];
 static dict *last, *last_talk;
 static unsigned events, rejoins, status_windows, names_begins, names_ends;
+static char irc_last_room[128];
 static unsigned protocol_disconnects;
 static void observe_protocol_disconnect(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
@@ -213,6 +214,13 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
    return false;
 }
 
+static void observe_irc_privmsg(const char *event,const char *data,rrconn_t *connection,void *unused) {
+   (void)event;(void)connection;(void)unused;
+   dict *parsed=json2dict(data);
+   assert(parsed);
+   snprintf(irc_last_room,sizeof(irc_last_room),"%s",dict_get(parsed,"talk.room",""));
+   dict_free(parsed);
+}
 static void observe(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)user;
    assert(cptr == expected_connection);
@@ -246,6 +254,7 @@ int main(void) {
    event_init();
    assert(!irc_init());
    rrclient_irc_register_events();
+   event_on("irc.privmsg",observe_irc_privmsg,NULL);
    /* IRC lifecycle must not trigger RustyRig's WebSocket protocol teardown. */
    event_on("disconnected", observe_protocol_disconnect, NULL);
    const char *observed[] = {
@@ -261,6 +270,13 @@ int main(void) {
    assert(!irc_process_message(&client, ":server PRIVMSG tester :registration message"));
    assert(strstr(status_text, "<server> registration message") && printed_status && !status_windows && !events);
    client.authenticated = true; /* The protocol marks this on welcome numeric 001. */
+   assert(!irc_process_message(&client,
+      ":artist!u@host PRIVMSG #room :\00304,01colored"));
+   assert(!strcmp(irc_last_room,"#room"));
+   assert(!irc_process_message(&client,
+      ":artist!u@host PRIVMSG tester :private"));
+   assert(!strcmp(irc_last_room,"artist"));
+
    unsigned sends = irc_sends;
    assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :\001PING 123 token\001"));
    assert(irc_sends == ++sends && !strcmp(irc_send_buffer, "NOTICE alice :\001PING 123 token\001"));
