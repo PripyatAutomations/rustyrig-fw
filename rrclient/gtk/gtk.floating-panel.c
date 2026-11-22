@@ -89,6 +89,8 @@ static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y);
 static void panel_dock_glow(RRChatDocks *d, gboolean dragging, gint target);
 static gint panel_dock_hit(RRChatDocks *d, gint x_root, gint y_root);
 static void panel_resize_targets_visibility(RRFloatPanel *p);
+static void panel_dock_size_save(RRFloatPanel *p);
+static void panel_dock_coords_save(RRFloatPanel *p);
 static void panel_dock_save(RRFloatPanel *p) {
    if (!p || p->modal) {
       return;
@@ -331,7 +333,13 @@ static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, 
       }
       gint max_w = MAX(90, allocation->width - x - 4);
       gint max_h = MAX(48, allocation->height - y - 4);
-      gint desired_w = p->dock_width > 0 ? p->dock_width : MAX(100, MIN(220, max_w));
+      gint natural_w = 220;
+      if (p->dock_width <= 0 && !g_str_has_prefix(p->id, "userlist-")) {
+         GtkRequisition natural;
+         gtk_widget_get_preferred_size(frame, NULL, &natural);
+         natural_w = natural.width;
+      }
+      gint desired_w = p->dock_width > 0 ? p->dock_width : MAX(100, MIN(natural_w, max_w));
       gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
       gint width = CLAMP(desired_w, 90, max_w);
       gint height = desired_h > 0 ? CLAMP(desired_h, 48, max_h) : -1;
