@@ -595,7 +595,7 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    }
 
    completion_free(matches);
-   g_idle_add(ui_scroll_to_end, chat_textview);
+   gtk_chat_view_schedule_follow(chat_textview);
 
    return false;
 }
