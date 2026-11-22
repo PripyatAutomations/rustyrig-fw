@@ -360,10 +360,14 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       w=gtk_combo_box_text_new();
       script_roomlist_fill(GTK_COMBO_BOX_TEXT(w));
    } else if(!strcmp(cmd->kind,"filelist")) {
+      /* A generic file manager: directory|suffix selects an extension,
+       * while a directory alone lists all regular files. */
       char *root=g_strdup(cmd->value);
-      if(!*root){g_free(root);root=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);}
+      char *filter=strrchr(root,'|');
+      if(filter){*filter++=0;if(!*filter)filter=NULL;}
+      if(!*root){g_free(root);root=g_strdup(g_get_user_data_dir());}
       g_mkdir_with_parents(root,0700);
-      w=rr_local_browser_new(root,".mac",NULL,0,NULL,NULL);
+      w=rr_local_browser_new(root,filter,NULL,0,NULL,NULL);
       gtk_widget_set_size_request(w,240,220);
       packing=gtk_frame_new(cmd->text);
       gtk_container_add(GTK_CONTAINER(packing),w);
