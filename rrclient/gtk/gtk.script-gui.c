@@ -227,6 +227,55 @@ static void script_gui_remove_owner(const char *owner) {
       g_hash_table_remove(script_widgets,g_ptr_array_index(owned,i));
    g_ptr_array_unref(owned);
 }
+/* Reuse the client's existing local file browser for script-owned selectors. */
+static void script_files_selected(GtkWidget *browser,const char *relative,gpointer data) {
+   (void)browser;(void)relative;
+   widget_changed(NULL,data);
+}
+static void script_preview_file(GtkWidget *scroller,const char *filename) {
+   GtkWidget *label=g_object_get_data(G_OBJECT(scroller),"rr-preview-label");
+   if(!GTK_IS_LABEL(label))return;
+   char *root=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
+   char *path=filename && *filename && !strchr(filename,'/') &&
+      !strchr(filename,'\\') && !strstr(filename,"..") &&
+      g_str_has_suffix(filename,".mac")?g_build_filename(root,filename,NULL):NULL;
+   char *contents=NULL;
+   gsize length=0;
+   GStatBuf stat;
+   if(!path || g_stat(path,&stat)!=0 || stat.st_size<0 ||
+      stat.st_size>128*1024 || !g_file_get_contents(path,&contents,&length,NULL) ||
+      !g_utf8_validate(contents,length,NULL)) {
+      gtk_label_set_text(GTK_LABEL(label),"Select a .mac file to preview");
+      g_free(contents);g_free(path);g_free(root);return;
+   }
+   char **lines=g_strsplit(contents,"\n",-1);
+   GString *markup=g_string_new("<span font_family=\"monospace\">");
+   for(guint i=0;lines[i] && i<256;i++) {
+      char *rendered=gtk_colorize_string(lines[i]);
+      if(rendered)g_string_append(markup,rendered);
+      if(lines[i+1])g_string_append_c(markup,'\n');
+      g_free(rendered);
+   }
+   g_string_append(markup,"</span>");
+   gtk_label_set_markup(GTK_LABEL(label),markup->str);
+   g_string_free(markup,TRUE);g_strfreev(lines);
+   g_free(contents);g_free(path);g_free(root);
+}
+static void script_roomlist_fill(GtkComboBoxText *combo) {
+   if(!GTK_IS_NOTEBOOK(main_notebook))return;
+   for(int i=0,n=gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));i<n;i++) {
+      GtkWidget *page=gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),i);
+      const char *server=g_object_get_data(G_OBJECT(page),"rr-chat-server");
+      const char *room=g_object_get_data(G_OBJECT(page),"rr-chat-name");
+      if(!server||!*server||!room||(room[0]!='#' && room[0]!='&'))continue;
+      char *id=g_strdup_printf("%s|%s",server,room);
+      char *caption=g_strdup_printf("%s / %s",server,room);
+      gtk_combo_box_text_append(combo,id,caption);
+      g_free(id);g_free(caption);
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(combo),0);
+}
+
 static void script_gui_add(const rr_script_gui_command_t *cmd) {
    script_widget_t *parent=widget_find(cmd->owner,cmd->parent);
    if(!parent||!parent->widget || widget_find(cmd->owner,cmd->id))return;
