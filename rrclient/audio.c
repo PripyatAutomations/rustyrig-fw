@@ -721,6 +721,10 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
    (void)name;
    (void)user_data;
    rrclient_dcc_capture(samples, len);
+   /* Capture is already 16 kHz mono S16 here. Feed LV2 before TX gating so
+    * monitoring/processing is not conditional on PTT. The normal microphone
+    * TX path remains unchanged until a processed-TX output is explicitly wired. */
+   audio_lv2_feed("src.client.dsp0", samples, len);
 
    /* A modem owns the encoder while its waveform is being transmitted. Do not mix live microphone speech into digital-mode samples. */
    if (rr_local_modem_tx_in_progress()) {
@@ -1255,6 +1259,8 @@ static gboolean audio_lv2_would_cycle(guint destination, const char *source) {
 }
 
 static gboolean audio_lv2_source_present(const char *id) {
+   /* The capture endpoint is local, not an entry in audio_rx_streams(). */
+   if (id && !strcmp(id,"src.client.dsp0"))return TRUE;
    if (audio_lv2_output_owner(id) >= 0) return TRUE;
    struct rrclient_rx_stream streams[128] = {
       0
@@ -2596,7 +2602,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    rr_audio_graph_add_link(graph, "rx.mix", "rx16.resample", RR_AG_NORMAL);
    rr_audio_graph_add_link(graph, "rx16.resample", "hq.mix", RR_AG_NORMAL);
    rr_audio_graph_add_link(graph, "hq.mix", "sink.client.dsp0", RR_AG_NORMAL);
-   /* The capture endpoint is an independent TX source, not connected to the RX mixer. Present it read-only in the routing inventory. */
+   /* The capture endpoint is a local TX source. LV2 taps are explicit
+    * connections; its TX path is unaffected until a processed TX route exists. */
    rr_audio_graph_add_node(graph, "src.client.dsp0", RR_AG_SOURCE);
    rr_audio_graph_set_health(graph, "src.client.dsp0", audio_enabled ? RR_AG_HEALTHY : RR_AG_FAILED);
    rr_audio_graph_set_route(graph, "src.client.dsp0", !strcmp(mic_tx_target, "none") ? 'M' : 'S');
