@@ -25,7 +25,7 @@ static char *script_directory(void) {
    return g_build_filename(g_get_user_config_dir(), "rustyrig", "scripts", NULL);
 }
 
-/* The runtime accepts only root/*.rrs and autoload/*.rrs, never arbitrary
+/* The runtime accepts only .rrs files at the root or in autoload/, never arbitrary
  * paths. Validate before any filesystem operation, including editor opens. */
 static gboolean valid_script_name(const char *name) {
    if (!name || !g_str_has_suffix(name, ".rrs") ||
@@ -142,7 +142,7 @@ static char *script_prompt(const char *title, const char *initial) {
    return result;
 }
 
-static void script_runtime_action(GtkWidget *browser, const char *name, gpointer verb) {
+static void script_runtime_action(GtkWidget *browser, const char *name, const char *action) {
    if (!valid_script_name(name)) return;
 #ifdef RR_HAVE_RUSTYSCRIPT
    if (!rrclient_script_host) {
@@ -151,7 +151,6 @@ static void script_runtime_action(GtkWidget *browser, const char *name, gpointer
    }
    char *error = NULL;
    gboolean ok;
-   const char *action = verb;
    if (!strcmp(action, "load"))
       ok = rrscript_host_load(rrclient_script_host, name, &error);
    else if (!strcmp(action, "unload"))
@@ -162,7 +161,7 @@ static void script_runtime_action(GtkWidget *browser, const char *name, gpointer
                   ok ? action : (error ? error : "operation failed"));
    g_free(error);
 #else
-   (void)verb;
+   (void)action;
    script_message(browser, "RustyScript not built", name, NULL);
 #endif
 }
