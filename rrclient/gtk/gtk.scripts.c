@@ -26,6 +26,7 @@ static GtkWidget *startup_errors_dialog;
 static RRFloatPanel *debug_panel;
 static GtkListStore *debug_store;
 static GtkWidget *debug_table;
+static GtkWidget *debug_input;
 static rr_event_token_t debug_diagnostics_token,debug_open_token;
 enum { DBG_TIME,DBG_LEVEL,DBG_SOURCE,DBG_LOCATION,DBG_HANDLER,DBG_MESSAGE,DBG_PATH,DBG_SEVERITY,DBG_COUNT,DBG_COLUMNS };
 
@@ -407,12 +408,60 @@ static void debug_clear(GtkButton *button,gpointer unused) {
    (void)button;(void)unused;
    if(debug_store)gtk_list_store_clear(debug_store);
 }
+static void debug_emit_console(unsigned severity,const char *text) {
+   rr_script_diagnostic_t diagnostic={.version=RR_SCRIPT_DIAGNOSTIC_VERSION,
+      .severity=severity};
+   g_strlcpy(diagnostic.path,"<console>",sizeof(diagnostic.path));
+   g_strlcpy(diagnostic.handler,"evaluate",sizeof(diagnostic.handler));
+   g_strlcpy(diagnostic.message,text?text:"",sizeof(diagnostic.message));
+   rr_event_message_t event={.name=RR_SCRIPT_DIAGNOSTIC_EVENT,
+      .payload=&diagnostic,.length=sizeof(diagnostic)};
+   debug_record(&event,NULL);
+}
+static void debug_evaluate(GtkWidget *button,gpointer unused) {
+   (void)button;(void)unused;
+   if(!GTK_IS_TEXT_VIEW(debug_input))return;
+   GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(debug_input));
+   GtkTextIter first,last;
+   gchar *source=NULL;
+   if(gtk_text_buffer_get_selection_bounds(buffer,&first,&last))
+      source=gtk_text_buffer_get_text(buffer,&first,&last,FALSE);
+   else {
+      gtk_text_buffer_get_bounds(buffer,&first,&last);
+      source=gtk_text_buffer_get_text(buffer,&first,&last,FALSE);
+   }
+   if(!source || !*g_strstrip(source)){g_free(source);return;}
+   char *preview=g_strdup_printf("> %s",source);
+   debug_emit_console(1,preview);
+   g_free(preview);
+#ifdef RR_HAVE_RUSTYSCRIPT
+   char *value=NULL,*error=NULL;
+   if(rrscript_host_console_eval(rrclient_script_host,source,&value,&error))
+      debug_emit_console(1,value?value:"null");
+   else
+      debug_emit_console(3,error?error:"Console evaluation failed");
+   g_free(value);g_free(error);
+#else
+   debug_emit_console(3,"RustyScript support is not installed");
+#endif
+   g_free(source);
+}
+static gboolean debug_input_key(GtkWidget *widget,GdkEventKey *event,gpointer unused) {
+   (void)widget;(void)unused;
+   if((event->state&GDK_CONTROL_MASK) &&
+      (event->keyval==GDK_KEY_Return||event->keyval==GDK_KEY_KP_Enter)) {
+      debug_evaluate(NULL,NULL);
+      return TRUE;
+   }
+   return FALSE;
+}
 static void debug_close(gpointer unused) {
    (void)unused;
    if(!debug_panel)return;
    RRFloatPanel *panel=debug_panel;
    debug_panel=NULL;
    debug_table=NULL;
+   debug_input=NULL;
    rr_floating_panel_destroy(panel);
 }
 void gtk_scripts_debug_open(void) {
@@ -470,6 +519,30 @@ void gtk_scripts_debug_open(void) {
    gtk_widget_set_size_request(scroll,480,220);
    gtk_container_add(GTK_CONTAINER(scroll),debug_table);
    gtk_box_pack_start(GTK_BOX(body),scroll,TRUE,TRUE,2);
+   GtkWidget *caption=gtk_label_new("RustyScript snippet  ·  Ctrl+Enter to evaluate");
+   gtk_label_set_xalign(GTK_LABEL(caption),0);
+   gtk_box_pack_start(GTK_BOX(body),caption,FALSE,FALSE,2);
+   GtkWidget *editor_scroll=gtk_scrolled_window_new(NULL,NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(editor_scroll),
+      GTK_POLICY_AUTOMATIC,GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_size_request(editor_scroll,-1,105);
+   debug_input=gtk_text_view_new();
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(debug_input),GTK_WRAP_NONE);
+   gtk_text_view_set_monospace(GTK_TEXT_VIEW(debug_input),TRUE);
+   gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(debug_input)),
+      "debug.scripts()", -1);
+   gtk_container_add(GTK_CONTAINER(editor_scroll),debug_input);
+   gtk_box_pack_start(GTK_BOX(body),editor_scroll,FALSE,TRUE,2);
+   GtkWidget *controls=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,5);
+   GtkWidget *hint=gtk_label_new("state.use(\"station\") joins shared state; debug.state(\"script.rrs\", \"key\") inspects loaded scripts");
+   gtk_label_set_line_wrap(GTK_LABEL(hint),TRUE);
+   gtk_label_set_xalign(GTK_LABEL(hint),0);
+   gtk_box_pack_start(GTK_BOX(controls),hint,TRUE,TRUE,2);
+   GtkWidget *evaluate=gtk_button_new_with_label("Evaluate");
+   gtk_box_pack_end(GTK_BOX(controls),evaluate,FALSE,FALSE,2);
+   gtk_box_pack_start(GTK_BOX(body),controls,FALSE,FALSE,2);
+   g_signal_connect(evaluate,"clicked",G_CALLBACK(debug_evaluate),NULL);
+   g_signal_connect(debug_input,"key-press-event",G_CALLBACK(debug_input_key),NULL);
    g_signal_connect(debug_table,"row-activated",G_CALLBACK(debug_row_activated),NULL);
    g_signal_connect(open,"clicked",G_CALLBACK(debug_open_source),NULL);
    g_signal_connect(copy,"clicked",G_CALLBACK(debug_copy),NULL);
