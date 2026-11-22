@@ -102,7 +102,7 @@ char *rrclient_identity_display_name(const char *path) {
 }
 bool rrclient_identity_set_display_name(const char *path,const char *name) {
    if(!path||!name||!g_utf8_validate(name,-1,NULL)||
-      !*name||g_utf8_strlen(name,-1)>80)return false;
+      g_utf8_strlen(name,-1)>80)return false;
    char *base=g_path_get_basename(path);
    bool allowed=strcmp(base,"client-ed25519.pem")!=0;
    g_free(base);
