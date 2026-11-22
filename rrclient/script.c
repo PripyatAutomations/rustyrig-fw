@@ -62,7 +62,7 @@ static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
    const char *nick=rrs_value_string(argv[1]);
    const char *room=rrs_value_string(argv[2]);
    size_t len=strlen(line);
-   if(!len||len>4096||!rr_art_colored(line) || !nick[0] || !room[0])
+   if(!len||len>4096||!nick[0]||!room[0])
       return rrs_boolean(false);
    char *folder=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
    if(g_mkdir_with_parents(folder,0700)<0) {
@@ -76,7 +76,14 @@ static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
    if(!rr_art_sessions)
       rr_art_sessions=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,rr_art_session_free);
    rr_art_session_t *session=g_hash_table_lookup(rr_art_sessions,key);
-   if(!session||now-session->updated_at>15*G_USEC_PER_SEC||session->lines>=100) {
+   bool continuing=session && now-session->updated_at<=15*G_USEC_PER_SEC && session->lines<100;
+   /* A colored line starts an artwork; plain lines may continue it. */
+   if(!rr_art_colored(line) && !continuing) {
+      g_mutex_unlock(&rr_art_lock);
+      g_free(folder);g_free(key);
+      return rrs_boolean(false);
+   }
+   if(!continuing) {
       char *safe_nick=rr_art_slug(nick),*safe_room=rr_art_slug(room);
       GDateTime *date=g_date_time_new_now_local();
       char *stamp=g_date_time_format(date,"%Y%m%d-%H%M%S");
