@@ -513,17 +513,21 @@ static void artwork_line_event(const rr_event_message_t *event, void *unused) {
    line.room[sizeof(line.room)-1]=0;
    line.text[sizeof(line.text)-1]=0;
    size_t n=strlen(line.text);
-   if(!line.playback_id || !line.profile[0] || (line.room[0]!='#' && line.room[0]!='&') ||
+   if(!line.playback_id || !line.profile[0] || !line.room[0] ||
+      !g_ascii_strcasecmp(line.room,"status") || strpbrk(line.room,"\\r\\n ,") ||
       !n || n>RR_ARTWORK_MAX_LINE || strchr(line.text,'\n') || strchr(line.text,'\r'))return;
    rrconn_t *connection=rrclient_connection_find(line.profile);
+   bool channel=line.room[0]=='#' || line.room[0]=='&';
    if(!connection || !connection->authenticated || rrclient_connection_state(line.profile)!=1 ||
-      !rrclient_room_is_joined(line.room) || rrclient_room_offline(line.room))return;
+      (channel ? !rrclient_room_is_joined(line.room) :
+                 !rrclient_window_find_for_connection(connection,line.room)) ||
+      rrclient_room_offline(line.room))return;
    dict *message=dict_new();
    if(!message)return;
    dict_add(message,"msg.type","talk");
    dict_add(message,"talk.cmd","msg");
    dict_add(message,"talk.target",line.room);
-   dict_add(message,"talk.msg_type","pub");
+   dict_add(message,"talk.msg_type",channel?"pub":"priv");
    dict_add(message,"talk.data",line.text);
    if(!chat_send_paced(connection,message,!connection->is_ws,line.playback_id,CLAMP(line.interval_ms,100u,10000u)))
       dict_free(message);
