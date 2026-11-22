@@ -12,6 +12,9 @@ typedef bool (*rrscript_host_register_fn)(rrs_vm_t *vm);
 rrscript_host_t *rrscript_host_open(const char *directory, bool client,
                                    rrscript_host_register_fn register_host);
 void rrscript_host_close(rrscript_host_t *host);
+/* Unique generation-scoped script ID; never a VM or toolkit pointer. The
+ * caller receives a copied token, or false when the VM is not active. */
+bool rrscript_host_vm_owner(rrs_vm_t *vm, char owner[32]);
 /* Names are .rrs filenames at the script root, or autoload/name.rrs.
  * No absolute paths or traversal. These functions must run in the host's
  * script execution context, not concurrently with callback delivery. */

@@ -128,6 +128,7 @@ gtk_module_objs += gtk/gtk.clock.o # Amber VFD-style local/UTC floating clock
 gtk_module_objs += gtk/gtk.core.o            # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.local-browser.o # Reusable local file manager with injectable toolbars
 gtk_module_objs += gtk/gtk.scripts.o # Client RustyScript manager
+gtk_module_objs += gtk/gtk.script-gui.o # GTK renderer for toolkit-neutral script controls
 gtk_module_objs += gtk/gtk.files.o
 gtk_module_objs += gtk/gtk.recordings.o # Client recording browser
 gtk_module_objs += gtk/gtk.recording-player.o # Waveform player and transport controls

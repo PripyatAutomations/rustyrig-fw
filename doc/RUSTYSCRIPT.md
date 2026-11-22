@@ -8,6 +8,10 @@ time. Without the development package, they build without script support.
 Install the current librustyaxe source tree with `make install`, or build
 the `librustyscript0` and `librustyscript-dev` Debian packages first.
 
+For script-defined dialogs, floating panels, controls and portable event bindings,
+see [RustyScript UI model](RUSTYSCRIPT-UI.md). The API describes logical
+controls so future TUI and third-party native frontends can implement it.
+
 ## Source and build separation
 
 RustyScript has separate application host implementations:

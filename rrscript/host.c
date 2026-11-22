@@ -1,6 +1,7 @@
 /* RustyScript core host adapter. No GTK or server database access.
  * SPDX-License-Identifier: GPL-2.0-only */
 #include <rrscript/host.h>
+#include <rrclient/script.gui.h>
 #include <librustyscript/runtime.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
@@ -22,6 +23,8 @@ struct script_file {
    rrs_vm_t *vm;
    char *filename;
    char *name;
+   bool client;
+   char gui_owner[32];
    GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
 };
@@ -31,6 +34,18 @@ struct rrscript_host {
    char *root;
    rrscript_host_register_fn register_host;
 };
+/* Script identities are generation-scoped, opaque and independent of memory
+ * addresses. No native frontend receives a VM or a GTK pointer. */
+static GHashTable *script_vm_owners;
+static GMutex script_vm_owners_mutex;
+static guint64 next_gui_owner;
+bool rrscript_host_vm_owner(rrs_vm_t *vm, char owner[32]) {
+   g_mutex_lock(&script_vm_owners_mutex);
+   script_file_t *script=script_vm_owners ? g_hash_table_lookup(script_vm_owners,vm) : NULL;
+   if(script)g_strlcpy(owner,script->gui_owner,32);
+   g_mutex_unlock(&script_vm_owners_mutex);
+   return script!=NULL;
+}
 /* Runtime callback userdata is void*, so use writable-lifetime labels. */
 static char script_log_info[] = "info";
 static char script_log_warn[] = "warn";
@@ -94,6 +109,16 @@ static void event_received(const char *name,const char *payload,
    (void)connection;
    event_subscription_t *sub=user;
    dict *parsed=payload?json2dict(payload):NULL;
+   /* Script-generated GUI events are visible only to their owning VM.
+    * Cross-script subscriptions must not observe another script's widgets. */
+   if(!strncmp(name,"gui.",4) || !strncmp(name,"ui.",3)) {
+      char owner[32];
+      g_snprintf(owner,sizeof(owner),"%p",(void *)sub->owner->vm);
+      if(!parsed || g_strcmp0(dict_get(parsed,"owner",""),owner)) {
+         if(parsed)dict_free(parsed);
+         return;
+      }
+   }
    rrs_value_t *ev=parsed?from_dict(parsed):rrs_dictionary();
    if(parsed)dict_free(parsed);
    if(!ev)return;
@@ -114,6 +139,16 @@ static void event_received(const char *name,const char *payload,
 }
 static void release_script(gpointer data) {
    script_file_t *script=data;
+   /* On unload/reload, retire all widgets this VM created. Opaque lifetime
+    * token is used only for routing, never exposed as a script-side pointer. */
+   if(script->gui_owner[0]) {
+      rr_script_gui_command_t command={.version=RR_SCRIPT_GUI_PROTOCOL_VERSION,.action=RR_GUI_RELEASE};
+      g_strlcpy(command.owner,script->gui_owner,sizeof(command.owner));
+      rr_event_message_t message={
+         .name=RR_SCRIPT_GUI_COMMAND,.payload=&command,.length=sizeof(command)
+      };
+      event_emit_message(&message);
+   }
    event_subscription_t *sub=script->subscriptions;
    while(sub) {
       event_subscription_t *next=sub->next;
@@ -122,6 +157,12 @@ static void release_script(gpointer data) {
       g_free(sub);
       sub=next;
    }
+   g_mutex_lock(&script_vm_owners_mutex);
+   if(script_vm_owners && script->vm) {
+      g_hash_table_remove(script_vm_owners,script->vm);
+      if(!g_hash_table_size(script_vm_owners))g_clear_pointer(&script_vm_owners,g_hash_table_destroy);
+   }
+   g_mutex_unlock(&script_vm_owners_mutex);
    rrs_vm_free(script->vm);
    g_rec_mutex_clear(&script->mutex);
    g_free(script->filename);
@@ -137,7 +178,7 @@ static bool install_event(script_file_t *script,const rrscript_binding_t *b) {
    event_subscription_t *sub=g_new0(event_subscription_t,1);
    sub->owner=script;sub->name=g_strndup(b->name,b->name_length);
    if(!sub->name){g_free(sub);return false;}
-   sub->token=event_on_token(sub->name,event_received,sub);
+   sub->token=script->client ? event_on_domain_token(sub->name,event_received,sub,"core") : event_on_token(sub->name,event_received,sub);
    if(!sub->token){g_free(sub->name);g_free(sub);return false;}
    sub->next=script->subscriptions;
    script->subscriptions=sub;
@@ -213,7 +254,7 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
       g_free(source);g_free(path);g_free(relative);return false;
    }
    script_file_t *script=g_new0(script_file_t,1);
-   script->filename=path;script->name=relative;
+   script->filename=path;script->name=relative;script->client=host->client;
    g_rec_mutex_init(&script->mutex);
    script->vm=rrs_vm_new();
    if(!script->vm||!rrs_vm_load(script->vm,source)) {
@@ -221,6 +262,11 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
       g_free(source);release_script(script);return false;
    }
    g_free(source);
+   g_mutex_lock(&script_vm_owners_mutex);
+   if(!script_vm_owners)script_vm_owners=g_hash_table_new(g_direct_hash,g_direct_equal);
+   g_snprintf(script->gui_owner,sizeof(script->gui_owner),"s%016llx",(unsigned long long)++next_gui_owner);
+   g_hash_table_insert(script_vm_owners,script->vm,script);
+   g_mutex_unlock(&script_vm_owners_mutex);
    if(!rrs_vm_register_native(script->vm,"log.info",native_log,script_log_info) ||
       !rrs_vm_register_native(script->vm,"log.warn",native_log,script_log_warn) ||
       (host->register_host && !host->register_host(script->vm))) {

@@ -35,6 +35,8 @@
 #include <rrclient/vfo.snapshot.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
+extern void gtk_script_gui_init(void);
+extern void gtk_script_gui_shutdown(void);
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.decoders.h>
 #include "gtk.kiwi-panel.h"
@@ -1424,6 +1426,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       return true;              // gui_init failed; module loader will unload us
    }
    gtk_clock_init();
+   gtk_script_gui_init();
    gtk_audio_routing_init();
    gtk_receiver_directory_init();
    gtk_connecting_init();
@@ -1906,7 +1909,10 @@ static bool gtk_script_panel_opacity(const char *id,int percent) {
    return rr_floating_panel_opacity_named(id,percent) != FALSE;
 }
 
+static bool gtk_script_gui_available(void) { return TRUE; }
+
 const rr_frontend_ops_t gtk_frontend_ops = {
+   .script_gui_available = gtk_script_gui_available,
    .panel_find = gtk_script_panel_find,
    .panel_move = gtk_script_panel_move,
    .panel_zoom = gtk_script_panel_zoom,
@@ -1975,6 +1981,7 @@ void gtk_frontend_stop(void) {
    gtk_recording_player_shutdown();
    gtk_recordings_shutdown();
    extern void gtk_scripts_shutdown(void);
+   gtk_script_gui_shutdown();
    gtk_scripts_shutdown();
    gtk_files_shutdown();
    gtk_file_editor_shutdown();
