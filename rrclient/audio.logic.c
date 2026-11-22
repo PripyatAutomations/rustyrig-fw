@@ -38,6 +38,28 @@ bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
    return true;
 }
 
+bool rr_gate_evaluate_wires(rr_gate_kind_t kind, unsigned inputs,
+                            const rr_gate_wire_t *wires, size_t wire_count,
+                            bool *output) {
+   if (!output) return false;
+   *output=false;
+   if (kind > RR_GATE_NOR || (kind == RR_GATE_NOT ? inputs != 1 :
+       inputs < 2 || inputs > 32) || (wire_count && !wires))
+      return false;
+   rr_gate_state_t gate = {.kind=kind, .inputs=inputs};
+   /* Any stale connected source invalidates the entire gate, even when a
+    * different source has already asserted the same pin. Otherwise NOT,
+    * NOR or NAND could assert on an incomplete input snapshot. */
+   for (size_t i=0; i<wire_count; ++i) {
+      if (wires[i].pin >= inputs || !wires[i].valid)
+         return false;
+      const unsigned bit=1u<<wires[i].pin;
+      gate.present |= bit;
+      if (wires[i].high) gate.high |= bit;
+   }
+   return rr_gate_evaluate(&gate,output);
+}
+
 bool rr_logic_constant(bool high) {
    return high;
 }
