@@ -541,7 +541,15 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
       r->grid = entry_field(json, prefix, "grid");
       r->users = CLAMP(entry_integer(json, prefix, "users", 0), 0, INT_MAX);
       r->users_max = CLAMP(entry_integer(json, prefix, "users_max", 0), 0, INT_MAX);
-      r->ext_api = CLAMP(entry_integer(json, prefix, "ext_api", -1), -1, INT_MAX);
+      /* API opt-in is provider policy, not a display field: reject a
+       * quoted number instead of silently coercing untrusted JSON text. */
+      char ext_api_key[128];
+      entry_key(ext_api_key, prefix, "ext_api");
+      val_type_t api_type = dict_get_type(json, ext_api_key);
+      bool numeric_api = api_type == VAL_INT || api_type == VAL_UINT ||
+         api_type == VAL_LONG || api_type == VAL_ULONG ||
+         api_type == VAL_LLONG || api_type == VAL_ULLONG;
+      r->ext_api = numeric_api ? CLAMP(entry_integer(json, prefix, "ext_api", -1), -1, INT_MAX) : -1;
       r->offline = entry_flag(json, prefix, "offline");
       r->flagged = entry_flag(json, prefix, "flagged");
       long long low = entry_integer(json, prefix, "bands[0]", -1), high = entry_integer(json, prefix, "bands[1]", -1);
