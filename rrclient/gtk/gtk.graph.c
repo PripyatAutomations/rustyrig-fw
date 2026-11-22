@@ -48,6 +48,7 @@ void rr_gtk_graph_shape_path(cairo_t *cr, rr_gtk_graph_shape_t shape,
       case RR_GTK_GRAPH_SHAPE_OR:
       case RR_GTK_GRAPH_SHAPE_NOR:
       case RR_GTK_GRAPH_SHAPE_XOR:
+      case RR_GTK_GRAPH_SHAPE_XNOR:
          cairo_move_to(cr,x+width*.23,t);
          cairo_curve_to(cr,x+width*.55,t,x+width*.74,y+height*.22,x+width*.86,m);
          cairo_curve_to(cr,x+width*.74,y+height*.78,x+width*.55,b,x+width*.23,b);
@@ -71,14 +72,14 @@ void rr_gtk_graph_shape_path(cairo_t *cr, rr_gtk_graph_shape_t shape,
  * Keep them inside the normal cell for clipping and selection. */
 static void graph_shape_decoration(cairo_t *cr, rr_gtk_graph_shape_t shape,
                                    double x, double y, double w, double h) {
-   if (shape == RR_GTK_GRAPH_SHAPE_XOR) {
+   if (shape == RR_GTK_GRAPH_SHAPE_XOR || shape == RR_GTK_GRAPH_SHAPE_XNOR) {
       cairo_new_path(cr);
       cairo_move_to(cr,x+w*.17,y+h*.10);
       cairo_curve_to(cr,x+w*.37,y+h*.50,x+w*.37,y+h*.50,x+w*.17,y+h*.90);
       cairo_stroke(cr);
    }
    if (shape == RR_GTK_GRAPH_SHAPE_NAND || shape == RR_GTK_GRAPH_SHAPE_NOR ||
-       shape == RR_GTK_GRAPH_SHAPE_NOT) {
+       shape == RR_GTK_GRAPH_SHAPE_NOT || shape == RR_GTK_GRAPH_SHAPE_XNOR) {
       double bx = shape == RR_GTK_GRAPH_SHAPE_NOT ? x+w*.84 :
                   shape == RR_GTK_GRAPH_SHAPE_NAND ? x+w*.78 : x+w*.90;
       cairo_new_path(cr);
