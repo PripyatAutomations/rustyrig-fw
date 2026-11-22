@@ -1,0 +1,11 @@
+// Save colorized IRC artwork automatically. The native art.capture helper
+// groups colored lines from one nick/room received within 15 seconds.
+// Files preserve raw mIRC \003 and RGB \004 control sequences.
+// Archive: $XDG_DATA_HOME/rustyrig/artwork/*.ircart
+//
+// Copy to ~/.config/rustyrig/scripts/autoload/ascii-art.rrs or load with
+// /script load ascii-art.rrs from the scripts root.
+
+event irc.privmsg {
+    art.capture(event.text, event.nick, event.room)
+}
