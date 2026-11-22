@@ -40,7 +40,7 @@
 #include <rrserver/database.h>
 #ifdef RR_HAVE_RUSTYSCRIPT
 #include <rrscript/host.h>
-static rrscript_host_t *rrserver_script_host;
+rrscript_host_t *rrserver_script_host;
 #endif
 #include <rrserver/files.h>
 #include <rrserver/backend.h>
