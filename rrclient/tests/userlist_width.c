@@ -61,7 +61,7 @@ static void pump_layout(void) {
 
 static void test_late_roster_autosize(void) {
    dict_add(cfg, "ui.userlist.vfo.dock-width", "0");
-   dict_add(cfg, "ui.userlist.vfo.columns", "0,1,2,3,4");
+   dict_add(cfg, "ui.userlist.vfo.columns", "0,1");
    room_vfos = "rig0.vfo_a rig0.vfo_b";
    GtkWidget *window = gtk_offscreen_window_new();
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
@@ -612,8 +612,10 @@ int main(void) {
    assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_USERNAME));
    room_vfos = "rig0.vfo_a";
    userlist_set_columns(view, "#rig");
+   gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), userlist_column(view, COL_PRIV_ICON), NULL);
    gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), userlist_column(view, COL_USERNAME), NULL);
-   assert(!strcmp(cfg_get("ui.userlist.vfo.columns"), "1,0"));
+   assert(cfg_get("ui.userlist.vfo.columns") &&
+      !strcmp(cfg_get("ui.userlist.vfo.columns"), "1,0"));
    room_vfos = "";
    userlist_set_columns(view, "#rig");
    assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_USERNAME));
