@@ -205,7 +205,7 @@ CFLAGS_RRCLI += -DRR_HAVE_RUSTYSCRIPT $(shell pkg-config --cflags librustyscript
 RRCLIENT_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
 ${BUILD_DIR}/rrclient/scripting.host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS_RRCLI) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+	@$(CC) $(CFLAGS_RRCLI) -DRRSCRIPT_CLIENT_HOST $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
 endif
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
