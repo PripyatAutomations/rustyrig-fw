@@ -62,6 +62,19 @@ int main(void) {
    assert(!rr_audio_graph_add_channel_link(g,"modem1.tx","ordinary.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
    assert(rr_audio_graph_link_count(g)==5);
    rr_audio_graph_free(g);
+   /* LV2 slot IDs are not an execution order. The graph must accept
+    * an effect output feeding a lower-numbered slot, provided all nodes
+    * have been registered before connecting their edges. */
+   g=rr_audio_graph_new();
+   assert(g);
+   assert(rr_audio_graph_add_node(g,"proc.lv2.1",RR_AG_PROCESSOR));
+   assert(rr_audio_graph_add_node(g,"proc.lv2.4",RR_AG_PROCESSOR));
+   assert(rr_audio_graph_add_node(g,"rx.mix",RR_AG_MIXER));
+   assert(rr_audio_graph_add_channel_link(g,"proc.lv2.4","proc.lv2.1",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_add_channel_link(g,"proc.lv2.1","rx.mix",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(!rr_audio_graph_add_channel_link(g,"proc.lv2.1","proc.lv2.4",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_link_count(g)==2);
+   rr_audio_graph_free(g);
    puts("audio graph bypass and direct modem TX routing passed");
 
    return 0;
