@@ -1759,6 +1759,25 @@ static void panel_menu_action(GtkButton *button, gpointer data) {
    }
 }
 
+/* GtkPopover registration belongs to the GtkWindow containing its anchor.
+ * A panel can move between the overlay and multiple chat docks.  Attach
+ * only once the menu button is mapped into its current window, and detach
+ * before GTK unmaps/reparents that button.  Hold our own reference so
+ * detaching never destroys the settings contents. */
+static void panel_menu_button_map(GtkWidget *button, gpointer data) {
+   RRFloatPanel *p = data;
+   if (p->menu && GTK_IS_WINDOW(gtk_widget_get_toplevel(button)))
+      gtk_menu_button_set_popover(GTK_MENU_BUTTON(button), p->menu);
+}
+
+static void panel_menu_button_unmap(GtkWidget *button, gpointer data) {
+   RRFloatPanel *p = data;
+   if (p->menu && gtk_menu_button_get_popover(GTK_MENU_BUTTON(button))) {
+      gtk_popover_popdown(GTK_POPOVER(p->menu));
+      gtk_menu_button_set_popover(GTK_MENU_BUTTON(button), NULL);
+   }
+}
+
 static void panel_menu_add_action(RRFloatPanel *p, GtkWidget *box, const char *label, const char *action) {
    GtkWidget *button = gtk_button_new_with_label(label);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
@@ -2352,12 +2371,11 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_end(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
-   /* GtkMenuButton attaches its popover to itself. Construct it unattached:
-    * passing menu_button to gtk_popover_new() first establishes another
-    * ownership/registration path before GtkMenuButton takes control, which
-    * can leave the GTK toplevel's popover registry out of sync. */
-   p->menu = gtk_popover_new(NULL);
-   gtk_menu_button_set_popover(GTK_MENU_BUTTON(menu_button), p->menu);
+   /* Keep settings alive across dock/undock; the map/unmap handlers
+    * attach the popover to the button only within a valid toplevel. */
+   p->menu = g_object_ref_sink(gtk_popover_new(NULL));
+   g_signal_connect(menu_button, "map", G_CALLBACK(panel_menu_button_map), p);
+   g_signal_connect(menu_button, "unmap", G_CALLBACK(panel_menu_button_unmap), p);
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
    gtk_container_add(GTK_CONTAINER(p->menu), settings);
@@ -2808,6 +2826,13 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
       if (docked) {
          dock_hide_if_empty(parent);
       }
+   }
+   /* The settings popover has one owner reference independent of the menu
+    * button, allowing safe detach/reattach throughout the panel's lifetime. */
+   if (p->menu) {
+      gtk_widget_destroy(p->menu);
+      g_object_unref(p->menu);
+      p->menu = NULL;
    }
    g_clear_object(&p->scale_css);
    g_free(p->chat_room);
