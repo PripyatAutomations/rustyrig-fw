@@ -44,6 +44,7 @@ typedef struct {
    double drag_x, drag_y;
    GtkWidget *window;
    GtkWidget *pipeline_combo;
+   gulong pipeline_combo_changed_id;
    GtkWidget *factory_view;
    GtkWidget *factory_search;
    GtkWidget *canvas;
@@ -313,7 +314,8 @@ static void refresh_pipeline_combo(editor_t *editor) {
    GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(editor->pipeline_combo);
    /* A rebuild must not be interpreted as selecting another pipeline or
     * trigger property flushes against the wrong entry. */
-   g_signal_handlers_block_by_func(combo, G_CALLBACK(pipeline_selected), editor);
+   if (editor->pipeline_combo_changed_id)
+       g_signal_handler_block(combo, editor->pipeline_combo_changed_id);
    gtk_combo_box_text_remove_all(combo);
 
    GArray *order = g_array_sized_new(FALSE, FALSE, sizeof(guint), editor->pipelines->len);
@@ -336,7 +338,8 @@ static void refresh_pipeline_combo(editor_t *editor) {
       }
       pipeline_combo_select(editor, editor->selected_pipeline);
    }
-   g_signal_handlers_unblock_by_func(combo, G_CALLBACK(pipeline_selected), editor);
+   if (editor->pipeline_combo_changed_id)
+       g_signal_handler_unblock(combo, editor->pipeline_combo_changed_id);
 }
 
 static void pipeline_selected(GtkComboBox *combo, gpointer data) {
@@ -1171,7 +1174,7 @@ static GtkWidget *build_work_area(editor_t *editor) {
    editor->property_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    gtk_container_add(GTK_CONTAINER(properties_scroll), editor->property_box);
    gtk_box_pack_start(GTK_BOX(box), properties_scroll, FALSE, TRUE, 0);
-   g_signal_connect(editor->pipeline_combo, "changed", G_CALLBACK(pipeline_selected), editor);
+   editor->pipeline_combo_changed_id = g_signal_connect(editor->pipeline_combo, "changed", G_CALLBACK(pipeline_selected), editor);
 
    return box;
 }
