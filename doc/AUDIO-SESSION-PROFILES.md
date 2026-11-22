@@ -146,6 +146,8 @@ Future control graph implementation:
 
 ### Numeric threshold / comparator block
 
+![THRESHOLD block with TRUE wired to INVERT](THRESHOLD-INVERT.svg)
+
 A generic **THRESHOLD** control block compares numeric values and emits one
 boolean signal on the red control layer, suitable for keying any boolean
 consumer (subject to final sink authorization), triggering a gate, alarm, COS,
@@ -168,6 +170,12 @@ squelch or other signal logic.
   Wired numeric inputs override the properties; values must be finite.
 - The optional boolean `SIGNAL` input enables the comparator. Unwired
   means enabled; connected and low means disabled.
+- **Wiring shortcut, not a requirement:** `INVERT` accepts an external live
+  boolean just like any other control input. Alternatively, connect this
+  block's own constant `TRUE` output to its `INVERT` input for permanent
+  inversion without inserting an external TRUE/FALSE block. Disconnect
+  that wire to return to the normal comparison (assuming the invert
+  property is off). This is a user wiring choice, not an automatic link.
 - The red `INVERT` input defaults to FALSE when unwired. Connecting the
   block's own always-TRUE red output to INVERT turns it into an outside-range
   comparator. INVERT can also come from another boolean source for dynamic
