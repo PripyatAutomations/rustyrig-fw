@@ -4992,12 +4992,12 @@ static void routing_effect_draw(cairo_t *cr) {
          cairo_text_extents_t ext;
          cairo_text_extents(cr, text, &ext);
 
-         /* Green control labels are vertical on both edges of standalone PCM processors. A local background mask makes the labels readable above the
+         /* Green control-pin labels face left on both edges of standalone PCM processors. A local background mask makes the labels readable above the
           * independently drawn control-wire overlay. */
          if (b->standalone) {
             cairo_save(cr);
             cairo_translate(cr, px, py + (top ? -14. : 15.));
-            cairo_rotate(cr, top ? -G_PI / 2. : G_PI / 2.);
+            cairo_rotate(cr, -G_PI / 2.);
             cairo_set_font_size(cr, 10.);
             cairo_text_extents(cr, text, &ext);
             double tx = -ext.x_bearing;
