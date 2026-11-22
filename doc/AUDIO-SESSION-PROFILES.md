@@ -112,6 +112,65 @@ Use the `librustyaxe` bus with stable logical widget IDs, per-instance IDs and c
 - [ ] Test no-profile startup, multi-monitor layout, reconnect, profile switch during active effects, script unload, and invalid/missing files.
 - [ ] Add UI integration tests and `make test` regression coverage.
 
+## General-purpose boolean control layer (red pins)
+
+PTT is **not** a special wire type. It is an ordinary boolean control value on
+the red signal layer, just like another on/off source. An AND/OR/NOT/XOR/NAND/NOR
+block reads boolean inputs and emits a boolean output; the same gate can be
+used for PTT, squelch logic, manual conditions, or other digital controls.
+A transmitter's PTT **sink**, not the signal or its gate, enforces authorization,
+hardware interlocks, watchdog release and failsafe shutdown.
+
+Initial implementation includes `rr_gate_evaluate()`, an independent,
+GTK-free truth-table evaluator, its header and a `make test` shell harness.
+Inputs have separate `present` and `high` masks; disconnected/stale inputs
+force the output **low** and report no valid result. This avoids accidentally
+treating an unknown input as false and asserting NAND/NOR/NOT into a transmitter.
+
+Future control graph implementation:
+
+- [ ] Add generic red boolean SOURCE/GATE/SINK nodes and typed input/output
+      pins; no PTT-specific edges or conversion logic.
+- [ ] Add right-click **Add Gate** and **Properties** with selectable
+      AND/OR/XOR/NOT/NAND/NOR type and input count (NOT=1; others >=2).
+- [ ] Route boolean values and source validity independently of audio PCM
+      frames. Add edge update scheduling, topological ordering, and cycle
+      detection; no unbounded feedback or synchronous GTK mutation.
+- [ ] Propagate unknown/stale/failed state with fail-closed behavior.
+- [ ] Bind physical PTT as an ordinary boolean **source** or **sink** through
+      an adapter, keeping TX permissions/interlocks at the physical sink.
+- [ ] Ensure changing gate type/inputs recomputes outputs and clears
+      asserted state before reconnecting.
+- [ ] Test every truth table, disconnect/late updates, cycles, loss of
+      source, and disconnect-on-shutdown with PTT asserted.
+
+## Audio rate and block properties
+
+Current fwdsp already supports explicit 44.1/48 kHz capture/playback devices,
+generic resampler workers and a 44.1/48 kHz bidirectional processor PCM
+contract. The remaining issue is *rrclient's microphone capture callback*,
+which receives 16 kHz mono PCM, and the LV2 pipelines built with hardcoded
+16 kHz caps. Do not invent a second IPC transport or label 16 kHz packets
+as 48 kHz. Use the configured capture sample rate for the HQ path; keep
+it unchanged throughout compatible LV2 stages; insert a visible
+resampler/downmix only at the downstream 16 kHz bus.
+
+Proposed right-click **Properties** per audio block: input/output rate
+(default *Follow upstream*), channels, sample format, buffering and
+displayed actual negotiated values; dropdown from supported rates and
+manual entry when valid. An explicit "Resampler" utility block bridges
+rate domains; other utility blocks may provide channel conversion,
+split/join, gain and meter/monitor taps.
+
+When changing a block's rate or channel configuration, offer a dialog with
+**Disconnect incompatible audio wires** (safe default) and
+**Preserve connections and adapt neighbors** (preview converter insertion/
+compatible neighbor retuning). Never modify boolean/control/serial wires
+when changing only an audio format. Apply changes transactionally on the
+core domain: validate/preview, prepare workers, switch, or roll back if
+conversion or worker creation fails. PTT output must fail low when a control
+graph connection is invalidated.
+
 ## References
 
 - [Existing LV2 worker design](audio-processors.md)
