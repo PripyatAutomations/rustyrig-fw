@@ -2043,8 +2043,21 @@ static void panel_dock_drop_at(RRFloatPanel *p, RRChatDocks *d, gint edge,
    if (win) {
       gdk_window_get_origin(win, &ox, &oy);
    }
-   if (!win || !gtk_widget_translate_coordinates(slot, top, 0, 0, &sx, &sy)) {
+   if (!win) {
       return;
+   }
+   if (!gtk_widget_translate_coordinates(slot, top, 0, 0, &sx, &sy)) {
+      /* The target slot may be unmapped when its dock is collapsed.
+       * The visible region still provides a reliable destination origin. */
+      GtkWidget *region = d->region[edge];
+      if (!gtk_widget_translate_coordinates(region, top, 0, 0, &sx, &sy)) {
+         return;
+      }
+      if (edge == RR_DOCK_RIGHT) {
+         sx += gtk_widget_get_allocated_width(d->line[edge]);
+      } else if (edge == RR_DOCK_BOTTOM) {
+         sy += gtk_widget_get_allocated_height(d->line[edge]);
+      }
    }
    p->dock_x = MAX(0, root_x - ox - sx - p->grab_x);
    p->dock_y = MAX(0, root_y - oy - sy - p->grab_y);
