@@ -600,6 +600,34 @@ bool cmd_admin_query(int argc, char **args) {
       --argc;
    }
 
+   /* Server scripts are administered through /admin, never /script.
+    * The server validates admin|owner and only opens preexisting local files. */
+   if (argc>=2 && argv[1] && !strncmp(argv[1],"script-",7)) {
+      const char *action=argv[1]+7;
+      bool listing=!strcmp(action,"list");
+      if ((!listing && strcmp(action,"load") && strcmp(action,"unload") &&
+           strcmp(action,"reload")) || argc!=(listing?2:3)) {
+         ui_print(ui_active_window_name(),
+                  "Usage: /admin script-list | script-load|script-unload|script-reload name.rrs");
+         return true;
+      }
+      rrconn_t *connection=rrclient_active_connection();
+      if (!connection || !connection->is_ws || !connection->authenticated) {
+         ui_print(ui_active_window_name(),"Server script management requires an authenticated RustyRig connection");
+         return true;
+      }
+      dict *request=dict_new();
+      if (!request)return true;
+      dict_add(request,"msg.type","talk");
+      dict_add(request,"talk.cmd","admin");
+      dict_add(request,"talk.action",argv[1]);
+      if (server)dict_add(request,"talk.server",server);
+      if (!listing)dict_add(request,"talk.target",argv[2]);
+      bool sent=ws_send_dict(NULL,connection,request,WEBSOCKET_OP_TEXT);
+      dict_free(request);
+      return !sent;
+   }
+
    /* Scoped direct grants use a principal instead of a local account UID. */
    if (argc >= 2 && argv[1] && (!strcmp(argv[1], "resource-grant") || !strcmp(argv[1], "resource-revoke"))) {
       if (argc < 6) {
