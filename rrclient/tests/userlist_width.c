@@ -480,54 +480,30 @@ int main(void) {
    ws_conn = &selected_websocket;   /* The active server differs from this room roster. */
    GtkWidget *view = userlist_view_create();
    userlist_set_columns(view, "#rig");
-   /* Privilege glyphs are rendered inline before usernames; the old
-    * standalone Privs column remains only for saved column layouts. */
-   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_PRIV_ICON)));
-   GtkTreeViewColumn *user_col = gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_USERNAME);
+   /* Privilege, TX, mute and role status share a compact Flags column. */
+   assert(gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) == 2);
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_PRIV_ICON)));
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_USERNAME)));
+   assert(!strcmp(gtk_tree_view_column_get_title(userlist_column(view, COL_PRIV_ICON)), "Flags"));
+   assert(!strcmp(gtk_tree_view_column_get_title(userlist_column(view, COL_USERNAME)), "Username"));
+   GtkTreeViewColumn *user_col = userlist_column(view, COL_USERNAME);
    GList *user_cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(user_col));
-   assert(g_list_length(user_cells) >= 2);
+   assert(g_list_length(user_cells) == 1);
    g_list_free(user_cells);
-
-   for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
-      assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
-   }
-
    room_vfos = "rig0.vfo_a";
    userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
-   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON)));
-   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_ELMERNOOB_ICON)));
    irc_process_message(&client, ":server 005 tester RUSTYRIG :supported");
    userlist_set_columns(view, "#rig");
-
-   for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
-      assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
-   }
-
    irc_process_message(&client, ":server 005 tester -RUSTYRIG :supported");
-   userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
    client.is_ws = true;
-   userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
-   room_vfos = "";
-   userlist_set_columns(view, "#rig");
-   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
-   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON)));
-   /* Rig JOIN metadata must expose radio columns before bindings arrive. */
    room_tx_control = true;
-   userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
-   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_MUTE_ICON)));
-   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_ELMERNOOB_ICON)));
-   room_tx_control = false;
    room_vfo_mask = 3;
    userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
-   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_MUTE_ICON)));
+   assert(gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) == 2);
+   room_vfos = "";
+   room_tx_control = false;
    room_vfo_mask = 0;
    userlist_set_columns(view, "#rig");
-   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
    irc_capabilities_clear(&client);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
@@ -620,29 +596,27 @@ int main(void) {
       assert(x >= 0 && x + gtk_widget_get_allocated_width(buttons[i]) <= gtk_widget_get_allocated_width(panel));
    }
 
-   /* A message from another server must not change this roster's columns. */
+   /* Transport/room capabilities change status glyphs, never columns. */
    room_vfos = "rig0.vfo_a";
    client.is_ws = true;
    ws_conn = &selected_websocket;
    userlist_redraw_view(view, "#rig");
-   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   assert(gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) == 2);
    ws_conn = &client;
    userlist_redraw_view(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_PRIV_ICON)));
    room_vfos = "";
    cfg = dict_new();
-   dict_add(cfg, "ui.userlist.room.columns", "4,1,0,3,2");
+   dict_add(cfg, "ui.userlist.room.columns", "1,0");
    userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_ELMERNOOB_ICON));
-   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_USERNAME));
    room_vfos = "rig0.vfo_a";
    userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
    gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), userlist_column(view, COL_USERNAME), NULL);
-   assert(!strcmp(cfg_get("ui.userlist.vfo.columns"), "1,4,0,3,2"));
+   assert(!strcmp(cfg_get("ui.userlist.vfo.columns"), "1,0"));
    room_vfos = "";
    userlist_set_columns(view, "#rig");
-   assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_ELMERNOOB_ICON));
+   assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_USERNAME));
    gtk_widget_destroy(window);
    test_late_roster_autosize();
    test_side_panel_roster_fits();
