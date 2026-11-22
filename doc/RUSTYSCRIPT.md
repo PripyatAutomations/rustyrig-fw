@@ -357,6 +357,11 @@ script("/counter", {
 });
 ```
 
+A ready-to-load [functions and references example](examples/scripts/functions.rrs)
+demonstrates copy assignment, reference binding, const parameters, and
+memory accounting. Load it with `/script load functions.rrs` and invoke
+`/references`.
+
 Top-level functions are available to all handlers in the same script VM.
 Assignments with `=` copy values; `:=` binds an alias; writing `=` through
 a reference updates its shared target. Function return values are copied,
