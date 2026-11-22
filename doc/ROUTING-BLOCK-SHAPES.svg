@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 430" width="900" height="430" role="img" aria-labelledby="title desc">
+<title id="title">RustyRig audio routing graph silhouette library</title>
+<desc id="desc">Standard logic gate shapes with red boolean pins, hexagonal threshold comparator with blue numeric pins and red boolean pins, and chamfered utility blocks.</desc>
+<defs><style>
+text{font-family:DejaVu Sans,Arial,sans-serif;fill:#e8edf5}
+.back{fill:#17212d}.shape{fill:#263748;stroke:#9fbed8;stroke-width:2.5}
+.bool{stroke:#f05e67;stroke-width:3;fill:#17212d}.filled{fill:#f05e67}
+.num{stroke:#50bbef;stroke-width:3;fill:#17212d}
+.wire{stroke:#f05e67;stroke-width:2.5;fill:none}
+.name{font-weight:700;font-size:17px}.sub{font-size:12px;fill:#b7c8d9}
+</style></defs>
+<rect class="back" width="900" height="430" rx="18"/>
+<text x="450" y="34" text-anchor="middle" class="name">RustyRig Routing — reusable graph silhouettes</text>
+<g transform="translate(70 65)">
+<path class="shape" d="M15 12 H66 A44 44 0 0 1 66 100 H15 Z"/>
+<circle cx="15" cy="38" r="5" class="bool"/><circle cx="15" cy="75" r="5" class="bool"/>
+<circle cx="110" cy="56" r="5" class="filled"/>
+<text x="60" y="60" text-anchor="middle" font-size="16">AND</text>
+<text x="62" y="132" text-anchor="middle" class="sub">AND / NAND (+bubble)</text>
+</g>
+<g transform="translate(248 65)">
+<path class="shape" d="M20 12 Q77 9 121 56 Q77 103 20 100 Q49 56 20 12 Z"/>
+<circle cx="28" cy="40" r="5" class="bool"/><circle cx="28" cy="73" r="5" class="bool"/>
+<circle cx="121" cy="56" r="5" class="filled"/>
+<text x="72" y="60" text-anchor="middle" font-size="16">OR</text>
+<text x="70" y="132" text-anchor="middle" class="sub">OR / NOR (+bubble)</text>
+</g>
+<g transform="translate(447 65)">
+<path class="shape" d="M30 12 Q86 9 130 56 Q86 103 30 100 Q59 56 30 12 Z"/>
+<path d="M17 12 Q45 56 17 100" fill="none" stroke="#9fbed8" stroke-width="2.5"/>
+<circle cx="38" cy="40" r="5" class="bool"/><circle cx="38" cy="73" r="5" class="bool"/>
+<circle cx="130" cy="56" r="5" class="filled"/>
+<text x="79" y="60" text-anchor="middle" font-size="16">XOR</text>
+<text x="80" y="132" text-anchor="middle" class="sub">XOR</text>
+</g>
+<g transform="translate(666 65)">
+<path class="shape" d="M18 14 L116 56 L18 98 Z"/>
+<circle cx="123" cy="56" r="7" stroke="#9fbed8" stroke-width="2.5" fill="#17212d"/>
+<circle cx="18" cy="56" r="5" class="bool"/><circle cx="143" cy="56" r="5" class="filled"/>
+<text x="59" y="60" font-size="15">NOT</text>
+<text x="80" y="132" text-anchor="middle" class="sub">NOT (inversion bubble)</text>
+</g>
+<g transform="translate(95 251)">
+<path class="shape" d="M38 7 H195 L233 75 L195 142 H38 L0 75 Z"/>
+<text x="116" y="64" text-anchor="middle" class="name">THRESHOLD</text>
+<text x="116" y="88" text-anchor="middle" class="sub">MIN ≤ VALUE ≤ MAX</text>
+<g><circle class="num" cx="0" cy="25" r="5"/><circle class="num" cx="0" cy="45" r="5"/><circle class="num" cx="0" cy="65" r="5"/><circle class="bool" cx="0" cy="96" r="5"/><circle class="bool" cx="0" cy="117" r="5"/></g>
+<circle class="filled" cx="233" cy="42" r="5"/><circle class="filled" cx="233" cy="105" r="5"/>
+<text x="209" y="40" text-anchor="end" class="sub">OUT</text><text x="209" y="110" text-anchor="end" class="sub">TRUE</text>
+</g>
+<g transform="translate(525 259)">
+<path class="shape" d="M39 6 H183 L218 36 V112 L183 142 H39 L5 112 V36 Z"/>
+<text x="112" y="63" text-anchor="middle" class="name">UTILITY</text>
+<text x="112" y="84" text-anchor="middle" class="sub">RESAMPLE</text>
+<text x="112" y="105" text-anchor="middle" class="sub">FORMAT CONVERT</text>
+</g>
+</svg>
