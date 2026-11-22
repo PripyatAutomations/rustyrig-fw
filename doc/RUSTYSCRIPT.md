@@ -206,7 +206,7 @@ arithmetic, `if`/`else` with mandatory braces, equality comparisons and
 registered native calls. `log.info()` and `log.warn()` are initially exposed.
 
 **Not implemented yet:** user function declarations, arrays, strict return
-typing, persistent variables, SQLite script databases, `async`/`await`,
+typing, automatically persisted script variables (distinct from explicit client settings), `async`/`await`,
 `try`/`except`/`success`/`finally`, built-in `exec()` or `subproc`,
 the routing/pipeline/control APIs, workspace restoration, and server invocation of slash-command bindings. These are part of
 the planned language and require additional parser/runtime/host work. Do not
@@ -215,44 +215,53 @@ until invocation.
 
 ## IRC artwork archiver example
 
-The client example `doc/examples/scripts/ascii-art.rrs` subscribes to
-`irc.privmsg` and calls the narrowly scoped `art.capture(text, nick, room)`
-native function. Copy the example into the scripts directory and load it:
+The example `doc/examples/scripts/ascii-art.rrs` demonstrates ordinary user
+automation, with all capture, burst-grouping, filenames, and playback logic
+implemented **in RustyScript**, not hardwired into the client.
+
+Copy it to the scripts directory and load it:
 
 ```text
 /script load ascii-art.rrs
+/artwork
 ```
 
-A valid mIRC indexed-color control (byte `0x03` followed by a decimal
-index) or extended RGB-color control (byte `0x04` followed by six hexadecimal
-digits) starts a captured artwork. Subsequent lines from the same nickname
-and room are retained, including lines without color codes, for up to
-15 seconds between messages; a new file starts after 100 lines. Artworks are
-written as `chan-nick-yyyymmdd-hhmmss.mac` in
-`$XDG_DATA_HOME/rustyrig/artwork/` (normally
-`~/.local/share/rustyrig/artwork/`). The files contain the raw message lines
-and original IRC formatting bytes, separated by newlines, with restrictive
-file permissions. They can therefore be rendered or replayed later without
-losing palette, background or RGB color codes.
+The collector watches `irc.privmsg`. An indexed mIRC color (`0x03` plus
+digits), an extended RGB color (`0x04` plus six hexadecimal digits), or
+Unicode block graphics can start a capture. Subsequent lines from the same
+nick/channel join the current burst. A resettable `timer.after` saves one
+completed artwork after **3.5 seconds of silence**, provided at least two
+lines were collected. Each burst has an 80-line cap. The original formatting
+bytes are retained as `chan-nick-yyyymmdd-hhmmss.mac` under
+`$XDG_DATA_HOME/rustyrig/artwork/`. A small filename suffix is used when
+necessary to avoid overwriting an earlier capture.
 
-The same example declares a **script-owned, floating Artwork / Macros
-panel** (invoke `/artwork`). It uses the shared local file browser and
-RustyRig's IRC/Pango color renderer. Select a `.mac` file, preview the art in
-monospace with indexed or RGB colors, choose a target from currently open
-channel/query tabs and click **Send**. **Stop** cancels unsent lines. **Edit**
-opens the ordinary local editor; **Rename / Move** and **Delete** use the
-user-script file primitives. A checkbox demonstrates optional delete
-confirmation. The spin box accepts **1–10 lines per second**, and its value
-is persisted separately for each server profile and chat target in client.db.
-Playback respects the bounded client chat queue, never auto-replies to
-received art, and captures its destination when it starts.
+The example also declares a floating manager via `ui.utility`. It uses the
+generic `filelist` widget, a read-only `irc-preview` backed by RustyRig's
+existing IRC color renderer, and a `roomlist` of open conversations.
+Send and Stop are implemented through `timer.every`, `string.line`,
+`chat.send` and `chat.cancel`. Playback speed (1–10 lines/sec) is
+stored separately per profile/target using `setting.get/set`. Buttons
+demonstrate `ui.edit`, file rename/move/delete, `file.mkdir`, and
+confirmation dialogs. The client still enforces its bounded chat queue.
 
-The `/artwork` interface is defined in RustyScript with `ui.utility`,
-`ui.add`, `ui.val`, `ui.set`, and `event ui.click/change/response`. Only
-native functionality that cannot currently be expressed in RustyScript
-(the colored GTK preview, open-room enumeration and cancellable socket queue)
-is implemented in the client. This is an intentional integration example,
-not a separate built-in GTK manager.
+These primitives are reusable for other station automations:
+
+- `timer.after(id, ms)`, `timer.every(id, ms)`, `timer.cancel(id)`
+  deliver `event ui.timer` with `event.id`; timers stop on script unload
+- `state.get(key)` and `state.set(key, value)` retain script values
+  across event invocations; setting a value to `null` removes it
+- `string.regex`, `string.chr`, `string.slug`, `string.hash`,
+  `string.slice`, `string.length`, `string.line`, `string.lines`,
+  and `string.str` provide basic text operations
+- `time.now()`, `time.stamp()`, and `env.data_dir()`
+  provide time and the per-user data location
+- Client `setting.get/set` persists simple values in `client.db`;
+  `chat.send(profile|target, text, tag[, interval_ms])` queues a message
+  for an existing chat, and `chat.cancel(tag)` drops unsent tagged lines
+
+No C API named `art.capture` or `art.play` is needed. The example is
+intentionally readable and modifiable by people who aren't C developers.
 
 ## Scriptable GTK panels and docking
 
