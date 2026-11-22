@@ -2282,17 +2282,27 @@ static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, g
    return TRUE;
 }
 
-static void panel_resize_cursor_realize(GtkWidget *widget, gpointer data) {
-   const char *name = data;
-   GdkWindow *window = gtk_widget_get_window(widget);
-   if (!window)
-      return;
-   GdkDisplay *display = gdk_window_get_display(window);
-   GdkCursor *cursor = gdk_cursor_new_from_name(display, name);
+static gboolean panel_resize_cursor_enter(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
+   (void)widget;
+   /* Invisible GtkEventBox uses an input-only event window. The widget's
+    * normal GdkWindow may be shared with the whole panel: changing that
+    * cursor would incorrectly affect all of its contents. */
+   if (!event->window)
+      return FALSE;
+   GdkCursor *cursor = gdk_cursor_new_from_name(gdk_window_get_display(event->window), data);
    if (cursor) {
-      gdk_window_set_cursor(window, cursor);
+      gdk_window_set_cursor(event->window, cursor);
       g_object_unref(cursor);
    }
+   return FALSE;
+}
+
+static gboolean panel_resize_cursor_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
+   (void)widget;
+   (void)data;
+   if (event->window)
+      gdk_window_set_cursor(event->window, NULL);
+   return FALSE;
 }
 
 static void panel_resize_targets_create(RRFloatPanel *p, GtkOverlay *overlay) {
@@ -2318,14 +2328,15 @@ static void panel_resize_targets_create(RRFloatPanel *p, GtkOverlay *overlay) {
       gtk_widget_set_valign(hit, targets[i].vertical);
       gtk_widget_set_size_request(hit, targets[i].width, targets[i].height);
       gtk_widget_add_events(hit, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
-                           GDK_POINTER_MOTION_MASK);
+                           GDK_POINTER_MOTION_MASK | GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
       g_object_set_data(G_OBJECT(hit), "rr-resize-edges",
                         GUINT_TO_POINTER(targets[i].edges));
       g_signal_connect(hit, "button-press-event", G_CALLBACK(panel_resize_press), p);
       g_signal_connect(hit, "motion-notify-event", G_CALLBACK(panel_resize_move), p);
       g_signal_connect(hit, "button-release-event", G_CALLBACK(panel_resize_release), p);
-      g_signal_connect(hit, "realize", G_CALLBACK(panel_resize_cursor_realize),
+      g_signal_connect(hit, "enter-notify-event", G_CALLBACK(panel_resize_cursor_enter),
                        (gpointer)targets[i].cursor);
+      g_signal_connect(hit, "leave-notify-event", G_CALLBACK(panel_resize_cursor_leave), NULL);
       gtk_overlay_add_overlay(overlay, hit);
       gtk_widget_set_no_show_all(hit, TRUE);
       gtk_widget_hide(hit);
