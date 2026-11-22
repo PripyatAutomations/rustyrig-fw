@@ -1953,6 +1953,9 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    g_object_set_data(G_OBJECT(chat_textview),"rr-follow-bottom",GINT_TO_POINTER(1));
    gtk_widget_add_events(scrolled,GDK_SCROLL_MASK|GDK_SMOOTH_SCROLL_MASK);
    g_signal_connect(scrolled,"scroll-event",G_CALLBACK(gtk_chat_follow_scroll),chat_textview);
+   /* TextView can consume wheel events before they reach the scroller. */
+   gtk_widget_add_events(chat_textview,GDK_SCROLL_MASK|GDK_SMOOTH_SCROLL_MASK);
+   g_signal_connect(chat_textview,"scroll-event",G_CALLBACK(gtk_chat_follow_scroll),chat_textview);
    GtkWidget *scrollbar=gtk_scrolled_window_get_vscrollbar(GTK_SCROLLED_WINDOW(scrolled));
    g_signal_connect(scrollbar,"button-release-event",
       G_CALLBACK(gtk_chat_follow_scrollbar_release),chat_textview);
