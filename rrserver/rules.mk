@@ -172,7 +172,7 @@ ${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNU
 bin/rrserver: ${EEPROM_REQUIRED} ${BUILD_HEADERS} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
 	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
 	@echo "[gpio] rrserver USE_GPIO=$(USE_GPIO) $(if $(filter true,$(USE_GPIO)),link=$(GPIO_LIBS),adapter=disabled)"
-	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} || exit 2
+	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
 ifeq ($(USE_GPIO),true)
 ifneq ($(OS),DARWIN)
 	@readelf -d $@ | grep -Eq 'NEEDED.*libgpiod[.]so' || { echo "ERROR: GPIO enabled but $@ is not linked to libgpiod" >&2; exit 2; }
