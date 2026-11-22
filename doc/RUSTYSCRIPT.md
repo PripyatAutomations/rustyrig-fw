@@ -29,9 +29,14 @@ scripts/
         20-watcher.rrs
 ```
 
-`helper.rrs` is retained but is not loaded. The host does not create any
-directory automatically. Create the directory yourself, then restart
-`rrclient` or `rrserver` to load newly added scripts.
+`helper.rrs` is retained but is not loaded. At startup, both hosts
+create the configured scripts root and its `autoload/` subdirectory if
+missing. Newly created directories use mode `0700` for rrclient or `0750`
+for rrserver (subject to the process umask); existing permissions are left
+unchanged. The process must have filesystem permission to create them.
+Failures are reported in the `scripting` log and do not abort startup.
+After adding a script to `autoload/`, restart `rrclient` or `rrserver`,
+or use the appropriate script load command.
 
 After startup, handlers run when their registered slash command, hotkey,
 or event fires. They do not execute at load time. In particular, an event
