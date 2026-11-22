@@ -803,6 +803,7 @@ void gui_file_editor_open(const char *filepath) {
 
       return;
    }
+   rr_floating_panel_set_floating_only(ctx->panel);
    GtkWidget *window = rr_floating_panel_widget(ctx->panel);
    ctx->window = window;
    g_object_set_data(G_OBJECT(window), "rr-editor-context", ctx);
