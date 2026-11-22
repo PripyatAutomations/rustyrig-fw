@@ -38,6 +38,9 @@ bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
    return true;
 }
 
+rr_threshold_state_t rr_threshold_default(void) {
+   return (rr_threshold_state_t){.min=0., .max=INFINITY};
+}
 bool rr_threshold_evaluate(const rr_threshold_state_t *state, bool *output) {
    if (!output) return false;
    *output=false;
