@@ -1830,6 +1830,18 @@ static void audio_lv2_reconcile_chains(void) {
       if (!desired[i]) desired[i] = i + 1;
       guint actual = lv2_effects[i].chain_host ? lv2_effects[i].chain_host : i + 1;
       if (actual != desired[i]) changed = TRUE;
+      if (desired[i] == i + 1) {
+         guint tail = i + 1;
+         gboolean seen[RR_AUDIO_EFFECT_MAX] = {FALSE};
+         gint n = (gint)i;
+         while (n >= 0 && !seen[n]) {
+            seen[n] = TRUE;
+            tail = n + 1;
+            n = successor[n];
+         }
+         if ((lv2_effects[i].chain_tail ? lv2_effects[i].chain_tail : i + 1) != tail)
+            changed = TRUE;
+      }
    }
    if (!changed) return;
 
@@ -1966,6 +1978,7 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
          Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u", req.channel, req.slot);
       }
    }
+   audio_lv2_reconcile_chains();
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
    event_emit("client.audio.route.changed", NULL, NULL);
 }
@@ -2050,6 +2063,7 @@ static void audio_lv2_restore(void) {
       g_free(factory);
       g_free(source);
    }
+   audio_lv2_reconcile_chains();
 }
 
 static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
@@ -3158,7 +3172,9 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
              !memchr(req->element, 0, sizeof(req->element)) ||
              !memchr(req->property, 0, sizeof(req->property)) ||
              !memchr(req->string_value, 0, sizeof(req->string_value))) break;
-         if (!fwdsp_processor_set_property_string(req->stream, req->element, req->property, req->string_value)) {
+         char host[64] = {0}, stage[128] = {0};
+         audio_lv2_property_target(req->stream, req->element, host, sizeof(host), stage, sizeof(stage));
+         if (!fwdsp_processor_set_property_string(host, stage, req->property, req->string_value)) {
             Log(LOG_WARN, "audio.effects", "String effect control failed: %.60s / %.60s / %.60s", req->stream, req->element, req->property);
          }
          break;
@@ -3169,7 +3185,9 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
             break;
          }
 
-         if (!fwdsp_processor_set_property(req->stream, req->element, req->property, req->gain_db)) {
+         char host[64] = {0}, stage[128] = {0};
+         audio_lv2_property_target(req->stream, req->element, host, sizeof(host), stage, sizeof(stage));
+         if (!fwdsp_processor_set_property(host, stage, req->property, req->gain_db)) {
             Log(LOG_WARN, "audio.effects", "Effect control failed: %.60s / %.60s / %.60s", req->stream, req->element, req->property);
          }
          break;
