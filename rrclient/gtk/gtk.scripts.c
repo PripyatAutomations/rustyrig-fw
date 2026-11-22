@@ -22,6 +22,12 @@ static GtkWidget *script_browser;
 static char *script_root;
 static rr_event_token_t startup_errors_token;
 static GtkWidget *startup_errors_dialog;
+static RRFloatPanel *debug_panel;
+static GtkListStore *debug_store;
+static GtkWidget *debug_table;
+static rr_event_token_t debug_diagnostics_token,debug_open_token;
+enum { DBG_TIME,DBG_LEVEL,DBG_SOURCE,DBG_LOCATION,DBG_HANDLER,DBG_MESSAGE,DBG_PATH,DBG_SEVERITY,DBG_COLUMNS };
+
 
 static char *script_directory(void) {
    const char *configured = cfg_get("security.scripting.path");
@@ -293,6 +299,170 @@ static void script_close(gpointer unused) {
    g_clear_pointer(&script_root, g_free);
 }
 
+/* Script console: finite in-memory log with source navigation and filters.
+ * Diagnostics are queued even when the panel is closed. */
+static void debug_store_ensure(void) {
+   if(!debug_store)debug_store=gtk_list_store_new(DBG_COLUMNS,
+      G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,
+      G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_UINT);
+}
+static gboolean debug_visible(GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
+   GtkComboBox *filter=GTK_COMBO_BOX(data);
+   unsigned severity=0;
+   gtk_tree_model_get(model,iter,DBG_SEVERITY,&severity,-1);
+   gint level=gtk_combo_box_get_active(filter);
+   return level<=0 || (level==1 && severity>=2) ||
+      (level==2 && severity>=3);
+}
+static void debug_filter_changed(GtkComboBox *combo,gpointer data) {
+   (void)combo;
+   gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
+}
+static void debug_record(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if(!message||!message->payload||message->length!=sizeof(rr_script_diagnostic_t))
+      return;
+   rr_script_diagnostic_t d;
+   memcpy(&d,message->payload,sizeof(d));
+   if(d.version!=RR_SCRIPT_DIAGNOSTIC_VERSION)return;
+   d.path[sizeof(d.path)-1]=0;
+   d.handler[sizeof(d.handler)-1]=0;
+   d.message[sizeof(d.message)-1]=0;
+   debug_store_ensure();
+   GtkTreeIter row;
+   GtkTreeModel *model=GTK_TREE_MODEL(debug_store);
+   if(gtk_tree_model_iter_n_children(model,NULL)>=1000) {
+      GtkTreeIter old;
+      if(gtk_tree_model_get_iter_first(model,&old))
+         gtk_list_store_remove(debug_store,&old);
+   }
+   GDateTime *now=g_date_time_new_now_local();
+   char *time=g_date_time_format(now,"%H:%M:%S");
+   char *basename=g_path_get_basename(d.path);
+   char *location=d.line?g_strdup_printf("%u:%u",d.line,d.column):g_strdup("-");
+   const char *level=d.severity>=3?"ERROR":d.severity==2?"WARN":"INFO";
+   gtk_list_store_append(debug_store,&row);
+   gtk_list_store_set(debug_store,&row,
+      DBG_TIME,time,DBG_LEVEL,level,DBG_SOURCE,basename,
+      DBG_LOCATION,location,DBG_HANDLER,d.handler,
+      DBG_MESSAGE,d.message,DBG_PATH,d.path,DBG_SEVERITY,d.severity,-1);
+   g_free(location);g_free(basename);g_free(time);
+   g_date_time_unref(now);
+}
+static gboolean debug_selected(GtkTreeIter *iter,GtkTreeModel **model) {
+   if(!debug_table)return FALSE;
+   GtkTreeSelection *sel=gtk_tree_view_get_selection(GTK_TREE_VIEW(debug_table));
+   return gtk_tree_selection_get_selected(sel,model,iter);
+}
+static void debug_open_source(GtkWidget *widget,gpointer user) {
+   (void)widget;(void)user;
+   GtkTreeModel *model=NULL;
+   GtkTreeIter iter;
+   if(!debug_selected(&iter,&model))return;
+   char *path=NULL;
+   gtk_tree_model_get(model,&iter,DBG_PATH,&path,-1);
+   if(path && g_str_has_suffix(path,".rrs") &&
+      g_file_test(path,G_FILE_TEST_IS_REGULAR))
+      gui_file_editor_open(path);
+   g_free(path);
+}
+static void debug_row_activated(GtkTreeView *view,GtkTreePath *path,
+                                 GtkTreeViewColumn *column,gpointer unused) {
+   (void)view;(void)path;(void)column;(void)unused;
+   debug_open_source(NULL,NULL);
+}
+static void debug_copy(GtkButton *button,gpointer unused) {
+   (void)button;(void)unused;
+   GtkTreeModel *model=NULL;
+   GtkTreeIter iter;
+   if(!debug_selected(&iter,&model))return;
+   char *level=NULL,*path=NULL,*location=NULL,*handler=NULL,*message=NULL;
+   gtk_tree_model_get(model,&iter,DBG_LEVEL,&level,DBG_PATH,&path,
+      DBG_LOCATION,&location,DBG_HANDLER,&handler,DBG_MESSAGE,&message,-1);
+   char *output=g_strdup_printf("%s %s:%s [%s] %s",
+      level?level:"",path?path:"",location?location:"",handler?handler:"",message?message:"");
+   gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),output,-1);
+   g_free(output);g_free(level);g_free(path);g_free(location);g_free(handler);g_free(message);
+}
+static void debug_clear(GtkButton *button,gpointer unused) {
+   (void)button;(void)unused;
+   if(debug_store)gtk_list_store_clear(debug_store);
+}
+static void debug_close(gpointer unused) {
+   (void)unused;
+   if(!debug_panel)return;
+   RRFloatPanel *panel=debug_panel;
+   debug_panel=NULL;
+   debug_table=NULL;
+   rr_floating_panel_destroy(panel);
+}
+void gtk_scripts_debug_open(void) {
+   if(debug_panel) {
+      rr_floating_panel_present(debug_panel);
+      return;
+   }
+   GtkWidget *overlay=main_window?gtk_bin_get_child(GTK_BIN(main_window)):NULL;
+   if(!GTK_IS_OVERLAY(overlay)||!GTK_IS_NOTEBOOK(main_notebook))return;
+   debug_store_ensure();
+   debug_panel=rr_floating_panel_new(GTK_OVERLAY(overlay),
+      GTK_NOTEBOOK(main_notebook),"scripts-debugger","Script Console");
+   if(!debug_panel)return;
+   rr_floating_panel_set_floating_only(debug_panel);
+   rr_floating_panel_set_resizable(debug_panel,TRUE);
+   rr_floating_panel_set_close_callback(debug_panel,debug_close,NULL);
+   GtkWidget *body=rr_floating_panel_body(debug_panel);
+   GtkWidget *toolbar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,5);
+   gtk_box_pack_start(GTK_BOX(body),toolbar,FALSE,FALSE,3);
+   GtkWidget *filter=gtk_combo_box_text_new();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(filter),"All");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(filter),"Warnings + Errors");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(filter),"Errors Only");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(filter),0);
+   gtk_box_pack_start(GTK_BOX(toolbar),filter,FALSE,FALSE,2);
+   GtkWidget *copy=gtk_button_new_with_label("Copy");
+   GtkWidget *open=gtk_button_new_with_label("Open Script");
+   GtkWidget *clear=gtk_button_new_with_label("Clear");
+   gtk_box_pack_end(GTK_BOX(toolbar),clear,FALSE,FALSE,2);
+   gtk_box_pack_end(GTK_BOX(toolbar),copy,FALSE,FALSE,2);
+   gtk_box_pack_end(GTK_BOX(toolbar),open,FALSE,FALSE,2);
+   GtkTreeModel *filtered=gtk_tree_model_filter_new(GTK_TREE_MODEL(debug_store),NULL);
+   gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered),
+      debug_visible,filter,NULL);
+   g_signal_connect(filter,"changed",G_CALLBACK(debug_filter_changed),filtered);
+   debug_table=gtk_tree_view_new_with_model(filtered);
+   g_object_unref(filtered);
+   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(debug_table),TRUE);
+   const char *titles[]={"Time","Level","Script","Line:Col","Handler","Message"};
+   const int fields[]={DBG_TIME,DBG_LEVEL,DBG_SOURCE,DBG_LOCATION,DBG_HANDLER,DBG_MESSAGE};
+   for(guint i=0;i<G_N_ELEMENTS(fields);i++) {
+      GtkCellRenderer *renderer=gtk_cell_renderer_text_new();
+      GtkTreeViewColumn *col=gtk_tree_view_column_new_with_attributes(
+         titles[i],renderer,"text",fields[i],NULL);
+      gtk_tree_view_column_set_resizable(col,TRUE);
+      if(i==5) {
+         gtk_tree_view_column_set_expand(col,TRUE);
+         g_object_set(renderer,"ellipsize",PANGO_ELLIPSIZE_END,NULL);
+      }
+      gtk_tree_view_append_column(GTK_TREE_VIEW(debug_table),col);
+   }
+   GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+      GTK_POLICY_AUTOMATIC,GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_size_request(scroll,480,220);
+   gtk_container_add(GTK_CONTAINER(scroll),debug_table);
+   gtk_box_pack_start(GTK_BOX(body),scroll,TRUE,TRUE,2);
+   g_signal_connect(debug_table,"row-activated",G_CALLBACK(debug_row_activated),NULL);
+   g_signal_connect(open,"clicked",G_CALLBACK(debug_open_source),NULL);
+   g_signal_connect(copy,"clicked",G_CALLBACK(debug_copy),NULL);
+   g_signal_connect(clear,"clicked",G_CALLBACK(debug_clear),NULL);
+   gtk_widget_show_all(body);
+   rr_floating_panel_present(debug_panel);
+}
+static void debug_open_event(const rr_event_message_t *event,void *unused) {
+   (void)event;(void)unused;
+   gtk_scripts_debug_open();
+}
+
 void gtk_scripts_open(void) {
    if (script_panel) {
       rr_local_browser_refresh(script_browser);
@@ -388,6 +558,10 @@ void gtk_scripts_startup_errors_init(void) {
    if(startup_errors_token)return;
    startup_errors_token=event_on_message_domain_token(
       RR_SCRIPT_STARTUP_ERRORS_EVENT,startup_errors_event,NULL,"gtk");
+   debug_diagnostics_token=event_on_message_domain_token(
+      RR_SCRIPT_DIAGNOSTIC_EVENT,debug_record,NULL,"gtk");
+   debug_open_token=event_on_message_domain_token(
+      RR_SCRIPT_DEBUG_OPEN_EVENT,debug_open_event,NULL,"gtk");
 }
 void gtk_scripts_shutdown(void) {
    if(startup_errors_token) {
@@ -395,5 +569,9 @@ void gtk_scripts_shutdown(void) {
       startup_errors_token=NULL;
    }
    if(startup_errors_dialog)gtk_widget_destroy(startup_errors_dialog);
+   if(debug_diagnostics_token){event_off_token(debug_diagnostics_token);debug_diagnostics_token=NULL;}
+   if(debug_open_token){event_off_token(debug_open_token);debug_open_token=NULL;}
+   debug_close(NULL);
+   g_clear_object(&debug_store);
    script_close(NULL);
 }
