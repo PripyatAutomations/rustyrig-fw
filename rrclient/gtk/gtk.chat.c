@@ -1548,6 +1548,14 @@ static gboolean room_vfo_title_tick(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
+/* The core posts client.vfo.changed on the GTK domain immediately after
+ * acknowledging selection; refresh without waiting for the title timer. */
+static void room_vfo_selection_event(const char *event, const char *data,
+   rrconn_t *connection, void *unused) {
+   (void)event; (void)data; (void)connection; (void)unused;
+   room_vfo_title_tick(NULL);
+}
+
 /* AF is a single, graph-wide floating tool, not one copy per chat tab. The widget owns its listener and GTK event tokens for its lifetime. */
 static void room_af_panel_show(void) {
    if (!room_af_panel) {
@@ -2831,6 +2839,7 @@ bool chat_init(void) {
    typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_domain_token("client.server.selected", gtk_chat_server_selected, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.vfo.changed", room_vfo_selection_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.local-bridge.vfo", room_rf_source_changed, NULL, "gtk"));
    /* Capabilities may arrive after the VFO goes online; do not wait for another room/VFO switch before displaying the RF spectrum panel. */
    rr_module_token_add(event_on_domain_token("client.local-bridge.capabilities", room_rf_source_changed, NULL, "gtk"));
