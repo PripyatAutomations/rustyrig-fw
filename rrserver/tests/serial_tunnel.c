@@ -47,6 +47,18 @@ void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *
 
 /* Standalone fixtures for application services outside the serial path. */
 http_user_t http_users[HTTP_MAX_USERS];
+struct GlobalState rig;
+const char *rr_rig_registry_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
+   (void)registry; (void)radio;
+   return "rig0";
+}
+bool rr_serial_frame_valid(const struct rr_binframe *f) {
+   return f && f->hdr.subsystem == RR_BINFRAME_SUBSYS_MODEM &&
+      !memcmp(f->hdr.codec, RR_SERIAL_FRAME_CODEC, 4) &&
+      f->hdr.vfo == RR_BINFRAME_VFO_NA && f->hdr.rig == RR_BINFRAME_RIG_NA &&
+      f->hdr.stream && f->len && f->len <= RR_SERIAL_BLOCK_MAX &&
+      (f->hdr.direction == RR_BINFRAME_DIR_TX || f->hdr.direction == RR_BINFRAME_DIR_RX);
+}
 bool has_priv(int uid, const char *priv) {
    (void)uid;
    return priv && (!strcmp(priv, "serial.ttyHOST0") || !strcmp(priv, "serial.*") ||
