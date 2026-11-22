@@ -7461,7 +7461,12 @@ void gtk_audio_routing_init(void) {
    gtk_container_set_border_width(GTK_CONTAINER(grid), 2);
    gtk_grid_set_row_spacing(GTK_GRID(grid), 1);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 5);
-   gtk_widget_set_halign(grid, GTK_ALIGN_CENTER);
+   /* A compact control grid: its own preferred width is authoritative.
+    * Centering within an expanding parent made zoom appear to shrink only
+    * the sliders while the panel remained full-width. */
+   gtk_widget_set_hexpand(grid, FALSE);
+   gtk_widget_set_vexpand(grid, FALSE);
+   gtk_widget_set_halign(grid, GTK_ALIGN_START);
    gtk_widget_set_valign(grid, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(routing_body), grid, FALSE, FALSE, 0);
 
