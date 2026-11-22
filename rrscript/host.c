@@ -702,7 +702,10 @@ static rrs_value_t *native_debug_namespaces(rrs_vm_t *vm,int argc,
    (void)argv;
    rrscript_host_t *host=userdata;
    if(argc){rrs_vm_raise(vm,"debug.namespaces() takes no arguments");return NULL;}
-   return namespace_keys(host->namespaces);
+   g_rec_mutex_lock(&host->state_mutex);
+   rrs_value_t *result=namespace_keys(host->namespaces);
+   g_rec_mutex_unlock(&host->state_mutex);
+   return result;
 }
 static rrs_value_t *native_debug_inspect(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *userdata) {
@@ -722,22 +725,39 @@ static rrs_value_t *native_debug_inspect(rrs_vm_t *vm,int argc,
       g_string_free(names,TRUE);return ret;
    }
    const char *name=rrs_value_string(argv[0]);
-   if(!strcmp(name,"@namespaces"))return namespace_keys(host->namespaces);
+   if(!strcmp(name,"@namespaces")) {
+      g_rec_mutex_lock(&host->state_mutex);
+      rrs_value_t *result=namespace_keys(host->namespaces);
+      g_rec_mutex_unlock(&host->state_mutex);
+      return result;
+   }
    GHashTable *vars=NULL;
+   g_rec_mutex_lock(&host->state_mutex);
    if(g_str_has_prefix(name,"@")) {
-      if(!host->namespaces) {
-         rrs_vm_raise(vm,"No shared namespaces exist");return NULL;
+      vars=host->namespaces?g_hash_table_lookup(host->namespaces,name+1):NULL;
+      if(!vars) {
+         g_rec_mutex_unlock(&host->state_mutex);
+         rrs_vm_raise(vm,"Unknown shared namespace");
+         return NULL;
       }
-      vars=g_hash_table_lookup(host->namespaces,name+1);
-      if(!vars){rrs_vm_raise(vm,"Unknown shared namespace");return NULL;}
    } else {
       script_file_t *script=find_script(host,name,NULL);
-      if(!script){rrs_vm_raise(vm,"Script not loaded; inspect debug.scripts()");return NULL;}
+      if(!script) {
+         g_rec_mutex_unlock(&host->state_mutex);
+         rrs_vm_raise(vm,"Script not loaded; inspect debug.scripts()");
+         return NULL;
+      }
       vars=namespace_table(script,FALSE);
    }
-   if(argc==1)return namespace_keys(vars);
-   const rrs_value_t *value=vars?g_hash_table_lookup(vars,rrs_value_string(argv[1])):NULL;
-   return value?rrs_value_copy(value):rrs_null();
+   rrs_value_t *result=NULL;
+   if(argc==1)result=namespace_keys(vars);
+   else {
+      const rrs_value_t *value=vars?
+         g_hash_table_lookup(vars,rrs_value_string(argv[1])):NULL;
+      result=value?rrs_value_copy(value):rrs_null();
+   }
+   g_rec_mutex_unlock(&host->state_mutex);
+   return result;
 }
 static char *resolve_name(rrscript_host_t *host,const char *requested) {
    if(!valid_name(requested))return NULL;
