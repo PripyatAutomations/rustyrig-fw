@@ -123,6 +123,15 @@ typedef struct rr_frontend_ops {
    /* Volume slider set by /vol (0-100). */
    void (*rx_volume)(int value);
 
+   /* Stable-ID floating-panel actions. All are executed by the frontend on
+    * its UI thread. The caller owns returned strings (g_free). Location:
+    * N/E/W/S dock edges, M main overlay, * any (search only). */
+   bool (*panel_find)(const char *pattern, const char *location,
+                      char **id, char **title, char **where);
+   bool (*panel_move)(const char *id, const char *location, int x, int y);
+   bool (*panel_zoom)(const char *id, int percent);
+   bool (*panel_opacity)(const char *id, int percent);
+
    /* Main loop: initialize the frontend (creates windows), then run the frontend's main loop until exit. run() returns when the loop ends. */
    bool (*init)(int *argc, char ***argv);
    void (*run)(void);
