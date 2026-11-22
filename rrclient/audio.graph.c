@@ -118,7 +118,22 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const
       gboolean direct_modem_tx = type == RR_AG_NORMAL && !strcmp(to->id,"rig.sink") &&
          g_str_has_prefix(from->id,"modem") && g_str_has_suffix(from->id,".tx");
 
-      if (to->type != RR_AG_MIXER && !stereo_processor && !direct_modem_tx) {
+      /* rig.sink is a *view* over the one selected TX encoder bus:
+       * tx.transport is the real media feed, while modem audio represents
+       * separate TX mixer ingress. Allow these distinct edges to coexist,
+       * but never relax the single-feed rule for ordinary sinks. */
+      gboolean tx_bus_view = type == RR_AG_NORMAL &&
+         !strcmp(to->id, "rig.sink") &&
+         ((!strcmp(from->id, "tx.transport") &&
+           (g_str_has_prefix(g_array_index(g->nodes, rr_ag_node_t, e->src).id, "modem"))) ||
+          (direct_modem_tx &&
+           !strcmp(g_array_index(g->nodes, rr_ag_node_t, e->src).id, "tx.transport")));
+      gboolean other_modem_view = direct_modem_tx &&
+         g_str_has_prefix(g_array_index(g->nodes, rr_ag_node_t, e->src).id, "modem") &&
+         g_str_has_suffix(g_array_index(g->nodes, rr_ag_node_t, e->src).id, ".tx");
+
+      if (to->type != RR_AG_MIXER && !stereo_processor &&
+          !tx_bus_view && !other_modem_view) {
          return false;
       }
 
