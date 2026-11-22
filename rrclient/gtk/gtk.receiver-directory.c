@@ -72,7 +72,7 @@ static size_t snapshot_count;
  * roster/group ownership and connected-row duplication are unchanged. */
 static guint8 *directory_connection_layout;
 static size_t directory_connection_layout_count;
-static gboolean directory_update_rows_in_place(void);
+static gboolean directory_update_rows_in_place(gboolean refilter);
 static char snapshot_status[512], snapshot_info[1024];
 static char snapshot_error[512], snapshot_source[1024];
 static gboolean snapshot_busy;
@@ -252,6 +252,7 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
       e->high_hz = r->high_hz;
    }
 
+   gboolean needs_refilter = FALSE;
    gboolean same_layout = directory_store && directory_page &&
       directory_connection_layout_count == header.count &&
       snapshot_count == header.count && directory_connection_layout;
@@ -260,6 +261,12 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
           g_strcmp0(snapshot_rows[i].country, rows[i].country))
          same_layout = FALSE;
       else {
+         if ((favorites_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) &&
+              snapshot_entries[i].favorite != entries[i].favorite) ||
+             (accessible_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) &&
+              receiver_directory_entry_accessible(&snapshot_entries[i]) !=
+                 receiver_directory_entry_accessible(&entries[i])))
+            needs_refilter = TRUE;
          guint8 connected = (directory_connected_local(rows[i].url) ? 1 : 0) |
             (directory_connected_remote(rows[i].url) ? 2 : 0);
          if (directory_connection_layout[i] != connected) same_layout = FALSE;
@@ -283,7 +290,7 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
    }
 
    if (directory_page && directory_store) {
-      if (!same_layout || !directory_update_rows_in_place()) populate();
+      if (!same_layout || !directory_update_rows_in_place(needs_refilter)) populate();
       else {
          char *summary=g_strdup_printf("%s\n%s",snapshot_status,snapshot_info);
          gtk_label_set_text(GTK_LABEL(directory_status),receiver_failure ? receiver_failure : summary);
@@ -564,7 +571,7 @@ static void filter_changed(GtkWidget *widget, gpointer unused) {
 /* Changes to favorites/marks do not change the tree's identity or its
  * cursor. Update only changed cells; do not clear the store, collapse groups,
  * reset selection, scroll the view, or re-emit selection-changed. */
-static gboolean directory_update_rows_in_place(void) {
+static gboolean directory_update_rows_in_place(gboolean refilter) {
    if (!directory_store || !directory_connection_layout ||
        directory_connection_layout_count != snapshot_count) return FALSE;
    GtkTreeModel *model=GTK_TREE_MODEL(directory_store);
@@ -609,8 +616,7 @@ static gboolean directory_update_rows_in_place(void) {
 
    /* A filter dependent on updated metadata must be re-evaluated. Otherwise
     * even filtering would disturb the current selection unnecessarily. */
-   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) ||
-       gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)))
+   if (refilter)
       gtk_tree_model_filter_refilter(directory_filter);
    selection_changed(NULL,NULL); /* Labels/details update; selection stays put. */
    return TRUE;
