@@ -230,10 +230,10 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    gtk_widget_add_events(w,GDK_BUTTON_PRESS_MASK);
    g_signal_connect(w,"button-press-event",G_CALLBACK(widget_pressed),entry);
    if(GTK_IS_BUTTON(w))g_signal_connect(w,"clicked",G_CALLBACK(button_activated),entry);
-   if(GTK_IS_ENTRY(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
+   if(GTK_IS_SPIN_BUTTON(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
+   else if(GTK_IS_ENTRY(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_TOGGLE_BUTTON(w))g_signal_connect(w,"toggled",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_RANGE(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
-   else if(GTK_IS_SPIN_BUTTON(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_COMBO_BOX(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
    gtk_box_pack_start(GTK_BOX(box),w,FALSE,FALSE,3);
    gtk_widget_show_all(w);
