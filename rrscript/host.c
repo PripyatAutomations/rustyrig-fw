@@ -39,6 +39,7 @@ struct rrscript_host {
    char *root;
    rrscript_host_register_fn register_host;
    GHashTable *namespaces; /* named shared state tables; live for host lifetime */
+   GRecMutex state_mutex; /* shared tables can be touched by different script VMs */
    script_file_t *console;
 };
 /* Script identities are generation-scoped, opaque and independent of memory
@@ -421,11 +422,17 @@ static rrs_value_t *native_script_state(rrs_vm_t *vm,int argc,
    }
    if(op==UTIL_NAMESPACES) {
       if(argc){rrs_vm_raise(vm,"state.namespaces() takes no arguments");return NULL;}
-      return namespace_keys(script->host?script->host->namespaces:NULL);
+      g_rec_mutex_lock(&script->host->state_mutex);
+      rrs_value_t *result=namespace_keys(script->host->namespaces);
+      g_rec_mutex_unlock(&script->host->state_mutex);
+      return result;
    }
    if(op==UTIL_KEYS) {
       if(argc){rrs_vm_raise(vm,"state.keys() takes no arguments");return NULL;}
-      return namespace_keys(namespace_table(script,FALSE));
+      g_rec_mutex_lock(&script->host->state_mutex);
+      rrs_value_t *result=namespace_keys(namespace_table(script,FALSE));
+      g_rec_mutex_unlock(&script->host->state_mutex);
+      return result;
    }
    if(argc!=(op==UTIL_GET?1:2)||rrs_value_type(argv[0])!=RRS_STRING) {
       rrs_vm_raise(vm,"state.get(key) / state.set(key,value)");return NULL;
@@ -435,16 +442,20 @@ static rrs_value_t *native_script_state(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"Invalid state key: use lowercase dotted names (e.g. station.audio.gain)");
       return NULL;
    }
+   g_rec_mutex_lock(&script->host->state_mutex);
    GHashTable *table=namespace_table(script,op==UTIL_SET &&
       rrs_value_type(argv[1])!=RRS_NULL);
    if(op==UTIL_GET) {
       const rrs_value_t *value=table?g_hash_table_lookup(table,key):NULL;
-      return value?rrs_value_copy(value):rrs_null();
+      rrs_value_t *result=value?rrs_value_copy(value):rrs_null();
+      g_rec_mutex_unlock(&script->host->state_mutex);
+      return result;
    }
    if(table) {
       if(rrs_value_type(argv[1])==RRS_NULL)g_hash_table_remove(table,key);
       else g_hash_table_replace(table,g_strdup(key),rrs_value_copy(argv[1]));
    }
+   g_rec_mutex_unlock(&script->host->state_mutex);
    return rrs_boolean(true);
 }
 static rrs_value_t *native_script_timer(rrs_vm_t *vm,int argc,
@@ -914,6 +925,7 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client,
                                     rrscript_host_register_fn register_host) {
    rrscript_host_t *host=g_new0(rrscript_host_t,1);
    host->client=client;
+   g_rec_mutex_init(&host->state_mutex);
    host->register_host=register_host;
    host->root=g_strdup(directory?directory:"");
    host->scripts=g_ptr_array_new_with_free_func(release_script);
@@ -978,6 +990,7 @@ void rrscript_host_close(rrscript_host_t *host) {
    if(host->console)release_script(host->console);
    g_ptr_array_unref(host->scripts);
    g_clear_pointer(&host->namespaces,g_hash_table_destroy);
+   g_rec_mutex_clear(&host->state_mutex);
    g_free(host->root);
    g_free(host);
 }
