@@ -173,6 +173,9 @@ static void script_gui_changed(const rr_event_message_t *message,void *unused) {
 static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
                                      const rrs_value_t *const argv[],void *user) {
    int action=GPOINTER_TO_INT(user);
+   /* Two-argument dialog creates a container; adding a message creates
+    * the portable standard message/confirmation dialog instead. */
+   if(action==RR_GUI_DIALOG && argc>=3)action=RR_GUI_MESSAGE;
    int wanted=(action==RR_GUI_PANEL||action==RR_GUI_DIALOG)?2:
               action==RR_GUI_MESSAGE?3:
               action==RR_GUI_ADD?4:action==RR_GUI_SET?2:1;
@@ -205,7 +208,9 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
       g_strlcpy(command.text,rrs_value_string(argv[1]),sizeof(command.text));
    } else if(action==RR_GUI_MESSAGE) {
       const char *buttons=argc==4?rrs_value_string(argv[3]):"ok";
-      if(strcmp(buttons,"ok") && strcmp(buttons,"yesno")) {
+      bool yesno=!g_ascii_strcasecmp(buttons,"yesno") ||
+         !g_ascii_strcasecmp(buttons,"yes/no");
+      if(!yesno && g_ascii_strcasecmp(buttons,"ok")) {
          rrs_vm_raise(vm,"ui.message buttons must be 'ok' or 'yesno'");
          return NULL;
       }
@@ -216,7 +221,7 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
       }
       g_strlcpy(command.text,rrs_value_string(argv[1]),sizeof(command.text));
       g_strlcpy(command.value,rrs_value_string(argv[2]),sizeof(command.value));
-      g_strlcpy(command.kind,buttons,sizeof(command.kind));
+      g_strlcpy(command.kind,yesno?"yesno":"ok",sizeof(command.kind));
    } else if(action==RR_GUI_ADD) {
       g_strlcpy(command.parent,rrs_value_string(argv[0]),sizeof(command.parent));
       g_strlcpy(command.kind,rrs_value_string(argv[1]),sizeof(command.kind));
