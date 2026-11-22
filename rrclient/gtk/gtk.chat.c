@@ -307,18 +307,44 @@ static gboolean gtk_chat_view_at_end(GtkWidget *view) {
 }
 bool gtk_chat_view_should_follow(GtkWidget *view) {
    if(!GTK_IS_TEXT_VIEW(view))return false;
-   if(g_object_get_data(G_OBJECT(view),"rr-follow-pending") ||
-      !gtk_widget_get_mapped(view))
-      return g_object_get_data(G_OBJECT(view),"rr-follow-bottom")!=NULL;
-   return gtk_chat_view_at_end(view);
+   /* A reflow may temporarily displace even a mapped adjustment.
+    * Only user scrolling is allowed to change this remembered intent. */
+   return g_object_get_data(G_OBJECT(view),"rr-follow-bottom")!=NULL;
 }
-static void gtk_chat_follow_adjustment_changed(GtkAdjustment *adj,gpointer data) {
-   (void)adj;
+static gboolean gtk_chat_follow_user_idle(gpointer data) {
    GtkWidget *view=GTK_WIDGET(data);
-   if(!gtk_widget_get_mapped(view) ||
-      g_object_get_data(G_OBJECT(view),"rr-follow-pending"))return;
-   g_object_set_data(G_OBJECT(view),"rr-follow-bottom",
-      GINT_TO_POINTER(gtk_chat_view_at_end(view)));
+   if(gtk_widget_get_mapped(view)) {
+      g_object_set_data(G_OBJECT(view),"rr-follow-bottom",
+         GINT_TO_POINTER(gtk_chat_view_at_end(view)));
+   }
+   return G_SOURCE_REMOVE;
+}
+/* Wheel, touch/trackpad, keyboard and scrollbar input are user intent.
+ * Ordinary adjustment changes during page switches and text reflow are not. */
+static void gtk_chat_follow_user_update(GtkWidget *view) {
+   g_idle_add_full(G_PRIORITY_DEFAULT_IDLE,gtk_chat_follow_user_idle,
+      g_object_ref(view),g_object_unref);
+}
+static gboolean gtk_chat_follow_scroll(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+   (void)widget;(void)event;
+   gtk_chat_follow_user_update(GTK_WIDGET(data));
+   return FALSE;
+}
+static gboolean gtk_chat_follow_scrollbar_release(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+   (void)widget;(void)event;
+   gtk_chat_follow_user_update(GTK_WIDGET(data));
+   return FALSE;
+}
+static gboolean gtk_chat_follow_key_release(GtkWidget *widget,GdkEventKey *event,gpointer data) {
+   (void)widget;
+   switch(event->keyval) {
+      case GDK_KEY_Page_Up: case GDK_KEY_Page_Down:
+      case GDK_KEY_Up: case GDK_KEY_Down:
+      case GDK_KEY_Home: case GDK_KEY_End:
+         gtk_chat_follow_user_update(GTK_WIDGET(data));
+         break;
+   }
+   return FALSE;
 }
 static gboolean gtk_chat_follow_idle(gpointer data) {
    GtkWidget *view=GTK_WIDGET(data);
@@ -1925,8 +1951,13 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
    g_object_set_data(G_OBJECT(chat_textview),"rr-follow-bottom",GINT_TO_POINTER(1));
-   g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled)),
-      "value-changed",G_CALLBACK(gtk_chat_follow_adjustment_changed),chat_textview);
+   gtk_widget_add_events(scrolled,GDK_SCROLL_MASK|GDK_SMOOTH_SCROLL_MASK);
+   g_signal_connect(scrolled,"scroll-event",G_CALLBACK(gtk_chat_follow_scroll),chat_textview);
+   GtkWidget *scrollbar=gtk_scrolled_window_get_vscrollbar(GTK_SCROLLED_WINDOW(scrolled));
+   g_signal_connect(scrollbar,"button-release-event",
+      G_CALLBACK(gtk_chat_follow_scrollbar_release),chat_textview);
+   g_signal_connect(chat_textview,"key-release-event",
+      G_CALLBACK(gtk_chat_follow_key_release),chat_textview);
    g_object_set_data_full(G_OBJECT(chat_textview), "rr-server-name", room ? g_strdup(gtk_chat_profile()) : NULL, g_free);
    gtk_chat_links_attach(chat_textview);
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
