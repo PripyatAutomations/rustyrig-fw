@@ -80,6 +80,20 @@ int main(int argc, char **argv) {
    g_assert_true(first_x + first_width <= second_x ||
       second_x + second_width <= first_x || first_y + first_height <= second_y || second_y + second_height <= first_y);
 
+   /* Resizing snaps to a neighboring edge when their projections overlap,
+    * and Shift disables the magnetic guide. */
+   first->snapped_x = FALSE;
+   first->snap_disabled = FALSE;
+   gint neighbor_edge = gtk_widget_get_margin_start(second_frame);
+   gint neighbor_top = gtk_widget_get_margin_top(second_frame);
+   g_assert_cmpint(panel_resize_snap(first, overlay, neighbor_edge + 5,
+      neighbor_top, second_height, TRUE, overlay_width), ==, neighbor_edge);
+   first->snap_disabled = TRUE;
+   g_assert_cmpint(panel_resize_snap(first, overlay, neighbor_edge + 5,
+      neighbor_top, second_height, TRUE, overlay_width), ==, neighbor_edge + 5);
+   first->snap_disabled = FALSE;
+   first->snapped_x = FALSE;
+
    /* Transient hiding is not minimizing: preserve the set of panels that were visible, even when manual and tab reasons overlap. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
    g_assert_false(gtk_widget_get_visible(first_frame));
