@@ -11,6 +11,7 @@
 #include <librustyaxe/core.h>
 #include <glib.h>
 #include <stdint.h>
+#include <math.h>
 #include <string.h>
 #include <glib/gstdio.h>
 #include <errno.h>
@@ -50,10 +51,10 @@ static rrs_value_t *native_script_settings(rrs_vm_t *vm,int argc,
 static rrs_value_t *native_script_chat(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    bool cancel=GPOINTER_TO_INT(user)!=0;
-   if(argc!=(cancel?1:3)) {
-      rrs_vm_raise(vm,"chat.send(profile|target,text,tag) / chat.cancel(tag)");return NULL;
+   if((cancel&&argc!=1)||(!cancel&&argc!=3&&argc!=4)) {
+      rrs_vm_raise(vm,"chat.send(profile|target,text,tag[,interval_ms]) / chat.cancel(tag)");return NULL;
    }
-   for(int i=0;i<argc;i++)if(rrs_value_type(argv[i])!=RRS_STRING) {
+   for(int i=0;i<(cancel?1:3);i++)if(rrs_value_type(argv[i])!=RRS_STRING) {
       rrs_vm_raise(vm,"Chat arguments must be strings");return NULL;
    }
    char owner[32];
@@ -65,9 +66,23 @@ static rrs_value_t *native_script_chat(rrs_vm_t *vm,int argc,
       rrclient_script_chat_cancel(full_tag);
       g_free(full_tag);return rrs_boolean(true);
    }
+   guint interval_ms=1000;
+   if(argc==4) {
+      if(rrs_value_type(argv[3])!=RRS_INT && rrs_value_type(argv[3])!=RRS_FLOAT) {
+         rrs_vm_raise(vm,"Chat interval must be numeric milliseconds");
+         g_free(full_tag);return NULL;
+      }
+      double ms=rrs_value_type(argv[3])==RRS_INT?
+         (double)rrs_value_int(argv[3]):rrs_value_float(argv[3]);
+      if(!isfinite(ms)||ms<100||ms>10000) {
+         rrs_vm_raise(vm,"Chat interval must be 100..10000 ms");
+         g_free(full_tag);return NULL;
+      }
+      interval_ms=(guint)ms;
+   }
    char **parts=g_strsplit(rrs_value_string(argv[0]),"|",3);
    bool ok=parts[0]&&*parts[0]&&parts[1]&&*parts[1]&&!parts[2]&&
-      rrclient_script_chat_send(parts[0],parts[1],rrs_value_string(argv[1]),full_tag);
+      rrclient_script_chat_send(parts[0],parts[1],rrs_value_string(argv[1]),full_tag,interval_ms);
    g_strfreev(parts);g_free(full_tag);
    return rrs_boolean(ok);
 }
