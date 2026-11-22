@@ -2540,8 +2540,13 @@ gboolean rr_floating_panel_find_match(const char *pattern,const char *location,
 gboolean rr_floating_panel_move_named(const char *id,const char *location,gint x,gint y) {
    RRFloatPanel *p=script_panel_by_id(id);
    gint edge=script_edge(location);
-   if(!p||p->modal||edge==-2||x<0||y<0)return FALSE;
+   if(!p||p->modal||edge==-2||x < -1||y < -1||(x==-1)!=(y==-1))return FALSE;
    if(edge>=0 && (!active_chat_docks || p->room_hidden))return FALSE;
+   if(x==-1) {
+      /* Reuse the most recently saved coordinates for this destination type. */
+      x=edge<0?p->float_x:p->dock_x;
+      y=edge<0?p->float_y:p->dock_y;
+   }
    if(edge==-1) {
       if(p->dock_edge>=0)panel_dock_detach(p,-1,-1);
       p->float_x=x;p->float_y=y;
