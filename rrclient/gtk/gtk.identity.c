@@ -211,12 +211,17 @@ static char *identity_prompt_name(GtkWindow *parent, const char *title, const ch
    return name;
 }
 
+static void identity_action_response(GtkButton *button,gpointer dialog) {
+   gtk_dialog_response(GTK_DIALOG(dialog),
+      GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button),"identity-response")));
+}
+
 static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    (void)unused;
    (void)unused_data;
    GtkWindow *parent = main_window ? GTK_WINDOW(main_window) : NULL;
    GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent, GTK_DIALOG_MODAL, NULL, NULL);
-   gtk_window_set_default_size(GTK_WINDOW(dlg), 510, -1);
+   gtk_window_set_default_size(GTK_WINDOW(dlg), 490, 320);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
    gtk_container_set_border_width(GTK_CONTAINER(area), 14);
    GtkWidget *description = gtk_label_new("Local Ed25519 identities");
@@ -230,15 +235,23 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
    GtkWidget *status = gtk_label_new("");
    gtk_label_set_xalign(GTK_LABEL(status), 0);
    gtk_box_pack_start(GTK_BOX(area), status, FALSE, FALSE, 8);
-   /* GTK action-area order follows creation order, left to right. */
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Info", 8);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Create New", 1);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Import / Export", 9);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock / Unlock", 4);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Rename", 7);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock All", 6);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Close", GTK_RESPONSE_CLOSE);
-   gtk_dialog_add_button(GTK_DIALOG(dlg), "Delete", 5);
+   /* Keep the controls usable at tablet/half-screen widths. */
+   GtkWidget *actions=gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(actions),5);
+   gtk_grid_set_column_spacing(GTK_GRID(actions),5);
+   gtk_box_pack_start(GTK_BOX(area),actions,FALSE,FALSE,3);
+   const char *labels[]={"Info","Create New","Import / Export","Lock / Unlock",
+                         "Rename","Lock All","Close","Delete"};
+   const int responses[]={8,1,9,4,7,6,GTK_RESPONSE_CLOSE,5};
+   GtkWidget *rename_button=NULL;
+   for(guint i=0;i<G_N_ELEMENTS(responses);i++) {
+      GtkWidget *button=gtk_button_new_with_label(labels[i]);
+      gtk_widget_set_hexpand(button,TRUE);
+      gtk_grid_attach(GTK_GRID(actions),button,i%4,i/4,1,1);
+      g_object_set_data(G_OBJECT(button),"identity-response",GINT_TO_POINTER(responses[i]));
+      g_signal_connect(button,"clicked",G_CALLBACK(identity_action_response),dlg);
+      if(responses[i]==7)rename_button=button;
+   }
    char *path = NULL;
    char *selected_path = NULL;
    char *dir = g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", NULL);
@@ -269,7 +282,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
                continue;
             }
             GtkWidget *row = gtk_list_box_row_new();
-            char *display = !strcmp(filename, "client-ed25519.pem") ? g_strdup("Default Client Identity") : g_strndup(filename, strlen(filename) - 4);
+            char *display = rrclient_identity_display_name(candidate);
             GtkWidget *label = gtk_label_new(display);
             gtk_label_set_xalign(GTK_LABEL(label), 0);
             gtk_widget_set_margin_start(label, 12);
@@ -297,6 +310,10 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       }
       GtkListBoxRow *highlight = gtk_list_box_get_selected_row(GTK_LIST_BOX(list));
       const char *highlight_path = highlight ? g_object_get_data(G_OBJECT(highlight), "identity-path") : NULL;
+      char *highlight_base=highlight_path?g_path_get_basename(highlight_path):NULL;
+      gtk_widget_set_sensitive(rename_button,highlight_base &&
+         strcmp(highlight_base,"client-ed25519.pem")!=0);
+      g_free(highlight_base);
       gtk_label_set_text(GTK_LABEL(status), !count ?
          "No identities yet. Create or import an Ed25519 key." : rrclient_identity_get(highlight_path) ? "Selected key: Unlocked" : "Selected key: Locked");
 
@@ -399,31 +416,67 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       }
 
       if (response == 7 && safe) {
-         char *old = g_path_get_basename(path);
-
-         if (g_str_has_suffix(old, ".pem")) {
-            old[strlen(old) - 4] = 0;
+         char *old_base=g_path_get_basename(path);
+         /* Default is referenced by its canonical identity filename. */
+         if(!strcmp(old_base,"client-ed25519.pem")) {
+            g_free(old_base);
+            continue;
          }
-         char *name = identity_prompt_name(GTK_WINDOW(dlg), "Rename Certificate", old);
-         g_free(old);
-
-         if (name) {
-            char *base = g_strconcat(name, ".pem", NULL);
-            char *target = g_build_filename(dir, base, NULL);
-
-            if (strcmp(path, target) && g_file_test(target, G_FILE_TEST_EXISTS)) {
-               identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_WARNING, "That key name already exists.");
-            } else if (strcmp(path, target) && rename(path, target)) {
-               identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR, "Unable to rename the key file.");
-            } else {
-               rrclient_identity_lock(path);
-               g_free(selected_path);
-               selected_path = g_strdup(target);
+         char *original=rrclient_identity_display_name(path);
+         GtkWidget *rename_dlg=gtk_dialog_new_with_buttons("Rename Identity",
+            GTK_WINDOW(dlg),GTK_DIALOG_MODAL,"_Cancel",GTK_RESPONSE_CANCEL,
+            "_Save",GTK_RESPONSE_ACCEPT,NULL);
+         GtkWidget *content=gtk_dialog_get_content_area(GTK_DIALOG(rename_dlg));
+         GtkWidget *grid=gtk_grid_new();
+         gtk_grid_set_row_spacing(GTK_GRID(grid),7);
+         gtk_grid_set_column_spacing(GTK_GRID(grid),8);
+         gtk_container_set_border_width(GTK_CONTAINER(grid),10);
+         gtk_box_pack_start(GTK_BOX(content),grid,TRUE,TRUE,0);
+         GtkWidget *display_entry=gtk_entry_new();
+         gtk_entry_set_max_length(GTK_ENTRY(display_entry),80);
+         gtk_entry_set_text(GTK_ENTRY(display_entry),original);
+         GtkWidget *file_entry=gtk_entry_new();
+         gtk_entry_set_max_length(GTK_ENTRY(file_entry),64);
+         old_base[strlen(old_base)-4]=0;
+         gtk_entry_set_text(GTK_ENTRY(file_entry),old_base);
+         gtk_grid_attach(GTK_GRID(grid),gtk_label_new("Display name:"),0,0,1,1);
+         gtk_grid_attach(GTK_GRID(grid),display_entry,1,0,1,1);
+         gtk_grid_attach(GTK_GRID(grid),gtk_label_new("Key filename:"),0,1,1,1);
+         gtk_grid_attach(GTK_GRID(grid),file_entry,1,1,1,1);
+         GtkWidget *hint=gtk_label_new("Filename changes may require updating server profiles. Display name changes do not.");
+         gtk_label_set_line_wrap(GTK_LABEL(hint),TRUE);
+         gtk_grid_attach(GTK_GRID(grid),hint,0,2,2,1);
+         gtk_widget_show_all(rename_dlg);
+         while(gtk_dialog_run(GTK_DIALOG(rename_dlg))==GTK_RESPONSE_ACCEPT) {
+            const char *label=gtk_entry_get_text(GTK_ENTRY(display_entry));
+            const char *filename=gtk_entry_get_text(GTK_ENTRY(file_entry));
+            if(!*label || !g_utf8_validate(label,-1,NULL) ||
+               !*filename || strlen(filename)>64 ||
+               strspn(filename,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=strlen(filename)) {
+               identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_WARNING,
+                  "Provide a display name and a filename of 1–64 letters, digits, _ or -.");
+               continue;
             }
-            g_free(target);
-            g_free(base);
-            g_free(name);
+            char *base=g_strconcat(filename,".pem",NULL);
+            char *target=g_build_filename(dir,base,NULL);
+            bool moving=strcmp(path,target)!=0;
+            if(moving && g_file_test(target,G_FILE_TEST_EXISTS)) {
+               identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_WARNING,"That key filename already exists.");
+            } else if(moving && rename(path,target)!=0) {
+               identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_ERROR,"Unable to rename the key file.");
+            } else {
+               if(moving)rrclient_identity_lock(path);
+               if(!rrclient_identity_set_display_name(target,label))
+                  identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_ERROR,"Unable to save display name.");
+               g_free(selected_path);
+               selected_path=g_strdup(target);
+               g_free(target);g_free(base);
+               break;
+            }
+            g_free(target);g_free(base);
          }
+         gtk_widget_destroy(rename_dlg);
+         g_free(original);g_free(old_base);
          continue;
       }
 
