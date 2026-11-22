@@ -66,6 +66,9 @@ extern defconfig_t defcfg[];
 #ifdef RR_HAVE_RUSTYSCRIPT
 #include <rrscript/host.h>
 rrscript_host_t *rrclient_script_host;
+bool rrclient_script_hotkey(const char *sequence) {
+   return rrscript_host_hotkey(rrclient_script_host, sequence);
+}
 #endif
 
 #ifdef USE_MONGOOSE
