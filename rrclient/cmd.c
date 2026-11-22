@@ -514,7 +514,7 @@ static void artwork_line_event(const rr_event_message_t *event, void *unused) {
    line.text[sizeof(line.text)-1]=0;
    size_t n=strlen(line.text);
    if(!line.playback_id || !line.profile[0] || !line.room[0] ||
-      !g_ascii_strcasecmp(line.room,"status") || strpbrk(line.room,"\\r\\n ,") ||
+      !g_ascii_strcasecmp(line.room,"status") || strpbrk(line.room,"\r\n ,") ||
       !n || n>RR_ARTWORK_MAX_LINE || strchr(line.text,'\n') || strchr(line.text,'\r'))return;
    rrconn_t *connection=rrclient_connection_find(line.profile);
    bool channel=line.room[0]=='#' || line.room[0]=='&';
