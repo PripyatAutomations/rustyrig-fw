@@ -823,6 +823,11 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       if (channel && *from) {
          irc_activity_record(cptr, arg1, from);
       }
+      /* Scriptable transport-specific message event; the existing talk.msg
+       * event remains the transport-neutral chat notification. */
+      if (!strcasecmp(cmd, "PRIVMSG")) {
+         event_emit_dict("irc.privmsg", cptr, d);
+      }
       event_emit_dict("talk.msg", cptr, d);
    } else if (!strcasecmp(cmd, "JOIN") && argc >= 2 && *from) {
       /* Ordinary IRC members have no prefix; retain their transport identity. */
