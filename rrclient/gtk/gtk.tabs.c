@@ -29,10 +29,32 @@ static void rr_adaptive_notebook_width_for_height(GtkWidget *widget, gint height
    *minimum = MIN(*minimum, 320);
 }
 
+/* Inactive pages (particularly the Routing graph) may have very tall
+ * minimum requisitions. Without the same constraint on the vertical axis,
+ * GtkNotebook allocates the active chat taller than its non-scrolling page
+ * viewport and the message composer is clipped below the window. Keep the
+ * natural height intact; active pages with scrollable content can shrink. */
+static void rr_adaptive_notebook_height(GtkWidget *widget, gint *minimum, gint *natural) {
+   GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class)->get_preferred_height(widget, minimum, natural);
+   *minimum = MIN(*minimum, 240);
+}
+
+static void rr_adaptive_notebook_height_for_width(GtkWidget *widget, gint width, gint *minimum, gint *natural) {
+   GtkWidgetClass *parent = GTK_WIDGET_CLASS(rr_adaptive_notebook_parent_class);
+   if (parent->get_preferred_height_for_width) {
+      parent->get_preferred_height_for_width(widget, width, minimum, natural);
+   } else {
+      parent->get_preferred_height(widget, minimum, natural);
+   }
+   *minimum = MIN(*minimum, 240);
+}
+
 static void rr_adaptive_notebook_class_init(RRAdaptiveNotebookClass *klass) {
    GtkWidgetClass *widget = GTK_WIDGET_CLASS(klass);
    widget->get_preferred_width = rr_adaptive_notebook_width;
    widget->get_preferred_width_for_height = rr_adaptive_notebook_width_for_height;
+   widget->get_preferred_height = rr_adaptive_notebook_height;
+   widget->get_preferred_height_for_width = rr_adaptive_notebook_height_for_width;
 }
 
 static void rr_adaptive_notebook_init(RRAdaptiveNotebook *self) {
