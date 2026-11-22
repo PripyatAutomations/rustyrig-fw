@@ -11,12 +11,12 @@
 
 event irc.privmsg {
     if (string.regex(event.room, "^[#&]")) {
-        char[] key = "artwork.capture-" + string.hash(event.room + "|" + event.nick)
-        char[] line = event.text
+        char key = "artwork.capture-" + string.hash(event.room + "|" + event.nick)
+        char line = event.text
         bool colored = string.regex(line, string.chr(3) + "[0-9]{1,2}") ||
                        string.regex(line, string.chr(4) + "[0-9A-Fa-f]{6}") ||
                        string.regex(line, "[█▄▀▌▐░▒▓▖▗▘▙▚▛▜▝▞▟]")
-        char[] body = state.get(key + ".body")
+        char body = state.get(key + ".body")
 
         if (body != null || colored) {
             if (body == null) {
@@ -39,13 +39,13 @@ event irc.privmsg {
 // One-shot timer: commit the completed burst, then clear its state.
 event ui.timer {
     if (string.regex(event.id, "^artwork[.]capture-")) {
-        char[] body = state.get(event.id + ".body")
+        char body = state.get(event.id + ".body")
         if (body != null) {
             if (state.get(event.id + ".count") >= 2) {
-                char[] dir = env.data_dir() + "/rustyrig/artwork"
+                char dir = env.data_dir() + "/rustyrig/artwork"
                 file.mkdir(dir)
-                char[] name = state.get(event.id + ".filename")
-                char[] dest = dir + "/" + name
+                char name = state.get(event.id + ".filename")
+                char dest = dir + "/" + name
                 if (file.exists(dest)) {
                     dest = dir + "/" + string.slice(name, 0, string.length(name) - 4) + "-2.mac"
                 }
@@ -63,7 +63,7 @@ event ui.timer {
         }
     }
     if (event.id == "artwork-play") {
-        char[] body = state.get("artwork.play.body")
+        char body = state.get("artwork.play.body")
         if (body != null) {
             int cursor = state.get("artwork.play.cursor")
             if (cursor >= string.lines(body)) {
@@ -71,7 +71,7 @@ event ui.timer {
                 state.set("artwork.play.body", null)
                 ui.set("artwork_status", "Finished sending macro")
             } else {
-                char[] line = string.line(body, cursor)
+                char line = string.line(body, cursor)
                 if (line == "") {
                     state.set("artwork.play.cursor", cursor + 1)
                 } else {
@@ -138,7 +138,7 @@ event ui.change {
         ui.set("artwork_status", event.value)
     }
     if (event.id == "artwork_target") {
-        char[] saved = setting.get("artwork.speed." + string.hash(event.value))
+        char saved = setting.get("artwork.speed." + string.hash(event.value))
         if (saved != null) {
             ui.set("artwork_rate", saved)
         }
@@ -158,7 +158,7 @@ event ui.click {
         } else {
             timer.cancel("artwork-play")
             chat.cancel("artwork")
-            char[] dest = env.data_dir() + "/rustyrig/artwork/" + ui.val("artwork_files")
+            char dest = env.data_dir() + "/rustyrig/artwork/" + ui.val("artwork_files")
             state.set("artwork.play.body", file.read(dest))
             state.set("artwork.play.cursor", 0)
             state.set("artwork.play.errors", 0)
@@ -188,8 +188,8 @@ event ui.click {
     }
     if (event.id == "artwork_rename") {
         if (ui.val("artwork_files") != "" && ui.val("artwork_newname") != "") {
-            char[] root = env.data_dir() + "/rustyrig/artwork/"
-            char[] dest = root + ui.val("artwork_newname")
+            char root = env.data_dir() + "/rustyrig/artwork/"
+            char dest = root + ui.val("artwork_newname")
             if (file.exists(dest)) {
                 ui.message("artwork_exists", "File exists", "Choose a different filename.")
             } else {
