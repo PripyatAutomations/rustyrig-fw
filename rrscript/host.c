@@ -491,12 +491,14 @@ static void event_received(const char *name,const char *payload,
       const rrs_value_t *text=rrs_value_field(ev,"talk.data");
       const rrs_value_t *nick=rrs_value_field(ev,"talk.from");
       const rrs_value_t *room=rrs_value_field(ev,"talk.room");
-      if(text)rrs_dict_put(ev,"text",text);
-      if(nick)rrs_dict_put(ev,"nick",nick);
-      if(room) {
-         rrs_dict_put(ev,"room",room);
-         rrs_dict_put(ev,"target",room);
-      }
+      /* Normalized IRC fields are always present, including on unusual
+       * PRIVMSG payloads. A missing field should not abort user scripts. */
+      rrs_value_t *empty=rrs_string("");
+      rrs_dict_put(ev,"text",text?text:empty);
+      rrs_dict_put(ev,"nick",nick?nick:empty);
+      rrs_dict_put(ev,"room",room?room:empty);
+      rrs_dict_put(ev,"target",room?room:empty);
+      rrs_value_free(empty);
    }
    run(sub->owner,RRSCRIPT_EVENT,sub->name,ev);
    rrs_value_free(ev);
