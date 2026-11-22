@@ -198,6 +198,16 @@ rrclient_objs += cfg.servers.o
 rrclient_objs += ws.auth.o
 rrclient_objs += ws.serial.o
 
+# Optional RustyScript host support.
+ifeq ($(shell pkg-config --exists librustyscript && echo yes),yes)
+rrclient_objs += scripting.host.o
+CFLAGS_RRCLI += -DRR_HAVE_RUSTYSCRIPT $(shell pkg-config --cflags librustyscript)
+RRCLIENT_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
+${BUILD_DIR}/rrclient/scripting.host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS_RRCLI) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+endif
+
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
 extra_clean += ${rrclient_real_objs}
 
@@ -294,7 +304,7 @@ endif
 
 bin/rrclient: ${BUILD_HEADERS} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) -lm ${LDFLAGS} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
+	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} $(RRCLIENT_SCRIPT_LIBS) -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) -lm ${LDFLAGS} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@
