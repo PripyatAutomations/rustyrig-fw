@@ -160,6 +160,16 @@ rrserver_objs += backend.hamlib-proxy.o
 rrserver_objs += hamlib.transport.o     # Per-rig socketpair and process supervision
 endif
 
+# Optional RustyScript host support.
+ifeq ($(shell pkg-config --exists librustyscript && echo yes),yes)
+rrserver_objs += scripting.host.o
+CFLAGS_RRSERVER += -DRR_HAVE_RUSTYSCRIPT $(shell pkg-config --cflags librustyscript)
+RRSERVER_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
+${BUILD_DIR}/rrserver/scripting.host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS_RRSERVER) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+endif
+
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
@@ -172,7 +182,7 @@ ${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNU
 bin/rrserver: ${EEPROM_REQUIRED} ${BUILD_HEADERS} ${libmongoose} ${rrserver_real_objs} ${MASTER_DB} ${libfwdspmgr} ${rrserver_src}
 	@echo "[link] $@ from $(words ${rrserver_real_objs}) objects"
 	@echo "[gpio] rrserver USE_GPIO=$(USE_GPIO) $(if $(filter true,$(USE_GPIO)),link=$(GPIO_LIBS),adapter=disabled)"
-	@${CC}  -o $@ ${rrserver_real_objs} -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
+	@${CC}  -o $@ ${rrserver_real_objs} $(RRSERVER_SCRIPT_LIBS) -lrustyaxe -lrrprotocol -lfwdspmgr ${LDFLAGS} ${LDFLAGS_RRSERVER} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
 ifeq ($(USE_GPIO),true)
 ifneq ($(OS),DARWIN)
 	@readelf -d $@ | grep -Eq 'NEEDED.*libgpiod[.]so' || { echo "ERROR: GPIO enabled but $@ is not linked to libgpiod" >&2; exit 2; }
