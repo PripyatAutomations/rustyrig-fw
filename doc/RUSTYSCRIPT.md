@@ -33,11 +33,41 @@ scripts/
 directory automatically. Create the directory yourself, then restart
 `rrclient` or `rrserver` to load newly added scripts.
 
-There is **no** interactive `/script load`, `/script unload`, or
-`/script reload` command yet. After startup, handlers run when their
-registered slash command, hotkey or event fires. They do not execute at
-load time. In particular, an event handler for `irc.privmsg` runs only
-when a matching event arrives.
+After startup, handlers run when their registered slash command, hotkey,
+or event fires. They do not execute at load time. In particular, an event
+handler for `irc.privmsg` runs only when a matching event arrives.
+
+The client provides these local commands, even when disconnected:
+
+```text
+/script list
+/script load helper.rrs
+/script unload helper.rrs
+/script reload helper.rrs
+/script reload autoload/10-hello.rrs
+```
+
+A simple name searches the script root first, then `autoload/`.
+Use `autoload/name.rrs` to select an autoload script explicitly.
+`list` shows script filenames with their loaded/available status.
+`reload` parses the replacement before unloading the old version;
+a syntactically invalid replacement leaves its previous handlers active.
+`unload` unregisters the script's commands, hotkeys and event subscriptions.
+Files are never deleted by these operations.
+
+For authenticated administrators of a RustyRig server:
+
+```text
+/script server list
+/script server load helper.rrs
+/script server unload helper.rrs
+/script server reload autoload/monitor.rrs
+```
+
+The server accepts these through its existing authenticated admin
+protocol with `admin|owner` authorization. The server only loads
+preexisting local `.rrs` files; no script upload or arbitrary path
+loading is provided. Responses appear in the client status/chat log.
 
 For example, in the client:
 
@@ -56,9 +86,10 @@ input. Check the client logs under the `scripting` subsystem.
 For the server, install the same script syntax in
 `/etc/rustyrig/scripts/autoload/`, owned/managed by an administrator,
 then restart `rrserver`. Server scripts currently support event
-subscriptions; their slash command bindings cannot yet be invoked by
-remote users. The server does not expose a script upload or management
-endpoint.
+subscriptions; their registered slash command bindings cannot yet be
+invoked by remote users. The server supports admin-only management of
+existing files through the authenticated admin protocol, but has no
+script upload endpoint.
 
 Scripts are trusted code running in the host process.
 
