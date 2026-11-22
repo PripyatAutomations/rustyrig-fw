@@ -209,6 +209,163 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
    return NULL;
 }
 
+/* The artwork manager is script-defined. Native support owns the paced,
+ * cancellable transmit sequence, so a busy UI cannot bypass the chat queue. */
+#include <rrclient/artwork.h>
+#include <rrclient/database.h>
+
+typedef struct {
+   guint timer, interval_ms;
+   guint64 id;
+   guint cursor;
+   char **lines;
+   char profile[128], room[128];
+} rr_art_playback_t;
+static rr_art_playback_t art_playback;
+static guint64 art_serial;
+
+static char *art_safe_path(const char *basename) {
+   if (!basename || !*basename || strlen(basename)>180 ||
+       strstr(basename,"..") || strchr(basename,'/') || strchr(basename,'\\') ||
+       !g_str_has_suffix(basename,".mac"))
+      return NULL;
+   return g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",basename,NULL);
+}
+static char *art_rate_key(const char *target) {
+   char *hash=g_compute_checksum_for_string(G_CHECKSUM_SHA256,target,-1);
+   char *key=g_strdup_printf("ui.artwork.lps.%s",hash);
+   g_free(hash);
+   return key;
+}
+static void art_playback_stop(void) {
+   if (art_playback.timer) {
+      g_source_remove(art_playback.timer);
+      art_playback.timer=0;
+   }
+   if (art_playback.id) {
+      rr_artwork_cancel_t cancel={.playback_id=art_playback.id};
+      rr_event_message_t message={
+         .name=RR_ARTWORK_CANCEL_EVENT,.payload=&cancel,.length=sizeof(cancel)
+      };
+      event_emit_message(&message);
+      art_playback.id=0;
+   }
+   g_strfreev(art_playback.lines);
+   art_playback.lines=NULL;
+   art_playback.cursor=0;
+}
+static gboolean art_playback_tick(gpointer unused) {
+   (void)unused;
+   if (!art_playback.lines || !art_playback.lines[art_playback.cursor]) {
+      art_playback.timer=0;
+      g_strfreev(art_playback.lines);
+      art_playback.lines=NULL;
+      art_playback.id=0;
+      return G_SOURCE_REMOVE;
+   }
+   const char *line=art_playback.lines[art_playback.cursor++];
+   if (*line && strlen(line)<=RR_ARTWORK_MAX_LINE) {
+      rr_artwork_line_t request={
+         .playback_id=art_playback.id,
+         .interval_ms=art_playback.interval_ms
+      };
+      g_strlcpy(request.profile,art_playback.profile,sizeof(request.profile));
+      g_strlcpy(request.room,art_playback.room,sizeof(request.room));
+      g_strlcpy(request.text,line,sizeof(request.text));
+      rr_event_message_t message={
+         .name=RR_ARTWORK_LINE_EVENT,.payload=&request,.length=sizeof(request)
+      };
+      event_emit_message(&message);
+   }
+   return G_SOURCE_CONTINUE;
+}
+static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   const char *op=user;
+   if(!strcmp(op,"stop")) {
+      if(argc){rrs_vm_raise(vm,"art.stop() takes no arguments");return NULL;}
+      art_playback_stop();
+      return rrs_boolean(true);
+   }
+   int want=!strcmp(op,"play")?3:!strcmp(op,"rate_set")?2:1;
+   if(argc!=want){rrs_vm_raise(vm,"Invalid artwork function arguments");return NULL;}
+   for(int i=0;i<argc;i++)
+      if(rrs_value_type(argv[i])!=RRS_STRING &&
+         !(i==1 && !strcmp(op,"rate_set") && rrs_value_type(argv[i])==RRS_INT) &&
+         !(i==2 && !strcmp(op,"play") && (rrs_value_type(argv[i])==RRS_INT ||
+                                          rrs_value_type(argv[i])==RRS_FLOAT))) {
+         rrs_vm_raise(vm,"Invalid artwork argument type");return NULL;
+      }
+   const char *name=rrs_value_string(argv[0]);
+   if(!strcmp(op,"path")) {
+      char *path=art_safe_path(name);
+      if(!path){rrs_vm_raise(vm,"Invalid .mac filename");return NULL;}
+      rrs_value_t *ret=rrs_string(path);
+      g_free(path);
+      return ret;
+   }
+   if(!strcmp(op,"rate_get")||!strcmp(op,"rate_set")) {
+      char *key=art_rate_key(name);
+      if(!strcmp(op,"rate_get")) {
+         char *saved=rrclient_database_setting_get(key);
+         int rate=saved?atoi(saved):1;
+         g_free(saved);g_free(key);
+         return rrs_integer(CLAMP(rate,1,10));
+      }
+      int64_t rate=rrs_value_int(argv[1]);
+      if(rate<1||rate>10) {
+         g_free(key);rrs_vm_raise(vm,"Rate must be 1..10 lines/sec");return NULL;
+      }
+      char value[16];
+      g_snprintf(value,sizeof(value),"%" G_GINT64_FORMAT,(gint64)rate);
+      bool saved=rrclient_database_setting_set(key,value);
+      g_free(key);
+      if(!saved){rrs_vm_raise(vm,"Could not persist room rate");return NULL;}
+      return rrs_boolean(true);
+   }
+   if(!strcmp(op,"play")) {
+      const char *target=rrs_value_string(argv[1]);
+      char **parts=g_strsplit(target,"|",3);
+      bool valid=parts[0]&&parts[1]&&!parts[2]&&strlen(parts[0])<sizeof(art_playback.profile)&&
+         strlen(parts[1])<sizeof(art_playback.room)&&
+         (parts[1][0]=='#'||parts[1][0]=='&');
+      int rate=rrs_value_type(argv[2])==RRS_INT?
+         (int)rrs_value_int(argv[2]):(int)rrs_value_float(argv[2]);
+      char *path=art_safe_path(name);
+      if(!valid||!path||rate<1||rate>10) {
+         g_strfreev(parts);g_free(path);
+         rrs_vm_raise(vm,"art.play expects .mac, profile|#room, and 1..10 lines/sec");
+         return NULL;
+      }
+      char *content=NULL;gsize length=0;
+      bool readable=g_file_get_contents(path,&content,&length,NULL);
+      g_free(path);
+      if(!readable||length>131072||!g_utf8_validate(content,length,NULL)) {
+         g_free(content);g_strfreev(parts);
+         rrs_vm_raise(vm,"Cannot read UTF-8 artwork (maximum 128 KiB)");return NULL;
+      }
+      char **lines=g_strsplit(content,"\n",256);
+      g_free(content);
+      for(guint i=0;lines[i];i++) {
+         if(strlen(lines[i])>RR_ARTWORK_MAX_LINE || strchr(lines[i],'\r')) {
+            g_strfreev(lines);g_strfreev(parts);
+            rrs_vm_raise(vm,"Artwork contains oversized or invalid chat lines");return NULL;
+         }
+      }
+      art_playback_stop();
+      art_playback.id=++art_serial;
+      art_playback.interval_ms=(guint)(1000/rate);
+      art_playback.lines=lines;
+      g_strlcpy(art_playback.profile,parts[0],sizeof(art_playback.profile));
+      g_strlcpy(art_playback.room,parts[1],sizeof(art_playback.room));
+      g_strfreev(parts);
+      art_playback.timer=g_timeout_add(art_playback.interval_ms,art_playback_tick,NULL);
+      art_playback_tick(NULL);
+      return rrs_boolean(true);
+   }
+   rrs_vm_raise(vm,"Unknown artwork function");return NULL;
+}
+
 /* Scripts only see immutable IDs and properties; no GTK pointers escape.
  * These operations use the same GTK floating panel manager as drag/drop. */
 static bool script_frontend_context(rrs_vm_t *vm) {
@@ -504,7 +661,12 @@ static bool register_gui_api(rrs_vm_t *vm) {
 }
 
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"file.read",native_file,"read") &&
+   return rrs_vm_register_native(vm,"art.path",native_art_control,"path") &&
+       rrs_vm_register_native(vm,"art.play",native_art_control,"play") &&
+       rrs_vm_register_native(vm,"art.stop",native_art_control,"stop") &&
+       rrs_vm_register_native(vm,"art.rate_get",native_art_control,"rate_get") &&
+       rrs_vm_register_native(vm,"art.rate_set",native_art_control,"rate_set") &&
+       rrs_vm_register_native(vm,"file.read",native_file,"read") &&
        rrs_vm_register_native(vm,"file.write",native_file,"write") &&
        rrs_vm_register_native(vm,"file.append",native_file,"append") &&
        rrs_vm_register_native(vm,"file.exists",native_file,"exists") &&
@@ -538,6 +700,7 @@ void rrclient_script_init(void) {
    g_free(default_path);
 }
 void rrclient_script_shutdown(void) {
+   art_playback_stop();
    rrscript_host_close(rrclient_script_host);
    rrclient_script_host=NULL;
    g_mutex_lock(&rr_art_lock);
