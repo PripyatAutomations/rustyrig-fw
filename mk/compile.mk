@@ -126,7 +126,7 @@ CFLAGS += -DMG_TLS=MG_TLS_MBED
 CFLAGS += $(shell pkg-config --cflags mbedtls)
 # Both executables use Mongoose symbols when this backend is selected;
 # depending on libmongoose.so alone is insufficient without linking it.
-LDFLAGS += -lmongoose $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
+LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 endif
 
 # Are we cross compiling?
