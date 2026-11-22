@@ -511,6 +511,24 @@ bool rrclient_script_chat_send(const char *profile,const char *target,
    dict_free(message);
    return false;
 }
+void rrclient_script_chat_cancel_owner(const char *owner) {
+   if(!owner||!*owner||!chat_queue)return;
+   char *prefix=g_strconcat(owner,":",NULL);
+   for(GList *it=chat_queue->head;it;) {
+      GList *next=it->next;
+      chat_pending_t *pending=it->data;
+      if(pending->script_tag && g_str_has_prefix(pending->script_tag,prefix)) {
+         g_queue_delete_link(chat_queue,it);
+         dict_free(pending->message);
+         g_free(pending->profile);
+         g_free(pending->window);
+         g_free(pending->script_tag);
+         g_free(pending);
+      }
+      it=next;
+   }
+   g_free(prefix);
+}
 void rrclient_script_chat_cancel(const char *tag) {
    if(!tag||!*tag||!chat_queue)return;
    for(GList *it=chat_queue->head;it;) {
