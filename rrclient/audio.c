@@ -1856,11 +1856,13 @@ static void audio_lv2_reconcile_chains(void) {
       }
    }
    gboolean changed = FALSE;
+   gboolean affected_roots[RR_AUDIO_EFFECT_MAX] = {FALSE};
+   gboolean restart[RR_AUDIO_EFFECT_MAX] = {FALSE};
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
       if (!cfg[i].present) continue;
       if (!desired[i]) desired[i] = i + 1;
       guint actual = lv2_effects[i].chain_host ? lv2_effects[i].chain_host : i + 1;
-      if (actual != desired[i]) changed = TRUE;
+      gboolean different = actual != desired[i];
       if (desired[i] == i + 1) {
          guint tail = i + 1;
          gboolean seen[RR_AUDIO_EFFECT_MAX] = {FALSE};
@@ -1871,25 +1873,39 @@ static void audio_lv2_reconcile_chains(void) {
             n = successor[n];
          }
          if ((lv2_effects[i].chain_tail ? lv2_effects[i].chain_tail : i + 1) != tail)
-            changed = TRUE;
+            different = TRUE;
+      }
+      if (different) {
+         changed = TRUE;
+         affected_roots[actual - 1] = TRUE;
+         affected_roots[desired[i] - 1] = TRUE;
       }
    }
    if (!changed || lv2_chain_rebuild_blocked) return;
 
-   /* Tear down actual subprocesses first; otherwise an in-flight root
-    * callback could reference an already-removed virtual tail stream. */
+   /* Expand affected roots to their complete old and new chains. This
+    * prevents a worker from retaining a removed stage without disturbing
+    * independent effects that are not part of the change. */
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present) continue;
+      guint actual = lv2_effects[i].chain_host ? lv2_effects[i].chain_host : i + 1;
+      restart[i] = affected_roots[actual - 1] || affected_roots[desired[i] - 1];
+   }
+
+   /* Tear down the actual subprocesses first; an in-flight callback must not
+    * refer to a virtual tail whose stream has already been removed. */
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
-      if (cfg[i].present && (!lv2_effects[i].chain_host ||
+      if (restart[i] && (!lv2_effects[i].chain_host ||
           lv2_effects[i].chain_host == i + 1)) audio_lv2_stop(i + 1, FALSE);
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
-      if (cfg[i].present && lv2_effects[i].name[0]) audio_lv2_stop(i + 1, FALSE);
+      if (restart[i] && lv2_effects[i].name[0]) audio_lv2_stop(i + 1, FALSE);
 
    /* Roots whose inputs are unavailable stay configured in the database and
     * are retried by audio_lv2_restore when their streams arrive. */
    for (guint pass = 0 ; pass < RR_AUDIO_EFFECT_MAX ; pass++) {
       gboolean progressed = FALSE;
       for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
-         if (!cfg[i].present || used[i] || desired[i] != i + 1) continue;
+         if (!restart[i] || used[i] || desired[i] != i + 1) continue;
          if (cfg[i].source[0][0] && !audio_lv2_source_present(cfg[i].source[0]))
             continue;
          guint slots[RR_AUDIO_EFFECT_MAX], count = 0;
