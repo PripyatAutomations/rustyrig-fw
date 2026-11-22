@@ -3298,6 +3298,8 @@ typedef struct routing_compact_control {
 typedef struct {
    char worker[64], element[96], property[96];
    double low, high, step, initial;
+   gboolean string_property;
+   char initial_string[256];
 } routing_effect_port_t;
 static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t *out);
 static gboolean routing_effect_parameter_location(const char *worker, const char *element, const char *property, double *x, double *y);
@@ -4589,6 +4591,11 @@ static void routing_lv2_properties(GtkComboBoxText *choice, GHashTable *ports, G
          meta.high = 1.;
          meta.initial = v->default_value;
          meta.step = 1.;
+      } else if (G_IS_PARAM_SPEC_STRING(spec)) {
+         meta.string_property = TRUE;
+         meta.low = 0.;
+         meta.high = 1.;
+         meta.step = 1.;
       } else {
          continue;
       }
@@ -4611,6 +4618,9 @@ static void routing_lv2_properties(GtkComboBoxText *choice, GHashTable *ports, G
          meta.initial = g_value_get_uint(&actual);
       } else if (G_VALUE_HOLDS_BOOLEAN(&actual)) {
          meta.initial = g_value_get_boolean(&actual) ? 1. : 0.;
+      } else if (G_VALUE_HOLDS_STRING(&actual)) {
+         const char *current = g_value_get_string(&actual);
+         g_strlcpy(meta.initial_string, current ? current : "", sizeof(meta.initial_string));
       }
       g_value_unset(&actual);
       gchar *id = g_strdup_printf("E|%s|%s|%s", meta.worker, meta.element, meta.property);
@@ -5081,6 +5091,9 @@ static gboolean routing_effect_release(void) {
 }
 
 static void routing_compact_set_effect(routing_compact_control_t *control, const routing_effect_port_t *port) {
+   /* Never connect a string selector to a numeric worker port (or vice
+    * versa); the two IPC operations have distinct types. */
+   if ((strcmp(control->kind, "enum") == 0) != port->string_property) return;
    g_strlcpy(control->effect_worker, port->worker, sizeof(control->effect_worker));
    g_strlcpy(control->effect_element, port->element, sizeof(control->effect_element));
    g_strlcpy(control->effect_property, port->property, sizeof(control->effect_property));
@@ -5090,9 +5103,12 @@ static void routing_compact_set_effect(routing_compact_control_t *control, const
    control->hint_step = port->step;
    control->effect_value = port->initial;
    control->effect_default = port->initial;
+   if (port->string_property && !control->enum_value[0])
+      g_strlcpy(control->enum_value, port->initial_string, sizeof(control->enum_value));
    routing_compact_apply_hints(control);
    routing_compact_apply_widget(control);
    gtk_widget_set_sensitive(control->value, TRUE);
+   if (control->selector) gtk_widget_set_sensitive(control->selector, TRUE);
    routing_compact_save(control);
 }
 
@@ -5197,7 +5213,11 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
             routing_effect_port_t *meta = g_hash_table_lookup(effect_ports, id);
 
             if (meta) {
-               routing_compact_set_effect(g_ptr_array_index(routing_compact_controls, routing_compact_controls->len - 1), meta);
+               routing_compact_control_t *control = g_ptr_array_index(routing_compact_controls, routing_compact_controls->len - 1);
+               if ((strcmp(control->kind, "enum") == 0) == meta->string_property)
+                  routing_compact_set_effect(control, meta);
+               else
+                  Log(LOG_WARN, "gtk.routing", "Control kind does not match target parameter type");
             }
          }
       }
