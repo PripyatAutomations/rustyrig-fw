@@ -398,6 +398,7 @@ typedef struct {
    dict *message;
    bool irc;
    uint64_t playback_id; /* zero for ordinary user chat */
+   guint artwork_interval_ms;
 } chat_pending_t;
 static GQueue *chat_queue;
 static guint chat_timer;
@@ -421,6 +422,7 @@ static int chat_queue_limit(void) {
 }
 
 static gint64 chat_updated;
+static gint64 artwork_next_send_at;
 
 static gboolean chat_flush(gpointer unused) {
    (void)unused;
@@ -431,9 +433,16 @@ static gboolean chat_flush(gpointer unused) {
    }
    chat_updated = stamp;
    chat_tokens = MIN(chat_tokens, (double)chat_burst());
-   while (chat_queue && !g_queue_is_empty(chat_queue) && chat_tokens >= 1.0) {
+   while (chat_queue && !g_queue_is_empty(chat_queue)) {
+      chat_pending_t *head = g_queue_peek_head(chat_queue);
+      if (head->playback_id) {
+         if (stamp < artwork_next_send_at) break;
+         artwork_next_send_at = stamp + (gint64)MAX(100u,head->artwork_interval_ms)*1000;
+      } else {
+         if (chat_tokens < 1.0) break;
+         chat_tokens -= 1.0;
+      }
       chat_pending_t *next = g_queue_pop_head(chat_queue);
-      chat_tokens -= 1.0;
 
       if (next->connection && next->profile && rrclient_connection_find(next->profile) == next->connection && next->connection->authenticated) {
          if (next->irc) {
@@ -459,7 +468,7 @@ static gboolean chat_flush(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
-static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, uint64_t playback_id) {
+static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, uint64_t playback_id, guint interval_ms) {
    if (!connection || !message) {
       return false;
    }
@@ -480,6 +489,7 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, uint6
    next->message = message;
    next->irc = irc;
    next->playback_id = playback_id;
+   next->artwork_interval_ms = interval_ms;
    g_queue_push_tail(chat_queue, next);
    chat_flush(NULL);
 
@@ -503,7 +513,7 @@ static void artwork_line_event(const rr_event_message_t *event, void *unused) {
    line.room[sizeof(line.room)-1]=0;
    line.text[sizeof(line.text)-1]=0;
    size_t n=strlen(line.text);
-   if(!line.playback_id || !line.profile[0] || line.room[0]!='#' ||
+   if(!line.playback_id || !line.profile[0] || (line.room[0]!='#' && line.room[0]!='&') ||
       !n || n>RR_ARTWORK_MAX_LINE || strchr(line.text,'\n') || strchr(line.text,'\r'))return;
    rrconn_t *connection=rrclient_connection_find(line.profile);
    if(!connection || !connection->authenticated || rrclient_connection_state(line.profile)!=1 ||
@@ -515,7 +525,7 @@ static void artwork_line_event(const rr_event_message_t *event, void *unused) {
    dict_add(message,"talk.target",line.room);
    dict_add(message,"talk.msg_type","pub");
    dict_add(message,"talk.data",line.text);
-   if(!chat_send_paced(connection,message,!connection->is_ws,line.playback_id))
+   if(!chat_send_paced(connection,message,!connection->is_ws,line.playback_id,CLAMP(line.interval_ms,100u,10000u)))
       dict_free(message);
 }
 static void artwork_cancel_event(const rr_event_message_t *event, void *unused) {
@@ -749,7 +759,7 @@ static bool parse_chat_input(const char *msg, bool commands) {
          dict_add(request, "talk.target", target);
          dict_add(request, "talk.msg_type", target[0] == '#' || target[0] == '&' ? "pub" : "priv");
          dict_add(request, "talk.data", msg);
-         bool sent = chat_send_paced(active_connection, request, true, 0);
+         bool sent = chat_send_paced(active_connection, request, true, 0, 0);
 
          if (!sent) {
             dict_free(request);
@@ -787,7 +797,7 @@ static bool parse_chat_input(const char *msg, bool commands) {
          }
       }
 
-      if (!chat_send_paced(rrclient_connection_context(), d, false, 0)) {
+      if (!chat_send_paced(rrclient_connection_context(), d, false, 0, 0)) {
          dict_free(d);
       }
    }
