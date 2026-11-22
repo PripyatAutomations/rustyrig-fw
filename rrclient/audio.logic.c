@@ -3,9 +3,9 @@
 #include <string.h>
 #include <strings.h>
 #include <math.h>
-static const char *const names[] = {"AND","OR","XOR","NOT","NAND","NOR"};
+static const char *const names[] = {"AND","OR","XOR","NOT","NAND","NOR","XNOR"};
 const char *rr_gate_kind_name(rr_gate_kind_t kind) {
-   return kind <= RR_GATE_NOR ? names[kind] : NULL;
+   return kind <= RR_GATE_XNOR ? names[kind] : NULL;
 }
 bool rr_gate_kind_parse(const char *name, rr_gate_kind_t *out) {
    if (!name || !out) return false;
@@ -16,7 +16,7 @@ bool rr_gate_kind_parse(const char *name, rr_gate_kind_t *out) {
 bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
    if (!output) return false;
    *output=false;
-   if (!gate || gate->kind > RR_GATE_NOR ||
+   if (!gate || gate->kind > RR_GATE_XNOR ||
        (gate->kind == RR_GATE_NOT ? gate->inputs != 1 :
           gate->inputs < 2 || gate->inputs > 32))
       return false;
@@ -32,6 +32,7 @@ bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
       case RR_GATE_NOT:  result=active == 0; break;
       case RR_GATE_NAND: result=active != expected; break;
       case RR_GATE_NOR:  result=active == 0; break;
+      case RR_GATE_XNOR: result=!__builtin_parity(active); break;
       default: return false;
    }
    *output=result;
@@ -43,7 +44,7 @@ bool rr_gate_evaluate_wires(rr_gate_kind_t kind, unsigned inputs,
                             bool *output) {
    if (!output) return false;
    *output=false;
-   if (kind > RR_GATE_NOR || (kind == RR_GATE_NOT ? inputs != 1 :
+   if (kind > RR_GATE_XNOR || (kind == RR_GATE_NOT ? inputs != 1 :
        inputs < 2 || inputs > 32) || (wire_count && !wires))
       return false;
    rr_gate_state_t gate = {.kind=kind, .inputs=inputs};
