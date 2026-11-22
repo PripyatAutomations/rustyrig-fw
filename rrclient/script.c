@@ -255,7 +255,7 @@ static rrs_value_t *script_gui_value(rrs_vm_t *vm,int argc,
    }
    char *key=script_gui_key(owner,rrs_value_string(argv[0]));
    script_gui_cached_t *entry=script_gui_values?g_hash_table_lookup(script_gui_values,key):NULL;
-   rrs_value_t *value=rrs_null();
+   rrs_value_t *value=NULL;
    if(entry) {
       if(!strcmp(entry->kind,"check"))value=rrs_boolean(!strcmp(entry->text,"true")||!strcmp(entry->text,"1"));
       else if(!strcmp(entry->kind,"slider")||!strcmp(entry->kind,"spin"))
@@ -263,7 +263,7 @@ static rrs_value_t *script_gui_value(rrs_vm_t *vm,int argc,
       else value=rrs_string(entry->text);
    }
    g_free(key);
-   return value;
+   return value ? value : rrs_null();
 }
 static bool register_gui_api(rrs_vm_t *vm) {
    return rrs_vm_register_native(vm,"gui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
