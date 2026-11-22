@@ -1308,6 +1308,8 @@ static void onair_draw(cairo_t *cr) {
    cairo_show_text(cr, "Local command pin");
    /* Always paint the local command output socket, even when the monitor listens to a modem PTT source or no source is attached. */
    cairo_set_source_rgb(cr, .96, .20, .20);
+   /* cairo_arc connects to the prior text path unless the path is reset. */
+   cairo_new_path(cr);
    cairo_arc(cr, ptt_x + 150., ptt_y + 35., 6., 0, 2. * G_PI);
    cairo_fill_preserve(cr);
    cairo_set_source_rgb(cr, .12, .14, .18);
@@ -1335,6 +1337,8 @@ static void onair_draw(cairo_t *cr) {
    cairo_restore(cr);
    cairo_set_source_rgb(cr, .96, .20, .20);
    cairo_set_line_width(cr, 3.);
+   /* The ON AIR input is a distinct socket, not part of the text path. */
+   cairo_new_path(cr);
    cairo_arc(cr, onair_x, onair_y + ONAIR_H / 2., 7., 0, 2. * G_PI);
    cairo_fill_preserve(cr);
    cairo_set_source_rgb(cr, .12, .14, .18);
