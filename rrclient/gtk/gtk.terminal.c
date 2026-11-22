@@ -136,6 +136,7 @@ static void decode_set_call(GtkEditable *edit, gpointer unused) {
    (void)unused;
    const char *value = gtk_entry_get_text(GTK_ENTRY(edit));
    g_strlcpy(decode_highlight_call, value, sizeof(decode_highlight_call));
+   rrclient_database_setting_set("modem.my_callsign", decode_highlight_call);
 
    for (unsigned i = 0 ; i < RR_LOCAL_MODEM_MAX ; i++) {
       decode_tab_t *tab = &decode_tabs[i];
@@ -1119,6 +1120,12 @@ GtkWidget *init_terminal_tab(void) {
    GtkWidget *highlight_call = gtk_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(highlight_call), "My callsign");
    gtk_entry_set_width_chars(GTK_ENTRY(highlight_call), 13);
+   char *stored_call = rrclient_database_setting_get("modem.my_callsign");
+   if (stored_call) {
+      g_strlcpy(decode_highlight_call, stored_call, sizeof(decode_highlight_call));
+      gtk_entry_set_text(GTK_ENTRY(highlight_call), decode_highlight_call);
+      g_free(stored_call);
+   }
    gtk_widget_set_tooltip_text(highlight_call, "Highlight decoded rows containing this callsign");
    g_signal_connect(highlight_call, "changed", G_CALLBACK(decode_set_call), NULL);
    gtk_box_pack_start(GTK_BOX(toolbar), highlight_call, FALSE, FALSE, 0);
