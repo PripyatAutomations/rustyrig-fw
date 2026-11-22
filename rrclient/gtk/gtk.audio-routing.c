@@ -1715,9 +1715,7 @@ static gboolean routing_source_can_feed_mix(const rr_ag_view_node_t *source,
    if (!source || source->type != RR_AG_SOURCE || source->read_only ||
        !mix || (strcmp(mix,"rx.mix") && strcmp(mix,"hq.mix")))
       return FALSE;
-   const gboolean hq_source = source->downstream_rate_hz > 16000;
-   return (!strcmp(mix,hq_source ? "hq.mix" : "rx.mix")) ||
-          (!hq_source && !strcmp(mix,"hq.mix"));
+   return rr_audio_graph_listen_bus(source->downstream_rate_hz,mix) != NULL;
 }
 
 /* Audio sources can be dragged to modem RX inputs, and modem inputs can be dragged back to a source. The modem path ignores speaker L/R routing. */
