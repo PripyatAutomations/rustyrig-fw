@@ -169,83 +169,6 @@ static gboolean decode_has_call(const char *line, const char *call) {
 
 /* Match watched calls as complete call tokens, never substrings (K1AB must not match K1ABC). The RF dial determines band; audio offset is not part of the
  * amateur band selection. Unknown RF matches only "Any". */
-static const char *decode_rf_band(uint64_t hz) {
-   static const struct {
-      uint64_t low, high;
-      const char *band;
-   } bands[] = {
-      {
-         135700, 137800, "2200m"
-      }, {
-         472000, 479000, "630m"
-      },
-      {
-         1800000, 2000000, "160m"
-      }, {
-         3500000, 4000000, "80m"
-      },
-      {
-         5330000, 5410000, "60m"
-      }, {
-         7000000, 7300000, "40m"
-      },
-      {
-         10100000, 10150000, "30m"
-      }, {
-         14000000, 14350000, "20m"
-      },
-      {
-         18068000, 18168000, "17m"
-      }, {
-         21000000, 21450000, "15m"
-      },
-      {
-         24890000, 24990000, "12m"
-      }, {
-         28000000, 29700000, "10m"
-      },
-      {
-         50000000, 54000000, "6m"
-      }, {
-         144000000, 148000000, "2m"
-      },
-      {
-         222000000, 225000000, "1.25m"
-      }, {
-         420000000, 450000000, "70cm"
-      },
-      {
-         902000000, 928000000, "33cm"
-      }, {
-         1240000000, 1300000000, "23cm"
-      }
-   };
-
-   for (unsigned i = 0 ; i < G_N_ELEMENTS(bands) ; ++i) {
-      if (hz >= bands[i].low && hz <= bands[i].high) {
-         return bands[i].band;
-      }
-   }
-
-   return NULL;
-}
-
-static const char *decode_mode_name(const rr_local_modem_decode_t *d) {
-   if (!g_ascii_strcasecmp(d->engine, "ft8")) {
-      return "FT8";
-   }
-
-   if (!g_ascii_strcasecmp(d->engine, "olivia")) {
-      return "Olivia";
-   }
-
-   if (!g_ascii_strcasecmp(d->engine, "psk")) {
-      return d->mode[0] ? d->mode : "PSK";
-   }
-
-   return d->mode[0] ? d->mode : d->engine;
-}
-
 typedef struct {
    const char *message, *mode, *band;
    gboolean matched;
@@ -271,8 +194,8 @@ static gboolean decode_watch_matches(const rr_local_modem_decode_t *d, const cha
       return FALSE;
    }
    DecodeWatchMatch match = {
-      .message = body, .mode = decode_mode_name(d),
-      .band = decode_rf_band(d->frequency_hz)
+      .message = body, .mode = rr_modem_callsign_mode(d),
+      .band = rr_modem_callsign_band(d->frequency_hz)
    };
    rrclient_database_watched_calls_foreach(decode_watch_match_entry, &match);
 
