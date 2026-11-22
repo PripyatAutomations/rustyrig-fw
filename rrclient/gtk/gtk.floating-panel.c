@@ -1664,16 +1664,11 @@ static void panel_drag_cancel_tick(RRFloatPanel *p);
 static void panel_minimize(GtkButton *button, gpointer data);
 static void panel_roll(GtkButton *button, gpointer data);
 static void panel_close(GtkButton *button, gpointer data);
-/* Double-click anywhere on the panel's zoom slider to restore 1:1. */
-static gboolean panel_zoom_reset(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   (void)data;
-
-   if (event->button != GDK_BUTTON_PRIMARY || event->type != GDK_2BUTTON_PRESS) {
-      return FALSE;
-   }
-   gtk_range_set_value(GTK_RANGE(widget), 0);
-
-   return TRUE;
+/* An explicit reset button avoids interpreting slider drags as a double
+ * click, especially in a narrow docked panel's popover. */
+static void panel_zoom_reset(GtkButton *button, gpointer data) {
+   (void)button;
+   gtk_range_set_value(GTK_RANGE(data), 0);
 }
 
 static gint panel_minimum_width(RRFloatPanel *p) {
@@ -1690,8 +1685,6 @@ static gint panel_minimum_width(RRFloatPanel *p) {
 static void panel_zoom_changed(GtkRange *range, gpointer data) {
    RRFloatPanel *p = data;
    double old_scale = MAX(.10, 1.0 + p->zoom / 100.0);
-   gint old_width = gtk_widget_get_allocated_width(p->frame);
-   gint old_height = gtk_widget_get_allocated_height(p->frame);
    p->zoom = (gint) gtk_range_get_value(range);
    /* 0 = 100%, -100 = minimum usable 10%, +100 = 200%. Zoom belongs to this panel; unrelated panels are not affected. */
    double scale = MAX(.10, 1.0 + p->zoom / 100.0);
@@ -1705,16 +1698,11 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
       p->zoom_callback(scale, p->zoom_data);
    }
 
-   if (p->resizable && !p->rolled && old_width > 1 && old_height > 1) {
-      /* Scale the current user-chosen viewport, not its initial default. Clamp it to the overlay; users can still drag the resize handle. */
-      gint min_w = panel_minimum_width(p);
-      gint max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_start(p->frame) - 12);
-      gint min_h = p->dock_edge >= 0 ? 72 : 180;
-      gint max_h = MAX(min_h, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - gtk_widget_get_margin_top(p->frame) - 12);
-      gtk_widget_set_size_request(p->frame, CLAMP((gint) round(old_width * scale / old_scale), min_w, max_w), CLAMP((gint) round(old_height * scale / old_scale)
-         , 180, max_h));
-   } else if (!p->resizable && !p->rolled) {
-      /* Fixed panels should follow the content's newly computed natural dimensions rather than retain a stale size request. */
+   /* While a settings popover is open, changing panel geometry moves its
+    * anchor under the pointer. This causes slider jumps and accidental drags.
+    * Docked panels also have explicit viewport sizes; keep those unchanged.
+    * Only the contents scale here; the resize grip controls panel dimensions. */
+   if (!p->resizable && !p->rolled && p->dock_edge < 0) {
       gtk_widget_set_size_request(p->frame, -1, -1);
    }
    gtk_widget_queue_resize(p->frame);
@@ -2352,12 +2340,15 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
    GtkWidget *zoom = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -100, 100, 5);
    gtk_range_set_value(GTK_RANGE(zoom), p->zoom);
-   gtk_widget_set_tooltip_text(zoom, "0 = 100% normal size; -100 = minimum (10%); +100 = 200%; double-click to reset");
+   gtk_widget_set_tooltip_text(zoom, "0 = 100% normal size; -100 = minimum (10%); +100 = 200%");
    gtk_scale_set_value_pos(GTK_SCALE(zoom), GTK_POS_RIGHT);
+   gtk_widget_set_size_request(zoom, 170, -1);
    gtk_box_pack_start(GTK_BOX(settings), zoom, FALSE, FALSE, 0);
    g_signal_connect(zoom, "value-changed", G_CALLBACK(panel_zoom_changed), p);
-   gtk_widget_add_events(zoom, GDK_BUTTON_PRESS_MASK);
-   g_signal_connect(zoom, "button-press-event", G_CALLBACK(panel_zoom_reset), p);
+   GtkWidget *zoom_reset = gtk_button_new_with_label("Reset zoom (100%)");
+   gtk_button_set_relief(GTK_BUTTON(zoom_reset), GTK_RELIEF_NONE);
+   gtk_box_pack_start(GTK_BOX(settings), zoom_reset, FALSE, FALSE, 0);
+   g_signal_connect(zoom_reset, "clicked", G_CALLBACK(panel_zoom_reset), zoom);
    label = gtk_label_new("Opacity");
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
