@@ -85,12 +85,16 @@ event ui.click {
         }
     }
     if (event.id == "artwork_rename") {
-        if (file.exists(art.path(ui.val("artwork_newname")))) {
-            ui.message("artwork_rename_exists", "Destination exists", "Choose a different filename")
+        if (ui.val("artwork_files") == "" || ui.val("artwork_newname") == "") {
+            ui.message("artwork_rename_missing", "Rename artwork", "Select a file and enter a destination .mac filename")
         } else {
-            file.rename(art.path(ui.val("artwork_files")), art.path(ui.val("artwork_newname")))
-            ui.set("artwork_files", "refresh")
-            ui.set("artwork_status", "Macro renamed / moved")
+            if (file.exists(art.path(ui.val("artwork_newname")))) {
+                ui.message("artwork_rename_exists", "Destination exists", "Choose a different filename")
+            } else {
+                file.rename(art.path(ui.val("artwork_files")), art.path(ui.val("artwork_newname")))
+                ui.set("artwork_files", "refresh")
+                ui.set("artwork_status", "Macro renamed / moved")
+            }
         }
     }
     if (event.id == "artwork_mkdir") {
@@ -103,12 +107,12 @@ event ui.click {
             ui.message("artwork_missing", "Choose artwork", "Select a .mac file first")
         } else {
             if (ui.val("artwork_confirm_delete")) {
-            ui.message("artwork_delete_confirm", "Delete artwork?", "Delete the selected .mac file permanently?", "yesno")
-        } else {
-            file.remove(art.path(ui.val("artwork_files")))
-            ui.set("artwork_files", "refresh")
-            ui.set("artwork_preview", "")
-            ui.set("artwork_status", "Macro deleted")
+                ui.message("artwork_delete_confirm", "Delete artwork?", "Delete the selected .mac file permanently?", "yesno")
+            } else {
+                file.remove(art.path(ui.val("artwork_files")))
+                ui.set("artwork_files", "refresh")
+                ui.set("artwork_preview", "")
+                ui.set("artwork_status", "Macro deleted")
             }
         }
     }
