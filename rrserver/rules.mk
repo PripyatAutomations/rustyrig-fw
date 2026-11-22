@@ -38,7 +38,8 @@ extra_clean += ${BUILD_DIR}/rrserver/gpio.config
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)
-rrserver_src = $(addprefix rrserver/,$(rrserver_objs:.o=.c))
+# Shared scripting.host.o is compiled from rrscript/host.c, not rrserver/.
+rrserver_src = $(addprefix rrserver/,$(patsubst %.o,%.c,$(filter-out scripting.host.o,$(rrserver_objs))))
 
 rrserver_objs += acl.o
 rrserver_objs += amp.o			# Support for amplifiers and their control
