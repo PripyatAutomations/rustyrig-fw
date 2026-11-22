@@ -11,7 +11,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
 #include <rrclient/local.modem.h>
-#include <rrclient/modem.callsign.h>
+#include <rrclient/watch.callsign.h>
 #include <rrclient/database.h>
 #include "gtk.serial.h"
 #include "gtk.decoders.h"
@@ -1029,7 +1029,7 @@ GtkWidget *init_terminal_tab(void) {
       gtk_entry_set_text(GTK_ENTRY(highlight_call), decode_highlight_call);
       g_free(stored_call);
    }
-   gtk_widget_set_tooltip_text(highlight_call, "Highlight this callsign and emit modem.callsign events for scripts; saved across restarts");
+   gtk_widget_set_tooltip_text(highlight_call, "Highlight this callsign and emit watch.callsign events for scripts; saved across restarts");
    g_signal_connect(highlight_call, "changed", G_CALLBACK(decode_set_call), NULL);
    gtk_box_pack_start(GTK_BOX(toolbar), highlight_call, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(root), toolbar, FALSE, FALSE, 5);
