@@ -86,7 +86,7 @@ def run_chain(channels):
     """One worker, two separately controlled stages, mono or interleaved stereo."""
     with tempfile.TemporaryDirectory() as tmp:
         cfg = Path(tmp) / "fwdsp.cfg"
-        cfg.write_text("[fwdsp]\\nlog.file=-\\n")
+        cfg.write_text("[fwdsp]\nlog.file=-\n")
         caps = (f"audio/x-raw,format=S16LE,rate=16000,channels={channels},"
                 "layout=interleaved")
         pipeline = (
@@ -117,7 +117,7 @@ def run_chain(channels):
                 assert parent.send(bytes(msg)) == ctypes.sizeof(msg)
             time.sleep(.2)
             frame = struct.pack("<hh", 8000, -6000) if channels == 2 else struct.pack("<h", 8000)
-            pcm = frame * 3200
+            pcm = frame * 1600
             stdout, stderr = proc.communicate(
                 input=struct.pack("!I", len(pcm)) + pcm, timeout=10)
             assert proc.returncode == 0, stderr.decode(errors="replace")
