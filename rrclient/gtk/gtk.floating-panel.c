@@ -333,16 +333,9 @@ static void dock_slot_constrain(GtkWidget *scroll, GtkAllocation *allocation, gp
       if (draw_w != req_w || draw_h != req_h) {
          gtk_widget_set_size_request(frame, draw_w, draw_h);
       }
-      gint actual_w = gtk_widget_get_allocated_width(frame);
-      gint actual_h = gtk_widget_get_allocated_height(frame);
-      gint nx = CLAMP(p->dock_x, 0, MAX(0, max_w - actual_w));
-      gint ny = CLAMP(p->dock_y, 0, MAX(0, max_h - actual_h));
-
-      if (nx != p->dock_x || ny != p->dock_y) {
-         p->dock_x = nx;
-         p->dock_y = ny;
-         gtk_fixed_move(GTK_FIXED(slot), frame, nx, ny);
-      }
+      /* GtkFixed is inside a scrolled viewport. Never change a user's saved
+       * position just because the visible dock got smaller (or GTK reported
+       * a provisional allocation). The scroller exposes offscreen content. */
    }
 
    g_list_free(children);
@@ -1457,16 +1450,86 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean hor
    return raw;
 }
 
+/* Dock guides use GtkFixed coordinates, not the main floating overlay.
+ * Overlap is permitted: snap suggests an alignment, it never reflows a peer. */
+static int panel_dock_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean horizontal,
+   int viewport_size) {
+   gboolean *engaged = horizontal ? &p->snapped_x : &p->snapped_y;
+   int *anchor = horizontal ? &p->snap_x : &p->snap_y;
+   if (*engaged) {
+      if (abs(raw - *anchor) <= SNAP_RELEASE) {
+         return *anchor;
+      }
+      *engaged = FALSE;
+   }
+
+   GtkWidget *slot = gtk_widget_get_parent(p->frame);
+   int own_size = horizontal ? gtk_widget_get_allocated_width(p->frame) : gtk_widget_get_allocated_height(p->frame);
+   int own_perp = horizontal ? gtk_widget_get_allocated_height(p->frame) : gtk_widget_get_allocated_width(p->frame);
+   int closest = SNAP_DISTANCE + 1;
+   int candidate = raw;
+   int guides[] = {0, MAX(0, viewport_size - own_size)};
+   for (guint i = 0 ; i < G_N_ELEMENTS(guides) ; i++) {
+      int distance = abs(raw - guides[i]);
+      if (distance < closest) {
+         closest = distance;
+         candidate = guides[i];
+      }
+   }
+
+   for (GList *it = floating_panels ; it ; it = it->next) {
+      RRFloatPanel *q = it->data;
+      if (q == p || q->dock_edge != p->dock_edge || !q->frame ||
+         gtk_widget_get_parent(q->frame) != slot || q->minimized ||
+         !gtk_widget_get_visible(q->frame)) {
+         continue;
+      }
+      int other = horizontal ? q->dock_y : q->dock_x;
+      int other_size = horizontal ? gtk_widget_get_allocated_height(q->frame) : gtk_widget_get_allocated_width(q->frame);
+      if (other_raw + own_perp <= other || other_raw >= other + other_size) {
+         continue;
+      }
+      int edge = horizontal ? q->dock_x : q->dock_y;
+      int size = horizontal ? gtk_widget_get_allocated_width(q->frame) : gtk_widget_get_allocated_height(q->frame);
+      int targets[] = {edge - own_size, edge + size, edge, edge + size - own_size};
+      for (guint i = 0 ; i < G_N_ELEMENTS(targets) ; i++) {
+         if (targets[i] < 0) {
+            continue;
+         }
+         int distance = abs(raw - targets[i]);
+         if (distance < closest) {
+            closest = distance;
+            candidate = targets[i];
+         }
+      }
+   }
+
+   if (closest <= SNAP_DISTANCE) {
+      *engaged = TRUE;
+      *anchor = candidate;
+      return candidate;
+   }
+   return raw;
+}
+
 static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
    if (p->dock_edge >= 0 && GTK_IS_FIXED(gtk_widget_get_parent(p->frame))) {
       GtkWidget *slot = gtk_widget_get_parent(p->frame);
       RRChatDocks *d = g_object_get_data(G_OBJECT(slot), "rr-docks");
       gint available_w = d ? gtk_widget_get_allocated_width(d->scroll[p->dock_edge]) : 0;
       gint available_h = d ? gtk_widget_get_allocated_height(d->scroll[p->dock_edge]) : 0;
-      gint width = gtk_widget_get_allocated_width(p->frame);
-      gint height = gtk_widget_get_allocated_height(p->frame);
-      gint x = CLAMP(p->start_x + (gint) (x_root - p->drag_x), 0, MAX(0, available_w > 1 ? available_w - width : 0));
-      gint y = CLAMP(p->start_y + (gint) (y_root - p->drag_y), 0, MAX(0, available_h > 1 ? available_h - height : 0));
+      gint raw_x = MAX(0, p->start_x + (gint) (x_root - p->drag_x));
+      gint raw_y = MAX(0, p->start_y + (gint) (y_root - p->drag_y));
+      gint x = raw_x, y = raw_y;
+
+      /* The scrolled GtkFixed can grow beyond the dock viewport. Do not clamp
+       * the user's position to the *visible* width/height or auto-avoid overlaps. */
+      if (p->snap_disabled) {
+         p->snapped_x = p->snapped_y = FALSE;
+      } else {
+         x = panel_dock_snap_axis(p, raw_x, raw_y, TRUE, available_w);
+         y = panel_dock_snap_axis(p, raw_y, x, FALSE, available_h);
+      }
 
       if (x != p->dock_x || y != p->dock_y) {
          p->dock_x = x;
@@ -1909,14 +1972,33 @@ static gboolean drag_move(GtkWidget *widget, GdkEventMotion *event, gpointer dat
    }
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
 
-   /* Do not wait for button release: GtkFixed/viewport can clip the title's event window as it leaves the dock, losing the release event. Reparent immediately
-    * when the pointer exits the dock region. */
-   if (p->dock_edge >= 0 && active_chat_docks && !panel_dock_contains(active_chat_docks, p->dock_edge, (gint) event->x_root, (gint) event->y_root)) {
+   /* Do not undock for incidental motion across a dock's narrow viewport.
+    * Require an intentional excursion beyond its edge before reparenting.
+    * GTK can lose the button-release event once the title is clipped. */
+   if (p->dock_edge >= 0 && active_chat_docks &&
+       !panel_dock_contains(active_chat_docks, p->dock_edge, (gint) event->x_root, (gint) event->y_root)) {
+      GtkWidget *region = active_chat_docks->region[p->dock_edge];
+      GtkWidget *top = gtk_widget_get_toplevel(region);
+      GdkWindow *win = gtk_widget_get_window(top);
+      gint ox = 0, oy = 0, rx = 0, ry = 0;
+      if (win) {
+         gdk_window_get_origin(win, &ox, &oy);
+      }
+      gboolean far_outside = FALSE;
+      if (win && gtk_widget_translate_coordinates(region, top, 0, 0, &rx, &ry)) {
+         gint px = (gint)event->x_root - ox - rx;
+         gint py = (gint)event->y_root - oy - ry;
+         far_outside = px < -SNAP_RELEASE || py < -SNAP_RELEASE ||
+            px >= gtk_widget_get_allocated_width(region) + SNAP_RELEASE ||
+            py >= gtk_widget_get_allocated_height(region) + SNAP_RELEASE;
+      }
+      if (far_outside) {
       panel_dock_detach(p, (gint) event->x_root, (gint) event->y_root);
       p->start_x = gtk_widget_get_margin_start(p->frame);
       p->start_y = gtk_widget_get_margin_top(p->frame);
       p->drag_x = event->x_root;
       p->drag_y = event->y_root;
+      }
    }
    p->drag_pending_x = event->x_root;
    p->drag_pending_y = event->y_root;
