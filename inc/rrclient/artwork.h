@@ -8,6 +8,7 @@
 #define RR_ARTWORK_MAX_LINE 400
 typedef struct {
    uint64_t playback_id;
+   uint32_t interval_ms; /* per-room user-selected pacing */
    char profile[128];
    char room[128];
    char text[RR_ARTWORK_MAX_LINE + 1];
