@@ -432,11 +432,12 @@ static unsigned af_limit(const spectrum_panel_t *p) {
 }
 
 static void af_view_bounds(const spectrum_panel_t *p, double *low, double *high) {
-   unsigned zoom = p->zoom ? p->zoom : 1;
+   /* Start with the useful lower audio band (0..3 kHz for Kiwi),
+    * while 1x remains available for full-band AM and wider sources. */
+   unsigned zoom = p->zoom ? p->zoom : 2;
    double limit = af_limit(p);
    double span = limit / zoom;
-   double center = limit / 2.;
-   *low = CLAMP(center - span / 2. + p->pan_hz, 0., limit - span);
+   *low = CLAMP(p->pan_hz, 0., limit - span);
    *high = *low + span;
 }
 
@@ -487,8 +488,8 @@ static void af_pan_move(spectrum_panel_t *p, double x, int width) {
       return;
    }
    double offset = (p->drag_start_x - x) * span / (width - 1.);
-   double max_pan = (af_limit(p) - span) / 2.;
-   double next = CLAMP(p->drag_start_pan + offset, -max_pan, max_pan);
+   double max_pan = af_limit(p) - span;
+   double next = CLAMP(p->drag_start_pan + offset, 0., max_pan);
 
    if (p->pan_hz != next) {
       p->pan_hz = next;
@@ -846,7 +847,7 @@ static void af_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
    }
    spectrum_panel_t *p = g_object_get_data(G_OBJECT(item), "spectrum-panel");
    p->zoom = GPOINTER_TO_UINT(data);
-   p->pan_hz = 0.;              /* Center on the selected source's actual spectrum. */
+   p->pan_hz = 0.;              /* Lower audio frequencies first; pan to inspect upper bands. */
    gtk_widget_queue_draw(p->drawing);
 }
 
@@ -879,7 +880,7 @@ static gboolean af_context_menu(GtkWidget *widget, GdkEventButton *event, gpoint
       GtkWidget *item = gtk_radio_menu_item_new_with_label(group, label);
       group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
       g_object_set_data(G_OBJECT(item), "spectrum-panel", p);
-      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), factors[i] == (p->zoom ? p->zoom : 1));
+      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), factors[i] == (p->zoom ? p->zoom : 2));
       g_signal_connect(item, "activate", G_CALLBACK(af_zoom_activate), GUINT_TO_POINTER(factors[i]));
       gtk_menu_shell_append(GTK_MENU_SHELL(zoom_menu), item);
    }
@@ -1088,6 +1089,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    GtkWidget *settings_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
    p->source_mode = 'M';
+   p->zoom = 2;                 /* Default to the most useful lower 0..Nyquist/2 range. */
    p->max_hz = RR_AF_MAX_HZ;
    p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles) - 1);
    p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes) - 1);
