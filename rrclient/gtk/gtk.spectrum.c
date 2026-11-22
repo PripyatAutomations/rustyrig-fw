@@ -1122,6 +1122,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
     * At narrow widths they remain accessible instead of forcing the
     * floating AF panel wider than the waterfall. */
    GtkWidget *gain_row = gtk_event_box_new();
+   gtk_event_box_set_visible_window(GTK_EVENT_BOX(gain_row), FALSE);
    GtkWidget *gain_contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
    gtk_container_add(GTK_CONTAINER(gain_row), gain_contents);
    GtkWidget *gain_label = gtk_label_new("Gain");
@@ -1135,11 +1136,13 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(gain_contents), p->gain, FALSE, FALSE, 0);
    gtk_widget_set_halign(gain_row, GTK_ALIGN_END);
    gtk_widget_set_valign(gain_row, GTK_ALIGN_START);
+   gtk_widget_set_margin_top(gain_row, 27);
    gtk_widget_set_margin_end(gain_row, 3);
    spectrum_selector_fade(gain_row);
    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), gain_row);
 
    GtkWidget *ear_row = gtk_event_box_new();
+   gtk_event_box_set_visible_window(GTK_EVENT_BOX(ear_row), FALSE);
    GtkWidget *ear_contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
    gtk_container_add(GTK_CONTAINER(ear_row), ear_contents);
    GtkWidget *ear_label = gtk_label_new("Ear");
@@ -1152,7 +1155,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(ear_contents), p->ear, FALSE, FALSE, 0);
    gtk_widget_set_halign(ear_row, GTK_ALIGN_END);
    gtk_widget_set_valign(ear_row, GTK_ALIGN_START);
-   gtk_widget_set_margin_top(ear_row, 30);
+   gtk_widget_set_margin_top(ear_row, 53);
    gtk_widget_set_margin_end(ear_row, 3);
    spectrum_selector_fade(ear_row);
    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), ear_row);
