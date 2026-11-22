@@ -430,6 +430,15 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    gboolean grow=!strcmp(cmd->kind,"filelist") ||
       !strcmp(cmd->kind,"irc-preview");
    gtk_box_pack_start(GTK_BOX(box),packing?packing:w,grow,grow,3);
+   /* A file browser/preview must be allowed to grow through its containing
+    * row and column. Ordinary toolbar rows remain compact. */
+   if(grow) {
+      GtkWidget *child=box;
+      for(GtkWidget *parent=gtk_widget_get_parent(child);
+          parent && GTK_IS_BOX(parent);
+          child=parent,parent=gtk_widget_get_parent(child))
+         gtk_box_set_child_packing(GTK_BOX(parent),child,TRUE,TRUE,3,GTK_PACK_START);
+   }
    gtk_widget_show_all(packing?packing:w);
    if(!strcmp(cmd->kind,"roomlist"))widget_changed(w,entry);
 }
