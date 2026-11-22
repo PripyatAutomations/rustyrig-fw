@@ -15,6 +15,7 @@
 #include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/modem.callsign.h>
+#include <rrclient/watch.h>
 #include <rrclient/database.h>
 #include <librustyaxe/json.h>
 #include <rrclient/ui.h>
@@ -236,8 +237,14 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
       if(raw) {
          const char *keys[]={"audio_hz","dt","sync_score","snr"};
          for(guint i=0;i<G_N_ELEMENTS(keys);i++) {
-            const char *value=dict_get(raw,keys[i],NULL);
-            if(value && *value)dict_add(fields,keys[i],value);
+            val_type_t type=dict_get_type(raw,keys[i]);
+            if(type==VAL_STR) {
+               const char *value=dict_get(raw,keys[i],NULL);
+               if(value && *value)dict_add(fields,keys[i],value);
+            } else if(type!=VAL_END && type!=VAL_NULL) {
+               /* Preserve worker-supplied numeric metrics as numbers. */
+               dict_add_double(fields,keys[i],dict_get_double(raw,keys[i],0));
+            }
          }
          dict_free(raw);
       }
