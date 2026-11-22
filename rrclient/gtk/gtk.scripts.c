@@ -3,6 +3,8 @@
 #include <gtk/gtk.h>
 #include <glib/gstdio.h>
 #include <errno.h>
+#include <librustyaxe/event-bus.h>
+#include <rrclient/script.gui.h>
 #include <string.h>
 #include <librustyaxe/config.h>
 #include "gtk.local-browser.h"
@@ -18,6 +20,8 @@ extern GtkWidget *main_window, *main_notebook;
 static RRFloatPanel *script_panel;
 static GtkWidget *script_browser;
 static char *script_root;
+static rr_event_token_t startup_errors_token;
+static GtkWidget *startup_errors_dialog;
 
 static char *script_directory(void) {
    const char *configured = cfg_get("security.scripting.path");
@@ -333,6 +337,63 @@ void gtk_scripts_open(void) {
    rr_floating_panel_show(script_panel);
 }
 
+/* The core finishes the entire autoload scan before emitting this report.
+ * A single copyable dialog keeps errors visible even before users open the
+ * Scripts Manager. Dispatch is explicitly on the GTK owner thread. */
+static void startup_errors_response(GtkDialog *dialog, gint response, gpointer unused) {
+   (void)unused;
+   gtk_widget_destroy(GTK_WIDGET(dialog));
+   if(response == 1) gtk_scripts_open();
+}
+static void startup_errors_event(const rr_event_message_t *event,void *unused) {
+   (void)unused;
+   if(!event || !event->payload || !event->length ||
+      event->length > 1024 * 1024 ||
+      ((const char *)event->payload)[event->length-1] != '\0' ||
+      !main_window || !GTK_IS_WINDOW(main_window))return;
+   const char *details=event->payload;
+   if(!*details)return;
+   if(startup_errors_dialog)gtk_widget_destroy(startup_errors_dialog);
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("RustyScript startup errors",
+      GTK_WINDOW(main_window),GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Close",GTK_RESPONSE_CLOSE,NULL);
+   startup_errors_dialog=dialog;
+   g_signal_connect(dialog,"destroy",G_CALLBACK(gtk_widget_destroyed),&startup_errors_dialog);
+   g_signal_connect(dialog,"response",G_CALLBACK(startup_errors_response),NULL);
+   gtk_dialog_add_button(GTK_DIALOG(dialog),"_Scripts Manager",1);
+   GtkWidget *area=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   gtk_container_set_border_width(GTK_CONTAINER(area),12);
+   GtkWidget *summary=gtk_label_new(
+      "One or more RustyScript autoload scripts failed. "
+      "The details below are also recorded in the client log at CRIT level.");
+   gtk_label_set_line_wrap(GTK_LABEL(summary),TRUE);
+   gtk_label_set_xalign(GTK_LABEL(summary),0.0);
+   gtk_box_pack_start(GTK_BOX(area),summary,FALSE,FALSE,6);
+   GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+      GTK_POLICY_AUTOMATIC,GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_size_request(scroll,640,240);
+   gtk_box_pack_start(GTK_BOX(area),scroll,TRUE,TRUE,4);
+   GtkWidget *view=gtk_text_view_new();
+   gtk_text_view_set_editable(GTK_TEXT_VIEW(view),FALSE);
+   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(view),FALSE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view),GTK_WRAP_WORD_CHAR);
+   gtk_widget_set_can_focus(view,TRUE);
+   GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   gtk_text_buffer_set_text(buffer,details,-1);
+   gtk_container_add(GTK_CONTAINER(scroll),view);
+   gtk_widget_show_all(dialog);
+}
+void gtk_scripts_startup_errors_init(void) {
+   if(startup_errors_token)return;
+   startup_errors_token=event_on_message_domain_token(
+      RR_SCRIPT_STARTUP_ERRORS_EVENT,startup_errors_event,NULL,"gtk");
+}
 void gtk_scripts_shutdown(void) {
+   if(startup_errors_token) {
+      event_off_token(startup_errors_token);
+      startup_errors_token=NULL;
+   }
+   if(startup_errors_dialog)gtk_widget_destroy(startup_errors_dialog);
    script_close(NULL);
 }

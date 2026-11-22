@@ -100,7 +100,7 @@ static void run(script_file_t *script,rrscript_binding_kind_t kind,
                 const char *name,const rrs_value_t *event) {
    g_rec_mutex_lock(&script->mutex);
    if(!rrs_vm_invoke(script->vm,kind,name,event))
-      Log(LOG_WARN,"scripting","%s: %s: %s",script->filename,name,
+      Log(LOG_CRIT,"scripting","%s: %s: %s",script->filename,name,
           rrs_vm_error(script->vm));
    g_rec_mutex_unlock(&script->mutex);
 }
@@ -278,7 +278,7 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
    for(size_t i=0;i<rrs_vm_binding_count(script->vm);i++) {
       const rrscript_binding_t *b=rrs_vm_binding(script->vm,i);
       if(b->kind==RRSCRIPT_EVENT&&!install_event(script,b))
-         Log(LOG_WARN,"scripting","%s: cannot subscribe %.*s",
+         Log(LOG_CRIT,"scripting","%s: cannot subscribe %.*s",
              path,(int)b->name_length,b->name);
       if(b->kind==RRSCRIPT_HOTKEY&&!host->client)
          Log(LOG_INFO,"scripting","%s: hotkey %.*s unavailable on server",
@@ -290,7 +290,16 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
    return true;
 }
 bool rrscript_host_load(rrscript_host_t *host,const char *name,char **error) {
-   return activate_script(host,name,false,error);
+   char *detail=NULL;
+   bool ok=activate_script(host,name,false,&detail);
+   if(!ok)
+      Log(LOG_CRIT,"scripting","Script load failed: %s%s%s: %s",
+          host && host->root ? host->root : "",
+          host && host->root ? "/" : "",
+          name ? name : "(unknown)",detail ? detail : "unknown error");
+   if(error)*error=detail;
+   else g_free(detail);
+   return ok;
 }
 bool rrscript_host_reload(rrscript_host_t *host,const char *name,char **error) {
    /* Use the loaded script's actual identity rather than shadowed paths. */
@@ -303,7 +312,13 @@ bool rrscript_host_reload(rrscript_host_t *host,const char *name,char **error) {
    }
    if(!script){report_error(error,"Script is not loaded");return false;}
    char *copy=g_strdup(script->name);
-   bool result=activate_script(host,copy,true,error);
+   char *detail=NULL;
+   bool result=activate_script(host,copy,true,&detail);
+   if(!result)
+      Log(LOG_CRIT,"scripting","Script reload failed: %s/%s: %s",
+          host->root ? host->root : "",copy,detail ? detail : "unknown error");
+   if(error)*error=detail;
+   else g_free(detail);
    g_free(copy);
    return result;
 }
@@ -352,6 +367,18 @@ void rrscript_host_list(rrscript_host_t *host,
    list_dir(host,autoload,"autoload/",visit,user);
    g_free(autoload);
 }
+/* Emit one startup report so the frontend does not open a dialog for each
+ * bad autoload script. Event bus copies this payload for cross-domain use. */
+static void publish_startup_errors(const rrscript_host_t *host,GString *errors) {
+   if(host->client && errors && errors->len) {
+      rr_event_message_t message={
+         .name=RR_SCRIPT_STARTUP_ERRORS_EVENT,
+         .payload=errors->str,.length=errors->len+1
+      };
+      event_emit_message(&message);
+   }
+   if(errors)g_string_free(errors,TRUE);
+}
 rrscript_host_t *rrscript_host_open(const char *directory,bool client,
                                     rrscript_host_register_fn register_host) {
    rrscript_host_t *host=g_new0(rrscript_host_t,1);
@@ -360,24 +387,30 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client,
    host->root=g_strdup(directory?directory:"");
    host->scripts=g_ptr_array_new_with_free_func(release_script);
    if(!directory||!*directory)return host;
+   GString *startup_errors=g_string_new(NULL);
    char *autoload=g_build_filename(directory,"autoload",NULL);
    /* Create only missing directories; never chmod an existing installation.
     * Local-user client scripts default to private permissions. Server-side
     * scripts are managed by an administrator, not through remote uploads. */
    const int permissions=client?0700:0750;
    if(g_mkdir_with_parents(autoload,permissions)!=0) {
-      Log(LOG_WARN,"scripting","Cannot create script directories under %s: %s",
+      char *detail=g_strdup_printf("Cannot create script directories under %s: %s",
           directory,g_strerror(errno));
-      g_free(autoload);
+      Log(LOG_CRIT,"scripting","%s",detail);
+      g_string_append_printf(startup_errors,"%s\n",detail);
+      g_free(detail);g_free(autoload);
+      publish_startup_errors(host,startup_errors);
       return host;
    }
    GError *open_error=NULL;
    GDir *dir=g_dir_open(autoload,0,&open_error);
    if(!dir) {
-      Log(LOG_WARN,"scripting","Cannot open script autoload directory %s: %s",
+      char *detail=g_strdup_printf("Cannot open script autoload directory %s: %s",
           autoload,open_error?open_error->message:"unknown error");
-      g_clear_error(&open_error);
-      g_free(autoload);
+      Log(LOG_CRIT,"scripting","%s",detail);
+      g_string_append_printf(startup_errors,"%s\n",detail);
+      g_free(detail);g_clear_error(&open_error);g_free(autoload);
+      publish_startup_errors(host,startup_errors);
       return host;
    }
    GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
@@ -396,11 +429,12 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client,
       char *name=g_strconcat("autoload/",entry,NULL);
       char *error=NULL;
       if(!rrscript_host_load(host,name,&error))
-         Log(LOG_WARN,"scripting","%s: %s",name,error?error:"load failed");
+         g_string_append_printf(startup_errors,"%s: %s\n",name,error?error:"load failed");
       g_free(error);g_free(name);
    }
    g_ptr_array_unref(names);
    g_free(autoload);
+   publish_startup_errors(host,startup_errors);
    return host;
 }
 void rrscript_host_close(rrscript_host_t *host) {

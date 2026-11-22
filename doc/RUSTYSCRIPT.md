@@ -55,6 +55,14 @@ Failures are reported in the `scripting` log and do not abort startup.
 After adding a script to `autoload/`, restart `rrclient` or `rrserver`,
 or use the appropriate script load command.
 
+When autoload scripts fail, RustyRig logs each filename and failure detail at
+`LOG_CRIT` under the `scripting` subsystem. The GTK client also displays a
+single **RustyScript startup errors** dialog after autoload, with a scrollable,
+selectable error report and a shortcut to the Scripts Manager. Failures do not
+abort client startup or prevent other scripts from loading. Runtime invocation
+failures and manual script load/reload errors are also logged at `LOG_CRIT`.
+Without a graphical frontend, the errors remain available in the client log.
+
 After startup, handlers run when their registered slash command, hotkey,
 or event fires. They do not execute at load time. In particular, an event
 handler for `irc.privmsg` runs only when a matching event arrives.
