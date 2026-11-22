@@ -25,9 +25,10 @@ int main(void) {
    rr_gate_state_t invalid={RR_GATE_AND,0,0,0};
    bool out=true;
    assert(!rr_gate_evaluate(&invalid,&out) && !out);
-   rr_threshold_state_t t = {
-      .value=5., .min=0., .max=10., .value_valid=true
-   };
+   rr_threshold_state_t t = rr_threshold_default();
+   t.value=5.; t.value_valid=true;
+   assert(rr_threshold_evaluate(&t,&out) && out); /* default 0..+inf */
+   t.max=10.;
    assert(rr_threshold_evaluate(&t,&out) && out);
    t.value=0.;
    assert(rr_threshold_evaluate(&t,&out) && out); /* inclusive min */
