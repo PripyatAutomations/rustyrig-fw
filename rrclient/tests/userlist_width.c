@@ -109,9 +109,13 @@ static void test_late_roster_autosize(void) {
    GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scroll));
    assert(gtk_adjustment_get_upper(horizontal) <= gtk_adjustment_get_page_size(horizontal) + 1);
 
-   for (int i = 0 ; i < NUM_COLS ; i++) {
-      GtkTreeViewColumn *column = userlist_column(view, i);
-      assert(gtk_tree_view_column_get_visible(column));
+   /* The legacy Privs column is intentionally hidden: its glyph is now
+    * drawn inline inside Username. Check the actual visible VFO headers. */
+   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_PRIV_ICON)));
+   const int visible_columns[] = { COL_USERNAME, COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON };
+   for (guint i = 0; i < G_N_ELEMENTS(visible_columns); ++i) {
+      GtkTreeViewColumn *column = userlist_column(view, visible_columns[i]);
+      assert(column && gtk_tree_view_column_get_visible(column));
       GtkWidget *header = gtk_tree_view_column_get_button(column);
       int x, y;
       assert(gtk_widget_translate_coordinates(header, scroll, 0, 0, &x, &y));
@@ -139,8 +143,10 @@ static void test_late_roster_autosize(void) {
    userlist_fit_width(view);
    pump_layout();
 
-   for (int i = 0 ; i < NUM_COLS ; i++) {
-      GtkWidget *header = gtk_tree_view_column_get_button(userlist_column(view, i));
+   for (guint i = 0; i < G_N_ELEMENTS(visible_columns); ++i) {
+      GtkTreeViewColumn *column = userlist_column(view, visible_columns[i]);
+      assert(gtk_tree_view_column_get_visible(column));
+      GtkWidget *header = gtk_tree_view_column_get_button(column);
       int x, y;
       assert(gtk_widget_translate_coordinates(header, scroll, 0, 0, &x, &y));
       assert(x >= 0 && x + gtk_widget_get_allocated_width(header) <= gtk_widget_get_allocated_width(scroll));
