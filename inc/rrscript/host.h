@@ -3,9 +3,6 @@
 #ifndef RR_RRSCRIPT_HOST_H
 #define RR_RRSCRIPT_HOST_H
 #include <stdbool.h>
-/* Single owned UTF-8 summary emitted when client autoload finishes with errors.
- * Payload is NUL-terminated; GTK frontends may present it as a dialog. */
-#define RR_SCRIPT_STARTUP_ERRORS_EVENT "client.script.startup-errors"
 typedef struct rrscript_host rrscript_host_t;
 /* Loads local .rrs scripts. Scripts do not run merely by being loaded.
  * The caller owns the returned host and closes it before event_shutdown(). */
